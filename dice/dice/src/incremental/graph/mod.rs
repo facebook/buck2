@@ -261,6 +261,8 @@ pub(crate) trait GraphNodeDyn: Send + Sync + 'static {
     fn is_valid(&self) -> bool;
 
     fn key(&self) -> AnyKey;
+
+    fn id(&self) -> usize;
 }
 
 impl<K> GraphNodeDyn for OccupiedGraphNode<K>
@@ -292,6 +294,10 @@ where
 
     fn key(&self) -> AnyKey {
         AnyKey::new(self.key.clone())
+    }
+
+    fn id(&self) -> usize {
+        self as *const Self as usize
     }
 }
 
@@ -512,6 +518,10 @@ where
 
     fn key(&self) -> AnyKey {
         AnyKey::new(self.key.clone())
+    }
+
+    fn id(&self) -> usize {
+        self as *const Self as usize
     }
 }
 

@@ -1225,6 +1225,10 @@ mod tests {
             fn key(&self) -> AnyKey {
                 unimplemented!()
             }
+
+            fn id(&self) -> usize {
+                self as *const Self as usize
+            }
         }
 
         impl ComputedDependency for FakeDep {

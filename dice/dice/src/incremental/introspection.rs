@@ -22,7 +22,7 @@ use crate::incremental::{
     graph::{
         dependencies::{VersionedDependencies, VersionedRevDependencies},
         storage_properties::StorageProperties,
-        VersionedGraph, VersionedGraphNodeInternal,
+        GraphNodeDyn, VersionedGraph, VersionedGraphNodeInternal,
     },
     versions::VersionNumber,
     CellHistory, Dependency, IncrementalComputeProperties, IncrementalEngine,
@@ -31,6 +31,10 @@ use crate::incremental::{
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Dupe, Copy)]
 #[serde(transparent)]
 pub(crate) struct KeyID(pub usize);
+
+#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Dupe, Copy)]
+#[serde(transparent)]
+pub(crate) struct NodeID(pub usize);
 
 #[derive(Serialize, Deserialize)]
 pub(crate) enum GraphNodeKind {
@@ -51,13 +55,14 @@ impl GraphNodeKind {
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct SerializedGraphNode {
+    node_id: NodeID,
     kind: GraphNodeKind,
     history: CellHistory,
     /// Deps and Rdeps are behind read locks, and if dumping after a panic
     /// it's theoretically possible for those locks to be poisoned.
     /// Therefore, they're optional.
     deps: Option<BTreeMap<VersionNumber, HashSet<KeyID>>>,
-    rdeps: Option<Vec<(VersionNumber, Option<KeyID>)>>,
+    rdeps: Option<Vec<(VersionNumber, Option<NodeID>)>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -133,17 +138,14 @@ where
                     .collect()
             })
         }
-        fn visit_rdeps<M: FnMut(&dyn Display) -> KeyID>(
-            rdeps: &VersionedRevDependencies,
-            map_id: &mut M,
-        ) -> Vec<(VersionNumber, Option<KeyID>)> {
+        fn visit_rdeps(rdeps: &VersionedRevDependencies) -> Vec<(VersionNumber, Option<NodeID>)> {
             rdeps
                 .rdeps()
                 .iter()
                 .map(|rdep| {
                     (
                         rdep.relevant_version,
-                        rdep.node.upgrade().map(|node| map_id(&node.key())),
+                        rdep.node.upgrade().map(|node| NodeID(node.id())),
                     )
                 })
                 .collect()
@@ -155,10 +157,17 @@ where
             node.unpack_graph_value().map(|graph_value| {
                 let m = graph_value.try_read_meta();
                 SerializedGraphNode {
+                    node_id: match node {
+                        VersionedGraphNodeInternal::Occupied(o) => NodeID(o.id()),
+                        VersionedGraphNodeInternal::Transient(t) => NodeID(t.id()),
+                        VersionedGraphNodeInternal::Vacant(_) => {
+                            unreachable!("node was unpacked, can't be vacant")
+                        }
+                    },
                     kind: GraphNodeKind::of(node),
                     history: (*graph_value.get_history()).clone_for_introspection(),
                     deps: m.as_ref().and_then(|meta| visit_deps(&meta.deps, map_id)),
-                    rdeps: m.map(|meta| visit_rdeps(&meta.rdeps, map_id)),
+                    rdeps: m.map(|meta| visit_rdeps(&meta.rdeps)),
                 }
             })
         }
