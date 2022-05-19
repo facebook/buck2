@@ -212,6 +212,7 @@ python_library(
     tests = [":target_merger_test"],
     deps = [
         "fbcode//buck2/facebook/apple_project/buck:buck",
+        "fbcode//buck2/facebook/apple_project/buck:build_target_language",
         "fbcode//libfb/py/frozen:frozen",
         ":target_node",
     ],
