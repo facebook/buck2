@@ -24,14 +24,14 @@ async def test_bxl_label_functions(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="bql/simple")
-async def test_bxl_analysis(buck: Buck) -> None:
+async def test_bxl_root(buck: Buck) -> None:
 
     result = await buck.bxl(
         "//bxl:root.bxl",
         "root_test",
     )
 
-    assert buck.cwd in result.stderr
+    assert str(buck.cwd) in result.stderr
 
 
 @buck_test(inplace=False, data_dir="bql/simple")
