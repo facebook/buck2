@@ -11,21 +11,33 @@ Regenerate by running `buck2_docs --buck-command=buck2 --destination-dir=docs/ge
 
 | Member | Type | Description |
 |--------|------|-------------|
-| args | `(Option < Value < 'v > >, Option < String >, bool, Option < String >, Option < String >, Option < String >) -> StarlarkCommandLine < 'v >` |  |
+| artifact_tag | `() -> Value < 'v >` | Allocate a new input tag |
+| copied_dir | `(Value < 'v >, Value < 'v >) -> Value < 'v >` |  |
 | copy | `(Value < 'v >, Value < 'v >) -> Value < 'v >` |  |
 | declare_output | `(& str, Option < & str >) -> StarlarkDeclaredArtifact` |  |
-| download_file | `(String, Value < 'v >, Option < String >, Option < String >, bool) -> Value < 'v >` |  |
+| download_file | `(& str, Value < 'v >, NoneOr < & str >, NoneOr < & str >, bool, bool) -> Value < 'v >` |  |
 | dynamic_output | `(Vec < StarlarkArtifact >, Vec < StarlarkArtifact >, Vec < StarlarkOutputArtifact >, Value) -> NoneType` |  |
-| run | `(Value < 'v >, String, NoneOr < String >, Option < ValueOf < SmallMap < & str, Value < 'v > > > >, bool, bool, i32) -> NoneType` |  |
-| symlinked_dir | `(Value < 'v >, Value < 'v >, bool) -> Value < 'v >` |  |
+| run | `(Value < 'v >, String, NoneOr < String >, Option < ValueOf < SmallMap < & str, Value < 'v > > > >, bool, bool, i32, Option < ValueOf < SmallMap < & str, Value < 'v > > > >, Option < String >, Option < String >, bool) -> NoneType` |  |
+| symlink | `(Value < 'v >, Value < 'v >) -> Value < 'v >` |  |
+| symlinked_dir | `(Value < 'v >, Value < 'v >) -> Value < 'v >` |  |
 | tset | `(Value < 'v >, Option < Value < 'v > >, Option < Value < 'v > >) -> Value < 'v >` |  |
 | write | `(Value < 'v >, Value < 'v >, bool, bool) -> Value < 'v >` |  |
+| write_json | `(Value < 'v >, Value < 'v >) -> Value < 'v >` |  |
 
 
-## args
+## artifact_tag
 
 ```python
-def args(values: Option < Value < 'v > > = None, format: Option < String > = None, joined: bool = None, delimiter: Option < String > = None, quote: Option < String > = None, prepend: Option < String > = None) -> StarlarkCommandLine < 'v >
+def artifact_tag() -> Value < 'v >
+```
+
+Allocate a new input tag
+
+---
+## copied_dir
+
+```python
+def copied_dir(output: Value < 'v >, srcs: Value < 'v >) -> Value < 'v >
 ```
 
 ---
@@ -46,7 +58,7 @@ def declare_output(prefix: & str, filename: Option < & str > = None) -> Starlark
 ## download_file
 
 ```python
-def download_file(url: String, output: Value < 'v >, sha1: Option < String > = None, sha256: Option < String > = None, is_executable: bool = None) -> Value < 'v >
+def download_file(url: & str, output: Value < 'v >, sha1: NoneOr < & str > = None, sha256: NoneOr < & str > = None, is_executable: bool = None, is_deferrable: bool = None) -> Value < 'v >
 ```
 
 ---
@@ -67,15 +79,26 @@ def run(
     env: Option < ValueOf < SmallMap < & str, Value < 'v > > > > = None,
     local_only: bool = None,
     always_print_stderr: bool = None,
-    weight: i32 = None
+    weight: i32 = None,
+    dep_files: Option < ValueOf < SmallMap < & str, Value < 'v > > > > = None,
+    metadata_env_var: Option < String > = None,
+    metadata_path: Option < String > = None,
+    no_outputs_cleanup: bool = None
 ) -> NoneType
+```
+
+---
+## symlink
+
+```python
+def symlink(src: Value < 'v >, dest: Value < 'v >) -> Value < 'v >
 ```
 
 ---
 ## symlinked_dir
 
 ```python
-def symlinked_dir(output: Value < 'v >, srcs: Value < 'v >, copy: bool = None) -> Value < 'v >
+def symlinked_dir(output: Value < 'v >, srcs: Value < 'v >) -> Value < 'v >
 ```
 
 ---
@@ -90,4 +113,11 @@ def tset(definition: Value < 'v >, value: Option < Value < 'v > > = None, childr
 
 ```python
 def write(output: Value < 'v >, content: Value < 'v >, is_executable: bool = None, allow_args: bool = None) -> Value < 'v >
+```
+
+---
+## write_json
+
+```python
+def write_json(output: Value < 'v >, content: Value < 'v >) -> Value < 'v >
 ```

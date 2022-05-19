@@ -23,6 +23,7 @@ Regenerate by running `buck2_docs --buck-command=buck2 --destination-dir=docs/ge
 | dir | `(Value) -> Vec < String >` | [dir]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#dir ): list attributes of a value. |
 | enum | `(*Vec < Value >) -> Value < 'v >` |  |
 | enumerate | `(Value, i32) -> Value < 'v >` | [enumerate]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#enumerate ): return a list of (index, element) from an iterable. |
+| experimental_regex | `(& str) -> StarlarkRegex` | Creates a regex which can be used for matching |
 | fail | `(*Vec < Value >) -> NoneType` | fail: fail the execution |
 | field | `(Value, Option < Value >) -> Field < 'v >` | Creates a field record. |
 | filter | `(Value, Value) -> Value < 'v >` |  |
@@ -30,15 +31,14 @@ Regenerate by running `buck2_docs --buck-command=buck2 --destination-dir=docs/ge
 | getattr | `(Value, & str, Option < Value >) -> Value < 'v >` | [getattr]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#getattr ): returns the value of an attribute |
 | hasattr | `(Value, & str) -> bool` | [hasattr]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#hasattr ): test if an object has an attribute |
 | hash | `(& str) -> i32` | [hash]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#hash ): returns the hash number of a value. |
-| int | `(Option < Value >, Option < Value >) -> i32` | [int]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#int ): convert a value to integer. |
-| json | `(Value) -> String` |  |
+| int | `(Option < Value < 'v > >, Option < Value < 'v > >) -> Value < 'v >` | [int]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#int ): convert a value to integer. |
 | len | `(Value) -> i32` | [len]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#len ): get the length of a sequence |
 | list | `(Option < Value >) -> Value < 'v >` | [list]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#list ): construct a list. |
 | map | `(Value, Value) -> Value < 'v >` |  |
 | max | `(*Vec < Value >, Option < Value >) -> Value < 'v >` | [max]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#max ): returns the maximum of a sequence. |
 | min | `(*Vec < Value >, Option < Value >) -> Value < 'v >` | [min]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#min ): returns the minimum of a sequence. |
 | ord | `(Value) -> i32` | [ord]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.mdord ): returns the codepoint of a character |
-| partial | `(Value, *Value < 'v >, **ARef < Dict >) -> Partial < 'v >` |  |
+| partial | `(Value, *Value < 'v >, **DictRef < 'v >) -> Partial < 'v >` |  |
 | pprint | `(*Vec < Value >) -> NoneType` |  |
 | print | `(*Vec < Value >) -> NoneType` |  |
 | range | `(i32, Option < i32 >, i32) -> Range` | [range]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#range ): return a range of integers |
@@ -272,6 +272,15 @@ enumerate(["one", "two"], 1) == [(1, "one"), (2, "two")]
 ```
 
 ---
+## experimental_regex
+
+```python
+def experimental_regex(regex: & str) -> StarlarkRegex
+```
+
+Creates a regex which can be used for matching
+
+---
 ## fail
 
 ```python
@@ -403,7 +412,7 @@ hash("hello") != hash("world")
 ## int
 
 ```python
-def int(a: Option < Value > = None, base: Option < Value > = None) -> i32
+def int(a: Option < Value < 'v > > = None, base: Option < Value < 'v > > = None) -> Value < 'v >
 ```
 
 [int]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#int ): convert a value to integer.
@@ -446,13 +455,6 @@ int("hello")   # error: not a valid number
 int(1e100)   # error: overflow
 int(float("nan"))   # error: cannot convert NaN to int
 int(float("inf"))   # error: cannot convert infinity to int
-```
-
----
-## json
-
-```python
-def json(x: Value) -> String
 ```
 
 ---
@@ -586,7 +588,7 @@ ord("😿")                               == 0x1F63F
 ## partial
 
 ```python
-def partial(func: Value, *args: Value < 'v >, **kwargs: ARef < Dict >) -> Partial < 'v >
+def partial(func: Value, *args: Value < 'v >, **kwargs: DictRef < 'v >) -> Partial < 'v >
 ```
 
 ---

@@ -11,150 +11,154 @@ Regenerate by running `buck2_docs --buck-command=buck2 --destination-dir=docs/ge
 
 | Member | Type | Description |
 |--------|------|-------------|
-| alias | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
-| android_aar | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [None, str.type], bool.type, [str.type], [str.type], [str.type], [str.type], [str.type], bool.type, [None, str.type], [None, str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], str.type, [None, str.type], [None, str.type], [None, str.type], [None, [str.type]], {str.type: [str.type]}, [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [""], [None, [str.type]]) -> None` |  |
-| android_app_modularity | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, [str.type]], {str.type: [str.type]}, [None, {str.type: [str.type]}], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], bool.type, bool.type, [None, [str.type]]) -> None` |  |
-| android_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, str.type, str.type, bool.type, bool.type, [None, str.type], [str.type], bool.type, [str.type], [None, str.type], [None, str.type], [None, [str.type]], {str.type: [str.type]}, [None, {str.type: [str.type]}], [str.type], [str.type], [None, str.type], [str.type], [str.type], [None, str.type], bool.type, bool.type, [str.type], [str.type], [None, str.type], [str.type], [None, str.type], int.type, str.type, bool.type, [None, str.type], [None, str.type], bool.type, [str.type], [str.type], int.type, bool.type, bool.type, bool.type, str.type, [str.type], [str.type], int.type, [str.type], [None, str.type], {str.type: ""}, [None, str.type], int.type, bool.type, [None, str.type], [None, str.type], [None, str.type], [None, [str.type]], {str.type: [str.type]}, [None, str.type], bool.type, bool.type, [str.type], bool.type, int.type, bool.type, str.type, [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [str.type], bool.type, [None, str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [None, int.type], [None, bool.type], bool.type, [""], bool.type, bool.type, [None, [str.type]], int.type) -> None` |  |
-| android_build_config | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, str.type, [str.type], [None, str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
-| android_bundle | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], bool.type, bool.type, str.type, [str.type], bool.type, [str.type], [None, str.type], [None, str.type], [None, [str.type]], {str.type: [str.type]}, [None, {str.type: [str.type]}], [str.type], [str.type], [None, str.type], [str.type], [str.type], [None, str.type], bool.type, [None, str.type], bool.type, [str.type], [str.type], [None, str.type], [str.type], [None, str.type], int.type, str.type, bool.type, str.type, [None, str.type], bool.type, [str.type], [str.type], int.type, bool.type, bool.type, bool.type, str.type, [str.type], [str.type], int.type, [str.type], [None, str.type], {str.type: ""}, [None, str.type], int.type, bool.type, [None, str.type], [None, str.type], [None, str.type], [None, [str.type]], {str.type: [str.type]}, [None, str.type], bool.type, bool.type, [str.type], bool.type, int.type, bool.type, str.type, [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [str.type], bool.type, [None, str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [None, int.type], [None, bool.type], bool.type, [""], bool.type, bool.type, [None, [str.type]], int.type) -> None` |  |
-| android_instrumentation_apk | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, str.type, [str.type], [None, str.type], [str.type], str.type, bool.type, [str.type], [str.type], [None, str.type], [None, str.type], [None, [str.type]]) -> None` |  |
-| android_instrumentation_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], {str.type: str.type}, [str.type], [str.type], [None, int.type], [None, [str.type]]) -> None` |  |
-| android_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, str.type, str.type, str.type, [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], bool.type, [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [""], [None, [str.type]]) -> None` |  |
-| android_manifest | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, [None, [str.type]]) -> None` |  |
-| android_platform | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, {str.type: str.type}, [None, [str.type]]) -> None` |  |
-| android_prebuilt_aar | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, str.type, str.type, str.type, [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [None, str.type], bool.type, [None, str.type], bool.type, [None, [str.type]]) -> None` |  |
-| android_resource | `(**UNKNOWN) -> UNKNOWN` |  |
-| apk_genrule | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [None, bool.type], [None, str.type], bool.type, [str.type], [str.type], [None, bool.type], [None, str.type], [None, bool.type], [{str.type: str.type}, [str.type]], [""], [None, [str.type]]) -> None` |  |
-| apple_asset_catalog | `(**UNKNOWN) -> UNKNOWN` |  |
-| apple_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, [None, str.type], [None, bool.type], [str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], bool.type, {str.type: str.type}, bool.type, [None, str.type], [None, str.type], [str.type], str.type, [{str.type: str.type}, [str.type]], {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [str.type], [(str.type, [str.type])], [str.type], [str.type], [str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], [None, bool.type], [str.type], [str.type], bool.type, [None, str.type], bool.type, [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], [None, bool.type], [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, bool.type], bool.type, [None, str.type], [[str.type, (str.type, [str.type])]], [None, str.type], [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], [""], bool.type, bool.type, bool.type, [None, [str.type]], [None, bool.type], [None, bool.type]) -> None` |  |
+| alias | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [None, str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
+| android_aar | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], bool.type, [str.type], [str.type], [str.type], [str.type], [str.type], bool.type, [None, str.type], [None, str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], str.type, [None, str.type], [None, str.type], [None, str.type], [None, [str.type]], {str.type: [str.type]}, [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
+| android_app_modularity | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, [str.type]], {str.type: [str.type]}, [None, {str.type: [str.type]}], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], bool.type, bool.type, [None, [str.type]]) -> None` |  |
+| android_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, bool.type, bool.type, str.type, [str.type], bool.type, [str.type], [None, str.type], [None, [str.type]], {str.type: [str.type]}, [None, {str.type: [str.type]}], [None, str.type], [str.type], [str.type], [None, str.type], bool.type, bool.type, [str.type], [str.type], [None, str.type], [str.type], [None, str.type], int.type, str.type, bool.type, str.type, [None, str.type], bool.type, [str.type], [str.type], int.type, bool.type, bool.type, bool.type, str.type, [str.type], [str.type], int.type, [str.type], [None, str.type], {str.type: ""}, [None, str.type], int.type, bool.type, [None, str.type], [None, str.type], [None, str.type], [None, [str.type]], {str.type: [str.type]}, bool.type, bool.type, [str.type], bool.type, int.type, bool.type, str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, str.type], [None, int.type], [None, bool.type], bool.type, bool.type, bool.type, [None, [str.type]], int.type) -> None` |  |
+| android_build_config | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [str.type], [None, str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
+| android_bundle | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], bool.type, bool.type, str.type, [str.type], bool.type, [str.type], [None, str.type], [None, [str.type]], {str.type: [str.type]}, [None, {str.type: [str.type]}], [None, str.type], [str.type], [str.type], [None, str.type], bool.type, [None, str.type], bool.type, [str.type], [str.type], [None, str.type], [str.type], [None, str.type], int.type, str.type, bool.type, str.type, [None, str.type], bool.type, [str.type], [str.type], int.type, bool.type, bool.type, bool.type, str.type, [str.type], [str.type], int.type, [str.type], [None, str.type], {str.type: ""}, [None, str.type], int.type, bool.type, [None, str.type], [None, str.type], [None, str.type], [None, [str.type]], {str.type: [str.type]}, bool.type, bool.type, [str.type], bool.type, int.type, bool.type, str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, str.type], [None, int.type], [None, bool.type], bool.type, bool.type, bool.type, [None, [str.type]], int.type) -> None` |  |
+| android_instrumentation_apk | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [str.type], [None, str.type], [str.type], str.type, bool.type, [str.type], [str.type], [None, str.type], [None, str.type], [None, [str.type]]) -> None` |  |
+| android_instrumentation_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [None, str.type], {str.type: str.type}, [str.type], [str.type], [None, int.type], [None, [str.type]]) -> None` |  |
+| android_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], bool.type, [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
+| android_manifest | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, [None, [str.type]]) -> None` |  |
+| android_platform | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, {str.type: str.type}, [None, [str.type]]) -> None` |  |
+| android_prebuilt_aar | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [None, str.type], bool.type, [None, str.type], bool.type, [None, [str.type]]) -> None` |  |
+| android_resource | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [None, [str.type, {str.type: str.type}]], [str.type], [None, str.type], [str.type], bool.type, [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [None, [str.type, {str.type: str.type}]], bool.type, [None, [str.type]]) -> None` |  |
+| apk_genrule | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [None, bool.type], [None, str.type], bool.type, [str.type], [str.type], bool.type, [None, str.type], [None, bool.type], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
+| apple_asset_catalog | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [None, str.type], [str.type], [None, [str.type]]) -> None` |  |
+| apple_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [None, str.type], [None, bool.type], [str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], bool.type, {str.type: str.type}, bool.type, bool.type, [None, str.type], [None, str.type], [str.type], str.type, [{str.type: str.type}, [str.type]], {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [str.type], [(str.type, [str.type])], [str.type], [str.type], [str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], [None, bool.type], [str.type], [str.type], bool.type, [None, str.type], bool.type, [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], bool.type, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, bool.type], [str.type], bool.type, [None, str.type], [[str.type, (str.type, [str.type])]], [None, str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], bool.type, bool.type, bool.type, bool.type, [None, [str.type]], [None, bool.type], [None, bool.type]) -> None` |  |
 | apple_bundle | `(**UNKNOWN) -> UNKNOWN` |  |
-| apple_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, str.type, str.type, [None, str.type], [None, bool.type], [str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], bool.type, {str.type: str.type}, bool.type, [None, str.type], [str.type], str.type, [{str.type: str.type}, [str.type]], {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [str.type], [(str.type, [str.type])], [str.type], [str.type], [str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], [None, bool.type], [str.type], [str.type], bool.type, [None, str.type], bool.type, [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, bool.type], bool.type, [None, str.type], [[str.type, (str.type, [str.type])]], [None, str.type], [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], [""], bool.type, [None, bool.type], bool.type, bool.type, [None, [str.type]], [None, bool.type], [None, bool.type]) -> None` |  |
-| apple_package | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, str.type], [str.type], [str.type], bool.type, [None, [str.type]]) -> None` |  |
-| apple_resource | `(**UNKNOWN) -> UNKNOWN` |  |
-| apple_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], {str.type: ""}, [None, str.type], [None, bool.type], [str.type], [None, str.type], [str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], {str.type: str.type}, bool.type, {str.type: str.type}, bool.type, [None, str.type], [None, {str.type: str.type}], [None, str.type], [str.type], str.type, [{str.type: str.type}, [str.type]], {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [str.type], [(str.type, [str.type])], [str.type], [str.type], [str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [None, bool.type], str.type, {str.type: str.type}, bool.type, [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], [None, bool.type], [str.type], [str.type], bool.type, [None, str.type], bool.type, [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, bool.type], bool.type, [None, str.type], bool.type, [None, bool.type], [None, [str.type, str.type]], [None, str.type], [None, str.type], [[str.type, (str.type, [str.type])]], [None, str.type], [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [None, int.type], [""], bool.type, [None, bool.type], [None, str.type], bool.type, bool.type, [None, [str.type]], [None, bool.type], [None, str.type], [None, bool.type]) -> None` |  |
-| apple_toolchain | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, str.type, [None, str.type], str.type, str.type, [str.type], [None, str.type], str.type, [None, str.type], [None, str.type], str.type, [None, str.type], str.type, [str.type], str.type, [str.type], str.type, str.type, str.type, str.type, str.type, [None, str.type], str.type, str.type, [None, str.type], str.type, [None, str.type], [None, [str.type]], [None, bool.type], str.type, str.type, str.type) -> None` |  |
-| apple_toolchain_set | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
-| apple_tools | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, str.type, str.type, str.type) -> None` |  |
-| cgo_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], [None, str.type], bool.type, [None, str.type], [str.type], bool.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], bool.type, [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], bool.type, [None, str.type], [str.type], [str.type], [[str.type, (str.type, [str.type])]], [""], bool.type, [None, str.type], [None, [str.type]]) -> None` |  |
-| command_alias | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], {str.type: str.type}, [None, str.type], [str.type], [str.type], {str.type: str.type}, [None, [str.type]]) -> None` |  |
-| config_setting | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], {str.type: str.type}, [None, [str.type]]) -> None` |  |
-| configured_alias | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [str.type], [str.type], str.type, [None, [str.type]]) -> None` |  |
-| constraint_setting | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
-| constraint_value | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, [None, [str.type]]) -> None` |  |
-| core_data_model | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], str.type, [None, [str.type]]) -> None` |  |
-| csharp_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [[str.type, str.type]], str.type, str.type, [str.type], [str.type], {str.type: str.type}, [str.type], [None, [str.type]]) -> None` |  |
+| apple_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [None, str.type], [None, bool.type], [str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], bool.type, {str.type: str.type}, bool.type, [None, str.type], [str.type], str.type, [{str.type: str.type}, [str.type]], {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [str.type], [(str.type, [str.type])], [str.type], [str.type], [str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], [None, bool.type], [str.type], [str.type], bool.type, [None, str.type], bool.type, [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, bool.type], [str.type], bool.type, [None, str.type], [[str.type, (str.type, [str.type])]], [None, str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], bool.type, [None, bool.type], bool.type, bool.type, bool.type, [None, [str.type]], [None, bool.type], [None, bool.type]) -> None` |  |
+| apple_package | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [None, str.type], [None, str.type], [str.type], [str.type], bool.type, [None, [str.type]]) -> None` |  |
+| apple_resource | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], bool.type, [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], {str.type: [str.type]}, [str.type], [str.type], [None, [str.type]]) -> None` |  |
+| apple_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [None, str.type], str.type, {str.type: ""}, [None, str.type], [None, str.type], [None, bool.type], [str.type], [None, str.type], [str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], {str.type: str.type}, bool.type, {str.type: str.type}, bool.type, [None, str.type], [None, {str.type: str.type}], [None, str.type], [str.type], str.type, [{str.type: str.type}, [str.type]], {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [str.type], [(str.type, [str.type])], [str.type], str.type, [str.type], [str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [None, bool.type], str.type, {str.type: str.type}, bool.type, [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], str.type, [None, bool.type], [str.type], [str.type], bool.type, [None, str.type], bool.type, [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, bool.type], [None, str.type], [None, str.type], bool.type, [None, str.type], [str.type], bool.type, [None, bool.type], [None, [str.type, str.type]], [None, str.type], [None, str.type], [[str.type, (str.type, [str.type])]], [None, str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [None, int.type], bool.type, [None, bool.type], [None, str.type], bool.type, bool.type, bool.type, [None, [str.type]], [None, bool.type], [None, str.type], [None, bool.type]) -> None` |  |
+| apple_toolchain | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [None, str.type], str.type, str.type, [None, str.type], str.type, str.type, [str.type], [None, str.type], str.type, [None, str.type], [None, str.type], str.type, [None, str.type], str.type, [str.type], str.type, [str.type], str.type, [None, str.type], str.type, [None, str.type], [None, str.type], str.type, [None, str.type], [None, str.type], str.type, [None, str.type], [None, [str.type]], [None, bool.type], str.type, str.type, str.type) -> None` |  |
+| apple_toolchain_set | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [None, str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
+| apple_tools | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type) -> None` |  |
+| cgo_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], [None, str.type], bool.type, [None, str.type], [str.type], bool.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], bool.type, [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], bool.type, [None, str.type], [str.type], [str.type], [[str.type, (str.type, [str.type])]], bool.type, [None, str.type], [None, [str.type]]) -> None` |  |
+| cmd_args | `(*Vec < Value < 'v > >, Option < String >, bool, Option < String >, Option < String >, Option < String >) -> StarlarkCommandLine < 'v >` |  |
+| command_alias | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [None, str.type], {str.type: str.type}, [None, str.type], [str.type], [str.type], {str.type: str.type}, [None, [str.type]]) -> None` |  |
+| config_setting | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], {str.type: str.type}, [None, [str.type]]) -> None` |  |
+| configured_alias | `(UNKNOWN, UNKNOWN, UNKNOWN, **UNKNOWN) -> UNKNOWN` |  |
+| constraint_setting | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, [str.type]]) -> None` |  |
+| constraint_value | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [None, [str.type]]) -> None` |  |
+| core_data_model | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], str.type, [None, [str.type]]) -> None` |  |
+| csharp_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [None, str.type], [[str.type, str.type]], str.type, str.type, [str.type], [str.type], {str.type: str.type}, [str.type], [None, [str.type]]) -> None` |  |
 | cxx | `UNKNOWN` |  |
-| cxx_binary | `(UNKNOWN, **UNKNOWN) -> UNKNOWN` |  |
-| cxx_genrule | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, [None, str.type], [None, bool.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [None, [str.type]], [None, bool.type], [None, str.type], [str.type], [str.type], [None, bool.type], [None, str.type], [None, {str.type: [str.type]}], [None, bool.type], [{str.type: str.type}, [str.type]], [""], [None, str.type], [None, [str.type]]) -> None` |  |
-| cxx_library | `(UNKNOWN, **UNKNOWN) -> UNKNOWN` |  |
-| cxx_lua_extension | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], [None, str.type], [str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], [str.type], [str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], [None, str.type], [str.type], [str.type], [[str.type, (str.type, [str.type])]], [""], [None, str.type], [None, [str.type]]) -> None` |  |
-| cxx_precompiled_header | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, [None, str.type], [None, [str.type]]) -> None` |  |
-| cxx_python_extension | `(UNKNOWN, **UNKNOWN) -> UNKNOWN` |  |
-| cxx_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, str.type, [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], [None, str.type], bool.type, {str.type: str.type}, [None, str.type], bool.type, [None, str.type], [None, str.type], [str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], bool.type, [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], default_only, [str.type], [str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], bool.type, [None, str.type], [str.type], [str.type], [{str.type: [str.type, str.type]}, [[str.type, str.type]]], [None, bool.type], [[str.type, (str.type, [str.type])]], [None, int.type], [""], bool.type, [None, bool.type], [None, str.type], [None, [str.type]]) -> None` |  |
-| cxx_toolchain | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, str.type, str.type, str.type, [str.type], str.type, [None, str.type], [str.type], [None, str.type], [str.type], str.type, [str.type], [str.type], [None, str.type], [None, str.type], str.type, [str.type], [None, str.type], [str.type], bool.type, [None, str.type], [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], str.type, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], bool.type, [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], bool.type, str.type, [str.type], str.type, str.type, str.type, bool.type, str.type, [None, str.type], bool.type, bool.type, [None, str.type], [str.type], bool.type, [str.type], str.type, [str.type], str.type, str.type, [str.type], str.type, [str.type], str.type, [None, [str.type]], [None, [str.type]], [None, [str.type]], bool.type, bool.type, [None, [str.type]]) -> None` |  |
-| d_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
-| d_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
-| d_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [{str.type: str.type}, [str.type]], [None, int.type], [None, [str.type]]) -> None` |  |
+| cxx_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], [None, str.type], bool.type, bool.type, [None, str.type], bool.type, [None, str.type], [str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], bool.type, [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], default_only, [str.type], [str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], bool.type, [None, str.type], [str.type], [str.type], [{str.type: [str.type, str.type]}, [[str.type, str.type]]], [[str.type, (str.type, [str.type])]], bool.type, bool.type, [None, str.type], [None, [str.type]]) -> None` |  |
+| cxx_genrule | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [None, str.type], [None, bool.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [None, [str.type]], [None, bool.type], [None, str.type], [str.type], [str.type], bool.type, [None, str.type], [None, {str.type: [str.type]}], [None, bool.type], [{str.type: str.type}, [str.type]], [None, str.type], [None, [str.type]]) -> None` |  |
+| cxx_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [None, str.type], [None, bool.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], bool.type, {str.type: str.type}, [None, str.type], [str.type], str.type, [{str.type: str.type}, [str.type]], {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [str.type], [(str.type, [str.type])], [str.type], [str.type], [str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], bool.type, [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], [None, bool.type], [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], bool.type, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, bool.type], [{str.type: [str.type, str.type]}, [[str.type, str.type]]], [str.type], [None, str.type], [[str.type, (str.type, [str.type])]], [None, str.type], [None, str.type], [None, bool.type], bool.type, [None, bool.type], bool.type, bool.type, [None, str.type], [None, [str.type]], [None, bool.type], [None, bool.type]) -> None` |  |
+| cxx_lua_extension | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], [None, str.type], [str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], [str.type], [str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], [None, str.type], [str.type], [str.type], [[str.type, (str.type, [str.type])]], [None, str.type], [None, [str.type]]) -> None` |  |
+| cxx_precompiled_header | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, [None, str.type], [None, [str.type]]) -> None` |  |
+| cxx_python_extension | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [None, str.type], default_only, default_only, [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], default_only, default_only, [None, str.type], default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, [str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], default_only, [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], default_only, default_only, [None, str.type], default_only, [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], default_only, [None, str.type], [str.type], default_only, default_only, [str.type], default_only, default_only, default_only, default_only, [[str.type, (str.type, [str.type])]], default_only, default_only, default_only, default_only, [None, str.type], default_only, bool.type, default_only, [None, str.type], [None, [str.type]], default_only, default_only) -> None` |  |
+| cxx_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], [None, str.type], bool.type, bool.type, {str.type: str.type}, [None, str.type], bool.type, [None, str.type], [None, str.type], [str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], bool.type, [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], default_only, [str.type], [str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], bool.type, [None, str.type], [str.type], [str.type], [{str.type: [str.type, str.type]}, [[str.type, str.type]]], [None, bool.type], [[str.type, (str.type, [str.type])]], [None, int.type], bool.type, [None, bool.type], bool.type, [None, str.type], [None, [str.type]]) -> None` |  |
+| cxx_toolchain | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, str.type, [str.type], str.type, [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], str.type, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], str.type, [str.type], [None, str.type], [str.type], bool.type, [None, str.type], [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], str.type, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], bool.type, bool.type, [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], bool.type, str.type, [str.type], str.type, str.type, str.type, bool.type, str.type, str.type, [None, str.type], bool.type, bool.type, [None, str.type], [str.type], bool.type, bool.type, [str.type], str.type, [str.type], str.type, str.type, [str.type], str.type, [str.type], str.type, [None, [str.type]], [None, [str.type]], [None, [str.type]], bool.type, bool.type, bool.type, bool.type, [None, [str.type]]) -> None` |  |
+| d_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
+| d_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
+| d_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [{str.type: str.type}, [str.type]], [None, int.type], [None, [str.type]]) -> None` |  |
 | export_file | `(UNKNOWN, UNKNOWN, **UNKNOWN) -> UNKNOWN` |  |
-| external_test_runner | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
-| extract_archive | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, [None, str.type]) -> None` |  |
-| filegroup | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
+| external_test_runner | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [None, str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
+| extract_archive | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [None, str.type]) -> None` |  |
+| filegroup | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
 | filter | `(Value, Value) -> Value < 'v >` |  |
-| gen_aidl | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, str.type, str.type, [str.type], [str.type], [None, str.type], [str.type], str.type, [str.type], [str.type], [None, [str.type]]) -> None` |  |
-| genrule | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, bool.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [None, [str.type]], [None, bool.type], [None, str.type], [None, bool.type], [str.type], [str.type], [None, bool.type], [None, str.type], [None, {str.type: [str.type]}], [None, bool.type], [{str.type: str.type}, [str.type]], [""], [None, str.type], [None, [str.type]]) -> None` |  |
+| gen_aidl | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [str.type], [str.type], [None, str.type], [str.type], str.type, [str.type], [str.type], [None, [str.type]]) -> None` |  |
+| genrule | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [None, bool.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [None, [str.type]], [None, bool.type], [None, str.type], [None, bool.type], [str.type], [str.type], bool.type, [None, str.type], [None, {str.type: [str.type]}], [None, bool.type], [{str.type: str.type}, [str.type]], [None, str.type], [None, [str.type]]) -> None` |  |
 | get_base_path | `() -> String` |  |
 | get_cell_name | `() -> String` |  |
 | glob | `(Vec < String >, Option < Vec < String > >, Option < Vec < String > >, bool) -> Value < 'v >` |  |
-| go_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, str.type, [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [(str.type, [str.type])], [str.type], [str.type], [None, [str.type]]) -> None` |  |
-| go_exported_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], str.type, [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [(str.type, [str.type])], [str.type], [str.type], [None, [str.type]]) -> None` |  |
-| go_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [""], [None, [str.type]]) -> None` |  |
-| go_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, str.type, str.type, [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], {str.type: str.type}, [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], bool.type, [None, str.type], [None, str.type], [str.type], [None, int.type], [None, [str.type]]) -> None` |  |
-| go_test_runner | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], str.type, [None, [str.type]]) -> None` |  |
-| groovy_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [""], [None, [str.type]]) -> None` |  |
-| groovy_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [str.type], [str.type], [str.type], str.type, [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], bool.type, [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, [str.type, int.type]], [None, [str.type, int.type]], [None, str.type], [None, int.type], [None, int.type], [None, str.type], [""], [None, bool.type], [None, bool.type], [str.type], [None, [str.type]]) -> None` |  |
-| gwt_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [None, bool.type], [str.type], [str.type], [str.type], [None, int.type], [str.type], [str.type], [None, int.type], [None, bool.type], [None, str.type], [str.type], [None, [str.type]]) -> None` |  |
-| halide_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], [None, str.type], bool.type, [None, str.type], bool.type, [None, str.type], [str.type], [None, str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], bool.type, [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], [str.type], [str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], bool.type, [None, str.type], [str.type], [str.type], [[str.type, (str.type, [str.type])]], [None, str.type], [""], bool.type, [None, str.type], [None, [str.type]]) -> None` |  |
-| haskell_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, str.type, [str.type], [str.type], [None, str.type], [str.type], [None, str.type], bool.type, [(str.type, [str.type])], [str.type], [str.type], [str.type], bool.type, [None, str.type], [str.type], [None, str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
-| haskell_ghci | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [None, str.type], bool.type, [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [str.type], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
-| haskell_haddock | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
-| haskell_ide | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [(str.type, [str.type])], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
-| haskell_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, str.type, [str.type], [str.type], [None, str.type], [str.type], bool.type, [(str.type, [str.type])], [str.type], [str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [None, str.type], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
-| haskell_prebuilt_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], str.type, [None, str.type], [str.type], bool.type, [str.type], [str.type], str.type, [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], {str.type: str.type}, [str.type], str.type, [None, [str.type]]) -> None` |  |
+| go_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [(str.type, [str.type])], [str.type], [str.type], [None, [str.type]]) -> None` |  |
+| go_exported_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], str.type, [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [(str.type, [str.type])], [str.type], [str.type], [None, [str.type]]) -> None` |  |
+| go_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [None, [str.type]]) -> None` |  |
+| go_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], {str.type: str.type}, [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], bool.type, [None, str.type], [None, str.type], [str.type], [None, int.type], [None, [str.type]]) -> None` |  |
+| go_test_runner | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], str.type, [None, [str.type]]) -> None` |  |
+| groovy_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
+| groovy_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [str.type], [str.type], [str.type], str.type, [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], bool.type, [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, [str.type, int.type]], [None, [str.type, int.type]], [None, str.type], [None, int.type], [None, int.type], [None, str.type], [None, bool.type], [None, bool.type], [str.type], [None, [str.type]]) -> None` |  |
+| gwt_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [None, bool.type], [str.type], [str.type], [str.type], [None, int.type], [str.type], [str.type], [None, int.type], [None, bool.type], [None, str.type], [str.type], [None, [str.type]]) -> None` |  |
+| halide_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], [None, str.type], bool.type, [None, str.type], bool.type, [None, str.type], [str.type], [None, str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], bool.type, [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], [str.type], [str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], bool.type, [None, str.type], [str.type], [str.type], [[str.type, (str.type, [str.type])]], [None, str.type], bool.type, [None, str.type], [None, [str.type]]) -> None` |  |
+| haskell_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [str.type], [str.type], [None, str.type], [str.type], [None, str.type], bool.type, [(str.type, [str.type])], [str.type], [str.type], [str.type], bool.type, [None, str.type], [str.type], [None, str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
+| haskell_ghci | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [None, str.type], [str.type], [None, str.type], bool.type, [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [str.type], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
+| haskell_haddock | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
+| haskell_ide | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [(str.type, [str.type])], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
+| haskell_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [str.type], [str.type], [None, str.type], [str.type], bool.type, [(str.type, [str.type])], [str.type], [str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], str.type, [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
+| haskell_prebuilt_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], str.type, [None, str.type], [str.type], bool.type, [str.type], [str.type], str.type, [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], {str.type: str.type}, [str.type], str.type, [None, [str.type]]) -> None` |  |
 | host_info | `() -> Value < 'v >` |  |
-| http_archive | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [None, str.type], str.type, [None, str.type], [None, str.type], [str.type], [None, [str.type]]) -> None` |  |
-| http_file | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, bool.type], [str.type], [str.type], [None, str.type], str.type, [str.type], [None, [str.type]]) -> None` |  |
+| http_archive | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [None, [str.type]]) -> None` |  |
+| http_file | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [None, bool.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [None, [str.type]]) -> None` |  |
 | implicit_package_symbol | `(& str, Option < Value >) -> Value < 'v >` |  |
-| jar_genrule | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, [None, str.type], [None, bool.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [str.type], [None, bool.type], [None, bool.type], [{str.type: str.type}, [str.type]], [""], [None, str.type], [None, [str.type]]) -> None` |  |
-| java_annotation_processor | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], bool.type, bool.type, [str.type], [str.type], str.type, bool.type, [None, [str.type]]) -> None` |  |
-| java_binary | `(**UNKNOWN) -> UNKNOWN` |  |
-| java_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, [str.type, str.type]], [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [""], [None, [str.type]]) -> None` |  |
-| java_plugin | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], bool.type, bool.type, [str.type], [str.type], str.type, bool.type, [None, [str.type]]) -> None` |  |
-| java_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [str.type], [str.type], str.type, [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], bool.type, [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [str.type], [None, [str.type, int.type]], [None, [str.type, int.type]], [None, str.type], [None, int.type], [None, int.type], [None, str.type], [""], [None, bool.type], [None, bool.type], [str.type], [None, [str.type]]) -> None` |  |
-| java_test_runner | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], str.type, [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [""], [None, [str.type]]) -> None` |  |
-| js_bundle | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, bool.type, str.type, [None, str.type], [None, str.type], [(str.type, str.type)], [str.type], [None, str.type], [str.type], [[str.type], str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, [str.type]], str.type) -> None` |  |
-| js_bundle_genrule | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], bool.type, str.type, [None, str.type], [None, str.type], [(str.type, str.type)], [None, bool.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [None, bool.type], [None, str.type], str.type, [str.type], [str.type], [None, bool.type], [None, bool.type], bool.type, bool.type, bool.type, bool.type, [{str.type: str.type}, [str.type]], [""], str.type, [None, [str.type]]) -> None` |  |
-| js_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], bool.type, str.type, [None, [str.type]], [None, [str.type]], [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [[str.type, (str.type, str.type)]], [""], [None, [str.type]], str.type) -> None` |  |
-| keystore | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, str.type, [None, [str.type]]) -> None` |  |
-| kotlin_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], str.type, str.type, [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], {str.type: {str.type: str.type}}, [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [""], [None, [str.type]]) -> None` |  |
-| kotlin_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, str.type], {str.type: {str.type: str.type}}, [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], bool.type, [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, [str.type, int.type]], [None, [str.type, int.type]], [None, str.type], [None, int.type], [None, int.type], [None, str.type], [""], [None, bool.type], [None, bool.type], [str.type], [None, [str.type]]) -> None` |  |
-| legacy_toolchain | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], str.type, [None, [str.type]]) -> None` |  |
-| lua_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, [None, str.type], [None, str.type], [None, str.type], [(str.type, [str.type])], [None, str.type], [None, [str.type]]) -> None` |  |
-| lua_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [(str.type, [str.type])], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
+| jar_genrule | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [None, str.type], [None, bool.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [str.type], bool.type, [None, bool.type], [{str.type: str.type}, [str.type]], [None, str.type], [None, [str.type]]) -> None` |  |
+| java_annotation_processor | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], bool.type, bool.type, [str.type], [str.type], str.type, bool.type, [None, [str.type]]) -> None` |  |
+| java_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [str.type], [None, str.type], [None, str.type], [str.type], bool.type, [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [None, [str.type]]) -> None` |  |
+| java_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, [str.type, str.type]], [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
+| java_plugin | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], bool.type, bool.type, [str.type], [str.type], str.type, bool.type, [None, [str.type]]) -> None` |  |
+| java_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [str.type], [str.type], str.type, [None, str.type], [None, [str.type, str.type]], [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], bool.type, [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [str.type], [None, [str.type, int.type]], [None, [str.type, int.type]], [None, str.type], [None, int.type], [None, int.type], [None, str.type], [None, bool.type], [None, bool.type], [str.type], [None, [str.type]]) -> None` |  |
+| java_test_runner | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], str.type, [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
+| js_bundle | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, bool.type, str.type, [None, str.type], [None, str.type], [(str.type, str.type)], [str.type], [None, str.type], [str.type], [[str.type], str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, [str.type]], str.type) -> None` |  |
+| js_bundle_genrule | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], bool.type, str.type, [None, str.type], [None, str.type], [(str.type, str.type)], [None, bool.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [None, bool.type], [None, str.type], str.type, [str.type], [str.type], bool.type, [None, bool.type], bool.type, bool.type, bool.type, bool.type, [{str.type: str.type}, [str.type]], str.type, [None, [str.type]]) -> None` |  |
+| js_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], bool.type, str.type, [None, [str.type]], [None, [str.type]], [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [[str.type, (str.type, str.type)]], [None, [str.type]], str.type) -> None` |  |
+| keystore | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, str.type, [None, [str.type]]) -> None` |  |
+| kotlin_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], str.type, str.type, [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, [str.type, str.type]], {str.type: {str.type: str.type}}, [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
+| kotlin_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, str.type], {str.type: {str.type: str.type}}, [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], bool.type, [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, [str.type, int.type]], [None, [str.type, int.type]], [None, str.type], [None, int.type], [None, int.type], [None, str.type], [None, bool.type], [None, bool.type], [str.type], [None, [str.type]]) -> None` |  |
+| legacy_toolchain | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], str.type, [None, [str.type]]) -> None` |  |
+| lua_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, [None, str.type], [None, str.type], [None, str.type], [(str.type, [str.type])], [None, str.type], [None, [str.type]]) -> None` |  |
+| lua_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [(str.type, [str.type])], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
 | map | `(Value, Value) -> Value < 'v >` |  |
-| ndk_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
-| ndk_toolchain | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], str.type, [None, str.type], [str.type], [str.type], str.type, [None, str.type], [None, [str.type]], [None, [str.type]]) -> None` |  |
-| ocaml_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, str.type, [None, bool.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [None, [{str.type: str.type}, [str.type]]], [None, str.type], [None, [str.type]]) -> None` |  |
-| ocaml_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, str.type, bool.type, [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], bool.type, [str.type], [(str.type, [str.type])], [(str.type, [str.type])], [None, [{str.type: str.type}, [str.type]]], [None, str.type], [None, [str.type]]) -> None` |  |
+| ndk_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
+| ndk_toolchain | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], str.type, [None, str.type], [str.type], [str.type], str.type, [None, str.type], [None, [str.type]], [None, [str.type]]) -> None` |  |
+| ocaml_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [None, bool.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [None, [{str.type: str.type}, [str.type]]], [None, str.type], [None, [str.type]]) -> None` |  |
+| ocaml_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, bool.type, [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], bool.type, [str.type], [(str.type, [str.type])], [(str.type, [str.type])], [None, [{str.type: str.type}, [str.type]]], [None, str.type], [None, [str.type]]) -> None` |  |
+| ocaml_object | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [None, bool.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [None, [{str.type: str.type}, [str.type]]], [None, str.type], [None, [str.type]]) -> None` |  |
 | package | `() -> String` |  |
 | package_name | `() -> String` |  |
-| partial | `(Value, *Value < 'v >, **ARef < Dict >) -> Partial < 'v >` |  |
-| platform | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
-| prebuilt_apple_framework | `(**UNKNOWN) -> UNKNOWN` |  |
-| prebuilt_cxx_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, bool.type, [str.type], [None, str.type], [str.type], [str.type], str.type, [{str.type: str.type}, [str.type]], {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [str.type], [(str.type, [str.type])], [str.type], bool.type, [str.type], [None, [str.type]], [None, str.type], bool.type, [None, str.type], bool.type, [str.type], [str.type], [str.type], bool.type, bool.type, [None, [(str.type, [str.type])]], [None, [(str.type, str.type)]], [None, [(str.type, str.type)]], [None, [(str.type, str.type)]], [None, [(str.type, str.type)]], [None, str.type], bool.type, [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [None, bool.type], bool.type, [({str.type: str.type}, {str.type: [(str.type, [str.type])]})], [({str.type: str.type}, {str.type: [str.type]})], [({str.type: str.type}, [(str.type, [str.type])])], [({str.type: str.type}, [str.type])], [None, [({str.type: str.type}, [str.type])]], [None, [({str.type: str.type}, str.type)]], [None, [({str.type: str.type}, str.type)]], [None, [({str.type: str.type}, str.type)]], [None, [({str.type: str.type}, str.type)]], [None, [str.type]]) -> None` |  |
-| prebuilt_cxx_library_group | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [(str.type, [str.type])], [str.type], {str.type: str.type}, [str.type], bool.type, [str.type], [str.type], {str.type: str.type}, {str.type: str.type}, [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
-| prebuilt_dotnet_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
-| prebuilt_go_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
-| prebuilt_jar | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], str.type, str.type, [str.type], [None, str.type], [str.type], bool.type, [None, str.type], [str.type], [str.type], [None, str.type], bool.type, bool.type, [None, str.type], [None, [str.type]]) -> None` |  |
-| prebuilt_native_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], bool.type, [str.type], [str.type], str.type, [None, [str.type]]) -> None` |  |
-| prebuilt_ocaml_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], str.type, bool.type, [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], str.type, str.type, [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [None, [str.type]]) -> None` |  |
-| prebuilt_python_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, str.type, str.type, str.type, bool.type, [str.type], [None, str.type], [str.type], bool.type, bool.type, [str.type], [str.type], [None, [str.type]]) -> None` |  |
-| prebuilt_rust_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], str.type, [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [(str.type, [str.type])], bool.type, str.type, [None, [str.type]]) -> None` |  |
+| partial | `(Value, *Value < 'v >, **DictRef < 'v >) -> Partial < 'v >` |  |
+| platform | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [None, [str.type]]) -> None` |  |
+| prebuilt_apple_framework | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [None, bool.type], [str.type], [None, str.type], [str.type], [str.type], [(str.type, [str.type])], [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, [None, str.type], [None, [str.type]]) -> None` |  |
+| prebuilt_cxx_library | `(UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, **UNKNOWN) -> UNKNOWN` |  |
+| prebuilt_cxx_library_group | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [(str.type, [str.type])], [str.type], {str.type: str.type}, [str.type], bool.type, [str.type], [str.type], {str.type: str.type}, {str.type: str.type}, [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
+| prebuilt_dotnet_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [None, str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
+| prebuilt_go_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
+| prebuilt_jar | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], str.type, str.type, [str.type], [None, str.type], [str.type], bool.type, [None, str.type], [str.type], [str.type], [None, str.type], bool.type, bool.type, [None, str.type], [None, [str.type]]) -> None` |  |
+| prebuilt_native_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], bool.type, [str.type], [str.type], str.type, [None, [str.type]]) -> None` |  |
+| prebuilt_ocaml_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], bool.type, [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], str.type, [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [None, [str.type]]) -> None` |  |
+| prebuilt_python_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, bool.type, [str.type], [None, str.type], [str.type], bool.type, bool.type, [str.type], [str.type], [None, [str.type]]) -> None` |  |
+| prebuilt_rust_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [str.type], str.type, [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [(str.type, [str.type])], bool.type, str.type, [None, [str.type]]) -> None` |  |
 | provider | `(& str, Either < Vec < String >, SmallMap < & str, & str > >) -> ProviderCallable` |  |
 | python | `UNKNOWN` |  |
-| python_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, str.type, str.type, str.type, [None, str.type], [str.type], [None, bool.type], [str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], bool.type, [str.type], [""], [None, str.type], [None, [str.type]], [None, bool.type]) -> None` |  |
-| python_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, str.type, str.type, [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], bool.type, bool.type, [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [{str.type: str.type}, [str.type]])], [{str.type: [str.type, str.type]}, [[str.type, str.type]]], [{str.type: str.type}, [str.type]], [""], [{str.type: str.type}, [str.type]], [None, str.type], [None, [({str.type: str.type}, [{str.type: str.type}, [str.type]])]], [None, [({str.type: str.type}, [{str.type: str.type}, [str.type]])]], [None, [str.type]], [None, bool.type]) -> None` |  |
-| python_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, str.type, str.type, str.type, str.type, [str.type], [None, str.type], [str.type], [None, bool.type], [str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, bool.type, [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [(int.type, str.type, [None, str.type])], [None, str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [{str.type: str.type}, [str.type]])], bool.type, [str.type], [{str.type: [str.type, str.type]}, [[str.type, str.type]]], [None, str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, int.type], [""], [None, str.type], [None, [({str.type: str.type}, [{str.type: str.type}, [str.type]])]], [None, [({str.type: str.type}, [{str.type: str.type}, [str.type]])]], [None, [str.type]], [None, bool.type]) -> None` |  |
-| python_test_runner | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], str.type, str.type, [None, [str.type]]) -> None` |  |
-| read_config | `(& str, & str, Option < Value >) -> Value < 'v >` |  |
-| remote_file | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [None, str.type], str.type, [None, str.type], str.type, [None, [str.type]]) -> None` |  |
+| python_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, [None, str.type], [str.type], [None, bool.type], [str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], bool.type, [None, str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], bool.type, [str.type], [None, str.type], [None, [str.type]], [None, bool.type]) -> None` |  |
+| python_bootstrap_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], str.type) -> None` |  |
+| python_bootstrap_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type]) -> None` |  |
+| python_library | `(UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, **UNKNOWN) -> UNKNOWN` |  |
+| python_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, str.type, [str.type], [None, str.type], [str.type], [None, bool.type], [str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, bool.type, [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [(int.type, str.type, [None, str.type])], bool.type, [None, str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [{str.type: str.type}, [str.type]])], bool.type, [str.type], [{str.type: [str.type, str.type]}, [[str.type, str.type]]], [None, str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, int.type], [None, str.type], [None, [({str.type: str.type}, [{str.type: str.type}, [str.type]])]], [None, [({str.type: str.type}, [{str.type: str.type}, [str.type]])]], [None, [str.type]], [None, bool.type]) -> None` |  |
+| python_test_runner | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], str.type, str.type, [None, [str.type]]) -> None` |  |
+| read_config | `(StringValue, StringValue, Option < Value >) -> Value < 'v >` |  |
+| remote_file | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], str.type, [None, [str.type]]) -> None` |  |
 | repository_name | `() -> String` |  |
-| robolectric_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [str.type], [[str.type, ""]], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [str.type], [str.type], {str.type: ""}, [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], bool.type, [None, str.type], [str.type], [None, str.type], str.type, [str.type], [None, str.type], bool.type, [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, [str.type, int.type]], [None, [str.type, int.type]], [None, str.type], [None, int.type], [None, int.type], [None, str.type], [""], [None, bool.type], [None, bool.type], [str.type], [None, [str.type]]) -> None` |  |
+| robolectric_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [str.type], [str.type], {str.type: ""}, [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], bool.type, [None, str.type], [str.type], [None, str.type], str.type, [str.type], [None, str.type], bool.type, [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, [str.type, int.type]], [None, [str.type, int.type]], [None, str.type], [None, int.type], [None, int.type], [None, str.type], [None, bool.type], [None, bool.type], [str.type], [None, [str.type]]) -> None` |  |
 | rule_exists | `(& str) -> bool` | This should be called "target exists", not "rule exists" (if this should exist at all). |
-| rust_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], bool.type, [str.type], [str.type], [None, str.type], [str.type], {str.type: str.type}, {str.type: str.type}, [(str.type, [str.type])], [(str.type, [str.type])], {str.type: [str.type]}, bool.type, [str.type], [str.type], [""], [None, str.type], [None, [str.type]]) -> None` |  |
-| rust_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [str.type], [str.type], [str.type], {str.type: str.type}, {str.type: str.type}, [(str.type, [str.type])], {str.type: [str.type]}, [None, str.type], bool.type, [str.type], [str.type], [""], [None, str.type], [None, [str.type]]) -> None` |  |
-| rust_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], bool.type, [str.type], [str.type], [None, str.type], [str.type], {str.type: str.type}, {str.type: str.type}, [(str.type, [str.type])], [(str.type, [str.type])], {str.type: [str.type]}, bool.type, [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
-| scala_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [""], [None, [str.type]]) -> None` |  |
-| scala_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [str.type], [str.type], str.type, [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], bool.type, [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, [str.type, int.type]], [None, [str.type, int.type]], [None, str.type], [None, int.type], [None, int.type], [None, str.type], [""], [None, bool.type], [None, bool.type], [str.type], [None, [str.type]]) -> None` |  |
-| scene_kit_assets | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], str.type, [None, [str.type]]) -> None` |  |
+| rust_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [(str.type, [str.type])], bool.type, [str.type], [str.type], [None, str.type], [str.type], {str.type: str.type}, {str.type: str.type}, [(str.type, [str.type])], [(str.type, [(str.type, [str.type])])], [(str.type, [str.type])], {str.type: [str.type]}, bool.type, [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
+| rust_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [(str.type, [str.type])], [str.type], [str.type], [str.type], {str.type: str.type}, {str.type: str.type}, [(str.type, [str.type])], [(str.type, [(str.type, [str.type])])], {str.type: [str.type]}, str.type, bool.type, [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
+| rust_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [(str.type, [str.type])], bool.type, [str.type], [str.type], [None, str.type], [str.type], {str.type: str.type}, {str.type: str.type}, [(str.type, [str.type])], [(str.type, [(str.type, [str.type])])], [(str.type, [str.type])], {str.type: [str.type]}, bool.type, [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
+| scala_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
+| scala_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [str.type], [str.type], str.type, [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], bool.type, [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, [str.type, int.type]], [None, [str.type, int.type]], [None, str.type], [None, int.type], [None, int.type], [None, str.type], [None, bool.type], [None, bool.type], [str.type], [None, [str.type]]) -> None` |  |
+| scene_kit_assets | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], str.type, [None, [str.type]]) -> None` |  |
 | select | `(Value) -> Selector < 'v >` |  |
 | select_equal_internal | `(Value < 'v >, Value < 'v >) -> bool` | Tests that two selects are equal to each other. For testing use only. |
 | select_map | `(Value < 'v >, Value < 'v >) -> Value < 'v >` | Applies a mapping function to a selector. See [Selector::select_map]. |
 | select_test | `(Value < 'v >, Value < 'v >) -> bool` | Applies a test function to a selector. See [Selector::select_test]. |
-| sh_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, [str.type], [""], [None, [str.type]]) -> None` |  |
-| sh_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], {str.type: str.type}, [str.type], [str.type], [None, [str.type]], [None, {str.type: str.type}], [str.type], [str.type], {str.type: str.type}, bool.type, [None, [str.type, str.type]], [None, int.type], [None, str.type], [None, [str.type]]) -> None` |  |
+| sh_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, [str.type]]) -> None` |  |
+| sh_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [None, str.type], [str.type], {str.type: str.type}, [str.type], [str.type], [None, [str.type]], [None, {str.type: str.type}], [str.type], [str.type], {str.type: str.type}, bool.type, [None, [str.type, str.type]], [None, int.type], [None, str.type], [None, [str.type]]) -> None` |  |
 | sha256 | `(& str) -> String` | Computes a sha256 digest for a string. Returns the hex representation of the digest. |
-| supermodule_target_graph | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], str.type, str.type, [None, [str.type]]) -> None` |  |
-| swift_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [None, str.type], [str.type], bool.type, [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], bool.type, [None, str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [None, [str.type]]) -> None` |  |
-| swift_toolchain | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], str.type, [str.type], [None, [str.type]]) -> None` |  |
-| test_suite | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [""], [None, [str.type]]) -> None` |  |
+| supermodule_target_graph | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], str.type, str.type, [None, [str.type]]) -> None` |  |
+| swift_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [str.type], [str.type], [None, str.type], [str.type], bool.type, [str.type], [str.type], [str.type], [str.type], [None, str.type], str.type, [str.type], bool.type, [None, str.type], [str.type], [None, str.type], [None, str.type], bool.type, [None, str.type], [None, [str.type]]) -> None` |  |
+| swift_toolchain | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [None, str.type], str.type, [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [None, str.type], bool.type, [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], str.type, [str.type], str.type, [str.type], [None, [str.type]]) -> None` |  |
+| test_suite | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
 | transitive_set | `(Option < SmallMap < String, Value < 'v > > >, Option < SmallMap < String, Value < 'v > > >) -> TransitiveSetDefinition < 'v >` |  |
-| versioned_alias | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], {str.type: str.type}, [None, [str.type]]) -> None` |  |
-| watchos_bundle | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type) -> None` |  |
-| worker_tool | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, [str.type, [str.type]], [str.type], [None, str.type], {str.type: str.type}, [None, str.type], [str.type], [str.type], [None, int.type], [None, int.type], [None, bool.type], [None, [str.type]]) -> None` |  |
-| xcode_postbuild_script | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
-| xcode_prebuild_script | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
-| xcode_workspace_config | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], {str.type: str.type}, [None, {str.type: {str.type: [str.type]}}], [str.type], [None, str.type], [None, {str.type: {str.type: str.type}}], [None, str.type], {str.type: str.type}, [str.type], [str.type], [str.type], [None, bool.type], [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [None, [str.type]], [None, str.type]) -> None` |  |
-| zip_file | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, str.type, [str.type], [None, [str.type]], [str.type]) -> None` |  |
+| versioned_alias | `(UNKNOWN, **UNKNOWN) -> UNKNOWN` |  |
+| watchos_bundle | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type) -> None` |  |
+| worker_tool | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type, [str.type]], [str.type], [None, str.type], {str.type: str.type}, [None, str.type], [str.type], [str.type], [None, int.type], [None, int.type], [None, bool.type], [None, [str.type]]) -> None` |  |
+| xcode_postbuild_script | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
+| xcode_prebuild_script | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
+| xcode_workspace_config | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], {str.type: str.type}, [None, {str.type: {str.type: [str.type]}}], [str.type], [None, str.type], [None, {str.type: {str.type: str.type}}], [None, str.type], {str.type: str.type}, [str.type], [str.type], [str.type], [None, bool.type], [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [None, [str.type]], [None, str.type]) -> None` |  |
+| zip_file | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, str.type, [str.type], [None, [str.type]], [str.type]) -> None` |  |
 
 
 ## alias
@@ -168,6 +172,7 @@ def alias(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     actual: str.type,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
@@ -189,6 +194,7 @@ def alias(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `actual` |  |
 | `contacts` |  |
 | `default_host_platform` |  |
@@ -208,12 +214,14 @@ def android_aar(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     abi_generation_mode: [None, str.type] = None,
     annotation_processing_tool: [None, str.type] = None,
     annotation_processor_deps: [str.type] = None,
     annotation_processor_params: [str.type] = None,
     annotation_processors: [str.type] = None,
     build_config_values: [str.type] = None,
+    build_config_values_file: [None, str.type] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     deps: [str.type] = None,
@@ -257,7 +265,6 @@ def android_aar(
     source_only_abi_deps: [str.type] = None,
     srcs: [str.type] = None,
     target: [None, str.type] = None,
-    tests: [""] = None,
     within_view: [None, [str.type]] = None
 ) -> None
 ```
@@ -274,12 +281,14 @@ def android_aar(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `abi_generation_mode` |  |
 | `annotation_processing_tool` |  |
 | `annotation_processor_deps` |  |
 | `annotation_processor_params` |  |
 | `annotation_processors` |  |
 | `build_config_values` |  |
+| `build_config_values_file` |  |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `deps` |  |
@@ -323,7 +332,6 @@ def android_aar(
 | `source_only_abi_deps` |  |
 | `srcs` |  |
 | `target` |  |
-| `tests` |  |
 | `within_view` |  |
 
 ---
@@ -338,6 +346,7 @@ def android_app_modularity(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     application_module_blacklist: [None, [str.type]] = None,
     application_module_configs: {str.type: [str.type]} = None,
     application_module_dependencies: [None, {str.type: [str.type]}] = None,
@@ -365,6 +374,7 @@ def android_app_modularity(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `application_module_blacklist` |  |
 | `application_module_configs` |  |
 | `application_module_dependencies` |  |
@@ -390,22 +400,20 @@ def android_binary(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _android_toolchain: str.type = None,
     _dex_toolchain: str.type = None,
     _java_toolchain: str.type = None,
     aapt2_keep_raw_values: bool.type = None,
     aapt2_locale_filtering: bool.type = None,
-    aapt_mode: [None, str.type] = None,
+    aapt_mode: str.type = None,
     additional_aapt_params: [str.type] = None,
     allow_r_dot_java_in_secondary_dex: bool.type = None,
     allowed_duplicate_resource_types: [str.type] = None,
-    android_app_modularity_result: [None, str.type] = None,
     android_sdk_proguard_config: [None, str.type] = None,
     application_module_blacklist: [None, [str.type]] = None,
     application_module_configs: {str.type: [str.type]} = None,
     application_module_dependencies: [None, {str.type: [str.type]}] = None,
-    application_module_targets: [str.type] = None,
-    application_modules_with_resources: [str.type] = None,
     asset_compression_algorithm: [None, str.type] = None,
     banned_duplicate_resource_types: [str.type] = None,
     build_config_values: [str.type] = None,
@@ -420,7 +428,7 @@ def android_binary(
     dex_group_lib_limit: int.type = None,
     dex_tool: str.type = None,
     disable_pre_dex: bool.type = None,
-    duplicate_resource_behavior: [None, str.type] = None,
+    duplicate_resource_behavior: str.type = None,
     duplicate_resource_whitelist: [None, str.type] = None,
     enable_relinker: bool.type = None,
     exopackage_modes: [str.type] = None,
@@ -444,7 +452,6 @@ def android_binary(
     native_library_merge_glue: [None, str.type] = None,
     native_library_merge_localized_symbols: [None, [str.type]] = None,
     native_library_merge_map: {str.type: [str.type]} = None,
-    native_library_proguard_config_generator: [None, str.type] = None,
     no_auto_add_overlay_resources: bool.type = None,
     no_auto_version_resources: bool.type = None,
     no_dx: [str.type] = None,
@@ -452,25 +459,22 @@ def android_binary(
     optimization_passes: int.type = None,
     package_asset_libraries: bool.type = None,
     package_type: str.type = None,
+    packaged_locales: [str.type] = None,
     post_filter_resources_cmd: [None, str.type] = None,
     preprocess_java_classes_bash: [None, str.type] = None,
+    preprocess_java_classes_cmd: [None, str.type] = None,
     preprocess_java_classes_deps: [str.type] = None,
     primary_dex_patterns: [str.type] = None,
     proguard_config: [None, str.type] = None,
     proguard_jvm_args: [str.type] = None,
-    redex: bool.type = None,
-    redex_config: [None, str.type] = None,
-    redex_extra_args: [str.type] = None,
     relinker_whitelist: [str.type] = None,
     resource_compression: str.type = None,
     resource_filter: [str.type] = None,
     resource_stable_ids: [None, str.type] = None,
     resource_union_package: [None, str.type] = None,
-    secondary_dex_head_classes_file: [None, str.type] = None,
     secondary_dex_weight_limit: [None, int.type] = None,
     skip_crunch_pngs: [None, bool.type] = None,
     skip_proguard: bool.type = None,
-    tests: [""] = None,
     trim_resource_ids: bool.type = None,
     use_split_dex: bool.type = None,
     within_view: [None, [str.type]] = None,
@@ -490,6 +494,7 @@ def android_binary(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_android_toolchain` |  |
 | `_dex_toolchain` |  |
 | `_java_toolchain` |  |
@@ -499,13 +504,10 @@ def android_binary(
 | `additional_aapt_params` |  |
 | `allow_r_dot_java_in_secondary_dex` |  |
 | `allowed_duplicate_resource_types` |  |
-| `android_app_modularity_result` |  |
 | `android_sdk_proguard_config` |  |
 | `application_module_blacklist` |  |
 | `application_module_configs` |  |
 | `application_module_dependencies` |  |
-| `application_module_targets` |  |
-| `application_modules_with_resources` |  |
 | `asset_compression_algorithm` |  |
 | `banned_duplicate_resource_types` |  |
 | `build_config_values` |  |
@@ -544,7 +546,6 @@ def android_binary(
 | `native_library_merge_glue` |  |
 | `native_library_merge_localized_symbols` |  |
 | `native_library_merge_map` |  |
-| `native_library_proguard_config_generator` |  |
 | `no_auto_add_overlay_resources` |  |
 | `no_auto_version_resources` |  |
 | `no_dx` |  |
@@ -552,25 +553,22 @@ def android_binary(
 | `optimization_passes` |  |
 | `package_asset_libraries` |  |
 | `package_type` |  |
+| `packaged_locales` |  |
 | `post_filter_resources_cmd` |  |
 | `preprocess_java_classes_bash` |  |
+| `preprocess_java_classes_cmd` |  |
 | `preprocess_java_classes_deps` |  |
 | `primary_dex_patterns` |  |
 | `proguard_config` |  |
 | `proguard_jvm_args` |  |
-| `redex` |  |
-| `redex_config` |  |
-| `redex_extra_args` |  |
 | `relinker_whitelist` |  |
 | `resource_compression` |  |
 | `resource_filter` |  |
 | `resource_stable_ids` |  |
 | `resource_union_package` |  |
-| `secondary_dex_head_classes_file` |  |
 | `secondary_dex_weight_limit` |  |
 | `skip_crunch_pngs` |  |
 | `skip_proguard` |  |
-| `tests` |  |
 | `trim_resource_ids` |  |
 | `use_split_dex` |  |
 | `within_view` |  |
@@ -588,6 +586,7 @@ def android_build_config(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _android_toolchain: str.type = None,
     _java_toolchain: str.type = None,
     contacts: [str.type] = None,
@@ -613,6 +612,7 @@ def android_build_config(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_android_toolchain` |  |
 | `_java_toolchain` |  |
 | `contacts` |  |
@@ -636,19 +636,17 @@ def android_bundle(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     aapt2_keep_raw_values: bool.type = None,
     aapt2_locale_filtering: bool.type = None,
     aapt_mode: str.type = None,
     additional_aapt_params: [str.type] = None,
     allow_r_dot_java_in_secondary_dex: bool.type = None,
     allowed_duplicate_resource_types: [str.type] = None,
-    android_app_modularity_result: [None, str.type] = None,
     android_sdk_proguard_config: [None, str.type] = None,
     application_module_blacklist: [None, [str.type]] = None,
     application_module_configs: {str.type: [str.type]} = None,
     application_module_dependencies: [None, {str.type: [str.type]}] = None,
-    application_module_targets: [str.type] = None,
-    application_modules_with_resources: [str.type] = None,
     asset_compression_algorithm: [None, str.type] = None,
     banned_duplicate_resource_types: [str.type] = None,
     build_config_values: [str.type] = None,
@@ -688,7 +686,6 @@ def android_bundle(
     native_library_merge_glue: [None, str.type] = None,
     native_library_merge_localized_symbols: [None, [str.type]] = None,
     native_library_merge_map: {str.type: [str.type]} = None,
-    native_library_proguard_config_generator: [None, str.type] = None,
     no_auto_add_overlay_resources: bool.type = None,
     no_auto_version_resources: bool.type = None,
     no_dx: [str.type] = None,
@@ -696,25 +693,22 @@ def android_bundle(
     optimization_passes: int.type = None,
     package_asset_libraries: bool.type = None,
     package_type: str.type = None,
+    packaged_locales: [str.type] = None,
     post_filter_resources_cmd: [None, str.type] = None,
     preprocess_java_classes_bash: [None, str.type] = None,
+    preprocess_java_classes_cmd: [None, str.type] = None,
     preprocess_java_classes_deps: [str.type] = None,
     primary_dex_patterns: [str.type] = None,
     proguard_config: [None, str.type] = None,
     proguard_jvm_args: [str.type] = None,
-    redex: bool.type = None,
-    redex_config: [None, str.type] = None,
-    redex_extra_args: [str.type] = None,
     relinker_whitelist: [str.type] = None,
     resource_compression: str.type = None,
     resource_filter: [str.type] = None,
     resource_stable_ids: [None, str.type] = None,
     resource_union_package: [None, str.type] = None,
-    secondary_dex_head_classes_file: [None, str.type] = None,
     secondary_dex_weight_limit: [None, int.type] = None,
     skip_crunch_pngs: [None, bool.type] = None,
     skip_proguard: bool.type = None,
-    tests: [""] = None,
     trim_resource_ids: bool.type = None,
     use_split_dex: bool.type = None,
     within_view: [None, [str.type]] = None,
@@ -734,19 +728,17 @@ def android_bundle(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `aapt2_keep_raw_values` |  |
 | `aapt2_locale_filtering` |  |
 | `aapt_mode` |  |
 | `additional_aapt_params` |  |
 | `allow_r_dot_java_in_secondary_dex` |  |
 | `allowed_duplicate_resource_types` |  |
-| `android_app_modularity_result` |  |
 | `android_sdk_proguard_config` |  |
 | `application_module_blacklist` |  |
 | `application_module_configs` |  |
 | `application_module_dependencies` |  |
-| `application_module_targets` |  |
-| `application_modules_with_resources` |  |
 | `asset_compression_algorithm` |  |
 | `banned_duplicate_resource_types` |  |
 | `build_config_values` |  |
@@ -786,7 +778,6 @@ def android_bundle(
 | `native_library_merge_glue` |  |
 | `native_library_merge_localized_symbols` |  |
 | `native_library_merge_map` |  |
-| `native_library_proguard_config_generator` |  |
 | `no_auto_add_overlay_resources` |  |
 | `no_auto_version_resources` |  |
 | `no_dx` |  |
@@ -794,25 +785,22 @@ def android_bundle(
 | `optimization_passes` |  |
 | `package_asset_libraries` |  |
 | `package_type` |  |
+| `packaged_locales` |  |
 | `post_filter_resources_cmd` |  |
 | `preprocess_java_classes_bash` |  |
+| `preprocess_java_classes_cmd` |  |
 | `preprocess_java_classes_deps` |  |
 | `primary_dex_patterns` |  |
 | `proguard_config` |  |
 | `proguard_jvm_args` |  |
-| `redex` |  |
-| `redex_config` |  |
-| `redex_extra_args` |  |
 | `relinker_whitelist` |  |
 | `resource_compression` |  |
 | `resource_filter` |  |
 | `resource_stable_ids` |  |
 | `resource_union_package` |  |
-| `secondary_dex_head_classes_file` |  |
 | `secondary_dex_weight_limit` |  |
 | `skip_crunch_pngs` |  |
 | `skip_proguard` |  |
-| `tests` |  |
 | `trim_resource_ids` |  |
 | `use_split_dex` |  |
 | `within_view` |  |
@@ -830,6 +818,7 @@ def android_instrumentation_apk(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     aapt_mode: str.type = None,
     apk: str.type,
     contacts: [str.type] = None,
@@ -857,6 +846,7 @@ def android_instrumentation_apk(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `aapt_mode` |  |
 | `apk` |  |
 | `contacts` |  |
@@ -882,6 +872,7 @@ def android_instrumentation_test(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     apk: str.type,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
@@ -905,6 +896,7 @@ def android_instrumentation_test(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `apk` |  |
 | `contacts` |  |
 | `default_host_platform` |  |
@@ -926,6 +918,7 @@ def android_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _android_toolchain: str.type = None,
     _dex_toolchain: str.type = None,
     _java_toolchain: str.type = None,
@@ -970,7 +963,6 @@ def android_library(
     source_only_abi_deps: [str.type] = None,
     srcs: [str.type] = None,
     target: [None, str.type] = None,
-    tests: [""] = None,
     within_view: [None, [str.type]] = None
 ) -> None
 ```
@@ -987,6 +979,7 @@ def android_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_android_toolchain` |  |
 | `_dex_toolchain` |  |
 | `_java_toolchain` |  |
@@ -1031,7 +1024,6 @@ def android_library(
 | `source_only_abi_deps` |  |
 | `srcs` |  |
 | `target` |  |
-| `tests` |  |
 | `within_view` |  |
 
 ---
@@ -1046,6 +1038,7 @@ def android_manifest(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _android_toolchain: str.type = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
@@ -1069,6 +1062,7 @@ def android_manifest(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_android_toolchain` |  |
 | `contacts` |  |
 | `default_host_platform` |  |
@@ -1090,6 +1084,7 @@ def android_platform(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     base_platform: str.type,
     native_platforms: {str.type: str.type} = None,
     within_view: [None, [str.type]] = None
@@ -1108,6 +1103,7 @@ def android_platform(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `base_platform` |  |
 | `native_platforms` |  |
 | `within_view` |  |
@@ -1124,6 +1120,7 @@ def android_prebuilt_aar(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _android_toolchain: str.type = None,
     _dex_toolchain: str.type = None,
     _java_toolchain: str.type = None,
@@ -1154,6 +1151,7 @@ def android_prebuilt_aar(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_android_toolchain` |  |
 | `_dex_toolchain` |  |
 | `_java_toolchain` |  |
@@ -1174,14 +1172,7 @@ def android_prebuilt_aar(
 ## android_resource
 
 ```python
-def android_resource(**kwargs: UNKNOWN) -> UNKNOWN
-```
-
----
-## apk_genrule
-
-```python
-def apk_genrule(
+def android_resource(
     *,
     name: str.type,
     default_target_platform: [None, str.type] = None,
@@ -1189,24 +1180,21 @@ def apk_genrule(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
-    aab: [None, str.type] = None,
-    apk: [None, str.type] = None,
-    bash: [None, str.type] = None,
-    cacheable: [None, bool.type] = None,
-    cmd: [None, str.type] = None,
-    cmd_exe: [None, str.type] = None,
+    tests: [label] = None,
+    _android_toolchain: str.type = None,
+    assets: [None, [str.type, {str.type: str.type}]] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
-    enable_sandbox: [None, bool.type] = None,
-    environment_expansion_separator: [None, str.type] = None,
-    is_cacheable: bool.type = None,
+    deps: [str.type] = None,
+    has_whitelisted_strings: bool.type = None,
     labels: [str.type] = None,
     licenses: [str.type] = None,
-    need_android_tools: [None, bool.type] = None,
-    out: [None, str.type] = None,
-    remote: [None, bool.type] = None,
-    srcs: [{str.type: str.type}, [str.type]] = None,
-    tests: [""] = None,
+    manifest: [None, str.type] = None,
+    package: [None, str.type] = None,
+    project_assets: [None, str.type] = None,
+    project_res: [None, str.type] = None,
+    res: [None, [str.type, {str.type: str.type}]] = None,
+    resource_union: bool.type = None,
     within_view: [None, [str.type]] = None
 ) -> None
 ```
@@ -1223,6 +1211,70 @@ def apk_genrule(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
+| `_android_toolchain` |  |
+| `assets` |  |
+| `contacts` |  |
+| `default_host_platform` |  |
+| `deps` |  |
+| `has_whitelisted_strings` |  |
+| `labels` |  |
+| `licenses` |  |
+| `manifest` |  |
+| `package` |  |
+| `project_assets` |  |
+| `project_res` |  |
+| `res` |  |
+| `resource_union` |  |
+| `within_view` |  |
+
+---
+## apk_genrule
+
+```python
+def apk_genrule(
+    *,
+    name: str.type,
+    default_target_platform: [None, str.type] = None,
+    target_compatible_with: [str.type] = None,
+    compatible_with: [str.type] = None,
+    exec_compatible_with: [str.type] = None,
+    visibility: [str.type] = None,
+    tests: [label] = None,
+    aab: [None, str.type] = None,
+    apk: [None, str.type] = None,
+    bash: [None, str.type] = None,
+    cacheable: [None, bool.type] = None,
+    cmd: [None, str.type] = None,
+    cmd_exe: [None, str.type] = None,
+    contacts: [str.type] = None,
+    default_host_platform: [None, str.type] = None,
+    enable_sandbox: [None, bool.type] = None,
+    environment_expansion_separator: [None, str.type] = None,
+    is_cacheable: bool.type = None,
+    labels: [str.type] = None,
+    licenses: [str.type] = None,
+    need_android_tools: bool.type = None,
+    out: [None, str.type] = None,
+    remote: [None, bool.type] = None,
+    srcs: [{str.type: str.type}, [str.type]] = None,
+    within_view: [None, [str.type]] = None
+) -> None
+```
+
+
+
+### Parameters
+
+| Name | Details |
+|------|---------|
+| `name` | name of the target |
+| `default_target_platform` | specifies the default target platform, used when no platforms are specified on the command line |
+| `target_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
+| `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
+| `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
+| `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `aab` |  |
 | `apk` |  |
 | `bash` |  |
@@ -1240,15 +1292,53 @@ def apk_genrule(
 | `out` |  |
 | `remote` |  |
 | `srcs` |  |
-| `tests` |  |
 | `within_view` |  |
 
 ---
 ## apple_asset_catalog
 
 ```python
-def apple_asset_catalog(**kwargs: UNKNOWN) -> UNKNOWN
+def apple_asset_catalog(
+    *,
+    name: str.type,
+    default_target_platform: [None, str.type] = None,
+    target_compatible_with: [str.type] = None,
+    compatible_with: [str.type] = None,
+    exec_compatible_with: [str.type] = None,
+    visibility: [str.type] = None,
+    tests: [label] = None,
+    app_icon: [None, str.type] = None,
+    contacts: [str.type] = None,
+    default_host_platform: [None, str.type] = None,
+    dirs: [str.type] = None,
+    labels: [str.type] = None,
+    launch_image: [None, str.type] = None,
+    licenses: [str.type] = None,
+    within_view: [None, [str.type]] = None
+) -> None
 ```
+
+
+
+### Parameters
+
+| Name | Details |
+|------|---------|
+| `name` | name of the target |
+| `default_target_platform` | specifies the default target platform, used when no platforms are specified on the command line |
+| `target_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
+| `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
+| `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
+| `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
+| `app_icon` |  |
+| `contacts` |  |
+| `default_host_platform` |  |
+| `dirs` |  |
+| `labels` |  |
+| `launch_image` |  |
+| `licenses` |  |
+| `within_view` |  |
 
 ---
 ## apple_binary
@@ -1262,7 +1352,8 @@ def apple_binary(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
-    _cxx_toolchain: str.type = None,
+    tests: [label] = None,
+    _apple_toolchain: str.type = None,
     bridging_header: [None, str.type] = None,
     can_be_asset: [None, bool.type] = None,
     compiler_flags: [str.type] = None,
@@ -1276,6 +1367,7 @@ def apple_binary(
     devirt_enabled: bool.type = None,
     diagnostics: {str.type: str.type} = None,
     enable_cxx_interop: bool.type = None,
+    enable_distributed_thinlto: bool.type = None,
     entitlements_file: [None, str.type] = None,
     executable_name: [None, str.type] = None,
     exported_deps: [str.type] = None,
@@ -1329,26 +1421,28 @@ def apple_binary(
     post_linker_flags: [str.type] = None,
     post_platform_linker_flags: [(str.type, [str.type])] = None,
     precompiled_header: [None, str.type] = None,
-    prefer_stripped_objects: [None, bool.type] = None,
-    preferred_linkage: [None, str.type] = None,
+    prefer_stripped_objects: bool.type = None,
+    preferred_linkage: str.type = None,
     prefix_header: [None, str.type] = None,
     preprocessor_flags: [str.type] = None,
     public_include_directories: [str.type] = None,
     public_system_include_directories: [str.type] = None,
     raw_headers: [str.type] = None,
     reexport_all_header_dependencies: [None, bool.type] = None,
+    sdk_modules: [str.type] = None,
     serialize_debugging_options: bool.type = None,
     soname: [None, str.type] = None,
     srcs: [[str.type, (str.type, [str.type])]] = None,
     static_library_basename: [None, str.type] = None,
+    stripped: bool.type = None,
     supported_platforms_regex: [None, str.type] = None,
     supports_merged_linking: [None, bool.type] = None,
     swift_compiler_flags: [str.type] = None,
     swift_version: [None, str.type] = None,
     target_sdk_version: [None, str.type] = None,
-    tests: [""] = None,
     thin_lto: bool.type = None,
     use_submodules: bool.type = None,
+    uses_explicit_modules: bool.type = None,
     uses_modules: bool.type = None,
     within_view: [None, [str.type]] = None,
     xcode_private_headers_symlinks: [None, bool.type] = None,
@@ -1368,7 +1462,8 @@ def apple_binary(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
-| `_cxx_toolchain` |  |
+| `tests` | a list of targets that provide tests for this one |
+| `_apple_toolchain` |  |
 | `bridging_header` |  |
 | `can_be_asset` |  |
 | `compiler_flags` |  |
@@ -1382,6 +1477,7 @@ def apple_binary(
 | `devirt_enabled` |  |
 | `diagnostics` |  |
 | `enable_cxx_interop` |  |
+| `enable_distributed_thinlto` |  |
 | `entitlements_file` |  |
 | `executable_name` |  |
 | `exported_deps` |  |
@@ -1443,18 +1539,20 @@ def apple_binary(
 | `public_system_include_directories` |  |
 | `raw_headers` |  |
 | `reexport_all_header_dependencies` |  |
+| `sdk_modules` |  |
 | `serialize_debugging_options` |  |
 | `soname` |  |
 | `srcs` |  |
 | `static_library_basename` |  |
+| `stripped` |  |
 | `supported_platforms_regex` |  |
 | `supports_merged_linking` |  |
 | `swift_compiler_flags` |  |
 | `swift_version` |  |
 | `target_sdk_version` |  |
-| `tests` |  |
 | `thin_lto` |  |
 | `use_submodules` |  |
+| `uses_explicit_modules` |  |
 | `uses_modules` |  |
 | `within_view` |  |
 | `xcode_private_headers_symlinks` |  |
@@ -1479,9 +1577,9 @@ def apple_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _apple_toolchain: str.type = None,
-    _cxx_toolchain: str.type = None,
-    _swift_toolchain: str.type = None,
+    _apple_tools: str.type = None,
     bridging_header: [None, str.type] = None,
     can_be_asset: [None, bool.type] = None,
     compiler_flags: [str.type] = None,
@@ -1547,26 +1645,28 @@ def apple_library(
     post_linker_flags: [str.type] = None,
     post_platform_linker_flags: [(str.type, [str.type])] = None,
     precompiled_header: [None, str.type] = None,
-    preferred_linkage: [None, str.type] = None,
+    preferred_linkage: str.type = None,
     prefix_header: [None, str.type] = None,
     preprocessor_flags: [str.type] = None,
     public_include_directories: [str.type] = None,
     public_system_include_directories: [str.type] = None,
     raw_headers: [str.type] = None,
     reexport_all_header_dependencies: [None, bool.type] = None,
+    sdk_modules: [str.type] = None,
     serialize_debugging_options: bool.type = None,
     soname: [None, str.type] = None,
     srcs: [[str.type, (str.type, [str.type])]] = None,
     static_library_basename: [None, str.type] = None,
+    stripped: bool.type = None,
     supported_platforms_regex: [None, str.type] = None,
     supports_merged_linking: [None, bool.type] = None,
     swift_compiler_flags: [str.type] = None,
     swift_version: [None, str.type] = None,
     target_sdk_version: [None, str.type] = None,
-    tests: [""] = None,
     thin_lto: bool.type = None,
     use_archive: [None, bool.type] = None,
     use_submodules: bool.type = None,
+    uses_explicit_modules: bool.type = None,
     uses_modules: bool.type = None,
     within_view: [None, [str.type]] = None,
     xcode_private_headers_symlinks: [None, bool.type] = None,
@@ -1586,9 +1686,9 @@ def apple_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_apple_toolchain` |  |
-| `_cxx_toolchain` |  |
-| `_swift_toolchain` |  |
+| `_apple_tools` |  |
 | `bridging_header` |  |
 | `can_be_asset` |  |
 | `compiler_flags` |  |
@@ -1661,19 +1761,21 @@ def apple_library(
 | `public_system_include_directories` |  |
 | `raw_headers` |  |
 | `reexport_all_header_dependencies` |  |
+| `sdk_modules` |  |
 | `serialize_debugging_options` |  |
 | `soname` |  |
 | `srcs` |  |
 | `static_library_basename` |  |
+| `stripped` |  |
 | `supported_platforms_regex` |  |
 | `supports_merged_linking` |  |
 | `swift_compiler_flags` |  |
 | `swift_version` |  |
 | `target_sdk_version` |  |
-| `tests` |  |
 | `thin_lto` |  |
 | `use_archive` |  |
 | `use_submodules` |  |
+| `uses_explicit_modules` |  |
 | `uses_modules` |  |
 | `within_view` |  |
 | `xcode_private_headers_symlinks` |  |
@@ -1691,6 +1793,7 @@ def apple_package(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     bundle: str.type,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
@@ -1714,6 +1817,7 @@ def apple_package(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `bundle` |  |
 | `contacts` |  |
 | `default_host_platform` |  |
@@ -1727,8 +1831,57 @@ def apple_package(
 ## apple_resource
 
 ```python
-def apple_resource(**kwargs: UNKNOWN) -> UNKNOWN
+def apple_resource(
+    *,
+    name: str.type,
+    default_target_platform: [None, str.type] = None,
+    target_compatible_with: [str.type] = None,
+    compatible_with: [str.type] = None,
+    exec_compatible_with: [str.type] = None,
+    visibility: [str.type] = None,
+    tests: [label] = None,
+    codesign_on_copy: bool.type = None,
+    contacts: [str.type] = None,
+    content_dirs: [str.type] = None,
+    default_host_platform: [None, str.type] = None,
+    destination: [None, str.type] = None,
+    dirs: [str.type] = None,
+    files: [str.type] = None,
+    labels: [str.type] = None,
+    licenses: [str.type] = None,
+    named_variants: {str.type: [str.type]} = None,
+    resources_from_deps: [str.type] = None,
+    variants: [str.type] = None,
+    within_view: [None, [str.type]] = None
+) -> None
 ```
+
+
+
+### Parameters
+
+| Name | Details |
+|------|---------|
+| `name` | name of the target |
+| `default_target_platform` | specifies the default target platform, used when no platforms are specified on the command line |
+| `target_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
+| `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
+| `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
+| `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
+| `codesign_on_copy` |  |
+| `contacts` |  |
+| `content_dirs` |  |
+| `default_host_platform` |  |
+| `destination` |  |
+| `dirs` |  |
+| `files` |  |
+| `labels` |  |
+| `licenses` |  |
+| `named_variants` |  |
+| `resources_from_deps` |  |
+| `variants` |  |
+| `within_view` |  |
 
 ---
 ## apple_test
@@ -1742,7 +1895,13 @@ def apple_test(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
+    _apple_toolchain: str.type = None,
+    _apple_tools: str.type = None,
+    _codesign_type: [None, str.type] = None,
+    _fbxctest: str.type = None,
     asset_catalogs_compilation_options: {str.type: ""} = None,
+    binary: [None, str.type] = None,
     bridging_header: [None, str.type] = None,
     can_be_asset: [None, bool.type] = None,
     codesign_flags: [str.type] = None,
@@ -1775,6 +1934,7 @@ def apple_test(
     exported_post_linker_flags: [str.type] = None,
     exported_post_platform_linker_flags: [(str.type, [str.type])] = None,
     exported_preprocessor_flags: [str.type] = None,
+    extension: str.type = None,
     extra_xcode_files: [str.type] = None,
     extra_xcode_sources: [str.type] = None,
     fat_lto: bool.type = None,
@@ -1799,7 +1959,7 @@ def apple_test(
     licenses: [str.type] = None,
     link_group: [None, str.type] = None,
     link_group_map: [None, [(str.type, [(str.type, str.type, [None, str.type])])]] = None,
-    link_style: [None, str.type] = None,
+    link_style: str.type = None,
     link_whole: [None, bool.type] = None,
     linker_extra_outputs: [str.type] = None,
     linker_flags: [str.type] = None,
@@ -1815,15 +1975,18 @@ def apple_test(
     post_linker_flags: [str.type] = None,
     post_platform_linker_flags: [(str.type, [str.type])] = None,
     precompiled_header: [None, str.type] = None,
-    preferred_linkage: [None, str.type] = None,
+    preferred_linkage: str.type = None,
     prefix_header: [None, str.type] = None,
     preprocessor_flags: [str.type] = None,
     public_include_directories: [str.type] = None,
     public_system_include_directories: [str.type] = None,
     raw_headers: [str.type] = None,
     reexport_all_header_dependencies: [None, bool.type] = None,
+    resource_group: [None, str.type] = None,
+    resource_group_map: [None, str.type] = None,
     run_test_separately: bool.type = None,
     runner: [None, str.type] = None,
+    sdk_modules: [str.type] = None,
     serialize_debugging_options: bool.type = None,
     skip_copying_swift_stdlib: [None, bool.type] = None,
     snapshot_reference_images_path: [None, [str.type, str.type]] = None,
@@ -1831,6 +1994,7 @@ def apple_test(
     specs: [None, str.type] = None,
     srcs: [[str.type, (str.type, [str.type])]] = None,
     static_library_basename: [None, str.type] = None,
+    stripped: bool.type = None,
     supported_platforms_regex: [None, str.type] = None,
     supports_merged_linking: [None, bool.type] = None,
     swift_compiler_flags: [str.type] = None,
@@ -1838,11 +2002,11 @@ def apple_test(
     target_sdk_version: [None, str.type] = None,
     test_host_app: [None, str.type] = None,
     test_rule_timeout_ms: [None, int.type] = None,
-    tests: [""] = None,
     thin_lto: bool.type = None,
     try_skip_code_signing: [None, bool.type] = None,
     ui_test_target_app: [None, str.type] = None,
     use_submodules: bool.type = None,
+    uses_explicit_modules: bool.type = None,
     uses_modules: bool.type = None,
     within_view: [None, [str.type]] = None,
     xcode_private_headers_symlinks: [None, bool.type] = None,
@@ -1863,7 +2027,13 @@ def apple_test(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
+| `_apple_toolchain` |  |
+| `_apple_tools` |  |
+| `_codesign_type` |  |
+| `_fbxctest` |  |
 | `asset_catalogs_compilation_options` |  |
+| `binary` |  |
 | `bridging_header` |  |
 | `can_be_asset` |  |
 | `codesign_flags` |  |
@@ -1896,6 +2066,7 @@ def apple_test(
 | `exported_post_linker_flags` |  |
 | `exported_post_platform_linker_flags` |  |
 | `exported_preprocessor_flags` |  |
+| `extension` |  |
 | `extra_xcode_files` |  |
 | `extra_xcode_sources` |  |
 | `fat_lto` |  |
@@ -1943,8 +2114,11 @@ def apple_test(
 | `public_system_include_directories` |  |
 | `raw_headers` |  |
 | `reexport_all_header_dependencies` |  |
+| `resource_group` |  |
+| `resource_group_map` |  |
 | `run_test_separately` |  |
 | `runner` |  |
+| `sdk_modules` |  |
 | `serialize_debugging_options` |  |
 | `skip_copying_swift_stdlib` |  |
 | `snapshot_reference_images_path` |  |
@@ -1952,6 +2126,7 @@ def apple_test(
 | `specs` |  |
 | `srcs` |  |
 | `static_library_basename` |  |
+| `stripped` |  |
 | `supported_platforms_regex` |  |
 | `supports_merged_linking` |  |
 | `swift_compiler_flags` |  |
@@ -1959,11 +2134,11 @@ def apple_test(
 | `target_sdk_version` |  |
 | `test_host_app` |  |
 | `test_rule_timeout_ms` |  |
-| `tests` |  |
 | `thin_lto` |  |
 | `try_skip_code_signing` |  |
 | `ui_test_target_app` |  |
 | `use_submodules` |  |
+| `uses_explicit_modules` |  |
 | `uses_modules` |  |
 | `within_view` |  |
 | `xcode_private_headers_symlinks` |  |
@@ -1982,6 +2157,9 @@ def apple_toolchain(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
+    _internal_platform_path: [None, str.type] = None,
+    _internal_sdk_path: [None, str.type] = None,
     actool: str.type,
     architecture: str.type = None,
     build_version: [None, str.type] = None,
@@ -1999,13 +2177,12 @@ def apple_toolchain(
     libtool: str.type,
     licenses: [str.type] = None,
     lipo: str.type,
-    lldb: str.type,
-    min_version: str.type = None,
+    min_version: [None, str.type] = None,
     momc: str.type,
-    platform_path: str.type,
+    platform_path: [None, str.type] = None,
     sdk_environment: [None, str.type] = None,
     sdk_name: str.type = None,
-    sdk_path: str.type,
+    sdk_path: [None, str.type] = None,
     swift_toolchain: [None, str.type] = None,
     version: str.type = None,
     watch_kit_stub_binary: [None, str.type] = None,
@@ -2029,6 +2206,9 @@ def apple_toolchain(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
+| `_internal_platform_path` |  |
+| `_internal_sdk_path` |  |
 | `actool` |  |
 | `architecture` |  |
 | `build_version` |  |
@@ -2046,7 +2226,6 @@ def apple_toolchain(
 | `libtool` |  |
 | `licenses` |  |
 | `lipo` |  |
-| `lldb` |  |
 | `min_version` |  |
 | `momc` |  |
 | `platform_path` |  |
@@ -2074,6 +2253,7 @@ def apple_toolchain_set(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     apple_toolchains: [str.type] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
@@ -2095,6 +2275,7 @@ def apple_toolchain_set(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `apple_toolchains` |  |
 | `contacts` |  |
 | `default_host_platform` |  |
@@ -2114,8 +2295,9 @@ def apple_tools(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
-    actool: str.type,
-    ibtool: str.type,
+    tests: [label] = None,
+    assemble_bundle: str.type,
+    info_plist_processor: str.type,
     make_modulemap: str.type,
     make_vfsoverlay: str.type
 ) -> None
@@ -2133,8 +2315,9 @@ def apple_tools(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
-| `actool` |  |
-| `ibtool` |  |
+| `tests` | a list of targets that provide tests for this one |
+| `assemble_bundle` |  |
+| `info_plist_processor` |  |
 | `make_modulemap` |  |
 | `make_vfsoverlay` |  |
 
@@ -2150,6 +2333,7 @@ def cgo_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     cgo_compiler_flags: [str.type] = None,
     compiler_flags: [str.type] = None,
     contacts: [str.type] = None,
@@ -2200,7 +2384,6 @@ def cgo_library(
     preprocessor_flags: [str.type] = None,
     raw_headers: [str.type] = None,
     srcs: [[str.type, (str.type, [str.type])]] = None,
-    tests: [""] = None,
     thin_lto: bool.type = None,
     version_universe: [None, str.type] = None,
     within_view: [None, [str.type]] = None
@@ -2219,6 +2402,7 @@ def cgo_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `cgo_compiler_flags` |  |
 | `compiler_flags` |  |
 | `contacts` |  |
@@ -2269,10 +2453,16 @@ def cgo_library(
 | `preprocessor_flags` |  |
 | `raw_headers` |  |
 | `srcs` |  |
-| `tests` |  |
 | `thin_lto` |  |
 | `version_universe` |  |
 | `within_view` |  |
+
+---
+## cmd_args
+
+```python
+def cmd_args(*args: Vec < Value < 'v > >, format: Option < String > = None, joined: bool = None, delimiter: Option < String > = None, quote: Option < String > = None, prepend: Option < String > = None) -> StarlarkCommandLine < 'v >
+```
 
 ---
 ## command_alias
@@ -2286,6 +2476,7 @@ def command_alias(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     args: [str.type] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
@@ -2310,6 +2501,7 @@ def command_alias(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `args` |  |
 | `contacts` |  |
 | `default_host_platform` |  |
@@ -2332,6 +2524,7 @@ def config_setting(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     constraint_values: [str.type] = None,
     values: {str.type: str.type} = None,
     within_view: [None, [str.type]] = None
@@ -2350,6 +2543,7 @@ def config_setting(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `constraint_values` |  |
 | `values` |  |
 | `within_view` |  |
@@ -2358,43 +2552,8 @@ def config_setting(
 ## configured_alias
 
 ```python
-def configured_alias(
-    *,
-    name: str.type,
-    default_target_platform: [None, str.type] = None,
-    target_compatible_with: [str.type] = None,
-    compatible_with: [str.type] = None,
-    exec_compatible_with: [str.type] = None,
-    visibility: [str.type] = None,
-    actual: str.type,
-    contacts: [str.type] = None,
-    default_host_platform: [None, str.type] = None,
-    labels: [str.type] = None,
-    licenses: [str.type] = None,
-    platform: str.type,
-    within_view: [None, [str.type]] = None
-) -> None
+def configured_alias(name: UNKNOWN, actual: UNKNOWN, platform: UNKNOWN, **kwargs: UNKNOWN) -> UNKNOWN
 ```
-
-
-
-### Parameters
-
-| Name | Details |
-|------|---------|
-| `name` | name of the target |
-| `default_target_platform` | specifies the default target platform, used when no platforms are specified on the command line |
-| `target_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
-| `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
-| `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
-| `visibility` | a list of visibility patterns restricting what targets can depend on this one |
-| `actual` |  |
-| `contacts` |  |
-| `default_host_platform` |  |
-| `labels` |  |
-| `licenses` |  |
-| `platform` |  |
-| `within_view` |  |
 
 ---
 ## constraint_setting
@@ -2408,6 +2567,7 @@ def constraint_setting(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     within_view: [None, [str.type]] = None
 ) -> None
 ```
@@ -2424,6 +2584,7 @@ def constraint_setting(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `within_view` |  |
 
 ---
@@ -2438,6 +2599,7 @@ def constraint_value(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     constraint_setting: str.type,
     within_view: [None, [str.type]] = None
 ) -> None
@@ -2455,6 +2617,7 @@ def constraint_value(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `constraint_setting` |  |
 | `within_view` |  |
 
@@ -2470,6 +2633,7 @@ def core_data_model(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     labels: [str.type] = None,
@@ -2491,6 +2655,7 @@ def core_data_model(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `labels` |  |
@@ -2510,6 +2675,7 @@ def csharp_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     compiler_flags: [str.type] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
@@ -2536,6 +2702,7 @@ def csharp_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `compiler_flags` |  |
 | `contacts` |  |
 | `default_host_platform` |  |
@@ -2557,8 +2724,137 @@ def csharp_library(
 ## cxx_binary
 
 ```python
-def cxx_binary(version_universe: UNKNOWN = None, **kwargs: UNKNOWN) -> UNKNOWN
+def cxx_binary(
+    *,
+    name: str.type,
+    default_target_platform: [None, str.type] = None,
+    target_compatible_with: [str.type] = None,
+    compatible_with: [str.type] = None,
+    exec_compatible_with: [str.type] = None,
+    visibility: [str.type] = None,
+    tests: [label] = None,
+    _cxx_toolchain: str.type = None,
+    _hacks: str.type = None,
+    compiler_flags: [str.type] = None,
+    contacts: [str.type] = None,
+    cxx_runtime_type: [None, str.type] = None,
+    default_host_platform: [None, str.type] = None,
+    default_platform: [None, str.type] = None,
+    defaults: {str.type: str.type} = None,
+    deps: [str.type] = None,
+    deps_query: [None, str.type] = None,
+    devirt_enabled: bool.type = None,
+    enable_distributed_thinlto: bool.type = None,
+    executable_name: [None, str.type] = None,
+    fat_lto: bool.type = None,
+    focused_list_target: [None, str.type] = None,
+    frameworks: [str.type] = None,
+    header_namespace: [None, str.type] = None,
+    headers: [{str.type: str.type}, [str.type]] = None,
+    headers_as_raw_headers_mode: [None, str.type] = None,
+    include_directories: [str.type] = None,
+    labels: [str.type] = None,
+    lang_compiler_flags: {str.type: [str.type]} = None,
+    lang_platform_compiler_flags: {str.type: [(str.type, [str.type])]} = None,
+    lang_platform_preprocessor_flags: {str.type: [(str.type, [str.type])]} = None,
+    lang_preprocessor_flags: {str.type: [str.type]} = None,
+    libraries: [str.type] = None,
+    licenses: [str.type] = None,
+    link_deps_query_whole: bool.type = None,
+    link_group: [None, str.type] = None,
+    link_group_map: [None, [(str.type, [(str.type, str.type, [None, str.type])])]] = None,
+    link_style: [None, str.type] = None,
+    link_whole: default_only = None,
+    linker_extra_outputs: [str.type] = None,
+    linker_flags: [str.type] = None,
+    platform_compiler_flags: [(str.type, [str.type])] = None,
+    platform_deps: [(str.type, [str.type])] = None,
+    platform_headers: [(str.type, [{str.type: str.type}, [str.type]])] = None,
+    platform_linker_flags: [(str.type, [str.type])] = None,
+    platform_preprocessor_flags: [(str.type, [str.type])] = None,
+    platform_srcs: [(str.type, [[str.type, (str.type, [str.type])]])] = None,
+    post_linker_flags: [str.type] = None,
+    post_platform_linker_flags: [(str.type, [str.type])] = None,
+    precompiled_header: [None, str.type] = None,
+    prefer_stripped_objects: bool.type = None,
+    prefix_header: [None, str.type] = None,
+    preprocessor_flags: [str.type] = None,
+    raw_headers: [str.type] = None,
+    resources: [{str.type: [str.type, str.type]}, [[str.type, str.type]]] = None,
+    srcs: [[str.type, (str.type, [str.type])]] = None,
+    thin_lto: bool.type = None,
+    use_link_groups: bool.type = None,
+    version_universe: [None, str.type] = None,
+    within_view: [None, [str.type]] = None
+) -> None
 ```
+
+
+
+### Parameters
+
+| Name | Details |
+|------|---------|
+| `name` | name of the target |
+| `default_target_platform` | specifies the default target platform, used when no platforms are specified on the command line |
+| `target_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
+| `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
+| `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
+| `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
+| `_cxx_toolchain` |  |
+| `_hacks` |  |
+| `compiler_flags` |  |
+| `contacts` |  |
+| `cxx_runtime_type` |  |
+| `default_host_platform` |  |
+| `default_platform` |  |
+| `defaults` |  |
+| `deps` |  |
+| `deps_query` |  |
+| `devirt_enabled` |  |
+| `enable_distributed_thinlto` |  |
+| `executable_name` |  |
+| `fat_lto` |  |
+| `focused_list_target` |  |
+| `frameworks` |  |
+| `header_namespace` |  |
+| `headers` |  |
+| `headers_as_raw_headers_mode` |  |
+| `include_directories` |  |
+| `labels` |  |
+| `lang_compiler_flags` |  |
+| `lang_platform_compiler_flags` |  |
+| `lang_platform_preprocessor_flags` |  |
+| `lang_preprocessor_flags` |  |
+| `libraries` |  |
+| `licenses` |  |
+| `link_deps_query_whole` |  |
+| `link_group` |  |
+| `link_group_map` |  |
+| `link_style` |  |
+| `link_whole` |  |
+| `linker_extra_outputs` |  |
+| `linker_flags` |  |
+| `platform_compiler_flags` |  |
+| `platform_deps` |  |
+| `platform_headers` |  |
+| `platform_linker_flags` |  |
+| `platform_preprocessor_flags` |  |
+| `platform_srcs` |  |
+| `post_linker_flags` |  |
+| `post_platform_linker_flags` |  |
+| `precompiled_header` |  |
+| `prefer_stripped_objects` |  |
+| `prefix_header` |  |
+| `preprocessor_flags` |  |
+| `raw_headers` |  |
+| `resources` |  |
+| `srcs` |  |
+| `thin_lto` |  |
+| `use_link_groups` |  |
+| `version_universe` |  |
+| `within_view` |  |
 
 ---
 ## cxx_genrule
@@ -2572,6 +2868,7 @@ def cxx_genrule(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _cxx_toolchain: str.type = None,
     bash: [None, str.type] = None,
     cacheable: [None, bool.type] = None,
@@ -2584,12 +2881,11 @@ def cxx_genrule(
     environment_expansion_separator: [None, str.type] = None,
     labels: [str.type] = None,
     licenses: [str.type] = None,
-    need_android_tools: [None, bool.type] = None,
+    need_android_tools: bool.type = None,
     out: [None, str.type] = None,
     outs: [None, {str.type: [str.type]}] = None,
     remote: [None, bool.type] = None,
     srcs: [{str.type: str.type}, [str.type]] = None,
-    tests: [""] = None,
     type: [None, str.type] = None,
     within_view: [None, [str.type]] = None
 ) -> None
@@ -2607,6 +2903,7 @@ def cxx_genrule(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
 | `bash` |  |
 | `cacheable` |  |
@@ -2624,7 +2921,6 @@ def cxx_genrule(
 | `outs` |  |
 | `remote` |  |
 | `srcs` |  |
-| `tests` |  |
 | `type` |  |
 | `within_view` |  |
 
@@ -2632,8 +2928,199 @@ def cxx_genrule(
 ## cxx_library
 
 ```python
-def cxx_library(version_universe: UNKNOWN = None, **kwargs: UNKNOWN) -> UNKNOWN
+def cxx_library(
+    *,
+    name: str.type,
+    default_target_platform: [None, str.type] = None,
+    target_compatible_with: [str.type] = None,
+    compatible_with: [str.type] = None,
+    exec_compatible_with: [str.type] = None,
+    visibility: [str.type] = None,
+    tests: [label] = None,
+    _cxx_toolchain: str.type = None,
+    _hacks: str.type = None,
+    bridging_header: [None, str.type] = None,
+    can_be_asset: [None, bool.type] = None,
+    compiler_flags: [str.type] = None,
+    contacts: [str.type] = None,
+    cxx_runtime_type: [None, str.type] = None,
+    default_host_platform: [None, str.type] = None,
+    default_platform: [None, str.type] = None,
+    defaults: {str.type: str.type} = None,
+    deps: [str.type] = None,
+    devirt_enabled: bool.type = None,
+    diagnostics: {str.type: str.type} = None,
+    executable_name: [None, str.type] = None,
+    exported_deps: [str.type] = None,
+    exported_header_style: str.type = None,
+    exported_headers: [{str.type: str.type}, [str.type]] = None,
+    exported_lang_platform_preprocessor_flags: {str.type: [(str.type, [str.type])]} = None,
+    exported_lang_preprocessor_flags: {str.type: [str.type]} = None,
+    exported_linker_flags: [str.type] = None,
+    exported_platform_deps: [(str.type, [str.type])] = None,
+    exported_platform_headers: [(str.type, [{str.type: str.type}, [str.type]])] = None,
+    exported_platform_linker_flags: [(str.type, [str.type])] = None,
+    exported_platform_preprocessor_flags: [(str.type, [str.type])] = None,
+    exported_post_linker_flags: [str.type] = None,
+    exported_post_platform_linker_flags: [(str.type, [str.type])] = None,
+    exported_preprocessor_flags: [str.type] = None,
+    extra_xcode_files: [str.type] = None,
+    extra_xcode_sources: [str.type] = None,
+    fat_lto: bool.type = None,
+    focused_list_target: [None, str.type] = None,
+    force_static: [None, bool.type] = None,
+    frameworks: [str.type] = None,
+    header_namespace: [None, str.type] = None,
+    headers: [{str.type: str.type}, [str.type]] = None,
+    headers_as_raw_headers_mode: [None, str.type] = None,
+    include_directories: [str.type] = None,
+    include_in_android_merge_map_output: bool.type = None,
+    labels: [str.type] = None,
+    lang_compiler_flags: {str.type: [str.type]} = None,
+    lang_platform_compiler_flags: {str.type: [(str.type, [str.type])]} = None,
+    lang_platform_preprocessor_flags: {str.type: [(str.type, [str.type])]} = None,
+    lang_preprocessor_flags: {str.type: [str.type]} = None,
+    libraries: [str.type] = None,
+    licenses: [str.type] = None,
+    link_group: [None, str.type] = None,
+    link_group_map: [None, [(str.type, [(str.type, str.type, [None, str.type])])]] = None,
+    link_style: [None, str.type] = None,
+    link_whole: [None, bool.type] = None,
+    linker_extra_outputs: [str.type] = None,
+    linker_flags: [str.type] = None,
+    module_name: [None, str.type] = None,
+    platform_compiler_flags: [(str.type, [str.type])] = None,
+    platform_deps: [(str.type, [str.type])] = None,
+    platform_headers: [(str.type, [{str.type: str.type}, [str.type]])] = None,
+    platform_linker_flags: [(str.type, [str.type])] = None,
+    platform_preprocessor_flags: [(str.type, [str.type])] = None,
+    platform_srcs: [(str.type, [[str.type, (str.type, [str.type])]])] = None,
+    post_linker_flags: [str.type] = None,
+    post_platform_linker_flags: [(str.type, [str.type])] = None,
+    precompiled_header: [None, str.type] = None,
+    prefer_stripped_objects: bool.type = None,
+    preferred_linkage: str.type = None,
+    prefix_header: [None, str.type] = None,
+    preprocessor_flags: [str.type] = None,
+    public_include_directories: [str.type] = None,
+    public_system_include_directories: [str.type] = None,
+    raw_headers: [str.type] = None,
+    reexport_all_header_dependencies: [None, bool.type] = None,
+    resources: [{str.type: [str.type, str.type]}, [[str.type, str.type]]] = None,
+    sdk_modules: [str.type] = None,
+    soname: [None, str.type] = None,
+    srcs: [[str.type, (str.type, [str.type])]] = None,
+    static_library_basename: [None, str.type] = None,
+    supported_platforms_regex: [None, str.type] = None,
+    supports_merged_linking: [None, bool.type] = None,
+    thin_lto: bool.type = None,
+    use_archive: [None, bool.type] = None,
+    use_link_groups: bool.type = None,
+    uses_explicit_modules: bool.type = None,
+    version_universe: [None, str.type] = None,
+    within_view: [None, [str.type]] = None,
+    xcode_private_headers_symlinks: [None, bool.type] = None,
+    xcode_public_headers_symlinks: [None, bool.type] = None
+) -> None
 ```
+
+
+
+### Parameters
+
+| Name | Details |
+|------|---------|
+| `name` | name of the target |
+| `default_target_platform` | specifies the default target platform, used when no platforms are specified on the command line |
+| `target_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
+| `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
+| `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
+| `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
+| `_cxx_toolchain` |  |
+| `_hacks` |  |
+| `bridging_header` |  |
+| `can_be_asset` |  |
+| `compiler_flags` |  |
+| `contacts` |  |
+| `cxx_runtime_type` |  |
+| `default_host_platform` |  |
+| `default_platform` |  |
+| `defaults` |  |
+| `deps` |  |
+| `devirt_enabled` |  |
+| `diagnostics` |  |
+| `executable_name` |  |
+| `exported_deps` |  |
+| `exported_header_style` |  |
+| `exported_headers` |  |
+| `exported_lang_platform_preprocessor_flags` |  |
+| `exported_lang_preprocessor_flags` |  |
+| `exported_linker_flags` |  |
+| `exported_platform_deps` |  |
+| `exported_platform_headers` |  |
+| `exported_platform_linker_flags` |  |
+| `exported_platform_preprocessor_flags` |  |
+| `exported_post_linker_flags` |  |
+| `exported_post_platform_linker_flags` |  |
+| `exported_preprocessor_flags` |  |
+| `extra_xcode_files` |  |
+| `extra_xcode_sources` |  |
+| `fat_lto` |  |
+| `focused_list_target` |  |
+| `force_static` |  |
+| `frameworks` |  |
+| `header_namespace` |  |
+| `headers` |  |
+| `headers_as_raw_headers_mode` |  |
+| `include_directories` |  |
+| `include_in_android_merge_map_output` |  |
+| `labels` |  |
+| `lang_compiler_flags` |  |
+| `lang_platform_compiler_flags` |  |
+| `lang_platform_preprocessor_flags` |  |
+| `lang_preprocessor_flags` |  |
+| `libraries` |  |
+| `licenses` |  |
+| `link_group` |  |
+| `link_group_map` |  |
+| `link_style` |  |
+| `link_whole` |  |
+| `linker_extra_outputs` |  |
+| `linker_flags` |  |
+| `module_name` |  |
+| `platform_compiler_flags` |  |
+| `platform_deps` |  |
+| `platform_headers` |  |
+| `platform_linker_flags` |  |
+| `platform_preprocessor_flags` |  |
+| `platform_srcs` |  |
+| `post_linker_flags` |  |
+| `post_platform_linker_flags` |  |
+| `precompiled_header` |  |
+| `prefer_stripped_objects` |  |
+| `preferred_linkage` |  |
+| `prefix_header` |  |
+| `preprocessor_flags` |  |
+| `public_include_directories` |  |
+| `public_system_include_directories` |  |
+| `raw_headers` |  |
+| `reexport_all_header_dependencies` |  |
+| `resources` |  |
+| `sdk_modules` |  |
+| `soname` |  |
+| `srcs` |  |
+| `static_library_basename` |  |
+| `supported_platforms_regex` |  |
+| `supports_merged_linking` |  |
+| `thin_lto` |  |
+| `use_archive` |  |
+| `use_link_groups` |  |
+| `uses_explicit_modules` |  |
+| `version_universe` |  |
+| `within_view` |  |
+| `xcode_private_headers_symlinks` |  |
+| `xcode_public_headers_symlinks` |  |
 
 ---
 ## cxx_lua_extension
@@ -2647,6 +3134,7 @@ def cxx_lua_extension(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     base_module: [None, str.type] = None,
     compiler_flags: [str.type] = None,
     contacts: [str.type] = None,
@@ -2683,7 +3171,6 @@ def cxx_lua_extension(
     preprocessor_flags: [str.type] = None,
     raw_headers: [str.type] = None,
     srcs: [[str.type, (str.type, [str.type])]] = None,
-    tests: [""] = None,
     version_universe: [None, str.type] = None,
     within_view: [None, [str.type]] = None
 ) -> None
@@ -2701,6 +3188,7 @@ def cxx_lua_extension(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `base_module` |  |
 | `compiler_flags` |  |
 | `contacts` |  |
@@ -2737,7 +3225,6 @@ def cxx_lua_extension(
 | `preprocessor_flags` |  |
 | `raw_headers` |  |
 | `srcs` |  |
-| `tests` |  |
 | `version_universe` |  |
 | `within_view` |  |
 
@@ -2753,6 +3240,7 @@ def cxx_precompiled_header(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     deps: [str.type] = None,
@@ -2776,6 +3264,7 @@ def cxx_precompiled_header(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `deps` |  |
@@ -2789,8 +3278,203 @@ def cxx_precompiled_header(
 ## cxx_python_extension
 
 ```python
-def cxx_python_extension(version_universe: UNKNOWN = None, **kwargs: UNKNOWN) -> UNKNOWN
+def cxx_python_extension(
+    *,
+    name: str.type,
+    default_target_platform: [None, str.type] = None,
+    target_compatible_with: [str.type] = None,
+    compatible_with: [str.type] = None,
+    exec_compatible_with: [str.type] = None,
+    visibility: [str.type] = None,
+    tests: [label] = None,
+    _cxx_toolchain: str.type = None,
+    _hacks: str.type = None,
+    _python_toolchain: str.type = None,
+    base_module: [None, str.type] = None,
+    bridging_header: default_only = None,
+    can_be_asset: default_only = None,
+    compiler_flags: [str.type] = None,
+    contacts: [str.type] = None,
+    cxx_runtime_type: [None, str.type] = None,
+    default_host_platform: [None, str.type] = None,
+    default_platform: [None, str.type] = None,
+    defaults: {str.type: str.type} = None,
+    deps: [str.type] = None,
+    devirt_enabled: default_only = None,
+    diagnostics: default_only = None,
+    executable_name: [None, str.type] = None,
+    exported_deps: default_only = None,
+    exported_header_style: default_only = None,
+    exported_headers: default_only = None,
+    exported_lang_platform_preprocessor_flags: default_only = None,
+    exported_lang_preprocessor_flags: default_only = None,
+    exported_linker_flags: default_only = None,
+    exported_platform_deps: default_only = None,
+    exported_platform_headers: default_only = None,
+    exported_platform_linker_flags: default_only = None,
+    exported_platform_preprocessor_flags: default_only = None,
+    exported_post_linker_flags: default_only = None,
+    exported_post_platform_linker_flags: default_only = None,
+    exported_preprocessor_flags: default_only = None,
+    extra_xcode_files: default_only = None,
+    extra_xcode_sources: default_only = None,
+    fat_lto: default_only = None,
+    focused_list_target: default_only = None,
+    force_static: default_only = None,
+    frameworks: [str.type] = None,
+    header_namespace: [None, str.type] = None,
+    headers: [{str.type: str.type}, [str.type]] = None,
+    headers_as_raw_headers_mode: [None, str.type] = None,
+    include_directories: [str.type] = None,
+    include_in_android_merge_map_output: default_only = None,
+    labels: [str.type] = None,
+    lang_compiler_flags: {str.type: [str.type]} = None,
+    lang_platform_compiler_flags: {str.type: [(str.type, [str.type])]} = None,
+    lang_platform_preprocessor_flags: {str.type: [(str.type, [str.type])]} = None,
+    lang_preprocessor_flags: {str.type: [str.type]} = None,
+    libraries: [str.type] = None,
+    licenses: [str.type] = None,
+    link_group: default_only = None,
+    link_group_map: default_only = None,
+    link_style: [None, str.type] = None,
+    link_whole: default_only = None,
+    linker_extra_outputs: [str.type] = None,
+    linker_flags: [str.type] = None,
+    module_name: [None, str.type] = None,
+    platform_compiler_flags: [(str.type, [str.type])] = None,
+    platform_deps: [(str.type, [str.type])] = None,
+    platform_headers: [(str.type, [{str.type: str.type}, [str.type]])] = None,
+    platform_linker_flags: [(str.type, [str.type])] = None,
+    platform_preprocessor_flags: [(str.type, [str.type])] = None,
+    platform_srcs: [(str.type, [[str.type, (str.type, [str.type])]])] = None,
+    post_linker_flags: [str.type] = None,
+    post_platform_linker_flags: [(str.type, [str.type])] = None,
+    precompiled_header: [None, str.type] = None,
+    preferred_linkage: default_only = None,
+    prefix_header: [None, str.type] = None,
+    preprocessor_flags: [str.type] = None,
+    public_include_directories: default_only = None,
+    public_system_include_directories: default_only = None,
+    raw_headers: [str.type] = None,
+    reexport_all_header_dependencies: default_only = None,
+    resources: default_only = None,
+    sdk_modules: default_only = None,
+    soname: default_only = None,
+    srcs: [[str.type, (str.type, [str.type])]] = None,
+    static_library_basename: default_only = None,
+    supported_platforms_regex: default_only = None,
+    supports_merged_linking: default_only = None,
+    thin_lto: default_only = None,
+    type_stub: [None, str.type] = None,
+    use_archive: default_only = None,
+    use_link_groups: bool.type = None,
+    uses_explicit_modules: default_only = None,
+    version_universe: [None, str.type] = None,
+    within_view: [None, [str.type]] = None,
+    xcode_private_headers_symlinks: default_only = None,
+    xcode_public_headers_symlinks: default_only = None
+) -> None
 ```
+
+
+
+### Parameters
+
+| Name | Details |
+|------|---------|
+| `name` | name of the target |
+| `default_target_platform` | specifies the default target platform, used when no platforms are specified on the command line |
+| `target_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
+| `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
+| `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
+| `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
+| `_cxx_toolchain` |  |
+| `_hacks` |  |
+| `_python_toolchain` |  |
+| `base_module` |  |
+| `bridging_header` |  |
+| `can_be_asset` |  |
+| `compiler_flags` |  |
+| `contacts` |  |
+| `cxx_runtime_type` |  |
+| `default_host_platform` |  |
+| `default_platform` |  |
+| `defaults` |  |
+| `deps` |  |
+| `devirt_enabled` |  |
+| `diagnostics` |  |
+| `executable_name` |  |
+| `exported_deps` |  |
+| `exported_header_style` |  |
+| `exported_headers` |  |
+| `exported_lang_platform_preprocessor_flags` |  |
+| `exported_lang_preprocessor_flags` |  |
+| `exported_linker_flags` |  |
+| `exported_platform_deps` |  |
+| `exported_platform_headers` |  |
+| `exported_platform_linker_flags` |  |
+| `exported_platform_preprocessor_flags` |  |
+| `exported_post_linker_flags` |  |
+| `exported_post_platform_linker_flags` |  |
+| `exported_preprocessor_flags` |  |
+| `extra_xcode_files` |  |
+| `extra_xcode_sources` |  |
+| `fat_lto` |  |
+| `focused_list_target` |  |
+| `force_static` |  |
+| `frameworks` |  |
+| `header_namespace` |  |
+| `headers` |  |
+| `headers_as_raw_headers_mode` |  |
+| `include_directories` |  |
+| `include_in_android_merge_map_output` |  |
+| `labels` |  |
+| `lang_compiler_flags` |  |
+| `lang_platform_compiler_flags` |  |
+| `lang_platform_preprocessor_flags` |  |
+| `lang_preprocessor_flags` |  |
+| `libraries` |  |
+| `licenses` |  |
+| `link_group` |  |
+| `link_group_map` |  |
+| `link_style` |  |
+| `link_whole` |  |
+| `linker_extra_outputs` |  |
+| `linker_flags` |  |
+| `module_name` |  |
+| `platform_compiler_flags` |  |
+| `platform_deps` |  |
+| `platform_headers` |  |
+| `platform_linker_flags` |  |
+| `platform_preprocessor_flags` |  |
+| `platform_srcs` |  |
+| `post_linker_flags` |  |
+| `post_platform_linker_flags` |  |
+| `precompiled_header` |  |
+| `preferred_linkage` |  |
+| `prefix_header` |  |
+| `preprocessor_flags` |  |
+| `public_include_directories` |  |
+| `public_system_include_directories` |  |
+| `raw_headers` |  |
+| `reexport_all_header_dependencies` |  |
+| `resources` |  |
+| `sdk_modules` |  |
+| `soname` |  |
+| `srcs` |  |
+| `static_library_basename` |  |
+| `supported_platforms_regex` |  |
+| `supports_merged_linking` |  |
+| `thin_lto` |  |
+| `type_stub` |  |
+| `use_archive` |  |
+| `use_link_groups` |  |
+| `uses_explicit_modules` |  |
+| `version_universe` |  |
+| `within_view` |  |
+| `xcode_private_headers_symlinks` |  |
+| `xcode_public_headers_symlinks` |  |
 
 ---
 ## cxx_test
@@ -2804,6 +3488,7 @@ def cxx_test(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _cxx_toolchain: str.type = None,
     _hacks: str.type = None,
     additional_coverage_targets: [str.type] = None,
@@ -2817,6 +3502,7 @@ def cxx_test(
     deps: [str.type] = None,
     deps_query: [None, str.type] = None,
     devirt_enabled: bool.type = None,
+    enable_distributed_thinlto: bool.type = None,
     env: {str.type: str.type} = None,
     executable_name: [None, str.type] = None,
     fat_lto: bool.type = None,
@@ -2858,9 +3544,9 @@ def cxx_test(
     run_test_separately: [None, bool.type] = None,
     srcs: [[str.type, (str.type, [str.type])]] = None,
     test_rule_timeout_ms: [None, int.type] = None,
-    tests: [""] = None,
     thin_lto: bool.type = None,
     use_default_test_main: [None, bool.type] = None,
+    use_link_groups: bool.type = None,
     version_universe: [None, str.type] = None,
     within_view: [None, [str.type]] = None
 ) -> None
@@ -2878,6 +3564,7 @@ def cxx_test(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
 | `_hacks` |  |
 | `additional_coverage_targets` |  |
@@ -2891,6 +3578,7 @@ def cxx_test(
 | `deps` |  |
 | `deps_query` |  |
 | `devirt_enabled` |  |
+| `enable_distributed_thinlto` |  |
 | `env` |  |
 | `executable_name` |  |
 | `fat_lto` |  |
@@ -2932,9 +3620,9 @@ def cxx_test(
 | `run_test_separately` |  |
 | `srcs` |  |
 | `test_rule_timeout_ms` |  |
-| `tests` |  |
 | `thin_lto` |  |
 | `use_default_test_main` |  |
+| `use_link_groups` |  |
 | `version_universe` |  |
 | `within_view` |  |
 
@@ -2950,6 +3638,8 @@ def cxx_toolchain(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
+    _dist_lto_tools: str.type = None,
     _mk_comp_db: str.type = None,
     _mk_hmap: str.type = None,
     archive_contents: str.type = None,
@@ -2959,10 +3649,14 @@ def cxx_toolchain(
     asm_compiler: [None, str.type] = None,
     asm_compiler_flags: [str.type] = None,
     asm_compiler_type: [None, str.type] = None,
+    asm_preprocessor: [None, str.type] = None,
     asm_preprocessor_flags: [str.type] = None,
+    asm_preprocessor_type: [None, str.type] = None,
     assembler: str.type,
     assembler_flags: [str.type] = None,
+    assembler_preprocessor: [None, str.type] = None,
     assembler_preprocessor_flags: [str.type] = None,
+    assembler_preprocessor_type: [None, str.type] = None,
     assembler_type: [None, str.type] = None,
     binary_extension: [None, str.type] = None,
     c_compiler: str.type,
@@ -2983,6 +3677,7 @@ def cxx_toolchain(
     cxx_preprocessor_flags: [str.type] = None,
     debug_path_prefix_map_sanitizer_format: [None, str.type] = None,
     default_host_platform: [None, str.type] = None,
+    detailed_untracked_header_messages: bool.type = None,
     filepath_length_limited: bool.type = None,
     headers_as_raw_headers_mode: [None, str.type] = None,
     headers_whitelist: [str.type] = None,
@@ -3000,12 +3695,14 @@ def cxx_toolchain(
     objcopy_for_shared_library_interface: str.type,
     objcopy_recalculates_layout: bool.type = None,
     object_file_extension: str.type = None,
+    pic_type_for_shared_linking: str.type = None,
     platform_name: [None, str.type] = None,
     private_headers_symlinks_enabled: bool.type = None,
     public_headers_symlinks_enabled: bool.type = None,
     ranlib: [None, str.type] = None,
     ranlib_flags: [str.type] = None,
     requires_archives: bool.type = None,
+    requires_objects: bool.type = None,
     shared_dep_runtime_ld_flags: [str.type] = None,
     shared_library_extension: str.type = None,
     shared_library_interface_flags: [str.type] = None,
@@ -3018,6 +3715,8 @@ def cxx_toolchain(
     strip_all_flags: [None, [str.type]] = None,
     strip_debug_flags: [None, [str.type]] = None,
     strip_non_global_flags: [None, [str.type]] = None,
+    supports_distributed_thinlto: bool.type = None,
+    use_archiver_flags: bool.type = None,
     use_arg_file: bool.type = None,
     use_header_map: bool.type = None,
     within_view: [None, [str.type]] = None
@@ -3036,6 +3735,8 @@ def cxx_toolchain(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
+| `_dist_lto_tools` |  |
 | `_mk_comp_db` |  |
 | `_mk_hmap` |  |
 | `archive_contents` |  |
@@ -3045,10 +3746,14 @@ def cxx_toolchain(
 | `asm_compiler` |  |
 | `asm_compiler_flags` |  |
 | `asm_compiler_type` |  |
+| `asm_preprocessor` |  |
 | `asm_preprocessor_flags` |  |
+| `asm_preprocessor_type` |  |
 | `assembler` |  |
 | `assembler_flags` |  |
+| `assembler_preprocessor` |  |
 | `assembler_preprocessor_flags` |  |
+| `assembler_preprocessor_type` |  |
 | `assembler_type` |  |
 | `binary_extension` |  |
 | `c_compiler` |  |
@@ -3069,6 +3774,7 @@ def cxx_toolchain(
 | `cxx_preprocessor_flags` |  |
 | `debug_path_prefix_map_sanitizer_format` |  |
 | `default_host_platform` |  |
+| `detailed_untracked_header_messages` |  |
 | `filepath_length_limited` |  |
 | `headers_as_raw_headers_mode` |  |
 | `headers_whitelist` |  |
@@ -3086,12 +3792,14 @@ def cxx_toolchain(
 | `objcopy_for_shared_library_interface` |  |
 | `objcopy_recalculates_layout` |  |
 | `object_file_extension` |  |
+| `pic_type_for_shared_linking` |  |
 | `platform_name` |  |
 | `private_headers_symlinks_enabled` |  |
 | `public_headers_symlinks_enabled` |  |
 | `ranlib` |  |
 | `ranlib_flags` |  |
 | `requires_archives` |  |
+| `requires_objects` |  |
 | `shared_dep_runtime_ld_flags` |  |
 | `shared_library_extension` |  |
 | `shared_library_interface_flags` |  |
@@ -3104,6 +3812,8 @@ def cxx_toolchain(
 | `strip_all_flags` |  |
 | `strip_debug_flags` |  |
 | `strip_non_global_flags` |  |
+| `supports_distributed_thinlto` |  |
+| `use_archiver_flags` |  |
 | `use_arg_file` |  |
 | `use_header_map` |  |
 | `within_view` |  |
@@ -3120,6 +3830,7 @@ def d_binary(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     deps: [str.type] = None,
@@ -3143,6 +3854,7 @@ def d_binary(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `deps` |  |
@@ -3164,6 +3876,7 @@ def d_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     deps: [str.type] = None,
@@ -3187,6 +3900,7 @@ def d_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `deps` |  |
@@ -3208,6 +3922,7 @@ def d_test(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     deps: [str.type] = None,
@@ -3232,6 +3947,7 @@ def d_test(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `deps` |  |
@@ -3261,6 +3977,7 @@ def external_test_runner(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     binary: str.type,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
@@ -3282,6 +3999,7 @@ def external_test_runner(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `binary` |  |
 | `contacts` |  |
 | `default_host_platform` |  |
@@ -3301,6 +4019,7 @@ def extract_archive(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contents_archive: str.type,
     directory_name: [None, str.type] = None
 ) -> None
@@ -3318,6 +4037,7 @@ def extract_archive(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contents_archive` |  |
 | `directory_name` |  |
 
@@ -3333,6 +4053,7 @@ def filegroup(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     labels: [str.type] = None,
@@ -3354,6 +4075,7 @@ def filegroup(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `labels` |  |
@@ -3380,6 +4102,7 @@ def gen_aidl(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _android_toolchain: str.type = None,
     _java_toolchain: str.type = None,
     aidl: str.type,
@@ -3406,6 +4129,7 @@ def gen_aidl(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_android_toolchain` |  |
 | `_java_toolchain` |  |
 | `aidl` |  |
@@ -3430,6 +4154,7 @@ def genrule(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     bash: [None, str.type] = None,
     cacheable: [None, bool.type] = None,
     cmd: [None, str.type] = None,
@@ -3442,12 +4167,11 @@ def genrule(
     executable: [None, bool.type] = None,
     labels: [str.type] = None,
     licenses: [str.type] = None,
-    need_android_tools: [None, bool.type] = None,
+    need_android_tools: bool.type = None,
     out: [None, str.type] = None,
     outs: [None, {str.type: [str.type]}] = None,
     remote: [None, bool.type] = None,
     srcs: [{str.type: str.type}, [str.type]] = None,
-    tests: [""] = None,
     type: [None, str.type] = None,
     within_view: [None, [str.type]] = None
 ) -> None
@@ -3465,6 +4189,7 @@ def genrule(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `bash` |  |
 | `cacheable` |  |
 | `cmd` |  |
@@ -3482,7 +4207,6 @@ def genrule(
 | `outs` |  |
 | `remote` |  |
 | `srcs` |  |
-| `tests` |  |
 | `type` |  |
 | `within_view` |  |
 
@@ -3519,6 +4243,7 @@ def go_binary(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _cxx_toolchain: str.type = None,
     _go_toolchain: str.type = None,
     assembler_flags: [str.type] = None,
@@ -3552,6 +4277,7 @@ def go_binary(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
 | `_go_toolchain` |  |
 | `assembler_flags` |  |
@@ -3583,6 +4309,7 @@ def go_exported_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     assembler_flags: [str.type] = None,
     build_mode: str.type,
     compiler_flags: [str.type] = None,
@@ -3615,6 +4342,7 @@ def go_exported_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `assembler_flags` |  |
 | `build_mode` |  |
 | `compiler_flags` |  |
@@ -3645,6 +4373,7 @@ def go_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _go_toolchain: str.type = None,
     assembler_flags: [str.type] = None,
     compiler_flags: [str.type] = None,
@@ -3656,7 +4385,6 @@ def go_library(
     licenses: [str.type] = None,
     package_name: [None, str.type] = None,
     srcs: [str.type] = None,
-    tests: [""] = None,
     within_view: [None, [str.type]] = None
 ) -> None
 ```
@@ -3673,6 +4401,7 @@ def go_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_go_toolchain` |  |
 | `assembler_flags` |  |
 | `compiler_flags` |  |
@@ -3684,7 +4413,6 @@ def go_library(
 | `licenses` |  |
 | `package_name` |  |
 | `srcs` |  |
-| `tests` |  |
 | `within_view` |  |
 
 ---
@@ -3699,6 +4427,7 @@ def go_test(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _cxx_toolchain: str.type = None,
     _go_toolchain: str.type = None,
     _testmaingen: str.type = None,
@@ -3740,6 +4469,7 @@ def go_test(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
 | `_go_toolchain` |  |
 | `_testmaingen` |  |
@@ -3779,6 +4509,7 @@ def go_test_runner(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     labels: [str.type] = None,
@@ -3800,6 +4531,7 @@ def go_test_runner(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `labels` |  |
@@ -3819,6 +4551,7 @@ def groovy_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     annotation_processor_deps: [str.type] = None,
     annotation_processor_params: [str.type] = None,
     annotation_processors: [str.type] = None,
@@ -3850,7 +4583,6 @@ def groovy_library(
     source_only_abi_deps: [str.type] = None,
     srcs: [str.type] = None,
     target: [None, str.type] = None,
-    tests: [""] = None,
     within_view: [None, [str.type]] = None
 ) -> None
 ```
@@ -3867,6 +4599,7 @@ def groovy_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `annotation_processor_deps` |  |
 | `annotation_processor_params` |  |
 | `annotation_processors` |  |
@@ -3898,7 +4631,6 @@ def groovy_library(
 | `source_only_abi_deps` |  |
 | `srcs` |  |
 | `target` |  |
-| `tests` |  |
 | `within_view` |  |
 
 ---
@@ -3913,6 +4645,7 @@ def groovy_test(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     annotation_processor_deps: [str.type] = None,
     annotation_processor_params: [str.type] = None,
     annotation_processors: [str.type] = None,
@@ -3955,7 +4688,6 @@ def groovy_test(
     test_case_timeout_ms: [None, int.type] = None,
     test_rule_timeout_ms: [None, int.type] = None,
     test_type: [None, str.type] = None,
-    tests: [""] = None,
     use_cxx_libraries: [None, bool.type] = None,
     use_dependency_order_classpath: [None, bool.type] = None,
     vm_args: [str.type] = None,
@@ -3975,6 +4707,7 @@ def groovy_test(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `annotation_processor_deps` |  |
 | `annotation_processor_params` |  |
 | `annotation_processors` |  |
@@ -4017,7 +4750,6 @@ def groovy_test(
 | `test_case_timeout_ms` |  |
 | `test_rule_timeout_ms` |  |
 | `test_type` |  |
-| `tests` |  |
 | `use_cxx_libraries` |  |
 | `use_dependency_order_classpath` |  |
 | `vm_args` |  |
@@ -4035,6 +4767,7 @@ def gwt_binary(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     deps: [str.type] = None,
@@ -4065,6 +4798,7 @@ def gwt_binary(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `deps` |  |
@@ -4093,6 +4827,7 @@ def halide_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     compiler_deps: [str.type] = None,
     compiler_flags: [str.type] = None,
     compiler_invocation_flags: [str.type] = None,
@@ -4142,7 +4877,6 @@ def halide_library(
     raw_headers: [str.type] = None,
     srcs: [[str.type, (str.type, [str.type])]] = None,
     supported_platforms_regex: [None, str.type] = None,
-    tests: [""] = None,
     thin_lto: bool.type = None,
     version_universe: [None, str.type] = None,
     within_view: [None, [str.type]] = None
@@ -4161,6 +4895,7 @@ def halide_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `compiler_deps` |  |
 | `compiler_flags` |  |
 | `compiler_invocation_flags` |  |
@@ -4210,7 +4945,6 @@ def halide_library(
 | `raw_headers` |  |
 | `srcs` |  |
 | `supported_platforms_regex` |  |
-| `tests` |  |
 | `thin_lto` |  |
 | `version_universe` |  |
 | `within_view` |  |
@@ -4227,6 +4961,7 @@ def haskell_binary(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _cxx_toolchain: str.type = None,
     _haskell_toolchain: str.type = None,
     compiler_flags: [str.type] = None,
@@ -4263,6 +4998,7 @@ def haskell_binary(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
 | `_haskell_toolchain` |  |
 | `compiler_flags` |  |
@@ -4297,6 +5033,7 @@ def haskell_ghci(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     compiler_flags: [str.type] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
@@ -4330,6 +5067,7 @@ def haskell_ghci(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `compiler_flags` |  |
 | `contacts` |  |
 | `default_host_platform` |  |
@@ -4361,6 +5099,7 @@ def haskell_haddock(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     deps: [str.type] = None,
@@ -4385,6 +5124,7 @@ def haskell_haddock(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `deps` |  |
@@ -4407,6 +5147,7 @@ def haskell_ide(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     compiler_flags: [str.type] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
@@ -4436,6 +5177,7 @@ def haskell_ide(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `compiler_flags` |  |
 | `contacts` |  |
 | `default_host_platform` |  |
@@ -4463,6 +5205,7 @@ def haskell_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _cxx_toolchain: str.type = None,
     _haskell_toolchain: str.type = None,
     compiler_flags: [str.type] = None,
@@ -4480,7 +5223,7 @@ def haskell_library(
     platform: [None, str.type] = None,
     platform_deps: [(str.type, [str.type])] = None,
     platform_linker_flags: [(str.type, [str.type])] = None,
-    preferred_linkage: [None, str.type] = None,
+    preferred_linkage: str.type = None,
     srcs: [{str.type: str.type}, [str.type]] = None,
     within_view: [None, [str.type]] = None
 ) -> None
@@ -4498,6 +5241,7 @@ def haskell_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
 | `_haskell_toolchain` |  |
 | `compiler_flags` |  |
@@ -4531,6 +5275,7 @@ def haskell_prebuilt_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     cxx_header_dirs: [str.type] = None,
     db: str.type,
@@ -4565,6 +5310,7 @@ def haskell_prebuilt_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `cxx_header_dirs` |  |
 | `db` |  |
@@ -4604,13 +5350,16 @@ def http_archive(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
+    _create_exclusion_list: str.type = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     excludes: [str.type] = None,
     labels: [str.type] = None,
     licenses: [str.type] = None,
     out: [None, str.type] = None,
-    sha256: str.type = None,
+    sha1: [None, str.type] = None,
+    sha256: [None, str.type] = None,
     strip_prefix: [None, str.type] = None,
     type: [None, str.type] = None,
     urls: [str.type] = None,
@@ -4630,12 +5379,15 @@ def http_archive(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
+| `_create_exclusion_list` |  |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `excludes` |  |
 | `labels` |  |
 | `licenses` |  |
 | `out` |  |
+| `sha1` |  |
 | `sha256` |  |
 | `strip_prefix` |  |
 | `type` |  |
@@ -4654,13 +5406,15 @@ def http_file(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     executable: [None, bool.type] = None,
     labels: [str.type] = None,
     licenses: [str.type] = None,
     out: [None, str.type] = None,
-    sha256: str.type = None,
+    sha1: [None, str.type] = None,
+    sha256: [None, str.type] = None,
     urls: [str.type] = None,
     within_view: [None, [str.type]] = None
 ) -> None
@@ -4678,12 +5432,14 @@ def http_file(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `executable` |  |
 | `labels` |  |
 | `licenses` |  |
 | `out` |  |
+| `sha1` |  |
 | `sha256` |  |
 | `urls` |  |
 | `within_view` |  |
@@ -4707,6 +5463,7 @@ def jar_genrule(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _java_toolchain: str.type = None,
     bash: [None, str.type] = None,
     cacheable: [None, bool.type] = None,
@@ -4718,10 +5475,9 @@ def jar_genrule(
     environment_expansion_separator: [None, str.type] = None,
     labels: [str.type] = None,
     licenses: [str.type] = None,
-    need_android_tools: [None, bool.type] = None,
+    need_android_tools: bool.type = None,
     remote: [None, bool.type] = None,
     srcs: [{str.type: str.type}, [str.type]] = None,
-    tests: [""] = None,
     type: [None, str.type] = None,
     within_view: [None, [str.type]] = None
 ) -> None
@@ -4739,6 +5495,7 @@ def jar_genrule(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_java_toolchain` |  |
 | `bash` |  |
 | `cacheable` |  |
@@ -4753,7 +5510,6 @@ def jar_genrule(
 | `need_android_tools` |  |
 | `remote` |  |
 | `srcs` |  |
-| `tests` |  |
 | `type` |  |
 | `within_view` |  |
 
@@ -4769,6 +5525,7 @@ def java_annotation_processor(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     deps: [str.type] = None,
@@ -4794,6 +5551,7 @@ def java_annotation_processor(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `deps` |  |
@@ -4809,8 +5567,57 @@ def java_annotation_processor(
 ## java_binary
 
 ```python
-def java_binary(**kwargs: UNKNOWN) -> UNKNOWN
+def java_binary(
+    *,
+    name: str.type,
+    default_target_platform: [None, str.type] = None,
+    target_compatible_with: [str.type] = None,
+    compatible_with: [str.type] = None,
+    exec_compatible_with: [str.type] = None,
+    visibility: [str.type] = None,
+    tests: [label] = None,
+    _java_toolchain: str.type = None,
+    blacklist: [str.type] = None,
+    contacts: [str.type] = None,
+    default_cxx_platform: [None, str.type] = None,
+    default_host_platform: [None, str.type] = None,
+    deps: [str.type] = None,
+    generate_wrapper: bool.type = None,
+    labels: [str.type] = None,
+    licenses: [str.type] = None,
+    main_class: [None, str.type] = None,
+    manifest_file: [None, str.type] = None,
+    meta_inf_directory: [None, str.type] = None,
+    within_view: [None, [str.type]] = None
+) -> None
 ```
+
+
+
+### Parameters
+
+| Name | Details |
+|------|---------|
+| `name` | name of the target |
+| `default_target_platform` | specifies the default target platform, used when no platforms are specified on the command line |
+| `target_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
+| `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
+| `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
+| `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
+| `_java_toolchain` |  |
+| `blacklist` |  |
+| `contacts` |  |
+| `default_cxx_platform` |  |
+| `default_host_platform` |  |
+| `deps` |  |
+| `generate_wrapper` |  |
+| `labels` |  |
+| `licenses` |  |
+| `main_class` |  |
+| `manifest_file` |  |
+| `meta_inf_directory` |  |
+| `within_view` |  |
 
 ---
 ## java_library
@@ -4824,6 +5631,7 @@ def java_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _dex_toolchain: [None, str.type] = None,
     _java_toolchain: str.type = None,
     abi_generation_mode: [None, str.type] = None,
@@ -4857,7 +5665,6 @@ def java_library(
     source_only_abi_deps: [str.type] = None,
     srcs: [str.type] = None,
     target: [None, str.type] = None,
-    tests: [""] = None,
     within_view: [None, [str.type]] = None
 ) -> None
 ```
@@ -4874,6 +5681,7 @@ def java_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_dex_toolchain` |  |
 | `_java_toolchain` |  |
 | `abi_generation_mode` |  |
@@ -4907,7 +5715,6 @@ def java_library(
 | `source_only_abi_deps` |  |
 | `srcs` |  |
 | `target` |  |
-| `tests` |  |
 | `within_view` |  |
 
 ---
@@ -4922,6 +5729,7 @@ def java_plugin(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     deps: [str.type] = None,
@@ -4947,6 +5755,7 @@ def java_plugin(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `deps` |  |
@@ -4970,6 +5779,9 @@ def java_test(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
+    _java_toolchain: str.type = None,
+    _junit_toolchain: str.type = None,
     abi_generation_mode: [None, str.type] = None,
     annotation_processor_deps: [str.type] = None,
     annotation_processor_params: [str.type] = None,
@@ -4986,7 +5798,7 @@ def java_test(
     extra_arguments: [str.type] = None,
     fork_mode: str.type = None,
     java_version: [None, str.type] = None,
-    javac: [None, str.type] = None,
+    javac: [None, [str.type, str.type]] = None,
     labels: [str.type] = None,
     licenses: [str.type] = None,
     manifest_file: [None, str.type] = None,
@@ -5014,7 +5826,6 @@ def java_test(
     test_case_timeout_ms: [None, int.type] = None,
     test_rule_timeout_ms: [None, int.type] = None,
     test_type: [None, str.type] = None,
-    tests: [""] = None,
     use_cxx_libraries: [None, bool.type] = None,
     use_dependency_order_classpath: [None, bool.type] = None,
     vm_args: [str.type] = None,
@@ -5034,6 +5845,9 @@ def java_test(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
+| `_java_toolchain` |  |
+| `_junit_toolchain` |  |
 | `abi_generation_mode` |  |
 | `annotation_processor_deps` |  |
 | `annotation_processor_params` |  |
@@ -5078,7 +5892,6 @@ def java_test(
 | `test_case_timeout_ms` |  |
 | `test_rule_timeout_ms` |  |
 | `test_type` |  |
-| `tests` |  |
 | `use_cxx_libraries` |  |
 | `use_dependency_order_classpath` |  |
 | `vm_args` |  |
@@ -5096,6 +5909,7 @@ def java_test_runner(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     abi_generation_mode: [None, str.type] = None,
     annotation_processor_deps: [str.type] = None,
     annotation_processor_params: [str.type] = None,
@@ -5128,7 +5942,6 @@ def java_test_runner(
     source_only_abi_deps: [str.type] = None,
     srcs: [str.type] = None,
     target: [None, str.type] = None,
-    tests: [""] = None,
     within_view: [None, [str.type]] = None
 ) -> None
 ```
@@ -5145,6 +5958,7 @@ def java_test_runner(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `abi_generation_mode` |  |
 | `annotation_processor_deps` |  |
 | `annotation_processor_params` |  |
@@ -5177,7 +5991,6 @@ def java_test_runner(
 | `source_only_abi_deps` |  |
 | `srcs` |  |
 | `target` |  |
-| `tests` |  |
 | `within_view` |  |
 
 ---
@@ -5192,6 +6005,7 @@ def js_bundle(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _android_toolchain: str.type = None,
     _is_release: bool.type = None,
     _platform: str.type = None,
@@ -5223,6 +6037,7 @@ def js_bundle(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_android_toolchain` |  |
 | `_is_release` |  |
 | `_platform` |  |
@@ -5252,6 +6067,7 @@ def js_bundle_genrule(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _is_release: bool.type = None,
     _platform: str.type = None,
     bash: [None, str.type] = None,
@@ -5267,14 +6083,13 @@ def js_bundle_genrule(
     js_bundle: str.type,
     labels: [str.type] = None,
     licenses: [str.type] = None,
-    need_android_tools: [None, bool.type] = None,
+    need_android_tools: bool.type = None,
     remote: [None, bool.type] = None,
     rewrite_deps_file: bool.type = None,
     rewrite_misc: bool.type = None,
     rewrite_sourcemap: bool.type = None,
     skip_resources: bool.type = None,
     srcs: [{str.type: str.type}, [str.type]] = None,
-    tests: [""] = None,
     type: str.type = None,
     within_view: [None, [str.type]] = None
 ) -> None
@@ -5292,6 +6107,7 @@ def js_bundle_genrule(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_is_release` |  |
 | `_platform` |  |
 | `bash` |  |
@@ -5314,7 +6130,6 @@ def js_bundle_genrule(
 | `rewrite_sourcemap` |  |
 | `skip_resources` |  |
 | `srcs` |  |
-| `tests` |  |
 | `type` |  |
 | `within_view` |  |
 
@@ -5330,6 +6145,7 @@ def js_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _is_release: bool.type = None,
     _platform: str.type = None,
     asset_extensions: [None, [str.type]] = None,
@@ -5343,7 +6159,6 @@ def js_library(
     labels: [str.type] = None,
     licenses: [str.type] = None,
     srcs: [[str.type, (str.type, str.type)]] = None,
-    tests: [""] = None,
     within_view: [None, [str.type]] = None,
     worker: str.type
 ) -> None
@@ -5361,6 +6176,7 @@ def js_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_is_release` |  |
 | `_platform` |  |
 | `asset_extensions` |  |
@@ -5374,7 +6190,6 @@ def js_library(
 | `labels` |  |
 | `licenses` |  |
 | `srcs` |  |
-| `tests` |  |
 | `within_view` |  |
 | `worker` |  |
 
@@ -5390,6 +6205,7 @@ def keystore(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     deps: [str.type] = None,
@@ -5413,6 +6229,7 @@ def keystore(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `deps` |  |
@@ -5434,6 +6251,7 @@ def kotlin_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _dex_toolchain: [None, str.type] = None,
     _java_toolchain: str.type = None,
     _kotlin_toolchain: str.type = None,
@@ -5451,7 +6269,7 @@ def kotlin_library(
     extra_kotlinc_arguments: [str.type] = None,
     friend_paths: [str.type] = None,
     java_version: [None, str.type] = None,
-    javac: [None, str.type] = None,
+    javac: [None, [str.type, str.type]] = None,
     kotlin_compiler_plugins: {str.type: {str.type: str.type}} = None,
     labels: [str.type] = None,
     licenses: [str.type] = None,
@@ -5472,7 +6290,6 @@ def kotlin_library(
     source_only_abi_deps: [str.type] = None,
     srcs: [str.type] = None,
     target: [None, str.type] = None,
-    tests: [""] = None,
     within_view: [None, [str.type]] = None
 ) -> None
 ```
@@ -5489,6 +6306,7 @@ def kotlin_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_dex_toolchain` |  |
 | `_java_toolchain` |  |
 | `_kotlin_toolchain` |  |
@@ -5527,7 +6345,6 @@ def kotlin_library(
 | `source_only_abi_deps` |  |
 | `srcs` |  |
 | `target` |  |
-| `tests` |  |
 | `within_view` |  |
 
 ---
@@ -5542,6 +6359,10 @@ def kotlin_test(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
+    _java_toolchain: str.type = None,
+    _junit_toolchain: str.type = None,
+    _kotlin_toolchain: str.type = None,
     abi_generation_mode: [None, str.type] = None,
     annotation_processing_tool: [None, str.type] = None,
     annotation_processor_deps: [str.type] = None,
@@ -5588,7 +6409,6 @@ def kotlin_test(
     test_case_timeout_ms: [None, int.type] = None,
     test_rule_timeout_ms: [None, int.type] = None,
     test_type: [None, str.type] = None,
-    tests: [""] = None,
     use_cxx_libraries: [None, bool.type] = None,
     use_dependency_order_classpath: [None, bool.type] = None,
     vm_args: [str.type] = None,
@@ -5608,6 +6428,10 @@ def kotlin_test(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
+| `_java_toolchain` |  |
+| `_junit_toolchain` |  |
+| `_kotlin_toolchain` |  |
 | `abi_generation_mode` |  |
 | `annotation_processing_tool` |  |
 | `annotation_processor_deps` |  |
@@ -5654,7 +6478,6 @@ def kotlin_test(
 | `test_case_timeout_ms` |  |
 | `test_rule_timeout_ms` |  |
 | `test_type` |  |
-| `tests` |  |
 | `use_cxx_libraries` |  |
 | `use_dependency_order_classpath` |  |
 | `vm_args` |  |
@@ -5672,6 +6495,7 @@ def legacy_toolchain(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     labels: [str.type] = None,
@@ -5693,6 +6517,7 @@ def legacy_toolchain(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `labels` |  |
@@ -5712,6 +6537,7 @@ def lua_binary(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     deps: [str.type] = None,
@@ -5739,6 +6565,7 @@ def lua_binary(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `deps` |  |
@@ -5764,6 +6591,7 @@ def lua_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     base_module: [None, str.type] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
@@ -5788,6 +6616,7 @@ def lua_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `base_module` |  |
 | `contacts` |  |
 | `default_host_platform` |  |
@@ -5817,6 +6646,7 @@ def ndk_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     deps: [str.type] = None,
@@ -5841,6 +6671,7 @@ def ndk_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `deps` |  |
@@ -5863,6 +6694,7 @@ def ndk_toolchain(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     cxx_runtime: [None, str.type] = None,
     cxx_toolchain: str.type,
@@ -5888,6 +6720,7 @@ def ndk_toolchain(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `cxx_runtime` |  |
 | `cxx_toolchain` |  |
@@ -5911,6 +6744,7 @@ def ocaml_binary(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _cxx_toolchain: str.type = None,
     _ocaml_toolchain: str.type = None,
     bytecode_only: [None, bool.type] = None,
@@ -5943,6 +6777,7 @@ def ocaml_binary(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
 | `_ocaml_toolchain` |  |
 | `bytecode_only` |  |
@@ -5973,6 +6808,7 @@ def ocaml_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _cxx_toolchain: str.type = None,
     _ocaml_toolchain: str.type = None,
     bytecode_only: bool.type = None,
@@ -6005,6 +6841,7 @@ def ocaml_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
 | `_ocaml_toolchain` |  |
 | `bytecode_only` |  |
@@ -6019,6 +6856,70 @@ def ocaml_library(
 | `ocamldep_flags` |  |
 | `platform_compiler_flags` |  |
 | `platform_deps` |  |
+| `srcs` |  |
+| `warnings_flags` |  |
+| `within_view` |  |
+
+---
+## ocaml_object
+
+```python
+def ocaml_object(
+    *,
+    name: str.type,
+    default_target_platform: [None, str.type] = None,
+    target_compatible_with: [str.type] = None,
+    compatible_with: [str.type] = None,
+    exec_compatible_with: [str.type] = None,
+    visibility: [str.type] = None,
+    tests: [label] = None,
+    _cxx_toolchain: str.type = None,
+    _ocaml_toolchain: str.type = None,
+    bytecode_only: [None, bool.type] = None,
+    compiler_flags: [str.type] = None,
+    contacts: [str.type] = None,
+    default_host_platform: [None, str.type] = None,
+    deps: [str.type] = None,
+    labels: [str.type] = None,
+    licenses: [str.type] = None,
+    linker_flags: [str.type] = None,
+    ocamldep_flags: [str.type] = None,
+    platform: [None, str.type] = None,
+    platform_deps: [(str.type, [str.type])] = None,
+    platform_linker_flags: [(str.type, [str.type])] = None,
+    srcs: [None, [{str.type: str.type}, [str.type]]] = None,
+    warnings_flags: [None, str.type] = None,
+    within_view: [None, [str.type]] = None
+) -> None
+```
+
+
+
+### Parameters
+
+| Name | Details |
+|------|---------|
+| `name` | name of the target |
+| `default_target_platform` | specifies the default target platform, used when no platforms are specified on the command line |
+| `target_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
+| `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
+| `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
+| `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
+| `_cxx_toolchain` |  |
+| `_ocaml_toolchain` |  |
+| `bytecode_only` |  |
+| `compiler_flags` |  |
+| `contacts` |  |
+| `default_host_platform` |  |
+| `deps` |  |
+| `labels` |  |
+| `licenses` |  |
+| `linker_flags` |  |
+| `ocamldep_flags` |  |
+| `platform` |  |
+| `platform_deps` |  |
+| `platform_linker_flags` |  |
 | `srcs` |  |
 | `warnings_flags` |  |
 | `within_view` |  |
@@ -6041,7 +6942,7 @@ def package_name() -> String
 ## partial
 
 ```python
-def partial(func: Value, *args: Value < 'v >, **kwargs: ARef < Dict >) -> Partial < 'v >
+def partial(func: Value, *args: Value < 'v >, **kwargs: DictRef < 'v >) -> Partial < 'v >
 ```
 
 ---
@@ -6056,6 +6957,7 @@ def platform(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     constraint_values: [str.type] = None,
     deps: [str.type] = None,
     within_view: [None, [str.type]] = None
@@ -6074,6 +6976,7 @@ def platform(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `constraint_values` |  |
 | `deps` |  |
 | `within_view` |  |
@@ -6082,14 +6985,7 @@ def platform(
 ## prebuilt_apple_framework
 
 ```python
-def prebuilt_apple_framework(**kwargs: UNKNOWN) -> UNKNOWN
-```
-
----
-## prebuilt_cxx_library
-
-```python
-def prebuilt_cxx_library(
+def prebuilt_apple_framework(
     *,
     name: str.type,
     default_target_platform: [None, str.type] = None,
@@ -6097,62 +6993,21 @@ def prebuilt_cxx_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
-    _cxx_toolchain: str.type = None,
-    can_be_asset: bool.type = None,
+    tests: [label] = None,
+    _apple_toolchain: str.type = None,
+    code_sign_on_copy: [None, bool.type] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     deps: [str.type] = None,
-    exported_deps: [str.type] = None,
-    exported_header_style: str.type = None,
-    exported_headers: [{str.type: str.type}, [str.type]] = None,
-    exported_lang_platform_preprocessor_flags: {str.type: [(str.type, [str.type])]} = None,
-    exported_lang_preprocessor_flags: {str.type: [str.type]} = None,
     exported_linker_flags: [str.type] = None,
-    exported_platform_deps: [(str.type, [str.type])] = None,
-    exported_platform_headers: [(str.type, [{str.type: str.type}, [str.type]])] = None,
     exported_platform_linker_flags: [(str.type, [str.type])] = None,
-    exported_platform_preprocessor_flags: [(str.type, [str.type])] = None,
-    exported_post_linker_flags: [str.type] = None,
-    exported_post_platform_linker_flags: [(str.type, [str.type])] = None,
-    exported_preprocessor_flags: [str.type] = None,
-    force_static: bool.type = None,
+    framework: [None, str.type] = None,
     frameworks: [str.type] = None,
-    header_dirs: [None, [str.type]] = None,
-    header_namespace: [None, str.type] = None,
-    header_only: bool.type = None,
-    import_lib: [None, str.type] = None,
-    include_in_android_merge_map_output: bool.type = None,
     labels: [str.type] = None,
     libraries: [str.type] = None,
     licenses: [str.type] = None,
-    link_whole: bool.type = None,
-    link_without_soname: bool.type = None,
-    platform_header_dirs: [None, [(str.type, [str.type])]] = None,
-    platform_import_lib: [None, [(str.type, str.type)]] = None,
-    platform_shared_lib: [None, [(str.type, str.type)]] = None,
-    platform_static_lib: [None, [(str.type, str.type)]] = None,
-    platform_static_pic_lib: [None, [(str.type, str.type)]] = None,
-    preferred_linkage: [None, str.type] = None,
-    provided: bool.type = None,
-    public_include_directories: [str.type] = None,
-    public_system_include_directories: [str.type] = None,
-    raw_headers: [str.type] = None,
-    shared_lib: [None, str.type] = None,
-    soname: [None, str.type] = None,
-    static_lib: [None, str.type] = None,
-    static_pic_lib: [None, str.type] = None,
+    preferred_linkage: str.type = None,
     supported_platforms_regex: [None, str.type] = None,
-    supports_merged_linking: [None, bool.type] = None,
-    supports_shared_library_interface: bool.type = None,
-    versioned_exported_lang_platform_preprocessor_flags: [({str.type: str.type}, {str.type: [(str.type, [str.type])]})] = None,
-    versioned_exported_lang_preprocessor_flags: [({str.type: str.type}, {str.type: [str.type]})] = None,
-    versioned_exported_platform_preprocessor_flags: [({str.type: str.type}, [(str.type, [str.type])])] = None,
-    versioned_exported_preprocessor_flags: [({str.type: str.type}, [str.type])] = None,
-    versioned_header_dirs: [None, [({str.type: str.type}, [str.type])]] = None,
-    versioned_import_lib: [None, [({str.type: str.type}, str.type)]] = None,
-    versioned_shared_lib: [None, [({str.type: str.type}, str.type)]] = None,
-    versioned_static_lib: [None, [({str.type: str.type}, str.type)]] = None,
-    versioned_static_pic_lib: [None, [({str.type: str.type}, str.type)]] = None,
     within_view: [None, [str.type]] = None
 ) -> None
 ```
@@ -6169,63 +7024,47 @@ def prebuilt_cxx_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
-| `_cxx_toolchain` |  |
-| `can_be_asset` |  |
+| `tests` | a list of targets that provide tests for this one |
+| `_apple_toolchain` |  |
+| `code_sign_on_copy` |  |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `deps` |  |
-| `exported_deps` |  |
-| `exported_header_style` |  |
-| `exported_headers` |  |
-| `exported_lang_platform_preprocessor_flags` |  |
-| `exported_lang_preprocessor_flags` |  |
 | `exported_linker_flags` |  |
-| `exported_platform_deps` |  |
-| `exported_platform_headers` |  |
 | `exported_platform_linker_flags` |  |
-| `exported_platform_preprocessor_flags` |  |
-| `exported_post_linker_flags` |  |
-| `exported_post_platform_linker_flags` |  |
-| `exported_preprocessor_flags` |  |
-| `force_static` |  |
+| `framework` |  |
 | `frameworks` |  |
-| `header_dirs` |  |
-| `header_namespace` |  |
-| `header_only` |  |
-| `import_lib` |  |
-| `include_in_android_merge_map_output` |  |
 | `labels` |  |
 | `libraries` |  |
 | `licenses` |  |
-| `link_whole` |  |
-| `link_without_soname` |  |
-| `platform_header_dirs` |  |
-| `platform_import_lib` |  |
-| `platform_shared_lib` |  |
-| `platform_static_lib` |  |
-| `platform_static_pic_lib` |  |
 | `preferred_linkage` |  |
-| `provided` |  |
-| `public_include_directories` |  |
-| `public_system_include_directories` |  |
-| `raw_headers` |  |
-| `shared_lib` |  |
-| `soname` |  |
-| `static_lib` |  |
-| `static_pic_lib` |  |
 | `supported_platforms_regex` |  |
-| `supports_merged_linking` |  |
-| `supports_shared_library_interface` |  |
-| `versioned_exported_lang_platform_preprocessor_flags` |  |
-| `versioned_exported_lang_preprocessor_flags` |  |
-| `versioned_exported_platform_preprocessor_flags` |  |
-| `versioned_exported_preprocessor_flags` |  |
-| `versioned_header_dirs` |  |
-| `versioned_import_lib` |  |
-| `versioned_shared_lib` |  |
-| `versioned_static_lib` |  |
-| `versioned_static_pic_lib` |  |
 | `within_view` |  |
+
+---
+## prebuilt_cxx_library
+
+```python
+def prebuilt_cxx_library(
+    exported_preprocessor_flags: UNKNOWN = None,
+    versioned_exported_preprocessor_flags: UNKNOWN = None,
+    exported_lang_preprocessor_flags: UNKNOWN = None,
+    versioned_exported_lang_preprocessor_flags: UNKNOWN = None,
+    exported_platform_preprocessor_flags: UNKNOWN = None,
+    versioned_exported_platform_preprocessor_flags: UNKNOWN = None,
+    exported_lang_platform_preprocessor_flags: UNKNOWN = None,
+    versioned_exported_lang_platform_preprocessor_flags: UNKNOWN = None,
+    static_lib: UNKNOWN = None,
+    versioned_static_lib: UNKNOWN = None,
+    static_pic_lib: UNKNOWN = None,
+    versioned_static_pic_lib: UNKNOWN = None,
+    shared_lib: UNKNOWN = None,
+    versioned_shared_lib: UNKNOWN = None,
+    header_dirs: UNKNOWN = None,
+    versioned_header_dirs: UNKNOWN = None,
+    **kwargs: UNKNOWN
+) -> UNKNOWN
+```
 
 ---
 ## prebuilt_cxx_library_group
@@ -6239,6 +7078,7 @@ def prebuilt_cxx_library_group(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     deps: [str.type] = None,
@@ -6274,6 +7114,7 @@ def prebuilt_cxx_library_group(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `deps` |  |
@@ -6307,6 +7148,7 @@ def prebuilt_dotnet_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     assembly: str.type,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
@@ -6328,6 +7170,7 @@ def prebuilt_dotnet_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `assembly` |  |
 | `contacts` |  |
 | `default_host_platform` |  |
@@ -6347,6 +7190,7 @@ def prebuilt_go_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     deps: [str.type] = None,
@@ -6371,6 +7215,7 @@ def prebuilt_go_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `deps` |  |
@@ -6393,6 +7238,7 @@ def prebuilt_jar(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _dex_toolchain: [None, str.type] = None,
     _java_toolchain: str.type = None,
     binary_jar: str.type,
@@ -6423,6 +7269,7 @@ def prebuilt_jar(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_dex_toolchain` |  |
 | `_java_toolchain` |  |
 | `binary_jar` |  |
@@ -6451,6 +7298,7 @@ def prebuilt_native_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     deps: [str.type] = None,
@@ -6474,6 +7322,7 @@ def prebuilt_native_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `deps` |  |
@@ -6495,8 +7344,9 @@ def prebuilt_ocaml_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     bytecode_c_libs: [str.type] = None,
-    bytecode_lib: str.type = None,
+    bytecode_lib: [None, str.type] = None,
     bytecode_only: bool.type = None,
     c_libs: [str.type] = None,
     contacts: [str.type] = None,
@@ -6504,7 +7354,7 @@ def prebuilt_ocaml_library(
     deps: [str.type] = None,
     include_dir: [None, str.type] = None,
     labels: [str.type] = None,
-    lib_dir: str.type = None,
+    lib_dir: [None, str.type] = None,
     lib_name: str.type = None,
     licenses: [str.type] = None,
     native_c_libs: [str.type] = None,
@@ -6526,6 +7376,7 @@ def prebuilt_ocaml_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `bytecode_c_libs` |  |
 | `bytecode_lib` |  |
 | `bytecode_only` |  |
@@ -6555,6 +7406,7 @@ def prebuilt_python_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _create_manifest_for_source_dir: str.type = None,
     _extract: str.type = None,
     _python_toolchain: str.type = None,
@@ -6583,6 +7435,7 @@ def prebuilt_python_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_create_manifest_for_source_dir` |  |
 | `_extract` |  |
 | `_python_toolchain` |  |
@@ -6609,6 +7462,9 @@ def prebuilt_rust_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
+    _cxx_toolchain: str.type = None,
+    _rust_toolchain: str.type = None,
     contacts: [str.type] = None,
     crate: str.type = None,
     default_host_platform: [None, str.type] = None,
@@ -6635,6 +7491,9 @@ def prebuilt_rust_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
+| `_cxx_toolchain` |  |
+| `_rust_toolchain` |  |
 | `contacts` |  |
 | `crate` |  |
 | `default_host_platform` |  |
@@ -6671,6 +7530,7 @@ def python_binary(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _create_manifest_for_source_dir: str.type = None,
     _cxx_toolchain: str.type = None,
     _hacks: str.type = None,
@@ -6691,13 +7551,13 @@ def python_binary(
     main: [None, str.type] = None,
     main_module: [None, str.type] = None,
     native_link_strategy: [None, str.type] = None,
+    package_split_dwarf_dwp: bool.type = None,
     package_style: [None, str.type] = None,
     platform: [None, str.type] = None,
     platform_deps: [(str.type, [str.type])] = None,
     platform_linker_flags: [(str.type, [str.type])] = None,
     prefer_stripped_native_objects: bool.type = None,
     preload_deps: [str.type] = None,
-    tests: [""] = None,
     version_universe: [None, str.type] = None,
     within_view: [None, [str.type]] = None,
     zip_safe: [None, bool.type] = None
@@ -6716,6 +7576,7 @@ def python_binary(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_create_manifest_for_source_dir` |  |
 | `_cxx_toolchain` |  |
 | `_hacks` |  |
@@ -6736,22 +7597,22 @@ def python_binary(
 | `main` |  |
 | `main_module` |  |
 | `native_link_strategy` |  |
+| `package_split_dwarf_dwp` |  |
 | `package_style` |  |
 | `platform` |  |
 | `platform_deps` |  |
 | `platform_linker_flags` |  |
 | `prefer_stripped_native_objects` |  |
 | `preload_deps` |  |
-| `tests` |  |
 | `version_universe` |  |
 | `within_view` |  |
 | `zip_safe` |  |
 
 ---
-## python_library
+## python_bootstrap_binary
 
 ```python
-def python_library(
+def python_bootstrap_binary(
     *,
     name: str.type,
     default_target_platform: [None, str.type] = None,
@@ -6759,31 +7620,10 @@ def python_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
-    _create_manifest_for_source_dir: str.type = None,
-    _cxx_toolchain: str.type = None,
-    _python_toolchain: str.type = None,
-    base_module: [None, str.type] = None,
-    contacts: [str.type] = None,
-    cxx_platform: [None, str.type] = None,
-    default_host_platform: [None, str.type] = None,
+    tests: [label] = None,
+    _python_bootstrap_toolchain: str.type = None,
     deps: [str.type] = None,
-    exclude_deps_from_merged_linking: bool.type = None,
-    ignore_compile_errors: bool.type = None,
-    labels: [str.type] = None,
-    licenses: [str.type] = None,
-    platform: [None, str.type] = None,
-    platform_deps: [(str.type, [str.type])] = None,
-    platform_resources: [(str.type, [{str.type: str.type}, [str.type]])] = None,
-    platform_srcs: [(str.type, [{str.type: str.type}, [str.type]])] = None,
-    resources: [{str.type: [str.type, str.type]}, [[str.type, str.type]]] = None,
-    srcs: [{str.type: str.type}, [str.type]] = None,
-    tests: [""] = None,
-    type_stubs: [{str.type: str.type}, [str.type]] = None,
-    version_universe: [None, str.type] = None,
-    versioned_resources: [None, [({str.type: str.type}, [{str.type: str.type}, [str.type]])]] = None,
-    versioned_srcs: [None, [({str.type: str.type}, [{str.type: str.type}, [str.type]])]] = None,
-    within_view: [None, [str.type]] = None,
-    zip_safe: [None, bool.type] = None
+    main: str.type
 ) -> None
 ```
 
@@ -6799,31 +7639,49 @@ def python_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
-| `_create_manifest_for_source_dir` |  |
-| `_cxx_toolchain` |  |
-| `_python_toolchain` |  |
-| `base_module` |  |
-| `contacts` |  |
-| `cxx_platform` |  |
-| `default_host_platform` |  |
+| `tests` | a list of targets that provide tests for this one |
+| `_python_bootstrap_toolchain` |  |
 | `deps` |  |
-| `exclude_deps_from_merged_linking` |  |
-| `ignore_compile_errors` |  |
-| `labels` |  |
-| `licenses` |  |
-| `platform` |  |
-| `platform_deps` |  |
-| `platform_resources` |  |
-| `platform_srcs` |  |
-| `resources` |  |
+| `main` |  |
+
+---
+## python_bootstrap_library
+
+```python
+def python_bootstrap_library(
+    *,
+    name: str.type,
+    default_target_platform: [None, str.type] = None,
+    target_compatible_with: [str.type] = None,
+    compatible_with: [str.type] = None,
+    exec_compatible_with: [str.type] = None,
+    visibility: [str.type] = None,
+    tests: [label] = None,
+    srcs: [str.type]
+) -> None
+```
+
+
+
+### Parameters
+
+| Name | Details |
+|------|---------|
+| `name` | name of the target |
+| `default_target_platform` | specifies the default target platform, used when no platforms are specified on the command line |
+| `target_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
+| `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
+| `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
+| `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `srcs` |  |
-| `tests` |  |
-| `type_stubs` |  |
-| `version_universe` |  |
-| `versioned_resources` |  |
-| `versioned_srcs` |  |
-| `within_view` |  |
-| `zip_safe` |  |
+
+---
+## python_library
+
+```python
+def python_library(srcs: UNKNOWN = None, versioned_srcs: UNKNOWN = None, resources: UNKNOWN = None, versioned_resources: UNKNOWN = None, **kwargs: UNKNOWN) -> UNKNOWN
+```
 
 ---
 ## python_test
@@ -6837,6 +7695,7 @@ def python_test(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _create_manifest_for_source_dir: str.type = None,
     _cxx_toolchain: str.type = None,
     _hacks: str.type = None,
@@ -6861,6 +7720,7 @@ def python_test(
     main_module: [None, str.type] = None,
     native_link_strategy: [None, str.type] = None,
     needed_coverage: [(int.type, str.type, [None, str.type])] = None,
+    package_split_dwarf_dwp: bool.type = None,
     package_style: [None, str.type] = None,
     platform: [None, str.type] = None,
     platform_deps: [(str.type, [str.type])] = None,
@@ -6874,7 +7734,6 @@ def python_test(
     specs: [None, str.type] = None,
     srcs: [{str.type: str.type}, [str.type]] = None,
     test_rule_timeout_ms: [None, int.type] = None,
-    tests: [""] = None,
     version_universe: [None, str.type] = None,
     versioned_resources: [None, [({str.type: str.type}, [{str.type: str.type}, [str.type]])]] = None,
     versioned_srcs: [None, [({str.type: str.type}, [{str.type: str.type}, [str.type]])]] = None,
@@ -6895,6 +7754,7 @@ def python_test(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_create_manifest_for_source_dir` |  |
 | `_cxx_toolchain` |  |
 | `_hacks` |  |
@@ -6919,6 +7779,7 @@ def python_test(
 | `main_module` |  |
 | `native_link_strategy` |  |
 | `needed_coverage` |  |
+| `package_split_dwarf_dwp` |  |
 | `package_style` |  |
 | `platform` |  |
 | `platform_deps` |  |
@@ -6932,7 +7793,6 @@ def python_test(
 | `specs` |  |
 | `srcs` |  |
 | `test_rule_timeout_ms` |  |
-| `tests` |  |
 | `version_universe` |  |
 | `versioned_resources` |  |
 | `versioned_srcs` |  |
@@ -6951,6 +7811,7 @@ def python_test_runner(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     labels: [str.type] = None,
@@ -6973,6 +7834,7 @@ def python_test_runner(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `labels` |  |
@@ -6985,7 +7847,7 @@ def python_test_runner(
 ## read_config
 
 ```python
-def read_config(section: & str, key: & str, default: Option < Value > = None) -> Value < 'v >
+def read_config(section: StringValue, key: StringValue, default: Option < Value > = None) -> Value < 'v >
 ```
 
 ---
@@ -7000,12 +7862,15 @@ def remote_file(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
+    _unzip_tool: str.type = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     labels: [str.type] = None,
     licenses: [str.type] = None,
     out: [None, str.type] = None,
-    sha1: str.type = None,
+    sha1: [None, str.type] = None,
+    sha256: [None, str.type] = None,
     type: [None, str.type] = None,
     url: str.type,
     within_view: [None, [str.type]] = None
@@ -7024,12 +7889,15 @@ def remote_file(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
+| `_unzip_tool` |  |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `labels` |  |
 | `licenses` |  |
 | `out` |  |
 | `sha1` |  |
+| `sha256` |  |
 | `type` |  |
 | `url` |  |
 | `within_view` |  |
@@ -7053,6 +7921,11 @@ def robolectric_test(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
+    _android_toolchain: str.type = None,
+    _java_toolchain: str.type = None,
+    _junit_toolchain: str.type = None,
+    _kotlin_toolchain: str.type = None,
     abi_generation_mode: [None, str.type] = None,
     annotation_processing_tool: [None, str.type] = None,
     annotation_processor_deps: [str.type] = None,
@@ -7067,7 +7940,7 @@ def robolectric_test(
     env: {str.type: str.type} = None,
     exported_deps: [str.type] = None,
     exported_provided_deps: [str.type] = None,
-    external_resources_paths: [[str.type, ""]] = None,
+    external_resources_paths: [str.type] = None,
     extra_arguments: [str.type] = None,
     extra_kotlinc_arguments: [str.type] = None,
     fork_mode: str.type = None,
@@ -7108,7 +7981,6 @@ def robolectric_test(
     test_case_timeout_ms: [None, int.type] = None,
     test_rule_timeout_ms: [None, int.type] = None,
     test_type: [None, str.type] = None,
-    tests: [""] = None,
     use_cxx_libraries: [None, bool.type] = None,
     use_dependency_order_classpath: [None, bool.type] = None,
     vm_args: [str.type] = None,
@@ -7128,6 +8000,11 @@ def robolectric_test(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
+| `_android_toolchain` |  |
+| `_java_toolchain` |  |
+| `_junit_toolchain` |  |
+| `_kotlin_toolchain` |  |
 | `abi_generation_mode` |  |
 | `annotation_processing_tool` |  |
 | `annotation_processor_deps` |  |
@@ -7183,7 +8060,6 @@ def robolectric_test(
 | `test_case_timeout_ms` |  |
 | `test_rule_timeout_ms` |  |
 | `test_type` |  |
-| `tests` |  |
 | `use_cxx_libraries` |  |
 | `use_dependency_order_classpath` |  |
 | `vm_args` |  |
@@ -7210,6 +8086,7 @@ def rust_binary(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _cxx_toolchain: str.type = None,
     _rust_toolchain: str.type = None,
     contacts: [str.type] = None,
@@ -7221,6 +8098,7 @@ def rust_binary(
     edition: [None, str.type] = None,
     env: {str.type: str.type} = None,
     features: [str.type] = None,
+    flagged_deps: [(str.type, [str.type])] = None,
     framework: bool.type = None,
     labels: [str.type] = None,
     licenses: [str.type] = None,
@@ -7229,12 +8107,12 @@ def rust_binary(
     mapped_srcs: {str.type: str.type} = None,
     named_deps: {str.type: str.type} = None,
     platform_deps: [(str.type, [str.type])] = None,
+    platform_flagged_deps: [(str.type, [(str.type, [str.type])])] = None,
     platform_linker_flags: [(str.type, [str.type])] = None,
     platform_rustc_flags: {str.type: [str.type]} = None,
     rpath: bool.type = None,
     rustc_flags: [str.type] = None,
     srcs: [str.type] = None,
-    tests: [""] = None,
     version_universe: [None, str.type] = None,
     within_view: [None, [str.type]] = None
 ) -> None
@@ -7252,6 +8130,7 @@ def rust_binary(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
 | `_rust_toolchain` |  |
 | `contacts` |  |
@@ -7263,6 +8142,7 @@ def rust_binary(
 | `edition` |  |
 | `env` |  |
 | `features` |  |
+| `flagged_deps` |  |
 | `framework` |  |
 | `labels` |  |
 | `licenses` |  |
@@ -7271,12 +8151,12 @@ def rust_binary(
 | `mapped_srcs` |  |
 | `named_deps` |  |
 | `platform_deps` |  |
+| `platform_flagged_deps` |  |
 | `platform_linker_flags` |  |
 | `platform_rustc_flags` |  |
 | `rpath` |  |
 | `rustc_flags` |  |
 | `srcs` |  |
-| `tests` |  |
 | `version_universe` |  |
 | `within_view` |  |
 
@@ -7292,6 +8172,7 @@ def rust_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _cxx_toolchain: str.type = None,
     _rust_toolchain: str.type = None,
     contacts: [str.type] = None,
@@ -7303,18 +8184,19 @@ def rust_library(
     edition: [None, str.type] = None,
     env: {str.type: str.type} = None,
     features: [str.type] = None,
+    flagged_deps: [(str.type, [str.type])] = None,
     labels: [str.type] = None,
     licenses: [str.type] = None,
     linker_flags: [str.type] = None,
     mapped_srcs: {str.type: str.type} = None,
     named_deps: {str.type: str.type} = None,
     platform_deps: [(str.type, [str.type])] = None,
+    platform_flagged_deps: [(str.type, [(str.type, [str.type])])] = None,
     platform_rustc_flags: {str.type: [str.type]} = None,
-    preferred_linkage: [None, str.type] = None,
+    preferred_linkage: str.type = None,
     proc_macro: bool.type = None,
     rustc_flags: [str.type] = None,
     srcs: [str.type] = None,
-    tests: [""] = None,
     version_universe: [None, str.type] = None,
     within_view: [None, [str.type]] = None
 ) -> None
@@ -7332,6 +8214,7 @@ def rust_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
 | `_rust_toolchain` |  |
 | `contacts` |  |
@@ -7343,18 +8226,19 @@ def rust_library(
 | `edition` |  |
 | `env` |  |
 | `features` |  |
+| `flagged_deps` |  |
 | `labels` |  |
 | `licenses` |  |
 | `linker_flags` |  |
 | `mapped_srcs` |  |
 | `named_deps` |  |
 | `platform_deps` |  |
+| `platform_flagged_deps` |  |
 | `platform_rustc_flags` |  |
 | `preferred_linkage` |  |
 | `proc_macro` |  |
 | `rustc_flags` |  |
 | `srcs` |  |
-| `tests` |  |
 | `version_universe` |  |
 | `within_view` |  |
 
@@ -7370,6 +8254,7 @@ def rust_test(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _cxx_toolchain: str.type = None,
     _rust_toolchain: str.type = None,
     contacts: [str.type] = None,
@@ -7381,6 +8266,7 @@ def rust_test(
     edition: [None, str.type] = None,
     env: {str.type: str.type} = None,
     features: [str.type] = None,
+    flagged_deps: [(str.type, [str.type])] = None,
     framework: bool.type = None,
     labels: [str.type] = None,
     licenses: [str.type] = None,
@@ -7389,6 +8275,7 @@ def rust_test(
     mapped_srcs: {str.type: str.type} = None,
     named_deps: {str.type: str.type} = None,
     platform_deps: [(str.type, [str.type])] = None,
+    platform_flagged_deps: [(str.type, [(str.type, [str.type])])] = None,
     platform_linker_flags: [(str.type, [str.type])] = None,
     platform_rustc_flags: {str.type: [str.type]} = None,
     rpath: bool.type = None,
@@ -7411,6 +8298,7 @@ def rust_test(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
 | `_rust_toolchain` |  |
 | `contacts` |  |
@@ -7422,6 +8310,7 @@ def rust_test(
 | `edition` |  |
 | `env` |  |
 | `features` |  |
+| `flagged_deps` |  |
 | `framework` |  |
 | `labels` |  |
 | `licenses` |  |
@@ -7430,6 +8319,7 @@ def rust_test(
 | `mapped_srcs` |  |
 | `named_deps` |  |
 | `platform_deps` |  |
+| `platform_flagged_deps` |  |
 | `platform_linker_flags` |  |
 | `platform_rustc_flags` |  |
 | `rpath` |  |
@@ -7450,6 +8340,7 @@ def scala_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     abi_generation_mode: [None, str.type] = None,
     annotation_processor_deps: [str.type] = None,
     annotation_processor_params: [str.type] = None,
@@ -7481,7 +8372,6 @@ def scala_library(
     source_only_abi_deps: [str.type] = None,
     srcs: [str.type] = None,
     target: [None, str.type] = None,
-    tests: [""] = None,
     within_view: [None, [str.type]] = None
 ) -> None
 ```
@@ -7498,6 +8388,7 @@ def scala_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `abi_generation_mode` |  |
 | `annotation_processor_deps` |  |
 | `annotation_processor_params` |  |
@@ -7529,7 +8420,6 @@ def scala_library(
 | `source_only_abi_deps` |  |
 | `srcs` |  |
 | `target` |  |
-| `tests` |  |
 | `within_view` |  |
 
 ---
@@ -7544,6 +8434,7 @@ def scala_test(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     abi_generation_mode: [None, str.type] = None,
     annotation_processor_deps: [str.type] = None,
     annotation_processor_params: [str.type] = None,
@@ -7586,7 +8477,6 @@ def scala_test(
     test_case_timeout_ms: [None, int.type] = None,
     test_rule_timeout_ms: [None, int.type] = None,
     test_type: [None, str.type] = None,
-    tests: [""] = None,
     use_cxx_libraries: [None, bool.type] = None,
     use_dependency_order_classpath: [None, bool.type] = None,
     vm_args: [str.type] = None,
@@ -7606,6 +8496,7 @@ def scala_test(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `abi_generation_mode` |  |
 | `annotation_processor_deps` |  |
 | `annotation_processor_params` |  |
@@ -7648,7 +8539,6 @@ def scala_test(
 | `test_case_timeout_ms` |  |
 | `test_rule_timeout_ms` |  |
 | `test_type` |  |
-| `tests` |  |
 | `use_cxx_libraries` |  |
 | `use_dependency_order_classpath` |  |
 | `vm_args` |  |
@@ -7666,6 +8556,7 @@ def scene_kit_assets(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     labels: [str.type] = None,
@@ -7687,6 +8578,7 @@ def scene_kit_assets(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `labels` |  |
@@ -7740,6 +8632,7 @@ def sh_binary(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     deps: [str.type] = None,
@@ -7747,7 +8640,6 @@ def sh_binary(
     licenses: [str.type] = None,
     main: str.type,
     resources: [str.type] = None,
-    tests: [""] = None,
     within_view: [None, [str.type]] = None
 ) -> None
 ```
@@ -7764,6 +8656,7 @@ def sh_binary(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `deps` |  |
@@ -7771,7 +8664,6 @@ def sh_binary(
 | `licenses` |  |
 | `main` |  |
 | `resources` |  |
-| `tests` |  |
 | `within_view` |  |
 
 ---
@@ -7786,6 +8678,7 @@ def sh_test(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     args: [str.type] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
@@ -7818,6 +8711,7 @@ def sh_test(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `args` |  |
 | `contacts` |  |
 | `default_host_platform` |  |
@@ -7857,6 +8751,7 @@ def supermodule_target_graph(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     deps: [str.type] = None,
@@ -7881,6 +8776,7 @@ def supermodule_target_graph(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `deps` |  |
@@ -7903,6 +8799,7 @@ def swift_library(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     bridging_header: [None, str.type] = None,
     compiler_flags: [str.type] = None,
     contacts: [str.type] = None,
@@ -7914,12 +8811,14 @@ def swift_library(
     libraries: [str.type] = None,
     licenses: [str.type] = None,
     module_name: [None, str.type] = None,
-    preferred_linkage: [None, str.type] = None,
+    preferred_linkage: str.type = None,
+    sdk_modules: [str.type] = None,
     serialize_debugging_options: bool.type = None,
     soname: [None, str.type] = None,
     srcs: [str.type] = None,
     supported_platforms_regex: [None, str.type] = None,
     target_sdk_version: [None, str.type] = None,
+    uses_explicit_modules: bool.type = None,
     version: [None, str.type] = None,
     within_view: [None, [str.type]] = None
 ) -> None
@@ -7937,6 +8836,7 @@ def swift_library(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `bridging_header` |  |
 | `compiler_flags` |  |
 | `contacts` |  |
@@ -7949,11 +8849,13 @@ def swift_library(
 | `licenses` |  |
 | `module_name` |  |
 | `preferred_linkage` |  |
+| `sdk_modules` |  |
 | `serialize_debugging_options` |  |
 | `soname` |  |
 | `srcs` |  |
 | `supported_platforms_regex` |  |
 | `target_sdk_version` |  |
+| `uses_explicit_modules` |  |
 | `version` |  |
 | `within_view` |  |
 
@@ -7969,16 +8871,25 @@ def swift_toolchain(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
+    _internal_platform_path: [None, str.type] = None,
+    _internal_sdk_path: [None, str.type] = None,
+    _swiftc_wrapper: str.type = None,
+    architecture: [None, str.type] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     labels: [str.type] = None,
     licenses: [str.type] = None,
+    platform_path: [None, str.type] = None,
     prefix_serialized_debug_info: bool.type = None,
+    resource_dir: [None, str.type] = None,
     runtime_paths_for_bundling: [str.type] = None,
     runtime_paths_for_linking: [str.type] = None,
     runtime_run_paths: [str.type] = None,
+    sdk_dependencies_path: [None, str.type] = None,
+    sdk_path: [None, str.type] = None,
     static_runtime_paths: [str.type] = None,
-    swift_stdlib_tool: [None, str.type] = None,
+    swift_stdlib_tool: str.type,
     swift_stdlib_tool_flags: [str.type] = None,
     swiftc: str.type,
     swiftc_flags: [str.type] = None,
@@ -7998,14 +8909,23 @@ def swift_toolchain(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
+| `_internal_platform_path` |  |
+| `_internal_sdk_path` |  |
+| `_swiftc_wrapper` |  |
+| `architecture` |  |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `labels` |  |
 | `licenses` |  |
+| `platform_path` |  |
 | `prefix_serialized_debug_info` |  |
+| `resource_dir` |  |
 | `runtime_paths_for_bundling` |  |
 | `runtime_paths_for_linking` |  |
 | `runtime_run_paths` |  |
+| `sdk_dependencies_path` |  |
+| `sdk_path` |  |
 | `static_runtime_paths` |  |
 | `swift_stdlib_tool` |  |
 | `swift_stdlib_tool_flags` |  |
@@ -8025,11 +8945,12 @@ def test_suite(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     labels: [str.type] = None,
     licenses: [str.type] = None,
-    tests: [""] = None,
+    test_deps: [str.type] = None,
     within_view: [None, [str.type]] = None
 ) -> None
 ```
@@ -8046,11 +8967,12 @@ def test_suite(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `contacts` |  |
 | `default_host_platform` |  |
 | `labels` |  |
 | `licenses` |  |
-| `tests` |  |
+| `test_deps` |  |
 | `within_view` |  |
 
 ---
@@ -8064,41 +8986,8 @@ def transitive_set(args_projections: Option < SmallMap < String, Value < 'v > > 
 ## versioned_alias
 
 ```python
-def versioned_alias(
-    *,
-    name: str.type,
-    default_target_platform: [None, str.type] = None,
-    target_compatible_with: [str.type] = None,
-    compatible_with: [str.type] = None,
-    exec_compatible_with: [str.type] = None,
-    visibility: [str.type] = None,
-    contacts: [str.type] = None,
-    default_host_platform: [None, str.type] = None,
-    labels: [str.type] = None,
-    licenses: [str.type] = None,
-    versions: {str.type: str.type} = None,
-    within_view: [None, [str.type]] = None
-) -> None
+def versioned_alias(versions: UNKNOWN = {}, **kwargs: UNKNOWN) -> UNKNOWN
 ```
-
-
-
-### Parameters
-
-| Name | Details |
-|------|---------|
-| `name` | name of the target |
-| `default_target_platform` | specifies the default target platform, used when no platforms are specified on the command line |
-| `target_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
-| `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
-| `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
-| `visibility` | a list of visibility patterns restricting what targets can depend on this one |
-| `contacts` |  |
-| `default_host_platform` |  |
-| `labels` |  |
-| `licenses` |  |
-| `versions` |  |
-| `within_view` |  |
 
 ---
 ## watchos_bundle
@@ -8112,6 +9001,7 @@ def watchos_bundle(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     actual: str.type
 ) -> None
 ```
@@ -8128,6 +9018,7 @@ def watchos_bundle(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `actual` |  |
 
 ---
@@ -8142,6 +9033,7 @@ def worker_tool(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _worker_tool_runner: str.type = None,
     args: [str.type, [str.type]] = None,
     contacts: [str.type] = None,
@@ -8169,6 +9061,7 @@ def worker_tool(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_worker_tool_runner` |  |
 | `args` |  |
 | `contacts` |  |
@@ -8194,6 +9087,7 @@ def xcode_postbuild_script(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     cmd: str.type = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
@@ -8220,6 +9114,7 @@ def xcode_postbuild_script(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `cmd` |  |
 | `contacts` |  |
 | `default_host_platform` |  |
@@ -8244,6 +9139,7 @@ def xcode_prebuild_script(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     cmd: str.type = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
@@ -8270,6 +9166,7 @@ def xcode_prebuild_script(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `cmd` |  |
 | `contacts` |  |
 | `default_host_platform` |  |
@@ -8294,6 +9191,7 @@ def xcode_workspace_config(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     action_config_names: {str.type: str.type} = None,
     additional_scheme_actions: [None, {str.type: {str.type: [str.type]}}] = None,
     contacts: [str.type] = None,
@@ -8329,6 +9227,7 @@ def xcode_workspace_config(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `action_config_names` |  |
 | `additional_scheme_actions` |  |
 | `contacts` |  |
@@ -8362,6 +9261,7 @@ def zip_file(
     compatible_with: [str.type] = None,
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
+    tests: [label] = None,
     _zip_file_toolchain: str.type = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
@@ -8388,6 +9288,7 @@ def zip_file(
 | `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
 | `_zip_file_toolchain` |  |
 | `contacts` |  |
 | `default_host_platform` |  |

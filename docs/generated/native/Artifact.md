@@ -11,27 +11,31 @@ A single input or output for an action
 
 | Member | Type | Description |
 |--------|------|-------------|
-| as_output | `Value < 'v >` | Returns a `StarlarkOutputArtifact` instance, or fails if the artifact is either an `Artifact`, or is a bound `Artifact` (You cannot bind twice) |
-| basename | `String` | The base name of this artifact. e.g. for an artifact at `foo/bar`, this is `bar` |
-| extension | `Option < String >` | The file extension of this artifact. e.g. for an artifact at foo/bar.sh, this is `sh`. If no extension is present, an empty string is returned |
+| as_output | `() -> StarlarkOutputArtifact` | Returns a `StarlarkOutputArtifact` instance, or fails if the artifact is either an `Artifact`, or is a bound `Artifact` (You cannot bind twice) |
+| basename | `& 'v str` | The base name of this artifact. e.g. for an artifact at `foo/bar`, this is `bar` |
+| extension | `StringValue < 'v >` | The file extension of this artifact. e.g. for an artifact at foo/bar.sh, this is `.sh`. If no extension is present, `""` is returned. |
 | is_source | `bool` | Whether the artifact represents a source file |
-| owner | `Option < Label < 'v > >` | The `Label` of the rule that originally created this artifact. May also be None in the case of source files, or if the artifact has not be used in an action. |
-| short_path | `String` | The interesting part of the path, relative to somewhere in the output directory. For an artifact declared as `foo/bar`, this is `foo/bar`. |
+| owner | `Option < Label < 'v > >` | The `Label` of the rule that originally created this artifact. May also be None in the case of source files, or if the artifact has not be used in an action, or if the |
+| short_path | `& 'v str` | The interesting part of the path, relative to somewhere in the output directory. For an artifact declared as `foo/bar`, this is `foo/bar`. |
 
 
-## as_output : `Value < 'v >`
+## as_output
+
+```python
+def as_output() -> StarlarkOutputArtifact
+```
 
 Returns a `StarlarkOutputArtifact` instance, or fails if the artifact is either an `Artifact`, or is a bound `Artifact` (You cannot bind twice)
 
 ---
-## basename : `String`
+## basename : `& 'v str`
 
 The base name of this artifact. e.g. for an artifact at `foo/bar`, this is `bar`
 
 ---
-## extension : `Option < String >`
+## extension : `StringValue < 'v >`
 
-The file extension of this artifact. e.g. for an artifact at foo/bar.sh, this is `sh`. If no extension is present, an empty string is returned
+The file extension of this artifact. e.g. for an artifact at foo/bar.sh, this is `.sh`. If no extension is present, `""` is returned.
 
 ---
 ## is_source : `bool`
@@ -41,9 +45,9 @@ Whether the artifact represents a source file
 ---
 ## owner : `Option < Label < 'v > >`
 
-The `Label` of the rule that originally created this artifact. May also be None in the case of source files, or if the artifact has not be used in an action.
+The `Label` of the rule that originally created this artifact. May also be None in the case of source files, or if the artifact has not be used in an action, or if the
 
 ---
-## short_path : `String`
+## short_path : `& 'v str`
 
 The interesting part of the path, relative to somewhere in the output directory. For an artifact declared as `foo/bar`, this is `foo/bar`.

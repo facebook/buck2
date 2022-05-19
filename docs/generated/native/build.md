@@ -11,16 +11,17 @@ Regenerate by running `buck2_docs --buck-command=buck2 --destination-dir=docs/ge
 
 | Member | Type | Description |
 |--------|------|-------------|
+| cmd_args | `(*Vec < Value < 'v > >, Option < String >, bool, Option < String >, Option < String >, Option < String >) -> StarlarkCommandLine < 'v >` |  |
 | get_base_path | `() -> String` |  |
 | get_cell_name | `() -> String` |  |
 | glob | `(Vec < String >, Option < Vec < String > >, Option < Vec < String > >, bool) -> Value < 'v >` |  |
 | host_info | `() -> Value < 'v >` |  |
 | implicit_package_symbol | `(& str, Option < Value >) -> Value < 'v >` |  |
-| load_symbols | `(ARef < Dict >) -> NoneType` |  |
+| load_symbols | `(DictRef) -> NoneType` |  |
 | package | `() -> String` |  |
 | package_name | `() -> String` |  |
 | provider | `(& str, Either < Vec < String >, SmallMap < & str, & str > >) -> ProviderCallable` |  |
-| read_config | `(& str, & str, Option < Value >) -> Value < 'v >` |  |
+| read_config | `(StringValue, StringValue, Option < Value >) -> Value < 'v >` |  |
 | regex_match | `(& str, & str) -> bool` |  |
 | repository_name | `() -> String` |  |
 | rule | `(Value, DictOf < & str, & Attribute >, Option < Value >, & str, bool, bool) -> Value < 'v >` |  |
@@ -35,6 +36,13 @@ Regenerate by running `buck2_docs --buck-command=buck2 --destination-dir=docs/ge
 | warning | `(& str) -> NoneType` | Produce a warning. |
 
 
+## cmd_args
+
+```python
+def cmd_args(*args: Vec < Value < 'v > >, format: Option < String > = None, joined: bool = None, delimiter: Option < String > = None, quote: Option < String > = None, prepend: Option < String > = None) -> StarlarkCommandLine < 'v >
+```
+
+---
 ## get_base_path
 
 ```python
@@ -73,7 +81,7 @@ def implicit_package_symbol(name: & str, default: Option < Value > = None) -> Va
 ## load_symbols
 
 ```python
-def load_symbols(symbols: ARef < Dict >) -> NoneType
+def load_symbols(symbols: DictRef) -> NoneType
 ```
 
 ---
@@ -101,7 +109,7 @@ def provider(doc: & str = None, fields: Either < Vec < String >, SmallMap < & st
 ## read_config
 
 ```python
-def read_config(section: & str, key: & str, default: Option < Value > = None) -> Value < 'v >
+def read_config(section: StringValue, key: StringValue, default: Option < Value > = None) -> Value < 'v >
 ```
 
 ---
