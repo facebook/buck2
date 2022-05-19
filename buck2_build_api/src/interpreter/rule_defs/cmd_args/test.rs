@@ -222,26 +222,6 @@ fn command_line_builder() -> SharedResult<()> {
 }
 
 #[test]
-fn test_short_name() -> anyhow::Result<()> {
-    let mut tester = tester()?;
-    let contents = indoc!(
-        r#"
-        def test():
-            assert_eq("run foo", short_name(["foo", "bar"]))
-            assert_eq("run command", short_name([]))
-            c1 = cmd_args()
-            c1.add("foo", "bar")
-            c2 = cmd_args()
-            c2.add(c1, "baz")
-            assert_eq("run foo", short_name([c1, c2]))
-        "#
-    );
-
-    tester.run_starlark_bzl_test(contents)?;
-    Ok(())
-}
-
-#[test]
 fn test_relative_absolute() -> anyhow::Result<()> {
     let mut tester = tester()?;
     let contents = indoc!(

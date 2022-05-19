@@ -21,7 +21,6 @@ use buck2_core::fs::{
     project::ProjectRelativePathBuf,
 };
 use derive_more::Display;
-use either::Either;
 use gazebo::{
     any::AnyLifetime,
     cell::ARef,
@@ -574,37 +573,7 @@ impl Display for FrozenStarlarkCommandLine {
     }
 }
 
-impl<'v> StarlarkCommandLine<'v> {
-    pub fn short_name(&self) -> String {
-        self.0.borrow().short_name()
-    }
-}
-
 impl<'v, V: ValueLike<'v>> StarlarkCommandLineDataGen<V> {
-    fn short_name_cmdarg(v: &CommandLineArgGen<V>) -> Option<&'v str> {
-        if let Some(x) = v.0.to_value().unpack_str() {
-            Some(x)
-        } else {
-            match StarlarkCommandLine::from_value(v.0.to_value())? {
-                Either::Left(x) => x.0.borrow().short_name_cmdline(),
-                Either::Right(x) => x.0.short_name_cmdline(),
-            }
-        }
-    }
-
-    fn short_name_cmdline(&self) -> Option<&'v str> {
-        Self::short_name_cmdarg(self.items.first()?)
-    }
-
-    /// Find a suitable short-name for the command, if the user didn't supply one.
-    /// We use the first argument to the command, if there is one.
-    fn short_name(&self) -> String {
-        match self.short_name_cmdline() {
-            Some(v) if v.len() < 100 => format!("run {}", v),
-            _ => "run command".to_owned(),
-        }
-    }
-
     fn relative_to_path<C>(&self, ctx: &C) -> anyhow::Result<Option<RelativePathBuf>>
     where
         C: CommandLineBuilderContext + ?Sized,
@@ -1284,7 +1253,7 @@ pub mod tester {
         interpreter::{
             rule_defs::cmd_args::{
                 builder::BaseCommandLineBuilder, SimpleCommandLineArtifactVisitor,
-                StarlarkCommandLine, StarlarkCommandLineInputs, ValueAsCommandLineLike,
+                StarlarkCommandLineInputs, ValueAsCommandLineLike,
             },
             testing::cells,
         },
@@ -1330,10 +1299,6 @@ pub mod tester {
             let cli = builder.build();
             assert_eq!(1, cli.len());
             Ok(cli.get(0).unwrap().clone())
-        }
-
-        fn short_name<'v>(value: Value<'v>) -> anyhow::Result<String> {
-            Ok(StarlarkCommandLine::try_from_value(value)?.short_name())
         }
     }
 
