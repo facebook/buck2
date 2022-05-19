@@ -601,9 +601,9 @@ message ActionExecutionEnd {
   };
   // If not-empty, the stderr for the process. This may contain ANSI control
   // characters, so consumers should sanitize it before displaying it to users.
-  // If it is empty, it is because the stderr contents were available elsewhere,
-  // e.g. in an error message for failed actions.
-  string stderr = 20;
+  // If it is empty, the stderr contents are available elsewhere, e.g. in an
+  // error message for failed actions.
+  string success_stderr = 20;
   // Whether, in the normal case, stderr should be printed for successful
   // actions. It *may* still be presented to users if they request it
   // specifically.

@@ -121,7 +121,7 @@ impl ActionCalculation for DiceComputations {
                         let execute_result = executor.execute(materialized_inputs, &action).await;
 
                         let action_result;
-                        let stderr;
+                        let success_stderr;
                         let execution_kind;
                         let error;
 
@@ -135,7 +135,7 @@ impl ActionCalculation for DiceComputations {
                                 }
 
                                 action_result = Ok(outputs);
-                                stderr = Some(meta.std_streams.to_lossy_stderr().await);
+                                success_stderr = Some(meta.std_streams.to_lossy_stderr().await);
                                 execution_kind = Some(meta.execution_kind.as_enum());
                                 error = None;
                             }
@@ -150,7 +150,7 @@ impl ActionCalculation for DiceComputations {
                                     action.owner()
                                 )
                                 .into());
-                                stderr = None;
+                                success_stderr = None;
                                 execution_kind = e
                                     .downcast_ref::<ActionError>()
                                     .map(|e| e.metadata.execution_kind.as_enum());
@@ -170,7 +170,7 @@ impl ActionCalculation for DiceComputations {
                                 failed: error.is_some(),
                                 error,
                                 always_print_stderr: action.always_print_stderr(),
-                                stderr: stderr.unwrap_or_default(),
+                                success_stderr: success_stderr.unwrap_or_default(),
                                 execution_kind: execution_kind
                                     .unwrap_or(buck2_data::ActionExecutionKind::NotSet)
                                     as i32,

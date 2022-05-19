@@ -418,7 +418,7 @@ impl EventSubscriber for StatefulSuperConsole {
                 lines.push(superconsole::line!(Span::sanitized("")));
             }
             None => {
-                if !action.stderr.is_empty()
+                if !action.success_stderr.is_empty()
                     && (action.always_print_stderr || self.verbosity.print_success_stderr())
                 {
                     let action_id = StyledContent::new(
@@ -436,7 +436,7 @@ impl EventSubscriber for StatefulSuperConsole {
                         ),
                     );
                     lines.push(superconsole::line!(Span::new_styled_lossy(action_id)));
-                    lines.extend(colored_lines_from_multiline_string(&action.stderr));
+                    lines.extend(colored_lines_from_multiline_string(&action.success_stderr));
                 }
             }
         }
