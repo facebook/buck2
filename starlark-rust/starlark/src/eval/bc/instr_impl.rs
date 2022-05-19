@@ -28,7 +28,7 @@ use crate::{
         bc::{
             addr::{BcAddr, BcAddrOffset, BcPtrAddr},
             bytecode::{run_block, Bc, RunBlockResult},
-            call::{BcCallArgs, BcCallArgsFull, BcCallArgsPos},
+            call::{BcCallArgs, BcCallArgsForDef, BcCallArgsFull, BcCallArgsPos},
             instr::{BcInstr, InstrControl},
             instr_arg::{
                 ArgPopsStack, ArgPopsStack1, ArgPopsStackMaybe1, ArgPushesStack, BcInstrArg,
@@ -1548,7 +1548,7 @@ pub(crate) struct InstrCallImpl<A: BcCallArgs<Symbol>>(marker::PhantomData<fn(A)
 pub(crate) struct InstrCallFrozenGenericImpl<F: BcFrozenCallable, A: BcCallArgs<Symbol>>(
     marker::PhantomData<(F, A)>,
 );
-pub(crate) struct InstrCallFrozenDefImpl<A: BcCallArgs<ResolvedArgName>>(marker::PhantomData<A>);
+pub(crate) struct InstrCallFrozenDefImpl<A: BcCallArgsForDef>(marker::PhantomData<A>);
 pub(crate) struct InstrCallMethodImpl<A: BcCallArgs<Symbol>>(marker::PhantomData<A>);
 pub(crate) struct InstrCallMaybeKnownMethodImpl<A: BcCallArgs<Symbol>>(marker::PhantomData<A>);
 
@@ -1613,7 +1613,7 @@ impl<F: BcFrozenCallable, A: BcCallArgs<Symbol>> InstrNoFlowImpl
     }
 }
 
-impl<A: BcCallArgs<ResolvedArgName>> InstrNoFlowImpl for InstrCallFrozenDefImpl<A> {
+impl<A: BcCallArgsForDef> InstrNoFlowImpl for InstrCallFrozenDefImpl<A> {
     type Pop<'v> = ();
     type Push<'v> = Value<'v>;
     type Arg = (

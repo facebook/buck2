@@ -17,7 +17,7 @@
 
 //! Stack pointer.
 
-use std::{cell::Cell, marker, mem, mem::MaybeUninit, ptr, slice};
+use std::{cell::Cell, marker, marker::PhantomData, mem, mem::MaybeUninit, ptr, slice};
 
 use gazebo::coerce::coerce_ref;
 
@@ -28,7 +28,7 @@ use crate::{
             if_debug::IfDebug,
             instr_arg::{ArgPopsStack, ArgPopsStackMaybe1, ArgPushesStack},
         },
-        runtime::arguments::{ArgNames, ArgSymbol, ArgumentsFull},
+        runtime::arguments::{ArgNames, ArgSymbol, ArgumentsFull, ArgumentsPos},
     },
     values::Value,
 };
@@ -140,6 +140,7 @@ impl<'v, 's> BcStackPtr<'v, 's> {
         unsafe { ptr::read(self.ptr.get() as *const [Value; N]) }
     }
 
+    #[inline]
     pub(crate) fn pop_args<'a, S: ArgSymbol>(
         &'a self,
         a: &'a BcCallArgsFull<S>,
@@ -157,7 +158,8 @@ impl<'v, 's> BcStackPtr<'v, 's> {
         }
     }
 
-    pub(crate) fn pop_args_pos<'a, S: ArgSymbol>(
+    #[inline]
+    pub(crate) fn pop_args_pos_as_full<'a, S: ArgSymbol>(
         &'a self,
         npos: &BcCallArgsPos,
     ) -> ArgumentsFull<'v, 'a, S> {
@@ -168,6 +170,18 @@ impl<'v, 's> BcStackPtr<'v, 's> {
             names: ArgNames::new(&[]),
             args: None,
             kwargs: None,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn pop_args_pos<'a, S: ArgSymbol>(
+        &'a self,
+        npos: &BcCallArgsPos,
+    ) -> ArgumentsPos<'v, 'a, S> {
+        let pos = self.pop_slice(ArgPopsStack(npos.pos));
+        ArgumentsPos {
+            pos,
+            names: PhantomData,
         }
     }
 

@@ -29,7 +29,9 @@ use crate::{
     eval::{
         bc::{instr_arg::BcInstrArg, stack_ptr::BcStackPtr},
         compiler::def::FrozenDef,
-        runtime::arguments::{ArgSymbol, ArgumentsFull, ResolvedArgName},
+        runtime::arguments::{
+            ArgSymbol, ArgumentsFull, ArgumentsImpl, ArgumentsPos, ResolvedArgName,
+        },
     },
     values::FrozenStringValue,
 };
@@ -37,6 +39,15 @@ use crate::{
 /// Call arguments.
 pub(crate) trait BcCallArgs<S: ArgSymbol>: BcInstrArg {
     fn pop_from_stack<'a, 'v>(&'a self, stack: &'a BcStackPtr<'v, '_>) -> ArgumentsFull<'v, 'a, S>;
+}
+
+/// Call arguments for `def` call.
+pub(crate) trait BcCallArgsForDef: BcInstrArg {
+    type Args<'v, 'a>: ArgumentsImpl<'v, 'a, ArgSymbol = ResolvedArgName>
+    where
+        'v: 'a;
+
+    fn pop_from_stack<'a, 'v>(&'a self, stack: &'a BcStackPtr<'v, '_>) -> Self::Args<'v, 'a>;
 }
 
 /// Full call arguments: positional, named, star and star-star. All taken from the stack.
@@ -124,6 +135,36 @@ impl<S: ArgSymbol> BcCallArgs<S> for BcCallArgsFull<S> {
 
 impl<S: ArgSymbol> BcCallArgs<S> for BcCallArgsPos {
     fn pop_from_stack<'a, 'v>(&'a self, stack: &'a BcStackPtr<'v, '_>) -> ArgumentsFull<'v, 'a, S> {
+        stack.pop_args_pos_as_full(self)
+    }
+}
+
+impl BcCallArgsForDef for BcCallArgsFull<ResolvedArgName> {
+    type Args<'v, 'a>
+    where
+        'v: 'a,
+    = ArgumentsFull<'v, 'a, ResolvedArgName>;
+
+    #[inline]
+    fn pop_from_stack<'a, 'v>(
+        &'a self,
+        stack: &'a BcStackPtr<'v, '_>,
+    ) -> ArgumentsFull<'v, 'a, ResolvedArgName> {
+        stack.pop_args(self)
+    }
+}
+
+impl BcCallArgsForDef for BcCallArgsPos {
+    type Args<'v, 'a>
+    where
+        'v: 'a,
+    = ArgumentsPos<'v, 'a, ResolvedArgName>;
+
+    #[inline]
+    fn pop_from_stack<'a, 'v>(
+        &'a self,
+        stack: &'a BcStackPtr<'v, '_>,
+    ) -> ArgumentsPos<'v, 'a, ResolvedArgName> {
         stack.pop_args_pos(self)
     }
 }

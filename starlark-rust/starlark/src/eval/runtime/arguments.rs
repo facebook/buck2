@@ -15,7 +15,10 @@
  * limitations under the License.
  */
 
-use std::{cell::Cell, cmp, collections::HashMap, convert::TryInto, intrinsics::unlikely, iter};
+use std::{
+    cell::Cell, cmp, collections::HashMap, convert::TryInto, intrinsics::unlikely, iter,
+    marker::PhantomData,
+};
 
 use either::Either;
 use gazebo::{
@@ -903,6 +906,41 @@ impl<'v, 'a, S: ArgSymbol> ArgumentsImpl<'v, 'a> for ArgumentsFull<'v, 'a, S> {
     #[inline]
     fn kwargs(&self) -> Option<Value<'v>> {
         self.kwargs
+    }
+}
+
+/// Positional-only arguments, smaller and faster than `ArgumentsFull`.
+pub(crate) struct ArgumentsPos<'v, 'a, S: ArgSymbol> {
+    pub(crate) pos: &'a [Value<'v>],
+    pub(crate) names: PhantomData<&'static S>,
+}
+
+impl<'a, 'v, S: ArgSymbol> ArgumentsImpl<'v, 'a> for ArgumentsPos<'v, 'a, S> {
+    type ArgSymbol = S;
+
+    #[inline]
+    fn pos(&self) -> &[Value<'v>] {
+        self.pos
+    }
+
+    #[inline]
+    fn named(&self) -> &[Value<'v>] {
+        &[]
+    }
+
+    #[inline]
+    fn names(&self) -> ArgNames<'a, 'v, S> {
+        ArgNames::default()
+    }
+
+    #[inline]
+    fn args(&self) -> Option<Value<'v>> {
+        None
+    }
+
+    #[inline]
+    fn kwargs(&self) -> Option<Value<'v>> {
+        None
     }
 }
 
