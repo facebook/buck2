@@ -134,7 +134,7 @@ pub fn dedupe(builder: &mut GlobalsBuilder) {
 #[starlark_module]
 pub fn regex(builder: &mut GlobalsBuilder) {
     /// Creates a regex which can be used for matching
-    fn regex<'v>(ref regex: &str) -> anyhow::Result<StarlarkRegex> {
+    fn experimental_regex<'v>(ref regex: &str) -> anyhow::Result<StarlarkRegex> {
         StarlarkRegex::new(regex)
     }
 }

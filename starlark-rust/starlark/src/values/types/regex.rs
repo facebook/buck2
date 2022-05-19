@@ -71,10 +71,10 @@ mod tests {
     fn test_match() {
         assert::all_true(
             r#"
-regex("abc|def|ghi").match("abc")
-not regex("abc|def|ghi").match("xyz")
-not regex("^((?!abc).)*$").match("abc")
-regex("^((?!abc).)*$").match("xyz")
+experimental_regex("abc|def|ghi").match("abc")
+not experimental_regex("abc|def|ghi").match("xyz")
+not experimental_regex("^((?!abc).)*$").match("abc")
+experimental_regex("^((?!abc).)*$").match("xyz")
 "#,
         );
     }
@@ -83,7 +83,7 @@ regex("^((?!abc).)*$").match("xyz")
     fn test_str() {
         assert::is_true(
             r#"
-str(regex("foo")) == 'regex("foo")'
+str(experimental_regex("foo")) == 'regex("foo")'
 "#,
         );
     }

@@ -64,7 +64,7 @@ pub enum LibraryExtension {
     /// Remove duplicate entries in the list, using pointer-based equality always.
     Dedupe,
     /// Create a regex from a string.
-    Regex,
+    ExperimentalRegex,
     /// Add a function `debug(x)` which shows the Rust [`Debug`](std::fmt::Debug) representation of a value.
     /// Useful when debugging, but the output should not be considered stable.
     Debug,
@@ -86,8 +86,20 @@ impl LibraryExtension {
     pub fn all() -> &'static [Self] {
         use LibraryExtension::*;
         &[
-            StructType, RecordType, EnumType, Map, Filter, Partial, Dedupe, Regex, Debug, Print,
-            Pprint, Breakpoint, Json, Abs,
+            StructType,
+            RecordType,
+            EnumType,
+            Map,
+            Filter,
+            Partial,
+            Dedupe,
+            ExperimentalRegex,
+            Debug,
+            Print,
+            Pprint,
+            Breakpoint,
+            Json,
+            Abs,
         ]
     }
 
@@ -102,7 +114,7 @@ impl LibraryExtension {
             Filter => extra::filter(builder),
             Partial => extra::partial(builder),
             Dedupe => extra::dedupe(builder),
-            Regex => extra::regex(builder),
+            ExperimentalRegex => extra::regex(builder),
             Debug => extra::debug(builder),
             Print => extra::print(builder),
             Pprint => extra::pprint(builder),
