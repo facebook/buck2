@@ -199,8 +199,7 @@ impl GlobalInterpreterState {
                 LibraryExtension::Pprint,
                 LibraryExtension::Print,
                 LibraryExtension::RecordType,
-                // TODO(nga): Disable regex until regex API is decided. See D36102883.
-                // LibraryExtension::Regex,
+                LibraryExtension::ExperimentalRegex,
                 LibraryExtension::StructType,
             ])
             .with(register_globals)
