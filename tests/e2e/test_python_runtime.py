@@ -78,6 +78,7 @@ async def test_python_par_decorating_main(buck: Buck) -> None:
 
 
 # Run the binary. Returns stdout.
+# pyre-fixme[2]: Parameter must be annotated.
 async def run(binary: Path, env) -> bytes:
     proc = await asyncio.create_subprocess_exec(
         binary,
