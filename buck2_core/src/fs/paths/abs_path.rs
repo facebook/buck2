@@ -91,6 +91,7 @@ impl AbsPath {
     ///     assert!(AbsPath::new("c:/").is_ok());
     ///     assert!(AbsPath::new("c:/normalize/./bar").is_err());
     ///     assert!(AbsPath::new("c:/normalize/../bar").is_err());
+    ///     assert!(AbsPath::new("/foo/bar").is_err());
     ///
     ///     assert!(AbsPath::new(Path::new("c:/foo/bar")).is_ok());
     ///     assert!(AbsPath::new(Path::new("c:/")).is_ok());

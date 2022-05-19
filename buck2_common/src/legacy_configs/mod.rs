@@ -627,6 +627,13 @@ impl<'a> LegacyConfigParser<'a> {
             } else if let Some(m) = FILE_INCLUDE.captures(&line) {
                 if parse_includes {
                     let include = m.name("include").unwrap().as_str();
+                    let include = if cfg!(windows) && include.contains(':') {
+                        // On Windows absolute includes look like /C:/foo/bar.
+                        // For compatibility with Python parser we need to support this.
+                        include.trim_start_matches('/')
+                    } else {
+                        include
+                    };
                     let optional = m.name("optional").is_some();
                     let include_file = if let Ok(absolute) = AbsPath::new(include) {
                         absolute.to_owned()
