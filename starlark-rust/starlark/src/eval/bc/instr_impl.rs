@@ -1629,8 +1629,11 @@ impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallFrozenDefImpl<A> {
         (fun, args, span): &Self::Arg,
         _pops: (),
     ) -> Result<Value<'v>, anyhow::Error> {
-        let arguments = Arguments(args.pop_from_stack(stack));
-        fun.bc_invoke(*span, &arguments, eval)
+        let arguments = args.pop_from_stack(stack);
+        eval.with_call_stack(fun.to_value(), Some(*span), |eval| {
+            fun.as_ref()
+                .invoke_with_resolved_arg_names(&arguments, eval)
+        })
     }
 }
 

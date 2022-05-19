@@ -36,6 +36,7 @@ use once_cell::sync::Lazy;
 use crate::{
     self as starlark,
     codemap::CodeMap,
+    collections::symbol_map::Symbol,
     const_frozen_string,
     environment::{FrozenModuleRef, Globals},
     eval::{
@@ -697,6 +698,18 @@ where
             self.parameters.collect_inline(args, slots, eval.heap())?;
             self.invoke_raw(eval)
         })
+    }
+
+    pub(crate) fn invoke_with_resolved_arg_names(
+        &self,
+        // TODO: this will be `ResolvedArgName`, not `Symbol` in the following diff.
+        args: &ArgumentsImpl<'v, '_, Symbol>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        // This is trivial function which delegates to `invoke_impl`.
+        // `invoke_impl` is called from two places,
+        // giving this function different name makes this function easier to see in profiler.
+        self.invoke_impl(args, eval)
     }
 
     /// Invoke the function, assuming that:
