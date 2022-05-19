@@ -16,6 +16,7 @@ JavaToolchainInfo = provider(
         "fat_jar_main_class_lib",
         "jar",
         "java",
+        "java_for_tests",
         "javac",
         "src_dir_helper",
         "source_level",

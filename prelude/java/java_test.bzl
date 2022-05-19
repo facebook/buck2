@@ -32,7 +32,7 @@ def build_junit_test(
         extra_classpath_entries: ["artifact"] = []) -> (ExternalRunnerTestInfo.type, RunInfo.type):
     junit_toolchain = ctx.attr._junit_toolchain[JUnitToolchainInfo]
 
-    cmd = cmd_args(ctx.attr._java_toolchain[JavaToolchainInfo].java)
+    cmd = cmd_args(ctx.attr._java_toolchain[JavaToolchainInfo].java_for_tests)
     if extra_cmd_args:
         cmd.add(extra_cmd_args)
     cmd.add(ctx.attr.vm_args)
