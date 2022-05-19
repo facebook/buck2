@@ -19,6 +19,7 @@ rust_binary(
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:tracing-subscriber",
         "//buck2/dice/dice:dice",
         "//buck2/gazebo/gazebo:gazebo",
     ],

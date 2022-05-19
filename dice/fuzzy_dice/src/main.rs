@@ -15,6 +15,7 @@ use clap::{Arg, Command};
 use futures::FutureExt;
 use quickcheck::{Gen, QuickCheck};
 use thiserror::Error;
+use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 mod computation;
 mod execution;
@@ -94,6 +95,10 @@ fn main() -> anyhow::Result<()> {
                 .quickcheck(qc_fuzz as fn(DiceExecutionOrder) -> bool);
         }
         Some(("replay", submatches)) => {
+            tracing_subscriber::registry()
+                .with(fmt::layer())
+                .with(EnvFilter::from_default_env())
+                .init();
             let execution = execution_order_from_path(submatches.value_of("path").unwrap())?;
             let options = DiceExecutionOrderOptions {
                 print_dumps: submatches.is_present("print-dumps"),
