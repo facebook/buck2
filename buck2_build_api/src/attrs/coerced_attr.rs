@@ -15,7 +15,10 @@ use std::{
 };
 
 use anyhow::{anyhow, Context};
-use buck2_core::{configuration::ConfigurationData, target::TargetLabel};
+use buck2_core::{
+    configuration::{Configuration, ConfigurationData},
+    target::TargetLabel,
+};
 use buck2_interpreter::selector::{Selector, SelectorGen};
 use gazebo::prelude::*;
 use itertools::Itertools;
@@ -36,8 +39,12 @@ use crate::{
 
 #[derive(Error, Debug)]
 pub(crate) enum SelectError {
-    #[error("No conditions matched and no default was set.")]
-    MissingDefault,
+    #[error("None of {} conditions matched configuration `{}` and no default was set:\n{}",
+        .1.len(),
+        .0,
+        .1.iter().map(|s| format!("  {}", s)).join("\n"),
+    )]
+    MissingDefault(Configuration, Vec<TargetLabel>),
     #[error("select() condition was not a string, got `{}`.", {0})]
     KeyNotString(String),
     #[error("select() value was not a dict, got `{}`.", {0})]
@@ -365,7 +372,12 @@ impl CoercedAttr {
                 }
                 default
                     .as_ref()
-                    .ok_or_else(|| anyhow!(SelectError::MissingDefault))?
+                    .ok_or_else(|| {
+                        anyhow!(SelectError::MissingDefault(
+                            ctx.cfg().dupe(),
+                            selector.keys().duped().collect()
+                        ))
+                    })?
                     .configure(ctx)
             }
             CoercedAttr::Concat(items) => {
