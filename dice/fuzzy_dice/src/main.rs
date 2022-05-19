@@ -8,6 +8,7 @@
  */
 
 #![feature(exclusive_range_pattern)]
+#![feature(async_closure)]
 
 use anyhow::Context;
 use clap::{Arg, Command};
@@ -18,7 +19,7 @@ use thiserror::Error;
 mod computation;
 mod execution;
 
-use crate::execution::DiceExecutionOrder;
+use crate::execution::{DiceExecutionOrder, DiceExecutionOrderOptions};
 
 #[derive(Error, Debug)]
 pub enum DiceFuzzError {
@@ -49,11 +50,20 @@ fn execution_order_from_path(filepath: &str) -> anyhow::Result<DiceExecutionOrde
 
 fn main() -> anyhow::Result<()> {
     #[tokio::main]
+    async fn replay(options: &DiceExecutionOrderOptions, execution: DiceExecutionOrder) {
+        execution.execute(options).await.unwrap();
+    }
+    #[tokio::main]
     async fn qc_fuzz(execution: DiceExecutionOrder) -> bool {
-        std::panic::AssertUnwindSafe(async { execution.execute().await })
-            .catch_unwind()
-            .await
-            .is_ok()
+        std::panic::AssertUnwindSafe(async {
+            execution
+                .execute(&DiceExecutionOrderOptions { print_dumps: false })
+                .await
+                .unwrap();
+        })
+        .catch_unwind()
+        .await
+        .is_ok()
     }
 
     let cmd = Command::new("fuzzy-dice")
@@ -63,7 +73,13 @@ fn main() -> anyhow::Result<()> {
         .subcommand(
             Command::new("replay")
                 .about("Replays an existing failure.")
-                .arg(Arg::new("path").required(true).takes_value(true)),
+                .arg(Arg::new("path").required(true).takes_value(true))
+                .arg(
+                    Arg::new("print-dumps")
+                        .long("print-dumps")
+                        .takes_value(false)
+                        .help("If set, prints a DICE-dump as JSON to stderr after each operation."),
+                ),
         )
         .arg_required_else_help(true);
 
@@ -79,7 +95,10 @@ fn main() -> anyhow::Result<()> {
         }
         Some(("replay", submatches)) => {
             let execution = execution_order_from_path(submatches.value_of("path").unwrap())?;
-            qc_fuzz(execution);
+            let options = DiceExecutionOrderOptions {
+                print_dumps: submatches.is_present("print-dumps"),
+            };
+            replay(&options, execution);
         }
         _ => unreachable!("clap should ensure we don't get here"),
     }

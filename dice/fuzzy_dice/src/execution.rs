@@ -10,6 +10,7 @@
 use std::{
     collections::HashMap,
     fmt::{Debug, Formatter},
+    io::{stderr, Write},
     sync::Arc,
 };
 
@@ -57,6 +58,10 @@ impl Debug for DiceExecutionOrder {
     }
 }
 
+pub struct DiceExecutionOrderOptions {
+    pub print_dumps: bool,
+}
+
 impl DiceExecutionOrder {
     const NSAMPLES_SEARCHING: usize = 1;
     const NSAMPLES_SHRINKING: usize = 100;
@@ -67,19 +72,19 @@ impl DiceExecutionOrder {
     /// same bug may not repro, so shrinking might stop early.
     /// Since shrinking a big testcase takes multiple consecutive failures,
     /// without multiple samples, shrinking will usually stop early.
-    pub async fn execute(&self) -> anyhow::Result<()> {
+    pub async fn execute(&self, options: &DiceExecutionOrderOptions) -> anyhow::Result<()> {
         let ntimes = if self.is_shrinking {
             Self::NSAMPLES_SHRINKING
         } else {
             Self::NSAMPLES_SEARCHING
         };
         for _ in 0..ntimes {
-            self.execute_once().await?;
+            self.execute_once(options).await?;
         }
         Ok(())
     }
 
-    async fn execute_once(&self) -> anyhow::Result<()> {
+    async fn execute_once(&self, options: &DiceExecutionOrderOptions) -> anyhow::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Disabled);
         let mut dice_ctxs: HashMap<usize, DiceTransaction> = HashMap::new();
         let state = {
@@ -116,6 +121,19 @@ impl DiceExecutionOrder {
                     }
                 }
             }
+            Self::maybe_dump_dice(options, &dice).expect("couldn't dump DICE to stderr");
+        }
+        Ok(())
+    }
+
+    fn maybe_dump_dice(
+        options: &DiceExecutionOrderOptions,
+        dice: &Arc<Dice>,
+    ) -> anyhow::Result<()> {
+        if options.print_dumps {
+            let mut stderr = stderr();
+            serde_json::to_writer(&mut stderr, dice.as_ref())?;
+            writeln!(stderr)?;
         }
         Ok(())
     }
