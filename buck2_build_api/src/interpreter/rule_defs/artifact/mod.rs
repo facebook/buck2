@@ -82,7 +82,7 @@ pub mod testing {
         interpreter::{
             rule_defs::{
                 artifact::{StarlarkArtifact, StarlarkDeclaredArtifact, ValueAsArtifactLike},
-                cmd_args::builder::BaseCommandLineBuilder,
+                cmd_args::BaseCommandLineBuilder,
             },
             testing::cells,
         },

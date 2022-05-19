@@ -29,7 +29,7 @@ use crate::{
     execute::{
         ActionExecutionKind, ActionExecutionMetadata, ActionExecutionTimingData, ActionOutputs,
     },
-    interpreter::rule_defs::cmd_args::{builder::BaseCommandLineBuilder, ValueAsCommandLineLike},
+    interpreter::rule_defs::cmd_args::{BaseCommandLineBuilder, ValueAsCommandLineLike},
 };
 
 #[derive(Debug, Error)]

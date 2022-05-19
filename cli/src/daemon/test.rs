@@ -19,8 +19,7 @@ use buck2_build_api::{
     interpreter::{
         module_internals::EvaluationResult,
         rule_defs::{
-            cmd_args::builder::SimpleCommandLineArtifactVisitor,
-            provider::FrozenProviderCollectionValue,
+            cmd_args::SimpleCommandLineArtifactVisitor, provider::FrozenProviderCollectionValue,
         },
     },
     nodes::compatibility::MaybeCompatible,

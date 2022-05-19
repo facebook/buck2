@@ -22,7 +22,7 @@ use crate::{
     artifact_groups::ArtifactGroup,
     calculation::Calculation,
     interpreter::rule_defs::{
-        cmd_args::builder::{CommandLineArgLike, SimpleCommandLineArtifactVisitor},
+        cmd_args::{CommandLineArgLike, SimpleCommandLineArtifactVisitor},
         provider::template_placeholder_info::TemplatePlaceholderInfo,
     },
     nodes::{compatibility::MaybeCompatible, configured::ConfiguredTargetNode},

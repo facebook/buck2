@@ -39,7 +39,7 @@ use crate::{
     deferred::BaseDeferredKey,
     interpreter::rule_defs::{
         artifact::{StarlarkArtifact, StarlarkArtifactLike, StarlarkOutputArtifact},
-        cmd_args::builder::{
+        cmd_args::{
             CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder,
             WriteToFileMacroVisitor,
         },

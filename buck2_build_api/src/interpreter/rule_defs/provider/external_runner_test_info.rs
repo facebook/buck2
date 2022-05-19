@@ -27,8 +27,7 @@ use starlark::{
 use crate::{
     attrs::attr_type::arg::value::ResolvedStringWithMacros,
     interpreter::rule_defs::cmd_args::{
-        builder::{CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder},
-        ValueAsCommandLineLike,
+        CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder, ValueAsCommandLineLike,
     },
 };
 

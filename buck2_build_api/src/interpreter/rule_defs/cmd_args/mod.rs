@@ -48,11 +48,6 @@ use crate::{
             StarlarkDeclaredArtifact, StarlarkOutputArtifact, ValueAsArtifactLike,
         },
         artifact_tagging::{FrozenTaggedArtifacts, TaggedArtifacts},
-        cmd_args::builder::{
-            CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder,
-            CommandLineBuilderContext, CommandLineLocation, SimpleCommandLineArtifactVisitor,
-            WriteToFileMacroVisitor,
-        },
         label_relative_path::LabelRelativePath,
         provider::run_info::{FrozenRunInfo, RunInfo},
         test_cwd::TestCwd,
@@ -61,9 +56,11 @@ use crate::{
     },
 };
 
-pub mod builder;
+mod builder;
 #[cfg(test)]
 mod test;
+
+pub use builder::*;
 
 /// A tiny wrapper around `Value`/`FrozenValue` that proxies `CommandLineArgLike` calls.
 ///

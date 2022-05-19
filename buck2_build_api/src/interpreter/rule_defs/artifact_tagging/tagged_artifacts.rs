@@ -22,11 +22,8 @@ use crate::{
     actions::artifact::OutputArtifact,
     artifact_groups::ArtifactGroup,
     interpreter::rule_defs::cmd_args::{
-        builder::{
-            CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder,
-            WriteToFileMacroVisitor,
-        },
-        ValueAsCommandLineLike,
+        CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder, ValueAsCommandLineLike,
+        WriteToFileMacroVisitor,
     },
 };
 

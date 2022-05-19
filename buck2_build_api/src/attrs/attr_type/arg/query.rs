@@ -26,7 +26,7 @@ use crate::{
     },
     interpreter::rule_defs::{
         artifact::{StarlarkArtifact, StarlarkArtifactLike},
-        cmd_args::builder::CommandLineArtifactVisitor,
+        cmd_args::CommandLineArtifactVisitor,
     },
 };
 

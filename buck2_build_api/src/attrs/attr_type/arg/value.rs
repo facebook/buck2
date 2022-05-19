@@ -32,11 +32,9 @@ use crate::{
     interpreter::rule_defs::{
         artifact::{StarlarkArtifact, StarlarkArtifactLike},
         cmd_args::{
-            builder::{
-                CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder,
-                CommandLineBuilderContext, CommandLineLocation, WriteToFileMacroVisitor,
-            },
-            FrozenCommandLineArgLike,
+            CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder,
+            CommandLineBuilderContext, CommandLineLocation, FrozenCommandLineArgLike,
+            WriteToFileMacroVisitor,
         },
         provider::{
             default_info::FrozenDefaultInfo, run_info::RunInfoCallable,

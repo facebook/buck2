@@ -25,9 +25,7 @@ use starlark::{
 use crate::{
     artifact_groups::{deferred::TransitiveSetKey, ArtifactGroup, TransitiveSetProjectionKey},
     interpreter::rule_defs::{
-        cmd_args::{
-            builder::SimpleCommandLineArtifactVisitor, StarlarkCommandLine, ValueAsCommandLineLike,
-        },
+        cmd_args::{SimpleCommandLineArtifactVisitor, StarlarkCommandLine, ValueAsCommandLineLike},
         transitive_set::{
             transitive_set_definition_from_value, traversal::TransitiveSetTraversal,
             TransitiveSetArgsProjection, TransitiveSetError, TransitiveSetIteratorGen,

@@ -20,7 +20,7 @@ use crate::{
     actions::artifact::{Artifact, OutputArtifact},
     interpreter::rule_defs::{
         artifact::{StarlarkArtifact, StarlarkDeclaredArtifact},
-        cmd_args::builder::CommandLineArgLike,
+        cmd_args::CommandLineArgLike,
     },
     path::{BuckOutPath, BuckPath},
 };

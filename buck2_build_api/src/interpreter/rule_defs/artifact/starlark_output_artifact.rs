@@ -23,7 +23,7 @@ use crate::{
     actions::artifact::{BuildArtifact, OutputArtifact},
     interpreter::rule_defs::{
         artifact::{ArtifactError, StarlarkDeclaredArtifact},
-        cmd_args::builder::{
+        cmd_args::{
             CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder,
             WriteToFileMacroVisitor,
         },

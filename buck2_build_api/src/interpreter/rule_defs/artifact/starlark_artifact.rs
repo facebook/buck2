@@ -33,7 +33,7 @@ use crate::{
         artifact::{
             ArtifactError, StarlarkArtifactLike, StarlarkDeclaredArtifact, StarlarkOutputArtifact,
         },
-        cmd_args::builder::{
+        cmd_args::{
             CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder,
             WriteToFileMacroVisitor,
         },

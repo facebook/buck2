@@ -19,9 +19,7 @@ use crate::{
     calculation::Calculation,
     execute::materializer::ArtifactMaterializer,
     interpreter::rule_defs::{
-        cmd_args::builder::{
-            AbsCommandLineBuilder, CommandLineArgLike, SimpleCommandLineArtifactVisitor,
-        },
+        cmd_args::{AbsCommandLineBuilder, CommandLineArgLike, SimpleCommandLineArtifactVisitor},
         provider::{run_info::RunInfo, FrozenProviderCollectionValue},
     },
     nodes::compatibility::MaybeCompatible,

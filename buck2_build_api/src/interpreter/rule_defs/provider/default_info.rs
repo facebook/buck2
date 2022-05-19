@@ -30,10 +30,7 @@ use crate::{
     artifact_groups::ArtifactGroup,
     interpreter::rule_defs::{
         artifact::{StarlarkArtifact, StarlarkArtifactLike, ValueAsArtifactLike},
-        cmd_args::{
-            builder::{CommandLineArgLike, SimpleCommandLineArtifactVisitor},
-            ValueAsCommandLineLike,
-        },
+        cmd_args::{CommandLineArgLike, SimpleCommandLineArtifactVisitor, ValueAsCommandLineLike},
         provider::{FrozenProviderCollection, ProviderCollection},
     },
 };

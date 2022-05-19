@@ -36,11 +36,8 @@ use crate::{
         ActionExecutionKind, ActionExecutionMetadata, ActionExecutionTimingData, ActionOutputs,
     },
     interpreter::rule_defs::cmd_args::{
-        builder::{
-            BaseCommandLineBuilder, CommandLineBuilderContext, CommandLineLocation,
-            WriteToFileMacroVisitor,
-        },
-        ValueAsCommandLineLike,
+        BaseCommandLineBuilder, CommandLineBuilderContext, CommandLineLocation,
+        ValueAsCommandLineLike, WriteToFileMacroVisitor,
     },
 };
 

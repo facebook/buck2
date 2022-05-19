@@ -62,7 +62,7 @@ use crate::{
         materializer::HasMaterializer,
     },
     interpreter::rule_defs::{
-        cmd_args::builder::{
+        cmd_args::{
             AbsCommandLineBuilder, BaseCommandLineBuilder, CommandLineArgLike,
             CommandLineArtifactVisitor, CommandLineBuilder, CommandLineBuilderContext,
             CommandLineLocation, SimpleCommandLineArtifactVisitor,

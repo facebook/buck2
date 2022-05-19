@@ -38,11 +38,8 @@ use crate::{
         ActionExecutionKind, ActionExecutionMetadata, ActionOutputs,
     },
     interpreter::rule_defs::cmd_args::{
-        builder::{
-            BaseCommandLineBuilder, CommandLineArgLike, CommandLineArtifactVisitor,
-            SimpleCommandLineArtifactVisitor,
-        },
-        ValueAsCommandLineLike,
+        BaseCommandLineBuilder, CommandLineArgLike, CommandLineArtifactVisitor,
+        SimpleCommandLineArtifactVisitor, ValueAsCommandLineLike,
     },
     path::BuckOutPath,
 };

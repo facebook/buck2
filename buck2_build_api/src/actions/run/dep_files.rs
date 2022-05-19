@@ -47,9 +47,7 @@ use crate::{
         materializer::{MaterializationError, Materializer},
         ActionOutputs,
     },
-    interpreter::rule_defs::{
-        artifact_tagging::ArtifactTag, cmd_args::builder::CommandLineArtifactVisitor,
-    },
+    interpreter::rule_defs::{artifact_tagging::ArtifactTag, cmd_args::CommandLineArtifactVisitor},
 };
 
 static DEP_FILES: Lazy<DashMap<DepFilesKey, Arc<DepFileState>>> = Lazy::new(DashMap::new);

@@ -15,7 +15,7 @@ use starlark::{
     values::{NoSerialize, StarlarkValue},
 };
 
-use crate::interpreter::rule_defs::cmd_args::builder::{CommandLineArgLike, CommandLineBuilder};
+use crate::interpreter::rule_defs::cmd_args::{CommandLineArgLike, CommandLineBuilder};
 
 #[derive(Debug, PartialEq, Display, AnyLifetime, NoSerialize)]
 pub struct LabelRelativePath(pub CellPath);
@@ -43,7 +43,7 @@ impl CommandLineArgLike for LabelRelativePath {
 
     fn visit_write_to_file_macros(
         &self,
-        _visitor: &mut dyn crate::interpreter::rule_defs::cmd_args::builder::WriteToFileMacroVisitor,
+        _visitor: &mut dyn crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor,
     ) -> anyhow::Result<()> {
         Ok(())
     }

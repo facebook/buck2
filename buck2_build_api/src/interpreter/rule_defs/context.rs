@@ -61,11 +61,9 @@ use crate::{
         },
         artifact_tagging::ArtifactTag,
         cmd_args::{
-            builder::{
-                CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilderContext,
-                SimpleCommandLineArtifactVisitor, WriteToFileMacroVisitor,
-            },
-            StarlarkCommandLine, ValueAsCommandLineLike,
+            CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilderContext,
+            SimpleCommandLineArtifactVisitor, StarlarkCommandLine, ValueAsCommandLineLike,
+            WriteToFileMacroVisitor,
         },
         label::Label,
     },

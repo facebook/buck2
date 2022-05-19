@@ -17,10 +17,8 @@ use starlark::{
 };
 
 use crate::interpreter::rule_defs::cmd_args::{
-    builder::{
-        CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder, WriteToFileMacroVisitor,
-    },
-    StarlarkCommandLine, ValueAsCommandLineLike,
+    CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder, StarlarkCommandLine,
+    ValueAsCommandLineLike, WriteToFileMacroVisitor,
 };
 
 /// Provider that signals that a rule is runnable

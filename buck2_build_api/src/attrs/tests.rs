@@ -38,7 +38,7 @@ use crate::{
     },
     interpreter::rule_defs::{
         attr::AttrIsConfigurable,
-        cmd_args::{builder::BaseCommandLineBuilder, ValueAsCommandLineLike},
+        cmd_args::{BaseCommandLineBuilder, ValueAsCommandLineLike},
         provider::register_builtin_providers,
     },
     path::{BuckOutPathResolver, BuckPathResolver},

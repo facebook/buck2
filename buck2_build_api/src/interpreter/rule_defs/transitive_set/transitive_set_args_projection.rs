@@ -24,11 +24,8 @@ use crate::{
     artifact_groups::{ArtifactGroup, TransitiveSetProjectionKey},
     interpreter::rule_defs::{
         cmd_args::{
-            builder::{
-                CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder,
-                WriteToFileMacroVisitor,
-            },
-            ValueAsCommandLineLike,
+            CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder,
+            ValueAsCommandLineLike, WriteToFileMacroVisitor,
         },
         transitive_set::{
             transitive_set_definition_from_value, traversal::TransitiveSetArgsProjectionTraversal,

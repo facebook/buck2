@@ -41,7 +41,7 @@ use crate::{
     interpreter::rule_defs::{
         artifact::{FrozenStarlarkOutputArtifact, StarlarkOutputArtifact, ValueAsArtifactLike},
         cmd_args::{
-            builder::BaseCommandLineBuilder, FrozenStarlarkCommandLine, StarlarkCommandLine,
+            BaseCommandLineBuilder, FrozenStarlarkCommandLine, StarlarkCommandLine,
             ValueAsCommandLineLike,
         },
         target_label::StarlarkTargetLabel,

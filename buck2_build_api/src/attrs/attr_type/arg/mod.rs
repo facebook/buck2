@@ -40,7 +40,7 @@ use crate::{
         AttrCoercionContext, AttrConfigurationContext, AttrResolutionContext, CoercedAttr,
         CoercedAttrTraversal, ConfiguredAttr,
     },
-    interpreter::rule_defs::cmd_args::builder::{
+    interpreter::rule_defs::cmd_args::{
         CommandLineBuilder, CommandLineBuilderContext, CommandLineLocation,
     },
 };

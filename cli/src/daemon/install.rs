@@ -22,9 +22,7 @@ use buck2_build_api::{
     calculation::Calculation,
     execute::materializer::ArtifactMaterializer,
     interpreter::rule_defs::{
-        cmd_args::builder::{
-            AbsCommandLineBuilder, CommandLineArgLike, SimpleCommandLineArtifactVisitor,
-        },
+        cmd_args::{AbsCommandLineBuilder, CommandLineArgLike, SimpleCommandLineArtifactVisitor},
         provider::install_info::*,
     },
 };
