@@ -51,16 +51,7 @@ def _get_apple_select_map(include_default: bool.type, toolchain_type: AppleToolc
             "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-linux": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "linux", sdk = "iphonesimulator"),
             "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "macos", sdk = "iphonesimulator"),
         }),
-        "ovr_config//os:macos": select({
-            "DEFAULT": select({
-                "DEFAULT": _get_apple_macosx_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
-                "fbsource//xplat/buck2/platform/apple/config:apple-xcode-current-macos": _get_apple_macosx_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
-                "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-linux": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "linux", sdk = "macosx"),
-                "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "macos", sdk = "macosx"),
-            }),
-            # Minimal Xcode takes priority over toolchain selection
-            "ovr_config//toolchain/fb/constraints:macos-minimal": "fbsource//xplat/toolchains/minimal_xcode:macosx-x86_64_minimal_xcode",
-        }),
+        "ovr_config//os:macos": _get_apple_macos_select_map(toolchain_type = toolchain_type, default_arch = default_arch),
         # `watchos` OS constraint allows both device and simulator builds, default to simulator if SDK is not specified
         "ovr_config//os:watchos": select({
             "DEFAULT": _get_apple_watch_simulator_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
@@ -79,6 +70,18 @@ def _get_apple_select_map(include_default: bool.type, toolchain_type: AppleToolc
         })
 
     return select_map
+
+def _get_apple_macos_select_map(toolchain_type: AppleToolchainRuleType.type, default_arch: str.type):
+    return select({
+        "DEFAULT": select({
+            "DEFAULT": _get_apple_macosx_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
+            "fbsource//xplat/buck2/platform/apple/config:apple-xcode-current-macos": _get_apple_macosx_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
+            "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-linux": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "linux", sdk = "macosx"),
+            "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "macos", sdk = "macosx"),
+        }),
+        # Minimal Xcode takes priority over toolchain selection
+        "ovr_config//toolchain/fb/constraints:macos-minimal": "fbsource//xplat/toolchains/minimal_xcode:macosx-x86_64_minimal_xcode",
+    })
 
 def _get_default_arch_for_macos_and_simulator_targets():
     use_default_host_based_target_arch = read_config("apple", "default_host_based_target_arch", True)
