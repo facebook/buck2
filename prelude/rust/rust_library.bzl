@@ -38,6 +38,7 @@ load(
     "RustcOutput",  # @unused Used as a type
     "compile_context",
     "generate_rustdoc",
+    "rust_compile",
     "rust_compile_multi",
 )
 load(
@@ -166,9 +167,27 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
         ["lib.rs"],
     )
 
+    expand = rust_compile(
+        ctx,
+        compile_ctx,
+        Emit("expand"),
+        crate,
+        lang_style_param[(LinkageLang("rust"), LinkStyle("static_pic"))],
+        LinkStyle("static_pic"),
+        ["lib.rs"],
+        predeclared_outputs = {Emit("expand"): ctx.actions.declare_output("expand/{}.rs".format(crate))},
+    )
+
     providers = []
 
-    providers += _default_providers(ctx, lang_style_param, rust_param_artifact, rustdoc, check_artifacts)
+    providers += _default_providers(
+        ctx,
+        lang_style_param,
+        rust_param_artifact,
+        rustdoc,
+        check_artifacts,
+        expand.outputs[Emit("expand")],
+    )
     providers += _rust_providers(ctx, lang_style_param, rust_param_artifact)
     providers += _native_providers(ctx, lang_style_param, native_param_artifact)
 
@@ -288,7 +307,8 @@ def _default_providers(
         lang_style_param: {(LinkageLang.type, LinkStyle.type): BuildParams.type},
         param_artifact: {BuildParams.type: RustLinkStyleInfo.type},
         rustdoc: "artifact",
-        check_artifacts: {str.type: "artifact"}) -> ["provider"]:
+        check_artifacts: {str.type: "artifact"},
+        expand: "artifact") -> ["provider"]:
     # Outputs indexed by LinkStyle
     style_info = {
         link_style: param_artifact[lang_style_param[(LinkageLang("rust"), link_style)]]
@@ -299,6 +319,7 @@ def _default_providers(
     targets = {k.value: v.rlib for (k, v) in style_info.items()}
     targets.update(check_artifacts)
     targets["doc"] = rustdoc
+    targets["expand"] = expand
 
     providers = []
 

@@ -378,7 +378,7 @@ def _compute_common_args(
         return compile_ctx.common_args[args_key]
 
     # Keep filenames distinct in per-flavour subdirs
-    subdir = "{}-{}-{}".format(crate_type.value, params.reloc_model.value, link_style.value)
+    subdir = "{}-{}-{}-{}".format(crate_type.value, params.reloc_model.value, link_style.value, emit.value)
 
     # Included in tempfiles
     tempfile = "{}-{}".format(crate, emit.value)
@@ -582,6 +582,8 @@ def _rustc_emits(
             cmd_args(output.as_output(), format = "link={}"),
             "-Zno-codegen",
         ]
+    elif emit == Emit("expand"):
+        emit_args += ["-Zunpretty=expanded", "-o", cmd_args(output.as_output())]
     else:
         # Assume https://github.com/rust-lang/rust/issues/85356 is fixed (ie
         # https://github.com/rust-lang/rust/pull/85362 is applied)

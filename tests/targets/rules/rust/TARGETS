@@ -6,6 +6,7 @@ load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
 load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+load(":check_subtarget.bzl", "check_subtarget")
 
 bzl_native.rust_binary(
     name = "hello_explicit",
@@ -439,4 +440,23 @@ buck_genrule(
     name = "fbinit_run",
     out = "out.txt",
     cmd = "$(exe :fbinit) > $OUT",
+)
+
+check_subtarget(
+    name = "check_rust_bin_subtarget_expand",
+    expected_out_filename = "proc_macro_main.rs",
+    expected_out_tokens = [
+        "#[macro_use]",
+        "fn main",
+    ],
+    subtarget = "expand",
+    target = ":proc_macro_main",
+)
+
+check_subtarget(
+    name = "check_rust_lib_subtarget_expand",
+    expected_out_filename = "proc_macro_lib.rs",
+    expected_out_tokens = ["#[macro_use]"],
+    subtarget = "expand",
+    target = ":proc_macro_lib",
 )

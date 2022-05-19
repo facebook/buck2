@@ -9,7 +9,13 @@ load(
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
-load(":build.bzl", "compile_context", "generate_rustdoc", "rust_compile_multi")
+load(
+    ":build.bzl",
+    "compile_context",
+    "generate_rustdoc",
+    "rust_compile",
+    "rust_compile_multi",
+)
 load(
     ":build_params.bzl",
     "Emit",
@@ -90,7 +96,22 @@ def _rust_binary_common(
 
         styles[link_style] = (link.outputs[Emit("link")], args, extra_targets, runtime_files)
 
-    extra_targets += [("doc", generate_rustdoc(ctx, compile_ctx, crate, style_param[LinkStyle("static_pic")], default_roots))]
+    expand = rust_compile(
+        ctx,
+        compile_ctx,
+        Emit("expand"),
+        crate,
+        style_param[LinkStyle("static_pic")],
+        LinkStyle("static_pic"),
+        default_roots,
+        extra_flags = extra_flags,
+        predeclared_outputs = {Emit("expand"): ctx.actions.declare_output("expand/{}.rs".format(crate))},
+    )
+
+    extra_targets += [
+        ("doc", generate_rustdoc(ctx, compile_ctx, crate, style_param[LinkStyle("static_pic")], default_roots)),
+        ("expand", expand.outputs[Emit("expand")]),
+    ]
     sub_targets = {k: [DefaultInfo(default_outputs = [v])] for k, v in extra_targets}
     for (k, (sub_link, sub_args, _sub_extra, sub_runtime_files)) in styles.items():
         sub_targets[k.value] = [
