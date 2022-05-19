@@ -1,0 +1,15 @@
+load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+bzl_native.cxx_library(
+    name = "lib",
+    srcs = ["lib.cpp"],
+    prefix_header = "lib_prefix.h",
+)
+
+cpp_binary(
+    # @autodeps-skip
+    name = "bin",
+    srcs = ["main.cpp"],
+    deps = [":lib"],
+)

@@ -1,0 +1,62 @@
+load("@fbcode//buck2/prelude/python:make_pex.bzl", "make_pex_inplace_binary", "make_pex_modules_binary")
+
+prelude = native
+
+prelude.export_file(
+    name = "extract.py",
+    src = "extract.py",
+)
+
+prelude.command_alias(
+    name = "extract",
+    exe = ":extract.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.export_file(
+    name = "create_manifest_for_source_dir.py",
+    src = "create_manifest_for_source_dir.py",
+)
+
+prelude.command_alias(
+    name = "create_manifest_for_source_dir",
+    exe = ":create_manifest_for_source_dir.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.export_file(
+    name = "make_source_db.py",
+    src = "make_source_db.py",
+)
+
+prelude.command_alias(
+    name = "make_source_db",
+    exe = ":make_source_db.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.export_file(
+    name = "__test_main__.py",
+    src = "__test_main__.py",
+    visibility = ["PUBLIC"],
+)
+
+make_pex_inplace_binary(
+    name = "make_pex_inplace",
+    src = "make_pex_inplace.py",
+    template = "run_inplace.py.in",
+    template_lite = "run_inplace_lite.py.in",
+    visibility = ["PUBLIC"],
+)
+
+make_pex_modules_binary(
+    name = "make_pex_modules",
+    src = "make_pex_modules.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.export_file(
+    name = "compile.py",
+    src = "compile.py",
+    visibility = ["PUBLIC"],
+)

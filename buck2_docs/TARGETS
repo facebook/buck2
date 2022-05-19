@@ -1,0 +1,30 @@
+# Copyright 2004-present Facebook. All Rights Reserved.
+load("@fbcode//buck2:buck_rust_binary.bzl", "buck_rust_binary")
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+buck_filegroup(
+    name = "testdata",
+    srcs = glob(["testdata/**"]),
+)
+
+buck_rust_binary(
+    name = "buck2_docs",
+    srcs = ["bin/buck2_docs.rs"],
+    test_deps = [
+        "fbsource//third-party/rust:maplit",
+        "fbsource//third-party/rust:tempfile",
+    ],
+    test_env = {
+        # Some of our tests include testcase files relative to CARGO_MANIFEST_DIR.
+        # This is a hack that allows both `cargo test` and `buck test` to work.
+        "CARGO_MANIFEST_DIR": "$(location :testdata)",
+    },
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:itertools",
+        "fbsource//third-party/rust:serde_json",
+        "fbsource//third-party/rust:structopt",
+        "//buck2/starlark-rust/starlark:starlark",
+    ],
+)

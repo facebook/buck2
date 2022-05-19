@@ -1,0 +1,69 @@
+load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
+load("@fbcode_macros//build_defs:cpp_library.bzl", "cpp_library")
+
+prelude = native
+
+cpp_library(
+    name = "a",
+    srcs = [
+        "a.cpp",
+    ],
+    headers = [
+        "a.h",
+    ],
+)
+
+
+cpp_library(
+    name = "b",
+    srcs = [
+        "b.cpp",
+    ],
+    headers = [
+        "b.h",
+    ],
+)
+
+cpp_binary(
+    name = "main",
+    srcs = [
+        "main.cpp",
+    ],
+    deps = [
+        ":a",
+        ":b",
+    ],
+    enable_distributed_thinlto = True,
+)
+
+cpp_binary(
+    name = "main_with_rust",
+    srcs = [
+        "main_with_rust.cpp",
+    ],
+    deps = [
+        ":a",
+        ":b",
+        "//buck2/tests/targets/rules/cxx/dist_lto/rustlib:rustlib",
+    ],
+    enable_distributed_thinlto = True,
+)
+
+prelude.sh_test(
+    name = "enforce-thinlto",
+    args = [
+        "$(location //third-party-buck/platform010/build/llvm-fb:bin/llvm-objdump)",
+        "$(exe :main)",
+    ],
+    test = "enforce-thinlto.sh",
+)
+
+
+prelude.sh_test(
+    name = "enforce-thinlto-rust",
+    args = [
+        "$(location //third-party-buck/platform010/build/llvm-fb:bin/llvm-objdump)",
+        "$(exe :main_with_rust)",
+    ],
+    test = "enforce-thinlto.sh",
+)

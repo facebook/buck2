@@ -1,0 +1,44 @@
+load(":rules.bzl", "my_little_iphone_binary", "my_resource", "my_alias")
+
+prelude = native
+
+my_resource(name = "watchos_resource")
+my_resource(name = "default_resource")
+
+prelude.constraint_setting(
+    name = "os",
+)
+
+prelude.constraint_value(
+    name = "watchos",
+    constraint_setting = ":os",
+)
+
+prelude.constraint_value(
+    name = "iphoneos",
+    constraint_setting = ":os",
+)
+
+prelude.platform(
+    name = "iphoneos-p",
+    constraint_values = [
+        ":iphoneos",
+    ],
+)
+
+my_alias(
+    name = "resource",
+    to = select({
+        ":watchos": ":watchos_resource",
+        "DEFAULT": ":default_resource",
+    }),
+)
+
+my_little_iphone_binary(
+    name = "the-test",
+    default_target_platform = ":iphoneos-p",
+    # `resource` should be transitioned to watchos,
+    # but selects are not resolved in attributes,
+    # so we have a separate alias rule for the test.
+    watch_resource = ":resource",
+)

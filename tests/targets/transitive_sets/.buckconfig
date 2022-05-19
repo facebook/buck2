@@ -1,0 +1,8 @@
+[buildfile]
+name=TARGETS.fixture
+
+[repositories]
+root = .
+fbcode = fbcode
+fbsource = fbsource
+buck = buck

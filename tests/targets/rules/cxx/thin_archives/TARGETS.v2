@@ -1,0 +1,32 @@
+prelude = native
+
+prelude.genrule(
+    name = "run",
+    cmd = "$(exe :check) $(location :foo) > $OUT",
+    out = "out.txt",
+)
+
+prelude.python_binary(
+    name = "check",
+    base_module = "",
+    main_module = "check",
+    deps = [
+        ":check_lib",
+    ],
+)
+
+prelude.python_library(
+    name = "check_lib",
+    base_module = "",
+    srcs = [
+        "check.py",
+    ],
+)
+
+prelude.cxx_library(
+    name = "foo",
+    preferred_linkage = "static",
+    srcs = [
+        "foo.cpp",
+    ],
+)

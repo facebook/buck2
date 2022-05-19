@@ -1,0 +1,23 @@
+load("@fbcode_macros//build_defs:ocaml_binary.bzl", "ocaml_binary")
+load("//flow/facebook:ppx.bzl", "get_lwt_ppx")
+
+# If we fail to pass `-ppx .../lwt_ppx/ppx.exe --as-ppx` to ocamldep
+# we'll observe this error.
+# ```
+#   tempfile_lwt.ml", line 3, characters 4-25:
+#   3 |     Lwt_utils.try_finally ~f ~finally:(fun () -> Lwt.return_unit)
+#         ^^^^^^^^^^^^^^^^^^^^^
+#   Error: Unbound module Lwt_utils
+# ```
+ocaml_binary(
+    name = "ocamldep_ppx",
+    srcs = [
+        "lwt_utils.ml",
+        "tempfile_lwt.ml",
+    ],
+    pps = [get_lwt_ppx()],
+    external_deps = [
+        ("supercaml", None, "lwt"),
+        ("supercaml", None, "lwt.unix"),
+    ],
+)

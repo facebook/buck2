@@ -1,0 +1,12 @@
+def _artifact_test_impl(ctx):
+    owner = ctx.cquery().owner("bin/TARGETS.fixture")[0]
+
+    print(owner.sources())
+
+    print(owner.get_source("bin/TARGETS.fixture", ctx))
+
+artifact_test = bxl(
+    implementation = _artifact_test_impl,
+    cli_args = {
+    },
+)

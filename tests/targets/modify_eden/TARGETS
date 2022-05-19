@@ -1,0 +1,10 @@
+# @noautodeps
+
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+
+buck_genrule(
+    name = "mysrcrule",
+    srcs = ["src.txt"],
+    out = "out.txt",
+    bash = "cat src.txt > $OUT",
+)

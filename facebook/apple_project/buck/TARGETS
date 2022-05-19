@@ -1,0 +1,117 @@
+# @noautodeps
+
+load("@fbcode_macros//build_defs:python_library.bzl", "python_library")
+load("@fbcode_macros//build_defs:python_unittest.bzl", "python_unittest")
+
+python_library(
+    name = "audit",
+    srcs = ["audit.py"],
+    deps = [
+        ":buck",
+    ],
+)
+
+python_unittest(
+    name = "audit_test",
+    srcs = ["audit_test.py"],
+    deps = [":audit"],
+)
+
+python_library(
+    name = "buck",
+    srcs = [
+        "buck.py",
+        "buck_project_helper.py",
+    ],
+    deps = [
+        ":build_target",
+    ],
+)
+
+python_library(
+    name = "build",
+    srcs = [
+        "build.py",
+    ],
+    deps = [
+        ":buck",
+    ],
+)
+
+python_library(
+    name = "build_target",
+    srcs = ["build_target.py"],
+    tests = [":build_target_test"],
+    deps = [
+        "fbcode//libfb/py/frozen:frozen",
+        "fbsource//third-party/pypi/cached-property:cached-property",
+        ":build_target_language",
+        ":build_target_pattern",
+    ],
+)
+
+python_unittest(
+    name = "build_target_test",
+    srcs = ["build_target_test.py"],
+    deps = [
+        "fbcode//libfb/py/frozen:frozen",
+        ":build_target",
+    ],
+)
+
+python_library(
+    name = "build_target_language",
+    srcs = [
+        "build_target_language.py",
+    ],
+)
+
+python_library(
+    name = "build_target_pattern",
+    srcs = ["build_target_pattern.py"],
+    tests = [":build_target_pattern_test"],
+    deps = [
+        ":build_target_language",
+    ],
+)
+
+python_unittest(
+    name = "build_target_pattern_test",
+    srcs = ["build_target_pattern_test.py"],
+    deps = [":build_target_pattern"],
+)
+
+python_library(
+    name = "build_target_pattern_matcher",
+    srcs = ["build_target_pattern_matcher.py"],
+    tests = [":build_target_pattern_matcher_test"],
+    deps = [
+        ":build_target",
+        ":build_target_language",
+        ":build_target_pattern",
+    ],
+)
+
+python_unittest(
+    name = "build_target_pattern_matcher_test",
+    srcs = ["build_target_pattern_matcher_test.py"],
+    deps = [
+        ":build_target",
+        ":build_target_pattern",
+        ":build_target_pattern_matcher",
+    ],
+)
+
+python_library(
+    name = "query",
+    srcs = ["query.py"],
+    deps = [
+        "fbsource//third-party/pypi/cached-property:cached-property",
+        ":buck",
+    ],
+)
+
+python_library(
+    name = "output_attributes",
+    srcs = ["output_attributes.py"],
+)

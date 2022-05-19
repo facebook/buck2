@@ -1,0 +1,526 @@
+import json
+import sys
+from pathlib import Path
+
+import pytest
+from xplat.build_infra.buck_e2e.api.buck import Buck
+from xplat.build_infra.buck_e2e.asserts import expect_failure
+from xplat.build_infra.buck_e2e.buck_workspace import buck_test
+
+# builds targets in an fbcode target configuration, unsupported on mac RE workers
+def fbcode_linux_only() -> bool:
+    return sys.platform == "linux"
+
+
+@buck_test(inplace=True)
+async def test_genrule(buck: Buck) -> None:
+    await buck.build("fbcode//buck2/tests/targets/rules/genrule:")
+    await buck.build(
+        "fbcode//buck2/tests/targets/rules/genrule/write_to_file_query_macros:"
+    )
+    await buck.build("fbcode//buck2/tests/targets/rules/genrule/named_outputs:")
+    await expect_failure(
+        buck.build("fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad"),
+        # TODO(cjhopman): Improve error message for output not produced w/ local execution
+        stderr_regex="(Action failed to produce output|calculate_output_values_failed)",
+    )
+    await expect_failure(
+        buck.build("fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad_2"),
+        stderr_regex="failed with exit code 1",
+    )
+    await expect_failure(
+        buck.build("fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad_2"),
+        stderr_regex="frecli cas download-action",
+    )
+
+
+if fbcode_linux_only():
+
+    @buck_test(inplace=True)
+    async def test_haskell(buck: Buck) -> None:
+        await buck.build("fbcode//buck2/tests/targets/rules/haskell/...")
+
+
+if fbcode_linux_only():
+
+    @buck_test(inplace=True)
+    async def test_ocaml(buck: Buck) -> None:
+        await buck.build("fbcode//buck2/tests/targets/rules/ocaml/...")
+
+
+_RUST_TESTS = [
+    "fbcode//buck2/tests/targets/rules/rust:",
+    "fbcode//buck2/tests/targets/rules/rust/cdylib:",
+    # Some bad sanitizer interaction
+    # "fbcode//buck2/tests/targets/rules/rust/dlopen:",
+    "fbcode//buck2/tests/targets/rules/rust/flagged_deps:",
+    "fbcode//buck2/tests/targets/rules/rust/hello_world:",
+    "fbcode//buck2/tests/targets/rules/rust/rustdoc:",
+]
+
+_RUST_EXPECT_FAIL = [
+    (
+        "fbcode//buck2/tests/targets/rules/rust/bad:lib_with_error",
+        "expected `&str`, found integer",
+    ),
+    (
+        "fbcode//buck2/tests/targets/rules/rust/bad/flagged_deps:with_flagged_dep_fail",
+        "use of undeclared crate or module `lib`",
+    ),
+]
+
+if fbcode_linux_only():
+
+    @buck_test(inplace=True)
+    async def test_rust(buck: Buck) -> None:
+        await buck.build(*_RUST_TESTS)
+        for bad_rule, expect in _RUST_EXPECT_FAIL:
+            await expect_failure(
+                buck.build(bad_rule),
+                stderr_regex=expect,
+            )
+
+
+if fbcode_linux_only():
+
+    @buck_test(inplace=True)
+    async def test_rust_pipelined(buck: Buck) -> None:
+        await buck.build(*_RUST_TESTS, "-c", "rust.pipelined=true")
+        for bad_rule, expect in _RUST_EXPECT_FAIL:
+            await expect_failure(
+                buck.build(bad_rule, "-c", "rust.pipelined=true"),
+                stderr_regex=expect,
+            )
+
+
+if fbcode_linux_only():
+
+    @buck_test(inplace=True)
+    async def test_rust_failure_filter(buck: Buck) -> None:
+        await buck.build(*_RUST_TESTS, "-c", "rust.failure_filter=true")
+        for bad_rule, expect in _RUST_EXPECT_FAIL:
+            await expect_failure(
+                buck.build(bad_rule, "-c", "rust.failure_filter=true"),
+                stderr_regex=expect,
+            )
+
+
+@buck_test(inplace=True)
+async def test_apple(buck: Buck) -> None:
+    await buck.build("fbcode//buck2/tests/targets/rules/apple/...")
+    # TODO(T114039748): Fix exec platform constraints and remove all
+    # `--fake-host` args, `build.enable_local_mac_execution` and `xplat.available_platforms` overrides.
+    await buck.build(
+        "fbsource//fbobjc/buck2/tests/...",
+        "--fake-host",
+        "macos",
+        "-c",
+        "build.enable_local_mac_execution=false",
+        "-c",
+        "apple.codesign_type_override=skip",
+    )
+    await buck.build(
+        "fbsource//fbobjc/buck2/samples/...",
+        "--fake-host",
+        "macos",
+        "-c",
+        "build.enable_local_mac_execution=false",
+        "-c",
+        "xplat.available_platforms=APPLE,CXX",
+        "-c",
+        "apple.codesign_type_override=skip",
+    )
+
+
+@buck_test(inplace=True)
+async def test_ide(buck: Buck) -> None:
+    await buck.build("fbsource//xplat/buck2/tests/ide_integrations/...")
+
+
+@buck_test(inplace=True)
+async def test_work(buck: Buck) -> None:
+    await buck.build("fbcode//buck2/tests/targets/rules/worker:")
+
+
+@buck_test(inplace=True)
+async def test_command_alias(buck: Buck) -> None:
+    await buck.build("fbcode//buck2/tests/targets/rules/command_alias:")
+    await buck.build("fbcode//buck2/tests/targets/rules/command_alias/single_arg_exe:")
+
+
+if fbcode_linux_only():
+
+    @buck_test(inplace=True)
+    async def test_cxx(buck: Buck) -> None:
+        await buck.build("fbcode//buck2/tests/targets/rules/cxx/...")
+        # Raw header conversion tests require a config setting.
+        await buck.build(
+            "fbcode//buck2/tests/targets/rules/cxx/headers_as_raw_headers:",
+            "-c" "cxx.headers_as_raw_headers_mode=disabled",
+        )
+
+
+@buck_test(inplace=True)
+async def test_cxx_comp_db(buck: Buck) -> None:
+    async def assert_comp_db_is_reasonable(buck: Buck, target: str) -> None:
+        result = await buck.build(target + "[compilation-database]")
+        output = result.get_build_report().output_for_target(
+            target, "compilation-database"
+        )
+        with output.open() as f:
+            # See https://clang.llvm.org/docs/JSONCompilationDatabase.html for the contract for compilation databases
+            contents = json.load(f)
+            assert isinstance(contents, list), "compilation database isn't an array"
+            assert contents, "compilation database is empty"
+            for entry in contents:
+                for key in ["directory", "file", "arguments"]:
+                    assert key in entry, f"key {key} not found in command object"
+
+                arguments = entry["arguments"]
+                assert isinstance(arguments, list), "arguments should be a list"
+                for arg in arguments:
+                    assert (
+                        '\\"' not in arg
+                    ), f"argument {arg} should not contain escaped quotes"
+                    assert (
+                        "\\n" not in arg
+                    ), f"argument {arg} should not contain escaped newlines"
+
+    await assert_comp_db_is_reasonable(
+        buck, "fbcode//buck2/tests/targets/rules/cxx/comp_db:lib"
+    )
+    await assert_comp_db_is_reasonable(
+        buck, "fbcode//buck2/tests/targets/rules/cxx/comp_db:bin"
+    )
+    await assert_comp_db_is_reasonable(
+        buck, "fbcode//buck2/tests/targets/rules/cxx/comp_db:test"
+    )
+
+
+@buck_test(inplace=True)
+async def test_alias(buck: Buck) -> None:
+    await buck.build("fbcode//buck2/tests/targets/rules/alias:")
+
+
+@buck_test(inplace=True)
+async def test_configured_alias(buck: Buck) -> None:
+    await buck.build("fbcode//buck2/tests/targets/rules/configured_alias:")
+
+
+if fbcode_linux_only():
+
+    @buck_test(inplace=True)
+    @pytest.mark.parametrize("package_style", ["standalone", "inplace"])
+    async def test_python(buck: Buck, package_style: str) -> None:
+        await buck.build(
+            "fbcode//buck2/tests/targets/rules/python/...",
+            "-c",
+            f"python.package_style={package_style}",
+        )
+
+
+@buck_test(inplace=True)
+async def test_remote_file(buck: Buck) -> None:
+    await buck.build("fbcode//buck2/tests/targets/rules/remote_file:")
+    await expect_failure(
+        buck.build("fbcode//buck2/tests/targets/rules/remote_file/bad:invalid_sha1"),
+        stderr_regex="Invalid sha1 digest",
+    )
+    await expect_failure(
+        buck.build("fbcode//buck2/tests/targets/rules/remote_file/bad:no_sha1"),
+        stderr_regex="Must pass in at least one checksum",
+    )
+    await expect_failure(
+        buck.build("fbcode//buck2/tests/targets/rules/remote_file/bad:invalid_sha256"),
+        stderr_regex="Invalid sha256 digest",
+    )
+    await expect_failure(
+        buck.build(
+            "fbcode//buck2/tests/targets/rules/remote_file/bad:valid_sha1_invalid_sha256"
+        ),
+        stderr_regex="Invalid sha256 digest",
+    )
+
+    await expect_failure(
+        buck.build("fbcode//buck2/tests/targets/rules/remote_file/bad:http_error"),
+        stderr_regex="404 Not Found",
+    )
+
+
+@buck_test(inplace=True)
+async def test_http_archive(buck: Buck) -> None:
+    await buck.build("fbcode//buck2/tests/targets/rules/http_archive:")
+
+
+@buck_test(inplace=True)
+async def test_filegroup(buck: Buck) -> None:
+    target_pattern = "fbcode//buck2/tests/targets/rules/filegroup:"
+    expected_contents = {
+        Path("foo.txt"): "foo.txt",
+        Path("foo/bar.txt"): "foo/bar.txt",
+        Path("dep/subdir/foo.txt"): "subdir/foo.txt",
+        Path("dep/subdir/foo/bar.txt"): "subdir/foo/bar.txt",
+    }
+
+    result = await buck.build(target_pattern)
+    outdir = result.get_build_report().output_for_target(target_pattern + "all_files")
+
+    assert outdir.name == "all_files"
+    assert outdir.parent.name == "__all_files__"
+
+    for path, contents in expected_contents.items():
+        full_path = outdir / path
+        assert full_path.read_text().strip() == contents
+        # TODO(nmj): Verify that these are symlinks
+
+
+@buck_test(inplace=True)
+async def test_cleanup(buck: Buck) -> None:
+    # Test for T85589819 - broken cleanup
+    target_pattern = "fbcode//buck2/tests/targets/rules/genrule:cleanup"
+    result = await buck.build(target_pattern)
+    output = result.get_build_report().output_for_target(target_pattern)
+
+    # The output should be something like path/__cleanup__/out/dir1/dir2/output.txt
+    # We want to ensure that if we make a file dir1 or dir1/dir2, cleanup still works
+    output.unlink()
+    output.parent.rmdir()
+    output.parent.write_text("File that must be deleted")
+    await buck.kill()
+    await buck.build(target_pattern)
+
+    output.unlink()
+    output.parent.rmdir()
+    output.parent.parent.rmdir()
+    output.parent.parent.write_text("File that must be deleted")
+    await buck.build(target_pattern)
+
+
+@buck_test(inplace=True)
+async def test_utils(buck: Buck) -> None:
+    await buck.build("fbcode//buck2/tests/targets/rules/utils:")
+
+    base_path = "fbcode//buck2/tests/targets/rules/utils/bad:"
+    result = await buck.targets(base_path)
+    targets = [line for line in result.stdout.splitlines() if base_path in line]
+    for target in targets:
+        if "build_pattern_test_" in target:
+            await expect_failure(
+                buck.build(target), stderr_regex="Invalid build target pattern"
+            )
+        elif target.endswith("test_expect_fail_no_format"):
+            await expect_failure(
+                buck.build(target), stderr_regex="This message has no format arguments."
+            )
+        elif target.endswith("test_expect_fail_format_one_arg"):
+            await expect_failure(
+                buck.build(target),
+                stderr_regex="This message has the following format arguments: foo.",
+            )
+        elif target.endswith("test_expect_fail_format_two_args"):
+            await expect_failure(
+                buck.build(target),
+                stderr_regex="This message has the following format arguments: foo followed by bar.",
+            )
+        else:
+            pytest.fail(f"Unexpected test target {target} in {base_path}.")
+
+
+@buck_test(inplace=True)
+async def test_starlib(buck: Buck) -> None:
+    await buck.build("fbcode//buck2/tests/targets/starlib:")
+
+
+if fbcode_linux_only():
+
+    @buck_test(inplace=True)
+    async def test_java(buck: Buck) -> None:
+        await buck.build("fbcode//buck2/tests/targets/rules/java/prebuilt_jar:")
+        await expect_failure(
+            buck.build("fbcode//buck2/tests/targets/rules/java/prebuilt_jar/bad:"),
+            stderr_regex="Extension of the binary_jar attribute has to be equal to",
+        )
+        await buck.build("fbcode//buck2/tests/targets/rules/java/keystore:")
+        await buck.build("fbcode//buck2/tests/targets/rules/java/library:")
+        await buck.build(
+            "fbcode//buck2/tests/targets/rules/java/library/zipped_sources:"
+        )
+        await expect_failure(
+            buck.build(
+                "fbcode//buck2/tests/targets/rules/java/library/java_version_bad:"
+            ),
+            stderr_regex="No need to set 'source' and/or 'target' attributes when 'java_version' is present",
+        )
+        await expect_failure(
+            buck.build(
+                "fbcode//buck2/tests/targets/rules/java/library/java_library_bad:"
+            ),
+            stderr_regex="error: <identifier> expected",
+        )
+
+        await buck.build("fbcode//buck2/tests/targets/rules/java/jar_genrule:")
+        await buck.test("fbcode//buck2/tests/targets/rules/java/java_test:")
+
+
+if fbcode_linux_only():
+
+    @buck_test(inplace=True)
+    async def test_kotlin(buck: Buck) -> None:
+        await buck.build("fbcode//buck2/tests/targets/rules/kotlin/kotlin_library:")
+
+
+@buck_test(inplace=True)
+async def test_zip_file(buck: Buck) -> None:
+    await buck.build("fbcode//buck2/tests/targets/rules/zip_file:")
+    await expect_failure(
+        buck.build("fbcode//buck2/tests/targets/rules/zip_file/bad:"),
+        stderr_regex='Duplicate entry "lemon.txt"',
+    )
+
+
+@buck_test(inplace=True)
+async def test_android(buck: Buck) -> None:
+    await buck.build("fbsource//fbandroid/buck2/tests/good/...")
+    await expect_failure(
+        buck.build("fbsource//fbandroid/buck2/tests/bad/resource:"),
+        stderr_regex="The following resources were not found:",
+    )
+    await expect_failure(
+        buck.build("fbsource//fbandroid/buck2/tests/bad/classpath_function:"),
+        stderr_regex="Invalid traversal depth",
+    )
+
+
+@buck_test(inplace=True)
+async def test_js(buck: Buck) -> None:
+    await buck.build("fbcode//buck2/tests/targets/rules/js/js_bundle:")
+    await buck.build("fbcode//buck2/tests/targets/rules/js/js_bundle_genrule:")
+    await buck.build("fbcode//buck2/tests/targets/rules/js/js_library:")
+    await buck.build("fbcode//buck2/tests/targets/rules/js/js_utils:")
+
+
+@buck_test(inplace=True)
+async def test_configurations(buck: Buck) -> None:
+    await buck.build("//buck2/tests/targets/configurations_uncategorized:")
+
+
+@buck_test(inplace=True)
+async def test_config_setting(buck: Buck) -> None:
+    config_setting_genrule = "fbcode//buck2/tests/targets/rules/config_setting:genrule"
+    result1 = await buck.build(config_setting_genrule)
+    assert (
+        result1.get_build_report().output_for_target(config_setting_genrule).name
+        == "false.txt"
+    )
+    result2 = await buck.build(config_setting_genrule, "-c", "test.config_setting=true")
+    assert (
+        result2.get_build_report().output_for_target(config_setting_genrule).name
+        == "true.txt"
+    )
+
+
+@buck_test(inplace=True)
+async def test_python_bootstrap(buck: Buck) -> None:
+    await buck.run("//buck2/tests/targets/rules/python_bootstrap:hello")
+    await buck.run("//buck2/tests/targets/rules/python_bootstrap:hello_imported")
+
+
+@buck_test(inplace=True)
+async def test_python_bootstrap_bad(buck: Buck) -> None:
+    await expect_failure(
+        buck.build("//buck2/tests/targets/rules/python_bootstrap/bad:colliding_deps"),
+        stderr_regex="both declare a source file named `lib.py`",
+    )
+
+
+@buck_test(inplace=True)
+async def test_argsfiles_subtarget(buck: Buck) -> None:
+    base_target = "fbcode//buck2/tests/targets/rules/cxx/exported_deps_propagated:exported_deps_propagated"
+    target_pattern = f"{base_target}[argsfiles]"
+
+    result = await buck.build(target_pattern)
+    report = result.get_build_report()
+    default_outputs = report.outputs_for_target(base_target, "argsfiles")
+    for file_name in ["argsfiles", ".cpp.argsfile"]:
+        assert any([output.name == file_name] for output in default_outputs)
+
+    other_outputs = report.results[base_target]["other_outputs"]["argsfiles"]
+    assert any(
+        [output.endswith("__bottom_dep__/headers.hmap") for output in other_outputs]
+    )
+
+
+if fbcode_linux_only():
+
+    @buck_test(inplace=True)
+    async def test_go(buck: Buck) -> None:
+        await buck.build("fbcode//buck2/tests/targets/rules/go/...")
+
+    @buck_test(inplace=True)
+    async def test_link_groups(buck: Buck) -> None:
+        await buck.build(
+            "fbcode//tools/build/test/cpp/link_groups/...",
+            "@//mode/opt",
+            "-c",
+            "fbcode.use_link_groups=True",
+        )
+        await buck.test(
+            "fbcode//tools/build/test/cpp/link_groups/...",
+            "@//mode/opt",
+            "-c",
+            "fbcode.use_link_groups=True",
+        )
+
+    async def dist_lto_build_and_verify(buck: Buck, target: str) -> None:
+        result = await buck.build(
+            target,
+            "@//mode/opt-clang-thinlto",
+            "-c",
+            "fbcode.enable_distributed_thinlto=True",
+            "-c",
+            "fbcode.platform=platform010",
+        )
+        final_binary = result.get_build_report().output_for_target(target)
+
+        # The link plan file is a hallmark of our distributed ThinLTO
+        # implementation; its presence implies we actually used a distributed
+        # ThinLTO and not a regular ThinLTO or LTO.
+        link_plan_file = final_binary.parent / "main.link-plan.json"
+        assert link_plan_file.exists()
+
+    @buck_test(inplace=True)
+    async def test_distributed_thinlto(buck: Buck) -> None:
+        await dist_lto_build_and_verify(
+            buck, "fbcode//buck2/tests/targets/rules/cxx/dist_lto:main"
+        )
+        await buck.test(
+            "fbcode//buck2/tests/targets/rules/cxx/dist_lto:enforce-thinlto",
+            "@//mode/opt-clang-thinlto",
+            "-c",
+            "fbcode.enable_distributed_thinlto=True",
+            "-c",
+            "fbcode.platform=platform010",
+        )
+
+    @buck_test(inplace=True)
+    async def test_distributed_thinlto_with_rust(buck: Buck) -> None:
+        await dist_lto_build_and_verify(
+            buck, "fbcode//buck2/tests/targets/rules/cxx/dist_lto:main"
+        )
+        await buck.test(
+            "fbcode//buck2/tests/targets/rules/cxx/dist_lto:enforce-thinlto-rust",
+            "@//mode/opt-clang-thinlto",
+            "-c",
+            "fbcode.enable_distributed_thinlto=True",
+            "-c",
+            "fbcode.platform=platform010",
+        )
+
+    @buck_test(inplace=True)
+    async def test_distributed_thinlto_cpp_calls_rust(buck: Buck) -> None:
+        await dist_lto_build_and_verify(
+            buck, "fbcode//buck2/tests/targets/rules/cxx/dist_lto/cpp_calls_rust:main"
+        )
+        await buck.run(
+            "fbcode//buck2/tests/targets/rules/cxx/dist_lto/cpp_calls_rust:main"
+        )

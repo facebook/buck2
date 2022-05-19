@@ -1,0 +1,71 @@
+load(":apple_info_plist_substitutions_parsing_test.bzl", "test_parse_code_sign_entitlements")
+
+test_parse_code_sign_entitlements(
+    name = "no_substibutions",
+    expected_code_sign_entitlements = None,
+    info_plist_substitutions = None,
+)
+
+test_parse_code_sign_entitlements(
+    name = "empty_substibutions",
+    expected_code_sign_entitlements = None,
+    info_plist_substitutions = {},
+)
+
+test_parse_code_sign_entitlements(
+    name = "no_code_sign_entitlements_in_substibutions",
+    expected_code_sign_entitlements = None,
+    info_plist_substitutions = {"foo": "bar"},
+)
+
+test_parse_code_sign_entitlements(
+    name = "code_sign_entitlements_is_path_without_variables",
+    expected_code_sign_entitlements = "foo/bar",
+    info_plist_substitutions = {"CODE_SIGN_ENTITLEMENTS": "foo/bar"},
+)
+
+test_parse_code_sign_entitlements(
+    name = "code_sign_entitlements_is_source_root_relative_path",
+    expected_code_sign_entitlements = "foo/bar",
+    info_plist_substitutions = {"CODE_SIGN_ENTITLEMENTS": "$(SOURCE_ROOT)/foo/bar"},
+)
+
+test_parse_code_sign_entitlements(
+    name = "code_sign_entitlements_is_one_level_deep_variable",
+    expected_code_sign_entitlements = "foo",
+    info_plist_substitutions = {
+        "CODE_SIGN_ENTITLEMENTS": "$(FOO)",
+        "FOO": "foo",
+    },
+)
+
+test_parse_code_sign_entitlements(
+    name = "code_sign_entitlements_is_several_levels_deep_variable",
+    expected_code_sign_entitlements = "baz",
+    info_plist_substitutions = {
+        "CODE_SIGN_ENTITLEMENTS": "$(FOO)",
+        "FOO": "$(BAR)",
+        "BAR": "$(BAZ)",
+        "BAZ": "baz",
+    },
+)
+
+test_parse_code_sign_entitlements(
+    name = "code_sign_entitlements_is_variable_expanded_into_source_root_relative_path",
+    expected_code_sign_entitlements = "foo/bar",
+    info_plist_substitutions = {
+        "CODE_SIGN_ENTITLEMENTS": "$(FOO)",
+        "FOO": "$(SOURCE_ROOT)/foo/bar",
+    },
+)
+
+test_parse_code_sign_entitlements(
+    name = "variables_map_to_multiple_variables",
+    expected_code_sign_entitlements = "bar/beer/baz/bar/beer/baz/bar/beer/baz",
+    info_plist_substitutions = {
+        "CODE_SIGN_ENTITLEMENTS": "$(FOO)/$(FOO)/$(FOO)",
+        "FOO": "$(BAR)/beer/$(BAZ)",
+        "BAR": "bar",
+        "BAZ": "baz",
+    },
+)

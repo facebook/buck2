@@ -1,0 +1,77 @@
+load("@fbcode//buck2/prelude/js:js_utils.bzl", "TRANSFORM_PROFILES")
+
+native.js_bundle_genrule(
+    name = "fruit_salad_genrule",
+    js_bundle = "fbcode//buck2/tests/targets/rules/js/js_bundle:fruit_salad",
+    cmd = "cp -r $JS_DIR $OUT && cp $SOURCEMAP $SOURCEMAP_OUT && cp $DEPENDENCIES $DEPENDENCIES_OUT && cp $MISC_DIR $MISC_OUT",
+    rewrite_sourcemap = True,
+    rewrite_misc = True,
+    rewrite_deps_file = True,
+)
+
+native.genrule(
+    name = "verify_genrule_js_output",
+    out = "out.txt",
+    cmd = 'diff $(location fbcode//buck2/tests/targets/rules/js/js_bundle:fruit_salad)/fruit_salad.js $(location :fruit_salad_genrule)/fruit_salad.js && touch "$OUT"',
+)
+
+native.genrule(
+    name = "verify_genrule_dependencies_output",
+    out = "out.txt",
+    cmd = 'diff $(location fbcode//buck2/tests/targets/rules/js/js_bundle:fruit_salad[dependencies]) $(location :fruit_salad_genrule[dependencies]) && touch "$OUT"',
+)
+
+native.genrule(
+   name = "verify_genrule_misc_output",
+    out = "out.txt",
+    cmd = 'diff $(location fbcode//buck2/tests/targets/rules/js/js_bundle:fruit_salad[misc]) $(location :fruit_salad_genrule[misc]) && touch "$OUT"',
+)
+
+native.genrule(
+    name = "verify_genrule_source_map_output",
+    out = "out.txt",
+    cmd = 'diff $(location fbcode//buck2/tests/targets/rules/js/js_bundle:fruit_salad[source_map]) $(location :fruit_salad_genrule[source_map]) && touch "$OUT"',
+)
+
+[
+    native.js_bundle_genrule(
+        name = "fruit_salad_genrule_{}".format(transform_profile),
+        js_bundle = "fbcode//buck2/tests/targets/rules/js/js_bundle:fruit_salad",
+        cmd = "cp -r $JS_DIR $OUT && cp $SOURCEMAP $SOURCEMAP_OUT && cp $DEPENDENCIES $DEPENDENCIES_OUT && cp $MISC_DIR $MISC_OUT",
+        rewrite_sourcemap = True,
+        rewrite_misc = True,
+        rewrite_deps_file = True,
+    ) for transform_profile in TRANSFORM_PROFILES
+]
+
+[
+    native.genrule(
+        name = "verify_genrule_js_output_{}".format(transform_profile),
+        out = "out.txt",
+    cmd = 'diff $(location fbcode//buck2/tests/targets/rules/js/js_bundle:fruit_salad[{}])/fruit_salad.js $(location :fruit_salad_genrule[{}])/fruit_salad.js && touch "$OUT"'.format(transform_profile, transform_profile),
+    ) for transform_profile in TRANSFORM_PROFILES
+]
+
+[
+    native.genrule(
+        name = "verify_genrule_dependencies_output_{}".format(transform_profile),
+        out = "out.txt",
+    cmd = 'diff $(location fbcode//buck2/tests/targets/rules/js/js_bundle:fruit_salad[{}-dependencies]) $(location :fruit_salad_genrule[{}-dependencies]) && touch "$OUT"'.format(transform_profile, transform_profile),
+    ) for transform_profile in TRANSFORM_PROFILES
+]
+
+[
+    native.genrule(
+        name = "verify_genrule_misc_output_{}".format(transform_profile),
+        out = "out.txt",
+    cmd = 'diff $(location fbcode//buck2/tests/targets/rules/js/js_bundle:fruit_salad[{}-misc]) $(location :fruit_salad_genrule[{}-misc]) && touch "$OUT"'.format(transform_profile, transform_profile),
+    ) for transform_profile in TRANSFORM_PROFILES
+]
+
+[
+    native.genrule(
+        name = "verify_genrule_source_map_output_{}".format(transform_profile),
+        out = "out.txt",
+    cmd = 'diff $(location fbcode//buck2/tests/targets/rules/js/js_bundle:fruit_salad[{}-source_map]) $(location :fruit_salad_genrule[{}-source_map]) && touch "$OUT"'.format(transform_profile, transform_profile),
+    ) for transform_profile in TRANSFORM_PROFILES
+]

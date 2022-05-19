@@ -1,0 +1,27 @@
+load("@fbcode_macros//build_defs:cpp_library.bzl", "cpp_library")
+
+cpp_library(
+    name = "utils",
+    srcs = [
+        "ActionErrorParser.cpp",
+        "ErrorCategorizationParser.cpp",
+        "ProtoUtils.cpp",
+    ],
+    headers = [
+        "ActionErrorParser.h",
+        "ErrorCategorizationParser.h",
+        "ProtoUtils.h",
+    ],
+    exported_deps = [
+        "//buck2/facebook/proto:proto-cpp",
+        "//folly/logging:logging",
+        "//rfe/scubadata:scubadata",
+    ],
+    external_deps = [
+        "protobuf",
+        "re2",
+    ],
+    exported_external_deps = [
+        ("boost", None, "boost_algorithm"),
+    ],
+)

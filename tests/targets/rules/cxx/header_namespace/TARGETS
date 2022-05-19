@@ -1,0 +1,24 @@
+load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+bzl_native.cxx_library(
+    name = "list",
+    exported_headers = ["foo/bar/foobar.h"],
+    header_namespace = "foobar",
+)
+
+bzl_native.cxx_library(
+    name = "dict",
+    exported_headers = {"wfh/baz.h": "baz.h"},
+    header_namespace = "omg",
+)
+
+cpp_binary(
+    # @autodeps-skip
+    name = "binary",
+    srcs = ["main.cpp"],
+    deps = [
+        ":dict",
+        ":list",
+    ],
+)

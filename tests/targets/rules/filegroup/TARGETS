@@ -1,0 +1,18 @@
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+bzl_native.filegroup(
+    name = "dep",
+    srcs = [
+        "subdir/foo.txt",
+        "subdir/foo/bar.txt",
+    ],
+)
+
+bzl_native.filegroup(
+    name = "all_files",
+    srcs = [
+        "foo.txt",
+        "foo/bar.txt",
+        ":dep",
+    ],
+)

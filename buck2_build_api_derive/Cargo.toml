@@ -1,0 +1,22 @@
+[package]
+name = "buck2_build_api_derive"
+version = "0.4.1"
+license = "MIT OR Apache-2.0"
+authors = ["Facebook"]
+edition = "2021"
+description = "Derive macros for the Buck's buck2_build_api"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+convert_case = "0.4.0"
+proc-macro2 = "1.0"
+syn = {version = "1.0.27", features = ["extra-traits", "full"]}
+gazebo_lint.version = "0.1"
+gazebo_lint.optional = true
+# @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
+quote = "1.0.3"
+
+[features]
+# @oss-disable: default = ["gazebo_lint"]

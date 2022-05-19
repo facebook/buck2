@@ -1,0 +1,4 @@
+native.java_library(
+    name = "lib",
+    srcs = ["A.src.zip", "B.src.zip"],
+)

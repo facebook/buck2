@@ -1,0 +1,41 @@
+# Copyright 2004-present Facebook. All Rights Reserved.
+load("@fbcode//buck2:buck_rust_binary.bzl", "buck_rust_binary")
+load("@fbcode_macros//build_defs:custom_rule.bzl", "custom_rule")
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+
+buck_rust_binary(
+    name = "build",
+    srcs = ["build.rs"],
+    crate_root = "build.rs",
+    deps = [
+        "fbsource//third-party/rust:tonic-build",
+    ],
+)
+
+custom_rule(
+    name = "rust_proto",
+    srcs = [
+        "test.proto",
+    ],
+    build_script_dep = ":build",
+    env = {
+        "OUT_DIR": "$OUT",
+        "PROTOC": "$(exe fbsource//third-party/protobuf:protoc)",
+        "PROTOC_INCLUDE": "$(location fbsource//third-party/protobuf:google.protobuf)",
+    },
+    output_gen_files = ["."],
+)
+
+rust_library(
+    name = "test_proto",
+    srcs = ["src/lib.rs"],
+    env = {
+        # This is where tonic looks for generated .rs files
+        "OUT_DIR": "$(location :rust_proto)",
+    },
+    deps = [
+        "fbsource//third-party/rust:prost",
+        "fbsource//third-party/rust:prost-types",
+        "fbsource//third-party/rust:tonic",
+    ],
+)

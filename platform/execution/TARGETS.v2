@@ -1,0 +1,91 @@
+load(":defs.bzl", "execution_platform", "execution_platforms", "ordered_platforms_by_host_type")
+load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool", "read_int")
+
+prelude = native
+host_is_mac = host_info().os.is_macos
+
+local_mac_execution = read_bool("build", "enable_local_mac_execution", host_is_mac)
+remote_mac_execution = read_bool("build", "enable_remote_mac_execution", True)
+local_linux_execution = read_bool("build", "enable_local_linux_execution", not host_is_mac)
+
+remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 30 * 1024)
+
+# Those targets will result in extra data being injected into RE action keys.
+# The targets listed here need to expose a BuildModeInfo provider.
+remote_execution_action_key_providers = [
+    "fbcode//buck2/platform/build_mode:build_mode",
+]
+
+mac_platforms = execution_platform(
+    name = "macos",
+    base_platform = "ovr_config//platform/macos:x86_64-fbsource",
+    local_enabled = local_mac_execution,
+    remote_enabled = remote_mac_execution,
+    remote_execution_properties = {
+        "platform": "mac",
+        "subplatform": "xcode-13.2",
+    },
+    remote_execution_action_key_providers = remote_execution_action_key_providers,
+    remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
+)
+
+linux_platforms = execution_platform(
+    name = "linux",
+    base_platform = "ovr_config//platform/linux:x86_64-fbcode-platform010-clang-nosan",
+    local_enabled = local_linux_execution,
+    remote_enabled = True,
+    remote_execution_properties = {
+        "platform": "linux-remote-execution",
+    },
+    remote_execution_action_key_providers = remote_execution_action_key_providers,
+    remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
+)
+
+windows_platforms = execution_platform(
+    name = "windows",
+    base_platform = "ovr_config//platform/windows:x86_64-fbsource-debug",
+    local_enabled = True,
+    remote_enabled = False,
+    remote_execution_properties = {
+        "platform": "windows-remote-execution",
+    },
+    remote_execution_action_key_providers = remote_execution_action_key_providers,
+    remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
+)
+
+execution_platforms(
+    name = "platforms",
+    platforms = ordered_platforms_by_host_type(windows_platforms, mac_platforms, linux_platforms),
+)
+
+prelude.constraint_setting(
+    name = "runs_remote",
+)
+
+prelude.constraint_value(
+    name = "may_run_remote",
+    constraint_setting = ":runs_remote",
+)
+
+prelude.constraint_setting(
+    name = "runs_local",
+)
+
+prelude.constraint_value(
+    name = "may_run_local",
+    constraint_setting = ":runs_local",
+)
+
+prelude.constraint_setting(
+    name = "runs_only",
+)
+
+prelude.constraint_value(
+    name = "runs_only_local",
+    constraint_setting = ":runs_only",
+)
+
+prelude.constraint_value(
+    name = "runs_only_remote",
+    constraint_setting = ":runs_only",
+)

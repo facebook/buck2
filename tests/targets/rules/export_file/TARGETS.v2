@@ -1,0 +1,81 @@
+load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
+load("@fbcode//buck2/prelude:assert.bzl", "assert_artifact_properties", "assert_exists")
+
+export_file(
+    name = "exported.txt",
+)
+
+assert_artifact_properties(
+    name = "exported_properties",
+    src = ":exported.txt",
+    basename = "exported.txt",
+    short_path = "exported.txt",
+)
+
+assert_exists(
+    name = "exported_exists",
+    path = "$(location :exported.txt)",
+)
+
+export_file(
+    name = "renamed",
+    src = "exported.txt",
+    out = "renamed.txt",
+    mode = "copy",
+)
+
+assert_artifact_properties(
+    name = "renamed_properties",
+    src = ":renamed",
+    basename = "renamed.txt",
+    short_path = "renamed.txt",
+)
+
+assert_exists(
+    name = "renamed_exists",
+    path = "`dirname $(location :renamed)`/renamed.txt",
+)
+
+export_file(
+    name = "copy/nested",
+    src = "exported.txt",
+    mode = "copy",
+)
+
+assert_artifact_properties(
+    name = "copy/nested_properties",
+    src = ":copy/nested",
+    basename = "nested",
+    short_path = "copy/nested",
+)
+
+export_file(
+    name = "default_out",
+    src = "directory/inside.txt",
+)
+
+assert_artifact_properties(
+    name = "default_out_properties",
+    src = ":default_out",
+    basename = "inside.txt",
+    short_path = "directory/inside.txt",
+)
+
+export_file(
+    name = "directory",
+)
+
+assert_exists(
+    name = "directory_exists",
+    path = "$(location :directory)/inside.txt",
+)
+
+export_file(
+    name = "root",
+    src = ".",
+)
+
+assert_exists(
+    name = "root_exists",
+    path = "$(location :root)/directory/inside.txt",
+)

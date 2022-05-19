@@ -1,0 +1,4 @@
+it's a file
+===BEGIN
+1
+=====END

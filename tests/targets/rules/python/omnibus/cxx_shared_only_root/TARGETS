@@ -1,0 +1,67 @@
+load("@fbcode//buck2/tests/targets/rules/python/omnibus:defs.bzl", "check_omnibus")
+load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
+load("@fbsource//tools/build_defs:fb_python_binary.bzl", "fb_python_binary")
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+check_omnibus(
+    name = "check_bin",
+    binary = ":bin",
+    check_defined = [
+        ("libomnibus.so", "lib2_func"),
+        ("lib1.so", "lib_func"),
+    ],
+    check_deps = [
+        ("lib1.so", "libomnibus.so"),
+    ],
+    check_libs = [
+        "libomnibus.so",
+        "lib1.so",
+    ],
+    check_no_deps = [
+        ("libomnibus.so", "lib1.so"),
+    ],
+    check_no_libs = [
+        "lib2.so",
+    ],
+)
+
+fb_python_binary(
+    name = "bin",
+    base_module = "",
+    main_module = "bin",
+    native_link_strategy = "merged",
+    deps = [
+        ":lib",
+    ],
+)
+
+bzl_native.python_library(
+    name = "lib",
+    srcs = [
+        "bin.py",
+    ],
+    base_module = "",
+    deps = [
+        ":cpp-lib",
+    ],
+)
+
+fb_native.cxx_library(
+    name = "cpp-lib",
+    soname = "lib1.so",
+    srcs = [
+        "lib.cpp",
+    ],
+    preferred_linkage = "shared",
+    deps = [
+        ":cpp-lib2",
+    ],
+)
+
+fb_native.cxx_library(
+    name = "cpp-lib2",
+    soname = "lib2.so",
+    srcs = [
+        "lib2.cpp",
+    ],
+)

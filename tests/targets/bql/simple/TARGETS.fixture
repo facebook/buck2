@@ -1,0 +1,36 @@
+load("//rules:rules.bzl", "foo_binary", "foo_genrule")
+
+foo_binary(
+    name = "bin",
+    visibility = [ "PUBLIC" ],
+)
+
+foo_genrule(
+    name = "data",
+    cmd = "$(exe :genrule_binary)",
+    visibility = [ "PUBLIC" ],
+)
+
+foo_genrule(
+    name = "foo_toolchain",
+    cmd = "",
+    visibility = [ "PUBLIC" ],
+)
+
+foo_genrule(
+    name = "genrule_binary",
+    cmd = "",
+    visibility = [ "PUBLIC" ],
+)
+
+foo_binary(
+    name = "package_boundary_violation",
+    srcs = ["package_boundary_violation/bin"],
+    visibility = [ "PUBLIC" ],
+)
+
+genrule(
+    name = "buildable",
+    cmd = "echo FOO > $OUT",
+    out = "out.txt"
+)

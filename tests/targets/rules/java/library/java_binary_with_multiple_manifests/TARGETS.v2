@@ -1,0 +1,90 @@
+native.java_library(
+    name = "m1_lib",
+    srcs = ["M1.java"],
+)
+
+native.java_library(
+    name = "m2_lib",
+    srcs = ["M2.java"],
+)
+
+native.java_library(
+    name = "m3_lib",
+    srcs = ["M3.java"],
+)
+
+native.jar_genrule(
+    name = "m1_jar",
+    srcs = ["resources/m1.mf"],
+    cmd = "cp $(location :m1_lib) $OUT && /usr/local/java-runtime/impl/11/bin/jar ufm $OUT resources/m1.mf",
+)
+
+native.jar_genrule(
+    name = "m2_jar",
+    srcs = ["resources/m2.mf"],
+    cmd = "cp $(location :m2_lib) $OUT && /usr/local/java-runtime/impl/11/bin/jar ufm $OUT resources/m2.mf",
+)
+
+native.jar_genrule(
+    name = "m3_jar",
+    srcs = ["resources/m3.mf"],
+    cmd = "cp $(location :m3_lib) $OUT && /usr/local/java-runtime/impl/11/bin/jar ufm $OUT resources/m3.mf",
+)
+
+native.prebuilt_jar(
+    name = "m1",
+    binary_jar = ":m1_jar",
+)
+
+native.prebuilt_jar(
+    name = "m2",
+    binary_jar = ":m2_jar",
+)
+
+native.prebuilt_jar(
+    name = "m3",
+    binary_jar = ":m3_jar",
+)
+
+native.prebuilt_jar(
+    name = "tiny_jar",
+    binary_jar = "tiny.jar",
+    generate_abi = False,    
+)
+
+# remove manifest file from jar
+native.jar_genrule(
+    name = "tiny_jar_without_manifest",
+    cmd = "cp $(location :tiny_jar) $OUT \
+    && /usr/local/java-runtime/impl/11/bin/jar xvf $OUT META-INF/MANIFEST.MF \
+    && cat /dev/null > META-INF/MANIFEST.MF \
+    && /usr/local/java-runtime/impl/11/bin/jar uvf $OUT META-INF/MANIFEST.MF",
+)
+
+native.prebuilt_jar(
+    name = "temp_jar_without_manifest",
+    binary_jar = ":tiny_jar_without_manifest",
+)
+
+native.java_library(
+    name = "main_lib",
+    srcs = ["Lib.java", "Main.java"],
+    deps = [
+        ":m1",
+        ":m2",
+        ":m3",
+        ":temp_jar_without_manifest",
+    ]
+)
+
+native.java_binary(
+    name = "bin",
+    deps = [
+        ":main_lib",
+    ],
+    main_class=  "com.example.main.app.Main",
+    manifest_file = "resources/manifest.mf",
+    visibility = [
+        "PUBLIC",
+    ],
+)

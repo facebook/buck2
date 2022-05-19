@@ -1,0 +1,63 @@
+native.genrule(
+    name = "run_worker",
+    out = "output.txt",
+    cmd = "$(worker :external_tool_worker) echo abc xyz && cp $TMP/test.txt $OUT",
+)
+
+native.worker_tool(
+    name = "external_tool_worker",
+    exe = ":external_tool_executor",
+    args = [
+        "--num-jobs",
+        "1",
+        "--hello-phrase",
+        "Hello from `$WORKER_TOOL_NAME`!",
+        "--out",
+        "$TMP/test.txt",
+    ],
+    env = {
+        "WORKER_TOOL_NAME": "Test external worker tool",
+    },
+)
+
+native.genrule(
+    name = "check_run_worker_output",
+    srcs = [":run_worker"],
+    out = "out.txt",
+    cmd = "cat $(location :run_worker) | grep 'abc xyz' && touch $OUT",
+)
+
+native.genrule(
+    name = "write_command_args",
+    out = "out.txt",
+    cmd = "echo 'echo\nabc\nxyz\n' > $OUT"
+)
+
+native.genrule(
+    name = "run_worker_using_command_file",
+    out = "output.txt",
+    cmd = "$(worker :external_tool_worker) --command-args-file $(location :write_command_args) > $OUT",
+)
+
+native.genrule(
+    name = "check_run_worker_using_command_file_output",
+    srcs = [":run_worker_using_command_file"],
+    out = "out.txt",
+    cmd = "cat $(location :run_worker_using_command_file) | grep 'Process finished with exit code: 0' && touch $OUT",
+)
+
+native.python_binary(
+    name = "external_tool_executor",
+    main_module = "buck2.tests.targets.rules.worker.external_tool",
+    deps = [
+        ":external_tool_lib",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+native.python_library(
+    name = "external_tool_lib",
+    srcs = [
+        "external_tool.py",
+    ],
+)

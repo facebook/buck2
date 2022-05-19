@@ -1,0 +1,16 @@
+prelude = native
+
+prelude.genrule(
+    name = "urandom",
+    srcs = [],
+    out = "output.txt",
+    bash = "head -c 50 /dev/urandom > $OUT",
+    labels = ["__NOT_A_REAL_LABEL__"],
+)
+
+prelude.genrule(
+    name = "urandom_dep",
+    srcs = [],
+    out = "output.txt",
+    bash = "wc -c $(location :urandom) > $OUT",
+)

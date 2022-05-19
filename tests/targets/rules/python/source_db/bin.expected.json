@@ -1,0 +1,7 @@
+{
+  "sources": {},
+  "dependencies": {
+    "foo/lib.py": "fbcode/buck2/tests/targets/rules/python/source_db/lib.py",
+    "bar/dep.py": "fbcode/buck2/tests/targets/rules/python/source_db/dep.py"
+  }
+}

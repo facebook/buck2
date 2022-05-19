@@ -1,0 +1,43 @@
+load(":dynamic.bzl", "dynamic_test", "assert_output_value")
+
+dynamic_test(name = "basic")
+dynamic_test(name = "two")
+dynamic_test(name = "command")
+dynamic_test(name = "create")
+dynamic_test(name = "create_duplicate")
+
+assert_output_value(
+    name = "basic_check",
+    dep = ":basic",
+    value = "42",
+)
+
+assert_output_value(
+    name = "two_output1",
+    dep = ":two[output1]",
+    value = "output1_test",
+)
+
+assert_output_value(
+    name = "two_output2",
+    dep = ":two[output2]",
+    value = "output2_test",
+)
+
+assert_output_value(
+    name = "command_output",
+    dep = ":command",
+    value = "Hello world\n",
+)
+
+assert_output_value(
+    name = "create_check",
+    dep = ":create",
+    value = "42",
+)
+
+assert_output_value(
+    name = "create_duplicate_check",
+    dep = ":create_duplicate",
+    value = "42",
+)

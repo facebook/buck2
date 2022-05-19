@@ -1,0 +1,10 @@
+load(":defs.bzl", "build_mode")
+load("@fbsource//tools/build_defs:buckconfig.bzl", "read")
+
+# Capture the fbcode build mode and expose this as a BuildInfoProvider.
+build_mode(
+    name = "build_mode",
+    cell = native.get_cell_name(),
+    mode = read("fbcode", "build_mode"),
+    visibility = ["PUBLIC"],
+)

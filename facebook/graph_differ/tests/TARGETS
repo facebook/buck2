@@ -1,0 +1,42 @@
+load("//build_infra:buck_e2e.bzl", "buck_e2e_test")
+
+buck_e2e_test(
+    name = "test_target_graph_with_buck1",
+    srcs = ["test_target_graph.py"],
+    executable = "buck1",
+    executable_type = "buck1",
+    deps = [
+        "//buck2/facebook/graph_differ:target_graph",
+    ],
+)
+
+buck_e2e_test(
+    name = "test_target_graph_with_buck2",
+    srcs = ["test_target_graph.py"],
+    executable = "buck2",
+    executable_type = "buck2",
+    deps = [
+        "//buck2/facebook/graph_differ:target_graph",
+    ],
+)
+
+buck_e2e_test(
+    name = "test_diff_graph",
+    srcs = ["test_diff_graph.py"],
+    executable = "buck2",
+    executable_type = "buck2",
+    deps = [
+        "//buck2/facebook/graph_differ:diff_graph",
+        "//buck2/facebook/graph_differ:target_graph",
+    ],
+)
+
+buck_e2e_test(
+    name = "test_target_graph_differ",
+    srcs = ["test_target_graph_differ.py"],
+    executable = "buck2",
+    executable_type = "buck2",
+    deps = [
+        "//buck2/facebook/graph_differ:target_graph_differ-library",
+    ],
+)

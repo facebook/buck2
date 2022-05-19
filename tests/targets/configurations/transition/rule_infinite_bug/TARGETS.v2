@@ -1,0 +1,8 @@
+load(":rules.bzl", "my_rule")
+
+prelude = native
+
+prelude.platform(name = "p")
+
+# Declare this target only when running test, otherwise TD fails.
+my_rule(name = "xx", default_target_platform = ":p") if prelude.read_config("aaa", "bbb") else None

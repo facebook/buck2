@@ -1,0 +1,3 @@
+load("@fbcode//buck2/tests/targets/rules/js/js_utils:canonical_file_name_tests.bzl", canonical_file_name_tests = "test")
+
+canonical_file_name_tests()

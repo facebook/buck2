@@ -1,0 +1,55 @@
+# To silence the linter warnings about native
+prelude = native
+
+url = "https://interncache-all.fbcdn.net/manifold/buck_build_test/tree/buck2_test/http_archive/test.tgz"
+sha1 = "1a45666759704bf08fc670aa96118a0415c470fc"
+sha256 = "ede1fc5fa032399c318faff891af698d55a30090fda4a07947911572790e3ab9"
+
+prelude.remote_file(
+    name = "remote_file_both",
+    out = "protoc",
+    url = url,
+    sha1 = sha1,
+    sha256 = sha256,
+    type  = "data",
+)
+
+prelude.remote_file(
+    name = "remote_file_sha1_only",
+    url = url,
+    sha1 = sha1,
+)
+
+prelude.remote_file(
+    name = "remote_file_sha256_only",
+    url = url,
+    sha256 = sha256,
+)
+
+# Test http_file as well:
+prelude.http_file(
+    name = "http_file",
+    out = "protoc",
+    urls = [url],
+    sha1 = sha1,
+    sha256 = sha256,
+)
+
+zip_url = "https://interncache-all.fbcdn.net/manifold/buck_build_test/tree/buck2_test/http_archive/test_zip.zip"
+zip_sha256 = "2f55b41421e0ee3c7022ccf3578a2cff863daa5f66f46c530fb5c0341f141243"
+zip_sha1 = "095f3ebdcbecf6a2395f49fd367dfae1a91ec54b"
+
+prelude.remote_file(
+    name = "remote_file_exploded_zip",
+    out = "zip_dir",
+    url = zip_url,
+    sha1 = zip_sha1,
+    sha256 = zip_sha256,
+    type  = "exploded_zip",
+)
+
+prelude.genrule(
+    name = "verify_exploded_zip",
+    out = "out",
+    cmd = "cat $(location :remote_file_exploded_zip)/file.txt && touch $OUT",
+)

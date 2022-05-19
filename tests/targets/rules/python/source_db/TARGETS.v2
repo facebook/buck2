@@ -1,0 +1,57 @@
+load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
+
+prelude = native
+
+prelude.genrule(
+    name = "check_bin",
+    out = "out.txt",
+    srcs = [
+        "bin.expected.json",
+    ],
+    cmd = "$(exe :check) $SRCS $(location :bin[source-db]) > $OUT",
+)
+
+prelude.genrule(
+    name = "check_lib",
+    out = "out.txt",
+    srcs = [
+        "lib.expected.json",
+    ],
+    cmd = "$(exe :check) $SRCS $(location :lib[source-db]) > $OUT",
+)
+
+python_binary(
+    name = "check",
+    srcs = [
+        "check.py",
+    ],
+    base_module = "",
+    main_module = "check",
+)
+
+prelude.python_binary(
+    name = "bin",
+    main_module = "foo.lib",
+    deps = [
+        ":lib",
+    ],
+)
+
+prelude.python_library(
+    name = "lib",
+    base_module = "foo",
+    srcs = [
+        "lib.py",
+    ],
+    deps = [
+        ":dep",
+    ],
+)
+
+prelude.python_library(
+    name = "dep",
+    base_module = "bar",
+    srcs = [
+        "dep.py",
+    ],
+)

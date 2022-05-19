@@ -1,0 +1,41 @@
+load("@fbcode_macros//build_defs:python_library.bzl", "python_library")
+load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
+
+fb_native.export_file(
+    name = "make_modulemap.py",
+    src = "make_modulemap.py",
+)
+
+fb_native.command_alias(
+    name = "make_modulemap",
+    exe = ":make_modulemap.py",
+    visibility = ["PUBLIC"],
+)
+
+fb_native.export_file(
+    name = "swift_exec.sh",
+    src = "swift_exec.sh",
+)
+
+fb_native.command_alias(
+    name = "swift_exec",
+    exe = ":swift_exec.sh",
+    visibility = ["PUBLIC"],
+)
+
+fb_native.export_file(
+    name = "make_vfsoverlay.py",
+    src = "make_vfsoverlay.py",
+)
+
+fb_native.command_alias(
+    name = "make_vfsoverlay",
+    exe = ":make_vfsoverlay.py",
+    visibility = ["PUBLIC"],
+)
+
+python_library(
+    name = "lib_for_pyre",
+    srcs = glob(["**/*.py"]),
+    visibility = ["PUBLIC"],
+)

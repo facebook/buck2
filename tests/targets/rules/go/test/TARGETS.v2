@@ -1,0 +1,34 @@
+buck_genrule(
+    name = "check",
+    cmd = "$(exe :test) | grep PASS > $OUT",
+    out = "out.txt",
+)
+
+native.go_test(
+    name = "test",
+    srcs = [
+        "foo_test.go",
+        "bar_test.go",
+    ],
+)
+
+native.go_library(
+    name = "lib",
+    srcs = [
+        "lib.go",
+    ],
+)
+
+native.go_test(
+    name = "lib_test",
+    srcs = [
+        "lib_test.go",
+    ],
+    library = ":lib",
+)
+
+buck_genrule(
+    name = "check_lib",
+    cmd = "$(exe :lib_test) | grep PASS > $OUT",
+    out = "out.txt",
+)

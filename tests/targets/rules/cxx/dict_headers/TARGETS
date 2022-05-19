@@ -1,0 +1,24 @@
+# @noautodeps
+
+load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+cpp_binary(
+    name = "my_binary",
+    srcs = ["foo.cpp"],
+    deps = [":dep"],
+)
+
+bzl_native.cxx_library(
+    name = "dep",
+    exported_platform_headers = [
+        (
+            "platform[0-9]+-clang",
+            {"baz/wfh.h": "foo.h"},
+        ),
+        (
+            "platform[0-9]+",
+            ["quack.h"],
+        ),
+    ],
+)

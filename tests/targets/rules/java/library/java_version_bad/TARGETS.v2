@@ -1,0 +1,8 @@
+
+native.java_library(
+    name ="java_version_and_source_target_attributes",
+    srcs = ["Empty.java"],
+    java_version="11",
+    source="11",
+    target="11",
+)

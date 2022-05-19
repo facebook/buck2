@@ -1,0 +1,27 @@
+# @noautodeps
+
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+
+# Should fail because it doesn't generate out2.txt
+buck_genrule(
+    name = "my_genrule_bad",
+    srcs = [],
+    out = "out.txt",
+    bash = "echo HELLO",
+)
+
+# Should fail because false returns non-zero exit code
+buck_genrule(
+    name = "my_genrule_bad_2",
+    srcs = [],
+    out = "out.txt",
+    bash = "false",
+)
+
+buck_genrule(
+    name = "my_genrule_bad_3",
+    srcs = [],
+    out = "out.sh",
+    bash = "exit 1",
+    executable = True,
+)

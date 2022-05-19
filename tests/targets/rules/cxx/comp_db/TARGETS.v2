@@ -1,0 +1,69 @@
+prelude = native
+
+prelude.sh_test(
+    name = "test_lib",
+    test = "run.py",
+    args = ["$(location :lib[compilation-database])"],
+)
+
+prelude.cxx_library(
+    name = "lib",
+    headers = [
+        "foo.h",
+    ],
+    srcs = [
+        "foo.cpp",
+    ],
+)
+
+prelude.sh_test(
+    name = "test_py",
+    test = "run.py",
+    args = ["$(location :ext[compilation-database])"],
+)
+
+prelude.cxx_python_extension(
+    name = "ext",
+    headers = [
+        "foo.h",
+    ],
+    srcs = [
+        "foo.cpp",
+    ],
+)
+
+prelude.sh_test(
+    name = "test_bin",
+    test = "run.py",
+    args = ["$(location :bin[compilation-database])"],
+)
+
+prelude.cxx_binary(
+    name = "bin",
+    headers = [
+        "foo.h",
+    ],
+    linker_flags = ["-lstdc++", "-lc"],
+    srcs = [
+        "main.cpp",
+    ],
+    deps = [":lib"],
+)
+
+prelude.sh_test(
+    name = "test_cxx_test",
+    test = "run.py",
+    args = ["$(location :test[compilation-database])"],
+)
+
+prelude.cxx_test(
+    name = "test",
+    headers = [
+        "foo.h",
+    ],
+    linker_flags = ["-lstdc++", "-lc"],
+    srcs = [
+        "main.cpp",
+    ],
+    deps = [":lib"],
+)

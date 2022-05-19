@@ -1,0 +1,19 @@
+def _impl(ctx):
+    return ctx.build(ctx.cli_args.target).values()
+
+build_test = bxl(
+    implementation = _impl,
+    cli_args = {
+        "target": cli_args.target_label(),
+    },
+)
+
+def _cquery_build(ctx):
+    targets = ctx.cquery().kind("genrule", "...")
+
+    return ctx.build(targets).values()
+
+cquery_build_test = bxl(
+    implementation = _cquery_build,
+    cli_args = {},
+)

@@ -1,0 +1,218 @@
+syntax = "proto3";
+
+package buck.test;
+
+import "google/protobuf/duration.proto";
+
+// Message sent when a TestSuite is discovered.
+message Testing {
+  // A name for the current suite.
+  string suite = 1;
+  repeated string testcases = 2;
+}
+
+message DisplayMetadata {
+  message Listing {
+    string suite = 1;
+  }
+
+  oneof item {
+    Listing listing = 1;
+    Testing testing = 2;
+  }
+}
+
+message HostSharingRequirements {
+  message Shared {
+    uint64 weight = 1;
+  }
+
+  message ExclusiveAccess {}
+
+  message OnePerToken {
+    string identifier = 1;
+    uint64 weight = 2;
+  }
+
+  oneof requirements {
+    Shared shared = 1;
+    ExclusiveAccess exclusive_access = 2;
+    OnePerToken one_per_token = 3;
+  }
+}
+
+message ExecutionStream {
+  oneof item {
+    bytes inline = 1;
+  }
+}
+
+message ExecutionStatus {
+  oneof status {
+    int32 finished = 1;
+    google.protobuf.Duration timed_out = 2;
+  }
+}
+
+message ConfiguredTargetHandle {
+  int64 id = 1;
+}
+
+message ConfiguredTarget {
+  ConfiguredTargetHandle handle = 1;
+  string name = 2;
+}
+
+enum TestStatus {
+  NOT_SET = 0;
+  PASS = 1;
+  FAIL = 2;
+  SKIP = 3;
+  OMITTED = 4;
+  FATAL = 5;
+  TIMEOUT = 6;
+  UNKNOWN = 7;
+  RERUN = 8;
+  LISTING_SUCCESS = 9;
+  LISTING_FAILED = 10;
+}
+
+message TestResult {
+  message OptionalMsg {
+    string msg = 1; // Required
+  }
+
+  string name = 1; // Required
+  TestStatus status = 2; // Required
+  string stdout = 3; // Required
+  string stderr = 4; // Required
+  OptionalMsg msg = 5; // Optional
+  ConfiguredTargetHandle target = 6; // Required
+  google.protobuf.Duration duration = 7; // Optional
+}
+
+message ReportTestResultRequest {
+  TestResult result = 1;
+}
+
+message ReportTestsDiscoveredRequest {
+  ConfiguredTargetHandle target = 1;
+  Testing testing = 3;
+}
+
+message ReportTestSessionRequest {
+  string session_id = 2;
+  string session_info = 3;
+}
+
+message EndOfTestResultsRequest {
+  int32 exit_code = 1;
+}
+
+message Empty {};
+
+message ExternalRunnerSpecRequest {
+  ExternalRunnerSpec test_spec = 1;
+}
+
+// A spec representing test targets aiming for maximum compatibility with the
+// external runner spec as defined in buck1.
+message ExternalRunnerSpec {
+  // Target the spec belongs to
+  ConfiguredTarget target = 1;
+
+  // Type of test spec
+  string test_type = 2;
+
+  // Base command used for further processing. A mix of verbatim arguments and
+  // opaque handles for more complex arguments.
+  repeated ExternalRunnerSpecValue command = 3;
+
+  // Environment variables a specified by the rule. A mapping from keys to
+  // verbatim values or opaque handles for more complex values.
+  map<string, ExternalRunnerSpecValue> env = 4;
+
+  // Labels defined on the rule.
+  repeated string labels = 5;
+
+  // Contacts defined on the rule.
+  repeated string contacts = 6;
+
+  // TODO: do we need cwd as per the buck1 spec?
+}
+
+message ExternalRunnerSpecValue {
+  oneof value {
+    string verbatim = 1;
+    int64 arg_handle = 2;
+    string env_handle = 3;
+  }
+}
+
+message ExecuteRequest2 {
+  DisplayMetadata ui_prints = 1;
+  ConfiguredTargetHandle target = 2;
+  repeated ArgValue cmd = 3;
+  map<string, ArgValue> env = 4;
+  google.protobuf.Duration timeout = 5;
+  HostSharingRequirements host_sharing_requirements = 6;
+  repeated DeclaredOutput pre_create_dirs = 7;
+}
+
+message ArgValue {
+  ArgValueContent content = 1;
+  // Optional format string for the value
+  ArgFormat format = 2;
+}
+
+message ArgFormat {
+  string format = 1;
+}
+
+message ArgValueContent {
+  oneof value {
+    ExternalRunnerSpecValue spec_value = 1;
+    DeclaredOutput declared_output = 2;
+  }
+}
+
+message DeclaredOutput {
+  string name = 1;
+}
+
+message Output {
+  oneof value {
+    string local_path = 1;
+  }
+}
+
+message OutputEntry {
+  DeclaredOutput declared_output = 1;
+  Output output = 2;
+}
+
+message ExecutionResult2 {
+  ExecutionStatus status = 1;
+  ExecutionStream stdout = 2;
+  ExecutionStream stderr = 3;
+  repeated OutputEntry outputs = 4;
+  google.protobuf.Duration start_time = 5; // Duration since the epoch
+  google.protobuf.Duration execution_time = 6;
+}
+
+message ExecuteResponse2 {
+  ExecutionResult2 result = 1;
+}
+
+service TestOrchestrator {
+  rpc EndOfTestResults(EndOfTestResultsRequest) returns (Empty);
+  rpc ReportTestResult(ReportTestResultRequest) returns (Empty);
+  rpc ReportTestsDiscovered(ReportTestsDiscoveredRequest) returns (Empty);
+  rpc ReportTestSession(ReportTestSessionRequest) returns (Empty);
+  rpc Execute2(ExecuteRequest2) returns (ExecuteResponse2);
+}
+
+service TestExecutor {
+  rpc ExternalRunnerSpec(ExternalRunnerSpecRequest) returns (Empty);
+  rpc EndOfTestRequests(Empty) returns (Empty);
+}

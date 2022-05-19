@@ -1,0 +1,31 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+rust_library(
+    name = "test_api",
+    srcs = glob(
+        ["src/**/*.rs"],
+    ),
+    test_deps = [
+        "fbsource//third-party/rust:assert_matches",
+    ],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:http",
+        "fbsource//third-party/rust:pin-project",
+        "fbsource//third-party/rust:prost-types",
+        "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:tonic",
+        "fbsource//third-party/rust:tower",
+        "fbsource//third-party/rust:tracing",
+        "//buck2/buck2_core:buck2_core",
+        "//buck2/downward_api:downward_api",
+        "//buck2/downward_api_proto:downward_api_proto",
+        "//buck2/gazebo/gazebo:gazebo",
+        "//buck2/host_sharing:host_sharing",
+        "//buck2/test_proto:test_proto",
+    ],
+)

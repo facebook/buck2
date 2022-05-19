@@ -1,0 +1,54 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+
+######################################
+# jar_genrule utils
+######################################  
+
+native.python_binary(
+    name = "check_file_content",
+    base_module = "",
+    main_module = "check_file_content",
+    deps = [
+        ":check_file_content_lib",
+    ],
+)
+
+native.python_library(
+    name = "check_file_content_lib",
+    base_module = "",
+    srcs = [
+        "check_file_content.py",
+    ],
+)
+
+######################################
+
+
+native.java_library(
+    name = "lib",
+    srcs = ["Main.java"],
+)
+
+native.java_binary(
+    name = "bin",
+    main_class = "Main",
+    deps = [":lib"],
+)
+
+native.jar_genrule(
+    name = "jar-genrule",
+    srcs = ["resource.txt"],
+    cmd = "cp $(location :bin) $OUT && /usr/local/java-runtime/impl/11/bin/jar uf $OUT resource.txt",
+)
+
+buck_genrule(
+    name = "execute-jar-genrule",
+    out = "result.txt",
+    cmd = "$(exe :jar-genrule) > $OUT",
+)
+
+native.genrule(
+    name = "check_execute_jar_genrule",
+    cmd = "$(exe :check_file_content) $(location :execute-jar-genrule) 'I am a test resource file.' > $OUT",
+    out = "out.txt",
+)

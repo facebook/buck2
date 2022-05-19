@@ -1,0 +1,8 @@
+load("@root//:rules.bzl", "execution_platforms", "configuration")
+
+configuration(name="configuration")
+
+execution_platforms(
+    name="platforms",
+    configuration=":configuration",
+)

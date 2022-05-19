@@ -1,0 +1,52 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
+use buck2_core::exit_result::ExitResult;
+use structopt::{clap, StructOpt};
+
+use crate::{
+    commands::docs::{
+        query::{DocsCqueryCommand, DocsUqueryCommand},
+        starlark::DocsStarlarkCommand,
+    },
+    BuckSubcommand, CommandContext,
+};
+
+mod query;
+mod starlark;
+
+#[derive(Debug, StructOpt)]
+enum DocsKind {
+    Starlark(DocsStarlarkCommand),
+    Uquery(DocsUqueryCommand),
+    Query(DocsUqueryCommand),
+    Cquery(DocsCqueryCommand),
+}
+
+#[derive(Debug, StructOpt)]
+#[structopt(name = "docs", about = "Print documentation of specified symbols")]
+pub struct DocsCommand {
+    #[structopt(subcommand)]
+    docs_kind: DocsKind,
+}
+
+impl DocsCommand {
+    pub fn exec(self, matches: &clap::ArgMatches<'_>, ctx: CommandContext) -> ExitResult {
+        let submatches = match matches.subcommand().1 {
+            Some(submatches) => submatches,
+            None => panic!("Parsed a subcommand but couldn't extract subcommand argument matches"),
+        };
+        match self.docs_kind {
+            DocsKind::Starlark(cmd) => cmd.exec(submatches, ctx),
+            DocsKind::Uquery(cmd) => cmd.exec(submatches, ctx),
+            DocsKind::Query(cmd) => cmd.exec(submatches, ctx),
+            DocsKind::Cquery(cmd) => cmd.exec(submatches, ctx),
+        }
+    }
+}

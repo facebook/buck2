@@ -1,0 +1,30 @@
+load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
+load("@fbcode_macros//build_defs:python_library.bzl", "python_library")
+
+python_library(
+    name = "graph",
+    srcs = ["graph.py"],
+)
+
+python_library(
+    name = "target_graph",
+    srcs = ["target_graph.py"],
+    deps = [":graph"],
+)
+
+python_library(
+    name = "diff_graph",
+    srcs = ["diff_graph.py"],
+    deps = [":graph"],
+)
+
+python_binary(
+    name = "target_graph_differ",
+    srcs = ["target_graph_differ.py"],
+    main_module = "buck2.facebook.graph_differ.target_graph_differ",
+    deps = [
+        ":diff_graph",
+        ":graph",
+        ":target_graph",
+    ],
+)

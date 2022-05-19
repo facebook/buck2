@@ -1,0 +1,5 @@
+genrule(
+    name = "simple", 
+    cmd = "echo '{}' > \"$OUT\"".format(read_config("override", "value", "default")),
+    out = "out.txt"
+)

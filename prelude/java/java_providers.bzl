@@ -1,0 +1,314 @@
+load(
+    "@fbcode//buck2/prelude/cxx:resources.bzl",
+    "CxxResourceInfo",
+    "gather_cxx_resources",
+)
+load("@fbcode//buck2/prelude/java:dex.bzl", "get_dex_produced_from_java_library")
+load("@fbcode//buck2/prelude/java:dex_toolchain.bzl", "DexToolchainInfo")
+load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JavaToolchainInfo")
+load("@fbcode//buck2/prelude/java/utils:java_utils.bzl", "get_path_separator")
+load(
+    "@fbcode//buck2/prelude/linking:shared_libraries.bzl",
+    "SharedLibraryInfo",
+    "merge_shared_libraries",
+)
+load("@fbcode//buck2/prelude/utils:utils.bzl", "filter_and_map_idx")
+
+# JAVA PROVIDER DOCS
+#
+# Our core Java provider is JavaLibraryInfo. At a basic level, this provider needs to give
+# its dependents the ability to do two things: compilation and packaging.
+#
+# Compilation
+#
+# When we compile, we need to add all of our dependencies to the classpath. That includes
+# anything in `deps`, `exported_deps`, `provided_deps` and `exported_provided_deps`, (but
+# not `runtime_deps`). Additionally, it includes anything that these dependencies export
+# (via `exported_deps` or `exported_provided_deps`). For example, if A depends upon B,
+# and B has an exported dependency on C, then we need to add both B and C to the classpath
+# when compiling A, i.e. both B and C need to be part of B's `compiling_deps`.
+#
+# Therefore, the `compiling_deps` consist of the library's own output (if it exists) plus
+# the `compiling_deps` of any `exported_deps` and `exported_provided_deps`.
+#
+# When we compile, we don't need to compile against the full library - instead, we just
+# compile against the library's public interface, or ABI.
+#
+# Packaging
+#
+# When we package our Java code into a `java_binary`, we need to include all of the Java
+# code that is need to run the application - i.e. all the transitive dependencies. That
+# includes anything in `deps`, `exported_deps` and `runtime_deps` (but not `provided_deps`
+# or `exported_provided_deps`). For example, if A depends upon B, and B has a `dep` on C
+# and a `provided_dep` on D, then if we package A we also need to include B and C, but
+# not D.
+#
+# Therefore, the `packaging_deps` consist of the library's own output (if it exists) plus
+# the `packaging_deps` of any `deps`, `exported_deps` and `runtime_deps`.
+#
+# When we package, we need to use the full library (since we are actually going to be
+# running the code contained in the library).
+#
+# We also need to package up any native code that is declared transitively. The
+# `SharedLibraryInfo` also consists of the `SharedLibraryInfo` of any `deps`,
+# `exported_deps` and `runtime_deps`.
+#
+# Android
+#
+# Because Android uses Java, and we don't currently have the ability to "overlay" our
+# providers, the core Java providers are extended to support Android's requirements.
+# This introduces some additional complexity.
+#
+# Android doesn't package Java bytecode, but instead it converts the Java bytecode
+# .dex (Dalvik Executable) files that are packaged into the Android binary (either an
+# APK or an AAB). Therefore, our `packaging_deps` contain not just a `jar` field but
+# also a `dex` field. If the `dex` field is empty, then the dep should not be
+# packaged into the APK - this is useful for things like `android_build_config` where
+# we want the output (.jar) to be present in any Java annotation processors that we
+# run, but not in the final binary (since we rewrite the build config at the binary
+# level anyway).
+#
+# Android also provides the ability to run Proguard on your binary in order to
+# remove unused classes etc. Each Java library can specify any classes that it wants
+# to always keep etc, via a `proguard_config`. This config also needs to be added to
+# the `packaging_deps`.
+#
+# Java-like rules also provide a "special" function that can be used inside queries:
+# "classpath". `classpath(A)` returns all of the packaging deps of A, while
+# `classpath(A, 1)` returns all of the first-order packaging deps of A.
+
+JavaClasspathEntry = record(
+    full_library = field("artifact"),
+    abi = field("artifact"),
+)
+
+JavaCompilingDepsTSet = transitive_set()
+
+JavaPackagingDepTSet = transitive_set()
+
+JavaPackagingDep = record(
+    jar = "artifact",
+    dex = ["DexLibraryInfo", None],
+    is_prebuilt_jar = bool.type,
+    proguard_config = ["artifact", None],
+)
+
+JavaLibraryInfo = provider(
+    "Information about a java library and its dependencies",
+    fields = [
+        # Java dependencies exposed to dependent targets and supposed to be used during compilation.
+        # Consisting of this library's own output, and the "compiling_deps" of any exported_deps and exported_provided_deps.
+        #
+        "compiling_deps",  # ["JavaCompilingDepsTSet", None]
+
+        # An output of the library. If present then already included into `compiling_deps` field.
+        "library_output",  # ["JavaClasspathEntry", None]
+
+        # An output that is used solely by the system to have an artifact bound to the target (that the core can then use to find
+        # the right target from the given artifact).
+        "output_for_classpath_macro",  # "artifact"
+    ],
+)
+
+JavaPackagingInfo = provider(
+    fields = [
+        # Presents all java dependencies used to build this library and it's dependencies (all transitive deps except provided ones).
+        # These deps must be included into the final artifact.
+        "packaging_deps",  # ["JavaPackagingDepTSet", None],
+    ],
+)
+
+KeystoreInfo = provider(
+    fields = [
+        "store",  # artifact
+        "properties",  # artifact
+    ],
+)
+
+def create_java_classpath_entry(ctx: "context", library: "artifact", generate_abi: bool.type = True) -> "JavaClasspathEntry":
+    class_abi_generator = ctx.attr._java_toolchain[JavaToolchainInfo].class_abi_generator
+    if generate_abi and class_abi_generator != None:
+        class_abi = ctx.actions.declare_output("{}-class-abi.jar".format(library.short_path))
+        ctx.actions.run(
+            [
+                class_abi_generator[RunInfo],
+                library,
+                class_abi.as_output(),
+            ],
+            category = "class_abi_generation",
+            identifier = library.short_path,
+        )
+    else:
+        class_abi = library
+    return JavaClasspathEntry(full_library = library, abi = class_abi)
+
+# Accumulate deps necessary for compilation, which consist of this library's output and compiling_deps of its exported deps
+def derive_compiling_deps(
+        actions: "actions",
+        library_output: [JavaClasspathEntry.type, None],
+        children: ["dependency"]) -> ["JavaCompilingDepsTSet", None]:
+    compiling_deps_kwargs = {}
+    if library_output:
+        compiling_deps_kwargs["value"] = library_output
+
+    filtered_children = filter(None, [exported_dep.compiling_deps for exported_dep in filter_and_map_idx(JavaLibraryInfo, children)])
+    if children:
+        compiling_deps_kwargs["children"] = filtered_children
+
+    return actions.tset(JavaCompilingDepsTSet, **compiling_deps_kwargs) if compiling_deps_kwargs else None
+
+def create_java_packaging_dep(
+        ctx: "context",
+        library_jar: "artifact",
+        needs_desugar: bool.type = False,
+        desugar_deps: ["artifact"] = [],
+        is_prebuilt_jar: bool.type = False) -> "JavaPackagingDep":
+    dex_toolchain = getattr(ctx.attr, "_dex_toolchain", None)
+    if dex_toolchain != None and ctx.attr._dex_toolchain[DexToolchainInfo].d8_command != None:
+        dex = get_dex_produced_from_java_library(
+            ctx,
+            ctx.attr._dex_toolchain[DexToolchainInfo],
+            library_jar,
+            needs_desugar,
+            desugar_deps,
+        )
+    else:
+        dex = None
+
+    return JavaPackagingDep(
+        jar = library_jar,
+        dex = dex,
+        is_prebuilt_jar = is_prebuilt_jar,
+        proguard_config = getattr(ctx.attr, "proguard_config", None),
+    )
+
+def get_all_java_packaging_deps(ctx: "context", deps: ["dependency"]) -> ["JavaPackagingDep"]:
+    return get_all_java_packaging_deps_from_packaging_infos(ctx, filter_and_map_idx(JavaPackagingInfo, deps))
+
+def get_all_java_packaging_deps_from_packaging_infos(ctx: "context", infos: ["JavaPackagingInfo"]) -> ["JavaPackagingDep"]:
+    children = filter(None, [info.packaging_deps for info in infos])
+    if not children:
+        return []
+
+    kwargs = {"children": children}
+    tset = ctx.actions.tset(JavaPackagingDepTSet, **kwargs)
+
+    return list(tset.traverse())
+
+# Accumulate deps necessary for packaging, which consist of all transitive java deps (except provided ones)
+def get_java_packaging_info(
+        ctx: "context",
+        raw_deps: ["dependency"],
+        java_packaging_dep: [JavaPackagingDep.type, None] = None) -> JavaPackagingInfo.type:
+    java_packaging_infos = filter_and_map_idx(JavaPackagingInfo, raw_deps)
+
+    packaging_deps_kwargs = {}
+    if java_packaging_dep:
+        packaging_deps_kwargs["value"] = java_packaging_dep
+
+    packaging_deps_children = filter(None, [info.packaging_deps for info in java_packaging_infos])
+    if packaging_deps_children:
+        packaging_deps_kwargs["children"] = packaging_deps_children
+
+    packaging_deps = ctx.actions.tset(JavaPackagingDepTSet, **packaging_deps_kwargs) if packaging_deps_kwargs else None
+
+    return JavaPackagingInfo(packaging_deps = packaging_deps)
+
+def _create_non_template_providers(
+        ctx: "context",
+        library_output: [JavaClasspathEntry.type, None],
+        declared_deps: ["dependency"] = [],
+        exported_deps: ["dependency"] = [],
+        exported_provided_deps: ["dependency"] = [],
+        runtime_deps: ["dependency"] = [],
+        needs_desugar: bool.type = False,
+        desugar_classpath: ["artifact"] = [],
+        is_prebuilt_jar: bool.type = False) -> (JavaLibraryInfo.type, JavaPackagingInfo.type, SharedLibraryInfo.type, CxxResourceInfo.type):
+    """Creates java library providers of type `JavaLibraryInfo` and `JavaPackagingInfo`.
+
+    Args:
+        library_output: optional JavaClasspathEntry that represents library output
+        declared_deps: declared dependencies (usually comes from `deps` field of the rule)
+        exported_deps: dependencies that are exposed to dependent rules as compiling deps
+        exported_provided_deps: dependencies that are are exposed to dependent rules and not be included into packaging
+        runtime_deps: dependencies that are used for packaging only
+    """
+    packaging_deps = declared_deps + exported_deps + runtime_deps
+    shared_library_info = merge_shared_libraries(
+        ctx.actions,
+        deps = filter_and_map_idx(SharedLibraryInfo, packaging_deps),
+    )
+    cxx_resource_info = CxxResourceInfo(resources = gather_cxx_resources(
+        ctx.label,
+        deps = packaging_deps,
+    ))
+
+    if library_output:
+        java_packaging_dep = create_java_packaging_dep(ctx, library_output.full_library, needs_desugar, desugar_classpath, is_prebuilt_jar)
+    elif is_prebuilt_jar:
+        fail("Prebuilt jar must have a library output!")
+    else:
+        java_packaging_dep = None
+
+    java_packaging_info = get_java_packaging_info(
+        ctx,
+        raw_deps = packaging_deps,
+        java_packaging_dep = java_packaging_dep,
+    )
+
+    return (
+        JavaLibraryInfo(
+            compiling_deps = derive_compiling_deps(ctx.actions, library_output, exported_deps + exported_provided_deps),
+            library_output = library_output,
+            output_for_classpath_macro = library_output.abi if (library_output and library_output.abi.owner != None) else ctx.actions.write("dummy_output_for_classpath_macro.txt", "Unused"),
+        ),
+        java_packaging_info,
+        shared_library_info,
+        cxx_resource_info,
+    )
+
+def create_template_info(packaging_libs: ["artifact"], first_order_libs: ["artifact"]) -> TemplatePlaceholderInfo.type:
+    return TemplatePlaceholderInfo(keyed_variables = {
+        "classpath": cmd_args(packaging_libs, delimiter = get_path_separator()),
+        "first_order_classpath": cmd_args(first_order_libs, delimiter = get_path_separator()),
+    })
+
+def _create_template_info(library_info: JavaLibraryInfo.type, packaging_info: JavaPackagingInfo.type, first_order_classpath_libs: ["artifact"]) -> TemplatePlaceholderInfo.type:
+    packaging_libs = [packaging_dep.jar for packaging_dep in (list(packaging_info.packaging_deps.traverse()) if packaging_info.packaging_deps else [])]
+    first_order_libs = first_order_classpath_libs + [library_info.library_output.full_library] if library_info.library_output else first_order_classpath_libs
+    return create_template_info(packaging_libs, first_order_libs)
+
+def create_java_library_providers(
+        ctx: "context",
+        library_output: [JavaClasspathEntry.type, None],
+        declared_deps: ["dependency"] = [],
+        exported_deps: ["dependency"] = [],
+        provided_deps: ["dependency"] = [],
+        exported_provided_deps: ["dependency"] = [],
+        runtime_deps: ["dependency"] = [],
+        needs_desugar: bool.type = False,
+        is_prebuilt_jar: bool.type = False) -> (JavaLibraryInfo.type, JavaPackagingInfo.type, SharedLibraryInfo.type, CxxResourceInfo.type, TemplatePlaceholderInfo.type):
+    first_order_classpath_deps = filter_and_map_idx(JavaLibraryInfo, declared_deps + exported_deps + runtime_deps)
+    first_order_classpath_libs = [dep.output_for_classpath_macro for dep in first_order_classpath_deps]
+
+    if needs_desugar:
+        desugar_deps = derive_compiling_deps(ctx.actions, None, declared_deps + exported_deps + provided_deps + exported_provided_deps)
+        desugar_classpath = [dep.full_library for dep in (list(desugar_deps.traverse()) if desugar_deps else [])]
+    else:
+        desugar_classpath = []
+
+    library_info, packaging_info, shared_library_info, cxx_resource_info = _create_non_template_providers(
+        ctx,
+        library_output = library_output,
+        declared_deps = declared_deps,
+        exported_deps = exported_deps,
+        exported_provided_deps = exported_provided_deps,
+        runtime_deps = runtime_deps,
+        needs_desugar = needs_desugar,
+        desugar_classpath = desugar_classpath,
+        is_prebuilt_jar = is_prebuilt_jar,
+    )
+
+    template_info = _create_template_info(library_info, packaging_info, first_order_classpath_libs)
+
+    return (library_info, packaging_info, shared_library_info, cxx_resource_info, template_info)

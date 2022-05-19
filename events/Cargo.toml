@@ -1,0 +1,39 @@
+[package]
+name = "events"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.51"
+async-trait = "0.1.24"
+base64 = "0.13.0"
+buck2_core = { path = "../buck2_core" }
+byteorder = "1.4.3"
+cli_proto = { path = "../cli_proto" }
+derive_more = "0.99.3"
+buck2_data = { path = "../buck2_data" }
+fbinit.version = "0.1"
+# @oss-disable: fbinit.path = "../../common/rust/shed/fbinit"
+futures = "0.3"
+gazebo.version = "0.7.0"
+gazebo.features = ["str_pattern_extensions"]
+# @oss-disable: gazebo.path = "../gazebo/gazebo"
+gazebo_lint.version = "0.1"
+gazebo_lint.optional = true
+# @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
+prost = "0.7"
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "1.0"
+tokio = { version = "1.5", features = ["full"] }
+tracing = "0.1.22"
+uuid = { version = "0.8", features = ["v4"] }
+# @oss-disable: scribe = { path = "../../common/rust/scribe", optional = true }
+# @oss-disable: scribe_http = { path = "../../common/rust/scribe/http", optional = true }
+crossbeam-channel = "0.5"
+# 0.9.8 is only compatible with nightly 1.61
+crossbeam-epoch = "=0.9.7"
+
+[features]
+# @oss-disable: default = ["gazebo_lint", "scribe_logging"]
+# @oss-disable: scribe_logging = ["scribe", "scribe_http"]
+scribe_logging = [] # @oss-enable

@@ -1,0 +1,62 @@
+# To silence the linter warnings about native
+prelude = native
+
+prelude.genrule(
+    name = "root",
+    srcs = [
+        "main.cpp",
+        ":lib",
+    ],
+    out = "bin.out",
+    cmd = "cat $SRCS > $OUT"
+)
+
+prelude.genrule(
+    name = "lib",
+    srcs = [
+        "lib.cpp",
+    ],
+    out = "lib.out",
+    cmd = "cat $SRCS > $OUT"
+)
+
+prelude.genrule(
+    name = "use_query_targets",
+    out = "targets.txt",
+    cmd = "echo $(query_targets deps(:root)) > $OUT",
+)
+
+prelude.export_file(
+    name = "checker",
+    src = "checker.py",
+)
+
+prelude.genrule(
+    name = "test_query_targets",
+    out = "out.txt",
+    bash = "python3 $(location :checker) $(location :use_query_targets) $(@query_targets deps(:root)) > $OUT",
+)
+
+prelude.genrule(
+    name = "use_query_outputs",
+    out = "outputs.txt",
+    cmd = "echo $(query_outputs deps(:root)) > $OUT",
+)
+
+prelude.genrule(
+    name = "test_query_outputs",
+    out = "out.txt",
+    bash = "python3 $(location :checker) $(location :use_query_outputs) $(@query_outputs deps(:root)) > $OUT",
+)
+
+prelude.genrule(
+    name = "use_query_targets_and_outputs",
+    out = "outputs.txt",
+    cmd = "echo $(query_targets_and_outputs ~~~ deps(:root)) > $OUT",
+)
+
+prelude.genrule(
+    name = "test_query_targets_and_outputs",
+    out = "out.txt",
+    bash = "python3 $(location :checker) $(location :use_query_targets_and_outputs) $(@query_targets_and_outputs ~~~ deps(:root)) > $OUT",
+)

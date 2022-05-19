@@ -1,0 +1,17 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+rust_library(
+    name = "buck2_query_proc_macro",
+    srcs = glob(
+        ["src/**/*.rs"],
+    ),
+    proc_macro = True,
+    deps = [
+        "fbsource//third-party/rust:itertools",
+        "fbsource//third-party/rust:proc-macro2",
+        "fbsource//third-party/rust:quote",
+        "fbsource//third-party/rust:syn",
+        "fbsource//third-party/rust:textwrap",
+    ],
+)

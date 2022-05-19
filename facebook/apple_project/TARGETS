@@ -1,0 +1,251 @@
+# @noautodeps
+
+load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
+load("@fbcode_macros//build_defs:python_library.bzl", "python_library")
+load("@fbcode_macros//build_defs:python_unittest.bzl", "python_unittest")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+python_library(
+    name = "apple_config",
+    srcs = ["apple_config.py"],
+    deps = [
+        "fbcode//buck2/facebook/apple_project/buck:audit",
+    ],
+)
+
+python_binary(
+    name = "generate_project",
+    main_module = "buck2.facebook.apple_project.main",
+    deps = [
+        ":main",
+    ],
+)
+
+python_library(
+    name = "build",
+    srcs = ["build.py"],
+    tests = [
+        "fbcode//buck2/facebook/apple_project:build_test",
+    ],
+    deps = [
+        "fbcode//buck2/facebook/apple_project/buck:build",
+        "fbcode//buck2/facebook/apple_project/buck:build_target",
+    ],
+)
+
+python_unittest(
+    name = "build_test",
+    srcs = ["build_test.py"],
+    resources = glob([
+        "build_test_*.fixture",
+    ]),
+    deps = [
+        "fbcode//buck2/facebook/apple_project/buck:build_target",
+        ":build",
+    ],
+)
+
+python_library(
+    name = "command_args_parser",
+    srcs = ["command_args_parser.py"],
+    tests = [
+        ":command_args_parser_test",
+    ],
+    deps = [
+        ":project",
+    ],
+)
+
+python_unittest(
+    name = "command_args_parser_test",
+    srcs = ["command_args_parser_test.py"],
+    deps = [
+        ":command_args_parser",
+        ":project",
+    ],
+)
+
+python_library(
+    name = "main",
+    srcs = ["main.py"],
+    deps = [
+        "fbcode//buck2/facebook/apple_project/buck:audit",
+        "fbcode//buck2/facebook/apple_project/buck:build_target",
+        "fbcode//buck2/facebook/apple_project/buck:build_target_pattern",
+        ":command_args_parser",
+        ":logger",
+        ":project",
+    ],
+)
+
+python_library(
+    name = "project",
+    srcs = ["project.py"],
+    tests = [":project_test"],
+    deps = [
+        "fbcode//buck2/facebook/apple_project/buck:build_target",
+        "fbcode//buck2/facebook/apple_project/buck:build_target_language",
+        "fbcode//buck2/facebook/apple_project/buck:build_target_pattern",
+        "fbcode//buck2/facebook/apple_project/buck:build_target_pattern_matcher",
+        "fbcode//buck2/facebook/apple_project/buck:output_attributes",
+        "fbcode//buck2/facebook/apple_project/xcode:file",
+        "fbcode//buck2/facebook/apple_project/xcode:group_generator",
+        "fbcode//buck2/facebook/apple_project/xcode:pbx",
+        "fbcode//buck2/facebook/apple_project/xcode:project",
+        "fbcode//buck2/facebook/apple_project/xcode:reference_generator",
+        "fbcode//buck2/facebook/apple_project/xcode:target",
+        "fbsource//third-party/pypi/cached-property:cached-property",
+        ":apple_config",
+        ":build",
+        ":query",
+        ":target_attributes",
+        ":target_merger",
+        ":target_node",
+        ":target_selection",
+    ],
+)
+
+python_unittest(
+    name = "project_test",
+    srcs = ["project_test.py"],
+    resources = glob([
+        "project_test*.fixture",
+    ]),
+    #TODO(T120947056): Add support for isolation-dir when calling buck2 to avoid needing to serialize these tests
+    tags = [
+        "serialize_test_cases",
+    ],
+    deps = [
+        "fbcode//buck2/facebook/apple_project/buck:build_target",
+        "fbcode//buck2/facebook/apple_project/buck:build_target_pattern",
+        ":project",
+    ],
+)
+
+python_library(
+    name = "logger",
+    srcs = ["logger.py"],
+    deps = [],
+)
+
+python_library(
+    name = "query",
+    srcs = ["query.py"],
+    tests = [":query_test"],
+    deps = [
+        "fbcode//buck2/facebook/apple_project/buck:buck",
+        "fbcode//buck2/facebook/apple_project/buck:build_target",
+        "fbcode//buck2/facebook/apple_project/buck:output_attributes",
+        "fbcode//buck2/facebook/apple_project/buck:query",
+    ],
+)
+
+python_unittest(
+    name = "query_test",
+    srcs = ["query_test.py"],
+    resources = glob([
+        "query_test_*.fixture",
+    ]),
+    deps = [
+        "fbcode//buck2/facebook/apple_project/buck:build_target",
+        ":query",
+    ],
+)
+
+python_library(
+    name = "target_attributes",
+    srcs = ["target_attributes.py"],
+    tests = [":target_attributes_test"],
+    deps = [
+        "fbcode//buck2/facebook/apple_project/buck:buck",
+        "fbcode//buck2/facebook/apple_project/buck:build_target",
+        "fbcode//buck2/facebook/apple_project/buck:output_attributes",
+        "fbcode//buck2/facebook/apple_project/buck:query",
+    ],
+)
+
+python_unittest(
+    name = "target_attributes_test",
+    srcs = ["target_attributes_test.py"],
+    resources = [
+        "target_attributes_test.fixture",
+    ],
+    deps = [
+        "fbcode//buck2/facebook/apple_project/buck:build_target",
+        ":target_attributes",
+    ],
+)
+
+python_library(
+    name = "target_node",
+    srcs = ["target_node.py"],
+    tests = [":target_node_test"],
+    deps = [
+        "fbcode//buck2/facebook/apple_project/buck:build_target",
+        "fbcode//buck2/facebook/apple_project/buck:output_attributes",
+        "fbcode//buck2/facebook/apple_project/xcode:configuration",
+        "fbcode//buck2/facebook/apple_project/xcode:file",
+        "fbcode//buck2/facebook/apple_project/xcode:group_generator",
+        "fbcode//buck2/facebook/apple_project/xcode:pbx",
+        "fbcode//buck2/facebook/apple_project/xcode:target",
+        ":target_attributes",
+    ],
+)
+
+python_unittest(
+    name = "target_node_test",
+    srcs = ["target_node_test.py"],
+    deps = [
+        "fbcode//buck2/facebook/apple_project/buck:build_target",
+        "fbcode//buck2/facebook/apple_project/buck:output_attributes",
+        "fbcode//buck2/facebook/apple_project/xcode:file",
+        "fbcode//buck2/facebook/apple_project/xcode:group_generator",
+        "fbcode//buck2/facebook/apple_project/xcode:pbx",
+        ":target_attributes",
+        ":target_node",
+    ],
+)
+
+python_library(
+    name = "target_merger",
+    srcs = ["target_merger.py"],
+    tests = [":target_merger_test"],
+    deps = [
+        "fbcode//buck2/facebook/apple_project/buck:buck",
+        "fbcode//libfb/py/frozen:frozen",
+        ":target_node",
+    ],
+)
+
+python_unittest(
+    name = "target_merger_test",
+    srcs = ["target_merger_test.py"],
+    deps = [
+        ":target_merger",
+    ],
+)
+
+python_library(
+    name = "target_selection",
+    srcs = ["target_selection.py"],
+    deps = [
+        "fbcode//buck2/facebook/apple_project/buck:buck",
+        "fbcode//buck2/facebook/apple_project/buck:build_target",
+        "fbcode//buck2/facebook/apple_project/buck:build_target_pattern",
+        "fbcode//buck2/facebook/apple_project/buck:build_target_pattern_matcher",
+        "fbsource//third-party/pypi/cached-property:cached-property",
+        ":query",
+    ],
+)
+
+python_unittest(
+    name = "target_selection_test",
+    srcs = ["target_selection_test.py"],
+    deps = [
+        "fbcode//buck2/facebook/apple_project/buck:buck",
+        "fbcode//buck2/facebook/apple_project/buck:build_target",
+        "fbcode//buck2/facebook/apple_project/buck:build_target_pattern",
+        ":query",
+        ":target_selection",
+    ],
+)

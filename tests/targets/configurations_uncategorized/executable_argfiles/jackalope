@@ -1,0 +1,4 @@
+--config-file
+fbcode//buck2/tests/targets/configurations_uncategorized/executable_argfiles/jackalope-apple-toolchain.bcfg
+--config
+apple.xctool_zip_target=

@@ -1,0 +1,21 @@
+load("//build_infra:buck_e2e.bzl", "buck2_e2e_test")
+
+buck2_e2e_test(
+    name = "test_attr",
+    srcs = ["test_attr.py"],
+)
+
+buck2_e2e_test(
+    name = "test_attr_split",
+    srcs = ["test_attr_split.py"],
+)
+
+buck2_e2e_test(
+    name = "test_rule",
+    srcs = ["test_rule.py"],
+)
+
+buck2_e2e_test(
+    name = "test_rule_infinite_bug",
+    srcs = ["test_rule_infinite_bug.py"],
+)

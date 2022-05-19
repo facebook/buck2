@@ -1,0 +1,158 @@
+load(":cxx_toolchains.bzl", "config_backed_cxx_toolchain", "cxx_toolchain_override", "cxx_hacks")
+load(":go_toolchains.bzl", "config_backed_go_toolchain")
+load(":python_bootstrap_toolchains.bzl", "config_backed_python_bootstrap_toolchain")
+load(":python_toolchains.bzl", "config_backed_python_toolchain")
+load(":rust_toolchains.bzl", "config_backed_rust_toolchain")
+load(":ocaml_toolchains.bzl", "config_backed_ocaml_toolchain")
+load(":haskell_toolchains.bzl", "config_backed_haskell_toolchain")
+load(":java_toolchains.bzl", "config_backed_java_toolchain")
+
+_fbcode_cxx_flavors = [
+    #  "appletvos-arm64",
+    #  "appletvsimulator-x86_64",
+    #  "iphoneos-arm64",
+    #  "iphoneos-armv7",
+    #  "iphonesimulator-i386",
+    #  "iphonesimulator-x86_64",
+    #  "linux-x86_64",
+    #  "maccatalyst-x86_64",
+    #  "macosx-arm64",
+    #  "macosx-x86_64",
+    #  "macosx-x86_64_minimal_xcode",
+    "platform009-clang",
+    "platform009-clang-nosan",
+    "platform009-clang-nosan-split-dwarf",
+    "platform009-clang-split-dwarf",
+    "platform009-clang-12",
+    "platform009-clang-12-nosan",
+    "platform009-clang-12-split-dwarf",
+    "platform009-gcc",
+    "platform010-clang",
+    "platform010-clang-nosan",
+    "platform010-clang-nosan-split-dwarf",
+    "platform010-clang-split-dwarf",
+    "platform010-gcc",
+    "platform010-compat-clang",
+    "platform010-compat-clang-nosan",
+    "platform010-compat-clang-nosan-split-dwarf",
+    "platform010-compat-clang-split-dwarf",
+    "platform010-compat-gcc",
+    #  "watchos-arm64_32",
+    #  "watchos-armv7k",
+    #  "watchsimulator-i386",
+    #  "watchsimulator-x86_64",
+    #  "windows-i386",
+    #  "windows-x86_64",
+]
+
+_rust_flavors = _fbcode_cxx_flavors + [
+    "macosx-x86_64_minimal_xcode",
+]
+
+_fbcode_python_flavors = [
+    "cinder_py3.8-platform009",
+    "cinder_py3.8-platform010",
+    "cinder_py3.8-platform010-compat",
+#    "py2-macosx-x86_64",
+#    "py2-platform009",
+#    "py2-windows-x86_64",
+#    "py3-macosx-x86_64",
+#    "py3-windows-x86_64",
+#    "py3.7-macosx-x86_64",
+#    "py3.7-windows-x86_64",
+    "py3.8-macosx-x86_64",
+    "py3.8-platform009",
+    "py3.8-platform010",
+    "py3.8-platform010-compat",
+]
+
+[config_backed_cxx_toolchain(
+    name = flavor,
+    flavor = flavor,
+    target_compatible_with = [
+        # should probably be that we require gvfs, but that's not well reflected
+        "ovr_config//runtime/constraints:fbcode",
+    ],
+    # Use thin archives for static libraries, by default.
+    archive_contents = native.read_config("fbcode", "archive_contents", "thin"),
+    visibility = ["PUBLIC"],
+) for flavor in _fbcode_cxx_flavors]
+
+# The buck2 apple toolchains use this as the base toolchain and override some values.
+# But we don't want the target_compatible_with restriction.
+# TODO(cjhopman, akhozhevnikov): We probably want to get rid of this, a lot of
+# the non-overridden parts probably don't work correctly.
+config_backed_cxx_toolchain(
+    name = "platform009-clang-for-apple-toolchains",
+    flavor = "platform009-clang",
+    # This is only used as the base of a toolchain override, let that specify it's compatibility.
+    target_compatible_with = None,
+    visibility = ["PUBLIC"],
+)
+
+[cxx_toolchain_override(
+    name = "buck2-" + flavor,
+    base = ":" + flavor,
+    target_compatible_with = [
+        "ovr_config//runtime/constraints:fbcode",
+    ],
+    visibility = ["PUBLIC"],
+) for flavor in _fbcode_cxx_flavors]
+
+cxx_toolchain_override(
+   name = "buck2-infer",
+   base = ":platform009-clang",
+   cxx_compiler = "fbsource//xplat/tools/infer:infer-fbcode-linux-capture",
+   c_compiler = "fbsource//xplat/tools/infer:infer-fbcode-linux-capture",
+   linker = "fbsource//xplat/tools/infer:infer-fbcode-linux-linker",
+   archiver = "fbsource//xplat/tools/infer:infer-fbcode-linux-archiver",
+   mk_shlib_intf = "fbsource//xplat/tools/infer:fake-mkshlibintf",
+   target_compatible_with = [
+      "ovr_config//runtime/constraints:fbcode",
+   ],
+   visibility = ["PUBLIC"],
+)
+
+# Required to support the $(cxx-header-tree) macro
+cxx_hacks(
+    name = "cxx-hacks",
+    visibility = ["PUBLIC"],
+)
+
+[config_backed_go_toolchain(
+    name = "go-" + flavor,
+    flavor = flavor,
+    visibility = ["PUBLIC"],
+) for flavor in _fbcode_cxx_flavors]
+
+[config_backed_python_toolchain(
+    flavor = flavor,
+    visibility = ["PUBLIC"],
+) for flavor in _fbcode_python_flavors]
+
+[config_backed_python_bootstrap_toolchain(
+    flavor = flavor,
+    visibility = ["PUBLIC"],
+) for flavor in _fbcode_python_flavors]
+
+[config_backed_rust_toolchain(
+    flavor = flavor,
+    visibility = ["PUBLIC"],
+) for flavor in _rust_flavors]
+
+[config_backed_ocaml_toolchain(
+    flavor = flavor,
+    visibility = ["PUBLIC"],
+) for flavor in _fbcode_cxx_flavors]
+
+
+[config_backed_haskell_toolchain(
+    flavor = flavor,
+    visibility = ["PUBLIC"],
+) for flavor in _fbcode_cxx_flavors]
+
+
+config_backed_java_toolchain(
+    name = "java",
+    visibility = ["PUBLIC"],
+)

@@ -1,0 +1,11 @@
+load("@fbcode_macros//build_defs:ocaml_library.bzl", "ocaml_library")
+
+ocaml_library(
+    name = "collections",
+    srcs = [
+        "reordered_argument_collections.ml",
+        "wrappedMap.ml",
+        "wrappedMap.mli",
+        "wrappedMap_sig.ml",
+    ],
+)

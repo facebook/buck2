@@ -1,0 +1,47 @@
+prelude = native
+
+prelude.config_setting(
+    name = "_incompatible",
+    constraint_values = [],
+    values = {"___section.___key": "1"},
+)
+
+prelude.sh_binary(
+    name = "posix",
+    main = "echo.sh",
+    target_compatible_with = select({
+        "ovr_config//os/constraints:linux": [],
+        "ovr_config//os/constraints:macos": [],
+        "DEFAULT": [":_incompatible"],
+    }),
+)
+
+prelude.sh_binary(
+    name = "linux",
+    main = "echo.sh",
+    target_compatible_with = ["ovr_config//os/constraints:linux"],
+)
+
+prelude.sh_binary(
+    name = "mac",
+    main = "echo.sh",
+    target_compatible_with = ["ovr_config//os/constraints:macos"],
+)
+
+prelude.genrule(
+    name = "gen_mac",
+    out = "data",
+    cmd = "$(exe :mac) gen_mac > $OUT",
+)
+
+prelude.genrule(
+    name = "gen_linux",
+    out = "data",
+    cmd = "$(exe :linux) gen_linux > $OUT",
+)
+
+prelude.genrule(
+    name = "combined",
+    out = "data",
+    cmd = "cat $(location :gen_mac) $(location :gen_linux) > $OUT",
+)

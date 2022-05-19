@@ -1,0 +1,30 @@
+name: ci
+on:
+  push:
+  pull_request:
+  schedule:
+  - cron: '0 12 * * 1' # 12pm Monday
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: codota/toolchain@00a8bf2bdcfe93aefd70422d3dec07337959d3a4
+      with:
+        components: clippy, rustfmt
+    # We use rustfmt 2.0 for formatting, which differs from the released
+    # version installed by Cargo
+    # - run: cargo fmt -- --check
+    - run: cargo clippy
+    - run: cargo build
+    - run: cargo test
+      # On Windows we run out of disk space on the test step :(
+      if: matrix.os != 'windows-latest'
+    - run: cargo bench
+      if: matrix.os != 'windows-latest'

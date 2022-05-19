@@ -1,0 +1,159 @@
+# @noautodeps
+
+load("@fbcode_macros//build_defs:python_library.bzl", "python_library")
+load("@fbcode_macros//build_defs:python_unittest.bzl", "python_unittest")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+python_library(
+    name = "configuration",
+    srcs = ["configuration.py"],
+    tests = [
+        ":configuration_test",
+    ],
+    deps = [
+        ":pbx",
+        ":reference_generator",
+    ],
+)
+
+python_unittest(
+    name = "configuration_test",
+    srcs = ["configuration_test.py"],
+    deps = [":configuration"],
+)
+
+python_library(
+    name = "file",
+    srcs = ["file.py"],
+    tests = [
+        ":file_test",
+    ],
+    deps = [
+        "fbsource//third-party/pypi/cached-property:cached-property",
+        ":group_generator",
+        ":pbx",
+    ],
+)
+
+python_unittest(
+    name = "file_test",
+    srcs = ["file_test.py"],
+    deps = [":file"],
+)
+
+python_library(
+    name = "group_generator",
+    srcs = ["group_generator.py"],
+    tests = [
+        ":group_generator_test",
+    ],
+    deps = [
+        ":reference_generator",
+    ],
+)
+
+python_unittest(
+    name = "group_generator_test",
+    srcs = ["group_generator_test.py"],
+    deps = [":group_generator"],
+)
+
+python_library(
+    name = "pbx",
+    srcs = ["pbx.py"],
+    resources = glob([
+        "PBX*.mustache",
+        "XC*.mustache",
+    ]),
+    tests = [
+        ":pbx_test",
+    ],
+    deps = [
+        "fbsource//third-party/pypi/chevron:chevron",
+    ],
+)
+
+python_unittest(
+    name = "pbx_test",
+    srcs = ["pbx_test.py"],
+    deps = [
+        ":configuration",
+        ":pbx",
+        ":reference_generator",
+    ],
+)
+
+python_library(
+    name = "project",
+    srcs = ["project.py"],
+    resources = [
+        "pbxproj.mustache",
+        "pbxsection.mustache",
+    ],
+    tests = [
+        ":project_test",
+    ],
+    deps = [
+        "fbsource//third-party/pypi/cached-property:cached-property",
+        "fbsource//third-party/pypi/chevron:chevron",
+        ":configuration",
+        ":group_generator",
+        ":reference_generator",
+        ":target",
+    ],
+)
+
+python_unittest(
+    name = "project_test",
+    srcs = ["project_test.py"],
+    resources = [
+        "project_test_output.fixture",
+    ],
+    deps = [
+        ":configuration",
+        ":group_generator",
+        ":project",
+        ":reference_generator",
+        ":target",
+    ],
+)
+
+python_library(
+    name = "reference_generator",
+    srcs = ["reference_generator.py"],
+    tests = [
+        ":reference_generator_test",
+    ],
+    deps = [":pbx"],
+)
+
+python_unittest(
+    name = "reference_generator_test",
+    srcs = ["reference_generator_test.py"],
+    deps = [":reference_generator"],
+)
+
+python_library(
+    name = "target",
+    srcs = ["target.py"],
+    tests = [
+        ":target_test",
+    ],
+    deps = [
+        ":configuration",
+        ":file",
+        ":pbx",
+        ":reference_generator",
+    ],
+)
+
+python_unittest(
+    name = "target_test",
+    srcs = ["target_test.py"],
+    deps = [
+        ":configuration",
+        ":group_generator",
+        ":reference_generator",
+        ":target",
+    ],
+)

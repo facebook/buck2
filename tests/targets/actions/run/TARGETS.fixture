@@ -1,0 +1,27 @@
+load(":defs.bzl", "run_command")
+
+run_command(
+    name = "runs_simple_script",
+    other_src = "src.txt",
+    script = "echo.sh",
+)
+
+run_command(
+    name = "rejects_zero_outputs",
+    script = "echo.sh",
+)
+
+run_command(
+    name = "rejects_bad_args",
+    script = "echo.sh",
+)
+
+run_command(
+    name = "runs_script_locally",
+    script = "hostname.sh",
+)
+
+run_command(
+    name = "runs_script_locally_outputs_symlink",
+    script = "create_symlink.sh",
+)

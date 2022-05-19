@@ -1,0 +1,32 @@
+load("@fbcode_macros//build_defs:cpp_benchmark.bzl", "cpp_benchmark")
+load("@fbcode_macros//build_defs:cpp_unittest.bzl", "cpp_unittest")
+
+cpp_unittest(
+    name = "tests",
+    srcs = [
+        "ActionErrorParserTest.cpp",
+        "ErrorCategorizationParserTest.cpp",
+        "ProtoUtilsTest.cpp",
+    ],
+    deps = [
+        "//buck2/facebook/ingress/utils:utils",
+        "//buck2/facebook/proto:proto-cpp",
+    ],
+    external_deps = [
+        "protobuf",
+        ("googletest", None, "gmock"),
+    ],
+)
+
+cpp_benchmark(
+    name = "benchmark",
+    srcs = [
+        "ProtoUtilsBenchmark.cpp",
+    ],
+    deps = [
+        "//buck2/facebook/ingress/utils:utils",
+        "//buck2/facebook/proto:proto-cpp",
+        "//common/init:init",
+        "//folly:benchmark",
+    ],
+)

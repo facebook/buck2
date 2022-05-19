@@ -1,0 +1,25 @@
+def _impl(ctx):
+    print("bool_arg: " + repr(ctx.cli_args.bool_arg))
+    print("string_arg: " + repr(ctx.cli_args.string_arg))
+    print("int_arg: " + repr(ctx.cli_args.int_arg))
+    print("float_arg: " + repr(ctx.cli_args.float_arg))
+    print("optional: " + repr(ctx.cli_args.optional))
+    print("enum_type: " + repr(ctx.cli_args.enum_type))
+    print("target: " + repr(ctx.cli_args.target))
+    print("providers_label: " + repr(ctx.cli_args.providers_label))
+    print("list: " + repr(ctx.cli_args.list_type))
+
+cli_test = bxl(
+    implementation = _impl,
+    cli_args = {
+        "bool_arg": cli_args.bool(),
+        "enum_type": cli_args.enum(["a", "b"]),
+        "float_arg": cli_args.float(),
+        "int_arg": cli_args.int(),
+        "list_type": cli_args.list(cli_args.int()),
+        "optional": cli_args.option(cli_args.string()),
+        "providers_label": cli_args.providers_label(),
+        "string_arg": cli_args.string("default"),
+        "target": cli_args.target_label(),
+    },
+)

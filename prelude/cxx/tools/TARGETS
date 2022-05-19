@@ -1,0 +1,23 @@
+load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
+
+fb_native.export_file(
+    name = "make_comp_db.py",
+    src = "make_comp_db.py",
+)
+
+fb_native.command_alias(
+    name = "make_comp_db",
+    exe = ":make_comp_db.py",
+    visibility = ["PUBLIC"],
+)
+
+fb_native.export_file(
+    name = "makefile_to_dep_file.py",
+    src = "makefile_to_dep_file.py",
+)
+
+fb_native.command_alias(
+    name = "makefile_to_dep_file",
+    exe = ":makefile_to_dep_file.py",
+    visibility = ["PUBLIC"],
+)

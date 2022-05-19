@@ -1,0 +1,54 @@
+"""
+Setup a build where the generated libomnibus link will depend on and link
+against a root node.
+"""
+
+load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
+load("@fbsource//tools/build_defs:fb_python_binary.bzl", "fb_python_binary")
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+fb_python_binary(
+    name = "bin",
+    base_module = "",
+    main_module = "bin",
+    native_link_strategy = "merged",
+    deps = [
+        ":lib",
+    ],
+)
+
+bzl_native.python_library(
+    name = "lib",
+    srcs = [
+        "bin.py",
+    ],
+    base_module = "",
+    deps = [
+        ":cxx",
+    ],
+)
+
+# A omnibus root node.
+fb_native.cxx_library(
+    name = "cxx",
+    srcs = [
+        "lib.cpp",
+    ],
+    deps = [
+        ":rust",
+    ],
+)
+
+# A rust body node.
+fb_native.rust_library(
+    name = "rust",
+    srcs = [
+        "lib.rs",
+    ],
+    deps = [
+        # This library fails to build as a staticlib, and so relies on the v1
+        # heuristic where transitive Rust deps of a Rust library are built as
+        # rlibs and merged into the top-level Rust library.
+        "fbsource//third-party/rust:libm",
+    ],
+)

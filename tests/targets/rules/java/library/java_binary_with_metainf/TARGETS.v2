@@ -1,0 +1,19 @@
+
+native.java_binary(
+    name = "binary",
+    main_class = "Test",
+    meta_inf_directory = "resources/metainf",
+    deps = [
+        ":test-lib"
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+native.java_library(
+    name = "test-lib",
+    srcs = [
+        "Test.java",
+    ],
+)

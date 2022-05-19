@@ -1,0 +1,11 @@
+load("@fbcode_macros//build_defs:cpp_unittest.bzl", "cpp_unittest")
+
+cpp_unittest(
+    name = "tests",
+    srcs = [
+        "InMemoryKeyValueStoreTest.cpp",
+    ],
+    deps = [
+        "//buck2/facebook/ingress/storage:storage",
+    ],
+)

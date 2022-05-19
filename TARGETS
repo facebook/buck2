@@ -1,0 +1,16 @@
+# @noautodeps
+
+load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+buck_filegroup(
+    name = "prelude",
+    srcs = glob(
+        ["prelude/**"],
+        # Context: https://fb.workplace.com/groups/buck2users/posts/3121903854732641/
+        exclude = ["prelude/**/.pyre_configuration.local"],
+    ),
+)
+
+export_file(name = ".buck2-tpx")

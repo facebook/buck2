@@ -1,0 +1,166 @@
+load("@fbcode//buck2/prelude/js:js_utils.bzl", "TRANSFORM_PROFILES")
+load("@fbcode//buck2/tests/targets/rules/js:snapshot_tests.bzl", "js_snapshot_test")
+
+native.js_bundle(
+    name = "fruit_salad",
+    deps = [
+        "fbcode//buck2/tests/targets/rules/js/js_library:fruit",
+    ],
+    extra_json = struct(
+      some_int = 5,
+      location_macro = "$(location :exported_file)",
+    ).to_json(),
+    entry = "apple",
+    worker = "fbcode//buck2/tests/targets/rules/js:js_worker_tool",
+    android_package = "com.facebook",
+    visibility = ["PUBLIC"],
+)
+
+native.export_file(
+  name = "exported_file",
+  src = "exported_file.txt",
+  visibility = ["PUBLIC"],
+)
+
+[
+    js_snapshot_test(
+        target = ":fruit_salad",
+        subtarget = transform_profile,
+        fixture = "fixtures/fruit-salad-{}.json".format(transform_profile),
+        file="fruit_salad.js",
+    )
+    for transform_profile in TRANSFORM_PROFILES
+]
+
+[
+    js_snapshot_test(
+        target = ":fruit_salad",
+        subtarget= "{}-misc".format(transform_profile),
+        fixture="fixtures/fruit-salad-{}-misc.json".format(transform_profile),
+    )
+    for transform_profile in TRANSFORM_PROFILES
+]
+
+[
+    js_snapshot_test(
+        target = ":fruit_salad",
+        subtarget= "{}-source_map".format(transform_profile),
+        fixture="fixtures/fruit-salad-{}-source-map.json".format(transform_profile),
+    )
+    for transform_profile in TRANSFORM_PROFILES
+]
+
+js_snapshot_test(
+    target = ":fruit_salad",
+    fixture = "fixtures/fruit-salad-default-output.json",
+    file = "fruit_salad.js",
+)
+
+js_snapshot_test(
+    target = ":fruit_salad",
+    subtarget = "misc",
+    fixture = "fixtures/fruit-salad-default-misc-output.json",
+)
+
+js_snapshot_test(
+    target = ":fruit_salad",
+    subtarget = "source_map",
+    fixture = "fixtures/fruit-salad-default-source-map-output.json",
+)
+
+EXPECTED_JS_BUNDLE_RAM_BUNDLE_OUTPUT_TEMPLATE = """'\
+{\
+.*"assetsDirPath": ".*/assets_dir",\
+.*"bundlePath": ".*/fruit_salad.js",\
+.*"command": "bundle",\
+.*"entryPoints": \[
+.*"apple"\
+.*],\
+.*"extraData": "{}",\
+.*"libraries": \[\
+.*".*jslib"\
+.*],\
+.*"miscDirPath": ".*/misc_dir_path",\
+.*"platform": "android",\
+.*"release": false,\
+.*"sourceMapPath": ".*/source_map",\
+.*"ramBundle": "--indexed-rambundle"\
+.*}'"""
+
+[
+    native.genrule(
+        name = "verify_fruit_salad_rambundle_indexed_bundle_output_for_{}".format(transform_profile),
+        out = "rambundle_indexed_bundle_out_{}.txt".format(transform_profile),
+        cmd = 'cat $(location :fruit_salad[rambundle-indexed-{}])/fruit_salad.js | tr -d "\\n" | grep {} && touch "$OUT"'.format(transform_profile, EXPECTED_JS_BUNDLE_RAM_BUNDLE_OUTPUT_TEMPLATE),
+    ) for transform_profile in TRANSFORM_PROFILES
+]
+
+[
+    native.genrule(
+        name = "verify_fruit_salad_rambundle_indexed_misc_output_for_{}".format(transform_profile),
+        out = "rambundle_indexed_misc_out_{}.txt".format(transform_profile),
+        cmd = 'cat $(location :fruit_salad[rambundle-indexed-{}-misc]) | tr -d "\\n" | grep {} && touch "$OUT"'.format(transform_profile, EXPECTED_JS_BUNDLE_RAM_BUNDLE_OUTPUT_TEMPLATE),
+    ) for transform_profile in TRANSFORM_PROFILES
+]
+
+[
+    native.genrule(
+        name = "verify_fruit_salad_rambundle_indexed_source_map_output_for_{}".format(transform_profile),
+        out = "rambundle_indexed_source_map_out_{}.txt".format(transform_profile),
+        cmd = 'cat $(location :fruit_salad[rambundle-indexed-{}-source_map]) | tr -d "\\n" | grep {} && touch "$OUT"'.format(transform_profile, EXPECTED_JS_BUNDLE_RAM_BUNDLE_OUTPUT_TEMPLATE),
+    ) for transform_profile in TRANSFORM_PROFILES
+]
+
+native.genrule(
+    name = "verify_fruit_salad_default_rambundle_indexed_bundle_output",
+    out = "default_rambundle_indexed_out.txt",
+    cmd = 'cat $(location :fruit_salad[rambundle-indexed])/fruit_salad.js | tr -d "\\n" | grep {} && touch "$OUT"'.format(EXPECTED_JS_BUNDLE_RAM_BUNDLE_OUTPUT_TEMPLATE),
+)
+
+native.genrule(
+    name = "verify_fruit_salad_default_rambundle_indexed_misc_output",
+    out = "default_rambundle_indexed_misc_out.txt",
+    cmd = 'cat $(location :fruit_salad[rambundle-indexed-misc]) | tr -d "\\n" | grep {} && touch "$OUT"'.format(EXPECTED_JS_BUNDLE_RAM_BUNDLE_OUTPUT_TEMPLATE),
+)
+
+native.genrule(
+    name = "verify_fruit_salad_default_rambundle_indexed_source_map_output",
+    out = "default_rambundle_indexed_source_map_out.txt",
+    cmd = 'cat $(location :fruit_salad[rambundle-indexed-source_map]) | tr -d "\\n" | grep {} && touch "$OUT"'.format(EXPECTED_JS_BUNDLE_RAM_BUNDLE_OUTPUT_TEMPLATE),
+)
+
+native.js_bundle(
+    name = "fruit_salad_with_fallback_transform",
+    deps = [
+        "fbcode//buck2/tests/targets/rules/js/js_library:fruit",
+    ],
+    entry = "apple",
+    fallback_transform_profile = "hermes-stable",
+    worker = "fbcode//buck2/tests/targets/rules/js:js_worker_tool",
+    android_package = "com.facebook",
+)
+
+native.genrule(
+    name = "verify_fruit_salad_with_fallback_transform_default_bundle_output",
+    out = "fallback_transform_default_out.txt",
+    cmd = 'cat $(location :fruit_salad_with_fallback_transform)/fruit_salad_with_fallback_transform.js | grep hermes-stable && touch "$OUT"',
+)
+
+native.js_bundle(
+    name = "fruit_salad_with_bundle_name",
+    deps = [
+        "fbcode//buck2/tests/targets/rules/js/js_library:fruit",
+    ],
+    entry = "apple",
+    bundle_name_for_flavor = [
+        ("android", "special_bundle_name"),
+    ],
+    android_package = "com.facebook",
+    worker = "fbcode//buck2/tests/targets/rules/js:js_worker_tool",
+)
+
+native.genrule(
+    name = "verify_fruit_salad_with_bundle_name_default_bundle_output",
+    out = "bundle_name_default_out.txt",
+    cmd = 'cat $(location :fruit_salad_with_bundle_name)/special_bundle_name | grep special_bundle_name && touch "$OUT"',
+)

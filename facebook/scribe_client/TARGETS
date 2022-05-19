@@ -1,0 +1,25 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+rust_library(
+    name = "scribe_client",
+    srcs = glob(["src/**/*.rs"]),
+    test_deps = [
+        "//thrift/lib/rust:fbthrift",
+    ],
+    visibility = [
+        "//buck2/...",
+    ],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:crossbeam",
+        "fbsource//third-party/rust:once_cell",
+        "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:tracing",
+        "//common/rust/shed/fbinit:fbinit",
+        "//common/rust/thrift/bareclient:thriftclient",
+        "//scribe/api/thrift:message_metadata-rust",
+        "//scribe/api/thrift:producer_service-rust",
+        "//scribe/api/thrift:use_case-rust",
+    ],
+)

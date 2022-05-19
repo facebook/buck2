@@ -1,0 +1,12 @@
+{
+    "aggregatedSourceFilesFilePath": "BUCK_OUT_REDACTED/js/js_library/__fruit__/hermes-canary/library_files",
+    "command": "library-dependencies",
+    "dependencyLibraryFilePaths": [],
+    "flavors": [
+        "android"
+    ],
+    "outputPath": "BUCK_OUT_REDACTED/js/js_library/__fruit__/hermes-canary.jslib",
+    "platform": "android",
+    "release": false,
+    "extraData": "{\"key\":\"value\",\"exported_filepath\":\"BUCK_OUT_REDACTED/js/js_library/__exported_file__/exported_file\"}"
+}

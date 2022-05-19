@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package install;
+
+service Installer {
+  rpc FileReadyRequest(FileReady) returns (FileResponse) {};
+  rpc ShutdownServer(Shutdown) returns (ShutdownResponse) {};
+}
+
+message FileReady {
+  string name = 1;
+  string sha1 = 2;
+  string path = 3;
+}
+
+message FileResponse {
+  string name = 1;
+  string path = 2;
+  string err_msg = 3;
+  bool err = 4;
+}
+
+message Shutdown {}
+
+message ShutdownResponse {}

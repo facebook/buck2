@@ -1,0 +1,20 @@
+prelude = native
+
+prelude.cxx_library(
+    name = "bar",
+    srcs = [
+        "bar.cpp",
+    ],
+    deps = [
+        ":foo",
+    ],
+)
+
+prelude.cxx_library(
+    name = "foo",
+    header_namespace = "",
+    exported_header_style = "system",
+    exported_headers = [
+        "foo.h",
+    ],
+)

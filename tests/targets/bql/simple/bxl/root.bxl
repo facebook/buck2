@@ -1,0 +1,8 @@
+def _impl(ctx):
+    print(ctx.root())
+
+root_test = bxl(
+    implementation = _impl,
+    cli_args = {
+    },
+)

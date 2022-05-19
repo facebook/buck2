@@ -1,0 +1,48 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+rust_library(
+    name = "events",
+    srcs = glob(
+        ["src/**/*.rs"],
+    ),
+    features = ["scribe_logging"],
+    os_deps = [
+        (
+            "linux",
+            [
+                "//common/rust/scribe/cxx:scribe-cxx",
+            ],
+        ),
+        (
+            "macos",
+            [
+                "//common/rust/scribe/cxx:scribe-cxx",
+            ],
+        ),
+    ],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:base64",
+        "fbsource//third-party/rust:byteorder",
+        "fbsource//third-party/rust:crossbeam-channel",
+        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:prost",
+        "fbsource//third-party/rust:serde",
+        "fbsource//third-party/rust:thiserror",
+        "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:uuid",
+        "//buck2/buck2_core:buck2_core",
+        "//buck2/buck2_data:buck2_data",
+        "//buck2/cli_proto:cli_proto",
+        "//buck2/facebook/scribe_client:scribe_client",
+        "//buck2/gazebo/gazebo:gazebo",
+        "//common/rust/gflags:gflags",
+        "//common/rust/scribe:scribe",
+        "//common/rust/scribe/cat:scribe-cat",
+        "//common/rust/scribe/http:scribe-http",
+        "//common/rust/shed/fbinit:fbinit",
+    ],
+)

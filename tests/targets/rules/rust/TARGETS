@@ -1,0 +1,442 @@
+# @noautodeps
+
+load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
+load("@fbcode_macros//build_defs:cpp_library.bzl", "cpp_library")
+load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+bzl_native.rust_binary(
+    name = "hello_explicit",
+    srcs = [
+        "hello.rs",
+    ],
+    crate = "hello",
+    crate_root = "hello.rs",
+)
+
+bzl_native.rust_binary(
+    name = "hello",
+    srcs = [
+        "src/hello.rs",
+    ],
+)
+
+bzl_native.rust_binary(
+    name = "hello_unused_dep",
+    crate_root = "src/hello.rs",
+    srcs = [
+        "src/hello.rs",
+    ],
+    rustc_flags = ["-Wunused-crate-dependencies"],
+    deps = [":lib"],
+    named_deps = {
+        "charles": ":lib2",
+    },
+)
+
+bzl_native.rust_binary(
+    name = "hello_static",
+    srcs = [
+        "src/hello.rs",
+    ],
+    crate_root = "src/hello.rs",
+    link_style = "static",
+)
+
+bzl_native.rust_binary(
+    name = "with_mod",
+    srcs = [
+        "main.rs",
+        "module.rs",
+    ],
+    crate = "with_mod",
+    crate_root = "main.rs",
+)
+
+bzl_native.rust_binary(
+    name = "infer_main",
+    srcs = [
+        "main.rs",
+        "module.rs",
+    ],
+)
+
+bzl_native.rust_library(
+    name = "lib",
+    srcs = [
+        "src/lib.rs",
+    ],
+    visibility = ["//buck2/tests/targets/rules/rust/..."],
+)
+
+bzl_native.rust_library(
+    name = "lib_with_warning",
+    srcs = [
+        "lib_with_warning.rs",
+    ],
+)
+
+bzl_native.rust_library(
+    name = "lib_shared",
+    srcs = [
+        "src/lib.rs",
+    ],
+    preferred_linkage = "shared",
+)
+
+bzl_native.rust_library(
+    name = "lib2",
+    srcs = [
+        "lib2.rs",
+    ],
+    deps = [
+        ":lib",
+    ],
+)
+
+bzl_native.rust_binary(
+    name = "with_dep",
+    srcs = [
+        "with_dep.rs",
+    ],
+    deps = [
+        ":lib",
+    ],
+)
+
+bzl_native.rust_binary(
+    name = "with_prebuilt_dep",
+    srcs = ["with_dep.rs"],
+    crate_root = "with_dep.rs",
+    named_deps = {"lib": ":prebuilt_lib"},
+)
+
+bzl_native.prebuilt_rust_library(
+    name = "prebuilt_lib",
+    rlib = ":lib[static_pic]",
+)
+
+bzl_native.rust_binary(
+    name = "with_dep_static",
+    srcs = [
+        "with_dep.rs",
+    ],
+    deps = [
+        ":lib",
+    ],
+    crate_root = "with_dep.rs",
+    link_style = "static",
+)
+
+bzl_native.rust_binary(
+    name = "with_dep_shared",
+    srcs = [
+        "with_dep.rs",
+    ],
+    deps = [
+        ":lib",
+    ],
+    crate_root = "with_dep.rs",
+    link_style = "shared",
+)
+
+bzl_native.rust_binary(
+    name = "with_dep2",
+    srcs = [
+        "with_dep2.rs",
+    ],
+    deps = [
+        ":lib2",
+    ],
+)
+
+bzl_native.rust_library(
+    name = "proc_macro_lib",
+    srcs = ["proc_macro/lib.rs"],
+    proc_macro = True,
+)
+
+bzl_native.rust_binary(
+    name = "proc_macro_main",
+    srcs = ["proc_macro/main.rs"],
+    deps = [
+        ":proc_macro_lib",
+    ],
+)
+
+bzl_native.rust_binary(
+    name = "proc_macro_main_static",
+    srcs = ["proc_macro/main.rs"],
+    link_style = "static",
+    deps = [
+        ":proc_macro_lib",
+    ],
+)
+
+bzl_native.rust_library(
+    name = "proc_macro_lib_dep",
+    srcs = ["proc_macro/lib.rs"],
+    proc_macro = True,
+    deps = [
+        ":lib",
+    ],
+)
+
+bzl_native.rust_binary(
+    name = "proc_macro_main_dep",
+    srcs = ["proc_macro/main.rs"],
+    named_deps = {
+        "proc_macro_lib": ":proc_macro_lib_dep",
+    },
+)
+
+bzl_native.rust_binary(
+    name = "env_macro",
+    srcs = ["env_macro.rs"],
+    env = {
+        "COOL_VARIABLE": "I'm so cool",
+    },
+)
+
+bzl_native.rust_binary(
+    name = "env_macro_file",
+    srcs = ["src/env_macro_file.rs"],
+    env = {
+        "COOL_FILE": "$(location :generate_file)",
+    },
+)
+
+bzl_native.genrule(
+    name = "generate_file",
+    out = "coolfile.txt",
+    bash = "echo \"C00l f!le\" > $OUT",
+)
+
+bzl_native.genrule(
+    name = "generate_src",
+    out = "lib.rs",
+    bash = "echo \"pub fn generated_fn() {}\" > $OUT",
+)
+
+bzl_native.rust_library(
+    name = "mapped_srcs",
+    srcs = ["mapped_srcs/lib.rs"],
+    mapped_srcs = {
+        ":generate_src": "mapped_srcs/gen.rs",
+    },
+)
+
+cpp_library(
+    name = "c_lib",
+    srcs = ["lib.c"],
+)
+
+rust_binary(
+    name = "ffi",
+    srcs = ["ffi.rs"],
+    deps = [":c_lib"],
+)
+
+buck_genrule(
+    name = "ffi_run",
+    out = "out.txt",
+    cmd = "$(exe :ffi) > $OUT",
+)
+
+buck_genrule(
+    name = "ffi_run_location",
+    out = "out.txt",
+    # We use ./$(location) instead of $(exe) on purpose.
+    # We want to make sure this runs as it's used fairly widely in the repo.
+    bash = "./$(location :ffi) > $OUT",
+)
+
+bzl_native.rust_library(
+    name = "named_dep",
+    srcs = ["named_dep.rs"],
+    named_deps = {
+        "named": ":lib",
+    },
+)
+
+bzl_native.rust_library(
+    name = "nice1",
+    crate = "nice",
+    srcs = ["src/lib.rs"],
+)
+
+bzl_native.rust_library(
+    name = "nice2",
+    crate = "nice",
+    srcs = ["src/lib.rs"],
+)
+
+bzl_native.rust_binary(
+    name = "same_name",
+    srcs = ["same_name.rs"],
+    named_deps = {
+        "nice-old": ":nice1",
+    },
+    deps = [":nice2"],
+)
+
+bzl_native.rust_library(
+    name = "mapped_as_root",
+    mapped_srcs = {
+        ":generate_src": "lib.rs",
+    },
+)
+
+export_file(
+    name = "hello_str",
+    src = "hello_str.txt",
+)
+
+bzl_native.rust_binary(
+    name = "env_absolute",
+    srcs = ["include.rs"],
+    crate_root = "include.rs",
+    env = {
+        "FORTY_TWO": "42",
+        "HELLO": "$(location :hello_str)",
+    },
+)
+
+# 'Diamond' graph with native symbols
+# Test that we correctly dedupe linker flags to avoid
+# duplicated symbols
+
+bzl_native.rust_binary(
+    name = "diamond",
+    srcs = ["diamond/diamond.rs"],
+    deps = [
+        ":left",
+        ":right",
+    ],
+)
+
+bzl_native.rust_library(
+    name = "left",
+    srcs = ["diamond/left.rs"],
+    deps = [":root"],
+)
+
+bzl_native.rust_library(
+    name = "right",
+    srcs = ["diamond/right.rs"],
+    deps = [":root"],
+)
+
+bzl_native.cxx_library(
+    name = "root",
+    srcs = ["diamond/root.c"],
+    tests = [":unittests"],
+)
+
+# When using env, we use a wrapper that might escape quotes
+# Since features are passed with quotes, make sure we test it
+bzl_native.rust_library(
+    name = "features_env",
+    srcs = ["features_env.rs"],
+    env = {
+        "BUCK": "42",
+    },
+    features = [
+        "buck",
+    ],
+)
+
+bzl_native.rust_library(
+    name = "c_ffi_rust",
+    srcs = ["c_ffi.rs"],
+    crate = "c_ffi",
+)
+
+cpp_binary(
+    name = "c_ffi",
+    srcs = ["c_ffi.c"],
+    deps = [":c_ffi_rust"],
+)
+
+bzl_native.genrule(
+    name = "c_ffi_run",
+    out = "OUT.txt",
+    cmd = "$(exe :c_ffi) > $OUT",
+)
+
+# TODO: Reenable follow Rust 1.60 upgrade
+# # Test C++ binary linking against prebuilt Rust lib.
+# bzl_native.prebuilt_rust_library(
+#     name = "c_ffi_rust_prebuilt",
+#     rlib = ":c_ffi_rust[static_pic]",
+# )
+#
+# cpp_binary(
+#     name = "c_ffi_prebuilt",
+#     srcs = ["c_ffi.c"],
+#     deps = [":c_ffi_rust_prebuilt"],
+# )
+#
+# bzl_native.genrule(
+#     name = "c_ffi_prebuilt_run",
+#     out = "OUT.txt",
+#     cmd = "$(exe :c_ffi_prebuilt) | grep 42 > $OUT",
+# )
+
+# Test shared link style.
+cpp_library(
+    name = "c_lib_shared",
+    srcs = ["lib.c"],
+    # Since this is shared-only, the dependent Rust binary would fail to run
+    # unless it successfully setup a symlink tree and pulled it in.
+    preferred_linkage = "shared",
+)
+
+rust_binary(
+    name = "ffi_shared",
+    srcs = ["ffi.rs"],
+    crate_root = "ffi.rs",
+    link_style = "shared",
+    deps = [":c_lib_shared"],
+)
+
+bzl_native.rust_library(
+    name = "lib_ffi",
+    srcs = ["ffi.rs"],
+    crate_root = "ffi.rs",
+    deps = [":c_lib"],
+)
+
+bzl_native.rust_library(
+    name = "lib_ffi_shared",
+    srcs = ["ffi.rs"],
+    crate_root = "ffi.rs",
+    deps = [":c_lib_shared"],
+)
+
+buck_genrule(
+    name = "ffi_shared_run",
+    out = "out.txt",
+    cmd = "$(exe :ffi_shared) > $OUT",
+)
+
+bzl_native.rust_test(
+    name = "unittests",
+    srcs = ["unittests.rs"],
+)
+
+rust_binary(
+    name = "fbinit",
+    srcs = ["fbinit.rs"],
+    deps = [
+        "//common/rust/shed/fbinit:fbinit",
+    ],
+)
+
+buck_genrule(
+    name = "fbinit_run",
+    out = "out.txt",
+    cmd = "$(exe :fbinit) > $OUT",
+)

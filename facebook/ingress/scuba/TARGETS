@@ -1,0 +1,22 @@
+load("@fbcode_macros//build_defs:cpp_library.bzl", "cpp_library")
+
+cpp_library(
+    name = "scuba",
+    srcs = [
+        "ScubaClient.cpp",
+    ],
+    headers = [
+        "IScubaClient.h",
+        "ScubaClient.h",
+    ],
+    deps = [
+        "//folly/logging:logging",
+        "//justknobs:justknobs",
+        "//scribe/api:producer",
+        "//scribe/api:producer_api",
+        "//scribe/client:producer_scribe_client",
+    ],
+    exported_deps = [
+        "//rfe/scubadata:scubadata",
+    ],
+)

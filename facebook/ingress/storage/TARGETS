@@ -1,0 +1,15 @@
+load("@fbcode_macros//build_defs:cpp_library.bzl", "cpp_library")
+
+cpp_library(
+    name = "storage",
+    srcs = [
+        "InMemoryKeyValueStore.cpp",
+    ],
+    headers = [
+        "IKeyValueStore.h",
+        "InMemoryKeyValueStore.h",
+    ],
+    exported_deps = [
+        "//folly/container:f14_hash",
+    ],
+)

@@ -1,0 +1,12 @@
+[buildfile]
+name=TARGETS.fixture
+
+[project]
+ignore=ignored
+
+[repositories]
+root = .
+fbcode = fbcode
+
+[build]
+  execution_platforms = root//platforms:platforms

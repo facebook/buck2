@@ -1,0 +1,20 @@
+prelude = native
+
+prelude.prebuilt_cxx_library(
+    name = "foo",
+    header_namespace = "",
+    header_only = True,
+    exported_headers = [
+        "foo.h",
+    ],
+)
+
+cpp_binary(
+    name = "bin",
+    srcs = [
+        "main.cpp",
+    ],
+    deps = [
+        ":foo",
+    ],
+)

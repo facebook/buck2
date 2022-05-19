@@ -1,0 +1,34 @@
+[package]
+name = "test_api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.51"
+async-trait = "0.1.49"
+derive_more = "0.99.3"
+gazebo.version = "0.7.0"
+gazebo.features = ["str_pattern_extensions"]
+# @oss-disable: gazebo.path = "../gazebo/gazebo"
+gazebo_lint.version = "0.1"
+gazebo_lint.optional = true
+# @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
+buck2_core = { path = "../buck2_core" }
+downward_api = { path = "../downward_api" }
+downward_api_proto = { path = "../downward_api_proto" }
+host_sharing = { path = "../host_sharing" }
+test_proto = { path = "../test_proto" }
+tonic = "0.4.0"
+tokio = {version = "1.5", features = ["full"]}
+pin-project = "0.4"
+futures = { version = "0.3.13", features = ["async-await", "compat"] }
+tower = "0.4"
+http = "0.2"
+tracing = "0.1.22"
+prost-types = "0.7"
+
+[dev-dependencies]
+assert_matches = "1.5"
+
+[features]
+# @oss-disable: default = ["gazebo_lint"]

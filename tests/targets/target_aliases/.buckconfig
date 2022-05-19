@@ -1,0 +1,11 @@
+[buildfile]
+name=TARGETS.fixture
+
+[repositories]
+root = .
+fbcode = fbcode
+
+[alias]
+alias = root//targets:target
+chain = alias
+bad = root//bad:bad

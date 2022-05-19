@@ -1,0 +1,14 @@
+recursive = targets("//lib/...")
+package = targets("//lib:")
+
+# Sadly, these currently need to be specified in the correct order to match the others.
+explicit = targets(["//lib:constraint", "//lib:file1", "//lib:file2", "//lib:file3", "//lib:lib1", "//lib:lib2", "//lib:lib3"])
+
+if recursive != package:
+  fail("expected `%s`, got `%s`" % (recursive, package))
+
+if recursive != explicit:
+  fail("expected `%s`, got `%s`" % (recursive, explicit))
+
+if package != explicit:
+  fail("expected `%s`, got `%s`" % (package, explicit))

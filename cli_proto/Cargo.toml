@@ -1,0 +1,17 @@
+[package]
+name = "cli_proto"
+
+edition = "2021"
+version = "0.1.0"
+
+[dependencies]
+anyhow = "1.0.51"
+buck2_data = { path = "../buck2_data" }
+prost = "0.7"
+prost-types = "0.7"
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "1.0.9"
+tonic = "0.4.0"
+
+[build-dependencies]
+tonic-build = {version = "0.4.0", features = ["prost"]}

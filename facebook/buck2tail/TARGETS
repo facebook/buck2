@@ -1,0 +1,15 @@
+load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+rust_binary(
+    name = "buck2tail",
+    srcs = glob(["src/**/*.rs"]),
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:base64",
+        "fbsource//third-party/rust:prost",
+        "fbsource//third-party/rust:serde_json",
+        "fbsource//third-party/rust:structopt",
+        "//buck2/buck2_data:buck2_data",
+    ],
+)

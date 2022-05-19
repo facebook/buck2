@@ -1,0 +1,8 @@
+prelude = native
+
+prelude.genrule(
+    name = "simple",
+    srcs = [],
+    out = "output.txt",
+    bash = "head -c 50 /dev/urandom > $OUT",
+)

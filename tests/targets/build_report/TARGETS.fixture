@@ -1,0 +1,15 @@
+native.genrule(
+    name = "rule1",
+    cmd = "touch $OUT",
+    out = "out.txt"
+)
+
+native.genrule(
+    name = "rule2",
+    cmd = "touch $OUT/out1.txt && touch $OUT/out2.txt",
+    outs = {
+        "out1": ["out1.txt"],
+        "out2": ["out2.txt"]
+    },
+    default_outs = [ "out1.txt" ]
+)

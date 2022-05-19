@@ -1,0 +1,27 @@
+export_file(
+    name = "compile_wrapper.py",
+)
+
+buck_command_alias(
+    name = "compile_wrapper",
+    exe = ":compile_wrapper.py",
+)
+
+export_file(
+    name = "filter_srcs.py",
+)
+
+buck_command_alias(
+    name = "filter_srcs",
+    exe = ":filter_srcs.py",
+)
+
+native.go_binary(
+    name = "testmaingen",
+    srcs = [
+        "testmaingen.go",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)

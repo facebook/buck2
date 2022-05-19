@@ -1,0 +1,8 @@
+prelude = native
+
+prelude.genrule(
+    name = "mygenrule",
+    srcs = [],
+    out = "out.txt",
+    bash = "echo HELLO > $OUT",
+)

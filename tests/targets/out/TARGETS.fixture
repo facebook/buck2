@@ -1,0 +1,47 @@
+load(":defs.bzl", "out_library")
+
+export_file(
+    name = "a.txt",
+    src = "a.txt",
+)
+
+export_file(
+    name = "b.txt",
+    src = "b.txt",
+)
+
+export_file(
+    name = "directory",
+    src = "directory",
+)
+
+# A target with no default outputs.
+out_library(
+    name = "none",
+    outs = [],
+)
+
+# A target with exactly one default output.
+out_library(
+    name = "a",
+    outs = [
+        ":a.txt",
+    ],
+)
+
+# A target with two default outputs.
+out_library(
+    name = "ab",
+    outs = [
+        ":a.txt",
+        ":b.txt",
+    ],
+)
+
+# A target whose output is a directory.
+out_library(
+    name = "dir",
+    outs = [
+        ":directory",
+    ],
+)

@@ -1,0 +1,23 @@
+native.java_library(
+    name = "utils",
+    srcs = ["Utils.java"],
+    source = "6",
+    target = "8",
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+native.java_library(
+    name = "lib",
+    srcs = ["Main.java"],
+    deps = [":utils"],
+    source = "8",
+    target = "11",
+    resources_root = ".",
+    resources = glob(["**/*.txt"]),
+    javac = "custom_javac.sh",
+    visibility = [
+        "PUBLIC",
+    ],
+)

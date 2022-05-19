@@ -1,0 +1,35 @@
+def _owner_impl(ctx):
+    owner = ctx.cquery().owner("bin/TARGETS.fixture")
+    print(owner)
+
+owner_test = bxl(
+    implementation = _owner_impl,
+    cli_args = {},
+)
+
+def _kind_impl(ctx):
+    kind = ctx.cquery().kind(".*1", "bin/kind/...")
+    print(kind)
+
+kind_test = bxl(
+    implementation = _kind_impl,
+    cli_args = {},
+)
+
+def _attrregexfilter_impl(ctx):
+    filtered = ctx.cquery().attrregexfilter("foo", "he.lo", "bin/kind/...")
+    print(filtered)
+
+attrregexfilter_test = bxl(
+    implementation = _attrregexfilter_impl,
+    cli_args = {},
+)
+
+def _rdeps_impl(ctx):
+    result = ctx.cquery().rdeps("root//bin:the_binary", "//lib:file1", 100)
+    print(result)
+
+rdeps_test = bxl(
+    implementation = _rdeps_impl,
+    cli_args = {},
+)

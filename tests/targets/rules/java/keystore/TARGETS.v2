@@ -1,0 +1,22 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+
+native.keystore(
+    name = "keystore",
+    store = "debug.keystore",
+    properties = "debug.keystore.properties",
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+buck_genrule(
+    name = "copy_keystore",
+    out = "copy.keystore",
+    cmd = "cp $(location :keystore[keystore]) $OUT",
+)
+
+buck_genrule(
+    name = "copy_keystore_properties",
+    out = "copy.properties",
+    cmd = "cp $(location :keystore[properties]) $OUT",
+)

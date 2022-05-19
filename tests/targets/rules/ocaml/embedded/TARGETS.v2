@@ -1,0 +1,24 @@
+load("@fbcode_macros//build_defs:ocaml_object.bzl", "ocaml_object")
+load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
+load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
+
+ocaml_object(
+    name = "fib-ml",
+    srcs = ["fib.ml",],
+)
+
+cpp_binary(
+    name = "fib-cpp",
+    srcs = ["fib.cpp"],
+    deps = [":fib-ml"],
+    external_deps = [("supercaml", None, "ocaml-dev")],
+)
+
+rust_binary(
+    name = "fib-rs",
+    srcs = ["fib.rs"],
+    deps = [":fib-ml"],
+    crate_root = "fib.rs",
+    # Mode 'opt-clang' doesn't need this but 'dev' does.
+    link_style = "static",
+)

@@ -1,0 +1,8 @@
+export_file(
+    name = "create_exclusion_list.py",
+)
+
+buck_command_alias(
+    name = "create_exclusion_list",
+    exe = ":create_exclusion_list.py",
+)

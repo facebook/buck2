@@ -1,0 +1,50 @@
+
+native.java_test(
+    name = "simple_java_test",
+    srcs = ["com/example/SimpleJavaTest.java"],
+    deps = [
+        "fbsource//third-party/junit:junit",
+    ],
+)
+
+native.java_test(
+    name = "java_test_with_cxx_library_allowlist",
+    srcs = ["com/example/JavaTestWithNativeLib.java"],
+    use_cxx_libraries = True,
+    cxx_library_whitelist = [":jlib-native"],
+    deps = [
+        "fbsource//third-party/junit:junit",
+        ":jlib",
+        ":lib-broken",
+    ],
+)
+
+native.java_test(
+    name = "java_test_with_no_cxx_library_allowlist",
+    srcs = ["com/example/JavaTestWithNativeLib.java"],
+    use_cxx_libraries = True,
+    deps = [
+        "fbsource//third-party/junit:junit",
+        ":jlib",
+        ":jlib-native",
+    ],
+)
+
+native.java_library(
+    name = "jlib",
+    srcs = ["com/example/JLib.java"],
+    deps = [
+        ":jlib-native",
+    ],
+)
+
+native.cxx_library(
+    name = "jlib-native",
+    srcs = ["jlib.c"],
+    soname = "libjtestlib.$(ext)",
+)
+
+native.cxx_library(
+    name = "lib-broken",
+    srcs = ["broken.c"],
+)

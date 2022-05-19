@@ -1,0 +1,37 @@
+# @noautodeps
+
+load("@fbcode_macros//build_defs:cpp_library.bzl", "cpp_library")
+load("@fbcode_macros//build_defs:custom_rule.bzl", "custom_rule")
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_sh_binary")
+
+buck_sh_binary(
+    name = "buck_data_protoc",
+    main = "buck_data_protoc.sh",
+)
+
+custom_rule(
+    name = "cpp_proto",
+    srcs = ["//buck2/buck2_data:data.proto"],
+    build_script_dep = ":buck_data_protoc",
+    env = {
+        "PROTOC": "$(exe fbsource//third-party/protobuf:protoc)",
+        "PROTOC_INCLUDE": "$(location fbsource//third-party/protobuf:google.protobuf)",
+    },
+    output_gen_files = [
+        "data.pb.cc",
+        "data.pb.h",
+    ],
+)
+
+cpp_library(
+    name = "proto-cpp",
+    srcs = [
+        ":cpp_proto[data.pb.cc]",
+    ],
+    headers = [
+        ":cpp_proto[data.pb.h]",
+    ],
+    exported_external_deps = [
+        "protobuf",
+    ],
+)

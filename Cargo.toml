@@ -1,0 +1,30 @@
+[workspace]
+resolver = "2"
+members = [
+    "buck2_core",
+    "buck2_data",
+    "buck2_query",
+    "buck2_query_parser",
+    "buck2_docs",
+    "buck2_build_api",
+    "buck2_build_api_derive",
+    "cli",
+    "cli_proto",
+    "buck2_common",
+    "dice/dice",
+    "dice/dice_examples",
+    "downward_api",
+    "downward_api_proto",
+    "events",
+    "buck2_interpreter",
+    "remote_execution/stub",
+    "shed/internment_tweaks",
+    "shed/more_futures",
+    "test_api",
+    "test_proto",
+    "install_proto",
+]
+
+[patch.crates-io]
+# Waiting for a release of 0.5.
+daemonize = { git = "https://github.com/krallin/daemonize", rev = "f7be28efa1b4a70e43bb37b5f4ff4d664992edca" }

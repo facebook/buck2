@@ -1,0 +1,7 @@
+load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
+
+rust_binary(
+    name = "welcome",
+    srcs = ["hello_world.rs"],
+    crate_root = "hello_world.rs",
+)

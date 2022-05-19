@@ -1,0 +1,6 @@
+load(":defs.bzl", "test_in_subtarget")
+
+test_in_subtarget(
+    name = "subtarget_test",
+    test = "true",
+)

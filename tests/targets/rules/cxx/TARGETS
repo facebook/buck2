@@ -1,0 +1,213 @@
+# @noautodeps
+
+load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
+load("@fbcode_macros//build_defs:cpp_library.bzl", "cpp_library")
+load("@fbcode_macros//build_defs:cpp_unittest.bzl", "cpp_unittest")
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+
+# Simplest we can do
+cpp_binary(
+    name = "my_cpp1",
+    srcs = ["cpp1.cpp"],
+)
+
+buck_genrule(
+    name = "my_cpp1_run",
+    out = "out.txt",
+    bash = "$(exe :my_cpp1) > $OUT",
+)
+
+# Depend on folly
+cpp_binary(
+    name = "my_cpp2",
+    srcs = ["cpp2.cpp"],
+    deps = ["fbcode//folly:constexpr_math"],
+)
+
+# Depend on folly which depends on folly
+cpp_binary(
+    name = "my_cpp3",
+    srcs = ["cpp3.cpp"],
+    deps = ["fbcode//folly/portability:config"],
+)
+
+# Depend on boost
+cpp_binary(
+    name = "my_cpp4",
+    srcs = ["cpp4.cpp"],
+    external_deps = [
+        ("boost", None, "boost_uuid"),
+    ],
+)
+
+# Requires libicudata.so at runtime
+buck_genrule(
+    name = "my_cpp4_run",
+    out = "out.txt",
+    bash = "$(exe :my_cpp4) > $OUT",
+)
+
+# Use srcs with flags
+cpp_binary(
+    name = "my_cpp5",
+    srcs = [(
+        "cpp5.cpp",
+        ["-DWORK"],
+    )],
+)
+
+# Check headers work
+cpp_binary(
+    name = "my_cpp6",
+    srcs = ["cpp6.cpp"],
+    headers = [
+        "cpp6_outer.h",
+        "inner/cpp6_inner.h",
+    ],
+)
+
+# Check duplicate files
+cpp_binary(
+    name = "my_cpp7",
+    srcs = [
+        "cpp7.cpp",
+        "inner/cpp7.cpp",
+    ],
+)
+
+# Check pure C works
+cpp_binary(
+    name = "my_c1",
+    srcs = ["c1.c"],
+)
+
+# Check assembly works
+cpp_binary(
+    name = "my_assembly1",
+    srcs = ["assembly1.S"],
+)
+
+buck_genrule(
+    name = "my_assembly1_run",
+    out = "out.txt",
+    cmd = "$(exe :my_assembly1) > $OUT",
+)
+
+# Check headers returned from genrules work
+cpp_binary(
+    name = "my_cpp8",
+    srcs = ["cpp8.cpp"],
+    headers = [":my_cpp8_header"],
+)
+
+buck_genrule(
+    name = "my_cpp8_header",
+    out = "cpp8.h",
+    bash = "touch $OUT",
+)
+
+cpp_binary(
+    name = "my_cpp9",
+    srcs = ["cpp9.cpp"],
+    overridden_link_style = "static",
+    external_deps = [
+        ("glog", None, "glog"),
+    ],
+)
+
+cpp_binary(
+    name = "my_cpp9_static_pic",
+    srcs = ["cpp9.cpp"],
+    overridden_link_style = "static_pic",
+    external_deps = [
+        ("glog", None, "glog"),
+    ],
+)
+
+buck_genrule(
+    name = "my_cpp9_run",
+    out = "out.txt",
+    # We use ./$(location) instead of $(exe) on purpose.
+    # We want to make sure this runs without glog on the library path
+    bash = "./$(location :my_cpp9) 2> $OUT",
+)
+
+buck_genrule(
+    name = "my_cpp9_static_pic_run",
+    out = "out.txt",
+    # Same as above
+    bash = "./$(location :my_cpp9_static_pic) 2> $OUT",
+)
+
+# A library made of two dependencies
+cpp_library(
+    name = "my_cpp10_lib",
+    srcs = [
+        "cpp10_a.cpp",
+        "cpp10_b.cpp",
+    ],
+)
+
+cpp_binary(
+    name = "my_cpp10",
+    srcs = ["cpp10.cpp"],
+    deps = [":my_cpp10_lib"],
+)
+
+# Check DATE/TIME macros work
+cpp_binary(
+    name = "my_cpp11",
+    srcs = ["cpp11.cpp"],
+)
+
+# Depend on Python
+cpp_binary(
+    name = "my_cpp12",
+    srcs = ["cpp12.cpp"],
+    external_deps = [
+        ("python", None, "python"),
+    ],
+)
+
+# Try using cache locality
+cpp_library(
+    name = "my_cpp13_lib",
+    srcs = ["cpp13_lib.cpp"],
+    preferred_linkage = "shared",
+    exported_deps = ["fbcode//folly/concurrency:cache_locality"],
+)
+
+cpp_binary(
+    name = "my_cpp13_bin",
+    srcs = ["cpp13.cpp"],
+    deps = [":my_cpp13_lib"],
+)
+
+buck_genrule(
+    name = "my_cpp13",
+    out = "out.txt",
+    bash = "$(exe :my_cpp13_bin) > $OUT",
+)
+
+cpp_unittest(
+    name = "cpp_test_pass",
+    srcs = ["cpp_test_pass.cpp"],
+)
+
+cpp_unittest(
+    name = "cpp_test_fail",
+    srcs = ["cpp_test_fail.cpp"],
+)
+
+cpp_library(
+    name = "cpp_generated_src",
+    srcs = [":generated_main"],
+    link_style = "static",
+    preferred_linkage = "static",
+)
+
+buck_genrule(
+    name = "generated_main",
+    out = "cpp.m",
+    bash = "echo 'int main() { return 0; }' > $OUT",
+)

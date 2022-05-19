@@ -1,0 +1,735 @@
+load("//buck2/tests/targets/rules/java:test.bzl", "assert_packaging_deps", "assert_compiling_deps")
+
+DEFAULT_SRCS = ["default/Empty.java"]
+
+####
+# Test case 1
+# java_library `a1` -> no deps
+# java_library `b1` -> depend on `a1`
+# java_library `c1` -> depend on `b1`
+####
+
+native.java_library(
+    name ="a1",
+    srcs = DEFAULT_SRCS,
+)
+
+native.java_library(
+    name ="b1",
+    srcs = DEFAULT_SRCS,
+    deps = [":a1"],
+)
+
+native.java_library(
+    name ="c1",
+    srcs = DEFAULT_SRCS,
+    deps = [":b1"],
+)
+
+assert_compiling_deps(
+    name = "assert_c1_compiling_deps",
+    actual_target = ":c1",
+    expected_deps = [":c1"]
+)
+
+assert_packaging_deps(
+    name = "assert_c1_packaging_deps",
+    actual_target = ":c1",
+    expected_deps = [":c1", ":b1", ":a1"]
+)
+
+####
+# Test case 2
+# java_library `a2` -> no deps
+# java_library `b2` -> depends/export `a2`
+# java_library `c2` -> depends/export `b2`
+####
+
+native.java_library(
+    name ="a2",
+    srcs = DEFAULT_SRCS,
+)
+
+native.java_library(
+    name ="b2",
+    srcs = DEFAULT_SRCS,
+    exported_deps = [":a2"],
+)
+
+native.java_library(
+    name ="c2",
+    srcs = DEFAULT_SRCS,
+    exported_deps = [":b2"],
+)
+
+assert_compiling_deps(
+    name = "assert_b2_compiling_deps",
+    actual_target = ":b2",
+    expected_deps = [":b2", ":a2"]
+)
+
+assert_compiling_deps(
+    name = "assert_c2_compiling_deps",
+    actual_target = ":c2",
+    expected_deps = [":c2", ":b2", ":a2"]
+)
+
+assert_packaging_deps(
+    name = "assert_c2_packaging_deps",
+    actual_target = ":c2",
+    expected_deps = [":c2", ":b2", ":a2"]
+)
+
+####
+# Test case 3
+# java_library `a3` -> no deps
+# java_library `b3` -> depends/export `a3`
+# java_library `c3` -> depends/export `b3`, but marks `a3` as provided
+####
+
+native.java_library(
+    name ="a3",
+    srcs = DEFAULT_SRCS,
+)
+
+native.java_library(
+    name ="b3",
+    srcs = DEFAULT_SRCS,
+    exported_deps = [":a3"],
+)
+
+native.java_library(
+    name ="c3",
+    srcs = DEFAULT_SRCS,
+    exported_deps = [":b3"],
+    provided_deps = [":a3"],
+)
+
+# ":a3" is used for compilation
+assert_compiling_deps(
+    name = "assert_c3_compiling_deps",
+    actual_target = ":c3",
+    expected_deps = [":c3", ":b3", ":a3"]
+)
+
+# ":a3" is used for packaging
+assert_packaging_deps(
+    name = "assert_c3_packaging_deps",
+    actual_target = ":c3",
+    expected_deps = [":c3", ":b3", ":a3"]
+)
+
+####
+# Test case 4
+# java_library `a4` -> no deps
+# java_library `b4` -> exported_provided_deps `a4`
+# java_library `c4` -> depends `b4`
+####
+
+native.java_library(
+    name ="a4",
+    srcs = DEFAULT_SRCS,
+)
+
+native.java_library(
+    name ="b4",
+    srcs = DEFAULT_SRCS,
+    exported_provided_deps = [":a4"],
+)
+
+native.java_library(
+    name ="c4",
+    srcs = DEFAULT_SRCS,
+    deps = [":b4"],
+)
+
+# ":a4" is used for compiling as it come from :b4 as exported
+assert_compiling_deps(
+    name = "assert_b4_compiling_deps",
+    actual_target = ":b4",
+    expected_deps = [":b4", ":a4"]
+)
+
+assert_compiling_deps(
+    name = "assert_c4_compiling_deps",
+    actual_target = ":c4",
+    expected_deps = [":c4"]
+)
+
+# ":a4" is not used for packaging as it is provided
+assert_packaging_deps(
+    name = "assert_c4_packaging_deps",
+    actual_target = ":c4",
+    expected_deps = [":c4", ":b4"]
+)
+
+####
+# Test case 5
+# java_library `a5` -> no deps
+# java_library `b5` -> depends `a5`
+# java_library `c5` -> provides `b5`, deps `a5`
+####
+
+native.java_library(
+    name ="a5",
+    srcs = DEFAULT_SRCS,
+)
+
+native.java_library(
+    name ="b5",
+    srcs = DEFAULT_SRCS,
+    deps = [":a5"],
+)
+
+native.java_library(
+    name = "c5",
+    srcs = DEFAULT_SRCS,
+    deps = [":a5"],
+    provided_deps = [":b5"],
+)
+
+# ":a5" is used for packaging as direct dep of ":c5"
+assert_packaging_deps(
+    name = "assert_c5_packaging_deps",
+    actual_target = ":c5",
+    expected_deps = [":c5", ":a5"]
+)
+
+####
+# Test case 6
+#
+# java_library `a6` -> no deps, empty srcs
+# java_library `b6` -> depends `a6`, present srcs
+# java_library `c6` -> depends `b6`, present srcs
+# java_library `d6` -> depends `c6`, empty srcs
+####
+
+native.java_library(
+    name = "a6",
+    srcs = [],
+)
+
+assert_compiling_deps(
+    name = "assert_a6_compiling_deps",
+    actual_target = ":a6",
+    expected_deps = []
+)
+
+assert_packaging_deps(
+    name = "assert_a6_packaging_deps",
+    actual_target = ":a6",
+    expected_deps = []
+)
+
+native.java_library(
+    name ="b6",
+    srcs = DEFAULT_SRCS,
+    deps = [":a6"],
+)
+
+assert_compiling_deps(
+    name = "assert_b6_compiling_deps",
+    actual_target = ":b6",
+    expected_deps = [":b6"]
+)
+
+assert_packaging_deps(
+    name = "assert_b6_packaging_deps",
+    actual_target = ":b6",
+    expected_deps = [":b6"]
+)
+
+native.java_library(
+    name = "c6",
+    srcs = DEFAULT_SRCS,
+    deps = [":b6"],
+)
+
+assert_compiling_deps(
+    name = "assert_c6_compiling_deps",
+    actual_target = ":c6",
+    expected_deps = [":c6"]
+)
+
+assert_packaging_deps(
+    name = "assert_c6_packaging_deps",
+    actual_target = ":c6",
+    expected_deps = [":c6", ":b6"]
+)
+
+native.java_library(
+    name = "d6",
+    srcs = [],
+    deps = [":c6"],
+)
+
+# empty srcs, empty exported deps -> nothing in compiling_deps field
+assert_compiling_deps(
+    name = "assert_d6_compiling_deps",
+    actual_target = ":d6",
+    expected_deps = []
+)
+
+# empty srcs, but depend on c6 -> c6 and b6 in packaging_deps
+assert_packaging_deps(
+    name = "assert_d6_packaging_deps",
+    actual_target = ":d6",
+    expected_deps = [":c6", ":b6"]
+)
+
+####
+# Test case 7
+# java_library `a7` -> no deps
+# java_library `b7` -> runtime dep on `a7`
+####
+
+native.java_library(
+    name ="a7",
+    srcs = DEFAULT_SRCS,
+)
+
+native.java_library(
+    name ="b7",
+    srcs = DEFAULT_SRCS,
+    runtime_deps = [":a7"],
+)
+
+assert_compiling_deps(
+    name = "assert_b7_compiling_deps",
+    actual_target = ":b7",
+    expected_deps = [":b7"]
+)
+
+assert_packaging_deps(
+    name = "assert_b7_packaging_deps",
+    actual_target = ":b7",
+    expected_deps = [":b7", ":a7"],
+)
+
+####
+# Test case 8
+# java_library `a8` -> no deps
+# cxx_library `b8` -> depend on `a8`
+# cxx_library `c8` -> depend on `b8`
+# java_library `d8` -> depend on `c8`
+####
+
+native.java_library(
+    name ="a8",
+    srcs = DEFAULT_SRCS,
+)
+
+native.cxx_library(
+    name ="b8",
+    deps = [":a8"],
+)
+
+native.cxx_library(
+    name ="c8",
+    deps = [":b8"],
+)
+
+native.java_library(
+    name ="d8",
+    srcs = DEFAULT_SRCS,
+    deps = [":c8"],
+)
+
+assert_packaging_deps(
+    name = "assert_d8_packaging_deps",
+    actual_target = ":d8",
+    expected_deps = [":d8", ":a8"],
+)
+
+######################################
+# java_library utils
+######################################
+
+native.python_binary(
+    name = "check_jar",
+    base_module = "",
+    main_module = "check_jar",
+    deps = [
+        ":check_jar_lib",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+native.python_library(
+    name = "check_jar_lib",
+    base_module = "",
+    srcs = [
+        "check_jar.py",
+    ],
+)
+
+native.python_binary(
+    name = "check_jar_resource",
+    base_module = "",
+    main_module = "check_jar_resource",
+    deps = [
+        ":check_jar_resource_lib",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+native.python_library(
+    name = "check_jar_resource_lib",
+    base_module = "",
+    srcs = [
+        "check_jar_resource.py",
+    ],
+)
+
+native.python_binary(
+    name = "check_jar_manifest",
+    base_module = "",
+    main_module = "check_jar_manifest",
+    deps = [
+        ":check_jar_manifest_lib",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+native.python_library(
+    name = "check_jar_manifest_lib",
+    base_module = "",
+    srcs = [
+        "check_jar_manifest.py",
+    ],
+)
+
+native.python_binary(
+    name = "check_java_binary_output",
+    base_module = "",
+    main_module = "check_java_binary_output",
+    deps = [
+        ":check_java_binary_output_lib",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+native.python_library(
+    name = "check_java_binary_output_lib",
+    base_module = "",
+    srcs = [
+        "check_java_binary_output.py",
+    ],
+)
+
+native.python_binary(
+    name = "check_classpath_file_content",
+    base_module = "",
+    main_module = "check_classpath_file_content",
+    deps = [
+        ":check_classpath_file_content_lib",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+native.python_library(
+    name = "check_classpath_file_content_lib",
+    base_module = "",
+    srcs = [
+        "check_classpath_file_content.py",
+    ],
+)
+
+######################################
+
+
+####
+# Compile a simple java library with one source file
+####
+
+native.genrule(
+    name = "check_simple_library",
+    cmd = "$(exe :check_jar) $(location //buck2/tests/targets/rules/java/library/simple_library:lib) > $OUT",
+    out = "out.txt",
+)
+
+native.genrule(
+    name = "check_simple_library_resources",
+    cmd = "$(exe :check_jar_resource) $(location //buck2/tests/targets/rules/java/library/simple_library:lib) \"test_resource.txt\" \"dir1/dir2/dir3/r.txt\" > $OUT",
+    out = "out.txt",
+)
+
+native.genrule(
+    name = "check_simple_library_manifest",
+    cmd = "$(exe :check_jar_manifest) $(location //buck2/tests/targets/rules/java/library/simple_library:lib) \"Data: cheese\" > $OUT",
+    out = "out.txt",
+)
+
+####
+# Compile a java library that depends on another java_library
+####
+
+native.genrule(
+    name = "check_simple_library_with_one_dep",
+    cmd = "$(exe :check_jar) $(location //buck2/tests/targets/rules/java/library/simple_library_with_one_dep:lib) > $OUT",
+    out = "out.txt",
+)
+
+native.genrule(
+    name = "check_simple_library_with_one_dep_resources",
+    cmd = "$(exe :check_jar_resource) $(location //buck2/tests/targets/rules/java/library/simple_library_with_one_dep:lib) \"res/res.txt\" \"res/nested_res_dir/nested_res.txt\" > $OUT",
+    out = "out.txt",
+)
+
+####
+# Compile a java library that depends on 5 another java_libraries
+####
+
+native.genrule(
+    name = "check_simple_library_with_multiple_deps",
+    cmd = "$(exe :check_jar) $(location //buck2/tests/targets/rules/java/library/simple_library_with_multiple_deps:lib) > $OUT",
+    out = "out.txt",
+)
+
+####
+# Library with just resources and resource_root
+####
+
+native.genrule(
+    name = "check_resources_for_library_with_resources",
+    cmd = "$(exe :check_jar_resource) $(location //buck2/tests/targets/rules/java/library/resources:lib) \"dir3/r1.txt\" \"dir3/r2.txt\" > $OUT",
+    out = "out.txt",
+)
+
+native.genrule(
+    name = "check_resources_for_lib_with_empty_resources_root",
+    cmd = "$(exe :check_jar_resource) $(location //buck2/tests/targets/rules/java/library/resources:lib_with_empty_resources_root) \"dir1/dir2/dir3/r1.txt\" \"dir1/dir2/dir3/r2.txt\" > $OUT",
+    out = "out.txt",
+)
+
+
+####
+# Simple java_binary()
+####
+
+native.genrule(
+    name = "run_simple_java_binary_with_output",
+    cmd = "$(exe //buck2/tests/targets/rules/java/library/java_binary:bin-output) > $OUT 2>&1",
+    out = "out.txt",
+)
+
+native.genrule(
+    name = "check_simple_java_binary_with_output",
+    cmd = "$(exe :check_java_binary_output) $(location :run_simple_java_binary_with_output) \"output\" \"error\" \"Hello from Util\" > $OUT",
+    out = "out.txt",
+)
+
+
+####
+# java_binary() with main class in the manifest file
+####
+
+native.genrule(
+    name = "run_java_binary_with_main_class_in_manifest",
+    cmd = "$(exe //buck2/tests/targets/rules/java/library/java_binary:bin-output-with-main-class-in-manifest) > $OUT 2>&1",
+    out = "out.txt",
+)
+
+native.genrule(
+    name = "check_java_binary_with_manifest_output",
+    cmd = "$(exe :check_java_binary_output) $(location :run_java_binary_with_main_class_in_manifest) \"output\" \"error\" \"Hello from Util\" > $OUT",
+    out = "out.txt",
+)
+
+native.genrule(
+    name = "check_manifest_file_for_java_binary_with_manifest",
+    cmd = "$(exe :check_jar_manifest) $(location //buck2/tests/targets/rules/java/library/java_binary:bin-output-with-main-class-in-manifest) \"foo1: bar1\" \"Main-Class: LibOutput\" \"foo2: bar2\" > $OUT",
+    out = "out.txt",
+)
+
+####
+# java_binary() with main class and manifest file
+####
+
+native.genrule(
+    name = "run_java_binary_with_main_class_and_manifest",
+    cmd = "$(exe //buck2/tests/targets/rules/java/library/java_binary:bin-output-without-main-class-in-manifest) > $OUT 2>&1",
+    out = "out.txt",
+)
+
+native.genrule(
+    name = "check_java_binary_with_main_class_and_manifest",
+    cmd = "$(exe :check_java_binary_output) $(location :run_java_binary_with_main_class_and_manifest) \"output\" \"error\" \"Hello from Util\" > $OUT",
+    out = "out.txt",
+)
+
+native.genrule(
+    name = "check_manifest_file_for_java_binary_with_main_class_and_manifest",
+    cmd = "$(exe :check_jar_manifest) $(location //buck2/tests/targets/rules/java/library/java_binary:bin-output-without-main-class-in-manifest) \"foo1: bar1\" \"Main-Class: LibOutput\" \"foo2: bar2\" > $OUT",
+    out = "out.txt",
+)
+
+
+####
+# java_library() with `remove_classes`
+####
+
+native.genrule(
+    name = "check_java_library_with_remove_classes",
+    cmd = "$(exe :check_jar) $(location //buck2/tests/targets/rules/java/library/java_library_with_remove_classes:lib) \"com.example.Bar\" > $OUT",
+    out = "out.txt",
+)
+
+
+####
+# classpath template
+####
+
+native.genrule(
+    name = "classpath_template",
+    cmd = "echo $(classpath //buck2/tests/targets/rules/java/library/simple_library_with_multiple_deps:lib_2) > $OUT",
+    out = "out.txt",
+)
+
+native.genrule(
+    name = "check_classpath_template",
+    cmd = "$(exe :check_classpath_file_content) $(location :classpath_template) 'simple_library_with_multiple_deps/__lib__/' '__util_1__/' '__util_2__/' '__util_3__/' '__util_4__/' '__util_5__/'> $OUT",
+    out = "out.txt",
+)
+
+
+####
+# java_library() with empty sources
+####
+
+native.genrule(
+    name = "check_java_library_with_empty_sources",
+    cmd = "$(exe :check_jar_resource) $(location //buck2/tests/targets/rules/java/library/java_library_with_empty_sources:lib) 'META-INF/' 'META-INF/MANIFEST.MF' > $OUT",
+    out = "out.txt",
+)
+
+####
+# java_binary() with annotation processors
+####
+
+native.genrule(
+    name = "run_java_binary_with_annotation_processors",
+    cmd = "$(exe //buck2/tests/targets/rules/java/library/annotation_processors:main) > $OUT 2>&1",
+    out = "out.txt",
+)
+
+native.genrule(
+    name = "check_java_binary_with_annotation_processors",
+    cmd = "$(exe :check_java_binary_output) $(location :run_java_binary_with_annotation_processors) \"Hello from Util\" \"Hello from annotation processor.\" \"Hello from Main\" > $OUT",
+    out = "out.txt",
+)
+
+
+####
+# java_binary() with annotation processors defined with params
+####
+
+native.genrule(
+    name = "run_java_binary_with_annotation_processors_and_params",
+    cmd = "$(exe //buck2/tests/targets/rules/java/library/annotation_processors:main_2) > $OUT 2>&1",
+    out = "out.txt",
+)
+
+native.genrule(
+    name = "check_java_binary_with_annotation_processors_and_params",
+    cmd = "$(exe :check_java_binary_output) $(location :run_java_binary_with_annotation_processors_and_params) \"Hello from Util\" \"Hello from annotation processor. custom_value_from_configuration\" \"Hello from Main\" > $OUT",
+    out = "out.txt",
+)
+
+
+
+####
+# java_binary() with javac plugin
+####
+
+native.genrule(
+    name = "run_java_binary_with_javac_plugin",
+    cmd = "$(exe //buck2/tests/targets/rules/java/library/javac_plugin:main) > $OUT 2>&1",
+    out = "out.txt",
+)
+
+native.genrule(
+    name = "check_java_binary_with_javac_plugin",
+    cmd = "$(exe :check_java_binary_output) $(location :run_java_binary_with_javac_plugin) \"Hello from Main\" > $OUT",
+    out = "out.txt",
+)
+
+####
+# java_binary() with blocklist
+####
+
+native.genrule(
+    name = "check_binary_with_blocklist",
+    cmd = "$(exe :check_jar_resource) $(location //buck2/tests/targets/rules/java/library/java_binary:binary-with-blocklist) \"META-INF/\" \"META-INF/MANIFEST.MF\" \"valid_file.txt\" \"META-INF/valid_resource.xml\"> $OUT",
+    out = "out.txt",
+)
+
+####
+# java_binary() with meta_inf_directory attribute
+####
+
+native.genrule(
+    name = "check_binary_with_metainf_dir",
+    cmd = "$(exe :check_jar_resource) $(location //buck2/tests/targets/rules/java/library/java_binary_with_metainf:binary) \"META-INF/\" \"META-INF/MANIFEST.MF\" \"META-INF/test.txt\" \"META-INF/foo.txt\" \"META-INF/bar/\" \"META-INF/bar/baz.txt\"> $OUT",
+    out = "out.txt",
+)
+
+native.genrule(
+    name = "run_binary_with_metainf_dir",
+    cmd = "$(exe //buck2/tests/targets/rules/java/library/java_binary_with_metainf:binary) > $OUT 2>&1",
+    out = "out.txt",
+)
+
+native.genrule(
+    name = "check_binary_with_metainf_dir_output",
+    cmd = "$(exe :check_java_binary_output) $(location :run_binary_with_metainf_dir) \"Hello from meta_inf_directory resource!\" > $OUT",
+    out = "out.txt",
+)
+
+####
+# java_binary() with multiple manifest files
+####
+
+native.genrule(
+    name = "check_binary_with_multiple_manifests",
+    cmd = "$(exe :check_jar_manifest) $(location //buck2/tests/targets/rules/java/library/java_binary_with_multiple_manifests:bin)  \"Main-Class: com.example.main.app.Main\" \"key1: m3_value1\" \"key2: m3_value2\" \"key3: m3_value3\" \"key4: overridden value\" \"key5: m3_value5\" \"key6: m3_value6\" \"uniq_m1_key: some value m1\" \"uniq_m2_key_1: some value m2_1\" \"uniq_m2_key_2: some value m2_2\" \"uniq_m3_key_1: some value m3_1\" \"uniq_m3_key_2: some value m3_2\" \"uniq_m3_key_3: some value m3_3\" \"uniq_manifest_key_1: 123\" \"uniq_manifest_key_2: 789\" > $OUT",
+    out = "out.txt",
+)
+
+####
+# java_binary() with native libraries
+####
+
+native.genrule(
+    name = "check_java_binary_with_native_libraries",
+    cmd = "$(exe :check_jar_resource) \
+    $(location //buck2/tests/targets/rules/java/library/java_binary_with_native_libs:binary_with_native_lib) \
+    'nativelibs/' \
+    'nativelibs/libbuck2_tests_targets_rules_java_library_java_binary_with_native_libs_dep.so' \
+    'nativelibs/libbuck2_tests_targets_rules_java_library_java_binary_with_native_libs_native.so' \
+    > $OUT",
+    out = "out.txt",
+)
+
+native.genrule(
+    name = "run_java_binary_with_native_libraries",
+    cmd = "$(exe //buck2/tests/targets/rules/java/library/java_binary_with_native_libs:binary_with_native_lib) > $OUT 2>&1",
+    out = "out.txt",
+)
+
+native.genrule(
+    name = "check_java_binary_with_native_libraries_output",
+    cmd = "$(exe :check_java_binary_output) $(location :run_java_binary_with_native_libraries) \
+    \"Hello from java_binary() with native_libs\" > $OUT",
+    out = "out.txt",
+)

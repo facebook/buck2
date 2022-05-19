@@ -1,0 +1,40 @@
+load("@fbcode//buck2/prelude/js:js_utils.bzl", "TRANSFORM_PROFILES")
+load("@fbcode//buck2/tests/targets/rules/js:snapshot_tests.bzl", "js_snapshot_test")
+
+native.js_library(
+    name = "fruit",
+    srcs = [
+        "apple.js",
+        "banana.js",
+    ],
+    extra_json = struct(
+        key = "value",
+        exported_filepath = "$(location :exported_file)",
+    ).to_json(),
+    worker = "fbcode//buck2/tests/targets/rules/js:js_worker_tool",
+    visibility = ["PUBLIC"],
+)
+
+[
+    js_snapshot_test(
+        target = ":fruit",
+        subtarget = transform_profile,
+        fixture = "fixtures/fruit-{}.json".format(transform_profile)
+    ) for transform_profile in TRANSFORM_PROFILES
+]
+
+native.js_bundle(
+    name = "fruit_salad",
+    android_package = "com.sample",
+    deps = [
+        ":fruit",
+    ],
+    entry = "apple",
+    worker = "fbcode//buck2/tests/targets/rules/js:js_worker_tool",
+)
+
+native.export_file(
+   name = "exported_file",
+   src = "exported_file.txt",
+   visibility = ["PUBLIC"],
+)

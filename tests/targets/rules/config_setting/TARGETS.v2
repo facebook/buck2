@@ -1,0 +1,17 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
+
+# Using fb_native here because that's what people used in fbsource.
+fb_native.config_setting(
+    name = "test_config",
+    values = {"test.config_setting": "true"},
+)
+
+buck_genrule(
+    name = "genrule",
+    out = select({
+        ":test_config": "true.txt",
+        "DEFAULT": "false.txt",
+    }),
+    bash = "touch $OUT",
+)

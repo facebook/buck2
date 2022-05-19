@@ -1,0 +1,79 @@
+# Test that C++ resources from transitively depended on C++ libraries are pulled
+# into Python binaries:
+#
+#               bin (pyton_binary)
+#                        |
+#                        |
+#               lib (pyton_library)
+#                      /   \
+#                     /     \
+#    res1 (cxx_library)     ext (cxx_python_extension)
+#           |                           |
+#           |                           |
+#    res2 (cxx_library)        res3 (cxx_library)
+#
+
+prelude = native
+
+prelude.genrule(
+    name = "check",
+    cmd = "$(exe :bin) > $OUT",
+    out = "out.txt",
+)
+
+prelude.python_binary(
+    name = "bin",
+    main_module = "res",
+    deps = [":lib"],
+)
+
+prelude.python_library(
+    name = "lib",
+    base_module = "",
+    srcs = [
+        "res.py",
+    ],
+    deps = [
+        ":res1",
+        "fbsource//third-party/pypi/setuptools:setuptools",
+        ":ext",
+    ],
+)
+
+prelude.cxx_library(
+    name = "res1",
+    header_namespace = "blah",
+    resources = [
+        "res1.txt",
+    ],
+    deps = [
+        ":res2",
+    ],
+)
+
+prelude.cxx_library(
+    name = "res2",
+    header_namespace = "blah",
+    resources = [
+        "res2.txt",
+    ],
+)
+
+prelude.cxx_python_extension(
+    name = "ext",
+    srcs = [
+        "ext.c",
+    ],
+    deps = [
+        ":res3",
+    ],
+)
+
+prelude.cxx_library(
+    name = "res3",
+    header_namespace = "blah",
+    resources = [
+        "res3.txt",
+    ],
+)
+

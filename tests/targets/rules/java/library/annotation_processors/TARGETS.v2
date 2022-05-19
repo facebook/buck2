@@ -1,0 +1,97 @@
+
+native.java_binary(
+    name = "main",
+    main_class = "com.example.Main",
+    deps = [
+        ":main_lib",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+native.java_binary(
+    name = "main_2",
+    main_class = "com.example.Main",
+    deps = [
+        ":main_lib_2",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+native.java_library(
+    name = "main_lib",
+    srcs = [
+        "com/example/Main.java",
+        "com/example/TestAnnotation.java",
+    ],
+    deps = [":util",],
+    plugins = [
+        ":annotation_processor",
+    ],
+)
+
+native.genrule(
+    name = "check_main_lib",
+    cmd = "$(exe fbcode//buck2/tests/targets/rules/java/library:check_jar) $(location :main_lib) \"com.example.GeneratedMain\" \"com.example.Main\" \"com.example.TestAnnotation\" > $OUT",
+    out = "out.txt",
+)
+
+native.java_library(
+    name = "main_lib_2",
+    srcs = [
+        "com/example/Main.java",
+        "com/example/TestAnnotation.java",
+    ],
+    deps = [":util",],
+    annotation_processor_deps = [":annotation_processor_lib"],
+    annotation_processors = ["com.example.AnnotationProcessor"],
+    annotation_processor_params = ["propKey=custom_value_from_configuration"],
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+
+native.java_annotation_processor(
+    name = "annotation_processor",
+    processor_class = "com.example.AnnotationProcessor",
+    deps = [
+        ":annotation_processor_lib",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+native.java_library(
+    name = "annotation_processor_lib",
+    srcs = [
+        "com/example/AnnotationProcessor.java",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+native.java_library(
+    name = "annotation_lib",
+    srcs = [
+        "com/example/TestAnnotation.java",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+native.java_library(
+    name = "util",
+    srcs = [
+        "com/example/Util.java",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)

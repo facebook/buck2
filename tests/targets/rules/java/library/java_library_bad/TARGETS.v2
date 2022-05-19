@@ -1,0 +1,5 @@
+
+native.java_library(
+    name = "broken_target_fails_to_compile",
+    srcs = ["BrokenClass.java"],
+)

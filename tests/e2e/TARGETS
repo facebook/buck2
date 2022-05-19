@@ -1,0 +1,131 @@
+load("//build_infra:buck_e2e.bzl", "buck2_e2e_test", "buck_e2e_test")
+
+buck2_e2e_test(
+    name = "test_build_isolated",
+    srcs = ["test_build_isolated.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location //buck2:prelude)",
+    },
+)
+
+buck2_e2e_test(
+    name = "test_cquery",
+    srcs = ["test_cquery.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location //buck2:prelude)",
+    },
+)
+
+buck2_e2e_test(
+    name = "test_uquery",
+    srcs = ["test_uquery.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location //buck2:prelude)",
+    },
+)
+
+buck2_e2e_test(
+    name = "test_build_inplace",
+    srcs = ["test_build_inplace.py"],
+)
+
+buck2_e2e_test(
+    name = "test_build_serial",
+    srcs = ["test_build_serial.py"],
+    tags = ["serialize_test_cases"],
+)
+
+buck2_e2e_test(
+    name = "test_run_inplace",
+    srcs = ["test_run_inplace.py"],
+)
+
+buck_e2e_test(
+    name = "test_bql",
+    srcs = ["test_bql.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location //buck2:prelude)",
+    },
+    executable = "$(location //buck2/buck2_build_api:bql)",
+    executable_type = "buck2_build_api_binary",
+)
+
+buck_e2e_test(
+    name = "test_bxl",
+    srcs = ["test_bxl.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location //buck2:prelude)",
+    },
+    executable = "$(location //buck2/cli:bxl)",
+    executable_type = "buck2_build_api_binary",
+)
+
+buck2_e2e_test(
+    name = "test_buck_test",
+    srcs = ["test_buck_test.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    test_with_compiled_buck2_and_deployed_buck2 = True,
+    test_with_compiled_buck2_tpx = True,
+)
+
+buck2_e2e_test(
+    name = "test_rules",
+    srcs = ["test_rules.py"],
+    test_with_compiled_buck2_and_deployed_buck2 = True,
+)
+
+buck2_e2e_test(
+    name = "test_docs",
+    srcs = ["test_docs.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location //buck2:prelude)",
+    },
+)
+
+buck2_e2e_test(
+    name = "test_profile_with_in_repo_buck2",
+    srcs = ["test_profile.py"],
+)
+
+buck2_e2e_test(
+    name = "test_clean",
+    srcs = ["test_clean.py"],
+)
+
+buck2_e2e_test(
+    name = "test_debug",
+    srcs = ["test_debug.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location //buck2:prelude)",
+    },
+    test_with_compiled_buck2_tpx = True,
+)
+
+buck2_e2e_test(
+    name = "test_install",
+    srcs = ["test_install.py"],
+)
+
+buck2_e2e_test(
+    name = "test_scrub_archive",
+    srcs = ["test_scrub_archive.py"],
+)
+
+buck2_e2e_test(
+    name = "test_python_runtime",
+    srcs = ["test_python_runtime.py"],
+)

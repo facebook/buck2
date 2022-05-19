@@ -1,0 +1,12 @@
+[buildfile]
+name=TARGETS.fixture
+
+[project]
+ignore=ignored
+
+[repositories]
+root = .
+fbcode = fbcode
+
+[buck2]
+  materializations = deferred

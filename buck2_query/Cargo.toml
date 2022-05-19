@@ -1,0 +1,37 @@
+[package]
+name = "buck2_query"
+version = "0.1.0"
+edition = "2021"
+description = "Buck query generic implementation"
+
+[dependencies]
+anyhow = "1.0.51"
+async-trait = "0.1.24"
+buck2_core = { path = "../buck2_core" }
+buck2_interpreter = { path = "../buck2_interpreter" }
+buck2_query_parser = { path = "../buck2_query_parser" }
+buck2_query_proc_macro = { path = "../buck2_query_proc_macro" }
+derive_more = "0.99.3"
+enum-iterator = "0.5.0"
+fancy-regex = "0.5.0"
+futures = "0.3"
+gazebo.version = "0.7.0"
+gazebo.features = ["str_pattern_extensions"]
+# @oss-disable: gazebo.path = "../gazebo/gazebo"
+gazebo_lint.version = "0.1"
+gazebo_lint.optional = true
+# @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
+indexmap = { version = "1.6", features = ["serde-1"] }
+indoc = "1.0.3"
+itertools = "0.10.0"
+serde = "1.0"
+starlark = { version = "0.8", path = "../starlark-rust/starlark" }
+thiserror = "1.0.9"
+tokio = { version = "1.5", features = ["full"]}
+ref-cast = "1.0.0"
+
+
+[lib]
+
+[features]
+# @oss-disable: default = ["gazebo_lint"]

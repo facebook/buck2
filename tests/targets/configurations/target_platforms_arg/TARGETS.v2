@@ -1,0 +1,55 @@
+prelude = native
+
+prelude.constraint_setting(
+    name = "weather",
+)
+
+prelude.constraint_value(
+    name = "rain",
+    constraint_setting = ":weather",
+)
+
+prelude.constraint_value(
+    name = "clouds",
+    constraint_setting = ":weather",
+)
+
+prelude.config_setting(
+    name = "c-clouds",
+    constraint_values = [
+        ":clouds",
+    ],
+)
+
+prelude.platform(
+    name = "p-rain",
+    constraint_values = [
+        ":rain",
+    ],
+)
+
+prelude.platform(
+    name = "p-clouds",
+    constraint_values = [
+        ":clouds",
+    ],
+)
+
+prelude.export_file(
+    name = "t-clouds",
+    src = "TARGETS.v2",
+)
+
+prelude.export_file(
+    name = "t-rain",
+    src = "TARGETS.v2",
+)
+
+prelude.alias(
+    name = "the-test",
+    default_target_platform = ":p-rain",
+    actual = select({
+        "DEFAULT": ":t-rain",
+        ":c-clouds": ":t-clouds",
+    }),
+)

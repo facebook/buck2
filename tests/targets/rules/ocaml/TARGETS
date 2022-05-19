@@ -1,0 +1,205 @@
+# @noautodeps
+
+load("@fbcode_macros//build_defs:ocaml_binary.bzl", "ocaml_binary")
+load("@fbcode_macros//build_defs:ocaml_library.bzl", "ocaml_library")
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("//flow/facebook:ppx.bzl", "get_lwt_ppx", "get_ppx_deriving")
+
+ocaml_binary(
+    name = "ppx_deriving_test",
+    srcs = [
+        "ppx_deriving_test.ml",
+    ],
+    pps = [get_ppx_deriving([
+        "ppx_deriving.eq-plugin",
+        "ppx_deriving.ord-plugin",
+        "ppx_deriving.show-plugin",
+    ])],
+)
+
+ocaml_binary(
+    name = "lwt",
+    srcs = [
+        "lwt_test.ml",
+    ],
+    pps = [get_lwt_ppx()],
+    external_deps = [
+        ("supercaml", None, "lwt.unix"),
+    ],
+)
+
+# Nested source structures and directory/target name overlap
+ocaml_binary(
+    name = "quux",
+    srcs = [
+        "quux/corge/corge.ml",
+        "quux/quux.ml",
+    ],
+)
+
+# Binary with a generated lexer and parser (also exhibits nested
+# source structure and directory/target overlap)
+ocaml_binary(
+    name = "calc",
+    srcs = [
+        "calc/calc.ml",
+        "calc/lexer.mll",
+        "calc/parser.mly",
+    ],
+)
+
+rust_library(
+    name = "rust_ffi_dep",
+    srcs = ["rust_ffi_dep.rs"],
+)
+
+# A rust library with an OCaml ffi
+rust_library(
+    name = "rust_ffi",
+    srcs = ["rust_ffi.rs"],
+    deps = [":rust_ffi_dep"],
+)
+
+# Binary with dependency on a rust library
+ocaml_binary(
+    name = "call_rust",
+    srcs = ["call_rust.ml"],
+    deps = [":rust_ffi"],
+)
+
+# Binary with an explicit .mli
+ocaml_binary(
+    name = "foo",
+    srcs = [
+        "s.ml",
+        "s.mli",
+        "test_sig.ml",
+    ],
+)
+
+# Binary with a C stub
+ocaml_binary(
+    name = "hello_c",
+    srcs = [
+        "hello.ml",
+        "hello_stubs.c",
+    ],
+)
+
+# A library with a C stub
+ocaml_library(
+    name = "goodbye",
+    srcs = [
+        "goodbye_stubs.c",
+    ],
+)
+
+# A binary that depends on a library with a C stub
+ocaml_binary(
+    name = "goodbye_c",
+    srcs = [
+        "goodbye.ml",
+    ],
+    deps = [
+        ":goodbye",
+    ],
+)
+
+# Library that depends on an external library
+ocaml_library(
+    name = "count_impl",
+    srcs = [
+        "w.ml",
+    ],
+    external_deps = (
+        ("supercaml", None, "core_kernel"),
+    ),
+)
+
+# Library that depends on a library (that depends on an external library)
+ocaml_library(
+    name = "count",
+    srcs = [
+        "x.ml",
+    ],
+    deps = [
+        ":count_impl",
+    ],
+)
+
+# Binary that depends on a library (that depends on a library that
+# depends on an external library )
+ocaml_binary(
+    name = "ship_it",
+    srcs = [
+        "y.ml",
+        "z.ml",
+    ],
+    deps = [
+        ":count",
+    ],
+)
+
+# A library which requires C headers from dependencies
+ocaml_library(
+    name = "lz4",
+    srcs = [
+        "lz4.c",
+    ],
+    external_deps = [
+        ("lz4", None, "lz4"),
+    ],
+)
+
+# The .mli is in this target is not regarded as the explicit .mli for
+# the given module (they are not in the same directory).
+ocaml_library(
+    name = "opaque_bind",
+    srcs = [
+        "opaque.mli",
+        "opaque/opaque.ml",  # Not checked compatible with opaque.mli!
+    ],
+    compiler_flags = ["-no-keep-locs"],
+)
+
+# A binary which links `opaque_bind` directly.
+ocaml_binary(
+    name = "opaque_direct",
+    srcs = [
+        "opaque_direct.ml",  # Is checked compatible with `opaque.mli` above.
+        # You can verify this by changing types in opaque.mli and
+        # observing that opaque_direct.ml exhibits a compile error.
+    ],
+    compiler_flags = ["-no-keep-locs"],
+    deps = [":opaque_bind"],
+
+    # If `opaque_direct.ml` and `opaque.mli` are compatible with each
+    # other but incompatible with `opaque/opaque.ml` it will manifest
+    # here as a link error (inconsistent assumptions over interface
+    # `Opaque`).
+)
+
+# A library whose modules are verified to be compatible with
+# `opaque.mli` but not providing an implementation for it.
+ocaml_library(
+    name = "opaque_use",
+    srcs = [
+        "concrete.ml",
+        "opaque.mli",
+    ],
+    compiler_flags = ["-no-keep-locs"],  #
+    warnings_flags = "-58",  # Otherwise we'll get a warning about no .cmx.
+)
+
+# A binary which only now fills in the missing implementation of
+# `opaque.mli`.
+ocaml_binary(
+    name = "opaque",
+    srcs = [
+        "concrete2.ml",
+    ],
+    deps = [
+        ":opaque_bind",
+        ":opaque_use",
+    ],
+)

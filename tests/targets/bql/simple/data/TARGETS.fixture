@@ -1,0 +1,7 @@
+load("//rules:rules.bzl", "foo_library")
+
+foo_library(
+    name = "data",
+    srcs = glob(["**/*.file"]),
+    visibility = [ "PUBLIC" ],
+)
