@@ -7,7 +7,11 @@
  * of this source tree.
  */
 
-use std::{fmt::Debug, path::Path};
+use std::{
+    fmt::{Debug, Display},
+    path::Path,
+    ptr,
+};
 
 use anyhow::Context as _;
 use buck2_core::{
@@ -209,4 +213,29 @@ pub trait CommandLineBuilderContext {
 pub trait CommandLineBuilder: CommandLineBuilderContext {
     /// Add the string representation to the list of command line arguments.
     fn add_arg_string(&mut self, s: String);
+}
+
+pub trait FrozenCommandLineArgLike:
+    CommandLineArgLike + Send + Sync + Debug + Display + 'static
+{
+    fn ptr_eq(&self, other: &dyn FrozenCommandLineArgLike) -> bool;
+}
+
+impl<T> FrozenCommandLineArgLike for T
+where
+    T: CommandLineArgLike + Send + Sync + Debug + Display + 'static,
+{
+    fn ptr_eq(&self, other: &dyn FrozenCommandLineArgLike) -> bool {
+        ptr::eq(
+            self as *const T,
+            other as *const dyn FrozenCommandLineArgLike as *const T,
+        )
+    }
+}
+
+impl PartialEq for dyn FrozenCommandLineArgLike {
+    fn eq(&self, other: &Self) -> bool {
+        // use simple ptr eq, which is the default behaviour for starlark values
+        self.ptr_eq(other)
+    }
 }

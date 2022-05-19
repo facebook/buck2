@@ -12,7 +12,6 @@ use std::{
     cell::RefCell,
     convert::TryInto,
     fmt::{self, Debug, Display},
-    ptr,
 };
 
 use anyhow::anyhow;
@@ -126,31 +125,6 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for CommandLineArgGen<V> {
 pub(crate) trait ValueAsCommandLineLike<'v> {
     fn as_command_line(&self) -> Option<&'v dyn CommandLineArgLike>;
     fn as_command_line_err(&self) -> anyhow::Result<&'v dyn CommandLineArgLike>;
-}
-
-pub trait FrozenCommandLineArgLike:
-    CommandLineArgLike + Send + Sync + Debug + Display + 'static
-{
-    fn ptr_eq(&self, other: &dyn FrozenCommandLineArgLike) -> bool;
-}
-
-impl<T> FrozenCommandLineArgLike for T
-where
-    T: CommandLineArgLike + Send + Sync + Debug + Display + 'static,
-{
-    fn ptr_eq(&self, other: &dyn FrozenCommandLineArgLike) -> bool {
-        ptr::eq(
-            self as *const T,
-            other as *const dyn FrozenCommandLineArgLike as *const T,
-        )
-    }
-}
-
-impl PartialEq for dyn FrozenCommandLineArgLike {
-    fn eq(&self, other: &Self) -> bool {
-        // use simple ptr eq, which is the default behaviour for starlark values
-        self.ptr_eq(other)
-    }
 }
 
 pub(crate) trait ValueAsFrozenCommandLineLike {
