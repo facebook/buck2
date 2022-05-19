@@ -33,7 +33,7 @@ use crate::{
     environment::GlobalsBuilder,
     eval::{
         runtime::{
-            arguments::{ArgNames, ArgumentsImpl},
+            arguments::{ArgNames, ArgumentsFull},
             rust_loc::rust_loc,
         },
         Arguments, Evaluator,
@@ -275,7 +275,7 @@ where
         eval.alloca_concat(self_pos, args.0.pos, |pos, eval| {
             eval.alloca_concat(self_named, args.0.named, |named, eval| {
                 eval.alloca_concat(self_names, args.0.names.names(), |names, eval| {
-                    let params = Arguments(ArgumentsImpl {
+                    let params = Arguments(ArgumentsFull {
                         pos,
                         named,
                         names: ArgNames::new(names),

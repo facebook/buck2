@@ -51,7 +51,7 @@ use crate::{
     collections::{Hashed, StarlarkHashValue, StarlarkHasher},
     eval::{
         compiler::def::{Def, FrozenDef},
-        runtime::{arguments::ArgumentsImpl, call_stack::FrozenFileSpan},
+        runtime::{arguments::ArgumentsFull, call_stack::FrozenFileSpan},
         Arguments, Evaluator, ParametersSpec,
     },
     values::{
@@ -544,9 +544,9 @@ impl<'v> Value<'v> {
         pos: &[Value<'v>],
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let params = Arguments(ArgumentsImpl {
+        let params = Arguments(ArgumentsFull {
             pos,
-            ..ArgumentsImpl::default()
+            ..ArgumentsFull::default()
         });
         self.invoke(&params, eval)
     }

@@ -31,7 +31,7 @@ use crate::{
             Compiler,
         },
         runtime::{
-            arguments::{ArgNames, ArgumentsImpl},
+            arguments::{ArgNames, ArgumentsFull},
             call_stack::FrozenFileSpan,
         },
         Arguments,
@@ -175,7 +175,7 @@ impl ArgsCompiledValue {
             .as_ref()
             .try_map(|kwargs| kwargs.as_value().map(FrozenValue::to_value).ok_or(()))
             .ok()?;
-        Some(handler(&Arguments(ArgumentsImpl {
+        Some(handler(&Arguments(ArgumentsFull {
             pos: &pos,
             named: &named,
             names: ArgNames::new(coerce(&self.names)),

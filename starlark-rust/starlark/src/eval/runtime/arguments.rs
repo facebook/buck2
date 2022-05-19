@@ -416,7 +416,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
     #[inline(always)]
     pub(crate) fn collect_inline<S: ArgSymbol>(
         &self,
-        args: &ArgumentsImpl<'v, '_, S>,
+        args: &ArgumentsFull<'v, '_, S>,
         slots: &[Cell<Option<Value<'v>>>],
         heap: &'v Heap,
     ) -> anyhow::Result<()> {
@@ -441,7 +441,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
 
     fn collect_slow<S: ArgSymbol>(
         &self,
-        args: &ArgumentsImpl<'v, '_, S>,
+        args: &ArgumentsFull<'v, '_, S>,
         slots: &[Cell<Option<Value<'v>>>],
         heap: &'v Heap,
     ) -> anyhow::Result<()> {
@@ -844,7 +844,7 @@ impl<'a, 'v, S: ArgSymbol> ArgNames<'a, 'v, S> {
 /// Arguments object is passed from the starlark interpreter to function implementation
 /// when evaluation function or method calls.
 #[derive(Default_, Clone_, Dupe_)]
-pub(crate) struct ArgumentsImpl<'v, 'a, S: ArgSymbol> {
+pub(crate) struct ArgumentsFull<'v, 'a, S: ArgSymbol> {
     /// Positional arguments.
     pub(crate) pos: &'a [Value<'v>],
     /// Named arguments.
@@ -862,7 +862,7 @@ pub(crate) struct ArgumentsImpl<'v, 'a, S: ArgSymbol> {
 /// Arguments object is passed from the starlark interpreter to function implementation
 /// when evaluation function or method calls.
 #[derive(Default, Clone, Dupe_)]
-pub struct Arguments<'v, 'a>(pub(crate) ArgumentsImpl<'v, 'a, Symbol>);
+pub struct Arguments<'v, 'a>(pub(crate) ArgumentsFull<'v, 'a, Symbol>);
 
 impl<'v, 'a> Arguments<'v, 'a> {
     /// Unwrap all named arguments (both explicit and in `**kwargs`) into a map.

@@ -28,7 +28,7 @@ use crate::{
             if_debug::IfDebug,
             instr_arg::{ArgPopsStack, ArgPopsStackMaybe1, ArgPushesStack},
         },
-        runtime::arguments::{ArgNames, ArgSymbol, ArgumentsImpl},
+        runtime::arguments::{ArgNames, ArgSymbol, ArgumentsFull},
     },
     values::Value,
 };
@@ -143,12 +143,12 @@ impl<'v, 's> BcStackPtr<'v, 's> {
     pub(crate) fn pop_args<'a, S: ArgSymbol>(
         &'a self,
         a: &'a BcCallArgsFull<S>,
-    ) -> ArgumentsImpl<'v, 'a, S> {
+    ) -> ArgumentsFull<'v, 'a, S> {
         let kwargs = if a.kwargs { Some(self.pop()) } else { None };
         let args = if a.args { Some(self.pop()) } else { None };
         let pos_named = self.pop_slice(ArgPopsStack(a.pos_named));
         let (pos, named) = pos_named.split_at(pos_named.len() - a.names.len());
-        ArgumentsImpl {
+        ArgumentsFull {
             pos,
             named,
             names: ArgNames::new(coerce_ref(&a.names)),
@@ -160,9 +160,9 @@ impl<'v, 's> BcStackPtr<'v, 's> {
     pub(crate) fn pop_args_pos<'a, S: ArgSymbol>(
         &'a self,
         npos: &BcCallArgsPos,
-    ) -> ArgumentsImpl<'v, 'a, S> {
+    ) -> ArgumentsFull<'v, 'a, S> {
         let pos = self.pop_slice(ArgPopsStack(npos.pos));
-        ArgumentsImpl {
+        ArgumentsFull {
             pos,
             named: &[],
             names: ArgNames::new(&[]),

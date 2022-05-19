@@ -51,7 +51,7 @@ use crate::{
             Compiler, EvalException,
         },
         runtime::{
-            arguments::{ArgSymbol, ArgumentsImpl, ParametersSpec, ResolvedArgName},
+            arguments::{ArgSymbol, ArgumentsFull, ParametersSpec, ResolvedArgName},
             call_stack::FrozenFileSpan,
             evaluator::Evaluator,
             slots::LocalSlotId,
@@ -689,7 +689,7 @@ where
     #[inline(always)]
     fn invoke_impl<S: ArgSymbol>(
         &self,
-        args: &ArgumentsImpl<'v, '_, S>,
+        args: &ArgumentsFull<'v, '_, S>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let bc = self.bc();
@@ -702,7 +702,7 @@ where
 
     pub(crate) fn invoke_with_resolved_arg_names(
         &self,
-        args: &ArgumentsImpl<'v, '_, ResolvedArgName>,
+        args: &ArgumentsFull<'v, '_, ResolvedArgName>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         // This is trivial function which delegates to `invoke_impl`.

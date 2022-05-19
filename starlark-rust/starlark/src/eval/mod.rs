@@ -37,7 +37,7 @@ use crate::{
             scope::{CompilerAstMap, Scope, ScopeData},
             Compiler,
         },
-        runtime::arguments::{ArgNames, ArgumentsImpl},
+        runtime::arguments::{ArgNames, ArgumentsFull},
     },
     syntax::ast::AstModule,
     values::{docs::DocString, Value},
@@ -156,7 +156,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     ) -> anyhow::Result<Value<'v>> {
         let names = named.map(|(s, _)| (Symbol::new(*s), self.heap().alloc_str(*s)));
         let named = named.map(|x| x.1);
-        let params = Arguments(ArgumentsImpl {
+        let params = Arguments(ArgumentsFull {
             pos: positional,
             named: &named,
             names: ArgNames::new(&names),
