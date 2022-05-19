@@ -67,18 +67,16 @@ pub async fn download_action_results<'a>(
         response,
     );
 
-    let stderr = response.stderr(re_client);
+    let std_streams = response.std_streams(re_client).prefetch_stderr();
 
-    let (download, stderr) = future::join(download, stderr).await;
+    let (download, std_streams) = future::join(download, std_streams).await;
     let (manager, claim, outputs) = download?;
 
-    // TODO we probably want the std/err or something from Re to be provided back
     manager.success(
         claim,
         response.execution_kind(action_digest.dupe()),
         outputs,
-        "RE stdout not captured on success".to_owned(),
-        stderr,
+        std_streams.into(),
         response.timing(),
     )
 }

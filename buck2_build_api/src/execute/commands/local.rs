@@ -56,10 +56,10 @@ use crate::{
     },
     execute::{
         commands::{
-            inputs_directory, CommandExecutionInput, CommandExecutionManager,
-            CommandExecutionOutput, CommandExecutionOutputRef, CommandExecutionRequest,
-            CommandExecutionResult, CommandExecutionTarget, CommandExecutionTimingData,
-            ExecutorName, PreparedCommand, PreparedCommandExecutor,
+            inputs_directory, output::CommandStdStreams, CommandExecutionInput,
+            CommandExecutionManager, CommandExecutionOutput, CommandExecutionOutputRef,
+            CommandExecutionRequest, CommandExecutionResult, CommandExecutionTarget,
+            CommandExecutionTimingData, ExecutorName, PreparedCommand, PreparedCommandExecutor,
         },
         materializer::Materializer,
         ActionExecutionKind, CleanOutputPaths,
@@ -254,20 +254,17 @@ impl LocalExecutor {
             Err(e) => return manager.error("exec_failed".into(), e), // TODO (torozco): Can this take ActionExecutionKind?
         };
 
-        let stdout = String::from_utf8_lossy(&stdout).into_owned();
-        let stderr = String::from_utf8_lossy(&stderr).into_owned();
+        let std_streams = CommandStdStreams::Local { stdout, stderr };
 
         match self.calculate_output_values(request) {
             Ok(outputs) => match status {
                 GatherOutputStatus::Finished(status) => match status.code() {
-                    Some(0) => {
-                        manager.success(claim, execution_kind, outputs, stdout, stderr, timing)
-                    }
+                    Some(0) => manager.success(claim, execution_kind, outputs, std_streams, timing),
 
-                    v => manager.failure(execution_kind, outputs, stdout, stderr, v),
+                    v => manager.failure(execution_kind, outputs, std_streams, v),
                 },
                 GatherOutputStatus::TimedOut(duration) => {
-                    manager.timeout(execution_kind, duration, stdout, stderr, timing)
+                    manager.timeout(execution_kind, duration, std_streams, timing)
                 }
             },
             Err(e) => manager.error("calculate_output_values_failed".into(), e),

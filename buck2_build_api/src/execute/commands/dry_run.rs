@@ -108,16 +108,14 @@ impl PreparedCommandExecutor for DryRunExecutor {
                 claim,
                 ActionExecutionKind::Simple,
                 outputs,
-                "".to_owned(),
-                "".to_owned(),
+                Default::default(),
                 CommandExecutionTimingData::default(),
             ),
             // NOTE: This should probaby be an error() but who cares.
             Err(..) => manager.failure(
                 ActionExecutionKind::Simple,
                 IndexMap::new(),
-                "".into(),
-                "".into(),
+                Default::default(),
                 Some(1),
             ),
         }

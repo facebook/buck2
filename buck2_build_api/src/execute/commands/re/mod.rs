@@ -14,9 +14,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-use buck2_common::file_ops::FileDigest;
 use buck2_core::fs::project::{ProjectFilesystem, ProjectRelativePathBuf};
-use futures::future;
 use gazebo::prelude::*;
 use indexmap::{indexmap, IndexMap};
 use remote_execution as RE;
@@ -28,13 +26,10 @@ use thiserror::Error;
 use tracing::info;
 
 use crate::{
-    actions::{
-        artifact::ArtifactFs,
-        digest::{FileDigestReExt, ReDigest},
-        directory::ActionImmutableDirectory,
-    },
+    actions::{artifact::ArtifactFs, directory::ActionImmutableDirectory},
     execute::{
         commands::{
+            output::RemoteCommandStdStreams,
             re::{
                 client::{ActionDigest, PreparedAction},
                 download::download_action_results,
@@ -79,37 +74,6 @@ impl ExecutionPlatform {
                 "platform".to_owned() => "windows-remote-execution".to_owned()
             },
         }
-    }
-}
-
-async fn disp_stream(
-    raw: &Option<Vec<u8>>,
-    digest: &Option<ReDigest>,
-    client: &ManagedRemoteExecutionClient,
-) -> String {
-    // 4MBs seems like a reasonably large volume of output. There is no research or science behind
-    // this number.
-    const MAX_STREAM_DOWNLOAD_SIZE: i64 = 4 * 1024 * 1024;
-
-    match (raw, digest) {
-        (Some(raw), _) if !raw.is_empty() => String::from_utf8_lossy(raw).to_string(),
-        (_, Some(digest)) if digest.size_in_bytes <= MAX_STREAM_DOWNLOAD_SIZE => {
-            match client.download_blob(digest).await {
-                Ok(bytes) => String::from_utf8_lossy(&bytes).to_string(),
-                Err(e) => {
-                    tracing::warn!("Failed to download action stderr: {:#}", e);
-                    format!(
-                        "Result could not be downloaded - to view type `frecli cas download-blob {}`",
-                        FileDigest::from_re(digest),
-                    )
-                }
-            }
-        }
-        (_, Some(digest)) => format!(
-            "Result too large to display - to view type `frecli cas download-blob {}`",
-            FileDigest::from_re(digest),
-        ),
-        (_, None) => String::new(),
     }
 }
 
@@ -230,12 +194,6 @@ impl ReExecutor {
             );
         }
         if action_result.exit_code != 0 {
-            let (stdout, stderr) = future::join(
-                response.stdout(&self.re_client),
-                response.stderr(&self.re_client),
-            )
-            .await;
-
             return ControlFlow::Break(manager.failure(
                 ActionExecutionKind::Remote {
                     digest: action_digest.dupe(),
@@ -244,8 +202,7 @@ impl ReExecutor {
                 //   this will allow tpx to correctly retrieve the output of
                 //   failing tests running on RE. See D34344489 for context.
                 IndexMap::new(),
-                stdout,
-                stderr,
+                response.std_streams(&self.re_client).into(),
                 Some(action_result.exit_code),
             ));
         }
@@ -303,7 +260,6 @@ impl PreparedCommandExecutor for ReExecutor {
     }
 }
 
-#[async_trait]
 pub trait RemoteActionResult: Send + Sync {
     fn output_files(&self) -> &[TFile];
     fn output_directories(&self) -> &[TDirectory2];
@@ -312,12 +268,9 @@ pub trait RemoteActionResult: Send + Sync {
 
     fn timing(&self) -> CommandExecutionTimingData;
 
-    async fn stderr(&self, client: &ManagedRemoteExecutionClient) -> String;
-
-    async fn stdout(&self, client: &ManagedRemoteExecutionClient) -> String;
+    fn std_streams(&self, client: &ManagedRemoteExecutionClient) -> RemoteCommandStdStreams;
 }
 
-#[async_trait]
 impl RemoteActionResult for ExecuteResponse {
     fn output_files(&self) -> &[TFile] {
         &self.action_result.output_files
@@ -335,26 +288,11 @@ impl RemoteActionResult for ExecuteResponse {
         timing_from_re_metadata(&self.action_result.execution_metadata)
     }
 
-    async fn stderr(&self, client: &ManagedRemoteExecutionClient) -> String {
-        disp_stream(
-            &self.action_result.stderr_raw,
-            &self.action_result.stderr_digest,
-            client,
-        )
-        .await
-    }
-
-    async fn stdout(&self, client: &ManagedRemoteExecutionClient) -> String {
-        disp_stream(
-            &self.action_result.stdout_raw,
-            &self.action_result.stdout_digest,
-            client,
-        )
-        .await
+    fn std_streams(&self, client: &ManagedRemoteExecutionClient) -> RemoteCommandStdStreams {
+        RemoteCommandStdStreams::new(&self.action_result, client)
     }
 }
 
-#[async_trait]
 impl RemoteActionResult for ActionResultResponse {
     fn output_files(&self) -> &[TFile] {
         &self.action_result.output_files
@@ -374,22 +312,8 @@ impl RemoteActionResult for ActionResultResponse {
         timing
     }
 
-    async fn stderr(&self, client: &ManagedRemoteExecutionClient) -> String {
-        disp_stream(
-            &self.action_result.stderr_raw,
-            &self.action_result.stderr_digest,
-            client,
-        )
-        .await
-    }
-
-    async fn stdout(&self, client: &ManagedRemoteExecutionClient) -> String {
-        disp_stream(
-            &self.action_result.stdout_raw,
-            &self.action_result.stdout_digest,
-            client,
-        )
-        .await
+    fn std_streams(&self, client: &ManagedRemoteExecutionClient) -> RemoteCommandStdStreams {
+        RemoteCommandStdStreams::new(&self.action_result, client)
     }
 }
 

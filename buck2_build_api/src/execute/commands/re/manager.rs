@@ -235,6 +235,7 @@ impl ReConnectionHandle {
     }
 }
 
+#[derive(Clone, Dupe)]
 pub struct ManagedRemoteExecutionClient {
     data: Weak<Arc<LazyRemoteExecutionClient>>,
 }

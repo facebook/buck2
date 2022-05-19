@@ -118,45 +118,45 @@ impl ActionCalculation for DiceComputations {
                 // this can be RE
                 events
                     .span_async(start_event, async move {
-                        let mut result = executor.execute(materialized_inputs, &action).await;
+                        let execute_result = executor.execute(materialized_inputs, &action).await;
 
-                        let (action_result, error, mut meta) = match result {
-                            Ok((action_result, ref mut meta)) => {
-                                (Ok(action_result), None, Some(meta))
+                        let action_result;
+                        let stderr;
+                        let execution_kind;
+                        let error;
+
+                        match execute_result {
+                            Ok((outputs, meta)) => {
+                                if let Some(signals) = build_signals {
+                                    signals.signal(ActionExecutionSignal {
+                                        action: action.dupe(),
+                                        duration: meta.timing.execution_time,
+                                    });
+                                }
+
+                                action_result = Ok(outputs);
+                                stderr = Some(meta.std_streams.to_lossy_stderr().await);
+                                execution_kind = Some(meta.execution_kind.as_enum());
+                                error = None;
                             }
-                            Err(ref mut e) => {
+                            Err(e) => {
                                 // Because we already are sending the error message in the
                                 // ActionExecutionEnd event, we slim the error down in the result.
                                 // We can then unconditionally print the error message for compute(),
                                 // including ones near the beginning of this method, and also not
                                 // duplicate any error messages.
-                                let action_result = Err(anyhow::anyhow!(
+                                action_result = Err(anyhow::anyhow!(
                                     "Failed to build artifact(s) for '{}'",
                                     action.owner()
                                 )
                                 .into());
-                                let error = error_to_proto(e);
-                                let meta = e.downcast_mut::<ActionError>().map(|e| &mut e.metadata);
-                                (action_result, Some(error), meta)
+                                stderr = None;
+                                execution_kind = e
+                                    .downcast_ref::<ActionError>()
+                                    .map(|e| e.metadata.execution_kind.as_enum());
+                                error = Some(error_to_proto(&e).await);
                             }
                         };
-
-                        // TODO(nmj): Right now, we send stderr as part of CommandFailed's
-                        //            error message, so we don't have to do this for stderr.
-                        //            In the future, we may want to send the components of
-                        //            CommandFailed / a successful execution back.
-                        //            If we do that, get the stderr for real, here.
-                        let stderr = meta
-                            .as_mut()
-                            .and_then(|meta| meta.stderr.take())
-                            .unwrap_or_default();
-
-                        if let (Some(signals), Some(meta)) = (build_signals, meta.as_ref()) {
-                            signals.signal(ActionExecutionSignal {
-                                action: action.dupe(),
-                                duration: meta.timing.execution_time,
-                            });
-                        }
 
                         (
                             action_result,
@@ -169,12 +169,11 @@ impl ActionCalculation for DiceComputations {
                                 }),
                                 failed: error.is_some(),
                                 error,
-                                stderr,
                                 always_print_stderr: action.always_print_stderr(),
-                                execution_kind: meta
-                                    .map_or(buck2_data::ActionExecutionKind::NotSet, |kind| {
-                                        kind.execution_kind.as_enum()
-                                    }) as i32,
+                                stderr: stderr.unwrap_or_default(),
+                                execution_kind: execution_kind
+                                    .unwrap_or(buck2_data::ActionExecutionKind::NotSet)
+                                    as i32,
                             },
                         )
                     })
@@ -205,7 +204,7 @@ impl ActionCalculation for DiceComputations {
     }
 }
 
-fn error_to_proto(err: &anyhow::Error) -> buck2_data::action_execution_end::Error {
+async fn error_to_proto(err: &anyhow::Error) -> buck2_data::action_execution_end::Error {
     match err.downcast_ref::<ActionError>() {
         // CommandFailed errors don't necessarily have an exit code; no exit code implies that some other failure
         // happened during action execution (e.g. RE problems) that prevented the command from being executed.
@@ -216,19 +215,20 @@ fn error_to_proto(err: &anyhow::Error) -> buck2_data::action_execution_end::Erro
         // regular anyhow::Error). We should update the exit_code to come via ActionResultStatus
         // and have it only on Success and Failure, which would prove this branch cannot in fact
         // exist.
-        Some(ActionError {
-            cause:
-                ActionErrorCause::CommandFailed {
-                    exit_code: None, ..
-                },
-            ..
-        }) => buck2_data::action_execution_end::Error::Unknown(format!("{:#}", err)),
+        Some(
+            err @ ActionError {
+                cause:
+                    ActionErrorCause::CommandFailed {
+                        exit_code: None, ..
+                    },
+                ..
+            },
+        ) => buck2_data::action_execution_end::Error::Unknown(format!("{:#}", err)),
         Some(ActionError {
             cause,
             metadata:
                 ActionExecutionMetadata {
-                    stdout,
-                    stderr,
+                    std_streams,
                     execution_kind,
                     timing: _,
                 },
@@ -242,10 +242,12 @@ fn error_to_proto(err: &anyhow::Error) -> buck2_data::action_execution_end::Erro
                 _ => 0,
             };
 
+            let std_streams = std_streams.to_lossy().await;
+
             let command = buck2_data::action_execution_end::CommandExecutionDetails {
                 exit_code,
-                stdout: stdout.clone().unwrap_or_default(),
-                stderr: stderr.clone().unwrap_or_default(),
+                stdout: std_streams.stdout,
+                stderr: std_streams.stderr,
                 local_command: execution_kind.as_local_command(),
                 remote_command: execution_kind.as_remote_command(),
             };
@@ -273,7 +275,7 @@ fn error_to_proto(err: &anyhow::Error) -> buck2_data::action_execution_end::Erro
                 }
             }
         }
-        _ => buck2_data::action_execution_end::Error::Unknown(format!("{:#}", err)),
+        None => buck2_data::action_execution_end::Error::Unknown(format!("{:#}", err)),
     }
 }
 

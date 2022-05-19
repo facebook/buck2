@@ -17,9 +17,9 @@ pub use re_client_lib::{
     CASDaemonClientCfg, CopyPolicy, DownloadRequest, EmbeddedCASDaemonClientCfg, ExecuteRequest,
     ExecuteResponse, ExecuteWithProgressResponse, FindMissingBlobsRequest,
     HostResourceRequirements, InlinedBlobWithDigest, NamedDigest, NamedDigestWithPermissions, Path,
-    REClient, REClientBuilder, REClientError, REError, RemoteExecutionMetadata, Stage, TCode,
-    TDigest, TDirectory2, TExecutedActionMetadata, TExecutionPolicy, TFile, TPlatform, TProperty,
-    TResultsCachePolicy, TTimestamp, UploadRequest,
+    REClient, REClientBuilder, REClientError, REError, RemoteExecutionMetadata, Stage,
+    TActionResult2, TCode, TDigest, TDirectory2, TExecutedActionMetadata, TExecutionPolicy, TFile,
+    TPlatform, TProperty, TResultsCachePolicy, TTimestamp, UploadRequest,
 };
 pub use re_grpc::remote_execution::{
     command::EnvironmentVariable, platform::Property, Action, Command, Digest, Directory,

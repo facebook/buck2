@@ -385,8 +385,7 @@ impl BuckTestOrchestrator {
         // TODO(brasselsprouts): migrate this into the executor to get better accuracy.
         let CommandExecutionResult {
             outputs,
-            stdout,
-            stderr,
+            std_streams,
             exit_code,
             metadata,
         } = match metadata {
@@ -413,8 +412,12 @@ impl BuckTestOrchestrator {
             }
         };
 
-        let stdout = ExecutionStream::Inline(stdout.into_bytes());
-        let stderr = ExecutionStream::Inline(stderr.into_bytes());
+        let std_streams = std_streams
+            .into_bytes()
+            .await
+            .context("Error accessing test output")?;
+        let stdout = ExecutionStream::Inline(std_streams.stdout);
+        let stderr = ExecutionStream::Inline(std_streams.stderr);
 
         Ok(match metadata.status {
             commands::ActionResultStatus::Success { .. } => (

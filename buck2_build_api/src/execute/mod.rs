@@ -44,6 +44,7 @@ use crate::{
     execute::{
         commands::{
             dice_data::{CommandExecutorConfig, HasCommandExecutor},
+            output::CommandStdStreams,
             re::client::ActionDigest,
             ClaimManager, CommandExecutionManager, CommandExecutionOutput, CommandExecutionRequest,
             CommandExecutionResult, CommandExecutionTarget, CommandExecutor,
@@ -121,8 +122,7 @@ impl Default for ActionExecutionTimingData {
 pub struct ActionExecutionMetadata {
     pub execution_kind: ActionExecutionKind,
     pub timing: ActionExecutionTimingData,
-    pub stdout: Option<String>,
-    pub stderr: Option<String>,
+    pub std_streams: CommandStdStreams,
 }
 
 /// The *way* that a particular action was executed.
@@ -397,8 +397,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         );
         let CommandExecutionResult {
             outputs,
-            stdout,
-            stderr,
+            std_streams,
             exit_code,
             metadata,
         } = self
@@ -413,8 +412,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                 ActionExecutionMetadata {
                     execution_kind,
                     timing: metadata.timing.into(),
-                    stdout: Some(stdout),
-                    stderr: Some(stderr),
+                    std_streams,
                 },
             )),
             commands::ActionResultStatus::Failure { execution_kind } => Err(ActionError {
@@ -422,8 +420,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                 metadata: ActionExecutionMetadata {
                     execution_kind,
                     timing: metadata.timing.into(),
-                    stdout: Some(stdout),
-                    stderr: Some(stderr),
+                    std_streams,
                 },
             }
             .into()),
@@ -435,8 +432,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                 metadata: ActionExecutionMetadata {
                     execution_kind,
                     timing: metadata.timing.into(),
-                    stdout: Some(stdout),
-                    stderr: Some(stderr),
+                    std_streams,
                 },
             }
             .into()),
@@ -665,8 +661,8 @@ mod tests {
         execute::{
             blocking::testing::DummyBlockingExecutor,
             commands::{
-                dry_run::DryRunExecutor, CommandExecutionInput, CommandExecutionRequest,
-                CommandExecutor,
+                dry_run::DryRunExecutor, output::CommandStdStreams, CommandExecutionInput,
+                CommandExecutionRequest, CommandExecutor,
             },
             materializer::nodisk::NoDiskMaterializer,
             ActionExecutionKind, ActionExecutionMetadata, ActionExecutionTimingData,
@@ -782,8 +778,7 @@ mod tests {
                     ActionExecutionMetadata {
                         execution_kind: ActionExecutionKind::Simple,
                         timing: ActionExecutionTimingData::default(),
-                        stdout: None,
-                        stderr: None,
+                        std_streams: CommandStdStreams::Empty,
                     },
                 ))
             }

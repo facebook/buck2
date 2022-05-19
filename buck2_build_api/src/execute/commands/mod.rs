@@ -46,9 +46,12 @@ use crate::{
     artifact_groups::ArtifactGroupValues,
     deferred::BaseDeferredKey,
     execute::{
-        commands::re::{
-            client::{re_create_action, PreparedAction},
-            ActionPaths,
+        commands::{
+            output::CommandStdStreams,
+            re::{
+                client::{re_create_action, PreparedAction},
+                ActionPaths,
+            },
         },
         ActionExecutionKind, ActionExecutionTimingData,
     },
@@ -60,6 +63,7 @@ pub mod dice_data;
 pub mod dry_run;
 pub mod hybrid;
 pub mod local;
+pub mod output;
 pub mod re;
 
 /// CommandExecutionResult is the result of an executor executing a command.
@@ -68,9 +72,7 @@ pub struct CommandExecutionResult {
     /// The outputs produced by this command
     pub outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
 
-    // TODO(cjhopman): This should probably be changed to just always have the stdout/stderr written to a file in the output dir.
-    pub stdout: String,
-    pub stderr: String,
+    pub std_streams: CommandStdStreams,
     pub exit_code: Option<i32>,
 
     /// metadata holds information about **how** the result was produced rather than information about the result itself.
@@ -230,8 +232,7 @@ impl CommandExecutionManager {
         self.result(
             ActionResultStatus::ClaimRejected,
             IndexMap::new(),
-            "".to_owned(),
-            "".to_owned(),
+            Default::default(),
             None,
             CommandExecutionTimingData::default(),
         )
@@ -244,8 +245,7 @@ impl CommandExecutionManager {
         claim: ClaimedRequest,
         execution_kind: ActionExecutionKind,
         outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
-        stdout: String,
-        stderr: String,
+        std_streams: CommandStdStreams,
         timing: CommandExecutionTimingData,
     ) -> CommandExecutionResult {
         // just make the claim look used in the function signature.
@@ -253,8 +253,7 @@ impl CommandExecutionManager {
         self.result(
             ActionResultStatus::Success { execution_kind },
             outputs,
-            stdout,
-            stderr,
+            std_streams,
             Some(0),
             timing,
         )
@@ -264,15 +263,13 @@ impl CommandExecutionManager {
         self,
         execution_kind: ActionExecutionKind,
         outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
-        stdout: String,
-        stderr: String,
+        std_streams: CommandStdStreams,
         exit_code: Option<i32>,
     ) -> CommandExecutionResult {
         self.result(
             ActionResultStatus::Failure { execution_kind },
             outputs,
-            stdout,
-            stderr,
+            std_streams,
             exit_code,
             CommandExecutionTimingData::default(),
         )
@@ -282,8 +279,7 @@ impl CommandExecutionManager {
         self,
         execution_kind: ActionExecutionKind,
         duration: Duration,
-        stdout: String,
-        stderr: String,
+        std_streams: CommandStdStreams,
         timing: CommandExecutionTimingData,
     ) -> CommandExecutionResult {
         self.result(
@@ -292,8 +288,7 @@ impl CommandExecutionManager {
                 execution_kind,
             },
             IndexMap::new(),
-            stdout,
-            stderr,
+            std_streams,
             None,
             timing,
         )
@@ -303,8 +298,7 @@ impl CommandExecutionManager {
         self.result(
             ActionResultStatus::Error(failure_type, err),
             IndexMap::new(),
-            "".to_owned(),
-            "".to_owned(),
+            Default::default(),
             None,
             CommandExecutionTimingData::default(),
         )
@@ -314,15 +308,13 @@ impl CommandExecutionManager {
         self,
         status: ActionResultStatus,
         outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
-        stdout: String,
-        stderr: String,
+        std_streams: CommandStdStreams,
         exit_code: Option<i32>,
         timing: CommandExecutionTimingData,
     ) -> CommandExecutionResult {
         CommandExecutionResult {
             outputs,
-            stdout,
-            stderr,
+            std_streams,
             exit_code,
             metadata: CommandExecutionMetadata {
                 claim: if self.claimed {

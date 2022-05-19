@@ -258,8 +258,7 @@ impl PristineActionExecutable for DownloadFileAction {
             ActionExecutionMetadata {
                 execution_kind,
                 timing: ActionExecutionTimingData::default(),
-                stdout: None,
-                stderr: None,
+                std_streams: Default::default(),
             },
         ))
     }
