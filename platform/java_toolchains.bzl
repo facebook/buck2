@@ -15,15 +15,18 @@ def config_backed_java_toolchain(
         name,
         class_abi_generator = "buck//src/com/facebook/buck/jvm/java/abi:api-stubber",
         fat_jar_main_class_lib = "buck//src/com/facebook/buck/jvm/java:fat-jar-main",
-        **kwargs):
-    kwargs["class_abi_generator"] = class_abi_generator
+        java = None,
+        java_for_tests = None,
+        visibility = None):
+    # Set params which we don't read from configs.
+    kwargs = {}
     kwargs["compile_and_package"] = "fbsource//xplat/buck2/tools/java:compile_and_package"
     kwargs["src_dir_helper"] = "fbsource//xplat/buck2/tools/java:src_dir_helper"
     kwargs["fat_jar"] = "fbsource//xplat/buck2/tools/java:fat_jar"
-    kwargs["fat_jar_main_class_lib"] = fat_jar_main_class_lib
     kwargs["jar"] = "fbsource//third-party/toolchains/jdk:jar"
     kwargs["java"] = "fbsource//third-party/toolchains/jdk:java"
 
+    # Now pull in values from config (overriding defaults).
     sections = ["java", "tools"]
     for (key, (info, default)) in _buckconfig_java_toolchain_attrs.items():
         val = None
@@ -36,8 +39,17 @@ def config_backed_java_toolchain(
         if val != None:
             kwargs[key] = val
 
+    # Add in rule-level params last, which override everything.
+    if java != None:
+        kwargs["java"] = java
+    if java_for_tests != None:
+        kwargs["java_for_tests"] = java_for_tests
+    kwargs["class_abi_generator"] = class_abi_generator
+    kwargs["fat_jar_main_class_lib"] = fat_jar_main_class_lib
+
     _config_backed_java_toolchain_rule(
         name = name,
+        visibility = visibility,
         **kwargs
     )
 
