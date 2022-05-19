@@ -400,7 +400,6 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         ref attr: &str,
         ref default: Option<Value>,
     ) -> anyhow::Result<Value<'v>> {
-        // Make sure we check if its a function first, to be consistent with `a.f`
         match a.get_attr(attr, heap)? {
             Some(v) => Ok(v),
             None => match default {
