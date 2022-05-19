@@ -27,6 +27,16 @@ def _check_cmdargs_artifact(x):
     if a != "a" or not b.startswith("buck-out/") or not b.endswith("magic/path"):
         fail("Output is not as expected, got " + repr(x))
 
+def _create_target(ctx: "context"):
+    # We don't want to hardcode the label, as different roots may change it,
+    # so instead check it matches the string representation
+    return [ctx.label.raw_target(), str(ctx.label.raw_target())]
+
+def _check_target(x):
+    [a, b] = x
+    if a != b:
+        fail("Targets should match, got " + repr(x))
+
 tests = [
     ("atom", lambda _: "test", "test"),
     ("simple", lambda _: [1], [1]),
@@ -36,6 +46,7 @@ tests = [
     ("artifact", _create_artifact, _check_artifact),
     ("artifact_declared", _create_artifact_declared, _check_artifact),
     ("artifact_output", _create_artifact_as_output, _check_artifact),
+    ("target", _create_target, _check_target),
     ("cmdargs", lambda _: {"more": cmd_args(["a", "b", "c"], format = "1{}")}, {"more": ["1a", "1b", "1c"]}),
     ("cmdargs_single", lambda _: {"test": cmd_args("abc")}, {"test": ["abc"]}),
     ("cmdargs_concat", lambda _: {"test": cmd_args("abc", delimiter = "")}, {"test": "abc"}),
