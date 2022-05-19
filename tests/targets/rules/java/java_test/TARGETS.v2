@@ -2,6 +2,8 @@
 native.java_test(
     name = "simple_java_test",
     srcs = ["com/example/SimpleJavaTest.java"],
+    # fbcode java wrapper requires this env var.
+    env = {"FBCODE_JAVA_VERSION": "11"},
     deps = [
         "fbsource//third-party/junit:junit",
     ],
@@ -10,6 +12,8 @@ native.java_test(
 native.java_test(
     name = "java_test_with_cxx_library_allowlist",
     srcs = ["com/example/JavaTestWithNativeLib.java"],
+    # fbcode java wrapper requires this env var.
+    env = {"FBCODE_JAVA_VERSION": "11"},
     use_cxx_libraries = True,
     cxx_library_whitelist = [":jlib-native"],
     deps = [
@@ -22,6 +26,8 @@ native.java_test(
 native.java_test(
     name = "java_test_with_no_cxx_library_allowlist",
     srcs = ["com/example/JavaTestWithNativeLib.java"],
+    # fbcode java wrapper requires this env var.
+    env = {"FBCODE_JAVA_VERSION": "11"},
     use_cxx_libraries = True,
     deps = [
         "fbsource//third-party/junit:junit",

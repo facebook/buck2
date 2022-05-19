@@ -153,6 +153,11 @@ cxx_hacks(
 
 
 config_backed_java_toolchain(
-    name = "java",
+    name = "java_fbcode",
+    # In v1, these are set as raw, repo-relative paths.  As we can't parse those
+    # properly in v2 (and rightfully so), set them explicitly here using their
+    # corresponding wrapper rule.
+    java = "fbcode//tools/build/buck/wrappers:java11.sh",
+    java_for_tests = "fbcode//tools/build/buck/wrappers:java.sh",
     visibility = ["PUBLIC"],
 )

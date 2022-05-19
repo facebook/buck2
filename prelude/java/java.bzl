@@ -23,7 +23,7 @@ def _select_java_toolchain():
             # if target is for android (fbsource repo) then use .buckconfig from fbsource cell
             "ovr_config//os/constraints:android": "fbsource//xplat/buck2/platform/java:java",
             # if target is with fbcode constraint then use .buckconfig from fbcode cell
-            "ovr_config//toolchain/fb/constraints:fbcode": "fbcode//buck2/platform:java",
+            "ovr_config//toolchain/fb/constraints:fbcode": "fbcode//buck2/platform:java_fbcode",
         },
     )
 
