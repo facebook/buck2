@@ -1251,10 +1251,7 @@ pub mod tester {
     use crate::{
         actions::artifact::ArtifactFs,
         interpreter::{
-            rule_defs::cmd_args::{
-                builder::BaseCommandLineBuilder, SimpleCommandLineArtifactVisitor,
-                StarlarkCommandLineInputs, ValueAsCommandLineLike,
-            },
+            rule_defs::cmd_args::{builder::BaseCommandLineBuilder, ValueAsCommandLineLike},
             testing::cells,
         },
         path::{BuckOutPathResolver, BuckPathResolver},
@@ -1299,21 +1296,6 @@ pub mod tester {
             let cli = builder.build();
             assert_eq!(1, cli.len());
             Ok(cli.get(0).unwrap().clone())
-        }
-    }
-
-    #[starlark_module]
-    pub fn inputs_helper(builder: &mut GlobalsBuilder) {
-        fn make_inputs<'v>(values: Vec<Value<'v>>) -> anyhow::Result<StarlarkCommandLineInputs> {
-            let mut visitor = SimpleCommandLineArtifactVisitor::new();
-            for v in values {
-                let cli = v.as_command_line_err()?;
-                cli.visit_artifacts(&mut visitor)?;
-            }
-
-            Ok(StarlarkCommandLineInputs {
-                inputs: visitor.inputs,
-            })
         }
     }
 }

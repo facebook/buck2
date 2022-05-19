@@ -2,18 +2,40 @@ use std::sync::Arc;
 
 use buck2_core::result::SharedResult;
 use indoc::indoc;
+use starlark::{environment::GlobalsBuilder, values::Value};
 
 use super::tester;
 use crate::interpreter::{
-    rule_defs::{artifact::testing::artifactory, label::testing::label_creator},
+    rule_defs::{
+        artifact::testing::artifactory,
+        cmd_args::{
+            SimpleCommandLineArtifactVisitor, StarlarkCommandLineInputs, ValueAsCommandLineLike,
+        },
+        label::testing::label_creator,
+    },
     testing::{expect_error, import, Tester},
 };
+
+#[starlark_module]
+pub fn inputs_helper(builder: &mut GlobalsBuilder) {
+    fn make_inputs<'v>(values: Vec<Value<'v>>) -> anyhow::Result<StarlarkCommandLineInputs> {
+        let mut visitor = SimpleCommandLineArtifactVisitor::new();
+        for v in values {
+            let cli = v.as_command_line_err()?;
+            cli.visit_artifacts(&mut visitor)?;
+        }
+
+        Ok(StarlarkCommandLineInputs {
+            inputs: visitor.inputs,
+        })
+    }
+}
 
 fn tester() -> anyhow::Result<Tester> {
     let mut tester = Tester::new()?;
     tester.set_additional_globals(Arc::new(|builder| {
         tester::command_line_stringifier(builder);
-        tester::inputs_helper(builder);
+        inputs_helper(builder);
         artifactory(builder);
         label_creator(builder);
     }));
