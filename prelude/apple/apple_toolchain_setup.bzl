@@ -72,16 +72,21 @@ def _get_apple_select_map(include_default: bool.type, toolchain_type: AppleToolc
     return select_map
 
 def _get_apple_macos_select_map(toolchain_type: AppleToolchainRuleType.type, default_arch: str.type):
-    return select({
+    select_map = {
+        # Minimal Xcode takes priority over toolchain selection, so we have nested DEFAULT statements
         "DEFAULT": select({
             "DEFAULT": _get_apple_macosx_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
             "fbsource//xplat/buck2/platform/apple/config:apple-xcode-current-macos": _get_apple_macosx_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
             "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-linux": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "linux", sdk = "macosx"),
             "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "macos", sdk = "macosx"),
         }),
-        # Minimal Xcode takes priority over toolchain selection
-        "ovr_config//toolchain/fb/constraints:macos-minimal": "fbsource//xplat/toolchains/minimal_xcode:macosx-x86_64_minimal_xcode",
-    })
+    }
+
+    if toolchain_type == _CXX_TOOLCHAIN_RULE_TYPE:
+        # Minimal Xcode does not provide an apple_toolchain(), only cxx_toolchain()
+        select_map["ovr_config//toolchain/fb/constraints:macos-minimal"] = "fbsource//xplat/toolchains/minimal_xcode:macosx-x86_64_minimal_xcode"
+
+    return select(select_map)
 
 def _get_default_arch_for_macos_and_simulator_targets():
     use_default_host_based_target_arch = read_config("apple", "default_host_based_target_arch", True)
