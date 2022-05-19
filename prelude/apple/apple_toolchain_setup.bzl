@@ -52,10 +52,13 @@ def _get_apple_select_map(include_default: bool.type, toolchain_type: AppleToolc
             "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "macos", sdk = "iphonesimulator"),
         }),
         "ovr_config//os:macos": select({
-            "DEFAULT": _get_apple_macosx_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
-            "fbsource//xplat/buck2/platform/apple/config:apple-xcode-current-macos": _get_apple_macosx_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
-            "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-linux": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "linux", sdk = "macosx"),
-            "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "macos", sdk = "macosx"),
+            "DEFAULT": select({
+                "DEFAULT": _get_apple_macosx_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
+                "fbsource//xplat/buck2/platform/apple/config:apple-xcode-current-macos": _get_apple_macosx_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
+                "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-linux": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "linux", sdk = "macosx"),
+                "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "macos", sdk = "macosx"),
+            }),
+            # Minimal Xcode takes priority over toolchain selection
             "ovr_config//toolchain/fb/constraints:macos-minimal": "fbsource//xplat/toolchains/minimal_xcode:macosx-x86_64_minimal_xcode",
         }),
         # `watchos` OS constraint allows both device and simulator builds, default to simulator if SDK is not specified
