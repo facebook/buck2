@@ -3,10 +3,11 @@ load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool", "read_int")
 
 prelude = native
 host_is_mac = host_info().os.is_macos
+host_is_linux = host_info().os.is_linux
 
 local_mac_execution = read_bool("build", "enable_local_mac_execution", host_is_mac)
 remote_mac_execution = read_bool("build", "enable_remote_mac_execution", True)
-local_linux_execution = read_bool("build", "enable_local_linux_execution", not host_is_mac)
+local_linux_execution = read_bool("build", "enable_local_linux_execution", host_is_linux)
 
 remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 30 * 1024)
 
