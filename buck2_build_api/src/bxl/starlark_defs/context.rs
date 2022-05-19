@@ -10,7 +10,7 @@
 //! The context containing the available buck commands and query operations for `bxl` functions.
 //!
 
-use std::sync::Arc;
+use std::{cell::RefCell, sync::Arc};
 
 use buck2_common::{
     dice::{cells::HasCellResolver, data::HasIoProvider},
@@ -30,11 +30,12 @@ use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
     values::{
         dict::Dict, none::NoneType, AllocValue, Freeze, Freezer, Heap, NoSerialize, NoSimpleValue,
-        StarlarkValue, Trace, UnpackValue, Value, ValueLike,
+        StarlarkValue, Trace, UnpackValue, Value, ValueLike, ValueOf, ValueTyped,
     },
 };
 
 use crate::{
+    analysis::registry::AnalysisRegistry,
     bxl::{
         starlark_defs::{
             analysis_result::StarlarkAnalysisResult,
@@ -48,6 +49,7 @@ use crate::{
         },
         BxlKey,
     },
+    interpreter::rule_defs::context::AnalysisActions,
     query::dice::DiceQueryDelegate,
 };
 
@@ -73,10 +75,12 @@ pub struct BxlContext<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     pub(crate) async_ctx: BxlSafeDiceComputations<'v>,
+    pub(crate) state: ValueTyped<'v, AnalysisActions<'v>>,
 }
 
 impl<'v> BxlContext<'v> {
-    pub fn new(
+    pub(crate) fn new(
+        heap: &'v Heap,
         current_bxl: BxlKey,
         cli_args: Value<'v>,
         target_alias_resolver: TargetAliasResolver,
@@ -89,6 +93,11 @@ impl<'v> BxlContext<'v> {
             cell,
             cli_args,
             async_ctx,
+            state: ValueTyped::new(heap.alloc(AnalysisActions {
+                state: RefCell::new(None),
+                attributes: Value::new_none(),
+            }))
+            .unwrap(),
         }
     }
 
@@ -124,6 +133,13 @@ impl<'v> BxlContext<'v> {
     ) -> anyhow::Result<DiceQueryDelegate<'_>> {
         self.async_ctx
             .via_dice(|dice| Self::dice_query_delegate(dice, global_target_platform))
+    }
+
+    /// Must take an `AnalysisContext` which has never had `take_state` called on it before.
+    pub(crate) fn take_state(
+        value: ValueTyped<'v, BxlContext<'v>>,
+    ) -> Option<AnalysisRegistry<'v>> {
+        value.as_ref().state.as_ref().state.borrow_mut().take()
     }
 }
 
@@ -191,8 +207,8 @@ fn register_context(builder: &mut MethodsBuilder) {
     }
 
     #[starlark(attribute)]
-    fn bxl_actions<'v>(this: &BxlContext) -> anyhow::Result<BxlActionsCtx<'v>> {
-        Ok(BxlActionsCtx::new(&this.async_ctx))
+    fn bxl_actions<'v>(this: ValueOf<&'v BxlContext<'v>>) -> anyhow::Result<BxlActionsCtx<'v>> {
+        Ok(BxlActionsCtx::new(ValueTyped::new(this.value).unwrap()))
     }
 
     fn analysis<'v>(

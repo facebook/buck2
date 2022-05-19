@@ -3,31 +3,43 @@
 
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::any::AnyLifetime;
+use gazebo::{any::AnyLifetime, prelude::*};
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
     values::{
         AllocValue, Freeze, Freezer, Heap, NoSerialize, NoSimpleValue, StarlarkValue, Trace,
-        UnpackValue, Value, ValueLike,
+        UnpackValue, Value, ValueLike, ValueTyped,
     },
 };
+use thiserror::Error;
 
-use crate::bxl::starlark_defs::{
-    context::starlark_async::BxlSafeDiceComputations, BxlError::NoFreeze,
+use crate::{
+    analysis::registry::AnalysisRegistry,
+    bxl::{
+        common::EXECUTION_PLATFORM,
+        starlark_defs::{context::BxlContext, BxlError::NoFreeze},
+    },
+    deferred::BaseDeferredKey,
 };
+
+#[derive(Debug, Error)]
+enum BxlActionsError {
+    #[error(
+        "An action registry was already requested via `action_factory()`. Only one action registry is allowed"
+    )]
+    RegistryAlreadyCreated,
+}
 
 #[derive(AnyLifetime, Derivative, Display, Trace, NoSerialize)]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 pub(crate) struct BxlActionsCtx<'v> {
-    #[trace(unsafe_ignore)]
-    #[derivative(Debug = "ignore")]
-    pub(crate) async_ctx: &'v BxlSafeDiceComputations<'v>,
+    ctx: ValueTyped<'v, BxlContext<'v>>,
 }
 
 impl<'v> BxlActionsCtx<'v> {
-    pub fn new(async_ctx: &'v BxlSafeDiceComputations<'v>) -> Self {
-        Self { async_ctx }
+    pub fn new(ctx: ValueTyped<'v, BxlContext<'v>>) -> Self {
+        Self { ctx }
     }
 }
 
@@ -64,4 +76,20 @@ impl<'v> UnpackValue<'v> for &'v BxlActionsCtx<'v> {
 }
 
 #[starlark_module]
-fn register_context(builder: &mut MethodsBuilder) {}
+fn register_context(builder: &mut MethodsBuilder) {
+    fn action_factory<'v>(this: &BxlActionsCtx) -> anyhow::Result<Value<'v>> {
+        let mut registry = this.ctx.as_ref().state.state.borrow_mut();
+        if (*registry).is_some() {
+            return Err(anyhow::anyhow!(BxlActionsError::RegistryAlreadyCreated));
+        } else {
+            let analysis_registry = AnalysisRegistry::new_from_owner(
+                BaseDeferredKey::BxlLabel(this.ctx.current_bxl.dupe()),
+                EXECUTION_PLATFORM.dupe(),
+            );
+
+            *registry = Some(analysis_registry);
+        }
+
+        Ok(this.ctx.as_ref().state.to_value())
+    }
+}

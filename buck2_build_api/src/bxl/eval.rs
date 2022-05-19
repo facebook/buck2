@@ -7,7 +7,7 @@ use starlark::{
     collections::SmallMap,
     environment::Module,
     eval::Evaluator,
-    values::{structs::Struct, OwnedFrozenValueTyped, Value},
+    values::{structs::Struct, OwnedFrozenValueTyped, Value, ValueTyped},
 };
 
 use crate::{
@@ -66,29 +66,44 @@ pub async fn eval(ctx: DiceTransaction, key: BxlKey) -> anyhow::Result<BxlResult
 
         let mut eval = Evaluator::new(&env);
         let bxl_ctx = BxlContext::new(
+            eval.heap(),
             key,
             resolved_args,
             target_alias_resolver,
             bxl_cell,
             BxlSafeDiceComputations::new(&ctx),
         );
+        let bxl_ctx = ValueTyped::<BxlContext>::new(env.heap().alloc(bxl_ctx)).unwrap();
 
-        let result = eval_bxl(&env, &mut eval, &frozen_callable, bxl_ctx)?;
+        let result = eval_bxl(&mut eval, &frozen_callable, bxl_ctx.to_value())?;
+        env.set("", result);
 
-        let deferreds = DeferredTable::new(hashmap![]); // TODO(bobyf) T111902517 placeholder
+        let maybe_state = BxlContext::take_state(bxl_ctx);
 
-        anyhow::Ok(BxlResult::new(result, deferreds))
+        match maybe_state {
+            Some(registry) => {
+                // this bxl registered actions, so extract the deferreds from it
+                let (frozen, deferred) = registry.finalize(&env)(env)?;
+                let result = frozen.get("").unwrap();
+
+                let deferred_table = DeferredTable::new(deferred.take_result()?);
+
+                anyhow::Ok(BxlResult::new(result.value(), deferred_table))
+            }
+            None => {
+                // this bxl did not try to build anything, so we don't have any deferreds
+                anyhow::Ok(BxlResult::new(result, DeferredTable::new(hashmap! {})))
+            }
+        }
     })
     .await??
 }
 
 fn eval_bxl<'a>(
-    env: &'a Module,
     eval: &'a mut Evaluator<'a, '_>,
     frozen_callable: &'a FrozenBxlFunction,
-    bxl_ctx: BxlContext<'a>,
+    ctx: Value<'a>,
 ) -> anyhow::Result<Value<'a>> {
-    let ctx = env.heap().alloc(bxl_ctx);
     let bxl_impl = frozen_callable.get_impl();
     eval.eval_function(bxl_impl.to_value(), &[ctx], &[])
 }

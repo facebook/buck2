@@ -98,12 +98,12 @@ enum ContextError {
 /// Accessed via `ctx.actions.<function>`
 #[derive(AnyLifetime, Debug, Display, Trace, NoSerialize)]
 #[display(fmt = "{:?}", self)] // FIXME(ndmitchell): Better Display
-struct AnalysisActions<'v> {
+pub(crate) struct AnalysisActions<'v> {
     // Use a RefCell/Option so when we are done with it, without obtaining exclusive access,
     // we can take the internal state without having to clone it.
-    state: RefCell<Option<AnalysisRegistry<'v>>>,
+    pub(crate) state: RefCell<Option<AnalysisRegistry<'v>>>,
     // Copies from the ctx, so we can capture them for `dynamic`.
-    attributes: Value<'v>,
+    pub(crate) attributes: Value<'v>,
 }
 
 impl<'v> UnpackValue<'v> for &'v AnalysisActions<'v> {
@@ -117,7 +117,7 @@ impl<'v> UnpackValue<'v> for &'v AnalysisActions<'v> {
 }
 
 impl<'v> AnalysisActions<'v> {
-    fn state(&self) -> RefMut<AnalysisRegistry<'v>> {
+    pub fn state(&self) -> RefMut<AnalysisRegistry<'v>> {
         RefMut::map(self.state.borrow_mut(), |x| {
             x.as_mut().expect("state to be present during execution")
         })
