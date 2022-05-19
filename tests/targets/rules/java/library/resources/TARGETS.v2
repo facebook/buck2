@@ -60,3 +60,58 @@ native.genrule(
     cmd = "$(exe fbcode//buck2/tests/targets/rules/java/library:check_jar_resource) $(location :lib_with_no_resources_root) \"buck2/tests/targets/rules/java/library/resources/dir1/dir2/dir3/r1.txt\" \"buck2/tests/targets/rules/java/library/resources/dir1/dir2/dir3/r2.txt\" > $OUT",
     out = "out.txt",
 )
+
+native.java_library(
+    name = "lib_with_created_resources_and_resources_root",
+    resources = [
+        ":create_resource",
+    ],
+    resources_root = ".",
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+# Verify that a generated resource in the same package as the Java library that
+# packages and sets it's resources root to `.` installs the resource via it's
+# short path to the root of the JAR.
+native.genrule(
+    name = "check_created_resources_and_resources_root",
+    cmd = " ".join([
+        "$(exe fbcode//buck2/tests/targets/rules/java/library:check_jar_resource)",
+        "$(location :lib_with_created_resources_and_resources_root)",
+        "\"output.txt\"",
+        "> $OUT"
+    ]),
+    out = "out.txt",
+)
+
+native.genrule(
+    name = "create_resource_in_dir",
+    cmd = "mkdir -p `dirname $OUT` && echo 'Hello World' > $OUT",
+    out = "foo/output.txt",
+)
+
+native.java_library(
+    name = "lib_with_created_resources_and_resources_root_in_dir",
+    resources = [
+        ":create_resource_in_dir",
+    ],
+    resources_root = ".",
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+# Same as above test/check, but make sure this also works for resources in
+# subdirs.
+native.genrule(
+    name = "check_created_resources_and_resources_root_in_dir",
+    cmd = " ".join([
+        "$(exe fbcode//buck2/tests/targets/rules/java/library:check_jar_resource)",
+        "$(location :lib_with_created_resources_and_resources_root_in_dir)",
+        "\"foo/output.txt\"",
+        "> $OUT"
+    ]),
+    out = "out.txt",
+)

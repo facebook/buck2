@@ -242,26 +242,31 @@ def _get_resources_map(
         package: str.type,
         resources: ["artifact"],
         resources_root: [str.type, None]) -> {str.type: "artifact"}:
-    need_to_modify_resource_path = resources_root and resources_root not in ["", "."]
+    # As in v1, root the resource root via the current package.
+    if resources_root != None:
+        resources_root = paths.normalize(paths.join(package, resources_root))
 
     java_package_finder = _get_java_package_finder(java_toolchain)
 
     resources_to_copy = {}
     for resource in resources:
-        if resource.owner:
-            resource_name = java_package_finder(paths.join(resource.owner.package, resource.basename))
-            resources_to_copy[resource_name] = resource
-        elif need_to_modify_resource_path:
-            adjusted_path = paths.relativize(
-                resource.short_path,
+        # Create the full resource path.
+        full_resource = paths.join(
+            resource.owner.package if resource.owner else package,
+            resource.short_path,
+        )
+
+        # As in v1 (https://fburl.com/code/j2vwny56, https://fburl.com/code/9era0xpz),
+        # if this resource starts with the resource root, relativize and insert it as
+        # is.
+        if resources_root != None and paths.starts_with(full_resource, resources_root):
+            resource_name = paths.relativize(
+                full_resource,
                 resources_root,
             )
-            resources_to_copy[adjusted_path] = resource
-        elif resources_root != None:
-            resources_to_copy[resource.short_path] = resource
         else:
-            resource_name = java_package_finder(paths.join(package, resource.short_path))
-            resources_to_copy[resource_name] = resource
+            resource_name = java_package_finder(full_resource)
+        resources_to_copy[resource_name] = resource
     return resources_to_copy
 
 def _copy_resources(
