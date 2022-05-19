@@ -55,7 +55,7 @@ use tracing::info;
 use crate::daemon::{
     build::results::{
         build_report::BuildReportCollector, providers::ProvidersPrinter,
-        result_report::ResultReporter, BuildResultCollector,
+        result_report::ResultReporter, BuildOwner, BuildResultCollector,
     },
     common::{parse_patterns_from_cli_args, resolve_patterns, target_platform_from_client_context},
     server::ServerCommandContext,
@@ -169,7 +169,7 @@ pub async fn build(
     )
     .await?
     {
-        result_collectors.collect_result(&k, &v);
+        result_collectors.collect_result(&BuildOwner::Target(&k), &v);
         let mut outputs = v.outputs.into_iter().filter_map(|output| match output {
             Ok(output) => Some(output),
             _ => None,

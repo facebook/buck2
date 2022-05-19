@@ -9,17 +9,24 @@
 
 //! Processing and reporting the the results of the build
 
+use buck2_build_api::bxl::BxlFunctionLabel;
 use buck2_core::provider::ConfiguredProvidersLabel;
 
 use crate::daemon::build::BuildTargetResult;
 
+pub enum BuildOwner<'a> {
+    Target(&'a ConfiguredProvidersLabel),
+    #[allow(unused)] // temporary
+    Bxl(&'a BxlFunctionLabel),
+}
+
 /// Collects the results of the build and processes it
 pub(crate) trait BuildResultCollector: Send {
-    fn collect_result(&mut self, label: &ConfiguredProvidersLabel, result: &BuildTargetResult);
+    fn collect_result(&mut self, label: &BuildOwner, result: &BuildTargetResult);
 }
 
 impl BuildResultCollector for Vec<&mut dyn BuildResultCollector> {
-    fn collect_result(&mut self, label: &ConfiguredProvidersLabel, result: &BuildTargetResult) {
+    fn collect_result(&mut self, label: &BuildOwner, result: &BuildTargetResult) {
         for collector in self {
             collector.collect_result(label, result);
         }
@@ -31,7 +38,7 @@ pub mod result_report {
         actions::artifact::ArtifactFs,
         build::{BuildProviderType, ProviderArtifacts},
     };
-    use buck2_core::{provider::ConfiguredProvidersLabel, result::SharedError};
+    use buck2_core::{configuration::Configuration, result::SharedError};
     use cli_proto::{
         build_target::{build_output::BuildOutputProviders, BuildOutput},
         BuildTarget,
@@ -39,7 +46,10 @@ pub mod result_report {
     use gazebo::prelude::*;
     use indexmap::IndexMap;
 
-    use crate::daemon::build::{results::BuildResultCollector, BuildTargetResult};
+    use crate::daemon::build::{
+        results::{BuildOwner, BuildResultCollector},
+        BuildTargetResult,
+    };
 
     /// Simple container for multiple [`SharedError`]s
     pub struct SharedErrors {
@@ -67,7 +77,7 @@ pub mod result_report {
     }
 
     impl<'a> BuildResultCollector for ResultReporter<'a> {
-        fn collect_result(&mut self, label: &ConfiguredProvidersLabel, result: &BuildTargetResult) {
+        fn collect_result(&mut self, label: &BuildOwner, result: &BuildTargetResult) {
             let outputs = result
                 .outputs
                 .iter()
@@ -140,9 +150,17 @@ pub mod result_report {
                     Vec::new()
                 };
 
+                let (target, configuration) = match label {
+                    BuildOwner::Target(t) => (t.unconfigured().to_string(), t.cfg().to_string()),
+                    BuildOwner::Bxl(l) => {
+                        // for bxl, there's no configurations so we use the unspecified configuration
+                        (l.to_string(), Configuration::unspecified().to_string())
+                    }
+                };
+
                 r.push(BuildTarget {
-                    target: label.unconfigured().to_string(),
-                    configuration: label.cfg().to_string(),
+                    target,
+                    configuration,
                     run_args: result.run_args.clone().unwrap_or_default(),
                     outputs: artifacts,
                 })
@@ -154,23 +172,29 @@ pub mod result_report {
 pub mod build_report {
     use std::collections::HashMap;
 
-    use buck2_build_api::{actions::artifact::ArtifactFs, build::BuildProviderType};
+    use buck2_build_api::{
+        actions::artifact::ArtifactFs, build::BuildProviderType, bxl::BxlFunctionLabel,
+    };
     use buck2_core::{
         configuration::Configuration,
         fs::{
             paths::{AbsPath, AbsPathBuf},
             project::ProjectRelativePathBuf,
         },
-        provider::{ConfiguredProvidersLabel, ProvidersName},
+        provider::ProvidersName,
         target::TargetLabel,
     };
+    use derivative::Derivative;
     use events::TraceId;
     use gazebo::prelude::*;
     use indexmap::IndexSet;
     use itertools::Itertools;
     use serde::Serialize;
 
-    use crate::daemon::build::{results::BuildResultCollector, BuildTargetResult};
+    use crate::daemon::build::{
+        results::{BuildOwner, BuildResultCollector},
+        BuildTargetResult,
+    };
 
     #[derive(Debug, Serialize)]
     #[allow(clippy::upper_case_acronyms)] // We care about how they serialise
@@ -191,8 +215,8 @@ pub mod build_report {
     pub struct BuildReport {
         trace_id: TraceId,
         success: bool,
-        results: HashMap<TargetLabel, ConfiguredBuildReportEntry>,
-        failures: HashMap<TargetLabel, ProjectRelativePathBuf>,
+        results: HashMap<EntryLabel, ConfiguredBuildReportEntry>,
+        failures: HashMap<EntryLabel, ProjectRelativePathBuf>,
         project_root: AbsPathBuf,
         truncated: bool,
     }
@@ -220,10 +244,20 @@ pub mod build_report {
         configured: HashMap<Configuration, BuildReportEntry>,
     }
 
+    #[derive(Derivative, Serialize, Eq, PartialEq, Hash)]
+    #[derivative(Debug)]
+    #[serde(untagged)]
+    enum EntryLabel {
+        #[derivative(Debug = "transparent")]
+        Target(TargetLabel),
+        #[derivative(Debug = "transparent")]
+        Bxl(BxlFunctionLabel),
+    }
+
     pub(crate) struct BuildReportCollector<'a> {
         trace_id: &'a TraceId,
         artifact_fs: &'a ArtifactFs,
-        build_report_results: HashMap<TargetLabel, ConfiguredBuildReportEntry>,
+        build_report_results: HashMap<EntryLabel, ConfiguredBuildReportEntry>,
         overall_success: bool,
         project_root: &'a AbsPath,
         include_unconfigured_section: bool,
@@ -261,9 +295,7 @@ pub mod build_report {
     }
 
     impl<'a> BuildResultCollector for BuildReportCollector<'a> {
-        fn collect_result(&mut self, label: &ConfiguredProvidersLabel, result: &BuildTargetResult) {
-            let unconfigured_label = label.unconfigured();
-
+        fn collect_result(&mut self, label: &BuildOwner, result: &BuildTargetResult) {
             let (default_outs, other_outs, success) = {
                 let mut default_outs = IndexSet::new();
                 let mut other_outs = IndexSet::new();
@@ -313,7 +345,10 @@ pub mod build_report {
 
             let report_results = self
                 .build_report_results
-                .entry(unconfigured_label.target().dupe())
+                .entry(match label {
+                    BuildOwner::Target(t) => EntryLabel::Target(t.unconfigured().target().dupe()),
+                    BuildOwner::Bxl(l) => EntryLabel::Bxl((*l).clone()),
+                })
                 .or_insert_with(|| ConfiguredBuildReportEntry {
                     compatible: if self.include_unconfigured_section {
                         Some(BuildReportEntry::default())
@@ -326,31 +361,34 @@ pub mod build_report {
             let unconfigured_report = &mut report_results.compatible;
             let configured_report = report_results
                 .configured
-                .entry(label.cfg().dupe())
+                .entry(match label {
+                    BuildOwner::Target(t) => t.cfg().dupe(),
+                    BuildOwner::Bxl(_) => Configuration::unspecified(),
+                })
                 .or_insert_with(BuildReportEntry::default);
             if !default_outs.is_empty() {
                 if let Some(report) = unconfigured_report {
                     report.outputs.insert(
-                        report_providers_name(unconfigured_label.name()),
+                        report_providers_name(label),
                         default_outs.iter().cloned().collect(),
                     );
                 }
 
                 configured_report.outputs.insert(
-                    report_providers_name(label.name()),
+                    report_providers_name(label),
                     default_outs.into_iter().collect(),
                 );
             }
             if !other_outs.is_empty() {
                 if let Some(report) = unconfigured_report {
                     report.other_outputs.insert(
-                        report_providers_name(unconfigured_label.name()),
+                        report_providers_name(label),
                         other_outs.iter().cloned().collect(),
                     );
                 }
 
                 configured_report.other_outputs.insert(
-                    report_providers_name(label.name()),
+                    report_providers_name(label),
                     other_outs.into_iter().collect(),
                 );
             }
@@ -365,30 +403,30 @@ pub mod build_report {
         }
     }
 
-    fn report_providers_name(name: &ProvidersName) -> String {
-        match name {
-            ProvidersName::Default => "DEFAULT".to_owned(),
-            ProvidersName::Named(names) => names.iter().join("|"),
-            ProvidersName::UnrecognizedFlavor(f) => {
-                format!("#{}", f)
-            }
+    fn report_providers_name(label: &BuildOwner) -> String {
+        match label {
+            BuildOwner::Target(t) => match t.name() {
+                ProvidersName::Default => "DEFAULT".to_owned(),
+                ProvidersName::Named(names) => names.iter().join("|"),
+                ProvidersName::UnrecognizedFlavor(f) => {
+                    format!("#{}", f)
+                }
+            },
+            BuildOwner::Bxl(_) => "DEFAULT".to_owned(),
         }
     }
 }
 
 pub mod providers {
-    use buck2_core::provider::ConfiguredProvidersLabel;
-
-    use crate::daemon::build::{results::BuildResultCollector, BuildTargetResult};
+    use crate::daemon::build::{
+        results::{BuildOwner, BuildResultCollector},
+        BuildTargetResult,
+    };
 
     pub(crate) struct ProvidersPrinter;
 
     impl BuildResultCollector for ProvidersPrinter {
-        fn collect_result(
-            &mut self,
-            _label: &ConfiguredProvidersLabel,
-            result: &BuildTargetResult,
-        ) {
+        fn collect_result(&mut self, _label: &BuildOwner, result: &BuildTargetResult) {
             // TODO: should we print the label here?
             let providers = result.providers.provider_collection();
             for x in providers.provider_ids() {
