@@ -92,7 +92,10 @@ impl IrSpanned<CallCompiled> {
                     bc.write_instr::<InstrCallFrozenDefPos>(span, (fun, npops, file_span));
                 }
                 Either::Right(args) => {
-                    bc.write_instr::<InstrCallFrozenDef>(span, (fun, args, file_span));
+                    bc.write_instr::<InstrCallFrozenDef>(
+                        span,
+                        (fun, args.resolve(fun.as_ref()), file_span),
+                    );
                 }
             }
         } else if let Some(fun) = FrozenValueTyped::<NativeFunction>::new(fun) {

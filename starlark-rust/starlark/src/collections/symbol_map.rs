@@ -129,6 +129,10 @@ impl Symbol {
         }
     }
 
+    pub(crate) fn as_str_hashed(&self) -> BorrowHashed<str> {
+        BorrowHashed::new_unchecked(self.small_hash, self.as_str())
+    }
+
     pub fn small_hash(&self) -> StarlarkHashValue {
         self.small_hash
     }

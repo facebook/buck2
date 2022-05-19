@@ -22,10 +22,14 @@ use std::{
     fmt::{Display, Formatter},
 };
 
+use gazebo::prelude::*;
+
 use crate::{
+    collections::symbol_map::Symbol,
     eval::{
         bc::{instr_arg::BcInstrArg, stack_ptr::BcStackPtr},
-        runtime::arguments::{ArgSymbol, ArgumentsImpl},
+        compiler::def::FrozenDef,
+        runtime::arguments::{ArgSymbol, ArgumentsImpl, ResolvedArgName},
     },
     values::FrozenStringValue,
 };
@@ -55,6 +59,26 @@ impl<S: ArgSymbol> BcCallArgsFull<S> {
     fn pos(&self) -> u32 {
         assert!(self.pos_named as usize >= self.names.len());
         self.pos_named - (self.names.len() as u32)
+    }
+}
+
+impl BcCallArgsFull<Symbol> {
+    pub(crate) fn resolve(self, def: &FrozenDef) -> BcCallArgsFull<ResolvedArgName> {
+        let BcCallArgsFull {
+            pos_named,
+            names,
+            args,
+            kwargs,
+        } = self;
+        BcCallArgsFull {
+            pos_named,
+            names: names
+                .into_vec()
+                .into_map(|(name, value)| (def.resolve_arg_name(name.as_str_hashed()), value))
+                .into_boxed_slice(),
+            args,
+            kwargs,
+        }
     }
 }
 

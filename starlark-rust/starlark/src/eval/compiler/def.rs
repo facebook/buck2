@@ -36,7 +36,7 @@ use once_cell::sync::Lazy;
 use crate::{
     self as starlark,
     codemap::CodeMap,
-    collections::symbol_map::Symbol,
+    collections::BorrowHashed,
     const_frozen_string,
     environment::{FrozenModuleRef, Globals},
     eval::{
@@ -51,7 +51,7 @@ use crate::{
             Compiler, EvalException,
         },
         runtime::{
-            arguments::{ArgSymbol, ArgumentsImpl, ParametersSpec},
+            arguments::{ArgSymbol, ArgumentsImpl, ParametersSpec, ResolvedArgName},
             call_stack::FrozenFileSpan,
             evaluator::Evaluator,
             slots::LocalSlotId,
@@ -702,8 +702,7 @@ where
 
     pub(crate) fn invoke_with_resolved_arg_names(
         &self,
-        // TODO: this will be `ResolvedArgName`, not `Symbol` in the following diff.
-        args: &ArgumentsImpl<'v, '_, Symbol>,
+        args: &ArgumentsImpl<'v, '_, ResolvedArgName>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         // This is trivial function which delegates to `invoke_impl`.
@@ -768,6 +767,10 @@ where
         }
 
         Ok(ret)
+    }
+
+    pub(crate) fn resolve_arg_name(&self, name: BorrowHashed<str>) -> ResolvedArgName {
+        self.parameters.resolve_name(name)
     }
 
     pub(crate) fn dump_debug(&self) -> String {

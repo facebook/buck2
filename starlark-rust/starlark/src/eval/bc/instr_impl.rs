@@ -48,7 +48,7 @@ use crate::{
             stmt::{add_assign, before_stmt, bit_or_assign, possible_gc, AssignError},
             EvalException,
         },
-        runtime::{call_stack::FrozenFileSpan, slots::LocalSlotId},
+        runtime::{arguments::ResolvedArgName, call_stack::FrozenFileSpan, slots::LocalSlotId},
         Arguments, DefInfo, Evaluator, ParametersSpec,
     },
     private::Private,
@@ -1548,13 +1548,14 @@ pub(crate) struct InstrCallImpl<A: BcCallArgs<Symbol>>(marker::PhantomData<fn(A)
 pub(crate) struct InstrCallFrozenGenericImpl<F: BcFrozenCallable, A: BcCallArgs<Symbol>>(
     marker::PhantomData<(F, A)>,
 );
-pub(crate) struct InstrCallFrozenDefImpl<A: BcCallArgs<Symbol>>(marker::PhantomData<A>);
+pub(crate) struct InstrCallFrozenDefImpl<A: BcCallArgs<ResolvedArgName>>(marker::PhantomData<A>);
 pub(crate) struct InstrCallMethodImpl<A: BcCallArgs<Symbol>>(marker::PhantomData<A>);
 pub(crate) struct InstrCallMaybeKnownMethodImpl<A: BcCallArgs<Symbol>>(marker::PhantomData<A>);
 
 pub(crate) type InstrCall = InstrNoFlow<InstrCallImpl<BcCallArgsFull<Symbol>>>;
 pub(crate) type InstrCallPos = InstrNoFlow<InstrCallImpl<BcCallArgsPos>>;
-pub(crate) type InstrCallFrozenDef = InstrNoFlow<InstrCallFrozenDefImpl<BcCallArgsFull<Symbol>>>;
+pub(crate) type InstrCallFrozenDef =
+    InstrNoFlow<InstrCallFrozenDefImpl<BcCallArgsFull<ResolvedArgName>>>;
 pub(crate) type InstrCallFrozenDefPos = InstrNoFlow<InstrCallFrozenDefImpl<BcCallArgsPos>>;
 pub(crate) type InstrCallFrozenNative = InstrNoFlow<
     InstrCallFrozenGenericImpl<FrozenValueTyped<'static, NativeFunction>, BcCallArgsFull<Symbol>>,
@@ -1612,7 +1613,7 @@ impl<F: BcFrozenCallable, A: BcCallArgs<Symbol>> InstrNoFlowImpl
     }
 }
 
-impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallFrozenDefImpl<A> {
+impl<A: BcCallArgs<ResolvedArgName>> InstrNoFlowImpl for InstrCallFrozenDefImpl<A> {
     type Pop<'v> = ();
     type Push<'v> = Value<'v>;
     type Arg = (
