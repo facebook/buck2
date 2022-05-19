@@ -33,6 +33,38 @@ def _two(ctx: "context") -> ["provider"]:
         sub_targets = sub_targets,
     )]
 
+# Nested dynamic outputs
+def _nested(ctx: "context") -> ["provider"]:
+    input = ctx.actions.write("input", "test")
+    symlinked_dir = ctx.actions.declare_output("output1_symlinked_dir")
+
+    # @lint-ignore BUCKRESTRICTEDSYNTAX
+    def f(ctx: "context"):
+        src = ctx.artifacts[input].read_string()
+        output1 = ctx.actions.declare_output("output1")
+        output2 = ctx.actions.declare_output("output2")
+        ctx.actions.write(output1, "output1_" + src)
+        ctx.actions.write(output2, "output2_" + src)
+        symlink_tree = {
+            "output1": output1,
+            "output2": output2,
+        }
+        nested_output = ctx.actions.declare_output("nested_output")
+
+        # @lint-ignore BUCKRESTRICTEDSYNTAX
+        def f2(ctx: "context"):
+            nested_src1 = ctx.artifacts[output1].read_string()
+            nested_src2 = ctx.artifacts[output2].read_string()
+            ctx.actions.write(ctx.outputs[nested_output], [nested_src1, nested_src2])
+
+        ctx.actions.dynamic_output([output1, output2], [], [nested_output], f2)
+
+        symlink_tree["nested_output"] = nested_output
+        ctx.actions.symlinked_dir(ctx.outputs[symlinked_dir], symlink_tree)
+
+    ctx.actions.dynamic_output([input], [], [symlinked_dir], f)
+    return [DefaultInfo(default_outputs = [symlinked_dir])]
+
 # Produce two output files, using a command
 def _command(ctx: "context") -> ["provider"]:
     hello = ctx.actions.declare_output("hello.txt")
@@ -120,6 +152,8 @@ def _impl(ctx: "context") -> ["provider"]:
         return _create(ctx)
     elif ctx.label.name == "create_duplicate":
         return _create_duplicate(ctx)
+    elif ctx.label.name == "nested":
+        return _nested(ctx)
     else:
         fail("Unknown test: " + ctx.label.name)
 

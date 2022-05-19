@@ -5,6 +5,7 @@ dynamic_test(name = "two")
 dynamic_test(name = "command")
 dynamic_test(name = "create")
 dynamic_test(name = "create_duplicate")
+dynamic_test(name = "nested")
 
 assert_output_value(
     name = "basic_check",
@@ -40,4 +41,10 @@ assert_output_value(
     name = "create_duplicate_check",
     dep = ":create_duplicate",
     value = "42",
+)
+
+native.genrule(
+    name = "nested_check",
+    cmd = "cat $(location :nested)/nested_output | grep 'output1_test\noutput2_test' && touch $OUT",
+    out = "out.txt",
 )
