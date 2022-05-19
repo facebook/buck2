@@ -414,22 +414,25 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
     /// A variant of collect that is always inlined
     /// for Def and NativeFunction that are hot-spots
     #[inline(always)]
-    pub(crate) fn collect_inline<S: ArgSymbol>(
+    pub(crate) fn collect_inline<'a, A: ArgumentsImpl<'v, 'a>>(
         &self,
-        args: &ArgumentsFull<'v, '_, S>,
+        args: &A,
         slots: &[Cell<Option<Value<'v>>>],
         heap: &'v Heap,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<()>
+    where
+        'v: 'a,
+    {
         // If the arguments equal the length and the kinds, and we don't have any other args,
         // then no_args, *args and **kwargs must all be unset,
         // and we don't have to crate args/kwargs objects, we can skip everything else
-        if args.pos.len() == self.positional
-            && args.pos.len() == self.kinds.len()
-            && args.named.is_empty()
-            && args.args.is_none()
-            && args.kwargs.is_none()
+        if args.pos().len() == self.positional
+            && args.pos().len() == self.kinds.len()
+            && args.named().is_empty()
+            && args.args().is_none()
+            && args.kwargs().is_none()
         {
-            for (v, s) in args.pos.iter().zip(slots.iter()) {
+            for (v, s) in args.pos().iter().zip(slots.iter()) {
                 s.set(Some(*v));
             }
 
@@ -439,12 +442,15 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         self.collect_slow(args, slots, heap)
     }
 
-    fn collect_slow<S: ArgSymbol>(
+    fn collect_slow<'a, A: ArgumentsImpl<'v, 'a>>(
         &self,
-        args: &ArgumentsFull<'v, '_, S>,
+        args: &A,
         slots: &[Cell<Option<Value<'v>>>],
         heap: &'v Heap,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<()>
+    where
+        'v: 'a,
+    {
         /// Lazily initialized `kwargs` object.
         #[derive(Default)]
         struct LazyKwargs<'v> {
@@ -484,14 +490,14 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         let mut next_position = 0;
 
         // First deal with positional parameters
-        if args.pos.len() <= self.positional {
+        if args.pos().len() <= self.positional {
             // fast path for when we don't need to bounce down to filling in args
-            for (v, s) in args.pos.iter().zip(slots.iter()) {
+            for (v, s) in args.pos().iter().zip(slots.iter()) {
                 s.set(Some(*v));
             }
-            next_position = args.pos.len();
+            next_position = args.pos().len();
         } else {
-            for v in args.pos {
+            for v in args.pos() {
                 if next_position < self.positional {
                     slots[next_position].set(Some(*v));
                     next_position += 1;
@@ -507,8 +513,8 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         // So no duplicate checking until after all positional arguments
         let mut lowest_name = usize::MAX;
         // Avoid a lot of loop setup etc in the common case
-        if !args.names.is_empty() {
-            for ((name, name_value), v) in args.names.iter().zip(args.named) {
+        if !args.names().is_empty() {
+            for ((name, name_value), v) in args.names().iter().zip(args.named()) {
                 // Safe to use new_unchecked because hash for the Value and str are the same
                 match name.get_index_from_param_spec(self) {
                     None => {
@@ -523,7 +529,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         }
 
         // Next up are the *args parameters
-        if let Some(param_args) = args.args {
+        if let Some(param_args) = args.args() {
             param_args
                 .with_iterator(heap, |it| {
                     for v in it {
@@ -547,7 +553,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         }
 
         // Now insert the kwargs, if there are any
-        if let Some(param_kwargs) = args.kwargs {
+        if let Some(param_kwargs) = args.kwargs() {
             match Dict::from_value(param_kwargs) {
                 Some(y) => {
                     for (k, v) in y.iter_hashed() {
@@ -816,6 +822,8 @@ pub(crate) struct ArgNames<'a, 'v, S: ArgSymbol> {
     names: &'a [(S, StringValue<'v>)],
 }
 
+impl<'a, 'v, S: ArgSymbol> Copy for ArgNames<'a, 'v, S> {}
+
 impl<'a, 'v, S: ArgSymbol> ArgNames<'a, 'v, S> {
     /// Names are allowed to be not-unique.
     /// String in `Symbol` must be equal to the `StringValue`,
@@ -841,6 +849,16 @@ impl<'a, 'v, S: ArgSymbol> ArgNames<'a, 'v, S> {
     }
 }
 
+/// Either full arguments, or short arguments for positional-only calls.
+pub(crate) trait ArgumentsImpl<'v, 'a> {
+    type ArgSymbol: ArgSymbol;
+    fn pos(&self) -> &[Value<'v>];
+    fn named(&self) -> &[Value<'v>];
+    fn names(&self) -> ArgNames<'a, 'v, Self::ArgSymbol>;
+    fn args(&self) -> Option<Value<'v>>;
+    fn kwargs(&self) -> Option<Value<'v>>;
+}
+
 /// Arguments object is passed from the starlark interpreter to function implementation
 /// when evaluation function or method calls.
 #[derive(Default_, Clone_, Dupe_)]
@@ -857,6 +875,35 @@ pub(crate) struct ArgumentsFull<'v, 'a, S: ArgSymbol> {
     pub(crate) args: Option<Value<'v>>,
     /// `**kwargs` argument.
     pub(crate) kwargs: Option<Value<'v>>,
+}
+
+impl<'v, 'a, S: ArgSymbol> ArgumentsImpl<'v, 'a> for ArgumentsFull<'v, 'a, S> {
+    type ArgSymbol = S;
+
+    #[inline]
+    fn pos(&self) -> &[Value<'v>] {
+        self.pos
+    }
+
+    #[inline]
+    fn named(&self) -> &[Value<'v>] {
+        self.named
+    }
+
+    #[inline]
+    fn names(&self) -> ArgNames<'a, 'v, S> {
+        self.names
+    }
+
+    #[inline]
+    fn args(&self) -> Option<Value<'v>> {
+        self.args
+    }
+
+    #[inline]
+    fn kwargs(&self) -> Option<Value<'v>> {
+        self.kwargs
+    }
 }
 
 /// Arguments object is passed from the starlark interpreter to function implementation

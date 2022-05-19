@@ -51,7 +51,7 @@ use crate::{
             Compiler, EvalException,
         },
         runtime::{
-            arguments::{ArgSymbol, ArgumentsFull, ParametersSpec, ResolvedArgName},
+            arguments::{ArgumentsImpl, ParametersSpec, ResolvedArgName},
             call_stack::FrozenFileSpan,
             evaluator::Evaluator,
             slots::LocalSlotId,
@@ -687,11 +687,14 @@ where
     }
 
     #[inline(always)]
-    fn invoke_impl<S: ArgSymbol>(
+    fn invoke_impl<'a, A: ArgumentsImpl<'v, 'a>>(
         &self,
-        args: &ArgumentsFull<'v, '_, S>,
+        args: &A,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<Value<'v>>
+    where
+        'v: 'a,
+    {
         let bc = self.bc();
         alloca_frame(eval, bc.local_count, bc.max_stack_size, |eval| {
             let slots = eval.current_frame.locals();
@@ -700,11 +703,14 @@ where
         })
     }
 
-    pub(crate) fn invoke_with_resolved_arg_names(
+    pub(crate) fn invoke_with_args<'a, A: ArgumentsImpl<'v, 'a>>(
         &self,
-        args: &ArgumentsFull<'v, '_, ResolvedArgName>,
+        args: &A,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<Value<'v>>
+    where
+        'v: 'a,
+    {
         // This is trivial function which delegates to `invoke_impl`.
         // `invoke_impl` is called from two places,
         // giving this function different name makes this function easier to see in profiler.

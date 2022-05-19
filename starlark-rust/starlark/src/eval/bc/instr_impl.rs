@@ -1632,8 +1632,7 @@ impl<A: BcCallArgs<ResolvedArgName>> InstrNoFlowImpl for InstrCallFrozenDefImpl<
     ) -> Result<Value<'v>, anyhow::Error> {
         let arguments = args.pop_from_stack(stack);
         eval.with_call_stack(fun.to_value(), Some(*span), |eval| {
-            fun.as_ref()
-                .invoke_with_resolved_arg_names(&arguments, eval)
+            fun.as_ref().invoke_with_args(&arguments, eval)
         })
     }
 }
