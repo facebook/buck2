@@ -84,8 +84,16 @@ impl<'a> BuckdLifecycle<'a> {
         }
 
         cmd.current_dir(project_dir);
-        cmd.stdout(std::process::Stdio::piped());
-        cmd.stderr(std::process::Stdio::piped());
+
+        if cfg!(windows) {
+            // On Rustc 1.61, reading piped stdout hangs in this case.
+            // Possibly related to https://github.com/rust-lang/rust/issues/45572
+            cmd.stdout(std::process::Stdio::null());
+            cmd.stderr(std::process::Stdio::null());
+        } else {
+            cmd.stdout(std::process::Stdio::piped());
+            cmd.stderr(std::process::Stdio::piped());
+        }
 
         #[cfg(unix)]
         {
@@ -101,29 +109,19 @@ impl<'a> BuckdLifecycle<'a> {
             cmd.arg0(title);
         }
 
-        #[cfg(windows)]
-        {
-            use std::os::windows::process::CommandExt;
-            cmd.creation_flags(winapi::um::winbase::DETACHED_PROCESS);
-            cmd.arg("--dont-daemonize");
-        }
-
         let mut child = cmd.spawn()?;
 
-        let status_code = match child
-            .wait_timeout(Duration::from_secs(
-                env::var("BUCKD_STARTUP_TIMEOUT").map_or(10, |t| {
-                    t.parse::<u64>()
-                        .unwrap_or_else(|_| panic!("Cannot convert {} to int", t))
-                }),
-            ))
-            .unwrap()
-        {
+        let status_code = match child.wait_timeout(Duration::from_secs(
+            env::var("BUCKD_STARTUP_TIMEOUT").map_or(10, |t| {
+                t.parse::<u64>()
+                    .unwrap_or_else(|_| panic!("Cannot convert {} to int", t))
+            }),
+        ))? {
             Some(status) => status.code(),
             None => {
                 // child hasn't exited yet. this shouldn't ever happen, if it does, maybe the timeout needs to be changed.
-                child.kill().unwrap();
-                child.wait().unwrap().code()
+                child.kill()?;
+                child.wait()?.code()
             }
         };
 

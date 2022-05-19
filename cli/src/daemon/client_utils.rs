@@ -21,7 +21,7 @@ use thiserror::Error;
 use tonic::transport::{Channel, Endpoint};
 
 pub static UDS_FILENAME: &str = "buckd.uds";
-pub static SOCKET_ADDR: &str = "0.0.0.0";
+pub static SOCKET_ADDR: &str = "127.0.0.1";
 
 pub struct WithCurrentDirectory {
     current_dir: Box<PathBuf>,

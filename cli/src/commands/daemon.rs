@@ -11,7 +11,7 @@
 use std::os::unix::io::AsRawFd;
 #[cfg(windows)]
 use std::os::windows::io::AsRawHandle;
-use std::{fs::File, path::Path, process, time::Duration};
+use std::{fs::File, io::Write, path::Path, process, time::Duration};
 
 use anyhow::Context as _;
 use buck2_common::memory;
@@ -243,10 +243,13 @@ impl DaemonCommand {
         let daemon_dir = ctx.paths()?.daemon_dir()?;
         let stdout_path = daemon_dir.join("buckd.stdout");
         let stderr_path = daemon_dir.join("buckd.stderr");
+        let pid_path = daemon_dir.join("buckd.pid");
         let stdout = File::create(stdout_path)?;
         let stderr = File::create(stderr_path)?;
 
         if self.dont_daemonize {
+            let mut pid_file = File::create(pid_path)?;
+            write!(pid_file, "{}", std::process::id())?;
             std::env::set_current_dir(project_root)?;
             self.redirect_output(stdout, stderr)?;
         } else {
@@ -255,7 +258,7 @@ impl DaemonCommand {
                 // TODO(cjhopman): Daemonize is pretty un-maintained. We may need to move
                 // to something else or just do it ourselves.
                 let daemonize = Daemonize::new()
-                    .pid_file(daemon_dir.join("buckd.pid"))
+                    .pid_file(pid_path)
                     .chown_pid_file(true)
                     .working_directory(project_root)
                     // This umask corresponds to a default of `rwxr-xr-x` (which is the default on Linux).
@@ -268,9 +271,16 @@ impl DaemonCommand {
             }
             #[cfg(windows)]
             {
-                return Err(anyhow::Error::msg(
-                    "Windows doesn't support daemonization, run with --dont-daemonize",
-                ));
+                use std::os::windows::process::CommandExt;
+                // Restart current process in detached mode with '--dont-daemonize' flag.
+                let mut cmd = std::process::Command::new(
+                    std::env::current_exe().expect("somehow couldn't get current exe"),
+                );
+                cmd.creation_flags(winapi::um::winbase::DETACHED_PROCESS);
+                cmd.args(std::env::args().skip(1));
+                cmd.arg("--dont-daemonize");
+                cmd.spawn()?;
+                return Ok(());
             }
         }
 
