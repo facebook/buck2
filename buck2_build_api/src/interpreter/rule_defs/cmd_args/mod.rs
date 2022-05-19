@@ -59,8 +59,10 @@ use crate::{
 mod builder;
 #[cfg(test)]
 mod test;
+mod traits;
 
 pub use builder::*;
+pub use traits::*;
 
 /// A tiny wrapper around `Value`/`FrozenValue` that proxies `CommandLineArgLike` calls.
 ///

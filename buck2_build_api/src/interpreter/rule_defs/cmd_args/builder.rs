@@ -7,137 +7,19 @@
  * of this source tree.
  */
 
-use std::{fmt::Debug, path::Path};
+use std::fmt::Debug;
 
-use anyhow::{anyhow, Context as _};
-use buck2_core::{
-    cells::paths::CellPath,
-    fs::{paths::RelativePathBuf, project::ProjectRelativePathBuf},
-};
+use anyhow::anyhow;
+use buck2_core::fs::{paths::RelativePathBuf, project::ProjectRelativePathBuf};
 use indexmap::IndexSet;
-use starlark::values::string::StarlarkStr;
 use thiserror::Error;
 
 use crate::{
-    actions::artifact::{Artifact, ArtifactFs, OutputArtifact},
-    artifact_groups::ArtifactGroup,
-    attrs::attr_type::arg::value::ResolvedMacro,
-    interpreter::rule_defs::artifact_tagging::ArtifactTag,
+    actions::artifact::{Artifact, ArtifactFs},
+    interpreter::rule_defs::cmd_args::traits::{
+        CommandLineBuilder, CommandLineBuilderContext, CommandLineLocation,
+    },
 };
-
-pub trait CommandLineArtifactVisitor {
-    fn visit_input(&mut self, input: ArtifactGroup, tag: Option<&ArtifactTag>);
-
-    fn visit_output(&mut self, artifact: OutputArtifact, tag: Option<&ArtifactTag>);
-}
-
-/// A CommandLineArtifactVisitor that gathers inputs and outputs.
-pub struct SimpleCommandLineArtifactVisitor {
-    pub inputs: IndexSet<ArtifactGroup>,
-    pub outputs: IndexSet<OutputArtifact>,
-}
-
-impl SimpleCommandLineArtifactVisitor {
-    pub fn new() -> Self {
-        Self {
-            inputs: IndexSet::new(),
-            outputs: IndexSet::new(),
-        }
-    }
-}
-
-impl CommandLineArtifactVisitor for SimpleCommandLineArtifactVisitor {
-    fn visit_input(&mut self, input: ArtifactGroup, _tag: Option<&ArtifactTag>) {
-        self.inputs.insert(input);
-    }
-
-    fn visit_output(&mut self, artifact: OutputArtifact, _tag: Option<&ArtifactTag>) {
-        self.outputs.insert(artifact);
-    }
-}
-
-pub trait WriteToFileMacroVisitor {
-    fn visit_write_to_file_macro(&mut self, m: &ResolvedMacro) -> anyhow::Result<()>;
-
-    /// Generator produces a 'RelativePathBuf' relative to the directory which owning command will run in.
-    fn set_current_relative_to_path(
-        &mut self,
-        gen: &dyn Fn(&dyn CommandLineBuilderContext) -> anyhow::Result<Option<RelativePathBuf>>,
-    ) -> anyhow::Result<()>;
-}
-
-/// Implemented by anything that can show up in a command line. This method adds any args and env vars that are needed
-///
-/// Certain operations on `CommandLineBuilder` can fail, so propagate those upward
-pub trait CommandLineArgLike {
-    fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()>;
-
-    fn visit_artifacts(&self, _visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    /// Allows to query if object contains a value resolved from `attr.arg()`
-    fn contains_arg_attr(&self) -> bool;
-
-    fn visit_write_to_file_macros(
-        &self,
-        visitor: &mut dyn WriteToFileMacroVisitor,
-    ) -> anyhow::Result<()>;
-}
-
-impl CommandLineArgLike for &str {
-    fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
-        cli.add_arg_string((*self).to_owned());
-        Ok(())
-    }
-
-    fn contains_arg_attr(&self) -> bool {
-        false
-    }
-
-    fn visit_write_to_file_macros(
-        &self,
-        _visitor: &mut dyn WriteToFileMacroVisitor,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-}
-
-impl CommandLineArgLike for StarlarkStr {
-    fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
-        cli.add_arg_string(self.as_str().to_owned());
-        Ok(())
-    }
-
-    fn contains_arg_attr(&self) -> bool {
-        false
-    }
-
-    fn visit_write_to_file_macros(
-        &self,
-        _visitor: &mut dyn WriteToFileMacroVisitor,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-}
-
-impl CommandLineArgLike for String {
-    fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
-        cli.add_arg_string(self.clone());
-        Ok(())
-    }
-
-    fn contains_arg_attr(&self) -> bool {
-        false
-    }
-
-    fn visit_write_to_file_macros(
-        &self,
-        _visitor: &mut dyn WriteToFileMacroVisitor,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-}
 
 #[derive(Error, Debug)]
 pub enum CommandLineBuilderErrors {
@@ -149,34 +31,6 @@ pub enum CommandLineBuilderErrors {
         "Number of write-to-file macro artifacts during analysis time should be consistent with when the command line is formed."
     )]
     InconsistentNumberOfMacroArtifacts,
-}
-
-pub trait CommandLineBuilderContext {
-    fn resolve_project_path(
-        &self,
-        path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<CommandLineLocation>;
-
-    fn fs(&self) -> &ArtifactFs;
-
-    /// Resolves the 'Artifact's to a 'CommandLineLocation' relative to the directory this command will run in.
-    fn resolve_artifact(&self, artifact: &Artifact) -> anyhow::Result<CommandLineLocation> {
-        self.resolve_project_path(self.fs().resolve(artifact)?)
-            .with_context(|| format!("Error resolving artifact: {}", artifact))
-    }
-
-    fn resolve_cell_path(&self, path: &CellPath) -> anyhow::Result<CommandLineLocation> {
-        self.resolve_project_path(self.fs().resolve_cell_path(path)?)
-            .with_context(|| format!("Error resolving cell path: {}", path))
-    }
-
-    /// Result is 'RelativePathBuf' relative to the directory this command will run in. The path points to the file containing expanded macro.
-    fn next_macro_file_path(&mut self) -> anyhow::Result<RelativePathBuf>;
-}
-
-pub trait CommandLineBuilder: CommandLineBuilderContext {
-    /// Add the string representation to the list of command line arguments.
-    fn add_arg_string(&mut self, s: String);
 }
 
 /// Builds up arguments needed to construct a command line
@@ -276,10 +130,10 @@ impl CommandLineBuilderContext for AbsCommandLineBuilder<'_> {
         &self,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<CommandLineLocation> {
-        Ok(CommandLineLocation {
-            root: Some(&self.0.fs().fs().root),
-            path: path.into(),
-        })
+        Ok(CommandLineLocation::from_root(
+            &self.0.fs().fs().root,
+            path.into(),
+        ))
     }
 
     fn fs(&self) -> &ArtifactFs {
@@ -300,44 +154,6 @@ impl CommandLineBuilder for AbsCommandLineBuilder<'_> {
     }
 }
 
-/// CommandLineLocation represents the path to a resolved artifact. If the root is present, the
-/// path is udnerstood to be relative to the root. If no root is present, the path is relative to
-/// some contextual location that depends on the CommandLineBuilderContext that produced the
-/// CommandLineLocation.
-#[derive(Debug, Clone)]
-pub struct CommandLineLocation<'a> {
-    root: Option<&'a Path>,
-    path: RelativePathBuf,
-}
-
-impl CommandLineLocation<'_> {
-    pub fn into_relative(self) -> RelativePathBuf {
-        self.path
-    }
-
-    pub fn into_string(self) -> String {
-        let Self { root, path } = self;
-
-        let res = match root {
-            Some(root) => {
-                let mut root = root.to_path_buf();
-                root.extend(path.iter());
-                root.to_string_lossy().into_owned()
-            }
-            None => path.as_str().to_owned(),
-        };
-        // In command lines, the empty path is the current directory, so use that instead
-        // so we don't have to deal with empty strings being implicit current directory.
-        if res == "" { ".".to_owned() } else { res }
-    }
-}
-
-impl CommandLineLocation<'static> {
-    pub fn from_relative_path(path: RelativePathBuf) -> Self {
-        Self { root: None, path }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::convert::TryFrom;
@@ -353,7 +169,9 @@ mod tests {
     use super::*;
     use crate::{
         actions::artifact::ArtifactFs,
-        interpreter::rule_defs::cmd_args::builder::{BaseCommandLineBuilder, CommandLineArgLike},
+        interpreter::rule_defs::cmd_args::{
+            builder::BaseCommandLineBuilder, traits::CommandLineArgLike,
+        },
         path::{BuckOutPathResolver, BuckPathResolver},
     };
 
