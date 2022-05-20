@@ -113,19 +113,11 @@ async def test_apple(buck: Buck) -> None:
     # `--fake-host` args, `build.enable_local_mac_execution` and `xplat.available_platforms` overrides.
     await buck.build(
         "fbsource//fbobjc/buck2/tests/...",
-        "--fake-host",
-        "macos",
-        "-c",
-        "build.enable_local_mac_execution=false",
         "-c",
         "apple.codesign_type_override=skip",
     )
     await buck.build(
         "fbsource//fbobjc/buck2/samples/...",
-        "--fake-host",
-        "macos",
-        "-c",
-        "build.enable_local_mac_execution=false",
         "-c",
         "xplat.available_platforms=APPLE,CXX",
         "-c",
