@@ -117,16 +117,30 @@ def generate_rustdoc(
         [["--env", k, v] for k, v in plain_env.items()],
         [["--path-env", k, v] for k, v in path_env.items()],
         toolchain_info.rustdoc,
-        # TODO it seems we need to generate a long list of
-        # crate=https://www.internalfb.com/intern/rustdoc/...
-        # and pass those to --extern-html-root-url to get
-        # cross-crate hyperlinks. below is just a hardcoded demo
-        "--extern-html-root-url",
-        "fbinit=https://www.internalfb.com/intern/rustdoc/common/rust/shed/fbinit:fbinit/",
         "-o",
         output.as_output(),
         common_args.args,
     )
+
+    url_prefix = toolchain_info.extern_html_root_url_prefix
+    for rust_dependency in resolve_deps(ctx):
+        dep = rust_dependency.dep
+        if dep.label.cell != ctx.label.cell:
+            # TODO: support a different extern_html_root_url_prefix per cell
+            continue
+
+        if rust_dependency.name:
+            name = normalize_crate(rust_dependency.name)
+        else:
+            info = dep[RustLinkInfo]
+            if info == None:
+                continue
+            name = info.crate
+
+        rustdoc_cmd.add(
+            "--extern-html-root-url",
+            "{}={}/{}:{}".format(name, url_prefix, dep.label.package, dep.label.name),
+        )
 
     rustdoc_cmd.hidden(toolchain_info.rustdoc, compile_ctx.symlinked_srcs)
 
