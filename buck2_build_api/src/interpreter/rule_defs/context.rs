@@ -426,8 +426,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         this: &AnalysisActions,
         output: Value<'v>,
         content: Value<'v>,
-        is_executable @ false: bool,
-        allow_args @ false: bool,
+        #[starlark(default = false)] is_executable: bool,
+        #[starlark(default = false)] allow_args: bool,
     ) -> anyhow::Result<Value<'v>> {
         fn count_write_to_file_macros(
             args_allowed: bool,
@@ -574,15 +574,15 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         this: &AnalysisActions,
         arguments: Value<'v>,
         category: String,
-        identifier @ NoneOr::None: NoneOr<String>,
+        #[starlark(default = NoneOr::None)] identifier: NoneOr<String>,
         env: Option<ValueOf<SmallMap<&str, Value<'v>>>>,
-        local_only @ false: bool,
-        always_print_stderr @ false: bool,
-        weight @ 1: i32,
+        #[starlark(default = false)] local_only: bool,
+        #[starlark(default = false)] always_print_stderr: bool,
+        #[starlark(default = 1)] weight: i32,
         dep_files: Option<ValueOf<SmallMap<&str, Value<'v>>>>,
         metadata_env_var: Option<String>,
         metadata_path: Option<String>,
-        no_outputs_cleanup @ false: bool,
+        #[starlark(default = false)] no_outputs_cleanup: bool,
     ) -> anyhow::Result<NoneType> {
         struct RunCommandArtifactVisitor {
             inner: SimpleCommandLineArtifactVisitor,
@@ -723,10 +723,10 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         this: &AnalysisActions,
         url: &str,
         output: Value<'v>,
-        sha1 @ NoneOr::None: NoneOr<&str>,
-        sha256 @ NoneOr::None: NoneOr<&str>,
-        is_executable @ false: bool,
-        is_deferrable @ false: bool,
+        #[starlark(default = NoneOr::None)] sha1: NoneOr<&str>,
+        #[starlark(default = NoneOr::None)] sha256: NoneOr<&str>,
+        #[starlark(default = false)] is_executable: bool,
+        #[starlark(default = false)] is_deferrable: bool,
     ) -> anyhow::Result<Value<'v>> {
         let mut this = this.state();
         let (output_value, output_artifact) = this.get_or_declare_output(eval, output, "output")?;

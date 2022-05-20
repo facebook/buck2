@@ -37,7 +37,7 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
         include: Vec<String>,
         excludes: Option<Vec<String>>,
         exclude: Option<Vec<String>>,
-        include_dotfiles @ false: bool,
+        #[starlark(default = false)] include_dotfiles: bool,
     ) -> anyhow::Result<Value<'v>> {
         let extra = BuildContext::from_context(eval)?;
         let excludes = excludes.or(exclude).unwrap_or_default();

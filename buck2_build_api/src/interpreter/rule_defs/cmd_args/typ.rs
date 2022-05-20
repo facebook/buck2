@@ -957,7 +957,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     fn relative_to<'v>(
         this: Value<'v>,
         directory: Value<'v>,
-        parent @ 0i32: i32,
+        #[starlark(default = 0i32)] parent: i32,
     ) -> anyhow::Result<Value<'v>> {
         if RelativeOrigin::from_value(directory).is_none() {
             return Err(ValueError::IncorrectParameterTypeNamed("directory".to_owned()).into());
@@ -982,7 +982,10 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     /// For all the artifacts listed in this `cmd_args`, use their parent directory.
     /// Typically used when the file name is passed one way, and the directory another,
     /// e.g. `cmd_args(artifact, format="-L{}").parent()`.
-    fn parent<'v>(this: Value<'v>, ref count @ 1i32: i32) -> anyhow::Result<Value<'v>> {
+    fn parent<'v>(
+        this: Value<'v>,
+        #[starlark(default = 1i32)] ref count: i32,
+    ) -> anyhow::Result<Value<'v>> {
         if count < 0 {
             return Err(ValueError::IncorrectParameterTypeNamed("count".to_owned()).into());
         }

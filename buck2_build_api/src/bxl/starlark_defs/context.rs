@@ -200,7 +200,7 @@ fn register_context(builder: &mut MethodsBuilder) {
     fn cquery<'v>(
         this: &BxlContext,
         // TODO(brasselsprouts): I would like to strongly type this.
-        global_target_platform @ NoneType: Value,
+        #[starlark(default = NoneType)] global_target_platform: Value,
     ) -> anyhow::Result<StarlarkCQueryCtx<'v>> {
         this.async_ctx
             .via(|| StarlarkCQueryCtx::new(this, global_target_platform))
@@ -214,8 +214,8 @@ fn register_context(builder: &mut MethodsBuilder) {
     fn analysis<'v>(
         this: &BxlContext,
         labels: Value<'v>,
-        global_target_platform @ NoneType: Value<'v>,
-        skip_incompatible @ true: bool,
+        #[starlark(default = NoneType)] global_target_platform: Value<'v>,
+        #[starlark(default = true)] skip_incompatible: bool,
     ) -> anyhow::Result<Vec<StarlarkAnalysisResult>> {
         let providers = ProvidersExpr::unpack(labels, global_target_platform, this, eval)?;
 
@@ -229,7 +229,7 @@ fn register_context(builder: &mut MethodsBuilder) {
     fn build<'v>(
         this: &BxlContext,
         spec: Value<'v>,
-        target_platform @ NoneType: Value<'v>,
+        #[starlark(default = NoneType)] target_platform: Value<'v>,
     ) -> anyhow::Result<Value<'v>> {
         Ok(eval
             .heap()

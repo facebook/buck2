@@ -274,11 +274,11 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(type = "ExternalRunnerTestInfo")]
     fn ExternalRunnerTestInfo<'v>(
         r#type: Value<'v>,
-        command @ NoneType: Value<'v>,
-        env @ NoneType: Value<'v>,
-        labels @ NoneType: Value<'v>,
-        contacts @ NoneType: Value<'v>,
-        use_templated_api @ NoneType: Value<'v>,
+        #[starlark(default = NoneType)] command: Value<'v>,
+        #[starlark(default = NoneType)] env: Value<'v>,
+        #[starlark(default = NoneType)] labels: Value<'v>,
+        #[starlark(default = NoneType)] contacts: Value<'v>,
+        #[starlark(default = NoneType)] use_templated_api: Value<'v>,
     ) -> anyhow::Result<ExternalRunnerTestInfo<'v>> {
         let res = ExternalRunnerTestInfo {
             test_type: r#type,

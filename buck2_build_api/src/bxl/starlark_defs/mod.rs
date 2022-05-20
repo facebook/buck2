@@ -59,7 +59,7 @@ pub fn register_bxl_function(builder: &mut GlobalsBuilder) {
     fn bxl<'v>(
         implementation: Value,
         cli_args: DictOf<&str, &CliArgs>,
-        doc @ "": &str,
+        #[starlark(default = "")] doc: &str,
     ) -> anyhow::Result<Value<'v>> {
         let build_context = BuildContext::from_context(eval)?;
         let bxl_path = (*build_context

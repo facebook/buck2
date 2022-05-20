@@ -256,9 +256,11 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
         implementation: Value,
         attrs: DictOf<&str, &Attribute>,
         cfg: Option<Value>,
-        doc @ "": &str,
-        #[allow(unused_variables)] allow_unknown_attrs @ false: bool,
-        is_configuration_rule @ false: bool,
+        #[starlark(default = "")] doc: &str,
+        #[allow(unused_variables)]
+        #[starlark(default = false)]
+        allow_unknown_attrs: bool,
+        #[starlark(default = false)] is_configuration_rule: bool,
     ) -> anyhow::Result<Value<'v>> {
         // TODO(nmj): Add default attributes in here like 'name', 'visibility', etc
         // TODO(nmj): Verify that names are valid. This is technically handled by the Params

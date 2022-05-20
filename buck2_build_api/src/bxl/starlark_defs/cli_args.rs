@@ -414,35 +414,47 @@ impl CliArgType {
 
 #[starlark_module]
 pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
-    fn string<'v>(default: Option<Value<'v>>, doc @ "": &str) -> anyhow::Result<CliArgs> {
+    fn string<'v>(
+        default: Option<Value<'v>>,
+        #[starlark(default = "")] doc: &str,
+    ) -> anyhow::Result<CliArgs> {
         CliArgs::new(default, doc, CliArgType::string())
     }
 
     fn list<'v>(
         ref inner: &CliArgs,
         default: Option<Value<'v>>,
-        doc @ "": &str,
+        #[starlark(default = "")] doc: &str,
     ) -> anyhow::Result<CliArgs> {
         let coercer = CliArgType::list(inner.coercer.dupe());
         CliArgs::new(default, doc, coercer)
     }
 
-    fn bool<'v>(default @ false: Value<'v>, doc @ "": &str) -> anyhow::Result<CliArgs> {
+    fn bool<'v>(
+        #[starlark(default = false)] default: Value<'v>,
+        #[starlark(default = "")] doc: &str,
+    ) -> anyhow::Result<CliArgs> {
         CliArgs::new(Some(default), doc, CliArgType::bool())
     }
 
-    fn int<'v>(default: Option<Value<'v>>, doc @ "": &str) -> anyhow::Result<CliArgs> {
+    fn int<'v>(
+        default: Option<Value<'v>>,
+        #[starlark(default = "")] doc: &str,
+    ) -> anyhow::Result<CliArgs> {
         CliArgs::new(default, doc, CliArgType::int())
     }
 
-    fn float<'v>(default: Option<Value<'v>>, doc @ "": &str) -> anyhow::Result<CliArgs> {
+    fn float<'v>(
+        default: Option<Value<'v>>,
+        #[starlark(default = "")] doc: &str,
+    ) -> anyhow::Result<CliArgs> {
         CliArgs::new(default, doc, CliArgType::float())
     }
 
     fn option<'v>(
         inner: &CliArgs,
-        doc @ "": &str,
-        default @ NoneType: Value<'v>,
+        #[starlark(default = "")] doc: &str,
+        #[starlark(default = NoneType)] default: Value<'v>,
     ) -> anyhow::Result<CliArgs> {
         let coercer = CliArgType::option(inner.coercer.dupe());
         CliArgs::new(Some(default), doc, coercer)
@@ -451,7 +463,7 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
     fn r#enum<'v>(
         ref variants: Vec<String>,
         default: Option<Value<'v>>,
-        doc @ "": &str,
+        #[starlark(default = "")] doc: &str,
     ) -> anyhow::Result<CliArgs> {
         // Value seems to usually be a `[String]`, listing the possible values of the
         // enumeration. Unfortunately, for things like `exported_lang_preprocessor_flags`
@@ -463,11 +475,11 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         )
     }
 
-    fn target_label(doc @ "": &str) -> anyhow::Result<CliArgs> {
+    fn target_label(#[starlark(default = "")] doc: &str) -> anyhow::Result<CliArgs> {
         CliArgs::new(None, doc, CliArgType::target_label())
     }
 
-    fn providers_label(doc @ "": &str) -> anyhow::Result<CliArgs> {
+    fn providers_label(#[starlark(default = "")] doc: &str) -> anyhow::Result<CliArgs> {
         CliArgs::new(None, doc, CliArgType::providers_label())
     }
 }

@@ -99,7 +99,7 @@ pub(crate) fn register_natives(builder: &mut GlobalsBuilder) {
     }
 
     fn provider(
-        doc @ "": &str,
+        #[starlark(default = "")] doc: &str,
         fields: Either<Vec<String>, SmallMap<&str, &str>>,
     ) -> anyhow::Result<ProviderCallable> {
         let docstring = DocString::from_docstring(DocStringKind::Starlark, doc);

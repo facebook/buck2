@@ -35,7 +35,7 @@ fn run_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(type = "RunInfo")]
     fn RunInfo<'v>(
         // Named _args so it doesn't clash with *args
-        _args @ FrozenList::empty(): Value<'v>,
+        #[starlark(default = FrozenList::empty())] _args: Value<'v>,
     ) -> anyhow::Result<RunInfo<'v>> {
         let heap = eval.heap();
         let valid_args = StarlarkCommandLine::try_from_value(_args)?;

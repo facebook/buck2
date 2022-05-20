@@ -309,9 +309,9 @@ impl<'v, V: ValueLike<'v>> ValueAsArtifactTraversable<'v> for V {
 fn default_info_creator(builder: &mut GlobalsBuilder) {
     #[starlark(type = "DefaultInfo")]
     fn DefaultInfo<'v>(
-        default_outputs @ FrozenList::empty(): Value<'v>,
-        other_outputs @ FrozenList::empty(): Value<'v>,
-        sub_targets @ SmallMap::new(): SmallMap<String, Value<'v>>,
+        #[starlark(default = FrozenList::empty())] default_outputs: Value<'v>,
+        #[starlark(default = FrozenList::empty())] other_outputs: Value<'v>,
+        #[starlark(default = SmallMap::new())] sub_targets: SmallMap<String, Value<'v>>,
     ) -> anyhow::Result<DefaultInfo<'v>> {
         let heap = eval.heap();
         let default_info_creator = || {

@@ -132,7 +132,7 @@ pub fn register_args_function(builder: &mut GlobalsBuilder) {
     fn cmd_args<'v>(
         args: Vec<Value<'v>>,
         format: Option<String>,
-        joined @ false: bool,
+        #[starlark(default = false)] joined: bool,
         delimiter: Option<String>,
         quote: Option<String>,
         prepend: Option<String>,
