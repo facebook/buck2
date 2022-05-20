@@ -74,13 +74,15 @@ def create_manifest_for_source_dir(
 
 def create_manifest_for_extensions(
         ctx: "context",
-        extensions: {str.type: (LinkedObject.type, "label")}) -> ManifestInfo.type:
-    manifest = create_manifest_for_entries(
-        ctx,
-        "extensions",
-        [(dest, lib.output, str(label.raw_target())) for dest, (lib, label) in extensions.items()] +
-        [(dest + ".dwp", lib.dwp, str(label.raw_target()) + ".dwp") for dest, (lib, label) in extensions.items() if lib.dwp != None],
-    )
+        extensions: {str.type: (LinkedObject.type, "label")},
+        # Whether to include DWP files.
+        dwp: bool.type = False) -> ManifestInfo.type:
+    entries = []
+    for dest, (lib, label) in extensions.items():
+        entries.append((dest, lib.output, str(label.raw_target())))
+        if dwp and lib.dwp != None:
+            entries.append((dest + ".dwp", lib.dwp, str(label.raw_target()) + ".dwp"))
+    manifest = create_manifest_for_entries(ctx, "extensions", entries)
 
     # Include external debug paths, even though they're not explicitly listed
     # in the manifest, as python packaging may also consume debug paths which

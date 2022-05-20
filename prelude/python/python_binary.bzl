@@ -203,6 +203,7 @@ def convert_python_library_to_executable(
         extensions = create_manifest_for_extensions(
             ctx,
             extensions,
+            dwp = ctx.attr.package_split_dwarf_dwp,
         ) if extensions else None,
     )
 
