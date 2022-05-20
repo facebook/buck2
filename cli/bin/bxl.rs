@@ -176,7 +176,7 @@ impl FromStr for ShowAllOutputsFormat {
     }
 }
 
-fn parse_label_from_cli(
+fn parse_bxl_label_from_cli(
     cwd: &ProjectRelativePath,
     path: &str,
     bxl_fn: &str,
@@ -236,7 +236,7 @@ async fn async_main(
     let fs = io.fs();
     let artifact_fs = dice.get_artifact_fs().await;
 
-    let bxl_label = parse_label_from_cli(&cwd, &opt.path, &opt.bxl_fn, &cell_resolver)?;
+    let bxl_label = parse_bxl_label_from_cli(&cwd, &opt.path, &opt.bxl_fn, &cell_resolver)?;
 
     let cur_package = Package::from_cell_path(&cell_resolver.get_cell_path(&cwd)?);
     let cell_name = cell_resolver.find(&cwd)?;
