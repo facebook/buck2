@@ -77,7 +77,7 @@ impl<'a> LegacyBuckConfigForStarlark<'a> {
         let hash = Self::mix_hashes(section.hash().get(), key.hash().get());
         let mut cache = self.cache.borrow_mut();
         if let Some(e) = cache.get(hash, |e| {
-            &**e.section.key() == section.key() && e.key.as_str() == key.key()
+            e.section.key() == section.key() && e.key.as_str() == *key.key()
         }) {
             return e.value;
         }
@@ -90,8 +90,8 @@ impl<'a> LegacyBuckConfigForStarlark<'a> {
         cache.insert(
             hash,
             BuckConfigEntry {
-                section: Hashed::new_unchecked(section.hash(), section.key().to_owned()),
-                key: Hashed::new_unchecked(key.hash(), key.key().to_owned()),
+                section: Hashed::new_unchecked(section.hash(), (*section.key()).to_owned()),
+                key: Hashed::new_unchecked(key.hash(), (*key.key()).to_owned()),
                 value,
             },
             |e| Self::mix_hashes(e.section.hash().get(), e.key.hash().get()),

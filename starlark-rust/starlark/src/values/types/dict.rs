@@ -253,9 +253,7 @@ impl<'v> Dict<'v> {
     where
         'v: 'a,
     {
-        self.content
-            .iter_hashed()
-            .map(|(l, r)| (l.unborrow_copy(), *r))
+        self.content.iter_hashed().map(|(l, r)| (l.copied(), *r))
     }
 
     /// Iterator over keys.
@@ -347,9 +345,7 @@ impl FrozenDict {
     pub fn iter_hashed<'a>(
         &'a self,
     ) -> impl Iterator<Item = (Hashed<FrozenValue>, FrozenValue)> + 'a {
-        self.content
-            .iter_hashed()
-            .map(|(l, r)| (l.unborrow_copy(), *r))
+        self.content.iter_hashed().map(|(l, r)| (l.copied(), *r))
     }
 
     /// Iterator over keys.

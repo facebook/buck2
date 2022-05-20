@@ -21,7 +21,6 @@ use std::{
 };
 
 use gazebo::{coerce::Coerce, prelude::*};
-use indexmap::Equivalent;
 
 use crate as starlark;
 use crate::collections::{idhasher::mix_u32, StarlarkHasher};
@@ -42,11 +41,8 @@ pub struct Hashed<K> {
 }
 
 /// A borrowed key and its hash.
-#[derive(Copy_, Clone_, Dupe_, Eq, PartialEq)]
-pub struct BorrowHashed<'a, Q: ?Sized> {
-    hash: StarlarkHashValue,
-    key: &'a Q,
-}
+// TODO(nga): remove it.
+pub type BorrowHashed<'a, Q> = Hashed<&'a Q>;
 
 impl StarlarkHashValue {
     /// Create a new [`StarlarkHashValue`] using the [`Hash`] trait
@@ -91,62 +87,6 @@ impl StarlarkHashValue {
     #[inline(always)]
     pub fn promote(self) -> u64 {
         mix_u32(self.0)
-    }
-}
-
-impl<'a, Q: ?Sized> BorrowHashed<'a, Q> {
-    /// Create a new [`BorrowHashed`] using the [`Hash`] trait
-    /// for given key.
-    pub fn new(key: &'a Q) -> Self
-    where
-        Q: Hash,
-    {
-        Self::new_unchecked(StarlarkHashValue::new(key), key)
-    }
-
-    /// Directly create a new [`BorrowHashed`] using a given hash value.
-    /// If the hash does not correspond to the key, its will cause issues.
-    pub fn new_unchecked(hash: StarlarkHashValue, key: &'a Q) -> Self {
-        Self { hash, key }
-    }
-
-    /// Get the underlying hash.
-    pub fn hash(&self) -> StarlarkHashValue {
-        self.hash
-    }
-
-    /// Get the underlying key.
-    pub fn key(&self) -> &'a Q {
-        self.key
-    }
-}
-
-impl<'a, Q: Clone> BorrowHashed<'a, Q> {
-    /// Convert a borrowed hashed back to an unborrowed hashed using [`Clone`].
-    pub fn unborrow_clone(&self) -> Hashed<Q> {
-        Hashed::new_unchecked(self.hash, self.key.clone())
-    }
-}
-
-impl<'a, Q: Copy> BorrowHashed<'a, Q> {
-    /// Convert a borrowed hashed back to an unborrowed hashed using [`Copy`].
-    pub fn unborrow_copy(&self) -> Hashed<Q> {
-        Hashed::new_unchecked(self.hash, *self.key)
-    }
-}
-
-impl<'a, Q, K> Equivalent<Hashed<K>> for BorrowHashed<'a, Q>
-where
-    Q: Equivalent<K> + ?Sized,
-{
-    fn equivalent(&self, key: &Hashed<K>) -> bool {
-        self.hash == key.hash && self.key.equivalent(&key.key)
-    }
-}
-
-impl<'a, Q: ?Sized> Hash for BorrowHashed<'a, Q> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.hash.hash(state)
     }
 }
 
@@ -207,17 +147,12 @@ impl<K> Hashed<K> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use indexmap::map::IndexMap;
-
-    use crate::collections::{BorrowHashed, Hashed};
-
-    #[test]
-    fn borrow_and_hashed_equivalent() {
-        let mut m = IndexMap::new();
-        m.insert(Hashed::new(1), 'b');
-
-        assert_eq!(m.get(&BorrowHashed::new(&1)), Some(&'b'));
+impl<'a, K> Hashed<&'a K> {
+    /// Make `Hashed<K>` from `Hashed<&K>`.
+    pub fn copied(self) -> Hashed<K>
+    where
+        K: Copy,
+    {
+        Hashed::new_unchecked(self.hash, *self.key)
     }
 }

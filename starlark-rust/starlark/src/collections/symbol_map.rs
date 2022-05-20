@@ -168,7 +168,7 @@ impl<T> SymbolMap<T> {
 
     pub fn get_hashed_str(&self, key: BorrowHashed<str>) -> Option<&T> {
         self.0
-            .get(key.hash().promote(), |x| x.0.as_str() == key.key())
+            .get(key.hash().promote(), |x| x.0.as_str() == *key.key())
             .map(|x| &x.1)
     }
 
