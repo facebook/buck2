@@ -763,11 +763,8 @@ impl<'v> Freeze for StarlarkCommandLine<'v> {
             } = *options;
             let _ = lifetime;
 
-            let relative_to =
-                relative_to.into_try_map(|(x, p)| anyhow::Ok((x.freeze(freezer)?, p)))?;
-
             anyhow::Ok(box CommandLineOptions {
-                relative_to,
+                relative_to: relative_to.freeze(freezer)?,
                 absolute_prefix: absolute_prefix.freeze(freezer)?,
                 absolute_suffix: absolute_suffix.freeze(freezer)?,
                 parent,
