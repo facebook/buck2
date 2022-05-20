@@ -35,7 +35,7 @@ use buck2_build_api::{
         eval::{get_bxl_callable, resolve_cli_args},
         result::BxlResult,
         starlark_defs::{configure_bxl_file_globals, context::build::StarlarkBuildResult},
-        BxlFunctionLabel, BxlKey,
+        BxlKey,
     },
     calculation::Calculation,
     context::SetBuildContextData,
@@ -61,19 +61,16 @@ use buck2_common::{
     legacy_configs::{dice::HasLegacyConfigs, BuckConfigBasedCells},
 };
 use buck2_core::{
-    cells::CellResolver,
     exit_result::ExitResult,
     fs::{
         paths::{AbsPathBuf, ForwardRelativePathBuf},
-        project::{ProjectFilesystem, ProjectRelativePath, ProjectRelativePathBuf},
+        project::{ProjectFilesystem, ProjectRelativePathBuf},
     },
     package::Package,
 };
 use buck2_interpreter::{
-    common::{BxlFilePath, StarlarkModulePath},
-    dice::interpreter_setup::setup_interpreter_basic,
+    common::StarlarkModulePath, dice::interpreter_setup::setup_interpreter_basic,
     extra::InterpreterHostPlatform,
-    parse_import::{parse_import_with_config, ParseImportOptions},
 };
 use cli::daemon::{
     build::{
@@ -83,6 +80,7 @@ use cli::daemon::{
         },
         BuildTargetResult,
     },
+    common,
     common::{parse_concurrency, CommandExecutorFactory},
 };
 use cli_proto::{common_build_options::ExecutionStrategy, BuildTarget};
@@ -176,33 +174,6 @@ impl FromStr for ShowAllOutputsFormat {
     }
 }
 
-fn parse_bxl_label_from_cli(
-    cwd: &ProjectRelativePath,
-    path: &str,
-    bxl_fn: &str,
-    cell_resolver: &CellResolver,
-) -> anyhow::Result<BxlFunctionLabel> {
-    let current_cell = cell_resolver.get_cell_path(cwd)?;
-
-    // Targets with cell aliases should be resolved against the cell mapping
-    // as defined the cell derived from the cwd.
-    let cell_alias_resolver = cell_resolver
-        .get(current_cell.cell())
-        .unwrap()
-        .cell_alias_resolver();
-
-    const OPTS: ParseImportOptions = ParseImportOptions {
-        allow_missing_at_symbol: true,
-        allow_relative_imports: true,
-    };
-    let import_path = parse_import_with_config(cell_alias_resolver, &current_cell, path, &OPTS)?;
-
-    Ok(BxlFunctionLabel {
-        bxl_path: BxlFilePath::new(import_path)?,
-        name: bxl_fn.to_owned(),
-    })
-}
-
 #[fbinit::main]
 fn main(fb: fbinit::FacebookInit) -> ExitResult {
     let rt = Builder::new_multi_thread()
@@ -236,7 +207,7 @@ async fn async_main(
     let fs = io.fs();
     let artifact_fs = dice.get_artifact_fs().await;
 
-    let bxl_label = parse_bxl_label_from_cli(&cwd, &opt.path, &opt.bxl_fn, &cell_resolver)?;
+    let bxl_label = common::parse_bxl_label_from_cli(&cwd, &opt.path, &opt.bxl_fn, &cell_resolver)?;
 
     let cur_package = Package::from_cell_path(&cell_resolver.get_cell_path(&cwd)?);
     let cell_name = cell_resolver.find(&cwd)?;

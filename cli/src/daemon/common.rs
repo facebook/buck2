@@ -14,19 +14,22 @@ use std::{
 };
 
 use anyhow::{anyhow, Context as _};
-use buck2_build_api::execute::{
-    commands::{
-        dice_data::{CommandExecutorConfig, HasCommandExecutor},
-        hybrid::HybridExecutor,
-        local::LocalExecutor,
-        re::{
-            cache_check::CacheCheckingExecutor, manager::ReConnectionHandle, ExecutionPlatform,
-            ReExecutor,
+use buck2_build_api::{
+    bxl::BxlFunctionLabel,
+    execute::{
+        commands::{
+            dice_data::{CommandExecutorConfig, HasCommandExecutor},
+            hybrid::HybridExecutor,
+            local::LocalExecutor,
+            re::{
+                cache_check::CacheCheckingExecutor, manager::ReConnectionHandle, ExecutionPlatform,
+                ReExecutor,
+            },
+            PreparedCommandExecutor,
         },
-        PreparedCommandExecutor,
+        materializer::Materializer,
+        ActionExecutorConfig, LocalExecutorOptions, RemoteExecutorOptions,
     },
-    materializer::Materializer,
-    ActionExecutorConfig, LocalExecutorOptions, RemoteExecutorOptions,
 };
 use buck2_common::{
     dice::cells::HasCellResolver, file_ops::FileOps, legacy_configs::dice::HasLegacyConfigs,
@@ -39,8 +42,10 @@ use buck2_core::{
     package::Package,
     target::TargetLabel,
 };
-use buck2_interpreter::pattern::{
-    resolve_target_patterns, ParsedPattern, PatternType, ResolvedPattern,
+use buck2_interpreter::{
+    common::BxlFilePath,
+    parse_import::{parse_import_with_config, ParseImportOptions},
+    pattern::{resolve_target_patterns, ParsedPattern, PatternType, ResolvedPattern},
 };
 use cli_proto::{
     client_context::HostPlatformOverride, common_build_options::ExecutionStrategy, ClientContext,
@@ -436,4 +441,32 @@ fn get_execution_platform(host_platform: HostPlatformOverride) -> ExecutionPlatf
             v => unimplemented!("no support yet for operating system `{}`", v),
         },
     }
+}
+
+/// Parse the bxl function label out of cli pattern
+pub fn parse_bxl_label_from_cli(
+    cwd: &ProjectRelativePath,
+    path: &str,
+    bxl_fn: &str,
+    cell_resolver: &CellResolver,
+) -> anyhow::Result<BxlFunctionLabel> {
+    let current_cell = cell_resolver.get_cell_path(cwd)?;
+
+    // Targets with cell aliases should be resolved against the cell mapping
+    // as defined the cell derived from the cwd.
+    let cell_alias_resolver = cell_resolver
+        .get(current_cell.cell())
+        .unwrap()
+        .cell_alias_resolver();
+
+    const OPTS: ParseImportOptions = ParseImportOptions {
+        allow_missing_at_symbol: true,
+        allow_relative_imports: true,
+    };
+    let import_path = parse_import_with_config(cell_alias_resolver, &current_cell, path, &OPTS)?;
+
+    Ok(BxlFunctionLabel {
+        bxl_path: BxlFilePath::new(import_path)?,
+        name: bxl_fn.to_owned(),
+    })
 }
