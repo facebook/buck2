@@ -174,7 +174,7 @@ where
             Some(other) => compare_small_map(
                 coerce_ref(&self.fields),
                 &other.fields,
-                |k| k.to_string_value().as_str(),
+                |k| k.as_str(),
                 |x, y| x.compare(*y),
             ),
         }
@@ -197,10 +197,7 @@ where
     }
 
     fn dir_attr(&self) -> Vec<String> {
-        self.fields
-            .keys()
-            .map(|x| x.to_string_value().as_str().to_owned())
-            .collect()
+        self.fields.keys().map(|x| x.as_str().to_owned()).collect()
     }
 
     fn documentation(&self) -> Option<DocItem> {
@@ -208,7 +205,7 @@ where
             .fields
             .iter()
             .map(|(k, v)| {
-                let name = k.to_string_value().as_str().to_owned();
+                let name = k.as_str().to_owned();
                 match v.to_value().documentation() {
                     Some(DocItem::Function(f)) => (name, docs::Member::Function(f)),
                     _ => (

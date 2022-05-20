@@ -133,6 +133,11 @@ pub trait StringValueLike<'v>:
 {
     /// Convert to a [`StringValue`].
     fn to_string_value(self) -> StringValue<'v>;
+
+    /// Convert to a [`str`].
+    fn as_str(self) -> &'v str {
+        self.to_string_value().as_str()
+    }
 }
 
 impl<'v> StringValueLike<'v> for StringValue<'v> {
