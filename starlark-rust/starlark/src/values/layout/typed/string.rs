@@ -26,6 +26,7 @@ use gazebo::{
     prelude::*,
 };
 use indexmap::Equivalent;
+use serde::Serialize;
 
 use crate::{
     collections::{BorrowHashed, Hashed},
@@ -128,6 +129,7 @@ pub trait StringValueLike<'v>:
     + Copy
     + Clone
     + Dupe
+    + Serialize
 {
     /// Convert to a [`StringValue`].
     fn to_string_value(self) -> StringValue<'v>;
