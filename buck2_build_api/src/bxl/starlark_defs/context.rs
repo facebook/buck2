@@ -40,7 +40,8 @@ use crate::{
         starlark_defs::{
             analysis_result::StarlarkAnalysisResult,
             context::{
-                actions::BxlActionsCtx, fs::BxlFilesystem, starlark_async::BxlSafeDiceComputations,
+                actions::BxlActionsCtx, fs::BxlFilesystem, output::OutputStream,
+                starlark_async::BxlSafeDiceComputations,
             },
             cquery::StarlarkCQueryCtx,
             providers_expr::ProvidersExpr,
@@ -57,6 +58,7 @@ pub mod actions;
 pub mod analyze;
 pub mod build;
 pub mod fs;
+pub mod output;
 pub mod starlark_async;
 
 #[derive(AnyLifetime, Derivative, Display, Trace, NoSerialize)]
@@ -76,6 +78,7 @@ pub struct BxlContext<'v> {
     #[derivative(Debug = "ignore")]
     pub(crate) async_ctx: BxlSafeDiceComputations<'v>,
     pub(crate) state: ValueTyped<'v, AnalysisActions<'v>>,
+    pub(crate) output_stream: ValueTyped<'v, OutputStream>,
 }
 
 impl<'v> BxlContext<'v> {
@@ -98,6 +101,7 @@ impl<'v> BxlContext<'v> {
                 attributes: Value::new_none(),
             }))
             .unwrap(),
+            output_stream: ValueTyped::new(heap.alloc(OutputStream::new())).unwrap(),
         }
     }
 
@@ -177,6 +181,16 @@ impl<'v> UnpackValue<'v> for &'v BxlContext<'v> {
 
 #[starlark_module]
 fn register_context(builder: &mut MethodsBuilder) {
+    /// Gets the output stream to the console via stdout. Items written to the output stream
+    /// are considered to be the results of a bxl script, which will be displayed to stdout by
+    /// buck2 even when the script is cached.
+    ///
+    /// Prints that are not result of the bxl should be printed via stderr via the stdlib `print`
+    /// and `pprint`.
+    fn output<'v>(this: &'v BxlContext) -> anyhow::Result<Value<'v>> {
+        Ok(this.output_stream.to_value())
+    }
+
     /// Returns the absolute path to the root of the repository
     fn root(this: &BxlContext) -> anyhow::Result<String> {
         Ok(this

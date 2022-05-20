@@ -13,7 +13,7 @@ async def test_bxl_label_functions(buck: Buck) -> None:
         "label_func_test",
     )
 
-    assert result.stderr.splitlines() == [
+    assert result.stdout.splitlines() == [
         "root//bin:the_binary (root//platforms:platform1)",
         "root//bin:the_binary[sub] (root//platforms:platform1)",
         "root//bin:the_binary[sub1][sub2] (root//platforms:platform1)",
@@ -31,7 +31,7 @@ async def test_bxl_root(buck: Buck) -> None:
         "root_test",
     )
 
-    assert str(buck.cwd) in result.stderr
+    assert str(buck.cwd) in result.stdout
 
 
 @buck_test(inplace=False, data_dir="bql/simple")
@@ -56,7 +56,7 @@ async def test_bxl(buck: Buck) -> None:
         "cell/pkg:bar[sub]",
     )
     assert (
-        result.stderr
+        result.stdout
         == 'bool_arg: False\nstring_arg: "default"\nint_arg: 1\nfloat_arg: 4.3\noptional: None\nenum_type: "a"\ntarget: root//:foo\nproviders_label: root//cell/pkg:bar[sub]\nlist: [1, 2, 3]\n'
     )
 
@@ -80,7 +80,7 @@ async def test_bxl(buck: Buck) -> None:
         "cell/pkg:bar",
     )
     assert (
-        result.stderr
+        result.stdout
         == 'bool_arg: False\nstring_arg: "default"\nint_arg: 2\nfloat_arg: 3.4\noptional: "value"\nenum_type: "b"\ntarget: root//bar:foo\nproviders_label: root//cell/pkg:bar\nlist: [1]\n'
     )
 
@@ -204,7 +204,7 @@ async def test_cquery_owner(buck: Buck) -> None:
         "//bxl/cquery.bxl",
         "owner_test",
     )
-    assert result.stderr == "[root//bin:the_binary (root//platforms:platform1)]\n"
+    assert result.stdout == "[root//bin:the_binary (root//platforms:platform1)]\n"
 
 
 @buck_test(inplace=False, data_dir="bql/simple")
@@ -214,8 +214,8 @@ async def test_cquery_kind(buck: Buck) -> None:
         "kind_test",
     )
 
-    assert "foo" in result.stderr
-    assert "bar" not in result.stderr
+    assert "foo" in result.stdout
+    assert "bar" not in result.stdout
 
 
 @buck_test(inplace=False, data_dir="bql/simple")
@@ -225,9 +225,9 @@ async def test_cquery_attrregex_filter(buck: Buck) -> None:
         "attrregexfilter_test",
     )
 
-    assert "foo" in result.stderr
-    assert "bzzt" in result.stderr
-    assert "bar" not in result.stderr
+    assert "foo" in result.stdout
+    assert "bzzt" in result.stdout
+    assert "bar" not in result.stdout
 
 
 @buck_test(inplace=False, data_dir="bql/simple")
@@ -237,7 +237,7 @@ async def test_query_rdeps(buck: Buck) -> None:
         "rdeps_test",
     )
     assert (
-        result.stderr
+        result.stdout
         == "[root//lib:file1 (root//platforms:platform1), root//lib:lib1 (root//platforms:platform1), root//bin:the_binary (root//platforms:platform1)]\n"
     )
 
@@ -281,8 +281,8 @@ async def test_bxl_analysis(buck: Buck) -> None:
         "providers_test",
     )
 
-    assert "the_binary_foo" in result.stderr
-    assert "bin_foo" in result.stderr
+    assert "the_binary_foo" in result.stdout
+    assert "bin_foo" in result.stdout
 
 
 @buck_test(inplace=False, data_dir="bql/simple")
@@ -293,8 +293,8 @@ async def test_bxl_actions(buck: Buck) -> None:
         "artifact_test",
     )
 
-    assert "<source bin/TARGETS.fixture>" in result.stderr
-    assert "[<source bin/TARGETS.fixture>]" in result.stderr
+    assert "<source bin/TARGETS.fixture>" in result.stdout
+    assert "[<source bin/TARGETS.fixture>]" in result.stdout
 
 
 @buck_test(inplace=False, data_dir="bql/simple")

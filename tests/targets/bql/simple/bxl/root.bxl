@@ -1,5 +1,5 @@
 def _impl(ctx):
-    print(ctx.root())
+    ctx.output().print(ctx.root())
 
 root_test = bxl(
     implementation = _impl,
