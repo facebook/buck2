@@ -34,6 +34,12 @@ impl Key for internal::BxlComputeKey {
     fn equality(_: &Self::Value, _: &Self::Value) -> bool {
         false
     }
+
+    fn validity(res: &Self::Value) -> bool {
+        // cheap hack to not cache bxl when printing
+        // TODO(T120858909) properly cache prints
+        res.as_ref().map_or(true, |res| !res.has_print())
+    }
 }
 
 mod internal {

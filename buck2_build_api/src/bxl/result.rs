@@ -91,4 +91,11 @@ impl BxlResult {
             BxlResult::BuildsArtifacts { deferred, .. } => deferred.lookup_deferred(id),
         }
     }
+
+    pub fn has_print(&self) -> bool {
+        *match self {
+            BxlResult::None { has_print } => has_print,
+            BxlResult::BuildsArtifacts { has_print, .. } => has_print,
+        }
+    }
 }
