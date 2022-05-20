@@ -12,7 +12,7 @@ use std::{any::TypeId, fmt::Debug};
 use gazebo::prelude::*;
 use starlark::{
     environment::GlobalsBuilder,
-    values::{FrozenRef, FrozenValue, Value, ValueLike},
+    values::{FrozenRef, FrozenValue, StringValue, Value, ValueLike},
 };
 use thiserror::Error;
 
@@ -131,11 +131,11 @@ pub fn register_args_function(builder: &mut GlobalsBuilder) {
     #[starlark(type = "cmd_args")]
     fn cmd_args<'v>(
         args: Vec<Value<'v>>,
-        format: Option<String>,
+        format: Option<StringValue<'v>>,
         #[starlark(default = false)] joined: bool,
-        delimiter: Option<String>,
-        quote: Option<String>,
-        prepend: Option<String>,
+        delimiter: Option<StringValue<'v>>,
+        quote: Option<StringValue<'v>>,
+        prepend: Option<StringValue<'v>>,
     ) -> anyhow::Result<StarlarkCommandLine<'v>> {
         StarlarkCommandLine::try_from_values_with_options(
             &args,

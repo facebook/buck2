@@ -112,7 +112,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for CommandLineArgGen<V> {
 }
 
 /// Supported ways of quoting arguments.
-#[derive(Debug, Clone, Dupe, Trace, Serialize)]
+#[derive(Debug, Clone, Dupe, Trace, Freeze, Serialize)]
 pub enum QuoteStyle {
     /// Quote arguments for Unix shell:
     /// <https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html>
@@ -140,15 +140,15 @@ impl QuoteStyle {
 
 /// Simple struct to help determine extra options for formatting
 /// (whether to join items, how to join them, format strings, etc)
-#[derive(Debug, Default_, Clone, Trace, Serialize)]
-pub struct FormattingOptions {
-    concat: Option<String>,
-    format_string: Option<String>,
+#[derive(Debug, Default_, Clone, Trace, Freeze, Serialize)]
+pub struct FormattingOptions<S> {
+    concat: Option<S>,
+    format_string: Option<S>,
     quote: Option<QuoteStyle>,
-    prepend: Option<String>,
+    prepend: Option<S>,
 }
 
-impl Display for FormattingOptions {
+impl<S: Debug> Display for FormattingOptions<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut comma = commas();
         if let Some(v) = &self.concat {
@@ -165,13 +165,13 @@ impl Display for FormattingOptions {
         }
         if let Some(v) = &self.prepend {
             comma(f)?;
-            write!(f, "prepend = \"{}\"", v)?;
+            write!(f, "prepend = {:?}", v)?;
         }
         Ok(())
     }
 }
 
-impl FormattingOptions {
+impl<S: Default> FormattingOptions<S> {
     /// If any of the params passed in are meaningful, return
     /// an instance of `FormattingOptions`, else just return `None`.
     ///
@@ -179,10 +179,10 @@ impl FormattingOptions {
     /// formatting needs to be done (the common case)
     pub fn maybe_new(
         concat_items: bool,
-        concat_delimiter: Option<String>,
-        format_string: Option<String>,
+        concat_delimiter: Option<S>,
+        format_string: Option<S>,
         quote: Option<QuoteStyle>,
-        prepend: Option<String>,
+        prepend: Option<S>,
     ) -> Option<Self> {
         match (
             concat_items,
@@ -204,17 +204,6 @@ impl FormattingOptions {
             }),
         }
     }
-
-    fn extra_memory(&self) -> usize {
-        let mut ret = 0;
-        if let Some(f) = self.format_string.as_ref() {
-            ret += f.capacity();
-        }
-        if let Some(f) = self.prepend.as_ref() {
-            ret += f.capacity();
-        }
-        ret
-    }
 }
 
 #[derive(Debug, Default_, Clone, Trace, Serialize)]
@@ -226,7 +215,7 @@ struct CommandLineOptions<'v, V: ValueLike<'v>> {
     absolute_suffix: Option<V::String>,
     parent: usize,
     ignore_artifacts: bool,
-    formatting: Option<FormattingOptions>,
+    formatting: Option<FormattingOptions<V::String>>,
     lifetime: PhantomData<&'v ()>,
 }
 
@@ -282,16 +271,6 @@ impl<'v, V: ValueLike<'v>> Display for CommandLineOptions<'v, V> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
-    fn extra_memory(&self) -> usize {
-        let mut ret = 0;
-        if let Some(f) = self.formatting.as_ref() {
-            ret += f.extra_memory();
-        }
-        ret
-    }
-}
-
 /// Starlark object returned by `cmd_args()`
 /// A container for all of the args and nested command lines that a users adds to `ctx.args()`
 ///
@@ -313,7 +292,7 @@ pub struct StarlarkCommandLineDataGen<'v, V: ValueLike<'v>> {
 
 // These types show up a lot in the frozen heaps, so make sure they don't regress
 assert_eq_size!(StarlarkCommandLineDataGen<'static, FrozenValue>, [usize; 7]);
-assert_eq_size!(CommandLineOptions<'static, FrozenValue>, [usize; 16]);
+assert_eq_size!(CommandLineOptions<'static, FrozenValue>, [usize; 10]);
 
 impl<'v, V: ValueLike<'v>> Display for StarlarkCommandLineDataGen<'v, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -386,11 +365,11 @@ impl<'v, V: ValueLike<'v>> StarlarkCommandLineDataGen<'v, V> {
         &mut self.options_mut().ignore_artifacts
     }
 
-    fn formatting(&self) -> Option<&FormattingOptions> {
+    fn formatting(&self) -> Option<&FormattingOptions<V::String>> {
         self.options.as_ref()?.formatting.as_ref()
     }
 
-    fn formatting_mut(&mut self) -> &mut Option<FormattingOptions> {
+    fn formatting_mut(&mut self) -> &mut Option<FormattingOptions<V::String>> {
         &mut self.options_mut().formatting
     }
 
@@ -414,8 +393,8 @@ impl<'v, V: ValueLike<'v>> StarlarkCommandLineDataGen<'v, V> {
         let args_extra_memory = (self.items.capacity() + self.hidden.capacity())
             * std::mem::size_of::<CommandLineArgGen<V>>();
 
-        let opts_extra_memory = if let Some(opts) = self.options.as_ref() {
-            std::mem::size_of::<CommandLineOptions<V>>() + opts.extra_memory()
+        let opts_extra_memory = if self.options.is_some() {
+            std::mem::size_of::<CommandLineOptions<V>>()
         } else {
             0
         };
@@ -525,7 +504,7 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkCommandLine {
 
 impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkCommandLineDataGen<'v, V> {
     fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
-        struct Extras<'a> {
+        struct Extras<'a, S> {
             cli: &'a mut dyn CommandLineBuilder,
             relative_to: Option<RelativePathBuf>,
             absolute_prefix: Option<&'a str>,
@@ -535,10 +514,10 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkCommandLineDataGen<'v,
             // a flag stating that the result is not yet started to be computated (i.e. the first
             // argument to be concatenated is not yet processed).
             concatenation_context: Option<(String, bool)>,
-            formatting: FormattingOptions,
+            formatting: FormattingOptions<S>,
         }
 
-        impl<'a> Extras<'a> {
+        impl<'a, 'v, S: StringValueLike<'v>> Extras<'a, S> {
             /// If any items need to be concatted/formatted and added to the original CLI,
             /// do it here
             fn finalize_args(mut self) -> Self {
@@ -550,7 +529,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkCommandLineDataGen<'v,
 
             fn format(&self, mut arg: String) -> String {
                 if let Some(format) = &self.formatting.format_string {
-                    arg = format.replace("{}", &arg);
+                    arg = format.as_str().replace("{}", &arg);
                 }
                 match &self.formatting.quote {
                     Some(QuoteStyle::Shell) => {
@@ -562,7 +541,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkCommandLineDataGen<'v,
             }
         }
 
-        impl<'a> CommandLineBuilderContext for Extras<'a> {
+        impl<'a, S> CommandLineBuilderContext for Extras<'a, S> {
             fn resolve_project_path(
                 &self,
                 path: ProjectRelativePathBuf,
@@ -623,7 +602,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkCommandLineDataGen<'v,
             }
         }
 
-        impl<'a> CommandLineBuilder for Extras<'a> {
+        impl<'a, 'v, S: StringValueLike<'v>> CommandLineBuilder for Extras<'a, S> {
             fn add_arg_string(&mut self, s: String) {
                 if let Some((concatted_items, initital_state)) = self.concatenation_context.as_mut()
                 {
@@ -631,7 +610,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkCommandLineDataGen<'v,
                         *initital_state = false;
                     } else {
                         concatted_items
-                            .push_str(self.formatting.concat.as_ref().map_or("", String::as_str));
+                            .push_str(self.formatting.concat.as_ref().map_or("", |x| x.as_str()));
                     }
                     concatted_items.push_str(&s)
                 } else {
@@ -639,7 +618,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkCommandLineDataGen<'v,
                     // flexibility. Since the prepended string is a static string, they _can_ format
                     // it ahead of time if they need to.
                     if let Some(i) = self.formatting.prepend.as_ref() {
-                        self.cli.add_arg_string(i.to_owned());
+                        self.cli.add_arg_string(i.as_str().to_owned());
                     }
                     self.cli.add_arg_string(self.format(s))
                 }
@@ -793,7 +772,7 @@ impl<'v> Freeze for StarlarkCommandLine<'v> {
                 absolute_suffix: absolute_suffix.freeze(freezer)?,
                 parent,
                 ignore_artifacts,
-                formatting,
+                formatting: formatting.freeze(freezer)?,
                 lifetime: PhantomData::default(),
             })
         })?;
@@ -812,7 +791,7 @@ impl<'v> StarlarkCommandLine<'v> {
     }
 
     /// Create a slightly more advanced builder.
-    pub fn new_with_options(options: Option<FormattingOptions>) -> Self {
+    pub fn new_with_options(options: Option<FormattingOptions<StringValue<'v>>>) -> Self {
         let mut gen = StarlarkCommandLineDataGen::default();
         if let Some(options) = options {
             *gen.formatting_mut() = Some(options);
@@ -828,7 +807,7 @@ impl<'v> StarlarkCommandLine<'v> {
 
     pub(crate) fn try_from_values_with_options(
         value: &[Value<'v>],
-        formatting: Option<FormattingOptions>,
+        formatting: Option<FormattingOptions<StringValue<'v>>>,
     ) -> anyhow::Result<Self> {
         let mut builder = Self::new_with_options(formatting);
         let b = builder.0.get_mut();
@@ -896,9 +875,9 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     fn add<'v>(
         this: Value<'v>,
         args: Vec<Value<'v>>,
-        format: Option<String>,
-        quote: Option<String>,
-        prepend: Option<String>,
+        format: Option<StringValue<'v>>,
+        quote: Option<&str>,
+        prepend: Option<StringValue<'v>>,
     ) -> anyhow::Result<Value<'v>> {
         if format.is_some() || quote.is_some() || prepend.is_some() {
             let mut inner_builder =
@@ -923,10 +902,10 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     fn add_joined<'v>(
         this: Value<'v>,
         args: Vec<Value<'v>>,
-        delimiter: Option<String>,
-        format: Option<String>,
-        quote: Option<String>,
-        prepend: Option<String>,
+        delimiter: Option<StringValue<'v>>,
+        format: Option<StringValue<'v>>,
+        quote: Option<&str>,
+        prepend: Option<StringValue<'v>>,
     ) -> anyhow::Result<Value<'v>> {
         let mut inner_builder =
             StarlarkCommandLine::new_with_options(FormattingOptions::maybe_new(
