@@ -27,8 +27,8 @@ use serde::Serialize;
 use crate::{
     collections::StarlarkHasher,
     values::{
-        float::StarlarkFloat, num::Num, FrozenHeap, FrozenValue, Heap, StarlarkValue, Value,
-        ValueError,
+        float::StarlarkFloat, num::Num, AllocFrozenValue, AllocValue, FrozenHeap, FrozenValue,
+        Heap, StarlarkValue, Value, ValueError,
     },
 };
 
@@ -387,6 +387,42 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     fn extra_memory(&self) -> usize {
         // We don't know the capacity, but this is a good approximation.
         self.value.magnitude().iter_u64_digits().len() * 8
+    }
+}
+
+impl<'v> AllocValue<'v> for u64 {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        match i32::try_from(self) {
+            Ok(x) => Value::new_int(x),
+            Err(_) => StarlarkBigInt::alloc_bigint(self.into(), heap),
+        }
+    }
+}
+
+impl AllocFrozenValue for u64 {
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        match i32::try_from(self) {
+            Ok(x) => FrozenValue::new_int(x),
+            Err(_) => StarlarkBigInt::alloc_bigint_frozen(self.into(), heap),
+        }
+    }
+}
+
+impl<'v> AllocValue<'v> for i64 {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        match i32::try_from(self) {
+            Ok(x) => Value::new_int(x),
+            Err(_) => StarlarkBigInt::alloc_bigint(self.into(), heap),
+        }
+    }
+}
+
+impl AllocFrozenValue for i64 {
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        match i32::try_from(self) {
+            Ok(x) => FrozenValue::new_int(x),
+            Err(_) => StarlarkBigInt::alloc_bigint_frozen(self.into(), heap),
+        }
     }
 }
 
