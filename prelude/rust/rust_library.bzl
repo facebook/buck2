@@ -160,11 +160,12 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
             fail("Unhandled lang {}".format(lang))
 
     rustdoc = generate_rustdoc(
-        ctx,
-        compile_ctx,
-        crate,
-        lang_style_param[(LinkageLang("rust"), LinkStyle("static_pic"))],
-        ["lib.rs"],
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        crate = crate,
+        params = lang_style_param[(LinkageLang("rust"), LinkStyle("static_pic"))],
+        default_roots = ["lib.rs"],
+        document_private_items = False,
     )
 
     expand = rust_compile(

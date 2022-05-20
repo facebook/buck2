@@ -92,7 +92,8 @@ def generate_rustdoc(
         # link style doesn't matter, but caller should pass in build params
         # with static-pic (to get best cache hits for deps)
         params: BuildParams.type,
-        default_roots: [str.type]) -> "artifact":
+        default_roots: [str.type],
+        document_private_items: bool.type) -> "artifact":
     toolchain_info = ctx_toolchain_info(ctx)
 
     common_args = _compute_common_args(
@@ -121,6 +122,9 @@ def generate_rustdoc(
         output.as_output(),
         common_args.args,
     )
+
+    if document_private_items:
+        rustdoc_cmd.add("--document-private-items")
 
     url_prefix = toolchain_info.extern_html_root_url_prefix
     for rust_dependency in resolve_deps(ctx):

@@ -109,7 +109,14 @@ def _rust_binary_common(
     )
 
     extra_targets += [
-        ("doc", generate_rustdoc(ctx, compile_ctx, crate, style_param[LinkStyle("static_pic")], default_roots)),
+        ("doc", generate_rustdoc(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            crate = crate,
+            params = style_param[LinkStyle("static_pic")],
+            default_roots = default_roots,
+            document_private_items = True,
+        )),
         ("expand", expand.outputs[Emit("expand")]),
     ]
     sub_targets = {k: [DefaultInfo(default_outputs = [v])] for k, v in extra_targets}
