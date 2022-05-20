@@ -149,7 +149,9 @@ impl<K, V> SmallMap<K, V> {
 
     /// Key references iterator.
     #[inline]
-    pub fn keys(&self) -> impl ExactSizeIterator<Item = &K> + Clone {
+    pub fn keys(
+        &self,
+    ) -> impl ExactSizeIterator<Item = &K> + DoubleEndedIterator<Item = &K> + Clone {
         self.entries.keys()
     }
 

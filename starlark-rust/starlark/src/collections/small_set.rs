@@ -103,7 +103,9 @@ impl<T> SmallSet<T> {
     }
 
     /// Iterate the element references.
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = &T> + Clone {
+    pub fn iter(
+        &self,
+    ) -> impl ExactSizeIterator<Item = &T> + DoubleEndedIterator<Item = &T> + Clone {
         self.0.keys()
     }
 

@@ -58,6 +58,15 @@ macro_rules! def_iter {
     };
 }
 
+macro_rules! def_double_ended_iter {
+    () => {
+        #[inline]
+        fn next_back(&mut self) -> Option<Self::Item> {
+            self.iter.next_back().map(Self::map)
+        }
+    };
+}
+
 /// Bucket in [`VecMap`].
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) struct Bucket<K, V> {
@@ -88,6 +97,10 @@ impl<'a, K: 'a, V: 'a> Iterator for VMKeys<'a, K, V> {
     def_iter!();
 }
 
+impl<'a, K: 'a, V: 'a> DoubleEndedIterator for VMKeys<'a, K, V> {
+    def_double_ended_iter!();
+}
+
 impl<'a, K: 'a, V: 'a> ExactSizeIterator for VMKeys<'a, K, V> {
     fn len(&self) -> usize {
         self.iter.len()
@@ -109,6 +122,10 @@ impl<'a, K: 'a, V: 'a> Iterator for VMValues<'a, K, V> {
     type Item = &'a V;
 
     def_iter!();
+}
+
+impl<'a, K: 'a, V: 'a> DoubleEndedIterator for VMValues<'a, K, V> {
+    def_double_ended_iter!();
 }
 
 impl<'a, K: 'a, V: 'a> ExactSizeIterator for VMValues<'a, K, V> {
@@ -133,6 +150,10 @@ impl<'a, K: 'a, V: 'a> Iterator for VMValuesMut<'a, K, V> {
     def_iter!();
 }
 
+impl<'a, K: 'a, V: 'a> DoubleEndedIterator for VMValuesMut<'a, K, V> {
+    def_double_ended_iter!();
+}
+
 impl<'a, K: 'a, V: 'a> ExactSizeIterator for VMValuesMut<'a, K, V> {
     #[inline]
     fn len(&self) -> usize {
@@ -149,6 +170,10 @@ impl<'a, K: 'a, V: 'a> Iterator for VMIter<'a, K, V> {
     type Item = (&'a K, &'a V);
 
     def_iter!();
+}
+
+impl<'a, K: 'a, V: 'a> DoubleEndedIterator for VMIter<'a, K, V> {
+    def_double_ended_iter!();
 }
 
 impl<'a, K: 'a, V: 'a> ExactSizeIterator for VMIter<'a, K, V> {}
@@ -177,6 +202,10 @@ impl<'a, K: 'a, V: 'a> Iterator for VMIterHash<'a, K, V> {
     def_iter!();
 }
 
+impl<'a, K: 'a, V: 'a> DoubleEndedIterator for VMIterHash<'a, K, V> {
+    def_double_ended_iter!();
+}
+
 impl<'a, K: 'a, V: 'a> ExactSizeIterator for VMIterHash<'a, K, V> {
     #[inline]
     fn len(&self) -> usize {
@@ -199,6 +228,10 @@ impl<'a, K: 'a, V: 'a> Iterator for VMIterMut<'a, K, V> {
     type Item = (&'a K, &'a mut V);
 
     def_iter!();
+}
+
+impl<'a, K: 'a, V: 'a> DoubleEndedIterator for VMIterMut<'a, K, V> {
+    def_double_ended_iter!();
 }
 
 impl<'a, K: 'a, V: 'a> ExactSizeIterator for VMIterMut<'a, K, V> {
@@ -276,6 +309,10 @@ impl<'a, K: 'a, V: 'a> Iterator for VMIntoIter<K, V> {
     type Item = (K, V);
 
     def_iter!();
+}
+
+impl<'a, K: 'a, V: 'a> DoubleEndedIterator for VMIntoIter<K, V> {
+    def_double_ended_iter!();
 }
 
 impl<'a, K: 'a, V: 'a> ExactSizeIterator for VMIntoIter<K, V> {
