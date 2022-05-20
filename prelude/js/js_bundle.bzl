@@ -2,7 +2,7 @@ load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidResourceInf
 load("@fbcode//buck2/prelude/android:android_resource.bzl", "JAVA_PACKAGE_FILENAME", "aapt2_compile", "get_text_symbols")
 load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@fbcode//buck2/prelude/js:js_providers.bzl", "JsBundleInfo", "JsLibraryInfo")
-load("@fbcode//buck2/prelude/js:js_utils.bzl", "RAM_BUNDLE_TYPES", "TRANSFORM_PROFILES", "get_bundle_name", "get_flavors", "run_worker_command")
+load("@fbcode//buck2/prelude/js:js_utils.bzl", "RAM_BUNDLE_TYPES", "TRANSFORM_PROFILES", "fixup_command_args", "get_bundle_name", "get_flavors", "run_worker_command")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "flatten", "map_idx")
 
 def _build_dependencies_file(
@@ -28,7 +28,7 @@ def _build_dependencies_file(
     run_worker_command(
         ctx = ctx,
         worker_tool = ctx.attr.worker,
-        command_args_file = command_args_file,
+        command_args_file = fixup_command_args(ctx, command_args_file) if ctx.attr.extra_json else command_args_file,
         identifier = transform_profile,
         category = "dependencies",
         hidden_artifacts = [dependencies_file.as_output()],
@@ -48,6 +48,15 @@ def _build_js_bundle(
     bundle_dir_output = ctx.actions.declare_output("{}/js".format(base_dir))
     misc_dir_path = ctx.actions.declare_output("{}/misc_dir_path".format(base_dir))
     source_map = ctx.actions.declare_output("{}/source_map".format(base_dir))
+
+    # ctx.attr.extra_json can contain attr.arg().
+    #
+    # As a result, we need to pass extra_data_args as hidden arguments so that the rule
+    # it is referencing exists as an input.
+    extra_data_args = cmd_args(
+        ctx.attr.extra_json if ctx.attr.extra_json else "{}",
+        delimiter = "",
+    )
     job_args = {
         "assetsDirPath": assets_dir,
         "bundlePath": cmd_args(
@@ -56,7 +65,7 @@ def _build_js_bundle(
         ),
         "command": "bundle",
         "entryPoints": [ctx.attr.entry] if type(ctx.attr.entry) == "string" else list(ctx.attr.entry),
-        "extraData": cmd_args(ctx.attr.extra_json if ctx.attr.extra_json else "{}", delimiter = ""),
+        "extraData": extra_data_args,
         "flavors": get_flavors(ctx),
         "libraries": transitive_js_library_outputs,
         "miscDirPath": misc_dir_path,
@@ -76,10 +85,19 @@ def _build_js_bundle(
     run_worker_command(
         ctx = ctx,
         worker_tool = ctx.attr.worker,
-        command_args_file = command_args_file,
+        command_args_file = fixup_command_args(
+            ctx,
+            command_args_file,
+        ) if ctx.attr.extra_json else command_args_file,
         identifier = base_dir,
         category = job_args["command"],
-        hidden_artifacts = [bundle_dir_output.as_output(), assets_dir.as_output(), misc_dir_path.as_output(), source_map.as_output()],
+        hidden_artifacts = [
+            bundle_dir_output.as_output(),
+            assets_dir.as_output(),
+            misc_dir_path.as_output(),
+            source_map.as_output(),
+            extra_data_args,
+        ] + transitive_js_library_outputs,
     )
 
     return JsBundleInfo(

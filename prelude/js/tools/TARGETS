@@ -1,0 +1,12 @@
+load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
+
+fb_native.export_file(
+    name = "command_args_fixup.py",
+    src = "command_args_fixup.py",
+)
+
+fb_native.command_alias(
+    name = "command_args_fixup",
+    exe = ":command_args_fixup.py",
+    visibility = ["PUBLIC"],
+)

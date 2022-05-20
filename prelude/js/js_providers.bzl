@@ -23,5 +23,7 @@ JsBundleInfo = provider(
 )
 
 JsToolchainInfo = provider(
-    fields = [],
+    fields = [
+        "command_args_fixup",  # RunInfo.
+    ],
 )

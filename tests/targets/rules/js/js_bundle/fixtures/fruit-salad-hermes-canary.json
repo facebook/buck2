@@ -5,7 +5,10 @@
     "entryPoints": [
         "apple"
     ],
-    "extraData": "{\"some_int\":5,\"location_macro\":\"BUCK_OUT_REDACTED/js/js_bundle/__exported_file__/exported_file\"}",
+    "extraData": {
+        "location_macro": "BUCK_OUT_REDACTED/js/js_bundle/__exported_file__/exported_file",
+        "some_int": 5
+    },
     "flavors": [
         "android"
     ],

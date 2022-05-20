@@ -1,6 +1,6 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
 load("@fbcode//buck2/prelude/js:js_providers.bzl", "JsLibraryInfo")
-load("@fbcode//buck2/prelude/js:js_utils.bzl", "TRANSFORM_PROFILES", "get_canonical_src_name", "get_flavors", "run_worker_command")
+load("@fbcode//buck2/prelude/js:js_utils.bzl", "TRANSFORM_PROFILES", "fixup_command_args", "get_canonical_src_name", "get_flavors", "run_worker_command")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "flatten", "map_idx")
 
 # A group of sources that all have the same canonical name. The main_source is arbitrary but
@@ -58,21 +58,27 @@ def _build_js_file(
         "sourceJsFilePath": grouped_src.main_source,
         "transformProfile": "default" if transform_profile == "transform-profile-default" else transform_profile,
     }
+    if ctx.attr.extra_json:
+        job_args["extraData"] = cmd_args(ctx.attr.extra_json, delimiter = "")
+
     command_args_file = ctx.actions.write_json(
         "{}_command_args".format(identifier),
         job_args,
     )
 
-    if ctx.attr.extra_json:
-        job_args["extraData"] = cmd_args(ctx.attr.extra_json, delimiter = "")
-
     run_worker_command(
         ctx = ctx,
         worker_tool = ctx.attr.worker,
-        command_args_file = command_args_file,
+        command_args_file = fixup_command_args(
+            ctx,
+            command_args_file,
+        ) if ctx.attr.extra_json else command_args_file,
         identifier = identifier,
         category = "transform",
-        hidden_artifacts = [output_path.as_output()],
+        hidden_artifacts = [
+            output_path.as_output(),
+            grouped_src.main_source,
+        ] + grouped_src.additional_sources,
     )
 
     return output_path
@@ -100,7 +106,7 @@ def _build_library_files(
         command_args_file = command_args_file,
         identifier = transform_profile,
         category = "library_files",
-        hidden_artifacts = [output_path.as_output()],
+        hidden_artifacts = [output_path.as_output()] + js_files,
     )
     return output_path
 
@@ -131,10 +137,16 @@ def _build_js_library(
     run_worker_command(
         ctx = ctx,
         worker_tool = ctx.attr.worker,
-        command_args_file = command_args_file,
+        command_args_file = fixup_command_args(
+            ctx,
+            command_args_file,
+        ) if ctx.attr.extra_json else command_args_file,
         identifier = transform_profile,
         category = "library_dependencies",
-        hidden_artifacts = [output_path.as_output()],
+        hidden_artifacts = [
+            output_path.as_output(),
+            library_files,
+        ] + js_library_deps,
     )
 
     return output_path
