@@ -406,7 +406,7 @@ impl<V> StarlarkCommandLineDataGen<V> {
     }
 }
 
-impl<T> StarlarkCommandLineDataGen<T> {
+impl<V> StarlarkCommandLineDataGen<V> {
     fn is_concat(&self) -> bool {
         if let Some(x) = &self.options {
             if let Some(x) = &x.formatting {
@@ -435,8 +435,8 @@ unsafe impl<To, From: Coerce<To>> Coerce<StarlarkCommandLineDataGen<To>>
 }
 
 #[derive(Debug, Default, Clone, Trace, AnyLifetime, Serialize)]
-#[serde(bound = "T : Serialize", transparent)]
-pub struct StarlarkCommandLineGen<T>(T);
+#[serde(bound = "V : Serialize", transparent)]
+pub struct StarlarkCommandLineGen<V>(V);
 
 pub type StarlarkCommandLine<'v> =
     StarlarkCommandLineGen<RefCell<StarlarkCommandLineDataGen<Value<'v>>>>;
