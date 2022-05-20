@@ -130,6 +130,29 @@ async def test_bxl(buck: Buck) -> None:
         )
     )
 
+    # list inner type mismatch
+    await expect_failure(
+        buck.bxl(
+            "//bxl:cli_args.bxl",
+            "cli_test",
+            "--",
+            "--int_arg",
+            "2",
+            "--float_arg",
+            "3.4",
+            "--optional",
+            "value",
+            "--enum_type",
+            "b",
+            "--list_type",
+            "wrong_inner_list_type",
+            "--target",
+            "bar:foo",
+            "--providers_label",
+            "cell/pkg:bar",
+        )
+    )
+
     # not valid enum variant
     await expect_failure(
         buck.bxl(
