@@ -31,7 +31,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::{
     exit_result::ExitResult,
-    fs::paths::ForwardRelativePathBuf,
+    fs::paths::FileNameBuf,
     result::{SharedResult, ToSharedResultExt},
 };
 use cli_proto::{client_context::HostPlatformOverride as GrpcHostPlatformOverride, ClientContext};
@@ -100,20 +100,21 @@ mod stdio;
 pub mod target_hash;
 pub mod version;
 pub mod watchman;
-fn parse_forward_path(s: &str) -> anyhow::Result<ForwardRelativePathBuf> {
-    ForwardRelativePathBuf::try_from(s.to_owned())
+
+fn parse_isolation_dir(s: &str) -> anyhow::Result<FileNameBuf> {
+    FileNameBuf::try_from(s.to_owned()).context("isolation dir must be a directory name")
 }
 
 #[derive(Debug, StructOpt)]
 pub struct CommonOptions {
     #[structopt(
-        parse(try_from_str = parse_forward_path),
+        parse(try_from_str = parse_isolation_dir),
         env("BUCK_ISOLATION_DIR"),
         long,
         hidden(true),
         default_value="v2"
     )]
-    isolation_dir: ForwardRelativePathBuf,
+    isolation_dir: FileNameBuf,
 
     #[structopt(
         env("DICE_DETECT_CYCLES_UNSTABLE"),

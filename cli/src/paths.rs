@@ -14,7 +14,9 @@
 use std::borrow::Cow;
 
 use anyhow::anyhow;
-use buck2_core::fs::paths::{AbsPath, AbsPathBuf, ForwardRelativePath, ForwardRelativePathBuf};
+use buck2_core::fs::paths::{
+    AbsPath, AbsPathBuf, FileNameBuf, ForwardRelativePath, ForwardRelativePathBuf,
+};
 
 use crate::roots::Roots;
 
@@ -41,7 +43,7 @@ pub struct Paths {
     /// 2. generally to support recursive buck invocations. while our ideal may be that these
     /// eventually are not allowed, the most pragmatic approach currently is to support them
     /// but push them into isolated, temporary daemons.
-    pub(crate) isolation: ForwardRelativePathBuf,
+    pub(crate) isolation: FileNameBuf,
 }
 
 impl Paths {
@@ -139,7 +141,9 @@ impl Paths {
 mod tests {
     use std::{convert::TryFrom, ffi::OsStr};
 
-    use buck2_core::fs::paths::{AbsPath, AbsPathBuf, ForwardRelativePath, ForwardRelativePathBuf};
+    use buck2_core::fs::paths::{
+        AbsPath, AbsPathBuf, FileNameBuf, ForwardRelativePath, ForwardRelativePathBuf,
+    };
 
     use crate::{paths::Paths, roots::Roots};
 
@@ -160,7 +164,7 @@ mod tests {
                 cell_root: AbsPathBuf::unchecked_new(cell_root.to_owned()),
                 project_root: AbsPathBuf::unchecked_new(project_root.to_owned()),
             },
-            isolation: ForwardRelativePathBuf::unchecked_new("isolation".to_owned()),
+            isolation: FileNameBuf::unchecked_new("isolation".to_owned()),
         };
 
         let expected_path = if cfg!(windows) {
