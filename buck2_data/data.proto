@@ -306,6 +306,7 @@ message CommandStart {
     InstallCommandStart install = 29;
     MaterializeCommandStart materialize = 30;
     ProfileCommandStart profile = 31;
+    BxlCommandStart bxl = 32;
   }
 }
 
@@ -316,6 +317,8 @@ message AuditCommandStart {
 message BuildCommandStart {
   // TODO(swgillespie) fill this with useful fields
 }
+
+message BxlCommandStart {}
 
 message TargetsCommandStart {
   // TODO(swgillespie) fill this with useful fields
@@ -375,6 +378,7 @@ message CommandEnd {
     InstallCommandEnd install = 29;
     MaterializeCommandEnd materialize = 30;
     ProfileCommandEnd profile = 31;
+    BxlCommandEnd bxl = 32;
   }
 
   bool is_success = 2;
@@ -400,6 +404,8 @@ message BuildCommandEnd {
   // configuration.
   repeated TargetPattern target_patterns = 1;
 }
+
+message BxlCommandEnd {}
 
 message TargetsCommandEnd {
   // TODO(swgillespie) fill this with useful fields
