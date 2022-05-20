@@ -11,6 +11,7 @@ use std::{
     cell::RefCell,
     convert::TryInto,
     fmt::{self, Debug, Display},
+    marker::PhantomData,
 };
 
 use anyhow::anyhow;
@@ -218,7 +219,7 @@ impl FormattingOptions {
 
 #[derive(Debug, Default_, Clone, Trace, Serialize)]
 #[repr(C)]
-struct CommandLineOptions<V> {
+struct CommandLineOptions<'v, V: ValueLike<'v>> {
     #[serde(bound = "V: Display", serialize_with = "serialize_opt_display")]
     relative_to: Option<(V, usize)>,
     absolute_prefix: Option<String>,
@@ -226,6 +227,7 @@ struct CommandLineOptions<V> {
     parent: usize,
     ignore_artifacts: bool,
     formatting: Option<FormattingOptions>,
+    lifetime: PhantomData<&'v ()>,
 }
 
 fn serialize_opt_display<V: Display, S>(v: &Option<(V, usize)>, s: S) -> Result<S::Ok, S::Error>
@@ -245,7 +247,7 @@ where
     s.collect_str(v)
 }
 
-impl<V: Display> Display for CommandLineOptions<V> {
+impl<'v, V: ValueLike<'v>> Display for CommandLineOptions<'v, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut comma = commas();
         if let Some((v, i)) = &self.relative_to {
@@ -280,7 +282,7 @@ impl<V: Display> Display for CommandLineOptions<V> {
     }
 }
 
-impl<V> CommandLineOptions<V> {
+impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
     fn extra_memory(&self) -> usize {
         let mut ret = 0;
         if let Some(p) = self.absolute_prefix.as_ref() {
@@ -309,23 +311,23 @@ impl<V> CommandLineOptions<V> {
 #[derive(Debug, Default_, Clone, Trace, AnyLifetime, Serialize)]
 #[serde(bound = "V: Display")]
 #[repr(C)]
-pub struct StarlarkCommandLineDataGen<V> {
+pub struct StarlarkCommandLineDataGen<'v, V: ValueLike<'v>> {
     items: Vec<CommandLineArgGen<V>>,
     hidden: Vec<CommandLineArgGen<V>>,
-    options: Option<Box<CommandLineOptions<V>>>,
+    options: Option<Box<CommandLineOptions<'v, V>>>,
 }
 
 // These types show up a lot in the frozen heaps, so make sure they don't regress
-assert_eq_size!(StarlarkCommandLineDataGen<FrozenValue>, [usize; 7]);
-assert_eq_size!(CommandLineOptions<FrozenValue>, [usize; 20]);
+assert_eq_size!(StarlarkCommandLineDataGen<'static, FrozenValue>, [usize; 7]);
+assert_eq_size!(CommandLineOptions<'static, FrozenValue>, [usize; 20]);
 
-impl<V: Display> Display for StarlarkCommandLineDataGen<V> {
+impl<'v, V: ValueLike<'v>> Display for StarlarkCommandLineDataGen<'v, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut comma = commas();
         write!(f, "cmd_args(")?;
         for x in &self.items {
             comma(f)?;
-            x.fmt(f)?;
+            Display::fmt(x, f)?;
         }
         if !self.hidden.is_empty() {
             comma(f)?;
@@ -333,20 +335,20 @@ impl<V: Display> Display for StarlarkCommandLineDataGen<V> {
             write!(f, "hidden = [")?;
             for x in &self.hidden {
                 hidden_commas(f)?;
-                x.fmt(f)?;
+                Display::fmt(x, f)?;
             }
             write!(f, "]")?;
         }
         if let Some(opts) = &self.options {
             comma(f)?;
-            opts.fmt(f)?;
+            Display::fmt(opts, f)?;
         }
         write!(f, ")")?;
         Ok(())
     }
 }
 
-impl<V> StarlarkCommandLineDataGen<V> {
+impl<'v, V: ValueLike<'v>> StarlarkCommandLineDataGen<'v, V> {
     fn relative_to(&self) -> Option<&(V, usize)> {
         self.options.as_ref()?.relative_to.as_ref()
     }
@@ -398,7 +400,7 @@ impl<V> StarlarkCommandLineDataGen<V> {
         &mut self.options_mut().formatting
     }
 
-    fn options_mut(&mut self) -> &mut CommandLineOptions<V> {
+    fn options_mut(&mut self) -> &mut CommandLineOptions<'v, V> {
         if self.options.is_none() {
             self.options = Some(box Default::default());
         }
@@ -440,8 +442,8 @@ impl FrozenStarlarkCommandLine {
     }
 }
 
-unsafe impl<To, From: Coerce<To>> Coerce<StarlarkCommandLineDataGen<To>>
-    for StarlarkCommandLineDataGen<From>
+unsafe impl<'v> Coerce<StarlarkCommandLineDataGen<'v, Value<'v>>>
+    for StarlarkCommandLineDataGen<'static, FrozenValue>
 {
 }
 
@@ -450,9 +452,9 @@ unsafe impl<To, From: Coerce<To>> Coerce<StarlarkCommandLineDataGen<To>>
 pub struct StarlarkCommandLineGen<V>(V);
 
 pub type StarlarkCommandLine<'v> =
-    StarlarkCommandLineGen<RefCell<StarlarkCommandLineDataGen<Value<'v>>>>;
+    StarlarkCommandLineGen<RefCell<StarlarkCommandLineDataGen<'v, Value<'v>>>>;
 pub type FrozenStarlarkCommandLine =
-    StarlarkCommandLineGen<StarlarkCommandLineDataGen<FrozenValue>>;
+    StarlarkCommandLineGen<StarlarkCommandLineDataGen<'static, FrozenValue>>;
 
 starlark_complex_values!(StarlarkCommandLine);
 
@@ -471,7 +473,7 @@ impl Display for FrozenStarlarkCommandLine {
     }
 }
 
-impl<'v, V: ValueLike<'v>> StarlarkCommandLineDataGen<V> {
+impl<'v, V: ValueLike<'v>> StarlarkCommandLineDataGen<'v, V> {
     fn relative_to_path<C>(&self, ctx: &C) -> anyhow::Result<Option<RelativePathBuf>>
     where
         C: CommandLineBuilderContext + ?Sized,
@@ -527,7 +529,7 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkCommandLine {
     }
 }
 
-impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkCommandLineDataGen<V> {
+impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkCommandLineDataGen<'v, V> {
     fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
         struct Extras<'a> {
             cli: &'a mut dyn CommandLineBuilder,
@@ -765,7 +767,7 @@ impl<'v> CommandLineArgLike for FrozenStarlarkCommandLine {
 }
 
 impl<'v> Freeze for StarlarkCommandLine<'v> {
-    type Frozen = StarlarkCommandLineGen<StarlarkCommandLineDataGen<FrozenValue>>;
+    type Frozen = StarlarkCommandLineGen<StarlarkCommandLineDataGen<'static, FrozenValue>>;
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         let StarlarkCommandLineDataGen {
             items,
@@ -784,7 +786,9 @@ impl<'v> Freeze for StarlarkCommandLine<'v> {
                 parent,
                 ignore_artifacts,
                 formatting,
+                lifetime,
             } = *options;
+            let _ = lifetime;
 
             let relative_to =
                 relative_to.into_try_map(|(x, p)| anyhow::Ok((x.freeze(freezer)?, p)))?;
@@ -796,6 +800,7 @@ impl<'v> Freeze for StarlarkCommandLine<'v> {
                 parent,
                 ignore_artifacts,
                 formatting,
+                lifetime: PhantomData::default(),
             })
         })?;
 
@@ -840,7 +845,7 @@ impl<'v> StarlarkCommandLine<'v> {
     }
 }
 
-impl<'v> StarlarkCommandLineDataGen<Value<'v>> {
+impl<'v> StarlarkCommandLineDataGen<'v, Value<'v>> {
     fn add_value(&mut self, value: Value<'v>) -> anyhow::Result<()> {
         if let Some(values) = List::from_value(value) {
             self.add_values(values.content())?;
