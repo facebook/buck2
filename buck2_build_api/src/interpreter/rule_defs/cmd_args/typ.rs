@@ -357,16 +357,16 @@ impl<'v, V: ValueLike<'v>> StarlarkCommandLineDataGen<'v, V> {
         &mut self.options_mut().relative_to
     }
 
-    fn absolute_prefix(&self) -> Option<&String> {
-        self.options.as_ref()?.absolute_prefix.as_ref()
+    fn absolute_prefix(&self) -> Option<&str> {
+        self.options.as_ref()?.absolute_prefix.as_deref()
     }
 
     fn absolute_prefix_mut(&mut self) -> &mut Option<String> {
         &mut self.options_mut().absolute_prefix
     }
 
-    fn absolute_suffix(&self) -> Option<&String> {
-        self.options.as_ref()?.absolute_suffix.as_ref()
+    fn absolute_suffix(&self) -> Option<&str> {
+        self.options.as_ref()?.absolute_suffix.as_deref()
     }
 
     fn absolute_suffix_mut(&mut self) -> &mut Option<String> {
@@ -534,8 +534,8 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkCommandLineDataGen<'v,
         struct Extras<'a> {
             cli: &'a mut dyn CommandLineBuilder,
             relative_to: Option<RelativePathBuf>,
-            absolute_prefix: Option<&'a String>,
-            absolute_suffix: Option<&'a String>,
+            absolute_prefix: Option<&'a str>,
+            absolute_suffix: Option<&'a str>,
             parent: usize,
             // Auxiliary field to store concatenation result (when arguments are concatenated) and
             // a flag stating that the result is not yet started to be computated (i.e. the first
@@ -606,9 +606,9 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkCommandLineDataGen<'v,
                 if absolute_prefix.is_some() || absolute_suffix.is_some() {
                     x = RelativePath::new(&format!(
                         "{}{}{}",
-                        absolute_prefix.as_ref().map_or("", |s| s.as_str()),
+                        absolute_prefix.unwrap_or(""),
                         x,
-                        absolute_suffix.as_ref().map_or("", |s| s.as_str()),
+                        absolute_suffix.unwrap_or(""),
                     ))
                     .to_owned();
                 }
