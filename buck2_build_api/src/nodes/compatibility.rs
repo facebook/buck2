@@ -8,7 +8,7 @@
  */
 
 use std::{
-    fmt::{Debug, Display, Formatter},
+    fmt::{Debug, Display, Formatter, Write},
     hash::Hash,
     sync::Arc,
 };
@@ -112,6 +112,35 @@ impl IncompatiblePlatformReason {
     pub fn skipping_message(&self, target: &ConfiguredTargetLabel) -> String {
         format!("Skipping target incompatible node `{}`", target)
     }
+
+    pub fn skipping_message_for_multiple<'t>(
+        incompatible_targets: impl IntoIterator<Item = &'t ConfiguredTargetLabel>,
+    ) -> String {
+        let mut incompatible_targets = incompatible_targets.into_iter().collect::<Vec<_>>();
+        incompatible_targets.sort();
+        let mut message = String::new();
+
+        writeln!(
+            message,
+            "Skipped {} incompatible targets:",
+            incompatible_targets.len()
+        )
+        .unwrap();
+        if incompatible_targets.len() < 10 {
+            for target in incompatible_targets.iter() {
+                writeln!(message, "  {}", target).unwrap();
+            }
+        } else {
+            for target in incompatible_targets.iter().take(3) {
+                writeln!(message, "  {}", target).unwrap();
+            }
+            writeln!(message, "  ...").unwrap();
+            for target in incompatible_targets.iter().rev().take(3).rev() {
+                writeln!(message, "  {}", target).unwrap();
+            }
+        }
+        message
+    }
 }
 
 impl Display for IncompatiblePlatformReason {
@@ -123,5 +152,48 @@ impl Display for IncompatiblePlatformReason {
             self.root_incompatible_target.cfg(),
             &self.unsatisfied_config
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_core::{
+        configuration::Configuration,
+        target::{testing::TargetLabelExt, TargetLabel},
+    };
+
+    use crate::nodes::compatibility::IncompatiblePlatformReason;
+
+    #[test]
+    fn test_skipping_message_for_multiple() {
+        let set =
+            vec![TargetLabel::testing_parse("//foo:bar").configure(Configuration::testing_new())];
+        assert_eq!(
+            "Skipped 1 incompatible targets:\n  //foo:bar (<testing>)\n",
+            &IncompatiblePlatformReason::skipping_message_for_multiple(&set)
+        );
+
+        let mut set = Vec::new();
+        for i in 0..20 {
+            // Test it doesn't crash
+            IncompatiblePlatformReason::skipping_message_for_multiple(&set);
+
+            set.push(
+                TargetLabel::testing_parse(&format!("//foo:bar{}", i))
+                    .configure(Configuration::testing_new()),
+            );
+        }
+        assert_eq!(
+            r"Skipped 20 incompatible targets:
+  //foo:bar0 (<testing>)
+  //foo:bar1 (<testing>)
+  //foo:bar10 (<testing>)
+  ...
+  //foo:bar7 (<testing>)
+  //foo:bar8 (<testing>)
+  //foo:bar9 (<testing>)
+",
+            &IncompatiblePlatformReason::skipping_message_for_multiple(&set)
+        );
     }
 }

@@ -38,12 +38,15 @@ use dice::DiceComputations;
 use gazebo::prelude::*;
 use indexmap::indexset;
 use ref_cast::RefCast;
+use starlark::collections::SmallSet;
 
 use crate::{
     calculation::{load_patterns, Calculation},
     interpreter::module_internals::EvaluationResult,
     nodes::{
-        compatibility::MaybeCompatible, configured::ConfiguredTargetNode, unconfigured::TargetNode,
+        compatibility::{IncompatiblePlatformReason, MaybeCompatible},
+        configured::ConfiguredTargetNode,
+        unconfigured::TargetNode,
     },
     query::{
         cquery::environment::CqueryDelegate,
@@ -273,18 +276,25 @@ pub async fn get_compatible_targets(
     }
 
     let mut target_set = TargetSet::new();
+    let mut incompatible_targets = SmallSet::new();
     for targets in futures::future::join_all(by_package_futs).await {
         for target_and_node in targets {
             let (target, target_node) = target_and_node?;
             match target_node {
-                MaybeCompatible::Incompatible(reason) => {
-                    eprintln!("{}", reason.skipping_message(&target));
+                MaybeCompatible::Incompatible(..) => {
+                    incompatible_targets.insert(target);
                 }
                 MaybeCompatible::Compatible(target) => {
                     target_set.insert(target);
                 }
             }
         }
+    }
+    if !incompatible_targets.is_empty() {
+        eprint!(
+            "{}",
+            IncompatiblePlatformReason::skipping_message_for_multiple(incompatible_targets.iter())
+        );
     }
     Ok(target_set)
 }
