@@ -7,7 +7,7 @@ ClassNameFilter = record(
     suffixes = [str.type],
     substrings = [str.type],
     exact_matches = [str.type],
-    regular_expressions = [str.type],
+    regular_expressions = ["regex"],
 )
 
 def get_class_name_filter(patterns: [str.type]) -> "ClassNameFilter":
@@ -19,7 +19,7 @@ def get_class_name_filter(patterns: [str.type]) -> "ClassNameFilter":
 
     for pattern in patterns:
         if pattern.startswith(REGEX_MARKER):
-            regular_expressions.append(pattern[2:])
+            regular_expressions.append(experimental_regex(pattern[2:]))
         else:
             is_prefix = pattern[0] == PREFIX_MARKER
             is_suffix = pattern[-1] == SUFFIX_MARKER
@@ -57,7 +57,7 @@ def class_name_matches_filter(class_name: str.type, class_name_filter: "ClassNam
             return True
 
     for regular_expression in class_name_filter.regular_expressions:
-        if regex_match(regular_expression, class_name):
+        if regular_expression.match(class_name):
             return True
 
     return False
