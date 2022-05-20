@@ -1,11 +1,12 @@
 import json
+import re
 import sys
 from pathlib import Path
 
 import pytest
 from xplat.build_infra.buck_e2e.api.buck import Buck
 from xplat.build_infra.buck_e2e.asserts import expect_failure
-from xplat.build_infra.buck_e2e.buck_workspace import buck_test
+from xplat.build_infra.buck_e2e.buck_workspace import buck_test, env
 
 # builds targets in an fbcode target configuration, unsupported on mac RE workers
 def fbcode_linux_only() -> bool:
@@ -158,6 +159,26 @@ if fbcode_linux_only():
             "fbcode//buck2/tests/targets/rules/cxx/headers_as_raw_headers:",
             "-c" "cxx.headers_as_raw_headers_mode=disabled",
         )
+
+    @buck_test(inplace=True)
+    @env("BUCK2_KEEP_DEP_FILE_DIRECTORIES", "true")
+    async def test_cxx_dep_files(buck: Buck) -> None:
+        cpp9 = "fbcode//buck2/tests/targets/rules/cxx:my_cpp9"
+        await buck.build(cpp9)
+        res = await buck.audit_dep_files(cpp9, "cxx_compile", "cpp9.cpp")
+        out = res.stdout
+
+        # Check that we are tracking our dependency on stdlib headers, even
+        # though they are neither explicitly included nor tagged.
+        assert re.search(
+            "untagged.*fbcode/third-party-buck/.*/build/glibc/include", out
+        )
+
+        # Check that we are tracking directly-included headrs
+        assert re.search("headers.*glog/include", out)
+
+        # Check that we are tracking transitively-included headrs
+        assert re.search("headers.*gflags/include", out)
 
 
 @buck_test(inplace=True)
