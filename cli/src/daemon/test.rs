@@ -300,7 +300,7 @@ async fn test_targets(
         }
     });
 
-    eprintln!("waiting all tests to finish...");
+    eprintln!("waiting for all tests to finish...");
     let executor_output = executor_handle
         .await
         .context("Failed to retrieve executor exit code")?;
