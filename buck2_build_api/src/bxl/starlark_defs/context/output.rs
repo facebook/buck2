@@ -1,6 +1,8 @@
 //! The output stream for bxl to print values to the console as their result
 //!
 
+use std::cell::RefCell;
+
 use derive_more::Display;
 use gazebo::any::AnyLifetime;
 use itertools::Itertools;
@@ -16,11 +18,15 @@ use crate::bxl::starlark_defs::BxlError::NoFreeze;
 
 #[derive(AnyLifetime, Debug, Display, Trace, NoSerialize)]
 #[display(fmt = "{:?}", self)]
-pub struct OutputStream {}
+pub struct OutputStream {
+    has_print: RefCell<bool>,
+}
 
 impl OutputStream {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            has_print: RefCell::new(false),
+        }
     }
 }
 
@@ -63,8 +69,10 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
     ///
     /// Prints that are not result of the bxl should be printed via stderr via the stdlib `print`
     /// and `pprint`.
-    fn print(_this: &OutputStream, args: Vec<Value>) -> anyhow::Result<NoneType> {
+    fn print(this: &OutputStream, args: Vec<Value>) -> anyhow::Result<NoneType> {
         println!("{}", &args.iter().map(|x| x.to_str()).join(" "));
+        *this.has_print.borrow_mut() = true;
+
         Ok(NoneType)
     }
 }
