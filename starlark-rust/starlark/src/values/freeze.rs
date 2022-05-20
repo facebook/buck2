@@ -189,3 +189,39 @@ impl<'v> Freeze for StringValue<'v> {
         self.freeze(freezer)
     }
 }
+
+impl Freeze for () {
+    type Frozen = ();
+
+    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<()> {
+        Ok(())
+    }
+}
+
+impl<A: Freeze> Freeze for (A,) {
+    type Frozen = (A::Frozen,);
+
+    fn freeze(self, freezer: &Freezer) -> anyhow::Result<(A::Frozen,)> {
+        Ok((self.0.freeze(freezer)?,))
+    }
+}
+
+impl<A: Freeze, B: Freeze> Freeze for (A, B) {
+    type Frozen = (A::Frozen, B::Frozen);
+
+    fn freeze(self, freezer: &Freezer) -> anyhow::Result<(A::Frozen, B::Frozen)> {
+        Ok((self.0.freeze(freezer)?, self.1.freeze(freezer)?))
+    }
+}
+
+impl<A: Freeze, B: Freeze, C: Freeze> Freeze for (A, B, C) {
+    type Frozen = (A::Frozen, B::Frozen, C::Frozen);
+
+    fn freeze(self, freezer: &Freezer) -> anyhow::Result<(A::Frozen, B::Frozen, C::Frozen)> {
+        Ok((
+            self.0.freeze(freezer)?,
+            self.1.freeze(freezer)?,
+            self.2.freeze(freezer)?,
+        ))
+    }
+}
