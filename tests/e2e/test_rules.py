@@ -438,7 +438,9 @@ async def test_argsfiles_subtarget(buck: Buck) -> None:
     base_target = "fbcode//buck2/tests/targets/rules/cxx/exported_deps_propagated:exported_deps_propagated"
     target_pattern = f"{base_target}[argsfiles]"
 
-    result = await buck.build(target_pattern)
+    result = await buck.build(
+        target_pattern, "-c", "build_report.unstable_include_other_outputs=true"
+    )
     report = result.get_build_report()
     default_outputs = report.outputs_for_target(base_target, "argsfiles")
     for file_name in ["argsfiles", ".cpp.argsfile"]:

@@ -965,6 +965,8 @@ async def test_target_aliases(buck: Buck) -> None:
 async def test_build_providers(buck: Buck) -> None:
     await buck.build(
         "//:target",
+        "-c",
+        "build_report.unstable_include_other_outputs=true",
         "--build-default-info",
         "--skip-run-info",
         "--skip-test-info",
@@ -979,6 +981,8 @@ async def test_build_providers(buck: Buck) -> None:
 
     await buck.build(
         "//:target",
+        "-c",
+        "build_report.unstable_include_other_outputs=true",
         "--skip-default-info",
         "--build-run-info",
         "--skip-test-info",
@@ -993,6 +997,8 @@ async def test_build_providers(buck: Buck) -> None:
 
     await buck.build(
         "//:target",
+        "-c",
+        "build_report.unstable_include_other_outputs=true",
         "--skip-default-info",
         "--skip-run-info",
         "--build-test-info",

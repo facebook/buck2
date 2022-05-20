@@ -511,7 +511,13 @@ async def test_audit_config_gets_correct_cell_from_cwd(buck: Buck) -> None:
 @buck_test(inplace=True)
 async def test_build_test_dependencies(buck: Buck) -> None:
     target = "fbcode//buck2/tests/targets/rules/sh_test:test_with_env"
-    build = await buck.build(target, "--build-test-dependencies", "--build-report=-")
+    build = await buck.build(
+        target,
+        "-c",
+        "build_report.unstable_include_other_outputs=true",
+        "--build-test-dependencies",
+        "--build-report=-",
+    )
     report = build.get_build_report().build_report
 
     path = ["results", target, "other_outputs", "DEFAULT"]

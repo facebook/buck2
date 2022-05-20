@@ -261,6 +261,7 @@ pub mod build_report {
         overall_success: bool,
         project_root: &'a AbsPath,
         include_unconfigured_section: bool,
+        include_other_outputs: bool,
     }
 
     impl<'a> BuildReportCollector<'a> {
@@ -269,6 +270,7 @@ pub mod build_report {
             artifact_fs: &'a ArtifactFs,
             project_root: &'a AbsPath,
             include_unconfigured_section: bool,
+            include_other_outputs: bool,
         ) -> Self {
             Self {
                 trace_id,
@@ -277,6 +279,7 @@ pub mod build_report {
                 overall_success: true,
                 project_root,
                 include_unconfigured_section,
+                include_other_outputs,
             }
         }
 
@@ -331,7 +334,7 @@ pub mod build_report {
                                         .insert(self.artifact_fs.resolve(artifact).unwrap());
                                 }
 
-                                if is_other {
+                                if is_other && self.include_other_outputs {
                                     other_outs.insert(self.artifact_fs.resolve(artifact).unwrap());
                                 }
                             }

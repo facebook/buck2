@@ -118,6 +118,13 @@ pub async fn build(
             )
             .await?
             .unwrap_or(true),
+            ctx.parse_legacy_config_property(
+                cell_resolver.root_cell(),
+                "build_report",
+                "unstable_include_other_outputs",
+            )
+            .await?
+            .unwrap_or(false),
         ))
     } else {
         None
