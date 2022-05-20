@@ -32,7 +32,7 @@ use crate::{
     collections::{BorrowHashed, Hashed},
     values::{
         layout::static_string::VALUE_EMPTY_STRING, string::StarlarkStr, Freeze, Freezer,
-        FrozenValueTyped, Trace, ValueTyped,
+        FrozenValue, FrozenValueTyped, Trace, Value, ValueTyped,
     },
 };
 
@@ -104,6 +104,11 @@ impl FrozenStringValue {
         Hashed::new_unchecked(self.get_hash(), self)
     }
 
+    /// Get the [`FrozenValue`] along with the hash.
+    pub fn get_hashed_value(self) -> Hashed<FrozenValue> {
+        Hashed::new_unchecked(self.get_hash(), self.to_frozen_value())
+    }
+
     /// Get the string reference along with the hash.
     pub fn get_hashed_str(self) -> BorrowHashed<'static, str> {
         BorrowHashed::new_unchecked(self.get_hash(), self.as_str())
@@ -124,6 +129,11 @@ impl<'v> StringValue<'v> {
     /// Get the string reference along with the hash.
     pub fn get_hashed_str(self) -> BorrowHashed<'v, str> {
         BorrowHashed::new_unchecked(self.get_hash(), self.as_str())
+    }
+
+    /// Get the [`Value`] along with the hash.
+    pub fn get_hashed_value(self) -> Hashed<Value<'v>> {
+        Hashed::new_unchecked(self.get_hash(), self.to_value())
     }
 
     /// If this string value is frozen, return it.
