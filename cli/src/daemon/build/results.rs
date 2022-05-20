@@ -21,7 +21,7 @@ pub enum BuildOwner<'a> {
 }
 
 /// Collects the results of the build and processes it
-pub(crate) trait BuildResultCollector: Send {
+pub trait BuildResultCollector: Send {
     fn collect_result(&mut self, label: &BuildOwner, result: &BuildTargetResult);
 }
 
@@ -254,7 +254,7 @@ pub mod build_report {
         Bxl(BxlFunctionLabel),
     }
 
-    pub(crate) struct BuildReportCollector<'a> {
+    pub struct BuildReportCollector<'a> {
         trace_id: &'a TraceId,
         artifact_fs: &'a ArtifactFs,
         build_report_results: HashMap<EntryLabel, ConfiguredBuildReportEntry>,
@@ -431,7 +431,7 @@ pub mod providers {
     impl BuildResultCollector for ProvidersPrinter {
         fn collect_result(&mut self, _label: &BuildOwner, result: &BuildTargetResult) {
             // TODO: should we print the label here?
-            let providers = result.providers.provider_collection();
+            let providers = result.providers.as_ref().unwrap().provider_collection();
             for x in providers.provider_ids() {
                 let p = providers.get_provider_raw(x).unwrap();
                 eprintln!("    {} = {}", x.name(), p);

@@ -16,15 +16,18 @@
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
-use std::{collections::HashMap, convert::TryFrom, fs::File, str::FromStr, sync::Arc};
+use std::{collections::HashMap, convert::TryFrom, fs::File, path::Path, str::FromStr, sync::Arc};
 
 use anyhow::Context;
 use buck2_build_api::{
     actions::{
-        artifact::ArtifactFs,
         build_listener,
         build_listener::{BuildSignalSender, SetBuildSignals},
         run::knobs::HasRunActionKnobs,
+    },
+    artifact_groups::ArtifactGroup,
+    build::{
+        materialize_artifact_group, BuildProviderType, MaterializationContext, ProviderArtifacts,
     },
     bxl::{
         calculation::BxlCalculation,
@@ -72,21 +75,27 @@ use buck2_interpreter::{
     extra::InterpreterHostPlatform,
     parse_import::{parse_import_with_config, ParseImportOptions},
 };
-use cli::daemon::common::{parse_concurrency, CommandExecutorFactory};
-use cli_proto::common_build_options::ExecutionStrategy;
-use dice::{cycles::DetectCycles, Dice, DiceTransaction, UserComputationData};
-use events::dispatch::EventDispatcher;
+use cli::daemon::{
+    build::{
+        results::{
+            build_report::BuildReportCollector, result_report::ResultReporter, BuildOwner,
+            BuildResultCollector,
+        },
+        BuildTargetResult,
+    },
+    common::{parse_concurrency, CommandExecutorFactory},
+};
+use cli_proto::{common_build_options::ExecutionStrategy, BuildTarget};
+use dice::{cycles::DetectCycles, Dice, DiceComputations, DiceTransaction, UserComputationData};
+use events::{dispatch::EventDispatcher, TraceId};
 use fbinit::FacebookInit;
+use futures::FutureExt;
 use gazebo::prelude::*;
 use host_sharing::{HostSharingBroker, HostSharingStrategy};
-use indexmap::IndexSet;
-use serde::Serialize;
+use itertools::Itertools;
 use structopt::{clap::AppSettings, StructOpt};
 use thiserror::Error;
 use tokio::runtime::Builder;
-
-#[macro_use]
-extern crate maplit;
 
 #[cfg_attr(all(unix, not(fbcode_build)), global_allocator)]
 #[cfg(all(unix, not(fbcode_build)))]
@@ -269,129 +278,235 @@ async fn async_main(
         .eval_bxl(BxlKey::new(bxl_label.clone(), bxl_args))
         .await?;
 
-    if let Some(report) = opt.build_report {
-        let report = File::create(fs.resolve(&cwd).join(report))?;
-        build_report(&bxl_label, &*result, report, &artifact_fs)?;
-    }
+    let build_result = ensure_artifacts(&dice, result).await;
 
-    if opt.show_all_outputs {
-        show_output(
-            opt.show_all_outputs_format,
-            &bxl_label,
-            &*result,
-            &artifact_fs,
-            &*fs,
-        )?;
-    }
+    match build_result {
+        None => {}
+        Some(build_result) => {
+            // TODO(T116849868) reuse the same as build command when moved to daemon
+            let trace_id = TraceId::new();
 
-    Ok(())
-}
+            let mut build_report_collector = if opt.build_report.is_some() {
+                Some(BuildReportCollector::new(
+                    &trace_id,
+                    &artifact_fs,
+                    &fs.root,
+                    dice.parse_legacy_config_property(
+                        cell_resolver.root_cell(),
+                        "build_report",
+                        "print_unconfigured_section",
+                    )
+                    .await?
+                    .unwrap_or(true),
+                    true,
+                ))
+            } else {
+                None
+            };
+            let mut result_collector = ResultReporter::new(&artifact_fs, opt.show_all_outputs);
 
-fn build_report(
-    label: &BxlFunctionLabel,
-    result: &BxlResult,
-    report_loc: File,
-    artifact_fs: &ArtifactFs,
-) -> anyhow::Result<()> {
-    // TODO share code with daemon::build's build report since bxl contains the same data
+            let mut result_collectors = vec![
+                Some(&mut result_collector as &mut dyn BuildResultCollector),
+                build_report_collector
+                    .as_mut()
+                    .map(|v| v as &mut dyn BuildResultCollector),
+            ]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<&mut dyn BuildResultCollector>>();
 
-    #[derive(Debug, Serialize)]
-    #[allow(clippy::upper_case_acronyms)] // We care about how they serialise
-    enum BuildOutcome {
-        SUCCESS,
-        FAIL,
-    }
+            for r in build_result {
+                result_collectors.collect_result(&BuildOwner::Bxl(&bxl_label), &r);
+            }
 
-    #[derive(Debug, Serialize)]
-    pub struct BuildReportEntry {
-        /// whether this particular build was successful
-        success: BuildOutcome,
-        /// a map of each subtarget of the current target (outputted as a `|` delimited list) to
-        /// the hidden, implicitly built outputs of the subtarget. There are multiple outputs
-        /// per subtarget
-        other_outputs: HashMap<String, IndexSet<ProjectRelativePathBuf>>,
-    }
+            if let Some(build_report_collector) = build_report_collector {
+                let report = build_report_collector.into_report();
+                if !opt.build_report.as_ref().unwrap().is_empty() {
+                    let file = File::create(fs.resolve(&cwd).join(opt.build_report.unwrap()))?;
+                    serde_json::to_writer_pretty(&file, &report)?
+                } else {
+                    println!("{}", serde_json::to_string(&report)?);
+                };
+            }
 
-    match result {
-        BxlResult::None => {
-            // do nothing, empty report
-        }
-        BxlResult::Built(builts, _) => {
-            let mut entry = BuildReportEntry {
-                success: BuildOutcome::SUCCESS,
-                other_outputs: Default::default(),
+            let (build_targets, error_messages) = match result_collector.results() {
+                Ok(targets) => (targets, Vec::new()),
+                Err(errors) => {
+                    let error_strings = errors
+                        .errors
+                        .iter()
+                        .map(|e| format!("{:#}", e))
+                        .unique()
+                        .collect();
+                    (vec![], error_strings)
+                }
             };
 
-            for built in builts {
-                match built {
-                    StarlarkBuildResult::Error(_) => {
-                        entry.success = BuildOutcome::FAIL;
-                    }
-                    StarlarkBuildResult::None => {}
-                    StarlarkBuildResult::Built { built, .. } => {
-                        built.iter().for_each(|res| match res {
-                            Ok(artifacts) => {
-                                for (artifact, _value) in artifacts.values.iter() {
-                                    entry
-                                        .other_outputs
-                                        .entry("DEFAULT".to_owned())
-                                        .or_insert_with(IndexSet::new)
-                                        .insert(artifact_fs.resolve(artifact).unwrap());
-                                }
-                            }
-                            Err(..) => entry.success = BuildOutcome::FAIL,
-                        });
-                    }
-                }
+            for error_message in error_messages {
+                println!("{}", error_message)
             }
 
-            serde_json::to_writer_pretty(&report_loc, &hashmap! {label => entry})?;
+            print_all_outputs(
+                build_targets,
+                match opt.show_all_outputs_format {
+                    ShowAllOutputsFormat::FullJson => Some(format!("{}", fs.root.display())),
+                    ShowAllOutputsFormat::Json => None,
+                },
+                true,
+            )?;
         }
     }
+
     Ok(())
 }
 
-fn show_output(
-    format: ShowAllOutputsFormat,
-    label: &BxlFunctionLabel,
-    result: &BxlResult,
-    artifact_fs: &ArtifactFs,
-    fs: &ProjectFilesystem,
-) -> anyhow::Result<()> {
-    // TODO share code with cli::build's show output since bxl contains the same data
-
-    let mut outputs = IndexSet::new();
-    match result {
-        BxlResult::None => {}
-        BxlResult::Built(builts, _) => {
-            for built in builts {
-                match built {
-                    StarlarkBuildResult::Error(_) => {}
-                    StarlarkBuildResult::None => {}
-                    StarlarkBuildResult::Built { built, .. } => {
-                        built.iter().for_each(|provider_artifacts| {
-                            if let Ok(artifacts) = provider_artifacts {
-                                for (artifact, _value) in artifacts.values.iter() {
-                                    outputs.insert({
-                                        let path = artifact_fs.resolve(artifact).unwrap();
-                                        match format {
-                                            ShowAllOutputsFormat::Json => path.as_str().to_owned(),
-                                            ShowAllOutputsFormat::FullJson => {
-                                                format!("{}", fs.resolve(&path).display())
-                                            }
-                                        }
-                                    });
-                                }
-                            }
-                        })
-                    }
-                }
-            }
-        }
+async fn ensure_artifacts(
+    ctx: &DiceComputations,
+    bxl_result: Arc<BxlResult>,
+) -> Option<Vec<BuildTargetResult>> {
+    let materialization_ctx = MaterializationContext::Materialize {
+        map: Arc::new(Default::default()),
+        force: false,
     };
 
-    serde_json::to_writer_pretty(std::io::stdout(), &hashmap! { label => outputs })?;
-    println!();
+    match &*bxl_result {
+        BxlResult::None => None,
+        BxlResult::BuildsArtifacts {
+            built, artifacts, ..
+        } => {
+            let mut report = vec![];
+
+            let mut futs = vec![];
+
+            built.iter().for_each(|res| match res {
+                StarlarkBuildResult::Built {
+                    providers,
+                    run_args,
+                    built,
+                } => {
+                    let mut output_futs = vec![];
+
+                    built.iter().for_each(|res| match res {
+                        Ok(artifacts) => {
+                            for (artifact, _value) in artifacts.values.iter() {
+                                output_futs.push(
+                                    async {
+                                        Ok(ProviderArtifacts {
+                                            values: materialize_artifact_group(
+                                                ctx,
+                                                &ArtifactGroup::Artifact(artifact.dupe()),
+                                                &materialization_ctx,
+                                            )
+                                            .await?,
+                                            provider_type: BuildProviderType::DefaultOther,
+                                        })
+                                    }
+                                    .boxed(),
+                                )
+                            }
+                        }
+                        Err(e) => output_futs.push(futures::future::ready(Err(e.dupe())).boxed()),
+                    });
+
+                    futs.push(
+                        async move {
+                            BuildTargetResult {
+                                outputs: futures::future::join_all(output_futs).await,
+                                providers: Some(providers.dupe()),
+                                run_args: run_args.clone(),
+                            }
+                        }
+                        .boxed(),
+                    )
+                }
+
+                StarlarkBuildResult::None => {}
+                StarlarkBuildResult::Error(e) => report.push(BuildTargetResult {
+                    outputs: vec![Err(e.dupe())],
+                    providers: None,
+                    run_args: None,
+                }),
+            });
+
+            let mut output_futs = vec![];
+            artifacts.iter().for_each(|a| {
+                output_futs.push(
+                    async {
+                        Ok(ProviderArtifacts {
+                            values: materialize_artifact_group(
+                                ctx,
+                                &ArtifactGroup::Artifact(a.dupe()),
+                                &materialization_ctx,
+                            )
+                            .await?,
+                            provider_type: BuildProviderType::DefaultOther,
+                        })
+                    }
+                    .boxed(),
+                );
+            });
+
+            if !output_futs.is_empty() {
+                futs.push(
+                    async move {
+                        BuildTargetResult {
+                            outputs: futures::future::join_all(output_futs).await,
+                            providers: None,
+                            run_args: None,
+                        }
+                    }
+                    .boxed(),
+                );
+            }
+
+            Some(futures::future::join_all(futs).await)
+        }
+    }
+}
+
+// TODO(T116849868): remove this and use the src::commands::build::print_outputs once in the daemon
+fn print_all_outputs(
+    targets: Vec<BuildTarget>,
+    root_path: Option<String>,
+    as_json: bool,
+) -> anyhow::Result<()> {
+    let mut output_map = HashMap::new();
+    let mut process_output = |target: &String, output: Option<String>| -> anyhow::Result<()> {
+        let output = match output {
+            Some(output) => match &root_path {
+                Some(root) => Path::new(&root).join(output).to_string_lossy().into_owned(),
+                None => output,
+            },
+            None => "".to_owned(),
+        };
+        if as_json {
+            output_map
+                .entry(target.clone())
+                .or_insert_with(Vec::new)
+                .push(output);
+        } else {
+            println!("{} {}", target, output);
+        }
+
+        Ok(())
+    };
+
+    for build_target in targets {
+        let outputs = build_target.outputs.into_iter();
+        // only print the unconfigured target for now until we migrate everything to support
+        // also printing configurations
+        for output in outputs {
+            process_output(&build_target.target, Some(output.path))?;
+        }
+    }
+
+    if as_json {
+        println!(
+            "{}",
+            &serde_json::to_string_pretty(&output_map)
+                .unwrap_or_else(|_| panic!("Error when converting output map to JSON.")),
+        );
+    }
 
     Ok(())
 }

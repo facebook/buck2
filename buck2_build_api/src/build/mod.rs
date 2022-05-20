@@ -148,7 +148,7 @@ impl Debug for ProviderArtifacts {
     }
 }
 
-async fn materialize_artifact_group(
+pub async fn materialize_artifact_group(
     ctx: &DiceComputations,
     artifact_group: &ArtifactGroup,
     materialization_context: &MaterializationContext,

@@ -444,7 +444,12 @@ mod tests {
             .set_data(|data| data.set_testing_io_provider(&fs))
             .mock_and_return(
                 BxlComputeKey(bxl.dupe()),
-                anyhow::Ok(Arc::new(BxlResult::Built(vec![], deferred_result))).shared_error(),
+                anyhow::Ok(Arc::new(BxlResult::BuildsArtifacts {
+                    built: vec![],
+                    artifacts: vec![],
+                    deferred: deferred_result,
+                }))
+                .shared_error(),
             );
 
         let mut dice_data = UserComputationData::new();

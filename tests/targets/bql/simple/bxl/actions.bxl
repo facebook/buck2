@@ -10,3 +10,17 @@ artifact_test = bxl(
     cli_args = {
     },
 )
+
+def _build_actions_impl(ctx):
+    actions = ctx.bxl_actions.action_factory()
+
+    output = actions.write("my_output", ctx.cli_args.content)
+
+    return [output]
+
+build_actions_test = bxl(
+    implementation = _build_actions_impl,
+    cli_args = {
+        "content": cli_args.string(),
+    },
+)

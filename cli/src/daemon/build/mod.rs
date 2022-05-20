@@ -61,7 +61,7 @@ use crate::daemon::{
     server::ServerCommandContext,
 };
 
-mod results;
+pub mod results;
 
 #[derive(Debug, Error)]
 pub enum BuildError {
@@ -464,10 +464,10 @@ async fn build_targets_for_spec(
     Ok(results)
 }
 
-pub(crate) struct BuildTargetResult {
-    outputs: Vec<SharedResult<ProviderArtifacts>>,
-    providers: FrozenProviderCollectionValue,
-    run_args: Option<Vec<String>>,
+pub struct BuildTargetResult {
+    pub outputs: Vec<SharedResult<ProviderArtifacts>>,
+    pub providers: Option<FrozenProviderCollectionValue>,
+    pub run_args: Option<Vec<String>>,
 }
 
 async fn build_target(
@@ -494,7 +494,7 @@ async fn build_target(
             providers_label,
             BuildTargetResult {
                 outputs,
-                providers,
+                providers: Some(providers),
                 run_args,
             },
         )
