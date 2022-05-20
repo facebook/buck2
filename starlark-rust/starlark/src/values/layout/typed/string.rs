@@ -30,7 +30,10 @@ use serde::Serialize;
 
 use crate::{
     collections::{BorrowHashed, Hashed},
-    values::{string::StarlarkStr, Freeze, Freezer, FrozenValueTyped, Trace, ValueTyped},
+    values::{
+        layout::static_string::VALUE_EMPTY_STRING, string::StarlarkStr, Freeze, Freezer,
+        FrozenValueTyped, Trace, ValueTyped,
+    },
 };
 
 /// Convenient type alias.
@@ -83,6 +86,18 @@ impl<'v> Equivalent<StringValue<'v>> for FrozenStringValue {
     }
 }
 
+impl<'v> Default for StringValue<'v> {
+    fn default() -> Self {
+        FrozenStringValue::default().to_string_value()
+    }
+}
+
+impl Default for FrozenStringValue {
+    fn default() -> Self {
+        VALUE_EMPTY_STRING.erase()
+    }
+}
+
 impl FrozenStringValue {
     /// Get self along with the hash.
     pub fn get_hashed(self) -> Hashed<Self> {
@@ -126,6 +141,7 @@ pub trait StringValueLike<'v>:
     + CoerceKey<StringValue<'v>>
     + Display
     + Debug
+    + Default
     + Copy
     + Clone
     + Dupe
