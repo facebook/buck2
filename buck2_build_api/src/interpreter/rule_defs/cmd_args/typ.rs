@@ -157,7 +157,7 @@ impl Display for FormattingOptions {
         }
         if let Some(v) = &self.format_string {
             comma(f)?;
-            write!(f, "absolute_prefix = {:?}", v)?;
+            write!(f, "format = {:?}", v)?;
         }
         if let Some(v) = &self.quote {
             comma(f)?;
@@ -264,7 +264,7 @@ impl<'v, V: ValueLike<'v>> Display for CommandLineOptions<'v, V> {
         }
         if let Some(v) = &self.absolute_suffix {
             comma(f)?;
-            write!(f, "absolute_prefix = {}", v)?;
+            write!(f, "absolute_suffix = {}", v)?;
         }
         if self.parent != 0 {
             comma(f)?;
