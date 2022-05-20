@@ -39,7 +39,7 @@ use crate::{
         dict::{Dict, DictRef},
         docs,
         docs::DocString,
-        Freezer, FrozenValue, Heap, StringValue, Trace, UnpackValue, Value, ValueError, ValueLike,
+        Freeze, Heap, StringValue, Trace, UnpackValue, Value, ValueError, ValueLike,
     },
 };
 
@@ -67,7 +67,7 @@ pub(crate) enum FunctionError {
     WrongNumberOfParameters { min: usize, max: usize, got: usize },
 }
 
-#[derive(Debug, Clone, Coerce, PartialEq, Trace)]
+#[derive(Debug, Clone, Coerce, PartialEq, Trace, Freeze)]
 #[repr(C)]
 pub(crate) enum ParameterKind<V> {
     Required,
@@ -79,18 +79,6 @@ pub(crate) enum ParameterKind<V> {
     Defaulted(V),
     Args,
     KWargs,
-}
-
-impl<'v> ParameterKind<Value<'v>> {
-    fn freeze(&self, freezer: &Freezer) -> anyhow::Result<ParameterKind<FrozenValue>> {
-        Ok(match self {
-            Self::Defaulted(v) => ParameterKind::Defaulted(v.freeze(freezer)?),
-            Self::Required => ParameterKind::Required,
-            Self::Optional => ParameterKind::Optional,
-            Self::Args => ParameterKind::Args,
-            Self::KWargs => ParameterKind::KWargs,
-        })
-    }
 }
 
 /// Builder for [`ParametersSpec`]
@@ -110,7 +98,7 @@ pub struct ParametersSpecBuilder<V> {
 /// Define a list of parameters. This code assumes that all names are distinct and that
 /// `*args`/`**kwargs` occur in well-formed locations.
 // V = Value, or FrozenValue
-#[derive(Debug, Clone, Trace)]
+#[derive(Debug, Clone, Trace, Freeze)]
 #[repr(C)]
 pub struct ParametersSpec<V> {
     /// Only used in error messages
@@ -122,6 +110,7 @@ pub struct ParametersSpec<V> {
     /// The only entries in `kinds` which are not in `names` are Args/KWargs,
     /// and the iteration order of `names` is the same order as `types`.
     kinds: Vec<ParameterKind<V>>,
+    #[freeze(identity)]
     names: SymbolMap<usize>,
 
     /// Number of arguments that can be filled positionally.
@@ -715,20 +704,6 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
     }
 }
 
-impl<'v> ParametersSpec<Value<'v>> {
-    /// Used to freeze a [`ParametersSpec`].
-    pub fn freeze(self, freezer: &Freezer) -> anyhow::Result<ParametersSpec<FrozenValue>> {
-        Ok(ParametersSpec {
-            function_name: self.function_name,
-            kinds: self.kinds.try_map(|v| v.freeze(freezer))?,
-            names: self.names,
-            positional: self.positional,
-            args: self.args,
-            kwargs: self.kwargs,
-        })
-    }
-}
-
 /// Parse a series of parameters which were specified by [`ParametersSpec`].
 ///
 /// This is usually created with [`ParametersSpec::parser`].
@@ -1233,7 +1208,7 @@ impl Arguments<'_, '_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::assert::Assert;
+    use crate::{assert::Assert, values::FrozenValue};
 
     #[test]
     fn test_parameter_unpack() {
