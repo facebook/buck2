@@ -335,7 +335,7 @@ impl<V> ParametersSpec<V> {
     /// Iterate over the parameters
     ///
     /// Returns an iterator over (parameter index, name, kind)
-    pub(crate) fn iter_params(&self) -> impl Iterator<Item = (usize, &str, &ParameterKind<V>)> {
+    pub(crate) fn iter_params(&self) -> impl Iterator<Item = (&str, &ParameterKind<V>)> {
         let names: Vec<&str> = self
             .names
             .iter()
@@ -362,7 +362,7 @@ impl<V> ParametersSpec<V> {
                     .map(|s| s.trim_start_match('$'))
                     .expect("name in mapping"),
             };
-            (i, name, kind)
+            (name, kind)
         })
     }
 
@@ -645,7 +645,8 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
     ) -> Vec<docs::Param> {
         let mut params: Vec<docs::Param> = self
             .iter_params()
-            .map(|(i, name, kind)| {
+            .enumerate()
+            .map(|(i, (name, kind))| {
                 let typ = parameter_types.remove(&i);
                 let docs = parameter_docs.remove(name).flatten();
                 let name = name.to_owned();
@@ -1316,13 +1317,13 @@ mod tests {
         p.kwargs();
         let p = p.finish();
 
-        let params: Vec<(usize, &str, &ParameterKind<FrozenValue>)> = p.iter_params().collect();
+        let params: Vec<(&str, &ParameterKind<FrozenValue>)> = p.iter_params().collect();
 
-        let expected: Vec<(usize, &str, &ParameterKind<FrozenValue>)> = vec![
-            (0, "a", &ParameterKind::Required),
-            (1, "b", &ParameterKind::Optional),
-            (2, "c", &ParameterKind::Optional),
-            (3, "**kwargs", &ParameterKind::KWargs),
+        let expected: Vec<(&str, &ParameterKind<FrozenValue>)> = vec![
+            ("a", &ParameterKind::Required),
+            ("b", &ParameterKind::Optional),
+            ("c", &ParameterKind::Optional),
+            ("**kwargs", &ParameterKind::KWargs),
         ];
 
         assert_eq!(expected, params);
@@ -1334,12 +1335,12 @@ mod tests {
         p.kwargs();
         let p = p.finish();
 
-        let params: Vec<(usize, &str, &ParameterKind<FrozenValue>)> = p.iter_params().collect();
+        let params: Vec<(&str, &ParameterKind<FrozenValue>)> = p.iter_params().collect();
 
-        let expected: Vec<(usize, &str, &ParameterKind<FrozenValue>)> = vec![
-            (0, "a", &ParameterKind::Required),
-            (1, "*args", &ParameterKind::Args),
-            (2, "**kwargs", &ParameterKind::KWargs),
+        let expected: Vec<(&str, &ParameterKind<FrozenValue>)> = vec![
+            ("a", &ParameterKind::Required),
+            ("*args", &ParameterKind::Args),
+            ("**kwargs", &ParameterKind::KWargs),
         ];
 
         assert_eq!(expected, params);
@@ -1351,12 +1352,12 @@ mod tests {
         p.optional("b");
         let p = p.finish();
 
-        let params: Vec<(usize, &str, &ParameterKind<FrozenValue>)> = p.iter_params().collect();
+        let params: Vec<(&str, &ParameterKind<FrozenValue>)> = p.iter_params().collect();
 
-        let expected: Vec<(usize, &str, &ParameterKind<FrozenValue>)> = vec![
-            (0, "*args", &ParameterKind::Args),
-            (1, "a", &ParameterKind::Optional),
-            (2, "b", &ParameterKind::Optional),
+        let expected: Vec<(&str, &ParameterKind<FrozenValue>)> = vec![
+            ("*args", &ParameterKind::Args),
+            ("a", &ParameterKind::Optional),
+            ("b", &ParameterKind::Optional),
         ];
 
         assert_eq!(expected, params);
