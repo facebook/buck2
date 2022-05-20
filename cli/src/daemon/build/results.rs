@@ -16,7 +16,6 @@ use crate::daemon::build::BuildTargetResult;
 
 pub enum BuildOwner<'a> {
     Target(&'a ConfiguredProvidersLabel),
-    #[allow(unused)] // temporary
     Bxl(&'a BxlFunctionLabel),
 }
 

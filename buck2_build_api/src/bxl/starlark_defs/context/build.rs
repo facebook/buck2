@@ -175,7 +175,6 @@ where
     }
 }
 
-#[allow(unused)] // temporary
 pub(crate) fn build<'v>(
     ctx: &'v BxlContext,
     spec: Value<'v>,

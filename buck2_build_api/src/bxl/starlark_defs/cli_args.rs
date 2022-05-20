@@ -56,7 +56,6 @@ impl<'v> StarlarkValue<'v> for CliArgs {
     starlark_type!("bxl-cli-args");
 }
 
-#[allow(unused)] // TODO temporary
 impl CliArgs {
     /// Helper to create an attribute from attr.foo functions
     fn new<'v>(default: Option<Value<'v>>, doc: &str, coercer: CliArgType) -> anyhow::Result<Self> {
@@ -96,7 +95,6 @@ impl CliArgs {
     }
 }
 
-#[allow(unused)] // TODO temporary
 #[derive(Debug, Display, PartialEq, Eq, Clone, Hash, Ord, PartialOrd)]
 pub enum CliArgValue {
     Bool(bool),
@@ -169,7 +167,6 @@ impl Display for CliArgType {
     }
 }
 
-#[allow(unused)] // TODO temporary
 impl CliArgType {
     fn bool() -> Self {
         CliArgType::Bool
@@ -218,7 +215,6 @@ enum CliArgError {
     NotALabel(String, &'static str),
 }
 
-#[allow(unused)] // TODO temporary
 impl CliArgType {
     fn coerce_value<'v>(&self, value: Value<'v>) -> anyhow::Result<CliArgValue> {
         Ok(match self {
@@ -356,7 +352,7 @@ impl CliArgType {
                 r.map(Some)
             })?,
             CliArgType::String => clap.value_of().map(|s| CliArgValue::String(s.to_owned())),
-            CliArgType::Enumeration(variants) => {
+            CliArgType::Enumeration(_variants) => {
                 // the validators should have already made sure the strings are only of the variants
                 clap.value_of().map(|s| CliArgValue::String(s.to_owned()))
             }
@@ -582,7 +578,6 @@ mod tests {
     }
 }
 
-#[allow(unused)] // TODO temporary
 pub(crate) enum ArgAccessor<'a> {
     Clap {
         clap: &'a clap::ArgMatches,

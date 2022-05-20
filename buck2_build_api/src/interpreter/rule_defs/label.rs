@@ -174,7 +174,6 @@ pub struct StarlarkProvidersLabelGen<V> {
 starlark_complex_value!(pub StarlarkProvidersLabel);
 
 impl<'v> StarlarkProvidersLabel<'v> {
-    #[allow(unused)] // TODO temporary
     pub(crate) fn new(heap: &'v Heap, label: ProvidersLabel) -> Self {
         let name_string = heap.alloc(label.target().name().as_ref());
         let provider_string = match label.name() {
