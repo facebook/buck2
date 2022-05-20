@@ -107,6 +107,7 @@ use crate::{
     configs::parse_legacy_cells,
     daemon::{
         build::build,
+        bxl::bxl,
         clean::clean,
         common::{
             get_executor_config_for_strategy, parse_concurrency, parse_patterns_from_cli_args,
@@ -1526,8 +1527,44 @@ impl DaemonApi for BuckdServer {
     }
 
     type BxlStream = ResponseStream;
-    async fn bxl(&self, _req: Request<BxlRequest>) -> Result<Response<ResponseStream>, Status> {
-        unimplemented!("TODO(bobyf) T116849868")
+    async fn bxl(&self, req: Request<BxlRequest>) -> Result<Response<ResponseStream>, Status> {
+        self.run_streaming(req, DefaultCommandOptions, |context, req| async {
+            let project_root = context.base_context.project_root.to_string();
+            let metadata = request_metadata(&context).await;
+            let start_event = buck2_data::CommandStart {
+                metadata: metadata.clone(),
+                data: Some(buck2_data::BxlCommandStart {}.into()),
+            };
+            let events = context.base_context.events.dupe();
+            let result = events
+                .span_async(start_event, async {
+                    let result = bxl(context, req).await;
+                    let (is_success, error_messages) = match &result {
+                        Ok(response) => (
+                            response.error_messages.is_empty(),
+                            response.error_messages.clone(),
+                        ),
+                        Err(e) => (false, vec![format!("{:#}", e)]),
+                    };
+                    let end_event = buck2_data::CommandEnd {
+                        metadata,
+                        data: Some(buck2_data::BxlCommandEnd {}.into()),
+                        is_success,
+                        error_messages,
+                    };
+
+                    (result, end_event)
+                })
+                .await?;
+
+            Ok(BxlResponse {
+                build_targets: result.built,
+                project_root,
+                serialized_build_report: result.serialized_build_report.unwrap_or_default(),
+                error_messages: result.error_messages,
+            })
+        })
+        .await
     }
 
     type TestStream = ResponseStream;

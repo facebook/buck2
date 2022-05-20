@@ -9,6 +9,7 @@
 
 pub mod aquery;
 pub mod build;
+pub mod bxl;
 pub mod clean;
 pub mod client;
 pub mod client_utils;
