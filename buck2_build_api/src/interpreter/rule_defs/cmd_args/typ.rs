@@ -35,6 +35,7 @@ use starlark::{
         ValueError, ValueLike,
     },
 };
+use static_assertions::assert_eq_size;
 
 use crate::{
     actions::artifact::ArtifactFs,
@@ -313,6 +314,10 @@ pub struct StarlarkCommandLineDataGen<V> {
     hidden: Vec<CommandLineArgGen<V>>,
     options: Option<Box<CommandLineOptions<V>>>,
 }
+
+// These types show up a lot in the frozen heaps, so make sure they don't regress
+assert_eq_size!(StarlarkCommandLineDataGen<FrozenValue>, [usize; 7]);
+assert_eq_size!(CommandLineOptions<FrozenValue>, [usize; 20]);
 
 impl<V: Display> Display for StarlarkCommandLineDataGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
