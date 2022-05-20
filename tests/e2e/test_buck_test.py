@@ -217,24 +217,24 @@ async def test_stress_runs(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="testsof")
-# pyre-ignore[56]
-@pytest.mark.skipif(is_deployed_buck2(), reason="Not implemented yet on master")
-async def test_target_compatibility(buck: Buck) -> None:
-    # This excludes some tests
-    out = await buck.test(
-        "//...",
-        "--target-platforms",
-        "//:platform_default_tests",
-    )
+if not is_deployed_buck2():
 
-    assert "target incompatible node" in out.stderr
-
-    await expect_failure(
-        buck.test(
-            "//:foo_extra_test",
+    @buck_test(inplace=False, data_dir="testsof")
+    async def test_target_compatibility(buck: Buck) -> None:
+        # This excludes some tests
+        out = await buck.test(
+            "//...",
             "--target-platforms",
             "//:platform_default_tests",
-        ),
-        stderr_regex="incompatible",
-    )
+        )
+
+        assert "target incompatible node" in out.stderr
+
+        await expect_failure(
+            buck.test(
+                "//:foo_extra_test",
+                "--target-platforms",
+                "//:platform_default_tests",
+            ),
+            stderr_regex="incompatible",
+        )
