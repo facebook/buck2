@@ -32,8 +32,8 @@ use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
     starlark_type,
     values::{
-        list::List, Freeze, Freezer, FrozenValue, NoSerialize, StarlarkValue, Trace, Value,
-        ValueError, ValueLike,
+        list::List, Freeze, Freezer, FrozenValue, NoSerialize, StarlarkValue, StringValue,
+        StringValueLike, Trace, Value, ValueError, ValueLike,
     },
 };
 use static_assertions::assert_eq_size;
@@ -222,8 +222,8 @@ impl FormattingOptions {
 struct CommandLineOptions<'v, V: ValueLike<'v>> {
     #[serde(bound = "V: Display", serialize_with = "serialize_opt_display")]
     relative_to: Option<(V, usize)>,
-    absolute_prefix: Option<String>,
-    absolute_suffix: Option<String>,
+    absolute_prefix: Option<V::String>,
+    absolute_suffix: Option<V::String>,
     parent: usize,
     ignore_artifacts: bool,
     formatting: Option<FormattingOptions>,
@@ -285,12 +285,6 @@ impl<'v, V: ValueLike<'v>> Display for CommandLineOptions<'v, V> {
 impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
     fn extra_memory(&self) -> usize {
         let mut ret = 0;
-        if let Some(p) = self.absolute_prefix.as_ref() {
-            ret += p.capacity();
-        }
-        if let Some(p) = self.absolute_suffix.as_ref() {
-            ret += p.capacity();
-        }
         if let Some(f) = self.formatting.as_ref() {
             ret += f.extra_memory();
         }
@@ -319,7 +313,7 @@ pub struct StarlarkCommandLineDataGen<'v, V: ValueLike<'v>> {
 
 // These types show up a lot in the frozen heaps, so make sure they don't regress
 assert_eq_size!(StarlarkCommandLineDataGen<'static, FrozenValue>, [usize; 7]);
-assert_eq_size!(CommandLineOptions<'static, FrozenValue>, [usize; 20]);
+assert_eq_size!(CommandLineOptions<'static, FrozenValue>, [usize; 16]);
 
 impl<'v, V: ValueLike<'v>> Display for StarlarkCommandLineDataGen<'v, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -358,18 +352,18 @@ impl<'v, V: ValueLike<'v>> StarlarkCommandLineDataGen<'v, V> {
     }
 
     fn absolute_prefix(&self) -> Option<&str> {
-        self.options.as_ref()?.absolute_prefix.as_deref()
+        self.options.as_ref()?.absolute_prefix.map(|x| x.as_str())
     }
 
-    fn absolute_prefix_mut(&mut self) -> &mut Option<String> {
+    fn absolute_prefix_mut(&mut self) -> &mut Option<V::String> {
         &mut self.options_mut().absolute_prefix
     }
 
     fn absolute_suffix(&self) -> Option<&str> {
-        self.options.as_ref()?.absolute_suffix.as_deref()
+        self.options.as_ref()?.absolute_suffix.map(|x| x.as_str())
     }
 
-    fn absolute_suffix_mut(&mut self) -> &mut Option<String> {
+    fn absolute_suffix_mut(&mut self) -> &mut Option<V::String> {
         &mut self.options_mut().absolute_suffix
     }
 
@@ -795,8 +789,8 @@ impl<'v> Freeze for StarlarkCommandLine<'v> {
 
             anyhow::Ok(box CommandLineOptions {
                 relative_to,
-                absolute_prefix,
-                absolute_suffix,
+                absolute_prefix: absolute_prefix.freeze(freezer)?,
+                absolute_suffix: absolute_suffix.freeze(freezer)?,
                 parent,
                 ignore_artifacts,
                 formatting,
@@ -975,12 +969,12 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
         Ok(this)
     }
 
-    fn absolute_prefix<'v>(this: Value<'v>, prefix: String) -> anyhow::Result<Value<'v>> {
+    fn absolute_prefix<'v>(this: Value<'v>, prefix: StringValue<'v>) -> anyhow::Result<Value<'v>> {
         *cmd_args_mut(this)?.0.borrow_mut().absolute_prefix_mut() = Some(prefix);
         Ok(this)
     }
 
-    fn absolute_suffix<'v>(this: Value<'v>, suffix: String) -> anyhow::Result<Value<'v>> {
+    fn absolute_suffix<'v>(this: Value<'v>, suffix: StringValue<'v>) -> anyhow::Result<Value<'v>> {
         *cmd_args_mut(this)?.0.borrow_mut().absolute_suffix_mut() = Some(suffix);
         Ok(this)
     }
