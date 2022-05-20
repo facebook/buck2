@@ -93,6 +93,8 @@ def generate_rustdoc(
         # with static-pic (to get best cache hits for deps)
         params: BuildParams.type,
         default_roots: [str.type]) -> "artifact":
+    toolchain_info = ctx_toolchain_info(ctx)
+
     common_args = _compute_common_args(
         ctx,
         compile_ctx,
@@ -107,8 +109,14 @@ def generate_rustdoc(
 
     subdir = common_args.subdir + "_rustdoc"
     output = ctx.actions.declare_output(subdir)
-    rustdoc_cmd = cmd_args([
-        ctx_toolchain_info(ctx).rustdoc,
+
+    plain_env, path_env = _process_env(ctx)
+
+    rustdoc_cmd = cmd_args(
+        toolchain_info.rustc_action[RunInfo],
+        [["--env", k, v] for k, v in plain_env.items()],
+        [["--path-env", k, v] for k, v in path_env.items()],
+        toolchain_info.rustdoc,
         # TODO it seems we need to generate a long list of
         # crate=https://www.internalfb.com/intern/rustdoc/...
         # and pass those to --extern-html-root-url to get
@@ -118,8 +126,12 @@ def generate_rustdoc(
         "-o",
         output.as_output(),
         common_args.args,
-    ])
-    ctx.actions.run(rustdoc_cmd, category = "rustdoc")
+    )
+
+    rustdoc_cmd.hidden(toolchain_info.rustdoc, compile_ctx.symlinked_srcs)
+
+    ctx.actions.run(rustdoc_cmd, env = plain_env, category = "rustdoc")
+
     return output
 
 # Generate multiple compile artifacts so that distinct sets of artifacts can be
