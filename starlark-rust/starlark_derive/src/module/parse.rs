@@ -17,7 +17,6 @@
 
 use gazebo::prelude::*;
 use proc_macro2::{Span, TokenStream};
-use quote::ToTokens;
 use syn::{
     parse::ParseStream, spanned::Spanned, visit::Visit, Attribute, Expr, FnArg, GenericArgument,
     GenericParam, Generics, Item, ItemConst, ItemFn, Lifetime, Meta, MetaNameValue, NestedMeta,
@@ -449,11 +448,15 @@ fn parse_arg(x: FnArg, has_v: bool) -> syn::Result<StarArg> {
             ty: box ty,
             ..
         }) => {
+            if ident.subpat.is_some() {
+                return Err(syn::Error::new(
+                    ident.span(),
+                    "Function arguments cannot use patterns",
+                ));
+            }
+
             check_lifetimes_in_type(&ty, has_v)?;
-            let mut default = ident
-                .subpat
-                .map(|x| syn::parse2(x.1.to_token_stream()))
-                .transpose()?;
+            let mut default = None;
             let mut unused_attrs = Vec::new();
             for attr in attrs {
                 if attr.path.is_ident("starlark") {
