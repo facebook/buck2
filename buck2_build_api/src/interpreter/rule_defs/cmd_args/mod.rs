@@ -134,7 +134,7 @@ pub fn register_args_function(builder: &mut GlobalsBuilder) {
         format: Option<StringValue<'v>>,
         #[starlark(default = false)] joined: bool,
         delimiter: Option<StringValue<'v>>,
-        quote: Option<StringValue<'v>>,
+        quote: Option<&str>,
         prepend: Option<StringValue<'v>>,
     ) -> anyhow::Result<StarlarkCommandLine<'v>> {
         StarlarkCommandLine::try_from_values_with_options(
