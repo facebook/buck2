@@ -136,12 +136,12 @@ impl<V> ParametersSpecBuilder<V> {
         let i = self.kinds.len();
         self.kinds.push(val);
         let old = self.names.insert(name, i);
+        assert!(old.is_none(), "Repeated parameter `{}`", name);
         if self.args.is_none() && !self.no_args {
             // If you've already seen `args` or `no_args`, you can't enter these
             // positionally
             self.positional = i + 1;
         }
-        assert!(old.is_none());
     }
 
     /// Add a required parameter. Will be an error if the caller doesn't supply
