@@ -581,6 +581,8 @@ impl IgnoreSet {
                 continue;
             }
 
+            let val = val.trim_end_matches('/');
+
             static GLOB_CHARS: Lazy<Regex> = Lazy::new(|| Regex::new(r"[*?{\[]").unwrap());
 
             if GLOB_CHARS.is_match(val) {
@@ -875,7 +877,7 @@ mod tests {
             ),
         ];
         let ignores = FileIgnores::new_for_interpreter(
-            "**/*.java , some/dir/**, one/*, \n    recursive",
+            "**/*.java , some/dir/**, one/*, \n    recursive, trailing_slash/",
             cells,
             ProjectRelativePath::unchecked_new("root"),
         )?;
@@ -919,6 +921,13 @@ mod tests {
             true,
             ignores
                 .check(CellRelativePath::unchecked_new("recursive/two/three"))
+                .is_ignored()
+        );
+
+        assert_eq!(
+            true,
+            ignores
+                .check(CellRelativePath::unchecked_new("trailing_slash/BUCK"))
                 .is_ignored()
         );
 
