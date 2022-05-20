@@ -179,7 +179,6 @@ Buck1 `cquery` always infers a target universe, whereas Buck2 `cquery` doesn't. 
 
 There are a few differences between Buck 1 and Buck 2 that can require changes in tests:
 
-* The working directory when executing tests under Buck 2 is the repository root (e.g. `fbsource`) instead of the cell root (e.g. `fbcode`).
 * The layout of `buck-out` has changed (and so has its location: it's also under the repository root instead of the cell root).
 * The path to files when a build is ongoing is also relative to the repository root. This can impact e.g. log paths (since your file paths will now include the `fbcode` prefix).
 
