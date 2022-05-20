@@ -46,7 +46,7 @@ pub use crate::values::{
         identity::ValueIdentity,
         static_string::StarlarkStrNRepr,
         typed::{
-            string::{FrozenStringValue, StringValue},
+            string::{FrozenStringValue, StringValue, StringValueLike},
             FrozenValueTyped, ValueTyped,
         },
         value::{FrozenValue, Value, ValueLike},

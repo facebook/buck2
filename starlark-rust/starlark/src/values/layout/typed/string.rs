@@ -129,6 +129,7 @@ pub trait StringValueLike<'v>:
     + Clone
     + Dupe
 {
+    /// Convert to a [`StringValue`].
     fn to_string_value(self) -> StringValue<'v>;
 }
 
