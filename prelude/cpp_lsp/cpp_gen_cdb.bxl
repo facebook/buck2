@@ -1,3 +1,8 @@
+load(
+    "@fbcode//buck2/prelude/cxx:comp_db.bzl",
+    "CxxCompilationDbInfo",
+)
+
 BUCK_CPP_RULE_KINDS = [
     "apple_binary",
     "apple_library",
@@ -13,32 +18,42 @@ CPP_HEADER_EXTENTIONS = [".h", ".hh", ".hpp", ".hxx", ".h++"]
 CPP_SOURCE_EXTENSIONS = [".c", ".cc", ".cpp", ".cxx", ".c++", ".m", ".mm"]
 
 def _impl(ctx):
-    owner = findOwningTarget(ctx)
-    if owner != None:
-        buildTarget = configured_sub_target(owner.label, "compilation-database")
-        print(buildTarget)
-        res = ctx.build(buildTarget).values()
-        print(res)
-
-def findOwningTarget(ctx):
     filename = ctx.cli_args.filename
-    owners = ctx.cquery.attrregexfilter(
-        "srcs",
-        ".*",
-        ctx.cquery.kind("|".join(BUCK_CPP_RULE_KINDS), ctx.cquery.owner(filename)),
-    )
-    if len(owners) >= 1:
-        return pickTarget(ctx, owners)
+    owner = findOwningTarget(ctx, filename)
+    if owner != None:
+        buckRoot = ctx.root()
+        providers = ctx.analysis(owner, None, True)[0].providers()
+        artifact = providers[CxxCompilationDbInfo].info[owner.get_source(filename, ctx)]
+        compile_cmds = []
+        arguments = cmd_args()
+        arguments.add(artifact.cxx_compile_cmd.base_compile_cmd)
+        arguments.add(artifact.cxx_compile_cmd.argsfile.argfile_args)
+        arguments.add(artifact.args)
+
+        # @unsorted-dict-items
+        compile_cmds.append({"file": filename, "directory": buckRoot, "arguments": arguments})
+        res = ctx.bxl_actions.action_factory().write_json("compdb.json", compile_cmds)
+        return [res]
+    return []
+
+def findOwningTarget(ctx, filename):
+    owner = runCqueryOwner(ctx, filename)
+    if owner != None:
+        return owner
     if isSourceFile(filename):
         print("Cannot find owner for source file " + filename)
         return None
-        # TODO: check if the header file exist
-
     elif isHeaderFile(filename):
+        correspondingSourceFile = filename.split(".")[0] + ".cpp"
+        if ctx.unstable_fs.exists(correspondingSourceFile):
+            owner = runCqueryOwner(ctx, correspondingSourceFile)
+            if owner != None:
+                return owner
+
         # remove the src = '.*' attr filter and try again
-        unfilteredTargets = ctx.cquery.kind(
+        unfilteredTargets = ctx.cquery().kind(
             "|".join(BUCK_CPP_RULE_KINDS),
-            ctx.cquery.owner(filename),
+            ctx.cquery().owner(filename),
         )
         if len(unfilteredTargets) == 0:
             print("Cannot find unfiltered owner for header file " + filename)
@@ -52,6 +67,16 @@ def findOwningTarget(ctx):
         print("File extension not supported " + filename)
         return None
 
+def runCqueryOwner(ctx, filename):
+    owners = ctx.cquery().attrregexfilter(
+        "srcs",
+        ".*",
+        ctx.cquery().kind("|".join(BUCK_CPP_RULE_KINDS), ctx.cquery().owner(filename)),
+    )
+    if len(owners) >= 1:
+        return pickTarget(ctx, owners)
+    return None
+
 def findTargetsByReverseDependency(ctx, unfilteredTargets):
     for searchDepth in range(1, 3):
         for unfilteredTarget in unfilteredTargets:
@@ -61,12 +86,12 @@ def findTargetsByReverseDependency(ctx, unfilteredTargets):
 
             # workaround for a lack of while loop
             for _i in range(dirCount + 1):
-                owners = ctx.cquery.attrregexfilter(
+                owners = ctx.cquery().attrregexfilter(
                     "srcs",
                     ".*",
-                    ctx.cquery.kind(
+                    ctx.cquery().kind(
                         "|".join(BUCK_CPP_RULE_KINDS),
-                        ctx.cquery.rdeps(
+                        ctx.cquery().rdeps(
                             buildPackage + "/...",
                             unfilteredTarget,
                             searchDepth,
