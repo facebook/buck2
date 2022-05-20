@@ -21,3 +21,7 @@ JsBundleInfo = provider(
         "dependencies_file",  # "artifact"
     ],
 )
+
+JsToolchainInfo = provider(
+    fields = [],
+)
