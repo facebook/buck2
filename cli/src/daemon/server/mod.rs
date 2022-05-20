@@ -1525,6 +1525,11 @@ impl DaemonApi for BuckdServer {
         .await
     }
 
+    type BxlStream = ResponseStream;
+    async fn bxl(&self, _req: Request<BxlRequest>) -> Result<Response<ResponseStream>, Status> {
+        unimplemented!("TODO(bobyf) T116849868")
+    }
+
     type TestStream = ResponseStream;
     async fn test(&self, req: Request<TestRequest>) -> Result<Response<ResponseStream>, Status> {
         self.run_streaming(req, DefaultCommandOptions, |context, req| async {

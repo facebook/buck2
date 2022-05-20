@@ -294,6 +294,32 @@ message TestRequest {
   bool allow_re = 10;
 }
 
+message BxlRequest {
+  ClientContext context = 1;
+
+  buck.data.BxlFunctionLabel bxl_function = 2;
+
+  repeated string bxl_args = 3;
+
+  CommonBuildOptions build_opts = 4;
+
+  // Options regarding which data to include in the response.
+  BuildRequest.ResponseOptions response_options = 5;
+
+  BuildRequest.Materializations final_artifact_materializations = 6;
+}
+
+message BxlResponse {
+  repeated BuildTarget build_targets = 1;
+  // Absolute path to the repo root
+  string project_root = 2;
+  // TODO(nmj): These are temporary until we've moved the
+  //            printing logic for the build report into
+  //            the CLI. They *will* be removed
+  string serialized_build_report = 100;
+  repeated string error_messages = 101;
+}
+
 message InstallRequest {
   ClientContext context = 1;
   repeated buck.data.TargetPattern target_patterns = 2;
@@ -398,6 +424,7 @@ message CommandResult {
     InstallResponse install_response = 14;
     AqueryResponse aquery_response = 15;
     MaterializeResponse materialize_response = 16;
+    BxlResponse bxl_response = 17;
     GenericResponse generic_response = 100;
   }
 }
@@ -491,6 +518,7 @@ service DaemonApi {
 
   // All streaming request types should have a ClientContext.
   rpc Build(BuildRequest) returns (stream CommandProgress);
+  rpc Bxl(BxlRequest) returns (stream CommandProgress);
   rpc Test(TestRequest) returns (stream CommandProgress);
   rpc Targets(TargetsRequest) returns (stream CommandProgress);
   rpc TargetsShowOutputs(TargetsRequest) returns (stream CommandProgress);

@@ -196,6 +196,7 @@ result_convert!(KillResponse);
 result_convert!(PingResponse);
 result_convert!(StatusResponse);
 result_convert!(BuildResponse);
+result_convert!(BxlResponse);
 result_convert!(TestResponse);
 result_convert!(UqueryResponse);
 result_convert!(CqueryResponse);
@@ -213,6 +214,7 @@ define_request!(StatusRequest);
 define_request!(PingRequest);
 
 define_request!(BuildRequest, has(context, build_options));
+define_request!(BxlRequest, has(context, build_options));
 define_request!(TargetsRequest, has(context));
 define_request!(AqueryRequest, has(context));
 define_request!(CqueryRequest, has(context));
