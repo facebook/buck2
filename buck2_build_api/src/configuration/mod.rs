@@ -55,9 +55,9 @@ pub trait ConfigurationCalculation {
 
     async fn get_configuration_node(
         &self,
-        cfg: &Configuration,
-        target: &TargetLabel,
-        target_node_cell: &CellName,
+        target_cfg: &Configuration,
+        target_cell: &CellName,
+        cfg_target: &TargetLabel,
     ) -> SharedResult<ConfigurationNode>;
 
     /// Returns a list of the configured execution platforms. This looks up the providers on the target

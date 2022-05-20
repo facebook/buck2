@@ -248,11 +248,11 @@ async fn configuration_matches(
 pub struct ExecutionPlatformsKey;
 
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq)]
-#[display(fmt = "ConfigurationNode({}, {})", target, cfg)]
+#[display(fmt = "ConfigurationNode({}, {})", cfg_target, target_cfg)]
 struct ConfigurationNodeKey {
-    cfg: Configuration,
-    target: TargetLabel,
-    target_node_cell: CellName,
+    target_cfg: Configuration,
+    target_cell: CellName,
+    cfg_target: TargetLabel,
 }
 
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq)]
@@ -296,7 +296,7 @@ impl ConfigurationCalculation for DiceComputations {
 
             async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
                 let config_futures: Vec<_> = self.configuration_deps.map(|d| async move {
-                    ctx.get_configuration_node(&self.target_cfg, d, &self.target_cell)
+                    ctx.get_configuration_node(&self.target_cfg, &self.target_cell, d)
                         .await
                 });
                 let config_nodes = futures::future::join_all(config_futures).await;
@@ -328,16 +328,18 @@ impl ConfigurationCalculation for DiceComputations {
 
     async fn get_configuration_node(
         &self,
-        cfg: &Configuration,
-        target: &TargetLabel,
-        target_node_cell: &CellName,
+        target_cfg: &Configuration,
+        target_cell: &CellName,
+        cfg_target: &TargetLabel,
     ) -> SharedResult<ConfigurationNode> {
         #[async_trait]
         impl Key for ConfigurationNodeKey {
             type Value = SharedResult<ConfigurationNode>;
 
             async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-                let analysis_result = ctx.get_configuration_analysis_result(&self.target).await?;
+                let analysis_result = ctx
+                    .get_configuration_analysis_result(&self.cfg_target)
+                    .await?;
                 let providers = analysis_result.providers();
 
                 // capture the result so the temporaries get dropped before analysis_result
@@ -348,7 +350,7 @@ impl ConfigurationCalculation for DiceComputations {
                     None => {
                         return Err::<_, anyhow::Error>(
                             ConfigurationError::MissingConfigurationInfoProvider(
-                                self.target.dupe(),
+                                self.cfg_target.dupe(),
                             )
                             .into(),
                         )
@@ -358,11 +360,12 @@ impl ConfigurationCalculation for DiceComputations {
                 .to_configuration_data();
 
                 let matches =
-                    configuration_matches(ctx, &self.cfg, &self.target_node_cell, &result).await?;
+                    configuration_matches(ctx, &self.target_cfg, &self.target_cell, &result)
+                        .await?;
 
                 SharedResult::Ok(ConfigurationNode::new(
-                    self.cfg.dupe(),
-                    self.target.dupe(),
+                    self.target_cfg.dupe(),
+                    self.cfg_target.dupe(),
                     result,
                     matches,
                 ))
@@ -377,15 +380,15 @@ impl ConfigurationCalculation for DiceComputations {
         }
 
         self.compute(&ConfigurationNodeKey {
-            cfg: cfg.dupe(),
-            target: target.dupe(),
-            target_node_cell: target_node_cell.clone(),
+            target_cfg: target_cfg.dupe(),
+            target_cell: target_cell.clone(),
+            cfg_target: cfg_target.dupe(),
         })
         .await
         .with_context(|| {
             format!(
                 "when getting configuration node of `{}` within the `{}` configuration",
-                target, cfg,
+                cfg_target, target_cfg,
             )
         })
         .shared_error()
