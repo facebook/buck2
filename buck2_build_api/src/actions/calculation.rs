@@ -130,7 +130,7 @@ impl ActionCalculation for DiceComputations {
                                 if let Some(signals) = build_signals {
                                     signals.signal(ActionExecutionSignal {
                                         action: action.dupe(),
-                                        duration: meta.timing.execution_time,
+                                        duration: meta.timing.wall_time,
                                     });
                                 }
 

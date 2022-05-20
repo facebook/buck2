@@ -145,7 +145,7 @@ impl PristineActionExecutable for WriteMacrosToFileAction {
         let mut output_values = IndexMap::with_capacity(self.outputs.len());
         let mut macro_writer = MacroToFileWriter::new(fs, &self.outputs, &mut output_values);
 
-        let mut execution_time = Duration::ZERO;
+        let mut wall_time = Duration::ZERO;
         ctx.blocking_executor()
             .execute_io_inline(box || {
                 let execution_start = Instant::now();
@@ -155,7 +155,7 @@ impl PristineActionExecutable for WriteMacrosToFileAction {
                     .as_command_line()
                     .unwrap()
                     .visit_write_to_file_macros(&mut macro_writer);
-                execution_time = execution_start.elapsed();
+                wall_time = execution_start.elapsed();
                 result?;
                 Ok(())
             })
@@ -165,7 +165,7 @@ impl PristineActionExecutable for WriteMacrosToFileAction {
             ActionOutputs::new(output_values),
             ActionExecutionMetadata {
                 execution_kind: ActionExecutionKind::Simple,
-                timing: ActionExecutionTimingData { execution_time },
+                timing: ActionExecutionTimingData { wall_time },
                 std_streams: Default::default(),
             },
         ))

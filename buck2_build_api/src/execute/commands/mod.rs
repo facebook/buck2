@@ -125,7 +125,7 @@ impl Default for CommandExecutionTimingData {
 impl From<CommandExecutionTimingData> for ActionExecutionTimingData {
     fn from(command: CommandExecutionTimingData) -> Self {
         Self {
-            execution_time: command.wall_time,
+            wall_time: command.wall_time,
         }
     }
 }

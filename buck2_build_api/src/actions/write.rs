@@ -178,7 +178,7 @@ impl PristineActionExecutable for WriteAction {
         let fs = ctx.fs();
 
         let mut outputs = IndexMap::new();
-        let mut execution_time = None;
+        let mut wall_time = None;
 
         // For EdenFS-based buck out, we can do "virtual write" instead, which
         // set the path on the Eden buck-out to a digest and ensure what is about to
@@ -201,7 +201,7 @@ impl PristineActionExecutable for WriteAction {
                     .await?;
                 outputs.insert(output.dupe(), value.dupe());
             }
-            execution_time = Some(execution_start.elapsed());
+            wall_time = Some(execution_start.elapsed());
         } else {
             ctx.blocking_executor()
                 .execute_io_inline(box || {
@@ -219,20 +219,20 @@ impl PristineActionExecutable for WriteAction {
                         outputs.insert(output.dupe(), value.dupe());
                     }
 
-                    execution_time = Some(execution_start.elapsed());
+                    wall_time = Some(execution_start.elapsed());
 
                     Ok(())
                 })
                 .await?;
         }
 
-        let execution_time = execution_time.context("Action did not set execution_time")?;
+        let wall_time = wall_time.context("Action did not set execution_time")?;
 
         Ok((
             ActionOutputs::new(outputs),
             ActionExecutionMetadata {
                 execution_kind: ActionExecutionKind::Simple,
-                timing: ActionExecutionTimingData { execution_time },
+                timing: ActionExecutionTimingData { wall_time },
                 std_streams: Default::default(),
             },
         ))

@@ -106,13 +106,13 @@ struct ActionOutputsData {
 
 #[derive(Copy, Dupe, Clone, Debug, PartialEq, Eq)]
 pub struct ActionExecutionTimingData {
-    pub execution_time: Duration,
+    pub wall_time: Duration,
 }
 
 impl Default for ActionExecutionTimingData {
     fn default() -> Self {
         Self {
-            execution_time: Duration::ZERO,
+            wall_time: Duration::ZERO,
         }
     }
 }
