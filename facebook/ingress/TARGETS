@@ -14,6 +14,7 @@ cpp_binary(
         ":IngressProcessor",
         "//buck2/facebook/ingress/scuba:scuba",
         "//buck2/facebook/ingress/storage:storage",
+        "//buck2/facebook/ingress/utils:utils",
         "//common/init:init",
         "//common/services/cpp:cpp",
         "//datainfra/privacy/lineage/annotation:table",

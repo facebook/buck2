@@ -32,6 +32,7 @@ cpp_unittest(
         "//buck2/facebook/ingress:IngressProcessor",
         "//buck2/facebook/ingress/scuba:scuba",
         "//buck2/facebook/ingress/storage:storage",
+        "//buck2/facebook/ingress/utils:utils",
         "//buck2/facebook/proto:proto-cpp",
         "//common/encode:encode",
         "//justknobs:justknobs_patches",
