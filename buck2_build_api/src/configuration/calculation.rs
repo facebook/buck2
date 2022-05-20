@@ -165,8 +165,8 @@ async fn resolve_execution_platform(
         let resolved_platform_configuration = ctx
             .get_resolved_configuration(
                 &exec_platform.cfg(),
-                compatible_with.iter(),
                 target_node_cell,
+                compatible_with.iter(),
             )
             .await?;
 
@@ -258,9 +258,9 @@ struct ConfigurationNodeKey {
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq)]
 #[display(fmt = "ResolvedConfigurationKey")]
 struct ResolvedConfigurationKey {
-    cfg: Configuration,
+    target_cfg: Configuration,
+    target_cell: CellName,
     configuration_deps: Vec<TargetLabel>,
-    target_node_cell: CellName,
 }
 
 #[async_trait]
@@ -286,9 +286,9 @@ impl ConfigurationCalculation for DiceComputations {
 
     async fn get_resolved_configuration<'a, T: Iterator<Item = &'a TargetLabel> + Send>(
         &self,
-        cfg: &Configuration,
+        target_cfg: &Configuration,
+        target_cell: &CellName,
         configuration_deps: T,
-        target_node_cell: &CellName,
     ) -> SharedResult<ResolvedConfiguration> {
         #[async_trait]
         impl Key for ResolvedConfigurationKey {
@@ -296,7 +296,7 @@ impl ConfigurationCalculation for DiceComputations {
 
             async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
                 let config_futures: Vec<_> = self.configuration_deps.map(|d| async move {
-                    ctx.get_configuration_node(&self.cfg, d, &self.target_node_cell)
+                    ctx.get_configuration_node(&self.target_cfg, d, &self.target_cell)
                         .await
                 });
                 let config_nodes = futures::future::join_all(config_futures).await;
@@ -307,7 +307,7 @@ impl ConfigurationCalculation for DiceComputations {
                     resolved_settings.insert(ConfigurationSettingKey(node.label().dupe()), node);
                 }
                 Ok(ResolvedConfiguration::new(
-                    self.cfg.dupe(),
+                    self.target_cfg.dupe(),
                     resolved_settings,
                 ))
             }
@@ -319,9 +319,9 @@ impl ConfigurationCalculation for DiceComputations {
 
         let configuration_deps: Vec<TargetLabel> = configuration_deps.map(|t| t.dupe()).collect();
         self.compute(&ResolvedConfigurationKey {
-            cfg: cfg.dupe(),
+            target_cfg: target_cfg.dupe(),
+            target_cell: target_cell.clone(),
             configuration_deps,
-            target_node_cell: target_node_cell.clone(),
         })
         .await
     }

@@ -318,10 +318,14 @@ async fn compute_configured_target_node_no_transition(
     target_node: TargetNode,
     ctx: &DiceComputations,
 ) -> SharedResult<MaybeCompatible<ConfiguredTargetNode>> {
-    let cfg = target_label.cfg();
-    let target_node_cell = target_node.label().pkg().cell_name();
+    let target_cfg = target_label.cfg();
+    let target_cell = target_node.label().pkg().cell_name();
     let resolved_configuration = ctx
-        .get_resolved_configuration(cfg, target_node.get_configuration_deps(), target_node_cell)
+        .get_resolved_configuration(
+            target_cfg,
+            target_cell,
+            target_node.get_configuration_deps(),
+        )
         .await?;
 
     // Must check for compatibility before evaluating non-compatibility attributes.
@@ -350,11 +354,11 @@ async fn compute_configured_target_node_no_transition(
 
     let mut resolved_transitions = SmallMap::new();
     for (_dep, tr) in target_node.transition_deps() {
-        let resolved_cfg = ctx.apply_transition(cfg, tr).await?;
+        let resolved_cfg = ctx.apply_transition(target_cfg, tr).await?;
         resolved_transitions.insert(tr.dupe(), resolved_cfg);
     }
 
-    let execution_platform_resolution = if cfg.is_unbound() {
+    let execution_platform_resolution = if target_cfg.is_unbound() {
         // The unbound configuration is used when evaluation configuration nodes.
         // That evaluation is
         // (1) part of execution platform resolution and

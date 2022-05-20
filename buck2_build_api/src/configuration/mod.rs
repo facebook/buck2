@@ -48,9 +48,9 @@ pub trait ConfigurationCalculation {
 
     async fn get_resolved_configuration<'a, T: Iterator<Item = &'a TargetLabel> + Send>(
         &self,
-        cfg: &Configuration,
-        configuration_deps: T,
+        target_cfg: &Configuration,
         target_node_cell: &CellName,
+        configuration_deps: T,
     ) -> SharedResult<ResolvedConfiguration>;
 
     async fn get_configuration_node(
