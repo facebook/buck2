@@ -25,7 +25,6 @@ use gazebo::{
     coerce::{coerce, Coerce},
     prelude::*,
 };
-use itertools::Itertools;
 use thiserror::Error;
 
 use crate as starlark;
@@ -84,7 +83,7 @@ pub(crate) enum ParameterKind<V> {
 /// Builder for [`ParametersSpec`]
 pub struct ParametersSpecBuilder<V> {
     function_name: String,
-    kinds: Vec<ParameterKind<V>>,
+    params: Vec<(String, ParameterKind<V>)>,
     names: SymbolMap<usize>,
     positional: usize,
 
@@ -109,7 +108,7 @@ pub struct ParametersSpec<V> {
     /// The `names` gives a mapping from name to index where the argument lives.
     /// The only entries in `kinds` which are not in `names` are Args/KWargs,
     /// and the iteration order of `names` is the same order as `types`.
-    kinds: Vec<ParameterKind<V>>,
+    params: Vec<(String, ParameterKind<V>)>,
     #[freeze(identity)]
     names: SymbolMap<usize>,
 
@@ -133,8 +132,8 @@ impl<V> ParametersSpecBuilder<V> {
         // Regular arguments cannot follow `**kwargs`, but can follow `*args`.
         assert!(self.kwargs.is_none());
 
-        let i = self.kinds.len();
-        self.kinds.push(val);
+        let i = self.params.len();
+        self.params.push((name.to_owned(), val));
         let old = self.names.insert(name, i);
         assert!(old.is_none(), "Repeated parameter `{}`", name);
         if self.args.is_none() && !self.no_args {
@@ -174,8 +173,8 @@ impl<V> ParametersSpecBuilder<V> {
     /// parameters can _only_ be supplied by name.
     pub fn args(&mut self) {
         assert!(self.args.is_none() && !self.no_args && self.kwargs.is_none());
-        self.kinds.push(ParameterKind::Args);
-        self.args = Some(self.kinds.len() - 1);
+        self.params.push(("*args".to_owned(), ParameterKind::Args));
+        self.args = Some(self.params.len() - 1);
     }
 
     /// This function has no `*args` parameter, corresponds to the Python parameter `*`.
@@ -198,8 +197,9 @@ impl<V> ParametersSpecBuilder<V> {
     /// parameters can _only_ be supplied by position.
     pub fn kwargs(&mut self) {
         assert!(self.kwargs.is_none());
-        self.kinds.push(ParameterKind::KWargs);
-        self.kwargs = Some(self.kinds.len() - 1);
+        self.params
+            .push(("**kwargs".to_owned(), ParameterKind::KWargs));
+        self.kwargs = Some(self.params.len() - 1);
     }
 
     /// Construct the parameters specification.
@@ -210,13 +210,13 @@ impl<V> ParametersSpecBuilder<V> {
             args,
             no_args,
             kwargs,
-            kinds,
+            params,
             names,
         } = self;
         let _ = no_args;
         ParametersSpec {
             function_name,
-            kinds,
+            params,
             names,
             positional,
             args,
@@ -235,7 +235,7 @@ impl<V> ParametersSpec<V> {
     pub fn with_capacity(function_name: String, capacity: usize) -> ParametersSpecBuilder<V> {
         ParametersSpecBuilder {
             function_name,
-            kinds: Vec::with_capacity(capacity),
+            params: Vec::with_capacity(capacity),
             names: SymbolMap::with_capacity(capacity),
             positional: 0,
             no_args: false,
@@ -251,23 +251,6 @@ impl<V> ParametersSpec<V> {
         collector
     }
 
-    /// Figure out the argument name at an index in kinds.
-    /// Only called in the error path, so is not optimised.
-    pub(crate) fn param_name_at(&self, index: usize) -> String {
-        match self.kinds[index] {
-            ParameterKind::Args => return "args".to_owned(),
-            ParameterKind::KWargs => return "kwargs".to_owned(),
-            _ => {}
-        }
-        self.names
-            .iter()
-            .find(|x| x.1 == index)
-            .unwrap()
-            .0
-            .as_str()
-            .to_owned()
-    }
-
     // Generate a good error message for it
     pub(crate) fn collect_signature(&self, collector: &mut String) {
         collector.push_str(&self.function_name);
@@ -277,44 +260,23 @@ impl<V> ParametersSpec<V> {
         // in some contexts, so don't delete it.
     }
 
-    // Note, this is linear, making `parameters_str` quadratic.
-    fn name_by_index(&self, index: usize) -> &str {
-        self.names
-            .iter()
-            .find_map(|x| {
-                if x.1 == index {
-                    // We prepend '$' on the front of variable names that are positional-only
-                    // arguments to the native functions. We rip those off when
-                    // displaying the signature.
-                    // The `unwrap` is safe because we must have a names entry for each
-                    // non-Args/KWargs kind.
-                    Some(x.0.as_str().trim_start_match("$"))
-                } else {
-                    None
-                }
-            })
-            .unwrap_or(
-                // Should not happen, but better than panic.
-                "?",
-            )
-    }
-
     /// Function parameter as they would appear in `def`
     /// (excluding types, default values and formatting).
     pub fn parameters_str(&self) -> String {
         let mut collector = String::new();
-        for (i, typ) in self.kinds.iter().enumerate() {
+        for (i, typ) in self.params.iter().enumerate() {
             if i != 0 {
                 collector.push_str(", ");
             }
-            match typ {
-                ParameterKind::Required => collector.push_str(self.name_by_index(i)),
+            match typ.1 {
+                ParameterKind::Required | ParameterKind::Args | ParameterKind::KWargs => {
+                    // For `*args` or `**kwargs` param name includes the `*` or `**`.
+                    collector.push_str(&typ.0)
+                }
                 ParameterKind::Optional | ParameterKind::Defaulted(_) => {
-                    collector.push_str(self.name_by_index(i));
+                    collector.push_str(&typ.0);
                     collector.push_str(" = ...");
                 }
-                ParameterKind::Args => collector.push_str("*args"),
-                ParameterKind::KWargs => collector.push_str("**kwargs"),
             }
         }
         collector
@@ -322,8 +284,8 @@ impl<V> ParametersSpec<V> {
 
     /// Get the index where a user would have supplied "*" as a parameter.
     pub(crate) fn no_args_param_index(&self) -> Option<usize> {
-        if self.positional < self.kinds.len() {
-            match self.kinds.get(self.positional) {
+        if self.positional < self.params.len() {
+            match self.params.get(self.positional).map(|x| &x.1) {
                 Some(ParameterKind::Args) | Some(ParameterKind::KWargs) => None,
                 _ => Some(self.positional),
             }
@@ -336,34 +298,9 @@ impl<V> ParametersSpec<V> {
     ///
     /// Returns an iterator over (parameter index, name, kind)
     pub(crate) fn iter_params(&self) -> impl Iterator<Item = (&str, &ParameterKind<V>)> {
-        let names: Vec<&str> = self
-            .names
+        self.params
             .iter()
-            .sorted_by_key(|(_, i)| i)
-            .map(|(s, _)| s.as_str())
-            .collect();
-
-        // Some functions have *args, then a single named arg. Make sure
-        // we handle this offset, otherwise, we look for the name in the
-        // wrong slot.
-        let mut offset = 0;
-        self.kinds.iter().enumerate().map(move |(i, kind)| {
-            let name = match kind {
-                ParameterKind::Args => {
-                    offset += 1;
-                    "*args"
-                }
-                ParameterKind::KWargs => {
-                    offset += 1;
-                    "**kwargs"
-                }
-                _ => names
-                    .get(i - offset)
-                    .map(|s| s.trim_start_match('$'))
-                    .expect("name in mapping"),
-            };
-            (name, kind)
-        })
+            .map(|(name, kind)| (name.trim_start_matches('$'), kind))
     }
 
     pub(crate) fn resolve_name(&self, name: BorrowHashed<str>) -> ResolvedArgName {
@@ -376,7 +313,7 @@ impl<V> ParametersSpec<V> {
 impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
     /// Number of function parameters.
     pub fn len(&self) -> usize {
-        self.kinds.len()
+        self.params.len()
     }
 
     /// Move parameters from [`Arguments`] to a list of [`Value`],
@@ -419,7 +356,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         // then no_args, *args and **kwargs must all be unset,
         // and we don't have to crate args/kwargs objects, we can skip everything else
         if args.pos().len() == self.positional
-            && args.pos().len() == self.kinds.len()
+            && args.pos().len() == self.params.len()
             && args.named().is_empty()
             && args.args().is_none()
             && args.kwargs().is_none()
@@ -473,7 +410,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
             }
         }
 
-        let len = self.kinds.len();
+        let len = self.params.len();
         // We might do unchecked stuff later on, so make sure we have as many slots as we expect
         assert!(slots.len() >= len);
 
@@ -539,7 +476,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         // Check if the named arguments clashed with the positional arguments
         if unlikely(next_position > lowest_name) {
             return Err(FunctionError::RepeatedParameter {
-                name: self.param_name_at(lowest_name),
+                name: self.params[lowest_name].0.clone(),
             }
             .into());
         }
@@ -580,7 +517,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
 
         // We have moved parameters into all the relevant slots, so need to finalise things.
         // We need to set default values and error if any required values are missing
-        let kinds = &self.kinds;
+        let kinds = &self.params;
         // This code is very hot, and setting up iterators was a noticeable bottleneck.
         for index in next_position..kinds.len() {
             // The number of locals must be at least the number of parameters, see `collect`
@@ -592,10 +529,10 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
             if slot.get().is_some() {
                 continue;
             }
-            match def {
+            match def.1 {
                 ParameterKind::Required => {
                     return Err(FunctionError::MissingParameter {
-                        name: self.param_name_at(index),
+                        name: self.params[index].0.clone(),
                         function: self.signature(),
                     }
                     .into());
