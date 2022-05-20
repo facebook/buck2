@@ -610,6 +610,8 @@ message ActionExecutionEnd {
   bool always_print_stderr = 21;
   // The kind of execution used to service this action.
   ActionExecutionKind execution_kind = 22;
+  /// How long this build waited for this action to complete. Omits queue time.
+  google.protobuf.Duration wall_time = 23;
 }
 
 // The beginning of materialization for the output of a target requested,

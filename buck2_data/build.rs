@@ -69,6 +69,10 @@ fn main() -> io::Result<()> {
         .type_attribute(".", "#[derive(::serde::Serialize, ::serde::Deserialize)]")
         .field_attribute("timestamp", "#[serde(with = \"serialize_timestamp\")]")
         .field_attribute("duration", "#[serde(with = \"serialize_duration\")]")
+        .field_attribute(
+            "ActionExecutionEnd.wall_time",
+            "#[serde(with = \"serialize_duration\")]",
+        )
         .field_attribute("ActionKey.id", "#[serde(with = \"serialize_bytes\")]")
         // When serializing using Serde we don't want those to just be i32s, since those are
         // meaningless without the Protobuf schema.

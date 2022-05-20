@@ -123,6 +123,7 @@ impl ActionCalculation for DiceComputations {
                         let action_result;
                         let success_stderr;
                         let execution_kind;
+                        let wall_time;
                         let error;
 
                         match execute_result {
@@ -137,6 +138,7 @@ impl ActionCalculation for DiceComputations {
                                 action_result = Ok(outputs);
                                 success_stderr = Some(meta.std_streams.to_lossy_stderr().await);
                                 execution_kind = Some(meta.execution_kind.as_enum());
+                                wall_time = Some(meta.timing.wall_time);
                                 error = None;
                             }
                             Err(e) => {
@@ -154,6 +156,7 @@ impl ActionCalculation for DiceComputations {
                                 execution_kind = e
                                     .downcast_ref::<ActionError>()
                                     .map(|e| e.metadata.execution_kind.as_enum());
+                                wall_time = None;
                                 error = Some(error_to_proto(&e).await);
                             }
                         };
@@ -171,6 +174,7 @@ impl ActionCalculation for DiceComputations {
                                 error,
                                 always_print_stderr: action.always_print_stderr(),
                                 success_stderr: success_stderr.unwrap_or_default(),
+                                wall_time: wall_time.map(Into::into),
                                 execution_kind: execution_kind
                                     .unwrap_or(buck2_data::ActionExecutionKind::NotSet)
                                     as i32,
