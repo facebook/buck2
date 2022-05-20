@@ -404,9 +404,7 @@ impl<V> StarlarkCommandLineDataGen<V> {
         }
         self.options.as_mut().unwrap()
     }
-}
 
-impl<V> StarlarkCommandLineDataGen<V> {
     fn is_concat(&self) -> bool {
         if let Some(x) = &self.options {
             if let Some(x) = &x.formatting {
@@ -414,6 +412,19 @@ impl<V> StarlarkCommandLineDataGen<V> {
             }
         }
         false
+    }
+
+    fn extra_memory(&self) -> usize {
+        let args_extra_memory = (self.items.capacity() + self.hidden.capacity())
+            * std::mem::size_of::<CommandLineArgGen<V>>();
+
+        let opts_extra_memory = if let Some(opts) = self.options.as_ref() {
+            std::mem::size_of::<CommandLineOptions<V>>() + opts.extra_memory()
+        } else {
+            0
+        };
+
+        args_extra_memory + opts_extra_memory
     }
 }
 
@@ -826,21 +837,6 @@ impl<'v> StarlarkCommandLine<'v> {
             b.add_value(*v)?;
         }
         Ok(builder)
-    }
-}
-
-impl<V> StarlarkCommandLineDataGen<V> {
-    fn extra_memory(&self) -> usize {
-        let args_extra_memory = (self.items.capacity() + self.hidden.capacity())
-            * std::mem::size_of::<CommandLineArgGen<V>>();
-
-        let opts_extra_memory = if let Some(opts) = self.options.as_ref() {
-            std::mem::size_of::<CommandLineOptions<V>>() + opts.extra_memory()
-        } else {
-            0
-        };
-
-        args_extra_memory + opts_extra_memory
     }
 }
 
