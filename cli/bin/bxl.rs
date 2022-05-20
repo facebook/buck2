@@ -249,7 +249,11 @@ async fn async_main(
         .eval_bxl(BxlKey::new(bxl_label.clone(), bxl_args))
         .await?;
 
-    let build_result = ensure_artifacts(&dice, result).await;
+    let materialization_ctx = MaterializationContext::Materialize {
+        map: Arc::new(Default::default()),
+        force: false,
+    };
+    let build_result = ensure_artifacts(&dice, &materialization_ctx, result).await;
 
     match build_result {
         None => {}
@@ -333,13 +337,9 @@ async fn async_main(
 
 async fn ensure_artifacts(
     ctx: &DiceComputations,
+    materialization_ctx: &MaterializationContext,
     bxl_result: Arc<BxlResult>,
 ) -> Option<Vec<BuildTargetResult>> {
-    let materialization_ctx = MaterializationContext::Materialize {
-        map: Arc::new(Default::default()),
-        force: false,
-    };
-
     match &*bxl_result {
         BxlResult::None { .. } => None,
         BxlResult::BuildsArtifacts {
@@ -366,7 +366,7 @@ async fn ensure_artifacts(
                                             values: materialize_artifact_group(
                                                 ctx,
                                                 &ArtifactGroup::Artifact(artifact.dupe()),
-                                                &materialization_ctx,
+                                                materialization_ctx,
                                             )
                                             .await?,
                                             provider_type: BuildProviderType::DefaultOther,
@@ -407,7 +407,7 @@ async fn ensure_artifacts(
                             values: materialize_artifact_group(
                                 ctx,
                                 &ArtifactGroup::Artifact(a.dupe()),
-                                &materialization_ctx,
+                                materialization_ctx,
                             )
                             .await?,
                             provider_type: BuildProviderType::DefaultOther,
