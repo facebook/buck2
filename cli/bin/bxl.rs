@@ -370,7 +370,7 @@ async fn ensure_artifacts(
     };
 
     match &*bxl_result {
-        BxlResult::None => None,
+        BxlResult::None { .. } => None,
         BxlResult::BuildsArtifacts {
             built, artifacts, ..
         } => {

@@ -145,6 +145,10 @@ impl<'v> BxlContext<'v> {
     ) -> Option<AnalysisRegistry<'v>> {
         value.as_ref().state.as_ref().state.borrow_mut().take()
     }
+
+    pub(crate) fn has_print(value: ValueTyped<'v, BxlContext<'v>>) -> bool {
+        value.as_ref().output_stream.as_ref().has_print()
+    }
 }
 
 impl<'v> StarlarkValue<'v> for BxlContext<'v> {

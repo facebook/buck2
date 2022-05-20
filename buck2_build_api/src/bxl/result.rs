@@ -12,9 +12,10 @@ use crate::{
 /// The result of evaluating a bxl function
 pub enum BxlResult {
     /// represents that the bxl function has no built results
-    None,
+    None { has_print: bool },
     /// a bxl that deals with builds
     BuildsArtifacts {
+        has_print: bool,
         built: Vec<StarlarkBuildResult>,
         artifacts: Vec<Artifact>,
         deferred: DeferredTable,
@@ -28,12 +29,17 @@ pub enum BxlResult {
 struct NotAValidReturnType(&'static str);
 
 impl BxlResult {
-    pub(super) fn new<'v>(eval_value: Value<'v>, deferred: DeferredTable) -> anyhow::Result<Self> {
+    pub(super) fn new<'v>(
+        has_print: bool,
+        eval_value: Value<'v>,
+        deferred: DeferredTable,
+    ) -> anyhow::Result<Self> {
         if eval_value.is_none() {
-            Ok(Self::None)
+            Ok(Self::None { has_print })
         } else if let Some(build_result) = eval_value.downcast_ref::<StarlarkBuildResult>() {
             // TODO avoid the clone if we can extract it from the heap
             Ok(Self::BuildsArtifacts {
+                has_print,
                 built: vec![build_result.clone()],
                 artifacts: vec![],
                 deferred,
@@ -44,6 +50,7 @@ impl BxlResult {
                 .context("artifacts needs to be bound to an action")?;
 
             Ok(Self::BuildsArtifacts {
+                has_print,
                 built: vec![],
                 artifacts: vec![artifact],
                 deferred,
@@ -67,6 +74,7 @@ impl BxlResult {
             }
 
             Ok(Self::BuildsArtifacts {
+                has_print,
                 built,
                 artifacts,
                 deferred,
@@ -79,7 +87,7 @@ impl BxlResult {
     /// looks up an 'Deferred' given the id
     pub fn lookup_deferred(&self, id: DeferredId) -> anyhow::Result<&(dyn DeferredAny + 'static)> {
         match self {
-            BxlResult::None => Err(anyhow::anyhow!("Bxl never attempted to build anything")),
+            BxlResult::None { .. } => Err(anyhow::anyhow!("Bxl never attempted to build anything")),
             BxlResult::BuildsArtifacts { deferred, .. } => deferred.lookup_deferred(id),
         }
     }

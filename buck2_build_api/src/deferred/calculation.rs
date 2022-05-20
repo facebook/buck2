@@ -445,6 +445,7 @@ mod tests {
             .mock_and_return(
                 BxlComputeKey(bxl.dupe()),
                 anyhow::Ok(Arc::new(BxlResult::BuildsArtifacts {
+                    has_print: false,
                     built: vec![],
                     artifacts: vec![],
                     deferred: deferred_result,

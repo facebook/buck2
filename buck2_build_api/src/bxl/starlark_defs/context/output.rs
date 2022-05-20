@@ -28,6 +28,10 @@ impl OutputStream {
             has_print: RefCell::new(false),
         }
     }
+
+    pub fn has_print(&self) -> bool {
+        *self.has_print.borrow()
+    }
 }
 
 impl<'v> UnpackValue<'v> for &'v OutputStream {

@@ -79,6 +79,7 @@ pub async fn eval(ctx: DiceTransaction, key: BxlKey) -> anyhow::Result<BxlResult
         env.set("", result);
 
         let maybe_state = BxlContext::take_state(bxl_ctx);
+        let has_print = BxlContext::has_print(bxl_ctx);
 
         match maybe_state {
             Some(registry) => {
@@ -88,11 +89,15 @@ pub async fn eval(ctx: DiceTransaction, key: BxlKey) -> anyhow::Result<BxlResult
 
                 let deferred_table = DeferredTable::new(deferred.take_result()?);
 
-                anyhow::Ok(BxlResult::new(result.value(), deferred_table))
+                anyhow::Ok(BxlResult::new(has_print, result.value(), deferred_table))
             }
             None => {
                 // this bxl did not try to build anything, so we don't have any deferreds
-                anyhow::Ok(BxlResult::new(result, DeferredTable::new(hashmap! {})))
+                anyhow::Ok(BxlResult::new(
+                    has_print,
+                    result,
+                    DeferredTable::new(hashmap! {}),
+                ))
             }
         }
     })
