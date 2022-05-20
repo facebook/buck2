@@ -155,9 +155,9 @@ def get_filtered_links(labels_to_links_map: {"label": LinkGroupInfo.type}):
     return [link_group_info.link_info for link_group_info in labels_to_links_map.values()]
 
 def get_filtered_targets(labels_to_links_map: {"label": LinkGroupInfo.type}):
-    return [str(label.raw_target()) for label in labels_to_links_map.keys()]
+    return [label.raw_target() for label in labels_to_links_map.keys()]
 
-def get_link_group_map_json(ctx: "context", targets: [str.type]) -> DefaultInfo.type:
+def get_link_group_map_json(ctx: "context", targets: ["target_label"]) -> DefaultInfo.type:
     json_map = ctx.actions.write_json(LINK_GROUP_MAP_FILE_NAME, sorted(targets))
     return DefaultInfo(default_outputs = [json_map])
 
