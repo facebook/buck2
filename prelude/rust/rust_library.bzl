@@ -182,7 +182,6 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
     providers = []
 
     providers += _default_providers(
-        ctx,
         lang_style_param,
         rust_param_artifact,
         rustdoc,
@@ -304,7 +303,6 @@ def _handle_rust_artifact(
         )
 
 def _default_providers(
-        _ctx: "context",
         lang_style_param: {(LinkageLang.type, LinkStyle.type): BuildParams.type},
         param_artifact: {BuildParams.type: RustLinkStyleInfo.type},
         rustdoc: "artifact",
