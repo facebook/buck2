@@ -1454,7 +1454,7 @@ impl InstrNoFlowImpl for InstrDefImpl {
                     }
                     parameters.defaulted(&n.name, value);
                 }
-                ParameterCompiled::NoArgs => parameters.no_args(),
+                ParameterCompiled::NoArgs => parameters.no_more_positional_args(),
                 ParameterCompiled::Args(_, _) => parameters.args(),
                 ParameterCompiled::KwArgs(_, _) => parameters.kwargs(),
             };

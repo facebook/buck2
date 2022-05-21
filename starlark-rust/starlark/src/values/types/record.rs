@@ -172,7 +172,7 @@ impl<'v> RecordType<'v> {
         fields: &SmallMap<String, (FieldGen<Value<'v>>, TypeCompiled)>,
     ) -> ParametersSpec<FrozenValue> {
         let mut parameters = ParametersSpec::with_capacity("record".to_owned(), fields.len());
-        parameters.no_args();
+        parameters.no_more_positional_args();
         for (name, field) in fields {
             if field.0.default.is_some() {
                 parameters.optional(name);

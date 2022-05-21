@@ -265,7 +265,7 @@ fn create_callable_function_signature(
 ) -> ParametersSpec<FrozenValue> {
     let mut signature = ParametersSpec::with_capacity(function_name.to_owned(), fields.len());
     // TODO(nmj): Should double check we don't actually need positional args in-repo
-    signature.no_args();
+    signature.no_more_positional_args();
     for field in fields {
         signature.defaulted(field, FrozenValue::new_none());
     }

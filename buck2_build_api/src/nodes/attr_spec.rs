@@ -221,7 +221,7 @@ impl AttributeSpec {
     /// Returns a starlark Parameters for the rule callable.
     pub(crate) fn signature(&self, rule_name: String) -> ParametersSpec<Value<'_>> {
         let mut signature = ParametersSpec::with_capacity(rule_name, self.indices.len());
-        signature.no_args();
+        signature.no_more_positional_args();
         for (name, idx) in &self.indices {
             let attribute = self.get_attribute(*idx);
             match attribute.default {

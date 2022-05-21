@@ -88,7 +88,7 @@ pub struct ParametersSpecBuilder<V> {
     positional: usize,
 
     /// Has the no_args been passed
-    no_args: bool,
+    no_more_positional_args: bool,
 
     args: Option<usize>,
     kwargs: Option<usize>,
@@ -136,7 +136,7 @@ impl<V> ParametersSpecBuilder<V> {
         self.params.push((name.to_owned(), val));
         let old = self.names.insert(name, i);
         assert!(old.is_none(), "Repeated parameter `{}`", name);
-        if self.args.is_none() && !self.no_args {
+        if self.args.is_none() && !self.no_more_positional_args {
             // If you've already seen `args` or `no_args`, you can't enter these
             // positionally
             self.positional = i + 1;
@@ -172,7 +172,7 @@ impl<V> ParametersSpecBuilder<V> {
     /// [`defaulted`](ParametersSpecBuilder::defaulted)
     /// parameters can _only_ be supplied by name.
     pub fn args(&mut self) {
-        assert!(self.args.is_none() && !self.no_args && self.kwargs.is_none());
+        assert!(self.args.is_none() && !self.no_more_positional_args && self.kwargs.is_none());
         self.params.push(("*args".to_owned(), ParameterKind::Args));
         self.args = Some(self.params.len() - 1);
     }
@@ -183,9 +183,9 @@ impl<V> ParametersSpecBuilder<V> {
     /// [`optional`](ParametersSpecBuilder::optional) or
     /// [`defaulted`](ParametersSpecBuilder::defaulted)
     /// parameters can _only_ be supplied by name.
-    pub fn no_args(&mut self) {
-        assert!(self.args.is_none() && !self.no_args && self.kwargs.is_none());
-        self.no_args = true;
+    pub fn no_more_positional_args(&mut self) {
+        assert!(self.args.is_none() && !self.no_more_positional_args && self.kwargs.is_none());
+        self.no_more_positional_args = true;
     }
 
     /// Add a `**kwargs` parameter which will be a dictionary, recorded into a [`SmallMap`].
@@ -208,12 +208,12 @@ impl<V> ParametersSpecBuilder<V> {
             function_name,
             positional,
             args,
-            no_args,
+            no_more_positional_args,
             kwargs,
             params,
             names,
         } = self;
-        let _ = no_args;
+        let _ = no_more_positional_args;
         ParametersSpec {
             function_name,
             params,
@@ -238,7 +238,7 @@ impl<V> ParametersSpec<V> {
             params: Vec::with_capacity(capacity),
             names: SymbolMap::with_capacity(capacity),
             positional: 0,
-            no_args: false,
+            no_more_positional_args: false,
             args: None,
             kwargs: None,
         }
@@ -1249,7 +1249,7 @@ mod tests {
         let mut p = ParametersSpec::<FrozenValue>::new("f".to_owned());
         p.required("a");
         p.optional("b");
-        p.no_args();
+        p.no_more_positional_args();
         p.optional("c");
         p.kwargs();
         let p = p.finish();
