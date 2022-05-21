@@ -76,7 +76,7 @@ use gazebo::{
 };
 use serde::{Serialize, Serializer};
 use starlark::{
-    collections::{SmallMap, StarlarkHasher},
+    collections::{Hashed, SmallMap, StarlarkHasher},
     environment::{GlobalsBuilder, Methods, MethodsBuilder, MethodsStatic},
     eval::{Arguments, Evaluator, ParametersParser, ParametersSpec},
     starlark_type,
@@ -617,8 +617,12 @@ where
         self.attributes.contains_key(attribute)
     }
 
-    fn get_attr(&self, attribute: &str, _heap: &'v Heap) -> Option<Value<'v>> {
-        Some(self.attributes.get(attribute)?.to_value())
+    fn get_attr(&self, attribute: &str, heap: &'v Heap) -> Option<Value<'v>> {
+        self.get_attr_hashed(Hashed::new(attribute), heap)
+    }
+
+    fn get_attr_hashed(&self, attribute: Hashed<&str>, _heap: &'v Heap) -> Option<Value<'v>> {
+        Some(self.attributes.get_hashed(attribute)?.to_value())
     }
 
     fn get_methods(&self) -> Option<&'static Methods> {
