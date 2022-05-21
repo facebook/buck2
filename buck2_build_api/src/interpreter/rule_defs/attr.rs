@@ -386,7 +386,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
 
     // TODO(nmj): Not a list of strings, a list of values...
     fn list<'v>(
-        ref inner: &Attribute,
+        #[starlark(require = pos)] inner: &Attribute,
         default: Option<Value<'v>>,
         #[starlark(default = "")] doc: &str,
     ) -> anyhow::Result<Attribute> {
@@ -554,7 +554,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn r#enum<'v>(
-        ref variants: Vec<String>,
+        #[starlark(require = pos)] variants: Vec<String>,
         default: Option<Value<'v>>,
         #[starlark(default = "")] doc: &str,
     ) -> anyhow::Result<Attribute> {

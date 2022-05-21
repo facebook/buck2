@@ -960,7 +960,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     /// e.g. `cmd_args(artifact, format="-L{}").parent()`.
     fn parent<'v>(
         this: Value<'v>,
-        #[starlark(default = 1i32)] ref count: i32,
+        #[starlark(require = pos, default = 1i32)] count: i32,
     ) -> anyhow::Result<Value<'v>> {
         if count < 0 {
             return Err(ValueError::IncorrectParameterTypeNamed("count".to_owned()).into());

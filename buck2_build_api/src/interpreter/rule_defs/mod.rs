@@ -48,7 +48,7 @@ fn extra_functions(builder: &mut GlobalsBuilder) {
     }
 
     /// Produce a warning.
-    fn warning(ref x: &str) -> anyhow::Result<NoneType> {
+    fn warning(#[starlark(require = pos)] x: &str) -> anyhow::Result<NoneType> {
         warn!("{}", x);
         Ok(NoneType)
     }

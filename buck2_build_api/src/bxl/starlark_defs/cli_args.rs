@@ -418,7 +418,7 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
     }
 
     fn list<'v>(
-        ref inner: &CliArgs,
+        #[starlark(require = pos)] inner: &CliArgs,
         default: Option<Value<'v>>,
         #[starlark(default = "")] doc: &str,
     ) -> anyhow::Result<CliArgs> {
@@ -457,7 +457,7 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
     }
 
     fn r#enum<'v>(
-        ref variants: Vec<String>,
+        #[starlark(require = pos)] variants: Vec<String>,
         default: Option<Value<'v>>,
         #[starlark(default = "")] doc: &str,
     ) -> anyhow::Result<CliArgs> {
