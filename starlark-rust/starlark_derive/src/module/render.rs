@@ -316,7 +316,7 @@ fn render_binding_arg(arg: &StarArg) -> TokenStream {
     };
 
     // Rust doesn't have powerful enough nested if yet
-    let next = if arg.is_this() {
+    let next = if arg.this {
         quote_spanned! { span=> starlark::eval::Arguments::check_this(#source)? }
     } else if arg.is_option() {
         assert!(
@@ -407,7 +407,7 @@ fn render_documentation(x: &StarFun) -> syn::Result<TokenStream> {
     let return_type_arg = &x.return_type_arg;
     let parameter_types: Vec<_> = x.args
             .iter()
-            .filter(|a| !a.is_this()) // "this" gets ignored when creating the signature, so make sure the indexes match up.
+            .filter(|a| !a.this) // "this" gets ignored when creating the signature, so make sure the indexes match up.
             .enumerate()
             .map(|(i, arg)| {
                 let typ = &arg.ty;
@@ -463,7 +463,7 @@ fn render_signature_arg(arg: &StarArg) -> TokenStream {
     } else if arg.is_kwargs() {
         assert!(arg.default.is_none(), "Can't have **kwargs with a default");
         quote_spanned! { span=> __signature.kwargs();}
-    } else if arg.is_this() {
+    } else if arg.this {
         quote_spanned! { span=> }
     } else if arg.is_option() {
         quote_spanned! { span=> __signature.optional(#name_str);}

@@ -147,6 +147,8 @@ impl StarAttr {
 #[derive(Debug)]
 pub(crate) struct StarArg {
     pub span: Span,
+    /// `this` argument for methods.
+    pub this: bool,
     pub attrs: Vec<Attribute>,
     pub mutable: bool,
     /// Function parameter is positional-only.
@@ -202,20 +204,16 @@ impl StarFun {
         if self.args.len() == 1 && self.args[0].is_arguments() {
             self.args[0].source = StarArgSource::Parameters;
             self.source = StarFunSource::Parameters;
-        } else if self.args.len() == 2 && self.args[0].is_this() && self.args[1].is_arguments() {
+        } else if self.args.len() == 2 && self.args[0].this && self.args[1].is_arguments() {
             self.args[0].source = StarArgSource::This;
             self.args[1].source = StarArgSource::Parameters;
             self.source = StarFunSource::ThisParameters;
         } else {
-            let use_arguments = self
-                .args
-                .iter()
-                .filter(|x| !x.is_this())
-                .any(requires_signature);
+            let use_arguments = self.args.iter().filter(|x| !x.this).any(requires_signature);
             if use_arguments {
                 let mut argument = 0;
                 for x in &mut self.args {
-                    if x.is_this() {
+                    if x.this {
                         x.source = StarArgSource::This;
                     } else {
                         x.source = StarArgSource::Argument(argument);
@@ -227,7 +225,7 @@ impl StarFun {
                 let mut required = 0;
                 let mut optional = 0;
                 for x in &mut self.args {
-                    if x.is_this() {
+                    if x.this {
                         x.source = StarArgSource::This;
                         continue;
                     }
@@ -269,10 +267,6 @@ impl StarArg {
 
     pub fn is_value(&self) -> bool {
         is_type_name(&self.ty, "Value")
-    }
-
-    pub fn is_this(&self) -> bool {
-        self.name == "this" || self.name == "_this"
     }
 
     pub fn is_args(&self) -> bool {

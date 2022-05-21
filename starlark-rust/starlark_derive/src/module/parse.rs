@@ -316,7 +316,7 @@ fn parse_fun(func: ItemFn) -> syn::Result<StarStmt> {
             ));
         }
         let arg = args.pop().unwrap();
-        if !arg.is_this() {
+        if !arg.this {
             return Err(syn::Error::new(
                 sig_span,
                 "Attribute function must have `this` as the only parameter",
@@ -474,6 +474,8 @@ fn parse_arg(x: FnArg, has_v: bool) -> syn::Result<StarArg> {
             ty: box ty,
             ..
         }) => {
+            let this = ident.ident == "this" || ident.ident == "_this";
+
             if ident.subpat.is_some() {
                 return Err(syn::Error::new(
                     ident.span(),
@@ -501,6 +503,7 @@ fn parse_arg(x: FnArg, has_v: bool) -> syn::Result<StarArg> {
             }
             Ok(StarArg {
                 span,
+                this,
                 attrs: unused_attrs,
                 mutable: ident.mutability.is_some(),
                 name: ident.ident,
