@@ -68,11 +68,11 @@ fn serde_to_starlark<'v>(x: serde_json::Value, heap: &'v Heap) -> anyhow::Result
 pub(crate) fn json(globals: &mut GlobalsBuilder) {
     #[starlark_module]
     fn json_members(globals: &mut GlobalsBuilder) {
-        fn encode(ref x: Value) -> anyhow::Result<String> {
+        fn encode(#[starlark(require = pos)] x: Value) -> anyhow::Result<String> {
             x.to_json()
         }
 
-        fn decode<'v>(ref x: &str) -> anyhow::Result<Value<'v>> {
+        fn decode<'v>(#[starlark(require = pos)] x: &str) -> anyhow::Result<Value<'v>> {
             serde_to_starlark(serde_json::from_str(x)?, heap)
         }
     }

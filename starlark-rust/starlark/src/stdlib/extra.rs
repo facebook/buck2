@@ -47,7 +47,10 @@ use crate::{
 
 #[starlark_module]
 pub fn filter(builder: &mut GlobalsBuilder) {
-    fn filter<'v>(ref func: Value, ref seq: Value) -> anyhow::Result<Value<'v>> {
+    fn filter<'v>(
+        #[starlark(require = pos)] func: Value,
+        #[starlark(require = pos)] seq: Value,
+    ) -> anyhow::Result<Value<'v>> {
         let mut res = Vec::new();
 
         for v in seq.iterate(heap)? {
@@ -65,7 +68,10 @@ pub fn filter(builder: &mut GlobalsBuilder) {
 
 #[starlark_module]
 pub fn map(builder: &mut GlobalsBuilder) {
-    fn map<'v>(ref func: Value, ref seq: Value) -> anyhow::Result<Value<'v>> {
+    fn map<'v>(
+        #[starlark(require = pos)] func: Value,
+        #[starlark(require = pos)] seq: Value,
+    ) -> anyhow::Result<Value<'v>> {
         let it = seq.iterate(heap)?;
         let mut res = Vec::with_capacity(it.size_hint().0);
         for v in it {
@@ -78,7 +84,7 @@ pub fn map(builder: &mut GlobalsBuilder) {
 #[starlark_module]
 pub fn partial(builder: &mut GlobalsBuilder) {
     fn partial<'v>(
-        ref func: Value,
+        #[starlark(require = pos)] func: Value,
         args: Value<'v>,
         kwargs: DictRef<'v>,
     ) -> anyhow::Result<Partial<'v>> {
@@ -108,7 +114,7 @@ pub fn partial(builder: &mut GlobalsBuilder) {
 pub fn debug(builder: &mut GlobalsBuilder) {
     /// Print the value with full debug formatting. The result may not be stable over time,
     /// mostly intended for debugging purposes.
-    fn debug(ref val: Value) -> anyhow::Result<String> {
+    fn debug(#[starlark(require = pos)] val: Value) -> anyhow::Result<String> {
         Ok(format!("{:?}", val))
     }
 }
@@ -117,7 +123,7 @@ pub fn debug(builder: &mut GlobalsBuilder) {
 pub fn dedupe(builder: &mut GlobalsBuilder) {
     /// Remove duplicates in a list. Uses identity of value (pointer),
     /// rather than by equality.
-    fn dedupe<'v>(ref val: Value) -> anyhow::Result<Value<'v>> {
+    fn dedupe<'v>(#[starlark(require = pos)] val: Value) -> anyhow::Result<Value<'v>> {
         let mut seen = HashSet::new();
         let mut res = Vec::new();
         for v in val.iterate(heap)? {
@@ -134,7 +140,9 @@ pub fn dedupe(builder: &mut GlobalsBuilder) {
 #[starlark_module]
 pub fn regex(builder: &mut GlobalsBuilder) {
     /// Creates a regex which can be used for matching
-    fn experimental_regex<'v>(ref regex: &str) -> anyhow::Result<StarlarkRegex> {
+    fn experimental_regex<'v>(
+        #[starlark(require = pos)] regex: &str,
+    ) -> anyhow::Result<StarlarkRegex> {
         StarlarkRegex::new(regex)
     }
 }
@@ -190,7 +198,7 @@ pub fn pprint(builder: &mut GlobalsBuilder) {
 
 #[starlark_module]
 pub fn abs(builder: &mut GlobalsBuilder) {
-    fn abs(ref x: i32) -> anyhow::Result<i32> {
+    fn abs(#[starlark(require = pos)] x: i32) -> anyhow::Result<i32> {
         Ok(x.abs())
     }
 }

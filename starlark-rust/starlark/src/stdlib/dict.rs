@@ -85,8 +85,8 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     #[starlark(speculative_exec_safe)]
     fn get<'v>(
         this: DictRef,
-        ref key: Value,
-        ref default: Option<Value>,
+        #[starlark(require = pos)] key: Value,
+        #[starlark(require = pos)] default: Option<Value>,
     ) -> anyhow::Result<Value<'v>> {
         match this.get(key)? {
             None => Ok(default.unwrap_or_else(Value::new_none)),
@@ -172,8 +172,8 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// ```
     fn pop<'v>(
         this: Value,
-        ref key: Value,
-        ref default: Option<Value>,
+        #[starlark(require = pos)] key: Value,
+        #[starlark(require = pos)] default: Option<Value>,
     ) -> anyhow::Result<Value<'v>> {
         let mut me = Dict::from_value_mut(this)?;
         match me.remove_hashed(key.get_hashed()?) {
@@ -266,8 +266,8 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// ```
     fn setdefault<'v>(
         this: Value,
-        ref key: Value,
-        ref default: Option<Value>,
+        #[starlark(require = pos)] key: Value,
+        #[starlark(require = pos)] default: Option<Value>,
     ) -> anyhow::Result<Value<'v>> {
         let mut this = Dict::from_value_mut(this)?;
         let key = key.get_hashed()?;
@@ -310,7 +310,11 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// x == {"a": 1, "b": 2, "c": 3, "d": 4, "e": 5}
     /// # "#);
     /// ```
-    fn update(this: Value, ref pairs: Option<Value>, kwargs: DictRef) -> anyhow::Result<NoneType> {
+    fn update(
+        this: Value,
+        #[starlark(require = pos)] pairs: Option<Value>,
+        kwargs: DictRef,
+    ) -> anyhow::Result<NoneType> {
         let pairs = if pairs.map(|x| x.ptr_eq(this)) == Some(true) {
             // someone has done `x.update(x)` - that isn't illegal, but we will have issues
             // with trying to iterate over x while holding x for mutation, and it doesn't do

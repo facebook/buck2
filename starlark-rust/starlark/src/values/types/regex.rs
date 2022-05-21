@@ -58,7 +58,7 @@ impl StarlarkRegex {
 
 #[starlark_module]
 fn regex_type_methods(builder: &mut MethodsBuilder) {
-    fn r#match(this: &StarlarkRegex, ref str: &str) -> anyhow::Result<bool> {
+    fn r#match(this: &StarlarkRegex, #[starlark(require = pos)] str: &str) -> anyhow::Result<bool> {
         Ok(this.0.is_match(str)?)
     }
 }

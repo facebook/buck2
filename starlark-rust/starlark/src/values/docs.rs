@@ -635,9 +635,9 @@ mod tests {
 
         /// A function with only positional arguments.
         fn func3(
-            ref a1: i32,
-            ref a2: Option<i32>,
-            #[starlark(default = 1)] ref step: i32,
+            #[starlark(require = pos)] a1: i32,
+            #[starlark(require = pos)] a2: Option<i32>,
+            #[starlark(require = pos, default = 1)] step: i32,
         ) -> anyhow::Result<String> {
             let _x = (a1, a2, step);
             Ok("func3".to_owned())

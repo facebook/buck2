@@ -235,9 +235,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     #[starlark(speculative_exec_safe)]
     fn count(
         mut this: &str,
-        ref needle: &str,
-        #[starlark(default = NoneOr::None)] ref start: NoneOr<i32>,
-        #[starlark(default = NoneOr::None)] ref end: NoneOr<i32>,
+        #[starlark(require = pos)] needle: &str,
+        #[starlark(require = pos, default = NoneOr::None)] start: NoneOr<i32>,
+        #[starlark(require = pos, default = NoneOr::None)] end: NoneOr<i32>,
     ) -> anyhow::Result<i32> {
         if let Some(StrIndices { haystack, .. }) = convert_str_indices(this, start, end) {
             Ok(fast_string::count_matches(haystack, needle) as i32)
@@ -261,7 +261,10 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn endswith(this: &str, ref suffix: StringOrTuple) -> anyhow::Result<bool> {
+    fn endswith(
+        this: &str,
+        #[starlark(require = pos)] suffix: StringOrTuple,
+    ) -> anyhow::Result<bool> {
         match suffix {
             StringOrTuple::String(x) => Ok(this.ends_with(x)),
             StringOrTuple::Tuple(xs) => Ok(xs.iter().any(|x| this.ends_with(x))),
@@ -294,9 +297,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     #[starlark(speculative_exec_safe)]
     fn find(
         this: &str,
-        ref needle: &str,
-        #[starlark(default = NoneOr::None)] ref start: NoneOr<i32>,
-        #[starlark(default = NoneOr::None)] ref end: NoneOr<i32>,
+        #[starlark(require = pos)] needle: &str,
+        #[starlark(require = pos, default = NoneOr::None)] start: NoneOr<i32>,
+        #[starlark(require = pos, default = NoneOr::None)] end: NoneOr<i32>,
     ) -> anyhow::Result<i32> {
         if let Some(StrIndices { start, haystack }) = convert_str_indices(this, start, end) {
             if let Some(index) = haystack.find(needle) {
@@ -392,9 +395,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     #[starlark(speculative_exec_safe)]
     fn index(
         this: &str,
-        ref needle: &str,
-        #[starlark(default = NoneOr::None)] ref start: NoneOr<i32>,
-        #[starlark(default = NoneOr::None)] ref end: NoneOr<i32>,
+        #[starlark(require = pos)] needle: &str,
+        #[starlark(require = pos, default = NoneOr::None)] start: NoneOr<i32>,
+        #[starlark(require = pos, default = NoneOr::None)] end: NoneOr<i32>,
     ) -> anyhow::Result<i32> {
         if let Some(StrIndices { start, haystack }) = convert_str_indices(this, start, end) {
             if let Some(index) = haystack.find(needle) {
@@ -660,7 +663,10 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn join<'v>(this: &str, ref to_join: Value) -> anyhow::Result<Value<'v>> {
+    fn join<'v>(
+        this: &str,
+        #[starlark(require = pos)] to_join: Value,
+    ) -> anyhow::Result<Value<'v>> {
         #[inline(always)]
         fn as_str<'v>(x: Value<'v>) -> anyhow::Result<&'v str> {
             <&str>::unpack_named_param(x, "to_join")
@@ -716,7 +722,10 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn lstrip<'v>(this: &'v str, ref chars: Option<&str>) -> anyhow::Result<&'v str> {
+    fn lstrip<'v>(
+        this: &'v str,
+        #[starlark(require = pos)] chars: Option<&str>,
+    ) -> anyhow::Result<&'v str> {
         match chars {
             None => Ok(this.trim_start()),
             Some(s) => Ok(this.trim_start_matches(|c| s.contains(c))),
@@ -745,7 +754,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     #[starlark(speculative_exec_safe)]
     fn partition<'v>(
         this: ValueOf<'v, &str>,
-        ref needle: ValueOf<'v, &str>,
+        #[starlark(require = pos)] needle: ValueOf<'v, &str>,
     ) -> anyhow::Result<(Value<'v>, Value<'v>, Value<'v>)> {
         if needle.typed.is_empty() {
             return Err(anyhow!("Empty separator cannot be used for partitioning"));
@@ -786,9 +795,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     #[starlark(speculative_exec_safe)]
     fn replace(
         this: &str,
-        ref old: &str,
-        ref new: &str,
-        ref count: Option<i32>,
+        #[starlark(require = pos)] old: &str,
+        #[starlark(require = pos)] new: &str,
+        #[starlark(require = pos)] count: Option<i32>,
     ) -> anyhow::Result<String> {
         match count {
             Some(count) if count >= 0 => Ok(this.replacen(old, new, count as usize)),
@@ -817,9 +826,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     #[starlark(speculative_exec_safe)]
     fn rfind(
         this: &str,
-        ref needle: &str,
-        #[starlark(default = NoneOr::None)] ref start: NoneOr<i32>,
-        #[starlark(default = NoneOr::None)] ref end: NoneOr<i32>,
+        #[starlark(require = pos)] needle: &str,
+        #[starlark(require = pos, default = NoneOr::None)] start: NoneOr<i32>,
+        #[starlark(require = pos, default = NoneOr::None)] end: NoneOr<i32>,
     ) -> anyhow::Result<i32> {
         if let Some(StrIndices { start, haystack }) = convert_str_indices(this, start, end) {
             if let Some(index) = haystack.rfind(needle) {
@@ -852,9 +861,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     #[starlark(speculative_exec_safe)]
     fn rindex(
         this: &str,
-        ref needle: &str,
-        #[starlark(default = NoneOr::None)] ref start: NoneOr<i32>,
-        #[starlark(default = NoneOr::None)] ref end: NoneOr<i32>,
+        #[starlark(require = pos)] needle: &str,
+        #[starlark(require = pos, default = NoneOr::None)] start: NoneOr<i32>,
+        #[starlark(require = pos, default = NoneOr::None)] end: NoneOr<i32>,
     ) -> anyhow::Result<i32> {
         if let Some(StrIndices { start, haystack }) = convert_str_indices(this, start, end) {
             if let Some(index) = haystack.rfind(needle) {
@@ -883,7 +892,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     #[starlark(speculative_exec_safe)]
     fn rpartition<'v>(
         this: ValueOf<'v, &str>,
-        ref needle: ValueOf<'v, &str>,
+        #[starlark(require = pos)] needle: ValueOf<'v, &str>,
     ) -> anyhow::Result<(Value<'v>, Value<'v>, Value<'v>)> {
         if needle.typed.is_empty() {
             return Err(anyhow!("Empty separator cannot be used for partitioning"));
@@ -921,8 +930,8 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     #[starlark(speculative_exec_safe)]
     fn rsplit<'v>(
         this: &str,
-        #[starlark(default = NoneOr::None)] ref sep: NoneOr<&str>,
-        #[starlark(default = NoneOr::None)] ref maxsplit: NoneOr<i32>,
+        #[starlark(require = pos, default = NoneOr::None)] sep: NoneOr<&str>,
+        #[starlark(require = pos, default = NoneOr::None)] maxsplit: NoneOr<i32>,
     ) -> anyhow::Result<Value<'v>> {
         let maxsplit = match maxsplit.into_option() {
             None => None,
@@ -966,7 +975,10 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn rstrip<'v>(this: &'v str, ref chars: Option<&str>) -> anyhow::Result<&'v str> {
+    fn rstrip<'v>(
+        this: &'v str,
+        #[starlark(require = pos)] chars: Option<&str>,
+    ) -> anyhow::Result<&'v str> {
         match chars {
             None => Ok(this.trim_end()),
             Some(s) => Ok(this.trim_end_matches(|c| s.contains(c))),
@@ -1010,8 +1022,8 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     #[starlark(speculative_exec_safe)]
     fn split<'v>(
         this: &str,
-        #[starlark(default = NoneOr::None)] ref sep: NoneOr<&str>,
-        #[starlark(default = NoneOr::None)] ref maxsplit: NoneOr<i32>,
+        #[starlark(require = pos, default = NoneOr::None)] sep: NoneOr<&str>,
+        #[starlark(require = pos, default = NoneOr::None)] maxsplit: NoneOr<i32>,
     ) -> anyhow::Result<Value<'v>> {
         let maxsplit = match maxsplit.into_option() {
             None => None,
@@ -1074,7 +1086,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     #[starlark(speculative_exec_safe)]
     fn splitlines<'v>(
         this: &str,
-        #[starlark(default = false)] ref keepends: bool,
+        #[starlark(require = pos, default = false)] keepends: bool,
     ) -> anyhow::Result<Value<'v>> {
         let mut s = this;
         let mut lines = Vec::new();
@@ -1122,7 +1134,10 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn startswith(this: &str, ref prefix: StringOrTuple) -> anyhow::Result<bool> {
+    fn startswith(
+        this: &str,
+        #[starlark(require = pos)] prefix: StringOrTuple,
+    ) -> anyhow::Result<bool> {
         match prefix {
             StringOrTuple::String(x) => Ok(this.starts_with(x)),
             StringOrTuple::Tuple(xs) => Ok(xs.iter().any(|x| this.starts_with(x))),
@@ -1145,7 +1160,10 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn strip<'v>(this: &'v str, ref chars: Option<&str>) -> anyhow::Result<&'v str> {
+    fn strip<'v>(
+        this: &'v str,
+        #[starlark(require = pos)] chars: Option<&str>,
+    ) -> anyhow::Result<&'v str> {
         match chars {
             None => Ok(this.trim()),
             Some(s) => Ok(this.trim_matches(|c| s.contains(c))),
@@ -1231,7 +1249,10 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn removeprefix<'v>(this: Value<'v>, ref prefix: &str) -> anyhow::Result<Value<'v>> {
+    fn removeprefix<'v>(
+        this: Value<'v>,
+        #[starlark(require = pos)] prefix: &str,
+    ) -> anyhow::Result<Value<'v>> {
         let x = this.unpack_str().unwrap();
         if x.starts_with(prefix) && !prefix.is_empty() {
             Ok(heap.alloc(&x[prefix.len()..]))
@@ -1257,7 +1278,10 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn removesuffix<'v>(this: Value<'v>, ref suffix: &str) -> anyhow::Result<Value<'v>> {
+    fn removesuffix<'v>(
+        this: Value<'v>,
+        #[starlark(require = pos)] suffix: &str,
+    ) -> anyhow::Result<Value<'v>> {
         let x = this.unpack_str().unwrap();
         if x.ends_with(suffix) && !suffix.is_empty() {
             Ok(heap.alloc(&x[..x.len() - suffix.len()]))

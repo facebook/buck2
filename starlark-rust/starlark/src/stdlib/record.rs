@@ -57,7 +57,10 @@ pub fn global(builder: &mut GlobalsBuilder) {
     /// rec.mask == 255
     /// # "#);
     /// ```
-    fn field<'v>(ref typ: Value, default: Option<Value>) -> anyhow::Result<Field<'v>> {
+    fn field<'v>(
+        #[starlark(require = pos)] typ: Value,
+        default: Option<Value>,
+    ) -> anyhow::Result<Field<'v>> {
         // We compile the type even if we don't have a default to raise the error sooner
         let compiled = TypeCompiled::new(typ, heap)?;
         if let Some(d) = default {
