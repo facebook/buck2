@@ -31,6 +31,10 @@ fn named_positional_functions(globals: &mut GlobalsBuilder) {
     fn named_only(#[starlark(require = named)] x: i32) -> anyhow::Result<i32> {
         Ok(x)
     }
+
+    fn named_after_args(args: Vec<i32>, x: i32) -> anyhow::Result<i32> {
+        Ok(x + args.iter().sum::<i32>())
+    }
 }
 
 #[test]
@@ -55,4 +59,12 @@ fn test_named_only() {
     a.globals_add(named_positional_functions);
     a.eq("31", "named_only(x=31)");
     a.fail("named_only(37)", "Missing parameter");
+}
+
+#[test]
+fn test_named_after_args() {
+    let mut a = Assert::new();
+    a.globals_add(named_positional_functions);
+    a.eq("13", "named_after_args(1, 2, x=10)");
+    a.fail("named_after_args(1, 2, 3)", "Missing parameter");
 }
