@@ -26,7 +26,7 @@ use crate::module::{
     util::{ident_string, mut_token},
 };
 
-pub(crate) fn render(x: StarModule) -> TokenStream {
+pub(crate) fn render(x: StarModule) -> syn::Result<TokenStream> {
     let span = x.span();
     let StarModule {
         name,
@@ -37,10 +37,10 @@ pub(crate) fn render(x: StarModule) -> TokenStream {
         module_kind,
     } = x;
     let statics = format_ident!("{}", module_kind.statics_type_name());
-    let stmts = stmts.into_map(render_stmt);
+    let stmts = stmts.into_try_map(render_stmt)?;
     let set_docstring =
         docstring.map(|ds| quote_spanned!(span=> globals_builder.set_docstring(#ds);));
-    quote_spanned! {
+    Ok(quote_spanned! {
         span=>
         #visibility fn #name(globals_builder: #globals_builder) {
             fn build(globals_builder: #globals_builder) {
@@ -52,13 +52,13 @@ pub(crate) fn render(x: StarModule) -> TokenStream {
             static RES: starlark::environment::#statics = starlark::environment::#statics::new();
             RES.populate(build, globals_builder);
         }
-    }
+    })
 }
 
-fn render_stmt(x: StarStmt) -> TokenStream {
+fn render_stmt(x: StarStmt) -> syn::Result<TokenStream> {
     match x {
-        StarStmt::Const(x) => render_const(x),
-        StarStmt::Attr(x) => render_attr(x),
+        StarStmt::Const(x) => Ok(render_const(x)),
+        StarStmt::Attr(x) => Ok(render_attr(x)),
         StarStmt::Fun(x) => render_fun(x),
     }
 }
@@ -121,12 +121,12 @@ fn render_attr(x: StarAttr) -> TokenStream {
     }
 }
 
-fn render_fun(x: StarFun) -> TokenStream {
+fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
     let span = x.span();
 
     let name_str = ident_string(&x.name);
-    let signature = render_signature(&x);
-    let documentation = render_documentation(&x);
+    let signature = render_signature(&x)?;
+    let documentation = render_documentation(&x)?;
     let binding = render_binding(&x);
     let is_method = x.is_method();
 
@@ -203,7 +203,7 @@ fn render_fun(x: StarFun) -> TokenStream {
         )
     };
 
-    quote_spanned! {
+    Ok(quote_spanned! {
         span=>
         #( #attrs )*
         #[allow(non_snake_case)] // Starlark doesn't have this convention
@@ -235,7 +235,7 @@ fn render_fun(x: StarFun) -> TokenStream {
             #documentation
             #builder_set
         }
-    }
+    })
 }
 
 // Given __args and __signature (if render_signature was Some)
@@ -355,24 +355,24 @@ fn render_binding_arg(arg: &StarArg) -> TokenStream {
 
 // Given the arguments, create a variable `signature` with a `ParametersSpec` object.
 // Or return None if you don't need a signature
-fn render_signature(x: &StarFun) -> Option<TokenStream> {
+fn render_signature(x: &StarFun) -> syn::Result<Option<TokenStream>> {
     let span = x.args_span();
     if let StarFunSource::Argument(args_count) = x.source {
         let name_str = ident_string(&x.name);
-        let sig_args = render_signature_args(&x.args);
-        Some(quote_spanned! {
+        let sig_args = render_signature_args(&x.args)?;
+        Ok(Some(quote_spanned! {
             span=>
             #[allow(unused_mut)]
             let mut __signature = starlark::eval::ParametersSpec::with_capacity(#name_str.to_owned(), #args_count);
             #sig_args
             let __signature = __signature.finish();
-        })
+        }))
     } else {
-        None
+        Ok(None)
     }
 }
 
-fn render_documentation(x: &StarFun) -> TokenStream {
+fn render_documentation(x: &StarFun) -> syn::Result<TokenStream> {
     let span = x.args_span();
 
     // A signature is not needed to invoke positional-only functions, but we still want
@@ -385,7 +385,7 @@ fn render_documentation(x: &StarFun) -> TokenStream {
     let name_str = ident_string(&x.name);
     let documentation_signature = match args_count {
         Some(args_count) => {
-            let sig_args = render_signature_args(&x.args);
+            let sig_args = render_signature_args(&x.args)?;
             quote_spanned! {
                 span=> {
                 #[allow(unused_mut)]
@@ -414,7 +414,7 @@ fn render_documentation(x: &StarFun) -> TokenStream {
                 quote_spanned!(span=> (#i, starlark::values::docs::Type { raw_type: stringify!(#typ).to_owned() }) )
             }).collect();
 
-    quote_spanned!(span=>
+    Ok(quote_spanned!(span=>
         let __documentation_renderer = {
             let signature = #documentation_signature;
             let parameter_types = std::collections::HashMap::from([#(#parameter_types),*]);
@@ -430,10 +430,10 @@ fn render_documentation(x: &StarFun) -> TokenStream {
                 return_type,
             }
         };
-    )
+    ))
 }
 
-fn render_signature_args(args: &[StarArg]) -> TokenStream {
+fn render_signature_args(args: &[StarArg]) -> syn::Result<TokenStream> {
     let mut sig_args = TokenStream::new();
     let mut seen_named = false;
     for arg in args {
@@ -447,7 +447,7 @@ fn render_signature_args(args: &[StarArg]) -> TokenStream {
         }
         sig_args.extend(render_signature_arg(arg));
     }
-    sig_args
+    Ok(sig_args)
 }
 
 // Generate a statement that modifies signature to add a new argument in.

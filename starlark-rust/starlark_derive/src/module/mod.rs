@@ -30,7 +30,7 @@ pub(crate) fn starlark_module(attr: TokenStream, input: TokenStream) -> TokenStr
         assert!(attr.is_empty());
         let mut x = parse::parse(input)?;
         x.resolve()?;
-        Ok(render::render(x).into())
+        Ok(render::render(x)?.into())
     }
 
     match starlark_module_impl(attr, input) {
