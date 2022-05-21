@@ -24,6 +24,10 @@ fn named_positional_functions(globals: &mut GlobalsBuilder) {
         Ok(x)
     }
 
+    fn positional_new(#[starlark(require = pos)] x: i32) -> anyhow::Result<i32> {
+        Ok(x)
+    }
+
     fn named(x: i32) -> anyhow::Result<i32> {
         Ok(x)
     }
@@ -34,7 +38,9 @@ fn test_positional_only() {
     let mut a = Assert::new();
     a.globals_add(named_positional_functions);
     a.eq("17", "positional(17)");
+    a.eq("17", "positional_new(17)");
     a.fail("positional(x=19)", "extra named parameter");
+    a.fail("positional_new(x=19)", "extra named parameter");
 }
 
 #[test]

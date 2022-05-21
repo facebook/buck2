@@ -19,8 +19,8 @@ use gazebo::prelude::*;
 use proc_macro2::{Span, TokenStream};
 use syn::{
     parse::ParseStream, spanned::Spanned, visit::Visit, Attribute, Expr, FnArg, GenericArgument,
-    GenericParam, Generics, Item, ItemConst, ItemFn, Lifetime, Meta, MetaNameValue, NestedMeta,
-    Pat, PatType, PathArguments, ReturnType, Stmt, Token, Type, TypeReference,
+    GenericParam, Generics, Ident, Item, ItemConst, ItemFn, Lifetime, Meta, MetaNameValue,
+    NestedMeta, Pat, PatType, PathArguments, ReturnType, Stmt, Token, Type, TypeReference,
 };
 
 use crate::module::{
@@ -140,17 +140,43 @@ fn is_attribute_docstring(x: &Attribute) -> Option<String> {
 }
 
 /// Parse `#[starlark(...)]` fn param attribute.
-fn parse_starlark_fn_param_attr(tokens: &Attribute, default: &mut Option<Expr>) -> syn::Result<()> {
+fn parse_starlark_fn_param_attr(
+    tokens: &Attribute,
+    default: &mut Option<Expr>,
+    pos_only: &mut bool,
+) -> syn::Result<()> {
     assert!(tokens.path.is_ident("starlark"));
     let parse = |parser: ParseStream| -> syn::Result<()> {
-        if parser.parse::<Token![default]>().is_err() {
+        let mut first = true;
+        while !parser.is_empty() {
+            if !first {
+                parser.parse::<Token![,]>()?;
+                // Allow trailing comma.
+                if parser.is_empty() {
+                    break;
+                }
+            }
+            first = false;
+
+            let ident = parser.parse::<Ident>()?;
+            if ident == "default" {
+                parser.parse::<Token![=]>()?;
+                *default = Some(parser.parse::<Expr>()?);
+                continue;
+            } else if ident == "require" {
+                parser.parse::<Token!(=)>()?;
+                let require = parser.parse::<Ident>()?;
+                if require == "pos" {
+                    *pos_only = true;
+                    continue;
+                }
+            }
+
             return Err(syn::Error::new(
-                tokens.span(),
-                "Expecting `#[starlark(default = expr)]` attribute",
+                ident.span(),
+                "Expecting `#[starlark(default = expr)]` or `#[starlark(require = pos)]` attribute",
             ));
         }
-        parser.parse::<Token![=]>()?;
-        *default = Some(parser.parse::<Expr>()?);
         Ok(())
     };
     tokens.parse_args_with(parse)
@@ -457,11 +483,11 @@ fn parse_arg(x: FnArg, has_v: bool) -> syn::Result<StarArg> {
 
             check_lifetimes_in_type(&ty, has_v)?;
             let mut default = None;
-            let pos_only = ident.by_ref.is_some();
+            let mut pos_only = ident.by_ref.is_some();
             let mut unused_attrs = Vec::new();
             for attr in attrs {
                 if attr.path.is_ident("starlark") {
-                    parse_starlark_fn_param_attr(&attr, &mut default)?;
+                    parse_starlark_fn_param_attr(&attr, &mut default, &mut pos_only)?;
                 } else {
                     unused_attrs.push(attr);
                 }
