@@ -18,6 +18,10 @@
 use std::{
     cell::{Cell, RefCell},
     marker,
+    sync::atomic::{
+        AtomicBool, AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicIsize, AtomicU16, AtomicU32,
+        AtomicU64, AtomicU8, AtomicUsize,
+    },
 };
 
 use hashbrown::raw::RawTable;
@@ -167,6 +171,50 @@ unsafe impl<'v> Trace<'v> for u64 {
 }
 
 unsafe impl<'v> Trace<'v> for bool {
+    fn trace(&mut self, _tracer: &Tracer<'v>) {}
+}
+
+unsafe impl<'v> Trace<'v> for AtomicBool {
+    fn trace(&mut self, _tracer: &Tracer<'v>) {}
+}
+
+unsafe impl<'v> Trace<'v> for AtomicI8 {
+    fn trace(&mut self, _tracer: &Tracer<'v>) {}
+}
+
+unsafe impl<'v> Trace<'v> for AtomicU8 {
+    fn trace(&mut self, _tracer: &Tracer<'v>) {}
+}
+
+unsafe impl<'v> Trace<'v> for AtomicI16 {
+    fn trace(&mut self, _tracer: &Tracer<'v>) {}
+}
+
+unsafe impl<'v> Trace<'v> for AtomicU16 {
+    fn trace(&mut self, _tracer: &Tracer<'v>) {}
+}
+
+unsafe impl<'v> Trace<'v> for AtomicI32 {
+    fn trace(&mut self, _tracer: &Tracer<'v>) {}
+}
+
+unsafe impl<'v> Trace<'v> for AtomicU32 {
+    fn trace(&mut self, _tracer: &Tracer<'v>) {}
+}
+
+unsafe impl<'v> Trace<'v> for AtomicI64 {
+    fn trace(&mut self, _tracer: &Tracer<'v>) {}
+}
+
+unsafe impl<'v> Trace<'v> for AtomicU64 {
+    fn trace(&mut self, _tracer: &Tracer<'v>) {}
+}
+
+unsafe impl<'v> Trace<'v> for AtomicUsize {
+    fn trace(&mut self, _tracer: &Tracer<'v>) {}
+}
+
+unsafe impl<'v> Trace<'v> for AtomicIsize {
     fn trace(&mut self, _tracer: &Tracer<'v>) {}
 }
 
