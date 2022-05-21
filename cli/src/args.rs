@@ -267,6 +267,9 @@ fn expand_argfile_contents(flagfile: &ArgFile) -> anyhow::Result<Vec<String>> {
                     source: source.into(),
                     path: path.to_string_lossy().into_owned(),
                 })?;
+                if line.is_empty() {
+                    continue;
+                }
                 lines.push(line);
             }
             Ok(lines)
@@ -289,6 +292,7 @@ fn expand_argfile_contents(flagfile: &ArgFile) -> anyhow::Result<Vec<String>> {
                         path: path.to_string_lossy().into_owned(),
                     })?
                     .lines()
+                    .filter(|line| !line.is_empty())
                     .map(|s| s.to_owned())
                     .collect::<Vec<String>>())
             } else {
@@ -352,5 +356,27 @@ fn resolve_flagfile(
         Ok(ArgFile::PythonExecutable(resolved_path, flag))
     } else {
         Ok(ArgFile::Path(resolved_path))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use buck2_core::fs::paths::AbsPathBuf;
+
+    use crate::args::{expand_argfile_contents, ArgFile};
+
+    #[test]
+    fn test_expand_argfile_content() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let mode_file = tempdir.path().join("mode-file");
+        // Test skips empty lines.
+        fs::write(&mode_file, "a\n\nb\n").unwrap();
+        let lines = expand_argfile_contents(&ArgFile::Path(
+            AbsPathBuf::from(mode_file.to_string_lossy().into_owned()).unwrap(),
+        ))
+        .unwrap();
+        assert_eq!(vec!["a".to_owned(), "b".to_owned()], lines);
     }
 }
