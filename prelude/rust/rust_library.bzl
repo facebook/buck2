@@ -169,27 +169,35 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
     )
 
     expand = rust_compile(
-        ctx,
-        compile_ctx,
-        Emit("expand"),
-        crate,
-        lang_style_param[(LinkageLang("rust"), LinkStyle("static_pic"))],
-        LinkStyle("static_pic"),
-        ["lib.rs"],
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("expand"),
+        crate = crate,
+        params = lang_style_param[(LinkageLang("rust"), LinkStyle("static_pic"))],
+        link_style = LinkStyle("static_pic"),
+        default_roots = ["lib.rs"],
         predeclared_outputs = {Emit("expand"): ctx.actions.declare_output("expand/{}.rs".format(crate))},
     )
 
     providers = []
 
     providers += _default_providers(
-        lang_style_param,
-        rust_param_artifact,
-        rustdoc,
-        check_artifacts,
-        expand.outputs[Emit("expand")],
+        lang_style_param = lang_style_param,
+        param_artifact = rust_param_artifact,
+        rustdoc = rustdoc,
+        check_artifacts = check_artifacts,
+        expand = expand.outputs[Emit("expand")],
     )
-    providers += _rust_providers(ctx, lang_style_param, rust_param_artifact)
-    providers += _native_providers(ctx, lang_style_param, native_param_artifact)
+    providers += _rust_providers(
+        ctx = ctx,
+        lang_style_param = lang_style_param,
+        param_artifact = rust_param_artifact,
+    )
+    providers += _native_providers(
+        ctx = ctx,
+        lang_style_param = lang_style_param,
+        param_artifact = native_param_artifact,
+    )
 
     return providers
 
@@ -220,11 +228,11 @@ def _build_params_for_styles(ctx: "context") -> (
 
         for link_style in LinkStyle:
             params = build_params(
-                RuleType("library"),
-                ctx.attr.proc_macro,
-                link_style,
-                Linkage(ctx.attr.preferred_linkage),
-                linkage_lang,
+                rule = RuleType("library"),
+                proc_macro = ctx.attr.proc_macro,
+                link_style = link_style,
+                preferred_linkage = Linkage(ctx.attr.preferred_linkage),
+                lang = linkage_lang,
             )
             if params not in param_lang:
                 param_lang[params] = []
@@ -254,13 +262,13 @@ def _build_library_artifacts(
         #
         # In principle we don't really need metadata for C++-only artifacts, but I don't think it hurts
         link, meta = rust_compile_multi(
-            ctx,
-            compile_ctx,
-            [Emit("link"), Emit("metadata")],
-            crate,
-            params,
-            link_style,
-            ["lib.rs"],
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            emits = [Emit("link"), Emit("metadata")],
+            crate = crate,
+            params = params,
+            link_style = link_style,
+            default_roots = ["lib.rs"],
         )
 
         for lang in langs:

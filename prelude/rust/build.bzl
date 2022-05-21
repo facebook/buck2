@@ -97,15 +97,15 @@ def generate_rustdoc(
     toolchain_info = ctx_toolchain_info(ctx)
 
     common_args = _compute_common_args(
-        ctx,
-        compile_ctx,
+        ctx = ctx,
+        compile_ctx = compile_ctx,
         # to make sure we get the rmeta's generated for the crate dependencies,
         # rather than full .rlibs
-        Emit("metadata"),
-        crate,
-        params,
-        params.dep_link_style,
-        default_roots,
+        emit = Emit("metadata"),
+        crate = crate,
+        params = params,
+        link_style = params.dep_link_style,
+        default_roots = default_roots,
     )
 
     subdir = common_args.subdir + "_rustdoc"
@@ -170,17 +170,17 @@ def rust_compile_multi(
 
     for emit in emits:
         outs = rust_compile(
-            ctx,
-            compile_ctx,
-            emit,
-            crate,
-            params,
-            link_style,
-            default_roots,
-            extra_link_args,
-            predeclared_outputs,
-            extra_flags,
-            is_binary,
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            emit = emit,
+            crate = crate,
+            params = params,
+            link_style = link_style,
+            default_roots = default_roots,
+            extra_link_args = extra_link_args,
+            predeclared_outputs = predeclared_outputs,
+            extra_flags = extra_flags,
+            is_binary = is_binary,
         )
         outputs.append(outs)
 
@@ -205,7 +205,16 @@ def rust_compile(
 
     lints, clippy_lints = _lint_flags(ctx)
 
-    common_args = _compute_common_args(ctx, compile_ctx, emit, crate, params, link_style, default_roots)
+    common_args = _compute_common_args(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = emit,
+        crate = crate,
+        params = params,
+        link_style = link_style,
+        default_roots = default_roots,
+    )
+
     rustc_cmd = cmd_args(
         [common_args.args] +
         [
@@ -254,20 +263,34 @@ def rust_compile(
     # use the predeclared one as the output after the failure filter action
     # below. Otherwise we'll use the predeclared outputs directly.
     if toolchain_info.failure_filter:
-        outputs, emit_args = _rustc_emits(ctx, emit, {}, common_args.subdir, crate, params)
+        outputs, emit_args = _rustc_emits(
+            ctx = ctx,
+            emit = emit,
+            predeclared_outputs = {},
+            subdir = common_args.subdir,
+            crate = crate,
+            params = params,
+        )
     else:
-        outputs, emit_args = _rustc_emits(ctx, emit, predeclared_outputs, common_args.subdir, crate, params)
+        outputs, emit_args = _rustc_emits(
+            ctx = ctx,
+            emit = emit,
+            predeclared_outputs = predeclared_outputs,
+            subdir = common_args.subdir,
+            crate = crate,
+            params = params,
+        )
 
     (diag, build_status) = _rustc_invoke(
-        ctx,
-        compile_ctx,
-        "{}/{}".format(common_args.subdir, common_args.tempfile),
-        cmd_args([toolchain_info.compiler, rustc_cmd] + emit_args),
-        "diag",
-        outputs.values(),
-        common_args.short_cmd,
-        is_binary,
-        common_args.crate_map,
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        prefix = "{}/{}".format(common_args.subdir, common_args.tempfile),
+        rustc_cmd = cmd_args([toolchain_info.compiler, rustc_cmd] + emit_args),
+        diag = "diag",
+        outputs = outputs.values(),
+        short_cmd = common_args.short_cmd,
+        is_binary = is_binary,
+        crate_map = common_args.crate_map,
     )
 
     # Add clippy diagnostic targets for check builds
@@ -275,15 +298,15 @@ def rust_compile(
         # We don't really need the outputs from this build, just to keep the artifact accounting straight
         clippy_out, clippy_emit_args = _rustc_emits(ctx, emit, {}, common_args.subdir + "-clippy", crate, params)
         (clippy_diag, _) = _rustc_invoke(
-            ctx,
-            compile_ctx,
-            "{}/{}".format(common_args.subdir, common_args.tempfile),
-            cmd_args([compile_ctx.clippy_wrapper, rustc_cmd] + clippy_lints + clippy_emit_args),
-            "clippy",
-            clippy_out.values(),
-            common_args.short_cmd,
-            False,
-            common_args.crate_map,
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            prefix = "{}/{}".format(common_args.subdir, common_args.tempfile),
+            rustc_cmd = cmd_args([compile_ctx.clippy_wrapper, rustc_cmd] + clippy_lints + clippy_emit_args),
+            diag = "clippy",
+            outputs = clippy_out.values(),
+            short_cmd = common_args.short_cmd,
+            is_binary = False,
+            crate_map = common_args.crate_map,
         )
         diag.update(clippy_diag)
 
@@ -298,11 +321,11 @@ def rust_compile(
             filter_prov = RustFailureFilter(buildstatus = build_status, required = output, stderr = stderr)
 
             filtered_outputs[emit] = failure_filter(
-                ctx,
-                "{}/{}".format(common_args.subdir, emit.value),
-                predeclared_outputs.get(emit),
-                filter_prov,
-                common_args.short_cmd,
+                ctx = ctx,
+                prefix = "{}/{}".format(common_args.subdir, emit.value),
+                predecl_out = predeclared_outputs.get(emit),
+                failprov = filter_prov,
+                short_cmd = common_args.short_cmd,
             )
     else:
         filtered_outputs = outputs
@@ -421,11 +444,11 @@ def _compute_common_args(
     is_check = not emit_needs_codegen(emit)
 
     dependency_args, crate_map = _dependency_args(
-        ctx,
-        subdir,
-        crate_type,
-        link_style,
-        is_check,
+        ctx = ctx,
+        subdir = subdir,
+        crate_type = crate_type,
+        link_style = link_style,
+        is_check = is_check,
     )
 
     if crate_type == CrateType("proc-macro"):

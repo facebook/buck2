@@ -47,11 +47,11 @@ def _rust_binary_common(
 
     for link_style in LinkStyle:
         params = build_params(
-            RuleType("binary"),
-            False,
-            link_style,
-            Linkage("any"),
-            LinkageLang("rust"),
+            rule = RuleType("binary"),
+            proc_macro = False,
+            link_style = link_style,
+            preferred_linkage = Linkage("any"),
+            lang = LinkageLang("rust"),
         )
         style_param[link_style] = params
         name = link_style.value + "/" + output_filename(crate, Emit("link"), params)
@@ -76,14 +76,14 @@ def _rust_binary_common(
 
         # Compile rust binary.
         link, meta = rust_compile_multi(
-            ctx,
-            compile_ctx,
-            [Emit("link"), Emit("metadata")],
-            crate,
-            params,
-            link_style,
-            default_roots,
-            extra_link_args,
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            emits = [Emit("link"), Emit("metadata")],
+            crate = crate,
+            params = params,
+            link_style = link_style,
+            default_roots = default_roots,
+            extra_link_args = extra_link_args,
             predeclared_outputs = {Emit("link"): output},
             extra_flags = extra_flags,
             is_binary = True,
@@ -97,15 +97,15 @@ def _rust_binary_common(
         styles[link_style] = (link.outputs[Emit("link")], args, extra_targets, runtime_files)
 
     expand = rust_compile(
-        ctx,
-        compile_ctx,
-        Emit("expand"),
-        crate,
-        style_param[LinkStyle("static_pic")],
-        LinkStyle("static_pic"),
-        default_roots,
-        extra_flags = extra_flags,
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("expand"),
+        crate = crate,
+        params = style_param[LinkStyle("static_pic")],
+        link_style = LinkStyle("static_pic"),
+        default_roots = default_roots,
         predeclared_outputs = {Emit("expand"): ctx.actions.declare_output("expand/{}.rs".format(crate))},
+        extra_flags = extra_flags,
     )
 
     extra_targets += [
