@@ -34,6 +34,8 @@ pub enum QueryEnvironmentError {
     MissingTargetError(String, Vec<String>),
     #[error("Expected package `{0}` to be available in traversal.")]
     TraversalMissingPackage(Package),
+    #[error("Dependency cycle, didn't manage to visit `{0}` which is a dependency of `{1}`")]
+    DependencyCycle(String, String),
 }
 
 impl QueryEnvironmentError {
@@ -205,12 +207,12 @@ pub trait QueryEnvironment: Send + Sync {
                 } else {
                     let mut distance = None;
                     for dep in target.deps() {
-                        let dep_distance = *self.distance.get(&dep).unwrap_or_else(|| {
-                            panic!(
-                                "should have visited all children by now (missing `{}` of `{}` - possibly caused by a dependency cycle)",
-                                dep, node_ref,
+                        let dep_distance = *self.distance.get(&dep).ok_or_else(|| {
+                            QueryEnvironmentError::DependencyCycle(
+                                dep.to_string(),
+                                node_ref.to_string(),
                             )
-                        });
+                        })?;
 
                         distance = match (distance, dep_distance) {
                             (None, v) => v,
