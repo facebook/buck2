@@ -59,7 +59,7 @@ use serde::Serialize;
 
 use crate::{
     self as starlark,
-    collections::{SmallMap, StarlarkHasher},
+    collections::{Hashed, SmallMap, StarlarkHasher},
     eval::{Arguments, Evaluator, ParametersSpec},
     values::{
         comparison::equals_slice, display::display_keyed_container, function::FUNCTION_TYPE,
@@ -387,8 +387,12 @@ where
         }
     }
 
-    fn get_attr(&self, attribute: &str, _heap: &'v Heap) -> Option<Value<'v>> {
-        let i = self.get_record_fields().get_index_of(attribute)?;
+    fn get_attr(&self, attribute: &str, heap: &'v Heap) -> Option<Value<'v>> {
+        self.get_attr_hashed(Hashed::new(attribute), heap)
+    }
+
+    fn get_attr_hashed(&self, attribute: Hashed<&str>, _heap: &'v Heap) -> Option<Value<'v>> {
+        let i = self.get_record_fields().get_index_of_hashed(attribute)?;
         Some(self.values[i].to_value())
     }
 

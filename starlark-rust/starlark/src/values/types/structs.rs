@@ -50,7 +50,7 @@ use serde::Serialize;
 
 use crate::{
     self as starlark,
-    collections::{SmallMap, StarlarkHasher},
+    collections::{Hashed, SmallMap, StarlarkHasher},
     environment::{Methods, MethodsStatic},
     values::{
         comparison::{compare_small_map, equals_small_map},
@@ -180,8 +180,12 @@ where
         }
     }
 
-    fn get_attr(&self, attribute: &str, _heap: &'v Heap) -> Option<Value<'v>> {
-        coerce_ref(&self.fields).get(attribute).copied()
+    fn get_attr(&self, attribute: &str, heap: &'v Heap) -> Option<Value<'v>> {
+        self.get_attr_hashed(Hashed::new(attribute), heap)
+    }
+
+    fn get_attr_hashed(&self, attribute: Hashed<&str>, _heap: &'v Heap) -> Option<Value<'v>> {
+        coerce_ref(&self.fields).get_hashed(attribute).copied()
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
