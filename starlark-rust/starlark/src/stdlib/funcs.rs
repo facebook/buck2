@@ -400,6 +400,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         ref attr: &str,
         ref default: Option<Value>,
     ) -> anyhow::Result<Value<'v>> {
+        // TODO(nga): this doesn't cache string hash, so it is suboptimal.
         match a.get_attr(attr, heap)? {
             Some(v) => Ok(v),
             None => match default {

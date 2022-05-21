@@ -1010,7 +1010,7 @@ pub(crate) fn get_attr_hashed_raw<'v>(
             return Ok(MemberOrValue::Member(v));
         }
     }
-    match aref.get_attr(attribute.as_str(), heap) {
+    match aref.get_attr_hashed(attribute.as_str_hashed(), heap) {
         None => Err(get_attr_no_attr_error(x, attribute)),
         Some(x) => Ok(MemberOrValue::Value(x)),
     }
@@ -1027,7 +1027,7 @@ pub(crate) fn get_attr_hashed_bind<'v>(
             return MaybeUnboundValue::new(v).bind(x, heap);
         }
     }
-    match aref.get_attr(attribute.as_str(), heap) {
+    match aref.get_attr_hashed(attribute.as_str_hashed(), heap) {
         None => Err(get_attr_no_attr_error(x, attribute)),
         Some(x) => {
             // Only `get_methods` is allowed to return unbound methods,

@@ -31,7 +31,7 @@ use gazebo::{
 };
 
 use crate::{
-    collections::{StarlarkHashValue, StarlarkHasher},
+    collections::{Hashed, StarlarkHashValue, StarlarkHasher},
     environment::Methods,
     eval::{Arguments, Evaluator},
     private::Private,
@@ -274,6 +274,14 @@ impl<'v> AValueDyn<'v> {
 
     pub(crate) fn get_attr(self, name: &str, heap: &'v Heap) -> Option<Value<'v>> {
         (self.vtable.starlark_value.get_attr)(StarlarkValueRawPtr::new(self.value), name, heap)
+    }
+
+    pub(crate) fn get_attr_hashed(self, name: Hashed<&str>, heap: &'v Heap) -> Option<Value<'v>> {
+        (self.vtable.starlark_value.get_attr_hashed)(
+            StarlarkValueRawPtr::new(self.value),
+            name,
+            heap,
+        )
     }
 
     pub(crate) fn has_attr(self, name: &str) -> bool {

@@ -39,7 +39,7 @@ use gazebo::any::{AnyLifetime, ProvidesStaticType};
 
 use crate::{
     self as starlark,
-    collections::StarlarkHasher,
+    collections::{Hashed, StarlarkHasher},
     environment::Methods,
     eval::{Arguments, Evaluator},
     private::Private,
@@ -451,6 +451,16 @@ pub trait StarlarkValue<'v>:
     /// This operations must have no side effects, because it can be called speculatively.
     fn get_attr(&self, _attribute: &str, _heap: &'v Heap) -> Option<Value<'v>> {
         None
+    }
+
+    /// A version of `get_attr` which takes `BorrowHashed<str>` instead of `&str`,
+    /// thus implementation may reuse the hash of the string if this is called
+    /// repeatedly with the same string.
+    ///
+    /// This function is optional, but if it is implemented, it must be consistent with
+    /// [`get_attr`](Self::get_attr).
+    fn get_attr_hashed(&self, attribute: Hashed<&str>, heap: &'v Heap) -> Option<Value<'v>> {
+        self.get_attr(attribute.key(), heap)
     }
 
     /// Return true if an attribute of name `attribute` exists for the current
