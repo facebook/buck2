@@ -14,6 +14,7 @@ use std::{
     io::{self, BufRead},
     path::Path,
     process::Command,
+    str,
 };
 
 use anyhow::{anyhow, Context as _};
@@ -40,6 +41,8 @@ enum ArgExpansionError {
     MissingFlagFileOnDisk { source: anyhow::Error, path: String },
     #[error("Unable to read line in flag file `{path}`")]
     FlagFileReadError { source: anyhow::Error, path: String },
+    #[error("Python mode file `{path}` output is not UTF-8")]
+    PythonOutputNotUtf8 { path: String },
     #[error("No flag file path after @ symbol in argfile argument")]
     MissingFlagFilePathInArgfile,
     #[error("Failed to compute parent dir of argfile")]
@@ -281,7 +284,10 @@ fn expand_argfile_contents(flagfile: &ArgFile) -> anyhow::Result<Vec<String>> {
                 .output()
                 .expect("python executable failed to run");
             if cmd_out.status.success() {
-                Ok(String::from_utf8_lossy(&cmd_out.stdout)
+                Ok(str::from_utf8(&cmd_out.stdout)
+                    .map_err(|_| ArgExpansionError::PythonOutputNotUtf8 {
+                        path: path.to_string_lossy().into_owned(),
+                    })?
                     .lines()
                     .map(|s| s.to_owned())
                     .collect::<Vec<String>>())
