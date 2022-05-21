@@ -12,7 +12,7 @@ use std::{cell::RefCell, fmt};
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use hashbrown::raw::RawTable;
 use starlark::{
-    collections::{BorrowHashed, Hashed},
+    collections::Hashed,
     environment::Module,
     values::{FrozenStringValue, StringValue},
 };
@@ -69,11 +69,7 @@ impl<'a> LegacyBuckConfigForStarlark<'a> {
         }
     }
 
-    fn get_impl(
-        &self,
-        section: BorrowHashed<str>,
-        key: BorrowHashed<str>,
-    ) -> Option<FrozenStringValue> {
+    fn get_impl(&self, section: Hashed<&str>, key: Hashed<&str>) -> Option<FrozenStringValue> {
         let hash = Self::mix_hashes(section.hash().get(), key.hash().get());
         let mut cache = self.cache.borrow_mut();
         if let Some(e) = cache.get(hash, |e| {
