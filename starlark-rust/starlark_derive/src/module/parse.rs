@@ -481,9 +481,16 @@ fn parse_arg(x: FnArg, has_v: bool) -> syn::Result<StarArg> {
                 ));
             }
 
+            if ident.by_ref.is_some() {
+                return Err(syn::Error::new(
+                    ident.span(),
+                    "Function arguments cannot have `ref` modifier",
+                ));
+            }
+
             check_lifetimes_in_type(&ty, has_v)?;
             let mut default = None;
-            let mut pos_only = ident.by_ref.is_some();
+            let mut pos_only = false;
             let mut unused_attrs = Vec::new();
             for attr in attrs {
                 if attr.path.is_ident("starlark") {
