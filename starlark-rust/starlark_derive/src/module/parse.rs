@@ -25,7 +25,8 @@ use syn::{
 
 use crate::module::{
     typ::{
-        StarArg, StarArgSource, StarAttr, StarConst, StarFun, StarFunSource, StarModule, StarStmt,
+        StarArg, StarArgPassStyle, StarArgSource, StarAttr, StarConst, StarFun, StarFunSource,
+        StarModule, StarStmt,
     },
     util::is_type_name,
 };
@@ -144,6 +145,7 @@ fn parse_starlark_fn_param_attr(
     tokens: &Attribute,
     default: &mut Option<Expr>,
     pos_only: &mut bool,
+    named_only: &mut bool,
 ) -> syn::Result<()> {
     assert!(tokens.path.is_ident("starlark"));
     let parse = |parser: ParseStream| -> syn::Result<()> {
@@ -169,12 +171,18 @@ fn parse_starlark_fn_param_attr(
                 if require == "pos" {
                     *pos_only = true;
                     continue;
+                } else if require == "named" {
+                    *named_only = true;
+                    continue;
                 }
             }
 
             return Err(syn::Error::new(
                 ident.span(),
-                "Expecting `#[starlark(default = expr)]` or `#[starlark(require = pos)]` attribute",
+                "Expecting \
+                    `#[starlark(default = expr)]`, \
+                    `#[starlark(require = pos)]`, or \
+                    `#[starlark(require = named)]` attribute",
             ));
         }
         Ok(())
@@ -493,21 +501,39 @@ fn parse_arg(x: FnArg, has_v: bool) -> syn::Result<StarArg> {
             check_lifetimes_in_type(&ty, has_v)?;
             let mut default = None;
             let mut pos_only = false;
+            let mut named_only = false;
             let mut unused_attrs = Vec::new();
             for attr in attrs {
                 if attr.path.is_ident("starlark") {
-                    parse_starlark_fn_param_attr(&attr, &mut default, &mut pos_only)?;
+                    parse_starlark_fn_param_attr(
+                        &attr,
+                        &mut default,
+                        &mut pos_only,
+                        &mut named_only,
+                    )?;
                 } else {
                     unused_attrs.push(attr);
                 }
             }
+            let pass_style = match (this, pos_only, named_only) {
+                (true, _, _) => StarArgPassStyle::PosOnly,
+                (false, false, false) => StarArgPassStyle::PosOrNamed,
+                (false, true, false) => StarArgPassStyle::PosOnly,
+                (false, false, true) => StarArgPassStyle::NamedOnly,
+                (false, true, true) => {
+                    return Err(syn::Error::new(
+                        span,
+                        "Function parameter cannot be both positional-only and named-only",
+                    ));
+                }
+            };
             Ok(StarArg {
                 span,
                 this,
                 attrs: unused_attrs,
                 mutable: ident.mutability.is_some(),
                 name: ident.ident,
-                pos_only,
+                pass_style,
                 ty,
                 default,
                 source: StarArgSource::Unknown,

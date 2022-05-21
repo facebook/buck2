@@ -27,6 +27,10 @@ fn named_positional_functions(globals: &mut GlobalsBuilder) {
     fn named(x: i32) -> anyhow::Result<i32> {
         Ok(x)
     }
+
+    fn named_only(#[starlark(require = named)] x: i32) -> anyhow::Result<i32> {
+        Ok(x)
+    }
 }
 
 #[test]
@@ -43,4 +47,12 @@ fn test_named_can_be_called_as_both_named_and_positional() {
     a.globals_add(named_positional_functions);
     a.eq("23", "named(x=23)");
     a.eq("29", "named(29)");
+}
+
+#[test]
+fn test_named_only() {
+    let mut a = Assert::new();
+    a.globals_add(named_positional_functions);
+    a.eq("31", "named_only(x=31)");
+    a.fail("named_only(37)", "Missing parameter");
 }

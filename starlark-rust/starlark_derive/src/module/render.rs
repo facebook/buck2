@@ -21,7 +21,8 @@ use quote::{format_ident, quote_spanned};
 
 use crate::module::{
     typ::{
-        StarArg, StarArgSource, StarAttr, StarConst, StarFun, StarFunSource, StarModule, StarStmt,
+        StarArg, StarArgPassStyle, StarArgSource, StarAttr, StarConst, StarFun, StarFunSource,
+        StarModule, StarStmt,
     },
     util::{ident_string, mut_token},
 };
@@ -435,16 +436,25 @@ fn render_documentation(x: &StarFun) -> syn::Result<TokenStream> {
 
 fn render_signature_args(args: &[StarArg]) -> syn::Result<TokenStream> {
     let mut sig_args = TokenStream::new();
-    let mut seen_named = false;
+    let mut last_pass_style = StarArgPassStyle::PosOnly;
     for arg in args {
-        if !seen_named && !arg.pos_only {
-            sig_args.extend(quote_spanned! {
-                arg.span=> __signature.no_more_positional_only_args();
-            })
+        if arg.pass_style != last_pass_style {
+            match arg.pass_style {
+                StarArgPassStyle::PosOnly => {
+                    return Err(syn::Error::new(
+                        arg.span,
+                        "Positional-only parameter after non-positional-only",
+                    ));
+                }
+                StarArgPassStyle::PosOrNamed => sig_args.extend(quote_spanned! { arg.span=>
+                    __signature.no_more_positional_only_args();
+                }),
+                StarArgPassStyle::NamedOnly => sig_args.extend(quote_spanned! { arg.span=>
+                    __signature.no_more_positional_args();
+                }),
+            }
         }
-        if !arg.pos_only {
-            seen_named = true;
-        }
+        last_pass_style = arg.pass_style;
         sig_args.extend(render_signature_arg(arg));
     }
     Ok(sig_args)
