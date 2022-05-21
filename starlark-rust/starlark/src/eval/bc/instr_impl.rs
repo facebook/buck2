@@ -1412,6 +1412,7 @@ impl InstrNoFlowImpl for InstrDefImpl {
 
         let mut parameters =
             ParametersSpec::with_capacity(def_data.function_name.clone(), def_data.params.len());
+        parameters.no_more_positional_only_args();
         let mut parameter_types = Vec::new();
         let mut parameter_captures = Vec::new();
 

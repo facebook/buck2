@@ -80,6 +80,18 @@ pub(crate) enum ParameterKind<V> {
     KWargs,
 }
 
+#[derive(Debug, Copy, Clone, Dupe, PartialEq, Eq, Ord, PartialOrd)]
+enum CurrentParameterStyle {
+    /// Parameter can be only filled positionally.
+    PosOnly,
+    /// Parameter can be filled positionally or by name.
+    PosOrNamed,
+    /// Parameter can be filled by name only.
+    NamedOnly,
+    /// No more args accepted.
+    NoMore,
+}
+
 /// Builder for [`ParametersSpec`]
 pub struct ParametersSpecBuilder<V> {
     function_name: String,
@@ -88,7 +100,7 @@ pub struct ParametersSpecBuilder<V> {
     positional: usize,
 
     /// Has the no_args been passed
-    no_more_positional_args: bool,
+    current_style: CurrentParameterStyle,
 
     args: Option<usize>,
     kwargs: Option<usize>,
@@ -130,13 +142,16 @@ impl<V> ParametersSpecBuilder<V> {
         assert!(!matches!(val, ParameterKind::Args | ParameterKind::KWargs));
 
         // Regular arguments cannot follow `**kwargs`, but can follow `*args`.
+        assert!(self.current_style < CurrentParameterStyle::NoMore);
         assert!(self.kwargs.is_none());
 
         let i = self.params.len();
         self.params.push((name.to_owned(), val));
-        let old = self.names.insert(name, i);
-        assert!(old.is_none(), "Repeated parameter `{}`", name);
-        if self.args.is_none() && !self.no_more_positional_args {
+        if self.current_style != CurrentParameterStyle::PosOnly {
+            let old = self.names.insert(name, i);
+            assert!(old.is_none(), "Repeated parameter `{}`", name);
+        }
+        if self.args.is_none() && self.current_style != CurrentParameterStyle::NamedOnly {
             // If you've already seen `args` or `no_args`, you can't enter these
             // positionally
             self.positional = i + 1;
@@ -172,9 +187,18 @@ impl<V> ParametersSpecBuilder<V> {
     /// [`defaulted`](ParametersSpecBuilder::defaulted)
     /// parameters can _only_ be supplied by name.
     pub fn args(&mut self) {
-        assert!(self.args.is_none() && !self.no_more_positional_args && self.kwargs.is_none());
+        assert!(self.args.is_none());
+        assert!(self.current_style < CurrentParameterStyle::NamedOnly);
+        assert!(self.kwargs.is_none());
         self.params.push(("*args".to_owned(), ParameterKind::Args));
         self.args = Some(self.params.len() - 1);
+        self.current_style = CurrentParameterStyle::NamedOnly;
+    }
+
+    /// Following parameters can be filled positionally or by name.
+    pub fn no_more_positional_only_args(&mut self) {
+        assert_eq!(self.current_style, CurrentParameterStyle::PosOnly);
+        self.current_style = CurrentParameterStyle::PosOrNamed;
     }
 
     /// This function has no `*args` parameter, corresponds to the Python parameter `*`.
@@ -184,8 +208,10 @@ impl<V> ParametersSpecBuilder<V> {
     /// [`defaulted`](ParametersSpecBuilder::defaulted)
     /// parameters can _only_ be supplied by name.
     pub fn no_more_positional_args(&mut self) {
-        assert!(self.args.is_none() && !self.no_more_positional_args && self.kwargs.is_none());
-        self.no_more_positional_args = true;
+        assert!(self.args.is_none());
+        assert!(self.current_style < CurrentParameterStyle::NamedOnly);
+        assert!(self.kwargs.is_none());
+        self.current_style = CurrentParameterStyle::NamedOnly;
     }
 
     /// Add a `**kwargs` parameter which will be a dictionary, recorded into a [`SmallMap`].
@@ -199,6 +225,7 @@ impl<V> ParametersSpecBuilder<V> {
         assert!(self.kwargs.is_none());
         self.params
             .push(("**kwargs".to_owned(), ParameterKind::KWargs));
+        self.current_style = CurrentParameterStyle::NoMore;
         self.kwargs = Some(self.params.len() - 1);
     }
 
@@ -208,12 +235,12 @@ impl<V> ParametersSpecBuilder<V> {
             function_name,
             positional,
             args,
-            no_more_positional_args,
+            current_style,
             kwargs,
             params,
             names,
         } = self;
-        let _ = no_more_positional_args;
+        let _ = current_style;
         ParametersSpec {
             function_name,
             params,
@@ -238,7 +265,7 @@ impl<V> ParametersSpec<V> {
             params: Vec::with_capacity(capacity),
             names: SymbolMap::with_capacity(capacity),
             positional: 0,
-            no_more_positional_args: false,
+            current_style: CurrentParameterStyle::PosOnly,
             args: None,
             kwargs: None,
         }
@@ -298,9 +325,7 @@ impl<V> ParametersSpec<V> {
     ///
     /// Returns an iterator over (parameter index, name, kind)
     pub(crate) fn iter_params(&self) -> impl Iterator<Item = (&str, &ParameterKind<V>)> {
-        self.params
-            .iter()
-            .map(|(name, kind)| (name.trim_start_matches('$'), kind))
+        self.params.iter().map(|(name, kind)| (name.as_str(), kind))
     }
 
     pub(crate) fn resolve_name(&self, name: Hashed<&str>) -> ResolvedArgName {

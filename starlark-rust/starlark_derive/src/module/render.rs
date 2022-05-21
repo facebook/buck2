@@ -359,12 +359,12 @@ fn render_signature(x: &StarFun) -> Option<TokenStream> {
     let span = x.args_span();
     if let StarFunSource::Argument(args_count) = x.source {
         let name_str = ident_string(&x.name);
-        let sig_args = x.args.map(render_signature_arg);
+        let sig_args = render_signature_args(&x.args);
         Some(quote_spanned! {
             span=>
             #[allow(unused_mut)]
             let mut __signature = starlark::eval::ParametersSpec::with_capacity(#name_str.to_owned(), #args_count);
-            #( #sig_args )*
+            #sig_args
             let __signature = __signature.finish();
         })
     } else {
@@ -385,12 +385,12 @@ fn render_documentation(x: &StarFun) -> TokenStream {
     let name_str = ident_string(&x.name);
     let documentation_signature = match args_count {
         Some(args_count) => {
-            let sig_args = x.args.map(render_signature_arg);
+            let sig_args = render_signature_args(&x.args);
             quote_spanned! {
                 span=> {
                 #[allow(unused_mut)]
                 let mut __signature = starlark::eval::ParametersSpec::with_capacity(#name_str.to_owned(), #args_count);
-                #( #sig_args )*
+                #sig_args
                 __signature.finish()
                 }
             }
@@ -433,12 +433,28 @@ fn render_documentation(x: &StarFun) -> TokenStream {
     )
 }
 
+fn render_signature_args(args: &[StarArg]) -> TokenStream {
+    let mut sig_args = TokenStream::new();
+    let mut seen_named = false;
+    for arg in args {
+        if !seen_named && !arg.pos_only {
+            sig_args.extend(quote_spanned! {
+                arg.span=> __signature.no_more_positional_only_args();
+            })
+        }
+        if !arg.pos_only {
+            seen_named = true;
+        }
+        sig_args.extend(render_signature_arg(arg));
+    }
+    sig_args
+}
+
 // Generate a statement that modifies signature to add a new argument in.
 fn render_signature_arg(arg: &StarArg) -> TokenStream {
     let span = arg.span;
 
-    let mut name_str_full = (if arg.pos_only { "$" } else { "" }).to_owned();
-    name_str_full += &ident_string(&arg.name);
+    let name_str_full = ident_string(&arg.name);
     let name_str = name_str_full.trim_matches('_');
 
     if arg.is_args() {
