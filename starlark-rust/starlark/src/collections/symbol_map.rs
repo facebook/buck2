@@ -43,7 +43,7 @@ use hashbrown::raw::RawTable;
 
 use crate as starlark;
 use crate::{
-    collections::{BorrowHashed, Hashed, StarlarkHashValue},
+    collections::{Hashed, StarlarkHashValue},
     values::{StringValue, Trace},
 };
 
@@ -100,10 +100,10 @@ impl Eq for Symbol {}
 
 impl Symbol {
     pub fn new(x: &str) -> Self {
-        Self::new_hashed(BorrowHashed::new(x))
+        Self::new_hashed(Hashed::new(x))
     }
 
-    pub fn new_hashed(x: BorrowHashed<str>) -> Self {
+    pub fn new_hashed(x: Hashed<&str>) -> Self {
         let small_hash = x.hash();
         let hash = small_hash.promote();
         let len = x.key().len();
@@ -129,8 +129,8 @@ impl Symbol {
         }
     }
 
-    pub(crate) fn as_str_hashed(&self) -> BorrowHashed<str> {
-        BorrowHashed::new_unchecked(self.small_hash, self.as_str())
+    pub(crate) fn as_str_hashed(&self) -> Hashed<&str> {
+        Hashed::new_unchecked(self.small_hash, self.as_str())
     }
 
     pub fn small_hash(&self) -> StarlarkHashValue {
@@ -163,10 +163,10 @@ impl<T> SymbolMap<T> {
     }
 
     pub fn get_str(&self, key: &str) -> Option<&T> {
-        self.get_hashed_str(BorrowHashed::new(key))
+        self.get_hashed_str(Hashed::new(key))
     }
 
-    pub fn get_hashed_str(&self, key: BorrowHashed<str>) -> Option<&T> {
+    pub fn get_hashed_str(&self, key: Hashed<&str>) -> Option<&T> {
         self.0
             .get(key.hash().promote(), |x| x.0.as_str() == *key.key())
             .map(|x| &x.1)

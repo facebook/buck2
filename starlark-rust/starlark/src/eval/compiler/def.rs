@@ -36,7 +36,7 @@ use once_cell::sync::Lazy;
 use crate::{
     self as starlark,
     codemap::CodeMap,
-    collections::BorrowHashed,
+    collections::Hashed,
     const_frozen_string,
     environment::{FrozenModuleRef, Globals},
     eval::{
@@ -775,7 +775,7 @@ where
         Ok(ret)
     }
 
-    pub(crate) fn resolve_arg_name(&self, name: BorrowHashed<str>) -> ResolvedArgName {
+    pub(crate) fn resolve_arg_name(&self, name: Hashed<&str>) -> ResolvedArgName {
         self.parameters.resolve_name(name)
     }
 

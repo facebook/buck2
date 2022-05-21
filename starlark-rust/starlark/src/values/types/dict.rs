@@ -38,7 +38,7 @@ use serde::Serialize;
 
 use crate::{
     self as starlark,
-    collections::{BorrowHashed, Hashed, SmallMap},
+    collections::{Hashed, SmallMap},
     environment::{Methods, MethodsStatic},
     values::{
         comparison::equals_small_map, display::display_keyed_container, error::ValueError,
@@ -285,10 +285,7 @@ impl<'v> Dict<'v> {
 
     pub(crate) fn get_str_hashed(&self, key: Hashed<&str>) -> Option<Value<'v>> {
         self.content
-            .get_hashed(BorrowHashed::new_unchecked(
-                key.hash(),
-                &ValueStr(key.key()),
-            ))
+            .get_hashed(Hashed::new_unchecked(key.hash(), &ValueStr(key.key())))
             .copied()
     }
 

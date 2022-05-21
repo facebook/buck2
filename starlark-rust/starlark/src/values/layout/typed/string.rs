@@ -29,7 +29,7 @@ use indexmap::Equivalent;
 use serde::Serialize;
 
 use crate::{
-    collections::{BorrowHashed, Hashed},
+    collections::Hashed,
     values::{
         layout::static_string::VALUE_EMPTY_STRING, string::StarlarkStr, Freeze, Freezer,
         FrozenValue, FrozenValueTyped, Trace, Value, ValueTyped,
@@ -110,8 +110,8 @@ impl FrozenStringValue {
     }
 
     /// Get the string reference along with the hash.
-    pub fn get_hashed_str(self) -> BorrowHashed<'static, str> {
-        BorrowHashed::new_unchecked(self.get_hash(), self.as_str())
+    pub fn get_hashed_str(self) -> Hashed<&'static str> {
+        Hashed::new_unchecked(self.get_hash(), self.as_str())
     }
 }
 
@@ -127,8 +127,8 @@ impl<'v> StringValue<'v> {
     }
 
     /// Get the string reference along with the hash.
-    pub fn get_hashed_str(self) -> BorrowHashed<'v, str> {
-        BorrowHashed::new_unchecked(self.get_hash(), self.as_str())
+    pub fn get_hashed_str(self) -> Hashed<&'v str> {
+        Hashed::new_unchecked(self.get_hash(), self.as_str())
     }
 
     /// Get the [`Value`] along with the hash.
@@ -248,13 +248,13 @@ impl Ord for FrozenStringValue {
 #[cfg(test)]
 mod tests {
     use crate::{
-        collections::{BorrowHashed, Hashed},
+        collections::Hashed,
         values::{FrozenHeap, FrozenStringValue, FrozenValue, Heap, StringValue, Value, ValueLike},
     };
 
     #[test]
     fn test_string_hashes() {
-        let expected = BorrowHashed::new("xyz").hash();
+        let expected = Hashed::new("xyz").hash();
 
         let heap = Heap::new();
         let s: StringValue = heap.alloc_str("xyz");

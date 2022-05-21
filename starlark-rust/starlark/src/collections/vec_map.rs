@@ -20,7 +20,7 @@ use std::mem;
 use gazebo::prelude::*;
 use indexmap::Equivalent;
 
-use crate::collections::hash::{BorrowHashed, Hashed, StarlarkHashValue};
+use crate::collections::hash::{Hashed, StarlarkHashValue};
 
 // We define a lot of iterators on top of other iterators
 // so define a helper macro for that
@@ -191,13 +191,13 @@ pub(crate) struct VMIterHash<'a, K: 'a, V: 'a> {
 
 impl<'a, K: 'a, V: 'a> VMIterHash<'a, K, V> {
     #[inline]
-    fn map(b: &'a Bucket<K, V>) -> (BorrowHashed<'a, K>, &'a V) {
-        (BorrowHashed::new_unchecked(b.hash, &b.key), &b.value)
+    fn map(b: &'a Bucket<K, V>) -> (Hashed<&'a K>, &'a V) {
+        (Hashed::new_unchecked(b.hash, &b.key), &b.value)
     }
 }
 
 impl<'a, K: 'a, V: 'a> Iterator for VMIterHash<'a, K, V> {
-    type Item = (BorrowHashed<'a, K>, &'a V);
+    type Item = (Hashed<&'a K>, &'a V);
 
     def_iter!();
 }
@@ -351,7 +351,7 @@ impl<K, V> VecMap<K, V> {
     }
 
     #[inline]
-    pub(crate) fn get_full<Q>(&self, key: BorrowHashed<Q>) -> Option<(usize, &K, &V)>
+    pub(crate) fn get_full<Q>(&self, key: Hashed<&Q>) -> Option<(usize, &K, &V)>
     where
         Q: ?Sized + Equivalent<K>,
     {
@@ -374,7 +374,7 @@ impl<K, V> VecMap<K, V> {
     }
 
     #[inline]
-    pub(crate) fn get_index_of_hashed<Q>(&self, key: BorrowHashed<Q>) -> Option<usize>
+    pub(crate) fn get_index_of_hashed<Q>(&self, key: Hashed<&Q>) -> Option<usize>
     where
         Q: ?Sized + Equivalent<K>,
     {
@@ -407,7 +407,7 @@ impl<K, V> VecMap<K, V> {
         });
     }
 
-    pub(crate) fn remove_hashed_entry<Q>(&mut self, key: BorrowHashed<Q>) -> Option<(K, V)>
+    pub(crate) fn remove_hashed_entry<Q>(&mut self, key: Hashed<&Q>) -> Option<(K, V)>
     where
         Q: ?Sized + Equivalent<K>,
     {

@@ -32,7 +32,7 @@ use gazebo::{any::AnyLifetime, prelude::*};
 use serde::Serialize;
 
 use crate::{
-    collections::{BorrowHashed, StarlarkHashValue, StarlarkHasher},
+    collections::{Hashed, StarlarkHashValue, StarlarkHasher},
     environment::{Methods, MethodsStatic},
     private::Private,
     values::{
@@ -167,8 +167,8 @@ impl StarlarkStr {
     }
 
     /// Rust string reference along with its hash value.
-    pub fn as_str_hashed(&self) -> BorrowHashed<str> {
-        BorrowHashed::new_unchecked(self.get_hash(), self.as_str())
+    pub fn as_str_hashed(&self) -> Hashed<&str> {
+        Hashed::new_unchecked(self.get_hash(), self.as_str())
     }
 
     /// String length, in bytes.

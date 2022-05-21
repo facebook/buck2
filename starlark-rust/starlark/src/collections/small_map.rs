@@ -36,7 +36,7 @@ use hashbrown::raw::RawTable;
 use indexmap::Equivalent;
 
 use crate::collections::{
-    hash::{BorrowHashed, Hashed},
+    hash::Hashed,
     vec_map::{Bucket, VMIntoIter, VMIter, VMIterMut, VecMap},
     StarlarkHasher,
 };
@@ -175,7 +175,7 @@ impl<K, V> SmallMap<K, V> {
 
     /// Entry references with hashes iterator.
     #[inline]
-    pub fn iter_hashed(&self) -> impl ExactSizeIterator<Item = (BorrowHashed<K>, &V)> {
+    pub fn iter_hashed(&self) -> impl ExactSizeIterator<Item = (Hashed<&K>, &V)> {
         self.entries.iter_hashed()
     }
 
@@ -199,7 +199,7 @@ impl<K, V> SmallMap<K, V> {
 
     /// Query the map by a prehashed key.
     #[inline]
-    pub fn get_hashed<Q>(&self, key: BorrowHashed<Q>) -> Option<&V>
+    pub fn get_hashed<Q>(&self, key: Hashed<&Q>) -> Option<&V>
     where
         Q: Equivalent<K> + ?Sized,
         K: Eq,
@@ -215,7 +215,7 @@ impl<K, V> SmallMap<K, V> {
         Q: Hash + Equivalent<K> + ?Sized,
         K: Eq,
     {
-        self.get_hashed(BorrowHashed::new(key))
+        self.get_hashed(Hashed::new(key))
     }
 
     /// Query the map by a given key, return an index of the entry
@@ -226,16 +226,15 @@ impl<K, V> SmallMap<K, V> {
         Q: Hash + Equivalent<K> + ?Sized,
         K: Eq,
     {
-        self.get_index_of_hashed(BorrowHashed::new(key))
-            .map(|index| {
-                let Bucket { key, value, .. } = unsafe { self.entries.get_unchecked(index) };
-                (index, key, value)
-            })
+        self.get_index_of_hashed(Hashed::new(key)).map(|index| {
+            let Bucket { key, value, .. } = unsafe { self.entries.get_unchecked(index) };
+            (index, key, value)
+        })
     }
 
     /// Find the index of the given hashed key.
     #[inline]
-    pub fn get_index_of_hashed<Q>(&self, key: BorrowHashed<Q>) -> Option<usize>
+    pub fn get_index_of_hashed<Q>(&self, key: Hashed<&Q>) -> Option<usize>
     where
         Q: Equivalent<K> + ?Sized,
         K: Eq,
@@ -263,12 +262,12 @@ impl<K, V> SmallMap<K, V> {
         Q: Hash + Equivalent<K> + ?Sized,
         K: Eq,
     {
-        self.get_index_of_hashed(BorrowHashed::new(key))
+        self.get_index_of_hashed(Hashed::new(key))
     }
 
     /// Find a mutable value by a hashed key.
     #[inline]
-    pub fn get_mut_hashed<Q>(&mut self, key: BorrowHashed<Q>) -> Option<&mut V>
+    pub fn get_mut_hashed<Q>(&mut self, key: Hashed<&Q>) -> Option<&mut V>
     where
         Q: Equivalent<K> + ?Sized,
         K: Eq,
@@ -285,12 +284,12 @@ impl<K, V> SmallMap<K, V> {
         Q: Hash + Equivalent<K> + ?Sized,
         K: Eq,
     {
-        self.get_mut_hashed(BorrowHashed::new(key))
+        self.get_mut_hashed(Hashed::new(key))
     }
 
     /// Find if an entry by a given prehashed key exists.
     #[inline]
-    pub fn contains_key_hashed<Q>(&self, key: BorrowHashed<Q>) -> bool
+    pub fn contains_key_hashed<Q>(&self, key: Hashed<&Q>) -> bool
     where
         Q: Equivalent<K> + ?Sized,
         K: Eq,
@@ -305,7 +304,7 @@ impl<K, V> SmallMap<K, V> {
         Q: Hash + Equivalent<K> + ?Sized,
         K: Eq,
     {
-        self.contains_key_hashed(BorrowHashed::new(key))
+        self.contains_key_hashed(Hashed::new(key))
     }
 
     /// Reserve capacity for at least `additional` more elements to be inserted.
@@ -416,7 +415,7 @@ impl<K, V> SmallMap<K, V> {
     /// Remove the entry for the key.
     ///
     /// This operation is linear in the number of entries in the map.
-    pub fn remove_hashed<Q>(&mut self, key: BorrowHashed<Q>) -> Option<V>
+    pub fn remove_hashed<Q>(&mut self, key: Hashed<&Q>) -> Option<V>
     where
         Q: ?Sized + Equivalent<K>,
         K: Eq,
@@ -427,7 +426,7 @@ impl<K, V> SmallMap<K, V> {
     /// Remove the entry for the key.
     ///
     /// This operation is linear in the number of entries in the map.
-    pub fn remove_hashed_entry<Q>(&mut self, key: BorrowHashed<Q>) -> Option<(K, V)>
+    pub fn remove_hashed_entry<Q>(&mut self, key: Hashed<&Q>) -> Option<(K, V)>
     where
         Q: ?Sized + Equivalent<K>,
         K: Eq,
@@ -463,7 +462,7 @@ impl<K, V> SmallMap<K, V> {
         Q: ?Sized + Hash + Equivalent<K>,
         K: Eq,
     {
-        self.remove_hashed(BorrowHashed::new(key))
+        self.remove_hashed(Hashed::new(key))
     }
 
     /// Remove the entry for the key.
@@ -472,7 +471,7 @@ impl<K, V> SmallMap<K, V> {
         Q: ?Sized + Hash + Equivalent<K>,
         K: Eq,
     {
-        self.remove_hashed_entry(BorrowHashed::new(key))
+        self.remove_hashed_entry(Hashed::new(key))
     }
 
     /// Get the entry (occupied or not) for the key.

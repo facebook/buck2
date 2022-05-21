@@ -21,7 +21,7 @@
 //! for larger collections. The API mirrors standard Rust collections.
 
 pub use crate::collections::{
-    hash::{BorrowHashed, Hashed, StarlarkHashValue},
+    hash::{Hashed, StarlarkHashValue},
     hasher::*,
     small_map::{MHIntoIter, MHIter, MHIterMut, SmallMap},
     small_set::SmallSet,

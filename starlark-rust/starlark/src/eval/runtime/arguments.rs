@@ -31,7 +31,7 @@ use crate as starlark;
 use crate::{
     collections::{
         symbol_map::{Symbol, SymbolMap},
-        BorrowHashed, Hashed, SmallMap, StarlarkHashValue,
+        Hashed, SmallMap, StarlarkHashValue,
     },
     eval::Evaluator,
     values::{
@@ -303,7 +303,7 @@ impl<V> ParametersSpec<V> {
             .map(|(name, kind)| (name.trim_start_matches('$'), kind))
     }
 
-    pub(crate) fn resolve_name(&self, name: BorrowHashed<str>) -> ResolvedArgName {
+    pub(crate) fn resolve_name(&self, name: Hashed<&str>) -> ResolvedArgName {
         let hash = name.hash();
         let param_index = self.names.get_hashed_str(name).map(|index| *index as u32);
         ResolvedArgName { hash, param_index }

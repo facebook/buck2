@@ -40,10 +40,6 @@ pub struct Hashed<K> {
     key: K,
 }
 
-/// A borrowed key and its hash.
-// TODO(nga): remove it.
-pub type BorrowHashed<'a, Q> = Hashed<&'a Q>;
-
 impl StarlarkHashValue {
     /// Create a new [`StarlarkHashValue`] using the [`Hash`] trait
     /// for given key.
@@ -141,9 +137,9 @@ impl<K> Hashed<K> {
         self.hash
     }
 
-    /// Borrow this value, creating a [`BorrowHashed`].
-    pub fn borrow(&self) -> BorrowHashed<K> {
-        BorrowHashed::new_unchecked(self.hash, &self.key)
+    /// Convert `Hashed<K>` to `Hashed<&K>`.
+    pub fn borrow(&self) -> Hashed<&K> {
+        Hashed::new_unchecked(self.hash, &self.key)
     }
 }
 
