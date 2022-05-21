@@ -457,6 +457,7 @@ fn parse_arg(x: FnArg, has_v: bool) -> syn::Result<StarArg> {
 
             check_lifetimes_in_type(&ty, has_v)?;
             let mut default = None;
+            let pos_only = ident.by_ref.is_some();
             let mut unused_attrs = Vec::new();
             for attr in attrs {
                 if attr.path.is_ident("starlark") {
@@ -470,7 +471,7 @@ fn parse_arg(x: FnArg, has_v: bool) -> syn::Result<StarArg> {
                 attrs: unused_attrs,
                 mutable: ident.mutability.is_some(),
                 name: ident.ident,
-                by_ref: ident.by_ref.is_some(),
+                pos_only,
                 ty,
                 default,
                 source: StarArgSource::Unknown,

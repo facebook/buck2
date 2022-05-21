@@ -437,7 +437,7 @@ fn render_documentation(x: &StarFun) -> TokenStream {
 fn render_signature_arg(arg: &StarArg) -> TokenStream {
     let span = arg.span;
 
-    let mut name_str_full = (if arg.by_ref { "$" } else { "" }).to_owned();
+    let mut name_str_full = (if arg.pos_only { "$" } else { "" }).to_owned();
     name_str_full += &ident_string(&arg.name);
     let name_str = name_str_full.trim_matches('_');
 

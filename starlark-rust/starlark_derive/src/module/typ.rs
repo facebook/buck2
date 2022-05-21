@@ -149,7 +149,8 @@ pub(crate) struct StarArg {
     pub span: Span,
     pub attrs: Vec<Attribute>,
     pub mutable: bool,
-    pub by_ref: bool,
+    /// Function parameter is positional-only.
+    pub pos_only: bool,
     pub name: Ident,
     pub ty: Type,
     pub default: Option<Expr>,
@@ -195,7 +196,7 @@ impl StarFun {
             // We need to use a signature if something has a name
             // There are *args or **kwargs
             // There is a default that needs promoting to a Value (since the signature stores that value)
-            !x.by_ref || x.is_args() || x.is_kwargs() || (x.is_value() && x.default.is_some())
+            !x.pos_only || x.is_args() || x.is_kwargs() || (x.is_value() && x.default.is_some())
         }
 
         if self.args.len() == 1 && self.args[0].is_arguments() {
