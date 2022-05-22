@@ -375,7 +375,7 @@ fn dep_like_attr_handle_providers_arg(
 #[starlark_module]
 pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     fn string<'v>(
-        default: Option<Value<'v>>,
+        #[starlark(require = named)] default: Option<Value<'v>>,
         #[allow(unused_variables)]
         #[starlark(require = named)]
         validate: Option<Value<'v>>,
@@ -387,7 +387,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     // TODO(nmj): Not a list of strings, a list of values...
     fn list<'v>(
         #[starlark(require = pos)] inner: &Attribute,
-        default: Option<Value<'v>>,
+        #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<Attribute> {
         let coercer = AttrType::list(inner.coercer.dupe());
@@ -395,8 +395,8 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn exec_dep<'v>(
-        default: Option<Value<'v>>,
         #[starlark(default = Vec::new())] providers: Vec<Value<'v>>,
+        #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<Attribute> {
         Attribute::check_not_relative_label(default, "attr.exec_dep")?;
@@ -406,9 +406,9 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn transition_dep<'v>(
-        default: Option<Value<'v>>,
         #[starlark(default = Vec::new())] providers: Vec<Value<'v>>,
         cfg: Value<'v>,
+        #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<Attribute> {
         Attribute::check_not_relative_label(default, "attr.transition_dep")?;
@@ -438,8 +438,8 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn configured_dep<'v>(
-        default: Option<Value<'v>>,
         #[starlark(default = Vec::new())] providers: Vec<Value<'v>>,
+        #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<Attribute> {
         Attribute::check_not_relative_label(default, "attr.configured_dep")?;
@@ -449,9 +449,9 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn split_transition_dep<'v>(
-        default: Option<Value<'v>>,
         #[starlark(default = Vec::new())] providers: Vec<Value<'v>>,
         cfg: Value<'v>,
+        #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<Attribute> {
         Attribute::check_not_relative_label(default, "attr.split_transition_dep")?;
@@ -481,8 +481,8 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn dep<'v>(
-        default: Option<Value<'v>>,
         #[starlark(default = Vec::new())] providers: Vec<Value<'v>>,
+        #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<Attribute> {
         Attribute::check_not_relative_label(default, "attr.dep")?;
@@ -496,7 +496,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn bool<'v>(
-        #[starlark(default = false)] default: Value<'v>,
+        #[starlark(require = named, default = false)] default: Value<'v>,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<Attribute> {
         Attribute::attr(eval, Some(default), doc, AttrType::bool())
@@ -504,7 +504,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
 
     fn option<'v>(
         inner: &Attribute,
-        #[starlark(default = NoneType)] default: Value<'v>,
+        #[starlark(require = named, default = NoneType)] default: Value<'v>,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<Attribute> {
         let coercer = AttrType::option(inner.coercer.dupe());
@@ -536,7 +536,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         key: &Attribute,
         value: &Attribute,
         #[starlark(default = false)] sorted: bool,
-        default: Option<Value<'v>>,
+        #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<Attribute> {
         let coercer = AttrType::dict(key.coercer.dupe(), value.coercer.dupe(), sorted);
@@ -544,10 +544,10 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn arg<'v>(
-        default: Option<Value<'v>>,
         #[allow(unused_variables)]
         #[starlark(default = false)]
         json: bool,
+        #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<Attribute> {
         Attribute::attr(eval, default, doc, AttrType::arg())
@@ -555,7 +555,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
 
     fn r#enum<'v>(
         #[starlark(require = pos)] variants: Vec<String>,
-        default: Option<Value<'v>>,
+        #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<Attribute> {
         // Value seems to usually be a `[String]`, listing the possible values of the
@@ -571,7 +571,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn regex<'v>(
-        default: Option<Value<'v>>,
+        #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<Attribute> {
         Attribute::attr(eval, default, doc, AttrType::string())
@@ -582,7 +582,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         #[allow(unused_variables)]
         #[starlark(default = false)]
         sorted: bool,
-        default: Option<Value<'v>>,
+        #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<Attribute> {
         let coercer = AttrType::list(value_type.coercer.dupe());
@@ -592,7 +592,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     fn named_set<'v>(
         value_type: &Attribute,
         #[starlark(default = false)] sorted: bool,
-        default: Option<Value<'v>>,
+        #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<Attribute> {
         let value_coercer = value_type.coercer.dupe();
@@ -605,7 +605,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
 
     fn one_of<'v>(
         args: Vec<&Attribute>,
-        default: Option<Value<'v>>,
+        #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<Attribute> {
         let coercer = AttrType::one_of(args.into_map(|arg| arg.coercer.dupe()));
@@ -614,7 +614,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
 
     fn tuple<'v>(
         args: Vec<&Attribute>,
-        default: Option<Value<'v>>,
+        #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<Attribute> {
         let coercer = AttrType::tuple(args.into_map(|arg| arg.coercer.dupe()));
@@ -622,7 +622,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn int<'v>(
-        default: Option<Value<'v>>,
+        #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<Attribute> {
         Attribute::attr(eval, default, doc, AttrType::int())
@@ -652,8 +652,8 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn source<'v>(
-        default: Option<Value<'v>>,
         #[starlark(default = false)] allow_directory: bool,
+        #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<Attribute> {
         Attribute::check_not_relative_label(default, "attr.source")?;
@@ -750,13 +750,13 @@ mod tests {
         run_starlark_bzl_test(indoc!(
             r#"
             frozen = attr.list(
-                attr.string("something", doc = "foo"),
+                attr.string(default = "something", doc = "foo"),
                 default=["1", "2"],
                 doc = "foo",
             )
             def test():
                 not_frozen = attr.list(
-                    attr.string("something", doc = "foo"),
+                    attr.string(default = "something", doc = "foo"),
                     default=[],
                     doc = "foo",
                 )
