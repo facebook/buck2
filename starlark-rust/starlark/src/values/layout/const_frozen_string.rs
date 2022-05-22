@@ -15,18 +15,13 @@
  * limitations under the License.
  */
 
-// Possible optimisations:
-// Encoding none, bool etc in the pointer of frozen value
-
-mod arena;
-mod avalue;
-mod const_frozen_string;
-mod fast_cell;
-pub(crate) mod heap;
-pub(crate) mod identity;
-mod pointer;
-pub(crate) mod static_string;
-pub(crate) mod typed;
-pub(crate) mod value;
-pub(crate) mod value_captured;
-pub(crate) mod vtable;
+/// Create a [`FrozenStringValue`](crate::values::FrozenStringValue).
+#[macro_export]
+macro_rules! const_frozen_string {
+    ($s:expr) => {{
+        const N: usize = $s.len();
+        static X: starlark::values::StarlarkStrNRepr<N> =
+            starlark::values::StarlarkStrNRepr::new($s);
+        X.erase()
+    }};
+}

@@ -207,14 +207,3 @@ pub(crate) static VALUE_BYTE_STRINGS: [StarlarkStrNRepr<1>; 128] = [
     StarlarkStrNRepr::new("\x7E"),
     StarlarkStrNRepr::new("\x7F"),
 ];
-
-/// Create a [`FrozenStringValue`].
-#[macro_export]
-macro_rules! const_frozen_string {
-    ($s:expr) => {{
-        const N: usize = $s.len();
-        static X: starlark::values::StarlarkStrNRepr<N> =
-            starlark::values::StarlarkStrNRepr::new($s);
-        X.erase()
-    }};
-}
