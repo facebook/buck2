@@ -20,10 +20,19 @@
 macro_rules! const_frozen_string {
     ($s:expr) => {{
         starlark::values::constant_string($s).unwrap_or_else(|| {
-            const N: usize = $s.len();
+            // `N <= 1` is unreachable here because it was handled by `constant_string`,
+            // but we still have to put something in `static`.
+            // `StarlarkStrNRepr::new` fails if `N <= 1`,
+            // so for `N <= 1` we put dummy string there.
+            const UNREACHABLE: bool = $s.len() <= 1;
+            const N: usize = if UNREACHABLE { 2 } else { $s.len() };
             static X: starlark::values::StarlarkStrNRepr<N> =
-                starlark::values::StarlarkStrNRepr::new($s);
-            X.erase()
+                starlark::values::StarlarkStrNRepr::new(if UNREACHABLE { "xx" } else { $s });
+            if UNREACHABLE {
+                unreachable!()
+            } else {
+                X.erase()
+            }
         })
     }};
 }
