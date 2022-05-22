@@ -129,15 +129,15 @@ impl FileDigest {
         Some(Self::mk_sha1(&hex::decode(data).ok()?))
     }
 
-    /// Obtain the digest of the file if you can. Note that errors are thrown away as `None`.
-    pub fn from_file<P>(file: P) -> Option<Self>
+    /// Obtain the digest of the file if you can.
+    pub fn from_file<P>(file: P) -> anyhow::Result<Self>
     where
         P: AsRef<Path>,
     {
         let file = file.as_ref();
         match Self::from_file_attr(file) {
-            Some(x) => Some(x),
-            None => Self::from_file_disk(file).ok(),
+            Some(x) => Ok(x),
+            None => Self::from_file_disk(file),
         }
     }
 
