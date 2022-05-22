@@ -418,7 +418,7 @@ mod tests {
                 pass
 
             string_attr = attr.string(default="some_default", doc="")
-            mandatory_string_attr = attr.string(default="", doc="", values=[])
+            mandatory_string_attr = attr.string(default="", doc="")
             dep_attr = attr.dep(default="//foo:baz")
             src_attr = attr.source(default="//foo:baz")
             foo_binary = rule(
@@ -483,7 +483,7 @@ mod tests {
                 pass
 
             string_attr = attr.string(default="some_default")
-            mandatory_string_attr = attr.string(doc="", values=[])
+            mandatory_string_attr = attr.string(doc="")
             foo_binary = rule(
                 implementation=impl,
                 attrs={"optional":string_attr, "mandatory": mandatory_string_attr},

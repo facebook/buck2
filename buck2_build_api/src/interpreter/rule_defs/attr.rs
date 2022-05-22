@@ -36,7 +36,6 @@ use starlark::{
     starlark_type,
     values::{
         docs::{DocString, DocStringKind},
-        list::ListOf,
         none::NoneType,
         NoSerialize, StarlarkValue, Value, ValueError,
     },
@@ -377,7 +376,6 @@ fn dep_like_attr_handle_providers_arg(
 pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     fn string<'v>(
         default: Option<Value<'v>>,
-        #[allow(unused_variables)] values: Option<ListOf<&str>>,
         #[allow(unused_variables)] validate: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<Attribute> {
@@ -715,9 +713,9 @@ mod tests {
     fn string_works() -> SharedResult<()> {
         run_starlark_bzl_test(indoc!(
             r#"
-            frozen = attr.string(default="something", doc = "foo", values = [])
+            frozen = attr.string(default="something", doc = "foo")
             def test():
-                assert_eq('attr.string(default="something")', repr(attr.string(default="something", doc = "foo", values = [])))
+                assert_eq('attr.string(default="something")', repr(attr.string(default="something", doc = "foo")))
                 assert_eq('attr.string(default="something")', repr(frozen))
             "#
         ))
@@ -750,13 +748,13 @@ mod tests {
         run_starlark_bzl_test(indoc!(
             r#"
             frozen = attr.list(
-                attr.string("something", doc = "foo", values = []),
+                attr.string("something", doc = "foo"),
                 default=["1", "2"],
                 doc = "foo",
             )
             def test():
                 not_frozen = attr.list(
-                    attr.string("something", doc = "foo", values = []),
+                    attr.string("something", doc = "foo"),
                     default=[],
                     doc = "foo",
                 )
