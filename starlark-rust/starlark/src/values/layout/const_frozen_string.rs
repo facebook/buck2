@@ -19,9 +19,40 @@
 #[macro_export]
 macro_rules! const_frozen_string {
     ($s:expr) => {{
-        const N: usize = $s.len();
-        static X: starlark::values::StarlarkStrNRepr<N> =
-            starlark::values::StarlarkStrNRepr::new($s);
-        X.erase()
+        starlark::values::constant_string($s).unwrap_or_else(|| {
+            const N: usize = $s.len();
+            static X: starlark::values::StarlarkStrNRepr<N> =
+                starlark::values::StarlarkStrNRepr::new($s);
+            X.erase()
+        })
     }};
+}
+
+#[cfg(test)]
+mod tests {
+    use crate as starlark;
+    use crate::values::{FrozenHeap, Heap};
+
+    #[test]
+    fn test_const_frozen_string() {
+        assert!(
+            const_frozen_string!("a")
+                .to_value()
+                .ptr_eq(const_frozen_string!("a").to_value())
+        );
+
+        let heap = Heap::new();
+        assert!(
+            const_frozen_string!("a")
+                .to_value()
+                .ptr_eq(heap.alloc_str("a").to_value())
+        );
+
+        let frozen_heap = FrozenHeap::new();
+        assert!(
+            const_frozen_string!("a")
+                .to_value()
+                .ptr_eq(frozen_heap.alloc_str("a").to_value())
+        );
+    }
 }

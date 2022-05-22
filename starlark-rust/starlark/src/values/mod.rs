@@ -44,7 +44,7 @@ pub use crate::values::{
     layout::{
         heap::{Freezer, FrozenHeap, FrozenHeapRef, Heap, Tracer},
         identity::ValueIdentity,
-        static_string::StarlarkStrNRepr,
+        static_string::{constant_string, StarlarkStrNRepr},
         typed::{
             string::{FrozenStringValue, StringValue, StringValueLike},
             FrozenValueTyped, ValueTyped,

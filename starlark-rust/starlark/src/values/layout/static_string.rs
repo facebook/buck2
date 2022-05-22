@@ -64,8 +64,9 @@ impl<const N: usize> StarlarkStrNRepr<N> {
 
 pub(crate) static VALUE_EMPTY_STRING: StarlarkStrNRepr<0> = StarlarkStrNRepr::new("");
 
+#[doc(hidden)] // Use `const_frozen_string!` macro instead.
 #[inline(always)]
-pub(crate) fn constant_string(x: &str) -> Option<FrozenStringValue> {
+pub fn constant_string(x: &str) -> Option<FrozenStringValue> {
     if x.len() > 1 {
         None
     } else if x.is_empty() {
