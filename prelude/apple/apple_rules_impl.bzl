@@ -69,12 +69,12 @@ extra_attributes = {
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
         "binary": attr.option(attr.dep(), default = None),
         # The resulting test bundle should have .xctest extension.
-        "extension": attr.string("xctest"),
+        "extension": attr.string(default = "xctest"),
         # Used to create the shared test library. Any library deps whose `preferred_linkage` isn't "shared" will
         # be treated as "static" deps and linked into the shared test library.
-        "link_style": attr.enum(LinkableDepType, "static"),
+        "link_style": attr.enum(LinkableDepType, default = "static"),
         # The test source code and lib dependencies should be built into a shared library.
-        "preferred_linkage": attr.enum(Linkage, "shared"),
+        "preferred_linkage": attr.enum(Linkage, default = "shared"),
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
         "resource_group": attr.option(attr.string(), default = None),
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
