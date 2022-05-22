@@ -68,6 +68,7 @@ const TAG_STR: usize = 0b100;
 // Note, an object can be changed from unfrozen to frozen, not vice versa.
 const TAG_UNFROZEN: usize = 0b001;
 
+#[inline]
 unsafe fn untag_pointer<'a, T>(x: usize) -> &'a T {
     cast::usize_to_ptr(x & !TAG_BITS)
 }
@@ -79,10 +80,12 @@ const _: () = if mem::size_of::<usize>() > mem::size_of::<i32>() {
     panic!("starlark-rust requires 64 bit usize")
 };
 
+#[inline]
 fn tag_int(x: i32) -> usize {
     ((x as u32 as usize) << 3) | TAG_INT
 }
 
+#[inline]
 fn untag_int(x: usize) -> i32 {
     const INT_DATA_MASK: usize = 0xffffffff << 3;
     debug_assert!(x & !INT_DATA_MASK == TAG_INT);
@@ -91,6 +94,7 @@ fn untag_int(x: usize) -> i32 {
 }
 
 impl<'p, P> Pointer<'p, P> {
+    #[inline]
     fn new(pointer: usize) -> Self {
         let phantom = PhantomDataInvariant::new();
         // Never zero because the only TAG which is zero is P1, and that must be a pointer
@@ -99,29 +103,35 @@ impl<'p, P> Pointer<'p, P> {
         Self { pointer, phantom }
     }
 
+    #[inline]
     pub fn new_unfrozen_usize(x: usize, is_string: bool) -> Self {
         debug_assert!((x & TAG_BITS) == 0);
         let x = if is_string { x | TAG_STR } else { x };
         Self::new(x | TAG_UNFROZEN)
     }
 
+    #[inline]
     pub fn new_unfrozen_usize_with_str_tag(x: usize) -> Self {
         debug_assert!((x & TAG_BITS & !TAG_STR) == 0);
         Self::new(x | TAG_UNFROZEN)
     }
 
+    #[inline]
     pub fn new_unfrozen(x: &'p P, is_string: bool) -> Self {
         Self::new_unfrozen_usize(cast::ptr_to_usize(x), is_string)
     }
 
+    #[inline]
     pub(crate) fn is_str(self) -> bool {
         (self.pointer.get() & TAG_STR) != 0
     }
 
+    #[inline]
     pub fn is_unfrozen(self) -> bool {
         (self.pointer.get() & TAG_UNFROZEN) != 0
     }
 
+    #[inline]
     pub fn unpack(self) -> Either<&'p P, &'static PointerI32> {
         let p = self.pointer.get();
         if p & TAG_INT == 0 {
@@ -131,6 +141,7 @@ impl<'p, P> Pointer<'p, P> {
         }
     }
 
+    #[inline]
     pub fn unpack_int(self) -> Option<i32> {
         let p = self.pointer.get();
         if p & TAG_INT == 0 {
@@ -140,6 +151,7 @@ impl<'p, P> Pointer<'p, P> {
         }
     }
 
+    #[inline]
     pub fn unpack_ptr(self) -> Option<&'p P> {
         let p = self.pointer.get();
         if p & TAG_INT == 0 {
@@ -150,6 +162,7 @@ impl<'p, P> Pointer<'p, P> {
     }
 
     /// Unpack pointer when it is known to be not an integer.
+    #[inline]
     pub(crate) unsafe fn unpack_ptr_no_int_unchecked(self) -> &'p P {
         let p = self.pointer.get();
         debug_assert!(p & TAG_INT == 0);
@@ -157,20 +170,24 @@ impl<'p, P> Pointer<'p, P> {
     }
 
     /// Unpack integer when it is known to be not a pointer.
+    #[inline]
     pub(crate) unsafe fn unpack_int_unchecked(self) -> i32 {
         let p = self.pointer.get();
         debug_assert!(p & TAG_BITS == TAG_INT);
         untag_int(p)
     }
 
+    #[inline]
     pub fn ptr_eq(self, other: Pointer<'_, P>) -> bool {
         self.pointer == other.pointer
     }
 
+    #[inline]
     pub fn ptr_value(self) -> usize {
         self.pointer.get()
     }
 
+    #[inline]
     pub unsafe fn cast_lifetime<'p2>(self) -> Pointer<'p2, P> {
         Pointer {
             pointer: self.pointer,
@@ -178,6 +195,7 @@ impl<'p, P> Pointer<'p, P> {
         }
     }
 
+    #[inline]
     pub(crate) unsafe fn to_frozen_pointer(self) -> FrozenPointer<'p, P> {
         debug_assert!(!self.is_unfrozen());
         FrozenPointer {
@@ -188,6 +206,7 @@ impl<'p, P> Pointer<'p, P> {
 }
 
 impl<'p, P> FrozenPointer<'p, P> {
+    #[inline]
     pub(crate) unsafe fn new(pointer: usize) -> Self {
         // Never zero because the only TAG which is zero is P1, and that must be a pointer
         debug_assert!(pointer != 0);
@@ -199,27 +218,32 @@ impl<'p, P> FrozenPointer<'p, P> {
         }
     }
 
+    #[inline]
     pub fn new_frozen_usize(x: usize, is_string: bool) -> Self {
         debug_assert!((x & TAG_BITS) == 0);
         let x = if is_string { x | TAG_STR } else { x };
         unsafe { Self::new(x) }
     }
 
+    #[inline]
     pub fn new_frozen_usize_with_str_tag(x: usize) -> Self {
         debug_assert!((x & TAG_BITS & !TAG_STR) == 0);
         unsafe { Self::new(x) }
     }
 
+    #[inline]
     pub(crate) fn new_frozen(x: &'p P, is_str: bool) -> Self {
         Self::new_frozen_usize(cast::ptr_to_usize(x), is_str)
     }
 
+    #[inline]
     pub(crate) fn new_int(x: i32) -> Self {
         unsafe { Self::new(tag_int(x)) }
     }
 
     /// It is safe to bitcast `FrozenPointer` to `Pointer`
     /// but not vice versa.
+    #[inline]
     pub(crate) fn to_pointer(self) -> Pointer<'p, P> {
         Pointer {
             pointer: self.pointer,
@@ -227,19 +251,23 @@ impl<'p, P> FrozenPointer<'p, P> {
         }
     }
 
+    #[inline]
     pub(crate) fn ptr_value(self) -> usize {
         self.pointer.get()
     }
 
+    #[inline]
     pub fn unpack(self) -> Either<&'p P, &'static PointerI32> {
         self.to_pointer().unpack()
     }
 
+    #[inline]
     pub(crate) fn unpack_int(self) -> Option<i32> {
         self.to_pointer().unpack_int()
     }
 
     /// Unpack pointer when it is known to be not an integer.
+    #[inline]
     pub(crate) unsafe fn unpack_ptr_no_int_unchecked(self) -> &'p P {
         let p = self.pointer.get();
         debug_assert!(p & TAG_INT == 0);
@@ -247,6 +275,7 @@ impl<'p, P> FrozenPointer<'p, P> {
     }
 
     /// Unpack integer when it is known to be not a pointer.
+    #[inline]
     pub(crate) unsafe fn unpack_int_unchecked(self) -> i32 {
         let p = self.pointer.get();
         debug_assert!(p & TAG_BITS == TAG_INT);
@@ -254,6 +283,7 @@ impl<'p, P> FrozenPointer<'p, P> {
     }
 
     /// Unpack pointer when it is known to be not an integer, not a string, and not frozen.
+    #[inline]
     pub(crate) unsafe fn unpack_ptr_no_int_no_str_unchecked(self) -> &'p P {
         let p = self.pointer.get();
         debug_assert!(p & TAG_BITS == 0);

@@ -469,6 +469,7 @@ impl AValueHeader {
     }
 
     /// Cast header pointer to repr pointer.
+    #[inline]
     pub(crate) unsafe fn as_repr<'v, A: AValue<'v>>(&self) -> &AValueRepr<A> {
         debug_assert_eq!(
             A::StarlarkValue::static_type_id(),

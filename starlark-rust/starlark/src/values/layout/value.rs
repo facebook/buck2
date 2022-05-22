@@ -193,45 +193,54 @@ unsafe impl Send for FrozenValue {}
 unsafe impl Sync for FrozenValue {}
 
 impl<'v> Value<'v> {
+    #[inline]
     pub(crate) fn new_ptr(x: &'v AValueHeader, is_str: bool) -> Self {
         Self(Pointer::new_unfrozen(x, is_str))
     }
 
+    #[inline]
     pub(crate) fn new_ptr_query_is_str(x: &'v AValueHeader) -> Self {
         let is_string = x.unpack().is_str();
         Self::new_ptr(x, is_string)
     }
 
+    #[inline]
     pub(crate) fn new_repr<T: AValue<'v>>(x: &'v AValueRepr<T>) -> Self {
         Self::new_ptr(&x.header, T::IS_STR)
     }
 
+    #[inline]
     pub(crate) fn new_ptr_usize_with_str_tag(x: usize) -> Self {
         Self(Pointer::new_unfrozen_usize_with_str_tag(x))
     }
 
     /// Create a new `None` value.
+    #[inline]
     pub fn new_none() -> Self {
         FrozenValue::new_none().to_value()
     }
 
     /// Create a new boolean.
+    #[inline]
     pub fn new_bool(x: bool) -> Self {
         FrozenValue::new_bool(x).to_value()
     }
 
     /// Create a new integer.
+    #[inline]
     pub fn new_int(x: i32) -> Self {
         FrozenValue::new_int(x).to_value()
     }
 
     /// Create a new blank string.
+    #[inline]
     pub(crate) fn new_empty_string() -> Self {
         FrozenValue::new_empty_string().to_value()
     }
 
     /// Turn a [`FrozenValue`] into a [`Value`]. See the safety warnings on
     /// [`OwnedFrozenValue`](crate::values::OwnedFrozenValue).
+    #[inline]
     pub fn new_frozen(x: FrozenValue) -> Self {
         // Safe if every FrozenValue must have had a reference added to its heap first.
         // That property is NOT statically checked.
@@ -239,6 +248,7 @@ impl<'v> Value<'v> {
     }
 
     /// Obtain the underlying [`FrozenValue`] from inside the [`Value`], if it is one.
+    #[inline]
     pub fn unpack_frozen(self) -> Option<FrozenValue> {
         if self.0.is_unfrozen() {
             None
@@ -250,6 +260,7 @@ impl<'v> Value<'v> {
     }
 
     /// Is this value `None`.
+    #[inline]
     pub fn is_none(self) -> bool {
         // Safe because frozen values never have a tag
         self.0.ptr_value() == cast::ptr_to_usize(&VALUE_NONE)
@@ -282,10 +293,12 @@ impl<'v> Value<'v> {
     }
 
     /// Obtain the underlying `int` if it is an integer.
+    #[inline]
     pub fn unpack_int(self) -> Option<i32> {
         self.0.unpack_int()
     }
 
+    #[inline]
     pub(crate) fn is_str(self) -> bool {
         self.0.is_str()
     }
@@ -296,6 +309,7 @@ impl<'v> Value<'v> {
     ///
     /// Unstable and likely to be removed in future, as the presence of the `Box` is
     /// not a guaranteed part of the API.
+    #[inline]
     pub fn unpack_starlark_str(self) -> Option<&'v StarlarkStr> {
         if self.is_str() {
             unsafe {
@@ -314,6 +328,7 @@ impl<'v> Value<'v> {
     }
 
     /// Obtain the underlying `str` if it is a string.
+    #[inline]
     pub fn unpack_str(self) -> Option<&'v str> {
         self.unpack_starlark_str().map(|s| s.as_str())
     }
@@ -327,6 +342,7 @@ impl<'v> Value<'v> {
     }
 
     /// Downcast without checking the value type.
+    #[inline]
     pub(crate) unsafe fn downcast_ref_unchecked<T: StarlarkValue<'v>>(self) -> &'v T {
         debug_assert!(self.get_ref().downcast_ref::<T>().is_some());
         if PointerI32::type_is_pointer_i32::<T>() {
@@ -353,6 +369,7 @@ impl<'v> Value<'v> {
     /// Note that other properties are not guaranteed, and the result is not considered part of the API.
     /// The result can be impacted by optimisations such as hash-consing, copy-on-write, partial
     /// evaluation etc.
+    #[inline]
     pub fn ptr_eq(self, other: Value) -> bool {
         self.0.ptr_eq(other.0)
     }
@@ -364,6 +381,7 @@ impl<'v> Value<'v> {
     ///    compare equal.
     /// 2. If two [`Value]` have [`ValueIdentity`]  that compare equal, then [`Value::ptr_eq`] and
     ///    [`Value::equals`]  will also consider them to be equal.
+    #[inline]
     pub fn identity(self) -> ValueIdentity<'v> {
         ValueIdentity::new(self)
     }
@@ -373,6 +391,7 @@ impl<'v> Value<'v> {
     /// Most useful as a hash key based on pointer.
     /// For external users, `Value::identity` returns an opaque `ValueIdentity` that makes fewer
     /// guarantees.
+    #[inline]
     pub(crate) fn ptr_value(self) -> usize {
         self.0.ptr_value()
     }
@@ -670,17 +689,20 @@ impl<'v> Value<'v> {
     }
 
     /// Get the [`Hashed`] version of this [`Value`].
+    #[inline]
     pub fn get_hashed(self) -> anyhow::Result<Hashed<Self>> {
         ValueLike::get_hashed(self)
     }
 
     /// Are two values equal. If the values are of different types it will
     /// return [`false`]. It will only error if there is excessive recursion.
+    #[inline]
     pub fn equals(self, other: Value<'v>) -> anyhow::Result<bool> {
         ValueLike::equals(self, other)
     }
 
     /// How are two values comparable. For values of different types will return [`Err`].
+    #[inline]
     pub fn compare(self, other: Value<'v>) -> anyhow::Result<Ordering> {
         ValueLike::compare(self, other)
     }
@@ -754,28 +776,34 @@ impl<'v> Value<'v> {
 }
 
 impl FrozenValue {
+    #[inline]
     pub(crate) fn new_ptr(x: &'static AValueHeader, is_str: bool) -> Self {
         Self(FrozenPointer::new_frozen(x, is_str))
     }
 
+    #[inline]
     pub(crate) fn new_repr<'a, T: AValue<'a>>(x: &'static AValueRepr<T>) -> Self {
         Self::new_ptr(&x.header, T::IS_STR)
     }
 
+    #[inline]
     pub(crate) fn new_ptr_usize_with_str_tag(x: usize) -> Self {
         Self(FrozenPointer::new_frozen_usize_with_str_tag(x))
     }
 
+    #[inline]
     pub(crate) fn new_ptr_value(x: usize) -> Self {
         unsafe { Self(FrozenPointer::new(x)) }
     }
 
     /// Create a new value representing `None` in Starlark.
+    #[inline]
     pub fn new_none() -> Self {
         Self::new_repr(&VALUE_NONE)
     }
 
     /// Create a new boolean in Starlark.
+    #[inline]
     pub fn new_bool(x: bool) -> Self {
         if x {
             Self::new_repr(&VALUE_TRUE)
@@ -785,20 +813,24 @@ impl FrozenValue {
     }
 
     /// Create a new int in Starlark.
+    #[inline]
     pub fn new_int(x: i32) -> Self {
         Self(FrozenPointer::new_int(x))
     }
 
     /// Create a new empty string.
+    #[inline]
     pub(crate) fn new_empty_string() -> Self {
         VALUE_EMPTY_STRING.unpack()
     }
 
+    #[inline]
     pub(crate) fn ptr_value(self) -> usize {
         self.0.ptr_value()
     }
 
     /// Is a value a Starlark `None`.
+    #[inline]
     pub fn is_none(self) -> bool {
         // Safe because frozen values never have a tag
         self.0.ptr_value() == cast::ptr_to_usize(&VALUE_NONE)
@@ -817,14 +849,17 @@ impl FrozenValue {
     }
 
     /// Return the int if the value is an integer, otherwise [`None`].
+    #[inline]
     pub fn unpack_int(self) -> Option<i32> {
         self.0.unpack_int()
     }
 
+    #[inline]
     pub(crate) unsafe fn unpack_int_unchecked(self) -> i32 {
         self.0.unpack_int_unchecked()
     }
 
+    #[inline]
     pub(crate) fn is_str(self) -> bool {
         self.to_value().is_str()
     }
@@ -834,6 +869,7 @@ impl FrozenValue {
     // we cheat a little, and use the lifetime of the `FrozenValue`.
     // Because of this cheating, we don't expose it outside Starlark.
     #[allow(clippy::trivially_copy_pass_by_ref)]
+    #[inline]
     pub(crate) fn unpack_str<'v>(&'v self) -> Option<&'v str> {
         self.to_value().unpack_str()
     }
@@ -847,6 +883,7 @@ impl FrozenValue {
     }
 
     /// Convert a [`FrozenValue`] back to a [`Value`].
+    #[inline]
     pub fn to_value<'v>(self) -> Value<'v> {
         Value::new_frozen(self)
     }
@@ -887,11 +924,13 @@ impl FrozenValue {
     }
 
     /// Downcast to given type.
+    #[inline]
     pub fn downcast_frozen_ref<T: StarlarkValue<'static>>(self) -> Option<FrozenRef<'static, T>> {
         self.downcast_ref::<T>().map(|value| FrozenRef { value })
     }
 
     /// Downcast to string.
+    #[inline]
     pub fn downcast_frozen_str(self) -> Option<FrozenRef<'static, str>> {
         self.to_value()
             .unpack_str()
@@ -899,6 +938,7 @@ impl FrozenValue {
     }
 
     /// Note: see docs about ['Value::unpack_box_str'] about instability
+    #[inline]
     pub fn downcast_frozen_starlark_str(self) -> Option<FrozenRef<'static, StarlarkStr>> {
         self.to_value()
             .unpack_starlark_str()
@@ -1007,6 +1047,7 @@ struct ToJsonCycleError(&'static str);
 impl<'v> ValueLike<'v> for Value<'v> {
     type String = StringValue<'v>;
 
+    #[inline]
     fn to_value(self) -> Value<'v> {
         self
     }
@@ -1068,26 +1109,32 @@ impl<'v> ValueLike<'v> for Value<'v> {
 impl<'v> ValueLike<'v> for FrozenValue {
     type String = FrozenStringValue;
 
+    #[inline]
     fn to_value(self) -> Value<'v> {
         Value::new_frozen(self)
     }
 
+    #[inline]
     fn downcast_ref<T: StarlarkValue<'v>>(self) -> Option<&'v T> {
         self.to_value().downcast_ref()
     }
 
+    #[inline]
     fn collect_repr(self, collector: &mut String) {
         self.to_value().collect_repr(collector)
     }
 
+    #[inline]
     fn write_hash(self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
         self.to_value().write_hash(hasher)
     }
 
+    #[inline]
     fn equals(self, other: Value<'v>) -> anyhow::Result<bool> {
         self.to_value().equals(other)
     }
 
+    #[inline]
     fn compare(self, other: Value<'v>) -> anyhow::Result<Ordering> {
         self.to_value().compare(other)
     }

@@ -30,6 +30,7 @@ pub struct ValueIdentity<'v> {
 }
 
 impl<'v> ValueIdentity<'v> {
+    #[inline]
     pub(crate) fn new(value: Value<'v>) -> ValueIdentity<'v> {
         ValueIdentity {
             identity: value.ptr_value(),
