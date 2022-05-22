@@ -438,23 +438,27 @@ fn render_signature_args(args: &[StarArg]) -> syn::Result<TokenStream> {
     let mut sig_args = TokenStream::new();
     let mut last_pass_style = StarArgPassStyle::PosOnly;
     for arg in args {
-        if arg.pass_style != last_pass_style {
-            match arg.pass_style {
-                StarArgPassStyle::PosOnly => {
-                    return Err(syn::Error::new(
-                        arg.span,
-                        "Positional-only parameter after non-positional-only",
-                    ));
+        if arg.is_args() {
+            last_pass_style = StarArgPassStyle::NamedOnly;
+        } else {
+            if arg.pass_style != last_pass_style {
+                match arg.pass_style {
+                    StarArgPassStyle::PosOnly => {
+                        return Err(syn::Error::new(
+                            arg.span,
+                            "Positional-only parameter after non-positional-only",
+                        ));
+                    }
+                    StarArgPassStyle::PosOrNamed => sig_args.extend(quote_spanned! { arg.span=>
+                        __signature.no_more_positional_only_args();
+                    }),
+                    StarArgPassStyle::NamedOnly => sig_args.extend(quote_spanned! { arg.span=>
+                        __signature.no_more_positional_args();
+                    }),
                 }
-                StarArgPassStyle::PosOrNamed => sig_args.extend(quote_spanned! { arg.span=>
-                    __signature.no_more_positional_only_args();
-                }),
-                StarArgPassStyle::NamedOnly => sig_args.extend(quote_spanned! { arg.span=>
-                    __signature.no_more_positional_args();
-                }),
             }
+            last_pass_style = arg.pass_style;
         }
-        last_pass_style = arg.pass_style;
         sig_args.extend(render_signature_arg(arg));
     }
     Ok(sig_args)

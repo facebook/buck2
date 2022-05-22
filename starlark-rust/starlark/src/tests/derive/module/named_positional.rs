@@ -35,6 +35,14 @@ fn named_positional_functions(globals: &mut GlobalsBuilder) {
     fn named_after_args(args: Vec<i32>, x: i32) -> anyhow::Result<i32> {
         Ok(x + args.iter().sum::<i32>())
     }
+
+    // Same as above, but with explicit redundant annotation.
+    fn named_after_args_explicitly_marked(
+        args: Vec<i32>,
+        #[starlark(require = named)] x: i32,
+    ) -> anyhow::Result<i32> {
+        Ok(x + args.iter().sum::<i32>())
+    }
 }
 
 #[test]
@@ -67,4 +75,15 @@ fn test_named_after_args() {
     a.globals_add(named_positional_functions);
     a.eq("13", "named_after_args(1, 2, x=10)");
     a.fail("named_after_args(1, 2, 3)", "Missing parameter");
+}
+
+#[test]
+fn test_named_after_args_explicitly_marked() {
+    let mut a = Assert::new();
+    a.globals_add(named_positional_functions);
+    a.eq("13", "named_after_args_explicitly_marked(1, 2, x=10)");
+    a.fail(
+        "named_after_args_explicitly_marked(1, 2, 3)",
+        "Missing parameter",
+    );
 }

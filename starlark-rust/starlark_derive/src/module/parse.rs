@@ -309,12 +309,15 @@ fn parse_fun(func: ItemFn) -> syn::Result<StarStmt> {
 
     let (return_type, return_type_arg) = parse_fn_output(&func.sig.output, func.sig.span(), has_v)?;
 
-    let mut args: Vec<_> = func
-        .sig
-        .inputs
-        .into_iter()
-        .map(|a| parse_arg(a, has_v))
-        .collect::<Result<_, _>>()?;
+    let mut seen_star_args = false;
+    let mut args = Vec::new();
+    for arg in func.sig.inputs {
+        let arg = parse_arg(arg, has_v, seen_star_args)?;
+        if arg.is_args() {
+            seen_star_args = true;
+        }
+        args.push(arg);
+    }
 
     if is_attribute {
         if args.len() != 1 {
@@ -473,7 +476,7 @@ fn parse_starlark_type_eq(tokens: &Attribute) -> syn::Result<Option<Expr>> {
     tokens.parse_args_with(parse)
 }
 
-fn parse_arg(x: FnArg, has_v: bool) -> syn::Result<StarArg> {
+fn parse_arg(x: FnArg, has_v: bool, seen_star_args: bool) -> syn::Result<StarArg> {
     let span = x.span();
     match x {
         FnArg::Typed(PatType {
@@ -515,12 +518,19 @@ fn parse_arg(x: FnArg, has_v: bool) -> syn::Result<StarArg> {
                     unused_attrs.push(attr);
                 }
             }
-            let pass_style = match (this, pos_only, named_only) {
-                (true, _, _) => StarArgPassStyle::PosOnly,
-                (false, false, false) => StarArgPassStyle::PosOrNamed,
-                (false, true, false) => StarArgPassStyle::PosOnly,
-                (false, false, true) => StarArgPassStyle::NamedOnly,
-                (false, true, true) => {
+            let pass_style = match (this, seen_star_args, pos_only, named_only) {
+                (true, _, _, _) => StarArgPassStyle::PosOnly,
+                (false, true, true, _) => {
+                    return Err(syn::Error::new(
+                        span,
+                        "Positional-only arguments cannot follow *args",
+                    ));
+                }
+                (false, true, false, _) => StarArgPassStyle::NamedOnly,
+                (false, false, false, false) => StarArgPassStyle::PosOrNamed,
+                (false, false, true, false) => StarArgPassStyle::PosOnly,
+                (false, false, false, true) => StarArgPassStyle::NamedOnly,
+                (false, false, true, true) => {
                     return Err(syn::Error::new(
                         span,
                         "Function parameter cannot be both positional-only and named-only",
