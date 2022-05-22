@@ -380,7 +380,7 @@ impl LocalExecutor {
                     )?;
                 } else if filetype.is_file() {
                     let metadata = FileMetadata {
-                        digest: FileDigest::from_file(&disk_path).unwrap(),
+                        digest: FileDigest::from_file(&disk_path)?,
                         is_executable: file.path().executable(),
                     };
                     builder.insert(
@@ -405,7 +405,7 @@ impl LocalExecutor {
             DirectoryEntry::Leaf(new_symlink(fs::read_link(&path)?))
         } else if m.is_file() {
             DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
-                digest: FileDigest::from_file(&path).unwrap(),
+                digest: FileDigest::from_file(&path)?,
                 is_executable: path.executable(),
             }))
         } else if m.is_dir() {
