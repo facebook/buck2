@@ -376,7 +376,9 @@ fn dep_like_attr_handle_providers_arg(
 pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     fn string<'v>(
         default: Option<Value<'v>>,
-        #[allow(unused_variables)] validate: Option<Value<'v>>,
+        #[allow(unused_variables)]
+        #[starlark(require = named)]
+        validate: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<Attribute> {
         Attribute::attr(eval, default, doc, AttrType::string())
