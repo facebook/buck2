@@ -102,11 +102,18 @@ impl BcProfileData {
             .map(|(i, st)| (BcOpcode::by_number(i as u32).unwrap(), st))
             .collect();
         by_instr.sort_by_key(|(_opcode, st)| u64::MAX - st.count);
-        let mut csv = CsvWriter::new(["Opcode", "Count", "Total time (s)", "Avg time (ns)"]);
         let total: BcInstrStat = by_instr.iter().map(|(_opcode, st)| *st).sum();
+        let mut csv = CsvWriter::new([
+            "Opcode",
+            "Count",
+            "Count / Total",
+            "Total time (s)",
+            "Avg time (ns)",
+        ]);
         {
             csv.write_display("TOTAL");
             csv.write_value(total.count);
+            csv.write_display(format!("{:.3}", 1.0));
             csv.write_value(total.total_time);
             csv.write_value(total.avg_time().nanos);
             csv.finish_row();
@@ -114,6 +121,10 @@ impl BcProfileData {
         for (opcode, instr_stats) in &by_instr {
             csv.write_debug(opcode);
             csv.write_value(instr_stats.count);
+            csv.write_display(format!(
+                "{:.3}",
+                instr_stats.count as f64 / total.count as f64
+            ));
             csv.write_value(instr_stats.total_time);
             csv.write_value(instr_stats.avg_time().nanos);
             csv.finish_row();
