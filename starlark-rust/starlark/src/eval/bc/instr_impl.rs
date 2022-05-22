@@ -600,22 +600,13 @@ impl InstrNoFlowImpl for InstrSliceImpl {
 }
 
 pub(crate) struct InstrEqImpl;
-pub(crate) struct InstrNotEqImpl;
 
 pub(crate) type InstrEq = InstrBinOp<InstrEqImpl>;
-pub(crate) type InstrNotEq = InstrBinOp<InstrNotEqImpl>;
 
 impl InstrBinOpImpl for InstrEqImpl {
     #[inline(always)]
     fn eval<'v>(v0: Value<'v>, v1: Value<'v>, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         v0.equals(v1).map(Value::new_bool)
-    }
-}
-
-impl InstrBinOpImpl for InstrNotEqImpl {
-    #[inline(always)]
-    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        v0.equals(v1).map(|v| Value::new_bool(!v))
     }
 }
 
@@ -718,7 +709,6 @@ pub(crate) struct InstrBitXorImpl;
 pub(crate) struct InstrLeftShiftImpl;
 pub(crate) struct InstrRightShiftImpl;
 pub(crate) struct InstrInImpl;
-pub(crate) struct InstrNotInImpl;
 
 pub(crate) type InstrAdd = InstrBinOp<InstrAddImpl>;
 pub(crate) type InstrAddAssign = InstrBinOp<InstrAddAssignImpl>;
@@ -734,7 +724,6 @@ pub(crate) type InstrBitXor = InstrBinOp<InstrBitXorImpl>;
 pub(crate) type InstrLeftShift = InstrBinOp<InstrLeftShiftImpl>;
 pub(crate) type InstrRightShift = InstrBinOp<InstrRightShiftImpl>;
 pub(crate) type InstrIn = InstrBinOp<InstrInImpl>;
-pub(crate) type InstrNotIn = InstrBinOp<InstrNotInImpl>;
 
 impl InstrBinOpImpl for InstrAddImpl {
     #[inline(always)]
@@ -831,13 +820,6 @@ impl InstrBinOpImpl for InstrInImpl {
     #[inline(always)]
     fn eval<'v>(v0: Value<'v>, v1: Value<'v>, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         Ok(Value::new_bool(v1.is_in(v0)?))
-    }
-}
-
-impl InstrBinOpImpl for InstrNotInImpl {
-    #[inline(always)]
-    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        Ok(Value::new_bool(!v1.is_in(v0)?))
     }
 }
 

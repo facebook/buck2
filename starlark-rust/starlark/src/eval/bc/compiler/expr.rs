@@ -113,16 +113,6 @@ impl IrSpanned<ExprCompiled> {
 
     fn write_not(expr: &IrSpanned<ExprCompiled>, bc: &mut BcWriter) {
         match expr.node {
-            ExprCompiled::Equals(box (ref a, ref b)) => {
-                a.write_bc(bc);
-                b.write_bc(bc);
-                bc.write_instr::<InstrNotEq>(expr.span, ());
-            }
-            ExprCompiled::Op(ExprBinOp::In, box (ref a, ref b)) => {
-                a.write_bc(bc);
-                b.write_bc(bc);
-                bc.write_instr::<InstrNotIn>(expr.span, ());
-            }
             _ => {
                 expr.write_bc(bc);
                 bc.write_instr::<InstrNot>(expr.span, ());
