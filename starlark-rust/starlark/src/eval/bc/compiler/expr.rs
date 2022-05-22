@@ -37,7 +37,7 @@ use crate::{
         },
         runtime::call_stack::FrozenFileSpan,
     },
-    values::{FrozenValue, ValueLike},
+    values::{FrozenStringValue, FrozenValue, ValueLike},
 };
 
 pub(crate) fn write_exprs<'a>(
@@ -120,6 +120,41 @@ impl IrSpanned<ExprCompiled> {
         }
     }
 
+    fn write_equals_const(
+        span: FrozenFileSpan,
+        a: &IrSpanned<ExprCompiled>,
+        b: FrozenValue,
+        bc: &mut BcWriter,
+    ) {
+        a.write_bc(bc);
+        if let Some(b) = b.unpack_int() {
+            bc.write_instr::<InstrEqInt>(span, b);
+        } else if b.eq_is_ptr_eq() {
+            bc.write_instr::<InstrEqPtr>(span, b);
+        } else if let Some(b) = FrozenStringValue::new(b) {
+            bc.write_instr::<InstrEqStr>(span, b);
+        } else {
+            bc.write_instr::<InstrEqConst>(span, b);
+        }
+    }
+
+    fn write_equals(
+        span: FrozenFileSpan,
+        a: &IrSpanned<ExprCompiled>,
+        b: &IrSpanned<ExprCompiled>,
+        bc: &mut BcWriter,
+    ) {
+        if let Some(a) = a.as_value() {
+            Self::write_equals_const(span, b, a, bc);
+        } else if let Some(b) = b.as_value() {
+            Self::write_equals_const(span, a, b, bc);
+        } else {
+            a.write_bc(bc);
+            b.write_bc(bc);
+            bc.write_instr::<InstrEq>(span, ());
+        }
+    }
+
     pub(crate) fn write_bc(&self, bc: &mut BcWriter) {
         let span = self.span;
         match self.node {
@@ -136,9 +171,7 @@ impl IrSpanned<ExprCompiled> {
                 bc.write_instr::<InstrLoadModule>(span, slot);
             }
             ExprCompiled::Equals(box (ref a, ref b)) => {
-                a.write_bc(bc);
-                b.write_bc(bc);
-                bc.write_instr::<InstrEq>(span, ());
+                Self::write_equals(span, a, b, bc);
             }
             ExprCompiled::Compare(box (ref l, ref r), cmp) => {
                 l.write_bc(bc);

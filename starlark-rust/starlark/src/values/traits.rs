@@ -334,6 +334,10 @@ pub trait StarlarkValue<'v>:
     /// is not equal to the other pointer. Thus, an implementation may assume
     /// that the pointers are not equal. Implementation of `equals` for some
     /// builtin types and default implementation rely on this assumption.
+    ///
+    /// Equality must be symmetric (`a == b` implies `b == a`).
+    /// When evaluating `a == b` (or when using equality in dicts and such),
+    /// it is not specified whether `a.equals(b)` or `b.equals(a)` is called.
     fn equals(&self, _other: Value<'v>) -> anyhow::Result<bool> {
         // Type is only equal via a pointer
         Ok(false)

@@ -77,7 +77,7 @@ use crate::{
         stack_guard,
         string::StarlarkStr,
         structs::FrozenStruct,
-        tuple::FrozenTuple,
+        tuple::{FrozenTuple, Tuple},
         types::unbound::MaybeUnboundValue,
         Freeze, Freezer, FrozenRef, FrozenStringValue, FrozenValueTyped, Heap, StarlarkValue,
         StringValue, UnpackValue, ValueError, ValueIdentity,
@@ -921,6 +921,17 @@ impl FrozenValue {
         } else {
             false
         }
+    }
+
+    /// `self == b` is `ptr_eq`.
+    pub(crate) fn eq_is_ptr_eq(self) -> bool {
+        // Note `int` is not `ptr_eq` because `int` can be equal to `float`.
+        self.is_none()
+            || self.unpack_bool().is_some()
+            // Strings of length <= 1 are statically allocated.
+            || matches!(self.unpack_str(), Some(s) if s.len() <= 1)
+            // Empty tuple is statically allocated.
+            || matches!(Tuple::from_value(self.to_value()), Some(t) if t.len() == 0)
     }
 
     /// Downcast to given type.

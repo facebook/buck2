@@ -59,7 +59,8 @@ use crate::{
         string::interpolation::{format_one, percent_s_one},
         types::known_methods::KnownMethod,
         typing::TypeCompiled,
-        FrozenRef, FrozenStringValue, FrozenValue, FrozenValueTyped, Heap, StarlarkValue, Value,
+        FrozenRef, FrozenStringValue, FrozenValue, FrozenValueTyped, Heap, StarlarkValue,
+        StringValue, StringValueLike, Value,
     },
 };
 
@@ -600,13 +601,99 @@ impl InstrNoFlowImpl for InstrSliceImpl {
 }
 
 pub(crate) struct InstrEqImpl;
+pub(crate) struct InstrEqConstImpl;
+pub(crate) struct InstrEqPtrImpl;
+pub(crate) struct InstrEqStrImpl;
+pub(crate) struct InstrEqIntImpl;
 
 pub(crate) type InstrEq = InstrBinOp<InstrEqImpl>;
+pub(crate) type InstrEqConst = InstrNoFlow<InstrEqConstImpl>;
+pub(crate) type InstrEqPtr = InstrNoFlow<InstrEqPtrImpl>;
+pub(crate) type InstrEqStr = InstrNoFlow<InstrEqStrImpl>;
+pub(crate) type InstrEqInt = InstrNoFlow<InstrEqIntImpl>;
 
 impl InstrBinOpImpl for InstrEqImpl {
     #[inline(always)]
     fn eval<'v>(v0: Value<'v>, v1: Value<'v>, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         v0.equals(v1).map(Value::new_bool)
+    }
+}
+
+impl InstrNoFlowImpl for InstrEqConstImpl {
+    type Pop<'v> = Value<'v>;
+    type Push<'v> = Value<'v>;
+    type Arg = FrozenValue;
+
+    #[inline(always)]
+    fn run_with_args<'v>(
+        _eval: &mut Evaluator<'v, '_>,
+        _stack: &mut BcStackPtr<'v, '_>,
+        _ip: BcPtrAddr,
+        arg: &FrozenValue,
+        pops: Value<'v>,
+    ) -> anyhow::Result<Value<'v>> {
+        // TODO(nga): we know that `arg` is neither int nor string,
+        //   so we could do faster unpacking.
+        pops.equals(arg.to_value()).map(Value::new_bool)
+    }
+}
+
+impl InstrNoFlowImpl for InstrEqPtrImpl {
+    type Pop<'v> = Value<'v>;
+    type Push<'v> = Value<'v>;
+    type Arg = FrozenValue;
+
+    #[inline(always)]
+    fn run_with_args<'v>(
+        _eval: &mut Evaluator<'v, '_>,
+        _stack: &mut BcStackPtr<'v, '_>,
+        _ip: BcPtrAddr,
+        arg: &FrozenValue,
+        pops: Value<'v>,
+    ) -> anyhow::Result<Value<'v>> {
+        Ok(Value::new_bool(pops.ptr_eq(arg.to_value())))
+    }
+}
+
+impl InstrNoFlowImpl for InstrEqIntImpl {
+    type Pop<'v> = Value<'v>;
+    type Push<'v> = Value<'v>;
+    type Arg = i32;
+
+    #[inline(always)]
+    fn run_with_args<'v>(
+        _eval: &mut Evaluator<'v, '_>,
+        _stack: &mut BcStackPtr<'v, '_>,
+        _ip: BcPtrAddr,
+        arg: &i32,
+        pops: Value<'v>,
+    ) -> anyhow::Result<Value<'v>> {
+        if let Some(value) = pops.unpack_int() {
+            Ok(Value::new_bool(value == *arg))
+        } else {
+            Ok(Value::new_bool(pops.equals(Value::new_int(*arg))?))
+        }
+    }
+}
+
+impl InstrNoFlowImpl for InstrEqStrImpl {
+    type Pop<'v> = Value<'v>;
+    type Push<'v> = Value<'v>;
+    type Arg = FrozenStringValue;
+
+    #[inline(always)]
+    fn run_with_args<'v>(
+        _eval: &mut Evaluator<'v, '_>,
+        _stack: &mut BcStackPtr<'v, '_>,
+        _ip: BcPtrAddr,
+        arg: &FrozenStringValue,
+        pops: Value<'v>,
+    ) -> anyhow::Result<Value<'v>> {
+        if let Some(value) = StringValue::new(pops) {
+            Ok(Value::new_bool(value == arg.to_string_value()))
+        } else {
+            Ok(Value::new_bool(false))
+        }
     }
 }
 

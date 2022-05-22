@@ -102,6 +102,22 @@ impl BcInstrArg for u32 {
     }
 }
 
+impl BcInstrArg for i32 {
+    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+        write!(f, " {}", param)
+    }
+
+    fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
+
+    fn pops_stack(_: &Self) -> u32 {
+        0
+    }
+
+    fn pushes_stack(_: &Self) -> u32 {
+        0
+    }
+}
+
 impl<A: BcInstrArg, B: BcInstrArg> BcInstrArg for (A, B) {
     fn fmt_append((a, b): &Self, ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
         A::fmt_append(a, ip, f)?;
