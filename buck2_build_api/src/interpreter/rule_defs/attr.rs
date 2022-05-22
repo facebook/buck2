@@ -384,7 +384,6 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         Attribute::attr(eval, default, doc, AttrType::string())
     }
 
-    // TODO(nmj): Not a list of strings, a list of values...
     fn list<'v>(
         #[starlark(require = pos)] inner: &Attribute,
         #[starlark(require = named)] default: Option<Value<'v>>,
