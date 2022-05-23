@@ -11,7 +11,7 @@ _CXX_TOOLCHAIN_RULE_TYPE = AppleToolchainRuleType("cxx")
 def get_apple_cxx_select_map():
     return _get_apple_select_map(include_default = False, toolchain_type = _CXX_TOOLCHAIN_RULE_TYPE)
 
-def select_apple_toolchain():
+def default_apple_toolchain():
     select_map = _get_apple_select_map(include_default = True, toolchain_type = _APPLE_TOOLCHAIN_RULE_TYPE)
     return select(select_map)
 
