@@ -1718,9 +1718,7 @@ fn call_method_common<'v>(
     // TODO: wrong span: should be span of `object.method`, not of the whole expression
     let method = get_attr_hashed_raw(this, symbol, eval.heap())?;
     match method {
-        MemberOrValue::Member(member) => {
-            member.to_value().invoke_method(this, span, arguments, eval)
-        }
+        MemberOrValue::Member(member) => member.invoke_method(this, span, arguments, eval),
         MemberOrValue::Value(value) => value.invoke_with_loc(Some(span), arguments, eval),
     }
 }

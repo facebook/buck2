@@ -47,6 +47,7 @@ use crate::{
     },
     values::{
         function::BoundMethodGen,
+        layout::value_not_special::FrozenValueNotSpecial,
         string::{interpolation::parse_percent_s_one, StarlarkStr},
         types::{
             bigint::StarlarkBigInt,
@@ -994,7 +995,7 @@ fn get_attr_no_attr_error<'v>(x: Value<'v>, attribute: &Symbol) -> anyhow::Error
 }
 
 pub(crate) enum MemberOrValue<'v> {
-    Member(FrozenValue),
+    Member(FrozenValueNotSpecial),
     Value(Value<'v>),
 }
 

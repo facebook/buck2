@@ -34,7 +34,7 @@ use crate::{
         docs,
         docs::{DocItem, DocString, DocStringKind},
         function::{NativeAttribute, NativeCallableRawDocs},
-        layout::value::ValueLike,
+        layout::{value::ValueLike, value_not_special::FrozenValueNotSpecial},
         structs::FrozenStruct,
         types::function::{NativeFunction, NativeMethod},
         AllocFrozenValue, FrozenHeap, FrozenHeapRef, FrozenStringValue, FrozenValue, Heap, Value,
@@ -63,7 +63,7 @@ struct MethodsData {
     /// This field holds the objects referenced in `members`.
     #[allow(dead_code)]
     heap: FrozenHeapRef,
-    members: SymbolMap<FrozenValue>,
+    members: SymbolMap<FrozenValueNotSpecial>,
     docstring: Option<String>,
 }
 
@@ -85,8 +85,8 @@ pub struct GlobalsBuilder {
 pub struct MethodsBuilder {
     /// The heap everything is allocated in.
     heap: FrozenHeap,
-    /// Members.
-    members: SymbolMap<FrozenValue>,
+    /// Members, either `NativeMethod` or `NativeAttribute`.
+    members: SymbolMap<FrozenValueNotSpecial>,
     /// The raw docstring for the main object.
     docstring: Option<String>,
 }
@@ -157,7 +157,10 @@ impl Globals {
 
     /// Get the documentation for both the object itself, and its members. Returned as an `Object`
     pub fn documentation(&self) -> DocItem {
-        common_documentation(&self.0.docstring, &self.0.variables)
+        common_documentation(
+            &self.0.docstring,
+            self.0.variables.iter().map(|(n, v)| (n.as_str(), *v)),
+        )
     }
 
     /// Get the documentation for each member. Useful when loading a number of objects into
@@ -174,18 +177,18 @@ impl Globals {
 
 impl Methods {
     pub(crate) fn get<'v>(&'v self, name: &str) -> Option<Value<'v>> {
-        self.get_frozen(name).map(FrozenValue::to_value)
+        self.get_frozen(name).map(FrozenValueNotSpecial::to_value)
     }
 
-    pub(crate) fn get_frozen(&self, name: &str) -> Option<FrozenValue> {
+    pub(crate) fn get_frozen(&self, name: &str) -> Option<FrozenValueNotSpecial> {
         self.0.members.get_str(name).copied()
     }
 
-    pub(crate) fn get_hashed(&self, name: Hashed<&str>) -> Option<FrozenValue> {
+    pub(crate) fn get_hashed(&self, name: Hashed<&str>) -> Option<FrozenValueNotSpecial> {
         self.0.members.get_hashed_str(name).copied()
     }
 
-    pub(crate) fn get_frozen_symbol(&self, name: &Symbol) -> Option<FrozenValue> {
+    pub(crate) fn get_frozen_symbol(&self, name: &Symbol) -> Option<FrozenValueNotSpecial> {
         self.0.members.get(name).copied()
     }
 
@@ -198,12 +201,21 @@ impl Methods {
     }
 
     pub(crate) fn members(&self) -> impl Iterator<Item = (&str, FrozenValue)> {
-        self.0.members.iter().map(|(k, v)| (k.as_str(), *v))
+        self.0
+            .members
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.to_frozen_value()))
     }
 
     /// Fetch the documentation.
     pub fn documentation(&self) -> DocItem {
-        common_documentation(&self.0.docstring, &self.0.members)
+        common_documentation(
+            &self.0.docstring,
+            self.0
+                .members
+                .iter()
+                .map(|(n, v)| (n.as_str(), v.to_frozen_value())),
+        )
     }
 }
 
@@ -401,12 +413,13 @@ impl MethodsBuilder {
     {
         self.members.insert(
             name,
-            self.heap.alloc(NativeAttribute {
+            FrozenValueNotSpecial::new(self.heap.alloc(NativeAttribute {
                 function: box f,
                 speculative_exec_safe,
                 docstring,
                 typ,
-            }),
+            }))
+            .unwrap(),
         );
     }
 
@@ -432,13 +445,14 @@ impl MethodsBuilder {
     {
         self.members.insert(
             name,
-            self.heap.alloc(NativeMethod {
+            FrozenValueNotSpecial::new(self.heap.alloc(NativeMethod {
                 function: box f,
                 name: name.to_owned(),
                 typ,
                 speculative_exec_safe,
                 raw_docs,
-            }),
+            }))
+            .unwrap(),
         );
     }
 
@@ -531,12 +545,15 @@ impl MethodsStatic {
     }
 }
 
-fn common_documentation(docstring: &Option<String>, members: &SymbolMap<FrozenValue>) -> DocItem {
+fn common_documentation<'a>(
+    docstring: &Option<String>,
+    members: impl IntoIterator<Item = (&'a str, FrozenValue)>,
+) -> DocItem {
     let main_docs = docstring
         .as_ref()
         .and_then(|ds| DocString::from_docstring(DocStringKind::Rust, ds));
     let member_docs = members
-        .iter()
+        .into_iter()
         .filter_map(|(name, val)| {
             let m = match val.downcast_ref::<NativeAttribute>() {
                 Some(attr) => {
@@ -555,7 +572,7 @@ fn common_documentation(docstring: &Option<String>, members: &SymbolMap<FrozenVa
                     DocItem::Function(f) => Some(docs::Member::Function(f)),
                 }),
             };
-            m.map(|member| (name.as_str().to_owned(), member))
+            m.map(|member| (name.to_owned(), member))
         })
         .sorted_by(|(l, _), (r, _)| Ord::cmp(l, r))
         .collect();

@@ -545,18 +545,6 @@ impl<'v> Value<'v> {
         self.invoke_with_loc(None, args, eval)
     }
 
-    pub(crate) fn invoke_method(
-        self,
-        this: Value<'v>,
-        location: FrozenRef<'static, FrozenFileSpan>,
-        args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
-        eval.with_call_stack(self, Some(location), |eval| {
-            self.get_ref().invoke_method(self, this, args, eval)
-        })
-    }
-
     /// Invoke a function with only positional arguments.
     pub fn invoke_pos(
         self,

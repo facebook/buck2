@@ -19,7 +19,8 @@
 
 use crate::values::{
     function::{BoundMethodGen, NativeAttribute, NativeMethod},
-    FrozenValue, FrozenValueTyped, Heap, Value, ValueLike,
+    layout::value_not_special::FrozenValueNotSpecial,
+    FrozenValueTyped, Heap, Value, ValueLike,
 };
 
 /// A value or an unbound method or unbound attribute.
@@ -45,10 +46,12 @@ impl MaybeUnboundValue {
 impl MaybeUnboundValue {
     /// Split into variants.
     #[allow(clippy::same_functions_in_if_condition)] // False positive
-    pub(crate) fn new(value: FrozenValue) -> MaybeUnboundValue {
-        if let Some(method) = FrozenValueTyped::new(value) {
+    pub(crate) fn new(value: FrozenValueNotSpecial) -> MaybeUnboundValue {
+        // TODO(nga): this can be a little faster if we do downcast of `FrozenValueNotSpecial`
+        //   instead of converting it to `FrozenValue` first.
+        if let Some(method) = FrozenValueTyped::new(value.to_frozen_value()) {
             MaybeUnboundValue::Method(method)
-        } else if let Some(attr) = FrozenValueTyped::new(value) {
+        } else if let Some(attr) = FrozenValueTyped::new(value.to_frozen_value()) {
             MaybeUnboundValue::Attr(attr)
         } else {
             unreachable!("not a member: {}", value);

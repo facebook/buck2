@@ -17,10 +17,14 @@
 
 use gazebo::dupe::Dupe;
 
-use crate::values::{layout::vtable::AValueDyn, stack_guard, FrozenValue, Value};
+use crate::{
+    eval::{runtime::call_stack::FrozenFileSpan, Arguments, Evaluator},
+    values::{layout::vtable::AValueDyn, stack_guard, FrozenRef, FrozenValue, Value},
+};
 
 /// `FrozenValue` which is not `i32` or `str`.
-#[derive(Copy, Clone, Dupe, Debug)]
+#[derive(Copy, Clone, Dupe, Debug, derive_more::Display)]
+#[display(fmt = "{}", .0)]
 pub(crate) struct FrozenValueNotSpecial(FrozenValue);
 
 impl FrozenValueNotSpecial {
@@ -39,7 +43,7 @@ impl FrozenValueNotSpecial {
     }
 
     #[inline]
-    fn to_value<'v>(self) -> Value<'v> {
+    pub(crate) fn to_value<'v>(self) -> Value<'v> {
         self.0.to_value()
     }
 
@@ -56,5 +60,18 @@ impl FrozenValueNotSpecial {
             let _guard = stack_guard::stack_guard()?;
             self.get_ref().equals(other)
         }
+    }
+
+    pub(crate) fn invoke_method<'v>(
+        self,
+        this: Value<'v>,
+        location: FrozenRef<'static, FrozenFileSpan>,
+        args: &Arguments<'v, '_>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        eval.with_call_stack(self.to_value(), Some(location), |eval| {
+            self.get_ref()
+                .invoke_method(self.to_value(), this, args, eval)
+        })
     }
 }
