@@ -43,6 +43,7 @@ use crate::{
     artifact_groups::ArtifactGroup,
     interpreter::rule_defs::{
         artifact::{StarlarkArtifactLike, StarlarkOutputArtifact, ValueAsArtifactLike},
+        cell_root::CellRoot,
         cmd_args::{
             traits::{
                 CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder,
@@ -51,7 +52,6 @@ use crate::{
             },
             ValueAsCommandLineLike,
         },
-        test_cwd::TestCwd,
         util::commas,
     },
 };
@@ -1038,7 +1038,7 @@ impl<'v> StarlarkValue<'v> for StarlarkCommandLineInputs {
 #[derive(Display)]
 enum RelativeOrigin<'v> {
     Artifact(&'v dyn StarlarkArtifactLike),
-    TestCwd(&'v TestCwd),
+    CellRoot(&'v CellRoot),
 }
 
 impl<'v> RelativeOrigin<'v> {
@@ -1050,8 +1050,8 @@ impl<'v> RelativeOrigin<'v> {
             return Some(RelativeOrigin::Artifact(v));
         }
 
-        if let Some(v) = v.downcast_ref::<TestCwd>() {
-            return Some(RelativeOrigin::TestCwd(v));
+        if let Some(v) = v.downcast_ref::<CellRoot>() {
+            return Some(RelativeOrigin::CellRoot(v));
         }
 
         None
@@ -1068,7 +1068,7 @@ impl<'v> RelativeOrigin<'v> {
                 let artifact = artifact.get_bound()?;
                 ctx.resolve_artifact(&artifact)?
             }
-            Self::TestCwd(test_cwd) => ctx.resolve_cell_path(test_cwd.cell_path())?,
+            Self::CellRoot(cell_root) => ctx.resolve_cell_path(cell_root.cell_path())?,
         };
 
         Ok(loc.into_relative())

@@ -25,7 +25,7 @@ use starlark::{
 };
 
 use crate::interpreter::rule_defs::{
-    label_relative_path::LabelRelativePath, target_label::StarlarkTargetLabel, test_cwd::TestCwd,
+    cell_root::CellRoot, label_relative_path::LabelRelativePath, target_label::StarlarkTargetLabel,
 };
 
 impl<V> LabelGen<V> {
@@ -136,10 +136,17 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
         Ok(heap.alloc(cell))
     }
 
+    // TODO(torozco) Remove
     #[starlark(attribute)]
     fn test_cwd<'v>(this: &Label) -> anyhow::Result<Value<'v>> {
-        let test_cwd = TestCwd::new(this.label.target().pkg().cell_name().clone());
+        let test_cwd = CellRoot::new(this.label.target().pkg().cell_name().clone());
         Ok(heap.alloc(test_cwd))
+    }
+
+    #[starlark(attribute)]
+    fn cell_root<'v>(this: &Label) -> anyhow::Result<Value<'v>> {
+        let cell_root = CellRoot::new(this.label.target().pkg().cell_name().clone());
+        Ok(heap.alloc(cell_root))
     }
 
     /// Returns the unconfigured underlying target label.

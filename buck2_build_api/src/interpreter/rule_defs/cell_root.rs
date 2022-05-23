@@ -19,9 +19,9 @@ use starlark::{
 };
 
 #[derive(Debug, PartialEq, Display, AnyLifetime, NoSerialize)]
-pub struct TestCwd(CellPath);
+pub struct CellRoot(CellPath);
 
-impl TestCwd {
+impl CellRoot {
     pub fn new(name: CellName) -> Self {
         Self(CellPath::new(
             name,
@@ -34,9 +34,9 @@ impl TestCwd {
     }
 }
 
-starlark_simple_value!(TestCwd);
+starlark_simple_value!(CellRoot);
 
-impl<'v> StarlarkValue<'v> for TestCwd {
+impl<'v> StarlarkValue<'v> for CellRoot {
     starlark_type!("test_cwd");
 
     fn get_methods(&self) -> Option<&'static Methods> {
