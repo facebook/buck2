@@ -132,8 +132,8 @@ impl RemoteCommandStdStreams {
         }
     }
 
-    pub async fn prefetch_stderr(mut self) -> Self {
-        self.stderr.prefetch(&self.client).await;
+    pub async fn prefetch_lossy_stderr(mut self) -> Self {
+        self.stderr.prefetch_lossy(&self.client).await;
         self
     }
 }
@@ -147,7 +147,7 @@ enum ReStdStream {
 
     /// This output was not available inline, but was prefetched. The prefetch might be lossy. We
     /// have a digest to access the full data if needed.
-    Prefetched { data: String, digest: ReDigest },
+    PrefetchedLossy { data: String, digest: ReDigest },
 
     /// There was no output made available by RE.
     None,
@@ -169,7 +169,7 @@ impl fmt::Display for ReStdStream {
             Self::Raw(raw) => {
                 write!(fmt, "raw = `{}`", String::from_utf8_lossy(raw))?;
             }
-            Self::Digest(digest) | Self::Prefetched { digest, .. } => {
+            Self::Digest(digest) | Self::PrefetchedLossy { digest, .. } => {
                 write!(fmt, "digest = `{}`", FileDigest::from_re(digest))?;
             }
             Self::None => {
@@ -207,7 +207,7 @@ impl ReStdStream {
                     }
                 }
             }
-            Self::Prefetched { data, .. } => data.clone(),
+            Self::PrefetchedLossy { data, .. } => data.clone(),
             Self::Digest(digest) => {
                 format!(
                     "Result too large to display - to view type `frecli cas download-blob {}`",
@@ -221,7 +221,7 @@ impl ReStdStream {
     async fn into_bytes(self, client: &ManagedRemoteExecutionClient) -> anyhow::Result<Vec<u8>> {
         match self {
             Self::Raw(raw) => Ok(raw),
-            Self::Digest(digest) | Self::Prefetched { digest, .. } => {
+            Self::Digest(digest) | Self::PrefetchedLossy { digest, .. } => {
                 let bytes = client.download_blob(&digest).await.with_context(|| {
                     format!("Error downloading from {}", FileDigest::from_re(&digest))
                 })?;
@@ -232,10 +232,10 @@ impl ReStdStream {
     }
 
     /// Prefetch the output, if relevant.
-    async fn prefetch(&mut self, client: &ManagedRemoteExecutionClient) {
+    async fn prefetch_lossy(&mut self, client: &ManagedRemoteExecutionClient) {
         if let Self::Digest(digest) = &self {
             let data = self.to_lossy(client).await;
-            *self = Self::Prefetched {
+            *self = Self::PrefetchedLossy {
                 data,
                 digest: digest.clone(),
             };

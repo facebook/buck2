@@ -353,7 +353,7 @@ pub struct CommandExecutionRequest {
     /// Whether we should always prefetch stderr when executing. When it's needed, this lets us
     /// overlap stderr download with output donwloads, which might be marginally useful to improve
     /// latency.
-    prefetch_stderr: bool,
+    prefetch_lossy_stderr: bool,
 }
 
 impl CommandExecutionRequest {
@@ -374,7 +374,7 @@ impl CommandExecutionRequest {
             custom_tmpdir: true,
             host_sharing_requirements: HostSharingRequirements::default(),
             working_directory: None,
-            prefetch_stderr: false,
+            prefetch_lossy_stderr: false,
         }
     }
 
@@ -414,13 +414,13 @@ impl CommandExecutionRequest {
         self
     }
 
-    pub fn with_prefetch_stderr(mut self, prefetch_stderr: bool) -> Self {
-        self.prefetch_stderr = prefetch_stderr;
+    pub fn with_prefetch_lossy_stderr(mut self, prefetch_lossy_stderr: bool) -> Self {
+        self.prefetch_lossy_stderr = prefetch_lossy_stderr;
         self
     }
 
-    pub fn prefetch_stderr(&self) -> bool {
-        self.prefetch_stderr
+    pub fn prefetch_lossy_stderr(&self) -> bool {
+        self.prefetch_lossy_stderr
     }
 
     pub fn args(&self) -> &[String] {
