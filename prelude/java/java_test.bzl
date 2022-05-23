@@ -81,7 +81,6 @@ def build_junit_test(
         env = env,
         labels = ctx.attr.labels,
         contacts = ctx.attr.contacts,
-        use_templated_api = False,
     )
     return test_info, run_info
 

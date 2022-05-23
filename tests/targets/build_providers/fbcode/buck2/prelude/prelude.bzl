@@ -12,7 +12,6 @@ def _test_impl(ctx):
             env = {},
             labels = [],
             contacts = [],
-            use_templated_api = False,
         ),
     ]
 

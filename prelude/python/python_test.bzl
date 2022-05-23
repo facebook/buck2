@@ -55,6 +55,5 @@ def python_test_impl(ctx: "context") -> ["provider"]:
             env = ctx.attr.env,
             labels = ctx.attr.labels,
             contacts = ctx.attr.contacts,
-            use_templated_api = False,
         ),
     ]

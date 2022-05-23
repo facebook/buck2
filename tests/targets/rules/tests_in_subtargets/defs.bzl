@@ -5,7 +5,6 @@ def _test_in_subtarget_impl(ctx):
         env = {},
         labels = [],
         contacts = ["buck2"],
-        use_templated_api = False,
     )
     return [DefaultInfo(
         sub_targets = {"sub": [test_info]},

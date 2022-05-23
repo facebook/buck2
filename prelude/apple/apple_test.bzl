@@ -81,7 +81,6 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
             env = {},
             labels = ctx.attr.labels,
             contacts = ctx.attr.contacts,
-            use_templated_api = False,
         ),
     ]
 

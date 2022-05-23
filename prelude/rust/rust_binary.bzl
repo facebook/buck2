@@ -165,6 +165,5 @@ def rust_test_impl(ctx: "context") -> [[DefaultInfo.type, RunInfo.type, External
             env = ctx.attr.env,
             labels = ctx.attr.labels,
             contacts = ctx.attr.contacts,
-            use_templated_api = False,
         ),
     ]
