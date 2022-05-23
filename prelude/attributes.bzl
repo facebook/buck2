@@ -149,7 +149,7 @@ Style = ["obf", "pretty", "detailed"]
 TargetCpuType = ["arm", "armv7", "arm64", "x86", "x86_64", "mips"]
 
 # @name-conventions
-TestType = ["junit", "testng"]
+TestType = ["junit", "junit5", "testng"]
 
 # @name-conventions
 Traversal = ["tree", "node"]
@@ -628,6 +628,7 @@ attributes = {
         "target_sdk_version": attr.option(attr.string(), default = None),
         "thin_lto": attr.bool(),
         "use_submodules": attr.bool(),
+        "uses_cxx_explicit_modules": attr.bool(),
         "uses_explicit_modules": attr.bool(),
         "uses_modules": attr.bool(),
         "within_view": attr.option(attr.list(attr.string())),
@@ -745,6 +746,7 @@ attributes = {
         "target_sdk_version": attr.option(attr.string(), default = None),
         "thin_lto": attr.bool(),
         "use_submodules": attr.bool(),
+        "uses_cxx_explicit_modules": attr.bool(),
         "uses_explicit_modules": attr.bool(),
         "uses_modules": attr.bool(),
         "within_view": attr.option(attr.list(attr.string())),
@@ -878,6 +880,7 @@ attributes = {
         "try_skip_code_signing": attr.option(attr.bool(), default = None),
         "ui_test_target_app": attr.option(attr.dep(), default = None),
         "use_submodules": attr.bool(),
+        "uses_cxx_explicit_modules": attr.bool(),
         "uses_explicit_modules": attr.bool(),
         "uses_modules": attr.bool(),
         "within_view": attr.option(attr.list(attr.string())),
@@ -1180,6 +1183,7 @@ attributes = {
         "supports_merged_linking": attr.option(attr.bool(), default = None),
         "thin_lto": attr.bool(),
         "use_archive": attr.option(attr.bool(), default = None),
+        "uses_cxx_explicit_modules": attr.bool(),
         "uses_explicit_modules": attr.bool(),
         "version_universe": attr.option(attr.string(), default = None),
         "within_view": attr.option(attr.list(attr.string())),
@@ -2598,7 +2602,6 @@ attributes = {
         "env": attr.dict(key = attr.string(), value = attr.arg(), sorted = False, default = {}),
         "exported_deps": attr.list(attr.dep(), default = []),
         "exported_provided_deps": attr.list(attr.dep(), default = []),
-        "external_resources_paths": attr.list(attr.source(), default = []),
         "extra_arguments": attr.list(attr.string(), default = []),
         "extra_kotlinc_arguments": attr.list(attr.string(), default = []),
         "fork_mode": attr.enum(ForkMode, default = "none"),
