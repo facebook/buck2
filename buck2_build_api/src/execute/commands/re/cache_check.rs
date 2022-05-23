@@ -79,6 +79,7 @@ impl CacheCheckingExecutor {
 
         ControlFlow::Break(
             download_action_results(
+                request,
                 &*self.materializer,
                 &self.re_client,
                 manager,

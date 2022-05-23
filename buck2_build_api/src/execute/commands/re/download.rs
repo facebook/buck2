@@ -33,10 +33,12 @@ use crate::{
             CommandExecutionOutputRef, CommandExecutionResult,
         },
         materializer::{CasDownloadInfo, Materializer},
+        CommandExecutionRequest,
     },
 };
 
 pub async fn download_action_results<'a>(
+    request: &CommandExecutionRequest,
     materializer: &dyn Materializer,
     re_client: &ManagedRemoteExecutionClient,
     mut manager: CommandExecutionManager,
@@ -67,7 +69,14 @@ pub async fn download_action_results<'a>(
         response,
     );
 
-    let std_streams = response.std_streams(re_client).prefetch_stderr();
+    let std_streams = response.std_streams(re_client);
+    let std_streams = async {
+        if request.prefetch_stderr() {
+            std_streams.prefetch_stderr().await
+        } else {
+            std_streams
+        }
+    };
 
     let (download, std_streams) = future::join(download, std_streams).await;
     let (manager, claim, outputs) = download?;

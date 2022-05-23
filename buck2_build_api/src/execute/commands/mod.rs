@@ -350,6 +350,10 @@ pub struct CommandExecutionRequest {
     host_sharing_requirements: HostSharingRequirements,
     /// Working directory, relative to the project root.
     working_directory: Option<ProjectRelativePathBuf>,
+    /// Whether we should always prefetch stderr when executing. When it's needed, this lets us
+    /// overlap stderr download with output donwloads, which might be marginally useful to improve
+    /// latency.
+    prefetch_stderr: bool,
 }
 
 impl CommandExecutionRequest {
@@ -370,6 +374,7 @@ impl CommandExecutionRequest {
             custom_tmpdir: true,
             host_sharing_requirements: HostSharingRequirements::default(),
             working_directory: None,
+            prefetch_stderr: false,
         }
     }
 
@@ -407,6 +412,15 @@ impl CommandExecutionRequest {
     ) -> Self {
         self.test_outputs = Some(test_outputs);
         self
+    }
+
+    pub fn with_prefetch_stderr(mut self, prefetch_stderr: bool) -> Self {
+        self.prefetch_stderr = prefetch_stderr;
+        self
+    }
+
+    pub fn prefetch_stderr(&self) -> bool {
+        self.prefetch_stderr
     }
 
     pub fn args(&self) -> &[String] {

@@ -352,6 +352,7 @@ impl IncrementalActionExecutable for RunAction {
             HostSharingRequirements::Shared(WeightClass::Permits(self.inner.weight));
 
         let req = CommandExecutionRequest::new(cli, inputs, self.outputs.clone(), env)
+            .with_prefetch_stderr(true)
             .with_local_only(self.inner.local_only)
             .with_host_sharing_requirements(host_sharing_requirements);
 
