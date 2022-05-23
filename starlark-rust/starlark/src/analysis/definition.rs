@@ -48,7 +48,7 @@ impl AstModule {
     ///
     /// This method also handles scoping properly (i.e. an access of "foo" in a function
     /// will return location of the parameter "foo", even if there is a global called "foo").
-    pub fn find_definition(&self, line: u32, col: u32) -> DefinitionLocation {
+    pub(crate) fn find_definition(&self, line: u32, col: u32) -> DefinitionLocation {
         // The inner structure here lets us just hold references, and has some un-resolved
         // spans and the like. We turn it into a more proper structure at the end.
         enum Definition<'a> {
@@ -144,6 +144,18 @@ impl AstModule {
                 name: name.to_owned(),
             },
         }
+    }
+
+    /// Attempt to find the location where an exported symbol is defined.
+    #[allow(dead_code)]
+    pub(crate) fn find_exported_symbol(&self, name: &str) -> Option<ResolvedSpan> {
+        self.exported_symbols().iter().find_map(|(span, symbol)| {
+            if *symbol == name {
+                Some(span.resolve_span())
+            } else {
+                None
+            }
+        })
     }
 }
 
