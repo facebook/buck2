@@ -409,6 +409,7 @@ impl AValueHeader {
         AValueHeader(AValueVTable::new::<T>())
     }
 
+    #[inline]
     pub(crate) fn payload_ptr(&self) -> *const () {
         let self_repr = self as *const AValueHeader as *const AValueRepr<()>;
         unsafe { &(*self_repr).payload }

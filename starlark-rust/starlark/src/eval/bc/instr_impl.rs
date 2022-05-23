@@ -55,6 +55,7 @@ use crate::{
     values::{
         dict::Dict,
         function::NativeFunction,
+        int::PointerI32,
         layout::value_not_special::FrozenValueNotSpecial,
         list::List,
         string::interpolation::{format_one, percent_s_one},
@@ -657,20 +658,20 @@ impl InstrNoFlowImpl for InstrEqPtrImpl {
 impl InstrNoFlowImpl for InstrEqIntImpl {
     type Pop<'v> = Value<'v>;
     type Push<'v> = Value<'v>;
-    type Arg = i32;
+    type Arg = FrozenValueTyped<'static, PointerI32>;
 
     #[inline(always)]
     fn run_with_args<'v>(
         _eval: &mut Evaluator<'v, '_>,
         _stack: &mut BcStackPtr<'v, '_>,
         _ip: BcPtrAddr,
-        arg: &i32,
+        arg: &FrozenValueTyped<'static, PointerI32>,
         pops: Value<'v>,
     ) -> anyhow::Result<Value<'v>> {
-        if let Some(value) = pops.unpack_int() {
-            Ok(Value::new_bool(value == *arg))
+        if let Some(value) = pops.unpack_int_value() {
+            Ok(Value::new_bool(value.as_ref() == arg.as_ref()))
         } else {
-            Ok(Value::new_bool(pops.equals(Value::new_int(*arg))?))
+            Ok(Value::new_bool(pops.equals(arg.to_value())?))
         }
     }
 }

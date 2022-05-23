@@ -182,6 +182,7 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
     }
 
     /// Convert to the value.
+    #[inline]
     pub fn to_value(self) -> Value<'v> {
         self.0.to_value()
     }
@@ -192,6 +193,7 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
     }
 
     /// Get the reference to the pointed value.
+    #[inline]
     pub fn as_ref(self) -> &'v T {
         if PointerI32::type_is_pointer_i32::<T>() {
             unsafe {

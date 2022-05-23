@@ -253,10 +253,15 @@ impl<'v> Value<'v> {
         if self.0.is_unfrozen() {
             None
         } else {
-            Some(FrozenValue(unsafe {
-                self.0.cast_lifetime().to_frozen_pointer()
-            }))
+            // SAFETY: We've just checked the value is frozen.
+            unsafe { Some(self.unpack_frozen_unchecked()) }
         }
+    }
+
+    #[inline]
+    unsafe fn unpack_frozen_unchecked(self) -> FrozenValue {
+        debug_assert!(!self.0.is_unfrozen());
+        FrozenValue(self.0.cast_lifetime().to_frozen_pointer())
     }
 
     /// Is this value `None`.
@@ -296,6 +301,20 @@ impl<'v> Value<'v> {
     #[inline]
     pub fn unpack_int(self) -> Option<i32> {
         self.0.unpack_int()
+    }
+
+    #[inline]
+    pub(crate) fn unpack_int_value(self) -> Option<FrozenValueTyped<'static, PointerI32>> {
+        if self.unpack_int().is_some() {
+            // SAFETY: We've just checked the value is an int.
+            unsafe {
+                Some(FrozenValueTyped::new_unchecked(
+                    self.unpack_frozen_unchecked(),
+                ))
+            }
+        } else {
+            None
+        }
     }
 
     #[inline]

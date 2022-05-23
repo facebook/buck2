@@ -129,7 +129,7 @@ impl IrSpanned<ExprCompiled> {
         bc: &mut BcWriter,
     ) {
         a.write_bc(bc);
-        if let Some(b) = b.unpack_int() {
+        if let Some(b) = b.to_value().unpack_int_value() {
             bc.write_instr::<InstrEqInt>(span, b);
         } else if b.eq_is_ptr_eq() {
             bc.write_instr::<InstrEqPtr>(span, b);

@@ -27,6 +27,7 @@ use std::{
     cmp::Ordering,
     fmt::{self, Debug, Display},
     hash::Hasher,
+    ptr,
 };
 
 use gazebo::{any::AnyLifetime, cast};
@@ -76,6 +77,14 @@ impl UnpackValue<'_> for i32 {
 pub(crate) struct PointerI32 {
     _private: (),
 }
+
+impl PartialEq for PointerI32 {
+    fn eq(&self, other: &Self) -> bool {
+        ptr::eq(self, other)
+    }
+}
+
+impl Eq for PointerI32 {}
 
 impl Debug for PointerI32 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
