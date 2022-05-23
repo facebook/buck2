@@ -238,3 +238,9 @@ if not is_deployed_buck2():
             ),
             stderr_regex="incompatible",
         )
+
+    @buck_test(inplace=True, data_dir="..")
+    async def test_external_runner_test_info_options(buck: Buck) -> None:
+        await buck.test(
+            "fbcode//buck2/tests/targets/rules/external_runner_test_info/...",
+        )

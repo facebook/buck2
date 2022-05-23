@@ -1,0 +1,17 @@
+load(":defs.bzl", "test")
+
+test(name = "default", artifact = "artifact", script = "default.sh")
+
+test(
+    name = "run_from_project_root",
+    artifact = "artifact",
+    script = "run_from_project_root.sh",
+    run_from_project_root = True,
+)
+
+test(
+    name = "use_project_relative_paths",
+    artifact = "artifact",
+    script = "use_project_relative_paths.sh",
+    use_project_relative_paths = True,
+)
