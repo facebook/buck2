@@ -92,6 +92,45 @@ async def test_audit_config_executable_argfile(buck: Buck) -> None:
 
 
 @buck_test(inplace=True)
+async def test_audit_config_stdin_argfile_simple(buck: Buck) -> None:
+    result_file = await buck.audit_config(
+        "--style=json",
+        "@-",
+        input="\n".join(
+            [
+                "@fbcode//mode/opt",
+                "project.buck_out",
+            ]
+        ).encode(),
+    )
+    result_file_json = result_file.get_json()
+
+    assert result_file_json is not None
+    assert result_file_json.get("project.buck_out") == "buck-out/opt"
+
+
+@buck_test(inplace=True)
+async def test_audit_config_stdin_argfile_cell_from_cwd(buck: Buck) -> None:
+    result_file = await buck.audit_config(
+        "--style=json",
+        "@-",
+        input="\n".join(
+            [
+                # Should resolve to `fbcode//mode/opt` because
+                # the cwd is `fbcode/buck2`.
+                "@//mode/opt",
+                "project.buck_out",
+            ]
+        ).encode(),
+        rel_cwd=Path("buck2"),
+    )
+    result_file_json = result_file.get_json()
+
+    assert result_file_json is not None
+    assert result_file_json.get("project.buck_out") == "buck-out/opt"
+
+
+@buck_test(inplace=True)
 async def test_audit_config_location_extended(buck: Buck) -> None:
     result = await buck.audit_config(
         "@fbcode//buck2/tests/targets/configurations_uncategorized/executable_argfiles/jackalope",

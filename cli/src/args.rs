@@ -49,6 +49,8 @@ enum ArgExpansionError {
     FailedToComputeParentOfArgFile,
     #[error("Python argfile at `{path}` exited with non-zero status, stderr: {err:?}")]
     PythonExecutableFailed { path: String, err: String },
+    #[error("Unable to read line from stdin")]
+    StdinReadError { source: anyhow::Error },
 }
 
 /// Argument resolver that can expand cell paths, e.g., `cell//path/to/file`
@@ -167,6 +169,7 @@ impl ArgExpansionContext {
 enum ArgFile {
     PythonExecutable(AbsPathBuf, Option<String>),
     Path(AbsPathBuf),
+    Stdin,
 }
 
 // Expands any argfiles passed as command line parameters. There are
@@ -239,16 +242,17 @@ fn resolve_and_expand_argfile(
 ) -> anyhow::Result<Vec<String>> {
     let flagfile = resolve_flagfile(path, context, cwd)
         .with_context(|| format!("Error resolving flagfile `{}`", path))?;
-    let flagfile_path = match flagfile.to_owned() {
-        ArgFile::Path(file_path) => file_path,
-        ArgFile::PythonExecutable(file_path, _) => file_path,
-    };
     let flagfile_lines = expand_argfile_contents(&flagfile)?;
-    // Cell resolution inside flag files must be performed relative to the cell
-    // which contains the flag file itself.
-    let effective_cwd = flagfile_path
-        .parent()
-        .ok_or_else(|| anyhow!(ArgExpansionError::FailedToComputeParentOfArgFile))?;
+    let effective_cwd = match &flagfile {
+        ArgFile::Path(file_path) | ArgFile::PythonExecutable(file_path, _) => {
+            // Cell resolution inside flag files must be performed relative to the cell
+            // which contains the flag file itself.
+            file_path
+                .parent()
+                .ok_or_else(|| anyhow!(ArgExpansionError::FailedToComputeParentOfArgFile))?
+        }
+        ArgFile::Stdin => cwd,
+    };
     expand_argfiles_with_context(flagfile_lines, context, effective_cwd)
 }
 
@@ -302,6 +306,18 @@ fn expand_argfile_contents(flagfile: &ArgFile) -> anyhow::Result<Vec<String>> {
                 }))
             }
         }
+        ArgFile::Stdin => io::stdin()
+            .lock()
+            .lines()
+            .filter_map(|line| match line {
+                Ok(x) if x.is_empty() => None,
+                Ok(x) => Some(Ok(x)),
+                Err(err) => Some(Err(ArgExpansionError::StdinReadError {
+                    source: err.into(),
+                }
+                .into())),
+            })
+            .collect(),
     }
 }
 
@@ -311,6 +327,10 @@ fn resolve_flagfile(
     context: &ArgExpansionContext,
     cwd: &AbsPath,
 ) -> anyhow::Result<ArgFile> {
+    if path == "-" {
+        return Ok(ArgFile::Stdin);
+    }
+
     let (path_part, flag) = match path.split_once('#') {
         Some((pypath, pyflag)) => (pypath.to_owned(), Some(pyflag.to_owned())),
         None => (path.to_owned(), None),
