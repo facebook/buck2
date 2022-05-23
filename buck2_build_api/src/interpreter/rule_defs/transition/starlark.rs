@@ -144,7 +144,7 @@ impl<'v> Transition<'v> {
 fn register_transition_function(builder: &mut GlobalsBuilder) {
     fn transition<'v>(
         implementation: Value,
-        refs: DictOf<'v, StringValue<'v>, StringValue<'v>>,
+        #[starlark(require = named)] refs: DictOf<'v, StringValue<'v>, StringValue<'v>>,
         #[starlark(require = named, default = false)] split: bool,
     ) -> anyhow::Result<Transition<'v>> {
         let context = get_attr_coercion_context(eval)?;
