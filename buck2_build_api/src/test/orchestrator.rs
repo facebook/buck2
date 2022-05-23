@@ -172,18 +172,24 @@ impl TestOrchestrator for BuckTestOrchestrator {
 
         let mut declared_outputs = IndexMap::<BuckOutTestPath, OutputCreationBehavior>::new();
 
+        // NOTE: This likely needs more logic, in time.
+        let mut supports_re = true;
+
         let cwd;
         let expanded;
 
         {
+            let opts = self.session.options();
+
             let providers = providers.provider_collection();
             let test_info = providers
                 .get_provider(ExternalRunnerTestInfoCallable::provider_id_t())
                 .context("execute2 only supports ExternalRunnerTestInfo providers")?;
 
-            cwd = if test_info.run_from_project_root() {
+            cwd = if test_info.run_from_project_root() || opts.force_run_from_project_root {
                 ProjectRelativePathBuf::unchecked_new("".to_owned())
             } else {
+                supports_re = false;
                 // For compatibility with v1,
                 let cell_resolver = self.dice.get_cell_resolver().await;
                 let cell = cell_resolver.get(test_target.target().pkg().cell_name())?;
@@ -199,9 +205,12 @@ impl TestOrchestrator for BuckTestOrchestrator {
                 env,
             };
 
-            expanded = if test_info.use_project_relative_paths() {
+            expanded = if test_info.use_project_relative_paths()
+                || opts.force_use_project_relative_paths
+            {
                 expander.expand::<BaseCommandLineBuilder>()
             } else {
+                supports_re = false;
                 expander.expand::<AbsCommandLineBuilder>()
             }?;
         };
@@ -224,6 +233,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
                 expanded_env,
                 cwd,
                 declared_outputs,
+                supports_re,
             )
             .await?;
 
@@ -331,6 +341,7 @@ impl BuckTestOrchestrator {
         cli_env: HashMap<String, String>,
         cwd: ProjectRelativePathBuf,
         outputs: IndexMap<BuckOutTestPath, OutputCreationBehavior>,
+        supports_re: bool,
     ) -> anyhow::Result<(
         ExecutionStream,
         ExecutionStream,
@@ -366,7 +377,7 @@ impl BuckTestOrchestrator {
             request = request.with_host_sharing_requirements(requirements);
         }
 
-        if !self.session.allows_re() {
+        if !(self.session.options().allow_re && supports_re) {
             request = request.with_local_only(true)
         }
 
@@ -722,7 +733,7 @@ mod tests {
         (
             BuckTestOrchestrator::from_parts(
                 dice,
-                Arc::new(TestSession::new()),
+                Arc::new(TestSession::new(Default::default())),
                 sender,
                 EventDispatcher::null(),
             ),

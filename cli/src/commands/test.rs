@@ -9,7 +9,7 @@
 
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
-use cli_proto::TestRequest;
+use cli_proto::{TestRequest, TestSessionOptions};
 use crossterm::style::Color;
 use gazebo::prelude::*;
 use structopt::{clap, StructOpt};
@@ -91,8 +91,15 @@ If include patterns are present, regardless of whether exclude patterns are pres
     )]
     test_executor_args: Vec<String>,
 
-    #[structopt(long)]
+    /// Will allow tests that are compatible with RE (setup to run from the repo root and
+    /// use relative paths) to run from RE.
+    #[structopt(long, group = "re_options")]
     unstable_allow_tests_on_re: bool,
+
+    /// Will force tests to run on RE. This will force them to run via the repo root, and use
+    /// relative paths.
+    #[structopt(long, group = "re_options")]
+    unstable_force_tests_on_re: bool,
 }
 
 #[async_trait]
@@ -119,7 +126,11 @@ impl StreamingCommand for TestCommand {
                 // we don't currently have a different flag for this, so just use the build one.
                 concurrency: self.build_opts.num_threads.unwrap_or(0),
                 build_opts: Some(self.build_opts.to_proto()),
-                allow_re: self.unstable_allow_tests_on_re,
+                session_options: Some(TestSessionOptions {
+                    allow_re: self.unstable_allow_tests_on_re || self.unstable_force_tests_on_re,
+                    force_use_project_relative_paths: self.unstable_force_tests_on_re,
+                    force_run_from_project_root: self.unstable_force_tests_on_re,
+                }),
             })
             .await??;
 

@@ -28,7 +28,7 @@ use buck2_build_api::{
         executor_launcher::{ExecutorLaunch, ExecutorLauncher, OutOfProcessTestExecutor},
         orchestrator::{BuckTestOrchestrator, TestResultOrExitCode},
         provider::TestProvider,
-        session::TestSession,
+        session::{TestSession, TestSessionOptions},
         translations::build_configured_target_handle,
     },
 };
@@ -172,10 +172,16 @@ pub async fn test(
         name: test_executor,
     };
 
-    let mut session = TestSession::new();
-    if request.allow_re {
-        session.enable_re();
-    }
+    let options = request
+        .session_options
+        .as_ref()
+        .context("Missing `options`")?;
+
+    let session = TestSession::new(TestSessionOptions {
+        allow_re: options.allow_re,
+        force_use_project_relative_paths: options.force_use_project_relative_paths,
+        force_run_from_project_root: options.force_run_from_project_root,
+    });
 
     let test_outcome = test_targets(
         &ctx,

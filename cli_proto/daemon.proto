@@ -265,7 +265,15 @@ message BuildRequest {
   bool unstable_print_providers = 4242001;
 }
 
+message TestSessionOptions {
+  bool allow_re = 10;
+  bool force_use_project_relative_paths = 11;
+  bool force_run_from_project_root = 12;
+}
+
 message TestRequest {
+  reserved 10;
+
   ClientContext context = 1;
   repeated buck.data.TargetPattern target_patterns = 2;
 
@@ -291,7 +299,7 @@ message TestRequest {
 
   CommonBuildOptions build_opts = 9;
 
-  bool allow_re = 10;
+  TestSessionOptions session_options = 11;
 }
 
 message BxlRequest {

@@ -16,7 +16,16 @@ use buck2_core::{
 };
 use chrono::Local;
 use dashmap::DashMap;
+use gazebo::prelude::*;
 use test_api::data::ConfiguredTargetHandle;
+
+#[derive(Debug, Clone, Copy, Dupe, Default)]
+pub struct TestSessionOptions {
+    /// Whether this session should allow things to run on RE.
+    pub allow_re: bool,
+    pub force_use_project_relative_paths: bool,
+    pub force_run_from_project_root: bool,
+}
 
 /// The state of a buck2 test command.
 pub struct TestSession {
@@ -29,12 +38,13 @@ pub struct TestSession {
     /// uniqueness (at least not at this time), but it's helpful to group outputs in a way that
     /// more-or-less matches a given test session.
     prefix: ForwardRelativePathBuf,
-    /// Whether this session should allow things to run on RE.
-    allow_re: bool,
+    /// Options overriding the behavior of tests executed in this session. This is primarily
+    /// intended for unstable or debugging features.
+    options: TestSessionOptions,
 }
 
 impl TestSession {
-    pub fn new() -> Self {
+    pub fn new(options: TestSessionOptions) -> Self {
         // NOTE: This is the format that Tpx has historically used. We don't really *have* to use
         // this considering we don't even put it in the same place (we do it in ./buck-out/v2/tmp,
         // but Tpx put it in /tmp), but it's a reasonable one.
@@ -46,16 +56,12 @@ impl TestSession {
             next_id: AtomicU64::new(0),
             labels: DashMap::new(),
             prefix,
-            allow_re: false,
+            options,
         }
     }
 
-    pub fn enable_re(&mut self) {
-        self.allow_re = true;
-    }
-
-    pub fn allows_re(&self) -> bool {
-        self.allow_re
+    pub fn options(&self) -> TestSessionOptions {
+        self.options
     }
 
     pub fn prefix(&self) -> &ForwardRelativePath {
