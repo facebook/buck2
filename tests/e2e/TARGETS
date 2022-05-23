@@ -92,6 +92,7 @@ buck2_e2e_test(
     name = "test_rules",
     srcs = ["test_rules.py"],
     test_with_compiled_buck2_and_deployed_buck2 = True,
+    test_with_compiled_buck2_tpx = True,
 )
 
 buck2_e2e_test(

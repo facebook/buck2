@@ -149,14 +149,23 @@ message ExternalRunnerSpecValue {
   }
 }
 
-message ExecuteRequest2 {
+message TestExecutable {
   DisplayMetadata ui_prints = 1;
   ConfiguredTargetHandle target = 2;
   repeated ArgValue cmd = 3;
   map<string, ArgValue> env = 4;
+}
+
+message ExecuteRequest2 {
+  reserved 1 to 4;
   google.protobuf.Duration timeout = 5;
   HostSharingRequirements host_sharing_requirements = 6;
   repeated DeclaredOutput pre_create_dirs = 7;
+  TestExecutable test_executable = 8;
+}
+
+message PrepareForLocalExecutionRequest {
+  TestExecutable test_executable = 1;
 }
 
 message ArgValue {
@@ -204,12 +213,24 @@ message ExecuteResponse2 {
   ExecutionResult2 result = 1;
 }
 
+message PrepareForLocalExecutionResult {
+  repeated string cmd = 1;
+  map<string, string> env = 2;
+  string cwd = 3;
+}
+
+message PrepareForLocalExecutionResponse {
+  PrepareForLocalExecutionResult result = 1;
+}
+
 service TestOrchestrator {
   rpc EndOfTestResults(EndOfTestResultsRequest) returns (Empty);
   rpc ReportTestResult(ReportTestResultRequest) returns (Empty);
   rpc ReportTestsDiscovered(ReportTestsDiscoveredRequest) returns (Empty);
   rpc ReportTestSession(ReportTestSessionRequest) returns (Empty);
   rpc Execute2(ExecuteRequest2) returns (ExecuteResponse2);
+  rpc PrepareForLocalExecution(PrepareForLocalExecutionRequest)
+      returns (PrepareForLocalExecutionResponse);
 }
 
 service TestExecutor {

@@ -8,8 +8,8 @@ use downward_api_proto::{
 use host_sharing::HostSharingRequirements;
 use test_proto::{
     test_orchestrator_client, test_orchestrator_server, Empty, EndOfTestResultsRequest,
-    ExecuteResponse2, ReportTestResultRequest, ReportTestSessionRequest,
-    ReportTestsDiscoveredRequest, Testing,
+    ExecuteResponse2, PrepareForLocalExecutionResponse, ReportTestResultRequest,
+    ReportTestSessionRequest, ReportTestsDiscoveredRequest, Testing,
 };
 use tokio::io::{AsyncRead, AsyncWrite};
 use tonic::transport::Channel;
@@ -322,6 +322,15 @@ where
             Ok(Empty {})
         })
         .await
+    }
+
+    async fn prepare_for_local_execution(
+        &self,
+        _request: tonic::Request<test_proto::PrepareForLocalExecutionRequest>,
+    ) -> Result<tonic::Response<PrepareForLocalExecutionResponse>, tonic::Status> {
+        Err(tonic::Status::unimplemented(
+            "prepare_for_local_execution not implemented yet!",
+        ))
     }
 }
 

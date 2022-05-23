@@ -424,14 +424,18 @@ impl TryFrom<test_proto::ExecuteRequest2> for ExecuteRequest2 {
 
     fn try_from(s: test_proto::ExecuteRequest2) -> Result<Self, Self::Error> {
         let test_proto::ExecuteRequest2 {
-            ui_prints,
-            target,
-            cmd,
-            env,
+            test_executable,
             timeout,
             host_sharing_requirements,
             pre_create_dirs,
         } = s;
+
+        let test_proto::TestExecutable {
+            ui_prints,
+            target,
+            cmd,
+            env,
+        } = test_executable.context("Missing `test_executable`")?;
 
         let ui_prints = ui_prints
             .context("Missing `ui_prints`")?
@@ -495,7 +499,7 @@ impl TryInto<test_proto::ExecuteRequest2> for ExecuteRequest2 {
             })
             .collect::<anyhow::Result<_>>()?;
 
-        Ok(test_proto::ExecuteRequest2 {
+        let test_executable = test_proto::TestExecutable {
             ui_prints: Some(self.ui_prints.try_into().context("Invalid `ui_prints`")?),
             target: Some(self.target.try_into().context("Invalid `target`")?),
             cmd: self
@@ -503,6 +507,10 @@ impl TryInto<test_proto::ExecuteRequest2> for ExecuteRequest2 {
                 .into_try_map(|i| i.try_into())
                 .context("Invalid `cmd`")?,
             env,
+        };
+
+        Ok(test_proto::ExecuteRequest2 {
+            test_executable: Some(test_executable),
             timeout: Some(self.timeout.into()),
             host_sharing_requirements: Some(
                 host_sharing_requirements_to_grpc(self.host_sharing_requirements)
