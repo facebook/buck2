@@ -121,6 +121,8 @@ def generate_rustdoc(
         "-o",
         output.as_output(),
         common_args.args,
+        "--buck-target",
+        str(ctx.label.raw_target()),
     )
 
     if document_private_items:
