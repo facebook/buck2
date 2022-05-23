@@ -356,6 +356,7 @@ where
 
 #[cfg(test)]
 mod test {
+    use lsp_server::{Request, RequestId};
     use lsp_types::{
         request::GotoDefinition, GotoDefinitionParams, GotoDefinitionResponse, Location, Position,
         Range, TextDocumentIdentifier, TextDocumentPositionParams, Url,
@@ -363,19 +364,38 @@ mod test {
 
     use crate::lsp::test::TestServer;
 
-    #[test]
-    fn sends_empty_goto_definition_on_nonexistent_file() -> anyhow::Result<()> {
-        let mut server = TestServer::new()?;
-        let req = server.new_request::<GotoDefinition>(GotoDefinitionParams {
+    fn goto_definition_request(
+        server: &mut TestServer,
+        uri: Url,
+        line: u32,
+        character: u32,
+    ) -> Request {
+        server.new_request::<GotoDefinition>(GotoDefinitionParams {
             text_document_position_params: TextDocumentPositionParams {
-                text_document: TextDocumentIdentifier {
-                    uri: Url::parse("file:///tmp/nonexistent")?,
-                },
-                position: Default::default(),
+                text_document: TextDocumentIdentifier { uri },
+                position: Position { line, character },
             },
             work_done_progress_params: Default::default(),
             partial_result_params: Default::default(),
-        });
+        })
+    }
+
+    fn goto_definition_response_location(
+        server: &mut TestServer,
+        request_id: RequestId,
+    ) -> anyhow::Result<Location> {
+        let response = server.get_response::<GotoDefinitionResponse>(request_id)?;
+        match response {
+            GotoDefinitionResponse::Scalar(location) => Ok(location),
+            _ => Err(anyhow::anyhow!("Got invalid message type: {:?}", response)),
+        }
+    }
+
+    #[test]
+    fn sends_empty_goto_definition_on_nonexistent_file() -> anyhow::Result<()> {
+        let mut server = TestServer::new()?;
+        let req =
+            goto_definition_request(&mut server, Url::parse("file:///tmp/nonexistent")?, 0, 0);
 
         let request_id = server.send_request(req)?;
         let response: GotoDefinitionResponse = server.get_response(request_id)?;
@@ -396,17 +416,7 @@ mod test {
         let contents = "y = 1\ndef nothing():\n    pass\nprint(nothing())\n";
         server.open_file(uri.clone(), contents.to_owned())?;
 
-        let goto_definition = server.new_request::<GotoDefinition>(GotoDefinitionParams {
-            text_document_position_params: TextDocumentPositionParams {
-                text_document: TextDocumentIdentifier { uri },
-                position: Position {
-                    line: 1,
-                    character: 6,
-                },
-            },
-            work_done_progress_params: Default::default(),
-            partial_result_params: Default::default(),
-        });
+        let goto_definition = goto_definition_request(&mut server, uri, 1, 6);
 
         let request_id = server.send_request(goto_definition)?;
         let response = server.get_response::<GotoDefinitionResponse>(request_id)?;
@@ -440,27 +450,13 @@ mod test {
         let contents = "y = 1\ndef nothing():\n    pass\nprint(nothing())\n";
         server.open_file(uri.clone(), contents.to_owned())?;
 
-        let goto_definition = server.new_request::<GotoDefinition>(GotoDefinitionParams {
-            text_document_position_params: TextDocumentPositionParams {
-                text_document: TextDocumentIdentifier { uri },
-                position: Position {
-                    line: 3,
-                    character: 6,
-                },
-            },
-            work_done_progress_params: Default::default(),
-            partial_result_params: Default::default(),
-        });
+        let goto_definition = goto_definition_request(&mut server, uri, 3, 6);
 
         let request_id = server.send_request(goto_definition)?;
-        let response = server.get_response::<GotoDefinitionResponse>(request_id)?;
-        match response {
-            GotoDefinitionResponse::Scalar(location) => {
-                assert_eq!(expected_location, location);
-                Ok(())
-            }
-            _ => Err(anyhow::anyhow!("Got invalid message type: {:?}", response)),
-        }
+        let location = goto_definition_response_location(&mut server, request_id)?;
+
+        assert_eq!(expected_location, location);
+        Ok(())
     }
 
     #[test]
@@ -485,26 +481,12 @@ mod test {
         server.open_file(uri.clone(), contents.to_owned())?;
         server.change_file(uri.clone(), "\"invalid parse".to_owned())?;
 
-        let goto_definition = server.new_request::<GotoDefinition>(GotoDefinitionParams {
-            text_document_position_params: TextDocumentPositionParams {
-                text_document: TextDocumentIdentifier { uri },
-                position: Position {
-                    line: 3,
-                    character: 6,
-                },
-            },
-            work_done_progress_params: Default::default(),
-            partial_result_params: Default::default(),
-        });
+        let goto_definition = goto_definition_request(&mut server, uri, 3, 6);
 
         let request_id = server.send_request(goto_definition)?;
-        let response = server.get_response::<GotoDefinitionResponse>(request_id)?;
-        match response {
-            GotoDefinitionResponse::Scalar(location) => {
-                assert_eq!(expected_location, location);
-                Ok(())
-            }
-            _ => Err(anyhow::anyhow!("Got invalid message type: {:?}", response)),
-        }
+        let location = goto_definition_response_location(&mut server, request_id)?;
+
+        assert_eq!(expected_location, location);
+        Ok(())
     }
 }
