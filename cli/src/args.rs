@@ -9,7 +9,6 @@
 
 use std::{
     convert::TryFrom,
-    ffi::OsStr,
     fs::File,
     io::{self, BufRead},
     path::Path,
@@ -49,6 +48,8 @@ enum ArgExpansionError {
     FailedToComputeParentOfArgFile,
     #[error("Python argfile at `{path}` exited with non-zero status, stderr: {err:?}")]
     PythonExecutableFailed { path: String, err: String },
+    #[error("Python argfile command ({cmd:?}) execution failed")]
+    PythonExececutionFailed { source: io::Error, cmd: Command },
     #[error("Unable to read line from stdin")]
     StdinReadError { source: anyhow::Error },
 }
@@ -280,16 +281,13 @@ fn expand_argfile_contents(flagfile: &ArgFile) -> anyhow::Result<Vec<String>> {
         }
         ArgFile::PythonExecutable(path, flag) => {
             let mut cmd = Command::new("python3");
-            let cmd_with_arg = match flag {
-                Some(flag) => cmd
-                    .arg(path.as_os_str())
-                    .arg("--flavors")
-                    .arg(OsStr::new(flag)),
-                None => cmd.arg(path.as_os_str()),
-            };
-            let cmd_out = cmd_with_arg
+            cmd.arg(path.as_os_str());
+            if let Some(flag) = flag.as_deref() {
+                cmd.args(["--flavors", flag]);
+            }
+            let cmd_out = cmd
                 .output()
-                .expect("python executable failed to run");
+                .map_err(|source| ArgExpansionError::PythonExececutionFailed { cmd, source })?;
             if cmd_out.status.success() {
                 Ok(str::from_utf8(&cmd_out.stdout)
                     .map_err(|_| ArgExpansionError::PythonOutputNotUtf8 {
