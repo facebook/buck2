@@ -13,7 +13,7 @@ document covers how to use this mechanism to debug memory performance problems i
 
 This guide assumes a few things about your setup:
 
-1. **You're on a devserver on OnDemand**. While this is not strictly required, the powerful
+1. **You're on a devserver or OnDemand**. While this is not strictly required, the powerful
    `stackstoscuba` program is only available on your devserver.
 2. **You have installed jemalloc's developer tools**. You can do this by pulling from our local package
    mirror: `sudo dnf install jemalloc-devel-5.2.1-2.el8.x86_64`. You can check whether or not this
