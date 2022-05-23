@@ -549,12 +549,6 @@ extra_attributes = struct(
     filegroup = {
         "srcs": attr.list(attr.source(allow_directory = True), default = []),
     },
-    core_data_model = {
-        "path": attr.source(allow_directory = True),
-    },
-    scene_kit_assets = {
-        "path": attr.source(allow_directory = True),
-    },
 
     #merged **kwargs
     **_merge_dictionaries([

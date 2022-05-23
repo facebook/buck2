@@ -110,10 +110,16 @@ extra_attributes = {
         #                   pass abs paths during development and using the currently selected Xcode.
         "_internal_sdk_path": attr.option(attr.string()),
     },
+    "core_data_model": {
+        "path": attr.source(allow_directory = True),
+    },
     "prebuilt_apple_framework": {
         "framework": attr.option(attr.source(allow_directory = True), default = None),
         "preferred_linkage": attr.enum(Linkage, default = "any"),
         "_apple_toolchain": attr.exec_dep(default = select_apple_toolchain(), providers = [AppleToolchainInfo]),
+    },
+    "scene_kit_assets": {
+        "path": attr.source(allow_directory = True),
     },
     "swift_library": {
         "preferred_linkage": attr.enum(Linkage, default = "any"),
