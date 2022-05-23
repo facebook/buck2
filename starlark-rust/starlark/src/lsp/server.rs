@@ -24,7 +24,7 @@ use std::{
 };
 
 use gazebo::prelude::*;
-use lsp_server::{Connection, Message, Notification, Request, RequestId, Response};
+use lsp_server::{Connection, Message, Notification, Request, RequestId, Response, ResponseError};
 use lsp_types::{
     notification::{
         DidChangeTextDocument, DidCloseTextDocument, DidOpenTextDocument, LogMessage,
@@ -194,7 +194,7 @@ impl<T: LspContext> Backend<T> {
             }
             None => GotoDefinitionResponse::Array(vec![]),
         };
-        self.send_response(new_response(id, response));
+        self.send_response(new_response(id, Ok(response)));
     }
 }
 
@@ -332,14 +332,25 @@ where
     }
 }
 
-fn new_response<T>(id: RequestId, params: T) -> Response
+fn new_response<T>(id: RequestId, params: anyhow::Result<T>) -> Response
 where
     T: serde::Serialize,
 {
-    Response {
-        id,
-        result: Some(serde_json::to_value(params).unwrap()),
-        error: None,
+    match params {
+        Ok(params) => Response {
+            id,
+            result: Some(serde_json::to_value(params).unwrap()),
+            error: None,
+        },
+        Err(e) => Response {
+            id,
+            result: None,
+            error: Some(ResponseError {
+                code: 0,
+                message: format!("{:#}", e),
+                data: None,
+            }),
+        },
     }
 }
 
