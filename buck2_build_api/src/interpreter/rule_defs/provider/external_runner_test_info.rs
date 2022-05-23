@@ -16,11 +16,7 @@ use gazebo::{any::AnyLifetime, coerce::Coerce};
 use starlark::{
     environment::GlobalsBuilder,
     values::{
-        dict::Dict,
-        list::List,
-        none::{NoneOr, NoneType},
-        tuple::Tuple,
-        Freeze, Trace, UnpackValue, Value, ValueLike,
+        dict::Dict, list::List, none::NoneType, tuple::Tuple, Freeze, Trace, Value, ValueLike,
     },
 };
 
@@ -60,10 +56,6 @@ pub struct ExternalRunnerTestInfoGen<V> {
     /// oncall, though it's not validated in any way.
     /// This is of type [str.type]
     contacts: V,
-
-    /// Whether to use the templated test_spec API (historical behavior, which we are removing), or
-    /// external_runner_spec API.
-    use_templated_api: V,
 }
 
 // NOTE: All the methods here unwrap because we validate at freeze time.
@@ -259,13 +251,6 @@ where
         .to_value()
         .unpack_str()
         .context("`type` must be a str")?;
-    let use_templated_api = NoneOr::<bool>::unpack_value(info.use_templated_api.to_value())
-        .context("`use_templated_api` must be a bool if provided")?;
-    if use_templated_api.into_option().unwrap_or(false) {
-        return Err(anyhow::anyhow!(
-            "`use_templated_api` is deprecated and will be removed, it can only be unset of False"
-        ));
-    }
     Ok(())
 }
 
@@ -278,7 +263,6 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
         #[starlark(default = NoneType)] env: Value<'v>,
         #[starlark(default = NoneType)] labels: Value<'v>,
         #[starlark(default = NoneType)] contacts: Value<'v>,
-        #[starlark(default = NoneType)] use_templated_api: Value<'v>,
     ) -> anyhow::Result<ExternalRunnerTestInfo<'v>> {
         let res = ExternalRunnerTestInfo {
             test_type: r#type,
@@ -286,7 +270,6 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
             env,
             labels,
             contacts,
-            use_templated_api,
         };
         validate_external_runner_test_info(&res)?;
         Ok(res)
@@ -315,7 +298,6 @@ mod tests {
                 ExternalRunnerTestInfo(type = "foo", labels = ["foo"])
                 ExternalRunnerTestInfo(type = "foo", contacts = ["foo"])
                 ExternalRunnerTestInfo(type = "foo", labels = ("foo",))
-                ExternalRunnerTestInfo(type = "foo", use_templated_api = False)
             "#
         );
         run_starlark_bzl_test(test)?;
@@ -422,26 +404,6 @@ mod tests {
             "#
             ),
             "`contacts`",
-        );
-
-        run_starlark_bzl_test_expecting_error(
-            indoc!(
-                r#"
-            def test():
-                ExternalRunnerTestInfo(type = "foo", use_templated_api = "foobar")
-            "#
-            ),
-            "`use_templated_api`",
-        );
-
-        run_starlark_bzl_test_expecting_error(
-            indoc!(
-                r#"
-            def test():
-                ExternalRunnerTestInfo(type = "foo", use_templated_api = True)
-            "#
-            ),
-            "`use_templated_api`",
         );
 
         Ok(())
