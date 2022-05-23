@@ -14,7 +14,7 @@ There are useful commands as they stand today, but the commands change regularly
 
 To test your macOS setup, you can try executing this command:
 
-* `./buck2.sh build --fake-host=macos fbsource//fbobjc/Libraries/FBLog:FBLog`
+* `./buck2.sh build @fbsource//fbobjc/mode/buck2/linux fbsource//fbobjc/Libraries/FBLog:FBLog`
 
 ## Working with Starlark
 
