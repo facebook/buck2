@@ -26,7 +26,7 @@ pub use crate::stdlib::LibraryExtension;
 use crate::{
     collections::{
         symbol_map::{Symbol, SymbolMap},
-        SmallMap,
+        Hashed, SmallMap,
     },
     eval::{Arguments, Evaluator},
     stdlib,
@@ -179,6 +179,10 @@ impl Methods {
 
     pub(crate) fn get_frozen(&self, name: &str) -> Option<FrozenValue> {
         self.0.members.get_str(name).copied()
+    }
+
+    pub(crate) fn get_hashed(&self, name: Hashed<&str>) -> Option<FrozenValue> {
+        self.0.members.get_hashed_str(name).copied()
     }
 
     pub(crate) fn get_frozen_symbol(&self, name: &Symbol) -> Option<FrozenValue> {

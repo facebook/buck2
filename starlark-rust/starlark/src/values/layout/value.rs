@@ -730,11 +730,14 @@ impl<'v> Value<'v> {
     pub fn get_attr(self, attribute: &str, heap: &'v Heap) -> anyhow::Result<Option<Value<'v>>> {
         let aref = self.get_ref();
         if let Some(methods) = aref.get_methods() {
-            if let Some(v) = methods.get_frozen(attribute) {
+            let attribute = Hashed::new(attribute);
+            if let Some(v) = methods.get_hashed(attribute) {
                 return Ok(Some(MaybeUnboundValue::new(v).bind(self, heap)?));
             }
+            Ok(aref.get_attr_hashed(attribute, heap))
+        } else {
+            Ok(aref.get_attr(attribute, heap))
         }
-        Ok(aref.get_attr(attribute, heap))
     }
 
     /// Like `get_attr` but return an error if the attribute is not available.
