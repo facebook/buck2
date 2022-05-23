@@ -332,23 +332,22 @@ fn resolve_flagfile(
     }
 
     let (path_part, flag) = match path.split_once('#') {
-        Some((pypath, pyflag)) => (pypath.to_owned(), Some(pyflag.to_owned())),
-        None => (path.to_owned(), None),
+        Some((pypath, pyflag)) => (pypath, Some(pyflag)),
+        None => (path, None),
     };
 
     let resolved_path = if let Some(cell_resolved_path) =
-        context.arg_resolver.resolve_cell_path_arg(&path_part, cwd)
+        context.arg_resolver.resolve_cell_path_arg(path_part, cwd)
     {
         cell_resolved_path.context("Error resolving cell path")?
     } else {
-        let p = Path::new(&path_part);
+        let p = Path::new(path_part);
         if !p.is_absolute() {
             let abs_path = match fs::canonicalize(p) {
                 Ok(abs_path) => Ok(abs_path),
                 Err(original_error) => {
-                    let cell_relative_path = context
-                        .arg_resolver
-                        .resolve_cell_path("", &path_part, cwd)?;
+                    let cell_relative_path =
+                        context.arg_resolver.resolve_cell_path("", path_part, cwd)?;
                     // If the relative path does not exist relative to the cwd,
                     // attempt to make it relative to the cell root. If *that*
                     // doesn't exist, just report the original error back, and
@@ -356,7 +355,7 @@ fn resolve_flagfile(
                     // We want to deprecate that.
                     match fs::canonicalize(cell_relative_path) {
                         Ok(abs_path) => {
-                            context.log_relative_path_from_cell_root(&path_part)?;
+                            context.log_relative_path_from_cell_root(path_part)?;
                             Ok(abs_path)
                         }
                         Err(_) => Err(ArgExpansionError::MissingFlagFileOnDisk {
@@ -373,7 +372,10 @@ fn resolve_flagfile(
     };
 
     if path_part.ends_with(".py") {
-        Ok(ArgFile::PythonExecutable(resolved_path, flag))
+        Ok(ArgFile::PythonExecutable(
+            resolved_path,
+            flag.map(ToOwned::to_owned),
+        ))
     } else {
         Ok(ArgFile::Path(resolved_path))
     }
