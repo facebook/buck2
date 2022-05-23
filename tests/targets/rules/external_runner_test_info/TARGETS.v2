@@ -15,3 +15,11 @@ test(
     script = "use_project_relative_paths.sh",
     use_project_relative_paths = True,
 )
+
+test(
+    name = "use_project_relative_paths_and_run_from_project_root",
+    artifact = "artifact",
+    script = "use_project_relative_paths_and_run_from_project_root.sh",
+    run_from_project_root = True,
+    use_project_relative_paths = True,
+)

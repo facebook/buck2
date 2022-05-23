@@ -244,3 +244,10 @@ if not is_deployed_buck2():
         await buck.test(
             "fbcode//buck2/tests/targets/rules/external_runner_test_info/...",
         )
+
+    @buck_test(inplace=True, data_dir="..")
+    async def test_allow_tests_on_re(buck: Buck) -> None:
+        await buck.test(
+            "fbcode//buck2/tests/targets/rules/external_runner_test_info/...",
+            "--unstable-allow-tests-on-re",
+        )
