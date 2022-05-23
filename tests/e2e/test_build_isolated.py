@@ -338,59 +338,6 @@ async def test_query_rdeps(buck: Buck) -> None:
     assert result.stdout == "root//lib:file1\nroot//lib:lib1\nroot//bin:the_binary\n"
 
 
-@buck_test(inplace=False, data_dir="cells")
-async def test_cell_relative_configs(buck: Buck) -> None:
-    result_root_cell = await buck.audit_config(
-        "foo", "--config", "root//bar.a=5", "--style", "json"
-    )
-    result_root_cell_json = result_root_cell.get_json()
-
-    assert result_root_cell_json is not None
-    assert result_root_cell_json.get("foo.b") == "5"
-
-    result_nonroot_cell = await buck.audit_config(
-        "foo",
-        "--config",
-        "code//bar.a=5",
-        "--style",
-        "json",
-        "--cell",
-        "code",
-    )
-    result_nonroot_cell_json = result_nonroot_cell.get_json()
-
-    assert result_nonroot_cell_json is not None
-    assert result_nonroot_cell_json.get("foo.b") == "5"
-
-    result_diff_cell = await buck.audit_config(
-        "foo",
-        "--config",
-        "code//bar.a=5",
-        "--style",
-        "json",
-        "--cell",
-        "source",
-    )
-    result_diff_cell_json = result_diff_cell.get_json()
-
-    assert result_diff_cell_json is not None
-    assert result_diff_cell_json.get("foo.b") == "1"
-
-    result_all_cell = await buck.audit_config(
-        "foo",
-        "--config",
-        "bar.a=5",
-        "--style",
-        "json",
-        "--cell",
-        "source",
-    )
-    result_all_cell_json = result_all_cell.get_json()
-
-    assert result_all_cell_json is not None
-    assert result_all_cell_json.get("foo.b") == "5"
-
-
 @buck_test(inplace=False, data_dir="bql/simple")
 async def test_targets_recursive(buck: Buck) -> None:
     result = await buck.targets("--json", "ignored/...")
