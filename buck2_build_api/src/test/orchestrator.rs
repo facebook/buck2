@@ -172,11 +172,23 @@ impl TestOrchestrator for BuckTestOrchestrator {
 
         let mut declared_outputs = IndexMap::<BuckOutTestPath, OutputCreationBehavior>::new();
 
-        let (expanded_cmd, expanded_env, inputs) = {
+        let cwd;
+        let expanded;
+
+        {
             let providers = providers.provider_collection();
             let test_info = providers
                 .get_provider(ExternalRunnerTestInfoCallable::provider_id_t())
                 .context("execute2 only supports ExternalRunnerTestInfo providers")?;
+
+            cwd = if test_info.run_from_project_root() {
+                ProjectRelativePathBuf::unchecked_new("".to_owned())
+            } else {
+                // For compatibility with v1,
+                let cell_resolver = self.dice.get_cell_resolver().await;
+                let cell = cell_resolver.get(test_target.target().pkg().cell_name())?;
+                cell.path().to_owned()
+            };
 
             let expander = Execute2RequestExpander {
                 test_info: &test_info,
@@ -187,12 +199,14 @@ impl TestOrchestrator for BuckTestOrchestrator {
                 env,
             };
 
-            if self.session.allows_re() {
+            expanded = if test_info.use_project_relative_paths() {
                 expander.expand::<BaseCommandLineBuilder>()
             } else {
                 expander.expand::<AbsCommandLineBuilder>()
-            }?
+            }?;
         };
+
+        let (expanded_cmd, expanded_env, inputs) = expanded;
 
         for output in pre_create_dirs {
             let test_path = BuckOutTestPath::new(output_root.clone(), output.name);
@@ -208,6 +222,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
                 inputs,
                 expanded_cmd,
                 expanded_env,
+                cwd,
                 declared_outputs,
             )
             .await?;
@@ -314,6 +329,7 @@ impl BuckTestOrchestrator {
         cmd_inputs: IndexSet<ArtifactGroup>,
         cli_args: Vec<String>,
         cli_env: HashMap<String, String>,
+        cwd: ProjectRelativePathBuf,
         outputs: IndexMap<BuckOutTestPath, OutputCreationBehavior>,
     ) -> anyhow::Result<(
         ExecutionStream,
@@ -337,10 +353,6 @@ impl BuckTestOrchestrator {
             ));
         }
 
-        // For compatibility with v1,
-        let cell_resolver = self.dice.get_cell_resolver().await;
-        let cell = cell_resolver.get(test_target.target().pkg().cell_name())?;
-
         // NOTE: This looks a bit awkward, that's because fbcode's rustfmt and ours slightly
         // disagree about format here...
         let request = CommandExecutionRequest::new(cli_args, inputs, Default::default(), cli_env);
@@ -348,16 +360,14 @@ impl BuckTestOrchestrator {
             .with_test_outputs(outputs)
             .with_timeout(timeout)
             // A custom $TMPDIR is usually longer, which breaks a bunch of tests
-            .with_custom_tmpdir(false);
+            .with_custom_tmpdir(false)
+            .with_working_directory(cwd);
         if let Some(requirements) = host_sharing_requirements {
             request = request.with_host_sharing_requirements(requirements);
         }
 
-        // For compatibility with v1.
         if !self.session.allows_re() {
-            request = request
-                .with_local_only(true)
-                .with_working_directory(cell.path().to_owned());
+            request = request.with_local_only(true)
         }
 
         let manager = CommandExecutionManager::new(
