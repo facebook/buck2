@@ -16,7 +16,11 @@ use gazebo::{any::AnyLifetime, coerce::Coerce};
 use starlark::{
     environment::GlobalsBuilder,
     values::{
-        dict::Dict, list::List, none::NoneType, tuple::Tuple, Freeze, Trace, Value, ValueLike,
+        dict::Dict,
+        list::List,
+        none::{NoneOr, NoneType},
+        tuple::Tuple,
+        Freeze, Trace, UnpackValue, Value, ValueLike,
     },
 };
 
@@ -56,6 +60,15 @@ pub struct ExternalRunnerTestInfoGen<V> {
     /// oncall, though it's not validated in any way.
     /// This is of type [str.type]
     contacts: V,
+
+    /// Whether this test should use relative paths. The default is not to.
+    /// This is of type [bool.type]
+    use_project_relative_paths: V,
+
+    /// Whether this test should run from the project root, as opposed to the cell root. The
+    /// default is not to.
+    /// This is of type [bool.type]
+    run_from_project_root: V,
 }
 
 // NOTE: All the methods here unwrap because we validate at freeze time.
@@ -78,6 +91,20 @@ impl FrozenExternalRunnerTestInfo {
 
     pub fn contacts(&self) -> impl Iterator<Item = &str> {
         unwrap_all(iter_opt_str_list(self.contacts.to_value(), "contacts"))
+    }
+
+    pub fn use_project_relative_paths(&self) -> bool {
+        NoneOr::<bool>::unpack_value(self.use_project_relative_paths.to_value())
+            .unwrap()
+            .into_option()
+            .unwrap_or_default()
+    }
+
+    pub fn run_from_project_root(&self) -> bool {
+        NoneOr::<bool>::unpack_value(self.run_from_project_root.to_value())
+            .unwrap()
+            .into_option()
+            .unwrap_or_default()
     }
 
     pub fn visit_artifacts(
@@ -247,6 +274,10 @@ where
     check_all(iter_test_env(info.env.to_value()))?;
     check_all(iter_opt_str_list(info.labels.to_value(), "labels"))?;
     check_all(iter_opt_str_list(info.contacts.to_value(), "contacts"))?;
+    NoneOr::<bool>::unpack_value(info.use_project_relative_paths.to_value())
+        .context("`use_project_relative_paths` must be a bool if provided")?;
+    NoneOr::<bool>::unpack_value(info.run_from_project_root.to_value())
+        .context("`run_from_project_root` must be a bool if provided")?;
     info.test_type
         .to_value()
         .unpack_str()
@@ -263,6 +294,8 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
         #[starlark(default = NoneType)] env: Value<'v>,
         #[starlark(default = NoneType)] labels: Value<'v>,
         #[starlark(default = NoneType)] contacts: Value<'v>,
+        #[starlark(default = NoneType)] use_project_relative_paths: Value<'v>,
+        #[starlark(default = NoneType)] run_from_project_root: Value<'v>,
     ) -> anyhow::Result<ExternalRunnerTestInfo<'v>> {
         let res = ExternalRunnerTestInfo {
             test_type: r#type,
@@ -270,6 +303,8 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
             env,
             labels,
             contacts,
+            use_project_relative_paths,
+            run_from_project_root,
         };
         validate_external_runner_test_info(&res)?;
         Ok(res)
@@ -298,6 +333,8 @@ mod tests {
                 ExternalRunnerTestInfo(type = "foo", labels = ["foo"])
                 ExternalRunnerTestInfo(type = "foo", contacts = ["foo"])
                 ExternalRunnerTestInfo(type = "foo", labels = ("foo",))
+                ExternalRunnerTestInfo(type = "foo", use_project_relative_paths = True)
+                ExternalRunnerTestInfo(type = "foo", run_from_project_root = True)
             "#
         );
         run_starlark_bzl_test(test)?;
@@ -404,6 +441,26 @@ mod tests {
             "#
             ),
             "`contacts`",
+        );
+
+        run_starlark_bzl_test_expecting_error(
+            indoc!(
+                r#"
+            def test():
+                ExternalRunnerTestInfo(type = "foo", use_project_relative_paths = "foo")
+            "#
+            ),
+            "`use_project_relative_paths`",
+        );
+
+        run_starlark_bzl_test_expecting_error(
+            indoc!(
+                r#"
+            def test():
+                ExternalRunnerTestInfo(type = "foo", run_from_project_root = "foo")
+            "#
+            ),
+            "`run_from_project_root`",
         );
 
         Ok(())
