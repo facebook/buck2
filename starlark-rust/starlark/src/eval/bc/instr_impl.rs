@@ -55,6 +55,7 @@ use crate::{
     values::{
         dict::Dict,
         function::NativeFunction,
+        layout::value_not_special::FrozenValueNotSpecial,
         list::List,
         string::interpolation::{format_one, percent_s_one},
         types::known_methods::KnownMethod,
@@ -622,19 +623,17 @@ impl InstrBinOpImpl for InstrEqImpl {
 impl InstrNoFlowImpl for InstrEqConstImpl {
     type Pop<'v> = Value<'v>;
     type Push<'v> = Value<'v>;
-    type Arg = FrozenValue;
+    type Arg = FrozenValueNotSpecial;
 
     #[inline(always)]
     fn run_with_args<'v>(
         _eval: &mut Evaluator<'v, '_>,
         _stack: &mut BcStackPtr<'v, '_>,
         _ip: BcPtrAddr,
-        arg: &FrozenValue,
+        arg: &FrozenValueNotSpecial,
         pops: Value<'v>,
     ) -> anyhow::Result<Value<'v>> {
-        // TODO(nga): we know that `arg` is neither int nor string,
-        //   so we could do faster unpacking.
-        pops.equals(arg.to_value()).map(Value::new_bool)
+        arg.equals(pops).map(Value::new_bool)
     }
 }
 

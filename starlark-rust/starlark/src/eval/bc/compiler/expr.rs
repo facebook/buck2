@@ -37,7 +37,9 @@ use crate::{
         },
         runtime::call_stack::FrozenFileSpan,
     },
-    values::{FrozenStringValue, FrozenValue, ValueLike},
+    values::{
+        layout::value_not_special::FrozenValueNotSpecial, FrozenStringValue, FrozenValue, ValueLike,
+    },
 };
 
 pub(crate) fn write_exprs<'a>(
@@ -133,8 +135,10 @@ impl IrSpanned<ExprCompiled> {
             bc.write_instr::<InstrEqPtr>(span, b);
         } else if let Some(b) = FrozenStringValue::new(b) {
             bc.write_instr::<InstrEqStr>(span, b);
-        } else {
+        } else if let Some(b) = FrozenValueNotSpecial::new(b) {
             bc.write_instr::<InstrEqConst>(span, b);
+        } else {
+            unreachable!("FrozenValue must be either i32, str or not-special");
         }
     }
 
