@@ -164,13 +164,13 @@ def _link_ui_resource(ctx: "context", raw_file: "artifact", output: "output_arti
         output_is_dir = output_is_dir,
     )
 
-def _process_apple_resource_file_if_needed(ctx: "context", file: "artifact", destination: AppleBundleDestination.type) -> AppleBundlePart.type:
+def _process_apple_resource_file_if_needed(ctx: "context", file: "artifact", destination: AppleBundleDestination.type, destination_relative_path: [str.type, None]) -> AppleBundlePart.type:
     output_dir = "_ProcessedResources"
     basename = paths.basename(file.short_path)
     output_is_contents_dir = False
     if basename.endswith(".plist") or basename.endswith(".stringsdict"):
         processed = ctx.actions.declare_output(paths.join(output_dir, file.short_path))
-        _process_plist(ctx, file, None, processed.as_output())
+        _process_plist(ctx, file, None, processed.as_output(), destination_relative_path)
     elif basename.endswith(".storyboard"):
         compiled = ctx.actions.declare_output(paths.join(output_dir, paths.replace_extension(file.short_path, ".storyboardc")))
         if _is_watch_bundle(ctx):
@@ -189,7 +189,7 @@ def _process_apple_resource_file_if_needed(ctx: "context", file: "artifact", des
 
     # When name is empty string only content of the directory will be copied, as opposed to the directory itself.
     # When name is `None`, directory or file will be copied as it is, without renaming.
-    new_name = "" if output_is_contents_dir else None
+    new_name = destination_relative_path if destination_relative_path else ("" if output_is_contents_dir else None)
     return AppleBundlePart(source = processed, destination = destination, new_name = new_name)
 
 def _bundle_parts_for_dirs(generated_dirs: ["artifact"], destination: AppleBundleDestination.type, copy_contents_only: bool.type) -> [AppleBundlePart.type]:
@@ -199,27 +199,23 @@ def _bundle_parts_for_dirs(generated_dirs: ["artifact"], destination: AppleBundl
         new_name = "" if copy_contents_only else None,
     ) for generated_dir in generated_dirs]
 
-def _bundle_parts_for_variant_files(spec: AppleResourceSpec.type) -> [AppleBundlePart.type]:
+def _bundle_parts_for_variant_files(ctx: "context", spec: AppleResourceSpec.type) -> [AppleBundlePart.type]:
     result = []
 
     # By definition, all variant files go into the resources destination
     bundle_destination = AppleBundleDestination("resources")
     for variant_file in spec.variant_files:
         variant_dest_subpath = _get_dest_subpath_for_variant_file(variant_file)
-        result.append(AppleBundlePart(
-            source = variant_file,
-            destination = bundle_destination,
-            new_name = variant_dest_subpath,
-        ))
+        bundle_part = _process_apple_resource_file_if_needed(ctx, variant_file, bundle_destination, variant_dest_subpath)
+        result.append(bundle_part)
 
     for locale, variant_files in spec.named_variant_files.items():
         if not locale.endswith(".lproj"):
             fail("Keys for named variant files have to end with '.lproj' suffix, got {}".format(locale))
-        result += [AppleBundlePart(
-            source = variant_file,
-            destination = bundle_destination,
-            new_name = paths.join(locale, paths.basename(variant_file.short_path)),
-        ) for variant_file in variant_files]
+        result += [
+            _process_apple_resource_file_if_needed(ctx, variant_file, bundle_destination, paths.join(locale, paths.basename(variant_file.short_path)))
+            for variant_file in variant_files
+        ]
 
     return result
 
@@ -228,10 +224,10 @@ def _copy_resources(ctx: "context", specs: [AppleResourceSpec.type]) -> [AppleBu
 
     for spec in specs:
         bundle_destination = apple_bundle_destination_from_resource_destination(spec.destination)
-        result += [_process_apple_resource_file_if_needed(ctx, x, bundle_destination) for x in spec.files]
+        result += [_process_apple_resource_file_if_needed(ctx, x, bundle_destination, None) for x in spec.files]
         result += _bundle_parts_for_dirs(spec.dirs, bundle_destination, False)
         result += _bundle_parts_for_dirs(spec.content_dirs, bundle_destination, True)
-        result += _bundle_parts_for_variant_files(spec)
+        result += _bundle_parts_for_variant_files(ctx, spec)
 
     return result
 
@@ -296,10 +292,10 @@ def _preprocess_info_plist(ctx: "context") -> "artifact":
 def _process_info_plist(ctx: "context", additional_input: ["artifact", None]) -> AppleBundlePart.type:
     input = _preprocess_info_plist(ctx)
     output = ctx.actions.declare_output("Info.plist")
-    _process_plist(ctx, input, additional_input, output.as_output())
+    _process_plist(ctx, input, additional_input, output.as_output(), None)
     return AppleBundlePart(source = output, destination = AppleBundleDestination("metadata"))
 
-def _process_plist(ctx: "context", input: "artifact", additional_input: ["artifact", None], output: "output_artifact"):
+def _process_plist(ctx: "context", input: "artifact", additional_input: ["artifact", None], output: "output_artifact", action_id: [str.type, None]):
     apple_tools = ctx.attr._apple_tools[AppleToolsInfo]
     processor = apple_tools.info_plist_processor
     command = cmd_args([
@@ -312,7 +308,7 @@ def _process_plist(ctx: "context", input: "artifact", additional_input: ["artifa
     ] + (
         ["--additional-input", additional_input] if additional_input != None else []
     ))
-    ctx.actions.run(command, category = "apple_process_info_plist", identifier = input.basename)
+    ctx.actions.run(command, category = "apple_process_info_plist", identifier = action_id or input.basename)
 
 def _is_watch_bundle(ctx: "context") -> bool.type:
     return ctx.attr._apple_toolchain[AppleToolchainInfo].watch_kit_stub_binary != None
