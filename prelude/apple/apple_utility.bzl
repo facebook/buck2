@@ -44,6 +44,24 @@ def _library_name(library: str.type) -> str.type:
         fail("unexpected library: {}".format(library))
     return paths.split_extension(name[3:])[0]
 
+def expand_relative_prefixed_sdk_path(
+        sdk_path: "cmd_args",
+        resource_dir: "cmd_args",
+        path_to_expand: str.type) -> "cmd_args":
+    path_expansion_map = {
+        "$RESOURCEDIR": resource_dir,
+        "$SDKROOT": sdk_path,
+    }
+    expanded_cmd = cmd_args()
+    for (path_variable, path_value) in path_expansion_map.items():
+        if path_to_expand.startswith(path_variable):
+            path = path_to_expand[len(path_variable):]
+            if path.find("$") == 0:
+                fail("Failed to expand framework path: {}".format(path))
+            expanded_cmd.add_joined([path_value, path])
+
+    return expanded_cmd
+
 def _expand_sdk_framework_path(ctx: "context", framework_path: str.type) -> str.type:
     apple_toolchain_info = ctx.attr._apple_toolchain[AppleToolchainInfo]
     path_expansion_map = {
