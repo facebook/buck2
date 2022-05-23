@@ -261,7 +261,7 @@ impl EventLog {
 fn get_logfile_name(event: &BuckEvent, compression: Compression) -> ForwardRelativePathBuf {
     let time_str = {
         let datetime: DateTime<Utc> = event.timestamp.into();
-        datetime.to_rfc3339()
+        datetime.format("%Y%m%d-%H%M%S").to_string()
     };
 
     let extension = match compression {
@@ -308,7 +308,15 @@ async fn remove_old_logs(logdir: &Path) {
     const N_LOGS_RETAINED: usize = 10;
     if let Ok(dir_result) = std::fs::read_dir(logdir) {
         let mut logfiles = dir_result.filter_map(Result::ok).collect::<Vec<_>>();
-        logfiles.sort_by_key(|file| file.path());
+        logfiles.sort_by_cached_key(|file| {
+            // Return Unix epoch if unable to get creation time.
+            if let Ok(metadata) = file.metadata() {
+                if let Ok(created) = metadata.created() {
+                    return created;
+                }
+            }
+            std::time::UNIX_EPOCH
+        });
         futures::stream::iter(logfiles.into_iter().rev().skip(N_LOGS_RETAINED - 1))
             .then(async move |file| {
                 // The oldest logs might be open from another concurrent build, so suppress error.
