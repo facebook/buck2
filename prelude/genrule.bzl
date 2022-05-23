@@ -265,7 +265,6 @@ def process_genrule(
         "OUT": cmd_args(srcs_artifact, format = "./{}/../out/" + out_env),
         "SRCDIR": cmd_args(srcs_artifact, format = "./{}"),
         "SRCS": srcs,
-        "TMP": cmd_args(srcs_artifact, format = "./{}/../tmp"),
     }
 
     if _requires_no_srcs_environment(ctx):
@@ -277,7 +276,7 @@ def process_genrule(
     # Create required directories.
     script = [
         cmd_args(srcs_artifact, format = "mkdir -p ./{}/../out"),
-        cmd_args("mkdir -p $TMP"),
+        cmd_args("export TMP=$TMPDIR"),
     ]
 
     # Actually define the operation, relative to where we changed to
