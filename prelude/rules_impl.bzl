@@ -199,7 +199,7 @@ def _get_android_cxx_select_map():
         }),
     }
 
-def get_apple_rust_select_map():
+def _get_apple_rust_select_map():
     return {
         "ovr_config//os:macos": "fbcode//buck2/platform:rust-macosx-x86_64_minimal_xcode",
     }
@@ -250,7 +250,7 @@ def _select_python_bootstrap_toolchain():
 
 def _select_rust_toolchain():
     return select(_merge_dictionaries([
-        get_apple_rust_select_map(),
+        _get_apple_rust_select_map(),
         _get_fbcode_select_map("rust"),
     ]))
 
