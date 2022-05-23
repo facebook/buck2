@@ -56,7 +56,7 @@ load("@fbcode//buck2/prelude/rust:rust_binary.bzl", "rust_binary_impl", "rust_te
 load("@fbcode//buck2/prelude/rust:rust_library.bzl", "prebuilt_rust_library_impl", "rust_library_impl")
 load("@fbcode//buck2/prelude/rust:rust_toolchain.bzl", "RustPlatformInfo", "RustToolchainInfo")
 
-#Zip file
+# Zip file
 load("@fbcode//buck2/prelude/zip_file:zip_file.bzl", _zip_file_extra_attributes = "extra_attributes", _zip_file_implemented_rules = "implemented_rules")
 
 # General
