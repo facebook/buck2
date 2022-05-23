@@ -87,10 +87,7 @@ def _write_submodules(
     root_module.render(f, path_prefix)
 
 
-def _write_swift_header(
-    f: TextIOWrapper, name: str, swift_header: str, output_dir: str
-) -> None:
-    swift_header_path = os.path.relpath(swift_header, output_dir)
+def _write_swift_header(f: TextIOWrapper, name: str, swift_header_path: str) -> None:
     f.write(
         f"""
 module {name}.Swift {{
@@ -136,7 +133,16 @@ def main() -> None:
             _write_single_module(f, args.name, args.mappings, path_prefix)
 
         if args.swift_header:
-            _write_swift_header(f, args.name, args.swift_header, output_dir)
+            swift_header_name = os.path.relpath(args.swift_header, output_dir)
+            _write_swift_header(
+                f,
+                args.name,
+                os.path.join(
+                    "swift-extended_symlink_tree",
+                    args.name,
+                    str(swift_header_name),
+                ),
+            )
 
 
 if __name__ == "__main__":
