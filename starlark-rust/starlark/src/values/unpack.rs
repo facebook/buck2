@@ -34,26 +34,34 @@ pub trait UnpackValue<'v>: Sized {
     fn unpack_value(value: Value<'v>) -> Option<Self>;
 
     /// Unpack value, but instead of `None` return error about incorrect argument type.
+    #[inline]
     fn unpack_param(value: Value<'v>) -> anyhow::Result<Self> {
-        Self::unpack_value(value).ok_or_else(|| {
+        #[cold]
+        fn error<'v, U: UnpackValue<'v>>(value: Value<'v>) -> anyhow::Error {
             ValueError::IncorrectParameterTypeWithExpected(
-                Self::expected(),
+                U::expected(),
                 value.get_type().to_owned(),
             )
             .into()
-        })
+        }
+
+        Self::unpack_value(value).ok_or_else(|| error::<Self>(value))
     }
 
     /// Unpack value, but instead of `None` return error about incorrect named argument type.
+    #[inline]
     fn unpack_named_param(value: Value<'v>, param_name: &str) -> anyhow::Result<Self> {
-        Self::unpack_value(value).ok_or_else(|| {
+        #[cold]
+        fn error<'v, U: UnpackValue<'v>>(value: Value<'v>, param_name: &str) -> anyhow::Error {
             ValueError::IncorrectParameterTypeNamedWithExpected(
                 param_name.to_owned(),
-                Self::expected(),
+                U::expected(),
                 value.get_type().to_owned(),
             )
             .into()
-        })
+        }
+
+        Self::unpack_value(value).ok_or_else(|| error::<Self>(value, param_name))
     }
 }
 
