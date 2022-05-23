@@ -17,6 +17,8 @@
 
 use std::{
     collections::{hash_map::Entry, HashMap, VecDeque},
+    path::{Path, PathBuf},
+    sync::{Arc, RwLock},
     time::Duration,
 };
 
@@ -33,11 +35,22 @@ use serde::de::DeserializeOwned;
 
 use crate::{
     errors::EvalMessage,
-    lsp::server::{new_notification, server_with_connection, LspContext, LspEvalResult},
+    lsp::server::{
+        new_notification, server_with_connection, LoadContentsError, LspContext, LspEvalResult,
+        ResolveLoadError,
+    },
     syntax::{AstModule, Dialect},
 };
 
-struct TestServerContext {}
+#[derive(thiserror::Error, Debug)]
+pub(crate) enum SetFileError {
+    #[error("Attempted to set the contents of a file with a non-absolute path `{}`", .0.display())]
+    NotAbsolute(PathBuf),
+}
+
+struct TestServerContext {
+    file_contents: Arc<RwLock<HashMap<PathBuf, String>>>,
+}
 
 impl LspContext for TestServerContext {
     fn parse_file_with_contents(&self, filename: &str, content: String) -> LspEvalResult {
@@ -56,6 +69,24 @@ impl LspContext for TestServerContext {
                     ast: None,
                 }
             }
+        }
+    }
+
+    fn resolve_load(&self, path: &str, current_file_dir: Option<&Path>) -> anyhow::Result<Url> {
+        let path = PathBuf::from(path);
+        let absolute_path = match (current_file_dir, path.is_absolute()) {
+            (_, true) => Ok(path),
+            (Some(current_file_dir), false) => Ok(current_file_dir.join(&path)),
+            (None, false) => Err(ResolveLoadError::MissingCurrentFilePath(path)),
+        }?;
+        Ok(Url::from_file_path(absolute_path).unwrap())
+    }
+
+    fn get_load_contents(&self, uri: &Url) -> anyhow::Result<Option<String>> {
+        let path = PathBuf::from(uri.path());
+        match path.is_absolute() {
+            true => Ok(self.file_contents.read().unwrap().get(&path).cloned()),
+            false => Err(LoadContentsError::NotAbsolute(uri.clone()).into()),
         }
     }
 }
@@ -78,6 +109,8 @@ pub struct TestServer {
     notifications: VecDeque<lsp_server::Notification>,
     /// How long to wait for messages to be received.
     recv_timeout: Duration,
+    #[allow(dead_code)]
+    file_contents: Arc<RwLock<HashMap<PathBuf, String>>>,
 }
 
 impl Drop for TestServer {
@@ -133,8 +166,12 @@ impl TestServer {
     pub(crate) fn new() -> anyhow::Result<Self> {
         let (server_connection, client_connection) = Connection::memory();
 
+        let file_contents = Arc::new(RwLock::new(HashMap::new()));
+        let ctx = TestServerContext {
+            file_contents: file_contents.dupe(),
+        };
+
         let server_thread = std::thread::spawn(|| {
-            let ctx = TestServerContext {};
             if let Err(e) = server_with_connection(server_connection, ctx) {
                 eprintln!("Stopped test server thread with error `{:?}`", e);
             }
@@ -148,6 +185,7 @@ impl TestServer {
             responses: Default::default(),
             notifications: Default::default(),
             recv_timeout: Duration::from_secs(2),
+            file_contents,
         };
         ret.initialize()
     }
@@ -312,5 +350,16 @@ impl TestServer {
         let change_notification = new_notification::<DidChangeTextDocument>(change_params);
         self.send_notification(change_notification)?;
         Ok(())
+    }
+
+    /// Set the file contents that `get_load_contents()` will return. The path must be absolute.
+    #[allow(dead_code)]
+    pub fn set_file_contents(&self, path: PathBuf, contents: String) -> anyhow::Result<()> {
+        if !path.is_absolute() {
+            Err(SetFileError::NotAbsolute(path).into())
+        } else {
+            self.file_contents.write().unwrap().insert(path, contents);
+            Ok(())
+        }
     }
 }

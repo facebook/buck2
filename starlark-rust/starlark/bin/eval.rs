@@ -16,18 +16,18 @@
  */
 
 use std::{
-    fs, iter,
+    fs, io, iter,
     path::{Path, PathBuf},
 };
 
 use gazebo::prelude::*;
 use itertools::Either;
-use lsp_types::Diagnostic;
+use lsp_types::{Diagnostic, Url};
 use starlark::{
     environment::{FrozenModule, Globals, Module},
     errors::EvalMessage,
     eval::Evaluator,
-    lsp::server::{LspContext, LspEvalResult},
+    lsp::server::{LoadContentsError, LspContext, LspEvalResult, ResolveLoadError},
     syntax::{AstModule, Dialect},
 };
 
@@ -208,6 +208,28 @@ impl LspContext for Context {
         LspEvalResult {
             diagnostics: messages.map(Diagnostic::from).collect(),
             ast,
+        }
+    }
+
+    fn resolve_load(&self, path: &str, current_file_dir: Option<&Path>) -> anyhow::Result<Url> {
+        let path = PathBuf::from(path);
+        let absolute_path = match (current_file_dir, path.is_absolute()) {
+            (_, true) => Ok(path),
+            (Some(current_file_dir), false) => Ok(current_file_dir.join(&path)),
+            (None, false) => Err(ResolveLoadError::MissingCurrentFilePath(path)),
+        }?;
+        Ok(Url::from_file_path(absolute_path).unwrap())
+    }
+
+    fn get_load_contents(&self, uri: &Url) -> anyhow::Result<Option<String>> {
+        let path = PathBuf::from(uri.path());
+        match path.is_absolute() {
+            true => match fs::read_to_string(&path) {
+                Ok(contents) => Ok(Some(contents)),
+                Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+                Err(e) => Err(e.into()),
+            },
+            false => Err(LoadContentsError::NotAbsolute(uri.clone()).into()),
         }
     }
 }

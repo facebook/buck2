@@ -19,6 +19,7 @@
 
 use std::{
     collections::HashMap,
+    path::{Path, PathBuf},
     sync::{Arc, RwLock},
 };
 
@@ -51,6 +52,43 @@ pub struct LspEvalResult {
 pub trait LspContext {
     /// Parse a file with the given contents. The filename is used in the diagnostics.
     fn parse_file_with_contents(&self, filename: &str, content: String) -> LspEvalResult;
+
+    /// Resolve a path given in a `load()` statement.
+    ///
+    /// `path` is the string representation in the `load()` statement. Its meaning is
+    ///        implementation defined.
+    /// `current_file_dir` is the directory that contains the file that is including the
+    ///                    `load()` statement, and should be used if `path` is "relative" in a
+    ///                    semantic sense.
+    fn resolve_load(&self, path: &str, current_file_dir: Option<&Path>) -> anyhow::Result<Url>;
+
+    /// Get the contents of a starlark program at a given path, if it exists.
+    fn get_load_contents(&self, uri: &Url) -> anyhow::Result<Option<String>>;
+
+    /// Get the contents of a file at a given URI, and attempt to parse it.
+    fn parse_file(&self, uri: &Url) -> anyhow::Result<Option<LspEvalResult>> {
+        let result = self
+            .get_load_contents(uri)?
+            .map(|content| self.parse_file_with_contents(uri.path(), content));
+        Ok(result)
+    }
+}
+
+/// Errors when [`LspContext::resolve_load()`] cannot resolve a given path.
+#[derive(thiserror::Error, Debug)]
+pub enum ResolveLoadError {
+    /// Attempted to resolve a relative path, but no current_file_path was provided,
+    /// so it is not known what to resolve the path against.
+    #[error("Relative path `{}` provided, but current_file_path could not be determined", .0.display())]
+    MissingCurrentFilePath(PathBuf),
+}
+
+/// Errors when loading contents of a starlark program.
+#[derive(thiserror::Error, Debug)]
+pub enum LoadContentsError {
+    /// The provided Url was not absolute and it needs to be.
+    #[error("Provided path `{}` was not absolute", .0.path())]
+    NotAbsolute(Url),
 }
 
 struct Backend<T: LspContext> {
@@ -141,7 +179,6 @@ impl<T: LspContext> Backend<T> {
                             range: span.into(),
                         })
                     }
-
                     DefinitionLocation::LoadedLocation { location, .. } => {
                         GotoDefinitionResponse::Scalar(Location {
                             uri: params
@@ -152,7 +189,6 @@ impl<T: LspContext> Backend<T> {
                             range: location.into(),
                         })
                     }
-
                     DefinitionLocation::NotFound => GotoDefinitionResponse::Array(vec![]),
                 }
             }
