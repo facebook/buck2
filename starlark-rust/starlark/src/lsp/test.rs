@@ -23,7 +23,7 @@ use std::{
 };
 
 use gazebo::prelude::*;
-use lsp_server::{Connection, Message, RequestId, Response};
+use lsp_server::{Connection, Message, RequestId, Response, ResponseError};
 use lsp_types::{
     notification::{DidChangeTextDocument, DidOpenTextDocument, Exit, Initialized, Notification},
     request::{Initialize, Request, Shutdown},
@@ -43,9 +43,18 @@ use crate::{
 };
 
 #[derive(thiserror::Error, Debug)]
-pub(crate) enum SetFileError {
+pub(crate) enum TestServerError {
     #[error("Attempted to set the contents of a file with a non-absolute path `{}`", .0.display())]
-    NotAbsolute(PathBuf),
+    SetFileNotAbsolute(PathBuf),
+    /// The response came back, but was an error response, not a successful one.
+    #[error("Response error: {:?}", .0)]
+    ResponseError(ResponseError),
+    #[error("Invalid response message for request {}: {:?}", .0, .1)]
+    InvalidResponse(RequestId, Response),
+    #[error("Client received a request (not response/notification) from the server: {:?}", .0)]
+    ReceivedRequest(lsp_server::Request),
+    #[error("Got a duplicate response for request ID {:?}: Existing: {:?}, New: {:?}", .new.id, .existing, .new)]
+    DuplicateResponse { new: Response, existing: Response },
 }
 
 struct TestServerContext {
@@ -262,14 +271,10 @@ impl TestServer {
                     result: None,
                     ..
                 }) => {
-                    break Err(anyhow::anyhow!("Response error: {}", err.message));
+                    break Err(TestServerError::ResponseError(err.clone()).into());
                 }
                 Some(msg) => {
-                    break Err(anyhow::anyhow!(
-                        "Invalid response message for request {}: {:?}",
-                        id,
-                        msg
-                    ));
+                    break Err(TestServerError::InvalidResponse(id, msg.clone()).into());
                 }
                 None => {}
             }
@@ -297,16 +302,13 @@ impl TestServer {
             .receiver
             .recv_timeout(self.recv_timeout)?;
         match message {
-            Message::Request(req) => {
-                Err(anyhow::anyhow!("Got a request from the server: {:?}", req))
-            }
+            Message::Request(req) => Err(TestServerError::ReceivedRequest(req).into()),
             Message::Response(response) => match self.responses.entry(response.id.clone()) {
-                Entry::Occupied(existing) => Err(anyhow::anyhow!(
-                    "Got a duplicate response for request ID {:?}: Existing: {:?}, New: {:?}",
-                    response.id,
-                    existing.get(),
-                    response
-                )),
+                Entry::Occupied(existing) => Err(TestServerError::DuplicateResponse {
+                    new: response,
+                    existing: existing.get().clone(),
+                }
+                .into()),
                 Entry::Vacant(entry) => {
                     entry.insert(response);
                     Ok(())
@@ -356,7 +358,7 @@ impl TestServer {
     #[allow(dead_code)]
     pub fn set_file_contents(&self, path: PathBuf, contents: String) -> anyhow::Result<()> {
         if !path.is_absolute() {
-            Err(SetFileError::NotAbsolute(path).into())
+            Err(TestServerError::SetFileNotAbsolute(path).into())
         } else {
             self.file_contents.write().unwrap().insert(path, contents);
             Ok(())
