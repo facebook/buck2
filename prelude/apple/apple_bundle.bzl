@@ -57,7 +57,7 @@ def _get_info_plist_attr(ctx: "context") -> "":
     return ctx.attr.info_plist
 
 # Same logic as in v1, see `buck_client/src/com/facebook/buck/apple/ApplePkgInfo.java`
-def _create_pkg_info_if_needed(ctx: "context") -> ["AppleBundlePart"]:
+def _create_pkg_info_if_needed(ctx: "context") -> [AppleBundlePart.type]:
     extension = get_extension_attr(ctx)
     if extension == "xpc" or extension == "qlgenerator":
         return []
@@ -164,7 +164,7 @@ def _link_ui_resource(ctx: "context", raw_file: "artifact", output: "output_arti
         output_is_dir = output_is_dir,
     )
 
-def _process_apple_resource_file_if_needed(ctx: "context", file: "artifact", destination: AppleBundleDestination.type) -> "AppleBundlePart":
+def _process_apple_resource_file_if_needed(ctx: "context", file: "artifact", destination: AppleBundleDestination.type) -> AppleBundlePart.type:
     output_dir = "_ProcessedResources"
     basename = paths.basename(file.short_path)
     output_is_contents_dir = False
@@ -192,14 +192,38 @@ def _process_apple_resource_file_if_needed(ctx: "context", file: "artifact", des
     new_name = "" if output_is_contents_dir else None
     return AppleBundlePart(source = processed, destination = destination, new_name = new_name)
 
-def _bundle_parts_for_dirs(generated_dirs: ["artifact"], destination: AppleBundleDestination.type, copy_contents_only: bool.type) -> ["AppleBundlePart"]:
+def _bundle_parts_for_dirs(generated_dirs: ["artifact"], destination: AppleBundleDestination.type, copy_contents_only: bool.type) -> [AppleBundlePart.type]:
     return [AppleBundlePart(
         source = generated_dir,
         destination = destination,
         new_name = "" if copy_contents_only else None,
     ) for generated_dir in generated_dirs]
 
-def _copy_resources(ctx: "context", specs: [AppleResourceSpec.type]) -> ["AppleBundlePart"]:
+def _bundle_parts_for_variant_files(spec: AppleResourceSpec.type) -> [AppleBundlePart.type]:
+    result = []
+
+    # By definition, all variant files go into the resources destination
+    bundle_destination = AppleBundleDestination("resources")
+    for variant_file in spec.variant_files:
+        variant_dest_subpath = _get_dest_subpath_for_variant_file(variant_file)
+        result.append(AppleBundlePart(
+            source = variant_file,
+            destination = bundle_destination,
+            new_name = variant_dest_subpath,
+        ))
+
+    for locale, variant_files in spec.named_variant_files.items():
+        if not locale.endswith(".lproj"):
+            fail("Keys for named variant files have to end with '.lproj' suffix, got {}".format(locale))
+        result += [AppleBundlePart(
+            source = variant_file,
+            destination = bundle_destination,
+            new_name = paths.join(locale, paths.basename(variant_file.short_path)),
+        ) for variant_file in variant_files]
+
+    return result
+
+def _copy_resources(ctx: "context", specs: [AppleResourceSpec.type]) -> [AppleBundlePart.type]:
     result = []
 
     for spec in specs:
@@ -207,25 +231,7 @@ def _copy_resources(ctx: "context", specs: [AppleResourceSpec.type]) -> ["AppleB
         result += [_process_apple_resource_file_if_needed(ctx, x, bundle_destination) for x in spec.files]
         result += _bundle_parts_for_dirs(spec.dirs, bundle_destination, False)
         result += _bundle_parts_for_dirs(spec.content_dirs, bundle_destination, True)
-
-        for variant_file in spec.variant_files:
-            variant_dest_subpath = _get_dest_subpath_for_variant_file(variant_file)
-            result.append(AppleBundlePart(
-                source = variant_file,
-                # By definition, all variant files go into the resources destination
-                destination = AppleBundleDestination("resources"),
-                new_name = variant_dest_subpath,
-            ))
-
-        for locale, variant_files in spec.named_variant_files.items():
-            if not locale.endswith(".lproj"):
-                fail("Keys for named variant files have to end with '.lproj' suffix, got {}".format(locale))
-            result += [AppleBundlePart(
-                source = variant_file,
-                # By definition, all variant files go into the resources destination
-                destination = AppleBundleDestination("resources"),
-                new_name = paths.join(locale, paths.basename(variant_file.short_path)),
-            ) for variant_file in variant_files]
+        result += _bundle_parts_for_variant_files(spec)
 
     return result
 
@@ -287,7 +293,7 @@ def _preprocess_info_plist(ctx: "context") -> "artifact":
     ctx.actions.run(command, category = "apple_preprocess_info_plist")
     return output
 
-def _process_info_plist(ctx: "context", additional_input: ["artifact", None]) -> "AppleBundlePart":
+def _process_info_plist(ctx: "context", additional_input: ["artifact", None]) -> AppleBundlePart.type:
     input = _preprocess_info_plist(ctx)
     output = ctx.actions.declare_output("Info.plist")
     _process_plist(ctx, input, additional_input, output.as_output())
