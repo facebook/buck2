@@ -3,7 +3,6 @@ load("@fbcode//buck2/prelude/android:android.bzl", _android_extra_attributes = "
 
 # Apple
 load("@fbcode//buck2/prelude/apple:apple_rules_impl.bzl", _apple_extra_attributes = "extra_attributes", _apple_implemented_rules = "implemented_rules")
-load("@fbcode//buck2/prelude/apple:apple_toolchain_setup.bzl", _get_apple_cxx_select_map = "get_apple_cxx_select_map")
 
 # Configuration
 load("@fbcode//buck2/prelude/configurations:rules.bzl", _config_implemented_rules = "implemented_rules")
@@ -71,6 +70,9 @@ load(":remote_file.bzl", "remote_file_impl")
 load(":sh_binary.bzl", "sh_binary_impl")
 load(":sh_test.bzl", "sh_test_impl")
 load(":test_suite.bzl", "test_suite_impl")
+
+# Other
+load(":toolchains.bzl", "default_cxx_toolchain", "default_go_toolchain", "default_haskell_toolchain", "default_ocaml_toolchain", "default_python_bootstrap_toolchain", "default_python_toolchain", "default_rust_toolchain")
 load(":worker_tool.bzl", "worker_tool")
 
 def _merge_dictionaries(dicts):
@@ -155,111 +157,6 @@ implemented_rules = struct(
     ])
 )
 
-# The default platform for fbcode rules that didn't specify it properly
-_default_fbcode_platform = read_config("fbcode", "platform", "platform009")
-
-def _get_fbcode_select_map(prefix):
-    """
-    Return a map to use to select fbcode C++ based toolchain definitions.
-    """
-    prefix = "fbcode//buck2/platform:{}-".format(prefix)
-    return {
-        # TODO: Ideally we don't need the `DEFAULT` clause, but `.buckconfig`s
-        # set the coarser fbcode platform to work with v1, which leaks into the
-        # few rules which don't set a more granular default.
-        "DEFAULT": prefix + _default_fbcode_platform + "-clang",
-        "ovr_config//toolchain/fb:platform009-clang": prefix + "platform009-clang",
-        "ovr_config//toolchain/fb:platform009-clang-nosan": prefix + "platform009-clang-nosan",
-        "ovr_config//toolchain/fb:platform009-clang-nosan-split-dwarf": prefix + "platform009-clang-nosan-split-dwarf",
-        "ovr_config//toolchain/fb:platform009-clang-split-dwarf": prefix + "platform009-clang-split-dwarf",
-        "ovr_config//toolchain/fb:platform009-clang12": prefix + "platform009-clang-12",
-        "ovr_config//toolchain/fb:platform009-clang12-nosan": prefix + "platform009-clang-12-nosan",
-        "ovr_config//toolchain/fb:platform009-clang12-split-dwarf": prefix + "platform009-clang-12-split-dwarf",
-        "ovr_config//toolchain/fb:platform009-gcc": prefix + "platform009-gcc",
-        "ovr_config//toolchain/fb:platform010-clang": prefix + "platform010-clang",
-        "ovr_config//toolchain/fb:platform010-clang-nosan": prefix + "platform010-clang-nosan",
-        "ovr_config//toolchain/fb:platform010-clang-nosan-split-dwarf": prefix + "platform010-clang-nosan-split-dwarf",
-        "ovr_config//toolchain/fb:platform010-clang-split-dwarf": prefix + "platform010-clang-split-dwarf",
-        "ovr_config//toolchain/fb:platform010-compat-clang": prefix + "platform010-compat-clang",
-        "ovr_config//toolchain/fb:platform010-compat-clang-nosan": prefix + "platform010-compat-clang-nosan",
-        "ovr_config//toolchain/fb:platform010-compat-clang-nosan-split-dwarf": prefix + "platform010-compat-clang-nosan-split-dwarf",
-        "ovr_config//toolchain/fb:platform010-compat-clang-split-dwarf": prefix + "platform010-compat-clang-split-dwarf",
-        "ovr_config//toolchain/fb:platform010-compat-gcc": prefix + "platform010-compat-gcc",
-        "ovr_config//toolchain/fb:platform010-gcc": prefix + "platform010-gcc",
-    }
-
-def _get_android_cxx_select_map():
-    return {
-        "ovr_config//os:android": select({
-            "DEFAULT": "fbsource//xplat/toolchains/android/ndk:cxx-toolchain-x86",
-            "ovr_config//cpu/constraints:arm32": "fbsource//xplat/toolchains/android/ndk:cxx-toolchain-armv7",
-            "ovr_config//cpu/constraints:arm64": "fbsource//xplat/toolchains/android/ndk:cxx-toolchain-arm64",
-            "ovr_config//cpu/constraints:x86_32": "fbsource//xplat/toolchains/android/ndk:cxx-toolchain-x86",
-            "ovr_config//cpu/constraints:x86_64": "fbsource//xplat/toolchains/android/ndk:cxx-toolchain-x86_64",
-        }),
-    }
-
-def _get_apple_rust_select_map():
-    return {
-        "ovr_config//os:macos": "fbcode//buck2/platform:rust-macosx-x86_64_minimal_xcode",
-    }
-
-def _get_infer_select_map():
-    return {"ovr_config//toolchain/fb:platform009-infer": "fbcode//buck2/platform:buck2-infer"}
-
-def _select_cxx_toolchain():
-    return select(
-        _merge_dictionaries([
-            _get_android_cxx_select_map(),
-            _get_apple_cxx_select_map(),
-            _get_fbcode_select_map("buck2"),
-            _get_infer_select_map(),
-        ]),
-    )
-
-def _select_go_toolchain():
-    return "fbcode//buck2/platform:go-{}-clang".format(_default_fbcode_platform)
-
-def _select_python_toolchain():
-    return select({
-        # TODO: Ideally we don't need this, `.buckconfig`s set the coarser fbcode
-        # platform to work with v1, which leaks into the few rules which don't
-        # set a more granular default.
-        "DEFAULT": "fbcode//buck2/platform:py3.8-{}".format(_default_fbcode_platform),
-        "ovr_config//os:macos": "fbcode//buck2/platform:py3.8-macosx-x86_64",
-        "ovr_config//runtime/constraints:platform009": select({
-            "ovr_config//third-party/python/constraints:3.8": "fbcode//buck2/platform:py3.8-platform009",
-            "ovr_config//third-party/python/constraints:cinder.3.8": "fbcode//buck2/platform:cinder_py3.8-platform009",
-        }),
-        "ovr_config//runtime/constraints:platform010": select({
-            "ovr_config//third-party/python/constraints:3.8": "fbcode//buck2/platform:py3.8-platform010",
-            "ovr_config//third-party/python/constraints:cinder.3.8": "fbcode//buck2/platform:cinder_py3.8-platform010",
-        }),
-        "ovr_config//runtime/constraints:platform010-compat": select({
-            "ovr_config//third-party/python/constraints:3.8": "fbcode//buck2/platform:py3.8-platform010-compat",
-            "ovr_config//third-party/python/constraints:cinder.3.8": "fbcode//buck2/platform:cinder_py3.8-platform010-compat",
-        }),
-    })
-
-def _select_python_bootstrap_toolchain():
-    return select({
-        "DEFAULT": "fbcode//buck2/platform:bootstrap-py3.8-{}".format(_default_fbcode_platform),
-        "ovr_config//runtime/constraints:platform009": "fbcode//buck2/platform:bootstrap-py3.8-platform009",
-        "ovr_config//runtime/constraints:platform010": "fbcode//buck2/platform:bootstrap-py3.8-platform010",
-    })
-
-def _select_rust_toolchain():
-    return select(_merge_dictionaries([
-        _get_apple_rust_select_map(),
-        _get_fbcode_select_map("rust"),
-    ]))
-
-def _select_ocaml_toolchain():
-    return select(_get_fbcode_select_map("ocaml"))
-
-def _select_haskell_toolchain():
-    return select(_get_fbcode_select_map("haskell"))
-
 def _cxx_python_extension_attrs():
     # cxx_python_extension is a subset of cxx_library, plus a base_module.
     # So we can reuse cxx_library, we augment it with the additional attributes it defines.
@@ -273,10 +170,10 @@ def _cxx_python_extension_attrs():
         "precompiled_header": attr.option(attr.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "preferred_linkage": attr.default_only(attr.string(default = "shared")),  # Force shared linkage always
         "use_link_groups": attr.bool(default = False),
-        "_cxx_toolchain": attr.exec_dep(default = _select_cxx_toolchain()),
+        "_cxx_toolchain": attr.exec_dep(default = default_cxx_toolchain()),
         "_hacks": attr.dep(default = "fbcode//buck2/platform:cxx-hacks"),
         # Copied from python_library.
-        "_python_toolchain": attr.exec_dep(default = _select_python_toolchain(), providers = [PythonToolchainInfo, PythonPlatformInfo]),
+        "_python_toolchain": attr.exec_dep(default = default_python_toolchain(), providers = [PythonToolchainInfo, PythonPlatformInfo]),
     })
     return res
 
@@ -287,7 +184,7 @@ def _cxx_binary_and_test_attrs():
         "precompiled_header": attr.option(attr.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "resources": attr.named_set(attr.one_of(attr.dep(), attr.source(allow_directory = True)), sorted = True, default = []),
         "use_link_groups": attr.bool(default = False),
-        "_cxx_toolchain": attr.exec_dep(default = _select_cxx_toolchain()),
+        "_cxx_toolchain": attr.exec_dep(default = default_cxx_toolchain()),
         "_hacks": attr.dep(default = "fbcode//buck2/platform:cxx-hacks"),
     }
 
@@ -327,7 +224,7 @@ extra_attributes = struct(
 
     #c++
     cxx_genrule = {
-        "_cxx_toolchain": attr.exec_dep(default = _select_cxx_toolchain()),
+        "_cxx_toolchain": attr.exec_dep(default = default_cxx_toolchain()),
     },
     cxx_library = {
         "precompiled_header": attr.option(attr.dep(providers = [CPrecompiledHeaderInfo]), default = None),
@@ -335,7 +232,7 @@ extra_attributes = struct(
         "preferred_linkage": attr.enum(Linkage, default = "any"),
         "resources": attr.named_set(attr.one_of(attr.dep(), attr.source(allow_directory = True)), sorted = True, default = []),
         "use_link_groups": attr.bool(default = False),
-        "_cxx_toolchain": attr.exec_dep(default = _select_cxx_toolchain()),
+        "_cxx_toolchain": attr.exec_dep(default = default_cxx_toolchain()),
         "_hacks": attr.dep(default = "fbcode//buck2/platform:cxx-hacks"),
     },
     cxx_binary = _cxx_binary_and_test_attrs(),
@@ -372,29 +269,29 @@ extra_attributes = struct(
         "public_system_include_directories": attr.set(attr.string(), sorted = True, default = []),
         "raw_headers": attr.set(attr.source(), sorted = True, default = []),
         "versioned_header_dirs": attr.option(attr.versioned(attr.list(attr.source(allow_directory = True))), default = None),
-        "_cxx_toolchain": attr.exec_dep(default = _select_cxx_toolchain()),
+        "_cxx_toolchain": attr.exec_dep(default = default_cxx_toolchain()),
     },
 
     # go
     go_binary = {
         "resources": attr.list(attr.source(allow_directory = True), default = []),
-        "_cxx_toolchain": attr.dep(default = _select_cxx_toolchain()),
-        "_go_toolchain": attr.dep(default = _select_go_toolchain(), providers = [GoToolchainInfo]),
+        "_cxx_toolchain": attr.dep(default = default_cxx_toolchain()),
+        "_go_toolchain": attr.dep(default = default_go_toolchain(), providers = [GoToolchainInfo]),
     },
     go_library = {
-        "_go_toolchain": attr.dep(default = _select_go_toolchain(), providers = [GoToolchainInfo]),
+        "_go_toolchain": attr.dep(default = default_go_toolchain(), providers = [GoToolchainInfo]),
     },
     go_test = {
         "resources": attr.list(attr.source(allow_directory = True), default = []),
-        "_cxx_toolchain": attr.dep(default = _select_cxx_toolchain()),
-        "_go_toolchain": attr.dep(default = _select_go_toolchain(), providers = [GoToolchainInfo]),
+        "_cxx_toolchain": attr.dep(default = default_cxx_toolchain()),
+        "_go_toolchain": attr.dep(default = default_go_toolchain(), providers = [GoToolchainInfo]),
         "_testmaingen": attr.dep(default = "fbcode//buck2/prelude/go/tools:testmaingen"),
     },
 
     #ocaml
     ocaml_binary = {
-        "_cxx_toolchain": attr.exec_dep(default = _select_cxx_toolchain()),
-        "_ocaml_toolchain": attr.exec_dep(default = _select_ocaml_toolchain(), providers = [OCamlToolchainInfo, OCamlPlatformInfo]),
+        "_cxx_toolchain": attr.exec_dep(default = default_cxx_toolchain()),
+        "_ocaml_toolchain": attr.exec_dep(default = default_ocaml_toolchain(), providers = [OCamlToolchainInfo, OCamlPlatformInfo]),
     },
     ocaml_object = {
         "bytecode_only": attr.option(attr.bool(), default = None),
@@ -412,12 +309,12 @@ extra_attributes = struct(
         "srcs": attr.option(attr.named_set(attr.source(), sorted = False), default = None),
         "warnings_flags": attr.option(attr.string(), default = None),
         "within_view": attr.option(attr.list(attr.string())),
-        "_cxx_toolchain": attr.exec_dep(default = _select_cxx_toolchain()),
-        "_ocaml_toolchain": attr.exec_dep(default = _select_ocaml_toolchain(), providers = [OCamlToolchainInfo, OCamlPlatformInfo]),
+        "_cxx_toolchain": attr.exec_dep(default = default_cxx_toolchain()),
+        "_ocaml_toolchain": attr.exec_dep(default = default_ocaml_toolchain(), providers = [OCamlToolchainInfo, OCamlPlatformInfo]),
     },
     ocaml_library = {
-        "_cxx_toolchain": attr.exec_dep(default = _select_cxx_toolchain()),
-        "_ocaml_toolchain": attr.exec_dep(default = _select_ocaml_toolchain(), providers = [OCamlToolchainInfo, OCamlPlatformInfo]),
+        "_cxx_toolchain": attr.exec_dep(default = default_cxx_toolchain()),
+        "_ocaml_toolchain": attr.exec_dep(default = default_ocaml_toolchain(), providers = [OCamlToolchainInfo, OCamlPlatformInfo]),
     },
     prebuilt_ocaml_library = {
 
@@ -439,47 +336,47 @@ extra_attributes = struct(
     prebuilt_python_library = {
         "_create_manifest_for_source_dir": attr.dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir"),
         "_extract": attr.dep(default = "fbcode//buck2/prelude/python/tools:extract"),
-        "_python_toolchain": attr.exec_dep(default = _select_python_toolchain(), providers = [PythonToolchainInfo, PythonPlatformInfo]),
+        "_python_toolchain": attr.exec_dep(default = default_python_toolchain(), providers = [PythonToolchainInfo, PythonPlatformInfo]),
     },
     python_library = {
         "resources": attr.named_set(attr.one_of(attr.dep(), attr.source(allow_directory = True)), sorted = True, default = []),
         "_create_manifest_for_source_dir": attr.dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir"),
-        "_cxx_toolchain": attr.exec_dep(default = _select_cxx_toolchain(), providers = [CxxToolchainInfo, CxxPlatformInfo]),
-        "_python_toolchain": attr.exec_dep(default = _select_python_toolchain(), providers = [PythonToolchainInfo, PythonPlatformInfo]),
+        "_cxx_toolchain": attr.exec_dep(default = default_cxx_toolchain(), providers = [CxxToolchainInfo, CxxPlatformInfo]),
+        "_python_toolchain": attr.exec_dep(default = default_python_toolchain(), providers = [PythonToolchainInfo, PythonPlatformInfo]),
     },
     python_binary = {
         "package_split_dwarf_dwp": attr.bool(default = False),
         "_create_manifest_for_source_dir": attr.dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir"),
-        "_cxx_toolchain": attr.exec_dep(default = _select_cxx_toolchain(), providers = [CxxToolchainInfo, CxxPlatformInfo]),
+        "_cxx_toolchain": attr.exec_dep(default = default_cxx_toolchain(), providers = [CxxToolchainInfo, CxxPlatformInfo]),
         "_hacks": attr.dep(default = "fbcode//buck2/platform:cxx-hacks"),
-        "_python_toolchain": attr.exec_dep(default = _select_python_toolchain(), providers = [PythonToolchainInfo, PythonPlatformInfo]),
+        "_python_toolchain": attr.exec_dep(default = default_python_toolchain(), providers = [PythonToolchainInfo, PythonPlatformInfo]),
     },
     python_test = {
         "package_split_dwarf_dwp": attr.bool(default = False),
         "resources": attr.named_set(attr.one_of(attr.dep(), attr.source(allow_directory = True)), sorted = True, default = []),
         "_create_manifest_for_source_dir": attr.dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir"),
-        "_cxx_toolchain": attr.exec_dep(default = _select_cxx_toolchain(), providers = [CxxToolchainInfo, CxxPlatformInfo]),
+        "_cxx_toolchain": attr.exec_dep(default = default_cxx_toolchain(), providers = [CxxToolchainInfo, CxxPlatformInfo]),
         "_hacks": attr.dep(default = "fbcode//buck2/platform:cxx-hacks"),
-        "_python_toolchain": attr.exec_dep(default = _select_python_toolchain(), providers = [PythonToolchainInfo, PythonPlatformInfo]),
+        "_python_toolchain": attr.exec_dep(default = default_python_toolchain(), providers = [PythonToolchainInfo, PythonPlatformInfo]),
         "_test_main": attr.source(default = "fbcode//buck2/prelude/python/tools:__test_main__.py"),
     },
     #python bootstrap
     python_bootstrap_binary = {
         "deps": attr.list(attr.dep(providers = [PythonBootstrapSources]), default = []),
         "main": attr.source(),
-        "_python_bootstrap_toolchain": attr.exec_dep(default = _select_python_bootstrap_toolchain(), providers = [PythonBootstrapToolchainInfo]),
+        "_python_bootstrap_toolchain": attr.exec_dep(default = default_python_bootstrap_toolchain(), providers = [PythonBootstrapToolchainInfo]),
     },
     python_bootstrap_library = {
         "srcs": attr.list(attr.source()),
     },
     #rust
     rust_binary = {
-        "_cxx_toolchain": attr.exec_dep(default = _select_cxx_toolchain()),
-        "_rust_toolchain": attr.exec_dep(default = _select_rust_toolchain(), providers = [RustToolchainInfo, RustPlatformInfo]),
+        "_cxx_toolchain": attr.exec_dep(default = default_cxx_toolchain()),
+        "_rust_toolchain": attr.exec_dep(default = default_rust_toolchain(), providers = [RustToolchainInfo, RustPlatformInfo]),
     },
     prebuilt_rust_library = {
-        "_cxx_toolchain": attr.exec_dep(default = _select_cxx_toolchain()),
-        "_rust_toolchain": attr.exec_dep(default = _select_rust_toolchain(), providers = [RustToolchainInfo, RustPlatformInfo]),
+        "_cxx_toolchain": attr.exec_dep(default = default_cxx_toolchain()),
+        "_rust_toolchain": attr.exec_dep(default = default_rust_toolchain(), providers = [RustToolchainInfo, RustPlatformInfo]),
     },
     rust_library = {
         # linker_flags weren't supported for rust_library in Buck v1 but the
@@ -490,22 +387,22 @@ extra_attributes = struct(
         # rust_library.
         "linker_flags": attr.list(attr.arg(), default = []),
         "preferred_linkage": attr.enum(Linkage, default = "any"),
-        "_cxx_toolchain": attr.exec_dep(default = _select_cxx_toolchain()),
-        "_rust_toolchain": attr.exec_dep(default = _select_rust_toolchain(), providers = [RustToolchainInfo, RustPlatformInfo]),
+        "_cxx_toolchain": attr.exec_dep(default = default_cxx_toolchain()),
+        "_rust_toolchain": attr.exec_dep(default = default_rust_toolchain(), providers = [RustToolchainInfo, RustPlatformInfo]),
     },
     rust_test = {
         "framework": attr.bool(default = True),
-        "_cxx_toolchain": attr.exec_dep(default = _select_cxx_toolchain()),
-        "_rust_toolchain": attr.exec_dep(default = _select_rust_toolchain(), providers = [RustToolchainInfo, RustPlatformInfo]),
+        "_cxx_toolchain": attr.exec_dep(default = default_cxx_toolchain()),
+        "_rust_toolchain": attr.exec_dep(default = default_rust_toolchain(), providers = [RustToolchainInfo, RustPlatformInfo]),
     },
     haskell_binary = {
-        "_cxx_toolchain": attr.exec_dep(default = _select_cxx_toolchain()),
-        "_haskell_toolchain": attr.exec_dep(default = _select_haskell_toolchain(), providers = [HaskellToolchainInfo, HaskellPlatformInfo]),
+        "_cxx_toolchain": attr.exec_dep(default = default_cxx_toolchain()),
+        "_haskell_toolchain": attr.exec_dep(default = default_haskell_toolchain(), providers = [HaskellToolchainInfo, HaskellPlatformInfo]),
     },
     haskell_library = {
         "preferred_linkage": attr.enum(Linkage, default = "any"),
-        "_cxx_toolchain": attr.exec_dep(default = _select_cxx_toolchain()),
-        "_haskell_toolchain": attr.exec_dep(default = _select_haskell_toolchain(), providers = [HaskellToolchainInfo, HaskellPlatformInfo]),
+        "_cxx_toolchain": attr.exec_dep(default = default_cxx_toolchain()),
+        "_haskell_toolchain": attr.exec_dep(default = default_haskell_toolchain(), providers = [HaskellToolchainInfo, HaskellPlatformInfo]),
     },
 
     # scala
