@@ -35,6 +35,11 @@ execution_platform_rule = rule(
 )
 
 def execution_platform(name, base_platform, local_enabled, remote_enabled, **kwargs):
+    if not local_enabled and not remote_enabled:
+        # Some platforms do not support RE, so when running on a non-matching host,
+        # neither local nor remote would be enabled.
+        return []
+
     platform_name = name + "-platform"
     platforms = []
 
