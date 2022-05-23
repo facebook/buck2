@@ -8112,6 +8112,7 @@ def rust_binary(
     platform_rustc_flags: {str.type: [str.type]} = None,
     rpath: bool.type = None,
     rustc_flags: [str.type] = None,
+    rustdoc_flags: [str.type] = None,
     srcs: [str.type] = None,
     version_universe: [None, str.type] = None,
     within_view: [None, [str.type]] = None
@@ -8156,6 +8157,7 @@ def rust_binary(
 | `platform_rustc_flags` |  |
 | `rpath` |  |
 | `rustc_flags` |  |
+| `rustdoc_flags` |  |
 | `srcs` |  |
 | `version_universe` |  |
 | `within_view` |  |
@@ -8196,6 +8198,7 @@ def rust_library(
     preferred_linkage: str.type = None,
     proc_macro: bool.type = None,
     rustc_flags: [str.type] = None,
+    rustdoc_flags: [str.type] = None,
     srcs: [str.type] = None,
     version_universe: [None, str.type] = None,
     within_view: [None, [str.type]] = None
@@ -8238,6 +8241,7 @@ def rust_library(
 | `preferred_linkage` |  |
 | `proc_macro` |  |
 | `rustc_flags` |  |
+| `rustdoc_flags` |  |
 | `srcs` |  |
 | `version_universe` |  |
 | `within_view` |  |
@@ -8280,6 +8284,7 @@ def rust_test(
     platform_rustc_flags: {str.type: [str.type]} = None,
     rpath: bool.type = None,
     rustc_flags: [str.type] = None,
+    rustdoc_flags: [str.type] = None,
     srcs: [str.type] = None,
     version_universe: [None, str.type] = None,
     within_view: [None, [str.type]] = None
@@ -8324,6 +8329,7 @@ def rust_test(
 | `platform_rustc_flags` |  |
 | `rpath` |  |
 | `rustc_flags` |  |
+| `rustdoc_flags` |  |
 | `srcs` |  |
 | `version_universe` |  |
 | `within_view` |  |

@@ -118,6 +118,8 @@ def generate_rustdoc(
         [["--env", k, v] for k, v in plain_env.items()],
         [["--path-env", k, v] for k, v in path_env.items()],
         toolchain_info.rustdoc,
+        toolchain_info.rustdoc_flags,
+        ctx.attr.rustdoc_flags,
         "-o",
         output.as_output(),
         common_args.args,

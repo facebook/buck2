@@ -31,6 +31,7 @@ _buckconfig_rust_toolchain_attrs = {
     "rustc_flags": (flags_attr, None),
     "rustc_test_flags": (flags_attr, []),
     "rustdoc": (binary_attr, None),
+    "rustdoc_flags": (flags_attr, None),
     "save_analysis": (bool_attr, True),
     "warn_lints": (_lint_attr, []),
 }
@@ -75,6 +76,7 @@ def _config_backed_rust_toolchain_rule_impl(ctx):
             default_edition = ctx.attr.default_edition,
             rustc_test_flags = ctx.attr.rustc_test_flags,
             rustdoc = ctx.attr.rustdoc[RunInfo],
+            rustdoc_flags = ctx.attr.rustdoc_flags,
             save_analysis = ctx.attr.save_analysis,
             warn_lints = ctx.attr.warn_lints,
         ),
@@ -102,6 +104,7 @@ _config_backed_rust_toolchain_rule = rule(
         "rustc_flags": attr.list(attr.arg()),
         "rustc_test_flags": attr.list(attr.arg()),
         "rustdoc": attr.dep(default = "fbsource//xplat/rust/toolchain/current:rustdoc"),
+        "rustdoc_flags": attr.list(attr.arg()),
         "save_analysis": attr.bool(),
         "warn_lints": attr.list(attr.arg()),
     },

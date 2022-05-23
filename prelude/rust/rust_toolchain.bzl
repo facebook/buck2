@@ -9,6 +9,8 @@ RustToolchainInfo = provider(fields = [
     "rustc_check_flags",
     # Extra flags for doing building tests
     "rustc_test_flags",
+    # Extra flags for rustdoc invocations
+    "rustdoc_flags",
     # Use rmeta for lib->lib dependencies, and only block
     # linking on rlib crates. The hope is that rmeta builds
     # are quick and this increases effective parallelism.
