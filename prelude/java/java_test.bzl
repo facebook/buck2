@@ -43,7 +43,7 @@ def build_junit_test(
     ] + extra_classpath_entries
 
     classpath_args = cmd_args()
-    classpath_args.relative_to(ctx.label.test_cwd)
+    classpath_args.relative_to(ctx.label.cell_root)
     classpath_args.add("-classpath")
     classpath_args.add(cmd_args(classpath, delimiter = get_path_separator()))
     classpath_args_file = ctx.actions.write("classpath_args_file", classpath_args)
