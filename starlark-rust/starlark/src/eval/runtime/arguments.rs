@@ -290,15 +290,31 @@ impl<V> ParametersSpec<V> {
     /// Function parameter as they would appear in `def`
     /// (excluding types, default values and formatting).
     pub fn parameters_str(&self) -> String {
+        let mut emitted_star = false;
         let mut collector = String::new();
         for (i, typ) in self.params.iter().enumerate() {
-            if i != 0 {
+            if !collector.is_empty() {
                 collector.push_str(", ");
             }
+
+            // TODO: also print `/` for positional-only parameters.
+
+            if i == self.positional
+                && !emitted_star
+                && !matches!(typ.1, ParameterKind::Args | ParameterKind::KWargs)
+            {
+                collector.push_str("*, ");
+                emitted_star = true;
+            }
+
             match typ.1 {
-                ParameterKind::Required | ParameterKind::Args | ParameterKind::KWargs => {
+                ParameterKind::Args | ParameterKind::KWargs => {
                     // For `*args` or `**kwargs` param name includes the `*` or `**`.
-                    collector.push_str(&typ.0)
+                    collector.push_str(&typ.0);
+                    emitted_star = true;
+                }
+                ParameterKind::Required => {
+                    collector.push_str(&typ.0);
                 }
                 ParameterKind::Optional | ParameterKind::Defaulted(_) => {
                     collector.push_str(&typ.0);
@@ -1424,15 +1440,27 @@ mod tests {
 
     #[test]
     fn test_parameters_str() {
-        let a = Assert::new();
-        let f = a
-            .pass_module("def f(a, b, c, d, e, f, g, h, *args, **kwargs): pass")
-            .get("f")
-            .unwrap();
-        assert_eq!(
-            "a, b, c, d, e, f, g, h, *args, **kwargs",
-            &f.value().parameters_spec().unwrap().parameters_str()
-        );
+        fn test(sig: &str) {
+            let a = Assert::new();
+            let f = a
+                .pass_module(&format!("def f({sig}): pass"))
+                .get("f")
+                .unwrap();
+            assert_eq!(sig, &f.value().parameters_spec().unwrap().parameters_str());
+        }
+
+        test("");
+
+        test("a, b, c, d, e, f, g, h, *args, **kwargs");
+
+        test("*, a");
+        test("x, *, a");
+
+        test("*args, a");
+        test("x, *args, a");
+
+        test("**kwargs");
+        test("a, **kwargs");
     }
 
     #[test]
