@@ -126,6 +126,35 @@ PrimaryDexInput = record(
     has_secondary_dex_class_names = bool.type,
 )
 
+# When using jar compression, the secondary dex directory consists of N secondary dex jars, each
+# of which has a corresponding .meta file (the secondary_dex_metadata_file) containing a single
+# line of the form:
+# jar:<size of secondary dex jar (in bytes)> dex:<size of uncompressed dex file (in bytes)>
+#
+# It also contains a metadata.txt file, which consists on N lines, one for each secondary dex
+# jar. Those lines consist of:
+# <secondary dex jar file name> <hash of secondary dex jar> <canary class>
+#
+# We write the line that needs to be added to metadata.txt for this secondary dex jar to
+# secondary_dex_metadata_line, and we use the secondary_dex_canary_class_name for the
+# <canary class>.  When we have finished building all of the secondary dex jars, we read
+# each of the secondary_dex_metadata_line artifacts and write them to a single metadata.txt file.
+SecondaryDexJarMetadataConfig = record(
+    secondary_dex_metadata_path = str.type,
+    secondary_dex_metadata_file = "artifact",
+    secondary_dex_metadata_line = "artifact",
+    secondary_dex_canary_class_name = str.type,
+)
+
+def _get_secondary_dex_jar_metadata_config(actions: "actions", secondary_dex_path: str.type, index: int.type) -> SecondaryDexJarMetadataConfig.type:
+    secondary_dex_metadata_path = secondary_dex_path + ".meta"
+    return SecondaryDexJarMetadataConfig(
+        secondary_dex_metadata_path = secondary_dex_metadata_path,
+        secondary_dex_metadata_file = actions.declare_output(secondary_dex_metadata_path),
+        secondary_dex_metadata_line = actions.declare_output("metadata_line_artifacts/{}".format(index + 1)),
+        secondary_dex_canary_class_name = _get_fully_qualified_canary_class_name(index + 1),
+    )
+
 def merge_to_split_dex(
         ctx: "context",
         android_toolchain: "AndroidToolchainInfo",
@@ -134,9 +163,9 @@ def merge_to_split_dex(
     input_artifacts = flatten([[pre_dexed_lib.dex, pre_dexed_lib.class_names, pre_dexed_lib.weight_estimate] for pre_dexed_lib in pre_dexed_libs])
     primary_dex_artifact_list = ctx.actions.declare_output("pre_dexed_artifacts_for_primary_dex.txt")
     primary_dex_output = ctx.actions.declare_output("classes.dex")
-    raw_secondary_dexes_dir = ctx.actions.declare_output("raw_secondary_dexes")
+    initial_secondary_dexes_dir = ctx.actions.declare_output("initial_secondary_dexes_dir")
 
-    outputs = [primary_dex_output, primary_dex_artifact_list, raw_secondary_dexes_dir]
+    outputs = [primary_dex_output, primary_dex_artifact_list, initial_secondary_dexes_dir]
 
     def merge_pre_dexed_libs(ctx: "context"):
         primary_dex_inputs, secondary_dex_inputs = _sort_pre_dexed_files(ctx, pre_dexed_libs, split_dex_merge_config)
@@ -149,9 +178,16 @@ def merge_to_split_dex(
         )
         has_secondary_dex_classes = any(filter(lambda input: input.has_secondary_dex_class_names, primary_dex_inputs))
         secondary_dex_output = None
+        secondary_dex_jar_from_primary_dex_metadata_config = None
         if has_secondary_dex_classes:
             index = len(secondary_dex_inputs)
-            secondary_dex_path = _get_raw_secondary_dex_path(index)
+            if split_dex_merge_config.dex_compression == "jar":
+                secondary_dex_path = _get_jar_secondary_dex_path(index)
+                secondary_dex_jar_from_primary_dex_metadata_config = _get_secondary_dex_jar_metadata_config(ctx.actions, secondary_dex_path, index)
+                secondary_dexes_for_symlinking[secondary_dex_jar_from_primary_dex_metadata_config.secondary_dex_metadata_path] = secondary_dex_jar_from_primary_dex_metadata_config.secondary_dex_metadata_file
+            else:
+                secondary_dex_path = _get_raw_secondary_dex_path(index)
+
             secondary_dex_output = ctx.actions.declare_output(secondary_dex_path)
             secondary_dexes_for_symlinking[secondary_dex_path] = secondary_dex_output
             canary_class_dex_info = _create_canary_class(
@@ -161,40 +197,75 @@ def merge_to_split_dex(
                 ctx.attr._java_toolchain[JavaToolchainInfo],
             )
             pre_dexed_artifacts.append(canary_class_dex_info.dex)
+
         _merge_dexes(
             ctx,
             android_toolchain,
             ctx.outputs[primary_dex_output],
             pre_dexed_artifacts,
             ctx.outputs[primary_dex_artifact_list],
-            primary_dex_class_list,
-            secondary_dex_output,
+            class_names_to_include = primary_dex_class_list,
+            secondary_output_dex_file = secondary_dex_output,
+            secondary_dex_jar_metadata_config = secondary_dex_jar_from_primary_dex_metadata_config,
         )
 
+        metadata_line_artifacts = []
         for i in range(len(secondary_dex_inputs)):
-            secondary_dex_path = _get_raw_secondary_dex_path(i)
+            if split_dex_merge_config.dex_compression == "jar":
+                secondary_dex_path = _get_jar_secondary_dex_path(i)
+                secondary_dex_jar_metadata_config = _get_secondary_dex_jar_metadata_config(ctx.actions, secondary_dex_path, i)
+                secondary_dexes_for_symlinking[secondary_dex_jar_metadata_config.secondary_dex_metadata_path] = secondary_dex_jar_metadata_config.secondary_dex_metadata_file
+                metadata_line_artifacts.append(secondary_dex_jar_metadata_config.secondary_dex_metadata_line)
+            else:
+                secondary_dex_path = _get_raw_secondary_dex_path(i)
+                secondary_dex_jar_metadata_config = None
+
             secondary_dex_output = ctx.actions.declare_output(secondary_dex_path)
             secondary_dex_artifact_list = ctx.actions.declare_output("pre_dexed_artifacts_for_secondary_dex_{}.txt".format(i + 2))
             pre_dexed_artifacts = [secondary_dex_input.dex for secondary_dex_input in secondary_dex_inputs[i] if secondary_dex_input.dex]
-            _merge_dexes(ctx, android_toolchain, secondary_dex_output, pre_dexed_artifacts, secondary_dex_artifact_list)
+            _merge_dexes(
+                ctx,
+                android_toolchain,
+                secondary_dex_output,
+                pre_dexed_artifacts,
+                secondary_dex_artifact_list,
+                secondary_dex_jar_metadata_config = secondary_dex_jar_metadata_config,
+            )
 
             secondary_dexes_for_symlinking[secondary_dex_path] = secondary_dex_output
 
+        if secondary_dex_jar_from_primary_dex_metadata_config:
+            # This line is the final entry in metadata.txt.
+            metadata_line_artifacts.append(secondary_dex_jar_from_primary_dex_metadata_config.secondary_dex_metadata_line)
+
+        if split_dex_merge_config.dex_compression == "jar":
+            metadata_dot_txt_path = "{}/metadata.txt".format(_SECONDARY_DEX_SUBDIR)
+            metadata_dot_txt_file = ctx.actions.declare_output(metadata_dot_txt_path)
+            secondary_dexes_for_symlinking[metadata_dot_txt_path] = metadata_dot_txt_file
+
+            def write_metadata_dot_txt(ctx: "context"):
+                metadata_lines = []
+                for metadata_line_artifact in metadata_line_artifacts:
+                    metadata_lines.append(ctx.artifacts[metadata_line_artifact].read_string().strip())
+                ctx.actions.write(ctx.outputs[metadata_dot_txt_file], metadata_lines)
+
+            ctx.actions.dynamic_output(metadata_line_artifacts, [], [metadata_dot_txt_file], write_metadata_dot_txt)
+
         ctx.actions.symlinked_dir(
-            output = ctx.outputs[raw_secondary_dexes_dir],
+            output = ctx.outputs[initial_secondary_dexes_dir],
             srcs = secondary_dexes_for_symlinking,
         )
 
     ctx.actions.dynamic_output(input_artifacts, [], outputs, merge_pre_dexed_libs)
 
-    if split_dex_merge_config.dex_compression == "raw":
-        secondary_dex_dir = raw_secondary_dexes_dir
+    if split_dex_merge_config.dex_compression == "raw" or split_dex_merge_config.dex_compression == "jar":
+        secondary_dex_dir = initial_secondary_dexes_dir
     else:
         secondary_dex_dir = ctx.actions.declare_output("secondary_dexes_dir")
 
         multi_dex_cmd = cmd_args(android_toolchain.multi_dex_command[RunInfo])
         multi_dex_cmd.add("--secondary-dex-output-dir", secondary_dex_dir.as_output())
-        multi_dex_cmd.add("--raw-secondary-dexes-dir", raw_secondary_dexes_dir)
+        multi_dex_cmd.add("--raw-secondary-dexes-dir", initial_secondary_dexes_dir)
         multi_dex_cmd.add("--compression", _get_dex_compression(ctx))
         multi_dex_cmd.add("--xz-compression-level", str(ctx.attr.xz_compression_level))
 
@@ -213,7 +284,8 @@ def _merge_dexes(
         pre_dexed_artifacts: ["artifact"],
         pre_dexed_artifacts_file: "artifact",
         class_names_to_include: ["artifact", None] = None,
-        secondary_output_dex_file: ["artifact", None] = None):
+        secondary_output_dex_file: ["artifact", None] = None,
+        secondary_dex_jar_metadata_config: [SecondaryDexJarMetadataConfig.type, None] = None):
     d8_cmd = cmd_args(android_toolchain.d8_command[RunInfo])
     d8_cmd.add(["--output-dex-file", output_dex_file.as_output()])
 
@@ -229,6 +301,12 @@ def _merge_dexes(
 
     if secondary_output_dex_file:
         d8_cmd.add(["--secondary-output-dex-file", secondary_output_dex_file.as_output()])
+
+    if secondary_dex_jar_metadata_config:
+        d8_cmd.add(["--secondary-dex-compression", "jar"])
+        d8_cmd.add(["--secondary-dex-metadata-file", secondary_dex_jar_metadata_config.secondary_dex_metadata_file.as_output()])
+        d8_cmd.add(["--secondary-dex-metadata-line", secondary_dex_jar_metadata_config.secondary_dex_metadata_line.as_output()])
+        d8_cmd.add(["--secondary-dex-canary-class-name", secondary_dex_jar_metadata_config.secondary_dex_canary_class_name])
 
     ctx.actions.run(
         d8_cmd,
@@ -292,8 +370,14 @@ def _is_primary_dex_class(class_name: str.type, primary_dex_class_name_filter: "
 def _get_raw_secondary_dex_path(index: int.type):
     return "classes{}.dex".format(index + 2)
 
+_SECONDARY_DEX_SUBDIR = "assets/secondary-program-dex-jars"
+
+def _get_jar_secondary_dex_path(index: int.type):
+    return "{}/secondary-{}.dex.jar".format(_SECONDARY_DEX_SUBDIR, index + 1)
+
 # We create "canary" classes and add them to each secondary dex jar to ensure each jar has a class
 # that can be safely loaded on any system. This class is used during secondary dex verification.
+_CANARY_FULLY_QUALIFIED_CLASS_NAME_TEMPLATE = "secondary.dex{}.Canary"
 _CANARY_FILE_NAME_TEMPLATE = "canary_classes/secondary/dex{}/Canary.java"
 _CANARY_CLASS_PACKAGE_TEMPLATE = "package secondary.dex{};\n"
 _CANARY_CLASS_INTERFACE_DEFINITION = "public interface Canary {}"
@@ -304,3 +388,6 @@ def _create_canary_class(ctx: "context", index: int.type, dex_toolchain: DexTool
     compile_to_jar(ctx, [canary_class_java_file], output = canary_class_jar, javac_tool = java_toolchain.javac, actions_prefix = "canary_class_{}".format(index))
 
     return get_dex_produced_from_java_library(ctx, dex_toolchain = dex_toolchain, jar_to_dex = canary_class_jar)
+
+def _get_fully_qualified_canary_class_name(index: int.type):
+    return _CANARY_FULLY_QUALIFIED_CLASS_NAME_TEMPLATE.format(index)
