@@ -2,6 +2,19 @@ load("@fbcode//buck2/prelude:paths.bzl", "paths")
 load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@fbcode//buck2/prelude/cxx:headers.bzl", "CxxHeadersLayout", "CxxHeadersNaming")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "value_or")
+load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node")
+
+_VERSION_PLACEHOLDER = "(VERSION)"
+
+# TODO(T115177501): Make target triples part of the toolchains
+# Map from SDK name -> target triple _without_ leading architecture
+_TARGET_TRIPLE_MAP = {
+    "iphoneos": "apple-ios{}".format(_VERSION_PLACEHOLDER),
+    "iphonesimulator": "apple-ios{}-simulator".format(_VERSION_PLACEHOLDER),
+    "macosx": "apple-macosx{}".format(_VERSION_PLACEHOLDER),
+    "watchos": "apple-watchos{}".format(_VERSION_PLACEHOLDER),
+    "watchsimulator": "apple-watchos{}-simulator".format(_VERSION_PLACEHOLDER),
+}
 
 def get_apple_cxx_headers_layout(ctx: "context") -> CxxHeadersLayout.type:
     namespace = value_or(ctx.attr.header_path_prefix, ctx.attr.name)
@@ -37,6 +50,24 @@ def to_framework_name(framework_path: str.type) -> str.type:
     name, ext = paths.split_extension(paths.basename(framework_path))
     expect(ext == ".framework", "framework `{}` missing `.framework` suffix", framework_path)
     return name
+
+def get_versioned_target_triple(ctx: "context") -> str.type:
+    apple_toolchain_info = ctx.attr._apple_toolchain[AppleToolchainInfo]
+    swift_toolchain_info = apple_toolchain_info.swift_toolchain_info
+
+    architecture = swift_toolchain_info.architecture
+    if architecture == None:
+        fail("Need to set `architecture` field of swift_toolchain(), target: {}".format(ctx.label))
+
+    target_sdk_version = get_min_deployment_version_for_node(ctx) or ""
+
+    sdk_name = apple_toolchain_info.sdk_name
+    target_triple_with_version_placeholder = _TARGET_TRIPLE_MAP.get(sdk_name)
+    if target_triple_with_version_placeholder == None:
+        fail("Could not find target triple for sdk = {}".format(sdk_name))
+
+    versioned_target_triple = target_triple_with_version_placeholder.replace(_VERSION_PLACEHOLDER, target_sdk_version)
+    return "{}-{}".format(architecture, versioned_target_triple)
 
 def _library_name(library: str.type) -> str.type:
     name = paths.basename(library)
