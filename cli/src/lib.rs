@@ -52,6 +52,7 @@ use crate::{
         aquery::AqueryCommand,
         audit::AuditCommand,
         build::BuildCommand,
+        bxl::BxlCommand,
         clean::CleanCommand,
         common::{
             subscribers::{
@@ -262,6 +263,7 @@ pub enum CommandKind {
     Audit(AuditCommand),
     Aquery(AqueryCommand),
     Build(BuildCommand),
+    Bxl(BxlCommand),
     Test(TestCommand),
     Cquery(CqueryCommand),
     Install(InstallCommand),
@@ -413,6 +415,7 @@ impl CommandKind {
             CommandKind::Daemon(cmd) => cmd.exec(matches, command_ctx).into(),
             CommandKind::Aquery(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Build(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::Bxl(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Test(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Cquery(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Kill(cmd) => cmd.exec(matches, command_ctx).into(),
