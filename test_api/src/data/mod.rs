@@ -163,10 +163,7 @@ pub struct DeclaredOutput {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ExecuteRequest2 {
-    pub ui_prints: DisplayMetadata,
-    pub target: ConfiguredTargetHandle,
-    pub cmd: Vec<ArgValue>,
-    pub env: HashMap<String, ArgValue>,
+    pub test_executable: TestExecutable,
     pub timeout: Duration,
     pub host_sharing_requirements: HostSharingRequirements,
     pub pre_create_dirs: Vec<DeclaredOutput>,
@@ -185,6 +182,14 @@ pub struct ExecutionResult2 {
     pub outputs: HashMap<DeclaredOutput, Output>,
     pub start_time: SystemTime,
     pub execution_time: Duration,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct TestExecutable {
+    pub ui_prints: DisplayMetadata,
+    pub target: ConfiguredTargetHandle,
+    pub cmd: Vec<ArgValue>,
+    pub env: HashMap<String, ArgValue>,
 }
 
 pub mod testing {

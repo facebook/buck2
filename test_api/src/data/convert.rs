@@ -13,7 +13,7 @@ use crate::{
         ArgHandle, ArgValue, ArgValueContent, ConfiguredTarget, ConfiguredTargetHandle,
         DeclaredOutput, DisplayMetadata, EnvHandle, ExecuteRequest2, ExecutionResult2,
         ExecutionStatus, ExecutionStream, ExternalRunnerSpec, ExternalRunnerSpecValue, Output,
-        TestResult, TestStatus,
+        TestExecutable, TestResult, TestStatus,
     },
     protocol::convert::{host_sharing_requirements_from_grpc, host_sharing_requirements_to_grpc},
 };
@@ -430,38 +430,13 @@ impl TryFrom<test_proto::ExecuteRequest2> for ExecuteRequest2 {
             pre_create_dirs,
         } = s;
 
-        let test_proto::TestExecutable {
-            ui_prints,
-            target,
-            cmd,
-            env,
-        } = test_executable.context("Missing `test_executable`")?;
-
-        let ui_prints = ui_prints
-            .context("Missing `ui_prints`")?
+        let test_executable = test_executable
+            .context("Missing `test_executable`")?
             .try_into()
-            .context("Invalid `ui_prints`")?;
-
-        let target = target
-            .context("Missing `target`")?
-            .try_into()
-            .context("Invalid `target`")?;
-
-        let cmd = cmd
-            .into_try_map(|c| c.try_into())
-            .context("Invalid `cmd`")?;
+            .context("Invalid `test_executable`")?;
 
         let timeout = convert::to_std_duration(timeout.context("Missing `timeout`")?)
             .context("Invalid `timeout`")?;
-
-        let env = env
-            .into_iter()
-            .map(|(k, v)| {
-                v.try_into()
-                    .context("Invalid `env`")
-                    .map(|v: ArgValue| (k, v))
-            })
-            .collect::<anyhow::Result<_>>()?;
 
         let host_sharing_requirements =
             host_sharing_requirements.context("Missing `host_sharing_requirements`")?;
@@ -474,10 +449,7 @@ impl TryFrom<test_proto::ExecuteRequest2> for ExecuteRequest2 {
             .context("Invalid `pre_create_dirs`")?;
 
         Ok(ExecuteRequest2 {
-            ui_prints,
-            target,
-            cmd,
-            env,
+            test_executable,
             timeout,
             host_sharing_requirements,
             pre_create_dirs,
@@ -489,28 +461,14 @@ impl TryInto<test_proto::ExecuteRequest2> for ExecuteRequest2 {
     type Error = anyhow::Error;
 
     fn try_into(self) -> Result<test_proto::ExecuteRequest2, Self::Error> {
-        let env = self
-            .env
-            .into_iter()
-            .map(|(k, v)| {
-                v.try_into()
-                    .context("Invalid `env`")
-                    .map(|v: test_proto::ArgValue| (k, v))
-            })
-            .collect::<anyhow::Result<_>>()?;
-
-        let test_executable = test_proto::TestExecutable {
-            ui_prints: Some(self.ui_prints.try_into().context("Invalid `ui_prints`")?),
-            target: Some(self.target.try_into().context("Invalid `target`")?),
-            cmd: self
-                .cmd
-                .into_try_map(|i| i.try_into())
-                .context("Invalid `cmd`")?,
-            env,
-        };
+        let test_executable = Some(
+            self.test_executable
+                .try_into()
+                .context("Invalid `test_executable`")?,
+        );
 
         Ok(test_proto::ExecuteRequest2 {
-            test_executable: Some(test_executable),
+            test_executable,
             timeout: Some(self.timeout.into()),
             host_sharing_requirements: Some(
                 host_sharing_requirements_to_grpc(self.host_sharing_requirements)
@@ -646,6 +604,78 @@ impl TryFrom<test_proto::ExecutionResult2> for ExecutionResult2 {
     }
 }
 
+impl TryFrom<test_proto::TestExecutable> for TestExecutable {
+    type Error = anyhow::Error;
+
+    fn try_from(s: test_proto::TestExecutable) -> Result<Self, Self::Error> {
+        let test_proto::TestExecutable {
+            ui_prints,
+            target,
+            cmd,
+            env,
+        } = s;
+        let ui_prints = ui_prints
+            .context("Missing `ui_prints`")?
+            .try_into()
+            .context("Invalid `ui_prints`")?;
+
+        let target = target
+            .context("Missing `target`")?
+            .try_into()
+            .context("Invalid `target`")?;
+
+        let cmd = cmd
+            .into_try_map(|c| c.try_into())
+            .context("Invalid `cmd`")?;
+
+        let env = env
+            .into_iter()
+            .map(|(k, v)| {
+                v.try_into()
+                    .context("Invalid `env`")
+                    .map(|v: ArgValue| (k, v))
+            })
+            .collect::<anyhow::Result<_>>()?;
+
+        Ok(TestExecutable {
+            ui_prints,
+            target,
+            cmd,
+            env,
+        })
+    }
+}
+
+impl TryInto<test_proto::TestExecutable> for TestExecutable {
+    type Error = anyhow::Error;
+
+    fn try_into(self) -> Result<test_proto::TestExecutable, Self::Error> {
+        let ui_prints = Some(self.ui_prints.try_into().context("Invalid `ui_prints`")?);
+        let target = Some(self.target.try_into().context("Invalid `target`")?);
+        let cmd = self
+            .cmd
+            .into_try_map(|i| i.try_into())
+            .context("Invalid `cmd`")?;
+
+        let env = self
+            .env
+            .into_iter()
+            .map(|(k, v)| {
+                v.try_into()
+                    .context("Invalid `env`")
+                    .map(|v: test_proto::ArgValue| (k, v))
+            })
+            .collect::<anyhow::Result<_>>()?;
+
+        Ok(test_proto::TestExecutable {
+            ui_prints,
+            target,
+            cmd,
+            env,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
@@ -702,7 +732,7 @@ mod tests {
             name: ForwardRelativePathBuf::unchecked_new("name".to_owned()),
         };
 
-        let request = ExecuteRequest2 {
+        let test_executable = TestExecutable {
             ui_prints: DisplayMetadata::Listing("name".to_owned()),
             target: ConfiguredTargetHandle(42),
             cmd: vec![
@@ -728,6 +758,9 @@ mod tests {
             )]
             .into_iter()
             .collect(),
+        };
+        let request = ExecuteRequest2 {
+            test_executable,
             timeout: Duration::from_millis(42),
             host_sharing_requirements: HostSharingRequirements::ExclusiveAccess,
             pre_create_dirs: vec![declared_output],

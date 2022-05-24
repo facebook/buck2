@@ -18,7 +18,7 @@ use tracing::Level;
 use crate::{
     data::{
         ArgValue, ConfiguredTargetHandle, DeclaredOutput, DisplayMetadata, ExecuteRequest2,
-        ExecutionResult2, TestResult,
+        ExecutionResult2, TestExecutable, TestResult,
     },
     grpc::{
         channel,
@@ -103,11 +103,15 @@ impl TestOrchestrator for TestOrchestratorClient {
         host_sharing_requirements: HostSharingRequirements,
         pre_create_dirs: Vec<DeclaredOutput>,
     ) -> anyhow::Result<ExecutionResult2> {
-        let req = ExecuteRequest2 {
+        let test_executable = TestExecutable {
             ui_prints,
             target,
             cmd,
             env,
+        };
+
+        let req = ExecuteRequest2 {
+            test_executable,
             timeout,
             host_sharing_requirements,
             pre_create_dirs,
@@ -206,10 +210,7 @@ where
     ) -> Result<tonic::Response<ExecuteResponse2>, tonic::Status> {
         to_tonic(async move {
             let ExecuteRequest2 {
-                ui_prints,
-                target,
-                cmd,
-                env,
+                test_executable,
                 timeout,
                 host_sharing_requirements,
                 pre_create_dirs,
@@ -217,6 +218,13 @@ where
                 .into_inner()
                 .try_into()
                 .context("Invalid execute2 request")?;
+
+            let TestExecutable {
+                ui_prints,
+                target,
+                cmd,
+                env,
+            } = test_executable;
 
             let result = self
                 .inner
