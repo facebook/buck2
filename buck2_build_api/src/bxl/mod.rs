@@ -21,4 +21,4 @@ pub mod eval;
 pub mod result;
 pub mod starlark_defs;
 
-pub use buck2_bxl_core::{BxlFunctionLabel, BxlKey, BxlKeyData};
+pub use buck2_bxl_core::{BxlFunctionLabel, BxlKey};

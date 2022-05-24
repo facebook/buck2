@@ -42,7 +42,7 @@ pub enum CliArgValue {
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 #[display(fmt = "{}", .0)]
-pub struct BxlKey(pub Arc<BxlKeyData>);
+pub struct BxlKey(Arc<BxlKeyData>);
 
 impl BxlKey {
     pub fn new(spec: BxlFunctionLabel, bxl_args: Arc<SmallMap<String, CliArgValue>>) -> Self {
@@ -58,10 +58,9 @@ impl BxlKey {
     }
 }
 
-// FIXME(bobyf): Make this type not available outside the crate
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 #[display(fmt = "BxlFunction({},{:?})", "spec", "bxl_args")]
-pub struct BxlKeyData {
+struct BxlKeyData {
     pub spec: BxlFunctionLabel,
     pub bxl_args: Arc<SmallMap<String, CliArgValue>>,
 }
