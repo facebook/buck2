@@ -141,7 +141,6 @@ buck_rust_binary(
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:structopt",
-        "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
         "//buck2/buck2_build_api:buck2_build_api",
         "//buck2/buck2_common:buck2_common",

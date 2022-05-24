@@ -275,6 +275,7 @@ impl StreamingCommand for BuildCommand {
                     None
                 },
                 self.show_json_output || self.show_full_json_output,
+                false,
             )?;
         }
 
@@ -290,11 +291,12 @@ impl StreamingCommand for BuildCommand {
     }
 }
 
-fn print_outputs(
+pub fn print_outputs(
     console: &FinalConsole,
     targets: Vec<BuildTarget>,
     root_path: Option<String>,
     as_json: bool,
+    show_all_outputs: bool,
 ) -> anyhow::Result<()> {
     let mut output_map = HashMap::new();
     let mut process_output = |target: &String, output: Option<String>| -> anyhow::Result<()> {
@@ -320,13 +322,14 @@ fn print_outputs(
             output
                 .providers
                 .as_ref()
-                .map_or(true, |p| p.default_info && !p.other)
+                .map_or(true, |p| show_all_outputs || (p.default_info && !p.other))
         });
 
         // only print the unconfigured target for now until we migrate everything to support
         // also printing configurations
-        if outputs.clone().count() > 1 {
-            // We only print the default outputs, which shouldn't have more than one output.
+        if outputs.clone().count() > 1 && !show_all_outputs {
+            // We only print the default outputs when we don't `show_all_outputs`,
+            // which shouldn't have more than one output.
             // (although we currently don't yet restrict this, but we should).
             process_output(&build_target.target, None)?;
             continue;

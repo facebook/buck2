@@ -10,6 +10,7 @@
 pub mod aquery;
 pub mod audit;
 pub mod build;
+pub mod bxl;
 pub mod clean;
 pub mod common;
 pub mod cquery;

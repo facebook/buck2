@@ -16,7 +16,7 @@
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
-use std::{collections::HashMap, convert::TryFrom, fs::File, path::Path, str::FromStr, sync::Arc};
+use std::{collections::HashMap, convert::TryFrom, fs::File, path::Path, sync::Arc};
 
 use anyhow::Context;
 use buck2_build_api::{
@@ -68,11 +68,14 @@ use buck2_interpreter::{
     common::StarlarkModulePath, dice::interpreter_setup::setup_interpreter_basic,
     extra::InterpreterHostPlatform,
 };
-use cli::daemon::{
-    build::results::{build_report::BuildReportCollector, result_report::ResultReporter},
-    bxl::{convert_bxl_build_result, ensure_artifacts},
-    common,
-    common::{parse_concurrency, CommandExecutorFactory},
+use cli::{
+    commands::bxl::{BxlCoreOpts, ShowAllOutputsFormat},
+    daemon::{
+        build::results::{build_report::BuildReportCollector, result_report::ResultReporter},
+        bxl::{convert_bxl_build_result, ensure_artifacts},
+        common,
+        common::{parse_concurrency, CommandExecutorFactory},
+    },
 };
 use cli_proto::{common_build_options::ExecutionStrategy, BuildTarget};
 use dice::{cycles::DetectCycles, Dice, DiceTransaction, UserComputationData};
@@ -81,7 +84,6 @@ use fbinit::FacebookInit;
 use gazebo::prelude::*;
 use host_sharing::{HostSharingBroker, HostSharingStrategy};
 use structopt::{clap::AppSettings, StructOpt};
-use thiserror::Error;
 use tokio::runtime::Builder;
 
 #[cfg_attr(all(unix, not(fbcode_build)), global_allocator)]
@@ -106,25 +108,6 @@ pub struct Opt {
     )]
     detect_cycles: DetectCycles,
 
-    #[structopt(name = "BXL File", help = "The bzl file containing the BXL function")]
-    path: String,
-
-    #[structopt(name = "BXL Function", help = "The BXL Function to test")]
-    bxl_fn: String,
-
-    #[structopt(
-        long = "show-all-outputs",
-        help = "Print the output paths relative to the cell"
-    )]
-    show_all_outputs: bool,
-
-    #[structopt(
-        long = "show-all-outputs-format",
-        help = "Indicates the output format that should be used when using the show all outputs functionality (default: json).\n json - JSON format with relative paths.\n full_json - JSON format with absolute paths.\n",
-        default_value = "json"
-    )]
-    show_all_outputs_format: ShowAllOutputsFormat,
-
     /// Print a build report
     ///
     /// --build-report=- will print the build report to stdout
@@ -132,35 +115,8 @@ pub struct Opt {
     #[structopt(long = "build-report", value_name = "PATH")]
     build_report: Option<String>,
 
-    #[structopt(
-        short = "-",
-        name = "BXL INPUT ARGS",
-        help = "Arguments passed to the bxl script",
-        raw = true
-    )]
-    bxl_args: Vec<String>,
-}
-
-#[derive(Debug)]
-enum ShowAllOutputsFormat {
-    Json,
-    FullJson,
-}
-
-#[derive(Debug, Error)]
-#[error("Unknown show outputs format `{0}`. Must be one of `json` or `full_json`")]
-struct UnknownShowOutputsFormat(String);
-
-impl FromStr for ShowAllOutputsFormat {
-    type Err = UnknownShowOutputsFormat;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "json" => Ok(Self::Json),
-            "full_json" => Ok(Self::FullJson),
-            _ => Err(UnknownShowOutputsFormat(s.to_owned())),
-        }
-    }
+    #[structopt(flatten)]
+    bxl_core: BxlCoreOpts,
 }
 
 #[fbinit::main]
@@ -196,7 +152,12 @@ async fn async_main(
     let fs = io.fs();
     let artifact_fs = dice.get_artifact_fs().await;
 
-    let bxl_label = common::parse_bxl_label_from_cli(&cwd, &opt.path, &opt.bxl_fn, &cell_resolver)?;
+    let bxl_label = common::parse_bxl_label_from_cli(
+        &cwd,
+        &opt.bxl_core.bxl_path,
+        &opt.bxl_core.bxl_fn,
+        &cell_resolver,
+    )?;
 
     let cur_package = Package::from_cell_path(&cell_resolver.get_cell_path(&cwd)?);
     let cell_name = cell_resolver.find(&cwd)?;
@@ -230,7 +191,7 @@ async fn async_main(
     let bxl_args = Arc::new(resolve_cli_args(
         &bxl_label,
         &cli_ctx,
-        opt.bxl_args,
+        opt.bxl_core.bxl_args,
         &frozen_callable,
     )?);
 
@@ -244,7 +205,7 @@ async fn async_main(
     };
     let build_result = ensure_artifacts(&dice, &materialization_ctx, result).await;
 
-    let result_collector = ResultReporter::new(&artifact_fs, opt.show_all_outputs);
+    let result_collector = ResultReporter::new(&artifact_fs, opt.bxl_core.show_all_outputs);
 
     // TODO(T116849868) reuse the same as build command when moved to daemon
     let trace_id = TraceId::new();
@@ -292,7 +253,7 @@ async fn async_main(
 
             print_all_outputs(
                 build_targets,
-                match opt.show_all_outputs_format {
+                match opt.bxl_core.show_all_outputs_format {
                     ShowAllOutputsFormat::FullJson => Some(format!("{}", fs.root.display())),
                     ShowAllOutputsFormat::Json => None,
                 },

@@ -88,7 +88,7 @@ use crate::{
 pub mod panic;
 
 pub mod args;
-mod commands;
+pub mod commands;
 pub mod configs;
 pub mod daemon;
 pub mod dot;
