@@ -947,10 +947,6 @@ mod tests {
 
     #[test]
     fn declare_output_dot() -> anyhow::Result<()> {
-        // NOTE: Temporarily disabled until DeclaredEmptyFileName becomes a hard error
-        if true {
-            return Ok(());
-        }
         let content = indoc!(
             r#"
             def test(c):

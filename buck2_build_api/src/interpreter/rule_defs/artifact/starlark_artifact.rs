@@ -12,7 +12,6 @@ use std::fmt::Display;
 use buck2_core::{
     fs::paths::{ForwardRelativePath, ForwardRelativePathBuf},
     provider::{ConfiguredProvidersLabel, ProvidersName},
-    soft_error,
 };
 use either::Either;
 use gazebo::{any::AnyLifetime, cell::ARef, prelude::*};
@@ -206,10 +205,7 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     fn basename<'v>(this: &'v StarlarkArtifact) -> anyhow::Result<&'v str> {
         match this.get_path().file_name() {
             Some(x) => Ok(x.as_str()),
-            None => {
-                soft_error!(ArtifactErrors::EmptyFilename(this.get_path().to_owned()).into());
-                Ok("")
-            }
+            None => Err(ArtifactErrors::EmptyFilename(this.get_path().to_owned()).into()),
         }
     }
 
