@@ -35,7 +35,7 @@ use buck2_build_api::{
         eval::{get_bxl_callable, resolve_cli_args},
         result::BxlResult,
         starlark_defs::{configure_bxl_file_globals, context::build::StarlarkBuildResult},
-        BxlKey,
+        BxlFunctionLabel, BxlKey,
     },
     calculation::Calculation,
     context::SetBuildContextData,
@@ -255,44 +255,37 @@ async fn async_main(
     };
     let build_result = ensure_artifacts(&dice, &materialization_ctx, result).await;
 
+    let result_collector = ResultReporter::new(&artifact_fs, opt.show_all_outputs);
+
+    // TODO(T116849868) reuse the same as build command when moved to daemon
+    let trace_id = TraceId::new();
+    let mut build_report_collector = if opt.build_report.is_some() {
+        Some(BuildReportCollector::new(
+            &trace_id,
+            &artifact_fs,
+            &fs.root,
+            dice.parse_legacy_config_property(
+                cell_resolver.root_cell(),
+                "build_report",
+                "print_unconfigured_section",
+            )
+            .await?
+            .unwrap_or(true),
+            true,
+        ))
+    } else {
+        None
+    };
+
     match build_result {
         None => {}
         Some(build_result) => {
-            // TODO(T116849868) reuse the same as build command when moved to daemon
-            let trace_id = TraceId::new();
-
-            let mut build_report_collector = if opt.build_report.is_some() {
-                Some(BuildReportCollector::new(
-                    &trace_id,
-                    &artifact_fs,
-                    &fs.root,
-                    dice.parse_legacy_config_property(
-                        cell_resolver.root_cell(),
-                        "build_report",
-                        "print_unconfigured_section",
-                    )
-                    .await?
-                    .unwrap_or(true),
-                    true,
-                ))
-            } else {
-                None
-            };
-            let mut result_collector = ResultReporter::new(&artifact_fs, opt.show_all_outputs);
-
-            let mut result_collectors = vec![
-                Some(&mut result_collector as &mut dyn BuildResultCollector),
-                build_report_collector
-                    .as_mut()
-                    .map(|v| v as &mut dyn BuildResultCollector),
-            ]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<&mut dyn BuildResultCollector>>();
-
-            for r in build_result {
-                result_collectors.collect_result(&BuildOwner::Bxl(&bxl_label), &r);
-            }
+            let (build_targets, error_messages) = convert_bxl_build_result(
+                &bxl_label,
+                result_collector,
+                &mut build_report_collector,
+                build_result,
+            );
 
             if let Some(build_report_collector) = build_report_collector {
                 let report = build_report_collector.into_report();
@@ -303,19 +296,6 @@ async fn async_main(
                     println!("{}", serde_json::to_string(&report)?);
                 };
             }
-
-            let (build_targets, error_messages) = match result_collector.results() {
-                Ok(targets) => (targets, Vec::new()),
-                Err(errors) => {
-                    let error_strings = errors
-                        .errors
-                        .iter()
-                        .map(|e| format!("{:#}", e))
-                        .unique()
-                        .collect();
-                    (vec![], error_strings)
-                }
-            };
 
             for error_message in error_messages {
                 println!("{}", error_message)
@@ -330,9 +310,43 @@ async fn async_main(
                 true,
             )?;
         }
-    }
+    };
 
     Ok(())
+}
+
+fn convert_bxl_build_result(
+    bxl_label: &BxlFunctionLabel,
+    mut result_collector: ResultReporter,
+    build_report_collector: &mut Option<BuildReportCollector>,
+    build_result: Vec<BuildTargetResult>,
+) -> (Vec<BuildTarget>, Vec<String>) {
+    let mut result_collectors = vec![
+        Some(&mut result_collector as &mut dyn BuildResultCollector),
+        build_report_collector
+            .as_mut()
+            .map(|v| v as &mut dyn BuildResultCollector),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<&mut dyn BuildResultCollector>>();
+
+    for r in build_result {
+        result_collectors.collect_result(&BuildOwner::Bxl(bxl_label), &r);
+    }
+
+    match result_collector.results() {
+        Ok(targets) => (targets, Vec::new()),
+        Err(errors) => {
+            let error_strings = errors
+                .errors
+                .iter()
+                .map(|e| format!("{:#}", e))
+                .unique()
+                .collect();
+            (vec![], error_strings)
+        }
+    }
 }
 
 async fn ensure_artifacts(
