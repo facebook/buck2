@@ -58,7 +58,7 @@ def expand_relative_prefixed_sdk_path(
             path = path_to_expand[len(path_variable):]
             if path.find("$") == 0:
                 fail("Failed to expand framework path: {}".format(path))
-            expanded_cmd.add_joined([path_value, path])
+            expanded_cmd.add(cmd_args([path_value, path], delimiter = ""))
 
     return expanded_cmd
 
