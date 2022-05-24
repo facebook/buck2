@@ -165,7 +165,7 @@ fn register_transition_function(builder: &mut GlobalsBuilder) {
             Some(parameters_spec) => parameters_spec,
             None => return Err(TransitionError::MustBeDefNotDef.into()),
         };
-        if parameters_spec.parameters_str() != "platform, refs" {
+        if !parameters_spec.can_fill_with_args(0, &["platform", "refs"]) {
             return Err(
                 TransitionError::MustBeDefWrongSig(parameters_spec.parameters_str()).into(),
             );
