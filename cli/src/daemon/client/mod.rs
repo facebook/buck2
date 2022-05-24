@@ -438,6 +438,11 @@ impl BuckdClient {
             .await
     }
 
+    pub async fn bxl(&mut self, req: BxlRequest) -> anyhow::Result<CommandOutcome<BxlResponse>> {
+        self.stream(|d, r| Box::pin(DaemonApiClient::bxl(d, r)), req)
+            .await
+    }
+
     pub async fn test(&mut self, req: TestRequest) -> anyhow::Result<CommandOutcome<TestResponse>> {
         self.stream(|d, r| Box::pin(DaemonApiClient::test(d, r)), req)
             .await
