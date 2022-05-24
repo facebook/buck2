@@ -148,7 +148,7 @@ async fn get_execution_platforms(
 async fn resolve_execution_platform(
     ctx: &DiceComputations,
     target_node_cell: &CellName,
-    compatible_with: Vec<TargetLabel>,
+    exec_compatible_with: Vec<TargetLabel>,
     exec_deps: IndexSet<TargetLabel>,
 ) -> SharedResult<ExecutionPlatformResolution> {
     let candidates = match ctx.get_execution_platforms().await? {
@@ -166,11 +166,11 @@ async fn resolve_execution_platform(
             .get_resolved_configuration(
                 &exec_platform.cfg(),
                 target_node_cell,
-                compatible_with.iter(),
+                exec_compatible_with.iter(),
             )
             .await?;
 
-        for constraint in &compatible_with {
+        for constraint in &exec_compatible_with {
             if resolved_platform_configuration
                 .matches(constraint)
                 .is_none()
@@ -414,9 +414,9 @@ impl ConfigurationCalculation for DiceComputations {
     async fn resolve_execution_platform(
         &self,
         target_node_cell: &CellName,
-        compatible_with: Vec<TargetLabel>,
+        exec_compatible_with: Vec<TargetLabel>,
         exec_deps: IndexSet<TargetLabel>,
     ) -> SharedResult<ExecutionPlatformResolution> {
-        resolve_execution_platform(self, target_node_cell, compatible_with, exec_deps).await
+        resolve_execution_platform(self, target_node_cell, exec_compatible_with, exec_deps).await
     }
 }
