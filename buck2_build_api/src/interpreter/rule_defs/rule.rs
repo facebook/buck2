@@ -255,12 +255,12 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
     fn rule<'v>(
         implementation: Value,
         attrs: DictOf<&str, &Attribute>,
-        cfg: Option<Value>,
-        #[starlark(default = "")] doc: &str,
+        #[starlark(require = named)] cfg: Option<Value>,
+        #[starlark(require = named, default = "")] doc: &str,
         #[allow(unused_variables)]
-        #[starlark(default = false)]
+        #[starlark(require = named, default = false)]
         allow_unknown_attrs: bool,
-        #[starlark(default = false)] is_configuration_rule: bool,
+        #[starlark(require = named, default = false)] is_configuration_rule: bool,
     ) -> anyhow::Result<Value<'v>> {
         // TODO(nmj): Add default attributes in here like 'name', 'visibility', etc
         // TODO(nmj): Verify that names are valid. This is technically handled by the Params
