@@ -98,7 +98,7 @@ def _get_test_host_app_bundle(ctx: "context") -> ["artifact", None]:
 def _get_test_host_app_binary(ctx: "context", test_host_app_bundle: ["artifact", None]) -> ["cmd_args", None]:
     """ Reference to the binary with the test host app bundle, if one exists for this test. Captures the bundle as an artifact in the cmd_args. """
     if ctx.attr.test_host_app:
-        return cmd_args([test_host_app_bundle, ctx.attr.test_host_app[AppleBundleInfo].binary_name], joined = True, delimiter = "/")
+        return cmd_args([test_host_app_bundle, ctx.attr.test_host_app[AppleBundleInfo].binary_name], delimiter = "/")
 
     return None
 

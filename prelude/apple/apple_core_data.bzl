@@ -59,4 +59,4 @@ def _get_momc_command(ctx: "context", core_data_spec: AppleCoreDataSpec.type, pr
         product_name,
         core_data_spec.path,
         output_directory,
-    ], joined = True, delimiter = " ")
+    ], delimiter = " ")
