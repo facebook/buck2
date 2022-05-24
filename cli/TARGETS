@@ -139,8 +139,6 @@ buck_rust_binary(
     unittests = False,
     deps = [
         "fbsource//third-party/rust:anyhow",
-        "fbsource//third-party/rust:futures",
-        "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:structopt",
         "fbsource//third-party/rust:thiserror",

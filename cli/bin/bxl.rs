@@ -25,17 +25,13 @@ use buck2_build_api::{
         build_listener::{BuildSignalSender, SetBuildSignals},
         run::knobs::HasRunActionKnobs,
     },
-    artifact_groups::ArtifactGroup,
-    build::{
-        materialize_artifact_group, BuildProviderType, MaterializationContext, ProviderArtifacts,
-    },
+    build::MaterializationContext,
     bxl::{
         calculation::BxlCalculation,
         common::CliResolutionCtx,
         eval::{get_bxl_callable, resolve_cli_args},
-        result::BxlResult,
-        starlark_defs::{configure_bxl_file_globals, context::build::StarlarkBuildResult},
-        BxlFunctionLabel, BxlKey,
+        starlark_defs::configure_bxl_file_globals,
+        BxlKey,
     },
     calculation::Calculation,
     context::SetBuildContextData,
@@ -73,24 +69,17 @@ use buck2_interpreter::{
     extra::InterpreterHostPlatform,
 };
 use cli::daemon::{
-    build::{
-        results::{
-            build_report::BuildReportCollector, result_report::ResultReporter, BuildOwner,
-            BuildResultCollector,
-        },
-        BuildTargetResult,
-    },
+    build::results::{build_report::BuildReportCollector, result_report::ResultReporter},
+    bxl::{convert_bxl_build_result, ensure_artifacts},
     common,
     common::{parse_concurrency, CommandExecutorFactory},
 };
 use cli_proto::{common_build_options::ExecutionStrategy, BuildTarget};
-use dice::{cycles::DetectCycles, Dice, DiceComputations, DiceTransaction, UserComputationData};
+use dice::{cycles::DetectCycles, Dice, DiceTransaction, UserComputationData};
 use events::{dispatch::EventDispatcher, TraceId};
 use fbinit::FacebookInit;
-use futures::FutureExt;
 use gazebo::prelude::*;
 use host_sharing::{HostSharingBroker, HostSharingStrategy};
-use itertools::Itertools;
 use structopt::{clap::AppSettings, StructOpt};
 use thiserror::Error;
 use tokio::runtime::Builder;
@@ -313,140 +302,6 @@ async fn async_main(
     };
 
     Ok(())
-}
-
-fn convert_bxl_build_result(
-    bxl_label: &BxlFunctionLabel,
-    mut result_collector: ResultReporter,
-    build_report_collector: &mut Option<BuildReportCollector>,
-    build_result: Vec<BuildTargetResult>,
-) -> (Vec<BuildTarget>, Vec<String>) {
-    let mut result_collectors = vec![
-        Some(&mut result_collector as &mut dyn BuildResultCollector),
-        build_report_collector
-            .as_mut()
-            .map(|v| v as &mut dyn BuildResultCollector),
-    ]
-    .into_iter()
-    .flatten()
-    .collect::<Vec<&mut dyn BuildResultCollector>>();
-
-    for r in build_result {
-        result_collectors.collect_result(&BuildOwner::Bxl(bxl_label), &r);
-    }
-
-    match result_collector.results() {
-        Ok(targets) => (targets, Vec::new()),
-        Err(errors) => {
-            let error_strings = errors
-                .errors
-                .iter()
-                .map(|e| format!("{:#}", e))
-                .unique()
-                .collect();
-            (vec![], error_strings)
-        }
-    }
-}
-
-async fn ensure_artifacts(
-    ctx: &DiceComputations,
-    materialization_ctx: &MaterializationContext,
-    bxl_result: Arc<BxlResult>,
-) -> Option<Vec<BuildTargetResult>> {
-    match &*bxl_result {
-        BxlResult::None { .. } => None,
-        BxlResult::BuildsArtifacts {
-            built, artifacts, ..
-        } => {
-            let mut report = vec![];
-
-            let mut futs = vec![];
-
-            built.iter().for_each(|res| match res {
-                StarlarkBuildResult::Built {
-                    providers,
-                    run_args,
-                    built,
-                } => {
-                    let mut output_futs = vec![];
-
-                    built.iter().for_each(|res| match res {
-                        Ok(artifacts) => {
-                            for (artifact, _value) in artifacts.values.iter() {
-                                output_futs.push(
-                                    async {
-                                        Ok(ProviderArtifacts {
-                                            values: materialize_artifact_group(
-                                                ctx,
-                                                &ArtifactGroup::Artifact(artifact.dupe()),
-                                                materialization_ctx,
-                                            )
-                                            .await?,
-                                            provider_type: BuildProviderType::DefaultOther,
-                                        })
-                                    }
-                                    .boxed(),
-                                )
-                            }
-                        }
-                        Err(e) => output_futs.push(futures::future::ready(Err(e.dupe())).boxed()),
-                    });
-
-                    futs.push(
-                        async move {
-                            BuildTargetResult {
-                                outputs: futures::future::join_all(output_futs).await,
-                                providers: Some(providers.dupe()),
-                                run_args: run_args.clone(),
-                            }
-                        }
-                        .boxed(),
-                    )
-                }
-
-                StarlarkBuildResult::None => {}
-                StarlarkBuildResult::Error(e) => report.push(BuildTargetResult {
-                    outputs: vec![Err(e.dupe())],
-                    providers: None,
-                    run_args: None,
-                }),
-            });
-
-            let mut output_futs = vec![];
-            artifacts.iter().for_each(|a| {
-                output_futs.push(
-                    async {
-                        Ok(ProviderArtifacts {
-                            values: materialize_artifact_group(
-                                ctx,
-                                &ArtifactGroup::Artifact(a.dupe()),
-                                materialization_ctx,
-                            )
-                            .await?,
-                            provider_type: BuildProviderType::DefaultOther,
-                        })
-                    }
-                    .boxed(),
-                );
-            });
-
-            if !output_futs.is_empty() {
-                futs.push(
-                    async move {
-                        BuildTargetResult {
-                            outputs: futures::future::join_all(output_futs).await,
-                            providers: None,
-                            run_args: None,
-                        }
-                    }
-                    .boxed(),
-                );
-            }
-
-            Some(futures::future::join_all(futs).await)
-        }
-    }
 }
 
 // TODO(T116849868): remove this and use the src::commands::build::print_outputs once in the daemon
