@@ -9,12 +9,16 @@
 
 use std::path::PathBuf;
 
-use buck2_core::{exit_result::ExitResult, fs::paths::AbsPathBuf};
+use buck2_core::exit_result::ExitResult;
 use structopt::{clap, StructOpt};
 use thiserror::Error;
 use tokio::runtime::Runtime;
 
-use crate::{commands::common::NO_EVENT_LOG, daemon::client::Replayer, exec, CommandContext};
+use crate::{
+    commands::common::{subscribers::event_log::get_local_logs, NO_EVENT_LOG},
+    daemon::client::Replayer,
+    exec, CommandContext,
+};
 
 #[derive(Error, Debug)]
 pub enum ReplayErrors {
@@ -85,17 +89,9 @@ impl ReplayCommand {
     }
 }
 
-fn get_local_logs(ctx: &CommandContext) -> anyhow::Result<(AbsPathBuf, Vec<std::fs::DirEntry>)> {
-    let logdir = ctx.paths()?.log_dir();
-    let mut logs = std::fs::read_dir(&logdir)?
-        .filter_map(Result::ok)
-        .collect::<Vec<_>>();
-    logs.sort_by_key(std::fs::DirEntry::path);
-    Ok((logdir, logs))
-}
-
 pub fn retrieve_nth_recent_log(ctx: &CommandContext, n: usize) -> anyhow::Result<PathBuf> {
-    let (logdir, mut logfiles) = get_local_logs(ctx)?;
+    let log_dir = ctx.paths()?.log_dir();
+    let mut logfiles = get_local_logs(&log_dir)?;
     logfiles.reverse(); // newest first
     let chosen = logfiles
         .get(n)
@@ -104,5 +100,5 @@ pub fn retrieve_nth_recent_log(ctx: &CommandContext, n: usize) -> anyhow::Result
             num_logfiles: logfiles.len(),
         })?;
 
-    Ok(logdir.join(chosen.path()))
+    Ok(log_dir.join(chosen.path()))
 }

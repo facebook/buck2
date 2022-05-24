@@ -306,17 +306,8 @@ async fn open_event_log_for_writing(
 
 async fn remove_old_logs(logdir: &Path) {
     const N_LOGS_RETAINED: usize = 10;
-    if let Ok(dir_result) = std::fs::read_dir(logdir) {
-        let mut logfiles = dir_result.filter_map(Result::ok).collect::<Vec<_>>();
-        logfiles.sort_by_cached_key(|file| {
-            // Return Unix epoch if unable to get creation time.
-            if let Ok(metadata) = file.metadata() {
-                if let Ok(created) = metadata.created() {
-                    return created;
-                }
-            }
-            std::time::UNIX_EPOCH
-        });
+
+    if let Ok(logfiles) = get_local_logs(logdir) {
         futures::stream::iter(logfiles.into_iter().rev().skip(N_LOGS_RETAINED - 1))
             .then(async move |file| {
                 // The oldest logs might be open from another concurrent build, so suppress error.
@@ -325,6 +316,22 @@ async fn remove_old_logs(logdir: &Path) {
             .collect::<Vec<_>>()
             .await;
     }
+}
+
+/// List logs in logdir, ordered from oldest to newest.
+pub fn get_local_logs(logdir: &Path) -> anyhow::Result<Vec<std::fs::DirEntry>> {
+    let dir = std::fs::read_dir(logdir)?;
+    let mut logfiles = dir.filter_map(Result::ok).collect::<Vec<_>>();
+    logfiles.sort_by_cached_key(|file| {
+        // Return Unix epoch if unable to get creation time.
+        if let Ok(metadata) = file.metadata() {
+            if let Ok(created) = metadata.created() {
+                return created;
+            }
+        }
+        std::time::UNIX_EPOCH
+    });
+    Ok(logfiles)
 }
 
 #[async_trait]
