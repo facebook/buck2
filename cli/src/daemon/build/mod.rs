@@ -43,7 +43,6 @@ use cli_proto::{
     },
     BuildRequest, BuildTarget,
 };
-use dashmap::DashMap;
 use dice::DiceComputations;
 use futures::stream::{futures_unordered::FuturesUnordered, StreamExt, TryStreamExt};
 use gazebo::prelude::*;
@@ -57,7 +56,10 @@ use crate::daemon::{
         build_report::BuildReportCollector, providers::ProvidersPrinter,
         result_report::ResultReporter, BuildOwner, BuildResultCollector,
     },
-    common::{parse_patterns_from_cli_args, resolve_patterns, target_platform_from_client_context},
+    common::{
+        parse_patterns_from_cli_args, resolve_patterns, target_platform_from_client_context,
+        ConvertMaterializationContext,
+    },
     server::ServerCommandContext,
 };
 
@@ -153,18 +155,8 @@ pub async fn build(
         Materializations::from_i32(request.final_artifact_materializations)
             .with_context(|| "Invalid final_artifact_materializations")
             .unwrap();
-
-    let materialization_context = match final_artifact_materializations {
-        Materializations::Skip => MaterializationContext::Skip,
-        Materializations::Default => MaterializationContext::Materialize {
-            map: Arc::new(DashMap::new()),
-            force: false,
-        },
-        Materializations::Materialize => MaterializationContext::Materialize {
-            map: Arc::new(DashMap::new()),
-            force: true,
-        },
-    };
+    let materialization_context =
+        ConvertMaterializationContext::from(final_artifact_materializations);
 
     let mut provider_artifacts = Vec::new();
     for (k, v) in build_targets(

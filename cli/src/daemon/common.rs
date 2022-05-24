@@ -15,6 +15,7 @@ use std::{
 
 use anyhow::{anyhow, Context as _};
 use buck2_build_api::{
+    build::MaterializationContext,
     bxl::BxlFunctionLabel,
     execute::{
         commands::{
@@ -48,8 +49,10 @@ use buck2_interpreter::{
     pattern::{resolve_target_patterns, ParsedPattern, PatternType, ResolvedPattern},
 };
 use cli_proto::{
-    client_context::HostPlatformOverride, common_build_options::ExecutionStrategy, ClientContext,
+    build_request::Materializations, client_context::HostPlatformOverride,
+    common_build_options::ExecutionStrategy, ClientContext,
 };
+use dashmap::DashMap;
 use dice::DiceTransaction;
 use gazebo::prelude::*;
 use host_sharing::HostSharingBroker;
@@ -469,4 +472,24 @@ pub fn parse_bxl_label_from_cli(
         bxl_path: BxlFilePath::new(import_path)?,
         name: bxl_fn.to_owned(),
     })
+}
+
+pub trait ConvertMaterializationContext {
+    fn from(self) -> MaterializationContext;
+}
+
+impl ConvertMaterializationContext for Materializations {
+    fn from(self) -> MaterializationContext {
+        match self {
+            Materializations::Skip => MaterializationContext::Skip,
+            Materializations::Default => MaterializationContext::Materialize {
+                map: Arc::new(DashMap::new()),
+                force: false,
+            },
+            Materializations::Materialize => MaterializationContext::Materialize {
+                map: Arc::new(DashMap::new()),
+                force: true,
+            },
+        }
+    }
 }
