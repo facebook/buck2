@@ -9,7 +9,7 @@
 
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
-use buck2_core::{fs::paths::ForwardRelativePath, soft_error};
+use buck2_core::fs::paths::ForwardRelativePath;
 use derivative::Derivative;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
@@ -110,8 +110,7 @@ impl<'v> AnalysisRegistry<'v> {
         // things and fails if they are present.
 
         if filename == "." || filename == "" {
-            // NOTE: When this becomes a hard error, reenable the test `declare_output_dot`
-            soft_error!(DeclaredArtifactError::DeclaredEmptyFileName.into());
+            return Err(DeclaredArtifactError::DeclaredEmptyFileName.into());
         }
 
         let path = ForwardRelativePath::new(filename)?.to_owned();
