@@ -28,10 +28,8 @@ def robolectric_test_impl(ctx: "context") -> ["provider"]:
     test_config_properties_file = ctx.actions.write(
         "test_config.properties",
         [
-            "android_resource_apk",
-            resources_info.primary_resources_apk,
-            "android_merged_manifest",
-            resources_info.manifest,
+            cmd_args(["android_resource_apk", resources_info.primary_resources_apk], delimiter = "="),
+            cmd_args(["android_merged_manifest", resources_info.manifest], delimiter = "="),
         ],
     )
 
