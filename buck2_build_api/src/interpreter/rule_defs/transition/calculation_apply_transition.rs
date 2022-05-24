@@ -36,6 +36,7 @@ use crate::{
             cfg_diff::cfg_diff, id::TransitionId, starlark::FrozenTransition,
         },
     },
+    nodes::unconfigured::TargetNode,
 };
 
 #[derive(Error, Debug)]
@@ -147,6 +148,7 @@ pub(crate) trait ApplyTransition {
     /// Apply transition function to configuration and cache the result.
     async fn apply_transition(
         &self,
+        target_node: &TargetNode,
         conf: &Configuration,
         transition_id: &TransitionId,
     ) -> SharedResult<Arc<TransitionApplied>>;
@@ -167,6 +169,7 @@ impl ApplyTransition for DiceComputations {
 
     async fn apply_transition(
         &self,
+        target_node: &TargetNode,
         cfg: &Configuration,
         transition_id: &TransitionId,
     ) -> SharedResult<Arc<TransitionApplied>> {
@@ -198,6 +201,9 @@ impl ApplyTransition for DiceComputations {
                 }
             }
         }
+
+        // TODO(nga): used in the following diffs.
+        let _ = target_node;
 
         let key = TransitionKey {
             cfg: cfg.dupe(),

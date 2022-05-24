@@ -354,7 +354,7 @@ async fn compute_configured_target_node_no_transition(
 
     let mut resolved_transitions = SmallMap::new();
     for (_dep, tr) in target_node.transition_deps() {
-        let resolved_cfg = ctx.apply_transition(target_cfg, tr).await?;
+        let resolved_cfg = ctx.apply_transition(&target_node, target_cfg, tr).await?;
         resolved_transitions.insert(tr.dupe(), resolved_cfg);
     }
 
@@ -494,7 +494,9 @@ async fn compute_configured_target_node(
             }
         }
 
-        let cfg = ctx.apply_transition(key.0.cfg(), &*transition_id).await?;
+        let cfg = ctx
+            .apply_transition(&target_node, key.0.cfg(), &*transition_id)
+            .await?;
         let configured_target_label = key.0.unconfigured().configure(cfg.single()?.dupe());
 
         if configured_target_label == key.0 {
