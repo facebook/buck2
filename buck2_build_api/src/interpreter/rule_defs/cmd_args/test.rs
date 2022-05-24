@@ -133,13 +133,13 @@ fn command_line_builder() -> SharedResult<()> {
         b2.add("not in b1")
 
         # Ensure that both lists, and *args formats work
-        b4.add_joined(["--foo=", a1, ",bar=", b3, ",baz"])
-        b4.add_joined("--foo=", a1, ",bar=", b3, ",baz")
+        b4.add(cmd_args(["--foo=", a1, ",bar=", b3, ",baz"], delimiter = ""))
+        b4.add(cmd_args("--foo=", a1, ",bar=", b3, ",baz", delimiter = ""))
 
         # Make sure delimiters work properly
-        b5.add_joined("foo")
-        b5.add_joined("foo", "bar", delimiter=",")
-        b5.add_joined("foo", "bar", "baz", delimiter=",")
+        b5.add(cmd_args("foo", delimiter = ""))
+        b5.add(cmd_args("foo", "bar", delimiter=","))
+        b5.add(cmd_args("foo", "bar", "baz", delimiter=","))
 
         mutable_b1_args = get_args(b1)
         mutable_b2_args = get_args(b2)
@@ -361,8 +361,8 @@ fn test_format() -> anyhow::Result<()> {
             args1.add(",bar")
             args2.add("foo")
             args2.add("bar")
-            args3.add_joined(["foo", "bar"], format="format-{}-{}-string")
-            args3.add_joined(["foo", "bar"], delimiter=",", format="format-{}-{}-string")
+            args3.add(cmd_args(["foo", "bar"], format="format-{}-{}-string", delimiter = ""))
+            args3.add(cmd_args(["foo", "bar"], delimiter=",", format="format-{}-{}-string"))
             args3.add("foo", format="format-{}-{}-string1")
             args3.add("bar", format="format-{}-{}-string2")
 
@@ -396,8 +396,8 @@ fn test_joined_with_empty_args() -> anyhow::Result<()> {
         r#"
         def test():
             args = cmd_args()
-            args.add_joined(["", "foo"], delimiter=",", format="format-{}-string")
-            args.add_joined(["", "", "foo"], delimiter=",")
+            args.add(cmd_args(["", "foo"], delimiter=",", format="format-{}-string"))
+            args.add(cmd_args(["", "", "foo"], delimiter=","))
             assert_eq(
                 [
                     "format-,foo-string",
