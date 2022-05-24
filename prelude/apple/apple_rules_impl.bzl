@@ -127,6 +127,7 @@ extra_attributes = {
     "swift_toolchain": {
         "architecture": attr.option(attr.string(), default = None),  # TODO(T115173356): Make field non-optional
         "platform_path": attr.option(attr.source()),  # Mark as optional until we remove `_internal_platform_path`
+        "sdk_modules": attr.list(attr.dep(), default = []),  # A list or a root target that represent a graph of sdk modules (e.g Frameworks)
         "sdk_path": attr.option(attr.source()),  # Mark as optional until we remove `_internal_sdk_path`
         "swift_stdlib_tool": attr.dep(providers = [RunInfo]),
         "swiftc": attr.dep(providers = [RunInfo]),
