@@ -30,6 +30,7 @@ use std::{
 };
 
 use anyhow::anyhow;
+use buck2_bxl_core::BxlKey;
 use buck2_core::{
     fs::project::{ProjectFilesystem, ProjectRelativePath, ProjectRelativePathBuf},
     provider::ConfiguredProvidersLabel,
@@ -48,7 +49,6 @@ use thiserror::Error;
 
 use crate::{
     actions::artifact::{Artifact, ArtifactValue},
-    bxl::BxlKey,
     interpreter::rule_defs::provider::FrozenProviderCollectionValue,
     nodes::configured::ConfiguredTargetNode,
 };
