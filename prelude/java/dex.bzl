@@ -53,7 +53,6 @@ def get_dex_produced_from_java_library(
 
     class_names_file = ctx.actions.declare_output(prefix + "_class_names.txt")
     d8_cmd.add(["--class-names-path", class_names_file.as_output()])
-    d8_cmd.add(["--min-sdk-version", str(26)])
 
     ctx.actions.run(
         d8_cmd,
