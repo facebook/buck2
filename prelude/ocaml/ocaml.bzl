@@ -213,10 +213,14 @@ def _compiler(ctx: "context", compiler: "cmd_args", cc: "cmd_args") -> "cmd_args
 
 # Command initialization for a compilation step.
 def _compiler_compile(ctx: "context", compiler: "cmd_args", cc: "cmd_args", includes: ["cmd_args"], bytecode_or_native: BuildMode.type) -> "cmd_args":
+    ocaml_toolchain = ctx.attr._ocaml_toolchain[OCamlToolchainInfo]
+
+    opaque_enabled = "-opaque" in ocaml_toolchain.ocaml_compiler_flags
     is_native = bytecode_or_native.value == "native"
 
     cmd = _compiler(ctx, compiler, cc)
     cmd.add("-annot", "-bin-annot")
+    cmd.add(ocaml_toolchain.ocaml_compiler_flags)
 
     for lib in merge_ocaml_link_infos(_attr_deps_ocaml_link_infos(ctx)).info:
         # [Note]: Include path calculations
@@ -230,11 +234,17 @@ def _compiler_compile(ctx: "context", compiler: "cmd_args", cc: "cmd_args", incl
         #  - the `cmis`, `cmxs` and `cmos` fields are empty
         includes.extend(lib.include_dirs)
         if is_native:
-            for x in lib.cmis_nat + lib.cmxs:
+            for x in lib.cmis_nat:
                 includes.append(cmd_args(x).parent())
+            if not opaque_enabled:
+                for x in lib.cmxs:
+                    includes.append(cmd_args(x).parent())
         else:
-            for x in lib.cmis_byt + lib.cmos:
+            for x in lib.cmis_byt:
                 includes.append(cmd_args(x).parent())
+            if not opaque_enabled:
+                for x in lib.cmos:
+                    includes.append(cmd_args(x).parent())
 
     # The cmi/cmo/cmx often have identical includes, so dedupe them.
     cmd.add(cmd_args(dedupe(includes), format = "-I={}"))
@@ -330,6 +340,9 @@ def _depends(ctx: "context", srcs: ["artifact"], bytecode_or_native: BuildMode.t
 #   - if `bytecode_or_native` == "native" then `compiler` is a native compiler
 #     (e.g. 'ocamlopt.opt')
 def _compile(ctx: "context", compiler: "cmd_args", bytecode_or_native: BuildMode.type) -> CompileResultInfo.type:
+    ocaml_toolchain = ctx.attr._ocaml_toolchain[OCamlToolchainInfo]
+
+    opaque_enabled = "-opaque" in ocaml_toolchain.ocaml_compiler_flags
     is_native = bytecode_or_native.value == "native"
     is_bytecode = not is_native
 
@@ -412,18 +425,24 @@ def _compile(ctx: "context", compiler: "cmd_args", bytecode_or_native: BuildMode
     cc = _mk_cc(ctx, [pre_args], cc_sh_filename)
 
     def f(ctx: "context"):
-        makefile = parse_makefile(ctx.artifacts[depends_output].read_string(), srcs, bytecode_or_native.value == "bytecode")
+        # A pair of mappings that detail which source files depend on which. See
+        # [Note: Dynamic dependencies] in 'makefile.bzl'.
+        makefile, makefile2 = parse_makefile(ctx.artifacts[depends_output].read_string(), srcs, opaque_enabled)
 
-        # Make sure all .ml files are in the makefile, with zero deps if necessary (so _topological_sort finds them)
+        # Ensure all '.ml' files are in the makefile, with zero dependencies if
+        # necessary (so 'topo_sort' finds them).
         for x in srcs:
-            if x.short_path.endswith(".ml") and x not in makefile:
-                makefile[x] = []
+            if x.short_path.endswith(".ml"):
+                if x not in makefile:
+                    makefile[x] = []
+                if x not in makefile2:
+                    makefile2[x] = []
 
         mk_out = lambda x: ctx.outputs[x].as_output()
 
         # We want to write out all the compiled module files in transitive
         # dependency order.
-
+        #
         # If compiling bytecode we order .cmo files (index 1) otherwise .cmx
         # files (index 2).
         cm_kind_index = 1 if is_bytecode else 2
@@ -439,7 +458,17 @@ def _compile(ctx: "context", compiler: "cmd_args", bytecode_or_native: BuildMode
             # Things that are produced/includable from my dependencies
             depends_produce = []
             depends_include = []
-            for d in breadth_first_traversal(makefile, makefile.get(src, [])):
+            for d in breadth_first_traversal(makefile2, makefile2.get(src, [])):
+                # 'd' is a dependency of 'src' (e.g source 'quux.ml' depends on
+                # 'quux.mli').
+                #
+                # What artifacts does compiling 'd' produce (e.g. 'quux.cmi',
+                # 'quux.cmt', 'quux.cmti')? These are hidden dependencies of the
+                # command to compile 'src'.
+                #
+                # In the event `-opaque` is enabled, 'makefile2' is a rewrite of
+                # 'makefile' such that if 'f.mli' exists, then we will never
+                # have a dependency here on 'f.cmx' ('f.cmo') only 'f.cmi'.
                 depends_produce.extend(filter(None, produces[d]))
                 i = includes.get(d, None)
                 if i != None:
@@ -450,7 +479,7 @@ def _compile(ctx: "context", compiler: "cmd_args", bytecode_or_native: BuildMode
                 cmd = _compiler_compile(ctx, compiler, cc, depends_include, bytecode_or_native)
                 cmd.add(src, "-c", "-o", mk_out(cmi))
                 cmd.hidden(mk_out(cmti), depends_produce)
-                ctx.actions.run(cmd, category = "ocaml_compile_mli", identifier = src.short_path)
+                ctx.actions.run(cmd, category = "ocaml_compile_mli_" + bytecode_or_native.value, identifier = src.short_path)
 
             elif ext == ".ml":
                 (obj, cmo, cmx, cmt, cmi) = produces[src]
@@ -470,7 +499,7 @@ def _compile(ctx: "context", compiler: "cmd_args", bytecode_or_native: BuildMode
                 else:
                     # An explicit .mli for this .ml is a dependency
                     cmd.hidden(mlis[paths.replace_extension(src.short_path, ".mli")])
-                ctx.actions.run(cmd, category = "ocaml_compile_ml", identifier = src.short_path)
+                ctx.actions.run(cmd, category = "ocaml_compile_ml_" + bytecode_or_native.value, identifier = src.short_path)
 
             elif ext == ".c":
                 (stb,) = produces[src]

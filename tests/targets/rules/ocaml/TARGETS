@@ -34,6 +34,7 @@ ocaml_binary(
     srcs = [
         "quux/corge/corge.ml",
         "quux/quux.ml",
+        "quux/quux.mli",
     ],
 )
 

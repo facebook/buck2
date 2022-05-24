@@ -28,6 +28,7 @@ OCamlToolchainInfo = provider(fields = [
     "debug",
     "interop_includes",
     "warnings_flags",
+    "ocaml_compiler_flags",
 ])
 
 # Stores "platform"/flavor name used to resolve *platform_* arguments

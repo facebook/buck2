@@ -1,4 +1,4 @@
-load("@fbcode//buck2/platform:utils.bzl", "string_attr")
+load("@fbcode//buck2/platform:utils.bzl", "string_attr", "string_list_attr")
 load("@fbcode//buck2/prelude/ocaml:providers.bzl", "OCamlPlatformInfo", "OCamlToolchainInfo")
 
 # Got these attributes from
@@ -10,6 +10,7 @@ _buckconfig_ocaml_toolchain_attrs = {
     "lex.compiler": (string_attr, ""),
     "ocaml.bytecode.compiler": (string_attr, ""),
     "ocaml.compiler": (string_attr, ""),
+    "ocaml_compiler_flags": (string_list_attr, []),
     "warnings_flags": (string_attr, ""),
     "yacc.compiler": (string_attr, ""),
 }
@@ -88,6 +89,7 @@ def _config_backed_ocaml_toolchain_rule_impl(ctx):
             ocaml_bytecode_compiler = ctx.attr.ocaml_bytecode_compiler[RunInfo],
             ocaml_compiler = ctx.attr.ocaml_compiler[RunInfo],
             warnings_flags = ctx.attr.warnings_flags,
+            ocaml_compiler_flags = ctx.attr.ocaml_compiler_flags,
             yacc_compiler = ctx.attr.yacc_compiler[RunInfo],
         ),
         OCamlPlatformInfo(
@@ -106,6 +108,7 @@ _config_backed_ocaml_toolchain_rule = rule(
         "libasmrun": attr.source(default = "fbcode//third-party-buck/platform010/build/supercaml:libasmrun.a"),
         "ocaml_bytecode_compiler": attr.dep(providers = [RunInfo]),
         "ocaml_compiler": attr.dep(providers = [RunInfo]),
+        "ocaml_compiler_flags": attr.list(attr.string()),
         "warnings_flags": attr.string(),  # must be a single argument
         "yacc_compiler": attr.dep(providers = [RunInfo]),
     },

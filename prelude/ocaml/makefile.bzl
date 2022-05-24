@@ -1,36 +1,98 @@
 # Parse and resolve Makefile's produce by ocamldeps.
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
 
-# Given the contents of a Makefile, and the sources we care about produce a
-# mapping of which artifacts depend on which.
-def parse_makefile(makefile: str.type, srcs: ["artifact"], bytecode: bool.type) -> {"artifact": ["artifact"]}:
-    contents = _parse(makefile)
-    if bytecode:
-        contents = [_replace_cmx_with_cmo(c) for c in contents]
+# [Note: Dynamic dependency calculations]
+# ---------------------------------------
+# We are given the contents of a Makefile produced by ocamldep in -native mode e.g.
+# ```
+#      quux.cmi:
+#      quux.cmx:
+#        quux.cmi
+#      corge.cmx:
+#        quux.cmx
+#```
+# and the sources we care about.
+#
+#'parse_makefile' produces a mapping of which sources depend on which. In fact,
+# it computes a pair of mappings:
+#
+# Result (1):  Replace '.cmi' with '.mli' and '.cmx' with '.ml' e.g.
+# ```
+#      quux.mli:
+#      quux.ml:
+#        quux.mli
+#      corge.ml:
+#        quux.ml
+# ```
+# If -opqaue is not in effect then this reflects the dependency requirements
+# that enable cross module inlining (see the description of the -opaque flag [in
+# the ocamlopt manual](https://v2.ocaml.org/manual/native.html)).
 
-    # Collect all the files we refrence
+# Result(2):
+#
+#   If '-opqaue' is not in effect, then this is a copy of result(1). If though
+#   '-opaque' is in effect, replace 'foo.cmx' with 'foo.cmi' in the RHS of rules
+#   as long as there is a rule with LHS 'foo.cmi' in the ocamldep input. Then,
+#   replace '.cmi' with .mli' and '.cmx' with '.ml' as before e.g.
+# ```
+#      quux.mli:
+#      quux.ml:
+#        quux.mli
+#      corge.ml:
+#        quux.mli
+# ```
+# This mapping reflects the dependency requirements that don't admit cross
+# module inlining (cutting down significantly on recompilations when only a
+# module implementation and not its interface is changed).
+def parse_makefile(makefile: str.type, srcs: ["artifact"], opaque_enabled: bool.type) -> ({"artifact": ["artifact"]}, {"artifact": ["artifact"]}):
+    # ocamldep is always invoked with '-native' so compiled modules are always
+    # reported as '.cmx' files
+    contents = _parse(makefile)
+
+    # Collect all the files we reference.
     files = {}
     for aa, bb in contents:
         for x in aa + bb:
             files[x] = None
 
+    # Produce a mapping of the files on the LHS of rules to their source
+    # equivalents e.g. {'corge.cmx': 'corge.ml', 'quux.cmx': 'quux.ml',
+    # 'quux.mli': 'quux.mli'}.
     resolved = _resolve(files.keys(), srcs)
-    result = {}
 
     # This nested loop is technically O(n^2), but since `a` is at most 2 in OCaml
     # it's not an issue
+    result = {}
     for aa, bb in contents:
         for a in aa:
             if a in resolved:
                 result[resolved[a]] = [resolved[b] for b in bb if b in resolved]
-    return result
+
+    # This is not an optimization, we rely on this early return (see [Note:
+    # Dynamic dependencies] earlier in this file).
+    if not opaque_enabled:
+        return (result, result)
+
+    # Replace '.cmx' (or '.cmo') dependencies with '.cmi' on the RHS of
+    # rules everywhere we can.
+    contents = [_replace_rhs_cmx_with_cmi(contents, c) for c in contents]
+
+    # Compute a new result based on having replaced '.cmx' ('.cmo') with '.cmi'
+    # on the RHS of rules where we can.
+    result2 = {}
+    for aa, bb in contents:
+        for a in aa:
+            if a in resolved:
+                result2[resolved[a]] = [resolved[b] for b in bb if b in resolved]
+
+    return (result, result2)
 
 def _resolve(entries: [str.type], srcs: ["artifact"]) -> {str.type: "artifact"}:
     # O(n^2), alas - switch to a prefix map if that turns out to be too slow.
     result = {}
     for x in entries:
         prefix, ext = paths.split_extension(x)
-        if ext in (".cmo", ".cmx"):
+        if ext == ".cmx":
             y = prefix + ".ml"
         elif ext == ".cmi":
             y = prefix + ".mli"
@@ -74,13 +136,18 @@ def _parse(makefile: str.type) -> [([str.type], [str.type])]:
         result.append((before.split(), after.strip().split()))
     return result
 
-# Change suffix ".cmx" to ".cmo" in the results of a parsed makefile.
-def _replace_cmx_with_cmo(p: ([str.type], [str.type])) -> ([str.type], [str.type]):
-    def cmx_to_cmo(p):
+# If 'f.cmi' appears on the LHS of a rule, change occurences of 'f.cmx' to
+# 'f.cmi' in all RHS's in the results of a parsed makefile.
+def _replace_rhs_cmx_with_cmi(contents: [([str.type], [str.type])], p: ([str.type], [str.type])) -> ([str.type], [str.type]):
+    def replace_in(p):
         pre, ext = paths.split_extension(p)
-        if ext == ".cmx":
-            return pre + ".cmo"
+
+        # Search the LHS's of contents for a for 'p.cmi'.
+        exists = len([p for p in contents if pre + ".cmi" in p[0]]) != 0
+        if exists and ext == ".cmx":
+            # Replace 'p.cmx' in this RHS with 'p.cmi'.
+            return pre + ".cmi"
         return p
 
     xs, ys = p
-    return ([cmx_to_cmo(x) for x in xs], [cmx_to_cmo(y) for y in ys])
+    return (xs, [replace_in(y) for y in ys])
