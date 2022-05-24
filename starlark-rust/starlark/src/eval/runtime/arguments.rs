@@ -594,6 +594,53 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         Ok(())
     }
 
+    /// Check if current parameters can be filled with given arguments signature.
+    #[allow(clippy::needless_range_loop)]
+    pub fn can_fill_with_args(&self, pos: usize, names: &[&str]) -> bool {
+        let mut filled = vec![false; self.params.len()];
+        for p in 0..pos {
+            if p < self.positional {
+                filled[p] = true;
+            } else if self.args.is_some() {
+                // Filled into `*args`.
+            } else {
+                return false;
+            }
+        }
+        if pos > self.positional && self.args.is_none() {
+            return false;
+        }
+        for name in names {
+            match self.names.get_str(name) {
+                Some(i) => {
+                    if filled[*i] {
+                        // Duplicate argument.
+                        return false;
+                    }
+                    filled[*i] = true;
+                }
+                None => {
+                    if self.kwargs.is_none() {
+                        return false;
+                    }
+                }
+            }
+        }
+        for (filled, p) in filled.iter().zip(self.params.iter()) {
+            if *filled {
+                continue;
+            }
+            match &p.1 {
+                ParameterKind::Args => {}
+                ParameterKind::KWargs => {}
+                ParameterKind::Defaulted(_) => {}
+                ParameterKind::Optional => {}
+                ParameterKind::Required => return false,
+            }
+        }
+        true
+    }
+
     /// Generate documentation for each of the parameters.
     ///
     /// # Arguments
@@ -1171,7 +1218,7 @@ impl Arguments<'_, '_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{assert::Assert, values::FrozenValue};
+    use crate::{assert::Assert, eval::compiler::def::FrozenDef, values::FrozenValue};
 
     #[test]
     fn test_parameter_unpack() {
@@ -1386,5 +1433,49 @@ mod tests {
             "a, b, c, d, e, f, g, h, *args, **kwargs",
             &f.value().parameters_spec().unwrap().parameters_str()
         );
+    }
+
+    #[test]
+    fn test_can_fill_with_args() {
+        fn test(sig: &str, pos: usize, names: &[&str], expected: bool) {
+            let a = Assert::new();
+            let module = a.pass_module(&format!("def f({}): pass", sig));
+            let f = module.get("f").unwrap().downcast::<FrozenDef>().unwrap();
+            let parameters_spec = &f.parameters;
+            assert_eq!(expected, parameters_spec.can_fill_with_args(pos, names));
+        }
+
+        test("", 0, &[], true);
+        test("", 1, &[], false);
+        test("", 0, &["a"], false);
+
+        test("a", 1, &[], true);
+        test("a", 0, &["a"], true);
+        test("a", 1, &["a"], false);
+        test("a", 0, &["x"], false);
+
+        test("a, b = 1", 1, &[], true);
+        test("a, b = 1", 2, &[], true);
+        test("a, b = 1", 0, &["a"], true);
+        test("a, b = 1", 0, &["b"], false);
+        test("a, b = 1", 0, &["a", "b"], true);
+
+        test("*, a", 0, &[], false);
+        test("*, a", 1, &[], false);
+        test("*, a", 0, &["a"], true);
+
+        test("a, *args", 0, &[], false);
+        test("a, *args", 1, &[], true);
+        test("a, *args", 10, &[], true);
+
+        test("*args, b", 0, &[], false);
+        test("*args, b", 1, &[], false);
+        test("*args, b", 0, &["b"], true);
+
+        test("**kwargs", 0, &[], true);
+        test("**kwargs", 0, &["a"], true);
+        test("**kwargs", 1, &[], false);
+
+        // No test for positional-only args because we can't create them in starlark.
     }
 }
