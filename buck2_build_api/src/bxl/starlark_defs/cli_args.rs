@@ -16,7 +16,7 @@ use std::{
 };
 
 use anyhow::Context as _;
-use buck2_core::{provider::ProvidersLabel, target::TargetLabel};
+pub use buck2_bxl_core::CliArgValue;
 use buck2_interpreter::pattern::{
     lex_target_pattern, ParsedPattern, ProvidersPattern, TargetPattern,
 };
@@ -95,27 +95,12 @@ impl CliArgs {
     }
 }
 
-#[derive(Debug, Display, PartialEq, Eq, Clone, Hash, Ord, PartialOrd)]
-pub enum CliArgValue {
-    Bool(bool),
-    Int(i32),
-    // store this as a string here for eq, hash since generally this comes from cmdline.
-    // Note that this means `3.0` and `3.00` would not be equal. The string should already have
-    // been verified to be a f64.
-    Float(String),
-    String(String),
-    // Type of list elements is used to verify that concatenation is valid.
-    // That only can be checked after configuration took place,
-    // so pass the type info together with values to be used later.
-    #[display(fmt = "_0.iter().map(|v| v.to_string()).join(',')")]
-    List(Vec<CliArgValue>),
-    None,
-    TargetLabel(TargetLabel),
-    ProvidersLabel(ProvidersLabel),
+pub trait CliArgValueExt {
+    fn as_starlark<'v>(&self, heap: &'v Heap) -> Value<'v>;
 }
 
-impl CliArgValue {
-    pub fn as_starlark<'v>(&self, heap: &'v Heap) -> Value<'v> {
+impl CliArgValueExt for CliArgValue {
+    fn as_starlark<'v>(&self, heap: &'v Heap) -> Value<'v> {
         match self {
             CliArgValue::Bool(b) => Value::new_bool(*b),
             CliArgValue::Int(i) => Value::new_int(*i),

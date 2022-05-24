@@ -75,6 +75,7 @@ rust_library(
         "fbsource//third-party/rust:twox-hash",
         "fbsource//third-party/rust:uuid",
         "//buck2/buck2_build_api_derive:buck2_build_api_derive",
+        "//buck2/buck2_bxl_core:buck2_bxl_core",
         "//buck2/buck2_common:buck2_common",
         "//buck2/buck2_core:buck2_core",
         "//buck2/buck2_data:buck2_data",

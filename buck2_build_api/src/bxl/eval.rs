@@ -15,7 +15,7 @@ use crate::{
         common::CliResolutionCtx,
         result::BxlResult,
         starlark_defs::{
-            cli_args::CliArgValue,
+            cli_args::{CliArgValue, CliArgValueExt},
             context::{starlark_async::BxlSafeDiceComputations, BxlContext},
             FrozenBxlFunction,
         },

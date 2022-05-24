@@ -1,0 +1,28 @@
+[package]
+name = "buck2_bxl_core"
+version = "0.1.0"
+edition = "2021"
+description = "Build related interpreter defs, coercion logic, some build rule impelementations, and handing actions off to DICE for caching and execution. A large chunk of the 'build' part of BuckV2"
+
+[dependencies]
+buck2_core = { path = "../buck2_core" }
+derive_more = "0.99.3"
+gazebo_lint.version = "0.1"
+gazebo_lint.optional = true
+# @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
+gazebo.version = "0.7.0"
+gazebo.features = ["str_pattern_extensions"]
+# @oss-disable: gazebo.path = "../gazebo/gazebo"
+starlark = { version = "0.8", path = "../starlark-rust/starlark" }
+buck2_interpreter = { path = "../buck2_interpreter" }
+serde = { version = "1.0", features = ["derive"] }
+
+[target.'cfg(unix)'.dependencies]
+jemallocator = { version = "0.3.2", features = ["profiling"] }
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["everything"] }
+
+
+[features]
+# @oss-disable: default = ["gazebo_lint"]
