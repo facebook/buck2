@@ -219,6 +219,15 @@ def _compiler_compile(ctx: "context", compiler: "cmd_args", cc: "cmd_args", incl
     cmd.add("-annot", "-bin-annot")
 
     for lib in merge_ocaml_link_infos(_attr_deps_ocaml_link_infos(ctx)).info:
+        # [Note]: Include path calculations
+        # ---------------------------------
+        # For libraries that we produce:
+        #  - 'include_dirs' are empty
+        #  - instead when needed, we calculate them from the `cmis`, `cmxs` and
+        #    `cmos` fields
+        # For libraries that are prebuilt:
+        #  - 'include_dirs' are non-empty
+        #  - the `cmis`, `cmxs` and `cmos` fields are empty
         includes.extend(lib.include_dirs)
         if is_native:
             for x in lib.cmis_nat + lib.cmxs:
@@ -505,6 +514,9 @@ def ocaml_library_impl(ctx: "context") -> ["provider"]:
     else:
         native_c_libs = []
     cmd_nat.add(stbs_nat, "-args", cmxs_order)
+
+    # These were produced by the compile step and so are hidden dependencies of
+    # the archive step.
     cmd_nat.hidden(cmxs, cmis_nat, objs, cmts_nat, cmtis_nat)
     ctx.actions.run(cmd_nat, category = "ocaml_archive_native")
 
@@ -514,6 +526,9 @@ def ocaml_library_impl(ctx: "context") -> ["provider"]:
     cma = ctx.actions.declare_output("lib" + ctx.attr.name + ".cma")
     cmd_byt.add("-o", cma.as_output())
     cmd_byt.add(stbs_byt, "-args", cmxs_order)
+
+    # These were produced by the compile step and so are hidden dependencies of
+    # the archive step.
     cmd_byt.hidden(cmos, cmis_byt, cmts_byt, cmtis_byt)
     ctx.actions.run(cmd_byt, category = "ocaml_archive_bytecode")
 
@@ -534,6 +549,9 @@ def ocaml_library_impl(ctx: "context") -> ["provider"]:
             cmts_byt = cmts_byt,
             cmtis_nat = cmtis_nat,
             cmtis_byt = cmtis_byt,
+            # Observe that we do not provide 'include_dirs' here. Instead we provide
+            # '.cmi', '.cmo', '.cmx' files directly. See also [Note]: Include path
+            # calculations.
             include_dirs = [],
             native_c_libs = native_c_libs,
             bytecode_c_libs = [],
@@ -562,12 +580,13 @@ def ocaml_binary_impl(ctx: "context") -> ["provider"]:
     cmd_byt = _compiler(ctx, ocamlc, ld_byt)
     for lib in merge_ocaml_link_infos(_attr_deps_ocaml_link_infos(ctx)).info:
         cmd_nat.add(lib.cmxas, lib.c_libs, lib.native_c_libs, lib.stbs_nat)
-        cmd_nat.hidden(lib.cmxs, lib.cmis_nat, lib.cmts_nat)
         cmd_byt.add(lib.cmas, lib.c_libs, lib.bytecode_c_libs, lib.stbs_byt)
-        cmd_byt.hidden(lib.cmos, lib.cmis_byt, lib.cmts_byt)
 
     cmxs_order, stbs_nat, objs, cmis_nat, _cmos, cmxs, cmts_nat, cmtis_nat = _compile_result_to_tuple(_compile(ctx, ocamlopt, BuildMode("native")))
     cmd_nat.add(stbs_nat, "-args", cmxs_order)
+
+    # These were produced by the compile step and are therefore hidden
+    # dependencies of the link step.
     cmd_nat.hidden(cmxs, cmis_nat, cmts_nat, cmtis_nat, objs)
     binary_nat = ctx.actions.declare_output(ctx.attr.name + ".opt")
     cmd_nat.add("-o", binary_nat.as_output())
@@ -576,6 +595,9 @@ def ocaml_binary_impl(ctx: "context") -> ["provider"]:
 
     cmxs_order, stbs_byt, _objs, cmis_byt, cmos, _cmxs, cmts_byt, cmtis_byt = _compile_result_to_tuple(_compile(ctx, ocamlc, BuildMode("bytecode")))
     cmd_byt.add(stbs_byt, "-args", cmxs_order)
+
+    # These were produced by the compile step and are therefore hidden
+    # dependencies of the link step.
     cmd_byt.hidden(cmos, cmis_byt, cmts_byt, cmtis_byt)
     binary_byt = ctx.actions.declare_output(ctx.attr.name)
     cmd_byt.add("-custom")
@@ -657,7 +679,6 @@ def prebuilt_ocaml_library_impl(ctx: "context") -> ["provider"]:
     include_dirs = [cmd_args(ctx.attr.include_dir)] if ctx.attr.include_dir != None else []
     native_c_libs = ctx.attr.native_c_libs
     bytecode_c_libs = ctx.attr.bytecode_c_libs
-    stbs_nat, stbs_byt, cmis_nat, cmis_byt, cmxs, cmos, cmts_nat, cmts_byt, cmtis_nat, cmtis_byt = ([], [], [], [], [], [], [], [], [], [])
 
     info = OCamlLibraryInfo(
         name = name,
@@ -665,16 +686,19 @@ def prebuilt_ocaml_library_impl(ctx: "context") -> ["provider"]:
         cmas = cmas,
         cmxas = cmxas,
         include_dirs = include_dirs,
-        stbs_nat = stbs_nat,
-        stbs_byt = stbs_byt,
-        cmis_nat = cmis_nat,
-        cmis_byt = cmis_byt,
-        cmos = cmos,
-        cmxs = cmxs,
-        cmts_nat = cmts_nat,
-        cmts_byt = cmts_byt,
-        cmtis_nat = cmtis_nat,
-        cmtis_byt = cmtis_byt,
+        # Observe that we do not provide any '.cmi', '.cmx', '.cmx', ..., or '.o'
+        # files here. For the `.cmi`, `.cmx`, and `.cmo` files, `include_dirs`
+        # indicates where they are. See also [Note]: Include path calculations.
+        stbs_nat = [],
+        stbs_byt = [],
+        cmis_nat = [],
+        cmis_byt = [],
+        cmos = [],
+        cmxs = [],
+        cmts_nat = [],
+        cmts_byt = [],
+        cmtis_nat = [],
+        cmtis_byt = [],
         native_c_libs = native_c_libs,
         bytecode_c_libs = bytecode_c_libs,
     )
