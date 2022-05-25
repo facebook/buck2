@@ -353,8 +353,8 @@ fn test_format() -> anyhow::Result<()> {
     let contents = indoc!(
         r#"
         def test():
-            args1 = cmd_args(joined=True, delimiter="", format="format-{}-{}-string")
-            args2 = cmd_args(joined=False, format="format-{}-{}-string")
+            args1 = cmd_args(delimiter="", format="format-{}-{}-string")
+            args2 = cmd_args(format="format-{}-{}-string")
             args3 = cmd_args()
 
             args1.add("foo")
