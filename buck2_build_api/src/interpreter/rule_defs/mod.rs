@@ -21,6 +21,7 @@ pub mod artifact_tagging;
 pub mod attr;
 pub mod cell_root;
 pub mod cmd_args;
+pub mod command_executor_config;
 pub mod context;
 pub mod label;
 pub mod label_relative_path;
