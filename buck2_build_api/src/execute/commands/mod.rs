@@ -40,7 +40,6 @@ use remote_execution as RE;
 use crate::{
     actions::{
         artifact::{ArtifactFs, ArtifactValue, BuildArtifact},
-        digest::FileDigestToReExt,
         directory::{insert_entry, ActionDirectoryBuilder, ActionDirectoryMember},
     },
     artifact_groups::ArtifactGroupValues,
@@ -682,7 +681,7 @@ impl CommandExecutor {
     {
         let (action_paths, action) = match manager.stage(buck2_data::PrepareAction {}, || {
             let action_paths = self.preamble(request.inputs(), request.outputs())?;
-            let input_digest = action_paths.inputs.fingerprint().dupe();
+            let input_digest = action_paths.inputs.fingerprint();
             let outputs = action_paths.outputs.map(|x| x.as_str().to_owned());
             let action_metadata_blobs = request.inputs().iter().filter_map(|x| match x {
                 CommandExecutionInput::Artifact(_) => None,
@@ -696,7 +695,7 @@ impl CommandExecutor {
                 outputs,
                 request.working_directory().map(|p| p.as_str().to_owned()),
                 request.env(),
-                input_digest.to_re(),
+                input_digest,
                 action_metadata_blobs,
                 None,
                 self.0.inner.re_platform().cloned(),
