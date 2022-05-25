@@ -57,7 +57,6 @@ use crate::{
 };
 
 #[derive(Error, Debug)]
-#[allow(clippy::enum_variant_names)]
 pub(crate) enum EvaluatorError {
     #[error("Can't call `write_heap_profile` unless you first call `enable_heap_profile`.")]
     HeapProfilingNotEnabled,

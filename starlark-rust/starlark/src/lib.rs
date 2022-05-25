@@ -384,6 +384,7 @@
 #![allow(clippy::match_like_matches_macro)]
 #![allow(clippy::new_without_default)]
 #![allow(clippy::type_complexity)]
+#![allow(clippy::enum_variant_names)]
 #![allow(clippy::needless_lifetimes)]
 #![allow(clippy::comparison_to_empty)]
 #![allow(clippy::wrong_self_convention)]
