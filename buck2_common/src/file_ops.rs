@@ -28,6 +28,7 @@ use buck2_core::{
     },
     result::SharedResult,
 };
+use derivative::Derivative;
 use derive_more::Display;
 use gazebo::{cmp::PartialEqAny, prelude::*};
 use globset::{Candidate, GlobSetBuilder};
@@ -94,7 +95,7 @@ pub struct SimpleDirEntry {
 const SHA1_SIZE: usize = 20;
 
 /// A digest of a file, which is it's size and sha1 hash
-#[derive(Display, Hash, PartialEq, Eq, Clone, Ord, PartialOrd)]
+#[derive(Display, Hash, Clone, Derivative, PartialEq, Eq, PartialOrd, Ord)]
 #[display(fmt = "{}:{}", "hex::encode(sha1)", size)]
 pub struct FileDigest {
     pub size: u64,
