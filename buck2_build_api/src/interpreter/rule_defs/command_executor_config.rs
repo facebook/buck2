@@ -14,7 +14,9 @@ use starlark::{
 };
 use thiserror::Error;
 
-use crate::execute::{CommandExecutorConfig, LocalExecutorOptions, RemoteExecutorOptions};
+use crate::execute::{
+    CommandExecutorConfig, LocalExecutorOptions, RemoteExecutorOptions, RemoteExecutorUseCase,
+};
 
 #[derive(Debug, Error)]
 enum CommandExecutorConfigErrors {
@@ -39,6 +41,8 @@ pub(crate) struct StarlarkCommandExecutorConfigGen<V> {
     pub(super) remote_execution_action_key: V, // [String, None]
     /// The maximum input file size (in bytes) that remote execution can support.
     pub(super) remote_execution_max_input_files_mebibytes: V, // [Number, None]
+    /// The use case to use when communicating with RE.
+    pub(super) remote_execution_use_case: V, // [String, None]
     /// Whether to use the limited hybrid executor
     pub(super) use_limited_hybrid: V, // bool
 }
@@ -62,6 +66,11 @@ impl<'v, V: ValueLike<'v>> fmt::Display for StarlarkCommandExecutorConfigGen<V> 
             f,
             "remote_execution_max_input_files_mebibytes = {}, ",
             self.remote_execution_max_input_files_mebibytes
+        )?;
+        write!(
+            f,
+            "remote_execution_use_case = {}",
+            self.remote_execution_use_case
         )?;
         write!(f, "use_limited_hybrid = {}", self.use_limited_hybrid)?;
         write!(f, ")")?;
@@ -126,11 +135,18 @@ impl<'v, V: ValueLike<'v>> StarlarkCommandExecutorConfigGen<V> {
                 Some(re_max_input_files_mebibytes * 1024 * 1024)
             };
 
+            let re_use_case = self.remote_execution_use_case.to_value();
+            let re_use_case = if re_use_case.is_none() {
+                Default::default()
+            } else {
+                RemoteExecutorUseCase::new(re_use_case.to_str())
+            };
+
             Some(RemoteExecutorOptions {
                 re_properties,
                 re_action_key,
                 re_max_input_files_bytes,
-                ..Default::default()
+                re_use_case,
             })
         } else {
             None
@@ -149,6 +165,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         #[starlark(default = NoneType, require = named)] remote_execution_properties: Value<'v>,
         #[starlark(default = NoneType, require = named)] remote_execution_action_key: Value<'v>,
         #[starlark(default = NoneType, require = named)] remote_execution_max_input_files_mebibytes: Value<'v>,
+        #[starlark(default = NoneType, require = named)] remote_execution_use_case: Value<'v>,
         #[starlark(default = NoneType, require = named)] use_limited_hybrid: Value<'v>,
     ) -> anyhow::Result<StarlarkCommandExecutorConfig<'v>> {
         let config = StarlarkCommandExecutorConfig {
@@ -157,6 +174,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
             remote_execution_properties,
             remote_execution_action_key,
             remote_execution_max_input_files_mebibytes,
+            remote_execution_use_case,
             use_limited_hybrid,
         };
         // This checks that the values are valid.

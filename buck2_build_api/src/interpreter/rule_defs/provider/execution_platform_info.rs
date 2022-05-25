@@ -130,6 +130,7 @@ fn info_creator(globals: &mut GlobalsBuilder) {
                         .context("`remote_execution_properties` is missing")?,
                     remote_execution_action_key,
                     remote_execution_max_input_files_mebibytes,
+                    remote_execution_use_case: Value::new_none(),
                     use_limited_hybrid,
                 })
             }

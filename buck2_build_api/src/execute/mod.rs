@@ -197,6 +197,12 @@ pub struct LocalExecutorOptions {}
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct RemoteExecutorUseCase(Cow<'static, str>);
 
+impl RemoteExecutorUseCase {
+    pub fn new(use_case: String) -> Self {
+        Self(Cow::Owned(use_case))
+    }
+}
+
 impl Default for RemoteExecutorUseCase {
     fn default() -> Self {
         Self(Cow::Borrowed("buck2-default"))
