@@ -102,10 +102,10 @@ const SHA1_SIZE: usize = 20;
 /// the sha1 and the size of the underlying blob. We *also* keep track of its expiry in the CAS.
 /// Note that for directory, the expiry represents that of the directory's blob, not its underlying
 /// contents.
-#[derive(Display, Clone, Derivative)]
+#[derive(Display, Derivative)]
 #[derivative(PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[display(fmt = "{}:{}", "hex::encode(sha1)", size)]
-pub struct FileDigest {
+struct FileDigestData {
     size: u64,
     sha1: [u8; SHA1_SIZE],
     #[derivative(
@@ -114,7 +114,12 @@ pub struct FileDigest {
         PartialEq = "ignore",
         Hash = "ignore"
     )]
-    expires: Arc<AtomicU64>,
+    expires: AtomicU64,
+}
+
+#[derive(Display, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct FileDigest {
+    inner: Arc<FileDigestData>,
 }
 
 impl fmt::Debug for FileDigest {
@@ -133,34 +138,38 @@ impl FileDigest {
 
             return EMPTY_DIGEST
                 .get_or_init(|| Self {
-                    size,
-                    sha1,
-                    expires: Arc::new(AtomicU64::new(0)),
+                    inner: Arc::new(FileDigestData {
+                        size,
+                        sha1,
+                        expires: AtomicU64::new(0),
+                    }),
                 })
                 .dupe();
         }
 
         Self {
-            size,
-            sha1,
-            expires: Arc::new(AtomicU64::new(0)),
+            inner: Arc::new(FileDigestData {
+                size,
+                sha1,
+                expires: AtomicU64::new(0),
+            }),
         }
     }
 
     pub fn sha1(&self) -> &[u8; SHA1_SIZE] {
-        &self.sha1
+        &self.inner.sha1
     }
 
     pub fn size(&self) -> u64 {
-        self.size
+        self.inner.size
     }
 
     pub fn expires(&self) -> SystemTime {
-        SystemTime::UNIX_EPOCH + Duration::from_secs(self.expires.load(Ordering::Relaxed))
+        SystemTime::UNIX_EPOCH + Duration::from_secs(self.inner.expires.load(Ordering::Relaxed))
     }
 
     pub fn update_expires(&self, time: SystemTime) {
-        self.expires.store(
+        self.inner.expires.store(
             time.duration_since(SystemTime::UNIX_EPOCH)
                 .map(|d| d.as_secs())
                 .unwrap_or(0),
@@ -1015,8 +1024,8 @@ mod tests {
             let d5 = FileDigest::from_file(&tempdir.path().join("recurse_recurse_link"))
                 .context("recurse_recurse_link")?;
 
-            assert_eq!(d1.sha1, [0; SHA1_SIZE]);
-            assert_eq!(d1.size, 3);
+            assert_eq!(d1.sha1(), &[0; SHA1_SIZE]);
+            assert_eq!(d1.size(), 3);
             assert_eq!(d1, d2);
             assert_eq!(d1, d3);
             assert_eq!(d1, d4);
