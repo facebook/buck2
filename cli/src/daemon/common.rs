@@ -24,7 +24,7 @@ use buck2_build_api::{
             local::LocalExecutor,
             re::{
                 cache_check::CacheCheckingExecutor, manager::ReConnectionHandle, ExecutionPlatform,
-                ReExecutor,
+                ReExecutor, ReExecutorGlobalKnobs,
             },
             PreparedCommandExecutor,
         },
@@ -218,6 +218,7 @@ pub struct CommandExecutorFactory {
     /// platforms are enabled, this cannot control what execution platform we use, but it can only
     /// bias how a given executor works, or refuse to function entirely.
     pub filter: ExecutorFilter,
+    pub re_global_knobs: ReExecutorGlobalKnobs,
 }
 
 impl CommandExecutorFactory {
@@ -226,12 +227,14 @@ impl CommandExecutorFactory {
         host_sharing_broker: HostSharingBroker,
         materializer: Arc<dyn Materializer>,
         filter: ExecutorFilter,
+        re_global_knobs: ReExecutorGlobalKnobs,
     ) -> Self {
         Self {
             re_connection,
             host_sharing_broker: Arc::new(host_sharing_broker),
             materializer,
             filter,
+            re_global_knobs,
         }
     }
 }
@@ -286,6 +289,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 options
                     .re_max_input_files_bytes
                     .unwrap_or(DEFAULT_RE_MAX_INPUT_FILE_BYTES),
+                self.re_global_knobs.dupe(),
             )
         };
 

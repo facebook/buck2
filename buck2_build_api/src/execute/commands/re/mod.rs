@@ -85,6 +85,10 @@ pub struct ActionPaths {
     pub input_files_bytes: u64,
 }
 
+/// Daemon-level config that can tweak how the ReExecutor works.
+#[derive(Clone, Dupe, Default)]
+pub struct ReExecutorGlobalKnobs {}
+
 pub struct ReExecutor {
     pub artifact_fs: ArtifactFs,
     pub materializer: Arc<dyn Materializer>,
@@ -93,6 +97,7 @@ pub struct ReExecutor {
     pub re_platform: RE::Platform,
     pub re_action_key: Option<String>,
     pub re_max_input_files_bytes: u64,
+    pub knobs: ReExecutorGlobalKnobs,
 }
 
 impl ReExecutor {
@@ -104,6 +109,7 @@ impl ReExecutor {
         re_properties: Vec<(String, String)>,
         re_action_key: Option<String>,
         re_max_input_files_bytes: u64,
+        knobs: ReExecutorGlobalKnobs,
     ) -> Self {
         Self {
             artifact_fs,
@@ -115,6 +121,7 @@ impl ReExecutor {
             },
             re_action_key,
             re_max_input_files_bytes,
+            knobs,
         }
     }
 

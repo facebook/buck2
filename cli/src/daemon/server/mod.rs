@@ -37,6 +37,7 @@ use buck2_build_api::{
             re::{
                 client::RemoteExecutionStaticMetadata,
                 manager::{ReConnectionHandle, ReConnectionManager, ReConnectionObserver},
+                ReExecutorGlobalKnobs,
             },
         },
         materializer::{
@@ -540,6 +541,7 @@ impl ServerCommandContext {
                     host_sharing_broker,
                     materializer.dupe(),
                     execution_strategy.into(),
+                    ReExecutorGlobalKnobs {},
                 ));
                 data.set_blocking_executor(blocking_executor);
                 data.set_materializer(materializer);

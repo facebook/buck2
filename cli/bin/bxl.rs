@@ -376,6 +376,7 @@ fn setup(
             host_sharing_broker,
             materializer.dupe(),
             ExecutionStrategy::Default.into(),
+            Default::default(),
         ));
         data.set_blocking_executor(blocking_executor);
         data.set_materializer(materializer);
