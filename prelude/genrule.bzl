@@ -102,6 +102,9 @@ _LOCAL_LABELS = [
     # Connects to service router which won't work on RE
     "uses_service_router",
 
+    # Downloads direct from manifold
+    "uses_manifold",
+
     # When run on RE produces "Cache is out of space" (excessive disk/memory)
     "re_cache_out_of_space",
 
