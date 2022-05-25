@@ -195,6 +195,7 @@ def compile_cxx(
     """
     For a given list of src_compile_cmds, generate output artifacts.
     """
+    local_only = _cxx_compile_requires_local(ctx)
     objects = []
     for src_compile_cmd in src_compile_cmds:
         identifier = src_compile_cmd.src.short_path
@@ -242,10 +243,13 @@ def compile_cxx(
 
         if pic:
             identifier += " (pic)"
-        ctx.actions.run(cmd, category = "cxx_compile", identifier = identifier, dep_files = action_dep_files)
+        ctx.actions.run(cmd, category = "cxx_compile", identifier = identifier, dep_files = action_dep_files, local_only = local_only)
         objects.append(out)
 
     return objects
+
+def _cxx_compile_requires_local(ctx: "context") -> bool.type:
+    return "exceeds_re_memory_limits" in ctx.attr.labels
 
 def _validate_target_headers(ctx: "context", preprocessor: [CPreprocessor.type]):
     path_to_artifact = {}
