@@ -321,6 +321,17 @@ impl TargetNode {
         self.0.attr_spec.attr_or_none(&self.0.attributes, key)
     }
 
+    /// Get attribute.
+    ///
+    /// * `None` if attribute is known but not set and no default.
+    /// * error if attribute is unknown.
+    pub fn attr(&self, key: &str) -> anyhow::Result<Option<&CoercedAttr>> {
+        self.0
+            .attr_spec
+            .attr(&self.0.attributes, key)
+            .with_context(|| format!("attribute `{}` not found", key))
+    }
+
     pub fn target_deps(&self) -> impl Iterator<Item = &TargetLabel> {
         self.0.deps.iter()
     }

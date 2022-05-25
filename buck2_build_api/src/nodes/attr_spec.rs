@@ -50,6 +50,8 @@ pub(crate) enum AttributeSpecError {
     InternalAttributeRedefined(String),
     #[error("Duplicate attribute `{0}`")]
     DuplicateAttribute(String),
+    #[error("Rule definition has no attribute `{0}`")]
+    UnknownAttribute(String),
 }
 
 impl AttributeSpec {
@@ -215,6 +217,22 @@ impl AttributeSpec {
             self.get_attribute(*idx).default.as_deref()
         } else {
             None
+        }
+    }
+
+    pub(crate) fn attr<'v>(
+        &'v self,
+        attr_values: &'v AttrValues,
+        key: &str,
+    ) -> anyhow::Result<Option<&'v CoercedAttr>> {
+        if let Some(idx) = self.indices.get(key) {
+            if let Some(attr) = attr_values.get(*idx) {
+                return Ok(Some(attr));
+            }
+
+            Ok(self.get_attribute(*idx).default.as_deref())
+        } else {
+            Err(AttributeSpecError::UnknownAttribute(key.to_owned()).into())
         }
     }
 
