@@ -27,6 +27,7 @@ use futures::{
     stream::{BoxStream, FuturesOrdered, StreamExt},
 };
 use gazebo::prelude::*;
+use once_cell::sync::Lazy;
 use remote_execution::{NamedDigest, NamedDigestWithPermissions, REClientError, TCode, TDigest};
 use thiserror::Error;
 use tokio::{
@@ -896,7 +897,7 @@ impl<V> FileTree<V> {
 fn maybe_tombstone_digest(digest: &FileDigest) -> anyhow::Result<&FileDigest> {
     // This has to be of size 1 since size 0 will result in the RE client just producing an empty
     // instead of a not-found error.
-    static TOMBSTONE_DIGEST: FileDigest = FileDigest::new([0; 20], 1);
+    static TOMBSTONE_DIGEST: Lazy<FileDigest> = Lazy::new(|| FileDigest::new([0; 20], 1));
 
     fn convert_digests(val: &str) -> anyhow::Result<HashSet<FileDigest>> {
         val.split(' ')
@@ -914,7 +915,7 @@ fn maybe_tombstone_digest(digest: &FileDigest) -> anyhow::Result<&FileDigest> {
 
     if let Some(digests) = TOMBSTONED_DIGESTS.get()?.as_ref() {
         if digests.contains(digest) {
-            return Ok(&TOMBSTONE_DIGEST);
+            return Ok(&*TOMBSTONE_DIGEST);
         }
     }
 

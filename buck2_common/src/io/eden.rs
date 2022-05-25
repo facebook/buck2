@@ -264,20 +264,17 @@ impl IoProvider for EdenIoProvider {
         {
             FileAttributeDataOrError::data(data) => {
                 tracing::trace!("getAttributesFromFiles({}): ok", path,);
-
-                let digest = FileDigest {
-                    size: data
-                        .fileSize
-                        .context("Eden did not return a fileSize")?
-                        .try_into()
-                        .context("Eden returned an invalid fileSize")?,
-                    sha1: data
-                        .sha1
+                let digest = FileDigest::new(
+                    data.sha1
                         .context("Eden did not return a sha1")?
                         .try_into()
                         .ok()
                         .context("Eden returned an invalid sha1")?,
-                };
+                    data.fileSize
+                        .context("Eden did not return a fileSize")?
+                        .try_into()
+                        .context("Eden returned an invalid fileSize")?,
+                );
 
                 let is_executable = fetch_is_executable(self, &self.connector.root, &path).await?;
 

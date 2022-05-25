@@ -12,7 +12,11 @@ use std::{
     fs::File,
     io::{self, Read},
     path::{Components, Path, PathBuf},
-    sync::Arc,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
+    time::{Duration, SystemTime},
 };
 
 use anyhow::Context;
@@ -95,11 +99,19 @@ pub struct SimpleDirEntry {
 const SHA1_SIZE: usize = 20;
 
 /// A digest of a file, which is it's size and sha1 hash
-#[derive(Display, Hash, Clone, Derivative, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Display, Clone, Derivative)]
+#[derivative(PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[display(fmt = "{}:{}", "hex::encode(sha1)", size)]
 pub struct FileDigest {
     pub size: u64,
     pub sha1: [u8; SHA1_SIZE],
+    #[derivative(
+        PartialOrd = "ignore",
+        Ord = "ignore",
+        PartialEq = "ignore",
+        Hash = "ignore"
+    )]
+    pub expires: Arc<AtomicU64>,
 }
 
 impl fmt::Debug for FileDigest {
@@ -112,8 +124,25 @@ impl fmt::Debug for FileDigest {
 impl Dupe for FileDigest {}
 
 impl FileDigest {
-    pub const fn new(sha1: [u8; SHA1_SIZE], size: u64) -> Self {
-        Self { size, sha1 }
+    pub fn new(sha1: [u8; SHA1_SIZE], size: u64) -> Self {
+        Self {
+            size,
+            sha1,
+            expires: Arc::new(AtomicU64::new(0)),
+        }
+    }
+
+    pub fn expires(&self) -> SystemTime {
+        SystemTime::UNIX_EPOCH + Duration::from_secs(self.expires.load(Ordering::Relaxed))
+    }
+
+    pub fn update_expires(&self, time: SystemTime) {
+        self.expires.store(
+            time.duration_since(SystemTime::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0),
+            Ordering::Relaxed,
+        )
     }
 
     // Precondition: Must be exactly SHA1_SIZE bytes or will panic
@@ -182,7 +211,7 @@ impl FileDigest {
             Ok(Some(v)) => {
                 let sha1 = Self::parse_digest(&v)?;
                 let size = meta.len();
-                Some(Self { size, sha1 })
+                Some(Self::new(sha1, size))
             }
             _ => None,
         }
@@ -210,7 +239,7 @@ impl FileDigest {
             h.input(&buffer[..count]);
         }
         let sha1 = h.result().into();
-        Ok(Self { size, sha1 })
+        Ok(Self::new(sha1, size))
     }
 
     /// Return the digest of an empty string
@@ -220,10 +249,7 @@ impl FileDigest {
 
     pub fn from_bytes(bytes: &[u8]) -> Self {
         let sha1 = Sha1::digest(bytes).into();
-        Self {
-            size: bytes.len() as u64,
-            sha1,
-        }
+        Self::new(sha1, bytes.len() as u64)
     }
 }
 

@@ -11,7 +11,7 @@ use std::{
     collections::{HashMap, HashSet},
     str::FromStr,
     sync::Arc,
-    time::Duration,
+    time::{Duration, SystemTime},
 };
 
 use anyhow::Context;
@@ -82,6 +82,9 @@ impl Uploader {
         blobs: &ActionBlobs,
         metadata: RemoteExecutionMetadata,
     ) -> anyhow::Result<()> {
+        let now = SystemTime::now();
+        let deadline = now + Duration::from_secs(600);
+
         // See if anything needs uploading
         let mut input_digests = blobs.keys().collect::<HashSet<_>>();
         let digest_ttls = {
@@ -93,10 +96,15 @@ impl Uploader {
                     DirectoryEntry::Leaf(..) => continue,
                 };
 
-                input_digests.insert(digest);
+                if digest.expires() <= deadline {
+                    input_digests.insert(digest);
+                }
             }
 
-            input_digests.insert(input_dir.fingerprint());
+            let root_dir_digest = input_dir.fingerprint();
+            if root_dir_digest.expires() <= deadline {
+                input_digests.insert(root_dir_digest);
+            }
 
             // Find out which ones are missing
             let request = GetDigestsTtlRequest {
@@ -149,6 +157,9 @@ impl Uploader {
                         missing_digests.insert(digest.dupe());
                     }
                 }
+            } else {
+                let ttl = Duration::from_secs(digest_ttl as u64);
+                digest.update_expires(now + ttl);
             }
         }
 
