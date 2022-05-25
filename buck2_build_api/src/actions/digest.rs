@@ -26,8 +26,8 @@ pub trait FileDigestReExt {
 impl FileDigestReExt for FileDigest {
     fn to_re(&self) -> ReDigest {
         ReDigest {
-            hash: hex::encode(self.sha1),
-            size_in_bytes: self.size as i64,
+            hash: hex::encode(self.sha1()),
+            size_in_bytes: self.size() as i64,
             ..Default::default()
         }
     }
@@ -42,8 +42,8 @@ impl FileDigestReExt for FileDigest {
 
     fn to_grpc(&self) -> GrpcDigest {
         GrpcDigest {
-            hash: hex::encode(self.sha1),
-            size_bytes: self.size as i64,
+            hash: hex::encode(self.sha1()),
+            size_bytes: self.size() as i64,
         }
     }
 

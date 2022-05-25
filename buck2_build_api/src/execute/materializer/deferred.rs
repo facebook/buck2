@@ -687,11 +687,11 @@ impl DeferredMaterializerCommandProcessor {
                     // speaking necessary here, but since an invalid size would break actions
                     // running on RE, it's a good idea to catch it here when materializing so that
                     // our test suite can surface bugs when downloading things locally.
-                    if downloaded.size != info.metadata.digest.size {
+                    if downloaded.size() != info.metadata.digest.size() {
                         return Err(anyhow::anyhow!(
                             "Downloaded size ({}) does not match expected size ({})",
-                            downloaded.size,
-                            info.metadata.digest.size,
+                            downloaded.size(),
+                            info.metadata.digest.size(),
                         ));
                     }
 

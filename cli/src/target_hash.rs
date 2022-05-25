@@ -126,10 +126,10 @@ impl FileHasher for PathsAndContentsHasher {
             // Important that the different branches can never clash, so add a prefix byte to them
             match info {
                 PathMetadata::File(m) => {
-                    res.reserve(1 + m.digest.sha1.len());
+                    res.reserve(1 + m.digest.sha1().len());
                     // We ignore `digest.size` as the SHA1 alone is enough to be unique
                     res.push(0u8);
-                    res.extend(m.digest.sha1);
+                    res.extend(m.digest.sha1());
                 }
                 PathMetadata::ExternalSymlink(m) => {
                     // We don't want to go to the disk and get the digest of the file in the external symlink.

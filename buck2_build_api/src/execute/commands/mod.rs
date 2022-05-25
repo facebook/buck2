@@ -744,7 +744,7 @@ impl CommandExecutor {
         for entry in input_dir.fingerprinted_unordered_walk().without_paths() {
             match entry {
                 DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {
-                    input_files_bytes += f.digest.size;
+                    input_files_bytes += f.digest.size();
                 }
                 _ => {}
             };

@@ -106,8 +106,8 @@ const SHA1_SIZE: usize = 20;
 #[derivative(PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[display(fmt = "{}:{}", "hex::encode(sha1)", size)]
 pub struct FileDigest {
-    pub size: u64,
-    pub sha1: [u8; SHA1_SIZE],
+    size: u64,
+    sha1: [u8; SHA1_SIZE],
     #[derivative(
         PartialOrd = "ignore",
         Ord = "ignore",
@@ -145,6 +145,14 @@ impl FileDigest {
             sha1,
             expires: Arc::new(AtomicU64::new(0)),
         }
+    }
+
+    pub fn sha1(&self) -> &[u8; SHA1_SIZE] {
+        &self.sha1
+    }
+
+    pub fn size(&self) -> u64 {
+        self.size
     }
 
     pub fn expires(&self) -> SystemTime {
