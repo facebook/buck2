@@ -96,6 +96,14 @@ impl REClient {
         stub()
     }
 
+    pub async fn get_digests_ttl(
+        &self,
+        metadata: RemoteExecutionMetadata,
+        request: GetDigestsTtlRequest,
+    ) -> anyhow::Result<GetDigestsTtlResponse> {
+        stub()
+    }
+
     pub fn get_execution_client(&self) -> &Self {
         self
     }

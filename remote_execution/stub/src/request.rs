@@ -66,6 +66,12 @@ pub struct FindMissingBlobsRequest {
     pub _dot_dot: (),
 }
 
+#[derive(Default)]
+pub struct GetDigestsTtlRequest {
+    pub digests: Vec<TDigest>,
+    pub _dot_dot: (),
+}
+
 #[derive(Clone, Default)]
 pub struct ExecuteRequest {
     pub action_digest: TDigest,

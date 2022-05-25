@@ -100,6 +100,15 @@ pub struct FindMissingBlobsResponse {
     pub missing_digests: Vec<TDigest>,
 }
 
+pub struct DigestWithTtl {
+    pub digest: TDigest,
+    pub ttl: i64,
+}
+
+pub struct GetDigestsTtlResponse {
+    pub digests_with_ttl: Vec<DigestWithTtl>,
+}
+
 pub struct ExecuteResponse {
     pub action_result: TActionResult2,
     pub error: REError,
