@@ -60,6 +60,7 @@ use crate::{
             CommandExecutor, OutputCreationBehavior,
         },
         materializer::HasMaterializer,
+        CommandExecutorConfig,
     },
     interpreter::rule_defs::{
         cmd_args::{
@@ -152,7 +153,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
         timeout: Duration,
         host_sharing_requirements: HostSharingRequirements,
         pre_create_dirs: Vec<DeclaredOutput>,
-        _executor_override: Option<ExecutorConfigOverride>,
+        executor_override: Option<ExecutorConfigOverride>,
     ) -> anyhow::Result<ExecutionResult2> {
         let test_target = self.session.get(test_target)?;
 
@@ -178,6 +179,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
 
         let cwd;
         let expanded;
+        let mut resolved_executor_override = None;
 
         {
             let opts = self.session.options();
@@ -214,6 +216,24 @@ impl TestOrchestrator for BuckTestOrchestrator {
                 supports_re = false;
                 expander.expand::<AbsCommandLineBuilder>()
             }?;
+
+            if let Some(executor_override) = executor_override.as_ref() {
+                let executor_override = test_info
+                    .executor_override(&executor_override.name)
+                    .context("The `executor_override` provided does not exist")
+                    .and_then(|o| {
+                        o.to_command_executor_config()
+                            .context("The `executor_override` is invalid")
+                    })
+                    .with_context(|| {
+                        format!(
+                            "Error processing `executor_override`: `{}`",
+                            executor_override.name
+                        )
+                    })?;
+
+                resolved_executor_override = Some(executor_override);
+            }
         };
 
         let (expanded_cmd, expanded_env, inputs) = expanded;
@@ -235,6 +255,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
                 cwd,
                 declared_outputs,
                 supports_re,
+                resolved_executor_override.as_ref(),
             )
             .await?;
 
@@ -335,6 +356,7 @@ impl BuckTestOrchestrator {
         cwd: ProjectRelativePathBuf,
         outputs: IndexMap<BuckOutTestPath, OutputCreationBehavior>,
         supports_re: bool,
+        executor_override: Option<&CommandExecutorConfig>,
     ) -> anyhow::Result<(
         ExecutionStream,
         ExecutionStream,
@@ -343,7 +365,7 @@ impl BuckTestOrchestrator {
         IndexMap<CommandExecutionOutput, ArtifactValue>,
     )> {
         let executor = self
-            .get_command_executor(&test_target)
+            .get_command_executor(&test_target, executor_override)
             .await
             .context("Error getting command executor")?;
 
@@ -477,6 +499,7 @@ impl BuckTestOrchestrator {
     async fn get_command_executor(
         &self,
         test_target: &ConfiguredProvidersLabel,
+        executor_override: Option<&CommandExecutorConfig>,
     ) -> anyhow::Result<CommandExecutor> {
         let test_target_node = self
             .dice
@@ -484,18 +507,20 @@ impl BuckTestOrchestrator {
             .await?
             .require_compatible()?;
 
-        let executor_config = test_target_node
-            .execution_platform_resolution()
-            .executor_config()
-            .context("Error accessing executor config")?
-            .clone();
+        let executor_config = match executor_override {
+            Some(o) => o,
+            None => test_target_node
+                .execution_platform_resolution()
+                .executor_config()
+                .context("Error accessing executor config")?,
+        };
 
         let artifact_fs = self.dice.get_artifact_fs().await;
         let project_fs = (**self.dice.global_data().get_io_provider().fs()).clone();
         let command_executor_config = CommandExecutorRequest {
             artifact_fs,
             project_fs,
-            executor_config: &executor_config,
+            executor_config,
         };
         let executor = self.dice.get_command_executor(&command_executor_config)?;
         let executor = CommandExecutor::new(executor, command_executor_config.artifact_fs);

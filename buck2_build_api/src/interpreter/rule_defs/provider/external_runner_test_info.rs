@@ -26,8 +26,12 @@ use starlark::{
 
 use crate::{
     attrs::attr_type::arg::value::ResolvedStringWithMacros,
-    interpreter::rule_defs::cmd_args::{
-        CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder, ValueAsCommandLineLike,
+    interpreter::rule_defs::{
+        cmd_args::{
+            CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder,
+            ValueAsCommandLineLike,
+        },
+        command_executor_config::StarlarkCommandExecutorConfig,
     },
 };
 
@@ -69,6 +73,10 @@ pub struct ExternalRunnerTestInfoGen<V> {
     /// default is not to.
     /// This is of type [bool.type]
     run_from_project_root: V,
+
+    /// Executors that Tpx can use to override the default executor.
+    /// This is of type {str.type: CommandExecutorConfig}
+    executor_overrides: V,
 }
 
 // NOTE: All the methods here unwrap because we validate at freeze time.
@@ -105,6 +113,17 @@ impl FrozenExternalRunnerTestInfo {
             .unwrap()
             .into_option()
             .unwrap_or_default()
+    }
+
+    /// Access a specific executor override.
+    pub(crate) fn executor_override(
+        &self,
+        key: &str,
+    ) -> Option<&StarlarkCommandExecutorConfig<'static>> {
+        let executor_overrides = Dict::from_value(self.executor_overrides.to_value()).unwrap();
+        executor_overrides
+            .get_str(key)
+            .map(|v| StarlarkCommandExecutorConfig::from_value(v.to_value()).unwrap())
     }
 
     pub fn visit_artifacts(
@@ -247,6 +266,43 @@ fn iter_opt_str_list<'v>(
     }))
 }
 
+fn iter_executor_overrides<'v>(
+    executor_overrides: Value<'v>,
+) -> impl Iterator<Item = anyhow::Result<(&'v str, &'v StarlarkCommandExecutorConfig<'v>)>> {
+    if executor_overrides.is_none() {
+        return Either::Left(Either::Left(empty()));
+    }
+
+    let executor_overrides = match Dict::from_value(executor_overrides) {
+        Some(executor_overrides) => executor_overrides,
+        None => {
+            return Either::Left(Either::Right(once(Err(anyhow::anyhow!(
+                "Invalid `executor_overrides`: Expected a dict, got: `{}`",
+                executor_overrides
+            )))));
+        }
+    };
+
+    // TODO: In an ideal world this wouldnt be necessary, but executor_overrides's lifetime is
+    // bound by this function.
+    #[allow(clippy::needless_collect)]
+    let executor_overrides = executor_overrides.iter().collect::<Vec<_>>();
+
+    Either::Right(executor_overrides.into_iter().map(|(key, value)| {
+        let key = key.unpack_str().with_context(|| {
+            format!(
+                "Invalid key in `executor_overrides`: Expected a str, got: `{}`",
+                key
+            )
+        })?;
+
+        let config = StarlarkCommandExecutorConfig::from_value(value)
+            .with_context(|| format!("Invalid value in `executor_overrides` for key `{}`", key))?;
+
+        Ok((key, config))
+    }))
+}
+
 fn check_all<I, T>(it: I) -> anyhow::Result<()>
 where
     I: Iterator<Item = anyhow::Result<T>>,
@@ -274,6 +330,7 @@ where
     check_all(iter_test_env(info.env.to_value()))?;
     check_all(iter_opt_str_list(info.labels.to_value(), "labels"))?;
     check_all(iter_opt_str_list(info.contacts.to_value(), "contacts"))?;
+    check_all(iter_executor_overrides(info.executor_overrides.to_value()))?;
     NoneOr::<bool>::unpack_value(info.use_project_relative_paths.to_value())
         .context("`use_project_relative_paths` must be a bool if provided")?;
     NoneOr::<bool>::unpack_value(info.run_from_project_root.to_value())
@@ -296,6 +353,7 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
         #[starlark(default = NoneType)] contacts: Value<'v>,
         #[starlark(default = NoneType)] use_project_relative_paths: Value<'v>,
         #[starlark(default = NoneType)] run_from_project_root: Value<'v>,
+        #[starlark(default = NoneType)] executor_overrides: Value<'v>,
     ) -> anyhow::Result<ExternalRunnerTestInfo<'v>> {
         let res = ExternalRunnerTestInfo {
             test_type: r#type,
@@ -305,6 +363,7 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
             contacts,
             use_project_relative_paths,
             run_from_project_root,
+            executor_overrides,
         };
         validate_external_runner_test_info(&res)?;
         Ok(res)
