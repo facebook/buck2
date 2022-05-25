@@ -178,26 +178,15 @@ impl<S: Default> FormattingOptions<S> {
     /// This lets us shortcut some formatting logic later on if no meaningful
     /// formatting needs to be done (the common case)
     pub fn maybe_new(
-        concat_items: bool,
-        concat_delimiter: Option<S>,
+        delimiter: Option<S>,
         format_string: Option<S>,
         quote: Option<QuoteStyle>,
         prepend: Option<S>,
     ) -> Option<Self> {
-        match (
-            concat_items,
-            concat_delimiter,
-            format_string,
-            quote,
-            prepend,
-        ) {
-            (false, None, None, None, None) => None,
-            (concat_items, concat_delimiter, format_string, quote, prepend) => Some(Self {
-                concat: if concat_items {
-                    Some(concat_delimiter.unwrap_or_default())
-                } else {
-                    concat_delimiter
-                },
+        match (delimiter, format_string, quote, prepend) {
+            (None, None, None, None) => None,
+            (delimiter, format_string, quote, prepend) => Some(Self {
+                concat: delimiter,
                 format_string,
                 quote,
                 prepend,
@@ -879,7 +868,6 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
         if format.is_some() || quote.is_some() || prepend.is_some() {
             let mut inner_builder =
                 StarlarkCommandLine::new_with_options(FormattingOptions::maybe_new(
-                    false,
                     None,
                     format,
                     quote.try_map(|q| QuoteStyle::parse(q))?,
