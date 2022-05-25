@@ -12,8 +12,8 @@ use crate::{
     data::{
         ArgHandle, ArgValue, ArgValueContent, ConfiguredTarget, ConfiguredTargetHandle,
         DeclaredOutput, DisplayMetadata, EnvHandle, ExecuteRequest2, ExecutionResult2,
-        ExecutionStatus, ExecutionStream, ExternalRunnerSpec, ExternalRunnerSpecValue, Output,
-        TestExecutable, TestResult, TestStatus,
+        ExecutionStatus, ExecutionStream, ExecutorConfigOverride, ExternalRunnerSpec,
+        ExternalRunnerSpecValue, Output, TestExecutable, TestResult, TestStatus,
     },
     protocol::convert::{host_sharing_requirements_from_grpc, host_sharing_requirements_to_grpc},
 };
@@ -355,6 +355,20 @@ impl TryFrom<test_proto::DeclaredOutput> for DeclaredOutput {
     }
 }
 
+impl From<ExecutorConfigOverride> for test_proto::ExecutorConfigOverride {
+    fn from(o: ExecutorConfigOverride) -> Self {
+        Self {
+            name: o.name.as_str().to_owned(),
+        }
+    }
+}
+
+impl From<test_proto::ExecutorConfigOverride> for ExecutorConfigOverride {
+    fn from(o: test_proto::ExecutorConfigOverride) -> Self {
+        Self { name: o.name }
+    }
+}
+
 impl TryInto<test_proto::ArgValue> for ArgValue {
     type Error = anyhow::Error;
 
@@ -428,6 +442,7 @@ impl TryFrom<test_proto::ExecuteRequest2> for ExecuteRequest2 {
             timeout,
             host_sharing_requirements,
             pre_create_dirs,
+            executor_override,
         } = s;
 
         let test_executable = test_executable
@@ -448,11 +463,14 @@ impl TryFrom<test_proto::ExecuteRequest2> for ExecuteRequest2 {
             .into_try_map(|c| c.try_into())
             .context("Invalid `pre_create_dirs`")?;
 
+        let executor_override = executor_override.map(|o| o.into());
+
         Ok(ExecuteRequest2 {
             test_executable,
             timeout,
             host_sharing_requirements,
             pre_create_dirs,
+            executor_override,
         })
     }
 }
@@ -478,6 +496,7 @@ impl TryInto<test_proto::ExecuteRequest2> for ExecuteRequest2 {
                 .pre_create_dirs
                 .into_try_map(|i| i.try_into())
                 .context("Invalid `pre_create_dirs`")?,
+            executor_override: self.executor_override.map(|o| o.into()),
         })
     }
 }
@@ -764,6 +783,9 @@ mod tests {
             timeout: Duration::from_millis(42),
             host_sharing_requirements: HostSharingRequirements::ExclusiveAccess,
             pre_create_dirs: vec![declared_output],
+            executor_override: Some(ExecutorConfigOverride {
+                name: "foo".to_owned(),
+            }),
         };
         assert_roundtrips(&request);
     }

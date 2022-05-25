@@ -161,12 +161,18 @@ pub struct DeclaredOutput {
     pub name: ForwardRelativePathBuf,
 }
 
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct ExecutorConfigOverride {
+    pub name: String,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct ExecuteRequest2 {
     pub test_executable: TestExecutable,
     pub timeout: Duration,
     pub host_sharing_requirements: HostSharingRequirements,
     pub pre_create_dirs: Vec<DeclaredOutput>,
+    pub executor_override: Option<ExecutorConfigOverride>,
 }
 
 #[derive(Clone, Debug, PartialEq)]

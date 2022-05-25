@@ -156,12 +156,17 @@ message TestExecutable {
   map<string, ArgValue> env = 4;
 }
 
+message ExecutorConfigOverride {
+  string name = 1;
+}
+
 message ExecuteRequest2 {
   reserved 1 to 4;
   google.protobuf.Duration timeout = 5;
   HostSharingRequirements host_sharing_requirements = 6;
   repeated DeclaredOutput pre_create_dirs = 7;
   TestExecutable test_executable = 8;
+  ExecutorConfigOverride executor_override = 9;
 }
 
 message PrepareForLocalExecutionRequest {

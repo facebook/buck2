@@ -12,7 +12,7 @@ use host_sharing::HostSharingRequirements;
 
 use crate::data::{
     ArgValue, ConfiguredTargetHandle, DeclaredOutput, DisplayMetadata, ExecutionResult2,
-    ExternalRunnerSpec, TestResult,
+    ExecutorConfigOverride, ExternalRunnerSpec, TestResult,
 };
 
 /// available to buck to interact with the test executor
@@ -45,6 +45,9 @@ pub trait TestOrchestrator: Send + Sync {
         host_sharing_requirements: HostSharingRequirements,
         // outputs that need to be pre created as directories
         pre_create_dirs: Vec<DeclaredOutput>,
+        // A specific executor to use for this. It must be declared on the underlying
+        // ExternalRunnerTestInfo to work.
+        executor_override: Option<ExecutorConfigOverride>,
     ) -> anyhow::Result<ExecutionResult2>;
 
     /// reports a test is done

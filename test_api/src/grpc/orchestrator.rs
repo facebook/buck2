@@ -18,7 +18,7 @@ use tracing::Level;
 use crate::{
     data::{
         ArgValue, ConfiguredTargetHandle, DeclaredOutput, DisplayMetadata, ExecuteRequest2,
-        ExecutionResult2, TestExecutable, TestResult,
+        ExecutionResult2, ExecutorConfigOverride, TestExecutable, TestResult,
     },
     grpc::{
         channel,
@@ -102,6 +102,7 @@ impl TestOrchestrator for TestOrchestratorClient {
         timeout: Duration,
         host_sharing_requirements: HostSharingRequirements,
         pre_create_dirs: Vec<DeclaredOutput>,
+        executor_override: Option<ExecutorConfigOverride>,
     ) -> anyhow::Result<ExecutionResult2> {
         let test_executable = TestExecutable {
             ui_prints,
@@ -115,6 +116,7 @@ impl TestOrchestrator for TestOrchestratorClient {
             timeout,
             host_sharing_requirements,
             pre_create_dirs,
+            executor_override,
         };
 
         let req: test_proto::ExecuteRequest2 = req.try_into().context("Invalid execute request")?;
@@ -214,6 +216,7 @@ where
                 timeout,
                 host_sharing_requirements,
                 pre_create_dirs,
+                executor_override,
             } = request
                 .into_inner()
                 .try_into()
@@ -236,6 +239,7 @@ where
                     timeout,
                     host_sharing_requirements,
                     pre_create_dirs,
+                    executor_override,
                 )
                 .await
                 .context("Execution failed")?;

@@ -39,8 +39,8 @@ use once_cell::sync::Lazy;
 use test_api::{
     data::{
         ArgValue, ArgValueContent, ConfiguredTargetHandle, DeclaredOutput, DisplayMetadata,
-        ExecutionResult2, ExecutionStatus, ExecutionStream, ExternalRunnerSpecValue, Output,
-        TestResult,
+        ExecutionResult2, ExecutionStatus, ExecutionStream, ExecutorConfigOverride,
+        ExternalRunnerSpecValue, Output, TestResult,
     },
     protocol::TestOrchestrator,
 };
@@ -152,6 +152,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
         timeout: Duration,
         host_sharing_requirements: HostSharingRequirements,
         pre_create_dirs: Vec<DeclaredOutput>,
+        _executor_override: Option<ExecutorConfigOverride>,
     ) -> anyhow::Result<ExecutionResult2> {
         let test_target = self.session.get(test_target)?;
 
