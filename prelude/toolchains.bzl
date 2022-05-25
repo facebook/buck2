@@ -1,5 +1,19 @@
 load("@fbcode//buck2/prelude/apple:apple_toolchain_setup.bzl", _get_apple_cxx_select_map = "get_apple_cxx_select_map")
 
+# This module defines the toolchains for languages like C++, Python etc. These are expressed
+# as large `select` expressions which are used as default attributes attached to every rule that
+# uses them - e.g. `rust_library` has `_rust_toolchain` which points at `default_rust_toolchain()`.
+#
+# It might be tempting to make targets for these defaults, e.g. `//toolchain:rust` and use that as
+# the default, but it's infeasible because:
+#
+# 1. If the toolchain is an execution dependency, then the `select` statements on `//toolchain:rust`
+#    will be resolved with the execution configuration, not the target configuration.
+#
+# 2. If the toolchain is not an execution dependency, then the execution constraints it supplies
+#    won't be applied when picking an execution platform, as execution resolution only considers
+#    the direct dependencies of a target.
+
 def _merge_dictionaries(dicts):
     result = {}
     for d in dicts:
