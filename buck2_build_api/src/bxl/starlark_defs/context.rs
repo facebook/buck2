@@ -210,7 +210,6 @@ fn register_context(builder: &mut MethodsBuilder) {
             .to_owned())
     }
 
-    #[starlark(attribute)]
     fn uquery<'v>(this: &BxlContext) -> anyhow::Result<StarlarkUQueryCtx<'v>> {
         let delegate = this.sync_dice_query_delegate(None)?;
         StarlarkUQueryCtx::new(Arc::new(delegate))
