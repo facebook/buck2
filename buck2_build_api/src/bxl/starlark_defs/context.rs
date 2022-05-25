@@ -191,6 +191,7 @@ fn register_context(builder: &mut MethodsBuilder) {
     ///
     /// Prints that are not result of the bxl should be printed via stderr via the stdlib `print`
     /// and `pprint`.
+    #[starlark(attribute)]
     fn output<'v>(this: &'v BxlContext) -> anyhow::Result<Value<'v>> {
         Ok(this.output_stream.to_value())
     }

@@ -4,10 +4,10 @@ def _providers_test_impl(ctx):
     owner = ctx.cquery().owner("bin/TARGETS.fixture")
 
     providers = ctx.analysis(owner)[0].providers()
-    ctx.output().print(providers[FooInfo])
+    ctx.output.print(providers[FooInfo])
 
     providers = ctx.analysis("//:bin")[0].providers()
-    ctx.output().print(providers[FooInfo])
+    ctx.output.print(providers[FooInfo])
 
 providers_test = bxl(
     implementation = _providers_test_impl,

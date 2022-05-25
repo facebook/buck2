@@ -2,14 +2,14 @@ def _impl(ctx):
     owners = ctx.cquery().owner("bin/TARGETS.fixture")
     for owner in owners:
         configured = owner.label
-        ctx.output().print(configured_sub_target(configured))
-        ctx.output().print(configured_sub_target(configured, "sub"))
-        ctx.output().print(configured_sub_target(configured, ["sub1", "sub2"]))
+        ctx.output.print(configured_sub_target(configured))
+        ctx.output.print(configured_sub_target(configured, "sub"))
+        ctx.output.print(configured_sub_target(configured, ["sub1", "sub2"]))
 
         unconfigured = configured.raw_target()
-        ctx.output().print(sub_target(unconfigured))
-        ctx.output().print(sub_target(unconfigured, "sub"))
-        ctx.output().print(sub_target(unconfigured, ["sub1", "sub2"]))
+        ctx.output.print(sub_target(unconfigured))
+        ctx.output.print(sub_target(unconfigured, "sub"))
+        ctx.output.print(sub_target(unconfigured, ["sub1", "sub2"]))
 
 label_func_test = bxl(
     implementation = _impl,
