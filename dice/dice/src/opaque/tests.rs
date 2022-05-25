@@ -14,7 +14,6 @@ use gazebo::dupe::Dupe;
 
 use crate::{DetectCycles, Dice, DiceComputations, DiceData, Key, UserComputationData};
 
-#[allow(clippy::enum_variant_names)] // same suffix
 #[derive(Debug, PartialEq)]
 enum KeyType {
     DoesNotReadOpaque,

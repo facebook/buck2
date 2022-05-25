@@ -589,7 +589,7 @@ impl ForwardRelativePathBuf {
     /// path.push_unnormalized(ForwardRelativePath::unchecked_new("more/file.rs"));
     /// assert_eq!(ForwardRelativePathBuf::unchecked_new("foo/bar/more/file.rs".to_owned()), path);
     ///
-    /// path.push_unnormalized(ForwardRelativePath::unchecked_new(""));     
+    /// path.push_unnormalized(ForwardRelativePath::unchecked_new(""));
     /// assert_eq!(ForwardRelativePathBuf::unchecked_new("foo/bar/more/file.rs".to_owned()), path);
     ///
     /// let mut path = ForwardRelativePathBuf::unchecked_new("".to_owned());
@@ -727,7 +727,6 @@ impl ForwardRelativePathBuf {
 
 /// Errors from ForwardRelativePath creation
 #[derive(Error, Debug)]
-#[allow(clippy::enum_variant_names)]
 enum ForwardRelativePathError {
     #[error("expected a relative path but got an absolute path instead: `{0}`")]
     PathNotRelative(String),

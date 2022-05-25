@@ -640,7 +640,6 @@ impl AbsPathVerifier {
 
 /// Errors from 'AbsPath' creation
 #[derive(Error, Debug)]
-#[allow(clippy::enum_variant_names)]
 enum AbsPathError {
     #[error("expected an absolute path but got a relative path instead: `{0}`")]
     PathNotAbsolute(PathBuf),
