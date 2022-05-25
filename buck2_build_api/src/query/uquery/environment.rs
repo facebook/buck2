@@ -111,7 +111,7 @@ impl QueryTarget for TargetNode {
     }
 
     fn map_attr<R, F: FnMut(Option<&Self::Attr>) -> R>(&self, key: &str, mut func: F) -> R {
-        func(self.attr(key))
+        func(self.attr_or_none(key))
     }
 
     fn inputs_for_each<E, F: FnMut(CellPath) -> Result<(), E>>(

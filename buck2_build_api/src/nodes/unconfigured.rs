@@ -185,7 +185,8 @@ impl TargetNode {
         let internals = ModuleInternals::from_context(eval)?;
         let package = internals.package();
 
-        let mut visibility = match attr_spec.attr(&attr_values, VISIBILITY_ATTRIBUTE_FIELD) {
+        let mut visibility = match attr_spec.attr_or_none(&attr_values, VISIBILITY_ATTRIBUTE_FIELD)
+        {
             Some(visibility) => parse_visibility(internals.attr_coercion_context(), visibility)
                 .context("When parsing `visibility` attribute")?,
             None => VisibilitySpecification::Default,
@@ -235,7 +236,7 @@ impl TargetNode {
     }
 
     pub fn get_default_target_platform(&self) -> Option<&TargetLabel> {
-        match self.attr(DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD) {
+        match self.attr_or_none(DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD) {
             Some(v) => match v {
                 CoercedAttr::Literal(v) => match v {
                     AttrLiteral::None => None,
@@ -315,8 +316,9 @@ impl TargetNode {
         self.0.platform_deps.iter()
     }
 
-    pub fn attr(&self, key: &str) -> Option<&CoercedAttr> {
-        self.0.attr_spec.attr(&self.0.attributes, key)
+    /// Return `None` if attribute is not present or unknown.
+    pub fn attr_or_none(&self, key: &str) -> Option<&CoercedAttr> {
+        self.0.attr_spec.attr_or_none(&self.0.attributes, key)
     }
 
     pub fn target_deps(&self) -> impl Iterator<Item = &TargetLabel> {
@@ -381,7 +383,7 @@ impl TargetNode {
         }
 
         let tests = self
-            .attr(TESTS_ATTRIBUTE_FIELD)
+            .attr_or_none(TESTS_ATTRIBUTE_FIELD)
             .expect("tests is an internal attribute field and will always be present");
 
         let mut traversal = TestCollector::default();

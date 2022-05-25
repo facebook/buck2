@@ -92,9 +92,9 @@ impl TargetNodeOrForward {
         }
     }
 
-    fn attr(&self, name: &str) -> Option<&CoercedAttr> {
+    fn attr_or_none(&self, name: &str) -> Option<&CoercedAttr> {
         match self {
-            TargetNodeOrForward::TargetNode(target_node) => target_node.attr(name),
+            TargetNodeOrForward::TargetNode(target_node) => target_node.attr_or_none(name),
             TargetNodeOrForward::Forward(actual, _) => {
                 if name == ACTUAL_ATTR_NAME {
                     Some(actual)
@@ -399,7 +399,7 @@ impl ConfiguredTargetNode {
     }
 
     pub fn get(&self, attr: &str) -> Option<ConfiguredAttr> {
-        self.0.target_node.attr(attr).map(|v| {
+        self.0.target_node.attr_or_none(attr).map(|v| {
             v.configure(&AttrConfigurationContextImpl {
                 resolved_cfg: &self.0.resolved_configuration,
                 exec_cfg: &self.0.execution_platform_resolution.cfg(),

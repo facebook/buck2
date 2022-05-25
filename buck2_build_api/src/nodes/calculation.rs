@@ -176,7 +176,7 @@ fn unpack_target_compatible_with_attr(
     resolved_cfg: &ResolvedConfiguration,
     attr_name: &str,
 ) -> anyhow::Result<Option<ConfiguredAttr>> {
-    let attr = target_node.attr(attr_name);
+    let attr = target_node.attr_or_none(attr_name);
     let attr = match attr {
         Some(attr) => attr,
         None => return Ok(None),

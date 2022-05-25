@@ -202,7 +202,7 @@ impl AttributeSpec {
         })
     }
 
-    pub(crate) fn attr<'v>(
+    pub(crate) fn attr_or_none<'v>(
         &'v self,
         attr_values: &'v AttrValues,
         key: &str,
