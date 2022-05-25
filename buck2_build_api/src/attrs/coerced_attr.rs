@@ -25,14 +25,15 @@ use itertools::Itertools;
 use serde::{Serialize, Serializer};
 use starlark::{
     collections::SmallMap,
-    values::{dict::Dict, Value},
+    values::{dict::Dict, Heap, Value},
 };
 use thiserror::Error;
 
 use crate::{
     attrs::{
-        attr_type::AttrType, AttrCoercionContext, AttrConfigurationContext, AttrLiteral,
-        CoercedAttrTraversal, ConfiguredAttr, OrderedMap,
+        attr_type::{attr_literal::CoercionError, AttrType},
+        AttrCoercionContext, AttrConfigurationContext, AttrLiteral, CoercedAttrTraversal,
+        ConfiguredAttr, OrderedMap,
     },
     interpreter::rule_defs::attr::AttrIsConfigurable,
 };
@@ -246,6 +247,18 @@ impl CoercedAttr {
                 attr.coerce_item(configuable, ctx, value)
                     .with_context(|| format!("when coercing {}", value))?,
             ))
+        }
+    }
+
+    #[allow(dead_code)] // TODO(nga): to be used in transition rules.
+    pub(crate) fn to_value<'v>(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+        match self {
+            CoercedAttr::Literal(v) => v.to_value(heap),
+            x @ (CoercedAttr::Concat(..) | CoercedAttr::Selector(..)) => {
+                // It is possible to convert selects back to Starlark objects,
+                // but there's no need to do it for now (and probably never will).
+                Err(CoercionError::AttrCannotBeConvertedToValue(x.to_string()).into())
+            }
         }
     }
 

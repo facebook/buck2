@@ -20,7 +20,7 @@ use buck2_core::{
 use gazebo::prelude::*;
 use starlark::{
     collections::{SmallMap, SmallSet},
-    values::{dict::Dict, none::NoneType, FrozenValue, StarlarkValue, Value},
+    values::{dict::Dict, none::NoneType, FrozenValue, Heap, StarlarkValue, Value},
 };
 
 use crate::{
@@ -243,6 +243,47 @@ impl<C: AttrConfig> Display for AttrLiteral<C> {
 }
 
 impl AttrLiteral<CoercedAttr> {
+    #[allow(dead_code)] // TODO(nga): to be used in transition rules.
+    pub(crate) fn to_value<'v>(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+        match self {
+            AttrLiteral::None => Ok(Value::new_none()),
+            AttrLiteral::Bool(b) => Ok(Value::new_bool(*b)),
+            AttrLiteral::Int(i) => Ok(Value::new_int(*i)),
+            AttrLiteral::String(s) => Ok(heap.alloc_str(s).to_value()),
+            AttrLiteral::List(l, _) => {
+                let mut v = Vec::with_capacity(l.len());
+                for e in l {
+                    v.push(e.to_value(heap)?);
+                }
+                Ok(heap.alloc_list(&v))
+            }
+            AttrLiteral::Tuple(l) => {
+                let mut v = Vec::with_capacity(l.len());
+                for e in l {
+                    v.push(e.to_value(heap)?);
+                }
+                Ok(heap.alloc_tuple(&v))
+            }
+            AttrLiteral::Dict(d) => {
+                let mut m = SmallMap::with_capacity(d.len());
+                for (k, v) in d {
+                    m.insert_hashed(k.to_value(heap)?.get_hashed()?, v.to_value(heap)?);
+                }
+                Ok(heap.alloc(Dict::new(m)))
+            }
+            x => {
+                // For now this function is used to convert attributes to Starlark values
+                // for transition rules which access attributes.
+                //
+                // For regular deps this function should fail.
+                //
+                // For configuration deps, this function should resolve attributes to providers,
+                // but it is not implemented yet.
+                Err(CoercionError::AttrCannotBeConvertedToValue(x.to_string()).into())
+            }
+        }
+    }
+
     pub(crate) fn configure(
         &self,
         ctx: &dyn AttrConfigurationContext,
@@ -543,6 +584,8 @@ pub(crate) enum CoercionError {
     DefaultOnly(String),
     #[error("enum called with `{0}`, only allowed: {}", .1.map(|x| format!("`{}`", x)).join(", "))]
     InvalidEnumVariant(String, Vec<String>),
+    #[error("Attribute cannot be converted to Starlark value: `{0}`")]
+    AttrCannotBeConvertedToValue(String),
 }
 
 impl CoercionError {
