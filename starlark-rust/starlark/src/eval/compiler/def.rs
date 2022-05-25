@@ -302,9 +302,9 @@ impl Compiler<'_, '_, '_> {
     /// * infallible
     /// * no side effects
     /// * no access to locals or globals
-    fn is_safe_to_inline_expr(expr: &ExprCompiled) -> Option<ExprCompiled> {
-        Some(match expr {
-            e @ ExprCompiled::Value(..) => e.clone(),
+    fn is_safe_to_inline_expr(expr: &ExprCompiled) -> bool {
+        match expr {
+            ExprCompiled::Value(..) => true,
             ExprCompiled::Local(..)
             | ExprCompiled::LocalCaptured(..)
             | ExprCompiled::Module(..)
@@ -318,69 +318,41 @@ impl Compiler<'_, '_, '_> {
             | ExprCompiled::Op(..)
             | ExprCompiled::UnOp(..)
             | ExprCompiled::Call(..)
-            | ExprCompiled::Def(..) => return None,
-            ExprCompiled::Type(v) => {
-                ExprCompiled::Type(box Compiler::is_safe_to_inline_expr_spanned(v)?)
+            | ExprCompiled::Def(..) => false,
+            ExprCompiled::Type(v) => Compiler::is_safe_to_inline_expr(v),
+            ExprCompiled::TypeIs(v, t) => {
+                let _: FrozenStringValue = *t;
+                Compiler::is_safe_to_inline_expr(v)
             }
-            ExprCompiled::TypeIs(ref v, t) => {
-                ExprCompiled::TypeIs(box Compiler::is_safe_to_inline_expr_spanned(v)?, *t)
+            ExprCompiled::Tuple(xs) | ExprCompiled::List(xs) => {
+                xs.iter().all(|x| Compiler::is_safe_to_inline_expr(x))
             }
-            ExprCompiled::Tuple(xs) => ExprCompiled::Tuple(
-                xs.try_map(|x| Compiler::is_safe_to_inline_expr_spanned(x).ok_or(()))
-                    .ok()?,
-            ),
-            ExprCompiled::List(xs) => ExprCompiled::List(
-                xs.try_map(|x| Compiler::is_safe_to_inline_expr_spanned(x).ok_or(()))
-                    .ok()?,
-            ),
-            ExprCompiled::Dict(xs) if xs.is_empty() => ExprCompiled::Dict(Vec::new()),
-            ExprCompiled::Dict(..) => {
+            ExprCompiled::Dict(xs) => {
                 // Dict construction may fail if keys are not hashable.
-                return None;
+                xs.is_empty()
             }
             ExprCompiled::If(box (ref c, ref t, ref f)) => {
-                let c = Compiler::is_safe_to_inline_expr_spanned(c)?;
-                let t = Compiler::is_safe_to_inline_expr_spanned(t)?;
-                let f = Compiler::is_safe_to_inline_expr_spanned(f)?;
-                ExprCompiled::If(box (c, t, f))
+                Compiler::is_safe_to_inline_expr(c)
+                    && Compiler::is_safe_to_inline_expr(t)
+                    && Compiler::is_safe_to_inline_expr(f)
             }
             ExprCompiled::Not(ref x) => {
-                let x = Compiler::is_safe_to_inline_expr_spanned(x)?;
-                ExprCompiled::Not(box x)
+                // `not` is infallible because `bool(x)` is infallible.
+                Compiler::is_safe_to_inline_expr(x)
             }
-            ExprCompiled::And(box (ref x, ref y)) => {
-                let x = Compiler::is_safe_to_inline_expr_spanned(x)?;
-                let y = Compiler::is_safe_to_inline_expr_spanned(y)?;
-                ExprCompiled::And(box (x, y))
-            }
-            ExprCompiled::Or(box (ref x, ref y)) => {
-                let x = Compiler::is_safe_to_inline_expr_spanned(x)?;
-                let y = Compiler::is_safe_to_inline_expr_spanned(y)?;
-                ExprCompiled::Or(box (x, y))
+            ExprCompiled::And(box (ref x, ref y)) | ExprCompiled::Or(box (ref x, ref y)) => {
+                Compiler::is_safe_to_inline_expr(x) && Compiler::is_safe_to_inline_expr(y)
             }
             ExprCompiled::Seq(box (ref x, ref y)) => {
-                let x = Compiler::is_safe_to_inline_expr_spanned(x)?;
-                let y = Compiler::is_safe_to_inline_expr_spanned(y)?;
-                ExprCompiled::Seq(box (x, y))
+                Compiler::is_safe_to_inline_expr(x) && Compiler::is_safe_to_inline_expr(y)
             }
-            ExprCompiled::PercentSOne(..) => return None,
+            ExprCompiled::PercentSOne(..) => false,
             ExprCompiled::FormatOne(box (before, ref v, after)) => {
+                let _: (FrozenStringValue, FrozenStringValue) = (*before, *after);
                 // `FormatOne` is infallible, unlike `PercentSOne`.
-                let v = Compiler::is_safe_to_inline_expr_spanned(v)?;
-                ExprCompiled::FormatOne(box (*before, v, *after))
+                Compiler::is_safe_to_inline_expr(v)
             }
-        })
-    }
-
-    fn is_safe_to_inline_expr_spanned(
-        expr: &IrSpanned<ExprCompiled>,
-    ) -> Option<IrSpanned<ExprCompiled>> {
-        Some(IrSpanned {
-            node: Compiler::is_safe_to_inline_expr(&expr.node)?,
-            // Note we are losing the stack trace here.
-            // This is file because inlined expressions are infallible.
-            span: expr.span,
-        })
+        }
     }
 
     /// Function body is a `return` safe to inline expression (as defined above).
@@ -394,9 +366,10 @@ impl Compiler<'_, '_, '_> {
                 })
             }
             Some(stmt) => match &stmt.node {
-                StmtCompiled::Return(expr) => {
-                    let expr = Compiler::is_safe_to_inline_expr_spanned(expr)?;
-                    Some(expr)
+                StmtCompiled::Return(expr) if Compiler::is_safe_to_inline_expr(expr) => {
+                    // Note we are losing the stack trace here.
+                    // This is fine because inlined expressions are infallible.
+                    Some(expr.clone())
                 }
                 _ => None,
             },
