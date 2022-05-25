@@ -238,7 +238,7 @@ fn register_context(builder: &mut MethodsBuilder) {
         let providers = ProvidersExpr::unpack(labels, global_target_platform, this, eval)?;
 
         let res: anyhow::Result<_> = this.async_ctx.via_dice(|ctx| async {
-            analyze::analyze(ctx, providers.labels(), skip_incompatible).await
+            analyze::analysis(ctx, providers.labels(), skip_incompatible).await
         });
 
         res

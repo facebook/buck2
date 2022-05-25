@@ -6,7 +6,7 @@ use crate::{
     bxl::starlark_defs::analysis_result::StarlarkAnalysisResult,
 };
 
-pub(crate) async fn analyze(
+pub(crate) async fn analysis(
     ctx: &DiceComputations,
     labels: impl Iterator<Item = &ConfiguredProvidersLabel>,
     skip_incompatible: bool,
