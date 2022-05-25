@@ -340,6 +340,7 @@ impl EdenBuckOut {
                             digest: file.digest.to_re(),
                             ..Default::default()
                         }],
+                        Default::default(),
                     )
                     .await?;
                 Ok(())

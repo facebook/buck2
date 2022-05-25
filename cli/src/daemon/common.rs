@@ -289,6 +289,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 options
                     .re_max_input_files_bytes
                     .unwrap_or(DEFAULT_RE_MAX_INPUT_FILE_BYTES),
+                options.re_use_case.clone(),
                 self.re_global_knobs.dupe(),
             )
         };
@@ -345,6 +346,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
             inner_executor,
             self.materializer.dupe(),
             self.re_connection.get_client(),
+            Default::default(), // TODO: This should probably use the RemoteExecutor's use case.
         )))
     }
 }

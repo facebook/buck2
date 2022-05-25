@@ -33,7 +33,7 @@ use crate::{
             CommandExecutionOutputRef, CommandExecutionResult,
         },
         materializer::{CasDownloadInfo, Materializer},
-        CommandExecutionRequest,
+        CommandExecutionRequest, RemoteExecutorUseCase,
     },
 };
 
@@ -41,6 +41,7 @@ pub async fn download_action_results<'a>(
     request: &CommandExecutionRequest,
     materializer: &dyn Materializer,
     re_client: &ManagedRemoteExecutionClient,
+    re_use_case: &RemoteExecutorUseCase,
     mut manager: CommandExecutionManager,
     stage: buck2_data::executor_stage_start::Stage,
     action_paths: &ActionPaths,
@@ -57,6 +58,7 @@ pub async fn download_action_results<'a>(
     let downloader = CasDownloader {
         materializer,
         re_client,
+        re_use_case,
     };
 
     let download = downloader.download(
@@ -93,6 +95,7 @@ pub async fn download_action_results<'a>(
 pub struct CasDownloader<'a> {
     pub materializer: &'a dyn Materializer,
     pub re_client: &'a ManagedRemoteExecutionClient,
+    pub re_use_case: &'a RemoteExecutorUseCase,
 }
 
 impl CasDownloader<'_> {
@@ -174,6 +177,7 @@ impl CasDownloader<'_> {
                 output_spec
                     .output_directories()
                     .map(|x| x.tree_digest.clone()),
+                self.re_use_case.clone(),
             )
             .await
             .context(DownloadError::DownloadTrees)?;

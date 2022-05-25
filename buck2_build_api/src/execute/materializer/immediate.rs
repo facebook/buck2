@@ -131,7 +131,9 @@ impl Materializer for ImmediateMaterializer {
         }
         let re_conn = self.re_client_manager.get_re_connection();
         let re_client = re_conn.get_client();
-        re_client.materialize_files(files).await?;
+        re_client
+            .materialize_files(files, Default::default())
+            .await?;
         Ok(())
     }
 

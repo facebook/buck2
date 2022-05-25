@@ -41,10 +41,10 @@ use crate::{
             CommandExecutionManager,
         },
         materializer::Materializer,
+        RemoteExecutorUseCase,
     },
 };
 
-static BUCK2_USE_CASE_ID: &str = "buck2-default";
 static BUCK2_RE_CLIENT_CFG_SECTION: &str = "buck2_re_client";
 
 /// Metadata that doesn't change between executions
@@ -168,8 +168,12 @@ impl RemoteExecutionClient {
         ))
     }
 
-    pub async fn action_cache(&self, action_digest: ActionDigest) -> Option<ActionResultResponse> {
-        self.delegate.action_cache(action_digest).await
+    pub async fn action_cache(
+        &self,
+        action_digest: ActionDigest,
+        use_case: RemoteExecutorUseCase,
+    ) -> Option<ActionResultResponse> {
+        self.delegate.action_cache(action_digest, use_case).await
     }
 
     pub async fn upload(
@@ -177,10 +181,11 @@ impl RemoteExecutionClient {
         materializer: Arc<dyn Materializer>,
         blobs: &ActionBlobs,
         input_dir: &ActionImmutableDirectory,
+        use_case: RemoteExecutorUseCase,
         knobs: &ReExecutorGlobalKnobs,
     ) -> anyhow::Result<()> {
         self.delegate
-            .upload(materializer, blobs, input_dir, knobs)
+            .upload(materializer, blobs, input_dir, use_case, knobs)
             .await
             .map_err(|e| self.decorate_error(e))
     }
@@ -190,9 +195,15 @@ impl RemoteExecutionClient {
         files_with_digest: Vec<NamedDigest>,
         directories: Vec<remote_execution::Path>,
         inlined_blobs_with_digest: Vec<InlinedBlobWithDigest>,
+        use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<()> {
         self.delegate
-            .upload_files_and_directories(files_with_digest, directories, inlined_blobs_with_digest)
+            .upload_files_and_directories(
+                files_with_digest,
+                directories,
+                inlined_blobs_with_digest,
+                use_case,
+            )
             .await
             .map_err(|e| self.decorate_error(e))
     }
@@ -201,11 +212,12 @@ impl RemoteExecutionClient {
         &self,
         action_digest: ActionDigest,
         platform: &RE::Platform,
+        use_case: RemoteExecutorUseCase,
         identity: &ReActionIdentity<'_, '_>,
         manager: &mut CommandExecutionManager,
     ) -> anyhow::Result<ExecuteResponse> {
         self.delegate
-            .execute(action_digest, platform, identity, manager)
+            .execute(action_digest, platform, use_case, identity, manager)
             .await
             .map_err(|e| self.decorate_error(e))
     }
@@ -213,20 +225,29 @@ impl RemoteExecutionClient {
     pub async fn materialize_files(
         &self,
         files: Vec<NamedDigestWithPermissions>,
+        use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<()> {
-        self.delegate.materialize_files(files).await
+        self.delegate.materialize_files(files, use_case).await
     }
 
-    pub async fn download_trees(&self, digests: Vec<TDigest>) -> anyhow::Result<Vec<RE::Tree>> {
+    pub async fn download_trees(
+        &self,
+        digests: Vec<TDigest>,
+        use_case: RemoteExecutorUseCase,
+    ) -> anyhow::Result<Vec<RE::Tree>> {
         self.delegate
-            .download_trees(digests)
+            .download_trees(digests, use_case)
             .await
             .map_err(|e| self.decorate_error(e))
     }
 
-    pub async fn download_blob(&self, digest: &TDigest) -> anyhow::Result<Vec<u8>> {
+    pub async fn download_blob(
+        &self,
+        digest: &TDigest,
+        use_case: RemoteExecutorUseCase,
+    ) -> anyhow::Result<Vec<u8>> {
         self.delegate
-            .download_blob(digest)
+            .download_blob(digest, use_case)
             .await
             .map_err(|e| self.decorate_error(e))
     }
@@ -441,18 +462,18 @@ impl RemoteExecutionClientImpl {
             .expect("REClient is always present unless dropped")
     }
 
-    fn get_metadata(&self) -> RemoteExecutionMetadata {
-        RemoteExecutionMetadata {
-            use_case_id: BUCK2_USE_CASE_ID.to_owned(),
-            ..Default::default()
-        }
-    }
-
-    async fn action_cache(&self, action_digest: ActionDigest) -> Option<ActionResultResponse> {
+    async fn action_cache(
+        &self,
+        action_digest: ActionDigest,
+        use_case: RemoteExecutorUseCase,
+    ) -> Option<ActionResultResponse> {
         self.client()
             .get_action_cache_client()
             .get_action_result(
-                self.get_metadata(),
+                RemoteExecutionMetadata {
+                    use_case_id: use_case.into(),
+                    ..Default::default()
+                },
                 ActionResultRequest {
                     digest: action_digest.0.to_re(),
                     ..Default::default()
@@ -467,6 +488,7 @@ impl RemoteExecutionClientImpl {
         materializer: Arc<dyn Materializer>,
         blobs: &ActionBlobs,
         input_dir: &ActionImmutableDirectory,
+        use_case: RemoteExecutorUseCase,
         knobs: &ReExecutorGlobalKnobs,
     ) -> anyhow::Result<()> {
         // Actually upload to CAS
@@ -476,7 +498,10 @@ impl RemoteExecutionClientImpl {
             materializer,
             input_dir,
             blobs,
-            self.get_metadata(),
+            RemoteExecutionMetadata {
+                use_case_id: use_case.into(),
+                ..Default::default()
+            },
             knobs,
         )
         .await
@@ -487,11 +512,15 @@ impl RemoteExecutionClientImpl {
         files_with_digest: Vec<NamedDigest>,
         directories: Vec<remote_execution::Path>,
         inlined_blobs_with_digest: Vec<InlinedBlobWithDigest>,
+        use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<()> {
         self.client()
             .get_cas_client()
             .upload(
-                self.get_metadata(),
+                RemoteExecutionMetadata {
+                    use_case_id: use_case.into(),
+                    ..Default::default()
+                },
                 UploadRequest {
                     files_with_digest: Some(files_with_digest),
                     inlined_blobs_with_digest: Some(inlined_blobs_with_digest),
@@ -610,11 +639,12 @@ impl RemoteExecutionClientImpl {
         &self,
         action_digest: ActionDigest,
         platform: &RE::Platform,
+        use_case: RemoteExecutorUseCase,
         identity: &ReActionIdentity<'_, '_>,
         manager: &mut CommandExecutionManager,
     ) -> anyhow::Result<ExecuteResponse> {
         let metadata = RemoteExecutionMetadata {
-            use_case_id: BUCK2_USE_CASE_ID.to_owned(),
+            use_case_id: use_case.into(),
             action_history_info: Some(ActionHistoryInfo {
                 action_key: identity.action_key.clone(),
                 disable_retry_on_oom: false,
@@ -646,7 +676,11 @@ impl RemoteExecutionClientImpl {
 
     /// Fetches a list of digests from the CAS and casts them to Tree objects.
     /// If fetching or decoding fails for one or more digests, returns an Err.
-    async fn download_trees(&self, digests: Vec<TDigest>) -> anyhow::Result<Vec<RE::Tree>> {
+    async fn download_trees(
+        &self,
+        digests: Vec<TDigest>,
+        use_case: RemoteExecutorUseCase,
+    ) -> anyhow::Result<Vec<RE::Tree>> {
         if digests.is_empty() {
             return Ok(Vec::new());
         }
@@ -655,7 +689,10 @@ impl RemoteExecutionClientImpl {
             .client()
             .get_cas_client()
             .download(
-                self.get_metadata(),
+                RemoteExecutionMetadata {
+                    use_case_id: use_case.into(),
+                    ..Default::default()
+                },
                 DownloadRequest {
                     inlined_digests: Some(digests),
                     ..Default::default()
@@ -682,12 +719,19 @@ impl RemoteExecutionClientImpl {
         Ok(trees)
     }
 
-    pub async fn download_blob(&self, digest: &TDigest) -> anyhow::Result<Vec<u8>> {
+    pub async fn download_blob(
+        &self,
+        digest: &TDigest,
+        use_case: RemoteExecutorUseCase,
+    ) -> anyhow::Result<Vec<u8>> {
         let response = self
             .client()
             .get_cas_client()
             .download(
-                self.get_metadata(),
+                RemoteExecutionMetadata {
+                    use_case_id: use_case.into(),
+                    ..Default::default()
+                },
                 DownloadRequest {
                     inlined_digests: Some(vec![digest.clone()]),
                     ..Default::default()
@@ -708,7 +752,10 @@ impl RemoteExecutionClientImpl {
     async fn materialize_files(
         &self,
         files: Vec<NamedDigestWithPermissions>,
+        use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<()> {
+        let use_case = &use_case;
+
         let futs = chunks(files, self.download_chunk_size).map(|chunk| async move {
             let _permit = self
                 .download_files_semapore
@@ -719,7 +766,10 @@ impl RemoteExecutionClientImpl {
             self.client()
                 .get_cas_client()
                 .download(
-                    self.get_metadata(),
+                    RemoteExecutionMetadata {
+                        use_case_id: use_case.clone().into(),
+                        ..Default::default()
+                    },
                     DownloadRequest {
                         file_digests: Some(chunk),
                         ..Default::default()

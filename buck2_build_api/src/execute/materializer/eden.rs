@@ -84,7 +84,7 @@ impl Materializer for EdenMaterializer {
         self.re_client_manager
             .get_re_connection()
             .get_client()
-            .upload_files_and_directories(files, directories, Vec::new())
+            .upload_files_and_directories(files, directories, Vec::new(), Default::default())
             .await?;
 
         // Second upload the tree structure that contains directories/file/symlink metadata
@@ -102,6 +102,7 @@ impl Materializer for EdenMaterializer {
                 Arc::clone(&self.delegator),
                 &ActionBlobs::new(),
                 &input_dir,
+                Default::default(),
                 &ReExecutorGlobalKnobs {
                     always_check_ttls: true,
                 },

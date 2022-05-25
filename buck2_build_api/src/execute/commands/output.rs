@@ -196,7 +196,7 @@ impl ReStdStream {
         match self {
             Self::Raw(raw) => String::from_utf8_lossy(raw).into_owned(),
             Self::Digest(digest) if digest.size_in_bytes <= MAX_STREAM_DOWNLOAD_SIZE => {
-                match client.download_blob(digest).await {
+                match client.download_blob(digest, Default::default()).await {
                     Ok(bytes) => String::from_utf8_lossy(&bytes).to_string(),
                     Err(e) => {
                         tracing::warn!("Failed to download action stderr: {:#}", e);
@@ -222,9 +222,12 @@ impl ReStdStream {
         match self {
             Self::Raw(raw) => Ok(raw),
             Self::Digest(digest) | Self::PrefetchedLossy { digest, .. } => {
-                let bytes = client.download_blob(&digest).await.with_context(|| {
-                    format!("Error downloading from {}", FileDigest::from_re(&digest))
-                })?;
+                let bytes = client
+                    .download_blob(&digest, Default::default())
+                    .await
+                    .with_context(|| {
+                        format!("Error downloading from {}", FileDigest::from_re(&digest))
+                    })?;
                 Ok(bytes)
             }
             Self::None => Ok(Vec::new()),

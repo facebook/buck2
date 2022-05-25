@@ -31,6 +31,7 @@ use crate::{
             CommandExecutionManager,
         },
         materializer::Materializer,
+        RemoteExecutorUseCase,
     },
 };
 
@@ -251,8 +252,14 @@ impl ManagedRemoteExecutionClient {
     pub async fn action_cache(
         &self,
         action_digest: ActionDigest,
+        use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<Option<ActionResultResponse>> {
-        Ok(self.lock()?.get().await?.action_cache(action_digest).await)
+        Ok(self
+            .lock()?
+            .get()
+            .await?
+            .action_cache(action_digest, use_case)
+            .await)
     }
 
     pub async fn upload(
@@ -260,12 +267,13 @@ impl ManagedRemoteExecutionClient {
         materializer: Arc<dyn Materializer>,
         blobs: &ActionBlobs,
         input_dir: &ActionImmutableDirectory,
+        use_case: RemoteExecutorUseCase,
         knobs: &ReExecutorGlobalKnobs,
     ) -> anyhow::Result<()> {
         self.lock()?
             .get()
             .await?
-            .upload(materializer, blobs, input_dir, knobs)
+            .upload(materializer, blobs, input_dir, use_case, knobs)
             .await
     }
 
@@ -274,11 +282,17 @@ impl ManagedRemoteExecutionClient {
         files_with_digest: Vec<NamedDigest>,
         directories: Vec<remote_execution::Path>,
         inlined_blobs_with_digest: Vec<InlinedBlobWithDigest>,
+        use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<()> {
         self.lock()?
             .get()
             .await?
-            .upload_files_and_directories(files_with_digest, directories, inlined_blobs_with_digest)
+            .upload_files_and_directories(
+                files_with_digest,
+                directories,
+                inlined_blobs_with_digest,
+                use_case,
+            )
             .await
     }
 
@@ -286,29 +300,51 @@ impl ManagedRemoteExecutionClient {
         &self,
         action_digest: ActionDigest,
         platform: &RE::Platform,
+        use_case: RemoteExecutorUseCase,
         identity: &ReActionIdentity<'_, '_>,
         manager: &mut CommandExecutionManager,
     ) -> anyhow::Result<ExecuteResponse> {
         self.lock()?
             .get()
             .await?
-            .execute(action_digest, platform, identity, manager)
+            .execute(action_digest, platform, use_case, identity, manager)
             .await
     }
 
     pub async fn materialize_files(
         &self,
         files: Vec<NamedDigestWithPermissions>,
+        use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<()> {
-        self.lock()?.get().await?.materialize_files(files).await
+        self.lock()?
+            .get()
+            .await?
+            .materialize_files(files, use_case)
+            .await
     }
 
-    pub async fn download_trees(&self, digests: Vec<TDigest>) -> anyhow::Result<Vec<RE::Tree>> {
-        self.lock()?.get().await?.download_trees(digests).await
+    pub async fn download_trees(
+        &self,
+        digests: Vec<TDigest>,
+        use_case: RemoteExecutorUseCase,
+    ) -> anyhow::Result<Vec<RE::Tree>> {
+        self.lock()?
+            .get()
+            .await?
+            .download_trees(digests, use_case)
+            .await
     }
 
-    pub async fn download_blob(&self, digest: &TDigest) -> anyhow::Result<Vec<u8>> {
-        self.lock()?.get().await?.download_blob(digest).await
+    pub async fn download_blob(
+        &self,
+        digest: &TDigest,
+        use_case: RemoteExecutorUseCase,
+    ) -> anyhow::Result<Vec<u8>> {
+        self.lock()?
+            .get()
+            .await?
+            .download_blob(digest, use_case)
+            .await
     }
 
     pub async fn get_session_id(&self) -> anyhow::Result<String> {

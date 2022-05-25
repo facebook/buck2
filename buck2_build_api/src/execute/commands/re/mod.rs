@@ -41,7 +41,7 @@ use crate::{
             PreparedCommandExecutor,
         },
         materializer::Materializer,
-        ActionExecutionKind,
+        ActionExecutionKind, RemoteExecutorUseCase,
     },
 };
 
@@ -99,6 +99,7 @@ pub struct ReExecutor {
     pub re_platform: RE::Platform,
     pub re_action_key: Option<String>,
     pub re_max_input_files_bytes: u64,
+    pub re_use_case: RemoteExecutorUseCase,
     pub knobs: ReExecutorGlobalKnobs,
 }
 
@@ -111,6 +112,7 @@ impl ReExecutor {
         re_properties: Vec<(String, String)>,
         re_action_key: Option<String>,
         re_max_input_files_bytes: u64,
+        re_use_case: RemoteExecutorUseCase,
         knobs: ReExecutorGlobalKnobs,
     ) -> Self {
         Self {
@@ -123,6 +125,7 @@ impl ReExecutor {
             },
             re_action_key,
             re_max_input_files_bytes,
+            re_use_case,
             knobs,
         }
     }
@@ -149,6 +152,7 @@ impl ReExecutor {
                     self.materializer.dupe(),
                     blobs,
                     &action_paths.inputs,
+                    self.re_use_case.clone(),
                     &self.knobs,
                 ),
             )
@@ -183,6 +187,7 @@ impl ReExecutor {
             .execute(
                 action_digest.dupe(),
                 &self.re_platform,
+                self.re_use_case.clone(),
                 &identity,
                 &mut manager,
             )
@@ -253,6 +258,7 @@ impl PreparedCommandExecutor for ReExecutor {
             request,
             &*self.materializer,
             &self.re_client,
+            &self.re_use_case,
             manager,
             buck2_data::ReStage {
                 stage: Some(buck2_data::ReDownload {}.into()),
