@@ -10,10 +10,19 @@ def _build_dependencies_file(
         transform_profile: str.type,
         transitive_js_library_outputs: ["artifact"]) -> "artifact":
     dependencies_file = ctx.actions.declare_output("{}/dependencies_file", transform_profile)
+
+    # ctx.attr.extra_json can contain attr.arg().
+    #
+    # As a result, we need to pass extra_data_args as hidden arguments so that the rule
+    # it is referencing exists as an input.
+    extra_data_args = cmd_args(
+        ctx.attr.extra_json if ctx.attr.extra_json else "{}",
+        delimiter = "",
+    )
     job_args = {
         "command": "dependencies",
         "entryPoints": [ctx.attr.entry] if type(ctx.attr.entry) == "string" else list(ctx.attr.entry),
-        "extraData": cmd_args(ctx.attr.extra_json if ctx.attr.extra_json else "{}", delimiter = ""),
+        "extraData": extra_data_args,
         "flavors": get_flavors(ctx),
         "libraries": transitive_js_library_outputs,
         "outputFilePath": dependencies_file,
@@ -31,7 +40,10 @@ def _build_dependencies_file(
         command_args_file = fixup_command_args(ctx, command_args_file) if ctx.attr.extra_json else command_args_file,
         identifier = transform_profile,
         category = "dependencies",
-        hidden_artifacts = [dependencies_file.as_output()],
+        hidden_artifacts = [
+            dependencies_file.as_output(),
+            extra_data_args,
+        ] + transitive_js_library_outputs,
     )
     return dependencies_file
 
