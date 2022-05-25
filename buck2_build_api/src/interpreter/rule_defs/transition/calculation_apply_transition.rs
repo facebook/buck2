@@ -24,7 +24,7 @@ use starlark::{
     collections::SmallMap,
     environment::Module,
     eval::Evaluator,
-    values::{dict::DictOf, structs::Struct, UnpackValue, Value},
+    values::{dict::DictOf, structs::Struct, StringValueLike, UnpackValue, Value},
 };
 use thiserror::Error;
 
@@ -52,26 +52,33 @@ enum ApplyTransitionError {
         did not produce identical `PlatformInfo`, the diff:\n{0}"
     )]
     SplitTransitionAgainDifferentPlatformInfo(String),
+    #[error(
+        "Transition object is not consistent with transition computation params, \
+        this may happen because of how DICE recomputation works, \
+        a user should never see this message"
+    )]
+    InconsistentTransitionAndComputation,
 }
 
 fn call_transition_function<'v>(
     transition: &FrozenTransition,
     conf: &Configuration,
     refs: Value<'v>,
+    attrs: Option<Value<'v>>,
     eval: &mut Evaluator<'v, '_>,
 ) -> anyhow::Result<TransitionApplied> {
-    let new_platforms = eval.eval_function(
-        transition.implementation.to_value(),
-        &[],
-        &[
-            (
-                "platform",
-                eval.heap()
-                    .alloc_complex(PlatformInfo::from_configuration(conf, eval.heap())?),
-            ),
-            ("refs", refs),
-        ],
-    )?;
+    let mut args = vec![
+        (
+            "platform",
+            eval.heap()
+                .alloc_complex(PlatformInfo::from_configuration(conf, eval.heap())?),
+        ),
+        ("refs", refs),
+    ];
+    if let Some(attrs) = attrs {
+        args.push(("attrs", attrs));
+    }
+    let new_platforms = eval.eval_function(transition.implementation.to_value(), &[], &args)?;
     if transition.split {
         match DictOf::<&str, &PlatformInfo>::unpack_value(new_platforms) {
             Some(dict) => {
@@ -113,10 +120,44 @@ async fn do_apply_transition(
     }
     let mut eval = Evaluator::new(&module);
     let refs = module.heap().alloc_complex(Struct::new(refs));
-    let _ = attrs; // TODO(nga): used in the following diffs.
-    match call_transition_function(&transition, conf, refs, &mut eval).shared_error()? {
+    let attrs = match (&transition.attrs, attrs) {
+        (Some(names), Some(values)) => {
+            if names.len() != values.len() {
+                return Err(SharedError::new(
+                    ApplyTransitionError::InconsistentTransitionAndComputation,
+                ));
+            }
+            let mut attrs = SmallMap::new();
+            for (name, value) in names.iter().zip(values.iter()) {
+                let value = match value {
+                    Some(value) => value.to_value(module.heap()).with_context(|| {
+                        format!(
+                            "when converting attribute `{}={}` to Starlark value",
+                            name.as_str(),
+                            value
+                        )
+                    })?,
+                    None => Value::new_none(),
+                };
+                let prev = attrs.insert(name.to_string_value(), value);
+                assert!(
+                    prev.is_none(),
+                    "Non-unique attribute name, should not happen, \
+                    attributes are verified to be unique during transition object construction"
+                );
+            }
+            Some(module.heap().alloc_complex(Struct::new(attrs)))
+        }
+        (None, None) => None,
+        (Some(_), None) | (None, Some(_)) => {
+            return Err(SharedError::new(
+                ApplyTransitionError::InconsistentTransitionAndComputation,
+            ));
+        }
+    };
+    match call_transition_function(&transition, conf, refs, attrs, &mut eval).shared_error()? {
         TransitionApplied::Single(new) => {
-            let new_2 = match call_transition_function(&transition, &new, refs, &mut eval)
+            let new_2 = match call_transition_function(&transition, &new, refs, attrs, &mut eval)
                 .context("applying transition again on transition output")
                 .shared_error()?
             {
