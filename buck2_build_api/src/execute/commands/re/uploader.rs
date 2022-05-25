@@ -23,7 +23,7 @@ use buck2_core::{
 use gazebo::prelude::*;
 use prost::Message;
 use remote_execution::{
-    FindMissingBlobsRequest, InlinedBlobWithDigest, NamedDigest, REClient, REClientError,
+    GetDigestsTtlRequest, InlinedBlobWithDigest, NamedDigest, REClient, REClientError,
     RemoteExecutionMetadata, TCode, TDigest, UploadRequest,
 };
 
@@ -84,7 +84,7 @@ impl Uploader {
     ) -> anyhow::Result<()> {
         // See if anything needs uploading
         let mut input_digests = blobs.keys().collect::<HashSet<_>>();
-        let missing_digests = {
+        let digest_ttls = {
             // Collect the digests we need to upload
             for entry in input_dir.fingerprinted_unordered_walk().without_paths() {
                 let digest = match entry {
@@ -99,41 +99,58 @@ impl Uploader {
             input_digests.insert(input_dir.fingerprint());
 
             // Find out which ones are missing
-            let request = FindMissingBlobsRequest {
+            let request = GetDigestsTtlRequest {
                 digests: input_digests.iter().map(|d| d.to_re()).collect(),
                 ..Default::default()
             };
             client
-                .find_missing_blobs(metadata.clone(), request)
+                .get_digests_ttl(metadata.clone(), request)
                 .await?
-                .missing_digests
+                .digests_with_ttl
         };
 
+        let mut upload_blobs = Vec::new();
+        let mut missing_digests = HashSet::new();
+        add_injected_missing_digests(&input_digests, &mut missing_digests)?;
+
+        let mut input_digests = input_digests.into_iter().collect::<Vec<_>>();
+        input_digests.sort();
+
+        let mut digest_ttls = digest_ttls.into_map(|d| (FileDigest::from_re(&d.digest), d.ttl));
+        digest_ttls.sort();
+
+        if input_digests.len() != digest_ttls.len() {
+            return Err(anyhow::anyhow!(
+                "Invalid response from get_digests_ttl: expected {}, got {} digests",
+                input_digests.len(),
+                digest_ttls.len()
+            ));
+        }
+
         // Find the blobs that need to be uploaded
-        let (mut upload_blobs, mut missing_digests) = {
-            let mut upload_blobs = Vec::new();
-            let mut upload_digests = HashSet::new();
-            for digest in missing_digests {
-                let d = FileDigest::from_re(&digest);
-                match blobs.get(&d) {
+
+        for (digest, (matching_digest, digest_ttl)) in
+            input_digests.into_iter().zip(digest_ttls.into_iter())
+        {
+            if *digest != matching_digest {
+                return Err(anyhow::anyhow!("Invalid response from get_digests_ttl"));
+            }
+
+            if digest_ttl <= 0 {
+                match blobs.get(digest) {
                     Some(blob) => {
                         upload_blobs.push(InlinedBlobWithDigest {
                             blob: blob.clone(),
-                            digest,
+                            digest: digest.to_re(),
                             ..Default::default()
                         });
                     }
                     None => {
-                        upload_digests.insert(d);
+                        missing_digests.insert(digest.dupe());
                     }
                 }
             }
-            (upload_blobs, upload_digests)
-        };
-
-        // Support tests
-        add_injected_missing_digests(&input_digests, &mut missing_digests)?;
-        drop(input_digests); // we no longer need this.
+        }
 
         if upload_blobs.is_empty() && missing_digests.is_empty() {
             return Ok(());

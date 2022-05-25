@@ -94,7 +94,7 @@ pub struct SimpleDirEntry {
 const SHA1_SIZE: usize = 20;
 
 /// A digest of a file, which is it's size and sha1 hash
-#[derive(Display, Hash, PartialEq, Eq, Clone)]
+#[derive(Display, Hash, PartialEq, Eq, Clone, Ord, PartialOrd)]
 #[display(fmt = "{}:{}", "hex::encode(sha1)", size)]
 pub struct FileDigest {
     pub size: u64,
