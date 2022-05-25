@@ -270,6 +270,9 @@ pub trait RemoteActionResult: Send + Sync {
     fn timing(&self) -> CommandExecutionTimingData;
 
     fn std_streams(&self, client: &ManagedRemoteExecutionClient) -> RemoteCommandStdStreams;
+
+    /// The TTL given by RE for the outputs for this action.
+    fn ttl(&self) -> i64;
 }
 
 impl RemoteActionResult for ExecuteResponse {
@@ -291,6 +294,10 @@ impl RemoteActionResult for ExecuteResponse {
 
     fn std_streams(&self, client: &ManagedRemoteExecutionClient) -> RemoteCommandStdStreams {
         RemoteCommandStdStreams::new(&self.action_result, client)
+    }
+
+    fn ttl(&self) -> i64 {
+        self.action_result_ttl
     }
 }
 
@@ -315,6 +322,10 @@ impl RemoteActionResult for ActionResultResponse {
 
     fn std_streams(&self, client: &ManagedRemoteExecutionClient) -> RemoteCommandStdStreams {
         RemoteCommandStdStreams::new(&self.action_result, client)
+    }
+
+    fn ttl(&self) -> i64 {
+        self.ttl
     }
 }
 

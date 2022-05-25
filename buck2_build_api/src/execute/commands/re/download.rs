@@ -140,6 +140,9 @@ impl CasDownloader<'_> {
         action_digest: &ActionDigest,
         output_spec: &dyn RemoteActionResult,
     ) -> anyhow::Result<IndexMap<CommandExecutionOutput, ArtifactValue>> {
+        let ttl: u64 = output_spec.ttl().try_into().unwrap_or(0);
+        let expires = SystemTime::now() + std::time::Duration::from_secs(ttl);
+
         // Download process:
         // 1. merges all the outputs (files and trees) into the inputs structure
         // 2. computes the ArtifactValue for all outputs from that merged structure
@@ -152,8 +155,11 @@ impl CasDownloader<'_> {
         let mut input_dir = input_dir.clone().into_builder();
 
         for x in output_spec.output_files() {
+            let digest = FileDigest::from_re(&x.digest.digest);
+            digest.update_expires(expires);
+
             let entry = DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
-                digest: FileDigest::from_re(&x.digest.digest),
+                digest,
                 is_executable: x.executable,
             }));
 
@@ -173,10 +179,7 @@ impl CasDownloader<'_> {
             .context(DownloadError::DownloadTrees)?;
 
         for (dir, tree) in output_spec.output_directories().iter().zip(trees) {
-            let entry = convert_re_tree(
-                &tree,
-                &(SystemTime::now() + std::time::Duration::from_secs(3600 * 5)),
-            )?;
+            let entry = convert_re_tree(&tree, &expires)?;
             input_dir.insert(
                 re_forward_path(dir.path.as_str())?,
                 DirectoryEntry::Dir(entry),
