@@ -50,7 +50,7 @@ The `cmd_args` type is created by `cmd_args` and is consumed by `ctx.actions.run
   * The optional `prepend` parameter is added as a separate argument before each argument.
   * The optional `quote` parameter says whether quoting is to be applied to each argument - the only current valid value is `"shell"`.
 
-* `cmd.add(*args, format : str.type = None)` a list of arguments to be added to the command line, as per `cmd_args`.
+* `cmd.add(*args)` a list of arguments to be added to the command line, as per `cmd_args`.
 
 * `cmd.hidden(*args)` things to add to the command line which do not show up, but are added as dependencies.
 
