@@ -9,6 +9,7 @@
 
 use std::fmt::Debug;
 
+use anyhow::Context;
 use buck2_build_api_derive::internal_provider;
 use buck2_core::{configuration::Configuration, target::TargetLabel};
 use gazebo::{any::AnyLifetime, coerce::Coerce, prelude::*};
@@ -34,6 +35,10 @@ enum ExecutionPlatformProviderErrors {
     ExpectedConfigurationInfo(String, String),
     #[error("expected a CommandExecutorConfig, got `{0}` (type `{1}`)")]
     ExpectedCommandExecutorConfig(String, String),
+    #[error("cannot supply both executor and inline configuration")]
+    DuplicateExecutorConfig,
+    #[error("must supply either executor or inline configuration")]
+    NoExecutorConfig,
 }
 
 /// Provider that signals that a target represents an execution platform.
@@ -91,29 +96,49 @@ fn info_creator(globals: &mut GlobalsBuilder) {
     fn ExecutionPlatformInfo<'v>(
         label: Value,
         configuration: Value,
-        remote_enabled: Value,
-        local_enabled: Value,
-        remote_execution_properties: Value,
+        remote_enabled: Option<Value>,
+        local_enabled: Option<Value>,
+        remote_execution_properties: Option<Value>,
         remote_execution_action_key: Option<Value>,
         remote_execution_max_input_files_mebibytes: Option<Value>,
         use_limited_hybrid: Option<Value>,
+        executor_config: Option<Value>,
     ) -> anyhow::Result<ExecutionPlatformInfo<'v>> {
-        let use_limited_hybrid = use_limited_hybrid.unwrap_or_else(Value::new_none);
-        let remote_execution_action_key =
-            remote_execution_action_key.unwrap_or_else(Value::new_none);
-        let remote_execution_max_input_files_mebibytes =
-            remote_execution_max_input_files_mebibytes.unwrap_or_else(Value::new_none);
+        let has_inline_config = remote_enabled.is_some()
+            || local_enabled.is_some()
+            || remote_execution_properties.is_some()
+            || remote_execution_action_key.is_some()
+            || use_limited_hybrid.is_some();
+
+        let executor_config = match (has_inline_config, executor_config) {
+            (true, Some(..)) => {
+                return Err(ExecutionPlatformProviderErrors::DuplicateExecutorConfig.into());
+            }
+            (false, None) => return Err(ExecutionPlatformProviderErrors::NoExecutorConfig.into()),
+            (false, Some(c)) => c,
+            (true, None) => {
+                let use_limited_hybrid = use_limited_hybrid.unwrap_or_else(Value::new_none);
+                let remote_execution_action_key =
+                    remote_execution_action_key.unwrap_or_else(Value::new_none);
+                let remote_execution_max_input_files_mebibytes =
+                    remote_execution_max_input_files_mebibytes.unwrap_or_else(Value::new_none);
+
+                heap.alloc(StarlarkCommandExecutorConfig {
+                    remote_enabled: remote_enabled.context("`remote_enabled` is missing")?,
+                    local_enabled: local_enabled.context("`local_enabled` is missing")?,
+                    remote_execution_properties: remote_execution_properties
+                        .context("`remote_execution_properties` is missing")?,
+                    remote_execution_action_key,
+                    remote_execution_max_input_files_mebibytes,
+                    use_limited_hybrid,
+                })
+            }
+        };
+
         let info = ExecutionPlatformInfo {
             label,
             configuration,
-            executor_config: heap.alloc(StarlarkCommandExecutorConfig {
-                remote_enabled,
-                local_enabled,
-                remote_execution_properties,
-                remote_execution_action_key,
-                remote_execution_max_input_files_mebibytes,
-                use_limited_hybrid,
-            }),
+            executor_config,
         };
         // This checks that the values are valid.
         info.to_execution_platform()?;
