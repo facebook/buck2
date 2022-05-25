@@ -363,8 +363,8 @@ fn test_format() -> anyhow::Result<()> {
             args2.add("bar")
             args3.add(cmd_args(["foo", "bar"], format="format-{}-{}-string", delimiter = ""))
             args3.add(cmd_args(["foo", "bar"], delimiter=",", format="format-{}-{}-string"))
-            args3.add("foo", format="format-{}-{}-string1")
-            args3.add("bar", format="format-{}-{}-string2")
+            args3.add(cmd_args("foo", format="format-{}-{}-string1"))
+            args3.add(cmd_args("bar", format="format-{}-{}-string2"))
 
             assert_eq(["format-foo,bar-foo,bar-string"], get_args(args1))
             assert_eq(
@@ -513,11 +513,11 @@ fn test_quote_style_shell() -> anyhow::Result<()> {
         r#"
         def test():
             args = cmd_args()
-            args.add("$HELLO", quote = "shell")
+            args.add(cmd_args("$HELLO", quote = "shell"))
             assert_eq(get_args(args), ["\"\\$HELLO\""])
 
             args = cmd_args()
-            args.add(source_artifact("foo", "bar$qux.h"), quote = "shell")
+            args.add(cmd_args(source_artifact("foo", "bar$qux.h"), quote = "shell"))
             assert_eq(get_args(args), ["\"foo/bar\\$qux.h\""])
             "#
     );
@@ -547,7 +547,7 @@ fn test_list_list() -> anyhow::Result<()> {
         r#"
         def test():
             args = cmd_args()
-            args.add(["foo", "bar"], prepend = "-X")
+            args.add(cmd_args(["foo", "bar"], prepend = "-X"))
             assert_eq(["-X", "foo", "-X", "bar"], get_args(args))
             "#
     );
