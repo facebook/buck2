@@ -25,6 +25,7 @@ use buck2_core::{
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
+use either::Either;
 use gazebo::any::AnyLifetime;
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
@@ -38,7 +39,6 @@ use crate::{
     analysis::registry::AnalysisRegistry,
     bxl::{
         starlark_defs::{
-            analysis_result::StarlarkAnalysisResult,
             context::{
                 actions::BxlActionsCtx, fs::BxlFilesystem, output::OutputStream,
                 starlark_async::BxlSafeDiceComputations,
@@ -234,14 +234,17 @@ fn register_context(builder: &mut MethodsBuilder) {
         labels: Value<'v>,
         #[starlark(default = NoneType)] global_target_platform: Value<'v>,
         #[starlark(default = true)] skip_incompatible: bool,
-    ) -> anyhow::Result<Vec<StarlarkAnalysisResult>> {
+    ) -> anyhow::Result<Value<'v>> {
         let providers = ProvidersExpr::unpack(labels, global_target_platform, this, eval)?;
 
         let res: anyhow::Result<_> = this
             .async_ctx
             .via_dice(|ctx| async { analysis::analysis(ctx, providers, skip_incompatible).await });
 
-        res
+        Ok(match res? {
+            Either::Left(single) => eval.heap().alloc(single),
+            Either::Right(list) => eval.heap().alloc(list),
+        })
     }
 
     fn build<'v>(

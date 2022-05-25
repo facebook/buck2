@@ -1,4 +1,6 @@
 use dice::DiceComputations;
+use either::Either;
+use gazebo::prelude::*;
 
 use crate::{
     analysis::calculation::RuleAnalysisCalculation,
@@ -9,8 +11,8 @@ pub(crate) async fn analysis(
     ctx: &DiceComputations,
     expr: ProvidersExpr,
     skip_incompatible: bool,
-) -> anyhow::Result<Vec<StarlarkAnalysisResult>> {
-    futures::future::join_all(expr.labels().map(async move |label| {
+) -> anyhow::Result<Either<StarlarkAnalysisResult, Vec<StarlarkAnalysisResult>>> {
+    let analysis = futures::future::join_all(expr.labels().map(async move |label| {
         let maybe_result = ctx
             .get_analysis_result(label.target())
             .await?
@@ -31,5 +33,18 @@ pub(crate) async fn analysis(
         Ok(r) => r.map(Ok),
         Err(e) => Some(Err(e)),
     })
-    .collect::<anyhow::Result<_>>()
+    .collect::<anyhow::Result<Vec<_>>>()?;
+
+    match expr {
+        ProvidersExpr::Literal(_) => {
+            if analysis.len() != 1 {
+                Err(anyhow::anyhow!(
+                    "Expected exactly 1 analysis result when requesting a single target"
+                ))
+            } else {
+                Ok(Either::Left(analysis.into_iter().into_singleton().unwrap()))
+            }
+        }
+        ProvidersExpr::Iterable(_) => Ok(Either::Right(analysis)),
+    }
 }
