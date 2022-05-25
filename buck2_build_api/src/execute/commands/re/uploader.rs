@@ -154,7 +154,7 @@ impl Uploader {
                         });
                     }
                     None => {
-                        missing_digests.insert(digest.dupe());
+                        missing_digests.insert(digest);
                     }
                 }
             } else {
@@ -376,7 +376,7 @@ fn error_for_missing_file(
 /// are _always_ missing if they are required. This lets us test our upload paths more easily.
 fn add_injected_missing_digests(
     input_digests: &HashSet<&FileDigest>,
-    missing_digests: &mut HashSet<FileDigest>,
+    missing_digests: &mut HashSet<&FileDigest>,
 ) -> anyhow::Result<()> {
     fn convert_digests(val: &str) -> anyhow::Result<Vec<FileDigest>> {
         val.split(' ')
@@ -395,7 +395,7 @@ fn add_injected_missing_digests(
     if let Some(digests) = INJECTED_DIGESTS.get()?.as_ref() {
         for d in digests {
             if input_digests.contains(&d) {
-                missing_digests.insert(d.dupe());
+                missing_digests.insert(d);
             }
         }
     }
