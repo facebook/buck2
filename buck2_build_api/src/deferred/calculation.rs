@@ -321,7 +321,7 @@ mod tests {
             calculation::DeferredCalculation, BaseDeferredKey, BaseKey, Deferred, DeferredCtx,
             DeferredInput, DeferredRegistry, DeferredTable, DeferredValue,
         },
-        execute::{commands::dice_data::set_fallback_executor_config, ActionExecutorConfig},
+        execute::{commands::dice_data::set_fallback_executor_config, CommandExecutorConfig},
         interpreter::rule_defs::provider::testing::FrozenProviderCollectionValueExt,
         nodes::{
             calculation::ConfiguredNodeKey, compatibility::MaybeCompatible,
@@ -397,7 +397,7 @@ mod tests {
             );
 
         let mut dice_data = UserComputationData::new();
-        set_fallback_executor_config(&mut dice_data.data, ActionExecutorConfig::testing_local());
+        set_fallback_executor_config(&mut dice_data.data, CommandExecutorConfig::testing_local());
 
         let dice = dice.build(dice_data);
         let deferred_result = dice.compute_deferred_data(&data0).await?;
@@ -454,7 +454,7 @@ mod tests {
             );
 
         let mut dice_data = UserComputationData::new();
-        set_fallback_executor_config(&mut dice_data.data, ActionExecutorConfig::testing_local());
+        set_fallback_executor_config(&mut dice_data.data, CommandExecutorConfig::testing_local());
 
         let dice = dice.build(dice_data);
         let deferred_result = dice.compute_deferred_data(&data0).await?;
@@ -545,7 +545,7 @@ mod tests {
             );
 
         let mut dice_data = UserComputationData::new();
-        set_fallback_executor_config(&mut dice_data.data, ActionExecutorConfig::testing_local());
+        set_fallback_executor_config(&mut dice_data.data, CommandExecutorConfig::testing_local());
 
         let dice = dice.build(dice_data);
         let deferred_result = dice.compute_deferred_data(&data).await?;

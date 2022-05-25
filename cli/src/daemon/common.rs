@@ -29,7 +29,7 @@ use buck2_build_api::{
             PreparedCommandExecutor,
         },
         materializer::Materializer,
-        ActionExecutorConfig, LocalExecutorOptions, RemoteExecutorOptions,
+        CommandExecutorConfig, LocalExecutorOptions, RemoteExecutorOptions,
     },
 };
 use buck2_common::{
@@ -298,19 +298,19 @@ impl HasCommandExecutor for CommandExecutorFactory {
             &self.filter,
         ) {
             (
-                ActionExecutorConfig::Local(local),
+                CommandExecutorConfig::Local(local),
                 ExecutorFilter {
                     ban_local: false, ..
                 },
             ) => Arc::new(local_executor_new(local)),
             (
-                ActionExecutorConfig::Remote(remote),
+                CommandExecutorConfig::Remote(remote),
                 ExecutorFilter {
                     ban_remote: false, ..
                 },
             ) => Arc::new(remote_executor_new(remote)),
             (
-                ActionExecutorConfig::Hybrid {
+                CommandExecutorConfig::Hybrid {
                     local,
                     remote,
                     is_limited,
@@ -390,13 +390,13 @@ impl From<ExecutionStrategy> for ExecutorFilter {
 pub fn get_executor_config_for_strategy(
     strategy: ExecutionStrategy,
     host_platform: HostPlatformOverride,
-) -> ActionExecutorConfig {
+) -> CommandExecutorConfig {
     let execution_platform = get_execution_platform(host_platform);
     match strategy {
         // NOTE: NoExecution here retunrs a default config, which is fine because the filter will
         // kick in later.
         ExecutionStrategy::Default | ExecutionStrategy::NoExecution => {
-            ActionExecutorConfig::Hybrid {
+            CommandExecutorConfig::Hybrid {
                 local: LocalExecutorOptions {},
                 remote: RemoteExecutorOptions {
                     re_properties: execution_platform.intrinsic_properties(),
@@ -409,7 +409,7 @@ pub fn get_executor_config_for_strategy(
         // NOTE: We don't differnetiate between the preferences for Hybrid here. This gets injected
         // later when we actually instantiate the Executor.
         ExecutionStrategy::Hybrid | ExecutionStrategy::HybridPreferLocal => {
-            ActionExecutorConfig::Hybrid {
+            CommandExecutorConfig::Hybrid {
                 local: LocalExecutorOptions {},
                 remote: RemoteExecutorOptions {
                     re_properties: execution_platform.intrinsic_properties(),
@@ -419,8 +419,8 @@ pub fn get_executor_config_for_strategy(
                 is_limited: false,
             }
         }
-        ExecutionStrategy::LocalOnly => ActionExecutorConfig::Local(LocalExecutorOptions {}),
-        ExecutionStrategy::RemoteOnly => ActionExecutorConfig::Remote(RemoteExecutorOptions {
+        ExecutionStrategy::LocalOnly => CommandExecutorConfig::Local(LocalExecutorOptions {}),
+        ExecutionStrategy::RemoteOnly => CommandExecutorConfig::Remote(RemoteExecutorOptions {
             re_properties: execution_platform.intrinsic_properties(),
             re_action_key: None,
             re_max_input_files_bytes: None,

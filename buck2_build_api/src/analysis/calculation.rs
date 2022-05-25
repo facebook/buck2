@@ -454,7 +454,7 @@ mod tests {
         analysis::calculation::RuleAnalysisCalculation,
         configuration::calculation::ExecutionPlatformsKey,
         deferred::testing::DeferredAnalysisResultExt,
-        execute::{commands::dice_data::set_fallback_executor_config, ActionExecutorConfig},
+        execute::{commands::dice_data::set_fallback_executor_config, CommandExecutorConfig},
         interpreter::{
             calculation::testing::InterpreterResultsKey,
             context::{
@@ -559,7 +559,10 @@ mod tests {
             .set_data(|data| data.set_testing_io_provider(&fs))
             .build({
                 let mut data = UserComputationData::new();
-                set_fallback_executor_config(&mut data.data, ActionExecutorConfig::testing_local());
+                set_fallback_executor_config(
+                    &mut data.data,
+                    CommandExecutorConfig::testing_local(),
+                );
                 data.data.set(EventDispatcher::null());
                 data
             });

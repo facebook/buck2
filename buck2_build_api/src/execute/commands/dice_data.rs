@@ -16,13 +16,13 @@ use dice::{data::DiceData, DiceComputations, UserComputationData};
 
 use crate::{
     actions::artifact::ArtifactFs,
-    execute::{commands::PreparedCommandExecutor, ActionExecutorConfig},
+    execute::{commands::PreparedCommandExecutor, CommandExecutorConfig},
 };
 
 pub struct CommandExecutorRequest<'a> {
     pub artifact_fs: ArtifactFs,
     pub project_fs: ProjectFilesystem,
-    pub executor_config: &'a ActionExecutorConfig,
+    pub executor_config: &'a CommandExecutorConfig,
 }
 
 pub trait SetCommandExecutor {
@@ -64,18 +64,18 @@ struct HasCommandExecutorHolder {
 }
 
 pub trait HasFallbackExecutorConfig {
-    fn get_fallback_executor_config(&self) -> &ActionExecutorConfig;
+    fn get_fallback_executor_config(&self) -> &CommandExecutorConfig;
 }
 
 impl HasFallbackExecutorConfig for DiceComputations {
-    fn get_fallback_executor_config(&self) -> &ActionExecutorConfig {
+    fn get_fallback_executor_config(&self) -> &CommandExecutorConfig {
         self.per_transaction_data()
             .data
-            .get::<ActionExecutorConfig>()
-            .expect("ActionExecutorConfig should be set")
+            .get::<CommandExecutorConfig>()
+            .expect("CommandExecutorConfig should be set")
     }
 }
 
-pub fn set_fallback_executor_config(data: &mut DiceData, config: ActionExecutorConfig) {
+pub fn set_fallback_executor_config(data: &mut DiceData, config: CommandExecutorConfig) {
     data.set(config)
 }

@@ -83,7 +83,7 @@ use crate::{
         blocking::BlockingExecutor,
         commands::{CommandExecutionOutput, CommandExecutionRequest, CommandExecutionTarget},
         materializer::Materializer,
-        ActionExecutionMetadata, ActionExecutorConfig, ActionOutputs,
+        ActionExecutionMetadata, ActionOutputs, CommandExecutorConfig,
     },
     path::BuckOutPath,
 };
@@ -454,14 +454,14 @@ pub struct RegisteredAction {
     #[derivative(Hash = "ignore", PartialEq = "ignore", PartialOrd = "ignore")]
     action: Box<dyn Action>,
     #[derivative(Hash = "ignore", PartialEq = "ignore", PartialOrd = "ignore")]
-    executor_config: ActionExecutorConfig,
+    executor_config: CommandExecutorConfig,
 }
 
 impl RegisteredAction {
     pub fn new(
         key: ActionKey,
         action: Box<dyn Action>,
-        executor_config: ActionExecutorConfig,
+        executor_config: CommandExecutorConfig,
     ) -> Self {
         Self {
             key,
@@ -483,7 +483,7 @@ impl RegisteredAction {
         &self.key
     }
 
-    pub fn execution_config(&self) -> &ActionExecutorConfig {
+    pub fn execution_config(&self) -> &CommandExecutorConfig {
         &self.executor_config
     }
 
@@ -749,7 +749,7 @@ mod tests {
         deferred::{
             testing::DeferredIdExt, BaseDeferredKey, BaseKey, DeferredId, DeferredRegistry,
         },
-        execute::ActionExecutorConfig,
+        execute::CommandExecutorConfig,
         path::BuckOutPath,
     };
 
@@ -906,7 +906,7 @@ mod tests {
             base.dupe(),
             ExecutionPlatformResolution::new(
                 Some(Arc::new(ExecutionPlatform::LegacyExecutionPlatform {
-                    executor_config: ActionExecutorConfig::testing_local(),
+                    executor_config: CommandExecutorConfig::testing_local(),
                     cfg: Configuration::testing_new(),
                 })),
                 Vec::new(),
@@ -993,7 +993,7 @@ mod tests {
             base.dupe(),
             ExecutionPlatformResolution::new(
                 Some(Arc::new(ExecutionPlatform::LegacyExecutionPlatform {
-                    executor_config: ActionExecutorConfig::testing_local(),
+                    executor_config: CommandExecutorConfig::testing_local(),
                     cfg: Configuration::testing_new(),
                 })),
                 Vec::new(),

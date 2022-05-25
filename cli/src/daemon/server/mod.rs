@@ -44,7 +44,7 @@ use buck2_build_api::{
             deferred::DeferredMaterializer, immediate::ImmediateMaterializer,
             MaterializationMethod, Materializer, SetMaterializer,
         },
-        ActionExecutorConfig, LocalExecutorOptions,
+        CommandExecutorConfig, LocalExecutorOptions,
     },
     interpreter::context::{
         configure_build_file_globals, configure_extension_file_globals, fbcode_prelude,
@@ -353,7 +353,7 @@ impl BaseCommandContext {
             // For commands that don't set a fallback executor config, set a local one.
             set_fallback_executor_config(
                 &mut data,
-                ActionExecutorConfig::Local(LocalExecutorOptions {}),
+                CommandExecutorConfig::Local(LocalExecutorOptions {}),
             );
 
             let data = UserComputationData {

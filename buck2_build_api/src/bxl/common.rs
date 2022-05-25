@@ -17,7 +17,7 @@ use starlark::values::{Value, ValueLike};
 use crate::{
     bxl::starlark_defs::providers_expr::ProviderExprError,
     configuration::execution::{ExecutionPlatform, ExecutionPlatformResolution},
-    execute::{ActionExecutorConfig, LocalExecutorOptions},
+    execute::{CommandExecutorConfig, LocalExecutorOptions},
     interpreter::rule_defs::target_label::StarlarkTargetLabel,
 };
 
@@ -27,7 +27,7 @@ use crate::{
 pub(crate) static EXECUTION_PLATFORM: Lazy<ExecutionPlatformResolution> = Lazy::new(|| {
     ExecutionPlatformResolution::new(
         Some(Arc::new(ExecutionPlatform::LegacyExecutionPlatform {
-            executor_config: ActionExecutorConfig::Local(LocalExecutorOptions {}),
+            executor_config: CommandExecutorConfig::Local(LocalExecutorOptions {}),
             cfg: Configuration::unspecified(),
         })),
         vec![],

@@ -349,7 +349,7 @@ mod tests {
                 PreparedCommandExecutor,
             },
             materializer::{nodisk::NoDiskMaterializer, SetMaterializer},
-            ActionExecutorConfig,
+            CommandExecutorConfig,
         },
         path::BuckPath,
     };
@@ -391,7 +391,7 @@ mod tests {
         let registered_action = RegisteredAction::new(
             build_artifact.key().dupe(),
             action,
-            ActionExecutorConfig::testing_local(),
+            CommandExecutorConfig::testing_local(),
         );
         Arc::new(registered_action)
     }
@@ -441,7 +441,7 @@ mod tests {
             }
         }
 
-        set_fallback_executor_config(&mut extra.data, ActionExecutorConfig::testing_local());
+        set_fallback_executor_config(&mut extra.data, CommandExecutorConfig::testing_local());
         extra.set_command_executor(box CommandExecutorProvider { dry_run_tracker });
         extra.set_blocking_executor(Arc::new(DummyBlockingExecutor { fs }));
         extra.set_materializer(Arc::new(NoDiskMaterializer));

@@ -42,7 +42,7 @@ use buck2_build_api::{
             re::{client::RemoteExecutionStaticMetadata, manager::ReConnectionManager},
         },
         materializer::{deferred::DeferredMaterializer, SetMaterializer},
-        ActionExecutorConfig, LocalExecutorOptions,
+        CommandExecutorConfig, LocalExecutorOptions,
     },
     interpreter::context::{
         configure_build_file_globals, configure_extension_file_globals, fbcode_prelude,
@@ -368,7 +368,7 @@ fn setup(
         let mut data = UserComputationData::new();
         set_fallback_executor_config(
             &mut data.data,
-            ActionExecutorConfig::Local(LocalExecutorOptions {}),
+            CommandExecutorConfig::Local(LocalExecutorOptions {}),
         );
         data.data.set(EventDispatcher::null());
         data.set_command_executor(box CommandExecutorFactory::new(

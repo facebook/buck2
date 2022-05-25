@@ -22,7 +22,7 @@ use thiserror::Error;
 
 use crate::{
     configuration::execution::ExecutionPlatform,
-    execute::{ActionExecutorConfig, LocalExecutorOptions, RemoteExecutorOptions},
+    execute::{CommandExecutorConfig, LocalExecutorOptions, RemoteExecutorOptions},
     interpreter::rule_defs::{
         provider::configuration_info::ConfigurationInfo, target_label::StarlarkTargetLabel,
     },
@@ -143,7 +143,7 @@ impl<'v, V: ValueLike<'v>> ExecutionPlatformInfoGen<V> {
                 } else {
                     None
                 };
-                ActionExecutorConfig::new(local_options, remote_options, allow_full_hybrid)?
+                CommandExecutorConfig::new(local_options, remote_options, allow_full_hybrid)?
             },
         })
     }

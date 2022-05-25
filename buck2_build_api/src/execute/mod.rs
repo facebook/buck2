@@ -217,7 +217,7 @@ enum ExecutorConfigError {
 }
 
 #[derive(Debug, Eq, Hash, PartialEq, Clone)]
-pub enum ActionExecutorConfig {
+pub enum CommandExecutorConfig {
     Local(LocalExecutorOptions),
     Remote(RemoteExecutorOptions),
     Hybrid {
@@ -227,7 +227,7 @@ pub enum ActionExecutorConfig {
     },
 }
 
-impl ActionExecutorConfig {
+impl CommandExecutorConfig {
     pub fn new(
         local: Option<LocalExecutorOptions>,
         remote: Option<RemoteExecutorOptions>,
@@ -278,7 +278,7 @@ pub trait ActionExecutor: Send + Sync {
 pub trait HasActionExecutor {
     async fn get_action_executor(
         &self,
-        config: &ActionExecutorConfig,
+        config: &CommandExecutorConfig,
     ) -> anyhow::Result<Arc<dyn ActionExecutor>>;
 }
 
@@ -286,7 +286,7 @@ pub trait HasActionExecutor {
 impl HasActionExecutor for DiceComputations {
     async fn get_action_executor(
         &self,
-        executor_config: &ActionExecutorConfig,
+        executor_config: &CommandExecutorConfig,
     ) -> anyhow::Result<Arc<dyn ActionExecutor>> {
         let artifact_fs = self.get_artifact_fs().await;
         let project_fs = (**self.global_data().get_io_provider().fs()).clone();
@@ -666,7 +666,7 @@ mod tests {
             },
             materializer::nodisk::NoDiskMaterializer,
             ActionExecutionKind, ActionExecutionMetadata, ActionExecutionTimingData,
-            ActionExecutor, ActionExecutorConfig, ActionOutputs, BuckActionExecutor,
+            ActionExecutor, ActionOutputs, BuckActionExecutor, CommandExecutorConfig,
         },
         path::{BuckOutPathResolver, BuckPath, BuckPathResolver},
     };
@@ -816,7 +816,7 @@ mod tests {
                 outputs: outputs.clone(),
                 ran: Default::default(),
             },
-            ActionExecutorConfig::testing_local(),
+            CommandExecutorConfig::testing_local(),
         );
         let res = executor.execute(Default::default(), &action).await.unwrap();
         let outputs = outputs

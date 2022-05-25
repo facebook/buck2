@@ -603,7 +603,7 @@ mod tests {
             testing::{CoercedAttrExt, ConfiguredAttrExt},
         },
         configuration::calculation::ExecutionPlatformsKey,
-        execute::{commands::dice_data::set_fallback_executor_config, ActionExecutorConfig},
+        execute::{commands::dice_data::set_fallback_executor_config, CommandExecutorConfig},
         interpreter::{
             calculation::testing::InterpreterResultsKey,
             module_internals::EvaluationResult,
@@ -689,7 +689,7 @@ mod tests {
         );
 
         let mut data = UserComputationData::new();
-        set_fallback_executor_config(&mut data.data, ActionExecutorConfig::testing_local());
+        set_fallback_executor_config(&mut data.data, CommandExecutorConfig::testing_local());
         let mut computations = DiceBuilder::new()
             .mock_and_return(
                 InterpreterResultsKey(pkg),

@@ -15,7 +15,7 @@ use gazebo::prelude::*;
 use itertools::Itertools;
 use thiserror::Error;
 
-use crate::{execute::ActionExecutorConfig, nodes::compatibility::IncompatiblePlatformReason};
+use crate::{execute::CommandExecutorConfig, nodes::compatibility::IncompatiblePlatformReason};
 
 /// An execution platform is used for the execution deps of a target, those dependencies that
 /// need to be invoked as part of a build action or otherwise need to be configured against the
@@ -30,12 +30,12 @@ pub enum ExecutionPlatform {
     Platform {
         target: TargetLabel,
         cfg: Configuration,
-        executor_config: ActionExecutorConfig,
+        executor_config: CommandExecutorConfig,
     },
     /// When users haven't configured execution platforms, we will use old legacy behavior where
     /// execution deps inherit the target platform configuration.
     LegacyExecutionPlatform {
-        executor_config: ActionExecutorConfig,
+        executor_config: CommandExecutorConfig,
         cfg: Configuration,
     },
     /// An invalid execution platform.
@@ -73,7 +73,7 @@ impl ExecutionPlatform {
         }
     }
 
-    pub fn executor_config(&self) -> anyhow::Result<&ActionExecutorConfig> {
+    pub fn executor_config(&self) -> anyhow::Result<&CommandExecutorConfig> {
         match self {
             ExecutionPlatform::Platform {
                 executor_config, ..
@@ -167,7 +167,7 @@ impl ExecutionPlatformResolution {
         &*self.skipped_platforms
     }
 
-    pub fn executor_config(&self) -> anyhow::Result<&ActionExecutorConfig> {
+    pub fn executor_config(&self) -> anyhow::Result<&CommandExecutorConfig> {
         self.platform()?.executor_config()
     }
 }
