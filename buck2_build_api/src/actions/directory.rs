@@ -156,7 +156,7 @@ impl DirectoryHasher<ActionDirectoryMember> for ReDirectorySerializer {
         >,
         D: ActionFingerprintedDirectory + 'a,
     {
-        TrackedFileDigest::from_bytes(&Self::serialize_entries(entries))
+        TrackedFileDigest::new(FileDigest::from_bytes(&Self::serialize_entries(entries)))
     }
 }
 
@@ -224,7 +224,7 @@ pub fn convert_re_tree(
                 DirectoryReConversionError::NodeWithDigestNone(node.name.clone(), dir_digest.dupe())
             })?;
             let digest = FileDigest::from_grpc(digest);
-            let digest = TrackedFileDigest::new_expires(digest.sha1, digest.size, *leaf_expires);
+            let digest = TrackedFileDigest::new_expires(digest, *leaf_expires);
 
             let member = ActionDirectoryMember::File(FileMetadata {
                 digest,

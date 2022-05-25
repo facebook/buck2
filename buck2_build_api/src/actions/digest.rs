@@ -26,7 +26,7 @@ pub trait FileDigestToReExt {
 impl FileDigestFromReExt for FileDigest {
     fn from_re(x: &ReDigest) -> Self {
         Self {
-            sha1: TrackedFileDigest::parse_digest(x.hash.as_bytes())
+            sha1: Self::parse_digest(x.hash.as_bytes())
                 .unwrap_or_else(|| panic!("Invalid ReDigest {}:{}", x.hash, x.size_in_bytes)),
             size: x.size_in_bytes as u64,
         }
@@ -34,7 +34,7 @@ impl FileDigestFromReExt for FileDigest {
 
     fn from_grpc(x: &GrpcDigest) -> Self {
         Self {
-            sha1: TrackedFileDigest::parse_digest(x.hash.as_bytes())
+            sha1: Self::parse_digest(x.hash.as_bytes())
                 .unwrap_or_else(|| panic!("Invalid GrpcDigest {}:{}", x.hash, x.size_bytes)),
             size: x.size_bytes as u64,
         }

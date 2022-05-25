@@ -10,7 +10,7 @@
 use std::{io::Write, sync::Arc};
 
 use anyhow::Context as _;
-use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::file_ops::{FileDigest, TrackedFileDigest};
 use buck2_core::fs::project::{ProjectFilesystem, ProjectRelativePath};
 use futures::StreamExt;
 use gazebo::prelude::*;
@@ -212,8 +212,8 @@ pub async fn http_download(
         fs.set_executable(path)?
     }
 
-    Ok(TrackedFileDigest::new(
-        TrackedFileDigest::parse_digest(download_sha1.as_bytes()).unwrap(),
-        file_len,
-    ))
+    Ok(TrackedFileDigest::new(FileDigest {
+        sha1: FileDigest::parse_digest(download_sha1.as_bytes()).unwrap(),
+        size: file_len,
+    }))
 }

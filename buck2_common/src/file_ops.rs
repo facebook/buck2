@@ -115,103 +115,6 @@ impl fmt::Debug for FileDigest {
 impl Dupe for FileDigest {}
 
 impl FileDigest {
-    pub fn from_bytes(bytes: &[u8]) -> Self {
-        let sha1 = Sha1::digest(bytes).into();
-        Self {
-            size: bytes.len() as u64,
-            sha1,
-        }
-    }
-}
-
-/// A digest to interact with RE. This, despite the name, can be a file or a directory. We track
-/// the sha1 and the size of the underlying blob. We *also* keep track of its expiry in the CAS.
-/// Note that for directory, the expiry represents that of the directory's blob, not its underlying
-/// contents.
-#[derive(Display, Derivative)]
-#[derivative(PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[display(fmt = "{}", data)]
-struct FileDigestInner {
-    data: FileDigest,
-    #[derivative(
-        PartialOrd = "ignore",
-        Ord = "ignore",
-        PartialEq = "ignore",
-        Hash = "ignore"
-    )]
-    expires: AtomicU64,
-}
-
-#[derive(Display, Clone, Dupe, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TrackedFileDigest {
-    inner: Arc<FileDigestInner>,
-}
-
-impl fmt::Debug for TrackedFileDigest {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "[{} expires at {}]",
-            self,
-            self.inner.expires.load(Ordering::Relaxed)
-        )
-    }
-}
-
-impl TrackedFileDigest {
-    pub fn new(sha1: [u8; SHA1_SIZE], size: u64) -> Self {
-        if size == 0 {
-            static EMPTY_DIGEST: OnceCell<TrackedFileDigest> = OnceCell::new();
-
-            return EMPTY_DIGEST
-                .get_or_init(|| Self {
-                    inner: Arc::new(FileDigestInner {
-                        data: FileDigest { size, sha1 },
-                        expires: AtomicU64::new(0),
-                    }),
-                })
-                .dupe();
-        }
-
-        Self {
-            inner: Arc::new(FileDigestInner {
-                data: FileDigest { size, sha1 },
-                expires: AtomicU64::new(0),
-            }),
-        }
-    }
-
-    pub fn new_expires(sha1: [u8; SHA1_SIZE], size: u64, expiry: SystemTime) -> Self {
-        let res = Self::new(sha1, size);
-        res.update_expires(expiry);
-        res
-    }
-
-    pub fn data(&self) -> &FileDigest {
-        &self.inner.data
-    }
-
-    pub fn sha1(&self) -> &[u8; SHA1_SIZE] {
-        &self.inner.data.sha1
-    }
-
-    pub fn size(&self) -> u64 {
-        self.inner.data.size
-    }
-
-    pub fn expires(&self) -> SystemTime {
-        SystemTime::UNIX_EPOCH + Duration::from_secs(self.inner.expires.load(Ordering::Relaxed))
-    }
-
-    pub fn update_expires(&self, time: SystemTime) {
-        self.inner.expires.store(
-            time.duration_since(SystemTime::UNIX_EPOCH)
-                .map(|d| d.as_secs())
-                .unwrap_or(0),
-            Ordering::Relaxed,
-        )
-    }
-
     // Precondition: Must be exactly SHA1_SIZE bytes or will panic
     fn mk_sha1(data: &[u8]) -> [u8; SHA1_SIZE] {
         let mut sha1 = [0; SHA1_SIZE];
@@ -278,7 +181,7 @@ impl TrackedFileDigest {
             Ok(Some(v)) => {
                 let sha1 = Self::parse_digest(&v)?;
                 let size = meta.len();
-                Some(Self::new(sha1, size))
+                Some(Self { size, sha1 })
             }
             _ => None,
         }
@@ -306,7 +209,7 @@ impl TrackedFileDigest {
             h.input(&buffer[..count]);
         }
         let sha1 = h.result().into();
-        Ok(Self::new(sha1, size))
+        Ok(Self { size, sha1 })
     }
 
     /// Return the digest of an empty string
@@ -316,7 +219,103 @@ impl TrackedFileDigest {
 
     pub fn from_bytes(bytes: &[u8]) -> Self {
         let sha1 = Sha1::digest(bytes).into();
-        Self::new(sha1, bytes.len() as u64)
+        Self {
+            sha1,
+            size: bytes.len() as u64,
+        }
+    }
+}
+
+/// A digest to interact with RE. This, despite the name, can be a file or a directory. We track
+/// the sha1 and the size of the underlying blob. We *also* keep track of its expiry in the CAS.
+/// Note that for directory, the expiry represents that of the directory's blob, not its underlying
+/// contents.
+#[derive(Display, Derivative)]
+#[derivative(PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[display(fmt = "{}", data)]
+struct FileDigestInner {
+    data: FileDigest,
+    #[derivative(
+        PartialOrd = "ignore",
+        Ord = "ignore",
+        PartialEq = "ignore",
+        Hash = "ignore"
+    )]
+    expires: AtomicU64,
+}
+
+#[derive(Display, Clone, Dupe, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TrackedFileDigest {
+    inner: Arc<FileDigestInner>,
+}
+
+impl fmt::Debug for TrackedFileDigest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "[{} expires at {}]",
+            self,
+            self.inner.expires.load(Ordering::Relaxed)
+        )
+    }
+}
+
+impl TrackedFileDigest {
+    pub fn new(data: FileDigest) -> Self {
+        if data.size == 0 {
+            return Self::empty();
+        }
+
+        Self {
+            inner: Arc::new(FileDigestInner {
+                data,
+                expires: AtomicU64::new(0),
+            }),
+        }
+    }
+
+    pub fn new_expires(data: FileDigest, expiry: SystemTime) -> Self {
+        let res = Self::new(data);
+        res.update_expires(expiry);
+        res
+    }
+
+    pub fn empty() -> Self {
+        static EMPTY_DIGEST: OnceCell<TrackedFileDigest> = OnceCell::new();
+
+        return EMPTY_DIGEST
+            .get_or_init(|| Self {
+                inner: Arc::new(FileDigestInner {
+                    data: FileDigest::empty(),
+                    expires: AtomicU64::new(0),
+                }),
+            })
+            .dupe();
+    }
+
+    pub fn data(&self) -> &FileDigest {
+        &self.inner.data
+    }
+
+    pub fn sha1(&self) -> &[u8; SHA1_SIZE] {
+        &self.inner.data.sha1
+    }
+
+    pub fn size(&self) -> u64 {
+        self.inner.data.size
+    }
+
+    pub fn expires(&self) -> SystemTime {
+        SystemTime::UNIX_EPOCH + Duration::from_secs(self.inner.expires.load(Ordering::Relaxed))
+    }
+
+    pub fn update_expires(&self, time: SystemTime) {
+        self.inner.expires.store(
+            time.duration_since(SystemTime::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0),
+            Ordering::Relaxed,
+        )
     }
 }
 
@@ -798,7 +797,7 @@ pub mod testing {
     use itertools::Itertools;
 
     use crate::file_ops::{
-        ExternalSymlink, FileMetadata, FileOps, FileType, PathMetadata, SimpleDirEntry,
+        ExternalSymlink, FileDigest, FileMetadata, FileOps, FileType, PathMetadata, SimpleDirEntry,
         TrackedFileDigest,
     };
 
@@ -833,7 +832,9 @@ pub mod testing {
                             TestFileOpsEntry::File(
                                 data.clone(),
                                 FileMetadata {
-                                    digest: TrackedFileDigest::from_bytes(data.as_bytes()),
+                                    digest: TrackedFileDigest::new(FileDigest::from_bytes(
+                                        data.as_bytes(),
+                                    )),
                                     is_executable: false,
                                 },
                             ),
@@ -1052,17 +1053,16 @@ mod tests {
             symlink("link", tempdir.path().join("recurse_link"))?;
             symlink("recurse_link", tempdir.path().join("recurse_recurse_link"))?;
 
-            let d1 = TrackedFileDigest::from_file(&file).context("file")?;
-            let d2 = TrackedFileDigest::from_file(&tempdir.path().join("link")).context("file")?;
-            let d3 = TrackedFileDigest::from_file(&tempdir.path().join("abs_link"))
-                .context("abs_link")?;
-            let d4 = TrackedFileDigest::from_file(&tempdir.path().join("recurse_link"))
+            let d1 = FileDigest::from_file(&file).context("file")?;
+            let d2 = FileDigest::from_file(&tempdir.path().join("link")).context("file")?;
+            let d3 = FileDigest::from_file(&tempdir.path().join("abs_link")).context("abs_link")?;
+            let d4 = FileDigest::from_file(&tempdir.path().join("recurse_link"))
                 .context("recurse_link")?;
-            let d5 = TrackedFileDigest::from_file(&tempdir.path().join("recurse_recurse_link"))
+            let d5 = FileDigest::from_file(&tempdir.path().join("recurse_recurse_link"))
                 .context("recurse_recurse_link")?;
 
-            assert_eq!(d1.sha1(), &[0; SHA1_SIZE]);
-            assert_eq!(d1.size(), 3);
+            assert_eq!(d1.sha1, [0; SHA1_SIZE]);
+            assert_eq!(d1.size, 3);
             assert_eq!(d1, d2);
             assert_eq!(d1, d3);
             assert_eq!(d1, d4);

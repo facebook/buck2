@@ -58,7 +58,7 @@ impl ActionBlobs {
         let mut blob = Vec::new();
         // Unwrap is safe because it only fails in OOM conditions, which we pretend don't happen
         m.encode(&mut blob).unwrap();
-        let digest = TrackedFileDigest::from_bytes(&blob);
+        let digest = TrackedFileDigest::new(FileDigest::from_bytes(&blob));
         self.0.insert(digest.dupe(), blob);
         digest
     }
@@ -384,7 +384,7 @@ fn add_injected_missing_digests(
                 let digest = TDigest::from_str(digest)
                     .with_context(|| format!("Invalid digest: `{}`", digest))?;
                 let digest = FileDigest::from_re(&digest);
-                let digest = TrackedFileDigest::new(digest.sha1, digest.size);
+                let digest = TrackedFileDigest::new(digest);
                 anyhow::Ok(digest)
             })
             .collect()

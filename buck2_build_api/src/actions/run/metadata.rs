@@ -9,7 +9,7 @@
 
 use std::fmt::Display;
 
-use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::file_ops::{FileDigest, TrackedFileDigest};
 use buck2_core::{
     directory::{Directory, DirectoryEntry, DirectoryIterator},
     fs::paths::ForwardRelativePathBuf,
@@ -45,7 +45,7 @@ pub(super) fn metadata_content(
     struct PathWithDigest<'a> {
         path: ForwardRelativePathBuf,
         #[serde(serialize_with = "stringify")]
-        digest: &'a TrackedFileDigest,
+        digest: &'a FileDigest,
     }
 
     #[derive(Serialize)]
@@ -61,7 +61,7 @@ pub(super) fn metadata_content(
             DirectoryEntry::Leaf(ActionDirectoryMember::File(metadata)) => {
                 digests.push(PathWithDigest {
                     path: path.get(),
-                    digest: &metadata.digest,
+                    digest: metadata.digest.data(),
                 });
             }
             // Omit symlinks and let user script detect and handle symlinks in inputs.
@@ -80,6 +80,6 @@ pub(super) fn metadata_content(
         version: 1,
     };
     let json_string = serde_json::to_string(&json)?;
-    let digest = TrackedFileDigest::from_bytes(json_string.as_bytes());
+    let digest = TrackedFileDigest::new(FileDigest::from_bytes(json_string.as_bytes()));
     Ok((json_string.into(), digest))
 }

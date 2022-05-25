@@ -295,7 +295,9 @@ mod tests {
             cells::HasCellResolver, data::testing::SetTestingIoProvider,
             file_ops::testing::FileOpsKey,
         },
-        file_ops::{testing::TestFileOps, ExternalSymlink, FileMetadata, TrackedFileDigest},
+        file_ops::{
+            testing::TestFileOps, ExternalSymlink, FileDigest, FileMetadata, TrackedFileDigest,
+        },
     };
     use buck2_core::{
         category::Category,
@@ -623,7 +625,7 @@ mod tests {
         );
         let source_artifact = create_test_source_artifact("cell", "pkg", "src.cpp");
         let metadata = FileMetadata {
-            digest: TrackedFileDigest::from_bytes("content".as_bytes()),
+            digest: TrackedFileDigest::new(FileDigest::from_bytes("content".as_bytes())),
             is_executable: true,
         };
 

@@ -220,7 +220,7 @@ mod tests {
             cells::HasCellResolver, data::testing::SetTestingIoProvider,
             file_ops::testing::FileOpsKey,
         },
-        file_ops::{testing::TestFileOps, FileMetadata, TrackedFileDigest},
+        file_ops::{testing::TestFileOps, FileDigest, FileMetadata, TrackedFileDigest},
     };
     use buck2_core::{
         cells::{
@@ -291,7 +291,7 @@ mod tests {
         )));
 
         let foo_meta = FileMetadata {
-            digest: TrackedFileDigest::from_bytes("foo".as_bytes()),
+            digest: TrackedFileDigest::new(FileDigest::from_bytes("foo".as_bytes())),
             is_executable: true,
         };
 
@@ -306,7 +306,7 @@ mod tests {
         );
 
         let bar_meta = FileMetadata {
-            digest: TrackedFileDigest::from_bytes("bar".as_bytes()),
+            digest: TrackedFileDigest::new(FileDigest::from_bytes("bar".as_bytes())),
             is_executable: true,
         };
 

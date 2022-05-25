@@ -11,7 +11,7 @@ use std::{borrow::Cow, convert::TryFrom, time::Instant};
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_common::file_ops::{FileMetadata, TrackedFileDigest};
+use buck2_common::file_ops::{FileDigest, FileMetadata, TrackedFileDigest};
 use buck2_core::category::Category;
 use gazebo::dupe::Dupe;
 use indexmap::{indexmap, IndexMap, IndexSet};
@@ -188,7 +188,7 @@ impl PristineActionExecutable for WriteAction {
             let execution_start = Instant::now();
             let full_contents = self.get_contents(fs)?;
             let value = ArtifactValue::file(FileMetadata {
-                digest: TrackedFileDigest::from_bytes(full_contents.as_bytes()),
+                digest: TrackedFileDigest::new(FileDigest::from_bytes(full_contents.as_bytes())),
                 is_executable: self.is_executable,
             });
             eden_buck_out
@@ -210,7 +210,9 @@ impl PristineActionExecutable for WriteAction {
 
                     let full_contents = self.get_contents(fs)?;
                     let value = ArtifactValue::file(FileMetadata {
-                        digest: TrackedFileDigest::from_bytes(full_contents.as_bytes()),
+                        digest: TrackedFileDigest::new(FileDigest::from_bytes(
+                            full_contents.as_bytes(),
+                        )),
                         is_executable: self.is_executable,
                     });
 

@@ -156,7 +156,7 @@ impl CasDownloader<'_> {
 
         for x in output_spec.output_files() {
             let digest = FileDigest::from_re(&x.digest.digest);
-            let digest = TrackedFileDigest::new_expires(digest.sha1, digest.size, expires);
+            let digest = TrackedFileDigest::new_expires(digest, expires);
 
             let entry = DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
                 digest,

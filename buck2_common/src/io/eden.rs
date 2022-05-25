@@ -41,7 +41,9 @@ use thiserror::Error;
 use tokio::sync::Semaphore;
 
 use crate::{
-    file_ops::{FileMetadata, FileType, PathMetadata, SimpleDirEntry, TrackedFileDigest},
+    file_ops::{
+        FileDigest, FileMetadata, FileType, PathMetadata, SimpleDirEntry, TrackedFileDigest,
+    },
     io::{fs::FsIoProvider, IoProvider},
 };
 
@@ -264,17 +266,21 @@ impl IoProvider for EdenIoProvider {
         {
             FileAttributeDataOrError::data(data) => {
                 tracing::trace!("getAttributesFromFiles({}): ok", path,);
-                let digest = TrackedFileDigest::new(
-                    data.sha1
+                let digest = FileDigest {
+                    sha1: data
+                        .sha1
                         .context("Eden did not return a sha1")?
                         .try_into()
                         .ok()
                         .context("Eden returned an invalid sha1")?,
-                    data.fileSize
+                    size: data
+                        .fileSize
                         .context("Eden did not return a fileSize")?
                         .try_into()
                         .context("Eden returned an invalid fileSize")?,
-                );
+                };
+
+                let digest = TrackedFileDigest::new(digest);
 
                 let is_executable = fetch_is_executable(self, &self.connector.root, &path).await?;
 

@@ -11,7 +11,7 @@ use std::{collections::HashSet, str::FromStr, sync::Arc};
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_common::file_ops::{FileDigest, TrackedFileDigest};
+use buck2_common::file_ops::FileDigest;
 use buck2_core::{
     directory::{unordered_entry_walk, DirectoryEntry},
     env_helper::EnvHelper,
@@ -638,7 +638,7 @@ impl DeferredMaterializerCommandProcessor {
                     while let Some((entry_path, entry)) = walk.next() {
                         if let DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) = entry {
                             let name = path.join_normalized(entry_path.get())?.to_string();
-                            let digest = maybe_tombstone_digest(&f.digest)?.to_re();
+                            let digest = maybe_tombstone_digest(f.digest.data())?.to_re();
 
                             tracing::trace!(name = %name, digest = %digest, "push download");
 
@@ -894,25 +894,26 @@ impl<V> FileTree<V> {
 }
 
 /// This is used for testing to ingest digests (via BUCK2_TEST_TOMBSTONED_DIGESTS).
-fn maybe_tombstone_digest(digest: &TrackedFileDigest) -> anyhow::Result<&TrackedFileDigest> {
+fn maybe_tombstone_digest(digest: &FileDigest) -> anyhow::Result<&FileDigest> {
     // This has to be of size 1 since size 0 will result in the RE client just producing an empty
     // instead of a not-found error.
-    static TOMBSTONE_DIGEST: Lazy<TrackedFileDigest> =
-        Lazy::new(|| TrackedFileDigest::new([0; 20], 1));
+    static TOMBSTONE_DIGEST: Lazy<FileDigest> = Lazy::new(|| FileDigest {
+        sha1: [0; 20],
+        size: 1,
+    });
 
-    fn convert_digests(val: &str) -> anyhow::Result<HashSet<TrackedFileDigest>> {
+    fn convert_digests(val: &str) -> anyhow::Result<HashSet<FileDigest>> {
         val.split(' ')
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
                     .with_context(|| format!("Invalid digest: `{}`", digest))?;
                 let digest = FileDigest::from_re(&digest);
-                let digest = TrackedFileDigest::new(digest.sha1, digest.size);
                 anyhow::Ok(digest)
             })
             .collect()
     }
 
-    static TOMBSTONED_DIGESTS: EnvHelper<HashSet<TrackedFileDigest>> =
+    static TOMBSTONED_DIGESTS: EnvHelper<HashSet<FileDigest>> =
         EnvHelper::with_converter("BUCK2_TEST_TOMBSTONED_DIGESTS", convert_digests);
 
     if let Some(digests) = TOMBSTONED_DIGESTS.get()?.as_ref() {

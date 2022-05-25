@@ -26,7 +26,9 @@ use thiserror::Error;
 use tokio::sync::Semaphore;
 
 use crate::{
-    file_ops::{ExternalSymlink, FileMetadata, PathMetadata, SimpleDirEntry, TrackedFileDigest},
+    file_ops::{
+        ExternalSymlink, FileDigest, FileMetadata, PathMetadata, SimpleDirEntry, TrackedFileDigest,
+    },
     io::IoProvider,
 };
 
@@ -124,9 +126,11 @@ impl IoProvider for FsIoProvider {
                         PathMetadata::Directory
                     } else {
                         PathMetadata::File(FileMetadata {
-                            digest: TrackedFileDigest::from_file(&path).with_context(|| {
-                                format!("collecting file metadata for `{}`", path)
-                            })?,
+                            digest: TrackedFileDigest::new(
+                                FileDigest::from_file(&path).with_context(|| {
+                                    format!("collecting file metadata for `{}`", path)
+                                })?,
+                            ),
                             is_executable: path.executable(),
                         })
                     }
