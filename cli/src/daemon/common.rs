@@ -400,8 +400,7 @@ pub fn get_executor_config_for_strategy(
                 local: LocalExecutorOptions {},
                 remote: RemoteExecutorOptions {
                     re_properties: execution_platform.intrinsic_properties(),
-                    re_action_key: None,
-                    re_max_input_files_bytes: None,
+                    ..Default::default()
                 },
                 is_limited: true,
             }
@@ -413,8 +412,7 @@ pub fn get_executor_config_for_strategy(
                 local: LocalExecutorOptions {},
                 remote: RemoteExecutorOptions {
                     re_properties: execution_platform.intrinsic_properties(),
-                    re_action_key: None,
-                    re_max_input_files_bytes: None,
+                    ..Default::default()
                 },
                 is_limited: false,
             }
@@ -422,8 +420,7 @@ pub fn get_executor_config_for_strategy(
         ExecutionStrategy::LocalOnly => CommandExecutorConfig::Local(LocalExecutorOptions {}),
         ExecutionStrategy::RemoteOnly => CommandExecutorConfig::Remote(RemoteExecutorOptions {
             re_properties: execution_platform.intrinsic_properties(),
-            re_action_key: None,
-            re_max_input_files_bytes: None,
+            ..Default::default()
         }),
     }
 }

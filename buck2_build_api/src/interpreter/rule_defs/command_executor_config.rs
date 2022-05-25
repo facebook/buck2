@@ -130,6 +130,7 @@ impl<'v, V: ValueLike<'v>> StarlarkCommandExecutorConfigGen<V> {
                 re_properties,
                 re_action_key,
                 re_max_input_files_bytes,
+                ..Default::default()
             })
         } else {
             None

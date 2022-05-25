@@ -12,6 +12,7 @@ pub mod commands;
 pub mod materializer;
 
 use std::{
+    borrow::Cow,
     collections::HashMap,
     fmt::{Debug, Display, Write},
     hash::{Hash, Hasher},
@@ -194,10 +195,26 @@ impl ActionExecutionKind {
 pub struct LocalExecutorOptions {}
 
 #[derive(Debug, Eq, PartialEq, Clone)]
+pub struct RemoteExecutorUseCase(Cow<'static, str>);
+
+impl Default for RemoteExecutorUseCase {
+    fn default() -> Self {
+        Self(Cow::Borrowed("buck2-default"))
+    }
+}
+
+impl From<RemoteExecutorUseCase> for String {
+    fn from(use_case: RemoteExecutorUseCase) -> String {
+        use_case.0.into_owned()
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Default)]
 pub struct RemoteExecutorOptions {
     pub re_properties: IndexMap<String, String>,
     pub re_action_key: Option<String>,
     pub re_max_input_files_bytes: Option<u64>,
+    pub re_use_case: RemoteExecutorUseCase,
 }
 
 #[allow(clippy::derive_hash_xor_eq)]
