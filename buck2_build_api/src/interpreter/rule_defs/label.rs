@@ -16,7 +16,7 @@ use gazebo::{
     coerce::Coerce,
     prelude::*,
 };
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 use starlark::{
     collections::StarlarkHasher,
     environment::{Methods, MethodsBuilder, MethodsStatic},
@@ -35,26 +35,31 @@ impl<V> LabelGen<V> {
 }
 
 /// Container for `ConfiguredProvidersLabel` that gives users access to things like package, cell, etc. This can also be properly stringified by our forthcoming `CommandLine` object
-#[derive(Clone, Debug, Coerce, Display, Trace, Freeze, AnyLifetime, Serialize)]
+#[derive(Clone, Debug, Coerce, Display, Trace, Freeze, AnyLifetime)]
 #[display(fmt = "{}", label)]
 #[repr(C)]
 pub struct LabelGen<V> {
     // TODO(nmj): We don't really want to allocate these up front, but we don't
     //                 get the heap during get_attr(), so we have to for now. Revisit
     //                 later, because most people probably don't actually need this.
-    #[serde(skip)]
     package_string: V,
-    #[serde(skip)]
     name_string: V,
-    #[serde(skip)]
     provider_string: V,
     #[trace(unsafe_ignore)]
     #[freeze(identity)]
-    #[serde(flatten)]
     label: ConfiguredProvidersLabel,
 }
 
 starlark_complex_value!(pub Label);
+
+impl<V> Serialize for LabelGen<V> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.label.serialize(serializer)
+    }
+}
 
 impl<'v> Label<'v> {
     pub(crate) fn new(heap: &'v Heap, label: ConfiguredProvidersLabel) -> Self {
