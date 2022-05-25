@@ -43,11 +43,12 @@ The starting type, usually bound as `ctx`.
 
 The `cmd_args` type is created by `cmd_args` and is consumed by `ctx.actions.run`. The type is a mutable collection of strings and `artifact` values. In general, command lines, artifacts, strings, `RunInfo` and lists thereof can be added to or used to construct a `cmd_args` value. All these methods operate mutably on `cmd` and return that value too.
 
-* `cmd_args(value=None, format : str.type = "", delimiter: str.type = None, prepend: str.type = None)` creates and returns a `cmd_args` type.
+* `cmd_args(value=None, format: str.type = "", delimiter: str.type = None, prepend: str.type = None, quote: str.type = None)` creates and returns a `cmd_args` type.
   * The optional `value` parameter must be coercible to a command line, as per `cmd_args.add`.
   * The optional `format` parameter is a string which provides a format to apply to the argument. As examples `cmd_args(x, format="--args={}")` would prepend `--args=` before `x`, or if `x` was a list, before each element in `x`.
   * The optional `delimiter` parameter is added between argumentsto join them together. For example `cmd_args(["--args=",x], delimiter="")` would produce a single argument to the underlying tool.
   * The optional `prepend` parameter is added as a separate argument before each argument.
+  * The optional `quote` parameter says whether quoting is to be applied to each argument - the only current valid value is `"shell"`.
 
 * `cmd.add(*args, format : str.type = None)` a list of arguments to be added to the command line, as per `cmd_args`.
 
