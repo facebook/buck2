@@ -4,7 +4,7 @@
 //! liberally duplicated and passed around to the depths of buck2 so that consumers can insert events into it.
 
 use std::{
-    cell::Cell,
+    cell::{Cell, RefCell},
     process::{Command, Stdio},
     sync::Arc,
     time::{Duration, Instant, SystemTime},
@@ -51,6 +51,8 @@ impl EventDispatcher {
         self.event_with_span_id(data, None, current_span());
     }
 
+    // TODO(mufeezamjad): remove once all uses of this function are changed to use the global event dispatcher.
+    //
     /// Emits an InstantEvent annotated with the current trace ID
     pub fn instant_event<E: Into<buck2_data::instant_event::Data>>(&self, data: E) {
         let instant = buck2_data::InstantEvent {
@@ -147,6 +149,8 @@ impl EventDispatcher {
         }));
     }
 
+    // TODO(mufeezamjad): remove once all uses of this function are changed to use the global event dispatcher.
+    //
     /// Introduces a new span and immediately fires the given start event. When the given synchronous function returns,
     /// the span is closed and the end event emitted.
     pub fn span<Start, End, F, R>(&self, start: Start, func: F) -> R
@@ -161,6 +165,8 @@ impl EventDispatcher {
         result
     }
 
+    // TODO(mufeezamjad): remove once all uses of this function are changed to use the global event dispatcher.
+    //
     /// Introduces a new span and immediately fires the given start event. When the given future resolves,  the span is
     /// closed and the event is emitted. This span is a "suspending span"; it is intended to suspend and resume whenever
     /// the future itself is suspended and resumed, respectively.
@@ -184,6 +190,24 @@ impl EventDispatcher {
     /// Returns the traceid for this event dispatcher.
     pub fn trace_id(&self) -> &TraceId {
         &self.trace_id
+    }
+
+    /// Calls function func with this dispatcher set as the global dispatcher.
+    ///
+    /// Because this function call cannot be preempted (not async), we
+    /// ensure that this dispatcher is not shared between tasks.
+    fn call_in_dispatcher<F, T>(&self, func: F) -> T
+    where
+        F: FnOnce() -> T,
+    {
+        EVENTS.with(|d| {
+            // Will panic if the value is currently borrowed.
+            // Is currently impossible as get_dispatcher() returns a dupe and not a reference.
+            let prev_dispatcher = d.replace(self.dupe());
+            let ret = func();
+            d.replace(prev_dispatcher);
+            ret
+        })
     }
 }
 
@@ -285,11 +309,81 @@ impl<'a> Drop for Span<'a> {
 }
 
 thread_local! {
+    pub static EVENTS: RefCell<EventDispatcher> = RefCell::new(EventDispatcher::null());
     pub static CURRENT_SPAN: Cell<Option<SpanId>> = Cell::new(None);
+}
+
+/// Invokes function func, using dispatcher for any downstream events.
+pub fn with_dispatcher<R, F>(dispatcher: EventDispatcher, func: F) -> R
+where
+    F: FnOnce() -> R,
+{
+    dispatcher.call_in_dispatcher(func)
+}
+
+/// Resolves the Future fut, using the passed dispatcher for any downstream events.
+pub async fn with_dispatcher_async<R, Fut>(dispatcher: EventDispatcher, fut: Fut) -> R
+where
+    Fut: Future<Output = R>,
+{
+    futures::pin_mut!(fut);
+    future::poll_fn(|cx| dispatcher.call_in_dispatcher(|| fut.as_mut().poll(cx))).await
+}
+
+fn get_dispatcher() -> EventDispatcher {
+    EVENTS.with(|dispatcher| dispatcher.borrow().dupe())
 }
 
 fn current_span() -> Option<SpanId> {
     CURRENT_SPAN.with(|tl_span| tl_span.get())
+}
+
+/// Introduces a new span and immediately fires the given start event. When the given synchronous function returns,
+/// the span is closed and the end event emitted.
+pub fn span<Start, End, F, R>(start: Start, func: F) -> R
+where
+    Start: Into<span_start_event::Data>,
+    End: Into<span_end_event::Data>,
+    F: FnOnce() -> (R, End),
+{
+    let events = get_dispatcher();
+
+    let mut span = Span::start(&events, start);
+    let (result, end) = span.call_in_span(func);
+    span.end(end);
+    result
+}
+
+/// Emits an InstantEvent annotated with the current trace ID
+pub fn instant_event<E: Into<buck2_data::instant_event::Data>>(data: E) {
+    let events = get_dispatcher();
+
+    let instant = buck2_data::InstantEvent {
+        data: Some(data.into()),
+    };
+    events.event_with_span_id(instant, None, current_span())
+}
+
+/// Introduces a new span and immediately fires the given start event. When the given future resolves,  the span is
+/// closed and the event is emitted. This span is a "suspending span"; it is intended to suspend and resume whenever
+/// the future itself is suspended and resumed, respectively.
+///
+/// TODO(swgillespie) actually implement suspend/resume
+pub async fn span_async<Start, End, Fut, R>(start: Start, fut: Fut) -> R
+where
+    Start: Into<span_start_event::Data>,
+    End: Into<span_end_event::Data>,
+    Fut: Future<Output = (R, End)>,
+{
+    let events = get_dispatcher();
+
+    let mut span = Span::start(&events, start);
+
+    futures::pin_mut!(fut);
+    let (result, end) = future::poll_fn(|cx| span.call_in_span(|| fut.as_mut().poll(cx))).await;
+
+    span.end(end);
+    result
 }
 
 #[macro_export]
@@ -330,9 +424,10 @@ macro_rules! error {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::result::Result::{Err, Ok};
 
-    use buck2_data::{CommandStart, SpanStartEvent};
+    use buck2_data::{CommandEnd, CommandStart, SpanStartEvent};
+    use tokio::task::JoinHandle;
 
     use super::{EventDispatcher, *};
     use crate::{sink::channel::ChannelEventSink, source::ChannelEventSource, EventSource};
@@ -341,22 +436,41 @@ mod tests {
         source.receive().unwrap().unpack_buck().unwrap().clone()
     }
 
-    #[tokio::test]
-    async fn send_event_smoke() {
+    fn create_dispatcher() -> (EventDispatcher, ChannelEventSource, TraceId) {
         let (send, recv) = crossbeam_channel::unbounded();
+        let source = ChannelEventSource::new(recv);
+
         let sink = ChannelEventSink::new(send);
-        let mut source = ChannelEventSource::new(recv);
         let trace_id = TraceId::new();
         let dispatcher = EventDispatcher::new(trace_id.dupe(), sink);
+
+        (dispatcher, source, trace_id)
+    }
+
+    fn create_start_end_events() -> (CommandStart, CommandEnd) {
+        let start = CommandStart {
+            data: Default::default(),
+            metadata: Default::default(),
+        };
+        let end = CommandEnd {
+            data: Default::default(),
+            metadata: Default::default(),
+            is_success: true,
+            error_messages: vec![],
+        };
+
+        (start, end)
+    }
+
+    #[tokio::test]
+    async fn send_event_smoke() {
+        let (dispatcher, mut source, trace_id) = create_dispatcher();
+        let (start, _) = create_start_end_events();
+
         dispatcher.event(SpanStartEvent {
-            data: Some(
-                CommandStart {
-                    data: None,
-                    metadata: HashMap::new(),
-                }
-                .into(),
-            ),
+            data: Some(start.into()),
         });
+
         let event = next_event(&mut source).await;
         assert_eq!(event.trace_id, trace_id);
         assert!(event.parent_id.is_none());
@@ -365,27 +479,10 @@ mod tests {
 
     #[tokio::test]
     async fn send_event_with_span() {
-        let (send, recv) = crossbeam_channel::unbounded();
-        let sink = ChannelEventSink::new(send);
-        let mut source = ChannelEventSource::new(recv);
-        let trace_id = TraceId::new();
-        let dispatcher = EventDispatcher::new(trace_id.dupe(), sink);
+        let (dispatcher, mut source, trace_id) = create_dispatcher();
+        let (start, end) = create_start_end_events();
 
-        let start = buck2_data::CommandStart {
-            data: None,
-            metadata: HashMap::new(),
-        };
-        dispatcher.span(start, || {
-            (
-                (),
-                buck2_data::CommandEnd {
-                    data: None,
-                    metadata: HashMap::new(),
-                    is_success: true,
-                    error_messages: vec![],
-                },
-            )
-        });
+        dispatcher.span(start, || ((), end));
 
         let event = next_event(&mut source).await;
         let span_id = event.span_id.unwrap();
@@ -398,29 +495,10 @@ mod tests {
 
     #[tokio::test]
     async fn send_event_with_span_async() {
-        let (send, recv) = crossbeam_channel::unbounded();
-        let sink = ChannelEventSink::new(send);
-        let mut source = ChannelEventSource::new(recv);
-        let trace_id = TraceId::new();
-        let dispatcher = EventDispatcher::new(trace_id.dupe(), sink);
+        let (dispatcher, mut source, trace_id) = create_dispatcher();
+        let (start, end) = create_start_end_events();
 
-        let start = buck2_data::CommandStart {
-            data: None,
-            metadata: HashMap::new(),
-        };
-        dispatcher
-            .span_async(start, async {
-                (
-                    (),
-                    buck2_data::CommandEnd {
-                        data: None,
-                        metadata: HashMap::new(),
-                        is_success: true,
-                        error_messages: vec![],
-                    },
-                )
-            })
-            .await;
+        dispatcher.span_async(start, async { ((), end) }).await;
 
         let event = next_event(&mut source).await;
         let span_id = event.span_id.unwrap();
@@ -433,23 +511,8 @@ mod tests {
 
     #[tokio::test]
     async fn send_event_with_nested_span() {
-        let (send, recv) = crossbeam_channel::unbounded();
-        let sink = ChannelEventSink::new(send);
-        let mut source = ChannelEventSource::new(recv);
-        let trace_id = TraceId::new();
-        let dispatcher = EventDispatcher::new(trace_id.dupe(), sink);
-
-        let start = buck2_data::CommandStart {
-            data: Default::default(),
-            metadata: Default::default(),
-        };
-
-        let end = buck2_data::CommandEnd {
-            data: Default::default(),
-            metadata: Default::default(),
-            is_success: true,
-            error_messages: vec![],
-        };
+        let (dispatcher, mut source, _) = create_dispatcher();
+        let (start, end) = create_start_end_events();
 
         dispatcher.span(start.clone(), || {
             dispatcher.span(start.clone(), || ((), end.clone()));
@@ -468,23 +531,8 @@ mod tests {
 
     #[tokio::test]
     async fn send_event_with_nested_span_async() {
-        let (send, recv) = crossbeam_channel::unbounded();
-        let sink = ChannelEventSink::new(send);
-        let mut source = ChannelEventSource::new(recv);
-        let trace_id = TraceId::new();
-        let dispatcher = EventDispatcher::new(trace_id.dupe(), sink);
-
-        let start = buck2_data::CommandStart {
-            data: Default::default(),
-            metadata: Default::default(),
-        };
-
-        let end = buck2_data::CommandEnd {
-            data: Default::default(),
-            metadata: Default::default(),
-            is_success: true,
-            error_messages: vec![],
-        };
+        let (dispatcher, mut source, _) = create_dispatcher();
+        let (start, end) = create_start_end_events();
 
         dispatcher
             .span_async(start.clone(), async {
@@ -507,16 +555,8 @@ mod tests {
 
     #[test]
     fn test_span_stats() {
-        let (send, recv) = crossbeam_channel::unbounded();
-        let sink = ChannelEventSink::new(send);
-        let _source = ChannelEventSource::new(recv);
-        let trace_id = TraceId::new();
-        let dispatcher = EventDispatcher::new(trace_id.dupe(), sink);
-
-        let start = buck2_data::CommandStart {
-            data: Default::default(),
-            metadata: Default::default(),
-        };
+        let (dispatcher, _, _) = create_dispatcher();
+        let (start, _) = create_start_end_events();
 
         let mut span = Span::start(&dispatcher, start);
         span.call_in_span(|| std::thread::sleep(Duration::from_millis(10)));
@@ -524,5 +564,106 @@ mod tests {
 
         span.call_in_span(|| std::thread::sleep(Duration::from_millis(10)));
         assert!(span.stats.max_poll_time < span.stats.total_poll_time);
+    }
+
+    async fn dispatcher_task(
+        dispatcher: EventDispatcher,
+        start: CommandStart,
+        end: CommandEnd,
+    ) -> Result<u32, ()> {
+        let mut err = false;
+        let mut events = 0u32;
+
+        async fn event(
+            start: CommandStart,
+            end: CommandEnd,
+            events: &mut u32,
+            trace_id: &TraceId,
+            err: &mut bool,
+        ) {
+            async fn yield_and_check(trace_id: &TraceId, err: &mut bool) {
+                tokio::task::yield_now().await;
+                *err |= get_dispatcher().trace_id != *trace_id;
+            }
+
+            // 2*2 for Start and End events, for 2 spans
+            *events += 4;
+
+            span_async(start.clone(), async {
+                for _ in 0..4 {
+                    yield_and_check(trace_id, err).await;
+                }
+                // TODO(mufeez): re-consider adding recursive calls to event
+                span_async(start.clone(), async {
+                    for _ in 0..4 {
+                        yield_and_check(trace_id, err).await;
+                    }
+                    ((), end.clone())
+                })
+                .await;
+                ((), end.clone())
+            })
+            .await
+        }
+
+        with_dispatcher_async(
+            dispatcher.dupe(),
+            event(
+                start.clone(),
+                end.clone(),
+                &mut events,
+                &dispatcher.trace_id,
+                &mut err,
+            ),
+        )
+        .await;
+
+        if err { Err(()) } else { Ok(events) }
+    }
+
+    // Test function used in test_concurrent_single_thread and
+    // test_concurrent_multi_thread.
+    async fn test_concurrent() {
+        let (events1, source1, trace_id1) = create_dispatcher();
+        let (events2, source2, trace_id2) = create_dispatcher();
+
+        let mut event_sources: [ChannelEventSource; 2] = [source1, source2];
+        let trace_ids: [TraceId; 2] = [trace_id1, trace_id2];
+
+        let (start1, end1) = create_start_end_events();
+        let (start2, end2) = create_start_end_events();
+
+        let handles: [JoinHandle<Result<u32, ()>>; 2] = [
+            tokio::spawn(dispatcher_task(events1, start1, end1)),
+            tokio::spawn(dispatcher_task(events2, start2, end2)),
+        ];
+
+        let mut sent_counts = Vec::new();
+
+        for handle in handles {
+            match handle.await {
+                Ok(result) => {
+                    sent_counts.push(result.unwrap());
+                }
+                Err(e) => assert!(!e.is_panic()),
+            }
+        }
+
+        for (i, sent) in sent_counts.iter().enumerate() {
+            for _ in 0..*sent {
+                let e = next_event(&mut event_sources[i]).await;
+                assert!(e.trace_id == trace_ids[i]);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_single_thread() {
+        test_concurrent().await;
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_concurrent_multi_thread() {
+        test_concurrent().await;
     }
 }
