@@ -11,7 +11,7 @@ use std::{collections::HashSet, str::FromStr, sync::Arc};
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::{FileDigest, FileDigestData};
 use buck2_core::{
     directory::{unordered_entry_walk, DirectoryEntry},
     env_helper::EnvHelper,
@@ -40,7 +40,7 @@ use crate::{
     actions::{
         artifact::ArtifactValue,
         artifact_utils::materialize_files,
-        digest::FileDigestReExt,
+        digest::{FileDigestFromReExt, FileDigestToReExt},
         directory::{
             ActionDirectory, ActionDirectoryEntry, ActionDirectoryMember, ActionSharedDirectory,
         },
@@ -904,7 +904,8 @@ fn maybe_tombstone_digest(digest: &FileDigest) -> anyhow::Result<&FileDigest> {
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
                     .with_context(|| format!("Invalid digest: `{}`", digest))?;
-                let digest = FileDigest::from_re(&digest);
+                let digest = FileDigestData::from_re(&digest);
+                let digest = FileDigest::new(digest.sha1, digest.size);
                 anyhow::Ok(digest)
             })
             .collect()

@@ -39,7 +39,7 @@ use tokio::{
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::{
-    actions::{digest::FileDigestReExt, directory::ActionDirectoryMember},
+    actions::{digest::FileDigestToReExt, directory::ActionDirectoryMember},
     execute::{commands::re::manager::ReConnectionManager, ArtifactValue},
 };
 

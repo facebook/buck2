@@ -15,7 +15,7 @@ use std::{
 };
 
 use anyhow::Context;
-use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::{FileDigest, FileDigestData};
 use buck2_core::{
     directory::{DirectoryEntry, DirectoryIterator},
     env_helper::EnvHelper,
@@ -29,7 +29,7 @@ use remote_execution::{
 
 use crate::{
     actions::{
-        digest::FileDigestReExt,
+        digest::{FileDigestFromReExt, FileDigestToReExt},
         directory::{
             ActionDirectoryMember, ActionFingerprintedDirectory, ActionImmutableDirectory,
             ReDirectorySerializer,
@@ -124,7 +124,7 @@ impl Uploader {
         let mut input_digests = input_digests.into_iter().collect::<Vec<_>>();
         input_digests.sort();
 
-        let mut digest_ttls = digest_ttls.into_map(|d| (FileDigest::from_re(&d.digest), d.ttl));
+        let mut digest_ttls = digest_ttls.into_map(|d| (FileDigestData::from_re(&d.digest), d.ttl));
         digest_ttls.sort();
 
         if input_digests.len() != digest_ttls.len() {
@@ -140,7 +140,7 @@ impl Uploader {
         for (digest, (matching_digest, digest_ttl)) in
             input_digests.into_iter().zip(digest_ttls.into_iter())
         {
-            if *digest != matching_digest {
+            if *digest.data() != matching_digest {
                 return Err(anyhow::anyhow!("Invalid response from get_digests_ttl"));
             }
 
@@ -383,7 +383,8 @@ fn add_injected_missing_digests(
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
                     .with_context(|| format!("Invalid digest: `{}`", digest))?;
-                let digest = FileDigest::from_re(&digest);
+                let digest = FileDigestData::from_re(&digest);
+                let digest = FileDigest::new(digest.sha1, digest.size);
                 anyhow::Ok(digest)
             })
             .collect()

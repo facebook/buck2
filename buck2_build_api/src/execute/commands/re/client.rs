@@ -10,7 +10,10 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use anyhow::Context;
-use buck2_common::{file_ops::FileDigest, legacy_configs::LegacyBuckConfig};
+use buck2_common::{
+    file_ops::{FileDigest, FileDigestData},
+    legacy_configs::LegacyBuckConfig,
+};
 use buck2_core::env_helper::EnvHelper;
 use derive_more::Display;
 use either::Either;
@@ -32,7 +35,7 @@ use tracing::warn;
 
 use crate::{
     actions::{
-        digest::{FileDigestReExt, ReDigest},
+        digest::{FileDigestFromReExt, FileDigestToReExt, ReDigest},
         directory::ActionImmutableDirectory,
     },
     execute::{
@@ -309,7 +312,7 @@ pub fn re_create_action(
         prepared_blobs.add_blob(digest, data);
     }
     let action = RE::Action {
-        input_root_digest: Some(FileDigest::from_re(&input_digest).to_grpc()),
+        input_root_digest: Some(FileDigestData::from_re(&input_digest).to_grpc()),
         command_digest: Some(prepared_blobs.add_protobuf_message(&command).to_grpc()),
         timeout,
         do_not_cache,

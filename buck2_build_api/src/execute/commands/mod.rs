@@ -40,7 +40,7 @@ use remote_execution as RE;
 use crate::{
     actions::{
         artifact::{ArtifactFs, ArtifactValue, BuildArtifact},
-        digest::FileDigestReExt,
+        digest::FileDigestToReExt,
         directory::{insert_entry, ActionDirectoryBuilder, ActionDirectoryMember},
     },
     artifact_groups::ArtifactGroupValues,

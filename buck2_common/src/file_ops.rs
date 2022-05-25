@@ -98,16 +98,41 @@ pub struct SimpleDirEntry {
 // The number of bytes required by a SHA1 hash
 const SHA1_SIZE: usize = 20;
 
+/// The bytes that make up a file digest.
+#[derive(Display, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[display(fmt = "{}:{}", "hex::encode(sha1)", size)]
+pub struct FileDigestData {
+    pub size: u64,
+    pub sha1: [u8; SHA1_SIZE],
+}
+
+impl fmt::Debug for FileDigestData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl Dupe for FileDigestData {}
+
+impl FileDigestData {
+    pub fn from_bytes(bytes: &[u8]) -> Self {
+        let sha1 = Sha1::digest(bytes).into();
+        Self {
+            size: bytes.len() as u64,
+            sha1,
+        }
+    }
+}
+
 /// A digest to interact with RE. This, despite the name, can be a file or a directory. We track
 /// the sha1 and the size of the underlying blob. We *also* keep track of its expiry in the CAS.
 /// Note that for directory, the expiry represents that of the directory's blob, not its underlying
 /// contents.
 #[derive(Display, Derivative)]
 #[derivative(PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[display(fmt = "{}:{}", "hex::encode(sha1)", size)]
-struct FileDigestData {
-    size: u64,
-    sha1: [u8; SHA1_SIZE],
+#[display(fmt = "{}", data)]
+struct FileDigestInner {
+    data: FileDigestData,
     #[derivative(
         PartialOrd = "ignore",
         Ord = "ignore",
@@ -117,19 +142,21 @@ struct FileDigestData {
     expires: AtomicU64,
 }
 
-#[derive(Display, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Display, Clone, Dupe, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FileDigest {
-    inner: Arc<FileDigestData>,
+    inner: Arc<FileDigestInner>,
 }
 
 impl fmt::Debug for FileDigest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self)
+        write!(
+            f,
+            "[{} expires at {}]",
+            self,
+            self.inner.expires.load(Ordering::Relaxed)
+        )
     }
 }
-
-// Safe because BuckDigest is small and on the stack
-impl Dupe for FileDigest {}
 
 impl FileDigest {
     pub fn new(sha1: [u8; SHA1_SIZE], size: u64) -> Self {
@@ -138,9 +165,8 @@ impl FileDigest {
 
             return EMPTY_DIGEST
                 .get_or_init(|| Self {
-                    inner: Arc::new(FileDigestData {
-                        size,
-                        sha1,
+                    inner: Arc::new(FileDigestInner {
+                        data: FileDigestData { size, sha1 },
                         expires: AtomicU64::new(0),
                     }),
                 })
@@ -148,20 +174,29 @@ impl FileDigest {
         }
 
         Self {
-            inner: Arc::new(FileDigestData {
-                size,
-                sha1,
+            inner: Arc::new(FileDigestInner {
+                data: FileDigestData { size, sha1 },
                 expires: AtomicU64::new(0),
             }),
         }
     }
 
+    pub fn new_expires(sha1: [u8; SHA1_SIZE], size: u64, expiry: SystemTime) -> Self {
+        let res = Self::new(sha1, size);
+        res.update_expires(expiry);
+        res
+    }
+
+    pub fn data(&self) -> &FileDigestData {
+        &self.inner.data
+    }
+
     pub fn sha1(&self) -> &[u8; SHA1_SIZE] {
-        &self.inner.sha1
+        &self.inner.data.sha1
     }
 
     pub fn size(&self) -> u64 {
-        self.inner.size
+        self.inner.data.size
     }
 
     pub fn expires(&self) -> SystemTime {

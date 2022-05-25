@@ -17,7 +17,7 @@ use std::{
 };
 
 use anyhow::Context as _;
-use buck2_common::file_ops::{ExternalSymlink, FileDigest, FileMetadata};
+use buck2_common::file_ops::{ExternalSymlink, FileDigest, FileDigestData, FileMetadata};
 use buck2_core::{
     directory::{
         find, unordered_entry_walk, DashMapDirectoryInterner, Directory, DirectoryBuilder,
@@ -37,7 +37,7 @@ use thiserror::Error;
 
 use crate::actions::{
     artifact::ArtifactValue,
-    digest::{FileDigestProtoExt, FileDigestReExt},
+    digest::{FileDigestFromProtoExt, FileDigestFromReExt, FileDigestToReExt},
 };
 
 pub static INTERNER: Lazy<DashMapDirectoryInterner<ActionDirectoryMember, ReDirectorySerializer>> =
@@ -210,8 +210,8 @@ pub fn convert_re_tree(
     // Recursively builds the directory
     fn dfs_build(
         re_dir: &RE::Directory,
-        dir_digest: FileDigest,
-        dirmap: &HashMap<FileDigest, &RE::Directory>,
+        dir_digest: FileDigestData,
+        dirmap: &HashMap<FileDigestData, &RE::Directory>,
         leaf_expires: &SystemTime,
     ) -> anyhow::Result<ActionDirectoryBuilder> {
         let mut builder = ActionDirectoryBuilder::empty();
@@ -223,8 +223,8 @@ pub fn convert_re_tree(
             let digest = node.digest.as_ref().with_context(|| {
                 DirectoryReConversionError::NodeWithDigestNone(node.name.clone(), dir_digest.dupe())
             })?;
-            let digest = FileDigest::from_grpc(digest);
-            digest.update_expires(*leaf_expires);
+            let digest = FileDigestData::from_grpc(digest);
+            let digest = FileDigest::new_expires(digest.sha1, digest.size, *leaf_expires);
 
             let member = ActionDirectoryMember::File(FileMetadata {
                 digest,
@@ -252,7 +252,7 @@ pub fn convert_re_tree(
                 }
                 Some(d) => d,
             };
-            let child_digest = FileDigest::from_grpc(child_digest);
+            let child_digest = FileDigestData::from_grpc(child_digest);
             let child_re_dir = match dirmap.get(&child_digest) {
                 None => {
                     return Err(DirectoryReConversionError::IncompleteTreeChildrenList(
@@ -283,11 +283,11 @@ pub fn convert_re_tree(
         None => return Ok(ActionDirectoryBuilder::empty()),
     };
 
-    let root_dir_digest = FileDigest::from_proto_message(root_dir);
-    let dirmap: HashMap<FileDigest, &RE::Directory> = tree
+    let root_dir_digest = FileDigestData::from_proto_message(root_dir);
+    let dirmap: HashMap<FileDigestData, &RE::Directory> = tree
         .children
         .iter()
-        .map(|d| (FileDigest::from_proto_message(d), d))
+        .map(|d| (FileDigestData::from_proto_message(d), d))
         .chain(vec![(root_dir_digest.dupe(), root_dir)])
         .collect();
 
@@ -298,9 +298,9 @@ pub fn convert_re_tree(
 pub enum DirectoryReConversionError {
     // Conversion from RE::Tree errors (these shouldn't happen unless something is broken on RE side)
     #[error("Converting RE::Tree to Directory, dir `{1}` has child `{0}` with digest=None.")]
-    NodeWithDigestNone(String, FileDigest),
+    NodeWithDigestNone(String, FileDigestData),
     #[error("Converting RE::Tree to Directory, dir `{1}` has child `{0}` not in tree.children.")]
-    IncompleteTreeChildrenList(String, FileDigest),
+    IncompleteTreeChildrenList(String, FileDigestData),
     #[error("Converting RE::Tree to Directory, file name `{0}` is incorrect")]
     IncorrectFileName(String),
 }

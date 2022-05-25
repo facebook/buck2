@@ -24,7 +24,7 @@ use remote_execution::{NamedDigest, NamedDigestWithPermissions};
 
 use crate::{
     actions::{
-        artifact::ArtifactValue, artifact_utils::materialize_files, digest::FileDigestReExt,
+        artifact::ArtifactValue, artifact_utils::materialize_files, digest::FileDigestToReExt,
         directory::ActionDirectoryMember,
     },
     execute::{

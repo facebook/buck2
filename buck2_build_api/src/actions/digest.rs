@@ -7,23 +7,41 @@
  * of this source tree.
  */
 
-use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::{FileDigest, FileDigestData};
 
 pub type ReDigest = remote_execution::TDigest;
 
 pub type GrpcDigest = remote_execution::Digest;
 
-pub trait FileDigestReExt {
-    fn to_re(&self) -> ReDigest;
-
+pub trait FileDigestFromReExt {
     fn from_re(x: &ReDigest) -> Self;
-
-    fn to_grpc(&self) -> GrpcDigest;
-
     fn from_grpc(x: &GrpcDigest) -> Self;
 }
 
-impl FileDigestReExt for FileDigest {
+pub trait FileDigestToReExt {
+    fn to_re(&self) -> ReDigest;
+    fn to_grpc(&self) -> GrpcDigest;
+}
+
+impl FileDigestFromReExt for FileDigestData {
+    fn from_re(x: &ReDigest) -> Self {
+        Self {
+            sha1: FileDigest::parse_digest(x.hash.as_bytes())
+                .unwrap_or_else(|| panic!("Invalid ReDigest {}:{}", x.hash, x.size_in_bytes)),
+            size: x.size_in_bytes as u64,
+        }
+    }
+
+    fn from_grpc(x: &GrpcDigest) -> Self {
+        Self {
+            sha1: FileDigest::parse_digest(x.hash.as_bytes())
+                .unwrap_or_else(|| panic!("Invalid GrpcDigest {}:{}", x.hash, x.size_bytes)),
+            size: x.size_bytes as u64,
+        }
+    }
+}
+
+impl FileDigestToReExt for FileDigest {
     fn to_re(&self) -> ReDigest {
         ReDigest {
             hash: hex::encode(self.sha1()),
@@ -32,35 +50,36 @@ impl FileDigestReExt for FileDigest {
         }
     }
 
-    fn from_re(x: &ReDigest) -> Self {
-        Self::new(
-            Self::parse_digest(x.hash.as_bytes())
-                .unwrap_or_else(|| panic!("Invalid ReDigest {}:{}", x.hash, x.size_in_bytes)),
-            x.size_in_bytes as u64,
-        )
-    }
-
     fn to_grpc(&self) -> GrpcDigest {
         GrpcDigest {
             hash: hex::encode(self.sha1()),
             size_bytes: self.size() as i64,
         }
     }
+}
 
-    fn from_grpc(x: &GrpcDigest) -> Self {
-        Self::new(
-            Self::parse_digest(x.hash.as_bytes())
-                .unwrap_or_else(|| panic!("Invalid GrpcDigest {}:{}", x.hash, x.size_bytes)),
-            x.size_bytes as u64,
-        )
+impl FileDigestToReExt for FileDigestData {
+    fn to_re(&self) -> ReDigest {
+        ReDigest {
+            hash: hex::encode(self.sha1),
+            size_in_bytes: self.size as i64,
+            ..Default::default()
+        }
+    }
+
+    fn to_grpc(&self) -> GrpcDigest {
+        GrpcDigest {
+            hash: hex::encode(self.sha1),
+            size_bytes: self.size as i64,
+        }
     }
 }
 
-pub trait FileDigestProtoExt {
+pub trait FileDigestFromProtoExt {
     fn from_proto_message<M: prost::Message>(m: &M) -> Self;
 }
 
-impl FileDigestProtoExt for FileDigest {
+impl FileDigestFromProtoExt for FileDigestData {
     fn from_proto_message<M: prost::Message>(m: &M) -> Self {
         let mut m_encoded = Vec::new();
         m.encode(&mut m_encoded)
