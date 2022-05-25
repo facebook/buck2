@@ -52,8 +52,6 @@ The `cmd_args` type is created by `cmd_args` and is consumed by `ctx.actions.run
 
 * `cmd.add(*args, format : str.type = None)` a list of arguments to be added to the command line, as per `cmd_args`.
 
-* `cmd.add_joined(*args, delimiter : str.type = None, format: str.type = None)` add things to `cmd_args` but with them joined into a single string.
-
 * `cmd.hidden(*args)` things to add to the command line which do not show up, but are added as dependencies.
 
 * `cmd.ignore_artifacts()` is conceptually the opposite of `hidden()`, it causes none of the arguments of the command line to be added as dependencies. Use this is you need to the path to an artifact but *not* the artifact itself. Note that if you do find yourself needing any of the inputs referenced by this command you will hit build errors due to misssing dependencies.

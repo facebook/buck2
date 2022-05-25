@@ -896,30 +896,6 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
         Ok(this)
     }
 
-    fn add_joined<'v>(
-        this: Value<'v>,
-        args: Vec<Value<'v>>,
-        delimiter: Option<StringValue<'v>>,
-        format: Option<StringValue<'v>>,
-        quote: Option<&str>,
-        prepend: Option<StringValue<'v>>,
-    ) -> anyhow::Result<Value<'v>> {
-        let mut inner_builder =
-            StarlarkCommandLine::new_with_options(FormattingOptions::maybe_new(
-                true,
-                delimiter,
-                format,
-                quote.try_map(|q| QuoteStyle::parse(q))?,
-                prepend,
-            ));
-        inner_builder.0.get_mut().add_values(&args)?;
-        cmd_args_mut(this)?
-            .0
-            .borrow_mut()
-            .add_value(heap.alloc(inner_builder))?;
-        Ok(this)
-    }
-
     fn hidden<'v>(this: Value<'v>, args: Vec<Value<'v>>) -> anyhow::Result<Value<'v>> {
         cmd_args_mut(this)?.0.borrow_mut().add_hidden(&args)?;
         Ok(this)
