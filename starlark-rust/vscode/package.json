@@ -32,6 +32,7 @@
                 "extensions": [
                     ".star",
                     ".sky",
+                    ".bxl",
                     ".bzl"
                 ],
                 "filenames": [
