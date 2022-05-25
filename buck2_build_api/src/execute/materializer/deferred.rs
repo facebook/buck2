@@ -11,7 +11,7 @@ use std::{collections::HashSet, str::FromStr, sync::Arc};
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_common::file_ops::{FileDigestData, TrackedFileDigest};
+use buck2_common::file_ops::{FileDigest, TrackedFileDigest};
 use buck2_core::{
     directory::{unordered_entry_walk, DirectoryEntry},
     env_helper::EnvHelper,
@@ -905,7 +905,7 @@ fn maybe_tombstone_digest(digest: &TrackedFileDigest) -> anyhow::Result<&Tracked
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
                     .with_context(|| format!("Invalid digest: `{}`", digest))?;
-                let digest = FileDigestData::from_re(&digest);
+                let digest = FileDigest::from_re(&digest);
                 let digest = TrackedFileDigest::new(digest.sha1, digest.size);
                 anyhow::Ok(digest)
             })

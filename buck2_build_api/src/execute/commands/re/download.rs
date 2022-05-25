@@ -10,7 +10,7 @@
 use std::{ops::ControlFlow, sync::Arc, time::SystemTime};
 
 use anyhow::Context as _;
-use buck2_common::file_ops::{FileDigestData, FileMetadata, TrackedFileDigest};
+use buck2_common::file_ops::{FileDigest, FileMetadata, TrackedFileDigest};
 use buck2_core::{directory::DirectoryEntry, fs::paths::ForwardRelativePath};
 use futures::future;
 use gazebo::prelude::*;
@@ -155,7 +155,7 @@ impl CasDownloader<'_> {
         let mut input_dir = input_dir.clone().into_builder();
 
         for x in output_spec.output_files() {
-            let digest = FileDigestData::from_re(&x.digest.digest);
+            let digest = FileDigest::from_re(&x.digest.digest);
             let digest = TrackedFileDigest::new_expires(digest.sha1, digest.size, expires);
 
             let entry = DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {

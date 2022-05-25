@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_common::file_ops::{FileDigestData, TrackedFileDigest};
+use buck2_common::file_ops::{FileDigest, TrackedFileDigest};
 
 pub type ReDigest = remote_execution::TDigest;
 
@@ -23,7 +23,7 @@ pub trait FileDigestToReExt {
     fn to_grpc(&self) -> GrpcDigest;
 }
 
-impl FileDigestFromReExt for FileDigestData {
+impl FileDigestFromReExt for FileDigest {
     fn from_re(x: &ReDigest) -> Self {
         Self {
             sha1: TrackedFileDigest::parse_digest(x.hash.as_bytes())
@@ -58,7 +58,7 @@ impl FileDigestToReExt for TrackedFileDigest {
     }
 }
 
-impl FileDigestToReExt for FileDigestData {
+impl FileDigestToReExt for FileDigest {
     fn to_re(&self) -> ReDigest {
         ReDigest {
             hash: hex::encode(self.sha1),
@@ -79,7 +79,7 @@ pub trait FileDigestFromProtoExt {
     fn from_proto_message<M: prost::Message>(m: &M) -> Self;
 }
 
-impl FileDigestFromProtoExt for FileDigestData {
+impl FileDigestFromProtoExt for FileDigest {
     fn from_proto_message<M: prost::Message>(m: &M) -> Self {
         let mut m_encoded = Vec::new();
         m.encode(&mut m_encoded)

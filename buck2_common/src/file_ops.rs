@@ -101,20 +101,20 @@ const SHA1_SIZE: usize = 20;
 /// The bytes that make up a file digest.
 #[derive(Display, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[display(fmt = "{}:{}", "hex::encode(sha1)", size)]
-pub struct FileDigestData {
+pub struct FileDigest {
     pub size: u64,
     pub sha1: [u8; SHA1_SIZE],
 }
 
-impl fmt::Debug for FileDigestData {
+impl fmt::Debug for FileDigest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self)
     }
 }
 
-impl Dupe for FileDigestData {}
+impl Dupe for FileDigest {}
 
-impl FileDigestData {
+impl FileDigest {
     pub fn from_bytes(bytes: &[u8]) -> Self {
         let sha1 = Sha1::digest(bytes).into();
         Self {
@@ -132,7 +132,7 @@ impl FileDigestData {
 #[derivative(PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[display(fmt = "{}", data)]
 struct FileDigestInner {
-    data: FileDigestData,
+    data: FileDigest,
     #[derivative(
         PartialOrd = "ignore",
         Ord = "ignore",
@@ -166,7 +166,7 @@ impl TrackedFileDigest {
             return EMPTY_DIGEST
                 .get_or_init(|| Self {
                     inner: Arc::new(FileDigestInner {
-                        data: FileDigestData { size, sha1 },
+                        data: FileDigest { size, sha1 },
                         expires: AtomicU64::new(0),
                     }),
                 })
@@ -175,7 +175,7 @@ impl TrackedFileDigest {
 
         Self {
             inner: Arc::new(FileDigestInner {
-                data: FileDigestData { size, sha1 },
+                data: FileDigest { size, sha1 },
                 expires: AtomicU64::new(0),
             }),
         }
@@ -187,7 +187,7 @@ impl TrackedFileDigest {
         res
     }
 
-    pub fn data(&self) -> &FileDigestData {
+    pub fn data(&self) -> &FileDigest {
         &self.inner.data
     }
 

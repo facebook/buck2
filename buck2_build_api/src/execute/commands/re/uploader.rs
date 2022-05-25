@@ -15,7 +15,7 @@ use std::{
 };
 
 use anyhow::Context;
-use buck2_common::file_ops::{FileDigestData, TrackedFileDigest};
+use buck2_common::file_ops::{FileDigest, TrackedFileDigest};
 use buck2_core::{
     directory::{DirectoryEntry, DirectoryIterator},
     env_helper::EnvHelper,
@@ -124,7 +124,7 @@ impl Uploader {
         let mut input_digests = input_digests.into_iter().collect::<Vec<_>>();
         input_digests.sort();
 
-        let mut digest_ttls = digest_ttls.into_map(|d| (FileDigestData::from_re(&d.digest), d.ttl));
+        let mut digest_ttls = digest_ttls.into_map(|d| (FileDigest::from_re(&d.digest), d.ttl));
         digest_ttls.sort();
 
         if input_digests.len() != digest_ttls.len() {
@@ -383,7 +383,7 @@ fn add_injected_missing_digests(
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
                     .with_context(|| format!("Invalid digest: `{}`", digest))?;
-                let digest = FileDigestData::from_re(&digest);
+                let digest = FileDigest::from_re(&digest);
                 let digest = TrackedFileDigest::new(digest.sha1, digest.size);
                 anyhow::Ok(digest)
             })
