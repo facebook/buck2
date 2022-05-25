@@ -62,6 +62,7 @@ rust_library(
         "fbsource//third-party/rust:linked-hash-map",
         "fbsource//third-party/rust:maplit",
         "fbsource//third-party/rust:memmap",
+        "fbsource//third-party/rust:multimap",
         "fbsource//third-party/rust:nix",
         "fbsource//third-party/rust:num_cpus",
         "fbsource//third-party/rust:object",

@@ -48,6 +48,7 @@ linked-hash-map = { version = "0.5", features = ["serde_impl"] }
 maplit = "1.0.2"
 memmap = "0.7.0"
 more_futures = { path = "../shed/more_futures" }
+multimap = "0.8.3"
 nix = "0.22"
 num_cpus = "1.11"
 object = "0.25.3"

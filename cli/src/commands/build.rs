@@ -22,6 +22,8 @@ use cli_proto::{
 };
 use futures::TryStreamExt;
 use gazebo::prelude::*;
+use multimap::MultiMap;
+use serde::Serialize;
 use structopt::{clap, StructOpt};
 
 use crate::{
@@ -298,7 +300,39 @@ pub fn print_outputs(
     as_json: bool,
     show_all_outputs: bool,
 ) -> anyhow::Result<()> {
-    let mut output_map = HashMap::new();
+    #[derive(Serialize)]
+    #[serde(untagged)]
+    enum TargetOutputs {
+        AllOutputs(MultiMap<String, String>),
+        DefaultOutput(HashMap<String, String>),
+    }
+
+    impl TargetOutputs {
+        fn all_outputs() -> Self {
+            Self::AllOutputs(MultiMap::new())
+        }
+
+        fn default_output() -> Self {
+            Self::DefaultOutput(HashMap::new())
+        }
+
+        fn insert(&mut self, target: String, output: String) {
+            match self {
+                TargetOutputs::AllOutputs(map) => {
+                    map.insert(target, output);
+                }
+                TargetOutputs::DefaultOutput(map) => {
+                    map.insert(target, output);
+                }
+            }
+        }
+    }
+
+    let mut output_map = if show_all_outputs {
+        TargetOutputs::all_outputs()
+    } else {
+        TargetOutputs::default_output()
+    };
     let mut process_output = |target: &String, output: Option<String>| -> anyhow::Result<()> {
         let output = match output {
             Some(output) => match &root_path {
