@@ -86,8 +86,10 @@ impl Uploader {
         metadata: RemoteExecutionMetadata,
         knobs: &ReExecutorGlobalKnobs,
     ) -> anyhow::Result<()> {
+        // RE mentions they usually take 5-10 minutes of leeway so we mirror this here.
         let now = SystemTime::now();
-        let deadline = now + Duration::from_secs(600);
+        let ttl_wanted = 600i64;
+        let ttl_deadline = now + Duration::from_secs(ttl_wanted as u64);
 
         // See if anything needs uploading
         let mut input_digests = blobs.keys().collect::<HashSet<_>>();
@@ -100,13 +102,13 @@ impl Uploader {
                     DirectoryEntry::Leaf(..) => continue,
                 };
 
-                if knobs.always_check_ttls || digest.expires() <= deadline {
+                if knobs.always_check_ttls || digest.expires() <= ttl_deadline {
                     input_digests.insert(digest);
                 }
             }
 
             let root_dir_digest = input_dir.fingerprint();
-            if knobs.always_check_ttls || root_dir_digest.expires() <= deadline {
+            if knobs.always_check_ttls || root_dir_digest.expires() <= ttl_deadline {
                 input_digests.insert(root_dir_digest);
             }
 
@@ -148,7 +150,7 @@ impl Uploader {
                 return Err(anyhow::anyhow!("Invalid response from get_digests_ttl"));
             }
 
-            if digest_ttl <= 0 {
+            if digest_ttl <= ttl_wanted {
                 match blobs.get(digest) {
                     Some(blob) => {
                         upload_blobs.push(InlinedBlobWithDigest {
