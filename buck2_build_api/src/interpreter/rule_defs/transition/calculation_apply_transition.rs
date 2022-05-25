@@ -18,7 +18,8 @@ use buck2_core::{
 };
 use derive_more::Display;
 use dice::{DiceComputations, Key};
-use gazebo::dupe::Dupe;
+use gazebo::{dupe::Dupe, prelude::*};
+use itertools::Itertools;
 use starlark::{
     collections::SmallMap,
     environment::Module,
@@ -29,6 +30,7 @@ use thiserror::Error;
 
 use crate::{
     analysis::calculation::RuleAnalysisCalculation,
+    attrs::coerced_attr::CoercedAttr,
     interpreter::rule_defs::{
         provider::{platform_info::PlatformInfo, FrozenProviderCollectionValue},
         transition::{
@@ -92,6 +94,7 @@ fn call_transition_function<'v>(
 
 async fn do_apply_transition(
     ctx: &DiceComputations,
+    attrs: Option<&[Option<CoercedAttr>]>,
     conf: &Configuration,
     transition_id: &TransitionId,
 ) -> SharedResult<TransitionApplied> {
@@ -110,6 +113,7 @@ async fn do_apply_transition(
     }
     let mut eval = Evaluator::new(&module);
     let refs = module.heap().alloc_complex(Struct::new(refs));
+    let _ = attrs; // TODO(nga): used in the following diffs.
     match call_transition_function(&transition, conf, refs, &mut eval).shared_error()? {
         TransitionApplied::Single(new) => {
             let new_2 = match call_transition_function(&transition, &new, refs, &mut eval)
@@ -174,10 +178,37 @@ impl ApplyTransition for DiceComputations {
         transition_id: &TransitionId,
     ) -> SharedResult<Arc<TransitionApplied>> {
         #[derive(Debug, Eq, PartialEq, Hash, Clone, Display)]
-        #[display(fmt = "{} ({})", transition_id, cfg)]
+        #[display(fmt = "{} ({}){}", transition_id, cfg, "self.fmt_attrs()")]
         struct TransitionKey {
             cfg: Configuration,
             transition_id: TransitionId,
+            /// Attributes which requested by transition function, not all attributes.
+            /// The attr value index is the index of attribute in transition object.
+            /// Attributes are added here so multiple targets with the equal attributes
+            /// (e.g. the same `java_version = 14`) share the transition computation.
+            attrs: Option<Vec<Option<CoercedAttr>>>,
+        }
+
+        impl TransitionKey {
+            fn fmt_attrs(&self) -> String {
+                if let Some(attrs) = &self.attrs {
+                    format!(
+                        " [{}]",
+                        attrs
+                            .iter()
+                            .map(|a| {
+                                if let Some(attr) = a {
+                                    attr.to_string()
+                                } else {
+                                    "None".to_owned()
+                                }
+                            })
+                            .join(", ")
+                    )
+                } else {
+                    String::new()
+                }
+            }
         }
 
         #[async_trait]
@@ -185,8 +216,10 @@ impl ApplyTransition for DiceComputations {
             type Value = SharedResult<Arc<TransitionApplied>>;
 
             async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-                let v: SharedResult<_> =
-                    try { do_apply_transition(ctx, &self.cfg, &self.transition_id).await? };
+                let v: SharedResult<_> = try {
+                    do_apply_transition(ctx, self.attrs.as_deref(), &self.cfg, &self.transition_id)
+                        .await?
+                };
 
                 Ok(Arc::new(v.with_context(|| {
                     format!("when computing transition `{}`", self)
@@ -202,12 +235,19 @@ impl ApplyTransition for DiceComputations {
             }
         }
 
-        // TODO(nga): used in the following diffs.
-        let _ = target_node;
+        let transition = self.fetch_transition(transition_id).await?;
+
+        #[allow(clippy::manual_map)]
+        let attrs = if let Some(attrs) = &transition.attrs {
+            Some(attrs.try_map(|attr| target_node.attr(attr).map(|o| o.cloned()))?)
+        } else {
+            None
+        };
 
         let key = TransitionKey {
             cfg: cfg.dupe(),
             transition_id: transition_id.clone(),
+            attrs,
         };
 
         self.compute(&key).await
