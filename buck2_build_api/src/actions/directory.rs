@@ -13,6 +13,7 @@ use std::{
     fmt::Debug,
     path::{Path, PathBuf},
     sync::Arc,
+    time::SystemTime,
 };
 
 use anyhow::Context as _;
@@ -201,30 +202,36 @@ pub fn new_symlink<T: AsRef<Path>>(target: T) -> ActionDirectoryMember {
 /// Constructs a `Directory` from an `RE::Tree`. As long as the
 /// `RE::Tree` is valid (i.e. nothing is broken in the RE side), this
 /// should always succeed.
-pub fn convert_re_tree(tree: &RE::Tree) -> anyhow::Result<ActionDirectoryBuilder> {
+#[allow(clippy::trivially_copy_pass_by_ref)] // SystemTime is a different size on Windows
+pub fn convert_re_tree(
+    tree: &RE::Tree,
+    leaf_expires: &SystemTime,
+) -> anyhow::Result<ActionDirectoryBuilder> {
     // Recursively builds the directory
     fn dfs_build(
         re_dir: &RE::Directory,
         dir_digest: FileDigest,
         dirmap: &HashMap<FileDigest, &RE::Directory>,
+        leaf_expires: &SystemTime,
     ) -> anyhow::Result<ActionDirectoryBuilder> {
         let mut builder = ActionDirectoryBuilder::empty();
         for node in &re_dir.files {
-            match node.digest {
-                None => {
-                    return Err(DirectoryReConversionError::NodeWithDigestNone(
-                        node.name.clone(),
-                        dir_digest,
-                    )
-                    .into());
-                }
-                Some(_) => builder.insert(
-                    FileNameBuf::try_from(node.name.clone()).map_err(|_| {
-                        DirectoryReConversionError::IncorrectFileName(node.name.clone())
-                    })?,
-                    DirectoryEntry::Leaf(node.into()),
-                )?,
-            };
+            let name = FileNameBuf::try_from(node.name.clone()).with_context(|| {
+                DirectoryReConversionError::IncorrectFileName(node.name.clone())
+            })?;
+
+            let digest = node.digest.as_ref().with_context(|| {
+                DirectoryReConversionError::NodeWithDigestNone(node.name.clone(), dir_digest.dupe())
+            })?;
+            let digest = FileDigest::from_grpc(digest);
+            digest.update_expires(*leaf_expires);
+
+            let member = ActionDirectoryMember::File(FileMetadata {
+                digest,
+                is_executable: node.is_executable,
+            });
+
+            builder.insert(name, DirectoryEntry::Leaf(member))?;
         }
         for node in &re_dir.symlinks {
             builder.insert(
@@ -256,7 +263,7 @@ pub fn convert_re_tree(tree: &RE::Tree) -> anyhow::Result<ActionDirectoryBuilder
                 }
                 Some(&d) => d,
             };
-            let dir = dfs_build(child_re_dir, child_digest, dirmap)?;
+            let dir = dfs_build(child_re_dir, child_digest, dirmap, leaf_expires)?;
             builder.insert(
                 FileNameBuf::try_from(dir_node.name.clone()).map_err(|_| {
                     DirectoryReConversionError::IncorrectFileName(dir_node.name.clone())
@@ -284,7 +291,7 @@ pub fn convert_re_tree(tree: &RE::Tree) -> anyhow::Result<ActionDirectoryBuilder
         .chain(vec![(root_dir_digest.dupe(), root_dir)])
         .collect();
 
-    dfs_build(root_dir, root_dir_digest, &dirmap)
+    dfs_build(root_dir, root_dir_digest, &dirmap, leaf_expires)
 }
 
 #[derive(Debug, Error)]
@@ -296,16 +303,6 @@ pub enum DirectoryReConversionError {
     IncompleteTreeChildrenList(String, FileDigest),
     #[error("Converting RE::Tree to Directory, file name `{0}` is incorrect")]
     IncorrectFileName(String),
-}
-
-impl<'a> From<&'a RE::FileNode> for ActionDirectoryMember {
-    fn from(node: &'a RE::FileNode) -> ActionDirectoryMember {
-        let digest = node.digest.as_ref().expect("FileNode has Some(digest)");
-        ActionDirectoryMember::File(FileMetadata {
-            digest: FileDigest::from_grpc(digest),
-            is_executable: node.is_executable,
-        })
-    }
 }
 
 impl<'a> From<&'a RE::SymlinkNode> for ActionDirectoryMember {

@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use std::{ops::ControlFlow, sync::Arc};
+use std::{ops::ControlFlow, sync::Arc, time::SystemTime};
 
 use anyhow::Context as _;
 use buck2_common::file_ops::{FileDigest, FileMetadata};
@@ -173,7 +173,10 @@ impl CasDownloader<'_> {
             .context(DownloadError::DownloadTrees)?;
 
         for (dir, tree) in output_spec.output_directories().iter().zip(trees) {
-            let entry = convert_re_tree(&tree)?;
+            let entry = convert_re_tree(
+                &tree,
+                &(SystemTime::now() + std::time::Duration::from_secs(3600 * 5)),
+            )?;
             input_dir.insert(
                 re_forward_path(dir.path.as_str())?,
                 DirectoryEntry::Dir(entry),
