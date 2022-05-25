@@ -35,7 +35,8 @@ use crate::interpreter::{
     build_defs::register_natives,
     module_internals::{ModuleInternals, PackageImplicits},
     rule_defs::{
-        attr::BuildAttrCoercionContext, cmd_args::register_args_function, register_rule_defs,
+        attr::BuildAttrCoercionContext, cmd_args::register_args_function,
+        command_executor_config::register_command_executor_config, register_rule_defs,
         transition::starlark::register_transition_defs,
     },
 };
@@ -115,6 +116,7 @@ pub fn configure_extension_file_globals(globals_builder: &mut GlobalsBuilder) {
     register_args_function(globals_builder);
     register_rule_defs(globals_builder);
     register_transition_defs(globals_builder);
+    register_command_executor_config(globals_builder);
 }
 
 impl InterpreterConfiguror for BuildInterpreterConfiguror {

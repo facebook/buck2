@@ -6,7 +6,12 @@ use gazebo::{
     coerce::Coerce,
 };
 use indexmap::IndexMap;
-use starlark::values::{dict::Dict, Freeze, NoSerialize, StarlarkValue, Trace, ValueLike};
+use starlark::{
+    environment::GlobalsBuilder,
+    values::{
+        dict::Dict, none::NoneType, Freeze, NoSerialize, StarlarkValue, Trace, Value, ValueLike,
+    },
+};
 use thiserror::Error;
 
 use crate::execute::{CommandExecutorConfig, LocalExecutorOptions, RemoteExecutorOptions};
@@ -131,5 +136,30 @@ impl<'v, V: ValueLike<'v>> StarlarkCommandExecutorConfigGen<V> {
         };
 
         CommandExecutorConfig::new(local_options, remote_options, allow_full_hybrid)
+    }
+}
+
+#[starlark_module]
+pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
+    #[starlark(type = "command_executor_config")]
+    fn CommandExecutorConfig<'v>(
+        local_enabled: Value<'v>,
+        remote_enabled: Value<'v>,
+        #[starlark(default = NoneType, require = named)] remote_execution_properties: Value<'v>,
+        #[starlark(default = NoneType, require = named)] remote_execution_action_key: Value<'v>,
+        #[starlark(default = NoneType, require = named)] remote_execution_max_input_files_mebibytes: Value<'v>,
+        #[starlark(default = NoneType, require = named)] use_limited_hybrid: Value<'v>,
+    ) -> anyhow::Result<StarlarkCommandExecutorConfig<'v>> {
+        let config = StarlarkCommandExecutorConfig {
+            remote_enabled,
+            local_enabled,
+            remote_execution_properties,
+            remote_execution_action_key,
+            remote_execution_max_input_files_mebibytes,
+            use_limited_hybrid,
+        };
+        // This checks that the values are valid.
+        config.to_command_executor_config()?;
+        Ok(config)
     }
 }
