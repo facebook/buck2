@@ -7,7 +7,6 @@ edition = "2021"
 anyhow = "1.0.51"
 async-trait = "0.1.24"
 base64 = "0.13.0"
-buck2_core = { path = "../buck2_core" }
 byteorder = "1.4.3"
 cli_proto = { path = "../cli_proto" }
 derive_more = "0.99.3"
