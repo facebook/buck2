@@ -36,7 +36,7 @@ use derivative::Derivative;
 use derive_more::Display;
 use gazebo::{cmp::PartialEqAny, prelude::*};
 use globset::{Candidate, GlobSetBuilder};
-use once_cell::sync::Lazy;
+use once_cell::sync::{Lazy, OnceCell};
 use regex::Regex;
 use sha1::{Digest, Sha1};
 use thiserror::Error;
@@ -98,7 +98,10 @@ pub struct SimpleDirEntry {
 // The number of bytes required by a SHA1 hash
 const SHA1_SIZE: usize = 20;
 
-/// A digest of a file, which is it's size and sha1 hash
+/// A digest to interact with RE. This, despite the name, can be a file or a directory. We track
+/// the sha1 and the size of the underlying blob. We *also* keep track of its expiry in the CAS.
+/// Note that for directory, the expiry represents that of the directory's blob, not its underlying
+/// contents.
 #[derive(Display, Clone, Derivative)]
 #[derivative(PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[display(fmt = "{}:{}", "hex::encode(sha1)", size)]
@@ -111,7 +114,7 @@ pub struct FileDigest {
         PartialEq = "ignore",
         Hash = "ignore"
     )]
-    pub expires: Arc<AtomicU64>,
+    expires: Arc<AtomicU64>,
 }
 
 impl fmt::Debug for FileDigest {
@@ -125,6 +128,18 @@ impl Dupe for FileDigest {}
 
 impl FileDigest {
     pub fn new(sha1: [u8; SHA1_SIZE], size: u64) -> Self {
+        if size == 0 {
+            static EMPTY_DIGEST: OnceCell<FileDigest> = OnceCell::new();
+
+            return EMPTY_DIGEST
+                .get_or_init(|| Self {
+                    size,
+                    sha1,
+                    expires: Arc::new(AtomicU64::new(0)),
+                })
+                .dupe();
+        }
+
         Self {
             size,
             sha1,
