@@ -44,6 +44,7 @@ use crate::{
             BaseCommandLineBuilder, FrozenStarlarkCommandLine, StarlarkCommandLine,
             ValueAsCommandLineLike,
         },
+        label::Label,
         target_label::StarlarkTargetLabel,
     },
 };
@@ -121,6 +122,9 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
         } else if let Some(x) = StarlarkTargetLabel::from_value(self.value) {
             // Users could do this with `str(ctx.label.raw_target())`, but in some benchmarks that causes
             // a lot of additional memory to be retained for all those strings
+            x.serialize(serializer)
+        } else if let Some(x) = Label::from_value(self.value) {
+            // Users could do this with `str(ctx.label)`, but a bit wasteful
             x.serialize(serializer)
         } else if let Some(x) = get_artifact(self.value) {
             match self.fs {

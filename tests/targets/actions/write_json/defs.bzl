@@ -37,6 +37,16 @@ def _check_target(x):
     if a != b:
         fail("Targets should match, got " + repr(x))
 
+def _create_label(ctx: "context"):
+    # We don't want to hardcode the label, as different roots may change it,
+    # so instead check it matches the string representation
+    return [ctx.label, str(ctx.label)]
+
+def _check_label(x):
+    [a, b] = x
+    if a != b:
+        fail("Labels should match, got " + repr(x))
+
 tests = [
     ("atom", lambda _: "test", "test"),
     ("simple", lambda _: [1], [1]),
@@ -47,6 +57,7 @@ tests = [
     ("artifact_declared", _create_artifact_declared, _check_artifact),
     ("artifact_output", _create_artifact_as_output, _check_artifact),
     ("target", _create_target, _check_target),
+    ("label", _create_label, _check_label),
     ("cmdargs", lambda _: {"more": cmd_args(["a", "b", "c"], format = "1{}")}, {"more": ["1a", "1b", "1c"]}),
     ("cmdargs_single", lambda _: {"test": cmd_args("abc")}, {"test": ["abc"]}),
     ("cmdargs_concat", lambda _: {"test": cmd_args("abc", delimiter = "")}, {"test": "abc"}),
