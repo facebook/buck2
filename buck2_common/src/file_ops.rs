@@ -8,8 +8,10 @@
  */
 
 use std::{
+    borrow::Borrow,
     fmt,
     fs::File,
+    hash::{Hash, Hasher},
     io::{self, Read},
     path::{Components, Path, PathBuf},
     sync::{
@@ -32,7 +34,6 @@ use buck2_core::{
     },
     result::SharedResult,
 };
-use derivative::Derivative;
 use derive_more::Display;
 use gazebo::{cmp::PartialEqAny, prelude::*};
 use globset::{Candidate, GlobSetBuilder};
@@ -230,23 +231,53 @@ impl FileDigest {
 /// the sha1 and the size of the underlying blob. We *also* keep track of its expiry in the CAS.
 /// Note that for directory, the expiry represents that of the directory's blob, not its underlying
 /// contents.
-#[derive(Display, Derivative)]
-#[derivative(PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[display(fmt = "{}", data)]
 struct FileDigestInner {
     data: FileDigest,
-    #[derivative(
-        PartialOrd = "ignore",
-        Ord = "ignore",
-        PartialEq = "ignore",
-        Hash = "ignore"
-    )]
     expires: AtomicU64,
 }
 
-#[derive(Display, Clone, Dupe, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Display, Clone, Dupe)]
+#[display(fmt = "{}", "self.data()")]
 pub struct TrackedFileDigest {
     inner: Arc<FileDigestInner>,
+}
+
+impl Borrow<FileDigest> for TrackedFileDigest {
+    fn borrow(&self) -> &FileDigest {
+        self.data()
+    }
+}
+
+impl<'a> Borrow<FileDigest> for &'a TrackedFileDigest {
+    fn borrow(&self) -> &FileDigest {
+        self.data()
+    }
+}
+
+impl PartialOrd for TrackedFileDigest {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.data().partial_cmp(other.data())
+    }
+}
+
+impl Ord for TrackedFileDigest {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.data().cmp(other.data())
+    }
+}
+
+impl PartialEq for TrackedFileDigest {
+    fn eq(&self, other: &Self) -> bool {
+        self.data().eq(other.data())
+    }
+}
+
+impl Eq for TrackedFileDigest {}
+
+impl Hash for TrackedFileDigest {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.data().hash(state)
+    }
 }
 
 impl fmt::Debug for TrackedFileDigest {
@@ -954,6 +985,8 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::hash_map::DefaultHasher;
+
     use super::*;
 
     #[test]
@@ -1080,5 +1113,22 @@ mod tests {
 
             Ok(())
         }
+    }
+
+    #[test]
+    fn test_tracked_file_digest_equivalence() {
+        let digest = FileDigest::from_bytes(b"foo");
+        let tracked_digest = TrackedFileDigest::new(digest.dupe());
+
+        assert_eq!(&digest, tracked_digest.borrow());
+
+        let mut hasher_digest = DefaultHasher::new();
+        digest.hash(&mut hasher_digest);
+
+        let mut hasher_tracked_digest = DefaultHasher::new();
+        tracked_digest.hash(&mut hasher_tracked_digest);
+
+        assert_eq!(hasher_digest.finish(), hasher_tracked_digest.finish());
+        assert_eq!(digest.to_string(), tracked_digest.to_string());
     }
 }

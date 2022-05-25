@@ -374,29 +374,28 @@ fn error_for_missing_file(
 
 /// This is used for tests. We allow an environment variable to be set to report that some digests
 /// are _always_ missing if they are required. This lets us test our upload paths more easily.
-fn add_injected_missing_digests(
-    input_digests: &HashSet<&TrackedFileDigest>,
-    missing_digests: &mut HashSet<&TrackedFileDigest>,
+fn add_injected_missing_digests<'a>(
+    input_digests: &HashSet<&'a TrackedFileDigest>,
+    missing_digests: &mut HashSet<&'a TrackedFileDigest>,
 ) -> anyhow::Result<()> {
-    fn convert_digests(val: &str) -> anyhow::Result<Vec<TrackedFileDigest>> {
+    fn convert_digests(val: &str) -> anyhow::Result<Vec<FileDigest>> {
         val.split(' ')
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
                     .with_context(|| format!("Invalid digest: `{}`", digest))?;
                 let digest = FileDigest::from_re(&digest);
-                let digest = TrackedFileDigest::new(digest);
                 anyhow::Ok(digest)
             })
             .collect()
     }
 
-    static INJECTED_DIGESTS: EnvHelper<Vec<TrackedFileDigest>> =
+    static INJECTED_DIGESTS: EnvHelper<Vec<FileDigest>> =
         EnvHelper::with_converter("BUCK2_TEST_INJECTED_MISSING_DIGESTS", convert_digests);
 
     if let Some(digests) = INJECTED_DIGESTS.get()?.as_ref() {
         for d in digests {
-            if input_digests.contains(&d) {
-                missing_digests.insert(d);
+            if let Some(i) = input_digests.get(d) {
+                missing_digests.insert(i);
             }
         }
     }
