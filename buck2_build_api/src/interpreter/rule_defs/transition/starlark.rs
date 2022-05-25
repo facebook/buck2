@@ -12,7 +12,9 @@ use std::{cell::RefCell, sync::Arc};
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::{common::ImportPath, extra::BuildContext};
 use derive_more::Display;
-use gazebo::{any::AnyLifetime, dupe::Dupe};
+use gazebo::{any::AnyLifetime, dupe::Dupe, prelude::*};
+use hashbrown::HashSet;
+use itertools::Itertools;
 use starlark::{
     collections::SmallMap,
     environment::GlobalsBuilder,
@@ -42,10 +44,12 @@ enum TransitionError {
     )]
     MustBeDefNotDef,
     #[error(
-        "`transition` implementation must be def with two parameters: `platform` and `refs`, \
-        but it is a def with signature `{0}`"
-    )]
-    MustBeDefWrongSig(String),
+        "`transition` implementation must be def with parameters: {}, \
+        but it is a def with signature `{0}`",
+        _1.iter().map(|s| format!("`{}`", s)).join(", "))]
+    MustBeDefWrongSig(String, &'static [&'static str]),
+    #[error("Non-unique list of attrs")]
+    NonUniqueAttrs,
 }
 
 /// Wrapper for `TargetLabel` which is `Trace`.
@@ -65,6 +69,8 @@ pub(crate) struct Transition<'v> {
     implementation: Value<'v>,
     /// Providers needed for the transition function. A map by target label.
     refs: SmallMap<StringValue<'v>, TargetLabelTrace>,
+    /// Transition function accesses theses attributes.
+    attrs: Option<Vec<StringValue<'v>>>,
     /// Is this split transition? I. e. transition to multiple configurations.
     split: bool,
 }
@@ -75,6 +81,7 @@ pub struct FrozenTransition {
     id: Arc<TransitionId>,
     pub(crate) implementation: FrozenValue,
     pub(crate) refs: SmallMap<FrozenStringValue, TargetLabel>,
+    pub(crate) attrs: Option<Vec<FrozenStringValue>>,
     pub(crate) split: bool,
 }
 
@@ -111,11 +118,16 @@ impl<'v> Freeze for Transition<'v> {
             .into_iter()
             .map(|(k, v)| Ok((k.freeze(freezer)?, v.0)))
             .collect::<anyhow::Result<_>>()?;
+        let attrs = self
+            .attrs
+            .map(|a| a.into_try_map(|a| a.freeze(freezer)))
+            .transpose()?;
         let split = self.split;
         Ok(FrozenTransition {
             id,
             implementation,
             refs,
+            attrs,
             split,
         })
     }
@@ -145,6 +157,7 @@ fn register_transition_function(builder: &mut GlobalsBuilder) {
     fn transition<'v>(
         implementation: Value,
         #[starlark(require = named)] refs: DictOf<'v, StringValue<'v>, StringValue<'v>>,
+        #[starlark(require = named)] attrs: Option<Vec<StringValue<'v>>>,
         #[starlark(require = named, default = false)] split: bool,
     ) -> anyhow::Result<Transition<'v>> {
         let context = get_attr_coercion_context(eval)?;
@@ -165,10 +178,21 @@ fn register_transition_function(builder: &mut GlobalsBuilder) {
             Some(parameters_spec) => parameters_spec,
             None => return Err(TransitionError::MustBeDefNotDef.into()),
         };
-        if !parameters_spec.can_fill_with_args(0, &["platform", "refs"]) {
-            return Err(
-                TransitionError::MustBeDefWrongSig(parameters_spec.parameters_str()).into(),
-            );
+        let expected_params: &[&str] = if let Some(attrs) = &attrs {
+            let attrs_set: HashSet<StringValue> = attrs.iter().copied().collect();
+            if attrs_set.len() != attrs.len() {
+                return Err(TransitionError::NonUniqueAttrs.into());
+            }
+            &["platform", "refs", "attrs"]
+        } else {
+            &["platform", "refs"]
+        };
+        if !parameters_spec.can_fill_with_args(0, expected_params) {
+            return Err(TransitionError::MustBeDefWrongSig(
+                parameters_spec.parameters_str(),
+                expected_params,
+            )
+            .into());
         }
 
         Ok(Transition {
@@ -176,6 +200,7 @@ fn register_transition_function(builder: &mut GlobalsBuilder) {
             path,
             implementation,
             refs,
+            attrs,
             split,
         })
     }
