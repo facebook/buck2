@@ -17,7 +17,7 @@ use std::{
 };
 
 use anyhow::Context as _;
-use buck2_common::file_ops::{ExternalSymlink, FileDigest, FileDigestData, FileMetadata};
+use buck2_common::file_ops::{ExternalSymlink, FileDigestData, FileMetadata, TrackedFileDigest};
 use buck2_core::{
     directory::{
         find, unordered_entry_walk, DashMapDirectoryInterner, Directory, DirectoryBuilder,
@@ -142,7 +142,7 @@ fn proto_serialize<M: prost::Message>(m: &M) -> Vec<u8> {
 }
 
 impl HasDirectoryDigest for ReDirectorySerializer {
-    type Digest = FileDigest;
+    type Digest = TrackedFileDigest;
 }
 
 impl DirectoryHasher<ActionDirectoryMember> for ReDirectorySerializer {
@@ -156,7 +156,7 @@ impl DirectoryHasher<ActionDirectoryMember> for ReDirectorySerializer {
         >,
         D: ActionFingerprintedDirectory + 'a,
     {
-        FileDigest::from_bytes(&Self::serialize_entries(entries))
+        TrackedFileDigest::from_bytes(&Self::serialize_entries(entries))
     }
 }
 
@@ -224,7 +224,7 @@ pub fn convert_re_tree(
                 DirectoryReConversionError::NodeWithDigestNone(node.name.clone(), dir_digest.dupe())
             })?;
             let digest = FileDigestData::from_grpc(digest);
-            let digest = FileDigest::new_expires(digest.sha1, digest.size, *leaf_expires);
+            let digest = TrackedFileDigest::new_expires(digest.sha1, digest.size, *leaf_expires);
 
             let member = ActionDirectoryMember::File(FileMetadata {
                 digest,

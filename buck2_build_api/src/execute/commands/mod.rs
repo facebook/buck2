@@ -20,7 +20,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-use buck2_common::file_ops::{FileDigest, FileMetadata};
+use buck2_common::file_ops::{FileMetadata, TrackedFileDigest};
 use buck2_core::{
     category::Category,
     directory::{DirectoryEntry, DirectoryIterator, FingerprintedDirectory},
@@ -497,7 +497,7 @@ pub(crate) fn inputs_directory(
 #[derive(Clone)]
 pub struct ActionMetadataBlob {
     pub data: Vec<u8>,
-    pub digest: FileDigest,
+    pub digest: TrackedFileDigest,
     pub path: BuckOutPath,
 }
 

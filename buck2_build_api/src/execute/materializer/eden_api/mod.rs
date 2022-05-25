@@ -464,7 +464,7 @@ impl EdenCommandProcessor {
 mod tests {
     use std::{path::PathBuf, sync::Arc};
 
-    use buck2_common::file_ops::{ExternalSymlink, FileDigest, FileMetadata};
+    use buck2_common::file_ops::{ExternalSymlink, FileMetadata, TrackedFileDigest};
     use buck2_core::fs::paths::{ForwardRelativePathBuf, RelativePathBuf};
     use gazebo::prelude::*;
 
@@ -502,7 +502,7 @@ mod tests {
 
     #[test]
     fn test_get_object_id_and_type_blob() -> anyhow::Result<()> {
-        let digest = FileDigest::from_bytes("content".as_bytes());
+        let digest = TrackedFileDigest::from_bytes("content".as_bytes());
         let metadata_executable = FileMetadata {
             digest: digest.dupe(),
             is_executable: true,

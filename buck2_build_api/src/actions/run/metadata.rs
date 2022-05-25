@@ -9,7 +9,7 @@
 
 use std::fmt::Display;
 
-use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::{
     directory::{Directory, DirectoryEntry, DirectoryIterator},
     fs::paths::ForwardRelativePathBuf,
@@ -35,7 +35,7 @@ where
 pub(super) fn metadata_content(
     fs: &ArtifactFs,
     inputs: &[&ArtifactGroupValues],
-) -> anyhow::Result<(Vec<u8>, FileDigest)> {
+) -> anyhow::Result<(Vec<u8>, TrackedFileDigest)> {
     let mut builder = ActionDirectoryBuilder::empty();
     for &group in inputs {
         group.add_to_directory(&mut builder, fs)?;
@@ -45,7 +45,7 @@ pub(super) fn metadata_content(
     struct PathWithDigest<'a> {
         path: ForwardRelativePathBuf,
         #[serde(serialize_with = "stringify")]
-        digest: &'a FileDigest,
+        digest: &'a TrackedFileDigest,
     }
 
     #[derive(Serialize)]
@@ -80,6 +80,6 @@ pub(super) fn metadata_content(
         version: 1,
     };
     let json_string = serde_json::to_string(&json)?;
-    let digest = FileDigest::from_bytes(json_string.as_bytes());
+    let digest = TrackedFileDigest::from_bytes(json_string.as_bytes());
     Ok((json_string.into(), digest))
 }

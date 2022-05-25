@@ -16,7 +16,7 @@ use std::{
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_common::file_ops::{FileDigest, FileMetadata};
+use buck2_common::file_ops::{FileMetadata, TrackedFileDigest};
 use buck2_core::category::Category;
 use gazebo::prelude::*;
 use indexmap::{indexmap, IndexMap, IndexSet};
@@ -308,7 +308,7 @@ impl PristineActionExecutable for WriteJsonAction {
 
                 let full_contents = self.get_contents(fs)?;
                 let value = ArtifactValue::file(FileMetadata {
-                    digest: FileDigest::from_bytes(&full_contents),
+                    digest: TrackedFileDigest::from_bytes(&full_contents),
                     is_executable: false,
                 });
 

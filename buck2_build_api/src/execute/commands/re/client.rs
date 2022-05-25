@@ -10,7 +10,7 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use anyhow::Context;
-use buck2_common::{file_ops::FileDigest, legacy_configs::LegacyBuckConfig};
+use buck2_common::{file_ops::TrackedFileDigest, legacy_configs::LegacyBuckConfig};
 use buck2_core::env_helper::EnvHelper;
 use derive_more::Display;
 use either::Either;
@@ -259,7 +259,7 @@ fn re_platform(x: &RE::Platform) -> remote_execution::TPlatform {
 }
 
 #[derive(Display, Debug, Clone, Dupe)]
-pub struct ActionDigest(FileDigest);
+pub struct ActionDigest(TrackedFileDigest);
 
 pub struct PreparedAction {
     pub action: ActionDigest,
@@ -274,8 +274,8 @@ pub fn re_create_action(
     output_directories: Vec<String>,
     workdir: Option<String>,
     environment: &HashMap<String, String>,
-    input_digest: &FileDigest,
-    blobs: impl Iterator<Item = (Vec<u8>, FileDigest)>,
+    input_digest: &TrackedFileDigest,
+    blobs: impl Iterator<Item = (Vec<u8>, TrackedFileDigest)>,
     timeout: Option<&Duration>,
     platform: Option<RE::Platform>,
     do_not_cache: bool,

@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_common::file_ops::{FileDigest, FileDigestData};
+use buck2_common::file_ops::{FileDigestData, TrackedFileDigest};
 
 pub type ReDigest = remote_execution::TDigest;
 
@@ -26,7 +26,7 @@ pub trait FileDigestToReExt {
 impl FileDigestFromReExt for FileDigestData {
     fn from_re(x: &ReDigest) -> Self {
         Self {
-            sha1: FileDigest::parse_digest(x.hash.as_bytes())
+            sha1: TrackedFileDigest::parse_digest(x.hash.as_bytes())
                 .unwrap_or_else(|| panic!("Invalid ReDigest {}:{}", x.hash, x.size_in_bytes)),
             size: x.size_in_bytes as u64,
         }
@@ -34,14 +34,14 @@ impl FileDigestFromReExt for FileDigestData {
 
     fn from_grpc(x: &GrpcDigest) -> Self {
         Self {
-            sha1: FileDigest::parse_digest(x.hash.as_bytes())
+            sha1: TrackedFileDigest::parse_digest(x.hash.as_bytes())
                 .unwrap_or_else(|| panic!("Invalid GrpcDigest {}:{}", x.hash, x.size_bytes)),
             size: x.size_bytes as u64,
         }
     }
 }
 
-impl FileDigestToReExt for FileDigest {
+impl FileDigestToReExt for TrackedFileDigest {
     fn to_re(&self) -> ReDigest {
         ReDigest {
             hash: hex::encode(self.sha1()),

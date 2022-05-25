@@ -10,7 +10,7 @@
 use std::{io::Write, sync::Arc};
 
 use anyhow::Context as _;
-use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::fs::project::{ProjectFilesystem, ProjectRelativePath};
 use futures::StreamExt;
 use gazebo::prelude::*;
@@ -136,7 +136,7 @@ pub async fn http_download(
     url: &str,
     checksum: &Checksum,
     executable: bool,
-) -> anyhow::Result<FileDigest> {
+) -> anyhow::Result<TrackedFileDigest> {
     let abs_path = fs.resolve(path);
     if let Some(dir) = abs_path.parent() {
         fs.create_dir(dir)?;
@@ -212,8 +212,8 @@ pub async fn http_download(
         fs.set_executable(path)?
     }
 
-    Ok(FileDigest::new(
-        FileDigest::parse_digest(download_sha1.as_bytes()).unwrap(),
+    Ok(TrackedFileDigest::new(
+        TrackedFileDigest::parse_digest(download_sha1.as_bytes()).unwrap(),
         file_len,
     ))
 }

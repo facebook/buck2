@@ -143,11 +143,11 @@ struct FileDigestInner {
 }
 
 #[derive(Display, Clone, Dupe, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct FileDigest {
+pub struct TrackedFileDigest {
     inner: Arc<FileDigestInner>,
 }
 
-impl fmt::Debug for FileDigest {
+impl fmt::Debug for TrackedFileDigest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -158,10 +158,10 @@ impl fmt::Debug for FileDigest {
     }
 }
 
-impl FileDigest {
+impl TrackedFileDigest {
     pub fn new(sha1: [u8; SHA1_SIZE], size: u64) -> Self {
         if size == 0 {
-            static EMPTY_DIGEST: OnceCell<FileDigest> = OnceCell::new();
+            static EMPTY_DIGEST: OnceCell<TrackedFileDigest> = OnceCell::new();
 
             return EMPTY_DIGEST
                 .get_or_init(|| Self {
@@ -465,7 +465,7 @@ impl ExternalSymlink {
 #[derive(Debug, Dupe, Hash, PartialEq, Eq, Clone, Display)]
 #[display(fmt = "File({})", digest)]
 pub struct FileMetadata {
-    pub digest: FileDigest,
+    pub digest: TrackedFileDigest,
     pub is_executable: bool,
 }
 
@@ -473,7 +473,7 @@ impl FileMetadata {
     /// Metadata of an empty file
     pub fn empty() -> Self {
         Self {
-            digest: FileDigest::empty(),
+            digest: TrackedFileDigest::empty(),
             is_executable: false,
         }
     }
@@ -798,7 +798,8 @@ pub mod testing {
     use itertools::Itertools;
 
     use crate::file_ops::{
-        ExternalSymlink, FileDigest, FileMetadata, FileOps, FileType, PathMetadata, SimpleDirEntry,
+        ExternalSymlink, FileMetadata, FileOps, FileType, PathMetadata, SimpleDirEntry,
+        TrackedFileDigest,
     };
 
     enum TestFileOpsEntry {
@@ -832,7 +833,7 @@ pub mod testing {
                             TestFileOpsEntry::File(
                                 data.clone(),
                                 FileMetadata {
-                                    digest: FileDigest::from_bytes(data.as_bytes()),
+                                    digest: TrackedFileDigest::from_bytes(data.as_bytes()),
                                     is_executable: false,
                                 },
                             ),
@@ -1051,12 +1052,13 @@ mod tests {
             symlink("link", tempdir.path().join("recurse_link"))?;
             symlink("recurse_link", tempdir.path().join("recurse_recurse_link"))?;
 
-            let d1 = FileDigest::from_file(&file).context("file")?;
-            let d2 = FileDigest::from_file(&tempdir.path().join("link")).context("file")?;
-            let d3 = FileDigest::from_file(&tempdir.path().join("abs_link")).context("abs_link")?;
-            let d4 = FileDigest::from_file(&tempdir.path().join("recurse_link"))
+            let d1 = TrackedFileDigest::from_file(&file).context("file")?;
+            let d2 = TrackedFileDigest::from_file(&tempdir.path().join("link")).context("file")?;
+            let d3 = TrackedFileDigest::from_file(&tempdir.path().join("abs_link"))
+                .context("abs_link")?;
+            let d4 = TrackedFileDigest::from_file(&tempdir.path().join("recurse_link"))
                 .context("recurse_link")?;
-            let d5 = FileDigest::from_file(&tempdir.path().join("recurse_recurse_link"))
+            let d5 = TrackedFileDigest::from_file(&tempdir.path().join("recurse_recurse_link"))
                 .context("recurse_recurse_link")?;
 
             assert_eq!(d1.sha1(), &[0; SHA1_SIZE]);

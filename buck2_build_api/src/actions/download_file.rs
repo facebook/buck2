@@ -11,7 +11,7 @@ use std::{borrow::Cow, convert::TryFrom, sync::Arc};
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_common::file_ops::{FileDigest, FileMetadata};
+use buck2_common::file_ops::{FileMetadata, TrackedFileDigest};
 use buck2_core::category::Category;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
@@ -132,7 +132,7 @@ impl DownloadFileAction {
 
         // NOTE: We should probably fail earlier here, but since historically we didn't, we'll let
         // that proceed to download and flag the wrong digest.
-        let sha1 = match FileDigest::parse_digest(sha1.as_bytes()) {
+        let sha1 = match TrackedFileDigest::parse_digest(sha1.as_bytes()) {
             Some(sha1) => sha1,
             None => return Ok(None),
         };
@@ -164,7 +164,7 @@ impl DownloadFileAction {
 
         match content_length {
             Some(length) => {
-                let digest = FileDigest::new(sha1, length);
+                let digest = TrackedFileDigest::new(sha1, length);
                 Ok(Some(FileMetadata {
                     digest,
                     is_executable: self.inner.is_executable,

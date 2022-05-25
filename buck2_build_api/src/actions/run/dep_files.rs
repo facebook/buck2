@@ -14,7 +14,7 @@ use std::{
 };
 
 use anyhow::Context as _;
-use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::{
     category::Category,
     directory::{DirectorySelector, FingerprintedDirectory},
@@ -114,7 +114,7 @@ enum DepFileStateInputSignatures {
 
 pub enum StoredFingerprints {
     /// Store only digests. This is what we use in prod because it is small.
-    Digests(PartitionedInputs<FileDigest>),
+    Digests(PartitionedInputs<TrackedFileDigest>),
 
     /// Store digests + dirs. We allow this via BUCK2_KEEP_DEP_FILE_DIRECTORIES because it gives
     /// more debuggability.
@@ -475,7 +475,7 @@ impl PartitionedInputs<ActionDirectoryBuilder> {
 }
 
 impl PartitionedInputs<ActionImmutableDirectory> {
-    fn as_fingerprints(&self) -> PartitionedInputs<FileDigest> {
+    fn as_fingerprints(&self) -> PartitionedInputs<TrackedFileDigest> {
         PartitionedInputs {
             untagged: self.untagged.fingerprint().dupe(),
             tagged: self

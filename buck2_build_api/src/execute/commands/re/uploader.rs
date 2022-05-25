@@ -15,7 +15,7 @@ use std::{
 };
 
 use anyhow::Context;
-use buck2_common::file_ops::{FileDigest, FileDigestData};
+use buck2_common::file_ops::{FileDigestData, TrackedFileDigest};
 use buck2_core::{
     directory::{DirectoryEntry, DirectoryIterator},
     env_helper::EnvHelper,
@@ -39,35 +39,35 @@ use crate::{
 };
 
 /// Contains small blobs referenced from action messages (does not include any file contents blobs).
-pub struct ActionBlobs(HashMap<FileDigest, Vec<u8>>);
+pub struct ActionBlobs(HashMap<TrackedFileDigest, Vec<u8>>);
 
 impl ActionBlobs {
     pub fn new() -> Self {
         // We add empty files to the input that don't exist in disk; so add
         // the empty digest to blobs, as going to disk would fail.
         let mut blobs = HashMap::new();
-        blobs.insert(FileDigest::empty(), Vec::new());
+        blobs.insert(TrackedFileDigest::empty(), Vec::new());
         Self(blobs)
     }
 
-    pub(crate) fn add_blob(&mut self, digest: FileDigest, data: Vec<u8>) {
+    pub(crate) fn add_blob(&mut self, digest: TrackedFileDigest, data: Vec<u8>) {
         self.0.insert(digest, data);
     }
 
-    pub(crate) fn add_protobuf_message(&mut self, m: &impl Message) -> FileDigest {
+    pub(crate) fn add_protobuf_message(&mut self, m: &impl Message) -> TrackedFileDigest {
         let mut blob = Vec::new();
         // Unwrap is safe because it only fails in OOM conditions, which we pretend don't happen
         m.encode(&mut blob).unwrap();
-        let digest = FileDigest::from_bytes(&blob);
+        let digest = TrackedFileDigest::from_bytes(&blob);
         self.0.insert(digest.dupe(), blob);
         digest
     }
 
-    fn keys(&self) -> impl Iterator<Item = &FileDigest> {
+    fn keys(&self) -> impl Iterator<Item = &TrackedFileDigest> {
         self.0.keys()
     }
 
-    fn get(&self, digest: &FileDigest) -> Option<&Vec<u8>> {
+    fn get(&self, digest: &TrackedFileDigest) -> Option<&Vec<u8>> {
         self.0.get(digest)
     }
 }
@@ -375,22 +375,22 @@ fn error_for_missing_file(
 /// This is used for tests. We allow an environment variable to be set to report that some digests
 /// are _always_ missing if they are required. This lets us test our upload paths more easily.
 fn add_injected_missing_digests(
-    input_digests: &HashSet<&FileDigest>,
-    missing_digests: &mut HashSet<&FileDigest>,
+    input_digests: &HashSet<&TrackedFileDigest>,
+    missing_digests: &mut HashSet<&TrackedFileDigest>,
 ) -> anyhow::Result<()> {
-    fn convert_digests(val: &str) -> anyhow::Result<Vec<FileDigest>> {
+    fn convert_digests(val: &str) -> anyhow::Result<Vec<TrackedFileDigest>> {
         val.split(' ')
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
                     .with_context(|| format!("Invalid digest: `{}`", digest))?;
                 let digest = FileDigestData::from_re(&digest);
-                let digest = FileDigest::new(digest.sha1, digest.size);
+                let digest = TrackedFileDigest::new(digest.sha1, digest.size);
                 anyhow::Ok(digest)
             })
             .collect()
     }
 
-    static INJECTED_DIGESTS: EnvHelper<Vec<FileDigest>> =
+    static INJECTED_DIGESTS: EnvHelper<Vec<TrackedFileDigest>> =
         EnvHelper::with_converter("BUCK2_TEST_INJECTED_MISSING_DIGESTS", convert_digests);
 
     if let Some(digests) = INJECTED_DIGESTS.get()?.as_ref() {

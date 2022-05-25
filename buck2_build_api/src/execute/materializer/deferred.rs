@@ -11,7 +11,7 @@ use std::{collections::HashSet, str::FromStr, sync::Arc};
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_common::file_ops::{FileDigest, FileDigestData};
+use buck2_common::file_ops::{FileDigestData, TrackedFileDigest};
 use buck2_core::{
     directory::{unordered_entry_walk, DirectoryEntry},
     env_helper::EnvHelper,
@@ -894,24 +894,25 @@ impl<V> FileTree<V> {
 }
 
 /// This is used for testing to ingest digests (via BUCK2_TEST_TOMBSTONED_DIGESTS).
-fn maybe_tombstone_digest(digest: &FileDigest) -> anyhow::Result<&FileDigest> {
+fn maybe_tombstone_digest(digest: &TrackedFileDigest) -> anyhow::Result<&TrackedFileDigest> {
     // This has to be of size 1 since size 0 will result in the RE client just producing an empty
     // instead of a not-found error.
-    static TOMBSTONE_DIGEST: Lazy<FileDigest> = Lazy::new(|| FileDigest::new([0; 20], 1));
+    static TOMBSTONE_DIGEST: Lazy<TrackedFileDigest> =
+        Lazy::new(|| TrackedFileDigest::new([0; 20], 1));
 
-    fn convert_digests(val: &str) -> anyhow::Result<HashSet<FileDigest>> {
+    fn convert_digests(val: &str) -> anyhow::Result<HashSet<TrackedFileDigest>> {
         val.split(' ')
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
                     .with_context(|| format!("Invalid digest: `{}`", digest))?;
                 let digest = FileDigestData::from_re(&digest);
-                let digest = FileDigest::new(digest.sha1, digest.size);
+                let digest = TrackedFileDigest::new(digest.sha1, digest.size);
                 anyhow::Ok(digest)
             })
             .collect()
     }
 
-    static TOMBSTONED_DIGESTS: EnvHelper<HashSet<FileDigest>> =
+    static TOMBSTONED_DIGESTS: EnvHelper<HashSet<TrackedFileDigest>> =
         EnvHelper::with_converter("BUCK2_TEST_TOMBSTONED_DIGESTS", convert_digests);
 
     if let Some(digests) = TOMBSTONED_DIGESTS.get()?.as_ref() {

@@ -14,7 +14,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-use buck2_common::file_ops::{FileDigest, FileMetadata};
+use buck2_common::file_ops::{FileMetadata, TrackedFileDigest};
 use buck2_core::{
     category::Category,
     fs::{paths::RelativePathBuf, project::ProjectRelativePathBuf},
@@ -213,7 +213,7 @@ impl WriteToFileMacroVisitor for MacroToFileWriter<'_> {
         }
 
         let meta = FileMetadata {
-            digest: FileDigest::from_bytes(content.as_bytes()),
+            digest: TrackedFileDigest::from_bytes(content.as_bytes()),
             is_executable: false,
         };
         let value = ArtifactValue::file(meta);
