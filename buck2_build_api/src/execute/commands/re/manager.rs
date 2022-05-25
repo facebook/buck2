@@ -26,7 +26,7 @@ use crate::{
             re::{
                 client::{ActionDigest, RemoteExecutionClient, RemoteExecutionStaticMetadata},
                 uploader::ActionBlobs,
-                ReActionIdentity,
+                ReActionIdentity, ReExecutorGlobalKnobs,
             },
             CommandExecutionManager,
         },
@@ -260,11 +260,12 @@ impl ManagedRemoteExecutionClient {
         materializer: Arc<dyn Materializer>,
         blobs: &ActionBlobs,
         input_dir: &ActionImmutableDirectory,
+        knobs: &ReExecutorGlobalKnobs,
     ) -> anyhow::Result<()> {
         self.lock()?
             .get()
             .await?
-            .upload(materializer, blobs, input_dir)
+            .upload(materializer, blobs, input_dir, knobs)
             .await
     }
 

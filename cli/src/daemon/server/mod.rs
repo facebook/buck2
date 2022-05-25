@@ -512,6 +512,18 @@ impl ServerCommandContext {
         let (cell_resolver, legacy_configs) =
             parse_legacy_cells(self.config_overrides.iter(), &fs.resolve(cwd), &fs)?;
 
+        let re_global_knobs = {
+            let root_config = legacy_configs
+                .get(cell_resolver.root_cell())
+                .context("No config for root cell")?;
+
+            ReExecutorGlobalKnobs {
+                always_check_ttls: root_config
+                    .parse("buck2", "re_always_check_ttls")?
+                    .unwrap_or(true),
+            }
+        };
+
         let dice_ctx = self.base_context.unsafe_dice_ctx();
         setup_interpreter(
             &dice_ctx,
@@ -541,7 +553,7 @@ impl ServerCommandContext {
                     host_sharing_broker,
                     materializer.dupe(),
                     execution_strategy.into(),
-                    ReExecutorGlobalKnobs {},
+                    re_global_knobs,
                 ));
                 data.set_blocking_executor(blocking_executor);
                 data.set_materializer(materializer);

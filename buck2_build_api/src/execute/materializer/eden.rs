@@ -30,7 +30,9 @@ use crate::{
     },
     execute::{
         blocking::BlockingExecutor,
-        commands::re::{manager::ReConnectionManager, uploader::ActionBlobs},
+        commands::re::{
+            manager::ReConnectionManager, uploader::ActionBlobs, ReExecutorGlobalKnobs,
+        },
         materializer::{
             eden_api::EdenBuckOut, immediate::ImmediateMaterializer, ArtifactNotMaterializedReason,
             CasDownloadInfo, CopiedArtifact, HttpDownloadInfo, MaterializationError, Materializer,
@@ -96,7 +98,14 @@ impl Materializer for EdenMaterializer {
         self.re_client_manager
             .get_re_connection()
             .get_client()
-            .upload(Arc::clone(&self.delegator), &ActionBlobs::new(), &input_dir)
+            .upload(
+                Arc::clone(&self.delegator),
+                &ActionBlobs::new(),
+                &input_dir,
+                &ReExecutorGlobalKnobs {
+                    always_check_ttls: true,
+                },
+            )
             .await?;
 
         self.eden_buck_out

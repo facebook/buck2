@@ -87,7 +87,9 @@ pub struct ActionPaths {
 
 /// Daemon-level config that can tweak how the ReExecutor works.
 #[derive(Clone, Dupe, Default)]
-pub struct ReExecutorGlobalKnobs {}
+pub struct ReExecutorGlobalKnobs {
+    pub always_check_ttls: bool,
+}
 
 pub struct ReExecutor {
     pub artifact_fs: ArtifactFs,
@@ -143,7 +145,12 @@ impl ReExecutor {
                 buck2_data::ReStage {
                     stage: Some(buck2_data::ReUpload {}.into()),
                 },
-                re_client.upload(self.materializer.dupe(), blobs, &action_paths.inputs),
+                re_client.upload(
+                    self.materializer.dupe(),
+                    blobs,
+                    &action_paths.inputs,
+                    &self.knobs,
+                ),
             )
             .await;
 

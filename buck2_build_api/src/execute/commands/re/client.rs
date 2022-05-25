@@ -36,7 +36,7 @@ use crate::{
         commands::{
             re::{
                 uploader::{ActionBlobs, Uploader},
-                ReActionIdentity,
+                ReActionIdentity, ReExecutorGlobalKnobs,
             },
             CommandExecutionManager,
         },
@@ -177,9 +177,10 @@ impl RemoteExecutionClient {
         materializer: Arc<dyn Materializer>,
         blobs: &ActionBlobs,
         input_dir: &ActionImmutableDirectory,
+        knobs: &ReExecutorGlobalKnobs,
     ) -> anyhow::Result<()> {
         self.delegate
-            .upload(materializer, blobs, input_dir)
+            .upload(materializer, blobs, input_dir, knobs)
             .await
             .map_err(|e| self.decorate_error(e))
     }
@@ -466,6 +467,7 @@ impl RemoteExecutionClientImpl {
         materializer: Arc<dyn Materializer>,
         blobs: &ActionBlobs,
         input_dir: &ActionImmutableDirectory,
+        knobs: &ReExecutorGlobalKnobs,
     ) -> anyhow::Result<()> {
         // Actually upload to CAS
         let _cas = self.cas_semaphore.acquire().await;
@@ -475,6 +477,7 @@ impl RemoteExecutionClientImpl {
             input_dir,
             blobs,
             self.get_metadata(),
+            knobs,
         )
         .await
     }

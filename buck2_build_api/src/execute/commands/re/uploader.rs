@@ -35,7 +35,10 @@ use crate::{
             ReDirectorySerializer,
         },
     },
-    execute::materializer::{ArtifactNotMaterializedReason, CasDownloadInfo, Materializer},
+    execute::{
+        commands::re::ReExecutorGlobalKnobs,
+        materializer::{ArtifactNotMaterializedReason, CasDownloadInfo, Materializer},
+    },
 };
 
 /// Contains small blobs referenced from action messages (does not include any file contents blobs).
@@ -81,6 +84,7 @@ impl Uploader {
         input_dir: &ActionImmutableDirectory,
         blobs: &ActionBlobs,
         metadata: RemoteExecutionMetadata,
+        knobs: &ReExecutorGlobalKnobs,
     ) -> anyhow::Result<()> {
         let now = SystemTime::now();
         let deadline = now + Duration::from_secs(600);
@@ -96,13 +100,13 @@ impl Uploader {
                     DirectoryEntry::Leaf(..) => continue,
                 };
 
-                if digest.expires() <= deadline {
+                if knobs.always_check_ttls || digest.expires() <= deadline {
                     input_digests.insert(digest);
                 }
             }
 
             let root_dir_digest = input_dir.fingerprint();
-            if root_dir_digest.expires() <= deadline {
+            if knobs.always_check_ttls || root_dir_digest.expires() <= deadline {
                 input_digests.insert(root_dir_digest);
             }
 
