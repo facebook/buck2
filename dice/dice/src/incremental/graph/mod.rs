@@ -853,7 +853,17 @@ where
         e: Arc<OccupiedGraphNode<K>>,
     ) -> (GraphNode<K>, Option<GraphNode<K>>) {
         match entry_creator.try_reuse_occupied_entry(&self.storage_properties, v, e.dupe()) {
-            EntryReused::Reused(reused) => (GraphNode::occupied(reused), None),
+            EntryReused::Reused(reused) => {
+                if v < version_of_e {
+                    assert!(
+                        versioned_map
+                            .insert(v, VersionedGraphNodeInternal::Occupied(reused.dupe()))
+                            .is_none()
+                    );
+                    assert!(versioned_map.remove(&version_of_e).is_some());
+                }
+                (GraphNode::occupied(reused), None)
+            }
             EntryReused::NotReusable(entry_creator) => {
                 let (since, end, hist) = e.read_meta().hist.make_new_verified_history(v);
                 let (v_new, new) = entry_creator.build(
@@ -940,6 +950,18 @@ where
     ) -> (GraphNode<K>, Option<GraphNode<K>>) {
         if entry_creator.can_reuse_transient(&self.storage_properties, &transient_entry) {
             transient_entry.mark_unchanged(v);
+
+            if v < version_of_transient {
+                assert!(
+                    versioned_map
+                        .insert(
+                            v,
+                            VersionedGraphNodeInternal::Transient(transient_entry.dupe())
+                        )
+                        .is_none()
+                );
+                assert!(versioned_map.remove(&version_of_transient).is_some());
+            }
 
             return (GraphNode::transient(transient_entry), None);
         }
@@ -2147,5 +2169,53 @@ mod tests {
         ));
         // should actually be cached though
         cache.get(key3.as_ref(), mv).assert_match();
+    }
+
+    #[tokio::test]
+    async fn update_prior_version_reuses_nodes_correctly() {
+        let cache = VersionedGraph::new(StoragePropertiesLastN::<_, i32>::new(1));
+        let res = 100;
+        let key = VersionedGraphKey::new(VersionNumber::new(5), NonPersistent(0));
+        let mv = MinorVersion::testing_new(0);
+
+        // first, empty cache gives none
+        cache.get(key.as_ref(), mv).assert_none();
+
+        assert!(
+            cache
+                .update_computed_value(key.clone(), mv, res, BothDeps::default())
+                .1
+                .is_none(),
+        );
+
+        assert_eq!(*cache.get(key.as_ref(), mv).assert_match().val(), res);
+
+        // now insert a new value of a older version, this shouldn't evict anything.
+        let res2 = 200;
+        let key2 = VersionedGraphKey::new(VersionNumber::new(4), NonPersistent(0));
+        assert!(
+            cache
+                .update_computed_value(key2.clone(), mv, res2, BothDeps::default())
+                .1
+                .is_none()
+        );
+        cache.get(key2.as_ref(), mv).assert_mismatch();
+        // the newer version should still be there
+        assert_eq!(*cache.get(key.as_ref(), mv).assert_match().val(), res);
+        // there should be size 1
+        assert_eq!(cache.last_n.get(&NonPersistent(0)).unwrap().len(), 1);
+
+        // now insert the same value of a older version, this shouldn't evict anything but reuses
+        // the existing node.
+        let key3 = VersionedGraphKey::new(VersionNumber::new(3), NonPersistent(0));
+        assert!(
+            cache
+                .update_computed_value(key3.clone(), mv, res, BothDeps::default())
+                .1
+                .is_none()
+        );
+
+        assert_eq!(*cache.get(key.as_ref(), mv).assert_match().val(), res);
+        assert_eq!(*cache.get(key3.as_ref(), mv).assert_match().val(), res);
     }
 }
