@@ -19,7 +19,7 @@ use buck2_build_api::{
     bxl::BxlFunctionLabel,
     execute::{
         commands::{
-            dice_data::{CommandExecutorConfig, HasCommandExecutor},
+            dice_data::{CommandExecutorRequest, HasCommandExecutor},
             hybrid::HybridExecutor,
             local::LocalExecutor,
             re::{
@@ -242,7 +242,7 @@ impl CommandExecutorFactory {
 impl HasCommandExecutor for CommandExecutorFactory {
     fn get_command_executor(
         &self,
-        config: &CommandExecutorConfig,
+        config: &CommandExecutorRequest,
     ) -> anyhow::Result<Arc<dyn PreparedCommandExecutor>> {
         let local_executor_new = |_options| {
             LocalExecutor::new(

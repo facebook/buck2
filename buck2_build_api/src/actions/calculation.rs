@@ -342,7 +342,7 @@ mod tests {
             blocking::{testing::DummyBlockingExecutor, SetBlockingExecutor},
             commands::{
                 dice_data::{
-                    set_fallback_executor_config, CommandExecutorConfig, HasCommandExecutor,
+                    set_fallback_executor_config, CommandExecutorRequest, HasCommandExecutor,
                     SetCommandExecutor,
                 },
                 dry_run::{DryRunEntry, DryRunExecutor},
@@ -432,7 +432,7 @@ mod tests {
         impl HasCommandExecutor for CommandExecutorProvider {
             fn get_command_executor(
                 &self,
-                config: &CommandExecutorConfig,
+                config: &CommandExecutorRequest,
             ) -> anyhow::Result<Arc<dyn PreparedCommandExecutor>> {
                 Ok(Arc::new(DryRunExecutor::new(
                     self.dry_run_tracker.dupe(),

@@ -43,7 +43,7 @@ use crate::{
     calculation::Calculation,
     execute::{
         commands::{
-            dice_data::{CommandExecutorConfig, HasCommandExecutor},
+            dice_data::{CommandExecutorRequest, HasCommandExecutor},
             output::CommandStdStreams,
             re::client::ActionDigest,
             ClaimManager, CommandExecutionManager, CommandExecutionOutput, CommandExecutionRequest,
@@ -290,7 +290,7 @@ impl HasActionExecutor for DiceComputations {
     ) -> anyhow::Result<Arc<dyn ActionExecutor>> {
         let artifact_fs = self.get_artifact_fs().await;
         let project_fs = (**self.global_data().get_io_provider().fs()).clone();
-        let executor_config = CommandExecutorConfig {
+        let executor_config = CommandExecutorRequest {
             artifact_fs,
             project_fs,
             executor_config,

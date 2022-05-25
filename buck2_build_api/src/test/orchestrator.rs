@@ -54,7 +54,7 @@ use crate::{
     execute::{
         commands::{
             self,
-            dice_data::{CommandExecutorConfig, HasCommandExecutor},
+            dice_data::{CommandExecutorRequest, HasCommandExecutor},
             ClaimManager, CommandExecutionInput, CommandExecutionManager, CommandExecutionRequest,
             CommandExecutionResult, CommandExecutionTarget, CommandExecutionTimingData,
             CommandExecutor, OutputCreationBehavior,
@@ -491,7 +491,7 @@ impl BuckTestOrchestrator {
 
         let artifact_fs = self.dice.get_artifact_fs().await;
         let project_fs = (**self.dice.global_data().get_io_provider().fs()).clone();
-        let command_executor_config = CommandExecutorConfig {
+        let command_executor_config = CommandExecutorRequest {
             artifact_fs,
             project_fs,
             executor_config: &executor_config,

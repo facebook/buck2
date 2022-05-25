@@ -19,7 +19,7 @@ use crate::{
     execute::{commands::PreparedCommandExecutor, ActionExecutorConfig},
 };
 
-pub struct CommandExecutorConfig<'a> {
+pub struct CommandExecutorRequest<'a> {
     pub artifact_fs: ArtifactFs,
     pub project_fs: ProjectFilesystem,
     pub executor_config: &'a ActionExecutorConfig,
@@ -32,7 +32,7 @@ pub trait SetCommandExecutor {
 pub trait HasCommandExecutor {
     fn get_command_executor(
         &self,
-        config: &CommandExecutorConfig,
+        config: &CommandExecutorRequest,
     ) -> anyhow::Result<Arc<dyn PreparedCommandExecutor>>;
 }
 
@@ -48,7 +48,7 @@ impl SetCommandExecutor for UserComputationData {
 impl HasCommandExecutor for DiceComputations {
     fn get_command_executor(
         &self,
-        config: &CommandExecutorConfig,
+        config: &CommandExecutorRequest,
     ) -> anyhow::Result<Arc<dyn PreparedCommandExecutor>> {
         let holder = self
             .per_transaction_data()
