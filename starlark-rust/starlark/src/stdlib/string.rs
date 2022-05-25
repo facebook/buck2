@@ -144,38 +144,26 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         Ok(iterate_chars(this, heap))
     }
 
-    /// [string.capitalize](
-    /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·capitalize
-    /// ): returns a copy of string, with each first letter of a word in upper
-    /// case.
-    ///
-    /// `S.capitalize()` returns a copy of string S with all Unicode letters
-    /// that begin words changed to their title case.
+    /// string.capitalize: returns a copy of string S, where the first character (if any) is converted to uppercase;
+    /// all other characters are converted to lowercase.
     ///
     /// Examples:
     ///
     /// ```
     /// # starlark::assert::all_true(r#"
-    /// "hello, world!".capitalize() == "Hello, World!"
+    /// "hello, world!".capitalize() == "Hello, world!"
+    /// "Hello, World!".capitalize() == "Hello, world!"
+    /// "".capitalize() == ""
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
     fn capitalize(this: &str) -> anyhow::Result<String> {
-        let mut last_space = true;
-        let mut result = String::new();
-        for c in this.chars() {
-            if !c.is_alphanumeric() {
-                last_space = true;
-                result.push(c);
+        let mut result = String::with_capacity(this.len());
+        for (i, c) in this.chars().enumerate() {
+            if i == 0 {
+                result.extend(c.to_uppercase())
             } else {
-                if last_space {
-                    for c1 in c.to_uppercase() {
-                        result.push(c1);
-                    }
-                } else {
-                    result.push(c);
-                }
-                last_space = false;
+                result.extend(c.to_lowercase())
             }
         }
         Ok(result)
