@@ -1178,22 +1178,16 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     #[starlark(speculative_exec_safe)]
     fn title(this: &str) -> anyhow::Result<String> {
         let mut last_space = true;
-        let mut result = String::new();
+        let mut result = String::with_capacity(this.len());
         for c in this.chars() {
             if !c.is_alphabetic() {
                 last_space = true;
-                for c1 in c.to_lowercase() {
-                    result.push(c1);
-                }
+                result.extend(c.to_lowercase());
             } else {
                 if last_space {
-                    for c1 in c.to_uppercase() {
-                        result.push(c1);
-                    }
+                    result.extend(c.to_uppercase())
                 } else {
-                    for c1 in c.to_lowercase() {
-                        result.push(c1);
-                    }
+                    result.extend(c.to_lowercase())
                 }
                 last_space = false;
             }
