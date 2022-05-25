@@ -19,7 +19,7 @@ use std::{
     collections::{BTreeSet, Bound},
     fmt,
     fmt::{Debug, Display, Formatter},
-    ops::{Deref, RangeBounds},
+    ops::{Deref, RangeBounds, Sub},
     sync::{Arc, RwLock, Weak},
 };
 
@@ -47,6 +47,14 @@ impl VersionNumber {
 
     fn inc(&mut self) {
         self.0 += 1;
+    }
+}
+
+impl Sub for VersionNumber {
+    type Output = isize;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        self.0 as isize - rhs.0 as isize
     }
 }
 

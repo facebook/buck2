@@ -24,7 +24,10 @@ pub(crate) mod storage_properties;
 use std::{
     collections::{BTreeMap, Bound, HashSet},
     fmt::Debug,
-    ops::{Bound::Included, Deref, DerefMut},
+    ops::{
+        Bound::{Included, Unbounded},
+        Deref, DerefMut,
+    },
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak},
 };
 
@@ -751,11 +754,15 @@ where
         // never updated to the cache more than once per version.
         // TODO refactor this to be less error prone.
         let mut versioned_map = self.last_n.entry(key.k.clone()).or_default();
-        let newest = versioned_map
-            .range((Included(VersionNumber::new(0)), Included(key.v)))
-            .next_back()
-            .map(|(v, e)| (*v, e.dupe()));
-        if let Some((key_of_e, e)) = newest {
+
+        // we pick the nearest entry because the closest version number to the current key would
+        // have the least number of changes recorded in dice, which we assume naively to mean
+        // most likely to reuse a node. We could implement this to check for reuse against both
+        // the previous and the next version, but that complexity is likely not worth the benefit
+        // of trying to reuse a node. Maybe this is worth revisiting at some point.
+        let nearest = Self::nearest_entry(&key, &mut versioned_map);
+
+        if let Some((key_of_e, e)) = nearest {
             match e {
                 VersionedGraphNodeInternal::Occupied(e) => self.update_existing(
                     key.v,
@@ -779,6 +786,37 @@ where
             }
         } else {
             self.update_empty(key.k, key.v, entry_updater, &mut versioned_map)
+        }
+    }
+
+    /// find the nearest entry to the given key, preferring the smaller version number when tied
+    fn nearest_entry(
+        key: &VersionedGraphKey<<K as StorageProperties>::Key>,
+        versioned_map: &mut RefMut<
+            <K as StorageProperties>::Key,
+            BTreeMap<VersionNumber, VersionedGraphNodeInternal<K>>,
+        >,
+    ) -> Option<(VersionNumber, VersionedGraphNodeInternal<K>)> {
+        let newest_previous = versioned_map
+            .range((Included(VersionNumber::new(0)), Included(key.v)))
+            .next_back()
+            .map(|(v, e)| (*v, e.dupe()));
+        let oldest_newer = versioned_map
+            .range((Included(key.v), Unbounded))
+            .next()
+            .map(|(v, e)| (*v, e.dupe()));
+
+        match (newest_previous, oldest_newer) {
+            (Some((prev_v, prev_e)), Some((next_v, next_e))) => {
+                if next_v - key.v < prev_v - key.v {
+                    Some((next_v, next_e))
+                } else {
+                    Some((prev_v, prev_e))
+                }
+            }
+            (Some(x), None) => Some(x),
+            (None, Some(x)) => Some(x),
+            (None, None) => None,
         }
     }
 
