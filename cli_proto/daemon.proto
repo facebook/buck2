@@ -305,7 +305,7 @@ message TestRequest {
 message BxlRequest {
   ClientContext context = 1;
 
-  buck.data.BxlFunctionLabel bxl_function = 2;
+  string bxl_label = 2;
 
   repeated string bxl_args = 3;
 

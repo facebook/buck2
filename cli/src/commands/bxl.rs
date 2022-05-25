@@ -2,7 +2,6 @@ use std::str::FromStr;
 
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
-use buck2_data::BxlFunctionLabel;
 use cli_proto::{
     build_request::{Materializations, ResponseOptions},
     BxlRequest,
@@ -64,11 +63,11 @@ pub struct BxlCoreOpts {
     )]
     pub show_all_outputs_format: ShowAllOutputsFormat,
 
-    #[structopt(name = "BXL File", help = "The bxl file containing the bxl function")]
-    pub bxl_path: String,
-
-    #[structopt(name = "BXL Function", help = "The bxl Function to run")]
-    pub bxl_fn: String,
+    #[structopt(
+        name = "BXL label",
+        help = "The bxl function to execute as defined by the label of form `<cell>//path/file.bxl:<function>`"
+    )]
+    pub bxl_label: String,
 
     #[structopt(
         short = "-",
@@ -114,10 +113,7 @@ impl StreamingCommand for BxlCommand {
         let result = buckd
             .bxl(BxlRequest {
                 context: Some(ctx.client_context(&self.config_opts, matches)?),
-                bxl_function: Some(BxlFunctionLabel {
-                    bxl_path: self.bxl_core.bxl_path,
-                    name: self.bxl_core.bxl_fn,
-                }),
+                bxl_label: self.bxl_core.bxl_label,
                 bxl_args: self.bxl_core.bxl_args,
                 response_options: Some(ResponseOptions {
                     return_outputs: self.bxl_core.show_all_outputs,

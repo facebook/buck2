@@ -9,8 +9,7 @@ from xplat.build_infra.buck_e2e.buck_workspace import buck_test
 @buck_test(inplace=False, data_dir="bql/simple")
 async def test_bxl_label_functions(buck: Buck) -> None:
     result = await buck.bxl(
-        "//bxl/label_functions.bxl",
-        "label_func_test",
+        "//bxl/label_functions.bxl:label_func_test",
     )
 
     assert result.stdout.splitlines() == [
@@ -27,8 +26,7 @@ async def test_bxl_label_functions(buck: Buck) -> None:
 async def test_bxl_root(buck: Buck) -> None:
 
     result = await buck.bxl(
-        "//bxl:root.bxl",
-        "root_test",
+        "//bxl:root.bxl:root_test",
     )
 
     assert str(buck.cwd) in result.stdout
@@ -37,8 +35,7 @@ async def test_bxl_root(buck: Buck) -> None:
 @buck_test(inplace=False, data_dir="bql/simple")
 async def test_bxl(buck: Buck) -> None:
     result = await buck.bxl(
-        "//bxl/cli_args.bxl",
-        "cli_test",
+        "//bxl/cli_args.bxl:cli_test",
         "--",
         "--int_arg",
         "1",
@@ -61,8 +58,7 @@ async def test_bxl(buck: Buck) -> None:
     )
 
     result = await buck.bxl(
-        "//bxl/cli_args.bxl",
-        "cli_test",
+        "//bxl/cli_args.bxl:cli_test",
         "--",
         "--int_arg",
         "2",
@@ -87,8 +83,7 @@ async def test_bxl(buck: Buck) -> None:
     # illegal target
     await expect_failure(
         buck.bxl(
-            "//bxl/cli_args.bxl",
-            "cli_test",
+            "//bxl/cli_args.bxl:cli_test",
             "--",
             "--int_arg",
             "2",
@@ -110,8 +105,7 @@ async def test_bxl(buck: Buck) -> None:
     # not int
     await expect_failure(
         buck.bxl(
-            "//bxl/cli_args.bxl",
-            "cli_test",
+            "//bxl/cli_args.bxl:cli_test",
             "--",
             "--int_arg",
             "2.0",
@@ -133,8 +127,7 @@ async def test_bxl(buck: Buck) -> None:
     # list inner type mismatch
     await expect_failure(
         buck.bxl(
-            "//bxl:cli_args.bxl",
-            "cli_test",
+            "//bxl:cli_args.bxl:cli_test",
             "--",
             "--int_arg",
             "2",
@@ -156,8 +149,7 @@ async def test_bxl(buck: Buck) -> None:
     # not valid enum variant
     await expect_failure(
         buck.bxl(
-            "//bxl/cli_args.bxl",
-            "cli_test",
+            "//bxl/cli_args.bxl:cli_test",
             "--",
             "--int_arg",
             "2",
@@ -179,8 +171,7 @@ async def test_bxl(buck: Buck) -> None:
     # missing non-optional field
     await expect_failure(
         buck.bxl(
-            "//bxl/cli_args.bxl",
-            "cli_test",
+            "//bxl/cli_args.bxl:cli_test",
             "--",
             "--int_arg",
             "2",
@@ -201,8 +192,7 @@ async def test_bxl(buck: Buck) -> None:
 @buck_test(inplace=False, data_dir="bql/simple")
 async def test_cquery_owner(buck: Buck) -> None:
     result = await buck.bxl(
-        "//bxl/cquery.bxl",
-        "owner_test",
+        "//bxl/cquery.bxl:owner_test",
     )
     assert result.stdout == "[root//bin:the_binary (root//platforms:platform1)]\n"
 
@@ -210,8 +200,7 @@ async def test_cquery_owner(buck: Buck) -> None:
 @buck_test(inplace=False, data_dir="bql/simple")
 async def test_cquery_kind(buck: Buck) -> None:
     result = await buck.bxl(
-        "//bxl:cquery.bxl",
-        "kind_test",
+        "//bxl:cquery.bxl:kind_test",
     )
 
     assert "foo" in result.stdout
@@ -221,8 +210,7 @@ async def test_cquery_kind(buck: Buck) -> None:
 @buck_test(inplace=False, data_dir="bql/simple")
 async def test_cquery_attrregex_filter(buck: Buck) -> None:
     result = await buck.bxl(
-        "//bxl/cquery.bxl",
-        "attrregexfilter_test",
+        "//bxl/cquery.bxl:attrregexfilter_test",
     )
 
     assert "foo" in result.stdout
@@ -233,8 +221,7 @@ async def test_cquery_attrregex_filter(buck: Buck) -> None:
 @buck_test(inplace=False, data_dir="bql/simple")
 async def test_query_rdeps(buck: Buck) -> None:
     result = await buck.bxl(
-        "//bxl/cquery.bxl",
-        "rdeps_test",
+        "//bxl/cquery.bxl:rdeps_test",
     )
     assert (
         result.stdout
@@ -246,8 +233,7 @@ async def test_query_rdeps(buck: Buck) -> None:
 async def test_bxl_build(buck: Buck) -> None:
 
     result = await buck.bxl(
-        "//bxl/build.bxl",
-        "build_test",
+        "//bxl/build.bxl:build_test",
         "--show-all-outputs",
         "--show-all-outputs-format",
         "json",
@@ -261,8 +247,7 @@ async def test_bxl_build(buck: Buck) -> None:
     ).read_text() == "FOO\n"
 
     result = await buck.bxl(
-        "//bxl/build.bxl",
-        "cquery_build_test",
+        "//bxl/build.bxl:cquery_build_test",
         "--show-all-outputs",
         "--show-all-outputs-format",
         "json",
@@ -277,8 +262,7 @@ async def test_bxl_build(buck: Buck) -> None:
 async def test_bxl_analysis(buck: Buck) -> None:
 
     result = await buck.bxl(
-        "//bxl:analysis.bxl",
-        "providers_test",
+        "//bxl/analysis.bxl:providers_test",
     )
 
     assert "the_binary_foo" in result.stdout
@@ -289,8 +273,7 @@ async def test_bxl_analysis(buck: Buck) -> None:
 async def test_bxl_actions(buck: Buck) -> None:
 
     result = await buck.bxl(
-        "//bxl:actions.bxl",
-        "artifact_test",
+        "//bxl/actions.bxl:artifact_test",
     )
 
     assert "<source bin/TARGETS.fixture>" in result.stdout
@@ -301,8 +284,7 @@ async def test_bxl_actions(buck: Buck) -> None:
 async def test_bxl_create_build_actions(buck: Buck) -> None:
 
     result = await buck.bxl(
-        "//bxl:actions.bxl",
-        "build_actions_test",
+        "//bxl/actions.bxl:build_actions_test",
         "--show-all-outputs",
         "--show-all-outputs-format",
         "json",

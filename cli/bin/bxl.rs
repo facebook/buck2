@@ -152,12 +152,8 @@ async fn async_main(
     let fs = io.fs();
     let artifact_fs = dice.get_artifact_fs().await;
 
-    let bxl_label = common::parse_bxl_label_from_cli(
-        &cwd,
-        &opt.bxl_core.bxl_path,
-        &opt.bxl_core.bxl_fn,
-        &cell_resolver,
-    )?;
+    let bxl_label =
+        common::parse_bxl_label_from_cli(&cwd, &opt.bxl_core.bxl_label, &cell_resolver)?;
 
     let cur_package = Package::from_cell_path(&cell_resolver.get_cell_path(&cwd)?);
     let cell_name = cell_resolver.find(&cwd)?;

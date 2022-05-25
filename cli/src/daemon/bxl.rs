@@ -58,13 +58,7 @@ pub async fn bxl(
 
     let cell_resolver = ctx.get_cell_resolver().await;
 
-    let bxl_function = request.bxl_function.expect("should have bxl function");
-    let bxl_label = parse_bxl_label_from_cli(
-        cwd,
-        &bxl_function.bxl_path,
-        &bxl_function.name,
-        &cell_resolver,
-    )?;
+    let bxl_label = parse_bxl_label_from_cli(cwd, &request.bxl_label, &cell_resolver)?;
 
     let cur_package = Package::from_cell_path(&cell_resolver.get_cell_path(&cwd)?);
     let cell_name = cell_resolver.find(&cwd)?;

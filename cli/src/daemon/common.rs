@@ -449,11 +449,14 @@ fn get_execution_platform(host_platform: HostPlatformOverride) -> ExecutionPlatf
     }
 }
 
+#[derive(Debug, Error)]
+#[error("bxl label should be of format `<cell>//path/to/file.bxl:function_name`, but got `{0}`")]
+struct BxlLabelError(String);
+
 /// Parse the bxl function label out of cli pattern
 pub fn parse_bxl_label_from_cli(
     cwd: &ProjectRelativePath,
-    path: &str,
-    bxl_fn: &str,
+    bxl_label: &str,
     cell_resolver: &CellResolver,
 ) -> anyhow::Result<BxlFunctionLabel> {
     let current_cell = cell_resolver.get_cell_path(cwd)?;
@@ -465,11 +468,16 @@ pub fn parse_bxl_label_from_cli(
         .unwrap()
         .cell_alias_resolver();
 
+    let (bxl_path, bxl_fn) = bxl_label
+        .rsplit_once(':')
+        .ok_or_else(|| BxlLabelError(bxl_label.to_owned()))?;
+
     const OPTS: ParseImportOptions = ParseImportOptions {
         allow_missing_at_symbol: true,
         allow_relative_imports: true,
     };
-    let import_path = parse_import_with_config(cell_alias_resolver, &current_cell, path, &OPTS)?;
+    let import_path =
+        parse_import_with_config(cell_alias_resolver, &current_cell, bxl_path, &OPTS)?;
 
     Ok(BxlFunctionLabel {
         bxl_path: BxlFilePath::new(import_path)?,
