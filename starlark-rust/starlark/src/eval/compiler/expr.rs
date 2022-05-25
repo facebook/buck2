@@ -223,7 +223,7 @@ pub(crate) enum ExprCompiled {
             FrozenStringValue,
         )>,
     ),
-    Call(IrSpanned<CallCompiled>),
+    Call(Box<IrSpanned<CallCompiled>>),
     Def(DefCompiled),
 }
 

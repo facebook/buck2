@@ -54,12 +54,35 @@ pub(crate) struct ArgsCompiledValue {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) enum CallCompiled {
-    Call(Box<(IrSpanned<ExprCompiled>, ArgsCompiledValue)>),
-    Method(Box<(IrSpanned<ExprCompiled>, Symbol, ArgsCompiledValue)>),
+pub(crate) struct CallCompiled {
+    pub(crate) fun: IrSpanned<ExprCompiled>,
+    pub(crate) args: ArgsCompiledValue,
 }
 
 impl CallCompiled {
+    pub(crate) fn new_method(
+        this: IrSpanned<ExprCompiled>,
+        field: Symbol,
+        getattr_span: FrozenFileSpan,
+        args: ArgsCompiledValue,
+    ) -> CallCompiled {
+        CallCompiled {
+            fun: IrSpanned {
+                span: getattr_span,
+                node: ExprCompiled::Dot(box this, field),
+            },
+            args,
+        }
+    }
+
+    /// This call is a method call.
+    pub(crate) fn method(&self) -> Option<(&IrSpanned<ExprCompiled>, &Symbol, &ArgsCompiledValue)> {
+        match &self.fun.node {
+            ExprCompiled::Dot(expr, name) => Some((expr, name, &self.args)),
+            _ => None,
+        }
+    }
+
     pub(crate) fn call(
         span: FrozenFileSpan,
         fun: ExprCompiled,
@@ -80,31 +103,22 @@ impl CallCompiled {
             }
         }
 
-        ExprCompiled::Call(IrSpanned {
+        ExprCompiled::Call(box IrSpanned {
             span,
-            node: CallCompiled::Call(box (IrSpanned { span, node: fun }, args)),
+            node: CallCompiled {
+                fun: IrSpanned { span, node: fun },
+                args,
+            },
         })
     }
 }
 
 impl IrSpanned<CallCompiled> {
     pub(crate) fn optimize_on_freeze(&self, ctx: &OptimizeOnFreezeContext) -> ExprCompiled {
-        match self.node {
-            CallCompiled::Call(box (ref fun, ref args)) => {
-                let fun = fun.optimize_on_freeze(ctx);
-                let args = args.optimize_on_freeze(ctx);
-                CallCompiled::call(self.span, fun.node, args)
-            }
-            CallCompiled::Method(box (ref this, ref field, ref args)) => {
-                let this = this.optimize_on_freeze(ctx);
-                let field = field.clone();
-                let args = args.optimize_on_freeze(ctx);
-                ExprCompiled::Call(IrSpanned {
-                    span: self.span,
-                    node: CallCompiled::Method(box (this, field, args)),
-                })
-            }
-        }
+        let CallCompiled { fun: expr, args } = &self.node;
+        let expr = expr.optimize_on_freeze(ctx);
+        let args = args.optimize_on_freeze(ctx);
+        CallCompiled::call(self.span, expr.node, args)
     }
 }
 
@@ -280,9 +294,9 @@ impl Compiler<'_, '_, '_> {
             self.expr_call_fun_frozen(span, left, args)
         } else {
             let args = self.args(args);
-            ExprCompiled::Call(IrSpanned {
+            ExprCompiled::Call(box IrSpanned {
                 span,
-                node: CallCompiled::Call(box (left, args)),
+                node: CallCompiled { fun: left, args },
             })
         }
     }
@@ -315,6 +329,8 @@ impl Compiler<'_, '_, '_> {
             }
         }
 
+        let getattr_span = e.span.merge(&FrozenFileSpan::new(self.codemap, s.span));
+
         let s = Symbol::new(&s.node);
         if let Some(e) = e.as_value() {
             if let Some(v) = ExprCompiled::compile_time_getattr(
@@ -327,9 +343,9 @@ impl Compiler<'_, '_, '_> {
             }
         }
 
-        ExprCompiled::Call(IrSpanned {
+        ExprCompiled::Call(box IrSpanned {
             span,
-            node: CallCompiled::Method(box (e, s, args)),
+            node: CallCompiled::new_method(e, s, getattr_span, args),
         })
     }
 

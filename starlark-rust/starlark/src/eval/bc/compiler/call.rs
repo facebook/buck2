@@ -122,12 +122,12 @@ impl IrSpanned<CallCompiled> {
     pub(crate) fn write_bc(&self, bc: &mut BcWriter) {
         let span = self.span;
         let file_span = bc.alloc_file_span(span);
-        match self.node {
-            CallCompiled::Call(box (ref f, ref args)) => match f.as_value() {
-                Some(f) => Self::write_call_frozen(span, f, args, bc),
+        match self.method() {
+            None => match self.fun.as_value() {
+                Some(f) => Self::write_call_frozen(span, f, &self.args, bc),
                 None => {
-                    f.write_bc(bc);
-                    match Self::write_args(args, bc) {
+                    self.fun.write_bc(bc);
+                    match Self::write_args(&self.args, bc) {
                         Either::Left(npops) => {
                             bc.write_instr::<InstrCallPos>(span, (ArgPopsStack1, npops, file_span))
                         }
@@ -137,7 +137,7 @@ impl IrSpanned<CallCompiled> {
                     }
                 }
             },
-            CallCompiled::Method(box (ref this, ref symbol, ref args)) => {
+            Some((this, symbol, args)) => {
                 this.write_bc(bc);
                 let file_span = bc.alloc_file_span(span);
                 let symbol = symbol.clone();
