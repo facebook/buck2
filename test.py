@@ -158,6 +158,7 @@ CLIPPY_ALLOW = [
     "clippy::bool-assert-comparison",  # from rust version 1.53.0
     "clippy::non-send-fields-in-send-ty",  # This got unlanded in 1.58.1 (https://github.com/rust-lang/rust-clippy/issues/8045)
     "clippy::unwrap-or-else-default",  # Defaults aren't always more clear as it removes the type information when reading code
+    "clippy::enum-variant-names",  # Sometimes you do want the same prefixes
 ]
 
 CLIPPY_DENY = [
