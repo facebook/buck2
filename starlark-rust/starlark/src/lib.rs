@@ -375,22 +375,22 @@
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 //
 // Good reasons
-#![allow(clippy::new_ret_no_self)] // We often return Value, even though its morally a Self
 #![allow(clippy::needless_return)] // Mixing explicit returns with implicit ones sometimes looks odd
+#![allow(clippy::new_ret_no_self)] // We often return Value, even though its morally a Self
 // Disagree these are good hints
-#![allow(clippy::single_match)]
-#![allow(clippy::should_implement_trait)]
+#![allow(clippy::comparison_chain)]
+#![allow(clippy::comparison_to_empty)]
+#![allow(clippy::enum_variant_names)]
+#![allow(clippy::float_cmp)]
 #![allow(clippy::len_without_is_empty)]
 #![allow(clippy::match_like_matches_macro)]
-#![allow(clippy::new_without_default)]
-#![allow(clippy::type_complexity)]
-#![allow(clippy::enum_variant_names)]
-#![allow(clippy::needless_lifetimes)]
-#![allow(clippy::comparison_to_empty)]
-#![allow(clippy::wrong_self_convention)]
-#![allow(clippy::comparison_chain)]
 #![allow(clippy::missing_safety_doc)]
-#![allow(clippy::float_cmp)]
+#![allow(clippy::needless_lifetimes)]
+#![allow(clippy::new_without_default)]
+#![allow(clippy::should_implement_trait)]
+#![allow(clippy::single_match)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::wrong_self_convention)]
 // FIXME: Temporary
 #![allow(clippy::useless_transmute)] // Seems to be a clippy bug, but we should be using less transmute anyway
 #![deny(missing_docs)]
