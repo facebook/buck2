@@ -853,7 +853,7 @@ where
         e: Arc<OccupiedGraphNode<K>>,
     ) -> (GraphNode<K>, Option<GraphNode<K>>) {
         match entry_creator.try_reuse_occupied_entry(&self.storage_properties, v, e.dupe()) {
-            EntryReused::Reused(reused) => (reused, None),
+            EntryReused::Reused(reused) => (GraphNode::occupied(reused), None),
             EntryReused::NotReusable(entry_creator) => {
                 let (since, end, hist) = e.read_meta().hist.make_new_verified_history(v);
                 let (v_new, new) = entry_creator.build(
@@ -1031,7 +1031,7 @@ enum EntryUpdater<K: StorageProperties> {
 }
 
 enum EntryReused<K: StorageProperties> {
-    Reused(GraphNode<K>),
+    Reused(Arc<OccupiedGraphNode<K>>),
     NotReusable(EntryUpdater<K>),
 }
 
@@ -1059,7 +1059,7 @@ impl<K: StorageProperties> EntryUpdater<K> {
             EntryUpdater::ValidOnly { res } => {
                 if storage_key.equality(&old.res, &res) {
                     old.mark_unchanged(v, HashSet::new());
-                    EntryReused::Reused(GraphNode::occupied(old))
+                    EntryReused::Reused(old)
                 } else {
                     EntryReused::NotReusable(EntryUpdater::ValidOnly { res })
                 }
@@ -1071,7 +1071,7 @@ impl<K: StorageProperties> EntryUpdater<K> {
             } => {
                 if storage_key.equality(&old.res, &res) {
                     reuse_node(v, &old, both_deps);
-                    EntryReused::Reused(GraphNode::occupied(old))
+                    EntryReused::Reused(old)
                 } else {
                     EntryReused::NotReusable(EntryUpdater::Computed {
                         res,
@@ -1083,7 +1083,7 @@ impl<K: StorageProperties> EntryUpdater<K> {
             EntryUpdater::Reuse { e, both_deps } => {
                 if Arc::ptr_eq(&old, &e) || storage_key.equality(&old.res, &e.res) {
                     reuse_node(v, &old, both_deps);
-                    EntryReused::Reused(GraphNode::occupied(old))
+                    EntryReused::Reused(old)
                 } else {
                     EntryReused::NotReusable(EntryUpdater::Reuse { e, both_deps })
                 }
