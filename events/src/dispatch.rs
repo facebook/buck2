@@ -11,8 +11,8 @@ use std::{
 };
 
 use buck2_data::{
-    buck_event, instant_event::Data::HgInfo, span_end_event, span_start_event, InstantEvent,
-    MercurialInfo, SpanEndEvent, SpanStartEvent,
+    buck_event, instant_event::Data::HgInfo, span_end_event, span_start_event, MercurialInfo,
+    SpanEndEvent, SpanStartEvent,
 };
 use futures::{future, Future};
 use gazebo::prelude::*;
@@ -141,14 +141,10 @@ impl EventDispatcher {
                 }
             }
         }
-        self.event(InstantEvent {
-            data: {
-                Some(HgInfo(MercurialInfo {
-                    commit: hash,
-                    diff: pastry,
-                }))
-            },
-        });
+        self.instant_event(HgInfo(MercurialInfo {
+            commit: hash,
+            diff: pastry,
+        }));
     }
 
     /// Introduces a new span and immediately fires the given start event. When the given synchronous function returns,

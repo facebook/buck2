@@ -24,8 +24,8 @@ use buck2_core::{
     target::ConfiguredTargetLabel,
 };
 use buck2_data::{
-    InstantEvent, SessionInfo, TestDiscovery, TestDiscoveryEnd, TestDiscoveryStart, TestRunEnd,
-    TestRunStart, TestSuite,
+    SessionInfo, TestDiscovery, TestDiscoveryEnd, TestDiscoveryStart, TestRunEnd, TestRunStart,
+    TestSuite,
 };
 use buck2_interpreter::dice::HasEvents;
 use dashmap::{mapref::entry::Entry, DashMap};
@@ -287,15 +287,11 @@ impl TestOrchestrator for BuckTestOrchestrator {
         suite: String,
         names: Vec<String>,
     ) -> anyhow::Result<()> {
-        self.events.event(InstantEvent {
-            data: Some(buck2_data::instant_event::Data::TestDiscovery(
-                TestDiscovery {
-                    data: Some(buck2_data::test_discovery::Data::Tests(TestSuite {
-                        suite_name: suite,
-                        test_names: names,
-                    })),
-                },
-            )),
+        self.events.instant_event(TestDiscovery {
+            data: Some(buck2_data::test_discovery::Data::Tests(TestSuite {
+                suite_name: suite,
+                test_names: names,
+            })),
         });
 
         Ok(())
@@ -306,15 +302,11 @@ impl TestOrchestrator for BuckTestOrchestrator {
         session_id: String,
         session_info: String,
     ) -> anyhow::Result<()> {
-        self.events.event(InstantEvent {
-            data: Some(buck2_data::instant_event::Data::TestDiscovery(
-                TestDiscovery {
-                    data: Some(buck2_data::test_discovery::Data::Session(SessionInfo {
-                        id: session_id,
-                        info: session_info,
-                    })),
-                },
-            )),
+        self.events.instant_event(TestDiscovery {
+            data: Some(buck2_data::test_discovery::Data::Session(SessionInfo {
+                id: session_id,
+                info: session_info,
+            })),
         });
 
         Ok(())

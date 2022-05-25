@@ -15,7 +15,7 @@ use std::{
     time::Duration,
 };
 
-use buck2_data::{BuildGraphExecutionInfo, CriticalPathEntry, InstantEvent};
+use buck2_data::{BuildGraphExecutionInfo, CriticalPathEntry};
 use derive_more::From;
 use dice::UserComputationData;
 use events::dispatch::EventDispatcher;
@@ -128,7 +128,7 @@ impl BuildSignalReceiver {
             }
         }
 
-        let build_info_payload: buck2_data::instant_event::Data = BuildGraphExecutionInfo {
+        events.instant_event(BuildGraphExecutionInfo {
             critical_path: self
                 .extract_critical_path()
                 .into_map(|(name, duration, action)| CriticalPathEntry {
@@ -136,10 +136,6 @@ impl BuildSignalReceiver {
                     action_key: Some(action.key().as_proto()),
                     duration: Some(duration.into()),
                 }),
-        }
-        .into();
-        events.event(InstantEvent {
-            data: Some(build_info_payload),
         });
         Ok(())
     }
