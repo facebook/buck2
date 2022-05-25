@@ -120,8 +120,9 @@ pub struct TargetsCommand {
     )]
     output_attribute: Vec<String>,
 
+    /// Deprecated: Use `--output-attribute` instead.
+    ///
     /// List of space-separated attributes to output, --output-attributes attr1 attr2.
-    #[deprecated(note = "Use --output-attribute.")]
     #[structopt(long)]
     output_attributes: Vec<String>,
 
