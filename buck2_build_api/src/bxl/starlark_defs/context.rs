@@ -237,9 +237,9 @@ fn register_context(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<Vec<StarlarkAnalysisResult>> {
         let providers = ProvidersExpr::unpack(labels, global_target_platform, this, eval)?;
 
-        let res: anyhow::Result<_> = this.async_ctx.via_dice(|ctx| async {
-            analysis::analysis(ctx, providers.labels(), skip_incompatible).await
-        });
+        let res: anyhow::Result<_> = this
+            .async_ctx
+            .via_dice(|ctx| async { analysis::analysis(ctx, providers, skip_incompatible).await });
 
         res
     }

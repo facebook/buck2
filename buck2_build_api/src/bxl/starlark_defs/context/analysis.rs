@@ -1,17 +1,16 @@
-use buck2_core::provider::ConfiguredProvidersLabel;
 use dice::DiceComputations;
 
 use crate::{
     analysis::calculation::RuleAnalysisCalculation,
-    bxl::starlark_defs::analysis_result::StarlarkAnalysisResult,
+    bxl::starlark_defs::{analysis_result::StarlarkAnalysisResult, providers_expr::ProvidersExpr},
 };
 
 pub(crate) async fn analysis(
     ctx: &DiceComputations,
-    labels: impl Iterator<Item = &ConfiguredProvidersLabel>,
+    expr: ProvidersExpr,
     skip_incompatible: bool,
 ) -> anyhow::Result<Vec<StarlarkAnalysisResult>> {
-    futures::future::join_all(labels.map(async move |label| {
+    futures::future::join_all(expr.labels().map(async move |label| {
         let maybe_result = ctx
             .get_analysis_result(label.target())
             .await?
