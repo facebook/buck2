@@ -279,7 +279,7 @@ def process_genrule(
     # Create required directories.
     script = [
         cmd_args(srcs_artifact, format = "mkdir -p ./{}/../out"),
-        cmd_args("export TMP=$TMPDIR"),
+        cmd_args("export TMP=${TMPDIR:-/tmp}"),
     ]
 
     # Actually define the operation, relative to where we changed to
