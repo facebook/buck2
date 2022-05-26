@@ -24,17 +24,34 @@ def _impl(ctx):
         buckRoot = ctx.root()
         providers = ctx.analysis(owner, None, True)[0].providers()
         artifact = providers[CxxCompilationDbInfo].info[owner.get_source(filename, ctx)]
-        compile_cmds = []
+        compileCommands = []
         arguments = cmd_args()
         arguments.add(artifact.cxx_compile_cmd.base_compile_cmd)
         arguments.add(artifact.cxx_compile_cmd.argsfile.argfile_args)
         arguments.add(artifact.args)
 
         # @unsorted-dict-items
-        compile_cmds.append({"file": filename, "directory": buckRoot, "arguments": arguments})
-        res = ctx.bxl_actions.action_factory().write_json("compdb.json", compile_cmds)
-        return [res]
+        compileCommands.append({"file": filename, "directory": buckRoot, "arguments": arguments})
+        actionFactory = ctx.bxl_actions.action_factory()
+        compdbArtifact = actionFactory.write_json("compdb.json", compileCommands)
+        hmapConverter = ctx.analysis("fbsource//xplat/scripts/clangd/hmapconverter:bxlhmapconverter")[0].providers()[RunInfo]
+        outputDir = actionFactory.declare_output("merged_cdb")
+        cmd = cmd_args(hmapConverter)
+        cmd.add("--input-file")
+        cmd.add(compdbArtifact)
+        cmd.add("--output-dir")
+        cmd.add(outputDir.as_output())
+        actionFactory.run(cmd, category = "cxx_merge_compdb_hmap")
+        buildTarget = configured_sub_target(owner.label, "compilation-database")
+        ctx.build(buildTarget)
+        return [outputDir]
     return []
+
+    # @unsorted-dict-items
+    # compile_cmds.append({"file": filename, "directory": buckRoot, "arguments": arguments})
+    # res = ctx.bxl_actions.action_factory().write_json("compdb.json", compile_cmds)
+    # return [res]
+    # return []
 
 def findOwningTarget(ctx, filename):
     owner = runCqueryOwner(ctx, filename)
