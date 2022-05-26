@@ -1,0 +1,72 @@
+load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
+
+fb_native.java_library(
+    name = "normal_dep",
+    srcs = ["Simple.java"],
+)
+
+fb_native.prebuilt_jar(
+    name = "exported_dep",
+    binary_jar = "tiny.jar",
+)
+
+fb_native.java_library(
+    name = "provided_dep",
+    srcs = ["Simple.java"],
+)
+
+fb_native.java_library(
+    name = "exported_provided_dep",
+    srcs = ["Simple.java"],
+)
+
+fb_native.java_library(
+    name = "runtime_dep",
+    srcs = ["Simple.java"],
+)
+
+fb_native.java_library(
+    name = "library_with_deps",
+    deps = [":normal_dep"],
+    exported_deps = [":exported_dep"],
+    provided_deps = [":provided_dep"],
+    exported_provided_deps = [":exported_provided_dep"],
+    runtime_deps = [":runtime_dep"],
+)
+
+fb_native.java_library(
+    name = "top_level_library",
+    deps = [":library_with_deps"],
+    srcs = ["Simple.java"],
+)
+
+fb_native.genrule(
+    name = "check_first_order_classpath_of_library_with_deps",
+    out = "out.txt",
+    cmd = "echo \"$(query_targets 'classpath(:library_with_deps, 1)')\" | grep ':normal_dep' | grep ':exported_dep' | grep ':runtime_dep' | grep -v ':provided_dep' | grep -v ':exported_provided_dep' && touch $OUT",
+)
+
+fb_native.genrule(
+    name = "check_first_order_classpath_includes_does_not_include_exported_deps_of_deps",
+    out = "out.txt",
+    cmd = "echo \"$(query_targets 'classpath(:top_level_library, 1)')\" | grep 'library_with_deps' | grep -v ':exported_dep' && touch $OUT",
+)
+
+# TODO(T120950937) classpath should include all targets, regardless of whether or not they produce output. This fails in buck2 on `grep ':library_with_deps'`
+# fb_native.genrule(
+#     name = "check_full_classpath_targets",
+#     out = "out.txt",
+#     cmd = "echo \"$(query_targets 'classpath(:top_level_library)')\" | grep ':top_level_library' | grep ':library_with_deps' | grep ':normal_dep' | grep ':exported_dep' | grep ':runtime_dep' | grep -v ':provided_dep' | grep -v ':exported_provided_dep' && touch $OUT",
+# )
+
+fb_native.genrule(
+    name = "check_full_classpath_outputs",
+    out = "out.txt",
+    cmd = "echo \"$(query_outputs 'classpath(:top_level_library)')\" | grep 'top_level_library' | grep -v 'library_with_deps' | grep 'normal_dep' | grep 'exported_dep' | grep 'runtime_dep' | grep -v 'provided_dep' | grep -v 'exported_provided_dep' && touch $OUT",
+)
+
+fb_native.genrule(
+    name = "check_direct_usage_of_classpath",
+    out = "out.txt",
+    cmd = "echo \"$(classpath :top_level_library)\" | grep 'top_level_library' | grep -v 'library_with_deps' | grep 'normal_dep' | grep 'exported_dep' | grep 'runtime_dep' | grep -v 'provided_dep' | grep -v 'exported_provided_dep' && touch $OUT",
+)
