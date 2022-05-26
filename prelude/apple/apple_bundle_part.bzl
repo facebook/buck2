@@ -57,7 +57,7 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: ["AppleBundlePart
         else:
             codesign_args.append("--ad-hoc")
 
-        info_plist_args = ["--info-plist", _bundle_relative_destination_path(ctx, info_plist_part)] if info_plist_part else []
+        info_plist_args = ["--info-plist", info_plist_part.source] if info_plist_part else []
         codesign_args.extend(info_plist_args)
     elif codesign_type.value == "skip":
         pass
