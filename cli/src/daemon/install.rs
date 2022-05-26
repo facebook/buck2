@@ -7,10 +7,7 @@
  * of this source tree.
  */
 
-use std::{
-    process::{Command, Stdio},
-    time::Duration,
-};
+use std::process::{Command, Stdio};
 
 use anyhow::Context;
 use buck2_build_api::{
@@ -41,20 +38,22 @@ use futures::{
     future::{self, try_join},
     stream::{StreamExt, TryStreamExt},
 };
-use gazebo::prelude::*;
+use gazebo::prelude::{StrExt, *};
 use indexmap::IndexMap;
 use install_proto::{installer_client::InstallerClient, FileReady, Shutdown};
-use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use starlark::values::FrozenRef;
+use tempfile::Builder;
 use thiserror::Error;
 use tokio::sync::mpsc;
-use tonic::transport::{Channel, Endpoint};
+use tonic::transport::Channel;
 
 use crate::daemon::{
-    client_utils::retrying,
     common::{parse_patterns_from_cli_args, resolve_patterns, target_platform_from_client_context},
     server::ServerCommandContext,
 };
+
+pub static DEFAULT_PORT: &str = "50055";
+pub static DEFAULT_SOCKET_ADDR: &str = "0.0.0.0";
 
 #[derive(Debug, Error)]
 pub enum InstallError {
@@ -149,25 +148,15 @@ async fn build_install(
         anyhow::Ok(())
     };
     let build_installer_and_connect = async move {
-        let rand_string: String = thread_rng()
-            .sample_iter(&Alphanumeric)
-            .take(4)
-            .map(char::from)
-            .collect();
-        // TODO: @lebentle change this to be in the same directory of the buck.uds
-        let socket = format!("/tmp/installer{}.sock", rand_string);
-        installer_run_args.extend(vec!["--named-pipe".to_owned(), socket.clone()]);
+        let tmp_dir = Builder::new().prefix("buck2_install").tempdir()?;
+        let filename = format!("{}/installer.sock", tmp_dir.into_path().to_str().unwrap());
+
+        installer_run_args.extend(vec!["--named-pipe".to_owned(), filename.to_owned()]);
         build_launch_installer(ctx, install_info, installer_run_args).await?;
 
         // These numbers might need to be configured based on the installer
         // Current time seems to be 0m0.727s for run from buck2
-        let client = retrying(
-            Duration::from_millis(500),
-            Duration::from_millis(500),
-            Duration::from_secs(5),
-            async || connect_to_installer(&socket).await,
-        )
-        .await?;
+        let client: InstallerClient<Channel> = connect_to_installer(filename.to_owned()).await?;
         let artifact_fs = ctx.get_artifact_fs().await;
         let ret = tokio_stream::wrappers::UnboundedReceiverStream::new(files_rx)
             .map(anyhow::Ok)
@@ -181,7 +170,7 @@ async fn build_install(
         anyhow::Ok(())
     };
     try_join(build_installer_and_connect, build_files).await?;
-    Ok(())
+    anyhow::Ok(())
 }
 
 async fn build_launch_installer(
@@ -273,30 +262,51 @@ async fn materialize_artifact_group(
 }
 
 #[cfg(unix)]
-async fn connect_to_installer(socket: &str) -> anyhow::Result<InstallerClient<Channel>> {
-    use tonic::transport::Uri;
-    use tower::service_fn;
-    let io: tokio::net::UnixStream = {
-        tokio::net::UnixStream::connect(socket)
+async fn connect_to_installer(unix_socket: String) -> anyhow::Result<InstallerClient<Channel>> {
+    use std::time::Duration;
+
+    use super::client_utils::{get_channel, retrying, ConnectionType};
+
+    // try to connect using uds first
+    let attempt_channel = retrying(
+        Duration::from_millis(500),
+        Duration::from_millis(500),
+        Duration::from_secs(5),
+        async || {
+            get_channel(ConnectionType::UDS {
+                unix_socket: unix_socket.to_owned(),
+            })
             .await
-            .with_context(|| format!("Failed to connect to unix domain socket '{}'", socket))?
+        },
+    )
+    .await;
+    let channel = match attempt_channel {
+        Ok(channel) => channel,
+        Err(err) => {
+            println!("Failed to connect with UDS: {:#} Falling back to TCP", err);
+            retrying(
+                Duration::from_millis(500),
+                Duration::from_millis(500),
+                Duration::from_secs(5),
+                async || {
+                    get_channel(ConnectionType::TCP {
+                        socket: DEFAULT_SOCKET_ADDR.to_owned(),
+                        port: DEFAULT_PORT.to_owned(),
+                    })
+                    .await
+                },
+            )
+            .await
+            .context("Failed to connect to with TCP and UDS")?
+        }
     };
-    let mut io = Some(io);
-    let channel = Endpoint::try_from("http://[::]:50055")?
-        .connect_with_connector(service_fn(move |_: Uri| {
-            let io = io
-                .take()
-                .context("Cannot reconnect after connection loss to uds");
-            future::ready(io)
-        }))
-        .await
-        .context("Failed to connect to installer domain socket file")?;
     let client = InstallerClient::new(channel);
     Ok(client)
 }
 
 #[cfg(windows)]
-async fn connect_to_installer(_socket: &str) -> anyhow::Result<InstallerClient<Channel>> {
+async fn connect_to_installer(_unix_socket: String) -> anyhow::Result<InstallerClient<Channel>> {
+    use tonic::transport::Endpoint;
     let channel = Endpoint::try_from("http://0.0.0.0:50055")?
         .connect()
         .await
@@ -304,7 +314,6 @@ async fn connect_to_installer(_socket: &str) -> anyhow::Result<InstallerClient<C
     let client = InstallerClient::new(channel);
     Ok(client)
 }
-
 async fn send_file(
     file: FileResult,
     artifact_fs: &ArtifactFs,

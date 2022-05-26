@@ -11,15 +11,17 @@ use std::{
     env,
     fs::File,
     io::{BufReader, Read},
+    path::Path,
     process::Command,
     time::Duration,
 };
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use buck2_core::fs::paths::AbsPathBuf;
 use cli_proto::{daemon_api_client::DaemonApiClient, DaemonProcessInfo};
 use events::subscriber::EventSubscriber;
 use fs2::FileExt;
+use gazebo::prelude::StrExt;
 use thiserror::Error;
 use tonic::transport::Channel;
 use wait_timeout::ChildExt;
@@ -28,11 +30,13 @@ use crate::{
     commands::common::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder,
     daemon::{
         client::{events_ctx::EventsCtx, BuckdClient, ClientKind, Replayer, VersionCheckResult},
-        client_utils::{get_channel, retrying},
+        client_utils::{
+            get_channel, retrying, ConnectionType, ParseError, WithCurrentDirectory, SOCKET_ADDR,
+            UDS_DAEMON_FILENAME,
+        },
     },
     paths::Paths,
 };
-
 /// Responsible for starting the daemon when no daemon is running.
 /// This struct holds a lock such that only one daemon is ever started per daemon directory.
 struct BuckdLifecycle<'a> {
@@ -329,7 +333,26 @@ impl BuckdConnectOptions {
                 location.display(),
             )
         })?;
-        let client = DaemonApiClient::new(get_channel(&info.endpoint).await?);
+        let (protocol, endpoint) = info.endpoint.split1(":");
+        let connection_type = match protocol {
+            "uds" => ConnectionType::UDS {
+                unix_socket: UDS_DAEMON_FILENAME.to_owned(),
+            },
+            "tcp" => ConnectionType::TCP {
+                socket: SOCKET_ADDR.to_owned(),
+                port: endpoint.to_owned(),
+            },
+            _ => {
+                return Err(anyhow!(ParseError::ParseError(endpoint.to_owned())));
+            }
+        };
+
+        let client = {
+            let daemon_dir = Path::new(&endpoint).parent().unwrap();
+            let _with_dir = WithCurrentDirectory::new(daemon_dir)?;
+            DaemonApiClient::new(get_channel(connection_type).await?)
+        };
+
         Ok(BootstrapBuckdClient::new(client, info, daemon_dir))
     }
 }

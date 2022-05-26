@@ -16,7 +16,7 @@ use tokio::{
 };
 use tonic::transport::server::Connected;
 
-use crate::daemon::client_utils::{WithCurrentDirectory, UDS_FILENAME};
+use crate::daemon::client_utils::{WithCurrentDirectory, UDS_DAEMON_FILENAME};
 
 // This function will change the working directory briefly and should not be run
 // while other threads are running, as directory is a global variable.
@@ -26,7 +26,7 @@ pub async fn create_listener(
     String,
     Pin<Box<dyn Stream<Item = Result<UnixStream, std::io::Error>>>>,
 )> {
-    let uds_path = daemon_dir.join(UDS_FILENAME);
+    let uds_path = daemon_dir.join(UDS_DAEMON_FILENAME);
 
     tokio::fs::create_dir_all(&uds_path.parent().unwrap()).await?;
     if Path::exists(&uds_path) {
@@ -39,7 +39,7 @@ pub async fn create_listener(
         // path is limited to 108 characters. https://man7.org/linux/man-pages/man7/unix.7.html
         let uds = {
             let _with_dir = WithCurrentDirectory::new(daemon_dir)?;
-            UnixListener::bind(Path::new(UDS_FILENAME))?
+            UnixListener::bind(Path::new(UDS_DAEMON_FILENAME))?
         };
 
         async_stream::stream! {

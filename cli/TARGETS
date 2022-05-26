@@ -34,7 +34,6 @@ rust_library(
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:pretty_assertions",
-        "fbsource//third-party/rust:tempfile",
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",
@@ -70,7 +69,6 @@ rust_library(
         "fbsource//third-party/rust:os_str_bytes",
         "fbsource//third-party/rust:pin-project",
         "fbsource//third-party/rust:prost-types",
-        "fbsource//third-party/rust:rand",
         "fbsource//third-party/rust:ref-cast",
         "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:serde",
@@ -79,6 +77,7 @@ rust_library(
         "fbsource//third-party/rust:siphasher",
         "fbsource//third-party/rust:structopt",
         "fbsource//third-party/rust:sync_wrapper",
+        "fbsource//third-party/rust:tempfile",
         "fbsource//third-party/rust:termwiz",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:threadpool",

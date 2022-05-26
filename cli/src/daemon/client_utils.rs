@@ -16,11 +16,10 @@ use std::{
 
 use anyhow::{anyhow, Context};
 use futures::Future;
-use gazebo::prelude::*;
 use thiserror::Error;
 use tonic::transport::{Channel, Endpoint};
 
-pub static UDS_FILENAME: &str = "buckd.uds";
+pub static UDS_DAEMON_FILENAME: &str = "buckd.uds";
 pub static SOCKET_ADDR: &str = "127.0.0.1";
 
 pub struct WithCurrentDirectory {
@@ -28,7 +27,7 @@ pub struct WithCurrentDirectory {
 }
 
 #[derive(Debug, Error)]
-enum ParseError {
+pub enum ParseError {
     #[error("Failed to parse correct endpoint information {0}")]
     ParseError(String),
 }
@@ -55,35 +54,35 @@ impl Drop for WithCurrentDirectory {
     }
 }
 
+pub enum ConnectionType {
+    UDS { unix_socket: String },
+    TCP { socket: String, port: String },
+}
 // This function could potentialy change the working directory briefly and should not be run
 // while other threads are running, as directory is a global variable
-pub async fn get_channel(endpoint_string: &str) -> anyhow::Result<Channel> {
-    let (protocol, endpoint) = endpoint_string.split1(":");
-    if protocol == "uds" {
-        get_channel_uds(endpoint).await
-    } else if protocol == "tcp" {
-        get_channel_tcp(endpoint).await
-    } else {
-        Err(anyhow!(ParseError::ParseError(endpoint.to_owned())))
+pub async fn get_channel(endpoint: ConnectionType) -> anyhow::Result<Channel> {
+    match endpoint {
+        ConnectionType::UDS { unix_socket } => get_channel_uds(&unix_socket).await,
+        ConnectionType::TCP { socket, port } => get_channel_tcp(&socket, &port).await,
     }
 }
 
 #[cfg(unix)]
-pub async fn get_channel_uds(endpoint: &str) -> anyhow::Result<Channel> {
+pub async fn get_channel_uds(unix_filename: &str) -> anyhow::Result<Channel> {
     use tonic::codegen::http::Uri;
     use tower::service_fn;
 
-    let daemon_dir = Path::new(&endpoint).parent().unwrap();
     // change directory to the daemon directory to connect to unix domain socket
     // then change directory back to the current directory since the unix domain socket
     // path is limited to 108 characters. https://man7.org/linux/man-pages/man7/unix.7.html
     let io: tokio::net::UnixStream = {
-        let _with_dir = WithCurrentDirectory::new(daemon_dir)?;
-
-        tokio::net::UnixStream::connect(&UDS_FILENAME)
+        tokio::net::UnixStream::connect(&unix_filename)
             .await
             .with_context(|| {
-                format!("Failed to connect to unix domain socket '{}'", UDS_FILENAME)
+                format!(
+                    "Failed to connect to unix domain socket '{}'",
+                    unix_filename
+                )
             })?
     };
 
@@ -98,21 +97,26 @@ pub async fn get_channel_uds(endpoint: &str) -> anyhow::Result<Channel> {
             futures::future::ready(io)
         }))
         .await
-        .with_context(|| format!("Failed to connect to unix domain socket '{}'", endpoint))
+        .with_context(|| {
+            format!(
+                "Failed to connect to unix domain socket '{}'",
+                unix_filename
+            )
+        })
 }
 
 #[cfg(windows)]
-pub async fn get_channel_uds(_endpoint: &str) -> anyhow::Result<Channel> {
+pub async fn get_channel_uds(_unix_filename: &str) -> anyhow::Result<Channel> {
     Err(anyhow::Error::msg(
         "Unix domain sockets are not supported on Windows",
     ))
 }
 
-pub async fn get_channel_tcp(endpoint: &str) -> anyhow::Result<Channel> {
-    Endpoint::try_from(format!("http://{}:{}", SOCKET_ADDR, endpoint))?
+pub async fn get_channel_tcp(socket_addr: &str, port: &str) -> anyhow::Result<Channel> {
+    Endpoint::try_from(format!("http://{}:{}", socket_addr, port))?
         .connect()
         .await
-        .with_context(|| format!("failed to connect to daemon port {}", endpoint))
+        .with_context(|| format!("failed to connect to port {}", port))
 }
 
 pub async fn retrying<L, Fut: Future<Output = anyhow::Result<L>>, F: Fn() -> Fut>(
