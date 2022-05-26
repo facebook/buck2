@@ -37,6 +37,7 @@ extra_attributes = {
     },
     "apple_binary": {
         "enable_distributed_thinlto": attr.bool(default = False),
+        "extra_xcode_sources": attr.list(attr.source(allow_directory = True), default = []),
         "precompiled_header": attr.option(attr.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "prefer_stripped_objects": attr.bool(default = False),
         "preferred_linkage": attr.enum(Linkage, default = "any"),
@@ -52,6 +53,7 @@ extra_attributes = {
         "_provisioning_profiles": attr.dep(default = "fbsource//xplat/buck2/provisioning_profiles:all"),
     },
     "apple_library": {
+        "extra_xcode_sources": attr.list(attr.source(allow_directory = True), default = []),
         "precompiled_header": attr.option(attr.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "preferred_linkage": attr.enum(Linkage, default = "any"),
         "stripped": attr.bool(default = False),
@@ -71,6 +73,7 @@ extra_attributes = {
         "binary": attr.option(attr.dep(), default = None),
         # The resulting test bundle should have .xctest extension.
         "extension": attr.string(default = "xctest"),
+        "extra_xcode_sources": attr.list(attr.source(allow_directory = True), default = []),
         # Used to create the shared test library. Any library deps whose `preferred_linkage` isn't "shared" will
         # be treated as "static" deps and linked into the shared test library.
         "link_style": attr.enum(LinkableDepType, default = "static"),

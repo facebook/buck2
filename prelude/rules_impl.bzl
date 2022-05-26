@@ -227,6 +227,7 @@ extra_attributes = struct(
         "_cxx_toolchain": attr.exec_dep(default = default_cxx_toolchain()),
     },
     cxx_library = {
+        "extra_xcode_sources": attr.list(attr.source(allow_directory = True), default = []),
         "precompiled_header": attr.option(attr.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "prefer_stripped_objects": attr.bool(default = False),
         "preferred_linkage": attr.enum(Linkage, default = "any"),
