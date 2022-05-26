@@ -13,6 +13,7 @@ gazebo_lint.optional = true
 gazebo.version = "0.7.0"
 gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "../gazebo/gazebo"
+itertools = "0.10.0"
 starlark = { version = "0.8", path = "../starlark-rust/starlark" }
 buck2_interpreter = { path = "../buck2_interpreter" }
 serde = { version = "1.0", features = ["derive"] }

@@ -18,6 +18,7 @@ use buck2_core::{provider::ProvidersLabel, target::TargetLabel};
 use buck2_interpreter::common::BxlFilePath;
 use derive_more::Display;
 use gazebo::dupe::Dupe;
+use itertools::Itertools;
 use serde::{Serialize, Serializer};
 use starlark::collections::SmallMap;
 
@@ -59,10 +60,16 @@ impl BxlKey {
 }
 
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
-#[display(fmt = "BxlFunction({},{:?})", "spec", "bxl_args")]
-struct BxlKeyData {
-    pub spec: BxlFunctionLabel,
-    pub bxl_args: Arc<SmallMap<String, CliArgValue>>,
+#[display(fmt = "{} ({})", "spec", "print_like_args(bxl_args)")]
+pub(crate) struct BxlKeyData {
+    pub(crate) spec: BxlFunctionLabel,
+    pub(crate) bxl_args: Arc<SmallMap<String, CliArgValue>>,
+}
+
+fn print_like_args(args: &Arc<SmallMap<String, CliArgValue>>) -> String {
+    args.iter()
+        .map(|(arg, argv)| format!("--{}={}", arg, argv))
+        .join(" ")
 }
 
 /// The identifier used to find the implementation function for this bxl. Should point at the output of `bxl()`
