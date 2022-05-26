@@ -90,7 +90,7 @@ def _generate_r_dot_java_source_code(
         merge_resources_cmd.add(["--override-symbols", override_symbols])
 
     if duplicate_resources_allowlist != None:
-        merge_resources_cmd.add(["--duplicate-resource-allowlist", duplicate_resources_allowlist])
+        merge_resources_cmd.add(["--duplicate-resource-allowlist-path", duplicate_resources_allowlist])
 
     if union_package != None:
         merge_resources_cmd.add(["--union-package", union_package])
