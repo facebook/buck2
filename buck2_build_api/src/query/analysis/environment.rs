@@ -80,7 +80,7 @@ impl<'a> ConfiguredGraphFunctions<'a> {
         let template_name = if run_first_order_classpath {
             "first_order_classpath"
         } else {
-            "classpath"
+            "classpath_including_targets_with_no_output"
         };
 
         Ok(env
