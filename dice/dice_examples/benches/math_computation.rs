@@ -13,6 +13,8 @@
 
 mod common;
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use common::BenchmarkComputationsPrerequisites;
 use dice::DiceTransaction;
@@ -68,11 +70,17 @@ impl BenchmarkComputationsPrerequisites for MathBenchmark {
     }
 
     fn invalidated_recompute() -> (Vec<Self::Updater>, Self::Key) {
-        (fib(SIZE / 2, Some(1), false), Var(format!("a{}", SIZE)))
+        (
+            fib(SIZE / 2, Some(1), false),
+            Var(Arc::new(format!("a{}", SIZE))),
+        )
     }
 
     fn early_cutoff_recompute() -> (Vec<Self::Updater>, Self::Key) {
-        (fib(SIZE / 2, None, true), Var(format!("a{}", SIZE)))
+        (
+            fib(SIZE / 2, None, true),
+            Var(Arc::new(format!("a{}", SIZE))),
+        )
     }
 
     fn get_sample_updates() -> Vec<Self::Updater> {
@@ -80,7 +88,7 @@ impl BenchmarkComputationsPrerequisites for MathBenchmark {
     }
 
     fn get_sample_key() -> Self::Key {
-        Var(format!("a{}", SIZE))
+        Var(Arc::new(format!("a{}", SIZE)))
     }
 }
 

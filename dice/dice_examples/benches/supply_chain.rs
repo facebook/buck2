@@ -13,6 +13,8 @@
 
 mod common;
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use common::BenchmarkComputationsPrerequisites;
 use dice::DiceTransaction;
@@ -31,7 +33,7 @@ impl BenchmarkComputationsPrerequisites for SupplyChainBenchmark {
         let ctx = ctx.init_state();
         ctx.add_companies(vec![
             Company {
-                name: "Steve".to_owned(),
+                name: Arc::new("Steve".to_owned()),
                 makes: [
                     (Resource::Plank, 2),
                     (Resource::Wood, 1),
@@ -43,14 +45,14 @@ impl BenchmarkComputationsPrerequisites for SupplyChainBenchmark {
                 .collect(),
             },
             Company {
-                name: "Alex".to_owned(),
+                name: Arc::new("Alex".to_owned()),
                 makes: [(Resource::Pickaxe, 10), (Resource::CraftingTable, 5)]
                     .iter()
                     .cloned()
                     .collect(),
             },
             Company {
-                name: "Bob".to_owned(),
+                name: Arc::new("Bob".to_owned()),
                 makes: [
                     (Resource::Pickaxe, 5),
                     (Resource::Plank, 1),
@@ -61,7 +63,7 @@ impl BenchmarkComputationsPrerequisites for SupplyChainBenchmark {
                 .collect(),
             },
             Company {
-                name: "Raj".to_owned(),
+                name: Arc::new("Raj".to_owned()),
                 makes: [(Resource::Stick, 1)].iter().cloned().collect(),
             },
         ])

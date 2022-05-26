@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use dice::{cycles::DetectCycles, Dice, DiceTransaction};
 use dice_examples::supply_chain::{Company, Cost, Resource, Setup};
@@ -23,7 +23,7 @@ async fn setup(companies: Vec<Company>) -> DiceTransaction {
 #[tokio::test]
 async fn test_no_resources() {
     let ctx = setup(vec![Company {
-        name: "hello world".to_owned(),
+        name: Arc::new("hello world".to_owned()),
         makes: HashMap::new(),
     }])
     .await;
@@ -38,7 +38,7 @@ async fn test_no_resources() {
 #[tokio::test]
 async fn test_other_resource() {
     let ctx = setup(vec![Company {
-        name: "hello world".to_owned(),
+        name: Arc::new("hello world".to_owned()),
         makes: [(Resource::Wood, 2)].iter().cloned().collect(),
     }])
     .await;
@@ -51,7 +51,7 @@ async fn test_other_resource() {
 async fn test_simple() {
     let ctx = setup(vec![
         Company {
-            name: "Steve".to_owned(),
+            name: Arc::new("Steve".to_owned()),
             makes: [
                 (Resource::Plank, 2),
                 (Resource::Wood, 1),
@@ -63,7 +63,7 @@ async fn test_simple() {
             .collect(),
         },
         Company {
-            name: "Alex".to_owned(),
+            name: Arc::new("Alex".to_owned()),
             makes: [(Resource::Pickaxe, 10), (Resource::CraftingTable, 5)]
                 .iter()
                 .cloned()
@@ -95,7 +95,7 @@ async fn test_simple() {
 async fn test_complex() {
     let ctx = setup(vec![
         Company {
-            name: "Steve".to_owned(),
+            name: Arc::new("Steve".to_owned()),
             makes: [
                 (Resource::Plank, 2),
                 (Resource::Wood, 1),
@@ -107,14 +107,14 @@ async fn test_complex() {
             .collect(),
         },
         Company {
-            name: "Alex".to_owned(),
+            name: Arc::new("Alex".to_owned()),
             makes: [(Resource::Pickaxe, 10), (Resource::CraftingTable, 5)]
                 .iter()
                 .cloned()
                 .collect(),
         },
         Company {
-            name: "Bob".to_owned(),
+            name: Arc::new("Bob".to_owned()),
             makes: [
                 (Resource::Pickaxe, 5),
                 (Resource::Plank, 1),
@@ -125,7 +125,7 @@ async fn test_complex() {
             .collect(),
         },
         Company {
-            name: "Raj".to_owned(),
+            name: Arc::new("Raj".to_owned()),
             makes: [(Resource::Stick, 1)].iter().cloned().collect(),
         },
     ])
@@ -154,7 +154,7 @@ async fn test_complex() {
 async fn test_change_cost() -> Result<(), &'static str> {
     let ctx = setup(vec![
         Company {
-            name: "Steve".to_owned(),
+            name: Arc::new("Steve".to_owned()),
             makes: [
                 (Resource::Plank, 2),
                 (Resource::Wood, 1),
@@ -166,7 +166,7 @@ async fn test_change_cost() -> Result<(), &'static str> {
             .collect(),
         },
         Company {
-            name: "Alex".to_owned(),
+            name: Arc::new("Alex".to_owned()),
             makes: [(Resource::Pickaxe, 10), (Resource::CraftingTable, 5)]
                 .iter()
                 .cloned()

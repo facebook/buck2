@@ -95,7 +95,7 @@ impl Resource {
 /// Each company manufactures a set of resources for a given upcharge
 #[derive(Eq, Clone, PartialEq)]
 pub struct Company {
-    pub name: String,
+    pub name: Arc<String>,
     /// A mapping between resource the company makes and its flat upcharge
     pub makes: HashMap<Resource, u16>,
 }
@@ -125,7 +125,7 @@ impl Setup for DiceTransaction {
 
         // convert company to insertion ready format
         let insertion_ready_companies = companies.into_map(|company| {
-            let lookup = LookupCompany(company.name.clone());
+            let lookup = LookupCompany(company.name.dupe());
 
             // construct a resource => company lookups mapping across all companies
             for resource in company.makes.keys() {
@@ -186,7 +186,7 @@ async fn lookup_company_resource_cost(
     company: &LookupCompany,
     resource: &Resource,
 ) -> Option<u16> {
-    #[derive(Display, Debug, Hash, Eq, Clone, PartialEq)]
+    #[derive(Display, Debug, Hash, Eq, Clone, Dupe, PartialEq)]
     #[display(fmt = "{:?}", self)]
     struct LookupCompanyResourceCost(LookupCompany, Resource);
     #[async_trait]
@@ -262,7 +262,7 @@ impl Cost for DiceComputations {
         resource: &Resource,
         new_price: u16,
     ) -> Result<(), &'static str> {
-        let company_lookup = LookupCompany(company.to_owned());
+        let company_lookup = LookupCompany(Arc::new(company.to_owned()));
         let old_company = self.compute(&company_lookup).await;
         let mut new_company = (*old_company).clone();
         let old_price = new_company
@@ -277,9 +277,9 @@ impl Cost for DiceComputations {
     }
 }
 
-#[derive(Display, Debug, Hash, Eq, Clone, PartialEq, RefCast)]
+#[derive(Display, Debug, Hash, Eq, Clone, Dupe, PartialEq, RefCast)]
 #[repr(transparent)]
-pub struct LookupCompany(pub String);
+pub struct LookupCompany(pub Arc<String>);
 impl InjectedKey for LookupCompany {
     type Value = Arc<Company>;
 

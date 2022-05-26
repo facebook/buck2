@@ -7,13 +7,16 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
 use dice::{cycles::DetectCycles, Dice};
 use dice_examples::math_computation::{
     parse_math_equation, parse_math_equations, Equation, Math, MathEquations, Unit, Var,
 };
+use gazebo::dupe::Dupe;
 
 fn var(name: &str) -> Var {
-    Var(name.to_owned())
+    Var(Arc::new(name.to_owned()))
 }
 
 #[tokio::test]
@@ -21,7 +24,7 @@ async fn test_literal() {
     let dice = Dice::builder().build(DetectCycles::Enabled);
     let ctx = dice.ctx();
     let (var, eq) = parse_math_equation("a=5").unwrap();
-    ctx.set_equation(var.clone(), eq);
+    ctx.set_equation(var.dupe(), eq);
     let ctx = ctx.commit();
 
     assert_eq!(5, ctx.eval(var).await);

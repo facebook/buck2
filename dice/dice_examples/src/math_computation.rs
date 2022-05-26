@@ -21,9 +21,9 @@ use dice::{DiceComputations, InjectedKey, Key};
 use futures::{future, FutureExt};
 use gazebo::prelude::*;
 
-#[derive(Clone, PartialEq, Eq, Hash, Display, Debug)]
+#[derive(Clone, Dupe, PartialEq, Eq, Hash, Display, Debug)]
 #[display(fmt = "Var({})", _0)]
-pub struct Var(pub String);
+pub struct Var(pub Arc<String>);
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum Unit {
@@ -43,7 +43,7 @@ impl FromStr for Unit {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s.parse::<i64>() {
             Ok(i) => Unit::Literal(i),
-            Err(_) => Unit::Var(Var(s.into())),
+            Err(_) => Unit::Var(Var(Arc::new(s.into()))),
         })
     }
 }
@@ -82,7 +82,7 @@ pub fn parse_math_equation(math: &str) -> anyhow::Result<(Var, Equation)> {
         return Err(anyhow!("= must have left and right"));
     }
 
-    Ok((Var(l.to_owned()), r.parse()?))
+    Ok((Var(Arc::new(l.to_owned())), r.parse()?))
 }
 
 pub trait MathEquations {
@@ -109,7 +109,7 @@ impl MathEquations for DiceComputations {
     }
 }
 
-#[derive(Clone, Display, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq)]
 #[display(fmt = "Eval({})", _0)]
 pub struct EvalVar(pub Var);
 #[async_trait]
@@ -149,7 +149,7 @@ async fn lookup_unit(ctx: &DiceComputations, var: &Var) -> Arc<Equation> {
     ctx.compute(&LookupVar(var.clone())).await
 }
 
-#[derive(Clone, Display, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq)]
 #[display(fmt = "Lookup({})", _0)]
 struct LookupVar(Var);
 impl InjectedKey for LookupVar {
@@ -165,7 +165,7 @@ mod parser_tests {
     use super::*;
 
     fn var(name: &str) -> Var {
-        Var(name.to_owned())
+        Var(Arc::new(name.to_owned()))
     }
 
     #[test]
