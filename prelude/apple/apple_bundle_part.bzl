@@ -14,7 +14,9 @@ AppleBundlePart = record(
     # inside bundle depends on target platform
     destination = AppleBundleDestination.type,
     # New file name if it should be renamed before copying.
-    # Only applicable when `source` is a file.
+    # Empty string value is applicable only when `source` is a directory,
+    # in such case only content of the directory will be copied, as opposed to the directory itself.
+    # When value is `None`, directory or file will be copied as it is, without renaming.
     new_name = field([str.type, None], None),
     # Marks parts which should be code signed separately from the whole bundle.
     codesign_on_copy = field(bool.type, False),
