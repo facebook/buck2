@@ -48,6 +48,7 @@ extra_attributes = {
         "_apple_tools": attr.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
         "_codesign_entitlements": attr.option(attr.source(), default = None),
         "_codesign_type": attr.option(attr.enum(CodeSignType.values()), default = None),
+        "_incremental_bundling_enabled": attr.bool(),
         "_provisioning_profiles": attr.dep(default = "fbsource//xplat/buck2/provisioning_profiles:all"),
     },
     "apple_library": {
