@@ -157,91 +157,28 @@ impl TestOrchestrator for BuckTestOrchestrator {
     ) -> anyhow::Result<ExecutionResult2> {
         let test_target = self.session.get(test_target)?;
 
-        let providers = self
-            .dice
-            .get_providers(&test_target)
-            .await?
-            .require_compatible()?;
-
         let fs = self.dice.get_artifact_fs().await;
 
-        let output_root =
-            self.session
-                .prefix()
-                .join_unnormalized(ForwardRelativePathBuf::unchecked_new(
-                    Uuid::new_v4().to_string(),
-                ));
-
-        let mut declared_outputs = IndexMap::<BuckOutTestPath, OutputCreationBehavior>::new();
-
-        // NOTE: This likely needs more logic, in time.
-        let mut supports_re = true;
-
-        let cwd;
-        let expanded;
-        let mut resolved_executor_override = None;
-
-        {
-            let opts = self.session.options();
-
-            let providers = providers.provider_collection();
-            let test_info = providers
-                .get_provider(ExternalRunnerTestInfoCallable::provider_id_t())
-                .context("execute2 only supports ExternalRunnerTestInfo providers")?;
-
-            cwd = if test_info.run_from_project_root() || opts.force_run_from_project_root {
-                ProjectRelativePathBuf::unchecked_new("".to_owned())
-            } else {
-                supports_re = false;
-                // For compatibility with v1,
-                let cell_resolver = self.dice.get_cell_resolver().await;
-                let cell = cell_resolver.get(test_target.target().pkg().cell_name())?;
-                cell.path().to_owned()
-            };
-
-            let expander = Execute2RequestExpander {
-                test_info: &test_info,
-                output_root: &output_root,
-                declared_outputs: &mut declared_outputs,
-                fs: &fs,
+        let test_executable_expanded = self
+            .expand_test_executable(
+                &fs,
+                &test_target,
                 cmd,
                 env,
-            };
+                pre_create_dirs,
+                executor_override,
+            )
+            .await?;
 
-            expanded = if test_info.use_project_relative_paths()
-                || opts.force_use_project_relative_paths
-            {
-                expander.expand::<BaseCommandLineBuilder>()
-            } else {
-                supports_re = false;
-                expander.expand::<AbsCommandLineBuilder>()
-            }?;
-
-            if let Some(executor_override) = executor_override.as_ref() {
-                let executor_override = test_info
-                    .executor_override(&executor_override.name)
-                    .context("The `executor_override` provided does not exist")
-                    .and_then(|o| {
-                        o.to_command_executor_config()
-                            .context("The `executor_override` is invalid")
-                    })
-                    .with_context(|| {
-                        format!(
-                            "Error processing `executor_override`: `{}`",
-                            executor_override.name
-                        )
-                    })?;
-
-                resolved_executor_override = Some(executor_override);
-            }
-        };
-
-        let (expanded_cmd, expanded_env, inputs) = expanded;
-
-        for output in pre_create_dirs {
-            let test_path = BuckOutTestPath::new(output_root.clone(), output.name);
-            declared_outputs.insert(test_path, OutputCreationBehavior::Create);
-        }
+        let ExpandedTestExecutable {
+            cwd,
+            cmd: expanded_cmd,
+            env: expanded_env,
+            inputs,
+            supports_re,
+            declared_outputs,
+            resolved_executor_override,
+        } = test_executable_expanded;
 
         let (stdout, stderr, status, timing, outputs) = self
             .execute_shared(
@@ -526,6 +463,109 @@ impl BuckTestOrchestrator {
         let executor = CommandExecutor::new(executor, command_executor_config.artifact_fs);
         Ok(executor)
     }
+
+    async fn expand_test_executable(
+        &self,
+        fs: &ArtifactFs,
+        test_target: &ConfiguredProvidersLabel,
+        cmd: Vec<ArgValue>,
+        env: HashMap<String, ArgValue>,
+        pre_create_dirs: Vec<DeclaredOutput>,
+        executor_override: Option<ExecutorConfigOverride>,
+    ) -> anyhow::Result<ExpandedTestExecutable> {
+        let providers = self
+            .dice
+            .get_providers(test_target)
+            .await?
+            .require_compatible()?;
+
+        let output_root =
+            self.session
+                .prefix()
+                .join_unnormalized(ForwardRelativePathBuf::unchecked_new(
+                    Uuid::new_v4().to_string(),
+                ));
+
+        let mut declared_outputs = IndexMap::<BuckOutTestPath, OutputCreationBehavior>::new();
+
+        // NOTE: This likely needs more logic, in time.
+        let mut supports_re = true;
+
+        let cwd;
+        let expanded;
+        let mut resolved_executor_override = None;
+        {
+            let opts = self.session.options();
+
+            let providers = providers.provider_collection();
+            let test_info = providers
+                .get_provider(ExternalRunnerTestInfoCallable::provider_id_t())
+                .context("Test executable only supports ExternalRunnerTestInfo providers")?;
+
+            cwd = if test_info.run_from_project_root() || opts.force_run_from_project_root {
+                ProjectRelativePathBuf::unchecked_new("".to_owned())
+            } else {
+                supports_re = false;
+                // For compatibility with v1,
+                let cell_resolver = self.dice.get_cell_resolver().await;
+                let cell = cell_resolver.get(test_target.target().pkg().cell_name())?;
+                cell.path().to_owned()
+            };
+
+            let expander = Execute2RequestExpander {
+                test_info: &test_info,
+                output_root: &output_root,
+                declared_outputs: &mut declared_outputs,
+                fs,
+                cmd,
+                env,
+            };
+
+            expanded = if test_info.use_project_relative_paths()
+                || opts.force_use_project_relative_paths
+            {
+                expander.expand::<BaseCommandLineBuilder>()
+            } else {
+                supports_re = false;
+                expander.expand::<AbsCommandLineBuilder>()
+            }?;
+
+            if let Some(executor_override) = executor_override.as_ref() {
+                let executor_override = test_info
+                    .executor_override(&executor_override.name)
+                    .context("The `executor_override` provided does not exist")
+                    .and_then(|o| {
+                        o.to_command_executor_config()
+                            .context("The `executor_override` is invalid")
+                    })
+                    .with_context(|| {
+                        format!(
+                            "Error processing `executor_override`: `{}`",
+                            executor_override.name
+                        )
+                    })?;
+
+                resolved_executor_override = Some(executor_override);
+            }
+        };
+
+        let (expanded_cmd, expanded_env, inputs) = expanded;
+
+        for output in pre_create_dirs {
+            let test_path = BuckOutTestPath::new(output_root.clone(), output.name);
+            declared_outputs.insert(test_path, OutputCreationBehavior::Create);
+        }
+
+        Ok(ExpandedTestExecutable {
+            cwd,
+            cmd: expanded_cmd,
+            env: expanded_env,
+            inputs,
+            declared_outputs,
+            supports_re,
+            resolved_executor_override,
+        })
+    }
 }
 
 impl Drop for BuckTestOrchestrator {
@@ -707,6 +747,16 @@ impl<'a> CommandLineBuilder for CommandLineBuilderFormatWrapper<'a> {
 
         self.inner.add_arg_string(s);
     }
+}
+
+struct ExpandedTestExecutable {
+    cwd: ProjectRelativePathBuf,
+    cmd: Vec<String>,
+    env: HashMap<String, String>,
+    inputs: IndexSet<ArtifactGroup>,
+    supports_re: bool,
+    declared_outputs: IndexMap<BuckOutTestPath, OutputCreationBehavior>,
+    resolved_executor_override: Option<CommandExecutorConfig>,
 }
 
 #[cfg(test)]
