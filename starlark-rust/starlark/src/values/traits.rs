@@ -486,7 +486,7 @@ pub trait StarlarkValue<'v>:
         Vec::new()
     }
 
-    /// Tell wether `other` is in the current value, if it is a container.
+    /// Tell whether `other` is in the current value, if it is a container.
     ///
     /// # Examples
     ///
