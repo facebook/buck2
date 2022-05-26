@@ -139,7 +139,14 @@ async def test_audit_config_location_extended(buck: Buck) -> None:
     )
     assert "xctool_path = /usr/bin/true" in result.stdout
     assert (
-        "buck2/tests/targets/configurations_uncategorized/executable_argfiles/jackalope-apple-toolchain.bcfg:2"
+        str(
+            Path("buck2")
+            / "tests"
+            / "targets"
+            / "configurations_uncategorized"
+            / "executable_argfiles"
+            / "jackalope-apple-toolchain.bcfg:2"
+        )
         in result.stdout
     )
 

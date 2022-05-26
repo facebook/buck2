@@ -187,10 +187,30 @@ impl AbsPath {
     ///         Cow::Borrowed(ForwardRelativePath::new("foo/bar.txt")?)
     ///     );
     ///     assert_eq!(
-    ///         path.strip_prefix(AbsPath::new("c:\\test")?)?,
+    ///         path.strip_prefix(AbsPath::new(r"c:\test")?)?,
+    ///         Cow::Borrowed(ForwardRelativePath::new("foo/bar.txt")?)
+    ///     );
+    ///     assert_eq!(
+    ///         path.strip_prefix(AbsPath::new(r"\\?\c:\test")?)?,
     ///         Cow::Borrowed(ForwardRelativePath::new("foo/bar.txt")?)
     ///     );
     ///     assert!(path.strip_prefix(AbsPath::new("c:/asdf")?).is_err());
+    ///
+    ///     let shared_path = AbsPath::new(r"\\server\share\foo\bar.txt")?;
+    ///     assert_eq!(
+    ///         shared_path.strip_prefix(AbsPath::new(r"\\server\share\")?)?,
+    ///         Cow::Borrowed(ForwardRelativePath::new("foo/bar.txt")?)
+    ///     );
+    ///     assert_eq!(
+    ///         shared_path.strip_prefix(AbsPath::new(r"\\server\share\foo")?)?,
+    ///         Cow::Borrowed(ForwardRelativePath::new("bar.txt")?)
+    ///     );
+    ///     assert_eq!(
+    ///         shared_path.strip_prefix(AbsPath::new(r"\\?\UNC\server\share\foo")?)?,
+    ///         Cow::Borrowed(ForwardRelativePath::new("bar.txt")?)
+    ///     );
+    ///     assert!(shared_path.strip_prefix(AbsPath::new(r"\\server\share2\foo")?).is_err());
+    ///     assert!(shared_path.strip_prefix(AbsPath::new(r"\\server\share\fo")?).is_err());
     /// }
     ///
     /// # anyhow::Ok(())
@@ -199,8 +219,24 @@ impl AbsPath {
         &self,
         base: P,
     ) -> anyhow::Result<Cow<ForwardRelativePath>> {
-        let stripped_path = self.0.strip_prefix(&base.as_ref().0)?;
+        let stripped_path = self.strip_prefix_impl(base.as_ref())?;
         ForwardRelativePathNormalizer::normalize_path(stripped_path)
+    }
+
+    #[cfg(not(windows))]
+    fn strip_prefix_impl(&self, base: &AbsPath) -> anyhow::Result<&Path> {
+        self.0.strip_prefix(&base.0).map_err(anyhow::Error::from)
+    }
+
+    #[cfg(windows)]
+    fn strip_prefix_impl(&self, base: &AbsPath) -> anyhow::Result<&Path> {
+        if self.windows_prefix()? == base.windows_prefix()? {
+            self.strip_windows_prefix()?
+                .strip_prefix(base.strip_windows_prefix()?)
+                .map_err(anyhow::Error::from)
+        } else {
+            Err(anyhow!("Path is not a prefix"))
+        }
     }
 
     /// Determines whether `base` is a prefix of `self`.
@@ -212,15 +248,46 @@ impl AbsPath {
     /// if cfg!(not(windows)) {
     ///     let abs_path = AbsPath::new("/some/foo")?;
     ///     assert!(abs_path.starts_with(AbsPath::new("/some")?));
+    ///     assert!(!abs_path.starts_with(AbsPath::new("/som")?));
     /// } else {
     ///     let abs_path = AbsPath::new("c:/some/foo")?;
     ///     assert!(abs_path.starts_with(AbsPath::new("c:/some")?));
+    ///     assert!(!abs_path.starts_with(AbsPath::new("c:/som")?));
+    ///     assert!(abs_path.starts_with(AbsPath::new(r"\\?\C:\some")?));
+    ///
+    ///     let shared_path = AbsPath::new(r"\\server\share\foo\bar.txt")?;
+    ///     assert!(shared_path.starts_with(AbsPath::new(r"\\server\share\")?));
+    ///     assert!(shared_path.starts_with(AbsPath::new(r"\\server\share\foo")?));
+    ///     assert!(shared_path.starts_with(AbsPath::new(r"\\?\UNC\server\share\foo")?));
+    ///     assert!(!shared_path.starts_with(AbsPath::new(r"\\server\share2\foo")?));
+    ///     assert!(!shared_path.starts_with(AbsPath::new(r"\\server\share\fo")?));
     /// }
     ///
     /// # anyhow::Ok(())
     /// ```
     pub fn starts_with<P: AsRef<AbsPath>>(&self, base: P) -> bool {
-        self.0.starts_with(&base.as_ref().0)
+        self.starts_with_impl(base.as_ref())
+    }
+
+    #[cfg(not(windows))]
+    fn starts_with_impl(&self, base: &AbsPath) -> bool {
+        self.0.starts_with(&base.0)
+    }
+
+    #[cfg(windows)]
+    fn starts_with_impl(&self, base: &AbsPath) -> bool {
+        let prefix = self.windows_prefix();
+        let base_prefix = base.windows_prefix();
+        if let (Ok(prefix), Ok(base_prefix)) = (prefix, base_prefix) {
+            if prefix == base_prefix {
+                let stripped = self.strip_windows_prefix();
+                let base_stripped = base.strip_windows_prefix();
+                if let (Ok(stripped), Ok(base_stripped)) = (stripped, base_stripped) {
+                    return stripped.starts_with(base_stripped);
+                }
+            }
+        }
+        false
     }
 
     /// Determines whether `child` is a suffix of `self`.

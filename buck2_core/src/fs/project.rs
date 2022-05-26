@@ -220,6 +220,10 @@ impl ProjectFilesystem {
     ///         Cow::Borrowed(ProjectRelativePath::new("src/buck.java")?),
     ///         fs.relativize(AbsPath::new(r"C:\open\fbsource\src\buck.java")?)?
     ///     );
+    ///     assert_eq!(
+    ///         Cow::Borrowed(ProjectRelativePath::new("src/buck.java")?),
+    ///         fs.relativize(AbsPath::new(r"\\?\C:\open\fbsource\src\buck.java")?)?
+    ///     );
     ///     assert!(fs.relativize(AbsPath::new("c:/other/path")?).is_err());
     /// }
     ///
