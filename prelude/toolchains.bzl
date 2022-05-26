@@ -59,7 +59,7 @@ def _get_fbcode_select_map(prefix):
 
 def _get_android_cxx_select_map():
     return {
-        "ovr_config//os:android": select({
+        "ovr_config//toolchain/fb:android-ndk": select({
             "DEFAULT": "fbsource//xplat/toolchains/android/ndk:cxx-toolchain-x86",
             "ovr_config//cpu/constraints:arm32": "fbsource//xplat/toolchains/android/ndk:cxx-toolchain-armv7",
             "ovr_config//cpu/constraints:arm64": "fbsource//xplat/toolchains/android/ndk:cxx-toolchain-arm64",
