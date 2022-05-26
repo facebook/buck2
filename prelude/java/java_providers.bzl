@@ -268,8 +268,10 @@ def _create_non_template_providers(
     )
 
 def create_template_info(packaging_libs: ["artifact"], first_order_libs: ["artifact"]) -> TemplatePlaceholderInfo.type:
+    classpath_cmd_args = cmd_args(packaging_libs, delimiter = get_path_separator())
     return TemplatePlaceholderInfo(keyed_variables = {
-        "classpath": cmd_args(packaging_libs, delimiter = get_path_separator()),
+        "classpath": classpath_cmd_args,
+        "classpath_including_targets_with_no_output": classpath_cmd_args,
         "first_order_classpath": cmd_args(first_order_libs, delimiter = get_path_separator()),
     })
 
