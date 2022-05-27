@@ -198,12 +198,12 @@ pub(crate) trait CoercedAttrTraversal<'a> {
     fn transition_dep(
         &mut self,
         dep: &'a TargetLabel,
-        tr: &Arc<TransitionId>,
+        tr: &'a Arc<TransitionId>,
     ) -> anyhow::Result<()>;
     fn split_transition_dep(
         &mut self,
         dep: &'a TargetLabel,
-        tr: &Arc<TransitionId>,
+        tr: &'a Arc<TransitionId>,
     ) -> anyhow::Result<()>;
     fn configuration_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()>;
     fn platform_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()>;
