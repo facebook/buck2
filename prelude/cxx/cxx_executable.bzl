@@ -311,7 +311,7 @@ def _linker_map(
         local_only = local_only,
         link_weight = link_weight,
         identifier = identifier,
-        enable_dwp = False,
+        generate_dwp = False,
     )
     return [
         binary_for_linker_map,

@@ -29,7 +29,8 @@ def cxx_dist_link(
         # An identifier that will uniquely name this link action in the context of a category. Useful for
         # differentiating multiple link actions in the same rule.
         identifier: [str.type, None] = None,
-        enable_split_dwarf: bool.type = True) -> LinkedObject.type:
+        # This action will only happen if split_dwarf is enabled via the toolchain.
+        generate_dwp: bool.type = True) -> LinkedObject.type:
     """
     Perform a distributed thin-lto link into the supplied output
 
@@ -101,6 +102,7 @@ def cxx_dist_link(
     lto_prepare = cxx_toolchain.dist_lto_tools_info.prepare
     lto_copy = cxx_toolchain.dist_lto_tools_info.copy
 
+    dwp_generation_enabled = (generate_dwp and cxx_toolchain.split_dwarf_enabled)
     LinkData = record(
         name = str.type,
         initial_object = "artifact",
@@ -320,7 +322,7 @@ def cxx_dist_link(
             # Note that -gsplit-dwarf will not do anything if the IR is not compiled with
             # -gsplit-dwarf. I.e. no dwo sections will be generated if IR metadata contains
             # 'splitDebugInlining: false' in 'DICompileUnit'.
-            if enable_split_dwarf:
+            if dwp_generation_enabled:
                 opt_cmd.add("-gsplit-dwarf=single")
 
             imports = [objects[idx].initial_object for idx in plan_json["imports"]]
@@ -411,7 +413,7 @@ def cxx_dist_link(
     for archive in archive_manifests:
         dynamic_optimize_archive(archive)
 
-    dwp_output = ctx.actions.declare_output(output.short_path + ".dwp") if enable_split_dwarf else None
+    dwp_output = ctx.actions.declare_output(output.short_path + ".dwp") if dwp_generation_enabled else None
 
     def thin_lto_final_link(ctx):
         plan = ctx.artifacts[link_plan_out].read_json()
@@ -484,7 +486,7 @@ def cxx_dist_link(
 
         ctx.actions.run(link_cmd, category = make_cat("thin_lto_link"), identifier = identifier, local_only = True)
 
-        if enable_split_dwarf:
+        if dwp_generation_enabled:
             run_dwp_action(
                 ctx = ctx,
                 obj = output,

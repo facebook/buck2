@@ -71,7 +71,8 @@ def make_link_args(ctx: "context", links: ["LinkArgs"], suffix = None, dwo_dir_n
 
     filelists = filter(None, [unpack_link_args_filelist(link) for link in links])
 
-    linker_type = get_cxx_toolchain_info(ctx).linker_info.type
+    cxx_toolchain_info = get_cxx_toolchain_info(ctx)
+    linker_type = cxx_toolchain_info.linker_info.type
     if filelists:
         if linker_type == "gnu":
             fail("filelist populated for gnu linker")
@@ -104,7 +105,17 @@ def make_link_args(ctx: "context", links: ["LinkArgs"], suffix = None, dwo_dir_n
     if linker_type == "darwin":
         args.add(["-Wl,-oso_prefix,."])
 
-    links, dwo_dir = map_link_args_for_dwo(ctx, links, dwo_dir_name)
+    # Not all C/C++ codebases use split-DWARF. Apple uses dSYM files, instead.
+    #
+    # If we aren't going to use .dwo/.dwp files, avoid the codepath.
+    # Historically we've seen that going down this path bloats
+    # the memory usage of FBiOS by 12% (which amounts to Gigabytes.)
+    #
+    # Context: D36669131
+    dwo_dir = None
+    if cxx_toolchain_info.split_dwarf_enabled:
+        links, dwo_dir = map_link_args_for_dwo(ctx, links, dwo_dir_name)
+
     for link in links:
         args.add(unpack_link_args(link, is_shared))
 

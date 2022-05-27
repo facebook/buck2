@@ -44,9 +44,11 @@ def cxx_link(
         strip: bool.type = False,
         # A function/lambda which will generate the strip args using the ctx.
         strip_args_factory = None,
-        enable_dwp: bool.type = True) -> LinkedObject.type:
+        generate_dwp: bool.type = True) -> LinkedObject.type:
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
+
+    should_generate_dwp = generate_dwp and dwp_available(ctx) and cxx_toolchain_info.split_dwarf_enabled
     if linker_info.supports_distributed_thinlto and enable_distributed_thinlto:
         if not linker_info.requires_objects:
             fail("Cannot use distributed thinlto if the cxx toolchain doesn't require_objects")
@@ -57,7 +59,7 @@ def cxx_link(
             linker_map,
             category_suffix,
             identifier,
-            enable_split_dwarf = enable_dwp and dwp_available(ctx),
+            generate_dwp = should_generate_dwp,
         )
     if linker_map != None:
         links += [linker_map_args(ctx, linker_map.as_output())]
@@ -96,7 +98,7 @@ def cxx_link(
         output = strip_shared_library(ctx, cxx_toolchain_info, output, strip_args)
 
     dwp_artifact = None
-    if enable_dwp and dwp_available(ctx):
+    if should_generate_dwp:
         # TODO(T110378144): Once we track split dwarf from compiles, we should
         # just pass in `binary.external_debug_paths` here instead of all link
         # args.
