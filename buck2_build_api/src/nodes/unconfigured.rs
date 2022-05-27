@@ -232,25 +232,23 @@ impl TargetNode {
         &*self.0.buildfile_path
     }
 
+    fn deps_cache(&self) -> &CoercedDepsCollector {
+        &self.0.deps_cache
+    }
+
     /// Returns all deps for this node that we know about after processing the build file
     pub fn deps(&self) -> impl Iterator<Item = &TargetLabel> {
-        self.0
-            .deps_cache
+        let deps_cache = self.deps_cache();
+        deps_cache
             .deps
             .iter()
-            .chain(
-                self.0
-                    .deps_cache
-                    .transition_deps
-                    .iter()
-                    .map(|(dep, _tr)| dep),
-            )
-            .chain(self.0.deps_cache.exec_deps.iter())
+            .chain(deps_cache.transition_deps.iter().map(|(dep, _tr)| dep))
+            .chain(deps_cache.exec_deps.iter())
     }
 
     /// Deps which are to be transitioned to other configuration using transition function.
     pub fn transition_deps(&self) -> impl Iterator<Item = &(TargetLabel, Arc<TransitionId>)> {
-        self.0.deps_cache.transition_deps.iter()
+        self.deps_cache().transition_deps.iter()
     }
 
     pub fn label(&self) -> &TargetLabel {
@@ -288,7 +286,7 @@ impl TargetNode {
     }
 
     pub fn platform_deps(&self) -> impl Iterator<Item = &TargetLabel> {
-        self.0.deps_cache.platform_deps.iter()
+        self.deps_cache().platform_deps.iter()
     }
 
     /// Return `None` if attribute is not present or unknown.
@@ -308,15 +306,15 @@ impl TargetNode {
     }
 
     pub fn target_deps(&self) -> impl Iterator<Item = &TargetLabel> {
-        self.0.deps_cache.deps.iter()
+        self.deps_cache().deps.iter()
     }
 
     pub fn execution_deps(&self) -> impl Iterator<Item = &TargetLabel> {
-        self.0.deps_cache.exec_deps.iter()
+        self.deps_cache().exec_deps.iter()
     }
 
     pub fn get_configuration_deps(&self) -> impl Iterator<Item = &TargetLabel> {
-        self.0.deps_cache.configuration_deps.iter()
+        self.deps_cache().configuration_deps.iter()
     }
 
     pub fn tests(&self) -> impl Iterator<Item = &ProvidersLabel> {
