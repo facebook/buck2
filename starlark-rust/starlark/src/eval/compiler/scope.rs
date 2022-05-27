@@ -646,7 +646,7 @@ pub(crate) enum AssignCount {
 }
 
 /// Was a binding captured by nested def or lambda scopes?
-#[derive(Debug, Copy, Clone, Dupe)]
+#[derive(Debug, Copy, Clone, Dupe, VisitSpanMut)]
 pub(crate) enum Captured {
     Yes,
     No,

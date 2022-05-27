@@ -41,7 +41,7 @@ use crate::{
     values::{string::interpolation::parse_format_one, FrozenStringValue, FrozenValue},
 };
 
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone, Debug, VisitSpanMut)]
 pub(crate) struct ArgsCompiledValue {
     pub(crate) pos_named: Vec<IrSpanned<ExprCompiled>>,
     /// Named arguments compiled.
@@ -53,7 +53,7 @@ pub(crate) struct ArgsCompiledValue {
     pub(crate) kwargs: Option<IrSpanned<ExprCompiled>>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, VisitSpanMut)]
 pub(crate) struct CallCompiled {
     pub(crate) fun: IrSpanned<ExprCompiled>,
     pub(crate) args: ArgsCompiledValue,

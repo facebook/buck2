@@ -101,7 +101,7 @@ impl CompareOp {
     }
 }
 
-#[derive(Copy, Clone, Dupe, Debug)]
+#[derive(Copy, Clone, Dupe, Debug, VisitSpanMut)]
 pub(crate) enum ExprUnOp {
     Minus,
     Plus,
@@ -118,7 +118,7 @@ impl ExprUnOp {
     }
 }
 
-#[derive(Copy, Clone, Dupe, Debug)]
+#[derive(Copy, Clone, Dupe, Debug, VisitSpanMut)]
 pub(crate) enum ExprBinOp {
     In,
     Sub,
@@ -153,7 +153,7 @@ impl ExprBinOp {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, VisitSpanMut)]
 pub(crate) enum ExprCompiled {
     Value(FrozenValue),
     /// Read local non-captured variable.

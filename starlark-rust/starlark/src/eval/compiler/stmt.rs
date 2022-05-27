@@ -323,7 +323,7 @@ pub(crate) enum AssignError {
     IncorrectNumberOfValueToUnpack(i32, i32),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, VisitSpanMut)]
 pub(crate) enum AssignCompiledValue {
     Dot(IrSpanned<ExprCompiled>, String),
     ArrayIndirection(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>),

@@ -103,13 +103,13 @@ impl StmtCompiledCell {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, VisitSpanMut)]
 pub(crate) struct ParameterName {
     pub(crate) name: String,
     captured: Captured,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, VisitSpanMut)]
 pub(crate) enum ParameterCompiled<T> {
     Normal(ParameterName, Option<T>),
     WithDefaultValue(ParameterName, Option<T>, T),
@@ -221,7 +221,7 @@ impl DefInfo {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, VisitSpanMut)]
 pub(crate) struct DefCompiled {
     pub(crate) function_name: String,
     pub(crate) params: Vec<IrSpanned<ParameterCompiled<IrSpanned<ExprCompiled>>>>,

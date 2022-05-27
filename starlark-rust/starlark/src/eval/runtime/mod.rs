@@ -30,3 +30,4 @@ pub(crate) mod slots;
 pub(crate) mod small_duration;
 pub(crate) mod stmt_profile;
 pub(crate) mod typecheck_profile;
+pub(crate) mod visit_span;

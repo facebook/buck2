@@ -118,7 +118,7 @@ impl Compiler<'_, '_, '_> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, VisitSpanMut)]
 pub(crate) enum ComprCompiled {
     List(Box<IrSpanned<ExprCompiled>>, ClausesCompiled),
     Dict(
@@ -145,7 +145,7 @@ impl ComprCompiled {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, VisitSpanMut)]
 pub(crate) struct ClauseCompiled {
     pub(crate) var: IrSpanned<AssignCompiledValue>,
     pub(crate) over: IrSpanned<ExprCompiled>,
@@ -178,7 +178,7 @@ impl ClauseCompiled {
 }
 
 /// All clauses in a comprehension. Never empty.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, VisitSpanMut)]
 pub(crate) struct ClausesCompiled {
     /// Not empty.
     clauses: Vec<ClauseCompiled>,

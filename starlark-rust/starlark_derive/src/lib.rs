@@ -33,6 +33,7 @@ mod freeze;
 mod module;
 mod serde;
 mod trace;
+mod visit_span;
 mod vtable;
 
 /// Write Starlark modules concisely in Rust syntax.
@@ -103,6 +104,11 @@ pub fn starlark_internal_vtable(
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     vtable::starlark_internal_vtable(attr, input)
+}
+
+#[proc_macro_derive(VisitSpanMut)]
+pub fn derive_visit_span_mut(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    visit_span::derive_visit_span_mut(input)
 }
 
 /// Derive the `Trace` trait.
