@@ -247,8 +247,11 @@ impl TargetNode {
     }
 
     /// Deps which are to be transitioned to other configuration using transition function.
-    pub fn transition_deps(&self) -> impl Iterator<Item = &(TargetLabel, Arc<TransitionId>)> {
-        self.deps_cache().transition_deps.iter()
+    pub fn transition_deps(&self) -> impl Iterator<Item = (&TargetLabel, &Arc<TransitionId>)> {
+        self.deps_cache()
+            .transition_deps
+            .iter()
+            .map(|x| (&x.0, &x.1))
     }
 
     pub fn label(&self) -> &TargetLabel {
