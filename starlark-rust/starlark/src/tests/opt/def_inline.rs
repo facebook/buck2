@@ -17,7 +17,12 @@
 
 //! Test function bodies inlined.
 
-use crate::{eval::bc::opcode::BcOpcode, tests::bc::test_instrs};
+use crate::{
+    assert::Assert,
+    eval::{bc::opcode::BcOpcode, compiler::def::FrozenDef},
+    tests::bc::test_instrs,
+    values::ValueLike,
+};
 
 #[test]
 fn test_def_const_inlined() {
@@ -46,4 +51,54 @@ def returns_list():
     return [10, True]
 "#,
     )
+}
+
+#[test]
+fn test_dict_inlined_call_stack() {
+    let mut a = Assert::new();
+    a.module("f.bzl", "def f(): return {[]: 10}");
+    // For now inlining doesn't work within one module, so do different modules.
+    let m_g = a.module("g.bzl", "load('f.bzl', 'f')\ndef g(): return f()");
+    let m_h = a.module("h.bzl", "load('g.bzl', 'g')\ndef h(): return g()");
+
+    // Check `f` is inlined into `g` and `h`.
+    for (m, f) in [(m_g, "g"), (m_h, "h")] {
+        let f = m.get(f).unwrap();
+        let f = f.value().downcast_ref::<FrozenDef>().unwrap();
+        assert_eq!(
+            // TODO(nga): nothing is inlined here yet (so the opcode is `CallFrozenDefPos`),
+            //   but it is inlined in the following diff, and test stays correct.
+            BcOpcode::CallFrozenDefPos,
+            f.bc().instrs.opcodes().as_slice()[0],
+            "in `{}`",
+            f,
+        );
+    }
+
+    let error = a.fail(
+        r"
+load('h.bzl', 'h')
+h()
+",
+        "",
+    );
+
+    assert_eq!(
+        r"
+Traceback (most recent call last):
+  * assert.bzl:3, in <module>
+    h()
+  * h.bzl.bzl:2, in h
+    def h(): return g()
+  * g.bzl.bzl:2, in g
+    def g(): return f()
+error: Value of type `list` is not hashable
+ --> f.bzl.bzl:1:18
+  |
+1 | def f(): return {[]: 10}
+  |                  ^^
+  |
+",
+        &format!("\n{:#}", error)
+    );
 }
