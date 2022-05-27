@@ -11,11 +11,10 @@ use std::io::Write;
 
 use buck2_build_api::calculation::Calculation;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_core::{
-    cells::paths::{CellPath, CellRelativePath},
-    fs::paths::FileName,
+use buck2_interpreter::{
+    common::{BuildFileCell, ImportPath, StarlarkModulePath},
+    parse_import::{parse_import_with_config, ParseImportOptions},
 };
-use buck2_interpreter::common::{BuildFileCell, ImportPath, StarlarkModulePath};
 use cli_proto::ClientContext;
 use structopt::StructOpt;
 
@@ -43,25 +42,20 @@ impl StarlarkModuleCommand {
         let current_cell_path = cell_resolver.get_cell_path(&server_ctx.working_dir)?;
         let current_cell = BuildFileCell::new(current_cell_path.cell().clone());
 
-        let (cell, cell_relative) = self
-            .import_path
-            .split_once("//")
-            .ok_or_else(|| anyhow::anyhow!("Invalid import path: {}", self.import_path))?;
-
-        let (path, name) = cell_relative
-            .split_once(':')
-            .ok_or_else(|| anyhow::anyhow!("Invalid import path: {}", self.import_path))?;
-
         let cell_alias_resolver = cell_resolver
             .get(current_cell_path.cell())?
             .cell_alias_resolver();
 
-        let cell = cell_alias_resolver.resolve(cell)?;
-
-        let path = CellPath::new(
-            cell.clone(),
-            CellRelativePath::from_path(path)?.join_unnormalized(FileName::new(name)?),
-        );
+        let path = parse_import_with_config(
+            cell_alias_resolver,
+            &current_cell_path,
+            &self.import_path,
+            &ParseImportOptions {
+                allow_relative_imports: true,
+                // Otherwise `@arg` is expanded as mode file.
+                allow_missing_at_symbol: true,
+            },
+        )?;
 
         let import_path = ImportPath::new(path, current_cell)?;
 
