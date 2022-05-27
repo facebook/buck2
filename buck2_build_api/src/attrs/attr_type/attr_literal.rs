@@ -624,6 +624,7 @@ impl CoercionError {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct CoercedDepsCollector {
     /// Contains the deps derived from the attributes.
     /// Does not include the transition, exec or configuration deps.
