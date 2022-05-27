@@ -244,12 +244,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             runtime_files.append(resource)
             runtime_files.extend(other)
 
-    # Provide a `dwp` sub-target which generates the `.dwp` file for this
-    # binary.  We always provide it, but this only really makes sense in
-    # split-dwarf builds.
-    # TODO(T110378141): We should probably set whether we're using split-dwarf
-    # on the toolchian or target.
-    if binary.dwp:
+    if binary.dwp and get_cxx_toolchain_info(ctx).split_dwarf_enabled:
         sub_targets["dwp"] = [DefaultInfo(default_outputs = [binary.dwp])]
 
     sub_targets["linker-map"] = [DefaultInfo(default_outputs = _linker_map(
