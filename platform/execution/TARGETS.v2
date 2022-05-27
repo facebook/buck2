@@ -1,5 +1,5 @@
-load(":defs.bzl", "execution_platform", "execution_platforms", "ordered_platforms_by_host_type")
 load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool", "read_int")
+load(":defs.bzl", "execution_platform", "execution_platforms", "ordered_platforms_by_host_type")
 
 prelude = native
 host_is_mac = host_info().os.is_macos

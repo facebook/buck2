@@ -7,8 +7,8 @@ native.js_bundle(
         "fbcode//buck2/tests/targets/rules/js/js_library:fruit",
     ],
     extra_json = struct(
-      some_int = 5,
-      location_macro = "$(location :exported_file)",
+        some_int = 5,
+        location_macro = "$(location :exported_file)",
     ).to_json(),
     entry = "apple",
     worker = "fbcode//buck2/tests/targets/rules/js:js_worker_tool",
@@ -17,9 +17,9 @@ native.js_bundle(
 )
 
 native.export_file(
-  name = "exported_file",
-  src = "exported_file.txt",
-  visibility = ["PUBLIC"],
+    name = "exported_file",
+    src = "exported_file.txt",
+    visibility = ["PUBLIC"],
 )
 
 [
@@ -27,7 +27,7 @@ native.export_file(
         target = ":fruit_salad",
         subtarget = transform_profile,
         fixture = "fixtures/fruit-salad-{}.json".format(transform_profile),
-        file="fruit_salad.js",
+        file = "fruit_salad.js",
     )
     for transform_profile in TRANSFORM_PROFILES
 ]
@@ -35,8 +35,8 @@ native.export_file(
 [
     js_snapshot_test(
         target = ":fruit_salad",
-        subtarget= "{}-misc".format(transform_profile),
-        fixture="fixtures/fruit-salad-{}-misc.json".format(transform_profile),
+        subtarget = "{}-misc".format(transform_profile),
+        fixture = "fixtures/fruit-salad-{}-misc.json".format(transform_profile),
     )
     for transform_profile in TRANSFORM_PROFILES
 ]
@@ -44,8 +44,8 @@ native.export_file(
 [
     js_snapshot_test(
         target = ":fruit_salad",
-        subtarget= "{}-source_map".format(transform_profile),
-        fixture="fixtures/fruit-salad-{}-source-map.json".format(transform_profile),
+        subtarget = "{}-source_map".format(transform_profile),
+        fixture = "fixtures/fruit-salad-{}-source-map.json".format(transform_profile),
     )
     for transform_profile in TRANSFORM_PROFILES
 ]
@@ -73,11 +73,11 @@ EXPECTED_JS_BUNDLE_RAM_BUNDLE_OUTPUT_TEMPLATE = """'\
 .*"assetsDirPath": ".*/assets_dir",\
 .*"bundlePath": ".*/fruit_salad.js",\
 .*"command": "bundle",\
-.*"entryPoints": \[
+.*"entryPoints": \\[
 .*"apple"\
 .*],\
 .*"extraData": "{}",\
-.*"libraries": \[\
+.*"libraries": \\[\
 .*".*jslib"\
 .*],\
 .*"miscDirPath": ".*/misc_dir_path",\
@@ -92,7 +92,8 @@ EXPECTED_JS_BUNDLE_RAM_BUNDLE_OUTPUT_TEMPLATE = """'\
         name = "verify_fruit_salad_rambundle_indexed_bundle_output_for_{}".format(transform_profile),
         out = "rambundle_indexed_bundle_out_{}.txt".format(transform_profile),
         cmd = 'cat $(location :fruit_salad[rambundle-indexed-{}])/fruit_salad.js | tr -d "\\n" | grep {} && touch "$OUT"'.format(transform_profile, EXPECTED_JS_BUNDLE_RAM_BUNDLE_OUTPUT_TEMPLATE),
-    ) for transform_profile in TRANSFORM_PROFILES
+    )
+    for transform_profile in TRANSFORM_PROFILES
 ]
 
 [
@@ -100,7 +101,8 @@ EXPECTED_JS_BUNDLE_RAM_BUNDLE_OUTPUT_TEMPLATE = """'\
         name = "verify_fruit_salad_rambundle_indexed_misc_output_for_{}".format(transform_profile),
         out = "rambundle_indexed_misc_out_{}.txt".format(transform_profile),
         cmd = 'cat $(location :fruit_salad[rambundle-indexed-{}-misc]) | tr -d "\\n" | grep {} && touch "$OUT"'.format(transform_profile, EXPECTED_JS_BUNDLE_RAM_BUNDLE_OUTPUT_TEMPLATE),
-    ) for transform_profile in TRANSFORM_PROFILES
+    )
+    for transform_profile in TRANSFORM_PROFILES
 ]
 
 [
@@ -108,7 +110,8 @@ EXPECTED_JS_BUNDLE_RAM_BUNDLE_OUTPUT_TEMPLATE = """'\
         name = "verify_fruit_salad_rambundle_indexed_source_map_output_for_{}".format(transform_profile),
         out = "rambundle_indexed_source_map_out_{}.txt".format(transform_profile),
         cmd = 'cat $(location :fruit_salad[rambundle-indexed-{}-source_map]) | tr -d "\\n" | grep {} && touch "$OUT"'.format(transform_profile, EXPECTED_JS_BUNDLE_RAM_BUNDLE_OUTPUT_TEMPLATE),
-    ) for transform_profile in TRANSFORM_PROFILES
+    )
+    for transform_profile in TRANSFORM_PROFILES
 ]
 
 native.genrule(

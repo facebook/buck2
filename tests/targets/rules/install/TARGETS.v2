@@ -1,4 +1,5 @@
 load("@fbcode//buck2/install_proto:install.bzl", "installer")
+
 native.export_file(
     name = "artifact_a",
     src = "artifact_a.txt",
@@ -23,16 +24,17 @@ python_binary(
 installer(
     name = "installer_test",
     files = {
-        "artifact_a":"artifact_a.txt",
-        "artifact_b":"artifact_b.txt",
+        "artifact_a": "artifact_a.txt",
+        "artifact_b": "artifact_b.txt",
     },
-    installer = "fbcode//buck2/install_proto:installer",)
+    installer = "fbcode//buck2/install_proto:installer",
+)
 
 installer(
     name = "bad_installer_target",
     files = {
-        "artifact_a":"artifact_a.txt",
-        "artifact_b":"artifact_b.txt",
+        "artifact_a": "artifact_a.txt",
+        "artifact_b": "artifact_b.txt",
     },
     installer = "fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad_3",
 )
@@ -40,14 +42,14 @@ installer(
 installer(
     name = "bad_artifacts",
     files = {
-        "artifact_a":"artifact_a.txt",
-        "bad_genrule":"fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad_2",
+        "artifact_a": "artifact_a.txt",
+        "bad_genrule": "fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad_2",
     },
-    installer = "fbcode//buck2/install_proto:installer"
+    installer = "fbcode//buck2/install_proto:installer",
 )
 
 installer(
-    name= "installer_server_sends_error",
-    files = { "artifact_a":"artifact_a.txt"},
+    name = "installer_server_sends_error",
+    files = {"artifact_a": "artifact_a.txt"},
     installer = ":installer_sends_err",
 )

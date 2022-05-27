@@ -8,7 +8,7 @@ prelude.genrule(
         ":lib",
     ],
     out = "bin.out",
-    cmd = "cat $SRCS > $OUT"
+    cmd = "cat $SRCS > $OUT",
 )
 
 prelude.genrule(
@@ -17,7 +17,7 @@ prelude.genrule(
         "lib.cpp",
     ],
     out = "lib.out",
-    cmd = "cat $SRCS > $OUT"
+    cmd = "cat $SRCS > $OUT",
 )
 
 prelude.genrule(

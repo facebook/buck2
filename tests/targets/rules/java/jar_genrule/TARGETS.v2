@@ -2,7 +2,7 @@ load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 
 ######################################
 # jar_genrule utils
-######################################  
+######################################
 
 native.python_binary(
     name = "check_file_content",
@@ -22,7 +22,6 @@ native.python_library(
 )
 
 ######################################
-
 
 native.java_library(
     name = "lib",

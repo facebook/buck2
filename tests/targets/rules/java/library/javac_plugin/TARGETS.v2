@@ -9,7 +9,6 @@ native.java_binary(
     ],
 )
 
-
 native.java_library(
     name = "main_lib",
     srcs = [
@@ -46,5 +45,3 @@ native.java_library(
         "Util.java",
     ],
 )
-
-

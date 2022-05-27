@@ -1,4 +1,3 @@
-
 native.java_binary(
     name = "bin-output",
     main_class = "LibOutput",
@@ -10,7 +9,6 @@ native.java_binary(
     ],
 )
 
-
 MANIFEST_TEMPLATE = "key1: value1{newline}key2: value2{newline}Main-Class: BLAH"
 NEWLINE_NAMES_AND_TYPES = [("carriage_return_and_newline", "\r\n"), ("carriage_return", "\r"), ("newline", "\n")]
 [
@@ -18,7 +16,8 @@ NEWLINE_NAMES_AND_TYPES = [("carriage_return_and_newline", "\r\n"), ("carriage_r
         name = "manifest_with_{}".format(name),
         out = "outdir",
         cmd = "mkdir $OUT && mkdir $OUT/META-INF && echo '{MANIFEST_TEMPLATE}' > $OUT/META-INF/MANIFEST.MF".format(MANIFEST_TEMPLATE = MANIFEST_TEMPLATE.format(newline = newline)),
-    ) for name, newline in NEWLINE_NAMES_AND_TYPES
+    )
+    for name, newline in NEWLINE_NAMES_AND_TYPES
 ]
 
 [
@@ -26,14 +25,16 @@ NEWLINE_NAMES_AND_TYPES = [("carriage_return_and_newline", "\r\n"), ("carriage_r
         name = "jar_containing_manifest_with_{}".format(name),
         out = "output_jar_containing_manifest.jar",
         cmd = "OUT=\\$(realpath $OUT) && cd $(location :manifest_with_{}) && zip -r $OUT .".format(name),
-    ) for name, _ in NEWLINE_NAMES_AND_TYPES
+    )
+    for name, _ in NEWLINE_NAMES_AND_TYPES
 ]
 
 [
     native.prebuilt_jar(
         name = "prebuilt_jar_containing_manifest_with_{}".format(name),
         binary_jar = ":jar_containing_manifest_with_{}".format(name),
-    ) for name, _ in NEWLINE_NAMES_AND_TYPES
+    )
+    for name, _ in NEWLINE_NAMES_AND_TYPES
 ]
 
 native.java_binary(
@@ -67,9 +68,9 @@ native.java_binary(
     main_class = "LibOutput",
     deps = [
         ":lib-output",
-        ":lib-resources"
+        ":lib-resources",
     ],
-    blacklist = ["^META-INF/.*\.(SF|RSA|DSA|EC)$", "remove_me_pattern", "remove_me_patter"],
+    blacklist = ["^META-INF/.*\\.(SF|RSA|DSA|EC)$", "remove_me_pattern", "remove_me_patter"],
     visibility = [
         "PUBLIC",
     ],

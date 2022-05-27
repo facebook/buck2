@@ -13,7 +13,6 @@ cpp_library(
     ],
 )
 
-
 cpp_library(
     name = "b",
     srcs = [
@@ -57,7 +56,6 @@ prelude.sh_test(
     ],
     test = "enforce-thinlto.sh",
 )
-
 
 prelude.sh_test(
     name = "enforce-thinlto-rust",

@@ -17,7 +17,7 @@ native.kotlin_library(
     srcs = ["C.kt"],
     deps = [
         ":lib_with_interdependent_java_and_kotlin_srcs",
-    ]
+    ],
 )
 
 native.kotlin_library(

@@ -48,4 +48,3 @@ prelude.cxx_genrule(
     cmd = "$(ld) -fuse-ld=lld empty.cpp -o $OUT $(ldflags-shared) -lc",
     out = "out",
 )
-

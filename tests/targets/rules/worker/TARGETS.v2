@@ -30,7 +30,7 @@ native.genrule(
 native.genrule(
     name = "write_command_args",
     out = "out.txt",
-    cmd = "echo 'echo\nabc\nxyz\n' > $OUT"
+    cmd = "echo 'echo\nabc\nxyz\n' > $OUT",
 )
 
 native.genrule(

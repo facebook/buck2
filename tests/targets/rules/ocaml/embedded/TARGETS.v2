@@ -1,10 +1,10 @@
-load("@fbcode_macros//build_defs:ocaml_object.bzl", "ocaml_object")
 load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
+load("@fbcode_macros//build_defs:ocaml_object.bzl", "ocaml_object")
 load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
 
 ocaml_object(
     name = "fib-ml",
-    srcs = ["fib.ml",],
+    srcs = ["fib.ml"],
 )
 
 cpp_binary(

@@ -1,4 +1,4 @@
-load(":rules.bzl", "my_little_iphone_binary", "my_resource", "my_alias")
+load(":rules.bzl", "my_alias", "my_little_iphone_binary", "my_resource")
 
 prelude = native
 

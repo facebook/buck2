@@ -11,7 +11,7 @@ prelude.remote_file(
     url = url,
     sha1 = sha1,
     sha256 = sha256,
-    type  = "data",
+    type = "data",
 )
 
 prelude.remote_file(
@@ -45,7 +45,7 @@ prelude.remote_file(
     url = zip_url,
     sha1 = zip_sha1,
     sha256 = zip_sha256,
-    type  = "exploded_zip",
+    type = "exploded_zip",
 )
 
 prelude.genrule(

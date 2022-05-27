@@ -1,4 +1,4 @@
-load(":rules.bzl", "my_little_iphone_binary", "my_watchos_resource", "my_default_resource")
+load(":rules.bzl", "my_default_resource", "my_little_iphone_binary", "my_watchos_resource")
 
 prelude = native
 

@@ -1,4 +1,4 @@
-load("@fbcode//buck2/tests/targets/rules/utils:defs.bzl", "test_parse_build_target_pattern_fail", "test_expect")
+load("@fbcode//buck2/tests/targets/rules/utils:defs.bzl", "test_expect", "test_parse_build_target_pattern_fail")
 
 test_parse_build_target_pattern_fail(
     name = "build_pattern_test_1",
@@ -71,20 +71,20 @@ test_parse_build_target_pattern_fail(
 )
 
 test_expect(
-    name= "test_expect_fail_no_format",
+    name = "test_expect_fail_no_format",
     fail = True,
     message = "This message has no format arguments.",
 )
 
 test_expect(
-    name= "test_expect_fail_format_one_arg",
+    name = "test_expect_fail_format_one_arg",
     fail = True,
     message = "This message has the following format arguments: {}.",
     arg_1 = "foo",
 )
 
 test_expect(
-    name= "test_expect_fail_format_two_args",
+    name = "test_expect_fail_format_two_args",
     fail = True,
     message = "This message has the following format arguments: {} followed by {}.",
     arg_1 = "foo",

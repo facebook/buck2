@@ -43,10 +43,10 @@ test_parse_code_sign_entitlements(
     name = "code_sign_entitlements_is_several_levels_deep_variable",
     expected_code_sign_entitlements = "baz",
     info_plist_substitutions = {
-        "CODE_SIGN_ENTITLEMENTS": "$(FOO)",
-        "FOO": "$(BAR)",
         "BAR": "$(BAZ)",
         "BAZ": "baz",
+        "CODE_SIGN_ENTITLEMENTS": "$(FOO)",
+        "FOO": "$(BAR)",
     },
 )
 
@@ -63,9 +63,9 @@ test_parse_code_sign_entitlements(
     name = "variables_map_to_multiple_variables",
     expected_code_sign_entitlements = "bar/beer/baz/bar/beer/baz/bar/beer/baz",
     info_plist_substitutions = {
-        "CODE_SIGN_ENTITLEMENTS": "$(FOO)/$(FOO)/$(FOO)",
-        "FOO": "$(BAR)/beer/$(BAZ)",
         "BAR": "bar",
         "BAZ": "baz",
+        "CODE_SIGN_ENTITLEMENTS": "$(FOO)/$(FOO)/$(FOO)",
+        "FOO": "$(BAR)/beer/$(BAZ)",
     },
 )

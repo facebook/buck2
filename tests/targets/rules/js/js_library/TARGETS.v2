@@ -19,8 +19,9 @@ native.js_library(
     js_snapshot_test(
         target = ":fruit",
         subtarget = transform_profile,
-        fixture = "fixtures/fruit-{}.json".format(transform_profile)
-    ) for transform_profile in TRANSFORM_PROFILES
+        fixture = "fixtures/fruit-{}.json".format(transform_profile),
+    )
+    for transform_profile in TRANSFORM_PROFILES
 ]
 
 native.js_bundle(
@@ -34,7 +35,7 @@ native.js_bundle(
 )
 
 native.export_file(
-   name = "exported_file",
-   src = "exported_file.txt",
-   visibility = ["PUBLIC"],
+    name = "exported_file",
+    src = "exported_file.txt",
+    visibility = ["PUBLIC"],
 )

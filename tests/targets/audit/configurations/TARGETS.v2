@@ -1,16 +1,16 @@
-prelude=native
+prelude = native
 
 prelude.platform(
     name = "platform1",
     constraint_values = [
-      ":constraint1",
-      ":constraint2",
-      ":constraint3",
-    ]
+        ":constraint1",
+        ":constraint2",
+        ":constraint3",
+    ],
 )
 
 prelude.constraint_setting(
-    name = "setting1"
+    name = "setting1",
 )
 
 prelude.constraint_value(
@@ -19,7 +19,7 @@ prelude.constraint_value(
 )
 
 prelude.constraint_setting(
-    name = "setting2"
+    name = "setting2",
 )
 
 prelude.constraint_value(
@@ -28,7 +28,7 @@ prelude.constraint_value(
 )
 
 prelude.constraint_setting(
-    name = "setting3"
+    name = "setting3",
 )
 
 prelude.constraint_value(

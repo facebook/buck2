@@ -21,7 +21,7 @@ prelude.filegroup(
 native.genrule(
     name = "check",
     cmd = 'diff $(location :expected)/expected $(location :test) && touch "$OUT"',
-    out = 'check'
+    out = "check",
 )
 
 prelude.http_archive(
@@ -34,7 +34,7 @@ prelude.http_archive(
 native.genrule(
     name = "check_exclude",
     cmd = 'test -f $(location :test_exclude)/foo/bar/qux || touch "$OUT"',
-    out = 'check'
+    out = "check",
 )
 
 # Test hash validation as well

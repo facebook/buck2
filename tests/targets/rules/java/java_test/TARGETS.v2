@@ -1,4 +1,3 @@
-
 native.java_test(
     name = "simple_java_test",
     srcs = ["com/example/SimpleJavaTest.java"],

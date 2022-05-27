@@ -1,5 +1,5 @@
-load(":defs.bzl", "build_mode")
 load("@fbsource//tools/build_defs:buckconfig.bzl", "read")
+load(":defs.bzl", "build_mode")
 
 # Capture the fbcode build mode and expose this as a BuildInfoProvider.
 build_mode(

@@ -1,4 +1,3 @@
-
 native.java_binary(
     name = "main",
     main_class = "com.example.Main",
@@ -27,7 +26,7 @@ native.java_library(
         "com/example/Main.java",
         "com/example/TestAnnotation.java",
     ],
-    deps = [":util",],
+    deps = [":util"],
     plugins = [
         ":annotation_processor",
     ],
@@ -45,7 +44,7 @@ native.java_library(
         "com/example/Main.java",
         "com/example/TestAnnotation.java",
     ],
-    deps = [":util",],
+    deps = [":util"],
     annotation_processor_deps = [":annotation_processor_lib"],
     annotation_processors = ["com.example.AnnotationProcessor"],
     annotation_processor_params = ["propKey=custom_value_from_configuration"],
@@ -53,7 +52,6 @@ native.java_library(
         "PUBLIC",
     ],
 )
-
 
 native.java_annotation_processor(
     name = "annotation_processor",

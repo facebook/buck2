@@ -4,11 +4,11 @@ prelude.genrule(
     name = "check",
     out = "out.txt",
     cmd = (
-      "set -euo pipefail; " +
-      "echo $(exe :bin); " +
-      "objdump --dwarf `echo $(location :bin) | sed 's:.par:#link-tree:'`/libomnibus.so | " +
-      "(! grep 'lib.cpp') > $OUT"
-    )
+        "set -euo pipefail; " +
+        "echo $(exe :bin); " +
+        "objdump --dwarf `echo $(location :bin) | sed 's:.par:#link-tree:'`/libomnibus.so | " +
+        "(! grep 'lib.cpp') > $OUT"
+    ),
 ) if not read_config("python", "package_style") == "standalone" else None
 
 prelude.python_binary(

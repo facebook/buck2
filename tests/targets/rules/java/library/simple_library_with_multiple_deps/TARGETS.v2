@@ -27,17 +27,16 @@ native.java_library(
     name = "util_5",
     srcs = ["package2/Util5.java"],
     java_version = "11",
-
 )
 
 native.java_library(
     name = "lib",
     srcs = ["package1/MainLibrary.java"],
     deps = [
-        ":util_1", 
-        ":util_2", 
-        ":util_3", 
-        ":util_4", 
+        ":util_1",
+        ":util_2",
+        ":util_3",
+        ":util_4",
         ":util_5",
     ],
     source = "11",

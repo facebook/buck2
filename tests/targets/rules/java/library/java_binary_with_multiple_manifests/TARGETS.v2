@@ -49,7 +49,7 @@ native.prebuilt_jar(
 native.prebuilt_jar(
     name = "tiny_jar",
     binary_jar = "tiny.jar",
-    generate_abi = False,    
+    generate_abi = False,
 )
 
 # remove manifest file from jar
@@ -74,7 +74,7 @@ native.java_library(
         ":m2",
         ":m3",
         ":temp_jar_without_manifest",
-    ]
+    ],
 )
 
 native.java_binary(
@@ -82,7 +82,7 @@ native.java_binary(
     deps = [
         ":main_lib",
     ],
-    main_class=  "com.example.main.app.Main",
+    main_class = "com.example.main.app.Main",
     manifest_file = "resources/manifest.mf",
     visibility = [
         "PUBLIC",

@@ -1,5 +1,5 @@
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
-load("//buck2/tests/targets/rules/java:test.bzl", "assert_packaging_deps", "assert_compiling_deps")
+load("//buck2/tests/targets/rules/java:test.bzl", "assert_compiling_deps", "assert_packaging_deps")
 
 native.prebuilt_jar(
     name = "jar",
@@ -59,26 +59,26 @@ native.prebuilt_jar(
 assert_packaging_deps(
     name = "jar_with_packaging_deps_assert",
     actual_target = ":jar_with_deps",
-    expected_deps = [":jar_with_deps", ":jar", ":jar_from_genrule"]
+    expected_deps = [":jar_with_deps", ":jar", ":jar_from_genrule"],
 )
 
 native.prebuilt_jar(
     name = "jar_with_deps_and_duplicates",
     binary_jar = ":create_jar",
-    deps = [":jar", ":jar", ":jar", ":jar_from_genrule"]
+    deps = [":jar", ":jar", ":jar", ":jar_from_genrule"],
 )
 
 # expected that actual_target would provide 3 packaging dependencies/ no duplicates
 assert_packaging_deps(
     name = "jar_with_deps_and_duplicates_assert",
     actual_target = ":jar_with_deps_and_duplicates",
-    expected_deps = [":jar_with_deps_and_duplicates", ":jar", ":jar_from_genrule"]
+    expected_deps = [":jar_with_deps_and_duplicates", ":jar", ":jar_from_genrule"],
 )
 
 assert_compiling_deps(
     name = "jar_with_compiling_deps_assert",
     actual_target = ":jar_with_deps",
-    expected_deps = [":jar_with_deps", ":jar", ":jar_from_genrule"]
+    expected_deps = [":jar_with_deps", ":jar", ":jar_from_genrule"],
 )
 
 buck_genrule(
@@ -90,29 +90,29 @@ buck_genrule(
 native.prebuilt_jar(
     name = "jar_with_no_deps",
     binary_jar = ":create_jar",
-    deps = []
+    deps = [],
 )
 
 native.java_library(
-    name ="empty_java_library"
+    name = "empty_java_library",
 )
 
 native.java_library(
-    name ="empty_java_library_with_one_dep",
-    deps = [":empty_java_library"]
+    name = "empty_java_library_with_one_dep",
+    deps = [":empty_java_library"],
 )
 
 native.prebuilt_jar(
     name = "simple_prebuilt_jar",
     binary_jar = ":create_jar_2",
-    deps = [":jar_with_no_deps", ":empty_java_library_with_one_dep"]
+    deps = [":jar_with_no_deps", ":empty_java_library_with_one_dep"],
 )
 
 # should not include ":empty_java_library" that is transitive from ":empty_java_library_with_one_dep"
 assert_compiling_deps(
     name = "simple_prebuilt_jar_compiling_deps_assert",
     actual_target = ":simple_prebuilt_jar",
-    expected_deps = [":simple_prebuilt_jar", ":jar_with_no_deps", ":empty_java_library_with_one_dep"]
+    expected_deps = [":simple_prebuilt_jar", ":jar_with_no_deps", ":empty_java_library_with_one_dep"],
 )
 
 ##### generate_abi cases #####

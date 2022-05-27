@@ -4,25 +4,25 @@ prelude = native
 prelude.alias(
     name = "aliased",
     actual = "//buck2/tests/targets/rules/export_file:exported.txt",
-    visibility = [ "PUBLIC" ],
+    visibility = ["PUBLIC"],
 )
 
 prelude.genrule(
     name = "use_env",
     out = "bar.txt",
     cmd = "$(exe //buck2/tests/targets/rules/alias/subpackage:with_env) $OUT",
-    visibility = [ "PUBLIC" ],
+    visibility = ["PUBLIC"],
 )
 
 prelude.genrule(
     name = "test_env_used",
     out = "out.txt",
     bash = "python3 $(location :checker) $(location :use_env) bar > $OUT",
-    visibility = [ "PUBLIC" ],
+    visibility = ["PUBLIC"],
 )
 
 prelude.export_file(
     name = "checker",
     src = "checker.py",
-    visibility = [ "PUBLIC" ],
+    visibility = ["PUBLIC"],
 )

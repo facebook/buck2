@@ -5,7 +5,7 @@ prelude.python_bootstrap_library(
     srcs = [
         "lib.py",
     ],
-    visibility = ["//buck2/tests/targets/rules/python_bootstrap/..."]
+    visibility = ["//buck2/tests/targets/rules/python_bootstrap/..."],
 )
 
 prelude.python_bootstrap_binary(

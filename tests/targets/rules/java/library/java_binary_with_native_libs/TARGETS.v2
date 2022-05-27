@@ -1,4 +1,3 @@
-
 native.java_binary(
     name = "binary_with_native_lib",
     main_class = "JavaBinaryWithNativeLibs",
@@ -19,7 +18,6 @@ native.java_library(
         ":native",
     ],
 )
-
 
 native.cxx_library(
     name = "native",

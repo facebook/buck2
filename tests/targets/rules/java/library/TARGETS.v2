@@ -1,4 +1,4 @@
-load("//buck2/tests/targets/rules/java:test.bzl", "assert_packaging_deps", "assert_compiling_deps")
+load("//buck2/tests/targets/rules/java:test.bzl", "assert_compiling_deps", "assert_packaging_deps")
 
 DEFAULT_SRCS = ["default/Empty.java"]
 
@@ -10,18 +10,18 @@ DEFAULT_SRCS = ["default/Empty.java"]
 ####
 
 native.java_library(
-    name ="a1",
+    name = "a1",
     srcs = DEFAULT_SRCS,
 )
 
 native.java_library(
-    name ="b1",
+    name = "b1",
     srcs = DEFAULT_SRCS,
     deps = [":a1"],
 )
 
 native.java_library(
-    name ="c1",
+    name = "c1",
     srcs = DEFAULT_SRCS,
     deps = [":b1"],
 )
@@ -29,13 +29,13 @@ native.java_library(
 assert_compiling_deps(
     name = "assert_c1_compiling_deps",
     actual_target = ":c1",
-    expected_deps = [":c1"]
+    expected_deps = [":c1"],
 )
 
 assert_packaging_deps(
     name = "assert_c1_packaging_deps",
     actual_target = ":c1",
-    expected_deps = [":c1", ":b1", ":a1"]
+    expected_deps = [":c1", ":b1", ":a1"],
 )
 
 ####
@@ -46,18 +46,18 @@ assert_packaging_deps(
 ####
 
 native.java_library(
-    name ="a2",
+    name = "a2",
     srcs = DEFAULT_SRCS,
 )
 
 native.java_library(
-    name ="b2",
+    name = "b2",
     srcs = DEFAULT_SRCS,
     exported_deps = [":a2"],
 )
 
 native.java_library(
-    name ="c2",
+    name = "c2",
     srcs = DEFAULT_SRCS,
     exported_deps = [":b2"],
 )
@@ -65,19 +65,19 @@ native.java_library(
 assert_compiling_deps(
     name = "assert_b2_compiling_deps",
     actual_target = ":b2",
-    expected_deps = [":b2", ":a2"]
+    expected_deps = [":b2", ":a2"],
 )
 
 assert_compiling_deps(
     name = "assert_c2_compiling_deps",
     actual_target = ":c2",
-    expected_deps = [":c2", ":b2", ":a2"]
+    expected_deps = [":c2", ":b2", ":a2"],
 )
 
 assert_packaging_deps(
     name = "assert_c2_packaging_deps",
     actual_target = ":c2",
-    expected_deps = [":c2", ":b2", ":a2"]
+    expected_deps = [":c2", ":b2", ":a2"],
 )
 
 ####
@@ -88,18 +88,18 @@ assert_packaging_deps(
 ####
 
 native.java_library(
-    name ="a3",
+    name = "a3",
     srcs = DEFAULT_SRCS,
 )
 
 native.java_library(
-    name ="b3",
+    name = "b3",
     srcs = DEFAULT_SRCS,
     exported_deps = [":a3"],
 )
 
 native.java_library(
-    name ="c3",
+    name = "c3",
     srcs = DEFAULT_SRCS,
     exported_deps = [":b3"],
     provided_deps = [":a3"],
@@ -109,14 +109,14 @@ native.java_library(
 assert_compiling_deps(
     name = "assert_c3_compiling_deps",
     actual_target = ":c3",
-    expected_deps = [":c3", ":b3", ":a3"]
+    expected_deps = [":c3", ":b3", ":a3"],
 )
 
 # ":a3" is used for packaging
 assert_packaging_deps(
     name = "assert_c3_packaging_deps",
     actual_target = ":c3",
-    expected_deps = [":c3", ":b3", ":a3"]
+    expected_deps = [":c3", ":b3", ":a3"],
 )
 
 ####
@@ -127,18 +127,18 @@ assert_packaging_deps(
 ####
 
 native.java_library(
-    name ="a4",
+    name = "a4",
     srcs = DEFAULT_SRCS,
 )
 
 native.java_library(
-    name ="b4",
+    name = "b4",
     srcs = DEFAULT_SRCS,
     exported_provided_deps = [":a4"],
 )
 
 native.java_library(
-    name ="c4",
+    name = "c4",
     srcs = DEFAULT_SRCS,
     deps = [":b4"],
 )
@@ -147,20 +147,20 @@ native.java_library(
 assert_compiling_deps(
     name = "assert_b4_compiling_deps",
     actual_target = ":b4",
-    expected_deps = [":b4", ":a4"]
+    expected_deps = [":b4", ":a4"],
 )
 
 assert_compiling_deps(
     name = "assert_c4_compiling_deps",
     actual_target = ":c4",
-    expected_deps = [":c4"]
+    expected_deps = [":c4"],
 )
 
 # ":a4" is not used for packaging as it is provided
 assert_packaging_deps(
     name = "assert_c4_packaging_deps",
     actual_target = ":c4",
-    expected_deps = [":c4", ":b4"]
+    expected_deps = [":c4", ":b4"],
 )
 
 ####
@@ -171,12 +171,12 @@ assert_packaging_deps(
 ####
 
 native.java_library(
-    name ="a5",
+    name = "a5",
     srcs = DEFAULT_SRCS,
 )
 
 native.java_library(
-    name ="b5",
+    name = "b5",
     srcs = DEFAULT_SRCS,
     deps = [":a5"],
 )
@@ -192,7 +192,7 @@ native.java_library(
 assert_packaging_deps(
     name = "assert_c5_packaging_deps",
     actual_target = ":c5",
-    expected_deps = [":c5", ":a5"]
+    expected_deps = [":c5", ":a5"],
 )
 
 ####
@@ -212,17 +212,17 @@ native.java_library(
 assert_compiling_deps(
     name = "assert_a6_compiling_deps",
     actual_target = ":a6",
-    expected_deps = []
+    expected_deps = [],
 )
 
 assert_packaging_deps(
     name = "assert_a6_packaging_deps",
     actual_target = ":a6",
-    expected_deps = []
+    expected_deps = [],
 )
 
 native.java_library(
-    name ="b6",
+    name = "b6",
     srcs = DEFAULT_SRCS,
     deps = [":a6"],
 )
@@ -230,13 +230,13 @@ native.java_library(
 assert_compiling_deps(
     name = "assert_b6_compiling_deps",
     actual_target = ":b6",
-    expected_deps = [":b6"]
+    expected_deps = [":b6"],
 )
 
 assert_packaging_deps(
     name = "assert_b6_packaging_deps",
     actual_target = ":b6",
-    expected_deps = [":b6"]
+    expected_deps = [":b6"],
 )
 
 native.java_library(
@@ -248,13 +248,13 @@ native.java_library(
 assert_compiling_deps(
     name = "assert_c6_compiling_deps",
     actual_target = ":c6",
-    expected_deps = [":c6"]
+    expected_deps = [":c6"],
 )
 
 assert_packaging_deps(
     name = "assert_c6_packaging_deps",
     actual_target = ":c6",
-    expected_deps = [":c6", ":b6"]
+    expected_deps = [":c6", ":b6"],
 )
 
 native.java_library(
@@ -267,14 +267,14 @@ native.java_library(
 assert_compiling_deps(
     name = "assert_d6_compiling_deps",
     actual_target = ":d6",
-    expected_deps = []
+    expected_deps = [],
 )
 
 # empty srcs, but depend on c6 -> c6 and b6 in packaging_deps
 assert_packaging_deps(
     name = "assert_d6_packaging_deps",
     actual_target = ":d6",
-    expected_deps = [":c6", ":b6"]
+    expected_deps = [":c6", ":b6"],
 )
 
 ####
@@ -284,12 +284,12 @@ assert_packaging_deps(
 ####
 
 native.java_library(
-    name ="a7",
+    name = "a7",
     srcs = DEFAULT_SRCS,
 )
 
 native.java_library(
-    name ="b7",
+    name = "b7",
     srcs = DEFAULT_SRCS,
     runtime_deps = [":a7"],
 )
@@ -297,7 +297,7 @@ native.java_library(
 assert_compiling_deps(
     name = "assert_b7_compiling_deps",
     actual_target = ":b7",
-    expected_deps = [":b7"]
+    expected_deps = [":b7"],
 )
 
 assert_packaging_deps(
@@ -315,22 +315,22 @@ assert_packaging_deps(
 ####
 
 native.java_library(
-    name ="a8",
+    name = "a8",
     srcs = DEFAULT_SRCS,
 )
 
 native.cxx_library(
-    name ="b8",
+    name = "b8",
     deps = [":a8"],
 )
 
 native.cxx_library(
-    name ="c8",
+    name = "c8",
     deps = [":b8"],
 )
 
 native.java_library(
-    name ="d8",
+    name = "d8",
     srcs = DEFAULT_SRCS,
     deps = [":c8"],
 )
@@ -447,7 +447,6 @@ native.python_library(
 
 ######################################
 
-
 ####
 # Compile a simple java library with one source file
 ####
@@ -512,7 +511,6 @@ native.genrule(
     out = "out.txt",
 )
 
-
 ####
 # Simple java_binary()
 ####
@@ -528,7 +526,6 @@ native.genrule(
     cmd = "$(exe :check_java_binary_output) $(location :run_simple_java_binary_with_output) \"output\" \"error\" \"Hello from Util\" > $OUT",
     out = "out.txt",
 )
-
 
 ####
 # java_binary() with main class in the manifest file
@@ -574,7 +571,6 @@ native.genrule(
     out = "out.txt",
 )
 
-
 ####
 # java_library() with `remove_classes`
 ####
@@ -584,7 +580,6 @@ native.genrule(
     cmd = "$(exe :check_jar) $(location //buck2/tests/targets/rules/java/library/java_library_with_remove_classes:lib) \"com.example.Bar\" > $OUT",
     out = "out.txt",
 )
-
 
 ####
 # classpath template
@@ -601,7 +596,6 @@ native.genrule(
     cmd = "$(exe :check_classpath_file_content) $(location :classpath_template) 'simple_library_with_multiple_deps/__lib__/' '__util_1__/' '__util_2__/' '__util_3__/' '__util_4__/' '__util_5__/'> $OUT",
     out = "out.txt",
 )
-
 
 ####
 # java_library() with empty sources
@@ -629,7 +623,6 @@ native.genrule(
     out = "out.txt",
 )
 
-
 ####
 # java_binary() with annotation processors defined with params
 ####
@@ -645,8 +638,6 @@ native.genrule(
     cmd = "$(exe :check_java_binary_output) $(location :run_java_binary_with_annotation_processors_and_params) \"Hello from Util\" \"Hello from annotation processor. custom_value_from_configuration\" \"Hello from Main\" > $OUT",
     out = "out.txt",
 )
-
-
 
 ####
 # java_binary() with javac plugin

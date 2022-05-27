@@ -76,4 +76,3 @@ prelude.cxx_library(
         "res3.txt",
     ],
 )
-

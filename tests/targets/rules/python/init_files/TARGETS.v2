@@ -3,7 +3,7 @@ prelude = native
 prelude.genrule(
     name = "check",
     out = "out.txt",
-    cmd = "$(exe :bin) > $OUT" 
+    cmd = "$(exe :bin) > $OUT",
 ) if not read_config("python", "package_style") == "standalone" else None
 
 prelude.python_binary(

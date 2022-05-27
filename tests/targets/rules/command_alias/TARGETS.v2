@@ -30,14 +30,13 @@ native.genrule(
     cmd = '"$(exe :platform_multiple_args)" | grep "arg" && touch "$OUT"',
 )
 
-
 # Test to verify we handle quoting arguments properly
 native.command_alias(
     name = "quote",
-    args = ["sh", "-c", 'echo $1', "--", "foo bar"],
+    args = ["sh", "-c", "echo $1", "--", "foo bar"],
     # Right now, this doesn't actually work with a genrule unless we actually
     # write this to a file anyway, which we'll do if we have envs...
-    env = { "FORCE_WRITE_TO_FILE": ""},
+    env = {"FORCE_WRITE_TO_FILE": ""},
 )
 
 native.genrule(
@@ -49,8 +48,8 @@ native.genrule(
 # Test to verify that we handle env
 native.command_alias(
     name = "env",
-    args = ["sh", "-c", 'echo $TEST_VAR'],
-    env = {"TEST_VAR": "foo"}
+    args = ["sh", "-c", "echo $TEST_VAR"],
+    env = {"TEST_VAR": "foo"},
 )
 
 native.genrule(
@@ -62,15 +61,15 @@ native.genrule(
 # Test to verify that relative paths in args actually work
 native.export_file(
     name = "relative_path_test_file",
-    src = "test_file"
+    src = "test_file",
 )
 
 native.command_alias(
     name = "relative_path",
-    args = ["sh", "-c", 'cat $1', "--", "$(location :relative_path_test_file)"],
+    args = ["sh", "-c", "cat $1", "--", "$(location :relative_path_test_file)"],
     # Right now, this doesn't actually work with a genrule unless we actually
     # write this to a file anyway, which we'll do if we have envs...
-    env = { "FORCE_WRITE_TO_FILE": ""},
+    env = {"FORCE_WRITE_TO_FILE": ""},
 )
 
 native.genrule(

@@ -49,7 +49,7 @@ prelude.alias(
     name = "the-test",
     default_target_platform = ":p-rain",
     actual = select({
-        "DEFAULT": ":t-rain",
         ":c-clouds": ":t-clouds",
+        "DEFAULT": ":t-rain",
     }),
 )

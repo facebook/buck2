@@ -20,4 +20,3 @@ native.prebuilt_jar(
     name = "jar_from_genrule_without_jar_extension",
     binary_jar = ":genjar_without_jar_extension",
 )
-

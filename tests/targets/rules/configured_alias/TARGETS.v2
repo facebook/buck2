@@ -32,10 +32,10 @@ prelude.genrule(
     name = "arch-output",
     out = "arch-output.txt",
     cmd = select({
-        "DEFAULT": "echo DEFAULT > $OUT",
-        ":x86": "echo x86 > $OUT",
         ":arm64": "echo arm64 > $OUT",
-    })
+        ":x86": "echo x86 > $OUT",
+        "DEFAULT": "echo DEFAULT > $OUT",
+    }),
 )
 
 prelude.configured_alias(

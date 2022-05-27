@@ -1,6 +1,5 @@
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 
-
 ######################################
 # zip_file utils
 ######################################
@@ -21,7 +20,6 @@ native.python_library(
         "check_zip.py",
     ],
 )
-
 
 native.python_binary(
     name = "check_file_content",
@@ -57,7 +55,6 @@ native.genrule(
     cmd = "$(exe :check_zip) $(location :ziptastic) 'TARGETS.v2' 'beans/' 'beans/cheesy.txt' 'cake.txt' 'check_zip.py' 'check_file_content.py' 'duplicates/' 'duplicates/cake.txt' 'source-1.0-sources.jar' 'source-2.0-sources.jar/' 'source-2.0-sources.jar/taco.txt' 'zip-with-empty-dir.zip' > $OUT",
     out = "out.txt",
 )
-
 
 ######################################
 # unrolled zip_file
@@ -203,7 +200,6 @@ native.genrule(
     cmd = "$(exe :check_zip) $(location :excludes_exact_match_in_subfolder) 'cake.txt'> $OUT",
     out = "out.txt",
 )
-
 
 ########################################################################################
 # Check zip with `entries_to_exclude` attribute / exclude from zip_srcs

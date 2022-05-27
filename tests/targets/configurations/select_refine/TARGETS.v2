@@ -69,9 +69,9 @@ prelude.export_file(
 prelude.alias(
     name = "the-test",
     actual = select({
-        "DEFAULT": ":t-default",
         ":c-good": ":t-good",
         # This option is picked in test even previous options match.
         ":c-good-domestic": ":t-good-domestic",
+        "DEFAULT": ":t-default",
     }),
 )

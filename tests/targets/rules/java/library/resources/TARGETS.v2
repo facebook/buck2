@@ -42,7 +42,7 @@ native.genrule(
         "\"buck2/tests/targets/rules/java/library/resources/output.txt\"",
         # "src" is a java resources root element and the target in a subdir of there only gets the part of the path after that.
         "\"res/output.txt\"",
-        "> $OUT"
+        "> $OUT",
     ]),
     out = "out.txt",
 )
@@ -52,7 +52,7 @@ native.java_library(
     resources = glob(["**/*.txt"]),
     visibility = [
         "PUBLIC",
-    ]
+    ],
 )
 
 native.genrule(
@@ -81,7 +81,7 @@ native.genrule(
         "$(exe fbcode//buck2/tests/targets/rules/java/library:check_jar_resource)",
         "$(location :lib_with_created_resources_and_resources_root)",
         "\"output.txt\"",
-        "> $OUT"
+        "> $OUT",
     ]),
     out = "out.txt",
 )
@@ -111,7 +111,7 @@ native.genrule(
         "$(exe fbcode//buck2/tests/targets/rules/java/library:check_jar_resource)",
         "$(location :lib_with_created_resources_and_resources_root_in_dir)",
         "\"foo/output.txt\"",
-        "> $OUT"
+        "> $OUT",
     ]),
     out = "out.txt",
 )

@@ -10,9 +10,9 @@ prelude.sh_binary(
     name = "posix",
     main = "echo.sh",
     target_compatible_with = select({
+        "DEFAULT": [":_incompatible"],
         "ovr_config//os/constraints:linux": [],
         "ovr_config//os/constraints:macos": [],
-        "DEFAULT": [":_incompatible"],
     }),
 )
 
