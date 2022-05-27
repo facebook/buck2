@@ -625,12 +625,21 @@ impl CoercionError {
 }
 
 pub struct CoercedDepsCollector {
+    /// Contains the deps derived from the attributes.
+    /// Does not include the transition, exec or configuration deps.
     pub deps: SmallSet<TargetLabel>,
-    pub exec_deps: SmallSet<TargetLabel>,
-    // Including split-transition deps.
+
+    /// Contains the deps which are transitioned to other configuration
+    /// (including split transitions).
     pub transition_deps: SmallSet<(TargetLabel, Arc<TransitionId>)>,
+
+    /// Contains the execution deps derived from the attributes.
+    pub exec_deps: SmallSet<TargetLabel>,
+
+    /// Contains the configuration deps. These are deps that appear as conditions in selects.
     pub configuration_deps: SmallSet<TargetLabel>,
-    // Collects all platform targets
+
+    /// Contains platform targets of configured_alias()
     pub platform_deps: SmallSet<TargetLabel>,
 }
 
