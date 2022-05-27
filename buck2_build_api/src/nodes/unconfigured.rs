@@ -20,7 +20,6 @@ use buck2_query::query::syntax::simple::eval::file_set::FileNode;
 use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
 use starlark::{
-    collections::SmallSet,
     eval::{CallStack, Evaluator, ParametersParser},
     values::Value,
 };
@@ -91,22 +90,7 @@ pub(crate) struct TargetNodeData {
 
     // TODO(cjhopman): Consider removing these cached derived fields. Query definitely needs deps
     // cached, but for builds it's potentially unimportant.
-    /// Contains the deps derived from the attributes.
-    /// Does not include the transition, exec or configuration deps.
-    deps: SmallSet<TargetLabel>,
-
-    /// Contains the deps which are transitioned to other configuration
-    /// (including split transitions).
-    transition_deps: SmallSet<(TargetLabel, Arc<TransitionId>)>,
-
-    /// Contains the execution deps derived from the attributes.
-    exec_deps: SmallSet<TargetLabel>,
-
-    /// Contains the configuration deps. These are deps that appear as conditions in selects.
-    configuration_deps: SmallSet<TargetLabel>,
-
-    /// Contains platform targets of configured_alias()
-    platform_deps: SmallSet<TargetLabel>,
+    deps_cache: CoercedDepsCollector,
 
     /// Visibility specification restricts what targets can depend on this one.
     visibility: VisibilitySpecification,
@@ -139,11 +123,7 @@ impl TargetNode {
                     label,
                     rule_type: RuleType::Starlark(rule_type),
                     buildfile_path,
-                    deps: SmallSet::new(),
-                    transition_deps: SmallSet::new(),
-                    exec_deps: SmallSet::new(),
-                    configuration_deps: SmallSet::new(),
-                    platform_deps: SmallSet::new(),
+                    deps_cache: CoercedDepsCollector::new(),
                     attributes: AttrValues::new(),
                     attr_spec,
                     cfg,
@@ -199,29 +179,17 @@ impl TargetNode {
         }
 
         let label = TargetLabel::new(package.dupe(), target_name);
-        let mut collector = CoercedDepsCollector::new();
+        let mut deps_cache = CoercedDepsCollector::new();
 
         for (_, value) in attr_spec.attrs(&attr_values) {
-            value.traverse(&mut collector)?;
+            value.traverse(&mut deps_cache)?;
         }
-
-        let CoercedDepsCollector {
-            deps,
-            exec_deps,
-            transition_deps,
-            configuration_deps,
-            platform_deps,
-        } = collector;
 
         Ok(Self(Arc::new(TargetNodeData {
             label,
             rule_type: RuleType::Starlark(rule_type),
             buildfile_path,
-            deps,
-            transition_deps,
-            exec_deps,
-            configuration_deps,
-            platform_deps,
+            deps_cache,
             attributes: attr_values,
             attr_spec,
             cfg,
@@ -267,15 +235,22 @@ impl TargetNode {
     /// Returns all deps for this node that we know about after processing the build file
     pub fn deps(&self) -> impl Iterator<Item = &TargetLabel> {
         self.0
+            .deps_cache
             .deps
             .iter()
-            .chain(self.0.transition_deps.iter().map(|(dep, _tr)| dep))
-            .chain(self.0.exec_deps.iter())
+            .chain(
+                self.0
+                    .deps_cache
+                    .transition_deps
+                    .iter()
+                    .map(|(dep, _tr)| dep),
+            )
+            .chain(self.0.deps_cache.exec_deps.iter())
     }
 
     /// Deps which are to be transitioned to other configuration using transition function.
     pub fn transition_deps(&self) -> impl Iterator<Item = &(TargetLabel, Arc<TransitionId>)> {
-        self.0.transition_deps.iter()
+        self.0.deps_cache.transition_deps.iter()
     }
 
     pub fn label(&self) -> &TargetLabel {
@@ -313,7 +288,7 @@ impl TargetNode {
     }
 
     pub fn platform_deps(&self) -> impl Iterator<Item = &TargetLabel> {
-        self.0.platform_deps.iter()
+        self.0.deps_cache.platform_deps.iter()
     }
 
     /// Return `None` if attribute is not present or unknown.
@@ -333,15 +308,15 @@ impl TargetNode {
     }
 
     pub fn target_deps(&self) -> impl Iterator<Item = &TargetLabel> {
-        self.0.deps.iter()
+        self.0.deps_cache.deps.iter()
     }
 
     pub fn execution_deps(&self) -> impl Iterator<Item = &TargetLabel> {
-        self.0.exec_deps.iter()
+        self.0.deps_cache.exec_deps.iter()
     }
 
     pub fn get_configuration_deps(&self) -> impl Iterator<Item = &TargetLabel> {
-        self.0.configuration_deps.iter()
+        self.0.deps_cache.configuration_deps.iter()
     }
 
     pub fn tests(&self) -> impl Iterator<Item = &ProvidersLabel> {
@@ -537,7 +512,7 @@ pub mod testing {
             let mut instances = Vec::with_capacity(attrs.len());
             let mut attributes = AttrValues::new();
 
-            let mut collector = CoercedDepsCollector::new();
+            let mut deps_cache = CoercedDepsCollector::new();
 
             for (index_in_attribute_spec, (name, attr, val)) in attrs.into_iter().enumerate() {
                 let idx = AttributeId {
@@ -545,17 +520,9 @@ pub mod testing {
                 };
                 indices.insert(name.to_owned(), idx);
                 instances.push(attr);
-                val.traverse(&mut collector).unwrap();
+                val.traverse(&mut deps_cache).unwrap();
                 attributes.push_sorted(idx, val);
             }
-
-            let CoercedDepsCollector {
-                deps,
-                exec_deps,
-                transition_deps,
-                configuration_deps,
-                platform_deps,
-            } = collector;
 
             let buildfile_path = Arc::new(BuildFilePath::new(
                 label.pkg().dupe(),
@@ -572,11 +539,7 @@ pub mod testing {
                     attributes: instances,
                 }),
                 attributes,
-                deps,
-                transition_deps,
-                exec_deps,
-                configuration_deps,
-                platform_deps,
+                deps_cache,
                 visibility: VisibilitySpecification::Public,
                 call_stack: None,
             }))
