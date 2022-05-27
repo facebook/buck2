@@ -104,6 +104,7 @@ CxxToolchainInfo = provider(fields = [
     "dist_lto_tools_info",
     "use_dep_files",
     "strip_flags_info",
+    "split_dwarf_enabled",
 ])
 
 # Stores "platform"/flavor name used to resolve *platform_* arguments
@@ -136,7 +137,8 @@ def cxx_toolchain_infos(
         use_distributed_thinlto = False,
         use_dep_files = False,
         strip_flags_info = None,
-        dist_lto_tools_info: [DistLtoToolsInfo.type, None] = None):
+        dist_lto_tools_info: [DistLtoToolsInfo.type, None] = None,
+        split_dwarf_enabled = False):
     """
     Creates the collection of cxx-toolchain Infos for a cxx toolchain.
 
@@ -166,6 +168,7 @@ def cxx_toolchain_infos(
         use_distributed_thinlto = use_distributed_thinlto,
         use_dep_files = use_dep_files,
         strip_flags_info = strip_flags_info,
+        split_dwarf_enabled = split_dwarf_enabled,
     )
 
     # Provide placeholder mappings, used primarily by cxx_genrule.

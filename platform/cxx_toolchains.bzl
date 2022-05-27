@@ -73,6 +73,8 @@ _buckconfig_cxx_toolchain_attrs = {
     "requires_archives": bool_attr,
     "requires_objects": bool_attr,
     "shlib_interfaces": string_attr,
+    # NOTE: This is *not* the same attribute as in v1. In v1 it was used via `fbcode.split-dwarf`
+    "split_dwarf_enabled": bool_attr,
     "strip": binary_attr,
     "strip_all_flags": optional_flags_attr,
     "strip_debug_flags": optional_flags_attr,
@@ -232,6 +234,7 @@ def _config_backed_toolchain_impl(ctx):
         mk_comp_db = ctx.attr.mk_comp_db,
         dist_lto_tools_info = ctx.attr._dist_lto_tools_info[DistLtoToolsInfo],
         use_dep_files = value_or(ctx.attr.use_dep_files, True),
+        split_dwarf_enabled = ctx.attr.split_dwarf_enabled,
         strip_flags_info = strip_flags_info,
     )
 
@@ -369,6 +372,7 @@ def _cxx_toolchain_override(ctx):
         use_dep_files = base_toolchain.use_dep_files,
         conflicting_header_basename_allowlist = base_toolchain.conflicting_header_basename_allowlist,
         strip_flags_info = strip_flags_info,
+        split_dwarf_enabled = value_or(ctx.attr.split_dwarf_enabled, base_toolchain.split_dwarf_enabled),
     )
 
 cxx_toolchain_override = rule(
@@ -401,6 +405,7 @@ cxx_toolchain_override = rule(
         "objcopy": attr.option(attr.dep(providers = [RunInfo])),
         "platform_name": attr.option(attr.string(), default = None),
         "ranlib": attr.option(attr.dep(providers = [RunInfo])),
+        "split_dwarf_enabled": attr.option(attr.bool()),
         "strip": attr.option(attr.dep(providers = [RunInfo])),
         "strip_all_flags": attr.option(attr.list(attr.arg()), default = None),
         "strip_debug_flags": attr.option(attr.list(attr.arg()), default = None),

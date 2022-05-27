@@ -253,6 +253,7 @@ extra_attributes = struct(
         "platform_name": attr.option(attr.string(), default = None),
         "ranlib": attr.option(attr.dep(providers = [RunInfo]), default = None),
         "requires_objects": attr.bool(default = False),
+        "split_dwarf_enabled": attr.bool(default = False),
         "strip": attr.dep(providers = [RunInfo]),
         "supports_distributed_thinlto": attr.bool(default = False),
         "use_archiver_flags": attr.bool(default = True),

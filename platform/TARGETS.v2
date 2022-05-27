@@ -6,6 +6,7 @@ load(":rust_toolchains.bzl", "config_backed_rust_toolchain")
 load(":ocaml_toolchains.bzl", "config_backed_ocaml_toolchain")
 load(":haskell_toolchains.bzl", "config_backed_haskell_toolchain")
 load(":java_toolchains.bzl", "config_backed_java_toolchain")
+load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool")
 
 _fbcode_cxx_flavors = [
     #  "appletvos-arm64",
@@ -73,6 +74,7 @@ _fbcode_python_flavors = [
         # should probably be that we require gvfs, but that's not well reflected
         "ovr_config//runtime/constraints:fbcode",
     ],
+    split_dwarf_enabled = read_bool("fbcode", "split-dwarf", False),
     # Use thin archives for static libraries, by default.
     archive_contents = native.read_config("fbcode", "archive_contents", "thin"),
     visibility = ["PUBLIC"],
