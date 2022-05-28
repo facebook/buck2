@@ -15,13 +15,29 @@
  * limitations under the License.
  */
 
+use gazebo::dupe::Dupe;
 use once_cell::sync::Lazy;
 
 use crate::{environment::Globals, values::FrozenValue};
 
+#[derive(Copy, Clone, Dupe, Debug)]
+pub(crate) struct BuiltinFn(FrozenValue);
+
+impl PartialEq<FrozenValue> for BuiltinFn {
+    fn eq(&self, other: &FrozenValue) -> bool {
+        self.0.to_value().ptr_eq(other.to_value())
+    }
+}
+
+impl PartialEq<BuiltinFn> for FrozenValue {
+    fn eq(&self, other: &BuiltinFn) -> bool {
+        other == self
+    }
+}
+
 pub(crate) struct Constants {
-    pub(crate) fn_len: FrozenValue,
-    pub(crate) fn_type: FrozenValue,
+    pub(crate) fn_len: BuiltinFn,
+    pub(crate) fn_type: BuiltinFn,
 }
 
 impl Constants {
@@ -29,8 +45,8 @@ impl Constants {
         static RES: Lazy<Constants> = Lazy::new(|| {
             let g = Globals::standard();
             Constants {
-                fn_len: g.get_frozen("len").unwrap(),
-                fn_type: g.get_frozen("type").unwrap(),
+                fn_len: BuiltinFn(g.get_frozen("len").unwrap()),
+                fn_type: BuiltinFn(g.get_frozen("type").unwrap()),
             }
         });
         Lazy::force(&RES)
