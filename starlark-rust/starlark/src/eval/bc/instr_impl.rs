@@ -1497,7 +1497,7 @@ impl InstrNoFlowImpl for InstrDefImpl {
                 pop_index += 1;
                 if def_data.check_types {
                     parameter_types.push((
-                        i,
+                        LocalSlotId(i),
                         name.name.clone(),
                         v,
                         expr_throw(TypeCompiled::new(v, eval.heap()), x.span, eval)
@@ -1529,7 +1529,7 @@ impl InstrNoFlowImpl for InstrDefImpl {
                 ParameterCompiled::KwArgs(_, _) => parameters.kwargs(),
             };
             if let Captured::Yes = x.captured() {
-                parameter_captures.push(i);
+                parameter_captures.push(LocalSlotId(i));
             }
             if !matches!(x.node, ParameterCompiled::NoArgs) {
                 i += 1;

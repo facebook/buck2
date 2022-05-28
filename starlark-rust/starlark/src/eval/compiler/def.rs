@@ -476,8 +476,11 @@ impl Compiler<'_, '_, '_> {
 #[derivative(Debug)]
 pub(crate) struct DefGen<V> {
     pub(crate) parameters: ParametersSpec<V>, // The parameters, **kwargs etc including defaults (which are evaluated afresh each time)
-    parameter_captures: Vec<u32>, // Indices of parameters, which are captured in nested defs
-    parameter_types: Vec<(u32, String, V, TypeCompiled)>, // The types of the parameters (sparse indexed array, (0, argm T) implies parameter 0 named arg must have type T)
+    // Indices of parameters, which are captured in nested defs.
+    parameter_captures: Vec<LocalSlotId>,
+    // The types of the parameters.
+    // (Sparse indexed array, (0, argm T) implies parameter 0 named arg must have type T).
+    parameter_types: Vec<(LocalSlotId, String, V, TypeCompiled)>,
     return_type: Option<(V, TypeCompiled)>, // The return type annotation for the function
     pub(crate) def_info: FrozenRef<'static, DefInfo>, // The source code and metadata for this function
     /// Any variables captured from the outer scope (nested def/lambda).
@@ -509,8 +512,8 @@ starlark_complex_values!(Def);
 impl<'v> Def<'v> {
     pub(crate) fn new(
         parameters: ParametersSpec<Value<'v>>,
-        parameter_captures: Vec<u32>,
-        parameter_types: Vec<(u32, String, Value<'v>, TypeCompiled)>,
+        parameter_captures: Vec<LocalSlotId>,
+        parameter_types: Vec<(LocalSlotId, String, Value<'v>, TypeCompiled)>,
         return_type: Option<(Value<'v>, TypeCompiled)>,
         stmt: FrozenRef<'static, DefInfo>,
         eval: &mut Evaluator<'v, '_>,
@@ -539,7 +542,7 @@ impl<'v, T1: ValueLike<'v>> DefGen<T1> {
             .iter()
             .map(|(idx, _, v, _)| {
                 (
-                    *idx as usize,
+                    idx.0 as usize,
                     docs::Type {
                         raw_type: v.to_value().to_repr(),
                     },
@@ -649,7 +652,7 @@ where
             None
         };
         for (i, arg_name, ty, ty2) in &self.parameter_types {
-            match eval.current_frame.get_slot(LocalSlotId::new(*i)) {
+            match eval.current_frame.get_slot(*i) {
                 None => {
                     panic!("Not allowed optional unassigned with type annotations on them")
                 }
@@ -728,7 +731,7 @@ where
         // (to avoid even more branches in parameter capture),
         // and this loop wraps captured parameters.
         for &captured in &self.parameter_captures {
-            eval.wrap_local_slot_captured(LocalSlotId::new(captured));
+            eval.wrap_local_slot_captured(captured);
         }
 
         // Copy over the parent slots.

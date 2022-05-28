@@ -17,7 +17,9 @@
 
 use gazebo::prelude::*;
 
-#[derive(Clone, Copy, Dupe, Debug, PartialEq, Eq)]
+use crate as starlark;
+
+#[derive(Clone, Copy, Dupe, Debug, PartialEq, Eq, Trace)]
 pub(crate) struct LocalSlotId(pub(crate) u32);
 
 impl LocalSlotId {
