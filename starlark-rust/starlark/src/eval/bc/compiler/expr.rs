@@ -191,10 +191,6 @@ impl IrSpanned<ExprCompiled> {
                 expr.write_bc(bc);
                 bc.write_instr::<InstrType>(span, ());
             }
-            ExprCompiled::Len(box ref expr) => {
-                expr.write_bc(bc);
-                bc.write_instr::<InstrLen>(span, ());
-            }
             ExprCompiled::TypeIs(box ref v, t) => {
                 v.write_bc(bc);
                 bc.write_instr::<InstrTypeIs>(span, t);

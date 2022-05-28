@@ -21,7 +21,7 @@ use once_cell::sync::Lazy;
 use crate::{environment::Globals, values::FrozenValue};
 
 #[derive(Copy, Clone, Dupe, Debug)]
-pub(crate) struct BuiltinFn(FrozenValue);
+pub(crate) struct BuiltinFn(pub(crate) FrozenValue);
 
 impl PartialEq<FrozenValue> for BuiltinFn {
     fn eq(&self, other: &FrozenValue) -> bool {

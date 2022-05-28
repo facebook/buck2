@@ -30,7 +30,7 @@ use crate::{
                 InstrCall, InstrCallFrozen, InstrCallFrozenDef, InstrCallFrozenDefPos,
                 InstrCallFrozenNative, InstrCallFrozenNativePos, InstrCallFrozenPos,
                 InstrCallMaybeKnownMethod, InstrCallMaybeKnownMethodPos, InstrCallMethod,
-                InstrCallMethodPos, InstrCallPos,
+                InstrCallMethodPos, InstrCallPos, InstrLen,
             },
             writer::BcWriter,
         },
@@ -114,6 +114,12 @@ impl IrSpanned<CallCompiled> {
     }
 
     pub(crate) fn write_bc(&self, bc: &mut BcWriter) {
+        if let Some(arg) = self.as_len() {
+            arg.write_bc(bc);
+            bc.write_instr::<InstrLen>(self.span, ());
+            return;
+        }
+
         let span = self.span;
         let file_span = bc.alloc_file_span(span);
         match self.method() {

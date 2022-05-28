@@ -29,8 +29,10 @@ use crate::{
     errors::did_you_mean::did_you_mean,
     eval::{
         compiler::{
+            args::ArgsCompiledValue,
             call::CallCompiled,
             compr::ComprCompiled,
+            constants::Constants,
             def::{DefCompiled, FrozenDef},
             expr_bool::ExprCompiledBool,
             known::list_to_tuple,
@@ -170,8 +172,6 @@ pub(crate) enum ExprCompiled {
     ),
     /// `type(x)`
     Type(Box<IrSpanned<ExprCompiled>>),
-    /// `len(x)`
-    Len(Box<IrSpanned<ExprCompiled>>),
     /// `type(x) == "y"`
     TypeIs(Box<IrSpanned<ExprCompiled>>, FrozenStringValue),
     Tuple(Vec<IrSpanned<ExprCompiled>>),
@@ -238,6 +238,14 @@ impl ExprCompiled {
     /// Expression is known to be a constant which is a `def`.
     pub(crate) fn as_frozen_def(&self) -> Option<FrozenValueTyped<FrozenDef>> {
         FrozenValueTyped::new(self.as_value()?)
+    }
+
+    /// Expression is builtin `len` function.
+    pub(crate) fn is_fn_len(&self) -> bool {
+        match self.as_value() {
+            Some(value) => value == Constants::get().fn_len,
+            None => false,
+        }
     }
 
     /// Expression is a frozen value which is builtin.
@@ -379,7 +387,6 @@ impl IrSpanned<ExprCompiled> {
                 ExprCompiled::compare(l, r, cmp)
             }
             ExprCompiled::Type(box ref e) => ExprCompiled::typ(e.optimize_on_freeze(ctx)),
-            ExprCompiled::Len(box ref e) => ExprCompiled::len(e.optimize_on_freeze(ctx)),
             ExprCompiled::TypeIs(box ref e, t) => {
                 ExprCompiled::type_is(e.optimize_on_freeze(ctx), t)
             }
@@ -836,13 +843,25 @@ impl ExprCompiled {
         ExprCompiled::TypeIs(box v, t)
     }
 
-    pub(crate) fn len(arg: IrSpanned<ExprCompiled>) -> ExprCompiled {
+    pub(crate) fn len(span: FrozenFileSpan, arg: IrSpanned<ExprCompiled>) -> ExprCompiled {
         if let Some(arg) = arg.as_value() {
             if let Ok(len) = arg.to_value().length() {
                 return ExprCompiled::Value(FrozenValue::new_int(len));
             }
         }
-        ExprCompiled::Len(box arg)
+        ExprCompiled::Call(box IrSpanned {
+            span,
+            node: CallCompiled {
+                fun: IrSpanned {
+                    span,
+                    node: ExprCompiled::Value(Constants::get().fn_len.0),
+                },
+                args: ArgsCompiledValue {
+                    pos_named: vec![arg],
+                    ..ArgsCompiledValue::default()
+                },
+            },
+        })
     }
 
     fn compare(

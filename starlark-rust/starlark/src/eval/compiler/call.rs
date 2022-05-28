@@ -60,6 +60,14 @@ impl CallCompiled {
         }
     }
 
+    /// If this call expression is `len(x)`, return `x`.
+    pub(crate) fn as_len(&self) -> Option<&IrSpanned<ExprCompiled>> {
+        if !self.fun.is_fn_len() {
+            return None;
+        }
+        self.args.one_pos()
+    }
+
     /// This call is a method call.
     pub(crate) fn method(&self) -> Option<(&IrSpanned<ExprCompiled>, &Symbol, &ArgsCompiledValue)> {
         match &self.fun.node {
@@ -117,6 +125,12 @@ impl CallCompiled {
 
         if let Some(inline) = CallCompiled::try_inline(span, &fun, &args, frozen_heap) {
             return inline;
+        }
+
+        if fun.is_fn_len() {
+            if let Some(arg) = args.one_pos() {
+                return ExprCompiled::len(span, arg.clone());
+            }
         }
 
         ExprCompiled::Call(box IrSpanned {
@@ -185,7 +199,7 @@ impl Compiler<'_, '_, '_> {
             ExprCompiled::typ(expr)
         } else if left == Constants::get().fn_len && one_positional {
             let x = self.expr(args.pop().unwrap().node.into_expr());
-            ExprCompiled::len(x)
+            ExprCompiled::len(span, x)
         } else {
             let args = self.args(args);
             self.expr_call_fun_frozen_no_special(span, left, args)
