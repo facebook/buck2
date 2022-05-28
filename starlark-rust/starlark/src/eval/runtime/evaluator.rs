@@ -39,6 +39,7 @@ use crate::{
             call_stack::{CheapCallStack, FrozenFileSpan},
             flame_profile::FlameProfile,
             heap_profile::{HeapProfile, HeapProfileFormat},
+            inlined_frame::InlinedFrames,
             profile::ProfileMode,
             slots::LocalSlotId,
             stmt_profile::StmtProfile,
@@ -292,7 +293,8 @@ impl<'v, 'a> Evaluator<'v, 'a> {
 
     /// Obtain the current call-stack, suitable for use with [`Diagnostic`].
     pub fn call_stack(&self) -> CallStack {
-        self.call_stack.to_diagnostic_frames()
+        self.call_stack
+            .to_diagnostic_frames(InlinedFrames::default())
     }
 
     /// Obtain the top location on the call-stack. May be [`None`] if the
@@ -329,7 +331,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         fn add_diagnostics(e: anyhow::Error, me: &Evaluator) -> anyhow::Error {
             Diagnostic::modify(e, |d: &mut Diagnostic| {
                 // Make sure we capture the call_stack before popping things off it
-                d.set_call_stack(|| me.call_stack.to_diagnostic_frames());
+                d.set_call_stack(|| me.call_stack.to_diagnostic_frames(InlinedFrames::default()));
             })
         }
 

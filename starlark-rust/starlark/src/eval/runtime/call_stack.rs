@@ -36,18 +36,25 @@ use once_cell::sync::Lazy;
 use crate::{
     codemap::{CodeMap, FileSpan, Span},
     errors::Frame,
+    eval::runtime::inlined_frame::InlinedFrames,
     values::{error::ControlError, FrozenRef, Trace, Tracer, Value},
 };
 
-#[derive(Debug, Clone, Copy, Dupe)]
+#[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq)]
 pub(crate) struct FrozenFileSpan {
-    file: FrozenRef<'static, CodeMap>,
-    span: Span,
+    pub(crate) file: FrozenRef<'static, CodeMap>,
+    pub(crate) span: Span,
+    /// Parent frames.
+    pub(crate) inlined_frames: InlinedFrames,
 }
 
 impl FrozenFileSpan {
     pub(crate) const fn new_unchecked(file: FrozenRef<'static, CodeMap>, span: Span) -> Self {
-        FrozenFileSpan { file, span }
+        FrozenFileSpan {
+            file,
+            span,
+            inlined_frames: InlinedFrames { frames: None },
+        }
     }
 
     pub(crate) fn new(file: FrozenRef<'static, CodeMap>, span: Span) -> Self {
@@ -80,7 +87,7 @@ impl Display for FrozenFileSpan {
 }
 
 impl FrozenFileSpan {
-    fn to_file_span(&self) -> FileSpan {
+    pub(crate) fn to_file_span(&self) -> FileSpan {
         FileSpan {
             file: (*self.file).dupe(),
             span: self.span,
@@ -92,6 +99,7 @@ impl FrozenFileSpan {
             FrozenFileSpan {
                 file: self.file,
                 span: self.span.merge(other.span),
+                inlined_frames: self.inlined_frames,
             }
         } else {
             // We need to pick something if we merge two spans from different files.
@@ -114,11 +122,14 @@ impl CheapFrame<'_> {
         self.span.map(|span| span.to_file_span())
     }
 
-    fn to_frame(&self) -> Frame {
-        Frame {
+    fn extend_frames(&self, frames: &mut Vec<Frame>) {
+        if let Some(span) = self.span {
+            span.inlined_frames.extend_frames(frames);
+        }
+        frames.push(Frame {
             name: self.function.name_for_call_stack(),
             location: self.location(),
-        }
+        });
     }
 }
 
@@ -150,8 +161,11 @@ impl<'v> Default for CheapCallStack<'v> {
     }
 }
 
-// At 50 we see the C stack overflowing, so limit to 40 (which seems quite
-// low...)
+/// At 50 we see the C stack overflowing, so limit to 40 (which seems quite low...).
+///
+/// Note some calls may be inlined (special functions like `len`
+/// or simple functions like `def f(): return 1`), so effectively call stack
+/// may be larger depending on what optimizations applied.
 const MAX_CALLSTACK_RECURSION: usize = 40;
 
 unsafe impl<'v> Trace<'v> for CheapCallStack<'v> {
@@ -203,9 +217,13 @@ impl<'v> CheapCallStack<'v> {
         }
     }
 
-    pub(crate) fn to_diagnostic_frames(&self) -> CallStack {
+    pub(crate) fn to_diagnostic_frames(&self, inlined_frames: InlinedFrames) -> CallStack {
         // The first entry is just the entire module, so skip it
-        let frames = self.stack[1..self.count].map(CheapFrame::to_frame);
+        let mut frames = Vec::new();
+        for frame in &self.stack[1..self.count] {
+            frame.extend_frames(&mut frames);
+        }
+        inlined_frames.extend_frames(&mut frames);
         CallStack { frames }
     }
 

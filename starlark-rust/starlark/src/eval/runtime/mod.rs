@@ -24,6 +24,7 @@ pub(crate) mod evaluator;
 pub(crate) mod file_loader;
 pub(crate) mod flame_profile;
 pub(crate) mod heap_profile;
+pub(crate) mod inlined_frame;
 pub(crate) mod profile;
 pub(crate) mod rust_loc;
 pub(crate) mod slots;
