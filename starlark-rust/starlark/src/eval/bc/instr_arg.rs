@@ -656,8 +656,8 @@ impl BcInstrArg for SmallMap<FrozenValue, FrozenValue> {
 }
 
 impl BcInstrArg for InstrDefData {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
-        write!(f, " {:?}", param)
+    fn fmt_append(_param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+        write!(f, " InstrDefData")
     }
 
     fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
