@@ -33,7 +33,6 @@ use crate::{
     environment::Globals,
     eval::{
         compiler::{
-            constants::Constants,
             scope::{CompilerAstMap, Scope, ScopeData},
             Compiler,
         },
@@ -124,7 +123,6 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             locals: Vec::new(),
             globals,
             codemap,
-            constants: Constants::new(),
             has_before_stmt: self.before_stmt.enabled(),
             bc_profile: self.bc_profile.enabled(),
             eval: self,

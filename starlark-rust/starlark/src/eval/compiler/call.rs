@@ -22,6 +22,7 @@ use crate::{
     eval::{
         compiler::{
             args::ArgsCompiledValue,
+            constants::Constants,
             def::InlineDefBody,
             expr::ExprCompiled,
             scope::{CstArgument, CstExpr},
@@ -178,11 +179,11 @@ impl Compiler<'_, '_, '_> {
         mut args: Vec<CstArgument>,
     ) -> ExprCompiled {
         let one_positional = args.len() == 1 && args[0].is_positional();
-        if left == self.constants.fn_type && one_positional {
+        if left == Constants::get().fn_type && one_positional {
             let expr = args.pop().unwrap().node.into_expr();
             let expr = self.expr(expr);
             ExprCompiled::typ(expr)
-        } else if left == self.constants.fn_len && one_positional {
+        } else if left == Constants::get().fn_len && one_positional {
             let x = self.expr(args.pop().unwrap().node.into_expr());
             ExprCompiled::len(x)
         } else {

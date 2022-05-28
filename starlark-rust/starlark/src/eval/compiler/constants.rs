@@ -15,19 +15,17 @@
  * limitations under the License.
  */
 
-use gazebo::dupe::Dupe;
 use once_cell::sync::Lazy;
 
 use crate::{environment::Globals, values::FrozenValue};
 
-#[derive(Clone, Copy, Dupe)]
 pub(crate) struct Constants {
     pub(crate) fn_len: FrozenValue,
     pub(crate) fn_type: FrozenValue,
 }
 
 impl Constants {
-    pub fn new() -> Self {
+    pub fn get() -> &'static Constants {
         static RES: Lazy<Constants> = Lazy::new(|| {
             let g = Globals::standard();
             Constants {
@@ -35,7 +33,7 @@ impl Constants {
                 fn_type: g.get_frozen("type").unwrap(),
             }
         });
-        *Lazy::force(&RES)
+        Lazy::force(&RES)
     }
 }
 
@@ -47,11 +45,11 @@ mod tests {
     fn test_constants() {
         assert_eq!(
             Globals::standard().get_frozen("len").unwrap(),
-            Constants::new().fn_len
+            Constants::get().fn_len
         );
         assert_eq!(
             Globals::extended().get_frozen("len").unwrap(),
-            Constants::new().fn_len
+            Constants::get().fn_len
         );
     }
 }
