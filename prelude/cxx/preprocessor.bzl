@@ -37,6 +37,7 @@ CPreprocessor = record(
     uses_modules = field(bool.type, False),
     # Modular args to set when modules are in use, [arglike things]
     modular_args = field([""], []),
+    modulemap_path = field("", None),
 )
 
 # Methods for transitive_sets must be declared prior to their use.

@@ -62,6 +62,7 @@ def preprocessor_info_for_modulemap(ctx: "context", name: str.type, headers: [CH
 
     return CPreprocessor(
         modular_args = _args_for_modulemap(output, symlink_tree, swift_header),
+        modulemap_path = cmd_args(output).hidden(cmd_args(symlink_tree)),
         args = _exported_preprocessor_args(symlink_tree),
     )
 

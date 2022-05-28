@@ -15,7 +15,7 @@ load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(":apple_utility.bzl", "get_module_name", "get_versioned_target_triple")
 load(":modulemap.bzl", "preprocessor_info_for_modulemap")
 load(":swift_module_map.bzl", "write_swift_module_map_with_swift_deps")
-load(":swift_pcm_compilation.bzl", "compile_swift_pcm")
+load(":swift_pcm_compilation.bzl", "PcmDepTSet", "SwiftPCMCompilationInfo", "compile_swift_pcm", "get_pcm_deps_tset")
 
 def _add_swiftmodule_search_path(args: "cmd_args", swift_info: "SwiftDependencyInfo"):
     if swift_info.swiftmodule_path != None:
@@ -104,6 +104,7 @@ def compile_swift(
         headers = [exported_swift_header],
         modular_args = modulemap_pp_info.modular_args,
         args = modulemap_pp_info.args,
+        modulemap_path = modulemap_pp_info.modulemap_path,
     )
 
     # We also need to include the unprefixed -Swift.h header in this libraries preprocessor info
@@ -119,7 +120,7 @@ def compile_swift(
     return SwiftCompilationOutput(
         object_files = [output_object],
         swiftmodule = output_swiftmodule,
-        providers = get_swift_dependency_infos(ctx, None, output_swiftmodule),
+        providers = get_swift_dependency_infos(ctx, exported_pp_info, output_swiftmodule),
         pre = pre,
         exported_pre = exported_pp_info,
     )
@@ -196,8 +197,6 @@ def _add_swift_deps_flags(ctx: "context", cmd: "cmd_args"):
     # (This is the case, when a user-defined dep exports a type from SDK module,
     # thus such SDK module should be implicitly visible to consumers of that custom dep)
     if ctx.attr.uses_explicit_modules:
-        cmd.add(["-Xfrontend", "-disable-implicit-swift-modules"])
-
         toolchain = ctx.attr._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
         module_name = get_module_name(ctx)
         sdk_deps_tset = get_sdk_deps_tset(ctx, module_name, toolchain)
@@ -215,6 +214,8 @@ def _add_swift_deps_flags(ctx: "context", cmd: "cmd_args"):
         )
         cmd.add([
             "-Xfrontend",
+            "-disable-implicit-swift-modules",
+            "-Xfrontend",
             "-explicit-swift-module-map-file",
             "-Xfrontend",
             swift_module_map_artifact,
@@ -231,11 +232,17 @@ def _add_swift_deps_flags(ctx: "context", cmd: "cmd_args"):
         cmd.add(depset.project_as_args("module_search_path"))
 
 def _add_clang_deps_flags(ctx: "context", cmd: "cmd_args") -> None:
-    inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(ctx.attr.deps + ctx.attr.exported_deps)
-    preprocessors = cxx_merge_cpreprocessors(ctx, [], inherited_preprocessor_infos)
-    cmd.add(cmd_args(preprocessors.set.project_as_args("args"), prepend = "-Xcc"))
-    cmd.add(cmd_args(preprocessors.set.project_as_args("modular_args"), prepend = "-Xcc"))
-    cmd.add(cmd_args(preprocessors.set.project_as_args("include_dirs"), prepend = "-Xcc"))
+    # If a module uses Explicit Modules, all direct and
+    # transitive Clang deps have to be explicitly added.
+    if ctx.attr.uses_explicit_modules:
+        pcm_deps_tset = get_pcm_deps_tset(ctx, ctx.attr.deps + ctx.attr.exported_deps)
+        cmd.add(pcm_deps_tset.project_as_args("clang_deps"))
+    else:
+        inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(ctx.attr.deps + ctx.attr.exported_deps)
+        preprocessors = cxx_merge_cpreprocessors(ctx, [], inherited_preprocessor_infos)
+        cmd.add(cmd_args(preprocessors.set.project_as_args("args"), prepend = "-Xcc"))
+        cmd.add(cmd_args(preprocessors.set.project_as_args("modular_args"), prepend = "-Xcc"))
+        cmd.add(cmd_args(preprocessors.set.project_as_args("include_dirs"), prepend = "-Xcc"))
 
 def _add_mixed_library_flags_to_cmd(
         cmd: "cmd_args",
@@ -268,6 +275,18 @@ def _get_swift_paths_tsets(ctx: "context", deps: ["dependency"]) -> ["Swiftmodul
         for d in deps
         if d[SwiftDependencyInfo] != None
     ]
+
+def _get_pcm_deps_tset(ctx: "context", deps: ["dependency"]):
+    pcm_deps = [
+        ctx.actions.tset(
+            PcmDepTSet,
+            value = d[SwiftPCMCompilationInfo],
+            children = [d[SwiftPCMCompilationInfo].deps_set],
+        )
+        for d in deps
+        if d[SwiftPCMCompilationInfo] != None
+    ]
+    return ctx.actions.tset(PcmDepTSet, children = pcm_deps)
 
 def get_swift_dependency_infos(
         ctx: "context",
