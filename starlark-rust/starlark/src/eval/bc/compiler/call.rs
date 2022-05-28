@@ -17,8 +17,6 @@
 
 //! Compile function calls.
 
-use std::convert::TryInto;
-
 use either::Either;
 
 use crate::{
@@ -36,11 +34,7 @@ use crate::{
             },
             writer::BcWriter,
         },
-        compiler::{
-            call::{ArgsCompiledValue, CallCompiled},
-            def::FrozenDef,
-            span::IrSpanned,
-        },
+        compiler::{args::ArgsCompiledValue, call::CallCompiled, def::FrozenDef, span::IrSpanned},
         runtime::call_stack::FrozenFileSpan,
     },
     values::{
