@@ -30,6 +30,7 @@ SdkCompiledModuleInfo = provider(fields = [
     "name",  # A name of a module with `.swift`/`.clang` suffix.
     "module_name",  # A real name of a module, without distinguishing suffixes.
     "is_swiftmodule",  # If True then contains a compiled swiftmodule, otherwise Clang's pcm.
+    "is_framework",
     "output_artifact",  # Compiled artifact either swiftmodule or pcm.
     "input_relative_path",
     "deps",  # A TSet of [SdkCompiledModuleInfo]
