@@ -10,18 +10,33 @@ load(
     "cxx_merge_cpreprocessors",
 )
 load(":apple_modular_utility.bzl", "MODULE_CACHE_PATH")
+load(":apple_sdk_modules_utility.bzl", "get_sdk_deps_tset")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(":apple_utility.bzl", "get_module_name", "get_versioned_target_triple")
 load(":modulemap.bzl", "preprocessor_info_for_modulemap")
+load(":swift_module_map.bzl", "write_swift_module_map_with_swift_deps")
+load(":swift_pcm_compilation.bzl", "compile_swift_pcm")
 
-def _add_swiftmodule_search_path(args: "cmd_args", value: "cmd_args"):
-    args.add(["-I", value])
+def _add_swiftmodule_search_path(args: "cmd_args", swift_info: "SwiftDependencyInfo"):
+    if swift_info.swiftmodule_path != None:
+        # Value will contain a path to the artifact,
+        # while we need only the folder which contains the artifact.
+        args.add(["-I", cmd_args(swift_info.swiftmodule_path).parent()])
 
-SwiftmoduleDirsTSet = transitive_set(args_projections = {"search_path": _add_swiftmodule_search_path})
+def _hidden_projection(args: "cmd_args", swift_info: "SwiftDependencyInfo"):
+    # Value will contain a path to the artifact,
+    # while we need only the folder which contains the artifact.
+    args.add([swift_info.swiftmodule_path] if swift_info.swiftmodule_path != None else [])
+
+SwiftmodulePathsTSet = transitive_set(args_projections = {
+    "hidden": _hidden_projection,
+    "module_search_path": _add_swiftmodule_search_path,
+})
 
 SwiftDependencyInfo = provider(fields = [
-    # A tset of paths to the containing folders of swiftmodule output.
-    "swiftmodule_dirs",
+    "name",  # str.type
+    "swiftmodule_path",  # ["cmd_args", None] A path to compiled swiftmodule artifact.
+    "swiftmodule_deps_paths",  # [SwiftDependencyInfo]
 ])
 
 SwiftCompilationOutput = record(
@@ -31,7 +46,7 @@ SwiftCompilationOutput = record(
     swiftmodule = field("artifact"),
     # The dependency info provider that provides the swiftmodule
     # search paths required for compilation.
-    provider = field(SwiftDependencyInfo.type),
+    providers = field([["SwiftPCMCompilationInfo", "SwiftDependencyInfo"]]),
     # Preprocessor info required for ObjC compilation of this library.
     pre = field(CPreprocessor.type),
     # Exported preprocessor info required for ObjC compilation of rdeps.
@@ -100,12 +115,11 @@ def compile_swift(
     )
     pre = CPreprocessor(headers = [swift_header])
 
-    # Pass up the swiftmodule search paths for this module and its exported_deps
-    output_dir = cmd_args(output_swiftmodule).parent()
+    # Pass up the swiftmodule paths for this module and its exported_deps
     return SwiftCompilationOutput(
         object_files = [output_object],
         swiftmodule = output_swiftmodule,
-        provider = get_swift_dependency_info(ctx, output_dir),
+        providers = get_swift_dependency_infos(ctx, None, output_swiftmodule),
         pre = pre,
         exported_pre = exported_pp_info,
     )
@@ -159,14 +173,11 @@ def _get_shared_flags(
             cmd.add(["-Xfrontend", "-serialize-debugging-options"])
 
     # Add flags required to import ObjC module dependencies
-    _add_clang_include_flags_to_cmd(ctx, cmd)
+    _add_clang_deps_flags(ctx, cmd)
+    _add_swift_deps_flags(ctx, cmd)
 
     # Add flags for importing the ObjC part of this library
     _add_mixed_library_flags_to_cmd(cmd, objc_headers, objc_modulemap_pp_info)
-
-    # Add swiftmodule folder search paths required to import Swift module dependencies
-    depset = ctx.actions.tset(SwiftmoduleDirsTSet, children = _get_swift_dir_tsets(ctx.attr.deps + ctx.attr.exported_deps))
-    cmd.add(depset.project_as_args("search_path"))
 
     # We can't have per source flags for Swift
     cmd.add([s.file for s in srcs])
@@ -177,7 +188,49 @@ def _get_shared_flags(
 
     return cmd
 
-def _add_clang_include_flags_to_cmd(ctx: "context", cmd: "cmd_args") -> None:
+def _add_swift_deps_flags(ctx: "context", cmd: "cmd_args"):
+    # If Explicit Modules are enabled, a few things must be provided to a compilation job:
+    # 1. Direct and transitive SDK deps from `sdk_modules` attribute.
+    # 2. Direct and transitive user-defined deps.
+    # 3. Transitive SDK deps of user-defined deps.
+    # (This is the case, when a user-defined dep exports a type from SDK module,
+    # thus such SDK module should be implicitly visible to consumers of that custom dep)
+    if ctx.attr.uses_explicit_modules:
+        cmd.add(["-Xfrontend", "-disable-implicit-swift-modules"])
+
+        toolchain = ctx.attr._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+        module_name = get_module_name(ctx)
+        sdk_deps_tset = get_sdk_deps_tset(ctx, module_name, toolchain)
+        swift_deps_tset = ctx.actions.tset(
+            SwiftmodulePathsTSet,
+            children = _get_swift_paths_tsets(ctx, ctx.attr.deps + ctx.attr.exported_deps),
+        )
+        swift_deps_list = list(swift_deps_tset.traverse())
+
+        swift_module_map_artifact = write_swift_module_map_with_swift_deps(
+            ctx,
+            module_name,
+            list(sdk_deps_tset.traverse()),
+            swift_deps_list,
+        )
+        cmd.add([
+            "-Xfrontend",
+            "-explicit-swift-module-map-file",
+            "-Xfrontend",
+            swift_module_map_artifact,
+        ])
+
+        # Add Clang sdk modules which do not go to swift modulemap
+        cmd.add(sdk_deps_tset.project_as_args("clang_deps"))
+
+        # Swift compilation should depend on transitive Swift modules from swift-module-map.
+        cmd.hidden(sdk_deps_tset.project_as_args("hidden"))
+        cmd.hidden(swift_deps_tset.project_as_args("hidden"))
+    else:
+        depset = ctx.actions.tset(SwiftmodulePathsTSet, children = _get_swift_paths_tsets(ctx, ctx.attr.deps + ctx.attr.exported_deps))
+        cmd.add(depset.project_as_args("module_search_path"))
+
+def _add_clang_deps_flags(ctx: "context", cmd: "cmd_args") -> None:
     inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(ctx.attr.deps + ctx.attr.exported_deps)
     preprocessors = cxx_merge_cpreprocessors(ctx, [], inherited_preprocessor_infos)
     cmd.add(cmd_args(preprocessors.set.project_as_args("args"), prepend = "-Xcc"))
@@ -205,17 +258,37 @@ def _add_mixed_library_flags_to_cmd(
 
     cmd.add("-import-underlying-module")
 
-def _get_swift_dir_tsets(deps: ["dependency"]) -> ["SwiftmoduleDirsTSet"]:
-    return [d[SwiftDependencyInfo].swiftmodule_dirs for d in deps if d[SwiftDependencyInfo] != None]
+def _get_swift_paths_tsets(ctx: "context", deps: ["dependency"]) -> ["SwiftmodulePathsTSet"]:
+    return [
+        ctx.actions.tset(
+            SwiftmodulePathsTSet,
+            value = d[SwiftDependencyInfo],
+            children = d[SwiftDependencyInfo].swiftmodule_deps_paths,
+        )
+        for d in deps
+        if d[SwiftDependencyInfo] != None
+    ]
 
-def get_swift_dependency_info(ctx: "context", output_dir: ["cmd_args", None]) -> "SwiftDependencyInfo":
+def get_swift_dependency_infos(
+        ctx: "context",
+        exported_pre: ["CPreprocessor", None],
+        output_module: ["artifact", None]) -> [["SwiftPCMCompilationInfo", "SwiftDependencyInfo"]]:
     deps = ctx.attr.exported_deps
     if ctx.attr.reexport_all_header_dependencies:
         deps += ctx.attr.deps
 
-    if output_dir:
-        swiftmodule_dirs = ctx.actions.tset(SwiftmoduleDirsTSet, value = output_dir, children = _get_swift_dir_tsets(deps))
-    else:
-        swiftmodule_dirs = ctx.actions.tset(SwiftmoduleDirsTSet, children = _get_swift_dir_tsets(deps))
+    providers = [SwiftDependencyInfo(
+        name = get_module_name(ctx),
+        swiftmodule_path = output_module,
+        swiftmodule_deps_paths = _get_swift_paths_tsets(ctx, deps),
+    )]
 
-    return SwiftDependencyInfo(swiftmodule_dirs = swiftmodule_dirs)
+    # If exported PP exists, we need to precompile a modulemap,
+    # in order to enable consuming by Swift.
+    if exported_pre and exported_pre.modulemap_path:
+        providers.append(compile_swift_pcm(
+            ctx,
+            exported_pre,
+        ))
+
+    return providers
