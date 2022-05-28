@@ -33,12 +33,14 @@ use crate::{
         runtime::{
             arguments::{ArgNames, ArgumentsFull},
             call_stack::FrozenFileSpan,
+            inlined_frame::InlinedFrameAlloc,
+            visit_span::VisitSpanMut,
         },
         Arguments,
     },
     gazebo::prelude::SliceExt,
     syntax::ast::{ArgumentP, AstString, ExprP},
-    values::{string::interpolation::parse_format_one, FrozenStringValue, FrozenValue},
+    values::{string::interpolation::parse_format_one, FrozenHeap, FrozenStringValue, FrozenValue},
 };
 
 #[derive(Default, Clone, Debug, VisitSpanMut)]
@@ -87,6 +89,7 @@ impl CallCompiled {
         span: FrozenFileSpan,
         fun: ExprCompiled,
         args: ArgsCompiledValue,
+        frozen_heap: &FrozenHeap,
     ) -> ExprCompiled {
         if let (Some(fun), Some(_pos)) = (fun.as_frozen_def(), args.one_pos()) {
             // Try to inline a function like `lambda x: type(x) == "y"`.
@@ -99,7 +102,16 @@ impl CallCompiled {
         if let (Some(fun), true) = (fun.as_frozen_def(), args.is_no_args()) {
             if let Some(InlineDefBody::ReturnSafeToInlineExpr(expr)) = &fun.def_info.inline_def_body
             {
-                return expr.node.clone();
+                let mut expr = expr.node.clone();
+                let mut span_alloc = InlinedFrameAlloc::new(frozen_heap);
+                expr.visit_spans(&mut |expr_span: &mut FrozenFileSpan| {
+                    expr_span.inlined_frames.inline_into(
+                        span,
+                        fun.to_frozen_value(),
+                        &mut span_alloc,
+                    );
+                });
+                return expr;
             }
         }
 
@@ -118,7 +130,7 @@ impl IrSpanned<CallCompiled> {
         let CallCompiled { fun: expr, args } = &self.node;
         let expr = expr.optimize_on_freeze(ctx);
         let args = args.optimize_on_freeze(ctx);
-        CallCompiled::call(self.span, expr.node, args)
+        CallCompiled::call(self.span, expr.node, args, ctx.frozen_heap)
     }
 }
 
@@ -198,6 +210,14 @@ impl ArgsCompiledValue {
         })))
     }
 
+    /// Expressions of all arguments: positional, named, star-args, star-star-args.
+    pub(crate) fn arg_exprs(&self) -> impl Iterator<Item = &IrSpanned<ExprCompiled>> {
+        self.pos_named
+            .iter()
+            .chain(self.args.iter())
+            .chain(self.kwargs.iter())
+    }
+
     fn optimize_on_freeze(&self, ctx: &OptimizeOnFreezeContext) -> ArgsCompiledValue {
         let ArgsCompiledValue {
             ref pos_named,
@@ -261,7 +281,12 @@ impl Compiler<'_, '_, '_> {
             }
         }
 
-        CallCompiled::call(span, ExprCompiled::Value(fun), args)
+        CallCompiled::call(
+            span,
+            ExprCompiled::Value(fun),
+            args,
+            self.eval.frozen_heap(),
+        )
     }
 
     fn expr_call_fun_frozen(

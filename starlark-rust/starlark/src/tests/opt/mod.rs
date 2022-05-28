@@ -22,7 +22,7 @@ mod if_rand;
 mod speculative_exec;
 mod type_is;
 
-use crate::{eval::bc::opcode::BcOpcode, tests::bc::test_instrs};
+use crate::{assert::Assert, eval::bc::opcode::BcOpcode, tests::bc::test_instrs};
 
 #[test]
 fn test_type_is_inlined() {
@@ -100,6 +100,31 @@ def test():
     if True:
         return
     fail("unreachable")
+"#,
+    );
+}
+
+#[test]
+fn test_recursion() {
+    test_instrs(
+        &[BcOpcode::CallFrozenDefPos, BcOpcode::Return],
+        // Test inlining does not fail here.
+        "def test(): return test()",
+    );
+}
+
+#[test]
+fn test_mutual_recursion() {
+    let mut a = Assert::new();
+    // Just check we do not enter an infinite recursion in the optimizer here.
+    a.module(
+        "t.star",
+        r#"
+def f():
+    return g()
+
+def g():
+    return f()
 "#,
     );
 }

@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-#![allow(dead_code)] // TODO(nga): used in the following diff.
-
 use std::ptr;
 
 use gazebo::dupe::Dupe;

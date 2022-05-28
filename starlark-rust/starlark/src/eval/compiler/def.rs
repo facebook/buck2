@@ -36,13 +36,13 @@ use once_cell::sync::Lazy;
 use crate::{
     self as starlark,
     codemap::CodeMap,
-    collections::Hashed,
+    collections::{symbol_map::Symbol, Hashed},
     const_frozen_string,
     environment::{FrozenModuleRef, Globals},
     eval::{
         bc::{bytecode::Bc, frame::alloca_frame},
         compiler::{
-            expr::ExprCompiled,
+            expr::{CompareOp, ExprBinOp, ExprCompiled, ExprUnOp},
             scope::{
                 Captured, CstAssignIdent, CstExpr, CstParameter, CstStmt, ScopeId, ScopeNames,
             },
@@ -298,28 +298,56 @@ impl Compiler<'_, '_, '_> {
         }
     }
 
-    /// Expression which is:
-    /// * infallible
-    /// * no side effects
-    /// * no access to locals or globals
+    /// Expression which is has no access to locals or globals.
     fn is_safe_to_inline_expr(expr: &ExprCompiled) -> bool {
         match expr {
             ExprCompiled::Value(..) => true,
             ExprCompiled::Local(..)
             | ExprCompiled::LocalCaptured(..)
             | ExprCompiled::Module(..)
-            | ExprCompiled::Equals(..)
-            | ExprCompiled::Compare(..)
-            | ExprCompiled::Len(..)
-            | ExprCompiled::Compr(..)
-            | ExprCompiled::Dot(..)
-            | ExprCompiled::ArrayIndirection(..)
-            | ExprCompiled::Slice(..)
-            | ExprCompiled::Op(..)
-            | ExprCompiled::UnOp(..)
-            | ExprCompiled::Call(..)
             | ExprCompiled::Def(..) => false,
-            ExprCompiled::Type(v) => Compiler::is_safe_to_inline_expr(v),
+            ExprCompiled::Call(call) => {
+                Compiler::is_safe_to_inline_expr(&call.fun)
+                    && call
+                        .args
+                        .arg_exprs()
+                        .all(|e| Compiler::is_safe_to_inline_expr(e))
+            }
+            ExprCompiled::Compr(..) => {
+                // TODO: some comprehensions are safe to inline.
+                false
+            }
+            ExprCompiled::Compare(box (a, b), cmp) => {
+                let _: &CompareOp = cmp;
+                Compiler::is_safe_to_inline_expr(a) && Compiler::is_safe_to_inline_expr(b)
+            }
+            ExprCompiled::Dot(expr, field) => {
+                let _: &Symbol = field;
+                Compiler::is_safe_to_inline_expr(expr)
+            }
+            ExprCompiled::ArrayIndirection(box (array, index)) => {
+                Compiler::is_safe_to_inline_expr(array) && Compiler::is_safe_to_inline_expr(index)
+            }
+            ExprCompiled::Slice(box (a, b, c, d)) => {
+                fn is_safe(expr: &Option<IrSpanned<ExprCompiled>>) -> bool {
+                    expr.as_ref()
+                        .map_or(true, |expr| Compiler::is_safe_to_inline_expr(&expr.node))
+                }
+
+                Compiler::is_safe_to_inline_expr(a) && is_safe(b) && is_safe(c) && is_safe(d)
+            }
+            ExprCompiled::Op(bin_op, box (a, b)) => {
+                let _: &ExprBinOp = bin_op;
+                Compiler::is_safe_to_inline_expr(a) && Compiler::is_safe_to_inline_expr(b)
+            }
+            ExprCompiled::Equals(box (a, b)) => {
+                Compiler::is_safe_to_inline_expr(a) && Compiler::is_safe_to_inline_expr(b)
+            }
+            ExprCompiled::UnOp(un_op, arg) => {
+                let _: &ExprUnOp = un_op;
+                Compiler::is_safe_to_inline_expr(arg)
+            }
+            ExprCompiled::Type(v) | ExprCompiled::Len(v) => Compiler::is_safe_to_inline_expr(v),
             ExprCompiled::TypeIs(v, t) => {
                 let _: FrozenStringValue = *t;
                 Compiler::is_safe_to_inline_expr(v)
@@ -327,29 +355,24 @@ impl Compiler<'_, '_, '_> {
             ExprCompiled::Tuple(xs) | ExprCompiled::List(xs) => {
                 xs.iter().all(|x| Compiler::is_safe_to_inline_expr(x))
             }
-            ExprCompiled::Dict(xs) => {
-                // Dict construction may fail if keys are not hashable.
-                xs.is_empty()
-            }
+            ExprCompiled::Dict(xs) => xs.iter().all(|(x, y)| {
+                Compiler::is_safe_to_inline_expr(x) && Compiler::is_safe_to_inline_expr(y)
+            }),
             ExprCompiled::If(box (ref c, ref t, ref f)) => {
                 Compiler::is_safe_to_inline_expr(c)
                     && Compiler::is_safe_to_inline_expr(t)
                     && Compiler::is_safe_to_inline_expr(f)
             }
-            ExprCompiled::Not(ref x) => {
-                // `not` is infallible because `bool(x)` is infallible.
-                Compiler::is_safe_to_inline_expr(x)
-            }
+            ExprCompiled::Not(ref x) => Compiler::is_safe_to_inline_expr(x),
             ExprCompiled::And(box (ref x, ref y)) | ExprCompiled::Or(box (ref x, ref y)) => {
                 Compiler::is_safe_to_inline_expr(x) && Compiler::is_safe_to_inline_expr(y)
             }
             ExprCompiled::Seq(box (ref x, ref y)) => {
                 Compiler::is_safe_to_inline_expr(x) && Compiler::is_safe_to_inline_expr(y)
             }
-            ExprCompiled::PercentSOne(..) => false,
-            ExprCompiled::FormatOne(box (before, ref v, after)) => {
+            ExprCompiled::PercentSOne(box (before, ref v, after))
+            | ExprCompiled::FormatOne(box (before, ref v, after)) => {
                 let _: (FrozenStringValue, FrozenStringValue) = (*before, *after);
-                // `FormatOne` is infallible, unlike `PercentSOne`.
                 Compiler::is_safe_to_inline_expr(v)
             }
         }

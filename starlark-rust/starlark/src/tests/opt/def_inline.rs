@@ -54,6 +54,26 @@ def returns_list():
 }
 
 #[test]
+fn test_dict_inlined() {
+    test_instrs(
+        &[
+            BcOpcode::ListNew,
+            BcOpcode::Const,
+            BcOpcode::DictNPop,
+            BcOpcode::Return,
+        ],
+        r#"
+def returns_dict():
+    # This should fail at runtime.
+    return {[]: 10}
+
+def test():
+    return returns_dict()
+"#,
+    );
+}
+
+#[test]
 fn test_dict_inlined_call_stack() {
     let mut a = Assert::new();
     a.module("f.bzl", "def f(): return {[]: 10}");
@@ -66,9 +86,7 @@ fn test_dict_inlined_call_stack() {
         let f = m.get(f).unwrap();
         let f = f.value().downcast_ref::<FrozenDef>().unwrap();
         assert_eq!(
-            // TODO(nga): nothing is inlined here yet (so the opcode is `CallFrozenDefPos`),
-            //   but it is inlined in the following diff, and test stays correct.
-            BcOpcode::CallFrozenDefPos,
+            BcOpcode::ListNew,
             f.bc().instrs.opcodes().as_slice()[0],
             "in `{}`",
             f,
