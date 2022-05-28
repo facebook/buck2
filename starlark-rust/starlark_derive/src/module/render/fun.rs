@@ -24,6 +24,28 @@ use crate::module::{
     util::{ident_string, mut_token},
 };
 
+impl StarFun {
+    fn type_expr(&self) -> TokenStream {
+        match &self.type_attribute {
+            Some(x) => quote_spanned! {
+                self.span()=>
+                std::option::Option::Some({
+                    const TYPE_N: usize = #x.len();
+                    static TYPE: starlark::values::StarlarkStrNRepr<TYPE_N> =
+                        starlark::values::StarlarkStrNRepr::new(#x);
+                    TYPE.unpack()
+                })
+            },
+            None => {
+                quote_spanned! {
+                    self.span()=>
+                    std::option::Option::None
+                }
+            }
+        }
+    }
+}
+
 pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
     let span = x.span();
 
@@ -33,36 +55,16 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
     let binding = render_binding(&x);
     let is_method = x.is_method();
 
+    let typ = x.type_expr();
+
     let StarFun {
         name,
-        type_attribute,
         attrs,
-        args: _,
         return_type,
-        return_type_arg: _,
         speculative_exec_safe,
         body,
-        source: _,
-        docstring: _,
+        ..
     } = x;
-
-    let typ = match type_attribute {
-        Some(x) => quote_spanned! {
-            span=>
-            std::option::Option::Some({
-                const TYPE_N: usize = #x.len();
-                static TYPE: starlark::values::StarlarkStrNRepr<TYPE_N> =
-                    starlark::values::StarlarkStrNRepr::new(#x);
-                TYPE.unpack()
-            })
-        },
-        None => {
-            quote_spanned! {
-                span=>
-                std::option::Option::None
-            }
-        }
-    };
 
     let signature_arg = signature.as_ref().map(
         |_| quote_spanned! {span=> __signature: &starlark::eval::ParametersSpec<starlark::values::FrozenValue>,},
