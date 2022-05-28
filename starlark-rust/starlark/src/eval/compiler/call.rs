@@ -85,34 +85,55 @@ impl CallCompiled {
         }
     }
 
+    /// Try to inline a function like `lambda x: type(x) == "y"`.
+    fn try_type_is(fun: &ExprCompiled, args: &ArgsCompiledValue) -> Option<ExprCompiled> {
+        let fun = fun.as_frozen_def()?;
+        let pos = args.one_pos()?;
+        if let Some(InlineDefBody::ReturnTypeIs(t)) = &fun.def_info.inline_def_body {
+            Some(ExprCompiled::type_is(pos.clone(), *t))
+        } else {
+            None
+        }
+    }
+
+    /// Inline calls to functions which are safe to inline.
+    fn try_inline(
+        span: FrozenFileSpan,
+        fun: &ExprCompiled,
+        args: &ArgsCompiledValue,
+        frozen_heap: &FrozenHeap,
+    ) -> Option<ExprCompiled> {
+        let fun = fun.as_frozen_def()?;
+        if !args.is_no_args() {
+            return None;
+        }
+
+        if let Some(InlineDefBody::ReturnSafeToInlineExpr(expr)) = &fun.def_info.inline_def_body {
+            let mut expr = expr.node.clone();
+            let mut span_alloc = InlinedFrameAlloc::new(frozen_heap);
+            expr.visit_spans(&mut |expr_span: &mut FrozenFileSpan| {
+                expr_span
+                    .inlined_frames
+                    .inline_into(span, fun.to_frozen_value(), &mut span_alloc);
+            });
+            Some(expr)
+        } else {
+            None
+        }
+    }
+
     pub(crate) fn call(
         span: FrozenFileSpan,
         fun: ExprCompiled,
         args: ArgsCompiledValue,
         frozen_heap: &FrozenHeap,
     ) -> ExprCompiled {
-        if let (Some(fun), Some(_pos)) = (fun.as_frozen_def(), args.one_pos()) {
-            // Try to inline a function like `lambda x: type(x) == "y"`.
-            if let Some(InlineDefBody::ReturnTypeIs(t)) = &fun.def_info.inline_def_body {
-                let pos = args.into_one_pos().unwrap();
-                return ExprCompiled::type_is(pos, *t);
-            }
+        if let Some(type_is) = CallCompiled::try_type_is(&fun, &args) {
+            return type_is;
         }
 
-        if let (Some(fun), true) = (fun.as_frozen_def(), args.is_no_args()) {
-            if let Some(InlineDefBody::ReturnSafeToInlineExpr(expr)) = &fun.def_info.inline_def_body
-            {
-                let mut expr = expr.node.clone();
-                let mut span_alloc = InlinedFrameAlloc::new(frozen_heap);
-                expr.visit_spans(&mut |expr_span: &mut FrozenFileSpan| {
-                    expr_span.inlined_frames.inline_into(
-                        span,
-                        fun.to_frozen_value(),
-                        &mut span_alloc,
-                    );
-                });
-                return expr;
-            }
+        if let Some(inline) = CallCompiled::try_inline(span, &fun, &args, frozen_heap) {
+            return inline;
         }
 
         ExprCompiled::Call(box IrSpanned {
