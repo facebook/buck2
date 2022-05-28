@@ -61,36 +61,17 @@ def compile_swift(
     if not srcs:
         return None
 
+    toolchain = ctx.attr._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+
     module_name = get_module_name(ctx)
     output_header = ctx.actions.declare_output(module_name + "-Swift.h")
     output_object = ctx.actions.declare_output(module_name + ".o")
     output_swiftmodule = ctx.actions.declare_output(module_name + ".swiftmodule")
+
     shared_flags = _get_shared_flags(ctx, module_name, srcs, exported_headers, objc_modulemap_pp_info)
 
-    # We use separate actions for swiftmodule and object file output. This
-    # improves build parallelism at the cost of duplicated work, but by disabling
-    # type checking in function bodies the swiftmodule compilation can be done much
-    # faster than object file output.
-    swiftmodule_cmd = cmd_args(shared_flags)
-    swiftmodule_cmd.add([
-        "-Xfrontend",
-        "-experimental-skip-non-inlinable-function-bodies",
-        "-emit-module",
-        "-emit-module-path",
-        output_swiftmodule.as_output(),
-        "-emit-objc-header",
-        "-emit-objc-header-path",
-        output_header.as_output(),
-    ])
-    ctx.actions.run(swiftmodule_cmd, category = "swiftmodule_compile")
-
-    object_cmd = cmd_args(shared_flags)
-    object_cmd.add([
-        "-emit-object",
-        "-o",
-        output_object.as_output(),
-    ])
-    ctx.actions.run(object_cmd, category = "swift_compile")
+    _compile_swiftmodule(ctx, toolchain, shared_flags, output_swiftmodule, output_header)
+    _compile_object(ctx, toolchain, shared_flags, output_object)
 
     # Swift libraries extend the ObjC modulemaps to include the -Swift.h header
     modulemap_pp_info = preprocessor_info_for_modulemap(ctx, "swift-extended", exported_headers, output_header)
@@ -125,6 +106,61 @@ def compile_swift(
         exported_pre = exported_pp_info,
     )
 
+# We use separate actions for swiftmodule and object file output. This
+# improves build parallelism at the cost of duplicated work, but by disabling
+# type checking in function bodies the swiftmodule compilation can be done much
+# faster than object file output.
+def _compile_swiftmodule(
+        ctx: "context",
+        toolchain: "SwiftToolchainInfo",
+        shared_flags: "cmd_args",
+        output_swiftmodule: "artifact",
+        output_header: "artifact"):
+    argfile_cmd = cmd_args(shared_flags)
+    argfile_cmd.add([
+        "-Xfrontend",
+        "-experimental-skip-non-inlinable-function-bodies",
+        "-emit-module",
+        "-emit-objc-header",
+    ])
+    cmd = cmd_args([
+        "-emit-module-path",
+        output_swiftmodule.as_output(),
+        "-emit-objc-header-path",
+        output_header.as_output(),
+    ])
+    _compile_with_argsfile(ctx, "swiftmodule_compile", argfile_cmd, cmd, toolchain)
+
+def _compile_object(
+        ctx: "context",
+        toolchain: "SwiftToolchainInfo",
+        shared_flags: "cmd_args",
+        output_object: "artifact"):
+    cmd = cmd_args([
+        "-emit-object",
+        "-o",
+        output_object.as_output(),
+    ])
+    _compile_with_argsfile(ctx, "swift_compile", shared_flags, cmd, toolchain)
+
+def _compile_with_argsfile(
+        ctx: "context",
+        name: str.type,
+        shared_flags: "cmd_args",
+        additional_flags: "cmd_args",
+        toolchain: "SwiftToolchainInfo"):
+    shell_quoted_args = cmd_args(shared_flags, quote = "shell")
+    argfile, macro_files = ctx.actions.write(name + ".argsfile", shell_quoted_args, allow_args = True)
+
+    cmd = cmd_args(toolchain.compiler)
+    cmd.add(additional_flags)
+    cmd.add(cmd_args(["@", argfile], delimiter = ""))
+
+    # Argsfile should also depend on all artifacts in it,
+    # otherwise they won't be materialised.
+    cmd.hidden(macro_files + [shell_quoted_args])
+    ctx.actions.run(cmd, category = name)
+
 def _get_shared_flags(
         ctx: "context",
         module_name: str.type,
@@ -132,7 +168,7 @@ def _get_shared_flags(
         objc_headers: [CHeader.type],
         objc_modulemap_pp_info: ["CPreprocessor", None]) -> "cmd_args":
     toolchain = ctx.attr._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
-    cmd = cmd_args(toolchain.compiler)
+    cmd = cmd_args()
     cmd.add([
         # This allows us to use a relative path for the compiler resource directory.
         "-working-directory",
