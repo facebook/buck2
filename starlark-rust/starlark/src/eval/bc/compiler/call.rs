@@ -30,7 +30,7 @@ use crate::{
                 InstrCall, InstrCallFrozen, InstrCallFrozenDef, InstrCallFrozenDefPos,
                 InstrCallFrozenNative, InstrCallFrozenNativePos, InstrCallFrozenPos,
                 InstrCallMaybeKnownMethod, InstrCallMaybeKnownMethodPos, InstrCallMethod,
-                InstrCallMethodPos, InstrCallPos, InstrLen,
+                InstrCallMethodPos, InstrCallPos, InstrLen, InstrType,
             },
             writer::BcWriter,
         },
@@ -117,6 +117,10 @@ impl IrSpanned<CallCompiled> {
         if let Some(arg) = self.as_len() {
             arg.write_bc(bc);
             bc.write_instr::<InstrLen>(self.span, ());
+            return;
+        } else if let Some(arg) = self.as_type() {
+            arg.write_bc(bc);
+            bc.write_instr::<InstrType>(self.span, ());
             return;
         }
 

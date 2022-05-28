@@ -347,7 +347,6 @@ impl Compiler<'_, '_, '_> {
                 let _: &ExprUnOp = un_op;
                 Compiler::is_safe_to_inline_expr(arg)
             }
-            ExprCompiled::Type(v) => Compiler::is_safe_to_inline_expr(v),
             ExprCompiled::TypeIs(v, t) => {
                 let _: FrozenStringValue = *t;
                 Compiler::is_safe_to_inline_expr(v)

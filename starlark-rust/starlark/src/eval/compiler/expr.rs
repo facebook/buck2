@@ -50,7 +50,7 @@ use crate::{
     values::{
         function::BoundMethodGen,
         layout::value_not_special::FrozenValueNotSpecial,
-        string::{interpolation::parse_percent_s_one, StarlarkStr},
+        string::interpolation::parse_percent_s_one,
         types::{
             bigint::StarlarkBigInt,
             bool::StarlarkBool,
@@ -170,8 +170,6 @@ pub(crate) enum ExprCompiled {
         Box<(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)>,
         CompareOp,
     ),
-    /// `type(x)`
-    Type(Box<IrSpanned<ExprCompiled>>),
     /// `type(x) == "y"`
     TypeIs(Box<IrSpanned<ExprCompiled>>, FrozenStringValue),
     Tuple(Vec<IrSpanned<ExprCompiled>>),
@@ -248,6 +246,22 @@ impl ExprCompiled {
         }
     }
 
+    /// Expression is builtin `type` function.
+    pub(crate) fn is_fn_type(&self) -> bool {
+        match self.as_value() {
+            Some(value) => value == Constants::get().fn_type,
+            None => false,
+        }
+    }
+
+    /// If expression is `type(x)`, return `x`.
+    pub(crate) fn as_type(&self) -> Option<&IrSpanned<ExprCompiled>> {
+        match self {
+            Self::Call(c) => c.as_type(),
+            _ => None,
+        }
+    }
+
     /// Expression is a frozen value which is builtin.
     pub(crate) fn as_builtin_value(&self) -> Option<FrozenValue> {
         match self {
@@ -305,7 +319,6 @@ impl ExprCompiled {
             Self::Value(..) => true,
             Self::List(xs) | Self::Tuple(xs) => xs.iter().all(|x| x.is_pure_infallible()),
             Self::Dict(xs) => xs.is_empty(),
-            Self::Type(x) => x.is_pure_infallible(),
             Self::TypeIs(x, _t) => x.is_pure_infallible(),
             Self::Not(x) => x.is_pure_infallible(),
             Self::Seq(box (x, y)) => x.is_pure_infallible() && y.is_pure_infallible(),
@@ -315,6 +328,7 @@ impl ExprCompiled {
             Self::If(box (cond, x, y)) => {
                 cond.is_pure_infallible() && x.is_pure_infallible() && y.is_pure_infallible()
             }
+            Self::Call(call) => call.is_pure_infallible(),
             _ => false,
         }
     }
@@ -386,7 +400,6 @@ impl IrSpanned<ExprCompiled> {
                 let r = r.optimize_on_freeze(ctx);
                 ExprCompiled::compare(l, r, cmp)
             }
-            ExprCompiled::Type(box ref e) => ExprCompiled::typ(e.optimize_on_freeze(ctx)),
             ExprCompiled::TypeIs(box ref e, t) => {
                 ExprCompiled::type_is(e.optimize_on_freeze(ctx), t)
             }
@@ -807,7 +820,7 @@ impl ExprCompiled {
         ExprCompiled::ArrayIndirection(box (array, index))
     }
 
-    pub(crate) fn typ(v: IrSpanned<ExprCompiled>) -> ExprCompiled {
+    pub(crate) fn typ(span: FrozenFileSpan, v: IrSpanned<ExprCompiled>) -> ExprCompiled {
         match &v.node {
             ExprCompiled::Value(v) => {
                 ExprCompiled::Value(v.to_value().get_type_value().to_frozen_value())
@@ -821,16 +834,25 @@ impl ExprCompiled {
             ExprCompiled::Dict(xs) if xs.is_empty() => {
                 ExprCompiled::Value(Dict::get_type_value_static().to_frozen_value())
             }
-            ExprCompiled::Type(x) if x.is_pure_infallible() => {
-                ExprCompiled::Value(StarlarkStr::get_type_value_static().to_frozen_value())
-            }
             ExprCompiled::TypeIs(x, _t) if x.is_pure_infallible() => {
                 ExprCompiled::Value(StarlarkBool::get_type_value_static().to_frozen_value())
             }
             ExprCompiled::Not(x) if x.is_pure_infallible() => {
                 ExprCompiled::Value(StarlarkBool::get_type_value_static().to_frozen_value())
             }
-            _ => ExprCompiled::Type(box v),
+            _ => ExprCompiled::Call(box IrSpanned {
+                span,
+                node: CallCompiled {
+                    fun: IrSpanned {
+                        span,
+                        node: ExprCompiled::Value(Constants::get().fn_type.0),
+                    },
+                    args: ArgsCompiledValue {
+                        pos_named: vec![v],
+                        ..ArgsCompiledValue::default()
+                    },
+                },
+            }),
         }
     }
 
@@ -892,36 +914,14 @@ fn try_eval_type_is(
     l: IrSpanned<ExprCompiled>,
     r: IrSpanned<ExprCompiled>,
 ) -> Result<IrSpanned<ExprCompiled>, (IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)> {
-    match (l, r) {
-        (
-            IrSpanned {
-                node: ExprCompiled::Type(l),
-                span: l_span,
-            },
-            IrSpanned {
-                node: ExprCompiled::Value(r),
-                span: r_span,
-            },
-        ) => {
-            if let Some(r) = FrozenStringValue::new(r) {
-                Ok(IrSpanned {
-                    node: ExprCompiled::type_is(*l, r),
-                    span: l_span.merge(&r_span),
-                })
-            } else {
-                Err((
-                    IrSpanned {
-                        node: ExprCompiled::Type(l),
-                        span: l_span,
-                    },
-                    IrSpanned {
-                        node: ExprCompiled::Value(r),
-                        span: r_span,
-                    },
-                ))
-            }
-        }
-        (l, r) => Err((l, r)),
+    let span = l.span.merge(&r.span);
+    if let (Some(l), Some(r)) = (l.as_type(), r.as_string()) {
+        Ok(IrSpanned {
+            span,
+            node: ExprCompiled::type_is(l.clone(), r),
+        })
+    } else {
+        Err((l, r))
     }
 }
 

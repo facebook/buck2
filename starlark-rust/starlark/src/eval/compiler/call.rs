@@ -68,6 +68,22 @@ impl CallCompiled {
         self.args.one_pos()
     }
 
+    /// If this call expression is `type(x)`, return `x`.
+    pub(crate) fn as_type(&self) -> Option<&IrSpanned<ExprCompiled>> {
+        if !self.fun.is_fn_type() {
+            return None;
+        }
+        self.args.one_pos()
+    }
+
+    /// This call is infallible and has no side effects.
+    pub(crate) fn is_pure_infallible(&self) -> bool {
+        match self.as_type() {
+            Some(arg) => arg.is_pure_infallible(),
+            None => false,
+        }
+    }
+
     /// This call is a method call.
     pub(crate) fn method(&self) -> Option<(&IrSpanned<ExprCompiled>, &Symbol, &ArgsCompiledValue)> {
         match &self.fun.node {
@@ -196,7 +212,7 @@ impl Compiler<'_, '_, '_> {
         if left == Constants::get().fn_type && one_positional {
             let expr = args.pop().unwrap().node.into_expr();
             let expr = self.expr(expr);
-            ExprCompiled::typ(expr)
+            ExprCompiled::typ(span, expr)
         } else if left == Constants::get().fn_len && one_positional {
             let x = self.expr(args.pop().unwrap().node.into_expr());
             ExprCompiled::len(span, x)
