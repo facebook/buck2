@@ -11,7 +11,7 @@ def write_swift_module_map_with_custom_deps(
         custom_swift_deps: ["SwiftDependencyInfo"]) -> "artifact":
     sdk_swift_deps_json = [{
         "isFramework": sdk_dep.is_framework,
-        "moduleName": sdk_dep.name,
+        "moduleName": sdk_dep.module_name,
         "modulePath": sdk_dep.output_artifact,
     } for sdk_dep in sdk_swift_deps if sdk_dep.is_swiftmodule]
 

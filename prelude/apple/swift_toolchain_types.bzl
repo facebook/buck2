@@ -16,7 +16,8 @@ SwiftToolchainInfo = provider(fields = [
 # A provider that represents a non-yet-compiled SDK (Swift or Clang) module,
 # and doesn't contain any artifacts because Swift toolchain isn't resolved yet.
 SdkUncompiledModuleInfo = provider(fields = [
-    "name",
+    "name",  # A name of a module with `.swift`/`.clang` suffix.
+    "module_name",  # A real name of a module, without distinguishing suffixes.
     "is_framework",  # This is mostly needed for the generated Swift module map file.
     "is_swiftmodule",  # If True then represents a swiftinterface, otherwise Clang's modulemap.
     "partial_cmd",  # Partial arguments, required to compile a particular SDK module.
@@ -26,7 +27,8 @@ SdkUncompiledModuleInfo = provider(fields = [
 
 # A provider that represents an already-compiled SDK (Swift or Clang) module.
 SdkCompiledModuleInfo = provider(fields = [
-    "name",
+    "name",  # A name of a module with `.swift`/`.clang` suffix.
+    "module_name",  # A real name of a module, without distinguishing suffixes.
     "is_swiftmodule",  # If True then contains a compiled swiftmodule, otherwise Clang's pcm.
     "output_artifact",  # Compiled artifact either swiftmodule or pcm.
     "input_relative_path",
