@@ -481,7 +481,10 @@ pub(crate) struct DefGen<V> {
     // (Sparse indexed array, (0, argm T) implies parameter 0 named arg must have type T).
     parameter_types: Vec<(LocalSlotId, String, V, TypeCompiled)>,
     return_type: Option<(V, TypeCompiled)>, // The return type annotation for the function
-    pub(crate) def_info: FrozenRef<'static, DefInfo>, // The source code and metadata for this function
+    /// Data created during function compilation but before function instantiation.
+    /// `DefInfo` can be shared by multiple `def` instances, for example,
+    /// `lambda` functions can be instantiated multiple times.
+    pub(crate) def_info: FrozenRef<'static, DefInfo>,
     /// Any variables captured from the outer scope (nested def/lambda).
     /// Values are either [`Value`] or [`FrozenValu`] pointing respectively to
     /// [`ValueCaptured`] or [`FrozenValueCaptured`].
