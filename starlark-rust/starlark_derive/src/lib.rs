@@ -29,6 +29,7 @@ use proc_macro::TokenStream;
 
 mod attrs;
 mod bc;
+mod for_each_field;
 mod freeze;
 mod module;
 mod serde;
