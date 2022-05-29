@@ -15,108 +15,17 @@
  * limitations under the License.
  */
 
-use gazebo::prelude::*;
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::{Ident, Span, TokenStream};
 use syn::{
     parse::ParseStream, spanned::Spanned, visit::Visit, Attribute, Expr, FnArg, GenericArgument,
-    GenericParam, Generics, Ident, Item, ItemConst, ItemFn, Lifetime, Meta, MetaNameValue,
-    NestedMeta, Pat, PatType, PathArguments, ReturnType, Stmt, Token, Type, TypeReference,
+    GenericParam, Generics, ItemFn, Lifetime, Meta, NestedMeta, Pat, PatType, PathArguments,
+    ReturnType, Token, Type,
 };
 
 use crate::module::{
-    typ::{
-        StarArg, StarArgPassStyle, StarArgSource, StarAttr, StarConst, StarFun, StarFunSource,
-        StarModule, StarStmt,
-    },
-    util::is_type_name,
+    parse::is_attribute_docstring,
+    typ::{StarArg, StarArgPassStyle, StarArgSource, StarAttr, StarFun, StarFunSource, StarStmt},
 };
-
-#[derive(Debug, Copy, Clone, Dupe, PartialEq, Eq)]
-pub(crate) enum ModuleKind {
-    Globals,
-    Methods,
-}
-
-impl ModuleKind {
-    pub(crate) fn statics_type_name(self) -> &'static str {
-        match self {
-            ModuleKind::Globals => "GlobalsStatic",
-            ModuleKind::Methods => "MethodsStatic",
-        }
-    }
-}
-
-pub(crate) fn parse(mut input: ItemFn) -> syn::Result<StarModule> {
-    let module_docstring = parse_module_docstring(&input);
-    let visibility = input.vis;
-    let sig_span = input.sig.span();
-    let name = input.sig.ident;
-
-    if input.sig.inputs.len() != 1 {
-        return Err(syn::Error::new(
-            sig_span,
-            "function must have exactly one argument",
-        ));
-    }
-    let arg = input.sig.inputs.pop().unwrap();
-    let arg_span = arg.span();
-
-    let (ty, module_kind) = match arg.into_value() {
-        FnArg::Typed(PatType { ty, .. }) if is_mut_globals_builder(&ty) => {
-            (ty, ModuleKind::Globals)
-        }
-        FnArg::Typed(PatType { ty, .. }) if is_mut_methods_builder(&ty) => {
-            (ty, ModuleKind::Methods)
-        }
-        _ => {
-            return Err(syn::Error::new(
-                arg_span,
-                "Expected a mutable globals or methods builder",
-            ));
-        }
-    };
-    Ok(StarModule {
-        module_kind,
-        visibility,
-        globals_builder: *ty,
-        name,
-        docstring: module_docstring,
-        stmts: input.block.stmts.into_try_map(parse_stmt)?,
-    })
-}
-
-fn parse_module_docstring(input: &ItemFn) -> Option<String> {
-    let mut doc_attrs = Vec::new();
-    for attr in &input.attrs {
-        if let Some(ds) = is_attribute_docstring(attr) {
-            doc_attrs.push(ds);
-        }
-    }
-    if doc_attrs.is_empty() {
-        None
-    } else {
-        Some(doc_attrs.join("\n"))
-    }
-}
-
-fn parse_stmt(stmt: Stmt) -> syn::Result<StarStmt> {
-    match stmt {
-        Stmt::Item(Item::Fn(x)) => parse_fun(x),
-        Stmt::Item(Item::Const(x)) => Ok(StarStmt::Const(parse_const(x))),
-        s => Err(syn::Error::new(
-            s.span(),
-            "Can only put constants and functions inside a #[starlark_module]",
-        )),
-    }
-}
-
-fn parse_const(x: ItemConst) -> StarConst {
-    StarConst {
-        name: x.ident,
-        ty: *x.ty,
-        value: *x.expr,
-    }
-}
 
 struct ProcessedAttributes {
     is_attribute: bool,
@@ -125,19 +34,6 @@ struct ProcessedAttributes {
     docstring: Option<String>,
     /// Rest attributes
     attrs: Vec<Attribute>,
-}
-
-fn is_attribute_docstring(x: &Attribute) -> Option<String> {
-    if x.path.is_ident("doc") {
-        if let Ok(Meta::NameValue(MetaNameValue {
-            lit: syn::Lit::Str(s),
-            ..
-        })) = x.parse_meta()
-        {
-            return Some(s.value());
-        }
-    }
-    None
 }
 
 /// Parse `#[starlark(...)]` fn param attribute.
@@ -294,7 +190,7 @@ fn is_anyhow_result(t: &Type) -> Option<Type> {
 }
 
 // Add a function to the `GlobalsModule` named `globals_builder`.
-fn parse_fun(func: ItemFn) -> syn::Result<StarStmt> {
+pub(crate) fn parse_fun(func: ItemFn) -> syn::Result<StarStmt> {
     let sig_span = func.sig.span();
 
     let ProcessedAttributes {
@@ -558,25 +454,4 @@ fn parse_arg(x: FnArg, has_v: bool, seen_star_args: bool) -> syn::Result<StarArg
             "Function cannot have `self` parameters",
         )),
     }
-}
-
-fn is_mut_something(x: &Type, smth: &str) -> bool {
-    match x {
-        Type::Reference(TypeReference {
-            mutability: Some(_),
-            elem: x,
-            ..
-        }) => is_type_name(x, smth),
-        _ => false,
-    }
-}
-
-// Is the type `&mut GlobalsBuilder`
-fn is_mut_globals_builder(x: &Type) -> bool {
-    is_mut_something(x, "GlobalsBuilder")
-}
-
-// Is the type `&mut MethodsBuilder`
-fn is_mut_methods_builder(x: &Type) -> bool {
-    is_mut_something(x, "MethodsBuilder")
 }
