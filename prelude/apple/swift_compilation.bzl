@@ -15,7 +15,7 @@ load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(":apple_utility.bzl", "get_module_name", "get_versioned_target_triple")
 load(":modulemap.bzl", "preprocessor_info_for_modulemap")
 load(":swift_module_map.bzl", "write_swift_module_map_with_swift_deps")
-load(":swift_pcm_compilation.bzl", "PcmDepTSet", "SwiftPCMCompilationInfo", "compile_swift_pcm", "get_pcm_deps_tset")
+load(":swift_pcm_compilation.bzl", "compile_swift_pcm", "get_pcm_deps_tset")
 
 def _add_swiftmodule_search_path(args: "cmd_args", swift_info: "SwiftDependencyInfo"):
     if swift_info.swiftmodule_path != None:
@@ -311,18 +311,6 @@ def _get_swift_paths_tsets(ctx: "context", deps: ["dependency"]) -> ["Swiftmodul
         for d in deps
         if d[SwiftDependencyInfo] != None
     ]
-
-def _get_pcm_deps_tset(ctx: "context", deps: ["dependency"]):
-    pcm_deps = [
-        ctx.actions.tset(
-            PcmDepTSet,
-            value = d[SwiftPCMCompilationInfo],
-            children = [d[SwiftPCMCompilationInfo].deps_set],
-        )
-        for d in deps
-        if d[SwiftPCMCompilationInfo] != None
-    ]
-    return ctx.actions.tset(PcmDepTSet, children = pcm_deps)
 
 def get_swift_dependency_infos(
         ctx: "context",
