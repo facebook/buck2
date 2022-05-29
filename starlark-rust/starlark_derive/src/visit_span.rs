@@ -16,77 +16,17 @@
  */
 
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DeriveInput, Fields, Variant};
+use quote::{quote, quote_spanned};
+use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
 
-fn derive_variant(variant: &Variant) -> syn::Result<TokenStream> {
-    let name = &variant.ident;
-    Ok(match &variant.fields {
-        Fields::Unit => quote! {
-            Self::#name => {}
-        },
-        Fields::Named(..) => {
-            return Err(syn::Error::new_spanned(
-                variant,
-                "named fields are not supported",
-            ));
-        }
-        Fields::Unnamed(unnamed) => {
-            let field_names = (0..unnamed.unnamed.len())
-                .map(|i| format_ident!("f{}", i))
-                .collect::<Vec<_>>();
-            quote! {
-                Self::#name(#(#field_names),*) => {
-                    #(crate::eval::runtime::visit_span::VisitSpanMut::visit_spans(#field_names, visitor);)*
-                }
-            }
-        }
-    })
-}
+use crate::for_each_field::for_each_field;
 
 fn derive_body(input: &DeriveInput) -> syn::Result<TokenStream> {
-    Ok(match &input.data {
-        Data::Enum(e) => {
-            let variants = e
-                .variants
-                .iter()
-                .map(derive_variant)
-                .collect::<syn::Result<Vec<_>>>()?;
-            quote! {
-                match self {
-                    #(#variants)*
-                }
-            }
-        }
-        Data::Struct(s) => match &s.fields {
-            Fields::Unit => quote! {},
-            Fields::Named(fields) => {
-                let field_names = fields
-                    .named
-                    .iter()
-                    .map(|f| f.ident.as_ref().unwrap())
-                    .collect::<Vec<_>>();
-                quote! {
-                    let Self { #(#field_names),* } = self;
-                    #(crate::eval::runtime::visit_span::VisitSpanMut::visit_spans(#field_names, visitor);)*
-                }
-            }
-            Fields::Unnamed(fields) => {
-                let field_names = (0..fields.unnamed.len())
-                    .map(|i| format_ident!("f{}", i))
-                    .collect::<Vec<_>>();
-                quote! {
-                    let Self(#(#field_names),*) = self;
-                    #(crate::eval::runtime::visit_span::VisitSpanMut::visit_spans(#field_names, visitor);)*
-                }
-            }
-        },
-        Data::Union(u) => {
-            return Err(syn::Error::new_spanned(
-                u.union_token,
-                "VisitSpanMut cannot be derived for unions",
-            ));
-        }
+    for_each_field(&input.data, |field_name, field| {
+        Ok(quote_spanned! {
+            field.span() =>
+            crate::eval::runtime::visit_span::VisitSpanMut::visit_spans(#field_name, visitor);
+        })
     })
 }
 
