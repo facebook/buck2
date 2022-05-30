@@ -100,13 +100,15 @@ impl Alloca {
         let size_words = layout.size() / mem::size_of::<usize>();
 
         let mut start = self.alloc.get();
-        let mut stop = start.wrapping_add(size_words);
-        if unlikely(stop > self.end.get()) {
+
+        let rem_words = unsafe { self.end.get().offset_from(start) as usize };
+        if unlikely(size_words > rem_words) {
             self.allocate_more(layout);
             start = self.alloc.get();
-            stop = start.wrapping_add(size_words);
         }
-        let old = self.alloc.get();
+
+        let stop = start.wrapping_add(size_words);
+        let old = start;
         self.alloc.set(stop);
         let data = start as *mut MaybeUninit<T>;
         let slice = unsafe { slice::from_raw_parts_mut(data, len) };
