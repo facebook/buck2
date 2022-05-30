@@ -1,6 +1,5 @@
 load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidManifestInfo", "merge_android_packageable_info")
 load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
-load("@fbcode//buck2/prelude/android:configuration.bzl", "get_deps_by_platform")
 
 ROOT_APKMODULE_NAME = "dex"
 
@@ -64,9 +63,5 @@ def _get_manifests_from_deps(ctx: "context") -> ["ManifestTSet", None]:
     if len(ctx.attr.deps) == 0:
         return None
 
-    deps_by_platform = get_deps_by_platform(ctx)
-    primary_platform = deps_by_platform.keys()[0]
-    deps = deps_by_platform[primary_platform]
-
-    android_packageable_info = merge_android_packageable_info(ctx.actions, deps)
+    android_packageable_info = merge_android_packageable_info(ctx.actions, ctx.attr.deps)
     return android_packageable_info.manifests

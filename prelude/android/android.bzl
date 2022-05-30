@@ -117,7 +117,6 @@ extra_attributes = {
         ),
     },
     "android_manifest": {
-        "deps": attr.list(attr.split_transition_dep(cfg = cpu_split_transition), default = []),
         "_android_toolchain": attr.exec_dep(
             default = select_android_toolchain(),
             providers = [
