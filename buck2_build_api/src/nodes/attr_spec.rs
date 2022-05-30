@@ -181,6 +181,7 @@ impl AttributeSpec {
         }
 
         let target_name = name.expect("name to have been one of the parameters");
+        attr_values.shrink_to_fit();
         Ok((target_name, attr_values))
     }
 

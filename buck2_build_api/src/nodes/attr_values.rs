@@ -43,6 +43,10 @@ impl AttrValues {
         None
     }
 
+    pub(crate) fn shrink_to_fit(&mut self) {
+        self.sorted.shrink_to_fit();
+    }
+
     pub(crate) fn push_sorted(&mut self, id: AttributeId, value: CoercedAttr) {
         if let Some((last_id, _)) = self.sorted.last() {
             assert!(&id > last_id, "attributed must be sorted");
