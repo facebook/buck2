@@ -858,29 +858,8 @@ fn cmd_args<'v>(x: Value<'v>) -> ARef<'v, StarlarkCommandLineDataGen<Value<'v>>>
 
 #[starlark_module]
 fn command_line_builder_methods(builder: &mut MethodsBuilder) {
-    fn add<'v>(
-        this: Value<'v>,
-        args: Vec<Value<'v>>,
-        format: Option<StringValue<'v>>,
-        quote: Option<&str>,
-        prepend: Option<StringValue<'v>>,
-    ) -> anyhow::Result<Value<'v>> {
-        if format.is_some() || quote.is_some() || prepend.is_some() {
-            let mut inner_builder =
-                StarlarkCommandLine::new_with_options(FormattingOptions::maybe_new(
-                    None,
-                    format,
-                    quote.try_map(|q| QuoteStyle::parse(q))?,
-                    prepend,
-                ));
-            inner_builder.0.get_mut().add_values(&args)?;
-            cmd_args_mut(this)?
-                .0
-                .borrow_mut()
-                .add_value(heap.alloc(inner_builder))?;
-        } else {
-            cmd_args_mut(this)?.0.borrow_mut().add_values(&args)?;
-        }
+    fn add<'v>(this: Value<'v>, args: Vec<Value<'v>>) -> anyhow::Result<Value<'v>> {
+        cmd_args_mut(this)?.0.borrow_mut().add_values(&args)?;
         Ok(this)
     }
 
