@@ -276,7 +276,6 @@ impl<'c> DiceCalculationDelegate<'c> {
     ) -> SharedResult<LoadedModule> {
         let (ast, deps) = self.prepare_eval(starlark_file.into()).await?;
         let loaded_modules = deps.get_loaded_modules();
-        let imports = loaded_modules.imports().cloned().collect();
         let buckconfig = self.get_legacy_buck_config_for_starlark().await?;
 
         self.get_interpreter_for_cell()
@@ -285,10 +284,16 @@ impl<'c> DiceCalculationDelegate<'c> {
                 starlark_file,
                 &buckconfig,
                 ast,
-                loaded_modules,
+                loaded_modules.clone(),
                 starlark_profiler_instrumentation,
             )
-            .map(|e| LoadedModule::new(OwnedStarlarkModulePath::new(starlark_file), imports, e))
+            .map(|e| {
+                LoadedModule::new(
+                    OwnedStarlarkModulePath::new(starlark_file),
+                    loaded_modules,
+                    e,
+                )
+            })
     }
 
     pub async fn eval_build_file<T: ExtraContext>(

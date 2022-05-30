@@ -797,27 +797,16 @@ mod tests {
             let interpreter = self.interpreter()?;
             let ParseResult(ast, _) = interpreter.parse(path.into(), content.to_owned())?;
             let buckconfig = LegacyBuckConfig::empty();
-            let imports = loaded_modules
-                .map
-                .values()
-                .map(|module| {
-                    (*module
-                        .path()
-                        .unpack_load_file()
-                        .expect("module deps can only be loaded bzl files"))
-                    .clone()
-                })
-                .collect();
             let env = interpreter.eval_module(
                 path,
                 &buckconfig,
                 ast,
-                loaded_modules,
+                loaded_modules.clone(),
                 StarlarkProfilerInstrumentation::default(),
             )?;
             Ok(LoadedModule::new(
                 OwnedStarlarkModulePath::new(path),
-                imports,
+                loaded_modules,
                 env,
             ))
         }

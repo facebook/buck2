@@ -241,7 +241,7 @@ mod tests {
         )?;
         let import_result = LoadedModule::new(
             OwnedStarlarkModulePath::LoadFile(import_path.clone()),
-            Vec::new(),
+            LoadedModules::default(),
             env,
         );
 

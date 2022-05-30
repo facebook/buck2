@@ -53,17 +53,25 @@ pub struct LoadedModule(Arc<LoadedModuleData>);
 
 struct LoadedModuleData {
     path: OwnedStarlarkModulePath,
-    imports: Vec<ImportPath>,
+    loaded_modules: LoadedModules,
     env: FrozenModule,
 }
 
 impl LoadedModule {
-    pub fn new(path: OwnedStarlarkModulePath, imports: Vec<ImportPath>, env: FrozenModule) -> Self {
-        Self(Arc::new(LoadedModuleData { path, imports, env }))
+    pub fn new(
+        path: OwnedStarlarkModulePath,
+        loaded_modules: LoadedModules,
+        env: FrozenModule,
+    ) -> Self {
+        Self(Arc::new(LoadedModuleData {
+            path,
+            loaded_modules,
+            env,
+        }))
     }
 
     pub fn imports(&self) -> impl Iterator<Item = &ImportPath> {
-        self.0.imports.iter()
+        self.0.loaded_modules.imports()
     }
 
     pub fn path(&self) -> StarlarkModulePath<'_> {
@@ -163,7 +171,7 @@ mod tests {
             let id = import_path.id().clone();
             let module = LoadedModule::new(
                 OwnedStarlarkModulePath::LoadFile(import_path),
-                Vec::new(),
+                LoadedModules::default(),
                 env(&id),
             );
             loaded_modules.map.insert(id, module);
