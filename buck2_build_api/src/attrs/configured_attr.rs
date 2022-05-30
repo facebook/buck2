@@ -93,9 +93,8 @@ impl ConfiguredAttr {
                 left.push_str(&right);
                 Ok(Self(AttrLiteral::String(left)))
             }
-            (AttrLiteral::Arg(mut left), AttrLiteral::Arg(right)) => {
-                left.extend(right);
-                Ok(Self(AttrLiteral::Arg(left)))
+            (AttrLiteral::Arg(left), AttrLiteral::Arg(right)) => {
+                Ok(Self(AttrLiteral::Arg(left.concat(right))))
             }
             (lhs, rhs) => {
                 Err(SelectError::ConcatNotSupportedValues(lhs.to_string(), rhs.to_string()).into())

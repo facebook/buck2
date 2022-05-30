@@ -199,7 +199,7 @@ impl Display for QueryExpansion {
 }
 
 impl<C: AttrConfig> StringWithMacros<C> {
-    pub fn extend(&mut self, other: Self) {
+    pub fn concat(self, other: Self) -> Self {
         let other_parts = match other {
             Self::StringPart(part) => {
                 Either::Left(std::iter::once(StringWithMacrosPart::String(part)))
@@ -208,13 +208,15 @@ impl<C: AttrConfig> StringWithMacros<C> {
         };
 
         match self {
-            Self::ManyParts(ref mut parts) => parts.extend(other_parts),
-            Self::StringPart(ref mut my_part) => {
-                let my_part = std::mem::take(my_part);
+            Self::ManyParts(mut parts) => {
+                parts.extend(other_parts);
+                Self::ManyParts(parts)
+            }
+            Self::StringPart(my_part) => {
                 let mut many_parts = Vec::with_capacity(1 + other_parts.len());
                 many_parts.push(StringWithMacrosPart::String(my_part));
                 many_parts.extend(other_parts);
-                *self = Self::ManyParts(many_parts);
+                Self::ManyParts(many_parts)
             }
         }
     }
