@@ -71,7 +71,7 @@ impl ExecutionPlatform {
                 "subplatform".to_owned() => format!("xcode-{}", xcode_version)
             },
             ExecutionPlatform::Windows => indexmap! {
-                "platform".to_owned() => "windows-remote-execution".to_owned()
+                "platform".to_owned() => "windows".to_owned()
             },
         }
     }

@@ -50,7 +50,7 @@ windows_platforms = execution_platform(
     local_enabled = local_windows_execution,
     remote_enabled = False,
     remote_execution_properties = {
-        "platform": "windows-remote-execution",
+        "platform": "windows",
     },
     remote_execution_action_key_providers = remote_execution_action_key_providers,
     remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
