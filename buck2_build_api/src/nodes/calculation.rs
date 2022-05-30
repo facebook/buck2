@@ -594,6 +594,7 @@ mod tests {
     use crate::{
         attrs::{
             attr_type::{
+                any::AnyAttrType,
                 attr_literal::AttrLiteral,
                 dep::{DepAttr, DepAttrTransition, DepAttrType},
                 AttrType,
@@ -673,7 +674,7 @@ mod tests {
             (
                 "some_deps",
                 Attribute::testing_new(None, AttrType::list(AttrType::dep(Vec::new()))),
-                CoercedAttr::from_literal(AttrLiteral::List(vec![], AttrType::dep(Vec::new()))),
+                AnyAttrType::empty_list(AttrType::dep(Vec::new())),
             ),
         ];
 

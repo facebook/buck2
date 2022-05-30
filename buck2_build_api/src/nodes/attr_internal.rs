@@ -15,7 +15,7 @@ use gazebo::dupe::Dupe;
 
 use crate::{
     attrs::{
-        attr_type::{attr_literal::AttrLiteral, AttrType},
+        attr_type::{any::AnyAttrType, attr_literal::AttrLiteral, AttrType},
         coerced_attr::CoercedAttr,
     },
     interpreter::rule_defs::attr::{AttrIsConfigurable, Attribute},
@@ -62,9 +62,8 @@ fn default_target_platform_attribute() -> Attribute {
 fn target_compatible_with_attribute() -> Attribute {
     let entry_type = AttrType::configuration_dep();
     Attribute::new_internal(
-        Some(Arc::new(CoercedAttr::Literal(
-            AttrLiteral::List(Vec::new(), entry_type.dupe()),
-        ))),
+        Some(Arc::new(AnyAttrType::empty_list(entry_type.dupe()),
+        )),
         "a list of constraints that are required to be satisfied for this target to be compatible with a configuration".to_owned(),
         AttrType::list(entry_type),
     )
@@ -73,9 +72,8 @@ fn target_compatible_with_attribute() -> Attribute {
 fn exec_compatible_with_attribute() -> Attribute {
     let entry_type = AttrType::configuration_dep();
     Attribute::new_internal(
-        Some(Arc::new(CoercedAttr::Literal(
-            AttrLiteral::List(Vec::new(), entry_type.dupe()),
-        ))),
+        Some(Arc::new(AnyAttrType::empty_list(entry_type.dupe()),
+        )),
         "a list of constraints that are required to be satisfied for this target to be compatible with an execution platform".to_owned(),
         AttrType::list(entry_type),
     )
@@ -85,10 +83,7 @@ fn visibility_attribute() -> Attribute {
     // TODO(cjhopman): We currently just use strings here and then do custom validation and conversion. Maybe we should have an attribute type for this.
     let entry_type = AttrType::string();
     Attribute::new_internal(
-        Some(Arc::new(CoercedAttr::Literal(AttrLiteral::List(
-            Vec::new(),
-            entry_type.dupe(),
-        )))),
+        Some(Arc::new(AnyAttrType::empty_list(entry_type.dupe()))),
         "a list of visibility patterns restricting what targets can depend on this one".to_owned(),
         AttrType::list(entry_type),
     )
@@ -97,10 +92,7 @@ fn visibility_attribute() -> Attribute {
 fn tests_attribute() -> Attribute {
     let entry_type = AttrType::label();
     Attribute::new_internal(
-        Some(Arc::new(CoercedAttr::Literal(AttrLiteral::List(
-            Vec::new(),
-            entry_type.dupe(),
-        )))),
+        Some(Arc::new(AnyAttrType::empty_list(entry_type.dupe()))),
         "a list of targets that provide tests for this one".to_owned(),
         AttrType::list(entry_type),
     )
