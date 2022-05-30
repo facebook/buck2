@@ -57,9 +57,9 @@ use crate::{
     execute::{
         commands::{
             inputs_directory, output::CommandStdStreams, CommandExecutionInput,
-            CommandExecutionManager, CommandExecutionOutput, CommandExecutionOutputRef,
-            CommandExecutionRequest, CommandExecutionResult, CommandExecutionTarget,
-            CommandExecutionTimingData, ExecutorName, PreparedCommand, PreparedCommandExecutor,
+            CommandExecutionManager, CommandExecutionOutput, CommandExecutionRequest,
+            CommandExecutionResult, CommandExecutionTarget, CommandExecutionTimingData,
+            ExecutorName, PreparedCommand, PreparedCommandExecutor,
         },
         materializer::Materializer,
         ActionExecutionKind, CleanOutputPaths,
@@ -170,7 +170,7 @@ impl LocalExecutor {
                         project_fs.create_dir(&scratch_dir)?;
                     }
 
-                    self.create_output_dirs(request.outputs())
+                    create_output_dirs(&self.artifact_fs, request)
                         .context("Error creating output directories")?;
 
                     Ok(())
@@ -269,26 +269,6 @@ impl LocalExecutor {
             },
             Err(e) => manager.error("calculate_output_values_failed".into(), e),
         }
-    }
-
-    /// Create any output dirs requested by the command. Note that this makes no effort to delete
-    /// the output paths first. Eventually it should, but right now this happens earlier. This
-    /// would be a separate refactor.
-    ///
-    /// TODO(@scottcao) Delete parent dirs here
-    fn create_output_dirs<'a>(
-        &self,
-        outputs: impl Iterator<Item = CommandExecutionOutputRef<'a>>,
-    ) -> anyhow::Result<()> {
-        let project_fs = self.artifact_fs.fs();
-
-        for output in outputs {
-            if let Some(path) = output.resolve(&self.artifact_fs).path_to_create() {
-                project_fs.create_dir(path)?;
-            }
-        }
-
-        Ok(())
     }
 
     fn calculate_output_values(
@@ -766,6 +746,27 @@ pub async fn materialize_inputs(
 
     materializer.ensure_materialized(paths).await
 }
+
+/// Create any output dirs requested by the command. Note that this makes no effort to delete
+/// the output paths first. Eventually it should, but right now this happens earlier. This
+/// would be a separate refactor.
+///
+/// TODO(@scottcao) Delete parent dirs here
+pub fn create_output_dirs(
+    artifact_fs: &ArtifactFs,
+    request: &CommandExecutionRequest,
+) -> anyhow::Result<()> {
+    let project_fs = artifact_fs.fs();
+
+    for output in request.outputs() {
+        if let Some(path) = output.resolve(artifact_fs).path_to_create() {
+            project_fs.create_dir(path)?;
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use std::{collections::HashMap, str, sync::Arc, time::Instant};
