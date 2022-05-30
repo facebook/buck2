@@ -61,26 +61,47 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
     part_list_output = get_apple_bundle_part_list(ctx, AppleBundlePartListConstructorParams(binaries = [binary_part]))
     assemble_bundle(ctx, xctest_bundle, part_list_output.parts, part_list_output.info_plist_part)
 
-    xctest = ctx.attr._fbxctest[RunInfo]
-    args = [cmd_args([
-        xctest,
-    ])]
-
     sub_targets = cxx_library_output.sub_targets
 
     # If the test has a test host, add a subtarget to build the test host app bundle.
     sub_targets["test-host"] = [DefaultInfo(default_outputs = [test_host_app_bundle])] if test_host_app_bundle else [DefaultInfo()]
 
+    # When interacting with Tpx, we just pass our various inputs via env vars,
+    # since Tpx basiclaly wants structured output for this.
+    env = {"XCTEST_BUNDLE": xctest_bundle}
+
+    if test_host_app_bundle == None:
+        tpx_label = "tpx:apple_test:buck2:logicTest"
+    else:
+        env["HOST_APP_BUNDLE"] = test_host_app_bundle
+        tpx_label = "tpx:apple_test:buck2:appTest"
+
+    labels = ctx.attr.labels + [tpx_label]
+    labels.append(tpx_label)
+
     return [
         DefaultInfo(default_outputs = [xctest_bundle], sub_targets = sub_targets),
-        # TODO(T112699634): Change the type to apple_test and match up the
-        # arguments to the one that Buck1 sets in the external runner spec.
         ExternalRunnerTestInfo(
-            type = "custom",
-            command = args,
-            env = {},
-            labels = ctx.attr.labels,
+            type = "custom",  # We inherit a label via the macro layer that overrides this.
+            command = ["false"],  # Tpx makes up its own args, we just pass params via the env.
+            env = env,
+            labels = labels,
+            use_project_relative_paths = True,
+            run_from_project_root = True,
             contacts = ctx.attr.contacts,
+            executor_overrides = {
+                "ios-simulator": CommandExecutorConfig(
+                    local_enabled = False,
+                    remote_enabled = True,
+                    remote_execution_properties = {
+                        "platform": "ios-simulator-pure-re",
+                        "subplatform": "iPhone 8.iOS 15.0",
+                        "xcode-version": "xcodestable",
+                    },
+                    remote_execution_use_case = "tpx-default",
+                ),
+                "static-listing": CommandExecutorConfig(local_enabled = True, remote_enabled = False),
+            },
         ),
     ]
 
