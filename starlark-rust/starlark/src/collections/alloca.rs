@@ -75,7 +75,9 @@ impl Alloca {
 
     #[cold]
     #[inline(never)]
-    fn allocate_more(&self, want: Layout) {
+    fn allocate_more(&self, len: usize, one: Layout) {
+        let want =
+            Layout::from_size_align(one.size().checked_mul(len).unwrap(), one.align()).unwrap();
         assert!(want.size() % mem::size_of::<usize>() == 0);
         assert!(want.align() % mem::size_of::<usize>() == 0);
         let size_words = self.last_size_words.get() * 2 + want.size() / mem::size_of::<usize>();
@@ -96,16 +98,17 @@ impl Alloca {
         assert_eq!(mem::size_of::<T>() % mem::size_of::<usize>(), 0);
         assert_eq!(mem::align_of::<T>(), mem::size_of::<usize>());
 
-        let layout = Layout::array::<T>(len).unwrap();
-        let size_words = layout.size() / mem::size_of::<usize>();
-
         let mut start = self.alloc.get();
 
         let rem_words = unsafe { self.end.get().offset_from(start) as usize };
-        if unlikely(size_words > rem_words) {
-            self.allocate_more(layout);
+        let rem_in_t = rem_words * mem::size_of::<usize>() / mem::size_of::<T>();
+        if unlikely(len > rem_in_t) {
+            self.allocate_more(len, Layout::new::<T>());
             start = self.alloc.get();
         }
+
+        // Multiplication won't overflow, `allocate_more` checked that.
+        let size_words = mem::size_of::<T>() * len / mem::size_of::<usize>();
 
         let stop = start.wrapping_add(size_words);
         let old = start;
