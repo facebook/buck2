@@ -992,6 +992,21 @@ impl<'v, 'a> Arguments<'v, 'a> {
         }
     }
 
+    /// The number of arguments, where those inside a args/kwargs are counted as multiple arguments.
+    ///
+    /// This operation fails if the `kwargs` is not a dictionary, or `args` does not support `len`.
+    pub fn len(&self) -> anyhow::Result<usize> {
+        let args = match self.0.args {
+            None => 0,
+            Some(v) => v.length()? as usize,
+        };
+        let kwargs = match self.unpack_kwargs()? {
+            None => 0,
+            Some(v) => v.len(),
+        };
+        Ok(self.0.pos.len() + self.0.named.len() + args + kwargs)
+    }
+
     /// Unwrap all named arguments (both explicit and in `**kwargs`) into a dictionary.
     ///
     /// This operation fails if named argument names are not unique.
@@ -1252,6 +1267,7 @@ mod tests {
                     p.0.args = None;
                     op(&p);
                 }
+                assert_eq!(p.len().unwrap(), N);
             }
         }
 
@@ -1312,16 +1328,19 @@ mod tests {
         let heap = Heap::new();
         let mut p = Arguments::default();
         assert!(p.no_named_args().is_ok());
+        assert_eq!(p.len().unwrap(), 0);
 
         // Test lots of forms of kwargs work properly
         p.0.kwargs = Some(Value::new_none());
         assert!(p.no_named_args().is_err());
         p.0.kwargs = Some(heap.alloc(Dict::default()));
         assert!(p.no_named_args().is_ok());
+        assert_eq!(p.len().unwrap(), 0);
         let mut sm = SmallMap::new();
         sm.insert_hashed(heap.alloc_str("test").get_hashed(), Value::new_none());
         p.0.kwargs = Some(heap.alloc(Dict::new(coerce(sm))));
         assert!(p.no_named_args().is_err());
+        assert_eq!(p.len().unwrap(), 1);
 
         // Test named arguments work properly
         p.0.kwargs = None;
@@ -1330,6 +1349,7 @@ mod tests {
         let names = [(Symbol::new("test"), heap.alloc_str("test"))];
         p.0.names = ArgNames::new(&names);
         assert!(p.no_named_args().is_err());
+        assert_eq!(p.len().unwrap(), 1);
     }
 
     #[test]
