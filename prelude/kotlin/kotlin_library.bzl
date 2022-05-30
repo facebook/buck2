@@ -94,6 +94,7 @@ def _create_kotlin_sources(
         annotation_processor_classpath = annotation_processor_params.deps + [
             packaging_dep.jar
             for packaging_dep in get_all_java_packaging_deps(ctx, [kotlin_toolchain.annotation_processing_jar, kotlin_toolchain.kotlin_stdlib])
+            if packaging_dep.jar
         ]
         deduped_annotation_processor_classpath = dedupe(annotation_processor_classpath)
         kapt_classpath_file = ctx.actions.write("kapt_classpath_file", deduped_annotation_processor_classpath)

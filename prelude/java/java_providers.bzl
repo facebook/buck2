@@ -12,7 +12,7 @@ load(
     "SharedLibraryInfo",
     "merge_shared_libraries",
 )
-load("@fbcode//buck2/prelude/utils:utils.bzl", "filter_and_map_idx")
+load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "filter_and_map_idx")
 
 # JAVA PROVIDER DOCS
 #
@@ -87,10 +87,14 @@ JavaCompilingDepsTSet = transitive_set()
 JavaPackagingDepTSet = transitive_set()
 
 JavaPackagingDep = record(
-    jar = "artifact",
+    jar = ["artifact", None],
     dex = ["DexLibraryInfo", None],
     is_prebuilt_jar = bool.type,
     proguard_config = ["artifact", None],
+
+    # An output that is used solely by the system to have an artifact bound to the target (that the core can then use to find
+    # the right target from the given artifact).
+    output_for_classpath_macro = "artifact",
 )
 
 JavaLibraryInfo = provider(
@@ -159,12 +163,13 @@ def derive_compiling_deps(
 
 def create_java_packaging_dep(
         ctx: "context",
-        library_jar: "artifact",
+        library_jar: ["artifact", None] = None,
+        output_for_classpath_macro: ["artifact", None] = None,
         needs_desugar: bool.type = False,
         desugar_deps: ["artifact"] = [],
         is_prebuilt_jar: bool.type = False) -> "JavaPackagingDep":
     dex_toolchain = getattr(ctx.attr, "_dex_toolchain", None)
-    if dex_toolchain != None and ctx.attr._dex_toolchain[DexToolchainInfo].d8_command != None:
+    if library_jar != None and dex_toolchain != None and ctx.attr._dex_toolchain[DexToolchainInfo].d8_command != None:
         dex = get_dex_produced_from_java_library(
             ctx,
             ctx.attr._dex_toolchain[DexToolchainInfo],
@@ -175,11 +180,14 @@ def create_java_packaging_dep(
     else:
         dex = None
 
+    expect(library_jar != None or output_for_classpath_macro != None, "Must provide an output_for_classpath_macro if no library_jar is provided!")
+
     return JavaPackagingDep(
         jar = library_jar,
         dex = dex,
         is_prebuilt_jar = is_prebuilt_jar,
         proguard_config = getattr(ctx.attr, "proguard_config", None),
+        output_for_classpath_macro = output_for_classpath_macro or library_jar,
     )
 
 def get_all_java_packaging_deps(ctx: "context", deps: ["dependency"]) -> ["JavaPackagingDep"]:
@@ -243,12 +251,8 @@ def _create_non_template_providers(
         deps = packaging_deps,
     ))
 
-    if library_output:
-        java_packaging_dep = create_java_packaging_dep(ctx, library_output.full_library, needs_desugar, desugar_classpath, is_prebuilt_jar)
-    elif is_prebuilt_jar:
-        fail("Prebuilt jar must have a library output!")
-    else:
-        java_packaging_dep = None
+    output_for_classpath_macro = library_output.abi if (library_output and library_output.abi.owner != None) else ctx.actions.write("dummy_output_for_classpath_macro.txt", "Unused")
+    java_packaging_dep = create_java_packaging_dep(ctx, library_output.full_library if library_output else None, output_for_classpath_macro, needs_desugar, desugar_classpath, is_prebuilt_jar)
 
     java_packaging_info = get_java_packaging_info(
         ctx,
@@ -260,25 +264,21 @@ def _create_non_template_providers(
         JavaLibraryInfo(
             compiling_deps = derive_compiling_deps(ctx.actions, library_output, exported_deps + exported_provided_deps),
             library_output = library_output,
-            output_for_classpath_macro = library_output.abi if (library_output and library_output.abi.owner != None) else ctx.actions.write("dummy_output_for_classpath_macro.txt", "Unused"),
+            output_for_classpath_macro = output_for_classpath_macro,
         ),
         java_packaging_info,
         shared_library_info,
         cxx_resource_info,
     )
 
-def create_template_info(packaging_libs: ["artifact"], first_order_libs: ["artifact"]) -> TemplatePlaceholderInfo.type:
-    classpath_cmd_args = cmd_args(packaging_libs, delimiter = get_path_separator())
+def create_template_info(all_packaging_deps: ["JavaPackagingDep"], first_order_libs: ["artifact"]) -> TemplatePlaceholderInfo.type:
+    classpath_libs = [packaging_dep.jar for packaging_dep in all_packaging_deps if packaging_dep.jar]
+    classpath_libs_including_targets_with_no_output = [packaging_dep.output_for_classpath_macro for packaging_dep in all_packaging_deps]
     return TemplatePlaceholderInfo(keyed_variables = {
-        "classpath": classpath_cmd_args,
-        "classpath_including_targets_with_no_output": classpath_cmd_args,
+        "classpath": cmd_args(classpath_libs, delimiter = get_path_separator()),
+        "classpath_including_targets_with_no_output": cmd_args(classpath_libs_including_targets_with_no_output, delimiter = get_path_separator()),
         "first_order_classpath": cmd_args(first_order_libs, delimiter = get_path_separator()),
     })
-
-def _create_template_info(library_info: JavaLibraryInfo.type, packaging_info: JavaPackagingInfo.type, first_order_classpath_libs: ["artifact"]) -> TemplatePlaceholderInfo.type:
-    packaging_libs = [packaging_dep.jar for packaging_dep in (list(packaging_info.packaging_deps.traverse()) if packaging_info.packaging_deps else [])]
-    first_order_libs = first_order_classpath_libs + [library_info.library_output.full_library] if library_info.library_output else first_order_classpath_libs
-    return create_template_info(packaging_libs, first_order_libs)
 
 def create_java_library_providers(
         ctx: "context",
@@ -311,6 +311,8 @@ def create_java_library_providers(
         is_prebuilt_jar = is_prebuilt_jar,
     )
 
-    template_info = _create_template_info(library_info, packaging_info, first_order_classpath_libs)
+    first_order_libs = first_order_classpath_libs + [library_info.library_output.full_library] if library_info.library_output else first_order_classpath_libs
+    all_packaging_deps = list(packaging_info.packaging_deps.traverse()) if packaging_info.packaging_deps else []
+    template_info = create_template_info(all_packaging_deps, first_order_libs)
 
     return (library_info, packaging_info, shared_library_info, cxx_resource_info, template_info)

@@ -52,12 +52,11 @@ fb_native.genrule(
     cmd = "echo \"$(query_targets 'classpath(:top_level_library, 1)')\" | grep 'library_with_deps' | grep -v ':exported_dep' && touch $OUT",
 )
 
-# TODO(T120950937) classpath should include all targets, regardless of whether or not they produce output. This fails in buck2 on `grep ':library_with_deps'`
-# fb_native.genrule(
-#     name = "check_full_classpath_targets",
-#     out = "out.txt",
-#     cmd = "echo \"$(query_targets 'classpath(:top_level_library)')\" | grep ':top_level_library' | grep ':library_with_deps' | grep ':normal_dep' | grep ':exported_dep' | grep ':runtime_dep' | grep -v ':provided_dep' | grep -v ':exported_provided_dep' && touch $OUT",
-# )
+fb_native.genrule(
+    name = "check_full_classpath_targets",
+    out = "out.txt",
+    cmd = "echo \"$(query_targets 'classpath(:top_level_library)')\" | grep ':top_level_library' | grep ':library_with_deps' | grep ':normal_dep' | grep ':exported_dep' | grep ':runtime_dep' | grep -v ':provided_dep' | grep -v ':exported_provided_dep' && touch $OUT",
+)
 
 fb_native.genrule(
     name = "check_full_classpath_outputs",

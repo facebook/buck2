@@ -33,7 +33,7 @@ def derive_transitive_deps(ctx: "context", deps: ["dependency"]) -> ["artifact"]
         if not dep:
             fail("Dependency must have a type of `java_library` or `prebuilt_jar`. Deps: {}".format(deps))
 
-    return [packaging_dep.jar for packaging_dep in get_all_java_packaging_deps(ctx, deps)]
+    return [packaging_dep.jar for packaging_dep in get_all_java_packaging_deps(ctx, deps) if packaging_dep.jar]
 
 def create_ap_params(
         ctx: "context",
@@ -62,7 +62,7 @@ def create_ap_params(
             fail("Dependency must have a type of `java_library` or `prebuilt_jar`. Deps: {}".format(annotation_processor_deps))
 
     # using packaging deps to have all transitive deps collected for processors classpath
-    ap_processor_deps += [packaging_dep.jar for packaging_dep in get_all_java_packaging_deps(ctx, annotation_processor_deps)]
+    ap_processor_deps += [packaging_dep.jar for packaging_dep in get_all_java_packaging_deps(ctx, annotation_processor_deps) if packaging_dep.jar]
 
     return AnnotationProcessorParams(
         processors = dedupe(ap_processors),

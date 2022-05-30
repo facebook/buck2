@@ -20,7 +20,7 @@ def _compare_deps(deps_type, actual_deps, expected_deps):
 
 def _assert_packaging_deps_impl(ctx):
     packaging_deps = ctx.attr.actual_target[JavaPackagingInfo].packaging_deps
-    actual_deps = [packaging_dep.jar for packaging_dep in (list(packaging_deps.traverse()) if packaging_deps else [])]
+    actual_deps = [packaging_dep.jar for packaging_dep in (list(packaging_deps.traverse()) if packaging_deps else []) if packaging_dep.jar]
 
     expected_deps = _extract_expected_artifacts(ctx, use_abi = False)
     _compare_deps("packaging", actual_deps, expected_deps)

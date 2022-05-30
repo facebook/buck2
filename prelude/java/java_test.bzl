@@ -40,6 +40,7 @@ def build_junit_test(
     classpath = [junit_toolchain.junit_test_runner_library_jar] + [
         packaging_dep.jar
         for packaging_dep in get_all_java_packaging_deps_from_packaging_infos(ctx, [tests_java_packaging_info])
+        if packaging_dep.jar
     ] + extra_classpath_entries
 
     classpath_args = cmd_args()

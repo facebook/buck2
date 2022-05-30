@@ -70,7 +70,7 @@ def java_binary_impl(ctx: "context") -> ["provider"]:
         list of created providers (DefaultInfo and RunInfo)
     """
 
-    packaging_deps = [packaging_dep.jar for packaging_dep in get_all_java_packaging_deps(ctx, ctx.attr.deps)]
+    packaging_deps = get_all_java_packaging_deps(ctx, ctx.attr.deps)
 
     first_order_deps = derive_compiling_deps(ctx.actions, None, ctx.attr.deps)
     first_order_libs = [dep.full_library for dep in (list(first_order_deps.traverse()) if first_order_deps else [])]
@@ -82,7 +82,7 @@ def java_binary_impl(ctx: "context") -> ["provider"]:
     native_deps = [shared_lib.lib.output for shared_lib in traverse_shared_library_info(shared_library_info).values()]
 
     java_toolchain = ctx.attr._java_toolchain[JavaToolchainInfo]
-    fat_jar_output = _create_fat_jar(ctx, java_toolchain, packaging_deps, native_deps)
+    fat_jar_output = _create_fat_jar(ctx, java_toolchain, [packaging_dep.jar for packaging_dep in packaging_deps if packaging_dep.jar], native_deps)
 
     java_cmd = cmd_args(java_toolchain.java)
     java_cmd.add("-jar", fat_jar_output)
