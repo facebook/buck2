@@ -60,7 +60,7 @@ impl ConfiguredAttr {
     /// This is used when a select() is added to another value, like `select(<...>) + select(<...>)` or `select(<...>) + [...]`.
     pub fn concat(self, other: ConfiguredAttr) -> anyhow::Result<Self> {
         match (self.0, other.0) {
-            (AttrLiteral::List(mut left, lt), AttrLiteral::List(right, rt)) => {
+            (AttrLiteral::List(left, lt), AttrLiteral::List(right, rt)) => {
                 if lt != rt {
                     Err(SelectError::ConcatNotSupportedValues(
                         AttrLiteral::List(left, lt).to_string(),
@@ -68,8 +68,9 @@ impl ConfiguredAttr {
                     )
                     .into())
                 } else {
-                    left.extend(right);
-                    Ok(Self(AttrLiteral::List(left, lt)))
+                    let mut res = left.into_vec();
+                    res.extend(right.into_vec());
+                    Ok(Self(AttrLiteral::List(res.into_boxed_slice(), lt)))
                 }
             }
             (AttrLiteral::Dict(mut left), AttrLiteral::Dict(right)) => {
@@ -153,7 +154,7 @@ impl ConfiguredAttr {
         }
     }
 
-    pub fn unpack_list(&self) -> Option<&Vec<ConfiguredAttr>> {
+    pub fn unpack_list(&self) -> Option<&[ConfiguredAttr]> {
         match &self.0 {
             AttrLiteral::List(v, _) => Some(v),
             _ => None,
@@ -162,7 +163,7 @@ impl ConfiguredAttr {
 
     pub fn try_into_list(self) -> Option<Vec<ConfiguredAttr>> {
         match self.0 {
-            AttrLiteral::List(v, _) => Some(v),
+            AttrLiteral::List(v, _) => Some(v.into_vec()),
             _ => None,
         }
     }

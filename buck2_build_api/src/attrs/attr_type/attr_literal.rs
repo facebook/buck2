@@ -84,8 +84,9 @@ pub enum AttrLiteral<C: AttrConfig> {
     // Type of list elements is used to verify that concatenation is valid.
     // That only can be checked after configuration took place,
     // so pass the type info together with values to be used later.
-    List(Vec<C>, AttrType),
-    Tuple(Vec<C>),
+    List(Box<[C]>, AttrType),
+    // We make Tuple a Box<[C]> so we can share code paths with List
+    Tuple(Box<[C]>),
     Dict(Vec<(C, C)>),
     None,
     Dep(Box<DepAttr<C::ProvidersType>>),
@@ -145,7 +146,7 @@ impl<C: AttrConfig> AttrLiteral<C> {
         match self {
             AttrLiteral::String(v) => filter(v),
             AttrLiteral::Tuple(vals) | AttrLiteral::List(vals, _) => {
-                for v in vals {
+                for v in vals.iter() {
                     if v.any_matches(filter)? {
                         return Ok(true);
                     }
@@ -252,14 +253,14 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::String(s) => Ok(heap.alloc_str(s).to_value()),
             AttrLiteral::List(l, _) => {
                 let mut v = Vec::with_capacity(l.len());
-                for e in l {
+                for e in l.iter() {
                     v.push(e.to_value(heap)?);
                 }
                 Ok(heap.alloc_list(&v))
             }
             AttrLiteral::Tuple(l) => {
                 let mut v = Vec::with_capacity(l.len());
-                for e in l {
+                for e in l.iter() {
                     v.push(e.to_value(heap)?);
                 }
                 Ok(heap.alloc_tuple(&v))
@@ -292,10 +293,13 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::Bool(v) => AttrLiteral::Bool(*v),
             AttrLiteral::Int(v) => AttrLiteral::Int(*v),
             AttrLiteral::String(v) => AttrLiteral::String(v.clone()),
-            AttrLiteral::List(list, element_type) => {
-                AttrLiteral::List(list.try_map(|v| v.configure(ctx))?, element_type.dupe())
+            AttrLiteral::List(list, element_type) => AttrLiteral::List(
+                list.try_map(|v| v.configure(ctx))?.into_boxed_slice(),
+                element_type.dupe(),
+            ),
+            AttrLiteral::Tuple(list) => {
+                AttrLiteral::Tuple(list.try_map(|v| v.configure(ctx))?.into_boxed_slice())
             }
-            AttrLiteral::Tuple(list) => AttrLiteral::Tuple(list.try_map(|v| v.configure(ctx))?),
             AttrLiteral::Dict(dict) => AttrLiteral::Dict(dict.try_map(|(k, v)| {
                 let k2 = k.configure(ctx)?;
                 let v2 = v.configure(ctx)?;
@@ -474,14 +478,14 @@ impl AttrLiteral<ConfiguredAttr> {
             AttrLiteral::String(v) => Ok(ctx.heap().alloc(v)),
             AttrLiteral::List(list, _) => {
                 let mut values = Vec::with_capacity(list.len());
-                for v in list {
+                for v in list.iter() {
                     values.append(&mut v.resolve(ctx)?);
                 }
                 Ok(ctx.heap().alloc(values))
             }
             AttrLiteral::Tuple(list) => {
                 let mut values = Vec::with_capacity(list.len());
-                for v in list {
+                for v in list.iter() {
                     values.append(&mut v.resolve(ctx)?);
                 }
                 Ok(ctx.heap().alloc_tuple(&values))

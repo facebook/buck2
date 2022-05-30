@@ -652,7 +652,8 @@ mod tests {
                             DepAttrType::new(Vec::new(), DepAttrTransition::Identity),
                             ProvidersLabel::new(label2.dupe(), ProvidersName::Default),
                         ),
-                    ))],
+                    ))]
+                    .into_boxed_slice(),
                     AttrType::dep(Vec::new()),
                 )),
             ),
@@ -717,14 +718,14 @@ mod tests {
                     ProvidersLabel::new(label2.dupe(), ProvidersName::Default)
                         .configure(cfg.dupe()),
                 ))),
-            ], AttrType::dep(Vec::new()))),
+            ].into_boxed_slice(), AttrType::dep(Vec::new()))),
         ];
 
         let conf_attrs2 = smallmap![
             "bool_field" => ConfiguredAttr::from_literal(AttrLiteral::Bool(true)),
             "another_field" =>
              ConfiguredAttr::from_literal(AttrLiteral::String("another_string".into())),
-            "some_deps" => ConfiguredAttr::from_literal(AttrLiteral::List(vec![], AttrType::dep(Vec::new()))),
+            "some_deps" => ConfiguredAttr::from_literal(AttrLiteral::List(Default::default(), AttrType::dep(Vec::new()))),
         ];
 
         let node = computations.get_target_node(&label1).await?;

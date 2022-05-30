@@ -46,13 +46,15 @@ impl ListAttrType {
         if let Some(list) = List::from_value(value) {
             Ok(AttrLiteral::List(
                 list.content()
-                    .try_map(|v| (self.inner).coerce(configurable, ctx, *v))?,
+                    .try_map(|v| (self.inner).coerce(configurable, ctx, *v))?
+                    .into_boxed_slice(),
                 self.inner.dupe(),
             ))
         } else if let Some(list) = Tuple::from_value(value) {
             Ok(AttrLiteral::List(
                 list.content()
-                    .try_map(|v| (self.inner).coerce(configurable, ctx, *v))?,
+                    .try_map(|v| (self.inner).coerce(configurable, ctx, *v))?
+                    .into_boxed_slice(),
                 self.inner.dupe(),
             ))
         } else {

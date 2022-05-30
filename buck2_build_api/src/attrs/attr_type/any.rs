@@ -24,7 +24,7 @@ impl AnyAttrType {
     }
 
     pub(crate) fn empty_list(element_type: AttrType) -> CoercedAttr {
-        CoercedAttr::new_literal(AttrLiteral::List(Vec::new(), element_type))
+        CoercedAttr::new_literal(AttrLiteral::List(Default::default(), element_type))
     }
 }
 
