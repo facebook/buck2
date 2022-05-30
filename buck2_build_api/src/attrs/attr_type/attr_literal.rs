@@ -329,14 +329,8 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::Bool(_) => Ok(()),
             AttrLiteral::Int(_) => Ok(()),
             AttrLiteral::String(_) => Ok(()),
-            AttrLiteral::List(list, _) => {
-                for v in list {
-                    v.traverse(traversal)?;
-                }
-                Ok(())
-            }
-            AttrLiteral::Tuple(list) => {
-                for v in list {
+            AttrLiteral::List(list, _) | AttrLiteral::Tuple(list) => {
+                for v in list.iter() {
                     v.traverse(traversal)?;
                 }
                 Ok(())
@@ -438,14 +432,8 @@ impl AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Bool(_) => Ok(()),
             AttrLiteral::Int(_) => Ok(()),
             AttrLiteral::String(_) => Ok(()),
-            AttrLiteral::List(list, _) => {
-                for v in list {
-                    v.traverse(traversal)?;
-                }
-                Ok(())
-            }
-            AttrLiteral::Tuple(list) => {
-                for v in list {
+            AttrLiteral::List(list, _) | AttrLiteral::Tuple(list) => {
+                for v in list.iter() {
                     v.traverse(traversal)?;
                 }
                 Ok(())
