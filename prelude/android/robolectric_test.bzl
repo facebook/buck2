@@ -9,11 +9,11 @@ load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 def robolectric_test_impl(ctx: "context") -> ["provider"]:
     _verify_attributes(ctx)
 
-    extra_cmd_args = cmd_args()
+    extra_cmds = []
 
     # Force robolectric to only use local dependency resolution.
-    extra_cmd_args.add("-Drobolectric.offline=true")
-    extra_cmd_args.add(cmd_args(ctx.attr.robolectric_runtime_dependency, format = "-Drobolectric.dependency.dir={}"))
+    extra_cmds.append("-Drobolectric.offline=true")
+    extra_cmds.append(cmd_args(ctx.attr.robolectric_runtime_dependency, format = "-Drobolectric.dependency.dir={}"))
 
     all_packaging_deps = ctx.attr.deps + (ctx.attr.deps_query or []) + ctx.attr.exported_deps + ctx.attr.runtime_deps
     android_packageable_info = merge_android_packageable_info(ctx.actions, all_packaging_deps)
@@ -45,7 +45,7 @@ def robolectric_test_impl(ctx: "context") -> ["provider"]:
         ".",
     ])
     ctx.actions.run(jar_cmd, "test_config_properties_jar_cmd")
-    extra_cmd_args.hidden(resources_info.primary_resources_apk, resources_info.manifest)
+    extra_cmds.append(cmd_args().hidden(resources_info.primary_resources_apk, resources_info.manifest))
 
     extra_classpath_entries = [test_config_properties_jar] + ctx.attr._android_toolchain[AndroidToolchainInfo].android_bootclasspath
     r_dot_java = None if resources_info.r_dot_java == None or resources_info.r_dot_java.library_output == None else resources_info.r_dot_java.library_output.full_library
@@ -65,7 +65,7 @@ def robolectric_test_impl(ctx: "context") -> ["provider"]:
         ctx,
         tests_java_library_info,
         tests_java_packaging_info,
-        extra_cmd_args = extra_cmd_args,
+        extra_cmds = extra_cmds,
         extra_classpath_entries = extra_classpath_entries,
     )
 

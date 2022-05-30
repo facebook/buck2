@@ -28,14 +28,11 @@ def build_junit_test(
         ctx: "context",
         tests_java_library_info: "JavaLibraryInfo",
         tests_java_packaging_info: "JavaPackagingInfo",
-        extra_cmd_args: ["cmd_args", None] = None,
+        extra_cmds: list.type = [],
         extra_classpath_entries: ["artifact"] = []) -> (ExternalRunnerTestInfo.type, RunInfo.type):
     junit_toolchain = ctx.attr._junit_toolchain[JUnitToolchainInfo]
 
-    cmd = cmd_args(ctx.attr._java_toolchain[JavaToolchainInfo].java_for_tests)
-    if extra_cmd_args:
-        cmd.add(extra_cmd_args)
-    cmd.add(ctx.attr.vm_args)
+    cmd = [ctx.attr._java_toolchain[JavaToolchainInfo].java_for_tests] + extra_cmds + ctx.attr.vm_args
 
     classpath = [junit_toolchain.junit_test_runner_library_jar] + [
         packaging_dep.jar
@@ -48,12 +45,11 @@ def build_junit_test(
     classpath_args.add("-classpath")
     classpath_args.add(cmd_args(classpath, delimiter = get_path_separator()))
     classpath_args_file = ctx.actions.write("classpath_args_file", classpath_args)
-    cmd.add(cmd_args(classpath_args_file, format = "@{}"))
-    cmd.hidden(classpath_args)
+    cmd.append(cmd_args(classpath_args_file, format = "@{}").hidden(classpath_args))
 
-    cmd.add(junit_toolchain.junit_test_runner_main_class)
+    cmd.append(junit_toolchain.junit_test_runner_main_class)
     if ctx.attr.test_case_timeout_ms:
-        cmd.add(["--default_test_timeout", ctx.attr.test_case_timeout_ms])
+        cmd.extend(["--default_test_timeout", ctx.attr.test_case_timeout_ms])
 
     class_names = ctx.actions.declare_output("class_names")
     list_class_names_cmd = cmd_args([
@@ -65,7 +61,7 @@ def build_junit_test(
     ])
     ctx.actions.run(list_class_names_cmd, category = "list_class_names")
 
-    cmd.add("--test-class-names-file", class_names)
+    cmd.extend(["--test-class-names-file", class_names])
 
     native_libs_env = _get_native_libs_env(ctx)
     env = {}
@@ -75,10 +71,10 @@ def build_junit_test(
                 fail("Duplicate key for java_test env: '{}'".format(key))
             env[key] = value
 
-    run_info = RunInfo(args = cmd)
+    run_info = RunInfo(args = cmd_args(cmd))
     test_info = ExternalRunnerTestInfo(
         type = "junit",
-        command = [cmd],
+        command = cmd,
         env = env,
         labels = ctx.attr.labels,
         contacts = ctx.attr.contacts,
