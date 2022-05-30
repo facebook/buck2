@@ -2,34 +2,34 @@
 
 This website is built using [Docusaurus 2](https://docusaurus.io/), a modern static website generator.
 
-### Installation
+## Installation
 
-```
+```shell
 $ yarn global add node-gyp
 $ yarn
 ```
 
 If on Eden you might get faster builds by doing `eden redirect add $PWD/node_modules bind` first.
 
-### Local Development
+## Local Development
 
-```
+```shell
 $ yarn start
 ```
 
 This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
 
-### Build
+## Build
 
-```
+```shell
 $ yarn build
 ```
 
 This command generates static content into the `build` directory and can be served using any static contents hosting service.
 
-### Deployment
+## Deployment
 
-```
+```shell
 $ GIT_USER=<Your GitHub username> USE_SSH=true yarn deploy
 ```
 
