@@ -17,8 +17,10 @@ pub(crate) struct AttrValues {
 }
 
 impl AttrValues {
-    pub(crate) fn new() -> AttrValues {
-        AttrValues::default()
+    pub(crate) fn with_capacity(capacity: usize) -> AttrValues {
+        AttrValues {
+            sorted: Vec::with_capacity(capacity),
+        }
     }
 
     pub(crate) fn get_by_index(&self, index: usize) -> Option<&(AttributeId, CoercedAttr)> {

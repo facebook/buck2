@@ -124,7 +124,7 @@ impl TargetNode {
                     rule_type: RuleType::Starlark(rule_type),
                     buildfile_path,
                     deps_cache: CoercedDepsCollector::new(),
-                    attributes: AttrValues::new(),
+                    attributes: AttrValues::with_capacity(0),
                     attr_spec,
                     cfg,
                     visibility: VisibilitySpecification::Public,
@@ -142,6 +142,7 @@ impl TargetNode {
         eval: &mut Evaluator<'v, '_>,
         cfg: Option<Arc<TransitionId>>,
         param_parser: ParametersParser<'v, '_>,
+        param_count: usize,
         ignore_attrs_for_profiling: bool,
         rule_type: Arc<StarlarkRuleType>,
         buildfile_path: Arc<BuildFilePath>,
@@ -161,7 +162,7 @@ impl TargetNode {
             );
         }
 
-        let (target_name, attr_values) = attr_spec.parse_params(param_parser, eval)?;
+        let (target_name, attr_values) = attr_spec.parse_params(param_parser, param_count, eval)?;
         let internals = ModuleInternals::from_context(eval)?;
         let package = internals.package();
 
@@ -511,7 +512,7 @@ pub mod testing {
         ) -> TargetNode {
             let mut indices = OrderedMap::with_capacity(attrs.len());
             let mut instances = Vec::with_capacity(attrs.len());
-            let mut attributes = AttrValues::new();
+            let mut attributes = AttrValues::with_capacity(attrs.len());
 
             let mut deps_cache = CoercedDepsCollector::new();
 

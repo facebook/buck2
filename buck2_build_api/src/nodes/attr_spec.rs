@@ -116,10 +116,11 @@ impl AttributeSpec {
     pub(crate) fn parse_params<'v>(
         &self,
         mut param_parser: ParametersParser<'v, '_>,
+        param_count: usize,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<(TargetName, AttrValues)> {
         let mut name = None;
-        let mut attr_values = AttrValues::new();
+        let mut attr_values = AttrValues::with_capacity(param_count);
 
         for (attr_name, attr_idx) in &self.indices {
             let configurable = attr_is_configurable(attr_name);
