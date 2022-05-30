@@ -5,7 +5,6 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 /** @type {import('@docusaurus/types').DocusaurusConfig} */
 (module.exports = {
   title: 'Buck2',
-  tagline: 'Ready for fbcode users ∈ {C++, Python, Rust, OCaml, Go}',
   url: 'https://your-docusaurus-test-site.com',
   baseUrl: '/',
   onBrokenLinks: 'throw',
@@ -13,7 +12,7 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/logo.png',
   organizationName: 'facebook', // Usually your GitHub org/user name.
-  projectName: 'buck', // Usually your repo name.
+  projectName: 'buck2', // Usually your repo name.
 
   presets: [
     [
