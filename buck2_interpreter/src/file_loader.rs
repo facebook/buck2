@@ -21,6 +21,17 @@ pub struct LoadedModules {
     pub map: IndexMap<ModuleID, LoadedModule>,
 }
 
+impl LoadedModules {
+    pub fn imports(&self) -> impl Iterator<Item = &ImportPath> {
+        self.map.values().map(|module| {
+            *module
+                .path()
+                .unpack_load_file()
+                .expect("imports should only be bzl files")
+        })
+    }
+}
+
 pub trait LoadResolver {
     fn resolve_load(&self, path: &str) -> anyhow::Result<ImportPath>;
 }
@@ -49,20 +60,6 @@ struct LoadedModuleData {
 impl LoadedModule {
     pub fn new(path: OwnedStarlarkModulePath, imports: Vec<ImportPath>, env: FrozenModule) -> Self {
         Self(Arc::new(LoadedModuleData { path, imports, env }))
-    }
-
-    pub fn imports_from_loaded_modules(loaded_modules: &LoadedModules) -> Vec<ImportPath> {
-        loaded_modules
-            .map
-            .values()
-            .map(|module| {
-                (*module
-                    .path()
-                    .unpack_load_file()
-                    .expect("imports should only be bzl files"))
-                .clone()
-            })
-            .collect()
     }
 
     pub fn imports(&self) -> impl Iterator<Item = &ImportPath> {

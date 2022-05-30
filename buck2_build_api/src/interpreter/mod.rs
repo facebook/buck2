@@ -372,7 +372,7 @@ pub mod testing {
             let interpreter = self.interpreter()?;
             let ParseResult(ast, _) =
                 interpreter.parse(StarlarkPath::LoadFile(path), content.to_owned())?;
-            let imports = LoadedModule::imports_from_loaded_modules(&loaded_modules);
+            let imports = loaded_modules.imports().cloned().collect();
             let buckconfig = self
                 .configs
                 .get(self.cell_alias_resolver.resolve_self())

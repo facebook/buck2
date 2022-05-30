@@ -276,7 +276,7 @@ impl<'c> DiceCalculationDelegate<'c> {
     ) -> SharedResult<LoadedModule> {
         let (ast, deps) = self.prepare_eval(starlark_file.into()).await?;
         let loaded_modules = deps.get_loaded_modules();
-        let imports = LoadedModule::imports_from_loaded_modules(&loaded_modules);
+        let imports = loaded_modules.imports().cloned().collect();
         let buckconfig = self.get_legacy_buck_config_for_starlark().await?;
 
         self.get_interpreter_for_cell()

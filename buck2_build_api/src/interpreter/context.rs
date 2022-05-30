@@ -24,7 +24,7 @@ use buck2_interpreter::{
         cell_info::InterpreterCellInfo, ExtraContextDyn, InterpreterConfiguror,
         InterpreterHostPlatform,
     },
-    file_loader::{LoadedModule, LoadedModules},
+    file_loader::LoadedModules,
     package_imports::ImplicitImport,
     package_listing::listing::PackageListing,
 };
@@ -176,7 +176,7 @@ impl InterpreterConfiguror for BuildInterpreterConfiguror {
             package_boundary_exception,
         );
 
-        let imports = LoadedModule::imports_from_loaded_modules(loaded_modules);
+        let imports = loaded_modules.imports().cloned().collect();
 
         Ok(box ModuleInternals::new(
             attr_coercer,
