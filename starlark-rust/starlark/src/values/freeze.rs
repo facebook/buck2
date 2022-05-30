@@ -122,6 +122,17 @@ where
     }
 }
 
+impl<T> Freeze for Box<T>
+where
+    T: Freeze,
+{
+    type Frozen = Box<T::Frozen>;
+
+    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+        Ok(box (*self).freeze(freezer)?)
+    }
+}
+
 impl<T> Freeze for Option<T>
 where
     T: Freeze,
