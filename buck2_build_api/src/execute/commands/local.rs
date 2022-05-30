@@ -142,7 +142,7 @@ impl LocalExecutor {
                 buck2_data::LocalStage {
                     stage: Some(buck2_data::LocalMaterializeInputs {}.into()),
                 },
-                self.materialize_inputs(request.inputs()),
+                materialize_inputs(&self.artifact_fs, &self.materializer, request),
             )
             .await
         {
@@ -269,34 +269,6 @@ impl LocalExecutor {
             },
             Err(e) => manager.error("calculate_output_values_failed".into(), e),
         }
-    }
-
-    async fn materialize_inputs(&self, inputs: &[CommandExecutionInput]) -> anyhow::Result<()> {
-        let mut paths = vec![];
-
-        for input in inputs {
-            match input {
-                CommandExecutionInput::Artifact(group) => {
-                    for (artifact, _) in group.iter() {
-                        if let ArtifactKind::Build(a) = artifact.0.as_ref() {
-                            paths.push(self.artifact_fs.resolve_build(a));
-                        }
-                    }
-                }
-                CommandExecutionInput::ActionMetadata(metadata) => {
-                    let path = self
-                        .artifact_fs
-                        .buck_out_path_resolver()
-                        .resolve_gen(&metadata.path);
-                    CleanOutputPaths::clean(std::iter::once(path.as_ref()), self.artifact_fs.fs())?;
-                    self.artifact_fs
-                        .fs()
-                        .write_file(&path, &metadata.data, false)?;
-                }
-            }
-        }
-
-        self.materializer.ensure_materialized(paths).await
     }
 
     /// Create any output dirs requested by the command. Note that this makes no effort to delete
@@ -765,6 +737,35 @@ mod windows_async_read_ready {
     }
 }
 
+/// Materialize all inputs artifact for CommandExecutionRequest so the command can be executed locally.
+pub async fn materialize_inputs(
+    artifact_fs: &ArtifactFs,
+    materializer: &Arc<dyn Materializer>,
+    request: &CommandExecutionRequest,
+) -> anyhow::Result<()> {
+    let mut paths = vec![];
+
+    for input in request.inputs() {
+        match input {
+            CommandExecutionInput::Artifact(group) => {
+                for (artifact, _) in group.iter() {
+                    if let ArtifactKind::Build(a) = artifact.0.as_ref() {
+                        paths.push(artifact_fs.resolve_build(a));
+                    }
+                }
+            }
+            CommandExecutionInput::ActionMetadata(metadata) => {
+                let path = artifact_fs
+                    .buck_out_path_resolver()
+                    .resolve_gen(&metadata.path);
+                CleanOutputPaths::clean(std::iter::once(path.as_ref()), artifact_fs.fs())?;
+                artifact_fs.fs().write_file(&path, &metadata.data, false)?;
+            }
+        }
+    }
+
+    materializer.ensure_materialized(paths).await
+}
 #[cfg(test)]
 mod tests {
     use std::{collections::HashMap, str, sync::Arc, time::Instant};
