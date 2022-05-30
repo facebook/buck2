@@ -179,6 +179,15 @@ impl TestOrchestrator for BuckTestOrchestrator {
             declared_outputs,
             resolved_executor_override,
         } = test_executable_expanded;
+        let execution_request = self
+            .create_command_execution_request(
+                cwd,
+                expanded_cmd,
+                expanded_env,
+                inputs,
+                declared_outputs,
+            )
+            .await?;
 
         let (stdout, stderr, status, timing, outputs) = self
             .execute_shared(
@@ -186,13 +195,9 @@ impl TestOrchestrator for BuckTestOrchestrator {
                 metadata,
                 Some(host_sharing_requirements),
                 timeout,
-                inputs,
-                expanded_cmd,
-                expanded_env,
-                cwd,
-                declared_outputs,
                 supports_re,
                 resolved_executor_override.as_ref(),
+                execution_request,
             )
             .await?;
 
@@ -287,13 +292,9 @@ impl BuckTestOrchestrator {
         metadata: DisplayMetadata,
         host_sharing_requirements: Option<HostSharingRequirements>,
         timeout: Duration,
-        cmd_inputs: IndexSet<ArtifactGroup>,
-        cli_args: Vec<String>,
-        cli_env: HashMap<String, String>,
-        cwd: ProjectRelativePathBuf,
-        outputs: IndexMap<BuckOutTestPath, OutputCreationBehavior>,
         supports_re: bool,
         executor_override: Option<&CommandExecutorConfig>,
+        mut request: CommandExecutionRequest,
     ) -> anyhow::Result<(
         ExecutionStream,
         ExecutionStream,
@@ -305,26 +306,7 @@ impl BuckTestOrchestrator {
             .get_command_executor(&test_target, executor_override)
             .await
             .context("Error getting command executor")?;
-
-        let mut inputs = Vec::with_capacity(cmd_inputs.len());
-        for input in &cmd_inputs {
-            // we already built these before reaching out to tpx, so these should already be ready
-            // hence we don't actually need to spawn these in parallel
-            // TODO (T102328660): Does CommandExecutionRequest need this artifact?
-            inputs.push(CommandExecutionInput::Artifact(
-                self.dice.ensure_artifact_group(input).await?,
-            ));
-        }
-
-        // NOTE: This looks a bit awkward, that's because fbcode's rustfmt and ours slightly
-        // disagree about format here...
-        let request = CommandExecutionRequest::new(cli_args, inputs, Default::default(), cli_env);
-        let mut request = request
-            .with_test_outputs(outputs)
-            .with_timeout(timeout)
-            // A custom $TMPDIR is usually longer, which breaks a bunch of tests
-            .with_custom_tmpdir(false)
-            .with_working_directory(cwd);
+        request = request.with_timeout(timeout).with_custom_tmpdir(false);
         if let Some(requirements) = host_sharing_requirements {
             request = request.with_host_sharing_requirements(requirements);
         }
@@ -565,6 +547,33 @@ impl BuckTestOrchestrator {
             supports_re,
             resolved_executor_override,
         })
+    }
+
+    async fn create_command_execution_request(
+        &self,
+        cwd: ProjectRelativePathBuf,
+        cmd: Vec<String>,
+        env: HashMap<String, String>,
+        cmd_inputs: IndexSet<ArtifactGroup>,
+        declared_outputs: IndexMap<BuckOutTestPath, OutputCreationBehavior>,
+    ) -> anyhow::Result<CommandExecutionRequest> {
+        let mut inputs = Vec::with_capacity(cmd_inputs.len());
+        for input in &cmd_inputs {
+            // we already built these before reaching out to tpx, so these should already be ready
+            // hence we don't actually need to spawn these in parallel
+            // TODO (T102328660): Does CommandExecutionRequest need this artifact?
+            inputs.push(CommandExecutionInput::Artifact(
+                self.dice.ensure_artifact_group(input).await?,
+            ));
+        }
+
+        // NOTE: This looks a bit awkward, that's because fbcode's rustfmt and ours slightly
+        // disagree about format here...
+        let mut request = CommandExecutionRequest::new(cmd, inputs, Default::default(), env);
+        request = request
+            .with_test_outputs(declared_outputs)
+            .with_working_directory(cwd);
+        Ok(request)
     }
 }
 
