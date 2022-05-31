@@ -129,6 +129,10 @@ impl TypeCompiled {
         x == "" || x.starts_with('_')
     }
 
+    fn is_wildcard_value(x: Value) -> bool {
+        x.unpack_str().map(TypeCompiled::is_wildcard) == Some(true)
+    }
+
     /// For `p: "xxx"`, parse that `"xxx"` as type.
     fn from_str(t: &str) -> TypeCompiled {
         if TypeCompiled::is_wildcard(t) {
@@ -155,8 +159,7 @@ impl TypeCompiled {
             1 => {
                 // Must be a list with all elements of this type
                 let t = *t.first().unwrap();
-                let wildcard = t.unpack_str().map(TypeCompiled::is_wildcard) == Some(true);
-                if wildcard {
+                if TypeCompiled::is_wildcard_value(t) {
                     // Any type - so avoid the inner iteration
                     Ok(TypeCompiled::type_list())
                 } else {
