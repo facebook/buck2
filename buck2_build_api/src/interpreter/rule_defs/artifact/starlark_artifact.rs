@@ -10,7 +10,7 @@
 use std::fmt::Display;
 
 use buck2_core::{
-    fs::paths::{ForwardRelativePath, ForwardRelativePathBuf},
+    fs::paths::ForwardRelativePathBuf,
     provider::{ConfiguredProvidersLabel, ProvidersName},
 };
 use either::Either;
@@ -79,13 +79,6 @@ impl<'v> UnpackValue<'v> for StarlarkArtifact {
 impl StarlarkArtifact {
     pub fn new(artifact: Artifact) -> Self {
         StarlarkArtifact { artifact }
-    }
-
-    fn get_path(&self) -> &ForwardRelativePath {
-        match self.artifact.0.as_ref() {
-            ArtifactKind::Source(s) => s.get_path().path().as_ref(),
-            ArtifactKind::Build(b) => b.get_path().path(),
-        }
     }
 
     pub fn artifact(&self) -> Artifact {
@@ -203,9 +196,10 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     /// The base name of this artifact. e.g. for an artifact at `foo/bar`, this is `bar`
     #[starlark(attribute)]
     fn basename<'v>(this: &'v StarlarkArtifact) -> anyhow::Result<&'v str> {
-        match this.get_path().file_name() {
+        let path = this.artifact.path();
+        match path.file_name() {
             Some(x) => Ok(x.as_str()),
-            None => Err(ArtifactErrors::EmptyFilename(this.get_path().to_owned()).into()),
+            None => Err(ArtifactErrors::EmptyFilename(path.to_owned()).into()),
         }
     }
 
@@ -213,7 +207,7 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     /// this is `.sh`. If no extension is present, `""` is returned.
     #[starlark(attribute)]
     fn extension<'v>(this: &StarlarkArtifact) -> anyhow::Result<StringValue<'v>> {
-        match this.get_path().extension() {
+        match this.artifact.path().extension() {
             None => Ok(heap.alloc_str("")),
             Some(x) => Ok(heap.alloc_str_concat(".", x)),
         }
@@ -222,10 +216,7 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     /// Whether the artifact represents a source file
     #[starlark(attribute)]
     fn is_source(this: &StarlarkArtifact) -> anyhow::Result<bool> {
-        match this.artifact.0.as_ref() {
-            ArtifactKind::Source(_) => Ok(true),
-            ArtifactKind::Build(_) => Ok(false),
-        }
+        Ok(this.artifact.is_source())
     }
 
     /// The `Label` of the rule that originally created this artifact. May also be None in
@@ -233,15 +224,13 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     //     /// action was not created by a rule.
     #[starlark(attribute)]
     fn owner<'v>(this: &StarlarkArtifact) -> anyhow::Result<Option<Label<'v>>> {
-        match this.artifact.0.as_ref() {
-            ArtifactKind::Source(_) => Ok(None),
-            ArtifactKind::Build(b) => match b.get_path().owner() {
-                BaseDeferredKey::TargetLabel(target) => Ok(Some(Label::new(
-                    heap,
-                    ConfiguredProvidersLabel::new(target.dupe(), ProvidersName::Default),
-                ))),
-                BaseDeferredKey::BxlLabel(_) => Ok(None),
-            },
+        match this.artifact.owner() {
+            None => Ok(None),
+            Some(BaseDeferredKey::TargetLabel(target)) => Ok(Some(Label::new(
+                heap,
+                ConfiguredProvidersLabel::new(target.dupe(), ProvidersName::Default),
+            ))),
+            Some(BaseDeferredKey::BxlLabel(_)) => Ok(None),
         }
     }
 
@@ -255,9 +244,6 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     /// For an artifact declared as `foo/bar`, this is `foo/bar`.
     #[starlark(attribute)]
     fn short_path<'v>(this: &'v StarlarkArtifact) -> anyhow::Result<&'v str> {
-        match this.artifact.0.as_ref() {
-            ArtifactKind::Source(x) => Ok(x.get_path().path().as_str()),
-            ArtifactKind::Build(x) => Ok(x.get_path().short_path().as_str()),
-        }
+        Ok(this.artifact.short_path().as_str())
     }
 }
