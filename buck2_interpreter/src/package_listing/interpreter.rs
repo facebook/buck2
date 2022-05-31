@@ -94,7 +94,7 @@ impl<'c> InterpreterPackageListingResolver<'c> {
         Self { cell_resolver, fs }
     }
 
-    async fn gather_package_listing<'a>(
+    pub async fn gather_package_listing<'a>(
         &'a self,
         root: &'a Package,
     ) -> anyhow::Result<PackageListing> {

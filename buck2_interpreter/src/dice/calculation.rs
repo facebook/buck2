@@ -260,7 +260,7 @@ impl<'c> DiceCalculationDelegate<'c> {
         ))
     }
 
-    async fn prepare_eval<'a>(
+    pub async fn prepare_eval<'a>(
         &'a self,
         starlark_file: StarlarkPath<'_>,
     ) -> SharedResult<(AstModule, ModuleDeps)> {

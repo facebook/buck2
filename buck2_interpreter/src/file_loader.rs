@@ -70,6 +70,10 @@ impl LoadedModule {
         }))
     }
 
+    pub fn loaded_modules(&self) -> &LoadedModules {
+        &self.0.loaded_modules
+    }
+
     pub fn imports(&self) -> impl Iterator<Item = &ImportPath> {
         self.0.loaded_modules.imports()
     }

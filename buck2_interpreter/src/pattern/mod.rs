@@ -51,6 +51,7 @@ use crate::{
 };
 
 mod ascii_pattern;
+pub mod parse_package;
 
 #[derive(Error, Debug)]
 enum TargetPatternParseError {

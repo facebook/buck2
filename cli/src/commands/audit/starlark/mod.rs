@@ -10,6 +10,7 @@
 //! Starlark debugging.
 
 mod module;
+mod package_deps;
 
 use async_trait::async_trait;
 use cli_proto::ClientContext;
@@ -17,7 +18,10 @@ use structopt::StructOpt;
 
 use crate::{
     commands::{
-        audit::{starlark::module::StarlarkModuleCommand, AuditSubcommand},
+        audit::{
+            starlark::{module::StarlarkModuleCommand, package_deps::StarlarkPackageDepsCommand},
+            AuditSubcommand,
+        },
         common::{CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions},
     },
     daemon::server::ServerCommandContext,
@@ -27,6 +31,7 @@ use crate::{
 #[structopt(name = "starlark", about = "Debug Starlark interpreter")]
 pub enum StarlarkCommand {
     Module(StarlarkModuleCommand),
+    PackageDeps(StarlarkPackageDepsCommand),
 }
 
 #[async_trait]
@@ -38,6 +43,7 @@ impl AuditSubcommand for StarlarkCommand {
     ) -> anyhow::Result<()> {
         match self {
             StarlarkCommand::Module(cmd) => cmd.server_execute(server_ctx, client_ctx).await,
+            StarlarkCommand::PackageDeps(cmd) => cmd.server_execute(server_ctx, client_ctx).await,
         }
     }
 
