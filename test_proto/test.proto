@@ -154,6 +154,7 @@ message TestExecutable {
   ConfiguredTargetHandle target = 2;
   repeated ArgValue cmd = 3;
   map<string, ArgValue> env = 4;
+  repeated DeclaredOutput pre_create_dirs = 5;
 }
 
 message ExecutorConfigOverride {
@@ -161,10 +162,9 @@ message ExecutorConfigOverride {
 }
 
 message ExecuteRequest2 {
-  reserved 1 to 4;
+  reserved 1 to 4, 7;
   google.protobuf.Duration timeout = 5;
   HostSharingRequirements host_sharing_requirements = 6;
-  repeated DeclaredOutput pre_create_dirs = 7;
   TestExecutable test_executable = 8;
   ExecutorConfigOverride executor_override = 9;
 }

@@ -171,7 +171,6 @@ pub struct ExecuteRequest2 {
     pub test_executable: TestExecutable,
     pub timeout: Duration,
     pub host_sharing_requirements: HostSharingRequirements,
-    pub pre_create_dirs: Vec<DeclaredOutput>,
     pub executor_override: Option<ExecutorConfigOverride>,
 }
 
@@ -196,6 +195,7 @@ pub struct TestExecutable {
     pub target: ConfiguredTargetHandle,
     pub cmd: Vec<ArgValue>,
     pub env: HashMap<String, ArgValue>,
+    pub pre_create_dirs: Vec<DeclaredOutput>,
 }
 
 pub mod testing {

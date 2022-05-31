@@ -109,13 +109,13 @@ impl TestOrchestrator for TestOrchestratorClient {
             target,
             cmd,
             env,
+            pre_create_dirs,
         };
 
         let req = ExecuteRequest2 {
             test_executable,
             timeout,
             host_sharing_requirements,
-            pre_create_dirs,
             executor_override,
         };
 
@@ -215,7 +215,6 @@ where
                 test_executable,
                 timeout,
                 host_sharing_requirements,
-                pre_create_dirs,
                 executor_override,
             } = request
                 .into_inner()
@@ -227,6 +226,7 @@ where
                 target,
                 cmd,
                 env,
+                pre_create_dirs,
             } = test_executable;
 
             let result = self

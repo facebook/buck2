@@ -441,7 +441,6 @@ impl TryFrom<test_proto::ExecuteRequest2> for ExecuteRequest2 {
             test_executable,
             timeout,
             host_sharing_requirements,
-            pre_create_dirs,
             executor_override,
         } = s;
 
@@ -459,17 +458,12 @@ impl TryFrom<test_proto::ExecuteRequest2> for ExecuteRequest2 {
             host_sharing_requirements_from_grpc(host_sharing_requirements)
                 .context("Invalid `host_sharing_requirements`")?;
 
-        let pre_create_dirs = pre_create_dirs
-            .into_try_map(|c| c.try_into())
-            .context("Invalid `pre_create_dirs`")?;
-
         let executor_override = executor_override.map(|o| o.into());
 
         Ok(ExecuteRequest2 {
             test_executable,
             timeout,
             host_sharing_requirements,
-            pre_create_dirs,
             executor_override,
         })
     }
@@ -492,10 +486,6 @@ impl TryInto<test_proto::ExecuteRequest2> for ExecuteRequest2 {
                 host_sharing_requirements_to_grpc(self.host_sharing_requirements)
                     .context("Invalid `host_sharing_requirements`")?,
             ),
-            pre_create_dirs: self
-                .pre_create_dirs
-                .into_try_map(|i| i.try_into())
-                .context("Invalid `pre_create_dirs`")?,
             executor_override: self.executor_override.map(|o| o.into()),
         })
     }
@@ -632,6 +622,7 @@ impl TryFrom<test_proto::TestExecutable> for TestExecutable {
             target,
             cmd,
             env,
+            pre_create_dirs,
         } = s;
         let ui_prints = ui_prints
             .context("Missing `ui_prints`")?
@@ -656,11 +647,16 @@ impl TryFrom<test_proto::TestExecutable> for TestExecutable {
             })
             .collect::<anyhow::Result<_>>()?;
 
+        let pre_create_dirs = pre_create_dirs
+            .into_try_map(|c| c.try_into())
+            .context("Invalid `pre_create_dirs`")?;
+
         Ok(TestExecutable {
             ui_prints,
             target,
             cmd,
             env,
+            pre_create_dirs,
         })
     }
 }
@@ -686,11 +682,17 @@ impl TryInto<test_proto::TestExecutable> for TestExecutable {
             })
             .collect::<anyhow::Result<_>>()?;
 
+        let pre_create_dirs = self
+            .pre_create_dirs
+            .into_try_map(|i| i.try_into())
+            .context("Invalid `pre_create_dirs`")?;
+
         Ok(test_proto::TestExecutable {
             ui_prints,
             target,
             cmd,
             env,
+            pre_create_dirs,
         })
     }
 }
@@ -777,12 +779,12 @@ mod tests {
             )]
             .into_iter()
             .collect(),
+            pre_create_dirs: vec![declared_output],
         };
         let request = ExecuteRequest2 {
             test_executable,
             timeout: Duration::from_millis(42),
             host_sharing_requirements: HostSharingRequirements::ExclusiveAccess,
-            pre_create_dirs: vec![declared_output],
             executor_override: Some(ExecutorConfigOverride {
                 name: "foo".to_owned(),
             }),
