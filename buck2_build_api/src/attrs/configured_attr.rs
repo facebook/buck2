@@ -7,15 +7,14 @@
  * of this source tree.
  */
 
-use std::{
-    collections::HashMap,
-    fmt::{Debug, Display},
-};
+use std::fmt::{Debug, Display};
 
 use buck2_core::{provider::ConfiguredProvidersLabel, target::TargetLabel};
-use gazebo::prelude::*;
 use serde::{Serialize, Serializer};
-use starlark::values::Value;
+use starlark::{
+    collections::{small_map::Entry, SmallMap},
+    values::Value,
+};
 
 use crate::attrs::{
     attr_type::attr_literal::{AttrConfig, AttrLiteral, ConfiguredAttrTraversal},
@@ -58,47 +57,78 @@ impl ConfiguredAttr {
     /// Used for concatting the configured result of concatted selects. For most types this isn't allowed (it
     /// should be unreachable as concat-ability is checked during coercion and the type would've returned false from `AttrType::supports_concat`).
     /// This is used when a select() is added to another value, like `select(<...>) + select(<...>)` or `select(<...>) + [...]`.
-    pub fn concat(self, other: ConfiguredAttr) -> anyhow::Result<Self> {
-        match (self.0, other.0) {
-            (AttrLiteral::List(left, lt), AttrLiteral::List(right, rt)) => {
-                if lt != rt {
-                    Err(SelectError::ConcatNotSupportedValues(
-                        AttrLiteral::List(left, lt).to_string(),
-                        AttrLiteral::List(right, rt).to_string(),
-                    )
-                    .into())
-                } else {
-                    let mut res = left.into_vec();
-                    res.extend(right.into_vec());
-                    Ok(Self(AttrLiteral::List(res.into_boxed_slice(), lt)))
-                }
-            }
-            (AttrLiteral::Dict(mut left), AttrLiteral::Dict(right)) => {
-                let mut index = HashMap::new();
-                for (i, (k, _)) in left.iter().enumerate() {
-                    index.insert(k, i);
-                }
-                // As the index borrows left, we need to resolve the mapping before we start modifying it.
-                let mapping: Vec<_> = right.map(|(k, _)| index.get(k).copied());
-                for (idx, (k, v)) in itertools::zip(mapping, right) {
-                    if idx.is_some() {
-                        return Err(SelectError::DictConcatDuplicateKeys(k.to_string()).into());
-                    } else {
-                        left.push((k, v));
+    pub fn concat(self, items: impl Iterator<Item = anyhow::Result<Self>>) -> anyhow::Result<Self> {
+        let mismatch = |ty, attr: AttrLiteral<ConfiguredAttr>| {
+            Err(SelectError::ConcatNotSupportedValues(ty, attr.to_string()).into())
+        };
+
+        match self.0 {
+            AttrLiteral::List(res, ty) => {
+                let mut res = res.into_vec();
+                for x in items {
+                    match x?.0 {
+                        AttrLiteral::List(items, ty2) => {
+                            if ty != ty2 {
+                                return Err(SelectError::ConcatListDifferentTypes(
+                                    ty.to_string(),
+                                    ty2.to_string(),
+                                )
+                                .into());
+                            } else {
+                                res.extend(items.into_vec());
+                            }
+                        }
+                        attr => return mismatch("list", attr),
                     }
                 }
-                Ok(Self(AttrLiteral::Dict(left)))
+                Ok(Self(AttrLiteral::List(res.into_boxed_slice(), ty)))
             }
-            (AttrLiteral::String(mut left), AttrLiteral::String(right)) => {
-                left.push_str(&right);
-                Ok(Self(AttrLiteral::String(left)))
+            AttrLiteral::Dict(left) => {
+                let mut res = SmallMap::new();
+                for (k, v) in left {
+                    res.insert(k, v);
+                }
+                for x in items {
+                    match x?.0 {
+                        AttrLiteral::Dict(right) => {
+                            for (k, v) in right {
+                                match res.entry(k) {
+                                    Entry::Vacant(e) => {
+                                        e.insert(v);
+                                    }
+                                    Entry::Occupied(e) => {
+                                        return Err(SelectError::DictConcatDuplicateKeys(
+                                            e.key().to_string(),
+                                        )
+                                        .into());
+                                    }
+                                }
+                            }
+                        }
+                        attr => return mismatch("dict", attr),
+                    }
+                }
+                Ok(Self(AttrLiteral::Dict(res.into_iter().collect())))
             }
-            (AttrLiteral::Arg(left), AttrLiteral::Arg(right)) => {
-                Ok(Self(AttrLiteral::Arg(left.concat(right))))
+            AttrLiteral::String(mut res) => {
+                for x in items {
+                    match x?.0 {
+                        AttrLiteral::String(right) => res.push_str(&right),
+                        attr => return mismatch("string", attr),
+                    }
+                }
+                Ok(Self(AttrLiteral::String(res)))
             }
-            (lhs, rhs) => {
-                Err(SelectError::ConcatNotSupportedValues(lhs.to_string(), rhs.to_string()).into())
+            AttrLiteral::Arg(mut res) => {
+                for x in items {
+                    match x?.0 {
+                        AttrLiteral::Arg(right) => res = res.concat(right),
+                        attr => return mismatch("arg", attr),
+                    }
+                }
+                Ok(Self(AttrLiteral::Arg(res)))
             }
+            val => Err(SelectError::ConcatNotSupported(val.to_string()).into()),
         }
     }
 

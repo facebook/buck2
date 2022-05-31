@@ -52,8 +52,10 @@ pub(crate) enum SelectError {
     ValueNotDict(String),
     #[error("addition not supported for this attribute type `{0}`.")]
     ConcatNotSupported(String),
-    #[error("addition not supported for these attribute values `{0}` and `{1}`.")]
-    ConcatNotSupportedValues(String, String),
+    #[error("addition not supported for these attribute type `{0}` and value `{1}`.")]
+    ConcatNotSupportedValues(&'static str, String),
+    #[error("addition not supported for lists of different types, got `{0}` and `{1}`.")]
+    ConcatListDifferentTypes(String, String),
     #[error("got same key in both sides of dictionary concat (key `{0}`).")]
     DictConcatDuplicateKeys(String),
     #[error(
@@ -396,15 +398,9 @@ impl CoercedAttr {
                     .configure(ctx)
             }
             CoercedAttr::Concat(items) => {
-                let mut result: Option<ConfiguredAttr> = None;
-                for item in items {
-                    let configured_item = item.configure(ctx)?;
-                    result = Some(match result {
-                        None => configured_item,
-                        Some(base) => base.concat(configured_item)?,
-                    });
-                }
-                result.ok_or_else(|| SelectError::ConcatEmpty.into())
+                let mut it = items.iter().map(|item| item.configure(ctx));
+                let first = it.next().ok_or(SelectError::ConcatEmpty)??;
+                first.concat(it)
             }
         }
     }
