@@ -23,7 +23,7 @@ use thiserror::Error;
 use crate::values::{
     dict::{Dict, DictRef},
     list::{List, ListRef},
-    tuple::Tuple,
+    tuple::{Tuple, TupleGen},
     Heap, Trace, Tracer, Value,
 };
 
@@ -114,6 +114,13 @@ impl TypeCompiled {
             Some(v) => v.iter().all(|(k, v)| (kt.0)(k) && (vt.0)(v)),
         })
     }
+
+    fn type_tuple_of(ts: Vec<TypeCompiled>) -> TypeCompiled {
+        TypeCompiled(box move |v| match Tuple::from_value(v) {
+            Some(v) if v.len() == ts.len() => v.iter().zip(ts.iter()).all(|(v, t)| (t.0)(v)),
+            _ => false,
+        })
+    }
 }
 
 impl TypeCompiled {
@@ -136,11 +143,9 @@ impl TypeCompiled {
         }
     }
 
-    fn is_tuple_elems(ts: Vec<TypeCompiled>) -> TypeCompiled {
-        TypeCompiled(box move |v| match Tuple::from_value(v) {
-            Some(v) if v.len() == ts.len() => v.iter().zip(ts.iter()).all(|(v, t)| (t.0)(v)),
-            _ => false,
-        })
+    fn from_tuple<'v>(t: &TupleGen<Value<'v>>, heap: &'v Heap) -> anyhow::Result<TypeCompiled> {
+        let ts = t.content().try_map(|t| TypeCompiled::new(*t, heap))?;
+        Ok(TypeCompiled::type_tuple_of(ts))
     }
 
     /// Parse `[t1, t2, ...]` as type.
@@ -198,8 +203,7 @@ impl TypeCompiled {
         } else if ty.is_none() {
             Ok(TypeCompiled::type_none())
         } else if let Some(t) = Tuple::from_value(ty) {
-            let ts = t.content().try_map(|t| TypeCompiled::new(*t, heap))?;
-            Ok(TypeCompiled::is_tuple_elems(ts))
+            TypeCompiled::from_tuple(t, heap)
         } else if let Some(t) = List::from_value(ty) {
             TypeCompiled::from_list(t, heap)
         } else if let Some(t) = Dict::from_value(ty) {
