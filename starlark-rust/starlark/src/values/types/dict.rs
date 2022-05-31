@@ -283,7 +283,8 @@ impl<'v> Dict<'v> {
         self.content.get(&ValueStr(key)).copied()
     }
 
-    pub(crate) fn get_str_hashed(&self, key: Hashed<&str>) -> Option<Value<'v>> {
+    /// Like [`Dict::get_str`], but where you already have the hash.
+    pub fn get_str_hashed(&self, key: Hashed<&str>) -> Option<Value<'v>> {
         self.content
             .get_hashed(Hashed::new_unchecked(key.hash(), &ValueStr(key.key())))
             .copied()
