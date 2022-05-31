@@ -10,8 +10,6 @@
 #
 # This is closely coupled to `_rustc_invoke` in `build.bzl`
 
-# pyre-unsafe
-
 import argparse
 import asyncio
 import json
@@ -20,11 +18,24 @@ import shlex
 import subprocess
 import sys
 from pathlib import Path
+from typing import Dict, IO, List, NamedTuple, Optional, Tuple
 
 DEBUG = False
 
 
-def arg_parse():
+class Args(NamedTuple):
+    diag_json: Optional[IO[str]]
+    diag_txt: Optional[IO[str]]
+    env: Optional[List[Tuple[str, str]]]
+    path_env: Optional[List[Tuple[str, str]]]
+    crate_map: Optional[List[Tuple[str, str]]]
+    buck_target: Optional[str]
+    failure_filter: Optional[IO[str]]
+    required_output: Optional[List[Tuple[str, str]]]
+    rustc: List[str]
+
+
+def arg_parse() -> Args:
     # Command line is <action.py> [args] -- rustc command line
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -79,14 +90,21 @@ def arg_parse():
         "rustc", nargs=argparse.REMAINDER, type=str, help="Compiler command line"
     )
 
-    return parser.parse_args()
+    return Args(**vars(parser.parse_args()))
 
 
-async def handle_output(proc, args, crate_map):
+async def handle_output(  # noqa: C901
+    proc: asyncio.subprocess.Process,
+    args: Args,
+    crate_map: Dict[str, str],
+) -> bool:
     got_error_diag = False
 
+    proc_stderr = proc.stderr
+    assert proc_stderr is not None
+
     while True:
-        line = await proc.stderr.readline()
+        line = await proc_stderr.readline()
 
         if line is None or line == b"":
             break
@@ -143,7 +161,7 @@ async def handle_output(proc, args, crate_map):
     return got_error_diag
 
 
-async def main():
+async def main() -> int:
     args = arg_parse()
 
     # Inherit a very limited initial environment, then add the new things
@@ -232,5 +250,4 @@ async def main():
     return res
 
 
-res = asyncio.run(main())
-sys.exit(res)
+sys.exit(asyncio.run(main()))

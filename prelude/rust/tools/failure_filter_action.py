@@ -5,16 +5,21 @@
 # outputs. This is to allow us to report success if rustc generated the artifact
 # we needed (ie diagnostics) even if the compilation itself failed.
 
-# pyre-unsafe
-
 import argparse
 import json
 import os
 import shutil
 import sys
+from typing import IO, List, NamedTuple, Optional, Tuple
 
 
-def arg_parse():
+class Args(NamedTuple):
+    build_status: IO[str]
+    required_file: Optional[List[Tuple[str, str, str]]]
+    stderr: Optional[IO[str]]
+
+
+def arg_parse() -> Args:
     parser = argparse.ArgumentParser()
     parser.add_argument("--build-status", type=argparse.FileType(), required=True)
     parser.add_argument(
@@ -25,10 +30,10 @@ def arg_parse():
     )
     parser.add_argument("--stderr", type=argparse.FileType())
 
-    return parser.parse_args()
+    return Args(**vars(parser.parse_args()))
 
 
-def main():
+def main() -> int:
     args = arg_parse()
 
     if args.stderr:
@@ -41,17 +46,18 @@ def main():
     # if any are missing. (Ideally we could just do the copy by referring to the
     # same underlying CAS object, which would avoid having to move the actual
     # bytes around at all.)
-    for short, inp, out in args.required_file:
-        if short in build_status["files"]:
-            try:
-                # Try a hard link to avoid unnecessary copies
-                os.link(inp, out)
-            except OSError:
-                # Fall back to real copy if that doesn't work
-                shutil.copy(inp, out)
-        else:
-            print(f"Missing required input file {short} ({inp})", file=sys.stderr)
-            return build_status["status"]
+    if args.required_file:
+        for short, inp, out in args.required_file:
+            if short in build_status["files"]:
+                try:
+                    # Try a hard link to avoid unnecessary copies
+                    os.link(inp, out)
+                except OSError:
+                    # Fall back to real copy if that doesn't work
+                    shutil.copy(inp, out)
+            else:
+                print(f"Missing required input file {short} ({inp})", file=sys.stderr)
+                return build_status["status"]
 
     # If all the required files were present, then success regardless of
     # original status.
