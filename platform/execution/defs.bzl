@@ -13,12 +13,14 @@ def _execution_platform_impl(ctx):
         ExecutionPlatformInfo(
             label = ctx.label.raw_target(),
             configuration = ctx.attr.platform[PlatformInfo].configuration,
-            local_enabled = ctx.attr.local_enabled,
-            remote_enabled = ctx.attr.remote_enabled,
-            remote_execution_properties = ctx.attr.remote_execution_properties,
-            remote_execution_action_key = remote_execution_action_key,
-            remote_execution_max_input_files_mebibytes = ctx.attr.remote_execution_max_input_files_mebibytes,
-            use_limited_hybrid = True,
+            executor_config = CommandExecutorConfig(
+                local_enabled = ctx.attr.local_enabled,
+                remote_enabled = ctx.attr.remote_enabled,
+                remote_execution_properties = ctx.attr.remote_execution_properties,
+                remote_execution_action_key = remote_execution_action_key,
+                remote_execution_max_input_files_mebibytes = ctx.attr.remote_execution_max_input_files_mebibytes,
+                use_limited_hybrid = True,
+            ),
         ),
     ]
 

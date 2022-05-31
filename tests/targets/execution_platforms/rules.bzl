@@ -2,13 +2,15 @@ def _execution_platforms_impl(ctx):
     platform = ExecutionPlatformInfo(
         label = ctx.label.raw_target(),
         configuration = ctx.attr.configuration[ConfigurationInfo],
-        local_enabled = True,
-        remote_enabled = True,
-        remote_execution_properties = {
-            "platform": "linux-remote-execution",
-        },
-        remote_execution_max_input_files_mebibytes = 1,
-        use_limited_hybrid = True,
+        executor_config = CommandExecutorConfig(
+            local_enabled = True,
+            remote_enabled = True,
+            remote_execution_properties = {
+                "platform": "linux-remote-execution",
+            },
+            remote_execution_max_input_files_mebibytes = 1,
+            use_limited_hybrid = True,
+        ),
     )
 
     return [
