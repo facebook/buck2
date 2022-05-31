@@ -25,7 +25,7 @@ use remote_execution::{
     CASDaemonClientCfg, CopyPolicy, DownloadRequest, EmbeddedCASDaemonClientCfg, ExecuteRequest,
     ExecuteResponse, ExecuteWithProgressResponse, HostResourceRequirements, InlinedBlobWithDigest,
     NamedDigest, NamedDigestWithPermissions, REClient, REClientBuilder, RemoteExecutionMetadata,
-    Stage, TDigest, TExecutionPolicy, TResultsCachePolicy, UploadRequest,
+    Stage, TDigest, TExecutionPolicy, TResultsCachePolicy, UploadRequest, ZdbRichClientMode,
 };
 use tokio::sync::Semaphore;
 use tracing::warn;
@@ -393,7 +393,11 @@ impl RemoteExecutionClientImpl {
             // disabling zippy rich client until we have limits in place
             embedded_cas_daemon_config
                 .rich_client_config
-                .enable_zippy_rich_client = static_metadata.use_zippy_rich_client;
+                .zdb_client_mode = if static_metadata.use_zippy_rich_client {
+                ZdbRichClientMode::HYBRID
+            } else {
+                ZdbRichClientMode::DISABLED
+            };
             embedded_cas_daemon_config.rich_client_config.disable_p2p = !static_metadata.use_p2p;
             embedded_cas_daemon_config
                 .rich_client_config
