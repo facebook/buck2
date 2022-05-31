@@ -48,7 +48,7 @@ use tracing::info;
 
 use crate::{
     actions::{
-        artifact::{ArtifactFs, ArtifactKind, ArtifactValue},
+        artifact::{ArtifactFs, ArtifactValue},
         directory::{
             extract_artifact_value, insert_entry, new_symlink, ActionDirectoryBuilder,
             ActionDirectoryEntry, ActionDirectoryMember,
@@ -729,8 +729,8 @@ pub async fn materialize_inputs(
         match input {
             CommandExecutionInput::Artifact(group) => {
                 for (artifact, _) in group.iter() {
-                    if let ArtifactKind::Build(a) = artifact.0.as_ref() {
-                        paths.push(artifact_fs.resolve_build(a));
+                    if !artifact.is_source() {
+                        paths.push(artifact_fs.resolve(artifact)?);
                     }
                 }
             }
