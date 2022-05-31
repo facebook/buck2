@@ -22,7 +22,7 @@ def _impl(ctx):
     owner = findOwningTarget(ctx, filename)
     if owner != None:
         buckRoot = ctx.root()
-        providers = ctx.analysis(owner, None, True)[0].providers()
+        providers = ctx.analysis(owner, None, True).providers()
         artifact = providers[CxxCompilationDbInfo].info[owner.get_source(filename, ctx)]
         compileCommands = []
         arguments = cmd_args()
@@ -34,7 +34,7 @@ def _impl(ctx):
         compileCommands.append({"file": filename, "directory": buckRoot, "arguments": arguments})
         actionFactory = ctx.bxl_actions.action_factory()
         compdbArtifact = actionFactory.write_json("compdb.json", compileCommands)
-        hmapConverter = ctx.analysis("fbsource//xplat/scripts/clangd/hmapconverter:bxlhmapconverter")[0].providers()[RunInfo]
+        hmapConverter = ctx.analysis("fbsource//xplat/scripts/clangd/hmapconverter:bxlhmapconverter").providers()[RunInfo]
         outputDir = actionFactory.declare_output("merged_cdb")
         cmd = cmd_args(hmapConverter)
         cmd.add("--input-file")
