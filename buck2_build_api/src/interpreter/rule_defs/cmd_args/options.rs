@@ -211,6 +211,14 @@ impl<'v> RelativeOrigin<'v> {
 }
 
 impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
+    fn changes_builder(&self) -> bool {
+        self.relative_to.is_some()
+            || self.absolute_prefix.is_some()
+            || self.absolute_suffix.is_some()
+            || self.parent != 0
+            || !self.formatting.is_empty()
+    }
+
     pub(crate) fn wrap_builder<'a, R>(
         &self,
         builder: &'a mut dyn CommandLineBuilder,
@@ -337,52 +345,23 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
             }
         }
 
-        match (
-            self.relative_to_path(builder).transpose(),
-            self.absolute_prefix(),
-            self.absolute_suffix(),
-            self.parent(),
-            self.formatting(),
-        ) {
-            (None, None, None, 0, None) => f(builder),
-            (relative_to, _, _, _, formatting) => {
-                let concatenation_context = match formatting {
-                    Some(opts) if opts.delimiter.is_some() => Some((String::new(), true)),
-                    _ => None,
-                };
-                let mut cli_extras = Extras {
-                    cli: builder,
-                    opts: self,
-                    relative_to: relative_to.transpose()?,
-                    concatenation_context,
-                };
-                let res = f(&mut cli_extras)?;
-                cli_extras.finalize_args();
-                Ok(res)
-            }
-        }
-    }
-
-    fn relative_to(&self) -> Option<&(V, usize)> {
-        self.relative_to.as_ref()
-    }
-    fn absolute_prefix(&self) -> Option<&'v str> {
-        self.absolute_prefix.map(|x| x.as_str())
-    }
-
-    fn absolute_suffix(&self) -> Option<&'v str> {
-        self.absolute_suffix.map(|x| x.as_str())
-    }
-
-    fn parent(&self) -> usize {
-        self.parent
-    }
-
-    fn formatting(&self) -> Option<&FormattingOptions<V::String>> {
-        if self.formatting.is_empty() {
-            None
+        if !self.changes_builder() {
+            f(builder)
         } else {
-            Some(&self.formatting)
+            let relative_to = self.relative_to_path(builder)?;
+            let mut cli_extras = Extras {
+                cli: builder,
+                opts: self,
+                relative_to,
+                concatenation_context: if self.formatting.delimiter.is_some() {
+                    Some((String::new(), true))
+                } else {
+                    None
+                },
+            };
+            let res = f(&mut cli_extras)?;
+            cli_extras.finalize_args();
+            Ok(res)
         }
     }
 
@@ -390,8 +369,8 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
     where
         C: CommandLineBuilderContext + ?Sized,
     {
-        let (value, parent) = match self.relative_to() {
-            Some((v, p)) => (*v, *p),
+        let (value, parent) = match self.relative_to {
+            Some(vp) => vp,
             None => return Ok(None),
         };
 
