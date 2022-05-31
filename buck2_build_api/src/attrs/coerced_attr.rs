@@ -84,7 +84,7 @@ pub enum CoercedAttr {
 
 // This is just to help understand any impact that changes have to the size of this.
 // We store a lot of these, so we try to keep it to a reasonable size.
-static_assertions::assert_eq_size!(CoercedAttr, [usize; 6]);
+static_assertions::assert_eq_size!(CoercedAttr, [usize; 5]);
 
 /// Provides roughly the stringified version of the starlark code that would produce this attr. For example, a dictionary
 /// of string keys and values may result in `{"key1":"value1","key2":"value2"}` (note that strings will explicitly include

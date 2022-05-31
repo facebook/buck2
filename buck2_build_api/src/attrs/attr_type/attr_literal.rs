@@ -103,8 +103,8 @@ pub enum AttrLiteral<C: AttrConfig> {
     Label(Box<C::ProvidersType>),
 }
 
-static_assertions::assert_eq_size!(AttrLiteral<CoercedAttr>, [usize; 5]);
-static_assertions::assert_eq_size!(AttrLiteral<ConfiguredAttr>, [usize; 5]);
+static_assertions::assert_eq_size!(AttrLiteral<CoercedAttr>, [usize; 4]);
+static_assertions::assert_eq_size!(AttrLiteral<ConfiguredAttr>, [usize; 4]);
 
 impl<C: AttrConfig> AttrLiteral<C> {
     pub fn to_json(&self) -> anyhow::Result<serde_json::Value> {

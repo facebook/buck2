@@ -256,11 +256,13 @@ impl ResolvedStringWithMacros {
     ) -> anyhow::Result<Value<'v>> {
         let resolved_parts = match configured_macros {
             ConfiguredStringWithMacros::StringPart(s) => {
-                vec![ResolvedStringWithMacrosPart::String(s.clone())]
+                vec![ResolvedStringWithMacrosPart::String(
+                    s.clone().into_string(),
+                )]
             }
             ConfiguredStringWithMacros::ManyParts(ref parts) => {
                 let mut resolved_parts = Vec::with_capacity(parts.len());
-                for part in parts {
+                for part in parts.iter() {
                     match part {
                         ConfiguredStringWithMacrosPart::String(s) => {
                             resolved_parts.push(ResolvedStringWithMacrosPart::String(s.clone()));

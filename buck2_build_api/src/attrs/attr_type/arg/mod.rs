@@ -110,7 +110,7 @@ impl ArgAttrType {
         if let [parser::ArgItem::String(val)] = items.as_mut_slice() {
             // Specialize single-item StringWithMacros, which are in fact the common case.
             return Ok(AttrLiteral::Arg(UnconfiguredStringWithMacros::StringPart(
-                mem::take(val),
+                mem::take(val).into_boxed_str(),
             )));
         }
 
@@ -149,7 +149,7 @@ impl ArgAttrType {
         }
 
         Ok(AttrLiteral::Arg(UnconfiguredStringWithMacros::ManyParts(
-            parts,
+            parts.into_boxed_slice(),
         )))
     }
 
@@ -167,11 +167,11 @@ pub enum StringWithMacros<C: AttrConfig> {
     /// StringWithMacros::ManyParts(vec![StringWithMacrosPart::String(s)]). We special-case this
     /// for memory efficiency to avoid allocating unnecessary vectors, since lone string parts are
     /// very frequent.
-    StringPart(String),
+    StringPart(Box<str>),
     // For resolution, we defer all work and simply alloc a ConfiguredStringWithMacros into the starlark
     // context. This allows us to defer resolution work to the point that it is being added to a command
     // line, but it requires that we can cheaply copy ConfiguredStringWithMacros.
-    ManyParts(Vec<StringWithMacrosPart<C>>),
+    ManyParts(Box<[StringWithMacrosPart<C>]>),
 }
 
 /// Represents the type of a query placeholder (e.g. query_outputs, query_targets, query_targets_and_outputs).
@@ -200,23 +200,26 @@ impl Display for QueryExpansion {
 
 impl<C: AttrConfig> StringWithMacros<C> {
     pub fn concat(self, other: Self) -> Self {
+        // Clippy bug: https://github.com/rust-lang/rust-clippy/issues/8914
+        #[allow(clippy::unnecessary_to_owned)]
         let other_parts = match other {
-            Self::StringPart(part) => {
-                Either::Left(std::iter::once(StringWithMacrosPart::String(part)))
-            }
-            Self::ManyParts(parts) => Either::Right(parts.into_iter()),
+            Self::StringPart(part) => Either::Left(std::iter::once(StringWithMacrosPart::String(
+                part.into_string(),
+            ))),
+            Self::ManyParts(parts) => Either::Right(parts.to_vec().into_iter()),
         };
 
         match self {
-            Self::ManyParts(mut parts) => {
+            Self::ManyParts(parts) => {
+                let mut parts = parts.to_vec();
                 parts.extend(other_parts);
-                Self::ManyParts(parts)
+                Self::ManyParts(parts.into_boxed_slice())
             }
             Self::StringPart(my_part) => {
                 let mut many_parts = Vec::with_capacity(1 + other_parts.len());
-                many_parts.push(StringWithMacrosPart::String(my_part));
+                many_parts.push(StringWithMacrosPart::String(my_part.into_string()));
                 many_parts.extend(other_parts);
-                Self::ManyParts(many_parts)
+                Self::ManyParts(many_parts.into_boxed_slice())
             }
         }
     }
@@ -303,7 +306,7 @@ impl<C: AttrConfig> Display for StringWithMacros<C> {
                 write!(f, "{}", part)?;
             }
             Self::ManyParts(ref parts) => {
-                for part in parts {
+                for part in parts.iter() {
                     write!(f, "{}", part)?;
                 }
             }
@@ -332,7 +335,7 @@ impl UnconfiguredStringWithMacros {
         match self {
             Self::StringPart(part) => Ok(ConfiguredStringWithMacros::StringPart(part.clone())),
             Self::ManyParts(parts) => Ok(ConfiguredStringWithMacros::ManyParts(
-                parts.try_map(|p| p.configure(ctx))?,
+                parts.try_map(|p| p.configure(ctx))?.into_boxed_slice(),
             )),
         }
     }
@@ -344,7 +347,7 @@ impl UnconfiguredStringWithMacros {
         match self {
             Self::StringPart(..) => {}
             Self::ManyParts(ref parts) => {
-                for part in parts {
+                for part in parts.iter() {
                     match part {
                         StringWithMacrosPart::String(_) => {}
                         StringWithMacrosPart::Macro(_, m) => {
@@ -390,7 +393,7 @@ impl ConfiguredStringWithMacros {
         match self {
             Self::StringPart(..) => {}
             Self::ManyParts(ref parts) => {
-                for part in parts {
+                for part in parts.iter() {
                     match part {
                         StringWithMacrosPart::String(_) => {}
                         StringWithMacrosPart::Macro(_, m) => {
