@@ -1,4 +1,4 @@
-def cxx_by_language_ext(x: {}, ext: str.type) -> [""]:
+def cxx_by_language_ext(x: {"": ""}, ext: str.type) -> [""]:
     # lang_preprocessor_flags is indexed by c/cxx
     # lang_compiler_flags is indexed by c_cpp_output/cxx_cpp_output
     # so write a function that can do either

@@ -266,7 +266,7 @@ def cxx_private_preprocessor_info(
         uses_modules = uses_modules,
     )
 
-def _by_language_cxx(x: {}) -> [""]:
+def _by_language_cxx(x: {"": ""}) -> [""]:
     return cxx_by_language_ext(x, ".cpp")
 
 def _header_style_flag(style: HeaderStyle.type) -> str.type:
