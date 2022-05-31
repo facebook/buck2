@@ -398,9 +398,14 @@ impl CoercedAttr {
                     .configure(ctx)
             }
             CoercedAttr::Concat(items) => {
+                let singleton = items.len() == 1;
                 let mut it = items.iter().map(|item| item.configure(ctx));
                 let first = it.next().ok_or(SelectError::ConcatEmpty)??;
-                first.concat(it)
+                if singleton {
+                    Ok(first)
+                } else {
+                    first.concat(it)
+                }
             }
         }
     }
