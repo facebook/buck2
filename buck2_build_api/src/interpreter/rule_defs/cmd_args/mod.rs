@@ -24,6 +24,7 @@ use crate::{
             StarlarkOutputArtifact,
         },
         artifact_tagging::{FrozenTaggedArtifacts, TaggedArtifacts},
+        cmd_args::options::QuoteStyle,
         label_relative_path::LabelRelativePath,
         provider::run_info::{FrozenRunInfo, RunInfo},
         transitive_set::{FrozenTransitiveSetArgsProjection, TransitiveSetArgsProjection},
@@ -31,6 +32,7 @@ use crate::{
 };
 
 mod builder;
+mod options;
 #[cfg(test)]
 mod test;
 mod traits;

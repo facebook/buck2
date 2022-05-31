@@ -42,9 +42,9 @@ use crate::{
     actions::artifact::ArtifactFs,
     artifact_groups::ArtifactGroup,
     interpreter::rule_defs::{
-        artifact::{StarlarkArtifactLike, StarlarkOutputArtifact, ValueAsArtifactLike},
-        cell_root::CellRoot,
+        artifact::StarlarkOutputArtifact,
         cmd_args::{
+            options::{CommandLineOptions, FormattingOptions, QuoteStyle, RelativeOrigin},
             traits::{
                 CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder,
                 CommandLineBuilderContext, CommandLineLocation, SimpleCommandLineArtifactVisitor,
@@ -65,12 +65,17 @@ use crate::{
 #[serde(bound = "V: Display", transparent)]
 struct CommandLineArgGen<V>(#[serde(serialize_with = "serialize_as_display")] V);
 
+fn serialize_as_display<V: Display, S>(v: &V, s: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    s.collect_str(v)
+}
+
 #[derive(Debug, thiserror::Error)]
 enum CommandLineArgError {
     #[error("too many .parent() calls")]
     TooManyParentCalls,
-    #[error("Unknown quoting style `{0}`")]
-    UnknownQuotingStyle(String),
 }
 
 impl<'v> CommandLineArgGen<Value<'v>> {
@@ -108,140 +113,6 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for CommandLineArgGen<V> {
         visitor: &mut dyn WriteToFileMacroVisitor,
     ) -> anyhow::Result<()> {
         self.visit_inner(|x| x.visit_write_to_file_macros(visitor))
-    }
-}
-
-/// Supported ways of quoting arguments.
-#[derive(Debug, Clone, Dupe, Trace, Freeze, Serialize)]
-pub enum QuoteStyle {
-    /// Quote arguments for Unix shell:
-    /// <https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html>
-    Shell,
-}
-
-impl Display for QuoteStyle {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Shell => write!(f, "shell"),
-        }
-    }
-}
-
-impl QuoteStyle {
-    pub fn parse(s: &str) -> anyhow::Result<QuoteStyle> {
-        match s {
-            "shell" => Ok(QuoteStyle::Shell),
-            _ => Err(anyhow!(CommandLineArgError::UnknownQuotingStyle(
-                s.to_owned()
-            ))),
-        }
-    }
-}
-
-/// Simple struct to help determine extra options for formatting
-/// (whether to join items, how to join them, format strings, etc)
-#[derive(Debug, Default_, Clone, Trace, Freeze, Serialize)]
-struct FormattingOptions<S> {
-    delimiter: Option<S>,
-    format: Option<S>,
-    prepend: Option<S>,
-    quote: Option<QuoteStyle>,
-}
-
-impl<S: Debug> Display for FormattingOptions<S> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut comma = commas();
-        if let Some(v) = &self.delimiter {
-            comma(f)?;
-            write!(f, "delimiter = {:?}", v)?;
-        }
-        if let Some(v) = &self.format {
-            comma(f)?;
-            write!(f, "format = {:?}", v)?;
-        }
-        if let Some(v) = &self.prepend {
-            comma(f)?;
-            write!(f, "prepend = {:?}", v)?;
-        }
-        if let Some(v) = &self.quote {
-            comma(f)?;
-            write!(f, "quote = \"{}\"", v)?;
-        }
-        Ok(())
-    }
-}
-
-impl<S: Default> FormattingOptions<S> {
-    fn is_empty(&self) -> bool {
-        self.delimiter.is_none()
-            && self.format.is_none()
-            && self.prepend.is_none()
-            && self.quote.is_none()
-    }
-}
-
-#[derive(Debug, Default_, Clone, Trace, Serialize)]
-#[repr(C)]
-struct CommandLineOptions<'v, V: ValueLike<'v>> {
-    #[serde(bound = "V: Display", serialize_with = "serialize_opt_display")]
-    relative_to: Option<(V, usize)>,
-    absolute_prefix: Option<V::String>,
-    absolute_suffix: Option<V::String>,
-    parent: usize,
-    ignore_artifacts: bool,
-    formatting: FormattingOptions<V::String>,
-    lifetime: PhantomData<&'v ()>,
-}
-
-fn serialize_opt_display<V: Display, S>(v: &Option<(V, usize)>, s: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    match v.as_ref() {
-        Some((v, u)) => s.serialize_some(&(format!("{}", v), u)),
-        None => s.serialize_none(),
-    }
-}
-
-fn serialize_as_display<V: Display, S>(v: &V, s: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    s.collect_str(v)
-}
-
-impl<'v, V: ValueLike<'v>> Display for CommandLineOptions<'v, V> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut comma = commas();
-        if let Some((v, i)) = &self.relative_to {
-            comma(f)?;
-            write!(f, "relative_to = {}", v)?;
-            if *i != 0 {
-                comma(f)?;
-                write!(f, "relative_to_parent = {}", i)?;
-            }
-        }
-        if let Some(v) = &self.absolute_prefix {
-            comma(f)?;
-            write!(f, "absolute_prefix = {}", v)?;
-        }
-        if let Some(v) = &self.absolute_suffix {
-            comma(f)?;
-            write!(f, "absolute_suffix = {}", v)?;
-        }
-        if self.parent != 0 {
-            comma(f)?;
-            write!(f, "parent = {}", self.parent)?;
-        }
-        if self.ignore_artifacts {
-            comma(f)?;
-            write!(f, "ignore_artifacts = True")?;
-        }
-        if !self.formatting.is_empty() {
-            comma(f)?;
-            Display::fmt(&self.formatting, f)?;
-        }
-        Ok(())
     }
 }
 
@@ -963,47 +834,5 @@ impl<'v> StarlarkValue<'v> for StarlarkCommandLineInputs {
         } else {
             Ok(false)
         }
-    }
-}
-
-// NOTE: This is an enum as opposed to a trait beause of the `C` parameter on (which is required
-// because upcasting is not stable).
-#[derive(Display)]
-enum RelativeOrigin<'v> {
-    Artifact(&'v dyn StarlarkArtifactLike),
-    CellRoot(&'v CellRoot),
-}
-
-impl<'v> RelativeOrigin<'v> {
-    fn from_value<V>(v: V) -> Option<Self>
-    where
-        V: ValueLike<'v>,
-    {
-        if let Some(v) = v.as_artifact() {
-            return Some(RelativeOrigin::Artifact(v));
-        }
-
-        if let Some(v) = v.downcast_ref::<CellRoot>() {
-            return Some(RelativeOrigin::CellRoot(v));
-        }
-
-        None
-    }
-
-    fn resolve<C>(&self, ctx: &C) -> anyhow::Result<RelativePathBuf>
-    where
-        C: CommandLineBuilderContext + ?Sized,
-    {
-        let loc = match self {
-            Self::Artifact(artifact) => {
-                // Shame we require the artifact to be bound here, we really just needs its
-                // path even if it is unbound.
-                let artifact = artifact.get_bound()?;
-                ctx.resolve_artifact(&artifact)?
-            }
-            Self::CellRoot(cell_root) => ctx.resolve_cell_path(cell_root.cell_path())?,
-        };
-
-        Ok(loc.into_relative())
     }
 }
