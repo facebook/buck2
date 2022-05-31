@@ -18,6 +18,7 @@
 use gazebo::prelude::*;
 
 use crate as starlark;
+use crate::eval::bc::stack_ptr::BcSlot;
 
 #[derive(Clone, Copy, Dupe, Debug, PartialEq, Eq, Trace)]
 pub(crate) struct LocalSlotId(pub(crate) u32);
@@ -25,5 +26,15 @@ pub(crate) struct LocalSlotId(pub(crate) u32);
 impl LocalSlotId {
     pub fn new(index: u32) -> Self {
         Self(index)
+    }
+
+    /// Each local slot is a valid BC slot.
+    /// When it is:
+    /// * known to be initialized
+    /// * or used for writing
+    /// * but not captured
+    #[inline]
+    pub(crate) fn to_bc_slot(self) -> BcSlot {
+        BcSlot(self.0)
     }
 }

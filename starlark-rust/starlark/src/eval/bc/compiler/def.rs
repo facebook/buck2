@@ -21,8 +21,8 @@ use gazebo::prelude::*;
 
 use crate::eval::{
     bc::{
-        instr_arg::ArgPopsStack,
         instr_impl::{InstrDef, InstrDefData},
+        stack_ptr::BcSlot,
         writer::BcWriter,
     },
     compiler::{def::DefCompiled, span::IrSpanned},
@@ -30,7 +30,7 @@ use crate::eval::{
 };
 
 impl DefCompiled {
-    pub(crate) fn write_bc(&self, span: FrozenFileSpan, bc: &mut BcWriter) {
+    pub(crate) fn write_bc(&self, span: FrozenFileSpan, target: BcSlot, bc: &mut BcWriter) {
         let DefCompiled {
             ref function_name,
             ref params,
@@ -39,33 +39,49 @@ impl DefCompiled {
             check_types,
         } = *self;
         let function_name = function_name.clone();
-        let mut value_count = 0;
-        let params = params.map(|p| {
-            p.map(|p| {
-                p.map_expr(|e| {
-                    e.write_bc(bc);
-                    value_count += 1;
-                    value_count - 1
+
+        let mut how_many_slots_we_need = 0;
+        for p in params {
+            p.map_expr(|_e| {
+                how_many_slots_we_need += 1;
+            });
+        }
+        if return_type.is_some() {
+            how_many_slots_we_need += 1;
+        }
+
+        bc.alloc_slots(how_many_slots_we_need, |slots, bc| {
+            let mut slots_i = slots.iter();
+            let mut value_count = 0;
+            let params = params.map(|p| {
+                p.map(|p| {
+                    p.map_expr(|e| {
+                        e.write_bc(slots_i.next().unwrap(), bc);
+                        value_count += 1;
+                        value_count - 1
+                    })
                 })
-            })
-        });
-        let return_type = return_type.as_ref().map(|t| {
-            t.write_bc(bc);
-            value_count += 1;
-            IrSpanned {
-                node: value_count - 1,
-                span: t.span,
-            }
-        });
+            });
+            let return_type = return_type.as_ref().map(|t| {
+                t.write_bc(slots_i.next().unwrap(), bc);
+                value_count += 1;
+                IrSpanned {
+                    node: value_count - 1,
+                    span: t.span,
+                }
+            });
 
-        let instr_def_data = InstrDefData {
-            function_name,
-            params,
-            return_type,
-            info,
-            check_types,
-        };
+            let instr_def_data = InstrDefData {
+                function_name,
+                params,
+                return_type,
+                info,
+                check_types,
+            };
 
-        bc.write_instr::<InstrDef>(span, (ArgPopsStack(value_count), instr_def_data));
+            assert!(slots_i.next().is_none());
+
+            bc.write_instr::<InstrDef>(span, (slots, instr_def_data, target));
+        })
     }
 }

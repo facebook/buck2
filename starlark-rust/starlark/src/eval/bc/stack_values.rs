@@ -17,48 +17,22 @@
 
 //! Instruction arguments for working with stack.
 
-use crate::{eval::bc::stack_ptr::BcStackPtr, values::Value};
+use crate::values::Value;
 
 /// Instruction parameter for values popped from stack or pushed to stack.
 pub(crate) trait BcStackValues<'v>: Copy {
     /// How many values.
     const N: u32;
-
-    /// Pop a value off the stack.
-    fn pop(stack: &BcStackPtr<'v, '_>) -> Self;
-
-    /// Push on the stack.
-    fn push(stack: &mut BcStackPtr<'v, '_>, values: Self);
 }
 
 impl<'v> BcStackValues<'v> for () {
     const N: u32 = 0;
-
-    fn pop(_interp: &BcStackPtr<'v, '_>) {}
-
-    fn push(_interp: &mut BcStackPtr<'v, '_>, (): ()) {}
 }
 
 impl<'v> BcStackValues<'v> for Value<'v> {
     const N: u32 = 1;
-
-    fn pop(stack: &BcStackPtr<'v, '_>) -> Self {
-        stack.pop()
-    }
-
-    fn push(stack: &mut BcStackPtr<'v, '_>, values: Self) {
-        stack.push(values);
-    }
 }
 
 impl<'v, const N: usize> BcStackValues<'v> for [Value<'v>; N] {
     const N: u32 = N as u32;
-
-    fn pop(stack: &BcStackPtr<'v, '_>) -> Self {
-        stack.pop_array()
-    }
-
-    fn push(stack: &mut BcStackPtr<'v, '_>, values: Self) {
-        stack.push_array(values);
-    }
 }

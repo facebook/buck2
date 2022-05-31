@@ -17,7 +17,7 @@
 
 //! Instruction implementations.
 
-use std::{cmp::Ordering, marker, mem::MaybeUninit, ptr};
+use std::{cmp::Ordering, marker, ptr};
 
 use gazebo::coerce::coerce;
 
@@ -29,14 +29,12 @@ use crate::{
             addr::{BcAddr, BcAddrOffset, BcPtrAddr},
             bytecode::{run_block, Bc, RunBlockResult},
             call::{BcCallArgs, BcCallArgsForDef, BcCallArgsFull, BcCallArgsPos},
+            frame::BcFramePtr,
             instr::{BcInstr, InstrControl},
-            instr_arg::{
-                ArgPopsStack, ArgPopsStack1, ArgPopsStackMaybe1, ArgPushesStack, BcInstrArg,
-            },
+            instr_arg::BcInstrArg,
             opcode::BcOpcode,
             slow_arg::BcInstrSlowArg,
-            stack_ptr::BcStackPtr,
-            stack_values::BcStackValues,
+            stack_ptr::{BcSlot, BcSlotRange, BcSlotRangeFrom, BcSlotsN},
         },
         compiler::{
             add_span_to_expr_error,
@@ -69,83 +67,32 @@ use crate::{
 /// Instructions which either fail or proceed to the following instruction,
 /// and it returns error with span.
 pub(crate) trait InstrNoFlowImpl: 'static {
-    type Pop<'v>: BcStackValues<'v>;
-    type Push<'v>: BcStackValues<'v>
-    where
-        Self: 'v;
     type Arg: BcInstrArg;
 
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         ip: BcPtrAddr,
         arg: &Self::Arg,
-        pops: Self::Pop<'v>,
-    ) -> anyhow::Result<Self::Push<'v>>;
+    ) -> anyhow::Result<()>;
 }
 
 pub(crate) struct InstrNoFlow<I: InstrNoFlowImpl>(marker::PhantomData<I>);
 
 impl<I: InstrNoFlowImpl> BcInstr for InstrNoFlow<I> {
-    type Pop<'v> = I::Pop<'v>;
-    type Push<'v> = I::Push<'v>;
     type Arg = I::Arg;
 
     #[inline(always)]
     fn run<'v, 'b>(
         eval: &mut Evaluator<'v, '_>,
-        stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         ip: BcPtrAddr<'b>,
         arg: &Self::Arg,
     ) -> InstrControl<'v, 'b> {
-        let pops = BcStackValues::pop(stack);
-        match I::run_with_args(eval, stack, ip, arg, pops) {
-            Ok(pushes) => {
-                BcStackValues::push(stack, pushes);
-                InstrControl::Next(ip.add_instr::<Self>())
-            }
+        match I::run_with_args(eval, frame, ip, arg) {
+            Ok(()) => InstrControl::Next(ip.add_instr::<Self>()),
             Err(e) => InstrControl::Err(e),
         }
-    }
-}
-
-pub(crate) struct InstrDupImpl;
-pub(crate) struct InstrPopImpl;
-
-pub(crate) type InstrDup = InstrNoFlow<InstrDupImpl>;
-pub(crate) type InstrPop = InstrNoFlow<InstrPopImpl>;
-
-impl InstrNoFlowImpl for InstrDupImpl {
-    type Pop<'v> = Value<'v>;
-    type Push<'v> = [Value<'v>; 2];
-    type Arg = ();
-
-    #[inline(always)]
-    fn run_with_args<'v>(
-        _eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
-        _ip: BcPtrAddr,
-        (): &(),
-        v: Value<'v>,
-    ) -> anyhow::Result<[Value<'v>; 2]> {
-        Ok([v, v])
-    }
-}
-
-impl InstrNoFlowImpl for InstrPopImpl {
-    type Pop<'v> = Value<'v>;
-    type Push<'v> = ();
-    type Arg = ();
-
-    #[inline(always)]
-    fn run_with_args<'v>(
-        _eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
-        _ip: BcPtrAddr,
-        (): &(),
-        _v: Value<'v>,
-    ) -> anyhow::Result<()> {
-        Ok(())
     }
 }
 
@@ -153,252 +100,139 @@ pub(crate) struct InstrConstImpl;
 pub(crate) type InstrConst = InstrNoFlow<InstrConstImpl>;
 
 impl InstrNoFlowImpl for InstrConstImpl {
-    type Pop<'v> = ();
-    type Push<'v> = Value<'v>;
-    type Arg = FrozenValue;
+    type Arg = (FrozenValue, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         _eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        arg: &FrozenValue,
-        (): (),
-    ) -> anyhow::Result<Value<'v>> {
-        Ok(arg.to_value())
-    }
-}
-
-pub(crate) struct InstrConstNImpl<const N: usize>;
-pub(crate) type InstrConst2 = InstrNoFlow<InstrConstNImpl<2>>;
-pub(crate) type InstrConst3 = InstrNoFlow<InstrConstNImpl<3>>;
-pub(crate) type InstrConst4 = InstrNoFlow<InstrConstNImpl<4>>;
-
-impl<const N: usize> InstrNoFlowImpl for InstrConstNImpl<N> {
-    type Pop<'v> = ();
-    type Push<'v> = [Value<'v>; N];
-    type Arg = [FrozenValue; N];
-
-    #[inline(always)]
-    fn run_with_args<'v>(
-        _eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
-        _ip: BcPtrAddr,
-        vs: &Self::Arg,
-        _pops: (),
-    ) -> anyhow::Result<[Value<'v>; N]> {
-        Ok(coerce(*vs))
+        (constant, target): &(FrozenValue, BcSlot),
+    ) -> anyhow::Result<()> {
+        frame.set_bc_slot(*target, constant.to_value());
+        Ok(())
     }
 }
 
 pub(crate) struct InstrLoadLocalImpl;
-pub(crate) struct InstrLoadLocalAndConstImpl;
 pub(crate) struct InstrLoadLocalCapturedImpl;
 pub(crate) struct InstrLoadModuleImpl;
-pub(crate) struct InstrStoreLocalImpl;
+pub(crate) struct InstrMovImpl;
 pub(crate) struct InstrStoreLocalCapturedImpl;
 pub(crate) struct InstrStoreModuleImpl;
 pub(crate) struct InstrStoreModuleAndExportImpl;
 pub(crate) struct InstrUnpackImpl;
 pub(crate) struct InstrArrayIndexImpl;
-pub(crate) struct InstrArrayIndexNoPopImpl;
 pub(crate) struct InstrSetArrayIndexImpl;
 pub(crate) struct InstrArrayIndexSetImpl;
 pub(crate) struct InstrObjectFieldImpl;
 pub(crate) struct InstrSetObjectFieldImpl;
-pub(crate) struct InstrObjectSetFieldImpl;
 pub(crate) struct InstrSliceImpl;
 
 pub(crate) type InstrLoadLocal = InstrNoFlow<InstrLoadLocalImpl>;
-pub(crate) type InstrLoadLocalAndConst = InstrNoFlow<InstrLoadLocalAndConstImpl>;
 pub(crate) type InstrLoadLocalCaptured = InstrNoFlow<InstrLoadLocalCapturedImpl>;
 pub(crate) type InstrLoadModule = InstrNoFlow<InstrLoadModuleImpl>;
-pub(crate) type InstrStoreLocal = InstrNoFlow<InstrStoreLocalImpl>;
+pub(crate) type InstrMov = InstrNoFlow<InstrMovImpl>;
 pub(crate) type InstrStoreLocalCaptured = InstrNoFlow<InstrStoreLocalCapturedImpl>;
 pub(crate) type InstrStoreModule = InstrNoFlow<InstrStoreModuleImpl>;
 pub(crate) type InstrStoreModuleAndExport = InstrNoFlow<InstrStoreModuleAndExportImpl>;
 pub(crate) type InstrUnpack = InstrNoFlow<InstrUnpackImpl>;
 pub(crate) type InstrArrayIndex = InstrNoFlow<InstrArrayIndexImpl>;
-pub(crate) type InstrArrayIndexNoPop = InstrNoFlow<InstrArrayIndexNoPopImpl>;
 pub(crate) type InstrSetArrayIndex = InstrNoFlow<InstrSetArrayIndexImpl>;
 pub(crate) type InstrArrayIndexSet = InstrNoFlow<InstrArrayIndexSetImpl>;
 pub(crate) type InstrObjectField = InstrNoFlow<InstrObjectFieldImpl>;
 pub(crate) type InstrSetObjectField = InstrNoFlow<InstrSetObjectFieldImpl>;
-pub(crate) type InstrObjectSetField = InstrNoFlow<InstrObjectSetFieldImpl>;
 pub(crate) type InstrSlice = InstrNoFlow<InstrSliceImpl>;
 
 impl InstrNoFlowImpl for InstrLoadLocalImpl {
-    type Pop<'v> = ();
-    type Push<'v> = Value<'v>;
-    type Arg = LocalSlotId;
+    type Arg = (LocalSlotId, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        arg: &LocalSlotId,
-        (): (),
-    ) -> anyhow::Result<Value<'v>> {
-        eval.get_slot_local(*arg)
-    }
-}
-
-#[inline(always)]
-fn load_local<'v, const N: usize>(
-    eval: &mut Evaluator<'v, '_>,
-    ip: BcPtrAddr,
-    slots: &[LocalSlotId; N],
-) -> anyhow::Result<[Value<'v>; N]> {
-    #[cold]
-    #[inline(never)]
-    fn fail<'v>(
-        eval: &mut Evaluator<'v, '_>,
-        ip: BcPtrAddr,
-        index: usize,
-        slot: LocalSlotId,
-    ) -> anyhow::Error {
-        let err = eval.local_var_referenced_before_assignment(slot);
-        let spans = &Bc::slow_arg_at_ptr(ip).spans;
-        let span = spans[index];
-        add_span_to_expr_error(err, span, eval).0
-    }
-
-    let mut values = MaybeUninit::uninit();
-    #[allow(clippy::needless_range_loop)]
-    for i in 0..N {
-        let values: *mut [Value; N] = values.as_mut_ptr();
-        let slot = slots[i];
-        match eval.current_frame.get_slot(slot) {
-            Some(v) => unsafe {
-                *(*values).get_unchecked_mut(i) = v;
-            },
-            None => return Err(fail(eval, ip, i, slot)),
-        }
-    }
-    Ok(unsafe { values.assume_init() })
-}
-
-pub(crate) struct InstrLocalLocalNImpl<const N: usize>;
-pub(crate) type InstrLoadLocal2 = InstrNoFlow<InstrLocalLocalNImpl<2>>;
-pub(crate) type InstrLoadLocal3 = InstrNoFlow<InstrLocalLocalNImpl<3>>;
-pub(crate) type InstrLoadLocal4 = InstrNoFlow<InstrLocalLocalNImpl<4>>;
-
-impl<const N: usize> InstrNoFlowImpl for InstrLocalLocalNImpl<N> {
-    type Pop<'v> = ();
-    type Push<'v> = [Value<'v>; N];
-    type Arg = [LocalSlotId; N];
-
-    #[inline(always)]
-    fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
-        ip: BcPtrAddr,
-        slots: &Self::Arg,
-        _pops: (),
-    ) -> anyhow::Result<[Value<'v>; N]> {
-        load_local(eval, ip, slots)
-    }
-}
-
-impl InstrNoFlowImpl for InstrLoadLocalAndConstImpl {
-    type Pop<'v> = ();
-    type Push<'v> = [Value<'v>; 2];
-    type Arg = (LocalSlotId, FrozenValue);
-
-    #[inline(always)]
-    fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
-        _ip: BcPtrAddr,
-        (slot, value): &Self::Arg,
-        (): (),
-    ) -> anyhow::Result<[Value<'v>; 2]> {
-        Ok([eval.get_slot_local(*slot)?, value.to_value()])
+        (source, target): &(LocalSlotId, BcSlot),
+    ) -> anyhow::Result<()> {
+        let value = eval.get_slot_local(frame, *source)?;
+        frame.set_bc_slot(*target, value);
+        Ok(())
     }
 }
 
 impl InstrNoFlowImpl for InstrLoadLocalCapturedImpl {
-    type Pop<'v> = ();
-    type Push<'v> = Value<'v>;
-    type Arg = LocalSlotId;
+    type Arg = (LocalSlotId, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        arg: &LocalSlotId,
-        (): (),
-    ) -> anyhow::Result<Value<'v>> {
-        eval.get_slot_local_captured(*arg)
+        (source, target): &(LocalSlotId, BcSlot),
+    ) -> anyhow::Result<()> {
+        let value = eval.get_slot_local_captured(*source)?;
+        frame.set_bc_slot(*target, value);
+        Ok(())
     }
 }
 
 impl InstrNoFlowImpl for InstrLoadModuleImpl {
-    type Pop<'v> = ();
-    type Push<'v> = Value<'v>;
-    type Arg = ModuleSlotId;
+    type Arg = (ModuleSlotId, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        arg: &ModuleSlotId,
-        (): (),
-    ) -> anyhow::Result<Value<'v>> {
-        eval.get_slot_module(*arg)
+        (source, target): &(ModuleSlotId, BcSlot),
+    ) -> anyhow::Result<()> {
+        let value = eval.get_slot_module(*source)?;
+        frame.set_bc_slot(*target, value);
+        Ok(())
     }
 }
 
-impl InstrNoFlowImpl for InstrStoreLocalImpl {
-    type Pop<'v> = Value<'v>;
-    type Push<'v> = ();
-    type Arg = LocalSlotId;
+impl InstrNoFlowImpl for InstrMovImpl {
+    type Arg = (BcSlot, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        _eval: &mut Evaluator<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        arg: &LocalSlotId,
-        v: Value<'v>,
+        (source, target): &(BcSlot, BcSlot),
     ) -> anyhow::Result<()> {
-        eval.set_slot_local(*arg, v);
+        let v = frame.get_bc_slot(*source);
+        frame.set_bc_slot(*target, v);
         Ok(())
     }
 }
 
 impl InstrNoFlowImpl for InstrStoreLocalCapturedImpl {
-    type Pop<'v> = Value<'v>;
-    type Push<'v> = ();
-    type Arg = LocalSlotId;
+    type Arg = (BcSlot, LocalSlotId);
 
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        arg: &LocalSlotId,
-        v: Value<'v>,
+        (source, target): &(BcSlot, LocalSlotId),
     ) -> anyhow::Result<()> {
-        eval.set_slot_local_captured(*arg, v);
+        let v = frame.get_bc_slot(*source);
+        eval.set_slot_local_captured(*target, v);
         Ok(())
     }
 }
 
 impl InstrNoFlowImpl for InstrStoreModuleAndExportImpl {
-    type Pop<'v> = Value<'v>;
-    type Push<'v> = ();
-    type Arg = (ModuleSlotId, String);
+    type Arg = (BcSlot, ModuleSlotId, String);
 
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (slot, name): &(ModuleSlotId, String),
-        v: Value<'v>,
+        (source, slot, name): &(BcSlot, ModuleSlotId, String),
     ) -> anyhow::Result<()> {
+        let v = frame.get_bc_slot(*source);
         v.export_as(name.as_str(), eval);
         eval.set_slot_module(*slot, v);
         Ok(())
@@ -406,199 +240,165 @@ impl InstrNoFlowImpl for InstrStoreModuleAndExportImpl {
 }
 
 impl InstrNoFlowImpl for InstrStoreModuleImpl {
-    type Pop<'v> = Value<'v>;
-    type Push<'v> = ();
-    type Arg = ModuleSlotId;
+    type Arg = (BcSlot, ModuleSlotId);
 
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        slot: &ModuleSlotId,
-        v: Value<'v>,
+        (source, target): &(BcSlot, ModuleSlotId),
     ) -> anyhow::Result<()> {
-        eval.set_slot_module(*slot, v);
+        let v = frame.get_bc_slot(*source);
+        eval.set_slot_module(*target, v);
         Ok(())
     }
 }
 
 impl InstrNoFlowImpl for InstrUnpackImpl {
-    type Pop<'v> = Value<'v>;
-    type Push<'v> = ();
-    type Arg = ArgPushesStack;
+    type Arg = (BcSlot, FrozenRef<'static, [BcSlot]>);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        arg: &Self::Arg,
-        v: Value<'v>,
+        (source, target): &(BcSlot, FrozenRef<'static, [BcSlot]>),
     ) -> anyhow::Result<()> {
+        let v = frame.get_bc_slot(*source);
         let nvl = v.length()?;
-        if nvl != arg.0 as i32 {
-            return Err(AssignError::IncorrectNumberOfValueToUnpack(arg.0 as i32, nvl).into());
+        if nvl != target.len() as i32 {
+            return Err(
+                AssignError::IncorrectNumberOfValueToUnpack(target.len() as i32, nvl).into(),
+            );
         }
-        let places = stack.push_slice_placeholder(*arg);
         v.with_iterator(eval.heap(), |items| {
             let mut i = 0;
             for item in items {
                 // Use unconditional assertion here because we cannot trust
                 // user defined `length` and `with_iterator` consistently.
-                assert!(i != arg.0 as usize);
-                unsafe {
-                    (*places.get_unchecked_mut(places.len() - i - 1)).write(item);
-                }
+                assert!(i < target.len());
+                frame.set_bc_slot(target[i], item);
                 i += 1;
             }
-            assert!(i == arg.0 as usize);
+            assert!(i == target.len());
         })?;
         Ok(())
     }
 }
 
 impl InstrNoFlowImpl for InstrArrayIndexImpl {
-    type Pop<'v> = [Value<'v>; 2];
-    type Push<'v> = Value<'v>;
-    type Arg = ();
+    type Arg = (BcSlotsN<2>, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (): &(),
-        [array, index]: [Value<'v>; 2],
-    ) -> anyhow::Result<Value<'v>> {
-        array.at(index, eval.heap())
-    }
-}
-
-impl InstrNoFlowImpl for InstrArrayIndexNoPopImpl {
-    type Pop<'v> = [Value<'v>; 2];
-    type Push<'v> = [Value<'v>; 3];
-    type Arg = ();
-
-    #[inline(always)]
-    fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
-        _ip: BcPtrAddr,
-        (): &(),
-        [array, index]: [Value<'v>; 2],
-    ) -> anyhow::Result<[Value<'v>; 3]> {
+        (array_index, target): &(BcSlotsN<2>, BcSlot),
+    ) -> anyhow::Result<()> {
+        let array = frame.get_bc_slot(array_index.get::<0>());
+        let index = frame.get_bc_slot(array_index.get::<1>());
         let value = array.at(index, eval.heap())?;
-        Ok([array, index, value])
+        frame.set_bc_slot(*target, value);
+        Ok(())
     }
 }
 
 impl InstrNoFlowImpl for InstrSetArrayIndexImpl {
-    type Pop<'v> = [Value<'v>; 3];
-    type Push<'v> = ();
-    type Arg = ();
+    type Arg = (BcSlot, BcSlotsN<2>);
 
     #[inline(always)]
     fn run_with_args<'v>(
         _eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (): &(),
-        [value, array, index]: [Value<'v>; 3],
+        (source, array_index): &(BcSlot, BcSlotsN<2>),
     ) -> anyhow::Result<()> {
+        let value = frame.get_bc_slot(*source);
+        let array = frame.get_bc_slot(array_index.get::<0>());
+        let index = frame.get_bc_slot(array_index.get::<1>());
         array.set_at(index, value)
     }
 }
 
 impl InstrNoFlowImpl for InstrArrayIndexSetImpl {
-    type Pop<'v> = [Value<'v>; 3];
-    type Push<'v> = ();
-    type Arg = ();
+    type Arg = (BcSlotsN<2>, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         _eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (): &(),
-        [array, index, value]: [Value<'v>; 3],
+        (array_index, source): &(BcSlotsN<2>, BcSlot),
     ) -> anyhow::Result<()> {
+        let value = frame.get_bc_slot(*source);
+        let array = frame.get_bc_slot(array_index.get::<0>());
+        let index = frame.get_bc_slot(array_index.get::<1>());
         array.set_at(index, value)
     }
 }
 
 impl InstrNoFlowImpl for InstrObjectFieldImpl {
-    type Pop<'v> = Value<'v>;
-    type Push<'v> = Value<'v>;
-    type Arg = Symbol;
+    type Arg = (BcSlot, Symbol, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        symbol: &Symbol,
-        object: Value<'v>,
-    ) -> anyhow::Result<Value<'v>> {
-        get_attr_hashed_bind(object, symbol, eval.heap())
+        (object, field, target): &(BcSlot, Symbol, BcSlot),
+    ) -> anyhow::Result<()> {
+        let object = frame.get_bc_slot(*object);
+        let value = get_attr_hashed_bind(object, field, eval.heap())?;
+        frame.set_bc_slot(*target, value);
+        Ok(())
     }
 }
 
 impl InstrNoFlowImpl for InstrSetObjectFieldImpl {
-    type Pop<'v> = [Value<'v>; 2];
-    type Push<'v> = ();
-    type Arg = Symbol;
+    type Arg = (BcSlot, BcSlot, Symbol);
 
     fn run_with_args<'v>(
         _eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        symbol: &Symbol,
-        [v, o]: [Value<'v>; 2],
+        (source, object, field): &(BcSlot, BcSlot, Symbol),
     ) -> anyhow::Result<()> {
-        o.set_attr(symbol.as_str(), v)
-    }
-}
-
-impl InstrNoFlowImpl for InstrObjectSetFieldImpl {
-    type Pop<'v> = [Value<'v>; 2];
-    type Push<'v> = ();
-    type Arg = Symbol;
-
-    fn run_with_args<'v>(
-        _eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
-        _ip: BcPtrAddr,
-        symbol: &Symbol,
-        [o, v]: [Value<'v>; 2],
-    ) -> anyhow::Result<()> {
-        o.set_attr(symbol.as_str(), v)
+        let v = frame.get_bc_slot(*source);
+        let object = frame.get_bc_slot(*object);
+        object.set_attr(field.as_str(), v)
     }
 }
 
 impl InstrNoFlowImpl for InstrSliceImpl {
-    type Pop<'v> = ();
-    type Push<'v> = Value<'v>;
     type Arg = (
-        ArgPopsStack1,
-        ArgPopsStackMaybe1,
-        ArgPopsStackMaybe1,
-        ArgPopsStackMaybe1,
+        BcSlot,
+        Option<BcSlot>,
+        Option<BcSlot>,
+        Option<BcSlot>,
+        BcSlot,
     );
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (_list, start, stop, step): &Self::Arg,
-        (): (),
-    ) -> anyhow::Result<Value<'v>> {
-        let step = stack.pop_maybe(*step);
-        let stop = stack.pop_maybe(*stop);
-        let start = stack.pop_maybe(*start);
-        let list = stack.pop();
-
-        list.slice(start, stop, step, eval.heap())
+        (list, start, stop, step, target): &(
+            BcSlot,
+            Option<BcSlot>,
+            Option<BcSlot>,
+            Option<BcSlot>,
+            BcSlot,
+        ),
+    ) -> anyhow::Result<()> {
+        let list = frame.get_bc_slot(*list);
+        let start = start.map(|s| frame.get_bc_slot(s));
+        let stop = stop.map(|s| frame.get_bc_slot(s));
+        let step = step.map(|s| frame.get_bc_slot(s));
+        let value = list.slice(start, stop, step, eval.heap())?;
+        frame.set_bc_slot(*target, value);
+        Ok(())
     }
 }
 
@@ -622,78 +422,78 @@ impl InstrBinOpImpl for InstrEqImpl {
 }
 
 impl InstrNoFlowImpl for InstrEqConstImpl {
-    type Pop<'v> = Value<'v>;
-    type Push<'v> = Value<'v>;
-    type Arg = FrozenValueNotSpecial;
+    type Arg = (BcSlot, FrozenValueNotSpecial, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         _eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        arg: &FrozenValueNotSpecial,
-        pops: Value<'v>,
-    ) -> anyhow::Result<Value<'v>> {
-        arg.equals(pops).map(Value::new_bool)
+        (a, b, target): &(BcSlot, FrozenValueNotSpecial, BcSlot),
+    ) -> anyhow::Result<()> {
+        let a = frame.get_bc_slot(*a);
+        let r = b.equals(a)?;
+        frame.set_bc_slot(*target, Value::new_bool(r));
+        Ok(())
     }
 }
 
 impl InstrNoFlowImpl for InstrEqPtrImpl {
-    type Pop<'v> = Value<'v>;
-    type Push<'v> = Value<'v>;
-    type Arg = FrozenValue;
+    type Arg = (BcSlot, FrozenValue, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         _eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        arg: &FrozenValue,
-        pops: Value<'v>,
-    ) -> anyhow::Result<Value<'v>> {
-        Ok(Value::new_bool(pops.ptr_eq(arg.to_value())))
+        (a, b, target): &(BcSlot, FrozenValue, BcSlot),
+    ) -> anyhow::Result<()> {
+        let a = frame.get_bc_slot(*a);
+        let r = a.ptr_eq(b.to_value());
+        frame.set_bc_slot(*target, Value::new_bool(r));
+        Ok(())
     }
 }
 
 impl InstrNoFlowImpl for InstrEqIntImpl {
-    type Pop<'v> = Value<'v>;
-    type Push<'v> = Value<'v>;
-    type Arg = FrozenValueTyped<'static, PointerI32>;
+    type Arg = (BcSlot, FrozenValueTyped<'static, PointerI32>, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         _eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        arg: &FrozenValueTyped<'static, PointerI32>,
-        pops: Value<'v>,
-    ) -> anyhow::Result<Value<'v>> {
-        if let Some(value) = pops.unpack_int_value() {
-            Ok(Value::new_bool(value.as_ref() == arg.as_ref()))
+        (a, b, target): &(BcSlot, FrozenValueTyped<'static, PointerI32>, BcSlot),
+    ) -> anyhow::Result<()> {
+        let a = frame.get_bc_slot(*a);
+        let r = if let Some(a) = a.unpack_int_value() {
+            a.as_ref() == b.as_ref()
         } else {
-            Ok(Value::new_bool(pops.equals(arg.to_value())?))
-        }
+            b.equals(a)?
+        };
+        frame.set_bc_slot(*target, Value::new_bool(r));
+        Ok(())
     }
 }
 
 impl InstrNoFlowImpl for InstrEqStrImpl {
-    type Pop<'v> = Value<'v>;
-    type Push<'v> = Value<'v>;
-    type Arg = FrozenStringValue;
+    type Arg = (BcSlot, FrozenStringValue, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         _eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        arg: &FrozenStringValue,
-        pops: Value<'v>,
-    ) -> anyhow::Result<Value<'v>> {
-        if let Some(value) = StringValue::new(pops) {
-            Ok(Value::new_bool(value == arg.to_string_value()))
+        (a, b, target): &(BcSlot, FrozenStringValue, BcSlot),
+    ) -> anyhow::Result<()> {
+        let a = frame.get_bc_slot(*a);
+        let r = if let Some(a) = StringValue::new(a) {
+            a == b.to_string_value()
         } else {
-            Ok(Value::new_bool(false))
-        }
+            false
+        };
+        frame.set_bc_slot(*target, Value::new_bool(r));
+        Ok(())
     }
 }
 
@@ -749,36 +549,37 @@ pub(crate) type InstrBinOp<I> = InstrNoFlow<InstrBinOpWrapper<I>>;
 pub(crate) type InstrUnOp<I> = InstrNoFlow<InstrUnOpWrapper<I>>;
 
 impl<I: InstrBinOpImpl> InstrNoFlowImpl for InstrBinOpWrapper<I> {
-    type Pop<'v> = [Value<'v>; 2];
-    type Push<'v> = Value<'v>;
-    type Arg = ();
+    type Arg = (BcSlotsN<2>, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (): &(),
-        [v0, v1]: [Value<'v>; 2],
-    ) -> anyhow::Result<Value<'v>> {
-        I::eval(v0, v1, eval.heap())
+        (source, target): &(BcSlotsN<2>, BcSlot),
+    ) -> anyhow::Result<()> {
+        let v0 = frame.get_bc_slot(source.get::<0>());
+        let v1 = frame.get_bc_slot(source.get::<1>());
+        let v = I::eval(v0, v1, eval.heap())?;
+        frame.set_bc_slot(*target, v);
+        Ok(())
     }
 }
 
 impl<I: InstrUnOpImpl> InstrNoFlowImpl for InstrUnOpWrapper<I> {
-    type Pop<'v> = Value<'v>;
-    type Push<'v> = Value<'v>;
-    type Arg = ();
+    type Arg = (BcSlot, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (): &(),
-        v: Value<'v>,
-    ) -> anyhow::Result<Value<'v>> {
-        I::eval(v, eval.heap())
+        (source, target): &(BcSlot, BcSlot),
+    ) -> anyhow::Result<()> {
+        let source = frame.get_bc_slot(*source);
+        let value = I::eval(source, eval.heap())?;
+        frame.set_bc_slot(*target, value);
+        Ok(())
     }
 }
 
@@ -916,36 +717,36 @@ pub(crate) struct InstrFormatOneImpl;
 pub(crate) type InstrFormatOne = InstrNoFlow<InstrFormatOneImpl>;
 
 impl InstrNoFlowImpl for InstrPercentSOneImpl {
-    type Pop<'v> = Value<'v>;
-    type Push<'v> = Value<'v>;
-    type Arg = (FrozenStringValue, FrozenStringValue);
+    type Arg = (FrozenStringValue, BcSlot, FrozenStringValue, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (before, after): &Self::Arg,
-        arg: Value<'v>,
-    ) -> anyhow::Result<Value<'v>> {
-        percent_s_one(before.as_str(), arg, after.as_str(), eval.heap()).map(|v| v.to_value())
+        (before, arg, after, target): &(FrozenStringValue, BcSlot, FrozenStringValue, BcSlot),
+    ) -> anyhow::Result<()> {
+        let arg = frame.get_bc_slot(*arg);
+        let r = percent_s_one(before.as_str(), arg, after.as_str(), eval.heap())?;
+        frame.set_bc_slot(*target, r.to_value());
+        Ok(())
     }
 }
 
 impl InstrNoFlowImpl for InstrFormatOneImpl {
-    type Pop<'v> = Value<'v>;
-    type Push<'v> = Value<'v>;
-    type Arg = (FrozenStringValue, FrozenStringValue);
+    type Arg = (FrozenStringValue, BcSlot, FrozenStringValue, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (before, after): &Self::Arg,
-        arg: Value<'v>,
-    ) -> anyhow::Result<Value<'v>> {
-        Ok(format_one(before.as_str(), arg, after.as_str(), eval.heap()).to_value())
+        (before, arg, after, target): &(FrozenStringValue, BcSlot, FrozenStringValue, BcSlot),
+    ) -> anyhow::Result<()> {
+        let arg = frame.get_bc_slot(*arg);
+        let r = format_one(before.as_str(), arg, after.as_str(), eval.heap());
+        frame.set_bc_slot(*target, r.to_value());
+        Ok(())
     }
 }
 
@@ -1014,19 +815,19 @@ pub(crate) struct InstrTypeIsImpl;
 pub(crate) type InstrTypeIs = InstrNoFlow<InstrTypeIsImpl>;
 
 impl InstrNoFlowImpl for InstrTypeIsImpl {
-    type Pop<'v> = Value<'v>;
-    type Push<'v> = Value<'v>;
-    type Arg = FrozenStringValue;
+    type Arg = (BcSlot, FrozenStringValue, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         _eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _: BcPtrAddr,
-        t: &FrozenStringValue,
-        v: Value<'v>,
-    ) -> anyhow::Result<Value<'v>> {
-        Ok(Value::new_bool(v.get_type_value() == *t))
+        (arg, t, target): &(BcSlot, FrozenStringValue, BcSlot),
+    ) -> anyhow::Result<()> {
+        let arg = frame.get_bc_slot(*arg);
+        let r = arg.get_type_value() == *t;
+        frame.set_bc_slot(*target, Value::new_bool(r));
+        Ok(())
     }
 }
 
@@ -1059,88 +860,81 @@ pub(crate) type InstrDictConstKeys = InstrNoFlow<InstrDictConstKeysImpl>;
 pub(crate) type InstrDictNPop = InstrNoFlow<InstrDictNPopImpl>;
 
 impl InstrNoFlowImpl for InstrTupleNPopImpl {
-    type Pop<'v> = ();
-    type Push<'v> = Value<'v>;
-    type Arg = ArgPopsStack;
+    type Arg = (BcSlotRange, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _: BcPtrAddr,
-        npops: &Self::Arg,
-        _pops: (),
-    ) -> anyhow::Result<Value<'v>> {
-        let items = stack.pop_slice(*npops);
-        Ok(eval.heap().alloc_tuple(items))
+        (values, target): &(BcSlotRange, BcSlot),
+    ) -> anyhow::Result<()> {
+        let items = frame.get_bc_slot_range(*values);
+        let value = eval.heap().alloc_tuple(items);
+        frame.set_bc_slot(*target, value);
+        Ok(())
     }
 }
 
 impl InstrNoFlowImpl for InstrListNPopImpl {
-    type Pop<'v> = ();
-    type Push<'v> = Value<'v>;
-    type Arg = ArgPopsStack;
+    type Arg = (BcSlotRange, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _: BcPtrAddr,
-        npops: &Self::Arg,
-        _pops: (),
-    ) -> anyhow::Result<Value<'v>> {
-        let items = stack.pop_slice(*npops);
-        Ok(eval.heap().alloc_list(items))
+        (values, target): &(BcSlotRange, BcSlot),
+    ) -> anyhow::Result<()> {
+        let items = frame.get_bc_slot_range(*values);
+        let value = eval.heap().alloc_list(items);
+        frame.set_bc_slot(*target, value);
+        Ok(())
     }
 }
 
 impl InstrNoFlowImpl for InstrListOfConstsImpl {
-    type Pop<'v> = ();
-    type Push<'v> = Value<'v>;
-    type Arg = Box<[FrozenValue]>;
+    type Arg = (Box<[FrozenValue]>, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _: BcPtrAddr,
-        values: &Self::Arg,
-        (): (),
-    ) -> anyhow::Result<Value<'v>> {
-        Ok(eval.heap().alloc_list(coerce(&values)))
+        (values, target): &(Box<[FrozenValue]>, BcSlot),
+    ) -> anyhow::Result<()> {
+        let list = eval.heap().alloc_list(coerce(&values));
+        frame.set_bc_slot(*target, list);
+        Ok(())
     }
 }
 
 impl InstrNoFlowImpl for InstrDictOfConstsImpl {
-    type Pop<'v> = ();
-    type Push<'v> = Value<'v>;
-    type Arg = SmallMap<FrozenValue, FrozenValue>;
+    type Arg = (SmallMap<FrozenValue, FrozenValue>, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _: BcPtrAddr,
-        values: &Self::Arg,
-        (): (),
-    ) -> anyhow::Result<Value<'v>> {
-        Ok(eval.heap().alloc(Dict::new((*coerce(values)).clone())))
+        (values, target): &(SmallMap<FrozenValue, FrozenValue>, BcSlot),
+    ) -> anyhow::Result<()> {
+        let dict = eval.heap().alloc(Dict::new((*coerce(values)).clone()));
+        frame.set_bc_slot(*target, dict);
+        Ok(())
     }
 }
 
 impl InstrNoFlowImpl for InstrDictNPopImpl {
-    type Pop<'v> = ();
-    type Push<'v> = Value<'v>;
-    type Arg = ArgPopsStack;
+    type Arg = (BcSlotRange, BcSlot);
 
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         ip: BcPtrAddr,
-        npops: &Self::Arg,
-        _pops: (),
-    ) -> anyhow::Result<Value<'v>> {
-        let items = stack.pop_slice(*npops);
+        (npops, target): &(BcSlotRange, BcSlot),
+    ) -> anyhow::Result<()> {
+        let items = frame.get_bc_slot_range(*npops);
         debug_assert!(items.len() % 2 == 0);
         let mut dict = SmallMap::with_capacity(items.len() / 2);
         for i in 0..items.len() / 2 {
@@ -1160,64 +954,62 @@ impl InstrNoFlowImpl for InstrDictNPopImpl {
                 return Err(add_span_to_expr_error(e, spans[i], eval).0);
             }
         }
-        Ok(eval.heap().alloc(Dict::new(dict)))
+        let dict = eval.heap().alloc(Dict::new(dict));
+        frame.set_bc_slot(*target, dict);
+        Ok(())
     }
 }
 
 impl InstrNoFlowImpl for InstrDictConstKeysImpl {
-    type Pop<'v> = ();
-    type Push<'v> = Value<'v>;
-    type Arg = (ArgPopsStack, Box<[Hashed<FrozenValue>]>);
+    type Arg = (Box<[Hashed<FrozenValue>]>, BcSlotRangeFrom, BcSlot);
 
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _: BcPtrAddr,
-        (npops, keys): &Self::Arg,
-        _pops: (),
-    ) -> anyhow::Result<Value<'v>> {
-        let values = stack.pop_slice(*npops);
-        assert!(keys.len() == values.len());
+        (keys, values, target): &Self::Arg,
+    ) -> anyhow::Result<()> {
+        let values = frame.get_bc_slot_range(values.to_range(keys.len() as u32));
         let mut dict = SmallMap::with_capacity(keys.len());
         for (k, v) in keys.iter().zip(values) {
             let prev = dict.insert_hashed(*k, *v);
             debug_assert!(prev.is_none());
         }
-        Ok(eval.heap().alloc(Dict::new(coerce(dict))))
+        let dict = eval.heap().alloc(Dict::new(coerce(dict)));
+        frame.set_bc_slot(*target, dict);
+        Ok(())
     }
 }
 
 impl InstrNoFlowImpl for InstrListNewImpl {
-    type Pop<'v> = ();
-    type Push<'v> = Value<'v>;
-    type Arg = ();
+    type Arg = BcSlot;
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _: BcPtrAddr,
-        (): &(),
-        (): (),
-    ) -> anyhow::Result<Value<'v>> {
-        Ok(eval.heap().alloc_list(&[]))
+        target: &BcSlot,
+    ) -> anyhow::Result<()> {
+        let list = eval.heap().alloc_list(&[]);
+        frame.set_bc_slot(*target, list);
+        Ok(())
     }
 }
 
 impl InstrNoFlowImpl for InstrDictNewImpl {
-    type Pop<'v> = ();
-    type Push<'v> = Value<'v>;
-    type Arg = ();
+    type Arg = BcSlot;
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _: BcPtrAddr,
-        (): &(),
-        (): (),
-    ) -> anyhow::Result<Value<'v>> {
-        Ok(eval.heap().alloc(Dict::default()))
+        target: &BcSlot,
+    ) -> anyhow::Result<()> {
+        let dict = eval.heap().alloc(Dict::default());
+        frame.set_bc_slot(*target, dict);
+        Ok(())
     }
 }
 
@@ -1225,19 +1017,17 @@ pub(crate) struct InstrComprListAppend;
 pub(crate) struct InstrComprDictInsert;
 
 impl BcInstr for InstrComprListAppend {
-    type Pop<'v> = [Value<'v>; 2];
-    type Push<'v> = Value<'v>;
-    type Arg = ();
+    type Arg = (BcSlot, BcSlot);
 
     #[inline(always)]
     fn run<'v, 'b>(
         eval: &mut Evaluator<'v, '_>,
-        stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _: BcPtrAddr<'b>,
-        (): &(),
+        (list, item): &(BcSlot, BcSlot),
     ) -> InstrControl<'v, 'b> {
-        let item = stack.pop();
-        let list = stack.top();
+        let list = frame.get_bc_slot(*list);
+        let item = frame.get_bc_slot(*item);
         // SAFETY: in generated bytecode this slot can be only occupied by a mutable list.
         let list = unsafe { List::from_value_unchecked_mut(list) };
         list.push(item, eval.heap());
@@ -1246,19 +1036,18 @@ impl BcInstr for InstrComprListAppend {
 }
 
 impl BcInstr for InstrComprDictInsert {
-    type Pop<'v> = [Value<'v>; 3];
-    type Push<'v> = Value<'v>;
-    type Arg = ();
+    type Arg = (BcSlot, BcSlotsN<2>);
 
     #[inline(always)]
     fn run<'v, 'b>(
         _eval: &mut Evaluator<'v, '_>,
-        stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr<'b>,
-        (): &(),
+        (dict, key_value): &(BcSlot, BcSlotsN<2>),
     ) -> InstrControl<'v, 'b> {
-        let [key, value] = stack.pop_array();
-        let dict = stack.top();
+        let dict = frame.get_bc_slot(*dict);
+        let key = frame.get_bc_slot(key_value.get::<0>());
+        let value = frame.get_bc_slot(key_value.get::<1>());
         let key = match key.get_hashed() {
             Ok(key) => key,
             Err(e) => return InstrControl::Err(e),
@@ -1275,14 +1064,12 @@ pub(crate) struct InstrIfBr;
 pub(crate) struct InstrIfNotBr;
 
 impl BcInstr for InstrBr {
-    type Pop<'v> = ();
-    type Push<'v> = ();
     type Arg = BcAddrOffset;
 
     #[inline(always)]
     fn run<'v, 'b>(
         _eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        _frame: BcFramePtr<'v>,
         ip: BcPtrAddr<'b>,
         target: &BcAddrOffset,
     ) -> InstrControl<'v, 'b> {
@@ -1291,18 +1078,16 @@ impl BcInstr for InstrBr {
 }
 
 impl BcInstr for InstrIfBr {
-    type Pop<'v> = Value<'v>;
-    type Push<'v> = ();
-    type Arg = BcAddrOffset;
+    type Arg = (BcSlot, BcAddrOffset);
 
     #[inline(always)]
     fn run<'v, 'b>(
         _eval: &mut Evaluator<'v, '_>,
-        stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         ip: BcPtrAddr<'b>,
-        target: &BcAddrOffset,
+        (cond, target): &(BcSlot, BcAddrOffset),
     ) -> InstrControl<'v, 'b> {
-        let cond = stack.pop();
+        let cond = frame.get_bc_slot(*cond);
         if cond.to_bool() {
             InstrControl::Next(ip.add_rel(*target))
         } else {
@@ -1312,18 +1097,16 @@ impl BcInstr for InstrIfBr {
 }
 
 impl BcInstr for InstrIfNotBr {
-    type Pop<'v> = Value<'v>;
-    type Push<'v> = ();
-    type Arg = BcAddrOffset;
+    type Arg = (BcSlot, BcAddrOffset);
 
     #[inline(always)]
     fn run<'v, 'b>(
         _eval: &mut Evaluator<'v, '_>,
-        stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         ip: BcPtrAddr<'b>,
-        target: &BcAddrOffset,
+        (cond, target): &(BcSlot, BcAddrOffset),
     ) -> InstrControl<'v, 'b> {
-        let cond = stack.pop();
+        let cond = frame.get_bc_slot(*cond);
         if !cond.to_bool() {
             InstrControl::Next(ip.add_rel(*target))
         } else {
@@ -1337,19 +1120,15 @@ pub(crate) struct InstrBreak;
 pub(crate) struct InstrContinue;
 
 impl BcInstr for InstrForLoop {
-    type Pop<'v> = Value<'v>;
-    type Push<'v> = Value<'v>;
-    type Arg = BcAddrOffset;
+    type Arg = (BcSlot, BcSlot, BcAddrOffset);
 
     fn run<'v, 'b>(
         eval: &mut Evaluator<'v, '_>,
-        stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         ip: BcPtrAddr<'b>,
-        loop_end: &BcAddrOffset,
+        (over, var, loop_end): &(BcSlot, BcSlot, BcAddrOffset),
     ) -> InstrControl<'v, 'b> {
-        let ss = stack.stack_offset();
-
-        let collection = stack.pop();
+        let collection = frame.get_bc_slot(*over);
 
         enum LoopResult<'v> {
             Ok,
@@ -1360,9 +1139,8 @@ impl BcInstr for InstrForLoop {
         let iter_ret = collection.with_iterator(eval.heap(), |iter| {
             let loop_start = ip.add_instr::<Self>();
             for item in iter {
-                stack.push(item);
-                debug_assert!(stack.stack_offset() == ss);
-                match run_block(eval, stack, loop_start) {
+                frame.set_bc_slot(*var, item);
+                match run_block(eval, loop_start) {
                     RunBlockResult::Continue => {}
                     RunBlockResult::Break => return LoopResult::Ok,
                     RunBlockResult::Return(v) => return LoopResult::Return(v),
@@ -1372,14 +1150,8 @@ impl BcInstr for InstrForLoop {
             LoopResult::Ok
         });
         match iter_ret {
-            Ok(LoopResult::Ok) => {
-                debug_assert!(stack.stack_offset() + 1 == ss);
-                InstrControl::Next(ip.add_rel(*loop_end))
-            }
-            Ok(LoopResult::Return(v)) => {
-                debug_assert!(stack.stack_offset() + 1 == ss);
-                InstrControl::Return(v)
-            }
+            Ok(LoopResult::Ok) => InstrControl::Next(ip.add_rel(*loop_end)),
+            Ok(LoopResult::Return(v)) => InstrControl::Return(v),
             Ok(LoopResult::Err(e)) => InstrControl::Err(e.0),
             Err(e) => InstrControl::Err(e),
         }
@@ -1387,14 +1159,12 @@ impl BcInstr for InstrForLoop {
 }
 
 impl BcInstr for InstrBreak {
-    type Pop<'v> = ();
-    type Push<'v> = ();
     type Arg = ();
 
     #[inline(always)]
     fn run<'v, 'b>(
         _eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        _frame: BcFramePtr<'v>,
         _ip: BcPtrAddr<'b>,
         (): &(),
     ) -> InstrControl<'v, 'b> {
@@ -1403,14 +1173,12 @@ impl BcInstr for InstrBreak {
 }
 
 impl BcInstr for InstrContinue {
-    type Pop<'v> = ();
-    type Push<'v> = ();
     type Arg = ();
 
     #[inline(always)]
     fn run<'v, 'b>(
         _eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        _frame: BcFramePtr<'v>,
         _ip: BcPtrAddr<'b>,
         (): &(),
     ) -> InstrControl<'v, 'b> {
@@ -1422,13 +1190,11 @@ pub(crate) struct InstrReturnConst;
 pub(crate) struct InstrReturn;
 
 impl BcInstr for InstrReturnConst {
-    type Pop<'v> = ();
-    type Push<'v> = ();
     type Arg = FrozenValue;
 
     fn run<'v, 'b>(
         _eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        _frame: BcFramePtr<'v>,
         _ip: BcPtrAddr<'b>,
         value: &FrozenValue,
     ) -> InstrControl<'v, 'b> {
@@ -1437,18 +1203,16 @@ impl BcInstr for InstrReturnConst {
 }
 
 impl BcInstr for InstrReturn {
-    type Pop<'v> = Value<'v>;
-    type Push<'v> = ();
-    type Arg = ();
+    type Arg = BcSlot;
 
     #[inline(always)]
     fn run<'v, 'b>(
         _eval: &mut Evaluator<'v, '_>,
-        stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr<'b>,
-        (): &(),
+        &slot: &BcSlot,
     ) -> InstrControl<'v, 'b> {
-        let v = stack.pop();
+        let v = frame.get_bc_slot(slot);
         InstrControl::Return(v)
     }
 }
@@ -1466,18 +1230,15 @@ pub(crate) struct InstrDefData {
 }
 
 impl InstrNoFlowImpl for InstrDefImpl {
-    type Pop<'v> = ();
-    type Push<'v> = Value<'v>;
-    type Arg = (ArgPopsStack, InstrDefData);
+    type Arg = (BcSlotRange, InstrDefData, BcSlot);
 
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (pops, def_data): &Self::Arg,
-        _pops: (),
-    ) -> anyhow::Result<Value<'v>> {
-        let pop = stack.pop_slice(*pops);
+        (pops, def_data, target): &(BcSlotRange, InstrDefData, BcSlot),
+    ) -> anyhow::Result<()> {
+        let pop = frame.get_bc_slot_range(*pops);
 
         let mut parameters =
             ParametersSpec::with_capacity(def_data.function_name.clone(), def_data.params.len());
@@ -1553,14 +1314,16 @@ impl InstrNoFlowImpl for InstrDefImpl {
             }
         };
         assert!(pop_index as usize == pop.len());
-        Ok(eval.heap().alloc(Def::new(
+        let def = eval.heap().alloc(Def::new(
             parameters.finish(),
             parameter_captures,
             parameter_types,
             return_type,
             def_data.info,
             eval,
-        )))
+        ));
+        frame.set_bc_slot(*target, def);
+        Ok(())
     }
 }
 
@@ -1645,65 +1408,68 @@ pub(crate) type InstrCallMaybeKnownMethodPos =
     InstrNoFlow<InstrCallMaybeKnownMethodImpl<BcCallArgsPos>>;
 
 impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallImpl<A> {
-    type Pop<'v> = ();
-    type Push<'v> = Value<'v>;
-    type Arg = (ArgPopsStack1, A, FrozenRef<'static, FrozenFileSpan>);
+    type Arg = (BcSlot, A, FrozenRef<'static, FrozenFileSpan>, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (_pop1, args, span): &Self::Arg,
-        _pops: (),
-    ) -> anyhow::Result<Value<'v>> {
-        let arguments = Arguments(args.pop_from_stack(stack));
-        let f = stack.pop();
-        f.invoke_with_loc(Some(*span), &arguments, eval)
+        (this, args, span, target): &(BcSlot, A, FrozenRef<'static, FrozenFileSpan>, BcSlot),
+    ) -> anyhow::Result<()> {
+        let f = frame.get_bc_slot(*this);
+        let arguments = Arguments(args.pop_from_stack(frame));
+        let r = f.invoke_with_loc(Some(*span), &arguments, eval)?;
+        frame.set_bc_slot(*target, r);
+        Ok(())
     }
 }
 
 impl<F: BcFrozenCallable, A: BcCallArgs<Symbol>> InstrNoFlowImpl
     for InstrCallFrozenGenericImpl<F, A>
 {
-    type Pop<'v> = ();
-    type Push<'v> = Value<'v>;
-    type Arg = (F, A, FrozenRef<'static, FrozenFileSpan>);
+    type Arg = (F, A, FrozenRef<'static, FrozenFileSpan>, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (fun, args, span): &Self::Arg,
-        _pops: (),
-    ) -> anyhow::Result<Value<'v>> {
-        let arguments = Arguments(args.pop_from_stack(stack));
-        fun.bc_invoke(*span, &arguments, eval)
+        (fun, args, span, target): &(F, A, FrozenRef<'static, FrozenFileSpan>, BcSlot),
+    ) -> anyhow::Result<()> {
+        let arguments = Arguments(args.pop_from_stack(frame));
+        let r = fun.bc_invoke(*span, &arguments, eval)?;
+        frame.set_bc_slot(*target, r);
+        Ok(())
     }
 }
 
 impl<A: BcCallArgsForDef> InstrNoFlowImpl for InstrCallFrozenDefImpl<A> {
-    type Pop<'v> = ();
-    type Push<'v> = Value<'v>;
     type Arg = (
         FrozenValueTyped<'static, FrozenDef>,
         A,
         FrozenRef<'static, FrozenFileSpan>,
+        BcSlot,
     );
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (fun, args, span): &Self::Arg,
-        _pops: (),
-    ) -> Result<Value<'v>, anyhow::Error> {
-        let arguments = args.pop_from_stack(stack);
-        eval.with_call_stack(fun.to_value(), Some(*span), |eval| {
+        (fun, args, span, target): &(
+            FrozenValueTyped<'static, FrozenDef>,
+            A,
+            FrozenRef<'static, FrozenFileSpan>,
+            BcSlot,
+        ),
+    ) -> anyhow::Result<()> {
+        let arguments = args.pop_from_stack(frame);
+        let r = eval.with_call_stack(fun.to_value(), Some(*span), |eval| {
             fun.as_ref().invoke_with_args(&arguments, eval)
-        })
+        })?;
+        frame.set_bc_slot(*target, r);
+        Ok(())
     }
 }
 
@@ -1711,35 +1477,41 @@ impl<A: BcCallArgsForDef> InstrNoFlowImpl for InstrCallFrozenDefImpl<A> {
 #[inline(always)]
 fn call_method_common<'v>(
     eval: &mut Evaluator<'v, '_>,
+    frame: BcFramePtr<'v>,
     this: Value<'v>,
     symbol: &Symbol,
     arguments: &Arguments<'v, '_>,
     span: FrozenRef<'static, FrozenFileSpan>,
-) -> anyhow::Result<Value<'v>> {
+    target: BcSlot,
+) -> anyhow::Result<()> {
     // TODO: wrong span: should be span of `object.method`, not of the whole expression
     let method = get_attr_hashed_raw(this, symbol, eval.heap())?;
-    match method {
-        MemberOrValue::Member(member) => member.invoke_method(this, span, arguments, eval),
-        MemberOrValue::Value(value) => value.invoke_with_loc(Some(span), arguments, eval),
-    }
+    let r = match method {
+        MemberOrValue::Member(member) => member.invoke_method(this, span, arguments, eval)?,
+        MemberOrValue::Value(value) => value.invoke_with_loc(Some(span), arguments, eval)?,
+    };
+    frame.set_bc_slot(target, r);
+    Ok(())
 }
 
 /// Common of method invocation instructions where a method is likely stdlib method.
 #[inline(always)]
 fn call_maybe_known_method_common<'v>(
     eval: &mut Evaluator<'v, '_>,
+    frame: BcFramePtr<'v>,
     this: Value<'v>,
     symbol: &Symbol,
     known_method: &KnownMethod,
     arguments: &Arguments<'v, '_>,
     span: FrozenRef<'static, FrozenFileSpan>,
-) -> anyhow::Result<Value<'v>> {
+    target: BcSlot,
+) -> anyhow::Result<()> {
     if let Some(methods) = this.get_ref().get_methods() {
         // Instead of method lookup by name, we compare `Methods` pointers.
         // If pointers are equal, getattr would return the same method
         // we already have.
         if ptr::eq(methods, known_method.type_methods) {
-            return eval.with_call_stack(known_method.method.to_value(), Some(span), |eval| {
+            let r = eval.with_call_stack(known_method.method.to_value(), Some(span), |eval| {
                 known_method.method.invoke_method(
                     known_method.method.to_value(),
                     this,
@@ -1747,54 +1519,79 @@ fn call_maybe_known_method_common<'v>(
                     eval,
                     Private,
                 )
-            });
+            })?;
+            frame.set_bc_slot(target, r);
+            return Ok(());
         }
     }
 
-    call_method_common(eval, this, symbol, arguments, span)
+    call_method_common(eval, frame, this, symbol, arguments, span, target)
 }
 
 impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallMethodImpl<A> {
-    type Pop<'v> = ();
-    type Push<'v> = Value<'v>;
-    type Arg = (ArgPopsStack1, Symbol, A, FrozenRef<'static, FrozenFileSpan>);
-
-    #[inline(always)]
-    fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
-        stack: &mut BcStackPtr<'v, '_>,
-        _ip: BcPtrAddr,
-        (_pop1, symbol, args, span): &Self::Arg,
-        _pops: (),
-    ) -> anyhow::Result<Value<'v>> {
-        let arguments = Arguments(args.pop_from_stack(stack));
-        let this = stack.pop();
-        call_method_common(eval, this, symbol, &arguments, *span)
-    }
-}
-
-impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallMaybeKnownMethodImpl<A> {
-    type Pop<'v> = ();
-    type Push<'v> = Value<'v>;
     type Arg = (
-        ArgPopsStack1,
+        BcSlot,
         Symbol,
-        KnownMethod,
         A,
         FrozenRef<'static, FrozenFileSpan>,
+        BcSlot,
     );
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (_pop1, symbol, known_method, args, span): &Self::Arg,
-        _pops: (),
-    ) -> anyhow::Result<Value<'v>> {
-        let arguments = Arguments(args.pop_from_stack(stack));
-        let this = stack.pop();
-        call_maybe_known_method_common(eval, this, symbol, known_method, &arguments, *span)
+        (this, symbol, args, span, target): &(
+            BcSlot,
+            Symbol,
+            A,
+            FrozenRef<'static, FrozenFileSpan>,
+            BcSlot,
+        ),
+    ) -> anyhow::Result<()> {
+        let this = frame.get_bc_slot(*this);
+        let arguments = Arguments(args.pop_from_stack(frame));
+        call_method_common(eval, frame, this, symbol, &arguments, *span, *target)
+    }
+}
+
+impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallMaybeKnownMethodImpl<A> {
+    type Arg = (
+        BcSlot,
+        Symbol,
+        KnownMethod,
+        A,
+        FrozenRef<'static, FrozenFileSpan>,
+        BcSlot,
+    );
+
+    #[inline(always)]
+    fn run_with_args<'v>(
+        eval: &mut Evaluator<'v, '_>,
+        frame: BcFramePtr<'v>,
+        _ip: BcPtrAddr,
+        (this, symbol, known_method, args, span, target): &(
+            BcSlot,
+            Symbol,
+            KnownMethod,
+            A,
+            FrozenRef<'static, FrozenFileSpan>,
+            BcSlot,
+        ),
+    ) -> anyhow::Result<()> {
+        let this = frame.get_bc_slot(*this);
+        let arguments = Arguments(args.pop_from_stack(frame));
+        call_maybe_known_method_common(
+            eval,
+            frame,
+            this,
+            symbol,
+            known_method,
+            &arguments,
+            *span,
+            *target,
+        )
     }
 }
 
@@ -1807,16 +1604,13 @@ pub(crate) type InstrBeforeStmt = InstrNoFlow<InstrBeforeStmtImpl>;
 pub(crate) type InstrProfileBc = InstrNoFlow<InstrProfileBcImpl>;
 
 impl InstrNoFlowImpl for InstrPossibleGcImpl {
-    type Pop<'v> = ();
-    type Push<'v> = ();
     type Arg = ();
 
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        _frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (): &(),
-        (): (),
     ) -> anyhow::Result<()> {
         possible_gc(eval);
         Ok(())
@@ -1824,16 +1618,13 @@ impl InstrNoFlowImpl for InstrPossibleGcImpl {
 }
 
 impl InstrNoFlowImpl for InstrBeforeStmtImpl {
-    type Pop<'v> = ();
-    type Push<'v> = ();
     type Arg = FrozenFileSpan;
 
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        _frame: BcFramePtr<'v>,
         _: BcPtrAddr,
         span: &Self::Arg,
-        (): (),
     ) -> anyhow::Result<()> {
         before_stmt(*span, eval);
         Ok(())
@@ -1841,16 +1632,13 @@ impl InstrNoFlowImpl for InstrBeforeStmtImpl {
 }
 
 impl InstrNoFlowImpl for InstrProfileBcImpl {
-    type Pop<'v> = ();
-    type Push<'v> = ();
     type Arg = BcOpcode;
 
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        _frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         opcode: &BcOpcode,
-        (): (),
     ) -> anyhow::Result<()> {
         eval.bc_profile.before_instr(*opcode);
         Ok(())
@@ -1866,14 +1654,12 @@ impl InstrNoFlowImpl for InstrProfileBcImpl {
 pub(crate) struct InstrEnd;
 
 impl BcInstr for InstrEnd {
-    type Pop<'v> = ();
-    type Push<'v> = ();
     /// Offset of current instruction and spans of all instructions.
     type Arg = (BcAddr, Vec<(BcAddr, BcInstrSlowArg)>);
 
     fn run<'v, 'b>(
         _eval: &mut Evaluator<'v, '_>,
-        _stack: &mut BcStackPtr<'v, '_>,
+        _frame: BcFramePtr<'v>,
         _ip: BcPtrAddr<'b>,
         (_this_instr_offset, _spans): &Self::Arg,
     ) -> InstrControl<'v, 'b> {

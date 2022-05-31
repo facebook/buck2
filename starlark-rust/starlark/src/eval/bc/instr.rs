@@ -19,10 +19,7 @@
 
 use crate::{
     eval::{
-        bc::{
-            addr::BcPtrAddr, instr_arg::BcInstrArg, stack_ptr::BcStackPtr,
-            stack_values::BcStackValues,
-        },
+        bc::{addr::BcPtrAddr, frame::BcFramePtr, instr_arg::BcInstrArg},
         Evaluator,
     },
     values::Value,
@@ -48,28 +45,14 @@ pub(crate) enum InstrControl<'v, 'b> {
 }
 
 pub(crate) trait BcInstr: Sized + 'static {
-    /// Values this instruction pops off the stack.
-    type Pop<'v>: BcStackValues<'v>;
-    /// Values this instruction pushes on the stack.
-    type Push<'v>: BcStackValues<'v>;
     /// Fixed instruction argument (which may encode additional arguments
     /// pushed or popped from the stack by the instruction implementation).
     type Arg: BcInstrArg;
 
-    /// How many values popped off the stack? This is used to compute the stack size.
-    fn npops(arg: &Self::Arg) -> u32 {
-        Self::Pop::<'static>::N + BcInstrArg::pops_stack(arg)
-    }
-
-    /// How many values pushed on the stack? This is used to compute the stack size.
-    fn npushs(arg: &Self::Arg) -> u32 {
-        Self::Push::<'static>::N + BcInstrArg::pushes_stack(arg)
-    }
-
     /// Execute the instruction.
     fn run<'v, 'b>(
         eval: &mut Evaluator<'v, '_>,
-        stack: &mut BcStackPtr<'v, '_>,
+        frame: BcFramePtr<'v>,
         ip: BcPtrAddr<'b>,
         arg: &Self::Arg,
     ) -> InstrControl<'v, 'b>;

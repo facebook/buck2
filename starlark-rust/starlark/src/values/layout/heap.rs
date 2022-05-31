@@ -26,7 +26,7 @@ use std::{
     marker::PhantomData,
     mem::MaybeUninit,
     ops::Deref,
-    ptr,
+    ptr, slice,
     sync::Arc,
     usize,
 };
@@ -288,6 +288,23 @@ impl FrozenHeap {
         #[display(fmt = "{:?}", _0)]
         struct Wrapper<T: Debug + Send + Sync>(T);
         self.alloc_any(Wrapper(value)).map(|r| &r.0)
+    }
+
+    /// Allocate a slice in the frozen heap.
+    pub(crate) fn alloc_any_slice_display_from_debug<T: Debug + Send + Sync + Clone>(
+        &self,
+        values: &[T],
+    ) -> FrozenRef<'static, [T]> {
+        if values.is_empty() {
+            FrozenRef::new(&[])
+        } else if values.len() == 1 {
+            self.alloc_any_display_from_debug(values[0].clone())
+                .map(|r| slice::from_ref(r))
+        } else {
+            // TODO(nga): do not allocate `Vec`
+            self.alloc_any_display_from_debug(values.to_vec())
+                .map(|r| r.as_slice())
+        }
     }
 
     /// Number of bytes allocated on this heap, not including any memory

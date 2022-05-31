@@ -336,6 +336,16 @@ pub(crate) enum AssignCompiledValue {
     Module(ModuleSlotId, String),
 }
 
+impl AssignCompiledValue {
+    /// Assignment to a local non-captured variable.
+    pub(crate) fn as_local_non_captured(&self) -> Option<LocalSlotId> {
+        match self {
+            AssignCompiledValue::Local(id, Captured::No) => Some(*id),
+            _ => None,
+        }
+    }
+}
+
 impl IrSpanned<AssignCompiledValue> {
     pub(crate) fn optimize_on_freeze(
         &self,

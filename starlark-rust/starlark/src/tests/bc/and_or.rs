@@ -22,10 +22,9 @@ fn test_x_and_true() {
     test_instrs(
         &[
             BcOpcode::LoadLocal,
-            BcOpcode::Dup,
             BcOpcode::IfNotBr,
-            BcOpcode::Pop,
             BcOpcode::Const,
+            BcOpcode::Mov,
             BcOpcode::Return,
         ],
         "def test(x): return x and True",
@@ -37,10 +36,9 @@ fn test_x_and_false() {
     test_instrs(
         &[
             BcOpcode::LoadLocal,
-            BcOpcode::Dup,
             BcOpcode::IfNotBr,
-            BcOpcode::Pop,
             BcOpcode::Const,
+            BcOpcode::Mov,
             BcOpcode::Return,
         ],
         "def test(x): return x and False",
@@ -52,10 +50,9 @@ fn test_x_or_true() {
     test_instrs(
         &[
             BcOpcode::LoadLocal,
-            BcOpcode::Dup,
             BcOpcode::IfBr,
-            BcOpcode::Pop,
             BcOpcode::Const,
+            BcOpcode::Mov,
             BcOpcode::Return,
         ],
         "def test(x): return x or True",
@@ -67,10 +64,9 @@ fn test_x_or_false() {
     test_instrs(
         &[
             BcOpcode::LoadLocal,
-            BcOpcode::Dup,
             BcOpcode::IfBr,
-            BcOpcode::Pop,
             BcOpcode::Const,
+            BcOpcode::Mov,
             BcOpcode::Return,
         ],
         "def test(x): return x or False",

@@ -20,17 +20,22 @@
 use std::{
     fmt,
     fmt::{Display, Formatter},
+    marker::PhantomData,
 };
 
-use gazebo::prelude::*;
+use gazebo::{coerce::coerce, prelude::*};
 
 use crate::{
     collections::symbol_map::Symbol,
     eval::{
-        bc::{instr_arg::BcInstrArg, stack_ptr::BcStackPtr},
+        bc::{
+            frame::BcFramePtr,
+            instr_arg::BcInstrArg,
+            stack_ptr::{BcSlot, BcSlotRange},
+        },
         compiler::def::FrozenDef,
         runtime::arguments::{
-            ArgSymbol, ArgumentsFull, ArgumentsImpl, ArgumentsPos, ResolvedArgName,
+            ArgNames, ArgSymbol, ArgumentsFull, ArgumentsImpl, ArgumentsPos, ResolvedArgName,
         },
     },
     values::FrozenStringValue,
@@ -38,7 +43,7 @@ use crate::{
 
 /// Call arguments.
 pub(crate) trait BcCallArgs<S: ArgSymbol>: BcInstrArg {
-    fn pop_from_stack<'a, 'v>(&'a self, stack: &'a BcStackPtr<'v, '_>) -> ArgumentsFull<'v, 'a, S>;
+    fn pop_from_stack<'a, 'v>(&'a self, frame: BcFramePtr<'v>) -> ArgumentsFull<'v, 'a, S>;
 }
 
 /// Call arguments for `def` call.
@@ -47,29 +52,29 @@ pub(crate) trait BcCallArgsForDef: BcInstrArg {
     where
         'v: 'a;
 
-    fn pop_from_stack<'a, 'v>(&'a self, stack: &'a BcStackPtr<'v, '_>) -> Self::Args<'v, 'a>;
+    fn pop_from_stack<'a, 'v>(&'a self, stack: BcFramePtr<'v>) -> Self::Args<'v, 'a>;
 }
 
 /// Full call arguments: positional, named, star and star-star. All taken from the stack.
 #[derive(Debug)]
 pub(crate) struct BcCallArgsFull<S: ArgSymbol> {
-    pub(crate) pos_named: u32,
+    pub(crate) pos_named: BcSlotRange,
     pub(crate) names: Box<[(S, FrozenStringValue)]>,
-    pub(crate) args: bool,
-    pub(crate) kwargs: bool,
+    pub(crate) args: Option<BcSlot>,
+    pub(crate) kwargs: Option<BcSlot>,
 }
 
 /// Positional-only call arguments, from stack.
 #[derive(Debug)]
 pub(crate) struct BcCallArgsPos {
     /// Number of positional arguments.
-    pub(crate) pos: u32,
+    pub(crate) pos: BcSlotRange,
 }
 
 impl<S: ArgSymbol> BcCallArgsFull<S> {
     fn pos(&self) -> u32 {
-        assert!(self.pos_named as usize >= self.names.len());
-        self.pos_named - (self.names.len() as u32)
+        assert!(self.pos_named.start.0 as usize >= self.names.len());
+        self.pos_named.start.0 - (self.names.len() as u32)
     }
 }
 
@@ -114,12 +119,12 @@ impl<S: ArgSymbol> Display for BcCallArgsFull<S> {
             write!(f, "{}", name.as_str())?;
         }
         // Star argument?
-        if self.args {
+        if self.args.is_some() {
             write_sep(f)?;
             write!(f, "*")?;
         }
         // Star-star argument?
-        if self.kwargs {
+        if self.kwargs.is_some() {
             write_sep(f)?;
             write!(f, "**")?;
         }
@@ -128,14 +133,33 @@ impl<S: ArgSymbol> Display for BcCallArgsFull<S> {
 }
 
 impl<S: ArgSymbol> BcCallArgs<S> for BcCallArgsFull<S> {
-    fn pop_from_stack<'a, 'v>(&'a self, stack: &'a BcStackPtr<'v, '_>) -> ArgumentsFull<'v, 'a, S> {
-        stack.pop_args(self)
+    #[inline]
+    fn pop_from_stack<'a, 'v>(&'a self, stack: BcFramePtr<'v>) -> ArgumentsFull<'v, 'a, S> {
+        let pos_named = stack.get_bc_slot_range(self.pos_named);
+        let (pos, named) = pos_named.split_at(pos_named.len() - self.names.len());
+        let args = self.args.map(|slot| stack.get_bc_slot(slot));
+        let kwargs = self.kwargs.map(|slot| stack.get_bc_slot(slot));
+        ArgumentsFull {
+            pos,
+            named,
+            names: ArgNames::new(coerce(&self.names)),
+            args,
+            kwargs,
+        }
     }
 }
 
 impl<S: ArgSymbol> BcCallArgs<S> for BcCallArgsPos {
-    fn pop_from_stack<'a, 'v>(&'a self, stack: &'a BcStackPtr<'v, '_>) -> ArgumentsFull<'v, 'a, S> {
-        stack.pop_args_pos_as_full(self)
+    #[inline]
+    fn pop_from_stack<'a, 'v>(&'a self, stack: BcFramePtr<'v>) -> ArgumentsFull<'v, 'a, S> {
+        let pos = stack.get_bc_slot_range(self.pos);
+        ArgumentsFull {
+            pos,
+            named: &[],
+            names: ArgNames::new(&[]),
+            args: None,
+            kwargs: None,
+        }
     }
 }
 
@@ -148,9 +172,19 @@ impl BcCallArgsForDef for BcCallArgsFull<ResolvedArgName> {
     #[inline]
     fn pop_from_stack<'a, 'v>(
         &'a self,
-        stack: &'a BcStackPtr<'v, '_>,
+        stack: BcFramePtr<'v>,
     ) -> ArgumentsFull<'v, 'a, ResolvedArgName> {
-        stack.pop_args(self)
+        let pos_named = stack.get_bc_slot_range(self.pos_named);
+        let (pos, named) = pos_named.split_at(pos_named.len() - self.names.len());
+        let args = self.args.map(|slot| stack.get_bc_slot(slot));
+        let kwargs = self.kwargs.map(|slot| stack.get_bc_slot(slot));
+        ArgumentsFull {
+            pos,
+            named,
+            names: ArgNames::new(coerce(&self.names)),
+            args,
+            kwargs,
+        }
     }
 }
 
@@ -163,8 +197,12 @@ impl BcCallArgsForDef for BcCallArgsPos {
     #[inline]
     fn pop_from_stack<'a, 'v>(
         &'a self,
-        stack: &'a BcStackPtr<'v, '_>,
+        stack: BcFramePtr<'v>,
     ) -> ArgumentsPos<'v, 'a, ResolvedArgName> {
-        stack.pop_args_pos(self)
+        let pos = stack.get_bc_slot_range(self.pos);
+        ArgumentsPos {
+            pos,
+            names: PhantomData,
+        }
     }
 }

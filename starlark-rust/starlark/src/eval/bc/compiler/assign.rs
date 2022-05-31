@@ -17,14 +17,17 @@
 
 //! Compile assignment lhs.
 
+use gazebo::prelude::*;
+
 use crate::{
     collections::symbol_map::Symbol,
     eval::{
         bc::{
-            instr_arg::ArgPushesStack,
+            compiler::expr::write_n_exprs,
             instr_impl::{
                 InstrSetArrayIndex, InstrSetObjectField, InstrStoreModuleAndExport, InstrUnpack,
             },
+            stack_ptr::BcSlot,
             writer::BcWriter,
         },
         compiler::{scope::Captured, span::IrSpanned, stmt::AssignCompiledValue},
@@ -32,33 +35,52 @@ use crate::{
 };
 
 impl IrSpanned<AssignCompiledValue> {
-    pub(crate) fn write_bc(&self, bc: &mut BcWriter) {
+    pub(crate) fn write_bc(&self, value: BcSlot, bc: &mut BcWriter) {
         let span = self.span;
         match self.node {
             AssignCompiledValue::Dot(ref object, ref field) => {
-                object.write_bc(bc);
-                let symbol = Symbol::new(field.as_str());
-                bc.write_instr::<InstrSetObjectField>(span, symbol);
+                object.write_bc_cb(bc, |object, bc| {
+                    let symbol = Symbol::new(field.as_str());
+                    bc.write_instr::<InstrSetObjectField>(span, (value, object, symbol));
+                });
             }
             AssignCompiledValue::ArrayIndirection(ref array, ref index) => {
-                array.write_bc(bc);
-                index.write_bc(bc);
-                bc.write_instr::<InstrSetArrayIndex>(span, ());
+                write_n_exprs([array, index], bc, |array_index, bc| {
+                    bc.write_instr::<InstrSetArrayIndex>(span, (value, array_index));
+                });
             }
             AssignCompiledValue::Tuple(ref xs) => {
-                bc.write_instr::<InstrUnpack>(span, ArgPushesStack(xs.len() as u32));
-                for x in xs {
-                    x.write_bc(bc);
+                // All assignments are to local variables, e. g.
+                // ```
+                // (x, y, z) = ...
+                // ```
+                // so we can avoid using intermediate register.
+                let all_local = xs
+                    .try_map(|x| x.as_local_non_captured().map(|l| l.to_bc_slot()).ok_or(()))
+                    .ok();
+                if let Some(all_local) = all_local {
+                    let args = bc.heap.alloc_any_slice_display_from_debug(&all_local);
+                    bc.write_instr::<InstrUnpack>(span, (value, args));
+                } else {
+                    bc.alloc_slots(xs.len() as u32, |slots, bc| {
+                        let args: Vec<BcSlot> = slots.iter().collect();
+                        let args = bc.heap.alloc_any_slice_display_from_debug(&args);
+                        bc.write_instr::<InstrUnpack>(span, (value, args));
+
+                        for (x, slot) in xs.iter().zip(slots.iter()) {
+                            x.write_bc(slot, bc);
+                        }
+                    });
                 }
             }
             AssignCompiledValue::Local(slot, Captured::No) => {
-                bc.write_store_local(span, slot);
+                bc.write_store_local(span, value, slot.to_bc_slot());
             }
             AssignCompiledValue::Local(slot, Captured::Yes) => {
-                bc.write_store_local_captured(span, slot);
+                bc.write_store_local_captured(span, value, slot);
             }
             AssignCompiledValue::Module(slot, ref name) => {
-                bc.write_instr::<InstrStoreModuleAndExport>(span, (slot, name.clone()));
+                bc.write_instr::<InstrStoreModuleAndExport>(span, (value, slot, name.clone()));
             }
         }
     }

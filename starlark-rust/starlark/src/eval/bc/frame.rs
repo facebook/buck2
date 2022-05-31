@@ -23,7 +23,7 @@ use gazebo::dupe::Dupe;
 
 use crate::{
     eval::{
-        bc::{if_debug::IfDebug, stack_ptr::BcStackPtr},
+        bc::stack_ptr::{BcSlot, BcSlotRange},
         runtime::slots::LocalSlotId,
         Evaluator,
     },
@@ -39,8 +39,6 @@ struct BcFrame<'v> {
     local_count: u32,
     /// Number of stack slots.
     max_stack_size: u32,
-    /// Current stack pointer.
-    stack_ptr_if_debug: IfDebug<*mut Value<'v>>,
     /// `local_count` local slots followed by `max_stack_size` stack slots.
     slots: [Option<Value<'v>>; 0],
 }
@@ -55,6 +53,12 @@ pub(crate) struct BcFramePtr<'v> {
     slots_ptr: *mut Option<Value<'v>>,
 }
 
+impl<'v> PartialEq for BcFramePtr<'v> {
+    fn eq(&self, other: &Self) -> bool {
+        ptr::eq(self.slots_ptr, other.slots_ptr)
+    }
+}
+
 impl<'v> BcFramePtr<'v> {
     pub(crate) fn null() -> BcFramePtr<'v> {
         BcFramePtr {
@@ -67,7 +71,7 @@ impl<'v> BcFramePtr<'v> {
         !self.slots_ptr.is_null()
     }
 
-    fn frame(&self) -> &BcFrame<'v> {
+    fn frame<'a>(self) -> &'a BcFrame<'v> {
         debug_assert!(self.is_inititalized());
         unsafe {
             let frame = (self.slots_ptr as *mut u8).sub(BcFrame::offset_of_slots()) as *mut BcFrame;
@@ -93,18 +97,23 @@ impl<'v> BcFramePtr<'v> {
         self.frame_mut().set_slot(slot, value)
     }
 
+    #[inline(always)]
+    pub(crate) fn get_bc_slot(self, slot: BcSlot) -> Value<'v> {
+        self.frame().get_bc_slot(slot)
+    }
+
+    #[inline(always)]
+    pub(crate) fn set_bc_slot(mut self, slot: BcSlot, value: Value<'v>) {
+        self.frame_mut().set_bc_slot(slot, value)
+    }
+
+    #[inline(always)]
+    pub(crate) fn get_bc_slot_range<'a>(self, slots: BcSlotRange) -> &'a [Value<'v>] {
+        self.frame().get_bc_slot_range(slots)
+    }
+
     pub(crate) fn max_stack_size(self) -> u32 {
         self.frame().max_stack_size
-    }
-
-    #[inline(always)]
-    pub(crate) fn stack_bottom_ptr<'a>(self) -> BcStackPtr<'v, 'a> {
-        self.frame().stack_bottom_ptr()
-    }
-
-    #[inline(always)]
-    pub(crate) fn set_stack_ptr_if_debug(mut self, ptr: &BcStackPtr<'v, '_>) {
-        self.frame_mut().stack_ptr_if_debug.set(ptr.ptr());
     }
 
     #[inline(always)]
@@ -148,25 +157,6 @@ impl<'v> BcFrame<'v> {
         }
     }
 
-    #[inline(always)]
-    fn stack_bottom_ptr<'a>(&self) -> BcStackPtr<'v, 'a> {
-        unsafe {
-            // Here we (incorrectly) drop lifetime of self.
-            // We need to do it, because we need `&mut Evaluator`
-            // after stack pointer is acquired.
-            BcStackPtr::new(slice::from_raw_parts_mut(
-                self.slots.as_ptr().add(self.local_count as usize) as *mut _,
-                self.max_stack_size as usize,
-            ))
-        }
-    }
-
-    /// Assert there are no values on the stack.
-    #[inline(always)]
-    pub(crate) fn debug_assert_stack_size_if_zero(&self) {
-        debug_assert!(*self.stack_ptr_if_debug.get_ref_if_debug() == self.stack_bottom_ptr().ptr());
-    }
-
     /// Gets a local variable. Returns None to indicate the variable is not yet assigned.
     #[inline(always)]
     pub(crate) fn get_slot(&self, slot: LocalSlotId) -> Option<Value<'v>> {
@@ -174,9 +164,41 @@ impl<'v> BcFrame<'v> {
         unsafe { self.slots.as_ptr().add(slot.0 as usize).read() }
     }
 
+    /// Get a stack slot.
+    #[inline(always)]
+    pub(crate) fn get_bc_slot(&self, slot: BcSlot) -> Value<'v> {
+        debug_assert!(slot.0 < self.local_count + self.max_stack_size);
+        unsafe {
+            let option = self.slots.as_ptr().add(slot.0 as usize).read();
+            // Slot must be always initialized.
+            option.unwrap_unchecked()
+        }
+    }
+
     #[inline(always)]
     pub(crate) fn set_slot(&mut self, slot: LocalSlotId, value: Value<'v>) {
         debug_assert!(slot.0 < self.local_count);
+        unsafe {
+            self.slots
+                .as_mut_ptr()
+                .add(slot.0 as usize)
+                .write(Some(value))
+        }
+    }
+
+    #[inline(always)]
+    pub(crate) fn get_bc_slot_range(&self, slots: BcSlotRange) -> &[Value<'v>] {
+        debug_assert!(slots.end.0 <= self.local_count + self.max_stack_size);
+        unsafe {
+            let start = self.slots.as_ptr().add(slots.start.0 as usize);
+            let start = start as *const Value;
+            slice::from_raw_parts(start, slots.len() as usize)
+        }
+    }
+
+    #[inline(always)]
+    pub(crate) fn set_bc_slot(&mut self, slot: BcSlot, value: Value<'v>) {
+        debug_assert!(slot.0 < self.local_count + self.max_stack_size);
         unsafe {
             self.slots
                 .as_mut_ptr()
@@ -191,7 +213,6 @@ unsafe impl<'v> Trace<'v> for BcFrame<'v> {
         self.locals_mut().trace(tracer);
         // Note this does not trace the stack.
         // GC can be performed only when the stack is empty.
-        self.debug_assert_stack_size_if_zero();
     }
 }
 
@@ -218,12 +239,8 @@ fn alloca_raw<'v, 'a, R>(
         *(frame_ptr) = BcFrame {
             local_count,
             max_stack_size,
-            stack_ptr_if_debug: IfDebug::new(ptr::null_mut()),
             slots: [],
         };
-        (*frame_ptr)
-            .stack_ptr_if_debug
-            .set((*frame_ptr).stack_bottom_ptr().ptr());
 
         k(eval, (*frame_ptr).frame_ptr())
     })

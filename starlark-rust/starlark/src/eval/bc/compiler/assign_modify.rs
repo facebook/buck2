@@ -22,11 +22,12 @@ use crate::{
     eval::{
         bc::{
             instr_impl::{
-                InstrAddAssign, InstrArrayIndexNoPop, InstrArrayIndexSet, InstrBitAnd,
-                InstrBitOrAssign, InstrBitXor, InstrDivide, InstrDup, InstrFloorDivide,
-                InstrLeftShift, InstrLoadModule, InstrMultiply, InstrObjectField,
-                InstrObjectSetField, InstrPercent, InstrRightShift, InstrStoreModule, InstrSub,
+                InstrAddAssign, InstrArrayIndex, InstrArrayIndexSet, InstrBitAnd, InstrBitOrAssign,
+                InstrBitXor, InstrDivide, InstrFloorDivide, InstrLeftShift, InstrLoadModule,
+                InstrMultiply, InstrObjectField, InstrPercent, InstrRightShift,
+                InstrSetObjectField, InstrStoreModule, InstrSub,
             },
+            stack_ptr::{BcSlot, BcSlotsN},
             writer::BcWriter,
         },
         compiler::{expr::ExprCompiled, scope::Captured, span::IrSpanned, stmt::AssignModifyLhs},
@@ -36,19 +37,26 @@ use crate::{
 };
 
 impl AssignOp {
-    fn write_bc(self, span: FrozenFileSpan, bc: &mut BcWriter) {
+    fn write_bc(
+        self,
+        source: BcSlotsN<2>,
+        target: BcSlot,
+        span: FrozenFileSpan,
+        bc: &mut BcWriter,
+    ) {
+        let arg = (source, target);
         match self {
-            AssignOp::Add => bc.write_instr::<InstrAddAssign>(span, ()),
-            AssignOp::Subtract => bc.write_instr::<InstrSub>(span, ()),
-            AssignOp::Multiply => bc.write_instr::<InstrMultiply>(span, ()),
-            AssignOp::Divide => bc.write_instr::<InstrDivide>(span, ()),
-            AssignOp::FloorDivide => bc.write_instr::<InstrFloorDivide>(span, ()),
-            AssignOp::Percent => bc.write_instr::<InstrPercent>(span, ()),
-            AssignOp::BitAnd => bc.write_instr::<InstrBitAnd>(span, ()),
-            AssignOp::BitOr => bc.write_instr::<InstrBitOrAssign>(span, ()),
-            AssignOp::BitXor => bc.write_instr::<InstrBitXor>(span, ()),
-            AssignOp::LeftShift => bc.write_instr::<InstrLeftShift>(span, ()),
-            AssignOp::RightShift => bc.write_instr::<InstrRightShift>(span, ()),
+            AssignOp::Add => bc.write_instr::<InstrAddAssign>(span, arg),
+            AssignOp::Subtract => bc.write_instr::<InstrSub>(span, arg),
+            AssignOp::Multiply => bc.write_instr::<InstrMultiply>(span, arg),
+            AssignOp::Divide => bc.write_instr::<InstrDivide>(span, arg),
+            AssignOp::FloorDivide => bc.write_instr::<InstrFloorDivide>(span, arg),
+            AssignOp::Percent => bc.write_instr::<InstrPercent>(span, arg),
+            AssignOp::BitAnd => bc.write_instr::<InstrBitAnd>(span, arg),
+            AssignOp::BitOr => bc.write_instr::<InstrBitOrAssign>(span, arg),
+            AssignOp::BitXor => bc.write_instr::<InstrBitXor>(span, arg),
+            AssignOp::LeftShift => bc.write_instr::<InstrLeftShift>(span, arg),
+            AssignOp::RightShift => bc.write_instr::<InstrRightShift>(span, arg),
         }
     }
 }
@@ -63,42 +71,67 @@ impl AssignModifyLhs {
     ) {
         match *self {
             AssignModifyLhs::Dot(ref object, ref field) => {
-                let field = Symbol::new(field.as_str());
-                object.write_bc(bc);
-                bc.write_instr::<InstrDup>(span, ());
-                bc.write_instr::<InstrObjectField>(span, field.clone());
-                rhs.write_bc(bc);
-                op.write_bc(span, bc);
-                bc.write_instr::<InstrObjectSetField>(span, field);
+                object.write_bc_cb(bc, |object, bc| {
+                    bc.alloc_slots_c(|lhs_rhs, bc| {
+                        let field = Symbol::new(field.as_str());
+                        bc.write_instr::<InstrObjectField>(
+                            span,
+                            (object, field.clone(), lhs_rhs.get::<0>()),
+                        );
+                        rhs.write_bc(lhs_rhs.get::<1>(), bc);
+                        op.write_bc(lhs_rhs, lhs_rhs.get::<1>(), span, bc);
+                        bc.write_instr::<InstrSetObjectField>(
+                            span,
+                            (lhs_rhs.get::<1>(), object, field),
+                        );
+                    })
+                });
             }
             AssignModifyLhs::Array(ref array, ref index) => {
-                array.write_bc(bc);
-                index.write_bc(bc);
-                bc.write_instr::<InstrArrayIndexNoPop>(span, ());
-                rhs.write_bc(bc);
-                op.write_bc(span, bc);
-                bc.write_instr::<InstrArrayIndexSet>(span, ());
+                bc.alloc_slots_c(|slots: BcSlotsN<4>, bc| {
+                    let array_slot = slots.get::<0>();
+                    let index_slot = slots.get::<1>();
+                    let temp_slot = slots.get::<2>();
+                    let rhs_slot = slots.get::<3>();
+
+                    let array_index_slots: BcSlotsN<2> = BcSlotsN {
+                        start: slots.get::<0>(),
+                    };
+                    let temp_rhs_slots: BcSlotsN<2> = BcSlotsN {
+                        start: slots.get::<2>(),
+                    };
+
+                    array.write_bc(array_slot, bc);
+                    index.write_bc(index_slot, bc);
+
+                    bc.write_instr::<InstrArrayIndex>(span, (array_index_slots, temp_slot));
+                    rhs.write_bc(rhs_slot, bc);
+                    op.write_bc(temp_rhs_slots, temp_slot, span, bc);
+                    bc.write_instr::<InstrArrayIndexSet>(span, (array_index_slots, temp_slot));
+                })
             }
-            AssignModifyLhs::Local(s) => {
+            AssignModifyLhs::Local(s) => bc.alloc_slots_c(|lhs_rhs: BcSlotsN<2>, bc| {
                 let (slot, captured) = s.node;
                 match captured {
-                    Captured::Yes => bc.write_load_local_captured(span, slot),
-                    Captured::No => bc.write_load_local(span, slot),
+                    Captured::Yes => bc.write_load_local_captured(span, slot, lhs_rhs.get::<0>()),
+                    Captured::No => bc.write_load_local(span, slot, lhs_rhs.get::<0>()),
                 }
-                rhs.write_bc(bc);
-                op.write_bc(span, bc);
+                rhs.write_bc(lhs_rhs.get::<1>(), bc);
+                op.write_bc(lhs_rhs, lhs_rhs.get::<1>(), span, bc);
                 match captured {
-                    Captured::Yes => bc.write_store_local_captured(span, slot),
-                    Captured::No => bc.write_store_local(span, slot),
+                    Captured::Yes => bc.write_store_local_captured(span, lhs_rhs.get::<1>(), slot),
+                    Captured::No => {
+                        bc.write_store_local(span, lhs_rhs.get::<1>(), slot.to_bc_slot())
+                    }
                 }
-            }
-            AssignModifyLhs::Module(m) => {
+            }),
+            AssignModifyLhs::Module(m) => bc.alloc_slots_c(|lhs_rhs: BcSlotsN<2>, bc| {
                 let slot = m.node;
-                bc.write_instr::<InstrLoadModule>(span, slot);
-                rhs.write_bc(bc);
-                op.write_bc(span, bc);
-                bc.write_instr::<InstrStoreModule>(span, slot);
-            }
+                bc.write_instr::<InstrLoadModule>(span, (slot, lhs_rhs.get::<0>()));
+                rhs.write_bc(lhs_rhs.get::<1>(), bc);
+                op.write_bc(lhs_rhs, lhs_rhs.get::<1>(), span, bc);
+                bc.write_instr::<InstrStoreModule>(span, (lhs_rhs.get::<1>(), slot));
+            }),
         }
     }
 }

@@ -421,14 +421,21 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     }
 
     #[inline(always)]
-    pub(crate) fn get_slot_local(&self, slot: LocalSlotId) -> anyhow::Result<Value<'v>> {
-        self.current_frame
+    pub(crate) fn get_slot_local(
+        &self,
+        frame: BcFramePtr<'v>,
+        slot: LocalSlotId,
+    ) -> anyhow::Result<Value<'v>> {
+        // We access locals from explicitly passed frame because it is faster.
+        debug_assert!(self.current_frame == frame);
+
+        frame
             .get_slot(slot)
             .ok_or_else(|| self.local_var_referenced_before_assignment(slot))
     }
 
     pub(crate) fn get_slot_local_captured(&self, slot: LocalSlotId) -> anyhow::Result<Value<'v>> {
-        let value_captured = self.get_slot_local(slot)?;
+        let value_captured = self.get_slot_local(self.current_frame, slot)?;
         let value_captured = value_captured_get(value_captured);
         value_captured.ok_or_else(|| self.local_var_referenced_before_assignment(slot))
     }
@@ -473,10 +480,6 @@ impl<'v, 'a> Evaluator<'v, 'a> {
 
     pub(crate) fn set_slot_module(&mut self, slot: ModuleSlotId, value: Value<'v>) {
         self.module_env.slots().set_slot(slot, value);
-    }
-
-    pub(crate) fn set_slot_local(&mut self, slot: LocalSlotId, value: Value<'v>) {
-        self.current_frame.set_slot(slot, value)
     }
 
     pub(crate) fn set_slot_local_captured(&mut self, slot: LocalSlotId, value: Value<'v>) {

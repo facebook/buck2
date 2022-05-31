@@ -80,18 +80,6 @@ impl<T> IfDebug<T> {
             f(value);
         }
     }
-
-    /// Set a value if debug assertions enabled, drop otherwise.
-    pub(crate) fn set(&mut self, value: T) {
-        #[cfg(debug_assertions)]
-        {
-            self.value = value;
-        }
-        #[cfg(not(debug_assertions))]
-        {
-            drop(value);
-        }
-    }
 }
 
 impl<T> PartialEq for IfDebug<T> {

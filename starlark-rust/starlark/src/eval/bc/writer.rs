@@ -17,7 +17,7 @@
 
 //! Bytecode writer.
 
-use std::{cmp, mem};
+use std::cmp;
 
 use crate::{
     eval::{
@@ -26,16 +26,15 @@ use crate::{
             bytecode::Bc,
             instr::BcInstr,
             instr_impl::{
-                InstrBr, InstrConst, InstrConst2, InstrConst3, InstrConst4, InstrContinue,
-                InstrForLoop, InstrIfBr, InstrIfNotBr, InstrLoadLocal, InstrLoadLocal2,
-                InstrLoadLocal3, InstrLoadLocal4, InstrLoadLocalAndConst, InstrLoadLocalCaptured,
-                InstrProfileBc, InstrStoreLocal, InstrStoreLocalCaptured,
+                InstrBr, InstrConst, InstrContinue, InstrForLoop, InstrIfBr, InstrIfNotBr,
+                InstrLoadLocal, InstrLoadLocalCaptured, InstrMov, InstrProfileBc,
+                InstrStoreLocalCaptured,
             },
             instrs::{BcInstrsWriter, PatchAddr},
             opcode::BcOpcode,
             slow_arg::BcInstrSlowArg,
+            stack_ptr::{BcSlot, BcSlotRange, BcSlotsN},
         },
-        compiler::span::IrSpanned,
         runtime::{call_stack::FrozenFileSpan, slots::LocalSlotId},
     },
     values::{FrozenHeap, FrozenRef, FrozenValue},
@@ -57,12 +56,8 @@ pub(crate) struct BcWriter<'f> {
     /// Max observed stack size.
     max_stack_size: u32,
 
-    // Consts are queued after locals
-    queued_locals: Vec<IrSpanned<LocalSlotId>>,
-    queued_consts: Vec<IrSpanned<FrozenValue>>,
-
     /// Allocate various objects here.
-    heap: &'f FrozenHeap,
+    pub(crate) heap: &'f FrozenHeap,
 }
 
 impl<'f> BcWriter<'f> {
@@ -75,8 +70,6 @@ impl<'f> BcWriter<'f> {
             stack_size: 0,
             local_count,
             max_stack_size: 0,
-            queued_consts: Vec::new(),
-            queued_locals: Vec::new(),
             heap,
         }
     }
@@ -90,14 +83,10 @@ impl<'f> BcWriter<'f> {
             stack_size,
             local_count,
             max_stack_size,
-            queued_consts,
-            queued_locals,
             heap,
         } = self;
         let _ = has_before_instr;
         let _ = heap;
-        assert!(queued_locals.is_empty());
-        assert!(queued_consts.is_empty());
         assert_eq!(stack_size, 0);
         Bc {
             instrs: instrs.finish(spans),
@@ -108,91 +97,7 @@ impl<'f> BcWriter<'f> {
 
     /// Current offset.
     fn ip(&self) -> BcAddr {
-        assert!(self.queued_consts.is_empty());
         self.instrs.ip()
-    }
-
-    /// Flush queued consts and locals instructions.
-    fn flush_instrs(&mut self) {
-        let mut queued_locals = mem::take(&mut self.queued_locals);
-        let mut queued_consts = mem::take(&mut self.queued_consts);
-        let mut locals_slice = queued_locals.as_slice();
-        let mut consts_slice = queued_consts.as_slice();
-
-        while let [l0, l1, l2, l3, rem @ ..] = locals_slice {
-            self.do_write_generic_explicit::<InstrLoadLocal4>(
-                BcInstrSlowArg {
-                    span: l0.span.merge(&l1.span).merge(&l2.span).merge(&l3.span),
-                    spans: vec![l0.span, l1.span, l2.span, l3.span],
-                },
-                [l0.node, l1.node, l2.node, l3.node],
-            );
-            locals_slice = rem;
-        }
-        match (locals_slice, consts_slice) {
-            ([], _) => {}
-            ([l0], [c0, rem @ ..]) => {
-                self.do_write_generic::<InstrLoadLocalAndConst>(l0.span, (l0.node, c0.node));
-                consts_slice = rem;
-            }
-            ([l0], _) => {
-                self.do_write_generic::<InstrLoadLocal>(l0.span, l0.node);
-            }
-            ([l0, l1], _) => {
-                self.do_write_generic_explicit::<InstrLoadLocal2>(
-                    BcInstrSlowArg {
-                        span: l0.span.merge(&l1.span),
-                        spans: vec![l0.span, l1.span],
-                    },
-                    [l0.node, l1.node],
-                );
-            }
-            ([l0, l1, l2], _) => {
-                self.do_write_generic_explicit::<InstrLoadLocal3>(
-                    BcInstrSlowArg {
-                        span: l0.span.merge(&l1.span).merge(&l2.span),
-                        spans: vec![l0.span, l1.span, l2.span],
-                    },
-                    [l0.node, l1.node, l2.node],
-                );
-            }
-            _ => unreachable!(),
-        }
-
-        while let [v0, v1, v2, v3, rem @ ..] = consts_slice {
-            self.do_write_generic::<InstrConst4>(
-                v0.span.merge(&v1.span).merge(&v2.span).merge(&v3.span),
-                [v0.node, v1.node, v2.node, v3.node],
-            );
-            consts_slice = rem;
-        }
-        match consts_slice {
-            [] => {}
-            [v0] => {
-                self.do_write_generic::<InstrConst>(v0.span, v0.node);
-            }
-            [v0, v1] => {
-                self.do_write_generic::<InstrConst2>(v0.span.merge(&v1.span), [v0.node, v1.node]);
-            }
-            [v0, v1, v2] => {
-                self.do_write_generic::<InstrConst3>(
-                    v0.span.merge(&v1.span).merge(&v2.span),
-                    [v0.node, v1.node, v2.node],
-                );
-            }
-            _ => unreachable!(),
-        }
-
-        queued_locals.clear();
-        queued_consts.clear();
-        self.queued_locals = queued_locals;
-        self.queued_consts = queued_consts;
-    }
-
-    /// Update stack size after the instruction.
-    fn update_stack_size<I: BcInstr>(&mut self, arg: &I::Arg) {
-        self.stack_sub(I::npops(arg));
-        self.stack_add(I::npushs(arg));
     }
 
     /// Version of instruction write with explicit slow arg arg.
@@ -210,39 +115,12 @@ impl<'f> BcWriter<'f> {
         self.instrs.write::<I>(arg)
     }
 
-    /// Actually write the instruction.
-    fn do_write_generic<I: BcInstr>(
-        &mut self,
-        span: FrozenFileSpan,
-        arg: I::Arg,
-    ) -> (BcAddr, *const I::Arg) {
-        self.do_write_generic_explicit::<I>(
-            BcInstrSlowArg {
-                span,
-                ..Default::default()
-            },
-            arg,
-        )
-    }
-
     /// Write an instruction, return address and argument.
     fn write_instr_ret_arg_explicit<I: BcInstr>(
         &mut self,
         slow_arg: BcInstrSlowArg,
         arg: I::Arg,
     ) -> (BcAddr, *const I::Arg) {
-        // Local and const instructions must be queued.
-        assert_ne!(BcOpcode::for_instr::<I>(), BcOpcode::Const);
-        assert_ne!(BcOpcode::for_instr::<I>(), BcOpcode::Const2);
-        assert_ne!(BcOpcode::for_instr::<I>(), BcOpcode::Const3);
-        assert_ne!(BcOpcode::for_instr::<I>(), BcOpcode::Const4);
-        assert_ne!(BcOpcode::for_instr::<I>(), BcOpcode::LoadLocal);
-        assert_ne!(BcOpcode::for_instr::<I>(), BcOpcode::LoadLocal2);
-        assert_ne!(BcOpcode::for_instr::<I>(), BcOpcode::LoadLocal3);
-        assert_ne!(BcOpcode::for_instr::<I>(), BcOpcode::LoadLocal4);
-        assert_ne!(BcOpcode::for_instr::<I>(), BcOpcode::LoadLocalAndConst);
-        self.flush_instrs();
-        self.update_stack_size::<I>(&arg);
         self.do_write_generic_explicit::<I>(slow_arg, arg)
     }
 
@@ -265,11 +143,6 @@ impl<'f> BcWriter<'f> {
         slow_arg: BcInstrSlowArg,
         arg: I::Arg,
     ) {
-        // Load and store local instructions need be written with custom functions.
-        assert_ne!(BcOpcode::for_instr::<I>(), BcOpcode::LoadLocalCaptured);
-        assert_ne!(BcOpcode::for_instr::<I>(), BcOpcode::StoreLocal);
-        assert_ne!(BcOpcode::for_instr::<I>(), BcOpcode::StoreLocalCaptured);
-
         self.write_instr_ret_arg_explicit::<I>(slow_arg, arg);
     }
 
@@ -285,43 +158,59 @@ impl<'f> BcWriter<'f> {
     }
 
     /// Write load constant instruction.
-    pub(crate) fn write_const(&mut self, span: FrozenFileSpan, value: FrozenValue) {
-        // Do not write it yet, queue it, so we could batch it.
-        self.queued_consts.push(IrSpanned { node: value, span });
-        self.stack_add(1);
+    pub(crate) fn write_const(&mut self, span: FrozenFileSpan, value: FrozenValue, slot: BcSlot) {
+        assert!(slot.0 < self.local_count + self.stack_size);
+
+        self.write_instr::<InstrConst>(span, (value, slot));
     }
 
     /// Write load local instruction.
-    pub(crate) fn write_load_local(&mut self, span: FrozenFileSpan, slot: LocalSlotId) {
+    pub(crate) fn write_load_local(
+        &mut self,
+        span: FrozenFileSpan,
+        slot: LocalSlotId,
+        target: BcSlot,
+    ) {
         assert!(slot.0 < self.local_count);
 
-        // Consts must be queued after locals, so if any consts are queued, flush them.
-        if !self.queued_consts.is_empty() {
-            self.flush_instrs();
-        }
-        // Do not write it yet, queue it, so we could batch it.
-        self.queued_locals.push(IrSpanned { node: slot, span });
-        self.stack_add(1);
+        self.write_instr::<InstrLoadLocal>(span, (slot, target));
     }
 
-    pub(crate) fn write_load_local_captured(&mut self, span: FrozenFileSpan, slot: LocalSlotId) {
-        assert!(slot.0 < self.local_count);
-        self.write_instr_ret_arg::<InstrLoadLocalCaptured>(span, slot);
+    pub(crate) fn write_load_local_captured(
+        &mut self,
+        span: FrozenFileSpan,
+        source: LocalSlotId,
+        target: BcSlot,
+    ) {
+        assert!(source.0 < self.local_count);
+        assert!(target.0 < self.local_count + self.stack_size);
+        self.write_instr_ret_arg::<InstrLoadLocalCaptured>(span, (source, target));
     }
 
-    pub(crate) fn write_store_local(&mut self, span: FrozenFileSpan, slot: LocalSlotId) {
-        assert!(slot.0 < self.local_count);
-        self.write_instr_ret_arg::<InstrStoreLocal>(span, slot);
+    pub(crate) fn write_store_local(
+        &mut self,
+        span: FrozenFileSpan,
+        source: BcSlot,
+        target: BcSlot,
+    ) {
+        assert!(source.0 < self.local_count + self.stack_size);
+        assert!(target.0 < self.local_count + self.stack_size);
+        self.write_instr_ret_arg::<InstrMov>(span, (source, target));
     }
 
-    pub(crate) fn write_store_local_captured(&mut self, span: FrozenFileSpan, slot: LocalSlotId) {
-        assert!(slot.0 < self.local_count);
-        self.write_instr_ret_arg::<InstrStoreLocalCaptured>(span, slot);
+    pub(crate) fn write_store_local_captured(
+        &mut self,
+        span: FrozenFileSpan,
+        source: BcSlot,
+        target: LocalSlotId,
+    ) {
+        assert!(source.0 < self.local_count + self.stack_size);
+        assert!(target.0 < self.local_count);
+        self.write_instr_ret_arg::<InstrStoreLocalCaptured>(span, (source, target));
     }
 
     /// Patch previously writted address with current IP.
     pub(crate) fn patch_addr(&mut self, addr: PatchAddr) {
-        self.flush_instrs();
         self.instrs.patch_addr(addr);
     }
 
@@ -333,25 +222,32 @@ impl<'f> BcWriter<'f> {
 
     /// Write branch.
     pub(crate) fn write_br(&mut self, span: FrozenFileSpan) -> PatchAddr {
-        let arg = self.write_instr_ret_arg::<InstrBr>(span, BcAddrOffset::FORWARD);
-        self.instrs.addr_to_patch(arg)
+        let (addr, arg) = self.write_instr_ret_arg::<InstrBr>(span, BcAddrOffset::FORWARD);
+        self.instrs.addr_to_patch(addr, arg)
     }
 
     /// Write conditional branch.
-    pub(crate) fn write_if_not_br(&mut self, span: FrozenFileSpan) -> PatchAddr {
-        let arg = self.write_instr_ret_arg::<InstrIfNotBr>(span, BcAddrOffset::FORWARD);
-        self.instrs.addr_to_patch(arg)
+    pub(crate) fn write_if_not_br(&mut self, cond: BcSlot, span: FrozenFileSpan) -> PatchAddr {
+        let (addr, arg) =
+            self.write_instr_ret_arg::<InstrIfNotBr>(span, (cond, BcAddrOffset::FORWARD));
+        self.instrs.addr_to_patch(addr, unsafe { &(*arg).1 })
     }
 
     /// Write conditional branch.
-    pub(crate) fn write_if_br(&mut self, span: FrozenFileSpan) -> PatchAddr {
-        let arg = self.write_instr_ret_arg::<InstrIfBr>(span, BcAddrOffset::FORWARD);
-        self.instrs.addr_to_patch(arg)
+    pub(crate) fn write_if_br(&mut self, cond: BcSlot, span: FrozenFileSpan) -> PatchAddr {
+        let (addr, arg) =
+            self.write_instr_ret_arg::<InstrIfBr>(span, (cond, BcAddrOffset::FORWARD));
+        self.instrs.addr_to_patch(addr, unsafe { &(*arg).1 })
     }
 
     /// Write if block.
-    pub(crate) fn write_if(&mut self, span: FrozenFileSpan, then_block: impl FnOnce(&mut Self)) {
-        let patch_addr = self.write_if_not_br(span);
+    pub(crate) fn write_if(
+        &mut self,
+        cond: BcSlot,
+        span: FrozenFileSpan,
+        then_block: impl FnOnce(&mut Self),
+    ) {
+        let patch_addr = self.write_if_not_br(cond, span);
         then_block(self);
         self.patch_addr(patch_addr);
     }
@@ -359,41 +255,99 @@ impl<'f> BcWriter<'f> {
     /// Write if block.
     pub(crate) fn write_if_not(
         &mut self,
+        cond: BcSlot,
         span: FrozenFileSpan,
         then_block: impl FnOnce(&mut Self),
     ) {
-        let patch_addr = self.write_if_br(span);
+        let patch_addr = self.write_if_br(cond, span);
         then_block(self);
         self.patch_addr(patch_addr);
     }
 
     /// Write for loop.
-    pub(crate) fn write_for(&mut self, span: FrozenFileSpan, body: impl FnOnce(&mut Self)) {
-        let arg = self.write_instr_ret_arg::<InstrForLoop>(span, BcAddrOffset::FORWARD);
-        let end_patch = self.instrs.addr_to_patch(arg);
-        let ss = self.stack_size();
+    pub(crate) fn write_for(
+        &mut self,
+        over: BcSlot,
+        var: BcSlot,
+        span: FrozenFileSpan,
+        body: impl FnOnce(&mut Self),
+    ) {
+        let (addr, arg) =
+            self.write_instr_ret_arg::<InstrForLoop>(span, (over, var, BcAddrOffset::FORWARD));
+        let end_patch = self.instrs.addr_to_patch(addr, unsafe { &(*arg).2 });
         body(self);
-        assert!(
-            self.stack_size() + 1 == ss,
-            "Loop body must consume stack variable"
-        );
         self.write_instr::<InstrContinue>(span, ());
         self.patch_addr(end_patch);
     }
 
-    pub(crate) fn stack_add(&mut self, add: u32) {
+    fn stack_add(&mut self, add: u32) {
         self.stack_size += add;
         self.max_stack_size = cmp::max(self.max_stack_size, self.stack_size);
     }
 
-    pub(crate) fn stack_sub(&mut self, sub: u32) {
+    fn stack_sub(&mut self, sub: u32) {
         assert!(self.stack_size >= sub);
         self.stack_size -= sub;
     }
 
-    /// Current stack size.
-    pub(crate) fn stack_size(&self) -> u32 {
-        self.stack_size
+    /// Allocate a temporary slot, and call a callback.
+    ///
+    /// The slot is valid during the callback run, and can be reused later.
+    pub(crate) fn alloc_slot<R>(&mut self, k: impl FnOnce(BcSlot, &mut BcWriter) -> R) -> R {
+        let slot = BcSlot(self.local_count + self.stack_size);
+        self.stack_add(1);
+        let r = k(slot, self);
+        self.stack_sub(1);
+        r
+    }
+
+    /// Allocate several slots for the duration of callback run.
+    pub(crate) fn alloc_slots<R>(
+        &mut self,
+        count: u32,
+        k: impl FnOnce(BcSlotRange, &mut BcWriter) -> R,
+    ) -> R {
+        let slots = BcSlotRange {
+            start: BcSlot(self.local_count + self.stack_size),
+            end: BcSlot(self.local_count + self.stack_size + count),
+        };
+        self.stack_add(count);
+        let r = k(slots, self);
+        self.stack_sub(count);
+        r
+    }
+
+    /// Allocate several slots.
+    pub(crate) fn alloc_slots_c<const N: usize, R>(
+        &mut self,
+        k: impl FnOnce(BcSlotsN<N>, &mut BcWriter) -> R,
+    ) -> R {
+        self.alloc_slots(N as u32, |slots, bc| k(BcSlotsN::from_range(slots), bc))
+    }
+
+    /// Allocate several slots for typical compilation of several expressions.
+    pub(crate) fn alloc_slots_for_exprs<K, R>(
+        &mut self,
+        // Iterate over the elements.
+        exprs: impl IntoIterator<Item = K>,
+        // Invoke a callback which fills the slots.
+        mut expr: impl FnMut(BcSlot, K, &mut BcWriter),
+        // And then invoke a callback which consumes all the slots again together.
+        k: impl FnOnce(BcSlotRange, &mut BcWriter) -> R,
+    ) -> R {
+        let start = BcSlot(self.local_count + self.stack_size);
+        let mut end = start;
+        for item in exprs {
+            self.stack_add(1);
+            // `expr` callback may allocate more temporary slots,
+            // but they are released after the callback returns.
+            // So resulting slots are sequential.
+            expr(end, item, self);
+            end = BcSlot(end.0 + 1);
+        }
+        let r = k(BcSlotRange { start, end }, self);
+        self.stack_sub(end.0 - start.0);
+        r
     }
 
     pub(crate) fn alloc_file_span(

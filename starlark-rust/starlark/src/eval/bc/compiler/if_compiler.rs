@@ -161,12 +161,13 @@ fn write_cond(
             write_cond_bin_op(x, y, IfBinOp::Or, maybe_not, t, f, bc);
         }
         _ => {
-            cond.write_bc(bc);
-            let addr = match maybe_not {
-                MaybeNot::Id => bc.write_if_not_br(cond.span),
-                MaybeNot::Not => bc.write_if_br(cond.span),
-            };
-            f.push(addr);
+            cond.write_bc_cb(bc, |cond_slot, bc| {
+                let addr = match maybe_not {
+                    MaybeNot::Id => bc.write_if_not_br(cond_slot, cond.span),
+                    MaybeNot::Not => bc.write_if_br(cond_slot, cond.span),
+                };
+                f.push(addr);
+            });
         }
     }
 }

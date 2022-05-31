@@ -29,12 +29,38 @@ use crate::{
         compiler::{
             expr::{ExprCompiled, MaybeNot},
             span::IrSpanned,
-            stmt::{StmtCompileContext, StmtCompiled, StmtsCompiled},
+            stmt::{AssignCompiledValue, StmtCompileContext, StmtCompiled, StmtsCompiled},
         },
         runtime::call_stack::FrozenFileSpan,
     },
     values::{FrozenHeap, FrozenValue},
 };
+
+pub(crate) fn write_for(
+    over: &IrSpanned<ExprCompiled>,
+    var: &IrSpanned<AssignCompiledValue>,
+    span: FrozenFileSpan,
+    bc: &mut BcWriter,
+    body: impl FnOnce(&mut BcWriter),
+) {
+    over.write_bc_cb(bc, |over, bc| {
+        if let Some(var) = var.as_local_non_captured() {
+            // Typical case: `for x in ...: ...`,
+            // compile loop assignment directly to a local variable.
+            bc.write_for(over, var.to_bc_slot(), span, body)
+        } else {
+            // General case, e. g. `for (x, y[0]) in ...: ...`,
+            // compile loop assignment to a temporary variable,
+            // and reassign it in the loop body.
+            bc.alloc_slot(|var_slot, bc| {
+                bc.write_for(over, var_slot, span, |bc| {
+                    var.write_bc(var_slot, bc);
+                    body(bc);
+                })
+            })
+        }
+    })
+}
 
 impl StmtsCompiled {
     pub(crate) fn write_bc(&self, compiler: &StmtCompileContext, bc: &mut BcWriter) {
@@ -46,7 +72,6 @@ impl StmtsCompiled {
 
 impl IrSpanned<StmtCompiled> {
     fn write_bc(&self, compiler: &StmtCompileContext, bc: &mut BcWriter) {
-        assert_eq!(bc.stack_size(), 0);
         if compiler.has_before_stmt {
             match self.node {
                 StmtCompiled::PossibleGc => {}
@@ -54,12 +79,6 @@ impl IrSpanned<StmtCompiled> {
             }
         }
         self.write_bc_inner(compiler, bc);
-        assert_eq!(
-            bc.stack_size(),
-            0,
-            "stack size must be zero after writing {:?}",
-            self.node
-        );
     }
 
     fn write_if_then(
@@ -113,16 +132,23 @@ impl IrSpanned<StmtCompiled> {
                 if let Some(value) = expr.as_value() {
                     bc.write_instr::<InstrReturnConst>(span, value);
                 } else {
-                    expr.write_bc(bc);
-                    bc.write_instr::<InstrReturn>(span, ());
+                    expr.write_bc_cb(bc, |slot, bc| {
+                        bc.write_instr::<InstrReturn>(span, slot);
+                    });
                 }
             }
             StmtCompiled::Expr(ref expr) => {
                 expr.write_bc_for_effect(bc);
             }
             StmtCompiled::Assign(ref lhs, ref rhs) => {
-                rhs.write_bc(bc);
-                lhs.write_bc(bc);
+                if let Some(local) = lhs.as_local_non_captured() {
+                    // Write expression directly to local slot.
+                    rhs.write_bc(local.to_bc_slot(), bc);
+                } else {
+                    rhs.write_bc_cb(bc, |slot, bc| {
+                        lhs.write_bc(slot, bc);
+                    });
+                }
             }
             StmtCompiled::AssignModify(ref lhs, op, ref rhs) => {
                 lhs.write_bc(span, op, rhs, bc);
@@ -131,11 +157,7 @@ impl IrSpanned<StmtCompiled> {
                 Self::write_if_else(c, t, f, compiler, bc);
             }
             StmtCompiled::For(box (ref assign, ref over, ref body)) => {
-                over.write_bc(bc);
-                bc.write_for(span, |bc| {
-                    assign.write_bc(bc);
-                    body.write_bc(compiler, bc);
-                });
+                write_for(over, assign, span, bc, |bc| body.write_bc(compiler, bc));
             }
             StmtCompiled::Break => {
                 bc.write_instr::<InstrBreak>(span, ());

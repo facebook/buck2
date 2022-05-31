@@ -232,7 +232,7 @@ impl BcInstrs {
             }
             if opcode == BcOpcode::ForLoop {
                 let for_loop = ptr.get_instr::<InstrForLoop>();
-                loop_ends.push(ip.offset(for_loop.arg));
+                loop_ends.push(ip.offset(for_loop.arg.2));
             }
         }
         Ok(())
@@ -288,7 +288,8 @@ impl BcInstrsWriter {
 
     pub(crate) fn addr_to_patch(
         &self,
-        (instr_start, addr): (BcAddr, *const BcAddrOffset),
+        instr_start: BcAddr,
+        addr: *const BcAddrOffset,
     ) -> PatchAddr {
         unsafe { assert_eq!(*addr, BcAddrOffset::FORWARD) };
         let offset_bytes =
@@ -331,6 +332,7 @@ mod tests {
         eval::bc::{
             instr_impl::{InstrBreak, InstrConst, InstrPossibleGc, InstrReturn},
             instrs::{BcInstrs, BcInstrsWriter},
+            stack_ptr::BcSlot,
         },
         values::FrozenValue,
     };
@@ -353,12 +355,15 @@ mod tests {
     #[test]
     fn display() {
         let mut bc = BcInstrsWriter::new();
-        bc.write::<InstrConst>(FrozenValue::new_bool(true));
-        bc.write::<InstrReturn>(());
+        bc.write::<InstrConst>((FrozenValue::new_bool(true), BcSlot(17)));
+        bc.write::<InstrReturn>(BcSlot(17));
         let bc = bc.finish(Vec::new());
         if mem::size_of::<usize>() == 8 {
-            assert_eq!("0: Const True; 16: Return; 24: End", bc.to_string());
-            assert_eq!("0: Const True\n16: Return\n24: End\n", bc.dump_debug());
+            assert_eq!("0: Const True &17; 24: Return &17; 32: End", bc.to_string());
+            assert_eq!(
+                "0: Const True &17\n24: Return &17\n32: End\n",
+                bc.dump_debug()
+            );
         } else if mem::size_of::<usize>() == 4 {
             // Starlark doesn't work now on 32-bit CPU
         } else {

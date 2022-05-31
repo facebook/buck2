@@ -70,9 +70,9 @@ fn test_spec_exec_list() {
 fn test_call_maybe_known_method() {
     test_instrs(
         &[
-            BcOpcode::LoadLocalAndConst,
+            BcOpcode::LoadLocal,
+            BcOpcode::Const,
             BcOpcode::CallMaybeKnownMethodPos,
-            BcOpcode::Pop,
             BcOpcode::ReturnConst,
         ],
         "def test(x): x.append(1)",
