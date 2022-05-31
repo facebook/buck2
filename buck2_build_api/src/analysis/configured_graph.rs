@@ -18,7 +18,6 @@ use dice::DiceComputations;
 use gazebo::prelude::*;
 
 use crate::{
-    actions::artifact::ArtifactKind,
     artifact_groups::ArtifactGroup,
     calculation::Calculation,
     interpreter::rule_defs::{
@@ -128,15 +127,9 @@ impl<'a> ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQuer
                         for input in cmd_visitor.inputs {
                             match input {
                                 ArtifactGroup::Artifact(artifact) => {
-                                    match artifact.0.as_ref() {
-                                        ArtifactKind::Source(_) => {
-                                            // ignored
-                                        }
-                                        ArtifactKind::Build(build) => {
-                                            let path = build.get_path();
-                                            let target_label = path.owner().unpack_target_label().ok_or_else(|| anyhow::anyhow!("Providers from rules should only have artifacts created by other rules"))?;
-                                            labels.push(target_label.dupe());
-                                        }
+                                    if let Some(owner) = artifact.owner() {
+                                        let target_label = owner.unpack_target_label().ok_or_else(|| anyhow::anyhow!("Providers from rules should only have artifacts created by other rules"))?;
+                                        labels.push(target_label.dupe());
                                     }
                                 }
                                 _ => {
