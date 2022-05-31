@@ -141,7 +141,7 @@ impl QuoteStyle {
 /// Simple struct to help determine extra options for formatting
 /// (whether to join items, how to join them, format strings, etc)
 #[derive(Debug, Default_, Clone, Trace, Freeze, Serialize)]
-pub struct FormattingOptions<S> {
+struct FormattingOptions<S> {
     delimiter: Option<S>,
     format: Option<S>,
     prepend: Option<S>,
@@ -172,25 +172,6 @@ impl<S: Debug> Display for FormattingOptions<S> {
 }
 
 impl<S: Default> FormattingOptions<S> {
-    /// If any of the params passed in are meaningful, return
-    /// an instance of `FormattingOptions`, else just return `None`.
-    ///
-    /// This lets us shortcut some formatting logic later on if no meaningful
-    /// formatting needs to be done (the common case)
-    pub fn maybe_new(
-        delimiter: Option<S>,
-        format: Option<S>,
-        prepend: Option<S>,
-        quote: Option<QuoteStyle>,
-    ) -> Self {
-        Self {
-            delimiter,
-            format,
-            prepend,
-            quote,
-        }
-    }
-
     fn is_empty(&self) -> bool {
         self.delimiter.is_none()
             && self.format.is_none()
@@ -784,15 +765,6 @@ impl<'v> StarlarkCommandLine<'v> {
         Self::default()
     }
 
-    /// Create a slightly more advanced builder.
-    pub fn new_with_options(options: FormattingOptions<StringValue<'v>>) -> Self {
-        let mut gen = StarlarkCommandLineDataGen::default();
-        if !options.is_empty() {
-            *gen.formatting_mut() = options;
-        }
-        Self(RefCell::new(gen))
-    }
-
     pub(crate) fn try_from_value(value: Value<'v>) -> anyhow::Result<Self> {
         let mut builder = Self::new();
         builder.0.get_mut().add_value(value)?;
@@ -801,14 +773,24 @@ impl<'v> StarlarkCommandLine<'v> {
 
     pub(crate) fn try_from_values_with_options(
         value: &[Value<'v>],
-        formatting: FormattingOptions<StringValue<'v>>,
+        delimiter: Option<StringValue<'v>>,
+        format: Option<StringValue<'v>>,
+        prepend: Option<StringValue<'v>>,
+        quote: Option<QuoteStyle>,
     ) -> anyhow::Result<Self> {
-        let mut builder = Self::new_with_options(formatting);
-        let b = builder.0.get_mut();
-        for v in value {
-            b.add_value(*v)?;
+        let mut builder = StarlarkCommandLineDataGen::default();
+        if delimiter.is_some() || format.is_some() || prepend.is_some() || quote.is_some() {
+            *builder.formatting_mut() = FormattingOptions {
+                delimiter,
+                format,
+                prepend,
+                quote,
+            };
         }
-        Ok(builder)
+        for v in value {
+            builder.add_value(*v)?;
+        }
+        Ok(Self(RefCell::new(builder)))
     }
 }
 

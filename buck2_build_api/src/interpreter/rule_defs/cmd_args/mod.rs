@@ -138,12 +138,10 @@ pub fn register_args_function(builder: &mut GlobalsBuilder) {
     ) -> anyhow::Result<StarlarkCommandLine<'v>> {
         StarlarkCommandLine::try_from_values_with_options(
             &args,
-            FormattingOptions::maybe_new(
-                delimiter,
-                format,
-                prepend,
-                quote.try_map(|q| QuoteStyle::parse(q))?,
-            ),
+            delimiter,
+            format,
+            prepend,
+            quote.try_map(|q| QuoteStyle::parse(q))?,
         )
     }
 }
