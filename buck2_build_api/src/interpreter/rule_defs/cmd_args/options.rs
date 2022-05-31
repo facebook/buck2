@@ -285,9 +285,29 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
             /// do it here
             fn finalize_args(mut self) -> Self {
                 if let Some((concatted_items, _)) = self.concatenation_context.take() {
-                    self.cli.add_arg_string(self.format(concatted_items));
+                    self.cli.add_arg_string(concatted_items);
                 }
                 self
+            }
+
+            fn add_delimiter(&mut self) {
+                if let Some((concatted_items, initital_state)) = self.concatenation_context.as_mut()
+                {
+                    if *initital_state {
+                        *initital_state = false;
+                    } else {
+                        concatted_items
+                            .push_str(self.opts.delimiter.as_ref().map_or("", |x| x.as_str()));
+                    }
+                }
+            }
+
+            fn add_arg(&mut self, arg: String) {
+                if let Some((concatted_items, _)) = self.concatenation_context.as_mut() {
+                    concatted_items.push_str(&arg)
+                } else {
+                    self.cli.add_arg_string(arg)
+                }
             }
 
             fn format(&self, mut arg: String) -> String {
@@ -306,24 +326,13 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
 
         impl<'a, 'v, V: ValueLike<'v>> CommandLineBuilder for Extras<'a, 'v, V> {
             fn add_arg_string(&mut self, s: String) {
-                if let Some((concatted_items, initital_state)) = self.concatenation_context.as_mut()
-                {
-                    if *initital_state {
-                        *initital_state = false;
-                    } else {
-                        concatted_items
-                            .push_str(self.opts.delimiter.as_ref().map_or("", |x| x.as_str()));
-                    }
-                    concatted_items.push_str(&s)
-                } else {
-                    // NOTE: This doesn't go through formatting since to give users more
-                    // flexibility. Since the prepended string is a static string, they _can_ format
-                    // it ahead of time if they need to.
-                    if let Some(i) = self.opts.prepend.as_ref() {
-                        self.cli.add_arg_string(i.as_str().to_owned());
-                    }
-                    self.cli.add_arg_string(self.format(s))
+                // We apply options impacting formatting in the order:
+                //   format, quote, (prepend + delimiter)
+                self.add_delimiter();
+                if let Some(i) = self.opts.prepend.as_ref() {
+                    self.add_arg(i.as_str().to_owned());
                 }
+                self.add_arg(self.format(s))
             }
         }
 

@@ -366,7 +366,7 @@ fn test_format() -> anyhow::Result<()> {
             args3.add(cmd_args("foo", format="format-{}-{}-string1"))
             args3.add(cmd_args("bar", format="format-{}-{}-string2"))
 
-            assert_eq(["format-foo,bar-foo,bar-string"], get_args(args1))
+            assert_eq(["format-foo-foo-stringformat-,bar-,bar-string"], get_args(args1))
             assert_eq(
                 [
                     "format-foo-foo-string",
@@ -376,8 +376,8 @@ fn test_format() -> anyhow::Result<()> {
             )
             assert_eq(
                 [
-                    "format-foobar-foobar-string",
-                    "format-foo,bar-foo,bar-string",
+                    "format-foo-foo-stringformat-bar-bar-string",
+                    "format-foo-foo-string,format-bar-bar-string",
                     "format-foo-foo-string1",
                     "format-bar-bar-string2",
                 ],
@@ -400,7 +400,7 @@ fn test_joined_with_empty_args() -> anyhow::Result<()> {
             args.add(cmd_args(["", "", "foo"], delimiter=","))
             assert_eq(
                 [
-                    "format-,foo-string",
+                    "format--string,format-foo-string",
                     ",,foo",
                 ],
                 get_args(args),
@@ -563,7 +563,22 @@ fn test_concat() -> anyhow::Result<()> {
         def test():
             args = cmd_args("foo", "bar", delimiter = "-")
             assert_eq(["foo-bar"], get_args(args))
-            "#
+            args = cmd_args("foo", "bar", delimiter = "-", format = "({})")
+            assert_eq(["(foo)-(bar)"], get_args(args))
+            args = cmd_args("foo", "bar", delimiter = "-", prepend = "@", format = "({})")
+            assert_eq(["@(foo)-@(bar)"], get_args(args))
+            args = cmd_args("foo", "bar", delimiter = "-", prepend = "@", format = "({})", quote="shell")
+            assert_eq(['@"(foo)"-@"(bar)"'], get_args(args))
+
+            # Nail down the order of application
+            # Note that prepend and delimiter together are not separable
+            args = cmd_args(cmd_args(cmd_args("foo", "bar", format="({})"), quote="shell"), prepend="@", delimiter="-")
+            assert_eq(['@"(foo)"-@"(bar)"'], get_args(args))
+            args = cmd_args(cmd_args(cmd_args(cmd_args("foo", "bar", format="({})"), quote="shell"), prepend="@"), delimiter="-")
+            assert_eq(['@-"(foo)"-@-"(bar)"'], get_args(args))
+            args = cmd_args(cmd_args(cmd_args(cmd_args("foo", "bar", format="({})"), quote="shell"), delimiter="-"), prepend="@")
+            assert_eq(['@', '"(foo)"-"(bar)"'], get_args(args))
+     "#
     );
     tester.run_starlark_bzl_test(contents)?;
     Ok(())
