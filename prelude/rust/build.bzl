@@ -540,7 +540,7 @@ def _linker_args(ctx: "context") -> "cmd_args":
         ctx.actions.declare_output("__linker_wrapper.sh"),
         [
             "#!/bin/bash",
-            cmd_args(_shell_quote(linker), delimiter = " \\\n", format = "{} \"$@\"\n"),
+            cmd_args(cmd_args(_shell_quote(linker), delimiter = " \\\n"), format = "{} \"$@\"\n"),
         ],
         is_executable = True,
         allow_args = True,
