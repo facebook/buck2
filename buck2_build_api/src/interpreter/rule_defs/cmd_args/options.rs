@@ -216,20 +216,17 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
         builder: &'a mut dyn CommandLineBuilder,
         f: impl for<'b> FnOnce(&'b mut dyn CommandLineBuilder) -> anyhow::Result<R>,
     ) -> anyhow::Result<R> {
-        struct Extras<'a, 'v, S> {
+        struct Extras<'a, 'v, V: ValueLike<'v>> {
             cli: &'a mut dyn CommandLineBuilder,
+            opts: &'a CommandLineOptions<'v, V>,
             relative_to: Option<RelativePathBuf>,
-            absolute_prefix: Option<&'v str>,
-            absolute_suffix: Option<&'v str>,
-            parent: usize,
             // Auxiliary field to store concatenation result (when arguments are concatenated) and
             // a flag stating that the result is not yet started to be computated (i.e. the first
             // argument to be concatenated is not yet processed).
             concatenation_context: Option<(String, bool)>,
-            formatting: FormattingOptions<S>,
         }
 
-        impl<'a, 'v, S: StringValueLike<'v>> Extras<'a, 'v, S> {
+        impl<'a, 'v, V: ValueLike<'v>> Extras<'a, 'v, V> {
             /// If any items need to be concatted/formatted and added to the original CLI,
             /// do it here
             fn finalize_args(mut self) -> Self {
@@ -240,10 +237,10 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
             }
 
             fn format(&self, mut arg: String) -> String {
-                if let Some(format) = &self.formatting.format {
+                if let Some(format) = &self.opts.formatting.format {
                     arg = format.as_str().replace("{}", &arg);
                 }
-                match &self.formatting.quote {
+                match &self.opts.formatting.quote {
                     Some(QuoteStyle::Shell) => {
                         arg = shlex::quote(&arg).into_owned();
                     }
@@ -253,25 +250,23 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
             }
         }
 
-        impl<'a, 'v, S> CommandLineBuilderContext for Extras<'a, 'v, S> {
+        impl<'a, 'v, V: ValueLike<'v>> CommandLineBuilderContext for Extras<'a, 'v, V> {
             fn resolve_project_path(
                 &self,
                 path: ProjectRelativePathBuf,
             ) -> anyhow::Result<CommandLineLocation> {
                 let Self {
                     cli,
-                    parent,
-                    absolute_prefix,
-                    absolute_suffix,
                     relative_to,
+                    opts,
                     ..
                 } = self;
 
                 let resolved = cli.resolve_project_path(path)?;
 
-                if *parent == 0
-                    && absolute_prefix.is_none()
-                    && absolute_suffix.is_none()
+                if opts.parent == 0
+                    && opts.absolute_prefix.is_none()
+                    && opts.absolute_suffix.is_none()
                     && relative_to.is_none()
                 {
                     return Ok(resolved);
@@ -282,18 +277,18 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
                     x = relative_to.relative(x);
                 }
                 let mut parent_ref = x.as_relative_path();
-                for _ in 0..*parent {
+                for _ in 0..opts.parent {
                     parent_ref = parent_ref
                         .parent()
                         .ok_or(CommandLineArgError::TooManyParentCalls)?;
                 }
                 x = parent_ref.to_owned();
-                if absolute_prefix.is_some() || absolute_suffix.is_some() {
+                if opts.absolute_prefix.is_some() || opts.absolute_suffix.is_some() {
                     x = RelativePath::new(&format!(
                         "{}{}{}",
-                        absolute_prefix.unwrap_or(""),
+                        opts.absolute_prefix.unwrap_or_default().as_str(),
                         x,
-                        absolute_suffix.unwrap_or(""),
+                        opts.absolute_suffix.unwrap_or_default().as_str(),
                     ))
                     .to_owned();
                 }
@@ -314,7 +309,7 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
             }
         }
 
-        impl<'a, 'v, S: StringValueLike<'v>> CommandLineBuilder for Extras<'a, 'v, S> {
+        impl<'a, 'v, V: ValueLike<'v>> CommandLineBuilder for Extras<'a, 'v, V> {
             fn add_arg_string(&mut self, s: String) {
                 if let Some((concatted_items, initital_state)) = self.concatenation_context.as_mut()
                 {
@@ -322,7 +317,8 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
                         *initital_state = false;
                     } else {
                         concatted_items.push_str(
-                            self.formatting
+                            self.opts
+                                .formatting
                                 .delimiter
                                 .as_ref()
                                 .map_or("", |x| x.as_str()),
@@ -333,7 +329,7 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
                     // NOTE: This doesn't go through formatting since to give users more
                     // flexibility. Since the prepended string is a static string, they _can_ format
                     // it ahead of time if they need to.
-                    if let Some(i) = self.formatting.prepend.as_ref() {
+                    if let Some(i) = self.opts.formatting.prepend.as_ref() {
                         self.cli.add_arg_string(i.as_str().to_owned());
                     }
                     self.cli.add_arg_string(self.format(s))
@@ -349,23 +345,16 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
             self.formatting(),
         ) {
             (None, None, None, 0, None) => f(builder),
-            (relative_to, absolute_prefix, absolute_suffix, parent, formatting) => {
+            (relative_to, _, _, _, formatting) => {
                 let concatenation_context = match formatting {
                     Some(opts) if opts.delimiter.is_some() => Some((String::new(), true)),
                     _ => None,
                 };
-                let formatting = match formatting {
-                    Some(f) => (*f).clone(),
-                    None => FormattingOptions::default(),
-                };
                 let mut cli_extras = Extras {
                     cli: builder,
+                    opts: self,
                     relative_to: relative_to.transpose()?,
-                    absolute_prefix,
-                    absolute_suffix,
-                    parent,
                     concatenation_context,
-                    formatting,
                 };
                 let res = f(&mut cli_extras)?;
                 cli_extras.finalize_args();
