@@ -182,16 +182,20 @@ impl<S: Default> FormattingOptions<S> {
         format_string: Option<S>,
         quote: Option<QuoteStyle>,
         prepend: Option<S>,
-    ) -> Option<Self> {
-        match (delimiter, format_string, quote, prepend) {
-            (None, None, None, None) => None,
-            (delimiter, format_string, quote, prepend) => Some(Self {
-                concat: delimiter,
-                format_string,
-                quote,
-                prepend,
-            }),
+    ) -> Self {
+        Self {
+            concat: delimiter,
+            format_string,
+            quote,
+            prepend,
         }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.concat.is_none()
+            && self.format_string.is_none()
+            && self.quote.is_none()
+            && self.prepend.is_none()
     }
 }
 
@@ -204,7 +208,7 @@ struct CommandLineOptions<'v, V: ValueLike<'v>> {
     absolute_suffix: Option<V::String>,
     parent: usize,
     ignore_artifacts: bool,
-    formatting: Option<FormattingOptions<V::String>>,
+    formatting: FormattingOptions<V::String>,
     lifetime: PhantomData<&'v ()>,
 }
 
@@ -252,9 +256,9 @@ impl<'v, V: ValueLike<'v>> Display for CommandLineOptions<'v, V> {
             comma(f)?;
             write!(f, "ignore_artifacts = True")?;
         }
-        if let Some(x) = &self.formatting {
+        if !self.formatting.is_empty() {
             comma(f)?;
-            Display::fmt(x, f)?;
+            Display::fmt(&self.formatting, f)?;
         }
         Ok(())
     }
@@ -355,10 +359,11 @@ impl<'v, V: ValueLike<'v>> StarlarkCommandLineDataGen<'v, V> {
     }
 
     fn formatting(&self) -> Option<&FormattingOptions<V::String>> {
-        self.options.as_ref()?.formatting.as_ref()
+        let f = &self.options.as_ref()?.formatting;
+        if f.is_empty() { None } else { Some(f) }
     }
 
-    fn formatting_mut(&mut self) -> &mut Option<FormattingOptions<V::String>> {
+    fn formatting_mut(&mut self) -> &mut FormattingOptions<V::String> {
         &mut self.options_mut().formatting
     }
 
@@ -371,11 +376,10 @@ impl<'v, V: ValueLike<'v>> StarlarkCommandLineDataGen<'v, V> {
 
     fn is_concat(&self) -> bool {
         if let Some(x) = &self.options {
-            if let Some(x) = &x.formatting {
-                return x.concat.is_some();
-            }
+            x.formatting.concat.is_some()
+        } else {
+            false
         }
-        false
     }
 
     fn extra_memory(&self) -> usize {
@@ -777,10 +781,10 @@ impl<'v> StarlarkCommandLine<'v> {
     }
 
     /// Create a slightly more advanced builder.
-    pub fn new_with_options(options: Option<FormattingOptions<StringValue<'v>>>) -> Self {
+    pub fn new_with_options(options: FormattingOptions<StringValue<'v>>) -> Self {
         let mut gen = StarlarkCommandLineDataGen::default();
-        if let Some(options) = options {
-            *gen.formatting_mut() = Some(options);
+        if !options.is_empty() {
+            *gen.formatting_mut() = options;
         }
         Self(RefCell::new(gen))
     }
@@ -793,7 +797,7 @@ impl<'v> StarlarkCommandLine<'v> {
 
     pub(crate) fn try_from_values_with_options(
         value: &[Value<'v>],
-        formatting: Option<FormattingOptions<StringValue<'v>>>,
+        formatting: FormattingOptions<StringValue<'v>>,
     ) -> anyhow::Result<Self> {
         let mut builder = Self::new_with_options(formatting);
         let b = builder.0.get_mut();
