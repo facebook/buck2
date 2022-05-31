@@ -21,6 +21,8 @@ $ find out-dir -type f
 out-dir/foo.pyc
 """
 
+# pyre-unsafe
+
 import argparse
 import errno
 import json

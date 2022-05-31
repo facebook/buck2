@@ -22,6 +22,8 @@ main module, you can import this module as tools.test.stubs.fbpyunit, to access
 any of its code to help implement your main module.
 """
 
+# pyre-unsafe
+
 from __future__ import print_function
 
 import contextlib
@@ -45,11 +47,11 @@ with warnings.catch_warnings():
     import imp
 
 try:
-    from StringIO import StringIO
+    from StringIO import StringIO  # type: ignore
 except ImportError:
     from io import StringIO
 try:
-    import coverage
+    import coverage  # type: ignore
 except ImportError:
     coverage = None
 try:
@@ -205,6 +207,7 @@ class CallbackStream(object):
         return self._fileno
 
 
+# pyre-fixme[11]: Annotation `unittest._TextTestResult` is not defined as a type.
 class BuckTestResult(unittest._TextTestResult):
     """
     Our own TestResult class that outputs data in a format that can be easily

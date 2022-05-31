@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+# pyre-unsafe
+
 import os
 import subprocess
 import sys

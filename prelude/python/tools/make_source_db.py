@@ -28,6 +28,8 @@ The output format of the source DB is:
 }
 """
 
+# pyre-unsafe
+
 import argparse
 import json
 import sys

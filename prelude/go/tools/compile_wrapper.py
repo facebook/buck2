@@ -12,6 +12,8 @@ Example:
 
 """
 
+# pyre-unsafe
+
 import argparse
 import os
 import subprocess
@@ -30,7 +32,7 @@ def _compile(compile_prefix: List[str], output: Path, srcs: List[Path]):
     subprocess.check_call(cmd)
 
 
-def _pack(pack_prefix: List[str], output: Path, items: [Path]):
+def _pack(pack_prefix: List[str], output: Path, items: List[Path]):
     cmd = []
     cmd.extend(pack_prefix)
     cmd.append("r")

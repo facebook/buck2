@@ -4,9 +4,10 @@ import argparse
 import json
 import os
 import sys
+from typing import List
 
 
-def main(argv):
+def main(argv: List[str]) -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=argparse.FileType("w"), default=sys.stdout)
     parser.add_argument("--origin", help="description of source origin")

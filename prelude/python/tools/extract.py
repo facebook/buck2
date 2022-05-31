@@ -10,7 +10,8 @@ import argparse
 import shutil
 from pathlib import Path
 
-if __name__ == "__main__":
+
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Extract .zip files to a directory in a cross platform manner"
     )
@@ -22,3 +23,7 @@ if __name__ == "__main__":
 
     args.output.mkdir(parents=True, exist_ok=True)
     shutil.unpack_archive(args.src, args.output, "zip")
+
+
+if __name__ == "__main__":
+    main()

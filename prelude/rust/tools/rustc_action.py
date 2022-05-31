@@ -9,6 +9,9 @@
 # - generate a build status json when using failure filtering
 #
 # This is closely coupled to `_rustc_invoke` in `build.bzl`
+
+# pyre-unsafe
+
 import argparse
 import asyncio
 import json

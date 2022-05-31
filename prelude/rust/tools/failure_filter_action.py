@@ -5,6 +5,8 @@
 # outputs. This is to allow us to report success if rustc generated the artifact
 # we needed (ie diagnostics) even if the compilation itself failed.
 
+# pyre-unsafe
+
 import argparse
 import json
 import os

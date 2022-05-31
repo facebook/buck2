@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
+
 import argparse
 import re
 import subprocess
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--tar-flag", action="append")
     parser.add_argument("--tar-archive")

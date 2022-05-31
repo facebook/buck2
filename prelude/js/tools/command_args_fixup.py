@@ -1,6 +1,8 @@
 #!/usr/bin/env fbpython
 # (c) Facebook, Inc. and its affiliates. Confidential and proprietary.
 
+# pyre-unsafe
+
 import argparse
 import json
 import sys
@@ -40,6 +42,7 @@ def main() -> None:
                 flush=True,
             )
             sys.exit(1)
+            return None
 
     if "extraData" in content:
         try:
@@ -51,6 +54,7 @@ def main() -> None:
                 flush=True,
             )
             sys.exit(1)
+            return None
 
     with open(args.output, "w") as output_f:
         output_f.write(json.dumps(content, sort_keys=True))

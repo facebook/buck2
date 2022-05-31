@@ -41,6 +41,8 @@ baz/tp_foo.py
 baz/tp_bar.py
 """
 
+# pyre-unsafe
+
 import argparse
 import errno
 import json
