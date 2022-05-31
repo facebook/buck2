@@ -92,7 +92,7 @@ fn serialize_opt_display<V: Display, S>(v: &Option<(V, usize)>, s: S) -> Result<
 where
     S: Serializer,
 {
-    match v.as_ref() {
+    match v {
         Some((v, u)) => s.serialize_some(&(format!("{}", v), u)),
         None => s.serialize_none(),
     }
@@ -296,8 +296,7 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
                     if *initital_state {
                         *initital_state = false;
                     } else {
-                        concatted_items
-                            .push_str(self.opts.delimiter.as_ref().map_or("", |x| x.as_str()));
+                        concatted_items.push_str(self.opts.delimiter.unwrap_or_default().as_str());
                     }
                 }
             }
@@ -329,7 +328,7 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
                 // We apply options impacting formatting in the order:
                 //   format, quote, (prepend + delimiter)
                 self.add_delimiter();
-                if let Some(i) = self.opts.prepend.as_ref() {
+                if let Some(i) = self.opts.prepend {
                     self.add_arg(i.as_str().to_owned());
                 }
                 self.add_arg(self.format(s))
