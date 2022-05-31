@@ -20,14 +20,11 @@ use std::fmt::{self, Debug};
 use gazebo::{coerce::Coerce, prelude::*};
 use thiserror::Error;
 
-use crate::{
-    collections::Hashed,
-    values::{
-        dict::{Dict, DictRef},
-        list::{List, ListRef},
-        tuple::Tuple,
-        Heap, Trace, Tracer, Value,
-    },
+use crate::values::{
+    dict::{Dict, DictRef},
+    list::{List, ListRef},
+    tuple::Tuple,
+    Heap, Trace, Tracer, Value,
 };
 
 #[derive(Debug, Error)]
@@ -186,40 +183,8 @@ impl TypeCompiled {
             let tv = TypeCompiled::new(tv, heap)?;
             Ok(TypeCompiled::is_dict_of(tk, tv))
         } else {
-            // Dict type, allowed to have more keys that aren't used.
-            // All specified must be type String.
-            let ts = t
-                .iter_hashed()
-                .map(|(k, kt)| {
-                    let k_str = match k.key().unpack_str() {
-                        None => {
-                            return Err(TypingError::InvalidTypeAnnotation(t.to_string()).into());
-                        }
-                        Some(s) => Hashed::new_unchecked(k.hash(), s.to_owned()),
-                    };
-                    let kt = TypeCompiled::new(kt, heap)?;
-                    Ok((k_str, kt))
-                })
-                .collect::<anyhow::Result<Vec<_>>>()?;
-
-            Ok(TypeCompiled(box move |v| match Dict::from_value(v) {
-                None => false,
-                Some(v) => {
-                    for (k, kt) in &ts {
-                        let ks = k.key().as_str();
-                        let ks = Hashed::new_unchecked(k.hash(), ks);
-                        match v.get_str_hashed(ks) {
-                            None => return false,
-                            Some(kv) => {
-                                if !(kt.0)(kv) {
-                                    return false;
-                                }
-                            }
-                        }
-                    }
-                    true
-                }
-            }))
+            // Dict type with multiple fields is not allowed
+            Err(TypingError::InvalidTypeAnnotation(t.to_string()).into())
         }
     }
 
@@ -369,14 +334,11 @@ is_type([1, 2, 3], [int.type])
 is_type(None, [None, int.type])
 is_type('test', [int.type, str.type])
 is_type(('test', None), (str.type, None))
-is_type({'1': 'test', '2': False, '3': 3}, {'1': str.type, '2': bool.type})
 is_type({"test": 1, "more": 2}, {str.type: int.type})
 is_type({1: 1, 2: 2}, {int.type: int.type})
 
 not is_type(1, None)
 not is_type((1, 1), str.type)
-not is_type({'1': 'test', '3': 'test'}, {'2': bool.type, '3': str.type})
-not is_type({'1': 'test', '3': 'test'}, {'1': bool.type, '3': str.type})
 not is_type('test', [int.type, bool.type])
 not is_type([1,2,None], [int.type])
 not is_type({"test": 1, 8: 2}, {str.type: int.type})
@@ -390,6 +352,7 @@ is_type([1,2,"test"], ["_a"])
         // Checking types fails for invalid types
         a.fail("is_type(None, is_type)", "not a valid type");
         a.fail("is_type(None, [])", "not a valid type");
+        a.fail("is_type(None, {'1': '', '2': ''})", "not a valid type");
         a.fail("is_type({}, {1: 'string', 2: 'bool'})", "not a valid type");
 
         // Should check the type of default parameters that aren't used
