@@ -221,30 +221,6 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
             concatenation_context: Option<(String, bool)>,
         }
 
-        impl<'a, 'v, V: ValueLike<'v>> Extras<'a, 'v, V> {
-            /// If any items need to be concatted/formatted and added to the original CLI,
-            /// do it here
-            fn finalize_args(mut self) -> Self {
-                if let Some((concatted_items, _)) = self.concatenation_context.take() {
-                    self.cli.add_arg_string(self.format(concatted_items));
-                }
-                self
-            }
-
-            fn format(&self, mut arg: String) -> String {
-                if let Some(format) = &self.opts.format {
-                    arg = format.as_str().replace("{}", &arg);
-                }
-                match &self.opts.quote {
-                    Some(QuoteStyle::Shell) => {
-                        arg = shlex::quote(&arg).into_owned();
-                    }
-                    _ => {}
-                }
-                arg
-            }
-        }
-
         impl<'a, 'v, V: ValueLike<'v>> CommandLineBuilderContext for Extras<'a, 'v, V> {
             fn resolve_project_path(
                 &self,
@@ -301,6 +277,30 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
                 } else {
                     Ok(macro_path)
                 }
+            }
+        }
+
+        impl<'a, 'v, V: ValueLike<'v>> Extras<'a, 'v, V> {
+            /// If any items need to be concatted/formatted and added to the original CLI,
+            /// do it here
+            fn finalize_args(mut self) -> Self {
+                if let Some((concatted_items, _)) = self.concatenation_context.take() {
+                    self.cli.add_arg_string(self.format(concatted_items));
+                }
+                self
+            }
+
+            fn format(&self, mut arg: String) -> String {
+                if let Some(format) = &self.opts.format {
+                    arg = format.as_str().replace("{}", &arg);
+                }
+                match &self.opts.quote {
+                    Some(QuoteStyle::Shell) => {
+                        arg = shlex::quote(&arg).into_owned();
+                    }
+                    _ => {}
+                }
+                arg
             }
         }
 
