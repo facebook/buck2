@@ -62,6 +62,8 @@ pub(crate) enum SelectError {
     TwoKeysDoNotRefineEachOther(String, String),
     #[error("select() cannot be used in non-configuable attribute")]
     SelectCannotBeUsedForNonConfigurableAttr,
+    #[error("concat with no items (internal error)")]
+    ConcatEmpty,
 }
 
 /// CoercedAttr is the "coerced" representation of an attribute. It has been type-checked and converted to
@@ -402,7 +404,7 @@ impl CoercedAttr {
                         Some(base) => base.concat(configured_item)?,
                     });
                 }
-                Ok(result.expect("CoercedAttr::Concat never contains an empty vec"))
+                result.ok_or_else(|| SelectError::ConcatEmpty.into())
             }
         }
     }
