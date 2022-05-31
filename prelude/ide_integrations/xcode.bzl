@@ -9,7 +9,7 @@ def generate_xcode_data(
         **kwargs) -> ["DefaultInfo"]:
     data = {
         "rule_type": rule_type,
-        "target": str(ctx.label),
+        "target": ctx.label,
     }
     if output:
         data["output"] = output
