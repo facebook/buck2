@@ -1,6 +1,7 @@
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
 
-native.keystore(
+fb_native.keystore(
     name = "keystore",
     store = "debug.keystore",
     properties = "debug.keystore.properties",
