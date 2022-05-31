@@ -57,49 +57,83 @@ impl Debug for TypeCompiled {
     }
 }
 
+// These functions are small, but are deliberately out-of-line so we get better
+// information in profiling about the origin of these closures
+impl TypeCompiled {
+    fn type_anything() -> TypeCompiled {
+        TypeCompiled(box |_| true)
+    }
+
+    fn type_none() -> TypeCompiled {
+        TypeCompiled(box |v| v.is_none())
+    }
+
+    fn type_string() -> TypeCompiled {
+        TypeCompiled(box |v| v.unpack_str().is_some() || v.get_ref().matches_type("string"))
+    }
+
+    fn type_int() -> TypeCompiled {
+        TypeCompiled(box |v| v.unpack_int().is_some() || v.get_ref().matches_type("int"))
+    }
+
+    fn type_bool() -> TypeCompiled {
+        TypeCompiled(box |v| v.unpack_bool().is_some() || v.get_ref().matches_type("bool"))
+    }
+
+    fn type_concrete(t: &str) -> TypeCompiled {
+        let t = t.to_owned();
+        TypeCompiled(box move |v| v.get_ref().matches_type(&t))
+    }
+
+    fn type_list() -> TypeCompiled {
+        TypeCompiled(box |v| List::from_value(v).is_some())
+    }
+
+    fn type_list_of(t: TypeCompiled) -> TypeCompiled {
+        TypeCompiled(box move |v| match List::from_value(v) {
+            None => false,
+            Some(v) => v.iter().all(|v| (t.0)(v)),
+        })
+    }
+
+    fn type_any_of_two(t1: TypeCompiled, t2: TypeCompiled) -> TypeCompiled {
+        TypeCompiled(box move |v| (t1.0)(v) || (t2.0)(v))
+    }
+
+    fn type_any_of(ts: Vec<TypeCompiled>) -> TypeCompiled {
+        TypeCompiled(box move |v| ts.iter().any(|t| (t.0)(v)))
+    }
+
+    fn type_dict() -> TypeCompiled {
+        TypeCompiled(box |v| Dict::from_value(v).is_some())
+    }
+
+    fn type_dict_of(kt: TypeCompiled, vt: TypeCompiled) -> TypeCompiled {
+        TypeCompiled(box move |v| match Dict::from_value(v) {
+            None => false,
+            Some(v) => v.iter().all(|(k, v)| (kt.0)(k) && (vt.0)(v)),
+        })
+    }
+}
+
 impl TypeCompiled {
     /// Types that are `""` or start with `"_"` are wildcard - they match everything.
     fn is_wildcard(x: &str) -> bool {
         x == "" || x.starts_with('_')
     }
 
-    fn is_string() -> TypeCompiled {
-        TypeCompiled(box |v| v.unpack_str().is_some() || v.get_ref().matches_type("string"))
-    }
-
-    fn is_int() -> TypeCompiled {
-        TypeCompiled(box |v| v.unpack_int().is_some() || v.get_ref().matches_type("int"))
-    }
-
-    fn is_bool() -> TypeCompiled {
-        TypeCompiled(box |v| v.unpack_bool().is_some() || v.get_ref().matches_type("bool"))
-    }
-
-    fn is_anything() -> TypeCompiled {
-        TypeCompiled(box |_| true)
-    }
-
-    fn matches_type(t: &str) -> TypeCompiled {
-        let t = t.to_owned();
-        TypeCompiled(box move |v| v.get_ref().matches_type(&t))
-    }
-
     /// For `p: "xxx"`, parse that `"xxx"` as type.
     fn from_str(t: &str) -> TypeCompiled {
         if TypeCompiled::is_wildcard(t) {
-            TypeCompiled::is_anything()
+            TypeCompiled::type_anything()
         } else {
             match t {
-                "string" => TypeCompiled::is_string(),
-                "int" => TypeCompiled::is_int(),
-                "bool" => TypeCompiled::is_bool(),
-                t => TypeCompiled::matches_type(t),
+                "string" => TypeCompiled::type_string(),
+                "int" => TypeCompiled::type_int(),
+                "bool" => TypeCompiled::type_bool(),
+                t => TypeCompiled::type_concrete(t),
             }
         }
-    }
-
-    fn is_none() -> TypeCompiled {
-        TypeCompiled(box |v| v.is_none())
     }
 
     fn is_tuple_elems(ts: Vec<TypeCompiled>) -> TypeCompiled {
@@ -107,25 +141,6 @@ impl TypeCompiled {
             Some(v) if v.len() == ts.len() => v.iter().zip(ts.iter()).all(|(v, t)| (t.0)(v)),
             _ => false,
         })
-    }
-
-    fn is_list() -> TypeCompiled {
-        TypeCompiled(box |v| List::from_value(v).is_some())
-    }
-
-    fn is_list_of(t: TypeCompiled) -> TypeCompiled {
-        TypeCompiled(box move |v| match List::from_value(v) {
-            None => false,
-            Some(v) => v.iter().all(|v| (t.0)(v)),
-        })
-    }
-
-    fn is_any_of_two(t1: TypeCompiled, t2: TypeCompiled) -> TypeCompiled {
-        TypeCompiled(box move |v| (t1.0)(v) || (t2.0)(v))
-    }
-
-    fn is_any_of(ts: Vec<TypeCompiled>) -> TypeCompiled {
-        TypeCompiled(box move |v| ts.iter().any(|t| (t.0)(v)))
     }
 
     /// Parse `[t1, t2, ...]` as type.
@@ -138,35 +153,24 @@ impl TypeCompiled {
                 let wildcard = t.unpack_str().map(TypeCompiled::is_wildcard) == Some(true);
                 if wildcard {
                     // Any type - so avoid the inner iteration
-                    Ok(TypeCompiled::is_list())
+                    Ok(TypeCompiled::type_list())
                 } else {
                     let t = TypeCompiled::new(t, heap)?;
-                    Ok(TypeCompiled::is_list_of(t))
+                    Ok(TypeCompiled::type_list_of(t))
                 }
             }
             2 => {
                 // A union type, can match either - special case of the arbitrary choice to go slightly faster
                 let t1 = TypeCompiled::new(t[0], heap)?;
                 let t2 = TypeCompiled::new(t[1], heap)?;
-                Ok(TypeCompiled::is_any_of_two(t1, t2))
+                Ok(TypeCompiled::type_any_of_two(t1, t2))
             }
             _ => {
                 // A union type, can match any
                 let ts = t[..].try_map(|t| TypeCompiled::new(*t, heap))?;
-                Ok(TypeCompiled::is_any_of(ts))
+                Ok(TypeCompiled::type_any_of(ts))
             }
         }
-    }
-
-    fn is_dict() -> TypeCompiled {
-        TypeCompiled(box |v| Dict::from_value(v).is_some())
-    }
-
-    fn is_dict_of(kt: TypeCompiled, vt: TypeCompiled) -> TypeCompiled {
-        TypeCompiled(box move |v| match Dict::from_value(v) {
-            None => false,
-            Some(v) => v.iter().all(|(k, v)| (kt.0)(k) && (vt.0)(v)),
-        })
     }
 
     fn from_dict<'v>(t: DictRef<'v>, heap: &'v Heap) -> anyhow::Result<TypeCompiled> {
@@ -176,12 +180,12 @@ impl TypeCompiled {
         }
 
         if t.is_empty() {
-            Ok(TypeCompiled::is_dict())
+            Ok(TypeCompiled::type_dict())
         } else if let Some((tk, tv)) = unpack_singleton_dictionary(&t) {
             // Dict of the form {k: v} must all match the k/v types
             let tk = TypeCompiled::new(tk, heap)?;
             let tv = TypeCompiled::new(tv, heap)?;
-            Ok(TypeCompiled::is_dict_of(tk, tv))
+            Ok(TypeCompiled::type_dict_of(tk, tv))
         } else {
             // Dict type with multiple fields is not allowed
             Err(TypingError::InvalidTypeAnnotation(t.to_string()).into())
@@ -192,7 +196,7 @@ impl TypeCompiled {
         if let Some(s) = ty.unpack_str() {
             Ok(TypeCompiled::from_str(s))
         } else if ty.is_none() {
-            Ok(TypeCompiled::is_none())
+            Ok(TypeCompiled::type_none())
         } else if let Some(t) = Tuple::from_value(ty) {
             let ts = t.content().try_map(|t| TypeCompiled::new(*t, heap))?;
             Ok(TypeCompiled::is_tuple_elems(ts))
