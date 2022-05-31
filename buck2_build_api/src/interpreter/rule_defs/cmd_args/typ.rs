@@ -11,7 +11,6 @@ use std::{
     cell::{RefCell, RefMut},
     convert::TryInto,
     fmt::{self, Debug, Display},
-    marker::PhantomData,
 };
 
 use buck2_core::fs::paths::RelativePathBuf;
@@ -379,35 +378,7 @@ impl<'v> Freeze for StarlarkCommandLine<'v> {
 
         let items = items.into_try_map(|x| x.freeze(freezer))?;
         let hidden = hidden.into_try_map(|x| x.freeze(freezer))?;
-
-        let options = options.into_try_map(|options| {
-            let CommandLineOptions {
-                relative_to,
-                absolute_prefix,
-                absolute_suffix,
-                parent,
-                ignore_artifacts,
-                delimiter,
-                format,
-                prepend,
-                quote,
-                lifetime,
-            } = *options;
-            let _ = lifetime;
-
-            anyhow::Ok(box CommandLineOptions {
-                relative_to: relative_to.freeze(freezer)?,
-                absolute_prefix: absolute_prefix.freeze(freezer)?,
-                absolute_suffix: absolute_suffix.freeze(freezer)?,
-                parent,
-                ignore_artifacts,
-                delimiter: delimiter.freeze(freezer)?,
-                format: format.freeze(freezer)?,
-                prepend: prepend.freeze(freezer)?,
-                quote,
-                lifetime: PhantomData::default(),
-            })
-        })?;
+        let options = options.into_try_map(|options| options.freeze(freezer))?;
 
         Ok(StarlarkCommandLineGen(StarlarkCommandLineDataGen {
             items,

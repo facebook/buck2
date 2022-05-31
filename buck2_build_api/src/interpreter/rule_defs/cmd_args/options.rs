@@ -67,7 +67,7 @@ impl QuoteStyle {
     }
 }
 
-#[derive(Debug, Default_, Clone, Trace, Serialize)]
+#[derive(Debug, Default_, Clone, Trace, Serialize, Freeze)]
 #[repr(C)]
 pub(crate) struct CommandLineOptions<'v, V: ValueLike<'v>> {
     #[serde(bound = "V: Display", serialize_with = "serialize_opt_display")]
