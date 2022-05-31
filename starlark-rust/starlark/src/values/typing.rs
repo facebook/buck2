@@ -190,10 +190,14 @@ impl TypeCompiled {
         if t.is_empty() {
             Ok(TypeCompiled::type_dict())
         } else if let Some((tk, tv)) = unpack_singleton_dictionary(&t) {
-            // Dict of the form {k: v} must all match the k/v types
-            let tk = TypeCompiled::new(tk, heap)?;
-            let tv = TypeCompiled::new(tv, heap)?;
-            Ok(TypeCompiled::type_dict_of(tk, tv))
+            if TypeCompiled::is_wildcard_value(tk) && TypeCompiled::is_wildcard_value(tv) {
+                Ok(TypeCompiled::type_dict())
+            } else {
+                // Dict of the form {k: v} must all match the k/v types
+                let tk = TypeCompiled::new(tk, heap)?;
+                let tv = TypeCompiled::new(tv, heap)?;
+                Ok(TypeCompiled::type_dict_of(tk, tv))
+            }
         } else {
             // Dict type with multiple fields is not allowed
             Err(TypingError::InvalidTypeAnnotation(t.to_string()).into())
