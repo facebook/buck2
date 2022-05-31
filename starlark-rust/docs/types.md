@@ -31,7 +31,7 @@ Types match using the following rules:
 * The singleton list `[t]` means a list where each element must be of type `t`. If you want a list of any types, use `[""]`.
 * Multiple element lists `[t1,t2]` are OR types, where the value must be either type `t1` OR type `t2`.
 * A tuple `(t1, t2, t3)` matches tuples of the same length (3 in this case), where each element of the value must match the corresponding element of the tuple.
-* A singleton dictionary `{k: v}`, as a special case, means a dictionary where all the keys have type `k`, and all the values have type `v`.
+* A singleton dictionary `{k: v}` means a dictionary where all the keys have type `k`, and all the values have type `v`.
 * It is possible to define functions that return types, e.g. `def StrDict(t): return {str.type: t}` would mean `StrDict(int.type)` was a valid type.
 
 The goals of this type system are:

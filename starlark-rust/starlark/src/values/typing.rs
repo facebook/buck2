@@ -187,9 +187,7 @@ impl TypeCompiled {
             if x.len() == 1 { x.iter().next() } else { None }
         }
 
-        if t.is_empty() {
-            Ok(TypeCompiled::type_dict())
-        } else if let Some((tk, tv)) = unpack_singleton_dictionary(&t) {
+        if let Some((tk, tv)) = unpack_singleton_dictionary(&t) {
             if TypeCompiled::is_wildcard_value(tk) && TypeCompiled::is_wildcard_value(tv) {
                 Ok(TypeCompiled::type_dict())
             } else {
@@ -199,7 +197,7 @@ impl TypeCompiled {
                 Ok(TypeCompiled::type_dict_of(tk, tv))
             }
         } else {
-            // Dict type with multiple fields is not allowed
+            // Dict type with zero or multiple fields is not allowed
             Err(TypingError::InvalidTypeAnnotation(t.to_string()).into())
         }
     }
