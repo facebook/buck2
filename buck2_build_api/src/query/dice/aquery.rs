@@ -26,11 +26,7 @@ use itertools::{Either, Itertools};
 use thiserror::Error;
 
 use crate::{
-    actions::{
-        artifact::{ArtifactFs, ArtifactKind},
-        calculation::ActionCalculation,
-        ActionKey,
-    },
+    actions::{artifact::ArtifactFs, calculation::ActionCalculation, ActionKey},
     artifact_groups::{ArtifactGroup, TransitiveSetProjectionKey},
     calculation::Calculation,
     nodes::compatibility::MaybeCompatible,
@@ -118,15 +114,12 @@ async fn convert_inputs<'a, Iter: Iterator<Item = &'a ArtifactGroup>>(
 ) -> anyhow::Result<Vec<ActionInput>> {
     let (artifacts, projections): (Vec<_>, Vec<_>) = Itertools::partition_map(
         inputs.filter_map(|input| match input {
-            ArtifactGroup::Artifact(a) => match a.0.as_ref() {
-                ArtifactKind::Source(_) => None,
-                ArtifactKind::Build(a) => Some(Either::Left(a)),
-            },
+            ArtifactGroup::Artifact(a) => a.action_key().map(Either::Left),
             ArtifactGroup::TransitiveSetProjection(key) => Some(Either::Right(key)),
         }),
         |v| v,
     );
-    let mut deps = artifacts.into_map(|a| ActionInput::BuildArtifact(a.dupe()));
+    let mut deps = artifacts.into_map(|a| ActionInput::ActionKey(a.dupe()));
     let mut projection_deps: FuturesOrdered<_> = projections
         .into_iter()
         .map(|key| {
@@ -160,7 +153,7 @@ fn compute_tset_node(
         let inputs = convert_inputs(&*ctx, node_cache, sub_inputs.iter()).await?;
 
         let (direct, children) = inputs.into_iter().partition_map(|v| match v {
-            ActionInput::BuildArtifact(artifact) => Either::Left(artifact),
+            ActionInput::ActionKey(action_key) => Either::Left(action_key),
             ActionInput::IndirectInputs(projection) => Either::Right(projection),
         });
 
@@ -282,13 +275,8 @@ impl<'c> QueryLiterals<ActionQueryNode> for DiceAqueryDelegate<'c> {
                                 .default_info()
                                 .default_outputs()
                             {
-                                match output.artifact().0.as_ref() {
-                                    ArtifactKind::Build(artifact) => {
-                                        result.insert(self.get_action_node(artifact.key()).await?);
-                                    }
-                                    ArtifactKind::Source(_) => {
-                                        // ignored
-                                    }
+                                if let Some(action_key) = output.artifact().action_key() {
+                                    result.insert(self.get_action_node(action_key).await?);
                                 }
                             }
                         }

@@ -34,10 +34,7 @@ use ref_cast::RefCast;
 use serde::Serialize;
 
 use crate::{
-    actions::{
-        artifact::{ArtifactFs, BuildArtifact},
-        ActionKey, RegisteredAction,
-    },
+    actions::{artifact::ArtifactFs, ActionKey, RegisteredAction},
     artifact_groups::TransitiveSetProjectionKey,
     query::{cquery::environment::CqueryDelegate, uquery::environment::QueryLiterals},
 };
@@ -64,7 +61,7 @@ impl QueryTargetAttr for ActionAttr {
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct SetProjectionInputsData {
     key: TransitiveSetProjectionKey,
-    direct: Vec<BuildArtifact>,
+    direct: Vec<ActionKey>,
     children: Vec<SetProjectionInputs>,
 }
 
@@ -79,7 +76,7 @@ impl Dupe for SetProjectionInputs {}
 impl SetProjectionInputs {
     pub fn new(
         key: TransitiveSetProjectionKey,
-        direct: Vec<BuildArtifact>,
+        direct: Vec<ActionKey>,
         children: Vec<SetProjectionInputs>,
     ) -> Self {
         Self {
@@ -94,7 +91,7 @@ impl SetProjectionInputs {
 
 #[derive(Debug)]
 pub enum ActionInput {
-    BuildArtifact(BuildArtifact),
+    ActionKey(ActionKey),
     IndirectInputs(SetProjectionInputs),
 }
 
@@ -176,12 +173,12 @@ impl QueryTarget for ActionQueryNode {
         }
 
         let direct = self.deps.iter().filter_map(|input| match input {
-            ActionInput::BuildArtifact(artifact) => Some(artifact),
+            ActionInput::ActionKey(action_key) => Some(action_key),
             ActionInput::IndirectInputs(..) => None,
         });
 
         let indirect = Iter::new(self.deps.iter().filter_map(|input| match input {
-            ActionInput::BuildArtifact(..) => None,
+            ActionInput::ActionKey(..) => None,
             ActionInput::IndirectInputs(val) => Some(val),
         }));
 
@@ -189,7 +186,7 @@ impl QueryTarget for ActionQueryNode {
 
         box direct
             .chain(indirect.flat_map(|v| v.node.direct.iter()))
-            .map(|v| v.key().dupe())
+            .map(|v| v.dupe())
     }
 
     fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a> {
