@@ -8,7 +8,7 @@
  */
 
 use std::{
-    cell::RefCell,
+    cell::{RefCell, RefMut},
     convert::TryInto,
     fmt::{self, Debug, Display},
     marker::PhantomData,
@@ -699,9 +699,11 @@ impl<'v> StarlarkCommandLineDataGen<'v, Value<'v>> {
     }
 }
 
-fn cmd_args_mut<'v>(x: Value<'v>) -> anyhow::Result<&'v StarlarkCommandLine<'v>> {
+fn cmd_args_mut<'v>(
+    x: Value<'v>,
+) -> anyhow::Result<RefMut<'v, StarlarkCommandLineDataGen<'v, Value<'v>>>> {
     if let Some(v) = x.downcast_ref::<StarlarkCommandLine>() {
-        Ok(v)
+        Ok(v.0.borrow_mut())
     } else {
         Err(ValueError::CannotMutateImmutableValue.into())
     }
@@ -720,17 +722,17 @@ fn cmd_args<'v>(x: Value<'v>) -> ARef<'v, StarlarkCommandLineDataGen<Value<'v>>>
 #[starlark_module]
 fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     fn add<'v>(this: Value<'v>, args: Vec<Value<'v>>) -> anyhow::Result<Value<'v>> {
-        cmd_args_mut(this)?.0.borrow_mut().add_values(&args)?;
+        cmd_args_mut(this)?.add_values(&args)?;
         Ok(this)
     }
 
     fn hidden<'v>(this: Value<'v>, args: Vec<Value<'v>>) -> anyhow::Result<Value<'v>> {
-        cmd_args_mut(this)?.0.borrow_mut().add_hidden(&args)?;
+        cmd_args_mut(this)?.add_hidden(&args)?;
         Ok(this)
     }
 
     fn ignore_artifacts<'v>(this: Value<'v>) -> anyhow::Result<Value<'v>> {
-        *cmd_args_mut(this)?.0.borrow_mut().ignore_artifacts_mut() = true;
+        *cmd_args_mut(this)?.ignore_artifacts_mut() = true;
         Ok(this)
     }
 
@@ -745,17 +747,17 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
         if parent < 0 {
             return Err(ValueError::IncorrectParameterTypeNamed("parent".to_owned()).into());
         }
-        *cmd_args_mut(this)?.0.borrow_mut().relative_to_mut() = Some((directory, parent as usize));
+        *cmd_args_mut(this)?.relative_to_mut() = Some((directory, parent as usize));
         Ok(this)
     }
 
     fn absolute_prefix<'v>(this: Value<'v>, prefix: StringValue<'v>) -> anyhow::Result<Value<'v>> {
-        *cmd_args_mut(this)?.0.borrow_mut().absolute_prefix_mut() = Some(prefix);
+        *cmd_args_mut(this)?.absolute_prefix_mut() = Some(prefix);
         Ok(this)
     }
 
     fn absolute_suffix<'v>(this: Value<'v>, suffix: StringValue<'v>) -> anyhow::Result<Value<'v>> {
-        *cmd_args_mut(this)?.0.borrow_mut().absolute_suffix_mut() = Some(suffix);
+        *cmd_args_mut(this)?.absolute_suffix_mut() = Some(suffix);
         Ok(this)
     }
 
@@ -769,7 +771,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
         if count < 0 {
             return Err(ValueError::IncorrectParameterTypeNamed("count".to_owned()).into());
         }
-        *cmd_args_mut(this)?.0.borrow_mut().parent_mut() += count as usize;
+        *cmd_args_mut(this)?.parent_mut() += count as usize;
         Ok(this)
     }
 
