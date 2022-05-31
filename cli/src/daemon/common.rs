@@ -15,11 +15,12 @@ use std::{
 
 use anyhow::{anyhow, Context as _};
 use buck2_build_api::{
+    actions::artifact::ArtifactFs,
     build::MaterializationContext,
     bxl::BxlFunctionLabel,
     execute::{
         commands::{
-            dice_data::{CommandExecutorRequest, HasCommandExecutor},
+            dice_data::HasCommandExecutor,
             hybrid::HybridExecutor,
             local::LocalExecutor,
             re::{
@@ -39,7 +40,7 @@ use buck2_common::{
 use buck2_core::{
     cells::{CellInstance, CellResolver},
     env_helper::EnvHelper,
-    fs::project::ProjectRelativePath,
+    fs::project::{ProjectFilesystem, ProjectRelativePath},
     package::Package,
     target::TargetLabel,
 };
@@ -242,14 +243,16 @@ impl CommandExecutorFactory {
 impl HasCommandExecutor for CommandExecutorFactory {
     fn get_command_executor(
         &self,
-        config: &CommandExecutorRequest,
+        artifact_fs: &ArtifactFs,
+        project_fs: &ProjectFilesystem,
+        executor_config: &CommandExecutorConfig,
     ) -> anyhow::Result<Arc<dyn PreparedCommandExecutor>> {
         let local_executor_new = |_options| {
             LocalExecutor::new(
-                config.artifact_fs.clone(),
+                artifact_fs.clone(),
                 self.materializer.dupe(),
                 self.host_sharing_broker.dupe(),
-                config.project_fs.root.clone(),
+                project_fs.root.clone(),
             )
         };
 
@@ -280,8 +283,8 @@ impl HasCommandExecutor for CommandExecutorFactory {
             const DEFAULT_RE_MAX_INPUT_FILE_BYTES: u64 = 30 * 1024 * 1024 * 1024;
 
             ReExecutor::new(
-                config.artifact_fs.clone(),
-                config.project_fs.clone(),
+                artifact_fs.clone(),
+                project_fs.clone(),
                 self.materializer.dupe(),
                 self.re_connection.get_client(),
                 properties,
@@ -294,10 +297,8 @@ impl HasCommandExecutor for CommandExecutorFactory {
             )
         };
 
-        let inner_executor: Arc<dyn PreparedCommandExecutor> = match (
-            &config.executor_config,
-            &self.filter,
-        ) {
+        let inner_executor: Arc<dyn PreparedCommandExecutor> = match (executor_config, &self.filter)
+        {
             (
                 CommandExecutorConfig::Local(local),
                 ExecutorFilter {

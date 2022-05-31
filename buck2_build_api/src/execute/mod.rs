@@ -44,9 +44,7 @@ use crate::{
     calculation::Calculation,
     execute::{
         commands::{
-            dice_data::{CommandExecutorRequest, HasCommandExecutor},
-            output::CommandStdStreams,
-            re::client::ActionDigest,
+            dice_data::HasCommandExecutor, output::CommandStdStreams, re::client::ActionDigest,
             ClaimManager, CommandExecutionManager, CommandExecutionOutput, CommandExecutionRequest,
             CommandExecutionResult, CommandExecutionTarget, CommandExecutor,
         },
@@ -312,22 +310,19 @@ impl HasActionExecutor for DiceComputations {
         executor_config: &CommandExecutorConfig,
     ) -> anyhow::Result<Arc<dyn ActionExecutor>> {
         let artifact_fs = self.get_artifact_fs().await;
-        let project_fs = (**self.global_data().get_io_provider().fs()).clone();
-        let executor_config = CommandExecutorRequest {
-            artifact_fs,
-            project_fs,
-            executor_config,
-        };
+        let io_provider = self.global_data().get_io_provider();
+        let project_fs = io_provider.fs();
 
-        let command_executor = self.get_command_executor(&executor_config)?;
+        let command_executor =
+            self.get_command_executor(&artifact_fs, project_fs, executor_config)?;
         let blocking_executor = self.get_blocking_executor();
         let materializer = self.per_transaction_data().get_materializer();
         let events = self.per_transaction_data().get_dispatcher().dupe();
         let run_action_knobs = self.per_transaction_data().get_run_action_knobs();
 
         Ok(Arc::new(BuckActionExecutor::new(
-            executor_config.artifact_fs.clone(),
-            CommandExecutor::new(command_executor, executor_config.artifact_fs),
+            artifact_fs.clone(),
+            CommandExecutor::new(command_executor, artifact_fs),
             blocking_executor,
             materializer,
             events,

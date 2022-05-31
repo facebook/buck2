@@ -53,11 +53,10 @@ use crate::{
     deferred::BaseDeferredKey,
     execute::{
         commands::{
-            self,
-            dice_data::{CommandExecutorRequest, HasCommandExecutor},
-            ClaimManager, CommandExecutionInput, CommandExecutionManager, CommandExecutionRequest,
-            CommandExecutionResult, CommandExecutionTarget, CommandExecutionTimingData,
-            CommandExecutor, OutputCreationBehavior,
+            self, dice_data::HasCommandExecutor, ClaimManager, CommandExecutionInput,
+            CommandExecutionManager, CommandExecutionRequest, CommandExecutionResult,
+            CommandExecutionTarget, CommandExecutionTimingData, CommandExecutor,
+            OutputCreationBehavior,
         },
         materializer::HasMaterializer,
         CommandExecutorConfig,
@@ -435,14 +434,12 @@ impl BuckTestOrchestrator {
         };
 
         let artifact_fs = self.dice.get_artifact_fs().await;
-        let project_fs = (**self.dice.global_data().get_io_provider().fs()).clone();
-        let command_executor_config = CommandExecutorRequest {
-            artifact_fs,
-            project_fs,
-            executor_config,
-        };
-        let executor = self.dice.get_command_executor(&command_executor_config)?;
-        let executor = CommandExecutor::new(executor, command_executor_config.artifact_fs);
+        let io_provider = self.dice.global_data().get_io_provider();
+        let project_fs = io_provider.fs();
+        let executor = self
+            .dice
+            .get_command_executor(&artifact_fs, project_fs, executor_config)?;
+        let executor = CommandExecutor::new(executor, artifact_fs);
         Ok(executor)
     }
 

@@ -310,7 +310,7 @@ mod tests {
         directory::DirectoryEntry,
         fs::{
             paths::ForwardRelativePathBuf,
-            project::{ProjectFilesystemTemp, ProjectRelativePathBuf},
+            project::{ProjectFilesystem, ProjectFilesystemTemp, ProjectRelativePathBuf},
         },
         package::{testing::PackageExt, Package, PackageRelativePathBuf},
         result::ToSharedResultExt,
@@ -331,7 +331,7 @@ mod tests {
             directory::ActionDirectoryMember,
             run::knobs::RunActionKnobs,
             testing::SimpleAction,
-            Action, RegisteredAction,
+            Action, ArtifactFs, RegisteredAction,
         },
         artifact_groups::{calculation::ArtifactGroupCalculation, ArtifactGroup},
         context::SetBuildContextData,
@@ -341,10 +341,7 @@ mod tests {
         execute::{
             blocking::{testing::DummyBlockingExecutor, SetBlockingExecutor},
             commands::{
-                dice_data::{
-                    set_fallback_executor_config, CommandExecutorRequest, HasCommandExecutor,
-                    SetCommandExecutor,
-                },
+                dice_data::{set_fallback_executor_config, HasCommandExecutor, SetCommandExecutor},
                 dry_run::{DryRunEntry, DryRunExecutor},
                 PreparedCommandExecutor,
             },
@@ -432,11 +429,13 @@ mod tests {
         impl HasCommandExecutor for CommandExecutorProvider {
             fn get_command_executor(
                 &self,
-                config: &CommandExecutorRequest,
+                artifact_fs: &ArtifactFs,
+                _project_fs: &ProjectFilesystem,
+                _config: &CommandExecutorConfig,
             ) -> anyhow::Result<Arc<dyn PreparedCommandExecutor>> {
                 Ok(Arc::new(DryRunExecutor::new(
                     self.dry_run_tracker.dupe(),
-                    Some(config.artifact_fs.clone()),
+                    Some(artifact_fs.clone()),
                 )))
             }
         }

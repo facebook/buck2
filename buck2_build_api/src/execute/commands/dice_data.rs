@@ -19,12 +19,6 @@ use crate::{
     execute::{commands::PreparedCommandExecutor, CommandExecutorConfig},
 };
 
-pub struct CommandExecutorRequest<'a> {
-    pub artifact_fs: ArtifactFs,
-    pub project_fs: ProjectFilesystem,
-    pub executor_config: &'a CommandExecutorConfig,
-}
-
 pub trait SetCommandExecutor {
     fn set_command_executor(&mut self, init: Box<dyn HasCommandExecutor + Send + Sync + 'static>);
 }
@@ -32,7 +26,9 @@ pub trait SetCommandExecutor {
 pub trait HasCommandExecutor {
     fn get_command_executor(
         &self,
-        config: &CommandExecutorRequest,
+        artifact_fs: &ArtifactFs,
+        project_fs: &ProjectFilesystem,
+        config: &CommandExecutorConfig,
     ) -> anyhow::Result<Arc<dyn PreparedCommandExecutor>>;
 }
 
@@ -48,14 +44,18 @@ impl SetCommandExecutor for UserComputationData {
 impl HasCommandExecutor for DiceComputations {
     fn get_command_executor(
         &self,
-        config: &CommandExecutorRequest,
+        artifact_fs: &ArtifactFs,
+        project_fs: &ProjectFilesystem,
+        config: &CommandExecutorConfig,
     ) -> anyhow::Result<Arc<dyn PreparedCommandExecutor>> {
         let holder = self
             .per_transaction_data()
             .data
             .get::<HasCommandExecutorHolder>()
             .expect("CommandExecutorDelegate should be set");
-        holder.delegate.get_command_executor(config)
+        holder
+            .delegate
+            .get_command_executor(artifact_fs, project_fs, config)
     }
 }
 
