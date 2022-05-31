@@ -67,59 +67,24 @@ impl QuoteStyle {
     }
 }
 
-/// Simple struct to help determine extra options for formatting
-/// (whether to join items, how to join them, format strings, etc)
-#[derive(Debug, Default_, Clone, Trace, Freeze, Serialize)]
-pub(crate) struct FormattingOptions<S> {
-    pub(crate) delimiter: Option<S>,
-    pub(crate) format: Option<S>,
-    pub(crate) prepend: Option<S>,
-    pub(crate) quote: Option<QuoteStyle>,
-}
-
-impl<S: Debug> Display for FormattingOptions<S> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut comma = commas();
-        if let Some(v) = &self.delimiter {
-            comma(f)?;
-            write!(f, "delimiter = {:?}", v)?;
-        }
-        if let Some(v) = &self.format {
-            comma(f)?;
-            write!(f, "format = {:?}", v)?;
-        }
-        if let Some(v) = &self.prepend {
-            comma(f)?;
-            write!(f, "prepend = {:?}", v)?;
-        }
-        if let Some(v) = &self.quote {
-            comma(f)?;
-            write!(f, "quote = \"{}\"", v)?;
-        }
-        Ok(())
-    }
-}
-
-impl<S: Default> FormattingOptions<S> {
-    pub(crate) fn is_empty(&self) -> bool {
-        self.delimiter.is_none()
-            && self.format.is_none()
-            && self.prepend.is_none()
-            && self.quote.is_none()
-    }
-}
-
 #[derive(Debug, Default_, Clone, Trace, Serialize)]
 #[repr(C)]
 pub(crate) struct CommandLineOptions<'v, V: ValueLike<'v>> {
     #[serde(bound = "V: Display", serialize_with = "serialize_opt_display")]
+    // These impact how artifacts are rendered
     /// The value of V must be convertible to a `RelativeOrigin`
     pub(crate) relative_to: Option<(V, usize)>,
     pub(crate) absolute_prefix: Option<V::String>,
     pub(crate) absolute_suffix: Option<V::String>,
     pub(crate) parent: usize,
     pub(crate) ignore_artifacts: bool,
-    pub(crate) formatting: FormattingOptions<V::String>,
+
+    // These impact the formatting of each string
+    pub(crate) delimiter: Option<V::String>,
+    pub(crate) format: Option<V::String>,
+    pub(crate) prepend: Option<V::String>,
+    pub(crate) quote: Option<QuoteStyle>,
+
     pub(crate) lifetime: PhantomData<&'v ()>,
 }
 
@@ -160,9 +125,21 @@ impl<'v, V: ValueLike<'v>> Display for CommandLineOptions<'v, V> {
             comma(f)?;
             write!(f, "ignore_artifacts = True")?;
         }
-        if !self.formatting.is_empty() {
+        if let Some(v) = &self.delimiter {
             comma(f)?;
-            Display::fmt(&self.formatting, f)?;
+            write!(f, "delimiter = {:?}", v)?;
+        }
+        if let Some(v) = &self.format {
+            comma(f)?;
+            write!(f, "format = {:?}", v)?;
+        }
+        if let Some(v) = &self.prepend {
+            comma(f)?;
+            write!(f, "prepend = {:?}", v)?;
+        }
+        if let Some(v) = &self.quote {
+            comma(f)?;
+            write!(f, "quote = \"{}\"", v)?;
         }
         Ok(())
     }
@@ -212,11 +189,21 @@ impl<'v> RelativeOrigin<'v> {
 
 impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
     fn changes_builder(&self) -> bool {
-        self.relative_to.is_some()
-            || self.absolute_prefix.is_some()
-            || self.absolute_suffix.is_some()
-            || self.parent != 0
-            || !self.formatting.is_empty()
+        match self {
+            Self {
+                relative_to: None,
+                absolute_prefix: None,
+                absolute_suffix: None,
+                parent: 0,
+                delimiter: None,
+                format: None,
+                prepend: None,
+                quote: None,
+                ignore_artifacts: _, // Doesn't impact the builder
+                lifetime: _,
+            } => false,
+            _ => true,
+        }
     }
 
     pub(crate) fn wrap_builder<'a, R>(
@@ -245,10 +232,10 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
             }
 
             fn format(&self, mut arg: String) -> String {
-                if let Some(format) = &self.opts.formatting.format {
+                if let Some(format) = &self.opts.format {
                     arg = format.as_str().replace("{}", &arg);
                 }
-                match &self.opts.formatting.quote {
+                match &self.opts.quote {
                     Some(QuoteStyle::Shell) => {
                         arg = shlex::quote(&arg).into_owned();
                     }
@@ -324,20 +311,15 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
                     if *initital_state {
                         *initital_state = false;
                     } else {
-                        concatted_items.push_str(
-                            self.opts
-                                .formatting
-                                .delimiter
-                                .as_ref()
-                                .map_or("", |x| x.as_str()),
-                        );
+                        concatted_items
+                            .push_str(self.opts.delimiter.as_ref().map_or("", |x| x.as_str()));
                     }
                     concatted_items.push_str(&s)
                 } else {
                     // NOTE: This doesn't go through formatting since to give users more
                     // flexibility. Since the prepended string is a static string, they _can_ format
                     // it ahead of time if they need to.
-                    if let Some(i) = self.opts.formatting.prepend.as_ref() {
+                    if let Some(i) = self.opts.prepend.as_ref() {
                         self.cli.add_arg_string(i.as_str().to_owned());
                     }
                     self.cli.add_arg_string(self.format(s))
@@ -353,7 +335,7 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
                 cli: builder,
                 opts: self,
                 relative_to,
-                concatenation_context: if self.formatting.delimiter.is_some() {
+                concatenation_context: if self.delimiter.is_some() {
                     Some((String::new(), true))
                 } else {
                     None

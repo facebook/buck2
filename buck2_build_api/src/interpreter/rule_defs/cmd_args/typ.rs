@@ -39,7 +39,7 @@ use crate::{
     interpreter::rule_defs::{
         artifact::StarlarkOutputArtifact,
         cmd_args::{
-            options::{CommandLineOptions, FormattingOptions, QuoteStyle, RelativeOrigin},
+            options::{CommandLineOptions, QuoteStyle, RelativeOrigin},
             traits::{
                 CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder,
                 CommandLineBuilderContext, SimpleCommandLineArtifactVisitor,
@@ -172,7 +172,7 @@ impl<'v, V: ValueLike<'v>> StarlarkCommandLineDataGen<'v, V> {
 
     fn is_concat(&self) -> bool {
         if let Some(x) = &self.options {
-            x.formatting.delimiter.is_some()
+            x.delimiter.is_some()
         } else {
             false
         }
@@ -387,7 +387,10 @@ impl<'v> Freeze for StarlarkCommandLine<'v> {
                 absolute_suffix,
                 parent,
                 ignore_artifacts,
-                formatting,
+                delimiter,
+                format,
+                prepend,
+                quote,
                 lifetime,
             } = *options;
             let _ = lifetime;
@@ -398,7 +401,10 @@ impl<'v> Freeze for StarlarkCommandLine<'v> {
                 absolute_suffix: absolute_suffix.freeze(freezer)?,
                 parent,
                 ignore_artifacts,
-                formatting: formatting.freeze(freezer)?,
+                delimiter: delimiter.freeze(freezer)?,
+                format: format.freeze(freezer)?,
+                prepend: prepend.freeze(freezer)?,
+                quote,
                 lifetime: PhantomData::default(),
             })
         })?;
@@ -431,12 +437,11 @@ impl<'v> StarlarkCommandLine<'v> {
     ) -> anyhow::Result<Self> {
         let mut builder = StarlarkCommandLineDataGen::default();
         if delimiter.is_some() || format.is_some() || prepend.is_some() || quote.is_some() {
-            builder.options_mut().formatting = FormattingOptions {
-                delimiter,
-                format,
-                prepend,
-                quote,
-            };
+            let opts = builder.options_mut();
+            opts.delimiter = delimiter;
+            opts.format = format;
+            opts.prepend = prepend;
+            opts.quote = quote;
         }
         for v in value {
             builder.add_value(*v)?;
