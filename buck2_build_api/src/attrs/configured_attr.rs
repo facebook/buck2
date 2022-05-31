@@ -119,13 +119,13 @@ impl ConfiguredAttr {
                 }
                 Ok(Self(AttrLiteral::String(res)))
             }
-            AttrLiteral::Arg(mut res) => {
-                for x in items {
-                    match x?.0 {
-                        AttrLiteral::Arg(right) => res = res.concat(right),
-                        attr => return mismatch("arg", attr),
+            AttrLiteral::Arg(left) => {
+                let res = left.concat(items.map(|x| match x?.0 {
+                    AttrLiteral::Arg(x) => Ok(x),
+                    attr => {
+                        Err(SelectError::ConcatNotSupportedValues("arg", attr.to_string()).into())
                     }
-                }
+                }))?;
                 Ok(Self(AttrLiteral::Arg(res)))
             }
             val => Err(SelectError::ConcatNotSupported(val.to_string()).into()),
