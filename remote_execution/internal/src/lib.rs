@@ -19,7 +19,7 @@ pub use re_client_lib::{
     HostResourceRequirements, InlinedBlobWithDigest, NamedDigest, NamedDigestWithPermissions, Path,
     REClient, REClientBuilder, REClientError, REError, RemoteExecutionMetadata, Stage,
     TActionResult2, TCode, TDigest, TDirectory2, TExecutedActionMetadata, TExecutionPolicy, TFile,
-    TPlatform, TProperty, TResultsCachePolicy, TTimestamp, UploadRequest,
+    TPlatform, TProperty, TResultsCachePolicy, TTimestamp, UploadRequest, ZdbRichClientMode,
 };
 pub use re_grpc::remote_execution::{
     command::EnvironmentVariable, platform::Property, Action, Command, Digest, Directory,

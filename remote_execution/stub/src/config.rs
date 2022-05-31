@@ -19,6 +19,15 @@ impl Default for CASDaemonClientCfg {
 }
 
 #[derive(Default)]
+pub struct ZdbRichClientMode(pub i32);
+
+impl ZdbRichClientMode {
+    pub const DISABLED: Self = ZdbRichClientMode(1i32);
+    pub const HYBRID: Self = ZdbRichClientMode(2i32);
+    pub const ENABLED: Self = ZdbRichClientMode(3i32);
+}
+
+#[derive(Default)]
 pub struct CASRichClientCfg {
     pub attempt_timeout_ms: i32,
     pub disable_p2p: bool,
@@ -27,6 +36,7 @@ pub struct CASRichClientCfg {
     pub get_tree_cache_size: i64,
     pub number_of_parallel_channels: i32,
     pub number_of_retries: i32,
+    pub zdb_client_mode: ZdbRichClientMode,
 }
 
 #[derive(Default)]
