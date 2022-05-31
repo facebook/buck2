@@ -33,7 +33,8 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
 
     referenced_resources_lists = [java_packaging_dep.dex.referenced_resources for java_packaging_dep in java_packaging_deps] if ctx.attr.trim_resource_ids and should_pre_dex else []
     resources_info = get_android_binary_resources_info(ctx, deps, android_packageable_info, use_proto_format = False, referenced_resources_lists = referenced_resources_lists)
-    java_packaging_deps += [create_java_packaging_dep(ctx, resources_info.r_dot_java.library_output.full_library)]
+    if resources_info.r_dot_java:
+        java_packaging_deps += [create_java_packaging_dep(ctx, resources_info.r_dot_java.library_output.full_library)]
 
     android_toolchain = ctx.attr._android_toolchain[AndroidToolchainInfo]
     if should_pre_dex:
