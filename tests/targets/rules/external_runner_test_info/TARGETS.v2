@@ -23,3 +23,14 @@ test(
     run_from_project_root = True,
     use_project_relative_paths = True,
 )
+
+test(
+    name = "require_re",
+    artifact = "artifact",
+    script = "require_re.sh",
+    run_from_project_root = True,
+    use_project_relative_paths = True,
+    # It says DO_NOT_USE, this is reserved for e2e tests of Buck2, which is
+    # this is.
+    labels = ["tpx:DO_NOT_USE:buck2-executor-override:re-linux"],
+)
