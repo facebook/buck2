@@ -170,33 +170,16 @@ impl<'v, V: ValueLike<'v>> StarlarkCommandLineDataGen<'v, V> {
     fn relative_to(&self) -> Option<&(V, usize)> {
         self.options.as_ref()?.relative_to.as_ref()
     }
-
-    fn relative_to_mut(&mut self) -> &mut Option<(V, usize)> {
-        &mut self.options_mut().relative_to
-    }
-
     fn absolute_prefix(&self) -> Option<&str> {
         self.options.as_ref()?.absolute_prefix.map(|x| x.as_str())
-    }
-
-    fn absolute_prefix_mut(&mut self) -> &mut Option<V::String> {
-        &mut self.options_mut().absolute_prefix
     }
 
     fn absolute_suffix(&self) -> Option<&str> {
         self.options.as_ref()?.absolute_suffix.map(|x| x.as_str())
     }
 
-    fn absolute_suffix_mut(&mut self) -> &mut Option<V::String> {
-        &mut self.options_mut().absolute_suffix
-    }
-
     fn parent(&self) -> usize {
         self.options.as_ref().map(|o| o.parent).unwrap_or_default()
-    }
-
-    fn parent_mut(&mut self) -> &mut usize {
-        &mut self.options_mut().parent
     }
 
     fn ignore_artifacts(&self) -> bool {
@@ -206,17 +189,9 @@ impl<'v, V: ValueLike<'v>> StarlarkCommandLineDataGen<'v, V> {
             .unwrap_or_default()
     }
 
-    fn ignore_artifacts_mut(&mut self) -> &mut bool {
-        &mut self.options_mut().ignore_artifacts
-    }
-
     fn formatting(&self) -> Option<&FormattingOptions<V::String>> {
         let f = &self.options.as_ref()?.formatting;
         if f.is_empty() { None } else { Some(f) }
-    }
-
-    fn formatting_mut(&mut self) -> &mut FormattingOptions<V::String> {
-        &mut self.options_mut().formatting
     }
 
     fn options_mut(&mut self) -> &mut CommandLineOptions<'v, V> {
@@ -651,7 +626,7 @@ impl<'v> StarlarkCommandLine<'v> {
     ) -> anyhow::Result<Self> {
         let mut builder = StarlarkCommandLineDataGen::default();
         if delimiter.is_some() || format.is_some() || prepend.is_some() || quote.is_some() {
-            *builder.formatting_mut() = FormattingOptions {
+            builder.options_mut().formatting = FormattingOptions {
                 delimiter,
                 format,
                 prepend,
@@ -732,7 +707,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     }
 
     fn ignore_artifacts<'v>(this: Value<'v>) -> anyhow::Result<Value<'v>> {
-        *cmd_args_mut(this)?.ignore_artifacts_mut() = true;
+        cmd_args_mut(this)?.options_mut().ignore_artifacts = true;
         Ok(this)
     }
 
@@ -747,17 +722,17 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
         if parent < 0 {
             return Err(ValueError::IncorrectParameterTypeNamed("parent".to_owned()).into());
         }
-        *cmd_args_mut(this)?.relative_to_mut() = Some((directory, parent as usize));
+        cmd_args_mut(this)?.options_mut().relative_to = Some((directory, parent as usize));
         Ok(this)
     }
 
     fn absolute_prefix<'v>(this: Value<'v>, prefix: StringValue<'v>) -> anyhow::Result<Value<'v>> {
-        *cmd_args_mut(this)?.absolute_prefix_mut() = Some(prefix);
+        cmd_args_mut(this)?.options_mut().absolute_prefix = Some(prefix);
         Ok(this)
     }
 
     fn absolute_suffix<'v>(this: Value<'v>, suffix: StringValue<'v>) -> anyhow::Result<Value<'v>> {
-        *cmd_args_mut(this)?.absolute_suffix_mut() = Some(suffix);
+        cmd_args_mut(this)?.options_mut().absolute_suffix = Some(suffix);
         Ok(this)
     }
 
@@ -771,7 +746,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
         if count < 0 {
             return Err(ValueError::IncorrectParameterTypeNamed("count".to_owned()).into());
         }
-        *cmd_args_mut(this)?.parent_mut() += count as usize;
+        cmd_args_mut(this)?.options_mut().parent += count as usize;
         Ok(this)
     }
 
