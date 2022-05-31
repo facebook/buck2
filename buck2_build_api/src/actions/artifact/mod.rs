@@ -29,7 +29,10 @@ use std::{
 use anyhow::anyhow;
 use buck2_core::{
     cells::paths::CellPath,
-    fs::project::{ProjectFilesystem, ProjectRelativePathBuf},
+    fs::{
+        paths::ForwardRelativePath,
+        project::{ProjectFilesystem, ProjectRelativePathBuf},
+    },
 };
 use derive_more::Display;
 use gazebo::{hash::Hashed, prelude::*};
@@ -55,6 +58,45 @@ use crate::deferred::BaseDeferredKey;
 /// An 'Artifact' that can be materialized at its path.
 #[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Artifact(pub Hashed<ArtifactKind>);
+
+impl Artifact {
+    pub fn is_source(&self) -> bool {
+        match self.0.as_ref() {
+            ArtifactKind::Source(_) => true,
+            ArtifactKind::Build(_) => false,
+        }
+    }
+
+    /// The callsite that declared this artifact, any.
+    pub fn owner(&self) -> Option<&BaseDeferredKey> {
+        match self.0.as_ref() {
+            ArtifactKind::Source(_) => None,
+            ArtifactKind::Build(b) => Some(b.get_path().owner()),
+        }
+    }
+
+    /// The action that would produce this artifact, if any.
+    pub fn action_key(&self) -> Option<&ActionKey> {
+        match self.0.as_ref() {
+            ArtifactKind::Source(_) => None,
+            ArtifactKind::Build(b) => Some(b.key()),
+        }
+    }
+
+    pub fn path(&self) -> &ForwardRelativePath {
+        match self.0.as_ref() {
+            ArtifactKind::Source(s) => s.get_path().path().as_ref(),
+            ArtifactKind::Build(b) => b.get_path().path(),
+        }
+    }
+
+    pub fn short_path(&self) -> &ForwardRelativePath {
+        match self.0.as_ref() {
+            ArtifactKind::Source(s) => s.get_path().path().as_ref(),
+            ArtifactKind::Build(b) => b.get_path().short_path(),
+        }
+    }
+}
 
 impl ToProtoMessage for Artifact {
     type Message = buck2_data::Artifact;
