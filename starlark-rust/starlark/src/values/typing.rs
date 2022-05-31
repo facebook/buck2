@@ -204,7 +204,7 @@ impl TypeCompiled {
         }
     }
 
-    pub(crate) fn new<'h>(ty: Value<'h>, heap: &'h Heap) -> anyhow::Result<Self> {
+    pub(crate) fn new<'v>(ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
         if let Some(s) = ty.unpack_str() {
             Ok(TypeCompiled::from_str(s))
         } else if ty.is_none() {
@@ -221,7 +221,7 @@ impl TypeCompiled {
     }
 }
 
-fn invalid_type_annotation<'h>(ty: Value<'h>, heap: &'h Heap) -> TypingError {
+fn invalid_type_annotation<'v>(ty: Value<'v>, heap: &'v Heap) -> TypingError {
     if let Some(name) = ty
         .get_attr("type", heap)
         .ok()
