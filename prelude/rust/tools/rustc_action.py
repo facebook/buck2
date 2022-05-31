@@ -41,7 +41,8 @@ def arg_parse() -> Args:
     parser.add_argument(
         "--diag-json",
         type=argparse.FileType("w"),
-        help="Json-formatted diagnostic output (assumes compiler is invoked with --error-format=json)",
+        help="Json-formatted diagnostic output "
+        "(assumes compiler is invoked with --error-format=json)",
     )
     parser.add_argument(
         "--diag-txt",
@@ -84,10 +85,14 @@ def arg_parse() -> Args:
         action="append",
         nargs=2,
         metavar=("SHORT", "PATH"),
-        help="Required output path we expect rustc to generate (and filled with a placeholder on a filtered failure)",
+        help="Required output path we expect rustc to generate "
+        "(and filled with a placeholder on a filtered failure)",
     )
     parser.add_argument(
-        "rustc", nargs=argparse.REMAINDER, type=str, help="Compiler command line"
+        "rustc",
+        nargs=argparse.REMAINDER,
+        type=str,
+        help="Compiler command line",
     )
 
     return Args(**vars(parser.parse_args()))
@@ -122,12 +127,11 @@ async def handle_output(  # noqa: C901
             got_error_diag = True
 
         # Add more information to unused crate warnings
-        if diag.get("unused_extern_names", []) != []:
+        unused_names = diag.get("unused_extern_names", None)
+        if unused_names:
             # Treat error-level unused dep warnings as errors
             if diag.get("lint_level") in ("deny", "forbid"):
                 got_error_diag = True
-
-            unused_names = diag["unused_extern_names"]
 
             if args.buck_target:
                 rendered_unused = []
@@ -140,9 +144,10 @@ async def handle_output(  # noqa: C901
                 rendered_unused = "\n    ".join(rendered_unused)
 
                 diag["buck_target"] = args.buck_target
-                diag[
-                    "rendered"
-                ] = f"Target `{args.buck_target}` has unused dependencies:\n    {rendered_unused}"
+                diag["rendered"] = (
+                    f"Target `{args.buck_target}` has unused dependencies:\n"
+                    f"    {rendered_unused}"
+                )
             diag["unused_deps"] = {
                 name: crate_map[name] for name in unused_names if name in crate_map
             }
@@ -181,10 +186,12 @@ async def main() -> int:
         ]
         if k in os.environ
     }
-    env.update({k: v for [k, v] in args.env or []})
-    env.update({k: str(Path(v).resolve()) for [k, v] in args.path_env or []})
+    if args.env:
+        env.update(dict(args.env))
+    if args.path_env:
+        env.update({k: str(Path(v).resolve()) for k, v in args.path_env})
 
-    crate_map = {k: v for [k, v] in args.crate_map or []}
+    crate_map = dict(args.crate_map) if args.crate_map else {}
 
     if DEBUG:
         print(f"args {repr(args)} env {env} crate_map {crate_map}")
@@ -204,7 +211,9 @@ async def main() -> int:
     res = await proc.wait()
     if DEBUG:
         print(
-            f"res={repr(res)} got_error_diag={got_error_diag} args.failure_filter {args.failure_filter}"
+            f"res={repr(res)} "
+            f"got_error_diag={got_error_diag} "
+            f"args.failure_filter {args.failure_filter}"
         )
 
     # If rustc is reporting a silent error, make it loud

@@ -21,14 +21,21 @@ class Args(NamedTuple):
 
 def arg_parse() -> Args:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--build-status", type=argparse.FileType(), required=True)
+    parser.add_argument(
+        "--build-status",
+        type=argparse.FileType(),
+        required=True,
+    )
     parser.add_argument(
         "--required-file",
         action="append",
         nargs=3,
         metavar=("SHORT", "INPUT", "OUTPUT"),
     )
-    parser.add_argument("--stderr", type=argparse.FileType())
+    parser.add_argument(
+        "--stderr",
+        type=argparse.FileType(),
+    )
 
     return Args(**vars(parser.parse_args()))
 
@@ -56,7 +63,10 @@ def main() -> int:
                     # Fall back to real copy if that doesn't work
                     shutil.copy(inp, out)
             else:
-                print(f"Missing required input file {short} ({inp})", file=sys.stderr)
+                print(
+                    f"Missing required input file {short} ({inp})",
+                    file=sys.stderr,
+                )
                 return build_status["status"]
 
     # If all the required files were present, then success regardless of
