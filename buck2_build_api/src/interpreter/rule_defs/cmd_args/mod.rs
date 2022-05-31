@@ -131,18 +131,18 @@ pub fn register_args_function(builder: &mut GlobalsBuilder) {
     #[starlark(type = "cmd_args")]
     fn cmd_args<'v>(
         args: Vec<Value<'v>>,
-        format: Option<StringValue<'v>>,
         delimiter: Option<StringValue<'v>>,
-        quote: Option<&str>,
+        format: Option<StringValue<'v>>,
         prepend: Option<StringValue<'v>>,
+        quote: Option<&str>,
     ) -> anyhow::Result<StarlarkCommandLine<'v>> {
         StarlarkCommandLine::try_from_values_with_options(
             &args,
             FormattingOptions::maybe_new(
                 delimiter,
                 format,
-                quote.try_map(|q| QuoteStyle::parse(q))?,
                 prepend,
+                quote.try_map(|q| QuoteStyle::parse(q))?,
             ),
         )
     }

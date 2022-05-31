@@ -142,30 +142,30 @@ impl QuoteStyle {
 /// (whether to join items, how to join them, format strings, etc)
 #[derive(Debug, Default_, Clone, Trace, Freeze, Serialize)]
 pub struct FormattingOptions<S> {
-    concat: Option<S>,
-    format_string: Option<S>,
-    quote: Option<QuoteStyle>,
+    delimiter: Option<S>,
+    format: Option<S>,
     prepend: Option<S>,
+    quote: Option<QuoteStyle>,
 }
 
 impl<S: Debug> Display for FormattingOptions<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut comma = commas();
-        if let Some(v) = &self.concat {
+        if let Some(v) = &self.delimiter {
             comma(f)?;
-            write!(f, "concat = {:?}", v)?;
+            write!(f, "delimiter = {:?}", v)?;
         }
-        if let Some(v) = &self.format_string {
+        if let Some(v) = &self.format {
             comma(f)?;
             write!(f, "format = {:?}", v)?;
-        }
-        if let Some(v) = &self.quote {
-            comma(f)?;
-            write!(f, "quote = \"{}\"", v)?;
         }
         if let Some(v) = &self.prepend {
             comma(f)?;
             write!(f, "prepend = {:?}", v)?;
+        }
+        if let Some(v) = &self.quote {
+            comma(f)?;
+            write!(f, "quote = \"{}\"", v)?;
         }
         Ok(())
     }
@@ -179,23 +179,23 @@ impl<S: Default> FormattingOptions<S> {
     /// formatting needs to be done (the common case)
     pub fn maybe_new(
         delimiter: Option<S>,
-        format_string: Option<S>,
-        quote: Option<QuoteStyle>,
+        format: Option<S>,
         prepend: Option<S>,
+        quote: Option<QuoteStyle>,
     ) -> Self {
         Self {
-            concat: delimiter,
-            format_string,
-            quote,
+            delimiter,
+            format,
             prepend,
+            quote,
         }
     }
 
     fn is_empty(&self) -> bool {
-        self.concat.is_none()
-            && self.format_string.is_none()
-            && self.quote.is_none()
+        self.delimiter.is_none()
+            && self.format.is_none()
             && self.prepend.is_none()
+            && self.quote.is_none()
     }
 }
 
@@ -376,7 +376,7 @@ impl<'v, V: ValueLike<'v>> StarlarkCommandLineDataGen<'v, V> {
 
     fn is_concat(&self) -> bool {
         if let Some(x) = &self.options {
-            x.formatting.concat.is_some()
+            x.formatting.delimiter.is_some()
         } else {
             false
         }
@@ -521,7 +521,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkCommandLineDataGen<'v,
             }
 
             fn format(&self, mut arg: String) -> String {
-                if let Some(format) = &self.formatting.format_string {
+                if let Some(format) = &self.formatting.format {
                     arg = format.as_str().replace("{}", &arg);
                 }
                 match &self.formatting.quote {
@@ -602,8 +602,12 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkCommandLineDataGen<'v,
                     if *initital_state {
                         *initital_state = false;
                     } else {
-                        concatted_items
-                            .push_str(self.formatting.concat.as_ref().map_or("", |x| x.as_str()));
+                        concatted_items.push_str(
+                            self.formatting
+                                .delimiter
+                                .as_ref()
+                                .map_or("", |x| x.as_str()),
+                        );
                     }
                     concatted_items.push_str(&s)
                 } else {
@@ -632,7 +636,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkCommandLineDataGen<'v,
             }
             (relative_to, absolute_prefix, absolute_suffix, parent, formatting) => {
                 let concatenation_context = match formatting {
-                    Some(opts) if opts.concat.is_some() => Some((String::new(), true)),
+                    Some(opts) if opts.delimiter.is_some() => Some((String::new(), true)),
                     _ => None,
                 };
                 let formatting = match formatting {
