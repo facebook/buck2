@@ -70,7 +70,9 @@ impl SuperConsole {
     }
 
     pub fn compatible() -> bool {
-        io::stdout().is_tty() && io::stderr().is_tty()
+        // Superconsole only renders on the stderr, so we can display the superconsole
+        // even if someone does `command > out.txt`.
+        io::stderr().is_tty()
     }
 
     /// Render at a given tick.  Draws all components and drains the emitted events buffer.
