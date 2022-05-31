@@ -11,7 +11,6 @@ use std::{
     env,
     fs::File,
     io::{BufReader, Read},
-    path::Path,
     process::Command,
     time::Duration,
 };
@@ -30,10 +29,7 @@ use crate::{
     commands::common::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder,
     daemon::{
         client::{events_ctx::EventsCtx, BuckdClient, ClientKind, Replayer, VersionCheckResult},
-        client_utils::{
-            get_channel, retrying, ConnectionType, ParseError, WithCurrentDirectory, SOCKET_ADDR,
-            UDS_DAEMON_FILENAME,
-        },
+        client_utils::{get_channel, retrying, ConnectionType, ParseError, SOCKET_ADDR},
     },
     paths::Paths,
 };
@@ -336,7 +332,7 @@ impl BuckdConnectOptions {
         let (protocol, endpoint) = info.endpoint.split1(":");
         let connection_type = match protocol {
             "uds" => ConnectionType::UDS {
-                unix_socket: UDS_DAEMON_FILENAME.to_owned(),
+                unix_socket: endpoint.to_owned(),
             },
             "tcp" => ConnectionType::TCP {
                 socket: SOCKET_ADDR.to_owned(),
@@ -347,11 +343,7 @@ impl BuckdConnectOptions {
             }
         };
 
-        let client = {
-            let daemon_dir = Path::new(&endpoint).parent().unwrap();
-            let _with_dir = WithCurrentDirectory::new(daemon_dir)?;
-            DaemonApiClient::new(get_channel(connection_type).await?)
-        };
+        let client = DaemonApiClient::new(get_channel(connection_type).await?);
 
         Ok(BootstrapBuckdClient::new(client, info, daemon_dir))
     }

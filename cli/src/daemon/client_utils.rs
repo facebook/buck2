@@ -40,7 +40,7 @@ impl WithCurrentDirectory {
         match env::set_current_dir(&new_dir) {
             Ok(_e) => Ok(dir),
             Err(e) => Err(anyhow!(e))
-                .with_context(|| format!("Failed to change directory to {}", new_dir.display())),
+                .with_context(|| format!("Failed to change directory to `{}`", new_dir.display())),
         }
     }
 }
@@ -68,20 +68,28 @@ pub async fn get_channel(endpoint: ConnectionType) -> anyhow::Result<Channel> {
 }
 
 #[cfg(unix)]
-pub async fn get_channel_uds(unix_filename: &str) -> anyhow::Result<Channel> {
+pub async fn get_channel_uds(unix_socket: &str) -> anyhow::Result<Channel> {
     use tonic::codegen::http::Uri;
     use tower::service_fn;
 
+    let unix_socket = Path::new(&unix_socket);
+    let daemon_dir = unix_socket
+        .parent()
+        .ok_or_else(|| anyhow!("Socket path has no parent: `{}`", unix_socket.display()))?;
+    let unix_filename = unix_socket
+        .file_name()
+        .ok_or_else(|| anyhow!("Invalid socket: `{}`", unix_socket.display()))?;
     // change directory to the daemon directory to connect to unix domain socket
     // then change directory back to the current directory since the unix domain socket
     // path is limited to 108 characters. https://man7.org/linux/man-pages/man7/unix.7.html
     let io: tokio::net::UnixStream = {
+        let _with_dir = WithCurrentDirectory::new(daemon_dir)?;
         tokio::net::UnixStream::connect(&unix_filename)
             .await
             .with_context(|| {
                 format!(
-                    "Failed to connect to unix domain socket '{}'",
-                    unix_filename
+                    "Failed to connect to unix domain socket `{}`",
+                    unix_filename.to_string_lossy()
                 )
             })?
     };
@@ -99,8 +107,8 @@ pub async fn get_channel_uds(unix_filename: &str) -> anyhow::Result<Channel> {
         .await
         .with_context(|| {
             format!(
-                "Failed to connect to unix domain socket '{}'",
-                unix_filename
+                "Failed to connect to unix domain socket `{}`",
+                unix_filename.to_string_lossy()
             )
         })
 }
