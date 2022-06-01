@@ -884,7 +884,7 @@ mod tests {
             registry,
         ));
 
-        let returned = test_function.invoke_pos(&[ctx], &mut eval);
+        let returned = eval.eval_function(test_function, &[ctx], &[]);
         result_handler(returned)
     }
 

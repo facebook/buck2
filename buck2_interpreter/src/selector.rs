@@ -81,7 +81,7 @@ impl<'v> Selector<'v> {
             func: Value<'v>,
             val: Value<'v>,
         ) -> anyhow::Result<Value<'v>> {
-            func.invoke_pos(&[val], eval)
+            eval.eval_function(func, &[val], &[])
         }
 
         if let Some(selector) = Selector::from_value(val) {
@@ -127,7 +127,7 @@ impl<'v> Selector<'v> {
             func: Value<'v>,
             val: Value<'v>,
         ) -> anyhow::Result<bool> {
-            func.invoke_pos(&[val], eval)?
+            eval.eval_function(func, &[val], &[])?
                 .unpack_bool()
                 .ok_or_else(|| anyhow!("Expected testing function to have a boolean return type"))
         }
