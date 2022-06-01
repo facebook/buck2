@@ -43,7 +43,6 @@ fn test_if_true_clause() {
     test_instrs(
         &[
             BcOpcode::ListNew,
-            BcOpcode::LoadLocal,
             BcOpcode::ForLoop,
             BcOpcode::LoadLocal,
             BcOpcode::ComprListAppend,
@@ -60,7 +59,6 @@ fn test_if_true_clause_on_freeze() {
     test_instrs(
         &[
             BcOpcode::ListNew,
-            BcOpcode::LoadLocal,
             BcOpcode::ForLoop,
             BcOpcode::LoadLocal,
             BcOpcode::ComprListAppend,
