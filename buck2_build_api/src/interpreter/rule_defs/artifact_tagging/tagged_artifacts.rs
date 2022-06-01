@@ -46,17 +46,14 @@ impl<'v> TaggedArtifacts<'v> {
 
 starlark_complex_value!(pub TaggedArtifacts);
 
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TaggedArtifactsGen<V>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for TaggedArtifactsGen<V>
 where
-    Self: AnyLifetime<'v> + ProvidesStaticType,
+    Self: ProvidesStaticType,
 {
     starlark_type!("tagged_artifacts");
 }
 
-impl<'v, V: ValueLike<'v>> CommandLineArgLike for TaggedArtifactsGen<V>
-where
-    Self: AnyLifetime<'v>,
-{
+impl<'v, V: ValueLike<'v>> CommandLineArgLike for TaggedArtifactsGen<V> {
     fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
         self.inner
             .to_value()

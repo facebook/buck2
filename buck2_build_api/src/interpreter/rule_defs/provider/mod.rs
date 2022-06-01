@@ -599,9 +599,9 @@ impl<V: Display> Display for UserProviderGen<V> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for UserProviderGen<V>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for UserProviderGen<V>
 where
-    Self: AnyLifetime<'v> + ProvidesStaticType,
+    Self: ProvidesStaticType,
 {
     starlark_type!("provider");
 
@@ -694,10 +694,7 @@ where
     }
 }
 
-impl<'v, V: ValueLike<'v>> serde::Serialize for UserProviderGen<V>
-where
-    Self: AnyLifetime<'v>,
-{
+impl<'v, V: ValueLike<'v>> serde::Serialize for UserProviderGen<V> {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -899,9 +896,9 @@ impl<'v, V: ValueLike<'v>> ProviderCollectionGen<V> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for ProviderCollectionGen<V>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for ProviderCollectionGen<V>
 where
-    Self: AnyLifetime<'v> + ProvidesStaticType,
+    Self: ProvidesStaticType,
 {
     starlark_type!("provider_collection");
 
@@ -1046,9 +1043,9 @@ impl<'v> Dependency<'v> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for DependencyGen<V>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for DependencyGen<V>
 where
-    Self: AnyLifetime<'v> + ProvidesStaticType,
+    Self: ProvidesStaticType,
 {
     starlark_type!("dependency");
 

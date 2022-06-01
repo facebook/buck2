@@ -108,9 +108,9 @@ struct StarlarkProvidersArtifactIterableGen<V>(V);
 
 starlark_complex_value!(StarlarkProvidersArtifactIterable);
 
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkProvidersArtifactIterableGen<V>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkProvidersArtifactIterableGen<V>
 where
-    Self: AnyLifetime<'v> + ProvidesStaticType,
+    Self: ProvidesStaticType,
 {
     starlark_type!("bxl-built-artifacts-iterable");
 
@@ -147,9 +147,9 @@ struct StarlarkFailedArtifactIterableGen<V>(V);
 
 starlark_complex_value!(StarlarkFailedArtifactIterable);
 
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkFailedArtifactIterableGen<V>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkFailedArtifactIterableGen<V>
 where
-    Self: AnyLifetime<'v> + ProvidesStaticType,
+    Self: ProvidesStaticType,
 {
     starlark_type!("bxl-failed-artifacts-iterable");
 

@@ -177,10 +177,7 @@ pub struct StarlarkConfiguredValue(ConfiguredAttr);
 
 starlark_simple_value!(StarlarkConfiguredValue);
 
-impl<'v> StarlarkValue<'v> for StarlarkConfiguredValue
-where
-    Self: AnyLifetime<'v>,
-{
+impl<'v> StarlarkValue<'v> for StarlarkConfiguredValue {
     starlark_type!("configured_attr_val");
 
     fn get_methods(&self) -> Option<&'static Methods> {

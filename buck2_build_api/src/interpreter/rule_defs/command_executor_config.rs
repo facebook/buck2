@@ -80,9 +80,9 @@ impl<'v, V: ValueLike<'v>> fmt::Display for StarlarkCommandExecutorConfigGen<V> 
 
 starlark_complex_value!(pub(crate) StarlarkCommandExecutorConfig);
 
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkCommandExecutorConfigGen<V>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkCommandExecutorConfigGen<V>
 where
-    Self: AnyLifetime<'v> + ProvidesStaticType,
+    Self: ProvidesStaticType,
 {
     starlark_type!("command_executor_config");
 }

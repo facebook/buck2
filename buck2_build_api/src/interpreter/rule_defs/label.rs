@@ -84,9 +84,9 @@ impl<'v> Label<'v> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for LabelGen<V>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for LabelGen<V>
 where
-    Self: AnyLifetime<'v> + ProvidesStaticType,
+    Self: ProvidesStaticType,
 {
     starlark_type!("label");
 
@@ -199,9 +199,9 @@ impl<'v> StarlarkProvidersLabel<'v> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkProvidersLabelGen<V>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkProvidersLabelGen<V>
 where
-    Self: AnyLifetime<'v> + ProvidesStaticType,
+    Self: ProvidesStaticType,
 {
     starlark_type!("providers_label");
 

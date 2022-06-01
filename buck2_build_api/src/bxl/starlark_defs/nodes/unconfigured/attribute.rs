@@ -28,9 +28,9 @@ pub struct StarlarkTargetNodeCoercedAttributesGen<V> {
 
 starlark_complex_value!(pub StarlarkTargetNodeCoercedAttributes);
 
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkTargetNodeCoercedAttributesGen<V>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkTargetNodeCoercedAttributesGen<V>
 where
-    Self: AnyLifetime<'v> + ProvidesStaticType,
+    Self: ProvidesStaticType,
 {
     starlark_type!("starlark_attributes");
 
