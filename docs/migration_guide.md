@@ -39,7 +39,9 @@ We recommend the following steps to migrate an `fbcode` project to Buck2:
 7. Verify proper packaging of your code with Buck2, read the [_Productionisation_](#productionisation) section of this document.
 8. Write a workplace group on whatever group the developers of your project use suggesting they use Buck2.
 9. Make Buck1 print out a "Try Buck2" recommendation by adding your project folder to [fbcode/.buckconfig](https://fburl.com/code/cwvrhc7g) (example [D36635354](https://www.internalfb.com/diff/D36635354)).
-10. (Optional) migrate OD to use buck2 if you are using OD Flavor. Read the [_On Demand Migration_](#on-demand-migration) section for more details.
+10. (Optional) tools and IDE migration:
+     * setup pyre configuration to use buck2 ([examples](https://fburl.com/code/onkpc52p))
+     * setup OD to use buck2 if you are using OD Flavor. Read the [_On Demand Migration_](#on-demand-migration) section for more details.
 11. Move production to use fbpkgs built with Buck2.
 12. Opt-in developers to GK [use_buck2_as_default](https://www.internalfb.com/intern/gatekeeper/projects/use_buck2_as_default/) or join [this group](https://fb.workplace.com/groups/984932495780948) to have `buck` command using `buck2` instead of `buck1`. Read the [_Development Opt-in GK_](#opt-in-gk-for-buck-using-buck2) section of this document. To use Buck1 either use `buck1` explicitly or set the environment variable `NO_BUCK2=1`.
 13. When you are ready to make the migration permanent, remove the Buck1 Contbuild config.
