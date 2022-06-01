@@ -209,14 +209,20 @@ impl<'v> UnpackValue<'v> for &'v StarlarkDeclaredArtifact {
 fn artifact_methods(builder: &mut MethodsBuilder) {
     /// The base name of this artifact. e.g. for an artifact at `foo/bar`, this is `bar`
     #[starlark(attribute)]
-    fn basename<'v>(this: &StarlarkDeclaredArtifact) -> anyhow::Result<StringValue<'v>> {
+    fn basename<'v>(
+        this: &StarlarkDeclaredArtifact,
+        heap: &Heap,
+    ) -> anyhow::Result<StringValue<'v>> {
         Ok(heap.alloc_str(StarlarkDeclaredArtifact::basename(this).as_str()))
     }
 
     /// The file extension of this artifact. e.g. for an artifact at foo/bar.sh,
     /// this is `.sh`. If no extension is present, `""` is returned.
     #[starlark(attribute)]
-    fn extension<'v>(this: &StarlarkDeclaredArtifact) -> anyhow::Result<StringValue<'v>> {
+    fn extension<'v>(
+        this: &StarlarkDeclaredArtifact,
+        heap: &Heap,
+    ) -> anyhow::Result<StringValue<'v>> {
         match this.artifact.get_path().path().extension() {
             None => Ok(heap.alloc_str("")),
             Some(x) => Ok(heap.alloc_str_concat(".", x)),
@@ -233,7 +239,10 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     /// the case of source files, or if the artifact has not be used in an action, or if the
     /// action was not created by a rule.
     #[starlark(attribute)]
-    fn owner<'v>(this: &StarlarkDeclaredArtifact) -> anyhow::Result<Option<Label<'v>>> {
+    fn owner<'v>(
+        this: &StarlarkDeclaredArtifact,
+        heap: &Heap,
+    ) -> anyhow::Result<Option<Label<'v>>> {
         match this.artifact.owner() {
             None => Ok(None),
             Some(x) => Ok(match x {
@@ -255,7 +264,10 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     /// The interesting part of the path, relative to somewhere in the output directory.
     /// For an artifact declared as `foo/bar`, this is `foo/bar`.
     #[starlark(attribute)]
-    fn short_path<'v>(this: &StarlarkDeclaredArtifact) -> anyhow::Result<StringValue<'v>> {
+    fn short_path<'v>(
+        this: &StarlarkDeclaredArtifact,
+        heap: &Heap,
+    ) -> anyhow::Result<StringValue<'v>> {
         Ok(heap.alloc_str(StarlarkDeclaredArtifact::short_path(this).as_str()))
     }
 }

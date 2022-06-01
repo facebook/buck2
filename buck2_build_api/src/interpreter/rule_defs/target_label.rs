@@ -17,7 +17,7 @@ use starlark::{
     collections::StarlarkHasher,
     environment::{Methods, MethodsBuilder, MethodsStatic},
     starlark_type,
-    values::{StarlarkValue, Value, ValueError, ValueLike},
+    values::{Heap, StarlarkValue, Value, ValueError, ValueLike},
 };
 
 use crate::{
@@ -96,7 +96,7 @@ fn label_methods(builder: &mut MethodsBuilder) {
     }
 
     #[starlark(attribute)]
-    fn cell<'v>(this: &StarlarkTargetLabel) -> anyhow::Result<Value<'v>> {
+    fn cell<'v>(this: &StarlarkTargetLabel, heap: &Heap) -> anyhow::Result<Value<'v>> {
         let cell = this.label.pkg().cell_name().as_str();
         Ok(heap.alloc(cell))
     }
@@ -174,13 +174,13 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
     }
 
     #[starlark(attribute)]
-    fn cell<'v>(this: &StarlarkConfiguredTargetLabel) -> anyhow::Result<Value<'v>> {
+    fn cell<'v>(this: &StarlarkConfiguredTargetLabel, heap: &Heap) -> anyhow::Result<Value<'v>> {
         let cell = this.label.pkg().cell_name().as_str();
         Ok(heap.alloc(cell))
     }
 
     #[starlark(attribute)]
-    fn path<'v>(this: &StarlarkConfiguredTargetLabel) -> anyhow::Result<Value<'v>> {
+    fn path<'v>(this: &StarlarkConfiguredTargetLabel, heap: &Heap) -> anyhow::Result<Value<'v>> {
         let path = LabelRelativePath(this.label.pkg().to_cell_path());
         Ok(path.alloc_value(heap))
     }

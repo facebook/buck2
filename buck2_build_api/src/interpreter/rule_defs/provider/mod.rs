@@ -556,7 +556,7 @@ impl<'v> StarlarkValue<'v> for FrozenProviderCallable {
 #[starlark_module]
 fn provider_callable_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
-    fn r#type<'v>(this: Value<'v>) -> anyhow::Result<Value<'v>> {
+    fn r#type<'v>(this: Value<'v>, heap: &Heap) -> anyhow::Result<Value<'v>> {
         if let Some(x) = this.downcast_ref::<ProviderCallable>() {
             match &*x.id.borrow() {
                 None => Err(ProviderError::ProviderNotAssigned(x.fields.clone()).into()),

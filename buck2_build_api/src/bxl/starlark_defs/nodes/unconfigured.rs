@@ -11,7 +11,7 @@ use derive_more::Display;
 use gazebo::{any::AnyLifetime, prelude::*};
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
-    values::{AllocValue, NoSerialize, StarlarkValue, UnpackValue, Value, ValueLike},
+    values::{AllocValue, Heap, NoSerialize, StarlarkValue, UnpackValue, Value, ValueLike},
 };
 
 use crate::{
@@ -52,7 +52,7 @@ impl<'a> UnpackValue<'a> for StarlarkTargetNode {
 #[starlark_module]
 fn target_node_value_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
-    fn attributes<'v>(this: StarlarkTargetNode) -> anyhow::Result<Value<'v>> {
+    fn attributes<'v>(this: StarlarkTargetNode, heap: &Heap) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc(StarlarkTargetNodeCoercedAttributes {
             inner: heap.alloc(this),
         }))

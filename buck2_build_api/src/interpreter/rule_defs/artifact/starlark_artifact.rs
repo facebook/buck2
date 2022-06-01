@@ -20,7 +20,7 @@ use starlark::{
     collections::StarlarkHasher,
     environment::{Methods, MethodsBuilder, MethodsStatic},
     starlark_type,
-    values::{StarlarkValue, StringValue, UnpackValue, Value, ValueLike},
+    values::{Heap, StarlarkValue, StringValue, UnpackValue, Value, ValueLike},
 };
 use thiserror::Error;
 
@@ -206,7 +206,7 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     /// The file extension of this artifact. e.g. for an artifact at foo/bar.sh,
     /// this is `.sh`. If no extension is present, `""` is returned.
     #[starlark(attribute)]
-    fn extension<'v>(this: &StarlarkArtifact) -> anyhow::Result<StringValue<'v>> {
+    fn extension<'v>(this: &StarlarkArtifact, heap: &Heap) -> anyhow::Result<StringValue<'v>> {
         match this.artifact.path().extension() {
             None => Ok(heap.alloc_str("")),
             Some(x) => Ok(heap.alloc_str_concat(".", x)),
@@ -223,7 +223,7 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     /// the case of source files, or if the artifact has not be used in an action, or if the
     //     /// action was not created by a rule.
     #[starlark(attribute)]
-    fn owner<'v>(this: &StarlarkArtifact) -> anyhow::Result<Option<Label<'v>>> {
+    fn owner<'v>(this: &StarlarkArtifact, heap: &Heap) -> anyhow::Result<Option<Label<'v>>> {
         match this.artifact.owner() {
             None => Ok(None),
             Some(BaseDeferredKey::TargetLabel(target)) => Ok(Some(Label::new(

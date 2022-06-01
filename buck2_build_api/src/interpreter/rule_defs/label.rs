@@ -130,19 +130,19 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
     }
 
     #[starlark(attribute)]
-    fn path<'v>(this: &Label) -> anyhow::Result<Value<'v>> {
+    fn path<'v>(this: &Label, heap: &Heap) -> anyhow::Result<Value<'v>> {
         let path = LabelRelativePath(this.label.target().pkg().to_cell_path());
         Ok(path.alloc_value(heap))
     }
 
     #[starlark(attribute)]
-    fn cell<'v>(this: &Label) -> anyhow::Result<Value<'v>> {
+    fn cell<'v>(this: &Label, heap: &Heap) -> anyhow::Result<Value<'v>> {
         let cell = this.label.target().pkg().cell_name().as_str();
         Ok(heap.alloc(cell))
     }
 
     #[starlark(attribute)]
-    fn cell_root<'v>(this: &Label) -> anyhow::Result<Value<'v>> {
+    fn cell_root<'v>(this: &Label, heap: &Heap) -> anyhow::Result<Value<'v>> {
         let cell_root = CellRoot::new(this.label.target().pkg().cell_name().clone());
         Ok(heap.alloc(cell_root))
     }
@@ -237,7 +237,7 @@ fn label_methods(builder: &mut MethodsBuilder) {
     }
 
     #[starlark(attribute)]
-    fn path<'v>(this: &StarlarkProvidersLabel) -> anyhow::Result<Value<'v>> {
+    fn path<'v>(this: &StarlarkProvidersLabel, heap: &Heap) -> anyhow::Result<Value<'v>> {
         let path = LabelRelativePath(this.label.target().pkg().to_cell_path());
         Ok(path.alloc_value(heap))
     }
