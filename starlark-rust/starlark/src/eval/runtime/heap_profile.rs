@@ -76,14 +76,14 @@ struct CallEnter<'v, D: MaybeDrop + 'static> {
     maybe_drop: D,
 }
 
-impl<'v, D: MaybeDrop + AnyLifetime<'v> + Trace<'v>> Freeze for CallEnter<'v, D> {
+impl<'v, D: MaybeDrop + Trace<'v> + 'v> Freeze for CallEnter<'v, D> {
     type Frozen = NoSimpleValue;
     fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         unreachable!("Should never end up freezing a CallEnter")
     }
 }
 
-impl<'v, D: MaybeDrop + AnyLifetime<'v> + Trace<'v>> StarlarkValue<'v> for CallEnter<'v, D> {
+impl<'v, D: MaybeDrop + Trace<'v> + 'v> StarlarkValue<'v> for CallEnter<'v, D> {
     starlark_type!("call_enter");
 }
 
@@ -94,7 +94,7 @@ struct CallExit<D: MaybeDrop + 'static> {
     maybe_drop: D,
 }
 
-impl<'v, D: MaybeDrop + AnyLifetime<'static>> StarlarkValue<'v> for CallExit<D> {
+impl<'v, D: MaybeDrop> StarlarkValue<'v> for CallExit<D> {
     starlark_type!("call_exit");
 }
 

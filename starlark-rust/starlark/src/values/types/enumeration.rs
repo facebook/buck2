@@ -158,9 +158,9 @@ impl<'v, V: ValueLike<'v>> EnumValueGen<V> {
     }
 }
 
-impl<'v, Typ, V: ValueLike<'v>> StarlarkValue<'v> for EnumTypeGen<V, Typ>
+impl<'v, Typ: 'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for EnumTypeGen<V, Typ>
 where
-    Self: AnyLifetime<'v> + ProvidesStaticType,
+    Self: ProvidesStaticType,
     Typ: AsARef<Option<String>> + Debug,
 {
     starlark_type!(FUNCTION_TYPE);
@@ -277,9 +277,9 @@ fn enum_type_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for EnumValueGen<V>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for EnumValueGen<V>
 where
-    Self: AnyLifetime<'v> + ProvidesStaticType,
+    Self: ProvidesStaticType,
 {
     starlark_type!(EnumValue::TYPE);
 
@@ -321,10 +321,7 @@ where
     }
 }
 
-impl<'v, V: ValueLike<'v>> Serialize for EnumValueGen<V>
-where
-    Self: AnyLifetime<'v>,
-{
+impl<'v, V: ValueLike<'v>> Serialize for EnumValueGen<V> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

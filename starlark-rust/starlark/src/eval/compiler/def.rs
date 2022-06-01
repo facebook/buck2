@@ -611,9 +611,9 @@ impl<'v> DefLike<'v> for DefGen<FrozenValue> {
     const FROZEN: bool = true;
 }
 
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for DefGen<V>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for DefGen<V>
 where
-    Self: AnyLifetime<'v> + ProvidesStaticType + DefLike<'v>,
+    Self: ProvidesStaticType + DefLike<'v>,
 {
     starlark_type!(FUNCTION_TYPE);
 

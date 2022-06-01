@@ -413,9 +413,9 @@ pub(crate) fn dict_methods() -> Option<&'static Methods> {
     RES.methods(crate::stdlib::dict::dict_methods)
 }
 
-impl<'v, T: DictLike<'v>> StarlarkValue<'v> for DictGen<T>
+impl<'v, T: DictLike<'v> + 'v> StarlarkValue<'v> for DictGen<T>
 where
-    Self: AnyLifetime<'v> + ProvidesStaticType,
+    Self: ProvidesStaticType,
 {
     starlark_type!(Dict::TYPE);
 

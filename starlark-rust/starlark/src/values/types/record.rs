@@ -209,9 +209,9 @@ impl<'v, V: ValueLike<'v>> RecordGen<V> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for FieldGen<V>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for FieldGen<V>
 where
-    Self: AnyLifetime<'v> + ProvidesStaticType,
+    Self: ProvidesStaticType,
 {
     starlark_type!("field");
 
@@ -240,10 +240,10 @@ impl<'v> Freeze for RecordType<'v> {
     }
 }
 
-impl<'v, Typ, V: ValueLike<'v>> StarlarkValue<'v> for RecordTypeGen<V, Typ>
+impl<'v, Typ: 'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for RecordTypeGen<V, Typ>
 where
-    Self: AnyLifetime<'v> + ProvidesStaticType,
-    FieldGen<V>: AnyLifetime<'v> + ProvidesStaticType,
+    Self: ProvidesStaticType,
+    FieldGen<V>: ProvidesStaticType,
     Typ: AsARef<Option<String>> + Debug,
 {
     starlark_type!(FUNCTION_TYPE);
@@ -362,9 +362,9 @@ where
     }
 }
 
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for RecordGen<V>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for RecordGen<V>
 where
-    Self: AnyLifetime<'v> + ProvidesStaticType,
+    Self: ProvidesStaticType,
 {
     starlark_type!(Record::TYPE);
 
@@ -413,10 +413,7 @@ where
     }
 }
 
-impl<'v, V: ValueLike<'v>> Serialize for RecordGen<V>
-where
-    Self: AnyLifetime<'v>,
-{
+impl<'v, V: ValueLike<'v>> Serialize for RecordGen<V> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

@@ -129,9 +129,9 @@ impl<'v, V: ValueLike<'v>> TupleGen<V> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TupleGen<V>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for TupleGen<V>
 where
-    Self: AnyLifetime<'v> + ProvidesStaticType,
+    Self: ProvidesStaticType,
 {
     starlark_type!(Tuple::TYPE);
 

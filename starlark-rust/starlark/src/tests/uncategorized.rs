@@ -666,10 +666,7 @@ fn test_label_assign() {
     #[display(fmt = "{:?}", self)]
     struct Wrapper<'v>(RefCell<SmallMap<String, Value<'v>>>);
 
-    impl<'v> StarlarkValue<'v> for Wrapper<'v>
-    where
-        Self: AnyLifetime<'v>,
-    {
+    impl<'v> StarlarkValue<'v> for Wrapper<'v> {
         starlark_type!("wrapper");
 
         fn get_attr(&self, attribute: &str, _heap: &'v Heap) -> Option<Value<'v>> {

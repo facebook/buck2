@@ -140,9 +140,9 @@ impl<'v> StructBuilder<'v> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StructGen<'v, V>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StructGen<'v, V>
 where
-    Self: AnyLifetime<'v> + ProvidesStaticType,
+    Self: ProvidesStaticType,
 {
     starlark_type!(Struct::TYPE);
 
@@ -229,10 +229,7 @@ where
     }
 }
 
-impl<'v, V: ValueLike<'v>> Serialize for StructGen<'v, V>
-where
-    Self: AnyLifetime<'v>,
-{
+impl<'v, V: ValueLike<'v>> Serialize for StructGen<'v, V> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

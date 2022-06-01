@@ -51,9 +51,9 @@ pub(crate) fn iterate_codepoints<'v>(string: Value<'v>, heap: &'v Heap) -> Value
 
 starlark_complex_value!(StringIterator);
 
-impl<'v, T: ValueLike<'v>> StarlarkValue<'v> for StringIteratorGen<T>
+impl<'v, T: ValueLike<'v> + 'v> StarlarkValue<'v> for StringIteratorGen<T>
 where
-    Self: AnyLifetime<'v> + ProvidesStaticType,
+    Self: ProvidesStaticType,
 {
     starlark_type!("iterator");
 

@@ -61,9 +61,9 @@ fn test_export_as() {
         }
     }
 
-    impl<'v, T: AsARef<String> + Debug> StarlarkValue<'v> for Exporter<T>
+    impl<'v, T: AsARef<String> + Debug + 'v> StarlarkValue<'v> for Exporter<T>
     where
-        Self: AnyLifetime<'v> + ProvidesStaticType,
+        Self: ProvidesStaticType,
     {
         starlark_type!("exporter");
 

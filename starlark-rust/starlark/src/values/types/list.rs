@@ -454,9 +454,9 @@ pub(crate) fn list_methods() -> Option<&'static Methods> {
     RES.methods(crate::stdlib::list::list_methods)
 }
 
-impl<'v, T: ListLike<'v>> StarlarkValue<'v> for ListGen<T>
+impl<'v, T: ListLike<'v> + 'v> StarlarkValue<'v> for ListGen<T>
 where
-    Self: AnyLifetime<'v> + ProvidesStaticType + Display,
+    Self: ProvidesStaticType + Display,
 {
     starlark_type!(List::TYPE);
 
