@@ -49,7 +49,7 @@ enum ArgExpansionError {
     #[error("Python argfile at `{path}` exited with non-zero status, stderr: {err:?}")]
     PythonExecutableFailed { path: String, err: String },
     #[error("Python argfile command ({cmd:?}) execution failed")]
-    PythonExececutionFailed { source: io::Error, cmd: Command },
+    PythonExecutionFailed { source: io::Error, cmd: Command },
     #[error("Unable to read line from stdin")]
     StdinReadError { source: anyhow::Error },
 }
@@ -287,7 +287,7 @@ fn expand_argfile_contents(flagfile: &ArgFile) -> anyhow::Result<Vec<String>> {
             }
             let cmd_out = cmd
                 .output()
-                .map_err(|source| ArgExpansionError::PythonExececutionFailed { cmd, source })?;
+                .map_err(|source| ArgExpansionError::PythonExecutionFailed { cmd, source })?;
             if cmd_out.status.success() {
                 Ok(str::from_utf8(&cmd_out.stdout)
                     .map_err(|_| ArgExpansionError::PythonOutputNotUtf8 {
