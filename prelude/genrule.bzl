@@ -148,6 +148,9 @@ def _requires_local(ctx: "context") -> bool.type:
             return True
     return False
 
+def _ignore_artifacts(ctx: "context") -> bool.type:
+    return "buck2_ignore_artifacts" in ctx.attr.labels
+
 def _requires_no_srcs_environment(ctx: "context") -> bool.type:
     return _NO_SRCS_ENVIRONMENT_LABEL in ctx.attr.labels
 
@@ -241,6 +244,9 @@ def process_genrule(
         fail("One of `out` or `outs` should be set. Got `%s`" % repr(ctx.attr))
 
     cmd = ctx.attr.bash if ctx.attr.bash != None else ctx.attr.cmd
+
+    if _ignore_artifacts(ctx):
+        cmd = cmd_args(cmd).ignore_artifacts()
 
     if type(ctx.attr.srcs) == type([]):
         # FIXME: We should always use the short_path, but currently that is sometimes blank.
