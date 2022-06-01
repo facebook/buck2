@@ -24,7 +24,7 @@ def apple_binary_impl(ctx: "context") -> ["provider"]:
     constructor_params = CxxRuleConstructorParams(
         rule_type = "apple_binary",
         headers_layout = get_apple_cxx_headers_layout(ctx),
-        extra_link_flags = extra_link_flags,
+        extra_exported_link_flags = extra_link_flags,
         srcs = get_srcs_with_flags(ctx),
         extra_preprocessors = get_min_deployment_version_target_preprocessor_flags(ctx) + [framework_search_path_pre],
         strip_executable = ctx.attr.stripped,

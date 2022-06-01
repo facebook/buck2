@@ -686,7 +686,7 @@ def _static_library(
             # We're propagating object code for linking up the dep tree,
             # so we need to also propagate any necessary link flags required for
             # the object code.
-            pre_flags = impl_params.extra_link_flags,
+            pre_flags = impl_params.extra_exported_link_flags,
             post_flags = post_flags,
             linkables = [linkable],
             use_link_groups = cxx_use_link_groups(ctx),
@@ -721,7 +721,7 @@ def _shared_library(
     args.extend(cxx_attr_exported_linker_flags(ctx))
     args.extend(cxx_attr_linker_flags(ctx))
     args.extend(objects)
-    args.extend(impl_params.extra_link_flags)
+    args.extend(impl_params.extra_exported_link_flags)
     args.extend(_attr_post_linker_flags(ctx))
     linker_info = cxx_toolchain.linker_info
     args.extend(linker_info.shared_dep_runtime_ld_flags)
