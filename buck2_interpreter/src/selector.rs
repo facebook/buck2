@@ -189,9 +189,9 @@ impl SelectorBase<'_> for FrozenSelector {
     type Item = FrozenValue;
 }
 
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for SelectorGen<V>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for SelectorGen<V>
 where
-    Self: AnyLifetime<'v> + ProvidesStaticType + SelectorBase<'v, Item = V>,
+    Self: ProvidesStaticType + SelectorBase<'v, Item = V>,
 {
     starlark_type!("selector");
 
