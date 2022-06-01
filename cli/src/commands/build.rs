@@ -17,7 +17,7 @@ use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use clap::arg_enum;
 use cli_proto::{
-    build_request::{build_providers, BuildProviders, Materializations, ResponseOptions},
+    build_request::{build_providers, BuildProviders, ResponseOptions},
     BuildRequest, BuildTarget,
 };
 use futures::TryStreamExt;
@@ -183,6 +183,23 @@ arg_enum! {
     }
 }
 
+pub trait MaterializationsToProto {
+    fn to_proto(&self) -> cli_proto::build_request::Materializations;
+}
+impl MaterializationsToProto for Option<FinalArtifactMaterializations> {
+    fn to_proto(&self) -> cli_proto::build_request::Materializations {
+        match self {
+            Some(FinalArtifactMaterializations::All) => {
+                cli_proto::build_request::Materializations::Materialize
+            }
+            Some(FinalArtifactMaterializations::None) => {
+                cli_proto::build_request::Materializations::Skip
+            }
+            None => cli_proto::build_request::Materializations::Default,
+        }
+    }
+}
+
 pub fn print_build_result(console: &FinalConsole, error_messages: &[String]) -> anyhow::Result<()> {
     for error_message in error_messages {
         console.print_error(error_message)?;
@@ -220,13 +237,7 @@ impl StreamingCommand for BuildCommand {
                         || self.output_path.is_some(),
                 }),
                 build_opts: Some(self.build_opts.to_proto()),
-                final_artifact_materializations: match self.materializations {
-                    Some(FinalArtifactMaterializations::All) => {
-                        Materializations::Materialize as i32
-                    }
-                    Some(FinalArtifactMaterializations::None) => Materializations::Skip as i32,
-                    None => Materializations::Default as i32,
-                },
+                final_artifact_materializations: self.materializations.to_proto() as i32,
             })
             .await;
         let success = match &result {

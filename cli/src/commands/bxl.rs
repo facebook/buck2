@@ -2,16 +2,16 @@ use std::str::FromStr;
 
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
-use cli_proto::{
-    build_request::{Materializations, ResponseOptions},
-    BxlRequest,
-};
+use cli_proto::{build_request::ResponseOptions, BxlRequest};
 use structopt::{clap, StructOpt};
 use thiserror::Error;
 
 use crate::{
     commands::{
-        build::{print_build_result, print_outputs, FinalArtifactMaterializations},
+        build::{
+            print_build_result, print_outputs, FinalArtifactMaterializations,
+            MaterializationsToProto,
+        },
         common::{value_name_variants, CommonBuildOptions},
     },
     daemon::client::CommandOutcome,
@@ -119,13 +119,7 @@ impl StreamingCommand for BxlCommand {
                     return_outputs: self.bxl_core.show_all_outputs,
                 }),
                 build_opts: Some(self.build_opts.to_proto()),
-                final_artifact_materializations: match self.materializations {
-                    Some(FinalArtifactMaterializations::All) => {
-                        Materializations::Materialize as i32
-                    }
-                    Some(FinalArtifactMaterializations::None) => Materializations::Skip as i32,
-                    None => Materializations::Default as i32,
-                },
+                final_artifact_materializations: self.materializations.to_proto() as i32,
             })
             .await;
         let success = match &result {
