@@ -171,17 +171,10 @@ impl TestOrchestrator for TestOrchestratorClient {
         Ok(())
     }
 
-    async fn report_test_session(
-        &self,
-        session_id: String,
-        session_info: String,
-    ) -> anyhow::Result<()> {
+    async fn report_test_session(&self, session_info: String) -> anyhow::Result<()> {
         self.test_orchestrator_client
             .clone()
-            .report_test_session(ReportTestSessionRequest {
-                session_id,
-                session_info,
-            })
+            .report_test_session(ReportTestSessionRequest { session_info })
             .await?;
 
         Ok(())
@@ -321,13 +314,10 @@ where
         request: tonic::Request<ReportTestSessionRequest>,
     ) -> Result<tonic::Response<Empty>, tonic::Status> {
         to_tonic(async move {
-            let ReportTestSessionRequest {
-                session_id,
-                session_info,
-            } = request.into_inner();
+            let ReportTestSessionRequest { session_info } = request.into_inner();
 
             self.inner
-                .report_test_session(session_id, session_info)
+                .report_test_session(session_info)
                 .await
                 .context("Failed to report test session summary")?;
 

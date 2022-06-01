@@ -273,10 +273,9 @@ message TestResult {
 }
 
 // At the beginning of discovery, the test orchestrator will advertise
-// some information - an id and some arbitrary extra info.
+// some information about the session
 message TestSessionInfo {
-  string id = 1;
-  // Usually this contains a test link, like in TPX
+  // Usually this contains a test link, like in Tpx
   string info = 2;
 }
 

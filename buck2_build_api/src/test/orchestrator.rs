@@ -260,14 +260,9 @@ impl TestOrchestrator for BuckTestOrchestrator {
         Ok(())
     }
 
-    async fn report_test_session(
-        &self,
-        session_id: String,
-        session_info: String,
-    ) -> anyhow::Result<()> {
+    async fn report_test_session(&self, session_info: String) -> anyhow::Result<()> {
         self.events.instant_event(TestDiscovery {
             data: Some(buck2_data::test_discovery::Data::Session(TestSessionInfo {
-                id: session_id,
                 info: session_info,
             })),
         });

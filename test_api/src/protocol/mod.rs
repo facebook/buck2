@@ -61,11 +61,7 @@ pub trait TestOrchestrator: Send + Sync {
     ) -> anyhow::Result<()>;
 
     /// report a summary about the current test executor
-    async fn report_test_session(
-        &self,
-        session_id: String,
-        session_info: String,
-    ) -> anyhow::Result<()>;
+    async fn report_test_session(&self, session_info: String) -> anyhow::Result<()>;
 
     /// report that all tests are done and provide the exit code that this test executor wants to
     /// return for the test command, no more executions

@@ -101,7 +101,7 @@ message ReportTestsDiscoveredRequest {
 }
 
 message ReportTestSessionRequest {
-  string session_id = 2;
+  reserved 2;
   string session_info = 3;
 }
 

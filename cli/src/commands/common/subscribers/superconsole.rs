@@ -715,7 +715,7 @@ impl Component for SessionInfoComponent {
                     headers.push(superconsole::line!(Span::new_unstyled("RE Session:")?,));
                     ids.push(Span::new_unstyled(session_id)?);
                 }
-                if let Some(buck2_data::TestSessionInfo { info, .. }) = &session_info.test_session {
+                if let Some(buck2_data::TestSessionInfo { info }) = &session_info.test_session {
                     headers.push(superconsole::line!(Span::new_unstyled("Test Session:")?,));
                     ids.push(Span::new_unstyled(info)?);
                 }
