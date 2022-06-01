@@ -26,7 +26,7 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
         ctx,
         AppleLibraryAdditionalParams(
             rule_type = "apple_test",
-            extra_link_flags = _get_bundle_loader_flags(test_host_app_binary),
+            extra_exported_link_flags = _get_bundle_loader_flags(test_host_app_binary),
             shared_library_flags = SharedLibraryFlagOverrides(
                 # When `-bundle` is used we can't use the `-install_name` args, thus we keep this field empty.
                 shared_library_name_linker_flags_format = [],
