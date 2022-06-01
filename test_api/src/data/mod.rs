@@ -198,6 +198,13 @@ pub struct TestExecutable {
     pub pre_create_dirs: Vec<DeclaredOutput>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct PrepareForLocalExecutionResult {
+    pub cmd: Vec<String>,
+    pub env: HashMap<String, String>,
+    pub cwd: AbsPathBuf,
+}
+
 pub mod testing {
     use crate::data::ConfiguredTargetHandle;
 

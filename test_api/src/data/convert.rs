@@ -7,6 +7,7 @@ use anyhow::Context as _;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
 use gazebo::prelude::*;
 
+use super::PrepareForLocalExecutionResult;
 use crate::{
     convert,
     data::{
@@ -697,9 +698,34 @@ impl TryInto<test_proto::TestExecutable> for TestExecutable {
     }
 }
 
+impl TryInto<test_proto::PrepareForLocalExecutionResult> for PrepareForLocalExecutionResult {
+    type Error = anyhow::Error;
+
+    fn try_into(self) -> Result<test_proto::PrepareForLocalExecutionResult, Self::Error> {
+        let cwd = self.cwd.to_str().context("Invalid cwd path")?.to_owned();
+
+        Ok(test_proto::PrepareForLocalExecutionResult {
+            cmd: self.cmd,
+            env: self.env,
+            cwd,
+        })
+    }
+}
+
+impl TryFrom<test_proto::PrepareForLocalExecutionResult> for PrepareForLocalExecutionResult {
+    type Error = anyhow::Error;
+
+    fn try_from(s: test_proto::PrepareForLocalExecutionResult) -> Result<Self, Self::Error> {
+        let test_proto::PrepareForLocalExecutionResult { cmd, env, cwd } = s;
+        let cwd = cwd.try_into().context("Invalid cwd value.")?;
+
+        Ok(PrepareForLocalExecutionResult { cmd, env, cwd })
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use std::{fmt::Debug, time::Duration};
+    use std::{cmp::PartialEq, collections::HashMap, convert::TryInto, fmt::Debug, time::Duration};
 
     use host_sharing::HostSharingRequirements;
 
@@ -815,5 +841,66 @@ mod tests {
             execution_time: Duration::from_secs(456),
         };
         assert_roundtrips::<test_proto::ExecutionResult2, ExecutionResult2>(&result);
+    }
+
+    #[test]
+    fn prepare_for_local_execution_result_roundtrip() {
+        let cmd = vec![
+            "my_cmd".to_owned(),
+            "--some-arg".to_owned(),
+            "some_value".to_owned(),
+        ];
+        let local_path = if cfg!(not(windows)) {
+            "/some/path"
+        } else {
+            "c:/some/path"
+        };
+        let cwd = String::from(local_path).try_into().expect("valid abs path");
+        let env = HashMap::from([("some_env".to_owned(), "some_env_val".to_owned())]);
+
+        let result = PrepareForLocalExecutionResult { cmd, env, cwd };
+
+        assert_roundtrips::<
+            test_proto::PrepareForLocalExecutionResult,
+            PrepareForLocalExecutionResult,
+        >(&result);
+    }
+
+    #[test]
+    fn test_executable_roundtrip() {
+        let declared_output = DeclaredOutput {
+            name: ForwardRelativePathBuf::unchecked_new("name".to_owned()),
+        };
+
+        let test_executable = TestExecutable {
+            ui_prints: DisplayMetadata::Listing("name".to_owned()),
+            target: ConfiguredTargetHandle(42),
+            cmd: vec![
+                ArgValue {
+                    content: ArgValueContent::ExternalRunnerSpecValue(
+                        ExternalRunnerSpecValue::Verbatim("arg".to_owned()),
+                    ),
+                    format: None,
+                },
+                ArgValue {
+                    content: ArgValueContent::DeclaredOutput(declared_output.clone()),
+                    format: Some("--output={}".to_owned()),
+                },
+            ],
+            env: [(
+                "FOO".to_owned(),
+                ArgValue {
+                    content: ArgValueContent::ExternalRunnerSpecValue(
+                        ExternalRunnerSpecValue::EnvHandle(EnvHandle("FOO".to_owned())),
+                    ),
+                    format: None,
+                },
+            )]
+            .into_iter()
+            .collect(),
+            pre_create_dirs: vec![declared_output],
+        };
+
+        assert_roundtrips::<test_proto::TestExecutable, TestExecutable>(&test_executable);
     }
 }

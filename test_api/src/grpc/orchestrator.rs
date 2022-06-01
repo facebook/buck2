@@ -18,7 +18,8 @@ use tracing::Level;
 use crate::{
     data::{
         ArgValue, ConfiguredTargetHandle, DeclaredOutput, DisplayMetadata, ExecuteRequest2,
-        ExecutionResult2, ExecutorConfigOverride, TestExecutable, TestResult,
+        ExecutionResult2, ExecutorConfigOverride, PrepareForLocalExecutionResult, TestExecutable,
+        TestResult,
     },
     grpc::{
         channel,
@@ -188,6 +189,44 @@ impl TestOrchestrator for TestOrchestratorClient {
 
         Ok(())
     }
+
+    async fn prepare_for_local_execution(
+        &self,
+        ui_prints: DisplayMetadata,
+        target: ConfiguredTargetHandle,
+        cmd: Vec<ArgValue>,
+        env: HashMap<String, ArgValue>,
+        pre_create_dirs: Vec<DeclaredOutput>,
+    ) -> anyhow::Result<PrepareForLocalExecutionResult> {
+        let executable = TestExecutable {
+            ui_prints,
+            target,
+            cmd,
+            env,
+            pre_create_dirs,
+        };
+
+        let executable: test_proto::TestExecutable = executable
+            .try_into()
+            .context("Invalid prepare_for_local_execution request")?;
+
+        let request = test_proto::PrepareForLocalExecutionRequest {
+            test_executable: Some(executable),
+        };
+        let PrepareForLocalExecutionResponse { result } = self
+            .test_orchestrator_client
+            .clone()
+            .prepare_for_local_execution(request)
+            .await?
+            .into_inner();
+
+        let result = result
+            .context("Missing `result`")?
+            .try_into()
+            .context("Invalid `result`")?;
+
+        Ok(result)
+    }
 }
 
 pub struct Service<T> {
@@ -328,11 +367,37 @@ where
 
     async fn prepare_for_local_execution(
         &self,
-        _request: tonic::Request<test_proto::PrepareForLocalExecutionRequest>,
+        request: tonic::Request<test_proto::PrepareForLocalExecutionRequest>,
     ) -> Result<tonic::Response<PrepareForLocalExecutionResponse>, tonic::Status> {
-        Err(tonic::Status::unimplemented(
-            "prepare_for_local_execution not implemented yet!",
-        ))
+        to_tonic(async move {
+            let test_proto::PrepareForLocalExecutionRequest { test_executable } =
+                request.into_inner();
+
+            let TestExecutable {
+                ui_prints,
+                target,
+                cmd,
+                env,
+                pre_create_dirs,
+            } = test_executable
+                .context("Missing `test_executable`")?
+                .try_into()
+                .context("Invalid `test_executable`")
+                .context("Invalid prepare_for_local_execution request")?;
+
+            let result = self
+                .inner
+                .prepare_for_local_execution(ui_prints, target, cmd, env, pre_create_dirs)
+                .await
+                .context("Prepare for local execution failed")?;
+
+            let result = result.try_into().context("Failed to serialize result")?;
+
+            Ok(PrepareForLocalExecutionResponse {
+                result: Some(result),
+            })
+        })
+        .await
     }
 }
 

@@ -12,7 +12,7 @@ use host_sharing::HostSharingRequirements;
 
 use crate::data::{
     ArgValue, ConfiguredTargetHandle, DeclaredOutput, DisplayMetadata, ExecutionResult2,
-    ExecutorConfigOverride, ExternalRunnerSpec, TestResult,
+    ExecutorConfigOverride, ExternalRunnerSpec, PrepareForLocalExecutionResult, TestResult,
 };
 
 /// available to buck to interact with the test executor
@@ -66,6 +66,17 @@ pub trait TestOrchestrator: Send + Sync {
     /// report that all tests are done and provide the exit code that this test executor wants to
     /// return for the test command, no more executions
     async fn end_of_test_results(&self, exit_code: i32) -> anyhow::Result<()>;
+
+    /// prepare the given test executable to be available for local execution.
+    /// Return the actual command with all the args, env and cwd to be executed locally.
+    async fn prepare_for_local_execution(
+        &self,
+        ui_prints: DisplayMetadata,
+        target: ConfiguredTargetHandle,
+        cmd: Vec<ArgValue>,
+        env: HashMap<String, ArgValue>,
+        pre_create_dirs: Vec<DeclaredOutput>,
+    ) -> anyhow::Result<PrepareForLocalExecutionResult>;
 }
 
 // TODO need to figure out what this is. we can go without it for now

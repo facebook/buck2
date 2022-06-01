@@ -11,7 +11,7 @@
 
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
-use anyhow::Context as _;
+use anyhow::{anyhow, Context as _};
 use async_trait::async_trait;
 use buck2_common::dice::{cells::HasCellResolver, data::HasIoProvider};
 use buck2_core::{
@@ -40,7 +40,7 @@ use test_api::{
     data::{
         ArgValue, ArgValueContent, ConfiguredTargetHandle, DeclaredOutput, DisplayMetadata,
         ExecutionResult2, ExecutionStatus, ExecutionStream, ExecutorConfigOverride,
-        ExternalRunnerSpecValue, Output, TestResult,
+        ExternalRunnerSpecValue, Output, PrepareForLocalExecutionResult, TestResult,
     },
     protocol::TestOrchestrator,
 };
@@ -276,6 +276,17 @@ impl TestOrchestrator for BuckTestOrchestrator {
             .map_err(|_| anyhow::Error::msg("end_of_tests was received twice"))?;
         self.results_channel.close_channel();
         Ok(())
+    }
+
+    async fn prepare_for_local_execution(
+        &self,
+        _metadata: DisplayMetadata,
+        _test_target: ConfiguredTargetHandle,
+        _cmd: Vec<ArgValue>,
+        _env: HashMap<String, ArgValue>,
+        _pre_create_dirs: Vec<DeclaredOutput>,
+    ) -> anyhow::Result<PrepareForLocalExecutionResult> {
+        Err(anyhow!("prepare_for_local_execution not implemented yet!"))
     }
 }
 
