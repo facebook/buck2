@@ -556,7 +556,7 @@ impl<'v> Value<'v> {
     }
 
     /// Invoke self with given arguments.
-    pub fn invoke(
+    pub(crate) fn invoke(
         self,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
@@ -565,7 +565,7 @@ impl<'v> Value<'v> {
     }
 
     /// Invoke a function with only positional arguments.
-    pub fn invoke_pos(
+    pub(crate) fn invoke_pos(
         self,
         pos: &[Value<'v>],
         eval: &mut Evaluator<'v, '_>,
