@@ -30,7 +30,7 @@ use crate::{
 pub enum StarlarkBuildResult {
     Error(SharedError),
     None,
-    #[display(fmt = "{:?}", self)]
+    #[display(fmt = "successful build result")]
     Built {
         providers: FrozenProviderCollectionValue,
         run_args: Option<Vec<String>>,
