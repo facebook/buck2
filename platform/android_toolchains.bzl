@@ -45,6 +45,15 @@ def config_backed_android_toolchain(
     kwargs["mini_aapt"] = mini_aapt
     kwargs["unpack_aar"] = unpack_aar
 
+    kwargs["instrumentation_test_runner_classpath"] = [
+        "buck//src/com/facebook/buck/testrunner:testrunner-bin-fixed",
+        "buck//third-party/java/android:common",
+        "buck//third-party/java/android:ddmlib",
+        "buck//third-party/java/guava:shaded-guava-20",
+        "buck//third-party/java/kxml2:kxml2",
+    ]
+    kwargs["instrumentation_test_runner_main_class"] = "com.facebook.buck.testrunner.InstrumentationMain"
+
     _config_backed_android_toolchain_rule(
         name = name,
         **kwargs
@@ -68,6 +77,8 @@ def _config_backed_android_toolchain_rule_impl(ctx):
             framework_aidl_file = ctx.attr.framework_aidl_file,
             generate_build_config = ctx.attr.generate_build_config,
             generate_manifest = ctx.attr.generate_manifest,
+            instrumentation_test_runner_classpath = ctx.attr.instrumentation_test_runner_classpath,
+            instrumentation_test_runner_main_class = ctx.attr.instrumentation_test_runner_main_class,
             manifest_utils = ctx.attr.manifest_utils,
             merge_android_resources = ctx.attr.merge_android_resources,
             merge_assets = ctx.attr.merge_assets,
@@ -93,6 +104,8 @@ _config_backed_android_toolchain_rule = rule(
         "framework_aidl_file": attr.source(),
         "generate_build_config": attr.dep(providers = [RunInfo]),
         "generate_manifest": attr.dep(providers = [RunInfo]),
+        "instrumentation_test_runner_classpath": attr.list(attr.source()),
+        "instrumentation_test_runner_main_class": attr.string(),
         "manifest_utils": attr.dep(providers = [RunInfo]),
         "merge_android_resources": attr.dep(providers = [RunInfo]),
         "merge_assets": attr.dep(providers = [RunInfo]),
