@@ -220,17 +220,15 @@ def rust_compile(
     )
 
     rustc_cmd = cmd_args(
-        [common_args.args] +
-        [
-            "--remap-path-prefix",
-            cmd_args(compile_ctx.symlinked_srcs, format = "{}/=" + ctx.label.package),
-            compile_ctx.linker_args,
-        ] +
+        common_args.args,
+        "--remap-path-prefix",
+        cmd_args(compile_ctx.symlinked_srcs, format = "{}/=" + ctx.label.package),
+        compile_ctx.linker_args,
         # Normalize working directory
-        ["-Zremap-cwd-prefix="] +
+        "-Zremap-cwd-prefix=",
         # Report unused --extern crates in the notification stream
-        (["--json=unused-externs", "-Wunused-crate-dependencies"] if toolchain_info.report_unused_deps else []) +
-        extra_flags +
+        ["--json=unused-externs", "-Wunused-crate-dependencies"] if toolchain_info.report_unused_deps else [],
+        extra_flags,
         lints,
     )
 
@@ -289,7 +287,7 @@ def rust_compile(
         ctx = ctx,
         compile_ctx = compile_ctx,
         prefix = "{}/{}".format(common_args.subdir, common_args.tempfile),
-        rustc_cmd = cmd_args([toolchain_info.compiler, rustc_cmd] + emit_args),
+        rustc_cmd = cmd_args(toolchain_info.compiler, rustc_cmd, emit_args),
         diag = "diag",
         outputs = outputs.values(),
         short_cmd = common_args.short_cmd,
@@ -305,7 +303,7 @@ def rust_compile(
             ctx = ctx,
             compile_ctx = compile_ctx,
             prefix = "{}/{}".format(common_args.subdir, common_args.tempfile),
-            rustc_cmd = cmd_args([compile_ctx.clippy_wrapper, rustc_cmd] + clippy_lints + clippy_emit_args),
+            rustc_cmd = cmd_args(compile_ctx.clippy_wrapper, rustc_cmd, clippy_lints, clippy_emit_args),
             diag = "clippy",
             outputs = clippy_out.values(),
             short_cmd = common_args.short_cmd,
@@ -346,7 +344,7 @@ def _dependency_args(
         subdir: str.type,
         crate_type: CrateType.type,
         link_style: LinkStyle.type,
-        is_check: bool.type) -> (["_arg"], {str.type: "label"}):
+        is_check: bool.type) -> ("cmd_args", {str.type: "label"}):
     args = cmd_args()
     transitive_deps = {}
     deps = []
@@ -378,7 +376,7 @@ def _dependency_args(
         flags = ""
         if x.flags != []:
             flags = ",".join(x.flags) + ":"
-        args.add(cmd_args([flags + crate, "=", artifact], delimiter = ""))
+        args.add(cmd_args(flags + crate, "=", artifact, delimiter = ""))
         crate_targets[crate] = dep.label
 
         # Unwanted transitive_deps have already been excluded
@@ -397,24 +395,27 @@ def _dependency_args(
         dep_link_dir = ctx.actions.symlinked_dir(deps_dir, srcs = srcs)
         args.add(cmd_args(dep_link_dir, format = "-Ldependency={}"))
 
-    return ([args], crate_targets)
+    return (args, crate_targets)
 
-def _lintify(flag: str.type, clippy: bool.type, lints: ["resolved_macro"]) -> ["cmd_args"]:
-    return [cmd_args(lint, format = "-{}{{}}".format(flag)) for lint in lints if str(lint).startswith("\"clippy::") == clippy]
-
-def _lint_flags(ctx: "context") -> (["cmd_args"], ["cmd_args"]):
-    toolchain_info = ctx_toolchain_info(ctx)
-
-    plain = (
-        _lintify("A", False, toolchain_info.allow_lints) +
-        _lintify("D", False, toolchain_info.deny_lints) +
-        _lintify("W", False, toolchain_info.warn_lints)
+def _lintify(flag: str.type, clippy: bool.type, lints: ["resolved_macro"]) -> "cmd_args":
+    return cmd_args(
+        [lint for lint in lints if str(lint).startswith("\"clippy::") == clippy],
+        format = "-{}{{}}".format(flag),
     )
 
-    clippy = (
-        _lintify("A", True, toolchain_info.allow_lints) +
-        _lintify("D", True, toolchain_info.deny_lints) +
-        _lintify("W", True, toolchain_info.warn_lints)
+def _lint_flags(ctx: "context") -> ("cmd_args", "cmd_args"):
+    toolchain_info = ctx_toolchain_info(ctx)
+
+    plain = cmd_args(
+        _lintify("A", False, toolchain_info.allow_lints),
+        _lintify("D", False, toolchain_info.deny_lints),
+        _lintify("W", False, toolchain_info.warn_lints),
+    )
+
+    clippy = cmd_args(
+        _lintify("A", True, toolchain_info.allow_lints),
+        _lintify("D", True, toolchain_info.deny_lints),
+        _lintify("W", True, toolchain_info.warn_lints),
     )
 
     return (plain, clippy)
@@ -456,34 +457,32 @@ def _compute_common_args(
     )
 
     if crate_type == CrateType("proc-macro"):
-        dependency_args.extend(["--extern", "proc_macro"])
+        dependency_args.add("--extern", "proc_macro")
 
     if crate_type == CrateType("cdylib") and not is_check:
         linker_type = ctx.attr._cxx_toolchain[CxxToolchainInfo].linker_info.type
         shlib_name = get_default_shared_library_name(linker_type, ctx.label)
-        dependency_args.extend([
-            "-Clink-arg={}".format(a)
-            for a in get_shared_library_name_linker_flags(linker_type, shlib_name)
-        ])
+        dependency_args.add(cmd_args(
+            get_shared_library_name_linker_flags(linker_type, shlib_name),
+            format = "-Clink-arg={}",
+        ))
 
     toolchain_info = ctx_toolchain_info(ctx)
     args = cmd_args(
-        [
-            cmd_args([compile_ctx.symlinked_srcs, "/", crate_root], delimiter = ""),
-            "--crate-name={}".format(crate),
-            "--crate-type={}".format(crate_type.value),
-            "-Crelocation-model={}".format(params.reloc_model.value),
-            "--edition={}".format(ctx.attr.edition or toolchain_info.default_edition),
-            "-Cmetadata={}".format(_metadata(ctx.label)[0]),
-            # Make diagnostics json with the option to extract rendered text
-            "--error-format=json",
-            "--json=diagnostic-rendered-ansi",
-        ] +
-        (["-Cprefer-dynamic=yes"] if crate_type == CrateType("dylib") else []) +
-        toolchain_info.rustc_flags +
-        (toolchain_info.rustc_check_flags if is_check else []) +
-        ctx.attr.rustc_flags +
-        _feature_args(ctx) +
+        cmd_args(compile_ctx.symlinked_srcs, "/", crate_root, delimiter = ""),
+        "--crate-name={}".format(crate),
+        "--crate-type={}".format(crate_type.value),
+        "-Crelocation-model={}".format(params.reloc_model.value),
+        "--edition={}".format(ctx.attr.edition or toolchain_info.default_edition),
+        "-Cmetadata={}".format(_metadata(ctx.label)[0]),
+        # Make diagnostics json with the option to extract rendered text
+        "--error-format=json",
+        "--json=diagnostic-rendered-ansi",
+        ["-Cprefer-dynamic=yes"] if crate_type == CrateType("dylib") else [],
+        toolchain_info.rustc_flags,
+        toolchain_info.rustc_check_flags if is_check else [],
+        ctx.attr.rustc_flags,
+        _feature_args(ctx),
         dependency_args,
     )
 
@@ -521,7 +520,7 @@ def _clippy_wrapper(ctx: "context") -> "cmd_args":
         allow_args = True,
     )
 
-    return cmd_args(wrapper_file).hidden(macro_files + [clippy_driver, rustc])
+    return cmd_args(wrapper_file).hidden(macro_files, clippy_driver, rustc)
 
 # This is a hack because we need to pass the linker to rustc
 # using -Clinker=path and there is currently no way of doing this
@@ -529,10 +528,11 @@ def _clippy_wrapper(ctx: "context") -> "cmd_args":
 # and add -Clinker=
 def _linker_args(ctx: "context") -> "cmd_args":
     linker_info = ctx.attr._cxx_toolchain[CxxToolchainInfo].linker_info
-    linker_flags = linker_info.linker_flags or []
-    linker = cmd_args(linker_info.linker)
-    linker.add(linker_flags)
-    linker.add(ctx.attr.linker_flags)
+    linker = cmd_args(
+        linker_info.linker,
+        linker_info.linker_flags or [],
+        ctx.attr.linker_flags,
+    )
 
     # Now we create a wrapper to actually run the linker. Use $(cat <<heredoc) to
     # combine the multiline command into a single logical command.
@@ -546,7 +546,7 @@ def _linker_args(ctx: "context") -> "cmd_args":
         allow_args = True,
     )
 
-    return cmd_args(wrapper, format = "-Clinker={}").hidden([linker] + macro_files)
+    return cmd_args(wrapper, format = "-Clinker={}").hidden(linker, macro_files)
 
 def _shell_quote(args: "cmd_args") -> "cmd_args":
     return cmd_args(args, quote = "shell")
@@ -594,7 +594,7 @@ def _rustc_emits(
         predeclared_outputs: {Emit.type: "artifact"},
         subdir: str.type,
         crate: str.type,
-        params: BuildParams.type) -> ({Emit.type: "artifact"}, [["cmd_args", str.type]]):
+        params: BuildParams.type) -> ({Emit.type: "artifact"}, "cmd_args"):
     toolchain_info = ctx_toolchain_info(ctx)
     crate_type = params.crate_type
 
@@ -611,13 +611,13 @@ def _rustc_emits(
                     toolchain_info.pipelined and \
                     not crate_type_codegen(crate_type)
 
-    emit_args = []
+    emit_args = cmd_args()
     extra_hash = ""
     if emit in predeclared_outputs:
         output = predeclared_outputs[emit]
     else:
         extra_hash = "-" + _metadata(ctx.label)[1]
-        emit_args += ["-Cextra-filename=" + extra_hash]
+        emit_args.add("-Cextra-filename=" + extra_hash)
         if pipeline_meta:
             # Make sure hollow rlibs are distinct from real ones
             filename = subdir + "/hollow/" + output_filename(crate, Emit("link"), params, extra_hash)
@@ -634,17 +634,17 @@ def _rustc_emits(
         # code. It should contain full information needed by any dependent
         # crate which is generating code (MIR, etc).
         # Requires https://github.com/rust-lang/rust/pull/86045
-        emit_args += [
+        emit_args.add(
             "--emit",
             cmd_args(output.as_output(), format = "link={}"),
             "-Zno-codegen",
-        ]
+        )
     elif emit == Emit("expand"):
-        emit_args += ["-Zunpretty=expanded", "-o", cmd_args(output.as_output())]
+        emit_args.add("-Zunpretty=expanded", "-o", output.as_output())
     else:
         # Assume https://github.com/rust-lang/rust/issues/85356 is fixed (ie
         # https://github.com/rust-lang/rust/pull/85362 is applied)
-        emit_args += ["--emit", cmd_args(output.as_output(), format = emit.value + "={}")]
+        emit_args.add("--emit", cmd_args(output.as_output(), format = emit.value + "={}"))
 
     if emit == Emit("metadata") and toolchain_info.save_analysis:
         # Emit save-analysis as a bonus output - it doesn't cost much to generate
@@ -653,19 +653,16 @@ def _rustc_emits(
         filename = "{}/save-analysis/{}{}{}.json".format(subdir, params.prefix, crate, extra_hash)
         output = ctx.actions.declare_output(filename)
         outputs[Emit("save-analysis")] = output
-        emit_args += [
+        emit_args.add(
             "-Zsave-analysis",
             # No way to explicitly set the output location except with the output dir
             "--out-dir",
             cmd_args(output.as_output()).parent(2),
-        ]
+        )
     else:
         extra_dir = subdir + "/extras/" + output_filename(crate, emit, params)
         extra_dir = ctx.actions.declare_output(extra_dir)
-        emit_args += [
-            "--out-dir",
-            cmd_args(extra_dir.as_output()),
-        ]
+        emit_args.add("--out-dir", extra_dir.as_output())
 
     return (outputs, emit_args)
 
@@ -690,7 +687,7 @@ def _rustc_invoke(
 
     rustc_action = toolchain_info.rustc_action[RunInfo]
 
-    args = [
+    compile_cmd = cmd_args(
         rustc_action,
         "--diag-json",
         json_diag.as_output(),
@@ -698,27 +695,24 @@ def _rustc_invoke(
         txt_diag.as_output(),
         "--buck-target",
         str(ctx.label.raw_target()),
-    ]
+    )
     for k, v in crate_map.items():
-        args.extend(["--crate-map", k, str(v.raw_target())])
+        compile_cmd.add("--crate-map", k, str(v.raw_target()))
     for k, v in plain_env.items():
-        args.extend(["--env", k, v])
+        compile_cmd.add("--env", k, v)
     for k, v in path_env.items():
-        args.extend(["--path-env", k, v])
+        compile_cmd.add("--path-env", k, v)
 
     build_status = None
     if toolchain_info.failure_filter:
         # Build status for fail filter
         build_status = ctx.actions.declare_output("{}_build_status-{}.json".format(prefix, diag))
-        args.extend(["--failure-filter", build_status.as_output()])
+        compile_cmd.add("--failure-filter", build_status.as_output())
         for out in outputs:
-            args.extend(["--required-output", out.short_path, out.as_output()])
+            compile_cmd.add("--required-output", out.short_path, out.as_output())
 
-    args.append(rustc_cmd)
-
-    compile_cmd = cmd_args(args)
-
-    compile_cmd.hidden([toolchain_info.compiler, compile_ctx.symlinked_srcs])
+    compile_cmd.add(rustc_cmd)
+    compile_cmd.hidden(toolchain_info.compiler, compile_ctx.symlinked_srcs)
 
     local_only = is_binary and ctx.attr._cxx_toolchain[CxxToolchainInfo].linker_info.link_binaries_locally
     identifier = "{} {} [{}]".format(prefix, short_cmd, diag)

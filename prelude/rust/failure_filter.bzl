@@ -31,7 +31,7 @@ def failure_filter(
     else:
         output = ctx.actions.declare_output("out/" + required.short_path)
 
-    cmd = cmd_args([
+    cmd = cmd_args(
         failure_filter_action,
         "--stderr",
         stderr,
@@ -41,7 +41,7 @@ def failure_filter(
         output.as_output(),
         "--build-status",
         buildstatus,
-    ])
+    )
 
     ctx.actions.run(cmd, category = "failure_filter", identifier = "{} {}".format(prefix, short_cmd))
 
