@@ -104,10 +104,10 @@ impl ProviderCodegen {
         Ok(quote! {
             starlark::starlark_complex_value!(#vis #name);
 
-            impl<'v, V: starlark::values::ValueLike<'v>> starlark::values::StarlarkValue<'v>
+            impl<'v, V: starlark::values::ValueLike<'v> + 'v> starlark::values::StarlarkValue<'v>
                 for #gen_name<V>
             where
-                Self: gazebo::any::AnyLifetime<'v> + gazebo::any::ProvidesStaticType,
+                Self: gazebo::any::ProvidesStaticType,
             {
                 starlark::starlark_type!(#name_str);
 
@@ -137,8 +137,6 @@ impl ProviderCodegen {
         Ok(quote! {
             impl<'v, V: starlark::values::ValueLike<'v>> serde::Serialize
                 for #gen_name<V>
-            where
-                Self: gazebo::any::AnyLifetime<'v>,
             {
                 fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error> where S : serde::Serializer {
                     use serde::ser::SerializeMap;
@@ -176,9 +174,9 @@ impl ProviderCodegen {
         let field_names = self.field_names()?;
         let callable_name = self.callable_name()?;
         Ok(quote! {
-            impl<'v, V: starlark::values::ValueLike<'v>> crate::interpreter::rule_defs::provider::ProviderLike<'v> for #gen_name<V>
+            impl<'v, V: starlark::values::ValueLike<'v> + 'v> crate::interpreter::rule_defs::provider::ProviderLike<'v> for #gen_name<V>
             where
-                Self: gazebo::any::AnyLifetime<'v> + std::fmt::Debug,
+                Self: std::fmt::Debug,
             {
                 fn id(&self) -> &std::sync::Arc<crate::interpreter::rule_defs::provider::ProviderId> {
                     #callable_name::provider_id()
@@ -222,8 +220,6 @@ impl ProviderCodegen {
             starlark::starlark_simple_value!(#callable_name);
 
             impl<'v> starlark::values::StarlarkValue<'v> for #callable_name
-            where
-                Self: gazebo::any::AnyLifetime<'v>,
             {
                 starlark::starlark_type!(#callable_name_snake_str);
 
