@@ -11,14 +11,14 @@
 
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
-use anyhow::{anyhow, Context as _};
+use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_common::dice::{cells::HasCellResolver, data::HasIoProvider};
 use buck2_core::{
     category::Category,
     fs::{
         paths::{ForwardRelativePath, ForwardRelativePathBuf, RelativePathBuf},
-        project::ProjectRelativePathBuf,
+        project::{ProjectRelativePath, ProjectRelativePathBuf},
     },
     provider::ConfiguredProvidersLabel,
     target::ConfiguredTargetLabel,
@@ -53,10 +53,12 @@ use crate::{
     deferred::BaseDeferredKey,
     execute::{
         commands::{
-            self, dice_data::HasCommandExecutor, ClaimManager, CommandExecutionInput,
-            CommandExecutionManager, CommandExecutionRequest, CommandExecutionResult,
-            CommandExecutionTarget, CommandExecutionTimingData, CommandExecutor,
-            OutputCreationBehavior,
+            self,
+            dice_data::HasCommandExecutor,
+            local::{create_output_dirs, materialize_inputs},
+            ClaimManager, CommandExecutionInput, CommandExecutionManager, CommandExecutionRequest,
+            CommandExecutionResult, CommandExecutionTarget, CommandExecutionTimingData,
+            CommandExecutor, OutputCreationBehavior,
         },
         materializer::HasMaterializer,
         CommandExecutorConfig,
@@ -281,12 +283,56 @@ impl TestOrchestrator for BuckTestOrchestrator {
     async fn prepare_for_local_execution(
         &self,
         _metadata: DisplayMetadata,
-        _test_target: ConfiguredTargetHandle,
-        _cmd: Vec<ArgValue>,
-        _env: HashMap<String, ArgValue>,
-        _pre_create_dirs: Vec<DeclaredOutput>,
+        test_target: ConfiguredTargetHandle,
+        cmd: Vec<ArgValue>,
+        env: HashMap<String, ArgValue>,
+        pre_create_dirs: Vec<DeclaredOutput>,
     ) -> anyhow::Result<PrepareForLocalExecutionResult> {
-        Err(anyhow!("prepare_for_local_execution not implemented yet!"))
+        let test_target = self.session.get(test_target)?;
+
+        let fs = self.dice.get_artifact_fs().await;
+
+        let test_executable_expanded = self
+            .expand_test_executable(
+                &fs,
+                &test_target,
+                cmd,
+                env,
+                pre_create_dirs,
+                None, // No executor used, so there isn't a executor to override.
+            )
+            .await?;
+
+        let ExpandedTestExecutable {
+            cwd,
+            cmd: expanded_cmd,
+            env: expanded_env,
+            inputs,
+            supports_re: _,
+            declared_outputs,
+            resolved_executor_override: _,
+        } = test_executable_expanded;
+
+        let execution_request = self
+            .create_command_execution_request(
+                cwd,
+                expanded_cmd,
+                expanded_env,
+                inputs,
+                declared_outputs,
+            )
+            .await?;
+
+        let materializer = self.dice.per_transaction_data().get_materializer();
+
+        materialize_inputs(&fs, &materializer, &execution_request).await?;
+
+        create_output_dirs(&fs, &execution_request)?;
+
+        Ok(create_prepare_for_local_execution_result(
+            &fs,
+            execution_request,
+        ))
     }
 }
 
@@ -769,6 +815,20 @@ struct ExpandedTestExecutable {
     supports_re: bool,
     declared_outputs: IndexMap<BuckOutTestPath, OutputCreationBehavior>,
     resolved_executor_override: Option<CommandExecutorConfig>,
+}
+
+fn create_prepare_for_local_execution_result(
+    fs: &ArtifactFs,
+    request: CommandExecutionRequest,
+) -> PrepareForLocalExecutionResult {
+    let relative_cwd = request
+        .working_directory()
+        .unwrap_or_else(|| ProjectRelativePath::unchecked_new(""));
+    let cwd = fs.fs().resolve(relative_cwd);
+    let cmd = request.args().map(String::from);
+    let env = request.env().clone();
+
+    PrepareForLocalExecutionResult { cmd, env, cwd }
 }
 
 #[cfg(test)]
