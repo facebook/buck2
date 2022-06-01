@@ -20,7 +20,7 @@ use proc_macro2::TokenStream;
 use quote::quote_spanned;
 
 use crate::module::{
-    typ::{StarArg, StarArgPassStyle, StarArgSource, StarFun, StarFunSource},
+    typ::{SpecialParam, StarArg, StarArgPassStyle, StarArgSource, StarFun, StarFunSource},
     util::{ident_string, mut_token},
 };
 
@@ -60,6 +60,8 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
     let StarFun {
         name,
         attrs,
+        heap,
+        eval,
         return_type,
         speculative_exec_safe,
         body,
@@ -108,6 +110,21 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
         )
     };
 
+    let let_eval = if let Some(SpecialParam { ident, ty }) = eval {
+        Some(quote_spanned! {span=>
+            let #ident: #ty = eval;
+        })
+    } else {
+        None
+    };
+    let let_heap = if let Some(SpecialParam { ident, ty }) = heap {
+        Some(quote_spanned! {span=>
+            let #ident: #ty = eval.heap();
+        })
+    } else {
+        None
+    };
+
     Ok(quote_spanned! {
         span=>
         #( #attrs )*
@@ -125,9 +142,11 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
                 __args: &starlark::eval::Arguments<'v, '_>,
                 #signature_arg
             ) -> #return_type {
+                #binding
                 #[allow(unused_variables)]
                 let heap = eval.heap();
-                #binding
+                #let_eval
+                #let_heap
                 #body
             }
             match inner(eval, #this_arg parameters, #signature_val) {

@@ -23,8 +23,11 @@ use syn::{
 };
 
 use crate::module::{
-    parse::is_attribute_docstring,
-    typ::{StarArg, StarArgPassStyle, StarArgSource, StarAttr, StarFun, StarFunSource, StarStmt},
+    parse::{is_attribute_docstring, is_mut_something, is_ref_something},
+    typ::{
+        SpecialParam, StarArg, StarArgPassStyle, StarArgSource, StarAttr, StarFun, StarFunSource,
+        StarStmt,
+    },
 };
 
 struct ProcessedAttributes {
@@ -205,17 +208,51 @@ pub(crate) fn parse_fun(func: ItemFn) -> syn::Result<StarStmt> {
 
     let (return_type, return_type_arg) = parse_fn_output(&func.sig.output, func.sig.span(), has_v)?;
 
+    let mut eval = None;
+    let mut heap = None;
+
     let mut seen_star_args = false;
     let mut args = Vec::new();
     for arg in func.sig.inputs {
-        let arg = parse_arg(arg, has_v, seen_star_args)?;
-        if arg.is_args() {
-            seen_star_args = true;
+        let span = arg.span();
+        let parsed_arg = parse_arg(arg, has_v, seen_star_args)?;
+        match parsed_arg {
+            StarArgOrSpecial::Heap(special) => {
+                if heap.is_some() {
+                    return Err(syn::Error::new(span, "Repeated `&Heap` parameter"));
+                }
+                heap = Some(special);
+            }
+            StarArgOrSpecial::Eval(special) => {
+                if eval.is_some() {
+                    return Err(syn::Error::new(span, "Repeated `&mut Evaluator` parameter"));
+                }
+                eval = Some(special);
+            }
+            StarArgOrSpecial::StarArg(arg) => {
+                if arg.is_args() {
+                    seen_star_args = true;
+                }
+                args.push(arg);
+            }
         }
-        args.push(arg);
+    }
+
+    if eval.is_some() && heap.is_some() {
+        return Err(syn::Error::new(
+            sig_span,
+            "Can't have both `&mut Evaluator` and `&Heap` parameters",
+        ));
     }
 
     if is_attribute {
+        if eval.is_some() {
+            return Err(syn::Error::new(
+                sig_span,
+                "Attributes cannot have `&mut Evaluator` parameter",
+            ));
+        }
+
         if args.len() != 1 {
             return Err(syn::Error::new(
                 sig_span,
@@ -238,6 +275,7 @@ pub(crate) fn parse_fun(func: ItemFn) -> syn::Result<StarStmt> {
         Ok(StarStmt::Attr(StarAttr {
             name: func.sig.ident,
             arg: arg.ty,
+            heap,
             attrs,
             return_type,
             return_type_arg,
@@ -251,6 +289,8 @@ pub(crate) fn parse_fun(func: ItemFn) -> syn::Result<StarStmt> {
             type_attribute,
             attrs,
             args,
+            heap,
+            eval,
             return_type,
             return_type_arg,
             speculative_exec_safe,
@@ -372,7 +412,52 @@ fn parse_starlark_type_eq(tokens: &Attribute) -> syn::Result<Option<Expr>> {
     tokens.parse_args_with(parse)
 }
 
-fn parse_arg(x: FnArg, has_v: bool, seen_star_args: bool) -> syn::Result<StarArg> {
+#[allow(clippy::large_enum_variant)]
+enum StarArgOrSpecial {
+    StarArg(StarArg),
+    /// `&mut Evaluator`.
+    Eval(SpecialParam),
+    /// `&Heap`.
+    Heap(SpecialParam),
+}
+
+/// Function parameter is `eval: &mut Evaluator`.
+fn is_eval(ident: &Ident, ty: &Type) -> syn::Result<Option<SpecialParam>> {
+    if is_mut_something(ty, "Evaluator") {
+        if ident != "eval" {
+            return Err(syn::Error::new(
+                ident.span(),
+                "`&mut Evaluator` parameter must be named `eval`",
+            ));
+        }
+        Ok(Some(SpecialParam {
+            ident: ident.clone(),
+            ty: ty.clone(),
+        }))
+    } else {
+        Ok(None)
+    }
+}
+
+/// Function parameter is `heap: &Heap`.
+fn is_heap(ident: &Ident, ty: &Type) -> syn::Result<Option<SpecialParam>> {
+    if is_ref_something(ty, "Heap") {
+        if ident != "heap" {
+            return Err(syn::Error::new(
+                ident.span(),
+                "`&Heap` parameter must be named `heap`",
+            ));
+        }
+        Ok(Some(SpecialParam {
+            ident: ident.clone(),
+            ty: ty.clone(),
+        }))
+    } else {
+        Ok(None)
+    }
+}
+
+fn parse_arg(x: FnArg, has_v: bool, seen_star_args: bool) -> syn::Result<StarArgOrSpecial> {
     let span = x.span();
     match x {
         FnArg::Typed(PatType {
@@ -381,6 +466,12 @@ fn parse_arg(x: FnArg, has_v: bool, seen_star_args: bool) -> syn::Result<StarArg
             ty: box ty,
             ..
         }) => {
+            if let Some(heap) = is_heap(&ident.ident, &ty)? {
+                return Ok(StarArgOrSpecial::Heap(heap));
+            } else if let Some(eval) = is_eval(&ident.ident, &ty)? {
+                return Ok(StarArgOrSpecial::Eval(eval));
+            }
+
             let this = ident.ident == "this" || ident.ident == "_this";
 
             if ident.subpat.is_some() {
@@ -433,7 +524,7 @@ fn parse_arg(x: FnArg, has_v: bool, seen_star_args: bool) -> syn::Result<StarArg
                     ));
                 }
             };
-            Ok(StarArg {
+            Ok(StarArgOrSpecial::StarArg(StarArg {
                 span,
                 this,
                 attrs: unused_attrs,
@@ -443,7 +534,7 @@ fn parse_arg(x: FnArg, has_v: bool, seen_star_args: bool) -> syn::Result<StarArg
                 ty,
                 default,
                 source: StarArgSource::Unknown,
-            })
+            }))
         }
         FnArg::Typed(PatType { .. }) => Err(syn::Error::new(
             span,

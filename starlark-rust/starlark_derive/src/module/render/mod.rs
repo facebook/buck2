@@ -23,7 +23,7 @@ use quote::{format_ident, quote_spanned};
 
 use crate::module::{
     render::fun::render_fun,
-    typ::{StarAttr, StarConst, StarModule, StarStmt},
+    typ::{SpecialParam, StarAttr, StarConst, StarModule, StarStmt},
     util::ident_string,
 };
 
@@ -79,6 +79,7 @@ fn render_attr(x: StarAttr) -> TokenStream {
     let StarAttr {
         name,
         arg,
+        heap,
         attrs,
         return_type,
         return_type_arg,
@@ -91,6 +92,13 @@ fn render_attr(x: StarAttr) -> TokenStream {
         Some(d) => quote_spanned!(span=> Some(#d.to_owned())),
         None => quote_spanned!(span=> None),
     };
+
+    let let_heap = if let Some(SpecialParam { ident, ty }) = heap {
+        Some(quote_spanned! { span=> let #ident: #ty = heap; })
+    } else {
+        None
+    };
+
     quote_spanned! {
         span=>
         #( #attrs )*
@@ -114,6 +122,7 @@ fn render_attr(x: StarAttr) -> TokenStream {
                     ).into()),
                     Some(v) => v,
                 };
+                #let_heap
                 #body
             }
             Ok(heap.alloc(inner(this, heap)?))

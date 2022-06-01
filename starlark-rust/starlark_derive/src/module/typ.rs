@@ -45,6 +45,7 @@ impl StarModule {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub(crate) enum StarStmt {
     Const(StarConst),
@@ -79,11 +80,21 @@ impl StarConst {
 }
 
 #[derive(Debug)]
+pub(crate) struct SpecialParam {
+    pub(crate) ident: Ident,
+    pub(crate) ty: Type,
+}
+
+#[derive(Debug)]
 pub(crate) struct StarFun {
     pub name: Ident,
     pub type_attribute: Option<Expr>,
     pub attrs: Vec<Attribute>,
     pub args: Vec<StarArg>,
+    /// Has `&Heap` parameter.
+    pub heap: Option<SpecialParam>,
+    /// Has `&mut Evaluator` parameter.
+    pub eval: Option<SpecialParam>,
     /// `anyhow::Result<T>`.
     pub return_type: Type,
     /// `T`.
@@ -126,6 +137,8 @@ impl StarFun {
 pub(crate) struct StarAttr {
     pub name: Ident,
     pub arg: Type,
+    /// Has `&Heap` parameter.
+    pub heap: Option<SpecialParam>,
     pub attrs: Vec<Attribute>,
     /// `anyhow::Result<T>`.
     pub return_type: Type,

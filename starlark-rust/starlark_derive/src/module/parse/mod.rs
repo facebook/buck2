@@ -140,6 +140,17 @@ fn is_mut_something(x: &Type, smth: &str) -> bool {
     }
 }
 
+fn is_ref_something(x: &Type, smth: &str) -> bool {
+    match x {
+        Type::Reference(TypeReference {
+            mutability: None,
+            elem: x,
+            ..
+        }) => is_type_name(x, smth),
+        _ => false,
+    }
+}
+
 // Is the type `&mut GlobalsBuilder`
 fn is_mut_globals_builder(x: &Type) -> bool {
     is_mut_something(x, "GlobalsBuilder")
