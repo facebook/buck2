@@ -174,10 +174,9 @@ impl StmtsCompiled {
         &self,
         compiler: &StmtCompileContext,
         local_count: u32,
-        param_count: u32,
         heap: &FrozenHeap,
     ) -> Bc {
-        let mut bc = BcWriter::new(compiler.bc_profile, local_count, param_count, heap);
+        let mut bc = BcWriter::new(compiler.bc_profile, local_count, heap);
         self.write_bc(compiler, &mut bc);
 
         // Small optimization: if the last statement is return,

@@ -20,7 +20,7 @@ use crate::{assert, eval::bc::opcode::BcOpcode, tests::bc::test_instrs};
 #[test]
 fn test_type() {
     test_instrs(
-        &[BcOpcode::Type, BcOpcode::Return],
+        &[BcOpcode::LoadLocal, BcOpcode::Type, BcOpcode::Return],
         "def test(x): return type(x)",
     );
 }
@@ -28,7 +28,7 @@ fn test_type() {
 #[test]
 fn test_percent_s_one() {
     test_instrs(
-        &[BcOpcode::PercentSOne, BcOpcode::Return],
+        &[BcOpcode::LoadLocal, BcOpcode::PercentSOne, BcOpcode::Return],
         "def test(x): return '((%s))' % x",
     )
 }
@@ -36,7 +36,7 @@ fn test_percent_s_one() {
 #[test]
 fn test_format_one() {
     test_instrs(
-        &[BcOpcode::FormatOne, BcOpcode::Return],
+        &[BcOpcode::LoadLocal, BcOpcode::FormatOne, BcOpcode::Return],
         "def test(x): return '(({}))'.format(x)",
     )
 }
@@ -70,6 +70,7 @@ fn test_spec_exec_list() {
 fn test_call_maybe_known_method() {
     test_instrs(
         &[
+            BcOpcode::LoadLocal,
             BcOpcode::Const,
             BcOpcode::CallMaybeKnownMethodPos,
             BcOpcode::ReturnConst,

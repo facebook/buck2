@@ -88,7 +88,6 @@ impl<'v> Compiler<'v, '_, '_> {
                 let bc = stmt.as_bc(
                     &self.compile_context(),
                     local_count,
-                    0,
                     self.eval.module_env.frozen_heap(),
                 );
                 // We don't preserve locals between top level statements.

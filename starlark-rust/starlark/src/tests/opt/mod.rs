@@ -27,7 +27,7 @@ use crate::{assert::Assert, eval::bc::opcode::BcOpcode, tests::bc::test_instrs};
 #[test]
 fn test_type_is_inlined() {
     test_instrs(
-        &[BcOpcode::TypeIs, BcOpcode::Return],
+        &[BcOpcode::LoadLocal, BcOpcode::TypeIs, BcOpcode::Return],
         r#"
 def is_list(x):
     return type(x) == type([])
