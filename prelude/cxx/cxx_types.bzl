@@ -65,6 +65,9 @@ CxxRuleConstructorParams = record(
     # Additional information used to link every object produced by the rule,
     # flags are _both_ exported and used to link the target itself.
     extra_exported_link_flags = field([""], []),
+    # Additional flags used _only_ when linking the target itself.
+    # These flags are _not_ propagated up the dep tree.
+    extra_link_flags = field([""], []),
     # Additional artifacts to be linked together with the cxx compilation output
     extra_link_input = field(["artifact"], []),
     # The source files to compile as part of this rule. This list can be generated

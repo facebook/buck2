@@ -722,6 +722,7 @@ def _shared_library(
     args.extend(cxx_attr_linker_flags(ctx))
     args.extend(objects)
     args.extend(impl_params.extra_exported_link_flags)
+    args.extend(impl_params.extra_link_flags)
     args.extend(_attr_post_linker_flags(ctx))
     linker_info = cxx_toolchain.linker_info
     args.extend(linker_info.shared_dep_runtime_ld_flags)
