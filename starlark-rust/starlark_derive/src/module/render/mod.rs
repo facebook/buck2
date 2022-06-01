@@ -94,7 +94,7 @@ fn render_attr(x: StarAttr) -> TokenStream {
     };
 
     let let_heap = if let Some(SpecialParam { ident, ty }) = heap {
-        Some(quote_spanned! { span=> let #ident: #ty = heap; })
+        Some(quote_spanned! { span=> let #ident: #ty = __heap; })
     } else {
         None
     };
@@ -111,7 +111,7 @@ fn render_attr(x: StarAttr) -> TokenStream {
              fn inner<'v>(
                 this: starlark::values::Value<'v>,
                 #[allow(unused_variables)]
-                heap: &'v starlark::values::Heap,
+                __heap: &'v starlark::values::Heap,
             ) -> #return_type {
                 #[allow(unused_variables)]
                 let this: #arg = match starlark::values::UnpackValue::unpack_value(this) {
