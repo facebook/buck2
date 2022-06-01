@@ -28,7 +28,7 @@ pub struct Tick {
 }
 
 impl Tick {
-    pub fn zero() -> Tick {
+    pub fn now() -> Tick {
         Self {
             previous_tick: 0,
             current_tick: 0,

@@ -342,7 +342,7 @@ mod tests {
 
     #[test]
     fn test_normal() -> anyhow::Result<()> {
-        let tick = Tick::zero();
+        let tick = Tick::now();
 
         let timed_list = TimedList::new(5, CUTOFFS, "test".to_owned());
         let label = BuckEvent {
@@ -421,7 +421,7 @@ mod tests {
 
     #[test]
     fn test_remaining() -> anyhow::Result<()> {
-        let tick = Tick::zero();
+        let tick = Tick::now();
 
         let e1 = BuckEvent {
             timestamp: SystemTime::now(),
@@ -511,7 +511,7 @@ mod tests {
 
     #[test]
     fn test_children() -> anyhow::Result<()> {
-        let tick = Tick::zero();
+        let tick = Tick::now();
 
         let parent = SpanId::new();
 

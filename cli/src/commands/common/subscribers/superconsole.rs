@@ -166,7 +166,7 @@ impl StatefulSuperConsole {
         Ok(Self {
             state: SuperConsoleState {
                 test_state: TestState::default(),
-                current_tick: Tick::zero(),
+                current_tick: Tick::now(),
                 session_info: SessionInfo::default(),
                 time_speed: TimeSpeed::new(replay_speed)?,
                 simple_console: SimpleConsole::with_tty(verbosity),
