@@ -35,7 +35,8 @@ def watchman_dependency_linux_only() -> bool:
 
 @buck_test(inplace=False, data_dir="pass")
 async def test_pass(buck: Buck) -> None:
-    await buck.build("//:abc")
+    results = await buck.build("//:abc")
+    assert "does not have any outputs: building it does nothing" not in results.stderr
 
 
 @buck_test(inplace=False, data_dir="pass")
@@ -1001,6 +1002,22 @@ async def test_out_directory(buck: Buck) -> None:
         await buck.build("//:dir", "--out", out)
         assert (Path(out) / "b.txt").exists()
         assert (Path(out) / "nested_dir" / "a.txt").exists()
+
+
+@buck_test(inplace=False, data_dir="no_output")
+async def test_no_output(buck: Buck) -> None:
+    results = await buck.build("//:none")
+
+    assert "BUILD SUCCEEDED" in results.stderr
+    assert "does not have any outputs: building it does nothing" in results.stderr
+
+
+@buck_test(inplace=False, data_dir="no_output")
+async def test_no_output_wildcard(buck: Buck) -> None:
+    results = await buck.build("//...")
+
+    assert "BUILD SUCCEEDED" in results.stderr
+    assert "does not have any outputs: building it does nothing" not in results.stderr
 
 
 async def expect_exec_count(buck: Buck, n: int) -> None:

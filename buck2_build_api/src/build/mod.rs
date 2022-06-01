@@ -111,6 +111,13 @@ pub async fn build_configured_label(
         (providers, outputs, run_args)
     };
 
+    if !skippable && outputs.is_empty() {
+        eprintln!(
+            "target {} does not have any outputs: building it does nothing",
+            providers_label.target()
+        );
+    }
+
     let outputs = future::join_all(outputs.into_iter().map(|(o, provider_type)| async move {
         let values = materialize_artifact_group(ctx, &o, materialization_context)
             .await

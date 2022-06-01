@@ -68,5 +68,7 @@ buck_filegroup(
         "hash_all_commands/**/.*",
         "out/**",
         "out/**/.*",
+        "no_output/**",
+        "no_output/**/.*",
     ]),
 )
