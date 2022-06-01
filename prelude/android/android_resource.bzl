@@ -83,9 +83,8 @@ def _get_package(ctx: "context", package: [str.type, None], manifest: ["artifact
 def extract_package_from_manifest(ctx: "context", manifest: "artifact") -> "artifact":
     r_dot_java_package = ctx.actions.declare_output(JAVA_PACKAGE_FILENAME)
     extract_package_cmd = cmd_args(ctx.attr._android_toolchain[AndroidToolchainInfo].manifest_utils[RunInfo])
-    extract_package_cmd.add(["--command", "get_package"])
     extract_package_cmd.add(["--manifest-path", manifest])
-    extract_package_cmd.add(["--output-path", r_dot_java_package.as_output()])
+    extract_package_cmd.add(["--package-output", r_dot_java_package.as_output()])
 
     ctx.actions.run(extract_package_cmd, category = "android_extract_package")
 
