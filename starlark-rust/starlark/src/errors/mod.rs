@@ -94,7 +94,7 @@ impl Frame {
                 .file
                 .source_line_at_pos(location.span.begin())
                 .trim();
-            let (line, ddd) = truncate_snippet(line, 50);
+            let (line, ddd) = truncate_snippet(line, 80);
             writeln!(
                 write,
                 "{}* {}:{}, in {}",
