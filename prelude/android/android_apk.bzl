@@ -84,13 +84,41 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
                 is_optimized = has_proguard_config,
             )
 
-    output_apk = ctx.actions.declare_output("output_apk.apk")
-    keystore = ctx.attr.keystore[KeystoreInfo]
-    keystore_path = keystore.store
-    keystore_properties_path = keystore.properties
+    native_library_info = get_android_binary_native_library_info(ctx, android_packageable_info, deps_by_platform)
+    unstripped_native_libs = native_library_info.unstripped_libs
+    sub_targets["unstripped_native_libraries"] = [
+        DefaultInfo(
+            default_outputs = [ctx.actions.write("unstripped_native_libraries", unstripped_native_libs)],
+            other_outputs = unstripped_native_libs,
+        ),
+    ]
+
+    output_apk = build_apk(
+        actions = ctx.actions,
+        android_toolchain = ctx.attr._android_toolchain[AndroidToolchainInfo],
+        keystore = ctx.attr.keystore[KeystoreInfo],
+        dex_files_info = dex_files_info,
+        native_library_info = native_library_info,
+        resources_info = resources_info,
+        java_packaging_deps = java_packaging_deps,
+    )
+
+    return [
+        DefaultInfo(default_outputs = [output_apk], sub_targets = sub_targets),
+    ]
+
+def build_apk(
+        actions: "actions",
+        keystore: KeystoreInfo.type,
+        android_toolchain: AndroidToolchainInfo.type,
+        dex_files_info: "DexFilesInfo",
+        native_library_info: "AndroidBinaryNativeLibsInfo",
+        resources_info: "AndroidBinaryResourcesInfo",
+        java_packaging_deps: ["JavaPackagingDep"]) -> "artifact":
+    output_apk = actions.declare_output("output_apk.apk")
 
     apk_builder_args = cmd_args([
-        ctx.attr._android_toolchain[AndroidToolchainInfo].apk_builder[RunInfo],
+        android_toolchain.apk_builder[RunInfo],
         "--output-apk",
         output_apk.as_output(),
         "--resource-apk",
@@ -98,27 +126,26 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
         "--dex-file",
         dex_files_info.primary_dex,
         "--keystore-path",
-        keystore_path,
+        keystore.store,
         "--keystore-properties-path",
-        keystore_properties_path,
+        keystore.properties,
         "--zipalign_tool",
-        ctx.attr._android_toolchain[AndroidToolchainInfo].zipalign[RunInfo],
+        android_toolchain.zipalign[RunInfo],
     ])
 
-    android_binary_native_library_info = get_android_binary_native_library_info(ctx, android_packageable_info, deps_by_platform)
     all_native_libs = (
-        android_binary_native_library_info.native_libs +
-        android_binary_native_library_info.native_libs_for_system_library_loader +
-        android_binary_native_library_info.native_lib_assets
+        native_library_info.native_libs +
+        native_library_info.native_libs_for_system_library_loader +
+        native_library_info.native_lib_assets
     )
 
-    asset_directories = ctx.actions.write("asset_directories.txt", dex_files_info.secondary_dex_dirs)
+    asset_directories = actions.write("asset_directories.txt", dex_files_info.secondary_dex_dirs)
     apk_builder_args.hidden(dex_files_info.secondary_dex_dirs)
-    native_library_directories = ctx.actions.write("native_library_directories", all_native_libs)
+    native_library_directories = actions.write("native_library_directories", all_native_libs)
     apk_builder_args.hidden(all_native_libs)
-    zip_files = ctx.actions.write("zip_files", [])
+    zip_files = actions.write("zip_files", [])
     prebuilt_jars = [packaging_dep.jar for packaging_dep in java_packaging_deps if packaging_dep.is_prebuilt_jar]
-    jar_files_that_may_contain_resources = ctx.actions.write("jar_files_that_may_contain_resources", prebuilt_jars)
+    jar_files_that_may_contain_resources = actions.write("jar_files_that_may_contain_resources", prebuilt_jars)
     apk_builder_args.hidden(prebuilt_jars)
 
     apk_builder_args.add([
@@ -132,15 +159,9 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
         jar_files_that_may_contain_resources,
     ])
 
-    ctx.actions.run(apk_builder_args, category = "apk_build")
-    unstripped_native_libs = android_binary_native_library_info.unstripped_libs
-    sub_targets["unstripped_native_libraries"] = [
-        DefaultInfo(
-            default_outputs = [ctx.actions.write("unstripped_native_libraries", unstripped_native_libs)],
-            other_outputs = unstripped_native_libs,
-        ),
-    ]
-    return [DefaultInfo(default_outputs = [output_apk], sub_targets = sub_targets)]
+    actions.run(apk_builder_args, category = "apk_build")
+
+    return output_apk
 
 def _get_build_config_java_libraries(ctx: "context", build_config_infos: ["AndroidBuildConfigInfo"]) -> ["JavaPackagingInfo"]:
     # BuildConfig deps should not be added for instrumented APKs because BuildConfig.class has
