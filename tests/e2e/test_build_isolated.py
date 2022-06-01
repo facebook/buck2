@@ -734,6 +734,15 @@ if eden_linux_only():
         await buck.build("//:simple")
 
 
+if eden_linux_only():
+
+    @buck_test(inplace=False, data_dir="eden_materializer")
+    async def test_eden_materialization_no_config_change(buck: Buck) -> None:
+        await buck.build("//:simple")
+        await buck.kill()
+        await buck.build("//:simple")
+
+
 @buck_test(inplace=False, data_dir="early_action_cutoff")
 async def test_early_action_cutoff(buck: Buck, tmpdir: LocalPath) -> None:
     sentinel = Path(str(tmpdir)) / "sentinel"
