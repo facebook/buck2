@@ -260,7 +260,7 @@ where
 #[starlark_module]
 fn enum_type_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
-    fn r#type<'v>(this: Value) -> anyhow::Result<Value<'v>> {
+    fn r#type<'v>(this: Value, heap: &Heap) -> anyhow::Result<Value<'v>> {
         let this = EnumType::from_value(this).unwrap();
         match this {
             Either::Left(x) => Ok(heap.alloc(x.typ.borrow().as_deref().unwrap_or(EnumValue::TYPE))),
@@ -268,7 +268,7 @@ fn enum_type_methods(builder: &mut MethodsBuilder) {
         }
     }
 
-    fn values<'v>(this: Value) -> anyhow::Result<Value<'v>> {
+    fn values<'v>(this: Value, heap: &Heap) -> anyhow::Result<Value<'v>> {
         let this = EnumType::from_value(this).unwrap();
         match this {
             Either::Left(x) => Ok(heap.alloc_list_iter(x.elements.keys().copied())),
