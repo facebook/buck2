@@ -207,9 +207,7 @@ impl<'v> StarlarkValue<'v> for NoSimpleValue {
 /// [`StarlarkValue`] implementation in `crate::values::layout::avalue::Wrapper`. Otherwise,
 /// any implementations other than the default implementation will not be run.
 #[starlark_internal_vtable]
-pub trait StarlarkValue<'v>:
-    'v + AnyLifetime<'v> + ProvidesStaticType + Debug + Display + Serialize
-{
+pub trait StarlarkValue<'v>: 'v + ProvidesStaticType + Debug + Display + Serialize {
     /// Return a string describing the type of self, as returned by the type()
     /// function.
     ///
