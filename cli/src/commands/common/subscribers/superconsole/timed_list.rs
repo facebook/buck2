@@ -343,10 +343,11 @@ mod tests {
     #[test]
     fn test_normal() -> anyhow::Result<()> {
         let tick = Tick::now();
+        let now = SystemTime::now();
 
         let timed_list = TimedList::new(5, CUTOFFS, "test".to_owned());
         let label = BuckEvent {
-            timestamp: SystemTime::now(),
+            timestamp: now,
             trace_id: TraceId::new(),
             span_id: Some(SpanId::new()),
             parent_id: None,
@@ -361,7 +362,7 @@ mod tests {
         };
 
         let module = BuckEvent {
-            timestamp: SystemTime::now(),
+            timestamp: now,
             trace_id: TraceId::new(),
             span_id: Some(SpanId::new()),
             parent_id: None,
@@ -422,9 +423,10 @@ mod tests {
     #[test]
     fn test_remaining() -> anyhow::Result<()> {
         let tick = Tick::now();
+        let now = SystemTime::now();
 
         let e1 = BuckEvent {
-            timestamp: SystemTime::now(),
+            timestamp: now,
             trace_id: TraceId::new(),
             span_id: Some(SpanId::new()),
             parent_id: None,
@@ -439,7 +441,7 @@ mod tests {
         };
 
         let e2 = BuckEvent {
-            timestamp: SystemTime::now(),
+            timestamp: now,
             trace_id: TraceId::new(),
             span_id: Some(SpanId::new()),
             parent_id: None,
@@ -454,7 +456,7 @@ mod tests {
         };
 
         let e3 = BuckEvent {
-            timestamp: SystemTime::now(),
+            timestamp: now,
             trace_id: TraceId::new(),
             span_id: Some(SpanId::new()),
             parent_id: None,
@@ -512,13 +514,14 @@ mod tests {
     #[test]
     fn test_children() -> anyhow::Result<()> {
         let tick = Tick::now();
+        let now = SystemTime::now();
 
         let parent = SpanId::new();
 
         let timed_list = TimedList::new(5, CUTOFFS, "test".to_owned());
 
         let action = BuckEvent {
-            timestamp: SystemTime::now(),
+            timestamp: now,
             trace_id: TraceId::new(),
             span_id: Some(parent),
             parent_id: None,
@@ -553,7 +556,7 @@ mod tests {
         };
 
         let prepare = BuckEvent {
-            timestamp: SystemTime::now(),
+            timestamp: now,
             trace_id: TraceId::new(),
             span_id: Some(SpanId::new()),
             parent_id: Some(parent),
@@ -618,7 +621,7 @@ mod tests {
         // concurrently but this is a test!
 
         let re_download = BuckEvent {
-            timestamp: SystemTime::now(),
+            timestamp: now,
             trace_id: TraceId::new(),
             span_id: Some(SpanId::new()),
             parent_id: Some(parent),
