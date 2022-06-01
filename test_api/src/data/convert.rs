@@ -699,20 +699,25 @@ impl TryInto<test_proto::TestExecutable> for TestExecutable {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+    use std::{fmt::Debug, time::Duration};
 
     use host_sharing::HostSharingRequirements;
 
     use super::*;
 
+    fn assert_roundtrips<P, S>(s: &S)
+    where
+        S: Clone + PartialEq + Debug,
+        P: TryInto<S, Error = anyhow::Error>,
+        S: TryInto<P, Error = anyhow::Error>,
+    {
+        let proto: P = s.clone().try_into().unwrap();
+        let roundtrip: S = proto.try_into().unwrap();
+        assert_eq!(*s, roundtrip);
+    }
+
     #[test]
     fn external_runner_spec_roundtrip() {
-        fn assert_roundtrips(s: &ExternalRunnerSpec) {
-            let proto: test_proto::ExternalRunnerSpec = s.clone().try_into().unwrap();
-            let roundtrip: ExternalRunnerSpec = proto.try_into().unwrap();
-            assert_eq!(*s, roundtrip);
-        }
-
         let test_spec = ExternalRunnerSpec {
             target: ConfiguredTarget {
                 handle: ConfiguredTargetHandle(1),
@@ -738,17 +743,11 @@ mod tests {
             labels: vec!["label1".to_owned(), "label2".to_owned()],
             contacts: vec!["contact1".to_owned(), "contact2".to_owned()],
         };
-        assert_roundtrips(&test_spec);
+        assert_roundtrips::<test_proto::ExternalRunnerSpec, ExternalRunnerSpec>(&test_spec);
     }
 
     #[test]
     fn execute_request2_roundtrip() {
-        fn assert_roundtrips(s: &ExecuteRequest2) {
-            let proto: test_proto::ExecuteRequest2 = s.clone().try_into().unwrap();
-            let roundtrip: ExecuteRequest2 = proto.try_into().unwrap();
-            assert_eq!(*s, roundtrip);
-        }
-
         let declared_output = DeclaredOutput {
             name: ForwardRelativePathBuf::unchecked_new("name".to_owned()),
         };
@@ -789,17 +788,11 @@ mod tests {
                 name: "foo".to_owned(),
             }),
         };
-        assert_roundtrips(&request);
+        assert_roundtrips::<test_proto::ExecuteRequest2, ExecuteRequest2>(&request);
     }
 
     #[test]
     fn execution_result2_roundtrips() {
-        fn assert_roundtrips(s: &ExecutionResult2) {
-            let proto: test_proto::ExecutionResult2 = s.clone().try_into().unwrap();
-            let roundtrip: ExecutionResult2 = proto.try_into().unwrap();
-            assert_eq!(*s, roundtrip);
-        }
-
         let local_path = if cfg!(not(windows)) {
             "/some/path"
         } else {
@@ -821,6 +814,6 @@ mod tests {
             start_time: SystemTime::UNIX_EPOCH + Duration::from_secs(123),
             execution_time: Duration::from_secs(456),
         };
-        assert_roundtrips(&result);
+        assert_roundtrips::<test_proto::ExecutionResult2, ExecutionResult2>(&result);
     }
 }
