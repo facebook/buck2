@@ -74,8 +74,8 @@ use crate::{
 /// struct OneGen<V>(V);
 /// starlark_complex_value!(One);
 ///
-/// impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for OneGen<V>
-///     where Self: AnyLifetime<'v> + ProvidesStaticType
+/// impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for OneGen<V>
+///     where Self: ProvidesStaticType
 /// {
 ///     starlark_type!("one");
 ///
