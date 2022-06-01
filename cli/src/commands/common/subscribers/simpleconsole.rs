@@ -459,8 +459,9 @@ impl EventSubscriber for SimpleConsole {
     ) -> anyhow::Result<()> {
         if let Some(data) = &test_info.data {
             match data {
-                buck2_data::test_discovery::Data::Session(buck2_data::SessionInfo {
-                    info, ..
+                buck2_data::test_discovery::Data::Session(buck2_data::TestSessionInfo {
+                    info,
+                    ..
                 }) => {
                     echo!("Test session: {}", info)?;
                     self.test_session = Some(info.clone());

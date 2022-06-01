@@ -24,7 +24,7 @@ use buck2_core::{
     target::ConfiguredTargetLabel,
 };
 use buck2_data::{
-    SessionInfo, TestDiscovery, TestDiscoveryEnd, TestDiscoveryStart, TestRunEnd, TestRunStart,
+    TestDiscovery, TestDiscoveryEnd, TestDiscoveryStart, TestRunEnd, TestRunStart, TestSessionInfo,
     TestSuite,
 };
 use buck2_interpreter::dice::HasEvents;
@@ -266,7 +266,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
         session_info: String,
     ) -> anyhow::Result<()> {
         self.events.instant_event(TestDiscovery {
-            data: Some(buck2_data::test_discovery::Data::Session(SessionInfo {
+            data: Some(buck2_data::test_discovery::Data::Session(TestSessionInfo {
                 id: session_id,
                 info: session_info,
             })),

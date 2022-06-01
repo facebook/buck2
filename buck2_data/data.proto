@@ -216,7 +216,7 @@ message BuildGraphExecutionInfo {
 // For a given target, we also report when we discover its tests.
 message TestDiscovery {
   oneof data {
-    SessionInfo session = 1;
+    TestSessionInfo session = 1;
     TestSuite tests = 2;
   }
 }
@@ -274,7 +274,7 @@ message TestResult {
 
 // At the beginning of discovery, the test orchestrator will advertise
 // some information - an id and some arbitrary extra info.
-message SessionInfo {
+message TestSessionInfo {
   string id = 1;
   // Usually this contains a test link, like in TPX
   string info = 2;

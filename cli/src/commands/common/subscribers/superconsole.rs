@@ -58,7 +58,7 @@ pub const SUPERCONSOLE_WIDTH: usize = 150;
 pub(crate) struct SessionInfo {
     re_session: Option<String>,
     trace_id: Option<TraceId>,
-    test_session: Option<buck2_data::SessionInfo>,
+    test_session: Option<buck2_data::TestSessionInfo>,
 }
 
 const CUTOFFS: Cutoffs = Cutoffs {
@@ -715,7 +715,7 @@ impl Component for SessionInfoComponent {
                     headers.push(superconsole::line!(Span::new_unstyled("RE Session:")?,));
                     ids.push(Span::new_unstyled(session_id)?);
                 }
-                if let Some(buck2_data::SessionInfo { info, .. }) = &session_info.test_session {
+                if let Some(buck2_data::TestSessionInfo { info, .. }) = &session_info.test_session {
                     headers.push(superconsole::line!(Span::new_unstyled("Test Session:")?,));
                     ids.push(Span::new_unstyled(info)?);
                 }
