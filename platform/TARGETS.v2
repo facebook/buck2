@@ -74,7 +74,9 @@ _fbcode_python_flavors = [
         # should probably be that we require gvfs, but that's not well reflected
         "ovr_config//runtime/constraints:fbcode",
     ],
-    split_dwarf_enabled = read_bool("fbcode", "split-dwarf", False),
+    # TODO(christylee): fbcode tools rely on the behavior that dwp subtargets are always available,
+    # we should change this to use dwp subtargets only when available.
+    split_dwarf_enabled = read_bool("fbcode", "split-dwarf", True),
     # Use thin archives for static libraries, by default.
     archive_contents = native.read_config("fbcode", "archive_contents", "thin"),
     visibility = ["PUBLIC"],
