@@ -1,0 +1,18 @@
+def _impl(ctx):
+    action_factory = ctx.bxl_actions.action_factory()
+    output_module = action_factory.declare_output(".idea/modules.xml")
+    action_factory.write(output = output_module, content = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+    </modules>
+  </component>
+</project>
+""")
+    return output_module
+
+generate_intellij_project = bxl(
+    implementation = _impl,
+    cli_args = {},
+)
