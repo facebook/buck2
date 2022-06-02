@@ -59,7 +59,6 @@ rust_library(
         "OUT_DIR": "$(location :rust_proto)",
     },
     deps = [
-        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:prost",
         "fbsource//third-party/rust:tonic",
     ],

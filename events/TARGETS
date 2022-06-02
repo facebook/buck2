@@ -6,20 +6,6 @@ rust_library(
     srcs = glob(
         ["src/**/*.rs"],
     ),
-    os_deps = [
-        (
-            "linux",
-            [
-                "//common/rust/scribe/cxx:scribe-cxx",
-            ],
-        ),
-        (
-            "macos",
-            [
-                "//common/rust/scribe/cxx:scribe-cxx",
-            ],
-        ),
-    ],
     test_deps = ["fbsource//third-party/rust:tokio"],
     deps = [
         "fbsource//third-party/rust:anyhow",
