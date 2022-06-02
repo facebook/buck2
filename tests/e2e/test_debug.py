@@ -8,24 +8,6 @@ from xplat.build_infra.buck_e2e.buck_workspace import buck_test
 
 
 @buck_test(inplace=True)
-async def test_replay(buck: Buck) -> None:
-    await buck.build("fbcode//buck2/tests/targets/rules/cxx/hello_world:welcome")
-    replay = await buck.debug("replay")
-    assert "welcome (cxx_link)" in replay.stderr
-
-
-@buck_test(inplace=True)
-async def test_what_ran(buck: Buck) -> None:
-    await buck.build("fbcode//buck2/tests/targets/rules/cxx/hello_world:welcome")
-    out = await buck.debug("what-ran")
-    assert "welcome (cxx_link)" in out.stdout
-
-    await buck.test("fbcode//buck2/tests/targets/rules/sh_test:test")
-    out = await buck.debug("what-ran")
-    assert "sh_test/test.py arg1" in out.stdout
-
-
-@buck_test(inplace=True)
 async def test_what_ran_json_target_without_explicit_test_cases(buck: Buck) -> None:
     await buck.test("fbcode//buck2/tests/targets/rules/sh_test:test")
     out = await buck.debug("what-ran", "--format", "json")
@@ -47,6 +29,22 @@ def fbcode_linux_only() -> bool:
 
 
 if fbcode_linux_only():
+
+    @buck_test(inplace=True)
+    async def test_replay(buck: Buck) -> None:
+        await buck.build("fbcode//buck2/tests/targets/rules/cxx/hello_world:welcome")
+        replay = await buck.debug("replay")
+        assert "welcome (cxx_link)" in replay.stderr
+
+    @buck_test(inplace=True)
+    async def test_what_ran(buck: Buck) -> None:
+        await buck.build("fbcode//buck2/tests/targets/rules/cxx/hello_world:welcome")
+        out = await buck.debug("what-ran")
+        assert "welcome (cxx_link)" in out.stdout
+
+        await buck.test("fbcode//buck2/tests/targets/rules/sh_test:test")
+        out = await buck.debug("what-ran")
+        assert "sh_test/test.py arg1" in out.stdout
 
     @buck_test(inplace=True)
     async def test_what_ran_json_target_with_test_cases(buck: Buck) -> None:
@@ -71,6 +69,14 @@ if fbcode_linux_only():
         assert repro["reproducer"]["executor"] == "Local"
         assert repro["extra"]["testcases"] == ["TestFoo"]
 
+    @buck_test(inplace=True)
+    async def test_last_log(buck: Buck) -> None:
+        await buck.build("fbcode//buck2/tests/targets/rules/cxx/hello_world:welcome")
+        out = await buck.debug("last-log")
+        path = out.stdout.strip()
+        assert os.path.exists(path)
+        assert "/log/" in path
+
 
 @buck_test(inplace=True)
 async def test_what_ran_local(buck: Buck) -> None:
@@ -79,15 +85,6 @@ async def test_what_ran_local(buck: Buck) -> None:
 
     assert "\tlocal\t" in out.stdout
     assert "\tre\t" not in out.stdout
-
-
-@buck_test(inplace=True)
-async def test_last_log(buck: Buck) -> None:
-    await buck.build("fbcode//buck2/tests/targets/rules/cxx/hello_world:welcome")
-    out = await buck.debug("last-log")
-    path = out.stdout.strip()
-    assert os.path.exists(path)
-    assert "/log/" in path
 
 
 @buck_test(inplace=False, data_dir="modify_deferred_materialization_deps")
