@@ -36,9 +36,6 @@ python_library(
 python_unittest(
     name = "build_test",
     srcs = ["build_test.py"],
-    resources = glob([
-        "build_test_*.fixture",
-    ]),
     deps = [
         "fbcode//buck2/facebook/apple_project/buck:build_target",
         ":build",
@@ -102,6 +99,7 @@ python_library(
         ":target_merger",
         ":target_node",
         ":target_selection",
+        ":xcode_data",
     ],
 )
 
@@ -229,6 +227,9 @@ python_unittest(
 python_library(
     name = "target_selection",
     srcs = ["target_selection.py"],
+    tests = [
+        ":target_selection_test",
+    ],
     deps = [
         "fbcode//buck2/facebook/apple_project/buck:buck",
         "fbcode//buck2/facebook/apple_project/buck:build_target",
@@ -248,5 +249,29 @@ python_unittest(
         "fbcode//buck2/facebook/apple_project/buck:build_target_pattern",
         ":query",
         ":target_selection",
+    ],
+)
+
+python_library(
+    name = "xcode_data",
+    srcs = ["xcode_data.py"],
+    tests = [
+        ":xcode_data_test",
+    ],
+    deps = [
+        "fbcode//buck2/facebook/apple_project/buck:build",
+        "fbcode//buck2/facebook/apple_project/buck:build_target",
+    ],
+)
+
+python_unittest(
+    name = "xcode_data_test",
+    srcs = ["xcode_data_test.py"],
+    resources = [
+        "xcode_data_test.fixture",
+    ],
+    deps = [
+        "fbcode//buck2/facebook/apple_project/buck:build_target",
+        ":xcode_data",
     ],
 )
