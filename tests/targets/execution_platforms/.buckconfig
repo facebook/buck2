@@ -10,3 +10,6 @@ fbcode = fbcode
 
 [build]
   execution_platforms = root//platforms:platforms
+
+[buildfile]
+  buck2_default_visibility_to_public = true

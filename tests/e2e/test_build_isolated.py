@@ -799,18 +799,34 @@ async def test_build_nested_subtargets(buck: Buck, tmpdir: LocalPath) -> None:
 
 @buck_test(inplace=False, data_dir="execution_platforms")
 async def test_hybrid_executor_threshold(buck: Buck) -> None:
-    await buck.build("root//tests/...")
+    await buck.build("root//executor_threshold_tests/...")
     out = await read_what_ran(buck)
 
     # pyre-ignore[16]
     executors = {line["identity"]: line["reproducer"]["executor"] for line in out}
     expected = {
-        "root//tests:big (head)": "Local",
-        "root//tests:cp_big (cp)": "Local",
-        "root//tests:small (head)": "Local",
-        "root//tests:cp_small (cp)": "Re",
+        "root//executor_threshold_tests:big (head)": "Local",
+        "root//executor_threshold_tests:cp_big (cp)": "Local",
+        "root//executor_threshold_tests:small (head)": "Local",
+        "root//executor_threshold_tests:cp_small (cp)": "Re",
     }
     assert executors == expected
+
+
+@buck_test(inplace=False, data_dir="execution_platforms")
+async def test_hybrid_executor_fallbacks(buck: Buck) -> None:
+    # Those work as they are allowed to fallback:
+    await buck.build(
+        "root//executor_fallback_tests:local_only",
+        "root//executor_fallback_tests:local_only_full_hybrid",
+    )
+
+    # This one doesn't:
+    await expect_failure(
+        buck.build(
+            "root//executor_fallback_tests:local_only_no_fallback",
+        )
+    )
 
 
 @buck_test(inplace=False, data_dir="prelude_import")

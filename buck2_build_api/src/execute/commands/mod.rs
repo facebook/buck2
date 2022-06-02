@@ -627,7 +627,7 @@ impl Display for ActionResultStatus {
 }
 
 /// Name of an executor. E.g. "remote", "local".
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, Dupe)]
 pub struct ExecutorName(&'static str);
 
 #[derive(Clone, Dupe)]

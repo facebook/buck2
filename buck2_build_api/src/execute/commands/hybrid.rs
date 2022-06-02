@@ -11,7 +11,10 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use events::dispatch::EventDispatcher;
-use futures::{pin_mut, Future, FutureExt};
+use futures::{
+    future::{self, Either, Future},
+    FutureExt,
+};
 use gazebo::prelude::*;
 use remote_execution as RE;
 
@@ -28,11 +31,8 @@ use crate::execute::{
 /// executor, unless the CommandExecutionRequest expresses a preference. That will allow them to
 /// race and whichever claims the request first will get to execute it.
 ///
-/// If the remote executor claims the request and fails, we will enqueue the request again to the
-/// local executor.
-///
-/// TODO(cjhopman): local fallback should probably be configurable. It should be as simple as not
-/// wrapping up the initial remote_result with the fallback stuff below.
+/// If the remote executor claims the request but does not produce a successful response, we will
+/// enqueue the request again to the local executor.
 pub struct HybridExecutor {
     pub local: LocalExecutor,
     pub remote: ReExecutor,
@@ -88,79 +88,97 @@ impl PreparedCommandExecutor for HybridExecutor {
         let local_result = local_result.left_future();
         let remote_result = remote_result.right_future();
 
-        let primary_result;
-        let secondary_result;
-        let fallback_executor;
-        let fallback_executor_name;
-
-        if self.prefer_local {
-            primary_result = local_result;
-            secondary_result = remote_result;
-            fallback_executor = &self.remote as &dyn PreparedCommandExecutor;
-            fallback_executor_name = ExecutorName("remote_fallback");
-        } else {
-            primary_result = remote_result;
-            secondary_result = local_result;
-            fallback_executor = &self.local as &dyn PreparedCommandExecutor;
-            fallback_executor_name = ExecutorName("local_fallback");
-        }
-
-        let fallback_only = match self.level {
-            HybridExecutionLevel::Limited => return primary_result.await,
-            HybridExecutionLevel::Fallback => true,
-            HybridExecutionLevel::Full => false,
+        let remote = Executable {
+            job: remote_result,
+            fallback: FallbackExecutor {
+                executor: &self.local as _,
+                name: ExecutorName("local_fallback"),
+            },
         };
 
-        let primary_result_with_fallback = with_fallback(
-            command,
-            manager,
-            primary_result,
-            fallback_executor,
-            fallback_executor_name,
-        );
+        let local = Executable {
+            job: local_result,
+            fallback: FallbackExecutor {
+                executor: &self.remote as _,
+                name: ExecutorName("remote_fallback"),
+            },
+        };
+
+        let (primary, secondary) = if self.prefer_local {
+            (local, remote)
+        } else {
+            (remote, local)
+        };
+
+        let (fallback_only, fallback_on_failure) = match self.level {
+            HybridExecutionLevel::Limited => return primary.job.await,
+            HybridExecutionLevel::Fallback {
+                fallback_on_failure,
+            } => (true, fallback_on_failure),
+            HybridExecutionLevel::Full {
+                fallback_on_failure,
+            } => (false, fallback_on_failure),
+        };
+
+        let is_retryable_status = move |r: &CommandExecutionResult| {
+            match r.metadata().status {
+                // This doesn't really matter sicne we only ever pass this with statuses known /
+                // expected to not be ClaimRejected.
+                super::ActionResultStatus::ClaimRejected => false,
+                // If the execution is successful, use the result.
+                super::ActionResultStatus::Success { .. } => false,
+                // Retry commands that failed (i.e. exit 1) only if we're instructed to do so.
+                super::ActionResultStatus::Failure { .. } => fallback_on_failure,
+                // Errors are infra errors and are always retried because that is the point of
+                // falling back.
+                super::ActionResultStatus::Error(_, _)
+                | super::ActionResultStatus::TimedOut { .. } => true,
+            }
+        };
 
         if fallback_only {
-            return primary_result_with_fallback.await;
+            return exec_with_restart(
+                command,
+                manager,
+                primary.into_future(),
+                &is_retryable_status,
+            )
+            .await;
         }
 
-        // fuse and pin these so we can select over them.
-        let secondary_result = secondary_result.fuse();
-        let primary_result_with_fallback = primary_result_with_fallback.fuse();
-        pin_mut!(secondary_result);
-        pin_mut!(primary_result_with_fallback);
+        let primary = primary.into_future();
+        let secondary = secondary.into_future();
+        futures::pin_mut!(primary);
+        futures::pin_mut!(secondary);
 
-        // The loop+complete allows us a simple way to ignore a result if it has a ClaimRejected status. It should be
-        // impossible for both of them to finish with that status.
-        #[allow(clippy::mut_mut)] // The select! uses a &mut &mut
-        loop {
-            futures::select! {
-                secondary = secondary_result => {
-                    match secondary.metadata().status {
-                        ActionResultStatus::ClaimRejected => {},
-                        _ => {
-                            // We don't wait for the primary execution result to finish. We depend on the ClaimManager
-                            // (and the primary executor to properly use it) to ensure that the primary executor doesn't
-                            // have any side effects.
-                            return secondary;
-                        }
-                    }
-                }
-                primary = primary_result_with_fallback => {
-                    match primary.metadata().status {
-                        ActionResultStatus::ClaimRejected => {},
-                        _ => {
-                            // We don't wait for the secondary execution result to finish as it may
-                            // be sitting in a queue for a long time. We depend on the ClaimManager
-                            // (and the secondary executor to properly use it) to ensure that the
-                            // secondary executor doesn't have any side effects.
-                            return primary;
-                        }
-                    }
-                }
-                complete => {
-                    panic!("should've returned results from one of the executors.")
-                }
-            };
+        let (first, second) =
+            Either::factor_first(futures::future::select(primary, secondary).await);
+
+        // Note: We discard the fallback this yields here. That's because we already kicked off
+        // that executor in `second` so we'll just reuse that future.
+        let (first_res, first_fallback) = first;
+
+        if is_claim_rejected(&first_res) {
+            // If the first result was rejected then wait for the second one and then if that
+            // provides a status we must retry, we'll use its fallback executor (which is the one
+            // that just produced the rejected claim).
+            exec_with_restart(command, manager, second, &is_retryable_status).await
+        } else if is_retryable_status(&first_res) {
+            // If the first result is retryable, then we have to watch out for the case where the
+            // second executor returns a rejected claim (meaning it didn't execute). When that
+            // happens, we should retry it on that executor itself, which is the first fallback we
+            // received.
+            let (second_res, _unused_fallback) = second.await;
+            exec_with_restart(
+                command,
+                manager,
+                future::ready((second_res, first_fallback)),
+                is_claim_rejected,
+            )
+            .await
+        } else {
+            // Everyone is happy, we got our result.
+            first_res
         }
     }
 
@@ -171,51 +189,60 @@ impl PreparedCommandExecutor for HybridExecutor {
     fn name(&self) -> ExecutorName {
         match self.level {
             HybridExecutionLevel::Limited => ExecutorName("limited-hybrid"),
-            HybridExecutionLevel::Fallback => ExecutorName("fallback-hybrid"),
-            HybridExecutionLevel::Full => ExecutorName("hybrid"),
+            HybridExecutionLevel::Fallback { .. } => ExecutorName("fallback-hybrid"),
+            HybridExecutionLevel::Full { .. } => ExecutorName("hybrid"),
         }
     }
 }
 
-/// Wraps the remote_result with fallback-handling.
-async fn with_fallback<F: Future<Output = CommandExecutionResult>>(
+fn is_claim_rejected(res: &CommandExecutionResult) -> bool {
+    match res.metadata().status {
+        ActionResultStatus::ClaimRejected => true,
+        _ => false,
+    }
+}
+
+/// Execute `exec`, and restart on the FallbackExecutor it yields if `should_restart` passes.
+async fn exec_with_restart<S>(
     command: &PreparedCommand<'_, '_>,
     manager: CommandExecutionManager,
-    inner_result: F,
-    fallback: &dyn PreparedCommandExecutor,
-    fallback_name: ExecutorName,
-) -> CommandExecutionResult {
-    let mut result = inner_result.await;
+    exec: impl Future<Output = (CommandExecutionResult, FallbackExecutor<'_>)>,
+    should_restart: S,
+) -> CommandExecutionResult
+where
+    S: FnOnce(&CommandExecutionResult) -> bool,
+{
+    let (result, fallback) = exec.await;
 
-    match result.metadata().status {
-        // If the claim is rejected, fallback has already started on it. If the execution is successful, use the result.
-        super::ActionResultStatus::ClaimRejected | super::ActionResultStatus::Success { .. } => {
-            result
-        }
-        // For either failure type:
-        // if the request has been claimed, log something and fall back to a new fallback execution (since the
-        // earlier one is either already or will be cancelled when it can't get the claim)
-        // if the request was not claimed by the primary execution, return ClaimRejected so that the hybrid
-        // select below will ignore this result.
-        super::ActionResultStatus::Failure { .. }
-        | super::ActionResultStatus::Error(_, _)
-        | super::ActionResultStatus::TimedOut { .. } => {
-            if result.metadata().claim.is_some() {
-                let fallback_manager = CommandExecutionManager::new(
-                    // TODO(cjhopman): This should probably use the fallback executor's name, but
-                    // ExecutorName wants a &'static str
-                    fallback_name,
-                    // The primary executor has already successfully made a claim, so pass a new ClaimManager
-                    <dyn ClaimManager>::new_simple(),
-                    manager.events.dupe(),
-                );
-                fallback.exec_cmd(command, fallback_manager).await
-            } else {
-                // TODO(cjhopman): This isn't a great approach. Maybe the remote_result_with_fallback should
-                // return a different type so that we can explicitly signal this case.
-                result.metadata.status = ActionResultStatus::ClaimRejected;
-                result
-            }
-        }
+    if !should_restart(&result) {
+        return result;
+    }
+
+    let fallback_manager = CommandExecutionManager::new(
+        fallback.name,
+        // We already obtained a result here so we need a new claim to allow it to proceed.
+        <dyn ClaimManager>::new_simple(),
+        manager.events.dupe(),
+    );
+
+    fallback.executor.exec_cmd(command, fallback_manager).await
+}
+
+struct Executable<'a, F> {
+    job: F,
+    fallback: FallbackExecutor<'a>,
+}
+
+struct FallbackExecutor<'a> {
+    executor: &'a dyn PreparedCommandExecutor,
+    name: ExecutorName,
+}
+
+impl<'a, F> Executable<'a, F>
+where
+    F: Future,
+{
+    async fn into_future(self) -> (<F as Future>::Output, FallbackExecutor<'a>) {
+        (self.job.await, self.fallback)
     }
 }

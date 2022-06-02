@@ -1,7 +1,23 @@
-def _execution_platforms_impl(ctx):
+ExecutorConfigInfo = provider(fields = ["config"])
+
+def _platform(ctx):
+    # We need to introduce a constraint to ensure our different execution
+    # platforms are distinct. This is because exec_compatible_with selects a
+    # ConfigurationInfo (which provides a config), not a ExecutionPlatformInfo
+    # (instead it matches on it).
+    configuration = ConfigurationInfo(
+        constraints = {
+            ctx.attr.setting.label.raw_target(): ConstraintValueInfo(
+                ctx.attr.setting[ConstraintSettingInfo],
+                ctx.label.raw_target(),
+            ),
+        },
+        values = {},
+    )
+
     platform = ExecutionPlatformInfo(
         label = ctx.label.raw_target(),
-        configuration = ctx.attr.configuration[ConfigurationInfo],
+        configuration = configuration,
         executor_config = CommandExecutorConfig(
             local_enabled = True,
             remote_enabled = True,
@@ -9,32 +25,61 @@ def _execution_platforms_impl(ctx):
                 "platform": "linux-remote-execution",
             },
             remote_execution_max_input_files_mebibytes = 1,
-            use_limited_hybrid = True,
+            use_limited_hybrid = ctx.attr.use_limited_hybrid,
+            allow_limited_hybrid_fallbacks = ctx.attr.allow_hybrid_fallbacks_on_failure,
+            allow_hybrid_fallbacks_on_failure = ctx.attr.allow_hybrid_fallbacks_on_failure,
         ),
     )
 
     return [
         DefaultInfo(),
-        ExecutionPlatformRegistrationInfo(
-            platforms = [platform],
-        ),
+        platform,
+        configuration,
     ]
 
-execution_platforms = rule(
-    implementation = _execution_platforms_impl,
+platform = rule(
+    implementation = _platform,
     attrs = {
-        "configuration": attr.dep(providers = [ConfigurationInfo]),
+        "allow_hybrid_fallbacks_on_failure": attr.bool(default = False),
+        "setting": attr.configuration_label(),
+        "use_limited_hybrid": attr.bool(default = True),
     },
 )
 
-def _configuration_impl(_ctx):
+def _platforms(ctx):
     return [
         DefaultInfo(),
-        ConfigurationInfo(constraints = {}, values = {}),
+        ExecutionPlatformRegistrationInfo(
+            platforms = [x[ExecutionPlatformInfo] for x in ctx.attr.platforms],
+        ),
     ]
 
-configuration = rule(
-    implementation = _configuration_impl,
+platforms = rule(
+    implementation = _platforms,
+    attrs = {
+        "platforms": attr.list(attr.dep(providers = [ExecutionPlatformInfo])),
+    },
+)
+
+def _target_platform(ctx):
+    return [
+        DefaultInfo(),
+        PlatformInfo(
+            label = str(ctx.label.raw_target()),
+            configuration = ConfigurationInfo(constraints = {}, values = {}),
+        ),
+    ]
+
+target_platform = rule(
+    implementation = _target_platform,
+    attrs = {},
+)
+
+def _config_setting(ctx):
+    return [DefaultInfo(), ConstraintSettingInfo(ctx.label.raw_target())]
+
+config_setting = rule(
+    implementation = _config_setting,
     attrs = {},
 )
 
@@ -69,3 +114,16 @@ def _cp_impl(ctx):
     return [DefaultInfo(default_outputs = [out])]
 
 cp = rule(implementation = _cp_impl, attrs = {"file": attr.dep()})
+
+def _command_impl(ctx):
+    out = ctx.actions.declare_output("out")
+    ctx.actions.run(
+        [
+            ctx.attr.command,
+            out.as_output(),
+        ],
+        category = "command",
+    )
+    return [DefaultInfo(default_outputs = [out])]
+
+command = rule(implementation = _command_impl, attrs = {"command": attr.source()})

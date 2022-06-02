@@ -46,6 +46,9 @@ struct StarlarkCommandExecutorConfig<'v> {
     pub(super) use_limited_hybrid: Value<'v>, // bool
     /// Whether to allow fallbacks
     pub(super) allow_limited_hybrid_fallbacks: Value<'v>, // bool
+    /// Whether to allow fallbacks when the result is failure (i.e. the command failed on the
+    /// primary, but the infra worked).
+    pub(super) allow_hybrid_fallbacks_on_failure: Value<'v>, // bool
 }
 
 impl<'v> fmt::Display for StarlarkCommandExecutorConfig<'v> {
@@ -152,13 +155,19 @@ impl<'v> StarlarkCommandExecutorConfig<'v> {
             None
         };
 
+        let fallback_on_failure = self.allow_hybrid_fallbacks_on_failure.to_value().to_bool();
+
         let hybrid_level = match (
             self.use_limited_hybrid.to_value().to_bool(),
             self.allow_limited_hybrid_fallbacks.to_value().to_bool(),
         ) {
-            (true, true) => HybridExecutionLevel::Fallback,
+            (true, true) => HybridExecutionLevel::Fallback {
+                fallback_on_failure,
+            },
             (true, false) => HybridExecutionLevel::Limited,
-            (false, _) => HybridExecutionLevel::Full,
+            (false, _) => HybridExecutionLevel::Full {
+                fallback_on_failure,
+            },
         };
 
         CommandExecutorConfig::new(local_options, remote_options, hybrid_level)
@@ -226,6 +235,9 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         #[starlark(default = NoneType, require = named)] remote_execution_use_case: Value<'v>,
         #[starlark(default = NoneType, require = named)] use_limited_hybrid: Value<'v>,
         #[starlark(default = NoneType, require = named)] allow_limited_hybrid_fallbacks: Value<'v>,
+        #[starlark(default = NoneType, require = named)] allow_hybrid_fallbacks_on_failure: Value<
+            'v,
+        >,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         let config = StarlarkCommandExecutorConfig {
@@ -237,6 +249,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
             remote_execution_use_case,
             use_limited_hybrid,
             allow_limited_hybrid_fallbacks,
+            allow_hybrid_fallbacks_on_failure,
         };
         // This checks that the values are valid.
         config.to_command_executor_config()?;
