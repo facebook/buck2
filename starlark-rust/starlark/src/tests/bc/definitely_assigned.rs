@@ -15,28 +15,20 @@
  * limitations under the License.
  */
 
-//! Bytecode generation tests.
+use crate::assert::Assert;
 
-mod and_or;
-mod compr;
-mod definitely_assigned;
-mod expr;
-mod if_stmt;
-
-use crate::{
-    assert::Assert,
-    eval::{bc::opcode::BcOpcode, compiler::def::FrozenDef},
-};
-
-pub(crate) fn test_instrs(expected: &[BcOpcode], def_program: &str) {
+/// Test for bug reported in D36808160.
+#[test]
+fn test_definitely_assigned_bug() {
     let mut a = Assert::new();
-    let def = a
-        .module("instrs.star", def_program)
-        .get("test")
-        .unwrap()
-        .downcast::<FrozenDef>()
-        .unwrap();
-    let mut opcodes = def.bc().instrs.opcodes();
-    assert_eq!(Some(BcOpcode::End), opcodes.pop());
-    assert_eq!(expected, opcodes);
+    a.module(
+        "a.star",
+        r"
+def f(a):
+  # The bug was: compilation of `and` expression reassigned `10` to `a`.
+  noop(a and 10)
+  return a
+",
+    );
+    a.eq("33", "load('a.star', 'f')\nf(33)");
 }

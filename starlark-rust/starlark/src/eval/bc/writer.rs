@@ -53,6 +53,8 @@ pub(crate) struct BcWriter<'f> {
     stack_size: u32,
     /// Local slot count.
     local_count: u32,
+    /// Function parameter count.
+    param_count: u32,
     /// Max observed stack size.
     max_stack_size: u32,
 
@@ -62,13 +64,20 @@ pub(crate) struct BcWriter<'f> {
 
 impl<'f> BcWriter<'f> {
     /// Empty.
-    pub(crate) fn new(profile: bool, local_count: u32, heap: &'f FrozenHeap) -> BcWriter<'f> {
+    pub(crate) fn new(
+        profile: bool,
+        local_count: u32,
+        param_count: u32,
+        heap: &'f FrozenHeap,
+    ) -> BcWriter<'f> {
+        assert!(param_count <= local_count);
         BcWriter {
             profile,
             instrs: BcInstrsWriter::new(),
             slow_args: Vec::new(),
             stack_size: 0,
             local_count,
+            param_count,
             max_stack_size: 0,
             heap,
         }
@@ -82,11 +91,13 @@ impl<'f> BcWriter<'f> {
             slow_args: spans,
             stack_size,
             local_count,
+            param_count,
             max_stack_size,
             heap,
         } = self;
         let _ = has_before_instr;
         let _ = heap;
+        let _ = param_count;
         assert_eq!(stack_size, 0);
         Bc {
             instrs: instrs.finish(spans),
@@ -240,28 +251,20 @@ impl<'f> BcWriter<'f> {
         self.instrs.addr_to_patch(addr, unsafe { &(*arg).1 })
     }
 
-    /// Write if block.
-    pub(crate) fn write_if(
+    /// Write if-else block.
+    pub(crate) fn write_if_else(
         &mut self,
         cond: BcSlot,
         span: FrozenFileSpan,
         then_block: impl FnOnce(&mut Self),
+        else_block: impl FnOnce(&mut Self),
     ) {
-        let patch_addr = self.write_if_not_br(cond, span);
+        let else_target = self.write_if_not_br(cond, span);
         then_block(self);
-        self.patch_addr(patch_addr);
-    }
-
-    /// Write if block.
-    pub(crate) fn write_if_not(
-        &mut self,
-        cond: BcSlot,
-        span: FrozenFileSpan,
-        then_block: impl FnOnce(&mut Self),
-    ) {
-        let patch_addr = self.write_if_br(cond, span);
-        then_block(self);
-        self.patch_addr(patch_addr);
+        let end_target = self.write_br(span);
+        self.patch_addr(else_target);
+        else_block(self);
+        self.patch_addr(end_target);
     }
 
     /// Write for loop.
@@ -288,6 +291,11 @@ impl<'f> BcWriter<'f> {
     fn stack_sub(&mut self, sub: u32) {
         assert!(self.stack_size >= sub);
         self.stack_size -= sub;
+    }
+
+    pub(crate) fn is_definitely_assigned(&self, local: LocalSlotId) -> bool {
+        assert!(local.0 < self.local_count);
+        local.0 < self.param_count
     }
 
     /// Allocate a temporary slot, and call a callback.

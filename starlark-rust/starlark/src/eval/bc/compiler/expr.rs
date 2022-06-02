@@ -282,18 +282,22 @@ impl IrSpanned<ExprCompiled> {
             }
             ExprCompiled::And(box (ref l, ref r)) => {
                 l.write_bc_cb(bc, |l_slot, bc| {
-                    bc.write_if(l_slot, l.span, |bc| {
-                        r.write_bc(l_slot, bc);
-                    });
-                    bc.write_instr::<InstrMov>(span, (l_slot, target));
+                    bc.write_if_else(
+                        l_slot,
+                        l.span,
+                        |bc| r.write_bc(target, bc),
+                        |bc| bc.write_instr::<InstrMov>(span, (l_slot, target)),
+                    );
                 });
             }
             ExprCompiled::Or(box (ref l, ref r)) => {
                 l.write_bc_cb(bc, |l_slot, bc| {
-                    bc.write_if_not(l_slot, l.span, |bc| {
-                        r.write_bc(l_slot, bc);
-                    });
-                    bc.write_instr::<InstrMov>(span, (l_slot, target));
+                    bc.write_if_else(
+                        l_slot,
+                        l.span,
+                        |bc| bc.write_instr::<InstrMov>(span, (l_slot, target)),
+                        |bc| r.write_bc(target, bc),
+                    );
                 });
             }
             ExprCompiled::Seq(box (ref l, ref r)) => {
@@ -341,6 +345,14 @@ impl IrSpanned<ExprCompiled> {
         bc: &mut BcWriter,
         k: impl FnOnce(BcSlot, &mut BcWriter) -> R,
     ) -> R {
+        if let Some(local) = self.as_local_non_captured() {
+            // Local is known to be definitely assigned, so there's no need
+            // to "load" it just to trigger check that it is assigned.
+            if bc.is_definitely_assigned(local) {
+                return k(local.to_bc_slot(), bc);
+            }
+        }
+
         bc.alloc_slot(|slot, bc| {
             self.write_bc(slot, bc);
             k(slot, bc)

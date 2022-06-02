@@ -369,6 +369,14 @@ impl ExprCompiled {
             _ => None,
         }
     }
+
+    /// This expression is local slot.
+    pub(crate) fn as_local_non_captured(&self) -> Option<LocalSlotId> {
+        match self {
+            ExprCompiled::Local(slot) => Some(*slot),
+            _ => None,
+        }
+    }
 }
 
 impl IrSpanned<ExprCompiled> {

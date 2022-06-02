@@ -449,6 +449,11 @@ impl Compiler<'_, '_, '_> {
 
         let inline_def_body = Self::inline_def_body(&params, &body);
 
+        let param_count = params
+            .iter()
+            .filter(|p| !matches!(p.node, ParameterCompiled::NoArgs))
+            .count() as u32;
+
         let info = self.eval.module_env.frozen_heap().alloc_any(DefInfo {
             name,
             codemap: self.codemap,
@@ -457,6 +462,7 @@ impl Compiler<'_, '_, '_> {
             stmt_compiled: body.as_bc(
                 &self.compile_context(return_type.is_some()),
                 local_count,
+                param_count,
                 self.eval.module_env.frozen_heap(),
             ),
             body_stmts: body,
@@ -816,6 +822,7 @@ impl FrozenDef {
             .as_bc(
                 &self.def_info.stmt_compile_context,
                 self.def_info.scope_names.used.len().try_into().unwrap(),
+                self.parameters.len() as u32,
                 frozen_heap,
             );
 

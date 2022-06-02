@@ -21,9 +21,9 @@ use crate::{eval::bc::opcode::BcOpcode, tests::bc::test_instrs};
 fn test_x_and_true() {
     test_instrs(
         &[
-            BcOpcode::LoadLocal,
             BcOpcode::IfNotBr,
             BcOpcode::Const,
+            BcOpcode::Br,
             BcOpcode::Mov,
             BcOpcode::Return,
         ],
@@ -35,9 +35,9 @@ fn test_x_and_true() {
 fn test_x_and_false() {
     test_instrs(
         &[
-            BcOpcode::LoadLocal,
             BcOpcode::IfNotBr,
             BcOpcode::Const,
+            BcOpcode::Br,
             BcOpcode::Mov,
             BcOpcode::Return,
         ],
@@ -49,10 +49,10 @@ fn test_x_and_false() {
 fn test_x_or_true() {
     test_instrs(
         &[
-            BcOpcode::LoadLocal,
-            BcOpcode::IfBr,
-            BcOpcode::Const,
+            BcOpcode::IfNotBr,
             BcOpcode::Mov,
+            BcOpcode::Br,
+            BcOpcode::Const,
             BcOpcode::Return,
         ],
         "def test(x): return x or True",
@@ -63,10 +63,10 @@ fn test_x_or_true() {
 fn test_x_or_false() {
     test_instrs(
         &[
-            BcOpcode::LoadLocal,
-            BcOpcode::IfBr,
-            BcOpcode::Const,
+            BcOpcode::IfNotBr,
             BcOpcode::Mov,
+            BcOpcode::Br,
+            BcOpcode::Const,
             BcOpcode::Return,
         ],
         "def test(x): return x or False",
@@ -75,10 +75,7 @@ fn test_x_or_false() {
 
 #[test]
 fn test_true_and_x() {
-    test_instrs(
-        &[BcOpcode::LoadLocal, BcOpcode::Return],
-        "def test(x): return True and x",
-    )
+    test_instrs(&[BcOpcode::Return], "def test(x): return True and x")
 }
 
 #[test]
@@ -93,8 +90,5 @@ fn test_true_or_x() {
 
 #[test]
 fn test_false_or_x() {
-    test_instrs(
-        &[BcOpcode::LoadLocal, BcOpcode::Return],
-        "def test(x): return False or x",
-    )
+    test_instrs(&[BcOpcode::Return], "def test(x): return False or x")
 }
