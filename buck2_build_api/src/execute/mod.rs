@@ -233,15 +233,26 @@ pub enum CommandExecutorConfig {
     Hybrid {
         local: LocalExecutorOptions,
         remote: RemoteExecutorOptions,
-        is_limited: bool,
+        level: HybridExecutionLevel,
     },
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe)]
+pub enum HybridExecutionLevel {
+    /// Expose both executors but only run it in one preferred executor.
+    Limited,
+    /// Expose both executors, fallback to the non-preferred executor if execution on the preferred
+    /// executor fails.
+    Fallback,
+    /// Race both executors.
+    Full,
 }
 
 impl CommandExecutorConfig {
     pub fn new(
         local: Option<LocalExecutorOptions>,
         remote: Option<RemoteExecutorOptions>,
-        allow_full_hybrid: bool,
+        hybrid_level: HybridExecutionLevel,
     ) -> anyhow::Result<Self> {
         match (local, remote) {
             (None, None) => Err(ExecutorConfigError::MissingLocalAndRemote.into()),
@@ -250,7 +261,7 @@ impl CommandExecutorConfig {
             (Some(local), Some(remote)) => Ok(Self::Hybrid {
                 local,
                 remote,
-                is_limited: !allow_full_hybrid,
+                level: hybrid_level,
             }),
         }
     }

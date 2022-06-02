@@ -15,10 +15,13 @@ use futures::{pin_mut, Future, FutureExt};
 use gazebo::prelude::*;
 use remote_execution as RE;
 
-use crate::execute::commands::{
-    local::LocalExecutor, re::ReExecutor, ActionResultStatus, ClaimManager,
-    CommandExecutionManager, CommandExecutionResult, ExecutorName, PreparedCommand,
-    PreparedCommandExecutor,
+use crate::execute::{
+    commands::{
+        local::LocalExecutor, re::ReExecutor, ActionResultStatus, ClaimManager,
+        CommandExecutionManager, CommandExecutionResult, ExecutorName, PreparedCommand,
+        PreparedCommandExecutor,
+    },
+    HybridExecutionLevel,
 };
 
 /// The [HybridExecutor] will accept requests and dispatch them to both a local and remote delegate
@@ -33,7 +36,7 @@ use crate::execute::commands::{
 pub struct HybridExecutor {
     pub local: LocalExecutor,
     pub remote: ReExecutor,
-    pub limited: bool,
+    pub level: HybridExecutionLevel,
     pub prefer_local: bool,
 }
 
@@ -102,9 +105,11 @@ impl PreparedCommandExecutor for HybridExecutor {
             fallback_executor_name = ExecutorName("local_fallback");
         }
 
-        if self.limited {
-            return primary_result.await;
-        }
+        let fallback_only = match self.level {
+            HybridExecutionLevel::Limited => return primary_result.await,
+            HybridExecutionLevel::Fallback => true,
+            HybridExecutionLevel::Full => false,
+        };
 
         let primary_result_with_fallback = with_fallback(
             command,
@@ -113,6 +118,10 @@ impl PreparedCommandExecutor for HybridExecutor {
             fallback_executor,
             fallback_executor_name,
         );
+
+        if fallback_only {
+            return primary_result_with_fallback.await;
+        }
 
         // fuse and pin these so we can select over them.
         let secondary_result = secondary_result.fuse();
@@ -160,10 +169,10 @@ impl PreparedCommandExecutor for HybridExecutor {
     }
 
     fn name(&self) -> ExecutorName {
-        if self.limited {
-            ExecutorName("limited-hybrid")
-        } else {
-            ExecutorName("hybrid")
+        match self.level {
+            HybridExecutionLevel::Limited => ExecutorName("limited-hybrid"),
+            HybridExecutionLevel::Fallback => ExecutorName("fallback-hybrid"),
+            HybridExecutionLevel::Full => ExecutorName("hybrid"),
         }
     }
 }

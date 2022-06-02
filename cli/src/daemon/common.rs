@@ -30,7 +30,7 @@ use buck2_build_api::{
             PreparedCommandExecutor,
         },
         materializer::Materializer,
-        CommandExecutorConfig, LocalExecutorOptions, RemoteExecutorOptions,
+        CommandExecutorConfig, HybridExecutionLevel, LocalExecutorOptions, RemoteExecutorOptions,
     },
 };
 use buck2_common::{
@@ -315,7 +315,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 CommandExecutorConfig::Hybrid {
                     local,
                     remote,
-                    is_limited,
+                    level,
                 },
                 ExecutorFilter {
                     ban_local: false,
@@ -325,7 +325,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
             ) => Arc::new(HybridExecutor {
                 local: local_executor_new(local),
                 remote: remote_executor_new(remote),
-                limited: *is_limited,
+                level: *level,
                 prefer_local: *prefer_local_for_hybrid,
             }),
             (config, strategy) => {
@@ -405,7 +405,7 @@ pub fn get_executor_config_for_strategy(
                     re_properties: execution_platform.intrinsic_properties(),
                     ..Default::default()
                 },
-                is_limited: true,
+                level: HybridExecutionLevel::Limited,
             }
         }
         // NOTE: We don't differnetiate between the preferences for Hybrid here. This gets injected
@@ -417,7 +417,7 @@ pub fn get_executor_config_for_strategy(
                     re_properties: execution_platform.intrinsic_properties(),
                     ..Default::default()
                 },
-                is_limited: false,
+                level: HybridExecutionLevel::Limited,
             }
         }
         ExecutionStrategy::LocalOnly => CommandExecutorConfig::Local(LocalExecutorOptions {}),
