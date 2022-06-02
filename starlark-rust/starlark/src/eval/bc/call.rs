@@ -67,14 +67,15 @@ pub(crate) struct BcCallArgsFull<S: ArgSymbol> {
 /// Positional-only call arguments, from stack.
 #[derive(Debug)]
 pub(crate) struct BcCallArgsPos {
-    /// Number of positional arguments.
+    /// Range of positional arguments.
     pub(crate) pos: BcSlotRange,
 }
 
 impl<S: ArgSymbol> BcCallArgsFull<S> {
+    /// Number of positional arguments.
     fn pos(&self) -> u32 {
-        assert!(self.pos_named.start.0 as usize >= self.names.len());
-        self.pos_named.start.0 - (self.names.len() as u32)
+        assert!(self.pos_named.len() >= (self.names.len() as u32));
+        self.pos_named.len() - (self.names.len() as u32)
     }
 }
 
