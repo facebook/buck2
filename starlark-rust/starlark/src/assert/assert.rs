@@ -44,7 +44,7 @@ use crate::{
 };
 
 fn mk_environment() -> GlobalsBuilder {
-    GlobalsBuilder::extended().with(test_methods)
+    GlobalsBuilder::extended().with(test_functions)
 }
 
 static GLOBALS: Lazy<Globals> = Lazy::new(|| mk_environment().build());
@@ -139,7 +139,7 @@ fn assert_star(builder: &mut crate::environment::GlobalsBuilder) {
 }
 
 #[starlark_module]
-fn test_methods(builder: &mut GlobalsBuilder) {
+fn test_functions(builder: &mut GlobalsBuilder) {
     // Used by one of the test methods in Go
     const fibonacci: Vec<i32> = vec![0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
 
