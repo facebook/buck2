@@ -14,7 +14,6 @@ load(
     "CPreprocessor",
 )
 load("@fbcode//buck2/prelude/linking:link_info.bzl", "LinkStyle")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "flatten")
 load(":apple_bundle_types.bzl", "AppleMinDeploymentVersionInfo")
 load(":apple_modular_utility.bzl", "MODULE_CACHE_PATH")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node", "get_min_deployment_version_target_linker_flags", "get_min_deployment_version_target_preprocessor_flags")
@@ -99,7 +98,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
     )
 
     framework_search_path_pre = CPreprocessor(
-        args = [cmd_args(flatten(get_framework_search_path_flags(ctx)))],
+        args = [cmd_args(get_framework_search_path_flags(ctx))],
     )
 
     return CxxRuleConstructorParams(

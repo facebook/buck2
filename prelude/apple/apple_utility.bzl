@@ -1,7 +1,7 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
 load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@fbcode//buck2/prelude/cxx:headers.bzl", "CxxHeadersLayout", "CxxHeadersNaming")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "flatten", "value_or")
+load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "value_or")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node")
 
 _VERSION_PLACEHOLDER = "(VERSION)"
@@ -21,7 +21,7 @@ def get_apple_cxx_headers_layout(ctx: "context") -> CxxHeadersLayout.type:
     return CxxHeadersLayout(namespace = namespace, naming = CxxHeadersNaming("apple"))
 
 def get_apple_frameworks_linker_flags(ctx: "context") -> [""]:
-    flags = flatten(get_framework_search_path_flags(ctx))
+    flags = get_framework_search_path_flags(ctx)
 
     framework_names = [to_framework_name(x) for x in ctx.attr.frameworks]
     for framework_name in framework_names:
@@ -33,12 +33,16 @@ def get_apple_frameworks_linker_flags(ctx: "context") -> [""]:
 
     return flags
 
-def get_framework_search_path_flags(ctx: "context") -> [[""]]:
+def get_framework_search_path_flags(ctx: "context") -> [""]:
     # We don't want to include SDK directories as those are already added via `isysroot` flag in toolchain definition.
     # Adding those directly via `-F` will break building Catalyst applications as frameworks from support directory
     # won't be found and those for macOS platform will be used.
-    non_sdk_framework_directories = _uniq(filter(None, [_non_sdk_framework_directory(ctx, x) for x in ctx.attr.frameworks]))
-    return [["-F", x] for x in non_sdk_framework_directories]
+    flags = []
+    non_sdk_framework_directories = dedupe(filter(None, [_non_sdk_framework_directory(ctx, x) for x in ctx.attr.frameworks]))
+    for directory in non_sdk_framework_directories:
+        flags.extend(["-F", directory])
+
+    return flags
 
 def get_module_name(ctx: "context") -> str.type:
     return ctx.attr.module_name or ctx.attr.header_path_prefix or ctx.attr.name
@@ -123,7 +127,3 @@ def _non_sdk_framework_directory(ctx: "context", framework_path: str.type) -> [s
             return None
     expanded_framework_path = _expand_sdk_framework_path(ctx, framework_path)
     return paths.dirname(expanded_framework_path)
-
-# Filters out duplicates from input array of strings, order is not preserved
-def _uniq(input: [str.type]) -> [str.type]:
-    return {x: True for x in input}.keys()
