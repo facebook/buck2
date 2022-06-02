@@ -73,6 +73,7 @@ use crate::{
             ExternalRunnerTestInfoCallable, FrozenExternalRunnerTestInfo, TestCommandMember,
         },
     },
+    nodes::configured::ConfiguredTargetNode,
     path::BuckOutTestPath,
     test::{orchestrator::commands::CommandExecutionOutput, session::TestSession, translations},
 };
@@ -178,7 +179,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
             inputs,
             supports_re,
             declared_outputs,
-            resolved_executor_override,
+            executor,
         } = test_executable_expanded;
         let execution_request = self
             .create_command_execution_request(
@@ -197,7 +198,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
                 Some(host_sharing_requirements),
                 timeout,
                 supports_re,
-                resolved_executor_override.as_ref(),
+                &executor,
                 execution_request,
             )
             .await?;
@@ -310,7 +311,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
             inputs,
             supports_re: _,
             declared_outputs,
-            resolved_executor_override: _,
+            executor: _,
         } = test_executable_expanded;
 
         let execution_request = self
@@ -344,7 +345,7 @@ impl BuckTestOrchestrator {
         host_sharing_requirements: Option<HostSharingRequirements>,
         timeout: Duration,
         supports_re: bool,
-        executor_override: Option<&CommandExecutorConfig>,
+        executor: &CommandExecutor,
         mut request: CommandExecutionRequest,
     ) -> anyhow::Result<(
         ExecutionStream,
@@ -353,10 +354,6 @@ impl BuckTestOrchestrator {
         CommandExecutionTimingData,
         IndexMap<CommandExecutionOutput, ArtifactValue>,
     )> {
-        let executor = self
-            .get_command_executor(&test_target, executor_override)
-            .await
-            .context("Error getting command executor")?;
         request = request.with_timeout(timeout).with_custom_tmpdir(false);
         if let Some(requirements) = host_sharing_requirements {
             request = request.with_host_sharing_requirements(requirements);
@@ -466,17 +463,12 @@ impl BuckTestOrchestrator {
         })
     }
 
-    async fn get_command_executor(
+    fn get_command_executor(
         &self,
-        test_target: &ConfiguredProvidersLabel,
+        fs: &ArtifactFs,
+        test_target_node: &ConfiguredTargetNode,
         executor_override: Option<&CommandExecutorConfig>,
     ) -> anyhow::Result<CommandExecutor> {
-        let test_target_node = self
-            .dice
-            .get_configured_target_node(test_target.target())
-            .await?
-            .require_compatible()?;
-
         let executor_config = match executor_override {
             Some(o) => o,
             None => test_target_node
@@ -485,13 +477,12 @@ impl BuckTestOrchestrator {
                 .context("Error accessing executor config")?,
         };
 
-        let artifact_fs = self.dice.get_artifact_fs().await;
         let io_provider = self.dice.global_data().get_io_provider();
         let project_fs = io_provider.fs();
         let executor = self
             .dice
-            .get_command_executor(&artifact_fs, project_fs, executor_config)?;
-        let executor = CommandExecutor::new(executor, artifact_fs);
+            .get_command_executor(fs, project_fs, executor_config)?;
+        let executor = CommandExecutor::new(executor, fs.clone());
         Ok(executor)
     }
 
@@ -504,6 +495,14 @@ impl BuckTestOrchestrator {
         pre_create_dirs: Vec<DeclaredOutput>,
         executor_override: Option<ExecutorConfigOverride>,
     ) -> anyhow::Result<ExpandedTestExecutable> {
+        // NOTE: get_providers() implicitly calls this already but it's not the end of the world
+        // since this will get cached in DICE.
+        let node = self
+            .dice
+            .get_configured_target_node(test_target.target())
+            .await?
+            .require_compatible()?;
+
         let providers = self
             .dice
             .get_providers(test_target)
@@ -524,7 +523,8 @@ impl BuckTestOrchestrator {
 
         let cwd;
         let expanded;
-        let mut resolved_executor_override = None;
+        let executor;
+
         {
             let opts = self.session.options();
 
@@ -561,24 +561,28 @@ impl BuckTestOrchestrator {
                 expander.expand::<AbsCommandLineBuilder>()
             }?;
 
-            if let Some(executor_override) = executor_override.as_ref() {
-                let executor_override = test_info
-                    .executor_override(&executor_override.name)
-                    .context("The `executor_override` provided does not exist")
-                    .and_then(|o| {
-                        o.command_executor_config()
-                            .context("The `executor_override` is invalid")
-                    })
-                    .with_context(|| {
-                        format!(
-                            "Error processing `executor_override`: `{}`",
-                            executor_override.name
-                        )
-                    })?;
+            let resolved_executor_override = match executor_override.as_ref() {
+                Some(executor_override) => Some(
+                    test_info
+                        .executor_override(&executor_override.name)
+                        .context("The `executor_override` provided does not exist")
+                        .and_then(|o| {
+                            o.command_executor_config()
+                                .context("The `executor_override` is invalid")
+                        })
+                        .with_context(|| {
+                            format!(
+                                "Error processing `executor_override`: `{}`",
+                                executor_override.name
+                            )
+                        })?,
+                ),
+                None => None,
+            };
 
-                // TODO: @torozco: refactor so we don't have to clone this.
-                resolved_executor_override = Some(executor_override.into_owned());
-            }
+            executor = self
+                .get_command_executor(fs, &node, resolved_executor_override.as_deref())
+                .context("Error constructing CommandExecutor")?;
         };
 
         let (expanded_cmd, expanded_env, inputs) = expanded;
@@ -595,7 +599,7 @@ impl BuckTestOrchestrator {
             inputs,
             declared_outputs,
             supports_re,
-            resolved_executor_override,
+            executor,
         })
     }
 
@@ -815,7 +819,7 @@ struct ExpandedTestExecutable {
     inputs: IndexSet<ArtifactGroup>,
     supports_re: bool,
     declared_outputs: IndexMap<BuckOutTestPath, OutputCreationBehavior>,
-    resolved_executor_override: Option<CommandExecutorConfig>,
+    executor: CommandExecutor,
 }
 
 fn create_prepare_for_local_execution_result(
