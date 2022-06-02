@@ -41,7 +41,7 @@ use crate::{
     values::{
         dict::DictRef, function::FUNCTION_TYPE, layout::typed::string::StringValueLike,
         none::NoneType, regex::StarlarkRegex, tuple::Tuple, Freeze, Freezer, FrozenStringValue,
-        FrozenValue, StarlarkValue, StringValue, Trace, Value, ValueLike,
+        FrozenValue, Heap, StarlarkValue, StringValue, Trace, Value, ValueLike,
     },
 };
 
@@ -50,10 +50,11 @@ pub fn filter(builder: &mut GlobalsBuilder) {
     fn filter<'v>(
         #[starlark(require = pos)] func: Value,
         #[starlark(require = pos)] seq: Value,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<Value<'v>> {
         let mut res = Vec::new();
 
-        for v in seq.iterate(heap)? {
+        for v in seq.iterate(eval.heap())? {
             if func.is_none() {
                 if !v.is_none() {
                     res.push(v);
@@ -62,7 +63,7 @@ pub fn filter(builder: &mut GlobalsBuilder) {
                 res.push(v);
             }
         }
-        Ok(heap.alloc_list(&res))
+        Ok(eval.heap().alloc_list(&res))
     }
 }
 
@@ -71,13 +72,14 @@ pub fn map(builder: &mut GlobalsBuilder) {
     fn map<'v>(
         #[starlark(require = pos)] func: Value,
         #[starlark(require = pos)] seq: Value,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<Value<'v>> {
-        let it = seq.iterate(heap)?;
+        let it = seq.iterate(eval.heap())?;
         let mut res = Vec::with_capacity(it.size_hint().0);
         for v in it {
             res.push(func.invoke_pos(&[v], eval)?);
         }
-        Ok(heap.alloc_list(&res))
+        Ok(eval.heap().alloc_list(&res))
     }
 }
 
@@ -123,7 +125,7 @@ pub fn debug(builder: &mut GlobalsBuilder) {
 pub fn dedupe(builder: &mut GlobalsBuilder) {
     /// Remove duplicates in a list. Uses identity of value (pointer),
     /// rather than by equality.
-    fn dedupe<'v>(#[starlark(require = pos)] val: Value) -> anyhow::Result<Value<'v>> {
+    fn dedupe<'v>(#[starlark(require = pos)] val: Value, heap: &Heap) -> anyhow::Result<Value<'v>> {
         let mut seen = HashSet::new();
         let mut res = Vec::new();
         for v in val.iterate(heap)? {
@@ -177,7 +179,7 @@ impl PrintHandler for StderrPrintHandler {
 
 #[starlark_module]
 pub fn print(builder: &mut GlobalsBuilder) {
-    fn print(args: Vec<Value>) -> anyhow::Result<NoneType> {
+    fn print(args: Vec<Value>, eval: &mut Evaluator) -> anyhow::Result<NoneType> {
         // In practice most users should want to put the print somewhere else, but this does for now
         // Unfortunately, we can't use PrintWrapper because strings to_str() and Display are different.
         eval.print_handler
@@ -188,7 +190,7 @@ pub fn print(builder: &mut GlobalsBuilder) {
 
 #[starlark_module]
 pub fn pprint(builder: &mut GlobalsBuilder) {
-    fn pprint(args: Vec<Value>) -> anyhow::Result<NoneType> {
+    fn pprint(args: Vec<Value>, eval: &mut Evaluator) -> anyhow::Result<NoneType> {
         // In practice most users may want to put the print somewhere else, but this does for now
         eval.print_handler
             .println(&format!("{:#}", PrintWrapper(&args)))?;

@@ -125,7 +125,11 @@ v == '{}' or v == '{}'"#,
 fn test_load_symbols() {
     #[starlark_module]
     fn module(builder: &mut GlobalsBuilder) {
-        fn load_symbol<'v>(name: &str, value: Value<'v>) -> anyhow::Result<NoneType> {
+        fn load_symbol<'v>(
+            name: &str,
+            value: Value<'v>,
+            eval: &mut Evaluator,
+        ) -> anyhow::Result<NoneType> {
             eval.set_module_variable_at_some_point(name, value)?;
             Ok(NoneType)
         }
@@ -156,7 +160,11 @@ fn test_load_public_symbols_does_not_reexport() -> anyhow::Result<()> {
 fn test_load_symbols_extra() -> anyhow::Result<()> {
     #[starlark_module]
     fn module(builder: &mut GlobalsBuilder) {
-        fn load_symbol<'v>(name: &str, value: Value<'v>) -> anyhow::Result<NoneType> {
+        fn load_symbol<'v>(
+            name: &str,
+            value: Value<'v>,
+            eval: &mut Evaluator,
+        ) -> anyhow::Result<NoneType> {
             let extra = eval.extra_v.unwrap().downcast_ref::<Extra<'v>>().unwrap();
             extra.0.lock().unwrap().insert(name.to_owned(), value);
             Ok(NoneType)

@@ -26,7 +26,7 @@ use crate::{
     self as starlark,
     collections::SmallMap,
     environment::GlobalsBuilder,
-    eval::Arguments,
+    eval::{Arguments, Evaluator},
     values::{
         bool::BOOL_TYPE, dict::Dict, float::StarlarkFloat, int::INT_TYPE, list::List,
         none::NoneType, num::Num, range::Range, string::STRING_TYPE, tuple::Tuple, Heap,
@@ -96,7 +96,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn any(#[starlark(require = pos)] x: Value) -> anyhow::Result<bool> {
+    fn any(#[starlark(require = pos)] x: Value, heap: &Heap) -> anyhow::Result<bool> {
         x.with_iterator(heap, |it| {
             for i in it {
                 if i.to_bool() {
@@ -127,7 +127,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn all(#[starlark(require = pos)] x: Value) -> anyhow::Result<bool> {
+    fn all(#[starlark(require = pos)] x: Value, heap: &Heap) -> anyhow::Result<bool> {
         x.with_iterator(heap, |it| {
             for i in it {
                 if !i.to_bool() {
@@ -234,7 +234,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// ```
     #[starlark(type = Dict::TYPE)]
     #[starlark(speculative_exec_safe)]
-    fn dict<'v>(args: &Arguments<'v, '_>) -> anyhow::Result<Dict<'v>> {
+    fn dict<'v>(args: &Arguments<'v, '_>, heap: &Heap) -> anyhow::Result<Dict<'v>> {
         // Dict is super hot, and has a slightly odd signature, so we can do a bunch of special cases on it.
         // In particular, we don't generate the kwargs if there are no positional arguments.
         // Therefore we make it take the raw Arguments.
@@ -314,6 +314,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     fn enumerate<'v>(
         #[starlark(require = pos)] it: Value,
         #[starlark(default = 0)] start: i32,
+        heap: &Heap,
     ) -> anyhow::Result<Value<'v>> {
         let v = it
             .iterate(heap)?
@@ -399,6 +400,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         #[starlark(require = pos)] a: Value,
         #[starlark(require = pos)] attr: &str,
         #[starlark(require = pos)] default: Option<Value>,
+        heap: &Heap,
     ) -> anyhow::Result<Value<'v>> {
         // TODO(nga): this doesn't cache string hash, so it is suboptimal.
         match a.get_attr(attr, heap)? {
@@ -666,7 +668,10 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// ```
     #[starlark(type = List::TYPE)]
     #[starlark(speculative_exec_safe)]
-    fn list<'v>(#[starlark(require = pos)] a: Option<Value>) -> anyhow::Result<Value<'v>> {
+    fn list<'v>(
+        #[starlark(require = pos)] a: Option<Value>,
+        heap: &Heap,
+    ) -> anyhow::Result<Value<'v>> {
         Ok(if let Some(a) = a {
             if let Some(xs) = List::from_value(a) {
                 heap.alloc_list(xs.content())
@@ -698,13 +703,17 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn max<'v>(mut args: Vec<Value>, key: Option<Value>) -> anyhow::Result<Value<'v>> {
+    fn max<'v>(
+        mut args: Vec<Value>,
+        key: Option<Value>,
+        eval: &mut Evaluator,
+    ) -> anyhow::Result<Value<'v>> {
         let args = if args.len() == 1 {
             args.swap_remove(0)
         } else {
-            heap.alloc(args)
+            eval.heap().alloc(args)
         };
-        let mut it = args.iterate(heap)?;
+        let mut it = args.iterate(eval.heap())?;
         let mut max = match it.next() {
             Some(x) => x,
             None => {
@@ -752,13 +761,17 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn min<'v>(mut args: Vec<Value>, key: Option<Value>) -> anyhow::Result<Value<'v>> {
+    fn min<'v>(
+        mut args: Vec<Value>,
+        key: Option<Value>,
+        eval: &mut Evaluator,
+    ) -> anyhow::Result<Value<'v>> {
         let args = if args.len() == 1 {
             args.swap_remove(0)
         } else {
-            heap.alloc(args)
+            eval.heap().alloc(args)
         };
-        let mut it = args.iterate(heap)?;
+        let mut it = args.iterate(eval.heap())?;
         let mut min = match it.next() {
             Some(x) => x,
             None => {
@@ -892,7 +905,10 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn repr<'v>(#[starlark(require = pos)] a: Value) -> anyhow::Result<StringValue<'v>> {
+    fn repr<'v>(
+        #[starlark(require = pos)] a: Value,
+        eval: &mut Evaluator,
+    ) -> anyhow::Result<StringValue<'v>> {
         let mut s = eval.string_pool.alloc();
         a.collect_repr(&mut s);
         let r = eval.heap().alloc_str(&s);
@@ -916,7 +932,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn reversed<'v>(#[starlark(require = pos)] a: Value) -> anyhow::Result<Value<'v>> {
+    fn reversed<'v>(#[starlark(require = pos)] a: Value, heap: &Heap) -> anyhow::Result<Value<'v>> {
         let mut v: Vec<Value> = a.iterate(heap)?.collect();
         v.reverse();
         Ok(heap.alloc_list(&v))
@@ -950,8 +966,9 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         #[starlark(require = pos)] x: Value,
         key: Option<Value>,
         reverse: Option<Value>,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<Value<'v>> {
-        let it = x.iterate(heap)?;
+        let it = x.iterate(eval.heap())?;
         let mut it = match key {
             None => it.map(|x| (x, x)).collect(),
             Some(key) => {
@@ -983,7 +1000,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
 
         compare_ok?;
 
-        Ok(heap.alloc_list_iter(it.into_iter().map(|x| x.0)))
+        Ok(eval.heap().alloc_list_iter(it.into_iter().map(|x| x.0)))
     }
 
     /// [str](
@@ -1003,7 +1020,10 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// ```
     #[starlark(type = STRING_TYPE)]
     #[starlark(speculative_exec_safe)]
-    fn str<'v>(#[starlark(require = pos)] a: Value) -> anyhow::Result<StringValue<'v>> {
+    fn str<'v>(
+        #[starlark(require = pos)] a: Value,
+        eval: &mut Evaluator,
+    ) -> anyhow::Result<StringValue<'v>> {
         if let Some(a) = StringValue::new(a) {
             // Special case that can avoid reallocating, but is equivalent.
             Ok(a)
@@ -1030,7 +1050,10 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// ```
     #[starlark(type = Tuple::TYPE)]
     #[starlark(speculative_exec_safe)]
-    fn tuple<'v>(#[starlark(require = pos)] a: Option<Value>) -> anyhow::Result<Value<'v>> {
+    fn tuple<'v>(
+        #[starlark(require = pos)] a: Option<Value>,
+        heap: &Heap,
+    ) -> anyhow::Result<Value<'v>> {
         let mut l = Vec::new();
         if let Some(a) = a {
             a.with_iterator(heap, |it| {
@@ -1077,7 +1100,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn zip<'v>(args: Vec<Value>) -> anyhow::Result<Value<'v>> {
+    fn zip<'v>(args: Vec<Value>, heap: &Heap) -> anyhow::Result<Value<'v>> {
         let mut v = Vec::new();
         let mut first = true;
         for arg in args {

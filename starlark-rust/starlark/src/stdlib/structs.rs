@@ -20,13 +20,13 @@ use crate as starlark;
 use crate::{
     environment::{GlobalsBuilder, MethodsBuilder},
     eval::Arguments,
-    values::{structs::Struct, Value},
+    values::{structs::Struct, Heap, Value},
 };
 
 #[starlark_module]
 pub fn global(builder: &mut GlobalsBuilder) {
     #[starlark(type = Struct::TYPE)]
-    fn r#struct<'v>(args: &Arguments<'v, '_>) -> anyhow::Result<Struct<'v>> {
+    fn r#struct<'v>(args: &Arguments<'v, '_>, heap: &Heap) -> anyhow::Result<Struct<'v>> {
         args.no_positional_args(heap)?;
         Ok(Struct::new(args.names_map()?))
     }

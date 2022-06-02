@@ -30,6 +30,7 @@ use crate::{
     assert,
     assert::Assert,
     environment::GlobalsBuilder,
+    eval::Evaluator,
     values::{any::StarlarkAny, FrozenHeap, Heap},
 };
 
@@ -140,11 +141,11 @@ fn test_garbage_collect_happens() {
     // GC is meant to be "not observable", but if we break it, we want this test to fail
     #[starlark_module]
     fn helpers(builder: &mut GlobalsBuilder) {
-        fn current_usage() -> anyhow::Result<i32> {
+        fn current_usage(heap: &Heap) -> anyhow::Result<i32> {
             Ok(heap.allocated_bytes() as i32)
         }
 
-        fn is_gc_disabled() -> anyhow::Result<bool> {
+        fn is_gc_disabled(eval: &mut Evaluator) -> anyhow::Result<bool> {
             Ok(eval.disable_gc)
         }
     }

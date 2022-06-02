@@ -26,7 +26,7 @@ use crate::{
     values::{
         list::{List, ListRef},
         none::{NoneOr, NoneType},
-        Value, ValueError,
+        Heap, Value, ValueError,
     },
 };
 
@@ -51,7 +51,11 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
     /// x == [1, 2, 3]
     /// # "#);
     /// ```
-    fn append(this: Value, #[starlark(require = pos)] el: Value) -> anyhow::Result<NoneType> {
+    fn append(
+        this: Value,
+        #[starlark(require = pos)] el: Value,
+        heap: &Heap,
+    ) -> anyhow::Result<NoneType> {
         let this = List::from_value_mut(this)?;
         this.push(el, heap);
         Ok(NoneType)
@@ -99,7 +103,11 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
     /// x == [1, 2, 3, "foo"]
     /// # "#);
     /// ```
-    fn extend(this: Value, #[starlark(require = pos)] other: Value) -> anyhow::Result<NoneType> {
+    fn extend(
+        this: Value,
+        #[starlark(require = pos)] other: Value,
+        heap: &Heap,
+    ) -> anyhow::Result<NoneType> {
         let res = List::from_value_mut(this)?;
         if this.ptr_eq(other) {
             // If the types alias, we can't borrow the `other` for iteration.
@@ -187,6 +195,7 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
         this: Value,
         #[starlark(require = pos)] index: i32,
         #[starlark(require = pos)] el: Value,
+        heap: &Heap,
     ) -> anyhow::Result<NoneType> {
         let this = List::from_value_mut(this)?;
         let index = convert_index(this.len() as i32, index);

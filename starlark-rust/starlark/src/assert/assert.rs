@@ -40,7 +40,7 @@ use crate::{
         lexer::{Lexer, Token},
         AstModule, Dialect,
     },
-    values::{none::NoneType, structs::Struct, OwnedFrozenValue, Value},
+    values::{none::NoneType, structs::Struct, Heap, OwnedFrozenValue, Value},
 };
 
 fn mk_environment() -> GlobalsBuilder {
@@ -130,7 +130,7 @@ fn assert_star(builder: &mut crate::environment::GlobalsBuilder) {
         Ok(x)
     }
 
-    fn fails(f: Value, _msg: &str) -> anyhow::Result<NoneType> {
+    fn fails(f: Value, _msg: &str, eval: &mut Evaluator) -> anyhow::Result<NoneType> {
         match f.invoke_pos(&[], eval) {
             Err(_e) => Ok(NoneType), // We don't actually check the message
             Ok(_) => Err(anyhow!("assert.fails: didn't fail")),
@@ -182,17 +182,17 @@ fn test_methods(builder: &mut GlobalsBuilder) {
     }
 
     // This is only safe to call at the top-level of a Starlark module
-    fn garbage_collect() -> anyhow::Result<NoneType> {
+    fn garbage_collect(eval: &mut Evaluator) -> anyhow::Result<NoneType> {
         eval.trigger_gc();
         Ok(NoneType)
     }
 
-    fn assert_type(v: Value, ty: Value) -> anyhow::Result<NoneType> {
+    fn assert_type(v: Value, ty: Value, heap: &Heap) -> anyhow::Result<NoneType> {
         v.check_type(ty, Some("v"), heap)?;
         Ok(NoneType)
     }
 
-    fn is_type(v: Value, ty: Value) -> anyhow::Result<bool> {
+    fn is_type(v: Value, ty: Value, heap: &Heap) -> anyhow::Result<bool> {
         v.is_type(ty, heap)
     }
 }

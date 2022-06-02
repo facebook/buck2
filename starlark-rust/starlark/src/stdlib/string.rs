@@ -25,7 +25,7 @@ use gazebo::prelude::*;
 use crate as starlark;
 use crate::{
     environment::MethodsBuilder,
-    eval::Arguments,
+    eval::{Arguments, Evaluator},
     stdlib::string::fast_string::convert_str_indices,
     values::{
         none::NoneOr,
@@ -35,7 +35,7 @@ use crate::{
             fast_string::StrIndices,
             iter::{iterate_chars, iterate_codepoints},
         },
-        StringValue, UnpackValue, Value, ValueOf,
+        Heap, StringValue, UnpackValue, Value, ValueOf,
     },
 };
 
@@ -140,7 +140,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     ///     "H", "e", "l", "l", "o", ",", " ", "世", "界"]
     /// # "#);
     /// ```
-    fn elems<'v>(this: Value<'v>) -> anyhow::Result<Value<'v>> {
+    fn elems<'v>(this: Value<'v>, heap: &Heap) -> anyhow::Result<Value<'v>> {
         Ok(iterate_chars(this, heap))
     }
 
@@ -191,7 +191,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// list("Hello, 世界".codepoints()) == [72, 101, 108, 108, 111, 44, 32, 19990, 30028]
     /// # "#);
     /// ```
-    fn codepoints<'v>(this: Value<'v>) -> anyhow::Result<Value<'v>> {
+    fn codepoints<'v>(this: Value<'v>, heap: &Heap) -> anyhow::Result<Value<'v>> {
         Ok(iterate_codepoints(this, heap))
     }
 
@@ -350,8 +350,12 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn format<'v>(this: &str, args: &Arguments<'v, '_>) -> anyhow::Result<StringValue<'v>> {
-        let iter = args.positions(heap)?;
+    fn format<'v>(
+        this: &str,
+        args: &Arguments<'v, '_>,
+        eval: &mut Evaluator,
+    ) -> anyhow::Result<StringValue<'v>> {
+        let iter = args.positions(eval.heap())?;
         interpolation::format(
             this,
             iter,
@@ -654,6 +658,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     fn join<'v>(
         this: &str,
         #[starlark(require = pos)] to_join: Value,
+        heap: &Heap,
     ) -> anyhow::Result<Value<'v>> {
         #[inline(always)]
         fn as_str<'v>(x: Value<'v>) -> anyhow::Result<&'v str> {
@@ -743,6 +748,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     fn partition<'v>(
         this: ValueOf<'v, &str>,
         #[starlark(require = pos)] needle: ValueOf<'v, &str>,
+        heap: &Heap,
     ) -> anyhow::Result<(Value<'v>, Value<'v>, Value<'v>)> {
         if needle.typed.is_empty() {
             return Err(anyhow!("Empty separator cannot be used for partitioning"));
@@ -881,6 +887,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     fn rpartition<'v>(
         this: ValueOf<'v, &str>,
         #[starlark(require = pos)] needle: ValueOf<'v, &str>,
+        heap: &Heap,
     ) -> anyhow::Result<(Value<'v>, Value<'v>, Value<'v>)> {
         if needle.typed.is_empty() {
             return Err(anyhow!("Empty separator cannot be used for partitioning"));
@@ -920,6 +927,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         this: &str,
         #[starlark(require = pos, default = NoneOr::None)] sep: NoneOr<&str>,
         #[starlark(require = pos, default = NoneOr::None)] maxsplit: NoneOr<i32>,
+        heap: &Heap,
     ) -> anyhow::Result<Value<'v>> {
         let maxsplit = match maxsplit.into_option() {
             None => None,
@@ -1012,6 +1020,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         this: &str,
         #[starlark(require = pos, default = NoneOr::None)] sep: NoneOr<&str>,
         #[starlark(require = pos, default = NoneOr::None)] maxsplit: NoneOr<i32>,
+        heap: &Heap,
     ) -> anyhow::Result<Value<'v>> {
         let maxsplit = match maxsplit.into_option() {
             None => None,
@@ -1075,6 +1084,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     fn splitlines<'v>(
         this: &str,
         #[starlark(require = pos, default = false)] keepends: bool,
+        heap: &Heap,
     ) -> anyhow::Result<Value<'v>> {
         let mut s = this;
         let mut lines = Vec::new();
@@ -1234,6 +1244,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     fn removeprefix<'v>(
         this: Value<'v>,
         #[starlark(require = pos)] prefix: &str,
+        heap: &Heap,
     ) -> anyhow::Result<Value<'v>> {
         let x = this.unpack_str().unwrap();
         if x.starts_with(prefix) && !prefix.is_empty() {
@@ -1263,6 +1274,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     fn removesuffix<'v>(
         this: Value<'v>,
         #[starlark(require = pos)] suffix: &str,
+        heap: &Heap,
     ) -> anyhow::Result<Value<'v>> {
         let x = this.unpack_str().unwrap();
         if x.ends_with(suffix) && !suffix.is_empty() {

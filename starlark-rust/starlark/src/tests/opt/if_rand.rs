@@ -45,7 +45,7 @@ struct CountCalls {
 #[starlark_module]
 fn bool_fns(globals: &mut GlobalsBuilder) {
     /// Return `true` and record side effect.
-    fn r#true() -> anyhow::Result<bool> {
+    fn r#true(eval: &mut Evaluator) -> anyhow::Result<bool> {
         let calls = eval
             .extra
             .as_ref()
@@ -56,7 +56,7 @@ fn bool_fns(globals: &mut GlobalsBuilder) {
         Ok(true)
     }
 
-    fn r#false() -> anyhow::Result<bool> {
+    fn r#false(eval: &mut Evaluator) -> anyhow::Result<bool> {
         let calls = eval
             .extra
             .as_ref()

@@ -73,19 +73,19 @@ mod tests {
 
     use crate::{
         self as starlark, assert, collections::SmallMap, environment::GlobalsBuilder,
-        values::dict::Dict,
+        eval::Evaluator, values::dict::Dict,
     };
 
     #[starlark_module]
     fn debugger(builder: &mut GlobalsBuilder) {
-        fn debug_inspect_stack() -> anyhow::Result<Vec<String>> {
+        fn debug_inspect_stack(eval: &mut Evaluator) -> anyhow::Result<Vec<String>> {
             Ok(eval.call_stack().into_frames().map(ToString::to_string))
         }
 
-        fn debug_inspect_variables<'v>() -> anyhow::Result<Dict<'v>> {
+        fn debug_inspect_variables<'v>(eval: &mut Evaluator) -> anyhow::Result<Dict<'v>> {
             let mut sm = SmallMap::new();
             for (k, v) in eval.local_variables() {
-                sm.insert_hashed(heap.alloc_str(&k).get_hashed(), v);
+                sm.insert_hashed(eval.heap().alloc_str(&k).get_hashed(), v);
             }
             Ok(Dict::new(coerce(sm)))
         }

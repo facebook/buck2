@@ -19,12 +19,12 @@
 use crate as starlark;
 use crate::{
     environment::GlobalsBuilder,
-    values::{enumeration::EnumType, Value},
+    values::{enumeration::EnumType, Heap, Value},
 };
 
 #[starlark_module]
 pub fn global(builder: &mut GlobalsBuilder) {
-    fn r#enum<'v>(args: Vec<Value>) -> anyhow::Result<Value<'v>> {
+    fn r#enum<'v>(args: Vec<Value>, heap: &Heap) -> anyhow::Result<Value<'v>> {
         // Every Value must either be a field or a value (the type)
         EnumType::new(args, heap)
     }

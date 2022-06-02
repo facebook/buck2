@@ -27,7 +27,7 @@ use crate::{
     values::{
         dict::{Dict, DictRef},
         none::NoneType,
-        Value,
+        Heap, Value,
     },
 };
 
@@ -111,7 +111,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn items<'v>(this: DictRef) -> anyhow::Result<Value<'v>> {
+    fn items<'v>(this: DictRef, heap: &Heap) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc_list_iter(this.iter().map(|(k, v)| heap.alloc((k, v)))))
     }
 
@@ -131,7 +131,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn keys<'v>(this: DictRef) -> anyhow::Result<Value<'v>> {
+    fn keys<'v>(this: DictRef, heap: &Heap) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc_list_iter(this.keys()))
     }
 
@@ -314,6 +314,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
         this: Value,
         #[starlark(require = pos)] pairs: Option<Value>,
         kwargs: DictRef,
+        heap: &Heap,
     ) -> anyhow::Result<NoneType> {
         let pairs = if pairs.map(|x| x.ptr_eq(this)) == Some(true) {
             // someone has done `x.update(x)` - that isn't illegal, but we will have issues
@@ -368,7 +369,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn values<'v>(this: DictRef) -> anyhow::Result<Value<'v>> {
+    fn values<'v>(this: DictRef, heap: &Heap) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc_list_iter(this.values()))
     }
 }

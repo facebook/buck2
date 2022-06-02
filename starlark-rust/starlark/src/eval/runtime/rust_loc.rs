@@ -38,11 +38,16 @@ pub(crate) use rust_loc;
 #[cfg(test)]
 mod tests {
     use crate as starlark;
-    use crate::{assert::Assert, environment::GlobalsBuilder, eval::Arguments, values::Value};
+    use crate::{
+        assert::Assert,
+        environment::GlobalsBuilder,
+        eval::{Arguments, Evaluator},
+        values::Value,
+    };
 
     #[starlark_module]
     fn rust_loc_globals(globals: &mut GlobalsBuilder) {
-        fn invoke<'v>(f: Value<'v>) -> anyhow::Result<Value<'v>> {
+        fn invoke<'v>(f: Value<'v>, eval: &mut Evaluator) -> anyhow::Result<Value<'v>> {
             f.invoke_with_loc(Some(rust_loc!()), &Arguments::default(), eval)
         }
     }

@@ -106,7 +106,7 @@ mod tests {
 
     #[starlark_module]
     fn debugger(builder: &mut GlobalsBuilder) {
-        fn debug_evaluate<'v>(code: String) -> anyhow::Result<Value<'v>> {
+        fn debug_evaluate<'v>(code: String, eval: &mut Evaluator) -> anyhow::Result<Value<'v>> {
             let ast = AstModule::parse("interactive", code, &Dialect::Extended)?;
             eval.eval_statements(ast)
         }
