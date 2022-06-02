@@ -18,7 +18,7 @@
 use std::{any::TypeId, cmp, fmt::Debug, mem, mem::MaybeUninit};
 
 use derive_more::Display;
-use gazebo::{any::AnyLifetime, cast, coerce::Coerce, prelude::*};
+use gazebo::{any::AnyLifetime, cast, prelude::*};
 use serde::{Serialize, Serializer};
 
 use crate::{
@@ -235,10 +235,6 @@ pub(crate) struct Complex;
 // where Mode is one of Simple/Complex.
 #[repr(C)]
 pub(crate) struct AValueImpl<Mode, T>(Mode, pub(crate) T);
-
-// Safe because Simple/Complex are ZST
-unsafe impl<T> Coerce<T> for AValueImpl<Simple, T> {}
-unsafe impl<T> Coerce<T> for AValueImpl<Complex, T> {}
 
 /// The overwrite operation in the heap requires that the LSB not be set.
 /// For FrozenValue this is the case, but for Value the LSB is always set.
