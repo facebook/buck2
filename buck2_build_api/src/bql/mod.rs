@@ -105,7 +105,7 @@ fn query_functions(builder: &mut GlobalsBuilder) {
     }
 
     fn buildfile(targets: TargetExpr, eval: &mut Evaluator) -> anyhow::Result<StarlarkFileSet> {
-        Ok(StarlarkFileSet(targets!(eval, targets).buildfile()?))
+        Ok(StarlarkFileSet(targets!(eval, targets).buildfile()))
     }
 
     fn deps(
@@ -187,7 +187,7 @@ fn query_functions(builder: &mut GlobalsBuilder) {
         eval: &mut Evaluator,
     ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         Ok(StarlarkTargetSet(
-            targets!(eval, left).union(targets!(eval, right))?,
+            targets!(eval, left).union(targets!(eval, right)),
         ))
     }
 

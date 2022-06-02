@@ -40,12 +40,12 @@ impl FileSet {
         Self { files }
     }
 
-    pub fn union(&self, right: &FileSet) -> anyhow::Result<FileSet> {
+    pub fn union(&self, right: &FileSet) -> FileSet {
         let mut files = self.files.clone();
         for file in right.files.iter() {
             files.insert(file.clone());
         }
-        Ok(Self { files })
+        Self { files }
     }
 
     pub fn owner<T: QueryTarget>(

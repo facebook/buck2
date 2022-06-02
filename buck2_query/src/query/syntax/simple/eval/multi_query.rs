@@ -36,9 +36,9 @@ impl<T: QueryTarget> MultiQueryResult<T> {
                 (
                     QueryEvaluationValue::TargetSet(value),
                     QueryEvaluationValue::TargetSet(results),
-                ) => QueryEvaluationValue::TargetSet(results.union(&value)?),
+                ) => QueryEvaluationValue::TargetSet(results.union(&value)),
                 (QueryEvaluationValue::FileSet(value), QueryEvaluationValue::FileSet(results)) => {
-                    QueryEvaluationValue::FileSet(results.union(&value)?)
+                    QueryEvaluationValue::FileSet(results.union(&value))
                 }
                 _ => unreachable!(
                     "no queries should return different types for different literals, but somehow that happened for `{}` and `{}`",

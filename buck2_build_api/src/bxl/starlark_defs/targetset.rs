@@ -98,10 +98,8 @@ impl<'v, Node: NodeLike> StarlarkValue<'v> for StarlarkTargetSet<Node> {
 
     fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
         let other = other.downcast_ref::<Self>()?;
-        match self.0.union(&other.0) {
-            Ok(union) => Some(Ok(heap.alloc(Self(union)))),
-            Err(err) => Some(Err(err)),
-        }
+        let union = self.0.union(&other.0);
+        Some(Ok(heap.alloc(Self(union))))
     }
 
     fn sub(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {

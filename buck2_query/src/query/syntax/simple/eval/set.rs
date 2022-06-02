@@ -53,12 +53,12 @@ impl<T: QueryTarget> TargetSet<T> {
         Ok(Self { targets })
     }
 
-    pub fn buildfile(&self) -> anyhow::Result<FileSet> {
+    pub fn buildfile(&self) -> FileSet {
         let mut files = IndexSet::new();
         for target in self.targets.iter() {
             files.insert(FileNode(target.buildfile_path().path()));
         }
-        Ok(FileSet::new(files))
+        FileSet::new(files)
     }
 
     pub fn inputs(&self) -> anyhow::Result<FileSet> {
@@ -78,7 +78,7 @@ impl<T: QueryTarget> TargetSet<T> {
         Err(anyhow!(QueryError::FunctionUnimplemented("labels()")))
     }
 
-    pub fn union(&self, right: &TargetSet<T>) -> anyhow::Result<TargetSet<T>> {
+    pub fn union(&self, right: &TargetSet<T>) -> TargetSet<T> {
         let mut targets = LabelIndexedSet::new();
         for target in self.targets.iter() {
             targets.insert(target.dupe());
@@ -86,7 +86,7 @@ impl<T: QueryTarget> TargetSet<T> {
         for target in right.targets.iter() {
             targets.insert(target.dupe());
         }
-        Ok(Self { targets })
+        Self { targets }
     }
 
     pub fn iter_names(&self) -> impl Iterator<Item = &T::NodeRef> + Clone {

@@ -220,7 +220,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
     }
 
     async fn buildfile(&self, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
-        Ok(targets.buildfile()?.into())
+        Ok(targets.buildfile().into())
     }
 
     async fn deps(
@@ -311,7 +311,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         left: TargetSet<Env::Target>,
         right: TargetSet<Env::Target>,
     ) -> Result<TargetSet<Env::Target>, QueryError> {
-        Ok(left.union(&right)?)
+        Ok(left.union(&right))
     }
 }
 pub struct AugmentedQueryFunctions<'a, Env: QueryEnvironment> {
