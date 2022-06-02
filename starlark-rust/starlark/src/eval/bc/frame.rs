@@ -157,6 +157,39 @@ impl<'v> BcFrame<'v> {
         }
     }
 
+    #[inline(always)]
+    fn stack_uninit(&mut self) -> &mut [MaybeUninit<Value<'v>>] {
+        unsafe {
+            slice::from_raw_parts_mut(
+                self.slots.as_mut_ptr().add(self.local_count as usize) as *mut _,
+                self.max_stack_size as usize,
+            )
+        }
+    }
+
+    /// Initialize frame after it was allocated.
+    #[inline(always)]
+    fn init(&mut self) {
+        self.locals_uninit().fill(MaybeUninit::new(None));
+
+        if cfg!(debug_assertions) {
+            // Write junk to the stack to trigger memory error if the stack is used incorrectly.
+            unsafe {
+                // Any bit pattern would do except
+                // * a bit pattern which would make valid int tag (0b_xxxx_x010)
+                // * zeros, which would be interpreted as uninitialized if copied to a local
+                let byte = 0xef;
+
+                let start = self.stack_uninit().as_ptr() as *mut u8;
+                ptr::write_bytes(
+                    start,
+                    byte,
+                    (self.max_stack_size as usize) * mem::size_of::<Value>(),
+                );
+            }
+        }
+    }
+
     /// Gets a local variable. Returns None to indicate the variable is not yet assigned.
     #[inline(always)]
     pub(crate) fn get_slot(&self, slot: LocalSlotId) -> Option<Value<'v>> {
@@ -258,10 +291,7 @@ pub(crate) fn alloca_frame<'v, 'a, R>(
 ) -> R {
     alloca_raw(eval, local_count, max_stack_size, |eval, mut frame| {
         // TODO(nga): no need to fill the slots for parameters.
-        frame
-            .frame_mut()
-            .locals_uninit()
-            .fill(MaybeUninit::new(None));
+        frame.frame_mut().init();
         let old_frame = mem::replace(&mut eval.current_frame, frame);
         let r = k(eval);
         eval.current_frame = old_frame;
