@@ -181,10 +181,7 @@ impl Key for EnsureTransitiveSetProjectionKey {
         if let Some(build_signals) = ctx.per_transaction_data().get_build_signals() {
             let artifacts = values
                 .iter()
-                .filter_map(|(artifact, _value)| match artifact.0.as_ref() {
-                    ArtifactKind::Build(owner) => Some(owner.dupe()),
-                    _ => None,
-                })
+                .filter_map(|(artifact, _value)| artifact.action_key().duped())
                 .collect::<HashSet<_>>();
 
             let set_deps = projections.into_iter().map(|p| p.0).collect::<HashSet<_>>();

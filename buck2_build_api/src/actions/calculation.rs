@@ -22,7 +22,7 @@ use tracing::debug;
 use crate::{
     actions::{
         artifact::BuildArtifact,
-        build_listener::{ActionExecutionSignal, HasBuildSignals},
+        build_listener::{ActionExecutionSignal, ActionRedirectionSignal, HasBuildSignals},
         ActionKey, RegisteredAction,
     },
     artifact_groups::calculation::ArtifactGroupCalculation,
@@ -76,6 +76,8 @@ impl ActionCalculation for DiceComputations {
 
                 let action = ctx.get_action(&self.0).await?;
 
+                let build_signals = ctx.per_transaction_data().get_build_signals();
+
                 if action.key() != &self.0 {
                     // The action key we start with is on the DICE graph, and thus cached
                     // and properly deduplicated. But if the underlying has a different key,
@@ -83,7 +85,18 @@ impl ActionCalculation for DiceComputations {
                     // pointing at the same underlying action. We need to make sure that
                     // underlying action only gets called once, so call build_action once
                     // again with the new key to get DICE deduplication.
-                    return ctx.build_action(action.key()).await;
+                    let res = ctx.build_action(action.key()).await;
+
+                    if let Some(signals) = build_signals {
+                        // Notify our criticla path tracking that *this action* is secretely that
+                        // other action we just jumped to.
+                        signals.signal(ActionRedirectionSignal {
+                            key: self.0.dupe(),
+                            dest: action.key().dupe(),
+                        });
+                    }
+
+                    return res;
                 }
 
                 let materialized_inputs = tokio::task::unconstrained(keep_going::try_join_all(
@@ -103,7 +116,6 @@ impl ActionCalculation for DiceComputations {
 
                 // TODO check input based cache and compute keys
                 let events = ctx.per_transaction_data().get_dispatcher();
-                let build_signals = ctx.per_transaction_data().get_build_signals();
                 let start_event = buck2_data::ActionExecutionStart {
                     key: Some(action.key().as_proto()),
                     kind: action.kind().into(),

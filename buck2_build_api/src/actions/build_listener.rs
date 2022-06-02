@@ -16,7 +16,7 @@ use std::{
 };
 
 use buck2_data::{BuildGraphExecutionInfo, CriticalPathEntry};
-use derive_more::From;
+use derive_more::{Display, From};
 use dice::UserComputationData;
 use events::dispatch::EventDispatcher;
 use gazebo::prelude::*;
@@ -24,7 +24,7 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
 
 use crate::{
-    actions::{artifact::ArtifactKind, BuildArtifact, RegisteredAction},
+    actions::{ActionKey, RegisteredAction},
     artifact_groups::{ArtifactGroup, TransitiveSetProjectionKey},
     events::proto::ToProtoMessage,
 };
@@ -36,8 +36,17 @@ pub struct ActionExecutionSignal {
 
 pub struct TransitiveSetComputationSignal {
     pub key: TransitiveSetProjectionKey,
-    pub artifacts: HashSet<BuildArtifact>,
+    pub artifacts: HashSet<ActionKey>,
     pub set_deps: HashSet<TransitiveSetProjectionKey>,
+}
+
+/// When dealing with dynamic outputs, we obtain an action key that'll result in us doing
+/// (deferred) analysis and resolve to another action (the deferred action). We then go and execute
+/// that action instead. Our predecessor map tracks action keys so we need to track this
+/// redirection otherwise we'll have a broken link in our chain.
+pub struct ActionRedirectionSignal {
+    pub key: ActionKey,
+    pub dest: ActionKey,
 }
 
 /* These signals are distinct from the main Buck event bus because some
@@ -49,6 +58,7 @@ pub struct TransitiveSetComputationSignal {
 pub enum BuildSignal {
     ActionExecution(ActionExecutionSignal),
     TransitiveSetComputation(TransitiveSetComputationSignal),
+    ActionRedirection(ActionRedirectionSignal),
     BuildFinished,
 }
 
@@ -72,9 +82,9 @@ struct CriticalPathNode<TKey: Eq, TValue> {
     pub prev: Option<TKey>,
 }
 
-#[derive(Hash, Eq, PartialEq, Clone, Dupe)]
+#[derive(Hash, Eq, PartialEq, Clone, Dupe, Debug, Display)]
 enum NodeKey {
-    BuildArtifact(BuildArtifact),
+    ActionKey(ActionKey),
     TransitiveSetProjection(TransitiveSetProjectionKey),
 }
 
@@ -124,6 +134,9 @@ impl BuildSignalReceiver {
                 BuildSignal::TransitiveSetComputation(tset) => {
                     self.process_transitive_set_computation(tset)?
                 }
+                BuildSignal::ActionRedirection(redirection) => {
+                    self.process_action_redirection(redirection)?
+                }
                 BuildSignal::BuildFinished => break,
             }
         }
@@ -145,26 +158,33 @@ impl BuildSignalReceiver {
         let inputs = execution.action.inputs()?;
 
         let dep_keys = inputs.iter().filter_map(|dep| match dep {
-            ArtifactGroup::Artifact(artifact) => match artifact.0.as_ref() {
-                ArtifactKind::Build(build_artifact) => {
-                    Some(NodeKey::BuildArtifact(build_artifact.dupe()))
-                }
-                _ => None,
-            },
+            ArtifactGroup::Artifact(artifact) => {
+                artifact.action_key().duped().map(NodeKey::ActionKey)
+            }
             ArtifactGroup::TransitiveSetProjection(key) => {
                 Some(NodeKey::TransitiveSetProjection(key.dupe()))
             }
         });
 
         self.process_node(
-            execution
-                .action
-                .outputs()?
-                .iter()
-                .map(|a| NodeKey::BuildArtifact(a.dupe())),
+            NodeKey::ActionKey(execution.action.key().dupe()),
             Some(execution.action.dupe()),
             execution.duration,
             dep_keys,
+        );
+
+        Ok(())
+    }
+
+    fn process_action_redirection(
+        &mut self,
+        redirection: ActionRedirectionSignal,
+    ) -> anyhow::Result<()> {
+        self.process_node(
+            NodeKey::ActionKey(redirection.key),
+            None,
+            Duration::from_secs(0), // Those nodes don't carry a duration.
+            std::iter::once(NodeKey::ActionKey(redirection.dest)),
         );
 
         Ok(())
@@ -174,14 +194,14 @@ impl BuildSignalReceiver {
         &mut self,
         set: TransitiveSetComputationSignal,
     ) -> anyhow::Result<()> {
-        let artifacts = set.artifacts.into_iter().map(NodeKey::BuildArtifact);
+        let artifacts = set.artifacts.into_iter().map(NodeKey::ActionKey);
         let sets = set
             .set_deps
             .into_iter()
             .map(NodeKey::TransitiveSetProjection);
 
         self.process_node(
-            std::iter::once(NodeKey::TransitiveSetProjection(set.key)),
+            NodeKey::TransitiveSetProjection(set.key),
             None,
             Duration::from_secs(0), // Those nodes don't carry a duration.
             artifacts.chain(sets),
@@ -192,7 +212,7 @@ impl BuildSignalReceiver {
 
     fn process_node(
         &mut self,
-        keys: impl Iterator<Item = NodeKey>,
+        key: NodeKey,
         value: Option<Arc<RegisteredAction>>,
         duration: Duration,
         dep_keys: impl Iterator<Item = NodeKey>,
@@ -217,9 +237,7 @@ impl BuildSignalReceiver {
             },
         };
 
-        for key in keys {
-            self.predecessors.insert(key, node.dupe());
-        }
+        self.predecessors.insert(key, node.dupe());
     }
 
     pub fn extract_critical_path(&self) -> Vec<(String, Duration, &Arc<RegisteredAction>)> {
