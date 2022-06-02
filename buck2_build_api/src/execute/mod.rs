@@ -15,7 +15,6 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     fmt::{Debug, Display, Write},
-    hash::{Hash, Hasher},
     sync::Arc,
     time::Duration,
 };
@@ -189,7 +188,7 @@ impl ActionExecutionKind {
     }
 }
 
-#[derive(Debug, Eq, Hash, PartialEq, Clone, Dupe)]
+#[derive(Debug, Eq, PartialEq, Clone, Dupe)]
 pub struct LocalExecutorOptions {}
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -221,23 +220,13 @@ pub struct RemoteExecutorOptions {
     pub re_use_case: RemoteExecutorUseCase,
 }
 
-#[allow(clippy::derive_hash_xor_eq)]
-impl Hash for RemoteExecutorOptions {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        for (k, v) in &self.re_properties {
-            k.hash(state);
-            v.hash(state);
-        }
-    }
-}
-
 #[derive(Debug, Error)]
 enum ExecutorConfigError {
     #[error("Action executor config must have at least one of local or remote options")]
     MissingLocalAndRemote,
 }
 
-#[derive(Debug, Eq, Hash, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum CommandExecutorConfig {
     Local(LocalExecutorOptions),
     Remote(RemoteExecutorOptions),

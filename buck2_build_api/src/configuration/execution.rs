@@ -10,6 +10,7 @@
 use std::sync::Arc;
 
 use buck2_core::{configuration::Configuration, target::TargetLabel};
+use derivative::Derivative;
 use derive_more::Display;
 use gazebo::prelude::*;
 use itertools::Itertools;
@@ -24,17 +25,20 @@ use crate::{execute::CommandExecutorConfig, nodes::compatibility::IncompatiblePl
 ///
 /// It consists of that platform `Configuration` and configuration of how to do the execution
 /// (e.g. local, remote, etc.).
-#[derive(Debug, Eq, PartialEq, Hash)]
+#[derive(Debug, Eq, Derivative)]
+#[derivative(Hash, PartialEq)]
 pub enum ExecutionPlatform {
     /// A user-defined platform.
     Platform {
         target: TargetLabel,
         cfg: Configuration,
+        #[derivative(Hash = "ignore", PartialEq = "ignore")]
         executor_config: CommandExecutorConfig,
     },
     /// When users haven't configured execution platforms, we will use old legacy behavior where
     /// execution deps inherit the target platform configuration.
     LegacyExecutionPlatform {
+        #[derivative(Hash = "ignore", PartialEq = "ignore")]
         executor_config: CommandExecutorConfig,
         cfg: Configuration,
     },
