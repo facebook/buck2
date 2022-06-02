@@ -1,4 +1,5 @@
 import fileinput
+import gzip
 import json
 import os
 import random
@@ -1027,6 +1028,49 @@ async def test_no_output_wildcard(buck: Buck) -> None:
 
     assert "BUILD SUCCEEDED" in results.stderr
     assert "does not have any outputs: building it does nothing" not in results.stderr
+
+
+@buck_test(inplace=False, data_dir="critical_path")
+@env("BUCK2_TEST_DISABLE_CACHING", "true")
+async def test_critical_path(buck: Buck) -> None:
+    def get(data, *key):
+        data = json.loads(data)
+
+        for k in key:
+            data = data.get(k)
+            if data is None:
+                break
+
+        return data
+
+    await buck.build("//:step_3")
+    log = (await buck.log("last")).stdout.strip()
+
+    critical_path = None
+
+    with gzip.open(log, mode="rt", encoding="utf-8") as log:
+        for line in log:
+            critical_path = get(
+                line,
+                "Event",
+                "data",
+                "Instant",
+                "data",
+                "BuildGraphInfo",
+                "critical_path",
+            )
+
+            if critical_path is not None:
+                break
+
+    assert critical_path is not None, "No critical path in log"
+
+    steps = [entry["action_name"] for entry in critical_path]
+    assert len(steps) == 4
+    assert "root//:step_0" in steps[0]
+    assert "root//:step_1" in steps[1]
+    assert "root//:step_2" in steps[2]
+    assert "root//:step_3" in steps[3]
 
 
 async def expect_exec_count(buck: Buck, n: int) -> None:

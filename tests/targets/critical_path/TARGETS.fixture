@@ -1,0 +1,11 @@
+write(name = "step_0")
+cp(name = "step_1", dep = ":step_0")
+dynamic_cp(name = "step_2", dep = ":step_1")
+
+# NOTE: This is a long sleep, but our tests already take 50 seconds anyway so
+# let's just sleep for a while to make sure we don't introduce flakyness. Also
+# note that this should be unnecessary since there is only one top-level target
+# here, but this breaks because critical path calculations are not aware of
+# dependencies induced by the *inputs* of `dynamic_action`: they're only aware
+# of the inputs used by the actions declared in `dynamic_action`.
+cp(name = "step_3", dep = ":step_2", sleep = 5)

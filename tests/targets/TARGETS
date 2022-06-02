@@ -70,5 +70,7 @@ buck_filegroup(
         "out/**/.*",
         "no_output/**",
         "no_output/**/.*",
+        "critical_path/**",
+        "critical_path/**/.*",
     ]),
 )
