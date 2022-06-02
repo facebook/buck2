@@ -187,6 +187,7 @@ python_library(
         "fbcode//buck2/facebook/apple_project/xcode:pbx",
         "fbcode//buck2/facebook/apple_project/xcode:target",
         ":target_attributes",
+        ":xcode_data",
     ],
 )
 
@@ -267,9 +268,9 @@ python_library(
 python_unittest(
     name = "xcode_data_test",
     srcs = ["xcode_data_test.py"],
-    resources = [
-        "xcode_data_test.fixture",
-    ],
+    resources = glob([
+        "xcode_data_test*.fixture",
+    ]),
     deps = [
         "fbcode//buck2/facebook/apple_project/buck:build_target",
         ":xcode_data",
