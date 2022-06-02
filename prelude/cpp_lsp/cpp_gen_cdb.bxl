@@ -23,7 +23,10 @@ def _impl(ctx):
     if owner != None:
         buckRoot = ctx.root()
         providers = ctx.analysis(owner, None, True).providers()
-        artifact = providers[CxxCompilationDbInfo].info[owner.get_source(filename, ctx)]
+        artifact = providers[CxxCompilationDbInfo].info.values()[0]
+        sourceLabel = owner.get_source(filename, ctx)
+        if sourceLabel in providers[CxxCompilationDbInfo].info:
+            artifact = providers[CxxCompilationDbInfo].info[sourceLabel]
         compileCommands = []
         arguments = cmd_args()
         arguments.add(artifact.cxx_compile_cmd.base_compile_cmd)
@@ -34,24 +37,21 @@ def _impl(ctx):
         compileCommands.append({"file": filename, "directory": buckRoot, "arguments": arguments})
         actionFactory = ctx.bxl_actions.action_factory()
         compdbArtifact = actionFactory.write_json("compdb.json", compileCommands)
-        hmapConverter = ctx.analysis("fbsource//xplat/scripts/clangd/hmapconverter:bxlhmapconverter").providers()[RunInfo]
-        outputDir = actionFactory.declare_output("merged_cdb")
-        cmd = cmd_args(hmapConverter)
-        cmd.add("--input-file")
-        cmd.add(compdbArtifact)
-        cmd.add("--output-dir")
-        cmd.add(outputDir.as_output())
-        actionFactory.run(cmd, category = "cxx_merge_compdb_hmap")
-        buildTarget = configured_sub_target(owner.label, "compilation-database")
-        ctx.build(buildTarget)
-        return [outputDir]
-    return []
+        # HMAP CONVERTER
+        # hmapConverter = ctx.analysis("fbsource//xplat/scripts/clangd/hmapconverter:bxlhmapconverter").providers()[RunInfo]
+        # outputDir = actionFactory.declare_output("merged_cdb")
+        # cmd = cmd_args(hmapConverter)
+        # cmd.add("--input-file")
+        # cmd.add(compdbArtifact)
+        # cmd.add("--output-dir")
+        # cmd.add(outputDir.as_output())
+        # actionFactory.run(cmd, category = "cxx_merge_compdb_hmap")
 
-    # @unsorted-dict-items
-    # compile_cmds.append({"file": filename, "directory": buckRoot, "arguments": arguments})
-    # res = ctx.bxl_actions.action_factory().write_json("compdb.json", compile_cmds)
-    # return [res]
-    # return []
+        # TODO: do we need this for dependencies materialization?
+        # buildTarget = configured_sub_target(owner.label, "compilation-database")
+        # ctx.build(buildTarget)
+        return [compdbArtifact]
+    return []
 
 def findOwningTarget(ctx, filename):
     owner = runCqueryOwner(ctx, filename)
@@ -97,20 +97,22 @@ def runCqueryOwner(ctx, filename):
 def findTargetsByReverseDependency(ctx, unfilteredTargets):
     for searchDepth in range(1, 3):
         for unfilteredTarget in unfilteredTargets:
-            buildPackage = unfilteredTarget.split(":")[0]
+            buildPackage = str(unfilteredTarget.label).split(":")[0]
             dirCount = buildPackage.count("/")
             owners = []
+            fromTarget = str(unfilteredTarget.label).split(" ")[0]
 
             # workaround for a lack of while loop
             for _i in range(dirCount + 1):
+                universe = buildPackage + "/..."
                 owners = ctx.cquery().attrregexfilter(
                     "srcs",
                     ".*",
                     ctx.cquery().kind(
                         "|".join(BUCK_CPP_RULE_KINDS),
                         ctx.cquery().rdeps(
-                            buildPackage + "/...",
-                            unfilteredTarget,
+                            universe,
+                            fromTarget,
                             searchDepth,
                         ),
                     ),
@@ -132,15 +134,15 @@ def pickTarget(ctx, targets):
 
     if ctx.cli_args.os == "darwin":
         for target in targets:
-            if target.endswith("applemac"):
+            if str(target.label).endswith("applemac"):
                 return target
 
     # todo: identify fobjc mode
 
     # pick a target that's prefix for all other targets
-    sortedTargets = sorted(targets, key = lambda target: target.label)
+    sortedTargets = sorted(targets, key = lambda target: str(target.label))
     for sortedTarget in sortedTargets:
-        if not sortedTarget.label.startswith(sortedTargets[0].label):
+        if not str(sortedTarget.label).startswith(str(sortedTargets[0].label)):
             return targets[0]
     return sortedTargets[0]
 
