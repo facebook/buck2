@@ -208,11 +208,12 @@ fn gen_for_method(parsed: &Parsed, method: &Method) -> syn::Result<MethodCodegen
 
                     async fn invoke(
                         &self,
+                        env: &Env,
                         left: TargetSet<#env_target>,
                         right: TargetSet<#env_target>,
                     ) -> Result<TargetSet<#env_target>, QueryError> {
                         self.0.#func_ident(
-                            #pass_ctx
+                            env,
                             left,
                             right
                         ).await

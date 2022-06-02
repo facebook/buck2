@@ -105,7 +105,7 @@ impl<'e, Env: QueryEnvironment> QueryEvaluator<'e, Env> {
                     value = right
                         .async_into_map_res(|right| async move {
                             match self.functions.get_op(*op) {
-                                Some(func) => func.invoke(value, right).await,
+                                Some(func) => func.invoke(self.env(), value, right).await,
                                 None => Err(QueryError::UnsupportedBinaryOp(op.to_string())),
                             }
                         })

@@ -290,6 +290,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
     #[binary_op(BinaryOp::Intersect)]
     async fn intersect(
         &self,
+        _env: &Env,
         left: TargetSet<Env::Target>,
         right: TargetSet<Env::Target>,
     ) -> Result<TargetSet<Env::Target>, QueryError> {
@@ -299,6 +300,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
     #[binary_op(BinaryOp::Except)]
     async fn except(
         &self,
+        _env: &Env,
         left: TargetSet<Env::Target>,
         right: TargetSet<Env::Target>,
     ) -> Result<TargetSet<Env::Target>, QueryError> {
@@ -308,6 +310,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
     #[binary_op(BinaryOp::Union)]
     async fn union(
         &self,
+        _env: &Env,
         left: TargetSet<Env::Target>,
         right: TargetSet<Env::Target>,
     ) -> Result<TargetSet<Env::Target>, QueryError> {

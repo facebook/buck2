@@ -113,6 +113,7 @@ pub trait QueryBinaryOp<Env: QueryEnvironment>: Send + Sync {
 
     async fn invoke(
         &self,
+        env: &Env,
         left: TargetSet<Env::Target>,
         right: TargetSet<Env::Target>,
     ) -> Result<TargetSet<Env::Target>, QueryError>;
