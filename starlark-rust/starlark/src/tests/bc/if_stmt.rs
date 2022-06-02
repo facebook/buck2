@@ -26,7 +26,7 @@ fn test_if_x_and_true() {
             BcOpcode::CallFrozenNativePos,
             BcOpcode::ReturnConst,
         ],
-        "def test(x):\n  if x and True: print()",
+        "def test(x):\n  if x and True: noop()",
     )
 }
 
@@ -34,7 +34,7 @@ fn test_if_x_and_true() {
 fn test_if_x_and_false() {
     test_instrs(
         &[BcOpcode::LoadLocal, BcOpcode::ReturnConst],
-        "def test(x):\n  if x and False: print()",
+        "def test(x):\n  if x and False: noop()",
     )
 }
 
@@ -46,7 +46,7 @@ fn test_if_x_or_true() {
             BcOpcode::CallFrozenNativePos,
             BcOpcode::ReturnConst,
         ],
-        "def test(x):\n  if x or True: print()",
+        "def test(x):\n  if x or True: noop()",
     )
 }
 
@@ -59,7 +59,7 @@ fn test_if_x_or_false() {
             BcOpcode::CallFrozenNativePos,
             BcOpcode::ReturnConst,
         ],
-        "def test(x):\n  if x or False: print()",
+        "def test(x):\n  if x or False: noop()",
     )
 }
 
@@ -72,7 +72,7 @@ fn test_if_true_and_x() {
             BcOpcode::CallFrozenNativePos,
             BcOpcode::ReturnConst,
         ],
-        "def test(x):\n  if True and x: print()",
+        "def test(x):\n  if True and x: noop()",
     )
 }
 
@@ -80,7 +80,7 @@ fn test_if_true_and_x() {
 fn test_if_false_and_x() {
     test_instrs(
         &[BcOpcode::ReturnConst],
-        "def test(x):\n  if False and x: print()",
+        "def test(x):\n  if False and x: noop()",
     )
 }
 
@@ -88,7 +88,7 @@ fn test_if_false_and_x() {
 fn test_if_true_or_x() {
     test_instrs(
         &[BcOpcode::CallFrozenNativePos, BcOpcode::ReturnConst],
-        "def test(x):\n  if True or x: print()",
+        "def test(x):\n  if True or x: noop()",
     )
 }
 
@@ -101,7 +101,7 @@ fn test_if_false_or_x() {
             BcOpcode::CallFrozenNativePos,
             BcOpcode::ReturnConst,
         ],
-        "def test(x):\n  if False or x: print()",
+        "def test(x):\n  if False or x: noop()",
     )
 }
 
@@ -148,7 +148,7 @@ fn test_and_stmt() {
             BcOpcode::CallFrozenNativePos,
             BcOpcode::ReturnConst,
         ],
-        "def test(x):\n  x and print()",
+        "def test(x):\n  x and noop()",
     )
 }
 
@@ -161,6 +161,6 @@ fn test_or_stmt() {
             BcOpcode::CallFrozenNativePos,
             BcOpcode::ReturnConst,
         ],
-        "def test(x):\n  x or print()",
+        "def test(x):\n  x or noop()",
     )
 }

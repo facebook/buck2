@@ -195,6 +195,14 @@ fn test_functions(builder: &mut GlobalsBuilder) {
     fn is_type(v: Value, ty: Value, heap: &Heap) -> anyhow::Result<bool> {
         v.is_type(ty, heap)
     }
+
+    /// Function which consumes arguments and that's it.
+    ///
+    /// This function is unknown to optimizer, so it can be used in optimizer tests.
+    fn noop(args: Value, kwargs: Value) -> anyhow::Result<NoneType> {
+        let _ = (args, kwargs);
+        Ok(NoneType)
+    }
 }
 
 /// Environment in which to run assertion tests.
