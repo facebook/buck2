@@ -1,16 +1,19 @@
 //! Provides some basic tracked filesystem access for bxl functions so that they can meaningfully
 //! detect simple properties of artifacts, and source directories.
 
-use std::convert::TryFrom;
+use std::{borrow::Cow, convert::TryFrom, path::Path};
 
 use buck2_common::{
-    dice::{cells::HasCellResolver, file_ops::HasFileOps},
+    dice::{cells::HasCellResolver, data::HasIoProvider, file_ops::HasFileOps},
     file_ops::FileOps,
 };
-use buck2_core::{self, fs::project::ProjectRelativePath};
+use buck2_core::{
+    self,
+    fs::{paths::AbsPath, project::ProjectRelativePath},
+};
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::any::AnyLifetime;
+use gazebo::{any::AnyLifetime, prelude::*};
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
     values::{
@@ -72,11 +75,15 @@ impl<'v> UnpackValue<'v> for &'v BxlFilesystem<'v> {
 fn fs_operations(builder: &mut MethodsBuilder) {
     /// check if a path exists on disk, taking advantage of Buck's cached filesystem
     fn exists<'v>(this: &BxlFilesystem<'v>, path: &str) -> anyhow::Result<bool> {
+        let fs = this.dice.0.global_data().get_io_provider().fs().dupe();
+        let rel = if Path::new(path).is_absolute() {
+            fs.relativize(AbsPath::new(path)?)?
+        } else {
+            Cow::Borrowed(<&ProjectRelativePath>::try_from(path)?)
+        };
+
         this.dice.via_dice(async move |ctx| {
-            let path = ctx
-                .get_cell_resolver()
-                .await
-                .get_cell_path(<&ProjectRelativePath>::try_from(path)?)?;
+            let path = ctx.get_cell_resolver().await.get_cell_path(&rel)?;
 
             ctx.file_ops().try_exists(&path).await
         })
