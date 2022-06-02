@@ -123,6 +123,9 @@ Unfortunately, because `fbcode` with Buck1 doesn't use separate host and target 
 * There are no "flavors" in Buck2, where a flavor is a target modified by appending `#something`. For example, Rust binaries could be checked (not compiled, just type checked) with `library#check`, whereas in Buck2 that is `library[check]` (using the named targets syntax). Where libraries are depended upon using flavours for stripping or platform transition those should use [configuration mechanisms](configurations.md) instead.
 * The C++ link order in Buck v1 and Buck2 is unspecified, but for some C++ projects there are duplicate symbols defined, where v1 happens to pick a link order that works but v2 doesn't. In such cases the duplicate symbols should be fixed properly so either link order works, usually by renaming one symbol.
 * When run on Remote Execution, input files will be hard links, and identical inputs will link to the same underlying file. Most tools are oblivious to hard links, but some such as `tar` may require flags such as `--hard-dereference`, and `cp` may require `--dereference`.
+* FBCode CI code coverage (diff and full) is currenly disabled for buck2 and planned to be supported in H2 2022. (T122036419)
+* Python needed_coverage is currently not collecting data and silently failing and planned to be supported in Q3 2022. (T122359235)
+* FBCode multisect logic is currently not supported and planned to be supported in Q3 2022. (T122360065)
 
 ### Historical notes
 
