@@ -46,41 +46,6 @@ impl<'e, Env: QueryEnvironment> QueryEvaluator<'e, Env> {
         self.env.eval_literals(&[literal]).await
     }
 
-    pub async fn eval_targets(
-        &self,
-        expr: &Spanned<Expr<'_>>,
-    ) -> QueryResult<TargetSet<Env::Target>> {
-        self.eval(expr)
-            .await?
-            .async_into_map_res(async move |value| match value {
-                QueryValue::TargetSet(val) => Ok(val),
-                QueryValue::String(literal) => Ok(self.resolve_literal(&literal).await?),
-                _ => Err(QueryError::InvalidType {
-                    expected: "targets",
-                    actual: value.variant_name(),
-                }),
-            })
-            .await
-    }
-
-    pub fn eval_integer(&self, expr: &Spanned<Expr>) -> QueryResult<u64> {
-        expr.map_res(|expr| match expr {
-            Expr::Integer(val) => Ok(*val),
-            _ => Err(QueryError::ExpectedLiteral {
-                actual: expr.variant_name(),
-            }),
-        })
-    }
-
-    pub fn eval_string<'a>(&self, expr: &'a Spanned<Expr>) -> QueryResult<&'a str> {
-        expr.map_res(|expr| match expr {
-            Expr::String(val) => Ok(*val),
-            _ => Err(QueryError::ExpectedLiteral {
-                actual: expr.variant_name(),
-            }),
-        })
-    }
-
     async fn eval_internal(&self, expr: &Expr<'_>) -> Result<QueryValue<Env::Target>, QueryError> {
         // TODO(cjhopman): We should extract these functions to a map of name->functionobj and attach
         // more information to them like documentation and signature. Potentially we could generalize
