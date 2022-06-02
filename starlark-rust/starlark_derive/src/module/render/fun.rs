@@ -112,14 +112,14 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
 
     let let_eval = if let Some(SpecialParam { ident, ty }) = eval {
         Some(quote_spanned! {span=>
-            let #ident: #ty = eval;
+            let #ident: #ty = __eval;
         })
     } else {
         None
     };
     let let_heap = if let Some(SpecialParam { ident, ty }) = heap {
         Some(quote_spanned! {span=>
-            let #ident: #ty = eval.heap();
+            let #ident: #ty = __eval.heap();
         })
     } else {
         None
@@ -137,14 +137,12 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
         ) -> anyhow::Result<starlark::values::Value<'v>> {
             fn inner<'v>(
                 #[allow(unused_variables)]
-                eval: &mut starlark::eval::Evaluator<'v, '_>,
+                __eval: &mut starlark::eval::Evaluator<'v, '_>,
                 #this_param
                 __args: &starlark::eval::Arguments<'v, '_>,
                 #signature_arg
             ) -> #return_type {
                 #binding
-                #[allow(unused_variables)]
-                let heap = eval.heap();
                 #let_eval
                 #let_heap
                 #body
@@ -198,7 +196,7 @@ fn render_binding(x: &StarFun) -> TokenStream {
             let bind_args = x.args.map(render_binding_arg);
             quote_spanned! {
                 span=>
-                let __args: [_; #arg_count] = __signature.collect_into(__args, eval.heap())?;
+                let __args: [_; #arg_count] = __signature.collect_into(__args, __eval.heap())?;
                 #( #bind_args )*
             }
         }
@@ -208,14 +206,14 @@ fn render_binding(x: &StarFun) -> TokenStream {
                 quote_spanned! {
                     span=>
                     __args.no_named_args()?;
-                    let __required: [_; #required] = __args.positional(eval.heap())?;
+                    let __required: [_; #required] = __args.positional(__eval.heap())?;
                     #( #bind_args )*
                 }
             } else {
                 quote_spanned! {
                     span=>
                     __args.no_named_args()?;
-                    let (__required, __optional): ([_; #required], [_; #optional]) = __args.optional(eval.heap())?;
+                    let (__required, __optional): ([_; #required], [_; #optional]) = __args.optional(__eval.heap())?;
                     #( #bind_args )*
                 }
             }

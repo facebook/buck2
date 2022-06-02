@@ -135,7 +135,7 @@
 //!
 //! #[starlark_module]
 //! fn starlark_emit(builder: &mut GlobalsBuilder) {
-//!     fn emit(x: Value) -> anyhow::Result<NoneType> {
+//!     fn emit(x: Value, eval: &mut Evaluator) -> anyhow::Result<NoneType> {
 //!         // We modify extra (which we know is a Store) and add the JSON of the
 //!         // value the user gave.
 //!         eval.extra
