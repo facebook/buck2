@@ -24,6 +24,23 @@ async def test_uquery_inputs(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="bql/simple")
+async def test_uquery_union(buck: Buck) -> None:
+    result = await buck.uquery("""deps(root//lib:lib1) + set(root//data:data)""")
+    assert (
+        result.stdout
+        == "root//platforms:platform1\nroot//lib:file1\nroot//lib:lib1\nroot//data:data\n"
+    )
+
+    result = await buck.uquery(
+        """buildfile(root//bin:the_binary) + inputs(deps(root//lib:lib1))"""
+    )
+    assert result.stdout == "bin/TARGETS.fixture\nlib/TARGETS.fixture\n"
+
+    result = await buck.uquery("""'root//bin:the_binary' + set(root//data:data)""")
+    assert result.stdout == "root//bin:the_binary\nroot//data:data\n"
+
+
+@buck_test(inplace=False, data_dir="bql/simple")
 async def test_uquery_owner(buck: Buck) -> None:
     result = await buck.uquery("""owner(bin/TARGETS.fixture)""")
     assert result.stdout == "root//bin:the_binary\n"
