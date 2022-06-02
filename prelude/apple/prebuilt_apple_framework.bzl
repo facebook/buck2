@@ -23,7 +23,7 @@ load(
     "create_merged_linkable_graph",
 )
 load(":apple_bundle_types.bzl", "AppleBundleInfo")
-load(":apple_utility.bzl", "to_framework_name")
+load(":apple_frameworks.bzl", "to_framework_name")
 
 def prebuilt_apple_framework_impl(ctx: "context") -> ["provider"]:
     providers = []

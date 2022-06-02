@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/apple:apple_utility.bzl", "get_apple_frameworks_linker_flags")
+load("@fbcode//buck2/prelude/apple:apple_frameworks.bzl", "get_apple_frameworks_linker_flags")
 load(
     "@fbcode//buck2/prelude/linking:link_info.bzl",
     "Archive",
