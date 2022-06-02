@@ -17,7 +17,7 @@ load(":resource_groups.bzl", "create_resource_graph")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 
 def apple_binary_impl(ctx: "context") -> ["provider"]:
-    extra_link_flags = flatten(get_apple_frameworks_linker_flags(ctx)) + get_min_deployment_version_target_linker_flags(ctx) + _entitlements_link_flags(ctx)
+    extra_link_flags = get_apple_frameworks_linker_flags(ctx) + get_min_deployment_version_target_linker_flags(ctx) + _entitlements_link_flags(ctx)
     framework_search_path_pre = CPreprocessor(
         args = [cmd_args(flatten(get_framework_search_path_flags(ctx)))],
     )

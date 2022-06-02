@@ -55,7 +55,7 @@ def apple_library_impl(ctx: "context") -> ["provider"]:
     return providers
 
 def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", params: AppleLibraryAdditionalParams.type) -> (CxxRuleConstructorParams.type, ["provider"]):
-    extra_exported_link_flags = flatten(get_apple_frameworks_linker_flags(ctx)) + params.extra_exported_link_flags
+    extra_exported_link_flags = get_apple_frameworks_linker_flags(ctx) + params.extra_exported_link_flags
     cxx_srcs, swift_srcs = _filter_swift_srcs(ctx)
 
     # First create a modulemap if necessary. This is required for importing

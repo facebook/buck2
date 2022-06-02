@@ -1,7 +1,7 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
 load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@fbcode//buck2/prelude/cxx:headers.bzl", "CxxHeadersLayout", "CxxHeadersNaming")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "value_or")
+load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "flatten", "value_or")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node")
 
 _VERSION_PLACEHOLDER = "(VERSION)"
@@ -20,16 +20,16 @@ def get_apple_cxx_headers_layout(ctx: "context") -> CxxHeadersLayout.type:
     namespace = value_or(ctx.attr.header_path_prefix, ctx.attr.name)
     return CxxHeadersLayout(namespace = namespace, naming = CxxHeadersNaming("apple"))
 
-def get_apple_frameworks_linker_flags(ctx: "context") -> [[""]]:
-    flags = []
-
-    flags.extend(get_framework_search_path_flags(ctx))
+def get_apple_frameworks_linker_flags(ctx: "context") -> [""]:
+    flags = flatten(get_framework_search_path_flags(ctx))
 
     framework_names = [to_framework_name(x) for x in ctx.attr.frameworks]
-    flags.extend([["-framework", x] for x in framework_names])
+    for framework_name in framework_names:
+        flags.extend(["-framework", framework_name])
 
     library_names = [_library_name(x) for x in ctx.attr.libraries]
-    flags.extend([["-l" + x] for x in library_names])
+    for library_name in library_names:
+        flags.extend(["-l" + library_name])
 
     return flags
 

@@ -113,7 +113,7 @@ def cxx_library_impl(ctx: "context") -> ["provider"]:
         rule_type = "cxx_library",
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
         srcs = get_srcs_with_flags(ctx),
-        extra_exported_link_flags = flatten(get_apple_frameworks_linker_flags(ctx)),
+        extra_exported_link_flags = get_apple_frameworks_linker_flags(ctx),
     )
     output = cxx_library_parameterized(ctx, params)
     return output.providers
