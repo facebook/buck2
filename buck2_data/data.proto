@@ -818,18 +818,6 @@ message TargetLabel {
   string name = 2;
 }
 
-// An artifact, either a source in the repo or a generated build output
-message Artifact {
-  oneof artifact {
-    SourceArtifact source = 1;
-    BuildArtifact build = 2;
-  }
-}
-
-message SourceArtifact {
-  string path = 1;
-}
-
 message BuildArtifact {
   ActionKey key = 1;
   string path = 2;

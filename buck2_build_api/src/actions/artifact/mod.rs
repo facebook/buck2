@@ -40,7 +40,6 @@ use thiserror::Error;
 
 use crate::{
     actions::ActionKey,
-    events::proto::ToProtoMessage,
     path::{BuckOutPath, BuckOutPathResolver, BuckPathResolver},
 };
 
@@ -94,21 +93,6 @@ impl Artifact {
         match self.0.as_ref() {
             ArtifactKind::Source(s) => s.get_path().path().as_ref(),
             ArtifactKind::Build(b) => b.get_path().short_path(),
-        }
-    }
-}
-
-impl ToProtoMessage for Artifact {
-    type Message = buck2_data::Artifact;
-
-    fn as_proto(&self) -> Self::Message {
-        match self.0.as_ref() {
-            ArtifactKind::Source(source) => buck2_data::Artifact {
-                artifact: Some(buck2_data::artifact::Artifact::Source(source.as_proto())),
-            },
-            ArtifactKind::Build(build) => buck2_data::Artifact {
-                artifact: Some(buck2_data::artifact::Artifact::Build(build.as_proto())),
-            },
         }
     }
 }
