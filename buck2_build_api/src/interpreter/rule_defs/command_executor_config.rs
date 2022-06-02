@@ -7,8 +7,9 @@ use indexmap::IndexMap;
 use starlark::{
     environment::GlobalsBuilder,
     values::{
-        dict::Dict, none::NoneType, Freeze, Freezer, Heap, NoSerialize, StarlarkValue, Trace,
-        Value, ValueLike,
+        dict::Dict,
+        none::{NoneOr, NoneType},
+        Freeze, Freezer, Heap, NoSerialize, StarlarkValue, Trace, Value, ValueLike,
     },
 };
 use thiserror::Error;
@@ -28,27 +29,27 @@ enum CommandExecutorConfigErrors {
 #[derive(NoSerialize)]
 struct StarlarkCommandExecutorConfig<'v> {
     /// Whether to use remote execution for this execution platform
-    pub(super) remote_enabled: Value<'v>, // bool
+    pub(super) remote_enabled: bool,
     /// Whether to use local execution for this execution platform. If both
     /// remote_enabled and local_enabled are `True`, we will use the hybrid executor.
-    pub(super) local_enabled: Value<'v>, // bool
+    pub(super) local_enabled: bool,
     /// properties for remote execution for this platform
-    pub(super) remote_execution_properties: Value<'v>, // Dict<String, String>
+    pub(super) remote_execution_properties: Value<'v>,
     /// A component to inject into the action key. This should typically used to inject variability
     /// into the action key so that it's different across e.g. build modes (RE uses the action key
     /// for things like expected memory utilization).
     pub(super) remote_execution_action_key: Value<'v>, // [String, None]
     /// The maximum input file size (in bytes) that remote execution can support.
-    pub(super) remote_execution_max_input_files_mebibytes: Value<'v>, // [Number, None]
+    pub(super) remote_execution_max_input_files_mebibytes: Option<i32>,
     /// The use case to use when communicating with RE.
     pub(super) remote_execution_use_case: Value<'v>, // [String, None]
     /// Whether to use the limited hybrid executor
-    pub(super) use_limited_hybrid: Value<'v>, // bool
+    pub(super) use_limited_hybrid: bool,
     /// Whether to allow fallbacks
-    pub(super) allow_limited_hybrid_fallbacks: Value<'v>, // bool
+    pub(super) allow_limited_hybrid_fallbacks: bool,
     /// Whether to allow fallbacks when the result is failure (i.e. the command failed on the
     /// primary, but the infra worked).
-    pub(super) allow_hybrid_fallbacks_on_failure: Value<'v>, // bool
+    pub(super) allow_hybrid_fallbacks_on_failure: bool,
 }
 
 impl<'v> fmt::Display for StarlarkCommandExecutorConfig<'v> {
@@ -68,7 +69,7 @@ impl<'v> fmt::Display for StarlarkCommandExecutorConfig<'v> {
         )?;
         write!(
             f,
-            "remote_execution_max_input_files_mebibytes = {}, ",
+            "remote_execution_max_input_files_mebibytes = {:?}, ",
             self.remote_execution_max_input_files_mebibytes
         )?;
         write!(
@@ -93,12 +94,12 @@ impl<'v> StarlarkValue<'v> for StarlarkCommandExecutorConfig<'v> {
 
 impl<'v> StarlarkCommandExecutorConfig<'v> {
     pub fn to_command_executor_config(&self) -> anyhow::Result<CommandExecutorConfig> {
-        let local_options = if self.local_enabled.to_value().to_bool() {
+        let local_options = if self.local_enabled {
             Some(LocalExecutorOptions {})
         } else {
             None
         };
-        let remote_options = if self.remote_enabled.to_value().to_bool() {
+        let remote_options = if self.remote_enabled {
             let mut re_properties = IndexMap::new();
             let as_dict = Dict::from_value(self.remote_execution_properties.to_value())
                 .ok_or_else(|| {
@@ -122,21 +123,12 @@ impl<'v> StarlarkCommandExecutorConfig<'v> {
                 Some(re_action_key.to_value().to_str())
             };
 
-            let re_max_input_files_mebibytes =
-                self.remote_execution_max_input_files_mebibytes.to_value();
-            let re_max_input_files_bytes = if re_max_input_files_mebibytes.is_none() {
-                None
-            } else {
-                let re_max_input_files_mebibytes = re_max_input_files_mebibytes
-                    .to_value()
-                    .to_int()
-                    .and_then(|v| {
-                        u64::try_from(v)
-                            .context("remote_execution_max_input_files_mebibytes is negative")
-                    })
-                    .context("remote_execution_max_input_files_mebibytes is invalid")?;
-                Some(re_max_input_files_mebibytes * 1024 * 1024)
-            };
+            let re_max_input_files_bytes = self
+                .remote_execution_max_input_files_mebibytes
+                .map(u64::try_from)
+                .transpose()
+                .context("remote_execution_max_input_files_mebibytes is negative")?
+                .map(|b| b * 1024 * 1024);
 
             let re_use_case = self.remote_execution_use_case.to_value();
             let re_use_case = if re_use_case.is_none() {
@@ -155,12 +147,9 @@ impl<'v> StarlarkCommandExecutorConfig<'v> {
             None
         };
 
-        let fallback_on_failure = self.allow_hybrid_fallbacks_on_failure.to_value().to_bool();
+        let fallback_on_failure = self.allow_hybrid_fallbacks_on_failure;
 
-        let hybrid_level = match (
-            self.use_limited_hybrid.to_value().to_bool(),
-            self.allow_limited_hybrid_fallbacks.to_value().to_bool(),
-        ) {
+        let hybrid_level = match (self.use_limited_hybrid, self.allow_limited_hybrid_fallbacks) {
             (true, true) => HybridExecutionLevel::Fallback {
                 fallback_on_failure,
             },
@@ -227,17 +216,16 @@ impl<'v> StarlarkCommandExecutorConfigLike<'v> for FrozenStarlarkCommandExecutor
 pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
     #[starlark(type = "command_executor_config")]
     fn CommandExecutorConfig<'v>(
-        local_enabled: Value<'v>,
-        remote_enabled: Value<'v>,
+        local_enabled: bool,
+        remote_enabled: bool,
         #[starlark(default = NoneType, require = named)] remote_execution_properties: Value<'v>,
         #[starlark(default = NoneType, require = named)] remote_execution_action_key: Value<'v>,
-        #[starlark(default = NoneType, require = named)] remote_execution_max_input_files_mebibytes: Value<'v>,
+        #[starlark(default = NoneOr::None, require = named)]
+        remote_execution_max_input_files_mebibytes: NoneOr<i32>,
         #[starlark(default = NoneType, require = named)] remote_execution_use_case: Value<'v>,
-        #[starlark(default = NoneType, require = named)] use_limited_hybrid: Value<'v>,
-        #[starlark(default = NoneType, require = named)] allow_limited_hybrid_fallbacks: Value<'v>,
-        #[starlark(default = NoneType, require = named)] allow_hybrid_fallbacks_on_failure: Value<
-            'v,
-        >,
+        #[starlark(default = false, require = named)] use_limited_hybrid: bool,
+        #[starlark(default = false, require = named)] allow_limited_hybrid_fallbacks: bool,
+        #[starlark(default = false, require = named)] allow_hybrid_fallbacks_on_failure: bool,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         let config = StarlarkCommandExecutorConfig {
@@ -245,7 +233,8 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
             local_enabled,
             remote_execution_properties,
             remote_execution_action_key,
-            remote_execution_max_input_files_mebibytes,
+            remote_execution_max_input_files_mebibytes: remote_execution_max_input_files_mebibytes
+                .into_option(),
             remote_execution_use_case,
             use_limited_hybrid,
             allow_limited_hybrid_fallbacks,
