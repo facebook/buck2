@@ -32,7 +32,7 @@ use crate::{
     errors::Diagnostic,
     eval::{
         bc::frame::BcFramePtr,
-        compiler::def::DefInfo,
+        compiler::def::{Def, DefInfo, FrozenDef},
         runtime::{
             bc_profile::BcProfile,
             before_stmt::BeforeStmt,
@@ -69,6 +69,10 @@ pub(crate) enum EvaluatorError {
     BcProfilingNotEnabled,
     #[error("Typecheck profiling not enabled")]
     TypecheckProfilingNotEnabled,
+    #[error("No top frame (internal error)")]
+    NoTopFrame,
+    #[error("Top frame is not def (internal error)")]
+    TopFrameNotDef,
 }
 
 /// Number of bytes to allocate between GC's.
@@ -507,6 +511,20 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             .heap()
             .alloc_complex(ValueCaptured(Cell::new(Some(value))));
         self.current_frame.set_slot(slot, value_captured);
+    }
+
+    pub(crate) fn check_return_type(&mut self, ret: Value<'v>) -> anyhow::Result<()> {
+        let func = match self.call_stack.top_function() {
+            Some(func) => func,
+            None => return Err(EvaluatorError::NoTopFrame.into()),
+        };
+        if let Some(func) = func.downcast_ref::<Def>() {
+            func.check_return_type(ret, self)
+        } else if let Some(func) = func.downcast_ref::<FrozenDef>() {
+            func.check_return_type(ret, self)
+        } else {
+            Err(EvaluatorError::TopFrameNotDef.into())
+        }
     }
 
     /// Cause a GC to be triggered next time it's possible.

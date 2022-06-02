@@ -86,7 +86,7 @@ impl<'v> Compiler<'v, '_, '_> {
             _ => {
                 let stmt = self.module_top_level_stmt(stmt);
                 let bc = stmt.as_bc(
-                    &self.compile_context(),
+                    &self.compile_context(false),
                     local_count,
                     self.eval.module_env.frozen_heap(),
                 );

@@ -93,6 +93,7 @@ pub(crate) enum BcOpcode {
     Continue,
     Return,
     ReturnConst,
+    ReturnCheckType,
     Call,
     CallPos,
     CallFrozenDef,

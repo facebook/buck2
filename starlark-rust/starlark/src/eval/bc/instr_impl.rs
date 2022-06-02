@@ -1188,6 +1188,7 @@ impl BcInstr for InstrContinue {
 
 pub(crate) struct InstrReturnConst;
 pub(crate) struct InstrReturn;
+pub(crate) struct InstrReturnCheckType;
 
 impl BcInstr for InstrReturnConst {
     type Arg = FrozenValue;
@@ -1213,6 +1214,24 @@ impl BcInstr for InstrReturn {
         &slot: &BcSlot,
     ) -> InstrControl<'v, 'b> {
         let v = frame.get_bc_slot(slot);
+        InstrControl::Return(v)
+    }
+}
+
+impl BcInstr for InstrReturnCheckType {
+    type Arg = BcSlot;
+
+    #[inline(always)]
+    fn run<'v, 'b>(
+        eval: &mut Evaluator<'v, '_>,
+        frame: BcFramePtr<'v>,
+        _ip: BcPtrAddr<'b>,
+        &slot: &BcSlot,
+    ) -> InstrControl<'v, 'b> {
+        let v = frame.get_bc_slot(slot);
+        if let Err(e) = eval.check_return_type(v) {
+            return InstrControl::Err(e);
+        }
         InstrControl::Return(v)
     }
 }

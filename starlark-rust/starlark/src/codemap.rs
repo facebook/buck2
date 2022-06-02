@@ -91,6 +91,14 @@ impl Span {
             end: cmp::max(self.end, other.end),
         }
     }
+
+    /// Empty span in the end of this span.
+    pub(crate) fn end_span(self) -> Span {
+        Span {
+            begin: self.end,
+            end: self.end,
+        }
+    }
 }
 
 /// Associate a Span with a value of arbitrary type (e.g. an AST node).

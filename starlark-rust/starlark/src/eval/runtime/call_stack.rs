@@ -71,6 +71,14 @@ impl FrozenFileSpan {
     pub(crate) fn span(&self) -> Span {
         self.span
     }
+
+    pub(crate) fn end_span(&self) -> FrozenFileSpan {
+        FrozenFileSpan {
+            file: self.file,
+            span: self.span.end_span(),
+            inlined_frames: self.inlined_frames,
+        }
+    }
 }
 
 impl Default for FrozenFileSpan {
@@ -214,6 +222,14 @@ impl<'v> CheapCallStack<'v> {
             None
         } else {
             self.stack[self.count - 1].location()
+        }
+    }
+
+    pub(crate) fn top_function(&self) -> Option<Value<'v>> {
+        if self.count == 0 {
+            None
+        } else {
+            Some(self.stack[self.count - 1].function)
         }
     }
 

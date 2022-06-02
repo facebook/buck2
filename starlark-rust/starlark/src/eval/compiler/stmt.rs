@@ -80,7 +80,11 @@ pub(crate) enum StmtCompiled {
 
 #[derive(Debug, Default)]
 pub(crate) struct StmtCompileContext {
+    /// Current function has return type.
+    pub(crate) has_return_type: bool,
+    /// Insert `BeforeStmt` instruction before statement.
     pub(crate) has_before_stmt: bool,
+    /// Instert bytecode profiling instructions.
     pub(crate) bc_profile: bool,
 }
 
@@ -611,8 +615,9 @@ pub(crate) fn add_assign<'v>(
 }
 
 impl Compiler<'_, '_, '_> {
-    pub(crate) fn compile_context(&self) -> StmtCompileContext {
+    pub(crate) fn compile_context(&self, has_return_type: bool) -> StmtCompileContext {
         StmtCompileContext {
+            has_return_type,
             has_before_stmt: self.has_before_stmt,
             bc_profile: self.bc_profile,
         }

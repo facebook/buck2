@@ -70,6 +70,12 @@ use crate::{
     },
 };
 
+#[derive(thiserror::Error, Debug)]
+enum DefError {
+    #[error("Function has no type, while function was compiled with return type (internal error)")]
+    CheckReturnTypeNoType,
+}
+
 /// Store frozen `StmtCompiled`.
 /// This is initialized in `post_freeze`.
 struct StmtCompiledCell {
@@ -449,13 +455,13 @@ impl Compiler<'_, '_, '_> {
             docstring,
             scope_names,
             stmt_compiled: body.as_bc(
-                &self.compile_context(),
+                &self.compile_context(return_type.is_some()),
                 local_count,
                 self.eval.module_env.frozen_heap(),
             ),
             body_stmts: body,
             inline_def_body,
-            stmt_compile_context: self.compile_context(),
+            stmt_compile_context: self.compile_context(return_type.is_some()),
             globals: self.globals,
         });
 
@@ -480,7 +486,7 @@ pub(crate) struct DefGen<V> {
     // The types of the parameters.
     // (Sparse indexed array, (0, argm T) implies parameter 0 named arg must have type T).
     parameter_types: Vec<(LocalSlotId, String, V, TypeCompiled)>,
-    return_type: Option<(V, TypeCompiled)>, // The return type annotation for the function
+    pub(crate) return_type: Option<(V, TypeCompiled)>, // The return type annotation for the function
     /// Data created during function compilation but before function instantiation.
     /// `DefInfo` can be shared by multiple `def` instances, for example,
     /// `lambda` functions can be instantiated multiple times.
@@ -668,12 +674,15 @@ where
         Ok(())
     }
 
-    fn check_return_type(
+    pub(crate) fn check_return_type(
         &self,
         ret: Value<'v>,
-        (return_type_value, return_type_ty): &(V, TypeCompiled),
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<()> {
+        let (return_type_value, return_type_ty): &(V, TypeCompiled) = self
+            .return_type
+            .as_ref()
+            .ok_or(DefError::CheckReturnTypeNoType)?;
         let start = if eval.typecheck_profile.enabled {
             Some(Instant::now())
         } else {
@@ -758,22 +767,7 @@ where
             self.bc().run(eval)
         });
 
-        let ret = match res {
-            Err(EvalException(e)) => return Err(e),
-            Ok(v) => v,
-        };
-
-        // Slightly ugly: by the time we check the return type, we no longer
-        // have the location of the return statement, so the "blame" is attached
-        // to the caller, rather than the return statement. Fixing it requires
-        // either passing the type down (ugly) or passing the location back
-        // (ugly and fiddly). Both also imply some runtime cost. If types take off,
-        // worth revisiting.
-        if let Some(return_type) = &self.return_type {
-            self.check_return_type(ret, return_type, eval)?;
-        }
-
-        Ok(ret)
+        res.map_err(|EvalException(e)| e)
     }
 
     pub(crate) fn resolve_arg_name(&self, name: Hashed<&str>) -> ResolvedArgName {

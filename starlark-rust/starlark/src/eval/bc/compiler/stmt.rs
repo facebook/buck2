@@ -22,7 +22,7 @@ use crate::{
             compiler::if_compiler::{write_if_else, write_if_then},
             instr_impl::{
                 InstrBeforeStmt, InstrBreak, InstrContinue, InstrPossibleGc, InstrReturn,
-                InstrReturnConst,
+                InstrReturnCheckType, InstrReturnConst,
             },
             writer::BcWriter,
         },
@@ -124,19 +124,33 @@ impl IrSpanned<StmtCompiled> {
         }
     }
 
+    #[allow(clippy::collapsible_else_if)]
+    fn write_return(
+        span: FrozenFileSpan,
+        expr: &IrSpanned<ExprCompiled>,
+        compiler: &StmtCompileContext,
+        bc: &mut BcWriter,
+    ) {
+        if compiler.has_return_type {
+            expr.write_bc_cb(bc, |slot, bc| {
+                bc.write_instr::<InstrReturnCheckType>(span, slot);
+            });
+        } else {
+            if let Some(value) = expr.as_value() {
+                bc.write_instr::<InstrReturnConst>(span, value);
+            } else {
+                expr.write_bc_cb(bc, |slot, bc| {
+                    bc.write_instr::<InstrReturn>(span, slot);
+                });
+            }
+        }
+    }
+
     fn write_bc_inner(&self, compiler: &StmtCompileContext, bc: &mut BcWriter) {
         let span = self.span;
         match self.node {
             StmtCompiled::PossibleGc => bc.write_instr::<InstrPossibleGc>(span, ()),
-            StmtCompiled::Return(ref expr) => {
-                if let Some(value) = expr.as_value() {
-                    bc.write_instr::<InstrReturnConst>(span, value);
-                } else {
-                    expr.write_bc_cb(bc, |slot, bc| {
-                        bc.write_instr::<InstrReturn>(span, slot);
-                    });
-                }
-            }
+            StmtCompiled::Return(ref expr) => Self::write_return(span, expr, compiler, bc),
             StmtCompiled::Expr(ref expr) => {
                 expr.write_bc_for_effect(bc);
             }
@@ -182,7 +196,15 @@ impl StmtsCompiled {
         // Small optimization: if the last statement is return,
         // we do not need to write another return.
         if !matches!(self.last().map(|s| &s.node), Some(StmtCompiled::Return(..))) {
-            bc.write_instr::<InstrReturnConst>(FrozenFileSpan::default(), FrozenValue::new_none());
+            let span = self.last().map(|s| s.span.end_span()).unwrap_or_default();
+            if compiler.has_return_type {
+                bc.alloc_slot(|slot, bc| {
+                    bc.write_const(span, FrozenValue::new_none(), slot);
+                    bc.write_instr::<InstrReturnCheckType>(span, slot);
+                });
+            } else {
+                bc.write_instr::<InstrReturnConst>(span, FrozenValue::new_none());
+            }
         }
 
         bc.finish()
