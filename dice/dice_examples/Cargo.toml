@@ -10,7 +10,7 @@ derive_more = "0.99.3"
 futures = "0.3"
 ref-cast = "1.0.0"
 
-gazebo.version = "0.7.0"
+gazebo.version = "0.7.1"
 gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "../../gazebo/gazebo"
 gazebo_lint.version = "0.1"

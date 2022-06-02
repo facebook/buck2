@@ -14,7 +14,7 @@ proc-macro = true
 [dependencies]
 proc-macro2 = "1.0"
 syn = { version = "1.0.33", features = ["full", "extra-traits", "visit"] }
-gazebo.version = "0.7.0"
+gazebo.version = "0.7.1"
 gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "../../gazebo/gazebo"
 gazebo_lint.version = "0.1"

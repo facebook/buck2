@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.51"
 async-trait = "0.1.24"
-gazebo.version = "0.7.0"
+gazebo.version = "0.7.1"
 gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "../gazebo/gazebo"
 gazebo_lint.version = "0.1"
