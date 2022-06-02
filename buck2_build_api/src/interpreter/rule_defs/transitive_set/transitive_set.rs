@@ -19,7 +19,7 @@ use serde::{ser::SerializeMap, Serialize, Serializer};
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
     eval::Evaluator,
-    values::{Freeze, Freezer, FrozenValue, StarlarkValue, Trace, Value, ValueLike},
+    values::{Freeze, Freezer, FrozenValue, Heap, StarlarkValue, Trace, Value, ValueLike},
 };
 
 use crate::{
@@ -370,7 +370,11 @@ impl<'v> TransitiveSet<'v> {
 
 #[starlark_module]
 fn transitive_set_methods(builder: &mut MethodsBuilder) {
-    fn project_as_args<'v>(this: Value<'v>, projection: &str) -> anyhow::Result<Value<'v>> {
+    fn project_as_args<'v>(
+        this: Value<'v>,
+        projection: &str,
+        heap: &Heap,
+    ) -> anyhow::Result<Value<'v>> {
         let set = TransitiveSet::from_value(this).context("Invalid this")?;
 
         let def = transitive_set_definition_from_value(set.definition)
@@ -426,7 +430,7 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
             .with_context(|| format!("Missing reduction {}", index))
     }
 
-    fn traverse<'v>(this: Value<'v>) -> anyhow::Result<Value<'v>> {
+    fn traverse<'v>(this: Value<'v>, heap: &Heap) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc(TransitiveSetTraversal { inner: this }))
     }
 }

@@ -263,6 +263,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
         #[starlark(require = named, default = false)]
         allow_unknown_attrs: bool,
         #[starlark(require = named, default = false)] is_configuration_rule: bool,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<Value<'v>> {
         // TODO(nmj): Add default attributes in here like 'name', 'visibility', etc
         // TODO(nmj): Verify that names are valid. This is technically handled by the Params
@@ -290,7 +291,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
 
         let cfg = cfg.try_map(|x| Transition::id_from_value(*x))?;
 
-        Ok(heap.alloc(RuleCallable {
+        Ok(eval.heap().alloc(RuleCallable {
             import_path: bzl_path,
             id: RefCell::new(None),
             implementation,

@@ -10,6 +10,7 @@
 use fancy_regex::Regex;
 use starlark::{
     environment::GlobalsBuilder,
+    eval::Evaluator,
     values::{dict::DictRef, none::NoneType},
 };
 use tracing::warn;
@@ -35,7 +36,7 @@ pub mod util;
 #[starlark_module]
 fn extra_functions(builder: &mut GlobalsBuilder) {
     // Load symbols into the module. Should only be used by infra_macros/DEFS.bzl
-    fn load_symbols(symbols: DictRef) -> anyhow::Result<NoneType> {
+    fn load_symbols(symbols: DictRef, eval: &mut Evaluator) -> anyhow::Result<NoneType> {
         for (k, v) in symbols.iter() {
             eval.set_module_variable_at_some_point(&k.to_str(), v)?;
         }

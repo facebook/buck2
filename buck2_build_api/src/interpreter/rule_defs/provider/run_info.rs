@@ -13,6 +13,7 @@ use buck2_build_api_derive::internal_provider;
 use gazebo::{any::AnyLifetime, coerce::Coerce};
 use starlark::{
     environment::GlobalsBuilder,
+    eval::Evaluator,
     values::{list::FrozenList, Freeze, Trace, Value, ValueLike},
 };
 
@@ -36,6 +37,7 @@ fn run_info_creator(globals: &mut GlobalsBuilder) {
     fn RunInfo<'v>(
         // Named _args so it doesn't clash with *args
         #[starlark(default = FrozenList::empty())] _args: Value<'v>,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<RunInfo<'v>> {
         let heap = eval.heap();
         let valid_args = StarlarkCommandLine::try_from_value(_args)?;

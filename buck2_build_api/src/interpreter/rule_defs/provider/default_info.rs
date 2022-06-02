@@ -18,6 +18,7 @@ use gazebo::{
 use starlark::{
     collections::SmallMap,
     environment::GlobalsBuilder,
+    eval::Evaluator,
     values::{
         dict::{Dict, FrozenDict},
         list::{FrozenList, List},
@@ -312,6 +313,7 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
         #[starlark(default = FrozenList::empty())] default_outputs: Value<'v>,
         #[starlark(default = FrozenList::empty())] other_outputs: Value<'v>,
         #[starlark(default = SmallMap::new())] sub_targets: SmallMap<String, Value<'v>>,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<DefaultInfo<'v>> {
         let heap = eval.heap();
         let default_info_creator = || {

@@ -22,7 +22,8 @@ use starlark::{
     collections::SmallMap,
     environment::{Methods, MethodsBuilder, MethodsStatic},
     values::{
-        structs::Struct, AllocValue, NoSerialize, StarlarkValue, UnpackValue, Value, ValueLike,
+        structs::Struct, AllocValue, Heap, NoSerialize, StarlarkValue, UnpackValue, Value,
+        ValueLike,
     },
 };
 
@@ -73,7 +74,10 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         Ok(StarlarkConfiguredTargetLabel::new(this.0.name().dupe()))
     }
 
-    fn attributes<'v>(this: &StarlarkConfiguredTargetNode) -> anyhow::Result<Value<'v>> {
+    fn attributes<'v>(
+        this: &StarlarkConfiguredTargetNode,
+        heap: &Heap,
+    ) -> anyhow::Result<Value<'v>> {
         let mut attrs = SmallMap::with_capacity(this.0.attrs().size_hint().0);
         for (name, attr) in this.0.attrs() {
             attrs.insert(

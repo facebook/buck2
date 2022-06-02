@@ -1236,6 +1236,7 @@ mod tests {
     use indoc::indoc;
     use starlark::{
         environment::GlobalsBuilder,
+        eval::Evaluator,
         values::{Freeze, Trace, Value},
     };
 
@@ -1503,7 +1504,11 @@ mod tests {
 
     #[starlark_module]
     fn dependency_creator(builder: &mut GlobalsBuilder) {
-        fn create_collection<'v>(s: &str, providers: Value<'v>) -> anyhow::Result<Dependency<'v>> {
+        fn create_collection<'v>(
+            s: &str,
+            providers: Value<'v>,
+            eval: &mut Evaluator,
+        ) -> anyhow::Result<Dependency<'v>> {
             let c = BuildContext::from_context(eval)?;
             let label = match ParsedPattern::<ProvidersPattern>::parse_precise(
                 c.cell_info().cell_alias_resolver(),
@@ -1518,9 +1523,11 @@ mod tests {
                     panic!();
                 }
             };
-            let collection = heap.alloc(ProviderCollection::try_from_value(providers)?);
+            let collection = eval
+                .heap()
+                .alloc(ProviderCollection::try_from_value(providers)?);
 
-            Ok(Dependency::new(heap, label, collection))
+            Ok(Dependency::new(eval.heap(), label, collection))
         }
     }
 

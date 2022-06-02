@@ -18,6 +18,7 @@ use buck2_core::{
 use indoc::indoc;
 use starlark::{
     environment::{GlobalsBuilder, Module},
+    eval::Evaluator,
     values::{OwnedFrozenValueTyped, Value},
 };
 
@@ -38,6 +39,7 @@ pub fn tset_factory(builder: &mut GlobalsBuilder) {
         definition: Value<'v>,
         value: Option<Value<'v>>,
         children: Option<Value<'v>>, // An iterable.
+        eval: &mut Evaluator,
     ) -> anyhow::Result<TransitiveSet<'v>> {
         static LAST_ID: AtomicUsize = AtomicUsize::new(0);
 

@@ -23,6 +23,7 @@ use gazebo::{
 use starlark::{
     collections::SmallMap,
     environment::GlobalsBuilder,
+    eval::Evaluator,
     values::{
         dict::{Dict, DictOf},
         Freeze, Heap, Trace, ValueLike, ValueOf,
@@ -124,6 +125,7 @@ fn configuration_info_creator(globals: &mut GlobalsBuilder) {
     fn ConfigurationInfo<'v>(
         constraints: DictOf<'_, ValueOf<&StarlarkTargetLabel>, ValueOf<&ConstraintValueInfo>>,
         values: DictOf<&str, &str>,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<ConfigurationInfo<'v>> {
         let mut new_constraints = SmallMap::new();
         for (constraint_setting, constraint_value) in constraints.collect_entries() {

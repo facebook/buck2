@@ -13,6 +13,7 @@ use once_cell::sync::Lazy;
 use starlark::{
     collections::SmallMap,
     environment::GlobalsBuilder,
+    eval::Evaluator,
     values::{
         docs::{DocString, DocStringKind},
         structs::FrozenStruct,
@@ -94,13 +95,14 @@ fn new_host_info(host_platform: InterpreterHostPlatform) -> OwnedFrozenValue {
 pub(crate) fn register_natives(builder: &mut GlobalsBuilder) {
     /// This should be called "target exists", not "rule exists"
     /// (if this should exist at all).
-    fn rule_exists(name: &str) -> anyhow::Result<bool> {
+    fn rule_exists(name: &str, eval: &mut Evaluator) -> anyhow::Result<bool> {
         Ok(ModuleInternals::from_context(eval)?.target_exists(name))
     }
 
     fn provider(
         #[starlark(default = "")] doc: &str,
         fields: Either<Vec<String>, SmallMap<&str, &str>>,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<ProviderCallable> {
         let docstring = DocString::from_docstring(DocStringKind::Starlark, doc);
         let path = BuildContext::from_context(eval)?.starlark_path.path();
@@ -131,6 +133,7 @@ pub(crate) fn register_natives(builder: &mut GlobalsBuilder) {
     fn transitive_set<'v>(
         args_projections: Option<SmallMap<String, Value<'v>>>,
         reductions: Option<SmallMap<String, Value<'v>>>,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<TransitiveSetDefinition<'v>> {
         let build_context = BuildContext::from_context(eval)?;
         Ok(TransitiveSetDefinition::new(
@@ -147,12 +150,13 @@ pub(crate) fn register_natives(builder: &mut GlobalsBuilder) {
         section: StringValue,
         key: StringValue,
         default: Option<Value>,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<Value<'v>> {
         // In Buck v1, we read additional configuration information from /etc/buckconfig.d.
         // On devservers and other locations, the file fb_chef.ini has host_features.gvfs = true.
         // Replicate that specific key, otherwise we can't build targets like protoc.
         if section.as_str() == "host_features" && key.as_str() == "gvfs" {
-            return Ok(heap.alloc("true"));
+            return Ok(eval.heap().alloc("true"));
         }
 
         let buckconfig = &BuildContext::from_context(eval)?.buckconfig;
@@ -163,7 +167,7 @@ pub(crate) fn register_natives(builder: &mut GlobalsBuilder) {
     }
 
     #[starlark(speculative_exec_safe)]
-    fn host_info<'v>() -> anyhow::Result<Value<'v>> {
+    fn host_info<'v>(eval: &mut Evaluator) -> anyhow::Result<Value<'v>> {
         // TODO: Do something about this. This information shouldn't be exposed in the general
         // api because the initial build file processing should be host-independent.
         // If we can't migrate uses off of this, we may need to support detecting at least the
@@ -190,6 +194,7 @@ pub(crate) fn register_natives(builder: &mut GlobalsBuilder) {
     fn implicit_package_symbol<'v>(
         name: &str,
         default: Option<Value>,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<Value<'v>> {
         let internals = ModuleInternals::from_context(eval)?;
         match internals.get_package_implicit(name) {

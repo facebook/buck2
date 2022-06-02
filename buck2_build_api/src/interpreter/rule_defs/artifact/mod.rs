@@ -104,7 +104,11 @@ pub mod testing {
 
     #[starlark_module]
     pub fn artifactory(builder: &mut GlobalsBuilder) {
-        fn source_artifact(package: &str, path: &str) -> anyhow::Result<StarlarkArtifact> {
+        fn source_artifact(
+            package: &str,
+            path: &str,
+            eval: &mut Evaluator,
+        ) -> anyhow::Result<StarlarkArtifact> {
             let ctx = BuildContext::from_context(eval)?;
             let package = Package::new(
                 ctx.cell_info().name().name(),
@@ -119,7 +123,11 @@ pub mod testing {
             })
         }
 
-        fn bound_artifact(target: &str, path: &str) -> anyhow::Result<StarlarkArtifact> {
+        fn bound_artifact(
+            target: &str,
+            path: &str,
+            eval: &mut Evaluator,
+        ) -> anyhow::Result<StarlarkArtifact> {
             let target_label = get_label(eval, target)?;
             let id = DeferredId::testing_new(0);
             let artifact = Artifact::from(BuildArtifact::testing_new(
@@ -130,7 +138,10 @@ pub mod testing {
             Ok(StarlarkArtifact { artifact })
         }
 
-        fn declared_artifact(path: &str) -> anyhow::Result<StarlarkDeclaredArtifact> {
+        fn declared_artifact(
+            path: &str,
+            eval: &mut Evaluator,
+        ) -> anyhow::Result<StarlarkDeclaredArtifact> {
             let target_label = get_label(eval, "//foo:bar")?;
             let mut registry = ActionsRegistry::new(
                 BaseDeferredKey::TargetLabel(target_label),
@@ -149,6 +160,7 @@ pub mod testing {
         fn declared_bound_artifact(
             target: &str,
             path: &str,
+            eval: &mut Evaluator,
         ) -> anyhow::Result<StarlarkDeclaredArtifact> {
             let target_label = get_label(eval, target)?;
             let mut deferred = DeferredRegistry::new(BaseKey::Base(BaseDeferredKey::TargetLabel(

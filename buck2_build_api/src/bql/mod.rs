@@ -14,6 +14,7 @@
 use buck2_query::query::syntax::simple::eval::set::TargetSetExt;
 use starlark::{
     environment::GlobalsBuilder,
+    eval::Evaluator,
     values::{Value, ValueOf},
 };
 
@@ -46,17 +47,25 @@ macro_rules! targets {
 // See https://buck.build/command/query.html#allpaths and https://docs.bazel.build/versions/master/query.html for rough semantics
 #[starlark_module]
 fn query_functions(builder: &mut GlobalsBuilder) {
-    fn args<'v>() -> anyhow::Result<Value<'v>> {
-        Ok(QueryInternals::get(eval)?.args(heap))
+    fn args<'v>(eval: &mut Evaluator) -> anyhow::Result<Value<'v>> {
+        Ok(QueryInternals::get(eval)?.args(eval.heap()))
     }
 
-    fn allpaths(from: TargetExpr, to: TargetExpr) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
+    fn allpaths(
+        from: TargetExpr,
+        to: TargetExpr,
+        eval: &mut Evaluator,
+    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         Ok(StarlarkTargetSet(
             QueryInternals::get(eval)?.allpaths(targets!(eval, from), targets!(eval, to))?,
         ))
     }
 
-    fn somepath(from: TargetExpr, to: TargetExpr) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
+    fn somepath(
+        from: TargetExpr,
+        to: TargetExpr,
+        eval: &mut Evaluator,
+    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         Ok(StarlarkTargetSet(
             QueryInternals::get(eval)?.somepath(targets!(eval, from), targets!(eval, to))?,
         ))
@@ -66,6 +75,7 @@ fn query_functions(builder: &mut GlobalsBuilder) {
         attribute: &str,
         value: &str,
         targets: TargetExpr,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         Ok(StarlarkTargetSet(
             targets!(eval, targets).attrfilter(attribute, &|v| Ok(v == value))?,
@@ -76,6 +86,7 @@ fn query_functions(builder: &mut GlobalsBuilder) {
         attribute: &str,
         value: &str,
         targets: TargetExpr,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         Ok(StarlarkTargetSet(
             targets!(eval, targets).nattrfilter(attribute, &|v| Ok(v == value))?,
@@ -86,13 +97,14 @@ fn query_functions(builder: &mut GlobalsBuilder) {
         attribute: &str,
         value: &str,
         targets: TargetExpr,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         Ok(StarlarkTargetSet(
             targets!(eval, targets).attrregexfilter(attribute, value)?,
         ))
     }
 
-    fn buildfile(targets: TargetExpr) -> anyhow::Result<StarlarkFileSet> {
+    fn buildfile(targets: TargetExpr, eval: &mut Evaluator) -> anyhow::Result<StarlarkFileSet> {
         Ok(StarlarkFileSet(targets!(eval, targets).buildfile()?))
     }
 
@@ -100,6 +112,7 @@ fn query_functions(builder: &mut GlobalsBuilder) {
         targets: TargetExpr,
         depth: Option<i32>,
         filter: Option<&str>,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         Ok(StarlarkTargetSet(QueryInternals::get(eval)?.deps(
             targets!(eval, targets),
@@ -111,17 +124,22 @@ fn query_functions(builder: &mut GlobalsBuilder) {
     fn filter_name(
         regex: &str,
         targets: TargetExpr,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         Ok(StarlarkTargetSet(
             targets!(eval, targets).filter_name(regex)?,
         ))
     }
 
-    fn inputs(targets: TargetExpr) -> anyhow::Result<StarlarkFileSet> {
+    fn inputs(targets: TargetExpr, eval: &mut Evaluator) -> anyhow::Result<StarlarkFileSet> {
         Ok(StarlarkFileSet(targets!(eval, targets).inputs()?))
     }
 
-    fn kind(regex: &str, targets: TargetExpr) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
+    fn kind(
+        regex: &str,
+        targets: TargetExpr,
+        eval: &mut Evaluator,
+    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         Ok(StarlarkTargetSet(targets!(eval, targets).kind(regex)?))
     }
 
@@ -130,7 +148,10 @@ fn query_functions(builder: &mut GlobalsBuilder) {
         unimplemented!()
     }
 
-    fn owner(files: FileSetExpr) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
+    fn owner(
+        files: FileSetExpr,
+        eval: &mut Evaluator,
+    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         Ok(StarlarkTargetSet(files.get(eval)?.owner(env!(eval))?))
     }
 
@@ -138,6 +159,7 @@ fn query_functions(builder: &mut GlobalsBuilder) {
         universe: TargetExpr,
         from: TargetExpr,
         depth: Option<i32>,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         Ok(StarlarkTargetSet(QueryInternals::get(eval)?.rdeps(
             targets!(eval, universe),
@@ -146,17 +168,24 @@ fn query_functions(builder: &mut GlobalsBuilder) {
         )?))
     }
 
-    fn testsof(targets: TargetExpr) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
+    fn testsof(
+        targets: TargetExpr,
+        eval: &mut Evaluator,
+    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         Ok(StarlarkTargetSet(
             QueryInternals::get(eval)?.testsof(targets!(eval, targets))?,
         ))
     }
 
-    fn targets<'v>(val: ValueOf<TargetExpr>) -> anyhow::Result<Value<'v>> {
+    fn targets<'v>(val: ValueOf<TargetExpr>, eval: &mut Evaluator) -> anyhow::Result<Value<'v>> {
         QueryInternals::get(eval)?.targets(eval, val)
     }
 
-    fn union(left: TargetExpr, right: TargetExpr) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
+    fn union(
+        left: TargetExpr,
+        right: TargetExpr,
+        eval: &mut Evaluator,
+    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         Ok(StarlarkTargetSet(
             targets!(eval, left).union(targets!(eval, right))?,
         ))
@@ -165,6 +194,7 @@ fn query_functions(builder: &mut GlobalsBuilder) {
     fn intersect(
         left: TargetExpr,
         right: TargetExpr,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         Ok(StarlarkTargetSet(
             targets!(eval, left).intersect(targets!(eval, right))?,
@@ -174,6 +204,7 @@ fn query_functions(builder: &mut GlobalsBuilder) {
     fn difference(
         left: TargetExpr,
         right: TargetExpr,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         Ok(StarlarkTargetSet(
             targets!(eval, left).difference(targets!(eval, right))?,

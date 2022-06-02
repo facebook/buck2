@@ -17,7 +17,7 @@ use gazebo::{any::AnyLifetime, prelude::*};
 use starlark::{
     collections::StarlarkHasher,
     environment::{Methods, MethodsBuilder, MethodsStatic},
-    values::{Freeze, NoSerialize, StarlarkValue, Trace, Value, ValueLike},
+    values::{Freeze, Heap, NoSerialize, StarlarkValue, Trace, Value, ValueLike},
 };
 
 use crate::interpreter::rule_defs::{
@@ -90,7 +90,11 @@ impl<'v> StarlarkValue<'v> for ArtifactTag {
 
 #[starlark_module]
 fn input_tag_methods(_: &mut MethodsBuilder) {
-    fn tag_artifacts<'v>(this: &ArtifactTag, inner: Value<'v>) -> anyhow::Result<Value<'v>> {
+    fn tag_artifacts<'v>(
+        this: &ArtifactTag,
+        inner: Value<'v>,
+        heap: &Heap,
+    ) -> anyhow::Result<Value<'v>> {
         // Check that the inner is actually a command line.
         let _inner = inner.as_command_line_err()?;
 

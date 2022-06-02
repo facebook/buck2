@@ -8,7 +8,7 @@
  */
 
 use sha2::{Digest, Sha256};
-use starlark::{environment::GlobalsBuilder, values::Value};
+use starlark::{environment::GlobalsBuilder, eval::Evaluator, values::Value};
 
 use crate::{extra::BuildContext, globspec::GlobSpec, selector::Selector};
 
@@ -19,12 +19,20 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
     }
 
     /// Applies a mapping function to a selector. See [Selector::select_map].
-    fn select_map<'v>(d: Value<'v>, func: Value<'v>) -> anyhow::Result<Value<'v>> {
+    fn select_map<'v>(
+        d: Value<'v>,
+        func: Value<'v>,
+        eval: &mut Evaluator,
+    ) -> anyhow::Result<Value<'v>> {
         Selector::select_map(d, eval, func)
     }
 
     /// Applies a test function to a selector. See [Selector::select_test].
-    fn select_test<'v>(d: Value<'v>, func: Value<'v>) -> anyhow::Result<bool> {
+    fn select_test<'v>(
+        d: Value<'v>,
+        func: Value<'v>,
+        eval: &mut Evaluator,
+    ) -> anyhow::Result<bool> {
         Selector::select_test(d, eval, func)
     }
 
@@ -38,17 +46,18 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
         excludes: Option<Vec<String>>,
         exclude: Option<Vec<String>>,
         #[starlark(default = false)] include_dotfiles: bool,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<Value<'v>> {
         let extra = BuildContext::from_context(eval)?;
         let excludes = excludes.or(exclude).unwrap_or_default();
         let spec = GlobSpec::new(&include, &excludes, include_dotfiles)?;
         let res = extra
             .resolve_glob(&spec)?
-            .map(|path| heap.alloc(path.as_str()));
-        Ok(heap.alloc_list_iter(res))
+            .map(|path| eval.heap().alloc(path.as_str()));
+        Ok(eval.heap().alloc_list_iter(res))
     }
 
-    fn package() -> anyhow::Result<String> {
+    fn package(eval: &mut Evaluator) -> anyhow::Result<String> {
         // TODO(cjhopman): Is this used much? Can we change it to return a thin wrapper
         // over the Package itself that exposes things like the cell name or fully specified name?
         Ok(BuildContext::from_context(eval)?
@@ -56,7 +65,7 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
             .to_string())
     }
 
-    fn package_name() -> anyhow::Result<String> {
+    fn package_name(eval: &mut Evaluator) -> anyhow::Result<String> {
         // An (IMO) unfortunate choice in the skylark api is that this just gives the cell-relative
         //  path of the package (which isn't a unique "name" for the package)
         Ok(BuildContext::from_context(eval)?
@@ -65,14 +74,14 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
             .to_string())
     }
 
-    fn get_base_path() -> anyhow::Result<String> {
+    fn get_base_path(eval: &mut Evaluator) -> anyhow::Result<String> {
         Ok(BuildContext::from_context(eval)?
             .require_package()?
             .cell_relative_path()
             .to_string())
     }
 
-    fn repository_name() -> anyhow::Result<String> {
+    fn repository_name(eval: &mut Evaluator) -> anyhow::Result<String> {
         // In Buck v1 the repository name has a leading `@` on it, so match that with v2.
         // In practice, most users do `repository_name()[1:]` to drop it.
         Ok(format!(
@@ -81,7 +90,7 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
         ))
     }
 
-    fn get_cell_name() -> anyhow::Result<String> {
+    fn get_cell_name(eval: &mut Evaluator) -> anyhow::Result<String> {
         Ok(BuildContext::from_context(eval)?
             .cell_info()
             .name()

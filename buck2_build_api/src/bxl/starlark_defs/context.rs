@@ -29,6 +29,7 @@ use either::Either;
 use gazebo::any::AnyLifetime;
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
+    eval::Evaluator,
     values::{
         dict::Dict, none::NoneType, AllocValue, Freeze, Freezer, Heap, NoSerialize, NoSimpleValue,
         StarlarkValue, Trace, UnpackValue, Value, ValueLike, ValueOf, ValueTyped,
@@ -234,6 +235,7 @@ fn register_context(builder: &mut MethodsBuilder) {
         labels: Value<'v>,
         #[starlark(default = NoneType)] global_target_platform: Value<'v>,
         #[starlark(default = true)] skip_incompatible: bool,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<Value<'v>> {
         let providers = ProvidersExpr::unpack(labels, global_target_platform, this, eval)?;
 
@@ -251,6 +253,7 @@ fn register_context(builder: &mut MethodsBuilder) {
         this: &BxlContext,
         spec: Value<'v>,
         #[starlark(default = NoneType)] target_platform: Value<'v>,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<Value<'v>> {
         Ok(eval
             .heap()

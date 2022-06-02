@@ -261,13 +261,13 @@ pub mod testing {
         extra::BuildContext,
         pattern::{ParsedPattern, ProvidersPattern},
     };
-    use starlark::environment::GlobalsBuilder;
+    use starlark::{environment::GlobalsBuilder, eval::Evaluator};
 
     use crate::interpreter::rule_defs::label::Label;
 
     #[starlark_module]
     pub fn label_creator(builder: &mut GlobalsBuilder) {
-        fn label<'v>(s: &str) -> anyhow::Result<Label<'v>> {
+        fn label<'v>(s: &str, eval: &mut Evaluator) -> anyhow::Result<Label<'v>> {
             let c = BuildContext::from_context(eval)?;
             let target = match ParsedPattern::<ProvidersPattern>::parse_precise(
                 c.cell_info().cell_alias_resolver(),
@@ -282,7 +282,7 @@ pub mod testing {
                 }
             };
             Ok(Label::new(
-                heap,
+                eval.heap(),
                 target.configure(Configuration::testing_new()),
             ))
         }

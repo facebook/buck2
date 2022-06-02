@@ -390,6 +390,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         this: &AnalysisActions,
         prefix: &str,
         filename: Option<&str>,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<StarlarkDeclaredArtifact> {
         let artifact = match filename {
             None => this.state().declare_output(None, prefix)?,
@@ -406,6 +407,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         this: &AnalysisActions,
         output: Value<'v>,
         content: Value<'v>,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<Value<'v>> {
         let mut this = this.state();
         let (output_value, output_artifact) = this.get_or_declare_output(eval, output, "output")?;
@@ -428,6 +430,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         content: Value<'v>,
         #[starlark(default = false)] is_executable: bool,
         #[starlark(default = false)] allow_args: bool,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<Value<'v>> {
         fn count_write_to_file_macros(
             args_allowed: bool,
@@ -469,7 +472,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             } else {
                 let cli = StarlarkCommandLine::try_from_value(content)?;
                 let count = count_write_to_file_macros(allow_args, &cli)?;
-                (heap.alloc(cli), count)
+                (eval.heap().alloc(cli), count)
             };
 
         let mut this = this.state();
@@ -496,7 +499,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
                 indexset![],
                 written_macro_files.iter().map(|a| a.as_output()).collect(),
                 action,
-                Some(heap.alloc(content_cli)),
+                Some(eval.heap().alloc(content_cli)),
             )?;
 
             written_macro_files
@@ -531,7 +534,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
                 .into_iter()
                 .map(|a| StarlarkDeclaredArtifact::new(None, a))
                 .collect();
-            Ok(heap.alloc((output_value, macro_files)))
+            Ok(eval.heap().alloc((output_value, macro_files)))
         } else {
             // Prefer simpler API when there is no possibility for write-to-file macros to be present in a content
             Ok(output_value)
@@ -542,6 +545,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         this: &AnalysisActions,
         src: Value<'v>,
         dest: Value<'v>,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<Value<'v>> {
         copy_file(eval, this, src, dest, /* copy */ true)
     }
@@ -550,6 +554,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         this: &AnalysisActions,
         src: Value<'v>,
         dest: Value<'v>,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<Value<'v>> {
         copy_file(eval, this, src, dest, /* copy */ false)
     }
@@ -558,6 +563,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         this: &AnalysisActions,
         output: Value<'v>,
         srcs: Value<'v>,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<Value<'v>> {
         create_dir_tree(eval, this, output, srcs, false)
     }
@@ -566,6 +572,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         this: &AnalysisActions,
         output: Value<'v>,
         srcs: Value<'v>,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<Value<'v>> {
         create_dir_tree(eval, this, output, srcs, true)
     }
@@ -583,6 +590,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         metadata_env_var: Option<String>,
         metadata_path: Option<String>,
         #[starlark(default = false)] no_outputs_cleanup: bool,
+        heap: &Heap,
     ) -> anyhow::Result<NoneType> {
         struct RunCommandArtifactVisitor {
             inner: SimpleCommandLineArtifactVisitor,
@@ -727,6 +735,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         #[starlark(default = NoneOr::None)] sha256: NoneOr<&str>,
         #[starlark(default = false)] is_executable: bool,
         #[starlark(default = false)] is_deferrable: bool,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<Value<'v>> {
         let mut this = this.state();
         let (output_value, output_artifact) = this.get_or_declare_output(eval, output, "output")?;
@@ -760,6 +769,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         definition: Value<'v>,
         value: Option<Value<'v>>,
         children: Option<Value<'v>>, // An iterable.
+        eval: &mut Evaluator,
     ) -> anyhow::Result<Value<'v>> {
         let mut this = this.state();
         this.create_transitive_set(definition, value, children, eval)
@@ -771,6 +781,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         inputs: Vec<StarlarkArtifact>,
         outputs: Vec<StarlarkOutputArtifact>,
         lambda: Value,
+        heap: &Heap,
     ) -> anyhow::Result<NoneType> {
         // Parameter validation
         let lambda_type = lambda.get_type();
@@ -797,7 +808,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
     }
 
     /// Allocate a new input tag
-    fn artifact_tag<'v>(_this: &AnalysisActions) -> anyhow::Result<Value<'v>> {
+    fn artifact_tag<'v>(_this: &AnalysisActions, heap: &Heap) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc(ArtifactTag::new()))
     }
 }

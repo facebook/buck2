@@ -60,6 +60,7 @@ pub fn register_bxl_function(builder: &mut GlobalsBuilder) {
         implementation: Value,
         cli_args: DictOf<&str, &CliArgs>,
         #[starlark(default = "")] doc: &str,
+        eval: &mut Evaluator,
     ) -> anyhow::Result<Value<'v>> {
         let build_context = BuildContext::from_context(eval)?;
         let bxl_path = (*build_context
@@ -73,7 +74,7 @@ pub fn register_bxl_function(builder: &mut GlobalsBuilder) {
             .map(|(arg, def)| (arg.to_owned(), def.clone()))
             .collect();
 
-        Ok(heap.alloc(BxlFunction {
+        Ok(eval.heap().alloc(BxlFunction {
             bxl_path,
             id: RefCell::new(None),
             implementation,

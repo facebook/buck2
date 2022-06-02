@@ -17,7 +17,7 @@ use gazebo::{
 };
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
-    values::{Freeze, NoSerialize, StarlarkValue, Trace, Value, ValueLike},
+    values::{Freeze, Heap, NoSerialize, StarlarkValue, Trace, Value, ValueLike},
 };
 
 use crate::{
@@ -191,7 +191,7 @@ impl<'v> CommandLineArgLike for TransitiveSetArgsProjection<'v> {
 
 #[starlark_module]
 fn transitive_set_args_projection_methods(builder: &mut MethodsBuilder) {
-    fn traverse<'v>(this: Value<'v>) -> anyhow::Result<Value<'v>> {
+    fn traverse<'v>(this: Value<'v>, heap: &Heap) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc(TransitiveSetArgsProjectionTraversal { inner: this }))
     }
 }
