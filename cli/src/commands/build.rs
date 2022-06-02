@@ -9,12 +9,13 @@
 
 use std::{
     collections::HashMap,
+    io,
     path::{Path, PathBuf},
 };
 
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use buck2_core::exit_result::ExitResult;
+use buck2_core::exit_result::{ExitResult, FailureExitCode};
 use clap::arg_enum;
 use cli_proto::{
     build_request::{build_providers, BuildProviders, ResponseOptions},
@@ -449,7 +450,13 @@ async fn copy_to_out(targets: &[BuildTarget], root_path: &str, out: &Path) -> an
     } else {
         tokio::fs::copy(Path::new(root_path).join(Path::new(&output.path)), out)
             .await
-            .context("when writing build artifact to --out")?;
+            .map_err(|e| {
+                if e.kind() == io::ErrorKind::BrokenPipe {
+                    anyhow::Error::new(FailureExitCode::OutputFileBrokenPipe)
+                } else {
+                    anyhow::Error::new(e).context("when writing build artifact to --out")
+                }
+            })?;
     }
 
     Ok(())

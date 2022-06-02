@@ -162,6 +162,10 @@ impl Termination for ExitResult {
                         // closed.
                         ExitCode::from(141)
                     }
+                    Some(FailureExitCode::OutputFileBrokenPipe) => {
+                        tracing::debug!("--out pipe was broken");
+                        ExitCode::from(141)
+                    }
                 }
             }
         }
@@ -181,6 +185,9 @@ pub enum FailureExitCode {
 
     #[error("Broken pipe writing on stdout")]
     StderrBrokenPipe,
+
+    #[error("Broken pipe writing build artifact to --out")]
+    OutputFileBrokenPipe,
 }
 
 /// Invokes the given program with the given argv and replaces the program image with the new program. Does not return
