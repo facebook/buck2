@@ -99,9 +99,9 @@ impl<'e, Env: QueryEnvironment> QueryEvaluator<'e, Env> {
                 )),
             },
             Expr::BinaryOpSequence(left, exprs) => {
-                let mut value = self.eval_targets(left).await?.value;
+                let mut value = self.eval(left).await?.value;
                 for (op, right) in exprs {
-                    let right = self.eval_targets(right).await?;
+                    let right = self.eval(right).await?;
                     value = right
                         .async_into_map_res(|right| async move {
                             match self.functions.get_op(*op) {
@@ -112,7 +112,7 @@ impl<'e, Env: QueryEnvironment> QueryEvaluator<'e, Env> {
                         .await?
                         .value;
                 }
-                Ok(QueryValue::TargetSet(value))
+                Ok(value)
             }
             Expr::Set(args) => {
                 let patterns: Vec<_> = args.map(|v| v.fragment());

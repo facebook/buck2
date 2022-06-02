@@ -12,6 +12,7 @@ use std::marker::PhantomData;
 use async_trait::async_trait;
 use buck2_query_parser::{spanned::Spanned, BinaryOp, Expr};
 use buck2_query_proc_macro::query_module;
+use gazebo::variants::VariantName;
 
 use crate::query::{
     environment::QueryEnvironment,
@@ -152,6 +153,20 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
 type QueryFuncResult<Env> =
     std::result::Result<QueryValue<<Env as QueryEnvironment>::Target>, QueryError>;
 
+async fn accept_target_set<Env: QueryEnvironment>(
+    env: &Env,
+    val: QueryValue<Env::Target>,
+) -> Result<TargetSet<Env::Target>, QueryError> {
+    match val {
+        QueryValue::TargetSet(x) => Ok(x),
+        QueryValue::String(literal) => Ok(env.eval_literals(&[&literal]).await?),
+        _ => Err(QueryError::InvalidType {
+            expected: "target_set",
+            actual: val.variant_name(),
+        }),
+    }
+}
+
 /// Common query functions
 #[query_module(Env)]
 impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
@@ -290,31 +305,37 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
     #[binary_op(BinaryOp::Intersect)]
     async fn intersect(
         &self,
-        _env: &Env,
-        left: TargetSet<Env::Target>,
-        right: TargetSet<Env::Target>,
-    ) -> Result<TargetSet<Env::Target>, QueryError> {
-        Ok(left.intersect(&right)?)
+        env: &Env,
+        left: QueryValue<Env::Target>,
+        right: QueryValue<Env::Target>,
+    ) -> Result<QueryValue<Env::Target>, QueryError> {
+        let left = accept_target_set(env, left).await?;
+        let right = accept_target_set(env, right).await?;
+        Ok(QueryValue::TargetSet(left.intersect(&right)?))
     }
 
     #[binary_op(BinaryOp::Except)]
     async fn except(
         &self,
-        _env: &Env,
-        left: TargetSet<Env::Target>,
-        right: TargetSet<Env::Target>,
-    ) -> Result<TargetSet<Env::Target>, QueryError> {
-        Ok(left.difference(&right)?)
+        env: &Env,
+        left: QueryValue<Env::Target>,
+        right: QueryValue<Env::Target>,
+    ) -> Result<QueryValue<Env::Target>, QueryError> {
+        let left = accept_target_set(env, left).await?;
+        let right = accept_target_set(env, right).await?;
+        Ok(QueryValue::TargetSet(left.difference(&right)?))
     }
 
     #[binary_op(BinaryOp::Union)]
     async fn union(
         &self,
-        _env: &Env,
-        left: TargetSet<Env::Target>,
-        right: TargetSet<Env::Target>,
-    ) -> Result<TargetSet<Env::Target>, QueryError> {
-        Ok(left.union(&right))
+        env: &Env,
+        left: QueryValue<Env::Target>,
+        right: QueryValue<Env::Target>,
+    ) -> Result<QueryValue<Env::Target>, QueryError> {
+        let left = accept_target_set(env, left).await?;
+        let right = accept_target_set(env, right).await?;
+        Ok(QueryValue::TargetSet(left.union(&right)))
     }
 }
 pub struct AugmentedQueryFunctions<'a, Env: QueryEnvironment> {

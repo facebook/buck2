@@ -36,6 +36,7 @@ mod _scoped_allow {
         TargetSet,
         FileSet,
         Expression,
+        Value,
     }
 }
 
@@ -49,6 +50,7 @@ impl QueryArgType {
             QueryArgType::TargetSet => "target expression",
             QueryArgType::FileSet => "file expression",
             QueryArgType::Expression => "query expression",
+            QueryArgType::Value => "any value",
         }
     }
 
@@ -90,6 +92,7 @@ impl QueryArgType {
                 For example, the `deps()` function can accept an expression that it uses to find the children of a node to \
                 customize the deps traversal."
             }
+            QueryArgType::Value => "Any query value.",
         }
     }
 }
@@ -114,9 +117,9 @@ pub trait QueryBinaryOp<Env: QueryEnvironment>: Send + Sync {
     async fn invoke(
         &self,
         env: &Env,
-        left: TargetSet<Env::Target>,
-        right: TargetSet<Env::Target>,
-    ) -> Result<TargetSet<Env::Target>, QueryError>;
+        left: QueryValue<Env::Target>,
+        right: QueryValue<Env::Target>,
+    ) -> Result<QueryValue<Env::Target>, QueryError>;
 }
 
 #[async_trait]
@@ -165,6 +168,15 @@ impl<'a, Env: QueryEnvironment> QueryFunctionArg<'a, Env> for CapturedExpr<'a> {
 
     async fn accept(_env: &Env, _val: QueryValue<Env::Target>) -> Result<Self, QueryError> {
         unimplemented!("accept shouldn't be called since eval doesn't use it")
+    }
+}
+
+#[async_trait]
+impl<'a, Env: QueryEnvironment> QueryFunctionArg<'a, Env> for QueryValue<Env::Target> {
+    const ARG_TYPE: QueryArgType = QueryArgType::Value;
+
+    async fn accept(_env: &Env, val: QueryValue<Env::Target>) -> Result<Self, QueryError> {
+        Ok(val)
     }
 }
 
