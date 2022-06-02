@@ -26,13 +26,9 @@ thiserror = "1.0"
 tokio = { version = "1.5", features = ["full"] }
 tracing = "0.1.22"
 uuid = { version = "0.8", features = ["v4"] }
-# @oss-disable: scribe = { path = "../../common/rust/scribe", optional = true }
-# @oss-disable: scribe_http = { path = "../../common/rust/scribe/http", optional = true }
 crossbeam-channel = "0.5"
 # 0.9.8 is only compatible with nightly 1.61
 crossbeam-epoch = "=0.9.7"
 
 [features]
-# @oss-disable: default = ["gazebo_lint", "scribe_logging"]
-# @oss-disable: scribe_logging = ["scribe", "scribe_http"]
-scribe_logging = [] # @oss-enable
+# @oss-disable: default = ["gazebo_lint"]

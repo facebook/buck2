@@ -78,7 +78,6 @@ impl<'a> BuckdLifecycle<'a> {
         // instructed to log.
         //
         // This environment variable ensures that Scribe logging is enabled upon entry of the buck2 daemon command.
-        #[cfg(feature = "scribe_logging")]
         if !events::sink::scribe::is_enabled() {
             cmd.env("BUCK2_ENABLE_SCRIBE", "0");
         }

@@ -2,6 +2,5 @@
 //! sink during normal operation.
 pub(crate) mod channel;
 pub(crate) mod null;
-#[cfg(feature = "scribe_logging")]
 pub mod scribe;
 pub mod tee;

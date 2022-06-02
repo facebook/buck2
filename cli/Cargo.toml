@@ -114,8 +114,7 @@ name = "bxl"
 path = "bin/bxl.rs"
 
 [features]
-# @oss-disable: default = ["gazebo_lint", "eden_materializer", "extra_logging", "scribe_logging"]
-scribe_logging = ["events/scribe_logging"]
+# @oss-disable: default = ["gazebo_lint", "eden_materializer", "extra_logging"]
 eden_materializer = ["buck2_build_api/eden_materializer"]
 # @oss-disable: extra_logging = ["build_info", "hostname", "hostcaps", "user"]
 extra_logging = [] # @oss-enable
