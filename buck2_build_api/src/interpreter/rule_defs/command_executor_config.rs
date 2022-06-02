@@ -1,15 +1,14 @@
-use std::fmt;
+use std::{borrow::Cow, fmt};
 
 use anyhow::Context as _;
-use gazebo::{
-    any::{AnyLifetime, ProvidesStaticType},
-    coerce::Coerce,
-};
+use derive_more::Display;
+use gazebo::any::AnyLifetime;
 use indexmap::IndexMap;
 use starlark::{
     environment::GlobalsBuilder,
     values::{
-        dict::Dict, none::NoneType, Freeze, NoSerialize, StarlarkValue, Trace, Value, ValueLike,
+        dict::Dict, none::NoneType, Freeze, Freezer, Heap, NoSerialize, StarlarkValue, Trace,
+        Value, ValueLike,
     },
 };
 use thiserror::Error;
@@ -25,32 +24,31 @@ enum CommandExecutorConfigErrors {
     RePropertiesNotADict(String, String),
 }
 
-#[derive(Clone, Debug, Trace, Coerce, Freeze, AnyLifetime)]
+#[derive(Clone, Debug, Trace, AnyLifetime)]
 #[derive(NoSerialize)]
-#[repr(C)]
-pub(crate) struct StarlarkCommandExecutorConfigGen<V> {
+struct StarlarkCommandExecutorConfig<'v> {
     /// Whether to use remote execution for this execution platform
-    pub(super) remote_enabled: V, // bool
+    pub(super) remote_enabled: Value<'v>, // bool
     /// Whether to use local execution for this execution platform. If both
     /// remote_enabled and local_enabled are `True`, we will use the hybrid executor.
-    pub(super) local_enabled: V, // bool
+    pub(super) local_enabled: Value<'v>, // bool
     /// properties for remote execution for this platform
-    pub(super) remote_execution_properties: V, // Dict<String, String>
+    pub(super) remote_execution_properties: Value<'v>, // Dict<String, String>
     /// A component to inject into the action key. This should typically used to inject variability
     /// into the action key so that it's different across e.g. build modes (RE uses the action key
     /// for things like expected memory utilization).
-    pub(super) remote_execution_action_key: V, // [String, None]
+    pub(super) remote_execution_action_key: Value<'v>, // [String, None]
     /// The maximum input file size (in bytes) that remote execution can support.
-    pub(super) remote_execution_max_input_files_mebibytes: V, // [Number, None]
+    pub(super) remote_execution_max_input_files_mebibytes: Value<'v>, // [Number, None]
     /// The use case to use when communicating with RE.
-    pub(super) remote_execution_use_case: V, // [String, None]
+    pub(super) remote_execution_use_case: Value<'v>, // [String, None]
     /// Whether to use the limited hybrid executor
-    pub(super) use_limited_hybrid: V, // bool
+    pub(super) use_limited_hybrid: Value<'v>, // bool
     /// Whether to allow fallbacks
-    pub(super) allow_limited_hybrid_fallbacks: V, // bool
+    pub(super) allow_limited_hybrid_fallbacks: Value<'v>, // bool
 }
 
-impl<'v, V: ValueLike<'v>> fmt::Display for StarlarkCommandExecutorConfigGen<V> {
+impl<'v> fmt::Display for StarlarkCommandExecutorConfig<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "CommandExecutorConfig(")?;
         write!(f, "remote_enabled = {}, ", self.remote_enabled)?;
@@ -86,16 +84,11 @@ impl<'v, V: ValueLike<'v>> fmt::Display for StarlarkCommandExecutorConfigGen<V> 
     }
 }
 
-starlark_complex_value!(pub(crate) StarlarkCommandExecutorConfig);
-
-impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkCommandExecutorConfigGen<V>
-where
-    Self: ProvidesStaticType,
-{
-    starlark_type!("command_executor_config");
+impl<'v> StarlarkValue<'v> for StarlarkCommandExecutorConfig<'v> {
+    starlark_type!("command_executor_config_builder");
 }
 
-impl<'v, V: ValueLike<'v>> StarlarkCommandExecutorConfigGen<V> {
+impl<'v> StarlarkCommandExecutorConfig<'v> {
     pub fn to_command_executor_config(&self) -> anyhow::Result<CommandExecutorConfig> {
         let local_options = if self.local_enabled.to_value().to_bool() {
             Some(LocalExecutorOptions {})
@@ -172,6 +165,55 @@ impl<'v, V: ValueLike<'v>> StarlarkCommandExecutorConfigGen<V> {
     }
 }
 
+impl<'v> Freeze for StarlarkCommandExecutorConfig<'v> {
+    type Frozen = FrozenStarlarkCommandExecutorConfig;
+
+    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+        let inner = self.to_command_executor_config()?;
+        Ok(FrozenStarlarkCommandExecutorConfig(inner))
+    }
+}
+
+#[derive(Debug, Display, NoSerialize, AnyLifetime)]
+#[display(fmt = "{:?}", _0)]
+struct FrozenStarlarkCommandExecutorConfig(CommandExecutorConfig);
+
+starlark_simple_value!(FrozenStarlarkCommandExecutorConfig);
+
+impl<'v> StarlarkValue<'v> for FrozenStarlarkCommandExecutorConfig {
+    starlark_type!("command_executor_config");
+}
+
+pub trait StarlarkCommandExecutorConfigLike<'v> {
+    fn command_executor_config(&'v self) -> anyhow::Result<Cow<'v, CommandExecutorConfig>>;
+}
+
+impl<'v> dyn StarlarkCommandExecutorConfigLike<'v> {
+    pub fn from_value(v: Value<'v>) -> Option<&'v dyn StarlarkCommandExecutorConfigLike<'v>> {
+        if let Some(r) = v.downcast_ref::<StarlarkCommandExecutorConfig<'v>>() {
+            return Some(r as _);
+        }
+
+        if let Some(r) = v.downcast_ref::<FrozenStarlarkCommandExecutorConfig>() {
+            return Some(r as _);
+        }
+
+        None
+    }
+}
+
+impl<'v> StarlarkCommandExecutorConfigLike<'v> for StarlarkCommandExecutorConfig<'v> {
+    fn command_executor_config(&'v self) -> anyhow::Result<Cow<'v, CommandExecutorConfig>> {
+        Ok(Cow::Owned(self.to_command_executor_config()?))
+    }
+}
+
+impl<'v> StarlarkCommandExecutorConfigLike<'v> for FrozenStarlarkCommandExecutorConfig {
+    fn command_executor_config(&'v self) -> anyhow::Result<Cow<'v, CommandExecutorConfig>> {
+        Ok(Cow::Borrowed(&self.0))
+    }
+}
+
 #[starlark_module]
 pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
     #[starlark(type = "command_executor_config")]
@@ -184,7 +226,8 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         #[starlark(default = NoneType, require = named)] remote_execution_use_case: Value<'v>,
         #[starlark(default = NoneType, require = named)] use_limited_hybrid: Value<'v>,
         #[starlark(default = NoneType, require = named)] allow_limited_hybrid_fallbacks: Value<'v>,
-    ) -> anyhow::Result<StarlarkCommandExecutorConfig<'v>> {
+        heap: &'v Heap,
+    ) -> anyhow::Result<Value<'v>> {
         let config = StarlarkCommandExecutorConfig {
             remote_enabled,
             local_enabled,
@@ -197,6 +240,6 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         };
         // This checks that the values are valid.
         config.to_command_executor_config()?;
-        Ok(config)
+        Ok(heap.alloc_complex(config))
     }
 }

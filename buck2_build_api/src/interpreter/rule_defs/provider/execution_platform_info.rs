@@ -21,7 +21,7 @@ use thiserror::Error;
 use crate::{
     configuration::execution::ExecutionPlatform,
     interpreter::rule_defs::{
-        command_executor_config::StarlarkCommandExecutorConfig,
+        command_executor_config::StarlarkCommandExecutorConfigLike,
         provider::configuration_info::ConfigurationInfo, target_label::StarlarkTargetLabel,
     },
 };
@@ -70,18 +70,18 @@ impl<'v, V: ValueLike<'v>> ExecutionPlatformInfoGen<V> {
             .to_configuration_data();
         let cfg = Configuration::from_platform(TargetLabel::to_string(&target), cfg)?;
         let executor_config =
-            StarlarkCommandExecutorConfig::from_value(self.executor_config.to_value())
+            <dyn StarlarkCommandExecutorConfigLike>::from_value(self.executor_config.to_value())
                 .ok_or_else(|| {
                     ExecutionPlatformProviderErrors::ExpectedCommandExecutorConfig(
                         self.configuration.to_value().to_repr(),
                         self.configuration.to_value().get_type().to_owned(),
                     )
                 })?
-                .to_command_executor_config()?;
+                .command_executor_config()?;
         Ok(ExecutionPlatform::Platform {
             target,
             cfg,
-            executor_config,
+            executor_config: executor_config.into_owned(),
         })
     }
 }

@@ -566,7 +566,7 @@ impl BuckTestOrchestrator {
                     .executor_override(&executor_override.name)
                     .context("The `executor_override` provided does not exist")
                     .and_then(|o| {
-                        o.to_command_executor_config()
+                        o.command_executor_config()
                             .context("The `executor_override` is invalid")
                     })
                     .with_context(|| {
@@ -576,7 +576,8 @@ impl BuckTestOrchestrator {
                         )
                     })?;
 
-                resolved_executor_override = Some(executor_override);
+                // TODO: @torozco: refactor so we don't have to clone this.
+                resolved_executor_override = Some(executor_override.into_owned());
             }
         };
 

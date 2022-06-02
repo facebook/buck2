@@ -31,7 +31,7 @@ use crate::{
             CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder,
             ValueAsCommandLineLike,
         },
-        command_executor_config::StarlarkCommandExecutorConfig,
+        command_executor_config::StarlarkCommandExecutorConfigLike,
     },
 };
 
@@ -119,11 +119,11 @@ impl FrozenExternalRunnerTestInfo {
     pub(crate) fn executor_override(
         &self,
         key: &str,
-    ) -> Option<&StarlarkCommandExecutorConfig<'static>> {
+    ) -> Option<&dyn StarlarkCommandExecutorConfigLike> {
         let executor_overrides = Dict::from_value(self.executor_overrides.to_value()).unwrap();
         executor_overrides
             .get_str(key)
-            .map(|v| StarlarkCommandExecutorConfig::from_value(v.to_value()).unwrap())
+            .map(|v| <dyn StarlarkCommandExecutorConfigLike>::from_value(v.to_value()).unwrap())
     }
 
     pub fn visit_artifacts(
@@ -268,7 +268,8 @@ fn iter_opt_str_list<'v>(
 
 fn iter_executor_overrides<'v>(
     executor_overrides: Value<'v>,
-) -> impl Iterator<Item = anyhow::Result<(&'v str, &'v StarlarkCommandExecutorConfig<'v>)>> {
+) -> impl Iterator<Item = anyhow::Result<(&'v str, &'v dyn StarlarkCommandExecutorConfigLike<'v>)>>
+{
     if executor_overrides.is_none() {
         return Either::Left(Either::Left(empty()));
     }
@@ -296,7 +297,7 @@ fn iter_executor_overrides<'v>(
             )
         })?;
 
-        let config = StarlarkCommandExecutorConfig::from_value(value)
+        let config = <dyn StarlarkCommandExecutorConfigLike>::from_value(value)
             .with_context(|| format!("Invalid value in `executor_overrides` for key `{}`", key))?;
 
         Ok((key, config))
