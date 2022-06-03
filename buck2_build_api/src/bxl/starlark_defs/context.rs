@@ -79,7 +79,7 @@ pub struct BxlContext<'v> {
     #[derivative(Debug = "ignore")]
     pub(crate) async_ctx: BxlSafeDiceComputations<'v>,
     pub(crate) state: ValueTyped<'v, AnalysisActions<'v>>,
-    pub(crate) output_stream: ValueTyped<'v, OutputStream>,
+    pub(crate) output_stream: ValueTyped<'v, OutputStream<'v>>,
 }
 
 impl<'v> BxlContext<'v> {
