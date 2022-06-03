@@ -20,8 +20,8 @@ use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 #[derive(Clone, Debug, Coerce, Trace, Freeze, AnyLifetime)]
 #[repr(C)]
 pub struct EnsuredArtifactGen<V> {
-    artifact: V,
-    abs: bool,
+    pub artifact: V,
+    pub abs: bool,
 }
 
 impl<'v, V: ValueLike<'v>> EnsuredArtifactGen<V> {
@@ -37,7 +37,7 @@ impl<'v, V: ValueLike<'v>> EnsuredArtifactGen<V> {
     }
 }
 
-starlark_complex_value!(EnsuredArtifact);
+starlark_complex_value!(pub EnsuredArtifact);
 
 impl<'v, V: ValueLike<'v>> Display for EnsuredArtifactGen<V> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

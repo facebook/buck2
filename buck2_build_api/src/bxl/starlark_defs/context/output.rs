@@ -6,7 +6,7 @@ use std::{cell::RefCell, sync::Arc};
 use buck2_core::fs::project::ProjectFilesystem;
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::any::ProvidesStaticType;
+use gazebo::{any::ProvidesStaticType, prelude::SliceExt};
 use itertools::Itertools;
 use starlark::{
     collections::SmallSet,
@@ -19,7 +19,10 @@ use starlark::{
 
 use crate::{
     actions::artifact::ArtifactFs,
-    bxl::starlark_defs::{artifacts::EnsuredArtifactGen, BxlError::NoFreeze},
+    bxl::starlark_defs::{
+        artifacts::{EnsuredArtifact, EnsuredArtifactGen},
+        BxlError::NoFreeze,
+    },
     interpreter::rule_defs::artifact::ValueAsArtifactLike,
 };
 
@@ -98,7 +101,29 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
     /// and `pprint`.
     fn print(this: &OutputStream, args: Vec<Value>) -> anyhow::Result<NoneType> {
         // TODO handle printing of EnsuredArtifacts separately
-        println!("{}", &args.iter().map(|x| x.to_str()).join(" "));
+        println!(
+            "{}",
+            &args
+                .try_map(|x| {
+                    anyhow::Ok(
+                        if let Some(ensured) = <&EnsuredArtifact>::unpack_value(*x) {
+                            let resolved = this
+                                .artifact_fs
+                                .resolve_artifactlike(ensured.artifact.as_artifact().unwrap())?;
+
+                            if ensured.abs {
+                                format!("{}", this.project_fs.resolve(&resolved).display())
+                            } else {
+                                resolved.as_str().to_owned()
+                            }
+                        } else {
+                            x.to_str()
+                        },
+                    )
+                })?
+                .into_iter()
+                .join(" ")
+        );
         *this.has_print.borrow_mut() = true;
 
         Ok(NoneType)

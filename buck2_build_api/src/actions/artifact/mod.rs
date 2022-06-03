@@ -35,6 +35,7 @@ use buck2_core::{
     },
 };
 use derive_more::Display;
+use either::Either;
 use gazebo::{hash::Hashed, prelude::*};
 use thiserror::Error;
 
@@ -52,7 +53,7 @@ pub use build_artifact::BuildArtifact;
 mod source_artifact;
 pub use source_artifact::SourceArtifact;
 
-use crate::deferred::BaseDeferredKey;
+use crate::{deferred::BaseDeferredKey, interpreter::rule_defs::artifact::StarlarkArtifactLike};
 
 /// An 'Artifact' that can be materialized at its path.
 #[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -274,6 +275,17 @@ impl ArtifactFs {
         match artifact.0.as_ref() {
             ArtifactKind::Build(built) => Ok(self.resolve_build(built)),
             ArtifactKind::Source(source) => self.resolve_source(source),
+        }
+    }
+
+    /// Resolves the 'Artifact's to a 'ProjectRelativePathBuf'
+    pub(crate) fn resolve_artifactlike(
+        &self,
+        artifactlike: &dyn StarlarkArtifactLike,
+    ) -> anyhow::Result<ProjectRelativePathBuf> {
+        match artifactlike.fingerprint() {
+            Either::Left(build) => Ok(self.buck_out_path_resolver.resolve_gen(&build)),
+            Either::Right(source) => self.buck_path_resolver.resolve(source),
         }
     }
 
