@@ -166,8 +166,23 @@ ExternalRunnerTestInfo(
 )
 ```
 
-There is currently no way to modify the default execution platform for a test.
-This will likely change eventually.
+The default execution platform can also be overridden:
+
+```
+ExternalRunnerTestInfo(
+  default_executor = CommandExecutorConfig(
+    local_enabled = False,
+    remote_enabled = True,
+    remote_execution_properties = {
+        "platform": "ios-simulator-pure-re",
+        "subplatform": "iPhone 8.iOS 15.0",
+        "xcode-version": "xcodestable",
+    },
+    remote_execution_use_case = "tpx-default",
+  ),
+  ...
+)
+```
 
 
 ## Working Directory

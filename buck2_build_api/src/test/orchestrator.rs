@@ -577,7 +577,13 @@ impl BuckTestOrchestrator {
                             )
                         })?,
                 ),
-                None => None,
+                None => test_info
+                    .default_executor()
+                    .map(|o| {
+                        o.command_executor_config()
+                            .context("The `default_executor` is invalid")
+                    })
+                    .transpose()?,
             };
 
             executor = self

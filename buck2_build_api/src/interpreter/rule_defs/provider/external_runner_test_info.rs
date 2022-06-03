@@ -74,6 +74,10 @@ pub struct ExternalRunnerTestInfoGen<V> {
     /// This is of type [bool.type]
     run_from_project_root: V,
 
+    /// Defaul executor to use to run tests.  This is of type CommandExecutorConfig. If none is
+    /// passed we will default to the execution platform.
+    default_executor: V,
+
     /// Executors that Tpx can use to override the default executor.
     /// This is of type {str.type: CommandExecutorConfig}
     executor_overrides: V,
@@ -113,6 +117,10 @@ impl FrozenExternalRunnerTestInfo {
             .unwrap()
             .into_option()
             .unwrap_or_default()
+    }
+
+    pub(crate) fn default_executor(&self) -> Option<&dyn StarlarkCommandExecutorConfigLike> {
+        unpack_opt_executor(self.default_executor.to_value()).unwrap()
     }
 
     /// Access a specific executor override.
@@ -304,6 +312,19 @@ fn iter_executor_overrides<'v>(
     }))
 }
 
+fn unpack_opt_executor<'v>(
+    executor: Value<'v>,
+) -> anyhow::Result<Option<&'v dyn StarlarkCommandExecutorConfigLike>> {
+    if executor.is_none() {
+        return Ok(None);
+    }
+
+    let executor = <dyn StarlarkCommandExecutorConfigLike>::from_value(executor)
+        .with_context(|| format!("Value is not an executor config: `{}`", executor))?;
+
+    Ok(Some(executor))
+}
+
 fn check_all<I, T>(it: I) -> anyhow::Result<()>
 where
     I: Iterator<Item = anyhow::Result<T>>,
@@ -336,6 +357,7 @@ where
         .context("`use_project_relative_paths` must be a bool if provided")?;
     NoneOr::<bool>::unpack_value(info.run_from_project_root.to_value())
         .context("`run_from_project_root` must be a bool if provided")?;
+    unpack_opt_executor(info.default_executor.to_value()).context("Invalid `default_executor`")?;
     info.test_type
         .to_value()
         .unpack_str()
@@ -354,6 +376,7 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
         #[starlark(default = NoneType)] contacts: Value<'v>,
         #[starlark(default = NoneType)] use_project_relative_paths: Value<'v>,
         #[starlark(default = NoneType)] run_from_project_root: Value<'v>,
+        #[starlark(default = NoneType)] default_executor: Value<'v>,
         #[starlark(default = NoneType)] executor_overrides: Value<'v>,
     ) -> anyhow::Result<ExternalRunnerTestInfo<'v>> {
         let res = ExternalRunnerTestInfo {
@@ -364,6 +387,7 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
             contacts,
             use_project_relative_paths,
             run_from_project_root,
+            default_executor,
             executor_overrides,
         };
         validate_external_runner_test_info(&res)?;
@@ -521,6 +545,26 @@ mod tests {
             "#
             ),
             "`run_from_project_root`",
+        );
+
+        run_starlark_bzl_test_expecting_error(
+            indoc!(
+                r#"
+            def test():
+                ExternalRunnerTestInfo(type = "foo", default_executor = "foo")
+            "#
+            ),
+            "`default_executor`",
+        );
+
+        run_starlark_bzl_test_expecting_error(
+            indoc!(
+                r#"
+            def test():
+                ExternalRunnerTestInfo(type = "foo", executor_overrides = {"foo": "bar" })
+            "#
+            ),
+            "`executor_overrides`",
         );
 
         Ok(())
