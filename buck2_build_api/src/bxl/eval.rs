@@ -1,5 +1,8 @@
 use anyhow::Context;
-use buck2_common::{dice::cells::HasCellResolver, legacy_configs::dice::HasLegacyConfigs};
+use buck2_common::{
+    dice::{cells::HasCellResolver, data::HasIoProvider},
+    legacy_configs::dice::HasLegacyConfigs,
+};
 use buck2_interpreter::{common::StarlarkModulePath, file_loader::LoadedModule};
 use dice::DiceTransaction;
 use gazebo::prelude::*;
@@ -51,6 +54,9 @@ pub async fn eval(ctx: DiceTransaction, key: BxlKey) -> anyhow::Result<BxlResult
 
     let target_alias_resolver = config.target_alias_resolver();
 
+    let project_fs = ctx.global_data().get_io_provider().fs().dupe();
+    let artifact_fs = ctx.get_artifact_fs().await;
+
     // The bxl function may trigger async operations like builds, analysis, parsing etc, but those
     // will be blocking calls so that starlark can remain synchronous.
     // To avoid blocking a tokio thread, we spawn bxl as a blocking tokio task
@@ -70,6 +76,8 @@ pub async fn eval(ctx: DiceTransaction, key: BxlKey) -> anyhow::Result<BxlResult
             key,
             resolved_args,
             target_alias_resolver,
+            project_fs,
+            artifact_fs,
             bxl_cell,
             BxlSafeDiceComputations::new(&ctx),
         );

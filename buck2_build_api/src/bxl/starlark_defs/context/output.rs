@@ -1,8 +1,10 @@
 //! The output stream for bxl to print values to the console as their result
 //!
 
-use std::cell::RefCell;
+use std::{cell::RefCell, sync::Arc};
 
+use buck2_core::fs::project::ProjectFilesystem;
+use derivative::Derivative;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
 use itertools::Itertools;
@@ -16,23 +18,33 @@ use starlark::{
 };
 
 use crate::{
+    actions::artifact::ArtifactFs,
     bxl::starlark_defs::{artifacts::EnsuredArtifactGen, BxlError::NoFreeze},
     interpreter::rule_defs::artifact::ValueAsArtifactLike,
 };
 
-#[derive(ProvidesStaticType, Debug, Display, Trace, NoSerialize)]
+#[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize)]
 #[display(fmt = "{:?}", self)]
+#[derivative(Debug)]
 pub struct OutputStream<'v> {
     has_print: RefCell<bool>,
     #[trace(unsafe_ignore)]
     artifacts_to_ensure: RefCell<Option<SmallSet<Value<'v>>>>,
+    #[trace(unsafe_ignore)]
+    #[derivative(Debug = "ignore")]
+    project_fs: Arc<ProjectFilesystem>,
+    #[trace(unsafe_ignore)]
+    #[derivative(Debug = "ignore")]
+    artifact_fs: ArtifactFs,
 }
 
 impl<'v> OutputStream<'v> {
-    pub fn new() -> Self {
+    pub fn new(project_fs: Arc<ProjectFilesystem>, artifact_fs: ArtifactFs) -> Self {
         Self {
             has_print: RefCell::new(false),
             artifacts_to_ensure: RefCell::new(Some(Default::default())),
+            project_fs,
+            artifact_fs,
         }
     }
 

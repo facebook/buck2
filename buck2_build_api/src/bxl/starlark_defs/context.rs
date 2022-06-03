@@ -38,7 +38,7 @@ use starlark::{
 };
 
 use crate::{
-    actions::artifact::Artifact,
+    actions::artifact::{Artifact, ArtifactFs},
     analysis::registry::AnalysisRegistry,
     bxl::{
         starlark_defs::{
@@ -92,6 +92,8 @@ impl<'v> BxlContext<'v> {
         current_bxl: BxlKey,
         cli_args: Value<'v>,
         target_alias_resolver: TargetAliasResolver,
+        project_fs: Arc<ProjectFilesystem>,
+        artifact_fs: ArtifactFs,
         cell: CellInstance,
         async_ctx: BxlSafeDiceComputations<'v>,
     ) -> Self {
@@ -106,7 +108,8 @@ impl<'v> BxlContext<'v> {
                 attributes: Value::new_none(),
             }))
             .unwrap(),
-            output_stream: ValueTyped::new(heap.alloc(OutputStream::new())).unwrap(),
+            output_stream: ValueTyped::new(heap.alloc(OutputStream::new(project_fs, artifact_fs)))
+                .unwrap(),
         }
     }
 
