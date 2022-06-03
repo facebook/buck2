@@ -51,7 +51,7 @@ use crate::{
         },
         BxlKey,
     },
-    interpreter::rule_defs::context::AnalysisActions,
+    interpreter::rule_defs::{context::AnalysisActions, label::Label},
     query::dice::DiceQueryDelegate,
 };
 
@@ -245,7 +245,16 @@ fn register_context(builder: &mut MethodsBuilder) {
 
         Ok(match res? {
             Either::Left(single) => eval.heap().alloc(single),
-            Either::Right(list) => eval.heap().alloc(list),
+            Either::Right(many) => eval.heap().alloc(Dict::new(
+                many.into_iter()
+                    .map(|(t, v)| {
+                        Ok((
+                            eval.heap().alloc(Label::new(eval.heap(), t)).get_hashed()?,
+                            eval.heap().alloc(v),
+                        ))
+                    })
+                    .collect::<anyhow::Result<_>>()?,
+            )),
         })
     }
 

@@ -1,3 +1,4 @@
+use buck2_core::provider::ConfiguredProvidersLabel;
 use dice::DiceComputations;
 use either::Either;
 use gazebo::prelude::*;
@@ -11,7 +12,9 @@ pub(crate) async fn analysis(
     ctx: &DiceComputations,
     expr: ProvidersExpr,
     skip_incompatible: bool,
-) -> anyhow::Result<Either<StarlarkAnalysisResult, Vec<StarlarkAnalysisResult>>> {
+) -> anyhow::Result<
+    Either<StarlarkAnalysisResult, Vec<(ConfiguredProvidersLabel, StarlarkAnalysisResult)>>,
+> {
     let analysis = futures::future::join_all(expr.labels().map(async move |label| {
         let maybe_result = ctx
             .get_analysis_result(label.target())
@@ -21,9 +24,9 @@ pub(crate) async fn analysis(
         if skip_incompatible && maybe_result.is_err() {
             Ok(None)
         } else {
-            Ok(Some(StarlarkAnalysisResult::new(
-                maybe_result?,
+            Ok(Some((
                 label.clone(),
+                StarlarkAnalysisResult::new(maybe_result?, label.clone()),
             )))
         }
     }))
@@ -42,7 +45,9 @@ pub(crate) async fn analysis(
                     "Expected exactly 1 analysis result when requesting a single target"
                 ))
             } else {
-                Ok(Either::Left(analysis.into_iter().into_singleton().unwrap()))
+                Ok(Either::Left(
+                    analysis.into_iter().into_singleton().unwrap().1,
+                ))
             }
         }
         ProvidersExpr::Iterable(_) => Ok(Either::Right(analysis)),

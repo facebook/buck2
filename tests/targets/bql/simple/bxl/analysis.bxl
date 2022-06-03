@@ -3,7 +3,7 @@ load("//rules:rules.bzl", "FooInfo")
 def _providers_test_impl(ctx):
     owner = ctx.cquery().owner("bin/TARGETS.fixture")
 
-    providers = ctx.analysis(owner)[0].providers()
+    providers = ctx.analysis(owner)[configured_sub_target(owner[0].label)].providers()
     ctx.output.print(providers[FooInfo])
 
     providers = ctx.analysis("//:bin").providers()
