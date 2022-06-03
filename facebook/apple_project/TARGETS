@@ -95,10 +95,10 @@ python_library(
         ":apple_config",
         ":build",
         ":query",
+        ":selection",
         ":target_attributes",
         ":target_merger",
         ":target_node",
-        ":target_selection",
         ":xcode_data",
     ],
 )
@@ -147,6 +147,34 @@ python_unittest(
     deps = [
         "fbcode//buck2/facebook/apple_project/buck:build_target",
         ":query",
+    ],
+)
+
+python_library(
+    name = "selection",
+    srcs = ["selection.py"],
+    tests = [
+        ":selection_test",
+    ],
+    deps = [
+        "fbcode//buck2/facebook/apple_project/buck:buck",
+        "fbcode//buck2/facebook/apple_project/buck:build_target",
+        "fbcode//buck2/facebook/apple_project/buck:build_target_pattern",
+        "fbcode//buck2/facebook/apple_project/buck:build_target_pattern_matcher",
+        "fbsource//third-party/pypi/cached-property:cached-property",
+        ":query",
+    ],
+)
+
+python_unittest(
+    name = "selection_test",
+    srcs = ["selection_test.py"],
+    deps = [
+        "fbcode//buck2/facebook/apple_project/buck:buck",
+        "fbcode//buck2/facebook/apple_project/buck:build_target",
+        "fbcode//buck2/facebook/apple_project/buck:build_target_pattern",
+        ":query",
+        ":selection",
     ],
 )
 
@@ -222,34 +250,6 @@ python_unittest(
     srcs = ["target_merger_test.py"],
     deps = [
         ":target_merger",
-    ],
-)
-
-python_library(
-    name = "target_selection",
-    srcs = ["target_selection.py"],
-    tests = [
-        ":target_selection_test",
-    ],
-    deps = [
-        "fbcode//buck2/facebook/apple_project/buck:buck",
-        "fbcode//buck2/facebook/apple_project/buck:build_target",
-        "fbcode//buck2/facebook/apple_project/buck:build_target_pattern",
-        "fbcode//buck2/facebook/apple_project/buck:build_target_pattern_matcher",
-        "fbsource//third-party/pypi/cached-property:cached-property",
-        ":query",
-    ],
-)
-
-python_unittest(
-    name = "target_selection_test",
-    srcs = ["target_selection_test.py"],
-    deps = [
-        "fbcode//buck2/facebook/apple_project/buck:buck",
-        "fbcode//buck2/facebook/apple_project/buck:build_target",
-        "fbcode//buck2/facebook/apple_project/buck:build_target_pattern",
-        ":query",
-        ":target_selection",
     ],
 )
 
