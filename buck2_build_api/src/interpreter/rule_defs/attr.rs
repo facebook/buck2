@@ -28,7 +28,7 @@ use buck2_interpreter::{
     pattern::{ParsedPattern, PatternType, ProvidersPattern},
 };
 use bumpalo::Bump;
-use gazebo::{any::AnyLifetime, prelude::*};
+use gazebo::{any::ProvidesStaticType, prelude::*};
 use hashbrown::raw::RawTable;
 use starlark::{
     environment::GlobalsBuilder,
@@ -212,7 +212,7 @@ pub enum AttrIsConfigurable {
 }
 
 /// Starlark compatible container for results from e.g. `attr.string()`
-#[derive(Clone, Debug, Eq, PartialEq, Hash, AnyLifetime, NoSerialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, ProvidesStaticType, NoSerialize)]
 pub struct Attribute {
     /// The default value. If None, the value is not optional and must be provided by the user
     pub(crate) default: Option<Arc<CoercedAttr>>,

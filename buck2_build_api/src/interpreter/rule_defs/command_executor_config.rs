@@ -2,7 +2,7 @@ use std::{borrow::Cow, fmt};
 
 use anyhow::Context as _;
 use derive_more::Display;
-use gazebo::any::AnyLifetime;
+use gazebo::any::ProvidesStaticType;
 use indexmap::IndexMap;
 use starlark::{
     environment::GlobalsBuilder,
@@ -25,7 +25,7 @@ enum CommandExecutorConfigErrors {
     RePropertiesNotADict(String, String),
 }
 
-#[derive(Clone, Debug, Trace, AnyLifetime)]
+#[derive(Clone, Debug, Trace, ProvidesStaticType)]
 #[derive(NoSerialize)]
 struct StarlarkCommandExecutorConfig<'v> {
     /// Whether to use remote execution for this execution platform
@@ -172,7 +172,7 @@ impl<'v> Freeze for StarlarkCommandExecutorConfig<'v> {
     }
 }
 
-#[derive(Debug, Display, NoSerialize, AnyLifetime)]
+#[derive(Debug, Display, NoSerialize, ProvidesStaticType)]
 #[display(fmt = "{:?}", _0)]
 struct FrozenStarlarkCommandExecutorConfig(CommandExecutorConfig);
 

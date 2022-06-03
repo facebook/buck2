@@ -11,7 +11,7 @@ use std::fmt::Debug;
 
 use buck2_build_api_derive::internal_provider;
 use buck2_core::configuration::Configuration;
-use gazebo::{any::AnyLifetime, coerce::Coerce};
+use gazebo::{any::ProvidesStaticType, coerce::Coerce};
 use starlark::{
     environment::GlobalsBuilder,
     values::{Freeze, Heap, StringValue, Trace, ValueLike, ValueOf},
@@ -20,7 +20,7 @@ use starlark::{
 use crate::interpreter::rule_defs::provider::configuration_info::ConfigurationInfo;
 
 #[internal_provider(platform_info_creator)]
-#[derive(Clone, Debug, Trace, Coerce, Freeze, AnyLifetime)]
+#[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType)]
 #[repr(C)]
 pub(crate) struct PlatformInfoGen<V> {
     /// str

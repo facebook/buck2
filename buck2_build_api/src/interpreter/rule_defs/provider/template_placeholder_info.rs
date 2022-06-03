@@ -11,7 +11,7 @@ use std::fmt::Debug;
 
 use buck2_build_api_derive::internal_provider;
 use either::Either;
-use gazebo::{any::AnyLifetime, coerce::Coerce};
+use gazebo::{any::ProvidesStaticType, coerce::Coerce};
 use starlark::{
     collections::SmallMap,
     environment::GlobalsBuilder,
@@ -72,7 +72,7 @@ enum TemplatePlaceholderInfoError {
 ///  - keyed_variables: A mapping of names to arg-like values or dictionary of string to
 ///        arg-like values. These are used for "keyed placeholder" expansion.
 #[internal_provider(template_placeholder_info_creator)]
-#[derive(Clone, Debug, Trace, Coerce, Freeze, AnyLifetime)]
+#[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType)]
 #[repr(C)]
 pub(crate) struct TemplatePlaceholderInfoGen<V> {
     // Dict[String, CommandLineArg]

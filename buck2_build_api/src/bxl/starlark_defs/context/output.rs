@@ -4,7 +4,7 @@
 use std::cell::RefCell;
 
 use derive_more::Display;
-use gazebo::any::AnyLifetime;
+use gazebo::any::ProvidesStaticType;
 use itertools::Itertools;
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
@@ -16,7 +16,7 @@ use starlark::{
 
 use crate::bxl::starlark_defs::BxlError::NoFreeze;
 
-#[derive(AnyLifetime, Debug, Display, Trace, NoSerialize)]
+#[derive(ProvidesStaticType, Debug, Display, Trace, NoSerialize)]
 #[display(fmt = "{:?}", self)]
 pub struct OutputStream {
     has_print: RefCell<bool>,

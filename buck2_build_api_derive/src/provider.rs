@@ -202,7 +202,7 @@ impl ProviderCodegen {
         let vis = &self.input.vis;
         let callable_name = self.callable_name()?;
         Ok(quote! {
-            #[derive(Debug, Clone, gazebo::dupe::Dupe, gazebo::any::AnyLifetime, starlark::values::NoSerialize)]
+            #[derive(Debug, Clone, gazebo::dupe::Dupe, gazebo::any::ProvidesStaticType, starlark::values::NoSerialize)]
             #vis struct #callable_name {
                 id: &'static std::sync::Arc<crate::interpreter::rule_defs::provider::ProviderId>,
             }

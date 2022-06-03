@@ -14,7 +14,7 @@ use std::fmt::{self, Debug, Display};
 use anyhow::Context;
 use buck2_core::fs::{paths::RelativePathBuf, project::ProjectRelativePathBuf};
 use either::Either;
-use gazebo::any::AnyLifetime;
+use gazebo::any::ProvidesStaticType;
 use starlark::{
     starlark_type,
     values::{FrozenRef, NoSerialize, StarlarkValue, Value},
@@ -228,7 +228,7 @@ impl Display for ResolvedStringWithMacrosPart {
     }
 }
 
-#[derive(Debug, PartialEq, AnyLifetime, NoSerialize)]
+#[derive(Debug, PartialEq, ProvidesStaticType, NoSerialize)]
 pub struct ResolvedStringWithMacros {
     parts: Vec<ResolvedStringWithMacrosPart>,
 }

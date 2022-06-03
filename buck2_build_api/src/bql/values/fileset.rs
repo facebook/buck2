@@ -12,7 +12,7 @@ use std::ops::Deref;
 use anyhow::anyhow;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use derive_more::Display;
-use gazebo::{any::AnyLifetime, cell::ARef};
+use gazebo::{any::ProvidesStaticType, cell::ARef};
 use starlark::{
     eval::Evaluator,
     starlark_type,
@@ -54,7 +54,7 @@ impl<'v> UnpackValue<'v> for FileSetExpr<'v> {
     }
 }
 
-#[derive(Debug, Display, AnyLifetime)]
+#[derive(Debug, Display, ProvidesStaticType)]
 #[derive(NoSerialize)] // TODO maybe this should be
 pub struct StarlarkFileSet(pub FileSet);
 

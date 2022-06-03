@@ -11,7 +11,7 @@ use std::hash::Hash;
 
 use buck2_core::target::{ConfiguredTargetLabel, TargetLabel};
 use derive_more::{Display, From};
-use gazebo::{any::AnyLifetime, prelude::*};
+use gazebo::{any::ProvidesStaticType, prelude::*};
 use serde::Serialize;
 use starlark::{
     collections::StarlarkHasher,
@@ -33,7 +33,7 @@ use crate::{
     PartialEq,
     Eq,
     From,
-    AnyLifetime,
+    ProvidesStaticType,
     Serialize
 )]
 #[serde(transparent)]
@@ -111,7 +111,7 @@ fn label_methods(builder: &mut MethodsBuilder) {
     PartialEq,
     Eq,
     From,
-    AnyLifetime,
+    ProvidesStaticType,
     Serialize
 )]
 #[serde(transparent)]

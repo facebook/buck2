@@ -13,7 +13,7 @@ use buck2_core::{
 };
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::{any::AnyLifetime, prelude::*};
+use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
     values::{
@@ -24,7 +24,7 @@ use starlark::{
 
 use crate::bxl::starlark_defs::{context::starlark_async::BxlSafeDiceComputations, BxlError};
 
-#[derive(AnyLifetime, Derivative, Display, Trace, NoSerialize)]
+#[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize)]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 pub struct BxlFilesystem<'v> {

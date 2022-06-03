@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use buck2_query::query::{environment::QueryEnvironment, syntax::simple::eval::set::TargetSet};
-use gazebo::{any::AnyLifetime, prelude::*};
+use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{
     eval::Evaluator,
     values::{list::List, Heap, UnpackValue, Value, ValueLike, ValueOf},
@@ -23,7 +23,7 @@ use crate::{bxl::StarlarkTargetSet, nodes::unconfigured::TargetNode};
 /// QueryInternals is added as part of the Starlark context's extra information.
 /// Anything we need to implement the starlark-exposed functions will be
 /// available from the internals.
-#[derive(AnyLifetime)]
+#[derive(ProvidesStaticType)]
 pub struct QueryInternals<'c> {
     env: Arc<dyn QueryEnvironment<Target = TargetNode> + 'c>,
     handle: Handle,

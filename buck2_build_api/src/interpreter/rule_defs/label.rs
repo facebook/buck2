@@ -11,11 +11,7 @@ use std::hash::Hash;
 
 use buck2_core::provider::{ConfiguredProvidersLabel, ProvidersLabel, ProvidersName};
 use derive_more::Display;
-use gazebo::{
-    any::{AnyLifetime, ProvidesStaticType},
-    coerce::Coerce,
-    prelude::*,
-};
+use gazebo::{any::ProvidesStaticType, coerce::Coerce, prelude::*};
 use serde::{Serialize, Serializer};
 use starlark::{
     collections::StarlarkHasher,
@@ -35,7 +31,7 @@ impl<V> LabelGen<V> {
 }
 
 /// Container for `ConfiguredProvidersLabel` that gives users access to things like package, cell, etc. This can also be properly stringified by our forthcoming `CommandLine` object
-#[derive(Clone, Debug, Coerce, Display, Trace, Freeze, AnyLifetime)]
+#[derive(Clone, Debug, Coerce, Display, Trace, Freeze, ProvidesStaticType)]
 #[display(fmt = "{}", label)]
 #[repr(C)]
 pub struct LabelGen<V> {
@@ -162,7 +158,16 @@ impl<V> StarlarkProvidersLabelGen<V> {
 }
 
 /// Container for `ProvidersLabel` that gives users access to things like package, cell, etc.
-#[derive(Clone, Debug, Coerce, Display, Trace, Freeze, AnyLifetime, Serialize)]
+#[derive(
+    Clone,
+    Debug,
+    Coerce,
+    Display,
+    Trace,
+    Freeze,
+    ProvidesStaticType,
+    Serialize
+)]
 #[display(fmt = "{}", label)]
 #[repr(C)]
 pub struct StarlarkProvidersLabelGen<V> {

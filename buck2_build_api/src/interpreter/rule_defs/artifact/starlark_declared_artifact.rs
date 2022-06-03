@@ -18,7 +18,7 @@ use buck2_core::{
     provider::{ConfiguredProvidersLabel, ProvidersName},
 };
 use either::Either;
-use gazebo::{any::AnyLifetime, cell::ARef, prelude::*};
+use gazebo::{any::ProvidesStaticType, cell::ARef, prelude::*};
 use starlark::{
     codemap::FileSpan,
     collections::StarlarkHasher,
@@ -53,7 +53,7 @@ use crate::{
 /// The `DeclaredArtifact` may or may not have been bound yet, but must be by the end of the
 /// user's implementation function. This turns into a `StarlarkArtifact` when frozen, and
 /// /must/ have had `ensure_bound()` called on it successfully before freezing.
-#[derive(Debug, AnyLifetime, Trace, NoSerialize)]
+#[derive(Debug, ProvidesStaticType, Trace, NoSerialize)]
 pub struct StarlarkDeclaredArtifact {
     // FileSpan is not Hash, and the location is not really relevant for equality.
     // We also expect each artifact to be declared at one unique location anyway.

@@ -10,7 +10,7 @@
 use std::fmt::Debug;
 
 use buck2_build_api_derive::internal_provider;
-use gazebo::{any::AnyLifetime, coerce::Coerce};
+use gazebo::{any::ProvidesStaticType, coerce::Coerce};
 use starlark::{
     environment::GlobalsBuilder,
     eval::Evaluator,
@@ -24,7 +24,7 @@ use crate::interpreter::rule_defs::cmd_args::{
 
 /// Provider that signals that a rule is runnable
 #[internal_provider(run_info_creator)]
-#[derive(Clone, Debug, Trace, Coerce, Freeze, AnyLifetime)]
+#[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType)]
 #[repr(transparent)]
 pub struct RunInfoGen<V> {
     /// The command to run, stored as CommandLine

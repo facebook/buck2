@@ -16,7 +16,7 @@ use std::{
 use buck2_interpreter::common::ModuleID;
 use derive_more::Display;
 use gazebo::{
-    any::AnyLifetime,
+    any::ProvidesStaticType,
     coerce::{coerce, Coerce},
     prelude::*,
 };
@@ -40,7 +40,7 @@ struct TransitiveSetId {
     name: String,
 }
 
-#[derive(Debug, AnyLifetime)]
+#[derive(Debug, ProvidesStaticType)]
 pub struct TransitiveSetDefinition<'v> {
     /// The name of this transitive set. This is filed in by `export_as` when it's assigned to a
     /// top-level variable. This must be set before this is used.
@@ -175,7 +175,7 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
     // TODO (torozco): extra_memory()?
 }
 
-#[derive(Display, AnyLifetime)]
+#[derive(Display, ProvidesStaticType)]
 #[display(fmt = "{}", id)]
 pub struct FrozenTransitiveSetDefinition {
     /// The name of this transitive set. This is filed in by `export_as` when it's assigned to a

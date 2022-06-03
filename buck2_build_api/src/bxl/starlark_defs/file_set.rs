@@ -11,7 +11,7 @@ use std::{borrow::Cow, ops::Deref};
 
 use buck2_query::query::{environment::QueryEnvironment, syntax::simple::eval::file_set::FileSet};
 use derive_more::Display;
-use gazebo::any::AnyLifetime;
+use gazebo::any::ProvidesStaticType;
 use starlark::{
     starlark_type,
     values::{NoSerialize, StarlarkValue, UnpackValue, Value, ValueLike},
@@ -67,7 +67,7 @@ impl<'v> UnpackValue<'v> for FileSetExpr<'v> {
     }
 }
 
-#[derive(Debug, Display, AnyLifetime)]
+#[derive(Debug, Display, ProvidesStaticType)]
 #[derive(NoSerialize)] // TODO maybe this should be
 pub struct StarlarkFileSet(pub FileSet);
 

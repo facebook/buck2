@@ -12,7 +12,7 @@
 use std::fmt::Debug;
 
 use buck2_build_api_derive::internal_provider;
-use gazebo::{any::AnyLifetime, coerce::Coerce};
+use gazebo::{any::ProvidesStaticType, coerce::Coerce};
 use starlark::{
     environment::GlobalsBuilder,
     values::{Freeze, Trace, UnpackValue, ValueLike, ValueOf, ValueTyped},
@@ -25,7 +25,7 @@ use crate::interpreter::rule_defs::{
 /// Provider that signals that a target can be used as a constraint key. This is the only provider
 /// returned by a `constraint_value()` target.
 #[internal_provider(constraint_value_info_creator)]
-#[derive(Clone, Debug, Trace, Coerce, Freeze, AnyLifetime)]
+#[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType)]
 #[repr(C)]
 pub(crate) struct ConstraintValueInfoGen<V> {
     /// ConstraintSettingInfo

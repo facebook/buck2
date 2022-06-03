@@ -21,7 +21,7 @@ use buck2_interpreter::pattern::{
     lex_target_pattern, ParsedPattern, ProvidersPattern, TargetPattern,
 };
 use derive_more::Display;
-use gazebo::{any::AnyLifetime, prelude::*, variants::VariantName};
+use gazebo::{any::ProvidesStaticType, prelude::*, variants::VariantName};
 use itertools::Itertools;
 use starlark::{
     environment::GlobalsBuilder,
@@ -38,7 +38,7 @@ use crate::{
 };
 
 /// Defines the cli args for the bxl function
-#[derive(Clone, Debug, Display, AnyLifetime, NoSerialize)]
+#[derive(Clone, Debug, Display, ProvidesStaticType, NoSerialize)]
 #[display(fmt = "{:?}", self)]
 pub(crate) struct CliArgs {
     /// The default value. If None, the value is not optional and must be provided by the user

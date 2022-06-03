@@ -10,7 +10,7 @@
 use std::fmt::Debug;
 
 use buck2_build_api_derive::internal_provider;
-use gazebo::{any::AnyLifetime, coerce::Coerce};
+use gazebo::{any::ProvidesStaticType, coerce::Coerce};
 use starlark::{
     environment::GlobalsBuilder,
     values::{list::FrozenList, Freeze, FrozenRef, Trace, Value},
@@ -29,7 +29,7 @@ enum ExecutionPlatformRegistrationTypeError {
 
 /// Provider that gives the list of all execution platforms available for this build.
 #[internal_provider(info_creator)]
-#[derive(Clone, Debug, Trace, Coerce, Freeze, AnyLifetime)]
+#[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType)]
 #[repr(C)]
 pub(crate) struct ExecutionPlatformRegistrationInfoGen<V> {
     platforms: V, // List<ExecutionPlatformInfo>

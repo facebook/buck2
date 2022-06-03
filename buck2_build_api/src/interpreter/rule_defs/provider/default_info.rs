@@ -12,7 +12,7 @@ use std::{fmt::Debug, ptr};
 use anyhow::Context;
 use buck2_build_api_derive::internal_provider;
 use gazebo::{
-    any::AnyLifetime,
+    any::ProvidesStaticType,
     coerce::{coerce, Coerce},
 };
 use starlark::{
@@ -114,7 +114,7 @@ use crate::{
 /// $ buck build //subdir:foo[stripped]
 /// ```
 #[internal_provider(default_info_creator)]
-#[derive(Clone, Debug, Freeze, Trace, Coerce, AnyLifetime)]
+#[derive(Clone, Debug, Freeze, Trace, Coerce, ProvidesStaticType)]
 #[freeze(validator = check_max_one_list, bounds = "V: ValueLike<'freeze>")]
 #[repr(C)]
 pub struct DefaultInfoGen<V> {

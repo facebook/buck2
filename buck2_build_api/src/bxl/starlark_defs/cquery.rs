@@ -5,7 +5,7 @@ use buck2_query::query::{environment::QueryEnvironment, syntax::simple::eval::se
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
-use gazebo::{any::AnyLifetime, prelude::*};
+use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
     values::{
@@ -29,7 +29,7 @@ use crate::{
     query::cquery::environment::CqueryEnvironment,
 };
 
-#[derive(AnyLifetime, Derivative, Display, Trace, NoSerialize)]
+#[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize)]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 pub struct StarlarkCQueryCtx<'v> {

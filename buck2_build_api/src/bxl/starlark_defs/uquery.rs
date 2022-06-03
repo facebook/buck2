@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::{any::AnyLifetime, prelude::*};
+use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
     values::{
@@ -16,7 +16,7 @@ use crate::{
     query::{dice::DiceQueryDelegate, uquery::environment::UqueryEnvironment},
 };
 
-#[derive(AnyLifetime, Derivative, Display, Trace, NoSerialize)]
+#[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize)]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 pub struct StarlarkUQueryCtx<'v>(

@@ -10,7 +10,7 @@
 use std::fmt::{self, Debug, Display};
 
 use anyhow::{anyhow, Context};
-use gazebo::{any::AnyLifetime, prelude::*};
+use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{
     starlark_type,
     values::{
@@ -34,7 +34,7 @@ use crate::{
 ///
 /// Allows actions to distinguish between inputs and outputs, and can validate whether the
 /// underlying artifact is bound or not yet. This freezes into a `FrozenStarlarkOutputArtifact`.
-#[derive(Debug, Clone, Dupe, AnyLifetime, Trace, NoSerialize)]
+#[derive(Debug, Clone, Dupe, ProvidesStaticType, Trace, NoSerialize)]
 // Can't use starlark value macros since we change type during freezing.
 pub struct StarlarkOutputArtifact {
     #[trace(unsafe_ignore)]
@@ -134,7 +134,7 @@ impl CommandLineArgLike for StarlarkOutputArtifact {
 }
 
 /// A wrapper like `StarlarkOutputArtifact` that is guaranteed to be bound.
-#[derive(Debug, PartialEq, AnyLifetime)]
+#[derive(Debug, PartialEq, ProvidesStaticType)]
 #[derive(NoSerialize)] // TODO bound artifacts should be serializable
 pub struct FrozenStarlarkOutputArtifact {
     artifact: BuildArtifact,

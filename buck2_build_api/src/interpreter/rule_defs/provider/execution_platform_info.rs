@@ -11,7 +11,7 @@ use std::fmt::Debug;
 
 use buck2_build_api_derive::internal_provider;
 use buck2_core::{configuration::Configuration, target::TargetLabel};
-use gazebo::{any::AnyLifetime, coerce::Coerce, prelude::*};
+use gazebo::{any::ProvidesStaticType, coerce::Coerce, prelude::*};
 use starlark::{
     environment::GlobalsBuilder,
     values::{Freeze, Trace, Value, ValueLike},
@@ -38,7 +38,7 @@ enum ExecutionPlatformProviderErrors {
 
 /// Provider that signals that a target represents an execution platform.
 #[internal_provider(info_creator)]
-#[derive(Clone, Debug, Trace, Coerce, Freeze, AnyLifetime)]
+#[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType)]
 #[repr(C)]
 pub(crate) struct ExecutionPlatformInfoGen<V> {
     /// label of the defining rule, used in informative messages

@@ -13,7 +13,7 @@ use std::{
     sync::Arc,
 };
 
-use gazebo::{any::AnyLifetime, prelude::*};
+use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{
     collections::StarlarkHasher,
     environment::{Methods, MethodsBuilder, MethodsStatic},
@@ -29,7 +29,7 @@ use crate::interpreter::rule_defs::{
 /// but they can be compared to each other, which allows grouping inputs and outputs in meaningful
 /// categories. This is notably used for dep files to associate inputs tracked by a dep file with
 /// the dep file itself.
-#[derive(Debug, Clone, Dupe, Freeze, Trace, AnyLifetime, NoSerialize)]
+#[derive(Debug, Clone, Dupe, Freeze, Trace, ProvidesStaticType, NoSerialize)]
 pub struct ArtifactTag {
     #[cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_arc_on_dupe))]
     #[trace(unsafe_ignore)]

@@ -69,11 +69,7 @@ use buck2_core::{
     cells::paths::CellPath,
     provider::{ConfiguredProvidersLabel, ProviderName},
 };
-use gazebo::{
-    any::{AnyLifetime, ProvidesStaticType},
-    coerce::Coerce,
-    dupe::Dupe,
-};
+use gazebo::{any::ProvidesStaticType, coerce::Coerce, dupe::Dupe};
 use serde::{Serialize, Serializer};
 use starlark::{
     collections::{Hashed, SmallMap, StarlarkHasher},
@@ -323,7 +319,7 @@ impl ProviderCallableImpl {
 /// This object must be assigned to a variable at the top level of the module before it may be invoked
 ///
 /// Field values default to `None`
-#[derive(Debug, AnyLifetime, Trace, NoSerialize)]
+#[derive(Debug, ProvidesStaticType, Trace, NoSerialize)]
 pub struct ProviderCallable {
     /// The name of this provider, filled in by `export_as()`. This must be set before this
     /// object can be called and Providers created.
@@ -471,7 +467,7 @@ impl<'v> StarlarkValue<'v> for ProviderCallable {
     }
 }
 
-#[derive(Debug, AnyLifetime, NoSerialize)]
+#[derive(Debug, ProvidesStaticType, NoSerialize)]
 pub struct FrozenProviderCallable {
     /// The name of this provider, filled in by `export_as()`. This must be set before this
     /// object can be called and Providers created.
@@ -576,7 +572,7 @@ fn provider_callable_methods(builder: &mut MethodsBuilder) {
 /// The result of calling the output of `provider()`. This is just a simple data structure of
 /// either immediately available values or, later, `FutureValue` types that are resolved
 /// asynchronously
-#[derive(Debug, Clone, Coerce, Trace, Freeze, AnyLifetime)]
+#[derive(Debug, Clone, Coerce, Trace, Freeze, ProvidesStaticType)]
 #[repr(C)]
 pub struct UserProviderGen<V> {
     #[trace(unsafe_ignore)]
@@ -777,7 +773,7 @@ impl<'v, V: ValueLike<'v>> ValueAsProviderLike<'v> for V {
 /// ```
 ///
 /// This is the result of all UDR implementation functions
-#[derive(Debug, AnyLifetime)]
+#[derive(Debug, ProvidesStaticType)]
 #[repr(C)]
 pub struct ProviderCollectionGen<V> {
     providers: SmallMap<Arc<ProviderId>, V>,
@@ -1013,7 +1009,7 @@ impl FrozenProviderCollectionValue {
 ///
 /// From Starlark, the label is accessible with `.label`, and providers from the underlying
 /// `ProviderCollection` are available via `[]` (`get()`)
-#[derive(Debug, Trace, Coerce, Freeze, AnyLifetime, NoSerialize)]
+#[derive(Debug, Trace, Coerce, Freeze, ProvidesStaticType, NoSerialize)]
 #[repr(C)]
 pub struct DependencyGen<V> {
     label: V,
@@ -1232,7 +1228,7 @@ mod tests {
         extra::BuildContext,
         pattern::{ParsedPattern, ProvidersPattern},
     };
-    use gazebo::{any::AnyLifetime, coerce::Coerce};
+    use gazebo::{any::ProvidesStaticType, coerce::Coerce};
     use indoc::indoc;
     use starlark::{
         environment::GlobalsBuilder,
@@ -1249,7 +1245,7 @@ mod tests {
     };
 
     #[internal_provider(simple_info_creator)]
-    #[derive(Clone, Debug, Trace, Coerce, Freeze, AnyLifetime)]
+    #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType)]
     #[repr(C)]
     pub struct SimpleInfoGen<V> {
         value1: V,

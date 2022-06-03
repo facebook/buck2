@@ -16,7 +16,7 @@ use std::{
 use buck2_core::fs::paths::RelativePathBuf;
 use derive_more::Display;
 use gazebo::{
-    any::AnyLifetime,
+    any::ProvidesStaticType,
     cell::ARef,
     coerce::{coerce, Coerce},
     prelude::*,
@@ -114,7 +114,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for CommandLineArgGen<V> {
 ///
 /// `items` contains strings, artifacts, command line args (frozen and not), but does not
 ///         contain any builders.
-#[derive(Debug, Default_, Clone, Trace, AnyLifetime, Serialize)]
+#[derive(Debug, Default_, Clone, Trace, ProvidesStaticType, Serialize)]
 #[serde(bound = "V: Display")]
 #[repr(C)]
 pub struct StarlarkCommandLineDataGen<'v, V: ValueLike<'v>> {
@@ -208,7 +208,7 @@ unsafe impl<'v> Coerce<StarlarkCommandLineDataGen<'v, Value<'v>>>
 {
 }
 
-#[derive(Debug, Default, Clone, Trace, AnyLifetime, Serialize)]
+#[derive(Debug, Default, Clone, Trace, ProvidesStaticType, Serialize)]
 #[serde(bound = "V : Serialize", transparent)]
 pub struct StarlarkCommandLineGen<V>(V);
 
@@ -560,7 +560,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
 
 /// A wrapper for a [StarlarkCommandLine]'s inputs. This is an opaque type that only allows
 /// debug-printing and querying the length to tell if any inputs exist.
-#[derive(Debug, PartialEq, AnyLifetime, NoSerialize)]
+#[derive(Debug, PartialEq, ProvidesStaticType, NoSerialize)]
 pub struct StarlarkCommandLineInputs {
     pub(crate) inputs: IndexSet<ArtifactGroup>,
 }

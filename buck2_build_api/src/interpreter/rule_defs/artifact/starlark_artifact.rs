@@ -14,7 +14,7 @@ use buck2_core::{
     provider::{ConfiguredProvidersLabel, ProvidersName},
 };
 use either::Either;
-use gazebo::{any::AnyLifetime, cell::ARef, prelude::*};
+use gazebo::{any::ProvidesStaticType, cell::ARef, prelude::*};
 use serde::{Serialize, Serializer};
 use starlark::{
     collections::StarlarkHasher,
@@ -49,7 +49,7 @@ enum ArtifactErrors {
 
 /// A wrapper for an `Artifact` that is guaranteed to be bound, such as outputs
 /// from dependencies, or source files.
-#[derive(Debug, Dupe, Clone, PartialEq, AnyLifetime)]
+#[derive(Debug, Dupe, Clone, PartialEq, ProvidesStaticType)]
 pub struct StarlarkArtifact {
     pub(crate) artifact: Artifact,
 }

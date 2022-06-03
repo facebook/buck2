@@ -10,11 +10,7 @@
 use std::fmt;
 
 use anyhow::Context as _;
-use gazebo::{
-    any::{AnyLifetime, ProvidesStaticType},
-    coerce::Coerce,
-    prelude::*,
-};
+use gazebo::{any::ProvidesStaticType, coerce::Coerce, prelude::*};
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
@@ -33,7 +29,7 @@ use crate::{
     },
 };
 
-#[derive(Debug, Clone, Trace, AnyLifetime)]
+#[derive(Debug, Clone, Trace, ProvidesStaticType)]
 #[repr(C)]
 pub struct TransitiveSetGen<V> {
     /// A Deferred key that maps back to this set. This is used to compute its inputs.

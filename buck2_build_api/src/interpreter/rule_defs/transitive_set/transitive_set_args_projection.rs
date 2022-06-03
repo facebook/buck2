@@ -11,7 +11,7 @@ use std::fmt::{self, Display};
 
 use anyhow::Context as _;
 use gazebo::{
-    any::{AnyLifetime, ProvidesStaticType},
+    any::ProvidesStaticType,
     coerce::{coerce, Coerce},
     prelude::*,
 };
@@ -34,7 +34,7 @@ use crate::{
     },
 };
 
-#[derive(Debug, Clone, Trace, Coerce, Freeze, AnyLifetime)]
+#[derive(Debug, Clone, Trace, Coerce, Freeze, ProvidesStaticType)]
 #[derive(NoSerialize)] // TODO we should probably have a serialization for transitive set
 #[repr(C)]
 pub struct TransitiveSetArgsProjectionGen<V> {

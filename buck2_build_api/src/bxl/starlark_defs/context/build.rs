@@ -5,12 +5,7 @@ use std::sync::Arc;
 
 use buck2_core::result::{SharedError, SharedResult, ToSharedResultExt};
 use derive_more::Display;
-use gazebo::{
-    any::{AnyLifetime, ProvidesStaticType},
-    coerce::Coerce,
-    prelude::*,
-    variants::UnpackVariants,
-};
+use gazebo::{any::ProvidesStaticType, coerce::Coerce, prelude::*, variants::UnpackVariants};
 use starlark::{
     collections::small_map::SmallMap,
     environment::{Methods, MethodsBuilder, MethodsStatic},
@@ -26,7 +21,7 @@ use crate::{
     },
 };
 
-#[derive(Clone, Debug, Display, AnyLifetime, NoSerialize, UnpackVariants)]
+#[derive(Clone, Debug, Display, ProvidesStaticType, NoSerialize, UnpackVariants)]
 pub enum StarlarkBuildResult {
     Error(SharedError),
     None,
@@ -102,7 +97,16 @@ impl<'v> StarlarkValue<'v> for StarlarkBuildResult {
     }
 }
 
-#[derive(Debug, Clone, Trace, Coerce, Freeze, Display, AnyLifetime, NoSerialize)]
+#[derive(
+    Debug,
+    Clone,
+    Trace,
+    Coerce,
+    Freeze,
+    Display,
+    ProvidesStaticType,
+    NoSerialize
+)]
 #[repr(C)]
 struct StarlarkProvidersArtifactIterableGen<V>(V);
 
@@ -141,7 +145,16 @@ where
     }
 }
 
-#[derive(Debug, Clone, Trace, Coerce, Freeze, Display, AnyLifetime, NoSerialize)]
+#[derive(
+    Debug,
+    Clone,
+    Trace,
+    Coerce,
+    Freeze,
+    Display,
+    ProvidesStaticType,
+    NoSerialize
+)]
 #[repr(C)]
 struct StarlarkFailedArtifactIterableGen<V>(V);
 

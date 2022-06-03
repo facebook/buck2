@@ -19,7 +19,7 @@ use buck2_interpreter::{
     extra::{BuildContext, ExtraContext},
 };
 use derive_more::Display;
-use gazebo::{any::AnyLifetime, dupe::Dupe, prelude::*};
+use gazebo::{any::ProvidesStaticType, dupe::Dupe, prelude::*};
 use itertools::Itertools;
 use starlark::{
     environment::GlobalsBuilder,
@@ -48,7 +48,7 @@ pub static NAME_ATTRIBUTE_FIELD: &str = "name";
 
 /// The callable that's returned from a `rule()` call. Once frozen, and called, it adds targets'
 /// parameters to the context
-#[derive(Debug, Clone, AnyLifetime, Trace, NoSerialize)]
+#[derive(Debug, Clone, ProvidesStaticType, Trace, NoSerialize)]
 struct RuleCallable<'v> {
     /// The import path that contains the rule() call; stored here so we can retrieve extra
     /// information during `export_as()`
@@ -179,7 +179,7 @@ impl<'v> Freeze for RuleCallable<'v> {
     }
 }
 
-#[derive(Debug, Display, AnyLifetime, NoSerialize)]
+#[derive(Debug, Display, ProvidesStaticType, NoSerialize)]
 #[display(fmt = "{}()", "rule_type.name")]
 pub struct FrozenRuleCallable {
     implementation: FrozenValue,

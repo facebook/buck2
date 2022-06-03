@@ -12,7 +12,7 @@ use std::{cell::RefCell, sync::Arc};
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::{common::ImportPath, extra::BuildContext};
 use derive_more::Display;
-use gazebo::{any::AnyLifetime, dupe::Dupe, prelude::*};
+use gazebo::{any::ProvidesStaticType, dupe::Dupe, prelude::*};
 use hashbrown::HashSet;
 use itertools::Itertools;
 use starlark::{
@@ -56,7 +56,7 @@ enum TransitionError {
 #[derive(Trace, Debug)]
 struct TargetLabelTrace(#[trace(unsafe_ignore)] TargetLabel);
 
-#[derive(Debug, Display, Trace, AnyLifetime, NoSerialize)]
+#[derive(Debug, Display, Trace, ProvidesStaticType, NoSerialize)]
 #[display(fmt = "transition")]
 pub(crate) struct Transition<'v> {
     /// The name of this transition, filled in by `export_as()`. This must be set before this
@@ -75,7 +75,7 @@ pub(crate) struct Transition<'v> {
     split: bool,
 }
 
-#[derive(Debug, Display, AnyLifetime, NoSerialize)]
+#[derive(Debug, Display, ProvidesStaticType, NoSerialize)]
 #[display(fmt = "transition")]
 pub struct FrozenTransition {
     id: Arc<TransitionId>,

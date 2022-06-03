@@ -10,7 +10,7 @@
 use std::ops::Deref;
 
 use buck2_build_api_derive::internal_provider;
-use gazebo::any::AnyLifetime;
+use gazebo::any::ProvidesStaticType;
 use indexmap::IndexMap;
 use starlark::{
     collections::SmallMap,
@@ -25,7 +25,7 @@ use crate::{
 // Provider that singals a rule is installable
 
 #[internal_provider(install_info_creator)]
-#[derive(Clone, Coerce, Debug, Freeze, Trace, AnyLifetime)]
+#[derive(Clone, Coerce, Debug, Freeze, Trace, ProvidesStaticType)]
 #[repr(C)]
 pub struct InstallInfoGen<V> {
     // RunInfo for the installer

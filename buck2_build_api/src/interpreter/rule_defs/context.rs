@@ -20,7 +20,7 @@ use buck2_core::{
     fs::paths::{ForwardRelativePathBuf, RelativePathBuf},
 };
 use derive_more::Display;
-use gazebo::{any::AnyLifetime, prelude::*};
+use gazebo::{any::ProvidesStaticType, prelude::*};
 use indexmap::{indexset, IndexSet};
 use sha1::{Digest, Sha1};
 use starlark::{
@@ -94,7 +94,7 @@ enum ContextError {
 /// Functions to allow users to interact with the Actions registry.
 ///
 /// Accessed via `ctx.actions.<function>`
-#[derive(AnyLifetime, Debug, Display, Trace, NoSerialize)]
+#[derive(ProvidesStaticType, Debug, Display, Trace, NoSerialize)]
 #[display(fmt = "{:?}", self)] // FIXME(ndmitchell): Better Display
 pub(crate) struct AnalysisActions<'v> {
     // Use a RefCell/Option so when we are done with it, without obtaining exclusive access,
@@ -158,7 +158,7 @@ impl<'v> UnpackValue<'v> for RefAnalysisAction<'v> {
     }
 }
 
-#[derive(AnyLifetime, Debug, Display, Trace, NoSerialize)]
+#[derive(ProvidesStaticType, Debug, Display, Trace, NoSerialize)]
 #[display(fmt = "{:?}", self)] // FIXME(ndmitchell): Better Display
 pub struct AnalysisContext<'v> {
     attributes: Value<'v>, // A struct

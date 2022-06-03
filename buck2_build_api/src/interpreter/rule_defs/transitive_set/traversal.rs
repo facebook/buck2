@@ -9,15 +9,21 @@
 
 use anyhow::Context as _;
 use derive_more::Display;
-use gazebo::{
-    any::{AnyLifetime, ProvidesStaticType},
-    coerce::Coerce,
-};
+use gazebo::{any::ProvidesStaticType, coerce::Coerce};
 use starlark::values::{Freeze, Heap, NoSerialize, StarlarkValue, Trace, Value, ValueLike};
 
 use crate::interpreter::rule_defs::transitive_set::{TransitiveSet, TransitiveSetArgsProjection};
 
-#[derive(Debug, Clone, Trace, Coerce, Freeze, Display, AnyLifetime, NoSerialize)]
+#[derive(
+    Debug,
+    Clone,
+    Trace,
+    Coerce,
+    Freeze,
+    Display,
+    ProvidesStaticType,
+    NoSerialize
+)]
 #[display(fmt = "Traversal({})", inner)]
 #[repr(C)]
 pub struct TransitiveSetTraversalGen<V> {
@@ -44,7 +50,16 @@ where
     }
 }
 
-#[derive(Debug, Clone, Trace, Coerce, Freeze, Display, AnyLifetime, NoSerialize)]
+#[derive(
+    Debug,
+    Clone,
+    Trace,
+    Coerce,
+    Freeze,
+    Display,
+    ProvidesStaticType,
+    NoSerialize
+)]
 #[display(fmt = "Traversal({})", inner)]
 #[repr(C)]
 pub struct TransitiveSetArgsProjectionTraversalGen<V> {

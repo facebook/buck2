@@ -3,7 +3,7 @@
 
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::{any::AnyLifetime, prelude::*};
+use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
     values::{
@@ -30,7 +30,7 @@ enum BxlActionsError {
     RegistryAlreadyCreated,
 }
 
-#[derive(AnyLifetime, Derivative, Display, Trace, NoSerialize)]
+#[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize)]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 pub(crate) struct BxlActionsCtx<'v> {

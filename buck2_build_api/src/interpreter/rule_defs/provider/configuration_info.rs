@@ -16,7 +16,7 @@ use buck2_core::configuration::{
     ConfigurationData,
 };
 use gazebo::{
-    any::AnyLifetime,
+    any::ProvidesStaticType,
     coerce::{coerce, Coerce},
     prelude::*,
 };
@@ -42,7 +42,7 @@ use crate::interpreter::rule_defs::{
 /// defining configurations (`platform()`, `constraint_value()`) and defining whether a target "matches"
 /// a configuration or not (`config_setting()`, `constraint_value()`)
 #[internal_provider(configuration_info_creator)]
-#[derive(Debug, Trace, Coerce, Freeze, AnyLifetime)]
+#[derive(Debug, Trace, Coerce, Freeze, ProvidesStaticType)]
 #[repr(C)]
 pub(crate) struct ConfigurationInfoGen<V> {
     // Dict<StarlarkTargetLabel, ConstraintValueInfo>

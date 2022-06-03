@@ -12,7 +12,7 @@ use std::iter::{empty, once};
 use anyhow::Context as _;
 use buck2_build_api_derive::internal_provider;
 use either::Either;
-use gazebo::{any::AnyLifetime, coerce::Coerce};
+use gazebo::{any::ProvidesStaticType, coerce::Coerce};
 use starlark::{
     environment::GlobalsBuilder,
     values::{
@@ -38,7 +38,7 @@ use crate::{
 /// Provider that signals that a rule can be tested using an external runner. This is the
 /// Buck1-compatible API for tests.
 #[internal_provider(external_runner_test_info_creator)]
-#[derive(Clone, Debug, Trace, Coerce, Freeze, AnyLifetime)]
+#[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType)]
 #[freeze(validator = validate_external_runner_test_info, bounds = "V: ValueLike<'freeze>")]
 #[repr(C)]
 pub struct ExternalRunnerTestInfoGen<V> {

@@ -15,7 +15,7 @@ use anyhow::Context;
 use buck2_interpreter::{common::BxlFilePath, extra::BuildContext};
 use cli_args::CliArgs;
 use derive_more::Display;
-use gazebo::any::AnyLifetime;
+use gazebo::any::ProvidesStaticType;
 use starlark::{
     collections::SmallMap,
     environment::GlobalsBuilder,
@@ -107,7 +107,7 @@ pub enum BxlError {
 }
 
 /// The callable created by `bxl()`
-#[derive(Debug, Clone, AnyLifetime, Trace, NoSerialize)]
+#[derive(Debug, Clone, ProvidesStaticType, Trace, NoSerialize)]
 pub(crate) struct BxlFunction<'v> {
     // The bxl path that contains the bxl() call; stored here so we can retrieve extra
     /// information during `export_as()`
@@ -171,7 +171,7 @@ impl<'v> Freeze for BxlFunction<'v> {
     }
 }
 
-#[derive(Debug, Display, AnyLifetime, NoSerialize)]
+#[derive(Debug, Display, ProvidesStaticType, NoSerialize)]
 #[display(fmt = "{}()", "bxl_id.name")]
 pub struct FrozenBxlFunction {
     implementation: FrozenValue,

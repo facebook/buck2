@@ -9,17 +9,23 @@
 
 use anyhow::Context;
 use derive_more::{Display, From};
-use gazebo::{
-    any::{AnyLifetime, ProvidesStaticType},
-    coerce::Coerce,
-};
+use gazebo::{any::ProvidesStaticType, coerce::Coerce};
 use starlark::values::{Freeze, Heap, NoSerialize, StarlarkValue, Trace, Value, ValueLike};
 
 use crate::{
     attrs::coerced_attr::CoercedAttr, bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode,
 };
 
-#[derive(Debug, Clone, Coerce, Trace, Freeze, Display, AnyLifetime, NoSerialize)]
+#[derive(
+    Debug,
+    Clone,
+    Coerce,
+    Trace,
+    Freeze,
+    Display,
+    ProvidesStaticType,
+    NoSerialize
+)]
 #[display(fmt = "Traversal({})", self.0)]
 #[repr(C)]
 pub struct StarlarkTargetNodeCoercedAttributesGen<V> {
@@ -52,7 +58,7 @@ where
     }
 }
 
-#[derive(Debug, Display, AnyLifetime, From)]
+#[derive(Debug, Display, ProvidesStaticType, From)]
 #[derive(NoSerialize)] // TODO probably should be serializable the same as how queries serialize
 #[display(fmt = "{:?}", self)]
 pub struct StarlarkCoercedAttr(pub CoercedAttr);

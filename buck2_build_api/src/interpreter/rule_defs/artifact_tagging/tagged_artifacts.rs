@@ -8,10 +8,7 @@
  */
 
 use derive_more::Display;
-use gazebo::{
-    any::{AnyLifetime, ProvidesStaticType},
-    coerce::Coerce,
-};
+use gazebo::{any::ProvidesStaticType, coerce::Coerce};
 use starlark::{
     starlark_type,
     values::{Freeze, NoSerialize, StarlarkValue, Trace, Value, ValueLike},
@@ -29,7 +26,7 @@ use crate::{
 
 /// TaggedArtifacts wraps a CommandLineArgLike to apply a given ArtifactTag to all its inputs and
 /// outputs.
-#[derive(Debug, Clone, Trace, Coerce, Freeze, Display, AnyLifetime)]
+#[derive(Debug, Clone, Trace, Coerce, Freeze, Display, ProvidesStaticType)]
 #[derive(NoSerialize)] // TODO make artifacts serializable
 #[repr(C)]
 #[display(fmt = "TaggedArtifacts({}, tagged {})", inner, tag)]

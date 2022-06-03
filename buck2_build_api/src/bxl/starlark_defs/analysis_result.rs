@@ -1,6 +1,6 @@
 use buck2_core::provider::ConfiguredProvidersLabel;
 use derive_more::Display;
-use gazebo::any::AnyLifetime;
+use gazebo::any::ProvidesStaticType;
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
     values::{FrozenValue, NoSerialize, StarlarkValue},
@@ -8,7 +8,7 @@ use starlark::{
 
 use crate::analysis::AnalysisResult;
 
-#[derive(AnyLifetime, Debug, Display, NoSerialize)]
+#[derive(ProvidesStaticType, Debug, Display, NoSerialize)]
 #[display(fmt = "{:?}", self)]
 pub struct StarlarkAnalysisResult {
     analysis: AnalysisResult,

@@ -26,7 +26,7 @@ use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
 use either::Either;
-use gazebo::any::AnyLifetime;
+use gazebo::any::ProvidesStaticType;
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
     eval::Evaluator,
@@ -62,7 +62,7 @@ pub mod fs;
 pub mod output;
 pub mod starlark_async;
 
-#[derive(AnyLifetime, Derivative, Display, Trace, NoSerialize)]
+#[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize)]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 pub struct BxlContext<'v> {

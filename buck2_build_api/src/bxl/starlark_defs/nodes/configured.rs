@@ -17,7 +17,7 @@ use buck2_core::{
     provider::ConfiguredProvidersLabel,
 };
 use derive_more::Display;
-use gazebo::{any::AnyLifetime, prelude::*};
+use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{
     collections::SmallMap,
     environment::{Methods, MethodsBuilder, MethodsStatic},
@@ -39,7 +39,7 @@ use crate::{
     path::BuckPath,
 };
 
-#[derive(Debug, Display, AnyLifetime)]
+#[derive(Debug, Display, ProvidesStaticType)]
 #[derive(NoSerialize)] // TODO probably should be serializable the same as how queries serialize
 #[display(fmt = "{:?}", self)]
 pub struct StarlarkConfiguredTargetNode(pub ConfiguredTargetNode);
@@ -174,7 +174,7 @@ impl<'v> AllocValue<'v> for ConfiguredTargetNode {
     }
 }
 
-#[derive(Debug, Clone, Display, AnyLifetime, NoSerialize)]
+#[derive(Debug, Clone, Display, ProvidesStaticType, NoSerialize)]
 #[display(fmt = "Traversal({})", self.0)]
 #[repr(C)]
 pub struct StarlarkConfiguredValue(ConfiguredAttr);

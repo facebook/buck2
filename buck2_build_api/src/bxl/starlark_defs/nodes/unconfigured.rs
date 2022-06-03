@@ -8,7 +8,7 @@
  */
 
 use derive_more::Display;
-use gazebo::{any::AnyLifetime, prelude::*};
+use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
     values::{AllocValue, Heap, NoSerialize, StarlarkValue, UnpackValue, Value, ValueLike},
@@ -21,7 +21,7 @@ use crate::{
 
 pub mod attribute;
 
-#[derive(Debug, Display, AnyLifetime)]
+#[derive(Debug, Display, ProvidesStaticType)]
 #[derive(NoSerialize)] // TODO probably should be serializable the same as how queries serialize
 #[display(fmt = "{:?}", self)]
 pub struct StarlarkTargetNode(pub TargetNode);

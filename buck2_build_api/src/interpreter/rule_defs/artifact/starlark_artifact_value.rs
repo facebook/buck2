@@ -20,7 +20,7 @@ use buck2_core::fs::{
     anyhow as fs,
     project::{ProjectFilesystem, ProjectRelativePathBuf},
 };
-use gazebo::{any::AnyLifetime, prelude::*};
+use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{
     collections::SmallMap,
     environment::{Methods, MethodsBuilder, MethodsStatic},
@@ -31,7 +31,7 @@ use thiserror::Error;
 use crate::actions::artifact::Artifact;
 
 /// The Starlark representation of an `Artifact` on disk which can be accessed.
-#[derive(Debug, AnyLifetime, NoSerialize)]
+#[derive(Debug, ProvidesStaticType, NoSerialize)]
 pub struct StarlarkArtifactValue {
     // We only keep the artifact for Display, since we don't want to leak the underlying path by default
     artifact: Artifact,

@@ -9,7 +9,7 @@
 
 use buck2_core::cells::paths::CellPath;
 use derive_more::Display;
-use gazebo::any::AnyLifetime;
+use gazebo::any::ProvidesStaticType;
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
     values::{NoSerialize, StarlarkValue},
@@ -17,7 +17,7 @@ use starlark::{
 
 use crate::interpreter::rule_defs::cmd_args::{CommandLineArgLike, CommandLineBuilder};
 
-#[derive(Debug, PartialEq, Display, AnyLifetime, NoSerialize)]
+#[derive(Debug, PartialEq, Display, ProvidesStaticType, NoSerialize)]
 pub struct LabelRelativePath(pub CellPath);
 
 starlark_simple_value!(LabelRelativePath);
