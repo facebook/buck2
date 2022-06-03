@@ -53,7 +53,7 @@ macro_rules! starlark_complex_value {
                 /// Downcast the value.
                 pub fn from_value(x: $crate::values::Value<'v>) -> Option<&'v Self> {
                     if let Some(x) = x.unpack_frozen() {
-                        $crate::values::ValueLike::downcast_ref::< [< Frozen $x >] >(x).map($crate::__macro_refs::coerce_ref)
+                        $crate::values::ValueLike::downcast_ref::< [< Frozen $x >] >(x).map($crate::__macro_refs::coerce)
                     } else {
                         $crate::values::ValueLike::downcast_ref::< $x<'v> >(x)
                     }

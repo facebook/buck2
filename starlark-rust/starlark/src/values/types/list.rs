@@ -31,7 +31,7 @@ use std::{
 
 use gazebo::{
     any::{AnyLifetime, ProvidesStaticType},
-    coerce::{coerce, coerce_ref, Coerce},
+    coerce::{coerce, Coerce},
     prelude::*,
 };
 use serde::Serialize;
@@ -356,7 +356,7 @@ impl<'v> Display for List<'v> {
 
 impl Display for FrozenList {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        display_list(coerce_ref(&self.content()), f)
+        display_list(coerce(&self.content()), f)
     }
 }
 

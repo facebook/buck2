@@ -22,7 +22,7 @@ use std::{
 
 use gazebo::{
     any::{AnyLifetime, ProvidesStaticType},
-    coerce::{coerce_ref, Coerce},
+    coerce::{coerce, Coerce},
     prelude::*,
 };
 use itertools::Itertools;
@@ -279,8 +279,8 @@ where
         // apply the partial arguments first, then the remaining arguments I was given
 
         let self_pos = self.pos_content();
-        let self_named = coerce_ref(&self.named);
-        let self_names = coerce_ref(&self.names);
+        let self_named = coerce(&self.named);
+        let self_names = coerce(&self.names);
 
         eval.alloca_concat(self_pos, args.0.pos, |pos, eval| {
             eval.alloca_concat(self_named, args.0.named, |named, eval| {

@@ -52,7 +52,7 @@ use either::Either;
 use gazebo::{
     any::{AnyLifetime, ProvidesStaticType},
     cell::AsARef,
-    coerce::{coerce_ref, Coerce},
+    coerce::{coerce, Coerce},
     prelude::*,
 };
 use serde::Serialize;
@@ -155,7 +155,7 @@ impl<V> FieldGen<V> {
 fn record_fields<'v>(
     x: Either<&'v RecordType<'v>, &'v FrozenRecordType>,
 ) -> &'v SmallMap<String, (FieldGen<Value<'v>>, TypeCompiled)> {
-    x.either(|x| &x.fields, |x| coerce_ref(&x.fields))
+    x.either(|x| &x.fields, |x| coerce(&x.fields))
 }
 
 impl<'v> RecordType<'v> {

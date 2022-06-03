@@ -44,7 +44,7 @@ use either::Either;
 use gazebo::{
     any::{AnyLifetime, ProvidesStaticType},
     cell::AsARef,
-    coerce::{coerce_ref, Coerce},
+    coerce::{coerce, Coerce},
 };
 use serde::Serialize;
 use thiserror::Error;
@@ -176,7 +176,7 @@ where
         let val = args.positional1(eval.heap())?;
         let elements = EnumType::from_value(this)
             .unwrap()
-            .either(|x| &x.elements, |x| coerce_ref(&x.elements));
+            .either(|x| &x.elements, |x| coerce(&x.elements));
         match elements.get_hashed(val.get_hashed()?.borrow()) {
             Some(v) => Ok(*v),
             None => Err(EnumError::InvalidElement(val.to_str(), this.to_repr()).into()),

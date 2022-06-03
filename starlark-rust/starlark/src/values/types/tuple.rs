@@ -26,7 +26,7 @@ use std::{
 
 use gazebo::{
     any::{AnyLifetime, ProvidesStaticType},
-    coerce::{coerce, coerce_ref, Coerce},
+    coerce::{coerce, Coerce},
 };
 use serde::{ser::SerializeTuple, Serialize};
 
@@ -98,7 +98,7 @@ impl<'v> Tuple<'v> {
     /// Downcast a value to a tuple.
     pub fn from_value(value: Value<'v>) -> Option<&'v Self> {
         if value.unpack_frozen().is_some() {
-            value.downcast_ref::<FrozenTuple>().map(coerce_ref)
+            value.downcast_ref::<FrozenTuple>().map(coerce)
         } else {
             value.downcast_ref::<Tuple<'v>>()
         }

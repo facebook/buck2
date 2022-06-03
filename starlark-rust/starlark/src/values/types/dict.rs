@@ -31,7 +31,7 @@ use std::{
 use gazebo::{
     any::{AnyLifetime, ProvidesStaticType},
     cell::ARef,
-    coerce::{coerce, coerce_ref, Coerce},
+    coerce::{coerce, Coerce},
 };
 use indexmap::Equivalent;
 use serde::Serialize;
@@ -130,7 +130,7 @@ impl<'v> Dict<'v> {
     pub fn from_value(x: Value<'v>) -> Option<DictRef<'v>> {
         if x.unpack_frozen().is_some() {
             x.downcast_ref::<DictGen<FrozenDict>>().map(|x| DictRef {
-                aref: ARef::new_ptr(coerce_ref(&x.0)),
+                aref: ARef::new_ptr(coerce(&x.0)),
             })
         } else {
             let ptr = x.downcast_ref::<DictGen<RefCell<Dict<'v>>>>()?;
@@ -400,7 +400,7 @@ impl<'v> DictLike<'v> for RefCell<Dict<'v>> {
 
 impl<'v> DictLike<'v> for FrozenDict {
     fn content(&self) -> ARef<SmallMap<Value<'v>, Value<'v>>> {
-        ARef::new_ptr(coerce_ref(&self.content))
+        ARef::new_ptr(coerce(&self.content))
     }
 
     fn set_at(&self, _index: Hashed<Value<'v>>, _value: Value<'v>) -> anyhow::Result<()> {

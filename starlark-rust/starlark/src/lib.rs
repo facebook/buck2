@@ -430,7 +430,7 @@ mod tests;
 #[doc(hidden)]
 pub mod __macro_refs {
     pub use either::Either;
-    pub use gazebo::coerce::coerce_ref;
+    pub use gazebo::coerce::coerce;
     pub use paste::item;
 }
 

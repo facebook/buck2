@@ -44,7 +44,7 @@ use std::{
 
 use gazebo::{
     any::{AnyLifetime, ProvidesStaticType},
-    coerce::{coerce_ref, Coerce},
+    coerce::{coerce, Coerce},
 };
 use serde::Serialize;
 
@@ -163,7 +163,7 @@ where
         match Struct::from_value(other) {
             None => Ok(false),
             Some(other) => {
-                equals_small_map(coerce_ref(&self.fields), &other.fields, |x, y| x.equals(*y))
+                equals_small_map(coerce(&self.fields), &other.fields, |x, y| x.equals(*y))
             }
         }
     }
@@ -172,7 +172,7 @@ where
         match Struct::from_value(other) {
             None => ValueError::unsupported_with(self, "cmp()", other),
             Some(other) => compare_small_map(
-                coerce_ref(&self.fields),
+                coerce(&self.fields),
                 &other.fields,
                 |k| k.as_str(),
                 |x, y| x.compare(*y),
@@ -185,7 +185,7 @@ where
     }
 
     fn get_attr_hashed(&self, attribute: Hashed<&str>, _heap: &'v Heap) -> Option<Value<'v>> {
-        coerce_ref(&self.fields).get_hashed(attribute).copied()
+        coerce(&self.fields).get_hashed(attribute).copied()
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
@@ -197,7 +197,7 @@ where
     }
 
     fn has_attr(&self, attribute: &str) -> bool {
-        coerce_ref(&self.fields).contains_key(attribute)
+        coerce(&self.fields).contains_key(attribute)
     }
 
     fn dir_attr(&self) -> Vec<String> {
