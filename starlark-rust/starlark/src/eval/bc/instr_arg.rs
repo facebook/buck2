@@ -37,8 +37,8 @@ use crate::{
             opcode::{BcOpcode, BcOpcodeHandler},
             slow_arg::BcInstrSlowArg,
             stack_ptr::{
-                BcSlot, BcSlotIn, BcSlotInRange, BcSlotInRangeFrom, BcSlotRange, BcSlotRangeFrom,
-                BcSlotsInN, BcSlotsN,
+                BcSlotIn, BcSlotInRange, BcSlotInRangeFrom, BcSlotOut, BcSlotRange,
+                BcSlotRangeFrom, BcSlotsInN, BcSlotsN,
             },
         },
         runtime::{arguments::ArgSymbol, call_stack::FrozenFileSpan, slots::LocalSlotId},
@@ -302,22 +302,20 @@ impl BcInstrArg for LocalSlotId {
     fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
 }
 
-impl BcInstrArg for BcSlot {
+impl BcInstrArg for BcSlotIn {
     fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
-        write!(f, " {}", param)
+        write!(f, " {}", param.get())
     }
 
     fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
 }
 
-impl BcInstrArg for BcSlotIn {
-    fn fmt_append(param: &Self, ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
-        BcSlot::fmt_append(&param.get(), ip, f)
+impl BcInstrArg for BcSlotOut {
+    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+        write!(f, " {}", param.get())
     }
 
-    fn visit_jump_addr(param: &Self, consumer: &mut dyn FnMut(BcAddrOffset)) {
-        BcSlot::visit_jump_addr(&param.get(), consumer);
-    }
+    fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
 }
 
 impl BcInstrArg for BcSlotRange {

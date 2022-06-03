@@ -24,7 +24,7 @@ use crate::eval::{
             InstrComprDictInsert, InstrComprListAppend, InstrContinue, InstrDictNew, InstrListNew,
             InstrMov,
         },
-        stack_ptr::BcSlot,
+        stack_ptr::BcSlotOut,
         writer::BcWriter,
     },
     compiler::{
@@ -66,11 +66,11 @@ impl ClauseCompiled {
 }
 
 impl ComprCompiled {
-    pub(crate) fn write_bc(&self, span: FrozenFileSpan, target: BcSlot, bc: &mut BcWriter) {
+    pub(crate) fn write_bc(&self, span: FrozenFileSpan, target: BcSlotOut, bc: &mut BcWriter) {
         bc.alloc_slot(|temp, bc| {
             match *self {
                 ComprCompiled::List(box ref expr, ref clauses) => {
-                    bc.write_instr::<InstrListNew>(span, temp);
+                    bc.write_instr::<InstrListNew>(span, temp.to_out());
                     let (first, rem) = clauses.split_last();
                     first.write_bc(bc, rem, |bc| {
                         expr.write_bc_cb(bc, |expr_slot, bc| {
@@ -82,7 +82,7 @@ impl ComprCompiled {
                     });
                 }
                 ComprCompiled::Dict(box (ref k, ref v), ref clauses) => {
-                    bc.write_instr::<InstrDictNew>(span, temp);
+                    bc.write_instr::<InstrDictNew>(span, temp.to_out());
                     let (first, rem) = clauses.split_last();
                     first.write_bc(bc, rem, |bc| {
                         write_n_exprs([k, v], bc, |k_v, bc| {

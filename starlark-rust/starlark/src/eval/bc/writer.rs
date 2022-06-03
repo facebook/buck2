@@ -33,7 +33,7 @@ use crate::{
             instrs::{BcInstrsWriter, PatchAddr},
             opcode::BcOpcode,
             slow_arg::BcInstrSlowArg,
-            stack_ptr::{BcSlot, BcSlotIn, BcSlotInRange, BcSlotRange, BcSlotsN},
+            stack_ptr::{BcSlot, BcSlotIn, BcSlotInRange, BcSlotOut, BcSlotRange, BcSlotsN},
         },
         compiler::expr::MaybeNot,
         runtime::{call_stack::FrozenFileSpan, slots::LocalSlotId},
@@ -170,8 +170,13 @@ impl<'f> BcWriter<'f> {
     }
 
     /// Write load constant instruction.
-    pub(crate) fn write_const(&mut self, span: FrozenFileSpan, value: FrozenValue, slot: BcSlot) {
-        assert!(slot.0 < self.local_count + self.stack_size);
+    pub(crate) fn write_const(
+        &mut self,
+        span: FrozenFileSpan,
+        value: FrozenValue,
+        slot: BcSlotOut,
+    ) {
+        assert!(slot.get().0 < self.local_count + self.stack_size);
 
         self.write_instr::<InstrConst>(span, (value, slot));
     }
@@ -181,7 +186,7 @@ impl<'f> BcWriter<'f> {
         &mut self,
         span: FrozenFileSpan,
         slot: LocalSlotId,
-        target: BcSlot,
+        target: BcSlotOut,
     ) {
         assert!(slot.0 < self.local_count);
 
@@ -192,10 +197,10 @@ impl<'f> BcWriter<'f> {
         &mut self,
         span: FrozenFileSpan,
         source: LocalSlotId,
-        target: BcSlot,
+        target: BcSlotOut,
     ) {
         assert!(source.0 < self.local_count);
-        assert!(target.0 < self.local_count + self.stack_size);
+        assert!(target.get().0 < self.local_count + self.stack_size);
         self.write_instr_ret_arg::<InstrLoadLocalCaptured>(span, (source, target));
     }
 
@@ -203,10 +208,10 @@ impl<'f> BcWriter<'f> {
         &mut self,
         span: FrozenFileSpan,
         source: BcSlotIn,
-        target: BcSlot,
+        target: BcSlotOut,
     ) {
         assert!(source.get().0 < self.local_count + self.stack_size);
-        assert!(target.0 < self.local_count + self.stack_size);
+        assert!(target.get().0 < self.local_count + self.stack_size);
         self.write_instr_ret_arg::<InstrMov>(span, (source, target));
     }
 
@@ -286,7 +291,7 @@ impl<'f> BcWriter<'f> {
     pub(crate) fn write_for(
         &mut self,
         over: BcSlotIn,
-        var: BcSlot,
+        var: BcSlotOut,
         span: FrozenFileSpan,
         body: impl FnOnce(&mut Self),
     ) {

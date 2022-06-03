@@ -22,7 +22,7 @@ use gazebo::prelude::*;
 use crate::eval::{
     bc::{
         instr_impl::{InstrDef, InstrDefData},
-        stack_ptr::BcSlot,
+        stack_ptr::BcSlotOut,
         writer::BcWriter,
     },
     compiler::{def::DefCompiled, span::IrSpanned},
@@ -30,7 +30,7 @@ use crate::eval::{
 };
 
 impl DefCompiled {
-    pub(crate) fn write_bc(&self, span: FrozenFileSpan, target: BcSlot, bc: &mut BcWriter) {
+    pub(crate) fn write_bc(&self, span: FrozenFileSpan, target: BcSlotOut, bc: &mut BcWriter) {
         let DefCompiled {
             ref function_name,
             ref params,
@@ -56,14 +56,14 @@ impl DefCompiled {
             let params = params.map(|p| {
                 p.map(|p| {
                     p.map_expr(|e| {
-                        e.write_bc(slots_i.next().unwrap(), bc);
+                        e.write_bc(slots_i.next().unwrap().to_out(), bc);
                         value_count += 1;
                         value_count - 1
                     })
                 })
             });
             let return_type = return_type.as_ref().map(|t| {
-                t.write_bc(slots_i.next().unwrap(), bc);
+                t.write_bc(slots_i.next().unwrap().to_out(), bc);
                 value_count += 1;
                 IrSpanned {
                     node: value_count - 1,

@@ -355,7 +355,7 @@ mod tests {
     #[test]
     fn display() {
         let mut bc = BcInstrsWriter::new();
-        bc.write::<InstrConst>((FrozenValue::new_bool(true), BcSlot(17)));
+        bc.write::<InstrConst>((FrozenValue::new_bool(true), BcSlot(17).to_out()));
         bc.write::<InstrReturn>(BcSlot(17).to_in());
         let bc = bc.finish(Vec::new());
         if mem::size_of::<usize>() == 8 {

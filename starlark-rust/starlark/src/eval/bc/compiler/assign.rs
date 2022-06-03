@@ -27,7 +27,7 @@ use crate::{
             instr_impl::{
                 InstrSetArrayIndex, InstrSetObjectField, InstrStoreModuleAndExport, InstrUnpack,
             },
-            stack_ptr::{BcSlot, BcSlotIn},
+            stack_ptr::{BcSlotIn, BcSlotOut},
             writer::BcWriter,
         },
         compiler::{scope::Captured, span::IrSpanned, stmt::AssignCompiledValue},
@@ -56,14 +56,18 @@ impl IrSpanned<AssignCompiledValue> {
                 // ```
                 // so we can avoid using intermediate register.
                 let all_local = xs
-                    .try_map(|x| x.as_local_non_captured().map(|l| l.to_bc_slot()).ok_or(()))
+                    .try_map(|x| {
+                        x.as_local_non_captured()
+                            .map(|l| l.to_bc_slot().to_out())
+                            .ok_or(())
+                    })
                     .ok();
                 if let Some(all_local) = all_local {
                     let args = bc.heap.alloc_any_slice_display_from_debug(&all_local);
                     bc.write_instr::<InstrUnpack>(span, (value, args));
                 } else {
                     bc.alloc_slots(xs.len() as u32, |slots, bc| {
-                        let args: Vec<BcSlot> = slots.iter().collect();
+                        let args: Vec<BcSlotOut> = slots.iter().map(|s| s.to_out()).collect();
                         let args = bc.heap.alloc_any_slice_display_from_debug(&args);
                         bc.write_instr::<InstrUnpack>(span, (value, args));
 
@@ -74,7 +78,7 @@ impl IrSpanned<AssignCompiledValue> {
                 }
             }
             AssignCompiledValue::Local(slot, Captured::No) => {
-                bc.write_store_local(span, value, slot.to_bc_slot());
+                bc.write_store_local(span, value, slot.to_bc_slot().to_out());
             }
             AssignCompiledValue::Local(slot, Captured::Yes) => {
                 bc.write_store_local_captured(span, value, slot);

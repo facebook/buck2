@@ -31,7 +31,7 @@ use crate::{
                 InstrCallMaybeKnownMethod, InstrCallMaybeKnownMethodPos, InstrCallMethod,
                 InstrCallMethodPos, InstrCallPos, InstrLen, InstrType,
             },
-            stack_ptr::BcSlot,
+            stack_ptr::BcSlotOut,
             writer::BcWriter,
         },
         compiler::{args::ArgsCompiledValue, call::CallCompiled, def::FrozenDef, span::IrSpanned},
@@ -84,7 +84,7 @@ impl IrSpanned<CallCompiled> {
         span: FrozenFileSpan,
         fun: FrozenValue,
         args: &ArgsCompiledValue,
-        target: BcSlot,
+        target: BcSlotOut,
         bc: &mut BcWriter,
     ) {
         let file_span = bc.alloc_file_span(span);
@@ -122,7 +122,7 @@ impl IrSpanned<CallCompiled> {
         }
     }
 
-    pub(crate) fn write_bc(&self, target: BcSlot, bc: &mut BcWriter) {
+    pub(crate) fn write_bc(&self, target: BcSlotOut, bc: &mut BcWriter) {
         if let Some(arg) = self.as_len() {
             return arg.write_bc_cb(bc, |arg, bc| {
                 bc.write_instr::<InstrLen>(self.span, (arg, target));

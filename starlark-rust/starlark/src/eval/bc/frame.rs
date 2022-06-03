@@ -23,7 +23,7 @@ use gazebo::dupe::Dupe;
 
 use crate::{
     eval::{
-        bc::stack_ptr::{BcSlot, BcSlotIn, BcSlotInRange},
+        bc::stack_ptr::{BcSlotIn, BcSlotInRange, BcSlotOut},
         runtime::slots::LocalSlotId,
         Evaluator,
     },
@@ -103,7 +103,7 @@ impl<'v> BcFramePtr<'v> {
     }
 
     #[inline(always)]
-    pub(crate) fn set_bc_slot(mut self, slot: BcSlot, value: Value<'v>) {
+    pub(crate) fn set_bc_slot(mut self, slot: BcSlotOut, value: Value<'v>) {
         self.frame_mut().set_bc_slot(slot, value)
     }
 
@@ -230,12 +230,12 @@ impl<'v> BcFrame<'v> {
     }
 
     #[inline(always)]
-    pub(crate) fn set_bc_slot(&mut self, slot: BcSlot, value: Value<'v>) {
-        debug_assert!(slot.0 < self.local_count + self.max_stack_size);
+    pub(crate) fn set_bc_slot(&mut self, slot: BcSlotOut, value: Value<'v>) {
+        debug_assert!(slot.get().0 < self.local_count + self.max_stack_size);
         unsafe {
             self.slots
                 .as_mut_ptr()
-                .add(slot.0 as usize)
+                .add(slot.get().0 as usize)
                 .write(Some(value))
         }
     }

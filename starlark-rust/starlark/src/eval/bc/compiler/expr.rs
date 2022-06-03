@@ -28,7 +28,7 @@ use crate::{
             compiler::if_compiler::write_if_else,
             instr_impl::*,
             slow_arg::BcInstrSlowArg,
-            stack_ptr::{BcSlot, BcSlotIn, BcSlotInRange, BcSlotsInN},
+            stack_ptr::{BcSlotIn, BcSlotInRange, BcSlotOut, BcSlotsInN},
             writer::BcWriter,
         },
         compiler::{
@@ -48,7 +48,7 @@ pub(crate) fn write_exprs<'a>(
     bc: &mut BcWriter,
     k: impl FnOnce(BcSlotInRange, &mut BcWriter),
 ) {
-    bc.alloc_slots_for_exprs(exprs, |slot, expr, bc| expr.write_bc(slot, bc), k)
+    bc.alloc_slots_for_exprs(exprs, |slot, expr, bc| expr.write_bc(slot.to_out(), bc), k)
 }
 
 pub(crate) fn write_expr_opt(
@@ -110,7 +110,7 @@ impl IrSpanned<ExprCompiled> {
     fn write_dict(
         span: FrozenFileSpan,
         xs: &[(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)],
-        target: BcSlot,
+        target: BcSlotOut,
         bc: &mut BcWriter,
     ) {
         if xs.is_empty() {
@@ -137,7 +137,7 @@ impl IrSpanned<ExprCompiled> {
         }
     }
 
-    fn write_not(expr: &IrSpanned<ExprCompiled>, target: BcSlot, bc: &mut BcWriter) {
+    fn write_not(expr: &IrSpanned<ExprCompiled>, target: BcSlotOut, bc: &mut BcWriter) {
         expr.write_bc_cb(bc, |slot, bc| {
             bc.write_instr::<InstrNot>(expr.span, (slot, target));
         });
@@ -147,7 +147,7 @@ impl IrSpanned<ExprCompiled> {
         span: FrozenFileSpan,
         a: &IrSpanned<ExprCompiled>,
         b: FrozenValue,
-        target: BcSlot,
+        target: BcSlotOut,
         bc: &mut BcWriter,
     ) {
         a.write_bc_cb(bc, |a, bc| {
@@ -169,7 +169,7 @@ impl IrSpanned<ExprCompiled> {
         span: FrozenFileSpan,
         a: &IrSpanned<ExprCompiled>,
         b: &IrSpanned<ExprCompiled>,
-        target: BcSlot,
+        target: BcSlotOut,
         bc: &mut BcWriter,
     ) {
         if let Some(a) = a.as_value() {
@@ -183,7 +183,7 @@ impl IrSpanned<ExprCompiled> {
         }
     }
 
-    pub(crate) fn write_bc(&self, target: BcSlot, bc: &mut BcWriter) {
+    pub(crate) fn write_bc(&self, target: BcSlotOut, bc: &mut BcWriter) {
         let span = self.span;
         match self.node {
             ExprCompiled::Value(v) => {
@@ -349,7 +349,7 @@ impl IrSpanned<ExprCompiled> {
         }
 
         bc.alloc_slot(|slot, bc| {
-            self.write_bc(slot, bc);
+            self.write_bc(slot.to_out(), bc);
             k(slot.to_in(), bc)
         })
     }

@@ -43,6 +43,10 @@ impl BcSlot {
     pub(crate) fn to_in(self) -> BcSlotIn {
         BcSlotIn(self)
     }
+
+    pub(crate) fn to_out(self) -> BcSlotOut {
+        BcSlotOut(self)
+    }
 }
 
 impl Add<u32> for BcSlot {
@@ -198,5 +202,19 @@ impl BcSlotInRangeFrom {
             start: self.0,
             end: self.0 + len,
         }
+    }
+}
+
+/// Slot where the value should be stored.
+///
+/// The slot may be a local variable, so this slot cannot be used to store a temporary value.
+#[derive(Debug, Copy, Clone, Dupe, derive_more::Display)]
+#[display(fmt = "{}", _0)]
+pub(crate) struct BcSlotOut(BcSlot);
+
+impl BcSlotOut {
+    #[inline]
+    pub(crate) fn get(self) -> BcSlot {
+        self.0
     }
 }

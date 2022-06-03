@@ -47,13 +47,13 @@ pub(crate) fn write_for(
         if let Some(var) = var.as_local_non_captured() {
             // Typical case: `for x in ...: ...`,
             // compile loop assignment directly to a local variable.
-            bc.write_for(over, var.to_bc_slot(), span, body)
+            bc.write_for(over, var.to_bc_slot().to_out(), span, body)
         } else {
             // General case, e. g. `for (x, y[0]) in ...: ...`,
             // compile loop assignment to a temporary variable,
             // and reassign it in the loop body.
             bc.alloc_slot(|var_slot, bc| {
-                bc.write_for(over, var_slot, span, |bc| {
+                bc.write_for(over, var_slot.to_out(), span, |bc| {
                     var.write_bc(var_slot.to_in(), bc);
                     body(bc);
                 })
@@ -157,7 +157,7 @@ impl IrSpanned<StmtCompiled> {
             StmtCompiled::Assign(ref lhs, ref rhs) => {
                 if let Some(local) = lhs.as_local_non_captured() {
                     // Write expression directly to local slot.
-                    rhs.write_bc(local.to_bc_slot(), bc);
+                    rhs.write_bc(local.to_bc_slot().to_out(), bc);
                 } else {
                     rhs.write_bc_cb(bc, |slot, bc| {
                         lhs.write_bc(slot, bc);
@@ -200,7 +200,7 @@ impl StmtsCompiled {
             let span = self.last().map(|s| s.span.end_span()).unwrap_or_default();
             if compiler.has_return_type {
                 bc.alloc_slot(|slot, bc| {
-                    bc.write_const(span, FrozenValue::new_none(), slot);
+                    bc.write_const(span, FrozenValue::new_none(), slot.to_out());
                     bc.write_instr::<InstrReturnCheckType>(span, slot.to_in());
                 });
             } else {
