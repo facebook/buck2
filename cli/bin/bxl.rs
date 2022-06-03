@@ -247,14 +247,16 @@ async fn async_main(
                 println!("{}", error_message)
             }
 
-            print_all_outputs(
-                build_targets,
-                match opt.bxl_core.show_all_outputs_format {
-                    ShowAllOutputsFormat::FullJson => Some(format!("{}", fs.root.display())),
-                    ShowAllOutputsFormat::Json => None,
-                },
-                true,
-            )?;
+            if opt.bxl_core.show_all_outputs {
+                print_all_outputs(
+                    build_targets,
+                    match opt.bxl_core.show_all_outputs_format {
+                        ShowAllOutputsFormat::FullJson => Some(format!("{}", fs.root.display())),
+                        ShowAllOutputsFormat::Json => None,
+                    },
+                    true,
+                )?;
+            }
         }
     };
 
