@@ -15,7 +15,7 @@ use buck2_core::{
     target::TargetLabel,
 };
 use buck2_query::query::syntax::simple::{
-    eval::values::QueryEvaluationResult, functions::DefaultQueryFunctions,
+    eval::values::QueryEvaluationResult, functions::DefaultQueryFunctionsModule,
 };
 use dice::DiceComputations;
 use gazebo::prelude::*;
@@ -31,7 +31,7 @@ use crate::{
 
 pub struct UqueryEvaluator<'c> {
     dice_query_delegate: Arc<DiceQueryDelegate<'c>>,
-    functions: DefaultQueryFunctions<UqueryEnvironment<'c>>,
+    functions: DefaultQueryFunctionsModule<UqueryEnvironment<'c>>,
 }
 
 impl UqueryEvaluator<'_> {
@@ -63,7 +63,7 @@ pub async fn get_uquery_evaluator<'c>(
     let dice_query_delegate = Arc::new(
         get_dice_query_delegate(ctx, working_dir, project_root, global_target_platform).await?,
     );
-    let functions = DefaultQueryFunctions::new();
+    let functions = DefaultQueryFunctionsModule::new();
 
     Ok(UqueryEvaluator {
         dice_query_delegate,

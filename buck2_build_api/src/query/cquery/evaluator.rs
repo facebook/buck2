@@ -25,7 +25,7 @@ use buck2_query::query::{
     environment::QueryEnvironment,
     syntax::simple::{
         eval::{label_indexed::LabelIndexed, set::TargetSet, values::QueryEvaluationResult},
-        functions::DefaultQueryFunctions,
+        functions::DefaultQueryFunctionsModule,
     },
     traversal::{AsyncTraversalDelegate, ChildVisitor},
 };
@@ -45,7 +45,7 @@ use crate::{
 
 pub struct CqueryEvaluator<'c> {
     dice_query_delegate: Arc<DiceQueryDelegate<'c>>,
-    functions: DefaultQueryFunctions<CqueryEnvironment<'c>>,
+    functions: DefaultQueryFunctionsModule<CqueryEnvironment<'c>>,
 }
 
 impl CqueryEvaluator<'_> {
@@ -94,7 +94,7 @@ pub async fn get_cquery_evaluator<'c>(
     let dice_query_delegate = Arc::new(
         get_dice_query_delegate(ctx, working_dir, project_root, global_target_platform).await?,
     );
-    let functions = DefaultQueryFunctions::new();
+    let functions = DefaultQueryFunctionsModule::new();
     Ok(CqueryEvaluator {
         dice_query_delegate,
         functions,

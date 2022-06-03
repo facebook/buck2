@@ -25,7 +25,7 @@ use crate::query::{
     environment::{NodeLabel, QueryEnvironment, QueryTarget, QueryTargetAttr},
     syntax::simple::{
         eval::{error::QueryError, evaluator::QueryEvaluator, file_set::FileSet, set::TargetSet},
-        functions::DefaultQueryFunctions,
+        functions::DefaultQueryFunctionsModule,
     },
     traversal::AsyncTraversalDelegate,
 };
@@ -143,7 +143,7 @@ impl QueryEnvironment for Env {
 pub async fn test_missing_arg() -> anyhow::Result<()> {
     let input = "kind(a, kind(a, kind()))";
     let parsed = parse_expr(input)?;
-    match QueryEvaluator::new(&Env, &DefaultQueryFunctions::new())
+    match QueryEvaluator::new(&Env, &DefaultQueryFunctionsModule::new())
         .eval(&parsed)
         .await
     {

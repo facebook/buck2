@@ -138,14 +138,14 @@ impl<Env: QueryEnvironment, F: QueryFunctions<Env>> QueryFunctionsExt<Env> for F
     }
 }
 
-pub struct DefaultQueryFunctions<Env: QueryEnvironment> {
-    _marker: std::marker::PhantomData<Env>,
+pub struct DefaultQueryFunctionsModule<Env: QueryEnvironment> {
+    implementation: DefaultQueryFunctions<Env>,
 }
 
-impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
+impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     pub fn new() -> Self {
         Self {
-            _marker: PhantomData,
+            implementation: DefaultQueryFunctions::new(),
         }
     }
 }
@@ -169,7 +169,7 @@ async fn accept_target_set<Env: QueryEnvironment>(
 
 /// Common query functions
 #[query_module(Env)]
-impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
+impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     /// Computes all dependency paths.
     ///
     /// The `allpaths(from, to)` function evaluates to the graph formed by paths between the target expressions from and to, following the dependencies between nodes. For example, the value of
@@ -200,11 +200,11 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         from: TargetSet<Env::Target>,
         to: TargetSet<Env::Target>,
     ) -> QueryFuncResult<Env> {
-        Ok(env.allpaths(&from, &to).await?.into())
+        Ok(self.implementation.allpaths(env, &from, &to).await?.into())
     }
 
     async fn somepath(&self) -> QueryFuncResult<Env> {
-        Err(QueryError::FunctionUnimplemented("somepath"))
+        Ok(self.implementation.somepath()?.into())
     }
 
     async fn attrfilter(
@@ -213,7 +213,10 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         value: String,
         targets: TargetSet<Env::Target>,
     ) -> QueryFuncResult<Env> {
-        Ok(targets.attrfilter(&attr, &|v| Ok(v == value))?.into())
+        Ok(self
+            .implementation
+            .attrfilter(&attr, &value, &targets)?
+            .into())
     }
 
     async fn nattrfilter(
@@ -222,7 +225,10 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         value: String,
         targets: TargetSet<Env::Target>,
     ) -> QueryFuncResult<Env> {
-        Ok(targets.nattrfilter(&attr, &|v| Ok(v == value))?.into())
+        Ok(self
+            .implementation
+            .nattrfilter(&attr, &value, &targets)?
+            .into())
     }
 
     async fn attrregexfilter(
@@ -231,11 +237,14 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         value: String,
         targets: TargetSet<Env::Target>,
     ) -> QueryFuncResult<Env> {
-        Ok(targets.attrregexfilter(&attr, &value)?.into())
+        Ok(self
+            .implementation
+            .attrregexfilter(&attr, &value, &targets)?
+            .into())
     }
 
     async fn buildfile(&self, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
-        Ok(targets.buildfile().into())
+        Ok(self.implementation.buildfile(&targets).into())
     }
 
     async fn deps(
@@ -245,31 +254,36 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         depth: Option<u64>,
         captured_expr: Option<CapturedExpr<'_>>,
     ) -> QueryFuncResult<Env> {
-        DepsFunction::<Env> {
-            _marker: PhantomData,
-        }
-        .invoke_deps(evaluator, targets, depth, captured_expr)
-        .await
+        Ok(self
+            .implementation
+            .deps(
+                evaluator,
+                &targets,
+                depth.map(|v| v as i32),
+                captured_expr.as_ref(),
+            )
+            .await?
+            .into())
     }
 
     async fn filter(&self, regex: String, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
-        Ok(targets.filter_name(&regex)?.into())
+        Ok(self.implementation.filter(&regex, &targets)?.into())
     }
 
     async fn inputs(&self, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
-        Ok(targets.inputs()?.into())
+        Ok(self.implementation.inputs(&targets)?.into())
     }
 
     async fn kind(&self, regex: String, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
-        Ok(targets.kind(&regex)?.into())
+        Ok(self.implementation.kind(&regex, &targets)?.into())
     }
 
-    async fn labels(&self, _targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
-        Err(QueryError::FunctionUnimplemented("labels"))
+    async fn labels(&self, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
+        self.implementation.labels(&targets)
     }
 
     async fn owner(&self, env: &Env, files: FileSet) -> QueryFuncResult<Env> {
-        Ok(env.owner(&files).await?.into())
+        Ok(self.implementation.owner(env, &files).await?.into())
     }
 
     async fn rdeps(
@@ -279,21 +293,22 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         targets: TargetSet<Env::Target>,
         depth: Option<u64>,
     ) -> QueryFuncResult<Env> {
-        Ok(env
-            .rdeps(&universe, &targets, depth.map(|v| v as i32))
+        Ok(self
+            .implementation
+            .rdeps(env, &universe, &targets, depth.map(|v| v as i32))
             .await?
             .into())
     }
 
     async fn testsof(&self, env: &Env, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
-        Ok(env.testsof(&targets).await?.into())
+        Ok(self.implementation.testsof(env, &targets).await?.into())
     }
 
     // These three functions are intentionally implemented as errors. They are only available within the context
     // of a deps functions 3rd parameter expr. When used in that context, the QueryFunctions will be augmented to
     // have non-erroring implementations.
     async fn first_order_deps(&self) -> QueryFuncResult<Env> {
-        Err(QueryError::NotAvailableInContext("first_order_deps"))
+        self.implementation.first_order_deps()
     }
     async fn target_deps(&self) -> QueryFuncResult<Env> {
         Err(QueryError::NotAvailableInContext("target_deps"))
@@ -309,13 +324,179 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         left: QueryValue<Env::Target>,
         right: QueryValue<Env::Target>,
     ) -> Result<QueryValue<Env::Target>, QueryError> {
+        self.implementation.intersect(env, left, right).await
+    }
+
+    #[binary_op(BinaryOp::Except)]
+    async fn except(
+        &self,
+        env: &Env,
+        left: QueryValue<Env::Target>,
+        right: QueryValue<Env::Target>,
+    ) -> Result<QueryValue<Env::Target>, QueryError> {
+        self.implementation.except(env, left, right).await
+    }
+
+    #[binary_op(BinaryOp::Union)]
+    async fn union(
+        &self,
+        env: &Env,
+        left: QueryValue<Env::Target>,
+        right: QueryValue<Env::Target>,
+    ) -> Result<QueryValue<Env::Target>, QueryError> {
+        self.implementation.union(env, left, right).await
+    }
+}
+
+pub struct DefaultQueryFunctions<Env: QueryEnvironment> {
+    _marker: std::marker::PhantomData<Env>,
+}
+
+impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
+    pub fn new() -> Self {
+        Self {
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
+    pub async fn allpaths(
+        &self,
+        env: &Env,
+        from: &TargetSet<Env::Target>,
+        to: &TargetSet<Env::Target>,
+    ) -> Result<TargetSet<Env::Target>, QueryError> {
+        Ok(env.allpaths(from, to).await?)
+    }
+
+    pub fn somepath(&self) -> Result<TargetSet<Env::Target>, QueryError> {
+        Err(QueryError::FunctionUnimplemented("somepath"))
+    }
+
+    pub fn attrfilter(
+        &self,
+        attr: &str,
+        value: &str,
+        targets: &TargetSet<Env::Target>,
+    ) -> anyhow::Result<TargetSet<Env::Target>> {
+        targets.attrfilter(attr, &|v| Ok(v == value))
+    }
+
+    pub fn nattrfilter(
+        &self,
+        attr: &str,
+        value: &str,
+        targets: &TargetSet<Env::Target>,
+    ) -> anyhow::Result<TargetSet<Env::Target>> {
+        targets.nattrfilter(attr, &|v| Ok(v == value))
+    }
+
+    pub fn attrregexfilter(
+        &self,
+        attr: &str,
+        value: &str,
+        targets: &TargetSet<Env::Target>,
+    ) -> anyhow::Result<TargetSet<Env::Target>> {
+        targets.attrregexfilter(attr, value)
+    }
+
+    pub fn buildfile(&self, targets: &TargetSet<Env::Target>) -> FileSet {
+        targets.buildfile()
+    }
+
+    pub async fn deps(
+        &self,
+        evaluator: &QueryEvaluator<'_, Env>,
+        targets: &TargetSet<Env::Target>,
+        depth: Option<i32>,
+        captured_expr: Option<&CapturedExpr<'_>>,
+    ) -> anyhow::Result<TargetSet<Env::Target>> {
+        DepsFunction::<Env> {
+            _marker: PhantomData,
+        }
+        .invoke_deps(evaluator, targets, depth, captured_expr)
+        .await
+    }
+
+    pub fn filter(
+        &self,
+        regex: &str,
+        targets: &TargetSet<Env::Target>,
+    ) -> anyhow::Result<TargetSet<Env::Target>> {
+        targets.filter_name(regex)
+    }
+
+    pub fn inputs(&self, targets: &TargetSet<Env::Target>) -> anyhow::Result<FileSet> {
+        targets.inputs()
+    }
+
+    pub fn kind(
+        &self,
+        regex: &str,
+        targets: &TargetSet<Env::Target>,
+    ) -> anyhow::Result<TargetSet<Env::Target>> {
+        targets.kind(regex)
+    }
+
+    pub fn labels(
+        &self,
+        _targets: &TargetSet<Env::Target>,
+    ) -> Result<QueryValue<Env::Target>, QueryError> {
+        Err(QueryError::FunctionUnimplemented("labels"))
+    }
+
+    pub async fn owner(
+        &self,
+        env: &Env,
+        files: &FileSet,
+    ) -> anyhow::Result<TargetSet<Env::Target>> {
+        env.owner(files).await
+    }
+
+    pub async fn rdeps(
+        &self,
+        env: &Env,
+        universe: &TargetSet<Env::Target>,
+        targets: &TargetSet<Env::Target>,
+        depth: Option<i32>,
+    ) -> anyhow::Result<TargetSet<Env::Target>> {
+        env.rdeps(universe, targets, depth).await
+    }
+
+    pub async fn testsof(
+        &self,
+        env: &Env,
+        targets: &TargetSet<Env::Target>,
+    ) -> anyhow::Result<TargetSet<Env::Target>> {
+        env.testsof(targets).await
+    }
+
+    // These three functions are intentionally implemented as errors. They are only available within the context
+    // of a deps functions 3rd parameter expr. When used in that context, the QueryFunctions will be augmented to
+    // have non-erroring implementations.
+    pub fn first_order_deps(&self) -> QueryFuncResult<Env> {
+        Err(QueryError::NotAvailableInContext("first_order_deps"))
+    }
+    pub fn target_deps(&self) -> QueryFuncResult<Env> {
+        Err(QueryError::NotAvailableInContext("target_deps"))
+    }
+    pub fn exec_deps(&self) -> QueryFuncResult<Env> {
+        Err(QueryError::NotAvailableInContext("exec_deps"))
+    }
+
+    pub async fn intersect(
+        &self,
+        env: &Env,
+        left: QueryValue<Env::Target>,
+        right: QueryValue<Env::Target>,
+    ) -> Result<QueryValue<Env::Target>, QueryError> {
         let left = accept_target_set(env, left).await?;
         let right = accept_target_set(env, right).await?;
         Ok(QueryValue::TargetSet(left.intersect(&right)?))
     }
 
-    #[binary_op(BinaryOp::Except)]
-    async fn except(
+    pub async fn except(
         &self,
         env: &Env,
         left: QueryValue<Env::Target>,
@@ -326,8 +507,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         Ok(QueryValue::TargetSet(left.difference(&right)?))
     }
 
-    #[binary_op(BinaryOp::Union)]
-    async fn union(
+    pub async fn union(
         &self,
         env: &Env,
         left: QueryValue<Env::Target>,
@@ -370,6 +550,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         }
     }
 }
+
 pub struct AugmentedQueryFunctions<'a, Env: QueryEnvironment> {
     inner: &'a dyn QueryFunctions<Env>,
     extra: Box<dyn QueryFunctions<Env> + 'a>,

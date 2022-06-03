@@ -19,7 +19,7 @@ use buck2_query::{
             eval::{error::QueryError, file_set::FileSet, set::TargetSet, values::QueryValue},
             functions::{
                 helpers::{QueryBinaryOp, QueryFunction},
-                DefaultQueryFunctions, QueryFunctions,
+                DefaultQueryFunctionsModule, QueryFunctions,
             },
         },
         traversal::{
@@ -97,7 +97,7 @@ impl<'a> ConfiguredGraphQueryEnvironment<'a> {
 
     pub fn functions() -> impl QueryFunctions<ConfiguredGraphQueryEnvironment<'a>> {
         struct Functions<'a> {
-            defaults: DefaultQueryFunctions<ConfiguredGraphQueryEnvironment<'a>>,
+            defaults: DefaultQueryFunctionsModule<ConfiguredGraphQueryEnvironment<'a>>,
             extra_functions: ConfiguredGraphFunctions<'a>,
         }
 
@@ -126,7 +126,7 @@ impl<'a> ConfiguredGraphQueryEnvironment<'a> {
         }
 
         Functions {
-            defaults: DefaultQueryFunctions::new(),
+            defaults: DefaultQueryFunctionsModule::new(),
             extra_functions: ConfiguredGraphFunctions(PhantomData),
         }
     }

@@ -66,16 +66,16 @@ impl<Env: QueryEnvironment> DepsFunction<Env> {
     pub(crate) async fn invoke_deps(
         &self,
         evaluator: &QueryEvaluator<'_, Env>,
-        targets: TargetSet<Env::Target>,
-        depth: Option<u64>,
-        captured_expr: Option<CapturedExpr<'_>>,
-    ) -> Result<QueryValue<Env::Target>, QueryError> {
+        targets: &TargetSet<Env::Target>,
+        depth: Option<i32>,
+        captured_expr: Option<&CapturedExpr<'_>>,
+    ) -> anyhow::Result<TargetSet<Env::Target>> {
         let filter = match captured_expr {
             Some(expr) => {
                 struct Filter<'a, Env: QueryEnvironment> {
                     inner_env: &'a Env,
                     functions: &'a dyn QueryFunctions<Env>,
-                    expr: CapturedExpr<'a>,
+                    expr: &'a CapturedExpr<'a>,
                 }
 
                 #[async_trait]
@@ -113,10 +113,6 @@ impl<Env: QueryEnvironment> DepsFunction<Env> {
             .as_ref()
             .map(|v| v as &dyn TraversalFilter<Env::Target>);
 
-        Ok(evaluator
-            .env()
-            .deps(&targets, depth.map(|v| v as i32), filter_ref)
-            .await?
-            .into())
+        evaluator.env().deps(targets, depth, filter_ref).await
     }
 }

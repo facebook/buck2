@@ -21,7 +21,7 @@ use buck2_query::query::{
     syntax::simple::{
         eval::{file_set::FileSet, set::TargetSet},
         functions::{
-            docs::QueryEnvironmentDescription, DefaultQueryFunctions, HasModuleDescription,
+            docs::QueryEnvironmentDescription, DefaultQueryFunctionsModule, HasModuleDescription,
         },
     },
     traversal::{
@@ -153,7 +153,7 @@ impl<'c> CqueryEnvironment<'c> {
     pub fn describe() -> QueryEnvironmentDescription {
         QueryEnvironmentDescription {
             name: "Cquery Environment".to_owned(),
-            mods: vec![DefaultQueryFunctions::<Self>::describe()],
+            mods: vec![DefaultQueryFunctionsModule::<Self>::describe()],
         }
     }
 

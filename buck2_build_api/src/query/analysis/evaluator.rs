@@ -16,7 +16,7 @@ use buck2_query::query::{
             evaluator::QueryEvaluator, literals::extract_target_literals,
             multi_query::process_multi_query, values::QueryEvaluationResult,
         },
-        functions::DefaultQueryFunctions,
+        functions::DefaultQueryFunctionsModule,
     },
 };
 use futures::Future;
@@ -32,7 +32,7 @@ enum EvalQueryError {
 }
 
 pub async fn eval_query<Env: QueryEnvironment, Fut: Future<Output = anyhow::Result<Env>>>(
-    functions: &DefaultQueryFunctions<Env>,
+    functions: &DefaultQueryFunctionsModule<Env>,
     query: &str,
     query_args: Vec<String>,
     environment: impl FnOnce(Vec<String>) -> Fut,
