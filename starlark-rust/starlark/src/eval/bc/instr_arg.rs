@@ -22,7 +22,6 @@ use std::{
     fmt::{Display, Formatter, Write},
 };
 
-use gazebo::dupe::Dupe;
 use itertools::Itertools;
 
 use crate::{
@@ -394,54 +393,6 @@ impl BcInstrArg for BcOpcode {
 impl BcInstrArg for KnownMethod {
     fn fmt_append(_param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
         write!(f, " <m>")
-    }
-
-    fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
-}
-
-/// Instruction argument encodes how many values are popped
-/// off the stack manually in the instruction impl.
-#[derive(Copy, Clone, Dupe)]
-pub(crate) struct ArgPopsStack(pub(crate) u32);
-/// Instruction argument encodes how many values are pushed
-/// to the stack manually in the instruction impl.
-#[derive(Copy, Clone, Dupe)]
-pub(crate) struct ArgPushesStack(pub(crate) u32);
-/// Instruction arguments encodes a value is popped
-/// off the stack manually in the instruction impl.
-pub(crate) struct ArgPopsStack1;
-/// Instruction arguments encodes a value is popped
-/// off the stack manually if contained value is true.
-#[derive(Copy, Clone, Dupe)]
-pub(crate) struct ArgPopsStackMaybe1(pub(crate) bool);
-
-impl BcInstrArg for ArgPushesStack {
-    fn fmt_append(param: &Self, ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
-        BcInstrArg::fmt_append(&param.0, ip, f)
-    }
-
-    fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
-}
-
-impl BcInstrArg for ArgPopsStack {
-    fn fmt_append(param: &Self, ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
-        BcInstrArg::fmt_append(&param.0, ip, f)
-    }
-
-    fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
-}
-
-impl BcInstrArg for ArgPopsStack1 {
-    fn fmt_append(_param: &Self, _ip: BcAddr, _f: &mut dyn Write) -> fmt::Result {
-        Ok(())
-    }
-
-    fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
-}
-
-impl BcInstrArg for ArgPopsStackMaybe1 {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
-        write!(f, "{}", if param.0 { 1 } else { 0 })
     }
 
     fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
