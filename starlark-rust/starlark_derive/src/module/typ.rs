@@ -191,88 +191,12 @@ pub(crate) enum StarArgSource {
 
 #[derive(Debug)]
 pub(crate) enum StarFunSource {
-    Unknown,
     /// Function signature is single `Arguments` parameter.
     Parameters,
     /// Function signature is `this` parameter followed by `Arguments` parameter.
     ThisParameters,
     Argument(usize),
     Positional(usize, usize),
-}
-
-impl StarModule {
-    pub fn resolve(&mut self) -> syn::Result<()> {
-        for x in &mut self.stmts {
-            if let StarStmt::Fun(x) = x {
-                x.resolve(self.module_kind)?;
-            }
-        }
-        Ok(())
-    }
-}
-
-impl StarFun {
-    #[allow(clippy::branches_sharing_code)] // False positive
-    pub fn resolve(&mut self, module_kind: ModuleKind) -> syn::Result<()> {
-        fn requires_signature(x: &StarArg) -> bool {
-            // We need to use a signature if something has a name
-            // There are *args or **kwargs
-            // There is a default that needs promoting to a Value (since the signature stores that value)
-            x.pass_style != StarArgPassStyle::PosOnly
-                || x.is_args()
-                || x.is_kwargs()
-                || (x.is_value() && x.default.is_some())
-        }
-
-        if self.args.len() == 1 && self.args[0].is_arguments() {
-            self.args[0].source = StarArgSource::Parameters;
-            self.source = StarFunSource::Parameters;
-        } else if self.args.len() == 2 && self.args[0].this && self.args[1].is_arguments() {
-            self.args[0].source = StarArgSource::This;
-            self.args[1].source = StarArgSource::Parameters;
-            self.source = StarFunSource::ThisParameters;
-        } else {
-            let use_arguments = self.args.iter().filter(|x| !x.this).any(requires_signature);
-            if use_arguments {
-                let mut argument = 0;
-                for x in &mut self.args {
-                    if x.this {
-                        x.source = StarArgSource::This;
-                    } else {
-                        x.source = StarArgSource::Argument(argument);
-                        argument += 1;
-                    }
-                }
-                self.source = StarFunSource::Argument(argument);
-            } else {
-                let mut required = 0;
-                let mut optional = 0;
-                for x in &mut self.args {
-                    if x.this {
-                        x.source = StarArgSource::This;
-                        continue;
-                    }
-                    if optional == 0 && x.default.is_none() && !x.is_option() {
-                        x.source = StarArgSource::Required(required);
-                        required += 1;
-                    } else {
-                        x.source = StarArgSource::Optional(optional);
-                        optional += 1;
-                    }
-                }
-                self.source = StarFunSource::Positional(required, optional);
-            }
-        }
-
-        if self.is_method() && module_kind != ModuleKind::Methods {
-            return Err(syn::Error::new(
-                self.span(),
-                "Methods can only be defined in methods module",
-            ));
-        }
-
-        Ok(())
-    }
 }
 
 impl StarArg {
@@ -298,5 +222,15 @@ impl StarArg {
 
     pub fn is_kwargs(&self) -> bool {
         self.name == "kwargs"
+    }
+
+    pub fn requires_signature(&self) -> bool {
+        // We need to use a signature if something has a name
+        // There are *args or **kwargs
+        // There is a default that needs promoting to a Value (since the signature stores that value)
+        self.pass_style != StarArgPassStyle::PosOnly
+            || self.is_args()
+            || self.is_kwargs()
+            || (self.is_value() && self.default.is_some())
     }
 }

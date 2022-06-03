@@ -218,7 +218,6 @@ fn render_binding(x: &StarFun) -> TokenStream {
                 }
             }
         }
-        ref s => unreachable!("Unknown StarFunSource: {:?}", s),
     }
 }
 
@@ -302,7 +301,7 @@ fn render_documentation(x: &StarFun) -> syn::Result<TokenStream> {
     let args_count = match &x.source {
         StarFunSource::Argument(args_count) => Some(*args_count),
         StarFunSource::Positional(required, optional) => Some(required + optional),
-        StarFunSource::Unknown | StarFunSource::Parameters | StarFunSource::ThisParameters => None,
+        StarFunSource::Parameters | StarFunSource::ThisParameters => None,
     };
     let name_str = ident_string(&x.name);
     let documentation_signature = match args_count {

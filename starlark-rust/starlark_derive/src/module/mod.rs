@@ -28,8 +28,7 @@ pub(crate) fn starlark_module(attr: TokenStream, input: TokenStream) -> TokenStr
 
     fn starlark_module_impl(attr: TokenStream, input: ItemFn) -> syn::Result<TokenStream> {
         assert!(attr.is_empty());
-        let mut x = parse::parse(input)?;
-        x.resolve()?;
+        let x = parse::parse(input)?;
         Ok(render::render(x)?.into())
     }
 

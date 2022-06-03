@@ -79,7 +79,10 @@ pub(crate) fn parse(mut input: ItemFn) -> syn::Result<StarModule> {
         globals_builder: *ty,
         name,
         docstring: module_docstring,
-        stmts: input.block.stmts.into_try_map(parse_stmt)?,
+        stmts: input
+            .block
+            .stmts
+            .into_try_map(|stmt| parse_stmt(stmt, module_kind))?,
     })
 }
 
@@ -110,9 +113,9 @@ fn parse_module_docstring(input: &ItemFn) -> Option<String> {
     }
 }
 
-fn parse_stmt(stmt: Stmt) -> syn::Result<StarStmt> {
+fn parse_stmt(stmt: Stmt, module_kind: ModuleKind) -> syn::Result<StarStmt> {
     match stmt {
-        Stmt::Item(Item::Fn(x)) => parse_fun(x),
+        Stmt::Item(Item::Fn(x)) => parse_fun(x, module_kind),
         Stmt::Item(Item::Const(x)) => Ok(StarStmt::Const(parse_const(x))),
         s => Err(syn::Error::new(
             s.span(),

@@ -23,7 +23,7 @@ use syn::{
 };
 
 use crate::module::{
-    parse::{is_attribute_docstring, is_mut_something, is_ref_something},
+    parse::{is_attribute_docstring, is_mut_something, is_ref_something, ModuleKind},
     typ::{
         SpecialParam, StarArg, StarArgPassStyle, StarArgSource, StarAttr, StarFun, StarFunSource,
         StarStmt,
@@ -193,7 +193,7 @@ fn is_anyhow_result(t: &Type) -> Option<Type> {
 }
 
 // Add a function to the `GlobalsModule` named `globals_builder`.
-pub(crate) fn parse_fun(func: ItemFn) -> syn::Result<StarStmt> {
+pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<StarStmt> {
     let sig_span = func.sig.span();
 
     let ProcessedAttributes {
@@ -284,7 +284,17 @@ pub(crate) fn parse_fun(func: ItemFn) -> syn::Result<StarStmt> {
             docstring,
         }))
     } else {
-        Ok(StarStmt::Fun(StarFun {
+        let is_method = !args.is_empty() && args[0].this;
+        if is_method != (module_kind == ModuleKind::Methods) {
+            return Err(syn::Error::new(
+                sig_span,
+                "Methods can only be defined in methods module",
+            ));
+        }
+
+        let source = resolve_args(&mut args)?;
+
+        let fun = StarFun {
             name: func.sig.ident,
             type_attribute,
             attrs,
@@ -295,9 +305,56 @@ pub(crate) fn parse_fun(func: ItemFn) -> syn::Result<StarStmt> {
             return_type_arg,
             speculative_exec_safe,
             body: *func.block,
-            source: StarFunSource::Unknown,
+            source,
             docstring,
-        }))
+        };
+        Ok(StarStmt::Fun(fun))
+    }
+}
+
+#[allow(clippy::branches_sharing_code)] // False positive
+fn resolve_args(args: &mut [StarArg]) -> syn::Result<StarFunSource> {
+    if args.len() == 1 && args[0].is_arguments() {
+        args[0].source = StarArgSource::Parameters;
+        Ok(StarFunSource::Parameters)
+    } else if args.len() == 2 && args[0].this && args[1].is_arguments() {
+        args[0].source = StarArgSource::This;
+        args[1].source = StarArgSource::Parameters;
+        Ok(StarFunSource::ThisParameters)
+    } else {
+        let use_arguments = args
+            .iter()
+            .filter(|x| !x.this)
+            .any(|x| x.requires_signature());
+        if use_arguments {
+            let mut argument = 0;
+            for x in args.iter_mut() {
+                if x.this {
+                    x.source = StarArgSource::This;
+                } else {
+                    x.source = StarArgSource::Argument(argument);
+                    argument += 1;
+                }
+            }
+            Ok(StarFunSource::Argument(argument))
+        } else {
+            let mut required = 0;
+            let mut optional = 0;
+            for x in args.iter_mut() {
+                if x.this {
+                    x.source = StarArgSource::This;
+                    continue;
+                }
+                if optional == 0 && x.default.is_none() && !x.is_option() {
+                    x.source = StarArgSource::Required(required);
+                    required += 1;
+                } else {
+                    x.source = StarArgSource::Optional(optional);
+                    optional += 1;
+                }
+            }
+            Ok(StarFunSource::Positional(required, optional))
+        }
     }
 }
 
