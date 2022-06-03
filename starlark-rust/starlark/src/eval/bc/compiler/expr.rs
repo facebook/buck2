@@ -32,7 +32,7 @@ use crate::{
             writer::BcWriter,
         },
         compiler::{
-            expr::{CompareOp, ExprBinOp, ExprCompiled, ExprUnOp},
+            expr::{CompareOp, ExprBinOp, ExprCompiled, ExprLogicalBinOp, ExprUnOp, MaybeNot},
             span::IrSpanned,
         },
         runtime::call_stack::FrozenFileSpan,
@@ -280,23 +280,18 @@ impl IrSpanned<ExprCompiled> {
                     bc,
                 );
             }
-            ExprCompiled::And(box (ref l, ref r)) => {
+            ExprCompiled::LogicalBinOp(op, box (ref l, ref r)) => {
                 l.write_bc_cb(bc, |l_slot, bc| {
+                    let maybe_not = match op {
+                        ExprLogicalBinOp::And => MaybeNot::Id,
+                        ExprLogicalBinOp::Or => MaybeNot::Not,
+                    };
                     bc.write_if_else(
                         l_slot,
+                        maybe_not,
                         l.span,
                         |bc| r.write_bc(target, bc),
                         |bc| bc.write_instr::<InstrMov>(span, (l_slot, target)),
-                    );
-                });
-            }
-            ExprCompiled::Or(box (ref l, ref r)) => {
-                l.write_bc_cb(bc, |l_slot, bc| {
-                    bc.write_if_else(
-                        l_slot,
-                        l.span,
-                        |bc| bc.write_instr::<InstrMov>(span, (l_slot, target)),
-                        |bc| r.write_bc(target, bc),
                     );
                 });
             }

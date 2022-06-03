@@ -18,7 +18,7 @@
 use crate::eval::{
     bc::{instrs::PatchAddr, writer::BcWriter},
     compiler::{
-        expr::{ExprCompiled, MaybeNot},
+        expr::{ExprCompiled, ExprLogicalBinOp, MaybeNot},
         span::IrSpanned,
     },
 };
@@ -82,12 +82,6 @@ fn write_if_else_impl<T, F>(
     }
 }
 
-#[derive(PartialEq)]
-enum IfBinOp {
-    And,
-    Or,
-}
-
 /// Write boolean binary condition.
 ///
 /// The condition is: `maybe_not(x bin_op y)`.
@@ -96,13 +90,13 @@ enum IfBinOp {
 fn write_cond_bin_op(
     x: &IrSpanned<ExprCompiled>,
     y: &IrSpanned<ExprCompiled>,
-    bin_op: IfBinOp,
+    bin_op: ExprLogicalBinOp,
     maybe_not: MaybeNot,
     t: &mut Vec<PatchAddr>,
     f: &mut Vec<PatchAddr>,
     bc: &mut BcWriter,
 ) {
-    if (bin_op == IfBinOp::And) == (maybe_not == MaybeNot::Id) {
+    if (bin_op == ExprLogicalBinOp::And) == (maybe_not == MaybeNot::Id) {
         // This branch handles either of expressions:
         // expression   | bin_op | maybe_not
         // --------------+-------+----------
@@ -154,11 +148,8 @@ fn write_cond(
         ExprCompiled::Not(cond) => {
             write_cond(cond, maybe_not.negate(), t, f, bc);
         }
-        ExprCompiled::And(box (x, y)) => {
-            write_cond_bin_op(x, y, IfBinOp::And, maybe_not, t, f, bc);
-        }
-        ExprCompiled::Or(box (x, y)) => {
-            write_cond_bin_op(x, y, IfBinOp::Or, maybe_not, t, f, bc);
+        ExprCompiled::LogicalBinOp(op, box (x, y)) => {
+            write_cond_bin_op(x, y, *op, maybe_not, t, f, bc);
         }
         _ => {
             cond.write_bc_cb(bc, |cond_slot, bc| {

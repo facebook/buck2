@@ -155,6 +155,13 @@ impl ExprBinOp {
     }
 }
 
+/// Logical binary operator.
+#[derive(Copy, Clone, Dupe, Debug, VisitSpanMut, Eq, PartialEq)]
+pub(crate) enum ExprLogicalBinOp {
+    And,
+    Or,
+}
+
 #[derive(Clone, Debug, VisitSpanMut)]
 pub(crate) enum ExprCompiled {
     Value(FrozenValue),
@@ -199,8 +206,10 @@ pub(crate) enum ExprCompiled {
     ),
     Not(Box<IrSpanned<ExprCompiled>>),
     UnOp(ExprUnOp, Box<IrSpanned<ExprCompiled>>),
-    And(Box<(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)>),
-    Or(Box<(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)>),
+    LogicalBinOp(
+        ExprLogicalBinOp,
+        Box<(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)>,
+    ),
     /// Expression equivalent to `(x, y)[1]`: evaluate `x`, discard the result,
     /// then evaluate `y` and use its result.
     Seq(Box<(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)>),
@@ -325,9 +334,7 @@ impl ExprCompiled {
             Self::TypeIs(x, _t) => x.is_pure_infallible(),
             Self::Not(x) => x.is_pure_infallible(),
             Self::Seq(box (x, y)) => x.is_pure_infallible() && y.is_pure_infallible(),
-            Self::Or(box (x, y)) | Self::And(box (x, y)) => {
-                x.is_pure_infallible() && y.is_pure_infallible()
-            }
+            Self::LogicalBinOp(_op, box (x, y)) => x.is_pure_infallible() && y.is_pure_infallible(),
             Self::If(box (cond, x, y)) => {
                 cond.is_pure_infallible() && x.is_pure_infallible() && y.is_pure_infallible()
             }
@@ -349,24 +356,17 @@ impl ExprCompiled {
             // TODO(nga): if keys are unique hashable constants, we can fold this to constant too.
             ExprCompiled::Dict(xs) if xs.is_empty() => Some(false),
             ExprCompiled::Not(x) => x.is_pure_infallible_to_bool().map(|x| !x),
-            ExprCompiled::And(box (x, y)) => {
+            ExprCompiled::LogicalBinOp(op, box (x, y)) => {
                 match (
+                    op,
                     x.is_pure_infallible_to_bool(),
                     y.is_pure_infallible_to_bool(),
                 ) {
-                    (Some(true), y) => y,
-                    (Some(false), _) => Some(false),
-                    (None, _) => None,
-                }
-            }
-            ExprCompiled::Or(box (x, y)) => {
-                match (
-                    x.is_pure_infallible_to_bool(),
-                    y.is_pure_infallible_to_bool(),
-                ) {
-                    (Some(false), y) => y,
-                    (Some(true), _) => Some(true),
-                    (None, _) => None,
+                    (ExprLogicalBinOp::And, Some(true), y) => y,
+                    (ExprLogicalBinOp::Or, Some(false), y) => y,
+                    (ExprLogicalBinOp::And, Some(false), _) => Some(false),
+                    (ExprLogicalBinOp::Or, Some(true), _) => Some(true),
+                    (_, None, _) => None,
                 }
             }
             _ => None,
@@ -454,15 +454,10 @@ impl IrSpanned<ExprCompiled> {
                 let e = e.optimize_on_freeze(ctx);
                 ExprCompiled::un_op(op, e, ctx.heap, ctx.frozen_heap)
             }
-            ExprCompiled::And(box (ref l, ref r)) => {
+            ExprCompiled::LogicalBinOp(op, box (ref l, ref r)) => {
                 let l = l.optimize_on_freeze(ctx);
                 let r = r.optimize_on_freeze(ctx);
-                return ExprCompiled::and(l, r);
-            }
-            ExprCompiled::Or(box (ref l, ref r)) => {
-                let l = l.optimize_on_freeze(ctx);
-                let r = r.optimize_on_freeze(ctx);
-                return ExprCompiled::or(l, r);
+                return ExprCompiled::logical_bin_op(op, l, r);
             }
             ExprCompiled::Seq(box (ref l, ref r)) => {
                 let l = l.optimize_on_freeze(ctx);
@@ -506,24 +501,28 @@ impl ExprCompiled {
     }
 
     fn or(l: IrSpanned<ExprCompiled>, r: IrSpanned<ExprCompiled>) -> IrSpanned<ExprCompiled> {
-        if let Some(l_v) = l.is_pure_infallible_to_bool() {
-            if l_v { l } else { r }
-        } else {
-            let span = l.span.merge(&r.span);
-            IrSpanned {
-                node: ExprCompiled::Or(box (l, r)),
-                span,
-            }
-        }
+        Self::logical_bin_op(ExprLogicalBinOp::Or, l, r)
     }
 
     fn and(l: IrSpanned<ExprCompiled>, r: IrSpanned<ExprCompiled>) -> IrSpanned<ExprCompiled> {
+        Self::logical_bin_op(ExprLogicalBinOp::And, l, r)
+    }
+
+    fn logical_bin_op(
+        op: ExprLogicalBinOp,
+        l: IrSpanned<ExprCompiled>,
+        r: IrSpanned<ExprCompiled>,
+    ) -> IrSpanned<ExprCompiled> {
         if let Some(l_v) = l.is_pure_infallible_to_bool() {
-            if l_v { r } else { l }
+            if l_v == (op == ExprLogicalBinOp::Or) {
+                l
+            } else {
+                r
+            }
         } else {
             let span = l.span.merge(&r.span);
             IrSpanned {
-                node: ExprCompiled::And(box (l, r)),
+                node: ExprCompiled::LogicalBinOp(op, box (l, r)),
                 span,
             }
         }

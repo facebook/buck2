@@ -19,7 +19,10 @@
 
 use crate::{
     eval::{
-        compiler::{expr::ExprCompiled, span::IrSpanned},
+        compiler::{
+            expr::{ExprCompiled, ExprLogicalBinOp},
+            span::IrSpanned,
+        },
         runtime::call_stack::FrozenFileSpan,
     },
     values::FrozenValue,
@@ -82,14 +85,17 @@ impl ExprCompiledBool {
                     },
                 }
             }
-            ExprCompiled::And(box (x, y)) => {
+            ExprCompiled::LogicalBinOp(op, box (x, y)) => {
                 let x = Self::new(x);
                 let y = Self::new(y);
-                match (x.const_value(), y.const_value()) {
-                    (Some(false), _) => new_bool(span, false),
-                    (Some(true), _) => y,
-                    (None, Some(true)) => x,
-                    (None, Some(false)) => {
+                match (op, x.const_value(), y.const_value()) {
+                    (ExprLogicalBinOp::And, Some(false), _) => new_bool(span, false),
+                    (ExprLogicalBinOp::Or, Some(true), _) => new_bool(span, true),
+                    (ExprLogicalBinOp::And, Some(true), _) => y,
+                    (ExprLogicalBinOp::Or, Some(false), _) => y,
+                    (ExprLogicalBinOp::And, None, Some(true)) => x,
+                    (ExprLogicalBinOp::Or, None, Some(false)) => x,
+                    (ExprLogicalBinOp::And, None, Some(false)) => {
                         // The expression evaluates to false,
                         // but we need to preserve LHS for the effect.
                         IrSpanned {
@@ -103,25 +109,7 @@ impl ExprCompiledBool {
                             ),
                         }
                     }
-                    (None, None) => IrSpanned {
-                        node: ExprCompiledBool::Expr(ExprCompiled::And(box (
-                            x.into_expr(),
-                            y.into_expr(),
-                        ))),
-                        span,
-                    },
-                }
-            }
-            // "Or" handling is very similar to "and",
-            // not folding to keep it readable.
-            ExprCompiled::Or(box (x, y)) => {
-                let x = Self::new(x);
-                let y = Self::new(y);
-                match (x.const_value(), y.const_value()) {
-                    (Some(true), _) => new_bool(span, true),
-                    (Some(false), _) => y,
-                    (None, Some(false)) => x,
-                    (None, Some(true)) => {
+                    (ExprLogicalBinOp::Or, None, Some(true)) => {
                         // The expression evaluates to true,
                         // but we need to preserve LHS for the effect.
                         IrSpanned {
@@ -135,11 +123,11 @@ impl ExprCompiledBool {
                             ),
                         }
                     }
-                    (None, None) => IrSpanned {
-                        node: ExprCompiledBool::Expr(ExprCompiled::Or(box (
-                            x.into_expr(),
-                            y.into_expr(),
-                        ))),
+                    (op, None, None) => IrSpanned {
+                        node: ExprCompiledBool::Expr(ExprCompiled::LogicalBinOp(
+                            op,
+                            box (x.into_expr(), y.into_expr()),
+                        )),
                         span,
                     },
                 }

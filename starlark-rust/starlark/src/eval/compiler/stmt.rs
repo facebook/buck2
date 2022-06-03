@@ -33,7 +33,7 @@ use crate::{
     environment::{slots::ModuleSlotId, FrozenModuleRef},
     eval::{
         compiler::{
-            expr::ExprCompiled,
+            expr::{ExprCompiled, ExprLogicalBinOp},
             expr_bool::ExprCompiledBool,
             known::list_to_tuple,
             scope::{Captured, CstAssign, CstExpr, CstStmt, Slot},
@@ -256,10 +256,10 @@ impl StmtsCompiled {
             // Unwrap infallible expressions.
             ExprCompiled::TypeIs(x, _) | ExprCompiled::Not(x) => Self::expr(*x),
             // "And" and "or" for effect are equivalent to `if`.
-            ExprCompiled::And(box (x, y)) => {
+            ExprCompiled::LogicalBinOp(ExprLogicalBinOp::And, box (x, y)) => {
                 Self::if_stmt(expr.span, x, Self::expr(y), StmtsCompiled::empty())
             }
-            ExprCompiled::Or(box (x, y)) => {
+            ExprCompiled::LogicalBinOp(ExprLogicalBinOp::Or, box (x, y)) => {
                 Self::if_stmt(expr.span, x, StmtsCompiled::empty(), Self::expr(y))
             }
             expr => {

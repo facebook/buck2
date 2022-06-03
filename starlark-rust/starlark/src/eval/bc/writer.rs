@@ -35,6 +35,7 @@ use crate::{
             slow_arg::BcInstrSlowArg,
             stack_ptr::{BcSlot, BcSlotIn, BcSlotInRange, BcSlotRange, BcSlotsN},
         },
+        compiler::expr::MaybeNot,
         runtime::{call_stack::FrozenFileSpan, slots::LocalSlotId},
     },
     values::{FrozenHeap, FrozenRef, FrozenValue},
@@ -251,8 +252,7 @@ impl<'f> BcWriter<'f> {
         self.instrs.addr_to_patch(addr, unsafe { &(*arg).1 })
     }
 
-    /// Write if-else block.
-    pub(crate) fn write_if_else(
+    fn write_if_else_impl(
         &mut self,
         cond: BcSlotIn,
         span: FrozenFileSpan,
@@ -265,6 +265,21 @@ impl<'f> BcWriter<'f> {
         self.patch_addr(else_target);
         else_block(self);
         self.patch_addr(end_target);
+    }
+
+    /// Write if-else block.
+    pub(crate) fn write_if_else(
+        &mut self,
+        cond: BcSlotIn,
+        maybe_not: MaybeNot,
+        span: FrozenFileSpan,
+        then_block: impl FnOnce(&mut Self),
+        else_block: impl FnOnce(&mut Self),
+    ) {
+        match maybe_not {
+            MaybeNot::Id => self.write_if_else_impl(cond, span, then_block, else_block),
+            MaybeNot::Not => self.write_if_else_impl(cond, span, else_block, then_block),
+        }
     }
 
     /// Write for loop.

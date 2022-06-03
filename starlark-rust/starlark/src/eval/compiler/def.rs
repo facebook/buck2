@@ -39,7 +39,7 @@ use crate::{
     eval::{
         bc::{bytecode::Bc, frame::alloca_frame},
         compiler::{
-            expr::{CompareOp, ExprBinOp, ExprCompiled, ExprUnOp},
+            expr::{CompareOp, ExprBinOp, ExprCompiled, ExprLogicalBinOp, ExprUnOp},
             scope::{
                 Captured, CstAssignIdent, CstExpr, CstParameter, CstStmt, ScopeId, ScopeNames,
             },
@@ -366,7 +366,8 @@ impl Compiler<'_, '_, '_> {
                     && Compiler::is_safe_to_inline_expr(f)
             }
             ExprCompiled::Not(ref x) => Compiler::is_safe_to_inline_expr(x),
-            ExprCompiled::And(box (ref x, ref y)) | ExprCompiled::Or(box (ref x, ref y)) => {
+            ExprCompiled::LogicalBinOp(op, box (ref x, ref y)) => {
+                let _: &ExprLogicalBinOp = op;
                 Compiler::is_safe_to_inline_expr(x) && Compiler::is_safe_to_inline_expr(y)
             }
             ExprCompiled::Seq(box (ref x, ref y)) => {
