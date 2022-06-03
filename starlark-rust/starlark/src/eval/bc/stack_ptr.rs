@@ -77,14 +77,6 @@ impl<const N: usize> BcSlotsN<N> {
         BcSlotsN { start: range.start }
     }
 
-    pub(crate) fn start(self) -> BcSlot {
-        self.start
-    }
-
-    pub(crate) fn end(self) -> BcSlot {
-        self.start + N as u32
-    }
-
     pub(crate) fn to_in(self) -> BcSlotsInN<N> {
         BcSlotsInN {
             start: self.start.to_in(),
