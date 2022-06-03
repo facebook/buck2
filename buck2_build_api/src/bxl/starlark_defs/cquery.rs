@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use buck2_core::target::TargetLabel;
-use buck2_query::query::{environment::QueryEnvironment, syntax::simple::eval::set::TargetSetExt};
+use buck2_query::query::syntax::simple::functions::DefaultQueryFunctions;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -36,6 +36,9 @@ pub struct StarlarkCQueryCtx<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     ctx: &'v BxlContext<'v>,
+    #[trace(unsafe_ignore)]
+    #[derivative(Debug = "ignore")]
+    functions: DefaultQueryFunctions<CqueryEnvironment<'v>>,
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     env: CqueryEnvironment<'v>,
@@ -96,7 +99,11 @@ impl<'v> StarlarkCQueryCtx<'v> {
             global_target_platform.parse_target_platforms(&ctx.target_alias_resolver, &ctx.cell)?;
 
         let env = get_cquery_env(ctx.async_ctx.0, global_target_platform).await?;
-        Ok(Self { ctx, env })
+        Ok(Self {
+            ctx,
+            functions: DefaultQueryFunctions::new(),
+            env,
+        })
     }
 }
 
@@ -108,8 +115,8 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         targets: TargetExpr<ConfiguredTargetNode>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx.async_ctx.via(|| async {
-            targets!(&this.env, targets)
-                .kind(regex)
+            this.functions
+                .kind(regex, &*targets!(&this.env, targets))
                 .map(StarlarkTargetSet::from)
         })
     }
@@ -121,8 +128,8 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         targets: TargetExpr<ConfiguredTargetNode>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx.async_ctx.via(|| async {
-            targets!(&this.env, targets)
-                .attrregexfilter(attribute, value)
+            this.functions
+                .attrregexfilter(attribute, value, targets!(&this.env, targets))
                 .map(StarlarkTargetSet::from)
         })
     }
@@ -133,7 +140,11 @@ fn register_cquery(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx
             .async_ctx
-            .via(|| async { this.env.owner(&*(files.get(&this.env).await?)).await })
+            .via(|| async {
+                this.functions
+                    .owner(&this.env, &*(files.get(&this.env).await?))
+                    .await
+            })
             .map(StarlarkTargetSet::from)
     }
 
@@ -146,8 +157,9 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         this.ctx
             .async_ctx
             .via(|| async {
-                this.env
+                this.functions
                     .rdeps(
+                        &this.env,
                         targets!(&this.env, universe),
                         targets!(&this.env, from),
                         depth,
