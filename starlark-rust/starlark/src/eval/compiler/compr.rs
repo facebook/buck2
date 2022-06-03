@@ -181,6 +181,8 @@ impl ClauseCompiled {
 #[derive(Clone, Debug, VisitSpanMut)]
 pub(crate) struct ClausesCompiled {
     /// Not empty.
+    ///
+    /// Clauses are in reverse order, i. e. the first executed clause is the last in the list.
     clauses: Vec<ClauseCompiled>,
 }
 

@@ -181,8 +181,11 @@ pub(crate) enum ExprCompiled {
     ArrayIndirection(Box<(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)>),
     If(
         Box<(
+            // Condition.
             IrSpanned<ExprCompiled>,
+            // Then branch.
             IrSpanned<ExprCompiled>,
+            // Else branch.
             IrSpanned<ExprCompiled>,
         )>,
     ),
