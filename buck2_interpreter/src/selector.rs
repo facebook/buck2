@@ -10,10 +10,7 @@
 use std::fmt::{self, Display};
 
 use anyhow::anyhow;
-use gazebo::{
-    any::{AnyLifetime, ProvidesStaticType},
-    coerce::Coerce,
-};
+use gazebo::{any::ProvidesStaticType, coerce::Coerce};
 use starlark::{
     collections::SmallMap,
     eval::Evaluator,
@@ -24,7 +21,7 @@ use starlark::{
     },
 };
 
-#[derive(Debug, AnyLifetime, NoSerialize)] // TODO selector should probably support serializing
+#[derive(Debug, ProvidesStaticType, NoSerialize)] // TODO selector should probably support serializing
 #[repr(C)]
 pub enum SelectorGen<ValueType> {
     Inner(ValueType),

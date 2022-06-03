@@ -16,7 +16,7 @@ use buck2_core::{
     package::{Package, PackageRelativePathBuf},
     result::SharedResult,
 };
-use gazebo::{any::AnyLifetime, cmp::PartialEqAny, dupe::Dupe};
+use gazebo::{any::ProvidesStaticType, cmp::PartialEqAny, dupe::Dupe};
 use starlark::{
     environment::{GlobalsBuilder, Module},
     eval::Evaluator,
@@ -57,7 +57,7 @@ pub enum InterpreterHostPlatform {
 ///
 /// Many of the functions available in build files reach out to this as part of
 /// their implementation.
-#[derive(AnyLifetime, Debug)]
+#[derive(ProvidesStaticType, Debug)]
 pub struct BuildContext<'a> {
     /// The CellInfo for the top-level module being interpreted. Note that this
     /// is not necessarily the same as the file currently being processed
