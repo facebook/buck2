@@ -257,7 +257,8 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
         Ok(self
             .implementation
             .deps(
-                evaluator,
+                evaluator.env(),
+                evaluator.functions(),
                 &targets,
                 depth.map(|v| v as i32),
                 captured_expr.as_ref(),
@@ -407,7 +408,8 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
 
     pub async fn deps(
         &self,
-        evaluator: &QueryEvaluator<'_, Env>,
+        env: &Env,
+        functions: &dyn QueryFunctions<Env>,
         targets: &TargetSet<Env::Target>,
         depth: Option<i32>,
         captured_expr: Option<&CapturedExpr<'_>>,
@@ -415,7 +417,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         DepsFunction::<Env> {
             _marker: PhantomData,
         }
-        .invoke_deps(evaluator, targets, depth, captured_expr)
+        .invoke_deps(env, functions, targets, depth, captured_expr)
         .await
     }
 

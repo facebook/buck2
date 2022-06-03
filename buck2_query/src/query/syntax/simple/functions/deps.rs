@@ -65,7 +65,8 @@ pub(crate) struct DepsFunction<Env: QueryEnvironment> {
 impl<Env: QueryEnvironment> DepsFunction<Env> {
     pub(crate) async fn invoke_deps(
         &self,
-        evaluator: &QueryEvaluator<'_, Env>,
+        env: &Env,
+        functions: &dyn QueryFunctions<Env>,
         targets: &TargetSet<Env::Target>,
         depth: Option<i32>,
         captured_expr: Option<&CapturedExpr<'_>>,
@@ -101,8 +102,8 @@ impl<Env: QueryEnvironment> DepsFunction<Env> {
                 }
 
                 Some(Filter {
-                    inner_env: evaluator.env(),
-                    functions: evaluator.functions(),
+                    inner_env: env,
+                    functions,
                     expr,
                 })
             }
@@ -113,6 +114,6 @@ impl<Env: QueryEnvironment> DepsFunction<Env> {
             .as_ref()
             .map(|v| v as &dyn TraversalFilter<Env::Target>);
 
-        evaluator.env().deps(targets, depth, filter_ref).await
+        env.deps(targets, depth, filter_ref).await
     }
 }
