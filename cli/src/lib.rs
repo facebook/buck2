@@ -420,7 +420,12 @@ impl CommandKind {
             CommandKind::Cquery(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Kill(cmd) => cmd.exec(matches, command_ctx).into(),
             CommandKind::Root(cmd) => cmd.exec(matches, command_ctx).into(),
-            CommandKind::Query(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::Query(cmd) => {
+                crate::eprintln!(
+                    "WARNING: \"buck2 query\" is an alias for \"buck2 uquery\". Consider using \"buck2 cquery\" or \"buck2 uquery\" explicitly."
+                )?;
+                cmd.exec(matches, command_ctx)
+            }
             CommandKind::Server(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Status(cmd) => cmd.exec(matches, command_ctx).into(),
             CommandKind::Targets(cmd) => cmd.exec(matches, command_ctx),
