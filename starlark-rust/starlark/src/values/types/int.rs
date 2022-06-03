@@ -30,7 +30,10 @@ use std::{
     ptr,
 };
 
-use gazebo::{any::AnyLifetime, cast};
+use gazebo::{
+    any::{AnyLifetime, ProvidesStaticType},
+    cast,
+};
 use num_bigint::BigInt;
 use num_traits::Signed;
 use serde::{Serialize, Serializer};
@@ -71,8 +74,8 @@ impl UnpackValue<'_> for i32 {
 
 // WARNING: This type isn't a real type, a pointer to this is secretly an i32.
 // Therefore, don't derive stuff on it, since it will be wrong.
-// However, `AnyLifetime` promises not to peek at its value, so that's fine.
-#[derive(AnyLifetime)]
+// However, `ProvidesStaticType` promises not to peek at its value, so that's fine.
+#[derive(ProvidesStaticType)]
 #[repr(C)]
 pub(crate) struct PointerI32 {
     _private: (),

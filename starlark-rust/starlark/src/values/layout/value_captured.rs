@@ -23,17 +23,17 @@
 use std::cell::Cell;
 
 use derive_more::Display;
-use gazebo::{any::AnyLifetime, prelude::*};
+use gazebo::{any::ProvidesStaticType, prelude::*};
 
 use crate as starlark;
 use crate::values::{Freeze, Freezer, FrozenValue, StarlarkValue, Value, ValueLike};
 
-#[derive(Debug, Trace, AnyLifetime, Display, NoSerialize)]
+#[derive(Debug, Trace, ProvidesStaticType, Display, NoSerialize)]
 #[display(fmt = "{:?}", self)] // This type should never be user visible
 #[repr(transparent)]
 pub(crate) struct ValueCaptured<'v>(pub Cell<Option<Value<'v>>>);
 
-#[derive(Debug, AnyLifetime, Display, NoSerialize)]
+#[derive(Debug, ProvidesStaticType, Display, NoSerialize)]
 #[display(fmt = "{:?}", self)] // Type is not user visible
 #[repr(transparent)]
 pub(crate) struct FrozenValueCaptured(Option<FrozenValue>);

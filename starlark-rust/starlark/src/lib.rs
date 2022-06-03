@@ -114,7 +114,7 @@
 //! use starlark::eval::Evaluator;
 //! use starlark::syntax::{AstModule, Dialect};
 //! use starlark::values::{none::NoneType, Value, ValueLike};
-//! use gazebo::any::AnyLifetime;
+//! use gazebo::any::ProvidesStaticType;
 //! use std::cell::RefCell;
 //!
 //! let content = r#"
@@ -124,7 +124,7 @@
 //! "#;
 //!
 //! // Define a store in which to accumulate JSON strings
-//! #[derive(Debug, AnyLifetime, Default)]
+//! #[derive(Debug, ProvidesStaticType, Default)]
 //! struct Store(RefCell<Vec<String>>);
 //!
 //! impl Store {
@@ -292,12 +292,12 @@
 //! use starlark::environment::{Globals, Module};
 //! use starlark::eval::Evaluator;
 //! use starlark::syntax::{AstModule, Dialect};
-//! use starlark::values::{Heap, StarlarkValue, Value, ValueError, ValueLike, AnyLifetime, NoSerialize};
+//! use starlark::values::{Heap, StarlarkValue, Value, ValueError, ValueLike, ProvidesStaticType, NoSerialize};
 //! use starlark::{starlark_type, starlark_simple_value};
 //! use std::fmt::{self, Display, Write};
 //!
 //! // Define complex numbers
-//! #[derive(Debug, PartialEq, Eq, AnyLifetime, NoSerialize)]
+//! #[derive(Debug, PartialEq, Eq, ProvidesStaticType, NoSerialize)]
 //! struct Complex {
 //!     real: i32,
 //!     imaginary: i32,

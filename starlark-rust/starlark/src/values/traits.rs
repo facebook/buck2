@@ -35,7 +35,7 @@ use std::{
 
 use derive_more::Display;
 use erased_serde::Serialize;
-use gazebo::any::{AnyLifetime, ProvidesStaticType};
+use gazebo::any::ProvidesStaticType;
 
 use crate::{
     self as starlark,
@@ -64,12 +64,11 @@ use crate::{
 /// generate `One` and `FrozenOne` aliases.
 ///
 /// ```
-/// use starlark::values::{AnyLifetime, ComplexValue, Coerce, Freezer, FrozenValue, StarlarkValue, Value, ValueLike, Trace, Tracer, Freeze, NoSerialize};
+/// use starlark::values::{ProvidesStaticType, ComplexValue, Coerce, Freezer, FrozenValue, StarlarkValue, Value, ValueLike, Trace, Tracer, Freeze, NoSerialize};
 /// use starlark::{starlark_complex_value, starlark_type};
 /// use derive_more::Display;
-/// use gazebo::any::ProvidesStaticType;
 ///
-/// #[derive(Debug, Trace, Coerce, Display, AnyLifetime, NoSerialize)]
+/// #[derive(Debug, Trace, Coerce, Display, ProvidesStaticType, NoSerialize)]
 /// #[repr(C)]
 /// struct OneGen<V>(V);
 /// starlark_complex_value!(One);
@@ -105,7 +104,7 @@ use crate::{
 /// To make these aliases public (or public to the crate) pass a visibility
 /// to the macro, e.g. `starlark_complex_value!(pub One)`.
 ///
-/// The macro also defines instances of [`AnyLifetime`] for both,
+/// The macro also defines instances of [`ProvidesStaticType`] for both,
 /// [`AllocValue`](crate::values::AllocValue) for both,
 /// [`AllocFrozenValue`](crate::values::AllocFrozenValue) for the frozen one, and
 /// [`UnpackValue`](crate::values::UnpackValue) for the non-frozen one.
@@ -162,7 +161,7 @@ where
 ///
 /// Useful when implementing [`ComplexValue`], which is not meant to be frozen
 /// (e.g. when evaluating code which is never frozen or in tests).
-#[derive(Debug, AnyLifetime, Display, NoSerialize)]
+#[derive(Debug, ProvidesStaticType, Display, NoSerialize)]
 #[display(fmt = "NoSimpleValue")] // Can't actually be invoked since no &self
 pub enum NoSimpleValue {}
 impl<'v> StarlarkValue<'v> for NoSimpleValue {
@@ -184,13 +183,13 @@ impl<'v> StarlarkValue<'v> for NoSimpleValue {
 ///
 /// ```
 /// use starlark::values::StarlarkValue;
-/// use starlark::values::AnyLifetime;
+/// use starlark::values::ProvidesStaticType;
 /// use starlark::values::NoSerialize;
 /// # use starlark::starlark_simple_value;
 /// use starlark::starlark_type;
 /// use derive_more::Display;
 ///
-/// #[derive(Debug, Display, AnyLifetime, NoSerialize)]
+/// #[derive(Debug, Display, ProvidesStaticType, NoSerialize)]
 /// #[display(fmt = "Foo")]
 /// struct Foo;
 /// # starlark_simple_value!(Foo);

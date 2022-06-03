@@ -19,7 +19,7 @@
 
 use std::{cmp::Ordering, hash::Hash, ops::Not};
 
-use gazebo::any::AnyLifetime;
+use gazebo::any::ProvidesStaticType;
 use num_bigint::{BigInt, Sign};
 use num_traits::{cast::ToPrimitive, Signed, Zero};
 use serde::Serialize;
@@ -38,7 +38,7 @@ use crate::{
     Debug,
     Default,
     derive_more::Display,
-    AnyLifetime,
+    ProvidesStaticType,
     Ord,
     PartialOrd,
     Eq,

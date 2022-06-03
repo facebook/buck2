@@ -18,7 +18,7 @@
 use std::{any::TypeId, cmp, fmt::Debug, mem, mem::MaybeUninit};
 
 use derive_more::Display;
-use gazebo::{any::AnyLifetime, cast, prelude::*};
+use gazebo::{any::ProvidesStaticType, cast, prelude::*};
 use serde::{Serialize, Serializer};
 
 use crate::{
@@ -655,7 +655,7 @@ where
     }
 }
 
-#[derive(Debug, Display, AnyLifetime)]
+#[derive(Debug, Display, ProvidesStaticType)]
 #[display(fmt = "BlackHole")]
 pub(crate) struct BlackHole(pub(crate) usize);
 

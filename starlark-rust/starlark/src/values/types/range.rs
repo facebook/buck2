@@ -23,7 +23,7 @@ use std::{
     num::NonZeroI32,
 };
 
-use gazebo::{any::AnyLifetime, prelude::*};
+use gazebo::{any::ProvidesStaticType, prelude::*};
 
 use crate as starlark;
 use crate::values::{
@@ -32,7 +32,7 @@ use crate::values::{
 };
 
 /// Representation of `range()` type.
-#[derive(Clone, Copy, Dupe, Debug, AnyLifetime, NoSerialize)]
+#[derive(Clone, Copy, Dupe, Debug, ProvidesStaticType, NoSerialize)]
 pub struct Range {
     start: i32,
     stop: i32,

@@ -29,7 +29,7 @@ use std::{
 
 use anyhow::Context;
 use derive_more::Display;
-use gazebo::{any::AnyLifetime, prelude::*};
+use gazebo::{any::ProvidesStaticType, prelude::*};
 
 use crate as starlark;
 use crate::{
@@ -51,7 +51,7 @@ pub(crate) struct HeapProfile {
 trait MaybeDrop: Debug + Sync + Send + 'static {}
 
 /// Type which has `Drop`.
-#[derive(AnyLifetime, Debug, Trace)]
+#[derive(ProvidesStaticType, Debug, Trace)]
 struct NeedsDrop;
 impl Drop for NeedsDrop {
     fn drop(&mut self) {
@@ -62,13 +62,13 @@ impl Drop for NeedsDrop {
 }
 
 /// Type which doesn't have `Drop`.
-#[derive(AnyLifetime, Debug, Trace)]
+#[derive(ProvidesStaticType, Debug, Trace)]
 struct NoDrop;
 
 impl MaybeDrop for NeedsDrop {}
 impl MaybeDrop for NoDrop {}
 
-#[derive(Trace, Debug, Display, AnyLifetime, NoSerialize)]
+#[derive(Trace, Debug, Display, ProvidesStaticType, NoSerialize)]
 #[display(fmt = "CallEnter")]
 struct CallEnter<'v, D: MaybeDrop + 'static> {
     function: Value<'v>,
@@ -87,7 +87,7 @@ impl<'v, D: MaybeDrop + Trace<'v> + 'v> StarlarkValue<'v> for CallEnter<'v, D> {
     starlark_type!("call_enter");
 }
 
-#[derive(Debug, Display, AnyLifetime, NoSerialize)]
+#[derive(Debug, Display, ProvidesStaticType, NoSerialize)]
 #[display(fmt = "CallExit")]
 struct CallExit<D: MaybeDrop + 'static> {
     time: Instant,

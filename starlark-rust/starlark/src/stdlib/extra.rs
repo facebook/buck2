@@ -21,7 +21,7 @@ use std::{
 };
 
 use gazebo::{
-    any::{AnyLifetime, ProvidesStaticType},
+    any::ProvidesStaticType,
     coerce::{coerce, Coerce},
     prelude::*,
 };
@@ -205,7 +205,7 @@ pub fn abs(builder: &mut GlobalsBuilder) {
     }
 }
 
-#[derive(Debug, Coerce, Trace, NoSerialize, AnyLifetime)]
+#[derive(Debug, Coerce, Trace, NoSerialize, ProvidesStaticType)]
 #[repr(C)]
 struct PartialGen<V, S> {
     func: V,

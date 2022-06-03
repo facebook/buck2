@@ -29,7 +29,7 @@ use std::{
 };
 
 use gazebo::{
-    any::{AnyLifetime, ProvidesStaticType},
+    any::ProvidesStaticType,
     cell::ARef,
     coerce::{coerce, Coerce},
 };
@@ -48,7 +48,7 @@ use crate::{
     },
 };
 
-#[derive(Clone, Default, Trace, Debug, AnyLifetime)]
+#[derive(Clone, Default, Trace, Debug, ProvidesStaticType)]
 struct DictGen<T>(T);
 
 impl<'v, T: DictLike<'v>> Display for DictGen<T> {
@@ -64,7 +64,7 @@ impl<'v> Display for Dict<'v> {
 }
 
 /// Define the list type. See [`Dict`] and [`FrozenDict`] as the two possible representations.
-#[derive(Clone, Default, Trace, Debug, AnyLifetime)]
+#[derive(Clone, Default, Trace, Debug, ProvidesStaticType)]
 #[repr(transparent)]
 pub struct Dict<'v> {
     /// The data stored by the dictionary. The keys must all be hashable values.
@@ -72,7 +72,7 @@ pub struct Dict<'v> {
 }
 
 /// Define the list type. See [`Dict`] and [`FrozenDict`] as the two possible representations.
-#[derive(Clone, Default, Debug, AnyLifetime)]
+#[derive(Clone, Default, Debug, ProvidesStaticType)]
 #[repr(transparent)]
 pub struct FrozenDict {
     /// The data stored by the dictionary. The keys must all be hashable values.

@@ -19,7 +19,7 @@
 use std::hash::Hasher;
 
 use derive_more::Display;
-use gazebo::{any::AnyLifetime, prelude::*};
+use gazebo::{any::ProvidesStaticType, prelude::*};
 use serde::{Serialize, Serializer};
 
 use crate::{
@@ -32,7 +32,7 @@ use crate::{
 };
 
 /// Define the None type, use [`NoneType`] in Rust.
-#[derive(Debug, Clone, Dupe, AnyLifetime, Display)]
+#[derive(Debug, Clone, Dupe, ProvidesStaticType, Display)]
 #[display(fmt = "None")]
 pub struct NoneType;
 

@@ -30,7 +30,7 @@ use std::{
 };
 
 use gazebo::{
-    any::{AnyLifetime, ProvidesStaticType},
+    any::ProvidesStaticType,
     coerce::{coerce, Coerce},
     prelude::*,
 };
@@ -51,19 +51,19 @@ use crate::{
     },
 };
 
-#[derive(Clone, Default, Trace, Debug, AnyLifetime)]
+#[derive(Clone, Default, Trace, Debug, ProvidesStaticType)]
 #[repr(transparent)]
 pub(crate) struct ListGen<T>(pub(crate) T);
 
 /// Define the list type. See [`List`] and [`FrozenList`] as the two possible representations.
-#[derive(Trace, Debug, AnyLifetime)]
+#[derive(Trace, Debug, ProvidesStaticType)]
 pub struct List<'v> {
     /// The data stored by the list.
     pub(crate) content: Cell<ValueTyped<'v, Array<'v>>>,
 }
 
 /// Define the list type. See [`List`] and [`FrozenList`] as the two possible representations.
-#[derive(AnyLifetime)]
+#[derive(ProvidesStaticType)]
 #[repr(C)]
 pub struct FrozenList {
     len: usize,

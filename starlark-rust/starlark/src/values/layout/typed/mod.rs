@@ -32,7 +32,7 @@ use gazebo::{
 use serde::Serialize;
 
 use crate::{
-    gazebo::any::AnyLifetime,
+    gazebo::any::{AnyLifetime, ProvidesStaticType},
     values::{
         int::PointerI32,
         layout::{arena::AValueRepr, avalue::AValue},
@@ -43,10 +43,10 @@ use crate::{
 };
 
 /// [`Value`] wrapper which asserts contained value is of type `<T>`.
-#[derive(Copy_, Clone_, Dupe_, AnyLifetime)]
+#[derive(Copy_, Clone_, Dupe_, ProvidesStaticType)]
 pub struct ValueTyped<'v, T: StarlarkValue<'v>>(Value<'v>, marker::PhantomData<&'v T>);
 /// [`FrozenValue`] wrapper which asserts contained value is of type `<T>`.
-#[derive(Copy_, Clone_, Dupe_, AnyLifetime)]
+#[derive(Copy_, Clone_, Dupe_, ProvidesStaticType)]
 pub struct FrozenValueTyped<'v, T: StarlarkValue<'v>>(FrozenValue, marker::PhantomData<&'v T>);
 
 unsafe impl<'v, T: StarlarkValue<'v>> Coerce<ValueTyped<'v, T>> for ValueTyped<'v, T> {}

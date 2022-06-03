@@ -42,7 +42,7 @@ use std::{
 use derivative::Derivative;
 use either::Either;
 use gazebo::{
-    any::{AnyLifetime, ProvidesStaticType},
+    any::ProvidesStaticType,
     cell::AsARef,
     coerce::{coerce, Coerce},
 };
@@ -69,7 +69,7 @@ enum EnumError {
 }
 
 /// The type of an enumeration, created by `enum()`.
-#[derive(Clone, Debug, Trace, Coerce, Freeze, NoSerialize, AnyLifetime)]
+#[derive(Clone, Debug, Trace, Coerce, Freeze, NoSerialize, ProvidesStaticType)]
 #[repr(C)]
 // Deliberately store fully populated values
 // for each entry, so we can produce enum values with zero allocation.
@@ -93,7 +93,7 @@ pub type EnumType<'v> = EnumTypeGen<Value<'v>, RefCell<Option<String>>>;
 pub type FrozenEnumType = EnumTypeGen<FrozenValue, Option<String>>;
 
 /// A value from an enumeration.
-#[derive(Clone, Derivative, Trace, Coerce, Freeze, AnyLifetime)]
+#[derive(Clone, Derivative, Trace, Coerce, Freeze, ProvidesStaticType)]
 #[repr(C)]
 #[derivative(Debug)]
 pub struct EnumValueGen<V> {

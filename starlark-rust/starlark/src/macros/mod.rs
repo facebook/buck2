@@ -133,11 +133,11 @@ macro_rules! starlark_complex_values {
 /// Let's define a simple object, where `+x` makes the string uppercase:
 ///
 /// ```
-/// use starlark::values::{Heap, StarlarkValue, Value, AnyLifetime, NoSerialize};
+/// use starlark::values::{Heap, StarlarkValue, Value, ProvidesStaticType, NoSerialize};
 /// use starlark::{starlark_simple_value, starlark_type};
 /// use derive_more::Display;
 ///
-/// #[derive(Debug, Display, AnyLifetime, NoSerialize)]
+/// #[derive(Debug, Display, ProvidesStaticType, NoSerialize)]
 /// struct MyObject(String);
 /// starlark_simple_value!(MyObject);
 /// impl<'v> StarlarkValue<'v> for MyObject {
@@ -152,7 +152,7 @@ macro_rules! starlark_complex_values {
 /// ```
 ///
 /// The [`starlark_simple_value!`] macro defines instances of
-/// [`AnyLifetime`](crate::values::AnyLifetime),
+/// [`ProvidesStaticType`](crate::values::ProvidesStaticType),
 /// [`AllocValue`](crate::values::AllocValue),
 /// [`AllocFrozenValue`](crate::values::AllocFrozenValue) and
 /// [`UnpackValue`](crate::values::UnpackValue). It also defines a method:

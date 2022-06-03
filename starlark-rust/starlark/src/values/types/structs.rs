@@ -43,7 +43,7 @@ use std::{
 };
 
 use gazebo::{
-    any::{AnyLifetime, ProvidesStaticType},
+    any::ProvidesStaticType,
     coerce::{coerce, Coerce},
 };
 use serde::Serialize;
@@ -90,7 +90,7 @@ impl<'v, V: ValueLike<'v>> StructGen<'v, V> {
 starlark_complex_value!(pub Struct<'v>);
 
 /// The result of calling `struct()`.
-#[derive(Clone, Default, Debug, Trace, Freeze, AnyLifetime)]
+#[derive(Clone, Default, Debug, Trace, Freeze, ProvidesStaticType)]
 #[repr(C)]
 pub struct StructGen<'v, V: ValueLike<'v>> {
     /// The fields in a struct.

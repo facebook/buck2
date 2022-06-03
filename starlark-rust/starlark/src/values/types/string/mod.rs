@@ -28,7 +28,7 @@ use std::{
     sync::atomic,
 };
 
-use gazebo::{any::AnyLifetime, prelude::*};
+use gazebo::{any::ProvidesStaticType, prelude::*};
 use serde::Serialize;
 
 use crate::{
@@ -75,7 +75,7 @@ impl Add for CharIndex {
 pub const STRING_TYPE: &str = "string";
 
 #[repr(C)] // We want the body to come after len
-#[derive(AnyLifetime)]
+#[derive(ProvidesStaticType)]
 pub(crate) struct StarlarkStrN<const N: usize> {
     // Lazily-initialized cached hash code.
     pub(crate) hash: atomic::AtomicU32,
@@ -89,7 +89,7 @@ pub(crate) struct StarlarkStrN<const N: usize> {
 
 /// A pointer to this type represents a Starlark string.
 /// Use of this type is discouraged and not considered stable.
-#[derive(AnyLifetime)]
+#[derive(ProvidesStaticType)]
 #[repr(C)]
 pub struct StarlarkStr {
     str: StarlarkStrN<0>,

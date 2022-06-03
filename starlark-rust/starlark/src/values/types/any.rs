@@ -71,7 +71,7 @@
 
 use std::fmt::{self, Debug, Display};
 
-use gazebo::any::AnyLifetime;
+use gazebo::any::ProvidesStaticType;
 
 use crate as starlark;
 use crate::values::{AllocValue, Heap, StarlarkValue, Value, ValueLike};
@@ -79,7 +79,7 @@ use crate::values::{AllocValue, Heap, StarlarkValue, Value, ValueLike};
 /// A type that can be passed around as a Starlark [`Value`], but in most
 /// ways is uninteresting/opaque to Starlark. Constructed with
 /// [`new`](StarlarkAny::new) and decomposed with [`get`](StarlarkAny::get).
-#[derive(AnyLifetime, NoSerialize)]
+#[derive(ProvidesStaticType, NoSerialize)]
 pub struct StarlarkAny<T: Debug + Display + Send + Sync + 'static>(pub T);
 
 impl<'v, T: Debug + Display + Send + Sync + 'static> StarlarkValue<'v> for StarlarkAny<T> {

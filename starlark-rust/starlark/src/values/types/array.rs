@@ -26,7 +26,7 @@ use std::{
     ptr, slice,
 };
 
-use gazebo::any::AnyLifetime;
+use gazebo::any::ProvidesStaticType;
 use serde::Serialize;
 
 use crate::{
@@ -37,7 +37,7 @@ use crate::{
 /// Fixed-capacity list.
 ///
 /// Mutation operations (like `insert`) panic if there's not enough remaining capacity.
-#[derive(AnyLifetime)]
+#[derive(ProvidesStaticType)]
 #[repr(C)]
 pub(crate) struct Array<'v> {
     // We use `u32` to save some space.

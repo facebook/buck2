@@ -16,7 +16,7 @@
  */
 
 use derive_more::Display;
-use gazebo::any::AnyLifetime;
+use gazebo::any::ProvidesStaticType;
 
 use crate as starlark;
 use crate::{
@@ -26,7 +26,7 @@ use crate::{
 
 #[test]
 fn test_derive_attrs() {
-    #[derive(Debug, StarlarkAttrs, Display, AnyLifetime, NoSerialize)]
+    #[derive(Debug, StarlarkAttrs, Display, ProvidesStaticType, NoSerialize)]
     #[display(fmt = "{:?}", self)]
     struct Example {
         hello: String,
@@ -41,7 +41,7 @@ fn test_derive_attrs() {
         starlark_attrs!();
     }
 
-    #[derive(Debug, Clone, StarlarkAttrs, Display, AnyLifetime, NoSerialize)]
+    #[derive(Debug, Clone, StarlarkAttrs, Display, ProvidesStaticType, NoSerialize)]
     #[display(fmt = "{}", foo)]
     struct Nested {
         foo: String,

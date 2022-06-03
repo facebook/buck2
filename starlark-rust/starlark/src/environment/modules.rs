@@ -29,7 +29,7 @@ use std::{
 };
 
 use derive_more::Display;
-use gazebo::{any::AnyLifetime, prelude::*};
+use gazebo::{any::ProvidesStaticType, prelude::*};
 use itertools::Itertools;
 
 use crate::{
@@ -68,7 +68,7 @@ pub struct FrozenModule {
     pub(crate) eval_duration: Duration,
 }
 
-#[derive(Debug, Clone, Dupe, AnyLifetime, Display)]
+#[derive(Debug, Clone, Dupe, ProvidesStaticType, Display)]
 #[display(fmt = "{:?}", self)] // Type should not be user visible
 pub(crate) struct FrozenModuleRef(pub(crate) Arc<FrozenModuleData>);
 

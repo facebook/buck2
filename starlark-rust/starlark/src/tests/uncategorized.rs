@@ -18,7 +18,7 @@
 use std::{cell::RefCell, fmt::Write};
 
 use derive_more::Display;
-use gazebo::any::AnyLifetime;
+use gazebo::any::ProvidesStaticType;
 
 use crate::{
     self as starlark,
@@ -276,7 +276,7 @@ xs[1] += 1
 fn test_radd() {
     // We want select append to always produce a select, much like the
     // Bazel/Buck `select` function.
-    #[derive(Debug, Display, Clone, AnyLifetime, NoSerialize)]
+    #[derive(Debug, Display, Clone, ProvidesStaticType, NoSerialize)]
     #[display(fmt = "${:?}", _0)]
     struct Select(Vec<i32>);
     starlark_simple_value!(Select);
@@ -662,7 +662,7 @@ fn test_label_assign() {
     // Test the a.b = c construct.
     // No builtin Starlark types support it, so we have to define a custom type (wapping a dictionary)
 
-    #[derive(Debug, Trace, AnyLifetime, Display, NoSerialize)]
+    #[derive(Debug, Trace, ProvidesStaticType, Display, NoSerialize)]
     #[display(fmt = "{:?}", self)]
     struct Wrapper<'v>(RefCell<SmallMap<String, Value<'v>>>);
 
@@ -679,7 +679,7 @@ fn test_label_assign() {
         }
     }
 
-    #[derive(Debug, AnyLifetime, Display, NoSerialize)]
+    #[derive(Debug, ProvidesStaticType, Display, NoSerialize)]
     #[display(fmt = "FrozenWrapper")]
     struct FrozenWrapper;
 

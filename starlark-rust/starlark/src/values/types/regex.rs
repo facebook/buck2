@@ -19,7 +19,7 @@
 use std::fmt::{self, Display};
 
 use fancy_regex::Regex;
-use gazebo::any::AnyLifetime;
+use gazebo::any::ProvidesStaticType;
 
 use crate as starlark;
 use crate::{
@@ -29,7 +29,7 @@ use crate::{
 
 /// A type that can be passed around as a StarlarkRegex, which wraps Rust value
 /// fancy_regex::Regex.
-#[derive(AnyLifetime, Debug, NoSerialize)]
+#[derive(ProvidesStaticType, Debug, NoSerialize)]
 pub struct StarlarkRegex(pub Regex);
 
 impl StarlarkValue<'_> for StarlarkRegex {

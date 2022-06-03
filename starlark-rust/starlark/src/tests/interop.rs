@@ -24,10 +24,7 @@ use std::{
 };
 
 use derive_more::Display;
-use gazebo::{
-    any::{AnyLifetime, ProvidesStaticType},
-    cell::AsARef,
-};
+use gazebo::{any::ProvidesStaticType, cell::AsARef};
 
 use crate as starlark;
 use crate::{
@@ -43,12 +40,12 @@ use crate::{
 fn test_export_as() {
     use std::fmt::{self, Debug, Display};
 
-    use gazebo::any::AnyLifetime;
+    use gazebo::any::ProvidesStaticType;
 
     use crate as starlark;
     use crate::values::{AllocValue, Freezer, Heap, StarlarkValue, Trace, Value};
 
-    #[derive(Debug, Trace, AnyLifetime, NoSerialize)]
+    #[derive(Debug, Trace, ProvidesStaticType, NoSerialize)]
     struct Exporter<T> {
         // Either String or a RefCell therefore
         named: T,
@@ -171,7 +168,7 @@ fn test_load_symbols_extra() -> anyhow::Result<()> {
         }
     }
 
-    #[derive(AnyLifetime, Default)]
+    #[derive(ProvidesStaticType, Default)]
     struct Extra<'v>(Arc<Mutex<HashMap<String, Value<'v>>>>);
 
     let modu = Module::new();
@@ -196,7 +193,7 @@ fn test_load_symbols_extra() -> anyhow::Result<()> {
 
 #[test]
 fn test_repr_str() {
-    #[derive(AnyLifetime, Debug, Display)]
+    #[derive(ProvidesStaticType, Debug, Display)]
     #[display(fmt = "{:?}", self)]
     struct Foo(Option<usize>);
 

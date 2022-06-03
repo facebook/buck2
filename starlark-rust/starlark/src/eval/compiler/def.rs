@@ -27,10 +27,7 @@ use std::{
 
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::{
-    any::{AnyLifetime, ProvidesStaticType},
-    prelude::*,
-};
+use gazebo::{any::ProvidesStaticType, prelude::*};
 use once_cell::sync::Lazy;
 
 use crate::{
@@ -483,7 +480,7 @@ impl Compiler<'_, '_, '_> {
 
 /// Starlark function internal representation and implementation of
 /// [`StarlarkValue`].
-#[derive(Derivative, NoSerialize, AnyLifetime, Trace)]
+#[derive(Derivative, NoSerialize, ProvidesStaticType, Trace)]
 #[derivative(Debug)]
 pub(crate) struct DefGen<V> {
     pub(crate) parameters: ParametersSpec<V>, // The parameters, **kwargs etc including defaults (which are evaluated afresh each time)

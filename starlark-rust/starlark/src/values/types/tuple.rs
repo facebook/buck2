@@ -25,7 +25,7 @@ use std::{
 };
 
 use gazebo::{
-    any::{AnyLifetime, ProvidesStaticType},
+    any::ProvidesStaticType,
     coerce::{coerce, Coerce},
 };
 use serde::{ser::SerializeTuple, Serialize};
@@ -42,7 +42,7 @@ use crate::{
 
 /// Define the tuple type. See [`Tuple`] and [`FrozenTuple`] as the two aliases.
 #[repr(C)]
-#[derive(AnyLifetime)]
+#[derive(ProvidesStaticType)]
 pub struct TupleGen<V> {
     len: usize,
     /// The data stored by the tuple.

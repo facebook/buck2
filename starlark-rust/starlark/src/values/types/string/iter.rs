@@ -18,16 +18,13 @@
 //! Implementation of iterators for string type.
 
 use derive_more::Display;
-use gazebo::{
-    any::{AnyLifetime, ProvidesStaticType},
-    coerce::Coerce,
-};
+use gazebo::{any::ProvidesStaticType, coerce::Coerce};
 
 use crate as starlark;
 use crate::values::{Heap, StarlarkValue, Value, ValueLike};
 
 /// An opaque iterator over a string, produced by elems/codepoints
-#[derive(Debug, Trace, Coerce, Display, Freeze, NoSerialize, AnyLifetime)]
+#[derive(Debug, Trace, Coerce, Display, Freeze, NoSerialize, ProvidesStaticType)]
 #[display(fmt = "iterator")]
 #[repr(C)]
 struct StringIteratorGen<V> {

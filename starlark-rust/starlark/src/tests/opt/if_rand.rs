@@ -20,7 +20,7 @@
 use std::{cell::Cell, fmt, fmt::Display};
 
 use derive_more::Display;
-use gazebo::{any::AnyLifetime, dupe::Dupe};
+use gazebo::{any::ProvidesStaticType, dupe::Dupe};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 use crate as starlark;
@@ -37,7 +37,7 @@ use crate::{
 /// ```
 ///
 /// `true()` should not be evaluated. After evaluation, the counter should be 1.
-#[derive(Debug, AnyLifetime, Default, PartialEq)]
+#[derive(Debug, ProvidesStaticType, Default, PartialEq)]
 struct CountCalls {
     calls: Cell<usize>,
 }

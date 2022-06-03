@@ -586,7 +586,7 @@ fn common_documentation<'a>(
 #[cfg(test)]
 mod tests {
     use derive_more::Display;
-    use gazebo::any::AnyLifetime;
+    use gazebo::any::ProvidesStaticType;
 
     use super::*;
     use crate::{
@@ -605,7 +605,7 @@ mod tests {
 
     #[test]
     fn test_set_attribute() {
-        #[derive(Debug, Display, AnyLifetime, NoSerialize)]
+        #[derive(Debug, Display, ProvidesStaticType, NoSerialize)]
         #[display(fmt = "Magic")]
         struct Magic;
         starlark_simple_value!(Magic);

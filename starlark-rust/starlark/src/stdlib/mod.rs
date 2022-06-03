@@ -128,7 +128,7 @@ impl LibraryExtension {
 #[cfg(test)]
 mod tests {
     use derive_more::Display;
-    use gazebo::{any::AnyLifetime, prelude::*};
+    use gazebo::{any::ProvidesStaticType, prelude::*};
 
     use crate::{
         self as starlark,
@@ -152,7 +152,16 @@ mod tests {
 
     #[test]
     fn test_value_attributes() {
-        #[derive(Copy, Clone, Debug, Dupe, PartialEq, Display, AnyLifetime, NoSerialize)]
+        #[derive(
+            Copy,
+            Clone,
+            Debug,
+            Dupe,
+            PartialEq,
+            Display,
+            ProvidesStaticType,
+            NoSerialize
+        )]
         #[display(fmt = "{}", _0)]
         struct Bool2(bool);
         starlark_simple_value!(Bool2);
