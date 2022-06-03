@@ -36,7 +36,10 @@ use crate::{
             instr_impl::InstrDefData,
             opcode::{BcOpcode, BcOpcodeHandler},
             slow_arg::BcInstrSlowArg,
-            stack_ptr::{BcSlot, BcSlotRange, BcSlotRangeFrom, BcSlotsN},
+            stack_ptr::{
+                BcSlot, BcSlotIn, BcSlotInRange, BcSlotInRangeFrom, BcSlotRange, BcSlotRangeFrom,
+                BcSlotsInN, BcSlotsN,
+            },
         },
         runtime::{arguments::ArgSymbol, call_stack::FrozenFileSpan, slots::LocalSlotId},
     },
@@ -307,7 +310,25 @@ impl BcInstrArg for BcSlot {
     fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
 }
 
+impl BcInstrArg for BcSlotIn {
+    fn fmt_append(param: &Self, ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+        BcSlot::fmt_append(&param.get(), ip, f)
+    }
+
+    fn visit_jump_addr(param: &Self, consumer: &mut dyn FnMut(BcAddrOffset)) {
+        BcSlot::visit_jump_addr(&param.get(), consumer);
+    }
+}
+
 impl BcInstrArg for BcSlotRange {
+    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+        write!(f, " {}..{}", param.start, param.end)
+    }
+
+    fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
+}
+
+impl BcInstrArg for BcSlotInRange {
     fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
         write!(f, " {}..{}", param.start, param.end)
     }
@@ -323,7 +344,23 @@ impl<const N: usize> BcInstrArg for BcSlotsN<N> {
     fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
 }
 
+impl<const N: usize> BcInstrArg for BcSlotsInN<N> {
+    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+        write!(f, " {}..{}", param.start(), param.end())
+    }
+
+    fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
+}
+
 impl BcInstrArg for BcSlotRangeFrom {
+    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+        write!(f, " {}..", param.0)
+    }
+
+    fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
+}
+
+impl BcInstrArg for BcSlotInRangeFrom {
     fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
         write!(f, " {}..", param.0)
     }

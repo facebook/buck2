@@ -356,7 +356,7 @@ mod tests {
     fn display() {
         let mut bc = BcInstrsWriter::new();
         bc.write::<InstrConst>((FrozenValue::new_bool(true), BcSlot(17)));
-        bc.write::<InstrReturn>(BcSlot(17));
+        bc.write::<InstrReturn>(BcSlot(17).to_in());
         let bc = bc.finish(Vec::new());
         if mem::size_of::<usize>() == 8 {
             assert_eq!("0: Const True &17; 24: Return &17; 32: End", bc.to_string());

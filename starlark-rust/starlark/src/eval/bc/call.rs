@@ -31,7 +31,7 @@ use crate::{
         bc::{
             frame::BcFramePtr,
             instr_arg::BcInstrArg,
-            stack_ptr::{BcSlot, BcSlotRange},
+            stack_ptr::{BcSlotIn, BcSlotInRange},
         },
         compiler::def::FrozenDef,
         runtime::arguments::{
@@ -58,17 +58,17 @@ pub(crate) trait BcCallArgsForDef: BcInstrArg {
 /// Full call arguments: positional, named, star and star-star. All taken from the stack.
 #[derive(Debug)]
 pub(crate) struct BcCallArgsFull<S: ArgSymbol> {
-    pub(crate) pos_named: BcSlotRange,
+    pub(crate) pos_named: BcSlotInRange,
     pub(crate) names: Box<[(S, FrozenStringValue)]>,
-    pub(crate) args: Option<BcSlot>,
-    pub(crate) kwargs: Option<BcSlot>,
+    pub(crate) args: Option<BcSlotIn>,
+    pub(crate) kwargs: Option<BcSlotIn>,
 }
 
 /// Positional-only call arguments, from stack.
 #[derive(Debug)]
 pub(crate) struct BcCallArgsPos {
     /// Range of positional arguments.
-    pub(crate) pos: BcSlotRange,
+    pub(crate) pos: BcSlotInRange,
 }
 
 impl<S: ArgSymbol> BcCallArgsFull<S> {

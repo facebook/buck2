@@ -34,7 +34,7 @@ use crate::{
             instr_arg::BcInstrArg,
             opcode::BcOpcode,
             slow_arg::BcInstrSlowArg,
-            stack_ptr::{BcSlot, BcSlotRange, BcSlotRangeFrom, BcSlotsN},
+            stack_ptr::{BcSlot, BcSlotIn, BcSlotInRange, BcSlotInRangeFrom, BcSlotsInN},
         },
         compiler::{
             add_span_to_expr_error,
@@ -193,14 +193,14 @@ impl InstrNoFlowImpl for InstrLoadModuleImpl {
 }
 
 impl InstrNoFlowImpl for InstrMovImpl {
-    type Arg = (BcSlot, BcSlot);
+    type Arg = (BcSlotIn, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         _eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (source, target): &(BcSlot, BcSlot),
+        (source, target): &(BcSlotIn, BcSlot),
     ) -> anyhow::Result<()> {
         let v = frame.get_bc_slot(*source);
         frame.set_bc_slot(*target, v);
@@ -209,13 +209,13 @@ impl InstrNoFlowImpl for InstrMovImpl {
 }
 
 impl InstrNoFlowImpl for InstrStoreLocalCapturedImpl {
-    type Arg = (BcSlot, LocalSlotId);
+    type Arg = (BcSlotIn, LocalSlotId);
 
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (source, target): &(BcSlot, LocalSlotId),
+        (source, target): &(BcSlotIn, LocalSlotId),
     ) -> anyhow::Result<()> {
         let v = frame.get_bc_slot(*source);
         eval.set_slot_local_captured(*target, v);
@@ -224,13 +224,13 @@ impl InstrNoFlowImpl for InstrStoreLocalCapturedImpl {
 }
 
 impl InstrNoFlowImpl for InstrStoreModuleAndExportImpl {
-    type Arg = (BcSlot, ModuleSlotId, String);
+    type Arg = (BcSlotIn, ModuleSlotId, String);
 
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (source, slot, name): &(BcSlot, ModuleSlotId, String),
+        (source, slot, name): &(BcSlotIn, ModuleSlotId, String),
     ) -> anyhow::Result<()> {
         let v = frame.get_bc_slot(*source);
         v.export_as(name.as_str(), eval);
@@ -240,13 +240,13 @@ impl InstrNoFlowImpl for InstrStoreModuleAndExportImpl {
 }
 
 impl InstrNoFlowImpl for InstrStoreModuleImpl {
-    type Arg = (BcSlot, ModuleSlotId);
+    type Arg = (BcSlotIn, ModuleSlotId);
 
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (source, target): &(BcSlot, ModuleSlotId),
+        (source, target): &(BcSlotIn, ModuleSlotId),
     ) -> anyhow::Result<()> {
         let v = frame.get_bc_slot(*source);
         eval.set_slot_module(*target, v);
@@ -255,14 +255,14 @@ impl InstrNoFlowImpl for InstrStoreModuleImpl {
 }
 
 impl InstrNoFlowImpl for InstrUnpackImpl {
-    type Arg = (BcSlot, FrozenRef<'static, [BcSlot]>);
+    type Arg = (BcSlotIn, FrozenRef<'static, [BcSlot]>);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (source, target): &(BcSlot, FrozenRef<'static, [BcSlot]>),
+        (source, target): &(BcSlotIn, FrozenRef<'static, [BcSlot]>),
     ) -> anyhow::Result<()> {
         let v = frame.get_bc_slot(*source);
         let nvl = v.length()?;
@@ -287,14 +287,14 @@ impl InstrNoFlowImpl for InstrUnpackImpl {
 }
 
 impl InstrNoFlowImpl for InstrArrayIndexImpl {
-    type Arg = (BcSlotsN<2>, BcSlot);
+    type Arg = (BcSlotsInN<2>, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (array_index, target): &(BcSlotsN<2>, BcSlot),
+        (array_index, target): &(BcSlotsInN<2>, BcSlot),
     ) -> anyhow::Result<()> {
         let array = frame.get_bc_slot(array_index.get::<0>());
         let index = frame.get_bc_slot(array_index.get::<1>());
@@ -305,14 +305,14 @@ impl InstrNoFlowImpl for InstrArrayIndexImpl {
 }
 
 impl InstrNoFlowImpl for InstrSetArrayIndexImpl {
-    type Arg = (BcSlot, BcSlotsN<2>);
+    type Arg = (BcSlotIn, BcSlotsInN<2>);
 
     #[inline(always)]
     fn run_with_args<'v>(
         _eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (source, array_index): &(BcSlot, BcSlotsN<2>),
+        (source, array_index): &(BcSlotIn, BcSlotsInN<2>),
     ) -> anyhow::Result<()> {
         let value = frame.get_bc_slot(*source);
         let array = frame.get_bc_slot(array_index.get::<0>());
@@ -322,14 +322,14 @@ impl InstrNoFlowImpl for InstrSetArrayIndexImpl {
 }
 
 impl InstrNoFlowImpl for InstrArrayIndexSetImpl {
-    type Arg = (BcSlotsN<2>, BcSlot);
+    type Arg = (BcSlotsInN<2>, BcSlotIn);
 
     #[inline(always)]
     fn run_with_args<'v>(
         _eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (array_index, source): &(BcSlotsN<2>, BcSlot),
+        (array_index, source): &(BcSlotsInN<2>, BcSlotIn),
     ) -> anyhow::Result<()> {
         let value = frame.get_bc_slot(*source);
         let array = frame.get_bc_slot(array_index.get::<0>());
@@ -339,14 +339,14 @@ impl InstrNoFlowImpl for InstrArrayIndexSetImpl {
 }
 
 impl InstrNoFlowImpl for InstrObjectFieldImpl {
-    type Arg = (BcSlot, Symbol, BcSlot);
+    type Arg = (BcSlotIn, Symbol, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (object, field, target): &(BcSlot, Symbol, BcSlot),
+        (object, field, target): &(BcSlotIn, Symbol, BcSlot),
     ) -> anyhow::Result<()> {
         let object = frame.get_bc_slot(*object);
         let value = get_attr_hashed_bind(object, field, eval.heap())?;
@@ -356,13 +356,13 @@ impl InstrNoFlowImpl for InstrObjectFieldImpl {
 }
 
 impl InstrNoFlowImpl for InstrSetObjectFieldImpl {
-    type Arg = (BcSlot, BcSlot, Symbol);
+    type Arg = (BcSlotIn, BcSlotIn, Symbol);
 
     fn run_with_args<'v>(
         _eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (source, object, field): &(BcSlot, BcSlot, Symbol),
+        (source, object, field): &(BcSlotIn, BcSlotIn, Symbol),
     ) -> anyhow::Result<()> {
         let v = frame.get_bc_slot(*source);
         let object = frame.get_bc_slot(*object);
@@ -372,10 +372,10 @@ impl InstrNoFlowImpl for InstrSetObjectFieldImpl {
 
 impl InstrNoFlowImpl for InstrSliceImpl {
     type Arg = (
-        BcSlot,
-        Option<BcSlot>,
-        Option<BcSlot>,
-        Option<BcSlot>,
+        BcSlotIn,
+        Option<BcSlotIn>,
+        Option<BcSlotIn>,
+        Option<BcSlotIn>,
         BcSlot,
     );
 
@@ -385,10 +385,10 @@ impl InstrNoFlowImpl for InstrSliceImpl {
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (list, start, stop, step, target): &(
-            BcSlot,
-            Option<BcSlot>,
-            Option<BcSlot>,
-            Option<BcSlot>,
+            BcSlotIn,
+            Option<BcSlotIn>,
+            Option<BcSlotIn>,
+            Option<BcSlotIn>,
             BcSlot,
         ),
     ) -> anyhow::Result<()> {
@@ -422,14 +422,14 @@ impl InstrBinOpImpl for InstrEqImpl {
 }
 
 impl InstrNoFlowImpl for InstrEqConstImpl {
-    type Arg = (BcSlot, FrozenValueNotSpecial, BcSlot);
+    type Arg = (BcSlotIn, FrozenValueNotSpecial, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         _eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (a, b, target): &(BcSlot, FrozenValueNotSpecial, BcSlot),
+        (a, b, target): &(BcSlotIn, FrozenValueNotSpecial, BcSlot),
     ) -> anyhow::Result<()> {
         let a = frame.get_bc_slot(*a);
         let r = b.equals(a)?;
@@ -439,14 +439,14 @@ impl InstrNoFlowImpl for InstrEqConstImpl {
 }
 
 impl InstrNoFlowImpl for InstrEqPtrImpl {
-    type Arg = (BcSlot, FrozenValue, BcSlot);
+    type Arg = (BcSlotIn, FrozenValue, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         _eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (a, b, target): &(BcSlot, FrozenValue, BcSlot),
+        (a, b, target): &(BcSlotIn, FrozenValue, BcSlot),
     ) -> anyhow::Result<()> {
         let a = frame.get_bc_slot(*a);
         let r = a.ptr_eq(b.to_value());
@@ -456,14 +456,14 @@ impl InstrNoFlowImpl for InstrEqPtrImpl {
 }
 
 impl InstrNoFlowImpl for InstrEqIntImpl {
-    type Arg = (BcSlot, FrozenValueTyped<'static, PointerI32>, BcSlot);
+    type Arg = (BcSlotIn, FrozenValueTyped<'static, PointerI32>, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         _eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (a, b, target): &(BcSlot, FrozenValueTyped<'static, PointerI32>, BcSlot),
+        (a, b, target): &(BcSlotIn, FrozenValueTyped<'static, PointerI32>, BcSlot),
     ) -> anyhow::Result<()> {
         let a = frame.get_bc_slot(*a);
         let r = if let Some(a) = a.unpack_int_value() {
@@ -477,14 +477,14 @@ impl InstrNoFlowImpl for InstrEqIntImpl {
 }
 
 impl InstrNoFlowImpl for InstrEqStrImpl {
-    type Arg = (BcSlot, FrozenStringValue, BcSlot);
+    type Arg = (BcSlotIn, FrozenStringValue, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         _eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (a, b, target): &(BcSlot, FrozenStringValue, BcSlot),
+        (a, b, target): &(BcSlotIn, FrozenStringValue, BcSlot),
     ) -> anyhow::Result<()> {
         let a = frame.get_bc_slot(*a);
         let r = if let Some(a) = StringValue::new(a) {
@@ -549,14 +549,14 @@ pub(crate) type InstrBinOp<I> = InstrNoFlow<InstrBinOpWrapper<I>>;
 pub(crate) type InstrUnOp<I> = InstrNoFlow<InstrUnOpWrapper<I>>;
 
 impl<I: InstrBinOpImpl> InstrNoFlowImpl for InstrBinOpWrapper<I> {
-    type Arg = (BcSlotsN<2>, BcSlot);
+    type Arg = (BcSlotsInN<2>, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (source, target): &(BcSlotsN<2>, BcSlot),
+        (source, target): &(BcSlotsInN<2>, BcSlot),
     ) -> anyhow::Result<()> {
         let v0 = frame.get_bc_slot(source.get::<0>());
         let v1 = frame.get_bc_slot(source.get::<1>());
@@ -567,14 +567,14 @@ impl<I: InstrBinOpImpl> InstrNoFlowImpl for InstrBinOpWrapper<I> {
 }
 
 impl<I: InstrUnOpImpl> InstrNoFlowImpl for InstrUnOpWrapper<I> {
-    type Arg = (BcSlot, BcSlot);
+    type Arg = (BcSlotIn, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (source, target): &(BcSlot, BcSlot),
+        (source, target): &(BcSlotIn, BcSlot),
     ) -> anyhow::Result<()> {
         let source = frame.get_bc_slot(*source);
         let value = I::eval(source, eval.heap())?;
@@ -717,14 +717,14 @@ pub(crate) struct InstrFormatOneImpl;
 pub(crate) type InstrFormatOne = InstrNoFlow<InstrFormatOneImpl>;
 
 impl InstrNoFlowImpl for InstrPercentSOneImpl {
-    type Arg = (FrozenStringValue, BcSlot, FrozenStringValue, BcSlot);
+    type Arg = (FrozenStringValue, BcSlotIn, FrozenStringValue, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (before, arg, after, target): &(FrozenStringValue, BcSlot, FrozenStringValue, BcSlot),
+        (before, arg, after, target): &(FrozenStringValue, BcSlotIn, FrozenStringValue, BcSlot),
     ) -> anyhow::Result<()> {
         let arg = frame.get_bc_slot(*arg);
         let r = percent_s_one(before.as_str(), arg, after.as_str(), eval.heap())?;
@@ -734,14 +734,14 @@ impl InstrNoFlowImpl for InstrPercentSOneImpl {
 }
 
 impl InstrNoFlowImpl for InstrFormatOneImpl {
-    type Arg = (FrozenStringValue, BcSlot, FrozenStringValue, BcSlot);
+    type Arg = (FrozenStringValue, BcSlotIn, FrozenStringValue, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (before, arg, after, target): &(FrozenStringValue, BcSlot, FrozenStringValue, BcSlot),
+        (before, arg, after, target): &(FrozenStringValue, BcSlotIn, FrozenStringValue, BcSlot),
     ) -> anyhow::Result<()> {
         let arg = frame.get_bc_slot(*arg);
         let r = format_one(before.as_str(), arg, after.as_str(), eval.heap());
@@ -815,14 +815,14 @@ pub(crate) struct InstrTypeIsImpl;
 pub(crate) type InstrTypeIs = InstrNoFlow<InstrTypeIsImpl>;
 
 impl InstrNoFlowImpl for InstrTypeIsImpl {
-    type Arg = (BcSlot, FrozenStringValue, BcSlot);
+    type Arg = (BcSlotIn, FrozenStringValue, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         _eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _: BcPtrAddr,
-        (arg, t, target): &(BcSlot, FrozenStringValue, BcSlot),
+        (arg, t, target): &(BcSlotIn, FrozenStringValue, BcSlot),
     ) -> anyhow::Result<()> {
         let arg = frame.get_bc_slot(*arg);
         let r = arg.get_type_value() == *t;
@@ -860,14 +860,14 @@ pub(crate) type InstrDictConstKeys = InstrNoFlow<InstrDictConstKeysImpl>;
 pub(crate) type InstrDictNPop = InstrNoFlow<InstrDictNPopImpl>;
 
 impl InstrNoFlowImpl for InstrTupleNPopImpl {
-    type Arg = (BcSlotRange, BcSlot);
+    type Arg = (BcSlotInRange, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _: BcPtrAddr,
-        (values, target): &(BcSlotRange, BcSlot),
+        (values, target): &(BcSlotInRange, BcSlot),
     ) -> anyhow::Result<()> {
         let items = frame.get_bc_slot_range(*values);
         let value = eval.heap().alloc_tuple(items);
@@ -877,14 +877,14 @@ impl InstrNoFlowImpl for InstrTupleNPopImpl {
 }
 
 impl InstrNoFlowImpl for InstrListNPopImpl {
-    type Arg = (BcSlotRange, BcSlot);
+    type Arg = (BcSlotInRange, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _: BcPtrAddr,
-        (values, target): &(BcSlotRange, BcSlot),
+        (values, target): &(BcSlotInRange, BcSlot),
     ) -> anyhow::Result<()> {
         let items = frame.get_bc_slot_range(*values);
         let value = eval.heap().alloc_list(items);
@@ -926,13 +926,13 @@ impl InstrNoFlowImpl for InstrDictOfConstsImpl {
 }
 
 impl InstrNoFlowImpl for InstrDictNPopImpl {
-    type Arg = (BcSlotRange, BcSlot);
+    type Arg = (BcSlotInRange, BcSlot);
 
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         ip: BcPtrAddr,
-        (npops, target): &(BcSlotRange, BcSlot),
+        (npops, target): &(BcSlotInRange, BcSlot),
     ) -> anyhow::Result<()> {
         let items = frame.get_bc_slot_range(*npops);
         debug_assert!(items.len() % 2 == 0);
@@ -961,7 +961,7 @@ impl InstrNoFlowImpl for InstrDictNPopImpl {
 }
 
 impl InstrNoFlowImpl for InstrDictConstKeysImpl {
-    type Arg = (Box<[Hashed<FrozenValue>]>, BcSlotRangeFrom, BcSlot);
+    type Arg = (Box<[Hashed<FrozenValue>]>, BcSlotInRangeFrom, BcSlot);
 
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
@@ -1017,14 +1017,14 @@ pub(crate) struct InstrComprListAppend;
 pub(crate) struct InstrComprDictInsert;
 
 impl BcInstr for InstrComprListAppend {
-    type Arg = (BcSlot, BcSlot);
+    type Arg = (BcSlotIn, BcSlotIn);
 
     #[inline(always)]
     fn run<'v, 'b>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _: BcPtrAddr<'b>,
-        (list, item): &(BcSlot, BcSlot),
+        (list, item): &(BcSlotIn, BcSlotIn),
     ) -> InstrControl<'v, 'b> {
         let list = frame.get_bc_slot(*list);
         let item = frame.get_bc_slot(*item);
@@ -1036,14 +1036,14 @@ impl BcInstr for InstrComprListAppend {
 }
 
 impl BcInstr for InstrComprDictInsert {
-    type Arg = (BcSlot, BcSlotsN<2>);
+    type Arg = (BcSlotIn, BcSlotsInN<2>);
 
     #[inline(always)]
     fn run<'v, 'b>(
         _eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr<'b>,
-        (dict, key_value): &(BcSlot, BcSlotsN<2>),
+        (dict, key_value): &(BcSlotIn, BcSlotsInN<2>),
     ) -> InstrControl<'v, 'b> {
         let dict = frame.get_bc_slot(*dict);
         let key = frame.get_bc_slot(key_value.get::<0>());
@@ -1078,14 +1078,14 @@ impl BcInstr for InstrBr {
 }
 
 impl BcInstr for InstrIfBr {
-    type Arg = (BcSlot, BcAddrOffset);
+    type Arg = (BcSlotIn, BcAddrOffset);
 
     #[inline(always)]
     fn run<'v, 'b>(
         _eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         ip: BcPtrAddr<'b>,
-        (cond, target): &(BcSlot, BcAddrOffset),
+        (cond, target): &(BcSlotIn, BcAddrOffset),
     ) -> InstrControl<'v, 'b> {
         let cond = frame.get_bc_slot(*cond);
         if cond.to_bool() {
@@ -1097,14 +1097,14 @@ impl BcInstr for InstrIfBr {
 }
 
 impl BcInstr for InstrIfNotBr {
-    type Arg = (BcSlot, BcAddrOffset);
+    type Arg = (BcSlotIn, BcAddrOffset);
 
     #[inline(always)]
     fn run<'v, 'b>(
         _eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         ip: BcPtrAddr<'b>,
-        (cond, target): &(BcSlot, BcAddrOffset),
+        (cond, target): &(BcSlotIn, BcAddrOffset),
     ) -> InstrControl<'v, 'b> {
         let cond = frame.get_bc_slot(*cond);
         if !cond.to_bool() {
@@ -1120,13 +1120,13 @@ pub(crate) struct InstrBreak;
 pub(crate) struct InstrContinue;
 
 impl BcInstr for InstrForLoop {
-    type Arg = (BcSlot, BcSlot, BcAddrOffset);
+    type Arg = (BcSlotIn, BcSlot, BcAddrOffset);
 
     fn run<'v, 'b>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         ip: BcPtrAddr<'b>,
-        (over, var, loop_end): &(BcSlot, BcSlot, BcAddrOffset),
+        (over, var, loop_end): &(BcSlotIn, BcSlot, BcAddrOffset),
     ) -> InstrControl<'v, 'b> {
         let collection = frame.get_bc_slot(*over);
 
@@ -1204,14 +1204,14 @@ impl BcInstr for InstrReturnConst {
 }
 
 impl BcInstr for InstrReturn {
-    type Arg = BcSlot;
+    type Arg = BcSlotIn;
 
     #[inline(always)]
     fn run<'v, 'b>(
         _eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr<'b>,
-        &slot: &BcSlot,
+        &slot: &BcSlotIn,
     ) -> InstrControl<'v, 'b> {
         let v = frame.get_bc_slot(slot);
         InstrControl::Return(v)
@@ -1219,14 +1219,14 @@ impl BcInstr for InstrReturn {
 }
 
 impl BcInstr for InstrReturnCheckType {
-    type Arg = BcSlot;
+    type Arg = BcSlotIn;
 
     #[inline(always)]
     fn run<'v, 'b>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr<'b>,
-        &slot: &BcSlot,
+        &slot: &BcSlotIn,
     ) -> InstrControl<'v, 'b> {
         let v = frame.get_bc_slot(slot);
         if let Err(e) = eval.check_return_type(v) {
@@ -1249,13 +1249,13 @@ pub(crate) struct InstrDefData {
 }
 
 impl InstrNoFlowImpl for InstrDefImpl {
-    type Arg = (BcSlotRange, InstrDefData, BcSlot);
+    type Arg = (BcSlotInRange, InstrDefData, BcSlot);
 
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (pops, def_data, target): &(BcSlotRange, InstrDefData, BcSlot),
+        (pops, def_data, target): &(BcSlotInRange, InstrDefData, BcSlot),
     ) -> anyhow::Result<()> {
         let pop = frame.get_bc_slot_range(*pops);
 
@@ -1427,14 +1427,14 @@ pub(crate) type InstrCallMaybeKnownMethodPos =
     InstrNoFlow<InstrCallMaybeKnownMethodImpl<BcCallArgsPos>>;
 
 impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallImpl<A> {
-    type Arg = (BcSlot, A, FrozenRef<'static, FrozenFileSpan>, BcSlot);
+    type Arg = (BcSlotIn, A, FrozenRef<'static, FrozenFileSpan>, BcSlot);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (this, args, span, target): &(BcSlot, A, FrozenRef<'static, FrozenFileSpan>, BcSlot),
+        (this, args, span, target): &(BcSlotIn, A, FrozenRef<'static, FrozenFileSpan>, BcSlot),
     ) -> anyhow::Result<()> {
         let f = frame.get_bc_slot(*this);
         let arguments = Arguments(args.pop_from_stack(frame));
@@ -1549,7 +1549,7 @@ fn call_maybe_known_method_common<'v>(
 
 impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallMethodImpl<A> {
     type Arg = (
-        BcSlot,
+        BcSlotIn,
         Symbol,
         A,
         FrozenRef<'static, FrozenFileSpan>,
@@ -1562,7 +1562,7 @@ impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallMethodImpl<A> {
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (this, symbol, args, span, target): &(
-            BcSlot,
+            BcSlotIn,
             Symbol,
             A,
             FrozenRef<'static, FrozenFileSpan>,
@@ -1577,7 +1577,7 @@ impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallMethodImpl<A> {
 
 impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallMaybeKnownMethodImpl<A> {
     type Arg = (
-        BcSlot,
+        BcSlotIn,
         Symbol,
         KnownMethod,
         A,
@@ -1591,7 +1591,7 @@ impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallMaybeKnownMethodImpl<A>
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
         (this, symbol, known_method, args, span, target): &(
-            BcSlot,
+            BcSlotIn,
             Symbol,
             KnownMethod,
             A,

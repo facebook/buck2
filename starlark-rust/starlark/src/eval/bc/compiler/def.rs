@@ -81,7 +81,7 @@ impl DefCompiled {
 
             assert!(slots_i.next().is_none());
 
-            bc.write_instr::<InstrDef>(span, (slots, instr_def_data, target));
+            bc.write_instr::<InstrDef>(span, (slots.to_in(), instr_def_data, target));
         })
     }
 }

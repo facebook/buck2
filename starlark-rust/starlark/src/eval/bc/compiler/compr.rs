@@ -74,7 +74,10 @@ impl ComprCompiled {
                     let (first, rem) = clauses.split_last();
                     first.write_bc(bc, rem, |bc| {
                         expr.write_bc_cb(bc, |expr_slot, bc| {
-                            bc.write_instr::<InstrComprListAppend>(expr.span, (temp, expr_slot))
+                            bc.write_instr::<InstrComprListAppend>(
+                                expr.span,
+                                (temp.to_in(), expr_slot),
+                            )
                         });
                     });
                 }
@@ -83,12 +86,12 @@ impl ComprCompiled {
                     let (first, rem) = clauses.split_last();
                     first.write_bc(bc, rem, |bc| {
                         write_n_exprs([k, v], bc, |k_v, bc| {
-                            bc.write_instr::<InstrComprDictInsert>(k.span, (temp, k_v));
+                            bc.write_instr::<InstrComprDictInsert>(k.span, (temp.to_in(), k_v));
                         });
                     });
                 }
             };
-            bc.write_instr::<InstrMov>(span, (temp, target));
+            bc.write_instr::<InstrMov>(span, (temp.to_in(), target));
         });
     }
 }

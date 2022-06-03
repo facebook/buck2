@@ -23,7 +23,7 @@ use gazebo::dupe::Dupe;
 
 use crate::{
     eval::{
-        bc::stack_ptr::{BcSlot, BcSlotRange},
+        bc::stack_ptr::{BcSlot, BcSlotIn, BcSlotInRange},
         runtime::slots::LocalSlotId,
         Evaluator,
     },
@@ -98,7 +98,7 @@ impl<'v> BcFramePtr<'v> {
     }
 
     #[inline(always)]
-    pub(crate) fn get_bc_slot(self, slot: BcSlot) -> Value<'v> {
+    pub(crate) fn get_bc_slot(self, slot: BcSlotIn) -> Value<'v> {
         self.frame().get_bc_slot(slot)
     }
 
@@ -108,7 +108,7 @@ impl<'v> BcFramePtr<'v> {
     }
 
     #[inline(always)]
-    pub(crate) fn get_bc_slot_range<'a>(self, slots: BcSlotRange) -> &'a [Value<'v>] {
+    pub(crate) fn get_bc_slot_range<'a>(self, slots: BcSlotInRange) -> &'a [Value<'v>] {
         self.frame().get_bc_slot_range(slots)
     }
 
@@ -199,10 +199,10 @@ impl<'v> BcFrame<'v> {
 
     /// Get a stack slot.
     #[inline(always)]
-    pub(crate) fn get_bc_slot(&self, slot: BcSlot) -> Value<'v> {
-        debug_assert!(slot.0 < self.local_count + self.max_stack_size);
+    pub(crate) fn get_bc_slot(&self, slot: BcSlotIn) -> Value<'v> {
+        debug_assert!(slot.get().0 < self.local_count + self.max_stack_size);
         unsafe {
-            let option = self.slots.as_ptr().add(slot.0 as usize).read();
+            let option = self.slots.as_ptr().add(slot.get().0 as usize).read();
             // Slot must be always initialized.
             option.unwrap_unchecked()
         }
@@ -220,10 +220,10 @@ impl<'v> BcFrame<'v> {
     }
 
     #[inline(always)]
-    pub(crate) fn get_bc_slot_range(&self, slots: BcSlotRange) -> &[Value<'v>] {
-        debug_assert!(slots.end.0 <= self.local_count + self.max_stack_size);
+    pub(crate) fn get_bc_slot_range(&self, slots: BcSlotInRange) -> &[Value<'v>] {
+        debug_assert!(slots.end.get().0 <= self.local_count + self.max_stack_size);
         unsafe {
-            let start = self.slots.as_ptr().add(slots.start.0 as usize);
+            let start = self.slots.as_ptr().add(slots.start.get().0 as usize);
             let start = start as *const Value;
             slice::from_raw_parts(start, slots.len() as usize)
         }

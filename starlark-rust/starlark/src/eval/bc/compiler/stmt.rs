@@ -54,7 +54,7 @@ pub(crate) fn write_for(
             // and reassign it in the loop body.
             bc.alloc_slot(|var_slot, bc| {
                 bc.write_for(over, var_slot, span, |bc| {
-                    var.write_bc(var_slot, bc);
+                    var.write_bc(var_slot.to_in(), bc);
                     body(bc);
                 })
             })
@@ -201,7 +201,7 @@ impl StmtsCompiled {
             if compiler.has_return_type {
                 bc.alloc_slot(|slot, bc| {
                     bc.write_const(span, FrozenValue::new_none(), slot);
-                    bc.write_instr::<InstrReturnCheckType>(span, slot);
+                    bc.write_instr::<InstrReturnCheckType>(span, slot.to_in());
                 });
             } else {
                 bc.write_instr::<InstrReturnConst>(span, FrozenValue::new_none());

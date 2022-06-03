@@ -27,7 +27,7 @@ use crate::{
             instr_impl::{
                 InstrSetArrayIndex, InstrSetObjectField, InstrStoreModuleAndExport, InstrUnpack,
             },
-            stack_ptr::BcSlot,
+            stack_ptr::{BcSlot, BcSlotIn},
             writer::BcWriter,
         },
         compiler::{scope::Captured, span::IrSpanned, stmt::AssignCompiledValue},
@@ -35,7 +35,7 @@ use crate::{
 };
 
 impl IrSpanned<AssignCompiledValue> {
-    pub(crate) fn write_bc(&self, value: BcSlot, bc: &mut BcWriter) {
+    pub(crate) fn write_bc(&self, value: BcSlotIn, bc: &mut BcWriter) {
         let span = self.span;
         match self.node {
             AssignCompiledValue::Dot(ref object, ref field) => {
@@ -68,7 +68,7 @@ impl IrSpanned<AssignCompiledValue> {
                         bc.write_instr::<InstrUnpack>(span, (value, args));
 
                         for (x, slot) in xs.iter().zip(slots.iter()) {
-                            x.write_bc(slot, bc);
+                            x.write_bc(slot.to_in(), bc);
                         }
                     });
                 }

@@ -33,7 +33,7 @@ use crate::{
             instrs::{BcInstrsWriter, PatchAddr},
             opcode::BcOpcode,
             slow_arg::BcInstrSlowArg,
-            stack_ptr::{BcSlot, BcSlotRange, BcSlotsN},
+            stack_ptr::{BcSlot, BcSlotIn, BcSlotInRange, BcSlotRange, BcSlotsN},
         },
         runtime::{call_stack::FrozenFileSpan, slots::LocalSlotId},
     },
@@ -201,10 +201,10 @@ impl<'f> BcWriter<'f> {
     pub(crate) fn write_store_local(
         &mut self,
         span: FrozenFileSpan,
-        source: BcSlot,
+        source: BcSlotIn,
         target: BcSlot,
     ) {
-        assert!(source.0 < self.local_count + self.stack_size);
+        assert!(source.get().0 < self.local_count + self.stack_size);
         assert!(target.0 < self.local_count + self.stack_size);
         self.write_instr_ret_arg::<InstrMov>(span, (source, target));
     }
@@ -212,10 +212,10 @@ impl<'f> BcWriter<'f> {
     pub(crate) fn write_store_local_captured(
         &mut self,
         span: FrozenFileSpan,
-        source: BcSlot,
+        source: BcSlotIn,
         target: LocalSlotId,
     ) {
-        assert!(source.0 < self.local_count + self.stack_size);
+        assert!(source.get().0 < self.local_count + self.stack_size);
         assert!(target.0 < self.local_count);
         self.write_instr_ret_arg::<InstrStoreLocalCaptured>(span, (source, target));
     }
@@ -238,14 +238,14 @@ impl<'f> BcWriter<'f> {
     }
 
     /// Write conditional branch.
-    pub(crate) fn write_if_not_br(&mut self, cond: BcSlot, span: FrozenFileSpan) -> PatchAddr {
+    pub(crate) fn write_if_not_br(&mut self, cond: BcSlotIn, span: FrozenFileSpan) -> PatchAddr {
         let (addr, arg) =
             self.write_instr_ret_arg::<InstrIfNotBr>(span, (cond, BcAddrOffset::FORWARD));
         self.instrs.addr_to_patch(addr, unsafe { &(*arg).1 })
     }
 
     /// Write conditional branch.
-    pub(crate) fn write_if_br(&mut self, cond: BcSlot, span: FrozenFileSpan) -> PatchAddr {
+    pub(crate) fn write_if_br(&mut self, cond: BcSlotIn, span: FrozenFileSpan) -> PatchAddr {
         let (addr, arg) =
             self.write_instr_ret_arg::<InstrIfBr>(span, (cond, BcAddrOffset::FORWARD));
         self.instrs.addr_to_patch(addr, unsafe { &(*arg).1 })
@@ -254,7 +254,7 @@ impl<'f> BcWriter<'f> {
     /// Write if-else block.
     pub(crate) fn write_if_else(
         &mut self,
-        cond: BcSlot,
+        cond: BcSlotIn,
         span: FrozenFileSpan,
         then_block: impl FnOnce(&mut Self),
         else_block: impl FnOnce(&mut Self),
@@ -270,7 +270,7 @@ impl<'f> BcWriter<'f> {
     /// Write for loop.
     pub(crate) fn write_for(
         &mut self,
-        over: BcSlot,
+        over: BcSlotIn,
         var: BcSlot,
         span: FrozenFileSpan,
         body: impl FnOnce(&mut Self),
@@ -341,7 +341,7 @@ impl<'f> BcWriter<'f> {
         // Invoke a callback which fills the slots.
         mut expr: impl FnMut(BcSlot, K, &mut BcWriter),
         // And then invoke a callback which consumes all the slots again together.
-        k: impl FnOnce(BcSlotRange, &mut BcWriter) -> R,
+        k: impl FnOnce(BcSlotInRange, &mut BcWriter) -> R,
     ) -> R {
         let start = BcSlot(self.local_count + self.stack_size);
         let mut end = start;
@@ -353,7 +353,7 @@ impl<'f> BcWriter<'f> {
             expr(end, item, self);
             end = BcSlot(end.0 + 1);
         }
-        let r = k(BcSlotRange { start, end }, self);
+        let r = k(BcSlotRange { start, end }.to_in(), self);
         self.stack_sub(end.0 - start.0);
         r
     }

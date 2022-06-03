@@ -28,7 +28,7 @@ use crate::{
             compiler::if_compiler::write_if_else,
             instr_impl::*,
             slow_arg::BcInstrSlowArg,
-            stack_ptr::{BcSlot, BcSlotRange, BcSlotsN},
+            stack_ptr::{BcSlot, BcSlotIn, BcSlotInRange, BcSlotsInN},
             writer::BcWriter,
         },
         compiler::{
@@ -46,7 +46,7 @@ use crate::{
 pub(crate) fn write_exprs<'a>(
     exprs: impl IntoIterator<Item = &'a IrSpanned<ExprCompiled>>,
     bc: &mut BcWriter,
-    k: impl FnOnce(BcSlotRange, &mut BcWriter),
+    k: impl FnOnce(BcSlotInRange, &mut BcWriter),
 ) {
     bc.alloc_slots_for_exprs(exprs, |slot, expr, bc| expr.write_bc(slot, bc), k)
 }
@@ -54,7 +54,7 @@ pub(crate) fn write_exprs<'a>(
 pub(crate) fn write_expr_opt(
     expr: &Option<IrSpanned<ExprCompiled>>,
     bc: &mut BcWriter,
-    k: impl FnOnce(Option<BcSlot>, &mut BcWriter),
+    k: impl FnOnce(Option<BcSlotIn>, &mut BcWriter),
 ) {
     if let Some(expr) = expr {
         expr.write_bc_cb(bc, |slot, bc| k(Some(slot), bc))
@@ -66,9 +66,9 @@ pub(crate) fn write_expr_opt(
 pub(crate) fn write_n_exprs<const N: usize>(
     exprs: [&IrSpanned<ExprCompiled>; N],
     bc: &mut BcWriter,
-    k: impl FnOnce(BcSlotsN<N>, &mut BcWriter),
+    k: impl FnOnce(BcSlotsInN<N>, &mut BcWriter),
 ) {
-    write_exprs(exprs, bc, |slots, bc| k(BcSlotsN::from_range(slots), bc))
+    write_exprs(exprs, bc, |slots, bc| k(BcSlotsInN::from_range(slots), bc))
 }
 
 impl IrSpanned<ExprCompiled> {
@@ -343,19 +343,19 @@ impl IrSpanned<ExprCompiled> {
     pub(crate) fn write_bc_cb<R>(
         &self,
         bc: &mut BcWriter,
-        k: impl FnOnce(BcSlot, &mut BcWriter) -> R,
+        k: impl FnOnce(BcSlotIn, &mut BcWriter) -> R,
     ) -> R {
         if let Some(local) = self.as_local_non_captured() {
             // Local is known to be definitely assigned, so there's no need
             // to "load" it just to trigger check that it is assigned.
             if bc.is_definitely_assigned(local) {
-                return k(local.to_bc_slot(), bc);
+                return k(local.to_bc_slot().to_in(), bc);
             }
         }
 
         bc.alloc_slot(|slot, bc| {
             self.write_bc(slot, bc);
-            k(slot, bc)
+            k(slot.to_in(), bc)
         })
     }
 
