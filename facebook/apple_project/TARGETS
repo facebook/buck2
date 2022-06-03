@@ -163,6 +163,7 @@ python_library(
         "fbcode//buck2/facebook/apple_project/buck:build_target_pattern_matcher",
         "fbsource//third-party/pypi/cached-property:cached-property",
         ":query",
+        ":xcode_data",
     ],
 )
 
