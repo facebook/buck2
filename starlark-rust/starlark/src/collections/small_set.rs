@@ -25,7 +25,7 @@ use std::{
 use gazebo::prelude::*;
 use indexmap::Equivalent;
 
-use crate::collections::small_map::SmallMap;
+use crate::collections::{small_map::SmallMap, Hashed};
 
 /// An memory-efficient set with determinstic order, based on [`SmallMap`].
 #[derive(Clone, Default_)]
@@ -124,6 +124,16 @@ impl<T> SmallSet<T> {
         self.0.insert(key, ()).is_none()
     }
 
+    /// Insert the element into the set.
+    ///
+    /// Return `true` iff the element was inserted.
+    pub fn insert_hashed(&mut self, key: Hashed<T>) -> bool
+    where
+        T: Eq,
+    {
+        self.0.insert_hashed(key, ()).is_none()
+    }
+
     /// Return a reference to the value stored in the set, if it is present,
     /// else `None`.
     ///
@@ -134,6 +144,16 @@ impl<T> SmallSet<T> {
         T: Eq,
     {
         self.0.get_full(value).map(|(_, t, _)| t)
+    }
+
+    /// Query the set by a prehashed value.
+    #[inline]
+    pub fn get_hashed<Q>(&self, value: Hashed<&Q>) -> Option<&T>
+    where
+        Q: Equivalent<T> + ?Sized,
+        T: Eq,
+    {
+        self.0.get_full_hashed(value).map(|(_, t, _)| t)
     }
 
     /// Find an entry by an index.
@@ -149,6 +169,16 @@ impl<T> SmallSet<T> {
         T: Eq,
     {
         self.0.get_index_of(value)
+    }
+
+    /// Find the index of the given hashed value.
+    #[inline]
+    pub fn get_index_of_hashed<Q>(&self, value: Hashed<&Q>) -> Option<usize>
+    where
+        Q: Equivalent<T> + ?Sized,
+        T: Eq,
+    {
+        self.0.get_index_of_hashed(value)
     }
 
     /// Remove the element from the set if it is present.

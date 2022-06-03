@@ -226,7 +226,18 @@ impl<K, V> SmallMap<K, V> {
         Q: Hash + Equivalent<K> + ?Sized,
         K: Eq,
     {
-        self.get_index_of_hashed(Hashed::new(key)).map(|index| {
+        self.get_full_hashed(Hashed::new(key))
+    }
+
+    /// Query the map by a given key, return an index of the entry
+    /// along with the entry key and value.
+    #[inline]
+    pub fn get_full_hashed<Q>(&self, key: Hashed<&Q>) -> Option<(usize, &K, &V)>
+    where
+        Q: Equivalent<K> + ?Sized,
+        K: Eq,
+    {
+        self.get_index_of_hashed(key).map(|index| {
             let Bucket { key, value, .. } = unsafe { self.entries.get_unchecked(index) };
             (index, key, value)
         })
