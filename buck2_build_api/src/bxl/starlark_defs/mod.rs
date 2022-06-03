@@ -43,6 +43,7 @@ use crate::{
 };
 
 pub mod analysis_result;
+pub mod artifacts;
 pub mod cli_args;
 pub mod context;
 pub mod cquery;
