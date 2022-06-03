@@ -12,7 +12,7 @@ use std::fmt::{self, Display};
 use anyhow::Context as _;
 use gazebo::{
     any::{AnyLifetime, ProvidesStaticType},
-    coerce::{coerce_ref, Coerce},
+    coerce::{coerce, Coerce},
     prelude::*,
 };
 use starlark::{
@@ -120,17 +120,17 @@ where
 
 impl CommandLineArgLike for FrozenTransitiveSetArgsProjection {
     fn add_to_command_line(&self, builder: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
-        let this: &TransitiveSetArgsProjection = coerce_ref(self);
+        let this: &TransitiveSetArgsProjection = coerce(self);
         this.add_to_command_line(builder)
     }
 
     fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
-        let this: &TransitiveSetArgsProjection = coerce_ref(self);
+        let this: &TransitiveSetArgsProjection = coerce(self);
         this.visit_artifacts(visitor)
     }
 
     fn contains_arg_attr(&self) -> bool {
-        let this: &TransitiveSetArgsProjection = coerce_ref(self);
+        let this: &TransitiveSetArgsProjection = coerce(self);
         this.contains_arg_attr()
     }
 
@@ -138,7 +138,7 @@ impl CommandLineArgLike for FrozenTransitiveSetArgsProjection {
         &self,
         visitor: &mut dyn WriteToFileMacroVisitor,
     ) -> anyhow::Result<()> {
-        let this: &TransitiveSetArgsProjection = coerce_ref(self);
+        let this: &TransitiveSetArgsProjection = coerce(self);
         this.visit_write_to_file_macros(visitor)
     }
 }

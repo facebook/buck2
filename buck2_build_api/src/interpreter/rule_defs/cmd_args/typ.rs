@@ -18,7 +18,7 @@ use derive_more::Display;
 use gazebo::{
     any::AnyLifetime,
     cell::ARef,
-    coerce::{coerce_ref, Coerce},
+    coerce::{coerce, Coerce},
     prelude::*,
 };
 use indexmap::IndexSet;
@@ -469,7 +469,7 @@ fn cmd_args<'v>(x: Value<'v>) -> ARef<'v, StarlarkCommandLineDataGen<Value<'v>>>
     if let Some(x) = x.downcast_ref::<StarlarkCommandLine>() {
         ARef::new_ref(x.0.borrow())
     } else if let Some(x) = x.downcast_ref::<FrozenStarlarkCommandLine>() {
-        ARef::new_ptr(coerce_ref(&x.0))
+        ARef::new_ptr(coerce(&x.0))
     } else {
         unreachable!("This parameter must always be a type of command args")
     }

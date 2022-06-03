@@ -17,7 +17,7 @@ use buck2_interpreter::common::ModuleID;
 use derive_more::Display;
 use gazebo::{
     any::AnyLifetime,
-    coerce::{coerce_ref, Coerce},
+    coerce::{coerce, Coerce},
     prelude::*,
 };
 use serde::{Serialize, Serializer};
@@ -305,6 +305,6 @@ impl<'v> TransitiveSetDefinitionLike<'v> for FrozenTransitiveSetDefinition {
     }
 
     fn operations(&self) -> &TransitiveSetOperations<'v> {
-        coerce_ref(&self.operations)
+        coerce(&self.operations)
     }
 }
