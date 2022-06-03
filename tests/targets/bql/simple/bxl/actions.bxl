@@ -16,7 +16,8 @@ def _build_actions_impl(ctx):
 
     output = actions.write("my_output", ctx.cli_args.content)
 
-    return [output]
+    ensured = ctx.output.ensure(output)
+    ctx.output.print(ensured)
 
 build_actions_test = bxl(
     implementation = _build_actions_impl,

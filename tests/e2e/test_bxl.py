@@ -285,14 +285,8 @@ async def test_bxl_create_build_actions(buck: Buck) -> None:
 
     result = await buck.bxl(
         "//bxl/actions.bxl:build_actions_test",
-        "--show-all-outputs",
-        "--show-all-outputs-format",
-        "json",
         "--",
         "--content",
         "my_content",
     )
-    outputs = json.loads(result.stdout)
-    assert (
-        buck.cwd / Path(outputs["root//bxl/actions.bxl:build_actions_test"][0])
-    ).read_text() == "my_content"
+    assert (buck.cwd / Path(result.stdout.strip())).read_text() == "my_content"
