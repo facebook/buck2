@@ -18,6 +18,7 @@ rust_library(
         "fbsource//third-party/rust:prost",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:thiserror",
+        "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:uuid",
         "//buck2/buck2_data:buck2_data",
         "//buck2/cli_proto:cli_proto",

@@ -4,7 +4,7 @@
 //! liberally duplicated and passed around to the depths of buck2 so that consumers can insert events into it.
 
 use std::{
-    cell::{Cell, RefCell},
+    cell::Cell,
     process::{Command, Stdio},
     sync::Arc,
     time::{Duration, Instant, SystemTime},
@@ -191,24 +191,6 @@ impl EventDispatcher {
     pub fn trace_id(&self) -> &TraceId {
         &self.trace_id
     }
-
-    /// Calls function func with this dispatcher set as the global dispatcher.
-    ///
-    /// Because this function call cannot be preempted (not async), we
-    /// ensure that this dispatcher is not shared between tasks.
-    fn call_in_dispatcher<F, T>(&self, func: F) -> T
-    where
-        F: FnOnce() -> T,
-    {
-        EVENTS.with(|d| {
-            // Will panic if the value is currently borrowed.
-            // Is currently impossible as get_dispatcher() returns a dupe and not a reference.
-            let prev_dispatcher = d.replace(self.dupe());
-            let ret = func();
-            d.replace(prev_dispatcher);
-            ret
-        })
-    }
 }
 
 #[derive(Default)]
@@ -309,29 +291,34 @@ impl<'a> Drop for Span<'a> {
 }
 
 thread_local! {
-    pub static EVENTS: RefCell<EventDispatcher> = RefCell::new(EventDispatcher::null());
     pub static CURRENT_SPAN: Cell<Option<SpanId>> = Cell::new(None);
 }
 
-/// Invokes function func, using dispatcher for any downstream events.
+tokio::task_local! {
+    pub static EVENTS: EventDispatcher;
+}
+
+/// Invokes function func, setting the dispatcher to the task_local for the duration
+/// of the call (and for any downstream events).
 pub fn with_dispatcher<R, F>(dispatcher: EventDispatcher, func: F) -> R
 where
     F: FnOnce() -> R,
 {
-    dispatcher.call_in_dispatcher(func)
+    EVENTS.sync_scope(dispatcher, func)
 }
 
-/// Resolves the Future fut, using the passed dispatcher for any downstream events.
+/// Resolves the Future fut, setting the dispatcher to the task_local for the Task
+/// (and for any downstream events).
 pub async fn with_dispatcher_async<R, Fut>(dispatcher: EventDispatcher, fut: Fut) -> R
 where
     Fut: Future<Output = R>,
 {
     futures::pin_mut!(fut);
-    future::poll_fn(|cx| dispatcher.call_in_dispatcher(|| fut.as_mut().poll(cx))).await
+    EVENTS.scope(dispatcher, fut).await
 }
 
 fn get_dispatcher() -> EventDispatcher {
-    EVENTS.with(|dispatcher| dispatcher.borrow().dupe())
+    EVENTS.with(|dispatcher| dispatcher.dupe())
 }
 
 fn current_span() -> Option<SpanId> {
