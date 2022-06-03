@@ -27,6 +27,7 @@ use derive_more::Display;
 use dice::DiceComputations;
 use either::Either;
 use gazebo::any::ProvidesStaticType;
+use hashbrown::HashSet;
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
     eval::Evaluator,
@@ -37,6 +38,7 @@ use starlark::{
 };
 
 use crate::{
+    actions::artifact::Artifact,
     analysis::registry::AnalysisRegistry,
     bxl::{
         starlark_defs::{
@@ -51,7 +53,9 @@ use crate::{
         },
         BxlKey,
     },
-    interpreter::rule_defs::{context::AnalysisActions, label::Label},
+    interpreter::rule_defs::{
+        artifact::ValueAsArtifactLike, context::AnalysisActions, label::Label,
+    },
     query::dice::DiceQueryDelegate,
 };
 
@@ -140,15 +144,22 @@ impl<'v> BxlContext<'v> {
             .via_dice(|dice| Self::dice_query_delegate(dice, global_target_platform))
     }
 
-    /// Must take an `AnalysisContext` which has never had `take_state` called on it before.
+    /// Must take an `AnalysisContext` and `OutputStream` which has never had `take_state` called on it before.
     pub(crate) fn take_state(
         value: ValueTyped<'v, BxlContext<'v>>,
-    ) -> Option<AnalysisRegistry<'v>> {
-        value.as_ref().state.as_ref().state.borrow_mut().take()
-    }
-
-    pub(crate) fn has_print(value: ValueTyped<'v, BxlContext<'v>>) -> bool {
-        value.as_ref().output_stream.as_ref().has_print()
+    ) -> anyhow::Result<(Option<AnalysisRegistry<'v>>, HashSet<Artifact>, bool)> {
+        let this = value.as_ref();
+        Ok((
+            this.state.as_ref().state.borrow_mut().take(),
+            // artifacts should be bound by now as the bxl has finished running
+            this.output_stream
+                .as_ref()
+                .take_artifacts()
+                .into_iter()
+                .map(|v| v.as_artifact().unwrap().get_bound())
+                .collect::<anyhow::Result<_>>()?,
+            this.output_stream.has_print(),
+        ))
     }
 }
 

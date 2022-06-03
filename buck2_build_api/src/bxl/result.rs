@@ -1,4 +1,6 @@
 use anyhow::Context;
+use hashbrown::HashSet;
+use itertools::Itertools;
 use starlark::values::{list::List, Value, ValueLike};
 use thiserror::Error;
 
@@ -29,19 +31,29 @@ pub enum BxlResult {
 struct NotAValidReturnType(&'static str);
 
 impl BxlResult {
-    pub(super) fn new<'v>(
+    pub(super) fn new(
         has_print: bool,
-        eval_value: Value<'v>,
+        ensured_artifacts: HashSet<Artifact>,
+        eval_value: Value,
         deferred: DeferredTable,
     ) -> anyhow::Result<Self> {
         if eval_value.is_none() {
-            Ok(Self::None { has_print })
+            if ensured_artifacts.is_empty() {
+                Ok(Self::None { has_print })
+            } else {
+                Ok(Self::BuildsArtifacts {
+                    has_print,
+                    built: vec![],
+                    artifacts: ensured_artifacts.into_iter().sorted().collect(),
+                    deferred,
+                })
+            }
         } else if let Some(build_result) = eval_value.downcast_ref::<StarlarkBuildResult>() {
             // TODO avoid the clone if we can extract it from the heap
             Ok(Self::BuildsArtifacts {
                 has_print,
                 built: vec![build_result.clone()],
-                artifacts: vec![],
+                artifacts: ensured_artifacts.into_iter().sorted().collect(),
                 deferred,
             })
         } else if let Some(artifact) = eval_value.as_artifact() {

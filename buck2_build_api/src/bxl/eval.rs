@@ -78,10 +78,9 @@ pub async fn eval(ctx: DiceTransaction, key: BxlKey) -> anyhow::Result<BxlResult
         let result = eval_bxl(&mut eval, &frozen_callable, bxl_ctx.to_value())?;
         env.set("", result);
 
-        let maybe_state = BxlContext::take_state(bxl_ctx);
-        let has_print = BxlContext::has_print(bxl_ctx);
+        let (actions, ensured_artifacts, has_print) = BxlContext::take_state(bxl_ctx)?;
 
-        match maybe_state {
+        match actions {
             Some(registry) => {
                 // this bxl registered actions, so extract the deferreds from it
                 let (frozen, deferred) = registry.finalize(&env)(env)?;
@@ -89,12 +88,18 @@ pub async fn eval(ctx: DiceTransaction, key: BxlKey) -> anyhow::Result<BxlResult
 
                 let deferred_table = DeferredTable::new(deferred.take_result()?);
 
-                anyhow::Ok(BxlResult::new(has_print, result.value(), deferred_table))
+                anyhow::Ok(BxlResult::new(
+                    has_print,
+                    ensured_artifacts,
+                    result.value(),
+                    deferred_table,
+                ))
             }
             None => {
                 // this bxl did not try to build anything, so we don't have any deferreds
                 anyhow::Ok(BxlResult::new(
                     has_print,
+                    ensured_artifacts,
                     result,
                     DeferredTable::new(hashmap! {}),
                 ))
