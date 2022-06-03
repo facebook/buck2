@@ -96,10 +96,15 @@ impl<'v> AllocValue<'v> for OutputStream<'v> {
 fn register_output_stream(builder: &mut MethodsBuilder) {
     /// Outputs results to the console via stdout. These outputs are considered to be the results
     /// of a bxl script, which will be displayed to stdout by buck2 even when the script is cached.
+    /// Accepts an optional separator that defaults to " ".
     ///
     /// Prints that are not result of the bxl should be printed via stderr via the stdlib `print`
     /// and `pprint`.
-    fn print(this: &OutputStream, args: Vec<Value>) -> anyhow::Result<NoneType> {
+    fn print(
+        this: &OutputStream,
+        args: Vec<Value>,
+        #[starlark(default = " ")] sep: &str,
+    ) -> anyhow::Result<NoneType> {
         // TODO handle printing of EnsuredArtifacts separately
         println!(
             "{}",
@@ -122,7 +127,7 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
                     )
                 })?
                 .into_iter()
-                .join(" ")
+                .join(sep)
         );
         *this.has_print.borrow_mut() = true;
 
