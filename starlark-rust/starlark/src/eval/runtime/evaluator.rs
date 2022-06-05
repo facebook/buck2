@@ -244,9 +244,10 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             ProfileMode::Bytecode | ProfileMode::BytecodePairs => {
                 self.bc_profile.enable_1();
             }
-            _ => {
+            ProfileMode::Statement => {
                 self.before_stmt.instrument = true;
             }
+            _ => {}
         }
     }
 
