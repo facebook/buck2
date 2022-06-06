@@ -105,10 +105,7 @@ def _merge_assets(
 
     merged_assets_output = ctx.actions.declare_output("merged_assets.ap_")
     merge_assets_cmd.add(["--output-apk", merged_assets_output.as_output()])
-
-    if base_apk != None:
-        merge_assets_cmd.add(["--base-apk", base_apk])
-
+    merge_assets_cmd.add(["--base-apk", base_apk])
     assets_dirs_file = ctx.actions.write("assets_dirs", assets_dirs)
     merge_assets_cmd.add(["--assets-dirs", assets_dirs_file])
     merge_assets_cmd.hidden(assets_dirs)
