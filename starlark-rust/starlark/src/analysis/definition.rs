@@ -147,7 +147,6 @@ impl AstModule {
     }
 
     /// Attempt to find the location where an exported symbol is defined.
-    #[allow(dead_code)]
     pub(crate) fn find_exported_symbol(&self, name: &str) -> Option<ResolvedSpan> {
         self.exported_symbols().iter().find_map(|(span, symbol)| {
             if *symbol == name {
@@ -160,7 +159,7 @@ impl AstModule {
 }
 
 #[cfg(test)]
-mod helpers {
+pub(crate) mod helpers {
     use std::collections::{hash_map::Entry, HashMap};
 
     use textwrap::dedent;
@@ -283,6 +282,11 @@ mod helpers {
 
         pub(crate) fn module(&self) -> anyhow::Result<AstModule> {
             AstModule::parse(&self.filename, self.program.clone(), &Dialect::Extended)
+        }
+
+        #[cfg(not(windows))]
+        pub(crate) fn program(&self) -> String {
+            self.program.clone()
         }
     }
 

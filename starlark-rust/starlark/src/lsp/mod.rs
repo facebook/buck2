@@ -19,5 +19,5 @@
 //! to the Language Server Protocol <https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/>
 
 pub mod server;
-#[cfg(test)]
+#[cfg(all(test, not(windows)))]
 mod test;

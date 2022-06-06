@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#[cfg(all(test, not(windows)))]
+pub(crate) use definition::helpers::FixtureWithRanges;
 pub(crate) use definition::DefinitionLocation;
 pub use types::{EvalMessage, EvalSeverity, Lint};
 

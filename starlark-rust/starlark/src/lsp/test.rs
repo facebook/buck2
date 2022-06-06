@@ -42,6 +42,18 @@ use crate::{
     syntax::{AstModule, Dialect},
 };
 
+/// Get the path from a URL, trimming off things like the leading slash that gets
+/// appended in some windows test environments.
+#[cfg(windows)]
+fn get_path_from_uri(uri: &str) -> PathBuf {
+    PathBuf::from(uri.trim_start_match('/'))
+}
+
+#[cfg(not(windows))]
+fn get_path_from_uri(uri: &str) -> PathBuf {
+    PathBuf::from(uri)
+}
+
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum TestServerError {
     #[error("Attempted to set the contents of a file with a non-absolute path `{}`", .0.display())]
@@ -82,7 +94,7 @@ impl LspContext for TestServerContext {
     }
 
     fn resolve_load(&self, path: &str, current_file_dir: Option<&Path>) -> anyhow::Result<Url> {
-        let path = PathBuf::from(path);
+        let path = get_path_from_uri(path);
         let absolute_path = match (current_file_dir, path.is_absolute()) {
             (_, true) => Ok(path),
             (Some(current_file_dir), false) => Ok(current_file_dir.join(&path)),
@@ -92,7 +104,7 @@ impl LspContext for TestServerContext {
     }
 
     fn get_load_contents(&self, uri: &Url) -> anyhow::Result<Option<String>> {
-        let path = PathBuf::from(uri.path());
+        let path = get_path_from_uri(uri.path());
         match path.is_absolute() {
             true => Ok(self.file_contents.read().unwrap().get(&path).cloned()),
             false => Err(LoadContentsError::NotAbsolute(uri.clone()).into()),
@@ -144,7 +156,9 @@ impl Drop for TestServer {
         }
 
         if let Some(server_thread) = self.server_thread.take() {
-            server_thread.join().expect("test server to join");
+            if let Err(e) = server_thread.join() {
+                eprintln!("test server did not join when being dropped: {:?}", e);
+            }
         }
     }
 }
@@ -355,8 +369,8 @@ impl TestServer {
     }
 
     /// Set the file contents that `get_load_contents()` will return. The path must be absolute.
-    #[allow(dead_code)]
     pub fn set_file_contents(&self, path: PathBuf, contents: String) -> anyhow::Result<()> {
+        let path = get_path_from_uri(&format!("{}", path.display()));
         if !path.is_absolute() {
             Err(TestServerError::SetFileNotAbsolute(path).into())
         } else {

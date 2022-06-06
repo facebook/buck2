@@ -118,6 +118,17 @@ impl<T: LspContext> Backend<T> {
         last_valid_parse.get(uri).duped()
     }
 
+    fn get_ast_or_load_from_disk(&self, uri: &Url) -> anyhow::Result<Option<Arc<AstModule>>> {
+        let module = match self.get_ast(uri) {
+            Some(result) => Some(result),
+            None => self
+                .context
+                .parse_file(uri)?
+                .and_then(|eval_result| eval_result.ast.map(Arc::new)),
+        };
+        Ok(module)
+    }
+
     fn validate(&self, uri: Url, version: Option<i64>, text: String) {
         let eval_result = self
             .context
@@ -163,38 +174,53 @@ impl<T: LspContext> Backend<T> {
     /// If a file has changed and does result in a valid parse, then symbol locations may
     /// be slightly incorrect.
     fn goto_definition(&self, id: RequestId, params: GotoDefinitionParams) {
-        let response = match self.get_ast(&params.text_document_position_params.text_document.uri) {
-            Some(ast) => {
-                match ast.find_definition(
-                    params.text_document_position_params.position.line,
-                    params.text_document_position_params.position.character,
-                ) {
-                    DefinitionLocation::Location(span) => {
-                        GotoDefinitionResponse::Scalar(Location {
-                            uri: params
-                                .text_document_position_params
-                                .text_document
-                                .uri
-                                .clone(),
-                            range: span.into(),
-                        })
-                    }
-                    DefinitionLocation::LoadedLocation { location, .. } => {
-                        GotoDefinitionResponse::Scalar(Location {
-                            uri: params
-                                .text_document_position_params
-                                .text_document
-                                .uri
-                                .clone(),
+        self.send_response(new_response(id, self.find_definition(params)));
+    }
+
+    fn find_definition(
+        &self,
+        params: GotoDefinitionParams,
+    ) -> anyhow::Result<GotoDefinitionResponse> {
+        let uri = params.text_document_position_params.text_document.uri;
+        let line = params.text_document_position_params.position.line;
+        let character = params.text_document_position_params.position.character;
+        let location = match self.get_ast(&uri) {
+            Some(ast) => match ast.find_definition(line, character) {
+                DefinitionLocation::Location(span) => Some(Location {
+                    uri,
+                    range: span.into(),
+                }),
+                DefinitionLocation::LoadedLocation {
+                    location,
+                    path,
+                    name,
+                } => {
+                    let relative_load_cwd = Path::new(uri.path()).parent().to_owned();
+                    let load_uri = self.context.resolve_load(&path, relative_load_cwd)?;
+                    let loaded_location = self
+                        .get_ast_or_load_from_disk(&load_uri)?
+                        .and_then(|ast| ast.find_exported_symbol(&name));
+                    match loaded_location {
+                        None => Some(Location {
+                            uri,
                             range: location.into(),
-                        })
+                        }),
+                        Some(loaded_location) => Some(Location {
+                            uri: load_uri,
+                            range: loaded_location.into(),
+                        }),
                     }
-                    DefinitionLocation::NotFound => GotoDefinitionResponse::Array(vec![]),
                 }
-            }
+                DefinitionLocation::NotFound => None,
+            },
+            None => None,
+        };
+
+        let response = match location {
+            Some(location) => GotoDefinitionResponse::Scalar(location),
             None => GotoDefinitionResponse::Array(vec![]),
         };
-        self.send_response(new_response(id, Ok(response)));
+        Ok(response)
     }
 }
 
@@ -347,22 +373,27 @@ where
             result: None,
             error: Some(ResponseError {
                 code: 0,
-                message: format!("{:#}", e),
+                message: format!("{:#?}", e),
                 data: None,
             }),
         },
     }
 }
 
-#[cfg(test)]
+// TODO(nmj): Some of the windows tests get a bit flaky, especially around
+//            some paths. Revisit later.
+#[cfg(all(test, not(windows)))]
 mod test {
+    use std::path::PathBuf;
+
     use lsp_server::{Request, RequestId};
     use lsp_types::{
         request::GotoDefinition, GotoDefinitionParams, GotoDefinitionResponse, Location, Position,
         Range, TextDocumentIdentifier, TextDocumentPositionParams, Url,
     };
+    use textwrap::dedent;
 
-    use crate::lsp::test::TestServer;
+    use crate::{analysis::FixtureWithRanges, lsp::test::TestServer};
 
     fn goto_definition_request(
         server: &mut TestServer,
@@ -391,11 +422,20 @@ mod test {
         }
     }
 
+    #[cfg(windows)]
+    fn temp_file_uri(rel_path: &str) -> Url {
+        Url::from_file_path(&PathBuf::from("C:/tmp").join(rel_path)).unwrap()
+    }
+
+    #[cfg(not(windows))]
+    fn temp_file_uri(rel_path: &str) -> Url {
+        Url::from_file_path(&PathBuf::from("/tmp").join(rel_path)).unwrap()
+    }
+
     #[test]
     fn sends_empty_goto_definition_on_nonexistent_file() -> anyhow::Result<()> {
         let mut server = TestServer::new()?;
-        let req =
-            goto_definition_request(&mut server, Url::parse("file:///tmp/nonexistent")?, 0, 0);
+        let req = goto_definition_request(&mut server, temp_file_uri("nonexistent"), 0, 0);
 
         let request_id = server.send_request(req)?;
         let response: GotoDefinitionResponse = server.get_response(request_id)?;
@@ -410,7 +450,7 @@ mod test {
 
     #[test]
     fn sends_empty_goto_definition_on_non_access_symbol() -> anyhow::Result<()> {
-        let uri = Url::parse("file:///tmp/file.star")?;
+        let uri = temp_file_uri("file.star");
 
         let mut server = TestServer::new()?;
         let contents = "y = 1\ndef nothing():\n    pass\nprint(nothing())\n";
@@ -431,7 +471,7 @@ mod test {
 
     #[test]
     fn goes_to_definition() -> anyhow::Result<()> {
-        let uri = Url::parse("file:///tmp/file.star")?;
+        let uri = temp_file_uri("file.star");
         let expected_location = Location {
             uri: uri.clone(),
             range: Range {
@@ -461,7 +501,7 @@ mod test {
 
     #[test]
     fn returns_old_definitions_if_current_file_does_not_parse() -> anyhow::Result<()> {
-        let uri = Url::parse("file:///tmp/file.star")?;
+        let uri = temp_file_uri("file.star");
         let expected_location = Location {
             uri: uri.clone(),
             range: Range {
@@ -482,6 +522,207 @@ mod test {
         server.change_file(uri.clone(), "\"invalid parse".to_owned())?;
 
         let goto_definition = goto_definition_request(&mut server, uri, 3, 6);
+
+        let request_id = server.send_request(goto_definition)?;
+        let location = goto_definition_response_location(&mut server, request_id)?;
+
+        assert_eq!(expected_location, location);
+        Ok(())
+    }
+
+    #[test]
+    fn jumps_to_definition_from_opened_loaded_file() -> anyhow::Result<()> {
+        let foo_uri = temp_file_uri("foo.star");
+        let bar_uri = temp_file_uri("bar.star");
+
+        let foo_contents = dedent(
+            r#"
+            load("{load}", "baz")
+            <baz>b</baz>az()
+            "#,
+        )
+        .replace("{load}", bar_uri.path())
+        .trim()
+        .to_owned();
+        let bar_contents = "def <baz>baz</baz>():\n    pass";
+        let foo = FixtureWithRanges::from_fixture(foo_uri.path(), &foo_contents)?;
+        let bar = FixtureWithRanges::from_fixture(bar_uri.path(), bar_contents)?;
+
+        let expected_location = Location {
+            uri: bar_uri.clone(),
+            range: bar.span("baz").into(),
+        };
+
+        let mut server = TestServer::new()?;
+        // Initialize with "junk" on disk so that we make sure we're using the contents from the
+        // client (potentially indicating an unsaved, modified file)
+        server.set_file_contents(PathBuf::from(bar_uri.path()), "some_symbol = 1".to_owned())?;
+        server.open_file(foo_uri.clone(), foo.program())?;
+        server.open_file(bar_uri, bar.program())?;
+
+        let goto_definition = goto_definition_request(
+            &mut server,
+            foo_uri,
+            foo.begin_line("baz"),
+            foo.begin_column("baz"),
+        );
+
+        let request_id = server.send_request(goto_definition)?;
+        let location = goto_definition_response_location(&mut server, request_id)?;
+
+        assert_eq!(expected_location, location);
+        Ok(())
+    }
+
+    #[test]
+    fn jumps_to_definition_from_closed_loaded_file() -> anyhow::Result<()> {
+        let foo_uri = temp_file_uri("foo.star");
+        let bar_uri = temp_file_uri("bar.star");
+
+        let foo_contents = dedent(
+            r#"
+            load("{load}", "baz")
+            <baz>b</baz>az()
+            "#,
+        )
+        .replace("{load}", bar_uri.path())
+        .trim()
+        .to_owned();
+        let bar_contents = "def <baz>baz</baz>():\n    pass";
+        let foo = FixtureWithRanges::from_fixture(foo_uri.path(), &foo_contents)?;
+        let bar = FixtureWithRanges::from_fixture(bar_uri.path(), bar_contents)?;
+
+        let expected_location = Location {
+            uri: bar_uri.clone(),
+            range: bar.span("baz").into(),
+        };
+
+        let mut server = TestServer::new()?;
+        server.open_file(foo_uri.clone(), foo.program())?;
+        server.set_file_contents(PathBuf::from(bar_uri.path()), bar.program())?;
+
+        let goto_definition = goto_definition_request(
+            &mut server,
+            foo_uri,
+            foo.begin_line("baz"),
+            foo.begin_column("baz"),
+        );
+
+        let request_id = server.send_request(goto_definition)?;
+        let location = goto_definition_response_location(&mut server, request_id)?;
+
+        assert_eq!(expected_location, location);
+        Ok(())
+    }
+
+    #[test]
+    fn passes_cwd_for_relative_loads() -> anyhow::Result<()> {
+        let foo_uri = temp_file_uri("foo.star");
+        let bar_uri = temp_file_uri("bar.star");
+
+        let foo_contents = dedent(
+            r#"
+            load("bar.star", "baz")
+            <baz>b</baz>az()
+            "#,
+        )
+        .trim()
+        .to_owned();
+        let bar_contents = "def <baz>baz</baz>():\n    pass";
+        let foo = FixtureWithRanges::from_fixture(foo_uri.path(), &foo_contents)?;
+        let bar = FixtureWithRanges::from_fixture(bar_uri.path(), bar_contents)?;
+
+        let expected_location = Location {
+            uri: bar_uri.clone(),
+            range: bar.span("baz").into(),
+        };
+
+        let mut server = TestServer::new()?;
+        server.open_file(foo_uri.clone(), foo.program())?;
+        server.set_file_contents(PathBuf::from(bar_uri.path()), bar.program())?;
+
+        let goto_definition = goto_definition_request(
+            &mut server,
+            foo_uri,
+            foo.begin_line("baz"),
+            foo.begin_column("baz"),
+        );
+
+        let request_id = server.send_request(goto_definition)?;
+        let location = goto_definition_response_location(&mut server, request_id)?;
+
+        assert_eq!(expected_location, location);
+        Ok(())
+    }
+
+    #[test]
+    fn does_not_jump_to_definition_if_invalid_file() -> anyhow::Result<()> {
+        let foo_uri = temp_file_uri("foo.star");
+
+        let foo_contents = dedent(
+            r#"
+            load("{load}", <baz_loc>"baz"</baz_loc>)
+            <baz>b</baz>az()
+            "#,
+        )
+        .replace("{load}", foo_uri.path())
+        .trim()
+        .to_owned();
+        let foo = FixtureWithRanges::from_fixture(foo_uri.path(), &foo_contents)?;
+        let expected_location = Location {
+            uri: foo_uri.clone(),
+            range: foo.span("baz_loc").into(),
+        };
+
+        let mut server = TestServer::new()?;
+        server.open_file(foo_uri.clone(), foo.program())?;
+
+        let goto_definition = goto_definition_request(
+            &mut server,
+            foo_uri,
+            foo.begin_line("baz"),
+            foo.begin_column("baz"),
+        );
+
+        let request_id = server.send_request(goto_definition)?;
+        let location = goto_definition_response_location(&mut server, request_id)?;
+
+        assert_eq!(expected_location, location);
+        Ok(())
+    }
+
+    #[test]
+    fn does_not_jump_to_definition_if_symbol_not_found() -> anyhow::Result<()> {
+        let foo_uri = temp_file_uri("foo.star");
+        let bar_uri = temp_file_uri("bar.star");
+
+        let foo_contents = dedent(
+            r#"
+            load("bar.star", <not_baz_loc>"not_baz"</not_baz_loc>)
+            <not_baz>not_baz</not_baz>()
+            "#,
+        )
+        .trim()
+        .to_owned();
+        let bar_contents = "def baz():\n    pass";
+        let foo = FixtureWithRanges::from_fixture(foo_uri.path(), &foo_contents)?;
+        let bar = FixtureWithRanges::from_fixture(bar_uri.path(), bar_contents)?;
+
+        let expected_location = Location {
+            uri: foo_uri.clone(),
+            range: foo.span("not_baz_loc").into(),
+        };
+
+        let mut server = TestServer::new()?;
+        server.open_file(foo_uri.clone(), foo.program())?;
+        server.set_file_contents(PathBuf::from(bar_uri.path()), bar.program())?;
+
+        let goto_definition = goto_definition_request(
+            &mut server,
+            foo_uri,
+            foo.begin_line("not_baz"),
+            foo.begin_column("not_baz"),
+        );
 
         let request_id = server.send_request(goto_definition)?;
         let location = goto_definition_response_location(&mut server, request_id)?;
