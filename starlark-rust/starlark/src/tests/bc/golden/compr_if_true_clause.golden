@@ -1,0 +1,19 @@
+# @generated
+# To regenerate, run:
+# ```
+# STARLARK_RUST_REGENERATE_BC_TESTS=1 cargo test -p starlark --lib tests
+# ```
+
+def test(y): return [x for x in y if True]
+
+# Bytecode:
+
+Max stack size: 2
+Instructions:
+   0: ListNew &3
+   8: ForLoop &0 &1 48
+     24: ComprListAppend &3 &1
+     40: Continue
+  >48: Mov &3 &2
+   64: Return &2
+   72: End

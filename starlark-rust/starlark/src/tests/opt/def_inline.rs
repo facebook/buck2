@@ -20,14 +20,14 @@
 use crate::{
     assert::Assert,
     eval::{bc::opcode::BcOpcode, compiler::def::FrozenDef},
-    tests::bc::test_instrs,
+    tests::bc::golden::bc_golden_test,
     values::ValueLike,
 };
 
 #[test]
 fn test_def_const_inlined() {
-    test_instrs(
-        &[BcOpcode::ReturnConst],
+    bc_golden_test(
+        "def_inline_const_inlined",
         r#"
 def trivial():
     return 10
@@ -40,8 +40,8 @@ def test():
 
 #[test]
 fn test_def_list_inlined() {
-    test_instrs(
-        &[BcOpcode::ListOfConsts, BcOpcode::Return],
+    bc_golden_test(
+        "def_inline_list_inlined",
         r#"
 def test():
     return returns_list()
@@ -55,13 +55,8 @@ def returns_list():
 
 #[test]
 fn test_dict_inlined() {
-    test_instrs(
-        &[
-            BcOpcode::ListNew,
-            BcOpcode::Const,
-            BcOpcode::DictNPop,
-            BcOpcode::Return,
-        ],
+    bc_golden_test(
+        "def_inline_dict_inlined",
         r#"
 def returns_dict():
     # This should fail at runtime.

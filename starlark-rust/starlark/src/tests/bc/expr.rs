@@ -15,30 +15,21 @@
  * limitations under the License.
  */
 
-use crate::{assert, eval::bc::opcode::BcOpcode, tests::bc::test_instrs};
+use crate::{assert, tests::bc::golden::bc_golden_test};
 
 #[test]
 fn test_type() {
-    test_instrs(
-        &[BcOpcode::Type, BcOpcode::Return],
-        "def test(x): return type(x)",
-    );
+    bc_golden_test("expr_type", "def test(x): return type(x)");
 }
 
 #[test]
 fn test_percent_s_one() {
-    test_instrs(
-        &[BcOpcode::PercentSOne, BcOpcode::Return],
-        "def test(x): return '((%s))' % x",
-    )
+    bc_golden_test("expr_percent_s_one", "def test(x): return '((%s))' % x");
 }
 
 #[test]
 fn test_format_one() {
-    test_instrs(
-        &[BcOpcode::FormatOne, BcOpcode::Return],
-        "def test(x): return '(({}))'.format(x)",
-    )
+    bc_golden_test("expr_format_one", "def test(x): return '(({}))'.format(x)");
 }
 
 #[test]
@@ -60,20 +51,10 @@ assert.eq(("<(1,)>", "<1>"), test((1,)))
 #[test]
 fn test_spec_exec_list() {
     // `list` function is const-evaluated and the resulting list is compiled as list instruction.
-    test_instrs(
-        &[BcOpcode::ListOfConsts, BcOpcode::Return],
-        "def test(): return list((10, 20))",
-    )
+    bc_golden_test("expr_spec_exec_list", "def test(): return list((10, 20))");
 }
 
 #[test]
 fn test_call_maybe_known_method() {
-    test_instrs(
-        &[
-            BcOpcode::Const,
-            BcOpcode::CallMaybeKnownMethodPos,
-            BcOpcode::ReturnConst,
-        ],
-        "def test(x): x.append(1)",
-    );
+    bc_golden_test("expr_call_maybe_known_method", "def test(x): x.append(1)");
 }

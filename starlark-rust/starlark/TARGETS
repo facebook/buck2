@@ -36,7 +36,10 @@ custom_rule(
 
 buck_filegroup(
     name = "testcases",
-    srcs = glob(["testcases/**"]),
+    srcs = glob([
+        "src/tests/bc/golden/*",
+        "testcases/**",
+    ]),
 )
 
 rust_library(

@@ -21,22 +21,5 @@ mod and_or;
 mod compr;
 mod definitely_assigned;
 mod expr;
+pub(crate) mod golden;
 mod if_stmt;
-
-use crate::{
-    assert::Assert,
-    eval::{bc::opcode::BcOpcode, compiler::def::FrozenDef},
-};
-
-pub(crate) fn test_instrs(expected: &[BcOpcode], def_program: &str) {
-    let mut a = Assert::new();
-    let def = a
-        .module("instrs.star", def_program)
-        .get("test")
-        .unwrap()
-        .downcast::<FrozenDef>()
-        .unwrap();
-    let mut opcodes = def.bc().instrs.opcodes();
-    assert_eq!(Some(BcOpcode::End), opcodes.pop());
-    assert_eq!(expected, opcodes);
-}

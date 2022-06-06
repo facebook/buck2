@@ -17,12 +17,12 @@
 
 //! Test compilation of comprehensions.
 
-use crate::{eval::bc::opcode::BcOpcode, tests::bc::test_instrs};
+use crate::tests::bc::golden::bc_golden_test;
 
 #[test]
 fn test_no_loop_if_top_collection_is_empty() {
-    test_instrs(
-        &[BcOpcode::ListNew, BcOpcode::Return],
+    bc_golden_test(
+        "compr_no_loop_if_top_collection_is_empty",
         "def test(): return [x for x in []]",
     );
 }
@@ -32,38 +32,24 @@ fn test_no_loop_if_top_collection_is_empty_on_freeze() {
     // This function is not optimized to return a list on compilation,
     // because `L` is not evaluated yet.
     // But it eliminates the loop on freeze.
-    test_instrs(
-        &[BcOpcode::ListNew, BcOpcode::Return],
+    bc_golden_test(
+        "compr_no_loop_if_top_collection_is_empty_on_freeze",
         "def test(): return [x for x in D]\nD = {}",
     );
 }
 
 #[test]
 fn test_if_true_clause() {
-    test_instrs(
-        &[
-            BcOpcode::ListNew,
-            BcOpcode::ForLoop,
-            BcOpcode::ComprListAppend,
-            BcOpcode::Continue,
-            BcOpcode::Mov,
-            BcOpcode::Return,
-        ],
+    bc_golden_test(
+        "compr_if_true_clause",
         "def test(y): return [x for x in y if True]",
     );
 }
 
 #[test]
 fn test_if_true_clause_on_freeze() {
-    test_instrs(
-        &[
-            BcOpcode::ListNew,
-            BcOpcode::ForLoop,
-            BcOpcode::ComprListAppend,
-            BcOpcode::Continue,
-            BcOpcode::Mov,
-            BcOpcode::Return,
-        ],
+    bc_golden_test(
+        "compr_if_true_clause_on_freeze",
         "def test(y): return [x for x in y if C]\nC = False\nC = True",
     );
 }

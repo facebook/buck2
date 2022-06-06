@@ -22,12 +22,12 @@ mod if_rand;
 mod speculative_exec;
 mod type_is;
 
-use crate::{assert::Assert, eval::bc::opcode::BcOpcode, tests::bc::test_instrs};
+use crate::tests::bc::golden::bc_golden_test;
 
 #[test]
 fn test_type_is_inlined() {
-    test_instrs(
-        &[BcOpcode::TypeIs, BcOpcode::Return],
+    bc_golden_test(
+        "opt_type_is_inlined",
         r#"
 def is_list(x):
     return type(x) == type([])
@@ -40,8 +40,8 @@ def test(x):
 
 #[test]
 fn test_private_forward_mutable_module_vars_inlined() {
-    test_instrs(
-        &[BcOpcode::ReturnConst],
+    bc_golden_test(
+        "opt_private_forward_mutable_module_vars_inlined",
         r#"
 def test():
     # Reference to module variable should be replaced with constant
@@ -54,8 +54,8 @@ _private_forward_mutable = {1: 2}
 
 #[test]
 fn test_same_module_struct_getattr_inlined() {
-    test_instrs(
-        &[BcOpcode::ReturnConst],
+    bc_golden_test(
+        "opt_same_module_struct_getattr_inlined",
         r#"
 def test():
     return _s.f
@@ -67,8 +67,8 @@ _s = struct(f = 1)
 
 #[test]
 fn test_list_plus_list() {
-    test_instrs(
-        &[BcOpcode::ListOfConsts, BcOpcode::Return],
+    bc_golden_test(
+        "opt_list_plus_list",
         r#"
 L = [1, 2]
 
@@ -80,8 +80,8 @@ def test():
 
 #[test]
 fn test_empty_iterable_optimized_away() {
-    test_instrs(
-        &[BcOpcode::ReturnConst],
+    bc_golden_test(
+        "opt_empty_iterable_optimized_away",
         r#"
 L = []
 def test():
@@ -93,8 +93,8 @@ def test():
 
 #[test]
 fn test_unreachable_code_optimized_away() {
-    test_instrs(
-        &[BcOpcode::ReturnConst],
+    bc_golden_test(
+        "opt_unreachable_code_optimized_away",
         r#"
 def test():
     if True:
@@ -106,8 +106,8 @@ def test():
 
 #[test]
 fn test_recursion() {
-    test_instrs(
-        &[BcOpcode::CallFrozenDefPos, BcOpcode::Return],
+    bc_golden_test(
+        "opt_recursion",
         // Test inlining does not fail here.
         "def test(): return test()",
     );
@@ -115,16 +115,15 @@ fn test_recursion() {
 
 #[test]
 fn test_mutual_recursion() {
-    let mut a = Assert::new();
     // Just check we do not enter an infinite recursion in the optimizer here.
-    a.module(
-        "t.star",
+    bc_golden_test(
+        "opt_mutual_recursion",
         r#"
-def f():
+def test():
     return g()
 
 def g():
-    return f()
+    return test()
 "#,
     );
 }

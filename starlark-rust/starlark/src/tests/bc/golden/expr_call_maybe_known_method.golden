@@ -1,0 +1,16 @@
+# @generated
+# To regenerate, run:
+# ```
+# STARLARK_RUST_REGENERATE_BC_TESTS=1 cargo test -p starlark --lib tests
+# ```
+
+def test(x): x.append(1)
+
+# Bytecode:
+
+Max stack size: 2
+Instructions:
+  0: Const 1 &2
+  24: CallMaybeKnownMethodPos &0 append <m> &2..&3 instrs.star.bzl:1:14-25 &1
+  112: ReturnConst None
+  128: End

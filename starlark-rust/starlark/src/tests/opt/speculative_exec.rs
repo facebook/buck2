@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-use crate::{eval::bc::opcode::BcOpcode, tests::bc::test_instrs};
+use crate::tests::bc::golden::bc_golden_test;
 
 #[test]
 fn test_methods_invoked_speculatively() {
-    test_instrs(
-        &[BcOpcode::ReturnConst],
+    bc_golden_test(
+        "speculative_exec_methods_invoked_speculatively",
         r#"
 def test():
     return "foo".startswith("f")
@@ -30,8 +30,8 @@ def test():
 
 #[test]
 fn test_format_speculatively_before_format_instr() {
-    test_instrs(
-        &[BcOpcode::ReturnConst],
+    bc_golden_test(
+        "speculative_exec_format_speculatively_before_format_instr",
         r#"
 def test():
     # Test this expression is compiled to constant, not to `FormatOne` instruction.
