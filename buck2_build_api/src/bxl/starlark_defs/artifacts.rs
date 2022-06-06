@@ -2,10 +2,7 @@
 
 use std::fmt::{Display, Formatter};
 
-use gazebo::{
-    any::{AnyLifetime, ProvidesStaticType},
-    coerce::Coerce,
-};
+use gazebo::{any::ProvidesStaticType, coerce::Coerce};
 use serde::{Serialize, Serializer};
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
@@ -17,7 +14,7 @@ use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 /// An artifact that will be materialized to buck-out at the end of the bxl invocation.
 /// These artifacts can be printed to bxl's results. Doing so will print the path of the artifact
 /// rather than the standard representation.
-#[derive(Clone, Debug, Coerce, Trace, Freeze, AnyLifetime)]
+#[derive(Clone, Debug, Coerce, Trace, Freeze, ProvidesStaticType)]
 #[repr(C)]
 pub struct EnsuredArtifactGen<V> {
     pub artifact: V,
