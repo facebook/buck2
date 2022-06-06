@@ -15,16 +15,17 @@ def prebuilt_jar_impl(ctx: "context") -> ["provider"]:
     """
 
     expected_extension = ".jar"
-    extension = ctx.attr.binary_jar.extension
+    binary_jar = ctx.attr.binary_jar
+    extension = binary_jar.extension
     if extension != expected_extension:
         fail("Extension of the binary_jar attribute has to be equal to '{}' but '{}' has an extension '{}'".format(
             expected_extension,
-            ctx.attr.binary_jar,
+            binary_jar,
             extension,
         ))
 
-    output = ctx.actions.declare_output(ctx.attr.binary_jar.basename[:-4] + "_symlink.jar")
-    ctx.actions.symlink(ctx.attr.binary_jar, output)
+    output = ctx.actions.declare_output(binary_jar.basename[:-4] + "_symlink.jar")
+    ctx.actions.symlink(binary_jar, output)
 
     library_output_classpath_entry = create_java_classpath_entry(ctx, output, ctx.attr.generate_abi)
 
