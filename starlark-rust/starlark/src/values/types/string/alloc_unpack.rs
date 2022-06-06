@@ -27,7 +27,7 @@ impl AllocFrozenValue for String {
     }
 }
 
-impl<'v, 'a> AllocFrozenValue for &'a str {
+impl<'a> AllocFrozenValue for &'a str {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         heap.alloc_str(self).to_frozen_value()
     }

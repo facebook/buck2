@@ -71,7 +71,7 @@ pub struct FrozenList {
     content: [FrozenValue; 0],
 }
 
-impl<'v> Debug for FrozenList {
+impl Debug for FrozenList {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("FrozenList")
             .field("content", &self.content())
@@ -253,7 +253,7 @@ impl<'v, V: AllocValue<'v>> AllocValue<'v> for Vec<V> {
     }
 }
 
-impl<'v, V: AllocFrozenValue> AllocFrozenValue for Vec<V> {
+impl<V: AllocFrozenValue> AllocFrozenValue for Vec<V> {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         heap.alloc_list(&self.into_map(|x| x.alloc_frozen_value(heap)))
     }
@@ -268,7 +268,7 @@ where
     }
 }
 
-impl<'a, 'v, V: 'a> AllocFrozenValue for &'a [V]
+impl<'a, V: 'a> AllocFrozenValue for &'a [V]
 where
     &'a V: AllocFrozenValue,
 {

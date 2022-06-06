@@ -77,7 +77,7 @@ fn test_export_as() {
         }
     }
 
-    impl<'v> Freeze for Exporter<RefCell<String>> {
+    impl Freeze for Exporter<RefCell<String>> {
         type Frozen = Exporter<String>;
         fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
             Ok(Exporter {
