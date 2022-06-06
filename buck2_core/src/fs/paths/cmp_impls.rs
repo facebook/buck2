@@ -18,28 +18,28 @@ use std::cmp;
 /// types, where `ty` is the unowned, reference path type.
 macro_rules! impl_cmp {
     ($lhs:ty, $rhs:ty, $ty:ty) => {
-        impl<'a, 'b> cmp::PartialEq<$rhs> for $lhs {
+        impl cmp::PartialEq<$rhs> for $lhs {
             #[inline]
             fn eq(&self, other: &$rhs) -> bool {
                 <$ty as cmp::PartialEq>::eq(self, other)
             }
         }
 
-        impl<'a, 'b> cmp::PartialEq<$lhs> for $rhs {
+        impl cmp::PartialEq<$lhs> for $rhs {
             #[inline]
             fn eq(&self, other: &$lhs) -> bool {
                 <$ty as cmp::PartialEq>::eq(self, other)
             }
         }
 
-        impl<'a, 'b> cmp::PartialOrd<$rhs> for $lhs {
+        impl cmp::PartialOrd<$rhs> for $lhs {
             #[inline]
             fn partial_cmp(&self, other: &$rhs) -> Option<cmp::Ordering> {
                 <$ty as cmp::PartialOrd>::partial_cmp(self, other)
             }
         }
 
-        impl<'a, 'b> cmp::PartialOrd<$lhs> for $rhs {
+        impl cmp::PartialOrd<$lhs> for $rhs {
             #[inline]
             fn partial_cmp(&self, other: &$lhs) -> Option<cmp::Ordering> {
                 <$ty as cmp::PartialOrd>::partial_cmp(self, other)
@@ -53,7 +53,7 @@ macro_rules! impl_cmp {
 /// string types, where `ty` is the unowned, reference path type.
 macro_rules! impl_cmp_str {
     ($lhs:ty, $rhs:ty, $ty:ty) => {
-        impl<'a, 'b> cmp::PartialEq<$rhs> for $lhs {
+        impl cmp::PartialEq<$rhs> for $lhs {
             #[inline]
             fn eq(&self, other: &$rhs) -> bool {
                 match <$ty>::new(other) {
@@ -63,7 +63,7 @@ macro_rules! impl_cmp_str {
             }
         }
 
-        impl<'a, 'b> cmp::PartialEq<$lhs> for $rhs {
+        impl cmp::PartialEq<$lhs> for $rhs {
             #[inline]
             fn eq(&self, other: &$lhs) -> bool {
                 match <$ty>::new(self) {
@@ -73,7 +73,7 @@ macro_rules! impl_cmp_str {
             }
         }
 
-        impl<'a, 'b> cmp::PartialOrd<$rhs> for $lhs {
+        impl cmp::PartialOrd<$rhs> for $lhs {
             #[inline]
             fn partial_cmp(&self, other: &$rhs) -> Option<cmp::Ordering> {
                 match <$ty>::new(other) {
@@ -83,7 +83,7 @@ macro_rules! impl_cmp_str {
             }
         }
 
-        impl<'a, 'b> cmp::PartialOrd<$lhs> for $rhs {
+        impl cmp::PartialOrd<$lhs> for $rhs {
             #[inline]
             fn partial_cmp(&self, other: &$lhs) -> Option<cmp::Ordering> {
                 match <$ty>::new(self) {
@@ -104,32 +104,32 @@ impl_cmp!(
 );
 impl_cmp!(
     ForwardRelativePathBuf,
-    &'a ForwardRelativePath,
+    &'_ ForwardRelativePath,
     ForwardRelativePath
 );
 
 impl_cmp_str!(ForwardRelativePathBuf, str, ForwardRelativePath);
-impl_cmp_str!(ForwardRelativePathBuf, &'a str, ForwardRelativePath);
+impl_cmp_str!(ForwardRelativePathBuf, &'_ str, ForwardRelativePath);
 impl_cmp_str!(ForwardRelativePathBuf, String, ForwardRelativePath);
 impl_cmp_str!(ForwardRelativePath, str, ForwardRelativePath);
-impl_cmp_str!(ForwardRelativePath, &'a str, ForwardRelativePath);
+impl_cmp_str!(ForwardRelativePath, &'_ str, ForwardRelativePath);
 impl_cmp_str!(ForwardRelativePath, String, ForwardRelativePath);
-impl_cmp_str!(&'a ForwardRelativePath, str, ForwardRelativePath);
-impl_cmp_str!(&'a ForwardRelativePath, String, ForwardRelativePath);
+impl_cmp_str!(&'_ ForwardRelativePath, str, ForwardRelativePath);
+impl_cmp_str!(&'_ ForwardRelativePath, String, ForwardRelativePath);
 
 use crate::fs::paths::{AbsPath, AbsPathBuf};
 
 impl_cmp!(AbsPathBuf, AbsPath, AbsPath);
-impl_cmp!(AbsPathBuf, &'a AbsPath, AbsPath);
+impl_cmp!(AbsPathBuf, &'_ AbsPath, AbsPath);
 
 impl_cmp_str!(AbsPathBuf, str, AbsPath);
-impl_cmp_str!(AbsPathBuf, &'a str, AbsPath);
+impl_cmp_str!(AbsPathBuf, &'_ str, AbsPath);
 impl_cmp_str!(AbsPathBuf, String, AbsPath);
 impl_cmp_str!(AbsPath, str, AbsPath);
-impl_cmp_str!(AbsPath, &'a str, AbsPath);
+impl_cmp_str!(AbsPath, &'_ str, AbsPath);
 impl_cmp_str!(AbsPath, String, AbsPath);
-impl_cmp_str!(&'a AbsPath, str, AbsPath);
-impl_cmp_str!(&'a AbsPath, String, AbsPath);
+impl_cmp_str!(&'_ AbsPath, str, AbsPath);
+impl_cmp_str!(&'_ AbsPath, String, AbsPath);
 
 use crate::package::{PackageRelativePath, PackageRelativePathBuf};
 
@@ -140,18 +140,18 @@ impl_cmp!(
 );
 impl_cmp!(
     PackageRelativePathBuf,
-    &'a PackageRelativePath,
+    &'_ PackageRelativePath,
     PackageRelativePath
 );
 
 impl_cmp_str!(PackageRelativePathBuf, str, PackageRelativePath);
-impl_cmp_str!(PackageRelativePathBuf, &'a str, PackageRelativePath);
+impl_cmp_str!(PackageRelativePathBuf, &'_ str, PackageRelativePath);
 impl_cmp_str!(PackageRelativePathBuf, String, PackageRelativePath);
 impl_cmp_str!(PackageRelativePath, str, PackageRelativePath);
-impl_cmp_str!(PackageRelativePath, &'a str, PackageRelativePath);
+impl_cmp_str!(PackageRelativePath, &'_ str, PackageRelativePath);
 impl_cmp_str!(PackageRelativePath, String, PackageRelativePath);
-impl_cmp_str!(&'a PackageRelativePath, str, PackageRelativePath);
-impl_cmp_str!(&'a PackageRelativePath, String, PackageRelativePath);
+impl_cmp_str!(&'_ PackageRelativePath, str, PackageRelativePath);
+impl_cmp_str!(&'_ PackageRelativePath, String, PackageRelativePath);
 
 use crate::fs::project::{ProjectRelativePath, ProjectRelativePathBuf};
 
@@ -162,15 +162,15 @@ impl_cmp!(
 );
 impl_cmp!(
     ProjectRelativePathBuf,
-    &'a ProjectRelativePath,
+    &'_ ProjectRelativePath,
     ProjectRelativePath
 );
 
 impl_cmp_str!(ProjectRelativePathBuf, str, ProjectRelativePath);
-impl_cmp_str!(ProjectRelativePathBuf, &'a str, ProjectRelativePath);
+impl_cmp_str!(ProjectRelativePathBuf, &'_ str, ProjectRelativePath);
 impl_cmp_str!(ProjectRelativePathBuf, String, ProjectRelativePath);
 impl_cmp_str!(ProjectRelativePath, str, ProjectRelativePath);
-impl_cmp_str!(ProjectRelativePath, &'a str, ProjectRelativePath);
+impl_cmp_str!(ProjectRelativePath, &'_ str, ProjectRelativePath);
 impl_cmp_str!(ProjectRelativePath, String, ProjectRelativePath);
-impl_cmp_str!(&'a ProjectRelativePath, str, ProjectRelativePath);
-impl_cmp_str!(&'a ProjectRelativePath, String, ProjectRelativePath);
+impl_cmp_str!(&'_ ProjectRelativePath, str, ProjectRelativePath);
+impl_cmp_str!(&'_ ProjectRelativePath, String, ProjectRelativePath);
