@@ -48,9 +48,9 @@ use crate::{
 #[starlark_module]
 pub fn filter(builder: &mut GlobalsBuilder) {
     fn filter<'v>(
-        #[starlark(require = pos)] func: Value,
-        #[starlark(require = pos)] seq: Value,
-        eval: &mut Evaluator,
+        #[starlark(require = pos)] func: Value<'v>,
+        #[starlark(require = pos)] seq: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let mut res = Vec::new();
 
@@ -70,9 +70,9 @@ pub fn filter(builder: &mut GlobalsBuilder) {
 #[starlark_module]
 pub fn map(builder: &mut GlobalsBuilder) {
     fn map<'v>(
-        #[starlark(require = pos)] func: Value,
-        #[starlark(require = pos)] seq: Value,
-        eval: &mut Evaluator,
+        #[starlark(require = pos)] func: Value<'v>,
+        #[starlark(require = pos)] seq: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let it = seq.iterate(eval.heap())?;
         let mut res = Vec::with_capacity(it.size_hint().0);
@@ -86,7 +86,7 @@ pub fn map(builder: &mut GlobalsBuilder) {
 #[starlark_module]
 pub fn partial(builder: &mut GlobalsBuilder) {
     fn partial<'v>(
-        #[starlark(require = pos)] func: Value,
+        #[starlark(require = pos)] func: Value<'v>,
         args: Value<'v>,
         kwargs: DictRef<'v>,
     ) -> anyhow::Result<Partial<'v>> {
@@ -125,7 +125,10 @@ pub fn debug(builder: &mut GlobalsBuilder) {
 pub fn dedupe(builder: &mut GlobalsBuilder) {
     /// Remove duplicates in a list. Uses identity of value (pointer),
     /// rather than by equality.
-    fn dedupe<'v>(#[starlark(require = pos)] val: Value, heap: &Heap) -> anyhow::Result<Value<'v>> {
+    fn dedupe<'v>(
+        #[starlark(require = pos)] val: Value<'v>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<Value<'v>> {
         let mut seen = HashSet::new();
         let mut res = Vec::new();
         for v in val.iterate(heap)? {

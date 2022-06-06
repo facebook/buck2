@@ -74,7 +74,7 @@ pub(crate) fn json(globals: &mut GlobalsBuilder) {
 
         fn decode<'v>(
             #[starlark(require = pos)] x: &str,
-            heap: &Heap,
+            heap: &'v Heap,
         ) -> anyhow::Result<Value<'v>> {
             serde_to_starlark(serde_json::from_str(x)?, heap)
         }

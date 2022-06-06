@@ -28,14 +28,14 @@ use crate::{
 // TODO(nmj): Figure out default values here. ValueOf<i32> = 5 should work.
 #[starlark_module]
 fn validate_module(builder: &mut GlobalsBuilder) {
-    fn with_int<'v>(v: ValueOf<i32>) -> anyhow::Result<(Value<'v>, String)> {
+    fn with_int<'v>(v: ValueOf<'v, i32>) -> anyhow::Result<(Value<'v>, String)> {
         Ok((*v, format!("{}", v.typed)))
     }
-    fn with_int_list<'v>(v: ListOf<i32>) -> anyhow::Result<(Value<'v>, String)> {
+    fn with_int_list<'v>(v: ListOf<'v, i32>) -> anyhow::Result<(Value<'v>, String)> {
         let repr = v.to_vec().iter().join(", ");
         Ok((*v, repr))
     }
-    fn with_list_list<'v>(v: ListOf<ListOf<i32>>) -> anyhow::Result<(Value<'v>, String)> {
+    fn with_list_list<'v>(v: ListOf<'v, ListOf<'v, i32>>) -> anyhow::Result<(Value<'v>, String)> {
         let repr = v
             .to_vec()
             .iter()
@@ -43,7 +43,9 @@ fn validate_module(builder: &mut GlobalsBuilder) {
             .join(" + ");
         Ok((*v, repr))
     }
-    fn with_dict_list<'v>(v: ListOf<DictOf<i32, i32>>) -> anyhow::Result<(Value<'v>, String)> {
+    fn with_dict_list<'v>(
+        v: ListOf<'v, DictOf<'v, i32, i32>>,
+    ) -> anyhow::Result<(Value<'v>, String)> {
         let repr = v
             .to_vec()
             .iter()
@@ -56,7 +58,7 @@ fn validate_module(builder: &mut GlobalsBuilder) {
             .join(" + ");
         Ok((*v, repr))
     }
-    fn with_int_dict<'v>(v: DictOf<i32, i32>) -> anyhow::Result<(Value<'v>, String)> {
+    fn with_int_dict<'v>(v: DictOf<'v, i32, i32>) -> anyhow::Result<(Value<'v>, String)> {
         let repr = v
             .to_dict()
             .iter()
@@ -64,7 +66,9 @@ fn validate_module(builder: &mut GlobalsBuilder) {
             .join(" + ");
         Ok((*v, repr))
     }
-    fn with_list_dict<'v>(v: DictOf<i32, ListOf<i32>>) -> anyhow::Result<(Value<'v>, String)> {
+    fn with_list_dict<'v>(
+        v: DictOf<'v, i32, ListOf<'v, i32>>,
+    ) -> anyhow::Result<(Value<'v>, String)> {
         let repr = v
             .to_dict()
             .iter()
@@ -72,7 +76,9 @@ fn validate_module(builder: &mut GlobalsBuilder) {
             .join(" + ");
         Ok((*v, repr))
     }
-    fn with_dict_dict<'v>(v: DictOf<i32, DictOf<i32, i32>>) -> anyhow::Result<(Value<'v>, String)> {
+    fn with_dict_dict<'v>(
+        v: DictOf<'v, i32, DictOf<'v, i32, i32>>,
+    ) -> anyhow::Result<(Value<'v>, String)> {
         let repr = v
             .to_dict()
             .iter()
@@ -87,7 +93,7 @@ fn validate_module(builder: &mut GlobalsBuilder) {
             .join(" + ");
         Ok((*v, repr))
     }
-    fn with_struct_int<'v>(v: StructOf<i32>) -> anyhow::Result<(Value<'v>, String)> {
+    fn with_struct_int<'v>(v: StructOf<'v, i32>) -> anyhow::Result<(Value<'v>, String)> {
         let repr = v
             .to_map()
             .iter()

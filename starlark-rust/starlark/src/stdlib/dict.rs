@@ -84,9 +84,9 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn get<'v>(
-        this: DictRef,
-        #[starlark(require = pos)] key: Value,
-        #[starlark(require = pos)] default: Option<Value>,
+        this: DictRef<'v>,
+        #[starlark(require = pos)] key: Value<'v>,
+        #[starlark(require = pos)] default: Option<Value<'v>>,
     ) -> anyhow::Result<Value<'v>> {
         match this.get(key)? {
             None => Ok(default.unwrap_or_else(Value::new_none)),
@@ -111,7 +111,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn items<'v>(this: DictRef, heap: &Heap) -> anyhow::Result<Value<'v>> {
+    fn items<'v>(this: DictRef<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc_list_iter(this.iter().map(|(k, v)| heap.alloc((k, v)))))
     }
 
@@ -131,7 +131,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn keys<'v>(this: DictRef, heap: &Heap) -> anyhow::Result<Value<'v>> {
+    fn keys<'v>(this: DictRef<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc_list_iter(this.keys()))
     }
 
@@ -171,9 +171,9 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// # "#, "not found");
     /// ```
     fn pop<'v>(
-        this: Value,
-        #[starlark(require = pos)] key: Value,
-        #[starlark(require = pos)] default: Option<Value>,
+        this: Value<'v>,
+        #[starlark(require = pos)] key: Value<'v>,
+        #[starlark(require = pos)] default: Option<Value<'v>>,
     ) -> anyhow::Result<Value<'v>> {
         let mut me = Dict::from_value_mut(this)?;
         match me.remove_hashed(key.get_hashed()?) {
@@ -223,7 +223,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// {}.popitem()   # error: empty dict
     /// # "#, "empty dict");
     /// ```
-    fn popitem<'v>(this: Value) -> anyhow::Result<(Value<'v>, Value<'v>)> {
+    fn popitem<'v>(this: Value<'v>) -> anyhow::Result<(Value<'v>, Value<'v>)> {
         let mut this = Dict::from_value_mut(this)?;
 
         let key = this.iter_hashed().next().map(|(k, _)| k);
@@ -265,9 +265,9 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// # )"#)
     /// ```
     fn setdefault<'v>(
-        this: Value,
-        #[starlark(require = pos)] key: Value,
-        #[starlark(require = pos)] default: Option<Value>,
+        this: Value<'v>,
+        #[starlark(require = pos)] key: Value<'v>,
+        #[starlark(require = pos)] default: Option<Value<'v>>,
     ) -> anyhow::Result<Value<'v>> {
         let mut this = Dict::from_value_mut(this)?;
         let key = key.get_hashed()?;
@@ -310,11 +310,11 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// x == {"a": 1, "b": 2, "c": 3, "d": 4, "e": 5}
     /// # "#);
     /// ```
-    fn update(
-        this: Value,
-        #[starlark(require = pos)] pairs: Option<Value>,
-        kwargs: DictRef,
-        heap: &Heap,
+    fn update<'v>(
+        this: Value<'v>,
+        #[starlark(require = pos)] pairs: Option<Value<'v>>,
+        kwargs: DictRef<'v>,
+        heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
         let pairs = if pairs.map(|x| x.ptr_eq(this)) == Some(true) {
             // someone has done `x.update(x)` - that isn't illegal, but we will have issues
@@ -369,7 +369,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn values<'v>(this: DictRef, heap: &Heap) -> anyhow::Result<Value<'v>> {
+    fn values<'v>(this: DictRef<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc_list_iter(this.values()))
     }
 }

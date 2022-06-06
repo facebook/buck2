@@ -47,7 +47,7 @@ mod tests {
 
     #[starlark_module]
     fn rust_loc_globals(globals: &mut GlobalsBuilder) {
-        fn invoke<'v>(f: Value<'v>, eval: &mut Evaluator) -> anyhow::Result<Value<'v>> {
+        fn invoke<'v>(f: Value<'v>, eval: &mut Evaluator<'v, '_>) -> anyhow::Result<Value<'v>> {
             f.invoke_with_loc(Some(rust_loc!()), &Arguments::default(), eval)
         }
     }

@@ -125,7 +125,7 @@ fn test_load_symbols() {
         fn load_symbol<'v>(
             name: &str,
             value: Value<'v>,
-            eval: &mut Evaluator,
+            eval: &mut Evaluator<'v, '_>,
         ) -> anyhow::Result<NoneType> {
             eval.set_module_variable_at_some_point(name, value)?;
             Ok(NoneType)
@@ -160,7 +160,7 @@ fn test_load_symbols_extra() -> anyhow::Result<()> {
         fn load_symbol<'v>(
             name: &str,
             value: Value<'v>,
-            eval: &mut Evaluator,
+            eval: &mut Evaluator<'v, '_>,
         ) -> anyhow::Result<NoneType> {
             let extra = eval.extra_v.unwrap().downcast_ref::<Extra<'v>>().unwrap();
             extra.0.lock().unwrap().insert(name.to_owned(), value);

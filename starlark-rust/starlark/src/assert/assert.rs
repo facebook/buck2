@@ -101,19 +101,19 @@ enum GcStrategy {
 #[starlark_module]
 // Deliberately qualify the GlobalsBuild type to test that we can
 fn assert_star(builder: &mut crate::environment::GlobalsBuilder) {
-    fn eq(a: Value, b: Value) -> anyhow::Result<NoneType> {
+    fn eq<'v>(a: Value<'v>, b: Value<'v>) -> anyhow::Result<NoneType> {
         assert_equals(a, b)
     }
 
-    fn ne(a: Value, b: Value) -> anyhow::Result<NoneType> {
+    fn ne<'v>(a: Value<'v>, b: Value<'v>) -> anyhow::Result<NoneType> {
         assert_different(a, b)
     }
 
-    fn lt(a: Value, b: Value) -> anyhow::Result<NoneType> {
+    fn lt<'v>(a: Value<'v>, b: Value<'v>) -> anyhow::Result<NoneType> {
         assert_less_than(a, b)
     }
 
-    fn contains(xs: Value, x: Value) -> anyhow::Result<NoneType> {
+    fn contains<'v>(xs: Value<'v>, x: Value<'v>) -> anyhow::Result<NoneType> {
         if !xs.is_in(x)? {
             Err(anyhow!("assert.contains: expected {} to be in {}", x, xs))
         } else {
@@ -126,11 +126,15 @@ fn assert_star(builder: &mut crate::environment::GlobalsBuilder) {
     }
 
     // We don't allow this at runtime - just to be compatible with the Go Starlark test suite
-    fn freeze<'v>(x: Value) -> anyhow::Result<Value<'v>> {
+    fn freeze<'v>(x: Value<'v>) -> anyhow::Result<Value<'v>> {
         Ok(x)
     }
 
-    fn fails(f: Value, _msg: &str, eval: &mut Evaluator) -> anyhow::Result<NoneType> {
+    fn fails<'v>(
+        f: Value<'v>,
+        _msg: &str,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<NoneType> {
         match f.invoke_pos(&[], eval) {
             Err(_e) => Ok(NoneType), // We don't actually check the message
             Ok(_) => Err(anyhow!("assert.fails: didn't fail")),
@@ -149,19 +153,19 @@ fn test_functions(builder: &mut GlobalsBuilder) {
     }
 
     // Approximate version of a method used by the Go test suite
-    fn set<'v>(xs: Value) -> anyhow::Result<Value<'v>> {
+    fn set<'v>(xs: Value<'v>) -> anyhow::Result<Value<'v>> {
         Ok(xs)
     }
 
-    fn assert_eq(a: Value, b: Value) -> anyhow::Result<NoneType> {
+    fn assert_eq<'v>(a: Value<'v>, b: Value<'v>) -> anyhow::Result<NoneType> {
         assert_equals(a, b)
     }
 
-    fn assert_ne(a: Value, b: Value) -> anyhow::Result<NoneType> {
+    fn assert_ne<'v>(a: Value<'v>, b: Value<'v>) -> anyhow::Result<NoneType> {
         assert_different(a, b)
     }
 
-    fn assert_lt(a: Value, b: Value) -> anyhow::Result<NoneType> {
+    fn assert_lt<'v>(a: Value<'v>, b: Value<'v>) -> anyhow::Result<NoneType> {
         assert_less_than(a, b)
     }
 
@@ -187,12 +191,12 @@ fn test_functions(builder: &mut GlobalsBuilder) {
         Ok(NoneType)
     }
 
-    fn assert_type(v: Value, ty: Value, heap: &Heap) -> anyhow::Result<NoneType> {
+    fn assert_type<'v>(v: Value<'v>, ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<NoneType> {
         v.check_type(ty, Some("v"), heap)?;
         Ok(NoneType)
     }
 
-    fn is_type(v: Value, ty: Value, heap: &Heap) -> anyhow::Result<bool> {
+    fn is_type<'v>(v: Value<'v>, ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<bool> {
         v.is_type(ty, heap)
     }
 
