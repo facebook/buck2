@@ -109,7 +109,17 @@ message InstantEvent {
 
     // Log is an instant event for info/warn/error logs.
     Log log = 12;
+    // Result of one (of potentially many) starlark LSP requests.
+    LspResult lsp_result = 13;
   }
+}
+
+/// The result of an LSP request. Multiple requests and
+/// responses are handled in a single (bidirectional streaming)
+/// RPC call, so allow these in the middle of a stream.
+message LspResult {
+  // The json that should be sent, unchanged, to LSP clients.
+  string lsp_json = 1;
 }
 
 message DiceComputationStateSnapshot {

@@ -433,6 +433,7 @@ message CommandResult {
     AqueryResponse aquery_response = 15;
     MaterializeResponse materialize_response = 16;
     BxlResponse bxl_response = 17;
+    LspResponse lsp_response = 18;
     GenericResponse generic_response = 100;
   }
 }
@@ -442,6 +443,17 @@ message CommandProgress {
   oneof progress {
     buck.data.BuckEvent event = 1;
     CommandResult result = 2;
+  }
+}
+
+/// A container for requests that streamed to
+/// to the server. The first one of these
+/// *MUST* have type "context". Subsequent
+/// packets *MUST NOT* have the type "context".
+message StreamingRequest {
+  oneof request {
+    ClientContext context = 1;
+    LspRequest lsp = 2;
   }
 }
 
@@ -477,6 +489,19 @@ message UnstableDiceDumpRequest {
 }
 
 message UnstableDiceDumpResponse {}
+
+/// An individual starlark LSP request.
+message LspRequest {
+  // The raw json sent by LSP clients
+  string lsp_json = 1;
+}
+
+/// Not used at the moment, but signals that
+/// the starlark LSP server is complete for
+/// this request. Responses to individual
+/// LSP requsts are sent back in the event
+/// stream. See `buck.data.LspResult`
+message LspResponse {}
 
 message ProfileRequest {
   enum Profiler {
@@ -559,4 +584,7 @@ service DaemonApi {
   /// Requests the daemon dump the DICE graph to a directory.
   rpc Unstable_DiceDump(UnstableDiceDumpRequest)
       returns (UnstableDiceDumpResponse);
+
+  // Starts a starlark LSP server.
+  rpc Lsp(stream StreamingRequest) returns (stream CommandProgress);
 }

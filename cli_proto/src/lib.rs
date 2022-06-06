@@ -14,6 +14,8 @@ use std::convert::TryFrom;
 
 use thiserror::Error;
 
+use crate::BuckDaemonProtoError::MissingClientContext;
+
 tonic::include_proto!("buck.daemon");
 
 #[derive(Debug, Error)]
@@ -24,6 +26,34 @@ enum BuckDaemonProtoError {
 
 pub trait HasClientContext {
     fn client_context(&self) -> anyhow::Result<&ClientContext>;
+}
+
+impl HasClientContext for StreamingRequest {
+    fn client_context(&self) -> anyhow::Result<&ClientContext> {
+        match self.request.as_ref() {
+            Some(streaming_request::Request::Context(ctx)) => Ok(ctx),
+            _ => Err(MissingClientContext.into()),
+        }
+    }
+}
+
+impl HasBuildOptions for StreamingRequest {
+    fn build_options(&self) -> Option<&CommonBuildOptions> {
+        None
+    }
+}
+
+impl TryFrom<StreamingRequest> for LspRequest {
+    type Error = tonic::Status;
+
+    fn try_from(value: StreamingRequest) -> Result<Self, Self::Error> {
+        match value.request {
+            Some(streaming_request::Request::Lsp(req)) => Ok(req),
+            _ => Err(tonic::Status::invalid_argument(
+                "messages sent by client must be of type `LspRequest`",
+            )),
+        }
+    }
 }
 
 /// Trait for requests that have CommonBuildOptions.
@@ -208,6 +238,7 @@ result_convert!(ProfileResponse);
 result_convert!(CleanResponse);
 result_convert!(InstallResponse);
 result_convert!(MaterializeResponse);
+result_convert!(LspResponse);
 
 define_request!(KillRequest);
 define_request!(StatusRequest);

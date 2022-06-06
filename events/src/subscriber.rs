@@ -252,6 +252,7 @@ pub trait EventSubscriber: Send {
             buck2_data::instant_event::Data::DiceStateSnapshot(update) => {
                 self.handle_dice_snapshot(update)
             }
+            buck2_data::instant_event::Data::LspResult(result) => self.handle_lsp_result(result),
             buck2_data::instant_event::Data::Log(log) => self.handle_log(log),
         }
         .await
@@ -502,6 +503,10 @@ pub trait EventSubscriber: Send {
         Ok(())
     }
     async fn handle_log(&mut self, _log: &buck2_data::Log) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn handle_lsp_result(&mut self, _msg: &buck2_data::LspResult) -> anyhow::Result<()> {
         Ok(())
     }
 

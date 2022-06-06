@@ -997,6 +997,50 @@ impl BuckdServer {
         Ok(())
     }
 
+    /// Run a request that does bidirectional streaming.
+    ///
+    /// This mostly just ensures that a client context has been sent first, and passes a client
+    /// stream to `func` that converts to the correct type (or returns an error and shuts the
+    /// stream down)
+    async fn run_bidirectional<Req, Res, Fut, F>(
+        &self,
+        req: Request<tonic::Streaming<StreamingRequest>>,
+        opts: impl StreamingCommandOptions<StreamingRequest>,
+        func: F,
+    ) -> Result<Response<ResponseStream>, Status>
+    where
+        F: FnOnce(ServerCommandContext, &ClientContext, StreamingRequestHandler<Req>) -> Fut
+            + Send
+            + 'static,
+        Fut: Future<Output = anyhow::Result<Res>> + Send,
+        Req: TryFrom<StreamingRequest, Error = Status> + Send + Sync + 'static,
+        Res: Into<command_result::Result> + Send + 'static,
+    {
+        let mut req = req.into_inner();
+        let init_request = match req.message().await? {
+            Some(
+                m @ StreamingRequest {
+                    request: Some(cli_proto::streaming_request::Request::Context(_)),
+                },
+            ) => Ok(m),
+            _ => Err(Status::failed_precondition(
+                "no client context message was received",
+            )),
+        }?;
+
+        let init_request = Request::new(init_request);
+        self.run_streaming(init_request, opts, |ctx, init_req| {
+            func(
+                ctx,
+                init_req
+                    .client_context()
+                    .expect("already checked for a valid context"),
+                StreamingRequestHandler::new(req),
+            )
+        })
+        .await
+    }
+
     /// Runs a single command (given by the func F). Prior to running the command, calls the
     /// `opts`'s `pre_run` hook.  then bootstraps an event source and command context so that the
     /// invoked function has the ability to stream events to the caller.
@@ -1090,6 +1134,37 @@ impl BuckdServer {
         } else {
             Ok(())
         }
+    }
+}
+
+/// Simple container that holds onto a stream of incoming client requests.
+///
+/// The primary use for this is pulling messages of a specific type from
+/// the client via [`StreamingRequestHandler::message`]
+struct StreamingRequestHandler<T: TryFrom<StreamingRequest, Error = Status>> {
+    client_stream: tonic::Streaming<StreamingRequest>,
+    _phantom: PhantomData<T>,
+}
+
+impl<T: TryFrom<StreamingRequest, Error = Status>> StreamingRequestHandler<T> {
+    fn new(client_stream: tonic::Streaming<StreamingRequest>) -> Self {
+        Self {
+            client_stream,
+            _phantom: PhantomData::default(),
+        }
+    }
+
+    /// Get a message of type [`T`] from inside of a [`StreamingRequest`] envelope.
+    ///
+    /// Returns an error if the message is of the wrong type.
+    async fn message(&mut self) -> Result<T, Status> {
+        let request = match self.client_stream.message().await? {
+            Some(m) => Ok(m),
+            None => Err(Status::failed_precondition(
+                "received a message that is not a `StreamingRequest`",
+            )),
+        }?;
+        request.try_into()
     }
 }
 
@@ -2139,6 +2214,26 @@ impl DaemonApi for BuckdServer {
                 })
                 .await
         })
+        .await
+    }
+
+    type LspStream = ResponseStream;
+    async fn lsp(
+        &self,
+        req: Request<tonic::Streaming<StreamingRequest>>,
+    ) -> Result<Response<Self::LspStream>, Status> {
+        self.run_bidirectional(
+            req,
+            DefaultCommandOptions,
+            |ctx, _client_ctx, mut req: StreamingRequestHandler<LspRequest>| async move {
+                let _m = req.message().await?;
+                let res = buck2_data::LspResult {
+                    lsp_json: "{}".to_owned(),
+                };
+                ctx.events().instant_event(res);
+                Ok(LspResponse {})
+            },
+        )
         .await
     }
 }
