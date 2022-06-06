@@ -186,7 +186,7 @@ impl<T: BenchmarkComputationsPrerequisites> Benchmarker for T {}
 #[macro_export]
 macro_rules! benchmark {
     ($benchmarkee: ident) => {
-        use crate::common::Benchmarker;
+        use $crate::common::Benchmarker;
         use criterion::{criterion_group, criterion_main, Criterion};
         type LocalT = paste::item! {[<$benchmarkee:camel>]};
 
