@@ -181,7 +181,7 @@ impl<T: QueryTarget> PreresolvedQueryLiterals<T> {
 }
 
 #[async_trait]
-impl<'c, T: QueryTarget> QueryLiterals<T> for PreresolvedQueryLiterals<T> {
+impl<T: QueryTarget> QueryLiterals<T> for PreresolvedQueryLiterals<T> {
     async fn eval_literals(&self, literals: &[&str]) -> anyhow::Result<TargetSet<T>> {
         let mut targets = TargetSet::new();
         for lit in literals {

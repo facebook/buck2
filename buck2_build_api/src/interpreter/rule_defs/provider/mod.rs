@@ -521,7 +521,7 @@ impl FrozenProviderCallable {
     }
 }
 
-impl<'v> ProviderCallableLike for FrozenProviderCallable {
+impl ProviderCallableLike for FrozenProviderCallable {
     fn id(&self) -> Option<&Arc<ProviderId>> {
         Some(&self.id)
     }

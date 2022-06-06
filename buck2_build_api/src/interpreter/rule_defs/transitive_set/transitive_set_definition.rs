@@ -185,7 +185,7 @@ pub struct FrozenTransitiveSetDefinition {
     operations: TransitiveSetOperationsGen<FrozenValue>,
 }
 
-impl<'v> fmt::Debug for FrozenTransitiveSetDefinition {
+impl fmt::Debug for FrozenTransitiveSetDefinition {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

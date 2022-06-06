@@ -346,7 +346,7 @@ impl<'v> CommandLineArgLike for StarlarkCommandLine<'v> {
     }
 }
 
-impl<'v> CommandLineArgLike for FrozenStarlarkCommandLine {
+impl CommandLineArgLike for FrozenStarlarkCommandLine {
     fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
         self.0.add_to_command_line(cli)
     }

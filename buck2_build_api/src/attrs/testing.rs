@@ -309,7 +309,7 @@ pub(crate) fn resolution_ctx_with_providers() -> (impl AttrResolutionContext, Ve
         }
     }
 
-    impl<'v> AttrResolutionContext for Ctx {
+    impl AttrResolutionContext for Ctx {
         fn starlark_module(&self) -> &Module {
             &self.module
         }
