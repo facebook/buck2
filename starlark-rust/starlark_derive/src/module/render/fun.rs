@@ -16,8 +16,9 @@
  */
 
 use gazebo::prelude::*;
-use proc_macro2::TokenStream;
+use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote_spanned};
+use syn::{Attribute, Type};
 
 use crate::module::{
     typ::{SpecialParam, StarArg, StarArgPassStyle, StarArgSource, StarFun, StarFunSource},
@@ -74,30 +75,18 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
         quote_spanned! {span=> starlark::values::function::NativeFunc }
     };
 
-    let (struct_fields, struct_fields_init, signature_arg, signature_param) =
-        if let Some(signature) = signature {
-            (
-                quote_spanned! { span=>
-                    signature: starlark::eval::ParametersSpec<starlark::values::FrozenValue>,
-                },
-                quote_spanned! { span=>
-                    signature: #signature,
-                },
-                quote_spanned! { span=>
-                    &self.signature,
-                },
-                quote_spanned! { span=>
-                    __signature: &starlark::eval::ParametersSpec<starlark::values::FrozenValue>,
-                },
-            )
-        } else {
-            (
-                quote_spanned! { span=> },
-                quote_spanned! { span=> },
-                quote_spanned! { span=> },
-                quote_spanned! { span=> },
-            )
-        };
+    let (struct_fields, struct_fields_init) = if let Some(signature) = signature {
+        (
+            quote_spanned! { span=>
+                signature: starlark::eval::ParametersSpec<starlark::values::FrozenValue>,
+            },
+            quote_spanned! { span=>
+                signature: #signature,
+            },
+        )
+    } else {
+        (quote_spanned! { span=> }, quote_spanned! { span=> })
+    };
 
     let (this_param, this_arg, builder_set) = if is_method {
         (
@@ -135,20 +124,34 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
         )
     };
 
-    let let_eval = if let Some(SpecialParam { ident, ty }) = eval {
-        Some(quote_spanned! {span=>
-            let #ident: #ty = __eval;
-        })
+    let (eval_param, eval_arg) = if let Some(SpecialParam { ident, ty }) = eval {
+        (
+            Some(quote_spanned! {span=>
+                #ident: #ty,
+            }),
+            Some(quote_spanned! {span=>
+                eval,
+            }),
+        )
     } else {
-        None
+        (None, None)
     };
-    let let_heap = if let Some(SpecialParam { ident, ty }) = heap {
-        Some(quote_spanned! {span=>
-            let #ident: #ty = __eval.heap();
-        })
+    let (heap_param, heap_arg) = if let Some(SpecialParam { ident, ty }) = heap {
+        (
+            Some(quote_spanned! {span=>
+                #ident: #ty,
+            }),
+            Some(quote_spanned! {span=>
+                eval.heap(),
+            }),
+        )
     } else {
-        None
+        (None, None)
     };
+
+    let Bingings { prepare, bindings } = binding;
+    let binding_params: Vec<_> = bindings.map(|b| b.render_param());
+    let binding_args: Vec<_> = bindings.map(|b| b.render_arg());
 
     Ok(quote_spanned! {
         span=>
@@ -165,19 +168,19 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
                 #this_param
                 parameters: &starlark::eval::Arguments<'v, '_>,
             ) -> anyhow::Result<starlark::values::Value<'v>> {
+                // TODO(nga): copy lifetime parameter from declaration,
+                //   so the warning would be precise.
+                #[allow(clippy::extra_unused_lifetimes)]
                 fn inner<'v>(
-                    #[allow(unused_variables)]
-                    __eval: &mut starlark::eval::Evaluator<'v, '_>,
                     #this_param
-                    __args: &starlark::eval::Arguments<'v, '_>,
-                    #signature_param
+                    #( #binding_params, )*
+                    #eval_param
+                    #heap_param
                 ) -> #return_type {
-                    #binding
-                    #let_heap
-                    #let_eval
                     #body
                 }
-                match inner(eval, #this_arg parameters, #signature_arg) {
+                #prepare
+                match inner(#this_arg #( #binding_args, )* #eval_arg #heap_arg) {
                     Ok(v) => Ok(eval.heap().alloc(v)),
                     Err(e) => Err(e),
                 }
@@ -191,9 +194,14 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
     })
 }
 
+struct Bingings {
+    prepare: TokenStream,
+    bindings: Vec<BindingArg>,
+}
+
 // Given __args and __signature (if render_signature was Some)
 // create bindings for all the arguments
-fn render_binding(x: &StarFun) -> TokenStream {
+fn render_binding(x: &StarFun) -> Bingings {
     let span = x.args_span();
     match x.source {
         StarFunSource::Parameters => {
@@ -205,7 +213,16 @@ fn render_binding(x: &StarFun) -> TokenStream {
                 ..
             } = &x.args[0];
             let span = *span;
-            quote_spanned! { span=> #( #attrs )* let #name : #ty = __args; }
+            Bingings {
+                prepare: quote_spanned! { span=> },
+                bindings: vec![BindingArg {
+                    name: name.to_owned(),
+                    ty: ty.to_owned(),
+                    attrs: attrs.clone(),
+                    mutability: quote_spanned! { span=> },
+                    expr: quote_spanned! { span=> parameters },
+                }],
+            }
         }
         StarFunSource::ThisParameters => {
             let StarArg {
@@ -217,47 +234,86 @@ fn render_binding(x: &StarFun) -> TokenStream {
             } = &x.args[1];
             let span = *span;
             let this = render_binding_arg(&x.args[0]);
-            quote_spanned! {
-                span=>
-                #this
-                #( #attrs )* let #name : #ty = __args;
+            Bingings {
+                prepare: quote_spanned! { span=> },
+                bindings: vec![
+                    this,
+                    BindingArg {
+                        name: name.to_owned(),
+                        ty: ty.to_owned(),
+                        attrs: attrs.clone(),
+                        mutability: quote_spanned! { span=> },
+                        expr: quote_spanned! { span=> parameters },
+                    },
+                ],
             }
         }
         StarFunSource::Argument(arg_count) => {
-            let bind_args = x.args.map(render_binding_arg);
-            quote_spanned! {
-                span=>
-                let __args: [_; #arg_count] = __signature.collect_into(__args, __eval.heap())?;
-                #( #bind_args )*
+            let bind_args: Vec<BindingArg> = x.args.map(render_binding_arg);
+            Bingings {
+                prepare: quote_spanned! { span=>
+                    let __args: [_; #arg_count] = self.signature.collect_into(parameters, eval.heap())?;
+                },
+                bindings: bind_args,
             }
         }
         StarFunSource::Positional(required, optional) => {
             let bind_args = x.args.map(render_binding_arg);
             if optional == 0 {
-                quote_spanned! {
-                    span=>
-                    __args.no_named_args()?;
-                    let __required: [_; #required] = __args.positional(__eval.heap())?;
-                    #( #bind_args )*
+                Bingings {
+                    prepare: quote_spanned! {
+                        span=>
+                        parameters.no_named_args()?;
+                        let __required: [_; #required] = parameters.positional(eval.heap())?;
+                    },
+                    bindings: bind_args,
                 }
             } else {
-                quote_spanned! {
-                    span=>
-                    __args.no_named_args()?;
-                    let (__required, __optional): ([_; #required], [_; #optional]) = __args.optional(__eval.heap())?;
-                    #( #bind_args )*
+                Bingings {
+                    prepare: quote_spanned! {
+                        span=>
+                        parameters.no_named_args()?;
+                        let (__required, __optional): ([_; #required], [_; #optional]) = parameters.optional(eval.heap())?;
+                    },
+                    bindings: bind_args,
                 }
             }
         }
     }
 }
 
+struct BindingArg {
+    expr: TokenStream,
+
+    attrs: Vec<Attribute>,
+    mutability: TokenStream,
+    name: Ident,
+    ty: Type,
+}
+
+impl BindingArg {
+    fn render_param(&self) -> TokenStream {
+        let mutability = &self.mutability;
+        let name = &self.name;
+        let ty = &self.ty;
+        let attrs = &self.attrs;
+        quote_spanned! {
+            self.name.span()=>
+            #( #attrs )*
+            #mutability #name: #ty
+        }
+    }
+
+    fn render_arg(&self) -> TokenStream {
+        self.expr.clone()
+    }
+}
+
 // Create a binding for an argument given. If it requires an index, take from the index
-fn render_binding_arg(arg: &StarArg) -> TokenStream {
+fn render_binding_arg(arg: &StarArg) -> BindingArg {
     let span = arg.span;
     let name = &arg.name;
     let name_str = ident_string(name);
-    let ty = &arg.ty;
 
     let source = match arg.source {
         StarArgSource::This => quote_spanned! {span=> __this},
@@ -297,11 +353,13 @@ fn render_binding_arg(arg: &StarArg) -> TokenStream {
     };
 
     let mutability = mut_token(arg.mutable);
-    let attrs = &arg.attrs;
-    quote_spanned! {
-        span=>
-        #( #attrs )*
-        let #mutability #name: #ty = #next;
+
+    BindingArg {
+        expr: next,
+        attrs: arg.attrs.clone(),
+        mutability,
+        name: arg.name.to_owned(),
+        ty: arg.ty.clone(),
     }
 }
 
