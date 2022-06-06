@@ -30,6 +30,12 @@ use crate::eval::{
 };
 
 impl DefCompiled {
+    pub(crate) fn mark_definitely_assigned_after(&self, bc: &mut BcWriter) {
+        // TODO(nga): argument default values and types can be used
+        //   to mark variables definitely assigned.
+        let _ = bc;
+    }
+
     pub(crate) fn write_bc(&self, span: FrozenFileSpan, target: BcSlotOut, bc: &mut BcWriter) {
         let DefCompiled {
             ref function_name,

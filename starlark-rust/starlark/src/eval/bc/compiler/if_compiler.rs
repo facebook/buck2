@@ -68,10 +68,14 @@ fn write_if_else_impl<T, F>(
 
     write_cond(cond, maybe_not, &mut then_addrs, &mut else_addrs, bc);
 
+    let definitely_assigned = bc.save_definitely_assigned();
+
     bc.patch_addrs(then_addrs);
     t(bc);
     if let Some(f) = f {
         let end_addr = bc.write_br(cond.span);
+
+        bc.restore_definitely_assigned(definitely_assigned.clone());
 
         bc.patch_addrs(else_addrs);
         f(bc);
@@ -80,6 +84,8 @@ fn write_if_else_impl<T, F>(
     } else {
         bc.patch_addrs(else_addrs);
     }
+
+    bc.restore_definitely_assigned(definitely_assigned);
 }
 
 /// Write boolean binary condition.

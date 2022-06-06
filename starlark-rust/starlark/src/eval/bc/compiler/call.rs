@@ -47,6 +47,27 @@ use crate::{
 };
 
 impl ArgsCompiledValue {
+    /// After evaluation of function arguments like `foo(a, b=c[d], **e)`,
+    /// variables `a`, `b`, `c`, `d`, and `e` are definitely assigned.
+    fn mark_definitely_assigned_after(&self, bc: &mut BcWriter) {
+        let ArgsCompiledValue {
+            pos_named,
+            names,
+            args,
+            kwargs,
+        } = self;
+        for n in pos_named {
+            n.mark_definitely_assigned_after(bc);
+        }
+        let _ = names;
+        if let Some(args) = args {
+            args.mark_definitely_assigned_after(bc);
+        }
+        if let Some(kwargs) = kwargs {
+            kwargs.mark_definitely_assigned_after(bc);
+        }
+    }
+
     fn write_bc(&self, bc: &mut BcWriter, k: impl FnOnce(BcCallArgsFull<Symbol>, &mut BcWriter)) {
         write_exprs(&self.pos_named, bc, |pos_named, bc| {
             write_expr_opt(&self.args, bc, |args, bc| {
@@ -61,6 +82,16 @@ impl ArgsCompiledValue {
                 })
             })
         });
+    }
+}
+
+impl CallCompiled {
+    /// After evaluation of call like `a[b](c.d)`,
+    /// variables `a`, `b`, and `c` are definitely assigned.
+    pub(crate) fn mark_definitely_assigned_after(&self, bc: &mut BcWriter) {
+        let CallCompiled { fun, args } = self;
+        fun.mark_definitely_assigned_after(bc);
+        args.mark_definitely_assigned_after(bc);
     }
 }
 

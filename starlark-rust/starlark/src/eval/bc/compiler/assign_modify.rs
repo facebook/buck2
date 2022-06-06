@@ -62,6 +62,22 @@ impl AssignOp {
 }
 
 impl AssignModifyLhs {
+    /// After evaluation of `x[y] += ...`, variables `x` and `y` are definitely assigned.
+    pub(crate) fn mark_definitely_assigned_after(&self, bc: &mut BcWriter) {
+        match self {
+            AssignModifyLhs::Dot(object, _field) => object.mark_definitely_assigned_after(bc),
+            AssignModifyLhs::Array(array, index) => {
+                array.mark_definitely_assigned_after(bc);
+                index.mark_definitely_assigned_after(bc);
+            }
+            AssignModifyLhs::Local(local) => match local.node {
+                (_, Captured::Yes) => {}
+                (local, Captured::No) => bc.mark_definitely_assigned(local),
+            },
+            AssignModifyLhs::Module(_) => {}
+        }
+    }
+
     pub(crate) fn write_bc(
         &self,
         span: FrozenFileSpan,

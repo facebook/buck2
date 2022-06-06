@@ -66,6 +66,18 @@ impl ClauseCompiled {
 }
 
 impl ComprCompiled {
+    /// After evaluation of comprehension like `[(x, z) for x in y for z in w]`,
+    /// we can mark `y` as definitely assigned.
+    pub(crate) fn mark_definitely_assigned_after(&self, bc: &mut BcWriter) {
+        let clauses = self.clauses();
+        // We know that first loop argument is executed, and we don't know anything else.
+        clauses
+            .split_last()
+            .0
+            .over
+            .mark_definitely_assigned_after(bc);
+    }
+
     pub(crate) fn write_bc(&self, span: FrozenFileSpan, target: BcSlotOut, bc: &mut BcWriter) {
         bc.alloc_slot(|temp, bc| {
             match *self {

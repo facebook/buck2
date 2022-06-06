@@ -128,6 +128,13 @@ pub(crate) enum ComprCompiled {
 }
 
 impl ComprCompiled {
+    pub(crate) fn clauses(&self) -> &ClausesCompiled {
+        match self {
+            ComprCompiled::List(_, clauses) => clauses,
+            ComprCompiled::Dict(_, clauses) => clauses,
+        }
+    }
+
     pub(crate) fn optimize_on_freeze(&self, ctx: &OptimizeOnFreezeContext) -> ExprCompiled {
         match self {
             ComprCompiled::List(box ref x, ref clauses) => {
@@ -204,6 +211,7 @@ impl ClausesCompiled {
         self.split_last().0.over.is_iterable_empty()
     }
 
+    /// Last clause is the one which is executed first.
     pub(crate) fn split_last(&self) -> (&ClauseCompiled, &[ClauseCompiled]) {
         self.clauses.split_last().unwrap()
     }

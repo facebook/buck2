@@ -24,6 +24,7 @@ use crate::{
         bc::{
             addr::{BcAddr, BcAddrOffset},
             bytecode::Bc,
+            definitely_assigned::BcDefinitelyAssigned,
             instr::BcInstr,
             instr_impl::{
                 InstrBr, InstrConst, InstrContinue, InstrForLoop, InstrIfBr, InstrIfNotBr,
@@ -54,8 +55,8 @@ pub(crate) struct BcWriter<'f> {
     stack_size: u32,
     /// Local slot count.
     local_count: u32,
-    /// Function parameter count.
-    param_count: u32,
+    /// Local variables which are known to be definitely assigned at current program point.
+    definitely_assigned: BcDefinitelyAssigned,
     /// Max observed stack size.
     max_stack_size: u32,
 
@@ -72,19 +73,24 @@ impl<'f> BcWriter<'f> {
         heap: &'f FrozenHeap,
     ) -> BcWriter<'f> {
         assert!(param_count <= local_count);
+        let mut definitely_assigned = BcDefinitelyAssigned::new(local_count);
+        for i in 0..param_count {
+            definitely_assigned.mark_definitely_assigned(LocalSlotId(i));
+        }
         BcWriter {
             profile,
             instrs: BcInstrsWriter::new(),
             slow_args: Vec::new(),
             stack_size: 0,
             local_count,
-            param_count,
+            definitely_assigned,
             max_stack_size: 0,
             heap,
         }
     }
 
     /// Finish writing the bytecode.
+    #[allow(clippy::let_underscore_drop)]
     pub(crate) fn finish(self) -> Bc {
         let BcWriter {
             profile: has_before_instr,
@@ -92,13 +98,13 @@ impl<'f> BcWriter<'f> {
             slow_args: spans,
             stack_size,
             local_count,
-            param_count,
+            definitely_assigned,
             max_stack_size,
             heap,
         } = self;
         let _ = has_before_instr;
         let _ = heap;
-        let _ = param_count;
+        let _ = definitely_assigned;
         assert_eq!(stack_size, 0);
         Bc {
             instrs: instrs.finish(spans),
@@ -264,12 +270,19 @@ impl<'f> BcWriter<'f> {
         then_block: impl FnOnce(&mut Self),
         else_block: impl FnOnce(&mut Self),
     ) {
+        let definitely_assigned = self.save_definitely_assigned();
+
         let else_target = self.write_if_not_br(cond, span);
         then_block(self);
         let end_target = self.write_br(span);
+
+        self.restore_definitely_assigned(definitely_assigned.clone());
+
         self.patch_addr(else_target);
         else_block(self);
         self.patch_addr(end_target);
+
+        self.restore_definitely_assigned(definitely_assigned);
     }
 
     /// Write if-else block.
@@ -295,12 +308,18 @@ impl<'f> BcWriter<'f> {
         span: FrozenFileSpan,
         body: impl FnOnce(&mut Self),
     ) {
+        // Definitely assigned save/restore is redundant here, it is performed more precisely
+        // by the caller. But it is safer to do it here anyway.
+        let definitely_assigned = self.save_definitely_assigned();
+
         let (addr, arg) =
             self.write_instr_ret_arg::<InstrForLoop>(span, (over, var, BcAddrOffset::FORWARD));
         let end_patch = self.instrs.addr_to_patch(addr, unsafe { &(*arg).2 });
         body(self);
         self.write_instr::<InstrContinue>(span, ());
         self.patch_addr(end_patch);
+
+        self.restore_definitely_assigned(definitely_assigned);
     }
 
     fn stack_add(&mut self, add: u32) {
@@ -314,8 +333,20 @@ impl<'f> BcWriter<'f> {
     }
 
     pub(crate) fn is_definitely_assigned(&self, local: LocalSlotId) -> bool {
-        assert!(local.0 < self.local_count);
-        local.0 < self.param_count
+        self.definitely_assigned.is_definitely_assigned(local)
+    }
+
+    pub(crate) fn mark_definitely_assigned(&mut self, local: LocalSlotId) {
+        self.definitely_assigned.mark_definitely_assigned(local);
+    }
+
+    pub(crate) fn save_definitely_assigned(&self) -> BcDefinitelyAssigned {
+        self.definitely_assigned.clone()
+    }
+
+    pub(crate) fn restore_definitely_assigned(&mut self, saved: BcDefinitelyAssigned) {
+        saved.assert_smaller_then(&self.definitely_assigned);
+        self.definitely_assigned = saved;
     }
 
     /// Allocate a temporary slot, and call a callback.

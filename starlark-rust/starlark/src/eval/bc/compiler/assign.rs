@@ -34,6 +34,32 @@ use crate::{
     },
 };
 
+impl AssignCompiledValue {
+    /// After evaluation of `(x, y[z]) = ...`, variables `x`, `y` and `z` as definitely assigned.
+    pub(crate) fn mark_definitely_assigned_after(&self, bc: &mut BcWriter) {
+        match self {
+            AssignCompiledValue::Dot(object, field) => {
+                object.mark_definitely_assigned_after(bc);
+                let _ = field;
+            }
+            AssignCompiledValue::Module(..) => {}
+            AssignCompiledValue::ArrayIndirection(array, index) => {
+                array.mark_definitely_assigned_after(bc);
+                index.mark_definitely_assigned_after(bc);
+            }
+            AssignCompiledValue::Local(_slot, Captured::Yes) => {}
+            AssignCompiledValue::Local(slot, Captured::No) => {
+                bc.mark_definitely_assigned(*slot);
+            }
+            AssignCompiledValue::Tuple(xs) => {
+                for x in xs {
+                    x.mark_definitely_assigned_after(bc);
+                }
+            }
+        }
+    }
+}
+
 impl IrSpanned<AssignCompiledValue> {
     pub(crate) fn write_bc(&self, value: BcSlotIn, bc: &mut BcWriter) {
         let span = self.span;

@@ -44,7 +44,6 @@ fn test_if_true_clause() {
         &[
             BcOpcode::ListNew,
             BcOpcode::ForLoop,
-            BcOpcode::LoadLocal,
             BcOpcode::ComprListAppend,
             BcOpcode::Continue,
             BcOpcode::Mov,
@@ -60,7 +59,6 @@ fn test_if_true_clause_on_freeze() {
         &[
             BcOpcode::ListNew,
             BcOpcode::ForLoop,
-            BcOpcode::LoadLocal,
             BcOpcode::ComprListAppend,
             BcOpcode::Continue,
             BcOpcode::Mov,

@@ -71,6 +71,102 @@ pub(crate) fn write_n_exprs<const N: usize>(
     write_exprs(exprs, bc, |slots, bc| k(BcSlotsInN::from_range(slots), bc))
 }
 
+impl ExprCompiled {
+    /// Mark variables which are definitely assigned after execution of this expression.
+    ///
+    /// For example, when this expression if executed:
+    ///
+    /// ```ignore
+    /// t if c else f
+    /// ```
+    ///
+    /// `c` is definitely assigned (because if it is not, then execution fails),
+    /// but we don't know about `t` or `f` because one of them was not executed.
+    pub(crate) fn mark_definitely_assigned_after(&self, bc: &mut BcWriter) {
+        match self {
+            ExprCompiled::Value(_) => {}
+            ExprCompiled::Local(local) => bc.mark_definitely_assigned(*local),
+            ExprCompiled::LocalCaptured(_) => {}
+            ExprCompiled::Module(_) => {}
+            ExprCompiled::Equals(box (a, b)) => {
+                a.mark_definitely_assigned_after(bc);
+                b.mark_definitely_assigned_after(bc);
+            }
+            ExprCompiled::Compare(box (a, b), _op) => {
+                a.mark_definitely_assigned_after(bc);
+                b.mark_definitely_assigned_after(bc);
+            }
+            ExprCompiled::TypeIs(v, _t) => {
+                v.mark_definitely_assigned_after(bc);
+            }
+            ExprCompiled::Tuple(xs) | ExprCompiled::List(xs) => {
+                for x in xs {
+                    x.mark_definitely_assigned_after(bc);
+                }
+            }
+            ExprCompiled::Dict(xs) => {
+                for (k, v) in xs {
+                    k.mark_definitely_assigned_after(bc);
+                    v.mark_definitely_assigned_after(bc);
+                }
+            }
+            ExprCompiled::Compr(compr) => compr.mark_definitely_assigned_after(bc),
+            ExprCompiled::Dot(object, _field) => {
+                object.mark_definitely_assigned_after(bc);
+            }
+            ExprCompiled::ArrayIndirection(box (array, index)) => {
+                array.mark_definitely_assigned_after(bc);
+                index.mark_definitely_assigned_after(bc);
+            }
+            ExprCompiled::If(box (c, _t, _f)) => {
+                // Condition is executed unconditionally, so we use it to mark definitely assigned.
+                // But we don't know which of the branches will be executed.
+                c.mark_definitely_assigned_after(bc);
+            }
+            ExprCompiled::Slice(box (l, a, b, c)) => {
+                l.mark_definitely_assigned_after(bc);
+                if let Some(a) = a {
+                    a.mark_definitely_assigned_after(bc);
+                }
+                if let Some(b) = b {
+                    b.mark_definitely_assigned_after(bc);
+                }
+                if let Some(c) = c {
+                    c.mark_definitely_assigned_after(bc);
+                }
+            }
+            ExprCompiled::Not(expr) => {
+                expr.mark_definitely_assigned_after(bc);
+            }
+            ExprCompiled::UnOp(_op, expr) => {
+                expr.mark_definitely_assigned_after(bc);
+            }
+            ExprCompiled::LogicalBinOp(_op, box (a, b)) => {
+                // `a` is executed unconditionally, but `b` is not,
+                // so we mark only `a` as definitely assigned.
+                a.mark_definitely_assigned_after(bc);
+                let _ = b;
+            }
+            ExprCompiled::Seq(box (a, b)) => {
+                a.mark_definitely_assigned_after(bc);
+                b.mark_definitely_assigned_after(bc);
+            }
+            ExprCompiled::Op(_op, box (a, b)) => {
+                a.mark_definitely_assigned_after(bc);
+                b.mark_definitely_assigned_after(bc);
+            }
+            ExprCompiled::PercentSOne(box (_before, arg, _after)) => {
+                arg.mark_definitely_assigned_after(bc);
+            }
+            ExprCompiled::FormatOne(box (_before, arg, _after)) => {
+                arg.mark_definitely_assigned_after(bc);
+            }
+            ExprCompiled::Call(c) => c.mark_definitely_assigned_after(bc),
+            ExprCompiled::Def(d) => d.mark_definitely_assigned_after(bc),
+        }
+    }
+}
+
 impl IrSpanned<ExprCompiled> {
     fn try_dict_of_consts(
         xs: &[(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)],

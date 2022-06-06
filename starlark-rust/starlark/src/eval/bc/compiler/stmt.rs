@@ -43,11 +43,16 @@ pub(crate) fn write_for(
     bc: &mut BcWriter,
     body: impl FnOnce(&mut BcWriter),
 ) {
+    let definitely_assigned = bc.save_definitely_assigned();
+
     over.write_bc_cb(bc, |over, bc| {
         if let Some(var) = var.as_local_non_captured() {
             // Typical case: `for x in ...: ...`,
             // compile loop assignment directly to a local variable.
-            bc.write_for(over, var.to_bc_slot().to_out(), span, body)
+            bc.write_for(over, var.to_bc_slot().to_out(), span, |bc| {
+                bc.mark_definitely_assigned(var);
+                body(bc);
+            })
         } else {
             // General case, e. g. `for (x, y[0]) in ...: ...`,
             // compile loop assignment to a temporary variable,
@@ -55,17 +60,60 @@ pub(crate) fn write_for(
             bc.alloc_slot(|var_slot, bc| {
                 bc.write_for(over, var_slot.to_out(), span, |bc| {
                     var.write_bc(var_slot.to_in(), bc);
+                    var.mark_definitely_assigned_after(bc);
                     body(bc);
                 })
             })
         }
-    })
+    });
+
+    bc.restore_definitely_assigned(definitely_assigned);
 }
 
 impl StmtsCompiled {
     pub(crate) fn write_bc(&self, compiler: &StmtCompileContext, bc: &mut BcWriter) {
         for stmt in self.stmts() {
             stmt.write_bc(compiler, bc);
+        }
+    }
+}
+
+impl StmtCompiled {
+    /// Mark local variables are definitely assigned after this statement executed.
+    pub(crate) fn mark_definitely_assigned_after(&self, bc: &mut BcWriter) {
+        match self {
+            StmtCompiled::PossibleGc => {}
+            StmtCompiled::Return(e) => {
+                // `e` is definitely assigned after `return` statement,
+                // but no code is executed after `return`, so marking would be useless.
+                let _ = e;
+            }
+            StmtCompiled::Expr(e) => e.mark_definitely_assigned_after(bc),
+            StmtCompiled::Assign(lhs, rhs) => {
+                lhs.mark_definitely_assigned_after(bc);
+                rhs.mark_definitely_assigned_after(bc);
+            }
+            StmtCompiled::AssignModify(lhs, _op, rhs) => {
+                rhs.mark_definitely_assigned_after(bc);
+                lhs.mark_definitely_assigned_after(bc);
+            }
+            StmtCompiled::If(box (cond, t, f)) => {
+                cond.mark_definitely_assigned_after(bc);
+                // We could merge `t` and `f` definitely assigned, e. g.
+                // ```
+                // if cond:
+                //   x = 1
+                // else:
+                //   x = 2
+                // ```
+                // we could mark `x` as definitely assigned.
+                let _ = (t, f);
+            }
+            StmtCompiled::For(box (_var, over, _body)) => {
+                over.mark_definitely_assigned_after(bc);
+            }
+            StmtCompiled::Break => {}
+            StmtCompiled::Continue => {}
         }
     }
 }
@@ -79,6 +127,7 @@ impl IrSpanned<StmtCompiled> {
             }
         }
         self.write_bc_inner(compiler, bc);
+        self.mark_definitely_assigned_after(bc);
     }
 
     fn write_if_then(
