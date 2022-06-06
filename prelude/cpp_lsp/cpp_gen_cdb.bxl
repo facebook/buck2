@@ -37,20 +37,23 @@ def _impl(ctx):
         compileCommands.append({"file": filename, "directory": buckRoot, "arguments": arguments})
         actionFactory = ctx.bxl_actions.action_factory()
         compdbArtifact = actionFactory.write_json("compdb.json", compileCommands)
-        # HMAP CONVERTER
-        # hmapConverter = ctx.analysis("fbsource//xplat/scripts/clangd/hmapconverter:bxlhmapconverter").providers()[RunInfo]
-        # outputDir = actionFactory.declare_output("merged_cdb")
-        # cmd = cmd_args(hmapConverter)
-        # cmd.add("--input-file")
-        # cmd.add(compdbArtifact)
-        # cmd.add("--output-dir")
-        # cmd.add(outputDir.as_output())
-        # actionFactory.run(cmd, category = "cxx_merge_compdb_hmap")
 
         # TODO: do we need this for dependencies materialization?
-        # buildTarget = configured_sub_target(owner.label, "compilation-database")
-        # ctx.build(buildTarget)
-        return [compdbArtifact]
+        buildTarget = configured_sub_target(owner.label, "compilation-database")
+        ctx.build(buildTarget)
+
+        # HMAP CONVERTER
+        hmapConverter = ctx.analysis("fbsource//xplat/scripts/clangd/hmapconverter:bxlhmapconverter").providers()[RunInfo]
+        outputDir = actionFactory.declare_output("merged_cdb")
+        cmd = cmd_args(hmapConverter)
+        cmd.add("--input-file")
+        cmd.add(compdbArtifact)
+        cmd.add("--working-dir")
+        cmd.add(buckRoot)
+        cmd.add("--output-dir")
+        cmd.add(outputDir.as_output())
+        actionFactory.run(cmd, category = "cxx_merge_compdb_hmap")
+        return [outputDir]
     return []
 
 def findOwningTarget(ctx, filename):
