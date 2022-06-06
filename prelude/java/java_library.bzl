@@ -277,7 +277,7 @@ def _copy_resources(
         resources_root: [str.type, None]) -> "artifact":
     resources_to_copy = _get_resources_map(java_toolchain, package, resources, resources_root)
     resource_output = actions.declare_output("resources")
-    actions.symlinked_dir(resource_output, srcs = resources_to_copy)
+    actions.symlinked_dir(resource_output, resources_to_copy)
     return resource_output
 
 def _get_java_package_finder(java_toolchain: JavaToolchainInfo.type) -> "function":

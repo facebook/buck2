@@ -229,8 +229,8 @@ def merge_to_split_dex(
             ctx.actions.dynamic_output(metadata_line_artifacts, [], [metadata_dot_txt_file], write_metadata_dot_txt)
 
         ctx.actions.symlinked_dir(
-            output = ctx.outputs[initial_secondary_dexes_dir],
-            srcs = secondary_dexes_for_symlinking,
+            ctx.outputs[initial_secondary_dexes_dir],
+            secondary_dexes_for_symlinking,
         )
 
     ctx.actions.dynamic_output(input_artifacts, [], outputs, merge_pre_dexed_libs)

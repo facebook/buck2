@@ -392,7 +392,7 @@ def _dependency_args(
 
     for idx, srcs in enumerate(deps_dirs):
         deps_dir = "{}-deps{}-{}".format(subdir, ("-check" if is_check else ""), idx)
-        dep_link_dir = ctx.actions.symlinked_dir(deps_dir, srcs = srcs)
+        dep_link_dir = ctx.actions.symlinked_dir(deps_dir, srcs)
         args.add(cmd_args(dep_link_dir, format = "-Ldependency={}"))
 
     return (args, crate_targets)
