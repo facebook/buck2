@@ -39,7 +39,7 @@ pub fn tset_factory(builder: &mut GlobalsBuilder) {
         definition: Value<'v>,
         value: Option<Value<'v>>,
         children: Option<Value<'v>>, // An iterable.
-        eval: &mut Evaluator,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<TransitiveSet<'v>> {
         static LAST_ID: AtomicUsize = AtomicUsize::new(0);
 

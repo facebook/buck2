@@ -76,7 +76,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
 
     fn attributes<'v>(
         this: &StarlarkConfiguredTargetNode,
-        heap: &Heap,
+        heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         let mut attrs = SmallMap::with_capacity(this.0.attrs().size_hint().0);
         for (name, attr) in this.0.attrs() {

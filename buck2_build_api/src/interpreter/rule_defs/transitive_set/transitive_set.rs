@@ -369,7 +369,7 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
     fn project_as_args<'v>(
         this: Value<'v>,
         projection: &str,
-        heap: &Heap,
+        heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         let set = TransitiveSet::from_value(this).context("Invalid this")?;
 
@@ -426,7 +426,7 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
             .with_context(|| format!("Missing reduction {}", index))
     }
 
-    fn traverse<'v>(this: Value<'v>, heap: &Heap) -> anyhow::Result<Value<'v>> {
+    fn traverse<'v>(this: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc(TransitiveSetTraversal { inner: this }))
     }
 }

@@ -149,8 +149,8 @@ pub(crate) fn register_natives(builder: &mut GlobalsBuilder) {
     fn read_config<'v>(
         section: StringValue,
         key: StringValue,
-        default: Option<Value>,
-        eval: &mut Evaluator,
+        default: Option<Value<'v>>,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         // In Buck v1, we read additional configuration information from /etc/buckconfig.d.
         // On devservers and other locations, the file fb_chef.ini has host_features.gvfs = true.
@@ -193,8 +193,8 @@ pub(crate) fn register_natives(builder: &mut GlobalsBuilder) {
 
     fn implicit_package_symbol<'v>(
         name: &str,
-        default: Option<Value>,
-        eval: &mut Evaluator,
+        default: Option<Value<'v>>,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let internals = ModuleInternals::from_context(eval)?;
         match internals.get_package_implicit(name) {

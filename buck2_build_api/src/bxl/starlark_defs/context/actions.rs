@@ -77,7 +77,7 @@ impl<'v> UnpackValue<'v> for &'v BxlActionsCtx<'v> {
 
 #[starlark_module]
 fn register_context(builder: &mut MethodsBuilder) {
-    fn action_factory<'v>(this: &BxlActionsCtx) -> anyhow::Result<Value<'v>> {
+    fn action_factory<'v>(this: &BxlActionsCtx<'v>) -> anyhow::Result<Value<'v>> {
         let mut registry = this.ctx.as_ref().state.state.borrow_mut();
         if (*registry).is_some() {
             return Err(anyhow::anyhow!(BxlActionsError::RegistryAlreadyCreated));

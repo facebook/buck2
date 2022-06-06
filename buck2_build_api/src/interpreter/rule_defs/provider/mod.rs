@@ -1255,8 +1255,8 @@ mod tests {
     #[starlark_module]
     fn simple_info_creator(globals: &mut GlobalsBuilder) {
         fn ConstraintSettingInfo<'v>(
-            value1: Value,
-            value2: Value,
+            value1: Value<'v>,
+            value2: Value<'v>,
         ) -> anyhow::Result<SimpleInfo<'v>> {
             Ok(SimpleInfo { value1, value2 })
         }
@@ -1503,7 +1503,7 @@ mod tests {
         fn create_collection<'v>(
             s: &str,
             providers: Value<'v>,
-            eval: &mut Evaluator,
+            eval: &mut Evaluator<'v, '_>,
         ) -> anyhow::Result<Dependency<'v>> {
             let c = BuildContext::from_context(eval)?;
             let label = match ParsedPattern::<ProvidersPattern>::parse_precise(

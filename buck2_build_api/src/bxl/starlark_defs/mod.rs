@@ -58,10 +58,10 @@ pub mod uquery;
 #[starlark_module]
 pub fn register_bxl_function(builder: &mut GlobalsBuilder) {
     fn bxl<'v>(
-        implementation: Value,
-        cli_args: DictOf<&str, &CliArgs>,
+        implementation: Value<'v>,
+        cli_args: DictOf<'v, &'v str, &'v CliArgs>,
         #[starlark(default = "")] doc: &str,
-        eval: &mut Evaluator,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let build_context = BuildContext::from_context(eval)?;
         let bxl_path = (*build_context

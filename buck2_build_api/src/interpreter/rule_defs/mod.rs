@@ -36,7 +36,10 @@ pub mod util;
 #[starlark_module]
 fn extra_functions(builder: &mut GlobalsBuilder) {
     // Load symbols into the module. Should only be used by infra_macros/DEFS.bzl
-    fn load_symbols(symbols: DictRef, eval: &mut Evaluator) -> anyhow::Result<NoneType> {
+    fn load_symbols<'v>(
+        symbols: DictRef<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<NoneType> {
         for (k, v) in symbols.iter() {
             eval.set_module_variable_at_some_point(&k.to_str(), v)?;
         }

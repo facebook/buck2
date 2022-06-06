@@ -123,9 +123,13 @@ enum ConfigurationInfoError {
 fn configuration_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(type = "ConfigurationInfo")]
     fn ConfigurationInfo<'v>(
-        constraints: DictOf<'_, ValueOf<&StarlarkTargetLabel>, ValueOf<&ConstraintValueInfo>>,
-        values: DictOf<&str, &str>,
-        eval: &mut Evaluator,
+        constraints: DictOf<
+            'v,
+            ValueOf<'v, &'v StarlarkTargetLabel>,
+            ValueOf<'v, &'v ConstraintValueInfo<'v>>,
+        >,
+        values: DictOf<'v, &'v str, &'v str>,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<ConfigurationInfo<'v>> {
         let mut new_constraints = SmallMap::new();
         for (constraint_setting, constraint_value) in constraints.collect_entries() {

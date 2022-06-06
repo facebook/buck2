@@ -141,7 +141,7 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
     /// This function returns an `ensured_artifact` type that can be printed via `ctx.output.print()`
     /// to print its actual path on disk.
     fn ensure<'v>(
-        this: &OutputStream,
+        this: &OutputStream<'v>,
         artifact: Value<'v>,
     ) -> anyhow::Result<EnsuredArtifactGen<Value<'v>>> {
         artifact.as_artifact().ok_or_else(|| {

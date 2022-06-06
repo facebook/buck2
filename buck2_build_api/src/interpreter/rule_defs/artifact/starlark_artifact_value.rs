@@ -105,7 +105,7 @@ fn artifact_value_methods(builder: &mut MethodsBuilder) {
         fs::read_to_string(&path)
     }
 
-    fn read_json<'v>(this: &StarlarkArtifactValue, heap: &Heap) -> anyhow::Result<Value<'v>> {
+    fn read_json<'v>(this: &StarlarkArtifactValue, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         let path = this.fs.resolve(&this.path);
         let file = File::open(&path).with_context(|| format!("When openning file `{}`", path))?;
         let reader = BufReader::new(file);

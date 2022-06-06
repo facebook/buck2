@@ -14,7 +14,7 @@ use crate::{extra::BuildContext, globspec::GlobSpec, selector::Selector};
 
 #[starlark_module]
 pub fn native_module(builder: &mut GlobalsBuilder) {
-    fn select<'v>(d: Value) -> anyhow::Result<Selector<'v>> {
+    fn select<'v>(d: Value<'v>) -> anyhow::Result<Selector<'v>> {
         Ok(Selector::new(d))
     }
 
@@ -22,7 +22,7 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
     fn select_map<'v>(
         d: Value<'v>,
         func: Value<'v>,
-        eval: &mut Evaluator,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         Selector::select_map(d, eval, func)
     }
@@ -31,7 +31,7 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
     fn select_test<'v>(
         d: Value<'v>,
         func: Value<'v>,
-        eval: &mut Evaluator,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<bool> {
         Selector::select_test(d, eval, func)
     }
@@ -46,7 +46,7 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
         excludes: Option<Vec<String>>,
         exclude: Option<Vec<String>>,
         #[starlark(default = false)] include_dotfiles: bool,
-        eval: &mut Evaluator,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let extra = BuildContext::from_context(eval)?;
         let excludes = excludes.or(exclude).unwrap_or_default();

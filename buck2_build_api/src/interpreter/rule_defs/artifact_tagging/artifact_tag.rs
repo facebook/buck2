@@ -93,7 +93,7 @@ fn input_tag_methods(_: &mut MethodsBuilder) {
     fn tag_artifacts<'v>(
         this: &ArtifactTag,
         inner: Value<'v>,
-        heap: &Heap,
+        heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         // Check that the inner is actually a command line.
         let _inner = inner.as_command_line_err()?;

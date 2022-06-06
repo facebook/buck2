@@ -22,7 +22,7 @@ pub fn register_label_function(builder: &mut GlobalsBuilder) {
     fn sub_target<'v>(
         target: &StarlarkTargetLabel,
         #[starlark(default = FrozenList::empty())] subtarget_name: Value<'v>,
-        eval: &mut Evaluator,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkProvidersLabel<'v>> {
         let providers_name = value_to_providers_name(subtarget_name)?;
 
@@ -37,7 +37,7 @@ pub fn register_label_function(builder: &mut GlobalsBuilder) {
     fn configured_sub_target<'v>(
         target: &StarlarkConfiguredTargetLabel,
         #[starlark(default = FrozenList::empty())] subtarget_name: Value<'v>,
-        eval: &mut Evaluator,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Label<'v>> {
         let providers_name = value_to_providers_name(subtarget_name)?;
 

@@ -225,31 +225,31 @@ fn register_context(builder: &mut MethodsBuilder) {
             .to_owned())
     }
 
-    fn uquery<'v>(this: &BxlContext) -> anyhow::Result<StarlarkUQueryCtx<'v>> {
+    fn uquery<'v>(this: &'v BxlContext<'v>) -> anyhow::Result<StarlarkUQueryCtx<'v>> {
         let delegate = this.sync_dice_query_delegate(None)?;
         StarlarkUQueryCtx::new(Arc::new(delegate))
     }
 
     fn cquery<'v>(
-        this: &BxlContext,
+        this: &'v BxlContext<'v>,
         // TODO(brasselsprouts): I would like to strongly type this.
-        #[starlark(default = NoneType)] global_target_platform: Value,
+        #[starlark(default = NoneType)] global_target_platform: Value<'v>,
     ) -> anyhow::Result<StarlarkCQueryCtx<'v>> {
         this.async_ctx
             .via(|| StarlarkCQueryCtx::new(this, global_target_platform))
     }
 
     #[starlark(attribute)]
-    fn bxl_actions<'v>(this: ValueOf<&'v BxlContext<'v>>) -> anyhow::Result<BxlActionsCtx<'v>> {
+    fn bxl_actions<'v>(this: ValueOf<'v, &'v BxlContext<'v>>) -> anyhow::Result<BxlActionsCtx<'v>> {
         Ok(BxlActionsCtx::new(ValueTyped::new(this.value).unwrap()))
     }
 
     fn analysis<'v>(
-        this: &BxlContext,
+        this: &BxlContext<'v>,
         labels: Value<'v>,
         #[starlark(default = NoneType)] global_target_platform: Value<'v>,
         #[starlark(default = true)] skip_incompatible: bool,
-        eval: &mut Evaluator,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let providers = ProvidersExpr::unpack(labels, global_target_platform, this, eval)?;
 
@@ -273,10 +273,10 @@ fn register_context(builder: &mut MethodsBuilder) {
     }
 
     fn build<'v>(
-        this: &BxlContext,
+        this: &'v BxlContext<'v>,
         spec: Value<'v>,
         #[starlark(default = NoneType)] target_platform: Value<'v>,
-        eval: &mut Evaluator,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         Ok(eval
             .heap()
@@ -284,12 +284,12 @@ fn register_context(builder: &mut MethodsBuilder) {
     }
 
     #[starlark(attribute)]
-    fn cli_args<'v>(this: &BxlContext) -> anyhow::Result<Value<'v>> {
+    fn cli_args<'v>(this: &BxlContext<'v>) -> anyhow::Result<Value<'v>> {
         Ok(this.cli_args)
     }
 
     #[starlark(attribute)]
-    fn unstable_fs<'v>(this: &BxlContext) -> anyhow::Result<BxlFilesystem<'v>> {
+    fn unstable_fs<'v>(this: &BxlContext<'v>) -> anyhow::Result<BxlFilesystem<'v>> {
         Ok(BxlFilesystem::new(&this.async_ctx))
     }
 }

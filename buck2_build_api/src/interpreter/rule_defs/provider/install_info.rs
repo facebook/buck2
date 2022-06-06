@@ -58,8 +58,8 @@ impl FrozenInstallInfo {
 #[starlark_module]
 fn install_info_creator(globals: &mut GlobalsBuilder) {
     fn InstallInfo<'v>(
-        installer: ValueOf<&RunInfo>,
-        files: ValueOf<SmallMap<&str, Value<'v>>>,
+        installer: ValueOf<'v, &'v RunInfo<'v>>,
+        files: ValueOf<'v, SmallMap<&'v str, Value<'v>>>,
     ) -> anyhow::Result<InstallInfo<'v>> {
         for v in files.typed.values() {
             v.as_artifact().ok_or(ValueError::IncorrectParameterType)?;

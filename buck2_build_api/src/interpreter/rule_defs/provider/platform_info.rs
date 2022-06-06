@@ -65,8 +65,8 @@ impl<'v> PlatformInfo<'v> {
 fn platform_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(type = "PlatformInfo")]
     fn PlatformInfo<'v>(
-        label: StringValue,
-        configuration: ValueOf<&ConfigurationInfo>,
+        label: StringValue<'v>,
+        configuration: ValueOf<'v, &'v ConfigurationInfo<'v>>,
     ) -> anyhow::Result<PlatformInfo<'v>> {
         Ok(PlatformInfo {
             label: label.to_value(),

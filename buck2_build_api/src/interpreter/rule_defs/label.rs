@@ -272,7 +272,7 @@ pub mod testing {
 
     #[starlark_module]
     pub fn label_creator(builder: &mut GlobalsBuilder) {
-        fn label<'v>(s: &str, eval: &mut Evaluator) -> anyhow::Result<Label<'v>> {
+        fn label<'v>(s: &str, eval: &mut Evaluator<'v, '_>) -> anyhow::Result<Label<'v>> {
             let c = BuildContext::from_context(eval)?;
             let target = match ParsedPattern::<ProvidersPattern>::parse_precise(
                 c.cell_info().cell_alias_resolver(),

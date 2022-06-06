@@ -155,11 +155,11 @@ impl<'v> Transition<'v> {
 #[starlark_module]
 fn register_transition_function(builder: &mut GlobalsBuilder) {
     fn transition<'v>(
-        implementation: Value,
+        implementation: Value<'v>,
         #[starlark(require = named)] refs: DictOf<'v, StringValue<'v>, StringValue<'v>>,
         #[starlark(require = named)] attrs: Option<Vec<StringValue<'v>>>,
         #[starlark(require = named, default = false)] split: bool,
-        eval: &mut Evaluator,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Transition<'v>> {
         let context = get_attr_coercion_context(eval)?;
 

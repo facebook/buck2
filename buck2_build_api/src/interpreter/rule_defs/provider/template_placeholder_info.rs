@@ -210,8 +210,8 @@ impl<'v> TemplatePlaceholderInfo<'v> {
 fn template_placeholder_info_creator(builder: &mut GlobalsBuilder) {
     #[starlark(type = "TemplatePlaceholderInfo")]
     fn TemplatePlaceholderInfo<'v>(
-        #[starlark(default = FrozenDict::default())] unkeyed_variables: Value,
-        #[starlark(default = FrozenDict::default())] keyed_variables: Value,
+        #[starlark(default = FrozenDict::default())] unkeyed_variables: Value<'v>,
+        #[starlark(default = FrozenDict::default())] keyed_variables: Value<'v>,
     ) -> anyhow::Result<TemplatePlaceholderInfo<'v>> {
         TemplatePlaceholderInfo::new(unkeyed_variables, keyed_variables)
     }

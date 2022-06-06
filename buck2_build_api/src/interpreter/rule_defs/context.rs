@@ -345,7 +345,7 @@ enum WriteActionError {
 
 fn create_dir_tree<'v>(
     eval: &mut Evaluator<'v, '_>,
-    this: &AnalysisActions,
+    this: &AnalysisActions<'v>,
     output: Value<'v>,
     srcs: Value<'v>,
     copy: bool,
@@ -363,7 +363,7 @@ fn create_dir_tree<'v>(
 
 fn copy_file<'v>(
     eval: &mut Evaluator<'v, '_>,
-    this: &AnalysisActions,
+    this: &AnalysisActions<'v>,
     src: Value<'v>,
     dest: Value<'v>,
     copy: bool,
@@ -386,11 +386,11 @@ fn copy_file<'v>(
 
 #[starlark_module]
 fn register_context_actions(builder: &mut MethodsBuilder) {
-    fn declare_output(
-        this: &AnalysisActions,
+    fn declare_output<'v>(
+        this: &AnalysisActions<'v>,
         prefix: &str,
         filename: Option<&str>,
-        eval: &mut Evaluator,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkDeclaredArtifact> {
         let artifact = match filename {
             None => this.state().declare_output(None, prefix)?,
@@ -404,10 +404,10 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
     }
 
     fn write_json<'v>(
-        this: &AnalysisActions,
+        this: &AnalysisActions<'v>,
         output: Value<'v>,
         content: Value<'v>,
-        eval: &mut Evaluator,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let mut this = this.state();
         let (output_value, output_artifact) = this.get_or_declare_output(eval, output, "output")?;
@@ -425,12 +425,12 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
     }
 
     fn write<'v>(
-        this: &AnalysisActions,
+        this: &AnalysisActions<'v>,
         output: Value<'v>,
         content: Value<'v>,
         #[starlark(default = false)] is_executable: bool,
         #[starlark(default = false)] allow_args: bool,
-        eval: &mut Evaluator,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         fn count_write_to_file_macros(
             args_allowed: bool,
@@ -542,55 +542,55 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
     }
 
     fn copy<'v>(
-        this: &AnalysisActions,
+        this: &AnalysisActions<'v>,
         src: Value<'v>,
         dest: Value<'v>,
-        eval: &mut Evaluator,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         copy_file(eval, this, src, dest, /* copy */ true)
     }
 
     fn symlink<'v>(
-        this: &AnalysisActions,
+        this: &AnalysisActions<'v>,
         src: Value<'v>,
         dest: Value<'v>,
-        eval: &mut Evaluator,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         copy_file(eval, this, src, dest, /* copy */ false)
     }
 
     fn symlinked_dir<'v>(
-        this: &AnalysisActions,
+        this: &AnalysisActions<'v>,
         output: Value<'v>,
         srcs: Value<'v>,
-        eval: &mut Evaluator,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         create_dir_tree(eval, this, output, srcs, false)
     }
 
     fn copied_dir<'v>(
-        this: &AnalysisActions,
+        this: &AnalysisActions<'v>,
         output: Value<'v>,
         srcs: Value<'v>,
-        eval: &mut Evaluator,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         create_dir_tree(eval, this, output, srcs, true)
     }
 
     fn run<'v>(
-        this: &AnalysisActions,
+        this: &AnalysisActions<'v>,
         arguments: Value<'v>,
         category: String,
         #[starlark(default = NoneOr::None)] identifier: NoneOr<String>,
-        env: Option<ValueOf<SmallMap<&str, Value<'v>>>>,
+        env: Option<ValueOf<'v, SmallMap<&'v str, Value<'v>>>>,
         #[starlark(default = false)] local_only: bool,
         #[starlark(default = false)] always_print_stderr: bool,
         #[starlark(default = 1)] weight: i32,
-        dep_files: Option<ValueOf<SmallMap<&str, Value<'v>>>>,
+        dep_files: Option<ValueOf<'v, SmallMap<&'v str, Value<'v>>>>,
         metadata_env_var: Option<String>,
         metadata_path: Option<String>,
         #[starlark(default = false)] no_outputs_cleanup: bool,
-        heap: &Heap,
+        heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
         struct RunCommandArtifactVisitor {
             inner: SimpleCommandLineArtifactVisitor,
@@ -728,14 +728,14 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
     }
 
     fn download_file<'v>(
-        this: &AnalysisActions,
+        this: &AnalysisActions<'v>,
         url: &str,
         output: Value<'v>,
         #[starlark(default = NoneOr::None)] sha1: NoneOr<&str>,
         #[starlark(default = NoneOr::None)] sha256: NoneOr<&str>,
         #[starlark(default = false)] is_executable: bool,
         #[starlark(default = false)] is_deferrable: bool,
-        eval: &mut Evaluator,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let mut this = this.state();
         let (output_value, output_artifact) = this.get_or_declare_output(eval, output, "output")?;
@@ -765,23 +765,23 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
     }
 
     fn tset<'v>(
-        this: &AnalysisActions,
+        this: &AnalysisActions<'v>,
         definition: Value<'v>,
         value: Option<Value<'v>>,
         children: Option<Value<'v>>, // An iterable.
-        eval: &mut Evaluator,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let mut this = this.state();
         this.create_transitive_set(definition, value, children, eval)
     }
 
-    fn dynamic_output(
-        this: &AnalysisActions,
+    fn dynamic_output<'v>(
+        this: &'v AnalysisActions<'v>,
         dynamic: Vec<StarlarkArtifact>,
         inputs: Vec<StarlarkArtifact>,
         outputs: Vec<StarlarkOutputArtifact>,
-        lambda: Value,
-        heap: &Heap,
+        lambda: Value<'v>,
+        heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
         // Parameter validation
         let lambda_type = lambda.get_type();
@@ -808,7 +808,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
     }
 
     /// Allocate a new input tag
-    fn artifact_tag<'v>(_this: &AnalysisActions, heap: &Heap) -> anyhow::Result<Value<'v>> {
+    fn artifact_tag<'v>(_this: &AnalysisActions<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc(ArtifactTag::new()))
     }
 }

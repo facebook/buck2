@@ -71,8 +71,8 @@ where
 fn artifact_methods(builder: &mut MethodsBuilder) {
     /// converts this artifact to be printed by its absolute path
     fn abs_path<'v>(
-        this: ValueOf<'v, &'v EnsuredArtifact>,
-        heap: &Heap,
+        this: ValueOf<'v, &'v EnsuredArtifact<'v>>,
+        heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         if this.typed.abs {
             Ok(this.value)
@@ -86,8 +86,8 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
 
     /// converts this artifact to be printed by its path relative to the project root
     fn rel_path<'v>(
-        this: ValueOf<'v, &'v EnsuredArtifact>,
-        heap: &Heap,
+        this: ValueOf<'v, &'v EnsuredArtifact<'v>>,
+        heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         if !this.typed.abs {
             Ok(this.value)
