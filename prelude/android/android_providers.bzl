@@ -55,6 +55,13 @@ AndroidManifestInfo = provider(
     ],
 )
 
+AndroidApkInfo = provider(
+    fields = [
+        "apk",
+        "manifest",
+    ],
+)
+
 CPU_FILTER_TO_ABI_DIRECTORY = {
     "arm": "armeabi",
     "arm64": "arm64-v8a",

@@ -1,7 +1,7 @@
 load("@fbcode//buck2/prelude/android:android_binary_native_library_rules.bzl", "get_android_binary_native_library_info")
 load("@fbcode//buck2/prelude/android:android_binary_resources_rules.bzl", "get_android_binary_resources_info")
 load("@fbcode//buck2/prelude/android:android_build_config.bzl", "generate_android_build_config", "get_build_config_fields")
-load("@fbcode//buck2/prelude/android:android_providers.bzl", "BuildConfigField", "merge_android_packageable_info")
+load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidApkInfo", "BuildConfigField", "merge_android_packageable_info")
 load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@fbcode//buck2/prelude/android:configuration.bzl", "get_deps_by_platform")
 load("@fbcode//buck2/prelude/android:dex_rules.bzl", "get_multi_dex", "get_single_primary_dex", "get_split_dex_merge_config", "merge_to_single_dex", "merge_to_split_dex")
@@ -104,6 +104,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
     )
 
     return [
+        AndroidApkInfo(apk = output_apk, manifest = resources_info.manifest),
         DefaultInfo(default_outputs = [output_apk], sub_targets = sub_targets),
     ]
 
