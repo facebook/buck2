@@ -571,10 +571,7 @@ impl<Mode, C> AValueImpl<Mode, C> {
     }
 }
 
-impl<'v, T: StarlarkValue<'static>> AValue<'v> for AValueImpl<Simple, T>
-where
-    'v: 'static,
-{
+impl<T: StarlarkValue<'static>> AValue<'static> for AValueImpl<Simple, T> {
     type StarlarkValue = T;
 
     type ExtraElem = ();
@@ -594,7 +591,7 @@ where
         Self::heap_freeze_simple_impl(me, freezer)
     }
 
-    unsafe fn heap_copy(me: *mut AValueRepr<Self>, tracer: &Tracer<'v>) -> Value<'v> {
+    unsafe fn heap_copy(me: *mut AValueRepr<Self>, tracer: &Tracer<'static>) -> Value<'static> {
         Self::heap_copy_impl(me, tracer, |_v, _tracer| {})
     }
 }
