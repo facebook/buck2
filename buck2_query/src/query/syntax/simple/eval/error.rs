@@ -73,7 +73,7 @@ impl From<anyhow::Error> for QueryError {
     }
 }
 
-impl<'a> From<Spanned<QueryError>> for QueryError {
+impl From<Spanned<QueryError>> for QueryError {
     fn from(value: Spanned<QueryError>) -> Self {
         QueryError::Inner(box value)
     }
