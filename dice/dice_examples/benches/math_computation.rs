@@ -13,7 +13,7 @@
 
 mod common;
 
-use std::sync::Arc;
+use std::{fmt::Write, sync::Arc};
 
 use async_trait::async_trait;
 use common::BenchmarkComputationsPrerequisites;
@@ -27,7 +27,7 @@ fn fib(n: usize, offset: Option<u8>, swap: bool) -> Vec<(Var, Equation)> {
             let (lhs, rhs) = if swap { (i - 2, i - 1) } else { (i - 1, i - 2) };
             let mut eq = format!("a{}=a{}+a{}", i, lhs, rhs);
             if let Some(offset) = offset {
-                eq.push_str(&format!("+{}", offset));
+                write!(eq, "+{}", offset).unwrap();
             }
             eq
         })
