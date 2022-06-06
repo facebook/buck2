@@ -120,10 +120,9 @@ def merge_to_single_dex(
         proguard_text_files_path = None,
     )
 
-PrimaryDexInput = record(
+DexInputWithSpecifiedClasses = record(
     lib = "DexLibraryInfo",
-    primary_dex_class_names = [str.type],
-    has_secondary_dex_class_names = bool.type,
+    dex_class_names = [str.type],
 )
 
 # When using jar compression, the secondary dex directory consists of N secondary dex jars, each
@@ -174,29 +173,8 @@ def merge_to_split_dex(
         pre_dexed_artifacts = [primary_dex_input.lib.dex for primary_dex_input in primary_dex_inputs if primary_dex_input.lib.dex]
         primary_dex_class_list = ctx.actions.write(
             "class_list_for_primary_dex.txt",
-            flatten([primary_dex_input.primary_dex_class_names for primary_dex_input in primary_dex_inputs]),
+            flatten([primary_dex_input.dex_class_names for primary_dex_input in primary_dex_inputs]),
         )
-        has_secondary_dex_classes = any(filter(lambda input: input.has_secondary_dex_class_names, primary_dex_inputs))
-        secondary_dex_output = None
-        secondary_dex_jar_from_primary_dex_metadata_config = None
-        if has_secondary_dex_classes:
-            index = len(secondary_dex_inputs)
-            if split_dex_merge_config.dex_compression == "jar":
-                secondary_dex_path = _get_jar_secondary_dex_path(index)
-                secondary_dex_jar_from_primary_dex_metadata_config = _get_secondary_dex_jar_metadata_config(ctx.actions, secondary_dex_path, index)
-                secondary_dexes_for_symlinking[secondary_dex_jar_from_primary_dex_metadata_config.secondary_dex_metadata_path] = secondary_dex_jar_from_primary_dex_metadata_config.secondary_dex_metadata_file
-            else:
-                secondary_dex_path = _get_raw_secondary_dex_path(index)
-
-            secondary_dex_output = ctx.actions.declare_output(secondary_dex_path)
-            secondary_dexes_for_symlinking[secondary_dex_path] = secondary_dex_output
-            canary_class_dex_info = _create_canary_class(
-                ctx,
-                len(secondary_dex_inputs) + 1,
-                ctx.attr._dex_toolchain[DexToolchainInfo],
-                ctx.attr._java_toolchain[JavaToolchainInfo],
-            )
-            pre_dexed_artifacts.append(canary_class_dex_info.dex)
 
         _merge_dexes(
             ctx,
@@ -205,8 +183,6 @@ def merge_to_split_dex(
             pre_dexed_artifacts,
             ctx.outputs[primary_dex_artifact_list],
             class_names_to_include = primary_dex_class_list,
-            secondary_output_dex_file = secondary_dex_output,
-            secondary_dex_jar_metadata_config = secondary_dex_jar_from_primary_dex_metadata_config,
         )
 
         metadata_line_artifacts = []
@@ -222,21 +198,22 @@ def merge_to_split_dex(
 
             secondary_dex_output = ctx.actions.declare_output(secondary_dex_path)
             secondary_dex_artifact_list = ctx.actions.declare_output("pre_dexed_artifacts_for_secondary_dex_{}.txt".format(i + 2))
-            pre_dexed_artifacts = [secondary_dex_input.dex for secondary_dex_input in secondary_dex_inputs[i] if secondary_dex_input.dex]
+            secondary_dex_class_list = ctx.actions.write(
+                "class_list_for_secondary_dex_{}.txt".format(i + 2),
+                flatten([secondary_dex_input.dex_class_names for secondary_dex_input in secondary_dex_inputs[i]]),
+            )
+            pre_dexed_artifacts = [secondary_dex_input.lib.dex for secondary_dex_input in secondary_dex_inputs[i] if secondary_dex_input.lib.dex]
             _merge_dexes(
                 ctx,
                 android_toolchain,
                 secondary_dex_output,
                 pre_dexed_artifacts,
                 secondary_dex_artifact_list,
+                class_names_to_include = secondary_dex_class_list,
                 secondary_dex_jar_metadata_config = secondary_dex_jar_metadata_config,
             )
 
             secondary_dexes_for_symlinking[secondary_dex_path] = secondary_dex_output
-
-        if secondary_dex_jar_from_primary_dex_metadata_config:
-            # This line is the final entry in metadata.txt.
-            metadata_line_artifacts.append(secondary_dex_jar_from_primary_dex_metadata_config.secondary_dex_metadata_line)
 
         if split_dex_merge_config.dex_compression == "jar":
             metadata_dot_txt_path = "{}/metadata.txt".format(_SECONDARY_DEX_SUBDIR)
@@ -317,14 +294,15 @@ def _merge_dexes(
 def _sort_pre_dexed_files(
         ctx: "context",
         pre_dexed_libs: ["DexLibraryInfo"],
-        split_dex_merge_config: "SplitDexMergeConfig") -> (["PrimaryDexInput"], [["DexLibraryInfo"]]):
+        split_dex_merge_config: "SplitDexMergeConfig") -> ([DexInputWithSpecifiedClasses.type], [[DexInputWithSpecifiedClasses.type]]):
     primary_dex_class_name_filter = get_class_name_filter(split_dex_merge_config.primary_dex_patterns)
     primary_dex_inputs = []
+
     secondary_dex_inputs = []
     current_secondary_dex_size = 0
     current_secondary_dex_inputs = []
     for pre_dexed_lib in pre_dexed_libs:
-        primary_dex_class_names, has_secondary_dex_class_names = _sort_dex_class_names(
+        primary_dex_class_names, secondary_dex_class_names = _sort_dex_class_names(
             ctx,
             pre_dexed_lib,
             primary_dex_class_name_filter,
@@ -332,37 +310,41 @@ def _sort_pre_dexed_files(
 
         if len(primary_dex_class_names) > 0:
             primary_dex_inputs.append(
-                PrimaryDexInput(
-                    lib = pre_dexed_lib,
-                    primary_dex_class_names = primary_dex_class_names,
-                    has_secondary_dex_class_names = has_secondary_dex_class_names,
-                ),
+                DexInputWithSpecifiedClasses(lib = pre_dexed_lib, dex_class_names = primary_dex_class_names),
             )
-        else:
+
+        if len(secondary_dex_class_names) > 0:
             weight_estimate = int(ctx.artifacts[pre_dexed_lib.weight_estimate].read_string().strip())
             if current_secondary_dex_size + weight_estimate > split_dex_merge_config.secondary_dex_weight_limit_bytes:
                 current_secondary_dex_size = 0
                 current_secondary_dex_inputs = []
 
             if len(current_secondary_dex_inputs) == 0:
-                canary_class_dex_info = _create_canary_class(ctx, len(secondary_dex_inputs) + 1, ctx.attr._dex_toolchain[DexToolchainInfo], ctx.attr._java_toolchain[JavaToolchainInfo])
-                current_secondary_dex_inputs.append(canary_class_dex_info)
+                canary_class_dex_input = _create_canary_class(ctx, len(secondary_dex_inputs) + 1, ctx.attr._dex_toolchain[DexToolchainInfo], ctx.attr._java_toolchain[JavaToolchainInfo])
+                current_secondary_dex_inputs.append(canary_class_dex_input)
                 secondary_dex_inputs.append(current_secondary_dex_inputs)
 
             current_secondary_dex_size += weight_estimate
-            current_secondary_dex_inputs.append(pre_dexed_lib)
+            current_secondary_dex_inputs.append(
+                DexInputWithSpecifiedClasses(lib = pre_dexed_lib, dex_class_names = secondary_dex_class_names),
+            )
 
     return (primary_dex_inputs, secondary_dex_inputs)
 
 def _sort_dex_class_names(
         ctx: "context",
         pre_dexed_lib: "DexLibraryInfo",
-        primary_dex_class_name_filter: "ClassNameFilter") -> ([str.type], bool.type):
+        primary_dex_class_name_filter: "ClassNameFilter") -> ([str.type], [str.type]):
     all_java_classes = ctx.artifacts[pre_dexed_lib.class_names].read_string().splitlines()
-    primary_dex_class_names = [java_class + ".class" for java_class in all_java_classes if _is_primary_dex_class(java_class, primary_dex_class_name_filter)]
-    has_secondary_dex_class_names = len(primary_dex_class_names) < len(all_java_classes)
+    primary_dex_class_names = []
+    secondary_dex_class_names = []
+    for java_class in all_java_classes:
+        if _is_primary_dex_class(java_class, primary_dex_class_name_filter):
+            primary_dex_class_names.append(java_class + ".class")
+        else:
+            secondary_dex_class_names.append(java_class + ".class")
 
-    return primary_dex_class_names, has_secondary_dex_class_names
+    return primary_dex_class_names, secondary_dex_class_names
 
 def _is_primary_dex_class(class_name: str.type, primary_dex_class_name_filter: "ClassNameFilter"):
     return class_name_matches_filter(class_name, primary_dex_class_name_filter)
@@ -382,12 +364,17 @@ _CANARY_FILE_NAME_TEMPLATE = "canary_classes/secondary/dex{}/Canary.java"
 _CANARY_CLASS_PACKAGE_TEMPLATE = "package secondary.dex{};\n"
 _CANARY_CLASS_INTERFACE_DEFINITION = "public interface Canary {}"
 
-def _create_canary_class(ctx: "context", index: int.type, dex_toolchain: DexToolchainInfo.type, java_toolchain: JavaToolchainInfo.type) -> "DexLibraryInfo":
+def _create_canary_class(ctx: "context", index: int.type, dex_toolchain: DexToolchainInfo.type, java_toolchain: JavaToolchainInfo.type) -> DexInputWithSpecifiedClasses.type:
     canary_class_java_file = ctx.actions.write(_CANARY_FILE_NAME_TEMPLATE.format(index), [_CANARY_CLASS_PACKAGE_TEMPLATE.format(index), _CANARY_CLASS_INTERFACE_DEFINITION])
     canary_class_jar = ctx.actions.declare_output("canary_classes/canary_jar_{}.jar".format(index))
     compile_to_jar(ctx, [canary_class_java_file], output = canary_class_jar, javac_tool = java_toolchain.javac, actions_prefix = "canary_class_{}".format(index))
 
-    return get_dex_produced_from_java_library(ctx, dex_toolchain = dex_toolchain, jar_to_dex = canary_class_jar)
+    dex_library_info = get_dex_produced_from_java_library(ctx, dex_toolchain = dex_toolchain, jar_to_dex = canary_class_jar)
+
+    return DexInputWithSpecifiedClasses(
+        lib = dex_library_info,
+        dex_class_names = [_get_fully_qualified_canary_class_name(index).replace(".", "/") + ".class"],
+    )
 
 def _get_fully_qualified_canary_class_name(index: int.type):
     return _CANARY_FULLY_QUALIFIED_CLASS_NAME_TEMPLATE.format(index)
