@@ -41,34 +41,46 @@ pub const FUNCTION_TYPE: &str = "function";
 /// A native function that can be evaluated.
 ///
 /// This trait is implemented by generated code and rarely needed to be implemented manually.
-pub trait NativeFunc:
-    for<'v> Fn(&mut Evaluator<'v, '_>, &Arguments<'v, '_>) -> anyhow::Result<Value<'v>>
-    + Send
-    + Sync
-    + 'static
-{
+pub trait NativeFunc {
+    /// Invoke the function.
+    fn invoke<'v>(
+        &self,
+        eval: &mut Evaluator<'v, '_>,
+        args: &Arguments<'v, '_>,
+    ) -> anyhow::Result<Value<'v>>;
 }
 
-impl<T> NativeFunc for T where
+impl<T> NativeFunc for T
+where
     T: for<'v> Fn(&mut Evaluator<'v, '_>, &Arguments<'v, '_>) -> anyhow::Result<Value<'v>>
         + Send
         + Sync
-        + 'static
+        + 'static,
 {
+    fn invoke<'v>(
+        &self,
+        eval: &mut Evaluator<'v, '_>,
+        args: &Arguments<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        (*self)(eval, args)
+    }
 }
 
 /// Native method implementation.
 ///
 /// This trait is implemented by generated code and rarely needed to be implemented manually.
-pub trait NativeMeth:
-    for<'v> Fn(&mut Evaluator<'v, '_>, Value<'v>, &Arguments<'v, '_>) -> anyhow::Result<Value<'v>>
-    + Send
-    + Sync
-    + 'static
-{
+pub trait NativeMeth: Send + Sync + 'static {
+    /// Invoke the method.
+    fn invoke<'v>(
+        &self,
+        eval: &mut Evaluator<'v, '_>,
+        this: Value<'v>,
+        args: &Arguments<'v, '_>,
+    ) -> anyhow::Result<Value<'v>>;
 }
 
-impl<T> NativeMeth for T where
+impl<T> NativeMeth for T
+where
     T: for<'v> Fn(
             &mut Evaluator<'v, '_>,
             Value<'v>,
@@ -76,8 +88,16 @@ impl<T> NativeMeth for T where
         ) -> anyhow::Result<Value<'v>>
         + Send
         + Sync
-        + 'static
+        + 'static,
 {
+    fn invoke<'v>(
+        &self,
+        eval: &mut Evaluator<'v, '_>,
+        this: Value<'v>,
+        args: &Arguments<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        (*self)(eval, this, args)
+    }
 }
 
 /// A native function that can be evaluated.
@@ -169,15 +189,12 @@ impl NativeFunction {
             + Sync
             + 'static,
     {
-        NativeFunction {
-            function: box move |eval, params| {
+        Self::new_direct(
+            move |eval, params| {
                 parameters.parser(params, eval, |parser, eval| function(eval, parser))
             },
             name,
-            typ: None,
-            speculative_exec_safe: false,
-            raw_docs: None,
-        }
+        )
     }
 
     /// A `.type` value, if one exists. Specified using `#[starlark(type = "the_type")]`.
@@ -202,7 +219,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        (self.function)(eval, args)
+        self.function.invoke(eval, args)
     }
 
     fn extra_memory(&self) -> usize {
@@ -259,7 +276,7 @@ impl<'v> StarlarkValue<'v> for NativeMethod {
         eval: &mut Evaluator<'v, '_>,
         _: Private,
     ) -> anyhow::Result<Value<'v>> {
-        (self.function)(eval, this, args)
+        self.function.invoke(eval, this, args)
     }
 
     fn documentation(&self) -> Option<DocItem> {
