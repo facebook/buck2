@@ -98,7 +98,7 @@ def _get_watch_kit_stub_artifact(ctx: "context") -> "artifact":
 # it would return `YY.lproj/ZZ`.
 def _get_dest_subpath_for_variant_file(variant_file: "artifact") -> str.type:
     dir_name = paths.basename(paths.dirname(variant_file.short_path))
-    if dir_name == None or not dir_name.endswith("lproj"):
+    if not dir_name.endswith("lproj"):
         fail("Variant files have to be in a directory with name ending in '.lproj' but `{}` was not.".format(variant_file.short_path))
     file_name = paths.basename(variant_file.short_path)
     return paths.join(dir_name, file_name)
