@@ -34,7 +34,10 @@ use crate::{
             stack_ptr::BcSlotOut,
             writer::BcWriter,
         },
-        compiler::{args::ArgsCompiledValue, call::CallCompiled, def::FrozenDef, span::IrSpanned},
+        compiler::{
+            args::ArgsCompiledValue, call::CallCompiled, def::FrozenDef, expr::ExprCompiled,
+            span::IrSpanned,
+        },
         runtime::call_stack::FrozenFileSpan,
     },
     values::{
@@ -122,6 +125,57 @@ impl IrSpanned<CallCompiled> {
         }
     }
 
+    fn write_call_method(
+        target: BcSlotOut,
+        span: FrozenFileSpan,
+        this: &IrSpanned<ExprCompiled>,
+        symbol: &Symbol,
+        args: &ArgsCompiledValue,
+        bc: &mut BcWriter,
+    ) {
+        this.write_bc_cb(bc, |this, bc| {
+            let file_span = bc.alloc_file_span(span);
+            let symbol = symbol.clone();
+            let known_method = get_known_method(symbol.as_str());
+            if let Some(pos) = args.pos_only() {
+                write_exprs(pos, bc, |pos, bc| {
+                    if let Some(known_method) = known_method {
+                        bc.write_instr::<InstrCallMaybeKnownMethodPos>(
+                            span,
+                            (
+                                this,
+                                symbol,
+                                known_method,
+                                BcCallArgsPos { pos },
+                                file_span,
+                                target,
+                            ),
+                        );
+                    } else {
+                        bc.write_instr::<InstrCallMethodPos>(
+                            span,
+                            (this, symbol, BcCallArgsPos { pos }, file_span, target),
+                        );
+                    }
+                });
+            } else {
+                args.write_bc(bc, |args, bc| {
+                    if let Some(known_method) = known_method {
+                        bc.write_instr::<InstrCallMaybeKnownMethod>(
+                            span,
+                            (this, symbol, known_method, args, file_span, target),
+                        );
+                    } else {
+                        bc.write_instr::<InstrCallMethod>(
+                            span,
+                            (this, symbol, args, file_span, target),
+                        );
+                    }
+                })
+            }
+        })
+    }
+
     pub(crate) fn write_bc(&self, target: BcSlotOut, bc: &mut BcWriter) {
         if let Some(arg) = self.as_len() {
             return arg.write_bc_cb(bc, |arg, bc| {
@@ -150,47 +204,9 @@ impl IrSpanned<CallCompiled> {
                     });
                 }
             },
-            Some((this, symbol, args)) => this.write_bc_cb(bc, |this, bc| {
-                let file_span = bc.alloc_file_span(span);
-                let symbol = symbol.clone();
-                let known_method = get_known_method(symbol.as_str());
-                if let Some(pos) = args.pos_only() {
-                    write_exprs(pos, bc, |pos, bc| {
-                        if let Some(known_method) = known_method {
-                            bc.write_instr::<InstrCallMaybeKnownMethodPos>(
-                                span,
-                                (
-                                    this,
-                                    symbol,
-                                    known_method,
-                                    BcCallArgsPos { pos },
-                                    file_span,
-                                    target,
-                                ),
-                            );
-                        } else {
-                            bc.write_instr::<InstrCallMethodPos>(
-                                span,
-                                (this, symbol, BcCallArgsPos { pos }, file_span, target),
-                            );
-                        }
-                    });
-                } else {
-                    args.write_bc(bc, |args, bc| {
-                        if let Some(known_method) = known_method {
-                            bc.write_instr::<InstrCallMaybeKnownMethod>(
-                                span,
-                                (this, symbol, known_method, args, file_span, target),
-                            );
-                        } else {
-                            bc.write_instr::<InstrCallMethod>(
-                                span,
-                                (this, symbol, args, file_span, target),
-                            );
-                        }
-                    })
-                }
-            }),
+            Some((this, symbol, args)) => {
+                Self::write_call_method(target, span, this, symbol, args, bc)
+            }
         }
     }
 }
