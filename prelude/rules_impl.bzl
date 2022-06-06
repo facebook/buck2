@@ -446,7 +446,7 @@ extra_attributes = struct(
         "resources": attr.list(attr.source(allow_directory = True), default = []),
     },
     filegroup = {
-        "srcs": attr.list(attr.source(allow_directory = True), default = []),
+        "srcs": attr.named_set(attr.source(allow_directory = True), sorted = False, default = []),
     },
 
     #merged **kwargs

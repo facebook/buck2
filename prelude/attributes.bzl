@@ -1470,7 +1470,7 @@ attributes = {
         "default_host_platform": attr.option(attr.configuration_label(), default = None),
         "labels": attr.list(attr.string(), default = []),
         "licenses": attr.list(attr.source(), default = []),
-        "srcs": attr.list(attr.source(), default = []),
+        "srcs": attr.option(attr.named_set(attr.source(), sorted = False), default = None),
         "within_view": attr.option(attr.list(attr.string())),
     },
     "gen_aidl": {

@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -291,10 +292,40 @@ async def test_filegroup(buck: Buck) -> None:
     assert outdir.name == "all_files"
     assert outdir.parent.name == "__all_files__"
 
+    assert count_number_of_files_recursively(outdir) == 4
     for path, contents in expected_contents.items():
         full_path = outdir / path
         assert full_path.read_text().strip() == contents
         # TODO(nmj): Verify that these are symlinks
+
+
+@buck_test(inplace=True)
+async def test_filegroup_subdir_glob(buck: Buck) -> None:
+    target_pattern = "fbcode//buck2/tests/targets/rules/filegroup:"
+    expected_contents = {
+        Path("foo.txt"): "subdir/foo.txt",
+        Path("foo/bar.txt"): "subdir/foo/bar.txt",
+    }
+
+    result = await buck.build(target_pattern)
+    outdir = result.get_build_report().output_for_target(
+        target_pattern + "subdir_glob_dep"
+    )
+
+    assert outdir.name == "subdir_glob_dep"
+    assert outdir.parent.name == "__subdir_glob_dep__"
+
+    assert count_number_of_files_recursively(outdir) == 2
+    for path, contents in expected_contents.items():
+        full_path = outdir / path
+        assert full_path.read_text().strip() == contents
+
+
+def count_number_of_files_recursively(outdir):
+    num_filenames = 0
+    for (_, _, filenames) in os.walk(outdir):
+        num_filenames += len(filenames)
+    return num_filenames
 
 
 @buck_test(inplace=True)

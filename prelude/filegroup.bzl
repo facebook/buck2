@@ -6,7 +6,10 @@ def filegroup_impl(ctx):
     is based on the `short_path` for the provided `src`.
     """
 
-    srcs = {src.short_path: src for src in ctx.attr.srcs}
+    if type(ctx.attr.srcs) == type({}):
+        srcs = ctx.attr.srcs
+    else:
+        srcs = {src.short_path: src for src in ctx.attr.srcs}
 
     # It seems that buck1 always copies, and that's important for Python rules
     output = ctx.actions.copied_dir(output = ctx.label.name, srcs = srcs)
