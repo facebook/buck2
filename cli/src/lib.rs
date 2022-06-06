@@ -70,6 +70,7 @@ use crate::{
         install::InstallCommand,
         kill::KillCommand,
         log::LogCommand,
+        lsp::LspCommand,
         profile::ProfileCommand,
         rage::RageCommand,
         root::RootCommand,
@@ -282,6 +283,7 @@ pub enum CommandKind {
     Rage(RageCommand),
     Clean(CleanCommand),
     Log(LogCommand),
+    Lsp(LspCommand),
 }
 
 pub struct CommandContext {
@@ -439,6 +441,7 @@ impl CommandKind {
             CommandKind::Clean(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Install(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Log(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::Lsp(cmd) => cmd.exec(matches, command_ctx),
         }
     }
 }

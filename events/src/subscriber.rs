@@ -506,8 +506,8 @@ pub trait EventSubscriber: Send {
         Ok(())
     }
 
-    async fn handle_lsp_result(&mut self, _msg: &buck2_data::LspResult) -> anyhow::Result<()> {
-        Ok(())
+    async fn handle_lsp_result(&mut self, msg: &buck2_data::LspResult) -> anyhow::Result<()> {
+        self.handle_output(&msg.lsp_json).await
     }
 
     /// Give the subscriber a chance to react to errors as we start trying to clean up.

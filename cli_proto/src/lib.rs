@@ -56,6 +56,14 @@ impl TryFrom<StreamingRequest> for LspRequest {
     }
 }
 
+impl From<LspRequest> for StreamingRequest {
+    fn from(request: LspRequest) -> Self {
+        Self {
+            request: Some(streaming_request::Request::Lsp(request)),
+        }
+    }
+}
+
 /// Trait for requests that have CommonBuildOptions.
 pub trait HasBuildOptions {
     fn build_options(&self) -> Option<&CommonBuildOptions>;

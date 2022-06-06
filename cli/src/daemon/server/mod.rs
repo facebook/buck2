@@ -2226,9 +2226,9 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, _client_ctx, mut req: StreamingRequestHandler<LspRequest>| async move {
-                let _m = req.message().await?;
+                let m = req.message().await?;
                 let res = buck2_data::LspResult {
-                    lsp_json: "{}".to_owned(),
+                    lsp_json: m.lsp_json,
                 };
                 ctx.events().instant_event(res);
                 Ok(LspResponse {})
