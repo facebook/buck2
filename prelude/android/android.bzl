@@ -87,6 +87,22 @@ extra_attributes = {
             ],
         ),
     },
+    "android_instrumentation_test": {
+        "_android_toolchain": attr.exec_dep(
+            default = select_android_toolchain(),
+            providers = [
+                AndroidPlatformInfo,
+                AndroidToolchainInfo,
+            ],
+        ),
+        "_java_toolchain": attr.exec_dep(
+            default = _select_java_toolchain(),
+            providers = [
+                JavaPlatformInfo,
+                JavaToolchainInfo,
+            ],
+        ),
+    },
     "android_library": {
         "resources_root": attr.option(attr.string(), default = None),
         "_android_toolchain": attr.exec_dep(

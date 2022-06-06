@@ -445,6 +445,13 @@ async def test_android(buck: Buck) -> None:
     )
 
 
+if fbcode_linux_only():
+
+    @buck_test(inplace=True)
+    async def test_android_tests(buck: Buck) -> None:
+        await buck.test("fbsource//fbandroid/buck2/tests/good/instrumentation_test:")
+
+
 @buck_test(inplace=True)
 async def test_js(buck: Buck) -> None:
     await buck.build("fbcode//buck2/tests/targets/rules/js/js_bundle:")
