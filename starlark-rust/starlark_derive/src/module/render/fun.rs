@@ -17,7 +17,7 @@
 
 use gazebo::prelude::*;
 use proc_macro2::TokenStream;
-use quote::quote_spanned;
+use quote::{format_ident, quote_spanned};
 
 use crate::module::{
     typ::{SpecialParam, StarArg, StarArgPassStyle, StarArgSource, StarFun, StarFunSource},
@@ -58,7 +58,6 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
     let typ = x.type_expr();
 
     let StarFun {
-        name,
         attrs,
         heap,
         eval,
@@ -68,15 +67,37 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
         ..
     } = x;
 
-    let signature_arg = signature.as_ref().map(
-        |_| quote_spanned! {span=> __signature: &starlark::eval::ParametersSpec<starlark::values::FrozenValue>,},
-    );
-    let signature_val = signature
-        .as_ref()
-        .map(|_| quote_spanned! {span=> __signature});
-    let signature_val_ref = signature
-        .as_ref()
-        .map(|_| quote_spanned! {span=> &__signature});
+    let struct_name = format_ident!("Impl_{}", name_str);
+    let trait_name = if is_method {
+        quote_spanned! {span=> starlark::values::function::NativeMeth }
+    } else {
+        quote_spanned! {span=> starlark::values::function::NativeFunc }
+    };
+
+    let (struct_fields, struct_fields_init, signature_arg, signature_param) =
+        if let Some(signature) = signature {
+            (
+                quote_spanned! { span=>
+                    signature: starlark::eval::ParametersSpec<starlark::values::FrozenValue>,
+                },
+                quote_spanned! { span=>
+                    signature: #signature,
+                },
+                quote_spanned! { span=>
+                    &self.signature,
+                },
+                quote_spanned! { span=>
+                    __signature: &starlark::eval::ParametersSpec<starlark::values::FrozenValue>,
+                },
+            )
+        } else {
+            (
+                quote_spanned! { span=> },
+                quote_spanned! { span=> },
+                quote_spanned! { span=> },
+                quote_spanned! { span=> },
+            )
+        };
 
     let (this_param, this_arg, builder_set) = if is_method {
         (
@@ -89,7 +110,9 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
                     #speculative_exec_safe,
                     __documentation_renderer,
                     #typ,
-                    move |eval, __this, parameters| {#name(eval, __this, parameters, #signature_val_ref)},
+                    #struct_name {
+                        #struct_fields_init
+                    },
                 );
             },
         )
@@ -104,7 +127,9 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
                     #speculative_exec_safe,
                     __documentation_renderer,
                     #typ,
-                    move |eval, parameters| {#name(eval, parameters, #signature_val_ref)},
+                    #struct_name {
+                        #struct_fields_init
+                    },
                 );
             },
         )
@@ -127,33 +152,39 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
 
     Ok(quote_spanned! {
         span=>
-        #( #attrs )*
-        #[allow(non_snake_case)] // Starlark doesn't have this convention
-        fn #name<'v>(
-            eval: &mut starlark::eval::Evaluator<'v, '_>,
-            #this_param
-            parameters: &starlark::eval::Arguments<'v, '_>,
-            #signature_arg
-        ) -> anyhow::Result<starlark::values::Value<'v>> {
-            fn inner<'v>(
-                #[allow(unused_variables)]
-                __eval: &mut starlark::eval::Evaluator<'v, '_>,
+        struct #struct_name {
+            #struct_fields
+        }
+
+        impl #trait_name for #struct_name {
+            #( #attrs )*
+            #[allow(non_snake_case)] // Starlark doesn't have this convention
+            fn invoke<'v>(
+                &self,
+                eval: &mut starlark::eval::Evaluator<'v, '_>,
                 #this_param
-                __args: &starlark::eval::Arguments<'v, '_>,
-                #signature_arg
-            ) -> #return_type {
-                #binding
-                #let_eval
-                #let_heap
-                #body
-            }
-            match inner(eval, #this_arg parameters, #signature_val) {
-                Ok(v) => Ok(eval.heap().alloc(v)),
-                Err(e) => Err(e),
+                parameters: &starlark::eval::Arguments<'v, '_>,
+            ) -> anyhow::Result<starlark::values::Value<'v>> {
+                fn inner<'v>(
+                    #[allow(unused_variables)]
+                    __eval: &mut starlark::eval::Evaluator<'v, '_>,
+                    #this_param
+                    __args: &starlark::eval::Arguments<'v, '_>,
+                    #signature_param
+                ) -> #return_type {
+                    #binding
+                    #let_heap
+                    #let_eval
+                    #body
+                }
+                match inner(eval, #this_arg parameters, #signature_arg) {
+                    Ok(v) => Ok(eval.heap().alloc(v)),
+                    Err(e) => Err(e),
+                }
             }
         }
+
         {
-            #signature
             #documentation
             #builder_set
         }
@@ -282,11 +313,12 @@ fn render_signature(x: &StarFun) -> syn::Result<Option<TokenStream>> {
         let name_str = ident_string(&x.name);
         let sig_args = render_signature_args(&x.args)?;
         Ok(Some(quote_spanned! {
-            span=>
-            #[allow(unused_mut)]
-            let mut __signature = starlark::eval::ParametersSpec::with_capacity(#name_str.to_owned(), #args_count);
-            #sig_args
-            let __signature = __signature.finish();
+            span=> {
+                #[allow(unused_mut)]
+                let mut __signature = starlark::eval::ParametersSpec::with_capacity(#name_str.to_owned(), #args_count);
+                #sig_args
+                __signature.finish()
+            }
         }))
     } else {
         Ok(None)

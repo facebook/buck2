@@ -41,7 +41,7 @@ pub const FUNCTION_TYPE: &str = "function";
 /// A native function that can be evaluated.
 ///
 /// This trait is implemented by generated code and rarely needed to be implemented manually.
-pub trait NativeFunc {
+pub trait NativeFunc: Send + Sync + 'static {
     /// Invoke the function.
     fn invoke<'v>(
         &self,

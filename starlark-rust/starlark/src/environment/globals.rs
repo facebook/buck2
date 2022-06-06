@@ -28,12 +28,11 @@ use crate::{
         symbol_map::{Symbol, SymbolMap},
         Hashed, SmallMap,
     },
-    eval::{Arguments, Evaluator},
     stdlib,
     values::{
         docs,
         docs::{DocItem, DocString, DocStringKind},
-        function::{NativeAttribute, NativeCallableRawDocs},
+        function::{NativeAttribute, NativeCallableRawDocs, NativeFunc, NativeMeth},
         layout::{value::ValueLike, value_not_special::FrozenValueNotSpecial},
         structs::FrozenStruct,
         types::function::{NativeFunction, NativeMethod},
@@ -309,11 +308,7 @@ impl GlobalsBuilder {
         typ: Option<FrozenValue>,
         f: F,
     ) where
-        // If I switch this to the trait alias then it fails to resolve the usages
-        F: for<'v> Fn(&mut Evaluator<'v, '_>, &Arguments<'v, '_>) -> anyhow::Result<Value<'v>>
-            + Send
-            + Sync
-            + 'static,
+        F: NativeFunc,
     {
         self.set(
             name,
@@ -433,15 +428,7 @@ impl MethodsBuilder {
         typ: Option<FrozenValue>,
         f: F,
     ) where
-        // If I switch this to the trait alias then it fails to resolve the usages
-        F: for<'v> Fn(
-                &mut Evaluator<'v, '_>,
-                Value<'v>,
-                &Arguments<'v, '_>,
-            ) -> anyhow::Result<Value<'v>>
-            + Send
-            + Sync
-            + 'static,
+        F: NativeMeth,
     {
         self.members.insert(
             name,
