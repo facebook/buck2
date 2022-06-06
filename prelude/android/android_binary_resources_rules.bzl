@@ -55,7 +55,7 @@ def get_android_binary_resources_info(
         [aapt2_link_info.r_dot_txt],
         override_symbols_paths,
         getattr(ctx.attr, "duplicate_resource_whitelist", None),
-        ctx.attr.resource_union_package,
+        getattr(ctx.attr, "resource_union_package", None),
         referenced_resources_lists,
     )
 
