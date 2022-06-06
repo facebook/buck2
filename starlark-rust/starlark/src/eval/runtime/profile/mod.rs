@@ -19,6 +19,13 @@ use std::{fmt::Display, str::FromStr};
 
 use gazebo::dupe::Dupe;
 
+pub(crate) mod bc;
+pub(crate) mod csv;
+pub(crate) mod flame;
+pub(crate) mod heap;
+pub(crate) mod stmt;
+pub(crate) mod typecheck;
+
 /// How to profile starlark code.
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Dupe)]
 pub enum ProfileMode {

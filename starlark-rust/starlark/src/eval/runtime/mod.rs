@@ -16,19 +16,13 @@
  */
 
 pub(crate) mod arguments;
-pub(crate) mod bc_profile;
 pub(crate) mod before_stmt;
 pub(crate) mod call_stack;
-pub(crate) mod csv;
 pub(crate) mod evaluator;
 pub(crate) mod file_loader;
-pub(crate) mod flame_profile;
-pub(crate) mod heap_profile;
 pub(crate) mod inlined_frame;
 pub(crate) mod profile;
 pub(crate) mod rust_loc;
 pub(crate) mod slots;
 pub(crate) mod small_duration;
-pub(crate) mod stmt_profile;
-pub(crate) mod typecheck_profile;
 pub(crate) mod visit_span;

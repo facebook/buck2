@@ -21,7 +21,7 @@ use std::{fs, path::Path, time::Duration};
 
 use crate::{
     collections::SmallMap,
-    eval::runtime::{csv::CsvWriter, small_duration::SmallDuration},
+    eval::runtime::{profile::csv::CsvWriter, small_duration::SmallDuration},
     values::FrozenStringValue,
 };
 

@@ -23,7 +23,7 @@ use gazebo::prelude::*;
 
 use crate::eval::{
     bc::opcode::BcOpcode,
-    runtime::{csv::CsvWriter, evaluator::EvaluatorError, small_duration::SmallDuration},
+    runtime::{evaluator::EvaluatorError, profile::csv::CsvWriter, small_duration::SmallDuration},
 };
 
 #[derive(Default, Clone, Dupe, Copy)]

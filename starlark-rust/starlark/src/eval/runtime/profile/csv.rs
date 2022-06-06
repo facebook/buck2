@@ -146,7 +146,7 @@ impl CsvValue for u128 {
 
 #[cfg(test)]
 mod tests {
-    use crate::eval::runtime::{csv::CsvWriter, small_duration::SmallDuration};
+    use crate::eval::runtime::{profile::csv::CsvWriter, small_duration::SmallDuration};
 
     #[test]
     fn test_csv_writer() {

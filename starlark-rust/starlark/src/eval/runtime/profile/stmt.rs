@@ -28,7 +28,7 @@ use gazebo::prelude::*;
 
 use crate::{
     codemap::{CodeMap, CodeMapId, FileSpan, FileSpanRef, Span},
-    eval::runtime::{csv::CsvWriter, small_duration::SmallDuration},
+    eval::runtime::{profile::csv::CsvWriter, small_duration::SmallDuration},
 };
 
 // When line profiling is not enabled, we want this to be small and cheap
@@ -161,22 +161,22 @@ impl StmtProfileData {
 }
 
 impl StmtProfile {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self(None)
     }
 
-    pub fn enable(&mut self) {
+    pub(crate) fn enable(&mut self) {
         self.0 = Some(box StmtProfileData::new())
     }
 
-    pub fn before_stmt(&mut self, span: FileSpanRef) {
+    pub(crate) fn before_stmt(&mut self, span: FileSpanRef) {
         if let Some(box data) = &mut self.0 {
             data.before_stmt(span.span, span.file)
         }
     }
 
     // None = not applicable because not enabled
-    pub fn write(&self, filename: &Path) -> Option<anyhow::Result<()>> {
+    pub(crate) fn write(&self, filename: &Path) -> Option<anyhow::Result<()>> {
         let now = Instant::now();
         self.0.as_ref().map(|data| data.write(filename, now))
     }

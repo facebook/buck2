@@ -33,7 +33,7 @@ use gazebo::{any::ProvidesStaticType, prelude::*};
 
 use crate as starlark;
 use crate::{
-    eval::runtime::{csv::CsvWriter, small_duration::SmallDuration},
+    eval::runtime::{profile::csv::CsvWriter, small_duration::SmallDuration},
     values::{Freeze, Freezer, Heap, NoSimpleValue, StarlarkValue, Trace, Value, ValueLike},
 };
 
@@ -345,7 +345,7 @@ mod summary {
     }
 
     impl FuncInfo {
-        pub fn merge<'a>(xs: impl Iterator<Item = &'a Self>) -> Self {
+        pub(crate) fn merge<'a>(xs: impl Iterator<Item = &'a Self>) -> Self {
             let mut result = Self::default();
             for x in xs {
                 result.calls += x.calls;
@@ -379,17 +379,17 @@ mod summary {
     }
 
     impl Info {
-        pub fn ensure(&mut self, x: FunctionId) {
+        pub(crate) fn ensure(&mut self, x: FunctionId) {
             if self.info.len() <= x.0 {
                 self.info.resize(x.0 + 1, FuncInfo::default());
             }
         }
 
-        pub fn top_id(&self) -> FunctionId {
+        pub(crate) fn top_id(&self) -> FunctionId {
             self.call_stack.last().unwrap().0
         }
 
-        pub fn top_info(&mut self) -> &mut FuncInfo {
+        pub(crate) fn top_info(&mut self) -> &mut FuncInfo {
             let top = self.top_id();
             &mut self.info[top.0]
         }
@@ -424,7 +424,7 @@ mod summary {
         }
 
         /// Process each ValueMem in their chronological order
-        pub fn process<'v>(&mut self, x: Value<'v>) {
+        pub(crate) fn process<'v>(&mut self, x: Value<'v>) {
             if let Some(call_enter) = x.downcast_ref::<CallEnter<NeedsDrop>>() {
                 self.process_call_enter(call_enter);
             } else if let Some(call_enter) = x.downcast_ref::<CallEnter<NoDrop>>() {
@@ -522,7 +522,7 @@ mod flame {
     }
 
     impl StackCollector {
-        pub fn new() -> Self {
+        pub(crate) fn new() -> Self {
             Self {
                 ids: FunctionIds::default(),
                 current: Some(StackFrame::new(None)),
@@ -530,7 +530,7 @@ mod flame {
         }
 
         /// Visit a value from the heap.
-        pub fn process<'v>(&mut self, x: Value<'v>) {
+        pub(crate) fn process<'v>(&mut self, x: Value<'v>) {
             let frame = match self.current.as_ref() {
                 Some(frame) => frame,
                 None => return,
@@ -560,7 +560,7 @@ mod flame {
         }
 
         /// Write this our recursively to a file.
-        pub fn write_to(&self, file: &mut impl Write) -> anyhow::Result<()> {
+        pub(crate) fn write_to(&self, file: &mut impl Write) -> anyhow::Result<()> {
             let current = self.current.as_ref().context("Popped the root frame")?;
             current
                 .write(file, &mut vec![], &self.ids.invert())
@@ -595,7 +595,7 @@ mod tests {
     use crate::{
         environment::{Globals, Module},
         eval::{
-            runtime::heap_profile::summary::{FuncInfo, Info},
+            runtime::profile::heap::summary::{FuncInfo, Info},
             Evaluator, ProfileMode,
         },
         syntax::{AstModule, Dialect},
