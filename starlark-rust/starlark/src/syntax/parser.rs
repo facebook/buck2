@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use std::{fs, path::Path};
+use std::{fmt::Write, fs, path::Path};
 
 use anyhow::anyhow;
 use gazebo::prelude::*;
@@ -41,7 +41,7 @@ fn one_of(expected: &[String]) -> String {
             // Last expected message to be written
             _ => " or",
         };
-        result.push_str(&format!("{} {}", sep, e));
+        write!(result, "{} {}", sep, e).unwrap();
     }
     result
 }

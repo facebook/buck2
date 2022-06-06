@@ -18,6 +18,7 @@
 //! Test of runtime.
 
 use std::{
+    fmt::Write,
     mem,
     sync::atomic::{AtomicUsize, Ordering},
 };
@@ -180,7 +181,7 @@ def expensive(n):
     .to_owned();
     // I expect success in approx 25 times, so do 100 for safety
     for i in 0..100 {
-        code.push_str(&format!("expensive({})\n", i));
+        writeln!(code, "expensive({})", i).unwrap();
     }
     code.push_str("assert_eq(success[0], True)\nis_gc_disabled()");
     // I expect to run with GC disabled some of the time, but not on the last run
