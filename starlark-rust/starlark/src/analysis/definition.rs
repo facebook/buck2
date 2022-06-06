@@ -18,7 +18,10 @@
 use crate::{
     analysis::bind::{scope, Assigner, Bind, Scope},
     codemap::{Pos, ResolvedSpan, Span},
-    syntax::AstModule,
+    syntax::{
+        ast::{AstStmt, Stmt},
+        AstModule,
+    },
 };
 
 /// The location of a definition for a given symbol. See [`AstModule::find_definition`].
@@ -35,6 +38,9 @@ pub enum DefinitionLocation {
         path: String,
         name: String,
     },
+    /// The symbol is the path component of a `load` statement. This is the raw string
+    /// that is in the AST, and needs to be properly resolved to a path to be useful.
+    LoadPath { path: String },
     /// Either the provided location was not an access of a variable, or no definition
     /// could be found.
     NotFound,
@@ -133,7 +139,9 @@ impl AstModule {
                 },
                 Some((_, span)) => DefinitionLocation::Location(self.codemap.resolve_span(*span)),
             },
-            Definition::NotFound => DefinitionLocation::NotFound,
+            // If we could not find the symbol, see if the current position is within
+            // a load statement (these are not exposed as Get/Set in bind).
+            Definition::NotFound => self.find_definition_from_load_statement(current_pos),
             Definition::LoadedLocation {
                 location,
                 path,
@@ -155,6 +163,24 @@ impl AstModule {
                 None
             }
         })
+    }
+
+    fn find_definition_from_load_statement(&self, pos: Pos) -> DefinitionLocation {
+        // See [`AstModule::load()`] for how we determine which statements to look at
+        fn f<'a>(ast: &'a AstStmt, pos: Pos) -> Option<DefinitionLocation> {
+            match &ast.node {
+                Stmt::Load(load)
+                    if load.module.span.begin() <= pos && load.module.span.end() >= pos =>
+                {
+                    Some(DefinitionLocation::LoadPath {
+                        path: load.module.node.to_owned(),
+                    })
+                }
+                Stmt::Statements(stmts) => stmts.iter().find_map(|ast| f(ast, pos)),
+                _ => None,
+            }
+        }
+        f(&self.statement, pos).unwrap_or(DefinitionLocation::NotFound)
     }
 }
 

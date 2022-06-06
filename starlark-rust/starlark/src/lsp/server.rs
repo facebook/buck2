@@ -177,6 +177,11 @@ impl<T: LspContext> Backend<T> {
         self.send_response(new_response(id, self.find_definition(params)));
     }
 
+    fn resolve_load_path(&self, path: &str, current_uri: &Url) -> anyhow::Result<Url> {
+        let current_file_dir = Path::new(current_uri.path()).parent().to_owned();
+        self.context.resolve_load(path, current_file_dir)
+    }
+
     fn find_definition(
         &self,
         params: GotoDefinitionParams,
@@ -184,6 +189,7 @@ impl<T: LspContext> Backend<T> {
         let uri = params.text_document_position_params.text_document.uri;
         let line = params.text_document_position_params.position.line;
         let character = params.text_document_position_params.position.character;
+
         let location = match self.get_ast(&uri) {
             Some(ast) => match ast.find_definition(line, character) {
                 DefinitionLocation::Location(span) => Some(Location {
@@ -195,8 +201,7 @@ impl<T: LspContext> Backend<T> {
                     path,
                     name,
                 } => {
-                    let relative_load_cwd = Path::new(uri.path()).parent().to_owned();
-                    let load_uri = self.context.resolve_load(&path, relative_load_cwd)?;
+                    let load_uri = self.resolve_load_path(&path, &uri)?;
                     let loaded_location = self
                         .get_ast_or_load_from_disk(&load_uri)?
                         .and_then(|ast| ast.find_exported_symbol(&name));
@@ -212,6 +217,15 @@ impl<T: LspContext> Backend<T> {
                     }
                 }
                 DefinitionLocation::NotFound => None,
+                DefinitionLocation::LoadPath { path } => {
+                    match self.resolve_load_path(&path, &uri) {
+                        Ok(load_uri) => Some(Location {
+                            uri: load_uri,
+                            range: Default::default(),
+                        }),
+                        Err(_) => None,
+                    }
+                }
             },
             None => None,
         };
@@ -384,7 +398,7 @@ where
 //            some paths. Revisit later.
 #[cfg(all(test, not(windows)))]
 mod test {
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
     use lsp_server::{Request, RequestId};
     use lsp_types::{
@@ -728,6 +742,63 @@ mod test {
         let location = goto_definition_response_location(&mut server, request_id)?;
 
         assert_eq!(expected_location, location);
+        Ok(())
+    }
+
+    #[test]
+    fn jumps_to_file_in_load_statement() -> anyhow::Result<()> {
+        let foo_uri = temp_file_uri("foo.star");
+        let bar_uri = temp_file_uri("bar.star");
+        let bar_load_string = Path::new(bar_uri.path())
+            .parent()
+            .unwrap()
+            .join("<bar>b</bar>ar<dot>.</dot>star")
+            .display()
+            .to_string();
+
+        let foo_contents = dedent(
+            r#"
+            load("{load}", "baz")
+            baz()
+            "#,
+        )
+        .replace("{load}", &bar_load_string)
+        .trim()
+        .to_owned();
+        let foo = FixtureWithRanges::from_fixture(foo_uri.path(), &foo_contents)?;
+
+        let expected_location = Location {
+            uri: bar_uri,
+            range: Default::default(),
+        };
+
+        let mut server = TestServer::new()?;
+        server.open_file(foo_uri.clone(), foo.program())?;
+
+        let goto_definition = goto_definition_request(
+            &mut server,
+            foo_uri.clone(),
+            foo.begin_line("bar"),
+            foo.begin_column("bar"),
+        );
+
+        let request_id = server.send_request(goto_definition)?;
+        let location = goto_definition_response_location(&mut server, request_id)?;
+
+        assert_eq!(expected_location, location);
+
+        let goto_definition = goto_definition_request(
+            &mut server,
+            foo_uri,
+            foo.begin_line("dot"),
+            foo.begin_column("dot"),
+        );
+
+        let request_id = server.send_request(goto_definition)?;
+        let location = goto_definition_response_location(&mut server, request_id)?;
+
+        assert_eq!(expected_location, location);
+
         Ok(())
     }
 }
