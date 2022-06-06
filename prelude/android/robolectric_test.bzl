@@ -44,7 +44,7 @@ def robolectric_test_impl(ctx: "context") -> ["provider"]:
         test_config_symlinked_dir,
         ".",
     ])
-    ctx.actions.run(jar_cmd, "test_config_properties_jar_cmd")
+    ctx.actions.run(jar_cmd, category = "test_config_properties_jar_cmd")
     extra_cmds.append(cmd_args().hidden(resources_info.primary_resources_apk, resources_info.manifest))
 
     extra_classpath_entries = [test_config_properties_jar] + ctx.attr._android_toolchain[AndroidToolchainInfo].android_bootclasspath
