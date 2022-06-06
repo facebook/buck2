@@ -5,8 +5,6 @@ DexLibraryInfo = provider(
         "dex",  # ["artifact", None]
         # the names of the .class files that went into the DEX file
         "class_names",  # ["artifact", None]
-        # a SHA1 hash of the .class files that went into the DEX file
-        "classes_hash",  # ["artifact", None]
         # resources that are referenced by the classes in this DEX file
         "referenced_resources",  # ["artifact", None]
         # a value that estimates how much space the code represented by this object will take up in
@@ -63,7 +61,6 @@ def get_dex_produced_from_java_library(
     return DexLibraryInfo(
         dex = output_dex_file,
         class_names = class_names_file,
-        classes_hash = None,  # TODO(T102963008) put classes_hash into DexLibraryInfo
         referenced_resources = referenced_resources_file,
         weight_estimate = weight_estimate_file,
     )
