@@ -439,8 +439,8 @@ impl IrSpanned<ExprCompiled> {
         if let Some(local) = self.as_local_non_captured() {
             // Local is known to be definitely assigned, so there's no need
             // to "load" it just to trigger check that it is assigned.
-            if bc.is_definitely_assigned(local) {
-                return k(local.to_bc_slot().to_in(), bc);
+            if let Some(slot) = bc.try_definitely_assigned(local) {
+                return k(slot, bc);
             }
         }
 

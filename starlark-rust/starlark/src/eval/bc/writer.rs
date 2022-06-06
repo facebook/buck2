@@ -332,8 +332,15 @@ impl<'f> BcWriter<'f> {
         self.stack_size -= sub;
     }
 
-    pub(crate) fn is_definitely_assigned(&self, local: LocalSlotId) -> bool {
-        self.definitely_assigned.is_definitely_assigned(local)
+    /// Convert local variable to BC slot if it is known to be definitely assigned
+    /// at this execution point.
+    pub(crate) fn try_definitely_assigned(&self, local: LocalSlotId) -> Option<BcSlotIn> {
+        assert!(local.0 < self.local_count);
+        if self.definitely_assigned.is_definitely_assigned(local) {
+            Some(local.to_bc_slot().to_in())
+        } else {
+            None
+        }
     }
 
     pub(crate) fn mark_definitely_assigned(&mut self, local: LocalSlotId) {
