@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
+use std::{fmt::Write, sync::Arc};
 
 use buck2_common::{
     dice::cells::HasCellResolver, package_boundary::HasPackageBoundaryExceptions,
@@ -66,7 +66,7 @@ pub async fn eval_bql(
         let mut content = prologue.to_owned();
 
         for line in bql.lines() {
-            content += &format!("    {}\n", line);
+            writeln!(content, "    {}", line).unwrap();
         }
         content += epilogue;
 

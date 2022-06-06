@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 use enum_iterator::IntoEnumIterator;
 use indexmap::IndexMap;
 use itertools::Itertools;
@@ -51,11 +53,11 @@ impl FunctionDescription {
             self.args.iter().map(|v| v.render_markdown()).join(", ")
         );
         if let Some(v) = &self.short_help {
-            rendered.push_str(&format!("{}\n\n", v));
+            writeln!(rendered, "{}\n", v).unwrap();
         }
 
         if let Some(v) = &self.details {
-            rendered.push_str(&format!("{}\n\n", v));
+            writeln!(rendered, "{}\n", v).unwrap();
         }
         rendered
     }
@@ -79,15 +81,15 @@ impl ModuleDescription {
             }
         );
         if let Some(v) = &self.details {
-            rendered.push_str(&format!("{}\n\n", v));
+            writeln!(rendered, "{}\n", v).unwrap();
         }
 
         for (_, func) in &self.functions {
-            rendered.push_str(&format!("{}\n\n", func.render_short_markdown()));
+            writeln!(rendered, "{}\n", func.render_short_markdown()).unwrap();
         }
 
         for (_, func) in &self.functions {
-            rendered.push_str(&format!("{}\n\n", func.render_markdown()));
+            writeln!(rendered, "{}\n", func.render_markdown()).unwrap();
         }
 
         rendered
