@@ -1310,7 +1310,7 @@ mod tests {
 
             assert_eq("{\"bar\":\"bar_1\",\"baz\":\"baz_1\"}", foo_1.to_json())
             assert_eq("{\"value1\":\"value1\",\"value2\":3}", simple_info_1.to_json())
-            assert_eq(struct(value1="value1", value2=3).to_json(), simple_info_1.to_json())
+            assert_eq(json.encode(struct(value1="value1", value2=3)), simple_info_1.to_json())
         "#
         ))?;
 

@@ -315,7 +315,7 @@ mod tests {
     #[test]
     fn test_to_json_cycle() {
         assert::fail(
-            "l = []; s = struct(f=l); l.append(s); s.to_json()",
+            "l = []; s = struct(f=l); l.append(s); json.encode(s)",
             "Cycle detected when serializing value of type `struct` to JSON",
         );
     }
@@ -324,23 +324,23 @@ mod tests {
     fn test_to_json() {
         assert::all_true(
             r#"
-struct(key = None).to_json() == '{"key":null}'
-struct(key = True).to_json() == '{"key":true}'
-struct(key = False).to_json() == '{"key":false}'
-struct(key = 42).to_json() == '{"key":42}'
-struct(key = 'value').to_json() == '{"key":"value"}'
-struct(key = 'value"').to_json() == '{"key":"value\\\""}'
-struct(key = 'value\\').to_json() == '{"key":"value\\\\"}'
-struct(key = 'value/').to_json() == '{"key":"value/"}'
-struct(key = 'value\u0008').to_json() == '{"key":"value\\b"}'
-struct(key = 'value\u000C').to_json() == '{"key":"value\\f"}'
-struct(key = 'value\n').to_json() == '{"key":"value\\n"}'
-struct(key = 'value\r').to_json() == '{"key":"value\\r"}'
-struct(key = 'value\t').to_json() == '{"key":"value\\t"}'
-struct(foo = 42, bar = "some").to_json() == '{"foo":42,"bar":"some"}'
-struct(foo = struct(bar = "some")).to_json() == '{"foo":{"bar":"some"}}'
-struct(foo = ["bar/", "some"]).to_json() == '{"foo":["bar/","some"]}'
-struct(foo = [struct(bar = "some")]).to_json() == '{"foo":[{"bar":"some"}]}'
+json.encode(struct(key = None)) == '{"key":null}'
+json.encode(struct(key = True)) == '{"key":true}'
+json.encode(struct(key = False)) == '{"key":false}'
+json.encode(struct(key = 42)) == '{"key":42}'
+json.encode(struct(key = 'value')) == '{"key":"value"}'
+json.encode(struct(key = 'value"')) == '{"key":"value\\\""}'
+json.encode(struct(key = 'value\\')) == '{"key":"value\\\\"}'
+json.encode(struct(key = 'value/')) == '{"key":"value/"}'
+json.encode(struct(key = 'value\u0008')) == '{"key":"value\\b"}'
+json.encode(struct(key = 'value\u000C')) == '{"key":"value\\f"}'
+json.encode(struct(key = 'value\n')) == '{"key":"value\\n"}'
+json.encode(struct(key = 'value\r')) == '{"key":"value\\r"}'
+json.encode(struct(key = 'value\t')) == '{"key":"value\\t"}'
+json.encode(struct(foo = 42, bar = "some")) == '{"foo":42,"bar":"some"}'
+json.encode(struct(foo = struct(bar = "some"))) == '{"foo":{"bar":"some"}}'
+json.encode(struct(foo = ["bar/", "some"])) == '{"foo":["bar/","some"]}'
+json.encode(struct(foo = [struct(bar = "some")])) == '{"foo":[{"bar":"some"}]}'
 "#,
         );
     }
