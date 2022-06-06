@@ -41,6 +41,13 @@ impl REClientBuilder {
 
 pub struct REClient {}
 
+impl Drop for REClient {
+    fn drop(&mut self) {
+        // Important we have a drop implementation since the real one does, and we
+        // don't want errors coming from the stub not having one
+    }
+}
+
 impl REClient {
     pub fn new<A, B>(fb_init: A, logger: Option<B>) -> Self {
         stub()
