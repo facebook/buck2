@@ -80,7 +80,7 @@ impl AstModule {
                 match bind {
                     Bind::Set(_, _) => {}
                     Bind::Get(g) => {
-                        if g.span.begin() <= pos && pos <= g.span.end() {
+                        if g.span.contains(pos) {
                             let res = match scope.bound.get(g.node.as_str()) {
                                 Some((Assigner::Load { path, name }, span)) => {
                                     Definition::LoadedLocation {
@@ -170,15 +170,13 @@ impl AstModule {
         fn f<'a>(codemap: &CodeMap, ast: &'a AstStmt, pos: Pos) -> Option<DefinitionLocation> {
             match &ast.node {
                 Stmt::Load(load) => {
-                    if load.module.span.begin() <= pos && load.module.span.end() >= pos {
+                    if load.module.span.contains(pos) {
                         Some(DefinitionLocation::LoadPath {
                             path: load.module.node.to_owned(),
                         })
                     } else {
                         load.args.iter().find_map(|(assign, name)| {
-                            if (assign.span.begin() <= pos && assign.span.end() >= pos)
-                                || (name.span.begin() <= pos && assign.span.end() >= pos)
-                            {
+                            if assign.span.contains(pos) || name.span.contains(pos) {
                                 Some(DefinitionLocation::LoadedLocation {
                                     location: codemap.resolve_span(name.span),
                                     path: load.module.node.to_owned(),

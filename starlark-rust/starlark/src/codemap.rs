@@ -99,6 +99,11 @@ impl Span {
             end: self.end,
         }
     }
+
+    /// Determines whether a `pos` is within this span.
+    pub fn contains(self, pos: Pos) -> bool {
+        self.begin <= pos && pos <= self.end
+    }
 }
 
 /// Associate a Span with a value of arbitrary type (e.g. an AST node).
