@@ -746,6 +746,87 @@ mod test {
     }
 
     #[test]
+    fn jumps_to_definition_in_load_statement() -> anyhow::Result<()> {
+        let foo_uri = temp_file_uri("foo.star");
+        let bar_uri = temp_file_uri("bar.star");
+
+        let foo_contents = dedent(
+            r#"
+            load("{load}", "<baz>b</baz>az")
+            baz()
+            "#,
+        )
+        .replace("{load}", bar_uri.path())
+        .trim()
+        .to_owned();
+        let bar_contents = "def <baz>baz</baz>():\n    pass";
+        let foo = FixtureWithRanges::from_fixture(foo_uri.path(), &foo_contents)?;
+        let bar = FixtureWithRanges::from_fixture(bar_uri.path(), bar_contents)?;
+
+        let expected_location = Location {
+            uri: bar_uri.clone(),
+            range: bar.span("baz").into(),
+        };
+
+        let mut server = TestServer::new()?;
+        server.open_file(foo_uri.clone(), foo.program())?;
+        server.set_file_contents(PathBuf::from(bar_uri.path()), bar.program())?;
+
+        let goto_definition = goto_definition_request(
+            &mut server,
+            foo_uri,
+            foo.begin_line("baz"),
+            foo.begin_column("baz"),
+        );
+
+        let request_id = server.send_request(goto_definition)?;
+        let location = goto_definition_response_location(&mut server, request_id)?;
+
+        assert_eq!(expected_location, location);
+        Ok(())
+    }
+
+    #[test]
+    fn does_not_jump_to_definition_in_load_statement_if_not_found() -> anyhow::Result<()> {
+        let foo_uri = temp_file_uri("foo.star");
+        let bar_uri = temp_file_uri("bar.star");
+
+        let foo_contents = dedent(
+            r#"
+            load("bar.star", <not_baz_loc>"no<not_baz>t</not_baz>_baz"</not_baz_loc>)
+            not_baz()
+            "#,
+        )
+        .trim()
+        .to_owned();
+        let bar_contents = "def baz():\n    pass";
+        let foo = FixtureWithRanges::from_fixture(foo_uri.path(), &foo_contents)?;
+        let bar = FixtureWithRanges::from_fixture(bar_uri.path(), bar_contents)?;
+
+        let expected_location = Location {
+            uri: foo_uri.clone(),
+            range: foo.span("not_baz_loc").into(),
+        };
+
+        let mut server = TestServer::new()?;
+        server.open_file(foo_uri.clone(), foo.program())?;
+        server.set_file_contents(PathBuf::from(bar_uri.path()), bar.program())?;
+
+        let goto_definition = goto_definition_request(
+            &mut server,
+            foo_uri,
+            foo.begin_line("not_baz"),
+            foo.begin_column("not_baz"),
+        );
+
+        let request_id = server.send_request(goto_definition)?;
+        let location = goto_definition_response_location(&mut server, request_id)?;
+
+        assert_eq!(expected_location, location);
+        Ok(())
+    }
+
+    #[test]
     fn jumps_to_file_in_load_statement() -> anyhow::Result<()> {
         let foo_uri = temp_file_uri("foo.star");
         let bar_uri = temp_file_uri("bar.star");

@@ -17,7 +17,7 @@
 
 use crate::{
     analysis::bind::{scope, Assigner, Bind, Scope},
-    codemap::{Pos, ResolvedSpan, Span},
+    codemap::{CodeMap, Pos, ResolvedSpan, Span},
     syntax::{
         ast::{AstStmt, Stmt},
         AstModule,
@@ -167,20 +167,34 @@ impl AstModule {
 
     fn find_definition_from_load_statement(&self, pos: Pos) -> DefinitionLocation {
         // See [`AstModule::load()`] for how we determine which statements to look at
-        fn f<'a>(ast: &'a AstStmt, pos: Pos) -> Option<DefinitionLocation> {
+        fn f<'a>(codemap: &CodeMap, ast: &'a AstStmt, pos: Pos) -> Option<DefinitionLocation> {
             match &ast.node {
-                Stmt::Load(load)
-                    if load.module.span.begin() <= pos && load.module.span.end() >= pos =>
-                {
-                    Some(DefinitionLocation::LoadPath {
-                        path: load.module.node.to_owned(),
-                    })
+                Stmt::Load(load) => {
+                    if load.module.span.begin() <= pos && load.module.span.end() >= pos {
+                        Some(DefinitionLocation::LoadPath {
+                            path: load.module.node.to_owned(),
+                        })
+                    } else {
+                        load.args.iter().find_map(|(assign, name)| {
+                            if (assign.span.begin() <= pos && assign.span.end() >= pos)
+                                || (name.span.begin() <= pos && assign.span.end() >= pos)
+                            {
+                                Some(DefinitionLocation::LoadedLocation {
+                                    location: codemap.resolve_span(name.span),
+                                    path: load.module.node.to_owned(),
+                                    name: name.node.to_owned(),
+                                })
+                            } else {
+                                None
+                            }
+                        })
+                    }
                 }
-                Stmt::Statements(stmts) => stmts.iter().find_map(|ast| f(ast, pos)),
+                Stmt::Statements(stmts) => stmts.iter().find_map(|ast| f(codemap, ast, pos)),
                 _ => None,
             }
         }
-        f(&self.statement, pos).unwrap_or(DefinitionLocation::NotFound)
+        f(&self.codemap, &self.statement, pos).unwrap_or(DefinitionLocation::NotFound)
     }
 }
 
