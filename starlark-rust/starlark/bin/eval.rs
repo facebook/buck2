@@ -226,8 +226,12 @@ impl LspContext for Context {
         match path.is_absolute() {
             true => match fs::read_to_string(&path) {
                 Ok(contents) => Ok(Some(contents)),
-                // TODO: Handle io::ErrorKind::NotADirectory
-                Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+                Err(e)
+                    if e.kind() == io::ErrorKind::NotFound
+                        || e.kind() == io::ErrorKind::NotADirectory =>
+                {
+                    Ok(None)
+                }
                 Err(e) => Err(e.into()),
             },
             false => Err(LoadContentsError::NotAbsolute(uri.clone()).into()),
