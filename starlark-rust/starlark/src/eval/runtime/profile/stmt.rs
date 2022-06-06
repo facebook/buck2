@@ -16,9 +16,10 @@
  */
 
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::{hash_map::Entry, HashMap, HashSet},
     fs::File,
     io::Write,
+    iter,
     path::Path,
     time::Instant,
 };
@@ -27,9 +28,15 @@ use anyhow::Context;
 use gazebo::prelude::*;
 
 use crate::{
-    codemap::{CodeMap, CodeMapId, FileSpan, FileSpanRef, Span},
+    codemap::{CodeMap, CodeMapId, FileSpan, FileSpanRef, ResolvedFileSpan, Span},
     eval::runtime::{profile::csv::CsvWriter, small_duration::SmallDuration},
 };
+
+#[derive(Debug, thiserror::Error)]
+enum StmtProfileError {
+    #[error("Statement profiling is not enabled")]
+    NotEnabled,
+}
 
 // When line profiling is not enabled, we want this to be small and cheap
 pub(crate) struct StmtProfile(Option<Box<StmtProfileData>>);
@@ -158,6 +165,21 @@ impl StmtProfileData {
 
         Ok(())
     }
+
+    fn coverage(&self) -> HashSet<ResolvedFileSpan> {
+        self.stmts
+            .keys()
+            .filter(|(file, _)| *file != CodeMapId::EMPTY)
+            .chain(iter::once(&self.last_span))
+            .map(|(code_map_id, span)| {
+                self.files
+                    .get(code_map_id)
+                    .unwrap()
+                    .file_span(*span)
+                    .resolve()
+            })
+            .collect()
+    }
 }
 
 impl StmtProfile {
@@ -179,5 +201,66 @@ impl StmtProfile {
     pub(crate) fn write(&self, filename: &Path) -> Option<anyhow::Result<()>> {
         let now = Instant::now();
         self.0.as_ref().map(|data| data.write(filename, now))
+    }
+
+    pub(crate) fn coverage(&self) -> anyhow::Result<HashSet<ResolvedFileSpan>> {
+        Ok(self
+            .0
+            .as_ref()
+            .ok_or(StmtProfileError::NotEnabled)?
+            .coverage())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use crate::{
+        assert::test_functions,
+        environment::{GlobalsBuilder, Module},
+        eval::{Evaluator, ProfileMode},
+        syntax::{AstModule, Dialect},
+    };
+
+    #[test]
+    fn test_coverage() {
+        let module = Module::new();
+        let mut eval = Evaluator::new(&module);
+
+        let module = AstModule::parse(
+            "cov.star",
+            r#"
+def xx(x):
+    return noop(x)
+
+xx(*[1])
+xx(*[2])
+"#
+            .to_owned(),
+            &Dialect::Extended,
+        )
+        .unwrap();
+        eval.enable_profile(&ProfileMode::Statement);
+        let mut globals = GlobalsBuilder::standard();
+        test_functions(&mut globals);
+        eval.eval_module(module, &globals.build()).unwrap();
+
+        let mut coverage: Vec<String> = eval
+            .coverage()
+            .unwrap()
+            .into_iter()
+            .map(|s| s.to_string())
+            .collect();
+        coverage.sort();
+        assert_eq!(
+            [
+                "cov.star:2:1-5:1",
+                "cov.star:3:5-19",
+                "cov.star:5:1-9",
+                "cov.star:6:1-9"
+            ]
+            .as_slice(),
+            coverage
+        );
     }
 }

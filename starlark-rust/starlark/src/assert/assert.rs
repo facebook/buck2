@@ -143,7 +143,7 @@ fn assert_star(builder: &mut crate::environment::GlobalsBuilder) {
 }
 
 #[starlark_module]
-fn test_functions(builder: &mut GlobalsBuilder) {
+pub(crate) fn test_functions(builder: &mut GlobalsBuilder) {
     // Used by one of the test methods in Go
     const fibonacci: Vec<i32> = vec![0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
 

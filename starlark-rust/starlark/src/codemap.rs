@@ -468,7 +468,7 @@ impl FileSpan {
 
 /// The locations of values within a span.
 /// All are 0-based, but print out with 1-based.
-#[derive(Debug, Dupe, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Dupe, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct ResolvedSpan {
     /// 0-based line number of the beginning of the span.
     pub begin_line: usize,
@@ -529,7 +529,7 @@ impl ResolvedSpan {
 }
 
 /// File name and line and column pairs for a span.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct ResolvedFileSpan {
     /// File name.
     pub file: String,

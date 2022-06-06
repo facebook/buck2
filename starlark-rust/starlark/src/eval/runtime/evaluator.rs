@@ -17,6 +17,7 @@
 
 use std::{
     cell::Cell,
+    collections::HashSet,
     intrinsics::unlikely,
     mem::{self, MaybeUninit},
     path::Path,
@@ -26,7 +27,7 @@ use gazebo::{any::AnyLifetime, cast};
 use thiserror::Error;
 
 use crate::{
-    codemap::{FileSpan, FileSpanRef},
+    codemap::{FileSpan, FileSpanRef, ResolvedFileSpan},
     collections::{alloca::Alloca, string_pool::StringPool},
     environment::{slots::ModuleSlotId, EnvironmentError, FrozenModuleRef, Module},
     errors::Diagnostic,
@@ -289,6 +290,17 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                 .write(filename.as_ref())
                 .unwrap_or_else(|| Err(EvaluatorError::TypecheckProfilingNotEnabled.into())),
         }
+    }
+
+    /// Get code coverage.
+    ///
+    /// Works if statement profile is enabled.
+    ///
+    /// Note coverage is not precise, because
+    /// * some optimizer transformations may create incorrect spans
+    /// * some optimizer transformations may remove statements
+    pub fn coverage(&self) -> anyhow::Result<HashSet<ResolvedFileSpan>> {
+        self.stmt_profile.coverage()
     }
 
     /// Enable interactive `breakpoint()`. When enabled, `breakpoint()`
