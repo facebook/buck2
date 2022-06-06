@@ -35,11 +35,16 @@ impl<'a> Input<'a> {
         }
     }
 
-    fn format_impl_generics(&self) -> syn::Result<(TokenStream, TokenStream, TokenStream)> {
+    fn format_impl_generics(
+        &self,
+        bounds: bool,
+    ) -> syn::Result<(TokenStream, TokenStream, TokenStream)> {
         let mut impl_params = Vec::new();
         let mut input_params = Vec::new();
         let mut output_params = Vec::new();
-        impl_params.push(quote!('freeze));
+        if bounds {
+            impl_params.push(quote!('freeze));
+        }
         for param in &self.input.generics.params {
             match param {
                 GenericParam::Type(t) => {
@@ -78,9 +83,9 @@ fn derive_freeze_impl(input: DeriveInput) -> syn::Result<TokenStream> {
 
     let name = &input.input.ident;
 
-    let (impl_params, input_params, output_params) = input.format_impl_generics()?;
-
     let opts = extract_options(&input.input.attrs)?;
+    let (impl_params, input_params, output_params) =
+        input.format_impl_generics(opts.bounds.is_some())?;
 
     let validate_body = match opts.validator {
         Some(validator) => quote! {
