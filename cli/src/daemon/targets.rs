@@ -75,11 +75,6 @@ impl TargetPrinter for JsonPrinter {
     }
 
     fn target(&mut self, _package: &Package, target_info: TargetInfo<'_>) {
-        // We skip printing any incompatible target
-        if let Some(BuckTargetHash::Incompatible) = target_info.target_hash {
-            return;
-        }
-
         if self.target_idx != 0 {
             writeln!(self.json_string, ",").unwrap();
         }
@@ -116,7 +111,8 @@ impl TargetPrinter for JsonPrinter {
                     .join(", ")
             ),
         );
-        if let Some(BuckTargetHash::Compatible(hash)) = target_info.target_hash {
+
+        if let Some(BuckTargetHash(hash)) = target_info.target_hash {
             print_attr("$target_hash", &format!("\"{:x}\"", hash));
         }
 
@@ -183,6 +179,7 @@ impl TargetPrinter for StatsPrinter {
 struct TargetNamePrinter {
     display_string: String,
     target_call_stacks: bool,
+    show_target_hash: bool,
 }
 impl TargetPrinter for TargetNamePrinter {
     fn end(&mut self) -> String {
@@ -190,24 +187,27 @@ impl TargetPrinter for TargetNamePrinter {
     }
 
     fn target(&mut self, package: &Package, target_info: TargetInfo<'_>) {
-        match target_info.target_hash {
-            Some(BuckTargetHash::Compatible(hash)) => writeln!(
-                self.display_string,
-                "{}:{} {:x}",
-                package,
-                target_info.node.label().name(),
-                hash
-            )
-            .unwrap(),
-            Some(BuckTargetHash::Incompatible) => {} // We skip printing any incompatible target
-            None => writeln!(
+        if self.show_target_hash {
+            match target_info.target_hash {
+                Some(BuckTargetHash(hash)) => writeln!(
+                    self.display_string,
+                    "{}:{} {:x}",
+                    package,
+                    target_info.node.label().name(),
+                    hash
+                )
+                .unwrap(),
+                None => {} // print nothing if there is no hash and show_target_hash is specified.
+            };
+        } else {
+            writeln!(
                 self.display_string,
                 "{}:{}",
                 package,
                 target_info.node.label().name()
             )
-            .unwrap(),
-        };
+            .unwrap();
+        }
         if self.target_call_stacks {
             match target_info.node.call_stack() {
                 Some(call_stack) => {
@@ -261,6 +261,7 @@ pub async fn targets(
         box TargetNamePrinter {
             display_string: String::new(),
             target_call_stacks: request.target_call_stacks,
+            show_target_hash: request.show_target_hash,
         }
     };
 
@@ -365,11 +366,7 @@ async fn parse_and_get_results(
                 for node in res.values() {
                     let target_hash = target_hashes
                         .as_ref()
-                        .map(|hashes| {
-                            hashes
-                                .get(node.label())
-                                .unwrap_or(Ok(BuckTargetHash::Incompatible))
-                        })
+                        .and_then(|hashes| hashes.get(node.label()))
                         .transpose()?;
                     printer.target(package, TargetInfo { node, target_hash })
                 }

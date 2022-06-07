@@ -47,10 +47,7 @@ use os_str_bytes::OsStrBytes;
 use siphasher::sip128::{Hasher128, SipHasher24};
 
 #[derive(Clone, Dupe)]
-pub enum BuckTargetHash {
-    Compatible(u128),
-    Incompatible,
-}
+pub struct BuckTargetHash(pub u128);
 
 trait BuckTargetHasher: Hasher + Send + 'static {
     fn finish_u128(&mut self) -> BuckTargetHash;
@@ -63,7 +60,7 @@ trait BuckTargetHasher: Hasher + Send + 'static {
 /// to capture anyway.
 impl BuckTargetHasher for siphasher::sip128::SipHasher24 {
     fn finish_u128(&mut self) -> BuckTargetHash {
-        BuckTargetHash::Compatible(self.finish128().as_u128())
+        BuckTargetHash(self.finish128().as_u128())
     }
 }
 
@@ -84,7 +81,7 @@ impl BuckTargetHasher for Blake3Adapter {
     fn finish_u128(&mut self) -> BuckTargetHash {
         let hash = blake3::Hasher::finalize(&self.0);
         let bytes = hash.as_bytes();
-        BuckTargetHash::Compatible(u128::from_le_bytes(bytes[16..].try_into().unwrap()))
+        BuckTargetHash(u128::from_le_bytes(bytes[16..].try_into().unwrap()))
     }
 }
 
@@ -346,10 +343,7 @@ impl TargetHashes {
         hasher: &mut dyn BuckTargetHasher,
     ) -> SharedResult<()> {
         for target_hash in dep_hashes {
-            match target_hash? {
-                BuckTargetHash::Compatible(hash) => hasher.write_u128(hash),
-                _ => {}
-            }
+            hasher.write_u128(target_hash?.0);
         }
         Ok(())
     }
