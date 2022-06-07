@@ -32,13 +32,13 @@ impl<T: QueryTarget> MultiQueryResult<T> {
         };
         for (name, value) in iter {
             let value = value?;
-            results = match (value, results) {
+            match (value, &mut results) {
                 (
                     QueryEvaluationValue::TargetSet(value),
                     QueryEvaluationValue::TargetSet(results),
-                ) => QueryEvaluationValue::TargetSet(results.union(&value)),
+                ) => results.insert_all(&value),
                 (QueryEvaluationValue::FileSet(value), QueryEvaluationValue::FileSet(results)) => {
-                    QueryEvaluationValue::FileSet(results.union(&value))
+                    results.insert_all(&value)
                 }
                 _ => unreachable!(
                     "no queries should return different types for different literals, but somehow that happened for `{}` and `{}`",

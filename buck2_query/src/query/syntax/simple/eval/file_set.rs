@@ -40,6 +40,12 @@ impl FileSet {
         Self { files }
     }
 
+    pub fn insert_all(&mut self, other: &FileSet) {
+        for v in other.files.iter() {
+            self.files.insert(v.clone());
+        }
+    }
+
     pub fn union(&self, right: &FileSet) -> FileSet {
         let mut files = self.files.clone();
         for file in right.files.iter() {
