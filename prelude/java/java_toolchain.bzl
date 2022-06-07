@@ -1,3 +1,5 @@
+JavacProtocol = enum("classic", "javacd")
+
 JavaPlatformInfo = provider(
     "Java platform info",
     fields = [
@@ -18,6 +20,7 @@ JavaToolchainInfo = provider(
         "java",
         "java_for_tests",
         "javac",
+        "javac_protocol",
         "merge_to_jar",
         "src_dir_helper",
         "source_level",

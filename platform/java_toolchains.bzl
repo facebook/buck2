@@ -1,5 +1,5 @@
 load("@fbcode//buck2/platform:utils.bzl", "optional_binary_or_source_attr", "source_list_attr", "string_attr", "string_list_attr")
-load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JUnitToolchainInfo", "JavaPlatformInfo", "JavaToolchainInfo")
+load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JUnitToolchainInfo", "JavaPlatformInfo", "JavaToolchainInfo", "JavacProtocol")
 load("@fbcode//buck2/prelude/java/utils:java_utils.bzl", "derive_javac")
 
 _buckconfig_java_toolchain_attrs = {
@@ -48,6 +48,13 @@ def config_backed_java_toolchain(
     kwargs["class_abi_generator"] = class_abi_generator
     kwargs["fat_jar_main_class_lib"] = fat_jar_main_class_lib
 
+    if "javac" in kwargs:
+        kwargs["javac_protocol"] = "classic"
+    else:
+        # if javac isn't set, we use the buck1 "internal" javac
+        kwargs["javac"] = "buck//src/com/facebook/buck/jvm/java/stepsbuilder/javacd/main:javacd_tool"
+        kwargs["javac_protocol"] = "javacd"
+
     _config_backed_java_toolchain_rule(
         name = name,
         visibility = visibility,
@@ -74,6 +81,7 @@ def _config_backed_java_toolchain_rule_impl(ctx):
             java = ctx.attr.java[RunInfo],
             java_for_tests = ctx.attr.java_for_tests[RunInfo] if ctx.attr.java_for_tests else ctx.attr.java[RunInfo],
             javac = derive_javac(ctx.attr.javac),
+            javac_protocol = ctx.attr.javac_protocol,
             source_level = ctx.attr.source_level,
             src_root_elements = src_root_elements,
             src_root_prefixes = src_root_prefixes,
@@ -93,6 +101,7 @@ _config_backed_java_toolchain_rule = rule(
         "java": attr.dep(providers = [RunInfo]),
         "java_for_tests": attr.option(attr.dep(providers = [RunInfo])),
         "javac": attr.option(attr.one_of(attr.dep(), attr.source(), attr.string()), default = None),
+        "javac_protocol": attr.enum(JavacProtocol.values(), default = "classic"),
         "merge_to_jar": attr.dep(),
         "source_level": attr.string(),
         "src_dir_helper": attr.dep(),

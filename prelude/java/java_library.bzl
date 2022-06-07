@@ -304,6 +304,14 @@ def _get_java_package_finder(java_toolchain: JavaToolchainInfo.type) -> "functio
 
     return finder
 
+def _jar_creator(java_toolchain):
+    if java_toolchain.javac_protocol == "classic":
+        return _create_jar_artifact
+    elif java_toolchain.javac_protocol == "javacd":
+        return _create_jar_artifact_javacd
+    else:
+        fail("unrecognized javac protocol `{}`".format(java_toolchain.javac_protocol))
+
 def compile_to_jar(
         ctx: "context",
         srcs: ["artifact"],
@@ -347,7 +355,7 @@ def compile_to_jar(
     if not target_level:
         target_level = _to_java_version(java_toolchain.target_level)
 
-    return _create_jar_artifact(
+    return _jar_creator(java_toolchain)(
         ctx.actions,
         actions_prefix,
         java_toolchain,
@@ -369,6 +377,9 @@ def compile_to_jar(
         additional_compiled_srcs,
         bootclasspath_entries,
     )
+
+def _create_jar_artifact_javacd(*_args, **_kwargs) -> "JavaCompileOutputs":
+    fail("javacd compilation isn't implemented yet")
 
 def _create_jar_artifact(
         actions: "actions",
