@@ -83,7 +83,7 @@ def _process_classpath(
 def _process_plugins(
         actions: "actions",
         actions_prefix: str.type,
-        ap_params: ["AnnotationProcessorParams", None],
+        ap_params: ["AnnotationProcessorParams"],
         plugin_params: ["PluginParams", None],
         javac_args: ["string"],
         cmd_args: "cmd_args"):
@@ -91,15 +91,17 @@ def _process_plugins(
 
     # Process Annotation processors
     if ap_params:
+        # For external javac, we can't preserve separate classpaths for separate processors. So we just concat everything.
         javac_args.append("-processor")
-        joined_processors_string = ap_params.processors[0] if len(ap_params.processors) == 1 else ",".join(ap_params.processors)
+        joined_processors_string = ",".join([p for ap in ap_params for p in ap.processors])
 
         javac_args.append(joined_processors_string)
 
-        for param in ap_params.params:
-            javac_args.append("-A{}".format(param))
+        for ap in ap_params:
+            for param in ap.params:
+                javac_args.append("-A{}".format(param))
+            processors_classpath = processors_classpath + ap.deps
 
-        processors_classpath = processors_classpath + ap_params.deps
     else:
         javac_args.append("-proc:none")
 
@@ -122,7 +124,7 @@ def _append_javac_params(
         java_toolchain: "JavaToolchainInfo",
         srcs: ["artifact"],
         remove_classes: [str.type],
-        annotation_processor_params: ["AnnotationProcessorParams", None],
+        annotation_processor_params: ["AnnotationProcessorParams"],
         javac_plugin_params: ["PluginParams", None],
         source_level: int.type,
         target_level: int.type,
@@ -312,7 +314,7 @@ def compile_to_jar(
         resources_root: [str.type, None] = None,
         remove_classes: [[str.type], None] = None,
         manifest_file: ["artifact", None] = None,
-        ap_params: ["AnnotationProcessorParams", None] = None,
+        ap_params: [["AnnotationProcessorParams"], None] = None,
         plugin_params: ["PluginParams", None] = None,
         source_level: [int.type, None] = None,
         target_level: [int.type, None] = None,
@@ -335,6 +337,8 @@ def compile_to_jar(
         remove_classes = []
     if not actions_prefix:
         actions_prefix = ""
+    if not ap_params:
+        ap_params = []
 
     java_toolchain = ctx.attr._java_toolchain[JavaToolchainInfo]
     if not source_level:
@@ -377,7 +381,7 @@ def _create_jar_artifact(
         resources: ["artifact"],
         resources_root: [str.type, None],
         manifest_file: ["artifact", None],
-        ap_params: ["AnnotationProcessorParams", None],
+        ap_params: ["AnnotationProcessorParams"],
         plugin_params: ["PluginParams", None],
         source_level: int.type,
         target_level: int.type,

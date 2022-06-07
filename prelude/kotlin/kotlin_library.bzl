@@ -24,7 +24,7 @@ def _create_kotlin_sources(
         ctx: "context",
         srcs: ["artifact"],
         deps: ["dependency"],
-        annotation_processor_params: ["AnnotationProcessorParams", None],
+        annotation_processor_params: [["AnnotationProcessorParams"], None],
         ksp_annotation_processor_params: ["AnnotationProcessorParams", None],
         additional_classpath_entries: ["artifact"]) -> ("artifact", ["artifact", None], ["artifact", None]):
     """
@@ -88,10 +88,10 @@ def _create_kotlin_sources(
     kapt_generated_sources_output = None
     if annotation_processor_params:
         compile_kotlin_cmd.add(["--kapt_annotation_processing_jar", kotlin_toolchain.annotation_processing_jar[JavaLibraryInfo].library_output.full_library])
-        compile_kotlin_cmd.add(["--kapt_annotation_processors", ",".join(annotation_processor_params.processors)])
-        compile_kotlin_cmd.add(["--kapt_annotation_processor_params", ";".join(annotation_processor_params.params)])
+        compile_kotlin_cmd.add(["--kapt_annotation_processors", ",".join([p for ap in annotation_processor_params for p in ap.processors])])
+        compile_kotlin_cmd.add(["--kapt_annotation_processor_params", ";".join([p for ap in annotation_processor_params for p in ap.params])])
 
-        annotation_processor_classpath = annotation_processor_params.deps + [
+        annotation_processor_classpath = [d for ap in annotation_processor_params for d in ap.deps] + [
             packaging_dep.jar
             for packaging_dep in get_all_java_packaging_deps(ctx, [kotlin_toolchain.annotation_processing_jar, kotlin_toolchain.kotlin_stdlib])
             if packaging_dep.jar

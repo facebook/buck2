@@ -40,35 +40,35 @@ def create_ap_params(
         plugins: ["dependency"],
         annotation_processors: ["string"],
         annotation_processor_params: ["string"],
-        annotation_processor_deps: ["dependency"]) -> [AnnotationProcessorParams.type, None]:
-    # by default set APs equal to `annotation_processors` attribute
-    ap_processors = annotation_processors
-    ap_processor_deps = []
+        annotation_processor_deps: ["dependency"]) -> [AnnotationProcessorParams.type]:
+    ap_params = []
+    has_annotation_processors = bool(annotation_processors)
+
+    # Extend `ap_processor_deps` with java deps from `annotation_processor_deps`
+    if annotation_processors or annotation_processor_params or annotation_processor_deps:
+        for ap_dep in map_idx(JavaLibraryInfo, annotation_processor_deps):
+            if not ap_dep:
+                fail("Dependency must have a type of `java_library` or `prebuilt_jar`. Deps: {}".format(annotation_processor_deps))
+        ap_params.append(AnnotationProcessorParams(
+            processors = annotation_processors,
+            params = annotation_processor_params,
+            # using packaging deps to have all transitive deps collected for processors classpath
+            deps = [packaging_dep.jar for packaging_dep in get_all_java_packaging_deps(ctx, annotation_processor_deps) if packaging_dep.jar],
+        ))
 
     # APs derived from `plugins` attribute
     for ap_plugin in filter_and_map_idx(JavaProcessorsInfo, plugins):
+        has_annotation_processors = True
         if not ap_plugin:
             fail("Plugin must have a type of `java_annotation_processor` or `java_plugin`. Plugins: {}".format(plugins))
         if ap_plugin.type == JavaProcessorsType("java_annotation_processor"):
-            ap_processors += ap_plugin.processors
-            ap_processor_deps += ap_plugin.deps
+            ap_params.append(AnnotationProcessorParams(
+                processors = ap_plugin.processors,
+                params = [],
+                deps = ap_plugin.deps,
+            ))
 
-    if not ap_processors:
-        return None
-
-    # Extend `ap_processor_deps` with java deps from `annotation_processor_deps`
-    for ap_dep in map_idx(JavaLibraryInfo, annotation_processor_deps):
-        if not ap_dep:
-            fail("Dependency must have a type of `java_library` or `prebuilt_jar`. Deps: {}".format(annotation_processor_deps))
-
-    # using packaging deps to have all transitive deps collected for processors classpath
-    ap_processor_deps += [packaging_dep.jar for packaging_dep in get_all_java_packaging_deps(ctx, annotation_processor_deps) if packaging_dep.jar]
-
-    return AnnotationProcessorParams(
-        processors = dedupe(ap_processors),
-        params = annotation_processor_params,
-        deps = ap_processor_deps,
-    )
+    return ap_params if has_annotation_processors else []
 
 def create_ksp_ap_params(plugins: ["dependency"]) -> [AnnotationProcessorParams.type, None]:
     ap_processors = []
