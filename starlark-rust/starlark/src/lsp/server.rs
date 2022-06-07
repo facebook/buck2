@@ -130,9 +130,7 @@ impl<T: LspContext> Backend<T> {
     }
 
     fn validate(&self, uri: Url, version: Option<i64>, text: String) {
-        let eval_result = self
-            .context
-            .parse_file_with_contents(&uri.to_string(), text);
+        let eval_result = self.context.parse_file_with_contents(uri.as_ref(), text);
         if let Some(ast) = eval_result.ast {
             let ast = Arc::new(ast);
             let mut last_valid_parse = self.last_valid_parse.write().unwrap();
