@@ -14,6 +14,13 @@ def _unimplemented_impl(name):
     return partial(_unimplemented, name)
 
 def _mk_rule(name: str.type, attrs: {str.type: "attribute"}) -> "rule":
+    # This dep simply makes all cxx_toolchain-using rules be incompatible with fat platforms.
+    if name not in ("python_library", "python_binary"):
+        if "_cxx_toolchain" in attrs or "_apple_toolchain" in attrs:
+            # copy so we don't try change the passed in object
+            attrs = {k: v for (k, v) in attrs.items()}
+            attrs["_cxx_toolchain_target_configuration"] = attr.dep(default = "fbcode//buck2/platform/execution:fat_platform_incompatible")
+
     return rule(
         implementation = getattr(implemented_rules, name, _unimplemented_impl(name)),
         attrs = attrs,
