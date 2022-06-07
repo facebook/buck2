@@ -1,11 +1,12 @@
-load("@fbcode//buck2/platform:utils.bzl", "optional_binary_or_source_attr", "source_list_attr", "string_attr", "string_list_attr")
+load("@fbcode//buck2/platform:utils.bzl", "optional_binary_or_source_attr", "read_bool", "source_list_attr", "string_attr", "string_list_attr")
 load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JUnitToolchainInfo", "JavaPlatformInfo", "JavaToolchainInfo", "JavacProtocol")
 load("@fbcode//buck2/prelude/java/utils:java_utils.bzl", "derive_javac")
 
 _buckconfig_java_toolchain_attrs = {
     "bootclasspath_7": (source_list_attr, []),
     "bootclasspath_8": (source_list_attr, []),
-    "javac": (optional_binary_or_source_attr, "fbsource//third-party/toolchains/jdk:javac"),
+    # There's special default handling for `javac` below.
+    "javac": (optional_binary_or_source_attr, None),
     "source_level": (string_attr, ""),
     "src_roots": (string_list_attr, ""),
     "target_level": (string_attr, ""),
@@ -15,6 +16,7 @@ def config_backed_java_toolchain(
         name,
         class_abi_generator = "buck//src/com/facebook/buck/jvm/java/abi:api-stubber",
         fat_jar_main_class_lib = "buck//src/com/facebook/buck/jvm/java:fat-jar-main",
+        javac = None,
         java = None,
         java_for_tests = None,
         visibility = None):
@@ -30,6 +32,9 @@ def config_backed_java_toolchain(
     # Now pull in values from config (overriding defaults).
     sections = ["java", "tools"]
     for (key, (info, default)) in _buckconfig_java_toolchain_attrs.items():
+        if key in kwargs:
+            continue
+
         val = None
         for section in sections:
             val = info.reader(section, key)
@@ -45,15 +50,19 @@ def config_backed_java_toolchain(
         kwargs["java"] = java
     if java_for_tests != None:
         kwargs["java_for_tests"] = java_for_tests
+    if javac != None:
+        kwargs["javac"] = javac
     kwargs["class_abi_generator"] = class_abi_generator
     kwargs["fat_jar_main_class_lib"] = fat_jar_main_class_lib
 
-    if "javac" in kwargs:
-        kwargs["javac_protocol"] = "classic"
-    else:
-        # if javac isn't set, we use the buck1 "internal" javac
-        kwargs["javac"] = "buck//src/com/facebook/buck/jvm/java/stepsbuilder/javacd/main:javacd_tool"
-        kwargs["javac_protocol"] = "javacd"
+    kwargs["javac_protocol"] = "classic"
+    if "javac" not in kwargs:
+        if read_bool("buck2", "enable_internal_javac", False):
+            # if javac isn't set, we use the buck1 "internal" javac
+            kwargs["javac"] = "buck//src/com/facebook/buck/jvm/java/stepsbuilder/javacd/main:javacd_tool"
+            kwargs["javac_protocol"] = "javacd"
+        else:
+            kwargs["javac"] = "fbsource//third-party/toolchains/jdk:javac"
 
     _config_backed_java_toolchain_rule(
         name = name,
