@@ -52,6 +52,10 @@ rust_library(
     test_deps = [
         "fbsource//third-party/rust:indoc",
         "fbsource//third-party/rust:rand",
+        # This is a hack to build `:testcases` when invoking a test.
+        # Otherwise `OUT_DIR` is set, but it points to non-existing directory.
+        # This is likely a bug in `rust_test` rule.
+        ":testcases",
     ],
     test_env = {
         # Some of our tests include testcase files relative to CARGO_MANIFEST_DIR.
