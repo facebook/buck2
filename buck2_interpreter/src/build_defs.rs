@@ -43,13 +43,12 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
 
     fn glob<'v>(
         include: Vec<String>,
-        excludes: Option<Vec<String>>,
         exclude: Option<Vec<String>>,
         #[starlark(default = false)] include_dotfiles: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let extra = BuildContext::from_context(eval)?;
-        let excludes = excludes.or(exclude).unwrap_or_default();
+        let excludes = exclude.unwrap_or_default();
         let spec = GlobSpec::new(&include, &excludes, include_dotfiles)?;
         let res = extra
             .resolve_glob(&spec)?
