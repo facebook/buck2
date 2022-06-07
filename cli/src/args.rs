@@ -197,7 +197,7 @@ pub fn expand_argfiles(args: Vec<String>, cwd: &Path) -> anyhow::Result<Vec<Stri
 fn expand_argfiles_with_context(
     args: Vec<String>,
     context: &ArgExpansionContext,
-    cwd: &AbsPath,
+    current_path: &AbsPath,
 ) -> anyhow::Result<Vec<String>> {
     let mut expanded_args = Vec::new();
     let mut arg_iterator = args.into_iter();
@@ -215,7 +215,8 @@ fn expand_argfiles_with_context(
                     None => return Err(anyhow!(ArgExpansionError::MissingFlagFilePath)),
                 };
                 // TODO: We want to detect cyclic inclusion
-                let expanded_flagfile_args = resolve_and_expand_argfile(&flagfile, context, cwd)?;
+                let expanded_flagfile_args =
+                    resolve_and_expand_argfile(&flagfile, context, current_path)?;
                 expanded_args.extend(expanded_flagfile_args);
             }
             next_arg if next_arg.starts_with('@') => {
@@ -224,7 +225,8 @@ fn expand_argfiles_with_context(
                     return Err(anyhow!(ArgExpansionError::MissingFlagFilePathInArgfile));
                 }
                 // TODO: We want to detect cyclic inclusion
-                let expanded_flagfile_args = resolve_and_expand_argfile(flagfile, context, cwd)?;
+                let expanded_flagfile_args =
+                    resolve_and_expand_argfile(flagfile, context, current_path)?;
                 expanded_args.extend(expanded_flagfile_args);
             }
             _ => expanded_args.push(next_arg),
@@ -239,9 +241,9 @@ fn expand_argfiles_with_context(
 fn resolve_and_expand_argfile(
     path: &str,
     context: &ArgExpansionContext,
-    cwd: &AbsPath,
+    current_path: &AbsPath,
 ) -> anyhow::Result<Vec<String>> {
-    let flagfile = resolve_flagfile(path, context, cwd)
+    let flagfile = resolve_flagfile(path, context, current_path)
         .with_context(|| format!("Error resolving flagfile `{}`", path))?;
     let flagfile_lines = expand_argfile_contents(&flagfile)?;
     let effective_cwd = match &flagfile {
@@ -252,7 +254,7 @@ fn resolve_and_expand_argfile(
                 .parent()
                 .ok_or_else(|| anyhow!(ArgExpansionError::FailedToComputeParentOfArgFile))?
         }
-        ArgFile::Stdin => cwd,
+        ArgFile::Stdin => current_path,
     };
     expand_argfiles_with_context(flagfile_lines, context, effective_cwd)
 }
@@ -323,7 +325,7 @@ fn expand_argfile_contents(flagfile: &ArgFile) -> anyhow::Result<Vec<String>> {
 fn resolve_flagfile(
     path: &str,
     context: &ArgExpansionContext,
-    cwd: &AbsPath,
+    current_path: &AbsPath,
 ) -> anyhow::Result<ArgFile> {
     if path == "-" {
         return Ok(ArgFile::Stdin);
@@ -334,8 +336,9 @@ fn resolve_flagfile(
         None => (path, None),
     };
 
-    let resolved_path = if let Some(cell_resolved_path) =
-        context.arg_resolver.resolve_cell_path_arg(path_part, cwd)
+    let resolved_path = if let Some(cell_resolved_path) = context
+        .arg_resolver
+        .resolve_cell_path_arg(path_part, current_path)
     {
         cell_resolved_path.context("Error resolving cell path")?
     } else {
@@ -345,7 +348,9 @@ fn resolve_flagfile(
                 Ok(abs_path) => Ok(abs_path),
                 Err(original_error) => {
                     let cell_relative_path =
-                        context.arg_resolver.resolve_cell_path("", path_part, cwd)?;
+                        context
+                            .arg_resolver
+                            .resolve_cell_path("", path_part, current_path)?;
                     // If the relative path does not exist relative to the cwd,
                     // attempt to make it relative to the cell root. If *that*
                     // doesn't exist, just report the original error back, and
