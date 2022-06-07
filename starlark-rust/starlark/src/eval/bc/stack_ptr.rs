@@ -173,6 +173,15 @@ pub(crate) struct BcSlotInRange {
     pub(crate) end: BcSlotIn,
 }
 
+impl Default for BcSlotInRange {
+    fn default() -> Self {
+        BcSlotInRange {
+            start: BcSlotIn(BcSlot(0)),
+            end: BcSlotIn(BcSlot(0)),
+        }
+    }
+}
+
 impl BcSlotInRange {
     #[inline]
     pub(crate) fn len(self) -> u32 {

@@ -10,6 +10,6 @@ def test(): return test()
 
 Max stack size: 1
 Instructions:
-  0: CallFrozenDefPos instrs.star.bzl.test &1..&1 instrs.star.bzl:1:20-26 &0
+  0: CallFrozenDefPos instrs.star.bzl.test &0..&0 instrs.star.bzl:1:20-26 &0
   40: Return &0
   48: End

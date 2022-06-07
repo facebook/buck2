@@ -411,7 +411,15 @@ impl<'f> BcWriter<'f> {
             expr(end, item, self);
             end = BcSlot(end.0 + 1);
         }
-        let r = k(BcSlotRange { start, end }.to_in(), self);
+        let range = if end == start {
+            // This is not really necessary, empty range is equally valid
+            // with any starting point, but this makes bytecode output
+            // (in particular, in golden tests) more readable.
+            BcSlotInRange::default()
+        } else {
+            BcSlotRange { start, end }.to_in()
+        };
+        let r = k(range, self);
         self.stack_sub(end.0 - start.0);
         r
     }

@@ -14,6 +14,6 @@ def g():
 
 Max stack size: 1
 Instructions:
-  0: CallFrozenDefPos instrs.star.bzl.g &1..&1 instrs.star.bzl:2:12-15 &0
+  0: CallFrozenDefPos instrs.star.bzl.g &0..&0 instrs.star.bzl:2:12-15 &0
   40: Return &0
   48: End
