@@ -304,7 +304,7 @@ mod tests {
 
     #[test]
     fn many_entries() {
-        let letters = 'a'..'z';
+        let letters = 'a'..='z';
 
         let entries1 = letters;
         let m1 = entries1.clone().collect::<SmallSet<_>>();
@@ -315,13 +315,13 @@ mod tests {
         assert_eq!(m1.get(&'!'), None);
         assert_eq!(m1.get_index_of(&'!'), None);
 
-        let letters = ('a'..'z').rev();
+        let letters = ('a'..='z').rev();
         let entries2 = letters;
         let m2 = entries2.clone().collect::<SmallSet<_>>();
         assert_eq!(m1.is_empty(), false);
-        assert_eq!(m1.len(), 25);
+        assert_eq!(m1.len(), 26);
         assert_eq!(m2.is_empty(), false);
-        assert_eq!(m2.len(), 25);
+        assert_eq!(m2.len(), 26);
 
         assert_eq!(m1.clone().into_iter().eq(entries1), true);
         assert_eq!(m2.clone().into_iter().eq(entries2), true);
