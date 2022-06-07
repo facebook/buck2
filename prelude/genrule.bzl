@@ -128,6 +128,7 @@ _BUILD_ROOT_LABELS = [
     "clang-module",
     "cuda_build_root",
     "bundle_pch_genrule",  # Compiles C++, and so need to run from build root
+    "lpm_package",
 ]
 
 # In Buck1 the SRCS environment variable is only set if the substring SRCS is on the command line.
