@@ -133,7 +133,7 @@ def rustfmt(buck2_dir: Path, ci: bool) -> None:
 
 
 CLIPPY_ALLOW = [
-    # To migrate, let's discuss later if any of these are useful
+    # Lints that are temporarily broken in our version of the Rust toolchain
     "clippy::needless-match",
     "clippy::only-used-in-recursion",
     # Other
