@@ -413,8 +413,7 @@ impl Heap {
     }
 
     fn alloc_raw<'v, 'v2: 'v2>(&'v self, x: impl AValue<'v2, ExtraElem = ()>) -> Value<'v> {
-        let arena_ref = self.arena.borrow();
-        let arena = &*arena_ref;
+        let arena = self.arena.borrow();
         let v: &AValueRepr<_> = arena.alloc(x);
 
         // We have an arena inside a RefCell which stores ValueMem<'v>
@@ -438,8 +437,7 @@ impl Heap {
         len: usize,
         init: impl FnOnce(*mut u8),
     ) -> StringValue<'v> {
-        let arena_ref = self.arena.borrow();
-        let arena = &*arena_ref;
+        let arena = self.arena.borrow();
         let (v, extra) = arena.alloc_extra_non_drop::<_>(starlark_str(len));
         init(extra.as_mut_ptr() as *mut u8);
 
