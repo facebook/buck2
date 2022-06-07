@@ -230,6 +230,7 @@ impl BuckdClient {
     }
 
     pub async fn kill(&mut self, reason: &str) -> anyhow::Result<()> {
+        let pid = self.info.pid;
         let request_fut = self
             .client
             .daemon_only_mut()
@@ -247,15 +248,14 @@ impl BuckdClient {
                 // ignore the timeout, we'll just send a harder kill.
             }
         }
-        self.kill_impl(time_to_kill.saturating_sub(time_req_sent.elapsed()))
-            .await
+        Self::kill_impl(pid, time_to_kill.saturating_sub(time_req_sent.elapsed())).await
     }
 
     #[cfg(unix)]
-    async fn kill_impl(&self, timeout: Duration) -> anyhow::Result<()> {
+    async fn kill_impl(pid: i64, timeout: Duration) -> anyhow::Result<()> {
         use nix::sys::signal::Signal;
 
-        let daemon_pid = nix::unistd::Pid::from_raw(self.info.pid as i32);
+        let daemon_pid = nix::unistd::Pid::from_raw(pid as i32);
         enum WaitFor {
             Exited,
             WaitTimedOut,
@@ -313,7 +313,7 @@ impl BuckdClient {
     }
 
     #[cfg(windows)]
-    async fn kill_impl(&self, timeout: Duration) -> anyhow::Result<()> {
+    async fn kill_impl(pid: i64, timeout: Duration) -> anyhow::Result<()> {
         use winapi::{
             shared::winerror::WAIT_TIMEOUT,
             um::{
@@ -334,7 +334,7 @@ impl BuckdClient {
             }
         }
 
-        let daemon_pid = self.info.pid as u32;
+        let daemon_pid = pid as u32;
         let proc_handle = unsafe { OpenProcess(SYNCHRONIZE | PROCESS_TERMINATE, 0, daemon_pid) };
         // If proc_handle is null, proccess died already.
         if proc_handle.is_null() {
