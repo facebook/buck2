@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use crate::assert::Assert;
+use crate::{assert::Assert, tests::bc::golden::bc_golden_test};
 
 /// Test for bug reported in D36808160.
 #[test]
@@ -31,4 +31,20 @@ def f(a):
 ",
     );
     a.eq("33", "load('a.star', 'f')\nf(33)");
+}
+
+#[test]
+fn test_definitely_assigned_slot_range_in_list() {
+    bc_golden_test(
+        "definitely_assigned_slot_range_in_list",
+        "def test(x, y): return [x, y]",
+    );
+}
+
+#[test]
+fn test_definitely_assigned_slot_range_in_call() {
+    bc_golden_test(
+        "definitely_assigned_slot_range_in_call",
+        "def test(x, y): noop(x, y)",
+    );
 }
