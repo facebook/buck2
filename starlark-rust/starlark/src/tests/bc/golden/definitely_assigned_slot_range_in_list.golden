@@ -8,10 +8,8 @@ def test(x, y): return [x, y]
 
 # Bytecode:
 
-Max stack size: 3
+Max stack size: 1
 Instructions:
-  0: LoadLocal &0 &3
-  16: LoadLocal &1 &4
-  32: ListNPop &3..&5 &2
-  48: Return &2
-  56: End
+  0: ListNPop &0..&2 &2
+  16: Return &2
+  24: End

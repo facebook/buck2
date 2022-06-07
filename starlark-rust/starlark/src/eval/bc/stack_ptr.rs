@@ -115,7 +115,7 @@ pub(crate) struct BcSlotRangeFrom(pub(crate) BcSlot);
 /// Slot containing a value.
 ///
 /// The slot may be a local variable, so this slot cannot be used to store a temporary value.
-#[derive(Debug, Copy, Clone, Dupe, derive_more::Display)]
+#[derive(Debug, Copy, Clone, Dupe, derive_more::Display, PartialEq, Eq)]
 #[display(fmt = "{}", _0)]
 pub(crate) struct BcSlotIn(BcSlot);
 
@@ -190,6 +190,22 @@ impl BcSlotInRange {
 
     pub(crate) fn to_range_from(self) -> BcSlotInRangeFrom {
         BcSlotInRangeFrom(self.start)
+    }
+
+    /// Add an element to the slot range if possible.
+    pub(crate) fn try_push(&mut self, slot: BcSlotIn) -> bool {
+        if self.len() == 0 {
+            *self = BcSlotInRange {
+                start: slot,
+                end: slot + 1,
+            };
+            true
+        } else if self.end == slot {
+            self.end = slot + 1;
+            true
+        } else {
+            false
+        }
     }
 }
 

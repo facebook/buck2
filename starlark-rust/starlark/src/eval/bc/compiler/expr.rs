@@ -42,13 +42,35 @@ use crate::{
     },
 };
 
+/// Try extract consecutive definitely initialized locals from expressions.
+fn try_slot_range<'a>(
+    exprs: impl IntoIterator<Item = &'a IrSpanned<ExprCompiled>>,
+    bc: &BcWriter,
+) -> Option<BcSlotInRange> {
+    let mut range = BcSlotInRange::default();
+    for expr in exprs {
+        let local = expr.as_local_non_captured()?;
+        let slot = bc.try_definitely_assigned(local)?;
+        if !range.try_push(slot) {
+            return None;
+        }
+    }
+    Some(range)
+}
+
 /// Compile several expressions into consecutive registers.
 pub(crate) fn write_exprs<'a>(
     exprs: impl IntoIterator<Item = &'a IrSpanned<ExprCompiled>>,
     bc: &mut BcWriter,
     k: impl FnOnce(BcSlotInRange, &mut BcWriter),
 ) {
-    bc.alloc_slots_for_exprs(exprs, |slot, expr, bc| expr.write_bc(slot.to_out(), bc), k)
+    let exprs: Vec<_> = exprs.into_iter().collect();
+
+    if let Some(slots) = try_slot_range(exprs.iter().copied(), bc) {
+        k(slots, bc);
+    } else {
+        bc.alloc_slots_for_exprs(exprs, |slot, expr, bc| expr.write_bc(slot.to_out(), bc), k)
+    }
 }
 
 pub(crate) fn write_expr_opt(
