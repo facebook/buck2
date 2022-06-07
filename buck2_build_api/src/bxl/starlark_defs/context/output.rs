@@ -12,8 +12,8 @@ use starlark::{
     collections::SmallSet,
     environment::{Methods, MethodsBuilder, MethodsStatic},
     values::{
-        none::NoneType, AllocValue, Freeze, Freezer, Heap, NoSerialize, NoSimpleValue,
-        StarlarkValue, Trace, UnpackValue, Value, ValueError, ValueLike,
+        list::ListRef, none::NoneType, AllocValue, Freeze, Freezer, Heap, NoSerialize,
+        NoSimpleValue, StarlarkValue, Trace, UnpackValue, Value, ValueError, ValueLike,
     },
 };
 
@@ -158,5 +158,28 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
             .insert_hashed(artifact.get_hashed()?);
 
         EnsuredArtifactGen::new(artifact)
+    }
+
+    /// Same as `ensure`, but for multiple.
+    fn ensure_multiple<'v>(
+        this: &OutputStream<'v>,
+        artifacts: &'v ListRef<'v>,
+    ) -> anyhow::Result<Vec<EnsuredArtifactGen<Value<'v>>>> {
+        artifacts.content().try_map(|artifact| {
+            artifact.as_artifact().ok_or_else(|| {
+                ValueError::IncorrectParameterTypeWithExpected(
+                    "artifact-like".to_owned(),
+                    artifact.get_type().to_owned(),
+                )
+            })?;
+
+            this.artifacts_to_ensure
+                .borrow_mut()
+                .as_mut()
+                .expect("should not have been taken")
+                .insert_hashed(artifact.get_hashed()?);
+
+            EnsuredArtifactGen::new(*artifact)
+        })
     }
 }
