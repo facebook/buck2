@@ -2,21 +2,6 @@
 
 If Buck stops working, then there are several things that you can try to do to fix it.
 
-## Make sure you are using the Oracle JDK
-
-Buck has only been tested with the Oracle JDK. If you are using an alternative, such as OpenJDK, then things are not guaranteed to work.
-
-## Rebuild Buck
-
-In Buck's short history, its autoupdate logic has had several bugs. If you think that Buck failed to autoupdate correctly (or failed to rebuild correctly after an autoupdate, which is likely if you killed Buck in the middle of an autoupdate), then your best bet is to rebuild it yourself:
-
-```
-cd <directory-where-you-checked-out-Buck>
-git checkout master
-git pull --rebase
-ant clean jar
-```
-
 ## Run `buck clean`
 
 Ideally, this solution will never work. Seriously. If Buck is working correctly, then it should know which files have been modified and which files need to be rebuilt.

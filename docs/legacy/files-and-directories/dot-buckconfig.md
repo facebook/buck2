@@ -4,23 +4,21 @@ The root of your [project](https://buck.build/about/overview.html) must contain 
 
 ## Performance impact of Buck configuration changes
 
-Changes to Buck's configuration can—temporarily—degrade Buck's performance because of how they affect Buck's parsing and caching behavior.
-If you change the Buck configuration in any of the locations discussed here, it can trigger Buck to reparse your build files the next time you build. If your build files are large or you have many build files, this reparsing can impact your build time.
 Also, because configuration settings are sometimes included in the cache keys that Buck uses in its caching system, changes to Buck's configuration can invalidate previously-built artifacts in Buck's caches. If this occurs, Buck rebuilds those artifacts, which can impact your build time.
 
 ## The .buckconfig file uses the INI file format
 
 The `.buckconfig` file uses the [INI file format](http://en.wikipedia.org/wiki/INI_file). That is, it is divided into *sections* where each section contains a collection of key *names* and key *values*. The `.buckconfig` implementation supports some modifications to the INI file format; these are discussed below.
 
-##### Other INI file parsers
+### Other INI file parsers
 
 As mentioned previously, we have extended the INI file parser that Buck uses to parse configuration files. As a result, *INI file parsers provided by other languages or libraries are often not able to parse Buck's configuration files successfully*.
 
-##### Dot character not supported in section names
+### Dot character not supported in section names
 
 We do not support the use of the *dot* character (`.`) in section names within Buck configuration files. For example, the following is **not** supported—*although Buck does not issue a warning or error*.
 
-```
+```ini
 [foo.bar]
   baz=1
 ```
