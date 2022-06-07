@@ -68,6 +68,7 @@ pub struct RemoteExecutionStaticMetadata {
     pub rich_client_channels_per_blob: Option<i32>,
     pub rich_client_attempt_timeout_ms: Option<i32>,
     pub rich_client_retries_count: Option<i32>,
+    pub force_enable_deduplicate_find_missing: Option<bool>,
 }
 
 impl RemoteExecutionStaticMetadata {
@@ -109,6 +110,10 @@ impl RemoteExecutionStaticMetadata {
             )?,
             rich_client_retries_count: legacy_config
                 .parse(BUCK2_RE_CLIENT_CFG_SECTION, "rich_client_retries_count")?,
+            force_enable_deduplicate_find_missing: legacy_config.parse(
+                BUCK2_RE_CLIENT_CFG_SECTION,
+                "force_enable_deduplicate_find_missing",
+            )?,
         })
     }
 }
@@ -420,6 +425,9 @@ impl RemoteExecutionClientImpl {
                     .rich_client_config
                     .number_of_retries = retries_count;
             }
+
+            embedded_cas_daemon_config.force_enable_deduplicate_find_missing =
+                static_metadata.force_enable_deduplicate_find_missing;
 
             // deduplication is implemented as full copy
             // but you can dynamically set SOFT_COPY(cow) if buck-out is mounted on btrfs,

@@ -62,6 +62,7 @@ pub struct EmbeddedCASDaemonClientCfg {
     pub rich_client_config: CASRichClientCfg,
     pub thread_count: i32,
     pub writable_outputs: bool,
+    pub force_enable_deduplicate_find_missing: Option<bool>,
 }
 
 #[derive(Default)]
