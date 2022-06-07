@@ -227,6 +227,7 @@ impl TestServer {
 
         let init = InitializeParams {
             process_id: None,
+            #[allow(deprecated)]
             root_path: None,
             root_uri: None,
             initialization_options: None,
