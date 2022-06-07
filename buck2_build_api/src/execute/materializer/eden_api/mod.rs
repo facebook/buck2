@@ -259,8 +259,12 @@ impl EdenBuckOut {
         execute_eden_clone(&self.mount_point)?;
 
         // Run eden redirection to exclude write heavy dir from using EdenFS
-        execute_eden_redirection_add(&self.mount_point, "log")?;
-        execute_eden_redirection_add(&self.mount_point, "tmp")?;
+        ["log", "tmp", "re_logs"].into_iter().try_for_each(
+            |dir| -> Result<(), SetupBuckOutError> {
+                execute_eden_redirection_add(&self.mount_point, dir)?;
+                Ok(())
+            },
+        )?;
 
         Ok(())
     }
