@@ -17,6 +17,8 @@
 
 use std::{env, fmt::Write, fs};
 
+use anyhow::Context;
+
 use crate::{assert::Assert, eval::compiler::def::FrozenDef};
 
 const REGENERATE_VAR_NAME: &str = "STARLARK_RUST_REGENERATE_BC_TESTS";
@@ -62,7 +64,9 @@ pub(crate) fn bc_golden_test(test_name: &str, program: &str) {
     if env::var(REGENERATE_VAR_NAME).is_ok() {
         fs::write(golden_file_name, &actual).unwrap();
     } else {
-        let expected = fs::read_to_string(golden_file_name).unwrap();
+        let expected = fs::read_to_string(&golden_file_name)
+            .with_context(|| format!("Reading `{golden_file_name}`"))
+            .unwrap();
         assert_eq!(expected, actual);
     }
 }
