@@ -264,6 +264,7 @@ impl BuckdClient {
             }));
         let time_to_kill = GRACEFUL_SHUTDOWN_TIMEOUT + FORCE_SHUTDOWN_TIMEOUT;
         let time_req_sent = Instant::now();
+        // First we send a Kill request
         match tokio::time::timeout(time_to_kill, request_fut).await {
             Ok(inner_result) => {
                 inner_result?;
@@ -272,6 +273,7 @@ impl BuckdClient {
                 // ignore the timeout, we'll just send a harder kill.
             }
         }
+        // Then we do a wait_for on the pid, and if that times out, we kill it harder
         Self::kill_impl(pid, time_to_kill.saturating_sub(time_req_sent.elapsed())).await
     }
 
