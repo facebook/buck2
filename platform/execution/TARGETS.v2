@@ -1,5 +1,42 @@
+"""
+Sets up all the execution platforms for buck2 builds.
+
+buck2 execution platform resolution takes a list of execution platforms and
+selects the first one that is compatible with the execution deps of a target.
+execution platforms are used only for execution deps (i.e. build tools).
+
+We have a couple different platform types here with some adhoc naming:
+
+hybrid platform - this is a platform with both local and remote execution enabled
+local_only platform - a platform with only local execution, generally these would only exist matching the host platform
+remote_only platform - a platform with only remote execution
+fat platform - a platform where execution may happen on one of several possible platforms. for example, a mac-linux fat platform
+  could run on either mac or linux. it may be configured with linux RE workers but also enable local execution on either of a mac
+  or linux host.
+
+fat platforms are used so that we can use the cheaper linux RE workers for actions running
+on a mac host while preserving the option to run those actions locally.
+
+For fat platforms, we introduce constraint setting like `fat_platform_mac` with
+values like `fat_platform_mac=some_mac_platform` and then those constraints can
+be used for transitions to the specific platforms. There's a helper `fat_platform_transition`
+to do a split transition to all the individual platforms to support binaries that want
+to support the fat platform but need os-specific deps (for example, you could have a
+simple wrapper over a c++ binary that supported a fat platform by delegating to the appropriate
+os-specific binary at runtime).
+"""
+
 load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool", "read_int")
-load(":defs.bzl", "execution_platform", "execution_platforms", "ordered_platforms_by_host_type")
+load(
+    ":defs.bzl",
+    "execution_platform",
+    "execution_platforms",
+    "fat_platform_transition_helper",
+    "linux_execution_base_platforms",
+    "mac_execution_base_platforms",
+    "ordered_platforms_by_host_type",
+)
+load(":util.bzl", "fat_platform_incompatible")
 
 prelude = native
 host_is_mac = host_info().os.is_macos
@@ -21,7 +58,7 @@ remote_execution_action_key_providers = [
 
 mac_platforms = execution_platform(
     name = "macos",
-    base_platform = "ovr_config//platform/macos:x86_64-fbsource",
+    base_platform = mac_execution_base_platforms["x86_64-fbsource"],
     local_enabled = local_mac_execution,
     remote_enabled = remote_mac_execution,
     remote_execution_properties = {
@@ -34,7 +71,7 @@ mac_platforms = execution_platform(
 
 linux_platforms = execution_platform(
     name = "linux",
-    base_platform = "ovr_config//platform/linux:x86_64-fbcode-platform010-clang-nosan",
+    base_platform = linux_execution_base_platforms["platform009"],
     local_enabled = local_linux_execution,
     remote_enabled = True,
     remote_execution_properties = {
@@ -56,6 +93,19 @@ windows_platforms = execution_platform(
     remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
 )
 
+fat_mac_linux = execution_platform(
+    name = "fat_mac_linux",
+    base_platform = ":fat_platform_posix_platform009",
+    local_enabled = True,
+    remote_enabled = True,
+    remote_execution_properties = {
+        "platform": "linux-remote-execution",
+    },
+    remote_execution_action_key_providers = remote_execution_action_key_providers,
+    remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
+    make_dash_only_platforms = False,
+)
+
 execution_platforms(
     name = "platforms",
     platforms = ordered_platforms_by_host_type(windows_platforms, mac_platforms, linux_platforms),
@@ -68,15 +118,18 @@ prelude.constraint_setting(
 prelude.constraint_value(
     name = "may_run_remote",
     constraint_setting = ":runs_remote",
+    visibility = ["PUBLIC"],
 )
 
 prelude.constraint_setting(
     name = "runs_local",
+    visibility = ["PUBLIC"],
 )
 
 prelude.constraint_value(
     name = "may_run_local",
     constraint_setting = ":runs_local",
+    visibility = ["PUBLIC"],
 )
 
 prelude.constraint_setting(
@@ -86,9 +139,83 @@ prelude.constraint_setting(
 prelude.constraint_value(
     name = "runs_only_local",
     constraint_setting = ":runs_only",
+    visibility = ["PUBLIC"],
 )
 
 prelude.constraint_value(
     name = "runs_only_remote",
     constraint_setting = ":runs_only",
+    visibility = ["PUBLIC"],
+)
+
+prelude.constraint_setting(
+    name = "fat_platform_marker",
+)
+
+prelude.constraint_value(
+    name = "fat_platform_enabled",
+    constraint_setting = ":fat_platform_marker",
+    visibility = ["PUBLIC"],
+)
+
+prelude.constraint_setting(
+    name = "fat_platform_mac",
+)
+
+# This sets up a fat_platform_mac=specific_platform for each execution platform
+# in the mac platforms (and then the same for linux). The main use for these is
+# for the fat_platform_transition to know the platforms to transition to.
+[
+    prelude.constraint_value(
+        name = "fat_platform_mac={}".format(name),
+        constraint_setting = ":fat_platform_mac",
+    )
+    for (name, _value) in mac_execution_base_platforms.items()
+]
+
+prelude.constraint_setting(
+    name = "fat_platform_linux",
+)
+
+[
+    prelude.constraint_value(
+        name = "fat_platform_linux={}".format(name),
+        constraint_setting = ":fat_platform_linux",
+        visibility = ["PUBLIC"],
+    )
+    for (name, _value) in linux_execution_base_platforms.items()
+]
+
+prelude.platform(
+    name = "fat_platform_posix_platform009",
+    # TODO(cjhopman): we probably want to actually have some base os-agnostic
+    # platform that all of these, including the fat platform, depend on, but
+    # the fbsource platforms just aren't that useful yet.
+    constraint_values = [
+        ":fat_platform_enabled",
+        ":fat_platform_mac=x86_64-fbsource",
+        ":fat_platform_linux=platform009",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+# This is mostly here for a rule type to add a dependency on it to mark all
+# instances of that rule type as incompatible with a fat platform. Ideally,
+# toolchains could affect the target compatibility of their users directly but
+# toolchains are currently all exec deps and so cannot do that. We'd like
+# buck2 to support a form of dep that inherited its users execution platform
+# so that toolchains could basically get visibility and affect both target and
+# execution configuration, but that's not implemented yet.
+export_file(
+    name = "fat_platform_incompatible",
+    src = "TARGETS.v2",
+    target_compatible_with = fat_platform_incompatible(),
+)
+
+# This is just a helper used by the fat_platform_transition in fat_platforms.bzl
+fat_platform_transition_helper(
+    name = "fat_platform_transition_helper",
+    mac = [[":fat_platform_mac={}".format(platform_name), platform] for (platform_name, platform) in mac_execution_base_platforms.items()],
+    linux = [[":fat_platform_linux={}".format(platform_name), platform] for (platform_name, platform) in linux_execution_base_platforms.items()],
+    visibility = ["PUBLIC"],
 )

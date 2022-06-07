@@ -9,3 +9,9 @@ def remote_execution_incompatible():
         "DEFAULT": [],
         "fbcode//buck2/platform/execution:may_run_remote": ["ovr_config//:none"],
     })
+
+def fat_platform_incompatible():
+    return select({
+        "DEFAULT": [],
+        "fbcode//buck2/platform/execution:fat_platform_enabled": ["ovr_config//:none"],
+    })

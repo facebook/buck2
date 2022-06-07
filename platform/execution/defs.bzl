@@ -1,5 +1,13 @@
 load("@fbcode//buck2/platform/build_mode:defs.bzl", "BuildModeInfo")
 
+mac_execution_base_platforms = {
+    "x86_64-fbsource": "ovr_config//platform/macos:x86_64-fbsource",
+}
+
+linux_execution_base_platforms = {
+    "platform009": "ovr_config//platform/linux:x86_64-fbcode-platform009-clang-nosan",
+}
+
 def _execution_platform_impl(ctx):
     infos = [p[BuildModeInfo] for p in ctx.attr.remote_execution_action_key_providers]
     kvs = ["{}={}".format(info.cell, info.mode) for info in infos if info.mode != None]
@@ -36,20 +44,22 @@ execution_platform_rule = rule(
     implementation = _execution_platform_impl,
 )
 
-def execution_platform(name, base_platform, local_enabled, remote_enabled, **kwargs):
+def _pkg(s):
+    return "fbcode//buck2/platform/execution:" + s
+
+def execution_platform(name, base_platform, local_enabled, remote_enabled, make_dash_only_platforms = True, **kwargs):
     if not local_enabled and not remote_enabled:
         # Some platforms do not support RE, so when running on a non-matching host,
         # neither local nor remote would be enabled.
         return []
-
     platform_name = name + "-platform"
     platforms = []
 
     constraint_values = []
     if local_enabled:
-        constraint_values.append(":may_run_local")
+        constraint_values.append(_pkg("may_run_local"))
     if remote_enabled:
-        constraint_values.append(":may_run_remote")
+        constraint_values.append(_pkg("may_run_remote"))
 
     native.platform(
         name = platform_name,
@@ -62,46 +72,50 @@ def execution_platform(name, base_platform, local_enabled, remote_enabled, **kwa
         platform = ":" + platform_name,
         local_enabled = local_enabled,
         remote_enabled = remote_enabled,
+        visibility = ["fbcode//buck2/tests/..."],
         **kwargs
     )
 
     platforms.append(name)
 
-    if local_enabled:
-        native.platform(
-            name = platform_name + "-local",
-            deps = [base_platform],
-            constraint_values = [
-                ":may_run_local",
-                ":runs_only_local",
-            ],
-        )
-        execution_platform_rule(
-            name = name + "-local-only",
-            platform = ":" + platform_name + "-local",
-            local_enabled = True,
-            remote_enabled = False,
-            **kwargs
-        )
-        platforms.append(name + "-local-only")
+    if make_dash_only_platforms:
+        if local_enabled:
+            native.platform(
+                name = platform_name + "-local",
+                deps = [base_platform],
+                constraint_values = [
+                    _pkg("may_run_local"),
+                    _pkg("runs_only_local"),
+                ],
+            )
+            execution_platform_rule(
+                name = name + "-local-only",
+                platform = ":" + platform_name + "-local",
+                local_enabled = True,
+                remote_enabled = False,
+                visibility = ["fbcode//buck2/tests/..."],
+                **kwargs
+            )
+            platforms.append(name + "-local-only")
 
-    if remote_enabled:
-        native.platform(
-            name = platform_name + "-remote",
-            deps = [base_platform],
-            constraint_values = [
-                ":may_run_remote",
-                ":runs_only_remote",
-            ],
-        )
-        execution_platform_rule(
-            name = name + "-remote-only",
-            platform = ":" + platform_name + "-remote",
-            local_enabled = False,
-            remote_enabled = True,
-            **kwargs
-        )
-        platforms.append(name + "-remote-only")
+        if remote_enabled:
+            native.platform(
+                name = platform_name + "-remote",
+                deps = [base_platform],
+                constraint_values = [
+                    _pkg("may_run_remote"),
+                    _pkg("runs_only_remote"),
+                ],
+            )
+            execution_platform_rule(
+                name = name + "-remote-only",
+                platform = ":" + platform_name + "-remote",
+                local_enabled = False,
+                remote_enabled = True,
+                visibility = ["fbcode//buck2/tests/..."],
+                **kwargs
+            )
+            platforms.append(name + "-remote-only")
     return [":" + p for p in platforms]
 
 # Before execution platforms, we'd generally use the host platform as the
@@ -132,4 +146,25 @@ execution_platforms = rule(
         "platforms": attr.list(attr.dep(providers = [ExecutionPlatformInfo])),
     },
     implementation = _execution_platforms_impl,
+)
+
+FatPlatformTransitionInfo = provider(
+    fields = ("mac", "linux"),
+)
+
+def _fat_platforms_transition_helper(ctx):
+    return [
+        DefaultInfo(),
+        FatPlatformTransitionInfo(
+            mac = [(k[ConstraintValueInfo], v[PlatformInfo]) for (k, v) in ctx.attr.mac],
+            linux = [(k[ConstraintValueInfo], v[PlatformInfo]) for (k, v) in ctx.attr.linux],
+        ),
+    ]
+
+fat_platform_transition_helper = rule(
+    implementation = _fat_platforms_transition_helper,
+    attrs = {
+        "linux": attr.list(attr.tuple(attr.dep(providers = [ConstraintValueInfo]), attr.dep(providers = [PlatformInfo]))),
+        "mac": attr.list(attr.tuple(attr.dep(providers = [ConstraintValueInfo]), attr.dep(providers = [PlatformInfo]))),
+    },
 )

@@ -427,3 +427,19 @@ async def test_build_test_dependencies(buck: Buck) -> None:
             has_file = True
 
     assert has_file
+
+
+@buck_test(inplace=True)
+async def test_fat_platforms(buck: Buck) -> None:
+    target = "fbcode//buck2/tests/targets/fat_platforms:example_use"
+    result = await buck.build(
+        target,
+        "-c",
+        "build.execution_platforms=fbcode//buck2/tests/targets/fat_platforms:platforms",
+        "--show-full-output",
+    )
+    output = result.get_target_to_build_output()[target]
+    with open(output) as output:
+        s = output.read()
+        assert "darwin" in s, "expected 'darwin' in output: `{}`".format(output)
+        assert "linux" in s, "expected 'darwin' in output: `{}`".format(output)
