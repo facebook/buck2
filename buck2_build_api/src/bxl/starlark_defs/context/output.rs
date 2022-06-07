@@ -21,6 +21,7 @@ use crate::{
     actions::artifact::ArtifactFs,
     bxl::starlark_defs::{
         artifacts::{EnsuredArtifact, EnsuredArtifactGen},
+        context::build::StarlarkProvidersArtifactIterable,
         BxlError::NoFreeze,
     },
     interpreter::rule_defs::artifact::ValueAsArtifactLike,
@@ -163,23 +164,57 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
     /// Same as `ensure`, but for multiple.
     fn ensure_multiple<'v>(
         this: &OutputStream<'v>,
-        artifacts: &'v ListRef<'v>,
+        artifacts: Value<'v>,
+        heap: &'v Heap,
     ) -> anyhow::Result<Vec<EnsuredArtifactGen<Value<'v>>>> {
-        artifacts.content().try_map(|artifact| {
-            artifact.as_artifact().ok_or_else(|| {
+        if artifacts.is_none() {
+            Ok(vec![])
+        } else if let Some(list) = <&ListRef>::unpack_value(artifacts) {
+            list.content().try_map(|artifact| {
+                artifact.as_artifact().ok_or_else(|| {
+                    ValueError::IncorrectParameterTypeWithExpected(
+                        "artifact-like".to_owned(),
+                        artifact.get_type().to_owned(),
+                    )
+                })?;
+
+                this.artifacts_to_ensure
+                    .borrow_mut()
+                    .as_mut()
+                    .expect("should not have been taken")
+                    .insert_hashed(artifact.get_hashed()?);
+
+                EnsuredArtifactGen::new(*artifact)
+            })
+        } else if let Some(artifact_gen) =
+            <&StarlarkProvidersArtifactIterable>::unpack_value(artifacts)
+        {
+            artifact_gen
+                .iterate(heap)?
+                .map(|artifact| try {
+                    artifact.as_artifact().ok_or_else(|| {
+                        ValueError::IncorrectParameterTypeWithExpected(
+                            "artifact-like".to_owned(),
+                            artifact.get_type().to_owned(),
+                        )
+                    })?;
+
+                    this.artifacts_to_ensure
+                        .borrow_mut()
+                        .as_mut()
+                        .expect("should not have been taken")
+                        .insert_hashed(artifact.get_hashed()?);
+
+                    EnsuredArtifactGen::new(artifact)?
+                })
+                .collect::<anyhow::Result<_>>()
+        } else {
+            Err(anyhow::anyhow!(
                 ValueError::IncorrectParameterTypeWithExpected(
-                    "artifact-like".to_owned(),
-                    artifact.get_type().to_owned(),
+                    "list of artifacts or bxl-built-artifacts-iterable".to_owned(),
+                    artifacts.get_type().to_owned()
                 )
-            })?;
-
-            this.artifacts_to_ensure
-                .borrow_mut()
-                .as_mut()
-                .expect("should not have been taken")
-                .insert_hashed(artifact.get_hashed()?);
-
-            EnsuredArtifactGen::new(*artifact)
-        })
+            ))
+        }
     }
 }

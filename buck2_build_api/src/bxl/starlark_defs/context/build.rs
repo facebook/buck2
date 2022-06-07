@@ -108,9 +108,9 @@ impl<'v> StarlarkValue<'v> for StarlarkBuildResult {
     NoSerialize
 )]
 #[repr(C)]
-struct StarlarkProvidersArtifactIterableGen<V>(V);
+pub(crate) struct StarlarkProvidersArtifactIterableGen<V>(V);
 
-starlark_complex_value!(StarlarkProvidersArtifactIterable);
+starlark_complex_value!(pub(crate) StarlarkProvidersArtifactIterable);
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkProvidersArtifactIterableGen<V>
 where
