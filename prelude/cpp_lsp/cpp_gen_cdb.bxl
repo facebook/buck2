@@ -53,6 +53,8 @@ def _impl(ctx):
         cmd.add("--output-dir")
         cmd.add(outputDir.as_output())
         actionFactory.run(cmd, category = "cxx_merge_compdb_hmap")
+        ensured = ctx.output.ensure(outputDir)
+        ctx.output.print(ensured.abs_path())
         return [outputDir]
     return []
 
