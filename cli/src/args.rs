@@ -55,13 +55,15 @@ enum ArgExpansionError {
 }
 
 /// Argument resolver that can expand cell paths, e.g., `cell//path/to/file`
-struct ArgCellPathResolver {
+struct ArgCellPathResolver<'a> {
     // Deliberately use `OnceCell` rather than `Lazy` because `Lazy` forces
     // us to have a shared reference to the underlying `anyhow::Error` which
     // we cannot use to correct chain the errors. Using `OnceCell` means
     // we don't get the result by a shared reference but instead as local
     // value which can be returned.
     data: OnceCell<ArgCellPathResolverData>,
+    #[allow(unused)]
+    cwd: &'a AbsPath,
 }
 
 /// Defines the data which is lazy computed to avoid doing I/O
@@ -71,10 +73,11 @@ struct ArgCellPathResolverData {
     project_filesystem: ProjectFilesystem,
 }
 
-impl ArgCellPathResolver {
-    pub fn new() -> Self {
+impl<'a> ArgCellPathResolver<'a> {
+    pub fn new(cwd: &'a AbsPath) -> Self {
         Self {
             data: OnceCell::new(),
+            cwd,
         }
     }
 
@@ -130,14 +133,14 @@ impl ArgCellPathResolver {
     }
 }
 
-pub struct ArgExpansionContext {
-    arg_resolver: ArgCellPathResolver,
+pub struct ArgExpansionContext<'a> {
+    arg_resolver: ArgCellPathResolver<'a>,
 }
 
-impl ArgExpansionContext {
-    pub fn new() -> Self {
+impl<'a> ArgExpansionContext<'a> {
+    pub fn new(cwd: &'a AbsPath) -> Self {
         Self {
-            arg_resolver: ArgCellPathResolver::new(),
+            arg_resolver: ArgCellPathResolver::new(cwd),
         }
     }
 
@@ -191,7 +194,7 @@ enum ArgFile {
 //       Buck v1 for reference.
 pub fn expand_argfiles(args: Vec<String>, cwd: &Path) -> anyhow::Result<Vec<String>> {
     let abs_cwd = AbsPath::new(cwd)?;
-    expand_argfiles_with_context(args, &ArgExpansionContext::new(), abs_cwd)
+    expand_argfiles_with_context(args, &ArgExpansionContext::new(abs_cwd), abs_cwd)
 }
 
 fn expand_argfiles_with_context(
