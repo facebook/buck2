@@ -196,11 +196,7 @@ impl<'v> UnpackValue<'v> for &'v StarlarkDeclaredArtifact {
     }
 
     fn unpack_value(value: Value<'v>) -> Option<Self> {
-        if let Some(x) = value.downcast_ref::<StarlarkDeclaredArtifact>() {
-            Some(x)
-        } else {
-            None
-        }
+        value.downcast_ref::<StarlarkDeclaredArtifact>()
     }
 }
 
