@@ -1,7 +1,12 @@
 load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidResourceInfo", "CPU_FILTER_TO_ABI_DIRECTORY", "NativeLibraryFromPrebuiltAar", "merge_android_packageable_info")
 load("@fbcode//buck2/prelude/android:android_resource.bzl", "aapt2_compile", "extract_package_from_manifest")
 load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
-load("@fbcode//buck2/prelude/java:java_providers.bzl", "create_java_classpath_entry", "create_java_library_providers")
+load(
+    "@fbcode//buck2/prelude/java:java_providers.bzl",
+    "JavaClasspathEntry",
+    "create_java_library_providers",
+    "maybe_create_abi",
+)
 load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JavaToolchainInfo")
 
 def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
@@ -14,7 +19,8 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
 
     android_toolchain = ctx.attr._android_toolchain[AndroidToolchainInfo]
     unpack_aar_tool = android_toolchain.unpack_aar[RunInfo]
-    jar_tool = ctx.attr._java_toolchain[JavaToolchainInfo].jar
+    java_toolchain = ctx.attr._java_toolchain[JavaToolchainInfo]
+    jar_tool = java_toolchain.jar
 
     sub_dir_paths = {cpu_type: ctx.actions.declare_output("unpack_dir/jni/{}".format(
         abi_directory,
@@ -52,9 +58,15 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
         text_symbols = r_dot_txt,
     )
 
+    abi = maybe_create_abi(ctx.actions, java_toolchain, all_classes_jar)
+    library_output_classpath_entry = JavaClasspathEntry(
+        full_library = all_classes_jar,
+        abi = abi or all_classes_jar,
+    )
+
     java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info = create_java_library_providers(
         ctx = ctx,
-        library_output = create_java_classpath_entry(ctx, all_classes_jar),
+        library_output = library_output_classpath_entry,
         exported_deps = ctx.attr.deps,
         needs_desugar = True,
         is_prebuilt_jar = True,

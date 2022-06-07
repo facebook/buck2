@@ -1,8 +1,10 @@
 load(
     ":java_providers.bzl",
-    "create_java_classpath_entry",
+    "JavaClasspathEntry",
     "create_java_library_providers",
+    "maybe_create_abi",
 )
+load(":java_toolchain.bzl", "JavaToolchainInfo")
 
 def prebuilt_jar_impl(ctx: "context") -> ["provider"]:
     """
@@ -27,7 +29,14 @@ def prebuilt_jar_impl(ctx: "context") -> ["provider"]:
     output = ctx.actions.declare_output(binary_jar.basename[:-4] + "_symlink.jar")
     ctx.actions.symlink(binary_jar, output)
 
-    library_output_classpath_entry = create_java_classpath_entry(ctx, output, ctx.attr.generate_abi)
+    abi = None
+    if ctx.attr.generate_abi:
+        abi = maybe_create_abi(ctx.actions, ctx.attr._java_toolchain[JavaToolchainInfo], output)
+
+    library_output_classpath_entry = JavaClasspathEntry(
+        full_library = output,
+        abi = abi or output,
+    )
 
     java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info = create_java_library_providers(
         ctx,

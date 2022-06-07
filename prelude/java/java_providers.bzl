@@ -5,7 +5,6 @@ load(
 )
 load("@fbcode//buck2/prelude/java:dex.bzl", "get_dex_produced_from_java_library")
 load("@fbcode//buck2/prelude/java:dex_toolchain.bzl", "DexToolchainInfo")
-load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@fbcode//buck2/prelude/java/utils:java_utils.bzl", "get_path_separator")
 load(
     "@fbcode//buck2/prelude/linking:shared_libraries.bzl",
@@ -129,11 +128,32 @@ KeystoreInfo = provider(
     ],
 )
 
-def create_java_classpath_entry(ctx: "context", library: "artifact", generate_abi: bool.type = True) -> "JavaClasspathEntry":
-    class_abi_generator = ctx.attr._java_toolchain[JavaToolchainInfo].class_abi_generator
-    if generate_abi and class_abi_generator != None:
-        class_abi = ctx.actions.declare_output("{}-class-abi.jar".format(library.short_path))
-        ctx.actions.run(
+JavaCompileOutputs = record(
+    full_library = "artifact",
+    class_abi = ["artifact", None],
+    classpath_entry = JavaClasspathEntry.type,
+)
+
+# Creates a JavaCompileOutputs. `classpath_abi` can be set to specify a
+# specific artifact to be used as the abi for the JavaClasspathEntry.
+def make_compile_outputs(
+        full_library: "artifact",
+        class_abi: ["artifact", None] = None,
+        classpath_abi: ["artifact", None] = None) -> JavaCompileOutputs.type:
+    return JavaCompileOutputs(
+        full_library = full_library,
+        class_abi = class_abi,
+        classpath_entry = JavaClasspathEntry(
+            full_library = full_library,
+            abi = classpath_abi or class_abi or full_library,
+        ),
+    )
+
+def maybe_create_abi(actions: "actions", java_toolchain: "JavaToolchainInfo", library: "artifact") -> ["artifact", None]:
+    class_abi_generator = java_toolchain.class_abi_generator
+    if class_abi_generator != None:
+        class_abi = actions.declare_output("{}-class-abi.jar".format(library.short_path))
+        actions.run(
             [
                 class_abi_generator[RunInfo],
                 library,
@@ -142,9 +162,9 @@ def create_java_classpath_entry(ctx: "context", library: "artifact", generate_ab
             category = "class_abi_generation",
             identifier = library.short_path,
         )
+        return class_abi
     else:
-        class_abi = library
-    return JavaClasspathEntry(full_library = library, abi = class_abi)
+        return None
 
 # Accumulate deps necessary for compilation, which consist of this library's output and compiling_deps of its exported deps
 def derive_compiling_deps(

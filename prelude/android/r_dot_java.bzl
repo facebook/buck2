@@ -1,5 +1,5 @@
 load("@fbcode//buck2/prelude/java:java_library.bzl", "compile_to_jar")
-load("@fbcode//buck2/prelude/java:java_providers.bzl", "JavaLibraryInfo", "create_java_classpath_entry", "derive_compiling_deps")
+load("@fbcode//buck2/prelude/java:java_providers.bzl", "JavaClasspathEntry", "JavaLibraryInfo", "derive_compiling_deps")
 
 def get_dummy_r_dot_java(
         ctx: "context",
@@ -8,9 +8,7 @@ def get_dummy_r_dot_java(
         android_resources: ["AndroidResourceInfo"],
         union_package: [str.type, None]) -> "JavaLibraryInfo":
     r_dot_java_source_code_dir = _generate_r_dot_java_source_code(ctx, merge_android_resources_tool, android_resources, union_package = union_package)
-    r_dot_java_jar = _generate_and_compile_r_dot_java(ctx, r_dot_java_source_code_dir, java_toolchain)
-    library_output = create_java_classpath_entry(ctx, r_dot_java_jar)
-
+    library_output = _generate_and_compile_r_dot_java(ctx, r_dot_java_source_code_dir, java_toolchain)
     return JavaLibraryInfo(
         compiling_deps = derive_compiling_deps(ctx.actions, library_output, []),
         library_output = library_output,
@@ -41,8 +39,7 @@ def generate_r_dot_java(
         referenced_resources_lists = referenced_resources_lists,
     )
 
-    r_dot_java_jar = _generate_and_compile_r_dot_java(ctx, r_dot_java_source_code_dir, java_toolchain)
-    library_output = create_java_classpath_entry(ctx, r_dot_java_jar)
+    library_output = _generate_and_compile_r_dot_java(ctx, r_dot_java_source_code_dir, java_toolchain)
     return JavaLibraryInfo(
         compiling_deps = derive_compiling_deps(ctx.actions, library_output, []),
         library_output = library_output,
@@ -107,7 +104,7 @@ def _generate_r_dot_java_source_code(
 def _generate_and_compile_r_dot_java(
         ctx: "context",
         r_dot_java_source_code_dir: "artifact",
-        java_toolchain: "JavaToolchainInfo") -> "artifact":
+        java_toolchain: "JavaToolchainInfo") -> JavaClasspathEntry.type:
     r_dot_java_out = ctx.actions.declare_output("r_dot_java.jar")
     r_dot_java_src_listing = ctx.actions.declare_output("r_dot_java.srclist")
     ctx.actions.run(
@@ -152,6 +149,12 @@ def _generate_and_compile_r_dot_java(
             srcs = r_dot_java_srcs,
         )
 
+    # Extracting an abi is unnecessary as there's not really anything to strip.
+    outputs = JavaClasspathEntry(
+        full_library = r_dot_java_out,
+        abi = r_dot_java_out,
+    )
+
     todo_inputs = []
     ctx.actions.dynamic_output([r_dot_java_src_listing], todo_inputs, [r_dot_java_out], compile_r_dot_java_srcs)
-    return r_dot_java_out
+    return outputs

@@ -1,6 +1,6 @@
 load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@fbcode//buck2/prelude/java:java_library.bzl", "compile_to_jar")
-load("@fbcode//buck2/prelude/java:java_providers.bzl", "JavaLibraryInfo", "JavaPackagingDepTSet", "JavaPackagingInfo", "create_java_classpath_entry", "create_java_packaging_dep", "derive_compiling_deps")
+load("@fbcode//buck2/prelude/java:java_providers.bzl", "JavaLibraryInfo", "JavaPackagingDepTSet", "JavaPackagingInfo", "create_java_packaging_dep", "derive_compiling_deps")
 load(":android_providers.bzl", "AndroidBuildConfigInfo", "BuildConfigField", "merge_android_packageable_info")
 
 def android_build_config_impl(ctx: "context") -> ["provider"]:
@@ -36,8 +36,8 @@ def generate_android_build_config(
     build_config_dot_java = _generate_build_config_dot_java(ctx, source, java_package, use_constant_expressions, default_values, values_file)
 
     compiled_build_config_dot_java = _compile_and_package_build_config_dot_java(ctx, java_package, build_config_dot_java)
+    library_output = compiled_build_config_dot_java.classpath_entry
 
-    library_output = create_java_classpath_entry(ctx, compiled_build_config_dot_java)
     packaging_deps_kwargs = {"value": create_java_packaging_dep(ctx, library_output.full_library)}
     packaging_deps = ctx.actions.tset(JavaPackagingDepTSet, **packaging_deps_kwargs)
     return (JavaLibraryInfo(
@@ -87,7 +87,7 @@ def _generate_build_config_dot_java(
 def _compile_and_package_build_config_dot_java(
         ctx: "context",
         java_package: str.type,
-        build_config_dot_java: "artifact") -> "artifact":
+        build_config_dot_java: "artifact") -> "JavaCompileOutputs":
     return compile_to_jar(
         ctx,
         actions_prefix = "build_config_{}".format(java_package.replace(".", "_")),

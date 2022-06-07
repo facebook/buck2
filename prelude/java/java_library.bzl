@@ -3,9 +3,10 @@ load("@fbcode//buck2/prelude/android:android_providers.bzl", "merge_android_pack
 load(
     "@fbcode//buck2/prelude/java:java_providers.bzl",
     "JavaLibraryInfo",
-    "create_java_classpath_entry",
     "create_java_library_providers",
     "derive_compiling_deps",
+    "make_compile_outputs",
+    "maybe_create_abi",
 )
 load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@fbcode//buck2/prelude/java/plugins:java_annotation_processor.bzl", "create_ap_params")
@@ -322,7 +323,7 @@ def compile_to_jar(
         extra_arguments: [["string"], None] = None,
         additional_classpath_entries: [["artifact"], None] = None,
         additional_compiled_srcs: ["artifact", None] = None,
-        bootclasspath_entries: [["artifact"], None] = None) -> "artifact":
+        bootclasspath_entries: [["artifact"], None] = None) -> "JavaCompileOutputs":
     if not additional_classpath_entries:
         additional_classpath_entries = []
     if not bootclasspath_entries:
@@ -389,7 +390,7 @@ def _create_jar_artifact(
         extra_arguments: ["string"],
         additional_classpath_entries: ["artifact"],
         additional_compiled_srcs: ["artifact", None],
-        bootclasspath_entries: ["artifact"]) -> "artifact":
+        bootclasspath_entries: ["artifact"]) -> "JavaCompileOutputs":
     """
     Creates jar artifact.
 
@@ -427,8 +428,11 @@ def _create_jar_artifact(
         _append_javac_params(actions, actions_prefix, java_toolchain, srcs, remove_classes, ap_params, plugin_params, source_level, target_level, deps, extra_arguments, additional_classpath_entries, bootclasspath_entries, compile_and_package_cmd)
 
     actions.run(compile_and_package_cmd, category = "javac_and_jar", identifier = actions_prefix)
-
-    return jar_out
+    abi = maybe_create_abi(actions, java_toolchain, jar_out)
+    return make_compile_outputs(
+        full_library = jar_out,
+        class_abi = abi,
+    )
 
 def _check_dep_types(deps: ["dependency"]):
     for dep in deps:
@@ -519,9 +523,9 @@ def build_java_library(
     source_level, target_level = _get_java_version_attributes(ctx)
     javac_tool = derive_javac(ctx.attr.javac) if ctx.attr.javac else None
 
-    outputs = []
+    outputs = None
     if srcs or additional_compiled_srcs or resources or ap_params or plugin_params or manifest_file:
-        outputs.append(compile_to_jar(
+        outputs = compile_to_jar(
             ctx,
             javac_tool = javac_tool,
             srcs = srcs,
@@ -538,12 +542,11 @@ def build_java_library(
             additional_classpath_entries = additional_classpath_entries,
             additional_compiled_srcs = additional_compiled_srcs,
             bootclasspath_entries = bootclasspath_entries,
-        ))
+        )
 
-    library_output_classpath_entry = create_java_classpath_entry(ctx, outputs[0]) if outputs else None
     java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info = create_java_library_providers(
         ctx,
-        library_output = library_output_classpath_entry,
+        library_output = outputs.classpath_entry if outputs else None,
         declared_deps = ctx.attr.deps + deps_query,
         exported_deps = ctx.attr.exported_deps,
         provided_deps = ctx.attr.provided_deps + provided_deps_query,
@@ -552,11 +555,25 @@ def build_java_library(
         needs_desugar = source_level > 7 or target_level > 7,
     )
 
+    default_info = DefaultInfo()
+    if outputs:
+        abis = [
+            ("class-abi", outputs.class_abi),
+        ]
+        default_info = DefaultInfo(
+            default_outputs = [outputs.full_library],
+            sub_targets = {
+                name: [DefaultInfo(default_outputs = [artifact])]
+                for (name, artifact) in abis
+                if artifact != None
+            },
+        )
+
     return (
         java_library_info,
         java_packaging_info,
         shared_library_info,
         cxx_resource_info,
         template_placeholder_info,
-        DefaultInfo(default_outputs = outputs),
+        default_info,
     )
