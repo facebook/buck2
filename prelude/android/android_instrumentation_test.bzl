@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidApkInfo")
+load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidApkInfo", "AndroidInstrumentationApkInfo")
 load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@fbcode//buck2/prelude/java/utils:java_utils.bzl", "get_path_separator")
@@ -21,6 +21,10 @@ def android_instrumentation_test_impl(ctx: "context"):
 
     apk_info = ctx.attr.apk[AndroidApkInfo]
     expect(apk_info != None, "Provided APK must have AndroidApkInfo!")
+
+    instrumentation_apk_info = ctx.attr.apk[AndroidInstrumentationApkInfo]
+    if instrumentation_apk_info != None:
+        cmd.extend(["--apk-under-test-path", instrumentation_apk_info.apk_under_test])
 
     target_package_file = ctx.actions.declare_output("target_package_file")
     package_file = ctx.actions.declare_output("package_file")

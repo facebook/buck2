@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude:attributes.bzl", "AaptMode", "DuplicateResourceBehaviour")
+load("@fbcode//buck2/prelude:attributes.bzl", "AaptMode", "DuplicateResourceBehaviour", "TargetCpuType")
 load("@fbcode//buck2/prelude/java:dex_toolchain.bzl", "DexToolchainInfo")
 load("@fbcode//buck2/prelude/java:java.bzl", "select_junit_toolchain")
 load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JUnitToolchainInfo", "JavaPlatformInfo", "JavaToolchainInfo")
@@ -77,6 +77,32 @@ extra_attributes = {
             providers = [
                 AndroidPlatformInfo,
                 AndroidToolchainInfo,
+            ],
+        ),
+        "_java_toolchain": attr.exec_dep(
+            default = _select_java_toolchain(),
+            providers = [
+                JavaPlatformInfo,
+                JavaToolchainInfo,
+            ],
+        ),
+    },
+    "android_instrumentation_apk": {
+        "aapt_mode": attr.enum(AaptMode, default = "aapt1"),  # Match default in V1
+        "cpu_filters": attr.list(attr.enum(TargetCpuType), default = []),
+        "deps": attr.list(attr.split_transition_dep(cfg = cpu_split_transition), default = []),
+        "dex_tool": attr.string(default = "d8"),  # Match default in V1
+        "_android_toolchain": attr.exec_dep(
+            default = select_android_toolchain(),
+            providers = [
+                AndroidPlatformInfo,
+                AndroidToolchainInfo,
+            ],
+        ),
+        "_dex_toolchain": attr.exec_dep(
+            default = _select_dex_toolchain(),
+            providers = [
+                DexToolchainInfo,
             ],
         ),
         "_java_toolchain": attr.exec_dep(

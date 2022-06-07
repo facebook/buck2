@@ -62,6 +62,18 @@ AndroidApkInfo = provider(
     ],
 )
 
+AndroidApkUnderTestInfo = provider(
+    fields = [
+        "keystore",  # "KeystoreInfo"
+    ],
+)
+
+AndroidInstrumentationApkInfo = provider(
+    fields = [
+        "apk_under_test",  # "artifact"
+    ],
+)
+
 CPU_FILTER_TO_ABI_DIRECTORY = {
     "arm": "armeabi",
     "arm64": "arm64-v8a",
