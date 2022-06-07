@@ -35,7 +35,7 @@ impl<const N: usize> StarlarkStrNRepr<N> {
     /// Create a new [`StarlarkStrNRepr`] given a string of size `N > 1`.
     /// If the string has a different size it will fail.
     ///
-    /// This function is used internally, use [`const_frozen_string`] macro
+    /// This function is used internally, use `const_frozen_string` macro
     /// to statically allocate strings.
     pub const fn new(s: &str) -> Self {
         assert!(

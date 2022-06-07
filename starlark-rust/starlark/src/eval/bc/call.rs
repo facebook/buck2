@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+// TODO(nga): fix.
+#![allow(deprecated_where_clause_location)]
+
 //! Call-related bytecode interpreter code.
 
 use std::{

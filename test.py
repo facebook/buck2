@@ -133,6 +133,12 @@ def rustfmt(buck2_dir: Path, ci: bool) -> None:
 
 
 CLIPPY_ALLOW = [
+    # To migrate, let's discuss later if any of these are useful
+    "clippy::needless-match",
+    "clippy::needless-return",
+    "clippy::only-used-in-recursion",
+    "clippy::unnecessary-to-owned",
+    # Other
     "clippy::blacklisted-name",  # Not using foo, bar, baz in test data is silly
     "clippy::cognitive_complexity",  # This is an arbitrary linter
     "clippy::comparison_chain",  # Generates worse code and harder to read

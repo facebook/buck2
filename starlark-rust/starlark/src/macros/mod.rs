@@ -151,7 +151,7 @@ macro_rules! starlark_complex_values {
 /// }
 /// ```
 ///
-/// The [`starlark_simple_value!`] macro defines instances of
+/// The `starlark_simple_value!` macro defines instances of
 /// [`ProvidesStaticType`](crate::values::ProvidesStaticType),
 /// [`AllocValue`](crate::values::AllocValue),
 /// [`AllocFrozenValue`](crate::values::AllocFrozenValue) and
