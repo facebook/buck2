@@ -142,6 +142,10 @@ extra_attributes = {
         ),
     },
     "android_prebuilt_aar": {
+        # Prebuilt jars are quick to build, and often contain third-party code, which in turn is
+        # often a source of annotations and constants. To ease migration to ABI generation from
+        # source without deps, we have them present during ABI gen by default.
+        "required_for_source_only_abi": attr.bool(default = True),
         "_android_toolchain": attr.exec_dep(
             default = select_android_toolchain(),
             providers = [
