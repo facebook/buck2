@@ -340,7 +340,7 @@ impl<P: AstPayload> AssignP<P> {
     pub(crate) fn visit_expr<'a>(&'a self, mut f: impl FnMut(&'a AstExprP<P>)) {
         fn recurse<'a, P: AstPayload>(x: &'a AssignP<P>, f: &mut impl FnMut(&'a AstExprP<P>)) {
             match x {
-                AssignP::Tuple(xs) => xs.iter().for_each(|x| recurse(&*x, f)),
+                AssignP::Tuple(xs) => xs.iter().for_each(|x| recurse(x, f)),
                 AssignP::Dot(a, _) => f(a),
                 AssignP::ArrayIndirection(box (a, b)) => {
                     f(a);

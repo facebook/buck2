@@ -312,7 +312,7 @@ impl DeferredKey {
                 }
                 DeferredKey::Deferred(base, id) => {
                     ids.push(id);
-                    x = &*base
+                    x = base
                 }
             }
         }
@@ -327,7 +327,7 @@ impl DeferredKey {
         loop {
             match x {
                 DeferredKey::Base(base, _) => return base,
-                DeferredKey::Deferred(base, _) => x = &*base,
+                DeferredKey::Deferred(base, _) => x = base,
             }
         }
     }

@@ -154,7 +154,7 @@ impl<'v> StarlarkValue<'v> for Range {
 
     fn equals(&self, other: Value) -> anyhow::Result<bool> {
         if let Some(other) = other.downcast_ref::<Self>() {
-            self.equals_range(&*other)
+            self.equals_range(other)
         } else {
             Ok(false)
         }

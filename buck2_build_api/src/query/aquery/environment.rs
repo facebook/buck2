@@ -162,8 +162,8 @@ impl QueryTarget for ActionQueryNode {
             fn next(&mut self) -> Option<Self::Item> {
                 self.queue.pop_front().map(|node| {
                     for child in &*node.node.children {
-                        if self.visited.insert(&*child) {
-                            self.queue.push_back(&*child);
+                        if self.visited.insert(child) {
+                            self.queue.push_back(child);
                         }
                     }
 

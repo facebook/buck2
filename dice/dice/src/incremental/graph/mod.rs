@@ -335,8 +335,8 @@ impl<'a> Deref for ReadOnlyHistory<'a> {
 
     fn deref(&self) -> &Self::Target {
         match self {
-            ReadOnlyHistory::FromHistInfo(hist) => &*hist,
-            ReadOnlyHistory::FromCell(hist) => &*hist,
+            ReadOnlyHistory::FromHistInfo(hist) => hist,
+            ReadOnlyHistory::FromCell(hist) => hist,
             ReadOnlyHistory::TestingValue(v) => v,
         }
     }

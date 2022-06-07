@@ -225,11 +225,7 @@ impl QueryAttr<ConfiguredAttr> {
             if let Some(provider_ids) = &self.providers {
                 let provider_collection = providers.provider_collection();
 
-                DepAttrType::check_providers(
-                    &*provider_ids,
-                    &*provider_collection,
-                    &providers_label,
-                )?;
+                DepAttrType::check_providers(provider_ids, provider_collection, &providers_label)?;
             }
             dependencies.push(DepAttrType::alloc_dependency(
                 ctx.starlark_module(),

@@ -1352,7 +1352,7 @@ impl BuckConfigBasedCells {
 
             let config = LegacyBuckConfig::parse_with_file_ops_with_includes(
                 existing_configs.as_slice(),
-                &*file_ops,
+                file_ops,
                 &processed_config_args,
                 options.follow_includes,
             )?;

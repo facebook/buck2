@@ -495,14 +495,13 @@ async fn compute_configured_target_node(
         }
 
         let cfg = ctx
-            .apply_transition(&target_node, key.0.cfg(), &*transition_id)
+            .apply_transition(&target_node, key.0.cfg(), transition_id)
             .await?;
         let configured_target_label = key.0.unconfigured().configure(cfg.single()?.dupe());
 
         if configured_target_label == key.0 {
             // Transitioned to identical configured target, no need to create a forward node.
-            return compute_configured_target_node_no_transition(&key.0, target_node.dupe(), ctx)
-                .await;
+            compute_configured_target_node_no_transition(&key.0, target_node.dupe(), ctx).await
         } else {
             ctx.compute(&ConfiguredTransitionedNodeKey {
                 forward: key.0.dupe(),

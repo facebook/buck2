@@ -89,8 +89,8 @@ fn is_env_arg(ty: &Type, env_ty: &Type) -> syn::Result<bool> {
 
 fn ctx_arg_for(arg: &Argument, env_ty: &Type) -> syn::Result<ContextArgument> {
     Ok(match arg {
-        Argument { ty, .. } if is_evaluator_arg(&*ty)? => ContextArgument::Evaluator,
-        Argument { ty, .. } if is_env_arg(&*ty, env_ty)? => ContextArgument::Environment,
+        Argument { ty, .. } if is_evaluator_arg(ty)? => ContextArgument::Evaluator,
+        Argument { ty, .. } if is_env_arg(ty, env_ty)? => ContextArgument::Environment,
         _ => ContextArgument::None,
     })
 }

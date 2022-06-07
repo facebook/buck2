@@ -79,7 +79,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgGen<V> {
     }
 
     fn visit_inner<R>(&self, f: impl FnOnce(&dyn CommandLineArgLike) -> R) -> R {
-        f(&*self.0.to_value().as_command_line().unwrap())
+        f(self.0.to_value().as_command_line().unwrap())
     }
 }
 

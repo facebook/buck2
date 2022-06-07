@@ -164,7 +164,7 @@ impl DepAttrType {
         target: &ConfiguredProvidersLabel,
     ) -> anyhow::Result<()> {
         for provider_id in required_providers {
-            if !providers.contains_provider(&*provider_id) {
+            if !providers.contains_provider(provider_id) {
                 return Err(anyhow::anyhow!(ResolutionError::MissingRequiredProvider(
                     provider_id.name().to_owned(),
                     target.clone(),
@@ -196,7 +196,7 @@ impl DepAttrType {
             Some(v) => {
                 let provider_collection = v.provider_collection();
                 if let Some(provider_ids) = required_providers {
-                    Self::check_providers(&*provider_ids, &*provider_collection, target)?;
+                    Self::check_providers(provider_ids, provider_collection, target)?;
                 }
 
                 Ok(Self::alloc_dependency(ctx.starlark_module(), target, &v))

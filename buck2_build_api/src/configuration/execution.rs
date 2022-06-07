@@ -159,7 +159,7 @@ impl ExecutionPlatformResolution {
 
     pub fn platform(&self) -> anyhow::Result<&ExecutionPlatform> {
         match &self.platform {
-            Some(v) => Ok(&*v),
+            Some(v) => Ok(v),
             None => Err(ExecutionPlatformError::NoCompatiblePlatform(
                 self.skipped_platforms.dupe(),
             )

@@ -82,13 +82,13 @@ impl<'f, T: ?Sized> Deref for FrozenRef<'f, T> {
 
 impl<'f, T: 'f + ?Sized> Borrow<T> for FrozenRef<'f, T> {
     fn borrow(&self) -> &T {
-        &*self
+        self
     }
 }
 
 impl<'f, T: 'f + ?Sized> Borrow<T> for FrozenRef<'f, Box<T>> {
     fn borrow(&self) -> &T {
-        &*self
+        self
     }
 }
 
@@ -97,7 +97,7 @@ where
     T: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
-        (&*self as &T).eq(&*other as &T)
+        (self as &T).eq(other as &T)
     }
 }
 
@@ -108,7 +108,7 @@ where
     T: PartialOrd,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        (&*self as &T).partial_cmp(&*other as &T)
+        (self as &T).partial_cmp(other as &T)
     }
 }
 
@@ -117,7 +117,7 @@ where
     T: Ord,
 {
     fn cmp(&self, other: &Self) -> Ordering {
-        (&*self as &T).cmp(&*other as &T)
+        (self as &T).cmp(other as &T)
     }
 }
 
@@ -126,7 +126,7 @@ where
     T: Hash,
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        (&*self as &T).hash(state);
+        (self as &T).hash(state);
     }
 }
 

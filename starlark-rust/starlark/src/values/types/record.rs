@@ -346,8 +346,8 @@ where
         }
 
         match RecordType::from_value(other) {
-            Some(Either::Left(other)) => eq(self, &*other),
-            Some(Either::Right(other)) => eq(self, &*other),
+            Some(Either::Left(other)) => eq(self, other),
+            Some(Either::Right(other)) => eq(self, other),
             _ => Ok(false),
         }
     }

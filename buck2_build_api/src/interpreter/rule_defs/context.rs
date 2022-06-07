@@ -467,7 +467,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
         let (content_cli, written_macro_count) =
             if let Some(content_arg) = content.as_command_line() {
-                let count = count_write_to_file_macros(allow_args, &*content_arg)?;
+                let count = count_write_to_file_macros(allow_args, content_arg)?;
                 (content, count)
             } else {
                 let cli = StarlarkCommandLine::try_from_value(content)?;

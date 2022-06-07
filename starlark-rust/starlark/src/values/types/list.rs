@@ -494,14 +494,14 @@ where
     fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
         match List::from_value(other) {
             None => Ok(false),
-            Some(other) => equals_slice(&*self.0.content(), &other.content, |x, y| x.equals(*y)),
+            Some(other) => equals_slice(self.0.content(), &other.content, |x, y| x.equals(*y)),
         }
     }
 
     fn compare(&self, other: Value<'v>) -> anyhow::Result<Ordering> {
         match List::from_value(other) {
             None => ValueError::unsupported_with(self, "cmp()", other),
-            Some(other) => compare_slice(&*self.0.content(), &other.content, |x, y| x.compare(*y)),
+            Some(other) => compare_slice(self.0.content(), &other.content, |x, y| x.compare(*y)),
         }
     }
 
@@ -535,7 +535,7 @@ where
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         let xs = self.0.content();
-        let res = apply_slice(&*xs, start, stop, stride)?;
+        let res = apply_slice(xs, start, stop, stride)?;
         Ok(heap.alloc_list(&res))
     }
 

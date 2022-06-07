@@ -59,7 +59,7 @@ fn duplicate_dictionary_key(module: &AstModule, res: &mut Vec<LintT<Dubious>>) {
 
     fn to_key<'a>(x: &'a AstExpr) -> Option<(Key<'a>, Span)> {
         match &**x {
-            Expr::Literal(x) => match &*x {
+            Expr::Literal(x) => match x {
                 AstLiteral::Int(x) => match &x.node {
                     TokenInt::I32(i) => Some((Key::Int(*i), x.span)),
                     TokenInt::BigInt(i) => Some((Key::BigInt(i), x.span)),
