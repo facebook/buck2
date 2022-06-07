@@ -322,13 +322,15 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         self.call_stack.top_location()
     }
 
-    /// Called before every statement is run with the span and a reference to the containing [`Evaluator`].
-    /// A list of all possible statements can be obtained in advance by
-    /// [`AstModule::stmt_locations`](crate::syntax::AstModule::stmt_locations).
-    ///
-    /// This function may have no effect is called mid evaluation.
-    pub fn before_stmt(&mut self, f: &'a dyn Fn(FileSpanRef, &mut Evaluator<'v, 'a>)) {
+    pub(crate) fn before_stmt(&mut self, f: &'a dyn Fn(FileSpanRef, &mut Evaluator<'v, 'a>)) {
         self.before_stmt.before_stmt.push(f)
+    }
+
+    /// This function is used by DAP, and it is not public API.
+    // TODO(nga): pull DAP into the crate, and hide this function.
+    #[doc(hidden)]
+    pub fn before_stmt_for_dap(&mut self, f: &'a dyn Fn(FileSpanRef, &mut Evaluator<'v, 'a>)) {
+        self.before_stmt(f);
     }
 
     /// Set the handler invoked when `print` function is used.

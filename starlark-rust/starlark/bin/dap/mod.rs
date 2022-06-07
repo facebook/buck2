@@ -130,7 +130,7 @@ impl Backend {
                     }
                 }
             };
-            eval.before_stmt(&fun);
+            eval.before_stmt_for_dap(&fun);
             // No way to pass back success/failure to the caller
             client.log(&format!("EVALUATION START: {}", path.display()));
             let v = eval.eval_module(ast, &globals)?;

@@ -37,8 +37,7 @@ fn go(x: &AstStmt, codemap: &CodeMap, res: &mut Vec<FileSpan>) {
 }
 
 impl AstModule {
-    /// Locations where statements occur, likely to be passed as the positions
-    /// to [`before_stmt`](crate::eval::Evaluator::before_stmt).
+    /// Locations where statements occur.
     pub fn stmt_locations(&self) -> Vec<FileSpan> {
         let mut res = Vec::new();
         self.statement
