@@ -351,7 +351,7 @@ def compile_to_jar(
         ctx.actions,
         actions_prefix,
         java_toolchain,
-        ctx.label.package,
+        ctx.label,
         output,
         javac_tool,
         srcs,
@@ -374,7 +374,7 @@ def _create_jar_artifact(
         actions: "actions",
         actions_prefix: str.type,
         java_toolchain: JavaToolchainInfo.type,
-        package: str.type,
+        label: "label",
         output: ["artifact", None],
         javac_tool: ["", None],
         srcs: ["artifact"],
@@ -414,7 +414,7 @@ def _create_jar_artifact(
         args += ["--javac_tool", javac_tool]
 
     if resources:
-        resource_dir = _copy_resources(actions, java_toolchain, package, resources, resources_root)
+        resource_dir = _copy_resources(actions, java_toolchain, label.package, resources, resources_root)
         args += ["--resources_dir", resource_dir]
 
     if manifest_file:
