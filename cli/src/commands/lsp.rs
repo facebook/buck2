@@ -9,13 +9,13 @@
 
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
-use futures::stream;
+use futures::{stream, FutureExt};
 use once_cell::sync::Lazy;
 use structopt::{clap, StructOpt};
 
 use crate::{
-    commands::common::ConsoleType, BuckdClient, CommandContext, CommonConfigOptions,
-    CommonConsoleOptions, CommonEventLogOptions, StreamingCommand,
+    commands::common::ConsoleType, daemon::client::BuckdClientConnector, CommandContext,
+    CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions, StreamingCommand,
 };
 
 #[derive(Debug, StructOpt)]
@@ -34,19 +34,21 @@ impl StreamingCommand for LspCommand {
 
     async fn exec_impl(
         self,
-        mut buckd: BuckdClient,
+        mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
         ctx: CommandContext,
     ) -> ExitResult {
         let requests = vec![cli_proto::LspRequest {
             lsp_json: "{}".to_owned(),
         }];
+        let client_context = ctx.client_context(&self.config_opts, matches)?;
         buckd
-            .lsp(
-                ctx.client_context(&self.config_opts, matches)?,
-                stream::iter(requests.into_iter()),
-            )
-            .await??;
+            .with_flushing(|client| {
+                client
+                    .lsp(client_context, stream::iter(requests.into_iter()))
+                    .boxed()
+            })
+            .await???;
         ExitResult::success()
     }
 

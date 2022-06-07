@@ -16,6 +16,7 @@ use cli_proto::{
     build_request::{build_providers, BuildProviders, Materializations},
     BuildRequest,
 };
+use futures::FutureExt;
 use serde::Serialize;
 use structopt::{clap, StructOpt};
 use thiserror::Error;
@@ -28,7 +29,7 @@ use crate::{
             CommonConsoleOptions, CommonEventLogOptions,
         },
     },
-    daemon::client::{BuckdClient, CommandOutcome},
+    daemon::client::{BuckdClientConnector, CommandOutcome},
     CommandContext, StreamingCommand,
 };
 
@@ -83,28 +84,33 @@ impl StreamingCommand for RunCommand {
 
     async fn exec_impl(
         self,
-        mut buckd: BuckdClient,
+        mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
         ctx: CommandContext,
     ) -> ExitResult {
+        let ctx = ctx.client_context(&self.config_opts, matches)?;
         // TODO(rafaelc): fail fast on the daemon if the target doesn't have RunInfo
         let response = buckd
-            .build(BuildRequest {
-                context: Some(ctx.client_context(&self.config_opts, matches)?),
-                target_patterns: vec![buck2_data::TargetPattern {
-                    value: self.target.clone(),
-                }],
-                unstable_print_providers: self.print_providers,
-                build_providers: Some(BuildProviders {
-                    default_info: build_providers::Action::Skip as i32,
-                    run_info: build_providers::Action::Build as i32,
-                    test_info: build_providers::Action::Skip as i32,
-                }),
-                response_options: None,
-                build_opts: Some(self.build_opts.to_proto()),
-                final_artifact_materializations: Materializations::Materialize as i32,
+            .with_flushing(|client| {
+                client
+                    .build(BuildRequest {
+                        context: Some(ctx),
+                        target_patterns: vec![buck2_data::TargetPattern {
+                            value: self.target.clone(),
+                        }],
+                        unstable_print_providers: self.print_providers,
+                        build_providers: Some(BuildProviders {
+                            default_info: build_providers::Action::Skip as i32,
+                            run_info: build_providers::Action::Build as i32,
+                            test_info: build_providers::Action::Skip as i32,
+                        }),
+                        response_options: None,
+                        build_opts: Some(self.build_opts.to_proto()),
+                        final_artifact_materializations: Materializations::Materialize as i32,
+                    })
+                    .boxed()
             })
-            .await;
+            .await?;
 
         let console = self.console_opts.final_console();
         let success = match &response {

@@ -18,7 +18,7 @@ use buck2_core::{
 use buck2_data::RageInvoked;
 use cli_proto::{unstable_dice_dump_request::DiceDumpFormat, UnstableDiceDumpRequest};
 use events::{dispatch::EventDispatcher, TraceId};
-use futures::TryStreamExt;
+use futures::{FutureExt, TryStreamExt};
 use structopt::{clap, StructOpt};
 use thiserror::Error;
 use tokio::process::Command;
@@ -31,7 +31,7 @@ use crate::{
         },
         debug::replay::retrieve_nth_recent_log,
     },
-    daemon::client::{BuckdClient, StreamValue},
+    daemon::client::{BuckdClientConnector, StreamValue},
     metadata, BuckdConnectOptions, CommandContext, Path, StreamingCommand,
 };
 
@@ -69,7 +69,7 @@ impl StreamingCommand for RageCommand {
 
     async fn exec_impl(
         self,
-        mut buckd: BuckdClient,
+        mut buckd: BuckdClientConnector,
         _matches: &clap::ArgMatches,
         ctx: CommandContext,
     ) -> ExitResult {
@@ -108,11 +108,15 @@ impl StreamingCommand for RageCommand {
         crate::eprintln!("Dumping Buck2 internal state...")?;
 
         buckd
-            .unstable_dice_dump(UnstableDiceDumpRequest {
-                destination_path: this_dice_dump_folder.to_str().unwrap().to_owned(),
-                format: DiceDumpFormat::Tsv.into(),
+            .with_flushing(|client| {
+                client
+                    .unstable_dice_dump(UnstableDiceDumpRequest {
+                        destination_path: this_dice_dump_folder.to_str().unwrap().to_owned(),
+                        format: DiceDumpFormat::Tsv.into(),
+                    })
+                    .boxed()
             })
-            .await
+            .await?
             .with_context(|| {
                 format!(
                     "Dice Dump at {:?} failed to complete",

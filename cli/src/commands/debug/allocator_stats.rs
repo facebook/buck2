@@ -10,11 +10,12 @@
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use cli_proto::UnstableAllocatorStatsRequest;
+use futures::FutureExt;
 use structopt::{clap, StructOpt};
 
 use crate::{
     commands::common::{CommonConsoleOptions, CommonEventLogOptions, ConsoleType},
-    daemon::client::{BuckdClient, BuckdConnectOptions},
+    daemon::client::{BuckdClientConnector, BuckdConnectOptions},
     CommandContext, StreamingCommand,
 };
 
@@ -39,15 +40,19 @@ impl StreamingCommand for AllocatorStatsCommand {
 
     async fn exec_impl(
         self,
-        mut buckd: BuckdClient,
+        mut buckd: BuckdClientConnector,
         _matches: &clap::ArgMatches,
         _ctx: CommandContext,
     ) -> ExitResult {
         let res = buckd
-            .unstable_allocator_stats(UnstableAllocatorStatsRequest {
-                options: self.options,
+            .with_flushing(|client| {
+                client
+                    .unstable_allocator_stats(UnstableAllocatorStatsRequest {
+                        options: self.options,
+                    })
+                    .boxed()
             })
-            .await?;
+            .await??;
 
         crate::print!("{}", res.response)?;
 

@@ -3,6 +3,7 @@ use std::str::FromStr;
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use cli_proto::{build_request::ResponseOptions, BxlRequest};
+use futures::FutureExt;
 use structopt::{clap, StructOpt};
 use thiserror::Error;
 
@@ -14,8 +15,8 @@ use crate::{
         },
         common::{value_name_variants, CommonBuildOptions},
     },
-    daemon::client::CommandOutcome,
-    BuckdClient, CommandContext, CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions,
+    daemon::client::{BuckdClientConnector, CommandOutcome},
+    CommandContext, CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions,
     StreamingCommand,
 };
 
@@ -106,26 +107,30 @@ impl StreamingCommand for BxlCommand {
 
     async fn exec_impl(
         self,
-        mut buckd: BuckdClient,
+        mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
         ctx: CommandContext,
     ) -> ExitResult {
+        let ctx = ctx.client_context(&self.config_opts, matches)?;
         let result = buckd
-            .bxl(BxlRequest {
-                context: Some(ctx.client_context(&self.config_opts, matches)?),
-                bxl_label: self.bxl_core.bxl_label,
-                bxl_args: self.bxl_core.bxl_args,
-                response_options: Some(ResponseOptions {
-                    return_outputs: self.bxl_core.show_all_outputs,
-                }),
-                build_opts: Some(self.build_opts.to_proto()),
-                final_artifact_materializations: self.materializations.to_proto() as i32,
+            .with_flushing(|client| {
+                client
+                    .bxl(BxlRequest {
+                        context: Some(ctx),
+                        bxl_label: self.bxl_core.bxl_label,
+                        bxl_args: self.bxl_core.bxl_args,
+                        response_options: Some(ResponseOptions {
+                            return_outputs: self.bxl_core.show_all_outputs,
+                        }),
+                        build_opts: Some(self.build_opts.to_proto()),
+                        final_artifact_materializations: self.materializations.to_proto() as i32,
+                    })
+                    .boxed()
             })
             .await;
         let success = match &result {
-            Ok(CommandOutcome::Success(response)) => response.error_messages.is_empty(),
-            Ok(CommandOutcome::Failure(_)) => false,
-            Err(_) => false,
+            Ok(Ok(CommandOutcome::Success(response))) => response.error_messages.is_empty(),
+            _ => false,
         };
 
         let console = self.console_opts.final_console();
@@ -138,7 +143,7 @@ impl StreamingCommand for BxlCommand {
 
         // Action errors will have already been printed, but any other type
         // of error will be printed below the FAILED line here.
-        let response = result??;
+        let response = result???;
 
         print_build_result(&console, &response.error_messages)?;
 

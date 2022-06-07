@@ -99,6 +99,29 @@ impl ClientKind {
     }
 }
 
+/// We need to make sure that all calls to the daemon in buckd flush the tailers after completion.
+/// The connector wraps all buckd calls with flushing.
+pub struct BuckdClientConnector {
+    client: BuckdClient,
+}
+
+impl BuckdClientConnector {
+    pub async fn with_flushing<Fun, R: 'static>(&mut self, command: Fun) -> anyhow::Result<R>
+    where
+        for<'a> Fun: FnOnce(&'a mut BuckdClient) -> BoxFuture<'a, R>,
+    {
+        let tailers = FileTailers::new(&self.client.events_ctx.daemon_dir)?;
+        self.client.tailers = Some(tailers);
+        let result = command(&mut self.client).await;
+
+        self.client
+            .events_ctx
+            .flush(&mut self.client.tailers)
+            .await?;
+        Ok(result)
+    }
+}
+
 /// This provides a thin wrapper around the proto-generated DaemonApiClient and hides
 /// some of the complexity/verbosity of making calls with that. For example, the user
 /// doesn't need to deal with tonic::Response/Request and this may provide functions
@@ -106,6 +129,8 @@ impl ClientKind {
 pub struct BuckdClient {
     client: ClientKind,
     info: DaemonProcessInfo,
+    // TODO(brasselsprouts): events_ctx should own tailers
+    tailers: Option<FileTailers>,
     pub(crate) events_ctx: EventsCtx,
 }
 
@@ -213,7 +238,6 @@ impl BuckdClient {
         let Self {
             client, events_ctx, ..
         } = self;
-        let tailers = FileTailers::new(&events_ctx.daemon_dir)?;
         match client {
             ClientKind::Daemon(ref mut daemon) => {
                 let response = command(daemon, Request::new(request))
@@ -221,10 +245,10 @@ impl BuckdClient {
                     .context("Error dispatching request");
                 let stream = grpc_to_stream(response);
                 pin_mut!(stream);
-                events_ctx.unpack_stream(stream, tailers).await
+                events_ctx.unpack_stream(stream, &mut self.tailers).await
             }
             ClientKind::Replayer(ref mut replayer) => {
-                events_ctx.unpack_stream(replayer, tailers).await
+                events_ctx.unpack_stream(replayer, &mut self.tailers).await
             }
         }
     }
@@ -362,7 +386,8 @@ impl BuckdClient {
     pub async fn status(&mut self, snapshot: bool) -> anyhow::Result<StatusResponse> {
         let outcome = self
             .events_ctx
-            .unpack_oneshot(|| {
+            // Safe to unwrap tailers here because they are instantiated prior to a command being called.
+            .unpack_oneshot(&mut self.tailers, || {
                 self.client
                     .daemon_only_mut()
                     .status(Request::new(StatusRequest { snapshot }))
@@ -550,7 +575,7 @@ impl BuckdClient {
         req: FlushDepFilesRequest,
     ) -> anyhow::Result<CommandOutcome<GenericResponse>> {
         self.events_ctx
-            .unpack_oneshot(|| {
+            .unpack_oneshot(&mut self.tailers, || {
                 self.client
                     .daemon_only_mut()
                     .flush_dep_files(Request::new(req))

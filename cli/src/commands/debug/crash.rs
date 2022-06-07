@@ -10,11 +10,12 @@
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use cli_proto::UnstableCrashRequest;
+use futures::FutureExt;
 use structopt::{clap, StructOpt};
 
 use crate::{
     commands::common::{CommonConsoleOptions, CommonEventLogOptions, ConsoleType},
-    daemon::client::{BuckdClient, BuckdConnectOptions},
+    daemon::client::{BuckdClientConnector, BuckdConnectOptions},
     CommandContext, StreamingCommand,
 };
 
@@ -34,11 +35,13 @@ impl StreamingCommand for CrashCommand {
 
     async fn exec_impl(
         self,
-        mut buckd: BuckdClient,
+        mut buckd: BuckdClientConnector,
         _matches: &clap::ArgMatches,
         _ctx: CommandContext,
     ) -> ExitResult {
-        let _err = buckd.unstable_crash(UnstableCrashRequest {}).await;
+        let _err = buckd
+            .with_flushing(|client| client.unstable_crash(UnstableCrashRequest {}).boxed())
+            .await?;
         ExitResult::success()
     }
 

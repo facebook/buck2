@@ -10,6 +10,7 @@
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use cli_proto::{ClientContext, GenericRequest};
+use futures::FutureExt;
 use structopt::{clap, StructOpt};
 
 use crate::{
@@ -24,7 +25,7 @@ use crate::{
         },
         common::{CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions, ConsoleType},
     },
-    daemon::{client::BuckdClient, server::ServerCommandContext},
+    daemon::{client::BuckdClientConnector, server::ServerCommandContext},
     CommandContext, StreamingCommand,
 };
 
@@ -110,7 +111,7 @@ impl StreamingCommand for AuditCommand {
     /// Audit subcommands are all implemented as a generic request to the buckd server that will deserialize the command object.
     async fn exec_impl(
         self,
-        mut buckd: BuckdClient,
+        mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
         server_ctx: CommandContext,
     ) -> ExitResult {
@@ -129,11 +130,15 @@ impl StreamingCommand for AuditCommand {
         };
 
         buckd
-            .audit(GenericRequest {
-                context: Some(context),
-                serialized_opts: serialized,
+            .with_flushing(|client| {
+                client
+                    .audit(GenericRequest {
+                        context: Some(context),
+                        serialized_opts: serialized,
+                    })
+                    .boxed()
             })
-            .await??;
+            .await???;
         ExitResult::success()
     }
 

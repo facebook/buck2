@@ -10,6 +10,7 @@
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use cli_proto::SegfaultRequest;
+use futures::FutureExt;
 use structopt::StructOpt;
 
 use crate::{
@@ -26,11 +27,13 @@ impl StreamingCommand for SegfaultCommand {
 
     async fn exec_impl(
         self,
-        mut buckd: crate::daemon::client::BuckdClient,
+        mut buckd: crate::daemon::client::BuckdClientConnector,
         _matches: &structopt::clap::ArgMatches,
         _ctx: crate::CommandContext,
     ) -> buck2_core::exit_result::ExitResult {
-        let _err = buckd.segfault(SegfaultRequest {}).await;
+        let _err = buckd
+            .with_flushing(|client| client.segfault(SegfaultRequest {}).boxed())
+            .await?;
         ExitResult::success()
     }
 

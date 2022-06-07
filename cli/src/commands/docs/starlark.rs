@@ -2,12 +2,13 @@ use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use clap::arg_enum;
 use cli_proto::UnstableDocsRequest;
+use futures::FutureExt;
 use starlark::values::docs::Doc;
 use structopt::{clap, StructOpt};
 
 use crate::{
     commands::common::{CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions},
-    daemon::client::BuckdClient,
+    daemon::client::BuckdClientConnector,
     CommandContext, StreamingCommand,
 };
 
@@ -58,19 +59,23 @@ impl StreamingCommand for DocsStarlarkCommand {
     const COMMAND_NAME: &'static str = "docs starlark";
     async fn exec_impl(
         self,
-        mut buckd: BuckdClient,
+        mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
         ctx: CommandContext,
     ) -> ExitResult {
         let client_context = ctx.client_context(&self.config_opts, matches)?;
 
         let response = buckd
-            .unstable_docs(UnstableDocsRequest {
-                context: Some(client_context),
-                symbol_patterns: self.patterns.clone(),
-                retrieve_builtins: self.builtins,
+            .with_flushing(|client| {
+                client
+                    .unstable_docs(UnstableDocsRequest {
+                        context: Some(client_context),
+                        symbol_patterns: self.patterns.clone(),
+                        retrieve_builtins: self.builtins,
+                    })
+                    .boxed()
             })
-            .await??;
+            .await???;
 
         let docs: Vec<Doc> = serde_json::from_str(&response.docs_json)?;
         match self.format {

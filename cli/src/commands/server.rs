@@ -9,11 +9,12 @@
 
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
+use futures::FutureExt;
 use structopt::{clap::ArgMatches, StructOpt};
 
 use crate::{
     commands::common::{CommonConsoleOptions, CommonEventLogOptions, ConsoleType},
-    daemon::client::BuckdClient,
+    daemon::client::BuckdClientConnector,
     CommandContext, StreamingCommand,
 };
 
@@ -27,11 +28,13 @@ impl StreamingCommand for ServerCommand {
 
     async fn exec_impl(
         self,
-        mut buckd: BuckdClient,
+        mut buckd: BuckdClientConnector,
         _matches: &ArgMatches,
         _ctx: CommandContext,
     ) -> ExitResult {
-        let status = buckd.status(false).await?;
+        let status = buckd
+            .with_flushing(|client| client.status(false).boxed())
+            .await??;
         crate::println!("buckd.endpoint={}", status.process_info.unwrap().endpoint)?;
         ExitResult::success()
     }

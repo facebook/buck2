@@ -10,11 +10,12 @@
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use cli_proto::{unstable_dice_dump_request::DiceDumpFormat, UnstableDiceDumpRequest};
+use futures::FutureExt;
 use structopt::{clap, StructOpt};
 
 use crate::{
     commands::common::{CommonConsoleOptions, CommonEventLogOptions, ConsoleType},
-    daemon::client::{BuckdClient, BuckdConnectOptions},
+    daemon::client::{BuckdClientConnector, BuckdConnectOptions},
     CommandContext, StreamingCommand,
 };
 
@@ -40,7 +41,7 @@ impl StreamingCommand for DiceDumpCommand {
 
     async fn exec_impl(
         self,
-        mut buckd: BuckdClient,
+        mut buckd: BuckdClientConnector,
         _matches: &clap::ArgMatches,
         _ctx: CommandContext,
     ) -> ExitResult {
@@ -50,11 +51,15 @@ impl StreamingCommand for DiceDumpCommand {
             DiceDumpFormat::Tsv
         };
         buckd
-            .unstable_dice_dump(UnstableDiceDumpRequest {
-                destination_path: self.path,
-                format: format.into(),
+            .with_flushing(|client| {
+                client
+                    .unstable_dice_dump(UnstableDiceDumpRequest {
+                        destination_path: self.path,
+                        format: format.into(),
+                    })
+                    .boxed()
             })
-            .await?;
+            .await??;
         ExitResult::success()
     }
 

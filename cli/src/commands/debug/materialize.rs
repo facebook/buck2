@@ -10,11 +10,12 @@
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use cli_proto::MaterializeRequest;
+use futures::FutureExt;
 use structopt::{clap, StructOpt};
 
 use crate::{
     commands::common::{CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions},
-    daemon::client::{BuckdClient, BuckdConnectOptions},
+    daemon::client::{BuckdClientConnector, BuckdConnectOptions},
     CommandContext, StreamingCommand,
 };
 
@@ -47,16 +48,21 @@ impl StreamingCommand for MaterializeCommand {
 
     async fn exec_impl(
         self,
-        mut buckd: BuckdClient,
+        mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
         ctx: CommandContext,
     ) -> ExitResult {
+        let ctx = ctx.client_context(&self.config_opts, matches)?;
         buckd
-            .materialize(MaterializeRequest {
-                context: Some(ctx.client_context(&self.config_opts, matches)?),
-                paths: self.paths,
+            .with_flushing(|client| {
+                client
+                    .materialize(MaterializeRequest {
+                        context: Some(ctx),
+                        paths: self.paths,
+                    })
+                    .boxed()
             })
-            .await??;
+            .await???;
 
         ExitResult::success()
     }

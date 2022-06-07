@@ -11,6 +11,7 @@ use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use cli_proto::{TestRequest, TestSessionOptions};
 use crossterm::style::Color;
+use futures::FutureExt;
 use gazebo::prelude::*;
 use structopt::{clap, StructOpt};
 
@@ -22,7 +23,7 @@ use crate::{
             CommonBuildOptions, CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions,
         },
     },
-    daemon::client::BuckdClient,
+    daemon::client::BuckdClientConnector,
     CommandContext, StreamingCommand,
 };
 
@@ -108,31 +109,37 @@ impl StreamingCommand for TestCommand {
 
     async fn exec_impl(
         self,
-        mut buckd: BuckdClient,
+        mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
         ctx: CommandContext,
     ) -> ExitResult {
+        let ctx = ctx.client_context(&self.config_opts, matches)?;
         let response = buckd
-            .test(TestRequest {
-                context: Some(ctx.client_context(&self.config_opts, matches)?),
-                target_patterns: self
-                    .patterns
-                    .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
-                test_executor_args: self.test_executor_args,
-                excluded_labels: self.exclude,
-                included_labels: self.include,
-                always_exclude: self.always_exclude,
-                build_filtered_targets: self.build_filtered_targets,
-                // we don't currently have a different flag for this, so just use the build one.
-                concurrency: self.build_opts.num_threads.unwrap_or(0),
-                build_opts: Some(self.build_opts.to_proto()),
-                session_options: Some(TestSessionOptions {
-                    allow_re: self.unstable_allow_tests_on_re || self.unstable_force_tests_on_re,
-                    force_use_project_relative_paths: self.unstable_force_tests_on_re,
-                    force_run_from_project_root: self.unstable_force_tests_on_re,
-                }),
+            .with_flushing(|client| {
+                client
+                    .test(TestRequest {
+                        context: Some(ctx),
+                        target_patterns: self
+                            .patterns
+                            .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
+                        test_executor_args: self.test_executor_args,
+                        excluded_labels: self.exclude,
+                        included_labels: self.include,
+                        always_exclude: self.always_exclude,
+                        build_filtered_targets: self.build_filtered_targets,
+                        // we don't currently have a different flag for this, so just use the build one.
+                        concurrency: self.build_opts.num_threads.unwrap_or(0),
+                        build_opts: Some(self.build_opts.to_proto()),
+                        session_options: Some(TestSessionOptions {
+                            allow_re: self.unstable_allow_tests_on_re
+                                || self.unstable_force_tests_on_re,
+                            force_use_project_relative_paths: self.unstable_force_tests_on_re,
+                            force_run_from_project_root: self.unstable_force_tests_on_re,
+                        }),
+                    })
+                    .boxed()
             })
-            .await??;
+            .await???;
 
         let statuses = response
             .test_statuses

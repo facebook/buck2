@@ -10,6 +10,7 @@
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use cli_proto::CqueryRequest;
+use futures::FutureExt;
 use structopt::{clap, StructOpt};
 
 use crate::{
@@ -17,7 +18,7 @@ use crate::{
         common::{CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions},
         uquery::CommonQueryArgs,
     },
-    daemon::client::BuckdClient,
+    daemon::client::BuckdClientConnector,
     CommandContext, StreamingCommand,
 };
 
@@ -62,26 +63,31 @@ impl StreamingCommand for CqueryCommand {
 
     async fn exec_impl(
         self,
-        mut buckd: BuckdClient,
+        mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
         ctx: CommandContext,
     ) -> ExitResult {
         let (query, query_args) = self.query_common.get_query();
         let unstable_output_format = self.query_common.output_format() as i32;
         let output_attributes = self.query_common.output_attributes().to_vec();
+        let ctx = ctx.client_context(&self.config_opts, matches)?;
 
         let response = buckd
-            .cquery(CqueryRequest {
-                query,
-                query_args,
-                context: Some(ctx.client_context(&self.config_opts, matches)?),
-                output_attributes,
-                target_universe: self.target_universe,
-                show_providers: self.show_providers,
-                unstable_output_format,
-                target_call_stacks: self.query_common.target_call_stacks,
+            .with_flushing(|client| {
+                client
+                    .cquery(CqueryRequest {
+                        query,
+                        query_args,
+                        context: Some(ctx),
+                        output_attributes,
+                        target_universe: self.target_universe,
+                        show_providers: self.show_providers,
+                        unstable_output_format,
+                        target_call_stacks: self.query_common.target_call_stacks,
+                    })
+                    .boxed()
             })
-            .await??;
+            .await???;
 
         for message in &response.error_messages {
             crate::eprintln!("{}", message)?;

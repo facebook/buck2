@@ -11,13 +11,14 @@ use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use clap::arg_enum;
 use cli_proto::{QueryOutputFormat, UqueryRequest};
+use futures::FutureExt;
 use structopt::{clap, StructOpt};
 
 use crate::{
     commands::common::{
         value_name_variants, CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions,
     },
-    daemon::client::BuckdClient,
+    daemon::client::BuckdClientConnector,
     CommandContext, StreamingCommand,
 };
 
@@ -163,24 +164,29 @@ impl StreamingCommand for UqueryCommand {
 
     async fn exec_impl(
         mut self,
-        mut buckd: BuckdClient,
+        mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
         ctx: CommandContext,
     ) -> ExitResult {
         let (query, query_args) = self.query_common.get_query();
         let unstable_output_format = self.query_common.output_format() as i32;
         let output_attributes = self.query_common.output_attributes().to_vec();
+        let ctx = ctx.client_context(&self.config_opts, matches)?;
 
         let response = buckd
-            .uquery(UqueryRequest {
-                query,
-                query_args,
-                context: Some(ctx.client_context(&self.config_opts, matches)?),
-                output_attributes,
-                unstable_output_format,
-                target_call_stacks: self.query_common.target_call_stacks,
+            .with_flushing(|client| {
+                client
+                    .uquery(UqueryRequest {
+                        query,
+                        query_args,
+                        context: Some(ctx),
+                        output_attributes,
+                        unstable_output_format,
+                        target_call_stacks: self.query_common.target_call_stacks,
+                    })
+                    .boxed()
             })
-            .await??;
+            .await???;
 
         for message in &response.error_messages {
             crate::eprintln!("{}", message)?;

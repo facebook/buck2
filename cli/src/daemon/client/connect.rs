@@ -20,6 +20,7 @@ use buck2_core::fs::paths::AbsPathBuf;
 use cli_proto::{daemon_api_client::DaemonApiClient, DaemonProcessInfo};
 use events::subscriber::EventSubscriber;
 use fs2::FileExt;
+use futures::FutureExt;
 use gazebo::prelude::StrExt;
 use thiserror::Error;
 use tonic::transport::Channel;
@@ -28,7 +29,10 @@ use wait_timeout::ChildExt;
 use crate::{
     commands::common::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder,
     daemon::{
-        client::{events_ctx::EventsCtx, BuckdClient, ClientKind, Replayer, VersionCheckResult},
+        client::{
+            events_ctx::EventsCtx, BuckdClient, BuckdClientConnector, ClientKind, Replayer,
+            VersionCheckResult,
+        },
         client_utils::{get_channel, retrying, ConnectionType, ParseError, SOCKET_ADDR},
     },
     paths::Paths,
@@ -160,7 +164,7 @@ impl<'a> Drop for BuckdLifecycle<'a> {
 
 /// Type-safe indicator that the buckd client must be given the expected subscribers
 /// prior to being used outside of startup.
-struct BootstrapBuckdClient(BuckdClient);
+struct BootstrapBuckdClient(BuckdClientConnector);
 
 impl BootstrapBuckdClient {
     pub(crate) fn new(
@@ -171,19 +175,21 @@ impl BootstrapBuckdClient {
         // Start with basic output forwarding to catch any output (usually errors or panics) at startup.
         // This subscriber gets replaced with the actual subscribers once the startup stage of the daemon lifecycle is complete.
         let events_ctx = EventsCtx::new(daemon_dir, vec![box StdoutStderrForwarder]);
-        Self(BuckdClient {
+        let client = BuckdClient {
             info,
             client: ClientKind::Daemon(client),
             events_ctx,
-        })
+            tailers: None,
+        };
+        Self(BuckdClientConnector { client })
     }
 
     pub(crate) fn with_subscribers(
         self,
         subscribers: Vec<Box<dyn EventSubscriber>>,
-    ) -> BuckdClient {
+    ) -> BuckdClientConnector {
         let mut client = self.0;
-        client.events_ctx.subscribers = subscribers;
+        client.client.events_ctx.subscribers = subscribers;
         client
     }
 }
@@ -220,7 +226,7 @@ impl BuckdConnectOptions {
         }
     }
 
-    pub async fn connect(self, paths: &Paths) -> anyhow::Result<BuckdClient> {
+    pub async fn connect(self, paths: &Paths) -> anyhow::Result<BuckdClientConnector> {
         let daemon_dir = paths.daemon_dir()?;
         std::fs::create_dir_all(&daemon_dir)
             .with_context(|| format!("when creating daemon dir {}", daemon_dir.display()))?;
@@ -233,25 +239,27 @@ impl BuckdConnectOptions {
         Ok(client.with_subscribers(self.subscribers))
     }
 
-    pub fn replay(self, replayer: Replayer, paths: &Paths) -> anyhow::Result<BuckdClient> {
+    pub fn replay(self, replayer: Replayer, paths: &Paths) -> anyhow::Result<BuckdClientConnector> {
         let fake_info = DaemonProcessInfo {
             pid: 0,
             endpoint: "".to_owned(),
             version: "".to_owned(),
         };
         let events_ctx = EventsCtx::new(paths.daemon_dir()?, self.subscribers);
-
-        Ok(BuckdClient {
+        let client = BuckdClient {
             client: ClientKind::Replayer(Box::pin(replayer)),
             events_ctx,
             info: fake_info,
-        })
+            tailers: None,
+        };
+
+        Ok(BuckdClientConnector { client })
     }
 
     async fn establish_connection(&self, paths: &Paths) -> anyhow::Result<BootstrapBuckdClient> {
         match self.try_connect_existing(paths).await {
             Ok(mut client) => {
-                if self.existing_only || client.0.check_version().await?.is_match() {
+                if self.existing_only || client.0.client.check_version().await?.is_match() {
                     // either the version matches or we don't care about the version, return the client.
                     return Ok(client);
                 }
@@ -275,14 +283,24 @@ impl BuckdConnectOptions {
         // Even if we didn't connect before, it's possible that we just raced with another invocation
         // starting the server, so we try to connect again while holding the lock.
         if let Ok(mut client) = self.try_connect_existing(paths).await {
-            if self.existing_only || client.0.check_version().await?.is_match() {
+            if self.existing_only
+                || client
+                    .0
+                    .with_flushing(|client| client.check_version().boxed())
+                    .await??
+                    .is_match()
+            {
                 // either the version matches or we don't care about the version, return the client.
                 return Ok(client);
             }
             client
                 .0
-                .kill("client expected different buck version")
-                .await?;
+                .with_flushing(|client| {
+                    client
+                        .kill("client expected different buck version")
+                        .boxed()
+                })
+                .await??;
         }
         // Now there's definitely no server that can be connected to
         // TODO(cjhopman): a non-responsive buckd process may be somehow lingering around and we should probably kill it off here.
@@ -308,7 +326,11 @@ impl BuckdConnectOptions {
             return Ok(client);
         }
 
-        match client.0.check_version().await? {
+        match client
+            .0
+            .with_flushing(|client| client.check_version().boxed())
+            .await??
+        {
             VersionCheckResult::Match => Ok(client),
             VersionCheckResult::Mismatch { expected, actual } => {
                 Err(BuckdConnectError::BuckDaemonVersionWrongAfterStart { expected, actual }.into())

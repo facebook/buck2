@@ -82,7 +82,7 @@ use crate::{
         test::TestCommand,
         uquery::UqueryCommand,
     },
-    daemon::client::{BuckdClient, BuckdConnectOptions, Replayer},
+    daemon::client::{BuckdClientConnector, BuckdConnectOptions, Replayer},
     paths::Paths,
     version::BuckVersion,
 };
@@ -230,7 +230,7 @@ pub trait StreamingCommand: Sized + Send + Sync {
     /// Run the command.
     async fn exec_impl(
         self,
-        buckd: BuckdClient,
+        buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
         ctx: CommandContext,
     ) -> ExitResult;
@@ -319,7 +319,10 @@ impl CommandContext {
         runtime.block_on(func(self))
     }
 
-    pub async fn connect_buckd(&self, options: BuckdConnectOptions) -> anyhow::Result<BuckdClient> {
+    pub async fn connect_buckd(
+        &self,
+        options: BuckdConnectOptions,
+    ) -> anyhow::Result<BuckdClientConnector> {
         BuckdConnectOptions { ..options }
             .connect(self.paths()?)
             .await

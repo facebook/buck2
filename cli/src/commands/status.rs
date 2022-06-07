@@ -10,6 +10,7 @@
 use std::time::Duration;
 
 use chrono::NaiveDateTime;
+use futures::FutureExt;
 use humantime::format_duration;
 use structopt::{clap::ArgMatches, StructOpt};
 
@@ -35,7 +36,9 @@ impl StatusCommand {
                     Ok(())
                 }
                 Ok(mut client) => {
-                    let status = client.status(self.snapshot).await?;
+                    let status = client
+                        .with_flushing(|client| client.status(self.snapshot).boxed())
+                        .await??;
                     let timestamp = match status.start_time {
                         None => "unknown".to_owned(),
                         Some(timestamp) => {

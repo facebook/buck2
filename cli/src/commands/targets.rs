@@ -11,6 +11,7 @@ use async_trait::async_trait;
 use buck2_core::{exit_result::ExitResult, fs::paths::AbsPathBuf};
 use clap::arg_enum;
 use cli_proto::{targets_request, TargetsRequest};
+use futures::FutureExt;
 use gazebo::prelude::*;
 use structopt::{clap, StructOpt};
 
@@ -18,7 +19,7 @@ use crate::{
     commands::common::{
         value_name_variants, CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions,
     },
-    daemon::client::BuckdClient,
+    daemon::client::BuckdClientConnector,
     CommandContext, StreamingCommand,
 };
 
@@ -151,7 +152,7 @@ impl StreamingCommand for TargetsCommand {
 
     async fn exec_impl(
         mut self,
-        buckd: BuckdClient,
+        buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
         ctx: CommandContext,
     ) -> ExitResult {
@@ -216,11 +217,13 @@ impl StreamingCommand for TargetsCommand {
 }
 
 async fn targets_show_outputs(
-    mut buckd: BuckdClient,
+    mut buckd: BuckdClientConnector,
     target_request: TargetsRequest,
     root_path: Option<&AbsPathBuf>,
 ) -> ExitResult {
-    let response = buckd.targets_show_outputs(target_request).await??;
+    let response = buckd
+        .with_flushing(|client| client.targets_show_outputs(target_request).boxed())
+        .await???;
     for target_paths in response.targets_paths {
         for path in target_paths.paths {
             match root_path {
@@ -234,8 +237,10 @@ async fn targets_show_outputs(
     ExitResult::success()
 }
 
-async fn targets(mut buckd: BuckdClient, target_request: TargetsRequest) -> ExitResult {
-    let response = buckd.targets(target_request).await??;
+async fn targets(mut buckd: BuckdClientConnector, target_request: TargetsRequest) -> ExitResult {
+    let response = buckd
+        .with_flushing(|client| client.targets(target_request).boxed())
+        .await???;
     if !response.serialized_targets_output.is_empty() {
         crate::print!("{}", response.serialized_targets_output)?;
     }

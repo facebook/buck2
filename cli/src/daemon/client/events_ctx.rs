@@ -127,7 +127,7 @@ impl EventsCtx {
     >(
         &mut self,
         stream: S,
-        mut tailers: FileTailers,
+        tailers: &mut Option<FileTailers>,
     ) -> anyhow::Result<CommandOutcome<R>> {
         let command_result: anyhow::Result<CommandResult> = try {
             let mut stream = stream.fuse();
@@ -138,42 +138,73 @@ impl EventsCtx {
 
             // We don't want to return early here without draining stdout/stderr.
             // TODO(brasselsprouts): simpler logic
-            let command_result = loop {
-                tokio::select! {
-                    next = stream.next() => {
-                        let next = next
-                            .context(BuckdCommunicationError::MissingCommandResult)?
-                            .context("Buck daemon event bus encountered an error")?;
-                        match next {
-                            StreamValue::Event(event) => {
-                                let event = event.try_into()?;
-                                self.handle_event(&event).await?;
+            let command_result = match tailers.take() {
+                Some(mut tailers) => {
+                    let command_result = loop {
+                        tokio::select! {
+                            next = stream.next() => {
+                                let next = next
+                                    .context(BuckdCommunicationError::MissingCommandResult)?
+                                    .context("Buck daemon event bus encountered an error")?;
+                                match next {
+                                    StreamValue::Event(event) => {
+                                        let event = event.try_into()?;
+                                        self.handle_event(&event).await?;
+                                    }
+                                    StreamValue::Result(res) => {
+                                        self.handle_command_result(&res).await?;
+                                        break res
+                                    }
+                                };
                             }
-                            StreamValue::Result(res) => {
-                                self.handle_command_result(&res).await?;
-                                break res
+                            Some(stdout) = tailers.streams.stdout.next() => {
+                                self.handle_output(&stdout).await?;
                             }
-                        };
-                    }
-                    Some(stdout) = tailers.streams.stdout.next() => {
-                        self.handle_output(&stdout).await?;
-                    }
-                    Some(stderr) = tailers.streams.stderr.next() => {
-                        self.handle_stderr(stderr.trim_end()).await?;
-                    }
-                    tick = self.ticker.tick() => {
-                        self.tick(&tick).await?;
-                    }
-                    else => {
-                        unreachable!("The tick branch will always take precedence over an else case.");
-                    }
+                            Some(stderr) = tailers.streams.stderr.next() => {
+                                self.handle_stderr(stderr.trim_end()).await?;
+                            }
+                            tick = self.ticker.tick() => {
+                                self.tick(&tick).await?;
+                            }
+                            else => {
+                                unreachable!("The tick branch will always take precedence over an else case.");
+                            }
+                        }
+                    };
+
+                    self.flush(&mut Some(tailers)).await?;
+
+                    command_result
                 }
+                None => loop {
+                    tokio::select! {
+                        next = stream.next() => {
+                            let next = next
+                                .context(BuckdCommunicationError::MissingCommandResult)?
+                                .context("Buck daemon event bus encountered an error")?;
+                            match next {
+                                StreamValue::Event(event) => {
+                                    let event = event.try_into()?;
+                                    self.handle_event(&event).await?;
+                                }
+                                StreamValue::Result(res) => {
+                                    self.handle_command_result(&res).await?;
+                                    break res
+                                }
+                            };
+                        }
+                        tick = self.ticker.tick() => {
+                            self.tick(&tick).await?;
+                        }
+                        else => {
+                            unreachable!("The tick branch will always take precedence over an else case.");
+                        }
+                    }
+                },
             };
 
             command_result
         };
-
-        self.flush(tailers).await?;
 
         match command_result {
             Ok(result) => convert_result(result),
@@ -183,9 +214,9 @@ impl EventsCtx {
 
     pub async fn flushing_tailers<R, Fut: Future<Output = R>>(
         &mut self,
+        tailers: &mut Option<FileTailers>,
         f: impl FnOnce() -> Fut,
     ) -> anyhow::Result<R> {
-        let tailers = FileTailers::new(&self.daemon_dir)?;
         let res = f().await;
         self.flush(tailers).await?;
         Ok(res)
@@ -198,9 +229,10 @@ impl EventsCtx {
         Fut: Future<Output = Result<tonic::Response<CommandResult>, tonic::Status>>,
     >(
         &mut self,
+        tailers: &mut Option<FileTailers>,
         f: impl FnOnce() -> Fut,
     ) -> anyhow::Result<CommandOutcome<R>> {
-        let res = self.flushing_tailers(f).await?;
+        let res = self.flushing_tailers(tailers, f).await?;
         // important - do not early return before flushing the buffers!
         let inner = res?.into_inner();
         self.handle_command_result(&inner).await?;
@@ -238,7 +270,11 @@ impl EventsCtx {
         }
     }
 
-    async fn flush(&mut self, tailers: FileTailers) -> anyhow::Result<()> {
+    pub(crate) async fn flush(&mut self, tailers: &mut Option<FileTailers>) -> anyhow::Result<()> {
+        let tailers = match tailers.take() {
+            Some(tailers) => tailers,
+            None => return Ok(()),
+        };
         let mut streams = tailers.stop_reading();
 
         // We need to loop again to drain stdout/stderr

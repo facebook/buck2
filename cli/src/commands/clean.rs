@@ -10,12 +10,13 @@
 use async_trait::async_trait;
 use buck2_core::{exit_result::ExitResult, fs::anyhow::remove_dir_all};
 use cli_proto::CleanRequest;
+use futures::FutureExt;
 use structopt::{clap, StructOpt};
 
 use super::common::CommonEventLogOptions;
 use crate::{
     commands::common::{CommonConfigOptions, CommonConsoleOptions},
-    daemon::client::{BuckdClient, CommandOutcome},
+    daemon::client::{BuckdClientConnector, CommandOutcome},
     CommandContext, StreamingCommand,
 };
 
@@ -44,16 +45,21 @@ impl StreamingCommand for CleanCommand {
 
     async fn exec_impl(
         self,
-        mut buckd: BuckdClient,
+        mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
         ctx: CommandContext,
     ) -> ExitResult {
+        let client_ctx = ctx.client_context(&self.config_opts, matches)?;
         let result = buckd
-            .clean(CleanRequest {
-                context: Some(ctx.client_context(&self.config_opts, matches)?),
-                dry_run: self.dry_run,
+            .with_flushing(|client| {
+                client
+                    .clean(CleanRequest {
+                        context: Some(client_ctx),
+                        dry_run: self.dry_run,
+                    })
+                    .boxed()
             })
-            .await;
+            .await?;
 
         let success = match &result {
             Ok(CommandOutcome::Success(_)) => true,

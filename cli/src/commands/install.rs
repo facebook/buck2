@@ -10,6 +10,7 @@
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use cli_proto::InstallRequest;
+use futures::FutureExt;
 use gazebo::prelude::*;
 use structopt::{clap, StructOpt};
 
@@ -17,7 +18,7 @@ use crate::{
     commands::common::{
         CommonBuildOptions, CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions,
     },
-    daemon::client::{BuckdClient, CommandOutcome},
+    daemon::client::{BuckdClientConnector, CommandOutcome},
     CommandContext, StreamingCommand,
 };
 
@@ -53,20 +54,25 @@ impl StreamingCommand for InstallCommand {
     const COMMAND_NAME: &'static str = "install";
     async fn exec_impl(
         self,
-        mut buckd: BuckdClient,
+        mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
         ctx: CommandContext,
     ) -> ExitResult {
+        let ctx = ctx.client_context(&self.config_opts, matches)?;
         let response = buckd
-            .install(InstallRequest {
-                context: Some(ctx.client_context(&self.config_opts, matches)?),
-                target_patterns: self.patterns.map(|pat| buck2_data::TargetPattern {
-                    value: pat.to_owned(),
-                }),
-                build_opts: Some(self.build_opts.to_proto()),
-                installer_run_args: self.extra_run_args,
+            .with_flushing(|client| {
+                client
+                    .install(InstallRequest {
+                        context: Some(ctx),
+                        target_patterns: self.patterns.map(|pat| buck2_data::TargetPattern {
+                            value: pat.to_owned(),
+                        }),
+                        build_opts: Some(self.build_opts.to_proto()),
+                        installer_run_args: self.extra_run_args,
+                    })
+                    .boxed()
             })
-            .await;
+            .await?;
         let console = self.console_opts.final_console();
 
         match response {

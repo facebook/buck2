@@ -16,6 +16,7 @@ use cli_proto::{
     profile_request::{Action, Profiler},
     ProfileRequest, ProfileResponse,
 };
+use futures::FutureExt;
 use starlark::eval::ProfileMode;
 use structopt::{clap, StructOpt};
 
@@ -23,7 +24,7 @@ use crate::{
     commands::common::{
         CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions, ConsoleType,
     },
-    daemon::client::BuckdClient,
+    daemon::client::BuckdClientConnector,
     BuckSubcommand, CommandContext, StreamingCommand,
 };
 
@@ -113,7 +114,7 @@ impl StreamingCommand for ProfileSubcommand {
 
     async fn exec_impl(
         self,
-        mut buckd: BuckdClient,
+        mut buckd: BuckdClientConnector,
         matches: &clap::ArgMatches,
         ctx: CommandContext,
     ) -> ExitResult {
@@ -145,21 +146,27 @@ impl StreamingCommand for ProfileSubcommand {
         #[error("Cannot convert path to UTF-8")]
         struct PathCannotBeConvertedToUtf8;
 
+        let destination_path = destination_path
+            .into_os_string()
+            .into_string()
+            .ok()
+            .ok_or(PathCannotBeConvertedToUtf8)?;
+
         let response = buckd
-            .profile(ProfileRequest {
-                context: Some(context),
-                target_pattern: Some(buck2_data::TargetPattern {
-                    value: self.opts.target_pattern,
-                }),
-                destination_path: destination_path
-                    .into_os_string()
-                    .into_string()
-                    .ok()
-                    .ok_or(PathCannotBeConvertedToUtf8)?,
-                profiler: profile_mode_to_profile(&profile_mode).into(),
-                action: self.action.into(),
+            .with_flushing(|client| {
+                client
+                    .profile(ProfileRequest {
+                        context: Some(context),
+                        target_pattern: Some(buck2_data::TargetPattern {
+                            value: self.opts.target_pattern,
+                        }),
+                        destination_path,
+                        profiler: profile_mode_to_profile(&profile_mode).into(),
+                        action: self.action.into(),
+                    })
+                    .boxed()
             })
-            .await??;
+            .await???;
         let ProfileResponse {
             elapsed,
             total_allocated_bytes,
