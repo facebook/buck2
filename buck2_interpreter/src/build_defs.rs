@@ -43,8 +43,8 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
 
     fn glob<'v>(
         include: Vec<String>,
-        exclude: Option<Vec<String>>,
-        #[starlark(default = false)] include_dotfiles: bool,
+        #[starlark(require = named)] exclude: Option<Vec<String>>,
+        #[starlark(require = named, default = false)] include_dotfiles: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let extra = BuildContext::from_context(eval)?;
