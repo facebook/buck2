@@ -18,6 +18,7 @@ JavaToolchainInfo = provider(
         "java",
         "java_for_tests",
         "javac",
+        "merge_to_jar",
         "src_dir_helper",
         "source_level",
         "src_root_elements",

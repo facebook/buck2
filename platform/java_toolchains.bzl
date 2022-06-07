@@ -21,6 +21,7 @@ def config_backed_java_toolchain(
     # Set params which we don't read from configs.
     kwargs = {}
     kwargs["compile_and_package"] = "fbsource//xplat/buck2/tools/java:compile_and_package"
+    kwargs["merge_to_jar"] = "fbsource//xplat/buck2/tools/java:merge_to_jar"
     kwargs["src_dir_helper"] = "fbsource//xplat/buck2/tools/java:src_dir_helper"
     kwargs["fat_jar"] = "fbsource//xplat/buck2/tools/java:fat_jar"
     kwargs["jar"] = "fbsource//third-party/toolchains/jdk:jar"
@@ -65,6 +66,7 @@ def _config_backed_java_toolchain_rule_impl(ctx):
             bootclasspath_8 = ctx.attr.bootclasspath_8,
             class_abi_generator = ctx.attr.class_abi_generator,
             compile_and_package = ctx.attr.compile_and_package,
+            merge_to_jar = ctx.attr.merge_to_jar,
             src_dir_helper = ctx.attr.src_dir_helper,
             fat_jar = ctx.attr.fat_jar,
             fat_jar_main_class_lib = ctx.attr.fat_jar_main_class_lib,
@@ -91,6 +93,7 @@ _config_backed_java_toolchain_rule = rule(
         "java": attr.dep(providers = [RunInfo]),
         "java_for_tests": attr.option(attr.dep(providers = [RunInfo])),
         "javac": attr.option(attr.one_of(attr.dep(), attr.source(), attr.string()), default = None),
+        "merge_to_jar": attr.dep(),
         "source_level": attr.string(),
         "src_dir_helper": attr.dep(),
         "src_roots": attr.list(attr.string()),
