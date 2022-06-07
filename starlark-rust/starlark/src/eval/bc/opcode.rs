@@ -42,6 +42,7 @@ pub(crate) enum BcOpcode {
     ArrayIndexSet,
     Slice,
     ObjectField,
+    ObjectFieldRaw,
     SetObjectField,
     Eq,
     EqConst,
@@ -110,6 +111,8 @@ pub(crate) enum BcOpcode {
     PossibleGc,
     BeforeStmt,
     ProfileBc,
+    RecordCallEnter,
+    RecordCallExit,
     End,
 }
 

@@ -86,6 +86,8 @@ pub(crate) struct StmtCompileContext {
     pub(crate) has_before_stmt: bool,
     /// Instert bytecode profiling instructions.
     pub(crate) bc_profile: bool,
+    /// `RecordCallEnter`/`RecordCallExit` instructions for heap or flame profile.
+    pub(crate) record_call_enter_exit: bool,
 }
 
 pub(crate) struct OptimizeOnFreezeContext<'a> {
@@ -620,6 +622,7 @@ impl Compiler<'_, '_, '_> {
             has_return_type,
             has_before_stmt: self.has_before_stmt,
             bc_profile: self.bc_profile,
+            record_call_enter_exit: self.eval.heap_or_flame_profile,
         }
     }
 

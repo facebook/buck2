@@ -18,7 +18,6 @@
 use std::{
     cell::Cell,
     collections::HashSet,
-    intrinsics::unlikely,
     mem::{self, MaybeUninit},
     path::Path,
 };
@@ -99,7 +98,7 @@ pub struct Evaluator<'v, 'a> {
     pub(crate) heap_profile: HeapProfile,
     // Should we enable flame profiling or not
     pub(crate) flame_profile: FlameProfile<'v>,
-    // Is either heap or flame profiling enabled
+    // Is either heap or flame profiling enabled, or instrumentation for these profiles enabled.
     pub(crate) heap_or_flame_profile: bool,
     // Is GC disabled for some reason
     pub(crate) disable_gc: bool,
@@ -250,6 +249,9 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             ProfileMode::Statement => {
                 self.before_stmt.instrument = true;
             }
+            ProfileMode::HeapSummary | ProfileMode::HeapFlame | ProfileMode::TimeFlame => {
+                self.heap_or_flame_profile = true;
+            }
             _ => {}
         }
     }
@@ -357,17 +359,9 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         }
 
         self.call_stack.push(function, span)?;
-        if unlikely(self.heap_or_flame_profile) {
-            self.heap_profile.record_call_enter(function, self.heap());
-            self.flame_profile.record_call_enter(function);
-        }
         // Must always call .pop regardless
         let res = within(self).map_err(|e| add_diagnostics(e, self));
         self.call_stack.pop();
-        if unlikely(self.heap_or_flame_profile) {
-            self.heap_profile.record_call_exit(self.heap());
-            self.flame_profile.record_call_exit();
-        }
         res
     }
 

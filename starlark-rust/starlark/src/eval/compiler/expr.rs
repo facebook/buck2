@@ -1028,6 +1028,15 @@ pub(crate) enum MemberOrValue<'v> {
     Value(Value<'v>),
 }
 
+impl<'v> MemberOrValue<'v> {
+    pub(crate) fn to_value(&self) -> Value<'v> {
+        match self {
+            MemberOrValue::Member(x) => x.to_value(),
+            MemberOrValue::Value(x) => *x,
+        }
+    }
+}
+
 #[inline(always)]
 pub(crate) fn get_attr_hashed_raw<'v>(
     x: Value<'v>,

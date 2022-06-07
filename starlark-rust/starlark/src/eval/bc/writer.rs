@@ -46,6 +46,8 @@ use crate::{
 pub(crate) struct BcWriter<'f> {
     /// Insert bytecode profiling instructions.
     profile: bool,
+    /// Insert `RecordCallEnter`/`RecordCallExit` instructions.
+    record_call_enter_exit: bool,
 
     /// Serialized instructions.
     instrs: BcInstrsWriter,
@@ -68,6 +70,7 @@ impl<'f> BcWriter<'f> {
     /// Empty.
     pub(crate) fn new(
         profile: bool,
+        call_enter_exit: bool,
         local_count: u32,
         param_count: u32,
         heap: &'f FrozenHeap,
@@ -79,6 +82,7 @@ impl<'f> BcWriter<'f> {
         }
         BcWriter {
             profile,
+            record_call_enter_exit: call_enter_exit,
             instrs: BcInstrsWriter::new(),
             slow_args: Vec::new(),
             stack_size: 0,
@@ -94,6 +98,7 @@ impl<'f> BcWriter<'f> {
     pub(crate) fn finish(self) -> Bc {
         let BcWriter {
             profile: has_before_instr,
+            record_call_enter_exit: call_enter_exit,
             instrs,
             slow_args: spans,
             stack_size,
@@ -103,6 +108,7 @@ impl<'f> BcWriter<'f> {
             heap,
         } = self;
         let _ = has_before_instr;
+        let _ = call_enter_exit;
         let _ = heap;
         let _ = definitely_assigned;
         assert_eq!(stack_size, 0);
@@ -111,6 +117,10 @@ impl<'f> BcWriter<'f> {
             local_count,
             max_stack_size,
         }
+    }
+
+    pub(crate) fn record_call_enter_exit(&self) -> bool {
+        self.record_call_enter_exit
     }
 
     /// Current offset.

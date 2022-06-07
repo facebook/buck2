@@ -126,6 +126,7 @@ pub(crate) struct InstrArrayIndexImpl;
 pub(crate) struct InstrSetArrayIndexImpl;
 pub(crate) struct InstrArrayIndexSetImpl;
 pub(crate) struct InstrObjectFieldImpl;
+pub(crate) struct InstrObjectFieldRawImpl;
 pub(crate) struct InstrSetObjectFieldImpl;
 pub(crate) struct InstrSliceImpl;
 
@@ -141,6 +142,7 @@ pub(crate) type InstrArrayIndex = InstrNoFlow<InstrArrayIndexImpl>;
 pub(crate) type InstrSetArrayIndex = InstrNoFlow<InstrSetArrayIndexImpl>;
 pub(crate) type InstrArrayIndexSet = InstrNoFlow<InstrArrayIndexSetImpl>;
 pub(crate) type InstrObjectField = InstrNoFlow<InstrObjectFieldImpl>;
+pub(crate) type InstrObjectFieldRaw = InstrNoFlow<InstrObjectFieldRawImpl>;
 pub(crate) type InstrSetObjectField = InstrNoFlow<InstrSetObjectFieldImpl>;
 pub(crate) type InstrSlice = InstrNoFlow<InstrSliceImpl>;
 
@@ -351,6 +353,27 @@ impl InstrNoFlowImpl for InstrObjectFieldImpl {
         let object = frame.get_bc_slot(*object);
         let value = get_attr_hashed_bind(object, field, eval.heap())?;
         frame.set_bc_slot(*target, value);
+        Ok(())
+    }
+}
+
+/// Get raw field.
+///
+/// For regular field, get the field. For methods, get the raw unbound method.
+///
+/// This instruction is used for call profiling, where we don't need to bind the methods.
+impl InstrNoFlowImpl for InstrObjectFieldRawImpl {
+    type Arg = (BcSlotIn, Symbol, BcSlotOut);
+
+    fn run_with_args<'v>(
+        eval: &mut Evaluator<'v, '_>,
+        frame: BcFramePtr<'v>,
+        _ip: BcPtrAddr,
+        (object, field, target): &(BcSlotIn, Symbol, BcSlotOut),
+    ) -> anyhow::Result<()> {
+        let object = frame.get_bc_slot(*object);
+        let value = get_attr_hashed_raw(object, field, eval.heap())?;
+        frame.set_bc_slot(*target, value.to_value());
         Ok(())
     }
 }
@@ -1617,10 +1640,14 @@ impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallMaybeKnownMethodImpl<A>
 pub(crate) struct InstrPossibleGcImpl;
 pub(crate) struct InstrBeforeStmtImpl;
 pub(crate) struct InstrProfileBcImpl;
+pub(crate) struct InstrRecordCallEnterImpl;
+pub(crate) struct InstrRecordCallExitImpl;
 
 pub(crate) type InstrPossibleGc = InstrNoFlow<InstrPossibleGcImpl>;
 pub(crate) type InstrBeforeStmt = InstrNoFlow<InstrBeforeStmtImpl>;
 pub(crate) type InstrProfileBc = InstrNoFlow<InstrProfileBcImpl>;
+pub(crate) type InstrRecordCallEnter = InstrNoFlow<InstrRecordCallEnterImpl>;
+pub(crate) type InstrRecordCallExit = InstrNoFlow<InstrRecordCallExitImpl>;
 
 impl InstrNoFlowImpl for InstrPossibleGcImpl {
     type Arg = ();
@@ -1660,6 +1687,37 @@ impl InstrNoFlowImpl for InstrProfileBcImpl {
         opcode: &BcOpcode,
     ) -> anyhow::Result<()> {
         eval.bc_profile.before_instr(*opcode);
+        Ok(())
+    }
+}
+
+impl InstrNoFlowImpl for InstrRecordCallEnterImpl {
+    type Arg = BcSlotIn;
+
+    fn run_with_args<'v>(
+        eval: &mut Evaluator<'v, '_>,
+        frame: BcFramePtr<'v>,
+        _ip: BcPtrAddr,
+        fun: &BcSlotIn,
+    ) -> anyhow::Result<()> {
+        let fun = frame.get_bc_slot(*fun);
+        eval.heap_profile.record_call_enter(fun, eval.heap());
+        eval.flame_profile.record_call_enter(fun);
+        Ok(())
+    }
+}
+
+impl InstrNoFlowImpl for InstrRecordCallExitImpl {
+    type Arg = ();
+
+    fn run_with_args<'v>(
+        eval: &mut Evaluator<'v, '_>,
+        _frame: BcFramePtr<'v>,
+        _ip: BcPtrAddr,
+        (): &(),
+    ) -> anyhow::Result<()> {
+        eval.heap_profile.record_call_exit(eval.heap());
+        eval.flame_profile.record_call_exit();
         Ok(())
     }
 }
