@@ -1,4 +1,3 @@
-use anyhow::Context;
 use hashbrown::HashSet;
 use itertools::Itertools;
 use starlark::values::{list::List, Value, ValueLike};
@@ -8,7 +7,6 @@ use crate::{
     actions::artifact::Artifact,
     bxl::starlark_defs::context::build::StarlarkBuildResult,
     deferred::{DeferredAny, DeferredId, DeferredTable},
-    interpreter::rule_defs::artifact::ValueAsArtifactLike,
 };
 
 /// The result of evaluating a bxl function
@@ -56,30 +54,12 @@ impl BxlResult {
                 artifacts: ensured_artifacts.into_iter().sorted().collect(),
                 deferred,
             })
-        } else if let Some(artifact) = eval_value.as_artifact() {
-            let artifact = artifact
-                .get_bound()
-                .context("artifacts needs to be bound to an action")?;
-
-            Ok(Self::BuildsArtifacts {
-                has_print,
-                built: vec![],
-                artifacts: vec![artifact],
-                deferred,
-            })
         } else if let Some(build_results_list) = List::from_value(eval_value) {
             let mut built = vec![];
-            let mut artifacts = vec![];
 
             for value in build_results_list.iter() {
                 if let Some(built_result) = value.downcast_ref::<StarlarkBuildResult>() {
                     built.push(built_result.clone());
-                } else if let Some(artifact) = value.as_artifact() {
-                    artifacts.push(
-                        artifact
-                            .get_bound()
-                            .context("artifacts needs to be bound to an action")?,
-                    );
                 } else {
                     return Err(anyhow::anyhow!(NotAValidReturnType(value.get_type())));
                 }
@@ -88,7 +68,7 @@ impl BxlResult {
             Ok(Self::BuildsArtifacts {
                 has_print,
                 built,
-                artifacts,
+                artifacts: vec![],
                 deferred,
             })
         } else {
