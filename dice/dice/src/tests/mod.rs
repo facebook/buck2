@@ -345,8 +345,7 @@ fn dice_computations_are_parallel() {
     #[display(fmt = "{:?}", self)]
     struct Blocking {
         index: usize,
-        #[derivative(PartialEq = "ignore")]
-        #[derivative(Hash = "ignore")]
+        #[derivative(PartialEq = "ignore", Hash = "ignore")]
         barrier: Arc<Barrier>,
     }
 
@@ -439,11 +438,7 @@ async fn invalid_results_are_not_cached() {
     #[derive(Clone, Dupe, Debug, Display, Derivative)]
     #[derivative(Hash, PartialEq, Eq)]
     #[display(fmt = "{:?}", self)]
-    struct AlwaysTransient(
-        #[derivative(PartialEq = "ignore")]
-        #[derivative(Hash = "ignore")]
-        Arc<AtomicBool>,
-    );
+    struct AlwaysTransient(#[derivative(PartialEq = "ignore", Hash = "ignore")] Arc<AtomicBool>);
 
     #[async_trait]
     impl Key for AlwaysTransient {
@@ -503,9 +498,7 @@ async fn demo_with_transient() {
     #[display(fmt = "{:?}", self)]
     struct MaybeTransient(
         usize,
-        #[derivative(PartialEq = "ignore")]
-        #[derivative(Hash = "ignore")]
-        Arc<AtomicBool>,
+        #[derivative(PartialEq = "ignore", Hash = "ignore")] Arc<AtomicBool>,
     );
 
     #[async_trait]
