@@ -27,7 +27,9 @@ The starting type, usually bound as `ctx`.
 
 * `ctx.actions.write_json(filename, content)` returns an `artifact` whose contents are `content` written as a JSON value. The `filename` can either be a string, or an existing artifact created with `declare_output`. The `content` value must be composed of the basic json types (boolean, number, string, list/tuple, dictionary) plus artifacts and command lines. An artifact will be written as a string containing the path. A command line will be written as a list of strings, unless `joined=True` is set, in which case it will be a string.
 
-* `ctx.actions.copy(src, dest)` copies the source `artifact` to the destination (which can be a string representing a filename or an output `artifact`) and returns the output `artifact`. The copy works for files or directories.
+* `ctx.actions.copy_file(dest, src)` copies the source `artifact` to the destination (which can be a string representing a filename or an output `artifact`) and returns the output `artifact`. The copy works for files or directories.
+
+* `ctx.actions.symlink_file(dest, src)` creates a symlink to the source `artifact` at the destination (which can be a string representing a filename or an output `artifact`) and returns the output `artifact`. The symlink works for files or directories.
 
 * `ctx.actions.symlinked_dir(output, srcs : {str.type: "artifact"})` returns an artifact which is a directory containing symlinks. The `srcs` must be a dictionary of path (as string, relative to the result directory) to bound `artifact` which will be laid out in the directory.
 

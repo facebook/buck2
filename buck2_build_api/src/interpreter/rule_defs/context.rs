@@ -541,6 +541,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         }
     }
 
+    // TODO: Delete this, use copy_file instead
     fn copy<'v>(
         this: &AnalysisActions<'v>,
         src: Value<'v>,
@@ -550,10 +551,29 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         copy_file(eval, this, dest, src, CopyMode::Copy)
     }
 
+    fn copy_file<'v>(
+        this: &AnalysisActions<'v>,
+        dest: Value<'v>,
+        src: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        copy_file(eval, this, dest, src, CopyMode::Copy)
+    }
+
+    // TODO: Delete this, use symlink_file instead
     fn symlink<'v>(
         this: &AnalysisActions<'v>,
         src: Value<'v>,
         dest: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        copy_file(eval, this, dest, src, CopyMode::Symlink)
+    }
+
+    fn symlink_file<'v>(
+        this: &AnalysisActions<'v>,
+        dest: Value<'v>,
+        src: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         copy_file(eval, this, dest, src, CopyMode::Symlink)
