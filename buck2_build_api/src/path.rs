@@ -80,10 +80,12 @@ pub struct BuckOutPath {
     path: ForwardRelativePathBuf,
     /// The number of components at the prefix of that path that are
     /// internal details to the rule, not returned by `.short_path`.
-    #[derivative(Hash = "ignore")]
-    #[derivative(PartialEq = "ignore")]
-    #[derivative(Ord = "ignore")]
-    #[derivative(PartialOrd = "ignore")]
+    #[derivative(
+        Hash = "ignore",
+        PartialEq = "ignore",
+        Ord = "ignore",
+        PartialOrd = "ignore"
+    )]
     hidden_components_count: usize,
 }
 

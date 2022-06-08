@@ -32,10 +32,12 @@ pub(super) struct BuildArtifactData {
     // If two BuildArtifact's have the same path then they are basically the same,
     // even if the ActionKey differs due to things like dynamic_outputs.
     // TODO(ndmitchell): Clean this up by making it more explicit in ActionKey.
-    #[derivative(PartialEq = "ignore")]
-    #[derivative(Hash = "ignore")]
-    #[derivative(PartialOrd = "ignore")]
-    #[derivative(Ord = "ignore")]
+    #[derivative(
+        PartialEq = "ignore",
+        Hash = "ignore",
+        PartialOrd = "ignore",
+        Ord = "ignore"
+    )]
     pub(super) key: ActionKey,
 }
 
