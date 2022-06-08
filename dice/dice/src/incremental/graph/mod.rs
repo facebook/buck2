@@ -490,7 +490,11 @@ impl<K: StorageProperties> TransientGraphNode<K> {
     }
 
     fn mark_unchanged(&self, v: VersionNumber) -> VersionNumber {
-        self.meta.write().unwrap().hist.mark_verified(v, Vec::new())
+        self.meta
+            .write()
+            .unwrap()
+            .hist
+            .mark_verified(v, std::iter::empty())
     }
 }
 

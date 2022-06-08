@@ -132,19 +132,37 @@ impl CellHistory {
     /// For example, assuming no deps, if dirtied at v2, and marking v4, the oldest version that
     /// became verified would be v2, since marking v4 with no changes from v2 to v4 implies that
     /// all of v2, v3, v4 are verified.
+    /// But if instead there was a dep v3, v2 could not be marked verified, but v3 & v4 would be.
     ///
     /// Dependencies history are accounted for by propagating their dirtied versions to the
     /// verified history through 'propagate_dirty_from_deps'
-    pub(crate) fn mark_verified<'a>(
-        &mut self,
-        v: VersionNumber,
-        deps: impl IntoIterator<Item = ReadOnlyHistory<'a>>,
-    ) -> VersionNumber {
-        let changed_since = if let Some(changed_since) = self
+    pub(crate) fn mark_verified<'a, I>(&mut self, v: VersionNumber, deps: I) -> VersionNumber
+    where
+        I: IntoIterator<Item = ReadOnlyHistory<'a>>,
+        I::IntoIter: Clone,
+    {
+        let deps_iter = deps.into_iter();
+        // Mark verified at the latest of
+        // * The latest version all deps have been verified since.
+        // * The latest version we were dirtied at.
+        let deps_unchanged_since = deps_iter
+            .clone()
+            .filter_map(|dep| {
+                dep.verified
+                    .range((Bound::Unbounded, Bound::Included(v)))
+                    .next_back()
+                    .copied()
+            })
+            .max();
+        let last_dirtied = self
             .dirtied
             .range((Bound::Unbounded, Bound::Included(v)))
             .next_back()
-            .map(|d| *d.0)
+            .map(|d| *d.0);
+        let changed_since = if let Some(changed_since) = [deps_unchanged_since, last_dirtied]
+            .into_iter()
+            .flatten()
+            .max()
         {
             if let Some(prev_verified) = self
                 .verified
@@ -162,7 +180,7 @@ impl CellHistory {
             VersionNumber::new(0)
         };
 
-        self.propagate_from_deps(changed_since, deps);
+        self.propagate_from_deps(changed_since, deps_iter);
 
         changed_since
     }
@@ -537,7 +555,7 @@ mod tests {
         );
 
         assert_eq!(
-            history.mark_verified(VersionNumber::new(0), Vec::new()),
+            history.mark_verified(VersionNumber::new(0), std::iter::empty()),
             VersionNumber::new(0)
         );
         history
@@ -555,7 +573,7 @@ mod tests {
         );
 
         assert_eq!(
-            history.mark_verified(VersionNumber::new(2), Vec::new()),
+            history.mark_verified(VersionNumber::new(2), std::iter::empty()),
             VersionNumber::new(2)
         );
         history
@@ -595,10 +613,9 @@ mod tests {
 
         let up_to = history.mark_verified(
             VersionNumber::new(4),
-            vec![
-                ReadOnlyHistory::TestingValue(CellHistory::dirtied(VersionNumber::new(5), false)),
-                ReadOnlyHistory::TestingValue(CellHistory::dirtied(VersionNumber::new(8), false)),
-            ],
+            [VersionNumber::new(5), VersionNumber::new(8)]
+                .into_iter()
+                .map(|v| ReadOnlyHistory::TestingValue(CellHistory::dirtied(v, false))),
         );
         assert_eq!(up_to, VersionNumber::new(3));
         history
@@ -619,7 +636,7 @@ mod tests {
         );
 
         assert_eq!(history.mark_invalidated(VersionNumber::new(6)), true);
-        let up_to = history.mark_verified(VersionNumber::new(7), Vec::new());
+        let up_to = history.mark_verified(VersionNumber::new(7), std::iter::empty());
         assert_eq!(up_to, VersionNumber::new(6));
         history
             .get_history(&VersionNumber::new(0))
@@ -654,6 +671,21 @@ mod tests {
             .assert_verified();
         history.get_history(&VersionNumber::new(9)).assert_dirty();
         history.get_history(&VersionNumber::new(10)).assert_dirty();
+
+        // Here, since one dep is only verified at v11, we can't mark v10 as verified.
+        let up_to = history.mark_verified(
+            VersionNumber::new(11),
+            [VersionNumber::new(10), VersionNumber::new(11)]
+                .into_iter()
+                .map(|v| ReadOnlyHistory::TestingValue(CellHistory::verified(v))),
+        );
+        assert_eq!(up_to, VersionNumber::new(11));
+
+        history.get_history(&VersionNumber::new(9)).assert_dirty();
+        history.get_history(&VersionNumber::new(10)).assert_dirty();
+        history
+            .get_history(&VersionNumber::new(11))
+            .assert_verified();
     }
 
     #[test]
