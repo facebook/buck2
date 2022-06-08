@@ -211,16 +211,21 @@ impl DiceExecutionOrder {
                                 );
                             }
                             None => {
-                                if let Ok(actual_value) = std::panic::AssertUnwindSafe(async {
-                                    ctx.eval(state.dupe(), *var).await
-                                })
-                                .catch_unwind()
-                                .await
-                                {
-                                    panic!(
-                                        "expected computing {:?} to panic, but didn't panic, got {}",
-                                        &op, actual_value
-                                    );
+                                // There's a known bug where DICE sometimes uses injected keys from versions prior to the current query.
+                                // These computations should panic, but don't, and the fuzzer keeps finding them.
+                                // This environment variable disables this class of bugs, so other errors are easier to find.
+                                if std::env::var("ALLOW_INCORRECT_WHEN_SHOULD_PANIC").is_err() {
+                                    if let Ok(actual_value) = std::panic::AssertUnwindSafe(async {
+                                        ctx.eval(state.dupe(), *var).await
+                                    })
+                                    .catch_unwind()
+                                    .await
+                                    {
+                                        panic!(
+                                            "expected computing {:?} to panic, but didn't panic, got {}",
+                                            &op, actual_value
+                                        );
+                                    }
                                 }
                             }
                         }
