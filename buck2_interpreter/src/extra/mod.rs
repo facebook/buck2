@@ -13,7 +13,7 @@ use anyhow::anyhow;
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_core::{
     cells::paths::CellPath,
-    package::{Package, PackageRelativePathBuf},
+    package::{Package, PackageRelativePath},
     result::SharedResult,
 };
 use gazebo::{any::ProvidesStaticType, cmp::PartialEqAny, dupe::Dupe};
@@ -137,7 +137,7 @@ impl<'a> BuildContext<'a> {
     pub fn resolve_glob(
         &'a self,
         spec: &'a GlobSpec,
-    ) -> anyhow::Result<impl Iterator<Item = &'a PackageRelativePathBuf> + 'a> {
+    ) -> anyhow::Result<impl Iterator<Item = &'a PackageRelativePath> + 'a> {
         match &self.listing {
             Some(listing) => Ok(spec.resolve_glob(listing.files())),
             None => Err(anyhow!("glob() can only be called from a build file")),

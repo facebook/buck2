@@ -13,7 +13,7 @@ use std::{
 };
 
 use anyhow::Context;
-use buck2_core::package::PackageRelativePathBuf;
+use buck2_core::package::PackageRelativePath;
 use derivative::Derivative;
 
 use crate::package_listing::file_listing::PackageFileListing;
@@ -124,7 +124,7 @@ impl GlobSpec {
     pub(crate) fn resolve_glob<'a>(
         &'a self,
         spec: &'a PackageFileListing,
-    ) -> Box<dyn Iterator<Item = &'a PackageRelativePathBuf> + 'a> {
+    ) -> Box<dyn Iterator<Item = &'a PackageRelativePath> + 'a> {
         if spec.files().len() >= Self::BINARY_SEARCH_CUTOFF && !self.common_prefix.is_empty() {
             return box spec
                 .files_with_prefix(&self.common_prefix)

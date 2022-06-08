@@ -20,14 +20,17 @@ pub(crate) struct PackageFileListing {
 }
 
 impl PackageFileListing {
-    pub(crate) fn files(&self) -> impl ExactSizeIterator<Item = &PackageRelativePathBuf> {
-        self.files.as_ref().iter()
+    pub(crate) fn files(&self) -> impl ExactSizeIterator<Item = &PackageRelativePath> {
+        self.files
+            .as_ref()
+            .iter()
+            .map(PackageRelativePathBuf::as_ref)
     }
 
     pub(crate) fn files_with_prefix(
         &self,
         prefix: &str,
-    ) -> impl Iterator<Item = &PackageRelativePathBuf> {
+    ) -> impl Iterator<Item = &PackageRelativePath> {
         use std::cmp::Ordering;
         let files = self.files.as_ref();
         let len = files.len();
@@ -48,7 +51,7 @@ impl PackageFileListing {
             }
         });
         (lower.into_ok_or_err()..upper.into_ok_or_err())
-            .map(|idx: usize| files.get_index(idx).unwrap())
+            .map(|idx: usize| files.get_index(idx).unwrap().as_ref())
     }
 
     pub fn contains_file(&self, mut file: &PackageRelativePath) -> bool {
