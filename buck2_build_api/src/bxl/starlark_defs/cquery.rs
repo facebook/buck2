@@ -111,6 +111,24 @@ impl<'v> StarlarkCQueryCtx<'v> {
 
 #[starlark_module]
 fn register_cquery(builder: &mut MethodsBuilder) {
+    /// the `allpaths` query.
+    fn allpaths(
+        this: &StarlarkCQueryCtx,
+        from: TargetExpr<ConfiguredTargetNode>,
+        to: TargetExpr<ConfiguredTargetNode>,
+    ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
+        Ok(this.ctx.async_ctx.via(|| async {
+            this.functions
+                .allpaths(
+                    &this.env,
+                    &*targets!(&this.env, from),
+                    &*targets!(&this.env, to),
+                )
+                .await
+                .map(StarlarkTargetSet::from)
+        })?)
+    }
+
     fn kind(
         this: &StarlarkCQueryCtx,
         regex: &str,
