@@ -50,7 +50,6 @@ use crate::{
         runtime::{arguments::ResolvedArgName, call_stack::FrozenFileSpan, slots::LocalSlotId},
         Arguments, DefInfo, Evaluator, ParametersSpec,
     },
-    private::Private,
     values::{
         dict::Dict,
         int::PointerI32,
@@ -1551,14 +1550,8 @@ fn call_maybe_known_method_common<'v>(
         // If pointers are equal, getattr would return the same method
         // we already have.
         if ptr::eq(methods, known_method.type_methods) {
-            let r = eval.with_call_stack(known_method.method.to_value(), Some(span), |eval| {
-                known_method.method.invoke_method(
-                    known_method.method.to_value(),
-                    this,
-                    arguments,
-                    eval,
-                    Private,
-                )
+            let r = eval.with_call_stack(known_method.to_value(), Some(span), |eval| {
+                known_method.invoke_method(this, arguments, eval)
             })?;
             frame.set_bc_slot(target, r);
             return Ok(());

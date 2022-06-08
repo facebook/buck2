@@ -21,19 +21,42 @@ use once_cell::sync::Lazy;
 
 use crate::{
     environment::Methods,
+    eval::{Arguments, Evaluator},
     values::{
-        dict::dict_methods, function::NativeMethod, list::list_methods, string::str_methods,
-        FrozenValueTyped,
+        dict::dict_methods,
+        function::{NativeMeth, NativeMethod},
+        list::list_methods,
+        string::str_methods,
+        FrozenRef, FrozenValueTyped, Value,
     },
 };
 
 /// Method and a `Methods` container which declares it.
-#[derive(Debug, Clone, Copy, Dupe)]
+#[derive(Clone, Copy, Dupe)]
 pub(crate) struct KnownMethod {
     /// An object where the method is defined.
     pub(crate) type_methods: &'static Methods,
     /// The method.
-    pub(crate) method: FrozenValueTyped<'static, NativeMethod>,
+    method: FrozenValueTyped<'static, NativeMethod>,
+    /// Copied here from `method` to faster invocation (one fewer deref).
+    imp: FrozenRef<'static, dyn NativeMeth>,
+}
+
+impl KnownMethod {
+    #[inline]
+    pub(crate) fn to_value<'v>(&self) -> Value<'v> {
+        self.method.to_value()
+    }
+
+    #[inline]
+    pub(crate) fn invoke_method<'v>(
+        &self,
+        this: Value<'v>,
+        args: &Arguments<'v, '_>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        self.imp.invoke(eval, this, args)
+    }
 }
 
 /// Some of stdlib methods.
@@ -58,6 +81,7 @@ impl KnownMethods {
                     methods.entry(name).or_insert(KnownMethod {
                         type_methods,
                         method,
+                        imp: method.as_frozen_ref().map(|m| &*m.function),
                     });
                     has_at_least_one_method = true;
                 }
