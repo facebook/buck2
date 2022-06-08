@@ -9,7 +9,7 @@
 
 use std::{
     collections::HashSet,
-    fmt::{self, Debug, Display},
+    fmt::{self, Debug},
 };
 
 use anyhow::Context;
@@ -36,38 +36,6 @@ pub struct GlobSpec {
     exact_matches: HashSet<String>,
     patterns: Vec<GlobPattern>,
     excludes: Vec<GlobPattern>,
-}
-
-impl Display for GlobSpec {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fn write_array(xs: &[GlobPattern], f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            if xs.len() == 1 {
-                write!(f, "{}", xs[0].0)
-            } else {
-                f.write_str("[")?;
-                for (i, x) in xs.iter().enumerate() {
-                    if i != 0 {
-                        f.write_str(", ")?;
-                    }
-                    write!(f, "{}", &x.0)?;
-                }
-                f.write_str("]")
-            }
-        }
-
-        if self.excludes.is_empty() {
-            if self.patterns.is_empty() {
-                f.write_str("No globs")
-            } else {
-                write_array(&self.patterns, f)
-            }
-        } else {
-            f.write_str("Globs match ")?;
-            write_array(&self.patterns, f)?;
-            f.write_str(", exclude ")?;
-            write_array(&self.excludes, f)
-        }
-    }
 }
 
 /// Returns the no-special-characters common prefix of all patterns. Suitable for binary search.
