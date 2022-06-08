@@ -157,10 +157,13 @@ async fn spawn_watchman(watchman_dir: &Path) -> anyhow::Result<WatchmanInstance>
     })
 }
 
-#[allow(unused)]
 #[tokio::test]
 async fn test_syncable_query() -> anyhow::Result<()> {
-    return Ok(());
+    // This test doesn't work unless Watchman is working, so let's
+    // over-approximate that as fbcode_build for now.
+    if !cfg!(fbcode_build) {
+        return Ok(());
+    }
 
     let tempdir = tempfile::tempdir()?;
 
