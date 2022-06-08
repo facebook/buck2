@@ -3,7 +3,6 @@ use std::{borrow::Cow, fmt};
 use anyhow::Context as _;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
-use indexmap::IndexMap;
 use starlark::{
     environment::GlobalsBuilder,
     values::{
@@ -100,8 +99,7 @@ impl<'v> StarlarkCommandExecutorConfig<'v> {
             None
         };
         let remote_options = if self.remote_enabled {
-            let mut re_properties = IndexMap::new();
-            let as_dict = Dict::from_value(self.remote_execution_properties.to_value())
+            let re_properties = Dict::from_value(self.remote_execution_properties.to_value())
                 .ok_or_else(|| {
                     CommandExecutorConfigErrors::RePropertiesNotADict(
                         self.remote_execution_properties.to_value().to_repr(),
@@ -111,10 +109,10 @@ impl<'v> StarlarkCommandExecutorConfig<'v> {
                             .to_owned(),
                     )
                 })?;
-
-            for (key, value) in as_dict.iter() {
-                re_properties.insert(key.to_str(), value.to_str());
-            }
+            let re_properties = re_properties
+                .iter()
+                .map(|(k, v)| (k.to_str(), v.to_str()))
+                .collect();
 
             let re_action_key = self.remote_execution_action_key.to_value();
             let re_action_key = if re_action_key.is_none() {

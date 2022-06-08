@@ -16,12 +16,13 @@ use std::{
 use async_trait::async_trait;
 use buck2_core::fs::project::{ProjectFilesystem, ProjectRelativePathBuf};
 use gazebo::prelude::*;
-use indexmap::{indexmap, IndexMap};
+use indexmap::IndexMap;
 use remote_execution as RE;
 use remote_execution::{
     ActionResultResponse, ExecuteResponse, TCode, TDirectory2, TExecutedActionMetadata, TFile,
     TTimestamp,
 };
+use starlark::collections::SmallMap;
 use thiserror::Error;
 use tracing::info;
 
@@ -61,19 +62,23 @@ pub enum ExecutionPlatform {
 }
 
 impl ExecutionPlatform {
-    pub fn intrinsic_properties(&self) -> IndexMap<String, String> {
+    pub fn intrinsic_properties(&self) -> SmallMap<String, String> {
+        let mut map = SmallMap::new();
+
         match self {
-            ExecutionPlatform::Linux => indexmap! {
-                "platform".to_owned() => "linux-remote-execution".to_owned()
-            },
-            ExecutionPlatform::MacOS { xcode_version } => indexmap! {
-                "platform".to_owned() => "mac".to_owned(),
-                "subplatform".to_owned() => format!("xcode-{}", xcode_version)
-            },
-            ExecutionPlatform::Windows => indexmap! {
-                "platform".to_owned() => "windows".to_owned()
-            },
-        }
+            ExecutionPlatform::Linux => {
+                map.insert("platform".to_owned(), "linux-remote-execution".to_owned());
+            }
+            ExecutionPlatform::MacOS { xcode_version } => {
+                map.insert("platform".to_owned(), "mac".to_owned());
+                map.insert("subplatform".to_owned(), format!("xcode-{}", xcode_version));
+            }
+            ExecutionPlatform::Windows => {
+                map.insert("platform".to_owned(), "windows".to_owned());
+            }
+        };
+
+        map
     }
 }
 

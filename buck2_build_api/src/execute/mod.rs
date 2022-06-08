@@ -15,6 +15,7 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     fmt::{Debug, Display, Write},
+    hash::Hash,
     sync::Arc,
     time::Duration,
 };
@@ -31,6 +32,7 @@ use dice::DiceComputations;
 use events::dispatch::EventDispatcher;
 use gazebo::prelude::*;
 use indexmap::{indexmap, IndexMap, IndexSet};
+use starlark::collections::SmallMap;
 use thiserror::Error;
 
 use crate::{
@@ -188,10 +190,10 @@ impl ActionExecutionKind {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Dupe)]
+#[derive(Debug, Eq, Hash, PartialEq, Clone, Dupe)]
 pub struct LocalExecutorOptions {}
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct RemoteExecutorUseCase(Cow<'static, str>);
 
 impl RemoteExecutorUseCase {
@@ -212,9 +214,9 @@ impl From<RemoteExecutorUseCase> for String {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Default)]
+#[derive(Debug, Eq, PartialEq, Clone, Default, Hash)]
 pub struct RemoteExecutorOptions {
-    pub re_properties: IndexMap<String, String>,
+    pub re_properties: SmallMap<String, String>,
     pub re_action_key: Option<String>,
     pub re_max_input_files_bytes: Option<u64>,
     pub re_use_case: RemoteExecutorUseCase,
@@ -226,7 +228,7 @@ enum ExecutorConfigError {
     MissingLocalAndRemote,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, Hash, PartialEq, Clone)]
 pub enum CommandExecutorConfig {
     Local(LocalExecutorOptions),
     Remote(RemoteExecutorOptions),
@@ -237,7 +239,7 @@ pub enum CommandExecutorConfig {
     },
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash)]
 pub enum HybridExecutionLevel {
     /// Expose both executors but only run it in one preferred executor.
     Limited,
