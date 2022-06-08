@@ -215,6 +215,7 @@ python_library(
         "fbcode//buck2/facebook/apple_project/xcode:group_generator",
         "fbcode//buck2/facebook/apple_project/xcode:pbx",
         "fbcode//buck2/facebook/apple_project/xcode:target",
+        ":selection",
         ":target_attributes",
         ":xcode_data",
     ],
@@ -242,6 +243,7 @@ python_library(
         "fbcode//buck2/facebook/apple_project/buck:buck",
         "fbcode//buck2/facebook/apple_project/buck:build_target_language",
         "fbcode//libfb/py/frozen:frozen",
+        ":selection",
         ":target_node",
     ],
 )
