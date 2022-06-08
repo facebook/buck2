@@ -71,6 +71,7 @@ impl<'v> BcFramePtr<'v> {
         !self.slots_ptr.is_null()
     }
 
+    #[inline(always)]
     fn frame<'a>(self) -> &'a BcFrame<'v> {
         debug_assert!(self.is_inititalized());
         unsafe {
@@ -79,6 +80,7 @@ impl<'v> BcFramePtr<'v> {
         }
     }
 
+    #[inline(always)]
     fn frame_mut(&mut self) -> &mut BcFrame<'v> {
         debug_assert!(self.is_inititalized());
         unsafe {
@@ -123,10 +125,12 @@ impl<'v> BcFramePtr<'v> {
 }
 
 impl<'v> BcFrame<'v> {
+    #[inline(always)]
     fn offset_of_slots() -> usize {
         memoffset::offset_of!(BcFrame<'v>, slots)
     }
 
+    #[inline(always)]
     fn frame_ptr(&mut self) -> BcFramePtr<'v> {
         unsafe {
             BcFramePtr {
