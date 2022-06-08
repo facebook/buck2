@@ -108,7 +108,6 @@ impl GlobSpec {
     pub fn new<P: AsRef<str>, Q: AsRef<str>>(
         patterns: &[P],
         excludes: &[Q],
-        include_dotfiles: bool,
     ) -> anyhow::Result<Self> {
         let mut glob_patterns = Vec::new();
         let mut glob_excludes = Vec::new();
@@ -138,7 +137,7 @@ impl GlobSpec {
             excludes: glob_excludes,
             options: glob::MatchOptions {
                 require_literal_separator: true,
-                require_literal_leading_dot: !include_dotfiles,
+                require_literal_leading_dot: true,
                 ..glob::MatchOptions::default()
             },
         })
@@ -185,7 +184,6 @@ mod tests {
                 "excluded/unglobbed",
             ],
             &["excluded/**/*"],
-            false,
         )?;
 
         assert!(spec.matches("abcxyz"));
@@ -208,11 +206,7 @@ mod tests {
 
     #[test]
     fn test_resolve_glob() -> anyhow::Result<()> {
-        let spec = GlobSpec::new(
-            &["abc*", "**/*.java", "*/*/*.txt"],
-            &["excluded/**/*"],
-            false,
-        )?;
+        let spec = GlobSpec::new(&["abc*", "**/*.java", "*/*/*.txt"], &["excluded/**/*"])?;
 
         let package_listing = PackageListing::testing_files(&[
             "abcxyz",

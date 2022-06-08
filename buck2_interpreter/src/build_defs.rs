@@ -48,7 +48,7 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
     ) -> anyhow::Result<Value<'v>> {
         let extra = BuildContext::from_context(eval)?;
         let excludes = exclude.unwrap_or_default();
-        let spec = GlobSpec::new(&include, &excludes, false)?;
+        let spec = GlobSpec::new(&include, &excludes)?;
         let res = extra
             .resolve_glob(&spec)?
             .map(|path| eval.heap().alloc(path.as_str()));
