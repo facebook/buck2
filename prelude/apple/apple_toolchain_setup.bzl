@@ -24,12 +24,14 @@ def _get_apple_select_map(include_default: bool.type, toolchain_type: AppleToolc
             "fbsource//xplat/buck2/platform/apple/config:apple-xcode-current-macos": _get_apple_iphone_device_arch_select(toolchain_type = toolchain_type),
             "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-linux": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "linux", sdk = "iphoneos"),
             "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "macos", sdk = "iphoneos"),
+            "fbsource//xplat/buck2/platform/apple/config:meta-xcode-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "xcode", host = "macos", sdk = "iphoneos"),
         }),
         "ovr_config//os/sdk/apple:iphonesimulator": select({
             "DEFAULT": _get_apple_iphone_simulator_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
             "fbsource//xplat/buck2/platform/apple/config:apple-xcode-current-macos": _get_apple_iphone_simulator_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
             "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-linux": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "linux", sdk = "iphonesimulator"),
             "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "macos", sdk = "iphonesimulator"),
+            "fbsource//xplat/buck2/platform/apple/config:meta-xcode-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "xcode", host = "macos", sdk = "iphonesimulator"),
         }),
         # SDK forces OS, `watchos` means proper device watchOS build
         "ovr_config//os/sdk/apple:watchos": select({
@@ -37,12 +39,14 @@ def _get_apple_select_map(include_default: bool.type, toolchain_type: AppleToolc
             "fbsource//xplat/buck2/platform/apple/config:apple-xcode-current-macos": _get_apple_watchos_device_arch_select(toolchain_type = toolchain_type),
             "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-linux": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "linux", sdk = "watchos"),
             "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "macos", sdk = "watchos"),
+            "fbsource//xplat/buck2/platform/apple/config:meta-xcode-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "xcode", host = "macos", sdk = "watchos"),
         }),
         "ovr_config//os/sdk/apple:watchsimulator": select({
             "DEFAULT": _get_apple_watch_simulator_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
             "fbsource//xplat/buck2/platform/apple/config:apple-xcode-current-macos": _get_apple_watch_simulator_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
             "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-linux": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "linux", sdk = "watchsimulator"),
             "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "macos", sdk = "watchsimulator"),
+            "fbsource//xplat/buck2/platform/apple/config:meta-xcode-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "xcode", host = "macos", sdk = "watchsimulator"),
         }),
         # `iphoneos` OS constraint allows both device and simulator builds, default to simulator if SDK is not specified
         "ovr_config//os:iphoneos": select({
@@ -50,6 +54,7 @@ def _get_apple_select_map(include_default: bool.type, toolchain_type: AppleToolc
             "fbsource//xplat/buck2/platform/apple/config:apple-xcode-current-macos": _get_apple_iphone_simulator_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
             "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-linux": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "linux", sdk = "iphonesimulator"),
             "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "macos", sdk = "iphonesimulator"),
+            "fbsource//xplat/buck2/platform/apple/config:meta-xcode-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "xcode", host = "macos", sdk = "iphonesimulator"),
         }),
         "ovr_config//os:macos": _get_apple_macos_select_map(toolchain_type = toolchain_type, default_arch = default_arch),
         # `watchos` OS constraint allows both device and simulator builds, default to simulator if SDK is not specified
@@ -58,6 +63,7 @@ def _get_apple_select_map(include_default: bool.type, toolchain_type: AppleToolc
             "fbsource//xplat/buck2/platform/apple/config:apple-xcode-current-macos": _get_apple_watch_simulator_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
             "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-linux": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "linux", sdk = "watchsimulator"),
             "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "macos", sdk = "watchsimulator"),
+            "fbsource//xplat/buck2/platform/apple/config:meta-xcode-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "xcode", host = "macos", sdk = "watchsimulator"),
         }),
     }
 
@@ -67,6 +73,7 @@ def _get_apple_select_map(include_default: bool.type, toolchain_type: AppleToolc
             "fbsource//xplat/buck2/platform/apple/config:apple-xcode-current-macos": _get_apple_iphone_simulator_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
             "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-linux": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "linux", sdk = "iphonesimulator"),
             "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "macos", sdk = "iphonesimulator"),
+            "fbsource//xplat/buck2/platform/apple/config:meta-xcode-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "xcode", host = "macos", sdk = "iphonesimulator"),
         })
 
     return select_map
@@ -79,6 +86,7 @@ def _get_apple_macos_select_map(toolchain_type: AppleToolchainRuleType.type, def
             "fbsource//xplat/buck2/platform/apple/config:apple-xcode-current-macos": _get_apple_macosx_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
             "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-linux": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "linux", sdk = "macosx"),
             "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "macos", sdk = "macosx"),
+            "fbsource//xplat/buck2/platform/apple/config:meta-xcode-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "xcode", host = "macos", sdk = "macosx"),
         }),
     }
 
@@ -163,7 +171,13 @@ def _get_pika_toolchain_suffix(toolchain_type: AppleToolchainRuleType.type) -> s
 
 def _get_pika_toolchain_target(toolchain_type: AppleToolchainRuleType.type, toolchain_name: str.type, host: str.type, sdk_name: str.type, arch: str.type) -> str.type:
     suffix = _get_pika_toolchain_suffix(toolchain_type)
-    return "fbsource//xplat/toolchains/jackalope:{}-{}-{}-{}".format(toolchain_name, host, sdk_name, arch) + suffix
+    xbat = (toolchain_name == "xcode")
+    if xbat:
+        if host != "macos":
+            fail("Xcode-backed toolchains are always macOS based")
+        return "fbsource//xplat/toolchains/apple:{}-{}-{}".format(toolchain_name, sdk_name, arch) + suffix
+    else:
+        return "fbsource//xplat/toolchains/jackalope:{}-{}-{}-{}".format(toolchain_name, host, sdk_name, arch) + suffix
 
 def _get_pika_arch_select(toolchain_type: AppleToolchainRuleType.type, toolchain_name: str.type, host: str.type, sdk: str.type) -> "selector":
     default_arch = _get_default_arch_for_macos_and_simulator_targets()
