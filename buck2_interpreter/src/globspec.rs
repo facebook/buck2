@@ -136,6 +136,8 @@ impl GlobSpec {
 
 #[cfg(test)]
 mod tests {
+    use buck2_core::package::PackageRelativePathBuf;
+
     use super::*;
 
     #[test]
@@ -199,6 +201,39 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn test_resolve_glob_dot() {
+        fn glob(pattern: &str, listing: &PackageFileListing) -> Vec<PackageRelativePathBuf> {
+            GlobSpec::new(&[pattern], &[""; 0])
+                .unwrap()
+                .resolve_glob(listing)
+                .map(PackageRelativePath::to_owned)
+                .collect()
+        }
+
+        let listing = PackageFileListing::testing_new(&["a", ".a", "b/c", "b/.c", ".d/e", ".d/.e"]);
+
+        // Simple difference between dot and non-dot patterns.
+        assert_eq!(vec![".a"], glob(".*", &listing));
+        assert_eq!(vec!["a"], glob("*", &listing));
+
+        // Match works in subdirectories too, even if directory name starts with dot.
+        assert_eq!(vec![".d/e"], glob(".d/*", &listing));
+        assert_eq!(vec![".d/.e"], glob(".d/.*", &listing));
+
+        // Star matches directory, but not dot-directory.
+        assert_eq!(vec!["b/.c"], glob("*/.*", &listing));
+        assert_eq!(vec!["b/c"], glob("*/*", &listing));
+
+        // Dot-star matches dot-directory, but not directory.
+        assert_eq!(vec![".d/.e"], glob(".*/.*", &listing));
+        assert_eq!(vec![".d/e"], glob(".*/*", &listing));
+
+        // Star-star matches only non-star directories and files.
+        assert_eq!(vec!["a", "b/c"], glob("**", &listing));
+        assert_eq!(vec![".a", "b/.c"], glob("**/.*", &listing));
     }
 
     #[test]
