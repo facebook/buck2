@@ -449,7 +449,10 @@ if fbcode_linux_only():
 
     @buck_test(inplace=True)
     async def test_android_tests(buck: Buck) -> None:
-        await buck.test("fbsource//fbandroid/buck2/tests/good/instrumentation_test:")
+        await buck.test(
+            # TODO(T122864991) Restore fbsource//fbandroid/buck2/tests/good/instrumentation_test:split_apk_test
+            "fbsource//fbandroid/buck2/tests/good/instrumentation_test:single_apk_test"
+        )
 
 
 @buck_test(inplace=True)
