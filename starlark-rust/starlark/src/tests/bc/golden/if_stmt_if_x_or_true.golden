@@ -12,5 +12,5 @@ def test(x):
 Max stack size: 1
 Instructions:
   0: CallFrozenNativePos noop &0..&0 instrs.star.bzl:2:17-23 &1
-  40: ReturnConst None
-  56: End
+  56: ReturnConst None
+  72: End

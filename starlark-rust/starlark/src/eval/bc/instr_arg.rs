@@ -33,6 +33,7 @@ use crate::{
             call::{BcCallArgsFull, BcCallArgsPos},
             instr::BcInstr,
             instr_impl::InstrDefData,
+            native_function::BcNativeFunction,
             opcode::{BcOpcode, BcOpcodeHandler},
             slow_arg::BcInstrSlowArg,
             stack_ptr::{BcSlotIn, BcSlotInRange, BcSlotInRangeFrom, BcSlotOut, BcSlotsInN},
@@ -285,6 +286,14 @@ where
 impl<T: StarlarkValue<'static>> BcInstrArg for FrozenValueTyped<'static, T> {
     fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
         write!(f, " {}", TruncateValueRepr(param.to_frozen_value()))
+    }
+
+    fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
+}
+
+impl BcInstrArg for BcNativeFunction {
+    fn fmt_append(param: &Self, ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+        BcInstrArg::fmt_append(&param.fun(), ip, f)
     }
 
     fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}

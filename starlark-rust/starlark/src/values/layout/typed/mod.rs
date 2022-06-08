@@ -37,7 +37,7 @@ use crate::{
         int::PointerI32,
         layout::{arena::AValueRepr, avalue::AValue},
         string::StarlarkStr,
-        AllocFrozenValue, AllocValue, Freeze, Freezer, FrozenHeap, FrozenValue, Heap,
+        AllocFrozenValue, AllocValue, Freeze, Freezer, FrozenHeap, FrozenRef, FrozenValue, Heap,
         StarlarkValue, Trace, Tracer, UnpackValue, Value, ValueLike,
     },
 };
@@ -211,6 +211,10 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
             // This generates slightly more efficient machine code.
             unsafe { &*(self.0.0.unpack_ptr_no_int_no_str_unchecked().payload_ptr() as *const T) }
         }
+    }
+
+    pub(crate) fn as_frozen_ref(self) -> FrozenRef<'v, T> {
+        FrozenRef::new(self.as_ref())
     }
 }
 

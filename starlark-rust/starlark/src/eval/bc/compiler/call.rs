@@ -32,6 +32,7 @@ use crate::{
                 InstrCallMethodPos, InstrCallPos, InstrLen, InstrObjectFieldRaw,
                 InstrRecordCallEnter, InstrRecordCallExit, InstrType,
             },
+            native_function::BcNativeFunction,
             stack_ptr::{BcSlotIn, BcSlotOut},
             writer::BcWriter,
         },
@@ -218,6 +219,7 @@ impl IrSpanned<CallCompiled> {
                 },
             )
         } else if let Some(fun) = FrozenValueTyped::<NativeFunction>::new(fun) {
+            let fun = BcNativeFunction::new(fun);
             Self::write_args_then_maybe_record_call_enter_exit(
                 args,
                 fun.to_frozen_value(),

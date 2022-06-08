@@ -32,6 +32,7 @@ use crate::{
             frame::BcFramePtr,
             instr::{BcInstr, InstrControl},
             instr_arg::BcInstrArg,
+            native_function::BcNativeFunction,
             opcode::BcOpcode,
             slow_arg::BcInstrSlowArg,
             stack_ptr::{BcSlotIn, BcSlotInRange, BcSlotInRangeFrom, BcSlotOut, BcSlotsInN},
@@ -52,7 +53,6 @@ use crate::{
     private::Private,
     values::{
         dict::Dict,
-        function::NativeFunction,
         int::PointerI32,
         layout::value_not_special::FrozenValueNotSpecial,
         list::List,
@@ -1405,7 +1405,7 @@ impl BcFrozenCallable for FrozenValueTyped<'static, FrozenDef> {
     }
 }
 
-impl BcFrozenCallable for FrozenValueTyped<'static, NativeFunction> {
+impl BcFrozenCallable for BcNativeFunction {
     #[inline(always)]
     fn bc_invoke<'v>(
         self,
@@ -1414,7 +1414,7 @@ impl BcFrozenCallable for FrozenValueTyped<'static, NativeFunction> {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         eval.with_call_stack(self.to_value(), Some(location), |eval| {
-            self.as_ref().invoke(self.to_value(), args, eval)
+            self.invoke(args, eval)
         })
     }
 }
@@ -1432,12 +1432,10 @@ pub(crate) type InstrCallPos = InstrNoFlow<InstrCallImpl<BcCallArgsPos>>;
 pub(crate) type InstrCallFrozenDef =
     InstrNoFlow<InstrCallFrozenDefImpl<BcCallArgsFull<ResolvedArgName>>>;
 pub(crate) type InstrCallFrozenDefPos = InstrNoFlow<InstrCallFrozenDefImpl<BcCallArgsPos>>;
-pub(crate) type InstrCallFrozenNative = InstrNoFlow<
-    InstrCallFrozenGenericImpl<FrozenValueTyped<'static, NativeFunction>, BcCallArgsFull<Symbol>>,
->;
-pub(crate) type InstrCallFrozenNativePos = InstrNoFlow<
-    InstrCallFrozenGenericImpl<FrozenValueTyped<'static, NativeFunction>, BcCallArgsPos>,
->;
+pub(crate) type InstrCallFrozenNative =
+    InstrNoFlow<InstrCallFrozenGenericImpl<BcNativeFunction, BcCallArgsFull<Symbol>>>;
+pub(crate) type InstrCallFrozenNativePos =
+    InstrNoFlow<InstrCallFrozenGenericImpl<BcNativeFunction, BcCallArgsPos>>;
 pub(crate) type InstrCallFrozen =
     InstrNoFlow<InstrCallFrozenGenericImpl<FrozenValue, BcCallArgsFull<Symbol>>>;
 pub(crate) type InstrCallFrozenPos =
