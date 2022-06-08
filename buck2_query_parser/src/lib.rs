@@ -156,6 +156,10 @@ impl Display for Expr<'_> {
     }
 }
 
+const INTERSECT: &str = "^";
+const EXCEPT: &str = "-";
+const UNION: &str = "+";
+
 #[derive(Debug, Enum, Copy, Dupe, Clone)]
 pub enum BinaryOp {
     Intersect,
@@ -166,9 +170,9 @@ pub enum BinaryOp {
 impl Display for BinaryOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
-            BinaryOp::Intersect => "^",
-            BinaryOp::Except => "-",
-            BinaryOp::Union => "+",
+            BinaryOp::Intersect => INTERSECT,
+            BinaryOp::Except => EXCEPT,
+            BinaryOp::Union => UNION,
         })
     }
 }
@@ -353,9 +357,9 @@ fn binary_op(input: Span) -> NomResult<BinaryOp, ()> {
     }
 
     alt((
-        op("-", "except", BinaryOp::Except),
-        op("^", "intersect", BinaryOp::Intersect),
-        op("+", "union", BinaryOp::Union),
+        op(EXCEPT, "except", BinaryOp::Except),
+        op(INTERSECT, "intersect", BinaryOp::Intersect),
+        op(UNION, "union", BinaryOp::Union),
     ))(input)
 }
 
