@@ -847,7 +847,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
     }
 
     /// Allocate a new input tag
-    fn artifact_tag<'v>(_this: &AnalysisActions<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn artifact_tag<'v>(this: &AnalysisActions<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+        let _ = this;
         Ok(heap.alloc(ArtifactTag::new()))
     }
 }
