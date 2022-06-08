@@ -102,6 +102,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
         native_library_info = native_library_info,
         resources_info = resources_info,
         java_packaging_deps = java_packaging_deps,
+        compress_resources_dot_arsc = ctx.attr.resource_compression == "enabled" or ctx.attr.resource_compression == "enabled_with_strings_as_assets",
     )
 
     return [
@@ -117,7 +118,8 @@ def build_apk(
         dex_files_info: "DexFilesInfo",
         native_library_info: "AndroidBinaryNativeLibsInfo",
         resources_info: "AndroidBinaryResourcesInfo",
-        java_packaging_deps: ["JavaPackagingDep"]) -> "artifact":
+        java_packaging_deps: ["JavaPackagingDep"],
+        compress_resources_dot_arsc: bool.type = False) -> "artifact":
     output_apk = actions.declare_output("output_apk.apk")
 
     apk_builder_args = cmd_args([
@@ -135,6 +137,9 @@ def build_apk(
         "--zipalign_tool",
         android_toolchain.zipalign[RunInfo],
     ])
+
+    if compress_resources_dot_arsc:
+        apk_builder_args.add("--compress-resources-dot-arsc")
 
     all_native_libs = (
         native_library_info.native_libs +
