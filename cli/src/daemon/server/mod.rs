@@ -520,7 +520,7 @@ impl ServerCommandContext {
             ReExecutorGlobalKnobs {
                 always_check_ttls: root_config
                     .parse("buck2", "re_always_check_ttls")?
-                    .unwrap_or(true),
+                    .unwrap_or(false),
             }
         };
 
