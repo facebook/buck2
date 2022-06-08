@@ -347,6 +347,7 @@ extra_attributes = struct(
         "_python_toolchain": attr.exec_dep(default = default_python_toolchain(), providers = [PythonToolchainInfo, PythonPlatformInfo]),
     },
     python_binary = {
+        "bundled_runtime": attr.bool(default = False),
         "package_split_dwarf_dwp": attr.bool(default = False),
         "_create_manifest_for_source_dir": attr.dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir"),
         "_cxx_toolchain": attr.exec_dep(default = default_cxx_toolchain(), providers = [CxxToolchainInfo, CxxPlatformInfo]),
@@ -354,6 +355,7 @@ extra_attributes = struct(
         "_python_toolchain": attr.exec_dep(default = default_python_toolchain(), providers = [PythonToolchainInfo, PythonPlatformInfo]),
     },
     python_test = {
+        "bundled_runtime": attr.bool(default = False),
         "package_split_dwarf_dwp": attr.bool(default = False),
         "resources": attr.named_set(attr.one_of(attr.dep(), attr.source(allow_directory = True)), sorted = True, default = []),
         "_create_manifest_for_source_dir": attr.dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir"),

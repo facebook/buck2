@@ -223,9 +223,10 @@ def convert_python_library_to_executable(
     symlink_tree_path = None
     runtime_files = []
     if package_style != PackageStyle("standalone"):
-        # TODO(nmj): Not quite the right name, deal with legacy_output_path if necessary
-        symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(ctx.attr.name))
-        runtime_files.append(symlink_tree_path)
+        if not ctx.attr.bundled_runtime:
+            # TODO(nmj): Not quite the right name, deal with legacy_output_path if necessary
+            symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(ctx.attr.name))
+            runtime_files.append(symlink_tree_path)
         runtime_files.extend(hidden_resources)
 
     else:
@@ -240,6 +241,7 @@ def convert_python_library_to_executable(
     hidden = make_pex(
         ctx,
         python_toolchain,
+        ctx.attr.bundled_runtime,
         package_style,
         ctx.attr.build_args,
         pex_modules,

@@ -45,6 +45,7 @@ def _local_only(
 def make_pex(
         ctx: "context",
         python_toolchain: "PythonToolchainInfo",
+        bundled_runtime: bool.type,
         package_style: PackageStyle.type,
         build_args: ["_arglike"],
         pex_modules: PexModules.type,
@@ -80,7 +81,7 @@ def make_pex(
     bootstrap_args = _pex_bootstrap_args(ctx, python_toolchain.interpreter, None, main_module, output, shared_libraries, symlink_tree_path)
     bootstrap_args.add(build_args)
 
-    if package_style == PackageStyle("standalone"):
+    if package_style == PackageStyle("standalone") or bundled_runtime:
         if symlink_tree_path != None:
             fail("Cannot have a symlink_tree_path for standalone packaging")
 
