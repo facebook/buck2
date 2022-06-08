@@ -12,13 +12,9 @@ async def test_generate_intellij_project(buck: Buck) -> None:
     )
     result = await buck.bxl(
         bxl_label,
-        "--show-all-outputs",
-        "--show-all-outputs-format",
-        "full_json",
     )
 
-    outputs = json.loads(result.stdout)
-    output_file = outputs[bxl_label][0]
+    output_file = result.stdout.strip()
     assert (
         Path(output_file).read_text()
         == """\

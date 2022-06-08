@@ -10,7 +10,8 @@ def _impl(ctx):
   </component>
 </project>
 """)
-    return output_module
+
+    ctx.output.print(ctx.output.ensure(output_module).abs_path())
 
 generate_intellij_project = bxl(
     implementation = _impl,
