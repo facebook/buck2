@@ -159,8 +159,22 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
             #struct_fields
         }
 
-        impl #trait_name for #struct_name {
+        impl #struct_name {
+            // TODO(nga): copy lifetime parameter from declaration,
+            //   so the warning would be precise.
+            #[allow(clippy::extra_unused_lifetimes)]
             #( #attrs )*
+            fn invoke_impl<'v>(
+                #this_param
+                #( #binding_params, )*
+                #eval_param
+                #heap_param
+            ) -> #return_type {
+                #body
+            }
+        }
+
+        impl #trait_name for #struct_name {
             #[allow(non_snake_case)] // Starlark doesn't have this convention
             fn invoke<'v>(
                 &self,
@@ -168,19 +182,8 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
                 #this_param
                 parameters: &starlark::eval::Arguments<'v, '_>,
             ) -> anyhow::Result<starlark::values::Value<'v>> {
-                // TODO(nga): copy lifetime parameter from declaration,
-                //   so the warning would be precise.
-                #[allow(clippy::extra_unused_lifetimes)]
-                fn inner<'v>(
-                    #this_param
-                    #( #binding_params, )*
-                    #eval_param
-                    #heap_param
-                ) -> #return_type {
-                    #body
-                }
                 #prepare
-                match inner(#this_arg #( #binding_args, )* #eval_arg #heap_arg) {
+                match Self::invoke_impl(#this_arg #( #binding_args, )* #eval_arg #heap_arg) {
                     Ok(v) => Ok(eval.heap().alloc(v)),
                     Err(e) => Err(e),
                 }
