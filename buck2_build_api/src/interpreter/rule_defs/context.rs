@@ -364,8 +364,8 @@ fn create_dir_tree<'v>(
 fn copy_file<'v>(
     eval: &mut Evaluator<'v, '_>,
     this: &AnalysisActions<'v>,
-    src: Value<'v>,
     dest: Value<'v>,
+    src: Value<'v>,
     copy: bool,
 ) -> anyhow::Result<Value<'v>> {
     let src = src
@@ -547,7 +547,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         dest: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        copy_file(eval, this, src, dest, /* copy */ true)
+        copy_file(eval, this, dest, src, /* copy */ true)
     }
 
     fn symlink<'v>(
@@ -556,7 +556,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         dest: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        copy_file(eval, this, src, dest, /* copy */ false)
+        copy_file(eval, this, dest, src, /* copy */ false)
     }
 
     fn symlinked_dir<'v>(
