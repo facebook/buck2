@@ -43,7 +43,7 @@ use thiserror::Error;
 use crate::{
     actions::{
         artifact::OutputArtifact,
-        copy::UnregisteredCopyAction,
+        copy::{CopyMode, UnregisteredCopyAction},
         download_file::UnregisteredDownloadFileAction,
         run::{dep_files::RunActionDepFiles, MetadataParameter, UnregisteredRunAction},
         symlinked_dir::UnregisteredSymlinkedDirAction,
@@ -366,7 +366,7 @@ fn copy_file<'v>(
     this: &AnalysisActions<'v>,
     dest: Value<'v>,
     src: Value<'v>,
-    copy: bool,
+    copy: CopyMode,
 ) -> anyhow::Result<Value<'v>> {
     let src = src
         .as_artifact()
@@ -547,7 +547,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         dest: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        copy_file(eval, this, dest, src, /* copy */ true)
+        copy_file(eval, this, dest, src, CopyMode::Copy)
     }
 
     fn symlink<'v>(
@@ -556,7 +556,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         dest: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        copy_file(eval, this, dest, src, /* copy */ false)
+        copy_file(eval, this, dest, src, CopyMode::Symlink)
     }
 
     fn symlinked_dir<'v>(

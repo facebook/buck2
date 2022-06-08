@@ -40,12 +40,18 @@ enum CopyActionValidationError {
     UnsupportedInput(ArtifactGroup),
 }
 
+#[derive(Debug)]
+pub enum CopyMode {
+    Copy,
+    Symlink,
+}
+
 pub struct UnregisteredCopyAction {
-    copy: bool,
+    copy: CopyMode,
 }
 
 impl UnregisteredCopyAction {
-    pub fn new(copy: bool) -> Self {
+    pub fn new(copy: CopyMode) -> Self {
         Self { copy }
     }
 }
@@ -63,14 +69,14 @@ impl UnregisteredAction for UnregisteredCopyAction {
 
 #[derive(Debug)]
 struct CopyAction {
-    copy: bool,
+    copy: CopyMode,
     inputs: IndexSet<ArtifactGroup>,
     outputs: IndexSet<BuildArtifact>,
 }
 
 impl CopyAction {
     fn new(
-        copy: bool,
+        copy: CopyMode,
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
     ) -> anyhow::Result<Self> {
@@ -159,10 +165,13 @@ impl PristineActionExecutable for CopyAction {
         let value = {
             let fs = artifact_fs.fs();
             let mut builder = ArtifactValueBuilder::new(fs);
-            if self.copy {
-                builder.add_copied(src_value, src.as_ref(), dest.as_ref())?;
-            } else {
-                builder.add_symlinked(src_value, src.as_ref(), dest.as_ref())?;
+            match self.copy {
+                CopyMode::Copy => {
+                    builder.add_copied(src_value, src.as_ref(), dest.as_ref())?;
+                }
+                CopyMode::Symlink => {
+                    builder.add_symlinked(src_value, src.as_ref(), dest.as_ref())?;
+                }
             }
 
             builder.build(dest.as_ref())?
