@@ -16,7 +16,7 @@ use anyhow::Context;
 use buck2_core::package::PackageRelativePathBuf;
 use derivative::Derivative;
 
-use crate::package_listing::listing::PackageListing;
+use crate::package_listing::file_listing::PackageFileListing;
 
 /// The default Debug for Pattern is horribly verbose with lots of internal
 /// details we don't care about, so create `GlobPattern` so we can have a
@@ -121,9 +121,9 @@ impl GlobSpec {
                 .any(|p| p.0.matches_with(path, options))
     }
 
-    pub fn resolve_glob<'a>(
+    pub(crate) fn resolve_glob<'a>(
         &'a self,
-        spec: &'a PackageListing,
+        spec: &'a PackageFileListing,
     ) -> Box<dyn Iterator<Item = &'a PackageRelativePathBuf> + 'a> {
         if spec.files().len() >= Self::BINARY_SEARCH_CUTOFF && !self.common_prefix.is_empty() {
             return box spec
@@ -137,7 +137,6 @@ impl GlobSpec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::package_listing::listing::testing::PackageListingExt;
 
     #[test]
     fn test_glob_match() -> anyhow::Result<()> {
@@ -174,7 +173,7 @@ mod tests {
     fn test_resolve_glob() -> anyhow::Result<()> {
         let spec = GlobSpec::new(&["abc*", "**/*.java", "*/*/*.txt"], &["excluded/**/*"])?;
 
-        let package_listing = PackageListing::testing_files(&[
+        let package_listing = PackageFileListing::testing_new(&[
             "abcxyz",
             "abcsomething",
             "1/2/3.txt",

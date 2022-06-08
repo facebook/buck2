@@ -139,7 +139,7 @@ impl<'a> BuildContext<'a> {
         spec: &'a GlobSpec,
     ) -> anyhow::Result<impl Iterator<Item = &'a PackageRelativePathBuf> + 'a> {
         match &self.listing {
-            Some(listing) => Ok(spec.resolve_glob(listing)),
+            Some(listing) => Ok(spec.resolve_glob(listing.files())),
             None => Err(anyhow!("glob() can only be called from a build file")),
         }
     }

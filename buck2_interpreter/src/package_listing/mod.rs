@@ -8,6 +8,7 @@
  */
 
 pub mod dice;
+pub(crate) mod file_listing;
 pub(crate) mod find_buildfile;
 pub(crate) mod interpreter;
 pub mod listing;
