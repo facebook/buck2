@@ -308,6 +308,11 @@ impl Arbitrary for DiceExecutionOrder {
             }
         };
 
+        // There's a known bug in DICE involving transient values resulting in incorrect
+        // computation. This environment variable disables the fuzzer searching for these
+        // bugs, so other errors are easier to find.
+        let gen_transients = std::env::var("NOGEN_TRANSIENTS").is_err();
+
         for _ in 0..Self::AVG_OPS_PER_VAR * g.size() {
             let i = usize::arbitrary(g) % active_vars.len();
             // Semi-randomly select a next op.
@@ -316,7 +321,7 @@ impl Arbitrary for DiceExecutionOrder {
                     ctx_id: *g.choose(&ctx_ids).unwrap(),
                     var: active_vars[i],
                 },
-                41..50 => Operation::EnqueueStep(
+                41..50 if gen_transients => Operation::EnqueueStep(
                     *g.choose(&active_vars).unwrap(),
                     vec![ComputationStep::ReturnTransient],
                 ),
