@@ -93,9 +93,10 @@ impl WatchmanInstance {
 
 impl Drop for WatchmanInstance {
     fn drop(&mut self) {
-        if self.child.is_none() {
-            return;
-        }
+        let child = match self.child.as_mut() {
+            Some(c) => c,
+            None => return,
+        };
 
         // If we get here, something went wrong and we didn't stop Watchman properly. Log debug
         // info.
@@ -106,6 +107,13 @@ impl Drop for WatchmanInstance {
             Ok(log) => eprintln!("Watchman logs follow\n{}", log),
             Err(e) => eprintln!("Failed to read logs: {:#}", e),
         };
+
+        // Try to see if Watchman had exited or not.
+        match child.try_wait() {
+            Ok(Some(status)) => eprintln!("Watchman had exited with status {:?}", status),
+            Ok(None) => eprintln!("Watchan is still running"),
+            Err(e) => eprintln!("Failed to access Watchman status: {:#}", e),
+        }
     }
 }
 
