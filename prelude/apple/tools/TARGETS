@@ -35,6 +35,17 @@ fb_native.command_alias(
     visibility = ["PUBLIC"],
 )
 
+fb_native.export_file(
+    name = "swift_objc_header_postprocess.py",
+    src = "swift_objc_header_postprocess.py",
+)
+
+fb_native.command_alias(
+    name = "swift_objc_header_postprocess",
+    exe = ":swift_objc_header_postprocess.py",
+    visibility = ["PUBLIC"],
+)
+
 python_library(
     name = "lib_for_pyre",
     srcs = glob(["**/*.py"]),

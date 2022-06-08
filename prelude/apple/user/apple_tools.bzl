@@ -9,6 +9,7 @@ def _impl(ctx: "context") -> ["provider"]:
             info_plist_processor = ctx.attr.info_plist_processor[RunInfo],
             make_modulemap = ctx.attr.make_modulemap[RunInfo],
             make_vfsoverlay = ctx.attr.make_vfsoverlay[RunInfo],
+            swift_objc_header_postprocess = ctx.attr.swift_objc_header_postprocess[RunInfo],
         ),
     ]
 
@@ -23,5 +24,6 @@ registration_spec = RuleRegistrationSpec(
         "info_plist_processor": attr.dep(providers = [RunInfo]),
         "make_modulemap": attr.dep(providers = [RunInfo]),
         "make_vfsoverlay": attr.dep(providers = [RunInfo]),
+        "swift_objc_header_postprocess": attr.dep(providers = [RunInfo]),
     },
 )

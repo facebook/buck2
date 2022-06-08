@@ -1,3 +1,5 @@
+load("@fbcode//buck2/prelude:paths.bzl", "paths")
+load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load(
     "@fbcode//buck2/prelude/cxx:compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
@@ -9,6 +11,7 @@ load(
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
+load("@fbcode//buck2/prelude/utils:utils.bzl", "map_idx")
 load(":apple_modular_utility.bzl", "MODULE_CACHE_PATH")
 load(":apple_sdk_modules_utility.bzl", "get_sdk_deps_tset")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
@@ -33,10 +36,13 @@ SwiftmodulePathsTSet = transitive_set(args_projections = {
     "module_search_path": _add_swiftmodule_search_path,
 })
 
+ExportedHeadersTSet = transitive_set()
+
 SwiftDependencyInfo = provider(fields = [
     "name",  # str.type
     "swiftmodule_path",  # ["cmd_args", None] A path to compiled swiftmodule artifact.
     "swiftmodule_deps_paths",  # [SwiftDependencyInfo]
+    "exported_headers",  # a tset which transitively captures all the exported_headers for a module
 ])
 
 SwiftCompilationOutput = record(
@@ -64,14 +70,17 @@ def compile_swift(
     toolchain = ctx.attr._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
 
     module_name = get_module_name(ctx)
+    unprocessed_header = ctx.actions.declare_output(module_name + "-SwiftUnprocessed.h")
     output_header = ctx.actions.declare_output(module_name + "-Swift.h")
     output_object = ctx.actions.declare_output(module_name + ".o")
     output_swiftmodule = ctx.actions.declare_output(module_name + ".swiftmodule")
 
     shared_flags = _get_shared_flags(ctx, module_name, srcs, exported_headers, objc_modulemap_pp_info)
 
-    _compile_swiftmodule(ctx, toolchain, shared_flags, output_swiftmodule, output_header)
+    _compile_swiftmodule(ctx, toolchain, shared_flags, output_swiftmodule, unprocessed_header)
     _compile_object(ctx, toolchain, shared_flags, output_object)
+
+    _perform_swift_postprocessing(ctx, module_name, unprocessed_header, output_header)
 
     # Swift libraries extend the ObjC modulemaps to include the -Swift.h header
     modulemap_pp_info = preprocessor_info_for_modulemap(ctx, "swift-extended", exported_headers, output_header)
@@ -105,6 +114,30 @@ def compile_swift(
         pre = pre,
         exported_pre = exported_pp_info,
     )
+
+# Swift headers are postprocessed to make them compatible with Objective-C
+# compilation that does not use -fmodules. This is a workaround for the bad
+# performance of -fmodules without Explicit Modules, once Explicit Modules is
+# supported, this postprocessing should be removed.
+def _perform_swift_postprocessing(
+        ctx: "context",
+        module_name: "string",
+        unprocessed_header: "artifact",
+        output_header: "artifact"):
+    transitive_exported_headers = {
+        module: module_exported_headers
+        for exported_headers_map in _get_exported_headers_tset(ctx).traverse()
+        if exported_headers_map
+        for module, module_exported_headers in exported_headers_map.items()
+    }
+    deps_json = ctx.actions.write_json(module_name + "-Deps.json", transitive_exported_headers)
+    postprocess_cmd = cmd_args(ctx.attr._apple_tools[AppleToolsInfo].swift_objc_header_postprocess)
+    postprocess_cmd.add([
+        unprocessed_header,
+        deps_json,
+        output_header.as_output(),
+    ])
+    ctx.actions.run(postprocess_cmd, category = "swift_objc_header_postprocess")
 
 # We use separate actions for swiftmodule and object file output. This
 # improves build parallelism at the cost of duplicated work, but by disabling
@@ -312,6 +345,17 @@ def _get_swift_paths_tsets(ctx: "context", deps: ["dependency"]) -> ["Swiftmodul
         if d[SwiftDependencyInfo] != None
     ]
 
+def _get_exported_headers_tset(ctx: "context", exported_headers: [["string"], None] = None) -> "ExportedHeadersTSet":
+    return ctx.actions.tset(
+        ExportedHeadersTSet,
+        value = {get_module_name(ctx): exported_headers} if exported_headers else None,
+        children = [
+            dep.exported_headers
+            for dep in map_idx(SwiftDependencyInfo, ctx.attr.exported_deps)
+            if dep and dep.exported_headers
+        ],
+    )
+
 def get_swift_dependency_infos(
         ctx: "context",
         exported_pre: ["CPreprocessor", None],
@@ -320,10 +364,14 @@ def get_swift_dependency_infos(
     if ctx.attr.reexport_all_header_dependencies:
         deps += ctx.attr.deps
 
+    exported_headers = [_header_basename(header) for header in ctx.attr.exported_headers]
+    exported_headers += [header.name for header in exported_pre.headers] if exported_pre else []
+
     providers = [SwiftDependencyInfo(
         name = get_module_name(ctx),
         swiftmodule_path = output_module,
         swiftmodule_deps_paths = _get_swift_paths_tsets(ctx, deps),
+        exported_headers = _get_exported_headers_tset(ctx, exported_headers),
     )]
 
     # If exported PP exists, we need to precompile a modulemap,
@@ -335,3 +383,9 @@ def get_swift_dependency_infos(
         ))
 
     return providers
+
+def _header_basename(header: ["artifact", "string"]) -> "string":
+    if type(header) == type(""):
+        return paths.basename(header)
+    else:
+        return header.basename
