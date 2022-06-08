@@ -230,6 +230,17 @@ async def test_query_rdeps(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="bql/simple")
+async def test_query_deps(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl/cquery.bxl:deps_test",
+    )
+    assert (
+        result.stdout
+        == "[root//bin:the_binary (root//platforms:platform1), root//platforms:platform1 (root//platforms:platform1), root//:data (root//platforms:platform1), root//lib:lib1 (root//platforms:platform1), root//lib:lib2 (root//platforms:platform1), root//lib:lib3 (root//platforms:platform1), root//:foo_toolchain (root//platforms:platform1), root//:bin (root//platforms:platform1)]\n"
+    )
+
+
+@buck_test(inplace=False, data_dir="bql/simple")
 async def test_bxl_build(buck: Buck) -> None:
 
     result = await buck.bxl(

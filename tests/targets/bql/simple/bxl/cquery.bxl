@@ -33,3 +33,12 @@ rdeps_test = bxl(
     implementation = _rdeps_impl,
     cli_args = {},
 )
+
+def _deps_impl(ctx):
+    result = ctx.cquery().deps("root//bin:the_binary", 1)
+    ctx.output.print(result)
+
+deps_test = bxl(
+    implementation = _deps_impl,
+    cli_args = {},
+)

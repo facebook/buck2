@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use buck2_core::target::TargetLabel;
-use buck2_query::query::syntax::simple::functions::DefaultQueryFunctions;
+use buck2_query::query::syntax::simple::functions::{
+    helpers::CapturedExpr, DefaultQueryFunctions, DefaultQueryFunctionsModule,
+};
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -9,8 +11,8 @@ use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
     values::{
-        AllocValue, Freeze, Freezer, Heap, NoSerialize, NoSimpleValue, StarlarkValue, Trace,
-        UnpackValue, Value, ValueLike,
+        none::NoneOr, AllocValue, Freeze, Freezer, Heap, NoSerialize, NoSimpleValue, StarlarkValue,
+        Trace, UnpackValue, Value, ValueLike,
     },
 };
 
@@ -143,6 +145,35 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             .via(|| async {
                 this.functions
                     .owner(&this.env, &*(files.get(&this.env).await?))
+                    .await
+            })
+            .map(StarlarkTargetSet::from)
+    }
+
+    fn deps<'v>(
+        this: &StarlarkCQueryCtx,
+        universe: TargetExpr<ConfiguredTargetNode>,
+        #[starlark(default = NoneOr::None)] depth: NoneOr<i32>,
+        #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
+    ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
+        this.ctx
+            .async_ctx
+            .via(|| async {
+                let filter = filter
+                    .into_option()
+                    .try_map(|v| buck2_query_parser::parse_expr(*v))?;
+
+                this.functions
+                    .deps(
+                        &this.env,
+                        &DefaultQueryFunctionsModule::new(),
+                        targets!(&this.env, universe),
+                        depth.into_option(),
+                        filter
+                            .as_ref()
+                            .map(|span| CapturedExpr { expr: span })
+                            .as_ref(),
+                    )
                     .await
             })
             .map(StarlarkTargetSet::from)
