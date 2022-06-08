@@ -51,8 +51,7 @@ fn test_definitely_assigned_slot_range_in_call() {
 
 #[test]
 fn test_mov_is_used() {
-    // TODO(nga): this code generates `LoadLocal` instructions to read `x` and `y`,
-    //   while `Mov` instructions should be used.
+    // `Mov`, not `LoadLocal` should be used to load `y` and `x`.
     bc_golden_test(
         "definitely_assigned_mov_is_used",
         "def test(x, y): noop(y, x)",

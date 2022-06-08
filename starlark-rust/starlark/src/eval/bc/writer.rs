@@ -206,7 +206,11 @@ impl<'f> BcWriter<'f> {
     ) {
         assert!(slot.0 < self.local_count);
 
-        self.write_instr::<InstrLoadLocal>(span, (slot, target));
+        if let Some(slot) = self.try_definitely_assigned(slot) {
+            self.write_instr::<InstrMov>(span, (slot, target));
+        } else {
+            self.write_instr::<InstrLoadLocal>(span, (slot, target));
+        }
     }
 
     pub(crate) fn write_load_local_captured(
