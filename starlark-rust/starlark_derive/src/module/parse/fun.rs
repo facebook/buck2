@@ -529,7 +529,7 @@ fn parse_arg(x: FnArg, has_v: bool, seen_star_args: bool) -> syn::Result<StarArg
                 return Ok(StarArgOrSpecial::Eval(eval));
             }
 
-            let this = ident.ident == "this" || ident.ident == "_this";
+            let this = ident.ident == "this";
 
             if ident.subpat.is_some() {
                 return Err(syn::Error::new(

@@ -585,12 +585,12 @@ mod tests {
     fn add_some_value(builder: &mut MethodsBuilder) {
         /// Docs for attr1
         #[starlark(attribute)]
-        fn attr1<'v>(_this: Value<'v>) -> anyhow::Result<String> {
+        fn attr1<'v>(this: Value<'v>) -> anyhow::Result<String> {
             Ok("attr1".to_owned())
         }
 
         #[starlark(attribute)]
-        fn attr2<'v>(_this: Value<'v>) -> anyhow::Result<String> {
+        fn attr2<'v>(this: Value<'v>) -> anyhow::Result<String> {
             Ok("attr2".to_owned())
         }
 
@@ -601,12 +601,13 @@ mod tests {
         ///
         /// # Returns
         /// The string 'func1'
-        fn func1<'v>(_this: Value<'v>, foo: String) -> anyhow::Result<String> {
-            let _ignore = foo;
+        fn func1<'v>(this: Value<'v>, foo: String) -> anyhow::Result<String> {
+            let _ignore = (this, foo);
             Ok("func1".to_owned())
         }
 
-        fn func2<'v>(_this: Value<'v>) -> anyhow::Result<String> {
+        fn func2<'v>(this: Value<'v>) -> anyhow::Result<String> {
+            let _ = this;
             Ok("func2".to_owned())
         }
     }
