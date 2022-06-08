@@ -36,8 +36,6 @@ pub struct GlobSpec {
     exact_matches: HashSet<String>,
     patterns: Vec<GlobPattern>,
     excludes: Vec<GlobPattern>,
-    #[derivative(Debug = "ignore")]
-    options: glob::MatchOptions,
 }
 
 impl Display for GlobSpec {
@@ -135,24 +133,24 @@ impl GlobSpec {
             exact_matches,
             patterns: glob_patterns,
             excludes: glob_excludes,
-            options: glob::MatchOptions {
-                require_literal_separator: true,
-                require_literal_leading_dot: true,
-                ..glob::MatchOptions::default()
-            },
         })
     }
 
     pub fn matches(&self, path: &str) -> bool {
+        let options = glob::MatchOptions {
+            require_literal_separator: true,
+            require_literal_leading_dot: true,
+            ..glob::MatchOptions::default()
+        };
         (self.exact_matches.contains(path)
             || self
                 .patterns
                 .iter()
-                .any(|p| p.0.matches_with(path, self.options)))
+                .any(|p| p.0.matches_with(path, options)))
             && !self
                 .excludes
                 .iter()
-                .any(|p| p.0.matches_with(path, self.options))
+                .any(|p| p.0.matches_with(path, options))
     }
 
     pub fn resolve_glob<'a>(
