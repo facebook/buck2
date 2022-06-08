@@ -335,6 +335,9 @@ def process_genrule(
     # The cxx_genrule also forwards here, and that doesn't have .executable, so use getattr
     if getattr(ctx.attr, "executable", False):
         if out_attr == None:
-            fail("Rule `genrule` with attribute `executable=True` not implemented when using `outs`")
-        providers.append(RunInfo(args = cmd_args(all_outputs)))
+            # Match Buck 1 behavior: default output is the executable and remaining
+            # outputs are all materialized.
+            providers.append(RunInfo(args = cmd_args(default_outputs).hidden(all_outputs)))
+        else:
+            providers.append(RunInfo(args = cmd_args(all_outputs)))
     return providers
