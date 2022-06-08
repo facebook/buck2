@@ -129,6 +129,19 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         })?)
     }
 
+    fn attrfilter(
+        this: &StarlarkCQueryCtx,
+        attr: &str,
+        value: &str,
+        targets: TargetExpr<ConfiguredTargetNode>,
+    ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
+        this.ctx.async_ctx.via(|| async {
+            this.functions
+                .attrfilter(attr, value, &*targets!(&this.env, targets))
+                .map(StarlarkTargetSet::from)
+        })
+    }
+
     fn kind(
         this: &StarlarkCQueryCtx,
         regex: &str,
