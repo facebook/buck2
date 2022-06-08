@@ -237,6 +237,24 @@ mod tests {
     }
 
     #[test]
+    fn test_invalid_patterns() {
+        fn test_invalid(pattern: &str) {
+            assert!(
+                GlobSpec::new(&[pattern], &[""; 0]).is_err(),
+                "Pattern must not be accepted: `{pattern}`"
+            );
+            assert!(
+                GlobSpec::new(&[""; 0], &[pattern]).is_err(),
+                "Pattern must not be accepted as exclude as well: `{pattern}`"
+            );
+        }
+
+        test_invalid("a**");
+        test_invalid("**a");
+        test_invalid(".**");
+    }
+
+    #[test]
     fn test_glob_prefix() {
         assert_eq!("a/", longest_common_glob_prefix(&["a/1", "a/2"]));
         assert_eq!("", longest_common_glob_prefix(&["a/1", "b/1"]));
