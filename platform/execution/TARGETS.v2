@@ -107,7 +107,7 @@ fat_mac_linux = execution_platform(
     make_dash_only_platforms = False,
 )
 
-fat_platforms = [fat_mac_linux] if fat_platforms_enabled else []
+fat_platforms = fat_mac_linux if fat_platforms_enabled else []
 
 execution_platforms(
     name = "platforms",

@@ -8,7 +8,7 @@ linux_execution_base_platforms = {
     "platform009": "ovr_config//platform/linux:x86_64-fbcode-platform009-clang-nosan",
 }
 
-def _execution_platform_impl(ctx):
+def _execution_platform_impl(ctx: "context"):
     infos = [p[BuildModeInfo] for p in ctx.attr.remote_execution_action_key_providers]
     kvs = ["{}={}".format(info.cell, info.mode) for info in infos if info.mode != None]
 
@@ -44,10 +44,10 @@ execution_platform_rule = rule(
     implementation = _execution_platform_impl,
 )
 
-def _pkg(s):
+def _pkg(s: str.type) -> str.type:
     return "fbcode//buck2/platform/execution:" + s
 
-def execution_platform(name, base_platform, local_enabled, remote_enabled, make_dash_only_platforms = True, **kwargs):
+def execution_platform(name, base_platform, local_enabled, remote_enabled, make_dash_only_platforms = True, **kwargs) -> [str.type]:
     if not local_enabled and not remote_enabled:
         # Some platforms do not support RE, so when running on a non-matching host,
         # neither local nor remote would be enabled.
@@ -124,7 +124,7 @@ def execution_platform(name, base_platform, local_enabled, remote_enabled, make_
 # TODO(cjhopman): Our long-term goal has to be to remove this. All build
 # tooling will first need to be updated to properly specify their execution
 # requirements.
-def ordered_platforms_by_host_type(windows_platforms, mac_platforms, linux_platforms):
+def ordered_platforms_by_host_type(windows_platforms: [str.type], mac_platforms: [str.type], linux_platforms: [str.type]) -> [str.type]:
     if host_info().os.is_windows:
         return windows_platforms + linux_platforms + mac_platforms
 
@@ -133,7 +133,7 @@ def ordered_platforms_by_host_type(windows_platforms, mac_platforms, linux_platf
     else:
         return linux_platforms + mac_platforms + windows_platforms
 
-def _execution_platforms_impl(ctx):
+def _execution_platforms_impl(ctx: "context") -> ["provider"]:
     return [
         DefaultInfo(),
         ExecutionPlatformRegistrationInfo(
@@ -152,7 +152,7 @@ FatPlatformTransitionInfo = provider(
     fields = ("mac", "linux"),
 )
 
-def _fat_platforms_transition_helper(ctx):
+def _fat_platforms_transition_helper(ctx: "context") -> ["provider"]:
     return [
         DefaultInfo(),
         FatPlatformTransitionInfo(
