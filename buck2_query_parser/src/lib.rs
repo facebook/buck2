@@ -166,9 +166,9 @@ pub enum BinaryOp {
 impl Display for BinaryOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
-            BinaryOp::Intersect => "&",
-            BinaryOp::Except => "^",
-            BinaryOp::Union => "|",
+            BinaryOp::Intersect => "^",
+            BinaryOp::Except => "-",
+            BinaryOp::Union => "+",
         })
     }
 }
