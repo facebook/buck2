@@ -385,35 +385,58 @@ async def test_starlib(buck: Buck) -> None:
     await buck.build("fbcode//buck2/tests/targets/starlib:")
 
 
+async def run_java_tests(buck: Buck, enable_javacd: bool) -> None:
+    config_flags = []
+    if enable_javacd:
+        config_flags = [
+            "-c",
+            "buck2.enable_javacd=true",
+            "-c",
+            "java.javac=",
+            "-c",
+            "tools.javac=",
+        ]
+
+    async def build(*args, **kwargs):
+        await buck.build(*(config_flags + list(args)), **kwargs)
+
+    async def test(*args, **kwargs):
+        await buck.test(*(config_flags + list(args)), **kwargs)
+
+    await build("fbcode//buck2/tests/targets/rules/java/prebuilt_jar:")
+    await expect_failure(
+        build("fbcode//buck2/tests/targets/rules/java/prebuilt_jar/bad:"),
+        stderr_regex="Extension of the binary_jar attribute has to be equal to",
+    )
+    await build("fbcode//buck2/tests/targets/rules/java/keystore:")
+    await build("fbcode//buck2/tests/targets/rules/java/library:")
+    await build("fbcode//buck2/tests/targets/rules/java/library/zipped_sources:")
+    await expect_failure(
+        build("fbcode//buck2/tests/targets/rules/java/library/java_version_bad:"),
+        stderr_regex="No need to set 'source' and/or 'target' attributes when 'java_version' is present",
+    )
+    await expect_failure(
+        build("fbcode//buck2/tests/targets/rules/java/library/java_library_bad:"),
+        stderr_regex="error: <identifier> expected",
+    )
+
+    await build("fbcode//buck2/tests/targets/rules/java/jar_genrule:")
+    await test("fbcode//buck2/tests/targets/rules/java/java_test:")
+
+
 if fbcode_linux_only():
 
     @buck_test(inplace=True)
     async def test_java(buck: Buck) -> None:
-        await buck.build("fbcode//buck2/tests/targets/rules/java/prebuilt_jar:")
-        await expect_failure(
-            buck.build("fbcode//buck2/tests/targets/rules/java/prebuilt_jar/bad:"),
-            stderr_regex="Extension of the binary_jar attribute has to be equal to",
-        )
-        await buck.build("fbcode//buck2/tests/targets/rules/java/keystore:")
-        await buck.build("fbcode//buck2/tests/targets/rules/java/library:")
-        await buck.build(
-            "fbcode//buck2/tests/targets/rules/java/library/zipped_sources:"
-        )
-        await expect_failure(
-            buck.build(
-                "fbcode//buck2/tests/targets/rules/java/library/java_version_bad:"
-            ),
-            stderr_regex="No need to set 'source' and/or 'target' attributes when 'java_version' is present",
-        )
-        await expect_failure(
-            buck.build(
-                "fbcode//buck2/tests/targets/rules/java/library/java_library_bad:"
-            ),
-            stderr_regex="error: <identifier> expected",
-        )
+        await run_java_tests(buck, False)
 
-        await buck.build("fbcode//buck2/tests/targets/rules/java/jar_genrule:")
-        await buck.test("fbcode//buck2/tests/targets/rules/java/java_test:")
+    @buck_test(inplace=True)
+    @pytest.mark.xfail(
+        strict=False,
+        reason="This doesn't work with deferred materialized due to dir/file output overlap",
+    )
+    async def test_java_with_javacd(buck: Buck) -> None:
+        await run_java_tests(buck, True)
 
 
 if fbcode_linux_only():

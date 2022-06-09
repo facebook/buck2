@@ -8,7 +8,9 @@ load(
     "make_compile_outputs",
     "maybe_create_abi",
 )
+load("@fbcode//buck2/prelude/java:java_resources.bzl", "get_resources_map")
 load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JavaToolchainInfo")
+load("@fbcode//buck2/prelude/java:javacd_jar_creator.bzl", "create_jar_artifact_javacd")
 load("@fbcode//buck2/prelude/java/plugins:java_annotation_processor.bzl", "create_ap_params")
 load("@fbcode//buck2/prelude/java/plugins:java_plugin.bzl", "create_plugin_params")
 load("@fbcode//buck2/prelude/java/utils:java_utils.bzl", "derive_javac", "get_path_separator")
@@ -240,75 +242,24 @@ def _is_supported_archive(src: "artifact") -> bool.type:
             return True
     return False
 
-def _get_resources_map(
-        java_toolchain: JavaToolchainInfo.type,
-        package: str.type,
-        resources: ["artifact"],
-        resources_root: [str.type, None]) -> {str.type: "artifact"}:
-    # As in v1, root the resource root via the current package.
-    if resources_root != None:
-        resources_root = paths.normalize(paths.join(package, resources_root))
-
-    java_package_finder = _get_java_package_finder(java_toolchain)
-
-    resources_to_copy = {}
-    for resource in resources:
-        # Create the full resource path.
-        full_resource = paths.join(
-            resource.owner.package if resource.owner else package,
-            resource.short_path,
-        )
-
-        # As in v1 (https://fburl.com/code/j2vwny56, https://fburl.com/code/9era0xpz),
-        # if this resource starts with the resource root, relativize and insert it as
-        # is.
-        if resources_root != None and paths.starts_with(full_resource, resources_root):
-            resource_name = paths.relativize(
-                full_resource,
-                resources_root,
-            )
-        else:
-            resource_name = java_package_finder(full_resource)
-        resources_to_copy[resource_name] = resource
-    return resources_to_copy
-
 def _copy_resources(
         actions: "actions",
         java_toolchain: JavaToolchainInfo.type,
         package: str.type,
         resources: ["artifact"],
         resources_root: [str.type, None]) -> "artifact":
-    resources_to_copy = _get_resources_map(java_toolchain, package, resources, resources_root)
+    resources_to_copy = get_resources_map(java_toolchain, package, resources, resources_root)
     resource_output = actions.declare_output("resources")
     actions.symlinked_dir(resource_output, resources_to_copy)
     return resource_output
 
-def _get_java_package_finder(java_toolchain: JavaToolchainInfo.type) -> "function":
-    src_root_prefixes = java_toolchain.src_root_prefixes
-    src_root_elements = java_toolchain.src_root_elements
-
-    def finder(path):
-        for prefix in src_root_prefixes:
-            if path.startswith(prefix):
-                return paths.relativize(
-                    path,
-                    prefix,
-                )
-        parts = path.split("/")
-        for i in range(len(parts) - 1, -1, -1):
-            part = parts[i]
-            if part in src_root_elements:
-                return "/".join(parts[i + 1:])
-
-        return path
-
-    return finder
-
-def _jar_creator(java_toolchain):
-    if java_toolchain.javac_protocol == "classic":
+def _jar_creator(
+        javac_tool: ["", None],
+        java_toolchain: JavaToolchainInfo.type) -> "function":
+    if javac_tool or java_toolchain.javac_protocol == "classic":
         return _create_jar_artifact
     elif java_toolchain.javac_protocol == "javacd":
-        return _create_jar_artifact_javacd
+        return create_jar_artifact_javacd
     else:
         fail("unrecognized javac protocol `{}`".format(java_toolchain.javac_protocol))
 
@@ -355,7 +306,7 @@ def compile_to_jar(
     if not target_level:
         target_level = _to_java_version(java_toolchain.target_level)
 
-    return _jar_creator(java_toolchain)(
+    return _jar_creator(javac_tool, java_toolchain)(
         ctx.actions,
         actions_prefix,
         java_toolchain,
@@ -377,9 +328,6 @@ def compile_to_jar(
         additional_compiled_srcs,
         bootclasspath_entries,
     )
-
-def _create_jar_artifact_javacd(*_args, **_kwargs) -> "JavaCompileOutputs":
-    fail("javacd compilation isn't implemented yet")
 
 def _create_jar_artifact(
         actions: "actions",

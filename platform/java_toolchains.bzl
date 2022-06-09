@@ -57,7 +57,7 @@ def config_backed_java_toolchain(
 
     kwargs["javac_protocol"] = "classic"
     if "javac" not in kwargs:
-        if read_bool("buck2", "enable_internal_javac", False):
+        if read_bool("buck2", "enable_javacd", False):
             # if javac isn't set, we use the buck1 "internal" javac
             kwargs["javac"] = "buck//src/com/facebook/buck/jvm/java/stepsbuilder/javacd/main:javacd_tool"
             kwargs["javac_protocol"] = "javacd"
