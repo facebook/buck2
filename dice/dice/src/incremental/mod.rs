@@ -303,7 +303,7 @@ where
                         )
                         .await
                         {
-                            DidDepsChange::Changed => {
+                            DidDepsChange::Changed | DidDepsChange::NoDeps => {
                                 debug!("dependencies changed. recomputing...");
 
                                 self.compute(k, eval_ctx, extra).await
@@ -590,7 +590,7 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
                 )
                 .await
                 {
-                    DidDepsChange::Changed => {
+                    DidDepsChange::Changed | DidDepsChange::NoDeps => {
                         debug!("dependencies changed. recomputing...");
 
                         self.do_recompute_projection(k, transaction_ctx, extra)
@@ -743,6 +743,10 @@ impl<K: IncrementalComputeProperties> IncrementalEngine<K> {
         verified_versions: &VersionRanges,
         deps: &Arc<HashSet<Arc<dyn Dependency>>>,
     ) -> DidDepsChange {
+        if deps.is_empty() {
+            return DidDepsChange::NoDeps;
+        }
+
         let mut fs: FuturesUnordered<_> =
             (deps.iter().map(|dep| dep.recompute(transaction_ctx, extra))).collect();
 
@@ -773,6 +777,7 @@ impl<K: IncrementalComputeProperties> IncrementalEngine<K> {
 enum DidDepsChange {
     Changed,
     NoChange(BothDeps),
+    NoDeps,
 }
 
 #[cfg(test)]
@@ -928,6 +933,7 @@ pub(crate) mod testing {
             match self {
                 DidDepsChange::Changed => true,
                 DidDepsChange::NoChange(..) => false,
+                DidDepsChange::NoDeps => false,
             }
         }
     }

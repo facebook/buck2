@@ -182,8 +182,8 @@ impl CellHistory {
                 changed_since
             }
         } else {
-            self.verified.insert(VersionNumber::new(0));
-            VersionNumber::new(0)
+            self.verified.insert(v);
+            v
         };
 
         self.propagate_from_deps(changed_since, deps_iter);
