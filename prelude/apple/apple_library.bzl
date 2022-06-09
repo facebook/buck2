@@ -38,6 +38,9 @@ AppleLibraryAdditionalParams = record(
     generate_sub_targets = field(CxxRuleSubTargetParams.type, CxxRuleSubTargetParams()),
     # Define which providers to generate.
     generate_providers = field(CxxRuleProviderParams.type, CxxRuleProviderParams()),
+    # Forces link group linking logic, even when there's no mapping. Link group linking
+    # without a mapping is equivalent to statically linking the whole transitive dep graph.
+    force_link_group_linking = field(bool.type, True),
 )
 
 def apple_library_impl(ctx: "context") -> ["provider"]:
@@ -118,9 +121,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
         # targets with 'preferred_linkage = "shared"'
         strip_executable = ctx.attr.stripped,
         strip_args_factory = apple_strip_args,
-        # when building Apple shared libraries we want to always use link group's linking logic,
-        # which provides the desired behavior of linking Apple shared libraries.
-        force_link_group_linking = True,
+        force_link_group_linking = params.force_link_group_linking,
         cxx_populate_xcode_attributes_func = params.populate_xcode_attributes_func,
         generate_sub_targets = params.generate_sub_targets,
         generate_providers = params.generate_providers,
