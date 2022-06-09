@@ -465,7 +465,6 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
     }
 }
 
-#[allow(unused)]
 pub fn register_cli_args_module(registry: &mut GlobalsBuilder) {
     cli_args_module(registry)
 }
