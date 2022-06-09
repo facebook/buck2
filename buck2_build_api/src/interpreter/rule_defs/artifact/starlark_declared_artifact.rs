@@ -10,12 +10,8 @@
 use std::fmt::{self, Debug, Display};
 
 use anyhow::{anyhow, Context};
-use buck2_core::{
-    fs::paths::ForwardRelativePath,
-    provider::{ConfiguredProvidersLabel, ProvidersName},
-};
-use either::Either;
-use gazebo::{any::ProvidesStaticType, cell::ARef, prelude::*};
+use buck2_core::provider::{ConfiguredProvidersLabel, ProvidersName};
+use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{
     codemap::FileSpan,
     collections::StarlarkHasher,
@@ -30,7 +26,7 @@ use starlark::{
 use crate::{
     actions::{
         artifact,
-        artifact::{Artifact, OutputArtifact},
+        artifact::{Artifact, ArtifactPath, OutputArtifact},
     },
     artifact_groups::ArtifactGroup,
     deferred::BaseDeferredKey,
@@ -42,7 +38,6 @@ use crate::{
         },
         label::Label,
     },
-    path::{BuckOutPath, BuckPath},
 };
 
 /// A wrapper for an artifact that has been declared in the user's implementation function.
@@ -98,13 +93,8 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
         self
     }
 
-    fn fingerprint(
-        &self,
-    ) -> (
-        Either<ARef<BuckOutPath>, &BuckPath>,
-        Option<ARef<ForwardRelativePath>>,
-    ) {
-        self.artifact.get_path().as_fingerprint()
+    fn fingerprint(&self) -> ArtifactPath<'_> {
+        self.artifact.get_path()
     }
 }
 

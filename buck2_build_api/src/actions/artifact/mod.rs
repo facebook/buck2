@@ -97,38 +97,24 @@ impl Artifact {
         }
     }
 
-    pub fn path(&self) -> Cow<'_, ForwardRelativePath> {
-        let (base, rest) = self.as_parts();
-
-        let base = match base {
-            BaseArtifactKind::Source(s) => s.get_path().path().as_ref(),
-            BaseArtifactKind::Build(b) => b.get_path().path(),
-        };
-
-        match rest {
-            Some(rest) => Cow::Owned(base.join_unnormalized(rest)),
-            None => Cow::Borrowed(base),
-        }
-    }
-
-    pub fn short_path(&self) -> Cow<'_, ForwardRelativePath> {
-        let (base, rest) = self.as_parts();
-
-        let base = match base {
-            BaseArtifactKind::Source(s) => s.get_path().path().as_ref(),
-            BaseArtifactKind::Build(b) => b.get_path().short_path(),
-        };
-
-        match rest {
-            Some(rest) => Cow::Owned(base.join_unnormalized(rest)),
-            None => Cow::Borrowed(base),
-        }
-    }
-
     pub fn as_parts(&self) -> (&BaseArtifactKind, Option<&ForwardRelativePath>) {
         match self.0.as_ref() {
             ArtifactKind::Base(a) => (a, None),
             ArtifactKind::Projected(a) => (a.base(), Some(a.path())),
+        }
+    }
+
+    pub fn get_path(&self) -> ArtifactPath<'_> {
+        let (base, projected_path) = self.as_parts();
+
+        let base_path = match base {
+            BaseArtifactKind::Build(b) => Either::Left(ARef::new_ptr(b.get_path())),
+            BaseArtifactKind::Source(s) => Either::Right(s.get_path()),
+        };
+
+        ArtifactPath {
+            base_path,
+            projected_path,
         }
     }
 }
@@ -189,7 +175,7 @@ impl BoundBuildArtifact {
 
     pub fn get_path(&self) -> ArtifactPath<'_> {
         ArtifactPath {
-            base_path: ARef::new_ptr(self.artifact.get_path()),
+            base_path: Either::Left(ARef::new_ptr(self.artifact.get_path())),
             projected_path: self
                 .projected_path
                 .as_ref()
@@ -243,7 +229,7 @@ impl DeclaredArtifact {
         });
 
         ArtifactPath {
-            base_path: ARef::new_ref(base_path),
+            base_path: Either::Left(ARef::new_ref(base_path)),
             projected_path,
         }
     }
@@ -306,31 +292,23 @@ impl Ord for DeclaredArtifact {
 
 #[derive(Debug)]
 pub struct ArtifactPath<'a> {
-    base_path: ARef<'a, BuckOutPath>,
+    base_path: Either<ARef<'a, BuckOutPath>, &'a BuckPath>,
     projected_path: Option<&'a ForwardRelativePath>,
 }
 
 impl<'a> ArtifactPath<'a> {
-    pub(crate) fn as_fingerprint(
-        self,
-    ) -> (
-        Either<ARef<'a, BuckOutPath>, &'a BuckPath>,
-        Option<ARef<'a, ForwardRelativePath>>,
-    ) {
-        (
-            Either::Left(self.base_path),
-            self.projected_path.map(ARef::new_ptr),
-        )
-    }
-
     pub(crate) fn with_filename<F, T>(&self, f: F) -> T
     where
         for<'b> F: FnOnce(anyhow::Result<&'b FileName>) -> T,
     {
         let file_name = match self.projected_path.as_ref() {
-            Some(projected_path) => projected_path.file_name(),
-            None => self.base_path.path().file_name(),
+            Some(projected_path) => projected_path,
+            None => match self.base_path.as_ref() {
+                Either::Left(buck_out) => buck_out.path(),
+                Either::Right(buck) => buck.path().as_ref(),
+            },
         }
+        .file_name()
         .with_context(|| format!("Artifact has no file name: `{}`", self));
 
         f(file_name)
@@ -340,13 +318,14 @@ impl<'a> ArtifactPath<'a> {
     where
         for<'b> F: FnOnce(&'b ForwardRelativePath) -> T,
     {
+        let base_short_path = match self.base_path.as_ref() {
+            Either::Left(buck_out) => buck_out.short_path(),
+            Either::Right(buck) => buck.path().as_ref(),
+        };
+
         let path = match self.projected_path.as_ref() {
-            Some(projected_path) => Cow::Owned(
-                self.base_path
-                    .short_path()
-                    .join_unnormalized(projected_path),
-            ),
-            None => Cow::Borrowed(self.base_path.short_path()),
+            Some(projected_path) => Cow::Owned(base_short_path.join_unnormalized(projected_path)),
+            None => Cow::Borrowed(base_short_path),
         };
 
         f(&path)
@@ -356,11 +335,19 @@ impl<'a> ArtifactPath<'a> {
     where
         for<'b> F: FnOnce(&'b ForwardRelativePath) -> T,
     {
+        let base_path = match self.base_path.as_ref() {
+            Either::Left(buck_out) => Cow::Borrowed(buck_out.path()),
+            Either::Right(buck) => Cow::Owned(
+                buck.package()
+                    .cell_relative_path()
+                    .as_forward_relative_path()
+                    .join_unnormalized(buck.path()),
+            ),
+        };
+
         let path = match self.projected_path.as_ref() {
-            Some(projected_path) => {
-                Cow::Owned(self.base_path.path().join_unnormalized(projected_path))
-            }
-            None => Cow::Borrowed(self.base_path.path()),
+            Some(projected_path) => Cow::Owned(base_path.join_unnormalized(projected_path)),
+            None => base_path,
         };
 
         f(&path)
@@ -377,7 +364,7 @@ impl Hash for ArtifactPath<'_> {
 impl PartialEq for ArtifactPath<'_> {
     fn eq(&self, other: &Self) -> bool {
         eq_chain! {
-            *self.base_path == *other.base_path,
+            self.base_path == other.base_path,
             self.projected_path.as_ref() == other.projected_path.as_ref()
         }
     }
@@ -394,7 +381,7 @@ impl PartialOrd for ArtifactPath<'_> {
 impl Ord for ArtifactPath<'_> {
     fn cmp(&self, other: &Self) -> Ordering {
         cmp_chain! {
-            (&*self.base_path).cmp(&*other.base_path),
+            (self.base_path).cmp(&other.base_path),
             self.projected_path.as_ref().cmp(&other.projected_path.as_ref()),
         }
     }
@@ -404,13 +391,7 @@ impl fmt::Display for ArtifactPath<'_> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         // NOTE: This produces a representation we tend to use in Starlark for those, which isn't
         // really consistent with what we use when *not* in Starlark.
-        let base_path = self.base_path.path().as_str();
-        match self.projected_path.as_ref() {
-            Some(projected_path) => {
-                write!(fmt, "{}/{}", base_path, projected_path)
-            }
-            None => write!(fmt, "{}", base_path),
-        }
+        self.with_short_path(|p| write!(fmt, "{}", p))
     }
 }
 

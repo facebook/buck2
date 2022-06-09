@@ -9,21 +9,17 @@
 
 use std::{fmt::Display, hash::Hash};
 
-use buck2_core::fs::paths::ForwardRelativePath;
-use either::Either;
-use gazebo::cell::ARef;
 use starlark::{
     collections::StarlarkHasher,
     values::{Value, ValueLike},
 };
 
 use crate::{
-    actions::artifact::{Artifact, OutputArtifact},
+    actions::artifact::{Artifact, ArtifactPath, OutputArtifact},
     interpreter::rule_defs::{
         artifact::{StarlarkArtifact, StarlarkDeclaredArtifact},
         cmd_args::CommandLineArgLike,
     },
-    path::{BuckOutPath, BuckPath},
 };
 
 /// The Starlark representation of an `Artifact`
@@ -72,12 +68,7 @@ pub(crate) trait StarlarkArtifactLike: Display {
     /// It's very important that the Hash/Eq of the StarlarkArtifactLike things doesn't change
     /// during freezing, otherwise Starlark invariants are broken. Use the fingerprint
     /// as the inputs to Hash/Eq to ensure they are consistent
-    fn fingerprint(
-        &self,
-    ) -> (
-        Either<ARef<BuckOutPath>, &BuckPath>,
-        Option<ARef<'_, ForwardRelativePath>>,
-    );
+    fn fingerprint(&self) -> ArtifactPath<'_>;
 }
 
 pub(crate) trait ValueAsArtifactLike<'v> {

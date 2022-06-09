@@ -5,7 +5,7 @@ use buck2_core::{
 use either::Either;
 
 use crate::{
-    actions::artifact::{Artifact, BaseArtifactKind, BuildArtifact, SourceArtifact},
+    actions::artifact::{Artifact, ArtifactPath, BuildArtifact, SourceArtifact},
     interpreter::rule_defs::artifact::StarlarkArtifactLike,
     path::{BuckOutPathResolver, BuckPathResolver},
 };
@@ -32,24 +32,7 @@ impl ArtifactFs {
 
     /// Resolves the 'Artifact's to a 'ProjectRelativePathBuf'
     pub fn resolve(&self, artifact: &Artifact) -> anyhow::Result<ProjectRelativePathBuf> {
-        let (root, rest) = artifact.as_parts();
-
-        let root = self.resolve_base(root)?;
-
-        Ok(match rest {
-            Some(rest) => root.join_unnormalized(rest),
-            None => root,
-        })
-    }
-
-    pub fn resolve_base(
-        &self,
-        artifact: &BaseArtifactKind,
-    ) -> anyhow::Result<ProjectRelativePathBuf> {
-        Ok(match artifact {
-            BaseArtifactKind::Build(built) => self.resolve_build(built),
-            BaseArtifactKind::Source(source) => self.resolve_source(source)?,
-        })
+        self.resolve_impl(artifact.get_path())
     }
 
     /// Resolves the 'Artifact's to a 'ProjectRelativePathBuf'
@@ -57,16 +40,23 @@ impl ArtifactFs {
         &self,
         artifactlike: &dyn StarlarkArtifactLike,
     ) -> anyhow::Result<ProjectRelativePathBuf> {
-        let (root, rest) = artifactlike.fingerprint();
+        self.resolve_impl(artifactlike.fingerprint())
+    }
 
-        let root = match root {
+    fn resolve_impl(&self, artifact: ArtifactPath<'_>) -> anyhow::Result<ProjectRelativePathBuf> {
+        let ArtifactPath {
+            base_path,
+            projected_path,
+        } = artifact;
+
+        let base_path = match base_path {
             Either::Left(build) => self.buck_out_path_resolver.resolve_gen(&build),
             Either::Right(source) => self.buck_path_resolver.resolve(source)?,
         };
 
-        Ok(match rest {
-            Some(rest) => root.join_unnormalized(&*rest),
-            None => root,
+        Ok(match projected_path {
+            Some(projected_path) => base_path.join_unnormalized(projected_path),
+            None => base_path,
         })
     }
 
