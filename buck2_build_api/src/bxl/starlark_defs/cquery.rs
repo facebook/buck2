@@ -82,9 +82,9 @@ impl<'v> UnpackValue<'v> for &'v StarlarkCQueryCtx<'v> {
 
 pub(crate) async fn get_cquery_env<'v>(
     ctx: &'v DiceComputations,
-    global_target_platform: Option<TargetLabel>,
+    target_platform: Option<TargetLabel>,
 ) -> anyhow::Result<CqueryEnvironment<'v>> {
-    let dice_query_delegate = BxlContext::dice_query_delegate(ctx, global_target_platform).await?;
+    let dice_query_delegate = BxlContext::dice_query_delegate(ctx, target_platform).await?;
     let cquery_delegate = Arc::new(dice_query_delegate);
     Ok(CqueryEnvironment::new(
         cquery_delegate.dupe(),

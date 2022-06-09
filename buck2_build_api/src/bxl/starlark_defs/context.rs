@@ -115,7 +115,7 @@ impl<'v> BxlContext<'v> {
 
     pub(crate) async fn dice_query_delegate(
         ctx: &DiceComputations,
-        global_target_platform: Option<TargetLabel>,
+        target_platform: Option<TargetLabel>,
     ) -> anyhow::Result<DiceQueryDelegate<'_>> {
         let cwd = AbsPathBuf::try_from(std::env::current_dir()?)?;
         let working_dir = {
@@ -133,7 +133,7 @@ impl<'v> BxlContext<'v> {
             working_dir,
             project_root,
             cell_resolver,
-            global_target_platform,
+            target_platform,
             package_boundary_exceptions,
             target_alias_resolver,
         )
@@ -233,10 +233,10 @@ fn register_context(builder: &mut MethodsBuilder) {
     fn cquery<'v>(
         this: &'v BxlContext<'v>,
         // TODO(brasselsprouts): I would like to strongly type this.
-        #[starlark(default = NoneType)] global_target_platform: Value<'v>,
+        #[starlark(default = NoneType)] target_platform: Value<'v>,
     ) -> anyhow::Result<StarlarkCQueryCtx<'v>> {
         this.async_ctx
-            .via(|| StarlarkCQueryCtx::new(this, global_target_platform))
+            .via(|| StarlarkCQueryCtx::new(this, target_platform))
     }
 
     #[starlark(attribute)]
@@ -247,11 +247,11 @@ fn register_context(builder: &mut MethodsBuilder) {
     fn analysis<'v>(
         this: &BxlContext<'v>,
         labels: Value<'v>,
-        #[starlark(default = NoneType)] global_target_platform: Value<'v>,
+        #[starlark(default = NoneType)] target_platform: Value<'v>,
         #[starlark(default = true)] skip_incompatible: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let providers = ProvidersExpr::unpack(labels, global_target_platform, this, eval)?;
+        let providers = ProvidersExpr::unpack(labels, target_platform, this, eval)?;
 
         let res: anyhow::Result<_> = this
             .async_ctx
