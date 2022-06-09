@@ -882,16 +882,15 @@ mod tests {
         environment::{GlobalsBuilder, Module},
         eval::{Evaluator, ReturnFileLoader},
         syntax::{AstModule, Dialect},
-        values::{structs::Struct, Value, ValueLike, ValueTyped},
+        values::{structs::Struct, Value, ValueTyped},
     };
 
     use crate::{
         analysis::registry::AnalysisRegistry,
         configuration::execution::ExecutionPlatformResolution,
         deferred::BaseDeferredKey,
-        interpreter::rule_defs::{
-            artifact::StarlarkDeclaredArtifact, context::AnalysisContext, label::LabelGen,
-        },
+        interpreter::rule_defs::{context::AnalysisContext, label::LabelGen},
+        starlark::values::UnpackValue,
     };
 
     fn run_ctx_test(
@@ -976,17 +975,15 @@ mod tests {
         let content = indoc!(
             r#"
             def test(c):
-                return c.actions.declare_output("foo/bar.cpp")
+                out = c.actions.declare_output("foo/bar.cpp")
+                return (out.basename, out.short_path)
             "#
         );
 
         run_ctx_test(content, |ret| {
-            let a = ret
-                .unwrap()
-                .downcast_ref::<StarlarkDeclaredArtifact>()
-                .unwrap();
-            assert_eq!("bar.cpp", &*a.basename());
-            assert_eq!("foo/bar.cpp", &*a.short_path());
+            let a = <(&str, &str)>::unpack_value(ret.unwrap()).unwrap();
+            assert_eq!("bar.cpp", a.0);
+            assert_eq!("foo/bar.cpp", a.1);
             Ok(())
         })
     }
@@ -996,17 +993,15 @@ mod tests {
         let content = indoc!(
             r#"
             def test(c):
-                return c.actions.declare_output("out/test", "foo/bar.cpp")
+                out = c.actions.declare_output("out/test", "foo/bar.cpp")
+                return (out.basename, out.short_path)
             "#
         );
 
         run_ctx_test(content, |ret| {
-            let a = ret
-                .unwrap()
-                .downcast_ref::<StarlarkDeclaredArtifact>()
-                .unwrap();
-            assert_eq!("bar.cpp", &*a.basename());
-            assert_eq!("foo/bar.cpp", &*a.short_path());
+            let a = <(&str, &str)>::unpack_value(ret.unwrap()).unwrap();
+            assert_eq!("bar.cpp", a.0);
+            assert_eq!("foo/bar.cpp", a.1);
             Ok(())
         })
     }
