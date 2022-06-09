@@ -321,7 +321,7 @@ impl Component for TimedList {
 mod tests {
     use std::{convert::TryInto, time::SystemTime};
 
-    use buck2_data::{LoadBuildFileStart, SpanStartEvent};
+    use buck2_data::{FakeStart, SpanStartEvent};
     use events::{subscriber::Tick, BuckEvent, SpanId, TraceId};
     use superconsole::style::style;
 
@@ -352,12 +352,9 @@ mod tests {
             span_id: Some(SpanId::new()),
             parent_id: None,
             data: buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
-                data: Some(buck2_data::span_start_event::Data::Load(
-                    LoadBuildFileStart {
-                        module_id: "test".to_owned(),
-                        cell: "me".to_owned(),
-                    },
-                )),
+                data: Some(buck2_data::span_start_event::Data::Fake(FakeStart {
+                    caramba: "test".to_owned(),
+                })),
             }),
         };
 
@@ -367,12 +364,9 @@ mod tests {
             span_id: Some(SpanId::new()),
             parent_id: None,
             data: buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
-                data: Some(buck2_data::span_start_event::Data::Load(
-                    LoadBuildFileStart {
-                        module_id: "foo".to_owned(),
-                        cell: "bar".to_owned(),
-                    },
-                )),
+                data: Some(buck2_data::span_start_event::Data::Fake(FakeStart {
+                    caramba: "foo".to_owned(),
+                })),
             }),
         };
 
@@ -404,12 +398,12 @@ mod tests {
             vec!["test", "Jobs: In progress: 2. Finished: 0. C"].try_into()?,
             superconsole::line![Span::sanitized("-".repeat(40))],
             superconsole::line![
-                Span::new_styled("test -- loading build file".to_owned().dark_yellow())?,
+                Span::new_styled("test -- speak of the devil".to_owned().dark_yellow())?,
                 Span::padding(10),
                 Span::new_styled("3.0s".to_owned().dark_yellow())?,
             ],
             superconsole::line![
-                Span::new_unstyled("foo -- loading build file".to_owned())?,
+                Span::new_unstyled("foo -- speak of the devil".to_owned())?,
                 Span::padding(11),
                 Span::new_unstyled("1.0s".to_owned())?,
             ],
@@ -431,12 +425,9 @@ mod tests {
             span_id: Some(SpanId::new()),
             parent_id: None,
             data: buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
-                data: Some(buck2_data::span_start_event::Data::Load(
-                    LoadBuildFileStart {
-                        module_id: "e1".to_owned(),
-                        cell: "cell".to_owned(),
-                    },
-                )),
+                data: Some(buck2_data::span_start_event::Data::Fake(FakeStart {
+                    caramba: "e1".to_owned(),
+                })),
             }),
         };
 
@@ -446,12 +437,9 @@ mod tests {
             span_id: Some(SpanId::new()),
             parent_id: None,
             data: buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
-                data: Some(buck2_data::span_start_event::Data::Load(
-                    LoadBuildFileStart {
-                        module_id: "e2".to_owned(),
-                        cell: "cell".to_owned(),
-                    },
-                )),
+                data: Some(buck2_data::span_start_event::Data::Fake(FakeStart {
+                    caramba: "e2".to_owned(),
+                })),
             }),
         };
 
@@ -461,12 +449,9 @@ mod tests {
             span_id: Some(SpanId::new()),
             parent_id: None,
             data: buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
-                data: Some(buck2_data::span_start_event::Data::Load(
-                    LoadBuildFileStart {
-                        module_id: "e3".to_owned(),
-                        cell: "cell".to_owned(),
-                    },
-                )),
+                data: Some(buck2_data::span_start_event::Data::Fake(FakeStart {
+                    caramba: "e3".to_owned(),
+                })),
             }),
         };
 
@@ -495,7 +480,7 @@ mod tests {
             vec!["test", "Jobs: In progress: 3. Finished: 0. C"].try_into()?,
             superconsole::line![Span::sanitized("-".repeat(40))],
             superconsole::line![
-                Span::new_styled(style("e1 -- loading build file".to_owned()))?,
+                Span::new_styled(style("e1 -- speak of the devil".to_owned()))?,
                 Span::padding(12),
                 Span::new_styled(style("1.0s".to_owned()))?,
             ],

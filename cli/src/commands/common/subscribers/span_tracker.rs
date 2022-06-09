@@ -250,7 +250,8 @@ fn span_is_root(event: &SpanStartEvent) -> bool {
             | Data::LoadPackage(..)
             | Data::TestDiscovery(..)
             | Data::TestStart(..)
-            | Data::Watchman(..),
+            | Data::Watchman(..)
+            | Data::Fake(..),
         ) => true,
         None => false,
     }

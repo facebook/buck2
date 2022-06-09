@@ -54,6 +54,8 @@ message SpanStartEvent {
     AnalysisStageStart analysis_stage = 59;
     MatchDepFilesStart match_dep_files = 60;
     LoadPackageStart load_package = 61;
+    // Used in Buck unit tests.
+    FakeStart fake = 999;
   }
 }
 
@@ -77,6 +79,8 @@ message SpanEndEvent {
     AnalysisStageEnd analysis_stage = 60;
     MatchDepFilesEnd match_dep_files = 61;
     LoadPackageEnd load_package = 62;
+    // Used in Buck unit tests.
+    FakeEnd fake = 999;
   }
 }
 
@@ -481,6 +485,12 @@ message LoadBuildFileEnd {
   string module_id = 1;
   string cell = 2;
 }
+
+message FakeStart {
+  string caramba = 1;
+}
+
+message FakeEnd {}
 
 // A unique key identifying a particular action.
 message ActionKey {

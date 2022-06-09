@@ -158,6 +158,7 @@ pub trait EventSubscriber: Send {
             buck2_data::span_start_event::Data::MatchDepFiles(dep_files) => {
                 self.handle_match_dep_files_start(dep_files, event)
             }
+            buck2_data::span_start_event::Data::Fake(fake) => self.handle_fake_start(fake, event),
         }
         .await
     }
@@ -209,6 +210,7 @@ pub trait EventSubscriber: Send {
             buck2_data::span_end_event::Data::MatchDepFiles(dep_files) => {
                 self.handle_match_dep_files_end(dep_files, event)
             }
+            buck2_data::span_end_event::Data::Fake(fake) => self.handle_fake_end(fake, event),
         }
         .await
     }
@@ -464,6 +466,20 @@ pub trait EventSubscriber: Send {
     async fn handle_watchman_end(
         &mut self,
         _watchman: &buck2_data::WatchmanEnd,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_fake_start(
+        &mut self,
+        _fake: &buck2_data::FakeStart,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn handle_fake_end(
+        &mut self,
+        _fake: &buck2_data::FakeEnd,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
         Ok(())

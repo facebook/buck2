@@ -97,6 +97,7 @@ fn should_send_event(d: &buck2_data::buck_event::Data) -> bool {
                 Some(Data::TestStart(..)) => true,
                 Some(Data::Watchman(..)) => true,
                 Some(Data::MatchDepFiles(..)) => false,
+                Some(Data::Fake(..)) => true,
                 None => false,
             }
         }
@@ -117,6 +118,7 @@ fn should_send_event(d: &buck2_data::buck_event::Data) -> bool {
                 Some(Data::SpanCancelled(..)) => false,
                 Some(Data::Watchman(..)) => true,
                 Some(Data::MatchDepFiles(..)) => false,
+                Some(Data::Fake(..)) => true,
                 None => false,
             }
         }
