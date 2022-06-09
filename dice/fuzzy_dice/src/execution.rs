@@ -221,6 +221,8 @@ impl DiceExecutionOrder {
                                     .catch_unwind()
                                     .await
                                     {
+                                        Self::maybe_dump_dice(options, &dice)
+                                            .expect("couldn't dump DICE to stderr");
                                         panic!(
                                             "expected computing {:?} to panic, but didn't panic, got {}",
                                             &op, actual_value
