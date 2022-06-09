@@ -1,7 +1,7 @@
 def _impl(ctx):
     action_factory = ctx.bxl_actions.action_factory()
     output_module = action_factory.declare_output(".idea/modules.xml")
-    action_factory.write(output = output_module, content = """\
+    action_factory.write(output_module, """\
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ProjectModuleManager">
