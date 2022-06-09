@@ -75,10 +75,8 @@ AndroidInstrumentationApkInfo = provider(
 )
 
 CPU_FILTER_TO_ABI_DIRECTORY = {
-    "arm": "armeabi",
     "arm64": "arm64-v8a",
     "armv7": "armeabi-v7a",
-    "mips": "mips",
     "x86": "x86",
     "x86_64": "x86_64",
 }
