@@ -1,5 +1,6 @@
 load("@fbcode//buck2/prelude:assert.bzl", "assert_artifact_properties", "assert_exists")
 load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 
 export_file(
     name = "exported.txt",
@@ -79,3 +80,29 @@ assert_exists(
     name = "root_exists",
     path = "$(location :root)/directory/inside.txt",
 )
+
+buck_genrule(
+    name = "create_jar",
+    out = "generated_jar.jar",
+    bash = "TMP_OUTPUT_DIR=$TMP/create_jar_output && \
+            mkdir -p $TMP_OUTPUT_DIR && \
+            echo 'hello from generated jar script' > $TMP_OUTPUT_DIR/hello_jar.txt && \
+            $(exe fbsource//third-party/toolchains/jdk:jar) cfM $OUT -C $TMP_OUTPUT_DIR .",
+)
+
+native.prebuilt_jar(
+    name = "prebuilt_jar_target",
+    binary_jar = ":create_jar",
+)
+
+export_file(
+    name = "exported_symlink",
+    src = ":prebuilt_jar_target",
+    mode = "copy",
+)
+
+# TODO: msemko@ : uncomment after buck2 VB
+#assert_exists(
+#    name = "exported_symlink_exists",
+#    path = "$(location :exported_symlink)",
+#)

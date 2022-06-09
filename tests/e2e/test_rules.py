@@ -461,6 +461,11 @@ async def test_js(buck: Buck) -> None:
 
 
 @buck_test(inplace=True)
+async def test_export_file(buck: Buck) -> None:
+    await buck.build("fbcode//buck2/tests/targets/rules/export_file:")
+
+
+@buck_test(inplace=True)
 async def test_configurations(buck: Buck) -> None:
     await buck.build("//buck2/tests/targets/configurations_uncategorized:")
 

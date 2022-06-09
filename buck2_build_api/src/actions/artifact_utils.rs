@@ -9,6 +9,7 @@
 
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
+use anyhow::Context;
 use buck2_core::{
     directory::DirectoryEntry,
     fs::{
@@ -94,7 +95,9 @@ impl<'a> ArtifactValueBuilder<'a> {
                 DirectoryEntry::Dir(builder.fingerprint())
             }
             DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(s)) => {
-                let reldest = self.project_fs.relative_path(src, dest);
+                let reldest = self
+                    .project_fs
+                    .relative_path(src.parent().context("Symlink has no dir parent")?, dest);
                 let s = s.relativized(RelativePath::from_path(&reldest)?);
                 DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(Arc::new(s)))
             }
