@@ -66,7 +66,7 @@ impl FrozenExecutionPlatformRegistrationInfo {
 #[starlark_module]
 fn info_creator(globals: &mut GlobalsBuilder) {
     fn ExecutionPlatformRegistrationInfo<'v>(
-        platforms: Value<'v>,
+        #[starlark(require = named)] platforms: Value<'v>,
     ) -> anyhow::Result<ExecutionPlatformRegistrationInfo<'v>> {
         Ok(ExecutionPlatformRegistrationInfo { platforms })
     }

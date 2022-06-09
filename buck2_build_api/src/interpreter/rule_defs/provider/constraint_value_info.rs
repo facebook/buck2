@@ -60,8 +60,8 @@ impl<'v> ConstraintValueInfo<'v> {
 fn constraint_value_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(type = "ConstraintValueInfo")]
     fn ConstraintValueInfo<'v>(
-        setting: ValueOf<'v, &'v ConstraintSettingInfo<'v>>,
-        label: ValueOf<'v, &'v StarlarkTargetLabel>,
+        #[starlark(require = named)] setting: ValueOf<'v, &'v ConstraintSettingInfo<'v>>,
+        #[starlark(require = named)] label: ValueOf<'v, &'v StarlarkTargetLabel>,
     ) -> anyhow::Result<ConstraintValueInfo<'v>> {
         Ok(ConstraintValueInfo {
             setting: *setting,

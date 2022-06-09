@@ -89,9 +89,9 @@ impl<'v, V: ValueLike<'v>> ExecutionPlatformInfoGen<V> {
 #[starlark_module]
 fn info_creator(globals: &mut GlobalsBuilder) {
     fn ExecutionPlatformInfo<'v>(
-        label: Value<'v>,
-        configuration: Value<'v>,
-        executor_config: Value<'v>,
+        #[starlark(require = named)] label: Value<'v>,
+        #[starlark(require = named)] configuration: Value<'v>,
+        #[starlark(require = named)] executor_config: Value<'v>,
     ) -> anyhow::Result<ExecutionPlatformInfo<'v>> {
         let info = ExecutionPlatformInfo {
             label,
