@@ -29,11 +29,13 @@ use buck2_core::{
         project::ProjectRelativePath,
     },
 };
+use derive_more::From;
 use faccess::PathExt;
 use futures::{
     channel::oneshot,
     future::{try_join3, FusedFuture, Future, FutureExt},
 };
+use gazebo::prelude::*;
 use host_sharing::HostSharingBroker;
 use indexmap::IndexMap;
 use more_futures::spawn::dropcancel_critical_section;
@@ -186,6 +188,24 @@ impl LocalExecutor {
             args.join(" "),
         );
 
+        let tmpdir = if request.custom_tmpdir {
+            Some(("TMPDIR", scratch_dir_abs.as_os_str()))
+        } else {
+            None
+        };
+
+        let iter_env = || {
+            tmpdir
+                .into_iter()
+                .map(|(k, v)| (k, StrOrOsStr::from(v)))
+                .chain(
+                    request
+                        .env()
+                        .iter()
+                        .map(|(k, v)| (k.as_str(), StrOrOsStr::from(v.as_str()))),
+                )
+        };
+
         let (timing, res) = manager
             .stage_async(
                 buck2_data::LocalStage {
@@ -193,12 +213,10 @@ impl LocalExecutor {
                         buck2_data::LocalExecute {
                             command: Some(buck2_data::LocalCommand {
                                 argv: args.to_vec(),
-                                env: request
-                                    .env()
-                                    .iter()
+                                env: iter_env()
                                     .map(|(k, v)| buck2_data::local_command::EnvironmentEntry {
-                                        key: k.clone(),
-                                        value: v.clone(),
+                                        key: k.to_owned(),
+                                        value: v.into_string_lossy(),
                                     })
                                     .collect(),
                             }),
@@ -210,17 +228,7 @@ impl LocalExecutor {
                     let execution_start = Instant::now();
                     let start_time = SystemTime::now();
 
-                    let tmpdir = if request.custom_tmpdir {
-                        Some(("TMPDIR", scratch_dir_abs.as_os_str()))
-                    } else {
-                        None
-                    };
-                    let env = tmpdir.into_iter().chain(
-                        request
-                            .env()
-                            .iter()
-                            .map(|x| (x.0.as_str(), OsStr::new(x.1))),
-                    );
+                    let env = iter_env().map(|(k, v)| (k, v.into_os_str()));
                     let r = self
                         .exec(
                             &args[0],
@@ -403,6 +411,30 @@ impl PreparedCommandExecutor for LocalExecutor {
 
     fn name(&self) -> ExecutorName {
         ExecutorName("local")
+    }
+}
+
+/// Either a str or a OsStr, so that we can turn it back into a String without having to check for
+/// valid utf-8, while using the same struct.
+#[derive(Copy, Clone, Dupe, From)]
+enum StrOrOsStr<'a> {
+    Str(&'a str),
+    OsStr(&'a OsStr),
+}
+
+impl<'a> StrOrOsStr<'a> {
+    fn into_string_lossy(self) -> String {
+        match self {
+            Self::Str(s) => s.to_owned(),
+            Self::OsStr(s) => s.to_string_lossy().into_owned(),
+        }
+    }
+
+    fn into_os_str(self) -> &'a OsStr {
+        match self {
+            Self::Str(s) => OsStr::new(s),
+            Self::OsStr(s) => s,
+        }
     }
 }
 
