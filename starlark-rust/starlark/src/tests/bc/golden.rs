@@ -67,6 +67,13 @@ pub(crate) fn bc_golden_test(test_name: &str, program: &str) {
         let expected = fs::read_to_string(&golden_file_name)
             .with_context(|| format!("Reading `{golden_file_name}`"))
             .unwrap();
+        let expected = if cfg!(target_os = "windows") {
+            // Git may check out files on Windows with \r\n as line separator.
+            // We could configure git, but it's more reliable to handle it in the test.
+            expected.replace("\r\n", "\n")
+        } else {
+            expected
+        };
         assert_eq!(expected, actual);
     }
 }
