@@ -95,6 +95,21 @@ pub type OrderedMapEntry<'a, K, V> = small_map::Entry<'a, K, V>;
 pub type OrderedMapOccupiedEntry<'a, K, V> = small_map::OccupiedEntry<'a, K, V>;
 pub type OrderedMapVacantEntry<'a, K, V> = small_map::VacantEntry<'a, K, V>;
 
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
+pub enum CoercedPath {
+    File(BuckPath),
+    Directory(BuckPath),
+}
+
+impl CoercedPath {
+    pub fn path(&self) -> &BuckPath {
+        match self {
+            CoercedPath::File(x) => x,
+            CoercedPath::Directory(x) => x,
+        }
+    }
+}
+
 /// The context for attribute coercion. Mostly just contains information about
 /// the current package (to support things like parsing targets from strings).
 pub trait AttrCoercionContext {
@@ -110,7 +125,7 @@ pub trait AttrCoercionContext {
     fn coerce_label(&self, value: &str) -> anyhow::Result<ProvidersLabel>;
 
     /// Attempt to convert a string into a BuckPath
-    fn coerce_path(&self, value: &str, allow_directory: bool) -> anyhow::Result<BuckPath>;
+    fn coerce_path(&self, value: &str, allow_directory: bool) -> anyhow::Result<CoercedPath>;
 }
 
 /// The context for attribute configuration. Contains information about the

@@ -39,7 +39,7 @@ use crate::{
             AttrType,
         },
         AttrConfigurationContext, AttrResolutionContext, CoercedAttr, CoercedAttrTraversal,
-        ConfiguredAttr,
+        CoercedPath, ConfiguredAttr,
     },
     interpreter::rule_defs::{
         artifact::StarlarkArtifact,
@@ -96,7 +96,7 @@ pub enum AttrLiteral<C: AttrConfig> {
     SplitTransitionDep(Box<C::SplitTransitionDepType>),
     Query(Box<QueryAttr<C>>),
     SourceLabel(Box<C::ProvidersType>),
-    SourceFile(Box<BuckPath>),
+    SourceFile(Box<CoercedPath>),
     Arg(StringWithMacros<C>),
     // NOTE: unlike deps, labels are not traversed, as they are typically used in lieu of deps in
     // cases that would cause cycles.
@@ -129,7 +129,7 @@ impl<C: AttrConfig> AttrLiteral<C> {
             AttrLiteral::ConfiguredDep(l) => Ok(to_value(l.to_string())?),
             AttrLiteral::ExplicitConfiguredDep(l) => l.to_json(),
             AttrLiteral::Query(q) => Ok(to_value(q.query())?),
-            AttrLiteral::SourceFile(s) => Ok(to_value(s.to_string())?),
+            AttrLiteral::SourceFile(s) => Ok(to_value(s.path().to_string())?),
             AttrLiteral::SourceLabel(s) => Ok(to_value(s.to_string())?),
             AttrLiteral::Arg(a) => Ok(to_value(a.to_string())?),
             AttrLiteral::ConfigurationDep(l) => Ok(to_value(l.to_string())?),
@@ -165,7 +165,7 @@ impl<C: AttrConfig> AttrLiteral<C> {
             AttrLiteral::Dep(d) => filter(&d.to_string()),
             AttrLiteral::ConfiguredDep(d) => filter(&d.to_string()),
             AttrLiteral::ExplicitConfiguredDep(d) => d.any_matches(filter),
-            AttrLiteral::SourceFile(s) => filter(&s.to_string()),
+            AttrLiteral::SourceFile(s) => filter(&s.path().to_string()),
             AttrLiteral::SourceLabel(s) => filter(&s.to_string()),
             AttrLiteral::Query(q) => filter(q.query()),
             AttrLiteral::Arg(a) => filter(&a.to_string()),
@@ -235,7 +235,7 @@ impl<C: AttrConfig> Display for AttrLiteral<C> {
             AttrLiteral::ConfigurationDep(v) => write!(f, "\"{}\"", v),
             AttrLiteral::Query(v) => write!(f, "\"{}\"", v.query()),
             AttrLiteral::SourceLabel(v) => write!(f, "\"{}\"", v),
-            AttrLiteral::SourceFile(v) => write!(f, "\"{}\"", v),
+            AttrLiteral::SourceFile(v) => write!(f, "\"{}\"", v.path()),
             AttrLiteral::Arg(a) => write!(f, "\"{}\"", a),
             AttrLiteral::SplitTransitionDep(d) => Display::fmt(d, f),
             AttrLiteral::Label(l) => write!(f, "\"{}\"", l),
@@ -355,7 +355,7 @@ impl AttrLiteral<CoercedAttr> {
                 traversal.split_transition_dep(dep.label.target(), &dep.transition)
             }
             AttrLiteral::Query(query) => query.traverse(traversal),
-            AttrLiteral::SourceFile(box s) => traversal.input(s),
+            AttrLiteral::SourceFile(box s) => traversal.input(s.path()),
             AttrLiteral::SourceLabel(box s) => traversal.dep(s.target()),
             AttrLiteral::Arg(arg) => arg.traverse(traversal),
             AttrLiteral::Label(label) => traversal.label(label),
@@ -461,7 +461,7 @@ impl AttrLiteral<ConfiguredAttr> {
                 Ok(())
             }
             AttrLiteral::Query(query) => query.traverse(traversal),
-            AttrLiteral::SourceFile(box input) => traversal.input(input),
+            AttrLiteral::SourceFile(box input) => traversal.input(input.path()),
             AttrLiteral::SourceLabel(box dep) => traversal.dep(dep),
             AttrLiteral::Arg(arg) => arg.traverse(traversal),
             AttrLiteral::Label(label) => traversal.label(label),
@@ -511,7 +511,7 @@ impl AttrLiteral<ConfiguredAttr> {
                 SplitTransitionDepAttrType::resolve_single(ctx, deps)
             }
             AttrLiteral::Query(query) => query.resolve(ctx),
-            AttrLiteral::SourceFile(s) => Ok(SourceAttrType::resolve_single_file(ctx, s)),
+            AttrLiteral::SourceFile(s) => Ok(SourceAttrType::resolve_single_file(ctx, s.path())),
             AttrLiteral::SourceLabel(s) => SourceAttrType::resolve_single_label(ctx, s),
             AttrLiteral::Arg(arg) => arg.resolve(ctx),
             AttrLiteral::Label(label) => {

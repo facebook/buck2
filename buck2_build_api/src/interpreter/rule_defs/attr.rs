@@ -48,7 +48,7 @@ use crate::{
     attrs::{
         attr_type::{any::AnyAttrType, AttrType},
         coerced_attr::CoercedAttr,
-        AttrCoercionContext,
+        AttrCoercionContext, CoercedPath,
     },
     interpreter::rule_defs::{
         provider::{ProviderId, ValueAsProviderCallableLike},
@@ -183,7 +183,7 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
         Ok(label)
     }
 
-    fn coerce_path(&self, value: &str, allow_directory: bool) -> anyhow::Result<BuckPath> {
+    fn coerce_path(&self, value: &str, allow_directory: bool) -> anyhow::Result<CoercedPath> {
         let path = PackageRelativePathBuf::try_from(value.to_owned())?;
         let (package, listing) = self.require_enclosing_package(value)?;
 
@@ -201,6 +201,7 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
                     );
                     soft_error!(e.into());
                 }
+                return Ok(CoercedPath::Directory(BuckPath::new(package.dupe(), path)));
             } else {
                 let e = AttrError::SourceFileMissing(package.dupe(), value.to_owned());
                 if self.package_boundary_exception {
@@ -211,7 +212,7 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
             }
         }
 
-        Ok(BuckPath::new(package.dupe(), path))
+        Ok(CoercedPath::File(BuckPath::new(package.dupe(), path)))
     }
 }
 
@@ -1010,8 +1011,11 @@ mod tests {
             PackageRelativePathBuf::unchecked_new("baz/quz.cpp".to_owned()),
         );
         assert_eq!(
-            expected,
-            package_ctx.coerce_path("baz/quz.cpp", false).unwrap()
+            &expected,
+            package_ctx
+                .coerce_path("baz/quz.cpp", false)
+                .unwrap()
+                .path()
         );
         Ok(())
     }
