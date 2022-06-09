@@ -150,7 +150,7 @@ pub(crate) fn display_event(event: &BuckEvent) -> anyhow::Result<String> {
                 Ok(stage.into())
             }
             Data::LoadPackage(load) => Ok(format!("{} -- loading package file tree", load.path)),
-            Data::Load(load) => Ok(format!("{} -- loading build file", load.module_id)),
+            Data::Load(load) => Ok(format!("{} -- evaluating build file", load.module_id)),
             Data::ExecutorStage(info) => {
                 let stage = info.stage.as_ref().context("executor stage is missing")?;
                 let stage = display_executor_stage(stage)?;
