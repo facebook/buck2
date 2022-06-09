@@ -66,6 +66,8 @@ pub mod fs;
 pub mod output;
 pub mod starlark_async;
 
+/// The bxl context that the top level bxl implementation receives as parameter.
+/// This context contains all the core bxl functions to query, build, create actions, etc.
 #[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize)]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
@@ -225,11 +227,17 @@ fn register_context(builder: &mut MethodsBuilder) {
             .to_owned())
     }
 
+    /// Returns the [`StarlarkUQueryCtx`] that holds all uquery functions.
     fn uquery<'v>(this: &'v BxlContext<'v>) -> anyhow::Result<StarlarkUQueryCtx<'v>> {
         let delegate = this.sync_dice_query_delegate(None)?;
         StarlarkUQueryCtx::new(Arc::new(delegate))
     }
 
+    /// Returns the [`StarlarkCQueryCtx`] that holds all the cquery functions.
+    /// This function takes an optional parameter `target_platform`, which is the target platform
+    /// configuration used to configured any unconfigured target nodes.
+    ///
+    /// The `target_platform` is a target label, or a string that is a target label.
     fn cquery<'v>(
         this: &'v BxlContext<'v>,
         // TODO(brasselsprouts): I would like to strongly type this.
@@ -239,11 +247,28 @@ fn register_context(builder: &mut MethodsBuilder) {
             .via(|| StarlarkCQueryCtx::new(this, target_platform))
     }
 
+    /// Returns the action context [`BxlActionsCtx`] for creating and running actions.
     #[starlark(attribute)]
     fn bxl_actions<'v>(this: ValueOf<'v, &'v BxlContext<'v>>) -> anyhow::Result<BxlActionsCtx<'v>> {
         Ok(BxlActionsCtx::new(ValueTyped::new(this.value).unwrap()))
     }
 
+    /// Runs analysis on the given `labels`, accepting an optional `target_platform` which is the
+    /// target platform configuration used to resolve configurations of any unconfigured target
+    /// nodes, and an optional `skip_incompatible` boolean that indicates whether to skip analysis
+    /// of nodes that are incompatible with the target platform.
+    /// The `target_platform` is either a string that can be parsed as a target label, or a
+    /// target label.
+    ///
+    /// The given `labels` is a providers expression, which is either:
+    ///     - a single string that is a `target pattern`.
+    ///     - a single target node or label, configured or unconfigured
+    ///     - a single sub target label, configured or unconfigured
+    ///     - a list of the two options above.
+    ///
+    /// This returns either a single [`StarlarkAnalysisResult`] if the given `labels` is "singular",
+    /// or a dict keyed by sub target labels of [`StarlarkAnalysisResult`] if the given `labels`
+    /// is list-like
     fn analysis<'v>(
         this: &BxlContext<'v>,
         labels: Value<'v>,
@@ -272,6 +297,17 @@ fn register_context(builder: &mut MethodsBuilder) {
         })
     }
 
+    /// Runs a build on the given `labels`, accepting an optional `target_platform` which is the
+    /// target platform configuration used to resolve configurations.
+    ///
+    /// The given `labels` is a providers expression, which is either:
+    ///     - a single string that is a `target pattern`.
+    ///     - a single target node or label, configured or unconfigured
+    ///     - a single provider label, configured or unconfigured
+    ///     - a list of the two options above.
+    ///
+    /// This returns a dict keyed by sub target labels of [`StarlarkBuildResult`] if the
+    /// given `labels` is list-like
     fn build<'v>(
         this: &'v BxlContext<'v>,
         spec: Value<'v>,
@@ -283,11 +319,14 @@ fn register_context(builder: &mut MethodsBuilder) {
             .alloc(Dict::new(build::build(this, spec, target_platform, eval)?)))
     }
 
+    /// A struct of the command line args as declared using the [`cli_args`] module.
+    /// These command lines are resolved per the users input on the cli when invoking the bxl script.
     #[starlark(attribute)]
     fn cli_args<'v>(this: &BxlContext<'v>) -> anyhow::Result<Value<'v>> {
         Ok(this.cli_args)
     }
 
+    /// Returns the [`BxlFilesystem`] for performing a basic set of filesystem operations within bxl
     #[starlark(attribute)]
     fn unstable_fs<'v>(this: &BxlContext<'v>) -> anyhow::Result<BxlFilesystem<'v>> {
         Ok(BxlFilesystem::new(&this.async_ctx))
