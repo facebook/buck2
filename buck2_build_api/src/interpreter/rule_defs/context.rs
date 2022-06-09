@@ -411,13 +411,11 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<Value<'v>> {
         let mut this = this.state();
         let (output_value, output_artifact) = this.get_or_declare_output(eval, output, "output")?;
-        let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
-        artifact_visitor.visit_output(output_artifact, None);
 
         UnregisteredWriteJsonAction::validate(content)?;
         this.register_action(
-            artifact_visitor.inputs,
-            artifact_visitor.outputs,
+            IndexSet::new(),
+            indexset![output_artifact],
             UnregisteredWriteJsonAction::new(),
             Some(content),
         )?;
@@ -507,9 +505,6 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             indexset![]
         };
 
-        let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
-        artifact_visitor.visit_output(output_artifact, None);
-
         let action = {
             let maybe_macro_files = if allow_args {
                 let mut macro_files = indexset![];
@@ -523,8 +518,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             UnregisteredWriteAction::new(is_executable, maybe_macro_files)
         };
         this.register_action(
-            artifact_visitor.inputs,
-            artifact_visitor.outputs,
+            IndexSet::new(),
+            indexset![output_artifact],
             action,
             Some(content_cli),
         )?;
