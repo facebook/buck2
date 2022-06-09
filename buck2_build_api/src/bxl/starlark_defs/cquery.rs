@@ -31,6 +31,8 @@ use crate::{
     query::cquery::environment::CqueryEnvironment,
 };
 
+/// The context for performing `cquery` operations in bxl. The functions offered on this ctx are
+/// the same behaviour as the query functions available within cquery command.
 #[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize)]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
