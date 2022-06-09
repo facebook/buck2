@@ -111,7 +111,7 @@ impl TargetNode {
         is_configuration_rule: bool,
         attr_spec: Arc<AttributeSpec>,
     ) -> anyhow::Result<Self> {
-        for (attr_name, _attr_idx) in &attr_spec.indices {
+        for (attr_name, _attr_idx, _attr) in attr_spec.attr_specs() {
             let value: Value = param_parser.next(attr_name)?;
             if attr_name == NAME_ATTRIBUTE_FIELD {
                 let internals = ModuleInternals::from_context(eval)?;
@@ -125,7 +125,7 @@ impl TargetNode {
                     buildfile_path,
                     deps_cache: CoercedDepsCollector::new(),
                     attributes: AttrValues::with_capacity(0),
-                    attr_spec,
+                    attr_spec: attr_spec.dupe(),
                     cfg,
                     visibility: VisibilitySpecification::Public,
                     is_configuration_rule,
@@ -536,10 +536,7 @@ pub mod testing {
                 buildfile_path,
                 is_configuration_rule: false,
                 cfg: None,
-                attr_spec: Arc::new(AttributeSpec {
-                    indices,
-                    attributes: instances,
-                }),
+                attr_spec: Arc::new(AttributeSpec::testing_new(indices, instances)),
                 attributes,
                 deps_cache,
                 visibility: VisibilitySpecification::Public,

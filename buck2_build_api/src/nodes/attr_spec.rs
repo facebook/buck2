@@ -40,8 +40,10 @@ use crate::{
 /// only for the values that are explicitly set. Default values need to be looked up through the AttributeSpec.
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub(crate) struct AttributeSpec {
-    pub(crate) indices: OrderedMap<String, AttributeId>,
-    pub(crate) attributes: Vec<Attribute>,
+    // TODO(nga): either "map" or "ordered" is redundant here:
+    //   `AttributeId` in `indices` is always equal to the index of the entry in ordered map.
+    indices: OrderedMap<String, AttributeId>,
+    attributes: Vec<Attribute>,
 }
 
 #[derive(Debug, Error)]
@@ -108,6 +110,16 @@ impl AttributeSpec {
         })
     }
 
+    pub(crate) fn attr_specs(&self) -> impl Iterator<Item = (&str, AttributeId, &Attribute)> {
+        self.indices.iter().map(|(name, id)| {
+            (
+                name.as_str(),
+                *id,
+                &self.attributes[id.index_in_attribute_spec],
+            )
+        })
+    }
+
     pub(crate) fn get_attribute(&self, id: AttributeId) -> &Attribute {
         &self.attributes[id.index_in_attribute_spec]
     }
@@ -122,11 +134,9 @@ impl AttributeSpec {
         let mut name = None;
         let mut attr_values = AttrValues::with_capacity(param_count);
 
-        for (attr_name, attr_idx) in &self.indices {
+        for (attr_name, attr_idx, attribute) in self.attr_specs() {
             let configurable = attr_is_configurable(attr_name);
 
-            let attr_idx = *attr_idx;
-            let attribute = self.get_attribute(attr_idx);
             let user_value = match attribute.default {
                 Some(_) => param_parser.next_opt(attr_name)?,
                 None => {
@@ -193,17 +203,18 @@ impl AttributeSpec {
         let mut pos = 0;
         let mut entry: Option<&(AttributeId, CoercedAttr)> = attr_values.get_by_index(0);
 
-        self.indices.iter().map(move |(name, idx)| match &entry {
-            Some((entry_idx, entry_attr)) if entry_idx == idx => {
-                pos += 1;
-                entry = attr_values.get_by_index(pos);
-                (name.as_str(), entry_attr)
-            }
-            _ => {
-                let default: &CoercedAttr = self.get_attribute(*idx).default.as_ref().unwrap();
-                (name.as_str(), default)
-            }
-        })
+        self.attr_specs()
+            .map(move |(name, idx, attr)| match &entry {
+                Some((entry_idx, entry_attr)) if *entry_idx == idx => {
+                    pos += 1;
+                    entry = attr_values.get_by_index(pos);
+                    (name, entry_attr)
+                }
+                _ => {
+                    let default: &CoercedAttr = attr.default.as_ref().unwrap();
+                    (name, default)
+                }
+            })
     }
 
     pub(crate) fn attr_or_none<'v>(
@@ -242,8 +253,7 @@ impl AttributeSpec {
     pub(crate) fn signature(&self, rule_name: String) -> ParametersSpec<Value<'_>> {
         let mut signature = ParametersSpec::with_capacity(rule_name, self.indices.len());
         signature.no_more_positional_args();
-        for (name, idx) in &self.indices {
-            let attribute = self.get_attribute(*idx);
+        for (name, _idx, attribute) in self.attr_specs() {
             match attribute.default {
                 Some(_) => signature.optional(name),
                 None => signature.required(name),
@@ -257,9 +267,28 @@ impl AttributeSpec {
     }
 
     pub(crate) fn docstrings(&self) -> HashMap<String, Option<DocString>> {
-        self.indices
-            .iter()
-            .map(|(name, idx)| (name.clone(), self.get_attribute(*idx).docstring()))
+        self.attr_specs()
+            .map(|(name, _idx, attr)| (name.to_owned(), attr.docstring()))
             .collect()
+    }
+}
+
+pub(crate) mod testing {
+    use crate::{
+        attrs::OrderedMap,
+        interpreter::rule_defs::attr::Attribute,
+        nodes::{attr_spec::AttributeSpec, AttributeId},
+    };
+
+    impl AttributeSpec {
+        pub(crate) fn testing_new(
+            indices: OrderedMap<String, AttributeId>,
+            attributes: Vec<Attribute>,
+        ) -> AttributeSpec {
+            AttributeSpec {
+                indices,
+                attributes,
+            }
+        }
     }
 }
