@@ -9,7 +9,10 @@
 
 use std::fmt::Display;
 
-use buck2_core::provider::{ConfiguredProvidersLabel, ProvidersName};
+use buck2_core::{
+    fs::paths::ForwardRelativePath,
+    provider::{ConfiguredProvidersLabel, ProvidersName},
+};
 use gazebo::{any::ProvidesStaticType, prelude::*};
 use serde::{Serialize, Serializer};
 use starlark::{
@@ -236,5 +239,12 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
         this.artifact
             .get_path()
             .with_short_path(|short_path| Ok(heap.alloc_str(short_path.as_str())))
+    }
+
+    fn project<'v>(this: &'v StarlarkArtifact, path: &str) -> anyhow::Result<StarlarkArtifact> {
+        let path = ForwardRelativePath::new(path)?;
+        Ok(StarlarkArtifact {
+            artifact: this.artifact.dupe().project(path),
+        })
     }
 }

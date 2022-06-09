@@ -74,6 +74,20 @@ impl Artifact {
         Self(Hashed::new(artifact))
     }
 
+    pub fn project(self, path: &ForwardRelativePath) -> Self {
+        if path.is_empty() {
+            return self;
+        }
+
+        match self.0.into() {
+            ArtifactKind::Base(a) => Self::new(a, Some(Arc::new(path.to_owned()))),
+            ArtifactKind::Projected(a) => Self::new(
+                a.base().dupe(),
+                Some(Arc::new(a.path().join_unnormalized(path))),
+            ),
+        }
+    }
+
     pub fn is_source(&self) -> bool {
         match self.as_parts().0 {
             BaseArtifactKind::Source(_) => true,
@@ -208,6 +222,20 @@ impl DeclaredArtifact {
                 UnboundArtifact(path),
             ))),
             projected_path: None,
+        }
+    }
+
+    pub fn project(&self, path: &ForwardRelativePath) -> Self {
+        if path.is_empty() {
+            return self.dupe();
+        }
+
+        Self {
+            artifact: self.artifact.dupe(),
+            projected_path: Some(Arc::new(match self.projected_path.as_ref() {
+                Some(existing_path) => existing_path.join_unnormalized(path),
+                None => path.to_owned(),
+            })),
         }
     }
 

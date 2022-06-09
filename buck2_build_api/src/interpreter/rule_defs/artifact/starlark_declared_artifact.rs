@@ -10,7 +10,10 @@
 use std::fmt::{self, Debug, Display};
 
 use anyhow::{anyhow, Context};
-use buck2_core::provider::{ConfiguredProvidersLabel, ProvidersName};
+use buck2_core::{
+    fs::paths::ForwardRelativePath,
+    provider::{ConfiguredProvidersLabel, ProvidersName},
+};
 use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{
     codemap::FileSpan,
@@ -244,5 +247,17 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
         this.artifact
             .get_path()
             .with_short_path(|short_path| Ok(heap.alloc_str(short_path.as_str())))
+    }
+
+    fn project<'v>(
+        this: &'v StarlarkDeclaredArtifact,
+        path: &str,
+    ) -> anyhow::Result<StarlarkDeclaredArtifact> {
+        let path = ForwardRelativePath::new(path)?;
+        // Not sure if this.declaration_location is or the project() call is more appropriate here.
+        Ok(StarlarkDeclaredArtifact::new(
+            this.declaration_location.dupe(),
+            this.artifact.project(path),
+        ))
     }
 }

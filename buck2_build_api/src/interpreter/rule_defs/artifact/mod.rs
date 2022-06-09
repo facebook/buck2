@@ -453,6 +453,33 @@ mod tests {
     }
 
     #[test]
+    fn projected_artifact() -> SharedResult<()> {
+        let mut tester = Tester::new()?;
+        tester.set_additional_globals(Arc::new(artifactory));
+        tester.run_starlark_bzl_test(indoc!(
+            r#"
+            def test():
+                source = source_artifact("foo/bar", "src").project("baz.cpp")
+                assert_eq("<source foo/bar/src/baz.cpp>", repr(source))
+                assert_eq("baz.cpp", source.basename)
+                assert_eq(".cpp", source.extension)
+
+                bound = declared_bound_artifact("//foo:bar", "out").project("baz.o")
+                assert_eq("<build artifact out/baz.o bound to root//foo:bar (<testing>)>", repr(bound))
+                assert_eq("baz.o", bound.basename)
+                assert_eq(".o", bound.extension)
+
+                unbound = declared_artifact("out").project("qux.so")
+                assert_eq("<build artifact out/qux.so>", repr(unbound))
+                assert_eq("<output artifact for out/qux.so>", repr(unbound.as_output()))
+                assert_eq("qux.so", unbound.basename)
+                assert_eq(".so", unbound.extension)
+            "#
+        ))?;
+        Ok(())
+    }
+
+    #[test]
     fn stringifies_for_command_line() -> SharedResult<()> {
         let mut tester = Tester::new()?;
         tester.set_additional_globals(Arc::new(artifactory));

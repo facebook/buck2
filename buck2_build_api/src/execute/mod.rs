@@ -536,6 +536,7 @@ impl ActionExecutor for BuckActionExecutor {
             };
 
             // Check all the outputs were returned, and no additional outputs
+            // TODO (T122966509): Check projections here as well
             if !outputs.iter().eq(result.0.outputs.keys()) {
                 let wanted = outputs
                     .iter()
