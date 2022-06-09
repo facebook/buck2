@@ -66,6 +66,10 @@ impl CellHistory {
     /// was verified. If applicable, another version is returned, representing the version at which
     /// the original history that is newer than the current recorded history.
     ///
+    /// |earliest_valid| is the earliest possible validated version for the new history.
+    /// This is usually determined by the latest verified version that is relevant to
+    /// the current verified_at amongst all the dependencies.
+    ///
     /// That is, given a history with state `[verified, dirty, unknown, dirty, verified, dirty]`,
     /// and `recorded_at = 2`, we would create a new history that is
     /// `[unknown, verified, verified, dirty, dirty]`. The portion of original history that's
@@ -74,18 +78,25 @@ impl CellHistory {
     ///
     /// This function also accounts for propagating dirtiness based on history from dependencies.
     /// See `propagate_dirty_deps`.
-    ///
     pub(crate) fn make_new_verified_history(
         &self,
         verified_at: VersionNumber,
+        earliest_valid: Option<VersionNumber>,
     ) -> (VersionNumber, Option<VersionNumber>, Self) {
         let mut verified = self.verified.clone();
         let mut dirtied = self.dirtied.clone();
 
-        let since = dirtied
+        let last_dirtied = dirtied
             .range((Bound::Unbounded, Bound::Included(verified_at)))
             .next_back()
-            .map_or(verified_at, |d| *d.0);
+            .map(|r| *r.0);
+        // If we don't have any bounds on the earliest this version can be verified,
+        // we assume that it is being set at just the current version.
+        let since = [last_dirtied, earliest_valid]
+            .into_iter()
+            .flatten()
+            .max()
+            .unwrap_or(verified_at);
         {
             for vt in verified
                 .range((Bound::Unbounded, Bound::Excluded(since)))
@@ -147,12 +158,7 @@ impl CellHistory {
         // * The latest version we were dirtied at.
         let deps_unchanged_since = deps_iter
             .clone()
-            .filter_map(|dep| {
-                dep.verified
-                    .range((Bound::Unbounded, Bound::Included(v)))
-                    .next_back()
-                    .copied()
-            })
+            .filter_map(|dep| dep.latest_verified_before(v))
             .max();
         let last_dirtied = self
             .dirtied
@@ -284,6 +290,13 @@ impl CellHistory {
 
     pub(crate) fn latest_dirtied(&self) -> Option<VersionNumber> {
         self.dirtied.iter().max().map(|d| *d.0)
+    }
+
+    pub(crate) fn latest_verified_before(&self, v: VersionNumber) -> Option<VersionNumber> {
+        self.verified
+            .range((Bound::Unbounded, Bound::Included(v)))
+            .next_back()
+            .copied()
     }
 
     /// When a node is recomputed to the same value as its existing history, but with a new set of
@@ -694,7 +707,7 @@ mod tests {
             &[VersionNumber::new(0), VersionNumber::new(3)],
             &[VersionNumber::new(1), VersionNumber::new(4)],
         );
-        let (v, end, hist) = hist.make_new_verified_history(VersionNumber::new(2));
+        let (v, end, hist) = hist.make_new_verified_history(VersionNumber::new(2), None);
 
         assert_eq!(end, Some(VersionNumber::new(3)));
         assert_eq!(v, VersionNumber::new(1));

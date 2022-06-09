@@ -869,7 +869,16 @@ where
                 (GraphNode::occupied(reused), None)
             }
             EntryReused::NotReusable(entry_creator) => {
-                let (since, end, hist) = e.read_meta().hist.make_new_verified_history(v);
+                let latest_dep_verified = entry_creator.both_deps().and_then(|deps| {
+                    deps.deps
+                        .iter()
+                        .filter_map(|dep| dep.get_history().latest_verified_before(v))
+                        .max()
+                });
+                let (since, end, hist) = e
+                    .read_meta()
+                    .hist
+                    .make_new_verified_history(v, latest_dep_verified);
                 let (v_new, new) = entry_creator.build(
                     &self.storage_properties,
                     v,
@@ -926,7 +935,9 @@ where
         version_of_vacant: VersionNumber,
         vacant_entry: Arc<VacantGraphNode<K>>,
     ) -> (GraphNode<K>, Option<GraphNode<K>>) {
-        let (since, _, hist) = vacant_entry.get_history().make_new_verified_history(v);
+        let (since, _, hist) = vacant_entry
+            .get_history()
+            .make_new_verified_history(v, None);
         let (v_new, new) = entry_creator.build(
             &self.storage_properties,
             v,
@@ -1062,6 +1073,14 @@ enum EntryReused<K: StorageProperties> {
 }
 
 impl<K: StorageProperties> EntryUpdater<K> {
+    fn both_deps(&self) -> Option<&BothDeps> {
+        match self {
+            EntryUpdater::ValidOnly { .. } => None,
+            EntryUpdater::Computed { both_deps, .. } => Some(both_deps),
+            EntryUpdater::Reuse { both_deps, .. } => Some(both_deps),
+            EntryUpdater::ReuseTransient { .. } => None,
+        }
+    }
     fn try_reuse_occupied_entry(
         self,
         storage_key: &K,
