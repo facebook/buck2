@@ -12,5 +12,5 @@ def filegroup_impl(ctx):
         srcs = {src.short_path: src for src in ctx.attr.srcs}
 
     # It seems that buck1 always copies, and that's important for Python rules
-    output = ctx.actions.copied_dir(output = ctx.label.name, srcs = srcs)
+    output = ctx.actions.copied_dir(ctx.label.name, srcs)
     return [DefaultInfo(default_outputs = [output])]
