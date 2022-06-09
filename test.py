@@ -133,6 +133,9 @@ def rustfmt(buck2_dir: Path, ci: bool) -> None:
 
 
 CLIPPY_ALLOW = [
+    # Lints that are temporarily broken in our version of the Rust toolchain
+    "clippy::needless-match",
+    "clippy::only-used-in-recursion",
     # Other
     "clippy::blacklisted-name",  # Not using foo, bar, baz in test data is silly
     "clippy::cognitive_complexity",  # This is an arbitrary linter

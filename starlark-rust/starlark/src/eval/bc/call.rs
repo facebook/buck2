@@ -166,9 +166,9 @@ impl<S: ArgSymbol> BcCallArgs<S> for BcCallArgsPos {
 
 impl BcCallArgsForDef for BcCallArgsFull<ResolvedArgName> {
     type Args<'v, 'a>
-    where
+    = ArgumentsFull<'v, 'a, ResolvedArgName> where
         'v: 'a,
-    = ArgumentsFull<'v, 'a, ResolvedArgName>;
+    ;
 
     #[inline]
     fn pop_from_stack<'a, 'v>(
@@ -190,10 +190,7 @@ impl BcCallArgsForDef for BcCallArgsFull<ResolvedArgName> {
 }
 
 impl BcCallArgsForDef for BcCallArgsPos {
-    type Args<'v, 'a>
-    where
-        'v: 'a,
-    = ArgumentsPos<'v, 'a, ResolvedArgName>;
+    type Args<'v, 'a> = ArgumentsPos<'v, 'a, ResolvedArgName> where 'v: 'a;
 
     #[inline]
     fn pop_from_stack<'a, 'v>(
