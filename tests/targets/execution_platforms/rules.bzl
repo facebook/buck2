@@ -8,8 +8,8 @@ def _platform(ctx):
     configuration = ConfigurationInfo(
         constraints = {
             ctx.attr.setting.label.raw_target(): ConstraintValueInfo(
-                ctx.attr.setting[ConstraintSettingInfo],
-                ctx.label.raw_target(),
+                setting = ctx.attr.setting[ConstraintSettingInfo],
+                label = ctx.label.raw_target(),
             ),
         },
         values = {},
@@ -76,7 +76,7 @@ target_platform = rule(
 )
 
 def _config_setting(ctx):
-    return [DefaultInfo(), ConstraintSettingInfo(ctx.label.raw_target())]
+    return [DefaultInfo(), ConstraintSettingInfo(label = ctx.label.raw_target())]
 
 config_setting = rule(
     implementation = _config_setting,

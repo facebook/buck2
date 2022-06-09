@@ -16,7 +16,7 @@ def config_setting_impl(ctx):
 
 # constraint_setting() targets just declare the existence of a constraint.
 def constraint_setting_impl(ctx):
-    return [DefaultInfo(), ConstraintSettingInfo(ctx.label.raw_target())]
+    return [DefaultInfo(), ConstraintSettingInfo(label = ctx.label.raw_target())]
 
 # constraint_value() declares a specific value of a constraint_setting.
 #
@@ -24,8 +24,8 @@ def constraint_setting_impl(ctx):
 #  constraint_setting: the target constraint that this is a value of
 def constraint_value_impl(ctx):
     constraint_value = ConstraintValueInfo(
-        ctx.attr.constraint_setting[ConstraintSettingInfo],
-        ctx.label.raw_target(),
+        setting = ctx.attr.constraint_setting[ConstraintSettingInfo],
+        label = ctx.label.raw_target(),
     )
     return [
         DefaultInfo(),

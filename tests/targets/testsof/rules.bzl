@@ -8,7 +8,7 @@ test_rule = rule(
 )
 
 def _config_setting_impl(ctx):
-    return [DefaultInfo(), ConstraintSettingInfo(ctx.label.raw_target())]
+    return [DefaultInfo(), ConstraintSettingInfo(label = ctx.label.raw_target())]
 
 config_setting = rule(
     implementation = _config_setting_impl,
@@ -18,7 +18,10 @@ config_setting = rule(
 
 def _configuration_impl(ctx):
     config_setting = ctx.attr.config_setting
-    value = ConstraintValueInfo(config_setting[ConstraintSettingInfo], ctx.label.raw_target())
+    value = ConstraintValueInfo(
+        setting = config_setting[ConstraintSettingInfo],
+        label = ctx.label.raw_target(),
+    )
 
     return [
         DefaultInfo(),
