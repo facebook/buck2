@@ -80,6 +80,7 @@ _fbcode_python_flavors = [
     # Use thin archives for static libraries, by default.
     archive_contents = native.read_config("fbcode", "archive_contents", "thin"),
     visibility = ["PUBLIC"],
+    bolt_enabled = True,
 ) for flavor in _fbcode_cxx_flavors]
 
 # The buck2 apple toolchains use this as the base toolchain and override some values.

@@ -69,6 +69,7 @@ def cxx_toolchain_impl(ctx):
         ranlib = ctx.attr.ranlib[RunInfo],
         strip = ctx.attr.strip[RunInfo],
         dwp = None,
+        bolt_msdk = None,
     )
 
     strip_flags_info = StripFlagsInfo(
@@ -83,6 +84,7 @@ def cxx_toolchain_impl(ctx):
         platform_name = ctx.attr.platform_name or ctx.attr.name,
         linker_info = linker_info,
         binary_utilities_info = utilities_info,
+        bolt_enabled = value_or(ctx.attr.bolt_enabled, False),
         c_compiler_info = c_info,
         cxx_compiler_info = cxx_info,
         asm_compiler_info = asm_info,

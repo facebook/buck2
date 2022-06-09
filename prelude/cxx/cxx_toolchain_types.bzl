@@ -33,6 +33,7 @@ LinkerInfo = provider(fields = [
 ])
 
 BinaryUtilitiesInfo = provider(fields = [
+    "bolt_msdk",
     "dwp",
     "nm",
     "objcopy",
@@ -105,6 +106,7 @@ CxxToolchainInfo = provider(fields = [
     "use_dep_files",
     "strip_flags_info",
     "split_dwarf_enabled",
+    "bolt_enabled",
 ])
 
 # Stores "platform"/flavor name used to resolve *platform_* arguments
@@ -138,7 +140,8 @@ def cxx_toolchain_infos(
         use_dep_files = False,
         strip_flags_info = None,
         dist_lto_tools_info: [DistLtoToolsInfo.type, None] = None,
-        split_dwarf_enabled = False):
+        split_dwarf_enabled = False,
+        bolt_enabled = False):
     """
     Creates the collection of cxx-toolchain Infos for a cxx toolchain.
 
@@ -169,6 +172,7 @@ def cxx_toolchain_infos(
         use_dep_files = use_dep_files,
         strip_flags_info = strip_flags_info,
         split_dwarf_enabled = split_dwarf_enabled,
+        bolt_enabled = bolt_enabled,
     )
 
     # Provide placeholder mappings, used primarily by cxx_genrule.

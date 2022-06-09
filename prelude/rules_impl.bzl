@@ -179,6 +179,9 @@ def _cxx_python_extension_attrs():
 
 def _cxx_binary_and_test_attrs():
     return {
+        "bolt_flags": attr.list(attr.string(), default = []),
+        "bolt_gdb_index": attr.option(attr.source(), default = None),
+        "bolt_profile": attr.option(attr.source(), default = None),
         "enable_distributed_thinlto": attr.bool(default = False),
         "link_whole": attr.default_only(attr.bool(default = False)),
         "precompiled_header": attr.option(attr.dep(providers = [CPrecompiledHeaderInfo]), default = None),
@@ -244,6 +247,7 @@ extra_attributes = struct(
         "asm_preprocessor": attr.option(attr.dep(providers = [RunInfo]), default = None),
         "assembler": attr.dep(providers = [RunInfo]),
         "assembler_preprocessor": attr.option(attr.dep(providers = [RunInfo]), default = None),
+        "bolt_enabled": attr.bool(default = False),
         "c_compiler": attr.dep(providers = [RunInfo]),
         "cxx_compiler": attr.dep(providers = [RunInfo]),
         "linker": attr.dep(providers = [RunInfo]),

@@ -30,6 +30,8 @@ _buckconfig_cxx_toolchain_attrs = {
     "aspp": binary_attr,
     "aspp_type": string_attr,
     "asppflags": flags_attr,
+    "bolt_enabled": bool_attr,
+    "bolt_msdk": binary_attr,
     "cache_links": optional_bool_attr,
     "cc": binary_attr,
     "cc_type": string_attr,
@@ -209,6 +211,7 @@ def _config_backed_toolchain_impl(ctx):
         ranlib = ctx.attr.ranlib[RunInfo],
         strip = ctx.attr.strip[RunInfo],
         dwp = ctx.attr.dwp[RunInfo],
+        bolt_msdk = ctx.attr.bolt_msdk[RunInfo],
     )
 
     # Parse raw headers mode.
@@ -222,6 +225,7 @@ def _config_backed_toolchain_impl(ctx):
         platform_name = ctx.attr.name,
         linker_info = linker_info,
         binary_utilities_info = utilities_info,
+        bolt_enabled = ctx.attr.bolt_enabled,
         c_compiler_info = c_info,
         cxx_compiler_info = cxx_info,
         asm_compiler_info = asm_info,
@@ -342,6 +346,7 @@ def _cxx_toolchain_override(ctx):
         ranlib = _pick_bin(ctx.attr.ranlib, base_binary_utilities_info.ranlib),
         strip = _pick_bin(ctx.attr.strip, base_binary_utilities_info.strip),
         dwp = base_binary_utilities_info.dwp,
+        bolt_msdk = base_binary_utilities_info.bolt_msdk,
     )
 
     base_strip_flags_info = base_toolchain.strip_flags_info
@@ -358,6 +363,7 @@ def _cxx_toolchain_override(ctx):
         linker_info = linker_info,
         as_compiler_info = as_info,
         binary_utilities_info = binary_utilities_info,
+        bolt_enabled = value_or(ctx.attr.bolt_enabled, base_toolchain.bolt_enabled),
         c_compiler_info = c_info,
         cxx_compiler_info = cxx_info,
         # the rest are used without overrides
@@ -384,6 +390,7 @@ cxx_toolchain_override = rule(
         "as_compiler_flags": attr.option(attr.list(attr.arg())),
         "as_preprocessor_flags": attr.option(attr.list(attr.arg())),
         "base": attr.dep(providers = [native.cxx.CxxToolchainInfo]),
+        "bolt_enabled": attr.option(attr.bool()),
         "c_compiler": attr.option(attr.dep(providers = [RunInfo])),
         "c_compiler_flags": attr.option(attr.list(attr.arg())),
         "c_preprocessor_flags": attr.option(attr.list(attr.arg())),
