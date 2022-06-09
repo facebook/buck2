@@ -116,14 +116,12 @@ impl<'c> InterpreterPackageListingResolver<'c> {
 
         let process_entries = |work: &mut FuturesUnordered<_>,
                                files: &mut Vec<_>,
-                               dirs: &mut Vec<_>,
                                path: &CellPath,
                                entries: &[SimpleDirEntry]|
          -> anyhow::Result<()> {
             for d in entries {
                 let child_path = path.join_unnormalized(ForwardRelativePath::new(&d.file_name)?);
                 if d.file_type.is_dir() {
-                    dirs.push(child_path.clone());
                     work.push(async move {
                         let entries = self.fs.read_dir(&child_path).await;
                         (child_path, entries)
@@ -135,18 +133,13 @@ impl<'c> InterpreterPackageListingResolver<'c> {
             Ok(())
         };
 
-        process_entries(
-            &mut work,
-            &mut files,
-            &mut dirs,
-            root.as_cell_path(),
-            &*root_entries,
-        )?;
+        process_entries(&mut work, &mut files, root.as_cell_path(), &*root_entries)?;
 
         while let Some((path, entries_result)) = work.next().await {
             let entries = entries_result?;
             if find_buildfile(buildfile_candidates, &*entries).is_none() {
-                process_entries(&mut work, &mut files, &mut dirs, &path, &*entries)?;
+                dirs.push(path.clone());
+                process_entries(&mut work, &mut files, &path, &*entries)?;
             }
         }
 
