@@ -245,28 +245,18 @@ async def test_bxl_build(buck: Buck) -> None:
 
     result = await buck.bxl(
         "//bxl/build.bxl:build_test",
-        "--show-all-outputs",
-        "--show-all-outputs-format",
-        "json",
         "--",
         "--target",
         ":buildable",
     )
-    outputs = json.loads(result.stdout)
-    assert (
-        buck.cwd / Path(outputs["root//bxl/build.bxl:build_test"][0])
-    ).read_text() == "FOO\n"
+    outputs = result.stdout.splitlines()[0]
+    assert (buck.cwd / Path(outputs)).read_text() == "FOO\n"
 
     result = await buck.bxl(
         "//bxl/build.bxl:cquery_build_test",
-        "--show-all-outputs",
-        "--show-all-outputs-format",
-        "json",
     )
-    outputs = json.loads(result.stdout)
-    assert (
-        buck.cwd / Path(outputs["root//bxl/build.bxl:cquery_build_test"][0])
-    ).read_text() == "FOO\n"
+    outputs = result.stdout.splitlines()[0]
+    assert (buck.cwd / Path(outputs)).read_text() == "FOO\n"
 
 
 @buck_test(inplace=False, data_dir="bql/simple")

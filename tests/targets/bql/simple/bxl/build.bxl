@@ -1,5 +1,9 @@
 def _impl(ctx):
-    return ctx.build(ctx.cli_args.target).values()
+    outputs = []
+    for value in ctx.build(ctx.cli_args.target).values():
+        outputs.extend(ctx.output.ensure_multiple(value.artifacts()))
+
+    ctx.output.print(sep = "\n", *outputs)
 
 build_test = bxl(
     implementation = _impl,
@@ -11,7 +15,11 @@ build_test = bxl(
 def _cquery_build(ctx):
     targets = ctx.cquery().kind("genrule", "...")
 
-    return ctx.build(targets).values()
+    outputs = []
+    for value in ctx.build(targets).values():
+        outputs.extend(ctx.output.ensure_multiple(value.artifacts()))
+
+    ctx.output.print(sep = "\n", *outputs)
 
 cquery_build_test = bxl(
     implementation = _cquery_build,
