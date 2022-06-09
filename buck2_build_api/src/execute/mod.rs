@@ -228,8 +228,8 @@ enum ExecutorConfigError {
     MissingLocalAndRemote,
 }
 
-#[derive(Debug, Eq, Hash, PartialEq, Clone)]
-pub enum CommandExecutorConfig {
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+pub enum CommandExecutorKind {
     Local(LocalExecutorOptions),
     Remote(RemoteExecutorOptions),
     Hybrid {
@@ -237,6 +237,18 @@ pub enum CommandExecutorConfig {
         remote: RemoteExecutorOptions,
         level: HybridExecutionLevel,
     },
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Dupe, Hash)]
+pub enum PathSeparatorKind {
+    Unix,
+    Windows,
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+pub struct CommandExecutorConfig {
+    pub executor_kind: CommandExecutorKind,
+    pub path_separator: PathSeparatorKind,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash)]
@@ -252,7 +264,7 @@ pub enum HybridExecutionLevel {
     Full { fallback_on_failure: bool },
 }
 
-impl CommandExecutorConfig {
+impl CommandExecutorKind {
     pub fn new(
         local: Option<LocalExecutorOptions>,
         remote: Option<RemoteExecutorOptions>,
@@ -269,9 +281,30 @@ impl CommandExecutorConfig {
             }),
         }
     }
+}
 
+impl CommandExecutorConfig {
+    pub fn new(executor_kind: CommandExecutorKind, path_separator: PathSeparatorKind) -> Self {
+        Self {
+            executor_kind,
+            path_separator,
+        }
+    }
+
+    pub fn new_with_default_path_separator(executor_kind: CommandExecutorKind) -> Self {
+        Self {
+            executor_kind,
+            path_separator: if cfg!(windows) {
+                PathSeparatorKind::Windows
+            } else {
+                PathSeparatorKind::Unix
+            },
+        }
+    }
+
+    #[cfg(test)]
     pub fn testing_local() -> Self {
-        Self::Local(LocalExecutorOptions {})
+        Self::new_with_default_path_separator(CommandExecutorKind::Local(LocalExecutorOptions {}))
     }
 }
 

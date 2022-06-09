@@ -14,8 +14,8 @@ use starlark::{
 use thiserror::Error;
 
 use crate::execute::{
-    CommandExecutorConfig, HybridExecutionLevel, LocalExecutorOptions, RemoteExecutorOptions,
-    RemoteExecutorUseCase,
+    CommandExecutorConfig, CommandExecutorKind, HybridExecutionLevel, LocalExecutorOptions,
+    PathSeparatorKind, RemoteExecutorOptions, RemoteExecutorUseCase,
 };
 
 #[derive(Debug, Error)]
@@ -49,6 +49,8 @@ struct StarlarkCommandExecutorConfig<'v> {
     /// Whether to allow fallbacks when the result is failure (i.e. the command failed on the
     /// primary, but the infra worked).
     pub(super) allow_hybrid_fallbacks_on_failure: bool,
+    /// Whether to use Windows path separators in command line arguments.
+    pub(super) use_windows_path_separators: bool,
 }
 
 impl<'v> fmt::Display for StarlarkCommandExecutorConfig<'v> {
@@ -73,14 +75,19 @@ impl<'v> fmt::Display for StarlarkCommandExecutorConfig<'v> {
         )?;
         write!(
             f,
-            "remote_execution_use_case = {}",
+            "remote_execution_use_case = {}, ",
             self.remote_execution_use_case
         )?;
         write!(f, "use_limited_hybrid = {}, ", self.use_limited_hybrid)?;
         write!(
             f,
-            "allow_limited_hybrid_fallbacks = {}",
+            "allow_limited_hybrid_fallbacks = {}, ",
             self.allow_limited_hybrid_fallbacks
+        )?;
+        write!(
+            f,
+            "use_windows_path_separators = {}",
+            self.use_windows_path_separators
         )?;
         write!(f, ")")?;
         Ok(())
@@ -157,7 +164,14 @@ impl<'v> StarlarkCommandExecutorConfig<'v> {
             },
         };
 
-        CommandExecutorConfig::new(local_options, remote_options, hybrid_level)
+        Ok(CommandExecutorConfig::new(
+            CommandExecutorKind::new(local_options, remote_options, hybrid_level)?,
+            if self.use_windows_path_separators {
+                PathSeparatorKind::Windows
+            } else {
+                PathSeparatorKind::Unix
+            },
+        ))
     }
 }
 
@@ -224,6 +238,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         #[starlark(default = false, require = named)] use_limited_hybrid: bool,
         #[starlark(default = false, require = named)] allow_limited_hybrid_fallbacks: bool,
         #[starlark(default = false, require = named)] allow_hybrid_fallbacks_on_failure: bool,
+        #[starlark(default = false, require = named)] use_windows_path_separators: bool,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         let config = StarlarkCommandExecutorConfig {
@@ -237,6 +252,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
             use_limited_hybrid,
             allow_limited_hybrid_fallbacks,
             allow_hybrid_fallbacks_on_failure,
+            use_windows_path_separators,
         };
         // This checks that the values are valid.
         config.to_command_executor_config()?;
