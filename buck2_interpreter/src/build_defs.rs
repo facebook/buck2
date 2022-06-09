@@ -14,14 +14,14 @@ use crate::{extra::BuildContext, globspec::GlobSpec, selector::Selector};
 
 #[starlark_module]
 pub fn native_module(builder: &mut GlobalsBuilder) {
-    fn select<'v>(d: Value<'v>) -> anyhow::Result<Selector<'v>> {
+    fn select<'v>(#[starlark(require = pos)] d: Value<'v>) -> anyhow::Result<Selector<'v>> {
         Ok(Selector::new(d))
     }
 
     /// Applies a mapping function to a selector. See [Selector::select_map].
     fn select_map<'v>(
-        d: Value<'v>,
-        func: Value<'v>,
+        #[starlark(require = pos)] d: Value<'v>,
+        #[starlark(require = pos)] func: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         Selector::select_map(d, eval, func)
@@ -29,15 +29,18 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
 
     /// Applies a test function to a selector. See [Selector::select_test].
     fn select_test<'v>(
-        d: Value<'v>,
-        func: Value<'v>,
+        #[starlark(require = pos)] d: Value<'v>,
+        #[starlark(require = pos)] func: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<bool> {
         Selector::select_test(d, eval, func)
     }
 
     /// Tests that two selects are equal to each other. For testing use only.
-    fn select_equal_internal<'v>(left: Value<'v>, right: Value<'v>) -> anyhow::Result<bool> {
+    fn select_equal_internal<'v>(
+        #[starlark(require = pos)] left: Value<'v>,
+        #[starlark(require = pos)] right: Value<'v>,
+    ) -> anyhow::Result<bool> {
         Selector::select_equal_internal(left, right)
     }
 
