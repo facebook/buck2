@@ -8,6 +8,7 @@ use starlark::{
 
 use crate::analysis::AnalysisResult;
 
+/// The result of analyzing a rule, containing the providers and the actions.
 #[derive(ProvidesStaticType, Debug, Display, NoSerialize)]
 #[display(fmt = "{:?}", self)]
 pub struct StarlarkAnalysisResult {
@@ -34,6 +35,8 @@ impl<'v> StarlarkValue<'v> for StarlarkAnalysisResult {
 
 #[starlark_module]
 fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
+    /// Access the providers of the rule. Returns a 'ProviderCollection' the same as accessing
+    /// providers of dependencies within a rule implementation.
     fn providers<'v>(this: &'v StarlarkAnalysisResult) -> anyhow::Result<FrozenValue> {
         unsafe {
             // SAFETY:: this actually just returns a FrozenValue from in the StarlarkAnalysisResult

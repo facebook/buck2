@@ -38,6 +38,9 @@ pub enum ProviderExprError {
     NotATarget(String),
 }
 
+/// ProvidersExpr is just a simple type that can be used in starlark_module
+/// functions for arguments that should be a set of provider labels. It will accept a
+/// literal (like `//some:target[subtarget]`) or list of literals or a single provider label
 pub(crate) enum ProvidersExpr {
     Literal(ConfiguredProvidersLabel),
     Iterable(Vec<ConfiguredProvidersLabel>),
