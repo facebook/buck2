@@ -48,5 +48,8 @@ pub fn collect() -> HashMap<String, String> {
     add_env_var(&mut map, "sandcastle_job_info", "SANDCASTLE_JOB_INFO");
     add_env_var(&mut map, "sandcastle_alias", "SANDCASTLE_ALIAS");
     add_env_var(&mut map, "launched_via_wrapper", "BUCK2_WRAPPER");
+    add_env_var(&mut map, "fbpackage_name", "FBPACKAGE_PACKAGE_NAME");
+    add_env_var(&mut map, "fbpackage_version", "FBPACKAGE_PACKAGE_VERSION");
+    add_env_var(&mut map, "fbpackage_release", "FBPACKAGE_PACKAGE_RELEASE");
     map
 }
