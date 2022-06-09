@@ -53,6 +53,10 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
                 template_placeholders = False,
             ),
             populate_xcode_attributes_func = lambda local_ctx, **kwargs: _xcode_populate_attributes(ctx = local_ctx, xctest_bundle = xctest_bundle, test_host_app_binary = test_host_app_binary, **kwargs),
+            # We want to statically link the transitive dep graph of the apple_test()
+            # which we can achieve by forcing link group linking with
+            # an empty mapping (i.e., default mapping).
+            force_link_group_linking = True,
         ),
     )
     cxx_library_output = cxx_library_parameterized(ctx, constructor_params)

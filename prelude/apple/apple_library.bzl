@@ -40,7 +40,7 @@ AppleLibraryAdditionalParams = record(
     generate_providers = field(CxxRuleProviderParams.type, CxxRuleProviderParams()),
     # Forces link group linking logic, even when there's no mapping. Link group linking
     # without a mapping is equivalent to statically linking the whole transitive dep graph.
-    force_link_group_linking = field(bool.type, True),
+    force_link_group_linking = field(bool.type, False),
 )
 
 def apple_library_impl(ctx: "context") -> ["provider"]:
