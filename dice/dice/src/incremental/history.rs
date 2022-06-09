@@ -86,17 +86,9 @@ impl CellHistory {
         let mut verified = self.verified.clone();
         let mut dirtied = self.dirtied.clone();
 
-        let last_dirtied = dirtied
-            .range((Bound::Unbounded, Bound::Included(verified_at)))
-            .next_back()
-            .map(|r| *r.0);
         // If we don't have any bounds on the earliest this version can be verified,
         // we assume that it is being set at just the current version.
-        let since = [last_dirtied, earliest_valid]
-            .into_iter()
-            .flatten()
-            .max()
-            .unwrap_or(verified_at);
+        let since = self.min_validatable_version(verified_at, earliest_valid);
         {
             for vt in verified
                 .range((Bound::Unbounded, Bound::Excluded(since)))
@@ -153,37 +145,22 @@ impl CellHistory {
         I::IntoIter: Clone,
     {
         let deps_iter = deps.into_iter();
-        // Mark verified at the latest of
-        // * The latest version all deps have been verified since.
-        // * The latest version we were dirtied at.
-        let deps_unchanged_since = deps_iter
+        // We can't be verified before any of our deps were most-recently verified.
+        let all_deps_unchanged_since = deps_iter
             .clone()
             .filter_map(|dep| dep.latest_verified_before(v))
             .max();
-        let last_dirtied = self
-            .dirtied
-            .range((Bound::Unbounded, Bound::Included(v)))
-            .next_back()
-            .map(|d| *d.0);
-        let changed_since = if let Some(changed_since) = [deps_unchanged_since, last_dirtied]
-            .into_iter()
-            .flatten()
-            .max()
+        let min_validated = self.min_validatable_version(v, all_deps_unchanged_since);
+        let changed_since = if let Some(prev_verified) = self
+            .verified
+            .range((Bound::Excluded(min_validated), Bound::Included(v)))
+            .next()
         {
-            if let Some(prev_verified) = self
-                .verified
-                .range((Bound::Excluded(changed_since), Bound::Included(v)))
-                .next()
-            {
-                *prev_verified
-            } else {
-                self.dirtied.remove(&changed_since);
-                self.verified.insert(changed_since);
-                changed_since
-            }
+            *prev_verified
         } else {
-            self.verified.insert(v);
-            v
+            self.dirtied.remove(&min_validated);
+            self.verified.insert(min_validated);
+            min_validated
         };
 
         self.propagate_from_deps(changed_since, deps_iter);
@@ -359,6 +336,25 @@ impl CellHistory {
             verified: self.verified.clone(),
             dirtied: self.dirtied.clone(),
         }
+    }
+
+    fn min_validatable_version(
+        &self,
+        verified_at: VersionNumber,
+        earliest_valid: Option<VersionNumber>,
+    ) -> VersionNumber {
+        let last_dirtied = self
+            .dirtied
+            .range((Bound::Unbounded, Bound::Included(verified_at)))
+            .next_back()
+            .map(|r| *r.0);
+        // If we don't have any bounds on the earliest this version can be verified,
+        // we assume that it is being set at just the current version.
+        [last_dirtied, earliest_valid]
+            .into_iter()
+            .flatten()
+            .max()
+            .unwrap_or(verified_at)
     }
 }
 
