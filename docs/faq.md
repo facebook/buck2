@@ -32,6 +32,10 @@ File changed: fbsource//tools/build_defs/structs.bzl
 
 If you are changing files, but no files are reported as having changed, then Watchman is failing to notify Buck2. You can run `watchman shutdown-server`, which may remedy the issue. If not, run `watchman-diag tool | pastry` and see if you have lots of "re-crawling" happening. If so, report to the [Watchman User's group](https://fb.workplace.com/groups/watchman.users) for further help.
 
+## How do I get the commands Buck2 executed so I can reproduce them in isolation?
+
+See [Using `buck2 log what-ran` to find commands that Buck2 ran](what-ran.md)
+
 ## What does `Transport endpoint is not connected` mean?
 
 Usually means that your Eden mount is not working. Try `eden restart` to fix it.
