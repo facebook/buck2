@@ -27,6 +27,7 @@ pub struct PackageListing {
 struct PackageListingData {
     files: PackageFileListing,
     directories: IndexSet<PackageRelativePathBuf>,
+    subpackages: Vec<PackageRelativePathBuf>,
     buildfile: FileNameBuf,
 }
 
@@ -34,19 +35,26 @@ impl PackageListing {
     pub(crate) fn new(
         files: SortedIndexSet<PackageRelativePathBuf>,
         directories: IndexSet<PackageRelativePathBuf>,
+        subpackages: Vec<PackageRelativePathBuf>,
         buildfile: FileNameBuf,
     ) -> Self {
         Self {
             listing: Arc::new(PackageListingData {
                 files: PackageFileListing { files },
                 directories,
+                subpackages,
                 buildfile,
             }),
         }
     }
 
     pub fn empty(buildfile: FileNameBuf) -> Self {
-        Self::new(SortedIndexSet::empty(), IndexSet::new(), buildfile)
+        Self::new(
+            SortedIndexSet::empty(),
+            IndexSet::new(),
+            Vec::new(),
+            buildfile,
+        )
     }
 
     pub(crate) fn files(&self) -> &PackageFileListing {
@@ -98,6 +106,7 @@ pub mod testing {
             PackageListing::new(
                 SortedIndexSet::new(files),
                 IndexSet::new(),
+                Vec::new(),
                 FileNameBuf::unchecked_new(buildfile.to_owned()),
             )
         }

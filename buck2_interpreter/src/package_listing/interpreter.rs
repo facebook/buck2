@@ -103,6 +103,7 @@ impl<'c> InterpreterPackageListingResolver<'c> {
 
         let mut files = Vec::new();
         let mut dirs = Vec::new();
+        let mut subpackages = Vec::new();
 
         let root_entries = self.fs.read_dir(root.as_cell_path()).await?;
         let buildfile = find_buildfile(buildfile_candidates, &root_entries).ok_or_else(|| {
@@ -140,6 +141,8 @@ impl<'c> InterpreterPackageListingResolver<'c> {
             if find_buildfile(buildfile_candidates, &*entries).is_none() {
                 dirs.push(path.clone());
                 process_entries(&mut work, &mut files, &path, &*entries)?;
+            } else {
+                subpackages.push(path);
             }
         }
 
@@ -147,20 +150,25 @@ impl<'c> InterpreterPackageListingResolver<'c> {
         // that here. Sorting files here is easier than after converting them to package relative.
         files.sort();
         dirs.sort();
+        subpackages.sort();
 
-        let prepare = |xs: &[CellPath]| {
+        fn strip_prefixes<T>(root: &Package, xs: &[CellPath]) -> anyhow::Result<T>
+        where
+            T: FromIterator<PackageRelativePathBuf>,
+        {
             xs.iter()
                 .map(|cell_path| {
-                    Ok(PackageRelativePathBuf::from(
+                    anyhow::Ok(PackageRelativePathBuf::from(
                         cell_path.strip_prefix(root.as_cell_path())?.to_buf(),
                     ))
                 })
-                .collect::<anyhow::Result<_>>()
-        };
+                .collect::<anyhow::Result<T>>()
+        }
 
         Ok(PackageListing::new(
-            SortedIndexSet::new_unchecked(prepare(&files)?),
-            prepare(&dirs)?,
+            SortedIndexSet::new_unchecked(strip_prefixes(root, &files)?),
+            strip_prefixes(root, &dirs)?,
+            strip_prefixes(root, &subpackages)?,
             buildfile.to_owned(),
         ))
     }
