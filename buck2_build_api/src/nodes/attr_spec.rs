@@ -20,7 +20,10 @@ use starlark::{
 use thiserror::Error;
 
 use crate::{
-    attrs::{coerced_attr::CoercedAttr, OrderedMap, OrderedMapEntry},
+    attrs::{
+        attr_type::attr_literal::AttrLiteral, coerced_attr::CoercedAttr, OrderedMap,
+        OrderedMapEntry,
+    },
     interpreter::{
         module_internals::ModuleInternals,
         rule_defs::attr::{Attribute, CoercedValue},
@@ -28,7 +31,7 @@ use crate::{
     nodes::{
         attr_internal::{attr_is_configurable, internal_attrs, NAME_ATTRIBUTE_FIELD},
         attr_values::AttrValues,
-        AttributeError, AttributeId,
+        AttributeId,
     },
 };
 
@@ -131,35 +134,36 @@ impl AttributeSpec {
         param_count: usize,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<(TargetName, AttrValues)> {
-        let mut name = None;
+        let internals = ModuleInternals::from_context(eval)?;
+
         let mut attr_values = AttrValues::with_capacity(param_count);
 
-        for (attr_name, attr_idx, attribute) in self.attr_specs() {
+        let mut indices = self.attr_specs();
+        let name = match indices.next() {
+            Some((name_name, attr_idx, _attr))
+                if name_name == NAME_ATTRIBUTE_FIELD && attr_idx.index_in_attribute_spec == 0 =>
+            {
+                let name: &str = param_parser.next(NAME_ATTRIBUTE_FIELD)?;
+
+                attr_values.push_sorted(
+                    attr_idx,
+                    CoercedAttr::Literal(AttrLiteral::String(name.to_owned())),
+                );
+
+                TargetName::new(name)?
+            }
+            _ => panic!("First attribute is `name`, it is known"),
+        };
+
+        for (attr_name, attr_idx, attribute) in indices {
             let configurable = attr_is_configurable(attr_name);
 
-            let user_value = match attribute.default {
+            let user_value: Option<Value> = match attribute.default {
                 Some(_) => param_parser.next_opt(attr_name)?,
-                None => {
-                    let required_value: Value = param_parser.next(attr_name)?;
-                    if attr_name == NAME_ATTRIBUTE_FIELD {
-                        match required_value.unpack_str() {
-                            Some(value) => name = Some(TargetName::new(value)?),
-                            None => {
-                                return Err(AttributeError::TargetNameNotString(
-                                    required_value.to_repr(),
-                                )
-                                .into());
-                            }
-                        }
-                    }
-                    Some(required_value)
-                }
+                None => Some(param_parser.next(attr_name)?),
             };
 
             if let Some(v) = user_value {
-                let internals = ModuleInternals::from_context(eval)?;
-
-                // TODO(cjhopman): We should get name out first, then coerce the rest.
                 let coerced = attribute
                     .coerce(
                         attr_name,
@@ -168,18 +172,11 @@ impl AttributeSpec {
                         Some(v),
                     )
                     .with_context(|| {
-                        if let Some(name) = &name {
-                            format!(
-                                "when coercing attributes of {}:{}",
-                                internals.package(),
-                                name
-                            )
-                        } else {
-                            format!(
-                                "when coercing attributes of <unknown target> in package `{}`",
-                                internals.package()
-                            )
-                        }
+                        format!(
+                            "when coercing attributes of {}:{}",
+                            internals.package(),
+                            name,
+                        )
                     })?;
                 match coerced {
                     CoercedValue::Custom(v) => {
@@ -190,9 +187,8 @@ impl AttributeSpec {
             }
         }
 
-        let target_name = name.expect("name to have been one of the parameters");
         attr_values.shrink_to_fit();
-        Ok((target_name, attr_values))
+        Ok((name, attr_values))
     }
 
     /// Returns an iterator over all of the attribute (name, value) pairs.

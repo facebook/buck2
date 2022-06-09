@@ -76,8 +76,6 @@ pub enum AttributeError {
     BothTargetCompatibleWith(String),
     #[error("expected `{0}` attribute to be a list but got `{1}`")]
     TargetCompatibleNotList(String, String),
-    #[error("Target `name` argument must be a string, but got `{0}`")]
-    TargetNameNotString(String),
 }
 
 /// Utility functions to introspect coerced values. This will go away once we have more of the value
