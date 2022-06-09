@@ -2305,6 +2305,13 @@ async fn request_metadata(ctx: &ServerCommandContext) -> HashMap<String, String>
                 // the root cell.
                 if let Ok(config) = cwd_cell_config {
                     add_config(&mut metadata, &config, "client", "id", "client");
+                    add_config(
+                        &mut metadata,
+                        &config,
+                        "cache",
+                        "schedule_type",
+                        "schedule_type",
+                    );
                 }
             }
         }
