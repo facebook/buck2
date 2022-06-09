@@ -149,7 +149,7 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
         (None, None)
     };
 
-    let Bingings { prepare, bindings } = binding;
+    let Bindings { prepare, bindings } = binding;
     let binding_params: Vec<_> = bindings.map(|b| b.render_param());
     let binding_args: Vec<_> = bindings.map(|b| b.render_arg());
 
@@ -197,14 +197,14 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<TokenStream> {
     })
 }
 
-struct Bingings {
+struct Bindings {
     prepare: TokenStream,
     bindings: Vec<BindingArg>,
 }
 
 // Given __args and __signature (if render_signature was Some)
 // create bindings for all the arguments
-fn render_binding(x: &StarFun) -> Bingings {
+fn render_binding(x: &StarFun) -> Bindings {
     let span = x.args_span();
     match x.source {
         StarFunSource::Parameters => {
@@ -216,7 +216,7 @@ fn render_binding(x: &StarFun) -> Bingings {
                 ..
             } = &x.args[0];
             let span = *span;
-            Bingings {
+            Bindings {
                 prepare: quote_spanned! { span=> },
                 bindings: vec![BindingArg {
                     name: name.to_owned(),
@@ -237,7 +237,7 @@ fn render_binding(x: &StarFun) -> Bingings {
             } = &x.args[1];
             let span = *span;
             let this = render_binding_arg(&x.args[0]);
-            Bingings {
+            Bindings {
                 prepare: quote_spanned! { span=> },
                 bindings: vec![
                     this,
@@ -253,7 +253,7 @@ fn render_binding(x: &StarFun) -> Bingings {
         }
         StarFunSource::Argument(arg_count) => {
             let bind_args: Vec<BindingArg> = x.args.map(render_binding_arg);
-            Bingings {
+            Bindings {
                 prepare: quote_spanned! { span=>
                     let __args: [_; #arg_count] = self.signature.collect_into(parameters, eval.heap())?;
                 },
@@ -263,7 +263,7 @@ fn render_binding(x: &StarFun) -> Bingings {
         StarFunSource::Positional(required, optional) => {
             let bind_args = x.args.map(render_binding_arg);
             if optional == 0 {
-                Bingings {
+                Bindings {
                     prepare: quote_spanned! {
                         span=>
                         parameters.no_named_args()?;
@@ -272,7 +272,7 @@ fn render_binding(x: &StarFun) -> Bingings {
                     bindings: bind_args,
                 }
             } else {
-                Bingings {
+                Bindings {
                     prepare: quote_spanned! {
                         span=>
                         parameters.no_named_args()?;
