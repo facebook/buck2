@@ -28,6 +28,9 @@ _LOCAL_LABELS = [
     # Some antlir genrules use cpio for unpacking rpms
     "uses_cpio",
 
+    # Creates secondary Eden repos outside of `buck-out/`
+    "uses_eden_mounts",
+
     # The Antlir core compiler uses sudo
     "uses_sudo",
 
