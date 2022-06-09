@@ -77,6 +77,12 @@ impl<'v> UnpackValue<'v> for &'v BxlActionsCtx<'v> {
 
 #[starlark_module]
 fn register_context(builder: &mut MethodsBuilder) {
+    /// Returns the actions context [`AnalysisRegistry`] to create and register actions for this
+    /// bxl function. This will have the same functionality as the actions for rules.
+    ///
+    /// Actions created by bxl will not be built by default. Instead, they are marked to be built
+    /// by `ctx.output.ensure(artifact)` on the output module of the [`BxlContext`]. Only artifacts
+    /// marked by ensure will be built.
     fn action_factory<'v>(this: &BxlActionsCtx<'v>) -> anyhow::Result<Value<'v>> {
         let mut registry = this.ctx.as_ref().state.state.borrow_mut();
         if (*registry).is_some() {
