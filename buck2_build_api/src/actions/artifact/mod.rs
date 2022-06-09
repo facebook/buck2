@@ -19,20 +19,28 @@
 //!
 
 use std::{
+    borrow::Cow,
     cell::{Ref, RefCell},
     cmp::Ordering,
+    fmt,
     hash::{Hash, Hasher},
     ops::Deref,
     rc::Rc,
+    sync::Arc,
 };
 
-use anyhow::anyhow;
-use buck2_core::fs::paths::ForwardRelativePath;
-use derive_more::Display;
-use gazebo::{hash::Hashed, prelude::*};
+use anyhow::{anyhow, Context as _};
+use buck2_core::fs::paths::{FileName, ForwardRelativePath, ForwardRelativePathBuf};
+use derive_more::{Display, From};
+use either::Either;
+use gazebo::{cell::ARef, cmp_chain, eq_chain, hash::Hashed, prelude::*};
 use thiserror::Error;
 
-use crate::{actions::ActionKey, deferred::BaseDeferredKey, path::BuckOutPath};
+use crate::{
+    actions::ActionKey,
+    deferred::BaseDeferredKey,
+    path::{BuckOutPath, BuckPath},
+};
 
 mod artifact_value;
 pub use artifact_value::ArtifactValue;
@@ -43,6 +51,9 @@ pub use build_artifact::BuildArtifact;
 mod source_artifact;
 pub use source_artifact::SourceArtifact;
 
+mod projected_artifact;
+pub use projected_artifact::ProjectedArtifact;
+
 mod fs;
 pub use fs::ArtifactFs;
 
@@ -51,59 +62,139 @@ pub use fs::ArtifactFs;
 pub struct Artifact(pub Hashed<ArtifactKind>);
 
 impl Artifact {
+    pub fn new(
+        artifact: impl Into<BaseArtifactKind>,
+        projected_path: Option<Arc<ForwardRelativePathBuf>>,
+    ) -> Self {
+        let artifact = match projected_path {
+            Some(path) => ArtifactKind::Projected(ProjectedArtifact::new(artifact.into(), path)),
+            None => ArtifactKind::Base(artifact.into()),
+        };
+
+        Self(Hashed::new(artifact))
+    }
+
     pub fn is_source(&self) -> bool {
-        match self.0.as_ref() {
-            ArtifactKind::Source(_) => true,
-            ArtifactKind::Build(_) => false,
+        match self.as_parts().0 {
+            BaseArtifactKind::Source(_) => true,
+            BaseArtifactKind::Build(_) => false,
         }
     }
 
     /// The callsite that declared this artifact, any.
     pub fn owner(&self) -> Option<&BaseDeferredKey> {
-        match self.0.as_ref() {
-            ArtifactKind::Source(_) => None,
-            ArtifactKind::Build(b) => Some(b.get_path().owner()),
+        match self.as_parts().0 {
+            BaseArtifactKind::Source(_) => None,
+            BaseArtifactKind::Build(b) => Some(b.get_path().owner()),
         }
     }
 
     /// The action that would produce this artifact, if any.
     pub fn action_key(&self) -> Option<&ActionKey> {
-        match self.0.as_ref() {
-            ArtifactKind::Source(_) => None,
-            ArtifactKind::Build(b) => Some(b.key()),
+        match self.as_parts().0 {
+            BaseArtifactKind::Source(_) => None,
+            BaseArtifactKind::Build(b) => Some(b.key()),
         }
     }
 
-    pub fn path(&self) -> &ForwardRelativePath {
-        match self.0.as_ref() {
-            ArtifactKind::Source(s) => s.get_path().path().as_ref(),
-            ArtifactKind::Build(b) => b.get_path().path(),
+    pub fn path(&self) -> Cow<'_, ForwardRelativePath> {
+        let (base, rest) = self.as_parts();
+
+        let base = match base {
+            BaseArtifactKind::Source(s) => s.get_path().path().as_ref(),
+            BaseArtifactKind::Build(b) => b.get_path().path(),
+        };
+
+        match rest {
+            Some(rest) => Cow::Owned(base.join_unnormalized(rest)),
+            None => Cow::Borrowed(base),
         }
     }
 
-    pub fn short_path(&self) -> &ForwardRelativePath {
+    pub fn short_path(&self) -> Cow<'_, ForwardRelativePath> {
+        let (base, rest) = self.as_parts();
+
+        let base = match base {
+            BaseArtifactKind::Source(s) => s.get_path().path().as_ref(),
+            BaseArtifactKind::Build(b) => b.get_path().short_path(),
+        };
+
+        match rest {
+            Some(rest) => Cow::Owned(base.join_unnormalized(rest)),
+            None => Cow::Borrowed(base),
+        }
+    }
+
+    pub fn as_parts(&self) -> (&BaseArtifactKind, Option<&ForwardRelativePath>) {
         match self.0.as_ref() {
-            ArtifactKind::Source(s) => s.get_path().path().as_ref(),
-            ArtifactKind::Build(b) => b.get_path().short_path(),
+            ArtifactKind::Base(a) => (a, None),
+            ArtifactKind::Projected(a) => (a.base(), Some(a.path())),
         }
     }
 }
 
-#[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum ArtifactKind {
+#[derive(
+    Clone, Debug, Display, Dupe, PartialEq, Eq, PartialOrd, Ord, Hash, From
+)]
+pub enum BaseArtifactKind {
     Source(SourceArtifact),
     Build(BuildArtifact),
 }
 
+#[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ArtifactKind {
+    Base(BaseArtifactKind),
+    Projected(ProjectedArtifact),
+}
+
 impl From<SourceArtifact> for Artifact {
     fn from(a: SourceArtifact) -> Self {
-        Artifact(Hashed::new(ArtifactKind::Source(a)))
+        Artifact(Hashed::new(ArtifactKind::Base(BaseArtifactKind::Source(a))))
     }
 }
 
 impl From<BuildArtifact> for Artifact {
     fn from(a: BuildArtifact) -> Self {
-        Artifact(Hashed::new(ArtifactKind::Build(a)))
+        Artifact(Hashed::new(ArtifactKind::Base(BaseArtifactKind::Build(a))))
+    }
+}
+
+/// An intermediate struct to respond to calls to `ensure_bound`.
+#[derive(Clone, Dupe, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
+#[display(fmt = "{}", "self.get_path()")]
+pub struct BoundBuildArtifact {
+    artifact: BuildArtifact,
+    projected_path: Option<Arc<ForwardRelativePathBuf>>,
+}
+
+impl BoundBuildArtifact {
+    pub fn into_artifact(self) -> Artifact {
+        Artifact::new(self.artifact, self.projected_path)
+    }
+
+    pub fn into_declared_artifact(self) -> DeclaredArtifact {
+        DeclaredArtifact {
+            artifact: Rc::new(RefCell::new(DeclaredArtifactKind::Bound(self.artifact))),
+            projected_path: self.projected_path,
+        }
+    }
+
+    pub fn as_base_artifact(&self) -> &BuildArtifact {
+        &self.artifact
+    }
+
+    pub fn action_key(&self) -> &ActionKey {
+        self.artifact.key()
+    }
+
+    pub fn get_path(&self) -> ArtifactPath<'_> {
+        ArtifactPath {
+            base_path: ARef::new_ptr(self.artifact.get_path()),
+            projected_path: self
+                .projected_path
+                .as_ref()
+                .map(|p| AsRef::<ForwardRelativePath>::as_ref(&**p)),
+        }
     }
 }
 
@@ -117,26 +208,44 @@ impl From<BuildArtifact> for Artifact {
 /// to it yet, in which case it is a 'UnboundArtifact' underneath.
 ///
 /// All 'DeclaredArtifact's are forced to be bound at the end of the analysis phase.
-#[derive(Clone, Debug, Display, Dupe)]
-#[display(fmt = "{}", "_0.borrow()")]
-pub struct DeclaredArtifact(Rc<RefCell<DeclaredArtifactImpl>>);
+#[derive(Clone, Debug, Dupe, Display)]
+#[display(fmt = "{}", "self.get_path()")]
+pub struct DeclaredArtifact {
+    artifact: Rc<RefCell<DeclaredArtifactKind>>,
+    projected_path: Option<Arc<ForwardRelativePathBuf>>,
+}
 
 impl DeclaredArtifact {
     pub(super) fn new(path: BuckOutPath) -> DeclaredArtifact {
-        DeclaredArtifact(Rc::new(RefCell::new(DeclaredArtifactImpl::Unbound(
-            UnboundArtifact(path),
-        ))))
+        DeclaredArtifact {
+            artifact: Rc::new(RefCell::new(DeclaredArtifactKind::Unbound(
+                UnboundArtifact(path),
+            ))),
+            projected_path: None,
+        }
     }
 
     pub fn as_output(&self) -> OutputArtifact {
         OutputArtifact(self.dupe())
     }
 
-    pub fn get_path(&self) -> Ref<'_, BuckOutPath> {
-        Ref::map(self.0.borrow(), |a| match a {
-            DeclaredArtifactImpl::Bound(a) => a.get_path(),
-            DeclaredArtifactImpl::Unbound(a) => &a.0,
-        })
+    pub fn get_path(&self) -> ArtifactPath<'_> {
+        let borrow = self.artifact.borrow();
+
+        let projected_path = self
+            .projected_path
+            .as_ref()
+            .map(|p| AsRef::<ForwardRelativePath>::as_ref(&**p));
+
+        let base_path = Ref::map(borrow, |a| match &a {
+            DeclaredArtifactKind::Bound(a) => a.get_path(),
+            DeclaredArtifactKind::Unbound(a) => &a.0,
+        });
+
+        ArtifactPath {
+            base_path: ARef::new_ref(base_path),
+            projected_path,
+        }
     }
 
     /// Ensure that the artifact is bound.
@@ -145,19 +254,26 @@ impl DeclaredArtifact {
     /// When we freeze `DeclaredArtifact`, we then just call `get_bound()`, and `expect`
     /// it to be valid. We have the `ensure_bound` method to make sure that we can return
     /// a friendlier message to users because `freeze()` does not return error messages
-    pub(crate) fn ensure_bound(self) -> anyhow::Result<BuildArtifact> {
-        match &*self.0.borrow() {
-            DeclaredArtifactImpl::Bound(built) => Ok(built.dupe()),
-            DeclaredArtifactImpl::Unbound(unbound) => {
-                Err(anyhow!(ArtifactErrors::UnboundArtifact(unbound.clone())))
+    pub(crate) fn ensure_bound(self) -> anyhow::Result<BoundBuildArtifact> {
+        let borrow = self.artifact.borrow();
+
+        let artifact = match &*borrow {
+            DeclaredArtifactKind::Bound(built) => built.dupe(),
+            DeclaredArtifactKind::Unbound(unbound) => {
+                return Err(anyhow!(ArtifactErrors::UnboundArtifact(unbound.clone())));
             }
-        }
+        };
+
+        Ok(BoundBuildArtifact {
+            artifact,
+            projected_path: self.projected_path,
+        })
     }
 
     pub fn owner(&self) -> Option<BaseDeferredKey> {
-        match &*self.0.borrow() {
-            DeclaredArtifactImpl::Bound(b) => Some(b.get_path().owner().dupe()),
-            DeclaredArtifactImpl::Unbound(_) => None,
+        match &*self.artifact.borrow() {
+            DeclaredArtifactKind::Bound(b) => Some(b.get_path().owner().dupe()),
+            DeclaredArtifactKind::Unbound(_) => None,
         }
     }
 }
@@ -170,7 +286,7 @@ impl Hash for DeclaredArtifact {
 
 impl PartialEq for DeclaredArtifact {
     fn eq(&self, other: &Self) -> bool {
-        *self.get_path() == *other.get_path()
+        self.get_path() == other.get_path()
     }
 }
 
@@ -178,19 +294,129 @@ impl Eq for DeclaredArtifact {}
 
 impl PartialOrd for DeclaredArtifact {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.get_path().partial_cmp(&*other.get_path())
+        self.get_path().partial_cmp(&other.get_path())
     }
 }
 
 impl Ord for DeclaredArtifact {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.get_path().cmp(&*other.get_path())
+        self.get_path().cmp(&other.get_path())
+    }
+}
+
+#[derive(Debug)]
+pub struct ArtifactPath<'a> {
+    base_path: ARef<'a, BuckOutPath>,
+    projected_path: Option<&'a ForwardRelativePath>,
+}
+
+impl<'a> ArtifactPath<'a> {
+    pub(crate) fn as_fingerprint(
+        self,
+    ) -> (
+        Either<ARef<'a, BuckOutPath>, &'a BuckPath>,
+        Option<ARef<'a, ForwardRelativePath>>,
+    ) {
+        (
+            Either::Left(self.base_path),
+            self.projected_path.map(ARef::new_ptr),
+        )
+    }
+
+    pub(crate) fn with_filename<F, T>(&self, f: F) -> T
+    where
+        for<'b> F: FnOnce(anyhow::Result<&'b FileName>) -> T,
+    {
+        let file_name = match self.projected_path.as_ref() {
+            Some(projected_path) => projected_path.file_name(),
+            None => self.base_path.path().file_name(),
+        }
+        .with_context(|| format!("Artifact has no file name: `{}`", self));
+
+        f(file_name)
+    }
+
+    pub(crate) fn with_short_path<F, T>(&self, f: F) -> T
+    where
+        for<'b> F: FnOnce(&'b ForwardRelativePath) -> T,
+    {
+        let path = match self.projected_path.as_ref() {
+            Some(projected_path) => Cow::Owned(
+                self.base_path
+                    .short_path()
+                    .join_unnormalized(projected_path),
+            ),
+            None => Cow::Borrowed(self.base_path.short_path()),
+        };
+
+        f(&path)
+    }
+
+    pub(crate) fn with_full_path<F, T>(&self, f: F) -> T
+    where
+        for<'b> F: FnOnce(&'b ForwardRelativePath) -> T,
+    {
+        let path = match self.projected_path.as_ref() {
+            Some(projected_path) => {
+                Cow::Owned(self.base_path.path().join_unnormalized(projected_path))
+            }
+            None => Cow::Borrowed(self.base_path.path()),
+        };
+
+        f(&path)
+    }
+}
+
+impl Hash for ArtifactPath<'_> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.base_path.hash(state);
+        self.projected_path.as_ref().hash(state);
+    }
+}
+
+impl PartialEq for ArtifactPath<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        eq_chain! {
+            *self.base_path == *other.base_path,
+            self.projected_path.as_ref() == other.projected_path.as_ref()
+        }
+    }
+}
+
+impl Eq for ArtifactPath<'_> {}
+
+impl PartialOrd for ArtifactPath<'_> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ArtifactPath<'_> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        cmp_chain! {
+            (&*self.base_path).cmp(&*other.base_path),
+            self.projected_path.as_ref().cmp(&other.projected_path.as_ref()),
+        }
+    }
+}
+
+impl fmt::Display for ArtifactPath<'_> {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // NOTE: This produces a representation we tend to use in Starlark for those, which isn't
+        // really consistent with what we use when *not* in Starlark.
+        let base_path = self.base_path.path().as_str();
+        match self.projected_path.as_ref() {
+            Some(projected_path) => {
+                write!(fmt, "{}/{}", base_path, projected_path)
+            }
+            None => write!(fmt, "{}", base_path),
+        }
     }
 }
 
 /// A 'DeclaredArtifact' can be either "bound" to an 'Action', or "unbound"
 #[derive(Clone, Debug, Display)]
-enum DeclaredArtifactImpl {
+enum DeclaredArtifactKind {
     Bound(BuildArtifact),
     Unbound(UnboundArtifact),
 }
@@ -209,33 +435,36 @@ pub enum ArtifactErrors {
 #[derive(Clone, Debug, Display, Dupe, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct OutputArtifact(DeclaredArtifact);
 
-impl From<BuildArtifact> for OutputArtifact {
-    fn from(artifact: BuildArtifact) -> Self {
-        Self(DeclaredArtifact(Rc::new(RefCell::new(
-            DeclaredArtifactImpl::Bound(artifact),
-        ))))
+impl From<DeclaredArtifact> for OutputArtifact {
+    fn from(artifact: DeclaredArtifact) -> Self {
+        Self(artifact)
     }
 }
 
 impl OutputArtifact {
-    pub(crate) fn bind(&self, key: ActionKey) -> anyhow::Result<BuildArtifact> {
-        match &mut *self.0.0.borrow_mut() {
-            DeclaredArtifactImpl::Bound(a) => {
+    pub(crate) fn bind(&self, key: ActionKey) -> anyhow::Result<BoundBuildArtifact> {
+        match &mut *self.0.artifact.borrow_mut() {
+            DeclaredArtifactKind::Bound(a) => {
                 return Err(anyhow!(ArtifactErrors::DuplicateBind(a.dupe(), key)));
             }
             a => take_mut::take(a, |artifact| match artifact {
-                DeclaredArtifactImpl::Unbound(unbound) => {
-                    DeclaredArtifactImpl::Bound(unbound.bind(key))
+                DeclaredArtifactKind::Unbound(unbound) => {
+                    DeclaredArtifactKind::Bound(unbound.bind(key))
                 }
-                DeclaredArtifactImpl::Bound(_) => {
+                DeclaredArtifactKind::Bound(_) => {
                     unreachable!("should already be verified to be unbound")
                 }
             }),
         };
 
-        Ok(match &*self.0.0.borrow() {
-            DeclaredArtifactImpl::Bound(b) => b.dupe(),
+        let artifact = match &*self.0.artifact.borrow() {
+            DeclaredArtifactKind::Bound(b) => b.dupe(),
             _ => unreachable!("should already be bound"),
+        };
+
+        Ok(BoundBuildArtifact {
+            artifact,
+            projected_path: self.0.projected_path.dupe(),
         })
     }
 }
@@ -263,7 +492,7 @@ pub mod testing {
 
     use crate::{
         actions::{
-            artifact::{BuildArtifact, DeclaredArtifact, DeclaredArtifactImpl},
+            artifact::{BuildArtifact, DeclaredArtifact, DeclaredArtifactKind},
             ActionKey,
         },
         deferred::{
@@ -280,16 +509,16 @@ pub mod testing {
 
     impl ArtifactTestingExt for DeclaredArtifact {
         fn testing_is_bound(&self) -> bool {
-            match &*self.0.borrow() {
-                DeclaredArtifactImpl::Bound(_) => true,
-                DeclaredArtifactImpl::Unbound(_) => false,
+            match &*self.artifact.borrow() {
+                DeclaredArtifactKind::Bound(_) => true,
+                DeclaredArtifactKind::Unbound(_) => false,
             }
         }
 
         fn testing_action_key(&self) -> Option<ActionKey> {
-            match &*self.0.borrow() {
-                DeclaredArtifactImpl::Bound(built) => Some(built.0.key.dupe()),
-                DeclaredArtifactImpl::Unbound(_) => None,
+            match &*self.artifact.borrow() {
+                DeclaredArtifactKind::Bound(built) => Some(built.0.key.dupe()),
+                DeclaredArtifactKind::Unbound(_) => None,
             }
         }
     }
@@ -349,7 +578,7 @@ mod tests {
         actions::{
             artifact::{
                 testing::BuildArtifactTestingExt, ArtifactFs, BuildArtifact, DeclaredArtifact,
-                DeclaredArtifactImpl, SourceArtifact,
+                DeclaredArtifactKind, SourceArtifact,
             },
             ActionKey,
         },
@@ -379,12 +608,12 @@ mod tests {
         let out = declared.as_output();
         let bound = out.bind(key.dupe())?;
 
-        assert_eq!(bound.0.key, key);
-        assert_eq!(bound.get_path(), &*declared.get_path());
+        assert_eq!(*bound.as_base_artifact().key(), key);
+        assert_eq!(bound.get_path(), declared.get_path());
 
-        match &*declared.0.borrow() {
-            DeclaredArtifactImpl::Bound(b) => {
-                assert_eq!(b, &bound);
+        match &*declared.artifact.borrow() {
+            DeclaredArtifactKind::Bound(b) => {
+                assert_eq!(b, bound.as_base_artifact());
             }
             _ => panic!("should be bound"),
         };

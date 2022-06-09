@@ -14,7 +14,7 @@ use futures::future;
 use gazebo::dupe::Dupe;
 
 use crate::{
-    actions::artifact::{ArtifactKind, BuildArtifact},
+    actions::artifact::{BaseArtifactKind, BuildArtifact},
     artifact_groups::{ArtifactGroup, ArtifactGroupValues},
     calculation::Calculation,
     execute::materializer::ArtifactMaterializer,
@@ -167,8 +167,8 @@ pub async fn materialize_artifact_group(
 
     if let MaterializationContext::Materialize { map, force } = materialization_context {
         future::try_join_all(values.iter().filter_map(|(artifact, _value)| {
-            match artifact.0.as_ref() {
-                ArtifactKind::Build(artifact) => {
+            match artifact.as_parts().0 {
+                BaseArtifactKind::Build(artifact) => {
                     match map.entry(artifact.dupe()) {
                         Entry::Vacant(v) => {
                             // Ensure we won't request this artifact elsewhere, and proceed to request
@@ -183,7 +183,7 @@ pub async fn materialize_artifact_group(
 
                     Some(ctx.try_materialize_requested_artifact(artifact, *force))
                 }
-                ArtifactKind::Source(..) => None,
+                BaseArtifactKind::Source(..) => None,
             }
         }))
         .await

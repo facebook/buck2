@@ -244,7 +244,7 @@ impl Deferred for DynamicLambda {
 
         let output: anyhow::Result<Vec<_>> = declared_outputs
             .into_iter()
-            .map(|x| anyhow::Ok(x.ensure_bound()?.key().dupe()))
+            .map(|x| anyhow::Ok(x.ensure_bound()?.action_key().dupe()))
             .collect();
         Ok(DeferredValue::Ready(DynamicLambdaOutput {
             output: output?,

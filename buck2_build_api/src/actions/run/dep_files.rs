@@ -513,7 +513,7 @@ impl DeclaredDepFiles {
                 // dep file per tag.
                 if let Some(label) = dep_files.labels.get(tag) {
                     // NOTE: analysis has been done so we know inputs are bound now.
-                    let output = (*artifact).dupe().ensure_bound().unwrap().into();
+                    let output = (*artifact).dupe().ensure_bound().unwrap().into_artifact();
 
                     self.tagged.insert(
                         tag.dupe(),

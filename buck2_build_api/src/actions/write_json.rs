@@ -85,9 +85,9 @@ fn get_artifact<'v>(x: Value<'v>) -> Option<Box<dyn FnOnce() -> anyhow::Result<A
     if let Some(x) = x.as_artifact() {
         Some(box || Ok(x.get_bound()?.dupe()))
     } else if let Some(x) = x.downcast_ref::<StarlarkOutputArtifact>() {
-        Some(box || Ok(((*x.artifact()).dupe().ensure_bound())?.into()))
+        Some(box || Ok(((*x.artifact()).dupe().ensure_bound())?.into_artifact()))
     } else if let Some(x) = x.downcast_ref::<FrozenStarlarkOutputArtifact>() {
-        Some(box || Ok(x.artifact().into()))
+        Some(box || Ok(x.artifact()))
     } else {
         None
     }

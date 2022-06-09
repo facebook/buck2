@@ -374,7 +374,11 @@ impl ActionsRegistry {
 
         let mut bound_outputs = IndexSet::new();
         for output in outputs {
-            bound_outputs.insert(output.bind(reserved.data().dupe())?);
+            let bound = output
+                .bind(reserved.data().dupe())?
+                .as_base_artifact()
+                .dupe();
+            bound_outputs.insert(bound);
         }
         let id = reserved.data().deferred_key().id();
         self.pending.push((
@@ -765,12 +769,16 @@ mod tests {
         let out1 = ForwardRelativePathBuf::unchecked_new("bar.out".into());
         let buckout1 = BuckOutPath::new(base.dupe(), out1.clone());
         let declared1 = actions.declare_artifact(None, out1.clone())?;
-        assert_eq!(&*declared1.get_path(), &buckout1);
+        declared1
+            .get_path()
+            .with_full_path(|p| assert_eq!(p, buckout1.path()));
 
         let out2 = ForwardRelativePathBuf::unchecked_new("bar2.out".into());
         let buckout2 = BuckOutPath::new(base, out2.clone());
         let declared2 = actions.declare_artifact(None, out2)?;
-        assert_eq!(&*declared2.get_path(), &buckout2);
+        declared2
+            .get_path()
+            .with_full_path(|p| assert_eq!(p, buckout2.path()));
 
         if actions.declare_artifact(None, out1).is_ok() {
             panic!("should error due to duplicate artifact")

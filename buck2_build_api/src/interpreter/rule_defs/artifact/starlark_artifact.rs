@@ -10,7 +10,7 @@
 use std::fmt::Display;
 
 use buck2_core::{
-    fs::paths::ForwardRelativePathBuf,
+    fs::paths::{ForwardRelativePath, ForwardRelativePathBuf},
     provider::{ConfiguredProvidersLabel, ProvidersName},
 };
 use either::Either;
@@ -25,7 +25,7 @@ use starlark::{
 use thiserror::Error;
 
 use crate::{
-    actions::artifact::{Artifact, ArtifactKind, OutputArtifact},
+    actions::artifact::{Artifact, BaseArtifactKind, OutputArtifact},
     artifact_groups::ArtifactGroup,
     deferred::BaseDeferredKey,
     interpreter::rule_defs::{
@@ -89,24 +89,36 @@ impl StarlarkArtifact {
 impl Display for StarlarkArtifact {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // FIXME(ndmitchell): This display is not the same as the underlying Artifact, but they should probably be the same
-        match self.artifact.0.as_ref() {
-            ArtifactKind::Source(s) => {
+        let (root, rest) = self.artifact.as_parts();
+
+        if rest.is_some() {
+            write!(f, "<projection of ")?;
+        }
+
+        match root {
+            BaseArtifactKind::Source(s) => {
                 let package = s.get_path().package().cell_relative_path().as_str();
                 write!(f, "<source {}", package)?;
                 if !package.is_empty() {
                     write!(f, "/")?;
                 }
-                write!(f, "{}>", s.get_path().path().as_str())
+                write!(f, "{}>", s.get_path().path().as_str())?;
             }
-            ArtifactKind::Build(b) => {
+            BaseArtifactKind::Build(b) => {
                 write!(
                     f,
                     "<build artifact {} bound to {}>",
                     b.get_path().path().as_str(),
                     b.get_path().owner()
-                )
+                )?;
             }
+        };
+
+        if let Some(rest) = rest {
+            write!(f, " selecting {}>", rest)?;
         }
+
+        Ok(())
     }
 }
 
@@ -121,12 +133,12 @@ impl Serialize for StarlarkArtifact {
 
 impl StarlarkArtifactLike for StarlarkArtifact {
     fn output_artifact(&self) -> anyhow::Result<OutputArtifact> {
-        match self.artifact.0.as_ref() {
-            ArtifactKind::Source(_) => Err(ArtifactError::SourceArtifactAsOutput {
+        match self.artifact.as_parts().0 {
+            BaseArtifactKind::Source(_) => Err(ArtifactError::SourceArtifactAsOutput {
                 repr: self.to_string(),
             }
             .into()),
-            ArtifactKind::Build(b) => Err(ArtifactError::BoundArtifactAsOutput {
+            BaseArtifactKind::Build(b) => Err(ArtifactError::BoundArtifactAsOutput {
                 artifact_repr: self.to_string(),
                 existing_owner: b.get_path().owner().dupe(),
             }
@@ -142,11 +154,21 @@ impl StarlarkArtifactLike for StarlarkArtifact {
         self
     }
 
-    fn fingerprint(&self) -> Either<ARef<BuckOutPath>, &BuckPath> {
-        match self.artifact.0.as_ref() {
-            ArtifactKind::Source(x) => Either::Right(x.get_path()),
-            ArtifactKind::Build(x) => Either::Left(ARef::new_ptr(x.get_path())),
-        }
+    fn fingerprint(
+        &self,
+    ) -> (
+        Either<ARef<BuckOutPath>, &BuckPath>,
+        Option<ARef<'_, ForwardRelativePath>>,
+    ) {
+        let (root, rest) = self.artifact.as_parts();
+
+        (
+            match root {
+                BaseArtifactKind::Source(x) => Either::Right(x.get_path()),
+                BaseArtifactKind::Build(x) => Either::Left(ARef::new_ptr(x.get_path())),
+            },
+            rest.map(ARef::new_ptr),
+        )
     }
 }
 
@@ -195,11 +217,11 @@ impl<'v> StarlarkValue<'v> for StarlarkArtifact {
 fn artifact_methods(builder: &mut MethodsBuilder) {
     /// The base name of this artifact. e.g. for an artifact at `foo/bar`, this is `bar`
     #[starlark(attribute)]
-    fn basename<'v>(this: &'v StarlarkArtifact) -> anyhow::Result<&'v str> {
+    fn basename<'v>(this: &'v StarlarkArtifact, heap: &Heap) -> anyhow::Result<StringValue<'v>> {
         let path = this.artifact.path();
         match path.file_name() {
-            Some(x) => Ok(x.as_str()),
-            None => Err(ArtifactErrors::EmptyFilename(path.to_owned()).into()),
+            Some(x) => Ok(heap.alloc_str(x.as_str())),
+            None => Err(ArtifactErrors::EmptyFilename(path.into_owned()).into()),
         }
     }
 
@@ -243,7 +265,7 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     /// The interesting part of the path, relative to somewhere in the output directory.
     /// For an artifact declared as `foo/bar`, this is `foo/bar`.
     #[starlark(attribute)]
-    fn short_path<'v>(this: &'v StarlarkArtifact) -> anyhow::Result<&'v str> {
-        Ok(this.artifact.short_path().as_str())
+    fn short_path<'v>(this: &'v StarlarkArtifact, heap: &Heap) -> anyhow::Result<StringValue<'v>> {
+        Ok(heap.alloc_str(this.artifact.short_path().as_str()))
     }
 }

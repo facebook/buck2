@@ -25,7 +25,7 @@ use smallvec::SmallVec;
 
 use crate::{
     actions::{
-        artifact::{Artifact, ArtifactKind, ArtifactValue},
+        artifact::{Artifact, ArtifactKind, ArtifactValue, BaseArtifactKind},
         build_listener::{HasBuildSignals, TransitiveSetComputationSignal},
         calculation::ActionCalculation,
         directory::{ActionDirectoryEntry, ActionDirectoryMember, ActionSharedDirectory, INTERNER},
@@ -99,12 +99,12 @@ async fn path_artifact_value(
     }
 }
 
-async fn ensure_artifact(
+async fn ensure_base_artifact(
     dice: &DiceComputations,
-    artifact: &Artifact,
+    artifact: &BaseArtifactKind,
 ) -> anyhow::Result<ArtifactValue> {
-    match artifact.0.as_ref() {
-        ArtifactKind::Build(ref built) => {
+    match artifact {
+        BaseArtifactKind::Build(ref built) => {
             let action_result = dice.build_artifact(built).await?;
             if let Some(value) = action_result.get(built) {
                 Ok(value.dupe())
@@ -115,11 +115,22 @@ async fn ensure_artifact(
                 )
             }
         }
-        ArtifactKind::Source(ref source) => {
+        BaseArtifactKind::Source(ref source) => {
             Ok(path_artifact_value(&dice.file_ops(), source.get_path())
                 .await?
                 .into())
         }
+    }
+}
+
+async fn ensure_artifact(
+    dice: &DiceComputations,
+    artifact: &Artifact,
+) -> anyhow::Result<ArtifactValue> {
+    match artifact.0.as_ref() {
+        ArtifactKind::Base(ref base) => ensure_base_artifact(dice, base).await,
+        // TODO (@torozco) implement this
+        ArtifactKind::Projected(..) => Err(anyhow::anyhow!("Not implemented yet")),
     }
 }
 

@@ -44,7 +44,8 @@ impl DynamicRegistry {
             .enumerate()
             .map(|(i, output)| {
                 let output_id = registry.defer(DynamicAction::new(reserved.data(), i));
-                output.bind(output_id)
+                let bound = output.bind(output_id)?.as_base_artifact().dupe();
+                Ok(bound)
             })
             .collect::<anyhow::Result<_>>()?;
         let lambda = DynamicLambda::new(self.owner.dupe(), dynamic, inputs, outputs);

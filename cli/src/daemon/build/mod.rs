@@ -17,7 +17,7 @@ use std::{
 
 use anyhow::Context as _;
 use buck2_build_api::{
-    actions::artifact::{ArtifactFs, ArtifactKind},
+    actions::artifact::{ArtifactFs, BaseArtifactKind},
     build,
     build::{BuildProviderType, MaterializationContext, ProviderArtifacts, ProvidersToBuild},
     calculation::Calculation,
@@ -231,8 +231,8 @@ fn create_unhashed_outputs(
     for provider_artifact in provider_artifacts {
         match provider_artifact.values.iter().exactly_one() {
             Ok((artifact, _)) => match provider_artifact.provider_type {
-                BuildProviderType::Default => match artifact.0.as_ref() {
-                    ArtifactKind::Build(build) => {
+                BuildProviderType::Default => match artifact.as_parts().0 {
+                    BaseArtifactKind::Build(build) => {
                         let unhashed_path = artifact_fs.retrieve_unhashed_location(build);
                         let path = artifact_fs.resolve(artifact)?;
                         let abs_unhashed_path = fs.resolve(&unhashed_path);

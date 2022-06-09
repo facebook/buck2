@@ -20,7 +20,7 @@ use starlark::{
 };
 
 use crate::{
-    actions::artifact::{BuildArtifact, OutputArtifact},
+    actions::artifact::{Artifact, BoundBuildArtifact, OutputArtifact},
     interpreter::rule_defs::{
         artifact::{ArtifactError, StarlarkDeclaredArtifact},
         cmd_args::{
@@ -43,12 +43,7 @@ pub struct StarlarkOutputArtifact {
 
 impl Display for StarlarkOutputArtifact {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // FIXME: Should probably match the display for the underlying OutputArtifact
-        write!(
-            f,
-            "<output artifact for {}>",
-            self.artifact.get_path().path().as_str()
-        )
+        write!(f, "<output artifact for {}>", self.artifact.get_path())
     }
 }
 
@@ -76,7 +71,7 @@ impl StarlarkOutputArtifact {
         Self { artifact }
     }
 
-    fn ensure_bound(&self) -> anyhow::Result<BuildArtifact> {
+    fn ensure_bound(&self) -> anyhow::Result<BoundBuildArtifact> {
         match (*self.artifact).dupe().ensure_bound() {
             Ok(b) => Ok(b),
             Err(_) => Err(ArtifactError::DeclaredArtifactWasNotBound {
@@ -137,17 +132,12 @@ impl CommandLineArgLike for StarlarkOutputArtifact {
 #[derive(Debug, PartialEq, ProvidesStaticType)]
 #[derive(NoSerialize)] // TODO bound artifacts should be serializable
 pub struct FrozenStarlarkOutputArtifact {
-    artifact: BuildArtifact,
+    artifact: BoundBuildArtifact,
 }
 
 impl Display for FrozenStarlarkOutputArtifact {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // FIXME: Should probably match the underlying BuildArtifact object
-        write!(
-            f,
-            "<output artifact for {}>",
-            self.artifact.get_path().path().as_str()
-        )
+        write!(f, "<output artifact for {}>", self.artifact)
     }
 }
 
@@ -162,22 +152,19 @@ impl<'v> StarlarkValue<'v> for StarlarkOutputArtifact {
 }
 
 impl FrozenStarlarkOutputArtifact {
-    pub(crate) fn artifact(&self) -> BuildArtifact {
-        self.artifact.dupe()
+    pub(crate) fn artifact(&self) -> Artifact {
+        self.artifact.dupe().into_artifact()
     }
 }
 
 impl CommandLineArgLike for FrozenStarlarkOutputArtifact {
     fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
-        cli.add_arg_string(
-            cli.resolve_artifact(&self.artifact.dupe().into())?
-                .into_string(),
-        );
+        cli.add_arg_string(cli.resolve_artifact(&self.artifact())?.into_string());
         Ok(())
     }
 
     fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
-        visitor.visit_output(self.artifact.dupe().into(), None);
+        visitor.visit_output(self.artifact.dupe().into_declared_artifact().into(), None);
         Ok(())
     }
 

@@ -12,7 +12,7 @@ use std::process::{Command, Stdio};
 use anyhow::Context;
 use buck2_build_api::{
     actions::{
-        artifact::{Artifact, ArtifactFs, ArtifactKind, ArtifactValue},
+        artifact::{Artifact, ArtifactFs, ArtifactValue, BaseArtifactKind},
         directory::ActionDirectoryMember,
     },
     artifact_groups::{ArtifactGroup, ArtifactGroupValues},
@@ -250,7 +250,7 @@ async fn materialize_artifact_group(
         .context("Failed to produce artifacts")?;
 
     future::try_join_all(values.iter().filter_map(|(artifact, _value)| {
-        if let ArtifactKind::Build(artifact) = artifact.0.as_ref() {
+        if let BaseArtifactKind::Build(artifact) = artifact.as_parts().0 {
             Some(ctx.try_materialize_requested_artifact(artifact, true))
         } else {
             None

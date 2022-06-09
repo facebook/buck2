@@ -5,7 +5,7 @@ use buck2_core::{
 use either::Either;
 
 use crate::{
-    actions::artifact::{Artifact, ArtifactKind, BuildArtifact, SourceArtifact},
+    actions::artifact::{Artifact, BaseArtifactKind, BuildArtifact, SourceArtifact},
     interpreter::rule_defs::artifact::StarlarkArtifactLike,
     path::{BuckOutPathResolver, BuckPathResolver},
 };
@@ -32,10 +32,24 @@ impl ArtifactFs {
 
     /// Resolves the 'Artifact's to a 'ProjectRelativePathBuf'
     pub fn resolve(&self, artifact: &Artifact) -> anyhow::Result<ProjectRelativePathBuf> {
-        match artifact.0.as_ref() {
-            ArtifactKind::Build(built) => Ok(self.resolve_build(built)),
-            ArtifactKind::Source(source) => self.resolve_source(source),
-        }
+        let (root, rest) = artifact.as_parts();
+
+        let root = self.resolve_base(root)?;
+
+        Ok(match rest {
+            Some(rest) => root.join_unnormalized(rest),
+            None => root,
+        })
+    }
+
+    pub fn resolve_base(
+        &self,
+        artifact: &BaseArtifactKind,
+    ) -> anyhow::Result<ProjectRelativePathBuf> {
+        Ok(match artifact {
+            BaseArtifactKind::Build(built) => self.resolve_build(built),
+            BaseArtifactKind::Source(source) => self.resolve_source(source)?,
+        })
     }
 
     /// Resolves the 'Artifact's to a 'ProjectRelativePathBuf'
@@ -43,10 +57,17 @@ impl ArtifactFs {
         &self,
         artifactlike: &dyn StarlarkArtifactLike,
     ) -> anyhow::Result<ProjectRelativePathBuf> {
-        match artifactlike.fingerprint() {
-            Either::Left(build) => Ok(self.buck_out_path_resolver.resolve_gen(&build)),
-            Either::Right(source) => self.buck_path_resolver.resolve(source),
-        }
+        let (root, rest) = artifactlike.fingerprint();
+
+        let root = match root {
+            Either::Left(build) => self.buck_out_path_resolver.resolve_gen(&build),
+            Either::Right(source) => self.buck_path_resolver.resolve(source)?,
+        };
+
+        Ok(match rest {
+            Some(rest) => root.join_unnormalized(&*rest),
+            None => root,
+        })
     }
 
     pub fn retrieve_unhashed_location(&self, artifact: &BuildArtifact) -> ProjectRelativePathBuf {

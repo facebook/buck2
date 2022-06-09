@@ -7,14 +7,11 @@
  * of this source tree.
  */
 
-use std::{
-    cell::Ref,
-    fmt::{self, Debug, Display},
-};
+use std::fmt::{self, Debug, Display};
 
 use anyhow::{anyhow, Context};
 use buck2_core::{
-    fs::paths::{FileName, ForwardRelativePath},
+    fs::paths::ForwardRelativePath,
     provider::{ConfiguredProvidersLabel, ProvidersName},
 };
 use either::Either;
@@ -65,11 +62,7 @@ pub struct StarlarkDeclaredArtifact {
 
 impl Display for StarlarkDeclaredArtifact {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "<build artifact {}",
-            self.artifact.get_path().path().as_str()
-        )?;
+        write!(f, "<build artifact {}", self.artifact)?;
         if let Some(location) = &self.declaration_location {
             write!(f, " declared at {}", location)?;
         }
@@ -92,35 +85,26 @@ impl StarlarkDeclaredArtifact {
     }
 }
 
-impl StarlarkDeclaredArtifact {
-    pub(crate) fn basename(&self) -> Ref<'_, FileName> {
-        Ref::map(self.artifact.get_path(), |x| {
-            x.path()
-                .file_name()
-                .expect("artifacts to be a file with a valid name")
-        })
-    }
-
-    pub(crate) fn short_path(&self) -> Ref<'_, ForwardRelativePath> {
-        Ref::map(self.artifact.get_path(), |x| x.short_path())
-    }
-}
-
 impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
     fn output_artifact(&self) -> anyhow::Result<OutputArtifact> {
         Ok(self.artifact.as_output())
     }
 
     fn get_bound(&self) -> anyhow::Result<Artifact> {
-        Ok(Artifact::from(self.artifact.dupe().ensure_bound()?))
+        Ok(self.artifact.dupe().ensure_bound()?.into_artifact())
     }
 
     fn as_command_line_like(&self) -> &dyn CommandLineArgLike {
         self
     }
 
-    fn fingerprint(&self) -> Either<ARef<BuckOutPath>, &BuckPath> {
-        Either::Left(ARef::new_ref(self.artifact.get_path()))
+    fn fingerprint(
+        &self,
+    ) -> (
+        Either<ARef<BuckOutPath>, &BuckPath>,
+        Option<ARef<ForwardRelativePath>>,
+    ) {
+        self.artifact.get_path().as_fingerprint()
     }
 }
 
@@ -134,7 +118,7 @@ impl CommandLineArgLike for StarlarkDeclaredArtifact {
 
     fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
         visitor.visit_input(
-            ArtifactGroup::Artifact(self.artifact.dupe().ensure_bound()?.into()),
+            ArtifactGroup::Artifact(self.artifact.dupe().ensure_bound()?.into_artifact()),
             None,
         );
         Ok(())
@@ -155,13 +139,12 @@ impl CommandLineArgLike for StarlarkDeclaredArtifact {
 impl Freeze for StarlarkDeclaredArtifact {
     type Frozen = StarlarkArtifact;
     fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
-        let bound = self
+        let artifact = self
             .artifact
             .ensure_bound()
-            .context("Artifact must be bound by the end of the rule")?;
-        Ok(StarlarkArtifact {
-            artifact: Artifact::from(bound),
-        })
+            .context("Artifact must be bound by the end of the rule")?
+            .into_artifact();
+        Ok(StarlarkArtifact { artifact })
     }
 }
 
@@ -209,7 +192,9 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkDeclaredArtifact,
         heap: &Heap,
     ) -> anyhow::Result<StringValue<'v>> {
-        Ok(heap.alloc_str(StarlarkDeclaredArtifact::basename(this).as_str()))
+        this.artifact
+            .get_path()
+            .with_filename(|filename| Ok(heap.alloc_str(filename?.as_str())))
     }
 
     /// The file extension of this artifact. e.g. for an artifact at foo/bar.sh,
@@ -219,10 +204,12 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkDeclaredArtifact,
         heap: &Heap,
     ) -> anyhow::Result<StringValue<'v>> {
-        match this.artifact.get_path().path().extension() {
-            None => Ok(heap.alloc_str("")),
-            Some(x) => Ok(heap.alloc_str_concat(".", x)),
-        }
+        this.artifact.get_path().with_filename(|filename| {
+            Ok(match filename?.extension() {
+                None => heap.alloc_str(""),
+                Some(x) => heap.alloc_str_concat(".", x),
+            })
+        })
     }
 
     /// Whether the artifact represents a source file
@@ -264,6 +251,8 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkDeclaredArtifact,
         heap: &Heap,
     ) -> anyhow::Result<StringValue<'v>> {
-        Ok(heap.alloc_str(StarlarkDeclaredArtifact::short_path(this).as_str()))
+        this.artifact
+            .get_path()
+            .with_short_path(|short_path| Ok(heap.alloc_str(short_path.as_str())))
     }
 }

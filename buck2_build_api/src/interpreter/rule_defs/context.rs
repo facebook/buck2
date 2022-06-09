@@ -479,7 +479,9 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         let written_macro_files = if written_macro_count > 0 {
             let macro_directory_path = {
                 // There might be several write actions at once, use write action output hash to deterministically avoid collisions for .macro files.
-                let digest = Sha1::digest(output_artifact.get_path().path().as_str().as_bytes());
+                let digest = output_artifact
+                    .get_path()
+                    .with_full_path(|path| Sha1::digest(path.as_str().as_bytes()));
                 let sha = hex::encode(digest);
                 format!("__macros/{}", sha)
             };
@@ -509,7 +511,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             let maybe_macro_files = if allow_args {
                 let mut macro_files = indexset![];
                 for a in &written_macro_files {
-                    macro_files.insert(a.dupe().ensure_bound()?.into());
+                    macro_files.insert(a.dupe().ensure_bound()?.into_artifact());
                 }
                 Some(macro_files)
             } else {
