@@ -15,6 +15,7 @@
 #![feature(const_panic)]
 #![feature(control_flow_enum)]
 #![feature(map_first_last)]
+#![feature(process_exitcode_placeholder)]
 #![feature(termination_trait_lib)]
 #![feature(try_trait_v2)]
 #![feature(type_alias_impl_trait)]
