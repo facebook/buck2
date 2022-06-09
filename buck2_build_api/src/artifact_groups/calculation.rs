@@ -25,10 +25,13 @@ use smallvec::SmallVec;
 
 use crate::{
     actions::{
-        artifact::{Artifact, ArtifactKind, ArtifactValue, BaseArtifactKind},
+        artifact::{Artifact, ArtifactKind, ArtifactValue, BaseArtifactKind, ProjectedArtifact},
         build_listener::{HasBuildSignals, TransitiveSetComputationSignal},
         calculation::ActionCalculation,
-        directory::{ActionDirectoryEntry, ActionDirectoryMember, ActionSharedDirectory, INTERNER},
+        directory::{
+            extract_artifact_value, insert_artifact, ActionDirectoryBuilder, ActionDirectoryEntry,
+            ActionDirectoryMember, ActionSharedDirectory, INTERNER,
+        },
     },
     artifact_groups::{ArtifactGroup, ArtifactGroupValues, TransitiveSetProjectionKey},
     deferred::calculation::DeferredCalculation,
@@ -127,10 +130,56 @@ async fn ensure_artifact(
     dice: &DiceComputations,
     artifact: &Artifact,
 ) -> anyhow::Result<ArtifactValue> {
-    match artifact.0.as_ref() {
-        ArtifactKind::Base(ref base) => ensure_base_artifact(dice, base).await,
-        // TODO (@torozco) implement this
-        ArtifactKind::Projected(..) => Err(anyhow::anyhow!("Not implemented yet")),
+    Ok(match artifact.0.as_ref() {
+        ArtifactKind::Base(ref base) => ensure_base_artifact(dice, base).await?,
+        ArtifactKind::Projected(projected) => {
+            dice.compute(&EnsureProjectedArtifactKey(projected.dupe()))
+                .await?
+        }
+    })
+}
+
+#[derive(Clone, Dupe, Eq, PartialEq, Hash, Display, Debug)]
+#[display(fmt = "EnsureProjectedArtifactKey({})", .0)]
+struct EnsureProjectedArtifactKey(ProjectedArtifact);
+
+#[async_trait]
+impl Key for EnsureProjectedArtifactKey {
+    type Value = SharedResult<ArtifactValue>;
+
+    async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+        let base_value = ensure_base_artifact(ctx, self.0.base()).await?;
+
+        let artifact_fs = crate::calculation::Calculation::get_artifact_fs(ctx).await;
+
+        let base_path = match self.0.base() {
+            BaseArtifactKind::Build(built) => artifact_fs.resolve_build(built),
+            BaseArtifactKind::Source(source) => artifact_fs.resolve_source(source)?,
+        };
+
+        let mut builder = ActionDirectoryBuilder::empty();
+        insert_artifact(&mut builder, base_path.as_ref(), &base_value)?;
+
+        let value = extract_artifact_value(
+            &builder,
+            base_path.join_unnormalized(self.0.path()).as_ref(),
+        )?
+        .with_context(|| {
+            format!(
+                "The path `{}` does not exist in the artifact `{}`",
+                self.0.path(),
+                self.0.base()
+            )
+        })?;
+
+        Ok(value)
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        match (x, y) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
     }
 }
 
