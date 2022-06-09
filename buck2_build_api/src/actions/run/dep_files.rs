@@ -19,7 +19,7 @@ use buck2_core::{
     category::Category,
     directory::{DirectorySelector, FingerprintedDirectory},
     env_helper::EnvHelper,
-    fs::project::{ProjectRelativePath, ProjectRelativePathBuf},
+    fs::project::ProjectRelativePath,
 };
 use dashmap::DashMap;
 use derive_more::Display;
@@ -32,7 +32,7 @@ use tracing::instrument;
 
 use crate::{
     actions::{
-        artifact::{ArtifactFs, BuildArtifact, OutputArtifact},
+        artifact::{Artifact, ArtifactFs, OutputArtifact},
         directory::{
             expand_selector_for_dependencies, ActionDirectoryBuilder, ActionImmutableDirectory,
             ActionSharedDirectory, INTERNER,
@@ -155,11 +155,7 @@ impl DepFileState {
         // world this wouldn't be necessary, but in practice contention on the materializer makes
         // this slower.
         if !self.has_signatures() {
-            match self
-                .declared_dep_files
-                .materialize(&self.result, fs, materializer)
-                .await
-            {
+            match self.declared_dep_files.materialize(fs, materializer).await {
                 Ok(()) => {}
                 Err(MaterializeDepFilesError::NotFound) => return Ok(None),
                 Err(e) => return Err(e.into()),
@@ -169,7 +165,7 @@ impl DepFileState {
         let dep_files = self
             .declared_dep_files
             .read(fs)
-            .context("Error reading dep files")?;
+            .context("Error reading dep files, verify that the action produced valid output")?;
 
         Ok(Some(dep_files))
     }
@@ -492,7 +488,7 @@ impl PartitionedInputs<ActionImmutableDirectory> {
 #[derive(Hash, PartialEq, Eq, Debug, Dupe, Clone)]
 struct DeclaredDepFile {
     label: Arc<str>,
-    output: BuildArtifact,
+    output: Artifact,
 }
 
 /// All the dep files declared by a command;
@@ -517,7 +513,8 @@ impl DeclaredDepFiles {
                 // dep file per tag.
                 if let Some(label) = dep_files.labels.get(tag) {
                     // NOTE: analysis has been done so we know inputs are bound now.
-                    let output = (*artifact).dupe().ensure_bound().unwrap();
+                    let output = (*artifact).dupe().ensure_bound().unwrap().into();
+
                     self.tagged.insert(
                         tag.dupe(),
                         DeclaredDepFile {
@@ -533,7 +530,6 @@ impl DeclaredDepFiles {
     /// Given an ActionOutputs, materialize this set of dep files, so that we may read them later.
     async fn materialize(
         &self,
-        result: &ActionOutputs,
         fs: &ArtifactFs,
         materializer: &dyn Materializer,
     ) -> Result<(), MaterializeDepFilesError> {
@@ -541,15 +537,9 @@ impl DeclaredDepFiles {
 
         for declared_dep_file in self.tagged.values() {
             let dep_file = &declared_dep_file.output;
-            let path = fs.resolve_build(dep_file);
-
-            if result.get(dep_file).is_none() {
-                return Err(MaterializeDepFilesError::DepFileNotProduced {
-                    label: declared_dep_file.label.dupe(),
-                    path,
-                });
-            }
-
+            let path = fs
+                .resolve(dep_file)
+                .map_err(|e| MaterializeDepFilesError::MaterializationFailed { source: e })?;
             paths.push(path);
         }
 
@@ -588,7 +578,7 @@ impl DeclaredDepFiles {
         for declared_dep_file in self.tagged.values() {
             let mut selector = DirectorySelector::empty();
 
-            let dep_file = fs.resolve_build(&declared_dep_file.output);
+            let dep_file = fs.resolve(&declared_dep_file.output)?;
 
             let read_dep_file: anyhow::Result<()> = try {
                 let dep_file = fs.fs().resolve(&dep_file);
@@ -631,12 +621,6 @@ impl DeclaredDepFiles {
 
 #[derive(Error, Debug)]
 enum MaterializeDepFilesError {
-    #[error("Action execution did not produce the `{}` dep file at `{}`", .label, .path)]
-    DepFileNotProduced {
-        label: Arc<str>,
-        path: ProjectRelativePathBuf,
-    },
-
     #[error("Error materializing dep file")]
     MaterializationFailed {
         #[source]
@@ -694,7 +678,7 @@ mod test {
 
     use super::*;
     use crate::{
-        actions::artifact::testing::BuildArtifactTestingExt,
+        actions::artifact::{testing::BuildArtifactTestingExt, BuildArtifact},
         deferred::{testing::DeferredIdExt, DeferredId},
     };
 
@@ -706,17 +690,17 @@ mod test {
             Configuration::testing_new(),
         );
 
-        let artifact1 = BuildArtifact::testing_new(
+        let artifact1 = Artifact::from(BuildArtifact::testing_new(
             target.dupe(),
             ForwardRelativePathBuf::unchecked_new("foo/bar1.h".to_owned()),
             DeferredId::testing_new(0),
-        );
+        ));
 
-        let artifact2 = BuildArtifact::testing_new(
+        let artifact2 = Artifact::from(BuildArtifact::testing_new(
             target.dupe(),
             ForwardRelativePathBuf::unchecked_new("foo/bar2.h".to_owned()),
             DeferredId::testing_new(0),
-        );
+        ));
 
         let depfile1 = DeclaredDepFile {
             label: Arc::from("foo"),
