@@ -453,17 +453,12 @@ mod tests {
     }
 
     #[test]
-    fn projected_artifact() -> SharedResult<()> {
+    fn project_declared_artifact() -> SharedResult<()> {
         let mut tester = Tester::new()?;
         tester.set_additional_globals(Arc::new(artifactory));
         tester.run_starlark_bzl_test(indoc!(
             r#"
             def test():
-                source = source_artifact("foo/bar", "src").project("baz.cpp")
-                assert_eq("<source foo/bar/src/baz.cpp>", repr(source))
-                assert_eq("baz.cpp", source.basename)
-                assert_eq(".cpp", source.extension)
-
                 bound = declared_bound_artifact("//foo:bar", "out").project("baz.o")
                 assert_eq("<build artifact out/baz.o bound to root//foo:bar (<testing>)>", repr(bound))
                 assert_eq("baz.o", bound.basename)
@@ -476,6 +471,42 @@ mod tests {
                 assert_eq(".so", unbound.extension)
             "#
         ))?;
+        Ok(())
+    }
+
+    #[test]
+    fn project_source_artifact() -> SharedResult<()> {
+        let mut tester = Tester::new()?;
+        tester.set_additional_globals(Arc::new(artifactory));
+        let test = indoc!(
+            r#"
+            def test():
+                source_artifact("foo/bar", "baz").project("foo")
+            "#
+        );
+        expect_error(
+            tester.run_starlark_bzl_test(test),
+            test,
+            "Source artifacts cannot be projected",
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn project_artifact() -> SharedResult<()> {
+        let mut tester = Tester::new()?;
+        tester.set_additional_globals(Arc::new(artifactory));
+        let test = indoc!(
+            r#"
+            def test():
+                bound_artifact("//foo:bar", "baz").project("foo")
+            "#
+        );
+        expect_error(
+            tester.run_starlark_bzl_test(test),
+            test,
+            "This artifact was declared by another rule",
+        );
         Ok(())
     }
 

@@ -9,10 +9,7 @@
 
 use std::fmt::Display;
 
-use buck2_core::{
-    fs::paths::ForwardRelativePath,
-    provider::{ConfiguredProvidersLabel, ProvidersName},
-};
+use buck2_core::provider::{ConfiguredProvidersLabel, ProvidersName};
 use gazebo::{any::ProvidesStaticType, prelude::*};
 use serde::{Serialize, Serializer};
 use starlark::{
@@ -21,6 +18,7 @@ use starlark::{
     starlark_type,
     values::{Heap, StarlarkValue, StringValue, UnpackValue, Value, ValueLike},
 };
+use thiserror::Error;
 
 use crate::{
     actions::artifact::{Artifact, ArtifactPath, BaseArtifactKind, OutputArtifact},
@@ -182,6 +180,14 @@ impl<'v> StarlarkValue<'v> for StarlarkArtifact {
     }
 }
 
+#[derive(Error, Debug)]
+enum CannotProject {
+    #[error("Source artifacts cannot be projected")]
+    SourceArtifact,
+    #[error("This artifact was declared by another rule: `{}`", .0)]
+    DeclaredElsewhere(BaseDeferredKey),
+}
+
 /// A single input or output for an action
 #[starlark_module]
 fn artifact_methods(builder: &mut MethodsBuilder) {
@@ -242,9 +248,14 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     }
 
     fn project<'v>(this: &'v StarlarkArtifact, path: &str) -> anyhow::Result<StarlarkArtifact> {
-        let path = ForwardRelativePath::new(path)?;
-        Ok(StarlarkArtifact {
-            artifact: this.artifact.dupe().project(path),
-        })
+        let err = anyhow::Error::from(match this.artifact.owner() {
+            Some(owner) => CannotProject::DeclaredElsewhere(owner.dupe()),
+            None => CannotProject::SourceArtifact,
+        });
+
+        Err(err.context(format!(
+            "Cannot project path `{}` in artifact `{}`",
+            path, this
+        )))
     }
 }
