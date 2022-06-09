@@ -1,41 +1,28 @@
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
-
-def _get_cpu_constraint_value(platform: PlatformInfo.type, refs: struct.type) -> ConstraintValueInfo.type:
-    cpu_constraint = platform.configuration.constraints.get(refs.cpu[ConstraintSettingInfo].label)
-    expect(cpu_constraint != None, "Android builds must have a cpu constraint specified!")
-    return cpu_constraint
+load("@fbcode//buck2/prelude/android:android_providers.bzl", "CPU_FILTER_TO_ABI_DIRECTORY")
 
 def _cpu_split_transition_impl(
         platform: PlatformInfo.type,
-        refs: struct.type) -> {str.type: PlatformInfo.type}:
+        refs: struct.type,
+        attrs: struct.type) -> {str.type: PlatformInfo.type}:
+    cpu_filters = attrs.cpu_filters or CPU_FILTER_TO_ABI_DIRECTORY.keys()
     cpu = refs.cpu
     x86 = refs.x86[ConstraintValueInfo]
     x86_64 = refs.x86_64[ConstraintValueInfo]
     armv7 = refs.armv7[ConstraintValueInfo]
     arm64 = refs.arm64[ConstraintValueInfo]
-    x86_32_and_arm32 = refs.x86_32_and_arm32[ConstraintValueInfo]
-    x86_64_and_arm64 = refs.x86_64_and_arm64[ConstraintValueInfo]
-
-    cpu_constraint_value = _get_cpu_constraint_value(platform, refs)
-
-    if cpu_constraint_value.label == x86.label:
-        return {"x86": platform}
-    elif cpu_constraint_value.label == x86_64.label:
-        return {"x86_64": platform}
-    elif cpu_constraint_value.label == armv7.label:
-        return {"armv7": platform}
-    elif cpu_constraint_value.label == arm64.label:
-        return {"arm64": platform}
 
     cpu_name_to_cpu_constraint = {}
-    if cpu_constraint_value.label == x86_32_and_arm32.label:
-        cpu_name_to_cpu_constraint["x86"] = x86
-        cpu_name_to_cpu_constraint["armv7"] = armv7
-    elif cpu_constraint_value.label == x86_64_and_arm64.label:
-        cpu_name_to_cpu_constraint["x86_64"] = x86_64
-        cpu_name_to_cpu_constraint["arm64"] = arm64
-    else:
-        fail("Unexpected cpu_constraint label: {}".format(cpu_constraint_value.label))
+    for cpu_filter in cpu_filters:
+        if cpu_filter == "x86":
+            cpu_name_to_cpu_constraint["x86"] = x86
+        elif cpu_filter == "armv7":
+            cpu_name_to_cpu_constraint["armv7"] = armv7
+        elif cpu_filter == "x86_64":
+            cpu_name_to_cpu_constraint["x86_64"] = x86_64
+        elif cpu_filter == "arm64":
+            cpu_name_to_cpu_constraint["arm64"] = arm64
+        else:
+            fail("Unexpected cpu_filter: {}".format(cpu_filter))
 
     base_constraints = {
         constraint_setting_label: constraint_setting_value
@@ -64,10 +51,11 @@ cpu_split_transition = transition(
         "armv7": "ovr_config//cpu/constraints:arm32",
         "cpu": "ovr_config//cpu/constraints:cpu",
         "x86": "ovr_config//cpu/constraints:x86_32",
-        "x86_32_and_arm32": "ovr_config//cpu/constraints:x86_32_and_arm32",
         "x86_64": "ovr_config//cpu/constraints:x86_64",
-        "x86_64_and_arm64": "ovr_config//cpu/constraints:x86_64_and_arm64",
     },
+    attrs = [
+        "cpu_filters",
+    ],
     split = True,
 )
 
