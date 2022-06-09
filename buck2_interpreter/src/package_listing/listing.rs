@@ -72,6 +72,17 @@ impl PackageListing {
         dir.as_str().is_empty() || self.listing.directories.contains(dir)
     }
 
+    pub fn subpackages_within<'a>(
+        &'a self,
+        dir: &'a PackageRelativePath,
+    ) -> impl Iterator<Item = &'a PackageRelativePath> + 'a {
+        self.listing
+            .subpackages
+            .iter()
+            .map(|x| x.as_ref())
+            .filter(move |x: &&PackageRelativePath| x.starts_with(dir))
+    }
+
     pub fn buildfile(&self) -> &FileName {
         &self.listing.buildfile
     }

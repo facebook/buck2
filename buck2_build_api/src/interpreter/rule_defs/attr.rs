@@ -71,6 +71,10 @@ enum AttrError {
     #[error("Expected file, but got a directory for path `{1}` in package `{0}`.")]
     SourceFileIsDirectory(Package, String),
     #[error(
+        "Directory `{1}` of package `{0}` may not cover any subpackages, but includes subpackage `{2}`."
+    )]
+    SourceDirectoryIncludesSubPackage(Package, String, PackageRelativePathBuf),
+    #[error(
         "`attr.option` `default` parameter must be `None` or absent, got `{0}`.\n{}",
         OPTION_NONE_EXPLANATION
     )]
@@ -188,6 +192,13 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
             if listing.contains_dir(&path) {
                 if !allow_directory {
                     let e = AttrError::SourceFileIsDirectory(package.dupe(), value.to_owned());
+                    soft_error!(e.into());
+                } else if let Some(subpackage) = listing.subpackages_within(&path).next() {
+                    let e = AttrError::SourceDirectoryIncludesSubPackage(
+                        package.dupe(),
+                        value.to_owned(),
+                        subpackage.to_owned(),
+                    );
                     soft_error!(e.into());
                 }
             } else {
