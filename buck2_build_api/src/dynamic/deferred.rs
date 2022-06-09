@@ -22,7 +22,7 @@ use starlark::{
 use crate::{
     actions::{
         artifact::{Artifact, BuildArtifact},
-        RegisteredAction,
+        ActionKey, RegisteredAction,
     },
     analysis::registry::AnalysisRegistry,
     bxl,
@@ -107,7 +107,7 @@ impl DynamicLambda {
 pub(crate) struct DynamicLambdaOutput {
     /// The actions the DynamicLambda produces, in the right order.
     /// `DynamicAction.index` is an index into this Vec.
-    output: Vec<DeferredData<Arc<RegisteredAction>>>,
+    output: Vec<ActionKey>,
 }
 
 impl Deferred for DynamicAction {
