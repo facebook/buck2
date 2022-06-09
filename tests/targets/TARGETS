@@ -72,5 +72,7 @@ buck_filegroup(
         "no_output/**/.*",
         "critical_path/**",
         "critical_path/**/.*",
+        "projected_artifacts/**",
+        "projected_artifacts/**/.*",
     ]),
 )

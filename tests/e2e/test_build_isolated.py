@@ -1089,6 +1089,11 @@ async def test_critical_path(buck: Buck) -> None:
     assert "root//:step_3" in steps[3]
 
 
+@buck_test(inplace=False, data_dir="projected_artifacts")
+async def test_projected_artifacts(buck: Buck) -> None:
+    await buck.build("//...")
+
+
 async def expect_exec_count(buck: Buck, n: int) -> None:
     out = await read_what_ran(buck)
     assert len(out) == n, "unexpected actions: %s" % (out,)

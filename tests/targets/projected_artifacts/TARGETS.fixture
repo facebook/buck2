@@ -1,0 +1,23 @@
+declare_sub_targets(
+    name="fixture",
+    sub_targets=["a", "b", "b/b", "c", "c/b"],
+    command="commands/gen_fixture.sh",
+)
+
+exists(
+    name="check_b", command="commands/exists.sh", paths=["$(location :fixture[b])/b"]
+)
+
+exists(
+    name="check_b_b", command="commands/exists.sh", paths=["$(location :fixture[b/b])"]
+)
+
+exists(
+    name="check_c",
+    command="commands/exists.sh",
+    paths=["$(location :fixture[c])/b", "$(location :fixture[c])/b"],
+)
+
+exists(
+    name="check_c_b", command="commands/exists.sh", paths=["$(location :fixture[c/b])"]
+)
