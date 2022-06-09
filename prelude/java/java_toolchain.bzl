@@ -1,3 +1,5 @@
+AbiGenerationMode = enum("class", "source", "source_only")
+
 JavacProtocol = enum("classic", "javacd")
 
 JavaPlatformInfo = provider(
@@ -10,6 +12,7 @@ JavaPlatformInfo = provider(
 JavaToolchainInfo = provider(
     "Java toolchain info",
     fields = [
+        "abi_generation_mode",
         "bootclasspath_7",
         "bootclasspath_8",
         "class_abi_generator",

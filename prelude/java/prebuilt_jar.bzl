@@ -36,6 +36,7 @@ def prebuilt_jar_impl(ctx: "context") -> ["provider"]:
     library_output_classpath_entry = JavaClasspathEntry(
         full_library = output,
         abi = abi or output,
+        required_for_source_only_abi = ctx.attr.required_for_source_only_abi,
     )
 
     java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info = create_java_library_providers(

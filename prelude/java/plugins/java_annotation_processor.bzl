@@ -18,10 +18,14 @@ JavaProcessorsInfo = provider(
 
         # Java dependencies exposed to dependent targets and supposed to be used during compilation.
         "deps",  # ["artifact"]
+        "affects_abi",
+        "supports_source_only_abi",
     ],
 )
 
 AnnotationProcessorParams = record(
+    affects_abi = field(bool.type),
+    supports_source_only_abi = field(bool.type),
     processors = field(["string"]),
     params = field(["string"]),
     deps = field(["artifact"]),
@@ -49,7 +53,11 @@ def create_ap_params(
         for ap_dep in map_idx(JavaLibraryInfo, annotation_processor_deps):
             if not ap_dep:
                 fail("Dependency must have a type of `java_library` or `prebuilt_jar`. Deps: {}".format(annotation_processor_deps))
+
+        # "legacy" annotation processors have no mechanism for indicating if they affect abi or if they support source_only
         ap_params.append(AnnotationProcessorParams(
+            affects_abi = True,
+            supports_source_only_abi = False,
             processors = annotation_processors,
             params = annotation_processor_params,
             # using packaging deps to have all transitive deps collected for processors classpath
@@ -63,6 +71,8 @@ def create_ap_params(
             fail("Plugin must have a type of `java_annotation_processor` or `java_plugin`. Plugins: {}".format(plugins))
         if ap_plugin.type == JavaProcessorsType("java_annotation_processor"):
             ap_params.append(AnnotationProcessorParams(
+                affects_abi = ap_plugin.affects_abi,
+                supports_source_only_abi = ap_plugin.supports_source_only_abi,
                 processors = ap_plugin.processors,
                 params = [],
                 deps = ap_plugin.deps,
@@ -89,6 +99,8 @@ def create_ksp_ap_params(plugins: ["dependency"]) -> [AnnotationProcessorParams.
         processors = dedupe(ap_processors),
         params = [],
         deps = ap_processor_deps,
+        affects_abi = True,
+        supports_source_only_abi = False,
     )
 
 def _get_processor_type(processor_class: str.type) -> JavaProcessorsType.type:
@@ -103,6 +115,8 @@ def java_annotation_processor_impl(ctx: "context") -> ["provider"]:
             deps = derive_transitive_deps(ctx, ctx.attr.deps),
             processors = [ctx.attr.processor_class],
             type = _get_processor_type(ctx.attr.processor_class),
+            affects_abi = not ctx.attr.does_not_affect_abi,
+            supports_source_only_abi = ctx.attr.supports_abi_generation_from_source,
         ),
         DefaultInfo(default_outputs = []),
     ]

@@ -385,7 +385,9 @@ async def test_starlib(buck: Buck) -> None:
     await buck.build("fbcode//buck2/tests/targets/starlib:")
 
 
-async def run_java_tests(buck: Buck, enable_javacd: bool) -> None:
+async def run_java_tests(
+    buck: Buck, enable_javacd: bool, enable_source_only_abi: bool
+) -> None:
     config_flags = []
     if enable_javacd:
         config_flags = [
@@ -396,6 +398,19 @@ async def run_java_tests(buck: Buck, enable_javacd: bool) -> None:
             "-c",
             "tools.javac=",
         ]
+
+        if enable_source_only_abi:
+            config_flags += [
+                "-c",
+                "buck2.enable_source_only_abi=true",
+                "-c",
+                "java.abi_generation_mode=source_only",
+            ]
+
+    else:
+        assert (
+            not enable_source_only_abi
+        ), "source_only_abi only makes sense with internal javac enabled"
 
     async def build(*args, **kwargs):
         await buck.build(*(config_flags + list(args)), **kwargs)
@@ -428,15 +443,23 @@ if fbcode_linux_only():
 
     @buck_test(inplace=True)
     async def test_java(buck: Buck) -> None:
-        await run_java_tests(buck, False)
+        await run_java_tests(buck, False, False)
 
-    @buck_test(inplace=True)
     @pytest.mark.xfail(
         strict=False,
         reason="This doesn't work with deferred materialized due to dir/file output overlap",
     )
+    @buck_test(inplace=True)
     async def test_java_with_javacd(buck: Buck) -> None:
-        await run_java_tests(buck, True)
+        await run_java_tests(buck, True, False)
+
+    @pytest.mark.xfail(
+        strict=False,
+        reason="This doesn't work with deferred materialized due to dir/file output overlap",
+    )
+    @buck_test(inplace=True)
+    async def test_java_with_source_only_abi(buck: Buck) -> None:
+        await run_java_tests(buck, True, True)
 
 
 if fbcode_linux_only():

@@ -153,6 +153,7 @@ def _generate_and_compile_r_dot_java(
     outputs = JavaClasspathEntry(
         full_library = r_dot_java_out,
         abi = r_dot_java_out,
+        required_for_source_only_abi = False,
     )
 
     todo_inputs = []

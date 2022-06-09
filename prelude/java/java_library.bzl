@@ -9,7 +9,7 @@ load(
     "maybe_create_abi",
 )
 load("@fbcode//buck2/prelude/java:java_resources.bzl", "get_resources_map")
-load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JavaToolchainInfo")
+load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "AbiGenerationMode", "JavaToolchainInfo")
 load("@fbcode//buck2/prelude/java:javacd_jar_creator.bzl", "create_jar_artifact_javacd")
 load("@fbcode//buck2/prelude/java/plugins:java_annotation_processor.bzl", "create_ap_params")
 load("@fbcode//buck2/prelude/java/plugins:java_plugin.bzl", "create_plugin_params")
@@ -267,6 +267,7 @@ def compile_to_jar(
         ctx: "context",
         srcs: ["artifact"],
         *,
+        abi_generation_mode: [AbiGenerationMode.type, None] = None,
         output: ["artifact", None] = None,
         actions_prefix: [str.type, None] = None,
         javac_tool: ["", None] = None,
@@ -279,6 +280,8 @@ def compile_to_jar(
         source_level: [int.type, None] = None,
         target_level: [int.type, None] = None,
         deps: [["dependency"], None] = None,
+        required_for_source_only_abi: bool.type = False,
+        source_only_abi_deps: [["dependency"], None] = None,
         extra_arguments: [["string"], None] = None,
         additional_classpath_entries: [["artifact"], None] = None,
         additional_compiled_srcs: ["artifact", None] = None,
@@ -299,6 +302,10 @@ def compile_to_jar(
         actions_prefix = ""
     if not ap_params:
         ap_params = []
+    if not source_only_abi_deps:
+        source_only_abi_deps = []
+
+    # TODO(cjhopman): Should verify that source_only_abi_deps are contained within the normal classpath.
 
     java_toolchain = ctx.attr._java_toolchain[JavaToolchainInfo]
     if not source_level:
@@ -309,6 +316,7 @@ def compile_to_jar(
     return _jar_creator(javac_tool, java_toolchain)(
         ctx.actions,
         actions_prefix,
+        abi_generation_mode,
         java_toolchain,
         ctx.label,
         output,
@@ -323,6 +331,8 @@ def compile_to_jar(
         source_level,
         target_level,
         deps,
+        required_for_source_only_abi,
+        source_only_abi_deps,
         extra_arguments,
         additional_classpath_entries,
         additional_compiled_srcs,
@@ -332,6 +342,7 @@ def compile_to_jar(
 def _create_jar_artifact(
         actions: "actions",
         actions_prefix: str.type,
+        _abi_generation_mode: [AbiGenerationMode.type, None],
         java_toolchain: JavaToolchainInfo.type,
         label: "label",
         output: ["artifact", None],
@@ -346,6 +357,8 @@ def _create_jar_artifact(
         source_level: int.type,
         target_level: int.type,
         deps: ["dependency"],
+        required_for_source_only_abi: bool.type,
+        _source_only_abi_deps: ["dependency"],
         extra_arguments: ["string"],
         additional_classpath_entries: ["artifact"],
         additional_compiled_srcs: ["artifact", None],
@@ -391,6 +404,7 @@ def _create_jar_artifact(
     return make_compile_outputs(
         full_library = jar_out,
         class_abi = abi,
+        required_for_source_only_abi = required_for_source_only_abi,
     )
 
 def _check_dep_types(deps: ["dependency"]):
@@ -484,11 +498,20 @@ def build_java_library(
 
     outputs = None
     if srcs or additional_compiled_srcs or resources or ap_params or plugin_params or manifest_file:
+        abi_generation_mode = {
+            None: None,
+            "class": AbiGenerationMode("class"),
+            "migrating_to_source_only": AbiGenerationMode("source"),
+            "source": AbiGenerationMode("source"),
+            "source_only": AbiGenerationMode("source_only"),
+        }[ctx.attr.abi_generation_mode]
+
         outputs = compile_to_jar(
             ctx,
             javac_tool = javac_tool,
             srcs = srcs,
             deps = first_order_deps,
+            abi_generation_mode = abi_generation_mode,
             remove_classes = ctx.attr.remove_classes,
             resources = resources,
             resources_root = ctx.attr.resources_root,
@@ -501,6 +524,8 @@ def build_java_library(
             additional_classpath_entries = additional_classpath_entries,
             additional_compiled_srcs = additional_compiled_srcs,
             bootclasspath_entries = bootclasspath_entries,
+            required_for_source_only_abi = ctx.attr.required_for_source_only_abi,
+            source_only_abi_deps = ctx.attr.source_only_abi_deps,
         )
 
     java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info = create_java_library_providers(
@@ -518,6 +543,8 @@ def build_java_library(
     if outputs:
         abis = [
             ("class-abi", outputs.class_abi),
+            ("source-abi", outputs.source_abi),
+            ("source-only-abi", outputs.source_only_abi),
         ]
         default_info = DefaultInfo(
             default_outputs = [outputs.full_library],

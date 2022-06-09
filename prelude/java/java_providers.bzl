@@ -79,6 +79,7 @@ load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "filter_and_map_idx")
 JavaClasspathEntry = record(
     full_library = field("artifact"),
     abi = field("artifact"),
+    required_for_source_only_abi = field(bool.type),
 )
 
 JavaCompilingDepsTSet = transitive_set()
@@ -131,6 +132,8 @@ KeystoreInfo = provider(
 JavaCompileOutputs = record(
     full_library = "artifact",
     class_abi = ["artifact", None],
+    source_abi = ["artifact", None],
+    source_only_abi = ["artifact", None],
     classpath_entry = JavaClasspathEntry.type,
 )
 
@@ -139,13 +142,19 @@ JavaCompileOutputs = record(
 def make_compile_outputs(
         full_library: "artifact",
         class_abi: ["artifact", None] = None,
-        classpath_abi: ["artifact", None] = None) -> JavaCompileOutputs.type:
+        source_abi: ["artifact", None] = None,
+        source_only_abi: ["artifact", None] = None,
+        classpath_abi: ["artifact", None] = None,
+        required_for_source_only_abi: bool.type = False) -> JavaCompileOutputs.type:
     return JavaCompileOutputs(
         full_library = full_library,
         class_abi = class_abi,
+        source_abi = source_abi,
+        source_only_abi = source_only_abi,
         classpath_entry = JavaClasspathEntry(
             full_library = full_library,
             abi = classpath_abi or class_abi or full_library,
+            required_for_source_only_abi = required_for_source_only_abi,
         ),
     )
 

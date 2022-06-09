@@ -1,8 +1,9 @@
 load("@fbcode//buck2/platform:utils.bzl", "optional_binary_or_source_attr", "read_bool", "source_list_attr", "string_attr", "string_list_attr")
-load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JUnitToolchainInfo", "JavaPlatformInfo", "JavaToolchainInfo", "JavacProtocol")
+load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "AbiGenerationMode", "JUnitToolchainInfo", "JavaPlatformInfo", "JavaToolchainInfo", "JavacProtocol")
 load("@fbcode//buck2/prelude/java/utils:java_utils.bzl", "derive_javac")
 
 _buckconfig_java_toolchain_attrs = {
+    "abi_generation_mode": (string_attr, "class"),
     "bootclasspath_7": (source_list_attr, []),
     "bootclasspath_8": (source_list_attr, []),
     # There's special default handling for `javac` below.
@@ -55,6 +56,9 @@ def config_backed_java_toolchain(
     kwargs["class_abi_generator"] = class_abi_generator
     kwargs["fat_jar_main_class_lib"] = fat_jar_main_class_lib
 
+    if "abi_generation_mode" in kwargs and not read_bool("buck2", "enable_source_only_abi", False):
+        kwargs["abi_generation_mode"] = "class"
+
     kwargs["javac_protocol"] = "classic"
     if "javac" not in kwargs:
         if read_bool("buck2", "enable_javacd", False):
@@ -72,12 +76,15 @@ def config_backed_java_toolchain(
 
 def _config_backed_java_toolchain_rule_impl(ctx):
     src_root_elements, src_root_prefixes = _parse_src_roots(ctx.attr.src_roots)
+    abi_generation_mode = ctx.attr.abi_generation_mode.lower()
+
     return [
         DefaultInfo(),
         JavaPlatformInfo(
             name = ctx.attr.name,
         ),
         JavaToolchainInfo(
+            abi_generation_mode = AbiGenerationMode(abi_generation_mode),
             bootclasspath_7 = ctx.attr.bootclasspath_7,
             bootclasspath_8 = ctx.attr.bootclasspath_8,
             class_abi_generator = ctx.attr.class_abi_generator,
@@ -100,6 +107,7 @@ def _config_backed_java_toolchain_rule_impl(ctx):
 
 _config_backed_java_toolchain_rule = rule(
     attrs = {
+        "abi_generation_mode": attr.enum(["class", "source", "source_only"], default = "class"),
         "bootclasspath_7": attr.list(attr.source()),
         "bootclasspath_8": attr.list(attr.source()),
         "class_abi_generator": attr.option(attr.dep(providers = [RunInfo]), default = None),
