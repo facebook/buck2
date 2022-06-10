@@ -119,7 +119,7 @@ use crate::{
         install::install,
         materialize::materialize,
         profile::generate_profile,
-        server::file_watcher::FileWatcher,
+        server::{file_watcher::FileWatcher, lsp::run_lsp_server},
         test::test,
         uquery::uquery,
     },
@@ -128,6 +128,7 @@ use crate::{
 };
 
 mod file_watcher;
+mod lsp;
 mod snapshot;
 
 // TODO(cjhopman): Figure out a reasonable value for this.
@@ -1140,7 +1141,7 @@ impl BuckdServer {
 ///
 /// The primary use for this is pulling messages of a specific type from
 /// the client via [`StreamingRequestHandler::message`]
-struct StreamingRequestHandler<T: TryFrom<StreamingRequest, Error = Status>> {
+pub(crate) struct StreamingRequestHandler<T: TryFrom<StreamingRequest, Error = Status>> {
     client_stream: tonic::Streaming<StreamingRequest>,
     _phantom: PhantomData<T>,
 }
@@ -1156,7 +1157,7 @@ impl<T: TryFrom<StreamingRequest, Error = Status>> StreamingRequestHandler<T> {
     /// Get a message of type [`T`] from inside of a [`StreamingRequest`] envelope.
     ///
     /// Returns an error if the message is of the wrong type.
-    async fn message(&mut self) -> Result<T, Status> {
+    pub(crate) async fn message(&mut self) -> Result<T, Status> {
         let request = match self.client_stream.message().await? {
             Some(m) => Ok(m),
             None => Err(Status::failed_precondition(
@@ -2222,13 +2223,8 @@ impl DaemonApi for BuckdServer {
         self.run_bidirectional(
             req,
             DefaultCommandOptions,
-            |ctx, _client_ctx, mut req: StreamingRequestHandler<LspRequest>| async move {
-                let m = req.message().await?;
-                let res = buck2_data::LspResult {
-                    lsp_json: m.lsp_json,
-                };
-                ctx.events().instant_event(res);
-                Ok(LspResponse {})
+            |ctx, _client_ctx, req: StreamingRequestHandler<LspRequest>| async move {
+                run_lsp_server(ctx, req).await
             },
         )
         .await

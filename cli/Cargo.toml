@@ -46,6 +46,7 @@ gazebo_lint.optional = true
 libc = "0.2.103"
 linked-hash-map = { version = "0.5", features = ["serde_impl"] }
 lsp-server = "0.5"
+lsp-types = "0.89.0"
 maplit = "1.0.2"
 memmap = "0.7.0"
 more_futures = { path = "../shed/more_futures" }
@@ -90,6 +91,7 @@ dashmap = "4.0"
 shlex = "1.1"
 async-compression = { version = "0.3.8", features = ["tokio", "gzip"] }
 crossterm = "0.23"
+crossbeam-channel = "0.5"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 daemonize = "0.5"
