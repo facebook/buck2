@@ -137,6 +137,7 @@ impl ActionCalculation for DiceComputations {
                         let execution_kind;
                         let wall_time;
                         let error;
+                        let output_size;
 
                         match execute_result {
                             Ok((outputs, meta)) => {
@@ -147,6 +148,7 @@ impl ActionCalculation for DiceComputations {
                                     });
                                 }
 
+                                output_size = outputs.calc_output_bytes();
                                 action_result = Ok(outputs);
                                 success_stderr = Some(meta.std_streams.to_lossy_stderr().await);
                                 execution_kind = Some(meta.execution_kind.as_enum());
@@ -170,6 +172,7 @@ impl ActionCalculation for DiceComputations {
                                     .map(|e| e.metadata.execution_kind.as_enum());
                                 wall_time = None;
                                 error = Some(error_to_proto(&e).await);
+                                output_size = 0;
                             }
                         };
 
@@ -190,6 +193,7 @@ impl ActionCalculation for DiceComputations {
                                 execution_kind: execution_kind
                                     .unwrap_or(buck2_data::ActionExecutionKind::NotSet)
                                     as i32,
+                                output_size,
                             },
                         )
                     })

@@ -185,6 +185,38 @@ async def test_write_files(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="actions")
+async def test_output_size(buck: Buck) -> None:
+    await buck.build("//write:simple")
+
+    def get(data, *key):
+        data = json.loads(data)
+        for k in key:
+            data = data.get(k)
+            if data is None:
+                break
+        return data
+
+    output_size = None
+    log = (await buck.log("last")).stdout.strip()
+    with gzip.open(log, mode="rt", encoding="utf-8") as log:
+        for line in log:
+            o = get(
+                line,
+                "Event",
+                "data",
+                "SpanEnd",
+                "data",
+                "ActionExecution",
+                "output_size",
+            )
+
+            if o is not None:
+                output_size = o
+
+    assert output_size == 8
+
+
+@buck_test(inplace=False, data_dir="actions")
 async def test_write_json(buck: Buck) -> None:
     await buck.build("//write_json:")
 

@@ -637,6 +637,8 @@ message ActionExecutionEnd {
   ActionExecutionKind execution_kind = 22;
   /// How long this build waited for this action to complete. Omits queue time.
   google.protobuf.Duration wall_time = 23;
+  // the total size of the outputs of this action.
+  uint64 output_size = 24;
 }
 
 // The beginning of materialization for the output of a target requested,

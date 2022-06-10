@@ -24,7 +24,10 @@ use anyhow::Context;
 use async_trait::async_trait;
 use blocking::{BlockingExecutor, HasBlockingExecutor, IoRequest};
 use buck2_common::dice::data::HasIoProvider;
-use buck2_core::fs::project::{ProjectFilesystem, ProjectRelativePath, ProjectRelativePathBuf};
+use buck2_core::{
+    directory::{unordered_entry_walk, DirectoryEntry},
+    fs::project::{ProjectFilesystem, ProjectRelativePath, ProjectRelativePathBuf},
+};
 use buck2_interpreter::dice::HasEvents;
 use derivative::Derivative;
 use derive_more::Display;
@@ -38,6 +41,7 @@ use thiserror::Error;
 use crate::{
     actions::{
         artifact::{ArtifactFs, ArtifactValue, BuildArtifact},
+        directory::ActionDirectoryMember,
         run::knobs::{HasRunActionKnobs, RunActionKnobs},
         ActionExecutable, ActionExecutionCtx, RegisteredAction,
     },
@@ -319,6 +323,23 @@ impl ActionOutputs {
 
     pub fn get(&self, artifact: &BuildArtifact) -> Option<&ArtifactValue> {
         self.0.outputs.get(artifact)
+    }
+
+    pub fn calc_output_bytes(&self) -> u64 {
+        let mut output_bytes = 0;
+        for output in &self.0.outputs {
+            let mut walk = unordered_entry_walk(output.1.entry().as_ref());
+            while let Some((_path, entry)) = walk.next() {
+                match entry {
+                    DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {
+                        output_bytes += f.digest.size();
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        output_bytes
     }
 }
 
