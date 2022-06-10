@@ -58,6 +58,7 @@ rust_library(
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:libc",
         "fbsource//third-party/rust:linked-hash-map",
+        "fbsource//third-party/rust:lsp-server",
         "fbsource//third-party/rust:maplit",
         "fbsource//third-party/rust:memmap",
         "fbsource//third-party/rust:multimap",

@@ -100,6 +100,7 @@ pub mod metadata;
 pub mod paths;
 pub mod query;
 pub mod roots;
+mod stdin_stream;
 mod stdio;
 pub mod target_hash;
 pub mod version;

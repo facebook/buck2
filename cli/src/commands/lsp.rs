@@ -9,13 +9,16 @@
 
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
-use futures::{stream, FutureExt};
+use cli_proto::LspRequest;
+use futures::FutureExt;
+use lsp_server::Message;
 use once_cell::sync::Lazy;
 use structopt::{clap, StructOpt};
 
 use crate::{
-    commands::common::ConsoleType, daemon::client::BuckdClientConnector, CommandContext,
-    CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions, StreamingCommand,
+    commands::common::ConsoleType, daemon::client::BuckdClientConnector, stdin_stream::StdinStream,
+    CommandContext, CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions,
+    StreamingCommand,
 };
 
 #[derive(Debug, StructOpt)]
@@ -38,16 +41,19 @@ impl StreamingCommand for LspCommand {
         matches: &clap::ArgMatches,
         ctx: CommandContext,
     ) -> ExitResult {
-        let requests = vec![cli_proto::LspRequest {
-            lsp_json: "{}".to_owned(),
-        }];
+        let stdin_reader = StdinStream::new(|stdin| {
+            let message = Message::read(stdin)?;
+            match message {
+                Some(message) => {
+                    let lsp_json = serde_json::to_string(&message)?;
+                    Ok(Some(LspRequest { lsp_json }))
+                }
+                None => Ok(None),
+            }
+        });
         let client_context = ctx.client_context(&self.config_opts, matches)?;
         buckd
-            .with_flushing(|client| {
-                client
-                    .lsp(client_context, stream::iter(requests.into_iter()))
-                    .boxed()
-            })
+            .with_flushing(|client| client.lsp(client_context, stdin_reader).boxed())
             .await???;
         ExitResult::success()
     }
