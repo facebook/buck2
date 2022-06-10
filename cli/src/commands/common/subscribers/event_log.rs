@@ -392,7 +392,9 @@ impl EventSubscriber for EventLog {
 
         // NOTE: we ignore outputs here so that we don't fail if e.g. something deleted our log
         // file while we were about to upload it.
-        let _ignored = start_log_upload(log_file_to_upload);
+        if let Err(e) = log_upload(log_file_to_upload) {
+            tracing::warn!("Error uploading logs: {:#}", e);
+        }
 
         Ok(())
     }
@@ -428,7 +430,7 @@ pub(crate) fn log_upload_url() -> Option<&'static str> {
 }
 
 #[cfg(unix)]
-fn start_log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
+fn log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
     use std::{ffi::OsString, process::Stdio};
 
     buck2_core::facebook_only();
@@ -483,27 +485,50 @@ fn start_log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
         cert.to_string_lossy(),
     );
 
-    std::process::Command::new("curl")
-        .args([
-            "--fail",
-            "-X",
-            "PUT",
-            "--data-binary",
-            "@-", // stdin
-            &url,
-            "-E",
-        ])
-        .arg(cert)
-        .stdin(gzipped_log_file)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()?;
+    // On Sandcastle we'd like to block for the sake of higher reliability uploads at the expense
+    // of a bit of delay.
+    let block_on_upload = std::env::var_os("SANDCASTLE").is_some();
+
+    let mut upload = std::process::Command::new("curl");
+    upload.args([
+        "--silent",
+        "--show-error",
+        "--fail",
+        "-X",
+        "PUT",
+        "--data-binary",
+        "@-", // stdin
+        &url,
+        "-E",
+    ]);
+    upload.arg(cert);
+    upload.stdin(gzipped_log_file);
+
+    if block_on_upload {
+        let res = upload
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .spawn()?
+            .wait_with_output()
+            .context("Failed to wait for log upload")?;
+
+        if !res.status.success() {
+            let stderr = String::from_utf8_lossy(&res.stderr);
+            return Err(anyhow::anyhow!(
+                "Log upload exited with {}. Stderr: `{}`",
+                res.status,
+                stderr.trim(),
+            ));
+        }
+    } else {
+        upload.stdout(Stdio::null()).stderr(Stdio::null()).spawn()?;
+    }
 
     Ok(())
 }
 
 #[cfg(not(unix))]
-fn start_log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
+fn log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
     let _ignored = &log_file.path;
     let _ignored = &log_file.trace_id;
     Ok(())
