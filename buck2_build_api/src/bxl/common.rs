@@ -15,7 +15,6 @@ use once_cell::sync::Lazy;
 use starlark::values::{Value, ValueLike};
 
 use crate::{
-    bxl::starlark_defs::providers_expr::ProviderExprError,
     configuration::execution::{ExecutionPlatform, ExecutionPlatformResolution},
     execute::{CommandExecutorConfig, CommandExecutorKind, LocalExecutorOptions},
     interpreter::rule_defs::target_label::StarlarkTargetLabel,
@@ -40,6 +39,12 @@ pub struct CliResolutionCtx {
     pub target_alias_resolver: TargetAliasResolver,
     pub cell_resolver: CellAliasResolver,
     pub relative_dir: Package,
+}
+
+#[derive(Debug, thiserror::Error)]
+enum ValueAsTargetLabelError {
+    #[error("Expected a single target like ite, but was `{0}`")]
+    NotATarget(String),
 }
 
 pub(crate) trait ValueAsStarlarkTargetLabel {
@@ -71,7 +76,7 @@ impl<'v> ValueAsStarlarkTargetLabel for Value<'v> {
         } else if let Some(target) = self.downcast_ref::<StarlarkTargetLabel>() {
             Some(target.label().dupe())
         } else {
-            return Err(anyhow::anyhow!(ProviderExprError::NotATarget(
+            return Err(anyhow::anyhow!(ValueAsTargetLabelError::NotATarget(
                 self.to_repr()
             )));
         };

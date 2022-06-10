@@ -31,7 +31,7 @@ use crate::{
 };
 
 #[derive(Debug, Error)]
-pub enum ProviderExprError {
+enum ProviderExprError {
     #[error("Expected a list of target like items, but was `{0}`")]
     NotAListOfTargets(String),
     #[error("Expected a single target like ite, but was `{0}`")]
