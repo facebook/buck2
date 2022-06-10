@@ -29,7 +29,6 @@ python_library(
         ":file_test",
     ],
     deps = [
-        "fbsource//third-party/pypi/cached-property:cached-property",
         ":group_generator",
         ":pbx",
     ],
@@ -94,7 +93,6 @@ python_library(
         ":project_test",
     ],
     deps = [
-        "fbsource//third-party/pypi/cached-property:cached-property",
         "fbsource//third-party/pypi/chevron:chevron",
         ":configuration",
         ":group_generator",

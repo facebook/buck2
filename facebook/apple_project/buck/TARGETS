@@ -44,7 +44,6 @@ python_library(
     tests = [":build_target_test"],
     deps = [
         "fbcode//libfb/py/frozen:frozen",
-        "fbsource//third-party/pypi/cached-property:cached-property",
         ":build_target_language",
         ":build_target_pattern",
     ],
@@ -106,7 +105,6 @@ python_library(
     name = "query",
     srcs = ["query.py"],
     deps = [
-        "fbsource//third-party/pypi/cached-property:cached-property",
         ":buck",
     ],
 )
