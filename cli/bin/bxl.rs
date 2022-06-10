@@ -16,7 +16,7 @@
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
-use std::{collections::HashMap, convert::TryFrom, path::Path, sync::Arc};
+use std::{convert::TryFrom, sync::Arc};
 
 use anyhow::Context;
 use buck2_build_api::{
@@ -50,10 +50,7 @@ use buck2_build_api::{
     },
 };
 use buck2_common::{
-    dice::{
-        cells::HasCellResolver,
-        data::{HasIoProvider, SetIoProvider},
-    },
+    dice::{cells::HasCellResolver, data::SetIoProvider},
     legacy_configs::{dice::HasLegacyConfigs, BuckConfigBasedCells},
 };
 use buck2_core::{
@@ -69,7 +66,7 @@ use buck2_interpreter::{
     extra::InterpreterHostPlatform,
 };
 use cli::{
-    commands::bxl::{BxlCoreOpts, ShowAllOutputsFormat},
+    commands::bxl::BxlCoreOpts,
     daemon::{
         build::results::result_report::ResultReporter,
         bxl::{convert_bxl_build_result, ensure_artifacts},
@@ -77,7 +74,7 @@ use cli::{
         common::{parse_concurrency, CommandExecutorFactory},
     },
 };
-use cli_proto::{common_build_options::ExecutionStrategy, BuildTarget};
+use cli_proto::common_build_options::ExecutionStrategy;
 use dice::{cycles::DetectCycles, Dice, DiceTransaction, UserComputationData};
 use events::dispatch::EventDispatcher;
 use fbinit::FacebookInit;
@@ -141,8 +138,6 @@ async fn async_main(
 
     let cell_resolver = dice.get_cell_resolver().await;
 
-    let io = dice.global_data().get_io_provider();
-    let fs = io.fs();
     let artifact_fs = dice.get_artifact_fs().await;
 
     let bxl_label =
@@ -194,77 +189,19 @@ async fn async_main(
     };
     let build_result = ensure_artifacts(&dice, &materialization_ctx, result).await;
 
-    let result_collector = ResultReporter::new(&artifact_fs, opt.bxl_core.show_all_outputs);
+    let result_collector = ResultReporter::new(&artifact_fs, false);
 
     match build_result {
         None => {}
         Some(build_result) => {
-            let (build_targets, error_messages) =
+            let (_, error_messages) =
                 convert_bxl_build_result(&bxl_label, result_collector, build_result);
 
             for error_message in error_messages {
                 println!("{}", error_message)
             }
-
-            if opt.bxl_core.show_all_outputs {
-                print_all_outputs(
-                    build_targets,
-                    match opt.bxl_core.show_all_outputs_format {
-                        ShowAllOutputsFormat::FullJson => Some(format!("{}", fs.root.display())),
-                        ShowAllOutputsFormat::Json => None,
-                    },
-                    true,
-                )?;
-            }
         }
     };
-
-    Ok(())
-}
-
-// TODO(T116849868): remove this and use the src::commands::build::print_outputs once in the daemon
-fn print_all_outputs(
-    targets: Vec<BuildTarget>,
-    root_path: Option<String>,
-    as_json: bool,
-) -> anyhow::Result<()> {
-    let mut output_map = HashMap::new();
-    let mut process_output = |target: &String, output: Option<String>| -> anyhow::Result<()> {
-        let output = match output {
-            Some(output) => match &root_path {
-                Some(root) => Path::new(&root).join(output).to_string_lossy().into_owned(),
-                None => output,
-            },
-            None => "".to_owned(),
-        };
-        if as_json {
-            output_map
-                .entry(target.clone())
-                .or_insert_with(Vec::new)
-                .push(output);
-        } else {
-            println!("{} {}", target, output);
-        }
-
-        Ok(())
-    };
-
-    for build_target in targets {
-        let outputs = build_target.outputs.into_iter();
-        // only print the unconfigured target for now until we migrate everything to support
-        // also printing configurations
-        for output in outputs {
-            process_output(&build_target.target, Some(output.path))?;
-        }
-    }
-
-    if as_json {
-        println!(
-            "{}",
-            &serde_json::to_string_pretty(&output_map)
-                .unwrap_or_else(|_| panic!("Error when converting output map to JSON.")),
-        );
-    }
 
     Ok(())
 }

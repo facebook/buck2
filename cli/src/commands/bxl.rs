@@ -1,18 +1,12 @@
-use std::str::FromStr;
-
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use cli_proto::{build_request::ResponseOptions, BxlRequest};
 use futures::FutureExt;
 use structopt::{clap, StructOpt};
-use thiserror::Error;
 
 use crate::{
     commands::{
-        build::{
-            print_build_result, print_outputs, FinalArtifactMaterializations,
-            MaterializationsToProto,
-        },
+        build::{print_build_result, FinalArtifactMaterializations, MaterializationsToProto},
         common::{value_name_variants, CommonBuildOptions},
     },
     daemon::client::{BuckdClientConnector, CommandOutcome},
@@ -52,19 +46,6 @@ pub struct BxlCommand {
 #[derive(Debug, StructOpt)]
 pub struct BxlCoreOpts {
     #[structopt(
-        long = "show-all-outputs",
-        help = "Print the output paths relative to the cell"
-    )]
-    pub show_all_outputs: bool,
-
-    #[structopt(
-        long = "show-all-outputs-format",
-        help = "Indicates the output format that should be used when using the show all outputs functionality (default: json).\n json - JSON format with relative paths.\n full_json - JSON format with absolute paths.\n",
-        default_value = "json"
-    )]
-    pub show_all_outputs_format: ShowAllOutputsFormat,
-
-    #[structopt(
         name = "BXL label",
         help = "The bxl function to execute as defined by the label of form `<cell>//path/file.bxl:<function>`"
     )]
@@ -77,28 +58,6 @@ pub struct BxlCoreOpts {
         raw = true
     )]
     pub bxl_args: Vec<String>,
-}
-
-#[derive(Debug)]
-pub enum ShowAllOutputsFormat {
-    Json,
-    FullJson,
-}
-
-#[derive(Debug, Error)]
-#[error("Unknown show outputs format `{0}`. Must be one of `json` or `full_json`")]
-pub struct UnknownShowOutputsFormat(String);
-
-impl FromStr for ShowAllOutputsFormat {
-    type Err = UnknownShowOutputsFormat;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "json" => Ok(Self::Json),
-            "full_json" => Ok(Self::FullJson),
-            _ => Err(UnknownShowOutputsFormat(s.to_owned())),
-        }
-    }
 }
 
 #[async_trait]
@@ -120,7 +79,7 @@ impl StreamingCommand for BxlCommand {
                         bxl_label: self.bxl_core.bxl_label,
                         bxl_args: self.bxl_core.bxl_args,
                         response_options: Some(ResponseOptions {
-                            return_outputs: self.bxl_core.show_all_outputs,
+                            return_outputs: false,
                         }),
                         build_opts: Some(self.build_opts.to_proto()),
                         final_artifact_materializations: self.materializations.to_proto() as i32,
@@ -149,19 +108,6 @@ impl StreamingCommand for BxlCommand {
 
         if !success {
             return ExitResult::failure();
-        }
-
-        if self.bxl_core.show_all_outputs {
-            print_outputs(
-                &console,
-                response.build_targets,
-                match self.bxl_core.show_all_outputs_format {
-                    ShowAllOutputsFormat::Json => None,
-                    ShowAllOutputsFormat::FullJson => Some(response.project_root),
-                },
-                true,
-                true, // we treat bxl outputs as "other_outputs", so always show all outputs
-            )?;
         }
 
         ExitResult::success()
