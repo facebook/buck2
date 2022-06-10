@@ -454,7 +454,13 @@ impl OutputArtifact {
     pub(crate) fn bind(&self, key: ActionKey) -> anyhow::Result<BoundBuildArtifact> {
         match &mut *self.0.artifact.borrow_mut() {
             DeclaredArtifactKind::Bound(a) => {
-                return Err(anyhow!(ArtifactErrors::DuplicateBind(a.dupe(), key)));
+                // NOTE: If the artifact was already bound to the same action, we leave it alone.
+                // This can happen when we have projected artifacts used in a command: we'll visit
+                // the projected artifacts and then try to bind each of them, but the same
+                // underlying artifact is the one that gets bound.
+                if *a.key() != key {
+                    return Err(anyhow!(ArtifactErrors::DuplicateBind(a.dupe(), key)));
+                }
             }
             a => take_mut::take(a, |artifact| match artifact {
                 DeclaredArtifactKind::Unbound(unbound) => {
@@ -571,6 +577,7 @@ pub mod testing {
 mod tests {
     use std::convert::TryFrom;
 
+    use assert_matches::assert_matches;
     use buck2_core::{
         cells::{testing::CellResolverExt, CellName, CellResolver},
         configuration::Configuration,
@@ -610,7 +617,7 @@ mod tests {
             ForwardRelativePathBuf::unchecked_new("bar.out".into()),
         ));
         let key = ActionKey::testing_new(DeferredKey::Base(
-            BaseDeferredKey::TargetLabel(target),
+            BaseDeferredKey::TargetLabel(target.dupe()),
             DeferredId::testing_new(0),
         ));
 
@@ -627,10 +634,16 @@ mod tests {
             _ => panic!("should be bound"),
         };
 
-        // binding again should fail
-        if out.bind(key).is_ok() {
-            panic!("should error due to binding multiple times")
-        }
+        // Binding again to the same key should succeed
+        out.bind(key)?;
+
+        // Binding again to a different key should fail
+        let other_key = ActionKey::testing_new(DeferredKey::Base(
+            BaseDeferredKey::TargetLabel(target),
+            DeferredId::testing_new(1),
+        ));
+
+        assert_matches!(out.bind(other_key), Err(..));
 
         Ok(())
     }
