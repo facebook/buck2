@@ -23,7 +23,7 @@ use crate::{
         internals::{QueryInternals, TargetExpr},
         values::fileset::{FileSetExpr, StarlarkFileSet},
     },
-    bxl::StarlarkTargetSet,
+    bxl::starlark_defs::targetset::StarlarkTargetSet,
     nodes::unconfigured::TargetNode,
 };
 

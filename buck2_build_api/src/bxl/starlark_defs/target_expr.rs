@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use buck2_query::query::environment::{QueryEnvironment, QueryTarget};
 use starlark::values::{list::List, UnpackValue, Value, ValueLike};
 
-use crate::bxl::{starlark_defs::targetset::NodeLike, StarlarkTargetSet};
+use crate::bxl::starlark_defs::targetset::{NodeLike, StarlarkTargetSet};
 
 /// Converts a TargetExpr to a &TargetSet.
 macro_rules! targets {

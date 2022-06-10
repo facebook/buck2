@@ -12,9 +12,6 @@
 //! introspects buck2 internal graphs in a safe, incremental way to perform more complex operations
 //!
 
-// TODO(brasselsprouts): This re-export is only here so that `bql` can access StarlarkTargetSet. Remove once bql is deprecated.
-pub use starlark_defs::targetset::StarlarkTargetSet;
-
 pub mod calculation;
 pub mod common;
 pub mod eval;

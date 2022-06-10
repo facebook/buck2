@@ -18,7 +18,7 @@ use starlark::{
 };
 use tokio::runtime::Handle;
 
-use crate::{bxl::StarlarkTargetSet, nodes::unconfigured::TargetNode};
+use crate::{bxl::starlark_defs::targetset::StarlarkTargetSet, nodes::unconfigured::TargetNode};
 
 /// QueryInternals is added as part of the Starlark context's extra information.
 /// Anything we need to implement the starlark-exposed functions will be

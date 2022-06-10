@@ -19,8 +19,8 @@ use crate::{
         starlark_defs::{
             context::BxlContext,
             nodes::{configured::StarlarkConfiguredTargetNode, unconfigured::StarlarkTargetNode},
+            targetset::StarlarkTargetSet,
         },
-        StarlarkTargetSet,
     },
     calculation::Calculation,
     interpreter::rule_defs::{
