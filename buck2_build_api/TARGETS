@@ -98,25 +98,6 @@ rust_library(
 )
 
 buck_rust_binary(
-    name = "bql",
-    srcs = ["bin/bql.rs"],
-    unittests = False,
-    deps = [
-        "fbsource//third-party/rust:anyhow",
-        "fbsource//third-party/rust:structopt",
-        "fbsource//third-party/rust:tokio",
-        ":buck2_build_api",
-        "//buck2/buck2_common:buck2_common",
-        "//buck2/buck2_core:buck2_core",
-        "//buck2/buck2_interpreter:buck2_interpreter",
-        "//buck2/dice/dice:dice",
-        "//buck2/events:events",
-        "//buck2/gazebo/gazebo:gazebo",
-        "//common/rust/shed/fbinit:fbinit",
-    ],
-)
-
-buck_rust_binary(
     name = "interpret",
     srcs = ["bin/interpret.rs"],
     crate_root = "bin/interpret.rs",

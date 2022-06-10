@@ -64,7 +64,7 @@ buck_e2e_test(
         "OVR_CONFIG": "1",
         "PRELUDE": "$(location //buck2:prelude)",
     },
-    executable = "$(location //buck2/buck2_build_api:bql)",
+    executable = "$(location //buck2/buck2_bxl:bql)",
     executable_type = "buck2_build_api_binary",
 )
 

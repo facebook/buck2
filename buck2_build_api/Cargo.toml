@@ -108,11 +108,6 @@ path = "bin/interpret.rs"
 name = "macroparse"
 path = "bin/utilities/macro_parse.rs"
 
-[[bin]]
-name = "bql"
-path = "bin/bql.rs"
-
-
 [features]
 # @oss-disable: default = ["gazebo_lint", "eden_materializer"]
 # @oss-disable: eden_materializer = ["edenfs", "fbthrift", "fbthrift_socket"]

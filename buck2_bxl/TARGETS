@@ -1,0 +1,31 @@
+load("@fbcode//buck2:buck_rust_binary.bzl", "buck_rust_binary")
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+rust_library(
+    name = "buck2_bxl",
+    srcs = glob(["src/**/*.rs"]),
+    deps = [
+        "//buck2/buck2_build_api:buck2_build_api",
+    ],
+)
+
+buck_rust_binary(
+    name = "bql",
+    srcs = ["bin/bql.rs"],
+    unittests = False,
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:structopt",
+        "fbsource//third-party/rust:tokio",
+        ":buck2_bxl",
+        "//buck2/buck2_build_api:buck2_build_api",
+        "//buck2/buck2_common:buck2_common",
+        "//buck2/buck2_core:buck2_core",
+        "//buck2/buck2_interpreter:buck2_interpreter",
+        "//buck2/dice/dice:dice",
+        "//buck2/events:events",
+        "//buck2/gazebo/gazebo:gazebo",
+        "//common/rust/shed/fbinit:fbinit",
+    ],
+)

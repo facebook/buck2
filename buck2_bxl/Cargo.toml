@@ -1,0 +1,31 @@
+[package]
+name = "buck2_bxl"
+version = "0.1.0"
+edition = "2021"
+description = "Buck V2 extension language"
+
+[dependencies]
+anyhow = "1.0.51"
+structopt = "0.3.0"
+tokio = { version = "1.5", features = ["full"]}
+
+fbinit.version = "0.1"
+# @oss-disable: fbinit.path = "../../common/rust/shed/fbinit"
+
+gazebo.version = "0.7.1"
+gazebo.features = ["str_pattern_extensions"]
+# @oss-disable: gazebo.path = "../gazebo/gazebo"
+dice = { path = "../dice/dice" }
+events = { path = "../events" }
+
+buck2_build_api = { path = "../buck2_build_api" }
+buck2_common = { path = "../buck2_common" }
+buck2_core = { path = "../buck2_core" }
+buck2_interpreter = { path = "../buck2_interpreter" }
+
+[target.'cfg(unix)'.dependencies]
+jemallocator = { version = "0.3.2", features = ["profiling"] }
+
+[[bin]]
+name = "bql"
+path = "bin/bql.rs"
