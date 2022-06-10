@@ -194,11 +194,12 @@ async fn async_main(
     match build_result {
         None => {}
         Some(build_result) => {
-            let (_, error_messages) =
-                convert_bxl_build_result(&bxl_label, result_collector, build_result);
-
-            for error_message in error_messages {
-                println!("{}", error_message)
+            if let Some(error_messages) =
+                convert_bxl_build_result(&bxl_label, result_collector, build_result)
+            {
+                for error_message in error_messages {
+                    println!("{}", error_message)
+                }
             }
         }
     };

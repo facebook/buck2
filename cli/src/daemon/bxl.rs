@@ -110,12 +110,12 @@ pub async fn bxl(
 
             let result_collector = ResultReporter::new(&artifact_fs, false);
 
-            let (build_targets, error_messages) =
+            let error_messages =
                 convert_bxl_build_result(&bxl_label, result_collector, build_result);
 
             Ok(BxlResult {
-                built: build_targets,
-                error_messages,
+                built: vec![],
+                error_messages: error_messages.unwrap_or_default(),
             })
         }
     }
@@ -221,11 +221,12 @@ pub async fn ensure_artifacts(
     }
 }
 
+/// returns a list of strings of errors if any errors present
 pub fn convert_bxl_build_result(
     bxl_label: &BxlFunctionLabel,
     mut result_collector: ResultReporter,
     build_result: Vec<BuildTargetResult>,
-) -> (Vec<BuildTarget>, Vec<String>) {
+) -> Option<Vec<String>> {
     let mut result_collectors = vec![Some(&mut result_collector as &mut dyn BuildResultCollector)]
         .into_iter()
         .flatten()
@@ -236,7 +237,7 @@ pub fn convert_bxl_build_result(
     }
 
     match result_collector.results() {
-        Ok(targets) => (targets, Vec::new()),
+        Ok(_) => None,
         Err(errors) => {
             let error_strings = errors
                 .errors
@@ -244,7 +245,7 @@ pub fn convert_bxl_build_result(
                 .map(|e| format!("{:#}", e))
                 .unique()
                 .collect();
-            (vec![], error_strings)
+            Some(error_strings)
         }
     }
 }
