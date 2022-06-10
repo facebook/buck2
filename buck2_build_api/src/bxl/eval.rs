@@ -12,6 +12,7 @@ use starlark::{
     eval::Evaluator,
     values::{structs::Struct, OwnedFrozenValueTyped, Value, ValueTyped},
 };
+use thiserror::Error;
 
 use crate::{
     bxl::{
@@ -84,31 +85,27 @@ pub async fn eval(ctx: DiceTransaction, key: BxlKey) -> anyhow::Result<BxlResult
         let bxl_ctx = ValueTyped::<BxlContext>::new(env.heap().alloc(bxl_ctx)).unwrap();
 
         let result = eval_bxl(&mut eval, &frozen_callable, bxl_ctx.to_value())?;
-        env.set("", result);
+
+        if !result.is_none() {
+            return Err(anyhow::anyhow!(NotAValidReturnType(result.get_type())));
+        }
 
         let (actions, ensured_artifacts, has_print) = BxlContext::take_state(bxl_ctx)?;
 
         match actions {
             Some(registry) => {
                 // this bxl registered actions, so extract the deferreds from it
-                let (frozen, deferred) = registry.finalize(&env)(env)?;
-                let result = frozen.get("").unwrap();
+                let (_, deferred) = registry.finalize(&env)(env)?;
 
                 let deferred_table = DeferredTable::new(deferred.take_result()?);
 
-                anyhow::Ok(BxlResult::new(
-                    has_print,
-                    ensured_artifacts,
-                    result.value(),
-                    deferred_table,
-                ))
+                anyhow::Ok(BxlResult::new(has_print, ensured_artifacts, deferred_table))
             }
             None => {
                 // this bxl did not try to build anything, so we don't have any deferreds
                 anyhow::Ok(BxlResult::new(
                     has_print,
                     ensured_artifacts,
-                    result,
                     DeferredTable::new(hashmap! {}),
                 ))
             }
@@ -165,3 +162,7 @@ pub fn resolve_cli_args<'a>(
         cli_ctx,
     )
 }
+
+#[derive(Debug, Error)]
+#[error("Expected `NoneType` to be returned from bxl. Got return value `{0}`")]
+struct NotAValidReturnType(&'static str);

@@ -1,7 +1,5 @@
 use hashbrown::HashSet;
 use itertools::Itertools;
-use starlark::values::{list::List, Value, ValueLike};
-use thiserror::Error;
 
 use crate::{
     actions::artifact::Artifact,
@@ -22,57 +20,21 @@ pub enum BxlResult {
     },
 }
 
-#[derive(Debug, Error)]
-#[error(
-    "Expected `NoneType`, `StarlarkBuildResult`, or a `List` of either `StarlarkBuildResult`, `StarlarkArtifact`, or `StarlarkDeclaredArtifact`  to be returned from bxl. Got return value `{0}`"
-)]
-struct NotAValidReturnType(&'static str);
-
 impl BxlResult {
     pub(super) fn new(
         has_print: bool,
         ensured_artifacts: HashSet<Artifact>,
-        eval_value: Value,
         deferred: DeferredTable,
     ) -> anyhow::Result<Self> {
-        if eval_value.is_none() {
-            if ensured_artifacts.is_empty() {
-                Ok(Self::None { has_print })
-            } else {
-                Ok(Self::BuildsArtifacts {
-                    has_print,
-                    built: vec![],
-                    artifacts: ensured_artifacts.into_iter().sorted().collect(),
-                    deferred,
-                })
-            }
-        } else if let Some(build_result) = eval_value.downcast_ref::<StarlarkBuildResult>() {
-            // TODO avoid the clone if we can extract it from the heap
+        if ensured_artifacts.is_empty() {
+            Ok(Self::None { has_print })
+        } else {
             Ok(Self::BuildsArtifacts {
                 has_print,
-                built: vec![build_result.clone()],
+                built: vec![],
                 artifacts: ensured_artifacts.into_iter().sorted().collect(),
                 deferred,
             })
-        } else if let Some(build_results_list) = List::from_value(eval_value) {
-            let mut built = vec![];
-
-            for value in build_results_list.iter() {
-                if let Some(built_result) = value.downcast_ref::<StarlarkBuildResult>() {
-                    built.push(built_result.clone());
-                } else {
-                    return Err(anyhow::anyhow!(NotAValidReturnType(value.get_type())));
-                }
-            }
-
-            Ok(Self::BuildsArtifacts {
-                has_print,
-                built,
-                artifacts: vec![],
-                deferred,
-            })
-        } else {
-            Err(anyhow::anyhow!(NotAValidReturnType(eval_value.get_type())))
         }
     }
 
