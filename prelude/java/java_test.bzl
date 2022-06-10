@@ -6,20 +6,13 @@ load("@fbcode//buck2/prelude/linking:shared_libraries.bzl", "SharedLibraryInfo",
 load("@fbcode//buck2/prelude/utils:utils.bzl", "filter_and_map_idx")
 
 def java_test_impl(ctx: "context") -> ["provider"]:
-    (
-        tests_java_library_info,
-        tests_java_packaging_info,
-        _shared_library_info,
-        _cxx_resources_info,
-        template_placeholder_info,
-        default_info,
-    ) = build_java_library(ctx, ctx.attr.srcs)
-    external_runner_test_info, run_info = build_junit_test(ctx, tests_java_library_info, tests_java_packaging_info)
+    java_providers = build_java_library(ctx, ctx.attr.srcs)
+    external_runner_test_info, run_info = build_junit_test(ctx, java_providers.java_library_info, java_providers.java_packaging_info)
 
     return [
-        tests_java_library_info,
-        template_placeholder_info,
-        default_info,
+        java_providers.java_library_info,
+        java_providers.template_placeholder_info,
+        java_providers.default_info,
         external_runner_test_info,
         run_info,
     ]

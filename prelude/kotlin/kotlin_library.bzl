@@ -9,6 +9,7 @@ load(
     "JavaLibraryInfo",
     "derive_compiling_deps",
     "get_all_java_packaging_deps",
+    "to_list",
 )
 load("@fbcode//buck2/prelude/java/plugins:java_annotation_processor.bzl", "create_ap_params", "create_ksp_ap_params")
 load("@fbcode//buck2/prelude/java/utils:java_utils.bzl", "get_path_separator")
@@ -219,14 +220,8 @@ def _get_kotlinc_compatible_target(target: str.type) -> str.type:
     return "1.6" if target == "6" else "1.8" if target == "8" else target
 
 def kotlin_library_impl(ctx: "context") -> ["provider"]:
-    java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info, default_info = build_kotlin_library(ctx)
-    return [
-        java_library_info,
-        java_packaging_info,
-        shared_library_info,
-        cxx_resource_info,
-        template_placeholder_info,
-        default_info,
+    java_providers = build_kotlin_library(ctx)
+    return to_list(java_providers) + [
         # TODO(T107163344) this shouldn't be in kotlin_library itself, use overlays to remove it.
         merge_android_packageable_info(
             ctx.actions,
@@ -237,14 +232,7 @@ def kotlin_library_impl(ctx: "context") -> ["provider"]:
 def build_kotlin_library(
         ctx: "context",
         additional_classpath_entries: ["artifact"] = [],
-        bootclasspath_entries: ["artifact"] = []) -> (
-    JavaLibraryInfo.type,
-    "JavaPackagingInfo",
-    "SharedLibraryInfo",
-    "CxxResourceInfo",
-    TemplatePlaceholderInfo.type,
-    DefaultInfo.type,
-):
+        bootclasspath_entries: ["artifact"] = []) -> "JavaProviders":
     srcs = ctx.attr.srcs
     has_kotlin_srcs = any([src.extension == ".kt" or src.basename.endswith(".src.zip") or src.basename.endswith("-sources.jar") for src in srcs])
 

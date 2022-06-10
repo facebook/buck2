@@ -2,20 +2,15 @@ load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidResourceInf
 load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@fbcode//buck2/prelude/android:r_dot_java.bzl", "get_dummy_r_dot_java")
 load("@fbcode//buck2/prelude/java:java_library.bzl", "build_java_library")
+load("@fbcode//buck2/prelude/java:java_providers.bzl", "to_list")
 load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@fbcode//buck2/prelude/kotlin:kotlin_library.bzl", "build_kotlin_library")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "filter_and_map_idx")
 
 def android_library_impl(ctx: "context") -> ["provider"]:
-    java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info, default_info = build_android_library(ctx)
+    java_providers = build_android_library(ctx)
 
-    return [
-        java_library_info,
-        java_packaging_info,
-        shared_library_info,
-        cxx_resource_info,
-        template_placeholder_info,
-        default_info,
+    return to_list(java_providers) + [
         merge_android_packageable_info(
             ctx.actions,
             ctx.attr.deps + (ctx.attr.deps_query or []) + ctx.attr.exported_deps + ctx.attr.runtime_deps,
@@ -26,14 +21,7 @@ def android_library_impl(ctx: "context") -> ["provider"]:
 
 def build_android_library(
         ctx: "context",
-        r_dot_java: ["artifact", None] = None) -> (
-    "JavaLibraryInfo",
-    "JavaPackagingInfo",
-    "SharedLibraryInfo",
-    "CxxResourceInfo",
-    TemplatePlaceholderInfo.type,
-    DefaultInfo.type,
-):
+        r_dot_java: ["artifact", None] = None) -> "JavaProviders":
     java_toolchain = ctx.attr._java_toolchain[JavaToolchainInfo]
     bootclasspath_entries = [] + ctx.attr._android_toolchain[AndroidToolchainInfo].android_bootclasspath
     additional_classpath_entries = []

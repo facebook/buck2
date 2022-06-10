@@ -3,10 +3,12 @@ load("@fbcode//buck2/prelude/android:android_providers.bzl", "merge_android_pack
 load(
     "@fbcode//buck2/prelude/java:java_providers.bzl",
     "JavaLibraryInfo",
+    "JavaProviders",
     "create_java_library_providers",
     "derive_compiling_deps",
     "make_compile_outputs",
     "maybe_create_abi",
+    "to_list",
 )
 load("@fbcode//buck2/prelude/java:java_resources.bzl", "get_resources_map")
 load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "AbiGenerationMode", "JavaToolchainInfo")
@@ -439,15 +441,9 @@ def java_library_impl(ctx: "context") -> ["provider"]:
         _check_dep_types(ctx.attr.exported_provided_deps)
         _check_dep_types(ctx.attr.runtime_deps)
 
-    java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info, default_info = build_java_library(ctx, ctx.attr.srcs)
+    java_providers = build_java_library(ctx, ctx.attr.srcs)
 
-    return [
-        java_library_info,
-        java_packaging_info,
-        shared_library_info,
-        cxx_resource_info,
-        template_placeholder_info,
-        default_info,
+    return to_list(java_providers) + [
         # TODO(T107163344) this shouldn't be in java_library itself, use overlays to remove it.
         merge_android_packageable_info(
             ctx.actions,
@@ -461,14 +457,7 @@ def build_java_library(
         run_annotation_processors = True,
         additional_classpath_entries: ["artifact"] = [],
         bootclasspath_entries: ["artifact"] = [],
-        additional_compiled_srcs: ["artifact", None] = None) -> (
-    JavaLibraryInfo.type,
-    "JavaPackagingInfo",
-    "SharedLibraryInfo",
-    "CxxResourceInfo",
-    TemplatePlaceholderInfo.type,
-    DefaultInfo.type,
-):
+        additional_compiled_srcs: ["artifact", None] = None) -> JavaProviders.type:
     _check_provided_deps(ctx.attr.provided_deps, "provided_deps")
     _check_provided_deps(ctx.attr.exported_provided_deps, "exported_provided_deps")
 
@@ -555,11 +544,11 @@ def build_java_library(
             },
         )
 
-    return (
-        java_library_info,
-        java_packaging_info,
-        shared_library_info,
-        cxx_resource_info,
-        template_placeholder_info,
-        default_info,
+    return JavaProviders(
+        java_library_info = java_library_info,
+        java_packaging_info = java_packaging_info,
+        shared_library_info = shared_library_info,
+        cxx_resource_info = cxx_resource_info,
+        template_placeholder_info = template_placeholder_info,
+        default_info = default_info,
     )

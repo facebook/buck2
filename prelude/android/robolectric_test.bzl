@@ -52,27 +52,20 @@ def robolectric_test_impl(ctx: "context") -> ["provider"]:
     if r_dot_java != None:
         extra_classpath_entries.append(r_dot_java)
 
-    (
-        tests_java_library_info,
-        tests_java_packaging_info,
-        _shared_library_info,
-        _cxx_resources_info,
-        template_placeholder_info,
-        default_info,
-    ) = build_android_library(ctx, r_dot_java = r_dot_java)
+    java_providers = build_android_library(ctx, r_dot_java = r_dot_java)
 
     external_runner_test_info, run_info = build_junit_test(
         ctx,
-        tests_java_library_info,
-        tests_java_packaging_info,
+        java_providers.java_library_info,
+        java_providers.java_packaging_info,
         extra_cmds = extra_cmds,
         extra_classpath_entries = extra_classpath_entries,
     )
 
     return [
-        tests_java_library_info,
-        template_placeholder_info,
-        default_info,
+        java_providers.java_library_info,
+        java_providers.template_placeholder_info,
+        java_providers.default_info,
         external_runner_test_info,
         run_info,
     ]

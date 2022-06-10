@@ -137,6 +137,25 @@ JavaCompileOutputs = record(
     classpath_entry = JavaClasspathEntry.type,
 )
 
+JavaProviders = record(
+    java_library_info = JavaLibraryInfo.type,
+    java_packaging_info = JavaPackagingInfo.type,
+    shared_library_info = SharedLibraryInfo.type,
+    cxx_resource_info = CxxResourceInfo.type,
+    template_placeholder_info = TemplatePlaceholderInfo.type,
+    default_info = DefaultInfo.type,
+)
+
+def to_list(java_providers: JavaProviders.type) -> ["provider"]:
+    return [
+        java_providers.java_library_info,
+        java_providers.java_packaging_info,
+        java_providers.shared_library_info,
+        java_providers.cxx_resource_info,
+        java_providers.template_placeholder_info,
+        java_providers.default_info,
+    ]
+
 # Creates a JavaCompileOutputs. `classpath_abi` can be set to specify a
 # specific artifact to be used as the abi for the JavaClasspathEntry.
 def make_compile_outputs(
