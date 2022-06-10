@@ -1,4 +1,4 @@
-use std::{fs::File, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_build_api::{
@@ -15,10 +15,7 @@ use buck2_build_api::{
     },
     calculation::Calculation,
 };
-use buck2_common::{
-    dice::{cells::HasCellResolver, data::HasIoProvider},
-    legacy_configs::dice::HasLegacyConfigs,
-};
+use buck2_common::{dice::cells::HasCellResolver, legacy_configs::dice::HasLegacyConfigs};
 use buck2_core::package::Package;
 use buck2_interpreter::common::StarlarkModulePath;
 use cli_proto::{build_request::Materializations, BuildTarget, BxlRequest};
@@ -29,10 +26,7 @@ use itertools::Itertools;
 
 use crate::daemon::{
     build::{
-        results::{
-            build_report::BuildReportCollector, result_report::ResultReporter, BuildOwner,
-            BuildResultCollector,
-        },
+        results::{result_report::ResultReporter, BuildOwner, BuildResultCollector},
         BuildTargetResult,
     },
     common::{parse_bxl_label_from_cli, ConvertMaterializationContext},
@@ -42,7 +36,6 @@ use crate::daemon::{
 #[derive(Debug)]
 pub struct BxlResult {
     pub built: Vec<BuildTarget>,
-    pub serialized_build_report: Option<String>,
     pub error_messages: Vec<String>,
 }
 
@@ -51,8 +44,6 @@ pub async fn bxl(
     request: BxlRequest,
 ) -> anyhow::Result<BxlResult> {
     let cwd = &server_ctx.working_dir;
-
-    let build_opts = request.build_opts.expect("should have build options");
 
     let ctx = server_ctx.dice_ctx().await?;
 
@@ -112,60 +103,21 @@ pub async fn bxl(
     match build_result {
         None => Ok(BxlResult {
             built: vec![],
-            serialized_build_report: None,
             error_messages: vec![],
         }),
         Some(build_result) => {
-            let io = ctx.global_data().get_io_provider();
-            let fs = io.fs();
             let artifact_fs = ctx.get_artifact_fs().await;
 
-            let mut build_report_collector = if build_opts.unstable_print_build_report {
-                Some(BuildReportCollector::new(
-                    server_ctx.events().trace_id(),
-                    &artifact_fs,
-                    &fs.root,
-                    ctx.parse_legacy_config_property(
-                        cell_resolver.root_cell(),
-                        "build_report",
-                        "print_unconfigured_section",
-                    )
-                    .await?
-                    .unwrap_or(true),
-                    true, // for bxl, we always include other outputs since bxl functions outputs are always treated as such.
-                ))
-            } else {
-                None
-            };
             let result_collector = ResultReporter::new(
                 &artifact_fs,
                 request.response_options.unwrap_or_default().return_outputs,
             );
 
-            let (build_targets, error_messages) = convert_bxl_build_result(
-                &bxl_label,
-                result_collector,
-                &mut build_report_collector,
-                build_result,
-            );
-
-            let mut serialized_build_report = None;
-            if let Some(build_report_collector) = build_report_collector {
-                let report = build_report_collector.into_report();
-                if !build_opts.unstable_build_report_filename.is_empty() {
-                    let file = File::create(
-                        fs.resolve(cwd)
-                            .join(build_opts.unstable_build_report_filename),
-                    )?;
-                    serde_json::to_writer_pretty(&file, &report)?
-                } else {
-                    serialized_build_report = Some(serde_json::to_string(&report)?);
-                };
-            }
+            let (build_targets, error_messages) =
+                convert_bxl_build_result(&bxl_label, result_collector, build_result);
 
             Ok(BxlResult {
                 built: build_targets,
-                serialized_build_report,
                 error_messages,
             })
         }
@@ -275,18 +227,12 @@ pub async fn ensure_artifacts(
 pub fn convert_bxl_build_result(
     bxl_label: &BxlFunctionLabel,
     mut result_collector: ResultReporter,
-    build_report_collector: &mut Option<BuildReportCollector>,
     build_result: Vec<BuildTargetResult>,
 ) -> (Vec<BuildTarget>, Vec<String>) {
-    let mut result_collectors = vec![
-        Some(&mut result_collector as &mut dyn BuildResultCollector),
-        build_report_collector
-            .as_mut()
-            .map(|v| v as &mut dyn BuildResultCollector),
-    ]
-    .into_iter()
-    .flatten()
-    .collect::<Vec<&mut dyn BuildResultCollector>>();
+    let mut result_collectors = vec![Some(&mut result_collector as &mut dyn BuildResultCollector)]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<&mut dyn BuildResultCollector>>();
 
     for r in build_result {
         result_collectors.collect_result(&BuildOwner::Bxl(bxl_label), &r);

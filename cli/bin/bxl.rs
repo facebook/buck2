@@ -16,7 +16,7 @@
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
-use std::{collections::HashMap, convert::TryFrom, fs::File, path::Path, sync::Arc};
+use std::{collections::HashMap, convert::TryFrom, path::Path, sync::Arc};
 
 use anyhow::Context;
 use buck2_build_api::{
@@ -71,7 +71,7 @@ use buck2_interpreter::{
 use cli::{
     commands::bxl::{BxlCoreOpts, ShowAllOutputsFormat},
     daemon::{
-        build::results::{build_report::BuildReportCollector, result_report::ResultReporter},
+        build::results::result_report::ResultReporter,
         bxl::{convert_bxl_build_result, ensure_artifacts},
         common,
         common::{parse_concurrency, CommandExecutorFactory},
@@ -79,7 +79,7 @@ use cli::{
 };
 use cli_proto::{common_build_options::ExecutionStrategy, BuildTarget};
 use dice::{cycles::DetectCycles, Dice, DiceTransaction, UserComputationData};
-use events::{dispatch::EventDispatcher, TraceId};
+use events::dispatch::EventDispatcher;
 use fbinit::FacebookInit;
 use gazebo::prelude::*;
 use host_sharing::{HostSharingBroker, HostSharingStrategy};
@@ -107,13 +107,6 @@ pub struct Opt {
         default_value = "DISABLED"
     )]
     detect_cycles: DetectCycles,
-
-    /// Print a build report
-    ///
-    /// --build-report=- will print the build report to stdout
-    /// --build-report=<filepath> will write the build report to the file
-    #[structopt(long = "build-report", value_name = "PATH")]
-    build_report: Option<String>,
 
     #[structopt(flatten)]
     bxl_core: BxlCoreOpts,
@@ -203,45 +196,11 @@ async fn async_main(
 
     let result_collector = ResultReporter::new(&artifact_fs, opt.bxl_core.show_all_outputs);
 
-    // TODO(T116849868) reuse the same as build command when moved to daemon
-    let trace_id = TraceId::new();
-    let mut build_report_collector = if opt.build_report.is_some() {
-        Some(BuildReportCollector::new(
-            &trace_id,
-            &artifact_fs,
-            &fs.root,
-            dice.parse_legacy_config_property(
-                cell_resolver.root_cell(),
-                "build_report",
-                "print_unconfigured_section",
-            )
-            .await?
-            .unwrap_or(true),
-            true,
-        ))
-    } else {
-        None
-    };
-
     match build_result {
         None => {}
         Some(build_result) => {
-            let (build_targets, error_messages) = convert_bxl_build_result(
-                &bxl_label,
-                result_collector,
-                &mut build_report_collector,
-                build_result,
-            );
-
-            if let Some(build_report_collector) = build_report_collector {
-                let report = build_report_collector.into_report();
-                if !opt.build_report.as_ref().unwrap().is_empty() {
-                    let file = File::create(fs.resolve(&cwd).join(opt.build_report.unwrap()))?;
-                    serde_json::to_writer_pretty(&file, &report)?
-                } else {
-                    println!("{}", serde_json::to_string(&report)?);
-                };
-            }
+            let (build_targets, error_messages) =
+                convert_bxl_build_result(&bxl_label, result_collector, build_result);
 
             for error_message in error_messages {
                 println!("{}", error_message)

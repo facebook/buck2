@@ -1651,7 +1651,6 @@ impl DaemonApi for BuckdServer {
             Ok(BxlResponse {
                 build_targets: result.built,
                 project_root,
-                serialized_build_report: result.serialized_build_report.unwrap_or_default(),
                 error_messages: result.error_messages,
             })
         })

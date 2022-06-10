@@ -321,10 +321,6 @@ message BxlResponse {
   repeated BuildTarget build_targets = 1;
   // Absolute path to the repo root
   string project_root = 2;
-  // TODO(nmj): These are temporary until we've moved the
-  //            printing logic for the build report into
-  //            the CLI. They *will* be removed
-  string serialized_build_report = 100;
   repeated string error_messages = 101;
 }
 

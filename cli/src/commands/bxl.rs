@@ -147,10 +147,6 @@ impl StreamingCommand for BxlCommand {
 
         print_build_result(&console, &response.error_messages)?;
 
-        if !response.serialized_build_report.is_empty() {
-            console.print_stdout(&response.serialized_build_report)?;
-        }
-
         if !success {
             return ExitResult::failure();
         }
