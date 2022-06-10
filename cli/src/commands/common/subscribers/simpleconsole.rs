@@ -9,6 +9,7 @@
 
 use std::{
     fmt,
+    io::Write,
     time::{Duration, Instant},
 };
 
@@ -20,6 +21,7 @@ use events::{
     BuckEvent,
 };
 use gazebo::prelude::*;
+use lsp_server::Message;
 use superconsole::SuperConsole;
 use termwiz::escape::{Action, ControlCode};
 
@@ -518,6 +520,16 @@ impl EventSubscriber for SimpleConsole {
             self.notify_printed();
         }
 
+        Ok(())
+    }
+
+    async fn handle_lsp_result(&mut self, msg: &buck2_data::LspResult) -> anyhow::Result<()> {
+        let lsp_message: Message = serde_json::from_str(&msg.lsp_json)?;
+
+        let stdout = std::io::stdout();
+        let mut stdout = stdout.lock();
+        lsp_message.write(&mut stdout)?;
+        stdout.flush()?;
         Ok(())
     }
 }
