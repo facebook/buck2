@@ -507,40 +507,34 @@ impl DeferredMaterializerCommandProcessor {
         path: &ProjectRelativePath,
     ) -> Option<MaterializationFuture> {
         // Get the data about the artifact, or return early if processing/processed
-        let (entry, deps, method, version) = match tree.get(path.iter()) {
+        let data = match tree.get(path.iter()) {
             // Never declared, nothing to do
             None => {
                 tracing::debug!("not known");
                 return None;
             }
-            Some(data) => match &data.stage {
-                ArtifactMaterializationStage::Processing(fut) => {
-                    tracing::debug!("join existing future");
-                    return Some(fut.clone());
-                }
-                ArtifactMaterializationStage::Declared => (
-                    Some(data.value.entry().dupe()),
-                    data.value.deps().duped(),
-                    data.method.dupe(),
-                    data.version,
-                ),
-                ArtifactMaterializationStage::Materialized { check_deps } => {
-                    if !check_deps {
-                        tracing::debug!(
-                            path = %path,
-                            "already materialized, nothing to do"
-                        );
-                        return None;
-                    }
-                    (
-                        None,
-                        data.value.deps().duped(),
-                        data.method.dupe(),
-                        data.version,
-                    )
+            Some(data) => data,
+        };
+        let entry = match &data.stage {
+            ArtifactMaterializationStage::Processing(fut) => {
+                tracing::debug!("join existing future");
+                return Some(fut.clone());
+            }
+            ArtifactMaterializationStage::Declared => Some(data.value.entry().dupe()),
+            ArtifactMaterializationStage::Materialized { check_deps } => match check_deps {
+                true => None,
+                false => {
+                    tracing::debug!(
+                        path = %path,
+                        "already materialized, nothing to do"
+                    );
+                    return None;
                 }
             },
         };
+        let deps = data.value.deps().duped();
+        let method = data.method.dupe();
+        let version = data.version;
 
         tracing::debug!(
             method = %method,
