@@ -57,10 +57,9 @@ pub trait LspContext {
     ///
     /// `path` is the string representation in the `load()` statement. Its meaning is
     ///        implementation defined.
-    /// `current_file_dir` is the directory that contains the file that is including the
-    ///                    `load()` statement, and should be used if `path` is "relative" in a
-    ///                    semantic sense.
-    fn resolve_load(&self, path: &str, current_file_dir: Option<&Path>) -> anyhow::Result<Url>;
+    /// `current_file` is the the file that is including the `load()` statement, and should be used
+    ///                if `path` is "relative" in a semantic sense.
+    fn resolve_load(&self, path: &str, current_file: &Path) -> anyhow::Result<Url>;
 
     /// Get the contents of a starlark program at a given path, if it exists.
     fn get_load_contents(&self, uri: &Url) -> anyhow::Result<Option<String>>;
@@ -176,8 +175,8 @@ impl<T: LspContext> Backend<T> {
     }
 
     fn resolve_load_path(&self, path: &str, current_uri: &Url) -> anyhow::Result<Url> {
-        let current_file_dir = Path::new(current_uri.path()).parent().to_owned();
-        self.context.resolve_load(path, current_file_dir)
+        let current_file = Path::new(current_uri.path());
+        self.context.resolve_load(path, current_file)
     }
 
     fn find_definition(

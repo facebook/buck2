@@ -211,8 +211,9 @@ impl LspContext for Context {
         }
     }
 
-    fn resolve_load(&self, path: &str, current_file_dir: Option<&Path>) -> anyhow::Result<Url> {
+    fn resolve_load(&self, path: &str, current_file: &Path) -> anyhow::Result<Url> {
         let path = PathBuf::from(path);
+        let current_file_dir = current_file.parent();
         let absolute_path = match (current_file_dir, path.is_absolute()) {
             (_, true) => Ok(path),
             (Some(current_file_dir), false) => Ok(current_file_dir.join(&path)),

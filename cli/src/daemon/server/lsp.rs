@@ -29,7 +29,7 @@ impl LspContext for BuckLspContext {
         }
     }
 
-    fn resolve_load(&self, _path: &str, _current_file_dir: Option<&Path>) -> anyhow::Result<Url> {
+    fn resolve_load(&self, _path: &str, _current_file: &Path) -> anyhow::Result<Url> {
         Err(anyhow::anyhow!("unimplemented"))
     }
 
