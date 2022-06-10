@@ -131,7 +131,7 @@ impl BuildFilePath {
 /// Path of a `.bzl` file.
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub struct ImportPath {
-    /// The path to the import as a 'CellPath', which contains the ce;;
+    /// The path to the import as a 'CellPath', which contains the cell
     /// information and the cell relative path to the bzl file itself, including the bzl suffix
     path: CellPath,
     /// The cell of the top-level build module that this is being loaded
