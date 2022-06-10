@@ -64,6 +64,11 @@ impl<'a, 'v> StarlarkValueRawPtr<'a, 'v> {
             _phantom: PhantomData,
         }
     }
+
+    #[inline]
+    pub(crate) unsafe fn value_ref<'w, T: StarlarkValue<'w>>(self) -> &'w T {
+        &*(self.ptr as *const T)
+    }
 }
 
 struct GetDynMetadata<T>(PhantomData<T>);

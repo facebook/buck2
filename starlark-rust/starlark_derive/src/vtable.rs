@@ -49,7 +49,7 @@ impl Gen {
                         this
                     });
                     field_init_args.push(quote_spanned! {method.sig.span()=>
-                        std::mem::transmute::<crate::values::layout::vtable::StarlarkValueRawPtr, &T>(this)
+                        this.value_ref::<T>()
                     });
                 }
                 FnArg::Typed(p) => {
