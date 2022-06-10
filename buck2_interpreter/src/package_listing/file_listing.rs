@@ -27,6 +27,17 @@ impl PackageFileListing {
             .map(PackageRelativePathBuf::as_ref)
     }
 
+    pub(crate) fn files_within(
+        &self,
+        prefix: &PackageRelativePath,
+    ) -> impl Iterator<Item = &PackageRelativePath> {
+        let len = prefix.as_str().len();
+        self.files_with_prefix(prefix.as_str()).filter(move |x| {
+            // Same logic as PackageRelativePath.starts_with
+            len == 0 || len == x.as_str().len() || x.as_str().as_bytes()[len] == b'/'
+        })
+    }
+
     pub(crate) fn files_with_prefix(
         &self,
         prefix: &str,
@@ -126,5 +137,40 @@ mod test {
         );
 
         assert_eq!(0, listing.files_with_prefix("d").count());
+    }
+
+    #[test]
+    fn test_listing_within() {
+        let listing = PackageFileListing::testing_new(&["a/1", "a/1/2", "aa/2", "b/1"]);
+        assert_eq!(
+            listing
+                .files_within(PackageRelativePath::new("aa").unwrap())
+                .collect::<Vec<_>>(),
+            vec!["aa/2"]
+        );
+        assert_eq!(
+            listing
+                .files_within(PackageRelativePath::new("a").unwrap())
+                .collect::<Vec<_>>(),
+            vec!["a/1", "a/1/2"]
+        );
+        assert_eq!(
+            listing
+                .files_within(PackageRelativePath::new("a/1").unwrap())
+                .collect::<Vec<_>>(),
+            vec!["a/1", "a/1/2"]
+        );
+        assert_eq!(
+            listing
+                .files_within(PackageRelativePath::new("b/1").unwrap())
+                .collect::<Vec<_>>(),
+            vec!["b/1"]
+        );
+        assert_eq!(
+            listing
+                .files_within(PackageRelativePath::new("").unwrap())
+                .collect::<Vec<_>>(),
+            vec!["a/1", "a/1/2", "aa/2", "b/1"]
+        );
     }
 }
