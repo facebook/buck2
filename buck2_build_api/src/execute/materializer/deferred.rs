@@ -231,9 +231,11 @@ enum ArtifactMaterializationStage {
     Declared,
     /// The materialization has started and it hasn't finished yet.
     Processing(MaterializationFuture),
-    /// This artifact was materialized, but it needs to have its dependencies checked as they might
-    /// have changed
-    CheckDeps,
+    /// This artifact was materialized
+    Materialized {
+        // Artifact may need its dependencies checked as they might have changed
+        check_deps: bool,
+    },
 }
 
 /// Different ways to materialize the files of an artifact. Some artifacts need
@@ -506,7 +508,7 @@ impl DeferredMaterializerCommandProcessor {
     ) -> Option<MaterializationFuture> {
         // Get the data about the artifact, or return early if processing/processed
         let (entry, deps, method, version) = match tree.get(path.iter()) {
-            // Already processed, or never declared, nothing to do
+            // Never declared, nothing to do
             None => {
                 tracing::debug!("not known");
                 return None;
@@ -522,12 +524,21 @@ impl DeferredMaterializerCommandProcessor {
                     data.method.dupe(),
                     data.version,
                 ),
-                ArtifactMaterializationStage::CheckDeps => (
-                    None,
-                    data.value.deps().duped(),
-                    data.method.dupe(),
-                    data.version,
-                ),
+                ArtifactMaterializationStage::Materialized { check_deps } => {
+                    if !check_deps {
+                        tracing::debug!(
+                            path = %path,
+                            "already materialized, nothing to do"
+                        );
+                        return None;
+                    }
+                    (
+                        None,
+                        data.value.deps().duped(),
+                        data.method.dupe(),
+                        data.version,
+                    )
+                }
             },
         };
 
@@ -742,11 +753,17 @@ impl ArtifactTree {
     ) -> Result<ProjectRelativePathBuf, ArtifactNotMaterializedReason> {
         let mut path_iter = path.iter();
         let materialization_data = match self.prefix_get(&mut path_iter) {
-            // not in the tree, assume it's materialized already since we
-            // remove materialized paths from the tree
+            // Not in tree. Assume it's a source file that doesn't require materialization from materializer.
             None => return Ok(path),
             Some(data) => data,
         };
+        match materialization_data.stage {
+            // it's materialized already and has no deps to check.
+            ArtifactMaterializationStage::Materialized { check_deps: false } => {
+                return Ok(path);
+            }
+            _ => {}
+        }
         match materialization_data.method.as_ref() {
             ArtifactMaterializationMethod::CasDownload { info } => {
                 let path_iter = path_iter.peekable();
@@ -830,15 +847,11 @@ impl ArtifactTree {
                     return;
                 }
 
-                if has_deps {
-                    tracing::debug!("transition to CheckDeps");
-                    info.get_mut().stage = ArtifactMaterializationStage::CheckDeps;
-                    return;
-                }
-
-                // If we entry is a tree and we have a file,
-                tracing::debug!("done");
-                info.remove();
+                // If the entry is a tree and we have a file,
+                tracing::debug!("transition to Materialized {{ check_deps: {} }}", has_deps);
+                info.get_mut().stage = ArtifactMaterializationStage::Materialized {
+                    check_deps: has_deps,
+                };
             }
             Some(DataTreeEntry::Vacant(..)) => {
                 tracing::debug!("materialization_finished but path is vacant!")
