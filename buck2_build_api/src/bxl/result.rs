@@ -25,16 +25,16 @@ impl BxlResult {
         has_print: bool,
         ensured_artifacts: HashSet<Artifact>,
         deferred: DeferredTable,
-    ) -> anyhow::Result<Self> {
+    ) -> Self {
         if ensured_artifacts.is_empty() {
-            Ok(Self::None { has_print })
+            Self::None { has_print }
         } else {
-            Ok(Self::BuildsArtifacts {
+            Self::BuildsArtifacts {
                 has_print,
                 built: vec![],
                 artifacts: ensured_artifacts.into_iter().sorted().collect(),
                 deferred,
-            })
+            }
         }
     }
 

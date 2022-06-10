@@ -111,7 +111,7 @@ pub async fn eval(ctx: DiceTransaction, key: BxlKey) -> anyhow::Result<BxlResult
             }
         }
     })
-    .await??
+    .await?
 }
 
 fn eval_bxl<'a>(
