@@ -34,6 +34,7 @@ use buck2_build_api::{
         BxlKey,
     },
     calculation::Calculation,
+    configure_dice::configure_dice_for_buck,
     context::SetBuildContextData,
     execute::{
         blocking::{BuckBlockingExecutor, SetBlockingExecutor},
@@ -50,7 +51,7 @@ use buck2_build_api::{
     },
 };
 use buck2_common::{
-    dice::{cells::HasCellResolver, data::SetIoProvider},
+    dice::cells::HasCellResolver,
     legacy_configs::{dice::HasLegacyConfigs, BuckConfigBasedCells},
 };
 use buck2_core::{
@@ -74,7 +75,7 @@ use cli::{
     },
 };
 use cli_proto::common_build_options::ExecutionStrategy;
-use dice::{cycles::DetectCycles, Dice, DiceTransaction, UserComputationData};
+use dice::{cycles::DetectCycles, DiceTransaction, UserComputationData};
 use events::dispatch::EventDispatcher;
 use fbinit::FacebookInit;
 use gazebo::prelude::*;
@@ -224,11 +225,7 @@ fn setup(
         legacy_configs.get(cells.root_cell()).ok(),
     )?;
 
-    let dice = {
-        let mut builder = Dice::builder();
-        builder.set_io_provider(io);
-        builder.build(opt.detect_cycles)
-    };
+    let dice = configure_dice_for_buck(io, opt.detect_cycles);
 
     let static_metadata = Arc::new(RemoteExecutionStaticMetadata::from_legacy_config(
         legacy_configs.get(cells.root_cell()).unwrap(),

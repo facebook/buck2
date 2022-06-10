@@ -22,12 +22,13 @@ use anyhow::Context as _;
 use buck2_build_api::{
     bql::eval::eval_bql,
     bxl::starlark_defs::configure_bxl_file_globals,
+    configure_dice::configure_dice_for_buck,
     interpreter::context::{
         configure_build_file_globals, configure_extension_file_globals, fbcode_prelude,
         BuildInterpreterConfiguror,
     },
 };
-use buck2_common::{dice::data::SetIoProvider, legacy_configs::BuckConfigBasedCells};
+use buck2_common::legacy_configs::BuckConfigBasedCells;
 use buck2_core::{
     exit_result::ExitResult,
     fs::{paths::AbsPathBuf, project::ProjectFilesystem},
@@ -35,7 +36,7 @@ use buck2_core::{
 use buck2_interpreter::{
     dice::interpreter_setup::setup_interpreter_basic, extra::InterpreterHostPlatform,
 };
-use dice::{cycles::DetectCycles, data::DiceData, Dice, UserComputationData};
+use dice::{cycles::DetectCycles, data::DiceData, UserComputationData};
 use events::dispatch::EventDispatcher;
 use fbinit::FacebookInit;
 use gazebo::prelude::*;
@@ -128,11 +129,7 @@ fn main(fb: FacebookInit) -> ExitResult {
             legacy_configs.get(cells.root_cell()).ok(),
         )?;
 
-        let dice = {
-            let mut builder = Dice::builder();
-            builder.set_io_provider(io);
-            builder.build(opt.detect_cycles)
-        };
+        let dice = configure_dice_for_buck(io, opt.detect_cycles);
         let per_request_data = {
             let mut data = DiceData::new();
             data.set(EventDispatcher::null());

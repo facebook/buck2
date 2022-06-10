@@ -18,6 +18,7 @@ use std::{collections::HashSet, convert::TryFrom, sync::Arc};
 
 use anyhow::Context as _;
 use buck2_build_api::{
+    configure_dice::configure_dice_for_buck,
     interpreter::{
         context::{
             configure_build_file_globals, configure_extension_file_globals, fbcode_prelude,
@@ -27,10 +28,7 @@ use buck2_build_api::{
     },
     nodes::{hacks::value_to_json, unconfigured::TargetNode},
 };
-use buck2_common::{
-    dice::{data::SetIoProvider, file_ops::HasFileOps},
-    legacy_configs::BuckConfigBasedCells,
-};
+use buck2_common::{dice::file_ops::HasFileOps, legacy_configs::BuckConfigBasedCells};
 use buck2_core::{
     exit_result::ExitResult,
     fs::{paths::AbsPathBuf, project::ProjectFilesystem},
@@ -49,7 +47,7 @@ use buck2_interpreter::{
     },
     starlark_profiler::{StarlarkProfilerInstrumentation, StarlarkProfilerOrInstrumentation},
 };
-use dice::{cycles::DetectCycles, data::DiceData, Dice, DiceComputations, UserComputationData};
+use dice::{cycles::DetectCycles, data::DiceData, DiceComputations, UserComputationData};
 use events::dispatch::EventDispatcher;
 use fbinit::FacebookInit;
 use futures::{future::BoxFuture, stream::futures_unordered::FuturesUnordered, FutureExt};
@@ -231,11 +229,7 @@ fn main(fb: FacebookInit) -> ExitResult {
                 legacy_configs.get(cells.root_cell()).ok(),
             )?;
 
-            let dice = {
-                let mut builder = Dice::builder();
-                builder.set_io_provider(io);
-                builder.build(opt.detect_cycles)
-            };
+            let dice = configure_dice_for_buck(io, opt.detect_cycles);
             let dice_data = {
                 let mut data = DiceData::new();
                 data.set(EventDispatcher::null());

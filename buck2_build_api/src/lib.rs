@@ -38,6 +38,7 @@ pub mod build;
 pub mod bxl;
 pub mod calculation;
 pub mod configuration;
+pub mod configure_dice;
 pub mod context;
 pub mod deferred;
 pub mod dynamic;
