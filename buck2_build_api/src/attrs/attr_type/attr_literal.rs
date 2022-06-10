@@ -355,7 +355,12 @@ impl AttrLiteral<CoercedAttr> {
                 traversal.split_transition_dep(dep.label.target(), &dep.transition)
             }
             AttrLiteral::Query(query) => query.traverse(traversal),
-            AttrLiteral::SourceFile(box s) => traversal.input(s.path()),
+            AttrLiteral::SourceFile(box source) => {
+                for x in source.inputs() {
+                    traversal.input(x)?;
+                }
+                Ok(())
+            }
             AttrLiteral::SourceLabel(box s) => traversal.dep(s.target()),
             AttrLiteral::Arg(arg) => arg.traverse(traversal),
             AttrLiteral::Label(label) => traversal.label(label),
@@ -461,7 +466,12 @@ impl AttrLiteral<ConfiguredAttr> {
                 Ok(())
             }
             AttrLiteral::Query(query) => query.traverse(traversal),
-            AttrLiteral::SourceFile(box input) => traversal.input(input.path()),
+            AttrLiteral::SourceFile(box source) => {
+                for x in source.inputs() {
+                    traversal.input(x)?;
+                }
+                Ok(())
+            }
             AttrLiteral::SourceLabel(box dep) => traversal.dep(dep),
             AttrLiteral::Arg(arg) => arg.traverse(traversal),
             AttrLiteral::Label(label) => traversal.label(label),

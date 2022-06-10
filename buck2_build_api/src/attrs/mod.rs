@@ -60,6 +60,7 @@ use buck2_core::{
     result::{SharedResult, ToSharedResultExt},
     target::{ConfiguredTargetLabel, TargetLabel},
 };
+use either::Either;
 use gazebo::prelude::*;
 use starlark::{
     collections::{small_map, SmallMap},
@@ -98,14 +99,21 @@ pub type OrderedMapVacantEntry<'a, K, V> = small_map::VacantEntry<'a, K, V>;
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum CoercedPath {
     File(BuckPath),
-    Directory(BuckPath),
+    Directory(BuckPath, Vec<BuckPath>),
 }
 
 impl CoercedPath {
     pub fn path(&self) -> &BuckPath {
         match self {
             CoercedPath::File(x) => x,
-            CoercedPath::Directory(x) => x,
+            CoercedPath::Directory(x, _) => x,
+        }
+    }
+
+    pub fn inputs(&self) -> impl Iterator<Item = &BuckPath> {
+        match self {
+            CoercedPath::File(x) => Either::Left(std::iter::once(x)),
+            CoercedPath::Directory(_, xs) => Either::Right(xs.iter()),
         }
     }
 }

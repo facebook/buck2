@@ -201,7 +201,14 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
                     );
                     soft_error!(e.into());
                 }
-                return Ok(CoercedPath::Directory(BuckPath::new(package.dupe(), path)));
+                let files = listing
+                    .files_within(&path)
+                    .map(|x| BuckPath::new(package.dupe(), x.to_owned()))
+                    .collect();
+                return Ok(CoercedPath::Directory(
+                    BuckPath::new(package.dupe(), path),
+                    files,
+                ));
             } else {
                 let e = AttrError::SourceFileMissing(package.dupe(), value.to_owned());
                 if self.package_boundary_exception {
