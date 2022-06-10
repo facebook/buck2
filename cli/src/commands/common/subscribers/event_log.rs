@@ -19,7 +19,11 @@ use events::{
     subscriber::{EventSubscriber, Tick},
     BuckEvent, TraceId,
 };
-use futures::{stream::Stream, StreamExt};
+use futures::{
+    future::{Future, FutureExt},
+    stream::Stream,
+    StreamExt,
+};
 use gazebo::{dupe::Dupe, prelude::*};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -29,7 +33,7 @@ use tokio::{
 };
 use tokio_stream::wrappers::LinesStream;
 
-use crate::daemon::client::StreamValue;
+use crate::{daemon::client::StreamValue, AsyncCleanupContext};
 
 #[derive(Error, Debug)]
 pub enum EventLogErrors {
@@ -165,6 +169,7 @@ enum LogFileState {
 /// serialized as JSON and logged one per line.
 pub struct EventLog {
     state: LogFileState,
+    async_cleanup_context: AsyncCleanupContext,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -174,12 +179,17 @@ pub struct Invocation {
 }
 
 impl EventLog {
-    pub fn new(logdir: AbsPathBuf, extra_path: Option<PathBuf>) -> Self {
+    pub fn new(
+        logdir: AbsPathBuf,
+        extra_path: Option<PathBuf>,
+        async_cleanup_context: AsyncCleanupContext,
+    ) -> Self {
         // The event-log is going to be written to file containing the build uuid.
         // But we don't know the build uuid until we've gotten the CommandStart event.
         // So we'll just create it when we know where to put it.
         Self {
             state: LogFileState::Unopened(logdir, extra_path),
+            async_cleanup_context,
         }
     }
 
@@ -255,6 +265,53 @@ impl EventLog {
 
         self.state = LogFileState::Opened(log_files);
         self.log_invocation().await
+    }
+
+    fn exit(&mut self) -> impl Future<Output = anyhow::Result<()>> + 'static + Send + Sync {
+        // Flush all our files before exiting.
+        let mut log_files = match &mut self.state {
+            LogFileState::Opened(files) => std::mem::take(files),
+            LogFileState::Unopened(..) | LogFileState::Closed => {
+                // Nothing to do in this case, though this should be unreachable since we just did
+                // a write_ln.
+                vec![]
+            }
+        };
+
+        self.state = LogFileState::Closed;
+
+        async move {
+            for file in log_files.iter_mut() {
+                file.file.shutdown().await?;
+            }
+
+            let log_file_to_upload = match log_files.first() {
+                Some(log) => log,
+                None => return Ok(()),
+            };
+
+            // NOTE: we ignore outputs here so that we don't fail if e.g. something deleted our log
+            // file while we were about to upload it.
+            if let Err(e) = log_upload(log_file_to_upload) {
+                tracing::warn!("Error uploading logs: {:#}", e);
+            }
+
+            Ok(())
+        }
+    }
+}
+
+impl Drop for EventLog {
+    fn drop(&mut self) {
+        let exit = self.exit();
+        self.async_cleanup_context.register(
+            async move {
+                if let Err(e) = exit.await {
+                    tracing::warn!("Failed to cleanup EventLog: {:#}", e);
+                }
+            }
+            .boxed(),
+        );
     }
 }
 
@@ -369,34 +426,7 @@ impl EventSubscriber for EventLog {
 
         self.write_ln(&event).await?;
 
-        // Flush all our files before exiting.
-        let mut log_files = match &mut self.state {
-            LogFileState::Opened(files) => std::mem::take(files),
-            LogFileState::Unopened(..) | LogFileState::Closed => {
-                // Nothing to do in this case, though this should be unreachable since we just did
-                // a write_ln.
-                vec![]
-            }
-        };
-
-        self.state = LogFileState::Closed;
-
-        for file in log_files.iter_mut() {
-            file.file.shutdown().await?;
-        }
-
-        let log_file_to_upload = match log_files.first() {
-            Some(log) => log,
-            None => return Ok(()),
-        };
-
-        // NOTE: we ignore outputs here so that we don't fail if e.g. something deleted our log
-        // file while we were about to upload it.
-        if let Err(e) = log_upload(log_file_to_upload) {
-            tracing::warn!("Error uploading logs: {:#}", e);
-        }
-
-        Ok(())
+        self.exit().await
     }
 
     /// Flush all log files during on tick to avoid buffering data in memory which we might lose if

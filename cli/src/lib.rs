@@ -26,19 +26,20 @@ extern crate maplit;
 use std::{
     convert::TryFrom,
     path::{Path, PathBuf},
+    sync::{Arc, Mutex},
 };
 
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::{
-    exit_result::ExitResult,
+    exit_result::{ExitResult, FailureExitCode},
     fs::paths::FileNameBuf,
     result::{SharedResult, ToSharedResultExt},
 };
 use cli_proto::{client_context::HostPlatformOverride as GrpcHostPlatformOverride, ClientContext};
 use dice::cycles::DetectCycles;
 use events::subscriber::EventSubscriber;
-use futures::Future;
+use futures::future::{self, BoxFuture, Either, Future};
 use gazebo::prelude::*;
 use structopt::{
     clap::{self, AppSettings},
@@ -294,6 +295,7 @@ pub struct CommandContext {
     replayer: Option<sync_wrapper::SyncWrapper<Replayer>>,
     verbosity: Verbosity,
     replay_speed: Option<f64>,
+    async_cleanup_context: AsyncCleanupContext,
 }
 
 impl CommandContext {
@@ -316,7 +318,10 @@ impl CommandContext {
             .enable_all()
             .build()
             .expect("Should be able to start a runtime");
-        runtime.block_on(func(self))
+        let async_cleanup_context = self.async_cleanup_context().dupe();
+        let res = runtime.block_on(func(self));
+        runtime.block_on(async_cleanup_context.join());
+        res
     }
 
     pub async fn connect_buckd(
@@ -370,6 +375,33 @@ impl CommandContext {
             disable_starlark_types: false,
         })
     }
+
+    pub fn async_cleanup_context(&self) -> &AsyncCleanupContext {
+        &self.async_cleanup_context
+    }
+}
+
+/// For cleanup we want to perform, but cant do in `drop` because it's async.
+#[derive(Clone, Dupe)]
+pub struct AsyncCleanupContext {
+    jobs: Arc<Mutex<Vec<BoxFuture<'static, ()>>>>,
+}
+
+impl AsyncCleanupContext {
+    pub fn new() -> Self {
+        Self {
+            jobs: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+
+    pub fn register(&self, fut: BoxFuture<'static, ()>) {
+        self.jobs.lock().expect("Poisoned mutex").push(fut);
+    }
+
+    async fn join(&self) {
+        let futs = std::mem::take(&mut *self.jobs.lock().expect("Poisoned mutex"));
+        future::join_all(futs).await;
+    }
 }
 
 /// Just provides a common interface for buck subcommands for us to interact with here.
@@ -382,14 +414,31 @@ impl<T: StreamingCommand> BuckSubcommand for T {
     /// Handles all of the business of setting up a runtime, server, and subscribers.
     fn exec(self, matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult {
         ctx.with_runtime(async move |mut ctx| {
-            let connect_options = self.server_connect_options(&ctx).await?;
+            let work = async {
+                let connect_options = self.server_connect_options(&ctx).await?;
 
-            let buckd = match ctx.replayer.take() {
-                Some(replayer) => connect_options.replay(replayer.into_inner(), ctx.paths()?)?,
-                None => ctx.connect_buckd(connect_options).await?,
+                let buckd = match ctx.replayer.take() {
+                    Some(replayer) => {
+                        connect_options.replay(replayer.into_inner(), ctx.paths()?)?
+                    }
+                    None => ctx.connect_buckd(connect_options).await?,
+                };
+
+                self.exec_impl(buckd, matches, ctx).await
             };
 
-            self.exec_impl(buckd, matches, ctx).await
+            // Race our work with a ctrl+c future. If we hit ctrl+c, then we'll drop the work
+            // future. with_runtime sets up an AsyncCleanupContext that will allow drop
+            // implementations within this future to clean up before we return from with_runtime.
+            let exit = tokio::signal::ctrl_c();
+
+            futures::pin_mut!(work);
+            futures::pin_mut!(exit);
+
+            match future::select(work, exit).await {
+                Either::Left((res, _)) => res,
+                Either::Right((_signal, _)) => ExitResult::from(FailureExitCode::SignalInterrupt),
+            }
         })
     }
 }
@@ -416,6 +465,7 @@ impl CommandKind {
             replayer: replayer.map(sync_wrapper::SyncWrapper::new),
             replay_speed,
             verbosity: common_opts.verbosity,
+            async_cleanup_context: AsyncCleanupContext::new(),
         };
         match self {
             CommandKind::Daemon(cmd) => cmd.exec(matches, command_ctx).into(),

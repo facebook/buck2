@@ -17,6 +17,7 @@ pub mod superconsole;
 use ::superconsole::Component;
 pub use event_log::EventLog;
 use events::subscriber::EventSubscriber;
+use gazebo::prelude::*;
 pub use simpleconsole::SimpleConsole;
 
 pub use crate::commands::common::subscribers::superconsole::SuperConsole;
@@ -66,5 +67,6 @@ pub fn try_get_event_log_subscriber(
     Ok(Some(box EventLog::new(
         logdir,
         event_log_opts.event_log.clone(),
+        ctx.async_cleanup_context().dupe(),
     )))
 }

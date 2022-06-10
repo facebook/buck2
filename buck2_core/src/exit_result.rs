@@ -86,6 +86,12 @@ impl From<::anyhow::Result<u8>> for ExitResult {
     }
 }
 
+impl From<FailureExitCode> for ExitResult {
+    fn from(e: FailureExitCode) -> Self {
+        Self::Err(e.into())
+    }
+}
+
 /// Implementing Try allows us to use a ExitResult as the outcome of a function and still use
 /// the `?` operator.
 impl Try for ExitResult {
@@ -146,8 +152,7 @@ impl Termination for ExitResult {
                         ExitCode::FAILURE
                     }
                     Some(FailureExitCode::SignalInterrupt) => {
-                        let _ignored =
-                            writeln!(io::stderr().lock(), "Command interrupted: {:?}", e);
+                        tracing::debug!("Interrupted");
                         ExitCode::from(130)
                     }
                     Some(FailureExitCode::StdoutBrokenPipe) => {
