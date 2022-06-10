@@ -18,7 +18,7 @@ remote_text = rule(
 
 def _symlink_dir_impl(ctx):
     remote_text = ctx.attr.remote_text[DefaultInfo].default_outputs[0]
-    link = ctx.actions.symlinked_dir(output = ctx.label.name, srcs = {"link": remote_text})
+    link = ctx.actions.symlinked_dir(ctx.label.name, {"link": remote_text})
     return [DefaultInfo(default_outputs = [link])]
 
 symlink_dir = rule(

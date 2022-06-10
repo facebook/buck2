@@ -1,5 +1,5 @@
 def _nested_subtargets(ctx):
-    out = ctx.actions.write("foo", content = "foo_content")
+    out = ctx.actions.write("foo", "foo_content")
 
     nested_info = [DefaultInfo(
         sub_targets = {"nested_sub": [
