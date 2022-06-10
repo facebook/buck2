@@ -256,6 +256,11 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     if binary.dwp:
         sub_targets["dwp"] = [DefaultInfo(default_outputs = [binary.dwp])]
 
+    # If bolt is not ran, binary.prebolt_output will be the same as binary.output. Only
+    # expose binary.prebolt_output if cxx_use_bolt(ctx) is True to avoid confusion
+    if cxx_use_bolt(ctx):
+        sub_targets["prebolt"] = [DefaultInfo(default_outputs = [binary.prebolt_output])]
+
     sub_targets["linker-map"] = [DefaultInfo(default_outputs = _linker_map(
         ctx,
         binary,

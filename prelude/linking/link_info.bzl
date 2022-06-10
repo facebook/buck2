@@ -171,6 +171,8 @@ LinkInfos = record(
 # The output of a native link (e.g. a shared library or an executable).
 LinkedObject = record(
     output = field("artifact"),
+    # the generated linked output before running bolt, may be None if bolt is not used.
+    prebolt_output = field(["artifact", None], None),
     # A linked object (binary/shared library) may have an associated dwp file with
     # its corresponding DWARF debug info.
     # May be None when Split DWARF is disabled or for some types of synthetic link objects.

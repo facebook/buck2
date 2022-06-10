@@ -104,8 +104,7 @@ def cxx_link(
         strip_args = strip_args_factory(ctx) if strip_args_factory else cmd_args()
         output = strip_shared_library(ctx, cxx_toolchain_info, output, strip_args)
 
-    if executable_link and cxx_use_bolt(ctx):
-        output = bolt(ctx, output, identifier)
+    final_output = output if not (executable_link and cxx_use_bolt(ctx)) else bolt(ctx, output, identifier)
 
     dwp_artifact = None
     if should_generate_dwp:
@@ -119,7 +118,7 @@ def cxx_link(
 
         dwp_artifact = dwp(
             ctx,
-            output,
+            final_output,
             identifier = identifier,
             # TODO(T110378142): Ideally, referenced objects are a list of
             # artifacts, but currently we don't track them properly.  So, we
@@ -129,7 +128,8 @@ def cxx_link(
         )
 
     return LinkedObject(
-        output = output,
+        output = final_output,
+        prebolt_output = output,
         dwp = dwp_artifact,
         external_debug_paths = external_debug_paths,
     )

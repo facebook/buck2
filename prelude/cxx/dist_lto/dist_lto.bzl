@@ -512,4 +512,4 @@ def cxx_dist_link(
             dwp_output = dwp_output,
         )
 
-    return LinkedObject(output = final_output, dwp = dwp_output)
+    return LinkedObject(output = final_output, prebolt_output = output, dwp = dwp_output)
