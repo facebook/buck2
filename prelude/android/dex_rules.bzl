@@ -3,7 +3,6 @@ load("@fbcode//buck2/prelude/android:class_name_filter.bzl", "class_name_matches
 load("@fbcode//buck2/prelude/java:dex.bzl", "get_dex_produced_from_java_library")
 load("@fbcode//buck2/prelude/java:dex_toolchain.bzl", "DexToolchainInfo")
 load("@fbcode//buck2/prelude/java:java_library.bzl", "compile_to_jar")
-load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "flatten")
 
 _DEX_MERGE_OPTIONS = ["--no-desugar", "--no-optimize"]
@@ -320,7 +319,7 @@ def _sort_pre_dexed_files(
                 current_secondary_dex_inputs = []
 
             if len(current_secondary_dex_inputs) == 0:
-                canary_class_dex_input = _create_canary_class(ctx, len(secondary_dex_inputs) + 1, ctx.attr._dex_toolchain[DexToolchainInfo], ctx.attr._java_toolchain[JavaToolchainInfo])
+                canary_class_dex_input = _create_canary_class(ctx, len(secondary_dex_inputs) + 1, ctx.attr._dex_toolchain[DexToolchainInfo])
                 current_secondary_dex_inputs.append(canary_class_dex_input)
                 secondary_dex_inputs.append(current_secondary_dex_inputs)
 
@@ -364,10 +363,10 @@ _CANARY_FILE_NAME_TEMPLATE = "canary_classes/secondary/dex{}/Canary.java"
 _CANARY_CLASS_PACKAGE_TEMPLATE = "package secondary.dex{};\n"
 _CANARY_CLASS_INTERFACE_DEFINITION = "public interface Canary {}"
 
-def _create_canary_class(ctx: "context", index: int.type, dex_toolchain: DexToolchainInfo.type, java_toolchain: JavaToolchainInfo.type) -> DexInputWithSpecifiedClasses.type:
+def _create_canary_class(ctx: "context", index: int.type, dex_toolchain: DexToolchainInfo.type) -> DexInputWithSpecifiedClasses.type:
     canary_class_java_file = ctx.actions.write(_CANARY_FILE_NAME_TEMPLATE.format(index), [_CANARY_CLASS_PACKAGE_TEMPLATE.format(index), _CANARY_CLASS_INTERFACE_DEFINITION])
     canary_class_jar = ctx.actions.declare_output("canary_classes/canary_jar_{}.jar".format(index))
-    compile_to_jar(ctx, [canary_class_java_file], output = canary_class_jar, javac_tool = java_toolchain.javac, actions_prefix = "canary_class_{}".format(index))
+    compile_to_jar(ctx, [canary_class_java_file], output = canary_class_jar, actions_prefix = "canary_class{}".format(index))
 
     dex_library_info = get_dex_produced_from_java_library(ctx, dex_toolchain = dex_toolchain, jar_to_dex = canary_class_jar)
 
