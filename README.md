@@ -132,6 +132,7 @@ To upgrade our dependencies:
 * If Remote Execution throws errors, make sure you are on the VPN/Lighthouse, then try `kinit`, `cc-certs` and `fixmymac`.
 * If you get linker errors for missing `.so` files, try running `sudo dnf install elfutils-libelf-devel libseccomp-devel -y`. You can also find the missing package using `sudo dnf search` command.
 * If you get compile errors in generated Thrift code when building with Cargo, try [updating the Thrift generator](https://www.internalfb.com/intern/msdk/bump/?action=view&schedule_fbid=982424652505230).
+* If you get the output "error: could not download file from..." when building for the first time with Cargo on a devserver, make sure you've added the `ttls_proxy` feature and try addding `HTTPS_PROXY=fwdproxy:8080` right before the build command. You'll need to do this every time the toolchain is updated.
 
 ## Terminology conventions
 
