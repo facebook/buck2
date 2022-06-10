@@ -33,7 +33,8 @@ impl PackageFileListing {
     ) -> impl Iterator<Item = &PackageRelativePath> {
         let len = prefix.as_str().len();
         self.files_with_prefix(prefix.as_str()).filter(move |x| {
-            // Same logic as PackageRelativePath.starts_with
+            // Same logic as PackageRelativePath.starts_with,
+            // but avoid rechecking that `x` starts with `prefix`, since we already know that.
             len == 0 || len == x.as_str().len() || x.as_str().as_bytes()[len] == b'/'
         })
     }
