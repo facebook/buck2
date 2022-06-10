@@ -27,13 +27,16 @@ def _execution_platform_impl(ctx: "context"):
                 remote_execution_properties = ctx.attr.remote_execution_properties,
                 remote_execution_action_key = remote_execution_action_key,
                 remote_execution_max_input_files_mebibytes = ctx.attr.remote_execution_max_input_files_mebibytes,
+                allow_limited_hybrid_fallbacks = True,
                 use_limited_hybrid = True,
+                allow_hybrid_fallbacks_on_failure = ctx.attr.allow_hybrid_fallbacks_on_failure,
             ),
         ),
     ]
 
 execution_platform_rule = rule(
     attrs = {
+        "allow_hybrid_fallbacks_on_failure": attr.bool(default = False),
         "local_enabled": attr.bool(),
         "platform": attr.dep(providers = [PlatformInfo]),
         "remote_enabled": attr.bool(),

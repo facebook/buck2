@@ -50,6 +50,7 @@ local_windows_execution = read_bool("build", "enable_local_windows_execution", h
 
 remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 30 * 1024)
 fat_platforms_enabled = read_bool("build", "enable_fat_platforms", False)
+allow_hybrid_fallbacks_on_failure = read_bool("remoteexecution", "is_local_fallback_enabled_for_completed_actions")
 
 # Those targets will result in extra data being injected into RE action keys.
 # The targets listed here need to expose a BuildModeInfo provider.
@@ -68,6 +69,7 @@ mac_platforms = execution_platform(
     },
     remote_execution_action_key_providers = remote_execution_action_key_providers,
     remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
+    allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
 )
 
 linux_platforms = execution_platform(
@@ -80,6 +82,7 @@ linux_platforms = execution_platform(
     },
     remote_execution_action_key_providers = remote_execution_action_key_providers,
     remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
+    allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
 )
 
 windows_platforms = execution_platform(
@@ -92,6 +95,7 @@ windows_platforms = execution_platform(
     },
     remote_execution_action_key_providers = remote_execution_action_key_providers,
     remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
+    allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
 )
 
 fat_mac_linux = execution_platform(
@@ -105,6 +109,7 @@ fat_mac_linux = execution_platform(
     remote_execution_action_key_providers = remote_execution_action_key_providers,
     remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
     make_dash_only_platforms = False,
+    allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
 )
 
 fat_platforms = fat_mac_linux if fat_platforms_enabled else []
