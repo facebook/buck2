@@ -429,7 +429,7 @@ pub(crate) fn log_upload_url() -> Option<&'static str> {
 
 #[cfg(unix)]
 fn start_log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
-    use std::process::Stdio;
+    use std::{ffi::OsString, process::Stdio};
 
     buck2_core::facebook_only();
     let manifold_url = match log_upload_url() {
@@ -459,21 +459,45 @@ fn start_log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
         }
     };
 
+    let cert: anyhow::Result<OsString>;
+    #[cfg(fbcode_build)]
+    {
+        cert = find_certs::find_tls_cert();
+    }
+
+    #[cfg(not(fbcode_build))]
+    {
+        cert = Err(anyhow::anyhow!("Disabled in Cargo builds"));
+    }
+
+    let cert = cert.context("Error finding a cert")?;
+
+    let url = format!(
+        "{}/v0/write/flat/{}.gz?bucketName=buck2_logs&apiKey=buck2_logs-key&timeoutMsec=20000",
+        manifold_url, log_file.trace_id
+    );
+
+    tracing::debug!(
+        "Uploading event log to `{}` using certificate `{}`",
+        url,
+        cert.to_string_lossy(),
+    );
+
     std::process::Command::new("curl")
-                .args([
-                    "--fail",
-                    "-X",
-                    "PUT",
-                    "--data-binary",
-                    "@-", // stdout
-                    &format!("{}/v0/write/flat/{}.gz?bucketName=buck2_logs&apiKey=buck2_logs-key&timeoutMsec=20000", manifold_url, log_file.trace_id),
-                    "-E",
-                    &format!("/var/facebook/credentials/{0}/x509/{0}.pem", std::env::var("USER")?),
-                ])
-                .stdin(gzipped_log_file)
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .spawn()?;
+        .args([
+            "--fail",
+            "-X",
+            "PUT",
+            "--data-binary",
+            "@-", // stdin
+            &url,
+            "-E",
+        ])
+        .arg(cert)
+        .stdin(gzipped_log_file)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()?;
 
     Ok(())
 }
