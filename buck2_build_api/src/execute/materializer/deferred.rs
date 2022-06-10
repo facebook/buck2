@@ -230,7 +230,7 @@ enum ArtifactMaterializationStage {
     /// If it did start but end with an error, it returns to this stage.
     Declared,
     /// The materialization has started and it hasn't finished yet.
-    Processing(MaterializationFuture),
+    Materializing(MaterializationFuture),
     /// This artifact was materialized
     Materialized {
         // Artifact may need its dependencies checked as they might have changed
@@ -506,7 +506,7 @@ impl DeferredMaterializerCommandProcessor {
         tree: &mut ArtifactTree,
         path: &ProjectRelativePath,
     ) -> Option<MaterializationFuture> {
-        // Get the data about the artifact, or return early if processing/processed
+        // Get the data about the artifact, or return early if materializing/materialized
         let data = match tree.get(path.iter()) {
             // Never declared, nothing to do
             None => {
@@ -516,7 +516,7 @@ impl DeferredMaterializerCommandProcessor {
             Some(data) => data,
         };
         let entry = match &data.stage {
-            ArtifactMaterializationStage::Processing(fut) => {
+            ArtifactMaterializationStage::Materializing(fut) => {
                 tracing::debug!("join existing future");
                 return Some(fut.clone());
             }
@@ -611,7 +611,7 @@ impl DeferredMaterializerCommandProcessor {
         .shared();
 
         let data = tree.get_mut(path.iter()).unwrap();
-        data.stage = ArtifactMaterializationStage::Processing(task.clone());
+        data.stage = ArtifactMaterializationStage::Materializing(task.clone());
 
         Some(task)
     }
