@@ -311,9 +311,6 @@ message BxlRequest {
 
   CommonBuildOptions build_opts = 4;
 
-  // Options regarding which data to include in the response.
-  BuildRequest.ResponseOptions response_options = 5;
-
   BuildRequest.Materializations final_artifact_materializations = 6;
 }
 

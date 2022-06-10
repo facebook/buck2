@@ -108,10 +108,7 @@ pub async fn bxl(
         Some(build_result) => {
             let artifact_fs = ctx.get_artifact_fs().await;
 
-            let result_collector = ResultReporter::new(
-                &artifact_fs,
-                request.response_options.unwrap_or_default().return_outputs,
-            );
+            let result_collector = ResultReporter::new(&artifact_fs, false);
 
             let (build_targets, error_messages) =
                 convert_bxl_build_result(&bxl_label, result_collector, build_result);

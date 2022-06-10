@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
-use cli_proto::{build_request::ResponseOptions, BxlRequest};
+use cli_proto::BxlRequest;
 use futures::FutureExt;
 use structopt::{clap, StructOpt};
 
@@ -78,9 +78,6 @@ impl StreamingCommand for BxlCommand {
                         context: Some(ctx),
                         bxl_label: self.bxl_core.bxl_label,
                         bxl_args: self.bxl_core.bxl_args,
-                        response_options: Some(ResponseOptions {
-                            return_outputs: false,
-                        }),
                         build_opts: Some(self.build_opts.to_proto()),
                         final_artifact_materializations: self.materializations.to_proto() as i32,
                     })
