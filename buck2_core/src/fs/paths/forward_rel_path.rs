@@ -410,13 +410,14 @@ impl ForwardRelativePath {
     /// assert_eq!(Some("rs"), ForwardRelativePath::new("hi/foo.bar.rs")?.extension());
     /// assert_eq!(None, ForwardRelativePath::new(".git")?.extension());
     /// assert_eq!(None, ForwardRelativePath::new("foo/.git")?.extension());
+    /// assert_eq!(None, ForwardRelativePath::new("")?.extension());
     ///
     /// # anyhow::Ok(())
     /// ```
     pub fn extension(&self) -> Option<&str> {
         let s = &self.0;
         let bytes = s.as_bytes();
-        let mut i = s.len() - 1;
+        let mut i = s.len().checked_sub(1)?;
         while i > 0 {
             let b = bytes[i];
             if b == b'/' {
