@@ -68,8 +68,7 @@ use buck2_interpreter::{
 use cli::{
     commands::bxl::BxlCoreOpts,
     daemon::{
-        build::results::result_report::ResultReporter,
-        bxl::{convert_bxl_build_result, ensure_artifacts},
+        bxl::ensure_artifacts,
         common,
         common::{parse_concurrency, CommandExecutorFactory},
     },
@@ -80,6 +79,7 @@ use events::dispatch::EventDispatcher;
 use fbinit::FacebookInit;
 use gazebo::prelude::*;
 use host_sharing::{HostSharingBroker, HostSharingStrategy};
+use itertools::Itertools;
 use structopt::{clap::AppSettings, StructOpt};
 use tokio::runtime::Builder;
 
@@ -138,8 +138,6 @@ async fn async_main(
 
     let cell_resolver = dice.get_cell_resolver().await;
 
-    let artifact_fs = dice.get_artifact_fs().await;
-
     let bxl_label =
         common::parse_bxl_label_from_cli(&cwd, &opt.bxl_core.bxl_label, &cell_resolver)?;
 
@@ -189,17 +187,13 @@ async fn async_main(
     };
     let build_result = ensure_artifacts(&dice, &materialization_ctx, result).await;
 
-    let result_collector = ResultReporter::new(&artifact_fs, false);
-
     match build_result {
-        None => {}
-        Some(build_result) => {
-            if let Some(error_messages) =
-                convert_bxl_build_result(&bxl_label, result_collector, build_result)
-            {
-                for error_message in error_messages {
-                    println!("{}", error_message)
-                }
+        Ok(_) => {}
+        Err(errors) => {
+            let error_messages = errors.iter().map(|e| format!("{:#}", e)).unique();
+
+            for error_message in error_messages {
+                println!("{}", error_message)
             }
         }
     };

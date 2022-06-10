@@ -3,20 +3,18 @@ use std::sync::Arc;
 use anyhow::Context;
 use buck2_build_api::{
     artifact_groups::ArtifactGroup,
-    build::{
-        materialize_artifact_group, BuildProviderType, MaterializationContext, ProviderArtifacts,
-    },
+    build::{materialize_artifact_group, MaterializationContext},
     bxl::{
         calculation::BxlCalculation,
         common::CliResolutionCtx,
         eval::{get_bxl_callable, resolve_cli_args},
         starlark_defs::context::build::StarlarkBuildResult,
-        BxlFunctionLabel, BxlKey,
+        BxlKey,
     },
     calculation::Calculation,
 };
 use buck2_common::{dice::cells::HasCellResolver, legacy_configs::dice::HasLegacyConfigs};
-use buck2_core::package::Package;
+use buck2_core::{package::Package, result::SharedError};
 use buck2_interpreter::common::StarlarkModulePath;
 use cli_proto::{build_request::Materializations, BuildTarget, BxlRequest};
 use dice::DiceComputations;
@@ -25,10 +23,6 @@ use gazebo::prelude::*;
 use itertools::Itertools;
 
 use crate::daemon::{
-    build::{
-        results::{result_report::ResultReporter, BuildOwner, BuildResultCollector},
-        BuildTargetResult,
-    },
     common::{parse_bxl_label_from_cli, ConvertMaterializationContext},
     server::ServerCommandContext,
 };
@@ -101,21 +95,16 @@ pub async fn bxl(
     let build_result = ensure_artifacts(&ctx, &materialization_context, result).await;
 
     match build_result {
-        None => Ok(BxlResult {
+        Ok(_) => Ok(BxlResult {
             built: vec![],
             error_messages: vec![],
         }),
-        Some(build_result) => {
-            let artifact_fs = ctx.get_artifact_fs().await;
-
-            let result_collector = ResultReporter::new(&artifact_fs, false);
-
-            let error_messages =
-                convert_bxl_build_result(&bxl_label, result_collector, build_result);
+        Err(errors) => {
+            let error_strings = errors.iter().map(|e| format!("{:#}", e)).unique().collect();
 
             Ok(BxlResult {
                 built: vec![],
-                error_messages: error_messages.unwrap_or_default(),
+                error_messages: error_strings,
             })
         }
     }
@@ -125,127 +114,65 @@ pub async fn ensure_artifacts(
     ctx: &DiceComputations,
     materialization_ctx: &MaterializationContext,
     bxl_result: Arc<buck2_build_api::bxl::result::BxlResult>,
-) -> Option<Vec<BuildTargetResult>> {
+) -> Result<(), Vec<SharedError>> {
     match &*bxl_result {
-        buck2_build_api::bxl::result::BxlResult::None { .. } => None,
+        buck2_build_api::bxl::result::BxlResult::None { .. } => Ok(()),
         buck2_build_api::bxl::result::BxlResult::BuildsArtifacts {
             built, artifacts, ..
         } => {
-            let mut report = vec![];
-
             let mut futs = vec![];
 
             built.iter().for_each(|res| match res {
-                StarlarkBuildResult::Built {
-                    providers,
-                    run_args,
-                    built,
-                } => {
-                    let mut output_futs = vec![];
-
+                StarlarkBuildResult::Built { built, .. } => {
                     built.iter().for_each(|res| match res {
                         Ok(artifacts) => {
                             for (artifact, _value) in artifacts.values.iter() {
-                                output_futs.push(
+                                futs.push(
                                     async {
-                                        Ok(ProviderArtifacts {
-                                            values: materialize_artifact_group(
-                                                ctx,
-                                                &ArtifactGroup::Artifact(artifact.dupe()),
-                                                materialization_ctx,
-                                            )
-                                            .await?,
-                                            provider_type: BuildProviderType::DefaultOther,
-                                        })
+                                        materialize_artifact_group(
+                                            ctx,
+                                            &ArtifactGroup::Artifact(artifact.dupe()),
+                                            materialization_ctx,
+                                        )
+                                        .await?;
+                                        Ok(())
                                     }
                                     .boxed(),
                                 )
                             }
                         }
-                        Err(e) => output_futs.push(futures::future::ready(Err(e.dupe())).boxed()),
+                        Err(e) => futs.push(futures::future::ready(Err(e.dupe())).boxed()),
                     });
-
-                    futs.push(
-                        async move {
-                            BuildTargetResult {
-                                outputs: futures::future::join_all(output_futs).await,
-                                providers: Some(providers.dupe()),
-                                run_args: run_args.clone(),
-                            }
-                        }
-                        .boxed(),
-                    )
                 }
 
                 StarlarkBuildResult::None => {}
-                StarlarkBuildResult::Error(e) => report.push(BuildTargetResult {
-                    outputs: vec![Err(e.dupe())],
-                    providers: None,
-                    run_args: None,
-                }),
+                StarlarkBuildResult::Error(e) => {
+                    futs.push(futures::future::ready(Err(e.dupe())).boxed())
+                }
             });
 
-            let mut output_futs = vec![];
             artifacts.iter().for_each(|a| {
-                output_futs.push(
+                futs.push(
                     async {
-                        Ok(ProviderArtifacts {
-                            values: materialize_artifact_group(
-                                ctx,
-                                &ArtifactGroup::Artifact(a.dupe()),
-                                materialization_ctx,
-                            )
-                            .await?,
-                            provider_type: BuildProviderType::DefaultOther,
-                        })
+                        materialize_artifact_group(
+                            ctx,
+                            &ArtifactGroup::Artifact(a.dupe()),
+                            materialization_ctx,
+                        )
+                        .await?;
+
+                        Ok(())
                     }
                     .boxed(),
                 );
             });
 
-            if !output_futs.is_empty() {
-                futs.push(
-                    async move {
-                        BuildTargetResult {
-                            outputs: futures::future::join_all(output_futs).await,
-                            providers: None,
-                            run_args: None,
-                        }
-                    }
-                    .boxed(),
-                );
-            }
-
-            Some(futures::future::join_all(futs).await)
-        }
-    }
-}
-
-/// returns a list of strings of errors if any errors present
-pub fn convert_bxl_build_result(
-    bxl_label: &BxlFunctionLabel,
-    mut result_collector: ResultReporter,
-    build_result: Vec<BuildTargetResult>,
-) -> Option<Vec<String>> {
-    let mut result_collectors = vec![Some(&mut result_collector as &mut dyn BuildResultCollector)]
-        .into_iter()
-        .flatten()
-        .collect::<Vec<&mut dyn BuildResultCollector>>();
-
-    for r in build_result {
-        result_collectors.collect_result(&BuildOwner::Bxl(bxl_label), &r);
-    }
-
-    match result_collector.results() {
-        Ok(_) => None,
-        Err(errors) => {
-            let error_strings = errors
-                .errors
-                .iter()
-                .map(|e| format!("{:#}", e))
-                .unique()
-                .collect();
-            Some(error_strings)
+            let res = futures::future::join_all(futs)
+                .await
+                .into_iter()
+                .filter_map(|res| res.err())
+                .collect::<Vec<_>>();
+            if res.is_empty() { Ok(()) } else { Err(res) }
         }
     }
 }
