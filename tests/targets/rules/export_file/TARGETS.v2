@@ -101,8 +101,7 @@ export_file(
     mode = "copy",
 )
 
-# TODO: msemko@ : uncomment after buck2 VB
-#assert_exists(
-#    name = "exported_symlink_exists",
-#    path = "$(location :exported_symlink)",
-#)
+assert_exists(
+    name = "exported_symlink_exists",
+    path = "$(location :exported_symlink)",
+)
