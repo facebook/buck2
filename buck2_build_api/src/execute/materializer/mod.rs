@@ -8,9 +8,9 @@
  */
 
 pub mod deferred;
-#[cfg(feature = "eden_materializer")]
+#[cfg(all(unix, feature = "eden_materializer"))]
 pub mod eden;
-#[cfg(feature = "eden_materializer")]
+#[cfg(all(unix, feature = "eden_materializer"))]
 pub mod eden_api;
 pub mod filetree;
 pub mod http;
@@ -43,12 +43,12 @@ use crate::{
 };
 
 // Add a stub EdenBuckOut for when we don't have Eden output enabled
-#[cfg(not(feature = "eden_materializer"))]
+#[cfg(any(not(feature = "eden_materializer"), not(unix)))]
 pub struct EdenBuckOut {
     not_implemented: !,
 }
 
-#[cfg(not(feature = "eden_materializer"))]
+#[cfg(any(not(feature = "eden_materializer"), not(unix)))]
 impl EdenBuckOut {
     pub async fn remove_paths_recursive(
         &self,
@@ -76,7 +76,7 @@ impl EdenBuckOut {
 }
 
 use crate::deferred::BaseDeferredKey;
-#[cfg(feature = "eden_materializer")]
+#[cfg(all(unix, feature = "eden_materializer"))]
 use crate::execute::materializer::eden_api::EdenBuckOut;
 
 #[derive(Error, Debug)]

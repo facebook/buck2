@@ -773,7 +773,7 @@ impl DaemonState {
                 )))
             }
             MaterializationMethod::Eden => {
-                #[cfg(feature = "eden_materializer")]
+                #[cfg(all(unix, feature = "eden_materializer"))]
                 {
                     Ok(Arc::new(
                         buck2_build_api::execute::materializer::eden::EdenMaterializer::new(
@@ -790,7 +790,7 @@ impl DaemonState {
                         .context("Failed to create Eden materializer")?,
                     ))
                 }
-                #[cfg(not(feature = "eden_materializer"))]
+                #[cfg(any(not(feature = "eden_materializer"), not(unix)))]
                 {
                     let _unused = buck_out_path;
                     Err(anyhow::anyhow!(
