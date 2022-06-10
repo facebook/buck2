@@ -16,7 +16,7 @@ use buck2_build_api::{
 use buck2_common::{dice::cells::HasCellResolver, legacy_configs::dice::HasLegacyConfigs};
 use buck2_core::{package::Package, result::SharedError};
 use buck2_interpreter::common::StarlarkModulePath;
-use cli_proto::{build_request::Materializations, BuildTarget, BxlRequest};
+use cli_proto::{build_request::Materializations, BxlRequest};
 use dice::DiceComputations;
 use futures::FutureExt;
 use gazebo::prelude::*;
@@ -29,7 +29,6 @@ use crate::daemon::{
 
 #[derive(Debug)]
 pub struct BxlResult {
-    pub built: Vec<BuildTarget>,
     pub error_messages: Vec<String>,
 }
 
@@ -96,14 +95,12 @@ pub async fn bxl(
 
     match build_result {
         Ok(_) => Ok(BxlResult {
-            built: vec![],
             error_messages: vec![],
         }),
         Err(errors) => {
             let error_strings = errors.iter().map(|e| format!("{:#}", e)).unique().collect();
 
             Ok(BxlResult {
-                built: vec![],
                 error_messages: error_strings,
             })
         }

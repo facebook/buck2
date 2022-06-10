@@ -1649,7 +1649,6 @@ impl DaemonApi for BuckdServer {
                 .await?;
 
             Ok(BxlResponse {
-                build_targets: result.built,
                 project_root,
                 error_messages: result.error_messages,
             })
