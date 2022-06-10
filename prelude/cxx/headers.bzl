@@ -282,9 +282,14 @@ def _get_dict_header_namespace(namespace: str.type, naming: CxxHeadersNaming.typ
 def _mk_hmap(ctx: "context", name: str.type, headers: {str.type: ("artifact", str.type)}) -> "artifact":
     output = ctx.actions.declare_output(name + ".hmap")
     cmd = cmd_args(get_cxx_toolchain_info(ctx).mk_hmap)
-    cmd.add(output.as_output())
+    cmd.add(["--output", output.as_output()])
+
+    header_args = cmd_args()
     for n, (path, fmt) in headers.items():
-        cmd.add(n)
-        cmd.add(cmd_args(path, format = fmt))
+        header_args.add(n)
+        header_args.add(cmd_args(path, format = fmt))
+
+    hmap_args_file = ctx.actions.write(output.basename + ".argsfile", cmd_args(header_args, delimiter = " "))
+    cmd.add(["--mappings-file", hmap_args_file]).hidden(header_args)
     ctx.actions.run(cmd, category = "generate_hmap", identifier = name)
     return output
