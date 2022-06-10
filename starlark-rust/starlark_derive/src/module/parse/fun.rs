@@ -481,12 +481,6 @@ enum StarArgOrSpecial {
 /// Function parameter is `eval: &mut Evaluator`.
 fn is_eval(ident: &Ident, ty: &Type) -> syn::Result<Option<SpecialParam>> {
     if is_mut_something(ty, "Evaluator") {
-        if ident != "eval" {
-            return Err(syn::Error::new(
-                ident.span(),
-                "`&mut Evaluator` parameter must be named `eval`",
-            ));
-        }
         Ok(Some(SpecialParam {
             ident: ident.clone(),
             ty: ty.clone(),
@@ -499,12 +493,6 @@ fn is_eval(ident: &Ident, ty: &Type) -> syn::Result<Option<SpecialParam>> {
 /// Function parameter is `heap: &Heap`.
 fn is_heap(ident: &Ident, ty: &Type) -> syn::Result<Option<SpecialParam>> {
     if is_ref_something(ty, "Heap") {
-        if ident != "heap" {
-            return Err(syn::Error::new(
-                ident.span(),
-                "`&Heap` parameter must be named `heap`",
-            ));
-        }
         Ok(Some(SpecialParam {
             ident: ident.clone(),
             ty: ty.clone(),

@@ -15,9 +15,26 @@
  * limitations under the License.
  */
 
-mod basic;
-mod default_value;
-mod named_positional;
-mod special_params;
-mod type_annotation;
-mod unpack_value;
+use crate as starlark;
+use crate::{
+    assert::Assert,
+    environment::GlobalsBuilder,
+    values::{Heap, StringValue},
+};
+
+#[starlark_module]
+fn functions(builder: &mut GlobalsBuilder) {
+    fn non_standard_heap_name<'v>(
+        heap: &str,
+        starlark_heap: &'v Heap,
+    ) -> anyhow::Result<StringValue<'v>> {
+        Ok(starlark_heap.alloc_str_concat(heap, "!"))
+    }
+}
+
+#[test]
+fn test_non_standard_param_names() {
+    let mut a = Assert::new();
+    a.globals_add(functions);
+    a.eq("'x!'", "non_standard_heap_name('x')");
+}
