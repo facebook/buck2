@@ -190,7 +190,7 @@ pub(crate) fn array_avalue<'v>(
     AValueImpl(Direct, unsafe { Array::new(0, cap) })
 }
 
-pub(crate) fn basic_ref<'v, T: StarlarkValueBasic<'v>>(x: &T) -> AValueDyn<'v> {
+pub(crate) fn basic_ref<T: StarlarkValueBasic<'static>>(x: &'static T) -> AValueDyn<'static> {
     let x: &AValueImpl<Basic, T> = unsafe { cast::ptr(x) };
     AValueDyn {
         value: unsafe { &*(x as *const _ as *const ()) },
