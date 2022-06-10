@@ -1,5 +1,10 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
 load(
+    "@fbcode//buck2/prelude/cxx:cxx_bolt.bzl",
+    "bolt",
+    "cxx_use_bolt",
+)
+load(
     "@fbcode//buck2/prelude/cxx:cxx_link_utility.bzl",
     "cxx_link_cmd",
 )
@@ -30,7 +35,8 @@ def cxx_dist_link(
         # differentiating multiple link actions in the same rule.
         identifier: [str.type, None] = None,
         # This action will only happen if split_dwarf is enabled via the toolchain.
-        generate_dwp: bool.type = True) -> LinkedObject.type:
+        generate_dwp: bool.type = True,
+        executable_link: bool.type = True) -> LinkedObject.type:
     """
     Perform a distributed thin-lto link into the supplied output
 
@@ -413,8 +419,6 @@ def cxx_dist_link(
     for archive in archive_manifests:
         dynamic_optimize_archive(archive)
 
-    dwp_output = ctx.actions.declare_output(output.short_path + ".dwp") if dwp_generation_enabled else None
-
     def thin_lto_final_link(ctx):
         plan = ctx.artifacts[link_plan_out].read_json()
         link_args = cmd_args()
@@ -486,22 +490,26 @@ def cxx_dist_link(
 
         ctx.actions.run(link_cmd, category = make_cat("thin_lto_link"), identifier = identifier, local_only = True)
 
-        if dwp_generation_enabled:
-            run_dwp_action(
-                ctx = ctx,
-                obj = output,
-                identifier = identifier,
-                referenced_objects = final_link_inputs,  # buildifier: disable=uninitialized
-                dwp_output = ctx.outputs[dwp_output],
-            )
-
     todo_inputs = []
     final_link_inputs = [link_plan_out] + [archive.opt_manifest for archive in archive_manifests]
     ctx.actions.dynamic_output(
         final_link_inputs,
         todo_inputs,
-        [output] + ([linker_map] if linker_map else []) + ([dwp_output] if dwp_output else []),
+        [output] +
+        ([linker_map] if linker_map else []),
         thin_lto_final_link,
     )
 
-    return LinkedObject(output = output, dwp = dwp_output)
+    final_output = output if not (executable_link and cxx_use_bolt(ctx)) else bolt(ctx, output, identifier)
+    dwp_output = ctx.actions.declare_output(output.short_path.removesuffix("-wrapper") + ".dwp") if dwp_generation_enabled else None
+
+    if dwp_generation_enabled:
+        run_dwp_action(
+            ctx = ctx,
+            obj = final_output,
+            identifier = identifier,
+            referenced_objects = final_link_inputs,
+            dwp_output = dwp_output,
+        )
+
+    return LinkedObject(output = final_output, dwp = dwp_output)

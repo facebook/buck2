@@ -11,6 +11,10 @@ load(
     "get_link_groups",
 )
 load(
+    "@fbcode//buck2/prelude/cxx:cxx_bolt.bzl",
+    "cxx_use_bolt",
+)
+load(
     "@fbcode//buck2/prelude/ide_integrations:xcode.bzl",
     "XCODE_DATA_SUB_TARGET",
     "generate_xcode_data",
@@ -291,6 +295,7 @@ def _link_into_executable(
         enable_distributed_thinlto = enable_distributed_thinlto,
         strip = strip,
         strip_args_factory = strip_args_factory,
+        executable_link = True,
     )
     return (exe, runtime_files, extra_args)
 
@@ -319,4 +324,4 @@ def _linker_map(
     ]
 
 def get_cxx_excutable_product_name(ctx: "context") -> str.type:
-    return ctx.label.name
+    return ctx.label.name + ("-wrapper" if cxx_use_bolt(ctx) else "")

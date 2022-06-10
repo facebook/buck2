@@ -1,4 +1,9 @@
 load(
+    "@fbcode//buck2/prelude/cxx:cxx_bolt.bzl",
+    "bolt",
+    "cxx_use_bolt",
+)
+load(
     "@fbcode//buck2/prelude/cxx/dist_lto:dist_lto.bzl",
     "cxx_dist_link",
 )
@@ -44,7 +49,8 @@ def cxx_link(
         strip: bool.type = False,
         # A function/lambda which will generate the strip args using the ctx.
         strip_args_factory = None,
-        generate_dwp: bool.type = True) -> LinkedObject.type:
+        generate_dwp: bool.type = True,
+        executable_link = False) -> LinkedObject.type:
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
 
@@ -59,7 +65,8 @@ def cxx_link(
             linker_map,
             category_suffix,
             identifier,
-            generate_dwp = should_generate_dwp,
+            should_generate_dwp,
+            executable_link,
         )
     if linker_map != None:
         links += [linker_map_args(ctx, linker_map.as_output())]
@@ -96,6 +103,9 @@ def cxx_link(
     if strip:
         strip_args = strip_args_factory(ctx) if strip_args_factory else cmd_args()
         output = strip_shared_library(ctx, cxx_toolchain_info, output, strip_args)
+
+    if executable_link and cxx_use_bolt(ctx):
+        output = bolt(ctx, output, identifier)
 
     dwp_artifact = None
     if should_generate_dwp:
