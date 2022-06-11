@@ -32,6 +32,7 @@ use buck2_query::{
 use buck2_query_parser::BinaryOp;
 use futures::Future;
 use gazebo::prelude::*;
+use ref_cast::RefCast;
 use thiserror::Error;
 
 use crate::{
@@ -249,7 +250,8 @@ impl<'a> NodeLookup<ConfiguredGraphNodeRef> for ConfiguredGraphQueryEnvironment<
     }
 }
 
-#[derive(Debug, Dupe, Clone)]
+#[derive(Debug, Dupe, Clone, RefCast)]
+#[repr(C)]
 pub struct ConfiguredGraphNodeRef(pub ConfiguredGraphNode);
 
 impl ConfiguredGraphNodeRef {
@@ -309,19 +311,16 @@ impl QueryTarget for ConfiguredGraphNodeRef {
     }
 
     // TODO(cjhopman): Use existential traits to remove the Box<> once they are stabilized.
-    fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a> {
-        box self
-            .0
-            .graph_deps()
-            .map(|l| ConfiguredGraphNodeRef(l.dupe()))
+    fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
+        box self.0.graph_deps().map(ConfiguredGraphNodeRef::ref_cast)
     }
 
-    fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a> {
+    fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
         // TODO(cjhopman): This should return a Result. It should also be implemented.
         unimplemented!("exec_deps() isn't implemented for query attrs")
     }
 
-    fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a> {
+    fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
         // TODO(cjhopman): This should return a Result. It should also be implemented.
         unimplemented!("target_deps() isn't implemented for query attrs")
     }

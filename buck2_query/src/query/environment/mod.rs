@@ -93,13 +93,13 @@ pub trait QueryTarget: Dupe + Send + Sync + 'static {
     fn buildfile_path(&self) -> &BuildFilePath;
 
     // TODO(cjhopman): Use existential traits to remove the Box<> once they are stabilized.
-    fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a>;
+    fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a>;
 
     // TODO(cjhopman): Use existential traits to remove the Box<> once they are stabilized.
-    fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a>;
+    fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a>;
 
     // TODO(cjhopman): Use existential traits to remove the Box<> once they are stabilized.
-    fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a>;
+    fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a>;
 
     fn tests<'a>(&'a self) -> Option<Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a>> {
         None
@@ -207,7 +207,7 @@ pub trait QueryEnvironment: Send + Sync {
                 } else {
                     let mut distance = None;
                     for dep in target.deps() {
-                        let dep_distance = *self.distance.get(&dep).ok_or_else(|| {
+                        let dep_distance = *self.distance.get(dep).ok_or_else(|| {
                             QueryEnvironmentError::DependencyCycle(
                                 dep.to_string(),
                                 node_ref.to_string(),

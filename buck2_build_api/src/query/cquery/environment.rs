@@ -61,16 +61,16 @@ impl QueryTarget for ConfiguredTargetNode {
     }
 
     // TODO(cjhopman): Use existential traits to remove the Box<> once they are stabilized.
-    fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a> {
-        box ConfiguredTargetNode::deps(self).map(|l| l.target().dupe())
+    fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
+        box ConfiguredTargetNode::deps(self).map(|l| l.target())
     }
 
-    fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a> {
-        box ConfiguredTargetNode::execution_deps(self).map(|l| l.target().dupe())
+    fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
+        box ConfiguredTargetNode::execution_deps(self).map(|l| l.target())
     }
 
-    fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a> {
-        box ConfiguredTargetNode::target_deps(self).map(|l| l.target().dupe())
+    fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
+        box ConfiguredTargetNode::target_deps(self).map(|l| l.target())
     }
 
     fn tests<'a>(&'a self) -> Option<Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a>> {

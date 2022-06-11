@@ -48,7 +48,7 @@ impl<'a, T: QueryTarget> DotDigraph<'a> for DotTargetGraph<T> {
     ) -> anyhow::Result<()> {
         for dep in node.0.deps() {
             // Only include edges to other nodes within the subgraph.
-            if self.targets.contains(&dep) {
+            if self.targets.contains(dep) {
                 f(&DotEdge {
                     from: &node.0.node_ref().to_string(),
                     to: &dep.to_string(),

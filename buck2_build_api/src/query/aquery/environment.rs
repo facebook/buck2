@@ -137,7 +137,7 @@ impl QueryTarget for ActionQueryNode {
     }
 
     // TODO(cjhopman): Use existential traits to remove the Box<> once they are stabilized.
-    fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a> {
+    fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
         struct Iter<'a> {
             visited: HashSet<&'a SetProjectionInputs>,
             queue: VecDeque<&'a SetProjectionInputs>,
@@ -184,16 +184,14 @@ impl QueryTarget for ActionQueryNode {
 
         let indirect = Iter::new(indirect);
 
-        box direct
-            .chain(indirect.flat_map(|v| v.node.direct.iter()))
-            .map(|v| v.dupe())
+        box direct.chain(indirect.flat_map(|v| v.node.direct.iter()))
     }
 
-    fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a> {
+    fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
         box std::iter::empty()
     }
 
-    fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a> {
+    fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
         self.deps()
     }
 

@@ -36,7 +36,7 @@ impl<'a, Env: QueryEnvironment> DepsContextFunctions<'a, Env> {
     async fn first_order_deps(&self, env: &Env) -> Result<QueryValue<Env::Target>, QueryError> {
         let mut deps = TargetSet::new();
         for dep in self.target.deps() {
-            deps.insert(env.get_node(&dep).await?);
+            deps.insert(env.get_node(dep).await?);
         }
         Ok(QueryValue::TargetSet(deps))
     }
@@ -44,7 +44,7 @@ impl<'a, Env: QueryEnvironment> DepsContextFunctions<'a, Env> {
     async fn exec_deps(&self, env: &Env) -> Result<QueryValue<Env::Target>, QueryError> {
         let mut deps = TargetSet::new();
         for dep in self.target.exec_deps() {
-            deps.insert(env.get_node(&dep).await?);
+            deps.insert(env.get_node(dep).await?);
         }
         Ok(QueryValue::TargetSet(deps))
     }
@@ -52,7 +52,7 @@ impl<'a, Env: QueryEnvironment> DepsContextFunctions<'a, Env> {
     async fn target_deps(&self, env: &Env) -> Result<QueryValue<Env::Target>, QueryError> {
         let mut deps = TargetSet::new();
         for dep in self.target.target_deps() {
-            deps.insert(env.get_node(&dep).await?);
+            deps.insert(env.get_node(dep).await?);
         }
         Ok(QueryValue::TargetSet(deps))
     }
