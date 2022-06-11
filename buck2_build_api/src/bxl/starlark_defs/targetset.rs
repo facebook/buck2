@@ -23,7 +23,9 @@ use starlark::{
     },
 };
 
-pub trait NodeLike = QueryTarget + std::fmt::Debug + Eq + Dupe where for<'a> Self: AllocValue<'a>;
+use crate::bxl::starlark_defs::alloc_node::AllocNode;
+
+pub trait NodeLike = QueryTarget + std::fmt::Debug + Eq + Dupe + AllocNode;
 
 #[derive(Debug, Display, Clone)]
 #[derive(NoSerialize)] // TODO maybe this should be
@@ -73,7 +75,7 @@ impl<'v, Node: NodeLike> StarlarkValue<'v> for StarlarkTargetSet<Node> {
         Ok(box self
             .0
             .iter()
-            .map(|target_node| heap.alloc(target_node.dupe())))
+            .map(|target_node| target_node.dupe().alloc(heap)))
     }
 
     fn at(&self, index: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
@@ -89,7 +91,7 @@ impl<'v, Node: NodeLike> StarlarkValue<'v> for StarlarkTargetSet<Node> {
         self.0
             .get_index(i as usize)
             .ok_or_else(|| anyhow::anyhow!(ValueError::IndexOutOfBound(i)))
-            .map(|node| heap.alloc(node.dupe()))
+            .map(|node| node.dupe().alloc(heap))
     }
 
     fn length(&self) -> anyhow::Result<i32> {

@@ -42,6 +42,7 @@ use crate::{
     },
 };
 
+pub mod alloc_node;
 pub mod analysis_result;
 pub mod artifacts;
 pub mod cli_args;

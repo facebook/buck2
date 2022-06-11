@@ -11,7 +11,7 @@ use derive_more::Display;
 use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
-    values::{AllocValue, Heap, NoSerialize, StarlarkValue, UnpackValue, Value, ValueLike},
+    values::{Heap, NoSerialize, StarlarkValue, UnpackValue, Value, ValueLike},
 };
 
 use crate::{
@@ -61,11 +61,5 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn label(this: &StarlarkTargetNode) -> anyhow::Result<StarlarkTargetLabel> {
         Ok(this.0.label().dupe().into())
-    }
-}
-
-impl<'v> AllocValue<'v> for TargetNode {
-    fn alloc_value(self, heap: &'v starlark::values::Heap) -> starlark::values::Value<'v> {
-        heap.alloc_simple(StarlarkTargetNode(self))
     }
 }

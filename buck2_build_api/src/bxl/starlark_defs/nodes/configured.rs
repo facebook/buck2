@@ -21,10 +21,7 @@ use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{
     collections::SmallMap,
     environment::{Methods, MethodsBuilder, MethodsStatic},
-    values::{
-        structs::Struct, AllocValue, Heap, NoSerialize, StarlarkValue, UnpackValue, Value,
-        ValueLike,
-    },
+    values::{structs::Struct, Heap, NoSerialize, StarlarkValue, UnpackValue, Value, ValueLike},
 };
 
 use crate::{
@@ -165,12 +162,6 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
             }
         }
         Ok(None)
-    }
-}
-
-impl<'v> AllocValue<'v> for ConfiguredTargetNode {
-    fn alloc_value(self, heap: &'v starlark::values::Heap) -> Value<'v> {
-        heap.alloc_simple(StarlarkConfiguredTargetNode(self))
     }
 }
 
