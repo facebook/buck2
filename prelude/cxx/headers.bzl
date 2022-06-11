@@ -289,7 +289,7 @@ def _mk_hmap(ctx: "context", name: str.type, headers: {str.type: ("artifact", st
         header_args.add(n)
         header_args.add(cmd_args(path, format = fmt))
 
-    hmap_args_file = ctx.actions.write(output.basename + ".argsfile", cmd_args(header_args, delimiter = " "))
+    hmap_args_file = ctx.actions.write(output.basename + ".argsfile", cmd_args(header_args, quote = "shell"))
     cmd.add(["--mappings-file", hmap_args_file]).hidden(header_args)
     ctx.actions.run(cmd, category = "generate_hmap", identifier = name)
     return output
