@@ -2,7 +2,7 @@
 //!
 
 use buck2_build_api::{
-    analysis::registry::AnalysisRegistry, bxl::common::EXECUTION_PLATFORM,
+    analysis::registry::AnalysisRegistry, bxl::execution_platform::EXECUTION_PLATFORM,
     deferred::BaseDeferredKey,
 };
 use derivative::Derivative;

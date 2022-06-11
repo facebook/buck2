@@ -167,7 +167,9 @@ impl Deferred for DynamicLambda {
 
                     configured_target.execution_platform_resolution().dupe()
                 }
-                BaseDeferredKey::BxlLabel(_) => (*bxl::common::EXECUTION_PLATFORM).dupe(),
+                BaseDeferredKey::BxlLabel(_) => {
+                    (*bxl::execution_platform::EXECUTION_PLATFORM).dupe()
+                }
             }
         };
 
