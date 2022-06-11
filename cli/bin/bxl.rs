@@ -26,7 +26,7 @@ use buck2_build_api::{
         run::knobs::HasRunActionKnobs,
     },
     build::MaterializationContext,
-    bxl::{calculation::BxlCalculation, common::CliResolutionCtx, BxlKey},
+    bxl::{calculation::BxlCalculation, BxlKey},
     calculation::Calculation,
     configure_dice::configure_dice_for_buck,
     context::SetBuildContextData,
@@ -46,7 +46,7 @@ use buck2_build_api::{
 };
 use buck2_bxl::bxl::{
     calculation::BxlCalculationImpl,
-    eval::{get_bxl_callable, resolve_cli_args},
+    eval::{get_bxl_callable, resolve_cli_args, CliResolutionCtx},
     starlark_defs::configure_bxl_file_globals,
 };
 use buck2_common::{

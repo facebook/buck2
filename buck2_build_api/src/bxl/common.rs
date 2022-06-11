@@ -2,8 +2,7 @@
 
 use std::sync::Arc;
 
-use buck2_common::target_aliases::TargetAliasResolver;
-use buck2_core::{cells::CellAliasResolver, configuration::Configuration, package::Package};
+use buck2_core::configuration::Configuration;
 use once_cell::sync::Lazy;
 
 use crate::{
@@ -25,9 +24,3 @@ pub static EXECUTION_PLATFORM: Lazy<ExecutionPlatformResolution> = Lazy::new(|| 
         vec![],
     )
 });
-
-pub struct CliResolutionCtx {
-    pub target_alias_resolver: TargetAliasResolver,
-    pub cell_resolver: CellAliasResolver,
-    pub relative_dir: Package,
-}

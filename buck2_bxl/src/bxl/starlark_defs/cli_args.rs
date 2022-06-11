@@ -16,9 +16,8 @@ use std::{
 };
 
 use anyhow::Context as _;
-use buck2_build_api::{
-    bxl::common::CliResolutionCtx,
-    interpreter::rule_defs::{label::StarlarkProvidersLabel, target_label::StarlarkTargetLabel},
+use buck2_build_api::interpreter::rule_defs::{
+    label::StarlarkProvidersLabel, target_label::StarlarkTargetLabel,
 };
 pub use buck2_bxl_core::CliArgValue;
 use buck2_interpreter::pattern::{
@@ -36,6 +35,8 @@ use starlark::{
     },
 };
 use thiserror::Error;
+
+use crate::bxl::eval::CliResolutionCtx;
 
 /// Defines the cli args for the bxl function
 #[derive(Clone, Debug, Display, ProvidesStaticType, NoSerialize)]

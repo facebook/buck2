@@ -12,11 +12,8 @@
 use std::{cell::RefCell, fmt, fmt::Display, sync::Arc};
 
 use anyhow::Context;
-use buck2_build_api::{
-    bxl::common::CliResolutionCtx,
-    interpreter::rule_defs::{
-        cmd_args::register_args_function, provider::register_builtin_providers,
-    },
+use buck2_build_api::interpreter::rule_defs::{
+    cmd_args::register_args_function, provider::register_builtin_providers,
 };
 use buck2_bxl_core::BxlFunctionLabel;
 use buck2_interpreter::{build_defs::register_natives, common::BxlFilePath, extra::BuildContext};
@@ -55,6 +52,8 @@ pub mod target_expr;
 pub mod targetset;
 pub mod uquery;
 use starlark::starlark_module;
+
+use crate::bxl::eval::CliResolutionCtx;
 
 #[starlark_module]
 pub fn register_bxl_function(builder: &mut GlobalsBuilder) {

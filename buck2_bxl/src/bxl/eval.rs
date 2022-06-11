@@ -2,14 +2,16 @@ use std::collections::HashMap;
 
 use anyhow::Context;
 use buck2_build_api::{
-    bxl::{common::CliResolutionCtx, result::BxlResult, BxlFunctionLabel, BxlKey},
+    bxl::{result::BxlResult, BxlFunctionLabel, BxlKey},
     calculation::Calculation,
     deferred::DeferredTable,
 };
 use buck2_common::{
     dice::{cells::HasCellResolver, data::HasIoProvider},
     legacy_configs::dice::HasLegacyConfigs,
+    target_aliases::TargetAliasResolver,
 };
+use buck2_core::{cells::CellAliasResolver, package::Package};
 use buck2_interpreter::{common::StarlarkModulePath, file_loader::LoadedModule};
 use dice::DiceTransaction;
 use gazebo::prelude::*;
@@ -145,6 +147,12 @@ pub fn get_bxl_callable<'a>(
                 e.value().get_type(),
             )
         })
+}
+
+pub struct CliResolutionCtx {
+    pub target_alias_resolver: TargetAliasResolver,
+    pub cell_resolver: CellAliasResolver,
+    pub relative_dir: Package,
 }
 
 pub fn resolve_cli_args<'a>(
