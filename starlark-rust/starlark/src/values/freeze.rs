@@ -76,6 +76,14 @@ impl Freeze for i32 {
     }
 }
 
+impl Freeze for u32 {
+    type Frozen = u32;
+
+    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<u32> {
+        Ok(self)
+    }
+}
+
 impl Freeze for usize {
     type Frozen = usize;
 
@@ -130,6 +138,19 @@ where
 
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         Ok(box (*self).freeze(freezer)?)
+    }
+}
+
+impl<T> Freeze for Box<[T]>
+where
+    T: Freeze,
+{
+    type Frozen = Box<[T::Frozen]>;
+
+    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+        self.into_vec()
+            .into_try_map(|v| v.freeze(freezer))
+            .map(|v| v.into_boxed_slice())
     }
 }
 

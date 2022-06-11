@@ -66,7 +66,7 @@ pub(crate) enum FunctionError {
     WrongNumberOfParameters { min: usize, max: usize, got: usize },
 }
 
-#[derive(Debug, Clone, Coerce, PartialEq, Trace, Freeze)]
+#[derive(Debug, Copy, Clone, Dupe, Coerce, PartialEq, Trace, Freeze)]
 #[repr(C)]
 pub(crate) enum ParameterKind<V> {
     Required,
@@ -96,7 +96,7 @@ enum CurrentParameterStyle {
 pub struct ParametersSpecBuilder<V> {
     function_name: String,
     params: Vec<(String, ParameterKind<V>)>,
-    names: SymbolMap<usize>,
+    names: SymbolMap<u32>,
     positional: usize,
 
     /// Has the no_args been passed
@@ -115,29 +115,28 @@ pub struct ParametersSpec<V> {
     /// Only used in error messages
     function_name: String,
 
-    /// These two fields describe everything about the signature.
-    /// The `kinds` lists all the arguments in the order they occur.
-    /// The `names` gives a mapping from name to index where the argument lives.
-    /// The only entries in `kinds` which are not in `names` are Args/KWargs,
-    /// and the iteration order of `names` is the same order as `types`.
-    params: Vec<(String, ParameterKind<V>)>,
+    /// Parameters in the order they occur.
+    param_kinds: Box<[ParameterKind<V>]>,
+    /// Parameter names in the order they occur.
+    param_names: Box<[String]>,
+    /// Mapping from name to index where the argument lives.
     #[freeze(identity)]
-    names: SymbolMap<usize>,
+    names: SymbolMap<u32>,
 
     /// Number of arguments that can be filled positionally.
     /// Excludes *args/**kwargs, keyword arguments after *args
-    positional: usize,
+    positional: u32,
 
     /// The index at which *args should go
-    args: Option<usize>,
+    args: Option<u32>,
     /// The index at which **kwargs should go
-    kwargs: Option<usize>,
+    kwargs: Option<u32>,
 }
 
 // Can't derive this since we don't want ParameterKind to be public
 unsafe impl<From: Coerce<To>, To> Coerce<ParametersSpec<To>> for ParametersSpec<From> {}
 
-impl<V> ParametersSpecBuilder<V> {
+impl<V: Copy> ParametersSpecBuilder<V> {
     fn add(&mut self, name: &str, val: ParameterKind<V>) {
         assert!(!matches!(val, ParameterKind::Args | ParameterKind::KWargs));
 
@@ -148,7 +147,7 @@ impl<V> ParametersSpecBuilder<V> {
         let i = self.params.len();
         self.params.push((name.to_owned(), val));
         if self.current_style != CurrentParameterStyle::PosOnly {
-            let old = self.names.insert(name, i);
+            let old = self.names.insert(name, i.try_into().unwrap());
             assert!(old.is_none(), "Repeated parameter `{}`", name);
         }
         if self.args.is_none() && self.current_style != CurrentParameterStyle::NamedOnly {
@@ -243,11 +242,12 @@ impl<V> ParametersSpecBuilder<V> {
         let _ = current_style;
         ParametersSpec {
             function_name,
-            params,
+            param_kinds: params.iter().map(|p| p.1).collect(),
+            param_names: params.into_iter().map(|p| p.0).collect(),
             names,
-            positional,
-            args,
-            kwargs,
+            positional: positional.try_into().unwrap(),
+            args: args.map(|args| args.try_into().unwrap()),
+            kwargs: kwargs.map(|kwargs| kwargs.try_into().unwrap()),
         }
     }
 }
@@ -292,14 +292,14 @@ impl<V> ParametersSpec<V> {
     pub fn parameters_str(&self) -> String {
         let mut emitted_star = false;
         let mut collector = String::new();
-        for (i, typ) in self.params.iter().enumerate() {
+        for (i, typ) in self.iter_params().enumerate() {
             if !collector.is_empty() {
                 collector.push_str(", ");
             }
 
             // TODO: also print `/` for positional-only parameters.
 
-            if i == self.positional
+            if i == (self.positional as usize)
                 && !emitted_star
                 && !matches!(typ.1, ParameterKind::Args | ParameterKind::KWargs)
             {
@@ -310,14 +310,14 @@ impl<V> ParametersSpec<V> {
             match typ.1 {
                 ParameterKind::Args | ParameterKind::KWargs => {
                     // For `*args` or `**kwargs` param name includes the `*` or `**`.
-                    collector.push_str(&typ.0);
+                    collector.push_str(typ.0);
                     emitted_star = true;
                 }
                 ParameterKind::Required => {
-                    collector.push_str(&typ.0);
+                    collector.push_str(typ.0);
                 }
                 ParameterKind::Optional | ParameterKind::Defaulted(_) => {
-                    collector.push_str(&typ.0);
+                    collector.push_str(typ.0);
                     collector.push_str(" = ...");
                 }
             }
@@ -327,10 +327,10 @@ impl<V> ParametersSpec<V> {
 
     /// Get the index where a user would have supplied "*" as a parameter.
     pub(crate) fn no_args_param_index(&self) -> Option<usize> {
-        if self.positional < self.params.len() {
-            match self.params.get(self.positional).map(|x| &x.1) {
+        if (self.positional as usize) < self.param_kinds.len() {
+            match self.param_kinds.get(self.positional as usize) {
                 Some(ParameterKind::Args) | Some(ParameterKind::KWargs) => None,
-                _ => Some(self.positional),
+                _ => Some(self.positional as usize),
             }
         } else {
             None
@@ -341,7 +341,11 @@ impl<V> ParametersSpec<V> {
     ///
     /// Returns an iterator over (parameter index, name, kind)
     pub(crate) fn iter_params(&self) -> impl Iterator<Item = (&str, &ParameterKind<V>)> {
-        self.params.iter().map(|(name, kind)| (name.as_str(), kind))
+        assert_eq!(self.param_names.len(), self.param_kinds.len());
+        self.param_names
+            .iter()
+            .map(|name| name.as_str())
+            .zip(&*self.param_kinds)
     }
 
     pub(crate) fn resolve_name(&self, name: Hashed<&str>) -> ResolvedArgName {
@@ -354,7 +358,7 @@ impl<V> ParametersSpec<V> {
 impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
     /// Number of function parameters.
     pub fn len(&self) -> usize {
-        self.params.len()
+        self.param_kinds.len()
     }
 
     /// Move parameters from [`Arguments`] to a list of [`Value`],
@@ -396,8 +400,8 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         // If the arguments equal the length and the kinds, and we don't have any other args,
         // then no_args, *args and **kwargs must all be unset,
         // and we don't have to crate args/kwargs objects, we can skip everything else
-        if args.pos().len() == self.positional
-            && args.pos().len() == self.params.len()
+        if args.pos().len() == (self.positional as usize)
+            && args.pos().len() == self.param_kinds.len()
             && args.named().is_empty()
             && args.args().is_none()
             && args.kwargs().is_none()
@@ -451,7 +455,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
             }
         }
 
-        let len = self.params.len();
+        let len = self.param_kinds.len();
         // We might do unchecked stuff later on, so make sure we have as many slots as we expect
         assert!(slots.len() >= len);
 
@@ -460,7 +464,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         let mut next_position = 0;
 
         // First deal with positional parameters
-        if args.pos().len() <= self.positional {
+        if args.pos().len() <= (self.positional as usize) {
             // fast path for when we don't need to bounce down to filling in args
             for (v, s) in args.pos().iter().zip(slots.iter()) {
                 s.set(Some(*v));
@@ -468,7 +472,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
             next_position = args.pos().len();
         } else {
             for v in args.pos() {
-                if next_position < self.positional {
+                if next_position < (self.positional as usize) {
                     slots[next_position].set(Some(*v));
                     next_position += 1;
                 } else {
@@ -503,7 +507,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
             param_args
                 .with_iterator(heap, |it| {
                     for v in it {
-                        if next_position < self.positional {
+                        if next_position < (self.positional as usize) {
                             slots[next_position].set(Some(v));
                             next_position += 1;
                         } else {
@@ -517,7 +521,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         // Check if the named arguments clashed with the positional arguments
         if unlikely(next_position > lowest_name) {
             return Err(FunctionError::RepeatedParameter {
-                name: self.params[lowest_name].0.clone(),
+                name: self.param_names[lowest_name].clone(),
             }
             .into());
         }
@@ -536,7 +540,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
                                 {
                                     None => kwargs.insert(Hashed::new_unchecked(k.hash(), s), v),
                                     Some(i) => {
-                                        let this_slot = &slots[*i];
+                                        let this_slot = &slots[*i as usize];
                                         let repeat = this_slot.get().is_some();
                                         this_slot.set(Some(v));
                                         repeat
@@ -558,7 +562,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
 
         // We have moved parameters into all the relevant slots, so need to finalise things.
         // We need to set default values and error if any required values are missing
-        let kinds = &self.params;
+        let kinds = &*self.param_kinds;
         // This code is very hot, and setting up iterators was a noticeable bottleneck.
         for index in next_position..kinds.len() {
             // The number of locals must be at least the number of parameters, see `collect`
@@ -570,10 +574,10 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
             if slot.get().is_some() {
                 continue;
             }
-            match def.1 {
+            match def {
                 ParameterKind::Required => {
                     return Err(FunctionError::MissingParameter {
-                        name: self.params[index].0.clone(),
+                        name: self.param_names[index].clone(),
                         function: self.signature(),
                     }
                     .into());
@@ -589,7 +593,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         // Note that we deliberately give warnings about missing parameters _before_ giving warnings
         // about unexpected extra parameters, so if a user mis-spells an argument they get a better error.
         if let Some(args_pos) = self.args {
-            slots[args_pos].set(Some(heap.alloc_tuple(&star_args)));
+            slots[args_pos as usize].set(Some(heap.alloc_tuple(&star_args)));
         } else if unlikely(!star_args.is_empty()) {
             return Err(FunctionError::ExtraPositionalParameters {
                 count: star_args.len(),
@@ -599,7 +603,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         }
 
         if let Some(kwargs_pos) = self.kwargs {
-            slots[kwargs_pos].set(Some(kwargs.alloc(heap)));
+            slots[kwargs_pos as usize].set(Some(kwargs.alloc(heap)));
         } else if let Some(kwargs) = kwargs.kwargs {
             return Err(FunctionError::ExtraNamedParameters {
                 names: kwargs.keys().map(|x| x.as_str().to_owned()).collect(),
@@ -613,9 +617,9 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
     /// Check if current parameters can be filled with given arguments signature.
     #[allow(clippy::needless_range_loop)]
     pub fn can_fill_with_args(&self, pos: usize, names: &[&str]) -> bool {
-        let mut filled = vec![false; self.params.len()];
+        let mut filled = vec![false; self.param_kinds.len()];
         for p in 0..pos {
-            if p < self.positional {
+            if p < (self.positional as usize) {
                 filled[p] = true;
             } else if self.args.is_some() {
                 // Filled into `*args`.
@@ -623,17 +627,17 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
                 return false;
             }
         }
-        if pos > self.positional && self.args.is_none() {
+        if pos > (self.positional as usize) && self.args.is_none() {
             return false;
         }
         for name in names {
             match self.names.get_str(name) {
                 Some(i) => {
-                    if filled[*i] {
+                    if filled[*i as usize] {
                         // Duplicate argument.
                         return false;
                     }
-                    filled[*i] = true;
+                    filled[*i as usize] = true;
                 }
                 None => {
                     if self.kwargs.is_none() {
@@ -642,11 +646,11 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
                 }
             }
         }
-        for (filled, p) in filled.iter().zip(self.params.iter()) {
+        for (filled, p) in filled.iter().zip(self.param_kinds.iter()) {
             if *filled {
                 continue;
             }
-            match &p.1 {
+            match p {
                 ParameterKind::Args => {}
                 ParameterKind::KWargs => {}
                 ParameterKind::Defaulted(_) => {}
@@ -789,7 +793,7 @@ impl ArgSymbol for Symbol {
         &self,
         ps: &ParametersSpec<V>,
     ) -> Option<usize> {
-        ps.names.get(self).copied()
+        ps.names.get(self).map(|i| *i as usize)
     }
 
     fn small_hash(&self) -> StarlarkHashValue {
