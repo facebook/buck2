@@ -3,99 +3,26 @@
 
 use std::sync::Arc;
 
-use buck2_core::result::{SharedError, SharedResult, ToSharedResultExt};
+use buck2_core::result::ToSharedResultExt;
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, coerce::Coerce, prelude::*, variants::UnpackVariants};
+use gazebo::{any::ProvidesStaticType, coerce::Coerce, dupe::Dupe};
 use starlark::{
     collections::small_map::SmallMap,
-    environment::{Methods, MethodsBuilder, MethodsStatic},
     eval::Evaluator,
     values::{Freeze, Heap, NoSerialize, StarlarkValue, Trace, Value, ValueLike},
 };
 
 use crate::{
-    build::{build_configured_label, MaterializationContext, ProviderArtifacts, ProvidersToBuild},
-    bxl::starlark_defs::{context::BxlContext, providers_expr::ProvidersExpr},
-    interpreter::rule_defs::{
-        artifact::StarlarkArtifact, label::Label, provider::FrozenProviderCollectionValue,
+    build::{build_configured_label, MaterializationContext, ProvidersToBuild},
+    bxl::{
+        build_result::StarlarkBuildResult,
+        starlark_defs::{
+            build_result::StarlarkBxlBuildResult, context::BxlContext,
+            providers_expr::ProvidersExpr,
+        },
     },
+    interpreter::rule_defs::{artifact::StarlarkArtifact, label::Label},
 };
-
-#[derive(Clone, Debug, Display, ProvidesStaticType, NoSerialize, UnpackVariants)]
-pub enum StarlarkBuildResult {
-    Error(SharedError),
-    None,
-    #[display(fmt = "successful build result")]
-    Built {
-        providers: FrozenProviderCollectionValue,
-        run_args: Option<Vec<String>>,
-        built: Vec<SharedResult<ProviderArtifacts>>,
-    },
-}
-
-impl StarlarkBuildResult {
-    fn new(
-        result: SharedResult<
-            Option<(
-                FrozenProviderCollectionValue,
-                Option<Vec<String>>,
-                Vec<SharedResult<ProviderArtifacts>>,
-            )>,
-        >,
-    ) -> Self {
-        match result {
-            Ok(Some((providers, run_args, built))) => Self::Built {
-                providers,
-                run_args,
-                built,
-            },
-            Ok(None) => Self::None,
-            Err(e) => Self::Error(e),
-        }
-    }
-}
-
-#[starlark_module]
-fn starlark_build_result_methods(builder: &mut MethodsBuilder) {
-    #[starlark(attribute)]
-    fn err(this: &StarlarkBuildResult) -> anyhow::Result<Option<String>> {
-        Ok(match this {
-            StarlarkBuildResult::Error(e) => Some(format!("{:?}", e)),
-            _ => None,
-        })
-    }
-
-    fn artifacts<'v>(
-        this: Value<'v>,
-    ) -> anyhow::Result<Option<StarlarkProvidersArtifactIterable<'v>>> {
-        match this.downcast_ref::<StarlarkBuildResult>().unwrap() {
-            StarlarkBuildResult::Error(e) => Err(e.dupe().into()),
-            StarlarkBuildResult::None => Ok(None),
-            StarlarkBuildResult::Built { .. } => {
-                Ok(Some(StarlarkProvidersArtifactIterableGen(this)))
-            }
-        }
-    }
-
-    fn failures<'v>(this: Value<'v>) -> anyhow::Result<Option<StarlarkFailedArtifactIterable<'v>>> {
-        match this.downcast_ref::<StarlarkBuildResult>().unwrap() {
-            StarlarkBuildResult::Error(e) => Err(e.dupe().into()),
-            StarlarkBuildResult::None => Ok(None),
-            StarlarkBuildResult::Built { .. } => Ok(Some(StarlarkFailedArtifactIterableGen(this))),
-        }
-    }
-}
-
-starlark_simple_value!(StarlarkBuildResult);
-
-impl<'v> StarlarkValue<'v> for StarlarkBuildResult {
-    starlark_type!("bxl-build-result");
-
-    fn get_methods(&self) -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(starlark_build_result_methods)
-    }
-}
 
 #[derive(
     Debug,
@@ -108,7 +35,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBuildResult {
     NoSerialize
 )]
 #[repr(C)]
-pub(crate) struct StarlarkProvidersArtifactIterableGen<V>(V);
+pub(crate) struct StarlarkProvidersArtifactIterableGen<V>(pub(crate) V);
 
 starlark_complex_value!(pub(crate) StarlarkProvidersArtifactIterable);
 
@@ -127,8 +54,9 @@ where
     {
         Ok(box self
             .0
-            .downcast_ref::<StarlarkBuildResult>()
+            .downcast_ref::<StarlarkBxlBuildResult>()
             .unwrap()
+            .0
             .unpack_built()
             .unwrap()
             .2
@@ -156,9 +84,9 @@ where
     NoSerialize
 )]
 #[repr(C)]
-struct StarlarkFailedArtifactIterableGen<V>(V);
+pub(crate) struct StarlarkFailedArtifactIterableGen<V>(pub(crate) V);
 
-starlark_complex_value!(StarlarkFailedArtifactIterable);
+starlark_complex_value!(pub(crate) StarlarkFailedArtifactIterable);
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkFailedArtifactIterableGen<V>
 where
@@ -175,8 +103,9 @@ where
     {
         Ok(box self
             .0
-            .downcast_ref::<StarlarkBuildResult>()
+            .downcast_ref::<StarlarkBxlBuildResult>()
             .unwrap()
+            .0
             .unpack_built()
             .unwrap()
             .2
@@ -234,7 +163,8 @@ pub(crate) fn build<'v>(
                     .alloc(Label::new(eval.heap(), target))
                     .get_hashed()
                     .unwrap(),
-                eval.heap().alloc(StarlarkBuildResult::new(result)),
+                eval.heap()
+                    .alloc(StarlarkBxlBuildResult(StarlarkBuildResult::new(result))),
             )
         })
         .collect::<SmallMap<_, _>>())

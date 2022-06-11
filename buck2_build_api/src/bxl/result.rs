@@ -4,7 +4,7 @@ use itertools::Itertools;
 
 use crate::{
     actions::artifact::Artifact,
-    bxl::starlark_defs::context::build::StarlarkBuildResult,
+    bxl::build_result::StarlarkBuildResult,
     deferred::{DeferredAny, DeferredId, DeferredTable},
 };
 

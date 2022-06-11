@@ -12,6 +12,7 @@
 //! introspects buck2 internal graphs in a safe, incremental way to perform more complex operations
 //!
 
+pub mod build_result;
 pub mod calculation;
 pub mod common;
 pub mod eval;

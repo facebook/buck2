@@ -5,10 +5,10 @@ use buck2_build_api::{
     artifact_groups::ArtifactGroup,
     build::{materialize_artifact_group, MaterializationContext},
     bxl::{
+        build_result::StarlarkBuildResult,
         calculation::BxlCalculation,
         common::CliResolutionCtx,
         eval::{get_bxl_callable, resolve_cli_args},
-        starlark_defs::context::build::StarlarkBuildResult,
         BxlKey,
     },
     calculation::Calculation,
