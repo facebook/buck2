@@ -6,6 +6,9 @@ description = "Buck V2 extension language"
 
 [dependencies]
 anyhow = "1.0.51"
+async-trait = "0.1.24"
+derive_more = "0.99.3"
+indexmap = { version = "1.6", features = ["serde-1"] }
 structopt = "0.3.0"
 tokio = { version = "1.5", features = ["full"]}
 
@@ -17,6 +20,8 @@ gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "../gazebo/gazebo"
 dice = { path = "../dice/dice" }
 events = { path = "../events" }
+# For `SmallMap`
+starlark = { version = "0.8", path = "../starlark-rust/starlark" }
 
 buck2_build_api = { path = "../buck2_build_api" }
 buck2_common = { path = "../buck2_common" }

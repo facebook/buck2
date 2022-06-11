@@ -13,6 +13,7 @@ blake3 = "0.3.7"
 buck2_core = { path = "../buck2_core" }
 buck2_query = { path = "../buck2_query" }
 buck2_build_api = { path = "../buck2_build_api" }
+buck2_bxl = { path = "../buck2_bxl" }
 # @oss-disable: build_info = { path = "../../common/rust/build_info", optional = true }
 chrono = "0.4.19"
 cli_proto = { path = "../cli_proto" }

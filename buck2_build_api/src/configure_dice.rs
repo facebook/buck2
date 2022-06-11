@@ -12,10 +12,17 @@ use std::sync::Arc;
 use buck2_common::{dice::data::SetIoProvider, io::IoProvider};
 use dice::{cycles::DetectCycles, Dice};
 
+use crate::bxl::calculation::BxlCalculationDyn;
+
 /// Utility to configure the dice globals.
 /// One place to not forget to initialize something in all places.
-pub fn configure_dice_for_buck(io: Arc<dyn IoProvider>, detect_cycles: DetectCycles) -> Arc<Dice> {
+pub fn configure_dice_for_buck(
+    io: Arc<dyn IoProvider>,
+    bxl: &'static dyn BxlCalculationDyn,
+    detect_cycles: DetectCycles,
+) -> Arc<Dice> {
     let mut dice = Dice::builder();
     dice.set_io_provider(io);
+    dice.set(bxl);
     dice.build(detect_cycles)
 }

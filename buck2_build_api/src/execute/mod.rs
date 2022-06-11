@@ -306,7 +306,6 @@ impl CommandExecutorConfig {
         }
     }
 
-    #[cfg(test)]
     pub fn testing_local() -> Self {
         Self::new_with_default_path_separator(CommandExecutorKind::Local(LocalExecutorOptions {}))
     }

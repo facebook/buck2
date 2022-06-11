@@ -306,16 +306,14 @@ mod tests {
         result::ToSharedResultExt,
         target::{testing::TargetLabelExt, TargetLabel},
     };
-    use buck2_interpreter::common::{BxlFilePath, ImportPath};
+    use buck2_interpreter::common::ImportPath;
     use dice::{testing::DiceBuilder, UserComputationData};
     use gazebo::prelude::*;
     use indexmap::IndexSet;
     use indoc::indoc;
-    use starlark::collections::SmallMap;
 
     use crate::{
         analysis::{calculation::testing::AnalysisKey, AnalysisResult},
-        bxl::{calculation::testing::BxlComputeKey, result::BxlResult, BxlFunctionLabel, BxlKey},
         configuration::execution::ExecutionPlatformResolution,
         deferred::{
             calculation::DeferredCalculation, BaseDeferredKey, BaseKey, Deferred, DeferredCtx,
@@ -416,63 +414,6 @@ mod tests {
         executed1.store(false, Ordering::SeqCst);
         assert_eq!(*deferred_result, 5);
         assert_eq!(executed1.load(Ordering::SeqCst), false);
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn lookup_deferred_from_bxl() -> anyhow::Result<()> {
-        let bxl = BxlKey::new(
-            BxlFunctionLabel {
-                bxl_path: BxlFilePath::unchecked_new("cell", "dir"),
-                name: "foo".to_owned(),
-            },
-            Arc::new(SmallMap::new()),
-        );
-
-        let mut deferred =
-            DeferredRegistry::new(BaseKey::Base(BaseDeferredKey::BxlLabel(bxl.dupe())));
-
-        let executed0 = Arc::new(AtomicBool::new(false));
-        let executed1 = Arc::new(AtomicBool::new(false));
-        let data0 = deferred.defer(FakeDeferred(1, IndexSet::new(), executed0.dupe()));
-        let data1 = deferred.defer(FakeDeferred(5, IndexSet::new(), executed1.dupe()));
-        let deferred_result = DeferredTable::new(deferred.take_result()?);
-
-        let fs = ProjectFilesystemTemp::new()?;
-        let dice = DiceBuilder::new()
-            .set_data(|data| data.set_testing_io_provider(&fs))
-            .mock_and_return(
-                BxlComputeKey(bxl.dupe()),
-                anyhow::Ok(Arc::new(BxlResult::BuildsArtifacts {
-                    has_print: false,
-                    built: vec![],
-                    artifacts: vec![],
-                    deferred: deferred_result,
-                }))
-                .shared_error(),
-            );
-
-        let mut dice_data = UserComputationData::new();
-        set_fallback_executor_config(&mut dice_data.data, CommandExecutorConfig::testing_local());
-
-        let dice = dice.build(dice_data);
-        let deferred_result = dice.compute_deferred_data(&data0).await?;
-        assert_eq!(*deferred_result, 1);
-        assert!(executed0.load(Ordering::SeqCst));
-        // we should cache deferred execution
-        executed0.store(false, Ordering::SeqCst);
-        let deferred_result = dice.compute_deferred_data(&data0).await?;
-        assert_eq!(*deferred_result, 1);
-        assert!(!executed0.load(Ordering::SeqCst));
-
-        let deferred_result = dice.compute_deferred_data(&data1).await?;
-        assert_eq!(*deferred_result, 5);
-        assert!(executed1.load(Ordering::SeqCst));
-        // we should cache deferred execution
-        executed1.store(false, Ordering::SeqCst);
-        assert_eq!(*deferred_result, 5);
-        assert!(!executed1.load(Ordering::SeqCst));
 
         Ok(())
     }

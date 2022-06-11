@@ -28,6 +28,7 @@ use buck2_build_api::{
         BuildInterpreterConfiguror,
     },
 };
+use buck2_bxl::bxl::calculation::BxlCalculationImpl;
 use buck2_common::legacy_configs::BuckConfigBasedCells;
 use buck2_core::{
     exit_result::ExitResult,
@@ -129,7 +130,7 @@ fn main(fb: FacebookInit) -> ExitResult {
             legacy_configs.get(cells.root_cell()).ok(),
         )?;
 
-        let dice = configure_dice_for_buck(io, opt.detect_cycles);
+        let dice = configure_dice_for_buck(io, &BxlCalculationImpl, opt.detect_cycles);
         let per_request_data = {
             let mut data = DiceData::new();
             data.set(EventDispatcher::null());

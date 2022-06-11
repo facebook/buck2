@@ -18,6 +18,7 @@ use std::{collections::HashSet, convert::TryFrom, sync::Arc};
 
 use anyhow::Context as _;
 use buck2_build_api::{
+    bxl::calculation::BxlCalculationNoBxl,
     configure_dice::configure_dice_for_buck,
     interpreter::{
         context::{
@@ -229,7 +230,7 @@ fn main(fb: FacebookInit) -> ExitResult {
                 legacy_configs.get(cells.root_cell()).ok(),
             )?;
 
-            let dice = configure_dice_for_buck(io, opt.detect_cycles);
+            let dice = configure_dice_for_buck(io, &BxlCalculationNoBxl, opt.detect_cycles);
             let dice_data = {
                 let mut data = DiceData::new();
                 data.set(EventDispatcher::null());

@@ -3,11 +3,35 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_core::result::{SharedResult, ToSharedResultExt};
-use dice::{DiceComputations, Key};
-use gazebo::prelude::*;
+use buck2_core::result::{SharedError, SharedResult};
+use dice::DiceComputations;
 
-use crate::bxl::{eval::eval, result::BxlResult, BxlKey};
+use crate::bxl::{result::BxlResult, BxlKey};
+
+#[derive(Debug, thiserror::Error)]
+enum BxlCalculationError {
+    #[error("BxlCalculationDyn is not configured (internal error)")]
+    NoBxl,
+}
+
+#[async_trait]
+pub trait BxlCalculationDyn: Send + Sync + 'static {
+    async fn eval_ctx(&self, ctx: &DiceComputations, bxl: BxlKey) -> SharedResult<Arc<BxlResult>>;
+}
+
+/// Implementation which can be used when bxl crate is not available.
+pub struct BxlCalculationNoBxl;
+
+#[async_trait]
+impl BxlCalculationDyn for BxlCalculationNoBxl {
+    async fn eval_ctx(
+        &self,
+        _ctx: &DiceComputations,
+        _bxl: BxlKey,
+    ) -> SharedResult<Arc<BxlResult>> {
+        Err(SharedError::new(BxlCalculationError::NoBxl))
+    }
+}
 
 #[async_trait]
 pub trait BxlCalculation {
@@ -17,42 +41,10 @@ pub trait BxlCalculation {
 #[async_trait]
 impl BxlCalculation for DiceComputations {
     async fn eval_bxl<'a>(&self, bxl: BxlKey) -> SharedResult<Arc<BxlResult>> {
-        self.compute(&internal::BxlComputeKey(bxl)).await
-    }
-}
-
-#[async_trait]
-impl Key for internal::BxlComputeKey {
-    type Value = SharedResult<Arc<BxlResult>>;
-
-    async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-        let key = self.0.dupe();
-        ctx.temporary_spawn(async move |ctx| eval(ctx, key).await.shared_error().map(Arc::new))
+        self.global_data()
+            .get::<&'static dyn BxlCalculationDyn>()
+            .map_err(SharedError::new)?
+            .eval_ctx(self, bxl)
             .await
     }
-
-    fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-        false
-    }
-
-    fn validity(res: &Self::Value) -> bool {
-        // cheap hack to not cache bxl when printing
-        // TODO(T120858909) properly cache prints
-        res.as_ref().map_or(true, |res| !res.has_print())
-    }
-}
-
-mod internal {
-    use derive_more::Display;
-    use gazebo::prelude::*;
-
-    use crate::bxl::BxlKey;
-
-    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq)]
-    pub struct BxlComputeKey(pub BxlKey);
-}
-
-#[cfg(test)]
-pub mod testing {
-    pub use crate::bxl::calculation::internal::BxlComputeKey;
 }

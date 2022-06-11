@@ -52,6 +52,7 @@ use buck2_build_api::{
         BuildInterpreterConfiguror,
     },
 };
+use buck2_bxl::bxl::calculation::BxlCalculationImpl;
 use buck2_common::{
     dice::cells::HasCellResolver,
     file_ops::IgnoreSet,
@@ -712,7 +713,7 @@ impl DaemonState {
             .unwrap_or(10000);
         let event_logging_data = Arc::new(EventLoggingData { buffer_size });
 
-        let dice = configure_dice_for_buck(io.dupe(), detect_cycles);
+        let dice = configure_dice_for_buck(io.dupe(), &BxlCalculationImpl, detect_cycles);
         let ctx = dice.ctx();
         ctx.set_buck_out_path(Some(paths.buck_out_dir()));
         setup_interpreter_basic(&ctx, cells.dupe(), configuror, legacy_configs.dupe());

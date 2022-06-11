@@ -50,6 +50,7 @@ use buck2_build_api::{
         BuildInterpreterConfiguror,
     },
 };
+use buck2_bxl::bxl::calculation::BxlCalculationImpl;
 use buck2_common::{
     dice::cells::HasCellResolver,
     legacy_configs::{dice::HasLegacyConfigs, BuckConfigBasedCells},
@@ -225,7 +226,7 @@ fn setup(
         legacy_configs.get(cells.root_cell()).ok(),
     )?;
 
-    let dice = configure_dice_for_buck(io, opt.detect_cycles);
+    let dice = configure_dice_for_buck(io, &BxlCalculationImpl, opt.detect_cycles);
 
     let static_metadata = Arc::new(RemoteExecutionStaticMetadata::from_legacy_config(
         legacy_configs.get(cells.root_cell()).unwrap(),
