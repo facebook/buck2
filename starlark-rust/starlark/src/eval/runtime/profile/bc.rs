@@ -17,41 +17,27 @@
 
 //! Bytecode profiler.
 
-use std::{collections::HashMap, fs, iter::Sum, path::Path, time::Instant};
+use std::{collections::HashMap, fs, iter::Sum, path::Path};
 
 use gazebo::prelude::*;
 
 use crate::eval::{
     bc::opcode::BcOpcode,
-    runtime::{evaluator::EvaluatorError, profile::csv::CsvWriter, small_duration::SmallDuration},
+    runtime::{evaluator::EvaluatorError, profile::csv::CsvWriter},
 };
 
 #[derive(Default, Clone, Dupe, Copy)]
 struct BcInstrStat {
     count: u64,
-    total_time: SmallDuration,
 }
 
 impl<'a> Sum<&'a BcInstrStat> for BcInstrStat {
     fn sum<I: Iterator<Item = &'a BcInstrStat>>(iter: I) -> Self {
         let mut sum = BcInstrStat::default();
-        for BcInstrStat { count, total_time } in iter {
+        for BcInstrStat { count } in iter {
             sum.count += *count;
-            sum.total_time += *total_time;
         }
         sum
-    }
-}
-
-impl BcInstrStat {
-    fn avg_time(&self) -> SmallDuration {
-        if self.count == 0 {
-            SmallDuration::default()
-        } else {
-            SmallDuration {
-                nanos: self.total_time.nanos as u64 / self.count,
-            }
-        }
     }
 }
 
@@ -63,7 +49,6 @@ struct BcInstrPairsStat {
 }
 
 struct BcProfileData {
-    last: Option<(BcOpcode, Instant)>,
     by_instr: [BcInstrStat; BcOpcode::COUNT],
 }
 
@@ -77,7 +62,6 @@ struct BcPairsProfileData {
 impl Default for BcProfileData {
     fn default() -> Self {
         BcProfileData {
-            last: None,
             by_instr: [BcInstrStat::default(); BcOpcode::COUNT],
         }
     }
@@ -85,13 +69,7 @@ impl Default for BcProfileData {
 
 impl BcProfileData {
     fn before_instr(&mut self, opcode: BcOpcode) {
-        let now = Instant::now();
-        if let Some((last_opcode, last_time)) = self.last {
-            let last_duration = now.saturating_duration_since(last_time);
-            self.by_instr[last_opcode as usize].count += 1;
-            self.by_instr[last_opcode as usize].total_time += last_duration;
-        }
-        self.last = Some((opcode, now));
+        self.by_instr[opcode as usize].count += 1;
     }
 
     fn gen_csv(&self) -> String {
@@ -103,19 +81,11 @@ impl BcProfileData {
             .collect();
         by_instr.sort_by_key(|(_opcode, st)| u64::MAX - st.count);
         let total: BcInstrStat = by_instr.iter().map(|(_opcode, st)| *st).sum();
-        let mut csv = CsvWriter::new([
-            "Opcode",
-            "Count",
-            "Count / Total",
-            "Total time (s)",
-            "Avg time (ns)",
-        ]);
+        let mut csv = CsvWriter::new(["Opcode", "Count", "Count / Total"]);
         {
             csv.write_display("TOTAL");
             csv.write_value(total.count);
             csv.write_display(format!("{:.3}", 1.0));
-            csv.write_value(total.total_time);
-            csv.write_value(total.avg_time().nanos);
             csv.finish_row();
         }
         for (opcode, instr_stats) in &by_instr {
@@ -125,8 +95,6 @@ impl BcProfileData {
                 "{:.3}",
                 instr_stats.count as f64 / total.count as f64
             ));
-            csv.write_value(instr_stats.total_time);
-            csv.write_value(instr_stats.avg_time().nanos);
             csv.finish_row();
         }
         csv.finish()
