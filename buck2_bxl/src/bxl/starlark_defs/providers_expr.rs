@@ -1,5 +1,4 @@
 use buck2_build_api::{
-    bxl::common::ValueAsStarlarkTargetLabel,
     calculation::Calculation,
     interpreter::rule_defs::{
         label::{Label, StarlarkProvidersLabel},
@@ -22,10 +21,13 @@ use starlark::{
 };
 use thiserror::Error;
 
-use crate::bxl::starlark_defs::{
-    context::BxlContext,
-    nodes::{configured::StarlarkConfiguredTargetNode, unconfigured::StarlarkTargetNode},
-    targetset::StarlarkTargetSet,
+use crate::bxl::{
+    starlark_defs::{
+        context::BxlContext,
+        nodes::{configured::StarlarkConfiguredTargetNode, unconfigured::StarlarkTargetNode},
+        targetset::StarlarkTargetSet,
+    },
+    value_as_starlak_target_label::ValueAsStarlarkTargetLabel,
 };
 
 #[derive(Debug, Error)]

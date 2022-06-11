@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
 use buck2_build_api::{
-    bxl::common::ValueAsStarlarkTargetLabel, nodes::configured::ConfiguredTargetNode,
-    query::cquery::environment::CqueryEnvironment,
+    nodes::configured::ConfiguredTargetNode, query::cquery::environment::CqueryEnvironment,
 };
 use buck2_core::target::TargetLabel;
 use buck2_query::query::syntax::simple::functions::{
@@ -21,12 +20,15 @@ use starlark::{
     },
 };
 
-use crate::bxl::starlark_defs::{
-    context::BxlContext,
-    file_set::FileSetExpr,
-    target_expr::{targets, TargetExpr},
-    targetset::StarlarkTargetSet,
-    BxlError,
+use crate::bxl::{
+    starlark_defs::{
+        context::BxlContext,
+        file_set::FileSetExpr,
+        target_expr::{targets, TargetExpr},
+        targetset::StarlarkTargetSet,
+        BxlError,
+    },
+    value_as_starlak_target_label::ValueAsStarlarkTargetLabel,
 };
 
 /// The context for performing `cquery` operations in bxl. The functions offered on this ctx are
