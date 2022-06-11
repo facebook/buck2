@@ -43,6 +43,7 @@ struct ProcessedAttributes {
 fn parse_starlark_fn_param_attr(
     tokens: &Attribute,
     default: &mut Option<Expr>,
+    this: &mut bool,
     pos_only: &mut bool,
     named_only: &mut bool,
 ) -> syn::Result<()> {
@@ -64,6 +65,9 @@ fn parse_starlark_fn_param_attr(
                 parser.parse::<Token![=]>()?;
                 *default = Some(parser.parse::<Expr>()?);
                 continue;
+            } else if ident == "this" {
+                *this = true;
+                continue;
             } else if ident == "require" {
                 parser.parse::<Token!(=)>()?;
                 let require = parser.parse::<Ident>()?;
@@ -80,8 +84,9 @@ fn parse_starlark_fn_param_attr(
                 ident.span(),
                 "Expecting \
                     `#[starlark(default = expr)]`, \
-                    `#[starlark(require = pos)]`, or \
-                    `#[starlark(require = named)]` attribute",
+                    `#[starlark(require = pos)]`, \
+                    `#[starlark(require = named)]`, \
+                    `#[starlark(this)]` attribute",
             ));
         }
         Ok(())
@@ -213,9 +218,9 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
 
     let mut seen_star_args = false;
     let mut args = Vec::new();
-    for arg in func.sig.inputs {
+    for (i, arg) in func.sig.inputs.into_iter().enumerate() {
         let span = arg.span();
-        let parsed_arg = parse_arg(arg, has_v, seen_star_args)?;
+        let parsed_arg = parse_arg(arg, has_v, seen_star_args, module_kind, i)?;
         match parsed_arg {
             StarArgOrSpecial::Heap(special) => {
                 if heap.is_some() {
@@ -502,7 +507,16 @@ fn is_heap(ident: &Ident, ty: &Type) -> syn::Result<Option<SpecialParam>> {
     }
 }
 
-fn parse_arg(x: FnArg, has_v: bool, seen_star_args: bool) -> syn::Result<StarArgOrSpecial> {
+#[allow(clippy::collapsible_else_if)]
+fn parse_arg(
+    x: FnArg,
+    has_v: bool,
+    seen_star_args: bool,
+    module_kind: ModuleKind,
+    param_index: usize,
+) -> syn::Result<StarArgOrSpecial> {
+    let this = module_kind == ModuleKind::Methods && param_index == 0;
+
     let span = x.span();
     match x {
         FnArg::Typed(PatType {
@@ -512,12 +526,22 @@ fn parse_arg(x: FnArg, has_v: bool, seen_star_args: bool) -> syn::Result<StarArg
             ..
         }) => {
             if let Some(heap) = is_heap(&ident.ident, &ty)? {
+                if this {
+                    return Err(syn::Error::new(
+                        span,
+                        "Receiver parameter cannot be `&Heap`",
+                    ));
+                }
                 return Ok(StarArgOrSpecial::Heap(heap));
             } else if let Some(eval) = is_eval(&ident.ident, &ty)? {
+                if this {
+                    return Err(syn::Error::new(
+                        span,
+                        "Receiver parameter cannot be `&mut Evaluator`",
+                    ));
+                }
                 return Ok(StarArgOrSpecial::Eval(eval));
             }
-
-            let this = ident.ident == "this";
 
             if ident.subpat.is_some() {
                 return Err(syn::Error::new(
@@ -538,11 +562,13 @@ fn parse_arg(x: FnArg, has_v: bool, seen_star_args: bool) -> syn::Result<StarArg
             let mut pos_only = false;
             let mut named_only = false;
             let mut unused_attrs = Vec::new();
+            let mut this_ann = false;
             for attr in attrs {
                 if attr.path.is_ident("starlark") {
                     parse_starlark_fn_param_attr(
                         &attr,
                         &mut default,
+                        &mut this_ann,
                         &mut pos_only,
                         &mut named_only,
                     )?;
@@ -550,6 +576,24 @@ fn parse_arg(x: FnArg, has_v: bool, seen_star_args: bool) -> syn::Result<StarArg
                     unused_attrs.push(attr);
                 }
             }
+
+            if this {
+                if !this_ann && ident.ident != "this" {
+                    return Err(syn::Error::new(
+                        span,
+                        "Receiver parameter must be named `this` \
+                            or have `#[starlark(this)]` annotation",
+                    ));
+                }
+            } else {
+                if this_ann {
+                    return Err(syn::Error::new(
+                        span,
+                        "Receiver parameter can be only first",
+                    ));
+                }
+            }
+
             let pass_style = match (this, seen_star_args, pos_only, named_only) {
                 (true, _, _, _) => StarArgPassStyle::PosOnly,
                 (false, true, true, _) => {
