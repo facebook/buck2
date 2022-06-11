@@ -7,18 +7,17 @@
  * of this source tree.
  */
 
+use buck2_build_api::bxl::build_result::StarlarkBuildResult;
 use gazebo::dupe::Dupe;
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
+    starlark_module, starlark_simple_value, starlark_type,
     values::{NoSerialize, ProvidesStaticType, StarlarkValue, Value, ValueLike},
 };
 
-use crate::bxl::{
-    build_result::StarlarkBuildResult,
-    starlark_defs::context::build::{
-        StarlarkFailedArtifactIterable, StarlarkFailedArtifactIterableGen,
-        StarlarkProvidersArtifactIterable, StarlarkProvidersArtifactIterableGen,
-    },
+use crate::bxl::starlark_defs::context::build::{
+    StarlarkFailedArtifactIterable, StarlarkFailedArtifactIterableGen,
+    StarlarkProvidersArtifactIterable, StarlarkProvidersArtifactIterableGen,
 };
 
 /// Starlark object for `StarlarkBuildResult` (which is not Starlark value).

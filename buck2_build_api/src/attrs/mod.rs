@@ -82,8 +82,8 @@ use crate::{
 };
 
 pub mod attr_type;
-pub(crate) mod coerced_attr;
-pub(crate) mod configured_attr;
+pub mod coerced_attr;
+pub mod configured_attr;
 
 #[cfg(test)]
 pub(crate) mod testing;

@@ -36,7 +36,7 @@ impl ArtifactFs {
     }
 
     /// Resolves the 'Artifact's to a 'ProjectRelativePathBuf'
-    pub(crate) fn resolve_artifactlike(
+    pub fn resolve_artifactlike(
         &self,
         artifactlike: &dyn StarlarkArtifactLike,
     ) -> anyhow::Result<ProjectRelativePathBuf> {

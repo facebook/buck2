@@ -1,20 +1,19 @@
 use std::sync::Arc;
 
+use buck2_build_api::query::{dice::DiceQueryDelegate, uquery::environment::UqueryEnvironment};
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
+    starlark_module, starlark_type,
     values::{
         AllocValue, Freeze, Freezer, Heap, NoSerialize, NoSimpleValue, StarlarkValue, Trace,
         UnpackValue, Value, ValueLike,
     },
 };
 
-use crate::{
-    bxl::starlark_defs::BxlError,
-    query::{dice::DiceQueryDelegate, uquery::environment::UqueryEnvironment},
-};
+use crate::bxl::starlark_defs::BxlError;
 
 #[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize)]
 #[derivative(Debug)]

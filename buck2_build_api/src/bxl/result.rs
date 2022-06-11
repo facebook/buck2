@@ -22,7 +22,7 @@ pub enum BxlResult {
 }
 
 impl BxlResult {
-    pub(super) fn new(
+    pub fn new(
         has_print: bool,
         ensured_artifacts: HashSet<Artifact>,
         deferred: DeferredTable,

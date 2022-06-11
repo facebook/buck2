@@ -16,6 +16,10 @@ use std::{
 };
 
 use anyhow::Context as _;
+use buck2_build_api::{
+    bxl::common::CliResolutionCtx,
+    interpreter::rule_defs::{label::StarlarkProvidersLabel, target_label::StarlarkTargetLabel},
+};
 pub use buck2_bxl_core::CliArgValue;
 use buck2_interpreter::pattern::{
     lex_target_pattern, ParsedPattern, ProvidersPattern, TargetPattern,
@@ -25,17 +29,13 @@ use gazebo::{any::ProvidesStaticType, prelude::*, variants::VariantName};
 use itertools::Itertools;
 use starlark::{
     environment::GlobalsBuilder,
+    starlark_module, starlark_simple_value, starlark_type,
     values::{
         float::StarlarkFloat, list::List, none::NoneType, Heap, NoSerialize, StarlarkValue,
         UnpackValue, Value, ValueError, ValueLike,
     },
 };
 use thiserror::Error;
-
-use crate::{
-    bxl::common::CliResolutionCtx,
-    interpreter::rule_defs::{label::StarlarkProvidersLabel, target_label::StarlarkTargetLabel},
-};
 
 /// Defines the cli args for the bxl function
 #[derive(Clone, Debug, Display, ProvidesStaticType, NoSerialize)]
@@ -471,18 +471,18 @@ pub fn register_cli_args_module(registry: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
+    use buck2_build_api::interpreter::rule_defs::{
+        label::StarlarkProvidersLabel, target_label::StarlarkTargetLabel,
+    };
     use buck2_core::{
         provider::{testing::ProvidersLabelTestExt, ProvidersLabel},
         target::{testing::TargetLabelExt, TargetLabel},
     };
     use starlark::values::{Heap, Value};
 
-    use crate::{
-        bxl::starlark_defs::cli_args::{CliArgType, CliArgValue},
-        interpreter::rule_defs::{
-            label::StarlarkProvidersLabel, target_label::StarlarkTargetLabel,
-        },
-    };
+    use crate::bxl::starlark_defs::cli_args::{CliArgType, CliArgValue};
 
     #[test]
     fn coerce_starlark() -> anyhow::Result<()> {
@@ -509,8 +509,12 @@ mod tests {
         );
 
         assert_eq!(
-            CliArgType::enumeration(hashset!["a".to_owned(), "b".to_owned(), "c".to_owned()])
-                .coerce_value(heap.alloc("a"))?,
+            CliArgType::enumeration(HashSet::from_iter([
+                "a".to_owned(),
+                "b".to_owned(),
+                "c".to_owned()
+            ]))
+            .coerce_value(heap.alloc("a"))?,
             CliArgValue::String("a".to_owned())
         );
 

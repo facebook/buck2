@@ -41,9 +41,9 @@ use crate::{
     },
 };
 
-pub(crate) mod calculation;
+pub mod calculation;
 pub(crate) mod configured_graph;
-pub(crate) mod registry;
+pub mod registry;
 
 pub use calculation::{profile_analysis, resolve_queries};
 use starlark::values::ValueTyped;
@@ -67,7 +67,7 @@ pub enum AnalysisError {
 }
 
 #[derive(Debug, Clone, Dupe)]
-pub(crate) struct AnalysisResult {
+pub struct AnalysisResult {
     /// The actual provider collection, validated to be the correct type (`FrozenProviderCollection`)
     provider_collection: FrozenProviderCollectionValue,
     deferred: DeferredTable,

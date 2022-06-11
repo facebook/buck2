@@ -1,18 +1,18 @@
 use anyhow::Context;
+use buck2_build_api::interpreter::rule_defs::{
+    label::{Label, StarlarkProvidersLabel},
+    target_label::{StarlarkConfiguredTargetLabel, StarlarkTargetLabel},
+};
 use buck2_core::provider::{ConfiguredProvidersLabel, ProviderName, ProvidersLabel, ProvidersName};
 use gazebo::prelude::*;
 use starlark::{
     environment::GlobalsBuilder,
     eval::Evaluator,
+    starlark_module,
     values::{
         list::{FrozenList, List},
         Value, ValueError,
     },
-};
-
-use crate::interpreter::rule_defs::{
-    label::{Label, StarlarkProvidersLabel},
-    target_label::{StarlarkConfiguredTargetLabel, StarlarkTargetLabel},
 };
 
 #[starlark_module]

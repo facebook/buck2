@@ -28,7 +28,7 @@ pub enum StarlarkBuildResult {
 }
 
 impl StarlarkBuildResult {
-    pub(crate) fn new(
+    pub fn new(
         result: SharedResult<
             Option<(
                 FrozenProviderCollectionValue,

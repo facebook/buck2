@@ -38,7 +38,7 @@ use crate::{
 ///                For an artifact declared as `foo/bar`, this is `foo/bar`.
 /// This trait also has some common functionality for `StarlarkValue` that we want shared between
 /// `StarlarkArtifact` and `StarlarkDeclaredArtifact`
-pub(crate) trait StarlarkArtifactLike: Display {
+pub trait StarlarkArtifactLike: Display {
     /// The contained artifact as an `OutputArtifact`, or error if that conversion is impossible
     fn output_artifact(&self) -> anyhow::Result<OutputArtifact>;
 
@@ -71,7 +71,7 @@ pub(crate) trait StarlarkArtifactLike: Display {
     fn fingerprint(&self) -> ArtifactPath<'_>;
 }
 
-pub(crate) trait ValueAsArtifactLike<'v> {
+pub trait ValueAsArtifactLike<'v> {
     fn as_artifact(&self) -> Option<&'v dyn StarlarkArtifactLike>;
 }
 

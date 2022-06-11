@@ -2,14 +2,14 @@
 
 use std::fmt::{Display, Formatter};
 
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use gazebo::{any::ProvidesStaticType, coerce::Coerce};
 use serde::{Serialize, Serializer};
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
+    starlark_complex_value, starlark_module, starlark_type,
     values::{Freeze, Heap, StarlarkValue, Trace, Value, ValueLike, ValueOf},
 };
-
-use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 
 /// An artifact that will be materialized to buck-out at the end of the bxl invocation.
 /// These artifacts can be printed to bxl's results. Doing so will print the path of the artifact

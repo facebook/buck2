@@ -8,7 +8,7 @@
  */
 
 mod starlark_artifact;
-mod starlark_artifact_like;
+pub mod starlark_artifact_like;
 mod starlark_artifact_value;
 mod starlark_declared_artifact;
 mod starlark_output_artifact;

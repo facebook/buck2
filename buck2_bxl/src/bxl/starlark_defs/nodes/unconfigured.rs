@@ -7,17 +7,18 @@
  * of this source tree.
  */
 
+use buck2_build_api::{
+    interpreter::rule_defs::target_label::StarlarkTargetLabel, nodes::unconfigured::TargetNode,
+};
 use derive_more::Display;
 use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
+    starlark_module, starlark_simple_value, starlark_type,
     values::{Heap, NoSerialize, StarlarkValue, UnpackValue, Value, ValueLike},
 };
 
-use crate::{
-    bxl::starlark_defs::nodes::unconfigured::attribute::StarlarkTargetNodeCoercedAttributes,
-    interpreter::rule_defs::target_label::StarlarkTargetLabel, nodes::unconfigured::TargetNode,
-};
+use crate::bxl::starlark_defs::nodes::unconfigured::attribute::StarlarkTargetNodeCoercedAttributes;
 
 pub mod attribute;
 

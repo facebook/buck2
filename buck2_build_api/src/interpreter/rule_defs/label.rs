@@ -58,7 +58,7 @@ impl<V> Serialize for LabelGen<V> {
 }
 
 impl<'v> Label<'v> {
-    pub(crate) fn new(heap: &'v Heap, label: ConfiguredProvidersLabel) -> Self {
+    pub fn new(heap: &'v Heap, label: ConfiguredProvidersLabel) -> Self {
         let package_string = heap.alloc(label.target().pkg().cell_relative_path().as_str());
         let name_string = heap.alloc(label.target().name().as_ref());
         let provider_string = match label.name() {
@@ -184,7 +184,7 @@ pub struct StarlarkProvidersLabelGen<V> {
 starlark_complex_value!(pub StarlarkProvidersLabel);
 
 impl<'v> StarlarkProvidersLabel<'v> {
-    pub(crate) fn new(heap: &'v Heap, label: ProvidersLabel) -> Self {
+    pub fn new(heap: &'v Heap, label: ProvidersLabel) -> Self {
         let name_string = heap.alloc(label.target().name().as_ref());
         let provider_string = match label.name() {
             ProvidersName::Default => Value::new_none(),

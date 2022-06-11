@@ -17,7 +17,6 @@ buck2_query = { path = "../buck2_query" }
 buck2_query_parser = { path = "../buck2_query_parser" }
 buck2_build_api_derive = { path = "../buck2_build_api_derive" }
 bumpalo = "3.8"
-clap = "3.1.5"
 dice = { path = "../dice/dice" }
 derive_more = "0.99.3"
 derivative = "2.1.1"

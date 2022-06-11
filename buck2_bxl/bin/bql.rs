@@ -20,14 +20,16 @@ use std::{borrow::Cow, convert::TryFrom, path::Path, sync::Arc};
 
 use anyhow::Context as _;
 use buck2_build_api::{
-    bxl::starlark_defs::configure_bxl_file_globals,
     configure_dice::configure_dice_for_buck,
     interpreter::context::{
         configure_build_file_globals, configure_extension_file_globals, fbcode_prelude,
         BuildInterpreterConfiguror,
     },
 };
-use buck2_bxl::{bql::eval::eval_bql, bxl::calculation::BxlCalculationImpl};
+use buck2_bxl::{
+    bql::eval::eval_bql,
+    bxl::{calculation::BxlCalculationImpl, starlark_defs::configure_bxl_file_globals},
+};
 use buck2_common::legacy_configs::BuckConfigBasedCells;
 use buck2_core::{
     exit_result::ExitResult,

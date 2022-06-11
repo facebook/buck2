@@ -58,7 +58,7 @@ use crate::{
 };
 
 #[async_trait]
-pub(crate) trait RuleAnalysisCalculation {
+pub trait RuleAnalysisCalculation {
     /// Returns the analysis result for a ConfiguredTargetLabel. This is the full set of Providers
     /// returned by the target's rule implementation function.
     async fn get_analysis_result(

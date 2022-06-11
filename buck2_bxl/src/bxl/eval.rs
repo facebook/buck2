@@ -1,4 +1,11 @@
+use std::collections::HashMap;
+
 use anyhow::Context;
+use buck2_build_api::{
+    bxl::{common::CliResolutionCtx, result::BxlResult, BxlFunctionLabel, BxlKey},
+    calculation::Calculation,
+    deferred::DeferredTable,
+};
 use buck2_common::{
     dice::{cells::HasCellResolver, data::HasIoProvider},
     legacy_configs::dice::HasLegacyConfigs,
@@ -14,19 +21,10 @@ use starlark::{
 };
 use thiserror::Error;
 
-use crate::{
-    bxl::{
-        common::CliResolutionCtx,
-        result::BxlResult,
-        starlark_defs::{
-            cli_args::{CliArgValue, CliArgValueExt},
-            context::{starlark_async::BxlSafeDiceComputations, BxlContext},
-            FrozenBxlFunction,
-        },
-        BxlFunctionLabel, BxlKey,
-    },
-    calculation::Calculation,
-    deferred::DeferredTable,
+use crate::bxl::starlark_defs::{
+    cli_args::{CliArgValue, CliArgValueExt},
+    context::{starlark_async::BxlSafeDiceComputations, BxlContext},
+    FrozenBxlFunction,
 };
 
 pub async fn eval(ctx: DiceTransaction, key: BxlKey) -> anyhow::Result<BxlResult> {
@@ -106,7 +104,7 @@ pub async fn eval(ctx: DiceTransaction, key: BxlKey) -> anyhow::Result<BxlResult
                 anyhow::Ok(BxlResult::new(
                     has_print,
                     ensured_artifacts,
-                    DeferredTable::new(hashmap! {}),
+                    DeferredTable::new(HashMap::new()),
                 ))
             }
         }

@@ -1,5 +1,9 @@
 use std::sync::Arc;
 
+use buck2_build_api::{
+    bxl::common::ValueAsStarlarkTargetLabel, nodes::configured::ConfiguredTargetNode,
+    query::cquery::environment::CqueryEnvironment,
+};
 use buck2_core::target::TargetLabel;
 use buck2_query::query::syntax::simple::functions::{
     helpers::CapturedExpr, DefaultQueryFunctions, DefaultQueryFunctionsModule,
@@ -7,28 +11,22 @@ use buck2_query::query::syntax::simple::functions::{
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
-use gazebo::{any::ProvidesStaticType, prelude::*};
+use gazebo::{any::ProvidesStaticType, dupe::Dupe, prelude::*};
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
+    starlark_module, starlark_type,
     values::{
         none::NoneOr, AllocValue, Freeze, Freezer, Heap, NoSerialize, NoSimpleValue, StarlarkValue,
         Trace, UnpackValue, Value, ValueLike,
     },
 };
 
-use crate::{
-    bxl::{
-        common::ValueAsStarlarkTargetLabel,
-        starlark_defs::{
-            context::BxlContext,
-            file_set::FileSetExpr,
-            target_expr::{targets, TargetExpr},
-            targetset::StarlarkTargetSet,
-            BxlError,
-        },
-    },
-    nodes::configured::ConfiguredTargetNode,
-    query::cquery::environment::CqueryEnvironment,
+use crate::bxl::starlark_defs::{
+    context::BxlContext,
+    file_set::FileSetExpr,
+    target_expr::{targets, TargetExpr},
+    targetset::StarlarkTargetSet,
+    BxlError,
 };
 
 /// The context for performing `cquery` operations in bxl. The functions offered on this ctx are

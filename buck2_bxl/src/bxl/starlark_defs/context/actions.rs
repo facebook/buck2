@@ -1,11 +1,16 @@
 //! Starlark Actions API for bxl functions
 //!
 
+use buck2_build_api::{
+    analysis::registry::AnalysisRegistry, bxl::common::EXECUTION_PLATFORM,
+    deferred::BaseDeferredKey,
+};
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
+    starlark_module, starlark_type,
     values::{
         AllocValue, Freeze, Freezer, Heap, NoSerialize, NoSimpleValue, StarlarkValue, Trace,
         UnpackValue, Value, ValueLike, ValueTyped,
@@ -13,14 +18,7 @@ use starlark::{
 };
 use thiserror::Error;
 
-use crate::{
-    analysis::registry::AnalysisRegistry,
-    bxl::{
-        common::EXECUTION_PLATFORM,
-        starlark_defs::{context::BxlContext, BxlError::NoFreeze},
-    },
-    deferred::BaseDeferredKey,
-};
+use crate::bxl::starlark_defs::{context::BxlContext, BxlError::NoFreeze};
 
 #[derive(Debug, Error)]
 enum BxlActionsError {

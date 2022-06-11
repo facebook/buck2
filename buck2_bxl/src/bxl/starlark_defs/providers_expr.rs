@@ -1,3 +1,12 @@
+use buck2_build_api::{
+    bxl::common::ValueAsStarlarkTargetLabel,
+    calculation::Calculation,
+    interpreter::rule_defs::{
+        label::{Label, StarlarkProvidersLabel},
+        target_label::StarlarkTargetLabel,
+    },
+    nodes::{configured::ConfiguredTargetNode, unconfigured::TargetNode},
+};
 use buck2_core::{
     cells::paths::CellRelativePath,
     package::Package,
@@ -13,21 +22,10 @@ use starlark::{
 };
 use thiserror::Error;
 
-use crate::{
-    bxl::{
-        common::ValueAsStarlarkTargetLabel,
-        starlark_defs::{
-            context::BxlContext,
-            nodes::{configured::StarlarkConfiguredTargetNode, unconfigured::StarlarkTargetNode},
-            targetset::StarlarkTargetSet,
-        },
-    },
-    calculation::Calculation,
-    interpreter::rule_defs::{
-        label::{Label, StarlarkProvidersLabel},
-        target_label::StarlarkTargetLabel,
-    },
-    nodes::{configured::ConfiguredTargetNode, unconfigured::TargetNode},
+use crate::bxl::starlark_defs::{
+    context::BxlContext,
+    nodes::{configured::StarlarkConfiguredTargetNode, unconfigured::StarlarkTargetNode},
+    targetset::StarlarkTargetSet,
 };
 
 #[derive(Debug, Error)]

@@ -7,8 +7,14 @@ description = "Buck V2 extension language"
 [dependencies]
 anyhow = "1.0.51"
 async-trait = "0.1.24"
+clap = "3.1.5"
+derivative = "2.1.1"
 derive_more = "0.99.3"
+either = "1.5"
+futures = "0.3"
 indexmap = { version = "1.6", features = ["serde-1"] }
+itertools = "0.10.0"
+serde = { version = "1.0", features = ["derive"] }
 structopt = "0.3.0"
 thiserror = "1.0.9"
 tokio = { version = "1.5", features = ["full"]}
@@ -25,10 +31,12 @@ events = { path = "../events" }
 starlark = { version = "0.8", path = "../starlark-rust/starlark" }
 
 buck2_build_api = { path = "../buck2_build_api" }
+buck2_bxl_core = { path = "../buck2_bxl_core" }
 buck2_common = { path = "../buck2_common" }
 buck2_core = { path = "../buck2_core" }
 buck2_interpreter = { path = "../buck2_interpreter" }
 buck2_query = { path = "../buck2_query" }
+buck2_query_parser = { path = "../buck2_query_parser" }
 
 [target.'cfg(unix)'.dependencies]
 jemallocator = { version = "0.3.2", features = ["profiling"] }

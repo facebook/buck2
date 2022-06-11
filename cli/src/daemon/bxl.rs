@@ -5,14 +5,12 @@ use buck2_build_api::{
     artifact_groups::ArtifactGroup,
     build::{materialize_artifact_group, MaterializationContext},
     bxl::{
-        build_result::StarlarkBuildResult,
-        calculation::BxlCalculation,
-        common::CliResolutionCtx,
-        eval::{get_bxl_callable, resolve_cli_args},
+        build_result::StarlarkBuildResult, calculation::BxlCalculation, common::CliResolutionCtx,
         BxlKey,
     },
     calculation::Calculation,
 };
+use buck2_bxl::bxl::eval::{get_bxl_callable, resolve_cli_args};
 use buck2_common::{dice::cells::HasCellResolver, legacy_configs::dice::HasLegacyConfigs};
 use buck2_core::{package::Package, result::SharedError};
 use buck2_interpreter::common::StarlarkModulePath;

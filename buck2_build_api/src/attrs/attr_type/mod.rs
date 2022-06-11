@@ -42,7 +42,7 @@ use crate::{
 
 pub(crate) mod any;
 pub mod arg;
-pub(crate) mod attr_literal;
+pub mod attr_literal;
 pub(crate) mod bool;
 pub(crate) mod configuration_dep;
 mod default_only;

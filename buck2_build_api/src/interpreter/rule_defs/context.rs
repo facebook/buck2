@@ -96,12 +96,12 @@ enum ContextError {
 /// Accessed via `ctx.actions.<function>`
 #[derive(ProvidesStaticType, Debug, Display, Trace, NoSerialize)]
 #[display(fmt = "{:?}", self)] // FIXME(ndmitchell): Better Display
-pub(crate) struct AnalysisActions<'v> {
+pub struct AnalysisActions<'v> {
     // Use a RefCell/Option so when we are done with it, without obtaining exclusive access,
     // we can take the internal state without having to clone it.
-    pub(crate) state: RefCell<Option<AnalysisRegistry<'v>>>,
+    pub state: RefCell<Option<AnalysisRegistry<'v>>>,
     // Copies from the ctx, so we can capture them for `dynamic`.
-    pub(crate) attributes: Value<'v>,
+    pub attributes: Value<'v>,
 }
 
 impl<'v> UnpackValue<'v> for &'v AnalysisActions<'v> {

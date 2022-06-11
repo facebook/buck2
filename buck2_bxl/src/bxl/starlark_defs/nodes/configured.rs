@@ -10,6 +10,16 @@
 use std::{borrow::Cow, path::Path};
 
 use anyhow::Context;
+use buck2_build_api::{
+    actions::artifact::{Artifact, SourceArtifact},
+    attrs::{attr_type::attr_literal::ConfiguredAttrTraversal, configured_attr::ConfiguredAttr},
+    deferred::AnyValue,
+    interpreter::rule_defs::{
+        artifact::StarlarkArtifact, target_label::StarlarkConfiguredTargetLabel,
+    },
+    nodes::configured::ConfiguredTargetNode,
+    path::BuckPath,
+};
 use buck2_common::dice::{cells::HasCellResolver, data::HasIoProvider};
 use buck2_core::{
     cells::paths::CellPath,
@@ -21,20 +31,11 @@ use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{
     collections::SmallMap,
     environment::{Methods, MethodsBuilder, MethodsStatic},
+    starlark_module, starlark_simple_value, starlark_type,
     values::{structs::Struct, Heap, NoSerialize, StarlarkValue, UnpackValue, Value, ValueLike},
 };
 
-use crate::{
-    actions::artifact::{Artifact, SourceArtifact},
-    attrs::{attr_type::attr_literal::ConfiguredAttrTraversal, configured_attr::ConfiguredAttr},
-    bxl::starlark_defs::context::BxlContext,
-    deferred::AnyValue,
-    interpreter::rule_defs::{
-        artifact::StarlarkArtifact, target_label::StarlarkConfiguredTargetLabel,
-    },
-    nodes::configured::ConfiguredTargetNode,
-    path::BuckPath,
-};
+use crate::bxl::starlark_defs::context::BxlContext;
 
 #[derive(Debug, Display, ProvidesStaticType)]
 #[derive(NoSerialize)] // TODO probably should be serializable the same as how queries serialize

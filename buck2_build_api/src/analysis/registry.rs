@@ -37,7 +37,7 @@ use crate::{
 
 #[derive(Derivative, Trace)]
 #[derivative(Debug)]
-pub(crate) struct AnalysisRegistry<'v> {
+pub struct AnalysisRegistry<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     deferred: DeferredRegistry,
@@ -60,7 +60,7 @@ enum DeclaredArtifactError {
 }
 
 impl<'v> AnalysisRegistry<'v> {
-    pub(crate) fn new_from_owner(
+    pub fn new_from_owner(
         owner: BaseDeferredKey,
         execution_platform: ExecutionPlatformResolution,
     ) -> Self {
@@ -217,7 +217,7 @@ impl<'v> AnalysisRegistry<'v> {
 
     /// You MUST pass the same module to both the first function and the second one.
     /// It requires both to get the lifetimes to line up.
-    pub(crate) fn finalize(
+    pub fn finalize(
         self,
         env: &'v Module,
     ) -> impl FnOnce(Module) -> anyhow::Result<(FrozenModule, DeferredRegistry)> {

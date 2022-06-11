@@ -1,11 +1,11 @@
+use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_core::provider::ConfiguredProvidersLabel;
 use dice::DiceComputations;
 use either::Either;
 use gazebo::prelude::*;
 
-use crate::{
-    analysis::calculation::RuleAnalysisCalculation,
-    bxl::starlark_defs::{analysis_result::StarlarkAnalysisResult, providers_expr::ProvidersExpr},
+use crate::bxl::starlark_defs::{
+    analysis_result::StarlarkAnalysisResult, providers_expr::ProvidersExpr,
 };
 
 pub(crate) async fn analysis(

@@ -8,13 +8,15 @@
  */
 
 use anyhow::Context;
+use buck2_build_api::attrs::coerced_attr::CoercedAttr;
 use derive_more::{Display, From};
 use gazebo::{any::ProvidesStaticType, coerce::Coerce};
-use starlark::values::{Freeze, Heap, NoSerialize, StarlarkValue, Trace, Value, ValueLike};
-
-use crate::{
-    attrs::coerced_attr::CoercedAttr, bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode,
+use starlark::{
+    starlark_complex_value, starlark_simple_value, starlark_type,
+    values::{Freeze, Heap, NoSerialize, StarlarkValue, Trace, Value, ValueLike},
 };
+
+use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 
 #[derive(
     Debug,

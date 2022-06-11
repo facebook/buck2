@@ -1,27 +1,24 @@
 //!
 //! Implements the ability for bxl to build targets
-
 use std::sync::Arc;
 
+use buck2_build_api::{
+    build::{build_configured_label, MaterializationContext, ProvidersToBuild},
+    bxl::build_result::StarlarkBuildResult,
+    interpreter::rule_defs::{artifact::StarlarkArtifact, label::Label},
+};
 use buck2_core::result::ToSharedResultExt;
 use derive_more::Display;
 use gazebo::{any::ProvidesStaticType, coerce::Coerce, dupe::Dupe};
 use starlark::{
     collections::small_map::SmallMap,
     eval::Evaluator,
+    starlark_complex_value, starlark_type,
     values::{Freeze, Heap, NoSerialize, StarlarkValue, Trace, Value, ValueLike},
 };
 
-use crate::{
-    build::{build_configured_label, MaterializationContext, ProvidersToBuild},
-    bxl::{
-        build_result::StarlarkBuildResult,
-        starlark_defs::{
-            build_result::StarlarkBxlBuildResult, context::BxlContext,
-            providers_expr::ProvidersExpr,
-        },
-    },
-    interpreter::rule_defs::{artifact::StarlarkArtifact, label::Label},
+use crate::bxl::starlark_defs::{
+    build_result::StarlarkBxlBuildResult, context::BxlContext, providers_expr::ProvidersExpr,
 };
 
 #[derive(

@@ -23,7 +23,7 @@ use crate::{
 // TODO(bobyf) this should be configured by the bxl function similar to
 // execution groups, which we don't have yet. Currently we hard code this to
 // local since IDE will mostly be invoking local tools anyways
-pub(crate) static EXECUTION_PLATFORM: Lazy<ExecutionPlatformResolution> = Lazy::new(|| {
+pub static EXECUTION_PLATFORM: Lazy<ExecutionPlatformResolution> = Lazy::new(|| {
     ExecutionPlatformResolution::new(
         Some(Arc::new(ExecutionPlatform::LegacyExecutionPlatform {
             executor_config: CommandExecutorConfig::new_with_default_path_separator(
@@ -47,7 +47,7 @@ enum ValueAsTargetLabelError {
     NotATarget(String),
 }
 
-pub(crate) trait ValueAsStarlarkTargetLabel {
+pub trait ValueAsStarlarkTargetLabel {
     fn parse_target_platforms(
         self,
         target_alias_resolver: &TargetAliasResolver,

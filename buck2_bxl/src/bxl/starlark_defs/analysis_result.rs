@@ -1,14 +1,13 @@
+use buck2_build_api::analysis::AnalysisResult;
 use buck2_core::provider::ConfiguredProvidersLabel;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
+    starlark_module, starlark_simple_value, starlark_type,
     values::{FrozenValue, NoSerialize, StarlarkValue},
 };
 
-use crate::analysis::AnalysisResult;
-
-/// The result of analyzing a rule, containing the providers and the actions.
 #[derive(ProvidesStaticType, Debug, Display, NoSerialize)]
 #[display(fmt = "{:?}", self)]
 pub struct StarlarkAnalysisResult {

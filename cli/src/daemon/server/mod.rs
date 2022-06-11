@@ -28,7 +28,6 @@ use buck2_build_api::{
         build_listener::{self, BuildSignalSender, SetBuildSignals},
         run::knobs::{HasRunActionKnobs, RunActionKnobs},
     },
-    bxl::starlark_defs::configure_bxl_file_globals,
     configure_dice::configure_dice_for_buck,
     context::SetBuildContextData,
     execute::{
@@ -52,7 +51,7 @@ use buck2_build_api::{
         BuildInterpreterConfiguror,
     },
 };
-use buck2_bxl::bxl::calculation::BxlCalculationImpl;
+use buck2_bxl::bxl::{calculation::BxlCalculationImpl, starlark_defs::configure_bxl_file_globals};
 use buck2_common::{
     dice::cells::HasCellResolver,
     file_ops::IgnoreSet,

@@ -3,6 +3,10 @@
 
 use std::{cell::RefCell, sync::Arc};
 
+use buck2_build_api::{
+    actions::artifact::ArtifactFs,
+    interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike,
+};
 use buck2_core::fs::project::ProjectFilesystem;
 use derivative::Derivative;
 use derive_more::Display;
@@ -11,20 +15,17 @@ use itertools::Itertools;
 use starlark::{
     collections::SmallSet,
     environment::{Methods, MethodsBuilder, MethodsStatic},
+    starlark_module, starlark_type,
     values::{
         list::ListRef, none::NoneType, AllocValue, Freeze, Freezer, Heap, NoSerialize,
         NoSimpleValue, StarlarkValue, Trace, UnpackValue, Value, ValueError, ValueLike,
     },
 };
 
-use crate::{
-    actions::artifact::ArtifactFs,
-    bxl::starlark_defs::{
-        artifacts::{EnsuredArtifact, EnsuredArtifactGen},
-        context::build::StarlarkProvidersArtifactIterable,
-        BxlError::NoFreeze,
-    },
-    interpreter::rule_defs::artifact::ValueAsArtifactLike,
+use crate::bxl::starlark_defs::{
+    artifacts::{EnsuredArtifact, EnsuredArtifactGen},
+    context::build::StarlarkProvidersArtifactIterable,
+    BxlError::NoFreeze,
 };
 
 #[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize)]

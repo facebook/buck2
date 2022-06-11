@@ -12,7 +12,14 @@
 use std::{cell::RefCell, fmt, fmt::Display, sync::Arc};
 
 use anyhow::Context;
-use buck2_interpreter::{common::BxlFilePath, extra::BuildContext};
+use buck2_build_api::{
+    bxl::common::CliResolutionCtx,
+    interpreter::rule_defs::{
+        cmd_args::register_args_function, provider::register_builtin_providers,
+    },
+};
+use buck2_bxl_core::BxlFunctionLabel;
+use buck2_interpreter::{build_defs::register_natives, common::BxlFilePath, extra::BuildContext};
 use cli_args::CliArgs;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
@@ -20,6 +27,7 @@ use starlark::{
     collections::SmallMap,
     environment::GlobalsBuilder,
     eval::Evaluator,
+    starlark_simple_value, starlark_type,
     values::{
         dict::DictOf, AllocValue, Freeze, Freezer, FrozenValue, Heap, NoSerialize, StarlarkValue,
         Trace, Value,
@@ -27,19 +35,9 @@ use starlark::{
 };
 use thiserror::Error;
 
-use crate::{
-    bxl::{
-        common::CliResolutionCtx,
-        starlark_defs::{
-            cli_args::{ArgAccessor, CliArgValue},
-            functions::register_label_function,
-        },
-        BxlFunctionLabel,
-    },
-    interpreter::{
-        build_defs::register_natives,
-        rule_defs::{cmd_args::register_args_function, provider::register_builtin_providers},
-    },
+use crate::bxl::starlark_defs::{
+    cli_args::{ArgAccessor, CliArgValue},
+    functions::register_label_function,
 };
 
 pub mod alloc_node;
@@ -56,6 +54,7 @@ pub mod providers_expr;
 pub mod target_expr;
 pub mod targetset;
 pub mod uquery;
+use starlark::starlark_module;
 
 #[starlark_module]
 pub fn register_bxl_function(builder: &mut GlobalsBuilder) {

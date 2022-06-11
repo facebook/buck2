@@ -13,7 +13,7 @@ use buck2_query::query::{environment::QueryEnvironment, syntax::simple::eval::fi
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
 use starlark::{
-    starlark_type,
+    starlark_simple_value, starlark_type,
     values::{NoSerialize, StarlarkValue, UnpackValue, Value, ValueLike},
 };
 use thiserror::Error;
