@@ -290,8 +290,8 @@ impl<'a> AsyncNodeLookup<ActionQueryNode> for AqueryEnvironment<'a> {
 impl<'c> QueryEnvironment for AqueryEnvironment<'c> {
     type Target = ActionQueryNode;
 
-    async fn get_node(&self, node_ref: ActionKey) -> anyhow::Result<Self::Target> {
-        AqueryEnvironment::get_node(self, &node_ref).await
+    async fn get_node(&self, node_ref: &ActionKey) -> anyhow::Result<Self::Target> {
+        AqueryEnvironment::get_node(self, node_ref).await
     }
 
     async fn eval_literals(&self, literals: &[&str]) -> anyhow::Result<TargetSet<Self::Target>> {

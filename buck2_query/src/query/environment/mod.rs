@@ -142,7 +142,7 @@ pub trait QueryEnvironment: Send + Sync {
 
     async fn get_node(
         &self,
-        node_ref: <Self::Target as QueryTarget>::NodeRef,
+        node_ref: &<Self::Target as QueryTarget>::NodeRef,
     ) -> anyhow::Result<Self::Target>;
 
     /// Evaluates a literal target pattern. See buck2_interpreter::pattern
@@ -278,7 +278,7 @@ pub trait QueryEnvironment: Send + Sync {
             .into_iter()
             .flat_map(|(target, tests)| {
                 tests.into_iter().map(move |test| async move {
-                    let test = self.get_node(test).await.with_context(|| {
+                    let test = self.get_node(&test).await.with_context(|| {
                         format!(
                             "Error getting test of target {}",
                             QueryTarget::node_ref(target),

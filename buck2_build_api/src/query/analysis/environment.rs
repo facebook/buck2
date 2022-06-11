@@ -199,8 +199,8 @@ impl<'a> ConfiguredGraphQueryEnvironment<'a> {
 impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
     type Target = ConfiguredGraphNodeRef;
 
-    async fn get_node(&self, node_ref: ConfiguredGraphNodeRef) -> anyhow::Result<Self::Target> {
-        Ok(node_ref)
+    async fn get_node(&self, node_ref: &ConfiguredGraphNodeRef) -> anyhow::Result<Self::Target> {
+        Ok(node_ref.dupe())
     }
 
     async fn eval_literals(&self, literal: &[&str]) -> anyhow::Result<TargetSet<Self::Target>> {

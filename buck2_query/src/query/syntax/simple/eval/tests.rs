@@ -105,7 +105,7 @@ struct Env;
 impl QueryEnvironment for Env {
     type Target = Target;
 
-    async fn get_node(&self, _node_ref: TargetRef) -> anyhow::Result<Self::Target> {
+    async fn get_node(&self, _node_ref: &TargetRef) -> anyhow::Result<Self::Target> {
         unimplemented!()
     }
 

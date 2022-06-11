@@ -240,8 +240,8 @@ impl<'c> UqueryEnvironment<'c> {
 impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
     type Target = TargetNode;
 
-    async fn get_node(&self, node_ref: TargetLabel) -> anyhow::Result<Self::Target> {
-        UqueryEnvironment::get_node(self, &node_ref).await
+    async fn get_node(&self, node_ref: &TargetLabel) -> anyhow::Result<Self::Target> {
+        UqueryEnvironment::get_node(self, node_ref).await
     }
 
     async fn eval_literals(&self, literals: &[&str]) -> anyhow::Result<TargetSet<TargetNode>> {

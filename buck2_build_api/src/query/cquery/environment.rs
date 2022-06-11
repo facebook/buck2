@@ -169,8 +169,8 @@ impl<'c> CqueryEnvironment<'c> {
 impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
     type Target = ConfiguredTargetNode;
 
-    async fn get_node(&self, node_ref: ConfiguredTargetLabel) -> anyhow::Result<Self::Target> {
-        CqueryEnvironment::get_node(self, &node_ref).await
+    async fn get_node(&self, node_ref: &ConfiguredTargetLabel) -> anyhow::Result<Self::Target> {
+        CqueryEnvironment::get_node(self, node_ref).await
     }
 
     async fn eval_literals(&self, literals: &[&str]) -> anyhow::Result<TargetSet<Self::Target>> {
