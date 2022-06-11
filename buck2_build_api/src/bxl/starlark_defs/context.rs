@@ -10,7 +10,7 @@
 //! The context containing the available buck commands and query operations for `bxl` functions.
 //!
 
-use std::{cell::RefCell, sync::Arc};
+use std::{cell::RefCell, collections::HashSet, sync::Arc};
 
 use buck2_common::{
     dice::{cells::HasCellResolver, data::HasIoProvider},
@@ -27,7 +27,6 @@ use derive_more::Display;
 use dice::DiceComputations;
 use either::Either;
 use gazebo::any::ProvidesStaticType;
-use hashbrown::HashSet;
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
     eval::Evaluator,
