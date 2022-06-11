@@ -15,7 +15,7 @@ use derive_more::Display;
 use gazebo::{any::ProvidesStaticType, cell::ARef};
 use starlark::{
     eval::Evaluator,
-    starlark_type,
+    starlark_simple_value, starlark_type,
     values::{NoSerialize, StarlarkValue, UnpackValue, Value},
 };
 use thiserror::Error;

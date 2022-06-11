@@ -9,4 +9,5 @@
 
 #![feature(async_closure)]
 
+pub mod bql;
 pub mod bxl;

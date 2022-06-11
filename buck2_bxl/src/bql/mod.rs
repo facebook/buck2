@@ -11,20 +11,20 @@
 //!
 //! See <https://buck.build/command/query.html#allpaths> and <https://docs.bazel.build/versions/master/query.html> for rough semantics
 
+use buck2_build_api::{
+    bxl::starlark_defs::targetset::StarlarkTargetSet, nodes::unconfigured::TargetNode,
+};
 use buck2_query::query::syntax::simple::eval::set::TargetSetExt;
 use starlark::{
     environment::GlobalsBuilder,
     eval::Evaluator,
+    starlark_module,
     values::{Value, ValueOf},
 };
 
-use crate::{
-    bql::{
-        internals::{QueryInternals, TargetExpr},
-        values::fileset::{FileSetExpr, StarlarkFileSet},
-    },
-    bxl::starlark_defs::targetset::StarlarkTargetSet,
-    nodes::unconfigured::TargetNode,
+use crate::bql::{
+    internals::{QueryInternals, TargetExpr},
+    values::fileset::{FileSetExpr, StarlarkFileSet},
 };
 
 pub mod eval;

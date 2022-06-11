@@ -9,6 +9,7 @@
 
 use std::{fmt::Write, sync::Arc};
 
+use buck2_build_api::query::{dice::DiceQueryDelegate, uquery::environment::UqueryEnvironment};
 use buck2_common::{
     dice::cells::HasCellResolver, package_boundary::HasPackageBoundaryExceptions,
     target_aliases::HasTargetAliasResolver,
@@ -24,10 +25,7 @@ use starlark::{
 };
 use tokio::runtime::Handle;
 
-use crate::{
-    bql::{internals::QueryInternals, register_query_functions},
-    query::{dice::DiceQueryDelegate, uquery::environment::UqueryEnvironment},
-};
+use crate::bql::{internals::QueryInternals, register_query_functions};
 
 /// Evaluates some bql script. TargetNodes are resolved via the interpreter from
 /// the provided DiceCtx.

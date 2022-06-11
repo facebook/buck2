@@ -10,6 +10,7 @@ async-trait = "0.1.24"
 derive_more = "0.99.3"
 indexmap = { version = "1.6", features = ["serde-1"] }
 structopt = "0.3.0"
+thiserror = "1.0.9"
 tokio = { version = "1.5", features = ["full"]}
 
 fbinit.version = "0.1"
@@ -27,6 +28,7 @@ buck2_build_api = { path = "../buck2_build_api" }
 buck2_common = { path = "../buck2_common" }
 buck2_core = { path = "../buck2_core" }
 buck2_interpreter = { path = "../buck2_interpreter" }
+buck2_query = { path = "../buck2_query" }
 
 [target.'cfg(unix)'.dependencies]
 jemallocator = { version = "0.3.2", features = ["profiling"] }

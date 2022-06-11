@@ -33,7 +33,6 @@ pub mod actions;
 pub mod analysis;
 pub mod artifact_groups;
 pub mod attrs;
-pub mod bql;
 pub mod build;
 pub mod bxl;
 pub mod calculation;

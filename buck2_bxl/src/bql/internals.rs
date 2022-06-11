@@ -10,6 +10,9 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use buck2_build_api::{
+    bxl::starlark_defs::targetset::StarlarkTargetSet, nodes::unconfigured::TargetNode,
+};
 use buck2_query::query::{environment::QueryEnvironment, syntax::simple::eval::set::TargetSet};
 use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{
@@ -17,8 +20,6 @@ use starlark::{
     values::{list::List, Heap, UnpackValue, Value, ValueLike, ValueOf},
 };
 use tokio::runtime::Handle;
-
-use crate::{bxl::starlark_defs::targetset::StarlarkTargetSet, nodes::unconfigured::TargetNode};
 
 /// QueryInternals is added as part of the Starlark context's extra information.
 /// Anything we need to implement the starlark-exposed functions will be
