@@ -54,6 +54,7 @@ use crate::{
         runtime::{arguments::ArgumentsFull, call_stack::FrozenFileSpan},
         Arguments, Evaluator, ParametersSpec,
     },
+    sealed::Sealed,
     values::{
         dict::FrozenDict,
         docs::DocItem,
@@ -1004,6 +1005,7 @@ pub trait ValueLike<'v>:
     + Serialize
     + CoerceKey<Value<'v>>
     + Freeze<Frozen = FrozenValue>
+    + Sealed
 {
     /// `StringValue` or `FrozenStringValue`.
     type String: StringValueLike<'v>;
@@ -1064,6 +1066,8 @@ pub trait ValueLike<'v>:
 #[derive(Debug, thiserror::Error)]
 #[error("Cycle detected when serializing value of type `{0}` to JSON")]
 struct ToJsonCycleError(&'static str);
+
+impl<'v> Sealed for Value<'v> {}
 
 impl<'v> ValueLike<'v> for Value<'v> {
     type String = StringValue<'v>;
@@ -1126,6 +1130,8 @@ impl<'v> ValueLike<'v> for Value<'v> {
         self.get_ref().value_as_dyn_any()
     }
 }
+
+impl Sealed for FrozenValue {}
 
 impl<'v> ValueLike<'v> for FrozenValue {
     type String = FrozenStringValue;

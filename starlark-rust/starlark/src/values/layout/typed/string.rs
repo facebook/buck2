@@ -30,6 +30,7 @@ use serde::Serialize;
 
 use crate::{
     collections::Hashed,
+    sealed::Sealed,
     values::{
         layout::static_string::VALUE_EMPTY_STRING, string::StarlarkStr, Freeze, Freezer,
         FrozenValue, FrozenValueTyped, Trace, Value, ValueTyped,
@@ -156,6 +157,7 @@ pub trait StringValueLike<'v>:
     + Clone
     + Dupe
     + Serialize
+    + Sealed
 {
     /// Convert to a [`StringValue`].
     fn to_string_value(self) -> StringValue<'v>;
@@ -166,11 +168,15 @@ pub trait StringValueLike<'v>:
     }
 }
 
+impl<'v> Sealed for StringValue<'v> {}
+
 impl<'v> StringValueLike<'v> for StringValue<'v> {
     fn to_string_value(self) -> StringValue<'v> {
         self
     }
 }
+
+impl Sealed for FrozenStringValue {}
 
 impl<'v> StringValueLike<'v> for FrozenStringValue {
     fn to_string_value(self) -> StringValue<'v> {
