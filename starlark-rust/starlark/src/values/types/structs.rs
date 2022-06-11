@@ -365,14 +365,14 @@ json.encode(struct(foo = [struct(bar = "some")])) == '{"foo":[{"bar":"some"}]}'
                             name: "v".to_owned(),
                             docs: None,
                             typ: Some(docs::Type {
-                                raw_type: "\"\"".to_owned(),
+                                raw_type: "\"x\"".to_owned(),
                             }),
                             default_value: None,
                         }],
                         ret: docs::Return {
                             docs: None,
                             typ: Some(docs::Type {
-                                raw_type: "\"\"".to_owned(),
+                                raw_type: "\"y\"".to_owned(),
                             }),
                         },
                     }),
@@ -382,7 +382,7 @@ json.encode(struct(foo = [struct(bar = "some")])) == '{"foo":[{"bar":"some"}]}'
 
         let s = assert::pass(
             r#"
-def some_func(v: "") -> "":
+def some_func(v: "x") -> "y":
     """ some_func docs """
     return v
 

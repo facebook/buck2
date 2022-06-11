@@ -255,6 +255,18 @@ impl Compiler<'_, '_, '_> {
         }
     }
 
+    /// Compile expression when it is expected to be interpreted as type.
+    fn expr_for_type(&mut self, expr: Option<Box<CstExpr>>) -> Option<IrSpanned<ExprCompiled>> {
+        let expr = self.expr_opt(expr)?;
+        if let Some(value) = expr.as_value() {
+            if TypeCompiled::is_wildcard_value(value.to_value()) {
+                // When type is anything, skip type check.
+                return None;
+            }
+        }
+        Some(expr)
+    }
+
     fn parameter(
         &mut self,
         x: CstParameter,
@@ -264,7 +276,7 @@ impl Compiler<'_, '_, '_> {
             span,
             node: match x.node {
                 ParameterP::Normal(x, t) => {
-                    ParameterCompiled::Normal(self.parameter_name(x), self.expr_opt(t))
+                    ParameterCompiled::Normal(self.parameter_name(x), self.expr_for_type(t))
                 }
                 ParameterP::WithDefaultValue(x, t, v) => ParameterCompiled::WithDefaultValue(
                     self.parameter_name(x),
@@ -273,10 +285,10 @@ impl Compiler<'_, '_, '_> {
                 ),
                 ParameterP::NoArgs => ParameterCompiled::NoArgs,
                 ParameterP::Args(x, t) => {
-                    ParameterCompiled::Args(self.parameter_name(x), self.expr_opt(t))
+                    ParameterCompiled::Args(self.parameter_name(x), self.expr_for_type(t))
                 }
                 ParameterP::KwArgs(x, t) => {
-                    ParameterCompiled::KwArgs(self.parameter_name(x), self.expr_opt(t))
+                    ParameterCompiled::KwArgs(self.parameter_name(x), self.expr_for_type(t))
                 }
             },
         }
@@ -434,7 +446,7 @@ impl Compiler<'_, '_, '_> {
         // The parameters run in the scope of the parent, so compile them with the outer
         // scope
         let params = params.into_map(|x| self.parameter(x));
-        let return_type = return_type.map(|return_type| box self.expr(*return_type));
+        let return_type = self.expr_for_type(return_type).map(|t| box t);
 
         self.enter_scope(scope_id);
 

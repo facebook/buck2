@@ -21,6 +21,7 @@ mod def_inline;
 mod if_rand;
 mod speculative_exec;
 mod type_is;
+mod types;
 
 use crate::tests::bc::golden::bc_golden_test;
 

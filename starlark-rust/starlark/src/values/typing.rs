@@ -129,7 +129,7 @@ impl TypeCompiled {
         x == "" || x.starts_with('_')
     }
 
-    fn is_wildcard_value(x: Value) -> bool {
+    pub(crate) fn is_wildcard_value(x: Value) -> bool {
         x.unpack_str().map(TypeCompiled::is_wildcard) == Some(true)
     }
 
