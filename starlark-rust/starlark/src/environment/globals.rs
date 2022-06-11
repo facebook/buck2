@@ -322,6 +322,11 @@ impl GlobalsBuilder {
         )
     }
 
+    /// Heap where globals are allocated. Can be used to allocate additional values.
+    pub fn frozen_heap(&self) -> &FrozenHeap {
+        &self.heap
+    }
+
     /// Allocate a value using the same underlying heap as the [`GlobalsBuilder`],
     /// only intended for values that are referred to by those which are passed
     /// to [`set`](GlobalsBuilder::set).
