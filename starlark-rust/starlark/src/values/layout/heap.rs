@@ -387,6 +387,13 @@ impl Freezer {
             Either::Right(v) => unsafe { v.heap_freeze(self) },
         }
     }
+
+    /// Frozen heap where the values are frozen to.
+    ///
+    /// Can be used to allocate additional values while freezing.
+    pub fn frozen_heap(&self) -> &FrozenHeap {
+        &self.heap
+    }
 }
 
 impl Heap {
