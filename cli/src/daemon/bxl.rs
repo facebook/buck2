@@ -4,7 +4,7 @@ use anyhow::Context;
 use buck2_build_api::{
     artifact_groups::ArtifactGroup,
     build::{materialize_artifact_group, MaterializationContext},
-    bxl::{build_result::StarlarkBuildResult, calculation::BxlCalculation, BxlKey},
+    bxl::{build_result::BxlBuildResult, calculation::BxlCalculation, BxlKey},
     calculation::Calculation,
 };
 use buck2_bxl::bxl::eval::{get_bxl_callable, resolve_cli_args, CliResolutionCtx};
@@ -115,7 +115,7 @@ pub async fn ensure_artifacts(
             let mut futs = vec![];
 
             built.iter().for_each(|res| match res {
-                StarlarkBuildResult::Built { built, .. } => {
+                BxlBuildResult::Built { built, .. } => {
                     built.iter().for_each(|res| match res {
                         Ok(artifacts) => {
                             for (artifact, _value) in artifacts.values.iter() {
@@ -137,8 +137,8 @@ pub async fn ensure_artifacts(
                     });
                 }
 
-                StarlarkBuildResult::None => {}
-                StarlarkBuildResult::Error(e) => {
+                BxlBuildResult::None => {}
+                BxlBuildResult::Error(e) => {
                     futs.push(futures::future::ready(Err(e.dupe())).boxed())
                 }
             });

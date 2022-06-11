@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_build_api::bxl::build_result::StarlarkBuildResult;
+use buck2_build_api::bxl::build_result::BxlBuildResult;
 use gazebo::dupe::Dupe;
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
@@ -22,14 +22,14 @@ use crate::bxl::starlark_defs::context::build::{
 
 /// Starlark object for `StarlarkBuildResult` (which is not Starlark value).
 #[derive(Clone, Debug, derive_more::Display, ProvidesStaticType, NoSerialize)]
-pub(crate) struct StarlarkBxlBuildResult(pub(crate) StarlarkBuildResult);
+pub(crate) struct StarlarkBxlBuildResult(pub(crate) BxlBuildResult);
 
 #[starlark_module]
 fn starlark_build_result_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn err(this: &StarlarkBxlBuildResult) -> anyhow::Result<Option<String>> {
         Ok(match &this.0 {
-            StarlarkBuildResult::Error(e) => Some(format!("{:?}", e)),
+            BxlBuildResult::Error(e) => Some(format!("{:?}", e)),
             _ => None,
         })
     }
@@ -38,19 +38,17 @@ fn starlark_build_result_methods(builder: &mut MethodsBuilder) {
         this: Value<'v>,
     ) -> anyhow::Result<Option<StarlarkProvidersArtifactIterable<'v>>> {
         match &this.downcast_ref::<StarlarkBxlBuildResult>().unwrap().0 {
-            StarlarkBuildResult::Error(e) => Err(e.dupe().into()),
-            StarlarkBuildResult::None => Ok(None),
-            StarlarkBuildResult::Built { .. } => {
-                Ok(Some(StarlarkProvidersArtifactIterableGen(this)))
-            }
+            BxlBuildResult::Error(e) => Err(e.dupe().into()),
+            BxlBuildResult::None => Ok(None),
+            BxlBuildResult::Built { .. } => Ok(Some(StarlarkProvidersArtifactIterableGen(this))),
         }
     }
 
     fn failures<'v>(this: Value<'v>) -> anyhow::Result<Option<StarlarkFailedArtifactIterable<'v>>> {
         match &this.downcast_ref::<StarlarkBxlBuildResult>().unwrap().0 {
-            StarlarkBuildResult::Error(e) => Err(e.dupe().into()),
-            StarlarkBuildResult::None => Ok(None),
-            StarlarkBuildResult::Built { .. } => Ok(Some(StarlarkFailedArtifactIterableGen(this))),
+            BxlBuildResult::Error(e) => Err(e.dupe().into()),
+            BxlBuildResult::None => Ok(None),
+            BxlBuildResult::Built { .. } => Ok(Some(StarlarkFailedArtifactIterableGen(this))),
         }
     }
 }

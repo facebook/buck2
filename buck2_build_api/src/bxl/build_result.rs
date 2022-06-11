@@ -16,7 +16,7 @@ use crate::{
 };
 
 #[derive(Clone, Debug, derive_more::Display, ProvidesStaticType, UnpackVariants)]
-pub enum StarlarkBuildResult {
+pub enum BxlBuildResult {
     Error(SharedError),
     None,
     #[display(fmt = "successful build result")]
@@ -27,7 +27,7 @@ pub enum StarlarkBuildResult {
     },
 }
 
-impl StarlarkBuildResult {
+impl BxlBuildResult {
     pub fn new(
         result: SharedResult<
             Option<(

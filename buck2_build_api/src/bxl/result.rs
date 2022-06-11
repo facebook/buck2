@@ -4,7 +4,7 @@ use itertools::Itertools;
 
 use crate::{
     actions::artifact::Artifact,
-    bxl::build_result::StarlarkBuildResult,
+    bxl::build_result::BxlBuildResult,
     deferred::{DeferredAny, DeferredId, DeferredTable},
 };
 
@@ -15,7 +15,7 @@ pub enum BxlResult {
     /// a bxl that deals with builds
     BuildsArtifacts {
         has_print: bool,
-        built: Vec<StarlarkBuildResult>,
+        built: Vec<BxlBuildResult>,
         artifacts: Vec<Artifact>,
         deferred: DeferredTable,
     },

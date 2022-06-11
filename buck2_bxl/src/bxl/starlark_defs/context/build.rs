@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use buck2_build_api::{
     build::{build_configured_label, MaterializationContext, ProvidersToBuild},
-    bxl::build_result::StarlarkBuildResult,
+    bxl::build_result::BxlBuildResult,
     interpreter::rule_defs::{artifact::StarlarkArtifact, label::Label},
 };
 use buck2_core::result::ToSharedResultExt;
@@ -161,7 +161,7 @@ pub(crate) fn build<'v>(
                     .get_hashed()
                     .unwrap(),
                 eval.heap()
-                    .alloc(StarlarkBxlBuildResult(StarlarkBuildResult::new(result))),
+                    .alloc(StarlarkBxlBuildResult(BxlBuildResult::new(result))),
             )
         })
         .collect::<SmallMap<_, _>>())
