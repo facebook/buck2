@@ -15,7 +15,13 @@
  * limitations under the License.
  */
 
-use std::{any::TypeId, cmp, fmt::Debug, mem, mem::MaybeUninit};
+use std::{
+    any::{type_name, TypeId},
+    cmp,
+    fmt::Debug,
+    mem,
+    mem::MaybeUninit,
+};
 
 use derive_more::Display;
 use gazebo::{any::ProvidesStaticType, cast, prelude::*};
@@ -116,6 +122,12 @@ impl ValueEmptyArray {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+enum AValueError {
+    #[error("Value of type `{0}` cannot be frozen")]
+    CannotBeFrozen(&'static str),
+}
+
 /// Sized counterpart of [`AValueDyn`].
 pub(crate) trait AValue<'v>: StarlarkValueDyn<'v> + Sized {
     /// Unwrapped type.
@@ -212,6 +224,14 @@ where
     AValueImpl(Complex, x)
 }
 
+pub(crate) fn complex_no_freeze<'v, C>(x: C) -> impl AValue<'v, ExtraElem = ()>
+where
+    C: StarlarkValue<'v> + Trace<'v>,
+{
+    assert!(!C::is_special(Private));
+    AValueImpl(ComplexNoFreeze, x)
+}
+
 pub(crate) fn float_avalue<'v>(x: StarlarkFloat) -> impl AValue<'v, ExtraElem = ()> {
     AValueImpl(Direct, x)
 }
@@ -228,6 +248,9 @@ pub(crate) struct Simple;
 
 // A type that implements ComplexValue.
 pub(crate) struct Complex;
+
+// A value which can be traced, but cannot be frozen.
+pub(crate) struct ComplexNoFreeze;
 
 // We want to define several types (Simple, Complex) that wrap a StarlarkValue,
 // reimplement it, and do some things custom. The easiest way to avoid repeating
@@ -645,6 +668,34 @@ where
             freezer.frozen_defs.borrow_mut().push(frozen_def);
         }
         Ok(fv)
+    }
+
+    unsafe fn heap_copy(me: *mut AValueRepr<Self>, tracer: &Tracer<'v>) -> Value<'v> {
+        Self::heap_copy_impl(me, tracer, Trace::trace)
+    }
+}
+
+impl<'v, T> AValue<'v> for AValueImpl<ComplexNoFreeze, T>
+where
+    T: StarlarkValue<'v> + Trace<'v>,
+{
+    type StarlarkValue = T;
+
+    type ExtraElem = ();
+
+    fn extra_len(&self) -> usize {
+        0
+    }
+
+    fn offset_of_extra() -> usize {
+        mem::size_of::<Self>()
+    }
+
+    unsafe fn heap_freeze(
+        _me: *mut AValueRepr<Self>,
+        _freezer: &Freezer,
+    ) -> anyhow::Result<FrozenValue> {
+        Err(AValueError::CannotBeFrozen(type_name::<T>()).into())
     }
 
     unsafe fn heap_copy(me: *mut AValueRepr<Self>, tracer: &Tracer<'v>) -> Value<'v> {

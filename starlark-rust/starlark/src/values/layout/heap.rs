@@ -43,9 +43,9 @@ use crate::{
         layout::{
             arena::{AValueRepr, Arena, HeapSummary, Reservation},
             avalue::{
-                array_avalue, complex, float_avalue, frozen_list_avalue, frozen_tuple_avalue,
-                list_avalue, simple, starlark_str, tuple_avalue, AValue, VALUE_EMPTY_ARRAY,
-                VALUE_EMPTY_FROZEN_LIST, VALUE_EMPTY_TUPLE,
+                array_avalue, complex, complex_no_freeze, float_avalue, frozen_list_avalue,
+                frozen_tuple_avalue, list_avalue, simple, starlark_str, tuple_avalue, AValue,
+                VALUE_EMPTY_ARRAY, VALUE_EMPTY_FROZEN_LIST, VALUE_EMPTY_TUPLE,
             },
             fast_cell::FastCell,
             static_string::constant_string,
@@ -54,7 +54,7 @@ use crate::{
         },
         types::float::StarlarkFloat,
         AllocFrozenValue, ComplexValue, FrozenRef, FrozenStringValue, FrozenValueTyped,
-        StarlarkValue, StringValue, ValueTyped,
+        StarlarkValue, StringValue, Trace, ValueTyped,
     },
 };
 
@@ -579,6 +579,16 @@ impl Heap {
         T::Frozen: StarlarkValue<'static>,
     {
         self.alloc_raw(complex(x))
+    }
+
+    /// Allocate a value which can be traced (garbage collected), but cannot be frozen.
+    pub fn alloc_complex_no_freeze<'v, T>(&'v self, x: T) -> Value<'v>
+    where
+        T: StarlarkValue<'v> + Trace<'v>,
+    {
+        // When specializations are stable, we can have single `alloc_complex` function,
+        // which enables or not enables freezing depending on whether `T` implements `Freeze`.
+        self.alloc_raw(complex_no_freeze(x))
     }
 
     pub(crate) unsafe fn for_each_ordered<'v>(&'v self, mut f: impl FnMut(Value<'v>)) {
