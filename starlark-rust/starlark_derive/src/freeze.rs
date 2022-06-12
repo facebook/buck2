@@ -145,24 +145,21 @@ fn extract_options(attrs: &[Attribute]) -> syn::Result<FreezeDeriveOptions> {
 
         attr.parse_args_with(|input: ParseStream| {
             loop {
-                let lookahead = input.lookahead1();
-                if lookahead.peek(validator) {
+                if input.parse::<validator>().is_ok() {
                     if opts.validator.is_some() {
                         return Err(input.error("`validator` was set twice"));
                     }
-                    input.parse::<validator>()?;
                     input.parse::<Token![=]>()?;
                     opts.validator = Some(input.parse()?);
-                } else if lookahead.peek(bounds) {
+                } else if input.parse::<bounds>().is_ok() {
                     if opts.bounds.is_some() {
                         return Err(input.error("`bounds` was set twice"));
                     }
-                    input.parse::<bounds>()?;
                     input.parse::<Token![=]>()?;
                     let bounds_input = input.parse::<LitStr>()?;
                     opts.bounds = Some(bounds_input.parse()?);
                 } else {
-                    return Err(lookahead.error());
+                    return Err(input.lookahead1().error());
                 }
 
                 if input.parse::<Option<Token![,]>>()?.is_none() {
