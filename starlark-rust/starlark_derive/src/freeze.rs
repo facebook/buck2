@@ -16,7 +16,7 @@
  */
 
 use proc_macro2::{Ident, TokenStream};
-use quote::{format_ident, quote, quote_spanned};
+use quote::{format_ident, quote_spanned};
 use syn::{
     parse::ParseStream, parse_macro_input, spanned::Spanned, Attribute, Data, DataEnum, DataStruct,
     DeriveInput, Error, Fields, GenericParam, Index, LitStr, Token, Variant, WherePredicate,
@@ -27,11 +27,12 @@ struct Input<'a> {
 }
 
 impl<'a> Input<'a> {
-    fn angle_brankets(tokens: &[TokenStream]) -> TokenStream {
+    fn angle_brankets(&self, tokens: &[TokenStream]) -> TokenStream {
+        let span = self.input.span();
         if tokens.is_empty() {
-            quote! {}
+            quote_spanned! { span=> }
         } else {
-            quote! { < #(#tokens,)* > }
+            quote_spanned! { span=> < #(#tokens,)* > }
         }
     }
 
@@ -39,31 +40,35 @@ impl<'a> Input<'a> {
         &self,
         bounds: bool,
     ) -> syn::Result<(TokenStream, TokenStream, TokenStream)> {
+        let span = self.input.span();
         let mut impl_params = Vec::new();
         let mut input_params = Vec::new();
         let mut output_params = Vec::new();
         if bounds {
-            impl_params.push(quote!('freeze));
+            impl_params.push(quote_spanned! { span=> 'freeze });
         }
         for param in &self.input.generics.params {
             match param {
                 GenericParam::Type(t) => {
                     let name = &t.ident;
                     let bounds = t.bounds.iter();
-                    impl_params.push(quote! {
+                    impl_params.push(quote_spanned! {
+                        span=>
                         #name: #(#bounds +)* starlark::values::Freeze
                     });
-                    input_params.push(quote! {
+                    input_params.push(quote_spanned! {
+                        span=>
                         #name
                     });
-                    output_params.push(quote! {
+                    output_params.push(quote_spanned! {
+                        span=>
                         <#name as starlark::values::Freeze>::Frozen
                     });
                 }
                 GenericParam::Lifetime(lt) => {
-                    impl_params.push(quote! { #lt });
-                    input_params.push(quote! { #lt });
-                    output_params.push(quote! { 'static });
+                    impl_params.push(quote_spanned! { span=> #lt });
+                    input_params.push(quote_spanned! { span=> #lt });
+                    output_params.push(quote_spanned! { span=> 'static });
                 }
                 GenericParam::Const(_) => {
                     return Err(Error::new_spanned(param, "const generics not supported"));
@@ -71,14 +76,15 @@ impl<'a> Input<'a> {
             }
         }
         Ok((
-            Self::angle_brankets(&impl_params),
-            Self::angle_brankets(&input_params),
-            Self::angle_brankets(&output_params),
+            self.angle_brankets(&impl_params),
+            self.angle_brankets(&input_params),
+            self.angle_brankets(&output_params),
         ))
     }
 }
 
 fn derive_freeze_impl(input: DeriveInput) -> syn::Result<TokenStream> {
+    let span = input.span();
     let input = Input { input: &input };
 
     let name = &input.input.ident;
@@ -88,22 +94,25 @@ fn derive_freeze_impl(input: DeriveInput) -> syn::Result<TokenStream> {
         input.format_impl_generics(opts.bounds.is_some())?;
 
     let validate_body = match opts.validator {
-        Some(validator) => quote! {
+        Some(validator) => quote_spanned! {
+            span=>
             #validator(&frozen)?;
         },
-        None => quote! {},
+        None => quote_spanned! { span=> },
     };
 
     let bounds_body = match opts.bounds {
-        Some(bounds) => quote! { where #bounds },
-        None => quote!(),
+        Some(bounds) => quote_spanned! { span=> where #bounds },
+        None => quote_spanned! { span=> },
     };
 
     let body = freeze_impl(name, &input.input.data)?;
 
-    let gen = quote! {
+    let gen = quote_spanned! {
+        span=>
         impl #impl_params starlark::values::Freeze for #name #input_params #bounds_body {
             type Frozen = #name #output_params;
+            #[allow(unused_variables)]
             fn freeze(self, freezer: &starlark::values::Freezer) -> anyhow::Result<Self::Frozen> {
                 let frozen = #body;
                 #validate_body
@@ -196,6 +205,7 @@ fn is_identity(attrs: &[Attribute]) -> syn::Result<bool> {
 }
 
 fn freeze_struct(name: &Ident, data: &DataStruct) -> syn::Result<TokenStream> {
+    let span = name.span();
     let res = match data.fields {
         Fields::Named(ref fields) => {
             let xs = fields
@@ -204,11 +214,11 @@ fn freeze_struct(name: &Ident, data: &DataStruct) -> syn::Result<TokenStream> {
                 .map(|f| {
                     let name = &f.ident;
                     let res = if is_identity(&f.attrs)? {
-                        quote_spanned! {f.span() =>
+                        quote_spanned! { span=>
                             #name: self.#name,
                         }
                     } else {
-                        quote_spanned! {f.span() =>
+                        quote_spanned! { span=>
                             #name: starlark::values::Freeze::freeze(self.#name, freezer)?,
                         }
                     };
@@ -216,7 +226,8 @@ fn freeze_struct(name: &Ident, data: &DataStruct) -> syn::Result<TokenStream> {
                     syn::Result::Ok(res)
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            quote! {
+            quote_spanned! {
+                span=>
                 #name {
                     #(#xs)*
                 }
@@ -231,24 +242,28 @@ fn freeze_struct(name: &Ident, data: &DataStruct) -> syn::Result<TokenStream> {
                     let i = Index::from(i);
 
                     let res = if is_identity(&f.attrs)? {
-                        quote_spanned! {f.span() =>
+                        quote_spanned! { span=>
                             self.#i,
                         }
                     } else {
-                        quote_spanned! {f.span() => starlark::values::Freeze::freeze(self.#i, freezer)?,}
+                        quote_spanned! {
+                            span=>
+                            starlark::values::Freeze::freeze(self.#i, freezer)?,
+                        }
                     };
 
                     syn::Result::Ok(res)
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            quote! {
+            quote_spanned! {
+                span=>
                 #name (
                     #(#xs)*
                 )
             }
         }
         Fields::Unit => {
-            quote!()
+            quote_spanned! { span=> }
         }
     };
 
@@ -256,16 +271,19 @@ fn freeze_struct(name: &Ident, data: &DataStruct) -> syn::Result<TokenStream> {
 }
 
 fn freeze_enum_variant(name: &Ident, variant: &Variant) -> syn::Result<TokenStream> {
+    let span = variant.span();
     let variant_name = &variant.ident;
     match &variant.fields {
-        Fields::Unit => Ok(quote! {
+        Fields::Unit => Ok(quote_spanned! {
+            span=>
             #name::#variant_name => #name::#variant_name,
         }),
         Fields::Unnamed(fields) => {
             let field_names: Vec<_> = (0..fields.unnamed.len())
                 .map(|i| format_ident!("f_{}", i))
                 .collect();
-            Ok(quote! {
+            Ok(quote_spanned! {
+                span=>
                 #name::#variant_name(#(#field_names),*) => {
                     #name::#variant_name(
                         #(starlark::values::Freeze::freeze(#field_names, freezer)?),*
@@ -275,7 +293,8 @@ fn freeze_enum_variant(name: &Ident, variant: &Variant) -> syn::Result<TokenStre
         }
         Fields::Named(field) => {
             let field_names: Vec<_> = field.named.iter().map(|f| &f.ident).collect();
-            Ok(quote! {
+            Ok(quote_spanned! {
+                span=>
                 #name::#variant_name { #(#field_names),* } => {
                     #name::#variant_name {
                         #(#field_names: starlark::values::Freeze::freeze(#field_names, freezer)?,)*
@@ -287,12 +306,14 @@ fn freeze_enum_variant(name: &Ident, variant: &Variant) -> syn::Result<TokenStre
 }
 
 fn freeze_enum(name: &Ident, data: &DataEnum) -> syn::Result<TokenStream> {
+    let span = name.span();
     let variants = data
         .variants
         .iter()
         .map(|v| freeze_enum_variant(name, v))
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(quote! {
+    Ok(quote_spanned! {
+        span=>
         match self {
             #(#variants)*
         }
