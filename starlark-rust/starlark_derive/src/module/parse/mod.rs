@@ -143,7 +143,7 @@ fn is_mut_something(x: &Type, smth: &str) -> bool {
     }
 }
 
-fn is_ref_something(x: &Type, smth: &str) -> bool {
+pub(crate) fn is_ref_something(x: &Type, smth: &str) -> bool {
     match x {
         Type::Reference(TypeReference {
             mutability: None,

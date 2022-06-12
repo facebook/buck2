@@ -19,7 +19,10 @@ use gazebo::dupe::Dupe;
 use proc_macro2::{Ident, Span};
 use syn::{spanned::Spanned, Attribute, Block, Expr, Type, Visibility};
 
-use crate::module::{parse::ModuleKind, util::is_type_name};
+use crate::module::{
+    parse::{is_ref_something, ModuleKind},
+    util::is_type_name,
+};
 
 #[derive(Debug)]
 pub(crate) struct StarModule {
@@ -201,11 +204,7 @@ pub(crate) enum StarFunSource {
 
 impl StarArg {
     pub fn is_arguments(&self) -> bool {
-        if let Type::Reference(ty) = &self.ty {
-            is_type_name(&ty.elem, "Arguments")
-        } else {
-            false
-        }
+        is_ref_something(&self.ty, "Arguments")
     }
 
     pub fn is_option(&self) -> bool {
