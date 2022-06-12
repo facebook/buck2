@@ -19,10 +19,7 @@ use gazebo::dupe::Dupe;
 use proc_macro2::{Ident, Span};
 use syn::{spanned::Spanned, Attribute, Block, Expr, Type, Visibility};
 
-use crate::module::{
-    parse::{is_ref_something, ModuleKind},
-    util::is_type_name,
-};
+use crate::module::{parse::ModuleKind, util::is_type_name};
 
 #[derive(Debug)]
 pub(crate) struct StarModule {
@@ -163,16 +160,25 @@ impl StarAttr {
 
 #[derive(Debug, PartialEq, Copy, Clone, Dupe)]
 pub(crate) enum StarArgPassStyle {
+    /// Receiver.
+    This,
+    /// Parameter can be filled only positionally.
     PosOnly,
+    /// Parameter can filled both positionally and by name.
     PosOrNamed,
+    /// Parameter can be filled by name.
     NamedOnly,
+    /// `*args`.
+    Args,
+    /// `**kwargs`.
+    Kwargs,
+    /// `&Arguments`.
+    Arguments,
 }
 
 #[derive(Debug)]
 pub(crate) struct StarArg {
     pub span: Span,
-    /// `this` argument for methods.
-    pub this: bool,
     pub attrs: Vec<Attribute>,
     pub mutable: bool,
     pub pass_style: StarArgPassStyle,
@@ -203,10 +209,6 @@ pub(crate) enum StarFunSource {
 }
 
 impl StarArg {
-    pub fn is_arguments(&self) -> bool {
-        is_ref_something(&self.ty, "Arguments")
-    }
-
     pub fn is_option(&self) -> bool {
         is_type_name(&self.ty, "Option")
     }
@@ -215,21 +217,13 @@ impl StarArg {
         is_type_name(&self.ty, "Value")
     }
 
-    pub fn is_args(&self) -> bool {
-        self.name == "args"
-    }
-
-    pub fn is_kwargs(&self) -> bool {
-        self.name == "kwargs"
-    }
-
     pub fn requires_signature(&self) -> bool {
         // We need to use a signature if something has a name
         // There are *args or **kwargs
         // There is a default that needs promoting to a Value (since the signature stores that value)
         self.pass_style != StarArgPassStyle::PosOnly
-            || self.is_args()
-            || self.is_kwargs()
+            || self.pass_style == StarArgPassStyle::Args
+            || self.pass_style == StarArgPassStyle::Kwargs
             || (self.is_value() && self.default.is_some())
     }
 }

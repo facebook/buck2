@@ -327,7 +327,7 @@ fn render_binding_arg(arg: &StarArg) -> BindingArg {
     };
 
     // Rust doesn't have powerful enough nested if yet
-    let next = if arg.this {
+    let next = if arg.pass_style == StarArgPassStyle::This {
         quote_spanned! { span=> starlark::eval::Arguments::check_this(#source)? }
     } else if arg.is_option() {
         assert!(
@@ -421,7 +421,7 @@ fn render_documentation(x: &StarFun) -> syn::Result<TokenStream> {
     let return_type_arg = &x.return_type_arg;
     let parameter_types: Vec<_> = x.args
             .iter()
-            .filter(|a| !a.this) // "this" gets ignored when creating the signature, so make sure the indexes match up.
+            .filter(|a| a.pass_style != StarArgPassStyle::This) // "this" gets ignored when creating the signature, so make sure the indexes match up.
             .enumerate()
             .map(|(i, arg)| {
                 let typ = &arg.ty;
@@ -448,29 +448,68 @@ fn render_documentation(x: &StarFun) -> syn::Result<TokenStream> {
 }
 
 fn render_signature_args(args: &[StarArg]) -> syn::Result<TokenStream> {
+    #[derive(PartialEq, Eq, PartialOrd, Ord)]
+    enum CurrentParamStyle {
+        PosOnly,
+        PosOrNamed,
+        NamedOnly,
+        NoMore,
+    }
+
     let mut sig_args = TokenStream::new();
-    let mut last_pass_style = StarArgPassStyle::PosOnly;
+    let mut last_param_style = CurrentParamStyle::PosOnly;
     for arg in args {
-        if arg.is_args() {
-            last_pass_style = StarArgPassStyle::NamedOnly;
-        } else {
-            if arg.pass_style != last_pass_style {
-                match arg.pass_style {
-                    StarArgPassStyle::PosOnly => {
-                        return Err(syn::Error::new(
-                            arg.span,
-                            "Positional-only parameter after non-positional-only",
-                        ));
-                    }
-                    StarArgPassStyle::PosOrNamed => sig_args.extend(quote_spanned! { arg.span=>
-                        __signature.no_more_positional_only_args();
-                    }),
-                    StarArgPassStyle::NamedOnly => sig_args.extend(quote_spanned! { arg.span=>
-                        __signature.no_more_positional_args();
-                    }),
+        match arg.pass_style {
+            StarArgPassStyle::This => {}
+            StarArgPassStyle::Args => {
+                if last_param_style >= CurrentParamStyle::NamedOnly {
+                    return Err(syn::Error::new(
+                        arg.span,
+                        "`args` cannot follow named-only parameters",
+                    ));
                 }
+                last_param_style = CurrentParamStyle::NamedOnly;
             }
-            last_pass_style = arg.pass_style;
+            StarArgPassStyle::Kwargs => {
+                if last_param_style == CurrentParamStyle::NoMore {
+                    return Err(syn::Error::new(
+                        arg.span,
+                        "Cannot have more than one `kwargs` parameter",
+                    ));
+                }
+                last_param_style = CurrentParamStyle::NoMore;
+            }
+            StarArgPassStyle::PosOnly => {
+                if last_param_style > CurrentParamStyle::PosOnly {
+                    return Err(syn::Error::new(
+                        arg.span,
+                        "Positional-only parameter after non-positional-only",
+                    ));
+                }
+                last_param_style = CurrentParamStyle::PosOnly;
+            }
+            StarArgPassStyle::PosOrNamed => {
+                if last_param_style == CurrentParamStyle::PosOnly {
+                    sig_args.extend(quote_spanned! { arg.span=>
+                        __signature.no_more_positional_only_args();
+                    });
+                }
+                last_param_style = CurrentParamStyle::PosOrNamed;
+            }
+            StarArgPassStyle::NamedOnly => {
+                if last_param_style < CurrentParamStyle::NamedOnly {
+                    sig_args.extend(quote_spanned! { arg.span=>
+                        __signature.no_more_positional_args();
+                    });
+                }
+                last_param_style = CurrentParamStyle::NamedOnly;
+            }
+            StarArgPassStyle::Arguments => {
+                return Err(syn::Error::new(
+                    arg.span,
+                    "unreachable: signature is not meant to be created for `&Arguments`",
+                ));
+            }
         }
         sig_args.extend(render_signature_arg(arg));
     }
@@ -484,13 +523,13 @@ fn render_signature_arg(arg: &StarArg) -> TokenStream {
     let name_str_full = ident_string(&arg.name);
     let name_str = name_str_full.trim_matches('_');
 
-    if arg.is_args() {
+    if arg.pass_style == StarArgPassStyle::Args {
         assert!(arg.default.is_none(), "Can't have *args with a default");
         quote_spanned! { span=> __signature.args();}
-    } else if arg.is_kwargs() {
+    } else if arg.pass_style == StarArgPassStyle::Kwargs {
         assert!(arg.default.is_none(), "Can't have **kwargs with a default");
         quote_spanned! { span=> __signature.kwargs();}
-    } else if arg.this {
+    } else if arg.pass_style == StarArgPassStyle::This {
         quote_spanned! { span=> }
     } else if arg.is_option() {
         quote_spanned! { span=> __signature.optional(#name_str);}
