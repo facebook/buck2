@@ -105,7 +105,7 @@ impl Frame {
                 // so in the stack trace, top frame is printed without executed function name.
                 caller,
             )?;
-            writeln!(write, "{}  {}{}", indent, line, ddd)?;
+            writeln!(write, "{}    {}{}", indent, line, ddd)?;
         } else {
             // Python just omits builtin functions in the traceback.
             writeln!(write, "{}File <builtin>, in {}", indent, caller)?;

@@ -436,13 +436,13 @@ add3(8)"#,
         r#"
 Traceback (most recent call last):
   * assert.bzl:5, in <module>
-    add3(8)
+      add3(8)
   * assert.bzl:4, in add3
-    add2(z)
+      add2(z)
   * imported.bzl:9, in add2
-    add(z)
+      add(z)
   * imported.bzl:11, in add
-    x.append(z)
+      x.append(z)
 error: Immutable
   --> imported.bzl:11:3
    |
@@ -456,13 +456,13 @@ error: Immutable
         r#"
 Traceback (most recent call last):
   * assert.bzl:5, in <module>
-    add3(8)
+      add3(8)
   * assert.bzl:4, in add3
-    add2(z)
+      add2(z)
   * imported.bzl:9, in add2
-    add(z)
+      add(z)
   * imported.bzl:11, in add
-    x.append(z)
+      x.append(z)
 error: Immutable
   --> imported.bzl:11:3
    |

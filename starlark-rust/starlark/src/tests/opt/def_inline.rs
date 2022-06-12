@@ -100,11 +100,11 @@ h()
         r"
 Traceback (most recent call last):
   * assert.bzl:3, in <module>
-    h()
+      h()
   * h.bzl.bzl:2, in h
-    def h(): return g()
+      def h(): return g()
   * g.bzl.bzl:2, in g
-    def g(): return f()
+      def g(): return f()
 error: Value of type `list` is not hashable
  --> f.bzl.bzl:1:18
   |
