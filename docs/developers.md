@@ -33,6 +33,10 @@ To test your macOS setup, you can try executing this command:
 * Once the job finishes running any checkout later than the current master on which `buck2` is run will fetch the new buck2 binary and execute it.
 * To disable/enable version bumps (e.g. during code freeze) go to the chronos job page and select "Disable job"/"Enable job" respectively.
 
+The VB only look at changes in the `buck2` directory. If the change is elsewhere, you may need a no-op change in v2. 
+
+Increment this number if you do, I guess: 1.
+
 ## Working with Buck1
 
 * To see the JSON encoded graph of a target run `buck query "deps('$TARGET')" --output-format json --output-attributes '.*'`
