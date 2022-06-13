@@ -122,11 +122,10 @@ def _generate_and_compile_r_dot_java(
     def compile_r_dot_java_srcs(ctx):
         src_listing = ctx.artifacts[r_dot_java_src_listing].read_string().split("\n")
         r_dot_java_srcs = []
-        for path in src_listing:
-            as_output = ctx.actions.declare_output("copied_r_dot_java/{}".format(path))
-            r_dot_java_srcs.append(as_output)
-
         copied_root = ctx.actions.declare_output("copied_r_dot_java")
+        for path in src_listing:
+            r_dot_java_srcs.append(copied_root.project(path))
+
         cmd = cmd_args([
             java_toolchain.src_dir_helper[RunInfo],
             "copy",
@@ -135,7 +134,6 @@ def _generate_and_compile_r_dot_java(
             "--dest-dir",
             copied_root.as_output(),
         ] + src_listing)
-        cmd.hidden([v.as_output() for v in r_dot_java_srcs])
         ctx.actions.run(
             cmd,
             category = "copy_r_dot_java_sources",
