@@ -23,7 +23,7 @@ def http_archive_impl(ctx: "context") -> ["provider"]:
     # Download archive.
     archive = ctx.actions.declare_output("archive.tgz")
     url = ctx.attr.urls[0]
-    ctx.actions.download_file(url, archive.as_output(), sha1 = ctx.attr.sha1, sha256 = ctx.attr.sha256, is_deferrable = True)
+    ctx.actions.download_file_new(archive.as_output(), url, sha1 = ctx.attr.sha1, sha256 = ctx.attr.sha256, is_deferrable = True)
 
     # Unpack archive to output directory.
     compress_flag = _FLAGS[_type(ctx)]
