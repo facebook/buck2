@@ -23,7 +23,7 @@ use std::{
 };
 
 use derivative::Derivative;
-use gazebo::prelude::*;
+use gazebo::{prelude::*, variants::VariantName};
 use static_assertions::assert_eq_size;
 
 use crate::{
@@ -206,7 +206,7 @@ pub(crate) enum ClauseP<P: AstPayload> {
     If(AstExprP<P>),
 }
 
-#[derive(Debug, Clone, Copy, Dupe, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Dupe, Eq, PartialEq, VariantName)]
 pub(crate) enum BinOp {
     Or,
     And,
@@ -231,7 +231,7 @@ pub(crate) enum BinOp {
     RightShift,
 }
 
-#[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq, VariantName)]
 pub(crate) enum AssignOp {
     Add,         // +=
     Subtract,    // -=
