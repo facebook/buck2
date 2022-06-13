@@ -199,7 +199,11 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
                         value.to_owned(),
                         subpackage.to_owned(),
                     );
-                    soft_error!(e.into());
+                    if self.package_boundary_exception {
+                        info!("{} (could be due to a package boundary violation)", e);
+                    } else {
+                        soft_error!(e.into());
+                    }
                 }
                 let files = listing
                     .files_within(&path)
