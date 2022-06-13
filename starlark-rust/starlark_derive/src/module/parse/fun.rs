@@ -39,13 +39,19 @@ struct ProcessedAttributes {
     attrs: Vec<Attribute>,
 }
 
+#[derive(Default)]
+struct FnParamAttrs {
+    default: Option<Expr>,
+    this: bool,
+    pos_only: bool,
+    named_only: bool,
+    unused_attrs: Vec<Attribute>,
+}
+
 /// Parse `#[starlark(...)]` fn param attribute.
 fn parse_starlark_fn_param_attr(
     tokens: &Attribute,
-    default: &mut Option<Expr>,
-    this: &mut bool,
-    pos_only: &mut bool,
-    named_only: &mut bool,
+    param_attrs: &mut FnParamAttrs,
 ) -> syn::Result<()> {
     assert!(tokens.path.is_ident("starlark"));
     let parse = |parser: ParseStream| -> syn::Result<()> {
@@ -63,19 +69,19 @@ fn parse_starlark_fn_param_attr(
             let ident = parser.parse::<Ident>()?;
             if ident == "default" {
                 parser.parse::<Token![=]>()?;
-                *default = Some(parser.parse::<Expr>()?);
+                param_attrs.default = Some(parser.parse::<Expr>()?);
                 continue;
             } else if ident == "this" {
-                *this = true;
+                param_attrs.this = true;
                 continue;
             } else if ident == "require" {
                 parser.parse::<Token!(=)>()?;
                 let require = parser.parse::<Ident>()?;
                 if require == "pos" {
-                    *pos_only = true;
+                    param_attrs.pos_only = true;
                     continue;
                 } else if require == "named" {
-                    *named_only = true;
+                    param_attrs.named_only = true;
                     continue;
                 }
             }
@@ -92,6 +98,19 @@ fn parse_starlark_fn_param_attr(
         Ok(())
     };
     tokens.parse_args_with(parse)
+}
+
+/// Parse fn param attributes: parse `#[starlark(...)]` and take others as is.
+fn parse_fn_param_attrs(attrs: Vec<Attribute>) -> syn::Result<FnParamAttrs> {
+    let mut param_attrs = FnParamAttrs::default();
+    for attr in attrs {
+        if attr.path.is_ident("starlark") {
+            parse_starlark_fn_param_attr(&attr, &mut param_attrs)?;
+        } else {
+            param_attrs.unused_attrs.push(attr);
+        }
+    }
+    Ok(param_attrs)
 }
 
 /// Parse `#[starlark(...)]` attribute.
@@ -561,27 +580,10 @@ fn parse_arg(
             }
 
             check_lifetimes_in_type(&ty, has_v)?;
-            let mut default = None;
-            let mut pos_only = false;
-            let mut named_only = false;
-            let mut unused_attrs = Vec::new();
-            let mut this_ann = false;
-            for attr in attrs {
-                if attr.path.is_ident("starlark") {
-                    parse_starlark_fn_param_attr(
-                        &attr,
-                        &mut default,
-                        &mut this_ann,
-                        &mut pos_only,
-                        &mut named_only,
-                    )?;
-                } else {
-                    unused_attrs.push(attr);
-                }
-            }
+            let param_attrs = parse_fn_param_attrs(attrs)?;
 
             if this {
-                if !this_ann && ident.ident != "this" {
+                if !param_attrs.this && ident.ident != "this" {
                     return Err(syn::Error::new(
                         span,
                         "Receiver parameter must be named `this` \
@@ -589,7 +591,7 @@ fn parse_arg(
                     ));
                 }
             } else {
-                if this_ann {
+                if param_attrs.this {
                     return Err(syn::Error::new(
                         span,
                         "Receiver parameter can be only first",
@@ -606,8 +608,8 @@ fn parse_arg(
                 args,
                 kwargs,
                 seen_star_args,
-                pos_only,
-                named_only,
+                param_attrs.pos_only,
+                param_attrs.named_only,
                 arguments,
             ) {
                 (true, _, _, _, _, _, false) => StarArgPassStyle::This,
@@ -639,12 +641,12 @@ fn parse_arg(
             };
             Ok(StarArgOrSpecial::StarArg(StarArg {
                 span,
-                attrs: unused_attrs,
+                attrs: param_attrs.unused_attrs,
                 mutable: ident.mutability.is_some(),
                 name: ident.ident,
                 pass_style,
                 ty,
-                default,
+                default: param_attrs.default,
                 source: StarArgSource::Unknown,
             }))
         }
