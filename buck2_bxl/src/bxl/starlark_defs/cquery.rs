@@ -45,6 +45,9 @@ pub struct StarlarkCQueryCtx<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     env: CqueryEnvironment<'v>,
+    #[trace(unsafe_ignore)]
+    #[derivative(Debug = "ignore")]
+    target_platform: Option<TargetLabel>,
 }
 
 impl<'v> StarlarkValue<'v> for StarlarkCQueryCtx<'v> {
@@ -91,14 +94,15 @@ impl<'v> StarlarkCQueryCtx<'v> {
         ctx: &'v BxlContext<'v>,
         global_target_platform: Value<'v>,
     ) -> anyhow::Result<StarlarkCQueryCtx<'v>> {
-        let global_target_platform =
+        let target_platform =
             global_target_platform.parse_target_platforms(&ctx.target_alias_resolver, &ctx.cell)?;
 
-        let env = get_cquery_env(ctx.async_ctx.0, global_target_platform).await?;
+        let env = get_cquery_env(ctx.async_ctx.0, target_platform.dupe()).await?;
         Ok(Self {
             ctx,
             functions: DefaultQueryFunctions::new(),
             env,
+            target_platform,
         })
     }
 }
