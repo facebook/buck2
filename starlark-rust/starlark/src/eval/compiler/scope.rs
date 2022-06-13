@@ -41,7 +41,7 @@ use crate::{
 pub(crate) struct Scope<'a> {
     pub(crate) scope_data: ScopeData,
     module: &'a MutableNames,
-    module_bindings: HashMap<String, BindingId>,
+    pub(crate) module_bindings: HashMap<String, BindingId>,
     // The first scope is a module-level scope (including comprehensions in module scope).
     // The rest are scopes for functions (which include their comprehensions).
     locals: Vec<ScopeId>,
