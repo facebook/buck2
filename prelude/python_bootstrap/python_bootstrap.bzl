@@ -33,7 +33,7 @@ def python_bootstrap_binary_impl(ctx: "context") -> ["provider"]:
             run_tree_recorded_deps[src.short_path] = dep
 
     run_tree = ctx.actions.symlinked_dir("__%s__" % ctx.attr.name, run_tree_inputs)
-    output = ctx.actions.copy(ctx.attr.main, ctx.attr.main.short_path)
+    output = ctx.actions.copy_file(ctx.attr.main.short_path, ctx.attr.main)
     interpreter = ctx.attr._python_bootstrap_toolchain[PythonBootstrapToolchainInfo].interpreter
     run_args = cmd_args([
         "/usr/bin/env",

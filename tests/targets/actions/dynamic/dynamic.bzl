@@ -113,7 +113,7 @@ def _create(ctx: "context") -> ["provider"]:
     def f(ctx: "context"):
         src = ctx.artifacts[input].read_string()
         new_file = ctx.actions.write("new_file", src)
-        ctx.actions.copy(new_file, ctx.outputs[output])
+        ctx.actions.copy_file(ctx.outputs[output], new_file)
 
     ctx.actions.dynamic_output([input], [], [output.as_output()], f)
     return [DefaultInfo(default_outputs = [output])]
@@ -135,8 +135,8 @@ def _create_duplicate(ctx: "context") -> ["provider"]:
         # I.e. the two copy() actions below can't end "output" and ctx.outputs[output].
         # We could allow copy to take an explicit identifier, but this is a corner
         # case and I don't think its a good idea to reuse names heavily anyway.
-        new_input = ctx.actions.copy(new_output, "input")
-        ctx.actions.copy(new_input, ctx.outputs[output])
+        new_input = ctx.actions.copy_file("input", new_output)
+        ctx.actions.copy_file(ctx.outputs[output], new_input)
 
     ctx.actions.dynamic_output([input], [], [output.as_output()], f)
     return [DefaultInfo(default_outputs = [output])]

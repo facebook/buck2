@@ -3,7 +3,7 @@ def apple_package_impl(ctx: "context") -> ["provider"]:
     ipa_name = "{}.ipa".format(bundle.label.name)
     app = bundle[DefaultInfo].default_outputs[0]
 
-    payload = ctx.actions.copy(app, "Payload")
+    payload = ctx.actions.copy_file("Payload", app)
 
     package = ctx.actions.declare_output(ipa_name)
 

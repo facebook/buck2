@@ -6,7 +6,7 @@ def export_file_impl(ctx: "context") -> [DefaultInfo.type]:
 
     if copy:
         dest = ctx.label.name if ctx.attr.out == None else ctx.attr.out
-        output = ctx.actions.copy(ctx.attr.src, dest)
+        output = ctx.actions.copy_file(dest, ctx.attr.src)
     elif ctx.attr.out != None:
         fail("export_file does not allow specifying `out` without also specifying `mode = 'copy'`")
     else:

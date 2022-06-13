@@ -3,7 +3,7 @@ def _out_library_impl(ctx):
     for out in ctx.attr.outs:
         for default_out in out[DefaultInfo].default_outputs:
             out_artifact = ctx.actions.declare_output(default_out.basename)
-            ctx.actions.copy(default_out, out_artifact)
+            ctx.actions.copy_file(out_artifact, default_out)
             outs.append(out_artifact)
 
     return [DefaultInfo(default_outputs = outs)]

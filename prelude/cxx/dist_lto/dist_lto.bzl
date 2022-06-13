@@ -345,7 +345,7 @@ def cxx_dist_link(
             plan_json = ctx.artifacts[archive.plan].read_json()
             if "objects" not in plan_json or not plan_json["objects"]:
                 # Nothing in this directory was lto-able; let's just copy the archive.
-                ctx.actions.copy(archive.objects_dir, ctx.outputs[archive.opt_objects_dir])
+                ctx.actions.copy_file(ctx.outputs[archive.opt_objects_dir], archive.objects_dir)
                 ctx.actions.write(ctx.outputs[archive.opt_manifest], "")
                 return
 
@@ -405,8 +405,8 @@ def cxx_dist_link(
         # changes.
         copied_bc_file = ctx.actions.declare_output(item.bc_file.short_path + ".copied")
         copied_plan = ctx.actions.declare_output(item.plan.short_path + ".copied")
-        ctx.actions.copy(item.bc_file, copied_bc_file)
-        ctx.actions.copy(item.plan, copied_plan)
+        ctx.actions.copy_file(copied_bc_file, item.bc_file)
+        ctx.actions.copy_file(copied_plan, item.plan)
 
         dynamic_optimize(
             name = item.name,

@@ -115,7 +115,7 @@ def _get_test_host_app_bundle(ctx: "context") -> ["artifact", None]:
         # Copy the test host app bundle into test's output directory
         original_bundle = ctx.attr.test_host_app[AppleBundleInfo].bundle
         test_host_app_bundle = ctx.actions.declare_output(original_bundle.basename)
-        ctx.actions.copy(original_bundle, test_host_app_bundle)
+        ctx.actions.copy_file(test_host_app_bundle, original_bundle)
         return test_host_app_bundle
 
     return None
