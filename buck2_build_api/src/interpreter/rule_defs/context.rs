@@ -34,8 +34,8 @@ use starlark::{
         function::FUNCTION_TYPE,
         none::{NoneOr, NoneType},
         structs::Struct,
-        AllocValue, Freeze, Freezer, Heap, NoSerialize, NoSimpleValue, StarlarkValue, Trace,
-        UnpackValue, Value, ValueError, ValueLike, ValueOf, ValueTyped,
+        AllocValue, Heap, NoSerialize, StarlarkValue, Trace, UnpackValue, Value, ValueError,
+        ValueLike, ValueOf, ValueTyped,
     },
 };
 use thiserror::Error;
@@ -85,12 +85,6 @@ enum DynamicOutputError {
     NotAFunction(String),
 }
 
-#[derive(Debug, thiserror::Error)]
-enum ContextError {
-    #[error("`{0}` can't be frozen, because rule implementation should not capture it")]
-    NoFreeze(&'static str),
-}
-
 /// Functions to allow users to interact with the Actions registry.
 ///
 /// Accessed via `ctx.actions.<function>`
@@ -131,16 +125,9 @@ impl<'v> StarlarkValue<'v> for AnalysisActions<'v> {
     }
 }
 
-impl<'v> Freeze for AnalysisActions<'v> {
-    type Frozen = NoSimpleValue;
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
-        Err(ContextError::NoFreeze("AnalysisActions").into())
-    }
-}
-
 impl<'v> AllocValue<'v> for AnalysisActions<'v> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        heap.alloc_complex(self)
+        heap.alloc_complex_no_freeze(self)
     }
 }
 
@@ -258,16 +245,9 @@ impl<'v> StarlarkValue<'v> for AnalysisContext<'v> {
     }
 }
 
-impl<'v> Freeze for AnalysisContext<'v> {
-    type Frozen = NoSimpleValue;
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
-        Err(ContextError::NoFreeze("AnalysisContext").into())
-    }
-}
-
 impl<'v> AllocValue<'v> for AnalysisContext<'v> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        heap.alloc_complex(self)
+        heap.alloc_complex_no_freeze(self)
     }
 }
 

@@ -7,13 +7,8 @@ use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
     starlark_module, starlark_type,
-    values::{
-        AllocValue, Freeze, Freezer, Heap, NoSerialize, NoSimpleValue, StarlarkValue, Trace,
-        UnpackValue, Value, ValueLike,
-    },
+    values::{AllocValue, Heap, NoSerialize, StarlarkValue, Trace, UnpackValue, Value, ValueLike},
 };
-
-use crate::bxl::starlark_defs::BxlError;
 
 #[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize)]
 #[derivative(Debug)]
@@ -35,14 +30,7 @@ impl<'v> StarlarkValue<'v> for StarlarkUQueryCtx<'v> {
 
 impl<'v> AllocValue<'v> for StarlarkUQueryCtx<'v> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        heap.alloc_complex(self)
-    }
-}
-
-impl<'v> Freeze for StarlarkUQueryCtx<'v> {
-    type Frozen = NoSimpleValue;
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
-        Err(BxlError::NoFreeze("StarlarkUQueryCtx").into())
+        heap.alloc_complex_no_freeze(self)
     }
 }
 

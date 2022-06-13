@@ -15,8 +15,8 @@ use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
     starlark_module, starlark_type,
     values::{
-        none::NoneOr, AllocValue, Freeze, Freezer, Heap, NoSerialize, NoSimpleValue, StarlarkValue,
-        Trace, UnpackValue, Value, ValueLike,
+        none::NoneOr, AllocValue, Heap, NoSerialize, StarlarkValue, Trace, UnpackValue, Value,
+        ValueLike,
     },
 };
 
@@ -26,7 +26,6 @@ use crate::bxl::{
         file_set::FileSetExpr,
         target_expr::{targets, TargetExpr},
         targetset::StarlarkTargetSet,
-        BxlError,
     },
     value_as_starlak_target_label::ValueAsStarlarkTargetLabel,
 };
@@ -59,14 +58,7 @@ impl<'v> StarlarkValue<'v> for StarlarkCQueryCtx<'v> {
 
 impl<'v> AllocValue<'v> for StarlarkCQueryCtx<'v> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        heap.alloc_complex(self)
-    }
-}
-
-impl<'v> Freeze for StarlarkCQueryCtx<'v> {
-    type Frozen = NoSimpleValue;
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
-        Err(BxlError::NoFreeze("StarlarkCQueryCtx").into())
+        heap.alloc_complex_no_freeze(self)
     }
 }
 

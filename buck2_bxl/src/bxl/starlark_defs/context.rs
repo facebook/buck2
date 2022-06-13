@@ -21,8 +21,8 @@ use starlark::{
     eval::Evaluator,
     starlark_module, starlark_type,
     values::{
-        dict::Dict, none::NoneType, AllocValue, Freeze, Freezer, Heap, NoSerialize, NoSimpleValue,
-        StarlarkValue, Trace, UnpackValue, Value, ValueLike, ValueOf, ValueTyped,
+        dict::Dict, none::NoneType, AllocValue, Heap, NoSerialize, StarlarkValue, Trace,
+        UnpackValue, Value, ValueLike, ValueOf, ValueTyped,
     },
 };
 
@@ -61,7 +61,6 @@ use crate::bxl::starlark_defs::{
     cquery::StarlarkCQueryCtx,
     providers_expr::ProvidersExpr,
     uquery::StarlarkUQueryCtx,
-    BxlError,
 };
 
 /// The bxl context that the top level bxl implementation receives as parameter.
@@ -175,16 +174,9 @@ impl<'v> StarlarkValue<'v> for BxlContext<'v> {
     }
 }
 
-impl<'v> Freeze for BxlContext<'v> {
-    type Frozen = NoSimpleValue;
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
-        Err(BxlError::NoFreeze("BxlContext").into())
-    }
-}
-
 impl<'v> AllocValue<'v> for BxlContext<'v> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        heap.alloc_complex(self)
+        heap.alloc_complex_no_freeze(self)
     }
 }
 

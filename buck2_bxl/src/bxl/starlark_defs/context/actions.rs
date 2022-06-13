@@ -12,13 +12,13 @@ use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
     starlark_module, starlark_type,
     values::{
-        AllocValue, Freeze, Freezer, Heap, NoSerialize, NoSimpleValue, StarlarkValue, Trace,
-        UnpackValue, Value, ValueLike, ValueTyped,
+        AllocValue, Heap, NoSerialize, StarlarkValue, Trace, UnpackValue, Value, ValueLike,
+        ValueTyped,
     },
 };
 use thiserror::Error;
 
-use crate::bxl::starlark_defs::{context::BxlContext, BxlError::NoFreeze};
+use crate::bxl::starlark_defs::context::BxlContext;
 
 #[derive(Debug, Error)]
 enum BxlActionsError {
@@ -50,16 +50,9 @@ impl<'v> StarlarkValue<'v> for BxlActionsCtx<'v> {
     }
 }
 
-impl<'v> Freeze for BxlActionsCtx<'v> {
-    type Frozen = NoSimpleValue;
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
-        Err(NoFreeze("BxlActionsCtx").into())
-    }
-}
-
 impl<'v> AllocValue<'v> for BxlActionsCtx<'v> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        heap.alloc_complex(self)
+        heap.alloc_complex_no_freeze(self)
     }
 }
 

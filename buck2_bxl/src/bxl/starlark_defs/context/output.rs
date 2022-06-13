@@ -17,15 +17,14 @@ use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
     starlark_module, starlark_type,
     values::{
-        list::ListRef, none::NoneType, AllocValue, Freeze, Freezer, Heap, NoSerialize,
-        NoSimpleValue, StarlarkValue, Trace, UnpackValue, Value, ValueError, ValueLike,
+        list::ListRef, none::NoneType, AllocValue, Heap, NoSerialize, StarlarkValue, Trace,
+        UnpackValue, Value, ValueError, ValueLike,
     },
 };
 
 use crate::bxl::starlark_defs::{
     artifacts::{EnsuredArtifact, EnsuredArtifactGen},
     context::build::StarlarkProvidersArtifactIterable,
-    BxlError::NoFreeze,
 };
 
 #[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize)]
@@ -81,16 +80,9 @@ impl<'v> StarlarkValue<'v> for OutputStream<'v> {
     }
 }
 
-impl<'v> Freeze for OutputStream<'v> {
-    type Frozen = NoSimpleValue;
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
-        Err(NoFreeze("OutputStream").into())
-    }
-}
-
 impl<'v> AllocValue<'v> for OutputStream<'v> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        heap.alloc_complex(self)
+        heap.alloc_complex_no_freeze(self)
     }
 }
 
