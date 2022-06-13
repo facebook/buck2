@@ -611,18 +611,16 @@ fn parse_arg(
             let args = ident.ident == "args" && !arguments;
             let kwargs = ident.ident == "kwargs" && !arguments;
 
-            if param_attrs.args && !args {
+            if args && !param_attrs.args {
                 return Err(syn::Error::new(
                     span,
-                    "`#[starlark(args)]` annotation can only be used \
-                        on parameter named `args`",
+                    "Parameter named `args` must be have`#[starlark(args)]` annotation",
                 ));
             }
-            if param_attrs.kwargs && !kwargs {
+            if kwargs && !param_attrs.kwargs {
                 return Err(syn::Error::new(
                     span,
-                    "`#[starlark(kwargs)]` annotation can only be used \
-                        on parameter named `kwargs`",
+                    "Parameter named `kwargs` must be have`#[starlark(kwargs)]` annotation",
                 ));
             }
 
