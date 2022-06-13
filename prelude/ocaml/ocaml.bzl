@@ -393,8 +393,7 @@ def _compile(ctx: "context", compiler: "cmd_args", bytecode_or_native: BuildMode
             if cmi != None:
                 cmis.append(cmi)
                 includes[src] = cmi
-            if cmt != None:
-                cmts.append(cmt)
+            cmts.append(cmt)
 
         elif ext == ".c":
             stb = ctx.actions.declare_output(obj_name + ".o")
@@ -490,8 +489,7 @@ def _compile(ctx: "context", compiler: "cmd_args", bytecode_or_native: BuildMode
                     cmd.add(src, "-c", "-o", mk_out(cmo))
                 if cmx != None:
                     cmd.add(src, "-c", "-o", mk_out(cmx))
-                if cmt != None:
-                    cmd.hidden(mk_out(cmt))
+                cmd.hidden(mk_out(cmt))
                 if obj != None:
                     cmd.hidden(mk_out(obj))
                 if cmi != None:
