@@ -10,9 +10,10 @@ use buck2_query::query::syntax::simple::functions::{
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
-use gazebo::{any::ProvidesStaticType, dupe::Dupe, prelude::*};
+use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
+    eval::Evaluator,
     starlark_module, starlark_type,
     values::{
         none::NoneOr, AllocValue, Heap, NoSerialize, StarlarkValue, Trace, UnpackValue, Value,
@@ -22,9 +23,7 @@ use starlark::{
 
 use crate::bxl::{
     starlark_defs::{
-        context::BxlContext,
-        file_set::FileSetExpr,
-        target_expr::{targets, TargetExpr},
+        context::BxlContext, file_set::FileSetExpr, target_expr::TargetExpr,
         targetset::StarlarkTargetSet,
     },
     value_as_starlak_target_label::ValueAsStarlarkTargetLabel,
@@ -110,62 +109,92 @@ impl<'v> StarlarkCQueryCtx<'v> {
 #[starlark_module]
 fn register_cquery(builder: &mut MethodsBuilder) {
     /// the `allpaths` query.
-    fn allpaths(
-        this: &StarlarkCQueryCtx,
-        from: TargetExpr<ConfiguredTargetNode>,
-        to: TargetExpr<ConfiguredTargetNode>,
+    fn allpaths<'v>(
+        this: &StarlarkCQueryCtx<'v>,
+        from: Value<'v>,
+        to: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         Ok(this.ctx.async_ctx.via(|| async {
             this.functions
                 .allpaths(
                     &this.env,
-                    &*targets!(&this.env, from),
-                    &*targets!(&this.env, to),
+                    &*TargetExpr::unpack(from, &this.target_platform, this.ctx, &this.env, eval)
+                        .await?
+                        .get(&this.env)
+                        .await?,
+                    &*TargetExpr::unpack(to, &this.target_platform, this.ctx, &this.env, eval)
+                        .await?
+                        .get(&this.env)
+                        .await?,
                 )
                 .await
                 .map(StarlarkTargetSet::from)
         })?)
     }
 
-    fn attrfilter(
-        this: &StarlarkCQueryCtx,
+    fn attrfilter<'v>(
+        this: &StarlarkCQueryCtx<'v>,
         attr: &str,
         value: &str,
-        targets: TargetExpr<ConfiguredTargetNode>,
+        targets: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx.async_ctx.via(|| async {
             this.functions
-                .attrfilter(attr, value, &*targets!(&this.env, targets))
+                .attrfilter(
+                    attr,
+                    value,
+                    &*TargetExpr::unpack(targets, &this.target_platform, this.ctx, &this.env, eval)
+                        .await?
+                        .get(&this.env)
+                        .await?,
+                )
                 .map(StarlarkTargetSet::from)
         })
     }
 
-    fn kind(
-        this: &StarlarkCQueryCtx,
+    fn kind<'v>(
+        this: &StarlarkCQueryCtx<'v>,
         regex: &str,
-        targets: TargetExpr<ConfiguredTargetNode>,
+        targets: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx.async_ctx.via(|| async {
             this.functions
-                .kind(regex, &*targets!(&this.env, targets))
+                .kind(
+                    regex,
+                    &*TargetExpr::unpack(targets, &this.target_platform, this.ctx, &this.env, eval)
+                        .await?
+                        .get(&this.env)
+                        .await?,
+                )
                 .map(StarlarkTargetSet::from)
         })
     }
 
-    fn attrregexfilter(
-        this: &StarlarkCQueryCtx,
+    fn attrregexfilter<'v>(
+        this: &StarlarkCQueryCtx<'v>,
         attribute: &str,
         value: &str,
-        targets: TargetExpr<ConfiguredTargetNode>,
+        targets: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx.async_ctx.via(|| async {
             this.functions
-                .attrregexfilter(attribute, value, targets!(&this.env, targets))
+                .attrregexfilter(
+                    attribute,
+                    value,
+                    &*TargetExpr::unpack(targets, &this.target_platform, this.ctx, &this.env, eval)
+                        .await?
+                        .get(&this.env)
+                        .await?,
+                )
                 .map(StarlarkTargetSet::from)
         })
     }
 
-    fn owner(
+    fn owner<'v>(
         this: &StarlarkCQueryCtx,
         files: FileSetExpr,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
@@ -180,10 +209,11 @@ fn register_cquery(builder: &mut MethodsBuilder) {
     }
 
     fn deps<'v>(
-        this: &StarlarkCQueryCtx,
-        universe: TargetExpr<ConfiguredTargetNode>,
+        this: &StarlarkCQueryCtx<'v>,
+        universe: Value<'v>,
         #[starlark(default = NoneOr::None)] depth: NoneOr<i32>,
         #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx
             .async_ctx
@@ -196,7 +226,16 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                     .deps(
                         &this.env,
                         &DefaultQueryFunctionsModule::new(),
-                        targets!(&this.env, universe),
+                        &*TargetExpr::unpack(
+                            universe,
+                            &this.target_platform,
+                            this.ctx,
+                            &this.env,
+                            eval,
+                        )
+                        .await?
+                        .get(&this.env)
+                        .await?,
                         depth.into_option(),
                         filter
                             .as_ref()
@@ -208,11 +247,12 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             .map(StarlarkTargetSet::from)
     }
 
-    fn rdeps(
-        this: &StarlarkCQueryCtx,
-        universe: TargetExpr<ConfiguredTargetNode>,
-        from: TargetExpr<ConfiguredTargetNode>,
+    fn rdeps<'v>(
+        this: &StarlarkCQueryCtx<'v>,
+        universe: Value<'v>,
+        from: Value<'v>,
         depth: Option<i32>,
+        eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx
             .async_ctx
@@ -220,8 +260,26 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                 this.functions
                     .rdeps(
                         &this.env,
-                        targets!(&this.env, universe),
-                        targets!(&this.env, from),
+                        &*TargetExpr::unpack(
+                            universe,
+                            &this.target_platform,
+                            this.ctx,
+                            &this.env,
+                            eval,
+                        )
+                        .await?
+                        .get(&this.env)
+                        .await?,
+                        &*TargetExpr::unpack(
+                            from,
+                            &this.target_platform,
+                            this.ctx,
+                            &this.env,
+                            eval,
+                        )
+                        .await?
+                        .get(&this.env)
+                        .await?,
                         depth,
                     )
                     .await

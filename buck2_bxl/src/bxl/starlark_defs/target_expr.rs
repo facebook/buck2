@@ -22,18 +22,8 @@ use thiserror::Error;
 use crate::bxl::starlark_defs::{
     context::BxlContext,
     nodes::{configured::StarlarkConfiguredTargetNode, unconfigured::StarlarkTargetNode},
-    targetset::NodeLike,
+    targetset::{NodeLike, StarlarkTargetSet},
 };
-
-/// Converts a TargetExpr to a &TargetSet.
-macro_rules! targets {
-    ($env:expr, $e:expr) => {
-        &*($e.get($env).await?)
-    };
-}
-pub(crate) use targets;
-
-use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 
 /// TargetExpr is just a simple type that can be used in starlark_module
 /// functions for arguments that should be target sets. It will accept a
