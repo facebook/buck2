@@ -132,7 +132,7 @@ impl ValueAsFrozenCommandLineLike for FrozenValue {
 pub fn register_args_function(builder: &mut GlobalsBuilder) {
     #[starlark(type = "cmd_args")]
     fn cmd_args<'v>(
-        args: Vec<Value<'v>>,
+        #[starlark(args)] args: Vec<Value<'v>>,
         delimiter: Option<StringValue<'v>>,
         format: Option<StringValue<'v>>,
         prepend: Option<StringValue<'v>>,

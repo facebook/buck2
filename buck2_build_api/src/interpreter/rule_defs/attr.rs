@@ -645,7 +645,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn one_of<'v>(
-        args: Vec<&Attribute>,
+        #[starlark(args)] args: Vec<&Attribute>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
@@ -655,7 +655,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn tuple<'v>(
-        args: Vec<&Attribute>,
+        #[starlark(args)] args: Vec<&Attribute>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,

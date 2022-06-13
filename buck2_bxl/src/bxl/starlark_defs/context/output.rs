@@ -96,7 +96,7 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
     /// and `pprint`.
     fn print(
         this: &OutputStream,
-        args: Vec<Value>,
+        #[starlark(args)] args: Vec<Value>,
         #[starlark(default = " ")] sep: &str,
     ) -> anyhow::Result<NoneType> {
         // TODO handle printing of EnsuredArtifacts separately

@@ -477,12 +477,18 @@ fn cmd_args<'v>(x: Value<'v>) -> ARef<'v, StarlarkCommandLineDataGen<Value<'v>>>
 
 #[starlark_module]
 fn command_line_builder_methods(builder: &mut MethodsBuilder) {
-    fn add<'v>(this: Value<'v>, args: Vec<Value<'v>>) -> anyhow::Result<Value<'v>> {
+    fn add<'v>(
+        this: Value<'v>,
+        #[starlark(args)] args: Vec<Value<'v>>,
+    ) -> anyhow::Result<Value<'v>> {
         cmd_args_mut(this)?.add_values(&args)?;
         Ok(this)
     }
 
-    fn hidden<'v>(this: Value<'v>, args: Vec<Value<'v>>) -> anyhow::Result<Value<'v>> {
+    fn hidden<'v>(
+        this: Value<'v>,
+        #[starlark(args)] args: Vec<Value<'v>>,
+    ) -> anyhow::Result<Value<'v>> {
         cmd_args_mut(this)?.add_hidden(&args)?;
         Ok(this)
     }
