@@ -43,7 +43,8 @@ use crate::{
     values::{
         docs,
         docs::{DocItem, DocString, DocStringKind},
-        Freezer, FrozenHeap, FrozenHeapRef, FrozenValue, Heap, OwnedFrozenValue, Value,
+        Freezer, FrozenHeap, FrozenHeapRef, FrozenValue, Heap, OwnedFrozenValue, Trace, Tracer,
+        Value,
     },
 };
 
@@ -398,6 +399,10 @@ impl Module {
 
     pub(crate) fn add_eval_duration(&self, duration: Duration) {
         self.eval_duration.set(self.eval_duration.get() + duration);
+    }
+
+    pub(crate) fn trace<'v>(&'v self, tracer: &Tracer<'v>) {
+        self.slots().get_slots_mut().trace(tracer);
     }
 }
 
