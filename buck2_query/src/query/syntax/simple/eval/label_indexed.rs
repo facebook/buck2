@@ -97,6 +97,11 @@ impl<T: LabeledNode> LabelIndexedSet<T> {
         self.nodes.iter().map(|e| &e.0)
     }
 
+    #[allow(clippy::should_implement_trait)] // the std trait requires concrete or boxed iterator type
+    pub fn into_iter(self) -> impl ExactSizeIterator<Item = T> {
+        self.nodes.into_iter().map(|e| e.0)
+    }
+
     pub fn insert(&mut self, value: T) -> bool {
         self.nodes.insert(LabelIndexed(value))
     }

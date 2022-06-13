@@ -103,6 +103,11 @@ impl<T: QueryTarget> TargetSet<T> {
         self.targets.iter()
     }
 
+    #[allow(clippy::should_implement_trait)] // the std trait requires concrete or boxed iterator type
+    pub fn into_iter(self) -> impl Iterator<Item = T> {
+        self.targets.into_iter()
+    }
+
     pub fn contains(&self, item: &T::NodeRef) -> bool {
         self.targets.contains(item)
     }
