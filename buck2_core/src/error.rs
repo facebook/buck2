@@ -5,7 +5,7 @@ use once_cell::sync::OnceCell;
 use crate::env_helper::EnvHelper;
 
 type SoftErrorHandler =
-    Box<dyn Fn(anyhow::Error, (&'static str, u32, u32)) + Send + Sync + 'static>;
+    Box<dyn Fn(&anyhow::Error, (&'static str, u32, u32)) + Send + Sync + 'static>;
 
 static HANDLER: OnceCell<SoftErrorHandler> = OnceCell::new();
 
@@ -28,7 +28,7 @@ pub fn handle_soft_error(err: anyhow::Error, count: &AtomicUsize, loc: (&'static
     if count.fetch_add(1, Ordering::SeqCst) <= 10 {
         tracing::warn!("Important warning at {}:{}:{} {}", loc.0, loc.1, loc.2, err);
         if let Some(handler) = HANDLER.get() {
-            handler(err, loc);
+            handler(&err, loc);
         }
     }
 
@@ -59,7 +59,7 @@ mod test {
 
     static RESULT: OnceCell<Mutex<Vec<String>>> = OnceCell::new();
 
-    fn mock_handler(err: anyhow::Error, loc: (&'static str, u32, u32)) {
+    fn mock_handler(err: &anyhow::Error, loc: (&'static str, u32, u32)) {
         RESULT
             .get_or_init(|| Mutex::new(Vec::new()))
             .lock()

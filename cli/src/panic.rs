@@ -138,7 +138,7 @@ mod imp {
         write_to_scribe(fb, location, message);
     }
 
-    pub fn write_soft_error_to_scribe(fb: FacebookInit, err: anyhow::Error, location: Location) {
+    pub fn write_soft_error_to_scribe(fb: FacebookInit, err: &anyhow::Error, location: Location) {
         write_to_scribe(fb, Some(location), format!("Soft Error: {:#}", err));
     }
 
@@ -215,5 +215,6 @@ mod imp {
 
     pub fn write_panic_to_scribe(_: FacebookInit, _: &PanicInfo) {}
 
-    pub fn write_soft_error_to_scribe(_: FacebookInit, _: anyhow::Error, _: buck2_data::Location) {}
+    pub fn write_soft_error_to_scribe(_: FacebookInit, _: &anyhow::Error, _: buck2_data::Location) {
+    }
 }
