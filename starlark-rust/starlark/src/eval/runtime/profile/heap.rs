@@ -34,7 +34,7 @@ use gazebo::{any::ProvidesStaticType, prelude::*};
 use crate as starlark;
 use crate::{
     eval::runtime::{profile::csv::CsvWriter, small_duration::SmallDuration},
-    values::{Freeze, Freezer, Heap, NoSimpleValue, StarlarkValue, Trace, Value, ValueLike},
+    values::{Heap, StarlarkValue, Trace, Value, ValueLike},
 };
 
 #[derive(Copy, Clone, Dupe, Debug)]
@@ -74,13 +74,6 @@ struct CallEnter<'v, D: MaybeDrop + 'static> {
     function: Value<'v>,
     time: Instant,
     maybe_drop: D,
-}
-
-impl<'v, D: MaybeDrop + Trace<'v> + 'v> Freeze for CallEnter<'v, D> {
-    type Frozen = NoSimpleValue;
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
-        unreachable!("Should never end up freezing a CallEnter")
-    }
 }
 
 impl<'v, D: MaybeDrop + Trace<'v> + 'v> StarlarkValue<'v> for CallEnter<'v, D> {
@@ -168,12 +161,12 @@ impl HeapProfile {
             let time = Instant::now();
             assert!(mem::needs_drop::<CallEnter<NeedsDrop>>());
             assert!(!mem::needs_drop::<CallEnter<NoDrop>>());
-            heap.alloc_complex(CallEnter {
+            heap.alloc_complex_no_freeze(CallEnter {
                 function,
                 time,
                 maybe_drop: NeedsDrop,
             });
-            heap.alloc_complex(CallEnter {
+            heap.alloc_complex_no_freeze(CallEnter {
                 function,
                 time,
                 maybe_drop: NoDrop,
