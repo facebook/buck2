@@ -4,14 +4,15 @@ use buck2_build_api::{
     calculation::Calculation,
     interpreter::rule_defs::target_label::{StarlarkConfiguredTargetLabel, StarlarkTargetLabel},
     nodes::{configured::ConfiguredTargetNode, unconfigured::TargetNode},
+    query::cquery::environment::CqueryEnvironment,
 };
-use buck2_core::{cells::paths::CellRelativePath, package::Package, target::TargetLabel};
-use buck2_interpreter::pattern::{ParsedPattern, TargetPattern};
+use buck2_core::target::TargetLabel;
 use buck2_query::query::{
     environment::{QueryEnvironment, QueryTarget},
     syntax::simple::eval::set::TargetSet,
 };
 use either::Either;
+use gazebo::prelude::*;
 use starlark::{
     eval::Evaluator,
     values::{list::List, StarlarkValue, UnpackValue, Value, ValueLike},
@@ -43,7 +44,7 @@ pub enum TargetExpr<'v, Node: QueryTarget> {
     Node(Node),
     Label(Cow<'v, Node::NodeRef>),
     Iterable(Vec<Either<Node, Cow<'v, Node::NodeRef>>>),
-    TargetSet(&'v TargetSet<Node>),
+    TargetSet(Cow<'v, TargetSet<Node>>),
     // TODO remove
     IterableValue(Value<'v>),
     Value(&'v str),
@@ -81,7 +82,7 @@ impl<'v, Node: NodeLike> TargetExpr<'v, Node> {
 
                 Ok(Cow::Owned(set))
             }
-            TargetExpr::TargetSet(val) => return Ok(Cow::Borrowed(val)),
+            TargetExpr::TargetSet(val) => Ok(val),
             TargetExpr::IterableValue(val) => {
                 let list = List::from_value(val).unwrap();
                 let targets = list
@@ -103,7 +104,7 @@ impl<'v, Node: NodeLike> TargetExpr<'v, Node> {
     // only a TargetSet or a list of string literals.
     pub(crate) fn unpack_set(value: Value<'v>) -> Option<Self> {
         if let Some(s) = value.downcast_ref::<StarlarkTargetSet<Node>>() {
-            return Some(TargetExpr::TargetSet(s));
+            return Some(TargetExpr::TargetSet(Cow::Borrowed(s)));
         } else if let Some(iterable) = List::from_value(value) {
             let mut good = true;
             for val in iterable.iter() {
@@ -129,16 +130,18 @@ pub enum TargetExprError {
 }
 
 impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
-    pub fn unpack(
+    pub async fn unpack(
         value: Value<'v>,
         target_platform: &Option<TargetLabel>,
-        ctx: &BxlContext,
+        ctx: &BxlContext<'v>,
+        env: &CqueryEnvironment<'v>,
         eval: &Evaluator<'v, '_>,
-    ) -> anyhow::Result<Self> {
+    ) -> anyhow::Result<TargetExpr<'v, ConfiguredTargetNode>> {
         Ok(
-            if let Some(resolved) = Self::unpack_literal(value, target_platform, ctx)? {
+            if let Some(resolved) = Self::unpack_literal(value, target_platform, ctx, env).await? {
                 resolved
-            } else if let Some(resolved) = Self::unpack_iterable(value, target_platform, ctx, eval)?
+            } else if let Some(resolved) =
+                Self::unpack_iterable(value, target_platform, ctx, env, eval).await?
             {
                 resolved
             } else {
@@ -149,30 +152,24 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
         )
     }
 
-    fn unpack_literal(
+    async fn unpack_literal(
         value: Value<'v>,
         target_platform: &Option<TargetLabel>,
-        ctx: &BxlContext,
-    ) -> anyhow::Result<Option<Self>> {
+        ctx: &BxlContext<'v>,
+        env: &CqueryEnvironment<'v>,
+    ) -> anyhow::Result<Option<TargetExpr<'v, ConfiguredTargetNode>>> {
         if let Some(configured_target) = value.downcast_ref::<StarlarkConfiguredTargetNode>() {
             Ok(Some(Self::Node(configured_target.0.dupe())))
         } else if let Some(configured_target) =
             value.downcast_ref::<StarlarkConfiguredTargetLabel>()
         {
             Ok(Some(Self::Label(Cow::Borrowed(configured_target.label()))))
+        } else if let Some(s) = value.unpack_str() {
+            let targets = env.eval_literals(&[s]).await?;
+            Ok(Some(Self::TargetSet(Cow::Owned(targets))))
         } else {
             #[allow(clippy::manual_map)] // `if else if` looks better here
-            if let Some(s) = value.unpack_str() {
-                Some(Cow::Owned(
-                    ParsedPattern::<TargetPattern>::parse_relaxed(
-                        &ctx.target_alias_resolver,
-                        ctx.cell.cell_alias_resolver(),
-                        &Package::new(ctx.cell.name(), CellRelativePath::unchecked_new("")),
-                        s,
-                    )?
-                    .as_target_label(s)?,
-                ))
-            } else if let Some(target) = value.downcast_ref::<StarlarkTargetLabel>() {
+            if let Some(target) = value.downcast_ref::<StarlarkTargetLabel>() {
                 Some(Cow::Borrowed(target.label()))
             } else if let Some(node) = value.downcast_ref::<StarlarkTargetNode>() {
                 Some(Cow::Borrowed(node.0.label()))
@@ -190,37 +187,45 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
         }
     }
 
-    fn unpack_iterable(
+    async fn unpack_iterable(
         value: Value<'v>,
         target_platform: &Option<TargetLabel>,
-        ctx: &BxlContext,
+        ctx: &BxlContext<'v>,
+        env: &CqueryEnvironment<'v>,
         eval: &Evaluator<'v, '_>,
-    ) -> anyhow::Result<Option<Self>> {
+    ) -> anyhow::Result<Option<TargetExpr<'v, ConfiguredTargetNode>>> {
         if let Some(s) = value.downcast_ref::<StarlarkTargetSet<ConfiguredTargetNode>>() {
-            return Ok(Some(Self::TargetSet(s)));
+            return Ok(Some(Self::TargetSet(Cow::Borrowed(s))));
         }
 
-        Ok(Some(Self::Iterable(
-            #[allow(clippy::manual_map)] // `if else if` looks better here
-            if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
-                Some(Either::Left(s.iterate(eval.heap())?))
-            } else if let Some(iterable) = List::from_value(value) {
-                Some(Either::Right(iterable.iter()))
-            } else {
-                None
-            }
-            .ok_or_else(|| TargetExprError::NotATarget(value.to_repr()))?
-            .map(|val| {
-                let unpacked = Self::unpack_literal(val, target_platform, ctx)?;
+        #[allow(clippy::manual_map)] // `if else if` looks better here
+        let items = if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
+            Some(Either::Left(s.iterate(eval.heap())?))
+        } else if let Some(iterable) = List::from_value(value) {
+            Some(Either::Right(iterable.iter()))
+        } else {
+            None
+        }
+        .ok_or_else(|| TargetExprError::NotATarget(value.to_repr()))?;
 
-                match unpacked {
-                    Some(TargetExpr::Node(node)) => Ok(Either::Left(node)),
-                    Some(TargetExpr::Label(label)) => Ok(Either::Right(label)),
-                    _ => Err(anyhow::anyhow!(TargetExprError::NotATarget(val.to_repr()))),
+        let mut resolved = vec![];
+
+        for item in items {
+            let unpacked = Self::unpack_literal(item, target_platform, ctx, env).await?;
+
+            match unpacked {
+                Some(TargetExpr::Node(node)) => resolved.push(Either::Left(node)),
+                Some(TargetExpr::Label(label)) => resolved.push(Either::Right(label)),
+                Some(TargetExpr::TargetSet(set)) => match set {
+                    Cow::Borrowed(s) => itertools::Either::Left(s.iter().duped()),
+                    Cow::Owned(s) => itertools::Either::Right(s.into_iter()),
                 }
-            })
-            .collect::<anyhow::Result<_>>()?,
-        )))
+                .for_each(|t| resolved.push(Either::Left(t))),
+                _ => return Err(anyhow::anyhow!(TargetExprError::NotATarget(item.to_repr()))),
+            }
+        }
+
+        Ok(Some(Self::Iterable(resolved)))
     }
 }
 
