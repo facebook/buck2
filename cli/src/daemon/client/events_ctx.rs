@@ -143,18 +143,21 @@ impl EventsCtx {
                     let command_result = loop {
                         tokio::select! {
                             next = stream.next() => {
-                                let next = next
-                                    .context(BuckdCommunicationError::MissingCommandResult)?
-                                    .context("Buck daemon event bus encountered an error")?;
+                                // Make sure we still flush if next produces an error is accurate
+                                let next: anyhow::Result<_> = try {
+                                    next.context(BuckdCommunicationError::MissingCommandResult)?
+                                        .context("Buck daemon event bus encountered an error")?
+                                };
                                 match next {
-                                    StreamValue::Event(event) => {
+                                    Ok(StreamValue::Event(event)) => {
                                         let event = event.try_into()?;
                                         self.handle_event(&event).await?;
                                     }
-                                    StreamValue::Result(res) => {
+                                    Ok(StreamValue::Result(res)) => {
                                         self.handle_command_result(&res).await?;
-                                        break res
+                                        break Ok(res)
                                     }
+                                    Err(e) => {break Err(e)}
                                 };
                             }
                             Some(stdout) = tailers.streams.stdout.next() => {
@@ -174,7 +177,7 @@ impl EventsCtx {
 
                     self.flush(&mut Some(tailers)).await?;
 
-                    command_result
+                    command_result?
                 }
                 None => loop {
                     tokio::select! {
