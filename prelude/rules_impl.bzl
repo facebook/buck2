@@ -44,6 +44,7 @@ load("@fbcode//buck2/prelude/python:cxx_python_extension.bzl", "cxx_python_exten
 load("@fbcode//buck2/prelude/python:prebuilt_python_library.bzl", "prebuilt_python_library_impl")
 load("@fbcode//buck2/prelude/python:python_binary.bzl", "python_binary_impl")
 load("@fbcode//buck2/prelude/python:python_library.bzl", "python_library_impl")
+load("@fbcode//buck2/prelude/python:python_needed_coverage_test.bzl", "python_needed_coverage_test_impl")
 load("@fbcode//buck2/prelude/python:python_test.bzl", "python_test_impl")
 load("@fbcode//buck2/prelude/python:toolchain.bzl", "PythonPlatformInfo", "PythonToolchainInfo")
 
@@ -134,6 +135,7 @@ implemented_rules = struct(
     python_binary = python_binary_impl,
     python_library = python_library_impl,
     python_test = python_test_impl,
+    python_needed_coverage_test = python_needed_coverage_test_impl,
 
     #python bootstrap
     python_bootstrap_binary = python_bootstrap_binary_impl,
@@ -176,6 +178,18 @@ def _cxx_python_extension_attrs():
         "_python_toolchain": attr.exec_dep(default = default_python_toolchain(), providers = [PythonToolchainInfo, PythonPlatformInfo]),
     })
     return res
+
+def _python_test_attrs():
+    return {
+        "bundled_runtime": attr.bool(default = False),
+        "package_split_dwarf_dwp": attr.bool(default = False),
+        "resources": attr.named_set(attr.one_of(attr.dep(), attr.source(allow_directory = True)), sorted = True, default = []),
+        "_create_manifest_for_source_dir": attr.dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir"),
+        "_cxx_toolchain": attr.exec_dep(default = default_cxx_toolchain(), providers = [CxxToolchainInfo, CxxPlatformInfo]),
+        "_hacks": attr.dep(default = "fbcode//buck2/platform:cxx-hacks"),
+        "_python_toolchain": attr.exec_dep(default = default_python_toolchain(), providers = [PythonToolchainInfo, PythonPlatformInfo]),
+        "_test_main": attr.source(default = "fbcode//buck2/prelude/python/tools:__test_main__.py"),
+    }
 
 def _cxx_binary_and_test_attrs():
     return {
@@ -358,16 +372,11 @@ extra_attributes = struct(
         "_hacks": attr.dep(default = "fbcode//buck2/platform:cxx-hacks"),
         "_python_toolchain": attr.exec_dep(default = default_python_toolchain(), providers = [PythonToolchainInfo, PythonPlatformInfo]),
     },
-    python_test = {
-        "bundled_runtime": attr.bool(default = False),
-        "package_split_dwarf_dwp": attr.bool(default = False),
-        "resources": attr.named_set(attr.one_of(attr.dep(), attr.source(allow_directory = True)), sorted = True, default = []),
-        "_create_manifest_for_source_dir": attr.dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir"),
-        "_cxx_toolchain": attr.exec_dep(default = default_cxx_toolchain(), providers = [CxxToolchainInfo, CxxPlatformInfo]),
-        "_hacks": attr.dep(default = "fbcode//buck2/platform:cxx-hacks"),
-        "_python_toolchain": attr.exec_dep(default = default_python_toolchain(), providers = [PythonToolchainInfo, PythonPlatformInfo]),
-        "_test_main": attr.source(default = "fbcode//buck2/prelude/python/tools:__test_main__.py"),
-    },
+    python_needed_coverage_test = dict(
+        attributes["python_test"],
+        **_python_test_attrs()
+    ),
+    python_test = _python_test_attrs(),
     #python bootstrap
     python_bootstrap_binary = {
         "deps": attr.list(attr.dep(providers = [PythonBootstrapSources]), default = []),

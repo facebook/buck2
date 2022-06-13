@@ -1,9 +1,9 @@
+load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load("@fbcode//buck2/prelude/linking:shared_libraries.bzl", "traverse_shared_library_info")
+load("@fbcode//buck2/prelude/utils:utils.bzl", "flatten")
 load(":interface.bzl", "PythonLibraryInterface", "PythonLibraryManifestsInterface")
-load(
-    ":manifest.bzl",
-    "ManifestInfo",
-)
+load(":manifest.bzl", "ManifestInfo")
+load(":toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
 
 PythonLibraryManifests = record(
     label = field("label"),
@@ -109,4 +109,12 @@ def manifests_to_interface(manifests: PythonLibraryManifestsTSet.type) -> Python
         bytecode_artifacts = lambda: [manifests.project_as_args("bytecode_artifacts")],
         resource_manifests = lambda: [manifests.project_as_args("resource_manifests")],
         resource_artifacts = lambda: [manifests.project_as_args("resource_artifacts")],
+    )
+
+def get_python_deps(ctx: "context"):
+    python_platform = ctx.attr._python_toolchain[PythonPlatformInfo]
+    cxx_platform = ctx.attr._cxx_toolchain[CxxPlatformInfo]
+    return flatten(
+        [ctx.attr.deps] +
+        get_platform_attr(python_platform, cxx_platform, ctx.attr.platform_deps),
     )

@@ -78,6 +78,17 @@ if fbcode_linux_only():
             stderr_regex="1 TESTS FATALS",
         )
 
+        # Needed coverage.
+        await buck.test(
+            "fbcode//buck2/tests/targets/rules/python/needed_coverage:test_pass"
+        )
+        await expect_failure(
+            buck.test(
+                "fbcode//buck2/tests/targets/rules/python/needed_coverage:test_fail"
+            ),
+            stderr_regex="ERROR: Actual coverage [0-9.]*% is smaller than expected 100.% for file",
+        )
+
 
 if fbcode_linux_only():
 

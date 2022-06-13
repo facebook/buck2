@@ -28,6 +28,7 @@ load(
     "create_manifest_for_source_dir",
     "create_manifest_for_source_map",
 )
+load(":needed_coverage.bzl", "get_python_needed_coverage_info")
 load(":python.bzl", "PythonLibraryInfo", "PythonLibraryManifests", "PythonLibraryManifestsTSet")
 load(":source_db.bzl", "create_source_db")
 
@@ -263,6 +264,8 @@ def python_library_impl(ctx: "context") -> ["provider"]:
         deps = deps,
         shared_libraries = shared_libraries,
     ))
+
+    providers.append(get_python_needed_coverage_info(srcs.keys()))
 
     # Source DBs.
     sub_targets["source-db"] = [create_source_db(ctx, src_type_manifest, flatten(raw_deps))]

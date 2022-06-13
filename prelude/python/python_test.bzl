@@ -20,7 +20,7 @@ def _write_test_modules_list(
     contents += "]\n"
     return name, ctx.actions.write(name, contents)
 
-def python_test_impl(ctx: "context") -> ["provider"]:
+def python_test_executable(ctx: "context") -> ("artifact", ["_arglike"], DefaultInfo.type):
     main_module = value_or(ctx.attr.main_module, "__test_main__")
 
     srcs = qualify_srcs(ctx.label, ctx.attr.base_module, from_named_set(ctx.attr.srcs))
@@ -34,7 +34,7 @@ def python_test_impl(ctx: "context") -> ["provider"]:
 
     resources = qualify_srcs(ctx.label, ctx.attr.base_module, py_attr_resources(ctx))
 
-    output, runtime_files, source_db = python_executable(
+    return python_executable(
         ctx,
         main_module,
         srcs,
@@ -42,16 +42,19 @@ def python_test_impl(ctx: "context") -> ["provider"]:
         compile = value_or(ctx.attr.compile, False),
     )
 
+def python_test_impl(ctx: "context") -> ["provider"]:
+    output, runtime_files, source_db = python_test_executable(ctx)
+    test_cmd = cmd_args(output).hidden(runtime_files)
     return [
         DefaultInfo(
             default_outputs = [output],
             other_outputs = runtime_files,
             sub_targets = {"source-db": [source_db]},
         ),
-        RunInfo(cmd_args(output).hidden(runtime_files)),
+        RunInfo(test_cmd),
         ExternalRunnerTestInfo(
             type = "pyunit",
-            command = [cmd_args(output).hidden(runtime_files)],
+            command = [test_cmd],
             env = ctx.attr.env,
             labels = ctx.attr.labels,
             contacts = ctx.attr.contacts,

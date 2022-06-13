@@ -1,0 +1,35 @@
+load("@fbcode_macros//build_defs:python_library.bzl", "python_library")
+load("@fbcode_macros//build_defs:python_unittest.bzl", "python_unittest")
+
+python_unittest(
+    name = "test_pass",
+    srcs = [
+        "test_pass.py",
+    ],
+    needed_coverage = [
+        (100, ":lib"),
+    ],
+    deps = [
+        ":lib",
+    ],
+)
+
+python_unittest(
+    name = "test_fail",
+    srcs = [
+        "test_fail.py",
+    ],
+    needed_coverage = [
+        (100, ":lib"),
+    ],
+    deps = [
+        ":lib",
+    ],
+)
+
+python_library(
+    name = "lib",
+    srcs = [
+        "lib.py",
+    ],
+)
