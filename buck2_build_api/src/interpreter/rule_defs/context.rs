@@ -368,8 +368,8 @@ fn copy_file<'v>(
 fn register_context_actions(builder: &mut MethodsBuilder) {
     fn declare_output<'v>(
         this: &AnalysisActions<'v>,
-        prefix: &str,
-        filename: Option<&str>,
+        #[starlark(require = pos)] prefix: &str,
+        #[starlark(require = pos)] filename: Option<&str>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkDeclaredArtifact> {
         let artifact = match filename {
@@ -385,8 +385,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
     fn write_json<'v>(
         this: &AnalysisActions<'v>,
-        output: Value<'v>,
-        content: Value<'v>,
+        #[starlark(require = pos)] output: Value<'v>,
+        #[starlark(require = pos)] content: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let mut this = this.state();
@@ -404,10 +404,10 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
     fn write<'v>(
         this: &AnalysisActions<'v>,
-        output: Value<'v>,
-        content: Value<'v>,
-        #[starlark(default = false)] is_executable: bool,
-        #[starlark(default = false)] allow_args: bool,
+        #[starlark(require = pos)] output: Value<'v>,
+        #[starlark(require = pos)] content: Value<'v>,
+        #[starlark(require = named, default = false)] is_executable: bool,
+        #[starlark(require = named, default = false)] allow_args: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         fn count_write_to_file_macros(
@@ -521,8 +521,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
     // TODO: Delete this, use copy_file instead
     fn copy<'v>(
         this: &AnalysisActions<'v>,
-        src: Value<'v>,
-        dest: Value<'v>,
+        #[starlark(require = pos)] src: Value<'v>,
+        #[starlark(require = pos)] dest: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         copy_file(eval, this, dest, src, CopyMode::Copy)
@@ -530,8 +530,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
     fn copy_file<'v>(
         this: &AnalysisActions<'v>,
-        dest: Value<'v>,
-        src: Value<'v>,
+        #[starlark(require = pos)] dest: Value<'v>,
+        #[starlark(require = pos)] src: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         copy_file(eval, this, dest, src, CopyMode::Copy)
@@ -540,8 +540,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
     // TODO: Delete this, use symlink_file instead
     fn symlink<'v>(
         this: &AnalysisActions<'v>,
-        src: Value<'v>,
-        dest: Value<'v>,
+        #[starlark(require = pos)] src: Value<'v>,
+        #[starlark(require = pos)] dest: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         copy_file(eval, this, dest, src, CopyMode::Symlink)
@@ -549,8 +549,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
     fn symlink_file<'v>(
         this: &AnalysisActions<'v>,
-        dest: Value<'v>,
-        src: Value<'v>,
+        #[starlark(require = pos)] dest: Value<'v>,
+        #[starlark(require = pos)] src: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         copy_file(eval, this, dest, src, CopyMode::Symlink)
@@ -558,8 +558,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
     fn symlinked_dir<'v>(
         this: &AnalysisActions<'v>,
-        output: Value<'v>,
-        srcs: Value<'v>,
+        #[starlark(require = pos)] output: Value<'v>,
+        #[starlark(require = pos)] srcs: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         create_dir_tree(eval, this, output, srcs, false)
@@ -567,8 +567,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
     fn copied_dir<'v>(
         this: &AnalysisActions<'v>,
-        output: Value<'v>,
-        srcs: Value<'v>,
+        #[starlark(require = pos)] output: Value<'v>,
+        #[starlark(require = pos)] srcs: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         create_dir_tree(eval, this, output, srcs, true)
@@ -576,17 +576,17 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
     fn run<'v>(
         this: &AnalysisActions<'v>,
-        arguments: Value<'v>,
-        category: String,
-        #[starlark(default = NoneOr::None)] identifier: NoneOr<String>,
-        env: Option<ValueOf<'v, SmallMap<&'v str, Value<'v>>>>,
-        #[starlark(default = false)] local_only: bool,
-        #[starlark(default = false)] always_print_stderr: bool,
-        #[starlark(default = 1)] weight: i32,
-        dep_files: Option<ValueOf<'v, SmallMap<&'v str, Value<'v>>>>,
-        metadata_env_var: Option<String>,
-        metadata_path: Option<String>,
-        #[starlark(default = false)] no_outputs_cleanup: bool,
+        #[starlark(require = pos)] arguments: Value<'v>,
+        #[starlark(require = named)] category: String,
+        #[starlark(require = named, default = NoneOr::None)] identifier: NoneOr<String>,
+        #[starlark(require = named)] env: Option<ValueOf<'v, SmallMap<&'v str, Value<'v>>>>,
+        #[starlark(require = named, default = false)] local_only: bool,
+        #[starlark(require = named, default = false)] always_print_stderr: bool,
+        #[starlark(require = named, default = 1)] weight: i32,
+        #[starlark(require = named)] dep_files: Option<ValueOf<'v, SmallMap<&'v str, Value<'v>>>>,
+        #[starlark(require = named)] metadata_env_var: Option<String>,
+        #[starlark(require = named)] metadata_path: Option<String>,
+        #[starlark(require = named, default = false)] no_outputs_cleanup: bool,
         heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
         struct RunCommandArtifactVisitor {
@@ -726,12 +726,12 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
     fn download_file<'v>(
         this: &AnalysisActions<'v>,
-        url: &str,
-        output: Value<'v>,
-        #[starlark(default = NoneOr::None)] sha1: NoneOr<&str>,
-        #[starlark(default = NoneOr::None)] sha256: NoneOr<&str>,
-        #[starlark(default = false)] is_executable: bool,
-        #[starlark(default = false)] is_deferrable: bool,
+        #[starlark(require = pos)] url: &str,
+        #[starlark(require = pos)] output: Value<'v>,
+        #[starlark(require = named, default = NoneOr::None)] sha1: NoneOr<&str>,
+        #[starlark(require = named, default = NoneOr::None)] sha256: NoneOr<&str>,
+        #[starlark(require = named, default = false)] is_executable: bool,
+        #[starlark(require = named, default = false)] is_deferrable: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let mut this = this.state();
@@ -765,12 +765,12 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
     // download_file_new, migrate everyone, then swap the arguments, then migrate back.
     fn download_file_new<'v>(
         this: &AnalysisActions<'v>,
-        output: Value<'v>,
-        url: &str,
-        #[starlark(default = NoneOr::None)] sha1: NoneOr<&str>,
-        #[starlark(default = NoneOr::None)] sha256: NoneOr<&str>,
-        #[starlark(default = false)] is_executable: bool,
-        #[starlark(default = false)] is_deferrable: bool,
+        #[starlark(require = pos)] output: Value<'v>,
+        #[starlark(require = pos)] url: &str,
+        #[starlark(require = named, default = NoneOr::None)] sha1: NoneOr<&str>,
+        #[starlark(require = named, default = NoneOr::None)] sha256: NoneOr<&str>,
+        #[starlark(require = named, default = false)] is_executable: bool,
+        #[starlark(require = named, default = false)] is_deferrable: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let mut this = this.state();
@@ -802,7 +802,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
     fn tset<'v>(
         this: &AnalysisActions<'v>,
-        definition: Value<'v>,
+        #[starlark(require = pos)] definition: Value<'v>,
         value: Option<Value<'v>>,
         children: Option<Value<'v>>, // An iterable.
         eval: &mut Evaluator<'v, '_>,
@@ -813,10 +813,10 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
     fn dynamic_output<'v>(
         this: &'v AnalysisActions<'v>,
-        dynamic: Vec<StarlarkArtifact>,
-        inputs: Vec<StarlarkArtifact>,
-        outputs: Vec<StarlarkOutputArtifact>,
-        lambda: Value<'v>,
+        #[starlark(require = pos)] dynamic: Vec<StarlarkArtifact>,
+        #[starlark(require = pos)] inputs: Vec<StarlarkArtifact>,
+        #[starlark(require = pos)] outputs: Vec<StarlarkOutputArtifact>,
+        #[starlark(require = pos)] lambda: Value<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
         // Parameter validation
