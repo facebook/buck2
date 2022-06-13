@@ -162,19 +162,13 @@ impl FileHasher for PathsAndContentsHasher {
 }
 
 pub struct TargetHashes {
-    compatible_target_mapping: HashMap<TargetLabel, ConfiguredTargetLabel>,
-    // TODO(scottcao): the typing here can be cleaned up a little
-    hashes: HashMap<ConfiguredTargetLabel, SharedResult<BuckTargetHash>>,
+    // key is an unconfigured target label, but the hash is generated from the configured target label.
+    target_mapping: HashMap<TargetLabel, SharedResult<BuckTargetHash>>,
 }
 
 impl TargetHashes {
     pub fn get(&self, label: &TargetLabel) -> Option<SharedResult<BuckTargetHash>> {
-        self.compatible_target_mapping
-            .get(label)
-            .map(|v| match self.hashes.get(v).cloned() {
-                Some(r) => r,
-                None => panic!("Target {} is compatible but does not have a hash", label),
-            })
+        return self.target_mapping.get(label).cloned();
     }
 
     pub async fn compute(
@@ -277,10 +271,6 @@ impl TargetHashes {
 
         let compatible_targets =
             get_compatible_targets(&ctx, targets, global_target_platform).await?;
-        let compatible_target_mapping: HashMap<_, _> = compatible_targets
-            .iter()
-            .map(|node| (node.name().unconfigured().dupe(), node.name().dupe()))
-            .collect();
 
         let lookup = Lookup { ctx: ctx.dupe() };
         let file_hasher: Arc<dyn FileHasher> = match file_hash_mode {
@@ -309,17 +299,24 @@ impl TargetHashes {
             .map(|(target, fut)| async move { (target, fut.await) })
             .collect();
 
-        let mut hashes = HashMap::new();
+        let mut target_mapping: HashMap<TargetLabel, SharedResult<BuckTargetHash>> = HashMap::new();
+
         // TODO(cjhopman): FuturesOrdered/Unordered interacts poorly with tokio cooperative scheduling
         // (see https://github.com/rust-lang/futures-rs/issues/2053). Clean this up once a good
         // solution there exists.
+
         while let Some((target, hash)) = tokio::task::unconstrained(futures.next()).await {
-            hashes.insert(target, hash);
+            // Only need the hashes of the requested target, not of dependencies.
+            if compatible_targets.contains(&target) {
+                let overwrite = target_mapping.insert(target.unconfigured().dupe(), hash);
+                assert!(
+                    overwrite.is_none(),
+                    "Target {} was computed multiple times.",
+                    target.name().value()
+                );
+            }
         }
-        Ok(Self {
-            compatible_target_mapping,
-            hashes,
-        })
+        Ok(Self { target_mapping })
     }
 
     fn new_hasher(use_fast_hash: bool) -> Box<dyn BuckTargetHasher> {
