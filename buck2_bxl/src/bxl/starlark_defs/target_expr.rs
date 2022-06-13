@@ -15,7 +15,7 @@ use either::Either;
 use gazebo::prelude::*;
 use starlark::{
     eval::Evaluator,
-    values::{list::List, StarlarkValue, UnpackValue, Value, ValueLike},
+    values::{list::List, StarlarkValue, Value, ValueLike},
 };
 use thiserror::Error;
 
@@ -35,9 +35,6 @@ pub enum TargetExpr<'v, Node: QueryTarget> {
     Label(Cow<'v, Node::NodeRef>),
     Iterable(Vec<Either<Node, Cow<'v, Node::NodeRef>>>),
     TargetSet(Cow<'v, TargetSet<Node>>),
-    // TODO remove
-    IterableValue(Value<'v>),
-    Value(&'v str),
 }
 
 impl<'v, Node: NodeLike> TargetExpr<'v, Node> {
@@ -73,41 +70,7 @@ impl<'v, Node: NodeLike> TargetExpr<'v, Node> {
                 Ok(Cow::Owned(set))
             }
             TargetExpr::TargetSet(val) => Ok(val),
-            TargetExpr::IterableValue(val) => {
-                let list = List::from_value(val).unwrap();
-                let targets = list
-                    .iter()
-                    .map(|val| val.unpack_str().unwrap())
-                    .collect::<Vec<_>>();
-
-                let targets = env.eval_literals(&targets).await?;
-                Ok(Cow::Owned(targets))
-            }
-            TargetExpr::Value(val) => {
-                let targets = env.eval_literals(&[val]).await?;
-                Ok(Cow::Owned(targets))
-            }
         }
-    }
-
-    // This will unpack a Value to a TargetExpr, but doesn't accept as single string literal,
-    // only a TargetSet or a list of string literals.
-    pub(crate) fn unpack_set(value: Value<'v>) -> Option<Self> {
-        if let Some(s) = value.downcast_ref::<StarlarkTargetSet<Node>>() {
-            return Some(TargetExpr::TargetSet(Cow::Borrowed(s)));
-        } else if let Some(iterable) = List::from_value(value) {
-            let mut good = true;
-            for val in iterable.iter() {
-                if val.unpack_str().is_none() {
-                    good = false;
-                    break;
-                }
-            }
-            if good {
-                return Some(TargetExpr::IterableValue(value));
-            }
-        }
-        None
     }
 }
 
@@ -216,19 +179,5 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
         }
 
         Ok(Some(Self::Iterable(resolved)))
-    }
-}
-
-impl<'v, Node: NodeLike> UnpackValue<'v> for TargetExpr<'v, Node> {
-    fn expected() -> String {
-        "str or target set".to_owned()
-    }
-
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        if let Some(s) = value.unpack_str() {
-            Some(TargetExpr::Value(s))
-        } else {
-            TargetExpr::unpack_set(value)
-        }
     }
 }
