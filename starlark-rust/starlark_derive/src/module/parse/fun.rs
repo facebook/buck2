@@ -45,6 +45,8 @@ struct FnParamAttrs {
     this: bool,
     pos_only: bool,
     named_only: bool,
+    args: bool,
+    kwargs: bool,
     unused_attrs: Vec<Attribute>,
 }
 
@@ -73,6 +75,12 @@ fn parse_starlark_fn_param_attr(
                 continue;
             } else if ident == "this" {
                 param_attrs.this = true;
+                continue;
+            } else if ident == "args" {
+                param_attrs.args = true;
+                continue;
+            } else if ident == "kwargs" {
+                param_attrs.kwargs = true;
                 continue;
             } else if ident == "require" {
                 parser.parse::<Token!(=)>()?;
@@ -602,6 +610,21 @@ fn parse_arg(
             let arguments = is_ref_something(&ty, "Arguments");
             let args = ident.ident == "args" && !arguments;
             let kwargs = ident.ident == "kwargs" && !arguments;
+
+            if param_attrs.args && !args {
+                return Err(syn::Error::new(
+                    span,
+                    "`#[starlark(args)]` annotation can only be used \
+                        on parameter named `args`",
+                ));
+            }
+            if param_attrs.kwargs && !kwargs {
+                return Err(syn::Error::new(
+                    span,
+                    "`#[starlark(kwargs)]` annotation can only be used \
+                        on parameter named `kwargs`",
+                ));
+            }
 
             let pass_style = match (
                 this,

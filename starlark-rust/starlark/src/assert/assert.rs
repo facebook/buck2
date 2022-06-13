@@ -203,7 +203,10 @@ pub(crate) fn test_functions(builder: &mut GlobalsBuilder) {
     /// Function which consumes arguments and that's it.
     ///
     /// This function is unknown to optimizer, so it can be used in optimizer tests.
-    fn noop(args: Value, kwargs: Value) -> anyhow::Result<NoneType> {
+    fn noop(
+        #[starlark(args)] args: Value,
+        #[starlark(kwargs)] kwargs: Value,
+    ) -> anyhow::Result<NoneType> {
         let _ = (args, kwargs);
         Ok(NoneType)
     }

@@ -67,7 +67,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// fail("oops", 1, False)  # fail: oops 1 False
     /// # "#, "oops 1 False");
     /// ```
-    fn fail(args: Vec<Value>) -> anyhow::Result<NoneType> {
+    fn fail(#[starlark(args)] args: Vec<Value>) -> anyhow::Result<NoneType> {
         let mut s = String::new();
         for x in args {
             s.push(' ');
@@ -704,7 +704,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn max<'v>(
-        mut args: Vec<Value<'v>>,
+        #[starlark(args)] mut args: Vec<Value<'v>>,
         key: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
@@ -762,7 +762,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn min<'v>(
-        mut args: Vec<Value<'v>>,
+        #[starlark(args)] mut args: Vec<Value<'v>>,
         key: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
@@ -1103,7 +1103,10 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn zip<'v>(args: Vec<Value<'v>>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn zip<'v>(
+        #[starlark(args)] args: Vec<Value<'v>>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<Value<'v>> {
         let mut v = Vec::new();
         let mut first = true;
         for arg in args {

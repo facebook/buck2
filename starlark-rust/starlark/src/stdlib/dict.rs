@@ -313,7 +313,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     fn update<'v>(
         this: Value<'v>,
         #[starlark(require = pos)] pairs: Option<Value<'v>>,
-        kwargs: DictRef<'v>,
+        #[starlark(kwargs)] kwargs: DictRef<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
         let pairs = if pairs.map(|x| x.ptr_eq(this)) == Some(true) {

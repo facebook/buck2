@@ -24,7 +24,10 @@ use crate::{
 
 #[starlark_module]
 pub fn global(builder: &mut GlobalsBuilder) {
-    fn r#enum<'v>(args: Vec<Value<'v>>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn r#enum<'v>(
+        #[starlark(args)] args: Vec<Value<'v>>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<Value<'v>> {
         // Every Value must either be a field or a value (the type)
         EnumType::new(args, heap)
     }

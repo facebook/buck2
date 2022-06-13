@@ -87,8 +87,8 @@ pub fn map(builder: &mut GlobalsBuilder) {
 pub fn partial(builder: &mut GlobalsBuilder) {
     fn partial<'v>(
         #[starlark(require = pos)] func: Value<'v>,
-        args: Value<'v>,
-        kwargs: DictRef<'v>,
+        #[starlark(args)] args: Value<'v>,
+        #[starlark(kwargs)] kwargs: DictRef<'v>,
     ) -> anyhow::Result<Partial<'v>> {
         debug_assert!(Tuple::from_value(args).is_some());
         let names = kwargs
@@ -182,7 +182,7 @@ impl PrintHandler for StderrPrintHandler {
 
 #[starlark_module]
 pub fn print(builder: &mut GlobalsBuilder) {
-    fn print(args: Vec<Value>, eval: &mut Evaluator) -> anyhow::Result<NoneType> {
+    fn print(#[starlark(args)] args: Vec<Value>, eval: &mut Evaluator) -> anyhow::Result<NoneType> {
         // In practice most users should want to put the print somewhere else, but this does for now
         // Unfortunately, we can't use PrintWrapper because strings to_str() and Display are different.
         eval.print_handler
@@ -193,7 +193,10 @@ pub fn print(builder: &mut GlobalsBuilder) {
 
 #[starlark_module]
 pub fn pprint(builder: &mut GlobalsBuilder) {
-    fn pprint(args: Vec<Value>, eval: &mut Evaluator) -> anyhow::Result<NoneType> {
+    fn pprint(
+        #[starlark(args)] args: Vec<Value>,
+        eval: &mut Evaluator,
+    ) -> anyhow::Result<NoneType> {
         // In practice most users may want to put the print somewhere else, but this does for now
         eval.print_handler
             .println(&format!("{:#}", PrintWrapper(&args)))?;

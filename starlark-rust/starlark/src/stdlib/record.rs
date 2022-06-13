@@ -32,7 +32,7 @@ use crate::{
 #[starlark_module]
 pub fn global(builder: &mut GlobalsBuilder) {
     fn record<'v>(
-        kwargs: SmallMap<String, Value<'v>>,
+        #[starlark(kwargs)] kwargs: SmallMap<String, Value<'v>>,
         heap: &'v Heap,
     ) -> anyhow::Result<RecordType<'v>> {
         // Every Value must either be a field or a value (the type)
