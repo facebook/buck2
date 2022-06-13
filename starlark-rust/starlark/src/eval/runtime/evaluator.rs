@@ -123,8 +123,6 @@ pub struct Evaluator<'v, 'a> {
     /// Field that can be used for any purpose you want (can store types you define).
     /// Typically accessed via native functions you also define.
     pub extra: Option<&'a dyn AnyLifetime<'a>>,
-    /// Field that can be used for any purpose you want.
-    pub extra_v: Option<Value<'v>>,
     /// Called to perform console IO each time `breakpoint` function is called.
     pub(crate) breakpoint_handler: Option<Box<dyn Fn() -> Box<dyn BreakpointConsole>>>,
     /// Use in implementation of `print` function.
@@ -140,7 +138,6 @@ unsafe impl<'v> Trace<'v> for Evaluator<'v, '_> {
         self.current_frame.trace(tracer);
         self.call_stack.trace(tracer);
         self.flame_profile.trace(tracer);
-        self.extra_v.trace(tracer);
     }
 }
 
@@ -157,7 +154,6 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             current_frame: BcFramePtr::null(),
             loader: None,
             extra: None,
-            extra_v: None,
             next_gc_level: GC_THRESHOLD,
             disable_gc: false,
             alloca: Alloca::new(),
@@ -391,6 +387,11 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     /// The active heap where [`Value`]s are allocated.
     pub fn heap(&self) -> &'v Heap {
         self.module_env.heap()
+    }
+
+    /// Module which was passed to the evaluator.
+    pub fn module(&self) -> &'v Module {
+        self.module_env
     }
 
     /// The frozen heap. It's possible to allocate [`FrozenValue`](crate::values::FrozenValue)s here,

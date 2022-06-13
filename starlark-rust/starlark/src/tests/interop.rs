@@ -164,7 +164,12 @@ fn test_load_symbols_extra() -> anyhow::Result<()> {
             value: Value<'v>,
             eval: &mut Evaluator<'v, '_>,
         ) -> anyhow::Result<NoneType> {
-            let extra = eval.extra_v.unwrap().downcast_ref::<Extra<'v>>().unwrap();
+            let extra = eval
+                .module()
+                .extra_value()
+                .unwrap()
+                .downcast_ref::<Extra<'v>>()
+                .unwrap();
             extra.0.lock().unwrap().insert(name.to_owned(), value);
             Ok(NoneType)
         }
@@ -188,13 +193,13 @@ fn test_load_symbols_extra() -> anyhow::Result<()> {
     let modu = Module::new();
     let globals = GlobalsBuilder::extended().with(module).build();
     let mut eval = Evaluator::new(&modu);
-    eval.extra_v = Some(eval.heap().alloc_complex_no_freeze(Extra::default()));
+    modu.set_extra_value(eval.heap().alloc_complex_no_freeze(Extra::default()));
     eval.eval_module(
         AstModule::parse("a", "load_symbol('x', 6*7)".to_owned(), &Dialect::Extended)?,
         &globals,
     )?;
 
-    let extra = eval.extra_v.unwrap().downcast_ref::<Extra>().unwrap();
+    let extra = modu.extra_value().unwrap().downcast_ref::<Extra>().unwrap();
     for (name, value) in extra.0.lock().unwrap().iter() {
         modu.set(name, *value);
     }

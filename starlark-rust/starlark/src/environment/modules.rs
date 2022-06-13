@@ -118,6 +118,8 @@ pub struct Module {
     /// * does not include freezing time
     /// * does not include parsing time
     eval_duration: Cell<Duration>,
+    /// Field that can be used for any purpose you want.
+    extra_value: Cell<Option<Value<'static>>>,
 }
 
 impl FrozenModule {
@@ -252,6 +254,7 @@ impl Module {
             slots: MutableSlots::new(),
             docstring: RefCell::new(None),
             eval_duration: Cell::new(Duration::ZERO),
+            extra_value: Cell::new(None),
         }
     }
 
@@ -300,7 +303,9 @@ impl Module {
             heap,
             docstring,
             eval_duration,
+            extra_value: extra_v,
         } = self;
+        let _ = extra_v;
         let start = Instant::now();
         // This is when we do the GC/freeze, using the module slots as roots
         // Note that we even freeze anonymous slots, since they are accessed by
@@ -403,6 +408,25 @@ impl Module {
 
     pub(crate) fn trace<'v>(&'v self, tracer: &Tracer<'v>) {
         self.slots().get_slots_mut().trace(tracer);
+
+        let extra_value = self.extra_value();
+        if let Some(mut extra_value) = extra_value {
+            extra_value.trace(tracer);
+            self.set_extra_value(extra_value);
+        }
+    }
+
+    /// Field that can be used for any purpose you want.
+    pub fn set_extra_value<'v>(&'v self, v: Value<'v>) {
+        // Cast lifetime.
+        let v = unsafe { transmute!(Value, Value, v) };
+        self.extra_value.set(Some(v));
+    }
+
+    /// Field that can be used for any purpose you want.
+    pub fn extra_value<'v>(&'v self) -> Option<Value<'v>> {
+        // Cast lifetime.
+        unsafe { transmute!(Option<Value>, Option<Value>, self.extra_value.get()) }
     }
 }
 
