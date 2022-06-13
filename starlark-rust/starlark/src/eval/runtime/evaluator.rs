@@ -123,9 +123,8 @@ pub struct Evaluator<'v, 'a> {
     /// Field that can be used for any purpose you want (can store types you define).
     /// Typically accessed via native functions you also define.
     pub extra: Option<&'a dyn AnyLifetime<'a>>,
-    /// Field that can be used for any purpose you want (can store heap-resident [`Value<'v>`]).
-    /// If this value is used, garbage collection is disabled.
-    pub extra_v: Option<&'a dyn AnyLifetime<'v>>,
+    /// Field that can be used for any purpose you want.
+    pub extra_v: Option<Value<'v>>,
     /// Called to perform console IO each time `breakpoint` function is called.
     pub(crate) breakpoint_handler: Option<Box<dyn Fn() -> Box<dyn BreakpointConsole>>>,
     /// Use in implementation of `print` function.
@@ -142,6 +141,7 @@ unsafe impl<'v> Trace<'v> for Evaluator<'v, '_> {
         self.current_frame.trace(tracer);
         self.call_stack.trace(tracer);
         self.flame_profile.trace(tracer);
+        self.extra_v.trace(tracer);
     }
 }
 

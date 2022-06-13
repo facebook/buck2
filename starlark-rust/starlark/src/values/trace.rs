@@ -18,9 +18,12 @@
 use std::{
     cell::{Cell, RefCell},
     marker,
-    sync::atomic::{
-        AtomicBool, AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicIsize, AtomicU16, AtomicU32,
-        AtomicU64, AtomicU8, AtomicUsize,
+    sync::{
+        atomic::{
+            AtomicBool, AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicIsize, AtomicU16,
+            AtomicU32, AtomicU64, AtomicU8, AtomicUsize,
+        },
+        Arc, Mutex,
     },
 };
 
@@ -224,4 +227,10 @@ unsafe impl<'v> Trace<'v> for std::time::Instant {
 
 unsafe impl<'v, T> Trace<'v> for marker::PhantomData<T> {
     fn trace(&mut self, _tracer: &Tracer<'v>) {}
+}
+
+unsafe impl<'v, T: Trace<'v>> Trace<'v> for Arc<Mutex<T>> {
+    fn trace(&mut self, tracer: &Tracer<'v>) {
+        self.lock().unwrap().trace(tracer);
+    }
 }

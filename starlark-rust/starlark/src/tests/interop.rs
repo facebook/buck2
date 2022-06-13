@@ -19,7 +19,6 @@
 
 use std::{
     cell::RefCell,
-    collections::HashMap,
     sync::{Arc, Mutex},
 };
 
@@ -30,10 +29,13 @@ use crate as starlark;
 use crate::{
     assert,
     assert::Assert,
+    collections::SmallMap,
     environment::{GlobalsBuilder, Module},
     eval::Evaluator,
     syntax::{AstModule, Dialect},
-    values::{any::StarlarkAny, none::NoneType, Freeze, NoSerialize, Value},
+    values::{
+        any::StarlarkAny, none::NoneType, Freeze, NoSerialize, StarlarkValue, Value, ValueLike,
+    },
 };
 
 #[test]
@@ -168,19 +170,31 @@ fn test_load_symbols_extra() -> anyhow::Result<()> {
         }
     }
 
-    #[derive(ProvidesStaticType, Default)]
-    struct Extra<'v>(Arc<Mutex<HashMap<String, Value<'v>>>>);
+    #[derive(
+        ProvidesStaticType,
+        Default,
+        Trace,
+        Debug,
+        derive_more::Display,
+        NoSerialize
+    )]
+    #[display(fmt = "{:?}", self)]
+    struct Extra<'v>(Arc<Mutex<SmallMap<String, Value<'v>>>>);
+
+    impl<'v> StarlarkValue<'v> for Extra<'v> {
+        starlark_type!("Extra");
+    }
 
     let modu = Module::new();
     let globals = GlobalsBuilder::extended().with(module).build();
     let mut eval = Evaluator::new(&modu);
-    let extra = Extra::default();
-    eval.extra_v = Some(&extra);
+    eval.extra_v = Some(eval.heap().alloc_complex_no_freeze(Extra::default()));
     eval.eval_module(
         AstModule::parse("a", "load_symbol('x', 6*7)".to_owned(), &Dialect::Extended)?,
         &globals,
     )?;
 
+    let extra = eval.extra_v.unwrap().downcast_ref::<Extra>().unwrap();
     for (name, value) in extra.0.lock().unwrap().iter() {
         modu.set(name, *value);
     }
