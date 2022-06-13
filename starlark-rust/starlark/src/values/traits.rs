@@ -33,12 +33,10 @@ use std::{
     fmt::{Debug, Display, Write},
 };
 
-use derive_more::Display;
 use erased_serde::Serialize;
 use gazebo::any::ProvidesStaticType;
 
 use crate::{
-    self as starlark,
     collections::{Hashed, StarlarkHasher},
     environment::Methods,
     eval::{Arguments, Evaluator},
@@ -155,17 +153,6 @@ where
     V: StarlarkValue<'v> + Trace<'v> + Freeze,
     <V as Freeze>::Frozen: StarlarkValue<'static>,
 {
-}
-
-/// Non-instantiatable type implementing a simple [`StarlarkValue`].
-///
-/// Useful when implementing [`ComplexValue`], which is not meant to be frozen
-/// (e.g. when evaluating code which is never frozen or in tests).
-#[derive(Debug, ProvidesStaticType, Display, NoSerialize)]
-#[display(fmt = "NoSimpleValue")] // Can't actually be invoked since no &self
-pub enum NoSimpleValue {}
-impl<'v> StarlarkValue<'v> for NoSimpleValue {
-    starlark_type!("no_simple_value");
 }
 
 /// How to put a Rust values into [`Value`]s.

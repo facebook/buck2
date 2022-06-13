@@ -53,7 +53,7 @@ pub use crate::values::{
     },
     owned::{OwnedFrozenValue, OwnedFrozenValueTyped},
     trace::Trace,
-    traits::{ComplexValue, NoSimpleValue, StarlarkValue},
+    traits::{ComplexValue, StarlarkValue},
     types::{
         any, array, bool, dict, enumeration, float, function, int, list, none, range, record,
         regex, string, structs, tuple,
