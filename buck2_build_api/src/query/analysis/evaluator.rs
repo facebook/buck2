@@ -37,7 +37,7 @@ pub async fn eval_query<Env: QueryEnvironment, Fut: Future<Output = anyhow::Resu
     query_args: Vec<String>,
     environment: impl FnOnce(Vec<String>) -> Fut,
 ) -> anyhow::Result<QueryEvaluationResult<Env::Target>> {
-    let (mut literals, _) = extract_target_literals(functions, query)?;
+    let mut literals = extract_target_literals(functions, query)?;
     let placeholder = query.contains("%s");
 
     if placeholder {
@@ -45,7 +45,7 @@ pub async fn eval_query<Env: QueryEnvironment, Fut: Future<Output = anyhow::Resu
             if q.contains("%s") {
                 return Err(EvalQueryError::PlaceholderInPattern(q.to_owned()).into());
             }
-            let (more_literals, _) = extract_target_literals(functions, q)?;
+            let more_literals = extract_target_literals(functions, q)?;
             literals.extend(more_literals);
         }
     } else if !query_args.is_empty() {

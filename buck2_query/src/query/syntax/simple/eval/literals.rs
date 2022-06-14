@@ -21,17 +21,14 @@ use crate::query::{
 pub fn extract_target_literals<Env: QueryEnvironment, F: QueryFunctions<Env>>(
     functions: &F,
     query: &str,
-) -> anyhow::Result<(Vec<String>, bool)> {
+) -> anyhow::Result<Vec<String>> {
     let parsed = parse_expr(query)?;
     struct LiteralExtractor {
         literals: Vec<String>,
-        saw_placeholder: bool,
     }
     impl QueryLiteralVisitor for LiteralExtractor {
         fn target_pattern(&mut self, pattern: &str) -> anyhow::Result<()> {
-            if pattern == "%s" {
-                self.saw_placeholder = true;
-            } else {
+            if pattern != "%s" {
                 self.literals.push(pattern.to_owned());
             }
             Ok(())
@@ -39,10 +36,9 @@ pub fn extract_target_literals<Env: QueryEnvironment, F: QueryFunctions<Env>>(
     }
     let mut visitor = LiteralExtractor {
         literals: Vec::new(),
-        saw_placeholder: false,
     };
     functions
         .visit_literals(&mut visitor, &parsed)
         .into_anyhow(query)?;
-    Ok((visitor.literals, visitor.saw_placeholder))
+    Ok(visitor.literals)
 }
