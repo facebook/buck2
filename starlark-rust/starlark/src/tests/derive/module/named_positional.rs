@@ -32,8 +32,8 @@ fn named_positional_functions(globals: &mut GlobalsBuilder) {
         Ok(x)
     }
 
-    fn named_after_args(#[starlark(args)] args: Vec<i32>, x: i32) -> anyhow::Result<i32> {
-        Ok(x + args.iter().sum::<i32>())
+    fn named_after_args(#[starlark(args)] star_args: Vec<i32>, x: i32) -> anyhow::Result<i32> {
+        Ok(x + star_args.iter().sum::<i32>())
     }
 
     // Same as above, but with explicit redundant annotation.

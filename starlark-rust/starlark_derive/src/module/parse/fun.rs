@@ -608,26 +608,11 @@ fn parse_arg(
             }
 
             let arguments = is_ref_something(&ty, "Arguments");
-            let args = ident.ident == "args" && !arguments;
-            let kwargs = ident.ident == "kwargs" && !arguments;
-
-            if args && !param_attrs.args {
-                return Err(syn::Error::new(
-                    span,
-                    "Parameter named `args` must be have`#[starlark(args)]` annotation",
-                ));
-            }
-            if kwargs && !param_attrs.kwargs {
-                return Err(syn::Error::new(
-                    span,
-                    "Parameter named `kwargs` must be have`#[starlark(kwargs)]` annotation",
-                ));
-            }
 
             let pass_style = match (
                 this,
-                args,
-                kwargs,
+                param_attrs.args,
+                param_attrs.kwargs,
                 seen_star_args,
                 param_attrs.pos_only,
                 param_attrs.named_only,
