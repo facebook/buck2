@@ -33,6 +33,7 @@ def android_resource_impl(ctx: "context") -> ["provider"]:
         r_dot_java_package = _get_package(ctx, ctx.attr.package, ctx.attr.manifest)
         resource_info = AndroidResourceInfo(
             aapt2_compile_output = aapt2_compile_output,
+            allow_strings_as_assets_resource_filtering = not ctx.attr.has_whitelisted_strings,
             assets = assets,
             manifest_file = ctx.attr.manifest,
             r_dot_java_package = r_dot_java_package,
@@ -42,6 +43,7 @@ def android_resource_impl(ctx: "context") -> ["provider"]:
     else:
         resource_info = AndroidResourceInfo(
             aapt2_compile_output = None,
+            allow_strings_as_assets_resource_filtering = not ctx.attr.has_whitelisted_strings,
             assets = assets,
             manifest_file = ctx.attr.manifest,
             r_dot_java_package = None,

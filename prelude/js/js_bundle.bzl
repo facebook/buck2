@@ -144,6 +144,7 @@ def _get_android_resource_info(ctx: "context", js_bundle_info: JsBundleInfo.type
     r_dot_java_package = ctx.actions.write("{}_{}".format(identifier, JAVA_PACKAGE_FILENAME), ctx.attr.android_package)
     return AndroidResourceInfo(
         aapt2_compile_output = aapt2_compile_output,
+        allow_strings_as_assets_resource_filtering = True,
         assets = js_bundle_info.built_js,
         manifest_file = None,
         r_dot_java_package = r_dot_java_package,

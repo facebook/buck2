@@ -108,6 +108,8 @@ AndroidResourceInfo = provider(
     fields = [
         # output of running `aapt2_compile` on the resources, if resources are present
         "aapt2_compile_output",  # ["artifact", None]
+        #  if False, then the "res" are not affected by the strings-as-assets resource filter
+        "allow_strings_as_assets_resource_filtering",  # bool.type
         # assets defined by this rule. May be empty
         "assets",  # ["artifact", None]
         # manifest file used by the resources, if resources are present
