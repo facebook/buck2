@@ -52,9 +52,9 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
     resource_info = AndroidResourceInfo(
         aapt2_compile_output = aapt2_compile(ctx, res, android_toolchain),
         assets = assets,
-        has_resources = True,
         manifest_file = manifest,
         r_dot_java_package = extract_package_from_manifest(ctx, manifest),
+        res = res,
         text_symbols = r_dot_txt,
     )
 

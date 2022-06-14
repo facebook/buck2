@@ -145,9 +145,9 @@ def _get_android_resource_info(ctx: "context", js_bundle_info: JsBundleInfo.type
     return AndroidResourceInfo(
         aapt2_compile_output = aapt2_compile_output,
         assets = js_bundle_info.built_js,
-        has_resources = True,
         manifest_file = None,
         r_dot_java_package = r_dot_java_package,
+        res = js_bundle_info.res,
         text_symbols = get_text_symbols(ctx, js_bundle_info.res, [], identifier),
     )
 

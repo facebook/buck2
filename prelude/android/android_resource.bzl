@@ -34,18 +34,18 @@ def android_resource_impl(ctx: "context") -> ["provider"]:
         resource_info = AndroidResourceInfo(
             aapt2_compile_output = aapt2_compile_output,
             assets = assets,
-            has_resources = True,
             manifest_file = ctx.attr.manifest,
             r_dot_java_package = r_dot_java_package,
+            res = res,
             text_symbols = r_dot_txt_output,
         )
     else:
         resource_info = AndroidResourceInfo(
             aapt2_compile_output = None,
             assets = assets,
-            has_resources = False,
             manifest_file = ctx.attr.manifest,
             r_dot_java_package = None,
+            res = None,
             text_symbols = None,
         )
     providers.append(resource_info)

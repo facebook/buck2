@@ -54,7 +54,7 @@ def _get_dummy_r_dot_java(
     android_resources = [resource for resource in filter_and_map_idx(
         AndroidResourceInfo,
         ctx.attr.deps + (ctx.attr.deps_query or []) + ctx.attr.provided_deps + (getattr(ctx.attr, "provided_deps_query", []) or []),
-    ) if resource.has_resources]
+    ) if resource.res != None]
     if len(android_resources) == 0:
         return None
 

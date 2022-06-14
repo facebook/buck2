@@ -24,7 +24,7 @@ def get_android_binary_resources_info(
     aapt2_link_info = get_aapt2_link(
         ctx,
         ctx.attr._android_toolchain[AndroidToolchainInfo],
-        [resource_info.aapt2_compile_output for resource_info in resource_infos if resource_info.has_resources],
+        [resource_info.aapt2_compile_output for resource_info in resource_infos if resource_info.aapt2_compile_output != None],
         android_manifest,
         includes_vector_drawables = getattr(ctx.attr, "includes_vector_drawables", False),
         no_auto_version = getattr(ctx.attr, "no_auto_version_resources", False),
@@ -41,7 +41,7 @@ def get_android_binary_resources_info(
     )
 
     override_symbols_paths = ctx.actions.write("override_symbols_paths", [])
-    resources = [resource for resource in resource_infos if resource.has_resources]
+    resources = [resource for resource in resource_infos if resource.res != None]
     r_dot_java = None if len(resources) == 0 else generate_r_dot_java(
         ctx,
         ctx.attr._android_toolchain[AndroidToolchainInfo].merge_android_resources[RunInfo],

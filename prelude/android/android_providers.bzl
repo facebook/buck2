@@ -110,12 +110,12 @@ AndroidResourceInfo = provider(
         "aapt2_compile_output",  # ["artifact", None]
         # assets defined by this rule. May be empty
         "assets",  # ["artifact", None]
-        # whether this rule has any resources
-        "has_resources",  # bool.type
         # manifest file used by the resources, if resources are present
         "manifest_file",  # ["artifact", None]
         # package used for R.java, if resources are present
         "r_dot_java_package",  # ["artifact", None]
+        # resources defined by this rule. May be empty
+        "res",  # ["artifact", None]
         # symbols defined by the resources, if resources are present
         "text_symbols",  # ["artifact", None]
     ],

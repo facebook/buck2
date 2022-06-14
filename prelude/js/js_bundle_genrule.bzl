@@ -76,9 +76,9 @@ def _get_extra_providers(
         new_android_resource_info = AndroidResourceInfo(
             aapt2_compile_output = None if skip_resources else android_resource_info.aapt2_compile_output,
             assets = js_bundle_out.built_js,
-            has_resources = not skip_resources,
             manifest_file = None,
             r_dot_java_package = None if skip_resources else android_resource_info.r_dot_java_package,
+            res = None if skip_resources else android_resource_info.res,
             text_symbols = None if skip_resources else android_resource_info.text_symbols,
         )
         providers.append(new_android_resource_info)
