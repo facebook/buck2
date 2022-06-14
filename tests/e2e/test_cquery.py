@@ -34,16 +34,14 @@ async def test_query_owner(buck: Buck) -> None:
 
 @buck_test(inplace=False, data_dir="bql/simple")
 async def test_query_owner_with_explicit_package_boundary_violation(buck: Buck) -> None:
-    # FIXME: This needs to be changed to `expect_failure` once Buck2 is checking path validity
-    # outside of `package_boundary_exceptions`
-    if False:
-        result = await buck.cquery(
+    result = await expect_failure(
+        buck.cquery(
             """owner(package_boundary_violation/bin)""",
             "-c",
             "project.package_boundary_exceptions=",
-        )
-        assert "root//package_boundary_violation:bin" in result.stdout
-        assert "root//:package_boundary_violation" not in result.stdout
+        ),
+        stderr_regex="Couldn't coerce `package_boundary_violation/bin` as a source.",
+    )
 
     result = await buck.cquery("""owner(package_boundary_violation/bin)""")
     assert (
