@@ -35,12 +35,11 @@ pub struct RunInfoGen<V> {
 fn run_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(type = "RunInfo")]
     fn RunInfo<'v>(
-        // Named _args so it doesn't clash with *args
-        #[starlark(default = FrozenList::empty())] _args: Value<'v>,
+        #[starlark(default = FrozenList::empty())] args: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<RunInfo<'v>> {
         let heap = eval.heap();
-        let valid_args = StarlarkCommandLine::try_from_value(_args)?;
+        let valid_args = StarlarkCommandLine::try_from_value(args)?;
         Ok(RunInfo {
             args: heap.alloc(valid_args),
         })
