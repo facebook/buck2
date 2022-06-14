@@ -537,6 +537,7 @@ impl InterpreterForCell {
             InterpreterFileLoader::new(loaded_modules, Arc::new(self.load_resolver(import)));
         let cell_info = self.get_cell_config(import.build_file_cell());
         let host_platform = self.config.global_state.configuror.host_platform();
+        let host_architecture = self.config.global_state.configuror.host_architecture();
         let extra = BuildContext::new_for_module(
             env,
             cell_info,
@@ -544,6 +545,7 @@ impl InterpreterForCell {
             import,
             listing,
             host_platform,
+            host_architecture,
             extra_context,
             self.config.ignore_attrs_for_profiling,
         );

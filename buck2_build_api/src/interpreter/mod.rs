@@ -32,7 +32,7 @@ pub mod testing {
         },
         extra::{
             cell_info::InterpreterCellInfo, ExtraContextDyn, InterpreterConfiguror,
-            InterpreterHostPlatform,
+            InterpreterHostArchitecture, InterpreterHostPlatform,
         },
         file_loader::{LoadedModule, LoadedModules},
         import_paths::ImportPaths,
@@ -263,6 +263,10 @@ pub mod testing {
             self.inner.host_platform()
         }
 
+        fn host_architecture(&self) -> InterpreterHostArchitecture {
+            self.inner.host_architecture()
+        }
+
         fn new_extra_context(
             &self,
             cell_info: &InterpreterCellInfo,
@@ -339,6 +343,7 @@ pub mod testing {
                             BuildInterpreterConfiguror::new(
                                 self.prelude_path.clone(),
                                 InterpreterHostPlatform::Linux,
+                                InterpreterHostArchitecture::X86_64,
                                 false,
                                 configure_build_file_globals,
                                 configure_extension_file_globals,

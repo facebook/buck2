@@ -62,8 +62,9 @@ use buck2_core::{
     package::Package,
 };
 use buck2_interpreter::{
-    common::StarlarkModulePath, dice::interpreter_setup::setup_interpreter_basic,
-    extra::InterpreterHostPlatform,
+    common::StarlarkModulePath,
+    dice::interpreter_setup::setup_interpreter_basic,
+    extra::{InterpreterHostArchitecture, InterpreterHostPlatform},
 };
 use cli::{
     commands::bxl::BxlCoreOpts,
@@ -277,6 +278,7 @@ fn setup(
     let configuror = BuildInterpreterConfiguror::new(
         Some(fbcode_prelude()),
         InterpreterHostPlatform::Linux,
+        InterpreterHostArchitecture::X86_64,
         false,
         configure_build_file_globals,
         configure_extension_file_globals,

@@ -36,7 +36,8 @@ use buck2_core::{
     fs::{paths::AbsPathBuf, project::ProjectFilesystem},
 };
 use buck2_interpreter::{
-    dice::interpreter_setup::setup_interpreter_basic, extra::InterpreterHostPlatform,
+    dice::interpreter_setup::setup_interpreter_basic,
+    extra::{InterpreterHostArchitecture, InterpreterHostPlatform},
 };
 use dice::{cycles::DetectCycles, data::DiceData, UserComputationData};
 use events::dispatch::EventDispatcher;
@@ -145,6 +146,7 @@ fn main(fb: FacebookInit) -> ExitResult {
         let configuror = BuildInterpreterConfiguror::new(
             Some(fbcode_prelude()),
             InterpreterHostPlatform::Linux,
+            InterpreterHostArchitecture::X86_64,
             false,
             configure_build_file_globals,
             configure_extension_file_globals,

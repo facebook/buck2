@@ -42,7 +42,7 @@ use buck2_interpreter::{
         calculation::DiceCalculationDelegate, interpreter_setup::setup_interpreter,
         HasCalculationDelegate,
     },
-    extra::InterpreterHostPlatform,
+    extra::{InterpreterHostArchitecture, InterpreterHostPlatform},
     pattern::{
         resolve_target_patterns, PackageSpec, ParsedPattern, ResolvedPattern, TargetPattern,
     },
@@ -244,6 +244,7 @@ fn main(fb: FacebookInit) -> ExitResult {
             let configuror = BuildInterpreterConfiguror::new(
                 Some(fbcode_prelude()),
                 InterpreterHostPlatform::Linux,
+                InterpreterHostArchitecture::X86_64,
                 false,
                 configure_build_file_globals,
                 configure_extension_file_globals,

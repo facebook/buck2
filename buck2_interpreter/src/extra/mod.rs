@@ -51,6 +51,12 @@ pub enum InterpreterHostPlatform {
     Windows,
 }
 
+#[derive(Copy, Clone, Dupe, Debug, PartialEq)]
+pub enum InterpreterHostArchitecture {
+    AArch64,
+    X86_64,
+}
+
 /// Buck-specific information exposed to the starlark environment via the context's extra field.
 /// This would include things like the current cell or package name or the package listing. It's
 /// used for quite a few other things, including recording declared rules.
@@ -82,6 +88,8 @@ pub struct BuildContext<'a> {
 
     pub host_platform: InterpreterHostPlatform,
 
+    pub host_architecture: InterpreterHostArchitecture,
+
     /// Additional dynamic information passed in via the interpreter
     /// configurator
     pub additional: Option<Box<dyn ExtraContextDyn>>,
@@ -99,6 +107,7 @@ impl<'a> BuildContext<'a> {
         starlark_path: StarlarkPath<'a>,
         listing: Option<PackageListing>,
         host_platform: InterpreterHostPlatform,
+        host_architecture: InterpreterHostArchitecture,
         additional: Option<Box<dyn ExtraContextDyn>>,
         ignore_attrs_for_profiling: bool,
     ) -> BuildContext<'a> {
@@ -109,6 +118,7 @@ impl<'a> BuildContext<'a> {
             starlark_path,
             listing,
             host_platform,
+            host_architecture,
             additional,
             ignore_attrs_for_profiling,
         }
@@ -219,6 +229,8 @@ pub trait InterpreterConfiguror: Sync + Send {
 
     fn host_platform(&self) -> InterpreterHostPlatform;
 
+    fn host_architecture(&self) -> InterpreterHostArchitecture;
+
     /// Creates an 'extra' object that can be used in implementation functions
     fn new_extra_context(
         &self,
@@ -276,7 +288,7 @@ pub(crate) mod testing {
         common::{BuildFilePath, StarlarkPath},
         extra::{
             cell_info::InterpreterCellInfo, ExtraContext, ExtraContextDyn, InterpreterConfiguror,
-            InterpreterHostPlatform,
+            InterpreterHostArchitecture, InterpreterHostPlatform,
         },
         file_loader::LoadedModules,
         package_imports::ImplicitImport,
@@ -402,6 +414,10 @@ pub(crate) mod testing {
 
         fn host_platform(&self) -> InterpreterHostPlatform {
             InterpreterHostPlatform::Linux
+        }
+
+        fn host_architecture(&self) -> InterpreterHostArchitecture {
+            InterpreterHostArchitecture::X86_64
         }
 
         fn new_extra_context(

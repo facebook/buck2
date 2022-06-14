@@ -74,7 +74,7 @@ use buck2_core::{
 use buck2_data::*;
 use buck2_interpreter::{
     dice::interpreter_setup::{setup_interpreter, setup_interpreter_basic},
-    extra::InterpreterHostPlatform,
+    extra::{InterpreterHostArchitecture, InterpreterHostPlatform},
     pattern::ProvidersPattern,
     starlark_profiler::{StarlarkProfilerImpl, StarlarkProfilerInstrumentation},
 };
@@ -611,9 +611,17 @@ fn get_interpreter_configuror(
             v => unimplemented!("no support yet for operating system `{}`", v),
         },
     };
+    // This compiles in the target architecture, which should be sufficient, as
+    // we currently only run e.g. x86_64 on x86_64.
+    let interpreter_architecture = match std::env::consts::ARCH {
+        "aarch64" => InterpreterHostArchitecture::AArch64,
+        "x86_64" => InterpreterHostArchitecture::X86_64,
+        v => unimplemented!("no support yet for architecture `{}`", v),
+    };
     BuildInterpreterConfiguror::new(
         Some(fbcode_prelude()),
         interpreter_platform,
+        interpreter_architecture,
         record_target_call_stacks,
         configure_build_file_globals,
         configure_extension_file_globals,
@@ -669,6 +677,7 @@ impl DaemonState {
         let configuror = BuildInterpreterConfiguror::new(
             Some(fbcode_prelude()),
             InterpreterHostPlatform::Linux,
+            InterpreterHostArchitecture::X86_64,
             false,
             configure_build_file_globals,
             configure_extension_file_globals,

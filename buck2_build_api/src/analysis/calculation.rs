@@ -439,7 +439,7 @@ mod tests {
     use buck2_interpreter::{
         common::{BuildFilePath, ImportPath, OwnedStarlarkModulePath},
         dice::{interpreter_setup::setup_interpreter_basic, testing::EvalImportKey},
-        extra::InterpreterHostPlatform,
+        extra::{InterpreterHostArchitecture, InterpreterHostPlatform},
         file_loader::LoadedModules,
         package_listing::listing::{testing::PackageListingExt, PackageListing},
     };
@@ -572,6 +572,7 @@ mod tests {
             BuildInterpreterConfiguror::new(
                 None,
                 InterpreterHostPlatform::Linux,
+                InterpreterHostArchitecture::X86_64,
                 false,
                 configure_build_file_globals,
                 configure_extension_file_globals,

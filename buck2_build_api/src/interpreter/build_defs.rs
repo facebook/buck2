@@ -7,7 +7,9 @@
  * of this source tree.
  */
 
-use buck2_interpreter::extra::{BuildContext, ExtraContext, InterpreterHostPlatform};
+use buck2_interpreter::extra::{
+    BuildContext, ExtraContext, InterpreterHostArchitecture, InterpreterHostPlatform,
+};
 use either::Either;
 use once_cell::sync::Lazy;
 use starlark::{
@@ -29,7 +31,10 @@ use crate::interpreter::{
     },
 };
 
-fn new_host_info(host_platform: InterpreterHostPlatform) -> OwnedFrozenValue {
+fn new_host_info(
+    host_platform: InterpreterHostPlatform,
+    host_architecture: InterpreterHostArchitecture,
+) -> OwnedFrozenValue {
     let heap = FrozenHeap::new();
 
     fn new_struct<V: AllocFrozenValue + Copy>(
@@ -60,8 +65,14 @@ fn new_host_info(host_platform: InterpreterHostPlatform) -> OwnedFrozenValue {
     let arch = new_struct(
         &heap,
         &[
-            ("is_x86_64", true),
-            ("is_aarch64", false),
+            (
+                "is_x86_64",
+                host_architecture == InterpreterHostArchitecture::X86_64,
+            ),
+            (
+                "is_aarch64",
+                host_architecture == InterpreterHostArchitecture::AArch64,
+            ),
             ("is_arm", false),
             ("is_armeb", false),
             ("is_i386", false),
@@ -175,18 +186,64 @@ pub(crate) fn register_natives(builder: &mut GlobalsBuilder) {
 
         // Some modules call host_info a lot, so cache the values we might expect
         // and avoid reallocating them.
-        static HOST_PLATFORM_LINUX: Lazy<OwnedFrozenValue> =
-            Lazy::new(|| new_host_info(InterpreterHostPlatform::Linux));
-        static HOST_PLATFORM_MACOS: Lazy<OwnedFrozenValue> =
-            Lazy::new(|| new_host_info(InterpreterHostPlatform::MacOS));
-        static HOST_PLATFORM_WINDOWS: Lazy<OwnedFrozenValue> =
-            Lazy::new(|| new_host_info(InterpreterHostPlatform::Windows));
+        static HOST_PLATFORM_LINUX_AARCH64: Lazy<OwnedFrozenValue> = Lazy::new(|| {
+            new_host_info(
+                InterpreterHostPlatform::Linux,
+                InterpreterHostArchitecture::AArch64,
+            )
+        });
+        static HOST_PLATFORM_LINUX_X86_64: Lazy<OwnedFrozenValue> = Lazy::new(|| {
+            new_host_info(
+                InterpreterHostPlatform::Linux,
+                InterpreterHostArchitecture::X86_64,
+            )
+        });
+        static HOST_PLATFORM_MACOS_AARCH64: Lazy<OwnedFrozenValue> = Lazy::new(|| {
+            new_host_info(
+                InterpreterHostPlatform::MacOS,
+                InterpreterHostArchitecture::AArch64,
+            )
+        });
+        static HOST_PLATFORM_MACOS_X86_64: Lazy<OwnedFrozenValue> = Lazy::new(|| {
+            new_host_info(
+                InterpreterHostPlatform::MacOS,
+                InterpreterHostArchitecture::X86_64,
+            )
+        });
+        static HOST_PLATFORM_WINDOWS_AARCH64: Lazy<OwnedFrozenValue> = Lazy::new(|| {
+            new_host_info(
+                InterpreterHostPlatform::Windows,
+                InterpreterHostArchitecture::AArch64,
+            )
+        });
+        static HOST_PLATFORM_WINDOWS_X86_64: Lazy<OwnedFrozenValue> = Lazy::new(|| {
+            new_host_info(
+                InterpreterHostPlatform::Windows,
+                InterpreterHostArchitecture::X86_64,
+            )
+        });
 
         let host_platform = BuildContext::from_context(eval)?.host_platform;
-        let v = match host_platform {
-            InterpreterHostPlatform::Linux => &HOST_PLATFORM_LINUX,
-            InterpreterHostPlatform::MacOS => &HOST_PLATFORM_MACOS,
-            InterpreterHostPlatform::Windows => &HOST_PLATFORM_WINDOWS,
+        let host_architecture = BuildContext::from_context(eval)?.host_architecture;
+        let v = match (host_platform, host_architecture) {
+            (InterpreterHostPlatform::Linux, InterpreterHostArchitecture::AArch64) => {
+                &HOST_PLATFORM_LINUX_AARCH64
+            }
+            (InterpreterHostPlatform::Linux, InterpreterHostArchitecture::X86_64) => {
+                &HOST_PLATFORM_LINUX_X86_64
+            }
+            (InterpreterHostPlatform::MacOS, InterpreterHostArchitecture::AArch64) => {
+                &HOST_PLATFORM_MACOS_AARCH64
+            }
+            (InterpreterHostPlatform::MacOS, InterpreterHostArchitecture::X86_64) => {
+                &HOST_PLATFORM_MACOS_X86_64
+            }
+            (InterpreterHostPlatform::Windows, InterpreterHostArchitecture::AArch64) => {
+                &HOST_PLATFORM_WINDOWS_AARCH64
+            }
+            (InterpreterHostPlatform::Windows, InterpreterHostArchitecture::X86_64) => {
+                &HOST_PLATFORM_WINDOWS_X86_64
+            }
         };
         Ok(v.value())
     }

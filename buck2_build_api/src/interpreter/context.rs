@@ -22,7 +22,7 @@ use buck2_interpreter::{
     common::{BuildFileCell, BuildFilePath, ImportPath, StarlarkPath},
     extra::{
         cell_info::InterpreterCellInfo, ExtraContextDyn, InterpreterConfiguror,
-        InterpreterHostPlatform,
+        InterpreterHostArchitecture, InterpreterHostPlatform,
     },
     file_loader::LoadedModules,
     package_imports::ImplicitImport,
@@ -60,6 +60,7 @@ impl PartialEq for ConfigureGlobalsFn {
 pub struct BuildInterpreterConfiguror {
     prelude_import: Option<ImportPath>,
     host_platform: InterpreterHostPlatform,
+    host_architecture: InterpreterHostArchitecture,
     record_target_call_stack: bool,
     configure_build_file_globals: ConfigureGlobalsFn,
     configure_extension_file_globals: ConfigureGlobalsFn,
@@ -70,6 +71,7 @@ impl BuildInterpreterConfiguror {
     pub fn new(
         prelude_import: Option<ImportPath>,
         host_platform: InterpreterHostPlatform,
+        host_architecture: InterpreterHostArchitecture,
         record_target_call_stack: bool,
         configure_build_file_globals: fn(&mut GlobalsBuilder),
         configure_extension_file_globals: fn(&mut GlobalsBuilder),
@@ -78,6 +80,7 @@ impl BuildInterpreterConfiguror {
         Arc::new(Self {
             prelude_import,
             host_platform,
+            host_architecture,
             record_target_call_stack,
             configure_build_file_globals: ConfigureGlobalsFn(configure_build_file_globals),
             configure_extension_file_globals: ConfigureGlobalsFn(configure_extension_file_globals),
@@ -143,6 +146,10 @@ impl InterpreterConfiguror for BuildInterpreterConfiguror {
 
     fn host_platform(&self) -> InterpreterHostPlatform {
         self.host_platform
+    }
+
+    fn host_architecture(&self) -> InterpreterHostArchitecture {
+        self.host_architecture
     }
 
     fn new_extra_context(

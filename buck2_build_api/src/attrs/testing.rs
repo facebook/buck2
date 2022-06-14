@@ -20,7 +20,10 @@ use buck2_core::{
 };
 use buck2_interpreter::{
     common::{BuildFileCell, ImportPath, StarlarkPath},
-    extra::{cell_info::InterpreterCellInfo, BuildContext, InterpreterHostPlatform},
+    extra::{
+        cell_info::InterpreterCellInfo, BuildContext, InterpreterHostArchitecture,
+        InterpreterHostPlatform,
+    },
     package_listing::listing::{testing::PackageListingExt, PackageListing},
 };
 use gazebo::prelude::*;
@@ -377,6 +380,7 @@ pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<
         StarlarkPath::LoadFile(&import_path),
         None,
         InterpreterHostPlatform::Linux,
+        InterpreterHostArchitecture::X86_64,
         None,
         false,
     );
