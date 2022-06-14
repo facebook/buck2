@@ -16,6 +16,7 @@
  */
 
 use std::{
+    borrow::Borrow,
     hash::{Hash, Hasher},
     ops::Deref,
 };
@@ -150,5 +151,32 @@ impl<'a, K> Hashed<&'a K> {
         K: Copy,
     {
         Hashed::new_unchecked(self.hash, *self.key)
+    }
+
+    /// Make `Hashed<K>` from `Hashed<&K>`, where `K` is `Clone`.
+    pub fn cloned(self) -> Hashed<K>
+    where
+        K: Clone,
+    {
+        Hashed::new_unchecked(self.hash, self.key.clone())
+    }
+
+    /// Make `Hashed<K>` from `Hashed<&K>`, where `K` is `Dupe`.
+    pub fn duped(self) -> Hashed<K>
+    where
+        K: Dupe,
+    {
+        self.cloned()
+    }
+}
+
+impl<'a, K: ?Sized> Hashed<&'a K> {
+    /// Make `Hashed<K>` from `Hashed<&K>`, where `T` is the owned form of `K`.
+    pub fn owned<T>(self) -> Hashed<T>
+    where
+        T: Borrow<K>,
+        K: ToOwned<Owned = T>,
+    {
+        Hashed::new_unchecked(self.hash, self.key.to_owned())
     }
 }
