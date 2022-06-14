@@ -49,6 +49,7 @@ fn execution_order_from_path(filepath: &str) -> anyhow::Result<DiceExecutionOrde
         .context(format!("While parsing {}", &cleaned_up))
 }
 
+#[allow(deprecated)] // TODO(nga): use non-deprecated API.
 fn main() -> anyhow::Result<()> {
     #[tokio::main]
     async fn replay(options: &DiceExecutionOrderOptions, execution: DiceExecutionOrder) {
