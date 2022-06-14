@@ -42,7 +42,7 @@ use gazebo::{any::AnyLifetime, prelude::*};
 
 use crate::values::{
     layout::{
-        avalue::{AValue, BlackHole},
+        avalue::{starlark_str, AValue, BlackHole},
         vtable::{AValueDyn, AValueVTable},
     },
     StarlarkValue,
@@ -301,6 +301,25 @@ impl Arena {
             payload: x,
         });
         (p, extra)
+    }
+
+    #[inline]
+    pub(crate) fn alloc_str_init(
+        &self,
+        len: usize,
+        init: impl FnOnce(*mut u8),
+    ) -> *mut AValueHeader {
+        assert!(len > 1);
+        let (v, extra) = self.alloc_extra_non_drop::<_>(starlark_str(len));
+        init(extra.as_mut_ptr() as *mut u8);
+        unsafe { &mut (*v).header }
+    }
+
+    #[inline]
+    pub(crate) fn alloc_str(&self, x: &str) -> *mut AValueHeader {
+        self.alloc_str_init(x.len(), |dest| unsafe {
+            ptr::copy_nonoverlapping(x.as_ptr(), dest, x.len())
+        })
     }
 
     fn iter_chunk<'a>(chunk: &'a [MaybeUninit<u8>], mut f: impl FnMut(&'a AValueHeader)) {

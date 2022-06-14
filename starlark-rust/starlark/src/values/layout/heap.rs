@@ -44,8 +44,8 @@ use crate::{
             arena::{AValueRepr, Arena, HeapSummary, Reservation},
             avalue::{
                 array_avalue, complex, complex_no_freeze, float_avalue, frozen_list_avalue,
-                frozen_tuple_avalue, list_avalue, simple, starlark_str, tuple_avalue, AValue,
-                VALUE_EMPTY_ARRAY, VALUE_EMPTY_FROZEN_LIST, VALUE_EMPTY_TUPLE,
+                frozen_tuple_avalue, list_avalue, simple, tuple_avalue, AValue, VALUE_EMPTY_ARRAY,
+                VALUE_EMPTY_FROZEN_LIST, VALUE_EMPTY_TUPLE,
             },
             fast_cell::FastCell,
             static_string::constant_string,
@@ -203,17 +203,25 @@ impl FrozenHeap {
         unsafe { FrozenValue::new_repr(cast::ptr_lifetime(v)) }
     }
 
+    #[inline]
+    fn alloc_str_init(&self, len: usize, init: impl FnOnce(*mut u8)) -> FrozenStringValue {
+        let v = self.arena.alloc_str_init(len, init);
+
+        unsafe {
+            let value = FrozenValue::new_ptr(&*v, true);
+            FrozenStringValue::new_unchecked(value)
+        }
+    }
+
     /// Allocate a string on this heap. Be careful about the warnings
     /// around [`FrozenValue`].
     pub fn alloc_str(&self, x: &str) -> FrozenStringValue {
         if let Some(x) = constant_string(x) {
             x
         } else {
-            let (v, extra) = self.arena.alloc_extra_non_drop(starlark_str(x.len()));
-            MaybeUninit::write_slice(extra, x.as_bytes());
-            unsafe {
-                FrozenStringValue::new_unchecked(FrozenValue::new_repr(cast::ptr_lifetime(&*v)))
-            }
+            self.alloc_str_init(x.len(), |dest| unsafe {
+                copy_nonoverlapping(x.as_ptr(), dest, x.len())
+            })
         }
     }
 
@@ -445,14 +453,13 @@ impl Heap {
         init: impl FnOnce(*mut u8),
     ) -> StringValue<'v> {
         let arena = self.arena.borrow();
-        let (v, extra) = arena.alloc_extra_non_drop::<_>(starlark_str(len));
-        init(extra.as_mut_ptr() as *mut u8);
+        let v = arena.alloc_str_init(len, init);
 
         // We have an arena inside a RefCell which stores ValueMem<'v>
         // However, we promise not to clear the RefCell other than for GC
         // so we can make the `arena` available longer
         unsafe {
-            let value = transmute!(Value, Value, Value::new_repr(&*v));
+            let value = Value::new_ptr(&*v, true);
             StringValue::new_unchecked(value)
         }
     }
@@ -665,9 +672,8 @@ impl<'v> Tracer<'v> {
     }
 
     pub(crate) fn alloc_str(&self, x: &str) -> Value<'v> {
-        let (v, extra) = self.arena.alloc_extra_non_drop(starlark_str(x.len()));
-        MaybeUninit::write_slice(extra, x.as_bytes());
-        unsafe { transmute!(Value, Value, Value::new_repr(&*v)) }
+        let v = self.arena.alloc_str(x);
+        unsafe { Value::new_ptr(&*v, true) }
     }
 
     fn adjust(&self, value: Value<'v>) -> Value<'v> {

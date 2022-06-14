@@ -131,6 +131,7 @@ impl Debug for StarlarkStr {
 
 impl StarlarkStr {
     /// Unsafe because if you do `unpack` on this it will blow up
+    #[inline]
     pub(crate) const unsafe fn new(len: usize) -> Self {
         assert!(len as u32 as usize == len, "len overflow");
         StarlarkStr {

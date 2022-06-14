@@ -174,7 +174,8 @@ pub(crate) trait AValue<'v>: StarlarkValueDyn<'v> + Sized {
     }
 }
 
-pub(crate) fn starlark_str(len: usize) -> impl AValue<'static, ExtraElem = u8> + Send + Sync {
+#[inline]
+pub(crate) fn starlark_str<'v>(len: usize) -> impl AValue<'v, ExtraElem = u8> + Send + Sync {
     AValueImpl(Direct, unsafe { StarlarkStr::new(len) })
 }
 
