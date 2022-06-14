@@ -90,35 +90,35 @@ def _process_plugins(
         actions_prefix: str.type,
         ap_params: ["AnnotationProcessorParams"],
         plugin_params: ["PluginParams", None],
-        javac_args: ["string"],
-        cmd_args: "cmd_args"):
+        javac_args: "cmd_args",
+        cmd: "cmd_args"):
     processors_classpath = []
 
     # Process Annotation processors
     if ap_params:
         # For external javac, we can't preserve separate classpaths for separate processors. So we just concat everything.
-        javac_args.append("-processor")
+        javac_args.add("-processor")
         joined_processors_string = ",".join([p for ap in ap_params for p in ap.processors])
 
-        javac_args.append(joined_processors_string)
+        javac_args.add(joined_processors_string)
 
         for ap in ap_params:
             for param in ap.params:
-                javac_args.append("-A{}".format(param))
+                javac_args.add("-A{}".format(param))
             processors_classpath = processors_classpath + ap.deps
 
     else:
-        javac_args.append("-proc:none")
+        javac_args.add("-proc:none")
 
     # Process Javac Plugins
     if plugin_params:
-        javac_args.append("-Xplugin:{}".format(plugin_params.processors[0]))
+        javac_args.add("-Xplugin:{}".format(plugin_params.processors[0]))
         processors_classpath = processors_classpath + plugin_params.deps
 
     _process_classpath(
         actions,
         processors_classpath,
-        cmd_args,
+        cmd,
         "{}plugin_cp_args".format(actions_prefix),
         "--javac_processors_classpath_file",
     )
@@ -137,14 +137,15 @@ def _append_javac_params(
         extra_arguments: ["string"],
         additional_classpath_entries: ["artifact"],
         bootclasspath_entries: ["artifact"],
-        cmd_args: "cmd_args"):
-    javac_args = [
+        cmd: "cmd_args"):
+    javac_args = cmd_args(
         "-encoding",
         "utf-8",
         # Set the sourcepath to stop us reading source files out of jars by mistake.
         "-sourcepath",
         '""',
-    ] + extra_arguments
+    )
+    javac_args.add(*extra_arguments)
 
     # we want something that looks nice when prepended to another string, so add "_" to non-empty prefixes.
     if actions_prefix:
@@ -160,16 +161,16 @@ def _append_javac_params(
     if not _process_classpath(
         actions,
         compiling_classpath,
-        cmd_args,
+        cmd,
         "{}classpath_args".format(actions_prefix),
         "--javac_classpath_file",
     ):
-        javac_args.append("-classpath ''")
+        javac_args.add("-classpath ''")
 
-    javac_args.append("-source")
-    javac_args.append(str(source_level))
-    javac_args.append("-target")
-    javac_args.append(str(target_level))
+    javac_args.add("-source")
+    javac_args.add(str(source_level))
+    javac_args.add("-target")
+    javac_args.add(str(target_level))
 
     bootclasspath_list = []
     if source_level in [7, 8]:
@@ -184,7 +185,7 @@ def _append_javac_params(
         _process_classpath(
             actions,
             bootclasspath_list,
-            cmd_args,
+            cmd,
             "{}bootclasspath_args".format(actions_prefix),
             "--javac_bootclasspath_file",
         )
@@ -195,31 +196,33 @@ def _append_javac_params(
         annotation_processor_params,
         javac_plugin_params,
         javac_args,
-        cmd_args,
+        cmd,
     )
 
     generated_sources_dir = actions.declare_output("{}generated_sources".format(actions_prefix))
-    cmd_args.add("--generated_sources_dir", generated_sources_dir.as_output())
+    cmd.add("--generated_sources_dir", generated_sources_dir.as_output())
 
     zipped_sources, plain_sources = split_on_archives_and_plain_files(srcs, _JAVA_FILE_EXTENSION)
 
+    javac_args.add(*plain_sources)
     args_file, macro_files = actions.write(
         "{}javac_args".format(actions_prefix),
-        javac_args + plain_sources,
+        javac_args,
         allow_args = True,
     )
+    cmd.hidden(javac_args)
 
     # mark plain srcs artifacts as input
-    cmd_args.hidden(plain_sources, macro_files)
+    cmd.hidden(plain_sources, macro_files)
 
-    cmd_args.add("--javac_args_file", args_file)
+    cmd.add("--javac_args_file", args_file)
 
     if zipped_sources:
-        cmd_args.add("--zipped_sources_file", actions.write("{}zipped_source_args".format(actions_prefix), zipped_sources))
-        cmd_args.hidden(zipped_sources)
+        cmd.add("--zipped_sources_file", actions.write("{}zipped_source_args".format(actions_prefix), zipped_sources))
+        cmd.hidden(zipped_sources)
 
     if remove_classes:
-        cmd_args.add("--remove_classes", actions.write("{}remove_classes_args".format(actions_prefix), remove_classes))
+        cmd.add("--remove_classes", actions.write("{}remove_classes_args".format(actions_prefix), remove_classes))
 
 def split_on_archives_and_plain_files(
         srcs: ["artifact"],
