@@ -378,7 +378,6 @@ impl HasActionExecutor for DiceComputations {
         let run_action_knobs = self.per_transaction_data().get_run_action_knobs();
 
         Ok(Arc::new(BuckActionExecutor::new(
-            artifact_fs.clone(),
             CommandExecutor::new(
                 command_executor,
                 artifact_fs,
@@ -393,7 +392,6 @@ impl HasActionExecutor for DiceComputations {
 }
 
 pub struct BuckActionExecutor {
-    artifact_fs: ArtifactFs,
     command_executor: CommandExecutor,
     blocking_executor: Arc<dyn BlockingExecutor>,
     materializer: Arc<dyn Materializer>,
@@ -403,7 +401,6 @@ pub struct BuckActionExecutor {
 
 impl BuckActionExecutor {
     pub fn new(
-        artifact_fs: ArtifactFs,
         command_executor: CommandExecutor,
         blocking_executor: Arc<dyn BlockingExecutor>,
         materializer: Arc<dyn Materializer>,
@@ -411,7 +408,6 @@ impl BuckActionExecutor {
         run_action_knobs: RunActionKnobs,
     ) -> Self {
         Self {
-            artifact_fs,
             command_executor,
             blocking_executor,
             materializer,
@@ -439,7 +435,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     }
 
     fn fs(&self) -> &ArtifactFs {
-        &self.executor.artifact_fs
+        self.executor.command_executor.fs()
     }
 
     fn executor_fs(&self) -> ExecutorFs {
@@ -603,14 +599,14 @@ impl ActionExecutor for BuckActionExecutor {
                 let wanted = outputs
                     .iter()
                     .filter(|x| !result.0.outputs.contains_key(*x))
-                    .map(|x| self.artifact_fs.resolve_build(x))
+                    .map(|x| self.command_executor.fs().resolve_build(x))
                     .collect();
                 let got = result
                     .0
                     .outputs
                     .keys()
                     .filter(|x| !outputs.contains(*x))
-                    .map(|x| self.artifact_fs.resolve_build(x))
+                    .map(|x| self.command_executor.fs().resolve_build(x))
                     .collect::<Vec<_>>();
                 if got.is_empty() {
                     Err(ActionError {
@@ -778,7 +774,6 @@ mod tests {
         let tracker = Arc::new(Mutex::new(Vec::new()));
 
         let executor = BuckActionExecutor::new(
-            artifact_fs.clone(),
             CommandExecutor::new(
                 Arc::new(DryRunExecutor::new(tracker, None)),
                 artifact_fs,

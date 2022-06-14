@@ -656,6 +656,10 @@ impl CommandExecutor {
         self.0.inner.name()
     }
 
+    pub fn fs(&self) -> &ArtifactFs {
+        &self.0.artifact_fs
+    }
+
     pub fn executor_fs(&self) -> ExecutorFs {
         ExecutorFs::new(&self.0.artifact_fs, self.0.path_separator)
     }
