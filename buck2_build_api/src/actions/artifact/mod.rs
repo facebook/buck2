@@ -55,7 +55,7 @@ mod projected_artifact;
 pub use projected_artifact::ProjectedArtifact;
 
 mod fs;
-pub use fs::ArtifactFs;
+pub use fs::{ArtifactFs, ExecutorFs};
 
 /// An 'Artifact' that can be materialized at its path.
 #[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, PartialOrd, Ord, Hash)]

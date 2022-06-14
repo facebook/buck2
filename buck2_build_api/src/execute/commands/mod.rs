@@ -39,7 +39,7 @@ use remote_execution as RE;
 
 use crate::{
     actions::{
-        artifact::{ArtifactFs, ArtifactValue, BuildArtifact},
+        artifact::{ArtifactFs, ArtifactValue, BuildArtifact, ExecutorFs},
         directory::{insert_entry, ActionDirectoryBuilder, ActionDirectoryMember},
     },
     artifact_groups::ArtifactGroupValues,
@@ -52,7 +52,7 @@ use crate::{
                 ActionPaths,
             },
         },
-        ActionExecutionKind, ActionExecutionTimingData,
+        ActionExecutionKind, ActionExecutionTimingData, PathSeparatorKind,
     },
     path::{BuckOutPath, BuckOutScratchPath, BuckOutTestPath},
 };
@@ -636,15 +636,28 @@ pub struct CommandExecutor(Arc<CommandExecutorData>);
 struct CommandExecutorData {
     inner: Arc<dyn PreparedCommandExecutor>,
     artifact_fs: ArtifactFs,
+    path_separator: PathSeparatorKind,
 }
 
 impl CommandExecutor {
-    pub fn new(inner: Arc<dyn PreparedCommandExecutor>, artifact_fs: ArtifactFs) -> Self {
-        Self(Arc::new(CommandExecutorData { inner, artifact_fs }))
+    pub fn new(
+        inner: Arc<dyn PreparedCommandExecutor>,
+        artifact_fs: ArtifactFs,
+        path_separator: PathSeparatorKind,
+    ) -> Self {
+        Self(Arc::new(CommandExecutorData {
+            inner,
+            artifact_fs,
+            path_separator,
+        }))
     }
 
     pub fn name(&self) -> ExecutorName {
         self.0.inner.name()
+    }
+
+    pub fn executor_fs(&self) -> ExecutorFs {
+        ExecutorFs::new(&self.0.artifact_fs, self.0.path_separator)
     }
 
     /// Execute a command.

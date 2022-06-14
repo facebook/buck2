@@ -20,7 +20,7 @@ use thiserror::Error;
 
 use crate::{
     actions::{
-        artifact::{ArtifactFs, BuildArtifact},
+        artifact::{BuildArtifact, ExecutorFs},
         run::{
             dep_files::{
                 match_or_clear_dep_file, populate_dep_files, DepFilesCommandLineVisitor,
@@ -149,10 +149,10 @@ impl RunAction {
     /// Get the command line expansion for this RunAction.
     fn expand_command_line(
         &self,
-        fs: &ArtifactFs,
+        fs: &ExecutorFs,
         artifact_visitor: &mut impl CommandLineArtifactVisitor,
     ) -> anyhow::Result<ExpandedCommandLine> {
-        let mut cli_builder = BaseCommandLineBuilder::new(fs);
+        let mut cli_builder = BaseCommandLineBuilder::new(fs.fs());
 
         let (cli, env) = Self::unpack(&self.starlark_cli).unwrap();
         cli.add_to_command_line(&mut cli_builder)?;
@@ -160,7 +160,7 @@ impl RunAction {
 
         let mut cli_env = HashMap::with_capacity(env.len());
         for (k, v) in env.into_iter() {
-            let mut var_builder = BaseCommandLineBuilder::new(fs);
+            let mut var_builder = BaseCommandLineBuilder::new(fs.fs());
             v.add_to_command_line(&mut var_builder)?;
             v.visit_artifacts(artifact_visitor)?;
             let var = var_builder.build().join(" ");
@@ -230,8 +230,8 @@ impl Action for RunAction {
         self.inner.always_print_stderr
     }
 
-    fn aquery_attributes(&self, fs: &ArtifactFs) -> indexmap::IndexMap<String, String> {
-        let mut cli_builder = BaseCommandLineBuilder::new(fs);
+    fn aquery_attributes(&self, fs: &ExecutorFs) -> indexmap::IndexMap<String, String> {
+        let mut cli_builder = BaseCommandLineBuilder::new(fs.fs());
         let (cli, _env) = Self::unpack(&self.starlark_cli).unwrap();
         cli.add_to_command_line(&mut cli_builder).unwrap();
         let cmd = format!("[{}]", cli_builder.build().iter().join(", "));
@@ -261,7 +261,8 @@ impl IncrementalActionExecutable for RunAction {
                             DepFilesKey::from_command_execution_target(ctx.target());
 
                         let mut visitor = DepFilesCommandLineVisitor::new(&self.inner.dep_files);
-                        let expanded = self.expand_command_line(ctx.fs(), &mut visitor)?;
+                        let expanded =
+                            self.expand_command_line(&ctx.executor_fs(), &mut visitor)?;
 
                         let DepFilesCommandLineVisitor {
                             inputs: declared_inputs,
@@ -317,7 +318,7 @@ impl IncrementalActionExecutable for RunAction {
 
         let (ExpandedCommandLine { cli, mut env }, inputs) = {
             let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
-            let cli = self.expand_command_line(fs, &mut artifact_visitor)?;
+            let cli = self.expand_command_line(&ctx.executor_fs(), &mut artifact_visitor)?;
             (cli, artifact_visitor.inputs)
         };
 

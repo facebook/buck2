@@ -34,7 +34,10 @@ use ref_cast::RefCast;
 use serde::Serialize;
 
 use crate::{
-    actions::{artifact::ArtifactFs, ActionKey, RegisteredAction},
+    actions::{
+        artifact::{ArtifactFs, ExecutorFs},
+        ActionKey, RegisteredAction,
+    },
     artifact_groups::TransitiveSetProjectionKey,
     query::{cquery::environment::CqueryDelegate, uquery::environment::QueryLiterals},
 };
@@ -114,7 +117,10 @@ impl ActionQueryNode {
     }
 
     pub fn attrs(&self) -> IndexMap<String, String> {
-        self.action.action().aquery_attributes(&*self.fs)
+        self.action.action().aquery_attributes(&ExecutorFs::new(
+            &*self.fs,
+            self.action.execution_config().path_separator,
+        ))
     }
 }
 

@@ -31,7 +31,7 @@ use thiserror::Error;
 
 use crate::{
     actions::{
-        artifact::{Artifact, ArtifactFs, ArtifactValue, BuildArtifact},
+        artifact::{Artifact, ArtifactValue, BuildArtifact, ExecutorFs},
         Action, ActionExecutable, ActionExecutionCtx, PristineActionExecutable, UnregisteredAction,
     },
     artifact_groups::ArtifactGroup,
@@ -58,7 +58,7 @@ enum WriteJsonActionValidationError {
 /// A wrapper with a Serialize instance so we can pass down the necessary context.
 struct SerializeValue<'a, 'v> {
     value: Value<'v>,
-    fs: Option<&'a ArtifactFs>,
+    fs: Option<&'a ExecutorFs<'a>>,
 }
 
 impl<'a, 'v> SerializeValue<'a, 'v> {
@@ -134,7 +134,7 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                     // so pass something of the right type, but don't worry about the value.
                     serializer.serialize_str("")
                 }
-                Some(fs) => serializer.serialize_str(err(fs.resolve(&err(x())?))?.as_str()),
+                Some(fs) => serializer.serialize_str(err(fs.fs().resolve(&err(x())?))?.as_str()),
             }
         } else if let Some(x) = self.value.as_command_line() {
             let singleton = is_singleton_cmdargs(self.value);
@@ -148,7 +148,7 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                     }
                 }
                 Some(fs) => {
-                    let mut cli_builder = BaseCommandLineBuilder::new(fs);
+                    let mut cli_builder = BaseCommandLineBuilder::new(fs.fs());
                     err(x.add_to_command_line(&mut cli_builder))?;
                     let items = cli_builder.build();
                     // We change the type, based on the value - singleton = String, otherwise list.
@@ -191,7 +191,7 @@ impl UnregisteredWriteJsonAction {
         Self::write(x, None, &mut sink())
     }
 
-    fn write(x: Value, fs: Option<&ArtifactFs>, writer: impl Write) -> anyhow::Result<()> {
+    fn write(x: Value, fs: Option<&ExecutorFs>, writer: impl Write) -> anyhow::Result<()> {
         serde_json::ser::to_writer(writer, &SerializeValue { value: x, fs })
             .context("When converting to JSON for `write_json`")
     }
@@ -238,11 +238,11 @@ impl WriteJsonAction {
         }
     }
 
-    fn write(&self, fs: &ArtifactFs, writer: impl Write) -> anyhow::Result<()> {
+    fn write(&self, fs: &ExecutorFs, writer: impl Write) -> anyhow::Result<()> {
         UnregisteredWriteJsonAction::write(self.contents.value(), Some(fs), writer)
     }
 
-    fn get_contents(&self, fs: &ArtifactFs) -> anyhow::Result<Vec<u8>> {
+    fn get_contents(&self, fs: &ExecutorFs) -> anyhow::Result<Vec<u8>> {
         let mut contents = Vec::new();
         self.write(fs, &mut contents)?;
         Ok(contents)
@@ -278,7 +278,7 @@ impl Action for WriteJsonAction {
         Some(&self.identifier)
     }
 
-    fn aquery_attributes(&self, fs: &ArtifactFs) -> IndexMap<String, String> {
+    fn aquery_attributes(&self, fs: &ExecutorFs) -> IndexMap<String, String> {
         let res: anyhow::Result<String> = try { String::from_utf8(self.get_contents(fs)?)? };
         // TODO(cjhopman): We should change this api to support returning a Result.
         indexmap! {
@@ -306,7 +306,7 @@ impl PristineActionExecutable for WriteJsonAction {
                 let execution_start = Instant::now();
                 outputs.reserve(self.outputs.len());
 
-                let full_contents = self.get_contents(fs)?;
+                let full_contents = self.get_contents(&ctx.executor_fs())?;
                 let value = ArtifactValue::file(FileMetadata {
                     digest: TrackedFileDigest::new(FileDigest::from_bytes(&full_contents)),
                     is_executable: false,

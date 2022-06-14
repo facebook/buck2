@@ -22,7 +22,7 @@ use thiserror::Error;
 
 use crate::{
     actions::{
-        artifact::{Artifact, ArtifactFs, ArtifactValue, BuildArtifact},
+        artifact::{Artifact, ArtifactValue, BuildArtifact, ExecutorFs},
         Action, ActionExecutable, ActionExecutionCtx, PristineActionExecutable, UnregisteredAction,
     },
     artifact_groups::ArtifactGroup,
@@ -113,11 +113,11 @@ impl WriteAction {
         }
     }
 
-    fn get_contents(&self, fs: &ArtifactFs) -> anyhow::Result<String> {
+    fn get_contents(&self, fs: &ExecutorFs) -> anyhow::Result<String> {
         let mut cli_builder = if let Some(macro_files) = &self.macro_files {
-            BaseCommandLineBuilder::new_with_write_to_file_macros_support(fs, macro_files)
+            BaseCommandLineBuilder::new_with_write_to_file_macros_support(fs.fs(), macro_files)
         } else {
-            BaseCommandLineBuilder::new(fs)
+            BaseCommandLineBuilder::new(fs.fs())
         };
 
         self.contents
@@ -158,7 +158,7 @@ impl Action for WriteAction {
         Some(&self.identifier)
     }
 
-    fn aquery_attributes(&self, fs: &ArtifactFs) -> IndexMap<String, String> {
+    fn aquery_attributes(&self, fs: &ExecutorFs) -> IndexMap<String, String> {
         // TODO(cjhopman): We should change this api to support returning a Result.
         indexmap! {
             "contents".to_owned() => match self.get_contents(fs) {
@@ -186,7 +186,7 @@ impl PristineActionExecutable for WriteAction {
         // TODO(yipu): We should do the same "virutal write" to write_macro
         if let Some(eden_buck_out) = ctx.materializer().eden_buck_out() {
             let execution_start = Instant::now();
-            let full_contents = self.get_contents(fs)?;
+            let full_contents = self.get_contents(&ctx.executor_fs())?;
             let value = ArtifactValue::file(FileMetadata {
                 digest: TrackedFileDigest::new(FileDigest::from_bytes(full_contents.as_bytes())),
                 is_executable: self.is_executable,
@@ -208,7 +208,7 @@ impl PristineActionExecutable for WriteAction {
                     let execution_start = Instant::now();
                     outputs.reserve(self.outputs.len());
 
-                    let full_contents = self.get_contents(fs)?;
+                    let full_contents = self.get_contents(&ctx.executor_fs())?;
                     let value = ArtifactValue::file(FileMetadata {
                         digest: TrackedFileDigest::new(FileDigest::from_bytes(
                             full_contents.as_bytes(),

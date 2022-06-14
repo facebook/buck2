@@ -68,7 +68,9 @@ use thiserror::Error;
 
 use crate::{
     actions::{
-        artifact::{ArtifactFs, ArtifactValue, BuildArtifact, DeclaredArtifact, OutputArtifact},
+        artifact::{
+            ArtifactFs, ArtifactValue, BuildArtifact, DeclaredArtifact, ExecutorFs, OutputArtifact,
+        },
         run::knobs::RunActionKnobs,
     },
     analysis::registry::AnalysisValueFetcher,
@@ -155,7 +157,7 @@ pub trait Action: Debug + Send + Sync + 'static {
         }
     }
 
-    fn aquery_attributes(&self, _fs: &ArtifactFs) -> IndexMap<String, String> {
+    fn aquery_attributes(&self, _fs: &ExecutorFs) -> IndexMap<String, String> {
         indexmap! {}
     }
 
@@ -194,6 +196,8 @@ pub trait ActionExecutionCtx: Send + Sync {
 
     /// An 'ArtifactFs' to be used for managing 'Artifact's
     fn fs(&self) -> &ArtifactFs;
+
+    fn executor_fs(&self) -> ExecutorFs;
 
     /// A `Materializer` used for expensive materializations
     fn materializer(&self) -> &dyn Materializer;

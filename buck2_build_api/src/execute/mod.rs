@@ -40,7 +40,7 @@ use thiserror::Error;
 
 use crate::{
     actions::{
-        artifact::{ArtifactFs, ArtifactValue, BuildArtifact},
+        artifact::{ArtifactFs, ArtifactValue, BuildArtifact, ExecutorFs},
         directory::ActionDirectoryMember,
         run::knobs::{HasRunActionKnobs, RunActionKnobs},
         ActionExecutable, ActionExecutionCtx, RegisteredAction,
@@ -243,7 +243,7 @@ pub enum CommandExecutorKind {
     },
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Dupe, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash)]
 pub enum PathSeparatorKind {
     Unix,
     Windows,
@@ -379,7 +379,11 @@ impl HasActionExecutor for DiceComputations {
 
         Ok(Arc::new(BuckActionExecutor::new(
             artifact_fs.clone(),
-            CommandExecutor::new(command_executor, artifact_fs),
+            CommandExecutor::new(
+                command_executor,
+                artifact_fs,
+                executor_config.path_separator,
+            ),
             blocking_executor,
             materializer,
             events,
@@ -416,6 +420,7 @@ impl BuckActionExecutor {
         }
     }
 }
+
 struct BuckActionExecutionContext<'a> {
     executor: &'a BuckActionExecutor,
     action: &'a RegisteredAction,
@@ -435,6 +440,10 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
 
     fn fs(&self) -> &ArtifactFs {
         &self.executor.artifact_fs
+    }
+
+    fn executor_fs(&self) -> ExecutorFs {
+        self.executor.command_executor.executor_fs()
     }
 
     fn materializer(&self) -> &dyn Materializer {
@@ -526,7 +535,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         let output_paths = self
             .outputs
             .iter()
-            .map(|o| self.executor.artifact_fs.resolve_build(o))
+            .map(|o| self.fs().resolve_build(o))
             .collect::<Vec<_>>();
 
         // Invalidate all the output paths this action might provide. Note that this is a bit
@@ -544,7 +553,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         // the native method as the API does not load and materialize files or folders
         if let Some(eden_buck_out) = self.executor.materializer.eden_buck_out() {
             eden_buck_out
-                .remove_paths_recursive(self.executor.artifact_fs.fs(), output_paths)
+                .remove_paths_recursive(self.fs().fs(), output_paths)
                 .await?;
         } else {
             self.executor
@@ -743,6 +752,7 @@ mod tests {
             materializer::nodisk::NoDiskMaterializer,
             ActionExecutionKind, ActionExecutionMetadata, ActionExecutionTimingData,
             ActionExecutor, ActionOutputs, BuckActionExecutor, CommandExecutorConfig,
+            PathSeparatorKind,
         },
         path::{BuckOutPathResolver, BuckPath, BuckPathResolver},
     };
@@ -771,7 +781,8 @@ mod tests {
             artifact_fs.clone(),
             CommandExecutor::new(
                 Arc::new(DryRunExecutor::new(tracker, None)),
-                artifact_fs.clone(),
+                artifact_fs,
+                PathSeparatorKind::Unix,
             ),
             Arc::new(DummyBlockingExecutor { fs: project_fs }),
             Arc::new(NoDiskMaterializer),

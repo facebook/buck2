@@ -47,7 +47,7 @@ use test_api::{
 use uuid::Uuid;
 
 use crate::{
-    actions::artifact::{ArtifactFs, ArtifactValue},
+    actions::artifact::{ArtifactFs, ArtifactValue, ExecutorFs},
     artifact_groups::ArtifactGroup,
     calculation::Calculation,
     deferred::BaseDeferredKey,
@@ -482,7 +482,7 @@ impl BuckTestOrchestrator {
         let executor = self
             .dice
             .get_command_executor(fs, project_fs, executor_config)?;
-        let executor = CommandExecutor::new(executor, fs.clone());
+        let executor = CommandExecutor::new(executor, fs.clone(), executor_config.path_separator);
         Ok(executor)
     }
 
@@ -543,24 +543,6 @@ impl BuckTestOrchestrator {
                 cell.path().to_owned()
             };
 
-            let expander = Execute2RequestExpander {
-                test_info: &test_info,
-                output_root: &output_root,
-                declared_outputs: &mut declared_outputs,
-                fs,
-                cmd,
-                env,
-            };
-
-            expanded = if test_info.use_project_relative_paths()
-                || opts.force_use_project_relative_paths
-            {
-                expander.expand::<BaseCommandLineBuilder>()
-            } else {
-                supports_re = false;
-                expander.expand::<AbsCommandLineBuilder>()
-            }?;
-
             let resolved_executor_override = match executor_override.as_ref() {
                 Some(executor_override) => Some(
                     test_info
@@ -589,6 +571,24 @@ impl BuckTestOrchestrator {
             executor = self
                 .get_command_executor(fs, &node, resolved_executor_override.as_deref())
                 .context("Error constructing CommandExecutor")?;
+
+            let expander = Execute2RequestExpander {
+                test_info: &test_info,
+                output_root: &output_root,
+                declared_outputs: &mut declared_outputs,
+                fs: &executor.executor_fs(),
+                cmd,
+                env,
+            };
+
+            expanded = if test_info.use_project_relative_paths()
+                || opts.force_use_project_relative_paths
+            {
+                expander.expand::<BaseCommandLineBuilder>()
+            } else {
+                supports_re = false;
+                expander.expand::<AbsCommandLineBuilder>()
+            }?;
         };
 
         let (expanded_cmd, expanded_env, inputs) = expanded;
@@ -651,7 +651,7 @@ struct Execute2RequestExpander<'a> {
     test_info: &'a FrozenExternalRunnerTestInfo,
     output_root: &'a ForwardRelativePath,
     declared_outputs: &'a mut IndexMap<BuckOutTestPath, OutputCreationBehavior>,
-    fs: &'a ArtifactFs,
+    fs: &'a ExecutorFs<'a>,
     cmd: Vec<ArgValue>,
     env: HashMap<String, ArgValue>,
 }
@@ -714,7 +714,11 @@ impl<'a> Execute2RequestExpander<'a> {
                 }
                 ArgValueContent::DeclaredOutput(output) => {
                     let test_path = BuckOutTestPath::new(self.output_root.to_owned(), output.name);
-                    let path = self.fs.buck_out_path_resolver().resolve_test(&test_path);
+                    let path = self
+                        .fs
+                        .fs()
+                        .buck_out_path_resolver()
+                        .resolve_test(&test_path);
                     let path = cli_builder.resolve_project_path(path)?.into_string();
                     cli_builder.add_arg_string(path);
                     declared_outputs.insert(test_path, OutputCreationBehavior::Parent);
@@ -726,7 +730,7 @@ impl<'a> Execute2RequestExpander<'a> {
 
         let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
 
-        let mut builder = B::new(self.fs);
+        let mut builder = B::new(self.fs.fs());
         for var in self.cmd {
             expand_arg_value(
                 &mut builder,
@@ -742,7 +746,7 @@ impl<'a> Execute2RequestExpander<'a> {
             .env
             .into_iter()
             .map(|(k, v)| {
-                let mut builder = B::new(self.fs);
+                let mut builder = B::new(self.fs.fs());
                 expand_arg_value(
                     &mut builder,
                     &mut artifact_visitor,

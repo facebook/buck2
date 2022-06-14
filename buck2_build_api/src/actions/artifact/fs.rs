@@ -6,6 +6,7 @@ use either::Either;
 
 use crate::{
     actions::artifact::{Artifact, ArtifactPath, BuildArtifact, SourceArtifact},
+    execute::PathSeparatorKind,
     interpreter::rule_defs::artifact::StarlarkArtifactLike,
     path::{BuckOutPathResolver, BuckPathResolver},
 };
@@ -104,5 +105,24 @@ impl ArtifactFs {
 
     pub fn buck_out_path_resolver(&self) -> &BuckOutPathResolver {
         &self.buck_out_path_resolver
+    }
+}
+
+pub struct ExecutorFs<'a> {
+    fs: &'a ArtifactFs,
+    path_separator: PathSeparatorKind,
+}
+
+impl<'a> ExecutorFs<'a> {
+    pub fn new(fs: &'a ArtifactFs, path_separator: PathSeparatorKind) -> Self {
+        Self { fs, path_separator }
+    }
+
+    pub fn fs(&self) -> &ArtifactFs {
+        self.fs
+    }
+
+    pub fn path_separator(&self) -> PathSeparatorKind {
+        self.path_separator
     }
 }
