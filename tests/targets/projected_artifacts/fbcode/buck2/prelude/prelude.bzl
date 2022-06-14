@@ -14,10 +14,14 @@ declare_sub_targets = rule(
 
 def _exists(ctx: "context") -> ["provider"]:
     out = ctx.actions.declare_output("check")
-    ctx.actions.run([ctx.attr.command, out.as_output(), ctx.attr.paths], category = "check")
+    ctx.actions.run(
+        [ctx.attr.command, out.as_output(), ctx.attr.paths],
+        category = "check",
+        local_only = ctx.attr.local,
+    )
     return [DefaultInfo(default_outputs = [out])]
 
 exists = rule(
     implementation = _exists,
-    attrs = {"command": attr.source(), "paths": attr.list(attr.arg())},
+    attrs = {"command": attr.source(), "local": attr.bool(default = False), "paths": attr.list(attr.arg())},
 )

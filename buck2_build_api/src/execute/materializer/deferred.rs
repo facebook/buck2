@@ -49,7 +49,7 @@ use crate::{
         blocking::BlockingExecutor,
         commands::re::manager::ReConnectionManager,
         materializer::{
-            filetree::{DataTreeEntry, FileTree},
+            filetree::FileTree,
             http::{http_client, http_download},
             io::MaterializeTreeStructure,
             ArtifactNotMaterializedReason, CasDownloadInfo, CopiedArtifact, HttpDownloadInfo,
@@ -507,7 +507,7 @@ impl DeferredMaterializerCommandProcessor {
         path: &ProjectRelativePath,
     ) -> Option<MaterializationFuture> {
         // Get the data about the artifact, or return early if materializing/materialized
-        let data = match tree.get(path.iter()) {
+        let data = match tree.prefix_get(&mut path.iter()) {
             // Never declared, nothing to do
             None => {
                 tracing::debug!("not known");
@@ -610,7 +610,7 @@ impl DeferredMaterializerCommandProcessor {
         .boxed()
         .shared();
 
-        let data = tree.get_mut(path.iter()).unwrap();
+        let data = tree.prefix_get_mut(&mut path.iter()).unwrap();
         data.stage = ArtifactMaterializationStage::Materializing(task.clone());
 
         Some(task)
@@ -826,32 +826,27 @@ impl ArtifactTree {
         result: Result<(), SharedMaterializationError>,
         has_deps: bool,
     ) {
-        let path = artifact_path.iter().map(|e| e.to_owned());
-
-        match self.entry(path) {
-            Some(DataTreeEntry::Occupied(mut info)) => {
-                if info.get().version > version {
+        match self.prefix_get_mut(&mut artifact_path.iter()) {
+            Some(mut info) => {
+                if info.version > version {
                     tracing::debug!("version conflict");
                     return;
                 }
 
                 if result.is_err() {
                     tracing::debug!("transition to Declared");
-                    info.get_mut().stage = ArtifactMaterializationStage::Declared;
+                    info.stage = ArtifactMaterializationStage::Declared;
                     return;
                 }
 
                 // If the entry is a tree and we have a file,
                 tracing::debug!("transition to Materialized {{ check_deps: {} }}", has_deps);
-                info.get_mut().stage = ArtifactMaterializationStage::Materialized {
+                info.stage = ArtifactMaterializationStage::Materialized {
                     check_deps: has_deps,
                 };
             }
-            Some(DataTreeEntry::Vacant(..)) => {
-                tracing::debug!("materialization_finished but path is vacant!")
-            }
             None => {
-                tracing::debug!("materialization_finished but path traverses through an entry!")
+                tracing::debug!("materialization_finished but path is vacant!")
             }
         }
     }

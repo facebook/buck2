@@ -9,7 +9,17 @@ exists(
 )
 
 exists(
+    name="check_b_local", command="commands/exists.sh", paths=["$(location :fixture[b])/b"],
+    local = True,
+)
+
+exists(
     name="check_b_b", command="commands/exists.sh", paths=["$(location :fixture[b/b])"]
+)
+
+exists(
+    name="check_b_b_local", command="commands/exists.sh", paths=["$(location :fixture[b/b])"],
+    local = True
 )
 
 exists(
@@ -19,5 +29,19 @@ exists(
 )
 
 exists(
+    name="check_c_local",
+    command="commands/exists.sh",
+    paths=["$(location :fixture[c])/b", "$(location :fixture[c])/b"],
+    local = True,
+)
+
+exists(
     name="check_c_b", command="commands/exists.sh", paths=["$(location :fixture[c/b])"]
+)
+
+exists(
+    name="check_c_b_local",
+    command="commands/exists.sh",
+    paths=["$(location :fixture[c/b])"],
+    local = True,
 )

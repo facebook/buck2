@@ -21,10 +21,7 @@
 
 use std::{
     borrow::Borrow,
-    collections::{
-        hash_map::{Entry, OccupiedEntry, VacantEntry},
-        HashMap,
-    },
+    collections::{hash_map::Entry, HashMap},
     hash::Hash,
 };
 
@@ -50,7 +47,7 @@ pub type FileTree<V> = DataTree<FileNameBuf, V>;
 ///     contents.clone(),
 /// );
 ///
-/// assert_eq!(file_path_to_contents.get(path.iter()), Some(&contents));
+/// assert_eq!(file_path_to_contents.prefix_get_mut(&mut path.iter()).as_deref(), Some(&contents));
 /// ```
 #[derive(Debug)]
 pub enum DataTree<K, V> {
@@ -120,79 +117,6 @@ impl<K: Eq + Hash, V> DataTree<K, V> {
         None
     }
 
-    /// Returns a reference to the value corresponding to the `key`.
-    pub fn get<'a, I, Q>(&self, key: I) -> Option<&V>
-    where
-        K: 'a + Borrow<Q>,
-        Q: 'a + Hash + Eq + ?Sized,
-        I: Iterator<Item = &'a Q>,
-    {
-        let mut node = self;
-        for k in key {
-            node = match node {
-                Self::Tree(children) => match children.get(k) {
-                    None => return None,
-                    Some(node) => node,
-                },
-                Self::Data(_) => return None,
-            };
-        }
-        match node {
-            Self::Tree(_) => None,
-            Self::Data(data) => Some(data),
-        }
-    }
-
-    /// Returns a reference to the value corresponding to the `key`.
-    /// NOTE: This will create the path to this entry.
-    pub fn entry<'a, I>(&'a mut self, mut key: I) -> Option<DataTreeEntry<'a, K, V>>
-    where
-        I: Iterator<Item = K>,
-    {
-        let mut entry = match self {
-            Self::Tree(t) => t.entry(key.next()?),
-            Self::Data(..) => return None,
-        };
-
-        for k in key {
-            entry = match entry {
-                Entry::Occupied(entry) => match entry.into_mut() {
-                    Self::Tree(t) => t.entry(k),
-                    Self::Data(..) => return None,
-                },
-                Entry::Vacant(v) => match v.insert(Self::new()) {
-                    Self::Tree(t) => t.entry(k),
-                    Self::Data(..) => unreachable!("We just inserted a Tree here"),
-                },
-            }
-        }
-
-        DataTreeEntry::new(entry)
-    }
-
-    /// Returns a reference to the value corresponding to the `key`.
-    pub fn get_mut<'a, I, Q>(&mut self, key: I) -> Option<&mut V>
-    where
-        K: 'a + Borrow<Q>,
-        Q: 'a + Hash + Eq + ?Sized,
-        I: Iterator<Item = &'a Q>,
-    {
-        let mut node = self;
-        for k in key {
-            node = match node {
-                Self::Tree(children) => match children.get_mut(k) {
-                    None => return None,
-                    Some(node) => node,
-                },
-                Self::Data(_) => return None,
-            };
-        }
-        match node {
-            Self::Tree(_) => None,
-            Self::Data(data) => Some(data),
-        }
-    }
-
     /// Inserts a key-value pair into the tree.
     ///
     /// If there is already a key in the map that is a prefix of the inserted
@@ -257,92 +181,5 @@ impl<K: Eq + Hash, V> DataTree<K, V> {
             Self::Tree(children) => Some(children),
             Self::Data(_) => None,
         }
-    }
-}
-
-/// A Entry of the DataTree that is checked to contain Data, not Tree.
-#[derive(Debug)]
-pub enum DataTreeEntry<'a, K, V> {
-    Vacant(VacantDataTreeEntry<'a, K, V>),
-    Occupied(OccupiedDataTreeEntry<'a, K, V>),
-}
-
-#[derive(Debug)]
-pub struct VacantDataTreeEntry<'a, K, V> {
-    inner: VacantEntry<'a, K, DataTree<K, V>>,
-}
-
-#[derive(Debug)]
-pub struct OccupiedDataTreeEntry<'a, K, V> {
-    inner: OccupiedEntry<'a, K, DataTree<K, V>>,
-}
-
-impl<'a, K, V> DataTreeEntry<'a, K, V> {
-    fn new(inner: Entry<'a, K, DataTree<K, V>>) -> Option<Self> {
-        match inner {
-            Entry::Vacant(inner) => Some(Self::Vacant(VacantDataTreeEntry { inner })),
-            Entry::Occupied(inner) => match inner.get() {
-                DataTree::Data(..) => Some(Self::Occupied(OccupiedDataTreeEntry { inner })),
-                DataTree::Tree(..) => None,
-            },
-        }
-    }
-}
-
-impl<'a, K, V> VacantDataTreeEntry<'a, K, V> {
-    pub fn insert(self, value: V) {
-        self.inner.insert(DataTree::Data(value));
-    }
-}
-
-impl<'a, K, V> OccupiedDataTreeEntry<'a, K, V> {
-    pub fn get(&self) -> &V {
-        match self.inner.get() {
-            DataTree::Data(ref d) => d,
-            DataTree::Tree(..) => unreachable!("This is checked at construction time"),
-        }
-    }
-
-    pub fn get_mut(&mut self) -> &mut V {
-        match self.inner.get_mut() {
-            DataTree::Data(ref mut d) => d,
-            DataTree::Tree(..) => unreachable!("This is checked at construction time"),
-        }
-    }
-
-    pub fn remove(self) -> V {
-        match self.inner.remove() {
-            DataTree::Data(d) => d,
-            DataTree::Tree(..) => unreachable!("This is checked at construction time"),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use assert_matches::assert_matches;
-
-    use super::*;
-
-    #[test]
-    fn test_entry() {
-        let mut t = DataTree::<u64, &str>::new();
-        t.insert(vec![1, 2, 3].into_iter(), "123");
-
-        assert_matches!(t.entry(vec![1].into_iter()), None);
-
-        assert_matches!(t.entry(vec![1, 2, 3, 4].into_iter()), None);
-
-        assert_matches!(t.entry(vec![1, 2, 3].into_iter()), Some(e) => {
-            assert_matches!(e, DataTreeEntry::Occupied(e) => {
-                assert_eq!(*e.get(), "123");
-            });
-        });
-
-        assert_matches!(t.entry(vec![2, 3, 4].into_iter()), Some(e) => {
-            assert_matches!(e, DataTreeEntry::Vacant(v) => {
-                v.insert("234");
-            });
-        });
     }
 }
