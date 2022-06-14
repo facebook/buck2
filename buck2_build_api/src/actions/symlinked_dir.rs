@@ -61,7 +61,7 @@ impl UnregisteredSymlinkedDirAction {
             }
         }
         if args.len() == 1 && args[0].1.as_os_str().is_empty() {
-            soft_error!(SymlinkedDirError::EmptyPath.into());
+            soft_error!(SymlinkedDirError::EmptyPath.into())?;
         }
 
         for (g, _) in args.iter() {

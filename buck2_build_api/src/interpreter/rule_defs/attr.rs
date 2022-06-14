@@ -192,7 +192,7 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
             if listing.contains_dir(&path) {
                 if !allow_directory {
                     let e = AttrError::SourceFileIsDirectory(package.dupe(), value.to_owned());
-                    soft_error!(e.into());
+                    soft_error!(e.into())?;
                 } else if let Some(subpackage) = listing.subpackages_within(&path).next() {
                     let e = AttrError::SourceDirectoryIncludesSubPackage(
                         package.dupe(),
@@ -202,7 +202,7 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
                     if self.package_boundary_exception {
                         info!("{} (could be due to a package boundary violation)", e);
                     } else {
-                        soft_error!(e.into());
+                        soft_error!(e.into())?;
                     }
                 }
                 let files = listing
@@ -218,7 +218,7 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
                 if self.package_boundary_exception {
                     info!("{} (could be due to a package boundary violation)", e);
                 } else {
-                    soft_error!(e.into());
+                    soft_error!(e.into())?;
                 }
             }
         }

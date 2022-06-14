@@ -17,11 +17,15 @@ static HANDLER: OnceCell<SoftErrorHandler> = OnceCell::new();
 macro_rules! soft_error(
     ($e:expr) => { {
         static COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-        buck2_core::error::handle_soft_error($e, &COUNT, (file!(), line!(), column!()));
-    } };
+        buck2_core::error::handle_soft_error($e, &COUNT, (file!(), line!(), column!()))
+    } }
 );
 
-pub fn handle_soft_error(err: anyhow::Error, count: &AtomicUsize, loc: (&'static str, u32, u32)) {
+pub fn handle_soft_error(
+    err: anyhow::Error,
+    count: &AtomicUsize,
+    loc: (&'static str, u32, u32),
+) -> anyhow::Result<()> {
     static HARD_ERROR: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_HARD_ERROR");
 
     // We want to limit each error to appearing at most 10 times in a build (no point spamming people)
@@ -36,8 +40,10 @@ pub fn handle_soft_error(err: anyhow::Error, count: &AtomicUsize, loc: (&'static
         // We can't anyhow::Error out of here because we don't return a Result.
         // We don't want to panic out of here in case that goes into our panic handler.
         // So cheat and drop an `exit` (this branch is only ever taken in our tests).
-        eprintln!("Important warning caused exit due to $BUCK2_TEST_HARD_ERROR");
-        std::process::exit(1);
+        eprintln!("Important warning caused failure due to $BUCK2_TEST_HARD_ERROR");
+        Err(err)
+    } else {
+        Ok(())
     }
 }
 
@@ -70,7 +76,7 @@ mod test {
     #[test]
     fn test_soft_error() {
         // No logs without handler:
-        soft_error!(anyhow!("Should not be logged"));
+        let _ignore_hard_error = soft_error!(anyhow!("Should not be logged"));
         assert_eq!(
             0,
             RESULT
@@ -82,10 +88,10 @@ mod test {
 
         // Now set the handler and assert that we log
         super::initialize(box mock_handler);
-        soft_error!(anyhow!("Should be logged"));
+        let _ignore_hard_error = soft_error!(anyhow!("Should be logged"));
         assert_eq!(
             Some(&format!(
-                "({:?}, {}, 9), : Should be logged",
+                "({:?}, {}, 34), : Should be logged",
                 file!(),
                 line!() - 5,
             )),
