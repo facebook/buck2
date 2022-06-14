@@ -37,10 +37,8 @@ pub async fn eval_query<Env: QueryEnvironment, Fut: Future<Output = anyhow::Resu
     query_args: Vec<String>,
     environment: impl FnOnce(Vec<String>) -> Fut,
 ) -> anyhow::Result<QueryEvaluationResult<Env::Target>> {
-    let mut literals = extract_target_literals(functions, query)?;
-    let placeholder = query.contains("%s");
-
-    if placeholder {
+    if query.contains("%s") {
+        let mut literals = extract_target_literals(functions, query)?;
         for q in &query_args {
             if q.contains("%s") {
                 return Err(EvalQueryError::PlaceholderInPattern(q.to_owned()).into());
@@ -48,18 +46,18 @@ pub async fn eval_query<Env: QueryEnvironment, Fut: Future<Output = anyhow::Resu
             let more_literals = extract_target_literals(functions, q)?;
             literals.extend(more_literals);
         }
-    } else if !query_args.is_empty() {
-        return Err(EvalQueryError::ArgsWithoutPlaceholder(query_args).into());
-    }
-    let env = environment(literals).await?;
-    if placeholder {
+        let env = environment(literals).await?;
         let results = process_multi_query(query, query_args, |input, query| {
             let evaluator = QueryEvaluator::new(&env, functions);
             async move { (input, evaluator.eval_query(&query).await) }
         })
         .await;
         Ok(QueryEvaluationResult::Multiple(results))
+    } else if !query_args.is_empty() {
+        Err(EvalQueryError::ArgsWithoutPlaceholder(query_args).into())
     } else {
+        let literals = extract_target_literals(functions, query)?;
+        let env = environment(literals).await?;
         Ok(QueryEvaluationResult::Single(
             QueryEvaluator::new(&env, functions)
                 .eval_query(query)
