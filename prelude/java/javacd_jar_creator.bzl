@@ -414,7 +414,7 @@ def create_jar_artifact_javacd(
     def prepare_final_jar():
         if not additional_compiled_srcs:
             if output:
-                actions.copy(output_paths.jar, output.as_output())
+                actions.copy_file(output.as_output(), output_paths.jar)
                 return output
             return output_paths.jar
 
