@@ -33,6 +33,9 @@ specific invocations or classes of invocations.
 * [Types in Starlark](https://github.com/facebookexperimental/starlark-rust/blob/main/docs/types.md) - rules are written in Starlark (which is approximately Python), but our version adds types.
 * [Rule writing tips](rule_writing_tips.md) - tips for migrating rules from buck1 to buck2.
 
+## For people integrating with Buck2
+* [Extending Buck via BXL](bxl.md) - powerful Starlark scripts for introspection of buck2's graphs
+
 ## For people developing Buck2
 
 * [Basic README](https://www.internalfb.com/code/fbsource/fbcode/buck2/README.md) - how to get started, compile Buck2 and the basic workflows.
