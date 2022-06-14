@@ -18,11 +18,7 @@ use buck2_data::{
 };
 use events::BuckEvent;
 use itertools::Itertools;
-use superconsole::{
-    content::lines_from_multiline_string,
-    style::{Color, ContentStyle, Stylize},
-    Lines, Span,
-};
+use superconsole::{content::lines_from_multiline_string, style::Stylize, Lines, Span};
 use test_api::data::TestStatus;
 use thiserror::Error;
 
@@ -295,10 +291,7 @@ pub(crate) fn format_test_result(
     let mut lines = vec![base];
 
     if matches!(status, TestStatus::FAIL | TestStatus::FATAL) {
-        let style = ContentStyle {
-            foreground_color: Some(Color::DarkRed),
-            ..Default::default()
-        };
+        let style = Default::default();
         lines.append(&mut lines_from_multiline_string(stderr, style));
         lines.append(&mut lines_from_multiline_string(stdout, style));
     }
