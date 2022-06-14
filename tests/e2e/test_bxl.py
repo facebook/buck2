@@ -291,3 +291,15 @@ async def test_bxl_create_build_actions(buck: Buck) -> None:
         "my_content",
     )
     assert (buck.cwd / Path(result.stdout.strip())).read_text() == "my_content"
+
+
+@buck_test(inplace=False, data_dir="bql/simple")
+async def test_bxl_configured_node(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl/node.bxl:configured_node_test",
+    )
+
+    assert result.stdout.splitlines() == [
+        "root//bin:the_binary (root//platforms:platform1)",
+        "root//rules/rules.bzl:_foo_binary",
+    ]

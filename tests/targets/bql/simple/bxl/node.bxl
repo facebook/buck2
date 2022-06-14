@@ -1,0 +1,11 @@
+def _impl(ctx):
+    node = ctx.cquery().owner("bin/TARGETS.fixture")[0]
+
+    ctx.output.print(node.label)
+    ctx.output.print(node.rule_type)
+
+configured_node_test = bxl(
+    implementation = _impl,
+    cli_args = {
+    },
+)

@@ -87,6 +87,13 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         Ok(heap.alloc(Struct::new(attrs)))
     }
 
+    /// Gets the targets' corresponding rule's name. This is the fully qualified rule name including
+    /// the import path.
+    #[starlark(attribute)]
+    fn rule_type(this: &StarlarkConfiguredTargetNode) -> anyhow::Result<String> {
+        Ok(this.0.rule_type().to_string())
+    }
+
     /// Returns a List of all the sources used by this node.
     fn sources(this: &StarlarkConfiguredTargetNode) -> anyhow::Result<Vec<StarlarkArtifact>> {
         struct InputsCollector {
