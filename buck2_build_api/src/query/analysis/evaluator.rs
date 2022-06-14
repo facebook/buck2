@@ -9,8 +9,6 @@
 
 //! Implementation of common cquery/uquery pieces.
 
-use std::collections::HashSet;
-
 use buck2_query::query::{
     environment::QueryEnvironment,
     syntax::simple::{
@@ -23,6 +21,7 @@ use buck2_query::query::{
 };
 use futures::Future;
 use gazebo::prelude::*;
+use starlark::collections::SmallSet;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -39,7 +38,7 @@ pub async fn eval_query<Env: QueryEnvironment, Fut: Future<Output = anyhow::Resu
     query_args: Vec<String>,
     environment: impl FnOnce(Vec<String>) -> Fut,
 ) -> anyhow::Result<QueryEvaluationResult<Env::Target>> {
-    let mut literals = HashSet::new();
+    let mut literals = SmallSet::new();
     if query.contains("%s") {
         // We'd really like the query args to only be literals (file or target).
         // If that didn't work, we'd really like query args to be well-formed expressions.
