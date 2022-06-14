@@ -12,7 +12,6 @@
 #![feature(box_syntax)]
 #![feature(hash_set_entry)]
 #![feature(try_blocks)]
-#![allow(clippy::redundant_allocation)]
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
