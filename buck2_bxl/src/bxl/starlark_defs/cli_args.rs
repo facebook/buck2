@@ -277,6 +277,7 @@ impl CliArgType {
         })
     }
 
+    #[allow(deprecated)] // TODO(nga): fix.
     pub fn to_clap<'a>(&'a self, clap: clap::Arg<'a>) -> clap::Arg<'a> {
         match self {
             CliArgType::Bool => clap
@@ -575,6 +576,7 @@ pub(crate) enum ArgAccessor<'a> {
     Literal(&'a str),
 }
 
+#[allow(deprecated)] // TODO(nga): fix.
 impl<'a> ArgAccessor<'a> {
     fn value_of(&self) -> Option<&str> {
         match self {
