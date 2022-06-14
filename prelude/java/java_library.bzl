@@ -246,12 +246,13 @@ def _is_supported_archive(src: "artifact") -> bool.type:
 
 def _copy_resources(
         actions: "actions",
+        actions_prefix: str.type,
         java_toolchain: JavaToolchainInfo.type,
         package: str.type,
         resources: ["artifact"],
         resources_root: [str.type, None]) -> "artifact":
     resources_to_copy = get_resources_map(java_toolchain, package, resources, resources_root)
-    resource_output = actions.declare_output("resources")
+    resource_output = actions.declare_output("{}resources".format(actions_prefix))
     actions.symlinked_dir(resource_output, resources_to_copy)
     return resource_output
 
@@ -388,7 +389,7 @@ def _create_jar_artifact(
         args += ["--javac_tool", javac_tool]
 
     if resources:
-        resource_dir = _copy_resources(actions, java_toolchain, label.package, resources, resources_root)
+        resource_dir = _copy_resources(actions, actions_prefix, java_toolchain, label.package, resources, resources_root)
         args += ["--resources_dir", resource_dir]
 
     if manifest_file:
