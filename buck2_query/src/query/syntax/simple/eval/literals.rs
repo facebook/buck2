@@ -8,6 +8,8 @@
  */
 
 //! Implementation of the cli and query_* attr query language.
+use std::collections::HashSet;
+
 use buck2_query_parser::parse_expr;
 
 use crate::query::{
@@ -21,21 +23,21 @@ use crate::query::{
 pub fn extract_target_literals<Env: QueryEnvironment, F: QueryFunctions<Env>>(
     functions: &F,
     query: &str,
-) -> anyhow::Result<Vec<String>> {
+) -> anyhow::Result<HashSet<String>> {
     let parsed = parse_expr(query)?;
     struct LiteralExtractor {
-        literals: Vec<String>,
+        literals: HashSet<String>,
     }
     impl QueryLiteralVisitor for LiteralExtractor {
         fn target_pattern(&mut self, pattern: &str) -> anyhow::Result<()> {
             if pattern != "%s" {
-                self.literals.push(pattern.to_owned());
+                self.literals.get_or_insert_owned(pattern);
             }
             Ok(())
         }
     }
     let mut visitor = LiteralExtractor {
-        literals: Vec::new(),
+        literals: HashSet::new(),
     };
     functions
         .visit_literals(&mut visitor, &parsed)

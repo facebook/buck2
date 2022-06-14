@@ -10,6 +10,7 @@
 #![feature(async_closure)]
 #![feature(box_patterns)]
 #![feature(box_syntax)]
+#![feature(hash_set_entry)]
 #![feature(try_blocks)]
 #![allow(clippy::redundant_allocation)]
 // Plugins

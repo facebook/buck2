@@ -46,7 +46,7 @@ pub async fn eval_query<Env: QueryEnvironment, Fut: Future<Output = anyhow::Resu
             let more_literals = extract_target_literals(functions, q)?;
             literals.extend(more_literals);
         }
-        let env = environment(literals).await?;
+        let env = environment(literals.into_iter().collect()).await?;
         let results = process_multi_query(query, query_args, |input, query| {
             let evaluator = QueryEvaluator::new(&env, functions);
             async move { (input, evaluator.eval_query(&query).await) }
@@ -57,7 +57,7 @@ pub async fn eval_query<Env: QueryEnvironment, Fut: Future<Output = anyhow::Resu
         Err(EvalQueryError::ArgsWithoutPlaceholder(query_args).into())
     } else {
         let literals = extract_target_literals(functions, query)?;
-        let env = environment(literals).await?;
+        let env = environment(literals.into_iter().collect()).await?;
         Ok(QueryEvaluationResult::Single(
             QueryEvaluator::new(&env, functions)
                 .eval_query(query)
