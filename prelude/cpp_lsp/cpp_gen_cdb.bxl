@@ -31,7 +31,8 @@ def _impl(ctx):
         arguments = cmd_args()
         arguments.add(artifact.cxx_compile_cmd.base_compile_cmd)
         arguments.add(artifact.cxx_compile_cmd.argsfile.argfile_args)
-        arguments.add(artifact.args)
+        arguments.add(artifact.args[:-1])
+        arguments.add(filename)
 
         # @unsorted-dict-items
         compileCommands.append({"file": filename, "directory": buckRoot, "arguments": arguments})
