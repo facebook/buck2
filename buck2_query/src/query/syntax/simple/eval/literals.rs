@@ -20,15 +20,18 @@ use crate::query::{
     },
 };
 
+/// Look through the expression to find all the target literals.
+/// Adds those that are found to `result` set.
 pub fn extract_target_literals<Env: QueryEnvironment, F: QueryFunctions<Env>>(
     functions: &F,
     query: &str,
-) -> anyhow::Result<HashSet<String>> {
+    result: &mut HashSet<String>,
+) -> anyhow::Result<()> {
     let parsed = parse_expr(query)?;
-    struct LiteralExtractor {
-        literals: HashSet<String>,
+    struct LiteralExtractor<'a> {
+        literals: &'a mut HashSet<String>,
     }
-    impl QueryLiteralVisitor for LiteralExtractor {
+    impl QueryLiteralVisitor for LiteralExtractor<'_> {
         fn target_pattern(&mut self, pattern: &str) -> anyhow::Result<()> {
             if pattern != "%s" {
                 self.literals.get_or_insert_owned(pattern);
@@ -36,11 +39,9 @@ pub fn extract_target_literals<Env: QueryEnvironment, F: QueryFunctions<Env>>(
             Ok(())
         }
     }
-    let mut visitor = LiteralExtractor {
-        literals: HashSet::new(),
-    };
+    let mut visitor = LiteralExtractor { literals: result };
     functions
         .visit_literals(&mut visitor, &parsed)
         .into_anyhow(query)?;
-    Ok(visitor.literals)
+    Ok(())
 }

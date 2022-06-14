@@ -9,6 +9,8 @@
 
 //! Implementation of common cquery/uquery pieces.
 
+use std::collections::HashSet;
+
 use buck2_query::query::{
     environment::QueryEnvironment,
     syntax::simple::{
@@ -37,14 +39,14 @@ pub async fn eval_query<Env: QueryEnvironment, Fut: Future<Output = anyhow::Resu
     query_args: Vec<String>,
     environment: impl FnOnce(Vec<String>) -> Fut,
 ) -> anyhow::Result<QueryEvaluationResult<Env::Target>> {
+    let mut literals = HashSet::new();
     if query.contains("%s") {
-        let mut literals = extract_target_literals(functions, query)?;
+        extract_target_literals(functions, query, &mut literals)?;
         for q in &query_args {
             if q.contains("%s") {
                 return Err(EvalQueryError::PlaceholderInPattern(q.to_owned()).into());
             }
-            let more_literals = extract_target_literals(functions, q)?;
-            literals.extend(more_literals);
+            extract_target_literals(functions, q, &mut literals)?;
         }
         let env = environment(literals.into_iter().collect()).await?;
         let results = process_multi_query(query, query_args, |input, query| {
@@ -56,7 +58,7 @@ pub async fn eval_query<Env: QueryEnvironment, Fut: Future<Output = anyhow::Resu
     } else if !query_args.is_empty() {
         Err(EvalQueryError::ArgsWithoutPlaceholder(query_args).into())
     } else {
-        let literals = extract_target_literals(functions, query)?;
+        extract_target_literals(functions, query, &mut literals)?;
         let env = environment(literals.into_iter().collect()).await?;
         Ok(QueryEvaluationResult::Single(
             QueryEvaluator::new(&env, functions)
