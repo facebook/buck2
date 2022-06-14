@@ -30,12 +30,7 @@ impl StarFun {
         match &self.type_attribute {
             Some(x) => quote_spanned! {
                 self.span()=>
-                std::option::Option::Some({
-                    const TYPE_N: usize = #x.len();
-                    static TYPE: starlark::values::StarlarkStrNRepr<TYPE_N> =
-                        starlark::values::StarlarkStrNRepr::new(#x);
-                    TYPE.unpack()
-                })
+                std::option::Option::Some(starlark::const_frozen_string!(#x).to_frozen_value())
             },
             None => {
                 quote_spanned! {
