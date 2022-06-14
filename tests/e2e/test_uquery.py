@@ -315,3 +315,34 @@ async def test_testsof(buck: Buck) -> None:
     assert "root//:foo_test" in out.stdout
     assert "root//:foo_extra_test" in out.stdout
     assert "root//:foo_lib" not in out.stdout
+
+
+@buck_test(inplace=False, data_dir="directory_sources")
+async def test_directory_source(buck: Buck) -> None:
+    await buck.build(":a_file")
+    await buck.build(":a_dir")
+
+    result = await buck.query("owner(dir/file1.txt)")
+    assert result.stdout == "root//:a_dir\n"
+    result = await buck.query("inputs(:a_dir)")
+    assert (
+        result.stdout == "dir/file1.txt\ndir/subdir/file2.txt\ndir/subdir/file3.txt\n"
+    )
+
+    # Can't reference files that don't exist
+    await expect_failure(
+        buck.build("does_not_exist:"),
+        stderr_regex="Source file `does_not_exist` does not exist as a member of package",
+    )
+
+    # Want to make sure we can't do a package boundary violation
+    # Currently these are soft errors
+    await expect_failure(
+        buck.build("subpackage:"),
+        stderr_regex="Source file `subpackage` does not exist as a member of package",
+    )
+
+    await expect_failure(
+        buck.build("dir_with_subpackage"),
+        stderr_regex="may not cover any subpackages, but includes subpackage `dir_with_subpackage/subpackage`.",
+    )

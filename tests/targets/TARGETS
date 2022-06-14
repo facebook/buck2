@@ -18,6 +18,8 @@ buck_filegroup(
         "configurations/target_incompatible/**/.*",
         "configurations_uncategorized/**",
         "configurations_uncategorized/**/.*",
+        "directory_sources/**",
+        "directory_sources/**/.*",
         "docs/**",
         "docs/**/.*",
         "eden_materializer/**",

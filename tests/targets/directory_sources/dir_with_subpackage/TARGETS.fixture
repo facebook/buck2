@@ -1,0 +1,4 @@
+test(
+    name = "a_dir_with_subpackage",
+    src = "dir_with_subpackage",
+)
