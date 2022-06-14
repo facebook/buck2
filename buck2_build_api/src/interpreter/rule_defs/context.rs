@@ -726,8 +726,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
     fn download_file<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos)] url: &str,
         #[starlark(require = pos)] output: Value<'v>,
+        #[starlark(require = pos)] url: &str,
         #[starlark(require = named, default = NoneOr::None)] sha1: NoneOr<&str>,
         #[starlark(require = named, default = NoneOr::None)] sha256: NoneOr<&str>,
         #[starlark(require = named, default = false)] is_executable: bool,
