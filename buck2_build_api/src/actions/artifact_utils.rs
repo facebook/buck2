@@ -262,3 +262,61 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use buck2_core::fs::project::ProjectFilesystemTemp;
+
+    use super::*;
+    use crate::actions::directory::Symlink;
+
+    fn path<'a>(s: &'a str) -> &'a ProjectRelativePath {
+        ProjectRelativePath::new(s).unwrap()
+    }
+
+    fn get_symlink(s: &str) -> Arc<Symlink> {
+        Arc::new(Symlink::new(s.into()))
+    }
+
+    fn get_symlink_artifact_value(s: &str) -> ArtifactValue {
+        let symlink = DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(get_symlink(s)));
+        ArtifactValue::new(symlink, None)
+    }
+
+    #[test]
+    fn copy_relativized_symlink() -> anyhow::Result<()> {
+        // /
+        // |-d1/
+        // | |-d2/
+        // | | |-d3/
+        // | | |  |-d4/
+        // | | |  | |-link -> ../../../d6/target
+        // | |-d5/
+        // | | |-new_link
+        // |-d6/
+        // | |-target
+
+        let entry = {
+            let fs = ProjectFilesystemTemp::new().unwrap();
+            let mut builder = ArtifactValueBuilder::new(fs.path());
+            builder.add_copied(
+                &get_symlink_artifact_value("../../../d6/target"),
+                path("d1/d2/d3/d4/link"),
+                path("d1/d5/new_link"),
+            )?
+        };
+
+        let new_symlink = match entry.as_ref() {
+            DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(s)) => s,
+            _ => panic!("Symlink type is expected!"),
+        };
+
+        assert_eq!(
+            new_symlink,
+            &get_symlink("../d6/target"),
+            "Symlinks are different"
+        );
+
+        Ok(())
+    }
+}
