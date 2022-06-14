@@ -112,7 +112,16 @@ def _process_plugins(
 
     # Process Javac Plugins
     if plugin_params:
-        javac_args.add("-Xplugin:{}".format(plugin_params.processors[0]))
+        plugin = plugin_params.processors[0]
+        args = plugin_params.args.get(plugin, cmd_args())
+
+        # Produces "-Xplugin:PluginName arg1 arg2 arg3", as a single argument
+        plugin_and_args = cmd_args(plugin)
+        plugin_and_args.add(args)
+        plugin_arg = cmd_args(format = "-Xplugin:{}", quote = "shell")
+        plugin_arg.add(cmd_args(plugin_and_args, delimiter = " "))
+
+        javac_args.add(plugin_arg)
         processors_classpath = processors_classpath + plugin_params.deps
 
     _process_classpath(

@@ -8,6 +8,9 @@ load("@fbcode//buck2/prelude/utils:utils.bzl", "filter_and_map_idx")
 
 PluginParams = record(
     processors = field(["string"]),
+    args = field({
+        str.type: "cmd_args",
+    }),
     deps = field(["artifact"]),
 )
 
@@ -29,6 +32,7 @@ def create_plugin_params(plugins: ["dependency"]) -> [PluginParams.type, None]:
     return PluginParams(
         processors = dedupe(processors),
         deps = dedupe(plugin_deps),
+        args = {},
     )
 
 def java_plugin_impl(ctx: "context") -> ["provider"]:
