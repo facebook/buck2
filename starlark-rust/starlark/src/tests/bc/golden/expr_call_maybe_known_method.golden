@@ -12,5 +12,5 @@ Max stack size: 2
 Instructions:
   0: Const 1 &2
   24: CallMaybeKnownMethodPos &0 append <m> &2..&3 instrs.star.bzl:1:14-25 &1
-  128: ReturnConst None
-  144: End
+  120: ReturnConst None
+  136: End

@@ -64,7 +64,7 @@ impl<T: Debug> Debug for SymbolMap<T> {
 #[derive(Clone, Trace)]
 pub(crate) struct Symbol {
     hash: u64,
-    len: usize,
+    len: u32,
     payload: Box<[u64]>,
     small_hash: StarlarkHashValue,
 }
@@ -114,7 +114,7 @@ impl Symbol {
         }
         Self {
             hash,
-            len,
+            len: len.try_into().unwrap(),
             payload: payload.into_boxed_slice(),
             small_hash,
         }
@@ -123,8 +123,10 @@ impl Symbol {
     pub fn as_str(&self) -> &str {
         // All safe because we promise we started out with a str
         unsafe {
-            let s =
-                slice::from_raw_parts(self.payload.as_ptr() as *const u64 as *const u8, self.len);
+            let s = slice::from_raw_parts(
+                self.payload.as_ptr() as *const u64 as *const u8,
+                self.len as usize,
+            );
             str::from_utf8_unchecked(s)
         }
     }
