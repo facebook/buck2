@@ -307,6 +307,10 @@ async def test_multi_uquery(buck: Buck) -> None:
     out = await buck.uquery("owner(%s)", "data/buck/build/data.file")
     assert out.stdout == "root//data:data\n"
 
+    # We'd really prefer this to be an error, but Buck1 allows it
+    out = await buck.uquery("owner(%s", "data/buck/build/data.file)")
+    assert out.stdout == "root//data:data\n"
+
 
 @buck_test(inplace=False, data_dir="testsof")
 async def test_testsof(buck: Buck) -> None:

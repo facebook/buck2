@@ -41,12 +41,16 @@ pub async fn eval_query<Env: QueryEnvironment, Fut: Future<Output = anyhow::Resu
 ) -> anyhow::Result<QueryEvaluationResult<Env::Target>> {
     let mut literals = HashSet::new();
     if query.contains("%s") {
-        extract_target_literals(functions, query, &mut literals)?;
+        // We'd really like the query args to only be literals (file or target).
+        // If that didn't work, we'd really like query args to be well-formed expressions.
+        // Unfortunately Buck1 just substitutes in arbitrarily strings, where the query
+        // or query_args may not form anything remotely valid.
+        // We have to be backwards compatible :(
         for q in &query_args {
             if q.contains("%s") {
                 return Err(EvalQueryError::PlaceholderInPattern(q.to_owned()).into());
             }
-            extract_target_literals(functions, q, &mut literals)?;
+            extract_target_literals(functions, &query.replace("%s", q), &mut literals)?;
         }
         let env = environment(literals.into_iter().collect()).await?;
         let results = process_multi_query(query, query_args, |input, query| {
