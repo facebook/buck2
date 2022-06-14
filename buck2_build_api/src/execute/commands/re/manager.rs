@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+// This triggers on Arc<Arc<...>>, but we do that here for lifetime/ownership reasons
+#![allow(clippy::redundant_allocation)]
+
 use std::sync::{Arc, Mutex, RwLock, Weak};
 
 use anyhow::Context as _;

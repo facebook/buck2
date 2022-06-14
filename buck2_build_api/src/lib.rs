@@ -18,7 +18,6 @@
 #![feature(is_sorted)]
 #![feature(generic_associated_types)]
 #![feature(trait_alias)]
-#![allow(clippy::redundant_allocation)]
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
