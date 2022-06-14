@@ -74,7 +74,7 @@ impl TargetPrinter for JsonPrinter {
         // ignored
     }
 
-    fn target(&mut self, _package: &Package, target_info: TargetInfo<'_>) {
+    fn target(&mut self, package: &Package, target_info: TargetInfo<'_>) {
         if self.target_idx != 0 {
             writeln!(self.json_string, ",").unwrap();
         }
@@ -115,6 +115,7 @@ impl TargetPrinter for JsonPrinter {
         if let Some(BuckTargetHash(hash)) = target_info.target_hash {
             print_attr("$target_hash", &format!("\"{:x}\"", hash));
         }
+        print_attr("$package", &format!("\"{}\"", package));
 
         for (k, v) in target_info.node.attrs() {
             print_attr(k, &value_to_json(v).unwrap().to_string());
