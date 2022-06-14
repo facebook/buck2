@@ -7,6 +7,7 @@ def config_backed_android_toolchain(
         apk_builder,
         d8_command,
         multi_dex_command,
+        filter_resources,
         generate_build_config,
         generate_manifest,
         manifest_utils,
@@ -37,6 +38,7 @@ def config_backed_android_toolchain(
     kwargs["d8_command"] = d8_command
     kwargs["multi_dex_command"] = multi_dex_command
     kwargs["secondary_dex_weight_limit"] = read_int("android", "secondary_dex_weight_limit", 12 * 1024 * 1024)
+    kwargs["filter_resources"] = filter_resources
     kwargs["generate_build_config"] = generate_build_config
     kwargs["generate_manifest"] = generate_manifest
     kwargs["manifest_utils"] = manifest_utils
@@ -74,6 +76,7 @@ def _config_backed_android_toolchain_rule_impl(ctx):
             apk_builder = ctx.attr.apk_builder,
             d8_command = ctx.attr.d8_command,
             multi_dex_command = ctx.attr.multi_dex_command,
+            filter_resources = ctx.attr.filter_resources,
             framework_aidl_file = ctx.attr.framework_aidl_file,
             generate_build_config = ctx.attr.generate_build_config,
             generate_manifest = ctx.attr.generate_manifest,
@@ -101,6 +104,7 @@ _config_backed_android_toolchain_rule = rule(
         "android_optional_jars": attr.list(attr.source()),
         "apk_builder": attr.dep(providers = [RunInfo]),
         "d8_command": attr.dep(providers = [RunInfo]),
+        "filter_resources": attr.dep(providers = [RunInfo]),
         "framework_aidl_file": attr.source(),
         "generate_build_config": attr.dep(providers = [RunInfo]),
         "generate_manifest": attr.dep(providers = [RunInfo]),

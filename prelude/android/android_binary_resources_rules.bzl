@@ -1,7 +1,8 @@
 load("@fbcode//buck2/prelude:attributes.bzl", "RType")
 load("@fbcode//buck2/prelude/android:aapt2_link.bzl", "get_aapt2_link")
 load("@fbcode//buck2/prelude/android:android_manifest.bzl", "generate_android_manifest")
-load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidBinaryResourcesInfo")
+load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidBinaryResourcesInfo", "AndroidResourceInfo")
+load("@fbcode//buck2/prelude/android:android_resource.bzl", "aapt2_compile")
 load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@fbcode//buck2/prelude/android:r_dot_java.bzl", "generate_r_dot_java")
 load(
@@ -17,7 +18,12 @@ def get_android_binary_resources_info(
         android_packageable_info: "AndroidPackageableInfo",
         use_proto_format: bool.type,
         referenced_resources_lists: ["artifact"]) -> "AndroidBinaryResourcesInfo":
-    resource_infos = list(android_packageable_info.resource_infos.traverse() if android_packageable_info.resource_infos else [])
+    android_toolchain = ctx.attr._android_toolchain[AndroidToolchainInfo]
+    resource_infos = _maybe_filter_resources(
+        ctx,
+        list(android_packageable_info.resource_infos.traverse() if android_packageable_info.resource_infos else []),
+        android_toolchain,
+    )
 
     android_manifest = _get_manifest(ctx, android_packageable_info)
 
@@ -68,6 +74,78 @@ def get_android_binary_resources_info(
         proguard_config_file = aapt2_link_info.proguard_config_file,
         r_dot_java = r_dot_java,
     )
+
+def _maybe_filter_resources(ctx: "context", resources: [AndroidResourceInfo.type], android_toolchain: AndroidToolchainInfo.type) -> [AndroidResourceInfo.type]:
+    resources_filter_strings = getattr(ctx.attr, "resource_filter", [])
+    resources_filter = _get_resources_filter(resources_filter_strings)
+
+    # TODO(T122759074) support all resource filtering
+    needs_resource_filtering = (
+        resources_filter != None
+    )
+
+    if not needs_resource_filtering:
+        return resources
+
+    res_info_to_out_res_dir = {}
+    skip_crunch_pngs = getattr(ctx.attr, "skip_crunch_pngs", None) or False
+    for i, resource in enumerate(resources):
+        filtered_res = ctx.actions.declare_output("filtered_res_{}".format(i))
+        res_info_to_out_res_dir[resource] = filtered_res
+
+    filter_resources_cmd = cmd_args(android_toolchain.filter_resources[RunInfo])
+    in_res_dir_to_out_res_dir_map_cmd_args = [
+        cmd_args([in_res.res, out_res.as_output()], delimiter = " ")
+        for in_res, out_res in res_info_to_out_res_dir.items()
+    ]
+    in_res_dir_to_out_res_dir_map = ctx.actions.write("in_res_dir_to_out_res_dir_map", in_res_dir_to_out_res_dir_map_cmd_args)
+    filter_resources_cmd.hidden(in_res_dir_to_out_res_dir_map_cmd_args)
+    filter_resources_cmd.add([
+        "--in-res-dir-to-out-res-dir-map",
+        in_res_dir_to_out_res_dir_map,
+        "--target-densities",
+        ",".join(resources_filter.densities),
+    ])
+
+    ctx.actions.run(filter_resources_cmd, category = "filter_resources")
+
+    filtered_resource_infos = []
+    for i, resource in enumerate(resources):
+        filtered_res = res_info_to_out_res_dir[resource]
+        filtered_aapt2_compile_output = aapt2_compile(
+            ctx,
+            filtered_res,
+            android_toolchain,
+            skip_crunch_pngs = skip_crunch_pngs,
+            identifier = "filtered_res_{}".format(i),
+        )
+        filtered_resource = AndroidResourceInfo(
+            aapt2_compile_output = filtered_aapt2_compile_output,
+            assets = resource.assets,
+            manifest_file = resource.manifest_file,
+            r_dot_java_package = resource.r_dot_java_package,
+            res = filtered_res,
+            text_symbols = resource.text_symbols,
+        )
+        filtered_resource_infos.append(filtered_resource)
+
+    return filtered_resource_infos
+
+ResourcesFilter = record(
+    densities = [str.type],
+    downscale = bool.type,
+)
+
+def _get_resources_filter(resources_filter_strings: [str.type]) -> [ResourcesFilter.type, None]:
+    if not resources_filter_strings:
+        return None
+
+    densities = [resources_filter_string for resources_filter_string in resources_filter_strings if resources_filter_string != "downscale"]
+    if not densities:
+        return None
+
+    downscale = len(densities) < len(resources_filter_strings)
+    return ResourcesFilter(densities = densities, downscale = downscale)
 
 def _get_manifest(ctx: "context", android_packageable_info: "AndroidPackageableInfo") -> "artifact":
     robolectric_manifest = getattr(ctx.attr, "robolectric_manifest", None)

@@ -10,6 +10,7 @@ AndroidToolchainInfo = provider(fields = [
     "apk_builder",
     "d8_command",
     "multi_dex_command",
+    "filter_resources",
     "framework_aidl_file",
     "generate_build_config",
     "generate_manifest",
