@@ -10,7 +10,7 @@ from typing import Dict, Iterable, TextIO
 
 # Out-of-date? Update with this command:
 #
-# xcode-select --print-path | xargs printf '%s/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk/System/Library/Frameworks/' | xargs ls | rg '^([A-Z].+)\.framework$' -r '${1}' | xargs printf '    "%s",\n'
+# xcode-select --print-path | xargs printf '%s/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk/System/Library/Frameworks/' | xargs ls | rg '^([A-Z].+)\.framework$' -r '${1}' | xargs printf '    "%s",\n' && xcode-select --print-path | xargs printf '%s/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk/usr/include/module.modulemap' | xargs cat | rg '^module ([a-zA-Z0-9_]*) .*$' -r '${1}'| xargs printf '    "%s",\n'
 APPLE_SYSTEM_MODULES = {
     "ARKit",
     "AVFAudio",
@@ -161,6 +161,18 @@ APPLE_SYSTEM_MODULES = {
     "WatchConnectivity",
     "WebKit",
     "WidgetKit",
+    "AppleTextureEncoder",
+    "Compression",
+    "Darwin",
+    "asl",
+    "dnssd",
+    "os",
+    "os_object",
+    "os_workgroup",
+    "libkern",
+    "notify",
+    "zlib",
+    "SQLite3",
 }
 
 
