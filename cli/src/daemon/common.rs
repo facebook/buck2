@@ -436,7 +436,7 @@ fn get_execution_platform(host_platform: HostPlatformOverride) -> ExecutionPlatf
     let linux = ExecutionPlatform::Linux;
     // TODO(T110757645): The xcode version should come from the execution platform or toolchain
     let mac = ExecutionPlatform::MacOS {
-        xcode_version: "13.2".to_owned(),
+        xcode_version: "13.4".to_owned(),
     };
 
     let windows = ExecutionPlatform::Windows;
