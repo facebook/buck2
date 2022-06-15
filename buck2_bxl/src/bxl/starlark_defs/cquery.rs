@@ -249,6 +249,26 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             .map(StarlarkTargetSet::from)
     }
 
+    pub fn filter<'v>(
+        this: &StarlarkCQueryCtx<'v>,
+        regex: &str,
+        targets: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
+        this.ctx
+            .async_ctx
+            .via(|| async {
+                this.functions.filter(
+                    regex,
+                    &*TargetExpr::unpack(targets, &this.target_platform, this.ctx, &this.env, eval)
+                        .await?
+                        .get(&this.env)
+                        .await?,
+                )
+            })
+            .map(StarlarkTargetSet::from)
+    }
+
     pub fn inputs<'v>(
         this: &StarlarkCQueryCtx<'v>,
         targets: Value<'v>,
