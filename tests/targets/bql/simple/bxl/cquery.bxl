@@ -42,3 +42,12 @@ deps_test = bxl(
     implementation = _deps_impl,
     cli_args = {},
 )
+
+def _inputs_impl(ctx):
+    result = ctx.cquery().inputs("root//bin:the_binary")
+    ctx.output.print(result)
+
+inputs_test = bxl(
+    implementation = _inputs_impl,
+    cli_args = {},
+)
