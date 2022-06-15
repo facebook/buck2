@@ -23,6 +23,13 @@ use gazebo::prelude::*;
 /// ExitResult represents the outcome of a process execution where we care to return a specific
 /// exit code. This is designed to be used as the return value from `main()`.
 ///
+/// The exit code is u8 integer and has the following meanings
+/// - Success             : 0
+/// - Uncategorized Error : 1
+/// - User Error          : 2-128
+/// - Signal Interruption : 129-192 (128 + signal number)
+/// - Infra Error         : 200-255
+///
 /// We can easily turn a anyhow::Result (or anyhow::Error, or even a message) into a ExitResult,
 /// but the reverse is not possible: once created, the only useful thing we can with a
 /// ExitResult is propagate it.
@@ -31,7 +38,7 @@ pub enum ExitResult {
     Status(u8),
     /// Instead of terminating normally, `exec` a new process with the given name and argv.
     Exec(String, Vec<String>),
-    /// We failed (i.e. due to a Buck internal error). We'll return exit code 1.
+    /// We failed (i.e. due to a Buck internal error).
     /// At this time, when execution does fail, we print out the error message to stderr.
     Err(anyhow::Error),
 }
