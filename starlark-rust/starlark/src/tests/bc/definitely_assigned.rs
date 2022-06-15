@@ -57,3 +57,8 @@ fn test_mov_is_used() {
         "def test(x, y): noop(y, x)",
     );
 }
+
+#[test]
+fn test_no_op_movs() {
+    bc_golden_test("definitely_assigned_no_op_movs", "def test(x): x = x");
+}
