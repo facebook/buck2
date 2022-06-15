@@ -600,18 +600,25 @@ def _get_shared_library_links(
 
     # If we're not filtering for link groups, link against the shared dependencies
     if not link_group_mappings and not force_link_group_linking:
-        # TODO(T110378139): As per v1, we always link against "shared"
-        # dependencies when building a shared library, but should we?
-        # If not, static workflows are already kind of weird with a shared
-        # dep in the tree (in v1, we only build the top-level shared lib
-        # tree for "shared" link styles, to avoid baking in RPATHs which
-        # don't really mean anything in prod), and it would mean we might
-        # need to generate different shared libraries per link style here.
         link = cxx_inherited_link_info(ctx, dedupe(flatten([non_exported_deps, exported_deps])))
+
+        # Even though we're returning the shared library links, we must still
+        # respect the `link_style` attribute of the target which controls how
+        # all deps get linked. For example, you could be building the shared
+        # output of a library which has `link_style = "static"`.
+        #
+        # The fallback equivalent code in Buck v1 is in CxxLibraryFactor::createBuildRule()
+        # where link style is determined using the `linkableDepType` variable.
+        link_style_value = ctx.attr.link_style if ctx.attr.link_style != None else "shared"
+
+        # Note if `static` link style is requested, we assume `static_pic`
+        # instead, so that code in the shared library can be correctly
+        # loaded in the address space of any process at any address.
+        link_style_value = "static_pic" if link_style_value == "static" else link_style_value
 
         return get_link_args(
             link,
-            LinkStyle("shared"),
+            LinkStyle(link_style_value),
         ), None
 
     # Else get filtered link group links
