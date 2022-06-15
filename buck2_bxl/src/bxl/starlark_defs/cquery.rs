@@ -23,7 +23,9 @@ use starlark::{
 
 use crate::bxl::{
     starlark_defs::{
-        context::BxlContext, file_set::FileSetExpr, target_expr::TargetExpr,
+        context::BxlContext,
+        file_set::{FileSetExpr, StarlarkFileSet},
+        target_expr::TargetExpr,
         targetset::StarlarkTargetSet,
     },
     value_as_starlak_target_label::ValueAsStarlarkTargetLabel,
@@ -245,6 +247,24 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                     .await
             })
             .map(StarlarkTargetSet::from)
+    }
+
+    pub fn inputs<'v>(
+        this: &StarlarkCQueryCtx<'v>,
+        targets: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StarlarkFileSet> {
+        this.ctx
+            .async_ctx
+            .via(|| async {
+                this.functions.inputs(
+                    &*TargetExpr::unpack(targets, &this.target_platform, this.ctx, &this.env, eval)
+                        .await?
+                        .get(&this.env)
+                        .await?,
+                )
+            })
+            .map(StarlarkFileSet::from)
     }
 
     fn rdeps<'v>(
