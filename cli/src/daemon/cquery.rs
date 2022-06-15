@@ -83,7 +83,6 @@ pub async fn cquery(
 
     let result = match query_result {
         QueryEvaluationResult::Single(targets) => {
-            // TODO support printing providers
             output_configuration
                 .print_single_output(
                     &mut stdout,
