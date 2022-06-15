@@ -59,7 +59,7 @@ def run_proguard(
         command_line_args: "cmd_args"):
     run_proguard_cmd = cmd_args()
     run_proguard_cmd.add(
-        java_toolchain.java,
+        java_toolchain.java[RunInfo],
         "-XX:-MaxFDLimit",
         ctx.attr.proguard_jvm_args,
         "-Xmx{}".format(android_toolchain.proguard_max_heap_size),

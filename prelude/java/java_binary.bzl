@@ -84,7 +84,7 @@ def java_binary_impl(ctx: "context") -> ["provider"]:
     java_toolchain = ctx.attr._java_toolchain[JavaToolchainInfo]
     fat_jar_output = _create_fat_jar(ctx, java_toolchain, [packaging_dep.jar for packaging_dep in packaging_deps if packaging_dep.jar], native_deps)
 
-    java_cmd = cmd_args(java_toolchain.java)
+    java_cmd = cmd_args(java_toolchain.java[RunInfo])
     java_cmd.add("-jar", fat_jar_output)
 
     return [
