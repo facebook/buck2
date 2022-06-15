@@ -217,6 +217,15 @@ async def test_cquery_inputs(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="bql/simple")
+async def test_cquery_filter(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl:cquery.bxl:filter_test",
+    )
+
+    assert "root//bin:the_binary" in result.stdout
+
+
+@buck_test(inplace=False, data_dir="bql/simple")
 async def test_cquery_attrregex_filter(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl/cquery.bxl:attrregexfilter_test",

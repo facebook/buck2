@@ -51,3 +51,12 @@ inputs_test = bxl(
     implementation = _inputs_impl,
     cli_args = {},
 )
+
+def _filter_impl(ctx):
+    result = ctx.cquery().filter(".*the_binary", "root//...")
+    ctx.output.print(result)
+
+filter_test = bxl(
+    implementation = _filter_impl,
+    cli_args = {},
+)
