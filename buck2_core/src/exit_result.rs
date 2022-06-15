@@ -27,7 +27,7 @@ use gazebo::prelude::*;
 /// ExitResult is propagate it.
 pub enum ExitResult {
     /// We finished successfully, return the specific exit code.
-    Status(ExitCode),
+    Status(u8),
     /// Instead of terminating normally, `exec` a new process with the given name and argv.
     Exec(String, Vec<String>),
     /// We failed (i.e. due to a Buck internal error). We'll return exit code 1.
@@ -37,15 +37,15 @@ pub enum ExitResult {
 
 impl ExitResult {
     pub fn success() -> Self {
-        Self::Status(ExitCode::SUCCESS)
+        Self::Status(0)
     }
 
     pub fn failure() -> Self {
-        Self::Status(ExitCode::FAILURE)
+        Self::Status(1)
     }
 
     pub fn status(status: u8) -> Self {
-        Self::Status(ExitCode::from(status))
+        Self::Status(status)
     }
 
     /// Values out of the range of u8 will have their status information ignored
@@ -95,7 +95,7 @@ impl From<FailureExitCode> for ExitResult {
 /// Implementing Try allows us to use a ExitResult as the outcome of a function and still use
 /// the `?` operator.
 impl Try for ExitResult {
-    type Output = ExitCode;
+    type Output = u8;
     type Residual = anyhow::Error;
 
     fn from_output(output: Self::Output) -> Self {
@@ -137,7 +137,7 @@ impl Termination for ExitResult {
         // NOTE: We use writeln! instead of println! so we don't panic if stderr is closed. This
         // ensures we get the desired exit code printed instead of potentially a panic.
         match self {
-            Self::Status(v) => v,
+            Self::Status(v) => ExitCode::from(v),
             Self::Exec(prog, argv) => {
                 // Terminate by exec-ing a new process - usually because of `buck2 run`.
                 //
