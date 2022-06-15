@@ -230,8 +230,8 @@ For both ways you will need to configure buck version on the fbpkgs configuratio
 
 NOTE: If you configure your fbpkg to build with buck2, it will deploy to production code that was built with buck2.
 
-Test your fbpkg with buck2 in CI by creating two seperate fbpkg configs/build rules. Use buck_overrides contbuild config option to choose which fbpkg is used for buck2 contbuild execution.
-
+Test your fbpkg with buck2 in CI by creating two seperate fbpkg configs/build rules. Then use buck_overrides contbuild config option to choose which fbpkg is used for buck2 contbuild execution.
+* Conveyor Hotfix corner case : Hotfix feature doesnt support 2 contbuilds. Thus if you would like to use 2 fbpkgs(v1, v2) in conveyor you need to build those in a single contbuild. example: D37082297 .
 ```python
 "buck2_overrides": {
       "owners": ["<username>"],
