@@ -445,6 +445,26 @@ native.python_library(
     ],
 )
 
+native.python_binary(
+    name = "run_java_binary_script",
+    base_module = "",
+    main_module = "run_java_binary_script",
+    deps = [
+        ":run_java_binary_script_lib",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+native.python_library(
+    name = "run_java_binary_script_lib",
+    base_module = "",
+    srcs = [
+        "run_java_binary_script.py",
+    ],
+)
+
 ######################################
 
 ####
@@ -522,10 +542,21 @@ native.genrule(
 )
 
 native.genrule(
-    name = "check_simple_java_binary_with_output",
-    cmd = "$(exe :check_java_binary_output) $(location :run_simple_java_binary_with_output) \"output\" \"error\" \"Hello from Util\" > $OUT",
+    name = "run_simple_java_binary_with_output_as_wrapper",
+    cmd = "$(exe :run_java_binary_script) $(location //buck2/tests/targets/rules/java/library/java_binary:bin-output-with-wrapper) > $OUT 2>&1",
     out = "out.txt",
 )
+
+JAVA_BINARIES = ["binary_with_output", "binary_with_output_as_wrapper"]
+[
+    native.genrule(
+        name = "check_simple_java_{}".format(name),
+        out = "out.txt",
+        cmd = "$(exe :check_java_binary_output) $(location :run_simple_java_{}) \
+        \"output\" \"error\" \"Hello from Util\" > $OUT".format(name),
+    )
+    for name in JAVA_BINARIES
+]
 
 ####
 # java_binary() with main class in the manifest file
@@ -713,14 +744,24 @@ native.genrule(
 )
 
 native.genrule(
-    name = "run_java_binary_with_native_libraries",
-    cmd = "$(exe //buck2/tests/targets/rules/java/library/java_binary_with_native_libs:binary_with_native_lib) > $OUT 2>&1",
+    name = "run_java_binary_with_native_lib",
+    cmd = "$(exe :run_java_binary_script) $(location //buck2/tests/targets/rules/java/library/java_binary_with_native_libs:binary_with_native_lib) > $OUT",
     out = "out.txt",
 )
 
 native.genrule(
-    name = "check_java_binary_with_native_libraries_output",
-    cmd = "$(exe :check_java_binary_output) $(location :run_java_binary_with_native_libraries) \
-    \"Hello from java_binary() with native_libs\" > $OUT",
+    name = "run_java_binary_with_native_lib_with_wrapper",
+    cmd = "$(exe :run_java_binary_script) $(location //buck2/tests/targets/rules/java/library/java_binary_with_native_libs:binary_with_native_lib_with_wrapper) > $OUT",
     out = "out.txt",
 )
+
+JAVA_BINARY_WITH_NATIVE_LIBS = ["binary_with_native_lib", "binary_with_native_lib_with_wrapper"]
+[
+    native.genrule(
+        name = "check_java_{}".format(name),
+        out = "out.txt",
+        cmd = "$(exe :check_java_binary_output) $(location :run_java_{}) \
+        \"Hello from java_binary() with native_libs\" > $OUT".format(name),
+    )
+    for name in JAVA_BINARY_WITH_NATIVE_LIBS
+]

@@ -1,6 +1,6 @@
 load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@fbcode//buck2/prelude/linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries", "traverse_shared_library_info")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "filter_and_map_idx")
+load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "filter_and_map_idx")
 load(
     ":java_providers.bzl",
     "create_template_info",
@@ -8,21 +8,28 @@ load(
     "get_all_java_packaging_deps",
 )
 
+def _generate_script(generate_wrapper: bool.type, native_libs: ["artifact"]) -> bool.type:
+    # if `generate_wrapper` is set and no native libs then it should be a wrapper script as result,
+    # otherwise fat jar will be generated (inner jar or script will be included inside a final fat jar)
+    return generate_wrapper and len(native_libs) == 0
+
 def _create_fat_jar(
         ctx: "context",
         java_toolchain: JavaToolchainInfo.type,
         jars: ["artifact"],
-        native_libs: ["artifact"]) -> "artifact":
-    fat_jar_out = ctx.actions.declare_output("{}.jar".format(ctx.label.name))
+        native_libs: ["artifact"],
+        generate_wrapper: bool.type) -> ["artifact"]:
+    extension = "sh" if _generate_script(generate_wrapper, native_libs) else "jar"
+    output = ctx.actions.declare_output("{}.{}".format(ctx.label.name, extension))
 
     args = [
         java_toolchain.fat_jar[RunInfo],
         "--jar_tool",
         java_toolchain.jar,
         "--output",
-        fat_jar_out.as_output(),
+        output.as_output(),
         "--jars_file",
-        ctx.actions.write("jars_to_merge", jars),
+        ctx.actions.write("jars_file", jars),
     ]
 
     if native_libs:
@@ -54,11 +61,44 @@ def _create_fat_jar(
     if ctx.attr.meta_inf_directory:
         args += ["--meta_inf_directory", ctx.attr.meta_inf_directory]
 
+    outputs = [output]
+    if generate_wrapper:
+        classpath_args_output = ctx.actions.declare_output("classpath_args")
+        args += [
+            "--generate_wrapper",
+            "--classpath_args_output",
+            classpath_args_output.as_output(),
+            "--java_tool",
+            java_toolchain.java[RunInfo],
+            "--script_marker_file_name",
+            "wrapper_script",
+        ]
+        outputs.append(classpath_args_output)
+
     fat_jar_cmd = cmd_args(args)
     fat_jar_cmd.hidden(jars, native_libs)
 
     ctx.actions.run(fat_jar_cmd, category = "fat_jar")
-    return fat_jar_out
+
+    if generate_wrapper == False:
+        expect(
+            len(outputs) == 1,
+            "expected exactly one output when creating a fat jar",
+        )
+
+    # If `generate_wrapper` is not set then the result will contain only 1 item that represent fat jar artifact.
+    # Else if `generate_wrapper` is set then the first item in the result list will be script or far jar, and the second one is for @classpath_args file
+    return outputs
+
+def _get_run_cmd(script_mode: bool.type, main_artifact: "artifact", java_toolchain: JavaToolchainInfo.type) -> "cmd_args":
+    if script_mode:
+        return cmd_args(["/bin/bash", main_artifact])
+    else:
+        return cmd_args([java_toolchain.java[RunInfo], "-jar", main_artifact])
+
+def _get_java_tool_artifacts(java_toolchain: JavaToolchainInfo.type) -> ["artifact"]:
+    default_info = java_toolchain.java[DefaultInfo]
+    return default_info.default_outputs + default_info.other_outputs
 
 def java_binary_impl(ctx: "context") -> ["provider"]:
     """
@@ -82,13 +122,30 @@ def java_binary_impl(ctx: "context") -> ["provider"]:
     native_deps = [shared_lib.lib.output for shared_lib in traverse_shared_library_info(shared_library_info).values()]
 
     java_toolchain = ctx.attr._java_toolchain[JavaToolchainInfo]
-    fat_jar_output = _create_fat_jar(ctx, java_toolchain, [packaging_dep.jar for packaging_dep in packaging_deps if packaging_dep.jar], native_deps)
+    need_to_generate_wrapper = ctx.attr.generate_wrapper == True
+    packaging_jars = [packaging_dep.jar for packaging_dep in packaging_deps if packaging_dep.jar]
+    outputs = _create_fat_jar(ctx, java_toolchain, packaging_jars, native_deps, need_to_generate_wrapper)
 
-    java_cmd = cmd_args(java_toolchain.java[RunInfo])
-    java_cmd.add("-jar", fat_jar_output)
+    main_artifact = outputs[0]
+    other_outputs = []
+
+    run_cmd = _get_run_cmd(
+        script_mode = _generate_script(need_to_generate_wrapper, native_deps),
+        main_artifact = main_artifact,
+        java_toolchain = java_toolchain,
+    )
+
+    if need_to_generate_wrapper:
+        classpath_file = outputs[1]
+        run_cmd.hidden(
+            java_toolchain.java[RunInfo],
+            classpath_file,
+            packaging_jars,
+        )
+        other_outputs = [classpath_file] + packaging_jars + _get_java_tool_artifacts(java_toolchain)
 
     return [
-        DefaultInfo(default_outputs = [fat_jar_output]),
-        RunInfo(args = java_cmd),
+        DefaultInfo(default_outputs = [main_artifact], other_outputs = other_outputs),
+        RunInfo(args = run_cmd),
         create_template_info(packaging_deps, first_order_libs),
     ]

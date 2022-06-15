@@ -9,6 +9,18 @@ native.java_binary(
     ],
 )
 
+native.java_binary(
+    name = "bin-output-with-wrapper",
+    main_class = "LibOutput",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":lib-output",
+    ],
+    generate_wrapper = True,
+)
+
 MANIFEST_TEMPLATE = "key1: value1{newline}key2: value2{newline}Main-Class: BLAH"
 NEWLINE_NAMES_AND_TYPES = [("carriage_return_and_newline", "\r\n"), ("carriage_return", "\r"), ("newline", "\n")]
 [
