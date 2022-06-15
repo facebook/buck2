@@ -193,7 +193,7 @@ def _python_test_attrs():
 
 def _cxx_binary_and_test_attrs():
     return {
-        "bolt_flags": attr.list(attr.string(), default = []),
+        "bolt_flags": attr.list(attr.arg(), default = []),
         "bolt_gdb_index": attr.option(attr.source(), default = None),
         "bolt_profile": attr.option(attr.source(), default = None),
         "enable_distributed_thinlto": attr.bool(default = False),
