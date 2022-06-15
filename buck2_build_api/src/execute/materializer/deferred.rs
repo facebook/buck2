@@ -504,10 +504,11 @@ impl DeferredMaterializerCommandProcessor {
     fn materialize_artifact(
         self: Arc<Self>,
         tree: &mut ArtifactTree,
-        path: &ProjectRelativePath,
+        mut path: &ProjectRelativePath,
     ) -> Option<MaterializationFuture> {
         // Get the data about the artifact, or return early if materializing/materialized
-        let data = match tree.prefix_get(&mut path.iter()) {
+        let mut path_iter = path.iter();
+        let data = match tree.prefix_get(&mut path_iter) {
             // Never declared, nothing to do
             None => {
                 tracing::debug!("not known");
@@ -515,6 +516,14 @@ impl DeferredMaterializerCommandProcessor {
             }
             Some(data) => data,
         };
+
+        // Rewind the `path` up to the entry we *actually* found.
+        for _ in path_iter {
+            path = path
+                .parent()
+                .expect("Path iterator cannot cause us to rewind past the last parent");
+        }
+
         let entry = match &data.stage {
             ArtifactMaterializationStage::Materializing(fut) => {
                 tracing::debug!("join existing future");

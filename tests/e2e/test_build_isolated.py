@@ -11,6 +11,8 @@ import tempfile
 import typing
 from pathlib import Path
 
+import pytest
+
 from py._path.local import LocalPath
 from xplat.build_infra.buck_e2e import asserts
 from xplat.build_infra.buck_e2e.api.buck import Buck
@@ -1122,8 +1124,18 @@ async def test_critical_path(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="projected_artifacts")
-async def test_projected_artifacts(buck: Buck) -> None:
-    await buck.build("//...")
+@pytest.mark.parametrize(
+    "target",
+    [
+        # Check building the whole thing
+        "//...",
+        # Check building just one target, which may reveal bugs if things are
+        # materialized differently when a projected target uses them.
+        "//:check_c_b_local",
+    ],
+)
+async def test_projected_artifacts(buck: Buck, target: str) -> None:
+    await buck.build(target)
 
 
 async def expect_exec_count(buck: Buck, n: int) -> None:
