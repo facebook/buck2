@@ -287,6 +287,33 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             .map(StarlarkFileSet::from)
     }
 
+    pub fn testsof<'v>(
+        this: &StarlarkCQueryCtx<'v>,
+        targets: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
+        this.ctx
+            .async_ctx
+            .via(|| async {
+                this.functions
+                    .testsof(
+                        &this.env,
+                        &*TargetExpr::unpack(
+                            targets,
+                            &this.target_platform,
+                            this.ctx,
+                            &this.env,
+                            eval,
+                        )
+                        .await?
+                        .get(&this.env)
+                        .await?,
+                    )
+                    .await
+            })
+            .map(StarlarkTargetSet::from)
+    }
+
     fn rdeps<'v>(
         this: &StarlarkCQueryCtx<'v>,
         universe: Value<'v>,
