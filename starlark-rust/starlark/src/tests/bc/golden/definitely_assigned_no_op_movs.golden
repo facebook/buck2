@@ -10,6 +10,5 @@ def test(x): x = x
 
 Max stack size: 0
 Instructions:
-  0: Mov &0 &0
-  16: ReturnConst None
-  32: End
+  0: ReturnConst None
+  16: End

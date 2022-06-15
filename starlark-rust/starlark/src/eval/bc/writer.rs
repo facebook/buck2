@@ -207,7 +207,7 @@ impl<'f> BcWriter<'f> {
         assert!(slot.0 < self.local_count);
 
         if let Some(slot) = self.try_definitely_assigned(slot) {
-            self.write_instr::<InstrMov>(span, (slot, target));
+            self.write_mov(span, slot, target);
         } else {
             self.write_instr::<InstrLoadLocal>(span, (slot, target));
         }
@@ -225,6 +225,13 @@ impl<'f> BcWriter<'f> {
     }
 
     pub(crate) fn write_mov(&mut self, span: FrozenFileSpan, source: BcSlotIn, target: BcSlotOut) {
+        // Do not emit no-op `Mov`.
+        // It can occur when compiling code like `x = x`.
+        // Currently we do not erase these no-op assignments at IR.
+        if source.get() == target.get() {
+            return;
+        }
+
         assert!(source.get().0 < self.local_count + self.stack_size);
         assert!(target.get().0 < self.local_count + self.stack_size);
         self.write_instr_ret_arg::<InstrMov>(span, (source, target));

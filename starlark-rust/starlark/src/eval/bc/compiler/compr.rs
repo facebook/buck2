@@ -22,7 +22,6 @@ use crate::eval::{
         compiler::{expr::write_n_exprs, if_compiler::write_if_then, stmt::write_for},
         instr_impl::{
             InstrComprDictInsert, InstrComprListAppend, InstrContinue, InstrDictNew, InstrListNew,
-            InstrMov,
         },
         stack_ptr::BcSlotOut,
         writer::BcWriter,
@@ -103,7 +102,7 @@ impl ComprCompiled {
                     });
                 }
             };
-            bc.write_instr::<InstrMov>(span, (temp.to_in(), target));
+            bc.write_mov(span, temp.to_in(), target);
         });
     }
 }

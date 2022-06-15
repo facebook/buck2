@@ -409,7 +409,7 @@ impl IrSpanned<ExprCompiled> {
                         maybe_not,
                         l.span,
                         |bc| r.write_bc(target, bc),
-                        |bc| bc.write_instr::<InstrMov>(span, (l_slot, target)),
+                        |bc| bc.write_mov(span, l_slot, target),
                     );
                 });
             }
