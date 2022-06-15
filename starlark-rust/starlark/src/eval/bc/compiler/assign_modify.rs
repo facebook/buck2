@@ -147,11 +147,9 @@ impl AssignModifyLhs {
                     Captured::Yes => {
                         bc.write_store_local_captured(span, lhs_rhs.get::<1>().to_in(), slot)
                     }
-                    Captured::No => bc.write_store_local(
-                        span,
-                        lhs_rhs.get::<1>().to_in(),
-                        slot.to_bc_slot().to_out(),
-                    ),
+                    Captured::No => {
+                        bc.write_mov(span, lhs_rhs.get::<1>().to_in(), slot.to_bc_slot().to_out())
+                    }
                 }
             }),
             AssignModifyLhs::Module(m) => bc.alloc_slots_c(|lhs_rhs: BcSlotsN<2>, bc| {

@@ -104,7 +104,7 @@ impl IrSpanned<AssignCompiledValue> {
                 }
             }
             AssignCompiledValue::Local(slot, Captured::No) => {
-                bc.write_store_local(span, value, slot.to_bc_slot().to_out());
+                bc.write_mov(span, value, slot.to_bc_slot().to_out());
             }
             AssignCompiledValue::Local(slot, Captured::Yes) => {
                 bc.write_store_local_captured(span, value, slot);

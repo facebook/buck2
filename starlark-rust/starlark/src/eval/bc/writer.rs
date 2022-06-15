@@ -224,12 +224,7 @@ impl<'f> BcWriter<'f> {
         self.write_instr_ret_arg::<InstrLoadLocalCaptured>(span, (source, target));
     }
 
-    pub(crate) fn write_store_local(
-        &mut self,
-        span: FrozenFileSpan,
-        source: BcSlotIn,
-        target: BcSlotOut,
-    ) {
+    pub(crate) fn write_mov(&mut self, span: FrozenFileSpan, source: BcSlotIn, target: BcSlotOut) {
         assert!(source.get().0 < self.local_count + self.stack_size);
         assert!(target.get().0 < self.local_count + self.stack_size);
         self.write_instr_ret_arg::<InstrMov>(span, (source, target));
