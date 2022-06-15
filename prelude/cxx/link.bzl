@@ -132,6 +132,7 @@ def cxx_link(
         prebolt_output = output,
         dwp = dwp_artifact,
         external_debug_paths = external_debug_paths,
+        linker_argsfile = argfile,
     )
 
 def cxx_link_shared_library(

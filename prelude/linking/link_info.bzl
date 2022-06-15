@@ -180,6 +180,11 @@ LinkedObject = record(
     # Additional dirs or paths that contain debug info referenced by the linked
     # object (e.g. split dwarf files).
     external_debug_paths = field(["artifact"], []),
+    # This argsfile is generated in the `cxx_link` step and contains a list of arguments
+    # passed to the linker. It is being exposed as a sub-target for debugging purposes.
+    linker_argsfile = field(["artifact", None], None),
+    # This sub-target is only available for distributed thinLTO builds.
+    index_argsfile = field(["artifact", None], None),
 )
 
 def _link_info_default_args(args: "cmd_args", infos: "LinkInfos"):

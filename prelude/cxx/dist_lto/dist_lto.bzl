@@ -201,7 +201,9 @@ def cxx_dist_link(
                     plan = archive_plan,
                 ))
 
-    def dynamic_plan(link_plan: "artifact"):
+    index_argsfile_out = ctx.actions.declare_output(output.basename + ".thinlto.index.argsfile")
+
+    def dynamic_plan(link_plan: "artifact", index_argsfile_out: "artifact"):
         def plan(ctx):
             index_args = cmd_args()
 
@@ -231,7 +233,7 @@ def cxx_dist_link(
                 index_args.hidden(archive.objects_dir)
 
             index_argfile, index_argfile_inputs = ctx.actions.write(
-                output.basename + ".thinlto.index.argsfile",
+                ctx.outputs[index_argsfile_out].as_output(),
                 index_args,
                 allow_args = True,
             )
@@ -287,10 +289,10 @@ def cxx_dist_link(
         # directly, since it uses `ctx.outputs` to bind its outputs. Instead of doing Starlark hacks to work around
         # the lack of `ctx.outputs`, we declare an empty file as a dynamic input.
         plan_inputs.append(ctx.actions.write("plan_hack.txt", ""))
-        ctx.actions.dynamic_output(plan_inputs, todo_inputs, plan_outputs, plan)
+        ctx.actions.dynamic_output(plan_inputs, todo_inputs, plan_outputs + [index_argsfile_out], plan)
 
     link_plan_out = ctx.actions.declare_output(output.basename + ".link-plan.json")
-    dynamic_plan(link_plan = link_plan_out)
+    dynamic_plan(link_plan = link_plan_out, index_argsfile_out = index_argsfile_out)
 
     # We declare a separate dynamic_output for every object file. It would
     # maybe be simpler to have a single dynamic_output that produced all the
@@ -419,6 +421,8 @@ def cxx_dist_link(
     for archive in archive_manifests:
         dynamic_optimize_archive(archive)
 
+    linker_argsfile_out = ctx.actions.declare_output(output.basename + ".thinlto.link.argsfile")
+
     def thin_lto_final_link(ctx):
         plan = ctx.artifacts[link_plan_out].read_json()
         link_args = cmd_args()
@@ -472,7 +476,7 @@ def cxx_dist_link(
 
         link_cmd = cxx_link_cmd(ctx)
         final_link_argfile, final_link_inputs = ctx.actions.write(
-            output.basename + ".thinlto.link.argsfile",
+            ctx.outputs[linker_argsfile_out].as_output(),
             link_args,
             allow_args = True,
         )
@@ -495,8 +499,7 @@ def cxx_dist_link(
     ctx.actions.dynamic_output(
         final_link_inputs,
         todo_inputs,
-        [output] +
-        ([linker_map] if linker_map else []),
+        [output] + ([linker_map] if linker_map else []) + [linker_argsfile_out],
         thin_lto_final_link,
     )
 
@@ -512,4 +515,10 @@ def cxx_dist_link(
             dwp_output = dwp_output,
         )
 
-    return LinkedObject(output = final_output, prebolt_output = output, dwp = dwp_output)
+    return LinkedObject(
+        output = final_output,
+        prebolt_output = output,
+        dwp = dwp_output,
+        linker_argsfile = linker_argsfile_out,
+        index_argsfile = index_argsfile_out,
+    )

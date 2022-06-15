@@ -269,6 +269,15 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         link_weight = linker_info.link_weight,
     ))]
 
+    sub_targets["linker.argsfile"] = [DefaultInfo(
+        default_outputs = [binary.linker_argsfile],
+    )]
+
+    if linker_info.supports_distributed_thinlto and ctx.attr.enable_distributed_thinlto:
+        sub_targets["index.argsfile"] = [DefaultInfo(
+            default_outputs = [binary.index_argsfile],
+        )]
+
     return _CxxExecutableOutput(
         binary = binary.output,
         runtime_files = runtime_files,
