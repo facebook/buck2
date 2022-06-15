@@ -17,6 +17,7 @@ use std::{
 };
 
 use anyhow::Context;
+use cli_proto::command_result;
 use gazebo::prelude::*;
 
 /// ExitResult represents the outcome of a process execution where we care to return a specific
@@ -64,6 +65,27 @@ impl ExitResult {
 
     pub fn bail(msg: impl Display) -> Self {
         Self::Err(anyhow::anyhow!("Command failed: {}", msg))
+    }
+
+    pub fn infer(result: &command_result::Result) -> Self {
+        let exit_code = match result {
+            command_result::Result::BuildResponse(response) => {
+                if response.error_messages.is_empty() {
+                    0
+                } else {
+                    1
+                }
+            }
+            _ => 0,
+        };
+        Self::status(exit_code)
+    }
+
+    pub fn is_success(&self) -> bool {
+        if let ExitResult::Status(exit_code) = self {
+            return *exit_code == 0;
+        }
+        false
     }
 }
 

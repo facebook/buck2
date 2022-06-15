@@ -31,6 +31,7 @@ rust_library(
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tracing",
+        "//buck2/cli_proto:cli_proto",
         "//buck2/gazebo/gazebo:gazebo",
         "//buck2/shed/internment_tweaks:internment_tweaks",
         "//common/rust/shed/sorted_vector_map:sorted_vector_map",
