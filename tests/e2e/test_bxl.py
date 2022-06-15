@@ -249,8 +249,8 @@ async def test_bxl_build(buck: Buck) -> None:
         "--target",
         ":buildable",
     )
-    outputs = result.stdout.splitlines()[0]
-    assert (buck.cwd / Path(outputs)).read_text() == "FOO\n"
+    outputs = json.loads(result.stdout)
+    assert (buck.cwd / Path(outputs["root//:buildable"][0])).read_text() == "FOO\n"
 
     result = await buck.bxl(
         "//bxl/build.bxl:cquery_build_test",

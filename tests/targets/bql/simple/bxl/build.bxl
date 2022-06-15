@@ -1,9 +1,9 @@
 def _impl(ctx):
-    outputs = []
-    for value in ctx.build(ctx.cli_args.target).values():
-        outputs.extend(ctx.output.ensure_multiple(value.artifacts()))
+    outputs = {}
+    for target, value in ctx.build(ctx.cli_args.target).items():
+        outputs.update({target.raw_target(): ctx.output.ensure_multiple(value.artifacts())})
 
-    ctx.output.print(sep = "\n", *outputs)
+    ctx.output.print_json(outputs)
 
 build_test = bxl(
     implementation = _impl,

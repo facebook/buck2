@@ -3,6 +3,7 @@
 
 use std::{cell::RefCell, sync::Arc};
 
+use anyhow::Context;
 use buck2_build_api::{
     actions::artifact::ArtifactFs,
     interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike,
@@ -12,13 +13,20 @@ use derivative::Derivative;
 use derive_more::Display;
 use gazebo::{any::ProvidesStaticType, prelude::SliceExt};
 use itertools::Itertools;
+use serde::{Serialize, Serializer};
 use starlark::{
     collections::SmallSet,
     environment::{Methods, MethodsBuilder, MethodsStatic},
     starlark_module, starlark_type,
     values::{
-        list::ListRef, none::NoneType, AllocValue, Heap, NoSerialize, StarlarkValue, Trace,
-        UnpackValue, Value, ValueError, ValueLike,
+        dict::Dict,
+        list::{List, ListRef},
+        none::NoneType,
+        record::Record,
+        structs::Struct,
+        tuple::Tuple,
+        AllocValue, Heap, NoSerialize, StarlarkValue, Trace, UnpackValue, Value, ValueError,
+        ValueLike,
     },
 };
 
@@ -122,6 +130,82 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
                 })?
                 .into_iter()
                 .join(sep)
+        );
+        *this.has_print.borrow_mut() = true;
+
+        Ok(NoneType)
+    }
+
+    /// Outputs results to the console via stdout as a json.
+    /// These outputs are considered to be the results of a bxl script, which will be displayed to
+    /// stdout by buck2 even when the script is cached.
+    ///
+    /// Prints that are not result of the bxl should be printed via stderr via the stdlib `print`
+    /// and `pprint`.
+    fn print_json(this: &OutputStream, value: Value) -> anyhow::Result<NoneType> {
+        /// A wrapper with a Serialize instance so we can pass down the necessary context.
+        struct SerializeValue<'a, 'v> {
+            value: Value<'v>,
+            artifact_fs: &'a ArtifactFs,
+            project_fs: &'a ProjectFilesystem,
+        }
+
+        impl<'a, 'v> SerializeValue<'a, 'v> {
+            fn with_value(&self, x: Value<'v>) -> Self {
+                Self {
+                    value: x,
+                    artifact_fs: self.artifact_fs,
+                    project_fs: self.project_fs,
+                }
+            }
+        }
+
+        impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: Serializer,
+            {
+                if let Some(ensured) = <&EnsuredArtifact>::unpack_value(self.value) {
+                    let resolved = self
+                        .artifact_fs
+                        .resolve_artifactlike(ensured.artifact.as_artifact().unwrap())
+                        .map_err(|err| serde::ser::Error::custom(format!("{:#}", err)))?;
+
+                    if ensured.abs {
+                        serializer.serialize_str(&format!(
+                            "{}",
+                            self.project_fs.resolve(&resolved).display()
+                        ))
+                    } else {
+                        serializer.serialize_str(resolved.as_str())
+                    }
+                } else if let Some(x) = List::from_value(self.value) {
+                    serializer.collect_seq(x.iter().map(|v| self.with_value(v)))
+                } else if let Some(x) = Tuple::from_value(self.value) {
+                    serializer.collect_seq(x.iter().map(|v| self.with_value(v)))
+                } else if let Some(x) = Dict::from_value(self.value) {
+                    serializer.collect_map(
+                        x.iter()
+                            .map(|(k, v)| (self.with_value(k), self.with_value(v))),
+                    )
+                } else if let Some(x) = Struct::from_value(self.value) {
+                    serializer.collect_map(x.iter().map(|(k, v)| (k, self.with_value(v))))
+                } else if let Some(x) = Record::from_value(self.value) {
+                    serializer.collect_map(x.iter().map(|(k, v)| (k, self.with_value(v))))
+                } else {
+                    self.value.serialize(serializer)
+                }
+            }
+        }
+
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&SerializeValue {
+                value,
+                artifact_fs: &this.artifact_fs,
+                project_fs: &this.project_fs,
+            },)
+            .context("When converting to JSON for `write_json`")?
         );
         *this.has_print.borrow_mut() = true;
 
