@@ -448,7 +448,7 @@ impl<'v> StarlarkValue<'v> for ProviderCallable {
         }
     }
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(provider_callable_methods)
     }
@@ -530,7 +530,7 @@ impl ProviderCallableLike for FrozenProviderCallable {
 impl<'v> StarlarkValue<'v> for FrozenProviderCallable {
     starlark_type!("provider_callable");
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(provider_callable_methods)
     }
@@ -621,7 +621,7 @@ where
         Some(self.attributes.get_hashed(attribute)?.to_value())
     }
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(provider_methods)
     }
@@ -1045,7 +1045,7 @@ where
 {
     starlark_type!("dependency");
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(dependency_functions)
     }

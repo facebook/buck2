@@ -20,8 +20,9 @@
 use crate::{
     assert,
     assert::Assert,
+    const_frozen_string,
     environment::{Module, ModuleDocs},
-    values::{docs::DocStringKind, StarlarkValue, Value},
+    values::{docs::DocStringKind, Value},
 };
 
 #[test]
@@ -366,7 +367,7 @@ Some extra details can go here,
         // Note that the "x" value here is the documentation for the string type, not
         // for a SPECIFIC string.
         members: hashmap! {
-            "x".to_owned() =>  "blah".documentation(),
+            "x".to_owned() => const_frozen_string!("blah").to_value().documentation(),
             "f1".to_owned() => empty_function.clone(),
         },
     };

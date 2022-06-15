@@ -150,7 +150,7 @@ impl<'v> AllocValue<'v> for StarlarkDeclaredArtifact {
 impl<'v> StarlarkValue<'v> for StarlarkDeclaredArtifact {
     starlark_type!("artifact");
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(artifact_methods)
     }

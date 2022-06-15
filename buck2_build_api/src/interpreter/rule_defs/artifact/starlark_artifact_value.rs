@@ -61,7 +61,7 @@ impl StarlarkArtifactValue {
 impl<'v> StarlarkValue<'v> for StarlarkArtifactValue {
     starlark_type!("artifact_value");
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(artifact_value_methods)
     }

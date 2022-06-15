@@ -232,13 +232,19 @@ pub trait StarlarkValue<'v>: 'v + ProvidesStaticType + Debug + Display + Seriali
     /// so it is the preferred way to go if possible. See
     /// [`MethodsStatic`](crate::environment::MethodsStatic) for an example of how
     /// to define this method.
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods>
+    where
+        Self: Sized,
+    {
         None
     }
 
     /// Return structured documentation for self, if available.
-    fn documentation(&self) -> Option<DocItem> {
-        self.get_methods().map(|methods| methods.documentation())
+    fn documentation(&self) -> Option<DocItem>
+    where
+        Self: Sized,
+    {
+        Self::get_methods().map(|methods| methods.documentation())
     }
 
     /// Return a string representation of self, as returned by the `repr()` function.

@@ -70,7 +70,7 @@ starlark_simple_value!(ArtifactTag);
 impl<'v> StarlarkValue<'v> for ArtifactTag {
     starlark_type!("artifact_tag");
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(input_tag_methods)
     }

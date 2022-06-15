@@ -61,7 +61,7 @@ where
 {
     starlark_type!("ensured_artifact");
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(artifact_methods)
     }

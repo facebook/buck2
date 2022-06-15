@@ -419,7 +419,7 @@ where
 {
     starlark_type!(Dict::TYPE);
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         dict_methods()
     }
 

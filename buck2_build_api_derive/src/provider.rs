@@ -115,7 +115,7 @@ impl ProviderCodegen {
                     ty == #name_str || ty == "provider"
                 }
 
-                fn get_methods(&self) -> Option<&'static starlark::environment::Methods> {
+                fn get_methods() -> Option<&'static starlark::environment::Methods> {
                     static RES: starlark::environment::MethodsStatic =
                         starlark::environment::MethodsStatic::new();
 
@@ -223,7 +223,7 @@ impl ProviderCodegen {
             {
                 starlark::starlark_type!(#callable_name_snake_str);
 
-                fn get_methods(&self) -> Option<&'static starlark::environment::Methods> {
+                fn get_methods() -> Option<&'static starlark::environment::Methods> {
                     static RES: starlark::environment::MethodsStatic =
                         starlark::environment::MethodsStatic::new();
                     // TODO(nmj): This should use the docstring from the attribute, rather than

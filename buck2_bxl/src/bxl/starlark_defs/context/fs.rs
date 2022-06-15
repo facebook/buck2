@@ -40,7 +40,7 @@ impl<'v> BxlFilesystem<'v> {
 impl<'v> StarlarkValue<'v> for BxlFilesystem<'v> {
     starlark_type!("fs");
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(fs_operations)
     }

@@ -213,7 +213,7 @@ where
         TransitiveSetGen::extra_memory(self)
     }
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(transitive_set_methods)
     }

@@ -467,7 +467,7 @@ where
         true
     }
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         list_methods()
     }
 

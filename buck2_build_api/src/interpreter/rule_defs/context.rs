@@ -119,7 +119,7 @@ impl<'v> AnalysisActions<'v> {
 impl<'v> StarlarkValue<'v> for AnalysisActions<'v> {
     starlark_type!("actions");
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(register_context_actions)
     }
@@ -239,7 +239,7 @@ impl<'v> AnalysisContext<'v> {
 impl<'v> StarlarkValue<'v> for AnalysisContext<'v> {
     starlark_type!("context");
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(register_context)
     }

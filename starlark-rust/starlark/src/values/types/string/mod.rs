@@ -214,7 +214,7 @@ pub(crate) fn str_methods() -> Option<&'static Methods> {
 impl<'v> StarlarkValue<'v> for str {
     starlark_type!(STRING_TYPE);
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         str_methods()
     }
 
@@ -363,8 +363,8 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
         0
     }
 
-    fn get_methods(&self) -> Option<&'static Methods> {
-        self.as_str().get_methods()
+    fn get_methods() -> Option<&'static Methods> {
+        str_methods()
     }
 
     fn collect_repr(&self, collector: &mut String) {

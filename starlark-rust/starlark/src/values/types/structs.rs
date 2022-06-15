@@ -146,7 +146,7 @@ where
 {
     starlark_type!(Struct::TYPE);
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(crate::stdlib::structs::struct_methods)
     }

@@ -169,7 +169,7 @@ mod tests {
         impl<'v> StarlarkValue<'v> for Bool2 {
             starlark_type!("bool2");
 
-            fn get_methods(&self) -> Option<&'static Methods> {
+            fn get_methods() -> Option<&'static Methods> {
                 static RES: MethodsStatic = MethodsStatic::new();
                 RES.methods(methods)
             }

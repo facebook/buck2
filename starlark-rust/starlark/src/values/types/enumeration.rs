@@ -216,7 +216,7 @@ where
         f(&mut self.elements.values().map(|x| x.to_value()))
     }
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(enum_type_methods)
     }

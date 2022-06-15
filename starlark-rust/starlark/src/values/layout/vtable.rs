@@ -260,7 +260,7 @@ impl<'v> AValueDyn<'v> {
 
     #[inline]
     pub(crate) fn get_methods(self) -> Option<&'static Methods> {
-        (self.vtable.starlark_value.get_methods)(StarlarkValueRawPtr::new(self.value))
+        (self.vtable.starlark_value.get_methods)()
     }
 
     #[inline]

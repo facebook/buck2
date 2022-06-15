@@ -44,7 +44,7 @@ impl<'v> BxlActionsCtx<'v> {
 impl<'v> StarlarkValue<'v> for BxlActionsCtx<'v> {
     starlark_type!("bxl_actions");
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(register_context)
     }

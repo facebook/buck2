@@ -52,7 +52,7 @@ pub struct StarlarkCQueryCtx<'v> {
 impl<'v> StarlarkValue<'v> for StarlarkCQueryCtx<'v> {
     starlark_type!("cqueryctx");
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(register_cquery)
     }

@@ -58,7 +58,7 @@ starlark_simple_value!(StarlarkBxlBuildResult);
 impl<'v> StarlarkValue<'v> for StarlarkBxlBuildResult {
     starlark_type!("bxl-build-result");
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(starlark_build_result_methods)
     }

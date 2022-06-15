@@ -47,7 +47,7 @@ starlark_simple_value!(StarlarkConfiguredTargetNode);
 impl<'v> StarlarkValue<'v> for StarlarkConfiguredTargetNode {
     starlark_type!("target_node");
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(configured_target_node_value_methods)
     }
@@ -183,7 +183,7 @@ starlark_simple_value!(StarlarkConfiguredValue);
 impl<'v> StarlarkValue<'v> for StarlarkConfiguredValue {
     starlark_type!("configured_attr_val");
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(configured_value_methods)
     }

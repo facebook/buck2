@@ -603,7 +603,7 @@ mod tests {
         starlark_simple_value!(Magic);
         impl<'v> StarlarkValue<'v> for Magic {
             starlark_type!("magic");
-            fn get_methods(&self) -> Option<&'static Methods> {
+            fn get_methods() -> Option<&'static Methods> {
                 static RES: MethodsStatic = MethodsStatic::new();
                 RES.methods(|x| {
                     x.set_attribute("my_type", "magic", None);

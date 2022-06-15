@@ -35,7 +35,7 @@ pub struct StarlarkRegex(pub Regex);
 impl StarlarkValue<'_> for StarlarkRegex {
     starlark_type!("regex");
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(regex_type_methods)
     }

@@ -249,7 +249,7 @@ impl<'v, V: ValueLike<'v>> StarlarkCommandLineDataGen<'v, V> {
 impl<'v> StarlarkValue<'v> for StarlarkCommandLine<'v> {
     starlark_type!("cmd_args");
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(command_line_builder_methods)
     }
@@ -262,7 +262,7 @@ impl<'v> StarlarkValue<'v> for StarlarkCommandLine<'v> {
 impl<'v> StarlarkValue<'v> for FrozenStarlarkCommandLine {
     starlark_type!("cmd_args");
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         // We return the same methods for frozen command lines, even though some of them fail,
         // so the methods remain consistent during freezing
         static RES: MethodsStatic = MethodsStatic::new();

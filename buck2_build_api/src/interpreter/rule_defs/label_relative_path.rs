@@ -25,7 +25,7 @@ starlark_simple_value!(LabelRelativePath);
 impl<'v> StarlarkValue<'v> for LabelRelativePath {
     starlark_type!("label_relative_path");
 
-    fn get_methods(&self) -> Option<&'static Methods> {
+    fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(label_relative_path_methods)
     }
