@@ -21,16 +21,16 @@ use crate::{codemap::FileSpanRef, eval::Evaluator};
 
 /// Configuration of `BeforeStmt` instrumentation of bytecode.
 #[derive(Default)]
-pub(crate) struct BeforeStmt<'v, 'a> {
+pub(crate) struct BeforeStmt<'a> {
     /// Functions to run before each statement.
-    pub(crate) before_stmt: Vec<&'a dyn Fn(FileSpanRef, &mut Evaluator<'v, 'a>)>,
+    pub(crate) before_stmt: Vec<&'a dyn for<'v> Fn(FileSpanRef, &mut Evaluator<'v, 'a>)>,
     /// Explicitly request generation of `BeforeStmt` instructions
     /// even if no `before_stmt` functions are registered.
     /// This is needed when compiling dependencies of a file to be profiled.
     pub(crate) instrument: bool,
 }
 
-impl<'v, 'a> BeforeStmt<'v, 'a> {
+impl<'a> BeforeStmt<'a> {
     pub(crate) fn enabled(&self) -> bool {
         self.instrument || !self.before_stmt.is_empty()
     }

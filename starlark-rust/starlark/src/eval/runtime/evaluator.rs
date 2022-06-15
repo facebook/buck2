@@ -108,7 +108,7 @@ pub struct Evaluator<'v, 'a> {
     // Size of the heap when we should next perform a GC.
     pub(crate) next_gc_level: usize,
     // Extra functions to run on each statement, usually empty
-    pub(crate) before_stmt: BeforeStmt<'v, 'a>,
+    pub(crate) before_stmt: BeforeStmt<'a>,
     // Used for line profiling
     stmt_profile: StmtProfile,
     // Bytecode profile.
@@ -319,14 +319,20 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         self.call_stack.top_location()
     }
 
-    pub(crate) fn before_stmt(&mut self, f: &'a dyn Fn(FileSpanRef, &mut Evaluator<'v, 'a>)) {
+    pub(crate) fn before_stmt(
+        &mut self,
+        f: &'a dyn for<'v1> Fn(FileSpanRef, &mut Evaluator<'v1, 'a>),
+    ) {
         self.before_stmt.before_stmt.push(f)
     }
 
     /// This function is used by DAP, and it is not public API.
     // TODO(nga): pull DAP into the crate, and hide this function.
     #[doc(hidden)]
-    pub fn before_stmt_for_dap(&mut self, f: &'a dyn Fn(FileSpanRef, &mut Evaluator<'v, 'a>)) {
+    pub fn before_stmt_for_dap(
+        &mut self,
+        f: &'a dyn for<'v1> Fn(FileSpanRef, &mut Evaluator<'v1, 'a>),
+    ) {
         self.before_stmt(f);
     }
 
