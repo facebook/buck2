@@ -506,38 +506,47 @@ fn render_signature_args(args: &[StarArg]) -> syn::Result<TokenStream> {
                 ));
             }
         }
-        sig_args.extend(render_signature_arg(arg));
+        sig_args.extend(render_signature_arg(arg)?);
     }
     Ok(sig_args)
 }
 
 // Generate a statement that modifies signature to add a new argument in.
-fn render_signature_arg(arg: &StarArg) -> TokenStream {
+fn render_signature_arg(arg: &StarArg) -> syn::Result<TokenStream> {
     let span = arg.span;
 
-    let name_str_full = ident_string(&arg.name);
-    let name_str = name_str_full.trim_matches('_');
+    let name_str = ident_string(&arg.name);
+
+    if name_str.starts_with('_') {
+        return Err(syn::Error::new(
+            span,
+            "Argument names (temporarily) cannot start with an underscore; \
+                this restriction will be removed in the following diff",
+        ));
+    }
 
     if arg.pass_style == StarArgPassStyle::Args {
         assert!(arg.default.is_none(), "Can't have *args with a default");
-        quote_spanned! { span=> __signature.args();}
+        Ok(quote_spanned! { span=> __signature.args();})
     } else if arg.pass_style == StarArgPassStyle::Kwargs {
         assert!(arg.default.is_none(), "Can't have **kwargs with a default");
-        quote_spanned! { span=> __signature.kwargs();}
+        Ok(quote_spanned! { span=> __signature.kwargs();})
     } else if arg.pass_style == StarArgPassStyle::This {
-        quote_spanned! { span=> }
+        Ok(quote_spanned! { span=> })
     } else if arg.is_option() {
-        quote_spanned! { span=> __signature.optional(#name_str);}
+        Ok(quote_spanned! { span=> __signature.optional(#name_str);})
     } else if let Some(default) = &arg.default {
         // For things that are type Value, we put them on the frozen heap.
         // For things that aren't type value, use optional and then next_opt/unwrap
         // to avoid the to/from value conversion.
         if arg.is_value() {
-            quote_spanned! { span=> __signature.defaulted(#name_str, globals_builder.alloc(#default));}
+            Ok(
+                quote_spanned! { span=> __signature.defaulted(#name_str, globals_builder.alloc(#default));},
+            )
         } else {
-            quote_spanned! { span=> __signature.optional(#name_str);}
+            Ok(quote_spanned! { span=> __signature.optional(#name_str);})
         }
     } else {
-        quote_spanned! { span=> __signature.required(#name_str);}
+        Ok(quote_spanned! { span=> __signature.required(#name_str);})
     }
 }
