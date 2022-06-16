@@ -44,6 +44,8 @@ def get_android_binary_resources_info(
         compiled_resource_apks = [],
         additional_aapt2_params = getattr(ctx.attr, "additional_aapt_params", []),
         extra_filtered_resources = getattr(ctx.attr, "extra_filtered_resources", []),
+        locales = getattr(ctx.attr, "locales", []),
+        filter_locales = getattr(ctx.attr, "aapt2_locale_filtering", False),
     )
 
     override_symbols_paths = ctx.actions.write("override_symbols_paths", [])
