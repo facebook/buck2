@@ -266,6 +266,11 @@ LinkInfosTSet = transitive_set(
 # A map of native linkable infos from transitive dependencies.
 MergedLinkInfo = provider(fields = [
     "_infos",  # {LinkStyle.type: LinkInfosTSet.type}
+    # Apple framework linker args must be deduped to avoid overflow in our argsfiles.
+    #
+    # To save on repeated computation of transitive LinkInfos, we store a dedupped
+    # structure, based on the link-style.
+    "frameworks",  # {LinkStyle.type: [FrameworksLinkable.type, None]}
 ])
 
 # A map of linkages to all possible link styles it supports.
@@ -287,12 +292,14 @@ def create_merged_link_info(
         # Link info to propagate from non-exported deps for static link styles.
         deps: ["MergedLinkInfo"] = [],
         # Link info to always propagate from exported deps.
-        exported_deps: ["MergedLinkInfo"] = []) -> "MergedLinkInfo":
+        exported_deps: ["MergedLinkInfo"] = [],
+        frameworks_linkable: [FrameworksLinkable.type, None] = None) -> "MergedLinkInfo":
     """
     Create a `MergedLinkInfo` provider.
     """
 
     infos = {}
+    frameworks = {}
 
     # We don't know how this target will be linked, so we generate the possible
     # link info given the target's preferred linkage, to be consumed by the
@@ -301,36 +308,47 @@ def create_merged_link_info(
         actual_link_style = get_actual_link_style(link_style, preferred_linkage)
 
         children = []
+        framework_linkables = []
 
         # When we're being linked statically, we also need to export all private
         # linkable input (e.g. so that any unresolved symbols we have are
         # resolved properly when we're linked).
         if actual_link_style != LinkStyle("shared"):
+            # We never want to propogate the linkables used to build a shared library.
+            #
+            # Doing so breaks the encapsulation of what is in linked in the library vs. the main executable.
+            framework_linkables.append(frameworks_linkable)
+            framework_linkables += [dep_info.frameworks[link_style] for dep_info in exported_deps]
+
             for dep_info in deps:
                 children.append(dep_info._infos[link_style])
+                framework_linkables.append(dep_info.frameworks[link_style])
 
         # We always export link info for exported deps.
         for dep_info in exported_deps:
             children.append(dep_info._infos[link_style])
 
+        frameworks[link_style] = merge_framework_linkables(framework_linkables)
         infos[link_style] = ctx.actions.tset(
             LinkInfosTSet,
             value = link_infos[actual_link_style],
             children = children,
         )
 
-    return MergedLinkInfo(_infos = infos)
+    return MergedLinkInfo(_infos = infos, frameworks = frameworks)
 
 def merge_link_infos(
         ctx: "context",
         xs: ["MergedLinkInfo"]) -> "MergedLinkInfo":
     merged = {}
+    frameworks = {}
     for link_style in LinkStyle:
         merged[link_style] = ctx.actions.tset(
             LinkInfosTSet,
             children = [x._infos[link_style] for x in xs],
         )
-    return MergedLinkInfo(_infos = merged)
+        frameworks[link_style] = merge_framework_linkables([x.frameworks[link_style] for x in xs])
+    return MergedLinkInfo(_infos = merged, frameworks = frameworks)
 
 def get_link_info(
         infos: LinkInfos.type,
@@ -478,3 +496,26 @@ def extract_default_filelist_from_link_args(link: "LinkArgs") -> ["artifact"]:
         infos = [infos.default for infos in link.tset[0].traverse()]
 
     return filter(None, flatten([link_info_filelist(info) for info in infos]))
+
+def merge_framework_linkables(linkables: [[FrameworksLinkable.type, None]]) -> FrameworksLinkable.type:
+    unique_framework_names = {}
+    unique_framework_paths = {}
+    unique_library_names = {}
+    for linkable in linkables:
+        if not linkable:
+            continue
+
+        # Avoid building a huge list and then de-duplicating, instead we
+        # use a set to track each used entry, order does not matter.
+        for framework in linkable.framework_names:
+            unique_framework_names[framework] = True
+        for framework_path in linkable.resolved_framework_paths:
+            unique_framework_paths[framework_path] = True
+        for library_name in linkable.library_names:
+            unique_library_names[library_name] = True
+
+    return FrameworksLinkable(
+        framework_names = unique_framework_names.keys(),
+        resolved_framework_paths = unique_framework_paths.keys(),
+        library_names = unique_library_names.keys(),
+    )
