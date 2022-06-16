@@ -36,7 +36,10 @@ use buck2_build_api::{
             dice_data::{set_fallback_executor_config, SetCommandExecutor},
             re::{client::RemoteExecutionStaticMetadata, manager::ReConnectionManager},
         },
-        materializer::{deferred::DeferredMaterializer, SetMaterializer},
+        materializer::{
+            deferred::{DeferredMaterializer, DeferredMaterializerConfigs},
+            SetMaterializer,
+        },
         CommandExecutorConfig, CommandExecutorKind, LocalExecutorOptions,
     },
     interpreter::context::{
@@ -247,7 +250,10 @@ fn setup(
         fs.root,
         re_client_manager.dupe(),
         blocking_executor.dupe(),
-        true,
+        DeferredMaterializerConfigs {
+            materialize_final_artifacts: true,
+            enable_local_caching_of_re_artifacts: false,
+        },
     ));
 
     let per_request_data = {

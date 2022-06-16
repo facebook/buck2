@@ -736,6 +736,61 @@ async def test_modify_dep_materialization(buck: Buck) -> None:
     await buck.build("//:check")
 
 
+@buck_test(inplace=False, data_dir="modify_deferred_materialization_deps")
+@env("BUCK_LOG", "buck2_build_api::execute::materializer=trace")
+async def test_local_caching_of_re_artifacts_on_deferred_materializer(
+    buck: Buck,
+) -> None:
+    target = "root//:remote_text"
+    result = await buck.build(target)
+    # Check output is correctly materialized
+    assert result.get_build_report().output_for_target(target).exists()
+
+    # In this case, modifying the input does not change the output, so the output should not
+    # need to be rematerialized
+    with open(buck.cwd / "text", "w", encoding="utf-8") as f:
+        f.write("TEXT2")
+
+    result = await buck.build(target)
+    # Check output still exists
+    assert result.get_build_report().output_for_target(target).exists()
+    # Check that materializer did not report any rematerialization
+    assert "already materialized, no need to declare again" in result.stderr
+    assert "materialize artifact" not in result.stderr
+
+
+@buck_test(inplace=False, data_dir="modify_deferred_materialization_deps")
+@env("BUCK_LOG", "buck2_build_api::execute::materializer=trace")
+async def test_local_caching_of_re_artifacts_on_deferred_materializer_disabled_without_buckconfig(
+    buck: Buck,
+) -> None:
+    # Disable local caching of RE artifacts
+    buckconfig_file = buck.cwd / ".buckconfig"
+    with open(buckconfig_file, encoding="utf-8") as f:
+        buckconfig = f.read()
+    buckconfig = buckconfig.replace(
+        "enable_local_caching_of_re_artifacts = true",
+        "enable_local_caching_of_re_artifacts = false",
+    )
+    with open(buckconfig_file, "w", encoding="utf-8") as f:
+        f.write(buckconfig)
+
+    target = "root//:remote_text"
+    result = await buck.build(target)
+    # Check output is correctly materialized
+    assert result.get_build_report().output_for_target(target).exists()
+
+    with open(buck.cwd / "text", "w", encoding="utf-8") as f:
+        f.write("TEXT2")
+
+    result = await buck.build(target)
+    # Check output still exists
+    assert result.get_build_report().output_for_target(target).exists()
+    # Check that materializer did have to rematerialize in this case
+    assert "already materialized, no need to declare again" not in result.stderr
+    assert "materialize artifact" in result.stderr
+
+
 if eden_linux_only():
 
     @buck_test(inplace=False, data_dir="eden_materializer")

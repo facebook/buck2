@@ -99,6 +99,11 @@ impl Drop for DeferredMaterializer {
     }
 }
 
+pub struct DeferredMaterializerConfigs {
+    pub materialize_final_artifacts: bool,
+    pub enable_local_caching_of_re_artifacts: bool,
+}
+
 struct DeferredMaterializerCommandProcessor {
     project_root: AbsPathBuf,
     re_client_manager: Arc<ReConnectionManager>,
@@ -106,6 +111,9 @@ struct DeferredMaterializerCommandProcessor {
     io_executor: Arc<dyn BlockingExecutor>,
     /// Used to emit MaterializationFinished to the command thread
     command_sender: mpsc::UnboundedSender<MaterializerCommand>,
+    /// Whether to enable local caching of RE artifacts. If enables this skips
+    /// rematerializing of the same RE artifacts that have already been materalized.
+    enable_local_caching_of_re_artifacts: bool,
 }
 
 // NOTE: This doesn't derive `Error` and that's on purpose.  We don't want to make it easy (or
@@ -400,7 +408,7 @@ impl DeferredMaterializer {
         project_root: AbsPathBuf,
         re_client_manager: Arc<ReConnectionManager>,
         io_executor: Arc<dyn BlockingExecutor>,
-        materialize_final_artifacts: bool,
+        configs: DeferredMaterializerConfigs,
     ) -> Self {
         let (command_sender, command_recv) = mpsc::unbounded_channel();
 
@@ -409,13 +417,14 @@ impl DeferredMaterializer {
             re_client_manager,
             io_executor,
             command_sender: command_sender.clone(),
+            enable_local_caching_of_re_artifacts: configs.enable_local_caching_of_re_artifacts,
         });
         let command_thread = tokio::spawn(async move { command_processor.run(command_recv).await });
 
         Self {
             command_sender,
             command_thread,
-            materialize_final_artifacts,
+            materialize_final_artifacts: configs.materialize_final_artifacts,
         }
     }
 }
@@ -441,32 +450,33 @@ impl DeferredMaterializerCommandProcessor {
                 }
                 // Entry point for `declare_{copy|cas}` calls
                 MaterializerCommand::Declare(path, value, method) => {
-                    // TODO(rafaelc): consider what to do if an artifact is materializing
-                    // and we declare it again: abort the materialization? Err? Panic?
-                    tracing::trace!(
-                        path = %path,
-                        method = %method,
-                        value = %value.entry(),
-                        version = next_version,
-                        "declare artifact",
-                    );
-                    // Always invalidate materializer state before actual deleting from filesystem
-                    // so there will never be a moment where artifact is deleted but materializer
-                    // thinks it still exists.
-                    let pending_fut = tree.remove(path.iter()).and_then(|data| data.pending_fut);
-                    let data = box ArtifactMaterializationData {
-                        value,
-                        method: Arc::new(*method),
-                        stage: ArtifactMaterializationStage::Declared,
-                        version: next_version,
-                        pending_fut: Some(clean_output_paths(
-                            self.io_executor.dupe(),
-                            path.clone(),
-                            pending_fut.clone(),
-                        )),
-                    };
-                    next_version += 1;
-                    tree.insert(path.iter().map(|f| f.to_owned()), data);
+                    if !self.is_already_materialized(&tree, &path, value.dupe()) {
+                        tracing::trace!(
+                            path = %path,
+                            method = %method,
+                            value = %value.entry(),
+                            version = next_version,
+                            "declare artifact",
+                        );
+                        // Always invalidate materializer state before actual deleting from filesystem
+                        // so there will never be a moment where artifact is deleted but materializer
+                        // thinks it still exists.
+                        let pending_fut =
+                            tree.remove(path.iter()).and_then(|data| data.pending_fut);
+                        let data = box ArtifactMaterializationData {
+                            value,
+                            method: Arc::new(*method),
+                            stage: ArtifactMaterializationStage::Declared,
+                            version: next_version,
+                            pending_fut: Some(clean_output_paths(
+                                self.io_executor.dupe(),
+                                path.clone(),
+                                pending_fut.clone(),
+                            )),
+                        };
+                        next_version += 1;
+                        tree.insert(path.iter().map(|f| f.to_owned()), data);
+                    }
                 }
                 MaterializerCommand::InvalidateFilePath(path) => {
                     tracing::trace!(
@@ -516,6 +526,35 @@ impl DeferredMaterializerCommandProcessor {
         });
 
         tasks.collect::<FuturesOrdered<_>>().boxed()
+    }
+
+    /// If local caching of RE artifacts is enabled, returns whether a path with equal value
+    /// already exists on the tree. Always returns false if local caching of RE artifacts is disabled.
+    fn is_already_materialized(
+        &self,
+        tree: &ArtifactTree,
+        path: &ProjectRelativePath,
+        value: ArtifactValue,
+    ) -> bool {
+        if !self.enable_local_caching_of_re_artifacts {
+            // If this feature is not enabled, then we treat no artifact as already materialized.
+            return false;
+        }
+        if let Some(data) = tree.prefix_get(&mut path.iter()) {
+            match data.stage {
+                ArtifactMaterializationStage::Materialized { .. } => {
+                    if data.value == value {
+                        tracing::trace!(
+                            path = %path,
+                            "already materialized, no need to declare again",
+                        );
+                        return true;
+                    }
+                }
+                _ => {}
+            }
+        }
+        false
     }
 
     #[instrument(level = "debug", skip(self, tree), fields(path = %path))]

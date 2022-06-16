@@ -41,7 +41,8 @@ use buck2_build_api::{
             },
         },
         materializer::{
-            deferred::DeferredMaterializer, immediate::ImmediateMaterializer,
+            deferred::{DeferredMaterializer, DeferredMaterializerConfigs},
+            immediate::ImmediateMaterializer,
             MaterializationMethod, Materializer, SetMaterializer,
         },
         CommandExecutorConfig, CommandExecutorKind, LocalExecutorOptions,
@@ -709,6 +710,9 @@ impl DaemonState {
         ));
         let materialization_method =
             MaterializationMethod::try_new_from_config(legacy_configs.get(cells.root_cell()).ok())?;
+        let enable_local_caching_of_re_artifacts = root_config
+            .parse("buck2", "enable_local_caching_of_re_artifacts")?
+            .unwrap_or(false);
         let materializer = Self::create_materializer(
             paths.project_root().to_owned(),
             paths.buck_out_dir(),
@@ -716,6 +720,7 @@ impl DaemonState {
             blocking_executor.dupe(),
             (**io.fs()).clone(),
             materialization_method,
+            enable_local_caching_of_re_artifacts,
         )?;
 
         let buffer_size = root_config
@@ -761,6 +766,7 @@ impl DaemonState {
         blocking_executor: Arc<dyn BlockingExecutor>,
         fs: ProjectFilesystem,
         materialization_method: MaterializationMethod,
+        enable_local_caching_of_re_artifacts: bool,
     ) -> anyhow::Result<Arc<dyn Materializer>> {
         match materialization_method {
             MaterializationMethod::Immediate => Ok(Arc::new(ImmediateMaterializer::new(
@@ -768,18 +774,17 @@ impl DaemonState {
                 re_client_manager,
                 blocking_executor,
             ))),
-            MaterializationMethod::Deferred => Ok(Arc::new(DeferredMaterializer::new(
-                project_root,
-                re_client_manager,
-                blocking_executor,
-                true,
-            ))),
-            MaterializationMethod::DeferredSkipFinalArtifacts => {
+            MaterializationMethod::Deferred | MaterializationMethod::DeferredSkipFinalArtifacts => {
+                let materialize_final_artifacts =
+                    matches!(materialization_method, MaterializationMethod::Deferred);
                 Ok(Arc::new(DeferredMaterializer::new(
                     project_root,
                     re_client_manager,
                     blocking_executor,
-                    false,
+                    DeferredMaterializerConfigs {
+                        materialize_final_artifacts,
+                        enable_local_caching_of_re_artifacts,
+                    },
                 )))
             }
             MaterializationMethod::Eden => {
