@@ -108,9 +108,9 @@ struct DeferredMaterializerCommandProcessor {
 }
 
 // NOTE: This doesn't derive `Error` and that's on purpose.  We don't want to make it easy (or
-// possible, in fact) to add  `context` to this SharedMaterializationError and lose the variant.
+// possible, in fact) to add  `context` to this SharedProcessingError and lose the variant.
 #[derive(Debug, Clone, Dupe)]
-enum SharedMaterializationError {
+enum SharedProcessingError {
     Error(SharedError),
     NotFound { info: Arc<CasDownloadInfo> },
 }
@@ -125,8 +125,8 @@ enum MaterializeEntryError {
     NotFound { info: Arc<CasDownloadInfo> },
 }
 
-impl From<MaterializeEntryError> for SharedMaterializationError {
-    fn from(e: MaterializeEntryError) -> SharedMaterializationError {
+impl From<MaterializeEntryError> for SharedProcessingError {
+    fn from(e: MaterializeEntryError) -> SharedProcessingError {
         match e {
             MaterializeEntryError::Error(e) => Self::Error(e.into()),
             MaterializeEntryError::NotFound { info } => Self::NotFound { info },
@@ -134,7 +134,8 @@ impl From<MaterializeEntryError> for SharedMaterializationError {
     }
 }
 
-type MaterializationFuture = Shared<BoxFuture<'static, Result<(), SharedMaterializationError>>>;
+/// A future that is doing work off of a separate task spawned by the materializer.
+type ProcessingFuture = Shared<BoxFuture<'static, Result<(), SharedProcessingError>>>;
 
 /// Message taken by the `DeferredMaterializer`'s command loop.
 enum MaterializerCommand {
@@ -177,7 +178,7 @@ enum MaterializerCommand {
     MaterializationFinished {
         path: ProjectRelativePathBuf,
         version: u64,
-        result: Result<(), SharedMaterializationError>,
+        result: Result<(), SharedProcessingError>,
         has_deps: bool,
     },
 }
@@ -223,6 +224,11 @@ struct ArtifactMaterializationData {
     /// The version is just an internal counter that increases every time an
     /// artifact is declared (i.e. it tells us in which order they were declared).
     version: u64,
+    /// An optional future that may be processing something at the current path
+    /// (for example, materializing or deleting). Any other future that needs to process
+    /// this path would need to wait on the existing future to finish.
+    /// TODO(scottcao): Turn this into a queue of pending futures.
+    pending_fut: Option<ProcessingFuture>,
 }
 
 enum ArtifactMaterializationStage {
@@ -230,7 +236,7 @@ enum ArtifactMaterializationStage {
     /// If it did start but end with an error, it returns to this stage.
     Declared,
     /// The materialization has started and it hasn't finished yet.
-    Materializing(MaterializationFuture),
+    Materializing,
     /// This artifact was materialized
     Materialized {
         // Artifact may need its dependencies checked as they might have changed
@@ -446,6 +452,7 @@ impl DeferredMaterializerCommandProcessor {
                         method: Arc::new(*method),
                         stage: ArtifactMaterializationStage::Declared,
                         version: next_version,
+                        pending_fut: None,
                     };
                     next_version += 1;
                     tree.insert(path.iter().map(|f| f.to_owned()), data);
@@ -486,11 +493,11 @@ impl DeferredMaterializerCommandProcessor {
                 .materialize_artifact(tree, path.as_ref())
                 .map(move |fut| {
                     fut.map_err(move |e| match e {
-                        SharedMaterializationError::Error(source) => MaterializationError::Error {
+                        SharedProcessingError::Error(source) => MaterializationError::Error {
                             path,
                             source: source.into(),
                         },
-                        SharedMaterializationError::NotFound { info } => {
+                        SharedProcessingError::NotFound { info } => {
                             MaterializationError::NotFound { path, info }
                         }
                     })
@@ -505,7 +512,7 @@ impl DeferredMaterializerCommandProcessor {
         self: Arc<Self>,
         tree: &mut ArtifactTree,
         mut path: &ProjectRelativePath,
-    ) -> Option<MaterializationFuture> {
+    ) -> Option<ProcessingFuture> {
         // Get the data about the artifact, or return early if materializing/materialized
         let mut path_iter = path.iter();
         let data = match tree.prefix_get(&mut path_iter) {
@@ -524,23 +531,26 @@ impl DeferredMaterializerCommandProcessor {
                 .expect("Path iterator cannot cause us to rewind past the last parent");
         }
 
-        let entry = match &data.stage {
-            ArtifactMaterializationStage::Materializing(fut) => {
-                tracing::debug!("join existing future");
-                return Some(fut.clone());
-            }
-            ArtifactMaterializationStage::Declared => Some(data.value.entry().dupe()),
-            ArtifactMaterializationStage::Materialized { check_deps } => match check_deps {
-                true => None,
-                false => {
-                    tracing::debug!(
-                        path = %path,
-                        "already materialized, nothing to do"
-                    );
-                    return None;
+        let entry =
+            match &data.stage {
+                ArtifactMaterializationStage::Materializing => {
+                    tracing::debug!("join existing future");
+                    return Some(data.pending_fut.clone().expect(
+                        "Artifact was materializing but no materialization future was found",
+                    ));
                 }
-            },
-        };
+                ArtifactMaterializationStage::Declared => Some(data.value.entry().dupe()),
+                ArtifactMaterializationStage::Materialized { check_deps } => match check_deps {
+                    true => None,
+                    false => {
+                        tracing::debug!(
+                            path = %path,
+                            "already materialized, nothing to do"
+                        );
+                        return None;
+                    }
+                },
+            };
         let deps = data.value.deps().duped();
         let method = data.method.dupe();
         let version = data.version;
@@ -582,7 +592,7 @@ impl DeferredMaterializerCommandProcessor {
             // Materialize the deps and this entry. This *must* happen in a try block because we
             // need to notity the materializer regardless of whether this succeeds or fails.
 
-            let res: Result<(), SharedMaterializationError> = try {
+            let res: Result<(), SharedProcessingError> = try {
                 // In case this is a local copy, we first need to materialize the
                 // artifacts we are copying from, before we can copy them.
                 for t in deps_tasks {
@@ -614,13 +624,14 @@ impl DeferredMaterializerCommandProcessor {
         })
         .map(|r| match r {
             Ok(r) => r,
-            Err(e) => Err(SharedMaterializationError::Error(e.into())), // Turn the JoinError into a SharedError.
+            Err(e) => Err(SharedProcessingError::Error(e.into())), // Turn the JoinError into a SharedError.
         })
         .boxed()
         .shared();
 
         let data = tree.prefix_get_mut(&mut path.iter()).unwrap();
-        data.stage = ArtifactMaterializationStage::Materializing(task.clone());
+        data.stage = ArtifactMaterializationStage::Materializing;
+        data.pending_fut = Some(task.clone());
 
         Some(task)
     }
@@ -832,7 +843,7 @@ impl ArtifactTree {
         &mut self,
         artifact_path: ProjectRelativePathBuf,
         version: u64,
-        result: Result<(), SharedMaterializationError>,
+        result: Result<(), SharedProcessingError>,
         has_deps: bool,
     ) {
         match self.prefix_get_mut(&mut artifact_path.iter()) {
@@ -841,6 +852,10 @@ impl ArtifactTree {
                     tracing::debug!("version conflict");
                     return;
                 }
+
+                // We can only unset the future if version matches.
+                // Otherwise, we may be unsetting a different future from a newer version.
+                info.pending_fut = None;
 
                 if result.is_err() {
                     tracing::debug!("transition to Declared");
