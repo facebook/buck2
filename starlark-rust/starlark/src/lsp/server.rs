@@ -33,8 +33,9 @@ use lsp_types::{
     request::GotoDefinition,
     DefinitionOptions, Diagnostic, DidChangeTextDocumentParams, DidCloseTextDocumentParams,
     DidOpenTextDocumentParams, GotoDefinitionParams, GotoDefinitionResponse, InitializeParams,
-    Location, LogMessageParams, MessageType, OneOf, PublishDiagnosticsParams, ServerCapabilities,
-    TextDocumentSyncCapability, TextDocumentSyncKind, Url, WorkDoneProgressOptions,
+    LocationLink, LogMessageParams, MessageType, OneOf, PublishDiagnosticsParams,
+    ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind, Url,
+    WorkDoneProgressOptions,
 };
 use serde::de::DeserializeOwned;
 
@@ -189,12 +190,18 @@ impl<T: LspContext> Backend<T> {
 
         let location = match self.get_ast(&uri) {
             Some(ast) => match ast.find_definition(line, character) {
-                DefinitionLocation::Location(span) => Some(Location {
-                    uri,
-                    range: span.into(),
+                DefinitionLocation::Location {
+                    source,
+                    destination: target,
+                } => Some(LocationLink {
+                    origin_selection_range: Some(source.into()),
+                    target_uri: uri,
+                    target_range: target.into(),
+                    target_selection_range: target.into(),
                 }),
                 DefinitionLocation::LoadedLocation {
-                    location,
+                    source,
+                    destination: location,
                     path,
                     name,
                 } => {
@@ -203,22 +210,28 @@ impl<T: LspContext> Backend<T> {
                         .get_ast_or_load_from_disk(&load_uri)?
                         .and_then(|ast| ast.find_exported_symbol(&name));
                     match loaded_location {
-                        None => Some(Location {
-                            uri,
-                            range: location.into(),
+                        None => Some(LocationLink {
+                            origin_selection_range: Some(source.into()),
+                            target_uri: uri,
+                            target_range: location.into(),
+                            target_selection_range: location.into(),
                         }),
-                        Some(loaded_location) => Some(Location {
-                            uri: load_uri,
-                            range: loaded_location.into(),
+                        Some(loaded_location) => Some(LocationLink {
+                            origin_selection_range: Some(source.into()),
+                            target_uri: load_uri,
+                            target_range: loaded_location.into(),
+                            target_selection_range: loaded_location.into(),
                         }),
                     }
                 }
                 DefinitionLocation::NotFound => None,
-                DefinitionLocation::LoadPath { path } => {
+                DefinitionLocation::LoadPath { source, path } => {
                     match self.resolve_load_path(&path, &uri) {
-                        Ok(load_uri) => Some(Location {
-                            uri: load_uri,
-                            range: Default::default(),
+                        Ok(load_uri) => Some(LocationLink {
+                            origin_selection_range: Some(source.into()),
+                            target_uri: load_uri,
+                            target_range: Default::default(),
+                            target_selection_range: Default::default(),
                         }),
                         Err(_) => None,
                     }
@@ -228,10 +241,10 @@ impl<T: LspContext> Backend<T> {
         };
 
         let response = match location {
-            Some(location) => GotoDefinitionResponse::Scalar(location),
-            None => GotoDefinitionResponse::Array(vec![]),
+            Some(location) => vec![location],
+            None => vec![],
         };
-        Ok(response)
+        Ok(GotoDefinitionResponse::Link(response))
     }
 }
 
@@ -399,12 +412,12 @@ mod test {
 
     use lsp_server::{Request, RequestId};
     use lsp_types::{
-        request::GotoDefinition, GotoDefinitionParams, GotoDefinitionResponse, Location, Position,
-        Range, TextDocumentIdentifier, TextDocumentPositionParams, Url,
+        request::GotoDefinition, GotoDefinitionParams, GotoDefinitionResponse, LocationLink,
+        Position, Range, TextDocumentIdentifier, TextDocumentPositionParams, Url,
     };
     use textwrap::dedent;
 
-    use crate::{analysis::FixtureWithRanges, lsp::test::TestServer};
+    use crate::{analysis::FixtureWithRanges, codemap::ResolvedSpan, lsp::test::TestServer};
 
     fn goto_definition_request(
         server: &mut TestServer,
@@ -425,11 +438,51 @@ mod test {
     fn goto_definition_response_location(
         server: &mut TestServer,
         request_id: RequestId,
-    ) -> anyhow::Result<Location> {
+    ) -> anyhow::Result<LocationLink> {
         let response = server.get_response::<GotoDefinitionResponse>(request_id)?;
         match response {
-            GotoDefinitionResponse::Scalar(location) => Ok(location),
+            GotoDefinitionResponse::Link(locations) if locations.len() == 1 => {
+                Ok(locations[0].clone())
+            }
             _ => Err(anyhow::anyhow!("Got invalid message type: {:?}", response)),
+        }
+    }
+
+    fn expected_location_link(
+        uri: Url,
+        source_line: u32,
+        source_start_col: u32,
+        source_end_col: u32,
+        dest_line: u32,
+        dest_start_col: u32,
+        dest_end_col: u32,
+    ) -> LocationLink {
+        let source_range = Range::new(
+            Position::new(source_line, source_start_col),
+            Position::new(source_line, source_end_col),
+        );
+        let dest_range = Range::new(
+            Position::new(dest_line, dest_start_col),
+            Position::new(dest_line, dest_end_col),
+        );
+        LocationLink {
+            origin_selection_range: Some(source_range),
+            target_uri: uri,
+            target_range: dest_range,
+            target_selection_range: dest_range,
+        }
+    }
+
+    fn expected_location_link_from_spans(
+        uri: Url,
+        source_span: ResolvedSpan,
+        dest_span: ResolvedSpan,
+    ) -> LocationLink {
+        LocationLink {
+            origin_selection_range: Some(source_span.into()),
+            target_uri: uri,
+            target_range: dest_span.into(),
+            target_selection_range: dest_span.into(),
         }
     }
 
@@ -483,19 +536,7 @@ mod test {
     #[test]
     fn goes_to_definition() -> anyhow::Result<()> {
         let uri = temp_file_uri("file.star");
-        let expected_location = Location {
-            uri: uri.clone(),
-            range: Range {
-                start: Position {
-                    line: 1,
-                    character: 4,
-                },
-                end: Position {
-                    line: 1,
-                    character: 11,
-                },
-            },
-        };
+        let expected_location = expected_location_link(uri.clone(), 3, 6, 13, 1, 4, 11);
 
         let mut server = TestServer::new()?;
         let contents = "y = 1\ndef nothing():\n    pass\nprint(nothing())\n";
@@ -513,19 +554,7 @@ mod test {
     #[test]
     fn returns_old_definitions_if_current_file_does_not_parse() -> anyhow::Result<()> {
         let uri = temp_file_uri("file.star");
-        let expected_location = Location {
-            uri: uri.clone(),
-            range: Range {
-                start: Position {
-                    line: 1,
-                    character: 4,
-                },
-                end: Position {
-                    line: 1,
-                    character: 11,
-                },
-            },
-        };
+        let expected_location = expected_location_link(uri.clone(), 3, 6, 13, 1, 4, 11);
 
         let mut server = TestServer::new()?;
         let contents = "y = 1\ndef nothing():\n    pass\nprint(nothing())\n";
@@ -549,7 +578,7 @@ mod test {
         let foo_contents = dedent(
             r#"
             load("{load}", "baz")
-            <baz>b</baz>az()
+            <baz_click><baz>b</baz>az</baz_click>()
             "#,
         )
         .replace("{load}", bar_uri.path())
@@ -559,10 +588,11 @@ mod test {
         let foo = FixtureWithRanges::from_fixture(foo_uri.path(), &foo_contents)?;
         let bar = FixtureWithRanges::from_fixture(bar_uri.path(), bar_contents)?;
 
-        let expected_location = Location {
-            uri: bar_uri.clone(),
-            range: bar.span("baz").into(),
-        };
+        let expected_location = expected_location_link_from_spans(
+            bar_uri.clone(),
+            foo.span("baz_click"),
+            bar.span("baz"),
+        );
 
         let mut server = TestServer::new()?;
         // Initialize with "junk" on disk so that we make sure we're using the contents from the
@@ -593,7 +623,7 @@ mod test {
         let foo_contents = dedent(
             r#"
             load("{load}", "baz")
-            <baz>b</baz>az()
+            <baz_click><baz>b</baz>az</baz_click>()
             "#,
         )
         .replace("{load}", bar_uri.path())
@@ -603,10 +633,11 @@ mod test {
         let foo = FixtureWithRanges::from_fixture(foo_uri.path(), &foo_contents)?;
         let bar = FixtureWithRanges::from_fixture(bar_uri.path(), bar_contents)?;
 
-        let expected_location = Location {
-            uri: bar_uri.clone(),
-            range: bar.span("baz").into(),
-        };
+        let expected_location = expected_location_link_from_spans(
+            bar_uri.clone(),
+            foo.span("baz_click"),
+            bar.span("baz"),
+        );
 
         let mut server = TestServer::new()?;
         server.open_file(foo_uri.clone(), foo.program())?;
@@ -634,7 +665,7 @@ mod test {
         let foo_contents = dedent(
             r#"
             load("bar.star", "baz")
-            <baz>b</baz>az()
+            <baz_click><baz>b</baz>az</baz_click>()
             "#,
         )
         .trim()
@@ -643,10 +674,11 @@ mod test {
         let foo = FixtureWithRanges::from_fixture(foo_uri.path(), &foo_contents)?;
         let bar = FixtureWithRanges::from_fixture(bar_uri.path(), bar_contents)?;
 
-        let expected_location = Location {
-            uri: bar_uri.clone(),
-            range: bar.span("baz").into(),
-        };
+        let expected_location = expected_location_link_from_spans(
+            bar_uri.clone(),
+            foo.span("baz_click"),
+            bar.span("baz"),
+        );
 
         let mut server = TestServer::new()?;
         server.open_file(foo_uri.clone(), foo.program())?;
@@ -673,17 +705,18 @@ mod test {
         let foo_contents = dedent(
             r#"
             load("{load}", <baz_loc>"baz"</baz_loc>)
-            <baz>b</baz>az()
+            <baz_click><baz>b</baz>az</baz_click>()
             "#,
         )
         .replace("{load}", foo_uri.path())
         .trim()
         .to_owned();
         let foo = FixtureWithRanges::from_fixture(foo_uri.path(), &foo_contents)?;
-        let expected_location = Location {
-            uri: foo_uri.clone(),
-            range: foo.span("baz_loc").into(),
-        };
+        let expected_location = expected_location_link_from_spans(
+            foo_uri.clone(),
+            foo.span("baz_click"),
+            foo.span("baz_loc"),
+        );
 
         let mut server = TestServer::new()?;
         server.open_file(foo_uri.clone(), foo.program())?;
@@ -719,10 +752,11 @@ mod test {
         let foo = FixtureWithRanges::from_fixture(foo_uri.path(), &foo_contents)?;
         let bar = FixtureWithRanges::from_fixture(bar_uri.path(), bar_contents)?;
 
-        let expected_location = Location {
-            uri: foo_uri.clone(),
-            range: foo.span("not_baz_loc").into(),
-        };
+        let expected_location = expected_location_link_from_spans(
+            foo_uri.clone(),
+            foo.span("not_baz"),
+            foo.span("not_baz_loc"),
+        );
 
         let mut server = TestServer::new()?;
         server.open_file(foo_uri.clone(), foo.program())?;
@@ -749,7 +783,7 @@ mod test {
 
         let foo_contents = dedent(
             r#"
-            load("{load}", "<baz>b</baz>az")
+            load("{load}", <baz_click>"<baz>b</baz>az"</baz_click>)
             baz()
             "#,
         )
@@ -760,10 +794,11 @@ mod test {
         let foo = FixtureWithRanges::from_fixture(foo_uri.path(), &foo_contents)?;
         let bar = FixtureWithRanges::from_fixture(bar_uri.path(), bar_contents)?;
 
-        let expected_location = Location {
-            uri: bar_uri.clone(),
-            range: bar.span("baz").into(),
-        };
+        let expected_location = expected_location_link_from_spans(
+            bar_uri.clone(),
+            foo.span("baz_click"),
+            bar.span("baz"),
+        );
 
         let mut server = TestServer::new()?;
         server.open_file(foo_uri.clone(), foo.program())?;
@@ -800,10 +835,11 @@ mod test {
         let foo = FixtureWithRanges::from_fixture(foo_uri.path(), &foo_contents)?;
         let bar = FixtureWithRanges::from_fixture(bar_uri.path(), bar_contents)?;
 
-        let expected_location = Location {
-            uri: foo_uri.clone(),
-            range: foo.span("not_baz_loc").into(),
-        };
+        let expected_location = expected_location_link_from_spans(
+            foo_uri.clone(),
+            foo.span("not_baz_loc"),
+            foo.span("not_baz_loc"),
+        );
 
         let mut server = TestServer::new()?;
         server.open_file(foo_uri.clone(), foo.program())?;
@@ -836,7 +872,7 @@ mod test {
 
         let foo_contents = dedent(
             r#"
-            load("{load}", "baz")
+            load(<bar_click>"{load}"</bar_click>, "baz")
             baz()
             "#,
         )
@@ -845,9 +881,11 @@ mod test {
         .to_owned();
         let foo = FixtureWithRanges::from_fixture(foo_uri.path(), &foo_contents)?;
 
-        let expected_location = Location {
-            uri: bar_uri,
-            range: Default::default(),
+        let expected_location = LocationLink {
+            origin_selection_range: Some(foo.span("bar_click").into()),
+            target_uri: bar_uri,
+            target_range: Default::default(),
+            target_selection_range: Default::default(),
         };
 
         let mut server = TestServer::new()?;
