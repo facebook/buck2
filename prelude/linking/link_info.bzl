@@ -39,6 +39,7 @@ Linkage = enum(
 # each have the appropriate type automatically.
 LinkableType = enum(
     "archive",
+    "frameworks",
     "shared",
     "objects",
 )
@@ -67,6 +68,19 @@ ObjectsLinkable = record(
     _type = field(LinkableType.type, LinkableType("objects")),
 )
 
+# Framework + library information for Apple/Cxx targets.
+FrameworksLinkable = record(
+    # A list of trimmed framework paths, example: ["Foundation", "UIKit"]
+    # Used to construct `-framework` args.
+    framework_names = field([str.type], []),
+    # A list of sysroot-relative framework paths.
+    # Used to construct `-F` args.
+    resolved_framework_paths = field([str.type], []),
+    # A list of library names, used to construct `-l` args.
+    library_names = field([str.type], []),
+    _type = field(LinkableType.type, LinkableType("frameworks")),
+)
+
 # Input provided to the native linker.
 LinkInfo = record(
     # An informative name for this LinkInfo. This may be used in user messages
@@ -76,7 +90,7 @@ LinkInfo = record(
     post_flags = field([""], []),
     # Input to the linker, containing label-specific groups of ordered flags,
     # objects, archives, and/or shared libraries, {"label": [arglike things]}
-    linkables = field([[ArchiveLinkable.type, SharedLibLinkable.type, ObjectsLinkable.type]], []),
+    linkables = field([[ArchiveLinkable.type, SharedLibLinkable.type, ObjectsLinkable.type, FrameworksLinkable.type]], []),
     use_link_groups = field(bool.type, False),
 )
 
@@ -96,7 +110,7 @@ def wrap_link_info(
     )
 
 # Adds approprate args representing `linkable` to `args`
-def append_linkable_args(args: "cmd_args", linkable: [ArchiveLinkable.type, SharedLibLinkable.type, ObjectsLinkable.type], use_link_groups: bool.type):
+def append_linkable_args(args: "cmd_args", linkable: [ArchiveLinkable.type, SharedLibLinkable.type, ObjectsLinkable.type, FrameworksLinkable.type], use_link_groups: bool.type):
     if linkable._type == LinkableType("archive"):
         if linkable.link_whole or (linkable.linker_type == "gnu" and use_link_groups):
             args.add(get_link_whole_args(linkable.linker_type, [linkable.archive.artifact]))
@@ -127,6 +141,12 @@ def append_linkable_args(args: "cmd_args", linkable: [ArchiveLinkable.type, Shar
                 args.add(get_objects_as_library_args(linkable.linker_type, linkable.objects))
             else:
                 args.add(linkable.objects)
+    elif linkable._type == LinkableType("frameworks"):
+        # These flags are handled separately so they can be deduped.
+        #
+        # We've seen in apps with larger dependency graphs that failing
+        # to dedupe these args results in linker.argsfile which are too big.
+        pass
     else:
         fail("unreachable")
 
@@ -156,6 +176,8 @@ def link_info_filelist(value: LinkInfo.type) -> ["artifact"]:
         elif linkable._type == LinkableType("objects"):
             if linkable.linker_type == "darwin":
                 filelists += linkable.objects
+        elif linkable._type == LinkableType("frameworks"):
+            pass
         else:
             fail("unreachable")
     return filelists

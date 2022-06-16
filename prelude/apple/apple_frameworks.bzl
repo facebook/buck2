@@ -1,4 +1,5 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
+load("@fbcode//buck2/prelude/linking:link_info.bzl", "FrameworksLinkable")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 
@@ -6,6 +7,16 @@ _IMPLICIT_SDKROOT_FRAMEWORK_SEARCH_PATHS = [
     "$SDKROOT/Library/Frameworks",
     "$SDKROOT/System/Library/Frameworks",
 ]
+
+def create_frameworks_linkable(ctx: "context") -> [FrameworksLinkable.type, None]:
+    if not ctx.attr.libraries and not ctx.attr.frameworks:
+        return None
+
+    return FrameworksLinkable(
+        library_names = [_library_name(x) for x in ctx.attr.libraries],
+        resolved_framework_paths = _get_non_sdk_framework_directories(ctx, ctx.attr.frameworks),
+        framework_names = [to_framework_name(x) for x in ctx.attr.frameworks],
+    )
 
 def get_apple_frameworks_linker_flags(ctx: "context") -> [""]:
     flags = get_framework_search_path_flags(ctx)
@@ -21,15 +32,20 @@ def get_apple_frameworks_linker_flags(ctx: "context") -> [""]:
     return flags
 
 def get_framework_search_path_flags(ctx: "context") -> [""]:
-    # We don't want to include SDK directories as those are already added via `isysroot` flag in toolchain definition.
-    # Adding those directly via `-F` will break building Catalyst applications as frameworks from support directory
-    # won't be found and those for macOS platform will be used.
+    return _get_framework_search_path_flags(_get_non_sdk_framework_directories(ctx, ctx.attr.frameworks))
+
+def _get_framework_search_path_flags(frameworks: [""]) -> [""]:
     flags = []
-    non_sdk_framework_directories = dedupe(filter(None, [_non_sdk_framework_directory(ctx, x) for x in ctx.attr.frameworks]))
-    for directory in non_sdk_framework_directories:
+    for directory in frameworks:
         flags.extend(["-F", directory])
 
     return flags
+
+def _get_non_sdk_framework_directories(ctx: "context", frameworks: [""]) -> [""]:
+    # We don't want to include SDK directories as those are already added via `isysroot` flag in toolchain definition.
+    # Adding those directly via `-F` will break building Catalyst applications as frameworks from support directory
+    # won't be found and those for macOS platform will be used.
+    return dedupe(filter(None, [_non_sdk_framework_directory(ctx, x) for x in frameworks]))
 
 def to_framework_name(framework_path: str.type) -> str.type:
     name, ext = paths.split_extension(paths.basename(framework_path))
