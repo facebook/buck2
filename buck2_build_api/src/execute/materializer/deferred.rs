@@ -55,6 +55,7 @@ use crate::{
             ArtifactNotMaterializedReason, CasDownloadInfo, CopiedArtifact, HttpDownloadInfo,
             MaterializationError, Materializer,
         },
+        CleanOutputPaths,
     },
 };
 
@@ -234,6 +235,8 @@ struct ArtifactMaterializationData {
 enum ArtifactMaterializationStage {
     /// The artifact was declared, but the materialization hasn't started yet.
     /// If it did start but end with an error, it returns to this stage.
+    /// When the the artifact was declared, we spawn a deletion future to delete
+    /// all existing paths that conflict with the output paths.
     Declared,
     /// The materialization has started and it hasn't finished yet.
     Materializing,
@@ -447,12 +450,20 @@ impl DeferredMaterializerCommandProcessor {
                         version = next_version,
                         "declare artifact",
                     );
+                    // Always invalidate materializer state before actual deleting from filesystem
+                    // so there will never be a moment where artifact is deleted but materializer
+                    // thinks it still exists.
+                    let pending_fut = tree.remove(path.iter()).and_then(|data| data.pending_fut);
                     let data = box ArtifactMaterializationData {
                         value,
                         method: Arc::new(*method),
                         stage: ArtifactMaterializationStage::Declared,
                         version: next_version,
-                        pending_fut: None,
+                        pending_fut: Some(clean_output_paths(
+                            self.io_executor.dupe(),
+                            path.clone(),
+                            pending_fut.clone(),
+                        )),
                     };
                     next_version += 1;
                     tree.insert(path.iter().map(|f| f.to_owned()), data);
@@ -551,15 +562,18 @@ impl DeferredMaterializerCommandProcessor {
                     }
                 },
             };
-        let deps = data.value.deps().duped();
+        let value = data.value.dupe();
+        let deps = value.deps().duped();
         let method = data.method.dupe();
         let version = data.version;
+        let pending_fut = data.pending_fut.clone();
 
         tracing::debug!(
             method = %method,
             has_entry = entry.is_some(),
             has_deps = deps.is_some(),
             version = version,
+            deleting = pending_fut.is_some(),
             "materialize artifact"
         );
 
@@ -593,6 +607,12 @@ impl DeferredMaterializerCommandProcessor {
             // need to notity the materializer regardless of whether this succeeds or fails.
 
             let res: Result<(), SharedProcessingError> = try {
+                // If there is an existing future trying to delete conflicting paths, we must wait for it
+                // to finish before we can start materialization.
+                if let Some(pending_fut) = pending_fut {
+                    pending_fut.await?;
+                };
+
                 // In case this is a local copy, we first need to materialize the
                 // artifacts we are copying from, before we can copy them.
                 for t in deps_tasks {
@@ -950,6 +970,31 @@ fn maybe_tombstone_digest(digest: &FileDigest) -> anyhow::Result<&FileDigest> {
     }
 
     Ok(digest)
+}
+
+/// Spawns a future to clean output paths while waiting for any
+/// pending future to finish.
+fn clean_output_paths(
+    io_executor: Arc<dyn BlockingExecutor>,
+    path: ProjectRelativePathBuf,
+    pending_fut: Option<ProcessingFuture>,
+) -> ProcessingFuture {
+    tokio::task::spawn(async move {
+        if let Some(pending_fut) = pending_fut {
+            pending_fut.await?;
+        }
+        io_executor
+            .dupe()
+            .execute_io(box CleanOutputPaths { paths: vec![path] })
+            .await
+            .map_err(|e| SharedProcessingError::Error(e.into()))
+    })
+    .map(|r| match r {
+        Ok(r) => r,
+        Err(e) => Err(SharedProcessingError::Error(e.into())), // Turn the JoinError into a SharedError.
+    })
+    .boxed()
+    .shared()
 }
 
 #[cfg(test)]
