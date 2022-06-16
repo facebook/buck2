@@ -310,10 +310,6 @@ impl IncrementalActionExecutable for RunAction {
             Some(dep_files)
         };
 
-        if !self.inner.no_outputs_cleanup {
-            ctx.cleanup_outputs().await?;
-        }
-
         let fs = ctx.fs();
 
         let (ExpandedCommandLine { cli, mut env }, inputs) = {
