@@ -69,7 +69,7 @@ pub mod testing {
     use crate::{
         actions::{
             artifact::{
-                testing::BuildArtifactTestingExt, Artifact, ArtifactFs, BuildArtifact,
+                testing::BuildArtifactTestingExt, Artifact, ArtifactFs, BuildArtifact, ExecutorFs,
                 SourceArtifact,
             },
             testing::SimpleUnregisteredAction,
@@ -79,6 +79,7 @@ pub mod testing {
         deferred::{
             testing::DeferredIdExt, BaseDeferredKey, BaseKey, DeferredId, DeferredRegistry,
         },
+        execute::PathSeparatorKind,
         interpreter::{
             rule_defs::{
                 artifact::{StarlarkArtifact, StarlarkDeclaredArtifact, ValueAsArtifactLike},
@@ -204,7 +205,8 @@ pub mod testing {
                 )),
                 project_fs,
             );
-            let mut builder = BaseCommandLineBuilder::new(&fs);
+            let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
+            let mut builder = BaseCommandLineBuilder::new(&executor_fs);
             artifact
                 .as_artifact()
                 .unwrap()

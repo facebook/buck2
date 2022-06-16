@@ -25,7 +25,7 @@ use starlark::values::{string::STRING_TYPE, Value};
 use thiserror::Error;
 
 use crate::{
-    actions::artifact::ArtifactFs,
+    actions::artifact::ExecutorFs,
     attrs::{
         attr_type::{
             arg::{
@@ -567,7 +567,7 @@ impl CommandLineBuilderContext for SpaceSeparatedCommandLineBuilder<'_> {
         self.builder.resolve_project_path(path)
     }
 
-    fn fs(&self) -> &ArtifactFs {
+    fn fs(&self) -> &ExecutorFs {
         self.builder.fs()
     }
 
@@ -748,7 +748,7 @@ mod tests {
                 unimplemented!()
             }
 
-            fn fs(&self) -> &ArtifactFs {
+            fn fs(&self) -> &ExecutorFs {
                 unimplemented!()
             }
 

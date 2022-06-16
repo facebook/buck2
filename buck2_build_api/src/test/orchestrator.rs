@@ -738,7 +738,7 @@ impl<'a> Execute2RequestExpander<'a> {
 
         let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
 
-        let mut builder = B::new(self.fs.fs());
+        let mut builder = B::new(self.fs);
         for var in self.cmd {
             expand_arg_value(
                 &mut builder,
@@ -754,7 +754,7 @@ impl<'a> Execute2RequestExpander<'a> {
             .env
             .into_iter()
             .map(|(k, v)| {
-                let mut builder = B::new(self.fs.fs());
+                let mut builder = B::new(self.fs);
                 expand_arg_value(
                     &mut builder,
                     &mut artifact_visitor,
@@ -772,12 +772,12 @@ impl<'a> Execute2RequestExpander<'a> {
 }
 
 trait CommandLineBuilderExt<'a>: CommandLineBuilder + 'a {
-    fn new(fs: &'a ArtifactFs) -> Self;
+    fn new(fs: &'a ExecutorFs) -> Self;
     fn build(self) -> Vec<String>;
 }
 
 impl<'a> CommandLineBuilderExt<'a> for BaseCommandLineBuilder<'a> {
-    fn new(fs: &'a ArtifactFs) -> Self {
+    fn new(fs: &'a ExecutorFs) -> Self {
         Self::new(fs)
     }
 
@@ -787,7 +787,7 @@ impl<'a> CommandLineBuilderExt<'a> for BaseCommandLineBuilder<'a> {
 }
 
 impl<'a> CommandLineBuilderExt<'a> for AbsCommandLineBuilder<'a> {
-    fn new(fs: &'a ArtifactFs) -> Self {
+    fn new(fs: &'a ExecutorFs) -> Self {
         Self::new(fs)
     }
 
@@ -809,7 +809,7 @@ impl<'a> CommandLineBuilderContext for CommandLineBuilderFormatWrapper<'a> {
         self.inner.resolve_project_path(path)
     }
 
-    fn fs(&self) -> &ArtifactFs {
+    fn fs(&self) -> &ExecutorFs {
         self.inner.fs()
     }
 

@@ -148,7 +148,7 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                     }
                 }
                 Some(fs) => {
-                    let mut cli_builder = BaseCommandLineBuilder::new(fs.fs());
+                    let mut cli_builder = BaseCommandLineBuilder::new(fs);
                     err(x.add_to_command_line(&mut cli_builder))?;
                     let items = cli_builder.build();
                     // We change the type, based on the value - singleton = String, otherwise list.

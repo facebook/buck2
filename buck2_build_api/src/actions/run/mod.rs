@@ -152,7 +152,7 @@ impl RunAction {
         fs: &ExecutorFs,
         artifact_visitor: &mut impl CommandLineArtifactVisitor,
     ) -> anyhow::Result<ExpandedCommandLine> {
-        let mut cli_builder = BaseCommandLineBuilder::new(fs.fs());
+        let mut cli_builder = BaseCommandLineBuilder::new(fs);
 
         let (cli, env) = Self::unpack(&self.starlark_cli).unwrap();
         cli.add_to_command_line(&mut cli_builder)?;
@@ -160,7 +160,7 @@ impl RunAction {
 
         let mut cli_env = HashMap::with_capacity(env.len());
         for (k, v) in env.into_iter() {
-            let mut var_builder = BaseCommandLineBuilder::new(fs.fs());
+            let mut var_builder = BaseCommandLineBuilder::new(fs);
             v.add_to_command_line(&mut var_builder)?;
             v.visit_artifacts(artifact_visitor)?;
             let var = var_builder.build().join(" ");
@@ -231,7 +231,7 @@ impl Action for RunAction {
     }
 
     fn aquery_attributes(&self, fs: &ExecutorFs) -> indexmap::IndexMap<String, String> {
-        let mut cli_builder = BaseCommandLineBuilder::new(fs.fs());
+        let mut cli_builder = BaseCommandLineBuilder::new(fs);
         let (cli, _env) = Self::unpack(&self.starlark_cli).unwrap();
         cli.add_to_command_line(&mut cli_builder).unwrap();
         let cmd = format!("[{}]", cli_builder.build().iter().join(", "));

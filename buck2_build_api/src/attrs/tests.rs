@@ -25,7 +25,7 @@ use starlark::{
 };
 
 use crate::{
-    actions::artifact::ArtifactFs,
+    actions::artifact::{ArtifactFs, ExecutorFs},
     attrs::{
         attr_type::{
             attr_literal::{CoercedDepsCollector, ConfiguredAttrInfo},
@@ -36,6 +36,7 @@ use crate::{
             resolution_ctx_with_providers, to_value,
         },
     },
+    execute::PathSeparatorKind,
     interpreter::rule_defs::{
         attr::AttrIsConfigurable,
         cmd_args::{BaseCommandLineBuilder, ValueAsCommandLineLike},
@@ -819,8 +820,9 @@ fn test_user_placeholders() -> anyhow::Result<()> {
                 )),
                 project_fs,
             );
+            let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
 
-            let mut builder = BaseCommandLineBuilder::new(&fs);
+            let mut builder = BaseCommandLineBuilder::new(&executor_fs);
             v.as_command_line()
                 .unwrap()
                 .add_to_command_line(&mut builder)

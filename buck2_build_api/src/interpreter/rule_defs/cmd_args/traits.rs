@@ -8,6 +8,7 @@
  */
 
 use std::{
+    borrow::Cow,
     fmt::{Debug, Display},
     path::Path,
     ptr,
@@ -22,9 +23,10 @@ use indexmap::IndexSet;
 use starlark::values::string::StarlarkStr;
 
 use crate::{
-    actions::artifact::{Artifact, ArtifactFs, OutputArtifact},
+    actions::artifact::{Artifact, ExecutorFs, OutputArtifact},
     artifact_groups::ArtifactGroup,
     attrs::attr_type::arg::value::ResolvedMacro,
+    execute::PathSeparatorKind,
     interpreter::rule_defs::artifact_tagging::ArtifactTag,
 };
 
@@ -150,6 +152,7 @@ impl CommandLineArgLike for String {
 pub struct CommandLineLocation<'a> {
     root: Option<&'a Path>,
     path: RelativePathBuf,
+    path_separator: PathSeparatorKind,
 }
 
 impl CommandLineLocation<'_> {
@@ -158,32 +161,52 @@ impl CommandLineLocation<'_> {
     }
 
     pub fn into_string(self) -> String {
-        let Self { root, path } = self;
+        let Self {
+            root,
+            path,
+            path_separator,
+        } = self;
 
+        let mut root_buf;
         let res = match root {
             Some(root) => {
-                let mut root = root.to_path_buf();
-                root.extend(path.iter());
-                root.to_string_lossy().into_owned()
+                root_buf = root.to_path_buf();
+                root_buf.extend(path.iter());
+                root_buf.to_string_lossy()
             }
-            None => path.as_str().to_owned(),
+            None => Cow::Borrowed(path.as_str()),
         };
         // In command lines, the empty path is the current directory, so use that instead
         // so we don't have to deal with empty strings being implicit current directory.
-        if res == "" { ".".to_owned() } else { res }
+        if res.is_empty() {
+            ".".to_owned()
+        } else if path_separator == PathSeparatorKind::Windows && res.contains('/') {
+            res.replace('/', "\\")
+        } else {
+            res.into_owned()
+        }
     }
 }
 
 impl<'a> CommandLineLocation<'a> {
-    pub fn from_root(root: &'a Path, path: RelativePathBuf) -> Self {
+    pub fn from_root(
+        root: &'a Path,
+        path: RelativePathBuf,
+        path_separator: PathSeparatorKind,
+    ) -> Self {
         Self {
             root: Some(root),
             path,
+            path_separator,
         }
     }
 
-    pub fn from_relative_path(path: RelativePathBuf) -> Self {
-        Self { root: None, path }
+    pub fn from_relative_path(path: RelativePathBuf, path_separator: PathSeparatorKind) -> Self {
+        Self {
+            root: None,
+            path,
+            path_separator,
+        }
     }
 }
 
@@ -193,16 +216,16 @@ pub trait CommandLineBuilderContext {
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<CommandLineLocation>;
 
-    fn fs(&self) -> &ArtifactFs;
+    fn fs(&self) -> &ExecutorFs;
 
     /// Resolves the 'Artifact's to a 'CommandLineLocation' relative to the directory this command will run in.
     fn resolve_artifact(&self, artifact: &Artifact) -> anyhow::Result<CommandLineLocation> {
-        self.resolve_project_path(self.fs().resolve(artifact)?)
+        self.resolve_project_path(self.fs().fs().resolve(artifact)?)
             .with_context(|| format!("Error resolving artifact: {}", artifact))
     }
 
     fn resolve_cell_path(&self, path: &CellPath) -> anyhow::Result<CommandLineLocation> {
-        self.resolve_project_path(self.fs().resolve_cell_path(path)?)
+        self.resolve_project_path(self.fs().fs().resolve_cell_path(path)?)
             .with_context(|| format!("Error resolving cell path: {}", path))
     }
 

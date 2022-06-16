@@ -159,7 +159,8 @@ pub mod tester {
     use starlark::{environment::GlobalsBuilder, values::Value};
 
     use crate::{
-        actions::artifact::ArtifactFs,
+        actions::artifact::{ArtifactFs, ExecutorFs},
+        execute::PathSeparatorKind,
         interpreter::{
             rule_defs::cmd_args::{builder::BaseCommandLineBuilder, ValueAsCommandLineLike},
             testing::cells,
@@ -180,7 +181,8 @@ pub mod tester {
 
     fn get_command_line(value: Value) -> anyhow::Result<Vec<String>> {
         let fs = artifact_fs();
-        let mut builder = BaseCommandLineBuilder::new(&fs);
+        let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
+        let mut builder = BaseCommandLineBuilder::new(&executor_fs);
 
         match value.as_command_line() {
             Some(v) => v.add_to_command_line(&mut builder),
@@ -199,7 +201,8 @@ pub mod tester {
 
         fn stringify_cli_arg<'v>(value: Value<'v>) -> anyhow::Result<String> {
             let fs = artifact_fs();
-            let mut builder = BaseCommandLineBuilder::new(&fs);
+            let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
+            let mut builder = BaseCommandLineBuilder::new(&executor_fs);
             value
                 .as_command_line_err()?
                 .add_to_command_line(&mut builder)?;

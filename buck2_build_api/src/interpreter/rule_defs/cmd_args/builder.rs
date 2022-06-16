@@ -15,7 +15,7 @@ use indexmap::IndexSet;
 use thiserror::Error;
 
 use crate::{
-    actions::artifact::{Artifact, ArtifactFs},
+    actions::artifact::{Artifact, ExecutorFs},
     interpreter::rule_defs::cmd_args::traits::{
         CommandLineBuilder, CommandLineBuilderContext, CommandLineLocation,
     },
@@ -35,7 +35,7 @@ pub enum CommandLineBuilderErrors {
 
 /// Builds up arguments needed to construct a command line
 pub struct BaseCommandLineBuilder<'v> {
-    fs: &'v ArtifactFs,
+    fs: &'v ExecutorFs<'v>,
     command_line: Vec<String>,
     // First element is list of artifacts, each corresponding to a file with macro contents. Ordering is very important.
     // Second element is a current position in that list.
@@ -45,8 +45,8 @@ pub struct BaseCommandLineBuilder<'v> {
 impl<'v> BaseCommandLineBuilder<'v> {
     /// Create a new builder
     ///
-    /// `fs`: The `ArtifactFs` that things like `Artifact` can use to generate strings
-    pub fn new(fs: &'v ArtifactFs) -> Self {
+    /// `fs`: The `ExecutorFs` that things like `Artifact` can use to generate strings
+    pub fn new(fs: &'v ExecutorFs) -> Self {
         Self {
             fs,
             command_line: Vec::new(),
@@ -55,7 +55,7 @@ impl<'v> BaseCommandLineBuilder<'v> {
     }
 
     pub fn new_with_write_to_file_macros_support(
-        fs: &'v ArtifactFs,
+        fs: &'v ExecutorFs,
         macro_files: &'v IndexSet<Artifact>,
     ) -> Self {
         Self {
@@ -66,7 +66,7 @@ impl<'v> BaseCommandLineBuilder<'v> {
     }
 
     /// The `ArtifactFilesystem` to resolve `Artifact`s
-    pub fn fs(&self) -> &ArtifactFs {
+    pub fn fs(&self) -> &ExecutorFs {
         self.fs
     }
 
@@ -87,10 +87,13 @@ impl CommandLineBuilderContext for BaseCommandLineBuilder<'_> {
         &self,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<CommandLineLocation> {
-        Ok(CommandLineLocation::from_relative_path(path.into()))
+        Ok(CommandLineLocation::from_relative_path(
+            path.into(),
+            self.fs.path_separator(),
+        ))
     }
 
-    fn fs(&self) -> &ArtifactFs {
+    fn fs(&self) -> &ExecutorFs {
         self.fs
     }
 
@@ -103,7 +106,7 @@ impl CommandLineBuilderContext for BaseCommandLineBuilder<'_> {
             }
             self.maybe_macros_state = Some((files, pos + 1));
             Ok(self
-                .resolve_project_path(self.fs.resolve(&files[pos])?)?
+                .resolve_project_path(self.fs.fs().resolve(&files[pos])?)?
                 .into_relative())
         } else {
             Err(anyhow!(
@@ -116,8 +119,8 @@ impl CommandLineBuilderContext for BaseCommandLineBuilder<'_> {
 pub struct AbsCommandLineBuilder<'v>(BaseCommandLineBuilder<'v>);
 
 impl<'v> AbsCommandLineBuilder<'v> {
-    pub fn new(artifact_fs: &'v ArtifactFs) -> Self {
-        Self(BaseCommandLineBuilder::<'v>::new(artifact_fs))
+    pub fn new(executor_fs: &'v ExecutorFs) -> Self {
+        Self(BaseCommandLineBuilder::<'v>::new(executor_fs))
     }
 
     pub fn build(self) -> Vec<String> {
@@ -131,18 +134,19 @@ impl CommandLineBuilderContext for AbsCommandLineBuilder<'_> {
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<CommandLineLocation> {
         Ok(CommandLineLocation::from_root(
-            &self.0.fs().fs().root,
+            &self.0.fs().fs().fs().root,
             path.into(),
+            self.fs().path_separator(),
         ))
     }
 
-    fn fs(&self) -> &ArtifactFs {
+    fn fs(&self) -> &ExecutorFs {
         self.0.fs()
     }
 
     fn next_macro_file_path(&mut self) -> anyhow::Result<RelativePathBuf> {
-        let artifact_fs = self.0.fs();
-        let mut path = artifact_fs.fs().root.to_path_buf();
+        let executor_fs = self.0.fs();
+        let mut path = executor_fs.fs().fs().root.to_path_buf();
         path.extend(self.0.next_macro_file_path()?.iter());
         RelativePathBuf::from_path(path).map_err(|e| anyhow!(e))
     }
@@ -169,6 +173,7 @@ mod tests {
     use super::*;
     use crate::{
         actions::artifact::ArtifactFs,
+        execute::PathSeparatorKind,
         interpreter::rule_defs::cmd_args::{
             builder::BaseCommandLineBuilder, traits::CommandLineArgLike,
         },
@@ -187,8 +192,9 @@ mod tests {
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out".into())),
             project_fs,
         );
+        let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
 
-        let mut builder = BaseCommandLineBuilder::new(&fs);
+        let mut builder = BaseCommandLineBuilder::new(&executor_fs);
 
         "foo".add_to_command_line(&mut builder)?;
         "bar".to_owned().add_to_command_line(&mut builder)?;
@@ -201,18 +207,28 @@ mod tests {
     }
 
     #[test]
-    fn test_empty_command_line() {
+    fn test_command_line_location() {
+        let unix_path_sep = PathSeparatorKind::Unix;
+        let windows_path_sep = PathSeparatorKind::Windows;
         assert_eq!(
-            CommandLineLocation::from_relative_path(RelativePathBuf::new()).into_string(),
+            CommandLineLocation::from_relative_path(RelativePathBuf::new(), unix_path_sep)
+                .into_string(),
             "."
         );
         assert_eq!(
-            CommandLineLocation::from_relative_path(RelativePathBuf::from("a")).into_string(),
+            CommandLineLocation::from_relative_path(RelativePathBuf::from("a"), unix_path_sep)
+                .into_string(),
             "a"
         );
         assert_eq!(
-            CommandLineLocation::from_relative_path(RelativePathBuf::from("a/b")).into_string(),
+            CommandLineLocation::from_relative_path(RelativePathBuf::from("a/b"), unix_path_sep)
+                .into_string(),
             "a/b"
+        );
+        assert_eq!(
+            CommandLineLocation::from_relative_path(RelativePathBuf::from("a/b"), windows_path_sep)
+                .into_string(),
+            "a\\b"
         );
     }
 }

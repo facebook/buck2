@@ -14,10 +14,10 @@ use futures::future;
 use gazebo::dupe::Dupe;
 
 use crate::{
-    actions::artifact::{BaseArtifactKind, BuildArtifact},
+    actions::artifact::{BaseArtifactKind, BuildArtifact, ExecutorFs},
     artifact_groups::{ArtifactGroup, ArtifactGroupValues},
     calculation::Calculation,
-    execute::materializer::ArtifactMaterializer,
+    execute::{materializer::ArtifactMaterializer, PathSeparatorKind},
     interpreter::rule_defs::{
         cmd_args::{AbsCommandLineBuilder, CommandLineArgLike, SimpleCommandLineArtifactVisitor},
         provider::{run_info::RunInfo, FrozenProviderCollectionValue},
@@ -93,7 +93,14 @@ pub async fn build_configured_label(
                 for input in artifact_visitor.inputs {
                     outputs.push((input, BuildProviderType::Run));
                 }
-                let mut cli = AbsCommandLineBuilder::new(&artifact_fs);
+                // Produce arguments to run on a local machine.
+                let path_separator = if cfg!(windows) {
+                    PathSeparatorKind::Windows
+                } else {
+                    PathSeparatorKind::Unix
+                };
+                let executor_fs = ExecutorFs::new(&artifact_fs, path_separator);
+                let mut cli = AbsCommandLineBuilder::new(&executor_fs);
                 runinfo.add_to_command_line(&mut cli)?;
                 run_args = Some(cli.build());
             }

@@ -23,7 +23,7 @@ use serde::{Serialize, Serializer};
 use starlark::values::{Freeze, StringValueLike, Trace, ValueLike};
 
 use crate::{
-    actions::artifact::ArtifactFs,
+    actions::artifact::ExecutorFs,
     interpreter::rule_defs::{
         artifact::{StarlarkArtifactLike, ValueAsArtifactLike},
         cell_root::CellRoot,
@@ -263,10 +263,13 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
                     ))
                     .to_owned();
                 }
-                Ok(CommandLineLocation::from_relative_path(x))
+                Ok(CommandLineLocation::from_relative_path(
+                    x,
+                    self.fs().path_separator(),
+                ))
             }
 
-            fn fs(&self) -> &ArtifactFs {
+            fn fs(&self) -> &ExecutorFs {
                 self.cli.fs()
             }
 

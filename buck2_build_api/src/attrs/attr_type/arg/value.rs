@@ -21,7 +21,7 @@ use starlark::{
 };
 
 use crate::{
-    actions::artifact::ArtifactFs,
+    actions::artifact::ExecutorFs,
     attrs::{
         attr_type::arg::{
             query::ResolvedQueryMacro, ArgBuilder, ConfiguredMacro, ConfiguredStringWithMacros,
@@ -322,7 +322,7 @@ impl CommandLineArgLike for ResolvedStringWithMacros {
                 self.cmdline_builder.resolve_project_path(path)
             }
 
-            fn fs(&self) -> &ArtifactFs {
+            fn fs(&self) -> &ExecutorFs {
                 self.cmdline_builder.fs()
             }
 

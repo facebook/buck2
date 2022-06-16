@@ -115,9 +115,9 @@ impl WriteAction {
 
     fn get_contents(&self, fs: &ExecutorFs) -> anyhow::Result<String> {
         let mut cli_builder = if let Some(macro_files) = &self.macro_files {
-            BaseCommandLineBuilder::new_with_write_to_file_macros_support(fs.fs(), macro_files)
+            BaseCommandLineBuilder::new_with_write_to_file_macros_support(fs, macro_files)
         } else {
-            BaseCommandLineBuilder::new(fs.fs())
+            BaseCommandLineBuilder::new(fs)
         };
 
         self.contents

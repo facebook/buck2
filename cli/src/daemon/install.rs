@@ -12,12 +12,12 @@ use std::process::{Command, Stdio};
 use anyhow::Context;
 use buck2_build_api::{
     actions::{
-        artifact::{Artifact, ArtifactFs, ArtifactValue, BaseArtifactKind},
+        artifact::{Artifact, ArtifactFs, ArtifactValue, BaseArtifactKind, ExecutorFs},
         directory::ActionDirectoryMember,
     },
     artifact_groups::{ArtifactGroup, ArtifactGroupValues},
     calculation::Calculation,
-    execute::materializer::ArtifactMaterializer,
+    execute::{materializer::ArtifactMaterializer, PathSeparatorKind},
     interpreter::rule_defs::{
         cmd_args::{AbsCommandLineBuilder, CommandLineArgLike, SimpleCommandLineArtifactVisitor},
         provider::install_info::*,
@@ -183,7 +183,14 @@ async fn build_launch_installer(
         let artifact_fs = ctx.get_artifact_fs().await;
         let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
         installer_run_info.visit_artifacts(&mut artifact_visitor)?;
-        let mut cli = AbsCommandLineBuilder::new(&artifact_fs);
+        // Produce arguments for local platform.
+        let path_separator = if cfg!(windows) {
+            PathSeparatorKind::Windows
+        } else {
+            PathSeparatorKind::Unix
+        };
+        let executor_fs = ExecutorFs::new(&artifact_fs, path_separator);
+        let mut cli = AbsCommandLineBuilder::new(&executor_fs);
         installer_run_info.add_to_command_line(&mut cli)?;
         let run_args = cli.build();
         (artifact_visitor.inputs, run_args)

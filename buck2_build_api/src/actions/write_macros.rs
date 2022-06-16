@@ -27,7 +27,7 @@ use thiserror::Error;
 
 use crate::{
     actions::{
-        artifact::{ArtifactFs, ArtifactValue, BuildArtifact},
+        artifact::{ArtifactValue, BuildArtifact, ExecutorFs},
         Action, ActionExecutable, ActionExecutionCtx, ArtifactGroup, PristineActionExecutable,
         UnregisteredAction,
     },
@@ -141,9 +141,9 @@ impl PristineActionExecutable for WriteMacrosToFileAction {
         &self,
         ctx: &dyn ActionExecutionCtx,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
-        let fs = ctx.fs();
+        let fs = ctx.executor_fs();
         let mut output_values = IndexMap::with_capacity(self.outputs.len());
-        let mut macro_writer = MacroToFileWriter::new(fs, &self.outputs, &mut output_values);
+        let mut macro_writer = MacroToFileWriter::new(&fs, &self.outputs, &mut output_values);
 
         let mut wall_time = Duration::ZERO;
         ctx.blocking_executor()
@@ -173,7 +173,7 @@ impl PristineActionExecutable for WriteMacrosToFileAction {
 }
 
 struct MacroToFileWriter<'a> {
-    fs: &'a ArtifactFs,
+    fs: &'a ExecutorFs<'a>,
     outputs: &'a IndexSet<BuildArtifact>,
     output_values: &'a mut IndexMap<BuildArtifact, ArtifactValue>,
     relative_to_path: Option<RelativePathBuf>,
@@ -182,7 +182,7 @@ struct MacroToFileWriter<'a> {
 
 impl<'a> MacroToFileWriter<'a> {
     fn new(
-        fs: &'a ArtifactFs,
+        fs: &'a ExecutorFs,
         outputs: &'a IndexSet<BuildArtifact>,
         output_values: &'a mut IndexMap<BuildArtifact, ArtifactValue>,
     ) -> Self {
@@ -220,7 +220,7 @@ impl WriteToFileMacroVisitor for MacroToFileWriter<'_> {
         self.output_values.insert(self.outputs[pos].dupe(), value);
 
         self.output_pos += 1;
-        self.fs.write_file(&self.outputs[pos], &content, false)
+        self.fs.fs().write_file(&self.outputs[pos], &content, false)
     }
 
     fn set_current_relative_to_path(
@@ -233,13 +233,13 @@ impl WriteToFileMacroVisitor for MacroToFileWriter<'_> {
 }
 
 struct MacroContentBuilder<'a> {
-    fs: &'a ArtifactFs,
+    fs: &'a ExecutorFs<'a>,
     maybe_relative_to_path: &'a Option<RelativePathBuf>,
     result: String,
 }
 
 impl<'a> MacroContentBuilder<'a> {
-    fn new(fs: &'a ArtifactFs, maybe_relative_to_path: &'a Option<RelativePathBuf>) -> Self {
+    fn new(fs: &'a ExecutorFs, maybe_relative_to_path: &'a Option<RelativePathBuf>) -> Self {
         Self {
             fs,
             maybe_relative_to_path,
@@ -263,10 +263,11 @@ impl CommandLineBuilderContext for MacroContentBuilder<'_> {
     ) -> anyhow::Result<CommandLineLocation> {
         Ok(CommandLineLocation::from_relative_path(
             self.relativize_path(project_path),
+            self.fs.path_separator(),
         ))
     }
 
-    fn fs(&self) -> &ArtifactFs {
+    fn fs(&self) -> &ExecutorFs {
         self.fs
     }
 
