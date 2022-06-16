@@ -713,6 +713,7 @@ impl DaemonState {
             paths.buck_out_dir(),
             re_client_manager.dupe(),
             blocking_executor.dupe(),
+            (**io.fs()).clone(),
             materialization_method,
         )?;
 
@@ -757,6 +758,7 @@ impl DaemonState {
         buck_out_path: ForwardRelativePathBuf,
         re_client_manager: Arc<ReConnectionManager>,
         blocking_executor: Arc<dyn BlockingExecutor>,
+        fs: ProjectFilesystem,
         materialization_method: MaterializationMethod,
     ) -> anyhow::Result<Arc<dyn Materializer>> {
         match materialization_method {
@@ -793,6 +795,7 @@ impl DaemonState {
                                 re_client_manager,
                             )
                             .context("Failed to create EdenFS-based buck-out")?,
+                            fs,
                         )
                         .context("Failed to create Eden materializer")?,
                     ))

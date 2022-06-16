@@ -15,7 +15,7 @@ use buck2_core::{
     directory::{DirectoryEntry, FingerprintedDirectory},
     fs::{
         paths::{AbsPathBuf, ForwardRelativePath},
-        project::{ProjectRelativePath, ProjectRelativePathBuf},
+        project::{ProjectFilesystem, ProjectRelativePath, ProjectRelativePathBuf},
     },
 };
 use futures::stream::{self, BoxStream, StreamExt};
@@ -44,6 +44,7 @@ pub struct EdenMaterializer {
     re_client_manager: Arc<ReConnectionManager>,
     delegator: Arc<dyn Materializer>,
     eden_buck_out: EdenBuckOut,
+    fs: ProjectFilesystem,
 }
 
 #[async_trait]
@@ -57,6 +58,11 @@ impl Materializer for EdenMaterializer {
         value: ArtifactValue,
         srcs: Vec<CopiedArtifact>,
     ) -> anyhow::Result<()> {
+        // Use eden's remove_paths_recursive because it's faster.
+        self.eden_buck_out
+            .remove_paths_recursive(&self.fs, vec![path.to_owned()])
+            .await?;
+
         // First upload the src to CAS if missing
         let mut files: Vec<remote_execution::NamedDigest> = Vec::new();
         let mut directories: Vec<remote_execution::Path> = Vec::new();
@@ -129,6 +135,11 @@ impl Materializer for EdenMaterializer {
         _info: Arc<CasDownloadInfo>,
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
     ) -> anyhow::Result<()> {
+        // Use eden's remove_paths_recursive because it's faster.
+        self.eden_buck_out
+            .remove_paths_recursive(&self.fs, artifacts.map(|(p, _)| p.to_owned()))
+            .await?;
+
         let futs = artifacts.iter().map(|(path, value)| async move {
             self.eden_buck_out
                 .set_path_object_id(path, value)
@@ -151,6 +162,11 @@ impl Materializer for EdenMaterializer {
         path: &ProjectRelativePath,
         info: HttpDownloadInfo,
     ) -> anyhow::Result<()> {
+        // Use eden's remove_paths_recursive because it's faster.
+        self.eden_buck_out
+            .remove_paths_recursive(&self.fs, vec![path.to_owned()])
+            .await?;
+
         self.delegator.declare_http(path, info).await
     }
 
@@ -194,6 +210,7 @@ impl EdenMaterializer {
         re_client_manager: Arc<ReConnectionManager>,
         blocking_executor: Arc<dyn BlockingExecutor>,
         eden_buck_out: EdenBuckOut,
+        fs: ProjectFilesystem,
     ) -> anyhow::Result<Self> {
         eden_buck_out.setup()?;
         Ok(Self {
@@ -204,6 +221,7 @@ impl EdenMaterializer {
                 blocking_executor,
             )),
             eden_buck_out,
+            fs,
         })
     }
 }
