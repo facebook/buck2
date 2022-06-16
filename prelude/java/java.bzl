@@ -4,6 +4,7 @@ load(
     "JUnitToolchainInfo",
     "JavaPlatformInfo",
     "JavaToolchainInfo",
+    "PrebuiltJarToolchainInfo",
 )
 load("@fbcode//buck2/prelude/java/plugins:java_annotation_processor.bzl", "java_annotation_processor_impl")
 load("@fbcode//buck2/prelude/java/plugins:java_plugin.bzl", "java_plugin_impl")
@@ -38,6 +39,9 @@ def select_dex_toolchain():
 
 def select_junit_toolchain():
     return "fbsource//xplat/buck2/platform/java:junit"
+
+def select_prebuilt_jar_toolchain():
+    return "fbcode//buck2/platform:prebuilt_jar"
 
 implemented_rules = {
     "jar_genrule": jar_genrule_impl,
@@ -116,11 +120,10 @@ extra_attributes = {
                 DexToolchainInfo,
             ],
         ), default = select_dex_toolchain()),
-        "_java_toolchain": attr.exec_dep(
-            default = _select_java_toolchain(),
+        "_prebuilt_jar_toolchain": attr.exec_dep(
+            default = select_prebuilt_jar_toolchain(),
             providers = [
-                JavaPlatformInfo,
-                JavaToolchainInfo,
+                PrebuiltJarToolchainInfo,
             ],
         ),
     },

@@ -41,3 +41,13 @@ JUnitToolchainInfo = provider(
         "list_class_names",
     ],
 )
+
+# prebuilt_jar needs so little of the Java toolchain that it's worth
+# giving it its own to reduce the occurrence of cycles as we add
+# more Java- and Kotlin-built tools to the Java and Kotlin toolchains
+PrebuiltJarToolchainInfo = provider(
+    "prebuilt_jar toolchain info",
+    fields = [
+        "class_abi_generator",
+    ],
+)

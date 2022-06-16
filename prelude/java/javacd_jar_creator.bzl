@@ -438,7 +438,7 @@ def create_jar_artifact_javacd(
         return merged_jar
 
     final_jar = prepare_final_jar()
-    class_abi = maybe_create_abi(actions, java_toolchain, final_jar)
+    class_abi = maybe_create_abi(actions, java_toolchain.class_abi_generator, final_jar)
 
     source_abi = None
     source_only_abi = None

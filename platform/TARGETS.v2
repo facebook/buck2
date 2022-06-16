@@ -2,7 +2,7 @@ load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool")
 load(":cxx_toolchains.bzl", "config_backed_cxx_toolchain", "cxx_hacks", "cxx_toolchain_override")
 load(":go_toolchains.bzl", "config_backed_go_toolchain")
 load(":haskell_toolchains.bzl", "config_backed_haskell_toolchain")
-load(":java_toolchains.bzl", "config_backed_java_toolchain")
+load(":java_toolchains.bzl", "config_backed_java_toolchain", "prebuilt_jar_toolchain")
 load(":ocaml_toolchains.bzl", "config_backed_ocaml_toolchain")
 load(":python_bootstrap_toolchains.bzl", "config_backed_python_bootstrap_toolchain")
 load(":python_toolchains.bzl", "config_backed_python_toolchain")
@@ -162,5 +162,16 @@ config_backed_java_toolchain(
     # corresponding wrapper rule.
     java = "fbcode//tools/build/buck/wrappers:java11.sh",
     java_for_tests = "fbcode//tools/build/buck/wrappers:java.sh",
+    visibility = ["PUBLIC"],
+)
+
+prebuilt_jar_toolchain(
+    name = "prebuilt_jar_bootstrap",
+    class_abi_generator = None,
+    visibility = ["PUBLIC"],
+)
+
+prebuilt_jar_toolchain(
+    name = "prebuilt_jar",
     visibility = ["PUBLIC"],
 )

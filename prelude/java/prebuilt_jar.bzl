@@ -4,7 +4,7 @@ load(
     "create_java_library_providers",
     "maybe_create_abi",
 )
-load(":java_toolchain.bzl", "JavaToolchainInfo")
+load(":java_toolchain.bzl", "PrebuiltJarToolchainInfo")
 
 def prebuilt_jar_impl(ctx: "context") -> ["provider"]:
     """
@@ -31,7 +31,7 @@ def prebuilt_jar_impl(ctx: "context") -> ["provider"]:
 
     abi = None
     if ctx.attr.generate_abi:
-        abi = maybe_create_abi(ctx.actions, ctx.attr._java_toolchain[JavaToolchainInfo], output)
+        abi = maybe_create_abi(ctx.actions, ctx.attr._prebuilt_jar_toolchain[PrebuiltJarToolchainInfo].class_abi_generator, output)
 
     library_output_classpath_entry = JavaClasspathEntry(
         full_library = output,

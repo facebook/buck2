@@ -415,7 +415,7 @@ def _create_jar_artifact(
         _append_javac_params(actions, actions_prefix, java_toolchain, srcs, remove_classes, ap_params, plugin_params, source_level, target_level, deps, extra_arguments, additional_classpath_entries, bootclasspath_entries, compile_and_package_cmd)
 
     actions.run(compile_and_package_cmd, category = "javac_and_jar", identifier = actions_prefix)
-    abi = maybe_create_abi(actions, java_toolchain, jar_out)
+    abi = maybe_create_abi(actions, java_toolchain.class_abi_generator, jar_out)
     return make_compile_outputs(
         full_library = jar_out,
         class_abi = abi,

@@ -59,7 +59,7 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
         text_symbols = r_dot_txt,
     )
 
-    abi = maybe_create_abi(ctx.actions, java_toolchain, all_classes_jar)
+    abi = maybe_create_abi(ctx.actions, java_toolchain.class_abi_generator, all_classes_jar)
     library_output_classpath_entry = JavaClasspathEntry(
         full_library = all_classes_jar,
         abi = abi or all_classes_jar,

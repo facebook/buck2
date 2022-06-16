@@ -1,5 +1,5 @@
 load("@fbcode//buck2/platform:utils.bzl", "optional_binary_or_source_attr", "read_bool", "source_list_attr", "string_attr", "string_list_attr")
-load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "AbiGenerationMode", "JUnitToolchainInfo", "JavaPlatformInfo", "JavaToolchainInfo", "JavacProtocol")
+load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "AbiGenerationMode", "JUnitToolchainInfo", "JavaPlatformInfo", "JavaToolchainInfo", "JavacProtocol", "PrebuiltJarToolchainInfo")
 load("@fbcode//buck2/prelude/java/utils:java_utils.bzl", "derive_javac")
 
 _buckconfig_java_toolchain_attrs = {
@@ -13,9 +13,11 @@ _buckconfig_java_toolchain_attrs = {
     "target_level": (string_attr, ""),
 }
 
+DEFAULT_ABI_GENERATOR = "buck//src/com/facebook/buck/jvm/java/abi:api-stubber"
+
 def config_backed_java_toolchain(
         name,
-        class_abi_generator = "buck//src/com/facebook/buck/jvm/java/abi:api-stubber",
+        class_abi_generator = DEFAULT_ABI_GENERATOR,
         fat_jar_main_class_lib = "buck//src/com/facebook/buck/jvm/java:fat-jar-main",
         javac = None,
         java = None,
@@ -167,4 +169,23 @@ _junit_toolchain_rule = rule(
         "list_class_names": attr.dep(providers = [RunInfo]),
     },
     implementation = _junit_toolchain_rule_impl,
+)
+
+def prebuilt_jar_toolchain(name, **kwargs):
+    if "class_abi_generator" not in kwargs:
+        kwargs["class_abi_generator"] = DEFAULT_ABI_GENERATOR
+
+    _prebuilt_jar_toolchain_rule(name = name, **kwargs)
+
+def _prebuilt_jar_toolchain_rule_impl(ctx):
+    return [
+        DefaultInfo(),
+        PrebuiltJarToolchainInfo(class_abi_generator = ctx.attr.class_abi_generator),
+    ]
+
+_prebuilt_jar_toolchain_rule = rule(
+    attrs = {
+        "class_abi_generator": attr.option(attr.dep(providers = [RunInfo]), default = None),
+    },
+    implementation = _prebuilt_jar_toolchain_rule_impl,
 )

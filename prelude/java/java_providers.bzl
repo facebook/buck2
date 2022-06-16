@@ -177,8 +177,7 @@ def make_compile_outputs(
         ),
     )
 
-def maybe_create_abi(actions: "actions", java_toolchain: "JavaToolchainInfo", library: "artifact") -> ["artifact", None]:
-    class_abi_generator = java_toolchain.class_abi_generator
+def maybe_create_abi(actions: "actions", class_abi_generator: ["dependency", None], library: "artifact") -> ["artifact", None]:
     if class_abi_generator != None:
         class_abi = actions.declare_output("{}-class-abi.jar".format(library.short_path))
         actions.run(
