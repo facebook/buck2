@@ -288,10 +288,21 @@ impl ExprCompiled {
     }
 
     /// Try to extract `[c0, c1, ..., cn]` from this expression.
-    pub(crate) fn as_list_of_consts(&self) -> Option<Vec<FrozenValue>> {
+    pub(crate) fn as_short_list_of_consts(&self) -> Option<Vec<FrozenValue>> {
+        // Prevent exponential explosion during optimization.
+        const MAX_LEN: usize = 1000;
         match self {
-            ExprCompiled::List(xs) => xs.try_map(|x| x.as_value().ok_or(())).ok(),
-            ExprCompiled::Value(v) => Some(FrozenList::from_frozen_value(v)?.content().to_owned()),
+            ExprCompiled::List(xs) if xs.len() <= MAX_LEN => {
+                xs.try_map(|x| x.as_value().ok_or(())).ok()
+            }
+            ExprCompiled::Value(v) => {
+                let list = FrozenList::from_frozen_value(v)?;
+                if list.len() <= MAX_LEN {
+                    Some(list.content().to_owned())
+                } else {
+                    None
+                }
+            }
             _ => None,
         }
     }
@@ -594,7 +605,7 @@ impl ExprCompiled {
 
     fn add(l: IrSpanned<ExprCompiled>, r: IrSpanned<ExprCompiled>) -> ExprCompiled {
         let span = l.span.merge(&r.span);
-        if let (Some(l), Some(r)) = (l.as_list_of_consts(), r.as_list_of_consts()) {
+        if let (Some(l), Some(r)) = (l.as_short_list_of_consts(), r.as_short_list_of_consts()) {
             let lr = l
                 .iter()
                 .chain(r.iter())
@@ -703,8 +714,14 @@ impl ExprCompiled {
             // If frozen, we are lucky.
             Some(ExprCompiled::Value(v))
         } else if let Some(v) = v.unpack_str() {
-            // If string, copy it to frozen heap.
-            Some(ExprCompiled::Value(heap.alloc_str(v).to_frozen_value()))
+            if v.len() <= 1000 {
+                // If string, copy it to frozen heap.
+                Some(ExprCompiled::Value(heap.alloc_str(v).to_frozen_value()))
+            } else {
+                // Long strings may lead to exponential explosion in the optimizer,
+                // so skips optimizations for them.
+                None
+            }
         } else if let Some(v) = v.downcast_ref::<StarlarkFloat>() {
             Some(ExprCompiled::Value(heap.alloc_float(*v)))
         } else if let Some(v) = v.downcast_ref::<Range>() {

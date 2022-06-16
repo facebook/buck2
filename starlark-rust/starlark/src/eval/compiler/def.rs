@@ -314,7 +314,12 @@ impl Compiler<'_, '_, '_> {
     }
 
     /// Expression which is has no access to locals or globals.
-    fn is_safe_to_inline_expr(expr: &ExprCompiled) -> bool {
+    fn is_safe_to_inline_expr(expr: &ExprCompiled, counter: &mut u32) -> bool {
+        // Do not inline too large functions.
+        if *counter > 100 {
+            return false;
+        }
+        *counter += 1;
         match expr {
             ExprCompiled::Value(..) => true,
             ExprCompiled::Local(..)
@@ -322,11 +327,11 @@ impl Compiler<'_, '_, '_> {
             | ExprCompiled::Module(..)
             | ExprCompiled::Def(..) => false,
             ExprCompiled::Call(call) => {
-                Compiler::is_safe_to_inline_expr(&call.fun)
+                Compiler::is_safe_to_inline_expr(&call.fun, counter)
                     && call
                         .args
                         .arg_exprs()
-                        .all(|e| Compiler::is_safe_to_inline_expr(e))
+                        .all(|e| Compiler::is_safe_to_inline_expr(e, counter))
             }
             ExprCompiled::Compr(..) => {
                 // TODO: some comprehensions are safe to inline.
@@ -334,61 +339,72 @@ impl Compiler<'_, '_, '_> {
             }
             ExprCompiled::Compare(box (a, b), cmp) => {
                 let _: &CompareOp = cmp;
-                Compiler::is_safe_to_inline_expr(a) && Compiler::is_safe_to_inline_expr(b)
+                Compiler::is_safe_to_inline_expr(a, counter)
+                    && Compiler::is_safe_to_inline_expr(b, counter)
             }
             ExprCompiled::Dot(expr, field) => {
                 let _: &Symbol = field;
-                Compiler::is_safe_to_inline_expr(expr)
+                Compiler::is_safe_to_inline_expr(expr, counter)
             }
             ExprCompiled::ArrayIndirection(box (array, index)) => {
-                Compiler::is_safe_to_inline_expr(array) && Compiler::is_safe_to_inline_expr(index)
+                Compiler::is_safe_to_inline_expr(array, counter)
+                    && Compiler::is_safe_to_inline_expr(index, counter)
             }
             ExprCompiled::Slice(box (a, b, c, d)) => {
-                fn is_safe(expr: &Option<IrSpanned<ExprCompiled>>) -> bool {
-                    expr.as_ref()
-                        .map_or(true, |expr| Compiler::is_safe_to_inline_expr(&expr.node))
+                fn is_safe(expr: &Option<IrSpanned<ExprCompiled>>, counter: &mut u32) -> bool {
+                    expr.as_ref().map_or(true, |expr| {
+                        Compiler::is_safe_to_inline_expr(&expr.node, counter)
+                    })
                 }
 
-                Compiler::is_safe_to_inline_expr(a) && is_safe(b) && is_safe(c) && is_safe(d)
+                Compiler::is_safe_to_inline_expr(a, counter)
+                    && is_safe(b, counter)
+                    && is_safe(c, counter)
+                    && is_safe(d, counter)
             }
             ExprCompiled::Op(bin_op, box (a, b)) => {
                 let _: &ExprBinOp = bin_op;
-                Compiler::is_safe_to_inline_expr(a) && Compiler::is_safe_to_inline_expr(b)
+                Compiler::is_safe_to_inline_expr(a, counter)
+                    && Compiler::is_safe_to_inline_expr(b, counter)
             }
             ExprCompiled::Equals(box (a, b)) => {
-                Compiler::is_safe_to_inline_expr(a) && Compiler::is_safe_to_inline_expr(b)
+                Compiler::is_safe_to_inline_expr(a, counter)
+                    && Compiler::is_safe_to_inline_expr(b, counter)
             }
             ExprCompiled::UnOp(un_op, arg) => {
                 let _: &ExprUnOp = un_op;
-                Compiler::is_safe_to_inline_expr(arg)
+                Compiler::is_safe_to_inline_expr(arg, counter)
             }
             ExprCompiled::TypeIs(v, t) => {
                 let _: FrozenStringValue = *t;
-                Compiler::is_safe_to_inline_expr(v)
+                Compiler::is_safe_to_inline_expr(v, counter)
             }
-            ExprCompiled::Tuple(xs) | ExprCompiled::List(xs) => {
-                xs.iter().all(|x| Compiler::is_safe_to_inline_expr(x))
-            }
+            ExprCompiled::Tuple(xs) | ExprCompiled::List(xs) => xs
+                .iter()
+                .all(|x| Compiler::is_safe_to_inline_expr(x, counter)),
             ExprCompiled::Dict(xs) => xs.iter().all(|(x, y)| {
-                Compiler::is_safe_to_inline_expr(x) && Compiler::is_safe_to_inline_expr(y)
+                Compiler::is_safe_to_inline_expr(x, counter)
+                    && Compiler::is_safe_to_inline_expr(y, counter)
             }),
             ExprCompiled::If(box (ref c, ref t, ref f)) => {
-                Compiler::is_safe_to_inline_expr(c)
-                    && Compiler::is_safe_to_inline_expr(t)
-                    && Compiler::is_safe_to_inline_expr(f)
+                Compiler::is_safe_to_inline_expr(c, counter)
+                    && Compiler::is_safe_to_inline_expr(t, counter)
+                    && Compiler::is_safe_to_inline_expr(f, counter)
             }
-            ExprCompiled::Not(ref x) => Compiler::is_safe_to_inline_expr(x),
+            ExprCompiled::Not(ref x) => Compiler::is_safe_to_inline_expr(x, counter),
             ExprCompiled::LogicalBinOp(op, box (ref x, ref y)) => {
                 let _: &ExprLogicalBinOp = op;
-                Compiler::is_safe_to_inline_expr(x) && Compiler::is_safe_to_inline_expr(y)
+                Compiler::is_safe_to_inline_expr(x, counter)
+                    && Compiler::is_safe_to_inline_expr(y, counter)
             }
             ExprCompiled::Seq(box (ref x, ref y)) => {
-                Compiler::is_safe_to_inline_expr(x) && Compiler::is_safe_to_inline_expr(y)
+                Compiler::is_safe_to_inline_expr(x, counter)
+                    && Compiler::is_safe_to_inline_expr(y, counter)
             }
             ExprCompiled::PercentSOne(box (before, ref v, after))
             | ExprCompiled::FormatOne(box (before, ref v, after)) => {
                 let _: (FrozenStringValue, FrozenStringValue) = (*before, *after);
-                Compiler::is_safe_to_inline_expr(v)
+                Compiler::is_safe_to_inline_expr(v, counter)
             }
         }
     }
@@ -403,14 +419,19 @@ impl Compiler<'_, '_, '_> {
                     node: ExprCompiled::Value(FrozenValue::new_none()),
                 })
             }
-            Some(stmt) => match &stmt.node {
-                StmtCompiled::Return(expr) if Compiler::is_safe_to_inline_expr(expr) => {
-                    // Note we are losing the stack trace here.
-                    // This is fine because inlined expressions are infallible.
-                    Some(expr.clone())
+            Some(stmt) => {
+                let mut counter = 0;
+                match &stmt.node {
+                    StmtCompiled::Return(expr)
+                        if Compiler::is_safe_to_inline_expr(expr, &mut counter) =>
+                    {
+                        // Note we are losing the stack trace here.
+                        // This is fine because inlined expressions are infallible.
+                        Some(expr.clone())
+                    }
+                    _ => None,
                 }
-                _ => None,
-            },
+            }
         }
     }
 

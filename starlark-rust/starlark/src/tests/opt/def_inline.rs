@@ -115,3 +115,22 @@ error: Value of type `list` is not hashable
         &format!("\n{:#}", error)
     );
 }
+
+#[test]
+fn test_do_not_inline_too_large_functions() {
+    let mut a = Assert::new();
+    a.module("a0.bzl", "def a0(): return noop()");
+    for i in 1..100 {
+        // `a_17()` is inlined into `a_18()`.
+        // If inlining is not limited, this test will run for very long time
+        // and eat up all the memory.
+        let i_1 = i - 1;
+        a.module(
+            &format!("a{i}.bzl"),
+            &format!(
+                "load('a{i_1}.bzl', 'a{i_1}')\n\
+                def a{i}(): return a{i_1}() or a{i_1}()"
+            ),
+        );
+    }
+}

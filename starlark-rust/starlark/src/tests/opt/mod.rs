@@ -17,6 +17,7 @@
 
 //! Optimizer tests.
 
+mod constant_folding;
 mod def_inline;
 mod if_rand;
 mod speculative_exec;
