@@ -83,7 +83,7 @@ def _maybe_filter_resources(ctx: "context", resources: [AndroidResourceInfo.type
     resource_compression_mode = getattr(ctx.attr, "resource_compression", "disabled")
     is_store_strings_as_assets = _is_store_strings_as_assets(resource_compression_mode)
     locales = getattr(ctx.attr, "locales", None)
-    use_aapt2_locale_filtering = getattr(ctx.attr, "use_aapt2_locale_filtering", False)
+    use_aapt2_locale_filtering = getattr(ctx.attr, "aapt2_locale_filtering", False)
     needs_resource_filtering_for_locales = locales != None and len(locales) > 0 and not use_aapt2_locale_filtering
 
     # TODO(T122759074) support all resource filtering
