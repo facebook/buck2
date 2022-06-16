@@ -22,7 +22,7 @@ use crate::daemon::server::{ServerCommandContext, StreamingRequestHandler};
 struct BuckLspContext {}
 
 impl LspContext for BuckLspContext {
-    fn parse_file_with_contents(&self, _filename: &str, _content: String) -> LspEvalResult {
+    fn parse_file_with_contents(&self, _uri: &Url, _content: String) -> LspEvalResult {
         LspEvalResult {
             diagnostics: vec![],
             ast: None,

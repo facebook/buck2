@@ -52,7 +52,7 @@ pub struct LspEvalResult {
 /// Various pieces of context to allow the LSP to interact with starlark parsers, etc.
 pub trait LspContext {
     /// Parse a file with the given contents. The filename is used in the diagnostics.
-    fn parse_file_with_contents(&self, filename: &str, content: String) -> LspEvalResult;
+    fn parse_file_with_contents(&self, uri: &Url, content: String) -> LspEvalResult;
 
     /// Resolve a path given in a `load()` statement.
     ///
@@ -69,7 +69,7 @@ pub trait LspContext {
     fn parse_file(&self, uri: &Url) -> anyhow::Result<Option<LspEvalResult>> {
         let result = self
             .get_load_contents(uri)?
-            .map(|content| self.parse_file_with_contents(uri.path(), content));
+            .map(|content| self.parse_file_with_contents(uri, content));
         Ok(result)
     }
 }
@@ -130,7 +130,7 @@ impl<T: LspContext> Backend<T> {
     }
 
     fn validate(&self, uri: Url, version: Option<i64>, text: String) {
-        let eval_result = self.context.parse_file_with_contents(uri.as_ref(), text);
+        let eval_result = self.context.parse_file_with_contents(&uri, text);
         if let Some(ast) = eval_result.ast {
             let ast = Arc::new(ast);
             let mut last_valid_parse = self.last_valid_parse.write().unwrap();

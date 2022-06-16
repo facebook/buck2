@@ -74,8 +74,8 @@ struct TestServerContext {
 }
 
 impl LspContext for TestServerContext {
-    fn parse_file_with_contents(&self, filename: &str, content: String) -> LspEvalResult {
-        match AstModule::parse(filename, content, &Dialect::Extended) {
+    fn parse_file_with_contents(&self, uri: &Url, content: String) -> LspEvalResult {
+        match AstModule::parse(uri.path(), content, &Dialect::Extended) {
             Ok(ast) => {
                 let diagnostics = ast.lint(None).into_map(|l| EvalMessage::from(l).into());
                 LspEvalResult {
@@ -84,7 +84,7 @@ impl LspContext for TestServerContext {
                 }
             }
             Err(e) => {
-                let diagnostics = vec![EvalMessage::from_anyhow(filename, e).into()];
+                let diagnostics = vec![EvalMessage::from_anyhow(uri.path(), e).into()];
                 LspEvalResult {
                     diagnostics,
                     ast: None,

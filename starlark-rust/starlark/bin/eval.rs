@@ -203,8 +203,8 @@ impl Context {
 }
 
 impl LspContext for Context {
-    fn parse_file_with_contents(&self, filename: &str, content: String) -> LspEvalResult {
-        let EvalResult { messages, ast } = self.file_with_contents(filename, content);
+    fn parse_file_with_contents(&self, uri: &Url, content: String) -> LspEvalResult {
+        let EvalResult { messages, ast } = self.file_with_contents(uri.path(), content);
         LspEvalResult {
             diagnostics: messages.map(Diagnostic::from).collect(),
             ast,
