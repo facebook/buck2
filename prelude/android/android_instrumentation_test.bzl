@@ -78,7 +78,7 @@ def android_instrumentation_test_impl(ctx: "context"):
                 remote_enabled = True,
                 remote_execution_properties = {
                     "platform": "android-emulator",
-                    "subplatform": "android-27",
+                    "subplatform": "android-30",
                 },
                 remote_execution_use_case = "instrumentation-tests",
             ),
