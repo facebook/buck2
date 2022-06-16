@@ -140,7 +140,7 @@ impl Gen {
                 _ => continue,
             };
             // Don't need it.
-            if m.sig.ident == "is_special" {
+            if m.sig.ident == "is_special" || m.sig.ident == "please_use_starlark_type_macro" {
                 continue;
             }
             let VTableEntry {

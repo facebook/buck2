@@ -27,6 +27,7 @@ macro_rules! starlark_type {
         fn get_type_value_static() -> $crate::values::FrozenStringValue {
             $crate::const_frozen_string!($typ)
         }
+        fn please_use_starlark_type_macro() {}
     };
 }
 

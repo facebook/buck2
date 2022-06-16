@@ -197,15 +197,21 @@ pub trait StarlarkValue<'v>: 'v + ProvidesStaticType + Debug + Display + Seriali
     /// Return a string describing the type of self, as returned by the type()
     /// function.
     ///
-    /// Usually implemented by the [`starlark_type!`] macro.
+    /// This can be only implemented by the [`starlark_type!`] macro.
     fn get_type(&self) -> &'static str;
 
     /// Like [`get_type`](Self::get_type), but returns a reusable [`FrozenStringValue`]
     /// pointer to it. This function deliberately doesn't take a heap,
     /// as it would not be performant to allocate a new value each time.
     ///
-    /// Usually implemented by the [`starlark_type!`] macro.
+    /// This can be only implemented by the [`starlark_type!`] macro.
     fn get_type_value_static() -> FrozenStringValue
+    where
+        Self: Sized;
+
+    /// Please do not implement this method or `get_type`, but use `starlark_type!` macro.
+    #[doc(hidden)]
+    fn please_use_starlark_type_macro()
     where
         Self: Sized;
 
