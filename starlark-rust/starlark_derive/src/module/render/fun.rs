@@ -517,14 +517,6 @@ fn render_signature_arg(arg: &StarArg) -> syn::Result<TokenStream> {
 
     let name_str = ident_string(&arg.name);
 
-    if name_str.starts_with('_') {
-        return Err(syn::Error::new(
-            span,
-            "Argument names (temporarily) cannot start with an underscore; \
-                this restriction will be removed in the following diff",
-        ));
-    }
-
     if arg.pass_style == StarArgPassStyle::Args {
         assert!(arg.default.is_none(), "Can't have *args with a default");
         Ok(quote_spanned! { span=> __signature.args();})
