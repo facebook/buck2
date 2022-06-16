@@ -19,14 +19,14 @@
 //! be pre-hashed or otherwise precomputed.
 //!
 //! The two bottlenecks in our use of these hash tables are computing the hashes and comparing
-//! the resulting keys for equality. We precompute the hashes. We also use `[u64]` to do faster
+//! the resulting keys for equality. We precompute the hashes. We also use `[usize]` to do faster
 //! comparison when possible. We use the Starlark SmallHash hashes, promoted by IdHasher,
 //! so we can reuse a SmallMap hash.
 //!
-//! Benchmarks on which the `[u64]` choice was made (mac/linux, all in ns):
+//! Benchmarks on which the `[usize]` choice was made (mac/linux, all in ns):
 //!                           8 bytes       32 bytes      64 bytes
 //! slice equality (memcmp)   3.5/3.8       3.5/ 3.0      4.5/ 4.7
-//! u64 equality loop         1.0/1.4       2.7/ 3.5      3.5/ 6.0
+//! usize equality loop       1.0/1.4       2.7/ 3.5      3.5/ 6.0
 //! u8 equality loop          3.4/5.7      13.7/19.7     22.6/44.8
 //!
 //! Measuring some sample strings, the P50 = 21 bytes, P75 = 27, P95 = 35,
@@ -65,7 +65,7 @@ impl<T: Debug> Debug for SymbolMap<T> {
 pub(crate) struct Symbol {
     hash: u64,
     len: u32,
-    payload: Box<[u64]>,
+    payload: Box<[usize]>,
     small_hash: StarlarkHashValue,
 }
 
@@ -107,8 +107,8 @@ impl Symbol {
         let small_hash = x.hash();
         let hash = small_hash.promote();
         let len = x.key().len();
-        let len8 = (len + 7) / 8;
-        let mut payload = vec![0; len8]; // 0 pad it at the end
+        let len_words = (len + mem::size_of::<usize>() - 1) / mem::size_of::<usize>();
+        let mut payload = vec![0; len_words]; // 0 pad it at the end
         unsafe {
             copy_nonoverlapping(x.key().as_ptr(), payload.as_mut_ptr() as *mut u8, len);
         }
@@ -124,7 +124,7 @@ impl Symbol {
         // All safe because we promise we started out with a str
         unsafe {
             let s = slice::from_raw_parts(
-                self.payload.as_ptr() as *const u64 as *const u8,
+                self.payload.as_ptr() as *const usize as *const u8,
                 self.len as usize,
             );
             str::from_utf8_unchecked(s)
