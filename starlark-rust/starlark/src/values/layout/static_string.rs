@@ -21,40 +21,42 @@ use std::{ptr, sync::atomic::AtomicU32};
 
 use crate::values::{
     layout::{arena::AValueRepr, avalue::VALUE_STR_A_VALUE_PTR},
-    string::StarlarkStrN,
+    string::{StarlarkStr, StarlarkStrN},
     FrozenStringValue, FrozenValue,
 };
 
 /// A constant string that can be converted to a [`FrozenValue`].
+///
+/// **Note** `N` is length in words, not length in bytes.
 #[repr(C)] // Must match this layout on the heap
 pub struct StarlarkStrNRepr<const N: usize> {
     repr: AValueRepr<StarlarkStrN<N>>,
 }
 
 impl<const N: usize> StarlarkStrNRepr<N> {
-    /// Create a new [`StarlarkStrNRepr`] given a string of size `N > 1`.
-    /// If the string has a different size it will fail.
+    /// Create a new [`StarlarkStrNRepr`] given a string of length greater than 1.
+    /// `N` must be the length of the string in words, otherwise this function will fail.
     ///
     /// This function is used internally, use `const_frozen_string` macro
     /// to statically allocate strings.
     pub const fn new(s: &str) -> Self {
         assert!(
-            N > 1,
+            s.len() > 1,
             "static strings of length <= 1 cannot be created from outside of the crate"
         );
         Self::new_unchecked(s)
     }
 
     const fn new_unchecked(s: &str) -> Self {
-        assert!(N == s.len());
-        assert!(N as u32 as usize == N);
-        let mut payload = [0u8; N];
-        unsafe { ptr::copy_nonoverlapping(s.as_ptr(), payload.as_mut_ptr(), N) };
+        assert!(N == StarlarkStr::payload_len_for_len(s.len()));
+        assert!(s.len() as u32 as usize == s.len());
+        let mut payload = [0usize; N];
+        unsafe { ptr::copy_nonoverlapping(s.as_ptr(), payload.as_mut_ptr() as *mut u8, s.len()) };
         Self {
             repr: AValueRepr {
                 header: VALUE_STR_A_VALUE_PTR,
                 payload: StarlarkStrN {
-                    len: N as u32,
+                    len: s.len() as u32,
                     hash: AtomicU32::new(0),
                     body: payload,
                 },

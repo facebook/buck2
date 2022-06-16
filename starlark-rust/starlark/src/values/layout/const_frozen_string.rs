@@ -20,12 +20,17 @@
 macro_rules! const_frozen_string {
     ($s:expr) => {{
         $crate::values::constant_string($s).unwrap_or_else(|| {
-            // `N <= 1` is unreachable here because it was handled by `constant_string`,
-            // but we still have to put something in `static`.
-            // `StarlarkStrNRepr::new` fails if `N <= 1`,
-            // so for `N <= 1` we put dummy string there.
+            // `$s.len() <= 1`, `StarlarkStrNRepr::new` should not be called
+            // because it fails and it should be handled by `constant_string`.
+            // But we still have to put something in `static`.
+            // so for `$s.len() <= 1` we put dummy string of length 2 there,
+            // and `N == 1` in that case.
             const UNREACHABLE: bool = $s.len() <= 1;
-            const N: usize = if UNREACHABLE { 2 } else { $s.len() };
+            const N: usize = if UNREACHABLE {
+                1
+            } else {
+                $crate::values::string::StarlarkStr::payload_len_for_len($s.len())
+            };
             static X: $crate::values::StarlarkStrNRepr<N> =
                 $crate::values::StarlarkStrNRepr::new(if UNREACHABLE { "xx" } else { $s });
             if UNREACHABLE {
@@ -42,7 +47,7 @@ mod tests {
     use crate::values::{FrozenHeap, Heap};
 
     #[test]
-    fn test_const_frozen_string() {
+    fn test_const_frozen_string_for_short_strings() {
         assert!(
             const_frozen_string!("a")
                 .to_value()
@@ -62,5 +67,21 @@ mod tests {
                 .to_value()
                 .ptr_eq(frozen_heap.alloc_str("a").to_value())
         );
+    }
+
+    #[test]
+    fn test_const_frozen_string() {
+        assert_eq!("", const_frozen_string!("").as_str());
+        assert_eq!("a", const_frozen_string!("a").as_str());
+        assert_eq!("ab", const_frozen_string!("ab").as_str());
+        assert_eq!("abc", const_frozen_string!("abc").as_str());
+        assert_eq!("abcd", const_frozen_string!("abcd").as_str());
+        assert_eq!("abcde", const_frozen_string!("abcde").as_str());
+        assert_eq!("abcdef", const_frozen_string!("abcdef").as_str());
+        assert_eq!("abcdefg", const_frozen_string!("abcdefg").as_str());
+        assert_eq!("abcdefgh", const_frozen_string!("abcdefgh").as_str());
+        assert_eq!("abcdefghi", const_frozen_string!("abcdefghi").as_str());
+        assert_eq!("abcdefghij", const_frozen_string!("abcdefghij").as_str());
+        assert_eq!("abcdefghijk", const_frozen_string!("abcdefghijk").as_str());
     }
 }

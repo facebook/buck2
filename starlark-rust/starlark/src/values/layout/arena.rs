@@ -45,6 +45,7 @@ use crate::values::{
         avalue::{starlark_str, AValue, BlackHole},
         vtable::{AValueDyn, AValueVTable},
     },
+    string::StarlarkStr,
     StarlarkValue,
 };
 
@@ -311,6 +312,10 @@ impl Arena {
     ) -> *mut AValueHeader {
         assert!(len > 1);
         let (v, extra) = self.alloc_extra_non_drop::<_>(starlark_str(len));
+        debug_assert_eq!(StarlarkStr::payload_len_for_len(len), extra.len());
+        unsafe {
+            extra.last_mut().unwrap_unchecked().write(0usize);
+        }
         init(extra.as_mut_ptr() as *mut u8);
         unsafe { &mut (*v).header }
     }

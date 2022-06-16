@@ -175,7 +175,7 @@ pub(crate) trait AValue<'v>: StarlarkValueDyn<'v> + Sized {
 }
 
 #[inline]
-pub(crate) fn starlark_str<'v>(len: usize) -> impl AValue<'v, ExtraElem = u8> + Send + Sync {
+pub(crate) fn starlark_str<'v>(len: usize) -> impl AValue<'v, ExtraElem = usize> + Send + Sync {
     AValueImpl(Direct, unsafe { StarlarkStr::new(len) })
 }
 
@@ -330,10 +330,10 @@ pub(crate) type StarlarkStrAValue = AValueImpl<Direct, StarlarkStr>;
 impl<'v> AValue<'v> for AValueImpl<Direct, StarlarkStr> {
     type StarlarkValue = StarlarkStr;
 
-    type ExtraElem = u8;
+    type ExtraElem = usize;
 
     fn extra_len(&self) -> usize {
-        self.1.len()
+        StarlarkStr::payload_len_for_len(self.1.len())
     }
 
     fn offset_of_extra() -> usize {

@@ -23,6 +23,7 @@ use std::{
     fmt,
     fmt::{Debug, Display},
     hash::{Hash, Hasher},
+    mem,
     ops::{Add, Deref, Sub},
     slice, str,
     sync::atomic,
@@ -84,7 +85,7 @@ pub(crate) struct StarlarkStrN<const N: usize> {
     // Followed by an unsized block, meaning this type is unsized.
     // But we can't mark it as such since we really want &StarlarkStr to
     // take up only one word.
-    pub(crate) body: [u8; N],
+    pub(crate) body: [usize; N],
 }
 
 /// A pointer to this type represents a Starlark string.
@@ -105,7 +106,20 @@ impl Deref for StarlarkStr {
 
 impl PartialEq for StarlarkStr {
     fn eq(&self, other: &Self) -> bool {
-        self.as_str() == other.as_str()
+        if self.str.len != other.str.len {
+            return false;
+        }
+        // We know strings are aligned, zero-padded and short,
+        // so we can do better than generic SIMD-optimized `memcmp`
+        // https://rust.godbolt.org/z/cdscb37Yd
+        for i in 0..StarlarkStr::payload_len_for_len(self.len()) {
+            unsafe {
+                if self.str.body.get_unchecked(i) != other.str.body.get_unchecked(i) {
+                    return false;
+                }
+            }
+        }
+        true
     }
 }
 
@@ -130,6 +144,13 @@ impl Debug for StarlarkStr {
 }
 
 impl StarlarkStr {
+    /// Used in `const_frozen_string!` macro, so it is public.
+    #[doc(hidden)]
+    #[inline]
+    pub const fn payload_len_for_len(len: usize) -> usize {
+        (len + mem::size_of::<usize>() - 1) / mem::size_of::<usize>()
+    }
+
     /// Unsafe because if you do `unpack` on this it will blow up
     #[inline]
     pub(crate) const unsafe fn new(len: usize) -> Self {
@@ -146,7 +167,7 @@ impl StarlarkStr {
     /// Get a Rust string refence from this Starlark string.
     pub fn as_str(&self) -> &str {
         unsafe {
-            let slice = slice::from_raw_parts(self.str.body.as_ptr(), self.str.len as usize);
+            let slice = slice::from_raw_parts(self.str.body.as_ptr() as *const u8, self.len());
             str::from_utf8_unchecked(slice)
         }
     }
