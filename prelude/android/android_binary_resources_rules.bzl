@@ -82,11 +82,15 @@ def _maybe_filter_resources(ctx: "context", resources: [AndroidResourceInfo.type
     resources_filter = _get_resources_filter(resources_filter_strings)
     resource_compression_mode = getattr(ctx.attr, "resource_compression", "disabled")
     is_store_strings_as_assets = _is_store_strings_as_assets(resource_compression_mode)
+    locales = getattr(ctx.attr, "locales", None)
+    use_aapt2_locale_filtering = getattr(ctx.attr, "use_aapt2_locale_filtering", False)
+    needs_resource_filtering_for_locales = locales != None and len(locales) > 0 and not use_aapt2_locale_filtering
 
     # TODO(T122759074) support all resource filtering
     needs_resource_filtering = (
         resources_filter != None or
-        is_store_strings_as_assets
+        is_store_strings_as_assets or
+        needs_resource_filtering_for_locales
     )
 
     if not needs_resource_filtering:
@@ -135,6 +139,12 @@ def _maybe_filter_resources(ctx: "context", resources: [AndroidResourceInfo.type
                 "--not-filtered-string-dirs",
                 ctx.actions.write("not_filtered_string_dirs", not_filtered_string_dirs),
             ])
+
+    if needs_resource_filtering_for_locales:
+        filter_resources_cmd.add([
+            "--locales",
+            ",".join(locales),
+        ])
 
     ctx.actions.run(filter_resources_cmd, category = "filter_resources")
 
