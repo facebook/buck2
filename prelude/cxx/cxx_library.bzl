@@ -70,7 +70,7 @@ load(
     "compile_cxx",
     "create_compile_cmds",
 )
-load(":cxx_context.bzl", "get_cxx_toolchain_info")
+load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load(
     ":cxx_library_utility.bzl",
     "ARGSFILES_SUBTARGET",
@@ -222,7 +222,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         comp_db = create_compilation_database(ctx, compiled_srcs.compile_cmds.src_compile_cmds)
         sub_targets["compilation-database"] = [comp_db]
     if impl_params.generate_providers.compilation_database:
-        comp_db_info = make_compilation_db_info(compiled_srcs.compile_cmds.src_compile_cmds)
+        comp_db_info = make_compilation_db_info(compiled_srcs.compile_cmds.src_compile_cmds, get_cxx_toolchain_info(ctx), get_cxx_platform_info(ctx))
         providers.append(comp_db_info)
 
     # Link Groups
