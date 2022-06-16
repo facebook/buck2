@@ -2,6 +2,7 @@ load("@fbcode//buck2/platform/build_mode:defs.bzl", "BuildModeInfo")
 
 mac_execution_base_platforms = {
     "x86_64-fbsource": "ovr_config//platform/macos:x86_64-fbsource",
+    "x86_64_minimal_xcode": "ovr_config//platform/macos:x86_64-fbsource-minimal",
 }
 
 linux_execution_base_platforms = {
