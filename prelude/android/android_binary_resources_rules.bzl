@@ -48,7 +48,7 @@ def get_android_binary_resources_info(
         filter_locales = getattr(ctx.attr, "aapt2_locale_filtering", False),
     )
 
-    override_symbols_paths = ctx.actions.write("override_symbols_paths", [])
+    override_symbols_paths = []
     resources = [resource for resource in resource_infos if resource.res != None]
     r_dot_java = None if len(resources) == 0 else generate_r_dot_java(
         ctx,

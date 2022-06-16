@@ -22,7 +22,7 @@ def generate_r_dot_java(
         android_resources: ["AndroidResourceInfo"],
         banned_duplicate_resource_types: [str.type],
         uber_r_dot_txt_files: ["artifact"],
-        override_symbols: "artifact",
+        override_symbols_paths: ["artifact"],
         duplicate_resources_allowlist: ["artifact", None],
         union_package: [str.type, None],
         referenced_resources_lists: ["artifact"]) -> "JavaLibraryInfo":
@@ -33,7 +33,7 @@ def generate_r_dot_java(
         force_final_resources_ids = True,
         banned_duplicate_resource_types = banned_duplicate_resource_types,
         uber_r_dot_txt_files = uber_r_dot_txt_files,
-        override_symbols = override_symbols,
+        override_symbols_paths = override_symbols_paths,
         duplicate_resources_allowlist = duplicate_resources_allowlist,
         union_package = union_package,
         referenced_resources_lists = referenced_resources_lists,
@@ -53,7 +53,7 @@ def _generate_r_dot_java_source_code(
         force_final_resources_ids = False,
         banned_duplicate_resource_types: [str.type] = [],
         uber_r_dot_txt_files: ["artifact"] = [],
-        override_symbols: ["artifact", None] = None,
+        override_symbols_paths: ["artifact"] = [],
         duplicate_resources_allowlist: ["artifact", None] = None,
         union_package: [str.type, None] = None,
         referenced_resources_lists: ["artifact"] = []) -> "artifact":
@@ -83,8 +83,10 @@ def _generate_r_dot_java_source_code(
         merge_resources_cmd.add(["--uber-r-dot-txt", uber_r_dot_txt_files_list])
         merge_resources_cmd.hidden(uber_r_dot_txt_files)
 
-    if override_symbols != None:
-        merge_resources_cmd.add(["--override-symbols", override_symbols])
+    if len(override_symbols_paths) > 0:
+        override_symbols_paths_list = ctx.actions.write("override_symbols_paths_list", override_symbols_paths)
+        merge_resources_cmd.add(["--override-symbols", override_symbols_paths_list])
+        merge_resources_cmd.hidden(override_symbols_paths)
 
     if duplicate_resources_allowlist != None:
         merge_resources_cmd.add(["--duplicate-resource-allowlist-path", duplicate_resources_allowlist])
