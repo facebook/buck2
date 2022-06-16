@@ -78,10 +78,13 @@ def get_android_binary_resources_info(
 def _maybe_filter_resources(ctx: "context", resources: [AndroidResourceInfo.type], android_toolchain: AndroidToolchainInfo.type) -> [AndroidResourceInfo.type]:
     resources_filter_strings = getattr(ctx.attr, "resource_filter", [])
     resources_filter = _get_resources_filter(resources_filter_strings)
+    resource_compression_mode = getattr(ctx.attr, "resource_compression", "disabled")
+    is_store_strings_as_assets = _is_store_strings_as_assets(resource_compression_mode)
 
     # TODO(T122759074) support all resource filtering
     needs_resource_filtering = (
-        resources_filter != None
+        resources_filter != None or
+        is_store_strings_as_assets
     )
 
     if not needs_resource_filtering:
@@ -104,9 +107,32 @@ def _maybe_filter_resources(ctx: "context", resources: [AndroidResourceInfo.type
     filter_resources_cmd.add([
         "--in-res-dir-to-out-res-dir-map",
         in_res_dir_to_out_res_dir_map,
-        "--target-densities",
-        ",".join(resources_filter.densities),
     ])
+
+    if resources_filter:
+        filter_resources_cmd.add([
+            "--target-densities",
+            ",".join(resources_filter.densities),
+        ])
+
+    if is_store_strings_as_assets:
+        filter_resources_cmd.add([
+            "--enable-string-as-assets-filtering",
+        ])
+
+        packaged_locales = getattr(ctx.attr, "packaged_locales", [])
+        if packaged_locales:
+            filter_resources_cmd.add([
+                "--packaged-locales",
+                ",".join(packaged_locales),
+            ])
+
+        not_filtered_string_dirs = [resource.res for resource in resources if not resource.allow_strings_as_assets_resource_filtering]
+        if not_filtered_string_dirs:
+            filter_resources_cmd.add([
+                "--not-filtered-string-dirs",
+                ctx.actions.write("not_filtered_string_dirs", not_filtered_string_dirs),
+            ])
 
     ctx.actions.run(filter_resources_cmd, category = "filter_resources")
 
@@ -226,3 +252,6 @@ def _get_cxx_resources(ctx: "context", deps: ["dependency"]) -> ["artifact", Non
             symlink_tree_dict["cxx-resources/{}".format(name)] = resource
 
     return ctx.actions.symlinked_dir("cxx_resources_dir", symlink_tree_dict) if symlink_tree_dict else None
+
+def _is_store_strings_as_assets(resource_compression: str.type) -> bool.type:
+    return resource_compression == "enabled_strings_only" or resource_compression == "enabled_with_strings_as_assets"
