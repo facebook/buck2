@@ -560,7 +560,8 @@ async def test_transitive_sets(buck: Buck) -> None:
 @buck_test(inplace=False, data_dir="pass")
 async def test_stderr_is_printed_for_successful_actions(buck: Buck) -> None:
     no_color_text = "warning on stderr no color"
-    simple_color_stripped = "^warning on stderr with color$"
+    # Support '\r\n' which is printed on Windows.
+    simple_color_stripped = "^warning on stderr with color\\r?$"
     # Make sure we reset the terminal after printing.
     simple_color = "\x1b[33mwarning on stderr with color\x1b[0m"
     # Make sure we reset the terminal after printing. Color is represented
