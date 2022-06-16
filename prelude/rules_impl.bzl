@@ -452,7 +452,7 @@ extra_attributes = struct(
     remote_file = {
         "sha1": attr.option(attr.string()),
         "sha256": attr.option(attr.string()),
-        "_unzip_tool": attr.dep(providers = [RunInfo], default = "fbsource//xplat/buck2/tools/zip:unzip"),
+        "_unzip_tool": attr.exec_dep(providers = [RunInfo], default = "fbsource//xplat/buck2/tools/zip:unzip"),
     },
     prebuilt_native_library = {
         "native_libs": attr.source(allow_directory = True),
