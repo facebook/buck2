@@ -1,27 +1,29 @@
 load(":defs.bzl", "run_command")
 
+is_windows = host_info().os.is_windows
+
 run_command(
     name = "runs_simple_script",
     other_src = "src.txt",
-    script = "echo.sh",
+    script = "echo.bat" if is_windows else "echo.sh",
 )
 
 run_command(
     name = "rejects_zero_outputs",
-    script = "echo.sh",
+    script = "echo.bat" if is_windows else "echo.sh",
 )
 
 run_command(
     name = "rejects_bad_args",
-    script = "echo.sh",
+    script = "echo.bat" if is_windows else "echo.sh",
 )
 
 run_command(
     name = "runs_script_locally",
-    script = "hostname.sh",
+    script = "hostname.bat" if is_windows else "hostname.sh",
 )
 
 run_command(
     name = "runs_script_locally_outputs_symlink",
-    script = "create_symlink.sh",
+    script = "create_symlink.bat" if is_windows else "create_symlink.sh",
 )

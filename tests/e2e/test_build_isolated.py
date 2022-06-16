@@ -2,6 +2,7 @@ import fileinput
 import gzip
 import json
 import os
+import platform
 import random
 import re
 import socket
@@ -291,7 +292,10 @@ async def test_symlink_dir(buck: Buck) -> None:
 async def test_simple_run(buck: Buck) -> None:
     result = await buck.build("//run:runs_simple_script")
     output = result.get_build_report().output_for_target("//run:runs_simple_script")
-    assert output.read_text() == "foo\nrun/src.txt\nbar\n"
+    if platform.system() == "Windows":
+        assert output.read_text() == "foo\nrun\\src.txt\nbar\n"
+    else:
+        assert output.read_text() == "foo\nrun/src.txt\nbar\n"
 
     result = await buck.build("//run:runs_script_locally")
     output = result.get_build_report().output_for_target("//run:runs_script_locally")
