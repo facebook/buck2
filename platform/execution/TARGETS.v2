@@ -108,6 +108,7 @@ windows_platforms = execution_platform(
     remote_execution_action_key_providers = remote_execution_action_key_providers,
     remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
     allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
+    use_windows_path_separators = True,
 )
 
 fat_mac_linux = execution_platform(

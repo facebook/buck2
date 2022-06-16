@@ -31,6 +31,7 @@ def _execution_platform_impl(ctx: "context"):
                 allow_limited_hybrid_fallbacks = True,
                 use_limited_hybrid = True,
                 allow_hybrid_fallbacks_on_failure = ctx.attr.allow_hybrid_fallbacks_on_failure,
+                use_windows_path_separators = ctx.attr.use_windows_path_separators,
             ),
         ),
     ]
@@ -44,6 +45,7 @@ execution_platform_rule = rule(
         "remote_execution_action_key_providers": attr.list(attr.dep()),
         "remote_execution_max_input_files_mebibytes": attr.int(),
         "remote_execution_properties": attr.dict(key = attr.string(), value = attr.string(), default = {}),
+        "use_windows_path_separators": attr.bool(default = False),
     },
     implementation = _execution_platform_impl,
 )
