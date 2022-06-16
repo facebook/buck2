@@ -14,12 +14,26 @@ def _unimplemented_impl(name):
     return partial(_unimplemented, name)
 
 def _mk_rule(name: str.type, attrs: {str.type: "attribute"}) -> "rule":
-    # This dep simply makes all cxx_toolchain-using rules be incompatible with fat platforms.
+    # We want native code-containing rules to be marked incompatible with fat
+    # platforms. Getting the ones that use cxx/apple toolchains is a little
+    # overly broad as it includes things like python that don't themselves have
+    # native code but need the toolchains if they depend on native code and in
+    # that case incompatibility is transitive and they'll get it.
+    fat_platform_compatible = True
     if name not in ("python_library", "python_binary"):
         if "_cxx_toolchain" in attrs or "_apple_toolchain" in attrs:
-            # copy so we don't try change the passed in object
-            attrs = {k: v for (k, v) in attrs.items()}
-            attrs["_cxx_toolchain_target_configuration"] = attr.dep(default = "fbcode//buck2/platform/execution:fat_platform_incompatible")
+            fat_platform_compatible = False
+
+    # Currently, python_binary hardcodes an interpreter path in the produced
+    # binary and so is incompatible. The solution here is probably to get the
+    # interpreter to be a target, instead of exec, dep
+    if name in ("python_binary",):
+        fat_platform_compatible = False
+
+    if not fat_platform_compatible:
+        # copy so we don't try change the passed in object
+        attrs = {k: v for (k, v) in attrs.items()}
+        attrs["_cxx_toolchain_target_configuration"] = attr.dep(default = "fbcode//buck2/platform/execution:fat_platform_incompatible")
 
     return rule(
         implementation = getattr(implemented_rules, name, _unimplemented_impl(name)),
