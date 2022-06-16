@@ -353,6 +353,8 @@ pub struct CommandExecutionRequest {
     /// overlap stderr download with output donwloads, which might be marginally useful to improve
     /// latency.
     prefetch_lossy_stderr: bool,
+    /// Whether to cleanup outputs
+    outputs_cleanup: bool,
 }
 
 impl CommandExecutionRequest {
@@ -374,6 +376,7 @@ impl CommandExecutionRequest {
             host_sharing_requirements: HostSharingRequirements::default(),
             working_directory: None,
             prefetch_lossy_stderr: false,
+            outputs_cleanup: true,
         }
     }
 
@@ -418,8 +421,17 @@ impl CommandExecutionRequest {
         self
     }
 
+    pub fn with_outputs_cleanup(mut self, outputs_cleanup: bool) -> Self {
+        self.outputs_cleanup = outputs_cleanup;
+        self
+    }
+
     pub fn prefetch_lossy_stderr(&self) -> bool {
         self.prefetch_lossy_stderr
+    }
+
+    pub fn outputs_cleanup(&self) -> bool {
+        self.outputs_cleanup
     }
 
     pub fn args(&self) -> &[String] {

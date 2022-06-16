@@ -556,6 +556,7 @@ impl ServerCommandContext {
                     re_connection,
                     host_sharing_broker,
                     materializer.dupe(),
+                    blocking_executor.dupe(),
                     execution_strategy.into(),
                     re_global_knobs,
                 ));

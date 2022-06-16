@@ -355,7 +355,8 @@ impl IncrementalActionExecutable for RunAction {
         let req = CommandExecutionRequest::new(cli, inputs, self.outputs.clone(), env)
             .with_prefetch_lossy_stderr(true)
             .with_local_only(self.inner.local_only)
-            .with_host_sharing_requirements(host_sharing_requirements);
+            .with_host_sharing_requirements(host_sharing_requirements)
+            .with_outputs_cleanup(!self.inner.no_outputs_cleanup);
 
         let (outputs, meta) = ctx.exec_cmd(&req).await?;
 

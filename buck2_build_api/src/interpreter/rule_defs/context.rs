@@ -586,6 +586,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named)] dep_files: Option<ValueOf<'v, SmallMap<&'v str, Value<'v>>>>,
         #[starlark(require = named)] metadata_env_var: Option<String>,
         #[starlark(require = named)] metadata_path: Option<String>,
+        // TODO(scottcao): Refactor `no_outputs_cleanup` to `outputs_cleanup`
         #[starlark(require = named, default = false)] no_outputs_cleanup: bool,
         heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {

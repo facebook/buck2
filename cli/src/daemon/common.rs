@@ -19,6 +19,7 @@ use buck2_build_api::{
     build::MaterializationContext,
     bxl::BxlFunctionLabel,
     execute::{
+        blocking::BlockingExecutor,
         commands::{
             dice_data::HasCommandExecutor,
             hybrid::HybridExecutor,
@@ -216,6 +217,7 @@ pub struct CommandExecutorFactory {
     // may use more resources than intended.
     pub host_sharing_broker: Arc<HostSharingBroker>,
     pub materializer: Arc<dyn Materializer>,
+    pub blocking_executor: Arc<dyn BlockingExecutor>,
     /// The strategy that the user requested on the CLI, expressed as a filter. When execution
     /// platforms are enabled, this cannot control what execution platform we use, but it can only
     /// bias how a given executor works, or refuse to function entirely.
@@ -228,6 +230,7 @@ impl CommandExecutorFactory {
         re_connection: ReConnectionHandle,
         host_sharing_broker: HostSharingBroker,
         materializer: Arc<dyn Materializer>,
+        blocking_executor: Arc<dyn BlockingExecutor>,
         filter: ExecutorFilter,
         re_global_knobs: ReExecutorGlobalKnobs,
     ) -> Self {
@@ -235,6 +238,7 @@ impl CommandExecutorFactory {
             re_connection,
             host_sharing_broker: Arc::new(host_sharing_broker),
             materializer,
+            blocking_executor,
             filter,
             re_global_knobs,
         }
@@ -252,6 +256,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
             LocalExecutor::new(
                 artifact_fs.clone(),
                 self.materializer.dupe(),
+                self.blocking_executor.dupe(),
                 self.host_sharing_broker.dupe(),
                 project_fs.root.clone(),
             )

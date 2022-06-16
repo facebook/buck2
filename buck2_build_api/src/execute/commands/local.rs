@@ -57,6 +57,7 @@ use crate::{
         },
     },
     execute::{
+        blocking::BlockingExecutor,
         commands::{
             inputs_directory, output::CommandStdStreams, CommandExecutionInput,
             CommandExecutionManager, CommandExecutionOutput, CommandExecutionRequest,
@@ -78,6 +79,7 @@ enum LocalExecutionError {
 pub struct LocalExecutor {
     artifact_fs: ArtifactFs,
     materializer: Arc<dyn Materializer>,
+    blocking_executor: Arc<dyn BlockingExecutor>,
     host_sharing_broker: Arc<HostSharingBroker>,
     root: AbsPathBuf,
 }
@@ -86,12 +88,14 @@ impl LocalExecutor {
     pub fn new(
         artifact_fs: ArtifactFs,
         materializer: Arc<dyn Materializer>,
+        blocking_executor: Arc<dyn BlockingExecutor>,
         host_sharing_broker: Arc<HostSharingBroker>,
         root: AbsPathBuf,
     ) -> Self {
         Self {
             artifact_fs,
             materializer,
+            blocking_executor,
             host_sharing_broker,
             root,
         }
@@ -172,8 +176,14 @@ impl LocalExecutor {
                         project_fs.create_dir(&scratch_dir)?;
                     }
 
-                    create_output_dirs(&self.artifact_fs, request)
-                        .context("Error creating output directories")?;
+                    create_output_dirs(
+                        &self.artifact_fs,
+                        request,
+                        self.materializer.dupe(),
+                        self.blocking_executor.dupe(),
+                    )
+                    .await
+                    .context("Error creating output directories")?;
 
                     Ok(())
                 },
@@ -782,16 +792,44 @@ pub async fn materialize_inputs(
 /// Create any output dirs requested by the command. Note that this makes no effort to delete
 /// the output paths first. Eventually it should, but right now this happens earlier. This
 /// would be a separate refactor.
-///
-/// TODO(@scottcao) Delete parent dirs here
-pub fn create_output_dirs(
+pub async fn create_output_dirs(
     artifact_fs: &ArtifactFs,
     request: &CommandExecutionRequest,
+    materializer: Arc<dyn Materializer>,
+    blocking_executor: Arc<dyn BlockingExecutor>,
 ) -> anyhow::Result<()> {
-    let project_fs = artifact_fs.fs();
+    let outputs: Vec<_> = request
+        .outputs()
+        .map(|output| output.resolve(artifact_fs))
+        .collect();
 
-    for output in request.outputs() {
-        if let Some(path) = output.resolve(artifact_fs).path_to_create() {
+    if request.outputs_cleanup {
+        // Invalidate all the output paths this action might provide. Note that this is a bit
+        // approximative: we might have previous instances of this action that declared
+        // different outputs with a different materialization method that will become invalid
+        // now. However, nothing should reference those stale outputs, so while this does not
+        // do a good job of cleaning up garbage, it prevents using invalid artifacts.
+        let outputs = outputs.map(|output| output.path.to_owned());
+        materializer.invalidate_many(outputs.clone()).await?;
+
+        // TODO(scottcao): Move this deletion logic into materializer itself.
+        // Use Eden's clean up API if possible, it is significantly faster on Eden compared with
+        // the native method as the API does not load and materialize files or folders
+        if let Some(eden_buck_out) = materializer.eden_buck_out() {
+            eden_buck_out
+                .remove_paths_recursive(artifact_fs.fs(), outputs)
+                .await?;
+        } else {
+            blocking_executor
+                .execute_io(box CleanOutputPaths { paths: outputs })
+                .await
+                .context("Failed to cleanup output directory")?;
+        }
+    }
+
+    let project_fs = artifact_fs.fs();
+    for output in outputs {
+        if let Some(path) = output.path_to_create() {
             project_fs.create_dir(path)?;
         }
     }
@@ -811,7 +849,9 @@ mod tests {
 
     use super::*;
     use crate::{
-        execute::materializer::nodisk::NoDiskMaterializer,
+        execute::{
+            blocking::testing::DummyBlockingExecutor, materializer::nodisk::NoDiskMaterializer,
+        },
         path::{BuckOutPathResolver, BuckPathResolver},
     };
 
@@ -928,14 +968,14 @@ mod tests {
         Ok(())
     }
 
-    fn artifact_fs(root: AbsPathBuf) -> ArtifactFs {
+    fn artifact_fs(project_fs: ProjectFilesystem) -> ArtifactFs {
         ArtifactFs::new(
             BuckPathResolver::new(CellResolver::of_names_and_paths(&[(
                 CellName::unchecked_new("cell".into()),
                 ProjectRelativePathBuf::unchecked_new("cell_path".into()),
             )])),
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out/v2".into())),
-            ProjectFilesystem::new(root),
+            project_fs,
         )
     }
 
@@ -943,11 +983,13 @@ mod tests {
     async fn test_exec_cmd_environment() -> anyhow::Result<()> {
         let root = tempfile::tempdir()?;
         let root = AbsPathBuf::try_from(root.path().canonicalize()?)?;
-        let artifact_fs = artifact_fs(root.clone());
+        let project_fs = ProjectFilesystem::new(root.clone());
+        let artifact_fs = artifact_fs(project_fs.clone());
 
         let executor = LocalExecutor::new(
             artifact_fs,
             Arc::new(NoDiskMaterializer),
+            Arc::new(DummyBlockingExecutor { fs: project_fs }),
             Arc::new(HostSharingBroker::new(
                 HostSharingStrategy::SmallerTasksFirst,
                 1,

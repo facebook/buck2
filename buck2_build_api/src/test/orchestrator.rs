@@ -52,6 +52,7 @@ use crate::{
     calculation::Calculation,
     deferred::BaseDeferredKey,
     execute::{
+        blocking::HasBlockingExecutor,
         commands::{
             self,
             dice_data::HasCommandExecutor,
@@ -325,10 +326,17 @@ impl TestOrchestrator for BuckTestOrchestrator {
             .await?;
 
         let materializer = self.dice.per_transaction_data().get_materializer();
+        let blocking_executor = self.dice.get_blocking_executor();
 
         materialize_inputs(&fs, &materializer, &execution_request).await?;
 
-        create_output_dirs(&fs, &execution_request)?;
+        create_output_dirs(
+            &fs,
+            &execution_request,
+            materializer.dupe(),
+            blocking_executor,
+        )
+        .await?;
 
         Ok(create_prepare_for_local_execution_result(
             &fs,

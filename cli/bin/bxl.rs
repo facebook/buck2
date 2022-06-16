@@ -263,6 +263,7 @@ fn setup(
             re_client_manager.get_re_connection(),
             host_sharing_broker,
             materializer.dupe(),
+            blocking_executor.dupe(),
             ExecutionStrategy::Default.into(),
             Default::default(),
         ));
