@@ -36,6 +36,7 @@ use crate::{
             ArtifactNotMaterializedReason, CasDownloadInfo, CopiedArtifact, HttpDownloadInfo,
             MaterializationError, Materializer,
         },
+        CleanOutputPaths,
     },
 };
 
@@ -68,6 +69,12 @@ impl Materializer for ImmediateMaterializer {
         value: ArtifactValue,
         srcs: Vec<CopiedArtifact>,
     ) -> anyhow::Result<()> {
+        self.io_executor
+            .execute_io(box CleanOutputPaths {
+                paths: vec![path.to_owned()],
+            })
+            .await?;
+
         // TODO: display [materializing] in superconsole
         self.io_executor
             .execute_io(box MaterializeTreeStructure {
@@ -103,6 +110,12 @@ impl Materializer for ImmediateMaterializer {
         _info: Arc<CasDownloadInfo>,
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
     ) -> anyhow::Result<()> {
+        self.io_executor
+            .execute_io(box CleanOutputPaths {
+                paths: artifacts.map(|(p, _)| p.to_owned()),
+            })
+            .await?;
+
         for (path, value) in artifacts.iter() {
             self.io_executor
                 .execute_io(box MaterializeTreeStructure {
@@ -142,6 +155,12 @@ impl Materializer for ImmediateMaterializer {
         path: &ProjectRelativePath,
         info: HttpDownloadInfo,
     ) -> anyhow::Result<()> {
+        self.io_executor
+            .execute_io(box CleanOutputPaths {
+                paths: vec![path.to_owned()],
+            })
+            .await?;
+
         http_download(
             &http_client()?,
             &ProjectFilesystem {
