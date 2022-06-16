@@ -49,7 +49,7 @@ local_linux_execution = read_bool("build", "enable_local_linux_execution", host_
 local_windows_execution = read_bool("build", "enable_local_windows_execution", host_is_windows)
 
 remote_execution_max_input_files_mebibytes = read_int("build", "remote_execution_max_input_files_mebibytes", 30 * 1024)
-fat_platforms_enabled = read_bool("build", "enable_fat_platforms", False)
+fat_platforms_enabled = read_bool("build", "enable_fat_platforms", True)
 allow_hybrid_fallbacks_on_failure = read_bool("remoteexecution", "is_local_fallback_enabled_for_completed_actions")
 
 # Those targets will result in extra data being injected into RE action keys.
