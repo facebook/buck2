@@ -1,5 +1,11 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
 load(
+    "@fbcode//buck2/prelude/apple:apple_frameworks.bzl",
+    "build_link_args_with_deduped_framework_flags",
+    "create_frameworks_linkable",
+    "get_frameworks_link_info_by_deduping_link_infos",
+)
+load(
     "@fbcode//buck2/prelude/apple:link_groups.bzl",
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
     "get_filtered_labels_to_links_map",
@@ -233,7 +239,17 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     # Calculate link group mappings now that all relevant nodes exist in the linkable graph.
     link_group_mappings = get_link_group_mappings(link_groups, linkable_graph)
 
-    shared_links, link_group_map = _get_shared_library_links(ctx, linkable_graph, link_group, link_group_mappings, exported_deps, non_exported_deps, impl_params.force_link_group_linking)
+    frameworks_linkable = create_frameworks_linkable(ctx)
+    shared_links, link_group_map = _get_shared_library_links(
+        ctx,
+        linkable_graph,
+        link_group,
+        link_group_mappings,
+        exported_deps,
+        non_exported_deps,
+        impl_params.force_link_group_linking,
+        frameworks_linkable,
+    )
     if impl_params.generate_sub_targets.link_group_map and link_group_map:
         sub_targets[LINK_GROUP_MAP_DATABASE_SUB_TARGET] = [link_group_map]
 
@@ -243,6 +259,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         compiled_srcs = compiled_srcs,
         preferred_linkage = preferred_linkage,
         shared_links = shared_links,
+        extra_static_linkables = [frameworks_linkable] if frameworks_linkable else [],
     )
 
     actual_link_style = get_actual_link_style(cxx_attr_link_style(ctx), preferred_linkage)
@@ -312,6 +329,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
             deps = [inherited_non_exported_link],
             # Export link info from out (exported) deps.
             exported_deps = [inherited_exported_link],
+            frameworks_linkable = frameworks_linkable,
         )
         if impl_params.generate_providers.merged_native_link_info:
             providers.append(merged_native_link_info)
@@ -502,7 +520,8 @@ def _form_library_outputs(
         impl_params: CxxRuleConstructorParams.type,
         compiled_srcs: _CxxCompiledSourcesOutput.type,
         preferred_linkage: Linkage.type,
-        shared_links: LinkArgs.type) -> _CxxAllLibraryOutputs.type:
+        shared_links: LinkArgs.type,
+        extra_static_linkables: ["FrameworksLinkable"]) -> _CxxAllLibraryOutputs.type:
     # Build static/shared libs and the link info we use to export them to dependents.
     outputs = {}
     libraries = {}
@@ -532,6 +551,7 @@ def _form_library_outputs(
                     compiled_srcs.pic_objects if pic else compiled_srcs.objects,
                     pic = pic,
                     stripped = False,
+                    extra_linkables = extra_static_linkables,
                 )
                 _, stripped = _static_library(
                     ctx,
@@ -539,6 +559,7 @@ def _form_library_outputs(
                     compiled_srcs.stripped_pic_objects if pic else compiled_srcs.stripped_objects,
                     pic = pic,
                     stripped = True,
+                    extra_linkables = extra_static_linkables,
                 )
             else:  # shared
                 soname, shlib, info = _shared_library(
@@ -589,7 +610,8 @@ def _get_shared_library_links(
         link_group_mappings: [{"label": str.type}, None],
         exported_deps: ["dependency"],
         non_exported_deps: ["dependency"],
-        force_link_group_linking) -> ("LinkArgs", [DefaultInfo.type, None]):
+        force_link_group_linking,
+        frameworks_linkable: ["FrameworksLinkable", None]) -> ("LinkArgs", [DefaultInfo.type, None]):
     """
     TODO(T110378116): Omnibus linking always creates shared libraries by linking
     against shared dependencies. This is not true for link groups and possibly
@@ -616,8 +638,10 @@ def _get_shared_library_links(
         # loaded in the address space of any process at any address.
         link_style_value = "static_pic" if link_style_value == "static" else link_style_value
 
-        return get_link_args(
+        return build_link_args_with_deduped_framework_flags(
+            ctx,
             link,
+            frameworks_linkable,
             LinkStyle(link_style_value),
         ), None
 
@@ -627,6 +651,13 @@ def _get_shared_library_links(
     filtered_labels_to_links_map = get_filtered_labels_to_links_map(linkable_graph, link_group, link_group_mappings, link_style, non_exported_deps, prefer_stripped = prefer_stripped)
     filtered_links = get_filtered_links(filtered_labels_to_links_map)
     filtered_targets = get_filtered_targets(filtered_labels_to_links_map)
+
+    # Unfortunately, link_groups does not use MergedLinkInfo to represent the args
+    # for the resolved nodes in the graph.
+    # Thus, we have no choice but to traverse all the nodes to dedupe the framework linker args.
+    frameworks_link_info = get_frameworks_link_info_by_deduping_link_infos(filtered_links, frameworks_linkable)
+    if frameworks_link_info:
+        filtered_links.append(frameworks_link_info)
 
     return LinkArgs(infos = filtered_links), get_link_group_map_json(ctx, filtered_targets)
 
@@ -644,7 +675,8 @@ def _static_library(
         impl_params: "CxxRuleConstructorParams",
         objects: ["artifact"],
         pic: bool.type,
-        stripped: bool.type) -> (_CxxLibraryOutput.type, LinkInfo.type):
+        stripped: bool.type,
+        extra_linkables: ["FrameworksLinkable"]) -> (_CxxLibraryOutput.type, LinkInfo.type):
     if len(objects) == 0:
         fail("empty objects")
 
@@ -695,7 +727,9 @@ def _static_library(
             # the object code.
             pre_flags = impl_params.extra_exported_link_flags,
             post_flags = post_flags,
-            linkables = [linkable],
+            # Extra linkables are propogated here so they are available to link_groups
+            # when they are deducing linker args.
+            linkables = [linkable] + extra_linkables,
             use_link_groups = cxx_use_link_groups(ctx),
         ),
     )

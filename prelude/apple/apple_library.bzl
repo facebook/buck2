@@ -15,7 +15,7 @@ load(
 )
 load("@fbcode//buck2/prelude/linking:link_info.bzl", "LinkStyle")
 load(":apple_bundle_types.bzl", "AppleMinDeploymentVersionInfo")
-load(":apple_frameworks.bzl", "get_apple_frameworks_linker_flags", "get_framework_search_path_flags")
+load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_modular_utility.bzl", "MODULE_CACHE_PATH")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node", "get_min_deployment_version_target_linker_flags", "get_min_deployment_version_target_preprocessor_flags")
 load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_module_name")
@@ -58,7 +58,6 @@ def apple_library_impl(ctx: "context") -> ["provider"]:
     return providers
 
 def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", params: AppleLibraryAdditionalParams.type) -> (CxxRuleConstructorParams.type, ["provider"]):
-    extra_exported_link_flags = get_apple_frameworks_linker_flags(ctx) + params.extra_exported_link_flags
     cxx_srcs, swift_srcs = _filter_swift_srcs(ctx)
 
     # First create a modulemap if necessary. This is required for importing
@@ -108,7 +107,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
     return CxxRuleConstructorParams(
         rule_type = params.rule_type,
         headers_layout = get_apple_cxx_headers_layout(ctx),
-        extra_exported_link_flags = extra_exported_link_flags,
+        extra_exported_link_flags = params.extra_exported_link_flags,
         extra_link_flags = get_min_deployment_version_target_linker_flags(ctx),
         extra_link_input = swift_object_files,
         extra_preprocessors = get_min_deployment_version_target_preprocessor_flags(ctx) + [framework_search_path_pre, swift_pre, modular_pre],

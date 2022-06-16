@@ -11,14 +11,14 @@ load("@fbcode//buck2/prelude/utils:utils.bzl", "flatten")
 load(":apple_bundle_types.bzl", "AppleMinDeploymentVersionInfo")
 load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo")
 load(":apple_dsym.bzl", "AppleDebuggableInfo", "DSYM_SUBTARGET", "get_apple_dsym")
-load(":apple_frameworks.bzl", "get_apple_frameworks_linker_flags", "get_framework_search_path_flags")
+load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node", "get_min_deployment_version_target_linker_flags", "get_min_deployment_version_target_preprocessor_flags")
 load(":apple_utility.bzl", "get_apple_cxx_headers_layout")
 load(":resource_groups.bzl", "create_resource_graph")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 
 def apple_binary_impl(ctx: "context") -> ["provider"]:
-    extra_link_flags = get_apple_frameworks_linker_flags(ctx) + get_min_deployment_version_target_linker_flags(ctx) + _entitlements_link_flags(ctx)
+    extra_link_flags = get_min_deployment_version_target_linker_flags(ctx) + _entitlements_link_flags(ctx)
     framework_search_path_pre = CPreprocessor(
         args = [cmd_args(get_framework_search_path_flags(ctx))],
     )

@@ -1,4 +1,10 @@
 load(
+    "@fbcode//buck2/prelude/apple:apple_frameworks.bzl",
+    "build_link_args_with_deduped_framework_flags",
+    "create_frameworks_linkable",
+    "get_frameworks_link_info_by_deduping_link_infos",
+)
+load(
     "@fbcode//buck2/prelude/apple:link_groups.bzl",
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
     "LinkGroupInfo",  # @unused Used as a type
@@ -26,7 +32,6 @@ load(
     "LinkStyle",
     "LinkedObject",  # @unused Used as a type
     "ObjectsLinkable",
-    "get_link_args",
 )
 load(
     "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
@@ -153,6 +158,8 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     rest_labels_to_links_map = {}
     shared_libs = {}
 
+    frameworks_linkable = create_frameworks_linkable(ctx)
+
     # TODO(T110378098): Similar to shared libraries, we need to identify all the possible
     # scenarios for which we need to propagate up link info and simplify this logic. For now
     # base which links to use based on whether link groups are defined.
@@ -160,6 +167,13 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         filtered_labels_to_links_map = get_filtered_labels_to_links_map(linkable_graph, link_group, link_group_mappings, link_style, first_order_deps, is_library = False)
         filtered_links = get_filtered_links(filtered_labels_to_links_map)
         filtered_targets = get_filtered_targets(filtered_labels_to_links_map)
+
+        # Unfortunately, link_groups does not use MergedLinkInfo to represent the args
+        # for the resolved nodes in the graph.
+        # Thus, we have no choice but to traverse all the nodes to dedupe the framework linker args.
+        frameworks_link_info = get_frameworks_link_info_by_deduping_link_infos(filtered_links, frameworks_linkable)
+        if frameworks_link_info:
+            filtered_links.append(frameworks_link_info)
 
         if is_cxx_test and link_group != None:
             # if a cpp_unittest is part of the link group, we need to traverse through all deps
@@ -171,8 +185,10 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         dep_links = LinkArgs(infos = filtered_links)
         sub_targets[LINK_GROUP_MAP_DATABASE_SUB_TARGET] = [get_link_group_map_json(ctx, filtered_targets)]
     else:
-        dep_links = get_link_args(
+        dep_links = build_link_args_with_deduped_framework_flags(
+            ctx,
             inherited_link,
+            frameworks_linkable,
             link_style,
             prefer_stripped = ctx.attr.prefer_stripped_objects,
         )

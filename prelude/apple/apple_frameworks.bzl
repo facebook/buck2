@@ -1,5 +1,15 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
-load("@fbcode//buck2/prelude/linking:link_info.bzl", "FrameworksLinkable")
+load(
+    "@fbcode//buck2/prelude/linking:link_info.bzl",
+    "FrameworksLinkable",
+    "LinkArgs",
+    "LinkInfo",
+    "LinkInfos",
+    "LinkInfosTSet",
+    "LinkableType",
+    "get_link_args",
+    "merge_framework_linkables",
+)
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 
@@ -18,15 +28,16 @@ def create_frameworks_linkable(ctx: "context") -> [FrameworksLinkable.type, None
         framework_names = [to_framework_name(x) for x in ctx.attr.frameworks],
     )
 
-def get_apple_frameworks_linker_flags(ctx: "context") -> [""]:
-    flags = get_framework_search_path_flags(ctx)
+def _get_apple_frameworks_linker_flags(linkable: [FrameworksLinkable.type, None]) -> [""]:
+    if not linkable:
+        return []
 
-    framework_names = [to_framework_name(x) for x in ctx.attr.frameworks]
-    for framework_name in framework_names:
+    flags = _get_framework_search_path_flags(linkable.resolved_framework_paths)
+
+    for framework_name in linkable.framework_names:
         flags.extend(["-framework", framework_name])
 
-    library_names = [_library_name(x) for x in ctx.attr.libraries]
-    for library_name in library_names:
+    for library_name in linkable.library_names:
         flags.extend(["-l" + library_name])
 
     return flags
@@ -83,3 +94,52 @@ def _non_sdk_framework_directory(ctx: "context", framework_path: str.type) -> [s
             return None
     expanded_framework_path = _expand_sdk_framework_path(ctx, framework_path)
     return paths.dirname(expanded_framework_path)
+
+def build_link_args_with_deduped_framework_flags(
+        ctx: "context",
+        info: "MergedLinkInfo",
+        frameworks_linkable: ["FrameworksLinkable", None],
+        link_style: "LinkStyle",
+        prefer_stripped: bool.type = False) -> LinkArgs.type:
+    frameworks_link_info = _link_info_from_frameworks_linkable([info.frameworks[link_style], frameworks_linkable])
+    if not frameworks_link_info:
+        return get_link_args(info, link_style, prefer_stripped)
+
+    return LinkArgs(
+        tset = (ctx.actions.tset(
+            LinkInfosTSet,
+            value = LinkInfos(default = frameworks_link_info, stripped = frameworks_link_info),
+            children = [info._infos[link_style]],
+        ), prefer_stripped),
+    )
+
+def get_frameworks_link_info_by_deduping_link_infos(
+        infos: [[LinkInfo.type, None]],
+        framework_linkable: [FrameworksLinkable.type, None]) -> [LinkInfo.type, None]:
+    # When building a framework or executable, all frameworks used by the statically-linked
+    # deps in the subtree need to be linked.
+    #
+    # Without deduping, we've seen the linking step fail because the argsfile
+    # exceeds the acceptable size by the linker.
+    framework_linkables = _extract_framework_linkables(infos)
+    if framework_linkable:
+        framework_linkables.append(framework_linkable)
+
+    return _link_info_from_frameworks_linkable(framework_linkables)
+
+def _extract_framework_linkables(link_infos: [[LinkInfo.type], None]) -> [FrameworksLinkable.type]:
+    frameworks_type = LinkableType("frameworks")
+
+    linkables = []
+    for info in link_infos:
+        for linkable in info.linkables:
+            if linkable._type == frameworks_type:
+                linkables.append(linkable)
+
+    return linkables
+
+def _link_info_from_frameworks_linkable(framework_linkables: [[FrameworksLinkable.type, None]]) -> [LinkInfo.type, None]:
+    framework_link_args = _get_apple_frameworks_linker_flags(merge_framework_linkables(framework_linkables))
+    return LinkInfo(
+        pre_flags = framework_link_args,
+    ) if framework_link_args else None

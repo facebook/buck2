@@ -1,4 +1,3 @@
-load("@fbcode//buck2/prelude/apple:apple_frameworks.bzl", "get_apple_frameworks_linker_flags")
 load(
     "@fbcode//buck2/prelude/linking:link_info.bzl",
     "Archive",
@@ -113,7 +112,6 @@ def cxx_library_impl(ctx: "context") -> ["provider"]:
         rule_type = "cxx_library",
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
         srcs = get_srcs_with_flags(ctx),
-        extra_exported_link_flags = get_apple_frameworks_linker_flags(ctx),
     )
     output = cxx_library_parameterized(ctx, params)
     return output.providers
