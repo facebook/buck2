@@ -94,12 +94,13 @@ def _maybe_filter_resources(ctx: "context", resources: [AndroidResourceInfo.type
         res_info_to_out_res_dir[resource] = filtered_res
 
     filter_resources_cmd = cmd_args(android_toolchain.filter_resources[RunInfo])
-    in_res_dir_to_out_res_dir_map_cmd_args = [
-        cmd_args([in_res.res, out_res.as_output()], delimiter = " ")
+    in_res_dir_to_out_res_dir_dict = {
+        in_res.res: out_res
         for in_res, out_res in res_info_to_out_res_dir.items()
-    ]
-    in_res_dir_to_out_res_dir_map = ctx.actions.write("in_res_dir_to_out_res_dir_map", in_res_dir_to_out_res_dir_map_cmd_args)
-    filter_resources_cmd.hidden(in_res_dir_to_out_res_dir_map_cmd_args)
+    }
+    in_res_dir_to_out_res_dir_map = ctx.actions.write_json("in_res_dir_to_out_res_dir_map", {"res_dir_map": in_res_dir_to_out_res_dir_dict})
+    filter_resources_cmd.hidden([in_res.res for in_res in res_info_to_out_res_dir.keys()])
+    filter_resources_cmd.hidden([out_res.as_output() for out_res in res_info_to_out_res_dir.values()])
     filter_resources_cmd.add([
         "--in-res-dir-to-out-res-dir-map",
         in_res_dir_to_out_res_dir_map,
