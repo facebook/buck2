@@ -119,6 +119,9 @@ pub enum MaterializationError {
 ///
 /// 3. If `ensure_materialized` is called on a path that wasn't previously
 ///    declared, that path is not materialized and no errors are raised for it.
+///
+/// 4. Declare may delete any existing paths that conflict with the path that was
+///    declared.
 #[async_trait]
 pub trait Materializer: Send + Sync + 'static {
     /// Declare an artifact at `path` whose files can be materialized by doing
