@@ -41,10 +41,6 @@ def _impl(ctx):
         actionFactory = ctx.bxl_actions.action_factory()
         compdbArtifact = actionFactory.write_json("compdb.json", compileCommands)
 
-        # TODO: do we need this for dependencies materialization?
-        buildTarget = configured_sub_target(owner.label, "compilation-database")
-        ctx.build(buildTarget)
-
         # HMAP CONVERTER
         hmapConverter = ctx.analysis("fbsource//xplat/scripts/clangd/hmapconverter:bxlhmapconverter").providers()[RunInfo]
         outputDir = actionFactory.declare_output("merged_cdb")
@@ -55,6 +51,11 @@ def _impl(ctx):
         cmd.add(buckRoot)
         cmd.add("--output-dir")
         cmd.add(outputDir.as_output())
+
+        # TODO: do we need these as well?
+        # cmd.hidden(cxx_compile_info.cxx_compile_cmd.base_compile_cmd)
+        # cmd.hidden(arguments.add(cxx_compile_info.args[:-1]))
+        cmd.hidden(cxx_compile_info.cxx_compile_cmd.argsfile.argfile_args)
         actionFactory.run(cmd, category = "cxx_merge_compdb_hmap")
         ensured = ctx.output.ensure(outputDir)
 
