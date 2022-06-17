@@ -307,14 +307,12 @@ where
     EVENTS.sync_scope(dispatcher, func)
 }
 
-/// Resolves the Future fut, setting the dispatcher to the task_local for the Task
-/// (and for any downstream events).
-pub async fn with_dispatcher_async<R, Fut>(dispatcher: EventDispatcher, fut: Fut) -> R
+// Wraps the Future fut with a TaskLocalFuture that sets the task_local dispatcher before polling fut.
+pub fn with_dispatcher_async<F, R>(dispatcher: EventDispatcher, fut: F) -> impl Future<Output = R>
 where
-    Fut: Future<Output = R>,
+    F: Future<Output = R>,
 {
-    futures::pin_mut!(fut);
-    EVENTS.scope(dispatcher, fut).await
+    EVENTS.scope(dispatcher, fut)
 }
 
 fn get_dispatcher() -> EventDispatcher {
