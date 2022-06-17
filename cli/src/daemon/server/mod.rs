@@ -809,6 +809,7 @@ impl DaemonState {
                 #[cfg(any(not(feature = "eden_materializer"), not(unix)))]
                 {
                     let _unused = buck_out_path;
+                    let _unused = fs;
                     Err(anyhow::anyhow!(
                         "`eden` materialization method is not supported unless you build with `eden_materializer`"
                     ))

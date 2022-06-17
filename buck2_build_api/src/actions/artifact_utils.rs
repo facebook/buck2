@@ -7,14 +7,14 @@
  * of this source tree.
  */
 
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, path::PathBuf, sync::Arc};
 
 use anyhow::Context;
 use buck2_core::{
     directory::DirectoryEntry,
     fs::{
         anyhow as fs,
-        paths::{AbsPath, AbsPathBuf, RelativePath},
+        paths::{AbsPath, AbsPathBuf, RelativePath, RelativePathBuf},
         project::{ProjectFilesystem, ProjectRelativePath},
     },
 };
@@ -98,7 +98,13 @@ impl<'a> ArtifactValueBuilder<'a> {
                 let reldest = self
                     .project_fs
                     .relative_path(src.parent().context("Symlink has no dir parent")?, dest);
-                let s = s.relativized(RelativePath::from_path(&reldest)?);
+                // RelativePathBuf converts platform specific path separators.
+                let reldest = if cfg!(windows) {
+                    Cow::Owned(RelativePathBuf::from_path(&reldest)?)
+                } else {
+                    Cow::Borrowed(RelativePath::from_path(&reldest)?)
+                };
+                let s = s.relativized(reldest);
                 DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(Arc::new(s)))
             }
             DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(s))
