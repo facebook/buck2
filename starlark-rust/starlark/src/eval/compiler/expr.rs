@@ -415,7 +415,7 @@ impl IrSpanned<ExprCompiled> {
             ExprCompiled::Equals(box (ref l, ref r)) => {
                 let l = l.optimize_on_freeze(ctx);
                 let r = r.optimize_on_freeze(ctx);
-                eval_equals(l, r)
+                return ExprCompiled::equals(l, r);
             }
             ExprCompiled::Compare(box (ref l, ref r), cmp) => {
                 let l = l.optimize_on_freeze(ctx);
@@ -496,6 +496,34 @@ impl IrSpanned<ExprCompiled> {
 }
 
 impl ExprCompiled {
+    fn equals(l: IrSpanned<ExprCompiled>, r: IrSpanned<ExprCompiled>) -> IrSpanned<ExprCompiled> {
+        let span = l.span.merge(&r.span);
+        if let (Some(l), Some(r)) = (l.as_value(), r.as_value()) {
+            // If comparison fails, let it fail in runtime.
+            if let Ok(r) = l.equals(r.to_value()) {
+                return IrSpanned {
+                    span,
+                    node: ExprCompiled::Value(FrozenValue::new_bool(r)),
+                };
+            }
+        }
+
+        let (l, r) = match try_eval_type_is(l, r) {
+            Ok(e) => return e,
+            Err((l, r)) => (l, r),
+        };
+
+        let (r, l) = match try_eval_type_is(r, l) {
+            Ok(e) => return e,
+            Err((r, l)) => (r, l),
+        };
+
+        IrSpanned {
+            span,
+            node: ExprCompiled::Equals(box (l, r)),
+        }
+    }
+
     fn not(span: FrozenFileSpan, expr: IrSpanned<ExprCompiled>) -> IrSpanned<ExprCompiled> {
         match expr.node {
             ExprCompiled::Value(x) => IrSpanned {
@@ -952,27 +980,6 @@ fn try_eval_type_is(
     }
 }
 
-fn eval_equals(l: IrSpanned<ExprCompiled>, r: IrSpanned<ExprCompiled>) -> ExprCompiled {
-    if let (Some(l), Some(r)) = (l.as_value(), r.as_value()) {
-        // If comparison fails, let it fail in runtime.
-        if let Ok(r) = l.equals(r.to_value()) {
-            return ExprCompiled::Value(FrozenValue::new_bool(r));
-        }
-    }
-
-    let (l, r) = match try_eval_type_is(l, r) {
-        Ok(e) => return e.node,
-        Err((l, r)) => (l, r),
-    };
-
-    let (r, l) = match try_eval_type_is(r, l) {
-        Ok(e) => return e.node,
-        Err((r, l)) => (r, l),
-    };
-
-    ExprCompiled::Equals(box (l, r))
-}
-
 impl AstLiteral {
     fn compile(&self, heap: &FrozenHeap) -> FrozenValue {
         match self {
@@ -1263,16 +1270,9 @@ impl Compiler<'_, '_, '_> {
                     match op {
                         BinOp::Or => return ExprCompiled::or(l, r),
                         BinOp::And => return ExprCompiled::and(l, r),
-                        BinOp::Equal => eval_equals(l, r),
+                        BinOp::Equal => return ExprCompiled::equals(l, r),
                         BinOp::NotEqual => {
-                            ExprCompiled::not(
-                                span,
-                                IrSpanned {
-                                    span,
-                                    node: eval_equals(l, r),
-                                },
-                            )
-                            .node
+                            return ExprCompiled::not(span, ExprCompiled::equals(l, r));
                         }
                         BinOp::Less => ExprCompiled::compare(l, r, CompareOp::Less),
                         BinOp::Greater => ExprCompiled::compare(l, r, CompareOp::Greater),
