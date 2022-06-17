@@ -33,18 +33,19 @@ use once_cell::sync::Lazy;
 use crate::{
     self as starlark,
     codemap::CodeMap,
-    collections::{symbol_map::Symbol, Hashed},
+    collections::Hashed,
     const_frozen_string,
     environment::{FrozenModuleRef, Globals},
     eval::{
         bc::{bytecode::Bc, frame::alloca_frame},
         compiler::{
-            expr::{CompareOp, ExprBinOp, ExprCompiled, ExprLogicalBinOp, ExprUnOp},
+            def_inline::{inline_def_body, InlineDefBody},
+            expr::ExprCompiled,
             scope::{
                 Captured, CstAssignIdent, CstExpr, CstParameter, CstStmt, ScopeId, ScopeNames,
             },
             span::IrSpanned,
-            stmt::{OptimizeOnFreezeContext, StmtCompileContext, StmtCompiled, StmtsCompiled},
+            stmt::{OptimizeOnFreezeContext, StmtCompileContext, StmtsCompiled},
             Compiler, EvalException,
         },
         runtime::{
@@ -138,7 +139,7 @@ impl<T> ParameterCompiled<T> {
         }
     }
 
-    fn accepts_positional(&self) -> bool {
+    pub(crate) fn accepts_positional(&self) -> bool {
         match self {
             ParameterCompiled::Normal(_, _) => true,
             ParameterCompiled::WithDefaultValue(_, _, _) => true,
@@ -233,18 +234,6 @@ pub(crate) struct DefCompiled {
     pub(crate) check_types: bool,
 }
 
-/// Function body suitable for inlining.
-#[derive(Debug)]
-pub(crate) enum InlineDefBody {
-    /// Function body is `return type(x) == "y"`
-    ReturnTypeIs(FrozenStringValue),
-    /// Any expression which can be safely inlined.
-    ///
-    /// See the function where this enum variant is computed for the definition
-    /// of safe to inline expression.
-    ReturnSafeToInlineExpr(IrSpanned<ExprCompiled>),
-}
-
 impl Compiler<'_, '_, '_> {
     fn parameter_name(&mut self, ident: CstAssignIdent) -> ParameterName {
         let binding_id = ident.1.expect("no binding for parameter");
@@ -294,164 +283,6 @@ impl Compiler<'_, '_, '_> {
         }
     }
 
-    /// If a statement is `return type(x) == "y"` where `x` is a first slot.
-    fn is_return_type_is(stmt: &StmtsCompiled) -> Option<FrozenStringValue> {
-        match stmt.first().map(|s| &s.node) {
-            Some(StmtCompiled::Return(IrSpanned {
-                node:
-                    ExprCompiled::TypeIs(
-                        box IrSpanned {
-                            // Slot 0 is a slot for the first function argument.
-                            node: ExprCompiled::Local(LocalSlotId(0), ..),
-                            ..
-                        },
-                        t,
-                    ),
-                ..
-            })) => Some(*t),
-            _ => None,
-        }
-    }
-
-    /// Expression which is has no access to locals or globals.
-    fn is_safe_to_inline_expr(expr: &ExprCompiled, counter: &mut u32) -> bool {
-        // Do not inline too large functions.
-        if *counter > 100 {
-            return false;
-        }
-        *counter += 1;
-        match expr {
-            ExprCompiled::Value(..) => true,
-            ExprCompiled::Local(..)
-            | ExprCompiled::LocalCaptured(..)
-            | ExprCompiled::Module(..)
-            | ExprCompiled::Def(..) => false,
-            ExprCompiled::Call(call) => {
-                Compiler::is_safe_to_inline_expr(&call.fun, counter)
-                    && call
-                        .args
-                        .arg_exprs()
-                        .all(|e| Compiler::is_safe_to_inline_expr(e, counter))
-            }
-            ExprCompiled::Compr(..) => {
-                // TODO: some comprehensions are safe to inline.
-                false
-            }
-            ExprCompiled::Compare(box (a, b), cmp) => {
-                let _: &CompareOp = cmp;
-                Compiler::is_safe_to_inline_expr(a, counter)
-                    && Compiler::is_safe_to_inline_expr(b, counter)
-            }
-            ExprCompiled::Dot(expr, field) => {
-                let _: &Symbol = field;
-                Compiler::is_safe_to_inline_expr(expr, counter)
-            }
-            ExprCompiled::ArrayIndirection(box (array, index)) => {
-                Compiler::is_safe_to_inline_expr(array, counter)
-                    && Compiler::is_safe_to_inline_expr(index, counter)
-            }
-            ExprCompiled::Slice(box (a, b, c, d)) => {
-                fn is_safe(expr: &Option<IrSpanned<ExprCompiled>>, counter: &mut u32) -> bool {
-                    expr.as_ref().map_or(true, |expr| {
-                        Compiler::is_safe_to_inline_expr(&expr.node, counter)
-                    })
-                }
-
-                Compiler::is_safe_to_inline_expr(a, counter)
-                    && is_safe(b, counter)
-                    && is_safe(c, counter)
-                    && is_safe(d, counter)
-            }
-            ExprCompiled::Op(bin_op, box (a, b)) => {
-                let _: &ExprBinOp = bin_op;
-                Compiler::is_safe_to_inline_expr(a, counter)
-                    && Compiler::is_safe_to_inline_expr(b, counter)
-            }
-            ExprCompiled::Equals(box (a, b)) => {
-                Compiler::is_safe_to_inline_expr(a, counter)
-                    && Compiler::is_safe_to_inline_expr(b, counter)
-            }
-            ExprCompiled::UnOp(un_op, arg) => {
-                let _: &ExprUnOp = un_op;
-                Compiler::is_safe_to_inline_expr(arg, counter)
-            }
-            ExprCompiled::TypeIs(v, t) => {
-                let _: FrozenStringValue = *t;
-                Compiler::is_safe_to_inline_expr(v, counter)
-            }
-            ExprCompiled::Tuple(xs) | ExprCompiled::List(xs) => xs
-                .iter()
-                .all(|x| Compiler::is_safe_to_inline_expr(x, counter)),
-            ExprCompiled::Dict(xs) => xs.iter().all(|(x, y)| {
-                Compiler::is_safe_to_inline_expr(x, counter)
-                    && Compiler::is_safe_to_inline_expr(y, counter)
-            }),
-            ExprCompiled::If(box (ref c, ref t, ref f)) => {
-                Compiler::is_safe_to_inline_expr(c, counter)
-                    && Compiler::is_safe_to_inline_expr(t, counter)
-                    && Compiler::is_safe_to_inline_expr(f, counter)
-            }
-            ExprCompiled::Not(ref x) => Compiler::is_safe_to_inline_expr(x, counter),
-            ExprCompiled::LogicalBinOp(op, box (ref x, ref y)) => {
-                let _: &ExprLogicalBinOp = op;
-                Compiler::is_safe_to_inline_expr(x, counter)
-                    && Compiler::is_safe_to_inline_expr(y, counter)
-            }
-            ExprCompiled::Seq(box (ref x, ref y)) => {
-                Compiler::is_safe_to_inline_expr(x, counter)
-                    && Compiler::is_safe_to_inline_expr(y, counter)
-            }
-            ExprCompiled::PercentSOne(box (before, ref v, after))
-            | ExprCompiled::FormatOne(box (before, ref v, after)) => {
-                let _: (FrozenStringValue, FrozenStringValue) = (*before, *after);
-                Compiler::is_safe_to_inline_expr(v, counter)
-            }
-        }
-    }
-
-    /// Function body is a `return` safe to inline expression (as defined above).
-    fn is_return_safe_to_inline_expr(stmts: &StmtsCompiled) -> Option<IrSpanned<ExprCompiled>> {
-        match stmts.first() {
-            None => {
-                // Empty function is equivalent to `return None`.
-                Some(IrSpanned {
-                    span: FrozenFileSpan::default(),
-                    node: ExprCompiled::Value(FrozenValue::new_none()),
-                })
-            }
-            Some(stmt) => {
-                let mut counter = 0;
-                match &stmt.node {
-                    StmtCompiled::Return(expr)
-                        if Compiler::is_safe_to_inline_expr(expr, &mut counter) =>
-                    {
-                        // Note we are losing the stack trace here.
-                        // This is fine because inlined expressions are infallible.
-                        Some(expr.clone())
-                    }
-                    _ => None,
-                }
-            }
-        }
-    }
-
-    fn inline_def_body(
-        params: &[IrSpanned<ParameterCompiled<IrSpanned<ExprCompiled>>>],
-        body: &StmtsCompiled,
-    ) -> Option<InlineDefBody> {
-        if params.len() == 1 && params[0].accepts_positional() {
-            if let Some(t) = Compiler::is_return_type_is(body) {
-                return Some(InlineDefBody::ReturnTypeIs(t));
-            }
-        }
-        if params.is_empty() {
-            if let Some(expr) = Compiler::is_return_safe_to_inline_expr(body) {
-                return Some(InlineDefBody::ReturnSafeToInlineExpr(expr));
-            }
-        }
-        None
-    }
-
     pub fn function(
         &mut self,
         name: &str,
@@ -478,7 +309,7 @@ impl Compiler<'_, '_, '_> {
         let scope_names = mem::take(scope_names);
         let local_count = scope_names.used.len().try_into().unwrap();
 
-        let inline_def_body = Self::inline_def_body(&params, &body);
+        let inline_def_body = inline_def_body(&params, &body);
 
         let param_count = params
             .iter()

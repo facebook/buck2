@@ -20,6 +20,7 @@ pub(crate) mod call;
 pub(crate) mod compr;
 pub(crate) mod constants;
 pub(crate) mod def;
+pub(crate) mod def_inline;
 pub(crate) mod expr;
 pub(crate) mod expr_bool;
 pub(crate) mod known;

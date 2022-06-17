@@ -23,7 +23,7 @@ use crate::{
         compiler::{
             args::ArgsCompiledValue,
             constants::Constants,
-            def::InlineDefBody,
+            def_inline::InlineDefBody,
             expr::ExprCompiled,
             scope::{CstArgument, CstExpr},
             span::IrSpanned,
