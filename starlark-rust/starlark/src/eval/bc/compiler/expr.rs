@@ -110,10 +110,6 @@ impl ExprCompiled {
             ExprCompiled::Local(local) => bc.mark_definitely_assigned(*local),
             ExprCompiled::LocalCaptured(_) => {}
             ExprCompiled::Module(_) => {}
-            ExprCompiled::Compare(box (a, b), _op) => {
-                a.mark_definitely_assigned_after(bc);
-                b.mark_definitely_assigned_after(bc);
-            }
             ExprCompiled::TypeIs(v, _t) => {
                 v.mark_definitely_assigned_after(bc);
             }
@@ -312,19 +308,6 @@ impl IrSpanned<ExprCompiled> {
             ExprCompiled::Module(slot) => {
                 bc.write_instr::<InstrLoadModule>(span, (slot, target));
             }
-            ExprCompiled::Compare(box (ref l, ref r), cmp) => {
-                write_n_exprs([l, r], bc, |l_r, bc| {
-                    let arg = (l_r, target);
-                    match cmp {
-                        CompareOp::Less => bc.write_instr::<InstrLess>(span, arg),
-                        CompareOp::Greater => bc.write_instr::<InstrGreater>(span, arg),
-                        CompareOp::LessOrEqual => bc.write_instr::<InstrLessOrEqual>(span, arg),
-                        CompareOp::GreaterOrEqual => {
-                            bc.write_instr::<InstrGreaterOrEqual>(span, arg)
-                        }
-                    }
-                });
-            }
             ExprCompiled::TypeIs(box ref v, t) => {
                 v.write_bc_cb(bc, |v, bc| {
                     bc.write_instr::<InstrTypeIs>(span, (v, t, target));
@@ -418,6 +401,18 @@ impl IrSpanned<ExprCompiled> {
                     let arg = (l_r, target);
                     match op {
                         ExprBinOp::Equals => unreachable!("handled above"),
+                        ExprBinOp::Compare(CompareOp::Less) => {
+                            bc.write_instr::<InstrLess>(span, arg)
+                        }
+                        ExprBinOp::Compare(CompareOp::Greater) => {
+                            bc.write_instr::<InstrGreater>(span, arg)
+                        }
+                        ExprBinOp::Compare(CompareOp::LessOrEqual) => {
+                            bc.write_instr::<InstrLessOrEqual>(span, arg)
+                        }
+                        ExprBinOp::Compare(CompareOp::GreaterOrEqual) => {
+                            bc.write_instr::<InstrGreaterOrEqual>(span, arg)
+                        }
                         ExprBinOp::In => bc.write_instr::<InstrIn>(span, arg),
                         ExprBinOp::Sub => bc.write_instr::<InstrSub>(span, arg),
                         ExprBinOp::Add => bc.write_instr::<InstrAdd>(span, arg),

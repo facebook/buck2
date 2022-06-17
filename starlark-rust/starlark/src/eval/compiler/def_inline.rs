@@ -22,7 +22,7 @@ use crate::{
     eval::{
         compiler::{
             def::ParameterCompiled,
-            expr::{CompareOp, ExprBinOp, ExprCompiled, ExprLogicalBinOp, ExprUnOp},
+            expr::{ExprBinOp, ExprCompiled, ExprLogicalBinOp, ExprUnOp},
             span::IrSpanned,
             stmt::{StmtCompiled, StmtsCompiled},
         },
@@ -100,10 +100,6 @@ impl IsSafeToInlineExpr {
             ExprCompiled::Compr(..) => {
                 // TODO: some comprehensions are safe to inline.
                 false
-            }
-            ExprCompiled::Compare(box (a, b), cmp) => {
-                let _: &CompareOp = cmp;
-                self.is_safe_to_inline_expr(a) && self.is_safe_to_inline_expr(b)
             }
             ExprCompiled::Dot(expr, field) => {
                 let _: &Symbol = field;

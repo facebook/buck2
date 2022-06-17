@@ -135,12 +135,14 @@ pub(crate) enum ExprBinOp {
     BitXor,
     LeftShift,
     RightShift,
+    Compare(CompareOp),
 }
 
 impl ExprBinOp {
     fn eval<'v>(self, a: Value<'v>, b: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match self {
             ExprBinOp::Equals => a.equals(b).map(Value::new_bool),
+            ExprBinOp::Compare(cmp) => a.compare(b).map(|c| Value::new_bool(cmp.as_fn()(c))),
             ExprBinOp::In => b.is_in(a).map(Value::new_bool),
             ExprBinOp::Sub => a.sub(b, heap),
             ExprBinOp::Add => a.add(b, heap),
@@ -172,11 +174,6 @@ pub(crate) enum ExprCompiled {
     /// Read local captured variable.
     LocalCaptured(LocalSlotId),
     Module(ModuleSlotId),
-    /// `cmp(x <=> y)`
-    Compare(
-        Box<(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)>,
-        CompareOp,
-    ),
     /// `type(x) == "y"`
     TypeIs(Box<IrSpanned<ExprCompiled>>, FrozenStringValue),
     Tuple(Vec<IrSpanned<ExprCompiled>>),
@@ -327,8 +324,7 @@ impl ExprCompiled {
             Self::Value(v) => v.unpack_bool().is_some(),
             Self::TypeIs(..)
             | Self::Not(..)
-            | Self::Compare(..)
-            | Self::Op(ExprBinOp::In | ExprBinOp::Equals, ..) => true,
+            | Self::Op(ExprBinOp::In | ExprBinOp::Equals | ExprBinOp::Compare(_), ..) => true,
             _ => false,
         }
     }
@@ -410,11 +406,6 @@ impl IrSpanned<ExprCompiled> {
                     }
                     Some(v) => ExprCompiled::Value(v),
                 }
-            }
-            ExprCompiled::Compare(box (ref l, ref r), cmp) => {
-                let l = l.optimize_on_freeze(ctx);
-                let r = r.optimize_on_freeze(ctx);
-                ExprCompiled::compare(l, r, cmp)
             }
             ExprCompiled::TypeIs(box ref e, t) => {
                 ExprCompiled::type_is(e.optimize_on_freeze(ctx), t)
@@ -935,21 +926,6 @@ impl ExprCompiled {
             },
         })
     }
-
-    fn compare(
-        l: IrSpanned<ExprCompiled>,
-        r: IrSpanned<ExprCompiled>,
-        cmp: CompareOp,
-    ) -> ExprCompiled {
-        if let (Some(l), Some(r)) = (l.as_value(), r.as_value()) {
-            // If comparison fails, let it fail in runtime.
-            if let Ok(r) = l.compare(r.to_value()) {
-                return ExprCompiled::Value(FrozenValue::new_bool((cmp.as_fn())(r)));
-            }
-        }
-
-        ExprCompiled::Compare(box (l, r), cmp)
-    }
 }
 
 #[derive(Debug, Clone, Error)]
@@ -1269,12 +1245,34 @@ impl Compiler<'_, '_, '_> {
                         BinOp::NotEqual => {
                             return ExprCompiled::not(span, ExprCompiled::equals(l, r));
                         }
-                        BinOp::Less => ExprCompiled::compare(l, r, CompareOp::Less),
-                        BinOp::Greater => ExprCompiled::compare(l, r, CompareOp::Greater),
-                        BinOp::LessOrEqual => ExprCompiled::compare(l, r, CompareOp::LessOrEqual),
-                        BinOp::GreaterOrEqual => {
-                            ExprCompiled::compare(l, r, CompareOp::GreaterOrEqual)
-                        }
+                        BinOp::Less => ExprCompiled::bin_op(
+                            ExprBinOp::Compare(CompareOp::Less),
+                            l,
+                            r,
+                            self.eval.module_env.heap(),
+                            self.eval.module_env.frozen_heap(),
+                        ),
+                        BinOp::Greater => ExprCompiled::bin_op(
+                            ExprBinOp::Compare(CompareOp::Greater),
+                            l,
+                            r,
+                            self.eval.module_env.heap(),
+                            self.eval.module_env.frozen_heap(),
+                        ),
+                        BinOp::LessOrEqual => ExprCompiled::bin_op(
+                            ExprBinOp::Compare(CompareOp::LessOrEqual),
+                            l,
+                            r,
+                            self.eval.module_env.heap(),
+                            self.eval.module_env.frozen_heap(),
+                        ),
+                        BinOp::GreaterOrEqual => ExprCompiled::bin_op(
+                            ExprBinOp::Compare(CompareOp::GreaterOrEqual),
+                            l,
+                            r,
+                            self.eval.module_env.heap(),
+                            self.eval.module_env.frozen_heap(),
+                        ),
                         BinOp::In => ExprCompiled::bin_op(
                             ExprBinOp::In,
                             l,
