@@ -52,7 +52,6 @@ pub struct BxlCoreOpts {
     pub bxl_label: String,
 
     #[structopt(
-        short = "-",
         name = "BXL INPUT ARGS",
         help = "Arguments passed to the bxl script",
         raw = true

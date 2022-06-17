@@ -41,7 +41,6 @@ pub struct InstallCommand {
     patterns: Vec<String>,
 
     #[structopt(
-        short = "-",
         name = "INSTALL_ARGS",
         help = "Additional arguments passed to the install when running it",
         raw = true

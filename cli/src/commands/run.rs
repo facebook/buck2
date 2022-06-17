@@ -71,7 +71,6 @@ pub struct RunCommand {
     command_args_file: Option<String>,
 
     #[structopt(
-        short = "-",
         name = "TARGET_ARGS",
         help = "Additional arguments passed to the target when running it"
     )]

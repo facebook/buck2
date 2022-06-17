@@ -85,7 +85,6 @@ If include patterns are present, regardless of whether exclude patterns are pres
     xml: Option<String>,
 
     #[structopt(
-        short = "-",
         name = "TEST_EXECUTOR_ARGS",
         help = "Additional arguments passed to the test executor",
         raw = true
