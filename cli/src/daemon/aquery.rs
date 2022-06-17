@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use anyhow::Context as _;
 use buck2_build_api::query::aquery::evaluator::get_aquery_evaluator;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
@@ -19,7 +18,7 @@ use crate::{
 };
 
 pub async fn aquery(
-    server_ctx: ServerCommandContext,
+    mut server_ctx: ServerCommandContext,
     request: AqueryRequest,
 ) -> anyhow::Result<AqueryResponse> {
     let ctx = server_ctx.dice_ctx().await?;
@@ -51,26 +50,23 @@ pub async fn aquery(
 
     let query_result = evaluator.eval_query(&query, query_args).await?;
 
-    let mut buff = Vec::new();
+    let mut stdout = server_ctx.stdout()?;
+
     let result = match query_result {
         QueryEvaluationResult::Single(targets) => {
             output_configuration
-                .print_single_output(&mut buff, targets, false, ShouldPrintProviders::No)
+                .print_single_output(&mut stdout, targets, false, ShouldPrintProviders::No)
                 .await
         }
         QueryEvaluationResult::Multiple(results) => {
             output_configuration
-                .print_multi_output(&mut buff, results, false, ShouldPrintProviders::No)
+                .print_multi_output(&mut stdout, results, false, ShouldPrintProviders::No)
                 .await
         }
     };
-    let user_output = String::from_utf8(buff).context("Output is not utf-8")?;
     let error_messages = match result {
         Ok(_) => vec![],
         Err(e) => vec![format!("{:#}", e)],
     };
-    Ok(AqueryResponse {
-        user_output,
-        error_messages,
-    })
+    Ok(AqueryResponse { error_messages })
 }

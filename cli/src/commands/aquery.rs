@@ -73,9 +73,6 @@ impl StreamingCommand for AqueryCommand {
         for message in &response.error_messages {
             crate::eprintln!("{}", message)?;
         }
-        if !response.user_output.is_empty() {
-            crate::print!("{}", response.user_output)?;
-        }
 
         if !response.error_messages.is_empty() {
             ExitResult::failure()

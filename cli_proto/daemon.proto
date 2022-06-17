@@ -131,11 +131,9 @@ message AqueryRequest {
 }
 
 message AqueryResponse {
+  reserved 100;
   // TODO(nmj): These should be more structured outputs for the client to print.
   //            When they are, remove these fields.
-  // The output to print to the user at the end of the query, regardless of
-  // success. This should not have a newline printed afterward.
-  string user_output = 100;
   // If present, errors to show the user. If any are present, the query command
   // failed.
   repeated string error_messages = 101;
