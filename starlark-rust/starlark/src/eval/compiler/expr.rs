@@ -122,6 +122,7 @@ impl ExprUnOp {
 
 #[derive(Copy, Clone, Dupe, Debug, VisitSpanMut)]
 pub(crate) enum ExprBinOp {
+    Equals,
     In,
     Sub,
     Add,
@@ -139,6 +140,7 @@ pub(crate) enum ExprBinOp {
 impl ExprBinOp {
     fn eval<'v>(self, a: Value<'v>, b: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match self {
+            ExprBinOp::Equals => a.equals(b).map(Value::new_bool),
             ExprBinOp::In => b.is_in(a).map(Value::new_bool),
             ExprBinOp::Sub => a.sub(b, heap),
             ExprBinOp::Add => a.add(b, heap),
@@ -170,8 +172,6 @@ pub(crate) enum ExprCompiled {
     /// Read local captured variable.
     LocalCaptured(LocalSlotId),
     Module(ModuleSlotId),
-    /// `x == y`
-    Equals(Box<(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)>),
     /// `cmp(x <=> y)`
     Compare(
         Box<(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)>,
@@ -325,11 +325,10 @@ impl ExprCompiled {
     fn is_definitely_bool(&self) -> bool {
         match self {
             Self::Value(v) => v.unpack_bool().is_some(),
-            Self::Equals(..)
-            | Self::TypeIs(..)
+            Self::TypeIs(..)
             | Self::Not(..)
             | Self::Compare(..)
-            | Self::Op(ExprBinOp::In, ..) => true,
+            | Self::Op(ExprBinOp::In | ExprBinOp::Equals, ..) => true,
             _ => false,
         }
     }
@@ -411,11 +410,6 @@ impl IrSpanned<ExprCompiled> {
                     }
                     Some(v) => ExprCompiled::Value(v),
                 }
-            }
-            ExprCompiled::Equals(box (ref l, ref r)) => {
-                let l = l.optimize_on_freeze(ctx);
-                let r = r.optimize_on_freeze(ctx);
-                return ExprCompiled::equals(l, r);
             }
             ExprCompiled::Compare(box (ref l, ref r), cmp) => {
                 let l = l.optimize_on_freeze(ctx);
@@ -520,7 +514,7 @@ impl ExprCompiled {
 
         IrSpanned {
             span,
-            node: ExprCompiled::Equals(box (l, r)),
+            node: ExprCompiled::Op(ExprBinOp::Equals, box (l, r)),
         }
     }
 
@@ -668,6 +662,7 @@ impl ExprCompiled {
         match bin_op {
             ExprBinOp::Percent => ExprCompiled::percent(l, r, heap, frozen_heap),
             ExprBinOp::Add => ExprCompiled::add(l, r),
+            ExprBinOp::Equals => ExprCompiled::equals(l, r).node,
             bin_op => ExprCompiled::Op(bin_op, box (l, r)),
         }
     }

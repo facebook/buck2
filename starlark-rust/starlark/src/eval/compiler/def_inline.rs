@@ -122,9 +122,6 @@ impl IsSafeToInlineExpr {
                 let _: &ExprBinOp = bin_op;
                 self.is_safe_to_inline_expr(a) && self.is_safe_to_inline_expr(b)
             }
-            ExprCompiled::Equals(box (a, b)) => {
-                self.is_safe_to_inline_expr(a) && self.is_safe_to_inline_expr(b)
-            }
             ExprCompiled::UnOp(un_op, arg) => {
                 let _: &ExprUnOp = un_op;
                 self.is_safe_to_inline_expr(arg)

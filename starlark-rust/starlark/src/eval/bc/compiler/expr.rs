@@ -110,10 +110,6 @@ impl ExprCompiled {
             ExprCompiled::Local(local) => bc.mark_definitely_assigned(*local),
             ExprCompiled::LocalCaptured(_) => {}
             ExprCompiled::Module(_) => {}
-            ExprCompiled::Equals(box (a, b)) => {
-                a.mark_definitely_assigned_after(bc);
-                b.mark_definitely_assigned_after(bc);
-            }
             ExprCompiled::Compare(box (a, b), _op) => {
                 a.mark_definitely_assigned_after(bc);
                 b.mark_definitely_assigned_after(bc);
@@ -316,9 +312,6 @@ impl IrSpanned<ExprCompiled> {
             ExprCompiled::Module(slot) => {
                 bc.write_instr::<InstrLoadModule>(span, (slot, target));
             }
-            ExprCompiled::Equals(box (ref a, ref b)) => {
-                Self::write_equals(span, a, b, target, bc);
-            }
             ExprCompiled::Compare(box (ref l, ref r), cmp) => {
                 write_n_exprs([l, r], bc, |l_r, bc| {
                     let arg = (l_r, target);
@@ -417,10 +410,14 @@ impl IrSpanned<ExprCompiled> {
                 l.write_bc_for_effect(bc);
                 r.write_bc(target, bc);
             }
+            ExprCompiled::Op(ExprBinOp::Equals, box (ref l, ref r)) => {
+                Self::write_equals(span, l, r, target, bc)
+            }
             ExprCompiled::Op(op, box (ref l, ref r)) => {
                 write_n_exprs([l, r], bc, |l_r, bc| {
                     let arg = (l_r, target);
                     match op {
+                        ExprBinOp::Equals => unreachable!("handled above"),
                         ExprBinOp::In => bc.write_instr::<InstrIn>(span, arg),
                         ExprBinOp::Sub => bc.write_instr::<InstrSub>(span, arg),
                         ExprBinOp::Add => bc.write_instr::<InstrAdd>(span, arg),
