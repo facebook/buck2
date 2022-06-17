@@ -30,7 +30,6 @@ pub trait UnpackValue<'v>: Sized {
     fn expected() -> String;
 
     /// Given a [`Value`], try and unpack it into the given type, which may involve some element of conversion.
-    /// The `heap` argument is _usually_ not required.
     fn unpack_value(value: Value<'v>) -> Option<Self>;
 
     /// Unpack value, but instead of `None` return error about incorrect argument type.
