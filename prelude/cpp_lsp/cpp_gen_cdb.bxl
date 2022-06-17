@@ -25,15 +25,15 @@ def _impl(ctx):
         providers = ctx.analysis(owner).providers()
         platform = providers[CxxCompilationDbInfo].platform.name
         toolchain = parseToolChain(platform, str(providers[CxxCompilationDbInfo].toolchain.linker_info.archiver.args))
-        artifact = providers[CxxCompilationDbInfo].info.values()[0]
+        cxx_compile_info = providers[CxxCompilationDbInfo].info.values()[0]
         sourceLabel = owner.get_source(filename, ctx)
         if sourceLabel in providers[CxxCompilationDbInfo].info:
-            artifact = providers[CxxCompilationDbInfo].info[sourceLabel]
+            cxx_compile_info = providers[CxxCompilationDbInfo].info[sourceLabel]
         compileCommands = []
         arguments = cmd_args()
-        arguments.add(artifact.cxx_compile_cmd.base_compile_cmd)
-        arguments.add(artifact.cxx_compile_cmd.argsfile.argfile_args)
-        arguments.add(artifact.args[:-1])
+        arguments.add(cxx_compile_info.cxx_compile_cmd.base_compile_cmd)
+        arguments.add(cxx_compile_info.cxx_compile_cmd.argsfile.argfile_args)
+        arguments.add(cxx_compile_info.args[:-1])
         arguments.add(filename)
 
         # @unsorted-dict-items
