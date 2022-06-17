@@ -180,16 +180,20 @@ impl CommonConfigOptions {
         &self,
         matches: &clap::ArgMatches,
     ) -> anyhow::Result<Vec<ConfigOverride>> {
-        fn with_indices<'a, I: IntoIterator + 'a>(
-            collection: I,
+        fn with_indices<'a, T>(
+            collection: &'a [T],
             name: &str,
             matches: &'a structopt::clap::ArgMatches,
-        ) -> impl Iterator<Item = (usize, I::Item)> + 'a {
-            matches
-                .indices_of(name)
-                .into_iter()
-                .flatten()
-                .zip(collection)
+        ) -> impl Iterator<Item = (usize, &'a T)> + 'a {
+            let indices = matches.indices_of(name);
+            let indices = indices.unwrap_or_default();
+            assert_eq!(
+                indices.len(),
+                collection.len(),
+                "indices len is not equal to collection len for flag `{}`",
+                name
+            );
+            indices.into_iter().zip(collection)
         }
 
         // Relative paths passed on the command line are relative to the cwd
