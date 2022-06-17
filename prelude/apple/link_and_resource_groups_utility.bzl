@@ -37,7 +37,7 @@ LinkGroupMapping = record(
     filter_type = field([FilterType.type, None], None),
     # Optional label regex filter to apply to the traversal. If present,
     # the `filter_type` is required.
-    label_regex = field([str.type, None], None),
+    label_regex = field(["regex", None], None),
     # Optional build target pattern to apply to the traversal. If present,
     # the `filter_type` is required.
     build_target_pattern = field([BuildTargetPattern.type, None], None),
@@ -74,14 +74,14 @@ def _parse_traversal_from_mapping(entry: str.type) -> Traversal.type:
     else:
         fail("Unrecognized link group traversal type: " + entry)
 
-def _parse_filter_from_mapping(entry: [str.type, None]) -> [(FilterType.type, str.type, None), (FilterType.type, None, BuildTargetPattern.type), (None, None, None)]:
+def _parse_filter_from_mapping(entry: [str.type, None]) -> [(FilterType.type, "regex", None), (FilterType.type, None, BuildTargetPattern.type), (None, None, None)]:
     filter_type = None
     label_regex = None
     build_target_pattern = None
     if entry:
         if entry.startswith("label") or entry.startswith("tag"):
             filter_type = FilterType("label")
-            label_regex = entry[6:]
+            label_regex = experimental_regex(entry[6:])
         elif entry.startswith("pattern"):
             filter_type = FilterType("pattern")
             build_target_pattern = parse_build_target_pattern(entry[8:])

@@ -173,8 +173,7 @@ def _find_targets_in_mapping(
 
     def matches_target(target: "label", labels: [str.type]) -> bool.type:
         if mapping.filter_type == FilterType("label"):
-            # TODO(T110378101): Can we make this more performant?
-            return any([regex_match(mapping.label_regex, label) for label in labels])
+            return any([mapping.label_regex.match(label) for label in labels])
         else:
             return label_matches_build_target_pattern(target, mapping.build_target_pattern)
 
