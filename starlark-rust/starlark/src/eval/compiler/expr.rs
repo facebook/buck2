@@ -93,12 +93,12 @@ pub(crate) enum CompareOp {
 }
 
 impl CompareOp {
-    fn as_fn(self) -> fn(Ordering) -> bool {
+    fn apply(self, x: Ordering) -> bool {
         match self {
-            CompareOp::Less => |x| x == Ordering::Less,
-            CompareOp::Greater => |x| x == Ordering::Greater,
-            CompareOp::LessOrEqual => |x| x != Ordering::Greater,
-            CompareOp::GreaterOrEqual => |x| x != Ordering::Less,
+            CompareOp::Less => x == Ordering::Less,
+            CompareOp::Greater => x == Ordering::Greater,
+            CompareOp::LessOrEqual => x != Ordering::Greater,
+            CompareOp::GreaterOrEqual => x != Ordering::Less,
         }
     }
 }
@@ -142,7 +142,7 @@ impl ExprBinOp {
     fn eval<'v>(self, a: Value<'v>, b: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match self {
             ExprBinOp::Equals => a.equals(b).map(Value::new_bool),
-            ExprBinOp::Compare(cmp) => a.compare(b).map(|c| Value::new_bool(cmp.as_fn()(c))),
+            ExprBinOp::Compare(cmp) => a.compare(b).map(|c| Value::new_bool(cmp.apply(c))),
             ExprBinOp::In => b.is_in(a).map(Value::new_bool),
             ExprBinOp::Sub => a.sub(b, heap),
             ExprBinOp::Add => a.add(b, heap),
