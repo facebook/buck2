@@ -50,7 +50,8 @@ mod types {
                 | FileType::CharSpecial
                 | FileType::Fifo
                 | FileType::Socket
-                | FileType::SolarisDoor => {
+                | FileType::SolarisDoor
+                | FileType::Unknown => {
                     return None;
                 }
                 FileType::Directory => WatchmanKind::Directory,
