@@ -1,10 +1,10 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
-load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative_path_for_destination")
 load(":apple_bundle_utility.bzl", "get_extension_attr", "get_product_name")
 load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo", "CodeSignType")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(":apple_sdk_metadata.bzl", "get_apple_sdk_metadata_for_sdk_name")
+load(":apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 
 # Defines where and what should be copied into
 AppleBundlePart = record(
@@ -41,7 +41,11 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: ["AppleBundlePart
         # Only code sign application bundles and extensions
         pass
     elif codesign_type.value in ["distribution", "adhoc"]:
-        codesign_args = ["--codesign"]
+        codesign_args = [
+            "--codesign",
+            "--codesign-tool",
+            ctx.attr._apple_toolchain[AppleToolchainInfo].codesign,
+        ]
 
         external_name = get_apple_sdk_name(ctx)
         platform_args = ["--platform", external_name]
