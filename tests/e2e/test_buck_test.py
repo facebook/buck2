@@ -90,6 +90,12 @@ if fbcode_linux_only():
             ),
             stderr_regex="ERROR: Actual coverage [0-9.]*% is smaller than expected 100.% for file",
         )
+        await expect_failure(
+            buck.test(
+                "fbcode//buck2/tests/targets/rules/python/needed_coverage:test_fail_fractional"
+            ),
+            stderr_regex="ERROR: Actual coverage [0-9.]*% is smaller than expected [0-9.]*% for file",
+        )
 
 
 if fbcode_linux_only():

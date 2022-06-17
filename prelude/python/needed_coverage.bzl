@@ -27,7 +27,7 @@ def _parse_python_needed_coverage_spec(
         fail("ratio_percentage must be between 0 and 100 (inclusive): {}".format(ratio_percentage))
     return PythonNeededCoverageSpec(
         label = dep.label,
-        ratio = ratio_percentage // 100.0,
+        ratio = ratio_percentage / 100.0,
         specific_module = specific_module,
     )
 

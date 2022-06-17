@@ -41,6 +41,19 @@ python_unittest(
     ],
 )
 
+python_unittest(
+    name = "test_fail_fractional",
+    srcs = [
+        "test_fail.py",
+    ],
+    needed_coverage = [
+        (80, ":lib"),
+    ],
+    deps = [
+        ":lib",
+    ],
+)
+
 python_library(
     name = "lib",
     srcs = [
