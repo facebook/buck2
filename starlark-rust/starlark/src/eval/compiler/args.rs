@@ -130,19 +130,28 @@ impl ArgsCompiledValue {
             .chain(self.kwargs.iter())
     }
 
-    pub(crate) fn optimize_on_freeze(&self, ctx: &OptimizeOnFreezeContext) -> ArgsCompiledValue {
+    fn map_exprs<E>(
+        &self,
+        mut f: impl FnMut(&IrSpanned<ExprCompiled>) -> Result<IrSpanned<ExprCompiled>, E>,
+    ) -> Result<ArgsCompiledValue, E> {
         let ArgsCompiledValue {
             pos_named,
             names,
             args,
             kwargs,
         } = self;
-        ArgsCompiledValue {
-            pos_named: pos_named.map(|p| p.optimize_on_freeze(ctx)),
+        Ok(ArgsCompiledValue {
+            pos_named: pos_named.try_map(&mut f)?,
             names: names.clone(),
-            args: args.as_ref().map(|a| a.optimize_on_freeze(ctx)),
-            kwargs: kwargs.as_ref().map(|a| a.optimize_on_freeze(ctx)),
-        }
+            args: args.as_ref().map(&mut f).transpose()?,
+            kwargs: kwargs.as_ref().map(&mut f).transpose()?,
+        })
+    }
+
+    pub(crate) fn optimize_on_freeze(&self, ctx: &OptimizeOnFreezeContext) -> ArgsCompiledValue {
+        enum Never {}
+        self.map_exprs(|e| Ok(e.optimize_on_freeze(ctx)))
+            .unwrap_or_else(|e: Never| match e {})
     }
 }
 
