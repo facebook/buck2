@@ -28,7 +28,7 @@ load(
     "create_manifest_for_source_dir",
     "create_manifest_for_source_map",
 )
-load(":needed_coverage.bzl", "get_python_needed_coverage_info")
+load(":needed_coverage.bzl", "PythonNeededCoverageInfo")
 load(":python.bzl", "PythonLibraryInfo", "PythonLibraryManifests", "PythonLibraryManifestsTSet")
 load(":source_db.bzl", "create_source_db")
 
@@ -70,6 +70,15 @@ def qualify_srcs(
     """
     prefix = dest_prefix(label, base_module)
     return {prefix + dest: src for dest, src in srcs.items()}
+
+def create_python_needed_coverage_info(
+        label: "label",
+        base_module: [None, str.type],
+        srcs: [str.type]) -> PythonNeededCoverageInfo.type:
+    prefix = dest_prefix(label, base_module)
+    return PythonNeededCoverageInfo(
+        modules = {src: prefix + src for src in srcs},
+    )
 
 def create_python_library_info(
         actions: "actions",
@@ -234,12 +243,13 @@ def python_library_impl(ctx: "context") -> ["provider"]:
     providers = []
     sub_targets = {}
 
-    srcs = qualify_srcs(ctx.label, ctx.attr.base_module, _attr_srcs(ctx))
+    srcs = _attr_srcs(ctx)
+    qualified_srcs = qualify_srcs(ctx.label, ctx.attr.base_module, srcs)
     resources = qualify_srcs(ctx.label, ctx.attr.base_module, py_attr_resources(ctx))
     type_stubs = qualify_srcs(ctx.label, ctx.attr.base_module, from_named_set(ctx.attr.type_stubs))
-    src_types = _src_types(srcs, type_stubs)
+    src_types = _src_types(qualified_srcs, type_stubs)
 
-    src_manifest = create_manifest_for_source_map(ctx, "srcs", srcs) if srcs else None
+    src_manifest = create_manifest_for_source_map(ctx, "srcs", qualified_srcs) if qualified_srcs else None
     src_type_manifest = create_manifest_for_source_map(ctx, "type_stubs", src_types) if src_types else None
 
     # Compile bytecode.
@@ -265,7 +275,7 @@ def python_library_impl(ctx: "context") -> ["provider"]:
         shared_libraries = shared_libraries,
     ))
 
-    providers.append(get_python_needed_coverage_info(srcs.keys()))
+    providers.append(create_python_needed_coverage_info(ctx.label, ctx.attr.base_module, srcs.keys()))
 
     # Source DBs.
     sub_targets["source-db"] = [create_source_db(ctx, src_type_manifest, flatten(raw_deps))]
@@ -275,7 +285,7 @@ def python_library_impl(ctx: "context") -> ["provider"]:
     # Create, augment and provide the linkable graph.
     linkable_graph = create_merged_linkable_graph(ctx.label, flatten(raw_deps))
     add_omnibus_roots(linkable_graph, flatten(raw_deps))
-    if _exclude_deps_from_omnibus(ctx, srcs):
+    if _exclude_deps_from_omnibus(ctx, qualified_srcs):
         add_omnibus_exclusions(linkable_graph, flatten(raw_deps))
     providers.append(linkable_graph)
 

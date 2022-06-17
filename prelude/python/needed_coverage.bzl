@@ -3,7 +3,7 @@ load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 # All modules owned by a library. This will be used by top-level tests to find
 # paths that corresponds to the library.
 PythonNeededCoverageInfo = provider(fields = [
-    "modules",  # [str.type]
+    "modules",  # {str.type: str.type}
 ])
 
 PythonNeededCoverageSpec = record(
@@ -19,12 +19,6 @@ PythonNeededCoverage = record(
     # Modules that need to be covered.
     modules = field([str.type]),
 )
-
-def get_python_needed_coverage_info(
-        modules: [str.type]) -> "PythonNeededCoverageInfo":
-    return PythonNeededCoverageInfo(
-        modules = modules,
-    )
 
 def _parse_python_needed_coverage_spec(
         raw_spec: (int.type, "dependency", [str.type, None])) -> PythonNeededCoverageSpec.type:
@@ -61,14 +55,15 @@ def gather_python_needed_coverage(
 
             # Extract modules for this dep.
             if spec.specific_module != None:
-                if spec.specific_module not in coverage.modules:
+                module = coverage.modules.get(spec.specific_module)
+                if module == None:
                     fail(
                         "module {} specified in needed_coverage not found in target {}"
                             .format(spec.specific_module, spec.label),
                     )
-                modules = [spec.specific_module]
+                modules = [module]
             else:
-                modules = coverage.modules
+                modules = coverage.modules.values()
 
             expect(len(modules) > 0, "no modules found for {} ({})", spec.label, coverage)
 

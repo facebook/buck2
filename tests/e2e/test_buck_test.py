@@ -78,9 +78,11 @@ if fbcode_linux_only():
             stderr_regex="1 TESTS FATALS",
         )
 
-        # Needed coverage.
+    @buck_test(inplace=True, data_dir="../")  # cwd is fbcode, we want it to be fbsource
+    async def test_python_needed_coverage(buck: Buck) -> None:
         await buck.test(
-            "fbcode//buck2/tests/targets/rules/python/needed_coverage:test_pass"
+            "fbcode//buck2/tests/targets/rules/python/needed_coverage:test_pass",
+            "fbcode//buck2/tests/targets/rules/python/needed_coverage:test_pass_specific_file",
         )
         await expect_failure(
             buck.test(

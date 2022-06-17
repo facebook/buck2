@@ -15,6 +15,20 @@ python_unittest(
 )
 
 python_unittest(
+    name = "test_pass_specific_file",
+    srcs = [
+        "test_pass.py",
+    ],
+    needed_coverage = [
+        (100, ":lib=lib.py"),
+        (100, ":lib=dir/lib.py"),
+    ],
+    deps = [
+        ":lib",
+    ],
+)
+
+python_unittest(
     name = "test_fail",
     srcs = [
         "test_fail.py",
@@ -30,6 +44,7 @@ python_unittest(
 python_library(
     name = "lib",
     srcs = [
+        "dir/lib.py",
         "lib.py",
     ],
 )
