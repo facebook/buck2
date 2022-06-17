@@ -12,7 +12,6 @@ load(
     "cxx_merge_cpreprocessors",
 )
 load("@fbcode//buck2/prelude/utils:utils.bzl", "map_idx")
-load(":apple_modular_utility.bzl", "MODULE_CACHE_PATH")
 load(":apple_sdk_modules_utility.bzl", "get_sdk_deps_tset")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(":apple_utility.bzl", "get_module_name", "get_versioned_target_triple")
@@ -218,8 +217,6 @@ def _get_shared_flags(
         # debug prefix mapped and are not shareable across machines.
         "-Xfrontend",
         "-no-clang-module-breadcrumbs",
-        "-module-cache-path",
-        MODULE_CACHE_PATH,
     ])
 
     if toolchain.resource_dir:
