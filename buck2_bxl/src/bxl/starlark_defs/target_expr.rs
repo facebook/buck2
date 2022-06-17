@@ -122,21 +122,24 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
             Ok(Some(Self::TargetSet(Cow::Owned(targets))))
         } else {
             #[allow(clippy::manual_map)] // `if else if` looks better here
-            if let Some(target) = value.downcast_ref::<StarlarkTargetLabel>() {
-                Some(Cow::Borrowed(target.label()))
-            } else if let Some(node) = value.downcast_ref::<StarlarkTargetNode>() {
-                Some(Cow::Borrowed(node.0.label()))
-            } else {
-                None
-            }
-            .map_or(Ok(None), |label| {
-                let result: anyhow::Result<_> = try {
-                    Self::Label(Cow::Owned(ctx.async_ctx.via_dice(|ctx| {
-                        ctx.get_configured_target(&*label, target_platform.as_ref())
-                    })?))
+            let maybe_unconfigured =
+                if let Some(target) = value.downcast_ref::<StarlarkTargetLabel>() {
+                    Some(Cow::Borrowed(target.label()))
+                } else if let Some(node) = value.downcast_ref::<StarlarkTargetNode>() {
+                    Some(Cow::Borrowed(node.0.label()))
+                } else {
+                    None
                 };
-                result.map(Some)
-            })
+
+            match maybe_unconfigured {
+                None => Ok(None),
+                Some(label) => Ok(Some(Self::Label(Cow::Owned(
+                    ctx.async_ctx
+                        .0
+                        .get_configured_target(&*label, target_platform.as_ref())
+                        .await?,
+                )))),
+            }
         }
     }
 
