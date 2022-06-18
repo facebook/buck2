@@ -8,12 +8,11 @@
  */
 
 use futures::FutureExt;
-use structopt::{clap, StructOpt};
 
 use crate::{daemon::client::BuckdConnectOptions, CommandContext};
 
-#[derive(Debug, StructOpt)]
-#[structopt(about = "Kill the buck daemon")]
+#[derive(Debug, clap::Parser)]
+#[clap(about = "Kill the buck daemon")]
 pub struct KillCommand {}
 
 impl KillCommand {

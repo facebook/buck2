@@ -11,14 +11,13 @@ use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use cli_proto::SegfaultRequest;
 use futures::FutureExt;
-use structopt::StructOpt;
 
 use crate::{
     commands::common::{CommonConsoleOptions, CommonEventLogOptions},
     StreamingCommand,
 };
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, clap::Parser)]
 pub struct SegfaultCommand {}
 
 #[async_trait]
@@ -28,7 +27,7 @@ impl StreamingCommand for SegfaultCommand {
     async fn exec_impl(
         self,
         mut buckd: crate::daemon::client::BuckdClientConnector,
-        _matches: &structopt::clap::ArgMatches,
+        _matches: &clap::ArgMatches,
         _ctx: crate::CommandContext,
     ) -> buck2_core::exit_result::ExitResult {
         let _err = buckd

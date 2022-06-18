@@ -13,7 +13,6 @@ use async_trait::async_trait;
 use buck2_core::configuration::Configuration;
 use cli_proto::ClientContext;
 use itertools::Itertools;
-use structopt::StructOpt;
 
 use crate::{
     commands::{
@@ -23,23 +22,24 @@ use crate::{
     daemon::server::ServerCommandContext,
 };
 
-#[derive(Debug, StructOpt, serde::Serialize, serde::Deserialize)]
-#[structopt(
+#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
+#[clap(
     name = "audit-configuration",
     about = "prints the constraints for configuration IDs"
 )]
 pub struct AuditConfigurationsCommand {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     pub config_opts: CommonConfigOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     console_opts: CommonConsoleOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     event_log_opts: CommonEventLogOptions,
 
-    #[structopt(
+    #[clap(
         name = "configurations",
+        multiple_values = true,
         help = "configurations to audit (example: `cell//package:target-105fe3389fc7e436`). If none provided, will print information about all known configurations."
     )]
     configs: Vec<String>,

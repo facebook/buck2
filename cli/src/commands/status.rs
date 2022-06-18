@@ -10,16 +10,16 @@
 use std::time::Duration;
 
 use chrono::NaiveDateTime;
+use clap::ArgMatches;
 use futures::FutureExt;
 use humantime::format_duration;
-use structopt::{clap::ArgMatches, StructOpt};
 
 use crate::{daemon::client::BuckdConnectOptions, CommandContext};
 
-#[derive(Debug, StructOpt)]
-#[structopt(about = "Buckd status")]
+#[derive(Debug, clap::Parser)]
+#[clap(about = "Buckd status")]
 pub struct StatusCommand {
-    #[structopt(long, help = "Whether to include a state snapshot in the output.")]
+    #[clap(long, help = "Whether to include a state snapshot in the output.")]
     snapshot: bool,
 }
 

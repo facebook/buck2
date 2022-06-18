@@ -11,7 +11,6 @@ use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use cli_proto::{unstable_dice_dump_request::DiceDumpFormat, UnstableDiceDumpRequest};
 use futures::FutureExt;
-use structopt::{clap, StructOpt};
 
 use crate::{
     commands::common::{CommonConsoleOptions, CommonEventLogOptions, ConsoleType},
@@ -19,12 +18,12 @@ use crate::{
     CommandContext, StreamingCommand,
 };
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, clap::Parser)]
 pub struct DiceDumpCommand {
     /// The path to write the heap dump to.
-    #[structopt(short, long, value_name = "PATH")]
+    #[clap(short, long, value_name = "PATH")]
     path: String,
-    #[structopt(long, group = "dice_dump_format")]
+    #[clap(long, group = "dice_dump_format")]
     serde: bool,
 }
 

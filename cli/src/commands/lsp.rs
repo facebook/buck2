@@ -13,7 +13,6 @@ use cli_proto::LspRequest;
 use futures::FutureExt;
 use lsp_server::Message;
 use once_cell::sync::Lazy;
-use structopt::{clap, StructOpt};
 
 use crate::{
     commands::common::ConsoleType, daemon::client::BuckdClientConnector, stdin_stream::StdinStream,
@@ -21,13 +20,13 @@ use crate::{
     StreamingCommand,
 };
 
-#[derive(Debug, StructOpt)]
-#[structopt(about = "Start an LSP server for starlark files")]
+#[derive(Debug, clap::Parser)]
+#[clap(about = "Start an LSP server for starlark files")]
 pub struct LspCommand {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     config_opts: CommonConfigOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     event_log_opts: CommonEventLogOptions,
 }
 

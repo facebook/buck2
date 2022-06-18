@@ -19,7 +19,6 @@ use buck2_data::RageInvoked;
 use cli_proto::{unstable_dice_dump_request::DiceDumpFormat, UnstableDiceDumpRequest};
 use events::{dispatch::EventDispatcher, TraceId};
 use futures::{FutureExt, TryStreamExt};
-use structopt::{clap, StructOpt};
 use thiserror::Error;
 use tokio::process::Command;
 
@@ -49,8 +48,8 @@ enum ManifoldUploadError {
     ManifoldUploadSignalInterruptError(String),
 }
 
-#[derive(Debug, StructOpt)]
-#[structopt(
+#[derive(Debug, clap::Parser)]
+#[clap(
     name = "rage",
     about = "Record information about the previous failed buck2 command"
 )]

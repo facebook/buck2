@@ -2,56 +2,54 @@ use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use cli_proto::BxlRequest;
 use futures::FutureExt;
-use structopt::{clap, StructOpt};
 
 use crate::{
     commands::{
         build::{print_build_result, FinalArtifactMaterializations, MaterializationsToProto},
-        common::{value_name_variants, CommonBuildOptions},
+        common::CommonBuildOptions,
     },
     daemon::client::{BuckdClientConnector, CommandOutcome},
     CommandContext, CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions,
     StreamingCommand,
 };
 
-#[derive(Debug, StructOpt)]
-#[structopt(name = "bxl", about = "Runs bxl scripts")]
+#[derive(Debug, clap::Parser)]
+#[clap(name = "bxl", about = "Runs bxl scripts")]
 pub struct BxlCommand {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     config_opts: CommonConfigOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     console_opts: CommonConsoleOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     event_log_opts: CommonEventLogOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     build_opts: CommonBuildOptions,
 
-    #[structopt(
-    long = "materializations",
-    help = "Materialize (or skip) the final artifacts, bypassing buckconfig.",
-    possible_values = &FinalArtifactMaterializations::variants(),
-    value_name = value_name_variants(&FinalArtifactMaterializations::variants()),
-    case_insensitive = true
+    #[clap(
+        long = "materializations",
+        help = "Materialize (or skip) the final artifacts, bypassing buckconfig.",
+        ignore_case = true,
+        arg_enum
     )]
     materializations: Option<FinalArtifactMaterializations>,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     bxl_core: BxlCoreOpts,
 }
 
 // TODO(bobyf) merge this when we delete the bxl binary
-#[derive(Debug, StructOpt)]
+#[derive(Debug, clap::Parser)]
 pub struct BxlCoreOpts {
-    #[structopt(
+    #[clap(
         name = "BXL label",
         help = "The bxl function to execute as defined by the label of form `<cell>//path/file.bxl:<function>`"
     )]
     pub bxl_label: String,
 
-    #[structopt(
+    #[clap(
         name = "BXL INPUT ARGS",
         help = "Arguments passed to the bxl script",
         raw = true

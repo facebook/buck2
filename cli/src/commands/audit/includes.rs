@@ -41,7 +41,6 @@ use indexmap::indexmap;
 use itertools::Itertools;
 use ref_cast::RefCast;
 use serde::{ser::SerializeMap, Serialize, Serializer};
-use structopt::StructOpt;
 use thiserror::Error;
 
 use crate::{
@@ -60,26 +59,26 @@ enum AuditIncludesError {
     InvalidPath(CellPath),
 }
 
-#[derive(Debug, StructOpt, serde::Serialize, serde::Deserialize)]
-#[structopt(
+#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
+#[clap(
     name = "audit-includes",
     about = "list build file extensions imported at parse time."
 )]
 pub struct AuditIncludesCommand {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     pub config_opts: CommonConfigOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     console_opts: CommonConsoleOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     event_log_opts: CommonEventLogOptions,
 
     /// Print json representation of outputs
-    #[structopt(long)]
+    #[clap(long)]
     json: bool,
 
-    #[structopt(
+    #[clap(
         name = "BUILD_FILES",
         help = "Build files to audit. These are expected to be relative paths from the working dir cell."
     )]

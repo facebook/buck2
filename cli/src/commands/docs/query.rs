@@ -2,41 +2,44 @@ use buck2_build_api::query::{
     cquery::environment::CqueryEnvironment, uquery::environment::UqueryEnvironment,
 };
 use buck2_core::exit_result::ExitResult;
-use clap::arg_enum;
-use structopt::{clap, StructOpt};
+use gazebo::dupe::Dupe;
 
 use crate::CommandContext;
 
-structopt::clap::arg_enum! {
-    #[derive(Debug)]
-    enum DocsOutputFormatArg {
-        Markdown
-    }
+#[derive(Debug, Clone, Dupe, clap::ArgEnum)]
+#[clap(rename_all = "snake_case")]
+enum DocsOutputFormatArg {
+    Markdown,
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, clap::Parser)]
 pub struct QueryDocsOptions {
     /// How to format the documentation
-    #[structopt(long = "format", default_value = "markdown")]
+    #[clap(
+        long = "format",
+        default_value = "markdown",
+        arg_enum,
+        ignore_case = true
+    )]
     format: DocsOutputFormatArg,
 }
 
-#[derive(Debug, StructOpt)]
-#[structopt(name = "docs-uquery", about = "Print documentation for uquery")]
+#[derive(Debug, clap::Parser)]
+#[clap(name = "docs-uquery", about = "Print documentation for uquery")]
 pub struct DocsUqueryCommand {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     docs_options: QueryDocsOptions,
 }
 
-#[derive(Debug, StructOpt)]
-#[structopt(name = "docs-cquery", about = "Print documentation for cquery")]
+#[derive(Debug, clap::Parser)]
+#[clap(name = "docs-cquery", about = "Print documentation for cquery")]
 pub struct DocsCqueryCommand {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     docs_options: QueryDocsOptions,
 }
 
 impl DocsUqueryCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches<'_>, _ctx: CommandContext) -> ExitResult {
+    pub fn exec(self, _matches: &clap::ArgMatches, _ctx: CommandContext) -> ExitResult {
         let description = UqueryEnvironment::describe();
         match self.docs_options.format {
             DocsOutputFormatArg::Markdown => {
@@ -49,7 +52,7 @@ impl DocsUqueryCommand {
 }
 
 impl DocsCqueryCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches<'_>, _ctx: CommandContext) -> ExitResult {
+    pub fn exec(self, _matches: &clap::ArgMatches, _ctx: CommandContext) -> ExitResult {
         let description = CqueryEnvironment::describe();
         match self.docs_options.format {
             DocsOutputFormatArg::Markdown => {

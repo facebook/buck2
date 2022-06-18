@@ -8,11 +8,10 @@
  */
 
 use buck2_core::exit_result::ExitResult;
-use structopt::{clap, StructOpt};
 
 use crate::{version::BuckVersion, CommandContext};
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, clap::Parser)]
 pub struct InternalVersionCommand {}
 
 impl InternalVersionCommand {

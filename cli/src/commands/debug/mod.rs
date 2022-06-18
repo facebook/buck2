@@ -17,7 +17,6 @@ use heap_dump::HeapDumpCommand;
 use internal_version::InternalVersionCommand;
 use materialize::MaterializeCommand;
 use replay::ReplayCommand;
-use structopt::{clap, StructOpt};
 
 use crate::{
     commands::{
@@ -38,8 +37,8 @@ mod materialize;
 pub mod replay;
 mod segfault;
 
-#[derive(Debug, StructOpt)]
-#[structopt(about = "Hidden debug commands useful for testing buck2")]
+#[derive(Debug, clap::Parser)]
+#[clap(about = "Hidden debug commands useful for testing buck2")]
 pub enum DebugCommand {
     /// Deliberately crashes the Buck daemon, for testing purposes.
     Crash(CrashCommand),
@@ -66,15 +65,16 @@ pub enum DebugCommand {
 
     // Those 2 log commands kept here for historical compatibility
     /// Shows the commands that buck ran
-    #[structopt(alias = "whatran")]
+    #[clap(alias = "whatran")]
     WhatRan(WhatRanCommand),
     /// Shows the path to the most recent event log
-    #[structopt(alias = "lastlog")]
+    #[clap(alias = "lastlog")]
     LastLog(LastLogCommand),
 }
 
 impl DebugCommand {
     pub fn exec(self, matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult {
+        let matches = matches.subcommand().expect("subcommand not found").1;
         match self {
             DebugCommand::DiceDump(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Crash(cmd) => cmd.exec(matches, ctx),

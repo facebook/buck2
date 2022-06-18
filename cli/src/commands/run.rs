@@ -18,7 +18,6 @@ use cli_proto::{
 };
 use futures::FutureExt;
 use serde::Serialize;
-use structopt::{clap, StructOpt};
 use thiserror::Error;
 
 use crate::{
@@ -33,44 +32,44 @@ use crate::{
     CommandContext, StreamingCommand,
 };
 
-#[derive(Debug, StructOpt)]
-#[structopt(
+#[derive(Debug, clap::Parser)]
+#[clap(
     name = "run",
     about = "Build and run the specified target",
-    setting = structopt::clap::AppSettings::TrailingVarArg
+    setting = clap::AppSettings::TrailingVarArg
 )]
 pub struct RunCommand {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     config_opts: CommonConfigOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     console_opts: CommonConsoleOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     event_log_opts: CommonEventLogOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     build_opts: CommonBuildOptions,
 
-    #[structopt(name = "TARGET", help = "Target to build and run")]
+    #[clap(name = "TARGET", help = "Target to build and run")]
     target: String,
 
-    #[structopt(long = "providers", help = "Print the providers of each target")]
+    #[clap(long = "providers", help = "Print the providers of each target")]
     print_providers: bool,
 
-    #[structopt(
+    #[clap(
         long = "show-delimiter",
         help = "Display a delimiter between building the binary and running it."
     )]
     show_delimiter: bool,
 
-    #[structopt(
+    #[clap(
         long = "command-args-file",
         help = "Write the command to a file instead of executing it."
     )]
     command_args_file: Option<String>,
 
-    #[structopt(
+    #[clap(
         name = "TARGET_ARGS",
         help = "Additional arguments passed to the target when running it"
     )]

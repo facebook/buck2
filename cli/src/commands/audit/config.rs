@@ -15,28 +15,31 @@ use buck2_common::{
     legacy_configs::{dice::HasLegacyConfigs, LegacyBuckConfigLocation, LegacyBuckConfigValue},
 };
 use buck2_core::cells::*;
-use clap::arg_enum;
 use cli_proto::ClientContext;
 use gazebo::prelude::*;
 use serde_json::json;
-use structopt::{clap, StructOpt};
 
 use crate::{
     commands::{
         audit::AuditSubcommand,
-        common::{
-            value_name_variants, CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions,
-        },
+        common::{CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions},
     },
     daemon::server::ServerCommandContext,
 };
 
-structopt::clap::arg_enum! {
-    #[derive(Debug, Dupe, Clone, Copy, serde::Serialize, serde::Deserialize)]
-    enum OutputFormat {
-        Simple,
-        Json,
-    }
+#[derive(
+    Debug,
+    Dupe,
+    Clone,
+    Copy,
+    serde::Serialize,
+    serde::Deserialize,
+    clap::ArgEnum
+)]
+#[clap(rename_all = "snake_case")]
+enum OutputFormat {
+    Simple,
+    Json,
 }
 
 #[derive(Debug, Clone, Copy, Dupe, serde::Serialize, serde::Deserialize)]
@@ -77,34 +80,28 @@ impl FromStr for ValueStyle {
     }
 }
 
-#[derive(Debug, StructOpt, serde::Serialize, serde::Deserialize)]
-#[structopt(name = "audit-config", about = "buck audit config")]
+#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
+#[clap(name = "audit-config", about = "buck audit config")]
 pub struct AuditConfigCommand {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     pub config_opts: CommonConfigOptions,
 
-    #[structopt(long = "cell")]
+    #[clap(long = "cell")]
     cell: Option<String>,
 
-    #[structopt(
-        long,
-        alias = "style",
-        possible_values = &OutputFormat::variants(),
-        value_name = value_name_variants(&OutputFormat::variants()),
-        case_insensitive = true,
-    )]
+    #[clap(long, alias = "style", ignore_case = true, arg_enum)]
     output_format: Option<OutputFormat>,
 
-    #[structopt(long)]
+    #[clap(long)]
     json: bool,
 
-    #[structopt(long = "location", default_value = "none", possible_values=&["none", "direct", "extended"])]
+    #[clap(long = "location", default_value = "none", possible_values=&["none", "direct", "extended"])]
     location_style: LocationStyle,
 
-    #[structopt(long = "value", default_value = "resolved", possible_values=&["resolved", "raw", "both"])]
+    #[clap(long = "value", default_value = "resolved", possible_values=&["resolved", "raw", "both"])]
     value_style: ValueStyle,
 
-    #[structopt(
+    #[clap(
         name = "SPECS",
         help = "config section/key specs of the form `section` or `section.key`. If any specs are provided, only values matching a spec will be printed (section headers will be printed only for sections with a key matching the spec)."
     )]

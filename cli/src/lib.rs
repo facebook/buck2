@@ -19,6 +19,9 @@
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
+// TODO(nga): multiple clap warnings, and it's not possible
+//   to put this allow next to structs because clap does not preserve them.
+#![allow(deprecated)]
 
 #[macro_use]
 extern crate maplit;
@@ -36,15 +39,12 @@ use buck2_core::{
     fs::paths::FileNameBuf,
     result::{SharedResult, ToSharedResultExt},
 };
+use clap::{AppSettings, Parser};
 use cli_proto::{client_context::HostPlatformOverride as GrpcHostPlatformOverride, ClientContext};
 use dice::cycles::DetectCycles;
 use events::subscriber::EventSubscriber;
 use futures::future::{self, BoxFuture, Either, Future};
 use gazebo::prelude::*;
-use structopt::{
-    clap::{self, AppSettings},
-    StructOpt,
-};
 use superconsole::Component;
 use tokio::runtime::Builder;
 
@@ -110,9 +110,9 @@ fn parse_isolation_dir(s: &str) -> anyhow::Result<FileNameBuf> {
     FileNameBuf::try_from(s.to_owned()).context("isolation dir must be a directory name")
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, clap::Parser)]
 pub struct CommonOptions {
-    #[structopt(
+    #[clap(
         parse(try_from_str = parse_isolation_dir),
         env("BUCK_ISOLATION_DIR"),
         long,
@@ -121,7 +121,7 @@ pub struct CommonOptions {
     )]
     isolation_dir: FileNameBuf,
 
-    #[structopt(
+    #[clap(
         env("DICE_DETECT_CYCLES_UNSTABLE"),
         long,
         hidden(true),
@@ -135,8 +135,8 @@ pub struct CommonOptions {
     /// 1 = default;
     /// 2 = more info about errors;
     /// 3 = more info about everything
-    #[structopt(
-        short = "v",
+    #[clap(
+        short = 'v',
         long = "verbose",
         default_value = "1",
         global = true,
@@ -146,28 +146,27 @@ pub struct CommonOptions {
     verbosity: Verbosity,
 }
 
-#[derive(Debug, StructOpt)]
-#[structopt(
+#[derive(Debug, clap::Parser)]
+#[clap(
     name = "buck2",
     about = "a build system",
-    version(BuckVersion::get_version()),
-    global_settings(&[AppSettings::ColoredHelp]),
+    version(BuckVersion::get_version())
 )]
 pub struct Opt {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     common_opts: CommonOptions,
-    #[structopt(subcommand)]
+    #[clap(subcommand)]
     cmd: CommandKind,
 }
 
 impl Opt {
     pub fn exec(
         self,
-        matches: &structopt::clap::ArgMatches,
+        matches: &clap::ArgMatches,
         init: fbinit::FacebookInit,
         replayer: Option<Replayer>,
     ) -> ExitResult {
-        let subcommand_matches = match matches.subcommand().1 {
+        let subcommand_matches = match matches.subcommand().map(|s| s.1) {
             Some(submatches) => submatches,
             None => panic!("Parsed a subcommand but couldn't extract subcommand argument matches"),
         };
@@ -259,11 +258,11 @@ pub trait StreamingCommand: Sized + Send + Sync {
     }
 }
 
-#[derive(Debug, StructOpt)]
-#[structopt(setting = AppSettings::VersionlessSubcommands)]
+#[derive(Debug, clap::Subcommand)]
 pub enum CommandKind {
-    #[structopt(setting(AppSettings::Hidden))]
+    #[clap(setting(AppSettings::Hidden))]
     Daemon(DaemonCommand),
+    #[clap(subcommand)]
     Audit(AuditCommand),
     Aquery(AqueryCommand),
     Build(BuildCommand),
@@ -279,12 +278,14 @@ pub enum CommandKind {
     Status(StatusCommand),
     Targets(TargetsCommand),
     Uquery(UqueryCommand),
-    #[structopt(setting(AppSettings::Hidden))]
+    #[clap(subcommand, setting(AppSettings::Hidden))]
     Debug(DebugCommand),
     Docs(DocsCommand),
+    #[clap(subcommand)]
     Profile(ProfileCommand),
     Rage(RageCommand),
     Clean(CleanCommand),
+    #[clap(subcommand)]
     Log(LogCommand),
     Lsp(LspCommand),
 }
@@ -447,7 +448,7 @@ impl<T: StreamingCommand> BuckSubcommand for T {
 impl CommandKind {
     pub fn exec(
         self,
-        matches: &structopt::clap::ArgMatches,
+        matches: &clap::ArgMatches,
         common_opts: CommonOptions,
         init: fbinit::FacebookInit,
         replayer: Option<Replayer>,

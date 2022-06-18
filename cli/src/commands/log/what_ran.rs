@@ -10,17 +10,15 @@
 use std::{borrow::Cow, collections::HashMap, path::PathBuf};
 
 use buck2_core::exit_result::ExitResult;
-use clap::arg_enum;
 use futures::TryStreamExt;
+use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
-use structopt::{clap, StructOpt};
 use tokio::runtime;
 
 use crate::{
     commands::{
         common::{
             subscribers::event_log::EventLogPathBuf,
-            value_name_variants,
             what_ran::{
                 self, CommandReproducer, WhatRanOptions, WhatRanOutputCommand,
                 WhatRanOutputCommandExtra, WhatRanOutputWriter, WhatRanRelevantAction,
@@ -33,12 +31,18 @@ use crate::{
     CommandContext,
 };
 
-arg_enum! {
-    #[derive(Debug, serde::Serialize, serde::Deserialize)]
-    pub enum WhatRanSubcommandOutput {
-        Tabulated,
-        Json
-    }
+#[derive(
+    Debug,
+    serde::Serialize,
+    serde::Deserialize,
+    Clone,
+    Dupe,
+    clap::ArgEnum
+)]
+#[clap(rename_all = "snake_case")]
+pub enum WhatRanSubcommandOutput {
+    Tabulated,
+    Json,
 }
 
 /// This command outputs everything the last invocation of Buck2 ran. Other invocations can be
@@ -65,11 +69,11 @@ arg_enum! {
 /// To reproduce an action that ran locally, make sure your working directory is the project root
 /// (if unsure, use `buck2 root --kind project` to find it), then run the command. The command is
 /// already shell-quoted.
-#[derive(Debug, StructOpt)]
-#[structopt(group = clap::ArgGroup::with_name("event_log"))]
+#[derive(Debug, clap::Parser)]
+#[clap(group = clap::ArgGroup::with_name("event_log"))]
 pub struct WhatRanCommand {
     /// The path to read the event log from.
-    #[structopt(
+    #[clap(
         long,
         help = "A path to an event-log file to read from. Only works for log files with a single command in them.",
         group = "event_log",
@@ -78,7 +82,7 @@ pub struct WhatRanCommand {
     pub path: Option<PathBuf>,
 
     /// Which recent command to read the event log from.
-    #[structopt(
+    #[clap(
         long,
         help = "Replay the Nth most recent command (`--recent 0` is the most recent).",
         group = "event_log",
@@ -86,17 +90,16 @@ pub struct WhatRanCommand {
     )]
     pub recent: Option<usize>,
 
-    #[structopt(
+    #[clap(
         long = "--format",
         help = "Which output format to use for this command",
         default_value = "tabulated",
-        possible_values = &WhatRanSubcommandOutput::variants(),
-        value_name = value_name_variants(&WhatRanSubcommandOutput::variants()),
-        case_insensitive = true,
+        ignore_case = true,
+        arg_enum
     )]
     pub output: WhatRanSubcommandOutput,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     pub options: WhatRanOptions,
 }
 

@@ -9,65 +9,58 @@
 
 use async_trait::async_trait;
 use buck2_core::{exit_result::ExitResult, fs::paths::AbsPathBuf};
-use clap::arg_enum;
 use cli_proto::{targets_request, TargetsRequest};
 use futures::FutureExt;
 use gazebo::prelude::*;
-use structopt::{clap, StructOpt};
 
 use crate::{
-    commands::common::{
-        value_name_variants, CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions,
-    },
+    commands::common::{CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions},
     daemon::client::BuckdClientConnector,
     CommandContext, StreamingCommand,
 };
 
 // Use non-camel case so the possible values match buck1's
-structopt::clap::arg_enum! {
-    #[allow(non_camel_case_types)]
-    #[derive(Debug)]
-    enum TargetHashFileMode {
-        Paths_Only,
-        Paths_And_Contents
-    }
+#[allow(non_camel_case_types)]
+#[derive(Debug, Clone, Dupe, clap::ArgEnum)]
+#[clap(rename_all = "snake_case")]
+enum TargetHashFileMode {
+    PathsOnly,
+    PathsAndContents,
 }
 
-structopt::clap::arg_enum! {
-    // Use non-camel case so the possible values match buck1's
-    /// Possible values for the --target-hash-function arg. We don't actually
-    /// honor the specific algorithms, we use them as a hint to pick "fast" or "strong".
-    #[allow(non_camel_case_types)]
-    #[derive(Debug)]
-    enum TargetHashFunction {
-        Sha1,
-        Sha256,
-        Murmur_Hash3,
-        Fast,
-        Strong
-    }
+// Use non-camel case so the possible values match buck1's
+/// Possible values for the --target-hash-function arg. We don't actually
+/// honor the specific algorithms, we use them as a hint to pick "fast" or "strong".
+#[allow(non_camel_case_types)]
+#[derive(Debug, Clone, Dupe, clap::ArgEnum)]
+enum TargetHashFunction {
+    Sha1,
+    Sha256,
+    Murmur_Hash3,
+    Fast,
+    Strong,
 }
 
-#[derive(Debug, StructOpt)]
-#[structopt(name = "targets", about = "Show details about the specified targets")]
+#[derive(Debug, clap::Parser)]
+#[clap(name = "targets", about = "Show details about the specified targets")]
 pub struct TargetsCommand {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     config_opts: CommonConfigOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     #[allow(unused)]
     console_opts: CommonConsoleOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     event_log_opts: CommonEventLogOptions,
 
-    #[structopt(long = "json", help = "print targets json")]
+    #[clap(long = "json", help = "print targets json")]
     json: bool,
 
-    #[structopt(long = "stats", help = "print stats")]
+    #[clap(long = "stats", help = "print stats")]
     stats: bool,
 
-    #[structopt(
+    #[clap(
         long,
         alias = "resolvealias",
         help = "Print the fully-qualified build target for the specified alias[es]"
@@ -75,17 +68,16 @@ pub struct TargetsCommand {
     resolve_alias: bool,
 
     /// Print a stable hash of each target after the target name. Incompatible with '--show-rulekey'.
-    #[structopt(long)]
+    #[clap(long)]
     show_target_hash: bool,
 
     /// Modifies computation of target hashes. If set to `PATHS_AND_CONTENTS` (the default), the contents
     /// of all files referenced from the targets will be used to compute the target hash. If set to
     /// `PATHS_ONLY`, only files' paths contribute to the hash. See also --target-hash-modified-paths.
-    #[structopt(
+    #[clap(
         long,
-        possible_values = &TargetHashFileMode::variants(),
-        value_name = value_name_variants(&TargetHashFileMode::variants()),
-        case_insensitive = true,
+        arg_enum,
+        ignore_case = true,
         default_value = "paths_and_contents"
     )]
     target_hash_file_mode: TargetHashFileMode,
@@ -94,23 +86,17 @@ pub struct TargetsCommand {
     /// `PATHS_ONLY`. If a target or its dependencies reference a file from this set, the target's hash
     /// will be different than if this option was omitted. Otherwise, the target's hash will be the same
     /// as if this option was omitted.
-    #[structopt(long)]
+    #[clap(long, multiple_values = true)]
     target_hash_modified_paths: Vec<String>,
 
     /// Selects either the "fast" or the "strong" target hash function to be used for computing target hashes.
     /// While we don't specify the exact algorithm, the "strong" algorithm should be a reasonable cryptographic
     /// hash (ex. blake3) while the "fast" function will likely be a non-crypto hash. Both functions are
     /// guaranteed to be deterministic and to have the same value across different platforms/architectures.
-    #[structopt(
-        long,
-        possible_values = &TargetHashFunction::variants(),
-        value_name = value_name_variants(&TargetHashFunction::variants()),
-        case_insensitive = true,
-        default_value = "fast",
-    )]
+    #[clap(long, ignore_case = true, default_value = "fast", arg_enum)]
     target_hash_function: TargetHashFunction,
 
-    #[structopt(
+    #[clap(
         long,
         help = "List of attributes to output, --output-attribute attr1. Attributes can be \
         regular expressions. Multiple attributes may be selected by specifying this option \
@@ -124,25 +110,25 @@ pub struct TargetsCommand {
     /// Deprecated: Use `--output-attribute` instead.
     ///
     /// List of space-separated attributes to output, --output-attributes attr1 attr2.
-    #[structopt(long)]
+    #[clap(long, multiple_values = true)]
     output_attributes: Vec<String>,
 
-    #[structopt(name = "TARGET_PATTERNS", help = "Patterns to interpret")]
+    #[clap(name = "TARGET_PATTERNS", help = "Patterns to interpret")]
     patterns: Vec<String>,
 
-    #[structopt(
+    #[clap(
         long = "show-output",
         help = "Print the path to the output for each of the rules relative to the cell"
     )]
     show_output: bool,
 
-    #[structopt(
+    #[clap(
         long = "show-full-output",
         help = "Print the absolute path to the output for each of the rules relative to the cell"
     )]
     show_full_output: bool,
 
-    #[structopt(long, help = "Show target call stacks")]
+    #[clap(long, help = "Show target call stacks")]
     target_call_stacks: bool,
 }
 
@@ -184,10 +170,10 @@ impl StreamingCommand for TargetsCommand {
             output_attributes,
             show_target_hash: self.show_target_hash,
             target_hash_file_mode: match self.target_hash_file_mode {
-                TargetHashFileMode::Paths_Only => {
+                TargetHashFileMode::PathsOnly => {
                     targets_request::TargetHashFileMode::PathsOnly as i32
                 }
-                TargetHashFileMode::Paths_And_Contents => {
+                TargetHashFileMode::PathsAndContents => {
                     targets_request::TargetHashFileMode::PathsAndContents as i32
                 }
             },

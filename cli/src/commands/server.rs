@@ -9,8 +9,8 @@
 
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
+use clap::ArgMatches;
 use futures::FutureExt;
-use structopt::{clap::ArgMatches, StructOpt};
 
 use crate::{
     commands::common::{CommonConsoleOptions, CommonEventLogOptions, ConsoleType},
@@ -18,8 +18,8 @@ use crate::{
     CommandContext, StreamingCommand,
 };
 
-#[derive(Debug, StructOpt)]
-#[structopt(about = "Start, query, and control the http server")]
+#[derive(Debug, clap::Parser)]
+#[clap(about = "Start, query, and control the http server")]
 pub struct ServerCommand {}
 
 #[async_trait]

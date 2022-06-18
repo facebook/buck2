@@ -18,7 +18,6 @@ use cli_proto::{
 };
 use futures::FutureExt;
 use starlark::eval::ProfileMode;
-use structopt::{clap, StructOpt};
 
 use crate::{
     commands::common::{
@@ -28,18 +27,19 @@ use crate::{
     BuckSubcommand, CommandContext, StreamingCommand,
 };
 
-#[derive(Debug, StructOpt)]
-#[structopt(about = "Profiling mechanisms")]
+#[derive(Debug, clap::Parser)]
+#[clap(about = "Profiling mechanisms")]
 pub enum ProfileCommand {
-    #[structopt(about = "Profile analysis")]
+    #[clap(about = "Profile analysis")]
     Analysis(ProfileOptions),
 
-    #[structopt(about = "Profile loading")]
+    #[clap(about = "Profile loading")]
     Loading(ProfileOptions),
 }
 
 impl ProfileCommand {
     pub fn exec(self, matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult {
+        let submatches = matches.subcommand().expect("subcommand not found").1;
         match self {
             Self::Analysis(opts) => ProfileSubcommand {
                 opts,
@@ -50,44 +50,44 @@ impl ProfileCommand {
                 action: Action::Loading,
             },
         }
-        .exec(matches, ctx)
+        .exec(submatches, ctx)
     }
 }
 
-#[derive(Debug, StructOpt)]
-#[structopt(group = clap::ArgGroup::with_name("profiler").required(true))]
+#[derive(Debug, clap::Parser)]
+#[clap(group = clap::ArgGroup::with_name("profiler").required(true))]
 pub struct ProfileOptions {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     config_opts: CommonConfigOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     event_log_opts: CommonEventLogOptions,
 
-    #[structopt(value_name = "TARGET")]
+    #[clap(value_name = "TARGET")]
     target_pattern: String,
 
-    #[structopt(value_name = "PATH")]
+    #[clap(value_name = "PATH")]
     destination_path: String,
 
-    #[structopt(long, group = "profiler")]
+    #[clap(long, group = "profiler")]
     heap_flame: bool,
 
-    #[structopt(long, group = "profiler")]
+    #[clap(long, group = "profiler")]
     heap_summary: bool,
 
-    #[structopt(long, group = "profiler")]
+    #[clap(long, group = "profiler")]
     time_flame: bool,
 
-    #[structopt(long, group = "profiler")]
+    #[clap(long, group = "profiler")]
     statement: bool,
 
-    #[structopt(long, group = "profiler")]
+    #[clap(long, group = "profiler")]
     bytecode: bool,
 
-    #[structopt(long, group = "profiler")]
+    #[clap(long, group = "profiler")]
     bytecode_pairs: bool,
 
-    #[structopt(long, group = "profiler")]
+    #[clap(long, group = "profiler")]
     typecheck: bool,
 }
 

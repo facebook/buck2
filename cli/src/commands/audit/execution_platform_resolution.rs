@@ -14,7 +14,6 @@ use buck2_build_api::calculation::{load_patterns, Calculation};
 use buck2_core::configuration::Configuration;
 use buck2_interpreter::pattern::TargetPattern;
 use cli_proto::ClientContext;
-use structopt::StructOpt;
 
 use crate::{
     commands::{
@@ -27,22 +26,22 @@ use crate::{
     },
 };
 
-#[derive(Debug, StructOpt, serde::Serialize, serde::Deserialize)]
-#[structopt(
+#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
+#[clap(
     name = "audit-execution-platform-resolution",
     about = "prints out information about execution platform resolution"
 )]
 pub struct AuditExecutionPlatformResolutionCommand {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     pub config_opts: CommonConfigOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     console_opts: CommonConsoleOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     event_log_opts: CommonEventLogOptions,
 
-    #[structopt(name = "TARGET_PATTERNS", help = "Patterns to analyze")]
+    #[clap(name = "TARGET_PATTERNS", help = "Patterns to analyze")]
     patterns: Vec<String>,
 }
 

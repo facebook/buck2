@@ -23,7 +23,6 @@ use buck2_core::{
 };
 use buck2_interpreter::pattern::TargetPattern;
 use cli_proto::ClientContext;
-use structopt::StructOpt;
 
 use crate::{
     commands::{
@@ -36,28 +35,28 @@ use crate::{
     },
 };
 
-#[derive(Debug, StructOpt, serde::Serialize, serde::Deserialize)]
-#[structopt(
+#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
+#[clap(
     name = "audit-dep-files",
     about = "prints out the select files for a command"
 )]
 pub struct AuditDepFilesCommand {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     pub config_opts: CommonConfigOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     console_opts: CommonConsoleOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     event_log_opts: CommonEventLogOptions,
 
-    #[structopt(help = "Target to query dep files for")]
+    #[clap(help = "Target to query dep files for")]
     pattern: String,
 
-    #[structopt(help = "Action category")]
+    #[clap(help = "Action category")]
     category: String,
 
-    #[structopt(help = "Action identifier")]
+    #[clap(help = "Action identifier")]
     identifier: Option<String>,
 }
 

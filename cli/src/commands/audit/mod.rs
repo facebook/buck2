@@ -11,7 +11,6 @@ use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use cli_proto::{ClientContext, GenericRequest};
 use futures::FutureExt;
-use structopt::{clap, StructOpt};
 
 use crate::{
     commands::{
@@ -40,8 +39,8 @@ pub mod prelude;
 pub mod providers;
 pub mod starlark;
 
-#[derive(Debug, StructOpt, serde::Serialize, serde::Deserialize)]
-#[structopt(name = "audit", about = "Perform lower level queries")]
+#[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
+#[clap(name = "audit", about = "Perform lower level queries")]
 pub enum AuditCommand {
     Cell(AuditCellCommand),
     Config(AuditConfigCommand),
@@ -51,6 +50,7 @@ pub enum AuditCommand {
     Providers(AuditProvidersCommand),
     AnalysisQueries(AuditAnalysisQueriesCommand),
     ExecutionPlatformResolution(AuditExecutionPlatformResolutionCommand),
+    #[clap(subcommand)]
     Starlark(StarlarkCommand),
     DepFiles(AuditDepFilesCommand),
 }
@@ -119,7 +119,7 @@ impl StreamingCommand for AuditCommand {
 
         let config_opts = self.as_subcommand().config_opts();
 
-        let submatches = match matches.subcommand().1 {
+        let submatches = match matches.subcommand().map(|s| s.1) {
             Some(submatches) => submatches,
             None => panic!("Parsed a subcommand but couldn't extract subcommand argument matches"),
         };

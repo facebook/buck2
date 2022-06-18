@@ -9,25 +9,21 @@
 
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
-use clap::arg_enum;
 use cli_proto::{QueryOutputFormat, UqueryRequest};
 use futures::FutureExt;
-use structopt::{clap, StructOpt};
+use gazebo::dupe::Dupe;
 
 use crate::{
-    commands::common::{
-        value_name_variants, CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions,
-    },
+    commands::common::{CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions},
     daemon::client::BuckdClientConnector,
     CommandContext, StreamingCommand,
 };
 
-structopt::clap::arg_enum! {
-    #[derive(Debug)]
-    enum QueryOutputFormatArg {
-        Dot,
-        Json
-    }
+#[derive(Debug, Clone, Dupe, clap::ArgEnum)]
+#[clap(rename_all = "snake_case")]
+enum QueryOutputFormatArg {
+    Dot,
+    Json,
 }
 
 /// Perform the target graph query
@@ -39,12 +35,12 @@ structopt::clap::arg_enum! {
 Perform the target graph query
 "#
 )]
-#[derive(Debug, StructOpt)]
+#[derive(Debug, clap::Parser)]
 pub struct CommonQueryArgs {
-    #[structopt(name = "QUERY", help = "the query to evaluate")]
+    #[clap(name = "QUERY", help = "the query to evaluate")]
     query: String,
 
-    #[structopt(
+    #[clap(
         long,
         help = "List of attributes to output, --output-attribute attr1. Attributes can be \
         regular expressions. Multiple attributes may be selected by specifying this option \
@@ -58,32 +54,31 @@ pub struct CommonQueryArgs {
     /// Deprecated: Use `--output-attribute` instead.
     ///
     /// List of space-separated attributes to output, --output-attributes attr1 attr2.
-    #[structopt(long)]
+    #[clap(long, multiple_values = true)]
     output_attributes: Vec<String>,
 
-    #[structopt(long, help = "Output in JSON format")]
+    #[clap(long, help = "Output in JSON format")]
     json: bool,
 
-    #[structopt(long, help = "Output in Graphviz Dot format")]
+    #[clap(long, help = "Output in Graphviz Dot format")]
     dot: bool,
 
-    #[structopt(long, help = "Show target call stacks")]
+    #[clap(long, help = "Show target call stacks")]
     pub(crate) target_call_stacks: bool,
 
-    #[structopt(
+    #[clap(
         long,
-        possible_values = &QueryOutputFormatArg::variants(),
-        value_name = value_name_variants(&QueryOutputFormatArg::variants()),
-        case_insensitive = true,
+        ignore_case = true,
         help = "Output format (default: list).",
-        long_help =
-        "Output format (default: list). \n
+        long_help = "Output format (default: list). \n
            dot -  dot graph format. \n
            json - JSON format.
-         ")]
+         ",
+        arg_enum
+    )]
     output_format: Option<QueryOutputFormatArg>,
 
-    #[structopt(
+    #[clap(
         name = "QUERY_ARGS",
         help = "list of literals for a multi-query (one containing `%s` or `%Ss`)"
     )]
@@ -139,22 +134,22 @@ impl CommonQueryArgs {
     }
 }
 
-#[derive(Debug, StructOpt)]
-#[structopt(
+#[derive(Debug, clap::Parser)]
+#[clap(
     name = "uquery",
     about = "provides facilities to query information about the target node graph"
 )]
 pub struct UqueryCommand {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     config_opts: CommonConfigOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     console_opts: CommonConsoleOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     event_log_opts: CommonEventLogOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     query_common: CommonQueryArgs,
 }
 

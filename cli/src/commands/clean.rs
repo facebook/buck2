@@ -11,7 +11,6 @@ use async_trait::async_trait;
 use buck2_core::{exit_result::ExitResult, fs::anyhow::remove_dir_all};
 use cli_proto::CleanRequest;
 use futures::FutureExt;
-use structopt::{clap, StructOpt};
 
 use super::common::CommonEventLogOptions;
 use crate::{
@@ -20,19 +19,19 @@ use crate::{
     CommandContext, StreamingCommand,
 };
 
-#[derive(Debug, StructOpt)]
-#[structopt(about = "Deletes any generated files and caches")]
+#[derive(Debug, clap::Parser)]
+#[clap(about = "Deletes any generated files and caches")]
 pub struct CleanCommand {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     config_opts: CommonConfigOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     console_opts: CommonConsoleOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     event_log_opts: CommonEventLogOptions,
 
-    #[structopt(
+    #[clap(
         long = "dry-run",
         help = "Performs a dry-run and prints the paths that would be removed."
     )]

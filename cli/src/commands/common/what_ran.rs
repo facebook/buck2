@@ -10,20 +10,19 @@
 use std::{borrow::Cow, fmt};
 
 use gazebo::dupe::Dupe;
-use structopt::StructOpt;
 
 use crate::commands::common::subscribers::display;
 
 /// Options controlling what WhatRan produces.
-#[derive(Debug, Default, StructOpt)]
+#[derive(Debug, Default, clap::Parser)]
 pub struct WhatRanOptions {
-    #[structopt(long)]
+    #[clap(long)]
     pub emit_cache_queries: bool,
-    #[structopt(long)]
+    #[clap(long)]
     pub skip_cache_hits: bool,
-    #[structopt(long)]
+    #[clap(long)]
     pub skip_remote_executions: bool,
-    #[structopt(long)]
+    #[clap(long)]
     pub skip_local_executions: bool,
 }
 

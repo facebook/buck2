@@ -11,7 +11,6 @@ use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use cli_proto::AqueryRequest;
 use futures::FutureExt;
-use structopt::{clap, StructOpt};
 
 use crate::{
     commands::{
@@ -22,22 +21,22 @@ use crate::{
     CommandContext, StreamingCommand,
 };
 
-#[derive(Debug, StructOpt)]
-#[structopt(
+#[derive(Debug, clap::Parser)]
+#[clap(
     name = "aquery",
     about = "provides facilities to query information about the action graph"
 )]
 pub struct AqueryCommand {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     config_opts: CommonConfigOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     console_opts: CommonConsoleOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     event_log_opts: CommonEventLogOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     query_common: CommonQueryArgs,
 }
 

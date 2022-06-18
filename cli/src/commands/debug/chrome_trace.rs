@@ -22,7 +22,6 @@ use gazebo::prelude::*;
 use prost_types;
 use serde::Serialize;
 use serde_json::json;
-use structopt::{clap, StructOpt};
 use thiserror::Error;
 use tokio::runtime;
 
@@ -42,15 +41,15 @@ use crate::{
     CommandContext,
 };
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, clap::Parser)]
 pub struct ChromeTraceCommand {
-    #[structopt(
+    #[clap(
         long,
         help = "Where to write the chrome trace JSON. If a directory is passed, the filename of the event log will be used as a base filename."
     )]
     pub trace_path: PathBuf,
     /// The path to read the event log from.
-    #[structopt(
+    #[clap(
         long,
         help = "A path to an event-log file to read from. Only works for log files with a single command in them. If no event-log is passed, the most recent one will be used.",
         group = "event_log",
@@ -59,7 +58,7 @@ pub struct ChromeTraceCommand {
     pub path: Option<PathBuf>,
 
     /// Which recent command to read the event log from.
-    #[structopt(
+    #[clap(
         long,
         help = "Use the event-log from the Nth most recent command (`--recent 0` is the most recent).",
         group = "event_log",

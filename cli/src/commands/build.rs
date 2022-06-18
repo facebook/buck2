@@ -16,7 +16,6 @@ use std::{
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use buck2_core::exit_result::{ExitResult, FailureExitCode};
-use clap::arg_enum;
 use cli_proto::{
     build_request::{build_providers, BuildProviders, ResponseOptions},
     BuildRequest, BuildTarget,
@@ -25,90 +24,88 @@ use futures::{FutureExt, TryStreamExt};
 use gazebo::prelude::*;
 use multimap::MultiMap;
 use serde::Serialize;
-use structopt::{clap, StructOpt};
 
 use crate::{
     commands::common::{
-        final_console::FinalConsole, value_name_variants, CommonBuildOptions, CommonConfigOptions,
-        CommonConsoleOptions, CommonEventLogOptions,
+        final_console::FinalConsole, CommonBuildOptions, CommonConfigOptions, CommonConsoleOptions,
+        CommonEventLogOptions,
     },
     daemon::client::{BuckdClientConnector, CommandOutcome},
     CommandContext, StreamingCommand,
 };
 
-#[derive(Debug, StructOpt)]
-#[structopt(name = "build", about = "Build the specified targets")]
+#[derive(Debug, clap::Parser)]
+#[clap(name = "build", about = "Build the specified targets")]
 pub struct BuildCommand {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     config_opts: CommonConfigOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     console_opts: CommonConsoleOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     event_log_opts: CommonEventLogOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     build_opts: CommonBuildOptions,
 
-    #[structopt(name = "TARGET_PATTERNS", help = "Patterns to build")]
+    #[clap(name = "TARGET_PATTERNS", help = "Patterns to build")]
     patterns: Vec<String>,
 
-    #[structopt(long = "providers", help = "Print the providers of each target")]
+    #[clap(long = "providers", help = "Print the providers of each target")]
     print_providers: bool,
 
     /// This option is currently on by default, but will become a proper option in future (T110004971)
-    #[structopt(long = "keep-going")]
+    #[clap(long = "keep-going")]
     #[allow(unused)]
     keep_going: bool,
 
     /// This option does nothing. It is here to keep compatibility with Buck1 and ci
-    #[structopt(long = "deep")]
+    #[clap(long = "deep")]
     #[allow(unused)] // for v1 compat
     deep: bool,
 
-    #[structopt(
+    #[clap(
         long = "show-output",
         help = "Print the path to the output for each of the built rules relative to the cell"
     )]
     show_output: bool,
 
-    #[structopt(
+    #[clap(
         long = "show-full-output",
         help = "Print the absolute path to the output for each of the built rules"
     )]
     show_full_output: bool,
 
-    #[structopt(
+    #[clap(
         long = "show-json-output",
         help = "Print the output paths relative to the cell, in JSON format"
     )]
     show_json_output: bool,
 
-    #[structopt(
+    #[clap(
         long = "show-full-json-output",
         help = "Print the output absolute paths, in JSON format"
     )]
     show_full_json_output: bool,
 
-    #[structopt(
+    #[clap(
         long = "materializations",
         help = "Materialize (or skip) the final artifacts, bypassing buckconfig.",
-        possible_values = &FinalArtifactMaterializations::variants(),
-        value_name = value_name_variants(&FinalArtifactMaterializations::variants()),
-        case_insensitive = true
+        ignore_case = true,
+        arg_enum
     )]
     materializations: Option<FinalArtifactMaterializations>,
 
     #[allow(unused)]
-    #[structopt(
+    #[clap(
         long,
         group = "default-info",
         help = "Build default info (this is the default)"
     )]
     build_default_info: bool,
 
-    #[structopt(
+    #[clap(
         long,
         group = "default-info",
         help = "Do not build default info (this is not the default)"
@@ -116,21 +113,21 @@ pub struct BuildCommand {
     skip_default_info: bool,
 
     #[allow(unused)]
-    #[structopt(
+    #[clap(
         long,
         group = "run-info",
         help = "Build runtime dependencies (this is the default)"
     )]
     build_run_info: bool,
 
-    #[structopt(
+    #[clap(
         long,
         group = "run-info",
         help = "Do not build runtime dependencies (this is not the default)"
     )]
     skip_run_info: bool,
 
-    #[structopt(
+    #[clap(
         long,
         group = "test-info",
         alias = "build-test-dependencies",
@@ -139,14 +136,14 @@ pub struct BuildCommand {
     build_test_info: bool,
 
     #[allow(unused)]
-    #[structopt(
+    #[clap(
         long,
         group = "test-info",
         help = "Do not build tests (this is the default)"
     )]
     skip_test_info: bool,
 
-    #[structopt(
+    #[clap(
         long = "out",
         help = "Copy the output of the built target to this path"
     )]
@@ -176,12 +173,11 @@ impl BuildCommand {
     }
 }
 
-arg_enum! {
-    #[derive(Debug)]
-    pub enum FinalArtifactMaterializations {
-        All,
-        None,
-    }
+#[derive(Debug, Clone, Dupe, clap::ArgEnum)]
+#[clap(rename_all = "snake_case")]
+pub enum FinalArtifactMaterializations {
+    All,
+    None,
 }
 
 pub trait MaterializationsToProto {
@@ -499,6 +495,7 @@ async fn copy_directory(src: &Path, dst: &Path) -> anyhow::Result<()> {
 mod test {
     use assert_matches::assert_matches;
     use build_providers::Action;
+    use clap::Parser;
 
     use super::*;
 

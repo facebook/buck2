@@ -11,7 +11,6 @@ use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use cli_proto::UnstableAllocatorStatsRequest;
 use futures::FutureExt;
-use structopt::{clap, StructOpt};
 
 use crate::{
     commands::common::{CommonConsoleOptions, CommonEventLogOptions, ConsoleType},
@@ -19,11 +18,11 @@ use crate::{
     CommandContext, StreamingCommand,
 };
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, clap::Parser)]
 pub struct AllocatorStatsCommand {
     /// Options to pass to allocator stats. We use JEMalloc, so the docs for `malloc_stats_print`
     /// indicate what is available (<https://linux.die.net/man/3/jemalloc>).
-    #[structopt(short, long, default_value = "", value_name = "OPTION")]
+    #[clap(short, long, default_value = "", value_name = "OPTION")]
     options: String,
 }
 

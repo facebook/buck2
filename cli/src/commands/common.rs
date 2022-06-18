@@ -14,9 +14,9 @@
 //! command definition:
 //!
 //! ```ignore
-//! #[derive(Debug, StructOpt)]
+//! #[derive(Debug, clap::Parser)]
 //! struct MyCommand {
-//!    #[structopt(flatten)]
+//!    #[clap(flatten)]
 //!    config_opts: CommonConfigOptions,
 //!    ...
 //! }
@@ -26,8 +26,6 @@ use std::path::{Path, PathBuf};
 use buck2_core::fs::anyhow as fs;
 use cli_proto::{common_build_options::ExecutionStrategy, ConfigOverride};
 use gazebo::prelude::*;
-use internment_tweaks::StaticInterner;
-use structopt::{clap, clap::arg_enum, StructOpt};
 use termwiz::istty::IsTty;
 
 use crate::{
@@ -45,42 +43,55 @@ pub mod what_ran;
 pub const EVENT_LOG: &str = "--event-log";
 pub const NO_EVENT_LOG: &str = "--no-event-log";
 
-arg_enum! {
-    #[derive(Debug, serde::Serialize, serde::Deserialize, Clone, Dupe, Copy)]
-    pub enum ConsoleType {
-        Simple,
-        SimpleNoTty,
-        SimpleTty,
-        Super,
-        Auto,
-        None,
-    }
+#[derive(
+    Debug,
+    serde::Serialize,
+    serde::Deserialize,
+    Clone,
+    Dupe,
+    Copy,
+    clap::ArgEnum
+)]
+#[clap(rename_all = "lower")]
+pub enum ConsoleType {
+    Simple,
+    SimpleNoTty,
+    SimpleTty,
+    Super,
+    Auto,
+    None,
 }
 
-arg_enum! {
-    #[derive(Debug, serde::Serialize, serde::Deserialize, Clone, Dupe, Copy)]
-    pub enum UiOptions {
-        Dice,
-        DebugEvents,
-    }
+#[derive(
+    Debug,
+    serde::Serialize,
+    serde::Deserialize,
+    Clone,
+    Dupe,
+    Copy,
+    clap::ArgEnum
+)]
+#[clap(rename_all = "lower")]
+pub enum UiOptions {
+    Dice,
+    DebugEvents,
 }
 
-arg_enum! {
-    #[derive(Debug, serde::Serialize, serde::Deserialize, Clone, Dupe, Copy)]
-    pub enum HostPlatformOverride {
-        Default,
-        Linux,
-        MacOs,
-        Windows,
-    }
-}
-
-/// Helper to create a suitable `value_name` from a variants function
-pub(crate) fn value_name_variants(variants: &[&str]) -> &'static str {
-    // Unfortunately StructOpt requires pointers to static values, which are
-    // a pain manufacture. Use an intern'd cache to get pointers to them.
-    static STRING_INTERNER: StaticInterner<String> = StaticInterner::new();
-    STRING_INTERNER.intern(variants.join("|")).deref_static()
+#[derive(
+    Debug,
+    serde::Serialize,
+    serde::Deserialize,
+    Clone,
+    Dupe,
+    Copy,
+    clap::ArgEnum
+)]
+#[clap(rename_all = "lower")]
+pub enum HostPlatformOverride {
+    Default,
+    Linux,
+    MacOs,
+    Windows,
 }
 
 // Workaround to have rustdoc that doesn't override cli help docs.
@@ -92,14 +103,14 @@ pub(crate) fn value_name_variants(variants: &[&str]) -> &'static str {
 Defines options related to event logs. Any command that involves a streaming daemon command should include these options.
 "#
 )]
-#[derive(Debug, StructOpt, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 pub struct CommonEventLogOptions {
     /// Write events to this log file
-    #[structopt(value_name = "PATH", long = EVENT_LOG)]
+    #[clap(value_name = "PATH", long = EVENT_LOG)]
     pub event_log: Option<PathBuf>,
 
     /// Do not write any event logs. Overrides --event-log. Used from `replay` to avoid recursive logging
-    #[structopt(long = NO_EVENT_LOG, hidden = true)]
+    #[clap(long = NO_EVENT_LOG, hidden = true)]
     pub no_event_log: bool,
 }
 
@@ -122,12 +133,12 @@ impl CommonEventLogOptions {
 Defines options for config and configuration related things. Any command that involves the build graph should include these options.
 "#
 )]
-#[derive(Debug, StructOpt, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 pub struct CommonConfigOptions {
-    #[structopt(
+    #[clap(
         value_name = "SECTION.OPTION=VALUE",
         long = "config",
-        short = "c",
+        short = 'c',
         help = "List of config options",
         // Needs to be explicitly set, otherwise will treat `-c a b c` -> [a, b, c]
         // rather than [a] and other positional arguments `b c`.
@@ -135,7 +146,7 @@ pub struct CommonConfigOptions {
     )]
     pub config_values: Vec<String>,
 
-    #[structopt(
+    #[clap(
         value_name = "PATH",
         long = "config-file",
         help = "List of config file paths",
@@ -143,7 +154,7 @@ pub struct CommonConfigOptions {
     )]
     pub config_files: Vec<String>,
 
-    #[structopt(
+    #[clap(
         long = "target-platforms",
         help = "Configuration target (one) to use to configure targets",
         number_of_values = 1,
@@ -151,23 +162,18 @@ pub struct CommonConfigOptions {
     )]
     pub target_platforms: Option<String>,
 
-    #[structopt(
-        long,
-        possible_values = &HostPlatformOverride::variants(),
-        value_name = value_name_variants(&HostPlatformOverride::variants()),
-        case_insensitive = true
-    )]
+    #[clap(long, ignore_case = true, arg_enum)]
     fake_host: Option<HostPlatformOverride>,
 
     // TODO(cjhopman): Why is this only in CommonConfigOptions options, it has nothing to do with config? Shouldn't all commands support --oncall?
-    #[structopt(long)]
+    #[clap(long)]
     pub oncall: Option<String>,
 
     /// Disable runtime type checking in Starlark interpreter.
     ///
     /// This option is not stable, and can be used only locally
     /// to diagnose evaluation performance problems.
-    #[structopt(long)]
+    #[clap(long)]
     pub disable_starlark_types: bool,
 }
 
@@ -183,7 +189,7 @@ impl CommonConfigOptions {
         fn with_indices<'a, T>(
             collection: &'a [T],
             name: &str,
-            matches: &'a structopt::clap::ArgMatches,
+            matches: &'a clap::ArgMatches,
         ) -> impl Iterator<Item = (usize, &'a T)> + 'a {
             let indices = matches.indices_of(name);
             let indices = indices.unwrap_or_default();
@@ -262,47 +268,47 @@ impl CommonConfigOptions {
 Defines common options for build-like commands (build, test, install).
 "#
 )]
-#[derive(Debug, StructOpt, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 pub struct CommonBuildOptions {
     /// Print a build report
     ///
     /// --build-report=- will print the build report to stdout
     /// --build-report=<filepath> will write the build report to the file
-    #[structopt(long = "build-report", value_name = "PATH")]
+    #[clap(long = "build-report", value_name = "PATH")]
     build_report: Option<String>,
 
     /// Deprecated. Use --build-report=-
     // TODO(cjhopman): this is probably only used by the e2e framework. remove it from there
-    #[structopt(long = "print-build-report", hidden = true)]
+    #[clap(long = "print-build-report", hidden = true)]
     print_build_report: bool,
 
     /// Number of threads to use during execution (default is # cores)
     // TODO(cjhopman): This only limits the threads used for action execution and it doesn't work correctly with concurrent commands.
-    #[structopt(short = "j", long = "num-threads", value_name = "THREADS")]
+    #[clap(short = 'j', long = "num-threads", value_name = "THREADS")]
     pub num_threads: Option<u32>,
 
     /// **You probably should not use this, use --prefer-local instead**. Enable only local
     /// execution. Will reject actions that cannot execute locally. If execution platforms are
     /// enabled and you have a hybrid platform, this will most likely result in just rejecting all
     /// actions.
-    #[structopt(long, group = "build_strategy")]
+    #[clap(long, group = "build_strategy")]
     local_only: bool,
 
     /// Enable only remote execution. Will reject actions that cannot execute remotely.
-    #[structopt(long, group = "build_strategy")]
+    #[clap(long, group = "build_strategy")]
     remote_only: bool,
 
     /// Enable hybrid execution. Will prefer executing actions that can execute locally on the
     /// local host.
-    #[structopt(long, group = "build_strategy")]
+    #[clap(long, group = "build_strategy")]
     prefer_local: bool,
 
     /// Enable hybrid execution. Will prefer executing actions that can execute remotely on RE.
-    #[structopt(long, group = "build_strategy")]
+    #[clap(long, group = "build_strategy")]
     hybrid: bool,
 
     /// Experimental: Disable all execution.
-    #[structopt(long, group = "build_strategy")]
+    #[clap(long, group = "build_strategy")]
     unstable_no_execution: bool,
 
     /// Process dep files when they are generated (i.e. after running a command that produces dep
@@ -310,7 +316,7 @@ pub struct CommonBuildOptions {
     /// produced dep files). Use this when debugging commands that produce dep files. Note that
     /// commands that previously produced dep files will not re-run: only dep files produced during
     /// this command will be eagerly loaded.
-    #[structopt(long)]
+    #[clap(long)]
     eager_dep_files: bool,
 
     /// Process all commands as if they had dep files that covered no inputs. This means that all
@@ -318,7 +324,7 @@ pub struct CommonBuildOptions {
     /// haven't changed. This is primarily meant to allow faster iteration on rules by skipping
     /// rebuilds when changing rules. This adds some runtime and memory cost since digests have to
     /// be produced and stored.
-    #[structopt(long)]
+    #[clap(long)]
     hash_all_commands: bool,
 }
 
@@ -365,16 +371,15 @@ impl CommonBuildOptions {
 Defines common console options for commands.
 "#
 )]
-#[derive(Debug, StructOpt, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 pub struct CommonConsoleOptions {
-    #[structopt(
+    #[clap(
         long = "--console",
         help = "Which console to use for this command",
-        default_value="auto",
-        possible_values = &ConsoleType::variants(),
-        value_name = value_name_variants(&ConsoleType::variants()),
-        case_insensitive = true,
-        env = "BUCK_CONSOLE"
+        default_value = "auto",
+        ignore_case = true,
+        env = "BUCK_CONSOLE",
+        arg_enum
     )]
     pub console_type: ConsoleType,
 
@@ -384,13 +389,12 @@ pub struct CommonConsoleOptions {
     ///
     ///   dice - shows information about evaluated dice nodes
     ///   debugevents - shows information about the flow of events from buckd
-    #[structopt(
+    #[clap(
         long = "--ui",
-        possible_values = &UiOptions::variants(),
-        value_name = value_name_variants(&UiOptions::variants()),
-        case_insensitive = true,
+        ignore_case = true,
         multiple = true,
         number_of_values = 1,
+        arg_enum
     )]
     pub ui: Vec<UiOptions>,
 }

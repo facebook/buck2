@@ -18,17 +18,16 @@ use buck2_interpreter::{
     pattern::parse_package::parse_package,
 };
 use cli_proto::ClientContext;
-use structopt::StructOpt;
 
 use crate::daemon::server::ServerCommandContext;
 
-#[derive(Debug, StructOpt, serde::Serialize, serde::Deserialize)]
-#[structopt(
+#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
+#[clap(
     name = "module",
     about = "Inspect Starlark package file all bzl dependencies by package name like foo//bar/baz"
 )]
 pub struct StarlarkPackageDepsCommand {
-    #[structopt(name = "PACKAGE", help = "Package")]
+    #[clap(name = "PACKAGE", help = "Package")]
     package: String,
 }
 

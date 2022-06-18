@@ -11,7 +11,6 @@ use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use cli_proto::UnstableCrashRequest;
 use futures::FutureExt;
-use structopt::{clap, StructOpt};
 
 use crate::{
     commands::common::{CommonConsoleOptions, CommonEventLogOptions, ConsoleType},
@@ -19,7 +18,7 @@ use crate::{
     CommandContext, StreamingCommand,
 };
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, clap::Parser)]
 pub struct CrashCommand {}
 
 #[async_trait]

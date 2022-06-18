@@ -13,7 +13,6 @@ use cli_proto::{TestRequest, TestSessionOptions};
 use crossterm::style::Color;
 use futures::FutureExt;
 use gazebo::prelude::*;
-use structopt::{clap, StructOpt};
 
 use crate::{
     commands::{
@@ -27,64 +26,69 @@ use crate::{
     CommandContext, StreamingCommand,
 };
 
-#[derive(Debug, StructOpt)]
-#[structopt(name = "test", about = "Build and test the specified targets")]
+#[derive(Debug, clap::Parser)]
+#[clap(name = "test", about = "Build and test the specified targets")]
 pub struct TestCommand {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     config_opts: CommonConfigOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     console_opts: CommonConsoleOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     event_log_opts: CommonEventLogOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     build_opts: CommonBuildOptions,
 
-    #[structopt(name = "TARGET_PATTERNS", help = "Patterns to test")]
+    #[clap(name = "TARGET_PATTERNS", help = "Patterns to test")]
     patterns: Vec<String>,
 
-    #[structopt(long = "exclude", help = "Labels on targets to exclude from tests")]
+    #[clap(
+        long = "exclude",
+        multiple_values = true,
+        help = "Labels on targets to exclude from tests"
+    )]
     exclude: Vec<String>,
 
-    #[structopt(
+    #[clap(
         long = "include",
         alias = "labels",
         help = "Labels on targets to include from tests. Prefixing with `!` means to exclude. First match wins unless overridden by `always-exclude` flag.\n\
-If include patterns are present, regardless of whether exclude patterns are present, then all targets are by default excluded unless explicitly included."
+If include patterns are present, regardless of whether exclude patterns are present, then all targets are by default excluded unless explicitly included.",
+        multiple_values = true
     )]
     include: Vec<String>,
 
-    #[structopt(
+    #[clap(
         long = "always-exclude",
         alias = "always_exclude",
         help = "Whether to always exclude if the label appears in `exclude`, regardless of which appears first"
     )]
     always_exclude: bool,
 
-    #[structopt(
+    #[clap(
         long = "build-filtered",
         help = "Whether to build tests that are excluded via labels."
     )]
     build_filtered_targets: bool, // TODO(bobyf) this flag should always override the buckconfig option when we use it
 
     /// This option is currently on by default, but will become a proper option in future (T110004971)
-    #[structopt(long = "keep-going")]
+    #[clap(long = "keep-going")]
     #[allow(unused)]
     keep_going: bool,
 
     /// This option does nothing. It is here to keep compatibility with Buck1 and ci
     #[allow(unused)] // for v1 compat
-    #[structopt(long = "deep")]
+    #[clap(long = "deep")]
     deep: bool,
 
     // ignored. only for e2e tests. compatibility with v1.
-    #[structopt(long = "xml")]
+    #[clap(long = "xml")]
     #[allow(unused)] // for v1 compat
     xml: Option<String>,
 
-    #[structopt(
+    #[clap(
         name = "TEST_EXECUTOR_ARGS",
         help = "Additional arguments passed to the test executor",
         raw = true
@@ -93,12 +97,12 @@ If include patterns are present, regardless of whether exclude patterns are pres
 
     /// Will allow tests that are compatible with RE (setup to run from the repo root and
     /// use relative paths) to run from RE.
-    #[structopt(long, group = "re_options")]
+    #[clap(long, group = "re_options")]
     unstable_allow_tests_on_re: bool,
 
     /// Will force tests to run on RE. This will force them to run via the repo root, and use
     /// relative paths.
-    #[structopt(long, group = "re_options")]
+    #[clap(long, group = "re_options")]
     unstable_force_tests_on_re: bool,
 }
 

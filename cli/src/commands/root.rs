@@ -9,7 +9,6 @@
 
 use std::{path::PathBuf, str::FromStr};
 
-use structopt::{clap, StructOpt};
 use thiserror::Error;
 
 use crate::{roots::find_roots, CommandContext};
@@ -35,12 +34,12 @@ impl FromStr for RootKind {
     }
 }
 
-#[derive(Debug, StructOpt)]
-#[structopt(about = "Find buck cell, project or package root (default is to print the cell root)")]
+#[derive(Debug, clap::Parser)]
+#[clap(about = "Find buck cell, project or package root (default is to print the cell root)")]
 pub struct RootCommand {
-    #[structopt(short, long, help("which root to print"), default_value("cell"), possible_values(&["package", "cell", "project", "daemon"]))]
+    #[clap(short, long, help("which root to print"), default_value("cell"), possible_values(&["package", "cell", "project", "daemon"]))]
     kind: RootKind,
-    #[structopt(
+    #[clap(
         help(
             "determine the root for a specific directory (if not provided, finds the root for the current directory)"
         ),

@@ -12,7 +12,6 @@ use buck2_core::exit_result::ExitResult;
 use cli_proto::InstallRequest;
 use futures::FutureExt;
 use gazebo::prelude::*;
-use structopt::{clap, StructOpt};
 
 use crate::{
     commands::common::{
@@ -22,25 +21,25 @@ use crate::{
     CommandContext, StreamingCommand,
 };
 
-#[derive(Debug, StructOpt)]
-#[structopt(name = "install", about = "builds and installs an application")]
+#[derive(Debug, clap::Parser)]
+#[clap(name = "install", about = "builds and installs an application")]
 pub struct InstallCommand {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     config_opts: CommonConfigOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     console_opts: CommonConsoleOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     event_log_opts: CommonEventLogOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     build_opts: CommonBuildOptions,
 
-    #[structopt(name = "TARGET", help = "Target to build and install")]
+    #[clap(name = "TARGET", help = "Target to build and install")]
     patterns: Vec<String>,
 
-    #[structopt(
+    #[clap(
         name = "INSTALL_ARGS",
         help = "Additional arguments passed to the install when running it",
         raw = true

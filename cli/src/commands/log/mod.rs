@@ -11,15 +11,14 @@ pub mod last_log;
 pub mod what_ran;
 
 use buck2_core::exit_result::ExitResult;
-use structopt::{clap, StructOpt};
 
 use crate::CommandContext;
 
-#[derive(Debug, StructOpt)]
-#[structopt(about = "Commands for interacting with buck2 logs")]
+#[derive(Debug, clap::Subcommand)]
+#[clap(about = "Commands for interacting with buck2 logs")]
 pub enum LogCommand {
     /// Shows the commands that buck ran
-    #[structopt(alias = "whatran")]
+    #[clap(alias = "whatran")]
     WhatRan(what_ran::WhatRanCommand),
 
     /// Shows the path to the most recent event log

@@ -1,10 +1,9 @@
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
-use clap::arg_enum;
 use cli_proto::UnstableDocsRequest;
 use futures::FutureExt;
+use gazebo::dupe::Dupe;
 use starlark::values::docs::Doc;
-use structopt::{clap, StructOpt};
 
 use crate::{
     commands::common::{CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions},
@@ -12,42 +11,43 @@ use crate::{
     CommandContext, StreamingCommand,
 };
 
-structopt::clap::arg_enum! {
-    #[derive(Debug)]
-    enum DocsOutputFormatArg {
-        Json
-    }
+#[derive(Debug, Clone, Dupe, clap::ArgEnum)]
+#[clap(rename_all = "snake_case")]
+enum DocsOutputFormatArg {
+    Json,
 }
 
-#[derive(Debug, StructOpt)]
-#[structopt(
+#[derive(Debug, clap::Parser)]
+#[clap(
     name = "docs-starlark",
     about = "Print documentation of user-defined starlark symbols"
 )]
 pub struct DocsStarlarkCommand {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     pub config_opts: CommonConfigOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     console_opts: CommonConsoleOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     event_log_opts: CommonEventLogOptions,
 
-    #[structopt(
+    #[clap(
         long = "format",
         help = "how to format the returned documentation",
-        default_value = "json"
+        default_value = "json",
+        arg_enum,
+        ignore_case = true
     )]
     format: DocsOutputFormatArg,
 
-    #[structopt(
+    #[clap(
         long = "builtins",
         help = "get documentation for built in functions, rules, and providers"
     )]
     builtins: bool,
 
-    #[structopt(
+    #[clap(
         name = "SYMBOL_PATTERNS",
         help = "Patterns to interpret. //foo:bar.bzl is 'every symbol in //foo:bar.bzl', //foo:bar.bzl:baz only returns the documentation for the symbol 'baz' in //foo:bar.bzl"
     )]

@@ -11,7 +11,6 @@ use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use cli_proto::CqueryRequest;
 use futures::FutureExt;
-use structopt::{clap, StructOpt};
 
 use crate::{
     commands::{
@@ -22,26 +21,26 @@ use crate::{
     CommandContext, StreamingCommand,
 };
 
-#[derive(Debug, StructOpt)]
-#[structopt(
+#[derive(Debug, clap::Parser)]
+#[clap(
     name = "cquery",
     about = "provides facilities to query information about the configured target node graph"
 )]
 pub struct CqueryCommand {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     config_opts: CommonConfigOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     #[allow(unused)]
     console_opts: CommonConsoleOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     event_log_opts: CommonEventLogOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     query_common: CommonQueryArgs,
 
-    #[structopt(
+    #[clap(
         long,
         use_delimiter = true,
         help = "Comma separated list of targets at which to root the queryable universe.
@@ -50,7 +49,7 @@ pub struct CqueryCommand {
     )]
     target_universe: Vec<String>,
 
-    #[structopt(
+    #[clap(
         long,
         help = "Show the providers of the query result instead of the attributes and labels"
     )]

@@ -11,7 +11,6 @@ use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use cli_proto::FlushDepFilesRequest;
 use futures::FutureExt;
-use structopt::StructOpt;
 
 use crate::{
     commands::common::{CommonConsoleOptions, CommonEventLogOptions, ConsoleType},
@@ -19,7 +18,7 @@ use crate::{
     CommandContext, StreamingCommand,
 };
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, clap::Parser)]
 pub struct FlushDepFilesCommand {}
 
 #[async_trait]
@@ -36,7 +35,7 @@ impl StreamingCommand for FlushDepFilesCommand {
     async fn exec_impl(
         self,
         mut buckd: crate::daemon::client::BuckdClientConnector,
-        _matches: &structopt::clap::ArgMatches,
+        _matches: &clap::ArgMatches,
         _ctx: crate::CommandContext,
     ) -> buck2_core::exit_result::ExitResult {
         buckd

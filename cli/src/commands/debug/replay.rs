@@ -10,7 +10,6 @@
 use std::path::PathBuf;
 
 use buck2_core::exit_result::ExitResult;
-use structopt::{clap, StructOpt};
 use thiserror::Error;
 use tokio::runtime::Runtime;
 
@@ -26,14 +25,14 @@ pub enum ReplayErrors {
     RecentIndexOutOfBounds { idx: usize, num_logfiles: usize },
 }
 
-#[derive(Debug, StructOpt)]
-#[structopt(
+#[derive(Debug, clap::Parser)]
+#[clap(
     group = clap::ArgGroup::with_name("event_log"),
-    setting = structopt::clap::AppSettings::TrailingVarArg
+    setting = clap::AppSettings::TrailingVarArg
 )]
 pub struct ReplayCommand {
     /// The path to read the event log from.
-    #[structopt(
+    #[clap(
         long,
         help = "A path to an event-log file to read from. Only works for log files with a single command in them.",
         group = "event_log",
@@ -41,20 +40,20 @@ pub struct ReplayCommand {
     )]
     pub path: Option<PathBuf>,
     /// Which recent command to replay.
-    #[structopt(
+    #[clap(
         long,
         help = "Replay the Nth most recent command (`replay --recent 0` replays the most recent).",
         group = "event_log",
         value_name = "NUMBER"
     )]
     pub recent: Option<usize>,
-    #[structopt(
+    #[clap(
         long,
         help = "Control the playback speed using a float (i.e. 0.5, 2, etc)",
         value_name = "NUMBER"
     )]
     pub speed: Option<f64>,
-    #[structopt(help = "Override the arguments")]
+    #[clap(help = "Override the arguments")]
     pub override_args: Vec<String>,
 }
 

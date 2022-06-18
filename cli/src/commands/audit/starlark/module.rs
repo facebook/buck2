@@ -16,17 +16,16 @@ use buck2_interpreter::{
     parse_import::{parse_import_with_config, ParseImportOptions},
 };
 use cli_proto::ClientContext;
-use structopt::StructOpt;
 
 use crate::daemon::server::ServerCommandContext;
 
-#[derive(Debug, StructOpt, serde::Serialize, serde::Deserialize)]
-#[structopt(
+#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
+#[clap(
     name = "module",
     about = "Inspect Starlark module by fully qualified import string like foo//bar:baz.bzl"
 )]
 pub struct StarlarkModuleCommand {
-    #[structopt(name = "IMPORT_PATH", help = "Module import path")]
+    #[clap(name = "IMPORT_PATH", help = "Module import path")]
     import_path: String,
 }
 

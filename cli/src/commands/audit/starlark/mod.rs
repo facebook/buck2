@@ -14,7 +14,6 @@ mod package_deps;
 
 use async_trait::async_trait;
 use cli_proto::ClientContext;
-use structopt::StructOpt;
 
 use crate::{
     commands::{
@@ -27,8 +26,8 @@ use crate::{
     daemon::server::ServerCommandContext,
 };
 
-#[derive(Debug, StructOpt, serde::Serialize, serde::Deserialize)]
-#[structopt(name = "starlark", about = "Debug Starlark interpreter")]
+#[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
+#[clap(name = "starlark", about = "Debug Starlark interpreter")]
 pub enum StarlarkCommand {
     Module(StarlarkModuleCommand),
     PackageDeps(StarlarkPackageDepsCommand),

@@ -25,7 +25,6 @@ use futures::{
     channel::mpsc::{self, UnboundedSender},
     pin_mut, select, FutureExt, StreamExt,
 };
-use structopt::{clap, StructOpt};
 use thiserror::Error;
 use tokio::runtime::Builder;
 
@@ -45,10 +44,10 @@ enum DaemonError {
     PidFileMismatch(u32, u32),
 }
 
-#[derive(Clone, Debug, StructOpt)]
-#[structopt(about = "start buckd")]
+#[derive(Clone, Debug, clap::Parser)]
+#[clap(about = "start buckd")]
 pub struct DaemonCommand {
-    #[structopt(
+    #[clap(
         help(
             "Sets the interval for how often the daemon performs consistency checks. These are used to ensure that the daemon is still the one referenced by files in the daemon dir."
         ),
@@ -56,7 +55,7 @@ pub struct DaemonCommand {
         default_value("60")
     )]
     checker_interval_seconds: u64,
-    #[structopt(help("Run buck daemon but do not daemonize the process"), long)]
+    #[clap(help("Run buck daemon but do not daemonize the process"), long)]
     dont_daemonize: bool,
 }
 

@@ -8,16 +8,15 @@
  */
 
 use buck2_core::exit_result::ExitResult;
-use structopt::{clap, StructOpt};
 
 use crate::{commands::debug::replay::retrieve_nth_recent_log, CommandContext};
 
 /// This command outputs the path to a redcent log.
-#[derive(Debug, StructOpt)]
-#[structopt(group = clap::ArgGroup::with_name("event_log"))]
+#[derive(Debug, clap::Parser)]
+#[clap(group = clap::ArgGroup::with_name("event_log"))]
 pub struct LastLogCommand {
     /// Which recent command to read the event log from.
-    #[structopt(
+    #[clap(
         long,
         help = "Find the log from the Nth most recent command (`--recent 0` is the most recent).",
         group = "event_log",

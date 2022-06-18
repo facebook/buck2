@@ -22,7 +22,6 @@ use buck2_interpreter::pattern::ProvidersPattern;
 use cli_proto::ClientContext;
 use futures::{stream::FuturesOrdered, StreamExt};
 use gazebo::prelude::*;
-use structopt::StructOpt;
 
 use crate::{
     commands::{
@@ -37,28 +36,28 @@ use crate::{
     },
 };
 
-#[derive(Debug, StructOpt, serde::Serialize, serde::Deserialize)]
-#[structopt(
+#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
+#[clap(
     name = "audit-providers",
     about = "prints out the providers for a target pattern"
 )]
 pub struct AuditProvidersCommand {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     pub config_opts: CommonConfigOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     console_opts: CommonConsoleOptions,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     event_log_opts: CommonEventLogOptions,
 
-    #[structopt(name = "TARGET_PATTERNS", help = "Patterns to analyze")]
+    #[clap(name = "TARGET_PATTERNS", help = "Patterns to analyze")]
     patterns: Vec<String>,
 
-    #[structopt(long)]
+    #[clap(long)]
     quiet: bool,
 
-    #[structopt(
+    #[clap(
         long = "print-debug",
         help = "Print the providers using debug format (very verbose)"
     )]

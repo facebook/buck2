@@ -15,6 +15,7 @@
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
+#![allow(deprecated)] // TODO(nga): fix clap warnings.
 
 use std::{convert::TryFrom, io, sync::Arc};
 
@@ -69,6 +70,7 @@ use buck2_interpreter::{
     dice::interpreter_setup::setup_interpreter_basic,
     extra::{InterpreterHostArchitecture, InterpreterHostPlatform},
 };
+use clap::{AppSettings, Parser};
 use cli::{
     commands::bxl::BxlCoreOpts,
     daemon::{
@@ -84,32 +86,31 @@ use fbinit::FacebookInit;
 use gazebo::prelude::*;
 use host_sharing::{HostSharingBroker, HostSharingStrategy};
 use itertools::Itertools;
-use structopt::{clap::AppSettings, StructOpt};
 use tokio::runtime::Builder;
 
 #[cfg_attr(all(unix, not(fbcode_build)), global_allocator)]
 #[cfg(all(unix, not(fbcode_build)))]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
-#[derive(Debug, StructOpt)]
-#[structopt(
+#[derive(Debug, clap::Parser)]
+#[clap(
     name = "buck-bxl",
     about = "executes bxl files",
     global_settings(&[AppSettings::ColoredHelp]),
-    setting = structopt::clap::AppSettings::TrailingVarArg
+    setting = clap::AppSettings::TrailingVarArg
 )]
 pub struct Opt {
-    #[structopt(long = "dir", help = "cd to here.")]
+    #[clap(long = "dir", help = "cd to here.")]
     dir: Option<String>,
 
-    #[structopt(
+    #[clap(
         long = "detect_cycles",
         help = "detect cycles in dice. unstable",
         default_value = "DISABLED"
     )]
     detect_cycles: DetectCycles,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     bxl_core: BxlCoreOpts,
 }
 

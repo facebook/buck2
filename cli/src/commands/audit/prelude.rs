@@ -18,7 +18,6 @@ use buck2_interpreter::{
     interpreter::InterpreterConfigForCell,
 };
 use cli_proto::ClientContext;
-use structopt::StructOpt;
 
 use crate::{
     commands::{
@@ -28,8 +27,8 @@ use crate::{
     daemon::server::ServerCommandContext,
 };
 
-#[derive(Debug, StructOpt, serde::Serialize, serde::Deserialize)]
-#[structopt(
+#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
+#[clap(
     name = "audit-prelude",
     about = "print the interpreter prelude to stdout"
 )]

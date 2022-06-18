@@ -16,7 +16,6 @@ use buck2_core::target::TargetLabel;
 use buck2_interpreter::{dice::HasEvents, pattern::TargetPattern};
 use cli_proto::ClientContext;
 use gazebo::prelude::*;
-use structopt::StructOpt;
 
 use crate::{
     commands::{
@@ -31,16 +30,16 @@ use crate::{
     },
 };
 
-#[derive(Debug, StructOpt, serde::Serialize, serde::Deserialize)]
-#[structopt(name = "audit-config", about = "buck audit config")]
+#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
+#[clap(name = "audit-config", about = "buck audit config")]
 pub struct AuditAnalysisQueriesCommand {
-    #[structopt(
+    #[clap(
         name = "TARGET_PATTERNS",
         help = "Patterns to evaluate. The query attributes for targets matching these patterns will be evaluated"
     )]
     patterns: Vec<String>,
 
-    #[structopt(
+    #[clap(
         long,
         help = "Enable to print the outputs for the targets in the resolved queries"
     )]
