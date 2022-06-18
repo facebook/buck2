@@ -11,6 +11,7 @@ use buck2_core::{
     self,
     fs::{paths::AbsPath, project::ProjectRelativePath},
 };
+use buck2_docs_gen::Buck2Docs;
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::{any::ProvidesStaticType, prelude::*};
@@ -22,8 +23,9 @@ use starlark::{
 
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 
-#[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize)]
+#[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize, Buck2Docs)]
 #[derivative(Debug)]
+#[buck2_docs(fs_operations)]
 #[display(fmt = "{:?}", self)]
 pub struct BxlFilesystem<'v> {
     #[trace(unsafe_ignore)]
