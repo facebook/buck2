@@ -16,6 +16,7 @@ use buck2_build_api::interpreter::rule_defs::{context::AnalysisActions, label::L
 use buck2_bxl_core::BxlKey;
 use buck2_common::target_aliases::{HasTargetAliasResolver, TargetAliasResolver};
 use buck2_core::cells::CellInstance;
+use buck2_docs_gen::Buck2Docs;
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
     eval::Evaluator,
@@ -65,7 +66,8 @@ use crate::bxl::starlark_defs::{
 
 /// The bxl context that the top level bxl implementation receives as parameter.
 /// This context contains all the core bxl functions to query, build, create actions, etc.
-#[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize)]
+#[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize, Buck2Docs)]
+#[buck2_docs(register_context)]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 pub struct BxlContext<'v> {
