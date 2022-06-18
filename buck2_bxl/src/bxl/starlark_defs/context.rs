@@ -12,11 +12,32 @@
 
 use std::{cell::RefCell, collections::HashSet, io::Write, sync::Arc};
 
-use buck2_build_api::interpreter::rule_defs::{context::AnalysisActions, label::Label};
+use buck2_build_api::{
+    actions::artifact::{Artifact, ArtifactFs},
+    analysis::registry::AnalysisRegistry,
+    interpreter::rule_defs::{
+        artifact::starlark_artifact_like::ValueAsArtifactLike, context::AnalysisActions,
+        label::Label,
+    },
+    query::dice::DiceQueryDelegate,
+};
 use buck2_bxl_core::BxlKey;
-use buck2_common::target_aliases::{HasTargetAliasResolver, TargetAliasResolver};
-use buck2_core::cells::CellInstance;
+use buck2_common::{
+    dice::{cells::HasCellResolver, data::HasIoProvider},
+    package_boundary::HasPackageBoundaryExceptions,
+    target_aliases::{HasTargetAliasResolver, TargetAliasResolver},
+};
+use buck2_core::{
+    cells::CellInstance,
+    fs::{paths::AbsPathBuf, project::ProjectFilesystem},
+    target::TargetLabel,
+};
 use buck2_docs_gen::Buck2Docs;
+use derivative::Derivative;
+use derive_more::Display;
+use dice::DiceComputations;
+use either::Either;
+use gazebo::any::ProvidesStaticType;
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
     eval::Evaluator,
@@ -27,8 +48,14 @@ use starlark::{
     },
 };
 
-use crate::bxl::starlark_defs::context::{
-    output::OutputStream, starlark_async::BxlSafeDiceComputations,
+use crate::bxl::starlark_defs::{
+    context::{
+        actions::BxlActionsCtx, fs::BxlFilesystem, output::OutputStream,
+        starlark_async::BxlSafeDiceComputations,
+    },
+    cquery::StarlarkCQueryCtx,
+    providers_expr::ProvidersExpr,
+    uquery::StarlarkUQueryCtx,
 };
 
 pub mod actions;
@@ -37,32 +64,6 @@ pub mod build;
 pub mod fs;
 pub mod output;
 pub mod starlark_async;
-use buck2_build_api::{
-    actions::artifact::{Artifact, ArtifactFs},
-    analysis::registry::AnalysisRegistry,
-    interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike,
-    query::dice::DiceQueryDelegate,
-};
-use buck2_common::{
-    dice::{cells::HasCellResolver, data::HasIoProvider},
-    package_boundary::HasPackageBoundaryExceptions,
-};
-use buck2_core::{
-    fs::{paths::AbsPathBuf, project::ProjectFilesystem},
-    target::TargetLabel,
-};
-use derivative::Derivative;
-use derive_more::Display;
-use dice::DiceComputations;
-use either::Either;
-use gazebo::any::ProvidesStaticType;
-
-use crate::bxl::starlark_defs::{
-    context::{actions::BxlActionsCtx, fs::BxlFilesystem},
-    cquery::StarlarkCQueryCtx,
-    providers_expr::ProvidersExpr,
-    uquery::StarlarkUQueryCtx,
-};
 
 /// The bxl context that the top level bxl implementation receives as parameter.
 /// This context contains all the core bxl functions to query, build, create actions, etc.
