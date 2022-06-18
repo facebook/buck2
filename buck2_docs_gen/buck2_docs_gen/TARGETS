@@ -8,6 +8,7 @@ rust_library(
     ),
     deps = [
         "fbsource//third-party/rust:inventory",
+        "//buck2/buck2_docs_gen/buck2_docs_gen_derive:buck2_docs_gen_derive",
         "//buck2/starlark-rust/starlark:starlark",
     ],
 )

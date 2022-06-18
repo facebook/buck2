@@ -1,6 +1,7 @@
 //!
 //! Documentation generation utilities
 
+pub use buck2_docs_gen_derive::Buck2Docs;
 use starlark::values::docs::DocItem;
 
 /// A starlark object to be documented

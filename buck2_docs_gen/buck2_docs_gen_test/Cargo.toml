@@ -1,0 +1,11 @@
+[package]
+name = "buck2_docs_gen_test"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.51"
+buck2_docs_gen= { version = "0.1.0", path = "../buck2_docs_gen" }
+starlark = { version = "0.8", path = "../../starlark-rust/starlark" }

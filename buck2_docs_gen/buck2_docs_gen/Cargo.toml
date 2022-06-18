@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 inventory = "0.1.10"
 starlark = { version = "0.8", path = "../../starlark-rust/starlark" }
+buck2_docs_gen_derive = { version = "0.1.0", path = "../buck2_docs_gen_derive" }

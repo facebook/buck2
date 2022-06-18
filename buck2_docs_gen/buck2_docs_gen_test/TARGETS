@@ -1,0 +1,23 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_sh_test")
+load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+rust_binary(
+    name = "buck2_docs_gen_test",
+    srcs = glob(
+        ["src/**/*.rs"],
+    ),
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "//buck2/buck2_docs_gen/buck2_docs_gen:buck2_docs_gen",
+        "//buck2/starlark-rust/starlark:starlark",
+    ],
+)
+
+buck_sh_test(
+    name = "verify-docs",
+    args = [
+        "$(location :buck2_docs_gen_test)",
+    ],
+    test = "verify.py",
+)
