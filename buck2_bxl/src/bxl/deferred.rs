@@ -85,7 +85,6 @@ mod tests {
                         BaseDeferredKey::BxlLabel(bxl.dupe()),
                         ForwardRelativePathBuf::unchecked_new("test".to_owned()),
                     ),
-                    has_print: false,
                     built: vec![],
                     artifacts: vec![],
                     deferred: deferred_result,

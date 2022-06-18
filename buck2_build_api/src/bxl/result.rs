@@ -12,14 +12,10 @@ use crate::{
 /// The result of evaluating a bxl function
 pub enum BxlResult {
     /// represents that the bxl function has no built results
-    None {
-        output_loc: BuckOutPath,
-        has_print: bool,
-    },
+    None { output_loc: BuckOutPath },
     /// a bxl that deals with builds
     BuildsArtifacts {
         output_loc: BuckOutPath,
-        has_print: bool,
         built: Vec<BxlBuildResult>,
         artifacts: Vec<Artifact>,
         deferred: DeferredTable,
@@ -29,19 +25,14 @@ pub enum BxlResult {
 impl BxlResult {
     pub fn new(
         output_loc: BuckOutPath,
-        has_print: bool,
         ensured_artifacts: HashSet<Artifact>,
         deferred: DeferredTable,
     ) -> Self {
         if ensured_artifacts.is_empty() {
-            Self::None {
-                output_loc,
-                has_print,
-            }
+            Self::None { output_loc }
         } else {
             Self::BuildsArtifacts {
                 output_loc,
-                has_print,
                 built: vec![],
                 artifacts: ensured_artifacts.into_iter().sorted().collect(),
                 deferred,
@@ -54,13 +45,6 @@ impl BxlResult {
         match self {
             BxlResult::None { .. } => Err(anyhow::anyhow!("Bxl never attempted to build anything")),
             BxlResult::BuildsArtifacts { deferred, .. } => deferred.lookup_deferred(id),
-        }
-    }
-
-    pub fn has_print(&self) -> bool {
-        *match self {
-            BxlResult::None { has_print, .. } => has_print,
-            BxlResult::BuildsArtifacts { has_print, .. } => has_print,
         }
     }
 

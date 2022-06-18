@@ -1,0 +1,10 @@
+def _impl(ctx):
+    print("ran me")
+
+    ctx.output.print("result print")
+
+print_caching = bxl(
+    implementation = _impl,
+    cli_args = {
+    },
+)

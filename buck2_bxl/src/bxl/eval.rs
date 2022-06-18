@@ -105,7 +105,7 @@ pub async fn eval(ctx: DiceTransaction, key: BxlKey) -> anyhow::Result<BxlResult
             return Err(anyhow::anyhow!(NotAValidReturnType(result.get_type())));
         }
 
-        let (actions, ensured_artifacts, has_print) = BxlContext::take_state(bxl_ctx)?;
+        let (actions, ensured_artifacts, _has_print) = BxlContext::take_state(bxl_ctx)?;
 
         match actions {
             Some(registry) => {
@@ -116,7 +116,6 @@ pub async fn eval(ctx: DiceTransaction, key: BxlKey) -> anyhow::Result<BxlResult
 
                 anyhow::Ok(BxlResult::new(
                     output_stream,
-                    has_print,
                     ensured_artifacts,
                     deferred_table,
                 ))
@@ -125,7 +124,6 @@ pub async fn eval(ctx: DiceTransaction, key: BxlKey) -> anyhow::Result<BxlResult
                 // this bxl did not try to build anything, so we don't have any deferreds
                 anyhow::Ok(BxlResult::new(
                     output_stream,
-                    has_print,
                     ensured_artifacts,
                     DeferredTable::new(HashMap::new()),
                 ))

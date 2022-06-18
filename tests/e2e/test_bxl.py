@@ -321,3 +321,20 @@ async def test_bxl_configured_node(buck: Buck) -> None:
         "root//bin:the_binary (root//platforms:platform1)",
         "root//rules/rules.bzl:_foo_binary",
     ]
+
+
+@buck_test(inplace=False, data_dir="bql/simple")
+async def test_bxl_caching(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl/caching.bxl:print_caching",
+    )
+
+    assert "ran me" in result.stderr
+    assert "result print" in result.stdout
+
+    result = await buck.bxl(
+        "//bxl/caching.bxl:print_caching",
+    )
+
+    ## assert "ran me" not in result.stderr TODO this doesn't work because of the separate bxl binary.
+    assert "result print" in result.stdout

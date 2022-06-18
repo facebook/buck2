@@ -111,19 +111,17 @@ pub async fn copy_output<W: Write>(
     dice: &DiceComputations,
     result: &buck2_build_api::bxl::result::BxlResult,
 ) -> anyhow::Result<()> {
-    if result.has_print() {
-        let loc = dice.global_data().get_io_provider().fs().resolve(
-            &dice
-                .get_artifact_fs()
-                .await
-                .buck_out_path_resolver()
-                .resolve_gen(result.get_output_loc()),
-        );
+    let loc = dice.global_data().get_io_provider().fs().resolve(
+        &dice
+            .get_artifact_fs()
+            .await
+            .buck_out_path_resolver()
+            .resolve_gen(result.get_output_loc()),
+    );
 
-        // we write the output to a file in buck-out as cache so we don't use memory caching it in
-        // DICE. So now we open the file and read it all into the destination stream.
-        io::copy(&mut File::open(loc)?, &mut output)?;
-    }
+    // we write the output to a file in buck-out as cache so we don't use memory caching it in
+    // DICE. So now we open the file and read it all into the destination stream.
+    io::copy(&mut File::open(loc)?, &mut output)?;
     Ok(())
 }
 
