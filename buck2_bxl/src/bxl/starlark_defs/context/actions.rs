@@ -5,6 +5,7 @@ use buck2_build_api::{
     analysis::registry::AnalysisRegistry, bxl::execution_platform::EXECUTION_PLATFORM,
     deferred::BaseDeferredKey,
 };
+use buck2_docs_gen::Buck2Docs;
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::{any::ProvidesStaticType, prelude::*};
@@ -28,7 +29,8 @@ enum BxlActionsError {
     RegistryAlreadyCreated,
 }
 
-#[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize)]
+#[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize, Buck2Docs)]
+#[buck2_docs(register_context, name = "bxl_actions")]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 pub(crate) struct BxlActionsCtx<'v> {
