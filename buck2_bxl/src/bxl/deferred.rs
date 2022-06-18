@@ -22,9 +22,13 @@ mod tests {
             DeferredTable, DeferredValue,
         },
         execute::{commands::dice_data::set_fallback_executor_config, CommandExecutorConfig},
+        path::BuckOutPath,
     };
     use buck2_common::dice::data::testing::SetTestingIoProvider;
-    use buck2_core::{fs::project::ProjectFilesystemTemp, result::ToSharedResultExt};
+    use buck2_core::{
+        fs::{paths::ForwardRelativePathBuf, project::ProjectFilesystemTemp},
+        result::ToSharedResultExt,
+    };
     use buck2_interpreter::common::BxlFilePath;
     use dice::{testing::DiceBuilder, UserComputationData};
     use gazebo::dupe::Dupe;
@@ -77,6 +81,10 @@ mod tests {
             .mock_and_return(
                 BxlComputeKey(bxl.dupe()),
                 anyhow::Ok(Arc::new(BxlResult::BuildsArtifacts {
+                    output_loc: BuckOutPath::new(
+                        BaseDeferredKey::BxlLabel(bxl.dupe()),
+                        ForwardRelativePathBuf::unchecked_new("test".to_owned()),
+                    ),
                     has_print: false,
                     built: vec![],
                     artifacts: vec![],

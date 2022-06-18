@@ -79,11 +79,11 @@ pub async fn eval(ctx: DiceTransaction, key: BxlKey) -> anyhow::Result<BxlResult
             BaseDeferredKey::BxlLabel(key.clone()),
             ForwardRelativePathBuf::unchecked_new("__bxl_internal__/outputstream_cache".to_owned()),
         );
-        let file = artifact_fs
+        let file_path = artifact_fs
             .buck_out_path_resolver()
             .resolve_gen(&output_stream);
 
-        let file = RefCell::new(box project_fs.create_file(&file, false)?);
+        let file = RefCell::new(box project_fs.create_file(&file_path, false)?);
 
         let mut eval = Evaluator::new(&env);
         let bxl_ctx = BxlContext::new(
@@ -114,11 +114,17 @@ pub async fn eval(ctx: DiceTransaction, key: BxlKey) -> anyhow::Result<BxlResult
 
                 let deferred_table = DeferredTable::new(deferred.take_result()?);
 
-                anyhow::Ok(BxlResult::new(has_print, ensured_artifacts, deferred_table))
+                anyhow::Ok(BxlResult::new(
+                    output_stream,
+                    has_print,
+                    ensured_artifacts,
+                    deferred_table,
+                ))
             }
             None => {
                 // this bxl did not try to build anything, so we don't have any deferreds
                 anyhow::Ok(BxlResult::new(
+                    output_stream,
                     has_print,
                     ensured_artifacts,
                     DeferredTable::new(HashMap::new()),

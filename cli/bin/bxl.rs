@@ -16,7 +16,7 @@
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
-use std::{convert::TryFrom, sync::Arc};
+use std::{convert::TryFrom, io, sync::Arc};
 
 use anyhow::Context;
 use buck2_build_api::{
@@ -72,7 +72,7 @@ use buck2_interpreter::{
 use cli::{
     commands::bxl::BxlCoreOpts,
     daemon::{
-        bxl::ensure_artifacts,
+        bxl::{copy_output, ensure_artifacts},
         common,
         common::{parse_concurrency, CommandExecutorFactory},
     },
@@ -190,6 +190,8 @@ async fn async_main(
         force: false,
     };
     let build_result = ensure_artifacts(&dice, &materialization_ctx, &*result).await;
+
+    copy_output(io::stdout(), &dice, &*result).await?;
 
     match build_result {
         Ok(_) => {}

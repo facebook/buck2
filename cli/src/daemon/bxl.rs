@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{fs::File, io, io::Write, sync::Arc};
 
 use anyhow::Context;
 use buck2_build_api::{
@@ -8,7 +8,10 @@ use buck2_build_api::{
     calculation::Calculation,
 };
 use buck2_bxl::bxl::eval::{get_bxl_callable, resolve_cli_args, CliResolutionCtx};
-use buck2_common::{dice::cells::HasCellResolver, legacy_configs::dice::HasLegacyConfigs};
+use buck2_common::{
+    dice::{cells::HasCellResolver, data::HasIoProvider},
+    legacy_configs::dice::HasLegacyConfigs,
+};
 use buck2_core::{package::Package, result::SharedError};
 use buck2_interpreter::common::StarlarkModulePath;
 use cli_proto::{build_request::Materializations, BxlRequest};
@@ -28,7 +31,7 @@ pub struct BxlResult {
 }
 
 pub async fn bxl(
-    server_ctx: ServerCommandContext,
+    mut server_ctx: ServerCommandContext,
     request: BxlRequest,
 ) -> anyhow::Result<BxlResult> {
     let cwd = &server_ctx.working_dir;
@@ -87,6 +90,7 @@ pub async fn bxl(
         ConvertMaterializationContext::from(final_artifact_materializations);
 
     let build_result = ensure_artifacts(&ctx, &materialization_context, &*result).await;
+    copy_output(server_ctx.stdout()?, &ctx, &*result).await?;
 
     match build_result {
         Ok(_) => Ok(BxlResult {
@@ -100,6 +104,27 @@ pub async fn bxl(
             })
         }
     }
+}
+
+pub async fn copy_output<W: Write>(
+    mut output: W,
+    dice: &DiceComputations,
+    result: &buck2_build_api::bxl::result::BxlResult,
+) -> anyhow::Result<()> {
+    if result.has_print() {
+        let loc = dice.global_data().get_io_provider().fs().resolve(
+            &dice
+                .get_artifact_fs()
+                .await
+                .buck_out_path_resolver()
+                .resolve_gen(result.get_output_loc()),
+        );
+
+        // we write the output to a file in buck-out as cache so we don't use memory caching it in
+        // DICE. So now we open the file and read it all into the destination stream.
+        io::copy(&mut File::open(loc)?, &mut output)?;
+    }
+    Ok(())
 }
 
 pub async fn ensure_artifacts(

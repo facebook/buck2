@@ -1,7 +1,7 @@
 //! The output stream for bxl to print values to the console as their result
 //!
 
-use std::{cell::RefCell, io::Write, sync::Arc};
+use std::{cell::RefCell, io::Write, ops::DerefMut, sync::Arc};
 
 use anyhow::Context;
 use buck2_build_api::{
@@ -115,8 +115,8 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
         #[starlark(args)] args: Vec<Value>,
         #[starlark(default = " ")] sep: &str,
     ) -> anyhow::Result<NoneType> {
-        // TODO handle printing of EnsuredArtifacts separately
-        println!(
+        writeln!(
+            this.sink.borrow_mut(),
             "{}",
             &args
                 .try_map(|x| {
@@ -138,7 +138,7 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
                 })?
                 .into_iter()
                 .join(sep)
-        );
+        )?;
         *this.has_print.borrow_mut() = true;
 
         Ok(NoneType)
@@ -206,15 +206,16 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
             }
         }
 
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&SerializeValue {
+        serde_json::to_writer_pretty(
+            this.sink.borrow_mut().deref_mut(),
+            &SerializeValue {
                 value,
                 artifact_fs: &this.artifact_fs,
                 project_fs: &this.project_fs,
-            },)
-            .context("When converting to JSON for `write_json`")?
-        );
+            },
+        )
+        .context("When writing to JSON for `write_json`")?;
+        writeln!(this.sink.borrow_mut())?;
         *this.has_print.borrow_mut() = true;
 
         Ok(NoneType)
