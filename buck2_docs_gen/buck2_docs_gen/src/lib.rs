@@ -11,7 +11,16 @@ pub struct StarlarkObject {
 
 impl StarlarkObject {
     /// Gets the docitem to this starlark object
-    pub fn get_docs(&self) -> DocItem {
+    fn get_docs(&self) -> DocItem {
         (self.module)()
     }
+
+    /// Gets all the documents from registered Starlark objects
+    pub fn all_docs() -> impl Iterator<Item = (&'static str, DocItem)> {
+        inventory::iter::<StarlarkObject>
+            .into_iter()
+            .map(|obj| (obj.name, obj.get_docs()))
+    }
 }
+
+inventory::collect!(StarlarkObject);
