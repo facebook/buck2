@@ -207,26 +207,16 @@ impl Compiler<'_, '_, '_> {
         )
     }
 
-    fn expr_call_fun_frozen(
-        &mut self,
-        span: FrozenFileSpan,
-        left: FrozenValue,
-        args: Vec<CstArgument>,
-    ) -> ExprCompiled {
-        let args = self.args(args);
-        self.expr_call_fun_frozen_no_special(span, left, args)
-    }
-
     fn expr_call_fun_compiled(
         &mut self,
         span: FrozenFileSpan,
         left: IrSpanned<ExprCompiled>,
         args: Vec<CstArgument>,
     ) -> ExprCompiled {
+        let args = self.args(args);
         if let Some(left) = left.as_value() {
-            self.expr_call_fun_frozen(span, left, args)
+            self.expr_call_fun_frozen_no_special(span, left, args)
         } else {
-            let args = self.args(args);
             ExprCompiled::Call(box IrSpanned {
                 span,
                 node: CallCompiled { fun: left, args },
