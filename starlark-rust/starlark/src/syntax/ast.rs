@@ -294,19 +294,6 @@ impl<P: AstPayload> ArgumentP<P> {
             ArgumentP::KwArgs(x) => x,
         }
     }
-
-    pub(crate) fn into_expr(self) -> AstExprP<P> {
-        match self {
-            ArgumentP::Positional(x) => x,
-            ArgumentP::Named(_, x) => x,
-            ArgumentP::Args(x) => x,
-            ArgumentP::KwArgs(x) => x,
-        }
-    }
-
-    pub(crate) fn is_positional(&self) -> bool {
-        matches!(self, ArgumentP::Positional(_))
-    }
 }
 
 impl Display for BinOp {

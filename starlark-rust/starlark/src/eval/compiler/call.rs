@@ -22,7 +22,6 @@ use crate::{
     eval::{
         compiler::{
             args::ArgsCompiledValue,
-            constants::Constants,
             def_inline::InlineDefBody,
             expr::ExprCompiled,
             scope::{CstArgument, CstExpr},
@@ -149,6 +148,12 @@ impl CallCompiled {
             }
         }
 
+        if fun.is_fn_type() {
+            if let Some(arg) = args.one_pos() {
+                return ExprCompiled::typ(span, arg.clone());
+            }
+        }
+
         ExprCompiled::Call(box IrSpanned {
             span,
             node: CallCompiled {
@@ -206,20 +211,10 @@ impl Compiler<'_, '_, '_> {
         &mut self,
         span: FrozenFileSpan,
         left: FrozenValue,
-        mut args: Vec<CstArgument>,
+        args: Vec<CstArgument>,
     ) -> ExprCompiled {
-        let one_positional = args.len() == 1 && args[0].is_positional();
-        if left == Constants::get().fn_type && one_positional {
-            let expr = args.pop().unwrap().node.into_expr();
-            let expr = self.expr(expr);
-            ExprCompiled::typ(span, expr)
-        } else if left == Constants::get().fn_len && one_positional {
-            let x = self.expr(args.pop().unwrap().node.into_expr());
-            ExprCompiled::len(span, x)
-        } else {
-            let args = self.args(args);
-            self.expr_call_fun_frozen_no_special(span, left, args)
-        }
+        let args = self.args(args);
+        self.expr_call_fun_frozen_no_special(span, left, args)
     }
 
     fn expr_call_fun_compiled(
