@@ -1,17 +1,18 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap};
 
 use anyhow::Context;
 use buck2_build_api::{
     bxl::{result::BxlResult, BxlFunctionLabel, BxlKey},
     calculation::Calculation,
-    deferred::DeferredTable,
+    deferred::{BaseDeferredKey, DeferredTable},
+    path::BuckOutPath,
 };
 use buck2_common::{
     dice::{cells::HasCellResolver, data::HasIoProvider},
     legacy_configs::dice::HasLegacyConfigs,
     target_aliases::TargetAliasResolver,
 };
-use buck2_core::{cells::CellAliasResolver, package::Package};
+use buck2_core::{cells::CellAliasResolver, fs::paths::ForwardRelativePathBuf, package::Package};
 use buck2_interpreter::{common::StarlarkModulePath, file_loader::LoadedModule};
 use dice::DiceTransaction;
 use gazebo::prelude::*;
@@ -71,6 +72,19 @@ pub async fn eval(ctx: DiceTransaction, key: BxlKey) -> anyhow::Result<BxlResult
                 .collect(),
         ));
 
+        // we put a file as our output stream cache. The file is associated with the `BxlKey`, which
+        // is super important, as it HAS to be the SAME as the DiceKey so that DICE is keeping
+        // the output file cache up to date.
+        let output_stream = BuckOutPath::new(
+            BaseDeferredKey::BxlLabel(key.clone()),
+            ForwardRelativePathBuf::unchecked_new("__bxl_internal__/outputstream_cache".to_owned()),
+        );
+        let file = artifact_fs
+            .buck_out_path_resolver()
+            .resolve_gen(&output_stream);
+
+        let file = RefCell::new(box project_fs.create_file(&file, false)?);
+
         let mut eval = Evaluator::new(&env);
         let bxl_ctx = BxlContext::new(
             eval.heap(),
@@ -81,6 +95,7 @@ pub async fn eval(ctx: DiceTransaction, key: BxlKey) -> anyhow::Result<BxlResult
             artifact_fs,
             bxl_cell,
             BxlSafeDiceComputations::new(&ctx),
+            file,
         );
         let bxl_ctx = ValueTyped::<BxlContext>::new(env.heap().alloc(bxl_ctx)).unwrap();
 

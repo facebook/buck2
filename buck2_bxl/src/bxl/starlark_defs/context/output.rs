@@ -1,7 +1,7 @@
 //! The output stream for bxl to print values to the console as their result
 //!
 
-use std::{cell::RefCell, sync::Arc};
+use std::{cell::RefCell, io::Write, sync::Arc};
 
 use anyhow::Context;
 use buck2_build_api::{
@@ -39,6 +39,9 @@ use crate::bxl::starlark_defs::{
 #[display(fmt = "{:?}", self)]
 #[derivative(Debug)]
 pub struct OutputStream<'v> {
+    #[derivative(Debug = "ignore")]
+    #[trace(unsafe_ignore)]
+    sink: RefCell<Box<dyn Write>>,
     has_print: RefCell<bool>,
     #[trace(unsafe_ignore)]
     artifacts_to_ensure: RefCell<Option<SmallSet<Value<'v>>>>,
@@ -51,8 +54,13 @@ pub struct OutputStream<'v> {
 }
 
 impl<'v> OutputStream<'v> {
-    pub fn new(project_fs: Arc<ProjectFilesystem>, artifact_fs: ArtifactFs) -> Self {
+    pub fn new(
+        project_fs: Arc<ProjectFilesystem>,
+        artifact_fs: ArtifactFs,
+        sink: RefCell<Box<dyn Write>>,
+    ) -> Self {
         Self {
+            sink,
             has_print: RefCell::new(false),
             artifacts_to_ensure: RefCell::new(Some(Default::default())),
             project_fs,

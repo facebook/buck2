@@ -10,7 +10,7 @@
 //! The context containing the available buck commands and query operations for `bxl` functions.
 //!
 
-use std::{cell::RefCell, collections::HashSet, sync::Arc};
+use std::{cell::RefCell, collections::HashSet, io::Write, sync::Arc};
 
 use buck2_build_api::interpreter::rule_defs::{context::AnalysisActions, label::Label};
 use buck2_bxl_core::BxlKey;
@@ -95,6 +95,7 @@ impl<'v> BxlContext<'v> {
         artifact_fs: ArtifactFs,
         cell: CellInstance,
         async_ctx: BxlSafeDiceComputations<'v>,
+        output_sink: RefCell<Box<dyn Write>>,
     ) -> Self {
         Self {
             current_bxl,
@@ -107,8 +108,12 @@ impl<'v> BxlContext<'v> {
                 attributes: Value::new_none(),
             }))
             .unwrap(),
-            output_stream: ValueTyped::new(heap.alloc(OutputStream::new(project_fs, artifact_fs)))
-                .unwrap(),
+            output_stream: ValueTyped::new(heap.alloc(OutputStream::new(
+                project_fs,
+                artifact_fs,
+                output_sink,
+            )))
+            .unwrap(),
         }
     }
 

@@ -56,7 +56,7 @@
 use std::{
     borrow::{Borrow, Cow},
     convert::TryFrom,
-    fs::Metadata,
+    fs::{File, Metadata},
     ops::Deref,
     path::{Component, Path, PathBuf},
 };
@@ -283,6 +283,27 @@ impl ProjectFilesystem {
             })?;
         }
         Ok(())
+    }
+
+    pub fn create_file(&self, path: impl PathLike, executable: bool) -> anyhow::Result<File> {
+        let abs_path = path.resolve(self);
+        if let Some(parent) = abs_path.parent() {
+            fs::create_dir_all(parent).with_context(|| {
+                format!(
+                    "`create_file` for `{}` creating directory `{}`",
+                    abs_path.as_ref(),
+                    parent
+                )
+            })?;
+        }
+        let file = File::create(abs_path.as_ref())
+            .with_context(|| format!("`create_file` creating `{}`", abs_path.as_ref()))?;
+        if executable {
+            self.set_executable(abs_path.as_ref()).with_context(|| {
+                format!("`create_file` setting executable `{}`", abs_path.as_ref())
+            })?;
+        }
+        Ok(file)
     }
 
     #[cfg(unix)]
