@@ -24,6 +24,7 @@ use buck2_core::{
     },
     package::{Package, PackageRelativePathBuf},
 };
+use buck2_docs_gen::StarlarkObject;
 use buck2_interpreter::{
     common::{BuildFileCell, ImportPath, StarlarkModulePath},
     dice::{
@@ -145,6 +146,10 @@ fn get_ctx_docs() -> Vec<Doc> {
     docs
 }
 
+fn get_generated_docs() -> impl Iterator<Item = Doc> {
+    StarlarkObject::all_docs().map(|(n, doc)| builtin_doc(n, doc))
+}
+
 fn get_builtin_docs(
     cell_alias_resolver: CellAliasResolver,
     interpreter_state: Arc<GlobalInterpreterState>,
@@ -159,6 +164,8 @@ fn get_builtin_docs(
         all_builtins.push(artifact);
     }
     all_builtins.extend(get_ctx_docs());
+
+    all_builtins.extend(get_generated_docs());
 
     Ok(all_builtins)
 }
