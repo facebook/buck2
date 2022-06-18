@@ -21,7 +21,10 @@ use crate as starlark;
 use crate::{
     assert::Assert,
     environment::GlobalsBuilder,
-    eval::compiler::def::{Def, FrozenDef},
+    eval::compiler::{
+        def::{Def, FrozenDef},
+        def_inline::InlineDefBody,
+    },
     values::{Value, ValueLike},
 };
 
@@ -29,9 +32,15 @@ use crate::{
 fn globals(builder: &mut GlobalsBuilder) {
     fn returns_type_is<'v>(value: Value<'v>) -> anyhow::Result<bool> {
         Ok(if let Some(def) = value.downcast_ref::<FrozenDef>() {
-            def.def_info.inline_def_body.is_some()
+            matches!(
+                def.def_info.inline_def_body,
+                Some(InlineDefBody::ReturnTypeIs(..))
+            )
         } else if let Some(def) = value.downcast_ref::<Def>() {
-            def.def_info.inline_def_body.is_some()
+            matches!(
+                def.def_info.inline_def_body,
+                Some(InlineDefBody::ReturnTypeIs(..))
+            )
         } else {
             panic!("not def")
         })
