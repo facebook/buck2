@@ -105,7 +105,7 @@ pub async fn eval(ctx: DiceTransaction, key: BxlKey) -> anyhow::Result<BxlResult
             return Err(anyhow::anyhow!(NotAValidReturnType(result.get_type())));
         }
 
-        let (actions, ensured_artifacts, _has_print) = BxlContext::take_state(bxl_ctx)?;
+        let (actions, ensured_artifacts) = BxlContext::take_state(bxl_ctx)?;
 
         match actions {
             Some(registry) => {

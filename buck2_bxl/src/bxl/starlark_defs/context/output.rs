@@ -42,7 +42,6 @@ pub struct OutputStream<'v> {
     #[derivative(Debug = "ignore")]
     #[trace(unsafe_ignore)]
     sink: RefCell<Box<dyn Write>>,
-    has_print: RefCell<bool>,
     #[trace(unsafe_ignore)]
     artifacts_to_ensure: RefCell<Option<SmallSet<Value<'v>>>>,
     #[trace(unsafe_ignore)]
@@ -61,15 +60,10 @@ impl<'v> OutputStream<'v> {
     ) -> Self {
         Self {
             sink,
-            has_print: RefCell::new(false),
             artifacts_to_ensure: RefCell::new(Some(Default::default())),
             project_fs,
             artifact_fs,
         }
-    }
-
-    pub fn has_print(&self) -> bool {
-        *self.has_print.borrow()
     }
 
     pub fn take_artifacts(&self) -> SmallSet<Value<'v>> {
@@ -139,7 +133,6 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
                 .into_iter()
                 .join(sep)
         )?;
-        *this.has_print.borrow_mut() = true;
 
         Ok(NoneType)
     }
@@ -216,7 +209,6 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
         )
         .context("When writing to JSON for `write_json`")?;
         writeln!(this.sink.borrow_mut())?;
-        *this.has_print.borrow_mut() = true;
 
         Ok(NoneType)
     }

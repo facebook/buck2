@@ -154,7 +154,7 @@ impl<'v> BxlContext<'v> {
     /// Must take an `AnalysisContext` and `OutputStream` which has never had `take_state` called on it before.
     pub(crate) fn take_state(
         value: ValueTyped<'v, BxlContext<'v>>,
-    ) -> anyhow::Result<(Option<AnalysisRegistry<'v>>, HashSet<Artifact>, bool)> {
+    ) -> anyhow::Result<(Option<AnalysisRegistry<'v>>, HashSet<Artifact>)> {
         let this = value.as_ref();
         Ok((
             this.state.as_ref().state.borrow_mut().take(),
@@ -165,7 +165,6 @@ impl<'v> BxlContext<'v> {
                 .into_iter()
                 .map(|v| v.as_artifact().unwrap().get_bound())
                 .collect::<anyhow::Result<_>>()?,
-            this.output_stream.has_print(),
         ))
     }
 }
