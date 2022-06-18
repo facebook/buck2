@@ -17,8 +17,8 @@ Regenerate by running `buck2_docs --buck-command=buck2 --destination-dir=docs/ge
 | android_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, bool.type, bool.type, str.type, [str.type], bool.type, [str.type], [None, str.type], [None, [str.type]], {str.type: [str.type]}, [None, {str.type: [str.type]}], [None, str.type], [str.type], [str.type], [None, str.type], bool.type, bool.type, [str.type], [str.type], [None, str.type], [str.type], [None, str.type], int.type, str.type, bool.type, str.type, [None, str.type], bool.type, [str.type], [str.type], int.type, bool.type, bool.type, bool.type, str.type, [str.type], [str.type], int.type, [str.type], [None, str.type], {str.type: ""}, [None, str.type], int.type, bool.type, [None, str.type], [None, str.type], [None, str.type], [None, [str.type]], {str.type: [str.type]}, bool.type, bool.type, [str.type], bool.type, int.type, bool.type, str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, str.type], [None, int.type], [None, bool.type], bool.type, bool.type, bool.type, [None, [str.type]], int.type) -> None` |  |
 | android_build_config | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [str.type], [None, str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
 | android_bundle | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], bool.type, bool.type, str.type, [str.type], bool.type, [str.type], [None, str.type], [None, [str.type]], {str.type: [str.type]}, [None, {str.type: [str.type]}], [None, str.type], [str.type], [str.type], [None, str.type], bool.type, [None, str.type], bool.type, [str.type], [str.type], [None, str.type], [str.type], [None, str.type], int.type, str.type, bool.type, str.type, [None, str.type], bool.type, [str.type], [str.type], int.type, bool.type, bool.type, bool.type, str.type, [str.type], [str.type], int.type, [str.type], [None, str.type], {str.type: ""}, [None, str.type], int.type, bool.type, [None, str.type], [None, str.type], [None, str.type], [None, [str.type]], {str.type: [str.type]}, bool.type, bool.type, [str.type], bool.type, int.type, bool.type, str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, str.type], [None, int.type], [None, bool.type], bool.type, bool.type, bool.type, [None, [str.type]], int.type) -> None` |  |
-| android_instrumentation_apk | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [str.type], [None, str.type], [str.type], str.type, bool.type, [str.type], [str.type], [None, str.type], [None, str.type], [None, [str.type]]) -> None` |  |
-| android_instrumentation_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [None, str.type], {str.type: str.type}, [str.type], [str.type], [None, int.type], [None, [str.type]]) -> None` |  |
+| android_instrumentation_apk | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, str.type, [str.type], [str.type], [None, str.type], [str.type], str.type, bool.type, [str.type], [str.type], [None, str.type], [None, str.type], [None, [str.type]]) -> None` |  |
+| android_instrumentation_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [str.type], [None, str.type], {str.type: str.type}, [str.type], [str.type], [None, int.type], [None, [str.type]]) -> None` |  |
 | android_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], bool.type, [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
 | android_manifest | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, [None, [str.type]]) -> None` |  |
 | android_platform | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, {str.type: str.type}, [None, [str.type]]) -> None` |  |
@@ -26,17 +26,17 @@ Regenerate by running `buck2_docs --buck-command=buck2 --destination-dir=docs/ge
 | android_resource | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [None, [str.type, {str.type: str.type}]], [str.type], [None, str.type], [str.type], bool.type, [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [None, [str.type, {str.type: str.type}]], bool.type, [None, [str.type]]) -> None` |  |
 | apk_genrule | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [None, bool.type], [None, str.type], bool.type, [str.type], [str.type], bool.type, [None, str.type], [None, bool.type], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
 | apple_asset_catalog | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [None, str.type], [str.type], [None, [str.type]]) -> None` |  |
-| apple_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [None, str.type], [None, bool.type], [str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], bool.type, {str.type: str.type}, bool.type, bool.type, [None, str.type], [None, str.type], [str.type], str.type, [{str.type: str.type}, [str.type]], {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [str.type], [(str.type, [str.type])], [str.type], [str.type], [str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], [None, bool.type], [str.type], [str.type], bool.type, [None, str.type], bool.type, [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], bool.type, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, bool.type], [str.type], bool.type, [None, str.type], [[str.type, (str.type, [str.type])]], [None, str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], bool.type, bool.type, bool.type, bool.type, [None, [str.type]], [None, bool.type], [None, bool.type]) -> None` |  |
+| apple_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [None, str.type], [None, bool.type], [str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], bool.type, {str.type: str.type}, bool.type, bool.type, [None, str.type], [None, str.type], [str.type], str.type, [{str.type: str.type}, [str.type]], {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [str.type], [(str.type, [str.type])], [str.type], [str.type], [str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], [None, bool.type], [str.type], [str.type], bool.type, [None, str.type], bool.type, [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], bool.type, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, bool.type], [str.type], bool.type, [None, str.type], [[str.type, (str.type, [str.type])]], [None, str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], bool.type, bool.type, bool.type, bool.type, bool.type, [None, [str.type]], [None, bool.type], [None, bool.type]) -> None` |  |
 | apple_bundle | `(**UNKNOWN) -> UNKNOWN` |  |
-| apple_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [None, str.type], [None, bool.type], [str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], bool.type, {str.type: str.type}, bool.type, [None, str.type], [str.type], str.type, [{str.type: str.type}, [str.type]], {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [str.type], [(str.type, [str.type])], [str.type], [str.type], [str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], [None, bool.type], [str.type], [str.type], bool.type, [None, str.type], bool.type, [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, bool.type], [str.type], bool.type, [None, str.type], [[str.type, (str.type, [str.type])]], [None, str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], bool.type, [None, bool.type], bool.type, bool.type, bool.type, [None, [str.type]], [None, bool.type], [None, bool.type]) -> None` |  |
+| apple_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [None, str.type], [None, bool.type], [str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], bool.type, {str.type: str.type}, bool.type, [None, str.type], [str.type], str.type, [{str.type: str.type}, [str.type]], {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [str.type], [(str.type, [str.type])], [str.type], [str.type], [str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], [None, bool.type], [str.type], [str.type], bool.type, [None, str.type], bool.type, [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, bool.type], [str.type], bool.type, [None, str.type], [[str.type, (str.type, [str.type])]], [None, str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], bool.type, [None, bool.type], bool.type, bool.type, bool.type, bool.type, [None, [str.type]], [None, bool.type], [None, bool.type]) -> None` |  |
 | apple_package | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [None, str.type], [None, str.type], [str.type], [str.type], bool.type, [None, [str.type]]) -> None` |  |
 | apple_resource | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], bool.type, [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], {str.type: [str.type]}, [str.type], [str.type], [None, [str.type]]) -> None` |  |
-| apple_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [None, str.type], str.type, {str.type: ""}, [None, str.type], [None, str.type], [None, bool.type], [str.type], [None, str.type], [str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], {str.type: str.type}, bool.type, {str.type: str.type}, bool.type, [None, str.type], [None, {str.type: str.type}], [None, str.type], [str.type], str.type, [{str.type: str.type}, [str.type]], {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [str.type], [(str.type, [str.type])], [str.type], str.type, [str.type], [str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [None, bool.type], str.type, {str.type: str.type}, bool.type, [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], str.type, [None, bool.type], [str.type], [str.type], bool.type, [None, str.type], bool.type, [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, bool.type], [None, str.type], [None, str.type], bool.type, [None, str.type], [str.type], bool.type, [None, bool.type], [None, [str.type, str.type]], [None, str.type], [None, str.type], [[str.type, (str.type, [str.type])]], [None, str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [None, int.type], bool.type, [None, bool.type], [None, str.type], bool.type, bool.type, bool.type, [None, [str.type]], [None, bool.type], [None, str.type], [None, bool.type]) -> None` |  |
+| apple_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [None, str.type], str.type, {str.type: ""}, [None, str.type], [None, str.type], [None, bool.type], [str.type], [None, str.type], [str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], {str.type: str.type}, bool.type, {str.type: str.type}, bool.type, [None, str.type], [None, {str.type: str.type}], [None, str.type], [str.type], str.type, [{str.type: str.type}, [str.type]], {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [str.type], [(str.type, [str.type])], [str.type], str.type, [str.type], [str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [None, bool.type], str.type, {str.type: str.type}, bool.type, [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], str.type, [None, bool.type], [str.type], [str.type], bool.type, [None, str.type], bool.type, [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, bool.type], [None, str.type], [None, str.type], bool.type, [None, str.type], [str.type], bool.type, [None, bool.type], [None, [str.type, str.type]], [None, str.type], [None, str.type], [[str.type, (str.type, [str.type])]], [None, str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [None, int.type], bool.type, [None, bool.type], [None, str.type], bool.type, bool.type, bool.type, bool.type, [None, [str.type]], [None, bool.type], [None, str.type], [None, bool.type]) -> None` |  |
 | apple_toolchain | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [None, str.type], str.type, str.type, [None, str.type], str.type, str.type, [str.type], [None, str.type], str.type, [None, str.type], [None, str.type], str.type, [None, str.type], str.type, [str.type], str.type, [str.type], str.type, [None, str.type], str.type, [None, str.type], [None, str.type], str.type, [None, str.type], [None, str.type], str.type, [None, str.type], [None, [str.type]], [None, bool.type], str.type, str.type, str.type) -> None` |  |
 | apple_toolchain_set | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [None, str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
-| apple_tools | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type) -> None` |  |
+| apple_tools | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, str.type) -> None` |  |
 | cgo_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], [None, str.type], bool.type, [None, str.type], [str.type], bool.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], bool.type, [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], bool.type, [None, str.type], [str.type], [str.type], [[str.type, (str.type, [str.type])]], bool.type, [None, str.type], [None, [str.type]]) -> None` |  |
-| cmd_args | `(*Vec < Value < 'v > >, Option < String >, bool, Option < String >, Option < String >, Option < String >) -> StarlarkCommandLine < 'v >` |  |
+| cmd_args | `(*Vec < Value < 'v > >, Option < StringValue < 'v > >, Option < StringValue < 'v > >, Option < StringValue < 'v > >, Option < & str >) -> StarlarkCommandLine < 'v >` |  |
 | command_alias | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [None, str.type], {str.type: str.type}, [None, str.type], [str.type], [str.type], {str.type: str.type}, [None, [str.type]]) -> None` |  |
 | config_setting | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], {str.type: str.type}, [None, [str.type]]) -> None` |  |
 | configured_alias | `(UNKNOWN, UNKNOWN, UNKNOWN, **UNKNOWN) -> UNKNOWN` |  |
@@ -45,46 +45,46 @@ Regenerate by running `buck2_docs --buck-command=buck2 --destination-dir=docs/ge
 | core_data_model | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], str.type, [None, [str.type]]) -> None` |  |
 | csharp_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [None, str.type], [[str.type, str.type]], str.type, str.type, [str.type], [str.type], {str.type: str.type}, [str.type], [None, [str.type]]) -> None` |  |
 | cxx | `UNKNOWN` |  |
-| cxx_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], [None, str.type], bool.type, bool.type, [None, str.type], bool.type, [None, str.type], [str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], bool.type, [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], default_only, [str.type], [str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], bool.type, [None, str.type], [str.type], [str.type], [{str.type: [str.type, str.type]}, [[str.type, str.type]]], [[str.type, (str.type, [str.type])]], bool.type, bool.type, [None, str.type], [None, [str.type]]) -> None` |  |
-| cxx_genrule | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [None, str.type], [None, bool.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [None, [str.type]], [None, bool.type], [None, str.type], [str.type], [str.type], bool.type, [None, str.type], [None, {str.type: [str.type]}], [None, bool.type], [{str.type: str.type}, [str.type]], [None, str.type], [None, [str.type]]) -> None` |  |
-| cxx_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [None, str.type], [None, bool.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], bool.type, {str.type: str.type}, [None, str.type], [str.type], str.type, [{str.type: str.type}, [str.type]], {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [str.type], [(str.type, [str.type])], [str.type], [str.type], [str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], bool.type, [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], [None, bool.type], [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], bool.type, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, bool.type], [{str.type: [str.type, str.type]}, [[str.type, str.type]]], [str.type], [None, str.type], [[str.type, (str.type, [str.type])]], [None, str.type], [None, str.type], [None, bool.type], bool.type, [None, bool.type], bool.type, bool.type, [None, str.type], [None, [str.type]], [None, bool.type], [None, bool.type]) -> None` |  |
+| cxx_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], [None, str.type], bool.type, bool.type, [None, str.type], bool.type, [None, str.type], [str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], bool.type, [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], default_only, [str.type], [str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], bool.type, [None, str.type], [str.type], [str.type], [{str.type: [str.type, str.type]}, [[str.type, str.type]]], [[str.type, (str.type, [str.type])]], bool.type, bool.type, [None, str.type], [None, [str.type]]) -> None` |  |
+| cxx_genrule | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [None, str.type], [None, bool.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [None, [str.type]], [None, bool.type], [None, str.type], [str.type], [str.type], bool.type, [None, str.type], [None, {str.type: [str.type]}], [None, bool.type], [{str.type: str.type}, [str.type]], [None, str.type], [None, [str.type]]) -> None` |  |
+| cxx_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [None, str.type], [None, bool.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], bool.type, {str.type: str.type}, [None, str.type], [str.type], str.type, [{str.type: str.type}, [str.type]], {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [str.type], [(str.type, [str.type])], [str.type], [str.type], [str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], bool.type, [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], [None, bool.type], [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], bool.type, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, bool.type], [{str.type: [str.type, str.type]}, [[str.type, str.type]]], [str.type], [None, str.type], [[str.type, (str.type, [str.type])]], [None, str.type], [None, str.type], [None, bool.type], bool.type, [None, bool.type], bool.type, bool.type, bool.type, [None, str.type], [None, [str.type]], [None, bool.type], [None, bool.type]) -> None` |  |
 | cxx_lua_extension | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], [None, str.type], [str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], [str.type], [str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], [None, str.type], [str.type], [str.type], [[str.type, (str.type, [str.type])]], [None, str.type], [None, [str.type]]) -> None` |  |
 | cxx_precompiled_header | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, [None, str.type], [None, [str.type]]) -> None` |  |
-| cxx_python_extension | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [None, str.type], default_only, default_only, [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], default_only, default_only, [None, str.type], default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, [str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], default_only, [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], default_only, default_only, [None, str.type], default_only, [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], default_only, [None, str.type], [str.type], default_only, default_only, [str.type], default_only, default_only, default_only, default_only, [[str.type, (str.type, [str.type])]], default_only, default_only, default_only, default_only, [None, str.type], default_only, bool.type, default_only, [None, str.type], [None, [str.type]], default_only, default_only) -> None` |  |
-| cxx_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], [None, str.type], bool.type, bool.type, {str.type: str.type}, [None, str.type], bool.type, [None, str.type], [None, str.type], [str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], bool.type, [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], default_only, [str.type], [str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], bool.type, [None, str.type], [str.type], [str.type], [{str.type: [str.type, str.type]}, [[str.type, str.type]]], [None, bool.type], [[str.type, (str.type, [str.type])]], [None, int.type], bool.type, [None, bool.type], bool.type, [None, str.type], [None, [str.type]]) -> None` |  |
-| cxx_toolchain | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, str.type, [str.type], str.type, [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], str.type, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], str.type, [str.type], [None, str.type], [str.type], bool.type, [None, str.type], [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], str.type, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], bool.type, bool.type, [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], bool.type, str.type, [str.type], str.type, str.type, str.type, bool.type, str.type, str.type, [None, str.type], bool.type, bool.type, [None, str.type], [str.type], bool.type, bool.type, [str.type], str.type, [str.type], str.type, str.type, [str.type], str.type, [str.type], str.type, [None, [str.type]], [None, [str.type]], [None, [str.type]], bool.type, bool.type, bool.type, bool.type, [None, [str.type]]) -> None` |  |
+| cxx_python_extension | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, [None, str.type], default_only, default_only, [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], default_only, default_only, [None, str.type], default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, default_only, [str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], default_only, [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], default_only, default_only, [None, str.type], default_only, [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], default_only, [None, str.type], [str.type], default_only, default_only, [str.type], default_only, default_only, default_only, default_only, [[str.type, (str.type, [str.type])]], default_only, default_only, default_only, default_only, [None, str.type], default_only, bool.type, default_only, default_only, [None, str.type], [None, [str.type]], default_only, default_only) -> None` |  |
+| cxx_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], [None, str.type], bool.type, bool.type, {str.type: str.type}, [None, str.type], bool.type, [None, str.type], [None, str.type], [str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], bool.type, [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], default_only, [str.type], [str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], bool.type, [None, str.type], [str.type], [str.type], [{str.type: [str.type, str.type]}, [[str.type, str.type]]], [None, bool.type], [[str.type, (str.type, [str.type])]], [None, int.type], bool.type, [None, bool.type], bool.type, [None, str.type], [None, [str.type]]) -> None` |  |
+| cxx_toolchain | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, str.type, [str.type], str.type, [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], str.type, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], bool.type, str.type, [str.type], [None, str.type], [str.type], bool.type, [None, str.type], [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], str.type, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], bool.type, bool.type, [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], bool.type, str.type, [str.type], str.type, str.type, str.type, bool.type, str.type, str.type, [None, str.type], bool.type, bool.type, [None, str.type], [str.type], bool.type, bool.type, [str.type], str.type, [str.type], str.type, str.type, bool.type, [str.type], str.type, [str.type], str.type, [None, [str.type]], [None, [str.type]], [None, [str.type]], bool.type, bool.type, bool.type, bool.type, [None, [str.type]]) -> None` |  |
 | d_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
 | d_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
 | d_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [{str.type: str.type}, [str.type]], [None, int.type], [None, [str.type]]) -> None` |  |
 | export_file | `(UNKNOWN, UNKNOWN, **UNKNOWN) -> UNKNOWN` |  |
 | external_test_runner | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [None, str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
 | extract_archive | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [None, str.type]) -> None` |  |
-| filegroup | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
-| filter | `(Value, Value) -> Value < 'v >` |  |
+| filegroup | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
+| filter | `(Value < 'v >, Value < 'v >) -> Value < 'v >` |  |
 | gen_aidl | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [str.type], [str.type], [None, str.type], [str.type], str.type, [str.type], [str.type], [None, [str.type]]) -> None` |  |
 | genrule | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [None, bool.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [None, [str.type]], [None, bool.type], [None, str.type], [None, bool.type], [str.type], [str.type], bool.type, [None, str.type], [None, {str.type: [str.type]}], [None, bool.type], [{str.type: str.type}, [str.type]], [None, str.type], [None, [str.type]]) -> None` |  |
 | get_base_path | `() -> String` |  |
 | get_cell_name | `() -> String` |  |
-| glob | `(Vec < String >, Option < Vec < String > >, Option < Vec < String > >, bool) -> Value < 'v >` |  |
-| go_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [(str.type, [str.type])], [str.type], [str.type], [None, [str.type]]) -> None` |  |
+| glob | `(Vec < String >, *, Option < Vec < String > >) -> Value < 'v >` |  |
+| go_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [(str.type, [str.type])], [str.type], [str.type], [None, [str.type]]) -> None` |  |
 | go_exported_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], str.type, [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [(str.type, [str.type])], [str.type], [str.type], [None, [str.type]]) -> None` |  |
 | go_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [None, [str.type]]) -> None` |  |
-| go_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], {str.type: str.type}, [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], bool.type, [None, str.type], [None, str.type], [str.type], [None, int.type], [None, [str.type]]) -> None` |  |
+| go_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], {str.type: str.type}, [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], bool.type, [None, str.type], [None, str.type], [str.type], [None, int.type], [None, [str.type]]) -> None` |  |
 | go_test_runner | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], str.type, [None, [str.type]]) -> None` |  |
 | groovy_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
 | groovy_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [str.type], [str.type], [str.type], str.type, [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], bool.type, [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, [str.type, int.type]], [None, [str.type, int.type]], [None, str.type], [None, int.type], [None, int.type], [None, str.type], [None, bool.type], [None, bool.type], [str.type], [None, [str.type]]) -> None` |  |
 | gwt_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [None, bool.type], [str.type], [str.type], [str.type], [None, int.type], [str.type], [str.type], [None, int.type], [None, bool.type], [None, str.type], [str.type], [None, [str.type]]) -> None` |  |
 | halide_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], [None, str.type], bool.type, [None, str.type], bool.type, [None, str.type], [str.type], [None, str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], bool.type, [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], [str.type], [str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], bool.type, [None, str.type], [str.type], [str.type], [[str.type, (str.type, [str.type])]], [None, str.type], bool.type, [None, str.type], [None, [str.type]]) -> None` |  |
-| haskell_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [str.type], [str.type], [None, str.type], [str.type], [None, str.type], bool.type, [(str.type, [str.type])], [str.type], [str.type], [str.type], bool.type, [None, str.type], [str.type], [None, str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
+| haskell_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [str.type], [str.type], [None, str.type], [str.type], [None, str.type], bool.type, [(str.type, [str.type])], [str.type], [str.type], [str.type], bool.type, [None, str.type], [str.type], [None, str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
 | haskell_ghci | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [None, str.type], [str.type], [None, str.type], bool.type, [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [str.type], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
 | haskell_haddock | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
 | haskell_ide | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [(str.type, [str.type])], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
-| haskell_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [str.type], [str.type], [None, str.type], [str.type], bool.type, [(str.type, [str.type])], [str.type], [str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], str.type, [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
+| haskell_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [str.type], [str.type], [None, str.type], [str.type], bool.type, [(str.type, [str.type])], [str.type], [str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], str.type, [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
 | haskell_prebuilt_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], str.type, [None, str.type], [str.type], bool.type, [str.type], [str.type], str.type, [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], {str.type: str.type}, [str.type], str.type, [None, [str.type]]) -> None` |  |
 | host_info | `() -> Value < 'v >` |  |
 | http_archive | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [None, [str.type]]) -> None` |  |
 | http_file | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [None, bool.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [None, [str.type]]) -> None` |  |
-| implicit_package_symbol | `(& str, Option < Value >) -> Value < 'v >` |  |
+| implicit_package_symbol | `(& str, Option < Value < 'v > >) -> Value < 'v >` |  |
 | jar_genrule | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [None, str.type], [None, bool.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [str.type], bool.type, [None, bool.type], [{str.type: str.type}, [str.type]], [None, str.type], [None, [str.type]]) -> None` |  |
 | java_annotation_processor | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], bool.type, bool.type, [str.type], [str.type], str.type, bool.type, [None, [str.type]]) -> None` |  |
 | java_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [str.type], [None, str.type], [None, str.type], [str.type], bool.type, [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [None, [str.type]]) -> None` |  |
@@ -92,26 +92,27 @@ Regenerate by running `buck2_docs --buck-command=buck2 --destination-dir=docs/ge
 | java_plugin | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], bool.type, bool.type, [str.type], [str.type], str.type, bool.type, [None, [str.type]]) -> None` |  |
 | java_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [str.type], [str.type], str.type, [None, str.type], [None, [str.type, str.type]], [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], bool.type, [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [str.type], [None, [str.type, int.type]], [None, [str.type, int.type]], [None, str.type], [None, int.type], [None, int.type], [None, str.type], [None, bool.type], [None, bool.type], [str.type], [None, [str.type]]) -> None` |  |
 | java_test_runner | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], str.type, [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
-| js_bundle | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, bool.type, str.type, [None, str.type], [None, str.type], [(str.type, str.type)], [str.type], [None, str.type], [str.type], [[str.type], str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, [str.type]], str.type) -> None` |  |
+| js_bundle | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, bool.type, str.type, str.type, [None, str.type], [None, str.type], [(str.type, str.type)], [str.type], [None, str.type], [str.type], [[str.type], str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, [str.type]], str.type) -> None` |  |
 | js_bundle_genrule | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], bool.type, str.type, [None, str.type], [None, str.type], [(str.type, str.type)], [None, bool.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [None, bool.type], [None, str.type], str.type, [str.type], [str.type], bool.type, [None, bool.type], bool.type, bool.type, bool.type, bool.type, [{str.type: str.type}, [str.type]], str.type, [None, [str.type]]) -> None` |  |
-| js_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], bool.type, str.type, [None, [str.type]], [None, [str.type]], [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [[str.type, (str.type, str.type)]], [None, [str.type]], str.type) -> None` |  |
+| js_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], bool.type, str.type, str.type, [None, [str.type]], [None, [str.type]], [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [[str.type, (str.type, str.type)]], [None, [str.type]], str.type) -> None` |  |
+| json | `UNKNOWN` |  |
 | keystore | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, str.type, [None, [str.type]]) -> None` |  |
 | kotlin_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], str.type, str.type, [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, [str.type, str.type]], {str.type: {str.type: str.type}}, [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
 | kotlin_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, str.type], {str.type: {str.type: str.type}}, [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], bool.type, [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, [str.type, int.type]], [None, [str.type, int.type]], [None, str.type], [None, int.type], [None, int.type], [None, str.type], [None, bool.type], [None, bool.type], [str.type], [None, [str.type]]) -> None` |  |
 | legacy_toolchain | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], str.type, [None, [str.type]]) -> None` |  |
 | lua_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, [None, str.type], [None, str.type], [None, str.type], [(str.type, [str.type])], [None, str.type], [None, [str.type]]) -> None` |  |
 | lua_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [(str.type, [str.type])], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
-| map | `(Value, Value) -> Value < 'v >` |  |
+| map | `(Value < 'v >, Value < 'v >) -> Value < 'v >` |  |
 | ndk_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
 | ndk_toolchain | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], str.type, [None, str.type], [str.type], [str.type], str.type, [None, str.type], [None, [str.type]], [None, [str.type]]) -> None` |  |
-| ocaml_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [None, bool.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [None, [{str.type: str.type}, [str.type]]], [None, str.type], [None, [str.type]]) -> None` |  |
-| ocaml_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, bool.type, [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], bool.type, [str.type], [(str.type, [str.type])], [(str.type, [str.type])], [None, [{str.type: str.type}, [str.type]]], [None, str.type], [None, [str.type]]) -> None` |  |
-| ocaml_object | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [None, bool.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [None, [{str.type: str.type}, [str.type]]], [None, str.type], [None, [str.type]]) -> None` |  |
+| ocaml_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [None, bool.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [None, [{str.type: str.type}, [str.type]]], [None, str.type], [None, [str.type]]) -> None` |  |
+| ocaml_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, bool.type, [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], bool.type, [str.type], [(str.type, [str.type])], [(str.type, [str.type])], [None, [{str.type: str.type}, [str.type]]], [None, str.type], [None, [str.type]]) -> None` |  |
+| ocaml_object | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [None, bool.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [None, [{str.type: str.type}, [str.type]]], [None, str.type], [None, [str.type]]) -> None` |  |
 | package | `() -> String` |  |
 | package_name | `() -> String` |  |
-| partial | `(Value, *Value < 'v >, **DictRef < 'v >) -> Partial < 'v >` |  |
+| partial | `(Value < 'v >, *Value < 'v >, **DictRef < 'v >) -> Partial < 'v >` |  |
 | platform | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [None, [str.type]]) -> None` |  |
-| prebuilt_apple_framework | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [None, bool.type], [str.type], [None, str.type], [str.type], [str.type], [(str.type, [str.type])], [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, [None, str.type], [None, [str.type]]) -> None` |  |
+| prebuilt_apple_framework | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [None, bool.type], [str.type], [None, str.type], [str.type], [str.type], [(str.type, [str.type])], [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, [None, str.type], [None, [str.type]]) -> None` |  |
 | prebuilt_cxx_library | `(UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, **UNKNOWN) -> UNKNOWN` |  |
 | prebuilt_cxx_library_group | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [(str.type, [str.type])], [str.type], {str.type: str.type}, [str.type], bool.type, [str.type], [str.type], {str.type: str.type}, {str.type: str.type}, [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
 | prebuilt_dotnet_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [None, str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
@@ -120,27 +121,28 @@ Regenerate by running `buck2_docs --buck-command=buck2 --destination-dir=docs/ge
 | prebuilt_native_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], bool.type, [str.type], [str.type], str.type, [None, [str.type]]) -> None` |  |
 | prebuilt_ocaml_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], bool.type, [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], str.type, [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [None, [str.type]]) -> None` |  |
 | prebuilt_python_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, bool.type, [str.type], [None, str.type], [str.type], bool.type, bool.type, [str.type], [str.type], [None, [str.type]]) -> None` |  |
-| prebuilt_rust_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [str.type], str.type, [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [(str.type, [str.type])], bool.type, str.type, [None, [str.type]]) -> None` |  |
+| prebuilt_rust_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [str.type], str.type, [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [(str.type, [str.type])], bool.type, str.type, [None, [str.type]]) -> None` |  |
 | provider | `(& str, Either < Vec < String >, SmallMap < & str, & str > >) -> ProviderCallable` |  |
 | python | `UNKNOWN` |  |
-| python_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, [None, str.type], [str.type], [None, bool.type], [str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], bool.type, [None, str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], bool.type, [str.type], [None, str.type], [None, [str.type]], [None, bool.type]) -> None` |  |
+| python_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, str.type, [None, str.type], [str.type], bool.type, [None, bool.type], [str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], bool.type, [None, str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], bool.type, [str.type], [None, str.type], [None, [str.type]], [None, bool.type]) -> None` |  |
 | python_bootstrap_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], str.type) -> None` |  |
 | python_bootstrap_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type]) -> None` |  |
 | python_library | `(UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, **UNKNOWN) -> UNKNOWN` |  |
-| python_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, str.type, [str.type], [None, str.type], [str.type], [None, bool.type], [str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, bool.type, [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [(int.type, str.type, [None, str.type])], bool.type, [None, str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [{str.type: str.type}, [str.type]])], bool.type, [str.type], [{str.type: [str.type, str.type]}, [[str.type, str.type]]], [None, str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, int.type], [None, str.type], [None, [({str.type: str.type}, [{str.type: str.type}, [str.type]])]], [None, [({str.type: str.type}, [{str.type: str.type}, [str.type]])]], [None, [str.type]], [None, bool.type]) -> None` |  |
+| python_needed_coverage_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, str.type, str.type, [str.type], [None, str.type], [str.type], bool.type, [None, bool.type], [str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, bool.type, [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [(int.type, str.type, [None, str.type])], bool.type, [None, str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [{str.type: str.type}, [str.type]])], bool.type, [str.type], [{str.type: [str.type, str.type]}, [[str.type, str.type]]], [None, str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, int.type], [None, str.type], [None, [({str.type: str.type}, [{str.type: str.type}, [str.type]])]], [None, [({str.type: str.type}, [{str.type: str.type}, [str.type]])]], [None, [str.type]], [None, bool.type]) -> None` |  |
+| python_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, str.type, str.type, [str.type], [None, str.type], [str.type], bool.type, [None, bool.type], [str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, bool.type, [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [(int.type, str.type, [None, str.type])], bool.type, [None, str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [{str.type: str.type}, [str.type]])], bool.type, [str.type], [{str.type: [str.type, str.type]}, [[str.type, str.type]]], [None, str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, int.type], [None, str.type], [None, [({str.type: str.type}, [{str.type: str.type}, [str.type]])]], [None, [({str.type: str.type}, [{str.type: str.type}, [str.type]])]], [None, [str.type]], [None, bool.type]) -> None` |  |
 | python_test_runner | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], str.type, str.type, [None, [str.type]]) -> None` |  |
-| read_config | `(StringValue, StringValue, Option < Value >) -> Value < 'v >` |  |
+| read_config | `(StringValue, StringValue, Option < Value < 'v > >) -> Value < 'v >` |  |
 | remote_file | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], str.type, [None, [str.type]]) -> None` |  |
 | repository_name | `() -> String` |  |
-| robolectric_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [str.type], [str.type], {str.type: ""}, [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], bool.type, [None, str.type], [str.type], [None, str.type], str.type, [str.type], [None, str.type], bool.type, [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, [str.type, int.type]], [None, [str.type, int.type]], [None, str.type], [None, int.type], [None, int.type], [None, str.type], [None, bool.type], [None, bool.type], [str.type], [None, [str.type]]) -> None` |  |
+| robolectric_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [str.type], [str.type], {str.type: ""}, [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], bool.type, [None, str.type], [str.type], [None, str.type], str.type, [str.type], [None, str.type], bool.type, [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, [str.type, int.type]], [None, [str.type, int.type]], [None, str.type], [None, int.type], [None, int.type], [None, str.type], [None, bool.type], [None, bool.type], [str.type], [None, [str.type]]) -> None` |  |
 | rule_exists | `(& str) -> bool` | This should be called "target exists", not "rule exists" (if this should exist at all). |
-| rust_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [(str.type, [str.type])], bool.type, [str.type], [str.type], [None, str.type], [str.type], {str.type: str.type}, {str.type: str.type}, [(str.type, [str.type])], [(str.type, [(str.type, [str.type])])], [(str.type, [str.type])], {str.type: [str.type]}, bool.type, [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
-| rust_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [(str.type, [str.type])], [str.type], [str.type], [str.type], {str.type: str.type}, {str.type: str.type}, [(str.type, [str.type])], [(str.type, [(str.type, [str.type])])], {str.type: [str.type]}, str.type, bool.type, [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
-| rust_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [(str.type, [str.type])], bool.type, [str.type], [str.type], [None, str.type], [str.type], {str.type: str.type}, {str.type: str.type}, [(str.type, [str.type])], [(str.type, [(str.type, [str.type])])], [(str.type, [str.type])], {str.type: [str.type]}, bool.type, [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
+| rust_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [(str.type, [str.type])], bool.type, [str.type], [str.type], [None, str.type], [str.type], {str.type: str.type}, {str.type: str.type}, [(str.type, [str.type])], [(str.type, [(str.type, [str.type])])], [(str.type, [str.type])], {str.type: [str.type]}, bool.type, [str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
+| rust_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [(str.type, [str.type])], [str.type], [str.type], [str.type], {str.type: str.type}, {str.type: str.type}, [(str.type, [str.type])], [(str.type, [(str.type, [str.type])])], {str.type: [str.type]}, str.type, bool.type, [str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
+| rust_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [(str.type, [str.type])], bool.type, [str.type], [str.type], [None, str.type], [str.type], {str.type: str.type}, {str.type: str.type}, [(str.type, [str.type])], [(str.type, [(str.type, [str.type])])], [(str.type, [str.type])], {str.type: [str.type]}, bool.type, [str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
 | scala_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
 | scala_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [str.type], [str.type], str.type, [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], bool.type, [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, [str.type, int.type]], [None, [str.type, int.type]], [None, str.type], [None, int.type], [None, int.type], [None, str.type], [None, bool.type], [None, bool.type], [str.type], [None, [str.type]]) -> None` |  |
 | scene_kit_assets | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], str.type, [None, [str.type]]) -> None` |  |
-| select | `(Value) -> Selector < 'v >` |  |
+| select | `(Value < 'v >) -> Selector < 'v >` |  |
 | select_equal_internal | `(Value < 'v >, Value < 'v >) -> bool` | Tests that two selects are equal to each other. For testing use only. |
 | select_map | `(Value < 'v >, Value < 'v >) -> Value < 'v >` | Applies a mapping function to a selector. See [Selector::select_map]. |
 | select_test | `(Value < 'v >, Value < 'v >) -> bool` | Applies a test function to a selector. See [Selector::select_test]. |
@@ -149,7 +151,7 @@ Regenerate by running `buck2_docs --buck-command=buck2 --destination-dir=docs/ge
 | sha256 | `(& str) -> String` | Computes a sha256 digest for a string. Returns the hex representation of the digest. |
 | supermodule_target_graph | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], str.type, str.type, [None, [str.type]]) -> None` |  |
 | swift_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [str.type], [str.type], [None, str.type], [str.type], bool.type, [str.type], [str.type], [str.type], [str.type], [None, str.type], str.type, [str.type], bool.type, [None, str.type], [str.type], [None, str.type], [None, str.type], bool.type, [None, str.type], [None, [str.type]]) -> None` |  |
-| swift_toolchain | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [None, str.type], str.type, [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [None, str.type], bool.type, [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], str.type, [str.type], str.type, [str.type], [None, [str.type]]) -> None` |  |
+| swift_toolchain | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [None, str.type], str.type, [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [None, str.type], bool.type, [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], str.type, [str.type], str.type, [str.type], [None, [str.type]]) -> None` |  |
 | test_suite | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
 | transitive_set | `(Option < SmallMap < String, Value < 'v > > >, Option < SmallMap < String, Value < 'v > > >) -> TransitiveSetDefinition < 'v >` |  |
 | versioned_alias | `(UNKNOWN, **UNKNOWN) -> UNKNOWN` |  |
@@ -819,9 +821,13 @@ def android_instrumentation_apk(
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
     tests: [label] = None,
+    _android_toolchain: str.type = None,
+    _dex_toolchain: str.type = None,
+    _java_toolchain: str.type = None,
     aapt_mode: str.type = None,
     apk: str.type,
     contacts: [str.type] = None,
+    cpu_filters: [str.type] = None,
     default_host_platform: [None, str.type] = None,
     deps: [str.type] = None,
     dex_tool: str.type = None,
@@ -847,9 +853,13 @@ def android_instrumentation_apk(
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
 | `tests` | a list of targets that provide tests for this one |
+| `_android_toolchain` |  |
+| `_dex_toolchain` |  |
+| `_java_toolchain` |  |
 | `aapt_mode` |  |
 | `apk` |  |
 | `contacts` |  |
+| `cpu_filters` |  |
 | `default_host_platform` |  |
 | `deps` |  |
 | `dex_tool` |  |
@@ -873,6 +883,8 @@ def android_instrumentation_test(
     exec_compatible_with: [str.type] = None,
     visibility: [str.type] = None,
     tests: [label] = None,
+    _android_toolchain: str.type = None,
+    _java_toolchain: str.type = None,
     apk: str.type,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
@@ -897,6 +909,8 @@ def android_instrumentation_test(
 | `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
 | `tests` | a list of targets that provide tests for this one |
+| `_android_toolchain` |  |
+| `_java_toolchain` |  |
 | `apk` |  |
 | `contacts` |  |
 | `default_host_platform` |  |
@@ -1354,6 +1368,7 @@ def apple_binary(
     visibility: [str.type] = None,
     tests: [label] = None,
     _apple_toolchain: str.type = None,
+    _cxx_toolchain_target_configuration: str.type = None,
     bridging_header: [None, str.type] = None,
     can_be_asset: [None, bool.type] = None,
     compiler_flags: [str.type] = None,
@@ -1442,6 +1457,7 @@ def apple_binary(
     target_sdk_version: [None, str.type] = None,
     thin_lto: bool.type = None,
     use_submodules: bool.type = None,
+    uses_cxx_explicit_modules: bool.type = None,
     uses_explicit_modules: bool.type = None,
     uses_modules: bool.type = None,
     within_view: [None, [str.type]] = None,
@@ -1464,6 +1480,7 @@ def apple_binary(
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
 | `tests` | a list of targets that provide tests for this one |
 | `_apple_toolchain` |  |
+| `_cxx_toolchain_target_configuration` |  |
 | `bridging_header` |  |
 | `can_be_asset` |  |
 | `compiler_flags` |  |
@@ -1552,6 +1569,7 @@ def apple_binary(
 | `target_sdk_version` |  |
 | `thin_lto` |  |
 | `use_submodules` |  |
+| `uses_cxx_explicit_modules` |  |
 | `uses_explicit_modules` |  |
 | `uses_modules` |  |
 | `within_view` |  |
@@ -1580,6 +1598,7 @@ def apple_library(
     tests: [label] = None,
     _apple_toolchain: str.type = None,
     _apple_tools: str.type = None,
+    _cxx_toolchain_target_configuration: str.type = None,
     bridging_header: [None, str.type] = None,
     can_be_asset: [None, bool.type] = None,
     compiler_flags: [str.type] = None,
@@ -1666,6 +1685,7 @@ def apple_library(
     thin_lto: bool.type = None,
     use_archive: [None, bool.type] = None,
     use_submodules: bool.type = None,
+    uses_cxx_explicit_modules: bool.type = None,
     uses_explicit_modules: bool.type = None,
     uses_modules: bool.type = None,
     within_view: [None, [str.type]] = None,
@@ -1689,6 +1709,7 @@ def apple_library(
 | `tests` | a list of targets that provide tests for this one |
 | `_apple_toolchain` |  |
 | `_apple_tools` |  |
+| `_cxx_toolchain_target_configuration` |  |
 | `bridging_header` |  |
 | `can_be_asset` |  |
 | `compiler_flags` |  |
@@ -1775,6 +1796,7 @@ def apple_library(
 | `thin_lto` |  |
 | `use_archive` |  |
 | `use_submodules` |  |
+| `uses_cxx_explicit_modules` |  |
 | `uses_explicit_modules` |  |
 | `uses_modules` |  |
 | `within_view` |  |
@@ -1899,7 +1921,7 @@ def apple_test(
     _apple_toolchain: str.type = None,
     _apple_tools: str.type = None,
     _codesign_type: [None, str.type] = None,
-    _fbxctest: str.type = None,
+    _cxx_toolchain_target_configuration: str.type = None,
     asset_catalogs_compilation_options: {str.type: ""} = None,
     binary: [None, str.type] = None,
     bridging_header: [None, str.type] = None,
@@ -2006,6 +2028,7 @@ def apple_test(
     try_skip_code_signing: [None, bool.type] = None,
     ui_test_target_app: [None, str.type] = None,
     use_submodules: bool.type = None,
+    uses_cxx_explicit_modules: bool.type = None,
     uses_explicit_modules: bool.type = None,
     uses_modules: bool.type = None,
     within_view: [None, [str.type]] = None,
@@ -2031,7 +2054,7 @@ def apple_test(
 | `_apple_toolchain` |  |
 | `_apple_tools` |  |
 | `_codesign_type` |  |
-| `_fbxctest` |  |
+| `_cxx_toolchain_target_configuration` |  |
 | `asset_catalogs_compilation_options` |  |
 | `binary` |  |
 | `bridging_header` |  |
@@ -2138,6 +2161,7 @@ def apple_test(
 | `try_skip_code_signing` |  |
 | `ui_test_target_app` |  |
 | `use_submodules` |  |
+| `uses_cxx_explicit_modules` |  |
 | `uses_explicit_modules` |  |
 | `uses_modules` |  |
 | `within_view` |  |
@@ -2299,7 +2323,8 @@ def apple_tools(
     assemble_bundle: str.type,
     info_plist_processor: str.type,
     make_modulemap: str.type,
-    make_vfsoverlay: str.type
+    make_vfsoverlay: str.type,
+    swift_objc_header_postprocess: str.type
 ) -> None
 ```
 
@@ -2320,6 +2345,7 @@ def apple_tools(
 | `info_plist_processor` |  |
 | `make_modulemap` |  |
 | `make_vfsoverlay` |  |
+| `swift_objc_header_postprocess` |  |
 
 ---
 ## cgo_library
@@ -2461,7 +2487,7 @@ def cgo_library(
 ## cmd_args
 
 ```python
-def cmd_args(*args: Vec < Value < 'v > >, format: Option < String > = None, joined: bool = None, delimiter: Option < String > = None, quote: Option < String > = None, prepend: Option < String > = None) -> StarlarkCommandLine < 'v >
+def cmd_args(*args: Vec < Value < 'v > >, delimiter: Option < StringValue < 'v > > = None, format: Option < StringValue < 'v > > = None, prepend: Option < StringValue < 'v > > = None, quote: Option < & str > = None) -> StarlarkCommandLine < 'v >
 ```
 
 ---
@@ -2734,7 +2760,11 @@ def cxx_binary(
     visibility: [str.type] = None,
     tests: [label] = None,
     _cxx_toolchain: str.type = None,
+    _cxx_toolchain_target_configuration: str.type = None,
     _hacks: str.type = None,
+    bolt_flags: [str.type] = None,
+    bolt_gdb_index: [None, str.type] = None,
+    bolt_profile: [None, str.type] = None,
     compiler_flags: [str.type] = None,
     contacts: [str.type] = None,
     cxx_runtime_type: [None, str.type] = None,
@@ -2803,7 +2833,11 @@ def cxx_binary(
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
 | `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
+| `_cxx_toolchain_target_configuration` |  |
 | `_hacks` |  |
+| `bolt_flags` |  |
+| `bolt_gdb_index` |  |
+| `bolt_profile` |  |
 | `compiler_flags` |  |
 | `contacts` |  |
 | `cxx_runtime_type` |  |
@@ -2870,6 +2904,7 @@ def cxx_genrule(
     visibility: [str.type] = None,
     tests: [label] = None,
     _cxx_toolchain: str.type = None,
+    _cxx_toolchain_target_configuration: str.type = None,
     bash: [None, str.type] = None,
     cacheable: [None, bool.type] = None,
     cmd: [None, str.type] = None,
@@ -2905,6 +2940,7 @@ def cxx_genrule(
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
 | `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
+| `_cxx_toolchain_target_configuration` |  |
 | `bash` |  |
 | `cacheable` |  |
 | `cmd` |  |
@@ -2938,6 +2974,7 @@ def cxx_library(
     visibility: [str.type] = None,
     tests: [label] = None,
     _cxx_toolchain: str.type = None,
+    _cxx_toolchain_target_configuration: str.type = None,
     _hacks: str.type = None,
     bridging_header: [None, str.type] = None,
     can_be_asset: [None, bool.type] = None,
@@ -3016,6 +3053,7 @@ def cxx_library(
     thin_lto: bool.type = None,
     use_archive: [None, bool.type] = None,
     use_link_groups: bool.type = None,
+    uses_cxx_explicit_modules: bool.type = None,
     uses_explicit_modules: bool.type = None,
     version_universe: [None, str.type] = None,
     within_view: [None, [str.type]] = None,
@@ -3038,6 +3076,7 @@ def cxx_library(
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
 | `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
+| `_cxx_toolchain_target_configuration` |  |
 | `_hacks` |  |
 | `bridging_header` |  |
 | `can_be_asset` |  |
@@ -3116,6 +3155,7 @@ def cxx_library(
 | `thin_lto` |  |
 | `use_archive` |  |
 | `use_link_groups` |  |
+| `uses_cxx_explicit_modules` |  |
 | `uses_explicit_modules` |  |
 | `version_universe` |  |
 | `within_view` |  |
@@ -3288,6 +3328,7 @@ def cxx_python_extension(
     visibility: [str.type] = None,
     tests: [label] = None,
     _cxx_toolchain: str.type = None,
+    _cxx_toolchain_target_configuration: str.type = None,
     _hacks: str.type = None,
     _python_toolchain: str.type = None,
     base_module: [None, str.type] = None,
@@ -3368,6 +3409,7 @@ def cxx_python_extension(
     type_stub: [None, str.type] = None,
     use_archive: default_only = None,
     use_link_groups: bool.type = None,
+    uses_cxx_explicit_modules: default_only = None,
     uses_explicit_modules: default_only = None,
     version_universe: [None, str.type] = None,
     within_view: [None, [str.type]] = None,
@@ -3390,6 +3432,7 @@ def cxx_python_extension(
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
 | `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
+| `_cxx_toolchain_target_configuration` |  |
 | `_hacks` |  |
 | `_python_toolchain` |  |
 | `base_module` |  |
@@ -3470,6 +3513,7 @@ def cxx_python_extension(
 | `type_stub` |  |
 | `use_archive` |  |
 | `use_link_groups` |  |
+| `uses_cxx_explicit_modules` |  |
 | `uses_explicit_modules` |  |
 | `version_universe` |  |
 | `within_view` |  |
@@ -3490,9 +3534,13 @@ def cxx_test(
     visibility: [str.type] = None,
     tests: [label] = None,
     _cxx_toolchain: str.type = None,
+    _cxx_toolchain_target_configuration: str.type = None,
     _hacks: str.type = None,
     additional_coverage_targets: [str.type] = None,
     args: [str.type] = None,
+    bolt_flags: [str.type] = None,
+    bolt_gdb_index: [None, str.type] = None,
+    bolt_profile: [None, str.type] = None,
     compiler_flags: [str.type] = None,
     contacts: [str.type] = None,
     cxx_runtime_type: [None, str.type] = None,
@@ -3566,9 +3614,13 @@ def cxx_test(
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
 | `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
+| `_cxx_toolchain_target_configuration` |  |
 | `_hacks` |  |
 | `additional_coverage_targets` |  |
 | `args` |  |
+| `bolt_flags` |  |
+| `bolt_gdb_index` |  |
+| `bolt_profile` |  |
 | `compiler_flags` |  |
 | `contacts` |  |
 | `cxx_runtime_type` |  |
@@ -3659,6 +3711,7 @@ def cxx_toolchain(
     assembler_preprocessor_type: [None, str.type] = None,
     assembler_type: [None, str.type] = None,
     binary_extension: [None, str.type] = None,
+    bolt_enabled: bool.type = None,
     c_compiler: str.type,
     c_compiler_flags: [str.type] = None,
     c_compiler_type: [None, str.type] = None,
@@ -3708,6 +3761,7 @@ def cxx_toolchain(
     shared_library_interface_flags: [str.type] = None,
     shared_library_interface_type: str.type,
     shared_library_versioned_extension_format: str.type = None,
+    split_dwarf_enabled: bool.type = None,
     static_dep_runtime_ld_flags: [str.type] = None,
     static_library_extension: str.type = None,
     static_pic_dep_runtime_ld_flags: [str.type] = None,
@@ -3756,6 +3810,7 @@ def cxx_toolchain(
 | `assembler_preprocessor_type` |  |
 | `assembler_type` |  |
 | `binary_extension` |  |
+| `bolt_enabled` |  |
 | `c_compiler` |  |
 | `c_compiler_flags` |  |
 | `c_compiler_type` |  |
@@ -3805,6 +3860,7 @@ def cxx_toolchain(
 | `shared_library_interface_flags` |  |
 | `shared_library_interface_type` |  |
 | `shared_library_versioned_extension_format` |  |
+| `split_dwarf_enabled` |  |
 | `static_dep_runtime_ld_flags` |  |
 | `static_library_extension` |  |
 | `static_pic_dep_runtime_ld_flags` |  |
@@ -4058,7 +4114,7 @@ def filegroup(
     default_host_platform: [None, str.type] = None,
     labels: [str.type] = None,
     licenses: [str.type] = None,
-    srcs: [str.type] = None,
+    srcs: [{str.type: str.type}, [str.type]] = None,
     within_view: [None, [str.type]] = None
 ) -> None
 ```
@@ -4087,7 +4143,7 @@ def filegroup(
 ## filter
 
 ```python
-def filter(func: Value, seq: Value) -> Value < 'v >
+def filter(func: Value < 'v >, seq: Value < 'v >) -> Value < 'v >
 ```
 
 ---
@@ -4228,7 +4284,7 @@ def get_cell_name() -> String
 ## glob
 
 ```python
-def glob(include: Vec < String >, excludes: Option < Vec < String > > = None, exclude: Option < Vec < String > > = None, include_dotfiles: bool = None) -> Value < 'v >
+def glob(include: Vec < String >, *, exclude: Option < Vec < String > > = None) -> Value < 'v >
 ```
 
 ---
@@ -4245,6 +4301,7 @@ def go_binary(
     visibility: [str.type] = None,
     tests: [label] = None,
     _cxx_toolchain: str.type = None,
+    _cxx_toolchain_target_configuration: str.type = None,
     _go_toolchain: str.type = None,
     assembler_flags: [str.type] = None,
     compiler_flags: [str.type] = None,
@@ -4279,6 +4336,7 @@ def go_binary(
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
 | `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
+| `_cxx_toolchain_target_configuration` |  |
 | `_go_toolchain` |  |
 | `assembler_flags` |  |
 | `compiler_flags` |  |
@@ -4429,6 +4487,7 @@ def go_test(
     visibility: [str.type] = None,
     tests: [label] = None,
     _cxx_toolchain: str.type = None,
+    _cxx_toolchain_target_configuration: str.type = None,
     _go_toolchain: str.type = None,
     _testmaingen: str.type = None,
     assembler_flags: [str.type] = None,
@@ -4471,6 +4530,7 @@ def go_test(
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
 | `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
+| `_cxx_toolchain_target_configuration` |  |
 | `_go_toolchain` |  |
 | `_testmaingen` |  |
 | `assembler_flags` |  |
@@ -4963,6 +5023,7 @@ def haskell_binary(
     visibility: [str.type] = None,
     tests: [label] = None,
     _cxx_toolchain: str.type = None,
+    _cxx_toolchain_target_configuration: str.type = None,
     _haskell_toolchain: str.type = None,
     compiler_flags: [str.type] = None,
     contacts: [str.type] = None,
@@ -5000,6 +5061,7 @@ def haskell_binary(
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
 | `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
+| `_cxx_toolchain_target_configuration` |  |
 | `_haskell_toolchain` |  |
 | `compiler_flags` |  |
 | `contacts` |  |
@@ -5207,6 +5269,7 @@ def haskell_library(
     visibility: [str.type] = None,
     tests: [label] = None,
     _cxx_toolchain: str.type = None,
+    _cxx_toolchain_target_configuration: str.type = None,
     _haskell_toolchain: str.type = None,
     compiler_flags: [str.type] = None,
     contacts: [str.type] = None,
@@ -5243,6 +5306,7 @@ def haskell_library(
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
 | `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
+| `_cxx_toolchain_target_configuration` |  |
 | `_haskell_toolchain` |  |
 | `compiler_flags` |  |
 | `contacts` |  |
@@ -5448,7 +5512,7 @@ def http_file(
 ## implicit_package_symbol
 
 ```python
-def implicit_package_symbol(name: & str, default: Option < Value > = None) -> Value < 'v >
+def implicit_package_symbol(name: & str, default: Option < Value < 'v > > = None) -> Value < 'v >
 ```
 
 ---
@@ -6008,6 +6072,7 @@ def js_bundle(
     tests: [label] = None,
     _android_toolchain: str.type = None,
     _is_release: bool.type = None,
+    _js_toolchain: str.type = None,
     _platform: str.type = None,
     android_package: [None, str.type] = None,
     bundle_name: [None, str.type] = None,
@@ -6040,6 +6105,7 @@ def js_bundle(
 | `tests` | a list of targets that provide tests for this one |
 | `_android_toolchain` |  |
 | `_is_release` |  |
+| `_js_toolchain` |  |
 | `_platform` |  |
 | `android_package` |  |
 | `bundle_name` |  |
@@ -6147,6 +6213,7 @@ def js_library(
     visibility: [str.type] = None,
     tests: [label] = None,
     _is_release: bool.type = None,
+    _js_toolchain: str.type = None,
     _platform: str.type = None,
     asset_extensions: [None, [str.type]] = None,
     asset_platforms: [None, [str.type]] = None,
@@ -6178,6 +6245,7 @@ def js_library(
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
 | `tests` | a list of targets that provide tests for this one |
 | `_is_release` |  |
+| `_js_toolchain` |  |
 | `_platform` |  |
 | `asset_extensions` |  |
 | `asset_platforms` |  |
@@ -6192,6 +6260,11 @@ def js_library(
 | `srcs` |  |
 | `within_view` |  |
 | `worker` |  |
+
+---
+## json : `UNKNOWN`
+
+
 
 ---
 ## keystore
@@ -6631,7 +6704,7 @@ def lua_library(
 ## map
 
 ```python
-def map(func: Value, seq: Value) -> Value < 'v >
+def map(func: Value < 'v >, seq: Value < 'v >) -> Value < 'v >
 ```
 
 ---
@@ -6746,6 +6819,7 @@ def ocaml_binary(
     visibility: [str.type] = None,
     tests: [label] = None,
     _cxx_toolchain: str.type = None,
+    _cxx_toolchain_target_configuration: str.type = None,
     _ocaml_toolchain: str.type = None,
     bytecode_only: [None, bool.type] = None,
     compiler_flags: [str.type] = None,
@@ -6779,6 +6853,7 @@ def ocaml_binary(
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
 | `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
+| `_cxx_toolchain_target_configuration` |  |
 | `_ocaml_toolchain` |  |
 | `bytecode_only` |  |
 | `compiler_flags` |  |
@@ -6810,6 +6885,7 @@ def ocaml_library(
     visibility: [str.type] = None,
     tests: [label] = None,
     _cxx_toolchain: str.type = None,
+    _cxx_toolchain_target_configuration: str.type = None,
     _ocaml_toolchain: str.type = None,
     bytecode_only: bool.type = None,
     compiler_flags: [str.type] = None,
@@ -6843,6 +6919,7 @@ def ocaml_library(
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
 | `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
+| `_cxx_toolchain_target_configuration` |  |
 | `_ocaml_toolchain` |  |
 | `bytecode_only` |  |
 | `compiler_flags` |  |
@@ -6874,6 +6951,7 @@ def ocaml_object(
     visibility: [str.type] = None,
     tests: [label] = None,
     _cxx_toolchain: str.type = None,
+    _cxx_toolchain_target_configuration: str.type = None,
     _ocaml_toolchain: str.type = None,
     bytecode_only: [None, bool.type] = None,
     compiler_flags: [str.type] = None,
@@ -6907,6 +6985,7 @@ def ocaml_object(
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
 | `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
+| `_cxx_toolchain_target_configuration` |  |
 | `_ocaml_toolchain` |  |
 | `bytecode_only` |  |
 | `compiler_flags` |  |
@@ -6942,7 +7021,7 @@ def package_name() -> String
 ## partial
 
 ```python
-def partial(func: Value, *args: Value < 'v >, **kwargs: DictRef < 'v >) -> Partial < 'v >
+def partial(func: Value < 'v >, *args: Value < 'v >, **kwargs: DictRef < 'v >) -> Partial < 'v >
 ```
 
 ---
@@ -6995,6 +7074,7 @@ def prebuilt_apple_framework(
     visibility: [str.type] = None,
     tests: [label] = None,
     _apple_toolchain: str.type = None,
+    _cxx_toolchain_target_configuration: str.type = None,
     code_sign_on_copy: [None, bool.type] = None,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
@@ -7026,6 +7106,7 @@ def prebuilt_apple_framework(
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
 | `tests` | a list of targets that provide tests for this one |
 | `_apple_toolchain` |  |
+| `_cxx_toolchain_target_configuration` |  |
 | `code_sign_on_copy` |  |
 | `contacts` |  |
 | `default_host_platform` |  |
@@ -7240,7 +7321,7 @@ def prebuilt_jar(
     visibility: [str.type] = None,
     tests: [label] = None,
     _dex_toolchain: [None, str.type] = None,
-    _java_toolchain: str.type = None,
+    _prebuilt_jar_toolchain: str.type = None,
     binary_jar: str.type,
     contacts: [str.type] = None,
     default_host_platform: [None, str.type] = None,
@@ -7271,7 +7352,7 @@ def prebuilt_jar(
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
 | `tests` | a list of targets that provide tests for this one |
 | `_dex_toolchain` |  |
-| `_java_toolchain` |  |
+| `_prebuilt_jar_toolchain` |  |
 | `binary_jar` |  |
 | `contacts` |  |
 | `default_host_platform` |  |
@@ -7464,6 +7545,7 @@ def prebuilt_rust_library(
     visibility: [str.type] = None,
     tests: [label] = None,
     _cxx_toolchain: str.type = None,
+    _cxx_toolchain_target_configuration: str.type = None,
     _rust_toolchain: str.type = None,
     contacts: [str.type] = None,
     crate: str.type = None,
@@ -7493,6 +7575,7 @@ def prebuilt_rust_library(
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
 | `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
+| `_cxx_toolchain_target_configuration` |  |
 | `_rust_toolchain` |  |
 | `contacts` |  |
 | `crate` |  |
@@ -7533,10 +7616,12 @@ def python_binary(
     tests: [label] = None,
     _create_manifest_for_source_dir: str.type = None,
     _cxx_toolchain: str.type = None,
+    _cxx_toolchain_target_configuration: str.type = None,
     _hacks: str.type = None,
     _python_toolchain: str.type = None,
     base_module: [None, str.type] = None,
     build_args: [str.type] = None,
+    bundled_runtime: bool.type = None,
     compile: [None, bool.type] = None,
     contacts: [str.type] = None,
     cxx_platform: [None, str.type] = None,
@@ -7579,10 +7664,12 @@ def python_binary(
 | `tests` | a list of targets that provide tests for this one |
 | `_create_manifest_for_source_dir` |  |
 | `_cxx_toolchain` |  |
+| `_cxx_toolchain_target_configuration` |  |
 | `_hacks` |  |
 | `_python_toolchain` |  |
 | `base_module` |  |
 | `build_args` |  |
+| `bundled_runtime` |  |
 | `compile` |  |
 | `contacts` |  |
 | `cxx_platform` |  |
@@ -7684,10 +7771,10 @@ def python_library(srcs: UNKNOWN = None, versioned_srcs: UNKNOWN = None, resourc
 ```
 
 ---
-## python_test
+## python_needed_coverage_test
 
 ```python
-def python_test(
+def python_needed_coverage_test(
     *,
     name: str.type,
     default_target_platform: [None, str.type] = None,
@@ -7698,12 +7785,14 @@ def python_test(
     tests: [label] = None,
     _create_manifest_for_source_dir: str.type = None,
     _cxx_toolchain: str.type = None,
+    _cxx_toolchain_target_configuration: str.type = None,
     _hacks: str.type = None,
     _python_toolchain: str.type = None,
     _test_main: str.type = None,
     additional_coverage_targets: [str.type] = None,
     base_module: [None, str.type] = None,
     build_args: [str.type] = None,
+    bundled_runtime: bool.type = None,
     compile: [None, bool.type] = None,
     contacts: [str.type] = None,
     cxx_platform: [None, str.type] = None,
@@ -7757,12 +7846,134 @@ def python_test(
 | `tests` | a list of targets that provide tests for this one |
 | `_create_manifest_for_source_dir` |  |
 | `_cxx_toolchain` |  |
+| `_cxx_toolchain_target_configuration` |  |
 | `_hacks` |  |
 | `_python_toolchain` |  |
 | `_test_main` |  |
 | `additional_coverage_targets` |  |
 | `base_module` |  |
 | `build_args` |  |
+| `bundled_runtime` |  |
+| `compile` |  |
+| `contacts` |  |
+| `cxx_platform` |  |
+| `deduplicate_merged_link_roots` |  |
+| `default_host_platform` |  |
+| `deps` |  |
+| `dummy_omnibus` |  |
+| `env` |  |
+| `exclude_deps_from_merged_linking` |  |
+| `extension` |  |
+| `labels` |  |
+| `licenses` |  |
+| `linker_flags` |  |
+| `main_module` |  |
+| `native_link_strategy` |  |
+| `needed_coverage` |  |
+| `package_split_dwarf_dwp` |  |
+| `package_style` |  |
+| `platform` |  |
+| `platform_deps` |  |
+| `platform_linker_flags` |  |
+| `platform_resources` |  |
+| `platform_srcs` |  |
+| `prefer_stripped_native_objects` |  |
+| `preload_deps` |  |
+| `resources` |  |
+| `runner` |  |
+| `specs` |  |
+| `srcs` |  |
+| `test_rule_timeout_ms` |  |
+| `version_universe` |  |
+| `versioned_resources` |  |
+| `versioned_srcs` |  |
+| `within_view` |  |
+| `zip_safe` |  |
+
+---
+## python_test
+
+```python
+def python_test(
+    *,
+    name: str.type,
+    default_target_platform: [None, str.type] = None,
+    target_compatible_with: [str.type] = None,
+    compatible_with: [str.type] = None,
+    exec_compatible_with: [str.type] = None,
+    visibility: [str.type] = None,
+    tests: [label] = None,
+    _create_manifest_for_source_dir: str.type = None,
+    _cxx_toolchain: str.type = None,
+    _cxx_toolchain_target_configuration: str.type = None,
+    _hacks: str.type = None,
+    _python_toolchain: str.type = None,
+    _test_main: str.type = None,
+    additional_coverage_targets: [str.type] = None,
+    base_module: [None, str.type] = None,
+    build_args: [str.type] = None,
+    bundled_runtime: bool.type = None,
+    compile: [None, bool.type] = None,
+    contacts: [str.type] = None,
+    cxx_platform: [None, str.type] = None,
+    deduplicate_merged_link_roots: [None, bool.type] = None,
+    default_host_platform: [None, str.type] = None,
+    deps: [str.type] = None,
+    dummy_omnibus: [None, str.type] = None,
+    env: {str.type: str.type} = None,
+    exclude_deps_from_merged_linking: bool.type = None,
+    extension: [None, str.type] = None,
+    labels: [str.type] = None,
+    licenses: [str.type] = None,
+    linker_flags: [str.type] = None,
+    main_module: [None, str.type] = None,
+    native_link_strategy: [None, str.type] = None,
+    needed_coverage: [(int.type, str.type, [None, str.type])] = None,
+    package_split_dwarf_dwp: bool.type = None,
+    package_style: [None, str.type] = None,
+    platform: [None, str.type] = None,
+    platform_deps: [(str.type, [str.type])] = None,
+    platform_linker_flags: [(str.type, [str.type])] = None,
+    platform_resources: [(str.type, [{str.type: str.type}, [str.type]])] = None,
+    platform_srcs: [(str.type, [{str.type: str.type}, [str.type]])] = None,
+    prefer_stripped_native_objects: bool.type = None,
+    preload_deps: [str.type] = None,
+    resources: [{str.type: [str.type, str.type]}, [[str.type, str.type]]] = None,
+    runner: [None, str.type] = None,
+    specs: [None, str.type] = None,
+    srcs: [{str.type: str.type}, [str.type]] = None,
+    test_rule_timeout_ms: [None, int.type] = None,
+    version_universe: [None, str.type] = None,
+    versioned_resources: [None, [({str.type: str.type}, [{str.type: str.type}, [str.type]])]] = None,
+    versioned_srcs: [None, [({str.type: str.type}, [{str.type: str.type}, [str.type]])]] = None,
+    within_view: [None, [str.type]] = None,
+    zip_safe: [None, bool.type] = None
+) -> None
+```
+
+
+
+### Parameters
+
+| Name | Details |
+|------|---------|
+| `name` | name of the target |
+| `default_target_platform` | specifies the default target platform, used when no platforms are specified on the command line |
+| `target_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
+| `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
+| `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
+| `visibility` | a list of visibility patterns restricting what targets can depend on this one |
+| `tests` | a list of targets that provide tests for this one |
+| `_create_manifest_for_source_dir` |  |
+| `_cxx_toolchain` |  |
+| `_cxx_toolchain_target_configuration` |  |
+| `_hacks` |  |
+| `_python_toolchain` |  |
+| `_test_main` |  |
+| `additional_coverage_targets` |  |
+| `base_module` |  |
+| `build_args` |  |
+| `bundled_runtime` |  |
 | `compile` |  |
 | `contacts` |  |
 | `cxx_platform` |  |
@@ -7847,7 +8058,7 @@ def python_test_runner(
 ## read_config
 
 ```python
-def read_config(section: StringValue, key: StringValue, default: Option < Value > = None) -> Value < 'v >
+def read_config(section: StringValue, key: StringValue, default: Option < Value < 'v > > = None) -> Value < 'v >
 ```
 
 ---
@@ -7940,7 +8151,6 @@ def robolectric_test(
     env: {str.type: str.type} = None,
     exported_deps: [str.type] = None,
     exported_provided_deps: [str.type] = None,
-    external_resources_paths: [str.type] = None,
     extra_arguments: [str.type] = None,
     extra_kotlinc_arguments: [str.type] = None,
     fork_mode: str.type = None,
@@ -8019,7 +8229,6 @@ def robolectric_test(
 | `env` |  |
 | `exported_deps` |  |
 | `exported_provided_deps` |  |
-| `external_resources_paths` |  |
 | `extra_arguments` |  |
 | `extra_kotlinc_arguments` |  |
 | `fork_mode` |  |
@@ -8088,6 +8297,7 @@ def rust_binary(
     visibility: [str.type] = None,
     tests: [label] = None,
     _cxx_toolchain: str.type = None,
+    _cxx_toolchain_target_configuration: str.type = None,
     _rust_toolchain: str.type = None,
     contacts: [str.type] = None,
     crate: [None, str.type] = None,
@@ -8133,6 +8343,7 @@ def rust_binary(
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
 | `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
+| `_cxx_toolchain_target_configuration` |  |
 | `_rust_toolchain` |  |
 | `contacts` |  |
 | `crate` |  |
@@ -8176,6 +8387,7 @@ def rust_library(
     visibility: [str.type] = None,
     tests: [label] = None,
     _cxx_toolchain: str.type = None,
+    _cxx_toolchain_target_configuration: str.type = None,
     _rust_toolchain: str.type = None,
     contacts: [str.type] = None,
     crate: [None, str.type] = None,
@@ -8219,6 +8431,7 @@ def rust_library(
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
 | `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
+| `_cxx_toolchain_target_configuration` |  |
 | `_rust_toolchain` |  |
 | `contacts` |  |
 | `crate` |  |
@@ -8260,6 +8473,7 @@ def rust_test(
     visibility: [str.type] = None,
     tests: [label] = None,
     _cxx_toolchain: str.type = None,
+    _cxx_toolchain_target_configuration: str.type = None,
     _rust_toolchain: str.type = None,
     contacts: [str.type] = None,
     crate: [None, str.type] = None,
@@ -8305,6 +8519,7 @@ def rust_test(
 | `visibility` | a list of visibility patterns restricting what targets can depend on this one |
 | `tests` | a list of targets that provide tests for this one |
 | `_cxx_toolchain` |  |
+| `_cxx_toolchain_target_configuration` |  |
 | `_rust_toolchain` |  |
 | `contacts` |  |
 | `crate` |  |
@@ -8596,7 +8811,7 @@ def scene_kit_assets(
 ## select
 
 ```python
-def select(d: Value) -> Selector < 'v >
+def select(d: Value < 'v >) -> Selector < 'v >
 ```
 
 ---
@@ -8893,6 +9108,7 @@ def swift_toolchain(
     runtime_paths_for_linking: [str.type] = None,
     runtime_run_paths: [str.type] = None,
     sdk_dependencies_path: [None, str.type] = None,
+    sdk_modules: [str.type] = None,
     sdk_path: [None, str.type] = None,
     static_runtime_paths: [str.type] = None,
     swift_stdlib_tool: str.type,
@@ -8931,6 +9147,7 @@ def swift_toolchain(
 | `runtime_paths_for_linking` |  |
 | `runtime_run_paths` |  |
 | `sdk_dependencies_path` |  |
+| `sdk_modules` |  |
 | `sdk_path` |  |
 | `static_runtime_paths` |  |
 | `swift_stdlib_tool` |  |
