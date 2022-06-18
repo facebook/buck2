@@ -148,7 +148,10 @@ impl ArgsCompiledValue {
         })
     }
 
-    pub(crate) fn optimize_on_freeze(&self, ctx: &OptimizeOnFreezeContext) -> ArgsCompiledValue {
+    pub(crate) fn optimize_on_freeze(
+        &self,
+        ctx: &mut OptimizeOnFreezeContext,
+    ) -> ArgsCompiledValue {
         enum Never {}
         self.map_exprs(|e| Ok(e.optimize_on_freeze(ctx)))
             .unwrap_or_else(|e: Never| match e {})

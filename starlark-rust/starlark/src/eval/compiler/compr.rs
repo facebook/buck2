@@ -135,7 +135,7 @@ impl ComprCompiled {
         }
     }
 
-    pub(crate) fn optimize_on_freeze(&self, ctx: &OptimizeOnFreezeContext) -> ExprCompiled {
+    pub(crate) fn optimize_on_freeze(&self, ctx: &mut OptimizeOnFreezeContext) -> ExprCompiled {
         match self {
             ComprCompiled::List(box ref x, ref clauses) => {
                 let clauses = clauses.optimize_on_freeze(ctx);
@@ -160,7 +160,7 @@ pub(crate) struct ClauseCompiled {
 }
 
 impl ClauseCompiled {
-    fn optimize_on_freeze(&self, ctx: &OptimizeOnFreezeContext) -> ClauseCompiled {
+    fn optimize_on_freeze(&self, ctx: &mut OptimizeOnFreezeContext) -> ClauseCompiled {
         let ClauseCompiled {
             ref var,
             ref over,
@@ -216,7 +216,7 @@ impl ClausesCompiled {
         self.clauses.split_last().unwrap()
     }
 
-    fn optimize_on_freeze(&self, ctx: &OptimizeOnFreezeContext) -> ClausesCompiled {
+    fn optimize_on_freeze(&self, ctx: &mut OptimizeOnFreezeContext) -> ClausesCompiled {
         ClausesCompiled {
             clauses: self.clauses.map(|c| c.optimize_on_freeze(ctx)),
         }

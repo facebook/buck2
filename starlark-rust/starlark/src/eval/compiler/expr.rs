@@ -391,7 +391,7 @@ impl ExprCompiled {
 impl IrSpanned<ExprCompiled> {
     pub(crate) fn optimize_on_freeze(
         &self,
-        ctx: &OptimizeOnFreezeContext,
+        ctx: &mut OptimizeOnFreezeContext,
     ) -> IrSpanned<ExprCompiled> {
         let span = self.span;
         let expr = match self.node {

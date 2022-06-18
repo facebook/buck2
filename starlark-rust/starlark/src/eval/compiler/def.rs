@@ -721,7 +721,7 @@ impl FrozenDef {
         let body_optimized = self
             .def_info
             .body_stmts
-            .optimize_on_freeze(&OptimizeOnFreezeContext {
+            .optimize_on_freeze(&mut OptimizeOnFreezeContext {
                 module: def_module.as_ref(),
                 heap,
                 frozen_heap,

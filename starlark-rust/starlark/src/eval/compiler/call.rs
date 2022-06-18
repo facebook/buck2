@@ -165,7 +165,7 @@ impl CallCompiled {
 }
 
 impl IrSpanned<CallCompiled> {
-    pub(crate) fn optimize_on_freeze(&self, ctx: &OptimizeOnFreezeContext) -> ExprCompiled {
+    pub(crate) fn optimize_on_freeze(&self, ctx: &mut OptimizeOnFreezeContext) -> ExprCompiled {
         let CallCompiled { fun: expr, args } = &self.node;
         let expr = expr.optimize_on_freeze(ctx);
         let args = args.optimize_on_freeze(ctx);

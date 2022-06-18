@@ -100,7 +100,7 @@ pub(crate) struct OptimizeOnFreezeContext<'a> {
 }
 
 impl AssignModifyLhs {
-    fn optimize_on_freeze(&self, ctx: &OptimizeOnFreezeContext) -> AssignModifyLhs {
+    fn optimize_on_freeze(&self, ctx: &mut OptimizeOnFreezeContext) -> AssignModifyLhs {
         match self {
             AssignModifyLhs::Dot(expr, name) => {
                 AssignModifyLhs::Dot(expr.optimize_on_freeze(ctx), name.clone())
@@ -115,7 +115,7 @@ impl AssignModifyLhs {
 }
 
 impl IrSpanned<StmtCompiled> {
-    fn optimize_on_freeze(&self, ctx: &OptimizeOnFreezeContext) -> StmtsCompiled {
+    fn optimize_on_freeze(&self, ctx: &mut OptimizeOnFreezeContext) -> StmtsCompiled {
         let span = self.span;
         match self.node {
             StmtCompiled::Return(ref e) => StmtsCompiled::one(IrSpanned {
@@ -211,7 +211,7 @@ impl StmtsCompiled {
         self.0.extend(right.0);
     }
 
-    pub(crate) fn optimize_on_freeze(&self, ctx: &OptimizeOnFreezeContext) -> StmtsCompiled {
+    pub(crate) fn optimize_on_freeze(&self, ctx: &mut OptimizeOnFreezeContext) -> StmtsCompiled {
         let mut stmts = StmtsCompiled::empty();
         match &self.0 {
             SmallVec1::Empty => {}
@@ -355,7 +355,7 @@ impl AssignCompiledValue {
 impl IrSpanned<AssignCompiledValue> {
     pub(crate) fn optimize_on_freeze(
         &self,
-        ctx: &OptimizeOnFreezeContext,
+        ctx: &mut OptimizeOnFreezeContext,
     ) -> IrSpanned<AssignCompiledValue> {
         let span = self.span;
         let assign = match self.node {
