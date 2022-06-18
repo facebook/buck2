@@ -86,7 +86,7 @@ pub async fn bxl(
     let materialization_context =
         ConvertMaterializationContext::from(final_artifact_materializations);
 
-    let build_result = ensure_artifacts(&ctx, &materialization_context, result).await;
+    let build_result = ensure_artifacts(&ctx, &materialization_context, &*result).await;
 
     match build_result {
         Ok(_) => Ok(BxlResult {
@@ -105,9 +105,9 @@ pub async fn bxl(
 pub async fn ensure_artifacts(
     ctx: &DiceComputations,
     materialization_ctx: &MaterializationContext,
-    bxl_result: Arc<buck2_build_api::bxl::result::BxlResult>,
+    bxl_result: &buck2_build_api::bxl::result::BxlResult,
 ) -> Result<(), Vec<SharedError>> {
-    match &*bxl_result {
+    match bxl_result {
         buck2_build_api::bxl::result::BxlResult::None { .. } => Ok(()),
         buck2_build_api::bxl::result::BxlResult::BuildsArtifacts {
             built, artifacts, ..

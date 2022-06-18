@@ -189,7 +189,7 @@ async fn async_main(
         map: Arc::new(Default::default()),
         force: false,
     };
-    let build_result = ensure_artifacts(&dice, &materialization_ctx, result).await;
+    let build_result = ensure_artifacts(&dice, &materialization_ctx, &*result).await;
 
     match build_result {
         Ok(_) => {}
