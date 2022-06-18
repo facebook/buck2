@@ -80,8 +80,8 @@ impl WatchmanQueryProcessor {
 
                 if messages < MAX_WATCHMAN_MESSAGES {
                     messages += 1;
-                    if messages == MAX_WATCHMAN_MESSAGES {
-                        eprintln!("{} additional file changes(s)", iter.len() + 1);
+                    if messages == MAX_WATCHMAN_MESSAGES && iter.len() > 0 {
+                        eprintln!("{} additional file changes", iter.len() + 1);
                     } else {
                         eprintln!("File changed: {}", cell_path);
                     }
