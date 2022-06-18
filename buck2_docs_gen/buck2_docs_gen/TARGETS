@@ -1,0 +1,11 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+rust_library(
+    name = "buck2_docs_gen",
+    srcs = glob(
+        ["src/**/*.rs"],
+    ),
+    deps = [
+    ],
+)
