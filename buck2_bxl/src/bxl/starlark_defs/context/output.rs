@@ -9,6 +9,7 @@ use buck2_build_api::{
     interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike,
 };
 use buck2_core::fs::project::ProjectFilesystem;
+use buck2_docs_gen::Buck2Docs;
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::{any::ProvidesStaticType, prelude::SliceExt};
@@ -35,8 +36,9 @@ use crate::bxl::starlark_defs::{
     context::build::StarlarkProvidersArtifactIterable,
 };
 
-#[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize)]
+#[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize, Buck2Docs)]
 #[display(fmt = "{:?}", self)]
+#[buck2_docs(register_output_stream)]
 #[derivative(Debug)]
 pub struct OutputStream<'v> {
     #[derivative(Debug = "ignore")]
