@@ -160,6 +160,13 @@ impl<T> ParameterCompiled<T> {
             Self::KwArgs(n, t) => Some((n, t.as_ref())),
         }
     }
+
+    pub(crate) fn has_type(&self) -> bool {
+        match self.name_ty() {
+            Some((_, Some(_))) => true,
+            _ => false,
+        }
+    }
 }
 
 /// Static info for `def`, `lambda` or module.
@@ -309,7 +316,14 @@ impl Compiler<'_, '_, '_> {
         let scope_names = mem::take(scope_names);
         let local_count = scope_names.used.len().try_into().unwrap();
 
-        let inline_def_body = inline_def_body(&params, &body);
+        let has_types = return_type.is_some() || params.iter().any(|p| p.has_type());
+
+        let inline_def_body = if has_types {
+            // It is harder to inline if a function declares parameter types or return type.
+            None
+        } else {
+            inline_def_body(&params, &body)
+        };
 
         let param_count = params
             .iter()
