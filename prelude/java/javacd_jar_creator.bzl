@@ -1,4 +1,3 @@
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
 load(
     "@fbcode//buck2/prelude/java:java_providers.bzl",
     "JavaLibraryInfo",
@@ -136,9 +135,10 @@ def create_jar_artifact_javacd(
         # currently, javacd requires that at least some outputs are in the root
         # output dir. so we put all of them there. If javacd is updated we
         # could consolidate some of these into one subdir.
+        jar_parent = declare_prefixed_output(prefix, "jar")
         return OutputPaths(
-            jar_parent = declare_prefixed_output(prefix, "jar"),
-            jar = declare_prefixed_output(prefix, paths.join("jar", "lib.jar")),
+            jar_parent = jar_parent,
+            jar = jar_parent.project("lib.jar"),
             classes = declare_prefixed_output(prefix, "__classes__"),
             annotations = declare_prefixed_output(prefix, "__gen__"),
             scratch = declare_prefixed_output(prefix, "scratch"),

@@ -445,18 +445,10 @@ if fbcode_linux_only():
     async def test_java(buck: Buck) -> None:
         await run_java_tests(buck, False, False)
 
-    @pytest.mark.xfail(
-        strict=False,
-        reason="This doesn't work with deferred materialized due to dir/file output overlap",
-    )
     @buck_test(inplace=True)
     async def test_java_with_javacd(buck: Buck) -> None:
         await run_java_tests(buck, True, False)
 
-    @pytest.mark.xfail(
-        strict=False,
-        reason="This doesn't work with deferred materialized due to dir/file output overlap",
-    )
     @buck_test(inplace=True)
     async def test_java_with_source_only_abi(buck: Buck) -> None:
         await run_java_tests(buck, True, True)

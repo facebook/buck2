@@ -179,7 +179,11 @@ def make_compile_outputs(
 
 def maybe_create_abi(actions: "actions", class_abi_generator: ["dependency", None], library: "artifact") -> ["artifact", None]:
     if class_abi_generator != None:
-        class_abi = actions.declare_output("{}-class-abi.jar".format(library.short_path))
+        # It's possible for the library to be created in a subdir that is
+        # itself some actions output artifact, so we replace directory
+        # separators to get a path that we can uniquely own.
+        # TODO(cjhopman): This probably should take in the output path.
+        class_abi = actions.declare_output("{}-class-abi.jar".format(library.short_path.replace("/", "_")))
         actions.run(
             [
                 class_abi_generator[RunInfo],
