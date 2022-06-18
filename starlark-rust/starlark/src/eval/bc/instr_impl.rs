@@ -39,7 +39,7 @@ use crate::{
         },
         compiler::{
             add_span_to_expr_error,
-            def::{Def, FrozenDef, ParameterCompiled},
+            def::{Def, FrozenDef, ParameterCompiled, ParametersCompiled},
             expr::{get_attr_hashed_bind, get_attr_hashed_raw, EvalError, MemberOrValue},
             expr_throw,
             scope::Captured,
@@ -1264,7 +1264,7 @@ pub(crate) type InstrDef = InstrNoFlow<InstrDefImpl>;
 #[derive(Debug)]
 pub(crate) struct InstrDefData {
     pub(crate) function_name: String,
-    pub(crate) params: Vec<IrSpanned<ParameterCompiled<u32>>>,
+    pub(crate) params: ParametersCompiled<u32>,
     pub(crate) return_type: Option<IrSpanned<u32>>,
     pub(crate) info: FrozenRef<'static, DefInfo>,
     pub(crate) check_types: bool,
@@ -1281,8 +1281,10 @@ impl InstrNoFlowImpl for InstrDefImpl {
     ) -> anyhow::Result<()> {
         let pop = frame.get_bc_slot_range(*pops);
 
-        let mut parameters =
-            ParametersSpec::with_capacity(def_data.function_name.clone(), def_data.params.len());
+        let mut parameters = ParametersSpec::with_capacity(
+            def_data.function_name.clone(),
+            def_data.params.params.len(),
+        );
         parameters.no_more_positional_only_args();
         let mut parameter_types = Vec::new();
         let mut parameter_captures = Vec::new();
@@ -1292,7 +1294,7 @@ impl InstrNoFlowImpl for InstrDefImpl {
         // count here rather than enumerate because '*' doesn't get a real
         // index in the parameter mapping, and it messes up the indexes
         let mut i = 0;
-        for x in &def_data.params {
+        for x in &def_data.params.params {
             if let Some((name, Some(t))) = x.name_ty() {
                 assert!(*t == pop_index);
                 let v = pop[pop_index as usize];

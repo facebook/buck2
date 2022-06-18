@@ -25,7 +25,10 @@ use crate::eval::{
         stack_ptr::BcSlotOut,
         writer::BcWriter,
     },
-    compiler::{def::DefCompiled, span::IrSpanned},
+    compiler::{
+        def::{DefCompiled, ParametersCompiled},
+        span::IrSpanned,
+    },
     runtime::call_stack::FrozenFileSpan,
 };
 
@@ -46,20 +49,12 @@ impl DefCompiled {
         } = *self;
         let function_name = function_name.clone();
 
-        let mut how_many_slots_we_need = 0;
-        for p in params {
-            p.map_expr(|_e| {
-                how_many_slots_we_need += 1;
-            });
-        }
-        if return_type.is_some() {
-            how_many_slots_we_need += 1;
-        }
+        let how_many_slots_we_need = params.count_exprs() + return_type.as_ref().map_or(0, |_| 1);
 
         bc.alloc_slots(how_many_slots_we_need, |slots, bc| {
             let mut slots_i = slots.iter();
             let mut value_count = 0;
-            let params = params.map(|p| {
+            let params = params.params.map(|p| {
                 p.map(|p| {
                     p.map_expr(|e| {
                         e.write_bc(slots_i.next().unwrap().to_out(), bc);
@@ -77,6 +72,7 @@ impl DefCompiled {
                 }
             });
 
+            let params = ParametersCompiled { params };
             let instr_def_data = InstrDefData {
                 function_name,
                 params,

@@ -169,6 +169,39 @@ impl<T> ParameterCompiled<T> {
     }
 }
 
+#[derive(Debug, Clone, VisitSpanMut)]
+pub(crate) struct ParametersCompiled<T> {
+    pub(crate) params: Vec<IrSpanned<ParameterCompiled<T>>>,
+}
+
+impl<T> ParametersCompiled<T> {
+    /// How many expressions this parameters references (default values and types).
+    pub(crate) fn count_exprs(&self) -> u32 {
+        let mut count = 0;
+        for p in &self.params {
+            p.map_expr(|_e| count += 1);
+        }
+        count
+    }
+
+    /// How many parameter variables?
+    ///
+    /// We have special "parameter" called `NoArgs`, which does not count.
+    pub(crate) fn count_param_variables(&self) -> u32 {
+        self.params
+            .iter()
+            .filter_map(|p| p.name_ty())
+            .count()
+            .try_into()
+            .unwrap()
+    }
+
+    /// Any parameter has type annotation?
+    pub(crate) fn has_types(&self) -> bool {
+        self.params.iter().any(|p| p.has_type())
+    }
+}
+
 /// Static info for `def`, `lambda` or module.
 #[derive(Derivative, Display)]
 #[derivative(Debug)]
@@ -235,7 +268,7 @@ impl DefInfo {
 #[derive(Clone, Debug, VisitSpanMut)]
 pub(crate) struct DefCompiled {
     pub(crate) function_name: String,
-    pub(crate) params: Vec<IrSpanned<ParameterCompiled<IrSpanned<ExprCompiled>>>>,
+    pub(crate) params: ParametersCompiled<IrSpanned<ExprCompiled>>,
     pub(crate) return_type: Option<Box<IrSpanned<ExprCompiled>>>,
     pub(crate) info: FrozenRef<'static, DefInfo>,
     pub(crate) check_types: bool,
@@ -305,6 +338,7 @@ impl Compiler<'_, '_, '_> {
         // The parameters run in the scope of the parent, so compile them with the outer
         // scope
         let params = params.into_map(|x| self.parameter(x));
+        let params = ParametersCompiled { params };
         let return_type = self.expr_for_type(return_type).map(|t| box t);
 
         self.enter_scope(scope_id);
@@ -316,7 +350,7 @@ impl Compiler<'_, '_, '_> {
         let scope_names = mem::take(scope_names);
         let local_count = scope_names.used.len().try_into().unwrap();
 
-        let has_types = return_type.is_some() || params.iter().any(|p| p.has_type());
+        let has_types = return_type.is_some() || params.has_types();
 
         let inline_def_body = if has_types {
             // It is harder to inline if a function declares parameter types or return type.
@@ -325,10 +359,7 @@ impl Compiler<'_, '_, '_> {
             inline_def_body(&params, &body)
         };
 
-        let param_count = params
-            .iter()
-            .filter(|p| !matches!(p.node, ParameterCompiled::NoArgs))
-            .count() as u32;
+        let param_count = params.count_param_variables();
 
         let info = self.eval.module_env.frozen_heap().alloc_any(DefInfo {
             name,

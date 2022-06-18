@@ -21,7 +21,7 @@ use crate::{
     collections::symbol_map::Symbol,
     eval::{
         compiler::{
-            def::ParameterCompiled,
+            def::ParametersCompiled,
             expr::{ExprBinOp, ExprCompiled, ExprLogicalBinOp, ExprUnOp},
             span::IrSpanned,
             stmt::{StmtCompiled, StmtsCompiled},
@@ -176,15 +176,15 @@ fn is_return_safe_to_inline_expr(stmts: &StmtsCompiled) -> Option<IrSpanned<Expr
 }
 
 pub(crate) fn inline_def_body(
-    params: &[IrSpanned<ParameterCompiled<IrSpanned<ExprCompiled>>>],
+    params: &ParametersCompiled<IrSpanned<ExprCompiled>>,
     body: &StmtsCompiled,
 ) -> Option<InlineDefBody> {
-    if params.len() == 1 && params[0].accepts_positional() {
+    if params.params.len() == 1 && params.params[0].accepts_positional() {
         if let Some(t) = is_return_type_is(body) {
             return Some(InlineDefBody::ReturnTypeIs(t));
         }
     }
-    if params.is_empty() {
+    if params.params.is_empty() {
         if let Some(expr) = is_return_safe_to_inline_expr(body) {
             return Some(InlineDefBody::ReturnSafeToInlineExpr(expr));
         }
