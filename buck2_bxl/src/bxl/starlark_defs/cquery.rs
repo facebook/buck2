@@ -4,6 +4,7 @@ use buck2_build_api::{
     nodes::configured::ConfiguredTargetNode, query::cquery::environment::CqueryEnvironment,
 };
 use buck2_core::target::TargetLabel;
+use buck2_docs_gen::Buck2Docs;
 use buck2_query::query::syntax::simple::functions::{
     helpers::CapturedExpr, DefaultQueryFunctions, DefaultQueryFunctionsModule,
 };
@@ -33,7 +34,8 @@ use crate::bxl::{
 
 /// The context for performing `cquery` operations in bxl. The functions offered on this ctx are
 /// the same behaviour as the query functions available within cquery command.
-#[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize)]
+#[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize, Buck2Docs)]
+#[buck2_docs(register_cquery, name = "cqueryctx")]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 pub struct StarlarkCQueryCtx<'v> {
