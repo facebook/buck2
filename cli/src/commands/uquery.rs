@@ -135,10 +135,7 @@ impl CommonQueryArgs {
 }
 
 #[derive(Debug, clap::Parser)]
-#[clap(
-    name = "uquery",
-    about = "provides facilities to query information about the target node graph"
-)]
+#[clap(name = "uquery", about = "Query unconfigured target graph")]
 pub(crate) struct UqueryCommand {
     #[clap(flatten)]
     config_opts: CommonConfigOptions,

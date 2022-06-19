@@ -22,10 +22,7 @@ use crate::{
 };
 
 #[derive(Debug, clap::Parser)]
-#[clap(
-    name = "aquery",
-    about = "provides facilities to query information about the action graph"
-)]
+#[clap(name = "aquery", about = "Query action graph")]
 pub(crate) struct AqueryCommand {
     #[clap(flatten)]
     config_opts: CommonConfigOptions,

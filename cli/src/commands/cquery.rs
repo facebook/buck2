@@ -22,10 +22,7 @@ use crate::{
 };
 
 #[derive(Debug, clap::Parser)]
-#[clap(
-    name = "cquery",
-    about = "provides facilities to query information about the configured target node graph"
-)]
+#[clap(name = "cquery", about = "Query configured target graph")]
 pub(crate) struct CqueryCommand {
     #[clap(flatten)]
     config_opts: CommonConfigOptions,
