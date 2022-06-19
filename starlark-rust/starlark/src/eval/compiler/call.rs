@@ -57,6 +57,18 @@ impl CallCompiled {
         args: ArgsCompiledValue,
         ctx: &mut OptCtx,
     ) -> ExprCompiled {
+        // Optimize `"aaa{}bbb".format(arg)`.
+        if let (Some(this), Some(_arg)) = (this.as_string(), args.one_pos()) {
+            if field.as_str() == "format" {
+                if let Some((before, after)) = parse_format_one(&this) {
+                    let before = ctx.frozen_heap().alloc_str(&before);
+                    let after = ctx.frozen_heap().alloc_str(&after);
+                    let arg = args.into_one_pos().unwrap();
+                    return ExprCompiled::format_one(before, arg, after, ctx);
+                }
+            }
+        }
+
         if let Some(this) = this.as_value() {
             if let Some(v) = ExprCompiled::compile_time_getattr(this, &field, ctx) {
                 let v = ExprCompiled::Value(v);
@@ -264,23 +276,6 @@ impl Compiler<'_, '_, '_> {
     ) -> ExprCompiled {
         let e = self.expr(e);
         let args = self.args(args);
-
-        // Optimize `"aaa{}bbb".format(arg)`.
-        if let (Some(e), Some(_arg)) = (e.as_string(), args.one_pos()) {
-            if &s.node == "format" {
-                if let Some((before, after)) = parse_format_one(&e) {
-                    let before = self.eval.module_env.frozen_heap().alloc_str(&before);
-                    let after = self.eval.module_env.frozen_heap().alloc_str(&after);
-                    let arg = args.into_one_pos().unwrap();
-                    return ExprCompiled::format_one(
-                        before,
-                        arg,
-                        after,
-                        &mut OptCtx::new(self.eval),
-                    );
-                }
-            }
-        }
 
         let getattr_span = e.span.merge(&FrozenFileSpan::new(self.codemap, s.span));
 
