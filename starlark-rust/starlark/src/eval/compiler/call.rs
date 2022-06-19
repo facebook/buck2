@@ -39,7 +39,7 @@ use crate::{
         },
     },
     syntax::ast::{AstString, ExprP},
-    values::{string::interpolation::parse_format_one, FrozenValue},
+    values::string::interpolation::parse_format_one,
 };
 
 #[derive(Clone, Debug, VisitSpanMut)]
@@ -231,20 +231,6 @@ impl IrSpanned<CallCompiled> {
 }
 
 impl Compiler<'_, '_, '_> {
-    fn expr_call_fun_frozen_no_special(
-        &mut self,
-        span: FrozenFileSpan,
-        fun: FrozenValue,
-        args: ArgsCompiledValue,
-    ) -> ExprCompiled {
-        CallCompiled::call(
-            span,
-            ExprCompiled::Value(fun),
-            args,
-            &mut OptCtx::new(self.eval),
-        )
-    }
-
     fn expr_call_fun_compiled(
         &mut self,
         span: FrozenFileSpan,
@@ -253,7 +239,12 @@ impl Compiler<'_, '_, '_> {
     ) -> ExprCompiled {
         let args = self.args(args);
         if let Some(left) = left.as_value() {
-            self.expr_call_fun_frozen_no_special(span, left, args)
+            CallCompiled::call(
+                span,
+                ExprCompiled::Value(left),
+                args,
+                &mut OptCtx::new(self.eval),
+            )
         } else {
             ExprCompiled::Call(box IrSpanned {
                 span,
@@ -295,7 +286,12 @@ impl Compiler<'_, '_, '_> {
         if let Some(e) = e.as_value() {
             if let Some(v) = ExprCompiled::compile_time_getattr(e, &s, &mut OptCtx::new(self.eval))
             {
-                return self.expr_call_fun_frozen_no_special(span, v, args);
+                return CallCompiled::call(
+                    span,
+                    ExprCompiled::Value(v),
+                    args,
+                    &mut OptCtx::new(self.eval),
+                );
             }
         }
 
