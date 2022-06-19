@@ -509,7 +509,10 @@ impl ExprCompiled {
         }
     }
 
-    fn not(span: FrozenFileSpan, expr: IrSpanned<ExprCompiled>) -> IrSpanned<ExprCompiled> {
+    pub(crate) fn not(
+        span: FrozenFileSpan,
+        expr: IrSpanned<ExprCompiled>,
+    ) -> IrSpanned<ExprCompiled> {
         match expr.node {
             ExprCompiled::Value(x) => IrSpanned {
                 node: ExprCompiled::Value(FrozenValue::new_bool(!x.to_value().to_bool())),
@@ -532,7 +535,7 @@ impl ExprCompiled {
         Self::logical_bin_op(ExprLogicalBinOp::And, l, r)
     }
 
-    fn logical_bin_op(
+    pub(crate) fn logical_bin_op(
         op: ExprLogicalBinOp,
         l: IrSpanned<ExprCompiled>,
         r: IrSpanned<ExprCompiled>,
@@ -632,7 +635,7 @@ impl ExprCompiled {
         ExprCompiled::Op(ExprBinOp::Add, box (l, r))
     }
 
-    fn bin_op(
+    pub(crate) fn bin_op(
         bin_op: ExprBinOp,
         l: IrSpanned<ExprCompiled>,
         r: IrSpanned<ExprCompiled>,
@@ -658,7 +661,7 @@ impl ExprCompiled {
         }
     }
 
-    fn if_expr(
+    pub(crate) fn if_expr(
         cond: IrSpanned<ExprCompiled>,
         t: IrSpanned<ExprCompiled>,
         f: IrSpanned<ExprCompiled>,
@@ -688,7 +691,7 @@ impl ExprCompiled {
         }
     }
 
-    fn un_op(
+    pub(crate) fn un_op(
         op: ExprUnOp,
         expr: IrSpanned<ExprCompiled>,
         heap: &Heap,
@@ -800,7 +803,7 @@ impl ExprCompiled {
         }
     }
 
-    fn dot(
+    pub(crate) fn dot(
         object: IrSpanned<ExprCompiled>,
         field: &Symbol,
         heap: &Heap,
@@ -844,7 +847,7 @@ impl ExprCompiled {
         ExprCompiled::Slice(box (array, start, stop, step))
     }
 
-    fn array_indirection(
+    pub(crate) fn array_indirection(
         array: IrSpanned<ExprCompiled>,
         index: IrSpanned<ExprCompiled>,
         heap: &Heap,

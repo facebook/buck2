@@ -17,12 +17,16 @@
 
 //! Compile function calls.
 
+use std::cell::Cell;
+
+use gazebo::prelude::*;
+
 use crate::{
     collections::symbol_map::Symbol,
     eval::{
         compiler::{
             args::ArgsCompiledValue,
-            def_inline::InlineDefBody,
+            def_inline::{InlineDefBody, InlineDefCallSite},
             expr::ExprCompiled,
             scope::{CstArgument, CstExpr},
             span::IrSpanned,
@@ -34,7 +38,7 @@ use crate::{
         },
     },
     syntax::ast::{AstString, ExprP},
-    values::{string::interpolation::parse_format_one, FrozenHeap, FrozenValue},
+    values::{string::interpolation::parse_format_one, FrozenHeap, FrozenValue, Heap},
 };
 
 #[derive(Clone, Debug, VisitSpanMut)]
@@ -107,39 +111,72 @@ impl CallCompiled {
         span: FrozenFileSpan,
         fun: &ExprCompiled,
         args: &ArgsCompiledValue,
+        heap: &Heap,
         frozen_heap: &FrozenHeap,
-    ) -> Option<ExprCompiled> {
+    ) -> Option<IrSpanned<ExprCompiled>> {
         let fun = fun.as_frozen_def()?;
-        if !args.is_no_args() {
+
+        if fun.parameters.has_args_or_kwargs() {
+            // Functions with `*args` or `**kwargs` are not marked safe to inline,
+            // but it is safer to also handle it explicitly here.
             return None;
         }
 
-        if let Some(InlineDefBody::ReturnSafeToInlineExpr(expr)) = &fun.def_info.inline_def_body {
-            let mut expr = expr.node.clone();
+        let expr = if let Some(InlineDefBody::ReturnSafeToInlineExpr(expr)) =
+            &fun.def_info.inline_def_body
+        {
+            expr
+        } else {
+            return None;
+        };
+
+        args.all_values(|arguments| {
+            let slots = vec![Cell::new(None); fun.parameters.len()];
+            fun.parameters.collect(arguments, &slots, heap).ok()?;
+
+            let slots = slots
+                .into_try_map(|value| {
+                    // Value must be set, but better ignore optimization here than panic.
+                    let value = value.get().ok_or(())?;
+                    // Everything should be frozen here, but if not,
+                    // it is safer to abandon optimization.
+                    value.unpack_frozen().ok_or(())
+                })
+                .ok()?;
+
+            let mut expr = IrSpanned {
+                span,
+                node: expr.node.clone(),
+            };
             let mut span_alloc = InlinedFrameAlloc::new(frozen_heap);
             expr.visit_spans(&mut |expr_span: &mut FrozenFileSpan| {
                 expr_span
                     .inlined_frames
                     .inline_into(span, fun.to_frozen_value(), &mut span_alloc);
             });
-            Some(expr)
-        } else {
-            None
-        }
+            InlineDefCallSite {
+                heap,
+                frozen_heap,
+                slots: &slots,
+            }
+            .inline(&expr)
+            .ok()
+        })?
     }
 
     pub(crate) fn call(
         span: FrozenFileSpan,
         fun: ExprCompiled,
         args: ArgsCompiledValue,
+        heap: &Heap,
         frozen_heap: &FrozenHeap,
     ) -> ExprCompiled {
         if let Some(type_is) = CallCompiled::try_type_is(&fun, &args) {
             return type_is;
         }
 
-        if let Some(inline) = CallCompiled::try_inline(span, &fun, &args, frozen_heap) {
-            return inline;
+        if let Some(inline) = CallCompiled::try_inline(span, &fun, &args, heap, frozen_heap) {
+            return inline.node;
         }
 
         if fun.is_fn_len() {
@@ -169,7 +206,7 @@ impl IrSpanned<CallCompiled> {
         let CallCompiled { fun: expr, args } = &self.node;
         let expr = expr.optimize_on_freeze(ctx);
         let args = args.optimize_on_freeze(ctx);
-        CallCompiled::call(self.span, expr.node, args, ctx.frozen_heap)
+        CallCompiled::call(self.span, expr.node, args, ctx.heap, ctx.frozen_heap)
     }
 }
 
@@ -203,6 +240,7 @@ impl Compiler<'_, '_, '_> {
             span,
             ExprCompiled::Value(fun),
             args,
+            self.eval.heap(),
             self.eval.frozen_heap(),
         )
     }

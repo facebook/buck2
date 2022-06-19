@@ -21,6 +21,8 @@ use crate::{
     collections::symbol_map::Symbol,
     eval::{
         compiler::{
+            args::ArgsCompiledValue,
+            call::CallCompiled,
             def::ParametersCompiled,
             expr::{ExprBinOp, ExprCompiled, ExprLogicalBinOp, ExprUnOp},
             span::IrSpanned,
@@ -28,7 +30,7 @@ use crate::{
         },
         runtime::{call_stack::FrozenFileSpan, slots::LocalSlotId},
     },
-    values::{FrozenStringValue, FrozenValue},
+    values::{FrozenHeap, FrozenStringValue, FrozenValue, Heap},
 };
 
 /// Function body suitable for inlining.
@@ -62,13 +64,21 @@ fn is_return_type_is(stmt: &StmtsCompiled) -> Option<FrozenStringValue> {
     }
 }
 
-#[derive(Default)]
 struct IsSafeToInlineExpr {
+    /// Function parameter count.
+    param_count: u32,
     /// How many expressions we visited already.
     counter: u32,
 }
 
 impl IsSafeToInlineExpr {
+    fn new(param_count: u32) -> IsSafeToInlineExpr {
+        Self {
+            param_count,
+            counter: 0,
+        }
+    }
+
     fn is_safe_to_inline_opt_expr(&mut self, expr: &Option<IrSpanned<ExprCompiled>>) -> bool {
         if let Some(expr) = expr {
             self.is_safe_to_inline_expr(expr)
@@ -86,10 +96,13 @@ impl IsSafeToInlineExpr {
         self.counter += 1;
         match expr {
             ExprCompiled::Value(..) => true,
-            ExprCompiled::Local(..)
-            | ExprCompiled::LocalCaptured(..)
-            | ExprCompiled::Module(..)
-            | ExprCompiled::Def(..) => false,
+            ExprCompiled::LocalCaptured(..) | ExprCompiled::Module(..) | ExprCompiled::Def(..) => {
+                false
+            }
+            ExprCompiled::Local(l) => {
+                // `l >= param_count` should be unreachable, but it is safer this way.
+                l.0 < self.param_count
+            }
             ExprCompiled::Call(call) => {
                 self.is_safe_to_inline_expr(&call.fun)
                     && call
@@ -155,7 +168,10 @@ impl IsSafeToInlineExpr {
 }
 
 /// Function body is a `return` safe to inline expression (as defined above).
-fn is_return_safe_to_inline_expr(stmts: &StmtsCompiled) -> Option<IrSpanned<ExprCompiled>> {
+fn is_return_safe_to_inline_expr(
+    stmts: &StmtsCompiled,
+    param_count: u32,
+) -> Option<IrSpanned<ExprCompiled>> {
     match stmts.first() {
         None => {
             // Empty function is equivalent to `return None`.
@@ -166,7 +182,7 @@ fn is_return_safe_to_inline_expr(stmts: &StmtsCompiled) -> Option<IrSpanned<Expr
         }
         Some(stmt) => match &stmt.node {
             StmtCompiled::Return(expr)
-                if IsSafeToInlineExpr::default().is_safe_to_inline_expr(expr) =>
+                if IsSafeToInlineExpr::new(param_count).is_safe_to_inline_expr(expr) =>
             {
                 Some(expr.clone())
             }
@@ -184,10 +200,201 @@ pub(crate) fn inline_def_body(
             return Some(InlineDefBody::ReturnTypeIs(t));
         }
     }
-    if params.params.is_empty() {
-        if let Some(expr) = is_return_safe_to_inline_expr(body) {
+    if !params.has_args_or_kwargs() {
+        // It is possible to sometimes inline functions with `*args` or `**kwargs`,
+        // but let's postpone that for now.
+        let param_count = params.count_param_variables();
+        if let Some(expr) = is_return_safe_to_inline_expr(body, param_count) {
             return Some(InlineDefBody::ReturnSafeToInlineExpr(expr));
         }
     }
     None
+}
+
+pub(crate) struct CannotInline;
+
+/// Utility to inline function body at call site.
+pub(crate) struct InlineDefCallSite<'v, 's> {
+    pub(crate) heap: &'v Heap,
+    pub(crate) frozen_heap: &'v FrozenHeap,
+    pub(crate) slots: &'s [FrozenValue],
+}
+
+impl<'v, 's> InlineDefCallSite<'v, 's> {
+    fn inline_opt(
+        &self,
+        expr: Option<&IrSpanned<ExprCompiled>>,
+    ) -> Result<Option<IrSpanned<ExprCompiled>>, CannotInline> {
+        match expr {
+            None => Ok(None),
+            Some(expr) => Ok(Some(self.inline(expr)?)),
+        }
+    }
+
+    fn inline_args(&self, args: &ArgsCompiledValue) -> Result<ArgsCompiledValue, CannotInline> {
+        args.map_exprs(|expr| self.inline(expr))
+    }
+
+    fn inline_call(
+        &self,
+        call: &IrSpanned<CallCompiled>,
+    ) -> Result<IrSpanned<ExprCompiled>, CannotInline> {
+        let span = call.span;
+        let CallCompiled { fun, args } = &call.node;
+        let fun = self.inline(fun)?;
+        let args = self.inline_args(args)?;
+        Ok(IrSpanned {
+            span,
+            node: CallCompiled::call(span, fun.node, args, self.heap, self.frozen_heap),
+        })
+    }
+
+    pub(crate) fn inline(
+        &self,
+        expr: &IrSpanned<ExprCompiled>,
+    ) -> Result<IrSpanned<ExprCompiled>, CannotInline> {
+        let span = expr.span;
+        Ok(match &expr.node {
+            e @ ExprCompiled::Value(..) => IrSpanned {
+                span,
+                node: e.clone(),
+            },
+            ExprCompiled::Local(local) => {
+                let value = self.slots[local.0 as usize];
+                IrSpanned {
+                    span,
+                    node: ExprCompiled::Value(value),
+                }
+            }
+            ExprCompiled::If(box (c, t, f)) => {
+                let c = self.inline(c)?;
+                let t = self.inline(t)?;
+                let f = self.inline(f)?;
+                ExprCompiled::if_expr(c, t, f)
+            }
+            ExprCompiled::LogicalBinOp(op, box (l, r)) => {
+                let l = self.inline(l)?;
+                let r = self.inline(r)?;
+                ExprCompiled::logical_bin_op(*op, l, r)
+            }
+            ExprCompiled::List(xs) => {
+                let xs = xs
+                    .iter()
+                    .map(|x| self.inline(x))
+                    .collect::<Result<Vec<_>, CannotInline>>()?;
+                IrSpanned {
+                    span,
+                    node: ExprCompiled::List(xs),
+                }
+            }
+            ExprCompiled::Tuple(xs) => {
+                let xs = xs
+                    .iter()
+                    .map(|x| self.inline(x))
+                    .collect::<Result<Vec<_>, CannotInline>>()?;
+                IrSpanned {
+                    span,
+                    node: ExprCompiled::tuple(xs, self.frozen_heap),
+                }
+            }
+            ExprCompiled::Dict(xs) => {
+                let xs = xs
+                    .iter()
+                    .map(|(x, y)| Ok((self.inline(x)?, self.inline(y)?)))
+                    .collect::<Result<Vec<_>, CannotInline>>()?;
+                IrSpanned {
+                    span,
+                    node: ExprCompiled::Dict(xs),
+                }
+            }
+            ExprCompiled::Op(op, box (l, r)) => {
+                let l = self.inline(l)?;
+                let r = self.inline(r)?;
+                IrSpanned {
+                    span,
+                    node: ExprCompiled::bin_op(*op, l, r, self.heap, self.frozen_heap),
+                }
+            }
+            ExprCompiled::PercentSOne(box (before, x, after)) => {
+                let x = self.inline(x)?;
+                IrSpanned {
+                    span,
+                    node: ExprCompiled::percent_s_one(
+                        *before,
+                        x,
+                        *after,
+                        self.heap,
+                        self.frozen_heap,
+                    ),
+                }
+            }
+            ExprCompiled::FormatOne(box (before, x, after)) => {
+                let x = self.inline(x)?;
+                IrSpanned {
+                    span,
+                    node: ExprCompiled::format_one(*before, x, *after, self.heap, self.frozen_heap),
+                }
+            }
+            ExprCompiled::UnOp(op, box x) => {
+                let x = self.inline(x)?;
+                IrSpanned {
+                    span,
+                    node: ExprCompiled::un_op(*op, x, self.heap, self.frozen_heap),
+                }
+            }
+            ExprCompiled::Not(box a) => {
+                let a = self.inline(a)?;
+                ExprCompiled::not(span, a)
+            }
+            ExprCompiled::TypeIs(box v, t) => {
+                let v = self.inline(v)?;
+                IrSpanned {
+                    span,
+                    node: ExprCompiled::type_is(v, *t),
+                }
+            }
+            ExprCompiled::ArrayIndirection(box (array, index)) => {
+                let array = self.inline(array)?;
+                let index = self.inline(index)?;
+                IrSpanned {
+                    span,
+                    node: ExprCompiled::array_indirection(
+                        array,
+                        index,
+                        self.heap,
+                        self.frozen_heap,
+                    ),
+                }
+            }
+            ExprCompiled::Slice(box (l, a, b, c)) => {
+                let l = self.inline(l)?;
+                let a = self.inline_opt(a.as_ref())?;
+                let b = self.inline_opt(b.as_ref())?;
+                let c = self.inline_opt(c.as_ref())?;
+                IrSpanned {
+                    span,
+                    node: ExprCompiled::Slice(box (l, a, b, c)),
+                }
+            }
+            ExprCompiled::Dot(box l, field) => {
+                let l = self.inline(l)?;
+                IrSpanned {
+                    span,
+                    node: ExprCompiled::dot(l, field, self.heap, self.frozen_heap),
+                }
+            }
+            ExprCompiled::Seq(box (a, b)) => {
+                let a = self.inline(a)?;
+                let b = self.inline(b)?;
+                ExprCompiled::seq(a, b)
+            }
+            ExprCompiled::Call(call) => return self.inline_call(call),
+            // These should be unreachable, but it is safer
+            // to do unnecessary work in compiler than crash.
+            ExprCompiled::LocalCaptured(..)
+            | ExprCompiled::Module(..)
+            | ExprCompiled::Compr(..)
+            | ExprCompiled::Def(..) => return Err(CannotInline),
+        })
+    }
 }

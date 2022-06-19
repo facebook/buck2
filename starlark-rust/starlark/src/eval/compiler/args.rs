@@ -63,20 +63,6 @@ impl ArgsCompiledValue {
         self.pos_named.pop()
     }
 
-    /// Check if arguments is empty (no positional, no named, no star-args, no kwargs).
-    pub(crate) fn is_no_args(&self) -> bool {
-        let ArgsCompiledValue {
-            pos_named,
-            names,
-            args,
-            kwargs,
-        } = self;
-        matches!(
-            (pos_named.as_slice(), names.as_slice(), args, kwargs),
-            ([], [], None, None)
-        )
-    }
-
     pub(crate) fn pos_only(&self) -> Option<&[IrSpanned<ExprCompiled>]> {
         if self.names.is_empty() && self.args.is_none() && self.kwargs.is_none() {
             Some(&self.pos_named)
@@ -130,7 +116,7 @@ impl ArgsCompiledValue {
             .chain(self.kwargs.iter())
     }
 
-    fn map_exprs<E>(
+    pub(crate) fn map_exprs<E>(
         &self,
         mut f: impl FnMut(&IrSpanned<ExprCompiled>) -> Result<IrSpanned<ExprCompiled>, E>,
     ) -> Result<ArgsCompiledValue, E> {

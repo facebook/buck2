@@ -353,6 +353,10 @@ impl<V> ParametersSpec<V> {
         let param_index = self.names.get_hashed_str(name).map(|index| *index as u32);
         ResolvedArgName { hash, param_index }
     }
+
+    pub(crate) fn has_args_or_kwargs(&self) -> bool {
+        self.args.is_some() || self.kwargs.is_some()
+    }
 }
 
 impl<'v, V: ValueLike<'v>> ParametersSpec<V> {

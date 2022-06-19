@@ -200,6 +200,16 @@ impl<T> ParametersCompiled<T> {
     pub(crate) fn has_types(&self) -> bool {
         self.params.iter().any(|p| p.has_type())
     }
+
+    /// Has `*args` or `*kwargs` parameter? `*` is fine.
+    pub(crate) fn has_args_or_kwargs(&self) -> bool {
+        self.params.iter().any(|p| {
+            matches!(
+                p.node,
+                ParameterCompiled::Args(..) | ParameterCompiled::KwArgs(..)
+            )
+        })
+    }
 }
 
 /// Static info for `def`, `lambda` or module.

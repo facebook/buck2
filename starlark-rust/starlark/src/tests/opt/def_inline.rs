@@ -149,3 +149,18 @@ fn test_do_not_inline_too_large_functions() {
         );
     }
 }
+
+#[test]
+fn test_calls_with_const_args_inlined() {
+    bc_golden_test(
+        "def_inline_const_args_inlined",
+        r#"
+def foo(x, y):
+    return noop(y, x)
+
+def test():
+    # This call should be inlined.
+    return foo(10, True)
+"#,
+    );
+}
