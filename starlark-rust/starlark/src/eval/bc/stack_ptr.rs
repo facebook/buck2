@@ -76,12 +76,6 @@ impl<const N: usize> BcSlotsN<N> {
         assert_eq!(N, range.len() as usize);
         BcSlotsN { start: range.start }
     }
-
-    pub(crate) fn to_in(self) -> BcSlotsInN<N> {
-        BcSlotsInN {
-            start: self.start.to_in(),
-        }
-    }
 }
 
 #[derive(Copy, Clone, Dupe, Debug, derive_more::Display)]
@@ -135,34 +129,6 @@ impl BcSlotIn {
     #[inline]
     pub(crate) fn get(self) -> BcSlot {
         self.0
-    }
-}
-
-/// `N` slots starting with given number, which can be read, but cannot be written to.
-#[derive(Copy, Clone, Dupe, Debug)]
-pub(crate) struct BcSlotsInN<const N: usize> {
-    /// `N` slots starting with given slot.
-    start: BcSlotIn,
-}
-
-impl<const N: usize> BcSlotsInN<N> {
-    #[inline]
-    pub(crate) fn get<const I: u32>(self) -> BcSlotIn {
-        assert!((I as usize) < N);
-        self.start + I
-    }
-
-    pub(crate) fn from_range(range: BcSlotInRange) -> BcSlotsInN<N> {
-        assert_eq!(N, range.len() as usize);
-        BcSlotsInN { start: range.start }
-    }
-
-    pub(crate) fn start(self) -> BcSlotIn {
-        self.start
-    }
-
-    pub(crate) fn end(self) -> BcSlotIn {
-        self.start + N as u32
     }
 }
 

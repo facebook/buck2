@@ -96,8 +96,11 @@ impl ComprCompiled {
                     bc.write_instr::<InstrDictNew>(span, temp.to_out());
                     let (first, rem) = clauses.split_last();
                     first.write_bc(bc, rem, |bc| {
-                        write_n_exprs([k, v], bc, |k_v, bc| {
-                            bc.write_instr::<InstrComprDictInsert>(k.span, (temp.to_in(), k_v));
+                        write_n_exprs([k, v], bc, |[k_slot, v_slot], bc| {
+                            bc.write_instr::<InstrComprDictInsert>(
+                                k.span,
+                                (temp.to_in(), k_slot, v_slot),
+                            );
                         });
                     });
                 }

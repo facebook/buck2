@@ -71,8 +71,8 @@ impl IrSpanned<AssignCompiledValue> {
                 });
             }
             AssignCompiledValue::ArrayIndirection(ref array, ref index) => {
-                write_n_exprs([array, index], bc, |array_index, bc| {
-                    bc.write_instr::<InstrSetArrayIndex>(span, (value, array_index));
+                write_n_exprs([array, index], bc, |[array, index], bc| {
+                    bc.write_instr::<InstrSetArrayIndex>(span, (value, array, index));
                 });
             }
             AssignCompiledValue::Tuple(ref xs) => {

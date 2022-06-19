@@ -35,7 +35,7 @@ use crate::{
             native_function::BcNativeFunction,
             opcode::BcOpcode,
             slow_arg::BcInstrSlowArg,
-            stack_ptr::{BcSlotIn, BcSlotInRange, BcSlotInRangeFrom, BcSlotOut, BcSlotsInN},
+            stack_ptr::{BcSlotIn, BcSlotInRange, BcSlotInRangeFrom, BcSlotOut},
         },
         compiler::{
             add_span_to_expr_error,
@@ -288,17 +288,17 @@ impl InstrNoFlowImpl for InstrUnpackImpl {
 }
 
 impl InstrNoFlowImpl for InstrArrayIndexImpl {
-    type Arg = (BcSlotsInN<2>, BcSlotOut);
+    type Arg = (BcSlotIn, BcSlotIn, BcSlotOut);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (array_index, target): &(BcSlotsInN<2>, BcSlotOut),
+        (array, index, target): &(BcSlotIn, BcSlotIn, BcSlotOut),
     ) -> anyhow::Result<()> {
-        let array = frame.get_bc_slot(array_index.get::<0>());
-        let index = frame.get_bc_slot(array_index.get::<1>());
+        let array = frame.get_bc_slot(*array);
+        let index = frame.get_bc_slot(*index);
         let value = array.at(index, eval.heap())?;
         frame.set_bc_slot(*target, value);
         Ok(())
@@ -306,35 +306,35 @@ impl InstrNoFlowImpl for InstrArrayIndexImpl {
 }
 
 impl InstrNoFlowImpl for InstrSetArrayIndexImpl {
-    type Arg = (BcSlotIn, BcSlotsInN<2>);
+    type Arg = (BcSlotIn, BcSlotIn, BcSlotIn);
 
     #[inline(always)]
     fn run_with_args<'v>(
         _eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (source, array_index): &(BcSlotIn, BcSlotsInN<2>),
+        (source, array, index): &(BcSlotIn, BcSlotIn, BcSlotIn),
     ) -> anyhow::Result<()> {
         let value = frame.get_bc_slot(*source);
-        let array = frame.get_bc_slot(array_index.get::<0>());
-        let index = frame.get_bc_slot(array_index.get::<1>());
+        let array = frame.get_bc_slot(*array);
+        let index = frame.get_bc_slot(*index);
         array.set_at(index, value)
     }
 }
 
 impl InstrNoFlowImpl for InstrArrayIndexSetImpl {
-    type Arg = (BcSlotsInN<2>, BcSlotIn);
+    type Arg = (BcSlotIn, BcSlotIn, BcSlotIn);
 
     #[inline(always)]
     fn run_with_args<'v>(
         _eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (array_index, source): &(BcSlotsInN<2>, BcSlotIn),
+        (array, index, source): &(BcSlotIn, BcSlotIn, BcSlotIn),
     ) -> anyhow::Result<()> {
         let value = frame.get_bc_slot(*source);
-        let array = frame.get_bc_slot(array_index.get::<0>());
-        let index = frame.get_bc_slot(array_index.get::<1>());
+        let array = frame.get_bc_slot(*array);
+        let index = frame.get_bc_slot(*index);
         array.set_at(index, value)
     }
 }
@@ -571,17 +571,17 @@ pub(crate) type InstrBinOp<I> = InstrNoFlow<InstrBinOpWrapper<I>>;
 pub(crate) type InstrUnOp<I> = InstrNoFlow<InstrUnOpWrapper<I>>;
 
 impl<I: InstrBinOpImpl> InstrNoFlowImpl for InstrBinOpWrapper<I> {
-    type Arg = (BcSlotsInN<2>, BcSlotOut);
+    type Arg = (BcSlotIn, BcSlotIn, BcSlotOut);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (source, target): &(BcSlotsInN<2>, BcSlotOut),
+        (v0, v1, target): &(BcSlotIn, BcSlotIn, BcSlotOut),
     ) -> anyhow::Result<()> {
-        let v0 = frame.get_bc_slot(source.get::<0>());
-        let v1 = frame.get_bc_slot(source.get::<1>());
+        let v0 = frame.get_bc_slot(*v0);
+        let v1 = frame.get_bc_slot(*v1);
         let v = I::eval(v0, v1, eval.heap())?;
         frame.set_bc_slot(*target, v);
         Ok(())
@@ -1058,18 +1058,18 @@ impl BcInstr for InstrComprListAppend {
 }
 
 impl BcInstr for InstrComprDictInsert {
-    type Arg = (BcSlotIn, BcSlotsInN<2>);
+    type Arg = (BcSlotIn, BcSlotIn, BcSlotIn);
 
     #[inline(always)]
     fn run<'v, 'b>(
         _eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr<'b>,
-        (dict, key_value): &(BcSlotIn, BcSlotsInN<2>),
+        (dict, key, value): &(BcSlotIn, BcSlotIn, BcSlotIn),
     ) -> InstrControl<'v, 'b> {
         let dict = frame.get_bc_slot(*dict);
-        let key = frame.get_bc_slot(key_value.get::<0>());
-        let value = frame.get_bc_slot(key_value.get::<1>());
+        let key = frame.get_bc_slot(*key);
+        let value = frame.get_bc_slot(*value);
         let key = match key.get_hashed() {
             Ok(key) => key,
             Err(e) => return InstrControl::Err(e),

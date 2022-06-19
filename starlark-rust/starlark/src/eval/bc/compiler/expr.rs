@@ -28,7 +28,7 @@ use crate::{
             compiler::if_compiler::write_if_else,
             instr_impl::*,
             slow_arg::BcInstrSlowArg,
-            stack_ptr::{BcSlotIn, BcSlotInRange, BcSlotOut, BcSlotsInN},
+            stack_ptr::{BcSlot, BcSlotIn, BcSlotInRange, BcSlotOut},
             writer::BcWriter,
         },
         compiler::{
@@ -88,9 +88,24 @@ pub(crate) fn write_expr_opt(
 pub(crate) fn write_n_exprs<const N: usize>(
     exprs: [&IrSpanned<ExprCompiled>; N],
     bc: &mut BcWriter,
-    k: impl FnOnce(BcSlotsInN<N>, &mut BcWriter),
+    k: impl FnOnce([BcSlotIn; N], &mut BcWriter),
 ) {
-    write_exprs(exprs, bc, |slots, bc| k(BcSlotsInN::from_range(slots), bc))
+    fn help<const N: usize>(
+        mut filled: [BcSlotIn; N],
+        rem_exprs: &[&IrSpanned<ExprCompiled>],
+        bc: &mut BcWriter,
+        k: impl FnOnce([BcSlotIn; N], &mut BcWriter),
+    ) {
+        match rem_exprs.split_first() {
+            Some((first, rem)) => first.write_bc_cb(bc, |first, bc| {
+                filled[N - rem.len() - 1] = first;
+                help(filled, rem, bc, k)
+            }),
+            None => k(filled, bc),
+        }
+    }
+
+    help([BcSlot(98765).to_in(); N], &exprs, bc, k)
 }
 
 impl ExprCompiled {
@@ -268,8 +283,8 @@ impl IrSpanned<ExprCompiled> {
         } else if let Some(b) = b.as_value() {
             Self::write_equals_const(span, a, b, target, bc);
         } else {
-            write_n_exprs([a, b], bc, |a_b, bc| {
-                bc.write_instr::<InstrEq>(span, (a_b, target));
+            write_n_exprs([a, b], bc, |[a, b], bc| {
+                bc.write_instr::<InstrEq>(span, (a, b, target));
             });
         }
     }
@@ -373,8 +388,8 @@ impl IrSpanned<ExprCompiled> {
                 Self::write_equals(span, l, r, target, bc)
             }
             ExprCompiled::Op(op, box (ref l, ref r)) => {
-                write_n_exprs([l, r], bc, |l_r, bc| {
-                    let arg = (l_r, target);
+                write_n_exprs([l, r], bc, |[l, r], bc| {
+                    let arg = (l, r, target);
                     match op {
                         ExprBinOp::Equals => unreachable!("handled above"),
                         ExprBinOp::Compare(CompareOp::Less) => {
