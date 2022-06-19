@@ -91,7 +91,7 @@ impl ScopeNames {
     }
 
     fn next_slot(&mut self, name: &str) -> LocalSlotId {
-        let res = LocalSlotId::new(self.used.len().try_into().unwrap());
+        let res = LocalSlotId(self.used.len().try_into().unwrap());
         self.used.push(name.to_owned());
         res
     }

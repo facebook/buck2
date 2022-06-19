@@ -24,10 +24,6 @@ use crate::eval::bc::stack_ptr::BcSlot;
 pub(crate) struct LocalSlotId(pub(crate) u32);
 
 impl LocalSlotId {
-    pub fn new(index: u32) -> Self {
-        Self(index)
-    }
-
     /// Each local slot is a valid BC slot.
     /// When it is:
     /// * known to be initialized
