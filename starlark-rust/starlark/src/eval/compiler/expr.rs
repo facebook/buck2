@@ -159,6 +159,8 @@ pub(crate) enum ExprBinOp {
     LeftShift,
     RightShift,
     Compare(CompareOp),
+    /// `a[b]`.
+    ArrayIndex,
 }
 
 impl ExprBinOp {
@@ -178,6 +180,7 @@ impl ExprBinOp {
             ExprBinOp::BitXor => a.bit_xor(b, heap),
             ExprBinOp::LeftShift => a.left_shift(b, heap),
             ExprBinOp::RightShift => a.right_shift(b, heap),
+            ExprBinOp::ArrayIndex => a.at(b, heap),
         }
     }
 }
@@ -202,7 +205,6 @@ pub(crate) enum ExprCompiled {
     Dict(Vec<(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)>),
     /// Comprehension.
     Compr(ComprCompiled),
-    ArrayIndirection(Box<(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)>),
     If(
         Box<(
             // Condition.
@@ -429,11 +431,6 @@ impl IrSpanned<ExprCompiled> {
                 kvs.map(|(k, v)| (k.optimize_on_freeze(ctx), v.optimize_on_freeze(ctx))),
             ),
             ExprCompiled::Compr(ref compr) => compr.optimize_on_freeze(ctx),
-            ExprCompiled::ArrayIndirection(box (ref array, ref index)) => {
-                let array = array.optimize_on_freeze(ctx);
-                let index = index.optimize_on_freeze(ctx);
-                ExprCompiled::array_indirection(array, index, &mut OptCtx::new(ctx))
-            }
             ExprCompiled::If(box (ref cond, ref t, ref f)) => {
                 let cond = cond.optimize_on_freeze(ctx);
                 let t = t.optimize_on_freeze(ctx);
@@ -648,6 +645,7 @@ impl ExprCompiled {
             ExprBinOp::Percent => ExprCompiled::percent(l, r, ctx),
             ExprBinOp::Add => ExprCompiled::add(l, r),
             ExprBinOp::Equals => ExprCompiled::equals(l, r).node,
+            ExprBinOp::ArrayIndex => ExprCompiled::array_indirection(l, r, ctx),
             bin_op => ExprCompiled::Op(bin_op, box (l, r)),
         }
     }
@@ -859,7 +857,7 @@ impl ExprCompiled {
                 }
             }
         }
-        ExprCompiled::ArrayIndirection(box (array, index))
+        ExprCompiled::Op(ExprBinOp::ArrayIndex, box (array, index))
     }
 
     pub(crate) fn typ(span: FrozenFileSpan, v: IrSpanned<ExprCompiled>) -> ExprCompiled {

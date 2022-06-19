@@ -122,10 +122,6 @@ impl ExprCompiled {
                 }
             }
             ExprCompiled::Compr(compr) => compr.mark_definitely_assigned_after(bc),
-            ExprCompiled::ArrayIndirection(box (array, index)) => {
-                array.mark_definitely_assigned_after(bc);
-                index.mark_definitely_assigned_after(bc);
-            }
             ExprCompiled::If(box (c, _t, _f)) => {
                 // Condition is executed unconditionally, so we use it to mark definitely assigned.
                 // But we don't know which of the branches will be executed.
@@ -312,11 +308,6 @@ impl IrSpanned<ExprCompiled> {
             }
             ExprCompiled::Dict(ref xs) => Self::write_dict(span, xs, target, bc),
             ExprCompiled::Compr(ref compr) => compr.write_bc(span, target, bc),
-            ExprCompiled::ArrayIndirection(box (ref array, ref index)) => {
-                write_n_exprs([array, index], bc, |array_index, bc| {
-                    bc.write_instr::<InstrArrayIndex>(span, (array_index, target))
-                })
-            }
             ExprCompiled::Slice(box (ref l, ref start, ref stop, ref step)) => {
                 l.write_bc_cb(bc, |l, bc| {
                     write_expr_opt(start, bc, |start, bc| {
@@ -410,6 +401,7 @@ impl IrSpanned<ExprCompiled> {
                         ExprBinOp::BitXor => bc.write_instr::<InstrBitXor>(span, arg),
                         ExprBinOp::LeftShift => bc.write_instr::<InstrLeftShift>(span, arg),
                         ExprBinOp::RightShift => bc.write_instr::<InstrRightShift>(span, arg),
+                        ExprBinOp::ArrayIndex => bc.write_instr::<InstrArrayIndex>(span, arg),
                     }
                 });
             }

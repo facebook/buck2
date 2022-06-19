@@ -105,9 +105,6 @@ impl IsSafeToInlineExpr {
                 // TODO: some comprehensions are safe to inline.
                 false
             }
-            ExprCompiled::ArrayIndirection(box (array, index)) => {
-                self.is_safe_to_inline_expr(array) && self.is_safe_to_inline_expr(index)
-            }
             ExprCompiled::Slice(box (a, b, c, d)) => {
                 self.is_safe_to_inline_expr(a)
                     && self.is_safe_to_inline_opt_expr(b)
@@ -296,14 +293,6 @@ impl<'s, 'v, 'a, 'e> InlineDefCallSite<'s, 'v, 'a, 'e> {
                 IrSpanned {
                     span,
                     node: ExprCompiled::un_op(span, op, x, self.ctx),
-                }
-            }
-            ExprCompiled::ArrayIndirection(box (array, index)) => {
-                let array = self.inline(array)?;
-                let index = self.inline(index)?;
-                IrSpanned {
-                    span,
-                    node: ExprCompiled::array_indirection(array, index, self.ctx),
                 }
             }
             ExprCompiled::Slice(box (l, a, b, c)) => {
