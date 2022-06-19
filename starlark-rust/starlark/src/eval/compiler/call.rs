@@ -38,8 +38,7 @@ use crate::{
             call_stack::FrozenFileSpan, inlined_frame::InlinedFrameAlloc, visit_span::VisitSpanMut,
         },
     },
-    syntax::ast::{AstString, ExprP},
-    values::string::interpolation::parse_format_one,
+    values::{string::interpolation::parse_format_one, FrozenStringValue},
 };
 
 #[derive(Clone, Debug, VisitSpanMut)]
@@ -57,18 +56,6 @@ impl CallCompiled {
         args: ArgsCompiledValue,
         ctx: &mut OptCtx,
     ) -> ExprCompiled {
-        // Optimize `"aaa{}bbb".format(arg)`.
-        if let (Some(this), Some(_arg)) = (this.as_string(), args.one_pos()) {
-            if field.as_str() == "format" {
-                if let Some((before, after)) = parse_format_one(&this) {
-                    let before = ctx.frozen_heap().alloc_str(&before);
-                    let after = ctx.frozen_heap().alloc_str(&after);
-                    let arg = args.into_one_pos().unwrap();
-                    return ExprCompiled::format_one(before, arg, after, ctx);
-                }
-            }
-        }
-
         if let Some(this) = this.as_value() {
             if let Some(v) = ExprCompiled::compile_time_getattr(this, &field, ctx) {
                 let v = ExprCompiled::Value(v);
@@ -209,6 +196,26 @@ impl CallCompiled {
         })?
     }
 
+    // Optimize `"aaa{}bbb".format(arg)`.
+    fn try_format(
+        fun: &IrSpanned<ExprCompiled>,
+        args: &ArgsCompiledValue,
+        ctx: &mut OptCtx,
+    ) -> Option<ExprCompiled> {
+        let fun = fun.as_frozen_bound_method()?;
+        let format = FrozenStringValue::new(fun.this)?;
+        if fun.method.name != "format" {
+            return None;
+        }
+        let arg = args.one_pos()?;
+
+        let (before, after) = parse_format_one(&format)?;
+
+        let before = ctx.frozen_heap().alloc_str(&before);
+        let after = ctx.frozen_heap().alloc_str(&after);
+        Some(ExprCompiled::format_one(before, arg.clone(), after, ctx))
+    }
+
     pub(crate) fn call(
         span: FrozenFileSpan,
         fun: IrSpanned<ExprCompiled>,
@@ -236,6 +243,10 @@ impl CallCompiled {
         }
 
         if let Some(r) = CallCompiled::try_spec_exec(span, &fun, &args, ctx) {
+            return r;
+        }
+
+        if let Some(r) = CallCompiled::try_format(&fun, &args, ctx) {
             return r;
         }
 
@@ -267,41 +278,14 @@ impl IrSpanned<CallCompiled> {
 }
 
 impl Compiler<'_, '_, '_> {
-    fn expr_call_method(
-        &mut self,
-        span: FrozenFileSpan,
-        e: CstExpr,
-        s: AstString,
-        args: Vec<CstArgument>,
-    ) -> ExprCompiled {
-        let e = self.expr(e);
-        let args = self.args(args);
-
-        let getattr_span = e.span.merge(&FrozenFileSpan::new(self.codemap, s.span));
-
-        CallCompiled::new_method(
-            span,
-            e,
-            Symbol::new(&s),
-            getattr_span,
-            args,
-            &mut OptCtx::new(self.eval),
-        )
-    }
-
     pub(crate) fn expr_call(
         &mut self,
         span: FrozenFileSpan,
         left: CstExpr,
         args: Vec<CstArgument>,
     ) -> ExprCompiled {
-        match left.node {
-            ExprP::Dot(box e, s) => self.expr_call_method(span, e, s, args),
-            _ => {
-                let expr = self.expr(left);
-                let args = self.args(args);
-                CallCompiled::call(span, expr, args, &mut OptCtx::new(self.eval))
-            }
-        }
+        let expr = self.expr(left);
+        let args = self.args(args);
+        CallCompiled::call(span, expr, args, &mut OptCtx::new(self.eval))
     }
 }

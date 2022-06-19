@@ -58,11 +58,6 @@ impl ArgsCompiledValue {
         }
     }
 
-    pub(crate) fn into_one_pos(mut self) -> Option<IrSpanned<ExprCompiled>> {
-        self.one_pos()?;
-        self.pos_named.pop()
-    }
-
     pub(crate) fn pos_only(&self) -> Option<&[IrSpanned<ExprCompiled>]> {
         if self.names.is_empty() && self.args.is_none() && self.kwargs.is_none() {
             Some(&self.pos_named)

@@ -49,7 +49,7 @@ use crate::{
         lexer::TokenInt,
     },
     values::{
-        function::BoundMethodGen,
+        function::{BoundMethodGen, FrozenBoundMethod},
         layout::value_not_special::FrozenValueNotSpecial,
         string::interpolation::parse_percent_s_one,
         types::{
@@ -245,6 +245,11 @@ impl ExprCompiled {
 
     /// Expression is known to be a constant which is a `def`.
     pub(crate) fn as_frozen_def(&self) -> Option<FrozenValueTyped<FrozenDef>> {
+        FrozenValueTyped::new(self.as_value()?)
+    }
+
+    /// Expression is known to be a frozen bound method.
+    pub(crate) fn as_frozen_bound_method(&self) -> Option<FrozenValueTyped<FrozenBoundMethod>> {
         FrozenValueTyped::new(self.as_value()?)
     }
 
