@@ -160,6 +160,27 @@ impl CallCompiled {
         })?
     }
 
+    fn try_spec_exec(
+        span: FrozenFileSpan,
+        fun: &ExprCompiled,
+        args: &ArgsCompiledValue,
+        ctx: &mut OptCtx,
+    ) -> Option<ExprCompiled> {
+        let fun = fun.as_value()?;
+
+        if !fun.speculative_exec_safe() {
+            return None;
+        }
+
+        let eval = ctx.eval()?;
+
+        // Only if all call arguments are frozen values.
+        args.all_values(|arguments| {
+            let v = fun.to_value().invoke(arguments.frozen_to_v(), eval).ok()?;
+            ExprCompiled::try_value(span, v, eval.module_env.frozen_heap())
+        })?
+    }
+
     pub(crate) fn call(
         span: FrozenFileSpan,
         fun: ExprCompiled,
@@ -186,6 +207,10 @@ impl CallCompiled {
             }
         }
 
+        if let Some(r) = CallCompiled::try_spec_exec(span, &fun, &args, ctx) {
+            return r;
+        }
+
         ExprCompiled::Call(box IrSpanned {
             span,
             node: CallCompiled {
@@ -206,31 +231,12 @@ impl IrSpanned<CallCompiled> {
 }
 
 impl Compiler<'_, '_, '_> {
-    fn try_spec_exec(
-        &mut self,
-        span: FrozenFileSpan,
-        fun: FrozenValue,
-        args: &ArgsCompiledValue,
-    ) -> Option<ExprCompiled> {
-        // Only if all call arguments are frozen values.
-        args.all_values(|arguments| {
-            let v = fun.to_value().invoke(arguments, self.eval).ok()?;
-            ExprCompiled::try_value(span, v, self.eval.module_env.frozen_heap())
-        })?
-    }
-
     fn expr_call_fun_frozen_no_special(
         &mut self,
         span: FrozenFileSpan,
         fun: FrozenValue,
         args: ArgsCompiledValue,
     ) -> ExprCompiled {
-        if fun.speculative_exec_safe() {
-            if let Some(expr) = self.try_spec_exec(span, fun, &args) {
-                return expr;
-            }
-        }
-
         CallCompiled::call(
             span,
             ExprCompiled::Value(fun),

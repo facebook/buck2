@@ -75,4 +75,8 @@ impl<'v, 'a, 'e> OptCtx<'v, 'a, 'e> {
     pub(crate) fn frozen_heap(&self) -> &FrozenHeap {
         self.eval.frozen_heap()
     }
+
+    pub(crate) fn eval(&mut self) -> Option<&mut Evaluator<'v, 'a>> {
+        self.eval.eval()
+    }
 }
