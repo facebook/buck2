@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use std::{cell::RefCell, rc::Rc, sync::Arc};
+use std::{cell::RefCell, sync::Arc};
 
 use buck2_core::{package::Package, target::TargetLabel};
 use buck2_interpreter::{
@@ -168,9 +168,8 @@ impl ModuleInternals {
 }
 
 // Records the targets declared when evaluating a build file.
-#[derive(Clone, Dupe)]
 pub struct TargetsRecorder {
-    targets: Rc<RefCell<TargetsMap>>,
+    targets: RefCell<TargetsMap>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -182,7 +181,7 @@ enum TargetsError {
 impl TargetsRecorder {
     fn new() -> Self {
         Self {
-            targets: Rc::new(RefCell::new(TargetsMap::new())),
+            targets: RefCell::new(TargetsMap::new()),
         }
     }
 
