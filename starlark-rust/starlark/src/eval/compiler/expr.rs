@@ -1158,7 +1158,11 @@ impl Compiler<'_, '_, '_> {
 
                 ExprCompiled::dot(left, &s, &mut OptCtx::new(self.eval))
             }
-            ExprP::Call(box left, args) => self.expr_call(span, left, args),
+            ExprP::Call(box left, args) => {
+                let left = self.expr(left);
+                let args = self.args(args);
+                CallCompiled::call(span, left, args, &mut OptCtx::new(self.eval))
+            }
             ExprP::ArrayIndirection(box (array, index)) => {
                 let array = self.expr(array);
                 let index = self.expr(index);

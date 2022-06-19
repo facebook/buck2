@@ -29,10 +29,8 @@ use crate::{
             def_inline::{InlineDefBody, InlineDefCallSite},
             expr::ExprCompiled,
             opt_ctx::OptCtx,
-            scope::{CstArgument, CstExpr},
             span::IrSpanned,
             stmt::OptimizeOnFreezeContext,
-            Compiler,
         },
         runtime::{
             call_stack::FrozenFileSpan, inlined_frame::InlinedFrameAlloc, visit_span::VisitSpanMut,
@@ -274,18 +272,5 @@ impl IrSpanned<CallCompiled> {
         let expr = expr.optimize_on_freeze(ctx);
         let args = args.optimize_on_freeze(ctx);
         CallCompiled::call(self.span, expr, args, &mut OptCtx::new(ctx))
-    }
-}
-
-impl Compiler<'_, '_, '_> {
-    pub(crate) fn expr_call(
-        &mut self,
-        span: FrozenFileSpan,
-        left: CstExpr,
-        args: Vec<CstArgument>,
-    ) -> ExprCompiled {
-        let expr = self.expr(left);
-        let args = self.args(args);
-        CallCompiled::call(span, expr, args, &mut OptCtx::new(self.eval))
     }
 }
