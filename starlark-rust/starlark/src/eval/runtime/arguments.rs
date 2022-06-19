@@ -967,7 +967,14 @@ impl<'v, 'a> Arguments<'v, 'a> {
             None => {
                 let mut result = SmallMap::with_capacity(self.0.names.len());
                 for (k, v) in self.0.names.iter().zip(self.0.named) {
-                    result.insert_hashed(Hashed::new_unchecked(k.0.small_hash(), k.1), *v);
+                    let old =
+                        result.insert_hashed(Hashed::new_unchecked(k.0.small_hash(), k.1), *v);
+                    if unlikely(old.is_some()) {
+                        return Err(FunctionError::RepeatedArg {
+                            name: k.1.as_str().to_owned(),
+                        }
+                        .into());
+                    }
                 }
                 Ok(result)
             }
@@ -981,7 +988,14 @@ impl<'v, 'a> Arguments<'v, 'a> {
                     // We have to insert the names before the kwargs since the iteration order is observable
                     let mut result = SmallMap::with_capacity(self.0.names.len() + kwargs.len());
                     for (k, v) in self.0.names.iter().zip(self.0.named) {
-                        result.insert_hashed(Hashed::new_unchecked(k.0.small_hash(), k.1), *v);
+                        let old =
+                            result.insert_hashed(Hashed::new_unchecked(k.0.small_hash(), k.1), *v);
+                        if unlikely(old.is_some()) {
+                            return Err(FunctionError::RepeatedArg {
+                                name: k.1.as_str().to_owned(),
+                            }
+                            .into());
+                        }
                     }
                     for (k, v) in kwargs.iter_hashed() {
                         let s = Arguments::unpack_kwargs_key_as_value(*k.key())?;
@@ -1265,7 +1279,12 @@ impl<'a> Arguments<'static, 'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{assert::Assert, eval::compiler::def::FrozenDef, values::FrozenValue};
+    use crate::{
+        assert::Assert,
+        const_frozen_string,
+        eval::compiler::def::FrozenDef,
+        values::{FrozenValue, StringValueLike},
+    };
 
     #[test]
     fn test_parameter_unpack() {
@@ -1541,5 +1560,30 @@ mod tests {
         test("**kwargs", 1, &[], false);
 
         // No test for positional-only args because we can't create them in starlark.
+    }
+
+    #[test]
+    fn test_names_map_repeated_name_in_arg_names() {
+        let named = vec![Value::new_int(10), Value::new_bool(true)];
+        let names = vec![
+            (
+                Symbol::new("a"),
+                const_frozen_string!("a").to_string_value(),
+            ),
+            (
+                Symbol::new("a"),
+                const_frozen_string!("a").to_string_value(),
+            ),
+        ];
+        let error = Arguments(ArgumentsFull {
+            pos: &[],
+            named: &named,
+            names: ArgNames::new(&names),
+            args: None,
+            kwargs: None,
+        })
+        .names_map()
+        .unwrap_err();
+        assert!(error.to_string().contains("occurs more than once"));
     }
 }
