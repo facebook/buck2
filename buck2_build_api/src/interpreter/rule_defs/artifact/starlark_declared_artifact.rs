@@ -14,6 +14,7 @@ use buck2_core::{
     fs::paths::ForwardRelativePath,
     provider::{ConfiguredProvidersLabel, ProvidersName},
 };
+use buck2_interpreter::types::label::Label;
 use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{
     codemap::FileSpan,
@@ -39,7 +40,6 @@ use crate::{
             CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder,
             WriteToFileMacroVisitor,
         },
-        label::Label,
     },
 };
 

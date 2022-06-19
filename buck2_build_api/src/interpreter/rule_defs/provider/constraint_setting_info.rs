@@ -16,13 +16,12 @@
 use std::fmt::Debug;
 
 use buck2_build_api_derive::internal_provider;
+use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use gazebo::{any::ProvidesStaticType, coerce::Coerce};
 use starlark::{
     environment::GlobalsBuilder,
     values::{Freeze, Trace, ValueLike, ValueOf, ValueTyped},
 };
-
-use crate::interpreter::rule_defs::target_label::StarlarkTargetLabel;
 
 /// Provider that signals that a target can be used as a constraint key. This is the only provider
 /// returned by a `constraint_setting()` target.

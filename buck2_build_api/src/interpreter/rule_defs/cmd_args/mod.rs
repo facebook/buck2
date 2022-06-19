@@ -9,6 +9,7 @@
 
 use std::{any::TypeId, fmt::Debug};
 
+use buck2_interpreter::types::label_relative_path::LabelRelativePath;
 use gazebo::prelude::*;
 use starlark::{
     environment::GlobalsBuilder,
@@ -25,7 +26,6 @@ use crate::{
         },
         artifact_tagging::{FrozenTaggedArtifacts, TaggedArtifacts},
         cmd_args::options::QuoteStyle,
-        label_relative_path::LabelRelativePath,
         provider::run_info::{FrozenRunInfo, RunInfo},
         transitive_set::{FrozenTransitiveSetArgsProjection, TransitiveSetArgsProjection},
     },

@@ -17,6 +17,7 @@ use buck2_core::{
     provider::{ConfiguredProvidersLabel, ProvidersLabelMaybeConfigured},
     target::{TargetLabel, TargetLabelMaybeConfigured},
 };
+use buck2_interpreter::types::label::{Label, LabelGen};
 use gazebo::prelude::*;
 use starlark::{
     collections::{SmallMap, SmallSet},
@@ -42,10 +43,7 @@ use crate::{
         CoercedPath, ConfiguredAttr,
     },
     interpreter::rule_defs::{
-        artifact::StarlarkArtifact,
-        label::{Label, LabelGen},
-        provider::DependencyGen,
-        transition::id::TransitionId,
+        artifact::StarlarkArtifact, provider::DependencyGen, transition::id::TransitionId,
     },
     path::BuckPath,
 };

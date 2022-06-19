@@ -7,9 +7,8 @@
  * of this source tree.
  */
 
-use buck2_build_api::{
-    interpreter::rule_defs::target_label::StarlarkTargetLabel, nodes::unconfigured::TargetNode,
-};
+use buck2_build_api::nodes::unconfigured::TargetNode;
+use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use derive_more::Display;
 use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{

@@ -17,6 +17,7 @@ use buck2_core::fs::{
     paths::{RelativePath, RelativePathBuf},
     project::ProjectRelativePathBuf,
 };
+use buck2_interpreter::types::cell_root::CellRoot;
 use derive_more::Display;
 use gazebo::prelude::*;
 use serde::{Serialize, Serializer};
@@ -26,7 +27,6 @@ use crate::{
     actions::artifact::ExecutorFs,
     interpreter::rule_defs::{
         artifact::{StarlarkArtifactLike, ValueAsArtifactLike},
-        cell_root::CellRoot,
         cmd_args::{traits::CommandLineBuilderContext, CommandLineBuilder, CommandLineLocation},
         util::commas,
     },

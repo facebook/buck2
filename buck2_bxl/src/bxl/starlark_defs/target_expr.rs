@@ -2,11 +2,11 @@ use std::borrow::Cow;
 
 use buck2_build_api::{
     calculation::Calculation,
-    interpreter::rule_defs::target_label::{StarlarkConfiguredTargetLabel, StarlarkTargetLabel},
     nodes::{configured::ConfiguredTargetNode, unconfigured::TargetNode},
     query::cquery::environment::CqueryEnvironment,
 };
 use buck2_core::target::TargetLabel;
+use buck2_interpreter::types::target_label::{StarlarkConfiguredTargetLabel, StarlarkTargetLabel};
 use buck2_query::query::{
     environment::{QueryEnvironment, QueryTarget},
     syntax::simple::eval::set::TargetSet,

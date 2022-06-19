@@ -17,7 +17,6 @@ use buck2_build_api::{
     analysis::registry::AnalysisRegistry,
     interpreter::rule_defs::{
         artifact::starlark_artifact_like::ValueAsArtifactLike, context::AnalysisActions,
-        label::Label,
     },
     query::dice::DiceQueryDelegate,
 };
@@ -33,6 +32,7 @@ use buck2_core::{
     target::TargetLabel,
 };
 use buck2_docs_gen::Buck2Docs;
+use buck2_interpreter::types::label::Label;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;

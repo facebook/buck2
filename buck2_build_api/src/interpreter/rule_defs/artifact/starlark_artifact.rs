@@ -10,6 +10,7 @@
 use std::fmt::Display;
 
 use buck2_core::provider::{ConfiguredProvidersLabel, ProvidersName};
+use buck2_interpreter::types::label::Label;
 use gazebo::{any::ProvidesStaticType, prelude::*};
 use serde::{Serialize, Serializer};
 use starlark::{
@@ -32,7 +33,6 @@ use crate::{
             CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder,
             WriteToFileMacroVisitor,
         },
-        label::Label,
     },
 };
 

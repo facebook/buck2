@@ -14,9 +14,7 @@ use buck2_build_api::{
     actions::artifact::{Artifact, SourceArtifact},
     attrs::{attr_type::attr_literal::ConfiguredAttrTraversal, configured_attr::ConfiguredAttr},
     deferred::AnyValue,
-    interpreter::rule_defs::{
-        artifact::StarlarkArtifact, target_label::StarlarkConfiguredTargetLabel,
-    },
+    interpreter::rule_defs::artifact::StarlarkArtifact,
     nodes::configured::ConfiguredTargetNode,
     path::BuckPath,
 };
@@ -26,6 +24,7 @@ use buck2_core::{
     fs::{paths::AbsPath, project::ProjectRelativePath},
     provider::ConfiguredProvidersLabel,
 };
+use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use derive_more::Display;
 use gazebo::{any::ProvidesStaticType, prelude::*};
 use starlark::{

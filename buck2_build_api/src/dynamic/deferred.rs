@@ -10,6 +10,7 @@
 use std::{mem, sync::Arc};
 
 use buck2_core::provider::{ConfiguredProvidersLabel, ProvidersName};
+use buck2_interpreter::types::label::LabelGen;
 use gazebo::prelude::*;
 use indexmap::{indexset, IndexSet};
 use starlark::{
@@ -33,7 +34,6 @@ use crate::{
     interpreter::rule_defs::{
         artifact::{StarlarkArtifact, StarlarkArtifactValue, StarlarkDeclaredArtifact},
         context::AnalysisContext,
-        label::LabelGen,
     },
 };
 

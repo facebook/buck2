@@ -1,9 +1,9 @@
 use anyhow::Context;
-use buck2_build_api::interpreter::rule_defs::{
+use buck2_core::provider::{ConfiguredProvidersLabel, ProviderName, ProvidersLabel, ProvidersName};
+use buck2_interpreter::types::{
     label::{Label, StarlarkProvidersLabel},
     target_label::{StarlarkConfiguredTargetLabel, StarlarkTargetLabel},
 };
-use buck2_core::provider::{ConfiguredProvidersLabel, ProviderName, ProvidersLabel, ProvidersName};
 use gazebo::prelude::*;
 use starlark::{
     environment::GlobalsBuilder,

@@ -7,29 +7,9 @@
  * of this source tree.
  */
 
-use buck2_core::cells::paths::CellPath;
-use derive_more::Display;
-use gazebo::any::ProvidesStaticType;
-use starlark::{
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    values::{NoSerialize, StarlarkValue},
-};
+use buck2_interpreter::types::label_relative_path::LabelRelativePath;
 
 use crate::interpreter::rule_defs::cmd_args::{CommandLineArgLike, CommandLineBuilder};
-
-#[derive(Debug, PartialEq, Display, ProvidesStaticType, NoSerialize)]
-pub struct LabelRelativePath(pub CellPath);
-
-starlark_simple_value!(LabelRelativePath);
-
-impl<'v> StarlarkValue<'v> for LabelRelativePath {
-    starlark_type!("label_relative_path");
-
-    fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(label_relative_path_methods)
-    }
-}
 
 impl CommandLineArgLike for LabelRelativePath {
     fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
@@ -46,12 +26,5 @@ impl CommandLineArgLike for LabelRelativePath {
         _visitor: &mut dyn crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor,
     ) -> anyhow::Result<()> {
         Ok(())
-    }
-}
-
-#[starlark_module]
-fn label_relative_path_methods(builder: &mut MethodsBuilder) {
-    fn add(this: &LabelRelativePath, arg: &str) -> anyhow::Result<LabelRelativePath> {
-        Ok(LabelRelativePath((*this).0.join_normalized(arg)?))
     }
 }

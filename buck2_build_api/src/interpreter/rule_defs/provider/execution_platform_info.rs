@@ -11,6 +11,7 @@ use std::fmt::Debug;
 
 use buck2_build_api_derive::internal_provider;
 use buck2_core::{configuration::Configuration, target::TargetLabel};
+use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use gazebo::{any::ProvidesStaticType, coerce::Coerce, prelude::*};
 use starlark::{
     environment::GlobalsBuilder,
@@ -22,7 +23,7 @@ use crate::{
     configuration::execution::ExecutionPlatform,
     interpreter::rule_defs::{
         command_executor_config::StarlarkCommandExecutorConfigLike,
-        provider::configuration_info::ConfigurationInfo, target_label::StarlarkTargetLabel,
+        provider::configuration_info::ConfigurationInfo,
     },
 };
 

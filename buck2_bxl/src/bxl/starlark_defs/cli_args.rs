@@ -16,12 +16,10 @@ use std::{
 };
 
 use anyhow::Context as _;
-use buck2_build_api::interpreter::rule_defs::{
-    label::StarlarkProvidersLabel, target_label::StarlarkTargetLabel,
-};
 pub use buck2_bxl_core::CliArgValue;
-use buck2_interpreter::pattern::{
-    lex_target_pattern, ParsedPattern, ProvidersPattern, TargetPattern,
+use buck2_interpreter::{
+    pattern::{lex_target_pattern, ParsedPattern, ProvidersPattern, TargetPattern},
+    types::{label::StarlarkProvidersLabel, target_label::StarlarkTargetLabel},
 };
 use derive_more::Display;
 use gazebo::{any::ProvidesStaticType, prelude::*, variants::VariantName};
@@ -475,12 +473,12 @@ pub fn register_cli_args_module(registry: &mut GlobalsBuilder) {
 mod tests {
     use std::collections::HashSet;
 
-    use buck2_build_api::interpreter::rule_defs::{
-        label::StarlarkProvidersLabel, target_label::StarlarkTargetLabel,
-    };
     use buck2_core::{
         provider::{testing::ProvidersLabelTestExt, ProvidersLabel},
         target::{testing::TargetLabelExt, TargetLabel},
+    };
+    use buck2_interpreter::types::{
+        label::StarlarkProvidersLabel, target_label::StarlarkTargetLabel,
     };
     use starlark::values::{Heap, Value};
 

@@ -1,9 +1,5 @@
 use buck2_build_api::{
     calculation::Calculation,
-    interpreter::rule_defs::{
-        label::{Label, StarlarkProvidersLabel},
-        target_label::StarlarkTargetLabel,
-    },
     nodes::{configured::ConfiguredTargetNode, unconfigured::TargetNode},
 };
 use buck2_core::{
@@ -12,7 +8,13 @@ use buck2_core::{
     provider::{ConfiguredProvidersLabel, ProvidersLabel, ProvidersName},
     target::TargetLabel,
 };
-use buck2_interpreter::pattern::{ParsedPattern, ProvidersPattern};
+use buck2_interpreter::{
+    pattern::{ParsedPattern, ProvidersPattern},
+    types::{
+        label::{Label, StarlarkProvidersLabel},
+        target_label::StarlarkTargetLabel,
+    },
+};
 use gazebo::dupe::Dupe;
 use itertools::Either;
 use starlark::{

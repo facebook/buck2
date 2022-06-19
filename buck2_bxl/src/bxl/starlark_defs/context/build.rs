@@ -5,9 +5,10 @@ use std::sync::Arc;
 use buck2_build_api::{
     build::{build_configured_label, MaterializationContext, ProvidersToBuild},
     bxl::build_result::BxlBuildResult,
-    interpreter::rule_defs::{artifact::StarlarkArtifact, label::Label},
+    interpreter::rule_defs::artifact::StarlarkArtifact,
 };
 use buck2_core::result::ToSharedResultExt;
+use buck2_interpreter::types::label::Label;
 use derive_more::Display;
 use gazebo::{any::ProvidesStaticType, coerce::Coerce, dupe::Dupe};
 use starlark::{

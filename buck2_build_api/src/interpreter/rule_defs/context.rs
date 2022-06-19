@@ -19,6 +19,7 @@ use buck2_core::{
     category::Category,
     fs::paths::{ForwardRelativePathBuf, RelativePathBuf},
 };
+use buck2_interpreter::types::label::Label;
 use derive_more::Display;
 use gazebo::{any::ProvidesStaticType, prelude::*};
 use indexmap::{indexset, IndexSet};
@@ -65,7 +66,6 @@ use crate::{
             SimpleCommandLineArtifactVisitor, StarlarkCommandLine, ValueAsCommandLineLike,
             WriteToFileMacroVisitor,
         },
-        label::Label,
     },
 };
 
@@ -858,6 +858,7 @@ mod tests {
         provider::{ConfiguredProvidersLabel, ProvidersName},
         target::{testing::TargetLabelExt, TargetLabel},
     };
+    use buck2_interpreter::types::label::LabelGen;
     use gazebo::prelude::*;
     use indoc::indoc;
     use starlark::{
@@ -870,10 +871,8 @@ mod tests {
 
     use crate::{
         analysis::registry::AnalysisRegistry,
-        configuration::execution::ExecutionPlatformResolution,
-        deferred::BaseDeferredKey,
-        interpreter::rule_defs::{context::AnalysisContext, label::LabelGen},
-        starlark::values::UnpackValue,
+        configuration::execution::ExecutionPlatformResolution, deferred::BaseDeferredKey,
+        interpreter::rule_defs::context::AnalysisContext, starlark::values::UnpackValue,
     };
 
     fn run_ctx_test(

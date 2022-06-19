@@ -20,9 +20,7 @@ use starlark::{
     values::{Heap, StarlarkValue, Value, ValueError, ValueLike},
 };
 
-use crate::{
-    interpreter::rule_defs::label_relative_path::LabelRelativePath, starlark::values::AllocValue,
-};
+use crate::{starlark::values::AllocValue, types::label_relative_path::LabelRelativePath};
 
 #[derive(
     Clone,

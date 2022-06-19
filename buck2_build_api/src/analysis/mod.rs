@@ -44,13 +44,12 @@ use crate::{
 pub mod calculation;
 pub(crate) mod configured_graph;
 pub mod registry;
-
+use buck2_interpreter::types::label::LabelGen;
 pub use calculation::{profile_analysis, resolve_queries};
 use starlark::values::ValueTyped;
 
 use crate::{
     deferred::BaseDeferredKey,
-    interpreter::rule_defs::label::LabelGen,
     nodes::{configured::ConfiguredTargetNode, StarlarkRuleType},
 };
 

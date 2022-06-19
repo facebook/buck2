@@ -26,6 +26,7 @@ rust_library(
         "fbsource//third-party/rust:once_cell",
         "fbsource//third-party/rust:ref-cast",
         "fbsource//third-party/rust:regex",
+        "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:sha2",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",

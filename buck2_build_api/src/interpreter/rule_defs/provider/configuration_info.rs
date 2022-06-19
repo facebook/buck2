@@ -15,6 +15,7 @@ use buck2_core::configuration::{
     constraints::{ConstraintKey, ConstraintValue},
     ConfigurationData,
 };
+use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use gazebo::{
     any::ProvidesStaticType,
     coerce::{coerce, Coerce},
@@ -31,11 +32,8 @@ use starlark::{
 };
 use thiserror::Error;
 
-use crate::interpreter::rule_defs::{
-    provider::{
-        constraint_setting_info::ConstraintSettingInfo, constraint_value_info::ConstraintValueInfo,
-    },
-    target_label::StarlarkTargetLabel,
+use crate::interpreter::rule_defs::provider::{
+    constraint_setting_info::ConstraintSettingInfo, constraint_value_info::ConstraintValueInfo,
 };
 
 /// Provider that signals that a rule contains configuration info. This is used both as part of

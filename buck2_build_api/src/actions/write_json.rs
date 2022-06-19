@@ -18,6 +18,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_common::file_ops::{FileDigest, FileMetadata, TrackedFileDigest};
 use buck2_core::category::Category;
+use buck2_interpreter::types::{label::Label, target_label::StarlarkTargetLabel};
 use gazebo::prelude::*;
 use indexmap::{indexmap, IndexMap, IndexSet};
 use itertools::Itertools;
@@ -44,8 +45,6 @@ use crate::{
             BaseCommandLineBuilder, FrozenStarlarkCommandLine, StarlarkCommandLine,
             ValueAsCommandLineLike,
         },
-        label::Label,
-        target_label::StarlarkTargetLabel,
     },
 };
 

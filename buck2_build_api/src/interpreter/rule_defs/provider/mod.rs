@@ -69,6 +69,7 @@ use buck2_core::{
     cells::paths::CellPath,
     provider::{ConfiguredProvidersLabel, ProviderName},
 };
+use buck2_interpreter::types::label::Label;
 use gazebo::{any::ProvidesStaticType, coerce::Coerce, dupe::Dupe};
 use serde::{Serialize, Serializer};
 use starlark::{
@@ -86,9 +87,8 @@ use starlark::{
     },
 };
 
-use crate::interpreter::rule_defs::{
-    label::Label,
-    provider::default_info::{DefaultInfo, DefaultInfoCallable, FrozenDefaultInfo},
+use crate::interpreter::rule_defs::provider::default_info::{
+    DefaultInfo, DefaultInfoCallable, FrozenDefaultInfo,
 };
 
 pub mod configuration_info;
