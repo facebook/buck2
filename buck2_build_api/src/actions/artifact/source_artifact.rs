@@ -1,9 +1,8 @@
 use std::{hash::Hash, sync::Arc};
 
+use buck2_core::buck_path::BuckPath;
 use derive_more::Display;
 use gazebo::prelude::*;
-
-use crate::path::BuckPath;
 
 /// An artifact in the source tree
 #[derive(Clone, Debug, Display, Dupe, Hash, PartialEq, Eq, PartialOrd, Ord)]

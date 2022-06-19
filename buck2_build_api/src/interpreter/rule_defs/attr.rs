@@ -16,6 +16,7 @@ use std::{
 
 use anyhow::Context;
 use buck2_core::{
+    buck_path::BuckPath,
     cells::CellAliasResolver,
     package::{Package, PackageRelativePathBuf},
     provider::ProvidersLabel,
@@ -55,7 +56,6 @@ use crate::{
         rule::RuleError,
         transition::starlark::Transition,
     },
-    path::BuckPath,
 };
 
 const OPTION_NONE_EXPLANATION: &str = "`None` as an attribute value always picks the default. For `attr.option`, if the default isn't `None`, there is no way to express `None`.";
@@ -740,6 +740,7 @@ pub mod testing {
 #[cfg(test)]
 mod tests {
     use buck2_core::{
+        buck_path::BuckPath,
         cells::paths::CellRelativePath,
         package::{Package, PackageRelativePathBuf},
         result::SharedResult,
@@ -756,7 +757,6 @@ mod tests {
             testing::{cells, run_starlark_bzl_test, run_starlark_bzl_test_expecting_error},
         },
         nodes::hacks::value_to_string,
-        path::BuckPath,
     };
 
     #[test]

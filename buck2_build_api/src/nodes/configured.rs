@@ -10,6 +10,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use buck2_core::{
+    buck_path::BuckPath,
     cells::paths::CellPath,
     configuration::Configuration,
     provider::{ConfiguredProvidersLabel, ProvidersLabel, ProvidersName},
@@ -40,7 +41,6 @@ use crate::{
         unconfigured::TargetNode,
         RuleType,
     },
-    path::BuckPath,
 };
 
 /// ConfiguredTargetNode contains the information for a target in a particular configuration.

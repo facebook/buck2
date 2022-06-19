@@ -219,15 +219,15 @@ impl PristineActionExecutable for SymlinkedDirAction {
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::package::{testing::PackageExt, Package, PackageRelativePathBuf};
+    use buck2_core::{
+        buck_path::BuckPath,
+        package::{testing::PackageExt, Package, PackageRelativePathBuf},
+    };
 
     use super::*;
-    use crate::{
-        actions::{
-            artifact::{Artifact, SourceArtifact},
-            ArtifactGroup,
-        },
-        path::BuckPath,
+    use crate::actions::{
+        artifact::{Artifact, SourceArtifact},
+        ArtifactGroup,
     };
 
     fn mk_artifact() -> Artifact {

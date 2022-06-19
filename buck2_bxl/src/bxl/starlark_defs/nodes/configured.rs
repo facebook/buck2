@@ -16,10 +16,10 @@ use buck2_build_api::{
     deferred::AnyValue,
     interpreter::rule_defs::artifact::StarlarkArtifact,
     nodes::configured::ConfiguredTargetNode,
-    path::BuckPath,
 };
 use buck2_common::dice::{cells::HasCellResolver, data::HasIoProvider};
 use buck2_core::{
+    buck_path::BuckPath,
     cells::paths::CellPath,
     fs::{paths::AbsPath, project::ProjectRelativePath},
     provider::ConfiguredProvidersLabel,

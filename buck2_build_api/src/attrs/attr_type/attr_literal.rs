@@ -14,6 +14,7 @@ use std::{
 };
 
 use buck2_core::{
+    buck_path::BuckPath,
     provider::{ConfiguredProvidersLabel, ProvidersLabelMaybeConfigured},
     target::{TargetLabel, TargetLabelMaybeConfigured},
 };
@@ -45,7 +46,6 @@ use crate::{
     interpreter::rule_defs::{
         artifact::StarlarkArtifact, provider::DependencyGen, transition::id::TransitionId,
     },
-    path::BuckPath,
 };
 
 pub trait AttrLike: Display + Debug + Clone + Eq + PartialEq + Hash + Send + Sync {}

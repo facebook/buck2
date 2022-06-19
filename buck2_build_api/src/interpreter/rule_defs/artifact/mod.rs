@@ -48,6 +48,7 @@ pub mod testing {
     use std::convert::TryFrom;
 
     use buck2_core::{
+        buck_path::BuckPath,
         category::Category,
         cells::paths::CellRelativePath,
         configuration::Configuration,
@@ -87,7 +88,7 @@ pub mod testing {
             },
             testing::cells,
         },
-        path::{BuckOutPathResolver, BuckPath, BuckPathResolver},
+        path::{BuckOutPathResolver, BuckPathResolver},
     };
 
     fn get_label(eval: &Evaluator, target: &str) -> anyhow::Result<ConfiguredTargetLabel> {

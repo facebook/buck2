@@ -14,47 +14,19 @@ use std::{
 };
 
 use buck2_core::{
+    buck_path::BuckPath,
     category::Category,
     cells::{paths::CellPath, CellResolver},
     fs::{
         paths::{ForwardRelativePath, ForwardRelativePathBuf},
         project::{ProjectRelativePath, ProjectRelativePathBuf},
     },
-    package::{Package, PackageRelativePath, PackageRelativePathBuf},
 };
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::prelude::*;
 
 use crate::deferred::BaseDeferredKey;
-
-/// Represents a resolvable path corresponding to some path that is part of a
-/// 'Package'. The 'BuckPath' refers to only paths in the repo source, not
-/// outputs of a 'Package'.
-#[derive(Clone, Debug, Display, Hash, Eq, PartialEq, Ord, PartialOrd)]
-#[display(fmt = "{}/{}", pkg, "path.as_str()")]
-pub struct BuckPath {
-    pkg: Package,
-    path: PackageRelativePathBuf,
-}
-
-impl BuckPath {
-    pub fn new(pkg: Package, path: PackageRelativePathBuf) -> Self {
-        BuckPath { pkg, path }
-    }
-
-    pub fn package(&self) -> &Package {
-        &self.pkg
-    }
-
-    pub fn path(&self) -> &PackageRelativePath {
-        &self.path
-    }
-
-    pub fn to_cell_path(&self) -> CellPath {
-        self.pkg.as_cell_path().join_unnormalized(&self.path)
-    }
-}
 
 /// Represents a resolvable path corresponding to outputs of rules that are part
 /// of a `Package`. The `BuckOutPath` refers to only the outputs of rules,
@@ -235,8 +207,8 @@ impl BuckPathResolver {
     pub fn resolve(&self, path: &BuckPath) -> anyhow::Result<ProjectRelativePathBuf> {
         Ok(self
             .0
-            .resolve_package(&path.pkg)?
-            .join_unnormalized(&path.path))
+            .resolve_package(path.package())?
+            .join_unnormalized(&path.path()))
     }
 
     pub fn resolve_cell_path(&self, path: &CellPath) -> anyhow::Result<ProjectRelativePathBuf> {
@@ -458,6 +430,7 @@ mod tests {
     use std::sync::Arc;
 
     use buck2_core::{
+        buck_path::BuckPath,
         category::Category,
         cells::{paths::CellRelativePath, testing::CellResolverExt, CellName, CellResolver},
         configuration::Configuration,
@@ -470,7 +443,7 @@ mod tests {
 
     use crate::{
         deferred::BaseDeferredKey,
-        path::{BuckOutPath, BuckOutPathResolver, BuckOutScratchPath, BuckPath, BuckPathResolver},
+        path::{BuckOutPath, BuckOutPathResolver, BuckOutScratchPath, BuckPathResolver},
     };
 
     #[test]

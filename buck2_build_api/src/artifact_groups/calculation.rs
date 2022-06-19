@@ -16,7 +16,7 @@ use buck2_common::{
     dice::file_ops::HasFileOps,
     file_ops::{FileOps, PathMetadata},
 };
-use buck2_core::{directory::DirectoryData, result::SharedResult};
+use buck2_core::{buck_path::BuckPath, directory::DirectoryData, result::SharedResult};
 use derive_more::Display;
 use dice::{DiceComputations, Key};
 use futures::stream::FuturesOrdered;
@@ -36,7 +36,6 @@ use crate::{
     artifact_groups::{ArtifactGroup, ArtifactGroupValues, TransitiveSetProjectionKey},
     deferred::calculation::DeferredCalculation,
     keep_going,
-    path::BuckPath,
 };
 
 #[async_trait]

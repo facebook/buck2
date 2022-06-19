@@ -55,6 +55,7 @@ use attr_type::{
     split_transition_dep::{ConfiguredSplitTransitionDep, SplitTransitionDep},
 };
 use buck2_core::{
+    buck_path::BuckPath,
     configuration::{Configuration, ConfigurationData},
     provider::{ConfiguredProvidersLabel, ProvidersLabel, ProvidersName},
     result::{SharedResult, ToSharedResultExt},
@@ -78,7 +79,6 @@ use crate::{
         provider::FrozenProviderCollectionValue,
         transition::{applied::TransitionApplied, id::TransitionId},
     },
-    path::BuckPath,
 };
 
 pub mod attr_type;

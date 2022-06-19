@@ -14,10 +14,10 @@ use buck2_build_api::{
     interpreter::rule_defs::{
         artifact::StarlarkArtifact, context::AnalysisContext, provider::ProviderCallable,
     },
-    path::BuckPath,
 };
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::{
+    buck_path::BuckPath,
     cells::{
         paths::{CellPath, CellRelativePath},
         CellAliasResolver, CellName,

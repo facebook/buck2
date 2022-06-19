@@ -5,7 +5,7 @@ use futures::{
 };
 use tokio::{
     io::{AsyncRead, AsyncWrite},
-    sync::mpsc::{self},
+    sync::mpsc,
     task::JoinHandle,
 };
 use tonic::transport::server::Router;

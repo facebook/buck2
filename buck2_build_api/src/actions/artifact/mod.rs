@@ -30,17 +30,16 @@ use std::{
 };
 
 use anyhow::{anyhow, Context as _};
-use buck2_core::fs::paths::{FileName, ForwardRelativePath, ForwardRelativePathBuf};
+use buck2_core::{
+    buck_path::BuckPath,
+    fs::paths::{FileName, ForwardRelativePath, ForwardRelativePathBuf},
+};
 use derive_more::{Display, From};
 use either::Either;
 use gazebo::{cell::ARef, cmp_chain, eq_chain, hash::Hashed, prelude::*};
 use thiserror::Error;
 
-use crate::{
-    actions::ActionKey,
-    deferred::BaseDeferredKey,
-    path::{BuckOutPath, BuckPath},
-};
+use crate::{actions::ActionKey, deferred::BaseDeferredKey, path::BuckOutPath};
 
 mod artifact_value;
 pub use artifact_value::ArtifactValue;
@@ -579,6 +578,7 @@ mod tests {
 
     use assert_matches::assert_matches;
     use buck2_core::{
+        buck_path::BuckPath,
         cells::{testing::CellResolverExt, CellName, CellResolver},
         configuration::Configuration,
         fs::{
@@ -602,7 +602,7 @@ mod tests {
             testing::{DeferredDataExt, DeferredIdExt},
             BaseDeferredKey, DeferredId, DeferredKey,
         },
-        path::{BuckOutPath, BuckOutPathResolver, BuckPath, BuckPathResolver},
+        path::{BuckOutPath, BuckOutPathResolver, BuckPathResolver},
     };
 
     #[test]

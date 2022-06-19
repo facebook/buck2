@@ -316,6 +316,7 @@ mod tests {
         },
     };
     use buck2_core::{
+        buck_path::BuckPath,
         category::Category,
         cells::{
             paths::{CellPath, CellRelativePathBuf},
@@ -364,7 +365,6 @@ mod tests {
             materializer::{nodisk::NoDiskMaterializer, SetMaterializer},
             CommandExecutorConfig,
         },
-        path::BuckPath,
     };
 
     fn create_test_build_artifact(

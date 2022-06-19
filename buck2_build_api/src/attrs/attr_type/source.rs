@@ -10,7 +10,7 @@
 use std::hash::Hash;
 
 use anyhow::anyhow;
-use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::{buck_path::BuckPath, provider::ConfiguredProvidersLabel};
 use gazebo::prelude::*;
 use starlark::values::{list::FrozenList, string::STRING_TYPE, Value};
 use thiserror::Error;
@@ -22,7 +22,6 @@ use crate::{
         AttrCoercionContext, AttrResolutionContext, CoercedAttr,
     },
     interpreter::rule_defs::artifact::StarlarkArtifact,
-    path::BuckPath,
 };
 
 #[derive(Error, Debug)]

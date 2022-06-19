@@ -710,6 +710,7 @@ mod tests {
 
     use async_trait::async_trait;
     use buck2_core::{
+        buck_path::BuckPath,
         category::Category,
         cells::{paths::CellRelativePath, testing::CellResolverExt, CellName, CellResolver},
         configuration::Configuration,
@@ -750,7 +751,7 @@ mod tests {
             ActionExecutor, ActionOutputs, BuckActionExecutor, CommandExecutorConfig,
             PathSeparatorKind,
         },
-        path::{BuckOutPathResolver, BuckPath, BuckPathResolver},
+        path::{BuckOutPathResolver, BuckPathResolver},
     };
 
     #[tokio::test]

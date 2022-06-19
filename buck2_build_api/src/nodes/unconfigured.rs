@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_core::{
+    buck_path::BuckPath,
     cells::paths::CellPath,
     provider::ProvidersLabel,
     target::{TargetLabel, TargetName},
@@ -47,7 +48,6 @@ use crate::{
         visibility::{VisibilityPattern, VisibilitySpecification},
         RuleType, StarlarkRuleType,
     },
-    path::BuckPath,
 };
 
 /// Map of target -> details of those targets within a build file.
