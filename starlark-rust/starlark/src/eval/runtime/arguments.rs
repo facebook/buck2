@@ -43,7 +43,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Error)]
-pub(crate) enum FunctionError {
+enum FunctionError {
     #[error("Missing parameter `{name}` for call to {function}")]
     MissingParameter { name: String, function: String },
     #[error("Found {count} extra positional parameter(s) for call to {function}")]
