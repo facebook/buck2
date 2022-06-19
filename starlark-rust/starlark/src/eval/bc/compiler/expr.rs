@@ -110,9 +110,6 @@ impl ExprCompiled {
             ExprCompiled::Local(local) => bc.mark_definitely_assigned(*local),
             ExprCompiled::LocalCaptured(_) => {}
             ExprCompiled::Module(_) => {}
-            ExprCompiled::TypeIs(v, _t) => {
-                v.mark_definitely_assigned_after(bc);
-            }
             ExprCompiled::Tuple(xs) | ExprCompiled::List(xs) => {
                 for x in xs {
                     x.mark_definitely_assigned_after(bc);
@@ -299,11 +296,6 @@ impl IrSpanned<ExprCompiled> {
             ExprCompiled::Module(slot) => {
                 bc.write_instr::<InstrLoadModule>(span, (slot, target));
             }
-            ExprCompiled::TypeIs(box ref v, t) => {
-                v.write_bc_cb(bc, |v, bc| {
-                    bc.write_instr::<InstrTypeIs>(span, (v, t, target));
-                });
-            }
             ExprCompiled::Tuple(ref xs) => {
                 write_exprs(xs, bc, |xs, bc| {
                     bc.write_instr::<InstrTupleNPop>(span, (xs, target));
@@ -353,6 +345,9 @@ impl IrSpanned<ExprCompiled> {
                         ExprUnOp::Minus => bc.write_instr::<InstrMinus>(span, arg),
                         ExprUnOp::Plus => bc.write_instr::<InstrPlus>(span, arg),
                         ExprUnOp::BitNot => bc.write_instr::<InstrBitNot>(span, arg),
+                        ExprUnOp::TypeIs(t) => {
+                            bc.write_instr::<InstrTypeIs>(span, (expr, t, target))
+                        }
                         ExprUnOp::PercentSOne(before, after) => {
                             bc.write_instr::<InstrPercentSOne>(span, (before, expr, after, target))
                         }

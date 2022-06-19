@@ -48,19 +48,10 @@ pub(crate) enum InlineDefBody {
 
 /// If a statement is `return type(x) == "y"` where `x` is a first slot.
 fn is_return_type_is(stmt: &StmtsCompiled) -> Option<FrozenStringValue> {
-    match stmt.first().map(|s| &s.node) {
-        Some(StmtCompiled::Return(IrSpanned {
-            node:
-                ExprCompiled::TypeIs(
-                    box IrSpanned {
-                        // Slot 0 is a slot for the first function parameter.
-                        node: ExprCompiled::Local(LocalSlotId(0), ..),
-                        ..
-                    },
-                    t,
-                ),
-            ..
-        })) => Some(*t),
+    let (x, t) = stmt.first()?.as_return()?.as_type_is()?;
+    match &x.node {
+        // Slot 0 is a slot for the first function parameter.
+        ExprCompiled::Local(LocalSlotId(0)) => Some(t),
         _ => None,
     }
 }
@@ -135,10 +126,6 @@ impl IsSafeToInlineExpr {
             ExprCompiled::UnOp(un_op, arg) => {
                 let _: &ExprUnOp = un_op;
                 self.is_safe_to_inline_expr(arg)
-            }
-            ExprCompiled::TypeIs(v, t) => {
-                let _: FrozenStringValue = *t;
-                self.is_safe_to_inline_expr(v)
             }
             ExprCompiled::Tuple(xs) | ExprCompiled::List(xs) => {
                 xs.iter().all(|x| self.is_safe_to_inline_expr(x))
@@ -314,13 +301,6 @@ impl<'s, 'v, 'a, 'e> InlineDefCallSite<'s, 'v, 'a, 'e> {
                 IrSpanned {
                     span,
                     node: ExprCompiled::un_op(span, *op, x, self.ctx),
-                }
-            }
-            ExprCompiled::TypeIs(box v, t) => {
-                let v = self.inline(v)?;
-                IrSpanned {
-                    span,
-                    node: ExprCompiled::type_is(v, *t),
                 }
             }
             ExprCompiled::ArrayIndirection(box (array, index)) => {

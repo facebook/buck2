@@ -116,6 +116,14 @@ impl StmtCompiled {
             StmtCompiled::Continue => {}
         }
     }
+
+    /// If statement is `return x`, return `x`.
+    pub(crate) fn as_return(&self) -> Option<&IrSpanned<ExprCompiled>> {
+        match self {
+            StmtCompiled::Return(e) => Some(e),
+            _ => None,
+        }
+    }
 }
 
 impl IrSpanned<StmtCompiled> {

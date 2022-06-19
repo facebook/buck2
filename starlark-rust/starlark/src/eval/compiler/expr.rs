@@ -110,6 +110,8 @@ pub(crate) enum ExprUnOp {
     Plus,
     BitNot,
     Not,
+    /// `type(arg) == "y"`
+    TypeIs(FrozenStringValue),
     /// `"aaa%sbbb" % arg`
     PercentSOne(FrozenStringValue, FrozenStringValue),
     /// `"aaa%sbbb".format(arg)`
@@ -123,6 +125,7 @@ impl ExprUnOp {
             ExprUnOp::Plus => v.plus(heap),
             ExprUnOp::BitNot => Ok(Value::new_int(!v.to_int()?)),
             ExprUnOp::Not => Ok(Value::new_bool(!v.to_bool())),
+            ExprUnOp::TypeIs(t) => Ok(Value::new_bool(v.get_type_value() == t)),
             ExprUnOp::FormatOne(before, after) => {
                 Ok(format_one(&before, v, &after, heap).to_value())
             }
@@ -187,8 +190,6 @@ pub(crate) enum ExprCompiled {
     /// Read local captured variable.
     LocalCaptured(LocalSlotId),
     Module(ModuleSlotId),
-    /// `type(x) == "y"`
-    TypeIs(Box<IrSpanned<ExprCompiled>>, FrozenStringValue),
     Tuple(Vec<IrSpanned<ExprCompiled>>),
     List(Vec<IrSpanned<ExprCompiled>>),
     Dict(Vec<(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)>),
@@ -272,6 +273,14 @@ impl ExprCompiled {
         }
     }
 
+    /// If expression if `type(x) == t`, return `x` and `t`.
+    pub(crate) fn as_type_is(&self) -> Option<(&IrSpanned<ExprCompiled>, FrozenStringValue)> {
+        match self {
+            ExprCompiled::UnOp(ExprUnOp::TypeIs(t), x) => Some((x, *t)),
+            _ => None,
+        }
+    }
+
     /// Expression is a frozen value which is builtin.
     pub(crate) fn as_builtin_value(&self) -> Option<FrozenValue> {
         match self {
@@ -323,8 +332,7 @@ impl ExprCompiled {
     fn is_definitely_bool(&self) -> bool {
         match self {
             Self::Value(v) => v.unpack_bool().is_some(),
-            Self::TypeIs(..)
-            | Self::UnOp(ExprUnOp::Not, _)
+            Self::UnOp(ExprUnOp::Not | ExprUnOp::TypeIs(_), _)
             | Self::Op(ExprBinOp::In | ExprBinOp::Equals | ExprBinOp::Compare(_), ..) => true,
             _ => false,
         }
@@ -338,8 +346,7 @@ impl ExprCompiled {
             Self::Value(..) => true,
             Self::List(xs) | Self::Tuple(xs) => xs.iter().all(|x| x.is_pure_infallible()),
             Self::Dict(xs) => xs.is_empty(),
-            Self::TypeIs(x, _t) => x.is_pure_infallible(),
-            Self::UnOp(ExprUnOp::Not, x) => x.is_pure_infallible(),
+            Self::UnOp(ExprUnOp::Not | ExprUnOp::TypeIs(_), x) => x.is_pure_infallible(),
             Self::Seq(box (x, y)) => x.is_pure_infallible() && y.is_pure_infallible(),
             Self::LogicalBinOp(_op, box (x, y)) => x.is_pure_infallible() && y.is_pure_infallible(),
             Self::If(box (cond, x, y)) => {
@@ -407,9 +414,6 @@ impl IrSpanned<ExprCompiled> {
                     }
                     Some(v) => ExprCompiled::Value(v),
                 }
-            }
-            ExprCompiled::TypeIs(box ref e, t) => {
-                ExprCompiled::type_is(e.optimize_on_freeze(ctx), t)
             }
             ExprCompiled::Tuple(ref xs) => {
                 ExprCompiled::tuple(xs.map(|e| e.optimize_on_freeze(ctx)), ctx.frozen_heap)
@@ -695,6 +699,7 @@ impl ExprCompiled {
             ExprUnOp::PercentSOne(before, after) => {
                 ExprCompiled::percent_s_one(before, expr, after, ctx)
             }
+            ExprUnOp::TypeIs(t) => ExprCompiled::type_is(expr, t),
             ExprUnOp::Not => ExprCompiled::not(span, expr).node,
             op => ExprCompiled::UnOp(op, box expr),
         }
@@ -867,10 +872,9 @@ impl ExprCompiled {
             ExprCompiled::Dict(xs) if xs.is_empty() => {
                 ExprCompiled::Value(Dict::get_type_value_static().to_frozen_value())
             }
-            ExprCompiled::TypeIs(x, _t) if x.is_pure_infallible() => {
-                ExprCompiled::Value(StarlarkBool::get_type_value_static().to_frozen_value())
-            }
-            ExprCompiled::UnOp(ExprUnOp::Not, x) if x.is_pure_infallible() => {
+            ExprCompiled::UnOp(ExprUnOp::Not | ExprUnOp::TypeIs(_), x)
+                if x.is_pure_infallible() =>
+            {
                 ExprCompiled::Value(StarlarkBool::get_type_value_static().to_frozen_value())
             }
             _ => ExprCompiled::Call(box IrSpanned {
@@ -895,7 +899,7 @@ impl ExprCompiled {
                 v.to_value().get_type() == t.as_str(),
             ));
         }
-        ExprCompiled::TypeIs(box v, t)
+        ExprCompiled::UnOp(ExprUnOp::TypeIs(t), box v)
     }
 
     pub(crate) fn len(span: FrozenFileSpan, arg: IrSpanned<ExprCompiled>) -> ExprCompiled {
