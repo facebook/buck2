@@ -35,7 +35,7 @@ impl FromStr for RootKind {
 }
 
 #[derive(Debug, clap::Parser)]
-#[clap(about = "Find buck cell, project or package root (default is to print the cell root)")]
+#[clap(about = "Find buck cell, project or package root")]
 pub(crate) struct RootCommand {
     #[clap(short, long, help("which root to print"), default_value("cell"), possible_values(&["package", "cell", "project", "daemon"]))]
     kind: RootKind,

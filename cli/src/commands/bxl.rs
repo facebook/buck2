@@ -14,7 +14,7 @@ use crate::{
 };
 
 #[derive(Debug, clap::Parser)]
-#[clap(name = "bxl", about = "Runs bxl scripts")]
+#[clap(name = "bxl", about = "Run BXL scripts")]
 pub(crate) struct BxlCommand {
     #[clap(flatten)]
     config_opts: CommonConfigOptions,

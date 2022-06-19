@@ -22,7 +22,7 @@ use crate::{
 };
 
 #[derive(Debug, clap::Parser)]
-#[clap(name = "install", about = "builds and installs an application")]
+#[clap(name = "install", about = "Build and install an application")]
 pub(crate) struct InstallCommand {
     #[clap(flatten)]
     config_opts: CommonConfigOptions,
