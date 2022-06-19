@@ -25,12 +25,13 @@ use crate::{
             call::CallCompiled,
             def::ParametersCompiled,
             expr::{ExprBinOp, ExprCompiled, ExprLogicalBinOp, ExprUnOp},
+            opt_ctx::OptCtx,
             span::IrSpanned,
             stmt::{StmtCompiled, StmtsCompiled},
         },
         runtime::{call_stack::FrozenFileSpan, slots::LocalSlotId},
     },
-    values::{FrozenHeap, FrozenStringValue, FrozenValue, Heap},
+    values::{FrozenStringValue, FrozenValue},
 };
 
 /// Function body suitable for inlining.
@@ -214,15 +215,14 @@ pub(crate) fn inline_def_body(
 pub(crate) struct CannotInline;
 
 /// Utility to inline function body at call site.
-pub(crate) struct InlineDefCallSite<'v, 's> {
-    pub(crate) heap: &'v Heap,
-    pub(crate) frozen_heap: &'v FrozenHeap,
+pub(crate) struct InlineDefCallSite<'s, 'v, 'a, 'e> {
+    pub(crate) ctx: &'s mut OptCtx<'v, 'a, 'e>,
     pub(crate) slots: &'s [FrozenValue],
 }
 
-impl<'v, 's> InlineDefCallSite<'v, 's> {
+impl<'s, 'v, 'a, 'e> InlineDefCallSite<'s, 'v, 'a, 'e> {
     fn inline_opt(
-        &self,
+        &mut self,
         expr: Option<&IrSpanned<ExprCompiled>>,
     ) -> Result<Option<IrSpanned<ExprCompiled>>, CannotInline> {
         match expr {
@@ -231,12 +231,12 @@ impl<'v, 's> InlineDefCallSite<'v, 's> {
         }
     }
 
-    fn inline_args(&self, args: &ArgsCompiledValue) -> Result<ArgsCompiledValue, CannotInline> {
+    fn inline_args(&mut self, args: &ArgsCompiledValue) -> Result<ArgsCompiledValue, CannotInline> {
         args.map_exprs(|expr| self.inline(expr))
     }
 
     fn inline_call(
-        &self,
+        &mut self,
         call: &IrSpanned<CallCompiled>,
     ) -> Result<IrSpanned<ExprCompiled>, CannotInline> {
         let span = call.span;
@@ -245,12 +245,12 @@ impl<'v, 's> InlineDefCallSite<'v, 's> {
         let args = self.inline_args(args)?;
         Ok(IrSpanned {
             span,
-            node: CallCompiled::call(span, fun.node, args, self.heap, self.frozen_heap),
+            node: CallCompiled::call(span, fun.node, args, self.ctx),
         })
     }
 
     pub(crate) fn inline(
-        &self,
+        &mut self,
         expr: &IrSpanned<ExprCompiled>,
     ) -> Result<IrSpanned<ExprCompiled>, CannotInline> {
         let span = expr.span;
@@ -294,7 +294,7 @@ impl<'v, 's> InlineDefCallSite<'v, 's> {
                     .collect::<Result<Vec<_>, CannotInline>>()?;
                 IrSpanned {
                     span,
-                    node: ExprCompiled::tuple(xs, self.frozen_heap),
+                    node: ExprCompiled::tuple(xs, self.ctx.frozen_heap()),
                 }
             }
             ExprCompiled::Dict(xs) => {
@@ -312,34 +312,28 @@ impl<'v, 's> InlineDefCallSite<'v, 's> {
                 let r = self.inline(r)?;
                 IrSpanned {
                     span,
-                    node: ExprCompiled::bin_op(*op, l, r, self.heap, self.frozen_heap),
+                    node: ExprCompiled::bin_op(*op, l, r, self.ctx),
                 }
             }
             ExprCompiled::PercentSOne(box (before, x, after)) => {
                 let x = self.inline(x)?;
                 IrSpanned {
                     span,
-                    node: ExprCompiled::percent_s_one(
-                        *before,
-                        x,
-                        *after,
-                        self.heap,
-                        self.frozen_heap,
-                    ),
+                    node: ExprCompiled::percent_s_one(*before, x, *after, self.ctx),
                 }
             }
             ExprCompiled::FormatOne(box (before, x, after)) => {
                 let x = self.inline(x)?;
                 IrSpanned {
                     span,
-                    node: ExprCompiled::format_one(*before, x, *after, self.heap, self.frozen_heap),
+                    node: ExprCompiled::format_one(*before, x, *after, self.ctx),
                 }
             }
             ExprCompiled::UnOp(op, box x) => {
                 let x = self.inline(x)?;
                 IrSpanned {
                     span,
-                    node: ExprCompiled::un_op(*op, x, self.heap, self.frozen_heap),
+                    node: ExprCompiled::un_op(*op, x, self.ctx),
                 }
             }
             ExprCompiled::Not(box a) => {
@@ -358,12 +352,7 @@ impl<'v, 's> InlineDefCallSite<'v, 's> {
                 let index = self.inline(index)?;
                 IrSpanned {
                     span,
-                    node: ExprCompiled::array_indirection(
-                        array,
-                        index,
-                        self.heap,
-                        self.frozen_heap,
-                    ),
+                    node: ExprCompiled::array_indirection(array, index, self.ctx),
                 }
             }
             ExprCompiled::Slice(box (l, a, b, c)) => {
@@ -380,7 +369,7 @@ impl<'v, 's> InlineDefCallSite<'v, 's> {
                 let l = self.inline(l)?;
                 IrSpanned {
                     span,
-                    node: ExprCompiled::dot(l, field, self.heap, self.frozen_heap),
+                    node: ExprCompiled::dot(l, field, self.ctx),
                 }
             }
             ExprCompiled::Seq(box (a, b)) => {

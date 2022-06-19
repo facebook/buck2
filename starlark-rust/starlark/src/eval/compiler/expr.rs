@@ -36,6 +36,7 @@ use crate::{
             def::{DefCompiled, FrozenDef},
             expr_bool::ExprCompiledBool,
             known::list_to_tuple,
+            opt_ctx::OptCtx,
             scope::{AssignCount, Captured, CstExpr, ResolvedIdent, Slot},
             span::IrSpanned,
             stmt::OptimizeOnFreezeContext,
@@ -418,16 +419,13 @@ impl IrSpanned<ExprCompiled> {
                 kvs.map(|(k, v)| (k.optimize_on_freeze(ctx), v.optimize_on_freeze(ctx))),
             ),
             ExprCompiled::Compr(ref compr) => compr.optimize_on_freeze(ctx),
-            ExprCompiled::Dot(box ref object, ref field) => ExprCompiled::dot(
-                object.optimize_on_freeze(ctx),
-                field,
-                ctx.heap,
-                ctx.frozen_heap,
-            ),
+            ExprCompiled::Dot(box ref object, ref field) => {
+                ExprCompiled::dot(object.optimize_on_freeze(ctx), field, &mut OptCtx::new(ctx))
+            }
             ExprCompiled::ArrayIndirection(box (ref array, ref index)) => {
                 let array = array.optimize_on_freeze(ctx);
                 let index = index.optimize_on_freeze(ctx);
-                ExprCompiled::array_indirection(array, index, ctx.heap, ctx.frozen_heap)
+                ExprCompiled::array_indirection(array, index, &mut OptCtx::new(ctx))
             }
             ExprCompiled::If(box (ref cond, ref t, ref f)) => {
                 let cond = cond.optimize_on_freeze(ctx);
@@ -440,7 +438,7 @@ impl IrSpanned<ExprCompiled> {
                 let start = start.as_ref().map(|x| x.optimize_on_freeze(ctx));
                 let stop = stop.as_ref().map(|x| x.optimize_on_freeze(ctx));
                 let step = step.as_ref().map(|x| x.optimize_on_freeze(ctx));
-                ExprCompiled::slice(span, v, start, stop, step, ctx.heap, ctx.frozen_heap)
+                ExprCompiled::slice(span, v, start, stop, step, &mut OptCtx::new(ctx))
             }
             ExprCompiled::Not(box ref e) => {
                 let e = e.optimize_on_freeze(ctx);
@@ -448,7 +446,7 @@ impl IrSpanned<ExprCompiled> {
             }
             ExprCompiled::UnOp(op, ref e) => {
                 let e = e.optimize_on_freeze(ctx);
-                ExprCompiled::un_op(op, e, ctx.heap, ctx.frozen_heap)
+                ExprCompiled::un_op(op, e, &mut OptCtx::new(ctx))
             }
             ExprCompiled::LogicalBinOp(op, box (ref l, ref r)) => {
                 let l = l.optimize_on_freeze(ctx);
@@ -463,15 +461,15 @@ impl IrSpanned<ExprCompiled> {
             ExprCompiled::Op(op, box (ref l, ref r)) => {
                 let l = l.optimize_on_freeze(ctx);
                 let r = r.optimize_on_freeze(ctx);
-                ExprCompiled::bin_op(op, l, r, ctx.heap, ctx.frozen_heap)
+                ExprCompiled::bin_op(op, l, r, &mut OptCtx::new(ctx))
             }
             ExprCompiled::PercentSOne(box (before, ref arg, after)) => {
                 let arg = arg.optimize_on_freeze(ctx);
-                ExprCompiled::percent_s_one(before, arg, after, ctx.heap, ctx.frozen_heap)
+                ExprCompiled::percent_s_one(before, arg, after, &mut OptCtx::new(ctx))
             }
             ExprCompiled::FormatOne(box (before, ref arg, after)) => {
                 let arg = arg.optimize_on_freeze(ctx);
-                ExprCompiled::format_one(before, arg, after, ctx.heap, ctx.frozen_heap)
+                ExprCompiled::format_one(before, arg, after, &mut OptCtx::new(ctx))
             }
             ref d @ ExprCompiled::Def(..) => d.clone(),
             ExprCompiled::Call(ref call) => call.optimize_on_freeze(ctx),
@@ -573,14 +571,13 @@ impl ExprCompiled {
     fn percent(
         l: IrSpanned<ExprCompiled>,
         r: IrSpanned<ExprCompiled>,
-        heap: &Heap,
-        frozen_heap: &FrozenHeap,
+        ctx: &mut OptCtx,
     ) -> ExprCompiled {
         if let Some(v) = l.as_string() {
             if let Some((before, after)) = parse_percent_s_one(&v) {
-                let before = frozen_heap.alloc_str(&before);
-                let after = frozen_heap.alloc_str(&after);
-                return ExprCompiled::percent_s_one(before, r, after, heap, frozen_heap);
+                let before = ctx.frozen_heap().alloc_str(&before);
+                let after = ctx.frozen_heap().alloc_str(&after);
+                return ExprCompiled::percent_s_one(before, r, after, ctx);
             }
         }
         ExprCompiled::Op(ExprBinOp::Percent, box (l, r))
@@ -590,13 +587,13 @@ impl ExprCompiled {
         before: FrozenStringValue,
         arg: IrSpanned<ExprCompiled>,
         after: FrozenStringValue,
-        heap: &Heap,
-        frozen_heap: &FrozenHeap,
+        ctx: &mut OptCtx,
     ) -> ExprCompiled {
         if let Some(arg) = arg.as_value() {
-            if let Ok(value) = percent_s_one(before.as_str(), arg.to_value(), after.as_str(), heap)
+            if let Ok(value) =
+                percent_s_one(before.as_str(), arg.to_value(), after.as_str(), ctx.heap())
             {
-                let value = frozen_heap.alloc_str(value.as_str());
+                let value = ctx.frozen_heap().alloc_str(value.as_str());
                 return ExprCompiled::Value(value.to_frozen_value());
             }
         }
@@ -608,12 +605,11 @@ impl ExprCompiled {
         before: FrozenStringValue,
         arg: IrSpanned<ExprCompiled>,
         after: FrozenStringValue,
-        heap: &Heap,
-        frozen_heap: &FrozenHeap,
+        ctx: &mut OptCtx,
     ) -> ExprCompiled {
         if let Some(arg) = arg.as_value() {
-            let value = format_one(&before, arg.to_value(), &after, heap);
-            let value = frozen_heap.alloc_str(value.as_str());
+            let value = format_one(&before, arg.to_value(), &after, ctx.heap());
+            let value = ctx.frozen_heap().alloc_str(value.as_str());
             return ExprCompiled::Value(value.to_frozen_value());
         }
         ExprCompiled::FormatOne(box (before, arg, after))
@@ -639,22 +635,21 @@ impl ExprCompiled {
         bin_op: ExprBinOp,
         l: IrSpanned<ExprCompiled>,
         r: IrSpanned<ExprCompiled>,
-        heap: &Heap,
-        frozen_heap: &FrozenHeap,
+        ctx: &mut OptCtx,
     ) -> ExprCompiled {
         let span = l.span.merge(&r.span);
         // Binary operators should have no side effects,
         // but to avoid possible problems, we only fold binary operators on builtin types.
         if let (Some(l), Some(r)) = (l.as_builtin_value(), r.as_builtin_value()) {
-            if let Ok(v) = bin_op.eval(l.to_value(), r.to_value(), heap) {
-                if let Some(v) = ExprCompiled::try_value(span, v, frozen_heap) {
+            if let Ok(v) = bin_op.eval(l.to_value(), r.to_value(), ctx.heap()) {
+                if let Some(v) = ExprCompiled::try_value(span, v, ctx.frozen_heap()) {
                     return v;
                 }
             }
         }
 
         match bin_op {
-            ExprBinOp::Percent => ExprCompiled::percent(l, r, heap, frozen_heap),
+            ExprBinOp::Percent => ExprCompiled::percent(l, r, ctx),
             ExprBinOp::Add => ExprCompiled::add(l, r),
             ExprBinOp::Equals => ExprCompiled::equals(l, r).node,
             bin_op => ExprCompiled::Op(bin_op, box (l, r)),
@@ -694,12 +689,11 @@ impl ExprCompiled {
     pub(crate) fn un_op(
         op: ExprUnOp,
         expr: IrSpanned<ExprCompiled>,
-        heap: &Heap,
-        frozen_heap: &FrozenHeap,
+        ctx: &mut OptCtx,
     ) -> ExprCompiled {
         if let Some(v) = expr.as_builtin_value() {
-            if let Ok(v) = op.eval(v.to_value(), heap) {
-                if let Some(v) = ExprCompiled::try_value(expr.span, v, frozen_heap) {
+            if let Ok(v) = op.eval(v.to_value(), ctx.heap()) {
+                if let Some(v) = ExprCompiled::try_value(expr.span, v, ctx.frozen_heap()) {
                     return v;
                 }
             }
@@ -787,15 +781,14 @@ impl ExprCompiled {
     pub(crate) fn compile_time_getattr(
         left: FrozenValue,
         attr: &Symbol,
-        heap: &Heap,
-        frozen_heap: &FrozenHeap,
+        ctx: &mut OptCtx,
     ) -> Option<FrozenValue> {
         // We assume `getattr` has no side effects.
-        let v = get_attr_hashed_raw(left.to_value(), attr, heap).ok()?;
+        let v = get_attr_hashed_raw(left.to_value(), attr, ctx.heap()).ok()?;
         match v {
             MemberOrValue::Member(m) => match MaybeUnboundValue::new(m) {
                 MaybeUnboundValue::Method(m) => {
-                    Some(frozen_heap.alloc_simple(BoundMethodGen::new(left, m)))
+                    Some(ctx.frozen_heap().alloc_simple(BoundMethodGen::new(left, m)))
                 }
                 MaybeUnboundValue::Attr(..) => None,
             },
@@ -806,11 +799,10 @@ impl ExprCompiled {
     pub(crate) fn dot(
         object: IrSpanned<ExprCompiled>,
         field: &Symbol,
-        heap: &Heap,
-        frozen_heap: &FrozenHeap,
+        ctx: &mut OptCtx,
     ) -> ExprCompiled {
         if let Some(left) = object.as_value() {
-            if let Some(v) = Self::compile_time_getattr(left, field, heap, frozen_heap) {
+            if let Some(v) = Self::compile_time_getattr(left, field, ctx) {
                 return ExprCompiled::Value(v);
             }
         }
@@ -824,8 +816,7 @@ impl ExprCompiled {
         start: Option<IrSpanned<ExprCompiled>>,
         stop: Option<IrSpanned<ExprCompiled>>,
         step: Option<IrSpanned<ExprCompiled>>,
-        heap: &Heap,
-        frozen_heap: &FrozenHeap,
+        ctx: &mut OptCtx,
     ) -> ExprCompiled {
         if let (Some(array), Some(start), Some(stop), Some(step)) = (
             array.as_builtin_value(),
@@ -837,9 +828,9 @@ impl ExprCompiled {
                 start.map(|v| v.to_value()),
                 stop.map(|v| v.to_value()),
                 step.map(|v| v.to_value()),
-                heap,
+                ctx.heap(),
             ) {
-                if let Some(v) = ExprCompiled::try_value(span, v, frozen_heap) {
+                if let Some(v) = ExprCompiled::try_value(span, v, ctx.frozen_heap()) {
                     return v;
                 }
             }
@@ -850,13 +841,12 @@ impl ExprCompiled {
     pub(crate) fn array_indirection(
         array: IrSpanned<ExprCompiled>,
         index: IrSpanned<ExprCompiled>,
-        heap: &Heap,
-        frozen_heap: &FrozenHeap,
+        ctx: &mut OptCtx,
     ) -> ExprCompiled {
         let span = array.span.merge(&index.span);
         if let (Some(array), Some(index)) = (array.as_builtin_value(), index.as_value()) {
-            if let Ok(v) = array.to_value().at(index.to_value(), heap) {
-                if let Some(expr) = ExprCompiled::try_value(span, v, frozen_heap) {
+            if let Ok(v) = array.to_value().at(index.to_value(), ctx.heap()) {
+                if let Some(expr) = ExprCompiled::try_value(span, v, ctx.frozen_heap()) {
                     return expr;
                 }
             }
@@ -1161,23 +1151,13 @@ impl Compiler<'_, '_, '_> {
                 let left = self.expr(*left);
                 let s = Symbol::new(&right.node);
 
-                ExprCompiled::dot(
-                    left,
-                    &s,
-                    self.eval.module_env.heap(),
-                    self.eval.module_env.frozen_heap(),
-                )
+                ExprCompiled::dot(left, &s, &mut OptCtx::new(self.eval))
             }
             ExprP::Call(box left, args) => self.expr_call(span, left, args),
             ExprP::ArrayIndirection(box (array, index)) => {
                 let array = self.expr(array);
                 let index = self.expr(index);
-                ExprCompiled::array_indirection(
-                    array,
-                    index,
-                    self.eval.module_env.heap(),
-                    self.eval.module_env.frozen_heap(),
-                )
+                ExprCompiled::array_indirection(array, index, &mut OptCtx::new(self.eval))
             }
             ExprP::Slice(collection, start, stop, stride) => {
                 let collection = self.expr(*collection);
@@ -1190,8 +1170,7 @@ impl Compiler<'_, '_, '_> {
                     start,
                     stop,
                     stride,
-                    self.eval.module_env.heap(),
-                    self.eval.module_env.frozen_heap(),
+                    &mut OptCtx::new(self.eval),
                 )
             }
             ExprP::Not(expr) => {
@@ -1200,30 +1179,15 @@ impl Compiler<'_, '_, '_> {
             }
             ExprP::Minus(expr) => {
                 let expr = self.expr(*expr);
-                ExprCompiled::un_op(
-                    ExprUnOp::Minus,
-                    expr,
-                    self.eval.module_env.heap(),
-                    self.eval.module_env.frozen_heap(),
-                )
+                ExprCompiled::un_op(ExprUnOp::Minus, expr, &mut OptCtx::new(self.eval))
             }
             ExprP::Plus(expr) => {
                 let expr = self.expr(*expr);
-                ExprCompiled::un_op(
-                    ExprUnOp::Plus,
-                    expr,
-                    self.eval.module_env.heap(),
-                    self.eval.module_env.frozen_heap(),
-                )
+                ExprCompiled::un_op(ExprUnOp::Plus, expr, &mut OptCtx::new(self.eval))
             }
             ExprP::BitNot(expr) => {
                 let expr = self.expr(*expr);
-                ExprCompiled::un_op(
-                    ExprUnOp::BitNot,
-                    expr,
-                    self.eval.module_env.heap(),
-                    self.eval.module_env.frozen_heap(),
-                )
+                ExprCompiled::un_op(ExprUnOp::BitNot, expr, &mut OptCtx::new(self.eval))
             }
             ExprP::Op(left, op, right) => {
                 if let Some(x) = ExprP::reduces_to_string(op, &left, &right) {
@@ -1252,37 +1216,29 @@ impl Compiler<'_, '_, '_> {
                             ExprBinOp::Compare(CompareOp::Less),
                             l,
                             r,
-                            self.eval.module_env.heap(),
-                            self.eval.module_env.frozen_heap(),
+                            &mut OptCtx::new(self.eval),
                         ),
                         BinOp::Greater => ExprCompiled::bin_op(
                             ExprBinOp::Compare(CompareOp::Greater),
                             l,
                             r,
-                            self.eval.module_env.heap(),
-                            self.eval.module_env.frozen_heap(),
+                            &mut OptCtx::new(self.eval),
                         ),
                         BinOp::LessOrEqual => ExprCompiled::bin_op(
                             ExprBinOp::Compare(CompareOp::LessOrEqual),
                             l,
                             r,
-                            self.eval.module_env.heap(),
-                            self.eval.module_env.frozen_heap(),
+                            &mut OptCtx::new(self.eval),
                         ),
                         BinOp::GreaterOrEqual => ExprCompiled::bin_op(
                             ExprBinOp::Compare(CompareOp::GreaterOrEqual),
                             l,
                             r,
-                            self.eval.module_env.heap(),
-                            self.eval.module_env.frozen_heap(),
+                            &mut OptCtx::new(self.eval),
                         ),
-                        BinOp::In => ExprCompiled::bin_op(
-                            ExprBinOp::In,
-                            l,
-                            r,
-                            self.eval.module_env.heap(),
-                            self.eval.module_env.frozen_heap(),
-                        ),
+                        BinOp::In => {
+                            ExprCompiled::bin_op(ExprBinOp::In, l, r, &mut OptCtx::new(self.eval))
+                        }
                         BinOp::NotIn => {
                             ExprCompiled::not(
                                 span,
@@ -1292,89 +1248,71 @@ impl Compiler<'_, '_, '_> {
                                         ExprBinOp::In,
                                         l,
                                         r,
-                                        self.eval.module_env.heap(),
-                                        self.eval.module_env.frozen_heap(),
+                                        &mut OptCtx::new(self.eval),
                                     ),
                                 },
                             )
                             .node
                         }
-                        BinOp::Subtract => ExprCompiled::bin_op(
-                            ExprBinOp::Sub,
-                            l,
-                            r,
-                            self.eval.module_env.heap(),
-                            self.eval.module_env.frozen_heap(),
-                        ),
-                        BinOp::Add => ExprCompiled::bin_op(
-                            ExprBinOp::Add,
-                            l,
-                            r,
-                            self.eval.module_env.heap(),
-                            self.eval.module_env.frozen_heap(),
-                        ),
+                        BinOp::Subtract => {
+                            ExprCompiled::bin_op(ExprBinOp::Sub, l, r, &mut OptCtx::new(self.eval))
+                        }
+                        BinOp::Add => {
+                            ExprCompiled::bin_op(ExprBinOp::Add, l, r, &mut OptCtx::new(self.eval))
+                        }
                         BinOp::Multiply => ExprCompiled::bin_op(
                             ExprBinOp::Multiply,
                             l,
                             r,
-                            self.eval.module_env.heap(),
-                            self.eval.module_env.frozen_heap(),
+                            &mut OptCtx::new(self.eval),
                         ),
                         BinOp::Percent => ExprCompiled::bin_op(
                             ExprBinOp::Percent,
                             l,
                             r,
-                            self.eval.module_env.heap(),
-                            self.eval.module_env.frozen_heap(),
+                            &mut OptCtx::new(self.eval),
                         ),
                         BinOp::Divide => ExprCompiled::bin_op(
                             ExprBinOp::Divide,
                             l,
                             r,
-                            self.eval.module_env.heap(),
-                            self.eval.module_env.frozen_heap(),
+                            &mut OptCtx::new(self.eval),
                         ),
                         BinOp::FloorDivide => ExprCompiled::bin_op(
                             ExprBinOp::FloorDivide,
                             l,
                             r,
-                            self.eval.module_env.heap(),
-                            self.eval.module_env.frozen_heap(),
+                            &mut OptCtx::new(self.eval),
                         ),
                         BinOp::BitAnd => ExprCompiled::bin_op(
                             ExprBinOp::BitAnd,
                             l,
                             r,
-                            self.eval.module_env.heap(),
-                            self.eval.module_env.frozen_heap(),
+                            &mut OptCtx::new(self.eval),
                         ),
                         BinOp::BitOr => ExprCompiled::bin_op(
                             ExprBinOp::BitOr,
                             l,
                             r,
-                            self.eval.module_env.heap(),
-                            self.eval.module_env.frozen_heap(),
+                            &mut OptCtx::new(self.eval),
                         ),
                         BinOp::BitXor => ExprCompiled::bin_op(
                             ExprBinOp::BitXor,
                             l,
                             r,
-                            self.eval.module_env.heap(),
-                            self.eval.module_env.frozen_heap(),
+                            &mut OptCtx::new(self.eval),
                         ),
                         BinOp::LeftShift => ExprCompiled::bin_op(
                             ExprBinOp::LeftShift,
                             l,
                             r,
-                            self.eval.module_env.heap(),
-                            self.eval.module_env.frozen_heap(),
+                            &mut OptCtx::new(self.eval),
                         ),
                         BinOp::RightShift => ExprCompiled::bin_op(
                             ExprBinOp::RightShift,
                             l,
                             r,
-                            self.eval.module_env.heap(),
-                            self.eval.module_env.frozen_heap(),
+                            &mut OptCtx::new(self.eval),
                         ),
                     }
                 }

@@ -25,6 +25,7 @@ pub(crate) mod expr;
 pub(crate) mod expr_bool;
 pub(crate) mod known;
 pub(crate) mod module;
+pub(crate) mod opt_ctx;
 pub(crate) mod scope;
 pub(crate) mod small_vec_1;
 pub(crate) mod span;

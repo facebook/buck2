@@ -1254,6 +1254,14 @@ impl Arguments<'_, '_> {
     }
 }
 
+impl<'a> Arguments<'static, 'a> {
+    /// Convert `Arguments` with `FrozenValue` (because no other values can have `'v` lifetime)
+    /// to arbitrary `'v` lifetime.
+    pub(crate) fn frozen_to_v<'v>(&self) -> &Arguments<'v, 'a> {
+        unsafe { transmute!(&Arguments, &Arguments, self) }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

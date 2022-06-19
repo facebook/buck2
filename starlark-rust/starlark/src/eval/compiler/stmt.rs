@@ -90,12 +90,12 @@ pub(crate) struct StmtCompileContext {
     pub(crate) record_call_enter_exit: bool,
 }
 
-pub(crate) struct OptimizeOnFreezeContext<'a> {
+pub(crate) struct OptimizeOnFreezeContext<'v, 'a> {
     pub(crate) module: &'a FrozenModuleRef,
     /// Nothing useful should be left in the heap after the freeze,
     /// but having a heap is useful to allocate objects temporarily
     /// (when invoking operations which require heap).
-    pub(crate) heap: &'a Heap,
+    pub(crate) heap: &'v Heap,
     pub(crate) frozen_heap: &'a FrozenHeap,
 }
 

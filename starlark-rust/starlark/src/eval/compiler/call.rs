@@ -28,6 +28,7 @@ use crate::{
             args::ArgsCompiledValue,
             def_inline::{InlineDefBody, InlineDefCallSite},
             expr::ExprCompiled,
+            opt_ctx::OptCtx,
             scope::{CstArgument, CstExpr},
             span::IrSpanned,
             stmt::OptimizeOnFreezeContext,
@@ -38,7 +39,7 @@ use crate::{
         },
     },
     syntax::ast::{AstString, ExprP},
-    values::{string::interpolation::parse_format_one, FrozenHeap, FrozenValue, Heap},
+    values::{string::interpolation::parse_format_one, FrozenValue},
 };
 
 #[derive(Clone, Debug, VisitSpanMut)]
@@ -111,8 +112,7 @@ impl CallCompiled {
         span: FrozenFileSpan,
         fun: &ExprCompiled,
         args: &ArgsCompiledValue,
-        heap: &Heap,
-        frozen_heap: &FrozenHeap,
+        ctx: &mut OptCtx,
     ) -> Option<IrSpanned<ExprCompiled>> {
         let fun = fun.as_frozen_def()?;
 
@@ -132,7 +132,9 @@ impl CallCompiled {
 
         args.all_values(|arguments| {
             let slots = vec![Cell::new(None); fun.parameters.len()];
-            fun.parameters.collect(arguments, &slots, heap).ok()?;
+            fun.parameters
+                .collect(arguments.frozen_to_v(), &slots, ctx.heap())
+                .ok()?;
 
             let slots = slots
                 .into_try_map(|value| {
@@ -148,19 +150,13 @@ impl CallCompiled {
                 span,
                 node: expr.node.clone(),
             };
-            let mut span_alloc = InlinedFrameAlloc::new(frozen_heap);
+            let mut span_alloc = InlinedFrameAlloc::new(ctx.frozen_heap());
             expr.visit_spans(&mut |expr_span: &mut FrozenFileSpan| {
                 expr_span
                     .inlined_frames
                     .inline_into(span, fun.to_frozen_value(), &mut span_alloc);
             });
-            InlineDefCallSite {
-                heap,
-                frozen_heap,
-                slots: &slots,
-            }
-            .inline(&expr)
-            .ok()
+            InlineDefCallSite { ctx, slots: &slots }.inline(&expr).ok()
         })?
     }
 
@@ -168,14 +164,13 @@ impl CallCompiled {
         span: FrozenFileSpan,
         fun: ExprCompiled,
         args: ArgsCompiledValue,
-        heap: &Heap,
-        frozen_heap: &FrozenHeap,
+        ctx: &mut OptCtx,
     ) -> ExprCompiled {
         if let Some(type_is) = CallCompiled::try_type_is(&fun, &args) {
             return type_is;
         }
 
-        if let Some(inline) = CallCompiled::try_inline(span, &fun, &args, heap, frozen_heap) {
+        if let Some(inline) = CallCompiled::try_inline(span, &fun, &args, ctx) {
             return inline.node;
         }
 
@@ -206,7 +201,7 @@ impl IrSpanned<CallCompiled> {
         let CallCompiled { fun: expr, args } = &self.node;
         let expr = expr.optimize_on_freeze(ctx);
         let args = args.optimize_on_freeze(ctx);
-        CallCompiled::call(self.span, expr.node, args, ctx.heap, ctx.frozen_heap)
+        CallCompiled::call(self.span, expr.node, args, &mut OptCtx::new(ctx))
     }
 }
 
@@ -240,8 +235,7 @@ impl Compiler<'_, '_, '_> {
             span,
             ExprCompiled::Value(fun),
             args,
-            self.eval.heap(),
-            self.eval.frozen_heap(),
+            &mut OptCtx::new(self.eval),
         )
     }
 
@@ -283,8 +277,7 @@ impl Compiler<'_, '_, '_> {
                         before,
                         arg,
                         after,
-                        self.eval.module_env.heap(),
-                        self.eval.module_env.frozen_heap(),
+                        &mut OptCtx::new(self.eval),
                     );
                 }
             }
@@ -294,12 +287,8 @@ impl Compiler<'_, '_, '_> {
 
         let s = Symbol::new(&s.node);
         if let Some(e) = e.as_value() {
-            if let Some(v) = ExprCompiled::compile_time_getattr(
-                e,
-                &s,
-                self.eval.module_env.heap(),
-                self.eval.module_env.frozen_heap(),
-            ) {
+            if let Some(v) = ExprCompiled::compile_time_getattr(e, &s, &mut OptCtx::new(self.eval))
+            {
                 return self.expr_call_fun_frozen_no_special(span, v, args);
             }
         }
