@@ -109,6 +109,7 @@ pub(crate) enum ExprUnOp {
     Minus,
     Plus,
     BitNot,
+    Not,
     /// `"aaa%sbbb" % arg`
     PercentSOne(FrozenStringValue, FrozenStringValue),
     /// `"aaa%sbbb".format(arg)`
@@ -121,6 +122,7 @@ impl ExprUnOp {
             ExprUnOp::Minus => v.minus(heap),
             ExprUnOp::Plus => v.plus(heap),
             ExprUnOp::BitNot => Ok(Value::new_int(!v.to_int()?)),
+            ExprUnOp::Not => Ok(Value::new_bool(!v.to_bool())),
             ExprUnOp::FormatOne(before, after) => {
                 Ok(format_one(&before, v, &after, heap).to_value())
             }
@@ -212,7 +214,6 @@ pub(crate) enum ExprCompiled {
             Option<IrSpanned<ExprCompiled>>,
         )>,
     ),
-    Not(Box<IrSpanned<ExprCompiled>>),
     UnOp(ExprUnOp, Box<IrSpanned<ExprCompiled>>),
     LogicalBinOp(
         ExprLogicalBinOp,
@@ -323,7 +324,7 @@ impl ExprCompiled {
         match self {
             Self::Value(v) => v.unpack_bool().is_some(),
             Self::TypeIs(..)
-            | Self::Not(..)
+            | Self::UnOp(ExprUnOp::Not, _)
             | Self::Op(ExprBinOp::In | ExprBinOp::Equals | ExprBinOp::Compare(_), ..) => true,
             _ => false,
         }
@@ -338,7 +339,7 @@ impl ExprCompiled {
             Self::List(xs) | Self::Tuple(xs) => xs.iter().all(|x| x.is_pure_infallible()),
             Self::Dict(xs) => xs.is_empty(),
             Self::TypeIs(x, _t) => x.is_pure_infallible(),
-            Self::Not(x) => x.is_pure_infallible(),
+            Self::UnOp(ExprUnOp::Not, x) => x.is_pure_infallible(),
             Self::Seq(box (x, y)) => x.is_pure_infallible() && y.is_pure_infallible(),
             Self::LogicalBinOp(_op, box (x, y)) => x.is_pure_infallible() && y.is_pure_infallible(),
             Self::If(box (cond, x, y)) => {
@@ -361,7 +362,7 @@ impl ExprCompiled {
             }
             // TODO(nga): if keys are unique hashable constants, we can fold this to constant too.
             ExprCompiled::Dict(xs) if xs.is_empty() => Some(false),
-            ExprCompiled::Not(x) => x.is_pure_infallible_to_bool().map(|x| !x),
+            ExprCompiled::UnOp(ExprUnOp::Not, x) => x.is_pure_infallible_to_bool().map(|x| !x),
             ExprCompiled::LogicalBinOp(op, box (x, y)) => {
                 match (
                     op,
@@ -439,13 +440,9 @@ impl IrSpanned<ExprCompiled> {
                 let step = step.as_ref().map(|x| x.optimize_on_freeze(ctx));
                 ExprCompiled::slice(span, v, start, stop, step, &mut OptCtx::new(ctx))
             }
-            ExprCompiled::Not(box ref e) => {
-                let e = e.optimize_on_freeze(ctx);
-                return ExprCompiled::not(span, e);
-            }
             ExprCompiled::UnOp(op, ref e) => {
                 let e = e.optimize_on_freeze(ctx);
-                ExprCompiled::un_op(op, e, &mut OptCtx::new(ctx))
+                ExprCompiled::un_op(span, op, e, &mut OptCtx::new(ctx))
             }
             ExprCompiled::LogicalBinOp(op, box (ref l, ref r)) => {
                 let l = l.optimize_on_freeze(ctx);
@@ -508,9 +505,9 @@ impl ExprCompiled {
                 span,
             },
             // Collapse `not not e` to `e` only if `e` is known to produce a boolean.
-            ExprCompiled::Not(box ref e) if e.is_definitely_bool() => e.clone(),
+            ExprCompiled::UnOp(ExprUnOp::Not, box ref e) if e.is_definitely_bool() => e.clone(),
             _ => IrSpanned {
-                node: ExprCompiled::Not(box expr),
+                node: ExprCompiled::UnOp(ExprUnOp::Not, box expr),
                 span,
             },
         }
@@ -659,7 +656,7 @@ impl ExprCompiled {
             ExprCompiledBool::Const(true) => t,
             ExprCompiledBool::Const(false) => f,
             ExprCompiledBool::Expr(cond) => match cond {
-                ExprCompiled::Not(box cond) => ExprCompiled::if_expr(cond, f, t),
+                ExprCompiled::UnOp(ExprUnOp::Not, box cond) => ExprCompiled::if_expr(cond, f, t),
                 ExprCompiled::Seq(box (x, cond)) => {
                     ExprCompiled::seq(x, ExprCompiled::if_expr(cond, t, f))
                 }
@@ -679,6 +676,7 @@ impl ExprCompiled {
     }
 
     pub(crate) fn un_op(
+        span: FrozenFileSpan,
         op: ExprUnOp,
         expr: IrSpanned<ExprCompiled>,
         ctx: &mut OptCtx,
@@ -697,6 +695,7 @@ impl ExprCompiled {
             ExprUnOp::PercentSOne(before, after) => {
                 ExprCompiled::percent_s_one(before, expr, after, ctx)
             }
+            ExprUnOp::Not => ExprCompiled::not(span, expr).node,
             op => ExprCompiled::UnOp(op, box expr),
         }
     }
@@ -871,7 +870,7 @@ impl ExprCompiled {
             ExprCompiled::TypeIs(x, _t) if x.is_pure_infallible() => {
                 ExprCompiled::Value(StarlarkBool::get_type_value_static().to_frozen_value())
             }
-            ExprCompiled::Not(x) if x.is_pure_infallible() => {
+            ExprCompiled::UnOp(ExprUnOp::Not, x) if x.is_pure_infallible() => {
                 ExprCompiled::Value(StarlarkBool::get_type_value_static().to_frozen_value())
             }
             _ => ExprCompiled::Call(box IrSpanned {
@@ -1183,15 +1182,15 @@ impl Compiler<'_, '_, '_> {
             }
             ExprP::Minus(expr) => {
                 let expr = self.expr(*expr);
-                ExprCompiled::un_op(ExprUnOp::Minus, expr, &mut OptCtx::new(self.eval))
+                ExprCompiled::un_op(span, ExprUnOp::Minus, expr, &mut OptCtx::new(self.eval))
             }
             ExprP::Plus(expr) => {
                 let expr = self.expr(*expr);
-                ExprCompiled::un_op(ExprUnOp::Plus, expr, &mut OptCtx::new(self.eval))
+                ExprCompiled::un_op(span, ExprUnOp::Plus, expr, &mut OptCtx::new(self.eval))
             }
             ExprP::BitNot(expr) => {
                 let expr = self.expr(*expr);
-                ExprCompiled::un_op(ExprUnOp::BitNot, expr, &mut OptCtx::new(self.eval))
+                ExprCompiled::un_op(span, ExprUnOp::BitNot, expr, &mut OptCtx::new(self.eval))
             }
             ExprP::Op(left, op, right) => {
                 if let Some(x) = ExprP::reduces_to_string(op, &left, &right) {

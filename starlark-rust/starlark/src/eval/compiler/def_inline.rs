@@ -151,7 +151,6 @@ impl IsSafeToInlineExpr {
                     && self.is_safe_to_inline_expr(t)
                     && self.is_safe_to_inline_expr(f)
             }
-            ExprCompiled::Not(x) => self.is_safe_to_inline_expr(x),
             ExprCompiled::LogicalBinOp(op, box (x, y)) => {
                 let _: &ExprLogicalBinOp = op;
                 self.is_safe_to_inline_expr(x) && self.is_safe_to_inline_expr(y)
@@ -314,12 +313,8 @@ impl<'s, 'v, 'a, 'e> InlineDefCallSite<'s, 'v, 'a, 'e> {
                 let x = self.inline(x)?;
                 IrSpanned {
                     span,
-                    node: ExprCompiled::un_op(*op, x, self.ctx),
+                    node: ExprCompiled::un_op(span, *op, x, self.ctx),
                 }
-            }
-            ExprCompiled::Not(box a) => {
-                let a = self.inline(a)?;
-                ExprCompiled::not(span, a)
             }
             ExprCompiled::TypeIs(box v, t) => {
                 let v = self.inline(v)?;

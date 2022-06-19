@@ -149,9 +149,6 @@ impl ExprCompiled {
                     c.mark_definitely_assigned_after(bc);
                 }
             }
-            ExprCompiled::Not(expr) => {
-                expr.mark_definitely_assigned_after(bc);
-            }
             ExprCompiled::UnOp(_op, expr) => {
                 expr.mark_definitely_assigned_after(bc);
             }
@@ -347,13 +344,12 @@ impl IrSpanned<ExprCompiled> {
                     })
                 });
             }
-            ExprCompiled::Not(box ref expr) => {
-                Self::write_not(expr, target, bc);
-            }
+            ExprCompiled::UnOp(ExprUnOp::Not, box ref expr) => Self::write_not(expr, target, bc),
             ExprCompiled::UnOp(op, ref expr) => {
                 expr.write_bc_cb(bc, |expr, bc| {
                     let arg = (expr, target);
                     match op {
+                        ExprUnOp::Not => unreachable!("handled above"),
                         ExprUnOp::Minus => bc.write_instr::<InstrMinus>(span, arg),
                         ExprUnOp::Plus => bc.write_instr::<InstrPlus>(span, arg),
                         ExprUnOp::BitNot => bc.write_instr::<InstrBitNot>(span, arg),

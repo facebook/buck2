@@ -18,7 +18,7 @@
 use crate::eval::{
     bc::{instrs::PatchAddr, writer::BcWriter},
     compiler::{
-        expr::{ExprCompiled, ExprLogicalBinOp, MaybeNot},
+        expr::{ExprCompiled, ExprLogicalBinOp, ExprUnOp, MaybeNot},
         span::IrSpanned,
     },
 };
@@ -151,7 +151,7 @@ fn write_cond(
     bc: &mut BcWriter,
 ) {
     match &cond.node {
-        ExprCompiled::Not(cond) => {
+        ExprCompiled::UnOp(ExprUnOp::Not, cond) => {
             write_cond(cond, maybe_not.negate(), t, f, bc);
         }
         ExprCompiled::LogicalBinOp(op, box (x, y)) => {

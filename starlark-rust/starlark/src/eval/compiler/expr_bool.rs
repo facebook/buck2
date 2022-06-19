@@ -20,7 +20,7 @@
 use crate::{
     eval::{
         compiler::{
-            expr::{ExprCompiled, ExprLogicalBinOp},
+            expr::{ExprCompiled, ExprLogicalBinOp, ExprUnOp},
             span::IrSpanned,
         },
         runtime::call_stack::FrozenFileSpan,
@@ -75,12 +75,15 @@ impl ExprCompiledBool {
         }
 
         match expr.node {
-            ExprCompiled::Not(box x) => {
+            ExprCompiled::UnOp(ExprUnOp::Not, box x) => {
                 let x = Self::new(x);
                 match x.const_value() {
                     Some(b) => new_bool(span, !b),
                     None => IrSpanned {
-                        node: ExprCompiledBool::Expr(ExprCompiled::Not(box x.into_expr())),
+                        node: ExprCompiledBool::Expr(ExprCompiled::UnOp(
+                            ExprUnOp::Not,
+                            box x.into_expr(),
+                        )),
                         span,
                     },
                 }
