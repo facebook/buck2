@@ -46,24 +46,24 @@ use crate::{
 enum FunctionError {
     #[error("Missing parameter `{name}` for call to {function}")]
     MissingParameter { name: String, function: String },
-    #[error("Found {count} extra positional parameter(s) for call to {function}")]
-    ExtraPositionalParameters { count: usize, function: String },
+    #[error("Found {count} extra positional argument(s) for call to {function}")]
+    ExtraPositionalArg { count: usize, function: String },
     #[error("Found {} extra named parameter(s) for call to {function}", .names.join(" "))]
-    ExtraNamedParameters {
+    ExtraNamedArg {
         names: Vec<String>,
         function: String,
     },
-    #[error("Parameter `{name}` occurs both explicitly and in **kwargs")]
-    RepeatedParameter { name: String },
+    #[error("Argument `{name}` occurs more than once")]
+    RepeatedArg { name: String },
     #[error("The argument provided for *args is not an identifier")]
     ArgsValueIsNotString,
     #[error("The argument provided for *args is not iterable")]
     ArgsArrayIsNotIterable,
     #[error("The argument provided for **kwargs is not a dictionary")]
     KwArgsIsNotDict,
-    #[error("Wrong number of positional parameters, expected {}, got {got}",
+    #[error("Wrong number of positional arguments, expected {}, got {got}",
         if min == max {min.to_string()} else {format!("between {} and {}", min, max)})]
-    WrongNumberOfParameters { min: usize, max: usize, got: usize },
+    WrongNumberOfArgs { min: usize, max: usize, got: usize },
 }
 
 #[derive(Debug, Copy, Clone, Dupe, Coerce, PartialEq, Trace, Freeze)]
@@ -524,7 +524,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
 
         // Check if the named arguments clashed with the positional arguments
         if unlikely(next_position > lowest_name) {
-            return Err(FunctionError::RepeatedParameter {
+            return Err(FunctionError::RepeatedArg {
                 name: self.param_names[lowest_name].clone(),
             }
             .into());
@@ -551,7 +551,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
                                     }
                                 };
                                 if unlikely(repeat) {
-                                    return Err(FunctionError::RepeatedParameter {
+                                    return Err(FunctionError::RepeatedArg {
                                         name: s.as_str().to_owned(),
                                     }
                                     .into());
@@ -599,7 +599,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         if let Some(args_pos) = self.args {
             slots[args_pos as usize].set(Some(heap.alloc_tuple(&star_args)));
         } else if unlikely(!star_args.is_empty()) {
-            return Err(FunctionError::ExtraPositionalParameters {
+            return Err(FunctionError::ExtraPositionalArg {
                 count: star_args.len(),
                 function: self.signature(),
             }
@@ -609,7 +609,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         if let Some(kwargs_pos) = self.kwargs {
             slots[kwargs_pos as usize].set(Some(kwargs.alloc(heap)));
         } else if let Some(kwargs) = kwargs.kwargs {
-            return Err(FunctionError::ExtraNamedParameters {
+            return Err(FunctionError::ExtraNamedArg {
                 names: kwargs.keys().map(|x| x.as_str().to_owned()).collect(),
                 function: self.signature(),
             }
@@ -988,7 +988,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
                         let k = Hashed::new_unchecked(k.hash(), s);
                         let old = result.insert_hashed(k, v);
                         if unlikely(old.is_some()) {
-                            return Err(FunctionError::RepeatedParameter {
+                            return Err(FunctionError::RepeatedArg {
                                 name: s.as_str().to_owned(),
                             }
                             .into());
@@ -1089,7 +1089,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
                 Ok(())
             } else {
                 // Would be nice to give a better name here, but it's in the call stack, so no big deal
-                Err(FunctionError::ExtraNamedParameters {
+                Err(FunctionError::ExtraNamedArg {
                     names: extra,
                     function: "function".to_owned(),
                 }
@@ -1123,7 +1123,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
                     .chain(x.0.args.unwrap().iterate(heap)?)
                     .collect::<Vec<_>>();
             xs.as_slice().try_into().map_err(|_| {
-                FunctionError::WrongNumberOfParameters {
+                FunctionError::WrongNumberOfArgs {
                     min: N,
                     max: N,
                     got: x.0.pos.len(),
@@ -1134,7 +1134,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
 
         if self.0.args.is_none() {
             self.0.pos.try_into().map_err(|_| {
-                FunctionError::WrongNumberOfParameters {
+                FunctionError::WrongNumberOfArgs {
                     min: N,
                     max: N,
                     got: self.0.pos.len(),
@@ -1175,7 +1175,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
                 }
                 Ok((required, optional))
             } else {
-                Err(FunctionError::WrongNumberOfParameters {
+                Err(FunctionError::WrongNumberOfArgs {
                     min: REQUIRED,
                     max: REQUIRED + OPTIONAL,
                     got: xs.len(),

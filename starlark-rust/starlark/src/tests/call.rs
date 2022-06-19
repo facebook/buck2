@@ -191,8 +191,8 @@ def h(a=1, *, b=2):
     assert::is_true(&f("f(**{'c':7, 'a':2, 'b':3}) == 13"));
     assert::fail(&f("f(**{'a':2})"), "Missing parameter");
     assert::fail(&f("f(**{'c':7, 'a':2, 'b':3, 'd':5})"), "extra named");
-    assert::fail(&f("f(1, a=1, b=2)"), "occurs both");
-    assert::fail(&f("g(a=1,*[2])"), "occurs both");
+    assert::fail(&f("f(1, a=1, b=2)"), "occurs more");
+    assert::fail(&f("g(a=1,*[2])"), "occurs more");
     assert::fail(&f("h(1, 2)"), "extra positional");
     assert::is_true(&f("h(2, b=3) == 5"));
     assert::is_true(&f("h(a=2, b=3) == 5"));
