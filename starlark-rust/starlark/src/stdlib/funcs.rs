@@ -418,6 +418,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     ///
     /// `hasattr(x, name)` reports whether x has an attribute (field or method)
     /// named `name`.
+    #[starlark(speculative_exec_safe)]
     fn hasattr(
         #[starlark(require = pos)] a: Value,
         #[starlark(require = pos)] attr: &str,
