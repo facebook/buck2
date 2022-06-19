@@ -11,7 +11,10 @@ use buck2_core::fs::project::ProjectRelativePath;
 
 use crate::daemon::server::BaseCommandContext;
 
-pub async fn materialize(server_ctx: BaseCommandContext, paths: Vec<String>) -> anyhow::Result<()> {
+pub(crate) async fn materialize(
+    server_ctx: BaseCommandContext,
+    paths: Vec<String>,
+) -> anyhow::Result<()> {
     let mut project_paths = Vec::new();
     for path in paths {
         project_paths.push(ProjectRelativePath::new(&path)?.to_owned())

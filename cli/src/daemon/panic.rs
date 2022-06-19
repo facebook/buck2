@@ -52,7 +52,7 @@ async fn remove_old_panic_dumps() -> anyhow::Result<()> {
 }
 
 /// Initializes the panic hook.
-pub fn initialize(daemon_state: Arc<DaemonStateData>) {
+pub(crate) fn initialize(daemon_state: Arc<DaemonStateData>) {
     let hook = panic::take_hook();
     panic::set_hook(box move |info| {
         daemon_panic_hook(&daemon_state, info);

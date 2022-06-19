@@ -26,7 +26,7 @@ use crate::{
     name = "cquery",
     about = "provides facilities to query information about the configured target node graph"
 )]
-pub struct CqueryCommand {
+pub(crate) struct CqueryCommand {
     #[clap(flatten)]
     config_opts: CommonConfigOptions,
 

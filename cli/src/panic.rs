@@ -128,7 +128,7 @@ mod imp {
     }
 
     /// Writes a representation of the given `PanicInfo` to Scribe, via the `Panic` event.
-    pub fn write_panic_to_scribe(fb: FacebookInit, info: &PanicInfo) {
+    pub(crate) fn write_panic_to_scribe(fb: FacebookInit, info: &PanicInfo) {
         let message = get_message_for_panic(info);
         let location = info.location().map(|loc| Location {
             file: loc.file().to_owned(),
@@ -138,7 +138,11 @@ mod imp {
         write_to_scribe(fb, location, message);
     }
 
-    pub fn write_soft_error_to_scribe(fb: FacebookInit, err: &anyhow::Error, location: Location) {
+    pub(crate) fn write_soft_error_to_scribe(
+        fb: FacebookInit,
+        err: &anyhow::Error,
+        location: Location,
+    ) {
         write_to_scribe(fb, Some(location), format!("Soft Error: {:#}", err));
     }
 
@@ -213,8 +217,12 @@ mod imp {
 
     use fbinit::FacebookInit;
 
-    pub fn write_panic_to_scribe(_: FacebookInit, _: &PanicInfo) {}
+    pub(crate) fn write_panic_to_scribe(_: FacebookInit, _: &PanicInfo) {}
 
-    pub fn write_soft_error_to_scribe(_: FacebookInit, _: &anyhow::Error, _: buck2_data::Location) {
+    pub(crate) fn write_soft_error_to_scribe(
+        _: FacebookInit,
+        _: &anyhow::Error,
+        _: buck2_data::Location,
+    ) {
     }
 }

@@ -64,11 +64,11 @@ macro_rules! eprintln {
     };
 }
 
-pub fn _print(fmt: Arguments) -> anyhow::Result<()> {
+pub(crate) fn _print(fmt: Arguments) -> anyhow::Result<()> {
     print(io::stdout().lock(), fmt, FailureExitCode::StdoutBrokenPipe)
 }
 
-pub fn _eprint(fmt: Arguments) -> anyhow::Result<()> {
+pub(crate) fn _eprint(fmt: Arguments) -> anyhow::Result<()> {
     print(io::stderr().lock(), fmt, FailureExitCode::StderrBrokenPipe)
 }
 

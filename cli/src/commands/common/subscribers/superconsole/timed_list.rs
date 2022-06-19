@@ -38,21 +38,21 @@ const DISPLAY_SUBACTION_CUTOFF: f64 = 0.9;
 
 /// Information about notable event durations.
 #[derive(Debug)]
-pub struct Cutoffs {
+pub(crate) struct Cutoffs {
     /// Cutoff for normal execution time.
     pub inform: Duration,
     /// Cutoff for abnormal but still OK execution time.
     pub warn: Duration,
     /// Minimum time an event must be alive before it is worth displaying.
-    pub notable: Duration,
+    pub _notable: Duration,
 }
 
 /// This component renders each event and a timer indicating for how long the event has been ongoing.
 #[derive(Debug)]
-pub struct TimedListBody(Bounded);
+pub(crate) struct TimedListBody(Bounded);
 
 impl TimedListBody {
-    pub fn new(max_size: usize, cutoffs: Cutoffs) -> Self {
+    pub(crate) fn new(max_size: usize, cutoffs: Cutoffs) -> Self {
         Self(Bounded::new(
             box Expanding::new(box TimedListBodyInner { max_size, cutoffs }),
             None,
@@ -244,10 +244,10 @@ impl Component for CountComponent {
 
 /// Wrapper component for Header + Count
 #[derive(Debug)]
-pub struct TimedListHeader(Bordered);
+pub(crate) struct TimedListHeader(Bordered);
 
 impl TimedListHeader {
-    pub fn new(header: String) -> Self {
+    pub(crate) fn new(header: String) -> Self {
         let info = box StaticStringComponent { header };
         let count = box CountComponent;
         let header_split = box HeaderLineComponent::new(info, count);
@@ -278,7 +278,7 @@ impl Component for TimedListHeader {
 
 /// Component that displays ongoing events and their durations + summary stats.
 #[derive(Debug)]
-pub struct TimedList {
+pub(crate) struct TimedList {
     child: Split,
 }
 
@@ -286,7 +286,7 @@ impl TimedList {
     /// * `max_events` is the maximum number of events displayed
     /// * `cutoffs` determines durations for warnings, time-outs, and baseline notability.
     /// * `header` is the string displayed at the top of the list.
-    pub fn new(max_events: usize, cutoffs: Cutoffs, header: String) -> Self {
+    pub(crate) fn new(max_events: usize, cutoffs: Cutoffs, header: String) -> Self {
         let head = box TimedListHeader::new(header);
         // Subtract for the header and the padding row above and beneath
         let body = box TimedListBody::new(max_events, cutoffs);
@@ -330,7 +330,7 @@ mod tests {
     const CUTOFFS: Cutoffs = Cutoffs {
         inform: Duration::from_secs(2),
         warn: Duration::from_secs(4),
-        notable: Duration::from_millis(200),
+        _notable: Duration::from_millis(200),
     };
 
     fn get_span_start(event: &BuckEvent) -> &SpanStartEvent {

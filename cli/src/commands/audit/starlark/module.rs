@@ -24,13 +24,13 @@ use crate::daemon::server::ServerCommandContext;
     name = "module",
     about = "Inspect Starlark module by fully qualified import string like foo//bar:baz.bzl"
 )]
-pub struct StarlarkModuleCommand {
+pub(crate) struct StarlarkModuleCommand {
     #[clap(name = "IMPORT_PATH", help = "Module import path")]
     import_path: String,
 }
 
 impl StarlarkModuleCommand {
-    pub async fn server_execute(
+    pub(crate) async fn server_execute(
         &self,
         mut server_ctx: ServerCommandContext,
         _client_ctx: ClientContext,

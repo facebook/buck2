@@ -32,7 +32,7 @@ use crate::{
     name = "audit-prelude",
     about = "print the interpreter prelude to stdout"
 )]
-pub struct AuditPreludeCommand {}
+pub(crate) struct AuditPreludeCommand {}
 
 #[async_trait]
 impl AuditSubcommand for AuditPreludeCommand {

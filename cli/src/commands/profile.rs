@@ -29,7 +29,7 @@ use crate::{
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Profiling mechanisms")]
-pub enum ProfileCommand {
+pub(crate) enum ProfileCommand {
     #[clap(about = "Profile analysis")]
     Analysis(ProfileOptions),
 
@@ -38,7 +38,7 @@ pub enum ProfileCommand {
 }
 
 impl ProfileCommand {
-    pub fn exec(self, matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult {
+    pub(crate) fn exec(self, matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult {
         let submatches = matches.subcommand().expect("subcommand not found").1;
         match self {
             Self::Analysis(opts) => ProfileSubcommand {
@@ -56,7 +56,7 @@ impl ProfileCommand {
 
 #[derive(Debug, clap::Parser)]
 #[clap(group = clap::ArgGroup::with_name("profiler").required(true))]
-pub struct ProfileOptions {
+pub(crate) struct ProfileOptions {
     #[clap(flatten)]
     config_opts: CommonConfigOptions,
 
@@ -91,7 +91,7 @@ pub struct ProfileOptions {
     typecheck: bool,
 }
 
-pub struct ProfileSubcommand {
+pub(crate) struct ProfileSubcommand {
     opts: ProfileOptions,
     action: Action,
 }

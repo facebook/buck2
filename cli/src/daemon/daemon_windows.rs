@@ -13,7 +13,7 @@ use futures::Stream;
 
 use crate::daemon::client_utils::SOCKET_ADDR;
 
-pub async fn create_listener(
+pub(crate) async fn create_listener(
     _daemon_dir: &Path,
 ) -> anyhow::Result<(
     String,

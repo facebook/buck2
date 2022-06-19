@@ -56,7 +56,7 @@ pub static DEFAULT_PORT: &str = "50055";
 pub static DEFAULT_SOCKET_ADDR: &str = "0.0.0.0";
 
 #[derive(Debug, Error)]
-pub enum InstallError {
+pub(crate) enum InstallError {
     #[error("Not install type `{0}` from package `{1}`")]
     NoInstallProvider(TargetName, Package),
     #[error("Error retrieving hash for `{0}`")]
@@ -67,11 +67,9 @@ pub enum InstallError {
         path: AbsPathBuf,
         err: String,
     },
-    #[error("Error locating `{artifact}` located at `{path}`")]
-    MissingArtifact { artifact: String, path: AbsPathBuf },
 }
 
-pub async fn install(
+pub(crate) async fn install(
     server_ctx: ServerCommandContext,
     request: InstallRequest,
 ) -> anyhow::Result<InstallResponse> {
@@ -214,7 +212,7 @@ async fn build_launch_installer(
 }
 
 #[derive(Debug)]
-pub struct FileResult {
+pub(crate) struct FileResult {
     name: String,
     artifact: Artifact,
     artifact_value: ArtifactValue,
@@ -280,7 +278,7 @@ async fn connect_to_installer(unix_socket: String) -> anyhow::Result<InstallerCl
         Duration::from_millis(500),
         Duration::from_secs(5),
         async || {
-            get_channel(ConnectionType::UDS {
+            get_channel(ConnectionType::Uds {
                 unix_socket: unix_socket.to_owned(),
             })
             .await
@@ -296,7 +294,7 @@ async fn connect_to_installer(unix_socket: String) -> anyhow::Result<InstallerCl
                 Duration::from_millis(500),
                 Duration::from_secs(5),
                 async || {
-                    get_channel(ConnectionType::TCP {
+                    get_channel(ConnectionType::Tcp {
                         socket: DEFAULT_SOCKET_ADDR.to_owned(),
                         port: DEFAULT_PORT.to_owned(),
                     })

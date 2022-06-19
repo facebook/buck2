@@ -18,7 +18,7 @@ use anyhow::Context;
 use buck2_core::exit_result::ExitResult;
 use buck2_data::BuckEvent;
 use cli_proto::{daemon_api_client::*, *};
-pub use connect::BuckdConnectOptions;
+pub(crate) use connect::BuckdConnectOptions;
 use futures::{future::BoxFuture, pin_mut, stream, Stream, StreamExt};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -37,7 +37,7 @@ mod events_ctx;
 mod file_tailer;
 mod replayer;
 
-pub use replayer::Replayer;
+pub(crate) use replayer::Replayer;
 
 static GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(4);
 static FORCE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
@@ -66,7 +66,7 @@ impl From<tonic::Status> for BuckdCommunicationError {
     }
 }
 
-pub enum VersionCheckResult {
+pub(crate) enum VersionCheckResult {
     Match,
     Mismatch { expected: String, actual: String },
 }
@@ -101,12 +101,12 @@ impl ClientKind {
 
 /// We need to make sure that all calls to the daemon in buckd flush the tailers after completion.
 /// The connector wraps all buckd calls with flushing.
-pub struct BuckdClientConnector {
+pub(crate) struct BuckdClientConnector {
     client: BuckdClient,
 }
 
 impl BuckdClientConnector {
-    pub async fn with_flushing<Fun, R: 'static>(&mut self, command: Fun) -> anyhow::Result<R>
+    pub(crate) async fn with_flushing<Fun, R: 'static>(&mut self, command: Fun) -> anyhow::Result<R>
     where
         for<'a> Fun: FnOnce(&'a mut BuckdClient) -> BoxFuture<'a, R>,
     {
@@ -126,7 +126,7 @@ impl BuckdClientConnector {
 /// some of the complexity/verbosity of making calls with that. For example, the user
 /// doesn't need to deal with tonic::Response/Request and this may provide functions
 /// that take more primitive types than the protobuf structure itself.
-pub struct BuckdClient {
+pub(crate) struct BuckdClient {
     client: ClientKind,
     info: DaemonProcessInfo,
     // TODO(brasselsprouts): events_ctx should own tailers
@@ -140,7 +140,7 @@ pub struct BuckdClient {
 /// where a general `CommandError` was returned. Consider this a "failed successfully" indicator.
 /// At the point where this is returned, all event processing / logging should be handled.
 #[must_use]
-pub enum CommandOutcome<R> {
+pub(crate) enum CommandOutcome<R> {
     /// The buckd client successfully returned the expected response.
     ///
     /// Additional processing of this response may be necessary to determine overall success or
@@ -154,7 +154,7 @@ pub enum CommandOutcome<R> {
 }
 
 /// Small wrapper used in FromResidual
-pub struct CommandFailure(Option<u8>);
+pub(crate) struct CommandFailure(Option<u8>);
 
 /// Allow the usage of '?' when going from a CommandOutcome -> ExitResult
 impl<R> Try for CommandOutcome<R> {
@@ -253,7 +253,7 @@ impl BuckdClient {
         }
     }
 
-    pub async fn kill(&mut self, reason: &str) -> anyhow::Result<()> {
+    pub(crate) async fn kill(&mut self, reason: &str) -> anyhow::Result<()> {
         let pid = self.info.pid;
         let request_fut = self
             .client
@@ -385,7 +385,7 @@ impl BuckdClient {
         }
     }
 
-    pub async fn status(&mut self, snapshot: bool) -> anyhow::Result<StatusResponse> {
+    pub(crate) async fn status(&mut self, snapshot: bool) -> anyhow::Result<StatusResponse> {
         let outcome = self
             .events_ctx
             // Safe to unwrap tailers here because they are instantiated prior to a command being called.
@@ -406,7 +406,7 @@ impl BuckdClient {
         }
     }
 
-    pub async fn clean(
+    pub(crate) async fn clean(
         &mut self,
         req: CleanRequest,
     ) -> anyhow::Result<CommandOutcome<CleanResponse>> {
@@ -414,7 +414,7 @@ impl BuckdClient {
             .await
     }
 
-    pub async fn aquery(
+    pub(crate) async fn aquery(
         &mut self,
         req: AqueryRequest,
     ) -> anyhow::Result<CommandOutcome<AqueryResponse>> {
@@ -422,7 +422,7 @@ impl BuckdClient {
             .await
     }
 
-    pub async fn cquery(
+    pub(crate) async fn cquery(
         &mut self,
         req: CqueryRequest,
     ) -> anyhow::Result<CommandOutcome<CqueryResponse>> {
@@ -430,7 +430,7 @@ impl BuckdClient {
             .await
     }
 
-    pub async fn uquery(
+    pub(crate) async fn uquery(
         &mut self,
         req: UqueryRequest,
     ) -> anyhow::Result<CommandOutcome<UqueryResponse>> {
@@ -438,7 +438,7 @@ impl BuckdClient {
             .await
     }
 
-    pub async fn targets(
+    pub(crate) async fn targets(
         &mut self,
         req: TargetsRequest,
     ) -> anyhow::Result<CommandOutcome<TargetsResponse>> {
@@ -446,7 +446,7 @@ impl BuckdClient {
             .await
     }
 
-    pub async fn targets_show_outputs(
+    pub(crate) async fn targets_show_outputs(
         &mut self,
         req: TargetsRequest,
     ) -> anyhow::Result<CommandOutcome<TargetsShowOutputsResponse>> {
@@ -457,7 +457,7 @@ impl BuckdClient {
         .await
     }
 
-    pub async fn build(
+    pub(crate) async fn build(
         &mut self,
         req: BuildRequest,
     ) -> anyhow::Result<CommandOutcome<BuildResponse>> {
@@ -465,17 +465,23 @@ impl BuckdClient {
             .await
     }
 
-    pub async fn bxl(&mut self, req: BxlRequest) -> anyhow::Result<CommandOutcome<BxlResponse>> {
+    pub(crate) async fn bxl(
+        &mut self,
+        req: BxlRequest,
+    ) -> anyhow::Result<CommandOutcome<BxlResponse>> {
         self.stream(|d, r| Box::pin(DaemonApiClient::bxl(d, r)), req)
             .await
     }
 
-    pub async fn test(&mut self, req: TestRequest) -> anyhow::Result<CommandOutcome<TestResponse>> {
+    pub(crate) async fn test(
+        &mut self,
+        req: TestRequest,
+    ) -> anyhow::Result<CommandOutcome<TestResponse>> {
         self.stream(|d, r| Box::pin(DaemonApiClient::test(d, r)), req)
             .await
     }
 
-    pub async fn install(
+    pub(crate) async fn install(
         &mut self,
         req: InstallRequest,
     ) -> anyhow::Result<CommandOutcome<InstallResponse>> {
@@ -483,7 +489,7 @@ impl BuckdClient {
             .await
     }
 
-    pub async fn audit(
+    pub(crate) async fn audit(
         &mut self,
         req: GenericRequest,
     ) -> anyhow::Result<CommandOutcome<GenericResponse>> {
@@ -491,7 +497,7 @@ impl BuckdClient {
             .await
     }
 
-    pub async fn materialize(
+    pub(crate) async fn materialize(
         &mut self,
         req: MaterializeRequest,
     ) -> anyhow::Result<CommandOutcome<MaterializeResponse>> {
@@ -499,7 +505,7 @@ impl BuckdClient {
             .await
     }
 
-    pub async fn unstable_docs(
+    pub(crate) async fn unstable_docs(
         &mut self,
         req: UnstableDocsRequest,
     ) -> anyhow::Result<CommandOutcome<UnstableDocsResponse>> {
@@ -507,7 +513,7 @@ impl BuckdClient {
             .await
     }
 
-    pub async fn unstable_crash(
+    pub(crate) async fn unstable_crash(
         &mut self,
         req: UnstableCrashRequest,
     ) -> anyhow::Result<UnstableCrashResponse> {
@@ -519,7 +525,10 @@ impl BuckdClient {
         Ok(resp.into_inner())
     }
 
-    pub async fn segfault(&mut self, req: SegfaultRequest) -> anyhow::Result<SegfaultResponse> {
+    pub(crate) async fn segfault(
+        &mut self,
+        req: SegfaultRequest,
+    ) -> anyhow::Result<SegfaultResponse> {
         let resp = self
             .client
             .daemon_only_mut()
@@ -528,7 +537,7 @@ impl BuckdClient {
         Ok(resp.into_inner())
     }
 
-    pub async fn unstable_heap_dump(
+    pub(crate) async fn unstable_heap_dump(
         &mut self,
         req: UnstableHeapDumpRequest,
     ) -> anyhow::Result<UnstableHeapDumpResponse> {
@@ -540,7 +549,7 @@ impl BuckdClient {
         Ok(resp.into_inner())
     }
 
-    pub async fn unstable_allocator_stats(
+    pub(crate) async fn unstable_allocator_stats(
         &mut self,
         req: UnstableAllocatorStatsRequest,
     ) -> anyhow::Result<UnstableAllocatorStatsResponse> {
@@ -552,7 +561,7 @@ impl BuckdClient {
         Ok(resp.into_inner())
     }
 
-    pub async fn unstable_dice_dump(
+    pub(crate) async fn unstable_dice_dump(
         &mut self,
         req: UnstableDiceDumpRequest,
     ) -> anyhow::Result<UnstableDiceDumpResponse> {
@@ -564,7 +573,7 @@ impl BuckdClient {
         Ok(resp.into_inner())
     }
 
-    pub async fn profile(
+    pub(crate) async fn profile(
         &mut self,
         req: ProfileRequest,
     ) -> anyhow::Result<CommandOutcome<ProfileResponse>> {
@@ -572,7 +581,7 @@ impl BuckdClient {
             .await
     }
 
-    pub async fn flush_dep_files(
+    pub(crate) async fn flush_dep_files(
         &mut self,
         req: FlushDepFilesRequest,
     ) -> anyhow::Result<CommandOutcome<GenericResponse>> {
@@ -585,7 +594,7 @@ impl BuckdClient {
             .await
     }
 
-    pub async fn check_version(&mut self) -> anyhow::Result<VersionCheckResult> {
+    pub(crate) async fn check_version(&mut self) -> anyhow::Result<VersionCheckResult> {
         let status = self.status(false).await?;
         Ok(VersionCheckResult::from(
             BuckVersion::get_unique_id().to_owned(),
@@ -610,7 +619,7 @@ impl BuckdClient {
         stream::once(async move { init_req }).chain(requests.map(|request| request.into()))
     }
 
-    pub async fn lsp(
+    pub(crate) async fn lsp(
         &mut self,
         context: ClientContext,
         requests: impl Stream<Item = LspRequest> + Send + Sync + 'static,

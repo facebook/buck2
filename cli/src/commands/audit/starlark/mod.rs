@@ -28,7 +28,7 @@ use crate::{
 
 #[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
 #[clap(name = "starlark", about = "Debug Starlark interpreter")]
-pub enum StarlarkCommand {
+pub(crate) enum StarlarkCommand {
     Module(StarlarkModuleCommand),
     PackageDeps(StarlarkPackageDepsCommand),
 }

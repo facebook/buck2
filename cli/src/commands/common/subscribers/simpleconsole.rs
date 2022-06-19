@@ -135,7 +135,7 @@ fn eprint_command_details(
 ///
 /// These stats only track executions/commands.
 #[derive(Default)]
-pub struct ActionStats {
+pub(crate) struct ActionStats {
     pub local_actions: u64,
     pub remote_actions: u64,
     pub cached_actions: u64,
@@ -143,7 +143,7 @@ pub struct ActionStats {
 
 impl ActionStats {
     #[cfg(test)]
-    pub fn new_with_local_remote_cached(
+    pub(crate) fn new_with_local_remote_cached(
         local_actions: u64,
         remote_actions: u64,
         cached_actions: u64,
@@ -155,7 +155,7 @@ impl ActionStats {
         }
     }
 
-    pub fn action_cache_hit_percentage(&self) -> u8 {
+    pub(crate) fn action_cache_hit_percentage(&self) -> u8 {
         // We want special semantics for the return value: the terminal values (0% and 100%)
         // should _only_ be used when there are exactly no cache hits and full cache hits.
         // So, even if we have 99.6% cache hits, we want to display 99% and conversely,
@@ -175,11 +175,11 @@ impl ActionStats {
         }
     }
 
-    pub fn total_executed_and_cached_actions(&self) -> u64 {
+    pub(crate) fn total_executed_and_cached_actions(&self) -> u64 {
         self.local_actions + self.remote_actions + self.cached_actions
     }
 
-    pub fn update(&mut self, action_execution_kind: buck2_data::ActionExecutionKind) {
+    pub(crate) fn update(&mut self, action_execution_kind: buck2_data::ActionExecutionKind) {
         match action_execution_kind {
             buck2_data::ActionExecutionKind::Local => {
                 self.local_actions += 1;
@@ -197,13 +197,13 @@ impl ActionStats {
         }
     }
 
-    pub fn log_stats(&self) -> bool {
+    pub(crate) fn log_stats(&self) -> bool {
         self.total_executed_and_cached_actions() > 0
     }
 }
 
 /// Just repeats stdout and stderr to client process.
-pub struct SimpleConsole {
+pub(crate) struct SimpleConsole {
     tty_mode: TtyMode,
     verbosity: Verbosity,
     span_tracker: SpanTracker,
@@ -246,19 +246,19 @@ impl SimpleConsole {
         }
     }
 
-    pub fn spans(&self) -> &SpanTracker {
+    pub(crate) fn spans(&self) -> &SpanTracker {
         &self.span_tracker
     }
 
-    pub fn action_stats(&self) -> &ActionStats {
+    pub(crate) fn action_stats(&self) -> &ActionStats {
         &self.action_stats
     }
 
-    pub fn action_stats_mut(&mut self) -> &mut ActionStats {
+    pub(crate) fn action_stats_mut(&mut self) -> &mut ActionStats {
         &mut self.action_stats
     }
 
-    pub async fn update_span_tracker(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
+    pub(crate) async fn update_span_tracker(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
         self.span_tracker
             .handle_event(event)
             .await
@@ -535,7 +535,7 @@ impl EventSubscriber for SimpleConsole {
 }
 
 /// A consistent format for printing that we are about to run an action.
-pub struct WhatRanCommandConsoleFormat<'a, 'b> {
+pub(crate) struct WhatRanCommandConsoleFormat<'a, 'b> {
     pub reason: &'a str,
     pub identity: &'a str,
     pub repro: CommandReproducer<'b>,

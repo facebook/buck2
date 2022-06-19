@@ -82,7 +82,7 @@ impl FromStr for ValueStyle {
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(name = "audit-config", about = "buck audit config")]
-pub struct AuditConfigCommand {
+pub(crate) struct AuditConfigCommand {
     #[clap(flatten)]
     pub config_opts: CommonConfigOptions,
 

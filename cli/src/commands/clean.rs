@@ -21,7 +21,7 @@ use crate::{
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Deletes any generated files and caches")]
-pub struct CleanCommand {
+pub(crate) struct CleanCommand {
     #[clap(flatten)]
     config_opts: CommonConfigOptions,
 

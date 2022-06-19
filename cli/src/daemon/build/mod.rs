@@ -66,19 +66,19 @@ use crate::daemon::{
 pub mod results;
 
 #[derive(Debug, Error)]
-pub enum BuildError {
+pub(crate) enum BuildError {
     #[error("Unknown target `{0}` from package `{1}`")]
     UnknownTarget(TargetName, Package),
 }
 
 #[derive(Debug)]
-pub struct BuildResult {
+pub(crate) struct BuildResult {
     pub build_targets: Vec<BuildTarget>,
     pub serialized_build_report: Option<String>,
     pub error_messages: Vec<String>,
 }
 
-pub async fn build(
+pub(crate) async fn build(
     server_ctx: ServerCommandContext,
     request: BuildRequest,
 ) -> anyhow::Result<BuildResult> {
@@ -456,7 +456,7 @@ async fn build_targets_for_spec(
     Ok(results)
 }
 
-pub struct BuildTargetResult {
+pub(crate) struct BuildTargetResult {
     pub outputs: Vec<SharedResult<ProviderArtifacts>>,
     pub providers: Option<FrozenProviderCollectionValue>,
     pub run_args: Option<Vec<String>>,

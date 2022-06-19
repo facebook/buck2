@@ -15,7 +15,7 @@ use gazebo::prelude::*;
 /// Accessor methods should be used to determine
 /// specific requested functionality.
 #[derive(Debug, Copy, Clone, Dupe, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Verbosity {
+pub(crate) enum Verbosity {
     /// Print as few messages as possible.
     Quiet,
     /// The default verbosity. Error messages are printed, but extra details may not be.
@@ -30,7 +30,7 @@ pub enum Verbosity {
 }
 
 impl Verbosity {
-    pub fn try_from_cli(value: &str) -> anyhow::Result<Self> {
+    pub(crate) fn try_from_cli(value: &str) -> anyhow::Result<Self> {
         Ok(match value.parse::<i64>()? {
             i if i <= 0 => Self::Quiet,
             1 => Self::Default,
@@ -45,22 +45,22 @@ impl Verbosity {
     }
 
     /// Whether stderr should be printed to users for successful commands by default.
-    pub fn print_success_stderr(self) -> bool {
+    pub(crate) fn print_success_stderr(self) -> bool {
         self.at(Self::VerboseEverything)
     }
 
     /// Whether the full command for failed actions should be printed. Otherwise, a truncated command is printed.
-    pub fn print_failure_full_command(self) -> bool {
+    pub(crate) fn print_failure_full_command(self) -> bool {
         self.at(Self::VerboseError)
     }
 
     /// Whether to print all commands that are being executed
-    pub fn print_all_commands(self) -> bool {
+    pub(crate) fn print_all_commands(self) -> bool {
         self.at(Self::VerboseError)
     }
 
     /// Whether we should print periodic status messages
-    pub fn print_status(self) -> bool {
+    pub(crate) fn print_status(self) -> bool {
         self.at(Self::Default)
     }
 }

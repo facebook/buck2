@@ -64,7 +64,7 @@ use thiserror::Error;
 
 use crate::daemon::server::ServerCommandContext;
 
-pub trait ToProtoDuration {
+pub(crate) trait ToProtoDuration {
     fn to_proto(&self) -> prost_types::Duration;
 }
 
@@ -77,7 +77,7 @@ impl ToProtoDuration for Duration {
     }
 }
 
-pub enum ConfigType {
+pub(crate) enum ConfigType {
     Value = 0,
     File = 1,
 }
@@ -97,20 +97,17 @@ impl TryFrom<i32> for ConfigType {
     }
 }
 
-#[derive(Debug, Error)]
-pub enum CommonCommandError {
-    #[error("The working directory was not passed by the client")]
-    MissingWorkingDirectory,
-}
-
-pub struct PatternParser {
+pub(crate) struct PatternParser {
     cell: CellInstance,
     cwd: Package,
     target_alias_resolver: TargetAliasResolver,
 }
 
 impl PatternParser {
-    pub async fn new(ctx: &DiceTransaction, cwd: &ProjectRelativePath) -> anyhow::Result<Self> {
+    pub(crate) async fn new(
+        ctx: &DiceTransaction,
+        cwd: &ProjectRelativePath,
+    ) -> anyhow::Result<Self> {
         let cell_resolver = ctx.get_cell_resolver().await;
 
         let cwd = Package::from_cell_path(&cell_resolver.get_cell_path(&cwd)?);
@@ -138,7 +135,10 @@ impl PatternParser {
         })
     }
 
-    pub fn parse_pattern<T: PatternType>(&self, pattern: &str) -> anyhow::Result<ParsedPattern<T>> {
+    pub(crate) fn parse_pattern<T: PatternType>(
+        &self,
+        pattern: &str,
+    ) -> anyhow::Result<ParsedPattern<T>> {
         ParsedPattern::parse_relaxed(
             &self.target_alias_resolver,
             self.cell.cell_alias_resolver(),
@@ -153,7 +153,7 @@ impl PatternParser {
 /// The format allowed here is more relaxed than in build files and elsewhere, so only use this
 /// with strings passed by the user on the CLI.
 /// See `ParsedPattern::parse_relaxed` for details.
-pub async fn parse_patterns_from_cli_args<T: PatternType>(
+pub(crate) async fn parse_patterns_from_cli_args<T: PatternType>(
     target_patterns: &[buck2_data::TargetPattern],
     ctx: &DiceTransaction,
     cwd: &ProjectRelativePath,
@@ -163,7 +163,7 @@ pub async fn parse_patterns_from_cli_args<T: PatternType>(
     target_patterns.try_map(|value| parser.parse_pattern(&value.value))
 }
 
-pub async fn resolve_patterns<T: PatternType>(
+pub(crate) async fn resolve_patterns<T: PatternType>(
     patterns: &[ParsedPattern<T>],
     cell_resolver: &CellResolver,
     file_ops: &dyn FileOps,
@@ -182,7 +182,7 @@ pub fn parse_concurrency(requested: u32) -> anyhow::Result<usize> {
 }
 
 /// Extract target configuration (platform) label from [`ClientContext`].
-pub async fn target_platform_from_client_context(
+pub(crate) async fn target_platform_from_client_context(
     client_context: Option<&ClientContext>,
     server_ctx: &ServerCommandContext,
 ) -> anyhow::Result<Option<TargetLabel>> {
@@ -398,7 +398,7 @@ impl From<ExecutionStrategy> for ExecutorFilter {
     }
 }
 
-pub fn get_executor_config_for_strategy(
+pub(crate) fn get_executor_config_for_strategy(
     strategy: ExecutionStrategy,
     host_platform: HostPlatformOverride,
 ) -> CommandExecutorConfig {
@@ -495,7 +495,7 @@ pub fn parse_bxl_label_from_cli(
     })
 }
 
-pub trait ConvertMaterializationContext {
+pub(crate) trait ConvertMaterializationContext {
     fn from(self) -> MaterializationContext;
 }
 

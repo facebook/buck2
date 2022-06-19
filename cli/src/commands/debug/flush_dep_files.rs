@@ -19,7 +19,7 @@ use crate::{
 };
 
 #[derive(Debug, clap::Parser)]
-pub struct FlushDepFilesCommand {}
+pub(crate) struct FlushDepFilesCommand {}
 
 #[async_trait]
 impl StreamingCommand for FlushDepFilesCommand {

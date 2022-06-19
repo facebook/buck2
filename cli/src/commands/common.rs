@@ -53,7 +53,7 @@ pub const NO_EVENT_LOG: &str = "--no-event-log";
     clap::ArgEnum
 )]
 #[clap(rename_all = "lower")]
-pub enum ConsoleType {
+pub(crate) enum ConsoleType {
     Simple,
     SimpleNoTty,
     SimpleTty,
@@ -72,7 +72,7 @@ pub enum ConsoleType {
     clap::ArgEnum
 )]
 #[clap(rename_all = "lower")]
-pub enum UiOptions {
+pub(crate) enum UiOptions {
     Dice,
     DebugEvents,
 }
@@ -87,7 +87,7 @@ pub enum UiOptions {
     clap::ArgEnum
 )]
 #[clap(rename_all = "lower")]
-pub enum HostPlatformOverride {
+pub(crate) enum HostPlatformOverride {
     Default,
     Linux,
     MacOs,
@@ -104,7 +104,7 @@ Defines options related to event logs. Any command that involves a streaming dae
 "#
 )]
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
-pub struct CommonEventLogOptions {
+pub(crate) struct CommonEventLogOptions {
     /// Write events to this log file
     #[clap(value_name = "PATH", long = EVENT_LOG)]
     pub event_log: Option<PathBuf>,
@@ -115,7 +115,7 @@ pub struct CommonEventLogOptions {
 }
 
 impl CommonEventLogOptions {
-    pub fn default_ref() -> &'static Self {
+    pub(crate) fn default_ref() -> &'static Self {
         static DEFAULT: CommonEventLogOptions = CommonEventLogOptions {
             event_log: None,
             no_event_log: false,
@@ -134,7 +134,7 @@ Defines options for config and configuration related things. Any command that in
 "#
 )]
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
-pub struct CommonConfigOptions {
+pub(crate) struct CommonConfigOptions {
     #[clap(
         value_name = "SECTION.OPTION=VALUE",
         long = "config",
@@ -182,7 +182,7 @@ impl CommonConfigOptions {
     /// represents either a file, passed via `--config-file`, or a config value,
     /// passed via `-c`/`--config`. The relative order of those are important,
     /// hence they're merged into a single list.
-    pub fn config_overrides(
+    pub(crate) fn config_overrides(
         &self,
         matches: &clap::ArgMatches,
     ) -> anyhow::Result<Vec<ConfigOverride>> {
@@ -251,7 +251,7 @@ impl CommonConfigOptions {
         Ok(ordered_merged_configs.into_map(|(_, config_arg)| config_arg))
     }
 
-    pub fn host_platform_override(&self) -> HostPlatformOverride {
+    pub(crate) fn host_platform_override(&self) -> HostPlatformOverride {
         match &self.fake_host {
             Some(v) => *v,
             None => HostPlatformOverride::Default,
@@ -269,7 +269,7 @@ Defines common options for build-like commands (build, test, install).
 "#
 )]
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
-pub struct CommonBuildOptions {
+pub(crate) struct CommonBuildOptions {
     /// Print a build report
     ///
     /// --build-report=- will print the build report to stdout
@@ -337,7 +337,7 @@ impl CommonBuildOptions {
         }
     }
 
-    pub fn to_proto(&self) -> cli_proto::CommonBuildOptions {
+    pub(crate) fn to_proto(&self) -> cli_proto::CommonBuildOptions {
         let (unstable_print_build_report, unstable_build_report_filename) = self.build_report();
         cli_proto::CommonBuildOptions {
             concurrency: self.num_threads.unwrap_or(0),
@@ -372,7 +372,7 @@ Defines common console options for commands.
 "#
 )]
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
-pub struct CommonConsoleOptions {
+pub(crate) struct CommonConsoleOptions {
     #[clap(
         long = "--console",
         help = "Which console to use for this command",
@@ -409,14 +409,14 @@ impl Default for CommonConsoleOptions {
 }
 
 impl CommonConsoleOptions {
-    pub fn default_ref() -> &'static Self {
+    pub(crate) fn default_ref() -> &'static Self {
         static OPTS: CommonConsoleOptions = CommonConsoleOptions {
             console_type: ConsoleType::Auto,
             ui: vec![],
         };
         &OPTS
     }
-    pub fn final_console(&self) -> FinalConsole {
+    pub(crate) fn final_console(&self) -> FinalConsole {
         let is_tty = match self.console_type {
             ConsoleType::Auto | ConsoleType::Simple => std::io::stderr().is_tty(),
             ConsoleType::Super => true,
@@ -431,7 +431,7 @@ impl CommonConsoleOptions {
         }
     }
 
-    pub fn superconsole_config(&self) -> SuperConsoleConfig {
+    pub(crate) fn superconsole_config(&self) -> SuperConsoleConfig {
         let mut config = SuperConsoleConfig::default();
         for option in &self.ui {
             match option {

@@ -74,7 +74,7 @@ struct ArgCellPathResolverData {
 }
 
 impl<'a> ArgCellPathResolver<'a> {
-    pub fn new(cwd: &'a AbsPath) -> Self {
+    pub(crate) fn new(cwd: &'a AbsPath) -> Self {
         Self {
             data: OnceCell::new(),
             cwd,
@@ -84,7 +84,7 @@ impl<'a> ArgCellPathResolver<'a> {
     /// Resolves an argument which can possibly be a cell-relative path.
     /// If the argument is not a cell-relative path, it returns `None`.
     /// Otherwise, it tries to resolve the cell and returns a `Result`.
-    pub fn resolve_cell_path_arg(
+    pub(crate) fn resolve_cell_path_arg(
         &self,
         path: &str,
         cwd: &AbsPath,
@@ -133,12 +133,12 @@ impl<'a> ArgCellPathResolver<'a> {
     }
 }
 
-pub struct ArgExpansionContext<'a> {
+pub(crate) struct ArgExpansionContext<'a> {
     arg_resolver: ArgCellPathResolver<'a>,
 }
 
 impl<'a> ArgExpansionContext<'a> {
-    pub fn new(cwd: &'a AbsPath) -> Self {
+    pub(crate) fn new(cwd: &'a AbsPath) -> Self {
         Self {
             arg_resolver: ArgCellPathResolver::new(cwd),
         }
@@ -148,7 +148,10 @@ impl<'a> ArgExpansionContext<'a> {
     ///
     /// This prints directly to stderr (sometimes in color). This should be safe, because flagfile
     /// expansion runs *very* early in the CLI process lifetime.
-    pub fn log_relative_path_from_cell_root(&self, requested_path: &str) -> anyhow::Result<()> {
+    pub(crate) fn log_relative_path_from_cell_root(
+        &self,
+        requested_path: &str,
+    ) -> anyhow::Result<()> {
         let (prefix, reset) = if io::stderr().is_tty() {
             ("\x1b[33m", "\x1b[0m")
         } else {
@@ -192,7 +195,7 @@ enum ArgFile {
 // TODO: It does _not_ support executable argfiles (e.g., Python)
 //       which are supported by Buck v1. See `BuckArgsMethods` in
 //       Buck v1 for reference.
-pub fn expand_argfiles(args: Vec<String>, cwd: &Path) -> anyhow::Result<Vec<String>> {
+pub(crate) fn expand_argfiles(args: Vec<String>, cwd: &Path) -> anyhow::Result<Vec<String>> {
     let abs_cwd = AbsPath::new(cwd)?;
     expand_argfiles_with_context(args, &ArgExpansionContext::new(abs_cwd), abs_cwd)
 }

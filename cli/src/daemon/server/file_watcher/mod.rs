@@ -20,12 +20,12 @@ use crate::paths::Paths;
 mod watchman;
 
 #[async_trait]
-pub trait FileWatcher: Send + Sync + 'static {
+pub(crate) trait FileWatcher: Send + Sync + 'static {
     async fn sync(&self, dispatcher: &EventDispatcher) -> anyhow::Result<()>;
 }
 
 impl dyn FileWatcher {
-    pub async fn new(
+    pub(crate) async fn new(
         paths: &Paths,
         root_config: &LegacyBuckConfig,
         dice: Arc<Dice>,

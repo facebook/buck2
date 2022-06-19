@@ -16,10 +16,10 @@ use regex::RegexSet;
 
 use crate::dot::{DotDigraph, DotEdge, DotNode, DotNodeAttrs};
 
-pub struct DotTargetGraphNode<'a, T: QueryTarget>(&'a T, &'a DotTargetGraph<T>);
+pub(crate) struct DotTargetGraphNode<'a, T: QueryTarget>(&'a T, &'a DotTargetGraph<T>);
 
 /// A simple adapter for creating a DotDiGraph for a TargetSet.
-pub struct DotTargetGraph<T: QueryTarget> {
+pub(crate) struct DotTargetGraph<T: QueryTarget> {
     pub targets: TargetSet<T>,
     pub attributes: Option<RegexSet>,
 }

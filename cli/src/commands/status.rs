@@ -18,13 +18,13 @@ use crate::{daemon::client::BuckdConnectOptions, CommandContext};
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Buckd status")]
-pub struct StatusCommand {
+pub(crate) struct StatusCommand {
     #[clap(long, help = "Whether to include a state snapshot in the output.")]
     snapshot: bool,
 }
 
 impl StatusCommand {
-    pub fn exec(self, _matches: &ArgMatches, ctx: CommandContext) -> anyhow::Result<()> {
+    pub(crate) fn exec(self, _matches: &ArgMatches, ctx: CommandContext) -> anyhow::Result<()> {
         ctx.with_runtime(async move |ctx| {
             match ctx
                 .connect_buckd(BuckdConnectOptions::existing_only())

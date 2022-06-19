@@ -76,7 +76,7 @@ struct WatchmanInstance {
 }
 
 impl WatchmanInstance {
-    pub async fn shutdown(&mut self) -> anyhow::Result<()> {
+    pub(crate) async fn shutdown(&mut self) -> anyhow::Result<()> {
         let child = self
             .child
             .as_mut()

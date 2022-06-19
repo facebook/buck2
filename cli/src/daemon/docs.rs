@@ -220,7 +220,7 @@ async fn get_docs_from_module(
     Ok(docs)
 }
 
-pub async fn docs(
+pub(crate) async fn docs(
     server_ctx: ServerCommandContext,
     request: UnstableDocsRequest,
 ) -> anyhow::Result<UnstableDocsResponse> {

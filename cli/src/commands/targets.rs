@@ -43,7 +43,7 @@ enum TargetHashFunction {
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "targets", about = "Show details about the specified targets")]
-pub struct TargetsCommand {
+pub(crate) struct TargetsCommand {
     #[clap(flatten)]
     config_opts: CommonConfigOptions,
 

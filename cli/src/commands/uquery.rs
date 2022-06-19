@@ -36,7 +36,7 @@ Perform the target graph query
 "#
 )]
 #[derive(Debug, clap::Parser)]
-pub struct CommonQueryArgs {
+pub(crate) struct CommonQueryArgs {
     #[clap(name = "QUERY", help = "the query to evaluate")]
     query: String,
 
@@ -100,7 +100,7 @@ impl CommonQueryArgs {
         s
     }
 
-    pub fn output_attributes(&self) -> &[String] {
+    pub(crate) fn output_attributes(&self) -> &[String] {
         if !self.output_attribute.is_empty() {
             &self.output_attribute
         } else {
@@ -108,7 +108,7 @@ impl CommonQueryArgs {
         }
     }
 
-    pub fn output_format(&self) -> QueryOutputFormat {
+    pub(crate) fn output_format(&self) -> QueryOutputFormat {
         match self.output_format {
             Some(QueryOutputFormatArg::Json) => QueryOutputFormat::Json,
             Some(QueryOutputFormatArg::Dot) => QueryOutputFormat::Dot,
@@ -124,7 +124,7 @@ impl CommonQueryArgs {
         }
     }
 
-    pub fn get_query(&self) -> (String, Vec<String>) {
+    pub(crate) fn get_query(&self) -> (String, Vec<String>) {
         if self.query.contains("%Ss") {
             let replacement = Self::args_as_set(&self.query_args);
             (self.query.replace("%Ss", &replacement), vec![])
@@ -139,7 +139,7 @@ impl CommonQueryArgs {
     name = "uquery",
     about = "provides facilities to query information about the target node graph"
 )]
-pub struct UqueryCommand {
+pub(crate) struct UqueryCommand {
     #[clap(flatten)]
     config_opts: CommonConfigOptions,
 

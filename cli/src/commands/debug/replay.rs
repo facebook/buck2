@@ -20,7 +20,7 @@ use crate::{
 };
 
 #[derive(Error, Debug)]
-pub enum ReplayErrors {
+pub(crate) enum ReplayErrors {
     #[error("No event log available for {idx}th last command (have latest {num_logfiles})")]
     RecentIndexOutOfBounds { idx: usize, num_logfiles: usize },
 }
@@ -30,7 +30,7 @@ pub enum ReplayErrors {
     group = clap::ArgGroup::with_name("event_log"),
     setting = clap::AppSettings::TrailingVarArg
 )]
-pub struct ReplayCommand {
+pub(crate) struct ReplayCommand {
     /// The path to read the event log from.
     #[clap(
         long,
@@ -58,7 +58,7 @@ pub struct ReplayCommand {
 }
 
 impl ReplayCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult {
+    pub(crate) fn exec(self, _matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult {
         let Self {
             path,
             recent,
@@ -88,7 +88,7 @@ impl ReplayCommand {
     }
 }
 
-pub fn retrieve_nth_recent_log(ctx: &CommandContext, n: usize) -> anyhow::Result<PathBuf> {
+pub(crate) fn retrieve_nth_recent_log(ctx: &CommandContext, n: usize) -> anyhow::Result<PathBuf> {
     let log_dir = ctx.paths()?.log_dir();
     let mut logfiles = get_local_logs(&log_dir)?;
     logfiles.reverse(); // newest first

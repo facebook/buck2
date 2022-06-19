@@ -18,7 +18,7 @@ use crate::{
 };
 
 #[derive(Debug, clap::Parser)]
-pub struct SegfaultCommand {}
+pub(crate) struct SegfaultCommand {}
 
 #[async_trait]
 impl StreamingCommand for SegfaultCommand {

@@ -13,10 +13,14 @@ use crate::{daemon::client::BuckdConnectOptions, CommandContext};
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Kill the buck daemon")]
-pub struct KillCommand {}
+pub(crate) struct KillCommand {}
 
 impl KillCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: CommandContext) -> anyhow::Result<()> {
+    pub(crate) fn exec(
+        self,
+        _matches: &clap::ArgMatches,
+        ctx: CommandContext,
+    ) -> anyhow::Result<()> {
         ctx.with_runtime(async move |ctx| {
             match ctx
                 .connect_buckd(BuckdConnectOptions::existing_only())

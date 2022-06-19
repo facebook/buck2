@@ -30,7 +30,7 @@ use crate::commands::{
 };
 
 #[derive(Error, Debug)]
-pub enum ChromeTraceError {
+pub(crate) enum ChromeTraceError {
     #[error("Couldn't assign track to {0:?}: no track assigned to parent {1:?}")]
     ParentSpanNotFound(SpanId, SpanId),
 }
@@ -42,7 +42,7 @@ use crate::{
 };
 
 #[derive(Debug, clap::Parser)]
-pub struct ChromeTraceCommand {
+pub(crate) struct ChromeTraceCommand {
     #[clap(
         long,
         help = "Where to write the chrome trace JSON. If a directory is passed, the filename of the event log will be used as a base filename."
@@ -229,7 +229,7 @@ struct TrackIdAllocator {
 }
 
 impl TrackIdAllocator {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             unused_track_ids: BTreeSet::new(),
             lowest_never_used: 0,
@@ -248,7 +248,7 @@ impl TrackIdAllocator {
         }
     }
 
-    pub fn mark_unused(&mut self, tid: u64) {
+    pub(crate) fn mark_unused(&mut self, tid: u64) {
         self.unused_track_ids.insert(tid);
     }
 }
@@ -274,7 +274,7 @@ where
         + Serialize,
 {
     const BUCKET_DURATION: Duration = Duration::from_millis(10);
-    pub fn new(name: &'static str, start_value: T) -> Self {
+    pub(crate) fn new(name: &'static str, start_value: T) -> Self {
         Self {
             name,
             next_flush: SystemTime::UNIX_EPOCH,
@@ -372,7 +372,10 @@ where
         Ok(())
     }
 
-    pub fn flush_all_to(&mut self, output: &mut Vec<serde_json::Value>) -> anyhow::Result<()> {
+    pub(crate) fn flush_all_to(
+        &mut self,
+        output: &mut Vec<serde_json::Value>,
+    ) -> anyhow::Result<()> {
         self.flush()?;
         output.append(&mut self.trace_events);
         Ok(())
@@ -391,7 +394,7 @@ struct AverageRateOfChangeCounters {
 
 impl AverageRateOfChangeCounters {
     const MSECS_PER_SEC: f32 = 1000.0;
-    pub fn new(name: &'static str) -> Self {
+    pub(crate) fn new(name: &'static str) -> Self {
         Self {
             previous_timestamp_and_amount_by_key: HashMap::new(),
             counters: SimpleCounters::<f32>::new(name, 0.0),
@@ -430,7 +433,7 @@ struct SpanCounters {
 }
 
 impl SpanCounters {
-    pub fn new(name: &'static str) -> Self {
+    pub(crate) fn new(name: &'static str) -> Self {
         Self {
             counter: SimpleCounters::new(name, 0),
             open_spans: HashMap::new(),
@@ -478,7 +481,7 @@ impl ChromeTraceWriter {
     const CRITICAL_PATH: &'static str = "critical-path";
     const BYTES_PER_GIGABYTE: f64 = 1000000000.0;
 
-    pub fn new(invocation: Invocation, first_pass: ChromeTraceFirstPass) -> Self {
+    pub(crate) fn new(invocation: Invocation, first_pass: ChromeTraceFirstPass) -> Self {
         Self {
             trace_events: vec![],
             open_spans: HashMap::new(),
@@ -518,7 +521,7 @@ impl ChromeTraceWriter {
         }
     }
 
-    pub fn to_writer<W>(mut self, file: W) -> anyhow::Result<()>
+    pub(crate) fn to_writer<W>(mut self, file: W) -> anyhow::Result<()>
     where
         W: Write,
     {
@@ -749,7 +752,7 @@ impl ChromeTraceCommand {
         }
     }
 
-    pub fn exec(self, _matches: &clap::ArgMatches, _ctx: CommandContext) -> ExitResult {
+    pub(crate) fn exec(self, _matches: &clap::ArgMatches, _ctx: CommandContext) -> ExitResult {
         let rt = runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;

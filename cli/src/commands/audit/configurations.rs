@@ -27,7 +27,7 @@ use crate::{
     name = "audit-configuration",
     about = "prints the constraints for configuration IDs"
 )]
-pub struct AuditConfigurationsCommand {
+pub(crate) struct AuditConfigurationsCommand {
     #[clap(flatten)]
     pub config_opts: CommonConfigOptions,
 

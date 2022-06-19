@@ -26,11 +26,11 @@ use crate::daemon::{
 };
 
 #[derive(Debug)]
-pub struct BxlResult {
+pub(crate) struct BxlResult {
     pub error_messages: Vec<String>,
 }
 
-pub async fn bxl(
+pub(crate) async fn bxl(
     mut server_ctx: ServerCommandContext,
     request: BxlRequest,
 ) -> anyhow::Result<BxlResult> {

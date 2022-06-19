@@ -18,7 +18,7 @@ use events::{
 };
 use gazebo::prelude::*;
 use itertools::Itertools;
-pub use superconsole::SuperConsole;
+pub(crate) use superconsole::SuperConsole;
 use superconsole::{
     components::{splitting::SplitKind, Bounded, Split},
     content::{colored_lines_from_multiline_string, lines_from_multiline_string, LinesExt},
@@ -64,11 +64,11 @@ pub(crate) struct SessionInfo {
 const CUTOFFS: Cutoffs = Cutoffs {
     inform: Duration::from_secs(4),
     warn: Duration::from_secs(8),
-    notable: Duration::from_millis(200),
+    _notable: Duration::from_millis(200),
 };
 const MAX_EVENTS: usize = 10;
 
-pub struct StatefulSuperConsole {
+pub(crate) struct StatefulSuperConsole {
     state: SuperConsoleState,
     super_console: Option<SuperConsole>,
     verbosity: Verbosity,
@@ -82,7 +82,7 @@ struct TimeSpeed {
 const TIMESPEED_DEFAULT: f64 = 1.0;
 
 impl TimeSpeed {
-    pub fn new(speed_value: Option<f64>) -> anyhow::Result<Self> {
+    pub(crate) fn new(speed_value: Option<f64>) -> anyhow::Result<Self> {
         let speed = speed_value.unwrap_or(TIMESPEED_DEFAULT);
 
         if speed <= 0.0 {
@@ -91,7 +91,7 @@ impl TimeSpeed {
         Ok(TimeSpeed { speed })
     }
 
-    pub fn speed(self) -> f64 {
+    pub(crate) fn speed(self) -> f64 {
         self.speed
     }
 }
@@ -108,7 +108,7 @@ struct SuperConsoleState {
 }
 
 #[derive(Default)]
-pub struct SuperConsoleConfig {
+pub(crate) struct SuperConsoleConfig {
     // Offer a spot to put components between the banner and the timed list using `sandwiched`.
     pub sandwiched: Option<Box<dyn Component>>,
     pub enable_dice: bool,
@@ -116,7 +116,10 @@ pub struct SuperConsoleConfig {
 }
 
 impl StatefulSuperConsole {
-    pub fn default_layout(command_name: &str, config: SuperConsoleConfig) -> Box<dyn Component> {
+    pub(crate) fn default_layout(
+        command_name: &str,
+        config: SuperConsoleConfig,
+    ) -> Box<dyn Component> {
         let header = format!("Working on tasks for command: `{}`.", command_name);
         let mut components: Vec<Box<dyn Component>> = vec![box SessionInfoComponent];
         if let Some(sandwiched) = config.sandwiched {
@@ -134,7 +137,7 @@ impl StatefulSuperConsole {
         box Bounded::new(root, Some(SUPERCONSOLE_WIDTH), None)
     }
 
-    pub fn new_with_root_forced(
+    pub(crate) fn new_with_root_forced(
         root: Box<dyn Component>,
         verbosity: Verbosity,
         replay_speed: Option<f64>,
@@ -147,7 +150,7 @@ impl StatefulSuperConsole {
         )
     }
 
-    pub fn new_with_root(
+    pub(crate) fn new_with_root(
         root: Box<dyn Component>,
         verbosity: Verbosity,
         replay_speed: Option<f64>,
@@ -158,7 +161,7 @@ impl StatefulSuperConsole {
         }
     }
 
-    pub fn new(
+    pub(crate) fn new(
         super_console: SuperConsole,
         verbosity: Verbosity,
         replay_speed: Option<f64>,
@@ -686,7 +689,7 @@ fn color(color: Color) -> ContentStyle {
 
 /// This component is used to display session information for a command e.g. RE session ID
 #[derive(Debug)]
-pub struct SessionInfoComponent;
+pub(crate) struct SessionInfoComponent;
 
 impl Component for SessionInfoComponent {
     fn draw_unchecked(
@@ -735,7 +738,7 @@ impl Component for SessionInfoComponent {
 }
 
 #[derive(Error, Debug)]
-pub enum SuperConsoleError {
+pub(crate) enum SuperConsoleError {
     #[error("Tried to end an unstarted event: `{0:#?}`.\nStarted events: `{1:?}`.")]
     InvalidRemoval(BuckEvent, Vec<BuckEvent>),
     #[error(

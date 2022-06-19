@@ -35,7 +35,7 @@ mod test;
 mod types {
     use super::*;
     query_result_type! {
-        pub struct BuckQueryResult {
+        pub(crate) struct BuckQueryResult {
             name: NameField,
             file_type: FileTypeField,
             exists: ExistsField,
@@ -44,7 +44,7 @@ mod types {
     }
 
     impl BuckQueryResult {
-        pub fn into_event(self) -> Option<WatchmanEvent> {
+        pub(crate) fn into_event(self) -> Option<WatchmanEvent> {
             let kind = match *self.file_type {
                 FileType::BlockSpecial
                 | FileType::CharSpecial
@@ -77,14 +77,14 @@ mod types {
 use types::*;
 
 #[derive(Debug)]
-pub enum WatchmanEventType {
+pub(crate) enum WatchmanEventType {
     Create,
     Modify,
     Delete,
 }
 
 #[derive(Debug)]
-pub enum WatchmanKind {
+pub(crate) enum WatchmanKind {
     File,
     Directory,
     Symlink,
@@ -101,7 +101,7 @@ impl WatchmanKind {
 }
 
 #[derive(Debug)]
-pub struct WatchmanEvent {
+pub(crate) struct WatchmanEvent {
     pub kind: WatchmanKind,
     pub event: WatchmanEventType,
     pub path: PathBuf,
@@ -120,7 +120,7 @@ impl Display for WatchmanEvent {
 }
 
 #[derive(Dupe, Clone)]
-pub struct WatchmanClient(Arc<(watchman_client::Client, ResolvedRoot)>);
+pub(crate) struct WatchmanClient(Arc<(watchman_client::Client, ResolvedRoot)>);
 
 impl Debug for WatchmanClient {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -129,7 +129,7 @@ impl Debug for WatchmanClient {
 }
 
 impl WatchmanClient {
-    pub async fn connect(
+    pub(crate) async fn connect(
         connector: &Connector,
         path: CanonicalPath,
     ) -> anyhow::Result<WatchmanClient> {
@@ -138,7 +138,7 @@ impl WatchmanClient {
         Ok(Self(Arc::new((client, root))))
     }
 
-    pub async fn query<
+    pub(crate) async fn query<
         F: serde::de::DeserializeOwned + std::fmt::Debug + Clone + QueryFieldList,
     >(
         &self,
@@ -157,7 +157,7 @@ impl WatchmanClient {
 }
 
 #[async_trait]
-pub trait SyncableQueryProcessor: Send + Sync {
+pub(crate) trait SyncableQueryProcessor: Send + Sync {
     type Output;
 
     /// Process a set of filesystem change events.
@@ -182,7 +182,7 @@ enum SyncableQueryCommand<T> {
 ///
 /// In the background, the SyncableQuery may use a subscription to eagerly process updates, but this is
 /// only an optimization and users should use `sync()` when they want events to have been processed.
-pub struct SyncableQuery<T> {
+pub(crate) struct SyncableQuery<T> {
     control_tx: UnboundedSender<SyncableQueryCommand<T>>,
 }
 
@@ -328,7 +328,7 @@ where
     T: Send + 'static,
 {
     /// Ensures that the processor has been sent all changes that watchman has seen.
-    pub fn sync(&self) -> impl Future<Output = anyhow::Result<T>> + Send + 'static {
+    pub(crate) fn sync(&self) -> impl Future<Output = anyhow::Result<T>> + Send + 'static {
         let (sync_done_tx, sync_done_rx) = tokio::sync::oneshot::channel();
         let tx_res = self
             .control_tx
@@ -346,7 +346,7 @@ where
         }
     }
 
-    pub async fn new(
+    pub(crate) async fn new(
         connector: Connector,
         path: impl AsRef<Path>,
         expr: Expr,

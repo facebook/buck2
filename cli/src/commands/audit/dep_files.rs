@@ -40,7 +40,7 @@ use crate::{
     name = "audit-dep-files",
     about = "prints out the select files for a command"
 )]
-pub struct AuditDepFilesCommand {
+pub(crate) struct AuditDepFilesCommand {
     #[clap(flatten)]
     pub config_opts: CommonConfigOptions,
 

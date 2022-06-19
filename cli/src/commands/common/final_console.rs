@@ -12,16 +12,16 @@ use superconsole::style::{Color, ContentStyle, StyledContent};
 /// A way to uniformly print to the console after a command has finished. This should
 /// only be used at the end of a command, after the event context from the buckd client
 /// is not available.
-pub struct FinalConsole {
+pub(crate) struct FinalConsole {
     is_tty: bool,
 }
 
 impl FinalConsole {
-    pub fn new_with_tty() -> Self {
+    pub(crate) fn new_with_tty() -> Self {
         Self { is_tty: true }
     }
 
-    pub fn new_without_tty() -> Self {
+    pub(crate) fn new_without_tty() -> Self {
         Self { is_tty: false }
     }
 
@@ -43,24 +43,24 @@ impl FinalConsole {
     }
 
     /// Print the given message to stderr, in red if possible
-    pub fn print_error(&self, message: &str) -> anyhow::Result<()> {
+    pub(crate) fn print_error(&self, message: &str) -> anyhow::Result<()> {
         self.stderr_colored(message, Color::DarkRed)
     }
 
     /// Print the given message to stderr, in green if possible
-    pub fn print_success(&self, message: &str) -> anyhow::Result<()> {
+    pub(crate) fn print_success(&self, message: &str) -> anyhow::Result<()> {
         self.stderr_colored(message, Color::Green)
     }
 
     /// Print a string directly to stderr with no extra formatting
     #[allow(unused)]
-    pub fn print_stderr(&self, message: &str) -> anyhow::Result<()> {
+    pub(crate) fn print_stderr(&self, message: &str) -> anyhow::Result<()> {
         crate::eprintln!("{}", message)
     }
 
     /// Print a string directly to stdout with no extra formatting
     #[allow(unused)]
-    pub fn print_stdout(&self, message: &str) -> anyhow::Result<()> {
+    pub(crate) fn print_stdout(&self, message: &str) -> anyhow::Result<()> {
         crate::println!("{}", message)
     }
 }

@@ -4,18 +4,18 @@ use buck2_data::{DiceComputationStateSnapshot, DiceKeyState};
 use gazebo::prelude::*;
 use superconsole::Component;
 
-pub struct DiceState {
+pub(crate) struct DiceState {
     key_states: BTreeMap<String, DiceKeyState>,
 }
 
 impl DiceState {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             key_states: BTreeMap::new(),
         }
     }
 
-    pub fn update(&mut self, update: &DiceComputationStateSnapshot) {
+    pub(crate) fn update(&mut self, update: &DiceComputationStateSnapshot) {
         for (k, v) in &update.key_states {
             self.key_states.insert(k.clone(), v.clone());
         }
@@ -23,7 +23,7 @@ impl DiceState {
 }
 
 #[derive(Debug)]
-pub struct DiceComponent;
+pub(crate) struct DiceComponent;
 
 impl Component for DiceComponent {
     fn draw_unchecked(

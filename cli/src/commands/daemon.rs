@@ -46,7 +46,7 @@ enum DaemonError {
 
 #[derive(Clone, Debug, clap::Parser)]
 #[clap(about = "start buckd")]
-pub struct DaemonCommand {
+pub(crate) struct DaemonCommand {
     #[clap(
         help(
             "Sets the interval for how often the daemon performs consistency checks. These are used to ensure that the daemon is still the one referenced by files in the daemon dir."
@@ -59,7 +59,7 @@ pub struct DaemonCommand {
     dont_daemonize: bool,
 }
 
-pub async fn run_buckd(
+pub(crate) async fn run_buckd(
     fb: fbinit::FacebookInit,
     paths: Paths,
     detect_cycles: DetectCycles,
@@ -81,7 +81,7 @@ pub async fn run_buckd(
     BuckdServer::run(fb, paths, delegate, detect_cycles, process_info, listener).await
 }
 
-pub fn write_process_info(
+pub(crate) fn write_process_info(
     daemon_dir: &Path,
     process_info: &DaemonProcessInfo,
 ) -> anyhow::Result<()> {
@@ -238,7 +238,11 @@ impl DaemonCommand {
         Ok(())
     }
 
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: CommandContext) -> anyhow::Result<()> {
+    pub(crate) fn exec(
+        self,
+        _matches: &clap::ArgMatches,
+        ctx: CommandContext,
+    ) -> anyhow::Result<()> {
         let project_root = ctx.paths()?.project_root();
         let daemon_dir = ctx.paths()?.daemon_dir()?;
         let stdout_path = daemon_dir.join_unnormalized(ForwardRelativePath::new("buckd.stdout")?);

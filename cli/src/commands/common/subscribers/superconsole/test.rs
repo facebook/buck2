@@ -16,7 +16,7 @@ use test_api::data::TestStatus;
 use crate::commands::common::subscribers::superconsole::SessionInfo;
 
 #[derive(Default)]
-pub struct TestState {
+pub(crate) struct TestState {
     pub discovered: u64,
     pub pass: u64,
     pub fail: u64,
@@ -31,7 +31,7 @@ pub struct TestState {
 }
 
 impl TestState {
-    pub fn update(&mut self, result: &buck2_data::TestResult) -> anyhow::Result<()> {
+    pub(crate) fn update(&mut self, result: &buck2_data::TestResult) -> anyhow::Result<()> {
         let status = TestStatus::try_from(result.status)?;
         let counter = match status {
             TestStatus::PASS => &mut self.pass,
@@ -50,7 +50,7 @@ impl TestState {
         Ok(())
     }
 
-    pub fn not_executed(&self) -> u64 {
+    pub(crate) fn not_executed(&self) -> u64 {
         self.skipped + self.omitted
     }
 }
@@ -144,10 +144,10 @@ impl Component for TestCounterComponent {
 
 /// Draw the test summary line above the `timed_list`
 #[derive(Debug)]
-pub struct TestHeader(Box<dyn Component>);
+pub(crate) struct TestHeader(Box<dyn Component>);
 
 impl TestHeader {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self(box TestCounterComponent)
     }
 }
@@ -169,7 +169,7 @@ impl Component for TestHeader {
 }
 
 /// A count that receives color if and only if it's > 0
-pub struct StylizedCount {
+pub(crate) struct StylizedCount {
     pub label: &'static str,
     pub count: u64,
     pub color: Color,
@@ -177,7 +177,7 @@ pub struct StylizedCount {
 
 impl StylizedCount {
     /// Turn this StylizedCount into a Superconsole Span.
-    pub fn to_span(&self) -> anyhow::Result<superconsole::Span> {
+    pub(crate) fn to_span(&self) -> anyhow::Result<superconsole::Span> {
         let mut style = ContentStyle::default();
         if self.count > 0 {
             style.foreground_color = Some(self.color);
@@ -188,12 +188,12 @@ impl StylizedCount {
     }
 
     /// Turn this StylizedCount into output suitable for stdio.
-    pub fn to_stdio(&self) -> StylizedCountForStdio<'_> {
+    pub(crate) fn to_stdio(&self) -> StylizedCountForStdio<'_> {
         StylizedCountForStdio { inner: self }
     }
 }
 
-pub struct StylizedCountForStdio<'a> {
+pub(crate) struct StylizedCountForStdio<'a> {
     inner: &'a StylizedCount,
 }
 

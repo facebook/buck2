@@ -20,7 +20,7 @@ use crate::{
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Start, query, and control the http server")]
-pub struct ServerCommand {}
+pub(crate) struct ServerCommand {}
 
 #[async_trait]
 impl StreamingCommand for ServerCommand {

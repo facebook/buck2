@@ -21,7 +21,7 @@ use buck2_core::fs::paths::{
 use crate::roots::Roots;
 
 #[derive(Clone)]
-pub struct Paths {
+pub(crate) struct Paths {
     pub(crate) roots: Roots,
 
     /// The isolation dir is a dir relative path used to create unique directories for
@@ -47,7 +47,7 @@ pub struct Paths {
 }
 
 impl Paths {
-    pub fn daemon_dir(&self) -> anyhow::Result<AbsPathBuf> {
+    pub(crate) fn daemon_dir(&self) -> anyhow::Result<AbsPathBuf> {
         #[cfg(windows)]
         let root_relative: Cow<ForwardRelativePath> = {
             use buck2_core::fs::paths::ForwardRelativePathNormalizer;
@@ -108,29 +108,29 @@ impl Paths {
         Ok(ret)
     }
 
-    pub fn cell_root(&self) -> &AbsPath {
+    pub(crate) fn cell_root(&self) -> &AbsPath {
         &self.roots.cell_root
     }
 
-    pub fn project_root(&self) -> &AbsPath {
+    pub(crate) fn project_root(&self) -> &AbsPath {
         &self.roots.project_root
     }
 
-    pub fn log_dir(&self) -> AbsPathBuf {
+    pub(crate) fn log_dir(&self) -> AbsPathBuf {
         self.buck_out_path()
             .join_unnormalized(ForwardRelativePath::unchecked_new("log"))
     }
 
-    pub fn dice_dump_dir(&self) -> AbsPathBuf {
+    pub(crate) fn dice_dump_dir(&self) -> AbsPathBuf {
         self.buck_out_path()
             .join_unnormalized(ForwardRelativePath::unchecked_new("dice_dump"))
     }
 
-    pub fn buck_out_dir(&self) -> ForwardRelativePathBuf {
+    pub(crate) fn buck_out_dir(&self) -> ForwardRelativePathBuf {
         ForwardRelativePath::unchecked_new("buck-out").join_unnormalized(&self.isolation)
     }
 
-    pub fn buck_out_path(&self) -> AbsPathBuf {
+    pub(crate) fn buck_out_path(&self) -> AbsPathBuf {
         self.roots
             .project_root
             .join_unnormalized(&self.buck_out_dir())

@@ -39,7 +39,7 @@ pub(crate) struct EventsCtx {
     ticker: Ticker,
 }
 
-pub struct FileStreams {
+pub(crate) struct FileStreams {
     stdout: UnboundedReceiverStream<String>,
     stderr: UnboundedReceiverStream<String>,
 }
@@ -110,7 +110,7 @@ impl Ticker {
 }
 
 impl EventsCtx {
-    pub fn new(daemon_dir: AbsPathBuf, subscribers: Vec<Box<dyn EventSubscriber>>) -> Self {
+    pub(crate) fn new(daemon_dir: AbsPathBuf, subscribers: Vec<Box<dyn EventSubscriber>>) -> Self {
         Self {
             daemon_dir,
             subscribers,
@@ -121,7 +121,7 @@ impl EventsCtx {
     /// Given a stream of StreamValues originating from the daemon, "unpacks" it by extracting the command result from the
     /// event stream and returning it.
     /// Also merges all other streams into a single, larger stream
-    pub async fn unpack_stream<
+    pub(crate) async fn unpack_stream<
         R: TryFrom<command_result::Result, Error = command_result::Result>,
         S: Stream<Item = anyhow::Result<StreamValue>> + Unpin,
     >(
@@ -215,7 +215,7 @@ impl EventsCtx {
         }
     }
 
-    pub async fn flushing_tailers<R, Fut: Future<Output = R>>(
+    pub(crate) async fn flushing_tailers<R, Fut: Future<Output = R>>(
         &mut self,
         tailers: &mut Option<FileTailers>,
         f: impl FnOnce() -> Fut,
@@ -227,7 +227,7 @@ impl EventsCtx {
 
     /// Unpack a single `CommandResult`, log any failures if necessary, and convert it to a
     /// `CommandOutcome`
-    pub async fn unpack_oneshot<
+    pub(crate) async fn unpack_oneshot<
         R: TryFrom<command_result::Result, Error = command_result::Result>,
         Fut: Future<Output = Result<tonic::Response<CommandResult>, tonic::Status>>,
     >(
@@ -359,7 +359,7 @@ impl EventSubscriber for EventsCtx {
 }
 
 impl FileTailers {
-    pub fn new(daemon_dir: &Path) -> anyhow::Result<Self> {
+    pub(crate) fn new(daemon_dir: &Path) -> anyhow::Result<Self> {
         let (stdout, stdout_tailer) = FileTailer::tail_file(daemon_dir.join("buckd.stdout"))?;
         let (stderr, stderr_tailer) = FileTailer::tail_file(daemon_dir.join("buckd.stderr"))?;
         let this = Self {
@@ -370,14 +370,14 @@ impl FileTailers {
         Ok(this)
     }
 
-    pub fn stop_reading(self) -> FileStreams {
+    pub(crate) fn stop_reading(self) -> FileStreams {
         // by dropping the tailers, they shut themselves down.
         self.streams
     }
 }
 
 #[derive(Error, Debug)]
-pub enum EventsCtxError {
+pub(crate) enum EventsCtxError {
     #[error("While propagating error:\n{source:#?}, another error was detected:\n{other:#?}")]
     WrappedStreamError {
         #[source]

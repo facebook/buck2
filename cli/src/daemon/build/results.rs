@@ -14,13 +14,13 @@ use buck2_core::provider::ConfiguredProvidersLabel;
 
 use crate::daemon::build::BuildTargetResult;
 
-pub enum BuildOwner<'a> {
+pub(crate) enum BuildOwner<'a> {
     Target(&'a ConfiguredProvidersLabel),
-    Bxl(&'a BxlFunctionLabel),
+    _Bxl(&'a BxlFunctionLabel),
 }
 
 /// Collects the results of the build and processes it
-pub trait BuildResultCollector: Send {
+pub(crate) trait BuildResultCollector: Send {
     fn collect_result(&mut self, label: &BuildOwner, result: &BuildTargetResult);
 }
 
@@ -51,18 +51,18 @@ pub mod result_report {
     };
 
     /// Simple container for multiple [`SharedError`]s
-    pub struct SharedErrors {
+    pub(crate) struct SharedErrors {
         pub errors: Vec<SharedError>,
     }
 
-    pub struct ResultReporter<'a> {
+    pub(crate) struct ResultReporter<'a> {
         artifact_fs: &'a ArtifactFs,
         return_outputs: bool,
         results: Result<Vec<BuildTarget>, SharedErrors>,
     }
 
     impl<'a> ResultReporter<'a> {
-        pub fn new(artifact_fs: &'a ArtifactFs, return_outputs: bool) -> Self {
+        pub(crate) fn new(artifact_fs: &'a ArtifactFs, return_outputs: bool) -> Self {
             Self {
                 artifact_fs,
                 return_outputs,
@@ -70,7 +70,7 @@ pub mod result_report {
             }
         }
 
-        pub fn results(self) -> Result<Vec<BuildTarget>, SharedErrors> {
+        pub(crate) fn results(self) -> Result<Vec<BuildTarget>, SharedErrors> {
             self.results
         }
     }
@@ -151,7 +151,7 @@ pub mod result_report {
 
                 let (target, configuration) = match label {
                     BuildOwner::Target(t) => (t.unconfigured().to_string(), t.cfg().to_string()),
-                    BuildOwner::Bxl(l) => {
+                    BuildOwner::_Bxl(l) => {
                         // for bxl, there's no configurations so we use the unspecified configuration
                         (l.to_string(), Configuration::unspecified().to_string())
                     }
@@ -211,7 +211,7 @@ pub mod build_report {
     }
 
     #[derive(Debug, Serialize)]
-    pub struct BuildReport {
+    pub(crate) struct BuildReport {
         trace_id: TraceId,
         success: bool,
         results: HashMap<EntryLabel, ConfiguredBuildReportEntry>,
@@ -221,7 +221,7 @@ pub mod build_report {
     }
 
     #[derive(Default, Debug, Serialize)]
-    pub struct BuildReportEntry {
+    pub(crate) struct BuildReportEntry {
         /// whether this particular target was successful
         success: BuildOutcome,
         /// a map of each subtarget of the current target (outputted as a `|` delimited list) to
@@ -234,7 +234,7 @@ pub mod build_report {
     }
 
     #[derive(Debug, Serialize)]
-    pub struct ConfiguredBuildReportEntry {
+    pub(crate) struct ConfiguredBuildReportEntry {
         #[serde(flatten)]
         #[serde(skip_serializing_if = "Option::is_none")]
         compatible: Option<BuildReportEntry>,
@@ -253,7 +253,7 @@ pub mod build_report {
         Bxl(BxlFunctionLabel),
     }
 
-    pub struct BuildReportCollector<'a> {
+    pub(crate) struct BuildReportCollector<'a> {
         trace_id: &'a TraceId,
         artifact_fs: &'a ArtifactFs,
         build_report_results: HashMap<EntryLabel, ConfiguredBuildReportEntry>,
@@ -264,7 +264,7 @@ pub mod build_report {
     }
 
     impl<'a> BuildReportCollector<'a> {
-        pub fn new(
+        pub(crate) fn new(
             trace_id: &'a TraceId,
             artifact_fs: &'a ArtifactFs,
             project_root: &'a AbsPath,
@@ -282,7 +282,7 @@ pub mod build_report {
             }
         }
 
-        pub fn into_report(self) -> BuildReport {
+        pub(crate) fn into_report(self) -> BuildReport {
             BuildReport {
                 trace_id: self.trace_id.dupe(),
                 success: self.overall_success,
@@ -349,7 +349,7 @@ pub mod build_report {
                 .build_report_results
                 .entry(match label {
                     BuildOwner::Target(t) => EntryLabel::Target(t.unconfigured().target().dupe()),
-                    BuildOwner::Bxl(l) => EntryLabel::Bxl((*l).clone()),
+                    BuildOwner::_Bxl(l) => EntryLabel::Bxl((*l).clone()),
                 })
                 .or_insert_with(|| ConfiguredBuildReportEntry {
                     compatible: if self.include_unconfigured_section {
@@ -365,7 +365,7 @@ pub mod build_report {
                 .configured
                 .entry(match label {
                     BuildOwner::Target(t) => t.cfg().dupe(),
-                    BuildOwner::Bxl(_) => Configuration::unspecified(),
+                    BuildOwner::_Bxl(_) => Configuration::unspecified(),
                 })
                 .or_insert_with(BuildReportEntry::default);
             if !default_outs.is_empty() {
@@ -414,7 +414,7 @@ pub mod build_report {
                     format!("#{}", f)
                 }
             },
-            BuildOwner::Bxl(_) => "DEFAULT".to_owned(),
+            BuildOwner::_Bxl(_) => "DEFAULT".to_owned(),
         }
     }
 }

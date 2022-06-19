@@ -38,7 +38,7 @@ use crate::{
     about = "Build and run the specified target",
     setting = clap::AppSettings::TrailingVarArg
 )]
-pub struct RunCommand {
+pub(crate) struct RunCommand {
     #[clap(flatten)]
     config_opts: CommonConfigOptions,
 
@@ -191,7 +191,7 @@ struct CommandArgsFile {
 }
 
 #[derive(Error, Debug)]
-pub enum RunCommandError {
+pub(crate) enum RunCommandError {
     #[error("Target `{0}` is not a binary rule (only binary rules can be `run`)")]
     NonBinaryRule(String),
 }

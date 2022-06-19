@@ -36,7 +36,7 @@ impl FromStr for RootKind {
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Find buck cell, project or package root (default is to print the cell root)")]
-pub struct RootCommand {
+pub(crate) struct RootCommand {
     #[clap(short, long, help("which root to print"), default_value("cell"), possible_values(&["package", "cell", "project", "daemon"]))]
     kind: RootKind,
     #[clap(
@@ -57,7 +57,11 @@ enum RootError {
 }
 
 impl RootCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: CommandContext) -> anyhow::Result<()> {
+    pub(crate) fn exec(
+        self,
+        _matches: &clap::ArgMatches,
+        ctx: CommandContext,
+    ) -> anyhow::Result<()> {
         let root = match self.kind {
             RootKind::Package => return Err(RootError::PackageRootUnimplemented.into()),
             RootKind::Cell => match self.dir {

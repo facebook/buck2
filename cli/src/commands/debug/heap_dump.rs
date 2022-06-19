@@ -19,7 +19,7 @@ use crate::{
 };
 
 #[derive(Debug, clap::Parser)]
-pub struct HeapDumpCommand {
+pub(crate) struct HeapDumpCommand {
     /// The path to write the heap dump to.
     #[clap(short, long, value_name = "PATH")]
     path: String,

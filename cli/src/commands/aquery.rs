@@ -26,7 +26,7 @@ use crate::{
     name = "aquery",
     about = "provides facilities to query information about the action graph"
 )]
-pub struct AqueryCommand {
+pub(crate) struct AqueryCommand {
     #[clap(flatten)]
     config_opts: CommonConfigOptions,
 

@@ -31,7 +31,7 @@ use crate::{
     name = "audit-execution-platform-resolution",
     about = "prints out information about execution platform resolution"
 )]
-pub struct AuditExecutionPlatformResolutionCommand {
+pub(crate) struct AuditExecutionPlatformResolutionCommand {
     #[clap(flatten)]
     pub config_opts: CommonConfigOptions,
 

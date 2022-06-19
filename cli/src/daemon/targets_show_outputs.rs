@@ -39,17 +39,17 @@ use crate::daemon::{
 };
 
 #[derive(Debug, Error)]
-pub enum TargetsError {
+pub(crate) enum TargetsError {
     #[error("Unknown target `{0}` from package `{1}`")]
     UnknownTarget(TargetName, Package),
 }
 
-pub struct TargetsArtifacts {
+pub(crate) struct TargetsArtifacts {
     providers_label: ConfiguredProvidersLabel,
     artifacts: Vec<Artifact>,
 }
 
-pub async fn targets_show_outputs(
+pub(crate) async fn targets_show_outputs(
     server_ctx: ServerCommandContext,
     request: TargetsRequest,
 ) -> anyhow::Result<TargetsShowOutputsResponse> {

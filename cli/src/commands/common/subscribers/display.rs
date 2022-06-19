@@ -225,7 +225,7 @@ pub(crate) fn display_executor_stage(
 }
 
 #[derive(Error, Debug)]
-pub enum ParseEventError {
+pub(crate) enum ParseEventError {
     #[error("Missing configured target label")]
     MissingConfiguratedTargetLabel,
     #[error("Missing target label")]
@@ -248,7 +248,7 @@ pub enum ParseEventError {
 
 #[derive(Error, Debug)]
 #[error("Invalid buck event: `{:?}`", .0)]
-pub struct InvalidBuckEvent(pub BuckEvent);
+pub(crate) struct InvalidBuckEvent(pub BuckEvent);
 
 pub(crate) fn duration_as_secs_elapsed(elapsed: Duration, time_speed: f64) -> String {
     format!("{:.1}s", elapsed.mul_f64(time_speed).as_secs_f64())

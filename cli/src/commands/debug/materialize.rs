@@ -19,7 +19,7 @@ use crate::{
 };
 
 #[derive(Debug, clap::Parser)]
-pub struct MaterializeCommand {
+pub(crate) struct MaterializeCommand {
     #[clap(flatten)]
     config_opts: CommonConfigOptions,
 

@@ -13,10 +13,10 @@ use superconsole::{
 };
 
 #[derive(Debug)]
-pub struct HeaderLineComponent(Split);
+pub(crate) struct HeaderLineComponent(Split);
 
 impl HeaderLineComponent {
-    pub fn new(lhs: Box<dyn Component>, rhs: Box<dyn Component>) -> Self {
+    pub(crate) fn new(lhs: Box<dyn Component>, rhs: Box<dyn Component>) -> Self {
         let rhs = box Aligned {
             child: rhs,
             horizontal: HorizontalAlignmentKind::Right,
@@ -43,7 +43,7 @@ impl Component for HeaderLineComponent {
 
 /// This component is part of the header line and displays a hardcoded message.
 #[derive(Debug)]
-pub struct StaticStringComponent {
+pub(crate) struct StaticStringComponent {
     pub(crate) header: String,
 }
 

@@ -27,7 +27,7 @@ use crate::daemon::{
     server::ServerCommandContext,
 };
 
-pub async fn generate_profile(
+pub(crate) async fn generate_profile(
     server_ctx: ServerCommandContext,
     client_ctx: ClientContext,
     pattern: buck2_data::TargetPattern,

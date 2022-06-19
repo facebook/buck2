@@ -41,7 +41,7 @@ use crate::{
     name = "audit-providers",
     about = "prints out the providers for a target pattern"
 )]
-pub struct AuditProvidersCommand {
+pub(crate) struct AuditProvidersCommand {
     #[clap(flatten)]
     pub config_opts: CommonConfigOptions,
 

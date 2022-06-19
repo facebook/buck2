@@ -231,7 +231,7 @@ struct TargetsOptions {
     use_fast_hash: bool,
 }
 
-pub async fn targets(
+pub(crate) async fn targets(
     server_ctx: ServerCommandContext,
     request: TargetsRequest,
 ) -> anyhow::Result<TargetsResponse> {

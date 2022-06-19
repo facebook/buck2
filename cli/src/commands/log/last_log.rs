@@ -14,7 +14,7 @@ use crate::{commands::debug::replay::retrieve_nth_recent_log, CommandContext};
 /// This command outputs the path to a redcent log.
 #[derive(Debug, clap::Parser)]
 #[clap(group = clap::ArgGroup::with_name("event_log"))]
-pub struct LastLogCommand {
+pub(crate) struct LastLogCommand {
     /// Which recent command to read the event log from.
     #[clap(
         long,
@@ -26,7 +26,7 @@ pub struct LastLogCommand {
 }
 
 impl LastLogCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult {
+    pub(crate) fn exec(self, _matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult {
         let Self { recent } = self;
         let path = retrieve_nth_recent_log(&ctx, recent.unwrap_or(0))?;
         crate::println!("{}", path.display())?;

@@ -40,7 +40,7 @@ use crate::{
     clap::ArgEnum
 )]
 #[clap(rename_all = "snake_case")]
-pub enum WhatRanSubcommandOutput {
+pub(crate) enum WhatRanSubcommandOutput {
     Tabulated,
     Json,
 }
@@ -71,7 +71,7 @@ pub enum WhatRanSubcommandOutput {
 /// already shell-quoted.
 #[derive(Debug, clap::Parser)]
 #[clap(group = clap::ArgGroup::with_name("event_log"))]
-pub struct WhatRanCommand {
+pub(crate) struct WhatRanCommand {
     /// The path to read the event log from.
     #[clap(
         long,
@@ -104,7 +104,7 @@ pub struct WhatRanCommand {
 }
 
 impl WhatRanCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult {
+    pub(crate) fn exec(self, _matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult {
         let Self {
             path,
             recent,
@@ -149,7 +149,7 @@ impl WhatRanCommand {
 /// The state for a WhatRan command. This is all the events we have seen that are
 /// WhatRanRelevantActions.
 #[derive(Default)]
-pub struct WhatRanCommandState {
+pub(crate) struct WhatRanCommandState {
     /// Maps action spans to their details.
     known_actions: HashMap<u64, buck2_data::BuckEvent>,
 }

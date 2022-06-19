@@ -39,7 +39,7 @@ mod segfault;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Hidden debug commands useful for testing buck2")]
-pub enum DebugCommand {
+pub(crate) enum DebugCommand {
     /// Deliberately crashes the Buck daemon, for testing purposes.
     Crash(CrashCommand),
     /// Causes a segfault in the daemon.  Useful to make sure that we're reporting it correctly.
@@ -73,7 +73,7 @@ pub enum DebugCommand {
 }
 
 impl DebugCommand {
-    pub fn exec(self, matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult {
+    pub(crate) fn exec(self, matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult {
         let matches = matches.subcommand().expect("subcommand not found").1;
         match self {
             DebugCommand::DiceDump(cmd) => cmd.exec(matches, ctx),

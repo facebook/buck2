@@ -36,7 +36,7 @@ use crate::{
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "build", about = "Build the specified targets")]
-pub struct BuildCommand {
+pub(crate) struct BuildCommand {
     #[clap(flatten)]
     config_opts: CommonConfigOptions,
 
@@ -175,12 +175,12 @@ impl BuildCommand {
 
 #[derive(Debug, Clone, Dupe, clap::ArgEnum)]
 #[clap(rename_all = "snake_case")]
-pub enum FinalArtifactMaterializations {
+pub(crate) enum FinalArtifactMaterializations {
     All,
     None,
 }
 
-pub trait MaterializationsToProto {
+pub(crate) trait MaterializationsToProto {
     fn to_proto(&self) -> cli_proto::build_request::Materializations;
 }
 impl MaterializationsToProto for Option<FinalArtifactMaterializations> {
@@ -197,7 +197,10 @@ impl MaterializationsToProto for Option<FinalArtifactMaterializations> {
     }
 }
 
-pub fn print_build_result(console: &FinalConsole, error_messages: &[String]) -> anyhow::Result<()> {
+pub(crate) fn print_build_result(
+    console: &FinalConsole,
+    error_messages: &[String],
+) -> anyhow::Result<()> {
     for error_message in error_messages {
         console.print_error(error_message)?;
     }
@@ -306,7 +309,7 @@ impl StreamingCommand for BuildCommand {
     }
 }
 
-pub fn print_outputs(
+pub(crate) fn print_outputs(
     console: &FinalConsole,
     targets: Vec<BuildTarget>,
     root_path: Option<String>,

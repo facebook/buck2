@@ -64,7 +64,7 @@ enum AuditIncludesError {
     name = "audit-includes",
     about = "list build file extensions imported at parse time."
 )]
-pub struct AuditIncludesCommand {
+pub(crate) struct AuditIncludesCommand {
     #[clap(flatten)]
     pub config_opts: CommonConfigOptions,
 

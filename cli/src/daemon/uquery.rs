@@ -17,7 +17,7 @@ use crate::{
     query::printer::{QueryResultPrinter, ShouldPrintProviders},
 };
 
-pub async fn uquery(
+pub(crate) async fn uquery(
     mut server_ctx: ServerCommandContext,
     request: UqueryRequest,
 ) -> anyhow::Result<UqueryResponse> {

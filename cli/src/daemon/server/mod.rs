@@ -141,7 +141,7 @@ enum DaemonCommunicationError {
     InvalidWorkingDirectory(String),
 }
 
-pub trait BuckdServerDelegate: Send + Sync {
+pub(crate) trait BuckdServerDelegate: Send + Sync {
     fn force_shutdown(&self) -> anyhow::Result<()>;
 
     fn force_shutdown_with_timeout(&self, timeout: Duration);
@@ -163,7 +163,7 @@ pub(crate) struct DaemonState {
 
 /// DaemonStateData is the main shared data across all commands. It's lazily initialized on
 /// the first command that requires it.
-pub struct DaemonStateData {
+pub(crate) struct DaemonStateData {
     /// The Dice computation graph. Generally, we shouldn't add things to the DaemonStateData
     /// (or DaemonState) itself and instead they should be represented on the computation graph.
     dice: Arc<Dice>,
@@ -196,14 +196,14 @@ pub struct DaemonStateData {
 }
 
 impl DaemonStateData {
-    pub fn dice(&self) -> Arc<Dice> {
+    pub(crate) fn dice(&self) -> Arc<Dice> {
         self.dice.dupe()
     }
 }
 
 /// Configuration pertaining to event logging.
 #[cfg_attr(not(fbcode_build), allow(dead_code))]
-pub struct EventLoggingData {
+pub(crate) struct EventLoggingData {
     /// The size of the queue for in-flight messages.
     buffer_size: usize,
 }
@@ -304,9 +304,9 @@ impl DiceTracker for BuckDiceTracker {
 
 /// BaseCommandContext provides access to the global daemon state and information specific to a command (like the
 /// EventDispatcher). Most commands use a ServerCommandContext which has more command/client-specific information.
-pub struct BaseCommandContext {
+pub(crate) struct BaseCommandContext {
     /// An fbinit token for using things that require fbinit. fbinit is initialized on daemon startup.
-    pub fb: fbinit::FacebookInit,
+    pub _fb: fbinit::FacebookInit,
     /// Absolute path to the project root.
     pub project_root: AbsPathBuf,
     /// A reference to the dice graph. Most interesting things are accessible from this (and new interesting things should be
@@ -325,19 +325,19 @@ pub struct BaseCommandContext {
     /// The event dispatcher for this command context.
     pub events: EventDispatcher,
     /// Event logging configuration for this command context.
-    pub event_config: Arc<EventLoggingData>,
+    pub _event_config: Arc<EventLoggingData>,
     /// Removes this command from the set of active commands when dropped.
     _drop_guard: ActiveCommandDropGuard,
 }
 
 impl BaseCommandContext {
-    pub fn file_system(&self) -> ProjectFilesystem {
+    pub(crate) fn file_system(&self) -> ProjectFilesystem {
         ProjectFilesystem::new(self.project_root.clone())
     }
 
     /// Provides a DiceComputations. This may be missing some data or injected keys that
     /// we normally expect. To get a full dice context, use a ServerCommandContext.
-    pub fn unsafe_dice_ctx(&self) -> DiceTransaction {
+    pub(crate) fn unsafe_dice_ctx(&self) -> DiceTransaction {
         self.unsafe_dice_ctx_with_more_data(|v| v)
     }
 
@@ -374,7 +374,7 @@ impl BaseCommandContext {
 
 /// ServerCommandContext provides access to the global daemon state and information about the calling client for
 /// the implementation of DaemonApi endpoints (ex. targets, query, build).
-pub struct ServerCommandContext {
+pub(crate) struct ServerCommandContext {
     base_context: BaseCommandContext,
 
     /// The working directory of the client. This is used for resolving things in the request in a
@@ -413,7 +413,7 @@ pub struct ServerCommandContext {
 }
 
 impl ServerCommandContext {
-    pub fn new(
+    pub(crate) fn new(
         base_context: BaseCommandContext,
         client_context: &ClientContext,
         build_signals: BuildSignalSender,
@@ -474,12 +474,12 @@ impl ServerCommandContext {
 
     /// Provides a DiceComputations. This may be missing some data or injected keys that
     /// we normally expect. To get a full dice context, use a ServerCommandContext.
-    pub fn unsafe_dice_ctx(&self) -> DiceTransaction {
+    pub(crate) fn unsafe_dice_ctx(&self) -> DiceTransaction {
         self.base_context.unsafe_dice_ctx()
     }
 
     /// Provides a DiceTransaction, initialized on first use and shared after initialization.
-    pub async fn dice_ctx(&self) -> SharedResult<DiceTransaction> {
+    pub(crate) async fn dice_ctx(&self) -> SharedResult<DiceTransaction> {
         self.dice
             .get_or_init(self.construct_dice_ctx())
             .await
@@ -569,7 +569,7 @@ impl ServerCommandContext {
             }))
     }
 
-    pub fn file_system(&self) -> ProjectFilesystem {
+    pub(crate) fn file_system(&self) -> ProjectFilesystem {
         self.base_context.file_system()
     }
 
@@ -879,7 +879,7 @@ impl DaemonState {
         let drop_guard = ActiveCommandDropGuard::new(dispatcher.trace_id().dupe());
 
         Ok(BaseCommandContext {
-            fb: self.fb,
+            _fb: self.fb,
             project_root: self.paths.project_root().to_owned(),
             dice: data.dice.dupe(),
             io: data.io.dupe(),
@@ -887,7 +887,7 @@ impl DaemonState {
             blocking_executor: data.blocking_executor.dupe(),
             materializer: data.materializer.dupe(),
             events: dispatcher,
-            event_config: data.event_logging_data.dupe(),
+            _event_config: data.event_logging_data.dupe(),
             _drop_guard: drop_guard,
         })
     }
@@ -961,7 +961,7 @@ impl DaemonShutdown {
 ///
 /// Simple endpoints are implemented here and complex things will be implemented in a sibling
 /// module taking just a ServerCommandContext.
-pub struct BuckdServer {
+pub(crate) struct BuckdServer {
     /// The flag that is set to true when server is shutting down.
     stop_accepting_requests: AtomicBool,
     process_info: DaemonProcessInfo,
@@ -972,7 +972,7 @@ pub struct BuckdServer {
 }
 
 impl BuckdServer {
-    pub async fn run<I, IO, IE>(
+    pub(crate) async fn run<I, IO, IE>(
         fb: fbinit::FacebookInit,
         paths: Paths,
         delegate: Box<dyn BuckdServerDelegate>,
@@ -1262,7 +1262,7 @@ impl<T: Stream<Item = Result<CommandProgress, Status>> + Send> Stream for SyncSt
     }
 }
 
-pub struct RawOuputGuard<'a> {
+pub(crate) struct RawOuputGuard<'a> {
     _phantom: PhantomData<&'a mut ServerCommandContext>,
     inner: BufWriter<RawOutputWriter>,
 }
@@ -1296,7 +1296,7 @@ impl<'a> Drop for RawOuputGuard<'a> {
 }
 
 impl RawOutputWriter {
-    pub fn new(context: &ServerCommandContext) -> anyhow::Result<Self> {
+    pub(crate) fn new(context: &ServerCommandContext) -> anyhow::Result<Self> {
         Ok(Self {
             dispatcher: context.base_context.events.dupe(),
             chunk_size: RawOutputWriter::get_chunk_size()?,

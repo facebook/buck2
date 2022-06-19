@@ -10,7 +10,7 @@
 use crate::daemon::server::DaemonStateData;
 
 /// Create a new Snapshot.
-pub fn create_snapshot(daemon_data: &DaemonStateData) -> buck2_data::Snapshot {
+pub(crate) fn create_snapshot(daemon_data: &DaemonStateData) -> buck2_data::Snapshot {
     let mut snapshot = buck2_data::Snapshot::default();
     add_daemon_metrics(&mut snapshot, daemon_data);
     add_system_metrics(&mut snapshot);

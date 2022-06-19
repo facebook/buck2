@@ -28,7 +28,7 @@ use crate::{
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "test", about = "Build and test the specified targets")]
-pub struct TestCommand {
+pub(crate) struct TestCommand {
     #[clap(flatten)]
     config_opts: CommonConfigOptions,
 

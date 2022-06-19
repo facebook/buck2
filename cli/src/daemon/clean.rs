@@ -19,7 +19,7 @@ use walkdir::WalkDir;
 
 use crate::daemon::server::ServerCommandContext;
 
-pub async fn clean(
+pub(crate) async fn clean(
     server_ctx: ServerCommandContext,
     request: CleanRequest,
 ) -> anyhow::Result<CleanResponse> {

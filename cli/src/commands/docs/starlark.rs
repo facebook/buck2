@@ -22,7 +22,7 @@ enum DocsOutputFormatArg {
     name = "docs-starlark",
     about = "Print documentation of user-defined starlark symbols"
 )]
-pub struct DocsStarlarkCommand {
+pub(crate) struct DocsStarlarkCommand {
     #[clap(flatten)]
     pub config_opts: CommonConfigOptions,
 

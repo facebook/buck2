@@ -20,14 +20,14 @@ use crate::commands::common::subscribers::{
 };
 
 #[derive(Debug)]
-pub struct Table<'a> {
+pub(crate) struct Table<'a> {
     events: Vec<Line>,
     times: Vec<Line>,
     cutoffs: &'a Cutoffs,
 }
 
 impl<'a> Table<'a> {
-    pub fn new(cutoffs: &'a Cutoffs) -> Self {
+    pub(crate) fn new(cutoffs: &'a Cutoffs) -> Self {
         Self {
             events: Default::default(),
             times: Default::default(),
@@ -35,11 +35,11 @@ impl<'a> Table<'a> {
         }
     }
 
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.events.len()
     }
 
-    pub fn push<'b>(&'b mut self) -> Push<'a, 'b>
+    pub(crate) fn push<'b>(&'b mut self) -> Push<'a, 'b>
     where
         'a: 'b,
     {
@@ -93,18 +93,18 @@ impl Component for Table<'_> {
     }
 }
 
-pub struct Push<'a, 'b> {
+pub(crate) struct Push<'a, 'b> {
     builder: &'b mut Table<'a>,
     padding: usize,
 }
 
 impl<'a, 'b> Push<'a, 'b> {
-    pub fn pad(mut self, padding: usize) -> Self {
+    pub(crate) fn pad(mut self, padding: usize) -> Self {
         self.padding = padding;
         self
     }
 
-    pub fn span(self, span: &SpanInfo, time_speed: f64) -> anyhow::Result<()> {
+    pub(crate) fn span(self, span: &SpanInfo, time_speed: f64) -> anyhow::Result<()> {
         self.text(
             display::display_event(&span.event)?,
             display::duration_as_secs_elapsed(span.start.elapsed(), time_speed),
@@ -112,11 +112,11 @@ impl<'a, 'b> Push<'a, 'b> {
         )
     }
 
-    pub fn text(self, event: String, time: String, age: Duration) -> anyhow::Result<()> {
+    pub(crate) fn text(self, event: String, time: String, age: Duration) -> anyhow::Result<()> {
         self.styled(style(event), style(time), age)
     }
 
-    pub fn styled(
+    pub(crate) fn styled(
         self,
         event: StyledContent<String>,
         time: StyledContent<String>,

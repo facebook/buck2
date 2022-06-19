@@ -37,19 +37,19 @@ use crate::{
 };
 
 #[derive(Copy_, Dupe_, Clone_, UnpackVariants)]
-pub enum ShouldPrintProviders<'a, T> {
+pub(crate) enum ShouldPrintProviders<'a, T> {
     No,
     Yes(&'a dyn ProviderLookUp<T>),
 }
 
 #[async_trait]
-pub trait ProviderLookUp<T: QueryTarget>: Send + Sync {
+pub(crate) trait ProviderLookUp<T: QueryTarget>: Send + Sync {
     async fn lookup(&self, t: &T)
     -> anyhow::Result<MaybeCompatible<FrozenProviderCollectionValue>>;
 }
 
 #[derive(Debug)]
-pub struct QueryResultPrinter {
+pub(crate) struct QueryResultPrinter {
     resolver: CellResolver,
     attributes: Option<RegexSet>,
     output_format: QueryOutputFormat,
@@ -191,7 +191,7 @@ impl<'a> Serialize for FileSetJsonPrinter<'a> {
 
 impl QueryResultPrinter {
     /// Utility for creating from the options in their protobuf form.
-    pub fn from_request_options(
+    pub(crate) fn from_request_options(
         resolver: CellResolver,
         attributes: &[String],
         output_format: i32,
@@ -204,7 +204,7 @@ impl QueryResultPrinter {
         )
     }
 
-    pub fn from_options(
+    pub(crate) fn from_options(
         resolver: CellResolver,
         attributes: &[String],
         output_format: QueryOutputFormat,
@@ -228,7 +228,7 @@ impl QueryResultPrinter {
         })
     }
 
-    pub async fn print_multi_output<'a, T: QueryTarget, W: std::io::Write>(
+    pub(crate) async fn print_multi_output<'a, T: QueryTarget, W: std::io::Write>(
         &self,
         mut output: W,
         multi_result: MultiQueryResult<T>,
@@ -294,7 +294,7 @@ impl QueryResultPrinter {
         }
     }
 
-    pub async fn print_single_output<'a, T: QueryTarget, W: std::io::Write>(
+    pub(crate) async fn print_single_output<'a, T: QueryTarget, W: std::io::Write>(
         &self,
         mut output: W,
         result: QueryEvaluationValue<T>,

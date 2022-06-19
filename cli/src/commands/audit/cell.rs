@@ -28,7 +28,7 @@ use crate::{
     name = "audit-cell",
     about = "Query information about the [repositories] list in .buckconfig."
 )]
-pub struct AuditCellCommand {
+pub(crate) struct AuditCellCommand {
     #[clap(long = "json", help = "Output in JSON format")]
     json: bool,
 

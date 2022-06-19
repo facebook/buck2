@@ -36,7 +36,10 @@ pub struct Replayer<T = BoxStream<'static, anyhow::Result<StreamValue>>> {
 }
 
 impl Replayer {
-    pub async fn new(log_path: PathBuf, speed: Option<f64>) -> anyhow::Result<(Self, Invocation)> {
+    pub(crate) async fn new(
+        log_path: PathBuf,
+        speed: Option<f64>,
+    ) -> anyhow::Result<(Self, Invocation)> {
         let log_path = EventLogPathBuf::infer(log_path)?;
         let (invocation, events) = log_path.unpack_stream().await?;
 
@@ -52,7 +55,7 @@ impl Replayer {
         Ok((myself, invocation))
     }
 
-    pub fn speed(&self) -> f64 {
+    pub(crate) fn speed(&self) -> f64 {
         self.syncher.speed
     }
 }

@@ -201,7 +201,7 @@ impl BootstrapBuckdClient {
 /// If the `existing_only` method is called, then any existing buck daemon (regardless of version) is accepted.
 ///
 /// The default set of subscribers is *not* empty, but rather forwards stdout and stderr, which captures panics, for example.
-pub struct BuckdConnectOptions {
+pub(crate) struct BuckdConnectOptions {
     pub(crate) existing_only: bool,
     /// Subscribers manage the way that incoming events from the server are handled.
     /// The client will forward events and stderr/stdout output from the server to each subscriber.
@@ -219,14 +219,14 @@ impl Default for BuckdConnectOptions {
 }
 
 impl BuckdConnectOptions {
-    pub fn existing_only() -> Self {
+    pub(crate) fn existing_only() -> Self {
         Self {
             existing_only: true,
             ..Default::default()
         }
     }
 
-    pub async fn connect(self, paths: &Paths) -> anyhow::Result<BuckdClientConnector> {
+    pub(crate) async fn connect(self, paths: &Paths) -> anyhow::Result<BuckdClientConnector> {
         let daemon_dir = paths.daemon_dir()?;
         std::fs::create_dir_all(&daemon_dir)
             .with_context(|| format!("when creating daemon dir {}", daemon_dir.display()))?;
@@ -239,7 +239,11 @@ impl BuckdConnectOptions {
         Ok(client.with_subscribers(self.subscribers))
     }
 
-    pub fn replay(self, replayer: Replayer, paths: &Paths) -> anyhow::Result<BuckdClientConnector> {
+    pub(crate) fn replay(
+        self,
+        replayer: Replayer,
+        paths: &Paths,
+    ) -> anyhow::Result<BuckdClientConnector> {
         let fake_info = DaemonProcessInfo {
             pid: 0,
             endpoint: "".to_owned(),
@@ -352,10 +356,10 @@ impl BuckdConnectOptions {
         })?;
         let (protocol, endpoint) = info.endpoint.split1(":");
         let connection_type = match protocol {
-            "uds" => ConnectionType::UDS {
+            "uds" => ConnectionType::Uds {
                 unix_socket: endpoint.to_owned(),
             },
-            "tcp" => ConnectionType::TCP {
+            "tcp" => ConnectionType::Tcp {
                 socket: SOCKET_ADDR.to_owned(),
                 port: endpoint.to_owned(),
             },

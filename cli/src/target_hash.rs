@@ -47,7 +47,7 @@ use os_str_bytes::OsStrBytes;
 use siphasher::sip128::{Hasher128, SipHasher24};
 
 #[derive(Clone, Dupe)]
-pub struct BuckTargetHash(pub u128);
+pub(crate) struct BuckTargetHash(pub u128);
 
 trait BuckTargetHasher: Hasher + Send + 'static {
     fn finish_u128(&mut self) -> BuckTargetHash;
@@ -161,17 +161,17 @@ impl FileHasher for PathsAndContentsHasher {
     }
 }
 
-pub struct TargetHashes {
+pub(crate) struct TargetHashes {
     // key is an unconfigured target label, but the hash is generated from the configured target label.
     target_mapping: HashMap<TargetLabel, SharedResult<BuckTargetHash>>,
 }
 
 impl TargetHashes {
-    pub fn get(&self, label: &TargetLabel) -> Option<SharedResult<BuckTargetHash>> {
+    pub(crate) fn get(&self, label: &TargetLabel) -> Option<SharedResult<BuckTargetHash>> {
         return self.target_mapping.get(label).cloned();
     }
 
-    pub async fn compute(
+    pub(crate) async fn compute(
         ctx: DiceTransaction,
         targets: impl Iterator<Item = (&Package, SharedResult<Vec<TargetNode>>)>,
         global_target_platform: Option<TargetLabel>,

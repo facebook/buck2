@@ -16,11 +16,13 @@ use tokio::{
 };
 use tonic::transport::server::Connected;
 
-use crate::daemon::client_utils::{WithCurrentDirectory, UDS_DAEMON_FILENAME};
+use crate::daemon::{
+    client_utils::UDS_DAEMON_FILENAME, with_current_directory::WithCurrentDirectory,
+};
 
 // This function will change the working directory briefly and should not be run
 // while other threads are running, as directory is a global variable.
-pub async fn create_listener(
+pub(crate) async fn create_listener(
     daemon_dir: &Path,
 ) -> anyhow::Result<(
     String,
@@ -57,14 +59,14 @@ pub async fn create_listener(
 }
 
 #[derive(Debug)]
-pub struct UnixStream(pub tokio::net::UnixStream);
+pub(crate) struct UnixStream(pub tokio::net::UnixStream);
 
 impl Connected for UnixStream {}
 
 #[derive(Clone, Debug)]
-pub struct UdsConnectInfo {
-    pub peer_addr: Option<Arc<tokio::net::unix::SocketAddr>>,
-    pub peer_cred: Option<tokio::net::unix::UCred>,
+pub(crate) struct UdsConnectInfo {
+    pub _peer_addr: Option<Arc<tokio::net::unix::SocketAddr>>,
+    pub _peer_cred: Option<tokio::net::unix::UCred>,
 }
 
 impl AsyncRead for UnixStream {

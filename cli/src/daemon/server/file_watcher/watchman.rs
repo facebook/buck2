@@ -42,14 +42,14 @@ use crate::{
 
 const MAX_WATCHMAN_MESSAGES: u64 = 3;
 
-pub struct WatchmanQueryProcessor {
+pub(crate) struct WatchmanQueryProcessor {
     pub dice: Arc<Dice>,
     pub cells: CellResolver,
     pub ignore_specs: HashMap<CellName, IgnoreSet>,
 }
 
 impl WatchmanQueryProcessor {
-    pub async fn process_events_impl(
+    pub(crate) async fn process_events_impl(
         &self,
         events: Vec<WatchmanEvent>,
     ) -> anyhow::Result<buck2_data::WatchmanStats> {
@@ -174,7 +174,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
     }
 }
 
-pub struct WatchmanFileWatcher {
+pub(crate) struct WatchmanFileWatcher {
     query: SyncableQuery<buck2_data::WatchmanStats>,
 }
 
@@ -183,7 +183,7 @@ pub struct WatchmanFileWatcher {
 /// .watchmanconfig itself). Before any new computation request is started, it will be synced to
 /// ensure that any recent changes are flushed and visible to the computation.
 impl WatchmanFileWatcher {
-    pub async fn new(
+    pub(crate) async fn new(
         paths: &Paths,
         root_config: &LegacyBuckConfig,
         dice: Arc<Dice>,

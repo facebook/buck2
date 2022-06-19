@@ -13,7 +13,7 @@ enum DocsOutputFormatArg {
 }
 
 #[derive(Debug, clap::Parser)]
-pub struct QueryDocsOptions {
+pub(crate) struct QueryDocsOptions {
     /// How to format the documentation
     #[clap(
         long = "format",
@@ -26,20 +26,20 @@ pub struct QueryDocsOptions {
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "docs-uquery", about = "Print documentation for uquery")]
-pub struct DocsUqueryCommand {
+pub(crate) struct DocsUqueryCommand {
     #[clap(flatten)]
     docs_options: QueryDocsOptions,
 }
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "docs-cquery", about = "Print documentation for cquery")]
-pub struct DocsCqueryCommand {
+pub(crate) struct DocsCqueryCommand {
     #[clap(flatten)]
     docs_options: QueryDocsOptions,
 }
 
 impl DocsUqueryCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, _ctx: CommandContext) -> ExitResult {
+    pub(crate) fn exec(self, _matches: &clap::ArgMatches, _ctx: CommandContext) -> ExitResult {
         let description = UqueryEnvironment::describe();
         match self.docs_options.format {
             DocsOutputFormatArg::Markdown => {
@@ -52,7 +52,7 @@ impl DocsUqueryCommand {
 }
 
 impl DocsCqueryCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, _ctx: CommandContext) -> ExitResult {
+    pub(crate) fn exec(self, _matches: &clap::ArgMatches, _ctx: CommandContext) -> ExitResult {
         let description = CqueryEnvironment::describe();
         match self.docs_options.format {
             DocsOutputFormatArg::Markdown => {

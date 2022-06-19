@@ -26,13 +26,13 @@ use crate::daemon::server::ServerCommandContext;
     name = "module",
     about = "Inspect Starlark package file all bzl dependencies by package name like foo//bar/baz"
 )]
-pub struct StarlarkPackageDepsCommand {
+pub(crate) struct StarlarkPackageDepsCommand {
     #[clap(name = "PACKAGE", help = "Package")]
     package: String,
 }
 
 impl StarlarkPackageDepsCommand {
-    pub async fn server_execute(
+    pub(crate) async fn server_execute(
         &self,
         mut server_ctx: ServerCommandContext,
         _client_ctx: ClientContext,

@@ -41,7 +41,7 @@ pub mod starlark;
 
 #[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
 #[clap(name = "audit", about = "Perform lower level queries")]
-pub enum AuditCommand {
+pub(crate) enum AuditCommand {
     Cell(AuditCellCommand),
     Config(AuditConfigCommand),
     Configurations(AuditConfigurationsCommand),
@@ -64,7 +64,7 @@ pub enum AuditCommand {
 /// Audit subcommands implement this trait so that we can handle the entire client side
 /// logic here and to support that serialization to the daemon.
 #[async_trait]
-pub trait AuditSubcommand: Send + Sync + 'static {
+pub(crate) trait AuditSubcommand: Send + Sync + 'static {
     async fn server_execute(
         &self,
         server_ctx: ServerCommandContext,
@@ -79,7 +79,7 @@ pub trait AuditSubcommand: Send + Sync + 'static {
 }
 
 impl AuditCommand {
-    pub async fn server_execute(
+    pub(crate) async fn server_execute(
         &self,
         server_ctx: ServerCommandContext,
         client_server_ctx: ClientContext,

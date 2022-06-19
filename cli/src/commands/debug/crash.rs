@@ -19,7 +19,7 @@ use crate::{
 };
 
 #[derive(Debug, clap::Parser)]
-pub struct CrashCommand {}
+pub(crate) struct CrashCommand {}
 
 #[async_trait]
 impl StreamingCommand for CrashCommand {

@@ -43,7 +43,9 @@ impl Drop for FileTailer {
 }
 
 impl FileTailer {
-    pub fn tail_file(file: PathBuf) -> anyhow::Result<(UnboundedReceiverStream<String>, Self)> {
+    pub(crate) fn tail_file(
+        file: PathBuf,
+    ) -> anyhow::Result<(UnboundedReceiverStream<String>, Self)> {
         let mut reader = BufReader::new(
             File::open(&file)
                 .with_context(|| format!("when setting up tailer for {}", file.display()))?,

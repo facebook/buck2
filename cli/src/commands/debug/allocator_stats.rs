@@ -19,7 +19,7 @@ use crate::{
 };
 
 #[derive(Debug, clap::Parser)]
-pub struct AllocatorStatsCommand {
+pub(crate) struct AllocatorStatsCommand {
     /// Options to pass to allocator stats. We use JEMalloc, so the docs for `malloc_stats_print`
     /// indicate what is available (<https://linux.die.net/man/3/jemalloc>).
     #[clap(short, long, default_value = "", value_name = "OPTION")]

@@ -27,7 +27,7 @@ struct InstantData {
     count: u64,
 }
 
-pub struct DebugEventsState {
+pub(crate) struct DebugEventsState {
     event_count: u64,
     spans: BTreeMap<String, SpanData>,
     instants: BTreeMap<String, InstantData>,
@@ -39,7 +39,7 @@ pub struct DebugEventsState {
 }
 
 impl DebugEventsState {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             event_count: 0,
             spans: BTreeMap::new(),
@@ -50,7 +50,11 @@ impl DebugEventsState {
         }
     }
 
-    pub fn handle_event(&mut self, start_time: Instant, event: &BuckEvent) -> anyhow::Result<()> {
+    pub(crate) fn handle_event(
+        &mut self,
+        start_time: Instant,
+        event: &BuckEvent,
+    ) -> anyhow::Result<()> {
         let event_time: SystemTime = event.timestamp;
         let elapsed = start_time.elapsed();
         let events_start_time = match self.events_start_time {
@@ -133,7 +137,7 @@ impl DebugEventsState {
 }
 
 #[derive(Debug)]
-pub struct DebugEventsComponent;
+pub(crate) struct DebugEventsComponent;
 
 impl Component for DebugEventsComponent {
     fn draw_unchecked(

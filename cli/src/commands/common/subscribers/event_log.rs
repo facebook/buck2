@@ -36,7 +36,7 @@ use tokio_stream::wrappers::LinesStream;
 use crate::{daemon::client::StreamValue, AsyncCleanupContext};
 
 #[derive(Error, Debug)]
-pub enum EventLogErrors {
+pub(crate) enum EventLogErrors {
     #[error(
         "Trying to write to logfile that hasn't been opened yet - this is an internal error, please report. Unwritten event: {serialized_event}"
     )]
@@ -61,7 +61,7 @@ type EventLogWriter = Box<dyn AsyncWrite + Send + Sync + Unpin + 'static>;
 type EventLogReader = Box<dyn AsyncRead + Send + Sync + Unpin + 'static>;
 
 #[derive(Error, Debug)]
-pub enum EventLogInferenceError {
+pub(crate) enum EventLogInferenceError {
     #[error("Event log at path {} has no filename", .0.display())]
     NoFilename(PathBuf),
 
@@ -80,13 +80,13 @@ fn display_valid_extensions() -> String {
     exts.join(", ")
 }
 
-pub struct EventLogPathBuf {
+pub(crate) struct EventLogPathBuf {
     path: PathBuf,
     compression: Compression,
 }
 
 impl EventLogPathBuf {
-    pub fn infer(path: PathBuf) -> anyhow::Result<Self> {
+    pub(crate) fn infer(path: PathBuf) -> anyhow::Result<Self> {
         let name = path
             .file_name()
             .with_context(|| EventLogInferenceError::NoFilename(path.clone()))?
@@ -106,7 +106,7 @@ impl EventLogPathBuf {
     }
 
     /// Read the invocation line then the event stream.
-    pub async fn unpack_stream(
+    pub(crate) async fn unpack_stream(
         &self,
     ) -> anyhow::Result<(Invocation, impl Stream<Item = anyhow::Result<StreamValue>>)> {
         let log_file = self.open().await?;
@@ -167,19 +167,19 @@ enum LogFileState {
 
 /// This EventLog lets us to events emitted by Buck and log them to a file. The events are
 /// serialized as JSON and logged one per line.
-pub struct EventLog {
+pub(crate) struct EventLog {
     state: LogFileState,
     async_cleanup_context: AsyncCleanupContext,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Invocation {
+pub(crate) struct Invocation {
     pub command_line_args: Vec<String>,
     pub working_dir: PathBuf,
 }
 
 impl EventLog {
-    pub fn new(
+    pub(crate) fn new(
         logdir: AbsPathBuf,
         extra_path: Option<PathBuf>,
         async_cleanup_context: AsyncCleanupContext,
@@ -376,7 +376,7 @@ async fn remove_old_logs(logdir: &Path) {
 }
 
 /// List logs in logdir, ordered from oldest to newest.
-pub fn get_local_logs(logdir: &Path) -> anyhow::Result<Vec<std::fs::DirEntry>> {
+pub(crate) fn get_local_logs(logdir: &Path) -> anyhow::Result<Vec<std::fs::DirEntry>> {
     let dir = std::fs::read_dir(logdir)?;
     let mut logfiles = dir.filter_map(Result::ok).collect::<Vec<_>>();
     logfiles.sort_by_cached_key(|file| {

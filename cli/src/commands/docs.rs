@@ -30,13 +30,13 @@ enum DocsKind {
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "docs", about = "Print documentation of specified symbols")]
-pub struct DocsCommand {
+pub(crate) struct DocsCommand {
     #[clap(subcommand)]
     docs_kind: DocsKind,
 }
 
 impl DocsCommand {
-    pub fn exec(self, matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult {
+    pub(crate) fn exec(self, matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult {
         let submatches = match matches.subcommand().map(|s| s.1) {
             Some(submatches) => submatches,
             None => panic!("Parsed a subcommand but couldn't extract subcommand argument matches"),

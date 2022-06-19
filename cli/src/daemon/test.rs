@@ -63,13 +63,13 @@ use crate::daemon::{
 };
 
 #[derive(Debug, Error)]
-pub enum TestError {
+pub(crate) enum TestError {
     #[error("Unknown target `{0}` from package `{1}`")]
     UnknownTarget(TargetName, Package),
 }
 
 #[derive(Debug, Serialize)]
-pub struct TestReport {
+pub(crate) struct TestReport {
     project_root: AbsPathBuf,
     outputs: HashMap<TargetLabel, Vec<ProjectRelativePathBuf>>,
 }
@@ -80,7 +80,7 @@ struct TestOutcome {
 }
 
 impl TestOutcome {
-    pub fn exit_code(&self) -> anyhow::Result<i32> {
+    pub(crate) fn exit_code(&self) -> anyhow::Result<i32> {
         if !self.error_messages.is_empty() {
             return Ok(1);
         }
@@ -143,7 +143,7 @@ impl TestStatuses {
     }
 }
 
-pub async fn test(
+pub(crate) async fn test(
     server_ctx: ServerCommandContext,
     request: TestRequest,
 ) -> anyhow::Result<TestResponse> {
@@ -351,7 +351,7 @@ enum TestDriverTask {
 }
 
 #[derive(Copy, Clone, Dupe)]
-pub struct TestDriverState<'a, 'e> {
+pub(crate) struct TestDriverState<'a, 'e> {
     ctx: &'a DiceComputations,
     label_filtering: &'a Arc<TestLabelFiltering>,
     global_target_platform: &'a Option<TargetLabel>,
@@ -368,7 +368,7 @@ struct TestDriver<'a, 'e> {
 }
 
 impl<'a, 'e> TestDriver<'a, 'e> {
-    pub fn new(state: TestDriverState<'a, 'e>) -> Self {
+    pub(crate) fn new(state: TestDriverState<'a, 'e>) -> Self {
         Self {
             state,
             work: FuturesUnordered::new(),

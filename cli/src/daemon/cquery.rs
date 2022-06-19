@@ -29,7 +29,7 @@ use crate::{
     query::printer::{ProviderLookUp, QueryResultPrinter, ShouldPrintProviders},
 };
 
-pub async fn cquery(
+pub(crate) async fn cquery(
     mut server_ctx: ServerCommandContext,
     request: CqueryRequest,
 ) -> anyhow::Result<CqueryResponse> {

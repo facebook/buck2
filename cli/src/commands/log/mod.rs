@@ -16,7 +16,7 @@ use crate::CommandContext;
 
 #[derive(Debug, clap::Subcommand)]
 #[clap(about = "Commands for interacting with buck2 logs")]
-pub enum LogCommand {
+pub(crate) enum LogCommand {
     /// Shows the commands that buck ran
     #[clap(alias = "whatran")]
     WhatRan(what_ran::WhatRanCommand),
@@ -26,7 +26,7 @@ pub enum LogCommand {
 }
 
 impl LogCommand {
-    pub fn exec(self, matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult {
+    pub(crate) fn exec(self, matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult {
         match self {
             Self::WhatRan(cmd) => cmd.exec(matches, ctx),
             Self::Last(cmd) => cmd.exec(matches, ctx),

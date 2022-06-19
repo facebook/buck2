@@ -15,12 +15,11 @@ pub(crate) mod stdout_stderr_forwarder;
 pub mod superconsole;
 
 use ::superconsole::Component;
-pub use event_log::EventLog;
+pub(crate) use event_log::EventLog;
 use events::subscriber::EventSubscriber;
 use gazebo::prelude::*;
-pub use simpleconsole::SimpleConsole;
+pub(crate) use simpleconsole::SimpleConsole;
 
-pub use crate::commands::common::subscribers::superconsole::SuperConsole;
 use crate::{
     commands::common::{
         subscribers::superconsole::StatefulSuperConsole, verbosity::Verbosity,
@@ -30,7 +29,7 @@ use crate::{
 };
 
 /// Given a command name and the command arguments, create a default console / superconsole.
-pub fn get_console_with_root(
+pub(crate) fn get_console_with_root(
     console_type: ConsoleType,
     verbosity: Verbosity,
     replay_speed: Option<f64>,
@@ -56,7 +55,7 @@ pub fn get_console_with_root(
 }
 
 /// Given the command arguments, conditionally create an event log.
-pub fn try_get_event_log_subscriber(
+pub(crate) fn try_get_event_log_subscriber(
     event_log_opts: &CommonEventLogOptions,
     ctx: &CommandContext,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {

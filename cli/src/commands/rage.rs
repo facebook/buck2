@@ -53,7 +53,7 @@ enum ManifoldUploadError {
     name = "rage",
     about = "Record information about the previous failed buck2 command"
 )]
-pub struct RageCommand {}
+pub(crate) struct RageCommand {}
 
 #[async_trait]
 impl StreamingCommand for RageCommand {

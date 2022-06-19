@@ -22,7 +22,7 @@ use crate::{
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Start an LSP server for starlark files")]
-pub struct LspCommand {
+pub(crate) struct LspCommand {
     #[clap(flatten)]
     config_opts: CommonConfigOptions,
 

@@ -27,7 +27,7 @@ use regex::Regex;
 pub mod targets;
 
 #[derive(Default, Debug)]
-pub struct DotNodeAttrs {
+pub(crate) struct DotNodeAttrs {
     pub style: Option<String>,
     pub color: Option<String>,
     pub label: Option<String>,
@@ -57,18 +57,18 @@ impl Display for DotNodeAttrs {
 }
 
 /// A node in the graph.
-pub trait DotNode {
+pub(crate) trait DotNode {
     fn attrs(&self) -> anyhow::Result<DotNodeAttrs>;
     fn id(&self) -> String;
 }
 
 /// Represents a directed edge between two nodes, identified by their id.
-pub struct DotEdge<'a> {
+pub(crate) struct DotEdge<'a> {
     from: &'a str,
     to: &'a str,
 }
 
-pub trait DotDigraph<'a> {
+pub(crate) trait DotDigraph<'a> {
     type Node: DotNode;
 
     fn name(&self) -> &str;
@@ -107,10 +107,13 @@ fn escape_id(value: &str) -> String {
     format!("\"{}\"", value.replace('"', "\\\""))
 }
 
-pub struct Dot {}
+pub(crate) struct Dot {}
 
 impl Dot {
-    pub fn render<'a, T: DotDigraph<'a>, W: Write>(graph: &'a T, mut w: W) -> anyhow::Result<()> {
+    pub(crate) fn render<'a, T: DotDigraph<'a>, W: Write>(
+        graph: &'a T,
+        mut w: W,
+    ) -> anyhow::Result<()> {
         writeln!(w, "digraph {} {{", graph.name())?;
         graph.for_each_node(|node| {
             let attrs = node.attrs()?;

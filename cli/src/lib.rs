@@ -111,7 +111,7 @@ fn parse_isolation_dir(s: &str) -> anyhow::Result<FileNameBuf> {
 }
 
 #[derive(Debug, clap::Parser)]
-pub struct CommonOptions {
+pub(crate) struct CommonOptions {
     #[clap(
         parse(try_from_str = parse_isolation_dir),
         env("BUCK_ISOLATION_DIR"),
@@ -152,7 +152,7 @@ pub struct CommonOptions {
     about = "a build system",
     version(BuckVersion::get_version())
 )]
-pub struct Opt {
+pub(crate) struct Opt {
     #[clap(flatten)]
     common_opts: CommonOptions,
     #[clap(subcommand)]
@@ -160,7 +160,7 @@ pub struct Opt {
 }
 
 impl Opt {
-    pub fn exec(
+    pub(crate) fn exec(
         self,
         matches: &clap::ArgMatches,
         init: fbinit::FacebookInit,
@@ -224,7 +224,7 @@ fn default_subscribers<T: StreamingCommand>(
 /// As a result, prefer to default to streaming mode unless there is a compelling reason not to
 /// (e.g `status`)
 #[async_trait]
-pub trait StreamingCommand: Sized + Send + Sync {
+pub(crate) trait StreamingCommand: Sized + Send + Sync {
     /// Give the command a name for printing, debugging, etc.
     const COMMAND_NAME: &'static str;
 
@@ -259,7 +259,7 @@ pub trait StreamingCommand: Sized + Send + Sync {
 }
 
 #[derive(Debug, clap::Subcommand)]
-pub enum CommandKind {
+pub(crate) enum CommandKind {
     #[clap(setting(AppSettings::Hidden))]
     Daemon(DaemonCommand),
     #[clap(subcommand)]
@@ -290,7 +290,7 @@ pub enum CommandKind {
     Lsp(LspCommand),
 }
 
-pub struct CommandContext {
+pub(crate) struct CommandContext {
     init: fbinit::FacebookInit,
     paths: SharedResult<Paths>,
     detect_cycles: DetectCycles,
@@ -301,18 +301,18 @@ pub struct CommandContext {
 }
 
 impl CommandContext {
-    pub fn fbinit(&self) -> fbinit::FacebookInit {
+    pub(crate) fn fbinit(&self) -> fbinit::FacebookInit {
         self.init
     }
 
-    pub fn paths(&self) -> SharedResult<&Paths> {
+    pub(crate) fn paths(&self) -> SharedResult<&Paths> {
         match &self.paths {
             Ok(p) => Ok(p),
             Err(e) => Err(e.dupe()),
         }
     }
 
-    pub fn with_runtime<Fut: Future, F: FnOnce(CommandContext) -> Fut>(
+    pub(crate) fn with_runtime<Fut: Future, F: FnOnce(CommandContext) -> Fut>(
         self,
         func: F,
     ) -> <Fut as Future>::Output {
@@ -326,7 +326,7 @@ impl CommandContext {
         res
     }
 
-    pub async fn connect_buckd(
+    pub(crate) async fn connect_buckd(
         &self,
         options: BuckdConnectOptions,
     ) -> anyhow::Result<BuckdClientConnector> {
@@ -336,7 +336,7 @@ impl CommandContext {
         .context("Failed to connect to buck daemon. Try running `buck2 clean` and your command afterwards. Alternatively, try running `rm -rf ~/.buck/buckd` and your command afterwards")
     }
 
-    pub fn client_context(
+    pub(crate) fn client_context(
         &self,
         config_opts: &CommonConfigOptions,
         arg_matches: &clap::ArgMatches,
@@ -360,7 +360,7 @@ impl CommandContext {
     }
 
     /// A client context for commands where CommonConfigOptions are not provided.
-    pub fn empty_client_context(&self) -> anyhow::Result<ClientContext> {
+    pub(crate) fn empty_client_context(&self) -> anyhow::Result<ClientContext> {
         #[derive(Debug, thiserror::Error)]
         #[error("Current directory is not UTF-8")]
         struct CurrentDirIsNotUtf8;
@@ -378,25 +378,25 @@ impl CommandContext {
         })
     }
 
-    pub fn async_cleanup_context(&self) -> &AsyncCleanupContext {
+    pub(crate) fn async_cleanup_context(&self) -> &AsyncCleanupContext {
         &self.async_cleanup_context
     }
 }
 
 /// For cleanup we want to perform, but cant do in `drop` because it's async.
 #[derive(Clone, Dupe)]
-pub struct AsyncCleanupContext {
+pub(crate) struct AsyncCleanupContext {
     jobs: Arc<Mutex<Vec<BoxFuture<'static, ()>>>>,
 }
 
 impl AsyncCleanupContext {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             jobs: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
-    pub fn register(&self, fut: BoxFuture<'static, ()>) {
+    pub(crate) fn register(&self, fut: BoxFuture<'static, ()>) {
         self.jobs.lock().expect("Poisoned mutex").push(fut);
     }
 
@@ -407,7 +407,7 @@ impl AsyncCleanupContext {
 }
 
 /// Just provides a common interface for buck subcommands for us to interact with here.
-pub trait BuckSubcommand {
+pub(crate) trait BuckSubcommand {
     fn exec(self, matches: &clap::ArgMatches, ctx: CommandContext) -> ExitResult;
 }
 
@@ -446,7 +446,7 @@ impl<T: StreamingCommand> BuckSubcommand for T {
 }
 
 impl CommandKind {
-    pub fn exec(
+    pub(crate) fn exec(
         self,
         matches: &clap::ArgMatches,
         common_opts: CommonOptions,

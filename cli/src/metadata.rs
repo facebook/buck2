@@ -13,7 +13,7 @@ use std::{collections::HashMap, env};
 use buck2_core::facebook_only;
 
 /// Collects metadata from the current binary and environment and writes it as map, suitable for telemetry purposes.
-pub fn collect() -> HashMap<String, String> {
+pub(crate) fn collect() -> HashMap<String, String> {
     facebook_only();
     fn add_env_var(map: &mut HashMap<String, String>, key: &'static str, var: &'static str) {
         if let Ok(data) = env::var(var) {

@@ -15,7 +15,7 @@ use crate::commands::common::subscribers::display;
 
 /// Options controlling what WhatRan produces.
 #[derive(Debug, Default, clap::Parser)]
-pub struct WhatRanOptions {
+pub(crate) struct WhatRanOptions {
     #[clap(long)]
     pub emit_cache_queries: bool,
     #[clap(long)]
@@ -27,7 +27,7 @@ pub struct WhatRanOptions {
 }
 
 /// An action that makes sense to use to contextualize a command we ran.
-pub enum WhatRanRelevantAction<'a> {
+pub(crate) enum WhatRanRelevantAction<'a> {
     ActionExecution(&'a buck2_data::ActionExecutionStart),
     TestDiscovery(&'a buck2_data::TestDiscoveryStart),
     TestRun(&'a buck2_data::TestRunStart),
@@ -35,7 +35,7 @@ pub enum WhatRanRelevantAction<'a> {
 
 impl<'a> WhatRanRelevantAction<'a> {
     /// Extract a relevant action from an event's data, if we can find one.
-    pub fn from_buck_data(data: &'a buck2_data::buck_event::Data) -> Option<Self> {
+    pub(crate) fn from_buck_data(data: &'a buck2_data::buck_event::Data) -> Option<Self> {
         match data {
             buck2_data::buck_event::Data::SpanStart(span) => match &span.data {
                 Some(buck2_data::span_start_event::Data::ActionExecution(action)) => {
@@ -54,7 +54,7 @@ impl<'a> WhatRanRelevantAction<'a> {
     }
 }
 
-pub struct WhatRanOutputCommand<'a> {
+pub(crate) struct WhatRanOutputCommand<'a> {
     reason: &'a str,
     identity: &'a str,
     repro: CommandReproducer<'a>,
@@ -62,40 +62,40 @@ pub struct WhatRanOutputCommand<'a> {
 }
 
 impl WhatRanOutputCommand<'_> {
-    pub fn reason(&self) -> &str {
+    pub(crate) fn reason(&self) -> &str {
         self.reason
     }
-    pub fn identity(&self) -> &str {
+    pub(crate) fn identity(&self) -> &str {
         self.identity
     }
-    pub fn repro(&self) -> CommandReproducer<'_> {
+    pub(crate) fn repro(&self) -> CommandReproducer<'_> {
         self.repro
     }
-    pub fn extra(&self) -> Option<WhatRanOutputCommandExtra<'_>> {
+    pub(crate) fn extra(&self) -> Option<WhatRanOutputCommandExtra<'_>> {
         self.extra
     }
 }
 
 #[derive(Clone, Copy, Dupe)]
-pub enum WhatRanOutputCommandExtra<'a> {
+pub(crate) enum WhatRanOutputCommandExtra<'a> {
     TestCases(&'a [String]),
 }
 
 /// Output to log commands that ran. The expectation is that we can use this to print out events.
-pub trait WhatRanOutputWriter {
+pub(crate) trait WhatRanOutputWriter {
     fn emit_command(&mut self, command: WhatRanOutputCommand<'_>) -> anyhow::Result<()>;
 }
 
 /// Storage provided for events. The expectations is that any previously event that would qualify
 /// as a WhatRanRelevantAction was captured in this and will be returned.
-pub trait WhatRanState<T> {
+pub(crate) trait WhatRanState<T> {
     fn get(&self, span_id: T) -> Option<WhatRanRelevantAction<'_>>;
 }
 
 /// Presented with an event and its containing span, emit it to the output if it's relevant. The
 /// state is used to associate the parent with something meaningful. This does not take the parent
 /// directly because *most* events are *not* relevant so we save the lookup in that case.
-pub fn emit_event_if_relevant<T: fmt::Display + Copy>(
+pub(crate) fn emit_event_if_relevant<T: fmt::Display + Copy>(
     parent_span_id: T,
     data: &buck2_data::buck_event::Data,
     state: &impl WhatRanState<T>,
@@ -219,7 +219,7 @@ fn emit<T: fmt::Display + Copy>(
 
 /// The reproduction details for this command.
 #[derive(Clone, Copy, Dupe)]
-pub enum CommandReproducer<'a> {
+pub(crate) enum CommandReproducer<'a> {
     CacheQuery(&'a buck2_data::CacheQuery),
     CacheHit(&'a buck2_data::CacheHit),
     ReExecute(&'a buck2_data::ReExecute),
@@ -227,7 +227,7 @@ pub enum CommandReproducer<'a> {
 }
 
 impl<'a> CommandReproducer<'a> {
-    pub fn executor(&self) -> &'static str {
+    pub(crate) fn executor(&self) -> &'static str {
         match self {
             Self::CacheQuery(..) => "cache_query",
             Self::CacheHit(..) => "cache",
@@ -237,13 +237,13 @@ impl<'a> CommandReproducer<'a> {
     }
 
     /// Human-readable representation of this repro instruction
-    pub fn as_human_readable(&self) -> HumanReadableCommandReproducer<'a> {
+    pub(crate) fn as_human_readable(&self) -> HumanReadableCommandReproducer<'a> {
         HumanReadableCommandReproducer { command: *self }
     }
 }
 
 /// A wrapper type to output CommandReproducer as a human readable string.
-pub struct HumanReadableCommandReproducer<'a> {
+pub(crate) struct HumanReadableCommandReproducer<'a> {
     command: CommandReproducer<'a>,
 }
 
@@ -270,7 +270,7 @@ impl<'a> fmt::Display for HumanReadableCommandReproducer<'a> {
     }
 }
 
-pub fn local_command_to_string(command: &buck2_data::LocalCommand) -> String {
+pub(crate) fn local_command_to_string(command: &buck2_data::LocalCommand) -> String {
     let mut cmd = vec![];
 
     if !command.env.is_empty() {
