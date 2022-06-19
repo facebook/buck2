@@ -231,16 +231,6 @@ impl IrSpanned<CallCompiled> {
 }
 
 impl Compiler<'_, '_, '_> {
-    fn expr_call_fun_compiled(
-        &mut self,
-        span: FrozenFileSpan,
-        left: IrSpanned<ExprCompiled>,
-        args: Vec<CstArgument>,
-    ) -> ExprCompiled {
-        let args = self.args(args);
-        CallCompiled::call(span, left.node, args, &mut OptCtx::new(self.eval))
-    }
-
     fn expr_call_method(
         &mut self,
         span: FrozenFileSpan,
@@ -299,7 +289,8 @@ impl Compiler<'_, '_, '_> {
             ExprP::Dot(box e, s) => self.expr_call_method(span, e, s, args),
             _ => {
                 let expr = self.expr(left);
-                self.expr_call_fun_compiled(span, expr, args)
+                let args = self.args(args);
+                CallCompiled::call(span, expr.node, args, &mut OptCtx::new(self.eval))
             }
         }
     }
