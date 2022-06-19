@@ -238,19 +238,7 @@ impl Compiler<'_, '_, '_> {
         args: Vec<CstArgument>,
     ) -> ExprCompiled {
         let args = self.args(args);
-        if let Some(left) = left.as_value() {
-            CallCompiled::call(
-                span,
-                ExprCompiled::Value(left),
-                args,
-                &mut OptCtx::new(self.eval),
-            )
-        } else {
-            ExprCompiled::Call(box IrSpanned {
-                span,
-                node: CallCompiled { fun: left, args },
-            })
-        }
+        CallCompiled::call(span, left.node, args, &mut OptCtx::new(self.eval))
     }
 
     fn expr_call_method(
