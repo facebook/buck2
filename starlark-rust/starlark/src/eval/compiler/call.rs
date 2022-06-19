@@ -59,7 +59,12 @@ impl CallCompiled {
     ) -> ExprCompiled {
         if let Some(this) = this.as_value() {
             if let Some(v) = ExprCompiled::compile_time_getattr(this, &field, ctx) {
-                return CallCompiled::call(span, ExprCompiled::Value(v), args, ctx);
+                let v = ExprCompiled::Value(v);
+                let v = IrSpanned {
+                    span: getattr_span,
+                    node: v,
+                };
+                return CallCompiled::call(span, v, args, ctx);
             }
         }
 
@@ -194,7 +199,7 @@ impl CallCompiled {
 
     pub(crate) fn call(
         span: FrozenFileSpan,
-        fun: ExprCompiled,
+        fun: IrSpanned<ExprCompiled>,
         args: ArgsCompiledValue,
         ctx: &mut OptCtx,
     ) -> ExprCompiled {
@@ -222,12 +227,20 @@ impl CallCompiled {
             return r;
         }
 
+        if let ExprCompiled::Dot(this, field) = &fun.node {
+            return CallCompiled::new_method(
+                span,
+                (**this).clone(),
+                field.clone(),
+                fun.span,
+                args,
+                ctx,
+            );
+        }
+
         ExprCompiled::Call(box IrSpanned {
             span,
-            node: CallCompiled {
-                fun: IrSpanned { span, node: fun },
-                args,
-            },
+            node: CallCompiled { fun, args },
         })
     }
 }
@@ -237,7 +250,7 @@ impl IrSpanned<CallCompiled> {
         let CallCompiled { fun: expr, args } = &self.node;
         let expr = expr.optimize_on_freeze(ctx);
         let args = args.optimize_on_freeze(ctx);
-        CallCompiled::call(self.span, expr.node, args, &mut OptCtx::new(ctx))
+        CallCompiled::call(self.span, expr, args, &mut OptCtx::new(ctx))
     }
 }
 
@@ -292,7 +305,7 @@ impl Compiler<'_, '_, '_> {
             _ => {
                 let expr = self.expr(left);
                 let args = self.args(args);
-                CallCompiled::call(span, expr.node, args, &mut OptCtx::new(self.eval))
+                CallCompiled::call(span, expr, args, &mut OptCtx::new(self.eval))
             }
         }
     }

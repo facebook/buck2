@@ -245,7 +245,7 @@ impl<'s, 'v, 'a, 'e> InlineDefCallSite<'s, 'v, 'a, 'e> {
         let args = self.inline_args(args)?;
         Ok(IrSpanned {
             span,
-            node: CallCompiled::call(span, fun.node, args, self.ctx),
+            node: CallCompiled::call(span, fun, args, self.ctx),
         })
     }
 
