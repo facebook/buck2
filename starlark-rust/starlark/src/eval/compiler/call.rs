@@ -50,18 +50,29 @@ pub(crate) struct CallCompiled {
 
 impl CallCompiled {
     pub(crate) fn new_method(
+        span: FrozenFileSpan,
         this: IrSpanned<ExprCompiled>,
         field: Symbol,
         getattr_span: FrozenFileSpan,
         args: ArgsCompiledValue,
-    ) -> CallCompiled {
-        CallCompiled {
-            fun: IrSpanned {
-                span: getattr_span,
-                node: ExprCompiled::Dot(box this, field),
-            },
-            args,
+        ctx: &mut OptCtx,
+    ) -> ExprCompiled {
+        if let Some(this) = this.as_value() {
+            if let Some(v) = ExprCompiled::compile_time_getattr(this, &field, ctx) {
+                return CallCompiled::call(span, ExprCompiled::Value(v), args, ctx);
+            }
         }
+
+        ExprCompiled::Call(box IrSpanned {
+            span,
+            node: CallCompiled {
+                fun: IrSpanned {
+                    span: getattr_span,
+                    node: ExprCompiled::Dot(box this, field),
+                },
+                args,
+            },
+        })
     }
 
     /// If this call expression is `len(x)`, return `x`.
@@ -260,23 +271,14 @@ impl Compiler<'_, '_, '_> {
 
         let getattr_span = e.span.merge(&FrozenFileSpan::new(self.codemap, s.span));
 
-        let s = Symbol::new(&s.node);
-        if let Some(e) = e.as_value() {
-            if let Some(v) = ExprCompiled::compile_time_getattr(e, &s, &mut OptCtx::new(self.eval))
-            {
-                return CallCompiled::call(
-                    span,
-                    ExprCompiled::Value(v),
-                    args,
-                    &mut OptCtx::new(self.eval),
-                );
-            }
-        }
-
-        ExprCompiled::Call(box IrSpanned {
+        CallCompiled::new_method(
             span,
-            node: CallCompiled::new_method(e, s, getattr_span, args),
-        })
+            e,
+            Symbol::new(&s),
+            getattr_span,
+            args,
+            &mut OptCtx::new(self.eval),
+        )
     }
 
     pub(crate) fn expr_call(
