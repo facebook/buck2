@@ -109,6 +109,10 @@ pub(crate) enum ExprUnOp {
     Minus,
     Plus,
     BitNot,
+    /// `"aaa%sbbb" % arg`
+    PercentSOne(FrozenStringValue, FrozenStringValue),
+    /// `"aaa%sbbb".format(arg)`
+    FormatOne(FrozenStringValue, FrozenStringValue),
 }
 
 impl ExprUnOp {
@@ -117,6 +121,12 @@ impl ExprUnOp {
             ExprUnOp::Minus => v.minus(heap),
             ExprUnOp::Plus => v.plus(heap),
             ExprUnOp::BitNot => Ok(Value::new_int(!v.to_int()?)),
+            ExprUnOp::FormatOne(before, after) => {
+                Ok(format_one(&before, v, &after, heap).to_value())
+            }
+            ExprUnOp::PercentSOne(before, after) => {
+                percent_s_one(&before, v, &after, heap).map(|s| s.to_value())
+            }
         }
     }
 }
@@ -214,22 +224,6 @@ pub(crate) enum ExprCompiled {
     Op(
         ExprBinOp,
         Box<(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)>,
-    ),
-    /// `"aaa%sbbb" % arg`
-    PercentSOne(
-        Box<(
-            FrozenStringValue,
-            IrSpanned<ExprCompiled>,
-            FrozenStringValue,
-        )>,
-    ),
-    /// `"aaa%sbbb".format(arg)`
-    FormatOne(
-        Box<(
-            FrozenStringValue,
-            IrSpanned<ExprCompiled>,
-            FrozenStringValue,
-        )>,
     ),
     Call(Box<IrSpanned<CallCompiled>>),
     Def(DefCompiled),
@@ -468,14 +462,6 @@ impl IrSpanned<ExprCompiled> {
                 let r = r.optimize_on_freeze(ctx);
                 ExprCompiled::bin_op(op, l, r, &mut OptCtx::new(ctx))
             }
-            ExprCompiled::PercentSOne(box (before, ref arg, after)) => {
-                let arg = arg.optimize_on_freeze(ctx);
-                ExprCompiled::percent_s_one(before, arg, after, &mut OptCtx::new(ctx))
-            }
-            ExprCompiled::FormatOne(box (before, ref arg, after)) => {
-                let arg = arg.optimize_on_freeze(ctx);
-                ExprCompiled::format_one(before, arg, after, &mut OptCtx::new(ctx))
-            }
             ref d @ ExprCompiled::Def(..) => d.clone(),
             ExprCompiled::Call(ref call) => call.optimize_on_freeze(ctx),
         };
@@ -588,7 +574,7 @@ impl ExprCompiled {
         ExprCompiled::Op(ExprBinOp::Percent, box (l, r))
     }
 
-    pub(crate) fn percent_s_one(
+    fn percent_s_one(
         before: FrozenStringValue,
         arg: IrSpanned<ExprCompiled>,
         after: FrozenStringValue,
@@ -603,7 +589,7 @@ impl ExprCompiled {
             }
         }
 
-        ExprCompiled::PercentSOne(box (before, arg, after))
+        ExprCompiled::UnOp(ExprUnOp::PercentSOne(before, after), box arg)
     }
 
     pub(crate) fn format_one(
@@ -617,7 +603,8 @@ impl ExprCompiled {
             let value = ctx.frozen_heap().alloc_str(value.as_str());
             return ExprCompiled::Value(value.to_frozen_value());
         }
-        ExprCompiled::FormatOne(box (before, arg, after))
+
+        ExprCompiled::UnOp(ExprUnOp::FormatOne(before, after), box arg)
     }
 
     fn add(l: IrSpanned<ExprCompiled>, r: IrSpanned<ExprCompiled>) -> ExprCompiled {
@@ -703,7 +690,15 @@ impl ExprCompiled {
                 }
             }
         }
-        ExprCompiled::UnOp(op, box expr)
+        match op {
+            ExprUnOp::FormatOne(before, after) => {
+                ExprCompiled::format_one(before, expr, after, ctx)
+            }
+            ExprUnOp::PercentSOne(before, after) => {
+                ExprCompiled::percent_s_one(before, expr, after, ctx)
+            }
+            op => ExprCompiled::UnOp(op, box expr),
+        }
     }
 
     fn try_values(

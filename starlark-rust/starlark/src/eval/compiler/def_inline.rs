@@ -159,11 +159,6 @@ impl IsSafeToInlineExpr {
             ExprCompiled::Seq(box (x, y)) => {
                 self.is_safe_to_inline_expr(x) && self.is_safe_to_inline_expr(y)
             }
-            ExprCompiled::PercentSOne(box (before, v, after))
-            | ExprCompiled::FormatOne(box (before, v, after)) => {
-                let _: (FrozenStringValue, FrozenStringValue) = (*before, *after);
-                self.is_safe_to_inline_expr(v)
-            }
         }
     }
 }
@@ -313,20 +308,6 @@ impl<'s, 'v, 'a, 'e> InlineDefCallSite<'s, 'v, 'a, 'e> {
                 IrSpanned {
                     span,
                     node: ExprCompiled::bin_op(*op, l, r, self.ctx),
-                }
-            }
-            ExprCompiled::PercentSOne(box (before, x, after)) => {
-                let x = self.inline(x)?;
-                IrSpanned {
-                    span,
-                    node: ExprCompiled::percent_s_one(*before, x, *after, self.ctx),
-                }
-            }
-            ExprCompiled::FormatOne(box (before, x, after)) => {
-                let x = self.inline(x)?;
-                IrSpanned {
-                    span,
-                    node: ExprCompiled::format_one(*before, x, *after, self.ctx),
                 }
             }
             ExprCompiled::UnOp(op, box x) => {

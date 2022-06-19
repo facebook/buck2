@@ -169,12 +169,6 @@ impl ExprCompiled {
                 a.mark_definitely_assigned_after(bc);
                 b.mark_definitely_assigned_after(bc);
             }
-            ExprCompiled::PercentSOne(box (_before, arg, _after)) => {
-                arg.mark_definitely_assigned_after(bc);
-            }
-            ExprCompiled::FormatOne(box (_before, arg, _after)) => {
-                arg.mark_definitely_assigned_after(bc);
-            }
             ExprCompiled::Call(c) => c.mark_definitely_assigned_after(bc),
             ExprCompiled::Def(d) => d.mark_definitely_assigned_after(bc),
         }
@@ -363,6 +357,12 @@ impl IrSpanned<ExprCompiled> {
                         ExprUnOp::Minus => bc.write_instr::<InstrMinus>(span, arg),
                         ExprUnOp::Plus => bc.write_instr::<InstrPlus>(span, arg),
                         ExprUnOp::BitNot => bc.write_instr::<InstrBitNot>(span, arg),
+                        ExprUnOp::PercentSOne(before, after) => {
+                            bc.write_instr::<InstrPercentSOne>(span, (before, expr, after, target))
+                        }
+                        ExprUnOp::FormatOne(before, after) => {
+                            bc.write_instr::<InstrFormatOne>(span, (before, expr, after, target))
+                        }
                     }
                 });
             }
@@ -426,16 +426,6 @@ impl IrSpanned<ExprCompiled> {
                         ExprBinOp::LeftShift => bc.write_instr::<InstrLeftShift>(span, arg),
                         ExprBinOp::RightShift => bc.write_instr::<InstrRightShift>(span, arg),
                     }
-                });
-            }
-            ExprCompiled::PercentSOne(box (before, ref arg, after)) => {
-                arg.write_bc_cb(bc, |arg, bc| {
-                    bc.write_instr::<InstrPercentSOne>(span, (before, arg, after, target));
-                });
-            }
-            ExprCompiled::FormatOne(box (before, ref arg, after)) => {
-                arg.write_bc_cb(bc, |arg, bc| {
-                    bc.write_instr::<InstrFormatOne>(span, (before, arg, after, target));
                 });
             }
             ExprCompiled::Call(ref call) => call.write_bc(target, bc),
