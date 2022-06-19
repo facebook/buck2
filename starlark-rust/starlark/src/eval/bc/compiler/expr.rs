@@ -122,9 +122,6 @@ impl ExprCompiled {
                 }
             }
             ExprCompiled::Compr(compr) => compr.mark_definitely_assigned_after(bc),
-            ExprCompiled::Dot(object, _field) => {
-                object.mark_definitely_assigned_after(bc);
-            }
             ExprCompiled::ArrayIndirection(box (array, index)) => {
                 array.mark_definitely_assigned_after(bc);
                 index.mark_definitely_assigned_after(bc);
@@ -315,11 +312,6 @@ impl IrSpanned<ExprCompiled> {
             }
             ExprCompiled::Dict(ref xs) => Self::write_dict(span, xs, target, bc),
             ExprCompiled::Compr(ref compr) => compr.write_bc(span, target, bc),
-            ExprCompiled::Dot(box ref object, ref field) => {
-                object.write_bc_cb(bc, |object, bc| {
-                    bc.write_instr::<InstrObjectField>(span, (object, field.clone(), target));
-                });
-            }
             ExprCompiled::ArrayIndirection(box (ref array, ref index)) => {
                 write_n_exprs([array, index], bc, |array_index, bc| {
                     bc.write_instr::<InstrArrayIndex>(span, (array_index, target))
@@ -337,7 +329,7 @@ impl IrSpanned<ExprCompiled> {
                 });
             }
             ExprCompiled::UnOp(ExprUnOp::Not, box ref expr) => Self::write_not(expr, target, bc),
-            ExprCompiled::UnOp(op, ref expr) => {
+            ExprCompiled::UnOp(ref op, ref expr) => {
                 expr.write_bc_cb(bc, |expr, bc| {
                     let arg = (expr, target);
                     match op {
@@ -346,13 +338,15 @@ impl IrSpanned<ExprCompiled> {
                         ExprUnOp::Plus => bc.write_instr::<InstrPlus>(span, arg),
                         ExprUnOp::BitNot => bc.write_instr::<InstrBitNot>(span, arg),
                         ExprUnOp::TypeIs(t) => {
-                            bc.write_instr::<InstrTypeIs>(span, (expr, t, target))
+                            bc.write_instr::<InstrTypeIs>(span, (expr, *t, target))
                         }
-                        ExprUnOp::PercentSOne(before, after) => {
-                            bc.write_instr::<InstrPercentSOne>(span, (before, expr, after, target))
-                        }
+                        ExprUnOp::PercentSOne(before, after) => bc
+                            .write_instr::<InstrPercentSOne>(span, (*before, expr, *after, target)),
                         ExprUnOp::FormatOne(before, after) => {
-                            bc.write_instr::<InstrFormatOne>(span, (before, expr, after, target))
+                            bc.write_instr::<InstrFormatOne>(span, (*before, expr, *after, target))
+                        }
+                        ExprUnOp::Dot(field) => {
+                            bc.write_instr::<InstrObjectField>(span, (expr, field.clone(), target))
                         }
                     }
                 });

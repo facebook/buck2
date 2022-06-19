@@ -104,7 +104,7 @@ impl CompareOp {
     }
 }
 
-#[derive(Copy, Clone, Dupe, Debug, VisitSpanMut)]
+#[derive(Clone, Debug, VisitSpanMut)]
 pub(crate) enum ExprUnOp {
     Minus,
     Plus,
@@ -116,21 +116,28 @@ pub(crate) enum ExprUnOp {
     PercentSOne(FrozenStringValue, FrozenStringValue),
     /// `"aaa%sbbb".format(arg)`
     FormatOne(FrozenStringValue, FrozenStringValue),
+    /// `x.field`.
+    Dot(Symbol),
 }
 
 impl ExprUnOp {
-    fn eval<'v>(self, v: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn eval<'v>(&self, v: FrozenValue, ctx: &mut OptCtx<'v, '_, '_>) -> Option<Value<'v>> {
         match self {
-            ExprUnOp::Minus => v.minus(heap),
-            ExprUnOp::Plus => v.plus(heap),
-            ExprUnOp::BitNot => Ok(Value::new_int(!v.to_int()?)),
-            ExprUnOp::Not => Ok(Value::new_bool(!v.to_bool())),
-            ExprUnOp::TypeIs(t) => Ok(Value::new_bool(v.get_type_value() == t)),
+            ExprUnOp::Minus => v.to_value().minus(ctx.heap()).ok(),
+            ExprUnOp::Plus => v.to_value().plus(ctx.heap()).ok(),
+            ExprUnOp::BitNot => Some(Value::new_int(!v.to_value().to_int().ok()?)),
+            ExprUnOp::Not => Some(Value::new_bool(!v.to_value().to_bool())),
+            ExprUnOp::TypeIs(t) => Some(Value::new_bool(v.to_value().get_type_value() == *t)),
             ExprUnOp::FormatOne(before, after) => {
-                Ok(format_one(&before, v, &after, heap).to_value())
+                Some(format_one(before, v.to_value(), after, ctx.heap()).to_value())
             }
             ExprUnOp::PercentSOne(before, after) => {
-                percent_s_one(&before, v, &after, heap).map(|s| s.to_value())
+                percent_s_one(before, v.to_value(), after, ctx.heap())
+                    .map(|s| s.to_value())
+                    .ok()
+            }
+            ExprUnOp::Dot(field) => {
+                Some(ExprCompiled::compile_time_getattr(v, field, ctx)?.to_value())
             }
         }
     }
@@ -195,7 +202,6 @@ pub(crate) enum ExprCompiled {
     Dict(Vec<(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)>),
     /// Comprehension.
     Compr(ComprCompiled),
-    Dot(Box<IrSpanned<ExprCompiled>>, Symbol),
     ArrayIndirection(Box<(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)>),
     If(
         Box<(
@@ -423,9 +429,6 @@ impl IrSpanned<ExprCompiled> {
                 kvs.map(|(k, v)| (k.optimize_on_freeze(ctx), v.optimize_on_freeze(ctx))),
             ),
             ExprCompiled::Compr(ref compr) => compr.optimize_on_freeze(ctx),
-            ExprCompiled::Dot(box ref object, ref field) => {
-                ExprCompiled::dot(object.optimize_on_freeze(ctx), field, &mut OptCtx::new(ctx))
-            }
             ExprCompiled::ArrayIndirection(box (ref array, ref index)) => {
                 let array = array.optimize_on_freeze(ctx);
                 let index = index.optimize_on_freeze(ctx);
@@ -444,7 +447,7 @@ impl IrSpanned<ExprCompiled> {
                 let step = step.as_ref().map(|x| x.optimize_on_freeze(ctx));
                 ExprCompiled::slice(span, v, start, stop, step, &mut OptCtx::new(ctx))
             }
-            ExprCompiled::UnOp(op, ref e) => {
+            ExprCompiled::UnOp(ref op, ref e) => {
                 let e = e.optimize_on_freeze(ctx);
                 ExprCompiled::un_op(span, op, e, &mut OptCtx::new(ctx))
             }
@@ -681,12 +684,12 @@ impl ExprCompiled {
 
     pub(crate) fn un_op(
         span: FrozenFileSpan,
-        op: ExprUnOp,
+        op: &ExprUnOp,
         expr: IrSpanned<ExprCompiled>,
         ctx: &mut OptCtx,
     ) -> ExprCompiled {
         if let Some(v) = expr.as_builtin_value() {
-            if let Ok(v) = op.eval(v.to_value(), ctx.heap()) {
+            if let Some(v) = op.eval(v, ctx) {
                 if let Some(v) = ExprCompiled::try_value(expr.span, v, ctx.frozen_heap()) {
                     return v;
                 }
@@ -694,14 +697,15 @@ impl ExprCompiled {
         }
         match op {
             ExprUnOp::FormatOne(before, after) => {
-                ExprCompiled::format_one(before, expr, after, ctx)
+                ExprCompiled::format_one(*before, expr, *after, ctx)
             }
             ExprUnOp::PercentSOne(before, after) => {
-                ExprCompiled::percent_s_one(before, expr, after, ctx)
+                ExprCompiled::percent_s_one(*before, expr, *after, ctx)
             }
-            ExprUnOp::TypeIs(t) => ExprCompiled::type_is(expr, t),
+            ExprUnOp::Dot(field) => ExprCompiled::dot(expr, field, ctx),
+            ExprUnOp::TypeIs(t) => ExprCompiled::type_is(expr, *t),
             ExprUnOp::Not => ExprCompiled::not(span, expr).node,
-            op => ExprCompiled::UnOp(op, box expr),
+            op => ExprCompiled::UnOp(op.clone(), box expr),
         }
     }
 
@@ -811,7 +815,7 @@ impl ExprCompiled {
             }
         }
 
-        ExprCompiled::Dot(box object, field.clone())
+        ExprCompiled::UnOp(ExprUnOp::Dot(field.clone()), box object)
     }
 
     fn slice(
@@ -1186,15 +1190,15 @@ impl Compiler<'_, '_, '_> {
             }
             ExprP::Minus(expr) => {
                 let expr = self.expr(*expr);
-                ExprCompiled::un_op(span, ExprUnOp::Minus, expr, &mut OptCtx::new(self.eval))
+                ExprCompiled::un_op(span, &ExprUnOp::Minus, expr, &mut OptCtx::new(self.eval))
             }
             ExprP::Plus(expr) => {
                 let expr = self.expr(*expr);
-                ExprCompiled::un_op(span, ExprUnOp::Plus, expr, &mut OptCtx::new(self.eval))
+                ExprCompiled::un_op(span, &ExprUnOp::Plus, expr, &mut OptCtx::new(self.eval))
             }
             ExprP::BitNot(expr) => {
                 let expr = self.expr(*expr);
-                ExprCompiled::un_op(span, ExprUnOp::BitNot, expr, &mut OptCtx::new(self.eval))
+                ExprCompiled::un_op(span, &ExprUnOp::BitNot, expr, &mut OptCtx::new(self.eval))
             }
             ExprP::Op(left, op, right) => {
                 if let Some(x) = ExprP::reduces_to_string(op, &left, &right) {

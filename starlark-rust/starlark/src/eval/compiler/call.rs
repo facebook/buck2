@@ -27,7 +27,7 @@ use crate::{
         compiler::{
             args::ArgsCompiledValue,
             def_inline::{InlineDefBody, InlineDefCallSite},
-            expr::ExprCompiled,
+            expr::{ExprCompiled, ExprUnOp},
             opt_ctx::OptCtx,
             span::IrSpanned,
             stmt::OptimizeOnFreezeContext,
@@ -49,13 +49,13 @@ impl CallCompiled {
     pub(crate) fn new_method(
         span: FrozenFileSpan,
         this: IrSpanned<ExprCompiled>,
-        field: Symbol,
+        field: &Symbol,
         getattr_span: FrozenFileSpan,
         args: ArgsCompiledValue,
         ctx: &mut OptCtx,
     ) -> ExprCompiled {
         if let Some(this) = this.as_value() {
-            if let Some(v) = ExprCompiled::compile_time_getattr(this, &field, ctx) {
+            if let Some(v) = ExprCompiled::compile_time_getattr(this, field, ctx) {
                 let v = ExprCompiled::Value(v);
                 let v = IrSpanned {
                     span: getattr_span,
@@ -70,7 +70,7 @@ impl CallCompiled {
             node: CallCompiled {
                 fun: IrSpanned {
                     span: getattr_span,
-                    node: ExprCompiled::Dot(box this, field),
+                    node: ExprCompiled::dot(this, field, ctx),
                 },
                 args,
             },
@@ -104,7 +104,7 @@ impl CallCompiled {
     /// This call is a method call.
     pub(crate) fn method(&self) -> Option<(&IrSpanned<ExprCompiled>, &Symbol, &ArgsCompiledValue)> {
         match &self.fun.node {
-            ExprCompiled::Dot(expr, name) => Some((expr, name, &self.args)),
+            ExprCompiled::UnOp(ExprUnOp::Dot(name), expr) => Some((expr, name, &self.args)),
             _ => None,
         }
     }
@@ -248,15 +248,8 @@ impl CallCompiled {
             return r;
         }
 
-        if let ExprCompiled::Dot(this, field) = &fun.node {
-            return CallCompiled::new_method(
-                span,
-                (**this).clone(),
-                field.clone(),
-                fun.span,
-                args,
-                ctx,
-            );
+        if let ExprCompiled::UnOp(ExprUnOp::Dot(field), this) = &fun.node {
+            return CallCompiled::new_method(span, (**this).clone(), field, fun.span, args, ctx);
         }
 
         ExprCompiled::Call(box IrSpanned {

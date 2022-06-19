@@ -18,7 +18,6 @@
 //! Inline functions.
 
 use crate::{
-    collections::symbol_map::Symbol,
     eval::{
         compiler::{
             args::ArgsCompiledValue,
@@ -105,10 +104,6 @@ impl IsSafeToInlineExpr {
             ExprCompiled::Compr(..) => {
                 // TODO: some comprehensions are safe to inline.
                 false
-            }
-            ExprCompiled::Dot(expr, field) => {
-                let _: &Symbol = field;
-                self.is_safe_to_inline_expr(expr)
             }
             ExprCompiled::ArrayIndirection(box (array, index)) => {
                 self.is_safe_to_inline_expr(array) && self.is_safe_to_inline_expr(index)
@@ -300,7 +295,7 @@ impl<'s, 'v, 'a, 'e> InlineDefCallSite<'s, 'v, 'a, 'e> {
                 let x = self.inline(x)?;
                 IrSpanned {
                     span,
-                    node: ExprCompiled::un_op(span, *op, x, self.ctx),
+                    node: ExprCompiled::un_op(span, op, x, self.ctx),
                 }
             }
             ExprCompiled::ArrayIndirection(box (array, index)) => {
@@ -319,13 +314,6 @@ impl<'s, 'v, 'a, 'e> InlineDefCallSite<'s, 'v, 'a, 'e> {
                 IrSpanned {
                     span,
                     node: ExprCompiled::Slice(box (l, a, b, c)),
-                }
-            }
-            ExprCompiled::Dot(box l, field) => {
-                let l = self.inline(l)?;
-                IrSpanned {
-                    span,
-                    node: ExprCompiled::dot(l, field, self.ctx),
                 }
             }
             ExprCompiled::Seq(box (a, b)) => {
