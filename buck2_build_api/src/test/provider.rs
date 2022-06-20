@@ -18,10 +18,10 @@ use test_api::{
 use crate::interpreter::rule_defs::{
     cmd_args::{AbsCommandLineBuilder, CommandLineArtifactVisitor},
     provider::{
-        collection::FrozenProviderCollection,
-        external_runner_test_info::{
+        builtin::external_runner_test_info::{
             ExternalRunnerTestInfoCallable, FrozenExternalRunnerTestInfo, TestCommandMember,
         },
+        collection::FrozenProviderCollection,
     },
 };
 

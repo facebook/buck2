@@ -26,7 +26,7 @@ use crate::{
         },
         artifact_tagging::{FrozenTaggedArtifacts, TaggedArtifacts},
         cmd_args::options::QuoteStyle,
-        provider::run_info::{FrozenRunInfo, RunInfo},
+        provider::builtin::run_info::{FrozenRunInfo, RunInfo},
         transitive_set::{FrozenTransitiveSetArgsProjection, TransitiveSetArgsProjection},
     },
 };

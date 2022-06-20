@@ -36,7 +36,7 @@ use crate::{
             CommandLineBuilderContext, CommandLineLocation, FrozenCommandLineArgLike,
             WriteToFileMacroVisitor,
         },
-        provider::{
+        provider::builtin::{
             default_info::FrozenDefaultInfo, run_info::RunInfoCallable,
             template_placeholder_info::FrozenTemplatePlaceholderInfo,
         },

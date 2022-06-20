@@ -23,7 +23,7 @@ use crate::{
     configuration::execution::ExecutionPlatform,
     interpreter::rule_defs::{
         command_executor_config::StarlarkCommandExecutorConfigLike,
-        provider::configuration_info::ConfigurationInfo,
+        provider::builtin::configuration_info::ConfigurationInfo,
     },
 };
 

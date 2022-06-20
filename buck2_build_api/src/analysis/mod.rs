@@ -34,8 +34,8 @@ use crate::{
         cmd_args::FrozenCommandLineArgLike,
         context::AnalysisContext,
         provider::{
+            builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo,
             collection::ProviderCollection,
-            template_placeholder_info::FrozenTemplatePlaceholderInfo,
         },
         rule::FrozenRuleCallable,
     },

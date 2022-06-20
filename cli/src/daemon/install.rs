@@ -20,7 +20,7 @@ use buck2_build_api::{
     execute::{materializer::ArtifactMaterializer, PathSeparatorKind},
     interpreter::rule_defs::{
         cmd_args::{AbsCommandLineBuilder, CommandLineArgLike, SimpleCommandLineArtifactVisitor},
-        provider::install_info::*,
+        provider::builtin::install_info::*,
     },
 };
 use buck2_common::dice::{cells::HasCellResolver, file_ops::HasFileOps};

@@ -70,7 +70,7 @@ use crate::{
             CommandLineArtifactVisitor, CommandLineBuilder, CommandLineBuilderContext,
             CommandLineLocation, SimpleCommandLineArtifactVisitor,
         },
-        provider::external_runner_test_info::{
+        provider::builtin::external_runner_test_info::{
             ExternalRunnerTestInfoCallable, FrozenExternalRunnerTestInfo, TestCommandMember,
         },
     },

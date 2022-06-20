@@ -32,7 +32,7 @@ use starlark::{
 };
 use thiserror::Error;
 
-use crate::interpreter::rule_defs::provider::{
+use crate::interpreter::rule_defs::provider::builtin::{
     constraint_setting_info::ConstraintSettingInfo, constraint_value_info::ConstraintValueInfo,
 };
 

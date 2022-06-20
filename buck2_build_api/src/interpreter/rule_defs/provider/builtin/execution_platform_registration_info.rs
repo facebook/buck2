@@ -17,7 +17,7 @@ use starlark::{
 };
 use thiserror::Error;
 
-use crate::interpreter::rule_defs::provider::execution_platform_info::FrozenExecutionPlatformInfo;
+use crate::interpreter::rule_defs::provider::builtin::execution_platform_info::FrozenExecutionPlatformInfo;
 
 #[derive(Debug, Error)]
 enum ExecutionPlatformRegistrationTypeError {

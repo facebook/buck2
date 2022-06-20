@@ -462,7 +462,7 @@ mod tests {
                 BuildInterpreterConfiguror,
             },
             rule_defs::provider::{
-                default_info::DefaultInfoCallable,
+                builtin::default_info::DefaultInfoCallable,
                 id::{testing::ProviderIdExt, ProviderId},
             },
             testing::Tester,

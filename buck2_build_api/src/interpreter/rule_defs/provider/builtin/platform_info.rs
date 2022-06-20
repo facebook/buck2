@@ -17,7 +17,7 @@ use starlark::{
     values::{Freeze, Heap, StringValue, Trace, ValueLike, ValueOf},
 };
 
-use crate::interpreter::rule_defs::provider::configuration_info::ConfigurationInfo;
+use crate::interpreter::rule_defs::provider::builtin::configuration_info::ConfigurationInfo;
 
 #[internal_provider(platform_info_creator)]
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType)]

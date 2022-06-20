@@ -36,7 +36,7 @@ use crate::{
         ConfigurationCalculation, ConfigurationNode, ConfigurationSettingKey, ExecutionPlatforms,
         ResolvedConfiguration,
     },
-    interpreter::rule_defs::provider::{
+    interpreter::rule_defs::provider::builtin::{
         configuration_info::FrozenConfigurationInfo,
         execution_platform_registration_info::ExecutionPlatformRegistrationInfo,
         platform_info::PlatformInfo,

@@ -20,7 +20,7 @@ use starlark::{
 
 use crate::{
     actions::artifact::Artifact,
-    interpreter::rule_defs::{artifact::ValueAsArtifactLike, provider::run_info::RunInfo},
+    interpreter::rule_defs::{artifact::ValueAsArtifactLike, provider::builtin::run_info::RunInfo},
 };
 // Provider that singals a rule is installable
 

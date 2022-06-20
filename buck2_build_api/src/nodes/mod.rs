@@ -25,7 +25,7 @@ use thiserror::Error;
 
 use crate::{
     attrs::{coerced_attr::CoercedAttr, OrderedMap},
-    interpreter::rule_defs::provider::platform_info::PlatformInfoCallable,
+    interpreter::rule_defs::provider::builtin::platform_info::PlatformInfoCallable,
     nodes::{
         attr_internal::{
             LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD, TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,

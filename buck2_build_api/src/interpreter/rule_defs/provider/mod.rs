@@ -62,29 +62,19 @@ use starlark::{
 };
 
 use crate::interpreter::rule_defs::provider::{
+    builtin::default_info::{DefaultInfo, DefaultInfoCallable, FrozenDefaultInfo},
     collection::ProviderCollection,
-    default_info::{DefaultInfo, DefaultInfoCallable, FrozenDefaultInfo},
     id::ProviderId,
     registration::ProviderRegistration,
     user::{FrozenUserProvider, UserProvider},
 };
 
+pub mod builtin;
 pub mod callable;
 pub mod collection;
-pub mod configuration_info;
-pub mod constraint_setting_info;
-pub mod constraint_value_info;
-pub mod default_info;
 pub(crate) mod dependency;
-pub mod execution_platform_info;
-pub mod execution_platform_registration_info;
-pub mod external_runner_test_info;
 pub mod id;
-pub mod install_info;
-pub mod platform_info;
 pub mod registration;
-pub mod run_info;
-pub mod template_placeholder_info;
 pub(crate) mod user;
 
 #[derive(Debug, thiserror::Error)]

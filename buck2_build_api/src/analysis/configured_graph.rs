@@ -22,7 +22,7 @@ use crate::{
     calculation::Calculation,
     interpreter::rule_defs::{
         cmd_args::{CommandLineArgLike, SimpleCommandLineArtifactVisitor},
-        provider::template_placeholder_info::TemplatePlaceholderInfo,
+        provider::builtin::template_placeholder_info::TemplatePlaceholderInfo,
     },
     nodes::{compatibility::MaybeCompatible, configured::ConfiguredTargetNode},
     query::analysis::environment::ConfiguredGraphQueryEnvironmentDelegate,
