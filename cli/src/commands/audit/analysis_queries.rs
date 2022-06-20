@@ -31,7 +31,10 @@ use crate::{
 };
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
-#[clap(name = "audit-config", about = "buck audit config")]
+#[clap(
+    name = "audit-analysis-queries",
+    about = "buck audit analysis resolving query attrs"
+)]
 pub(crate) struct AuditAnalysisQueriesCommand {
     #[clap(
         name = "TARGET_PATTERNS",
