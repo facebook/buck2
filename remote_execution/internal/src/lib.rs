@@ -16,10 +16,11 @@ pub use re_client_lib::{
     create_default_config, ActionHistoryInfo, ActionResultRequest, ActionResultResponse,
     CASDaemonClientCfg, CopyPolicy, DownloadRequest, EmbeddedCASDaemonClientCfg, ExecuteRequest,
     ExecuteResponse, ExecuteWithProgressResponse, FindMissingBlobsRequest, GetDigestsTtlRequest,
-    HostResourceRequirements, InlinedBlobWithDigest, NamedDigest, NamedDigestWithPermissions, Path,
-    REClient, REClientBuilder, REClientError, REError, RemoteExecutionMetadata, Stage,
-    TActionResult2, TCode, TDigest, TDirectory2, TExecutedActionMetadata, TExecutionPolicy, TFile,
-    TPlatform, TProperty, TResultsCachePolicy, TTimestamp, UploadRequest, ZdbRichClientMode,
+    HostResourceRequirements, InlinedBlobWithDigest, NamedDigest, NamedDigestWithPermissions,
+    NetworkStatisticsResponse, Path, REClient, REClientBuilder, REClientError, REError,
+    RemoteExecutionMetadata, Stage, TActionResult2, TCode, TDigest, TDirectory2,
+    TExecutedActionMetadata, TExecutionPolicy, TFile, TPlatform, TProperty, TResultsCachePolicy,
+    TTimestamp, UploadRequest, ZdbRichClientMode,
 };
 pub use re_grpc::remote_execution::{
     command::EnvironmentVariable, platform::Property, Action, Command, Digest, Directory,

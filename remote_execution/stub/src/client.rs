@@ -130,4 +130,8 @@ impl REClient {
     pub fn get_session_id(&self) -> &str {
         stub()
     }
+
+    pub fn get_network_stats(&self) -> anyhow::Result<NetworkStatisticsResponse> {
+        stub()
+    }
 }

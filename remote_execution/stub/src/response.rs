@@ -152,3 +152,11 @@ pub struct TFile {
     pub executable: bool,
     pub ttl: i64,
 }
+
+#[derive(Default)]
+pub struct NetworkStatisticsResponse {
+    pub uploaded: i64,
+    pub downloaded: i64,
+    // Compatibility with the Thrift structs
+    pub _dot_dot_default: (),
+}
