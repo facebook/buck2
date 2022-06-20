@@ -44,7 +44,8 @@ use crate::{
         CoercedPath, ConfiguredAttr,
     },
     interpreter::rule_defs::{
-        artifact::StarlarkArtifact, provider::DependencyGen, transition::id::TransitionId,
+        artifact::StarlarkArtifact, provider::dependency::DependencyGen,
+        transition::id::TransitionId,
     },
 };
 
