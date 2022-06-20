@@ -34,6 +34,7 @@ use crate::commands::common::{
         superconsole::{
             debug_events::{DebugEventsComponent, DebugEventsState},
             dice::{DiceComponent, DiceState},
+            re::{ReHeader, ReState},
             test::TestState,
             timed_list::{Cutoffs, TimedList},
         },
@@ -48,6 +49,7 @@ use crate::commands::common::{
 mod common;
 pub mod debug_events;
 pub mod dice;
+pub mod re;
 pub mod test;
 pub mod timed_list;
 
@@ -56,7 +58,6 @@ pub const SUPERCONSOLE_WIDTH: usize = 150;
 /// Information about the current command, such as session or build ids.
 #[derive(Default)]
 pub(crate) struct SessionInfo {
-    re_session: Option<String>,
     trace_id: Option<TraceId>,
     test_session: Option<buck2_data::TestSessionInfo>,
 }
@@ -103,6 +104,7 @@ struct SuperConsoleState {
     time_speed: TimeSpeed,
     dice_state: DiceState,
     debug_events: DebugEventsState,
+    re_state: ReState,
     /// This contains the SpanTracker, which is why it's part of the SuperConsoleState.
     simple_console: SimpleConsole,
 }
@@ -121,7 +123,8 @@ impl StatefulSuperConsole {
         config: SuperConsoleConfig,
     ) -> Box<dyn Component> {
         let header = format!("Working on tasks for command: `{}`.", command_name);
-        let mut components: Vec<Box<dyn Component>> = vec![box SessionInfoComponent];
+        let mut components: Vec<Box<dyn Component>> =
+            vec![box SessionInfoComponent, ReHeader::boxed()];
         if let Some(sandwiched) = config.sandwiched {
             components.push(sandwiched);
         }
@@ -174,6 +177,7 @@ impl StatefulSuperConsole {
                 time_speed: TimeSpeed::new(replay_speed)?,
                 simple_console: SimpleConsole::with_tty(verbosity),
                 dice_state: DiceState::new(),
+                re_state: ReState::new(),
                 debug_events: DebugEventsState::new(),
             },
             super_console: Some(super_console),
@@ -209,6 +213,7 @@ impl SuperConsoleState {
             &self.current_tick,
             &self.time_speed,
             &self.dice_state,
+            &self.re_state,
             &self.debug_events,
         ]
     }
@@ -332,7 +337,7 @@ impl EventSubscriber for StatefulSuperConsole {
         session: &buck2_data::RemoteExecutionSessionCreated,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        self.state.session_info.re_session = Some(session.session_id.clone());
+        self.state.re_state.add_re_session(session);
         Ok(())
     }
 
@@ -488,6 +493,15 @@ impl EventSubscriber for StatefulSuperConsole {
         update: &buck2_data::DiceComputationStateSnapshot,
     ) -> anyhow::Result<()> {
         self.state.dice_state.update(update);
+        Ok(())
+    }
+
+    async fn handle_snapshot(
+        &mut self,
+        update: &buck2_data::Snapshot,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        self.state.re_state.update(update);
         Ok(())
     }
 }
@@ -714,10 +728,6 @@ impl Component for SessionInfoComponent {
                         ids.push(Span::new_unstyled(trace_id)?);
                     }
                 }
-                if let Some(session_id) = &session_info.re_session {
-                    headers.push(superconsole::line!(Span::new_unstyled("RE Session:")?,));
-                    ids.push(Span::new_unstyled(session_id)?);
-                }
                 if let Some(buck2_data::TestSessionInfo { info }) = &session_info.test_session {
                     headers.push(superconsole::line!(Span::new_unstyled("Test Session:")?,));
                     ids.push(Span::new_unstyled(info)?);
@@ -903,10 +913,7 @@ mod tests {
         } else {
             assert!(frame_contains(&frame, "Build ID:".as_bytes()));
         }
-        assert!(frame_contains(
-            &frame,
-            "RE Session: reSessionID-123".as_bytes()
-        ));
+        assert!(frame_contains(&frame, "RE: reSessionID-123".as_bytes()));
         assert!(frame_contains(&frame, "In progress".as_bytes()));
 
         console
