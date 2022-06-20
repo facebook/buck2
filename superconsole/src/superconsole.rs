@@ -36,7 +36,7 @@ pub struct SuperConsole {
     // from the terminal. This generally is only used for testing
     // situations.
     default_size: Option<Dimensions>,
-    output: Box<dyn SuperConsoleOutput>,
+    pub(crate) output: Box<dyn SuperConsoleOutput>,
 }
 
 impl SuperConsole {
@@ -195,81 +195,20 @@ impl SuperConsole {
 
 #[cfg(test)]
 mod tests {
-    use std::{any::Any, convert::TryInto};
+    use std::convert::TryInto;
 
     use anyhow::Context as _;
     use derive_more::AsRef;
 
     use super::*;
-    use crate::{components::Echo, Lines};
+    use crate::{
+        components::Echo,
+        testing::{frame_contains, test_console, SuperConsoleTestingExt},
+        Lines,
+    };
 
     #[derive(AsRef, Debug)]
     struct Msg(Lines);
-
-    struct TestOutput {
-        should_render: bool,
-        frames: Vec<Vec<u8>>,
-    }
-
-    impl SuperConsoleOutput for TestOutput {
-        fn should_render(&mut self) -> bool {
-            self.should_render
-        }
-
-        fn output(&mut self, buffer: Vec<u8>) -> anyhow::Result<()> {
-            self.frames.push(buffer);
-            Ok(())
-        }
-
-        fn finalize(self: Box<Self>) -> anyhow::Result<()> {
-            Ok(())
-        }
-
-        fn as_any(&self) -> &dyn Any {
-            self
-        }
-
-        fn as_any_mut(&mut self) -> &mut dyn Any {
-            self
-        }
-    }
-
-    impl SuperConsole {
-        fn test_output(&self) -> anyhow::Result<&TestOutput> {
-            self.output
-                .as_any()
-                .downcast_ref()
-                .context("Downcast failed")
-        }
-
-        fn test_output_mut(&mut self) -> anyhow::Result<&mut TestOutput> {
-            self.output
-                .as_any_mut()
-                .downcast_mut()
-                .context("Downcast failed")
-        }
-    }
-
-    fn test_console(root: Box<dyn Component>) -> SuperConsole {
-        SuperConsole {
-            root: Canvas::new(root),
-            to_emit: Vec::new(),
-            default_size: Some(Dimensions { x: 80, y: 80 }),
-            output: Box::new(TestOutput {
-                should_render: true,
-                frames: Vec::new(),
-            }),
-        }
-    }
-
-    fn frame_contains(frame: &[u8], needle: &[u8]) -> bool {
-        for w in frame.windows(needle.len()) {
-            if w == needle {
-                return true;
-            }
-        }
-        false
-    }
 
     #[test]
     fn test_small_buffer() -> anyhow::Result<()> {

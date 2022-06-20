@@ -47,3 +47,4 @@ mod output;
 mod state;
 pub mod style;
 mod superconsole;
+pub mod testing;
