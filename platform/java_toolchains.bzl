@@ -61,14 +61,12 @@ def config_backed_java_toolchain(
     if "abi_generation_mode" in kwargs and not read_bool("buck2", "enable_source_only_abi", False):
         kwargs["abi_generation_mode"] = "class"
 
-    kwargs["javac_protocol"] = "classic"
-    if "javac" not in kwargs:
-        if read_bool("buck2", "enable_javacd", False):
-            # if javac isn't set, we use the buck1 "internal" javac
-            kwargs["javac"] = "buck//src/com/facebook/buck/jvm/java/stepsbuilder/javacd/main:javacd_tool"
-            kwargs["javac_protocol"] = "javacd"
-        else:
-            kwargs["javac"] = "fbsource//third-party/toolchains/jdk:javac"
+    if "javac" in kwargs:
+        kwargs["javac_protocol"] = "classic"
+    else:
+        # if javac isn't set, we use the buck1 "internal" javac
+        kwargs["javac"] = "buck//src/com/facebook/buck/jvm/java/stepsbuilder/javacd/main:javacd_tool"
+        kwargs["javac_protocol"] = "javacd"
 
     _config_backed_java_toolchain_rule(
         name = name,
