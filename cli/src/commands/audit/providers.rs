@@ -11,7 +11,8 @@ use std::io::Write;
 
 use async_trait::async_trait;
 use buck2_build_api::{
-    calculation::Calculation, interpreter::rule_defs::provider::FrozenProviderCollectionValue,
+    calculation::Calculation,
+    interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue,
 };
 use buck2_common::dice::{cells::HasCellResolver, file_ops::HasFileOps};
 use buck2_core::{

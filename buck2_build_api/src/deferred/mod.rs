@@ -49,7 +49,7 @@ use thiserror::Error;
 
 use crate::{
     actions::artifact::{Artifact, ArtifactValue},
-    interpreter::rule_defs::provider::FrozenProviderCollectionValue,
+    interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue,
     nodes::configured::ConfiguredTargetNode,
 };
 

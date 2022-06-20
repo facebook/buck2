@@ -11,7 +11,7 @@ use std::fmt::{Display, Formatter};
 
 use async_trait::async_trait;
 use buck2_build_api::{
-    interpreter::rule_defs::provider::FrozenProviderCollectionValue,
+    interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue,
     nodes::compatibility::MaybeCompatible,
 };
 use buck2_core::cells::CellResolver;

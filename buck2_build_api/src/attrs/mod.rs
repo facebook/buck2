@@ -76,7 +76,7 @@ use crate::{
     },
     interpreter::rule_defs::{
         cmd_args::FrozenCommandLineArgLike,
-        provider::FrozenProviderCollectionValue,
+        provider::collection::FrozenProviderCollectionValue,
         transition::{applied::TransitionApplied, id::TransitionId},
     },
 };

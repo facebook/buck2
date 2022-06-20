@@ -47,9 +47,9 @@ use crate::{
             attr::BuildAttrCoercionContext,
             cmd_args::FrozenCommandLineArgLike,
             provider::{
-                callable::ValueAsProviderCallableLike, register_builtin_providers,
-                template_placeholder_info::FrozenTemplatePlaceholderInfo,
-                FrozenProviderCollectionValue, ProviderId,
+                callable::ValueAsProviderCallableLike, collection::FrozenProviderCollectionValue,
+                register_builtin_providers,
+                template_placeholder_info::FrozenTemplatePlaceholderInfo, ProviderId,
             },
             transition::{applied::TransitionApplied, id::TransitionId},
         },

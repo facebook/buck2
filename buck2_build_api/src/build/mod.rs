@@ -20,7 +20,7 @@ use crate::{
     execute::{materializer::ArtifactMaterializer, PathSeparatorKind},
     interpreter::rule_defs::{
         cmd_args::{AbsCommandLineBuilder, CommandLineArgLike, SimpleCommandLineArtifactVisitor},
-        provider::{run_info::RunInfo, FrozenProviderCollectionValue},
+        provider::{collection::FrozenProviderCollectionValue, run_info::RunInfo},
     },
     nodes::compatibility::MaybeCompatible,
     test::provider::TestProvider,

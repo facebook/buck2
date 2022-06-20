@@ -10,7 +10,7 @@
 use async_trait::async_trait;
 use buck2_build_api::{
     calculation::Calculation,
-    interpreter::rule_defs::provider::FrozenProviderCollectionValue,
+    interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue,
     nodes::{compatibility::MaybeCompatible, configured::ConfiguredTargetNode},
     query::cquery::evaluator::get_cquery_evaluator,
 };

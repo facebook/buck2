@@ -34,8 +34,8 @@ use crate::{
         cmd_args::FrozenCommandLineArgLike,
         context::AnalysisContext,
         provider::{
+            collection::ProviderCollection,
             template_placeholder_info::FrozenTemplatePlaceholderInfo,
-            FrozenProviderCollectionValue, ProviderCollection,
         },
         rule::FrozenRuleCallable,
     },
@@ -50,6 +50,7 @@ use starlark::values::ValueTyped;
 
 use crate::{
     deferred::BaseDeferredKey,
+    interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue,
     nodes::{configured::ConfiguredTargetNode, StarlarkRuleType},
 };
 

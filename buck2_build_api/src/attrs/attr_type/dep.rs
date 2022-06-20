@@ -35,7 +35,8 @@ use crate::{
     },
     interpreter::rule_defs::{
         provider::{
-            Dependency, FrozenProviderCollection, FrozenProviderCollectionValue, ProviderId,
+            collection::{FrozenProviderCollection, FrozenProviderCollectionValue},
+            Dependency, ProviderId,
         },
         transition::id::TransitionId,
     },

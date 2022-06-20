@@ -49,7 +49,7 @@ use crate::{
     execute::ActionOutputs,
     interpreter::{
         calculation as interpreter_calculation, module_internals::EvaluationResult,
-        rule_defs::provider::FrozenProviderCollectionValue,
+        rule_defs::provider::collection::FrozenProviderCollectionValue,
     },
     nodes::{
         calculation as node_calculation, compatibility::MaybeCompatible,

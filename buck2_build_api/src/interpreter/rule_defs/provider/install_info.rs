@@ -79,7 +79,9 @@ mod tests {
     use buck2_core::result::SharedResult;
     use indoc::indoc;
 
-    use crate::interpreter::{rule_defs::provider::tester::collection_creator, testing::Tester};
+    use crate::interpreter::{
+        rule_defs::provider::collection::tester::collection_creator, testing::Tester,
+    };
 
     #[test]
     fn install_info_works_as_provider_key() -> SharedResult<()> {

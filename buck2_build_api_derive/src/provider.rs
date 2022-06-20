@@ -161,7 +161,7 @@ impl ProviderCodegen {
         Ok(quote! {
             impl<'v, V: starlark::values::ValueLike<'v>> #gen_name<V> {
                 pub fn from_providers(
-                    providers: &crate::interpreter::rule_defs::provider::FrozenProviderCollection,
+                    providers: &crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection,
                 ) -> Option<starlark::values::FrozenRef<#frozen_name>> {
                     providers.get_provider(#callable_name::provider_id_t())
                 }

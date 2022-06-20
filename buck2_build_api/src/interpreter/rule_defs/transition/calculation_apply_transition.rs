@@ -32,7 +32,7 @@ use crate::{
     analysis::calculation::RuleAnalysisCalculation,
     attrs::coerced_attr::CoercedAttr,
     interpreter::rule_defs::{
-        provider::{platform_info::PlatformInfo, FrozenProviderCollectionValue},
+        provider::{collection::FrozenProviderCollectionValue, platform_info::PlatformInfo},
         transition::{
             applied::TransitionApplied, calculation_fetch_transition::FetchTransition,
             cfg_diff::cfg_diff, id::TransitionId, starlark::FrozenTransition,

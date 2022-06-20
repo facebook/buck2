@@ -22,7 +22,8 @@ use buck2_build_api::{
     build::{BuildProviderType, MaterializationContext, ProviderArtifacts, ProvidersToBuild},
     calculation::Calculation,
     interpreter::{
-        module_internals::EvaluationResult, rule_defs::provider::FrozenProviderCollectionValue,
+        module_internals::EvaluationResult,
+        rule_defs::provider::collection::FrozenProviderCollectionValue,
     },
 };
 use buck2_common::{

@@ -48,7 +48,7 @@ use crate::{
         AnalysisQueryResult,
     },
     events::proto::ToProtoMessage,
-    interpreter::rule_defs::provider::FrozenProviderCollectionValue,
+    interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue,
     keep_going,
     nodes::{
         calculation::NodeCalculation, compatibility::MaybeCompatible,

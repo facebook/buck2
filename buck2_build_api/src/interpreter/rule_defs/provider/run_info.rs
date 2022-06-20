@@ -91,7 +91,7 @@ mod tests {
     use crate::interpreter::{
         rule_defs::{
             artifact::testing::artifactory, cmd_args::tester::command_line_stringifier,
-            provider::tester::collection_creator,
+            provider::collection::tester::collection_creator,
         },
         testing::{run_starlark_bzl_test_expecting_error, Tester},
     };

@@ -32,7 +32,7 @@ use crate::{
     interpreter::rule_defs::{
         artifact::{StarlarkArtifact, StarlarkArtifactLike, ValueAsArtifactLike},
         cmd_args::{CommandLineArgLike, SimpleCommandLineArtifactVisitor, ValueAsCommandLineLike},
-        provider::{FrozenProviderCollection, ProviderCollection},
+        provider::{collection::FrozenProviderCollection, ProviderCollection},
     },
 };
 

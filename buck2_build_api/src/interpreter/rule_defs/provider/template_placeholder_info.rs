@@ -24,7 +24,7 @@ use thiserror::Error;
 
 use crate::interpreter::rule_defs::{
     cmd_args::{FrozenCommandLineArgLike, ValueAsCommandLineLike, ValueAsFrozenCommandLineLike},
-    provider::FrozenProviderCollectionValue,
+    provider::collection::FrozenProviderCollectionValue,
 };
 
 #[derive(Debug, Error)]

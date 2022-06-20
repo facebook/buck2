@@ -12,7 +12,8 @@ use gazebo::variants::UnpackVariants;
 use starlark::values::ProvidesStaticType;
 
 use crate::{
-    build::ProviderArtifacts, interpreter::rule_defs::provider::FrozenProviderCollectionValue,
+    build::ProviderArtifacts,
+    interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue,
 };
 
 #[derive(Clone, Debug, derive_more::Display, ProvidesStaticType, UnpackVariants)]
