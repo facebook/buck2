@@ -107,11 +107,15 @@ impl CompareOp {
     }
 }
 
+/// Builtin function with one argument.
 #[derive(Clone, Debug, VisitSpanMut)]
-pub(crate) enum ExprUnOp {
+pub(crate) enum Builtin1 {
     Minus,
+    /// `+x`.
     Plus,
+    /// `~x`.
     BitNot,
+    /// `not x`.
     Not,
     /// `type(arg) == "y"`
     TypeIs(FrozenStringValue),
@@ -123,67 +127,82 @@ pub(crate) enum ExprUnOp {
     Dot(Symbol),
 }
 
-impl ExprUnOp {
+impl Builtin1 {
     fn eval<'v>(&self, v: FrozenValue, ctx: &mut OptCtx<'v, '_, '_>) -> Option<Value<'v>> {
         match self {
-            ExprUnOp::Minus => v.to_value().minus(ctx.heap()).ok(),
-            ExprUnOp::Plus => v.to_value().plus(ctx.heap()).ok(),
-            ExprUnOp::BitNot => Some(Value::new_int(!v.to_value().to_int().ok()?)),
-            ExprUnOp::Not => Some(Value::new_bool(!v.to_value().to_bool())),
-            ExprUnOp::TypeIs(t) => Some(Value::new_bool(v.to_value().get_type_value() == *t)),
-            ExprUnOp::FormatOne(before, after) => {
+            Builtin1::Minus => v.to_value().minus(ctx.heap()).ok(),
+            Builtin1::Plus => v.to_value().plus(ctx.heap()).ok(),
+            Builtin1::BitNot => Some(Value::new_int(!v.to_value().to_int().ok()?)),
+            Builtin1::Not => Some(Value::new_bool(!v.to_value().to_bool())),
+            Builtin1::TypeIs(t) => Some(Value::new_bool(v.to_value().get_type_value() == *t)),
+            Builtin1::FormatOne(before, after) => {
                 Some(format_one(before, v.to_value(), after, ctx.heap()).to_value())
             }
-            ExprUnOp::PercentSOne(before, after) => {
+            Builtin1::PercentSOne(before, after) => {
                 percent_s_one(before, v.to_value(), after, ctx.heap())
                     .map(|s| s.to_value())
                     .ok()
             }
-            ExprUnOp::Dot(field) => {
+            Builtin1::Dot(field) => {
                 Some(ExprCompiled::compile_time_getattr(v, field, ctx)?.to_value())
             }
         }
     }
 }
 
+/// Builtin function with two arguments.
 #[derive(Copy, Clone, Dupe, Debug, VisitSpanMut)]
-pub(crate) enum ExprBinOp {
+pub(crate) enum Builtin2 {
+    /// `a == b`.
     Equals,
+    /// `a in b`.
     In,
+    /// `a - b`.
     Sub,
+    /// `a + b`.
     Add,
+    /// `a * b`.
     Multiply,
+    /// `a % b`.
     Percent,
+    /// `a / b`.
     Divide,
+    /// `a // b`.
     FloorDivide,
+    /// `a & b`.
     BitAnd,
+    /// `a | b`.
     BitOr,
+    /// `a ^ b`.
     BitXor,
+    /// `a << b`.
     LeftShift,
+    /// `a >> b`.
     RightShift,
+    /// `a <=> b`.
     Compare(CompareOp),
     /// `a[b]`.
     ArrayIndex,
 }
 
-impl ExprBinOp {
+impl Builtin2 {
     fn eval<'v>(self, a: Value<'v>, b: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match self {
-            ExprBinOp::Equals => a.equals(b).map(Value::new_bool),
-            ExprBinOp::Compare(cmp) => a.compare(b).map(|c| Value::new_bool(cmp.apply(c))),
-            ExprBinOp::In => b.is_in(a).map(Value::new_bool),
-            ExprBinOp::Sub => a.sub(b, heap),
-            ExprBinOp::Add => a.add(b, heap),
-            ExprBinOp::Multiply => a.mul(b, heap),
-            ExprBinOp::Percent => a.percent(b, heap),
-            ExprBinOp::Divide => a.div(b, heap),
-            ExprBinOp::FloorDivide => a.floor_div(b, heap),
-            ExprBinOp::BitAnd => a.bit_and(b, heap),
-            ExprBinOp::BitOr => a.bit_or(b, heap),
-            ExprBinOp::BitXor => a.bit_xor(b, heap),
-            ExprBinOp::LeftShift => a.left_shift(b, heap),
-            ExprBinOp::RightShift => a.right_shift(b, heap),
-            ExprBinOp::ArrayIndex => a.at(b, heap),
+            Builtin2::Equals => a.equals(b).map(Value::new_bool),
+            Builtin2::Compare(cmp) => a.compare(b).map(|c| Value::new_bool(cmp.apply(c))),
+            Builtin2::In => b.is_in(a).map(Value::new_bool),
+            Builtin2::Sub => a.sub(b, heap),
+            Builtin2::Add => a.add(b, heap),
+            Builtin2::Multiply => a.mul(b, heap),
+            Builtin2::Percent => a.percent(b, heap),
+            Builtin2::Divide => a.div(b, heap),
+            Builtin2::FloorDivide => a.floor_div(b, heap),
+            Builtin2::BitAnd => a.bit_and(b, heap),
+            Builtin2::BitOr => a.bit_or(b, heap),
+            Builtin2::BitXor => a.bit_xor(b, heap),
+            Builtin2::LeftShift => a.left_shift(b, heap),
+            Builtin2::RightShift => a.right_shift(b, heap),
+            Builtin2::ArrayIndex => a.at(b, heap),
         }
     }
 }
@@ -226,7 +245,7 @@ pub(crate) enum ExprCompiled {
             Option<IrSpanned<ExprCompiled>>,
         )>,
     ),
-    UnOp(ExprUnOp, Box<IrSpanned<ExprCompiled>>),
+    Builtin1(Builtin1, Box<IrSpanned<ExprCompiled>>),
     LogicalBinOp(
         ExprLogicalBinOp,
         Box<(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)>,
@@ -234,8 +253,8 @@ pub(crate) enum ExprCompiled {
     /// Expression equivalent to `(x, y)[1]`: evaluate `x`, discard the result,
     /// then evaluate `y` and use its result.
     Seq(Box<(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)>),
-    Op(
-        ExprBinOp,
+    Builtin2(
+        Builtin2,
         Box<(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)>,
     ),
     Call(Box<IrSpanned<CallCompiled>>),
@@ -287,7 +306,7 @@ impl ExprCompiled {
     /// If expression if `type(x) == t`, return `x` and `t`.
     pub(crate) fn as_type_is(&self) -> Option<(&IrSpanned<ExprCompiled>, FrozenStringValue)> {
         match self {
-            ExprCompiled::UnOp(ExprUnOp::TypeIs(t), x) => Some((x, *t)),
+            ExprCompiled::Builtin1(Builtin1::TypeIs(t), x) => Some((x, *t)),
             _ => None,
         }
     }
@@ -343,8 +362,8 @@ impl ExprCompiled {
     fn is_definitely_bool(&self) -> bool {
         match self {
             Self::Value(v) => v.unpack_bool().is_some(),
-            Self::UnOp(ExprUnOp::Not | ExprUnOp::TypeIs(_), _)
-            | Self::Op(ExprBinOp::In | ExprBinOp::Equals | ExprBinOp::Compare(_), ..) => true,
+            Self::Builtin1(Builtin1::Not | Builtin1::TypeIs(_), _)
+            | Self::Builtin2(Builtin2::In | Builtin2::Equals | Builtin2::Compare(_), ..) => true,
             _ => false,
         }
     }
@@ -357,7 +376,7 @@ impl ExprCompiled {
             Self::Value(..) => true,
             Self::List(xs) | Self::Tuple(xs) => xs.iter().all(|x| x.is_pure_infallible()),
             Self::Dict(xs) => xs.is_empty(),
-            Self::UnOp(ExprUnOp::Not | ExprUnOp::TypeIs(_), x) => x.is_pure_infallible(),
+            Self::Builtin1(Builtin1::Not | Builtin1::TypeIs(_), x) => x.is_pure_infallible(),
             Self::Seq(box (x, y)) => x.is_pure_infallible() && y.is_pure_infallible(),
             Self::LogicalBinOp(_op, box (x, y)) => x.is_pure_infallible() && y.is_pure_infallible(),
             Self::If(box (cond, x, y)) => {
@@ -380,7 +399,7 @@ impl ExprCompiled {
             }
             // TODO(nga): if keys are unique hashable constants, we can fold this to constant too.
             ExprCompiled::Dict(xs) if xs.is_empty() => Some(false),
-            ExprCompiled::UnOp(ExprUnOp::Not, x) => x.is_pure_infallible_to_bool().map(|x| !x),
+            ExprCompiled::Builtin1(Builtin1::Not, x) => x.is_pure_infallible_to_bool().map(|x| !x),
             ExprCompiled::LogicalBinOp(op, box (x, y)) => {
                 match (
                     op,
@@ -447,7 +466,7 @@ impl IrSpanned<ExprCompiled> {
                 let step = step.as_ref().map(|x| x.optimize_on_freeze(ctx));
                 ExprCompiled::slice(span, v, start, stop, step, &mut OptCtx::new(ctx))
             }
-            ExprCompiled::UnOp(ref op, ref e) => {
+            ExprCompiled::Builtin1(ref op, ref e) => {
                 let e = e.optimize_on_freeze(ctx);
                 ExprCompiled::un_op(span, op, e, &mut OptCtx::new(ctx))
             }
@@ -461,7 +480,7 @@ impl IrSpanned<ExprCompiled> {
                 let r = r.optimize_on_freeze(ctx);
                 return ExprCompiled::seq(l, r);
             }
-            ExprCompiled::Op(op, box (ref l, ref r)) => {
+            ExprCompiled::Builtin2(op, box (ref l, ref r)) => {
                 let l = l.optimize_on_freeze(ctx);
                 let r = r.optimize_on_freeze(ctx);
                 ExprCompiled::bin_op(op, l, r, &mut OptCtx::new(ctx))
@@ -498,7 +517,7 @@ impl ExprCompiled {
 
         IrSpanned {
             span,
-            node: ExprCompiled::Op(ExprBinOp::Equals, box (l, r)),
+            node: ExprCompiled::Builtin2(Builtin2::Equals, box (l, r)),
         }
     }
 
@@ -512,9 +531,9 @@ impl ExprCompiled {
                 span,
             },
             // Collapse `not not e` to `e` only if `e` is known to produce a boolean.
-            ExprCompiled::UnOp(ExprUnOp::Not, box ref e) if e.is_definitely_bool() => e.clone(),
+            ExprCompiled::Builtin1(Builtin1::Not, box ref e) if e.is_definitely_bool() => e.clone(),
             _ => IrSpanned {
-                node: ExprCompiled::UnOp(ExprUnOp::Not, box expr),
+                node: ExprCompiled::Builtin1(Builtin1::Not, box expr),
                 span,
             },
         }
@@ -575,7 +594,7 @@ impl ExprCompiled {
                 return ExprCompiled::percent_s_one(before, r, after, ctx);
             }
         }
-        ExprCompiled::Op(ExprBinOp::Percent, box (l, r))
+        ExprCompiled::Builtin2(Builtin2::Percent, box (l, r))
     }
 
     fn percent_s_one(
@@ -593,7 +612,7 @@ impl ExprCompiled {
             }
         }
 
-        ExprCompiled::UnOp(ExprUnOp::PercentSOne(before, after), box arg)
+        ExprCompiled::Builtin1(Builtin1::PercentSOne(before, after), box arg)
     }
 
     pub(crate) fn format_one(
@@ -608,7 +627,7 @@ impl ExprCompiled {
             return ExprCompiled::Value(value.to_frozen_value());
         }
 
-        ExprCompiled::UnOp(ExprUnOp::FormatOne(before, after), box arg)
+        ExprCompiled::Builtin1(Builtin1::FormatOne(before, after), box arg)
     }
 
     fn add(l: IrSpanned<ExprCompiled>, r: IrSpanned<ExprCompiled>) -> ExprCompiled {
@@ -624,11 +643,11 @@ impl ExprCompiled {
                 .collect();
             return ExprCompiled::List(lr);
         }
-        ExprCompiled::Op(ExprBinOp::Add, box (l, r))
+        ExprCompiled::Builtin2(Builtin2::Add, box (l, r))
     }
 
     pub(crate) fn bin_op(
-        bin_op: ExprBinOp,
+        bin_op: Builtin2,
         l: IrSpanned<ExprCompiled>,
         r: IrSpanned<ExprCompiled>,
         ctx: &mut OptCtx,
@@ -645,11 +664,11 @@ impl ExprCompiled {
         }
 
         match bin_op {
-            ExprBinOp::Percent => ExprCompiled::percent(l, r, ctx),
-            ExprBinOp::Add => ExprCompiled::add(l, r),
-            ExprBinOp::Equals => ExprCompiled::equals(l, r).node,
-            ExprBinOp::ArrayIndex => ExprCompiled::array_indirection(l, r, ctx),
-            bin_op => ExprCompiled::Op(bin_op, box (l, r)),
+            Builtin2::Percent => ExprCompiled::percent(l, r, ctx),
+            Builtin2::Add => ExprCompiled::add(l, r),
+            Builtin2::Equals => ExprCompiled::equals(l, r).node,
+            Builtin2::ArrayIndex => ExprCompiled::array_indirection(l, r, ctx),
+            bin_op => ExprCompiled::Builtin2(bin_op, box (l, r)),
         }
     }
 
@@ -664,7 +683,9 @@ impl ExprCompiled {
             ExprCompiledBool::Const(true) => t,
             ExprCompiledBool::Const(false) => f,
             ExprCompiledBool::Expr(cond) => match cond {
-                ExprCompiled::UnOp(ExprUnOp::Not, box cond) => ExprCompiled::if_expr(cond, f, t),
+                ExprCompiled::Builtin1(Builtin1::Not, box cond) => {
+                    ExprCompiled::if_expr(cond, f, t)
+                }
                 ExprCompiled::Seq(box (x, cond)) => {
                     ExprCompiled::seq(x, ExprCompiled::if_expr(cond, t, f))
                 }
@@ -685,7 +706,7 @@ impl ExprCompiled {
 
     pub(crate) fn un_op(
         span: FrozenFileSpan,
-        op: &ExprUnOp,
+        op: &Builtin1,
         expr: IrSpanned<ExprCompiled>,
         ctx: &mut OptCtx,
     ) -> ExprCompiled {
@@ -697,16 +718,16 @@ impl ExprCompiled {
             }
         }
         match op {
-            ExprUnOp::FormatOne(before, after) => {
+            Builtin1::FormatOne(before, after) => {
                 ExprCompiled::format_one(*before, expr, *after, ctx)
             }
-            ExprUnOp::PercentSOne(before, after) => {
+            Builtin1::PercentSOne(before, after) => {
                 ExprCompiled::percent_s_one(*before, expr, *after, ctx)
             }
-            ExprUnOp::Dot(field) => ExprCompiled::dot(expr, field, ctx),
-            ExprUnOp::TypeIs(t) => ExprCompiled::type_is(expr, *t),
-            ExprUnOp::Not => ExprCompiled::not(span, expr).node,
-            op => ExprCompiled::UnOp(op.clone(), box expr),
+            Builtin1::Dot(field) => ExprCompiled::dot(expr, field, ctx),
+            Builtin1::TypeIs(t) => ExprCompiled::type_is(expr, *t),
+            Builtin1::Not => ExprCompiled::not(span, expr).node,
+            op => ExprCompiled::Builtin1(op.clone(), box expr),
         }
     }
 
@@ -816,7 +837,7 @@ impl ExprCompiled {
             }
         }
 
-        ExprCompiled::UnOp(ExprUnOp::Dot(field.clone()), box object)
+        ExprCompiled::Builtin1(Builtin1::Dot(field.clone()), box object)
     }
 
     fn slice(
@@ -860,7 +881,7 @@ impl ExprCompiled {
                 }
             }
         }
-        ExprCompiled::Op(ExprBinOp::ArrayIndex, box (array, index))
+        ExprCompiled::Builtin2(Builtin2::ArrayIndex, box (array, index))
     }
 
     pub(crate) fn typ(span: FrozenFileSpan, v: IrSpanned<ExprCompiled>) -> ExprCompiled {
@@ -877,7 +898,7 @@ impl ExprCompiled {
             ExprCompiled::Dict(xs) if xs.is_empty() => {
                 ExprCompiled::Value(Dict::get_type_value_static().to_frozen_value())
             }
-            ExprCompiled::UnOp(ExprUnOp::Not | ExprUnOp::TypeIs(_), x)
+            ExprCompiled::Builtin1(Builtin1::Not | Builtin1::TypeIs(_), x)
                 if x.is_pure_infallible() =>
             {
                 ExprCompiled::Value(StarlarkBool::get_type_value_static().to_frozen_value())
@@ -904,7 +925,7 @@ impl ExprCompiled {
                 v.to_value().get_type() == t.as_str(),
             ));
         }
-        ExprCompiled::UnOp(ExprUnOp::TypeIs(t), box v)
+        ExprCompiled::Builtin1(Builtin1::TypeIs(t), box v)
     }
 
     pub(crate) fn len(span: FrozenFileSpan, arg: IrSpanned<ExprCompiled>) -> ExprCompiled {
@@ -1191,15 +1212,15 @@ impl Compiler<'_, '_, '_> {
             }
             ExprP::Minus(expr) => {
                 let expr = self.expr(*expr);
-                ExprCompiled::un_op(span, &ExprUnOp::Minus, expr, &mut OptCtx::new(self.eval))
+                ExprCompiled::un_op(span, &Builtin1::Minus, expr, &mut OptCtx::new(self.eval))
             }
             ExprP::Plus(expr) => {
                 let expr = self.expr(*expr);
-                ExprCompiled::un_op(span, &ExprUnOp::Plus, expr, &mut OptCtx::new(self.eval))
+                ExprCompiled::un_op(span, &Builtin1::Plus, expr, &mut OptCtx::new(self.eval))
             }
             ExprP::BitNot(expr) => {
                 let expr = self.expr(*expr);
-                ExprCompiled::un_op(span, &ExprUnOp::BitNot, expr, &mut OptCtx::new(self.eval))
+                ExprCompiled::un_op(span, &Builtin1::BitNot, expr, &mut OptCtx::new(self.eval))
             }
             ExprP::Op(left, op, right) => {
                 if let Some(x) = ExprP::reduces_to_string(op, &left, &right) {
@@ -1225,31 +1246,31 @@ impl Compiler<'_, '_, '_> {
                             return ExprCompiled::not(span, ExprCompiled::equals(l, r));
                         }
                         BinOp::Less => ExprCompiled::bin_op(
-                            ExprBinOp::Compare(CompareOp::Less),
+                            Builtin2::Compare(CompareOp::Less),
                             l,
                             r,
                             &mut OptCtx::new(self.eval),
                         ),
                         BinOp::Greater => ExprCompiled::bin_op(
-                            ExprBinOp::Compare(CompareOp::Greater),
+                            Builtin2::Compare(CompareOp::Greater),
                             l,
                             r,
                             &mut OptCtx::new(self.eval),
                         ),
                         BinOp::LessOrEqual => ExprCompiled::bin_op(
-                            ExprBinOp::Compare(CompareOp::LessOrEqual),
+                            Builtin2::Compare(CompareOp::LessOrEqual),
                             l,
                             r,
                             &mut OptCtx::new(self.eval),
                         ),
                         BinOp::GreaterOrEqual => ExprCompiled::bin_op(
-                            ExprBinOp::Compare(CompareOp::GreaterOrEqual),
+                            Builtin2::Compare(CompareOp::GreaterOrEqual),
                             l,
                             r,
                             &mut OptCtx::new(self.eval),
                         ),
                         BinOp::In => {
-                            ExprCompiled::bin_op(ExprBinOp::In, l, r, &mut OptCtx::new(self.eval))
+                            ExprCompiled::bin_op(Builtin2::In, l, r, &mut OptCtx::new(self.eval))
                         }
                         BinOp::NotIn => {
                             ExprCompiled::not(
@@ -1257,7 +1278,7 @@ impl Compiler<'_, '_, '_> {
                                 IrSpanned {
                                     span,
                                     node: ExprCompiled::bin_op(
-                                        ExprBinOp::In,
+                                        Builtin2::In,
                                         l,
                                         r,
                                         &mut OptCtx::new(self.eval),
@@ -1267,61 +1288,58 @@ impl Compiler<'_, '_, '_> {
                             .node
                         }
                         BinOp::Subtract => {
-                            ExprCompiled::bin_op(ExprBinOp::Sub, l, r, &mut OptCtx::new(self.eval))
+                            ExprCompiled::bin_op(Builtin2::Sub, l, r, &mut OptCtx::new(self.eval))
                         }
                         BinOp::Add => {
-                            ExprCompiled::bin_op(ExprBinOp::Add, l, r, &mut OptCtx::new(self.eval))
+                            ExprCompiled::bin_op(Builtin2::Add, l, r, &mut OptCtx::new(self.eval))
                         }
                         BinOp::Multiply => ExprCompiled::bin_op(
-                            ExprBinOp::Multiply,
+                            Builtin2::Multiply,
                             l,
                             r,
                             &mut OptCtx::new(self.eval),
                         ),
                         BinOp::Percent => ExprCompiled::bin_op(
-                            ExprBinOp::Percent,
+                            Builtin2::Percent,
                             l,
                             r,
                             &mut OptCtx::new(self.eval),
                         ),
                         BinOp::Divide => ExprCompiled::bin_op(
-                            ExprBinOp::Divide,
+                            Builtin2::Divide,
                             l,
                             r,
                             &mut OptCtx::new(self.eval),
                         ),
                         BinOp::FloorDivide => ExprCompiled::bin_op(
-                            ExprBinOp::FloorDivide,
+                            Builtin2::FloorDivide,
                             l,
                             r,
                             &mut OptCtx::new(self.eval),
                         ),
                         BinOp::BitAnd => ExprCompiled::bin_op(
-                            ExprBinOp::BitAnd,
+                            Builtin2::BitAnd,
                             l,
                             r,
                             &mut OptCtx::new(self.eval),
                         ),
-                        BinOp::BitOr => ExprCompiled::bin_op(
-                            ExprBinOp::BitOr,
-                            l,
-                            r,
-                            &mut OptCtx::new(self.eval),
-                        ),
+                        BinOp::BitOr => {
+                            ExprCompiled::bin_op(Builtin2::BitOr, l, r, &mut OptCtx::new(self.eval))
+                        }
                         BinOp::BitXor => ExprCompiled::bin_op(
-                            ExprBinOp::BitXor,
+                            Builtin2::BitXor,
                             l,
                             r,
                             &mut OptCtx::new(self.eval),
                         ),
                         BinOp::LeftShift => ExprCompiled::bin_op(
-                            ExprBinOp::LeftShift,
+                            Builtin2::LeftShift,
                             l,
                             r,
                             &mut OptCtx::new(self.eval),
                         ),
                         BinOp::RightShift => ExprCompiled::bin_op(
-                            ExprBinOp::RightShift,
+                            Builtin2::RightShift,
                             l,
                             r,
                             &mut OptCtx::new(self.eval),

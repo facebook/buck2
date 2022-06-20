@@ -23,7 +23,7 @@ use crate::{
             args::ArgsCompiledValue,
             call::CallCompiled,
             def::ParametersCompiled,
-            expr::{ExprBinOp, ExprCompiled, ExprLogicalBinOp, ExprUnOp},
+            expr::{Builtin1, Builtin2, ExprCompiled, ExprLogicalBinOp},
             opt_ctx::OptCtx,
             span::IrSpanned,
             stmt::{StmtCompiled, StmtsCompiled},
@@ -111,12 +111,12 @@ impl IsSafeToInlineExpr {
                     && self.is_safe_to_inline_opt_expr(c)
                     && self.is_safe_to_inline_opt_expr(d)
             }
-            ExprCompiled::Op(bin_op, box (a, b)) => {
-                let _: &ExprBinOp = bin_op;
+            ExprCompiled::Builtin2(bin_op, box (a, b)) => {
+                let _: &Builtin2 = bin_op;
                 self.is_safe_to_inline_expr(a) && self.is_safe_to_inline_expr(b)
             }
-            ExprCompiled::UnOp(un_op, arg) => {
-                let _: &ExprUnOp = un_op;
+            ExprCompiled::Builtin1(un_op, arg) => {
+                let _: &Builtin1 = un_op;
                 self.is_safe_to_inline_expr(arg)
             }
             ExprCompiled::Tuple(xs) | ExprCompiled::List(xs) => {
@@ -280,7 +280,7 @@ impl<'s, 'v, 'a, 'e> InlineDefCallSite<'s, 'v, 'a, 'e> {
                     node: ExprCompiled::Dict(xs),
                 }
             }
-            ExprCompiled::Op(op, box (l, r)) => {
+            ExprCompiled::Builtin2(op, box (l, r)) => {
                 let l = self.inline(l)?;
                 let r = self.inline(r)?;
                 IrSpanned {
@@ -288,7 +288,7 @@ impl<'s, 'v, 'a, 'e> InlineDefCallSite<'s, 'v, 'a, 'e> {
                     node: ExprCompiled::bin_op(*op, l, r, self.ctx),
                 }
             }
-            ExprCompiled::UnOp(op, box x) => {
+            ExprCompiled::Builtin1(op, box x) => {
                 let x = self.inline(x)?;
                 IrSpanned {
                     span,

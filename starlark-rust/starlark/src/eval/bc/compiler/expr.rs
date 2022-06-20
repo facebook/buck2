@@ -32,7 +32,7 @@ use crate::{
             writer::BcWriter,
         },
         compiler::{
-            expr::{CompareOp, ExprBinOp, ExprCompiled, ExprLogicalBinOp, ExprUnOp, MaybeNot},
+            expr::{Builtin1, Builtin2, CompareOp, ExprCompiled, ExprLogicalBinOp, MaybeNot},
             span::IrSpanned,
         },
         runtime::call_stack::FrozenFileSpan,
@@ -154,7 +154,7 @@ impl ExprCompiled {
                     c.mark_definitely_assigned_after(bc);
                 }
             }
-            ExprCompiled::UnOp(_op, expr) => {
+            ExprCompiled::Builtin1(_op, expr) => {
                 expr.mark_definitely_assigned_after(bc);
             }
             ExprCompiled::LogicalBinOp(_op, box (a, b)) => {
@@ -167,7 +167,7 @@ impl ExprCompiled {
                 a.mark_definitely_assigned_after(bc);
                 b.mark_definitely_assigned_after(bc);
             }
-            ExprCompiled::Op(_op, box (a, b)) => {
+            ExprCompiled::Builtin2(_op, box (a, b)) => {
                 a.mark_definitely_assigned_after(bc);
                 b.mark_definitely_assigned_after(bc);
             }
@@ -334,24 +334,26 @@ impl IrSpanned<ExprCompiled> {
                     })
                 });
             }
-            ExprCompiled::UnOp(ExprUnOp::Not, box ref expr) => Self::write_not(expr, target, bc),
-            ExprCompiled::UnOp(ref op, ref expr) => {
+            ExprCompiled::Builtin1(Builtin1::Not, box ref expr) => {
+                Self::write_not(expr, target, bc)
+            }
+            ExprCompiled::Builtin1(ref op, ref expr) => {
                 expr.write_bc_cb(bc, |expr, bc| {
                     let arg = (expr, target);
                     match op {
-                        ExprUnOp::Not => unreachable!("handled above"),
-                        ExprUnOp::Minus => bc.write_instr::<InstrMinus>(span, arg),
-                        ExprUnOp::Plus => bc.write_instr::<InstrPlus>(span, arg),
-                        ExprUnOp::BitNot => bc.write_instr::<InstrBitNot>(span, arg),
-                        ExprUnOp::TypeIs(t) => {
+                        Builtin1::Not => unreachable!("handled above"),
+                        Builtin1::Minus => bc.write_instr::<InstrMinus>(span, arg),
+                        Builtin1::Plus => bc.write_instr::<InstrPlus>(span, arg),
+                        Builtin1::BitNot => bc.write_instr::<InstrBitNot>(span, arg),
+                        Builtin1::TypeIs(t) => {
                             bc.write_instr::<InstrTypeIs>(span, (expr, *t, target))
                         }
-                        ExprUnOp::PercentSOne(before, after) => bc
+                        Builtin1::PercentSOne(before, after) => bc
                             .write_instr::<InstrPercentSOne>(span, (*before, expr, *after, target)),
-                        ExprUnOp::FormatOne(before, after) => {
+                        Builtin1::FormatOne(before, after) => {
                             bc.write_instr::<InstrFormatOne>(span, (*before, expr, *after, target))
                         }
-                        ExprUnOp::Dot(field) => {
+                        Builtin1::Dot(field) => {
                             bc.write_instr::<InstrObjectField>(span, (expr, field.clone(), target))
                         }
                     }
@@ -384,39 +386,39 @@ impl IrSpanned<ExprCompiled> {
                 l.write_bc_for_effect(bc);
                 r.write_bc(target, bc);
             }
-            ExprCompiled::Op(ExprBinOp::Equals, box (ref l, ref r)) => {
+            ExprCompiled::Builtin2(Builtin2::Equals, box (ref l, ref r)) => {
                 Self::write_equals(span, l, r, target, bc)
             }
-            ExprCompiled::Op(op, box (ref l, ref r)) => {
+            ExprCompiled::Builtin2(op, box (ref l, ref r)) => {
                 write_n_exprs([l, r], bc, |[l, r], bc| {
                     let arg = (l, r, target);
                     match op {
-                        ExprBinOp::Equals => unreachable!("handled above"),
-                        ExprBinOp::Compare(CompareOp::Less) => {
+                        Builtin2::Equals => unreachable!("handled above"),
+                        Builtin2::Compare(CompareOp::Less) => {
                             bc.write_instr::<InstrLess>(span, arg)
                         }
-                        ExprBinOp::Compare(CompareOp::Greater) => {
+                        Builtin2::Compare(CompareOp::Greater) => {
                             bc.write_instr::<InstrGreater>(span, arg)
                         }
-                        ExprBinOp::Compare(CompareOp::LessOrEqual) => {
+                        Builtin2::Compare(CompareOp::LessOrEqual) => {
                             bc.write_instr::<InstrLessOrEqual>(span, arg)
                         }
-                        ExprBinOp::Compare(CompareOp::GreaterOrEqual) => {
+                        Builtin2::Compare(CompareOp::GreaterOrEqual) => {
                             bc.write_instr::<InstrGreaterOrEqual>(span, arg)
                         }
-                        ExprBinOp::In => bc.write_instr::<InstrIn>(span, arg),
-                        ExprBinOp::Sub => bc.write_instr::<InstrSub>(span, arg),
-                        ExprBinOp::Add => bc.write_instr::<InstrAdd>(span, arg),
-                        ExprBinOp::Multiply => bc.write_instr::<InstrMultiply>(span, arg),
-                        ExprBinOp::Divide => bc.write_instr::<InstrDivide>(span, arg),
-                        ExprBinOp::FloorDivide => bc.write_instr::<InstrFloorDivide>(span, arg),
-                        ExprBinOp::Percent => bc.write_instr::<InstrPercent>(span, arg),
-                        ExprBinOp::BitAnd => bc.write_instr::<InstrBitAnd>(span, arg),
-                        ExprBinOp::BitOr => bc.write_instr::<InstrBitOr>(span, arg),
-                        ExprBinOp::BitXor => bc.write_instr::<InstrBitXor>(span, arg),
-                        ExprBinOp::LeftShift => bc.write_instr::<InstrLeftShift>(span, arg),
-                        ExprBinOp::RightShift => bc.write_instr::<InstrRightShift>(span, arg),
-                        ExprBinOp::ArrayIndex => bc.write_instr::<InstrArrayIndex>(span, arg),
+                        Builtin2::In => bc.write_instr::<InstrIn>(span, arg),
+                        Builtin2::Sub => bc.write_instr::<InstrSub>(span, arg),
+                        Builtin2::Add => bc.write_instr::<InstrAdd>(span, arg),
+                        Builtin2::Multiply => bc.write_instr::<InstrMultiply>(span, arg),
+                        Builtin2::Divide => bc.write_instr::<InstrDivide>(span, arg),
+                        Builtin2::FloorDivide => bc.write_instr::<InstrFloorDivide>(span, arg),
+                        Builtin2::Percent => bc.write_instr::<InstrPercent>(span, arg),
+                        Builtin2::BitAnd => bc.write_instr::<InstrBitAnd>(span, arg),
+                        Builtin2::BitOr => bc.write_instr::<InstrBitOr>(span, arg),
+                        Builtin2::BitXor => bc.write_instr::<InstrBitXor>(span, arg),
+                        Builtin2::LeftShift => bc.write_instr::<InstrLeftShift>(span, arg),
+                        Builtin2::RightShift => bc.write_instr::<InstrRightShift>(span, arg),
+                        Builtin2::ArrayIndex => bc.write_instr::<InstrArrayIndex>(span, arg),
                     }
                 });
             }

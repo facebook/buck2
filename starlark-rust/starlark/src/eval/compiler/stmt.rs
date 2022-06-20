@@ -33,7 +33,7 @@ use crate::{
     environment::{slots::ModuleSlotId, FrozenModuleRef},
     eval::{
         compiler::{
-            expr::{ExprCompiled, ExprLogicalBinOp, ExprUnOp},
+            expr::{Builtin1, ExprCompiled, ExprLogicalBinOp},
             expr_bool::ExprCompiledBool,
             known::list_to_tuple,
             scope::{Captured, CstAssign, CstExpr, CstStmt, Slot},
@@ -258,7 +258,7 @@ impl StmtsCompiled {
                 stmts
             }
             // Unwrap infallible expressions.
-            ExprCompiled::UnOp(ExprUnOp::Not | ExprUnOp::TypeIs(_), x) => Self::expr(*x),
+            ExprCompiled::Builtin1(Builtin1::Not | Builtin1::TypeIs(_), x) => Self::expr(*x),
             // "And" and "or" for effect are equivalent to `if`.
             ExprCompiled::LogicalBinOp(ExprLogicalBinOp::And, box (x, y)) => {
                 Self::if_stmt(expr.span, x, Self::expr(y), StmtsCompiled::empty())
@@ -290,7 +290,7 @@ impl StmtsCompiled {
             ExprCompiledBool::Const(true) => t,
             ExprCompiledBool::Const(false) => f,
             ExprCompiledBool::Expr(cond) => match cond {
-                ExprCompiled::UnOp(ExprUnOp::Not, box cond) => Self::if_stmt(span, cond, f, t),
+                ExprCompiled::Builtin1(Builtin1::Not, box cond) => Self::if_stmt(span, cond, f, t),
                 ExprCompiled::Seq(box (x, cond)) => {
                     let mut stmt = StmtsCompiled::empty();
                     stmt.extend(Self::expr(x));

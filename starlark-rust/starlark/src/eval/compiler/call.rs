@@ -27,7 +27,7 @@ use crate::{
         compiler::{
             args::ArgsCompiledValue,
             def_inline::{InlineDefBody, InlineDefCallSite},
-            expr::{ExprCompiled, ExprUnOp},
+            expr::{Builtin1, ExprCompiled},
             opt_ctx::OptCtx,
             span::IrSpanned,
             stmt::OptimizeOnFreezeContext,
@@ -104,7 +104,7 @@ impl CallCompiled {
     /// This call is a method call.
     pub(crate) fn method(&self) -> Option<(&IrSpanned<ExprCompiled>, &Symbol, &ArgsCompiledValue)> {
         match &self.fun.node {
-            ExprCompiled::UnOp(ExprUnOp::Dot(name), expr) => Some((expr, name, &self.args)),
+            ExprCompiled::Builtin1(Builtin1::Dot(name), expr) => Some((expr, name, &self.args)),
             _ => None,
         }
     }
@@ -248,7 +248,7 @@ impl CallCompiled {
             return r;
         }
 
-        if let ExprCompiled::UnOp(ExprUnOp::Dot(field), this) = &fun.node {
+        if let ExprCompiled::Builtin1(Builtin1::Dot(field), this) = &fun.node {
             return CallCompiled::new_method(span, (**this).clone(), field, fun.span, args, ctx);
         }
 
