@@ -24,8 +24,9 @@ use remote_execution::{
     create_default_config, ActionHistoryInfo, ActionResultRequest, ActionResultResponse,
     CASDaemonClientCfg, CopyPolicy, DownloadRequest, EmbeddedCASDaemonClientCfg, ExecuteRequest,
     ExecuteResponse, ExecuteWithProgressResponse, HostResourceRequirements, InlinedBlobWithDigest,
-    NamedDigest, NamedDigestWithPermissions, REClient, REClientBuilder, RemoteExecutionMetadata,
-    Stage, TDigest, TExecutionPolicy, TResultsCachePolicy, UploadRequest, ZdbRichClientMode,
+    NamedDigest, NamedDigestWithPermissions, NetworkStatisticsResponse, REClient, REClientBuilder,
+    RemoteExecutionMetadata, Stage, TDigest, TExecutionPolicy, TResultsCachePolicy, UploadRequest,
+    ZdbRichClientMode,
 };
 use tokio::sync::Semaphore;
 use tracing::warn;
@@ -120,7 +121,15 @@ impl RemoteExecutionStaticMetadata {
 
 #[derive(Clone, Dupe)]
 pub struct RemoteExecutionClient {
-    delegate: Arc<RemoteExecutionClientImpl>,
+    data: Arc<RemoteExecutionClientData>,
+}
+
+struct RemoteExecutionClientData {
+    client: RemoteExecutionClientImpl,
+    /// Network stats will increase throughout the lifetime of the RE client, so we're not
+    /// guaranteed that they'll start at zero (if we reuse the client). Accordingly, we track the
+    /// initial value so that we can provide a delta.
+    initial_network_stats: NetworkStatisticsResponse,
 }
 
 impl RemoteExecutionClient {
@@ -130,16 +139,20 @@ impl RemoteExecutionClient {
         static_metadata: Arc<RemoteExecutionStaticMetadata>,
         logs_dir_path: Option<&str>,
     ) -> anyhow::Result<Self> {
+        let client =
+            RemoteExecutionClientImpl::new(fb, skip_remote_cache, static_metadata, logs_dir_path)
+                .await?;
+
+        let initial_network_stats = client
+            .client()
+            .get_network_stats()
+            .context("Error getting initial network stats")?;
+
         Ok(Self {
-            delegate: Arc::new(
-                RemoteExecutionClientImpl::new(
-                    fb,
-                    skip_remote_cache,
-                    static_metadata,
-                    logs_dir_path,
-                )
-                .await?,
-            ),
+            data: Arc::new(RemoteExecutionClientData {
+                client,
+                initial_network_stats,
+            }),
         })
     }
 
@@ -178,7 +191,7 @@ impl RemoteExecutionClient {
         action_digest: ActionDigest,
         use_case: RemoteExecutorUseCase,
     ) -> Option<ActionResultResponse> {
-        self.delegate.action_cache(action_digest, use_case).await
+        self.data.client.action_cache(action_digest, use_case).await
     }
 
     pub async fn upload(
@@ -189,7 +202,8 @@ impl RemoteExecutionClient {
         use_case: RemoteExecutorUseCase,
         knobs: &ReExecutorGlobalKnobs,
     ) -> anyhow::Result<()> {
-        self.delegate
+        self.data
+            .client
             .upload(materializer, blobs, input_dir, use_case, knobs)
             .await
             .map_err(|e| self.decorate_error(e))
@@ -202,7 +216,8 @@ impl RemoteExecutionClient {
         inlined_blobs_with_digest: Vec<InlinedBlobWithDigest>,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<()> {
-        self.delegate
+        self.data
+            .client
             .upload_files_and_directories(
                 files_with_digest,
                 directories,
@@ -221,7 +236,8 @@ impl RemoteExecutionClient {
         identity: &ReActionIdentity<'_, '_>,
         manager: &mut CommandExecutionManager,
     ) -> anyhow::Result<ExecuteResponse> {
-        self.delegate
+        self.data
+            .client
             .execute(action_digest, platform, use_case, identity, manager)
             .await
             .map_err(|e| self.decorate_error(e))
@@ -232,7 +248,7 @@ impl RemoteExecutionClient {
         files: Vec<NamedDigestWithPermissions>,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<()> {
-        self.delegate.materialize_files(files, use_case).await
+        self.data.client.materialize_files(files, use_case).await
     }
 
     pub async fn download_trees(
@@ -240,7 +256,8 @@ impl RemoteExecutionClient {
         digests: Vec<TDigest>,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<Vec<RE::Tree>> {
-        self.delegate
+        self.data
+            .client
             .download_trees(digests, use_case)
             .await
             .map_err(|e| self.decorate_error(e))
@@ -251,14 +268,30 @@ impl RemoteExecutionClient {
         digest: &TDigest,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<Vec<u8>> {
-        self.delegate
+        self.data
+            .client
             .download_blob(digest, use_case)
             .await
             .map_err(|e| self.decorate_error(e))
     }
 
     pub fn get_session_id(&self) -> &str {
-        self.delegate.client().get_session_id()
+        self.data.client.client().get_session_id()
+    }
+
+    pub fn get_network_stats(&self) -> anyhow::Result<NetworkStatisticsResponse> {
+        let updated = self
+            .data
+            .client
+            .client()
+            .get_network_stats()
+            .context("Error getting updated network stats")?;
+
+        Ok(NetworkStatisticsResponse {
+            uploaded: updated.uploaded - self.data.initial_network_stats.uploaded,
+            downloaded: updated.downloaded - self.data.initial_network_stats.downloaded,
+            ..Default::default()
+        })
     }
 }
 
