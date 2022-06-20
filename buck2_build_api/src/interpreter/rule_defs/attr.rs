@@ -333,7 +333,7 @@ impl Attribute {
                     default.as_ref().map(|x| &**x),
                 )
                 .map(CoercedValue::Custom)
-                .with_context(|| format!("when coercing attribute {}", param_name)),
+                .with_context(|| format!("when coercing attribute `{}`", param_name)),
             (Some(_), _) => Ok(CoercedValue::Default),
             (None, _) => Err(RuleError::MissingMandatoryParameter(param_name.to_owned()).into()),
         }

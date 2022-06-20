@@ -516,7 +516,7 @@ mod tests {
         );
         run(invalid_name, "Invalid target name `bad name`.");
         run(missing_mandatory, "Missing parameter `mandatory`");
-        run(wrong_type, "coercing attribute mandatory");
+        run(wrong_type, "coercing attribute `mandatory`");
         run(unknown_param, "Found unknown extra named parameter");
         run(
             &duplicate_targets,
