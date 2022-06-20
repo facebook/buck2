@@ -150,6 +150,12 @@ impl Debug for CheapFrame<'_> {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+enum CallStackError {
+    #[error("Requested {0}-th top frame, but stack size is {1} (internal error)")]
+    StackIsTooShallowForNthTopFrame(usize, usize),
+}
+
 /// Starlark call stack.
 #[derive(Debug)]
 pub(crate) struct CheapCallStack<'v> {
@@ -225,12 +231,16 @@ impl<'v> CheapCallStack<'v> {
         }
     }
 
-    pub(crate) fn top_function(&self) -> Option<Value<'v>> {
-        if self.count == 0 {
-            None
-        } else {
-            Some(self.stack[self.count - 1].function)
-        }
+    /// `n`-th element from the top of the stack.
+    pub(crate) fn top_nth_function(&self, n: usize) -> anyhow::Result<Value<'v>> {
+        let index = self
+            .count
+            .checked_sub(1)
+            .and_then(|x| x.checked_sub(n))
+            .ok_or(CallStackError::StackIsTooShallowForNthTopFrame(
+                n, self.count,
+            ))?;
+        Ok(self.stack[index].function)
     }
 
     pub(crate) fn to_diagnostic_frames(&self, inlined_frames: InlinedFrames) -> CallStack {

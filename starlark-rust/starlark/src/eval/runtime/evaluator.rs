@@ -71,8 +71,6 @@ pub(crate) enum EvaluatorError {
     BcProfilingNotEnabled,
     #[error("Typecheck profiling not enabled")]
     TypecheckProfilingNotEnabled,
-    #[error("No top frame (internal error)")]
-    NoTopFrame,
     #[error("Top frame is not def (internal error)")]
     TopFrameNotDef,
 }
@@ -542,10 +540,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     }
 
     pub(crate) fn check_return_type(&mut self, ret: Value<'v>) -> anyhow::Result<()> {
-        let func = match self.call_stack.top_function() {
-            Some(func) => func,
-            None => return Err(EvaluatorError::NoTopFrame.into()),
-        };
+        let func = self.call_stack.top_nth_function(0)?;
         if let Some(func) = func.downcast_ref::<Def>() {
             func.check_return_type(ret, self)
         } else if let Some(func) = func.downcast_ref::<FrozenDef>() {
