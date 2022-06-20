@@ -267,20 +267,26 @@ async def test_symlink_dir(buck: Buck) -> None:
     dest4 = output / "subdir" / "dep.txt.suffix"
 
     # Example subdir: buck-out/v2/gen/root/a59b783ba97fcd85891ddb2e62fbfebb/symlinked_dir/__out__/out/dir1/dir1_1
-    expected_link1 = Path("../" * 10 + "symlinked_dir/dir1/dir1_1/file1.txt")
-    expected_link2 = Path("../../__dep__/dep.txt")
-    expected_link3 = Path("../" * 11 + "symlinked_dir/dir1/dir1_1/file1.txt")
-    expected_link4 = Path("../../../__dep__/dep.txt")
+    expected_link1 = "../" * 10 + "symlinked_dir/dir1/dir1_1/file1.txt"
+    expected_link2 = "../../__dep__/dep.txt"
+    expected_link3 = "../" * 11 + "symlinked_dir/dir1/dir1_1/file1.txt"
+    expected_link4 = "../../../__dep__/dep.txt"
+
+    if platform.system() == "Windows":
+        expected_link1 = expected_link1.replace("/", "\\")
+        expected_link2 = expected_link2.replace("/", "\\")
+        expected_link3 = expected_link3.replace("/", "\\")
+        expected_link4 = expected_link4.replace("/", "\\")
 
     assert dest1.is_symlink()
     assert dest2.is_symlink()
     assert dest3.is_symlink()
     assert dest4.is_symlink()
 
-    assert Path(os.readlink(dest1)) == expected_link1
-    assert Path(os.readlink(dest2)) == expected_link2
-    assert Path(os.readlink(dest3)) == expected_link3
-    assert Path(os.readlink(dest4)) == expected_link4
+    assert os.readlink(dest1) == expected_link1
+    assert os.readlink(dest2) == expected_link2
+    assert os.readlink(dest3) == expected_link3
+    assert os.readlink(dest4) == expected_link4
 
     assert dest1.read_text().strip() == "dir1_1 out contents"
     assert dest2.read_text().strip() == "dep contents"

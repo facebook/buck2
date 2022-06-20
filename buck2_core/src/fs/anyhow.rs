@@ -9,10 +9,6 @@
 
 // We'd love to use fs-err instead, but that code gives bad error messages and doesn't wrap all functions.
 // Various bugs have been raised - if they all get fixed we can migrate.
-#[cfg(unix)]
-use std::os::unix::fs::{symlink as os_symlink, symlink as os_symlink_dir};
-#[cfg(windows)]
-use std::os::windows::fs::{symlink_dir as os_symlink_dir, symlink_file as os_symlink};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -25,24 +21,55 @@ where
     P: AsRef<Path>,
     Q: AsRef<Path>,
 {
-    if P::as_ref(&original).is_dir() {
-        os_symlink_dir(&original, &link).with_context(|| {
-            format!(
-                "symlink_dir({},{})",
-                P::as_ref(&original).display(),
-                Q::as_ref(&link).display()
-            )
-        })?;
+    symlink_impl(original.as_ref(), link.as_ref()).with_context(|| {
+        format!(
+            "symlink(original={}, link={})",
+            original.as_ref().display(),
+            link.as_ref().display()
+        )
+    })
+}
+
+#[cfg(unix)]
+fn symlink_impl(original: &Path, link: &Path) -> anyhow::Result<()> {
+    std::os::unix::fs::symlink(original, link).map_err(|e| e.into())
+}
+
+/// Create symlink on Windows.
+/// Unlike on Unix, it expects that target file or directory exists.
+#[cfg(windows)]
+fn symlink_impl(original: &Path, link: &Path) -> anyhow::Result<()> {
+    use std::borrow::Cow;
+
+    let original_str = original
+        .to_str()
+        .ok_or_else(|| anyhow::anyhow!("Path is not Unicode"))?;
+    let original = if original_str.contains('/') {
+        Cow::Owned(PathBuf::from(original_str.replace('/', "\\")))
     } else {
-        os_symlink(&original, &link).with_context(|| {
-            format!(
-                "symlink({},{})",
-                P::as_ref(&original).display(),
-                Q::as_ref(&link).display()
-            )
-        })?;
+        Cow::Borrowed(original)
+    };
+    let target_path = if original.is_absolute() {
+        Cow::Borrowed(original.as_ref())
+    } else {
+        Cow::Owned(
+            link.parent()
+                .ok_or_else(|| anyhow::anyhow!("Expected path with a parent in symlink target"))?
+                .join(&original),
+        )
+    };
+    let file_type = fs::metadata(&target_path)?.file_type();
+
+    if file_type.is_file() {
+        std::os::windows::fs::symlink_file(original, link).map_err(|e| e.into())
+    } else if file_type.is_dir() {
+        std::os::windows::fs::symlink_dir(original, link).map_err(|e| e.into())
+    } else {
+        Err(anyhow::anyhow!(
+            "Symlink target ({}) is not a file or directory",
+            target_path.display()
+        ))
     }
-    Ok(())
 }
 
 pub fn create_dir_all<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {

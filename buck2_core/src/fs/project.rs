@@ -352,7 +352,7 @@ impl ProjectFilesystem {
         if let Some(parent) = dest_abs.parent() {
             fs::create_dir_all(parent)?;
         }
-        Self::create_symlink(src, dest_abs)
+        fs::symlink(src, dest_abs)
     }
 
     /// Create a relative symlink between two relative paths
@@ -381,46 +381,7 @@ impl ProjectFilesystem {
         if let Some(parent) = dest_abs.parent() {
             fs::create_dir_all(parent)?;
         }
-        Self::create_symlink(target_relative, dest_abs)
-    }
-
-    fn create_symlink(src: impl AsRef<Path>, dest: impl AsRef<Path>) -> anyhow::Result<()> {
-        Self::create_symlink_impl(src.as_ref(), dest.as_ref()).with_context(|| {
-            format!(
-                "Create symlink `{}` to `{}`",
-                dest.as_ref().display(),
-                src.as_ref().display()
-            )
-        })
-    }
-
-    #[cfg(unix)]
-    fn create_symlink_impl(src: &Path, dest: &Path) -> anyhow::Result<()> {
-        std::os::unix::fs::symlink(src, dest).map_err(|e| e.into())
-    }
-
-    /// Create symlink on Windows.
-    /// Unlike on Unix, it expects that target file or directory exists.
-    #[cfg(windows)]
-    fn create_symlink_impl(src: &Path, dest: &Path) -> anyhow::Result<()> {
-        let absolute_target = match src.is_absolute() {
-            true => PathBuf::from(src),
-            false => dest
-                .parent()
-                .expect("a path with a parent in symlink target")
-                .join(src),
-        };
-        let file_type = fs::metadata(&absolute_target)?.file_type();
-        if file_type.is_file() {
-            std::os::windows::fs::symlink_file(src, dest).map_err(|e| e.into())
-        } else if file_type.is_dir() {
-            std::os::windows::fs::symlink_dir(src, dest).map_err(|e| e.into())
-        } else {
-            Err(anyhow::anyhow!(
-                "Symlink target ({}) is not a file or directory",
-                AbsPath::new(&absolute_target)?
-            ))
-        }
+        fs::symlink(target_relative, dest_abs)
     }
 
     /// Copy from one path to another. This works for both files and directories.
@@ -540,25 +501,21 @@ impl ProjectFilesystem {
 
     /// Creates symbolic link `dest` which points at the same location as symlink `src`.
     fn copy_symlink(src: &AbsPathBuf, dest: &AbsPathBuf) -> anyhow::Result<()> {
-        let target = Self::find_symlink_target(src, dest)?;
-        Self::create_symlink(target, dest)
-    }
-
-    /// Find relativized target to the destination.
-    /// Shared part of `copy_symlink()` for Unix and Windows.
-    fn find_symlink_target(src: &AbsPathBuf, dest: &AbsPathBuf) -> anyhow::Result<PathBuf> {
         let mut target = fs::read_link(&src)?;
         if target.is_relative() {
             // Grab the absolute path, then re-relativize the path to the destination
-            let absolute_target = relative_path::RelativePath::from_path(target.as_path())?
-                .normalize()
-                .to_path(
-                    &src.parent()
-                        .expect("a path with a parent in symlink target"),
-                );
+            let relative_target = if cfg!(windows) {
+                Cow::Owned(RelativePathBuf::from_path(target.as_path())?)
+            } else {
+                Cow::Borrowed(RelativePath::from_path(target.as_path())?)
+            };
+            let absolute_target = relative_target.normalize().to_path(
+                &src.parent()
+                    .expect("a path with a parent in symlink target"),
+            );
             target = Self::find_relative_path(&AbsPathBuf::try_from(absolute_target)?, dest);
         }
-        Ok(target)
+        fs::symlink(target, dest)
     }
 
     fn copy_file(src: &AbsPathBuf, dst: &AbsPathBuf) -> anyhow::Result<()> {
@@ -1237,13 +1194,10 @@ mod tests {
         fs::write(&fs.path.resolve(file3), "file3 contents")?;
         fs::write(&fs.path.resolve(file4), "file4 contents")?;
         // Absolute path
-        ProjectFilesystem::create_symlink(&fs.path.resolve(dir2), &fs.path.resolve(link_dir2))?;
+        fs::symlink(&fs.path.resolve(dir2), &fs.path.resolve(link_dir2))?;
         // Relative path
-        ProjectFilesystem::create_symlink(&Path::new("dir2/dir3"), &fs.path.resolve(link_dir3))?;
-        ProjectFilesystem::create_symlink(
-            &Path::new("dir2/dir3/file3"),
-            &fs.path.resolve(link_file3),
-        )?;
+        fs::symlink(&Path::new("dir2/dir3"), &fs.path.resolve(link_dir3))?;
+        fs::symlink(&Path::new("dir2/dir3/file3"), &fs.path.resolve(link_file3))?;
 
         fs.path
             .copy(
