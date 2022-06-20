@@ -756,6 +756,7 @@ mod tests {
     use buck2_data::{LoadBuildFileEnd, LoadBuildFileStart, SpanEndEvent, SpanStartEvent};
     use cli_proto::{CommandResult, GenericResponse};
     use events::SpanId;
+    use superconsole::testing::{frame_contains, test_console, SuperConsoleTestingExt};
 
     use super::*;
 
@@ -813,6 +814,106 @@ mod tests {
             }),
         };
         assert!(console.handle_event(&event).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_default_layout() -> anyhow::Result<()> {
+        let trace_id = TraceId::new();
+        let now = SystemTime::now();
+        let tick = Tick::now();
+
+        let mut console = StatefulSuperConsole::new(
+            test_console(StatefulSuperConsole::default_layout(
+                "build",
+                Default::default(),
+            )),
+            Verbosity::Default,
+            Default::default(),
+        )?;
+
+        console
+            .handle_event(&BuckEvent {
+                timestamp: now,
+                trace_id: trace_id.dupe(),
+                span_id: Some(SpanId::new()),
+                parent_id: None,
+                data: buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
+                    data: Some(
+                        buck2_data::CommandStart {
+                            metadata: Default::default(),
+                            data: Some(buck2_data::BuildCommandStart {}.into()),
+                        }
+                        .into(),
+                    ),
+                }),
+            })
+            .await?;
+
+        console
+            .handle_event(&BuckEvent {
+                timestamp: now,
+                trace_id: trace_id.dupe(),
+                span_id: None,
+                parent_id: None,
+                data: buck2_data::InstantEvent {
+                    data: Some(
+                        buck2_data::RemoteExecutionSessionCreated {
+                            session_id: "reSessionID-123".to_owned(),
+                        }
+                        .into(),
+                    ),
+                }
+                .into(),
+            })
+            .await?;
+
+        console
+            .handle_event(&BuckEvent {
+                timestamp: now,
+                trace_id: trace_id.dupe(),
+                span_id: Some(SpanId::new()),
+                parent_id: None,
+                data: SpanStartEvent {
+                    data: Some(
+                        LoadBuildFileStart {
+                            module_id: "foo".to_owned(),
+                            cell: "bar".to_owned(),
+                        }
+                        .into(),
+                    ),
+                }
+                .into(),
+            })
+            .await?;
+
+        console.tick(&tick).await?;
+
+        let frame = console
+            .super_console
+            .as_mut()
+            .context("Console was downgraded")?
+            .test_output_mut()?
+            .frames
+            .pop()
+            .context("No frame was emitted")?;
+
+        // Verify we have the right output on intermediate frames
+        if cfg!(fbcode_build) {
+            assert!(frame_contains(&frame, "Buck UI:".as_bytes()));
+        } else {
+            assert!(frame_contains(&frame, "Build ID:".as_bytes()));
+        }
+        assert!(frame_contains(
+            &frame,
+            "RE Session: reSessionID-123".as_bytes()
+        ));
+        assert!(frame_contains(&frame, "In progress".as_bytes()));
+
+        console
+            .handle_command_result(&cli_proto::CommandResult { result: None })
+            .await?;
+
+        Ok(())
     }
 }
 

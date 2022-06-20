@@ -522,30 +522,6 @@ async def test_multiple_errors_print_with_super_console(buck: Buck) -> None:
     # TODO(nmj): Remove this comment
     # assert_occurrences_regex("getting metadata for.*a_dir`", e.stderr, 1)
 
-    # Make sure that streamed events come back
-
-    # Session Info looks something like this:
-    #
-    # Build ID:   FB7B409B-E8A9-4A2F-99B7-29DE85E202D7
-    # RE Session: reSessionID-10264bcb-4990-4cbb-9bba-e5e22e02ae8d
-    # Working on tasks for command: `build`.   <spaces>    Jobs: In progress: 0.<...>
-    # ---------------------------------------------------------------------------
-    #
-    # For Facebook-internal builds, we replace Build ID with "Buck UI: <link>".
-    assert (
-        re.search(
-            r"(Build ID:|Buck UI: )   \S+.*\n.*RE Session: \S+.*\n.*Working on.*Jobs: In progress",
-            e.stderr,
-        )
-        is not None
-    )
-    # At the end, we should print out session info and Buck UI link.
-    assert_occurrences_regex(
-        r"(Build ID:|Buck UI: )   \S+.*\n.*RE Session: \S+.*\n.*Jobs completed: \d+. Time elapsed: \d+.*\n.*BUILD ",
-        e.stderr,
-        1,
-    )
-
     assert_occurrences("\x1b[38;5;1mBUILD FAILED\x1b[39m", e.stderr, 1)
 
     e = await expect_failure(buck.build("--console=super", "//:non_existent"))
