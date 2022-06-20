@@ -52,7 +52,7 @@ use crate::{
         AttrCoercionContext, CoercedPath,
     },
     interpreter::rule_defs::{
-        provider::{callable::ValueAsProviderCallableLike, ProviderId},
+        provider::{callable::ValueAsProviderCallableLike, id::ProviderId},
         rule::RuleError,
         transition::starlark::Transition,
     },

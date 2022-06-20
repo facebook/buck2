@@ -37,7 +37,7 @@ use crate::{
         provider::{
             collection::{FrozenProviderCollection, FrozenProviderCollectionValue},
             dependency::Dependency,
-            ProviderId,
+            id::ProviderId,
         },
         transition::id::TransitionId,
     },

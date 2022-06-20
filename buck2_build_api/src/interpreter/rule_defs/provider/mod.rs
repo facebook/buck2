@@ -54,14 +54,8 @@
 //! provider out of their so there's a convenience function for that: `MyProvider::from_providers(collect)`.
 // TODO(cjhopman): That last one would be more discoverable if we moved it onto the
 // `FrozenProviderCollectionValue` itself so you could do `collection.get::<MyProvider>()`.
-use std::{
-    fmt::{self, Debug, Display},
-    hash::Hash,
-    marker::PhantomData,
-    sync::Arc,
-};
+use std::{fmt::Debug, sync::Arc};
 
-use buck2_core::cells::paths::CellPath;
 use starlark::{
     environment::MethodsBuilder,
     values::{Value, ValueLike},
@@ -70,6 +64,7 @@ use starlark::{
 use crate::interpreter::rule_defs::provider::{
     collection::ProviderCollection,
     default_info::{DefaultInfo, DefaultInfoCallable, FrozenDefaultInfo},
+    id::ProviderId,
     registration::ProviderRegistration,
     user::{FrozenUserProvider, UserProvider},
 };
@@ -84,6 +79,7 @@ pub(crate) mod dependency;
 pub mod execution_platform_info;
 pub mod execution_platform_registration_info;
 pub mod external_runner_test_info;
+pub mod id;
 pub mod install_info;
 pub mod platform_info;
 pub mod registration;
@@ -119,56 +115,6 @@ enum ProviderError {
         "Provider type must be assigned to a variable, e.g. `ProviderInfo = provider(fields = {0:?})`"
     )]
     ProviderNotAssigned(Vec<String>),
-}
-
-/// A unique identity for a given provider. Allows correlating `ProviderCallable` objects with `UserProvider` objects.
-///
-/// For example:
-/// ```ignore
-/// FooInfo = provider(fields=["foo", "bar"])
-///
-/// def impl(ctx):
-///     # We can guarantee when setting up the context that there
-///     # is a provider that came from FooInfo
-///     ctx.actions.write("out.txt", ctx.attr.dep[FooInfo].bar)
-/// foo_binary = rule(implementation=impl, attrs={"dep": attr.dep(providers=[FooInfo])})
-/// ```
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct ProviderId {
-    /// This is present for all user-specified providers. This is only None if it is a
-    /// native provider, which has no affiliated .bzl file
-    path: Option<CellPath>,
-    name: String,
-}
-
-impl Display for ProviderId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.name)
-    }
-}
-
-pub struct ProviderIdWithType<T> {
-    id: Arc<ProviderId>,
-    t: PhantomData<T>,
-}
-
-impl<T> ProviderIdWithType<T> {
-    pub fn id(&self) -> &Arc<ProviderId> {
-        &self.id
-    }
-
-    pub fn new(path: Option<CellPath>, name: String) -> Self {
-        Self {
-            id: Arc::new(ProviderId { path, name }),
-            t: Default::default(),
-        }
-    }
-}
-
-impl ProviderId {
-    pub fn name(&self) -> &str {
-        &self.name
-    }
 }
 
 pub(crate) trait ProviderLike<'v>: Debug {
@@ -216,7 +162,7 @@ impl<'v, V: ValueLike<'v>> ValueAsProviderLike<'v> for V {
 
 #[cfg(test)]
 pub mod testing {
-    use buck2_core::cells::paths::CellPath;
+
     use starlark::environment::{GlobalsBuilder, Module};
 
     use crate::{
@@ -224,24 +170,10 @@ pub mod testing {
         interpreter::rule_defs::{
             artifact::testing::artifactory,
             provider::{
-                collection::FrozenProviderCollectionValue,
-                registration::register_builtin_providers, ProviderId,
+                collection::FrozenProviderCollectionValue, registration::register_builtin_providers,
             },
         },
     };
-
-    pub trait ProviderIdExt {
-        fn testing_new(path: CellPath, name: &str) -> Self;
-    }
-
-    impl ProviderIdExt for ProviderId {
-        fn testing_new(path: CellPath, name: &str) -> Self {
-            ProviderId {
-                path: Some(path),
-                name: name.to_owned(),
-            }
-        }
-    }
 
     pub trait FrozenProviderCollectionValueExt {
         /// Creates a `FrozenProviderCollectionValue` for testing. The given string should be

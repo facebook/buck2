@@ -28,7 +28,7 @@ use starlark::{
 };
 
 use crate::interpreter::rule_defs::provider::{
-    provider_methods, ProviderId, ProviderLike, ValueAsProviderLike,
+    id::ProviderId, provider_methods, ProviderLike, ValueAsProviderLike,
 };
 
 /// The result of calling the output of `provider()`. This is just a simple data structure of

@@ -23,7 +23,7 @@ use starlark::{
 };
 
 use crate::interpreter::rule_defs::provider::{
-    registration::ProviderRegistration, user::user_provider_creator, ProviderError, ProviderId,
+    id::ProviderId, registration::ProviderRegistration, user::user_provider_creator, ProviderError,
 };
 
 pub trait ProviderCallableLike {

@@ -178,7 +178,7 @@ impl ProviderCodegen {
             where
                 Self: std::fmt::Debug,
             {
-                fn id(&self) -> &std::sync::Arc<crate::interpreter::rule_defs::provider::ProviderId> {
+                fn id(&self) -> &std::sync::Arc<crate::interpreter::rule_defs::provider::id::ProviderId> {
                     #callable_name::provider_id()
                 }
 
@@ -204,7 +204,7 @@ impl ProviderCodegen {
         Ok(quote! {
             #[derive(Debug, Clone, gazebo::dupe::Dupe, gazebo::any::ProvidesStaticType, starlark::values::NoSerialize)]
             #vis struct #callable_name {
-                id: &'static std::sync::Arc<crate::interpreter::rule_defs::provider::ProviderId>,
+                id: &'static std::sync::Arc<crate::interpreter::rule_defs::provider::id::ProviderId>,
             }
         })
     }
@@ -261,7 +261,7 @@ impl ProviderCodegen {
         let callable_name = self.callable_name()?;
         Ok(quote! {
             impl crate::interpreter::rule_defs::provider::callable::ProviderCallableLike for #callable_name {
-                fn id(&self) -> Option<&std::sync::Arc<crate::interpreter::rule_defs::provider::ProviderId>> {
+                fn id(&self) -> Option<&std::sync::Arc<crate::interpreter::rule_defs::provider::id::ProviderId>> {
                     Some(self.id)
                 }
             }
@@ -277,21 +277,21 @@ impl ProviderCodegen {
         Ok(quote! {
             impl #callable_name {
                 #vis fn provider_id()
-                -> &'static std::sync::Arc<crate::interpreter::rule_defs::provider::ProviderId> {
+                -> &'static std::sync::Arc<crate::interpreter::rule_defs::provider::id::ProviderId> {
                     Self::provider_id_t().id()
                 }
 
                 #vis fn provider_id_t() -> &'static std::sync::Arc<
-                    crate::interpreter::rule_defs::provider::ProviderIdWithType<#frozen_name>,
+                    crate::interpreter::rule_defs::provider::id::ProviderIdWithType<#frozen_name>,
                 > {
                     static PROVIDER_ID_T: once_cell::sync::OnceCell<
                         std::sync::Arc<
-                            crate::interpreter::rule_defs::provider::ProviderIdWithType<#frozen_name>,
+                            crate::interpreter::rule_defs::provider::id::ProviderIdWithType<#frozen_name>,
                         >
                     > = once_cell::sync::OnceCell::new();
                     PROVIDER_ID_T.get_or_init(|| {
                         std::sync::Arc::new(
-                            crate::interpreter::rule_defs::provider::ProviderIdWithType::new(
+                            crate::interpreter::rule_defs::provider::id::ProviderIdWithType::new(
                                 None,
                                 #name_str.to_owned(),
                             ),

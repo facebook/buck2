@@ -48,8 +48,8 @@ use crate::{
             cmd_args::FrozenCommandLineArgLike,
             provider::{
                 callable::ValueAsProviderCallableLike, collection::FrozenProviderCollectionValue,
-                registration::register_builtin_providers,
-                template_placeholder_info::FrozenTemplatePlaceholderInfo, ProviderId,
+                id::ProviderId, registration::register_builtin_providers,
+                template_placeholder_info::FrozenTemplatePlaceholderInfo,
             },
             transition::{applied::TransitionApplied, id::TransitionId},
         },

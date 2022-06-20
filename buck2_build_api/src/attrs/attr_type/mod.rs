@@ -36,7 +36,7 @@ use crate::{
         AttrCoercionContext,
     },
     interpreter::rule_defs::{
-        attr::AttrIsConfigurable, provider::ProviderId, transition::id::TransitionId,
+        attr::AttrIsConfigurable, provider::id::ProviderId, transition::id::TransitionId,
     },
 };
 

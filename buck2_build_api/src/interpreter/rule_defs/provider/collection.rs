@@ -21,8 +21,9 @@ use starlark::{
 };
 
 use crate::interpreter::rule_defs::provider::{
-    callable::ValueAsProviderCallableLike, DefaultInfo, DefaultInfoCallable, FrozenDefaultInfo,
-    ProviderError, ProviderId, ProviderIdWithType, ValueAsProviderLike,
+    callable::ValueAsProviderCallableLike,
+    id::{ProviderId, ProviderIdWithType},
+    DefaultInfo, DefaultInfoCallable, FrozenDefaultInfo, ProviderError, ValueAsProviderLike,
 };
 
 /// Holds a collection of `UserProvider`s. These can be accessed in Starlark by indexing on
