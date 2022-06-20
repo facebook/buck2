@@ -254,6 +254,9 @@ message Snapshot {
   // Queue size of the blocking executor.
   uint64 blocking_executor_io_queue_size = 4;
 
+  uint64 re_download_bytes = 5;
+  uint64 re_upload_bytes = 6;
+
   // TODO(jaspercb): Fill this with useful fields - total system usage,
   // number of DICE nodes, etc.
 }

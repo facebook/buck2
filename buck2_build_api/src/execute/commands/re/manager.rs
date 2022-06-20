@@ -19,7 +19,7 @@ use gazebo::prelude::*;
 use remote_execution as RE;
 use remote_execution::{
     ActionResultResponse, ExecuteResponse, InlinedBlobWithDigest, NamedDigest,
-    NamedDigestWithPermissions, TDigest,
+    NamedDigestWithPermissions, NetworkStatisticsResponse, TDigest,
 };
 
 use crate::{
@@ -105,6 +105,18 @@ impl LazyRemoteExecutionClient {
         }
     }
 
+    /// Apply F to the client contained in this LazyRemoteExecutionClient if and only if there is a
+    /// valid client.
+    fn with_client<F, T>(&self, f: F) -> Option<T>
+    where
+        F: FnOnce(&RemoteExecutionClient) -> T,
+    {
+        match self.client.get().as_ref() {
+            Some(Ok(client)) => Some(f(client)),
+            _ => None,
+        }
+    }
+
     async fn get(&self) -> anyhow::Result<&RemoteExecutionClient> {
         match self
             .client
@@ -177,6 +189,7 @@ impl ReConnectionManager {
             },
         }
     }
+
     /// Gets a new guard that holds a RE connection open
     pub fn get_re_connection(&self) -> ReConnectionHandle {
         ReConnectionHandle::new(self.get_client_handle())
@@ -196,6 +209,13 @@ impl ReConnectionManager {
             }
             Some(conn) => conn,
         }
+    }
+
+    pub fn get_network_stats(&self) -> anyhow::Result<Option<NetworkStatisticsResponse>> {
+        let conn = self.data.read().unwrap().upgrade();
+        conn.as_ref()
+            .and_then(|lazy_client| lazy_client.with_client(|client| client.get_network_stats()))
+            .transpose()
     }
 }
 

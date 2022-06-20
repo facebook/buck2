@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+use anyhow::Context as _;
+use buck2_build_api::execute::commands::re::manager::ReConnectionManager;
+
 use crate::daemon::server::DaemonStateData;
 
 /// Create a new Snapshot.
@@ -14,6 +17,7 @@ pub(crate) fn create_snapshot(daemon_data: &DaemonStateData) -> buck2_data::Snap
     let mut snapshot = buck2_data::Snapshot::default();
     add_daemon_metrics(&mut snapshot, daemon_data);
     add_system_metrics(&mut snapshot);
+    add_re_metrics(&mut snapshot, daemon_data.re_client_manager.as_ref());
     snapshot
 }
 
@@ -49,3 +53,32 @@ fn add_system_metrics(snapshot: &mut buck2_data::Snapshot) {
 
 #[cfg(not(unix))]
 fn add_system_metrics(_: &mut buck2_data::Snapshot) {}
+
+fn add_re_metrics(snapshot: &mut buck2_data::Snapshot, re: &ReConnectionManager) {
+    fn inner(snapshot: &mut buck2_data::Snapshot, re: &ReConnectionManager) -> anyhow::Result<()> {
+        let stats = match re
+            .get_network_stats()
+            .context("Error collecting network stats")?
+        {
+            Some(stats) => stats,
+            None => return Ok(()),
+        };
+
+        snapshot.re_download_bytes = stats
+            .downloaded
+            .try_into()
+            .with_context(|| format!("Invalid downloaded bytes: `{}`", stats.downloaded))?;
+
+        snapshot.re_upload_bytes = stats
+            .uploaded
+            .try_into()
+            .with_context(|| format!("Invalid uploaded bytes: `{}`", stats.uploaded))?;
+
+        Ok(())
+    }
+
+    // Nothing we can do if we get an error, unfortunately.
+    if let Err(e) = inner(snapshot, re) {
+        tracing::debug!("Error collecting network stats: {:#}", e);
+    }
+}
