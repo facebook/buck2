@@ -27,3 +27,16 @@ async def test_generate_intellij_project(buck: Buck) -> None:
 </project>
 """
     )
+
+
+@buck_test(inplace=True)
+async def test_generate_sample_project(buck: Buck) -> None:
+    bxl_label = "fbcode//buck2/prelude/intellij_project/sample.bxl:project_gen"
+    await buck.bxl(
+        bxl_label,
+        "--",
+        "--roots",
+        "fbcode//buck2/gazebo/gazebo:gazebo",
+        "--mode",
+        "foo",
+    )
