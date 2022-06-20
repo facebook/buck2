@@ -290,7 +290,10 @@ pub(crate) fn format_test_result(
     }
     let mut lines = vec![base];
 
-    if matches!(status, TestStatus::FAIL | TestStatus::FATAL) {
+    if matches!(
+        status,
+        TestStatus::FAIL | TestStatus::FATAL | TestStatus::LISTING_FAILED
+    ) {
         let style = Default::default();
         lines.append(&mut lines_from_multiline_string(stderr, style));
         lines.append(&mut lines_from_multiline_string(stdout, style));
