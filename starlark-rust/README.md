@@ -34,7 +34,10 @@ This project features:
 * [Garbage collected](docs/gc.md) values allocated on [a heap](docs/heap.md).
 * Optional runtime-checked [types](docs/types.md).
 * A linter, to detect code issues in Starlark.
-* IDE integration in the form of [LSP](https://microsoft.github.io/language-server-protocol/) and [DAP](https://microsoft.github.io/debug-adapter-protocol/) support.
+* IDE integration in the form of [LSP](https://microsoft.github.io/language-server-protocol/).
+<!--
+* Broken [DAP](https://microsoft.github.io/debug-adapter-protocol/) support.
+-->
 
 This project also has three non-goals:
 
