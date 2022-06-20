@@ -65,15 +65,15 @@ use buck2_core::{cells::paths::CellPath, provider::ConfiguredProvidersLabel};
 use buck2_interpreter::types::label::Label;
 use gazebo::{any::ProvidesStaticType, coerce::Coerce};
 use starlark::{
-    environment::{GlobalsBuilder, Methods, MethodsBuilder, MethodsStatic},
+    environment::{Methods, MethodsBuilder, MethodsStatic},
     starlark_type,
     values::{Freeze, Heap, NoSerialize, StarlarkValue, Trace, Value, ValueLike},
 };
 
 use crate::interpreter::rule_defs::provider::{
-    callable::ProviderCallableLike,
     collection::ProviderCollection,
     default_info::{DefaultInfo, DefaultInfoCallable, FrozenDefaultInfo},
+    registration::ProviderRegistration,
     user::{FrozenUserProvider, UserProvider},
 };
 
@@ -88,6 +88,7 @@ pub mod execution_platform_registration_info;
 pub mod external_runner_test_info;
 pub mod install_info;
 pub mod platform_info;
+pub mod registration;
 pub mod run_info;
 pub mod template_placeholder_info;
 pub(crate) mod user;
@@ -172,15 +173,7 @@ impl ProviderId {
     }
 }
 
-struct ProviderRegistration {
-    as_provider_callable: fn(Value) -> Option<&dyn ProviderCallableLike>,
-    as_provider: fn(Value) -> Option<&dyn ProviderLike>,
-    register_globals: fn(&mut GlobalsBuilder),
-}
-
-inventory::collect!(ProviderRegistration);
-
-trait ProviderLike<'v>: Debug {
+pub(crate) trait ProviderLike<'v>: Debug {
     /// The ID. Guaranteed to be set on the `ProviderCallable` before constructing this object
     fn id(&self) -> &Arc<ProviderId>;
     /// Gets the value for a given field.
@@ -289,12 +282,6 @@ fn dependency_functions(builder: &mut MethodsBuilder) {
     }
 }
 
-pub fn register_builtin_providers(registry: &mut GlobalsBuilder) {
-    for registration in inventory::iter::<ProviderRegistration> {
-        (registration.register_globals)(registry);
-    }
-}
-
 #[cfg(test)]
 pub mod testing {
     use buck2_core::cells::paths::CellPath;
@@ -305,7 +292,8 @@ pub mod testing {
         interpreter::rule_defs::{
             artifact::testing::artifactory,
             provider::{
-                collection::FrozenProviderCollectionValue, register_builtin_providers, ProviderId,
+                collection::FrozenProviderCollectionValue,
+                registration::register_builtin_providers, ProviderId,
             },
         },
     };

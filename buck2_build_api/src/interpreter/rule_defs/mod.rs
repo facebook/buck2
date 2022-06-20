@@ -15,7 +15,7 @@ use starlark::{
 };
 use tracing::warn;
 
-use crate::interpreter::rule_defs::provider::register_builtin_providers;
+use crate::interpreter::rule_defs::provider::registration::register_builtin_providers;
 
 pub mod artifact;
 pub mod artifact_tagging;

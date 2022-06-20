@@ -369,7 +369,7 @@ impl ProviderCodegen {
         let name = self.name()?;
         Ok(quote! {
             inventory::submit! {
-                crate::interpreter::rule_defs::provider::ProviderRegistration {
+                crate::interpreter::rule_defs::provider::registration::ProviderRegistration {
                     as_provider_callable: |v| {
                         starlark::values::ValueLike::downcast_ref::<#callable_name>(v).map(
                             |o| o as &dyn crate::interpreter::rule_defs::provider::callable::ProviderCallableLike)

@@ -40,7 +40,7 @@ use crate::{
     interpreter::rule_defs::{
         attr::AttrIsConfigurable,
         cmd_args::{BaseCommandLineBuilder, ValueAsCommandLineLike},
-        provider::register_builtin_providers,
+        provider::registration::register_builtin_providers,
     },
     path::{BuckOutPathResolver, BuckPathResolver},
 };

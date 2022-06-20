@@ -48,7 +48,7 @@ use crate::{
             cmd_args::FrozenCommandLineArgLike,
             provider::{
                 callable::ValueAsProviderCallableLike, collection::FrozenProviderCollectionValue,
-                register_builtin_providers,
+                registration::register_builtin_providers,
                 template_placeholder_info::FrozenTemplatePlaceholderInfo, ProviderId,
             },
             transition::{applied::TransitionApplied, id::TransitionId},
