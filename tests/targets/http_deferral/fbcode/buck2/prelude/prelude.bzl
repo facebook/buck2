@@ -3,7 +3,7 @@ def _test_impl(ctx: "context"):
     sha1 = "1a45666759704bf08fc670aa96118a0415c470fc"
 
     download = ctx.actions.declare_output("download")
-    ctx.actions.download_file_new(download, url, sha1 = sha1, is_deferrable = True)
+    ctx.actions.download_file(download, url, sha1 = sha1, is_deferrable = True)
 
     output = ctx.actions.declare_output("output")
     ctx.actions.run(["cp", download, output.as_output()], category = "cp")

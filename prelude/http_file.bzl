@@ -11,7 +11,7 @@ def http_file_shared(
         sha256 = [None, str.type]) -> ["provider"]:
     output = actions.declare_output(name)
     downloaded_output = actions.declare_output("exploded_zip") if is_exploded_zip else output
-    actions.download_file_new(
+    actions.download_file(
         downloaded_output,
         url,
         is_executable = is_executable,
