@@ -36,6 +36,16 @@ pub(crate) enum VisitMut<'a, P: AstPayload> {
     Expr(&'a mut AstExprP<P>),
 }
 
+impl<'a, P: AstPayload> Visit<'a, P> {
+    #[allow(dead_code)]
+    pub(crate) fn visit_children(&self, mut f: impl FnMut(Visit<'a, P>)) {
+        match self {
+            Self::Stmt(x) => x.visit_children(f),
+            Self::Expr(x) => x.visit_expr(|x| f(Visit::Expr(x))),
+        }
+    }
+}
+
 impl<P: AstPayload> StmtP<P> {
     pub(crate) fn visit_children<'a>(&'a self, mut f: impl FnMut(Visit<'a, P>)) {
         match self {
