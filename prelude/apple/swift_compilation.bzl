@@ -151,7 +151,7 @@ def _compile_swiftmodule(
     argfile_cmd = cmd_args(shared_flags)
     argfile_cmd.add([
         "-Xfrontend",
-        "-experimental-skip-non-inlinable-function-bodies",
+        "-experimental-skip-non-inlinable-function-bodies-without-types",
         "-emit-module",
         "-emit-objc-header",
     ])
