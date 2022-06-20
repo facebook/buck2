@@ -1,4 +1,4 @@
-load("@fbcode//buck2/platform:utils.bzl", "optional_binary_or_source_attr", "read_bool", "source_list_attr", "string_attr", "string_list_attr")
+load("@fbcode//buck2/platform:utils.bzl", "optional_binary_or_source_attr", "source_list_attr", "string_attr", "string_list_attr")
 load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "AbiGenerationMode", "JUnitToolchainInfo", "JavaPlatformInfo", "JavaToolchainInfo", "JavacProtocol", "PrebuiltJarToolchainInfo")
 load("@fbcode//buck2/prelude/java/utils:java_utils.bzl", "derive_javac")
 
@@ -57,9 +57,6 @@ def config_backed_java_toolchain(
         kwargs["javac"] = javac
     kwargs["class_abi_generator"] = class_abi_generator
     kwargs["fat_jar_main_class_lib"] = fat_jar_main_class_lib
-
-    if "abi_generation_mode" in kwargs and not read_bool("buck2", "enable_source_only_abi", False):
-        kwargs["abi_generation_mode"] = "class"
 
     if "javac" in kwargs:
         kwargs["javac_protocol"] = "classic"
