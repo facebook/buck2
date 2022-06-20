@@ -30,7 +30,7 @@ use crate::{
             stack_ptr::{BcSlotIn, BcSlotOut},
             writer::BcWriter,
         },
-        compiler::{scope::Captured, span::IrSpanned, stmt::AssignCompiledValue},
+        compiler::{span::IrSpanned, stmt::AssignCompiledValue},
     },
 };
 
@@ -47,8 +47,8 @@ impl AssignCompiledValue {
                 array.mark_definitely_assigned_after(bc);
                 index.mark_definitely_assigned_after(bc);
             }
-            AssignCompiledValue::Local(_slot, Captured::Yes) => {}
-            AssignCompiledValue::Local(slot, Captured::No) => {
+            AssignCompiledValue::LocalCaptured(_slot) => {}
+            AssignCompiledValue::Local(slot) => {
                 bc.mark_definitely_assigned(*slot);
             }
             AssignCompiledValue::Tuple(xs) => {
@@ -103,10 +103,10 @@ impl IrSpanned<AssignCompiledValue> {
                     });
                 }
             }
-            AssignCompiledValue::Local(slot, Captured::No) => {
+            AssignCompiledValue::Local(slot) => {
                 bc.write_mov(span, value, slot.to_bc_slot().to_out());
             }
-            AssignCompiledValue::Local(slot, Captured::Yes) => {
+            AssignCompiledValue::LocalCaptured(slot) => {
                 bc.write_store_local_captured(span, value, slot);
             }
             AssignCompiledValue::Module(slot, ref name) => {

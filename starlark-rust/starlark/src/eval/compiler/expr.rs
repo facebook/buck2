@@ -42,7 +42,10 @@ use crate::{
             stmt::OptimizeOnFreezeContext,
             Compiler,
         },
-        runtime::{call_stack::FrozenFileSpan, slots::LocalSlotId},
+        runtime::{
+            call_stack::FrozenFileSpan,
+            slots::{LocalCapturedSlotId, LocalSlotId},
+        },
     },
     syntax::{
         ast::{AstExprP, AstLiteral, AstPayload, AstString, BinOp, ExprP, StmtP},
@@ -198,7 +201,7 @@ pub(crate) enum ExprCompiled {
     /// Read local non-captured variable.
     Local(LocalSlotId),
     /// Read local captured variable.
-    LocalCaptured(LocalSlotId),
+    LocalCaptured(LocalCapturedSlotId),
     Module(ModuleSlotId),
     Tuple(Vec<IrSpanned<ExprCompiled>>),
     List(Vec<IrSpanned<ExprCompiled>>),
@@ -1097,8 +1100,8 @@ impl Compiler<'_, '_, '_> {
                 // We can't look up the local variabless in advance, because they are different each time
                 // we go through a new function call.
                 match binding.captured {
-                    Captured::Yes => ExprCompiled::LocalCaptured(slot),
-                    Captured::No => ExprCompiled::Local(slot),
+                    Captured::Yes => ExprCompiled::LocalCaptured(LocalCapturedSlotId(slot.0)),
+                    Captured::No => ExprCompiled::Local(LocalSlotId(slot.0)),
                 }
             }
             ResolvedIdent::Slot((Slot::Module(slot), binding_id)) => {

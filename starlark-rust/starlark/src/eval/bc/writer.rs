@@ -37,7 +37,10 @@ use crate::{
             stack_ptr::{BcSlot, BcSlotIn, BcSlotInRange, BcSlotOut, BcSlotRange, BcSlotsN},
         },
         compiler::expr::MaybeNot,
-        runtime::{call_stack::FrozenFileSpan, slots::LocalSlotId},
+        runtime::{
+            call_stack::FrozenFileSpan,
+            slots::{LocalCapturedSlotId, LocalSlotId},
+        },
     },
     values::{FrozenHeap, FrozenRef, FrozenValue},
 };
@@ -216,7 +219,7 @@ impl<'f> BcWriter<'f> {
     pub(crate) fn write_load_local_captured(
         &mut self,
         span: FrozenFileSpan,
-        source: LocalSlotId,
+        source: LocalCapturedSlotId,
         target: BcSlotOut,
     ) {
         assert!(source.0 < self.local_count);
@@ -241,7 +244,7 @@ impl<'f> BcWriter<'f> {
         &mut self,
         span: FrozenFileSpan,
         source: BcSlotIn,
-        target: LocalSlotId,
+        target: LocalCapturedSlotId,
     ) {
         assert!(source.get().0 < self.local_count + self.stack_size);
         assert!(target.0 < self.local_count);

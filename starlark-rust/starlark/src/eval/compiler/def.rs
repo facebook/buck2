@@ -52,7 +52,7 @@ use crate::{
             arguments::{ArgumentsImpl, ParametersSpec, ResolvedArgName},
             call_stack::FrozenFileSpan,
             evaluator::Evaluator,
-            slots::LocalSlotId,
+            slots::{LocalCapturedSlotId, LocalSlotId},
         },
         Arguments,
     },
@@ -452,7 +452,7 @@ impl<'v> Def<'v> {
         let captured = stmt
             .scope_names
             .parent
-            .map(|(x, _)| eval.clone_slot_capture(*x));
+            .map(|(x, _)| eval.clone_slot_capture(LocalCapturedSlotId(x.0)));
         eval.heap().alloc(Self {
             parameters,
             parameter_captures,
@@ -583,7 +583,7 @@ where
             None
         };
         for (i, arg_name, ty, ty2) in &self.parameter_types {
-            match eval.current_frame.get_slot(*i) {
+            match eval.current_frame.get_slot(i.to_captured_or_not()) {
                 None => {
                     panic!("Not allowed optional unassigned with type annotations on them")
                 }

@@ -45,7 +45,7 @@ use crate::{
                 typecheck::TypecheckProfile,
                 ProfileMode,
             },
-            slots::LocalSlotId,
+            slots::{LocalCapturedSlotId, LocalSlotId},
         },
         CallStack, FileLoader,
     },
@@ -451,18 +451,22 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         debug_assert!(self.current_frame == frame);
 
         frame
-            .get_slot(slot)
+            .get_slot(slot.to_captured_or_not())
             .ok_or_else(|| self.local_var_referenced_before_assignment(slot))
     }
 
-    pub(crate) fn get_slot_local_captured(&self, slot: LocalSlotId) -> anyhow::Result<Value<'v>> {
-        let value_captured = self.get_slot_local(self.current_frame, slot)?;
+    pub(crate) fn get_slot_local_captured(
+        &self,
+        slot: LocalCapturedSlotId,
+    ) -> anyhow::Result<Value<'v>> {
+        let value_captured = self.get_slot_local(self.current_frame, LocalSlotId(slot.0))?;
         let value_captured = value_captured_get(value_captured);
-        value_captured.ok_or_else(|| self.local_var_referenced_before_assignment(slot))
+        value_captured
+            .ok_or_else(|| self.local_var_referenced_before_assignment(LocalSlotId(slot.0)))
     }
 
-    pub(crate) fn clone_slot_capture(&self, slot: LocalSlotId) -> Value<'v> {
-        match self.current_frame.get_slot(slot) {
+    pub(crate) fn clone_slot_capture(&self, slot: LocalCapturedSlotId) -> Value<'v> {
+        match self.current_frame.get_slot(slot.to_captured_or_not()) {
             Some(value_captured) => {
                 debug_assert!(
                     value_captured.downcast_ref::<ValueCaptured>().is_some(),
@@ -475,7 +479,8 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             }
             None => {
                 let value_captured = self.heap().alloc_complex(ValueCaptured(Cell::new(None)));
-                self.current_frame.set_slot(slot, value_captured);
+                self.current_frame
+                    .set_slot(slot.to_captured_or_not(), value_captured);
                 value_captured
             }
         }
@@ -503,8 +508,9 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         self.module_env.slots().set_slot(slot, value);
     }
 
-    pub(crate) fn set_slot_local_captured(&mut self, slot: LocalSlotId, value: Value<'v>) {
-        match self.current_frame.get_slot(slot) {
+    pub(crate) fn set_slot_local_captured(&mut self, slot: LocalCapturedSlotId, value: Value<'v>) {
+        let slot = LocalSlotId(slot.0);
+        match self.current_frame.get_slot(slot.to_captured_or_not()) {
             Some(value_captured) => {
                 let value_captured = value_captured
                     .downcast_ref::<ValueCaptured>()
@@ -515,19 +521,24 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                 let value_captured = self
                     .heap()
                     .alloc_complex(ValueCaptured(Cell::new(Some(value))));
-                self.current_frame.set_slot(slot, value_captured);
+                self.current_frame
+                    .set_slot(slot.to_captured_or_not(), value_captured);
             }
         };
     }
 
     /// Take a value from the local slot and store it back wrapped in [`ValueCaptured`].
     pub(crate) fn wrap_local_slot_captured(&mut self, slot: LocalSlotId) {
-        let value = self.current_frame.get_slot(slot).expect("slot unset");
+        let value = self
+            .current_frame
+            .get_slot(slot.to_captured_or_not())
+            .expect("slot unset");
         debug_assert!(value.downcast_ref::<ValueCaptured>().is_none());
         let value_captured = self
             .heap()
             .alloc_complex(ValueCaptured(Cell::new(Some(value))));
-        self.current_frame.set_slot(slot, value_captured);
+        self.current_frame
+            .set_slot(slot.to_captured_or_not(), value_captured);
     }
 
     pub(crate) fn check_return_type(&mut self, ret: Value<'v>) -> anyhow::Result<()> {

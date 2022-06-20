@@ -31,7 +31,7 @@ use crate::{
             stack_ptr::{BcSlotIn, BcSlotOut, BcSlotsN},
             writer::BcWriter,
         },
-        compiler::{expr::ExprCompiled, scope::Captured, span::IrSpanned, stmt::AssignModifyLhs},
+        compiler::{expr::ExprCompiled, span::IrSpanned, stmt::AssignModifyLhs},
         runtime::call_stack::FrozenFileSpan,
     },
     syntax::ast::AssignOp,
@@ -72,10 +72,8 @@ impl AssignModifyLhs {
                 array.mark_definitely_assigned_after(bc);
                 index.mark_definitely_assigned_after(bc);
             }
-            AssignModifyLhs::Local(local) => match local.node {
-                (_, Captured::Yes) => {}
-                (local, Captured::No) => bc.mark_definitely_assigned(local),
-            },
+            AssignModifyLhs::LocalCaptured(_) => {}
+            AssignModifyLhs::Local(local) => bc.mark_definitely_assigned(local.node),
             AssignModifyLhs::Module(_) => {}
         }
     }
@@ -134,13 +132,8 @@ impl AssignModifyLhs {
                 });
             }
             AssignModifyLhs::Local(s) => bc.alloc_slots_c(|lhs_rhs: BcSlotsN<2>, bc| {
-                let (slot, captured) = s.node;
-                match captured {
-                    Captured::Yes => {
-                        bc.write_load_local_captured(span, slot, lhs_rhs.get::<0>().to_out())
-                    }
-                    Captured::No => bc.write_load_local(span, slot, lhs_rhs.get::<0>().to_out()),
-                }
+                let slot = s.node;
+                bc.write_load_local(span, slot, lhs_rhs.get::<0>().to_out());
                 rhs.write_bc(lhs_rhs.get::<1>().to_out(), bc);
 
                 op.write_bc(
@@ -150,14 +143,21 @@ impl AssignModifyLhs {
                     span,
                     bc,
                 );
-                match captured {
-                    Captured::Yes => {
-                        bc.write_store_local_captured(span, lhs_rhs.get::<1>().to_in(), slot)
-                    }
-                    Captured::No => {
-                        bc.write_mov(span, lhs_rhs.get::<1>().to_in(), slot.to_bc_slot().to_out())
-                    }
-                }
+                bc.write_mov(span, lhs_rhs.get::<1>().to_in(), slot.to_bc_slot().to_out());
+            }),
+            AssignModifyLhs::LocalCaptured(s) => bc.alloc_slots_c(|lhs_rhs: BcSlotsN<2>, bc| {
+                let slot = s.node;
+                bc.write_load_local_captured(span, slot, lhs_rhs.get::<0>().to_out());
+                rhs.write_bc(lhs_rhs.get::<1>().to_out(), bc);
+
+                op.write_bc(
+                    lhs_rhs.get::<0>().to_in(),
+                    lhs_rhs.get::<1>().to_in(),
+                    lhs_rhs.get::<1>().to_out(),
+                    span,
+                    bc,
+                );
+                bc.write_store_local_captured(span, lhs_rhs.get::<1>().to_in(), slot);
             }),
             AssignModifyLhs::Module(m) => bc.alloc_slots_c(|lhs_rhs: BcSlotsN<2>, bc| {
                 let slot = m.node;

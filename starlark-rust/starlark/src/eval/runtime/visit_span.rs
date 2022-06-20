@@ -20,7 +20,7 @@ use crate::{
     environment::slots::ModuleSlotId,
     eval::{
         compiler::{expr::CompareOp, span::IrSpanned},
-        runtime::{call_stack::FrozenFileSpan, slots::LocalSlotId},
+        runtime::call_stack::FrozenFileSpan,
     },
     values::{FrozenRef, FrozenValue, FrozenValueTyped, StarlarkValue},
 };
@@ -49,7 +49,7 @@ impl VisitSpanMut for bool {
     fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrozenFileSpan)) {}
 }
 
-impl VisitSpanMut for LocalSlotId {
+impl VisitSpanMut for u32 {
     fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrozenFileSpan)) {}
 }
 

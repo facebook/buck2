@@ -20,7 +20,8 @@ use gazebo::prelude::*;
 use crate as starlark;
 use crate::eval::bc::stack_ptr::BcSlot;
 
-#[derive(Clone, Copy, Dupe, Debug, PartialEq, Eq, Trace)]
+/// Not captured.
+#[derive(Clone, Copy, Dupe, Debug, PartialEq, Eq, Trace, VisitSpanMut)]
 pub(crate) struct LocalSlotId(pub(crate) u32);
 
 impl LocalSlotId {
@@ -33,4 +34,36 @@ impl LocalSlotId {
     pub(crate) fn to_bc_slot(self) -> BcSlot {
         BcSlot(self.0)
     }
+
+    #[inline]
+    pub(crate) fn to_captured_or_not(self) -> LocalSlotIdCapturedOrNot {
+        LocalSlotIdCapturedOrNot(self.0)
+    }
 }
+
+/// Captured local slot id.
+///
+/// E. g. in code:
+///
+/// ```ignore
+/// def f():
+///   x = 1
+///   return lambda: x
+/// ```
+///
+/// `x` slots (in both `f` and `lambda`) are captured.
+#[derive(Clone, Copy, Dupe, Debug, PartialEq, Eq, Trace, VisitSpanMut)]
+pub(crate) struct LocalCapturedSlotId(pub(crate) u32);
+
+impl LocalCapturedSlotId {
+    #[inline]
+    pub(crate) fn to_captured_or_not(self) -> LocalSlotIdCapturedOrNot {
+        LocalSlotIdCapturedOrNot(self.0)
+    }
+}
+
+/// Local slot id, when we don't know if it is captured or not.
+///
+/// This is used only during AST analysis.
+#[derive(Clone, Copy, Dupe, Debug, PartialEq, Eq, Trace)]
+pub(crate) struct LocalSlotIdCapturedOrNot(pub(crate) u32);

@@ -24,7 +24,7 @@ use crate::{
     codemap::CodeMap,
     environment::{names::MutableNames, slots::ModuleSlotId, EnvironmentError, Globals, Module},
     errors::{did_you_mean::did_you_mean, Diagnostic},
-    eval::runtime::slots::LocalSlotId,
+    eval::runtime::slots::LocalSlotIdCapturedOrNot,
     syntax::{
         ast::{
             Assign, AssignIdent, AstArgumentP, AstAssignIdentP, AstAssignP, AstExprP, AstLoadP,
@@ -59,7 +59,7 @@ struct UnscopeBinding {
     /// or `None` if there was no mapping for the variable.
     ///
     /// When we pop the comprehension scope, we restore the mapping from this value.
-    undo: Option<(LocalSlotId, BindingId)>,
+    undo: Option<(LocalSlotIdCapturedOrNot, BindingId)>,
 }
 
 #[derive(Default)]
@@ -71,32 +71,32 @@ pub(crate) struct ScopeNames {
     /// Indexed by [`LocalSlotId`], values are variable names.
     pub used: Vec<String>,
     /// The names that are in this scope
-    pub mp: HashMap<String, (LocalSlotId, BindingId)>,
+    pub mp: HashMap<String, (LocalSlotIdCapturedOrNot, BindingId)>,
     /// Slots to copy from the parent. (index in parent, index in child).
     /// Module-level identifiers are not copied over, to avoid excess copying.
-    pub parent: Vec<(LocalSlotId, LocalSlotId)>,
+    pub parent: Vec<(LocalSlotIdCapturedOrNot, LocalSlotIdCapturedOrNot)>,
 }
 
 impl ScopeNames {
     fn copy_parent(
         &mut self,
-        parent_slot: LocalSlotId,
+        parent_slot: LocalSlotIdCapturedOrNot,
         binding_id: BindingId,
         name: &str,
-    ) -> LocalSlotId {
+    ) -> LocalSlotIdCapturedOrNot {
         assert!(self.get_name(name).is_none()); // Or we'll be overwriting our variable
         let res = self.add_name(name, binding_id);
         self.parent.push((parent_slot, res));
         res
     }
 
-    fn next_slot(&mut self, name: &str) -> LocalSlotId {
-        let res = LocalSlotId(self.used.len().try_into().unwrap());
+    fn next_slot(&mut self, name: &str) -> LocalSlotIdCapturedOrNot {
+        let res = LocalSlotIdCapturedOrNot(self.used.len().try_into().unwrap());
         self.used.push(name.to_owned());
         res
     }
 
-    fn add_name(&mut self, name: &str, binding_id: BindingId) -> LocalSlotId {
+    fn add_name(&mut self, name: &str, binding_id: BindingId) -> LocalSlotIdCapturedOrNot {
         let slot = self.next_slot(name);
         let old = self.mp.insert(name.to_owned(), (slot, binding_id));
         assert!(old.is_none());
@@ -108,7 +108,7 @@ impl ScopeNames {
         name: &str,
         binding_id: BindingId,
         unscope: &mut Unscope,
-    ) -> LocalSlotId {
+    ) -> LocalSlotIdCapturedOrNot {
         let slot = self.next_slot(name);
         let undo = match self.mp.get_mut(name) {
             Some(v) => {
@@ -137,15 +137,17 @@ impl ScopeNames {
         }
     }
 
-    fn get_name(&self, name: &str) -> Option<(LocalSlotId, BindingId)> {
+    fn get_name(&self, name: &str) -> Option<(LocalSlotIdCapturedOrNot, BindingId)> {
         self.mp.get(name).copied()
     }
 }
 
 #[derive(Copy, Clone, Dupe, Debug)]
 pub(crate) enum Slot {
-    Module(ModuleSlotId), // Top-level module scope
-    Local(LocalSlotId),   // Local scope, always mutable
+    /// Top-level module scope.
+    Module(ModuleSlotId),
+    /// Local scope, always mutable.
+    Local(LocalSlotIdCapturedOrNot),
 }
 
 impl<'a> Scope<'a> {

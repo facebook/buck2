@@ -24,7 +24,7 @@ use gazebo::dupe::Dupe;
 use crate::{
     eval::{
         bc::stack_ptr::{BcSlotIn, BcSlotInRange, BcSlotOut},
-        runtime::slots::LocalSlotId,
+        runtime::slots::LocalSlotIdCapturedOrNot,
         Evaluator,
     },
     values::{Trace, Tracer, Value},
@@ -90,12 +90,12 @@ impl<'v> BcFramePtr<'v> {
     }
 
     #[inline(always)]
-    pub(crate) fn get_slot(self, slot: LocalSlotId) -> Option<Value<'v>> {
+    pub(crate) fn get_slot(self, slot: LocalSlotIdCapturedOrNot) -> Option<Value<'v>> {
         self.frame().get_slot(slot)
     }
 
     #[inline(always)]
-    pub(crate) fn set_slot(mut self, slot: LocalSlotId, value: Value<'v>) {
+    pub(crate) fn set_slot(mut self, slot: LocalSlotIdCapturedOrNot, value: Value<'v>) {
         self.frame_mut().set_slot(slot, value)
     }
 
@@ -196,7 +196,7 @@ impl<'v> BcFrame<'v> {
 
     /// Gets a local variable. Returns None to indicate the variable is not yet assigned.
     #[inline(always)]
-    pub(crate) fn get_slot(&self, slot: LocalSlotId) -> Option<Value<'v>> {
+    pub(crate) fn get_slot(&self, slot: LocalSlotIdCapturedOrNot) -> Option<Value<'v>> {
         debug_assert!(slot.0 < self.local_count);
         unsafe { self.slots.as_ptr().add(slot.0 as usize).read() }
     }
@@ -213,7 +213,7 @@ impl<'v> BcFrame<'v> {
     }
 
     #[inline(always)]
-    pub(crate) fn set_slot(&mut self, slot: LocalSlotId, value: Value<'v>) {
+    pub(crate) fn set_slot(&mut self, slot: LocalSlotIdCapturedOrNot, value: Value<'v>) {
         debug_assert!(slot.0 < self.local_count);
         unsafe {
             self.slots

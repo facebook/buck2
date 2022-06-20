@@ -38,7 +38,11 @@ use crate::{
             slow_arg::BcInstrSlowArg,
             stack_ptr::{BcSlotIn, BcSlotInRange, BcSlotInRangeFrom, BcSlotOut},
         },
-        runtime::{arguments::ArgSymbol, call_stack::FrozenFileSpan, slots::LocalSlotId},
+        runtime::{
+            arguments::ArgSymbol,
+            call_stack::FrozenFileSpan,
+            slots::{LocalCapturedSlotId, LocalSlotId},
+        },
     },
     values::{
         layout::value_not_special::FrozenValueNotSpecial, types::known_methods::KnownMethod,
@@ -300,6 +304,14 @@ impl BcInstrArg for BcNativeFunction {
 }
 
 impl BcInstrArg for LocalSlotId {
+    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+        write!(f, " &{}", param.0)
+    }
+
+    fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
+}
+
+impl BcInstrArg for LocalCapturedSlotId {
     fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
         write!(f, " &{}", param.0)
     }

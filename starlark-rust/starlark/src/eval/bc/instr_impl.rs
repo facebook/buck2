@@ -47,7 +47,11 @@ use crate::{
             stmt::{add_assign, before_stmt, bit_or_assign, possible_gc, AssignError},
             EvalException,
         },
-        runtime::{arguments::ResolvedArgName, call_stack::FrozenFileSpan, slots::LocalSlotId},
+        runtime::{
+            arguments::ResolvedArgName,
+            call_stack::FrozenFileSpan,
+            slots::{LocalCapturedSlotId, LocalSlotId},
+        },
         Arguments, DefInfo, Evaluator, ParametersSpec,
     },
     values::{
@@ -162,14 +166,14 @@ impl InstrNoFlowImpl for InstrLoadLocalImpl {
 }
 
 impl InstrNoFlowImpl for InstrLoadLocalCapturedImpl {
-    type Arg = (LocalSlotId, BcSlotOut);
+    type Arg = (LocalCapturedSlotId, BcSlotOut);
 
     #[inline(always)]
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (source, target): &(LocalSlotId, BcSlotOut),
+        (source, target): &(LocalCapturedSlotId, BcSlotOut),
     ) -> anyhow::Result<()> {
         let value = eval.get_slot_local_captured(*source)?;
         frame.set_bc_slot(*target, value);
@@ -210,13 +214,13 @@ impl InstrNoFlowImpl for InstrMovImpl {
 }
 
 impl InstrNoFlowImpl for InstrStoreLocalCapturedImpl {
-    type Arg = (BcSlotIn, LocalSlotId);
+    type Arg = (BcSlotIn, LocalCapturedSlotId);
 
     fn run_with_args<'v>(
         eval: &mut Evaluator<'v, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (source, target): &(BcSlotIn, LocalSlotId),
+        (source, target): &(BcSlotIn, LocalCapturedSlotId),
     ) -> anyhow::Result<()> {
         let v = frame.get_bc_slot(*source);
         eval.set_slot_local_captured(*target, v);

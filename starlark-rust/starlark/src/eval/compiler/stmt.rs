@@ -44,7 +44,7 @@ use crate::{
         runtime::{
             call_stack::FrozenFileSpan,
             evaluator::{Evaluator, GC_THRESHOLD},
-            slots::LocalSlotId,
+            slots::{LocalCapturedSlotId, LocalSlotId},
         },
     },
     syntax::ast::{AssignOp, AssignP, StmtP},
@@ -55,7 +55,8 @@ use crate::{
 pub(crate) enum AssignModifyLhs {
     Dot(IrSpanned<ExprCompiled>, String),
     Array(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>),
-    Local(IrSpanned<(LocalSlotId, Captured)>),
+    Local(IrSpanned<LocalSlotId>),
+    LocalCaptured(IrSpanned<LocalCapturedSlotId>),
     Module(IrSpanned<ModuleSlotId>),
 }
 
@@ -108,8 +109,9 @@ impl AssignModifyLhs {
             AssignModifyLhs::Array(expr, index) => {
                 AssignModifyLhs::Array(expr.optimize_on_freeze(ctx), index.optimize_on_freeze(ctx))
             }
-            AssignModifyLhs::Local(slot) => AssignModifyLhs::Local(*slot),
-            AssignModifyLhs::Module(slot) => AssignModifyLhs::Module(*slot),
+            l @ (AssignModifyLhs::Local(..)
+            | AssignModifyLhs::LocalCaptured(..)
+            | AssignModifyLhs::Module(..)) => l.clone(),
         }
     }
 }
@@ -338,7 +340,8 @@ pub(crate) enum AssignCompiledValue {
     Dot(IrSpanned<ExprCompiled>, String),
     ArrayIndirection(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>),
     Tuple(Vec<IrSpanned<AssignCompiledValue>>),
-    Local(LocalSlotId, Captured),
+    Local(LocalSlotId),
+    LocalCaptured(LocalCapturedSlotId),
     Module(ModuleSlotId, String),
 }
 
@@ -346,7 +349,7 @@ impl AssignCompiledValue {
     /// Assignment to a local non-captured variable.
     pub(crate) fn as_local_non_captured(&self) -> Option<LocalSlotId> {
         match self {
-            AssignCompiledValue::Local(id, Captured::No) => Some(*id),
+            AssignCompiledValue::Local(id) => Some(*id),
             _ => None,
         }
     }
@@ -373,7 +376,9 @@ impl IrSpanned<AssignCompiledValue> {
                 let xs = xs.map(|x| x.optimize_on_freeze(ctx));
                 AssignCompiledValue::Tuple(xs)
             }
-            ref e @ (AssignCompiledValue::Local(..) | AssignCompiledValue::Module(..)) => e.clone(),
+            ref e @ (AssignCompiledValue::Local(..)
+            | AssignCompiledValue::LocalCaptured(..)
+            | AssignCompiledValue::Module(..)) => e.clone(),
         };
         IrSpanned { node: assign, span }
     }
@@ -408,7 +413,12 @@ impl Compiler<'_, '_, '_> {
                     .slot
                     .unwrap_or_else(|| panic!("unresolved binding: `{}`", name));
                 match (slot, binding.captured) {
-                    (Slot::Local(slot), captured) => AssignCompiledValue::Local(slot, captured),
+                    (Slot::Local(slot), Captured::No) => {
+                        AssignCompiledValue::Local(LocalSlotId(slot.0))
+                    }
+                    (Slot::Local(slot), Captured::Yes) => {
+                        AssignCompiledValue::LocalCaptured(LocalCapturedSlotId(slot.0))
+                    }
                     (Slot::Module(slot), _) => AssignCompiledValue::Module(slot, name),
                 }
             }
@@ -443,10 +453,10 @@ impl Compiler<'_, '_, '_> {
             }
             AssignP::Identifier(ident) => {
                 let (slot, captured) = self.scope_data.get_assign_ident_slot(&ident);
-                match slot {
-                    Slot::Local(slot) => {
+                match (slot, captured) {
+                    (Slot::Local(slot), Captured::No) => {
                         let lhs = IrSpanned {
-                            node: (slot, captured),
+                            node: LocalSlotId(slot.0),
                             span: span_lhs,
                         };
                         StmtsCompiled::one(IrSpanned {
@@ -454,7 +464,21 @@ impl Compiler<'_, '_, '_> {
                             node: StmtCompiled::AssignModify(AssignModifyLhs::Local(lhs), op, rhs),
                         })
                     }
-                    Slot::Module(slot) => {
+                    (Slot::Local(slot), Captured::Yes) => {
+                        let lhs = IrSpanned {
+                            node: LocalCapturedSlotId(slot.0),
+                            span: span_lhs,
+                        };
+                        StmtsCompiled::one(IrSpanned {
+                            span: span_stmt,
+                            node: StmtCompiled::AssignModify(
+                                AssignModifyLhs::LocalCaptured(lhs),
+                                op,
+                                rhs,
+                            ),
+                        })
+                    }
+                    (Slot::Module(slot), _) => {
                         let lhs = IrSpanned {
                             node: slot,
                             span: span_lhs,
