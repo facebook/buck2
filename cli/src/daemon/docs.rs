@@ -12,7 +12,7 @@ use std::{collections::HashSet, sync::Arc};
 use buck2_build_api::{
     actions::artifact::{Artifact, SourceArtifact},
     interpreter::rule_defs::{
-        artifact::StarlarkArtifact, context::AnalysisContext, provider::ProviderCallable,
+        artifact::StarlarkArtifact, context::AnalysisContext, provider::callable::ProviderCallable,
     },
 };
 use buck2_common::dice::cells::HasCellResolver;

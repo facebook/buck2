@@ -250,7 +250,7 @@ impl ProviderCodegen {
                         #(stringify!(#field_names).to_owned()),*
                     ];
                     let field_docs = vec![None;field_names.len()];
-                    use crate::interpreter::rule_defs::provider::ProviderCallableLike;
+                    use crate::interpreter::rule_defs::provider::callable::ProviderCallableLike;
                     self.provider_callable_documentation(&None, &field_names, &field_docs)
                 }
             }
@@ -260,7 +260,7 @@ impl ProviderCodegen {
     fn callable_impl_provider_callable_like(&self) -> syn::Result<proc_macro2::TokenStream> {
         let callable_name = self.callable_name()?;
         Ok(quote! {
-            impl crate::interpreter::rule_defs::provider::ProviderCallableLike for #callable_name {
+            impl crate::interpreter::rule_defs::provider::callable::ProviderCallableLike for #callable_name {
                 fn id(&self) -> Option<&std::sync::Arc<crate::interpreter::rule_defs::provider::ProviderId>> {
                     Some(self.id)
                 }
@@ -372,7 +372,7 @@ impl ProviderCodegen {
                 crate::interpreter::rule_defs::provider::ProviderRegistration {
                     as_provider_callable: |v| {
                         starlark::values::ValueLike::downcast_ref::<#callable_name>(v).map(
-                            |o| o as &dyn crate::interpreter::rule_defs::provider::ProviderCallableLike)
+                            |o| o as &dyn crate::interpreter::rule_defs::provider::callable::ProviderCallableLike)
                     },
                     as_provider: |v| {
                         <& #name as starlark::values::UnpackValue>::unpack_value(v).map(

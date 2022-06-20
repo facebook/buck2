@@ -26,7 +26,7 @@ use starlark::{
 use crate::interpreter::{
     module_internals::ModuleInternals,
     rule_defs::{
-        provider::ProviderCallable,
+        provider::callable::ProviderCallable,
         transitive_set::{TransitiveSetDefinition, TransitiveSetOperations},
     },
 };
