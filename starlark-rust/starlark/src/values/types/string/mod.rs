@@ -33,7 +33,9 @@ use gazebo::{any::ProvidesStaticType, prelude::*};
 use serde::Serialize;
 
 use crate::{
-    collections::{Hashed, StarlarkHashValue, StarlarkHasher},
+    collections::{
+        aligned_padded_str::AlignedPaddedStr, Hashed, StarlarkHashValue, StarlarkHasher,
+    },
     environment::{Methods, MethodsStatic},
     private::Private,
     values::{
@@ -106,20 +108,7 @@ impl Deref for StarlarkStr {
 
 impl PartialEq for StarlarkStr {
     fn eq(&self, other: &Self) -> bool {
-        if self.str.len != other.str.len {
-            return false;
-        }
-        // We know strings are aligned, zero-padded and short,
-        // so we can do better than generic SIMD-optimized `memcmp`
-        // https://rust.godbolt.org/z/cdscb37Yd
-        for i in 0..StarlarkStr::payload_len_for_len(self.len()) {
-            unsafe {
-                if self.str.body.get_unchecked(i) != other.str.body.get_unchecked(i) {
-                    return false;
-                }
-            }
-        }
-        true
+        self.as_aligned_padded_str() == other.as_aligned_padded_str()
     }
 }
 
@@ -170,6 +159,11 @@ impl StarlarkStr {
             let slice = slice::from_raw_parts(self.str.body.as_ptr() as *const u8, self.len());
             str::from_utf8_unchecked(slice)
         }
+    }
+
+    #[inline]
+    pub(crate) fn as_aligned_padded_str(&self) -> AlignedPaddedStr {
+        unsafe { AlignedPaddedStr::new(self.len(), self.str.body.as_ptr()) }
     }
 
     /// Get cached hash value or compute if it is not cached yet.

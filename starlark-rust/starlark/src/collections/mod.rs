@@ -27,6 +27,7 @@ pub use crate::collections::{
     small_set::SmallSet,
 };
 
+pub(crate) mod aligned_padded_str;
 pub(crate) mod alloca;
 mod hash;
 pub(crate) mod hasher;
