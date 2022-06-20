@@ -15,7 +15,7 @@ Commands below assume the use of bash/zsh, modify accordingly for other shells.
 
 If you use EdenFS backed repository (the default settings) we highly recommend setting `$CARGO_TARGET_DIR` to `$HOME/cargo-target-buck2` to make Cargo put its files elsewhere.
 
-```
+```shell
 export CARGO_TARGET_DIR=$HOME/cargo-target-buck2
 ```
 
@@ -25,13 +25,13 @@ This dramatically reduces compilation times and improves cargo stability.
 
 To set up a macOS machine run:
 
-```
+```shell
 fbclone fbcode --eden [dest_dir] # dest_dir is optional
 ```
 
 Next, install the Rust toolchain using:
 
-```
+```shell
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
@@ -41,7 +41,7 @@ NB: macOS Catalina (10.15) changed the default shell from Bash to Zsh.
 
 NB: The Rust toolchain could have adjusted your shell environment (it says as part of the installation). If that's the case, you would not need to `source` the Cargo environment.
 
-```
+```shell
 source "$HOME/.cargo/env"
 ```
 
@@ -49,7 +49,7 @@ source "$HOME/.cargo/env"
 
 To set up a Linux devserver run:
 
-```
+```shell
 fbclone fbcode --eden
 sudo feature install ttls_fwdproxy
 sudo dnf install elfutils-libelf-devel
@@ -100,7 +100,8 @@ We recommend using [Rust Analyzer project](https://github.com/rust-analyzer/rust
 To add the settings, show the Command Palette (Cmd-Shift-P on macOS), type "settings" and select "Preferences: Open Settings (JSON)". For more info, see [here](https://code.visualstudio.com/docs/getstarted/settings).
 
 When using VSCode @ FB Insiders, you can open fbsource instead of buck2 as the root folder of the workspace. To do so, you need to add this line to the settings json:
-```
+
+```json
 "rust-analyzer.linkedProjects": [
     "fbcode/buck2/Cargo.toml"
 ],
