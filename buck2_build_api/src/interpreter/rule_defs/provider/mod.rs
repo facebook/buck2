@@ -65,10 +65,7 @@ use std::{
 };
 
 use anyhow::anyhow;
-use buck2_core::{
-    cells::paths::CellPath,
-    provider::{ConfiguredProvidersLabel, ProviderName},
-};
+use buck2_core::{cells::paths::CellPath, provider::ConfiguredProvidersLabel};
 use buck2_interpreter::types::label::Label;
 use gazebo::{any::ProvidesStaticType, coerce::Coerce, dupe::Dupe};
 use serde::{Serialize, Serializer};
@@ -104,7 +101,7 @@ pub mod run_info;
 pub mod template_placeholder_info;
 
 #[derive(Debug, thiserror::Error)]
-pub enum ProviderError {
+enum ProviderError {
     #[error(
         "The result of `provider()` must be assigned to a top-level variable before it can be called"
     )]
@@ -127,10 +124,6 @@ pub enum ProviderError {
         "provider value that should have been `DefaultInfo` was not. It was `{repr}`. This is an internal error."
     )]
     ValueIsNotDefaultInfo { repr: String },
-    #[error(
-        "requested sub target named `{0}` of target `{1}` is not available. Available subtargets are: `{2:?}`"
-    )]
-    RequestedInvalidSubTarget(ProviderName, ConfiguredProvidersLabel, Vec<String>),
     #[error(
         "Provider type must be assigned to a variable, e.g. `ProviderInfo = provider(fields = {0:?})`"
     )]

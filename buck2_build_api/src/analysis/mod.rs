@@ -11,7 +11,7 @@ use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
 use anyhow::Context as _;
 use buck2_core::{
-    provider::{ConfiguredProvidersLabel, ProvidersName},
+    provider::{ConfiguredProvidersLabel, ProviderName, ProvidersName},
     result::SharedResult,
     target::ConfiguredTargetLabel,
 };
@@ -35,7 +35,7 @@ use crate::{
         context::AnalysisContext,
         provider::{
             template_placeholder_info::FrozenTemplatePlaceholderInfo,
-            FrozenProviderCollectionValue, ProviderCollection, ProviderError,
+            FrozenProviderCollectionValue, ProviderCollection,
         },
         rule::FrozenRuleCallable,
     },
@@ -54,7 +54,7 @@ use crate::{
 };
 
 #[derive(Error, Debug)]
-pub enum AnalysisError {
+enum AnalysisError {
     #[error(
         "Cannot handle flavor `{flavor}` on target `{target}`. Most flavors are unsupported in Buck2."
     )]
@@ -63,6 +63,10 @@ pub enum AnalysisError {
         "Analysis context was missing a query result, this shouldn't be possible. Query was `{0}`"
     )]
     MissingQuery(String),
+    #[error(
+        "requested sub target named `{0}` of target `{1}` is not available. Available subtargets are: `{2:?}`"
+    )]
+    RequestedInvalidSubTarget(ProviderName, ConfiguredProvidersLabel, Vec<String>),
 }
 
 #[derive(Debug, Clone, Dupe)]
@@ -112,7 +116,7 @@ impl AnalysisResult {
                                 }
                                 None => {
                                     return Err(anyhow::anyhow!(
-                                        ProviderError::RequestedInvalidSubTarget(
+                                        AnalysisError::RequestedInvalidSubTarget(
                                             provider_name.clone(),
                                             label.clone(),
                                             v.default_info()
