@@ -32,6 +32,8 @@ File changed: fbsource//tools/build_defs/structs.bzl
 
 If you are changing files, but no files are reported as having changed, then Watchman is failing to notify Buck2. You can run `watchman shutdown-server`, which may remedy the issue. If not, run `watchman-diag tool | pastry` and see if you have lots of "re-crawling" happening. If so, report to the [Watchman User's group](https://fb.workplace.com/groups/watchman.users) for further help.
 
+The source control team [recommend using EdenFS](https://www.internalfb.com/intern/wiki/Watchman/Troubleshooting/migration/) to get the most reliable Watchman experience.
+
 ## How do I get the commands Buck2 executed so I can reproduce them in isolation?
 
 See [Using `buck2 log what-ran` to find commands that Buck2 ran](what-ran.md)
