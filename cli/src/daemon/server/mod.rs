@@ -1646,6 +1646,7 @@ impl DaemonApi for BuckdServer {
             let events = context.base_context.events.dupe();
             let result = events
                 .span_async(start_event, async {
+                    let bxl_label = req.bxl_label.clone();
                     let result = bxl(context, req).await;
                     let (is_success, error_messages) = match &result {
                         Ok(response) => (
@@ -1656,7 +1657,7 @@ impl DaemonApi for BuckdServer {
                     };
                     let end_event = buck2_data::CommandEnd {
                         metadata,
-                        data: Some(buck2_data::BxlCommandEnd {}.into()),
+                        data: Some(buck2_data::BxlCommandEnd { bxl_label }.into()),
                         is_success,
                         error_messages,
                     };
