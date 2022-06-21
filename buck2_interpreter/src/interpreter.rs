@@ -533,6 +533,14 @@ impl InterpreterForCell {
         result.with_context(|| format!("when parsing `{}`", import))
     }
 
+    pub fn resolve_path(
+        &self,
+        import: StarlarkPath<'_>,
+        import_string: &str,
+    ) -> anyhow::Result<ImportPath> {
+        self.load_resolver(import).resolve_load(import_string)
+    }
+
     fn eval(
         &self,
         env: &Module,

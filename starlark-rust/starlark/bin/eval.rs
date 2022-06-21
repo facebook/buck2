@@ -126,7 +126,7 @@ impl Context {
     ) -> EvalResult<impl Iterator<Item = EvalMessage>> {
         match result {
             Err(e) => EvalResult {
-                messages: Either::Left(iter::once(EvalMessage::from_anyhow(file, e))),
+                messages: Either::Left(iter::once(EvalMessage::from_anyhow(file, &e))),
                 ast: None,
             },
             Ok(res) => EvalResult {

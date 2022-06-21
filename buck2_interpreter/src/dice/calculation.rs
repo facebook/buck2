@@ -21,6 +21,7 @@ use buck2_core::cells::paths::CellPath;
 use buck2_core::cells::CellName;
 use buck2_core::package::Package;
 use buck2_core::result::SharedResult;
+use buck2_core::result::ToSharedResultExt;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -248,6 +249,14 @@ impl<'c> DiceCalculationDelegate<'c> {
             .get_file_ops()
             .read_file(&*starlark_path.path())
             .await?;
+        self.parse_file_with_content(starlark_path, content).await
+    }
+
+    async fn parse_file_with_content(
+        &self,
+        starlark_path: StarlarkPath<'_>,
+        content: String,
+    ) -> anyhow::Result<ParseResult> {
         self.get_interpreter_for_cell()
             .await?
             .parse(starlark_path, content)
@@ -273,6 +282,26 @@ impl<'c> DiceCalculationDelegate<'c> {
         let ParseResult(ast, imports) = self.parse_file(starlark_file).await?;
         let deps = self.eval_deps(&*imports).await?;
         Ok((ast, deps))
+    }
+
+    pub async fn prepare_eval_with_content<'a>(
+        &'a self,
+        starlark_file: StarlarkPath<'_>,
+        content: String,
+    ) -> SharedResult<AstModule> {
+        let ParseResult(ast, _) = self.parse_file_with_content(starlark_file, content).await?;
+        Ok(ast)
+    }
+
+    pub async fn resolve_load(
+        &self,
+        starlark_file: StarlarkPath<'_>,
+        load_string: &str,
+    ) -> SharedResult<ImportPath> {
+        self.get_interpreter_for_cell()
+            .await?
+            .resolve_path(starlark_file, load_string)
+            .shared_error()
     }
 
     pub(crate) async fn eval_module_uncached(

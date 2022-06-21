@@ -107,7 +107,7 @@ impl LspContext for TestServerContext {
                 }
             }
             Err(e) => {
-                let diagnostics = vec![EvalMessage::from_anyhow(uri.path(), e).into()];
+                let diagnostics = vec![EvalMessage::from_anyhow(uri.path(), &e).into()];
                 LspEvalResult {
                     diagnostics,
                     ast: None,
