@@ -210,5 +210,9 @@ pub mod tester {
             assert_eq!(1, cli.len());
             Ok(cli.get(0).unwrap().clone())
         }
+
+        fn pprint_str<'v>(value: Value<'v>) -> anyhow::Result<String> {
+            Ok(format!("{:#}", value))
+        }
     }
 }

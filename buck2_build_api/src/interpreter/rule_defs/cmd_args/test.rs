@@ -98,7 +98,8 @@ fn displays_correctly() -> SharedResult<()> {
             cli = cmd_args()
             cli.add("foo")
             cli.hidden("bar")
-            assert_eq('cmd_args("foo", hidden = ["bar"])', str(cli))
+            assert_eq('cmd_args("foo", hidden=["bar"])', str(cli))
+            assert_eq('cmd_args(\n  "foo",\n  hidden=[ "bar" ]\n)', pprint_str(cli))
         "#
     ))?;
 

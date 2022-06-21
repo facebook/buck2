@@ -27,8 +27,10 @@ use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
     starlark_type,
     values::{
-        list::List, Freeze, Freezer, FrozenValue, NoSerialize, StarlarkValue, StringValue, Trace,
-        Value, ValueError, ValueLike,
+        display::{display_container, ContainerDisplayHelper},
+        list::List,
+        Freeze, Freezer, FrozenValue, NoSerialize, StarlarkValue, StringValue, Trace, Value,
+        ValueError, ValueLike,
     },
 };
 use static_assertions::assert_eq_size;
@@ -129,28 +131,30 @@ assert_eq_size!(CommandLineOptions<'static, FrozenValue>, [usize; 10]);
 
 impl<'v, V: ValueLike<'v>> Display for StarlarkCommandLineDataGen<'v, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut comma = commas();
-        write!(f, "cmd_args(")?;
-        for x in &self.items {
-            comma(f)?;
-            Display::fmt(x, f)?;
+        let mut helper = ContainerDisplayHelper::begin(
+            f,
+            "cmd_args(",
+            self.items.len()
+                + if !self.hidden.is_empty() { 1 } else { 0 }
+                + if self.options.is_some() { 1 } else { 0 },
+        )?;
+        for item in self.items.iter() {
+            helper.item(item)?;
         }
+
         if !self.hidden.is_empty() {
-            comma(f)?;
-            let mut hidden_commas = commas();
-            write!(f, "hidden = [")?;
-            for x in &self.hidden {
-                hidden_commas(f)?;
-                Display::fmt(x, f)?;
+            struct Wrapper<'a, V>(&'a Vec<CommandLineArgGen<V>>);
+            impl<'a, V: Display> Display for Wrapper<'a, V> {
+                fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                    display_container(f, "[", "]", self.0.iter())
+                }
             }
-            write!(f, "]")?;
+            helper.keyed_item("hidden", "=", Wrapper(&self.hidden))?;
         }
-        if let Some(opts) = &self.options {
-            comma(f)?;
-            Display::fmt(opts, f)?;
+        if let Some(v) = &self.options {
+            helper.keyed_item("options", "=", v)?;
         }
-        write!(f, ")")?;
-        Ok(())
+        helper.end(")")
     }
 }
 
