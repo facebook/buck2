@@ -334,3 +334,11 @@ if not is_deployed_buck2():
 
         assert "PWD" in config["env"]
         assert "EXTRA_VAR" not in config["env"]
+
+
+@buck_test(inplace=True, data_dir="..")
+@env("BUCK2_TEST_TPX_USE_TCP", "true")
+async def test_tcp(buck: Buck) -> None:
+    await buck.test(
+        "fbcode//buck2/tests/targets/rules/python/test:test",
+    )

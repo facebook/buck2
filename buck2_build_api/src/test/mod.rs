@@ -14,4 +14,7 @@ pub mod executor_launcher;
 pub mod orchestrator;
 pub mod provider;
 pub mod session;
+pub(crate) mod tcp;
 pub mod translations;
+#[cfg(unix)]
+pub(crate) mod unix;
