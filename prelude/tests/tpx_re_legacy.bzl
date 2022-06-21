@@ -35,9 +35,16 @@ def get_re_executor_from_labels(labels: [str.type]) -> ["command_executor_config
     if _RE_ENABLED not in labels:
         return None
 
+    # If there's no options found in labels, don't use RE.  This diverges from
+    # v1 behavior, but v2+tpx needs some platform to be set and so we probably
+    # want to the toolchain tp provide some exec-platform compatible platform.
+    re_opts = _parse_re_opts(labels)
+    if re_opts == None:
+        return None
+
     return CommandExecutorConfig(
         local_enabled = False,
         remote_enabled = True,
-        remote_execution_properties = _parse_re_opts(labels),
+        remote_execution_properties = re_opts,
         remote_execution_use_case = "tpx-default",
     )
