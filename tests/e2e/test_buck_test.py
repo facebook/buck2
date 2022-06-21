@@ -1,6 +1,7 @@
 import json
 import re
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -98,6 +99,27 @@ if fbcode_linux_only():
             ),
             stderr_regex="ERROR: Actual coverage [0-9.]*% is smaller than expected [0-9.]*% for file",
         )
+
+    @buck_test(inplace=True, data_dir="../")  # cwd is fbcode, we want it to be fbsource
+    async def test_python_coverage(buck: Buck) -> None:
+        for new_interface in ("true", "false"):
+            with tempfile.NamedTemporaryFile("w") as covfile:
+                await buck.test(
+                    "@fbcode//mode/dbgo-cov",
+                    "-c",
+                    f"fbcode.use_new_testpilot_interface={new_interface}",
+                    "fbcode//buck2/tests/targets/rules/python/coverage:test",
+                    "--",
+                    "--collect-coverage",
+                    f"--coverage-output={covfile.name}",
+                )
+                paths = []
+                with open(covfile.name) as results:
+                    for line in results:
+                        paths.append(json.loads(line)["filepath"])
+            assert (
+                "fbcode/buck2/tests/targets/rules/python/coverage/lib.py" in paths
+            ), str(paths)
 
 
 if fbcode_linux_only():
