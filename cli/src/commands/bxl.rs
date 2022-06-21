@@ -36,25 +36,18 @@ pub(crate) struct BxlCommand {
     )]
     materializations: Option<FinalArtifactMaterializations>,
 
-    #[clap(flatten)]
-    bxl_core: BxlCoreOpts,
-}
-
-// TODO(bobyf) merge this when we delete the bxl binary
-#[derive(Debug, clap::Parser)]
-pub struct BxlCoreOpts {
     #[clap(
         name = "BXL label",
         help = "The bxl function to execute as defined by the label of form `<cell>//path/file.bxl:<function>`"
     )]
-    pub bxl_label: String,
+    bxl_label: String,
 
     #[clap(
         name = "BXL INPUT ARGS",
         help = "Arguments passed to the bxl script",
         raw = true
     )]
-    pub bxl_args: Vec<String>,
+    bxl_args: Vec<String>,
 }
 
 #[async_trait]
@@ -73,8 +66,8 @@ impl StreamingCommand for BxlCommand {
                 client
                     .bxl(BxlRequest {
                         context: Some(ctx),
-                        bxl_label: self.bxl_core.bxl_label,
-                        bxl_args: self.bxl_core.bxl_args,
+                        bxl_label: self.bxl_label,
+                        bxl_args: self.bxl_args,
                         build_opts: Some(self.build_opts.to_proto()),
                         final_artifact_materializations: self.materializations.to_proto() as i32,
                     })
