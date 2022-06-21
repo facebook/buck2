@@ -256,6 +256,8 @@ impl<T: LspContext> Backend<T> {
                         Err(_) => None,
                     }
                 }
+                // TODO(nmj): Implement this
+                DefinitionLocation::StringLiteral { .. } => None,
             },
             None => None,
         };

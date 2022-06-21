@@ -23,8 +23,12 @@ use crate::codemap::CodeMap;
 use crate::codemap::Pos;
 use crate::codemap::ResolvedSpan;
 use crate::codemap::Span;
-use crate::syntax::ast::AstStmt;
+use crate::codemap::Spanned;
+use crate::syntax::ast::AstLiteral;
+use crate::syntax::ast::AstNoPayload;
+use crate::syntax::ast::Expr;
 use crate::syntax::ast::Stmt;
+use crate::syntax::uniplate::Visit;
 use crate::syntax::AstModule;
 
 /// The location of a definition for a given symbol. See [`AstModule::find_definition`].
@@ -48,6 +52,12 @@ pub enum DefinitionLocation {
     /// The symbol is the path component of a `load` statement. This is the raw string
     /// that is in the AST, and needs to be properly resolved to a path to be useful.
     LoadPath { source: ResolvedSpan, path: String },
+    /// A literal string in the source code. This can be a standalone string, or part of e.g. a
+    /// list, a dictionary, a return value, etc.
+    StringLiteral {
+        source: ResolvedSpan,
+        literal: String,
+    },
     /// Either the provided location was not an access of a variable, or no definition
     /// could be found.
     NotFound,
@@ -184,7 +194,7 @@ impl LspModule {
             },
             // If we could not find the symbol, see if the current position is within
             // a load statement (these are not exposed as Get/Set in bind).
-            Definition::NotFound => self.find_definition_from_load_statement(current_pos),
+            Definition::NotFound => self.find_definition_from_ast(current_pos),
             Definition::LoadedLocation {
                 source,
                 destination,
@@ -213,12 +223,31 @@ impl LspModule {
             })
     }
 
-    fn find_definition_from_load_statement(&self, pos: Pos) -> DefinitionLocation {
-        // See [`AstModule::load()`] for how we determine which statements to look at
-        fn f<'a>(codemap: &CodeMap, ast: &'a AstStmt, pos: Pos) -> Option<DefinitionLocation> {
-            match &ast.node {
-                Stmt::Load(load) => {
-                    if load.module.span.contains(pos) {
+    fn find_definition_from_ast(&self, pos: Pos) -> DefinitionLocation {
+        fn visit_node(
+            codemap: &CodeMap,
+            pos: Pos,
+            ret: &mut Option<DefinitionLocation>,
+            node: Visit<AstNoPayload>,
+        ) {
+            if ret.is_some() {
+                return;
+            }
+            match node {
+                Visit::Expr(Spanned {
+                    node: Expr::Literal(AstLiteral::String(s)),
+                    ..
+                }) if s.span.contains(pos) => {
+                    *ret = Some(DefinitionLocation::StringLiteral {
+                        source: codemap.resolve_span(s.span),
+                        literal: s.node.to_owned(),
+                    });
+                }
+                Visit::Stmt(Spanned {
+                    node: Stmt::Load(load),
+                    ..
+                }) => {
+                    *ret = if load.module.span.contains(pos) {
                         Some(DefinitionLocation::LoadPath {
                             source: codemap.resolve_span(load.module.span),
                             path: load.module.node.to_owned(),
@@ -238,11 +267,18 @@ impl LspModule {
                         })
                     }
                 }
-                Stmt::Statements(stmts) => stmts.iter().find_map(|ast| f(codemap, ast, pos)),
-                _ => None,
+                v => v.visit_children(|node| visit_node(codemap, pos, ret, node)),
             }
         }
-        f(&self.ast.codemap, &self.ast.statement, pos).unwrap_or(DefinitionLocation::NotFound)
+
+        let mut ret = None;
+        visit_node(
+            &self.ast.codemap,
+            pos,
+            &mut ret,
+            Visit::Stmt(&self.ast.statement),
+        );
+        ret.unwrap_or(DefinitionLocation::NotFound)
     }
 }
 
@@ -448,6 +484,7 @@ mod test {
 
     use super::helpers::FixtureWithRanges;
     use crate::analysis::DefinitionLocation;
+    use crate::analysis::LspModule;
 
     #[test]
     fn find_definition_loaded_symbol() -> anyhow::Result<()> {
@@ -674,6 +711,88 @@ mod test {
             DefinitionLocation::NotFound,
             module.find_definition(parsed.begin_line("no_def"), parsed.begin_column("no_def"))
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn finds_definition_in_strings() -> anyhow::Result<()> {
+        let contents = dedent(
+            r#"
+        <foo1_click>"f<foo1>o</foo1>o1"</foo1_click>
+        [
+            <foo2_click>"f<foo2>o</foo2>o2"</foo2_click>,
+            "ignored"
+        ]
+        {
+            <foo3_click>"f<foo3>o</foo3>o3"</foo3_click>: "ignored",
+            "ignored": <foo4_click>"f<foo4>o</foo4>o4"</foo4_click>,
+            "ignored_other": "ignored",
+        }
+
+        def f(x = <foo5_click>"f<foo5>o</foo5>o5"</foo5_click>):
+            <foo6_click>"f<foo6>o</foo6>o6"</foo6_click>
+            [
+                <foo7_click>"f<foo7>o</foo7>o7"</foo7_click>,
+                "ignored"
+            ]
+            {
+                <foo8_click>"f<foo8>o</foo8>o8"</foo8_click>: "ignored",
+                "ignored": <foo9_click>"f<foo9>o</foo9>o9"</foo9_click>,
+                "ignored_other": "ignored",
+            }
+            if x == <foo10_click>"f<foo10>o</foo10>o10"</foo10_click>:
+                <foo11_click>"f<foo11>o</foo11>o11"</foo11_click>
+                [
+                    <foo12_click>"f<foo12>o</foo12>o12"</foo12_click>,
+                    "ignored"
+                ]
+                {
+                    <foo13_click>"f<foo13>o</foo13>o13"</foo13_click>: "ignored",
+                    "ignored": <foo14_click>"f<foo14>o</foo14>o14"</foo14_click>,
+                    "ignored_other": "ignored",
+                }
+            return <foo15_click>"f<foo15>o</foo15>o15"</foo15_click>
+
+        foo16 = <foo16_click>"f<foo16>o</foo16>o16"</foo16_click>
+        "#,
+        )
+        .trim()
+        .to_owned();
+
+        let parsed = FixtureWithRanges::from_fixture("foo.star", &contents)?;
+        let module = parsed.module()?;
+
+        fn test(parsed: &FixtureWithRanges, module: &LspModule, name: &str) {
+            let expected = DefinitionLocation::StringLiteral {
+                source: parsed.span(&format!("{}_click", name)),
+                literal: name.to_owned(),
+            };
+            let actual = module.find_definition(parsed.begin_line(name), parsed.begin_column(name));
+
+            assert_eq!(
+                expected, actual,
+                "Expected `{:?}` == `{:?}` for test `{}`",
+                expected, actual, name
+            );
+        }
+
+        test(&parsed, &module, "foo1");
+        test(&parsed, &module, "foo2");
+        test(&parsed, &module, "foo3");
+        test(&parsed, &module, "foo4");
+        test(&parsed, &module, "foo5");
+        test(&parsed, &module, "foo6");
+        test(&parsed, &module, "foo7");
+        test(&parsed, &module, "foo8");
+        test(&parsed, &module, "foo9");
+        test(&parsed, &module, "foo10");
+        test(&parsed, &module, "foo11");
+        test(&parsed, &module, "foo12");
+        test(&parsed, &module, "foo13");
+        test(&parsed, &module, "foo14");
+        test(&parsed, &module, "foo15");
+        test(&parsed, &module, "foo16");
 
         Ok(())
     }
