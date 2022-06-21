@@ -45,7 +45,7 @@ pub mod testing {
     };
     use gazebo::{cmp::PartialEqAny, prelude::*};
     use indoc::indoc;
-    use starlark::environment::GlobalsBuilder;
+    use starlark::{environment::GlobalsBuilder, values::Value};
 
     use crate::{
         interpreter::{
@@ -68,6 +68,15 @@ pub mod testing {
         loaded_modules: LoadedModules,
         additional_globals: Option<GlobalsConfigurationFn>,
         prelude_path: Option<ImportPath>,
+    }
+
+    /// These functions will be available in the starlark environment for all code running through a Tester.
+    #[starlark_module]
+    pub fn common_helpers(builder: &mut GlobalsBuilder) {
+        /// Returns the string that pprint() will produce
+        fn pprint_str<'v>(value: Value<'v>) -> anyhow::Result<String> {
+            Ok(format!("{:#}", value))
+        }
     }
 
     /// Helpers required to help drive the interpreter
@@ -233,6 +242,7 @@ pub mod testing {
     impl InterpreterConfiguror for InjectableInterpreterConfiguror {
         fn configure_build_file_globals(&self, globals_builder: &mut GlobalsBuilder) {
             self.inner.configure_build_file_globals(globals_builder);
+            common_helpers(globals_builder);
             match &self.additional_globals {
                 None => {}
                 Some(module) => module(globals_builder),
@@ -241,6 +251,7 @@ pub mod testing {
 
         fn configure_extension_file_globals(&self, globals_builder: &mut GlobalsBuilder) {
             self.inner.configure_extension_file_globals(globals_builder);
+            common_helpers(globals_builder);
             match &self.additional_globals {
                 None => {}
                 Some(module) => module(globals_builder),
@@ -249,6 +260,7 @@ pub mod testing {
 
         fn configure_bxl_file_globals(&self, globals_builder: &mut GlobalsBuilder) {
             self.inner.configure_bxl_file_globals(globals_builder);
+            common_helpers(globals_builder);
             match &self.additional_globals {
                 None => {}
                 Some(module) => module(globals_builder),

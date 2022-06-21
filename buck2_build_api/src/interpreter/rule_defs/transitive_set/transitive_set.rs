@@ -15,7 +15,10 @@ use serde::{ser::SerializeMap, Serialize, Serializer};
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
     eval::Evaluator,
-    values::{Freeze, Freezer, FrozenValue, Heap, StarlarkValue, Trace, Value, ValueLike},
+    values::{
+        display::ContainerDisplayHelper, Freeze, Freezer, FrozenValue, Heap, StarlarkValue, Trace,
+        Value, ValueLike,
+    },
 };
 
 use crate::{
@@ -64,12 +67,17 @@ unsafe impl<'v> Coerce<TransitiveSetGen<Value<'v>>> for TransitiveSetGen<FrozenV
 
 impl<V: fmt::Display> fmt::Display for TransitiveSetGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}(", self.definition)?;
+        let mut helper = ContainerDisplayHelper::begin(
+            f,
+            &format!("{}(", self.definition),
+            if self.node.is_some() { 2 } else { 1 },
+        )?;
+
         if let Some(node) = self.node.as_ref() {
-            write!(f, "value = {}, ", node.value)?;
+            helper.keyed_item("value", "=", &node.value)?;
         }
-        write!(f, "{} children)", self.children.len())?;
-        Ok(())
+        helper.item(format!("{} children", self.children.len()))?;
+        helper.end(")")
     }
 }
 
