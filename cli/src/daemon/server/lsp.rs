@@ -16,12 +16,19 @@ use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::file_ops::FileOps;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::AbsPath;
+use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::package::Package;
 use buck2_core::result::SharedResult;
+use buck2_core::target::TargetName;
 use buck2_interpreter::common::BuildFileCell;
 use buck2_interpreter::common::ImportPath;
 use buck2_interpreter::common::StarlarkPath;
 use buck2_interpreter::dice::HasCalculationDelegate;
+use buck2_interpreter::package_listing::dice::HasPackageListingResolver;
+use buck2_interpreter::package_listing::resolver::PackageListingResolver;
+use buck2_interpreter::pattern::ParsedPattern;
+use buck2_interpreter::pattern::ProvidersPattern;
 use cli_proto::*;
 use dice::DiceTransaction;
 use events::dispatch::EventDispatcher;
@@ -31,12 +38,14 @@ use futures::SinkExt;
 use futures::StreamExt;
 use lsp_server::Connection;
 use lsp_server::Message;
+use lsp_types::Range;
 use lsp_types::Url;
 use starlark::errors::EvalMessage;
 use starlark::lsp::server::server_with_connection;
 use starlark::lsp::server::LspContext;
 use starlark::lsp::server::LspEvalResult;
 use starlark::lsp::server::StringLiteralResult;
+use starlark::syntax::AstModule;
 use tonic::Status;
 
 use crate::daemon::server::ServerCommandContext;
@@ -86,6 +95,72 @@ impl BuckLspContext {
             ast: Some(ast),
         })
     }
+
+    async fn parse_file_from_string(
+        &self,
+        current_package: &Package,
+        literal: &str,
+    ) -> anyhow::Result<Option<StringLiteralResult>> {
+        match ForwardRelativePath::new(literal) {
+            Ok(package_relative) => {
+                let relative_path = self.cell_resolver.resolve_path(
+                    current_package
+                        .join_unnormalized(package_relative)
+                        .as_cell_path(),
+                )?;
+
+                let path = self.fs.resolve(&relative_path);
+                let url = Url::from_file_path(path).unwrap();
+                let string_literal = StringLiteralResult {
+                    url,
+                    location_finder: box |_ast, _url| Ok(None),
+                };
+                Ok(Some(string_literal))
+            }
+            Err(_) => Ok(None),
+        }
+    }
+
+    async fn parse_target_from_string(
+        &self,
+        current_package: &Package,
+        literal: &str,
+    ) -> anyhow::Result<Option<StringLiteralResult>> {
+        let cell = self.cell_resolver.get(current_package.cell_name())?;
+        match ParsedPattern::<ProvidersPattern>::parsed_opt_absolute(
+            cell.cell_alias_resolver(),
+            Some(current_package),
+            literal,
+        ) {
+            Ok(ParsedPattern::Target(package, (target, _))) => {
+                let res = self
+                    .dice_ctx
+                    .get_package_listing_resolver()
+                    .resolve(&package)
+                    .await
+                    .and_then(|listing| {
+                        let relative_path = self
+                            .cell_resolver
+                            .resolve_package(&package)?
+                            .join_unnormalized(listing.buildfile());
+                        let path = self.fs.resolve(&relative_path);
+                        let url = Url::from_file_path(path).unwrap();
+                        let string_literal = StringLiteralResult {
+                            url,
+                            location_finder: box |ast, _url| Ok(Self::find_target(ast, target)),
+                        };
+                        Ok(Some(string_literal))
+                    })?;
+                Ok(res)
+            }
+            _ => Ok(None),
+        }
+    }
+
+    fn find_target(ast: &AstModule, target: TargetName) -> Option<Range> {
+        ast.find_function_call_with_name(target.value())
+            .map(Range::from)
+    }
 }
 
 impl LspContext for BuckLspContext {
@@ -127,10 +202,32 @@ impl LspContext for BuckLspContext {
 
     fn resolve_string_literal(
         &self,
-        _literal: &str,
-        _current_file: &Path,
+        literal: &str,
+        current_file: &Path,
     ) -> anyhow::Result<Option<StringLiteralResult>> {
-        Err(anyhow::anyhow!("unimplemented"))
+        let import_path = self.import_path(current_file.parent().unwrap())?;
+        let current_package = Package::from_cell_path(import_path.path());
+        let runtime = self.runtime();
+        runtime.block_on(async move {
+            // Right now we swallow the errors up as they can happen for a lot of reasons that are
+            // perfectly recoverable (e.g. an invalid cell is specified, we can't list an invalid
+            // package path, an absolute path is requested, etc).
+            //
+            // anyhow::Error sort of obscures the root causes, so we just have
+            // to assume if it failed, it's fine, and we can maybe try the next thing.
+            if let Ok(Some(string_literal)) = self
+                .parse_target_from_string(&current_package, literal)
+                .await
+            {
+                Ok(Some(string_literal))
+            } else if let Ok(Some(string_literal)) =
+                self.parse_file_from_string(&current_package, literal).await
+            {
+                Ok(Some(string_literal))
+            } else {
+                Ok(None)
+            }
+        })
     }
 
     fn get_load_contents(&self, uri: &Url) -> anyhow::Result<Option<String>> {
