@@ -24,7 +24,13 @@ pub struct ConfiguredTargetHandle(u64);
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConfiguredTarget {
     pub handle: ConfiguredTargetHandle,
+    /// Legacy name
     pub name: String,
+    /// Structured data
+    pub cell: String,
+    pub package: String,
+    pub target: String,
+    pub configuration: String,
 }
 
 /// Metadata about the execution to display

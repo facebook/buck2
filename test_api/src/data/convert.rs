@@ -143,7 +143,14 @@ impl TryFrom<test_proto::ConfiguredTarget> for ConfiguredTarget {
     type Error = anyhow::Error;
 
     fn try_from(s: test_proto::ConfiguredTarget) -> Result<Self, Self::Error> {
-        let test_proto::ConfiguredTarget { handle, name } = s;
+        let test_proto::ConfiguredTarget {
+            handle,
+            name,
+            cell,
+            package,
+            target,
+            configuration,
+        } = s;
 
         Ok(Self {
             handle: handle
@@ -151,6 +158,10 @@ impl TryFrom<test_proto::ConfiguredTarget> for ConfiguredTarget {
                 .try_into()
                 .context("Invalid `handle`")?,
             name,
+            cell,
+            package,
+            target,
+            configuration,
         })
     }
 }
@@ -162,6 +173,10 @@ impl TryInto<test_proto::ConfiguredTarget> for ConfiguredTarget {
         Ok(test_proto::ConfiguredTarget {
             handle: Some(self.handle.try_into().context("Invalid `handle`")?),
             name: self.name,
+            cell: self.cell,
+            package: self.package,
+            target: self.target,
+            configuration: self.configuration,
         })
     }
 }
@@ -764,7 +779,11 @@ mod tests {
         let test_spec = ExternalRunnerSpec {
             target: ConfiguredTarget {
                 handle: ConfiguredTargetHandle(1),
-                name: "foo".into(),
+                name: "foo:bar".into(),
+                cell: "qux".into(),
+                package: "foo".into(),
+                target: "bar".into(),
+                configuration: "xxx".into(),
             },
             test_type: "some_type".to_owned(),
             command: vec![

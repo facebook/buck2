@@ -20,9 +20,19 @@ pub fn build_configured_target_handle(
 ) -> ConfiguredTarget {
     let name = test_target_name(&target);
 
+    let label = target.target().unconfigured();
+    let cell = label.pkg().cell_name().to_string();
+    let package = label.pkg().cell_relative_path().to_string();
+    let target_name = label.name().to_string();
+    let configuration = target.cfg().to_string();
+
     ConfiguredTarget {
         handle: session.register(target),
         name,
+        cell,
+        package,
+        target: target_name,
+        configuration,
     }
 }
 

@@ -60,7 +60,13 @@ message ConfiguredTargetHandle {
 
 message ConfiguredTarget {
   ConfiguredTargetHandle handle = 1;
+  // Backwards-compat name.
   string name = 2;
+  // Structured data describing the target
+  string cell = 3;
+  string package = 4;
+  string target = 5;
+  string configuration = 6;
 }
 
 enum TestStatus {
