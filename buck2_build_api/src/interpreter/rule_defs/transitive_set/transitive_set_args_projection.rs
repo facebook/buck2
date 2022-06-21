@@ -17,7 +17,10 @@ use gazebo::{
 };
 use starlark::{
     environment::{Methods, MethodsBuilder, MethodsStatic},
-    values::{Freeze, Heap, NoSerialize, StarlarkValue, Trace, Value, ValueLike},
+    values::{
+        display::ContainerDisplayHelper, Freeze, Heap, NoSerialize, StarlarkValue, Trace, Value,
+        ValueLike,
+    },
 };
 
 use crate::{
@@ -48,12 +51,10 @@ pub struct TransitiveSetArgsProjectionGen<V> {
 impl<'v, V: ValueLike<'v>> Display for TransitiveSetArgsProjectionGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let projection_name = self.projection_name().unwrap_or("<invalid projection>");
-        write!(
-            f,
-            "TransitivesetProjection(projection={}, transitive_set={})",
-            projection_name, self.transitive_set
-        )?;
-        Ok(())
+        let mut helper = ContainerDisplayHelper::begin(f, "TransitiveSetProjection(", 2)?;
+        helper.item(projection_name)?;
+        helper.keyed_item("transitive_set", "=", &self.transitive_set)?;
+        helper.end(")")
     }
 }
 
