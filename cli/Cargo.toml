@@ -113,10 +113,6 @@ pretty_assertions = "0.6"
 name = "buck2"
 path = "bin/buck2.rs"
 
-[[bin]]
-name = "bxl"
-path = "bin/bxl.rs"
-
 [features]
 # @oss-disable: default = ["gazebo_lint", "eden_materializer", "extra_logging"]
 eden_materializer = ["buck2_build_api/eden_materializer"]

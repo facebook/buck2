@@ -136,27 +136,3 @@ buck_rust_binary(
         "//common/rust/shed/fbinit:fbinit",
     ],
 )
-
-buck_rust_binary(
-    name = "bxl",
-    srcs = ["bin/bxl.rs"],
-    unittests = False,
-    deps = [
-        "fbsource//third-party/rust:anyhow",
-        "fbsource//third-party/rust:clap",
-        "fbsource//third-party/rust:itertools",
-        "fbsource//third-party/rust:tokio",
-        "//buck2/buck2_build_api:buck2_build_api",
-        "//buck2/buck2_bxl:buck2_bxl",
-        "//buck2/buck2_common:buck2_common",
-        "//buck2/buck2_core:buck2_core",
-        "//buck2/buck2_interpreter:buck2_interpreter",
-        "//buck2/cli:cli",
-        "//buck2/cli_proto:cli_proto",
-        "//buck2/dice/dice:dice",
-        "//buck2/events:events",
-        "//buck2/gazebo/gazebo:gazebo",
-        "//buck2/host_sharing:host_sharing",
-        "//common/rust/shed/fbinit:fbinit",
-    ],
-)

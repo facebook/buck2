@@ -83,18 +83,6 @@ buck2_e2e_test(
     },
 )
 
-buck_e2e_test(
-    name = "test_bxl_bin",
-    srcs = ["test_bxl.py"],
-    data = "//buck2/tests/targets:isolated_targets",
-    env = {
-        "OVR_CONFIG": "1",
-        "PRELUDE": "$(location //buck2:prelude)",
-    },
-    executable = "$(location //buck2/cli:bxl)",
-    executable_type = "buck2_build_api_binary",
-)
-
 buck2_e2e_test(
     name = "test_buck_test",
     srcs = ["test_buck_test.py"],

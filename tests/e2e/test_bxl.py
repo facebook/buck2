@@ -336,5 +336,5 @@ async def test_bxl_caching(buck: Buck) -> None:
         "//bxl/caching.bxl:print_caching",
     )
 
-    ## assert "ran me" not in result.stderr TODO this doesn't work because of the separate bxl binary.
+    assert "ran me" not in result.stderr
     assert "result print" in result.stdout
