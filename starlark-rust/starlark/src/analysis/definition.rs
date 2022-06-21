@@ -24,9 +24,11 @@ use crate::codemap::Pos;
 use crate::codemap::ResolvedSpan;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
+use crate::syntax::ast::ArgumentP;
 use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::AstNoPayload;
 use crate::syntax::ast::Expr;
+use crate::syntax::ast::ExprP;
 use crate::syntax::ast::Stmt;
 use crate::syntax::uniplate::Visit;
 use crate::syntax::AstModule;
@@ -284,6 +286,51 @@ impl LspModule {
             Visit::Stmt(&self.ast.statement),
         );
         ret.unwrap_or(DefinitionLocation::NotFound)
+    }
+}
+
+impl AstModule {
+    /// Find the location of a top level function call that has a kwarg "name", and a string value
+    /// matching `name`.
+    ///
+    /// NOTE: If the AST is exposed in the future, this function may be removed and implemented
+    ///       by specific programs instead.
+    pub fn find_function_call_with_name(&self, name: &str) -> Option<ResolvedSpan> {
+        let mut ret = None;
+
+        fn visit_node(ret: &mut Option<Span>, name: &str, node: Visit<AstNoPayload>) {
+            if ret.is_some() {
+                return;
+            }
+
+            match node {
+                Visit::Expr(Spanned {
+                    node: ExprP::Call(identifier, arguments),
+                    ..
+                }) => {
+                    if let ExprP::Identifier(_, _) = &identifier.node {
+                        let found = arguments.iter().find_map(|argument| match &argument.node {
+                            ArgumentP::Named(
+                                arg_name,
+                                Spanned {
+                                    node: ExprP::Literal(AstLiteral::String(s)),
+                                    ..
+                                },
+                            ) if arg_name.node == "name" && s.node == name => Some(identifier.span),
+                            _ => None,
+                        });
+                        if found.is_some() {
+                            *ret = found;
+                        }
+                    }
+                }
+                Visit::Stmt(s) => s.visit_children(|node| visit_node(ret, name, node)),
+                _ => {}
+            }
+        }
+
+        visit_node(&mut ret, name, Visit::Stmt(&self.statement));
+        ret.map(|span| self.codemap.resolve_span(span))
     }
 }
 
@@ -799,6 +846,32 @@ mod test {
         test(&parsed, &module, "foo15");
         test(&parsed, &module, "foo16");
 
+        Ok(())
+    }
+
+    #[test]
+    fn finds_function_calls_with_name_kwarg() -> anyhow::Result<()> {
+        let contents = dedent(
+            r#"
+            <foo>foo</foo>(name = "foo_name")
+            bar("bar_name")
+            baz(name = "baz_name")
+
+            def x(name = "foo_name"):
+                pass
+            "#,
+        )
+        .trim()
+        .to_owned();
+
+        let parsed = FixtureWithRanges::from_fixture("foo.star", &contents)?;
+
+        let module = parsed.module()?;
+        assert_eq!(
+            Some(parsed.span("foo")),
+            module.ast.find_function_call_with_name("foo_name")
+        );
+        assert_eq!(None, module.ast.find_function_call_with_name("bar_name"));
         Ok(())
     }
 }
