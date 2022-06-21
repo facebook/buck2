@@ -130,15 +130,7 @@ pub struct RecordGen<V> {
 
 impl<'v, V: ValueLike<'v>> Display for RecordGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "record(")?;
-        for (i, (name, typ)) in self.iter().enumerate() {
-            if i != 0 {
-                write!(f, ", ")?;
-            }
-            write!(f, "{}=", name)?;
-            Display::fmt(&typ, f)?;
-        }
-        write!(f, ")")
+        display_keyed_container(f, "record(", ")", "=", self.iter())
     }
 }
 
