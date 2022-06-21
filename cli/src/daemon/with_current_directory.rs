@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-#![allow(dead_code)] // Used only on Unix.
+#![cfg_attr(windows, allow(dead_code))] // Used only on Unix.
 
 use std::env;
 use std::path::Path;
