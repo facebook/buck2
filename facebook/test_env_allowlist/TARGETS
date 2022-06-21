@@ -1,0 +1,6 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+
+rust_library(
+    name = "test_env_allowlist",
+    srcs = glob(["src/**"]),
+)
