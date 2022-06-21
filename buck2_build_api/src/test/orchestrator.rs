@@ -77,6 +77,7 @@ use crate::execute::commands::CommandExecutionResult;
 use crate::execute::commands::CommandExecutionTarget;
 use crate::execute::commands::CommandExecutionTimingData;
 use crate::execute::commands::CommandExecutor;
+use crate::execute::commands::EnvironmentInheritance;
 use crate::execute::commands::OutputCreationBehavior;
 use crate::execute::commands::{self};
 use crate::execute::materializer::HasMaterializer;
@@ -659,7 +660,8 @@ impl BuckTestOrchestrator {
         let mut request = CommandExecutionRequest::new(cmd, inputs, Default::default(), env);
         request = request
             .with_test_outputs(declared_outputs)
-            .with_working_directory(cwd);
+            .with_working_directory(cwd)
+            .with_local_environment_inheritance(EnvironmentInheritance::test_allowlist());
         Ok(request)
     }
 }

@@ -71,6 +71,7 @@ use crate::execute::commands::CommandExecutionRequest;
 use crate::execute::commands::CommandExecutionResult;
 use crate::execute::commands::CommandExecutionTarget;
 use crate::execute::commands::CommandExecutionTimingData;
+use crate::execute::commands::EnvironmentInheritance;
 use crate::execute::commands::ExecutorName;
 use crate::execute::commands::PreparedCommand;
 use crate::execute::commands::PreparedCommandExecutor;
@@ -117,6 +118,7 @@ impl LocalExecutor {
         env: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)>,
         working_directory: Option<&ProjectRelativePath>,
         timeout: Option<Duration>,
+        env_inheritance: Option<&EnvironmentInheritance>,
     ) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)> {
         let root = match working_directory {
             Some(d) => Cow::Owned(self.root.join_unnormalized(d)),
@@ -128,6 +130,12 @@ impl LocalExecutor {
         let mut cmd = Command::new(exe);
         cmd.current_dir(root);
         cmd.args(args);
+
+        if let Some(env_inheritance) = env_inheritance {
+            cmd.env_clear();
+            cmd.envs(env_inheritance.iter());
+        }
+
         cmd.envs(env);
         cmd.env("PWD", root);
 
@@ -255,6 +263,7 @@ impl LocalExecutor {
                             env,
                             request.working_directory(),
                             request.timeout(),
+                            request.local_environment_inheritance(),
                         )
                         .await;
 
@@ -988,10 +997,9 @@ mod tests {
         )
     }
 
-    #[tokio::test]
-    async fn test_exec_cmd_environment() -> anyhow::Result<()> {
-        let root = tempfile::tempdir()?;
-        let root = AbsPathBuf::try_from(root.path().canonicalize()?)?;
+    fn test_executor() -> anyhow::Result<(LocalExecutor, AbsPathBuf, impl Drop)> {
+        let dir = tempfile::tempdir()?;
+        let root = AbsPathBuf::try_from(dir.path().canonicalize()?)?;
         let project_fs = ProjectFilesystem::new(root.clone());
         let artifact_fs = artifact_fs(project_fs.clone());
 
@@ -1005,12 +1013,21 @@ mod tests {
             )),
             root.clone(),
         );
+
+        Ok((executor, root, dir))
+    }
+
+    #[tokio::test]
+    async fn test_exec_cmd_environment() -> anyhow::Result<()> {
+        let (executor, root, _tmpdir) = test_executor()?;
+
         let interpreter = if cfg!(windows) { "powershell" } else { "sh" };
         let (status, stdout, _) = executor
             .exec(
                 interpreter,
                 &["-c", "echo $PWD; pwd"],
                 &HashMap::<String, String>::default(),
+                None,
                 None,
                 None,
             )
@@ -1028,6 +1045,27 @@ mod tests {
         } else {
             assert_eq!(stdout, format!("{}\n{}\n", root, root));
         }
+
+        Ok(())
+    }
+
+    #[cfg(unix)] // TODO: something similar on Windows: T123279320
+    #[tokio::test]
+    async fn test_exec_cmd_environment_filtering() -> anyhow::Result<()> {
+        let (executor, _root, _tmpdir) = test_executor()?;
+
+        let (status, stdout, _) = executor
+            .exec(
+                "sh",
+                &["-c", "echo $USER"],
+                &HashMap::<String, String>::default(),
+                None,
+                None,
+                Some(&EnvironmentInheritance::empty()),
+            )
+            .await?;
+        assert!(matches!(status, GatherOutputStatus::Finished(s) if s.code() == Some(0)));
+        assert_eq!(stdout, "\n".as_bytes());
 
         Ok(())
     }

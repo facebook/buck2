@@ -4,7 +4,7 @@ import sys
 import pytest
 from xplat.build_infra.buck_e2e.api.buck import Buck
 from xplat.build_infra.buck_e2e.asserts import expect_failure
-from xplat.build_infra.buck_e2e.buck_workspace import buck_test, is_deployed_buck2
+from xplat.build_infra.buck_e2e.buck_workspace import buck_test, env, is_deployed_buck2
 
 
 # builds targets in an fbcode target configuration, unsupported on mac RE workers
@@ -273,3 +273,13 @@ async def test_allow_tests_on_re(buck: Buck) -> None:
         "fbcode//buck2/tests/targets/rules/external_runner_test_info/...",
         "--unstable-allow-tests-on-re",
     )
+
+
+if not is_deployed_buck2():
+
+    @buck_test(inplace=True, data_dir="..")
+    @env("TEST_MAKE_IT_FAIL", "1")
+    async def test_env_var_filtering(buck: Buck) -> None:
+        await buck.test(
+            "fbcode//buck2/tests/targets/rules/python/test:test",
+        )

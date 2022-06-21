@@ -7,6 +7,6 @@ class TestCase(unittest.TestCase):
         env = os.environ["TEST_ENV"]
         if env == "fatal":
             os._exit(1)
-        if env == "fail":
+        if env == "fail" or os.environ.get("TEST_MAKE_IT_FAIL"):
             self.assertEqual(41, 42)
         print("TESTED!")
