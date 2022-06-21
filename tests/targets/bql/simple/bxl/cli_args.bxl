@@ -6,7 +6,7 @@ def _impl(ctx):
     ctx.output.print("optional: " + repr(ctx.cli_args.optional))
     ctx.output.print("enum_type: " + repr(ctx.cli_args.enum_type))
     ctx.output.print("target: " + repr(ctx.cli_args.target))
-    ctx.output.print("providers_label: " + repr(ctx.cli_args.providers_label))
+    ctx.output.print("sub_target: " + repr(ctx.cli_args.sub_target))
     ctx.output.print("list: " + repr(ctx.cli_args.list_type))
 
 cli_test = bxl(
@@ -18,8 +18,8 @@ cli_test = bxl(
         "int_arg": cli_args.int(),
         "list_type": cli_args.list(cli_args.int()),
         "optional": cli_args.option(cli_args.string()),
-        "providers_label": cli_args.providers_label(),
         "string_arg": cli_args.string("default"),
+        "sub_target": cli_args.sub_target(),
         "target": cli_args.target_label(),
     },
 )

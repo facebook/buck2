@@ -135,7 +135,7 @@ enum CliArgType {
     List(Arc<CliArgType>),
     Option(Arc<CliArgType>),
     TargetLabel,
-    ProvidersLabel,
+    SubTarget,
 }
 
 impl Display for CliArgType {
@@ -189,8 +189,8 @@ impl CliArgType {
         CliArgType::TargetLabel
     }
 
-    fn providers_label() -> Self {
-        CliArgType::ProvidersLabel
+    fn sub_target() -> Self {
+        CliArgType::SubTarget
     }
 
     fn enumeration(vs: HashSet<String>) -> Self {
@@ -273,7 +273,7 @@ impl CliArgType {
                 })?;
                 CliArgValue::TargetLabel(label.label().dupe())
             }
-            CliArgType::ProvidersLabel => {
+            CliArgType::SubTarget => {
                 let label = value
                     .downcast_ref::<StarlarkProvidersLabel>()
                     .ok_or_else(|| {
@@ -310,7 +310,7 @@ impl CliArgType {
                             .map(|_| ())
                     })
             }),
-            CliArgType::ProvidersLabel => clap.takes_value(true).validator(|x| {
+            CliArgType::SubTarget => clap.takes_value(true).validator(|x| {
                 lex_target_pattern::<ProvidersPattern>(x, false)
                     .and_then(|parsed| parsed.pattern.infer_target())
                     .and_then(|parsed| {
@@ -384,7 +384,7 @@ impl CliArgType {
                 };
                 r.map(Some)
             })?,
-            CliArgType::ProvidersLabel => clap.value_of().map_or(Ok(None), |x| {
+            CliArgType::SubTarget => clap.value_of().map_or(Ok(None), |x| {
                 let r: anyhow::Result<_> = try {
                     CliArgValue::ProvidersLabel(
                         ParsedPattern::<ProvidersPattern>::parse_relaxed(
@@ -469,8 +469,8 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         CliArgs::new(None, doc, CliArgType::target_label())
     }
 
-    fn providers_label(#[starlark(default = "")] doc: &str) -> anyhow::Result<CliArgs> {
-        CliArgs::new(None, doc, CliArgType::providers_label())
+    fn sub_target(#[starlark(default = "")] doc: &str) -> anyhow::Result<CliArgs> {
+        CliArgs::new(None, doc, CliArgType::sub_target())
     }
 }
 
@@ -560,7 +560,7 @@ mod tests {
         );
 
         assert_eq!(
-            CliArgType::providers_label().coerce_value(heap.alloc(StarlarkProvidersLabel::new(
+            CliArgType::sub_target().coerce_value(heap.alloc(StarlarkProvidersLabel::new(
                 &heap,
                 ProvidersLabel::testing_new("foo", "pkg", "bar", Some(&["a", "b"]))
             )))?,

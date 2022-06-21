@@ -49,12 +49,12 @@ async def test_bxl(buck: Buck) -> None:
         "3",
         "--target",
         ":foo",
-        "--providers_label",
+        "--sub_target",
         "cell/pkg:bar[sub]",
     )
     assert (
         result.stdout
-        == 'bool_arg: False\nstring_arg: "default"\nint_arg: 1\nfloat_arg: 4.3\noptional: None\nenum_type: "a"\ntarget: root//:foo\nproviders_label: root//cell/pkg:bar[sub]\nlist: [1, 2, 3]\n'
+        == 'bool_arg: False\nstring_arg: "default"\nint_arg: 1\nfloat_arg: 4.3\noptional: None\nenum_type: "a"\ntarget: root//:foo\nsub_target: root//cell/pkg:bar[sub]\nlist: [1, 2, 3]\n'
     )
 
     result = await buck.bxl(
@@ -72,12 +72,12 @@ async def test_bxl(buck: Buck) -> None:
         "1",
         "--target",
         "bar:foo",
-        "--providers_label",
+        "--sub_target",
         "cell/pkg:bar",
     )
     assert (
         result.stdout
-        == 'bool_arg: False\nstring_arg: "default"\nint_arg: 2\nfloat_arg: 3.4\noptional: "value"\nenum_type: "b"\ntarget: root//bar:foo\nproviders_label: root//cell/pkg:bar\nlist: [1]\n'
+        == 'bool_arg: False\nstring_arg: "default"\nint_arg: 2\nfloat_arg: 3.4\noptional: "value"\nenum_type: "b"\ntarget: root//bar:foo\nsub_target: root//cell/pkg:bar\nlist: [1]\n'
     )
 
     # illegal target
@@ -97,7 +97,7 @@ async def test_bxl(buck: Buck) -> None:
             "1",
             "--target",
             "illegal?target",
-            "--providers_label",
+            "--sub_target",
             "cell/pkg:bar",
         )
     )
@@ -119,7 +119,7 @@ async def test_bxl(buck: Buck) -> None:
             "1",
             "--target",
             ":foo",
-            "--providers_label",
+            "--sub_target",
             "cell/pkg:bar",
         )
     )
@@ -141,7 +141,7 @@ async def test_bxl(buck: Buck) -> None:
             "wrong_inner_list_type",
             "--target",
             "bar:foo",
-            "--providers_label",
+            "--sub_target",
             "cell/pkg:bar",
         )
     )
@@ -163,7 +163,7 @@ async def test_bxl(buck: Buck) -> None:
             "1",
             "--target",
             ":foo",
-            "--providers_label",
+            "--sub_target",
             "cell/pkg:bar",
         )
     )
@@ -183,7 +183,7 @@ async def test_bxl(buck: Buck) -> None:
             "1",
             "--target",
             ":foo",
-            "--providers_label",
+            "--sub_target",
             "cell/pkg:bar",
         )
     )
