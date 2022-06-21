@@ -149,6 +149,8 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         let disable_starlark_types = ctx.get_disable_starlark_types().await;
         ctx.commit();
 
+        buck2_build_api::actions::run::dep_files::flush_dep_files();
+
         // TODO(cjhopman): could probably get away with just invalidating all fs things, but that's not supported.
         // Dropping the entire DICE map can be somewhat computationally expensive as there
         // are a lot of destructors to run. On the other hand, we don't have to wait for
