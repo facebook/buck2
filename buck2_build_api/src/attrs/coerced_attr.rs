@@ -256,7 +256,6 @@ impl CoercedAttr {
         }
     }
 
-    #[allow(dead_code)] // TODO(nga): to be used in transition rules.
     pub(crate) fn to_value<'v>(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match self {
             CoercedAttr::Literal(v) => v.to_value(heap),

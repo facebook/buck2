@@ -247,7 +247,6 @@ impl<C: AttrConfig> Display for AttrLiteral<C> {
 }
 
 impl AttrLiteral<CoercedAttr> {
-    #[allow(dead_code)] // TODO(nga): to be used in transition rules.
     pub(crate) fn to_value<'v>(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match self {
             AttrLiteral::None => Ok(Value::new_none()),
