@@ -763,7 +763,6 @@ impl DaemonState {
 
         let file_watcher =
             <dyn FileWatcher>::new(paths, root_config, dice.dupe(), cells.dupe(), ignore_specs)
-                .await
                 .context("Error creating a FileWatcher")?;
 
         // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care

@@ -182,8 +182,7 @@ async fn test_syncable_query() -> anyhow::Result<()> {
         Expr::Any(vec![Expr::FileType(FileType::Regular)]),
         box TestQueryProcessor,
         None,
-    )
-    .await?;
+    )?;
 
     // Startup
     assert_eq!(watchman_query.sync().await?, Out::FreshInstance);

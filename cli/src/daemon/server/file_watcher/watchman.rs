@@ -183,7 +183,7 @@ pub(crate) struct WatchmanFileWatcher {
 /// .watchmanconfig itself). Before any new computation request is started, it will be synced to
 /// ensure that any recent changes are flushed and visible to the computation.
 impl WatchmanFileWatcher {
-    pub(crate) async fn new(
+    pub(crate) fn new(
         paths: &Paths,
         root_config: &LegacyBuckConfig,
         dice: Arc<Dice>,
@@ -208,8 +208,7 @@ impl WatchmanFileWatcher {
                 ignore_specs,
             },
             watchman_merge_base,
-        )
-        .await?;
+        )?;
 
         Ok(Self { query })
     }

@@ -193,7 +193,6 @@ pub(crate) struct SyncableQuery<T> {
 struct SyncableQueryHandler<T> {
     connector: Connector,
     path: CanonicalPath,
-    client: WatchmanClient,
     processor: Box<dyn SyncableQueryProcessor<Output = T>>,
     query: QueryRequestCommon,
     last_clock: ClockSpec,
@@ -207,12 +206,20 @@ where
     T: Send + 'static,
 {
     async fn run_loop(&mut self) {
+        // We discard the first error here, if there is one. It's a bit unfortunate but it makes
+        // everything a lot simpler below, and kicking it off earlier is desirable because it can
+        // give Watchman time to warm up.
+        let mut client = None;
+        if let Err(e) = self.reconnect(&mut client).await {
+            tracing::warn!("Connecting to Watchman failed (will re-attempt): {:#}", e);
+        };
+
         loop {
             match self.control_rx.recv().await {
                 Some(SyncableQueryCommand::Sync(sync_tx)) => {
-                    let res = match self.sync().await {
+                    let res = match self.sync(&mut client).await {
                         Ok(res) => Ok(res),
-                        Err(e) => self.reconnect_and_sync().await.context(e),
+                        Err(e) => self.reconnect_and_sync(&mut client).await.context(e),
                     };
 
                     // NOTE: If the receiver is gone, then they won't be told we finished their
@@ -227,28 +234,35 @@ where
         }
     }
 
-    async fn reconnect(&mut self) -> anyhow::Result<()> {
+    async fn reconnect(&mut self, client: &mut Option<WatchmanClient>) -> anyhow::Result<()> {
         self.last_clock = Default::default();
         self.last_mergebase = None;
-        self.client = WatchmanClient::connect(&self.connector, self.path.clone())
-            .await
-            .context("Error reconnecting to Watchman")?;
+        *client = Some(
+            WatchmanClient::connect(&self.connector, self.path.clone())
+                .await
+                .context("Error reconnecting to Watchman")?,
+        );
         Ok(())
     }
 
-    async fn reconnect_and_sync(&mut self) -> anyhow::Result<T> {
-        self.reconnect()
+    async fn reconnect_and_sync(
+        &mut self,
+        client: &mut Option<WatchmanClient>,
+    ) -> anyhow::Result<T> {
+        self.reconnect(client)
             .await
             .context("Error reconnecting to Watchman")?;
 
-        let out = self.sync().await?;
+        let out = self.sync(client).await?;
 
         Ok(out)
     }
 
     /// sync() will send a since query to watchman and invoke the processor
     /// with either the received events or a fresh instance call.
-    async fn sync(&mut self) -> anyhow::Result<T> {
+    async fn sync(&mut self, client: &mut Option<WatchmanClient>) -> anyhow::Result<T> {
+        let client = client.as_mut().context("No Watchman connection")?;
+
         let mut query = self.query.clone();
         query.since = if let Some(mergebase_with) = self.mergebase_with.as_ref() {
             Some(Clock::ScmAware(FatClockData {
@@ -274,7 +288,7 @@ where
             // state_metadata,
             // saved_state_info,
             ..
-        } = self.client.query::<BuckQueryResult>(query).await?;
+        } = client.query::<BuckQueryResult>(query).await?;
 
         // While we use scm-based queries, the processor api doesn't really support them yet so we just treat it as a fresh instance.
         let (new_mergebase, clock) = unpack_clock(clock);
@@ -345,7 +359,7 @@ where
         }
     }
 
-    pub(crate) async fn new(
+    pub(crate) fn new(
         connector: Connector,
         path: impl AsRef<Path>,
         expr: Expr,
@@ -355,10 +369,6 @@ where
         let path = path.as_ref();
         let path = CanonicalPath::canonicalize(&path)
             .with_context(|| format!("Error canonicalizing: `{}`", path.display()))?;
-
-        let client = WatchmanClient::connect(&connector, path.clone())
-            .await
-            .context("Error connecting to Watchman")?;
 
         let query = QueryRequestCommon {
             expression: Some(expr),
@@ -382,7 +392,6 @@ where
             let mut handler = SyncableQueryHandler {
                 connector,
                 path,
-                client,
                 query,
                 last_clock: ClockSpec::default(),
                 last_mergebase: None,

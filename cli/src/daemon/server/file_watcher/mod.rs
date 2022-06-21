@@ -28,7 +28,9 @@ pub(crate) trait FileWatcher: Send + Sync + 'static {
 }
 
 impl dyn FileWatcher {
-    pub(crate) async fn new(
+    /// Create a new FileWatcher. Note that this is not async, since it's called during daemon
+    /// startup and shouldn't be doing any work that could warrant suspending.
+    pub(crate) fn new(
         paths: &Paths,
         root_config: &LegacyBuckConfig,
         dice: Arc<Dice>,
@@ -42,8 +44,7 @@ impl dyn FileWatcher {
                 dice,
                 cells,
                 ignore_specs,
-            )
-            .await?),
+            )?),
             Some(other) => Err(anyhow::anyhow!("Invalid buck2.file_watcher: {}", other)),
         }
     }
