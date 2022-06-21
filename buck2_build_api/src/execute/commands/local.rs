@@ -130,14 +130,7 @@ impl LocalExecutor {
         let mut cmd = Command::new(exe);
         cmd.current_dir(root);
         cmd.args(args);
-
-        if let Some(env_inheritance) = env_inheritance {
-            cmd.env_clear();
-            cmd.envs(env_inheritance.iter());
-        }
-
-        cmd.envs(env);
-        cmd.env("PWD", root);
+        apply_local_execution_environment(&mut cmd, root, env, env_inheritance);
 
         gather_output(cmd, timeout)
             .await
@@ -850,6 +843,47 @@ pub async fn create_output_dirs(
     }
 
     Ok(())
+}
+
+pub fn apply_local_execution_environment(
+    builder: &mut impl EnvironmentBuilder,
+    root: &Path,
+    env: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)>,
+    env_inheritance: Option<&EnvironmentInheritance>,
+) {
+    if let Some(env_inheritance) = env_inheritance {
+        builder.clear();
+        for (key, val) in env_inheritance.iter() {
+            builder.set(key, val);
+        }
+    }
+    for (key, val) in env {
+        builder.set(key, val);
+    }
+    builder.set("PWD", root);
+}
+
+pub trait EnvironmentBuilder {
+    fn clear(&mut self);
+
+    fn set<K, V>(&mut self, key: K, val: V)
+    where
+        K: AsRef<OsStr>,
+        V: AsRef<OsStr>;
+}
+
+impl EnvironmentBuilder for Command {
+    fn clear(&mut self) {
+        Command::env_clear(self);
+    }
+
+    fn set<K, V>(&mut self, key: K, val: V)
+    where
+        K: AsRef<OsStr>,
+        V: AsRef<OsStr>,
+    {
+        Command::env(self, key, val);
+    }
 }
 
 #[cfg(test)]

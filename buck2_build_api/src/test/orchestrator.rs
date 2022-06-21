@@ -10,6 +10,7 @@
 //! Implementation of the `TestOrchestrator` from `test_api`.
 
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -67,8 +68,10 @@ use crate::calculation::Calculation;
 use crate::deferred::BaseDeferredKey;
 use crate::execute::blocking::HasBlockingExecutor;
 use crate::execute::commands::dice_data::HasCommandExecutor;
+use crate::execute::commands::local::apply_local_execution_environment;
 use crate::execute::commands::local::create_output_dirs;
 use crate::execute::commands::local::materialize_inputs;
+use crate::execute::commands::local::EnvironmentBuilder;
 use crate::execute::commands::ClaimManager;
 use crate::execute::commands::CommandExecutionInput;
 use crate::execute::commands::CommandExecutionManager;
@@ -870,9 +873,53 @@ fn create_prepare_for_local_execution_result(
         .unwrap_or_else(|| ProjectRelativePath::unchecked_new(""));
     let cwd = fs.fs().resolve(relative_cwd);
     let cmd = request.args().map(String::from);
-    let env = request.env().clone();
 
-    PrepareForLocalExecutionResult { cmd, env, cwd }
+    let mut env = LossyEnvironment::new();
+    apply_local_execution_environment(
+        &mut env,
+        &cwd,
+        request.env(),
+        request.local_environment_inheritance(),
+    );
+
+    PrepareForLocalExecutionResult {
+        cmd,
+        env: env.into_inner(),
+        cwd,
+    }
+}
+
+struct LossyEnvironment {
+    inner: HashMap<String, String>,
+}
+
+impl LossyEnvironment {
+    fn new() -> Self {
+        Self {
+            inner: HashMap::new(),
+        }
+    }
+
+    fn into_inner(self) -> HashMap<String, String> {
+        self.inner
+    }
+}
+
+impl EnvironmentBuilder for LossyEnvironment {
+    fn clear(&mut self) {
+        self.inner.clear();
+    }
+
+    fn set<K, V>(&mut self, key: K, val: V)
+    where
+        K: AsRef<OsStr>,
+        V: AsRef<OsStr>,
+    {
+        self.inner.insert(
+            key.as_ref().to_string_lossy().into_owned(),
+            val.as_ref().to_string_lossy().into_owned(),
+        );
+    }
 }
 
 #[cfg(test)]

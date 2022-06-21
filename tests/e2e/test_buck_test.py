@@ -1,5 +1,7 @@
+import json
 import re
 import sys
+from pathlib import Path
 
 import pytest
 from xplat.build_infra.buck_e2e.api.buck import Buck
@@ -283,3 +285,20 @@ if not is_deployed_buck2():
         await buck.test(
             "fbcode//buck2/tests/targets/rules/python/test:test",
         )
+
+    @buck_test(inplace=True, data_dir="..")
+    @env("EXTRA_VAR", "foo")
+    async def test_prepare_for_local_execution_env(buck: Buck, tmpdir) -> None:
+        out = Path(str(tmpdir)) / "out"
+        await buck.test(
+            "fbcode//buck2/tests/targets/rules/python/test:test",
+            "--",
+            "--no-run-output-test-commands-for-fdb",
+            str(out),
+        )
+
+        with open(out) as f:
+            config = json.load(f)
+
+        assert "PWD" in config["env"]
+        assert "EXTRA_VAR" not in config["env"]
