@@ -286,6 +286,16 @@ if not is_deployed_buck2():
             "fbcode//buck2/tests/targets/rules/python/test:test",
         )
 
+        await expect_failure(
+            buck.test(
+                "fbcode//buck2/tests/targets/rules/python/test:test",
+                "--",
+                "--env",
+                "TEST_MAKE_IT_FAIL=1",
+            ),
+            stderr_regex="1 TESTS FAILED",
+        )
+
     @buck_test(inplace=True, data_dir="..")
     @env("EXTRA_VAR", "foo")
     async def test_prepare_for_local_execution_env(buck: Buck, tmpdir) -> None:
