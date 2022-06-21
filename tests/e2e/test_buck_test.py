@@ -236,6 +236,7 @@ async def test_stress_runs(buck: Buck) -> None:
     )
 
 
+# Not-in-place tests cannot run with deployed buck2
 if not is_deployed_buck2():
 
     @buck_test(inplace=False, data_dir="testsof")
@@ -258,15 +259,17 @@ if not is_deployed_buck2():
             stderr_regex="incompatible",
         )
 
-    @buck_test(inplace=True, data_dir="..")
-    async def test_external_runner_test_info_options(buck: Buck) -> None:
-        await buck.test(
-            "fbcode//buck2/tests/targets/rules/external_runner_test_info/...",
-        )
 
-    @buck_test(inplace=True, data_dir="..")
-    async def test_allow_tests_on_re(buck: Buck) -> None:
-        await buck.test(
-            "fbcode//buck2/tests/targets/rules/external_runner_test_info/...",
-            "--unstable-allow-tests-on-re",
-        )
+@buck_test(inplace=True, data_dir="..")
+async def test_external_runner_test_info_options(buck: Buck) -> None:
+    await buck.test(
+        "fbcode//buck2/tests/targets/rules/external_runner_test_info/...",
+    )
+
+
+@buck_test(inplace=True, data_dir="..")
+async def test_allow_tests_on_re(buck: Buck) -> None:
+    await buck.test(
+        "fbcode//buck2/tests/targets/rules/external_runner_test_info/...",
+        "--unstable-allow-tests-on-re",
+    )
