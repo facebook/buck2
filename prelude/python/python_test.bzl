@@ -1,4 +1,8 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
+load(
+    "@fbcode//buck2/prelude/tests:tpx_re_legacy.bzl",
+    "get_re_executor_from_labels",
+)
 load("@fbcode//buck2/prelude/utils:utils.bzl", "from_named_set", "value_or")
 load(":python_binary.bzl", "python_executable")
 load(":python_library.bzl", "py_attr_resources", "qualify_srcs")
@@ -45,6 +49,11 @@ def python_test_executable(ctx: "context") -> ("artifact", ["_arglike"], Default
 def python_test_impl(ctx: "context") -> ["provider"]:
     output, runtime_files, source_db = python_test_executable(ctx)
     test_cmd = cmd_args(output).hidden(runtime_files)
+
+    # Support tpx's v1 behavior, where tests can configure themselves to use
+    # RE with a specific platform via labels.
+    legacy_re_executor = get_re_executor_from_labels(ctx.attr.labels)
+
     return [
         DefaultInfo(
             default_outputs = [output],
@@ -58,5 +67,10 @@ def python_test_impl(ctx: "context") -> ["provider"]:
             env = ctx.attr.env,
             labels = ctx.attr.labels,
             contacts = ctx.attr.contacts,
+            default_executor = legacy_re_executor,
+            # We implicitly make this test via the project root, instead of
+            # the cell root (e.g. fbcode root).
+            run_from_project_root = legacy_re_executor != None,
+            use_project_relative_paths = legacy_re_executor != None,
         ),
     ]

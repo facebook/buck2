@@ -21,6 +21,10 @@ load(
 )
 load("@fbcode//buck2/prelude/linking:shared_libraries.bzl", "SharedLibraryInfo", "create_shared_libraries", "merge_shared_libraries")
 load(
+    "@fbcode//buck2/prelude/tests:tpx_re_legacy.bzl",
+    "get_re_executor_from_labels",
+)
+load(
     "@fbcode//buck2/prelude/utils:utils.bzl",
     "expect",
     "flatten",
@@ -407,6 +411,10 @@ def cxx_test_impl(ctx: "context") -> ["provider"]:
 
     command = [cmd_args(output.binary).hidden(output.runtime_files)] + ctx.attr.args
 
+    # Support tpx's v1 behavior, where tests can configure themselves to use
+    # RE with a specific platform via labels.
+    legacy_re_executor = get_re_executor_from_labels(ctx.attr.labels)
+
     return [
         DefaultInfo(default_outputs = [output.binary], other_outputs = output.runtime_files, sub_targets = output.sub_targets),
         # TODO(T110378106): handle env vars
@@ -417,6 +425,11 @@ def cxx_test_impl(ctx: "context") -> ["provider"]:
             env = ctx.attr.env,
             labels = ctx.attr.labels,
             contacts = ctx.attr.contacts,
+            default_executor = legacy_re_executor,
+            # We implicitly make this test via the project root, instead of
+            # the cell root (e.g. fbcode root).
+            run_from_project_root = legacy_re_executor != None,
+            use_project_relative_paths = legacy_re_executor != None,
         ),
         comp_db_info,
     ]

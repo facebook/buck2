@@ -1,4 +1,8 @@
 load(
+    "@fbcode//buck2/prelude/tests:tpx_re_legacy.bzl",
+    "get_re_executor_from_labels",
+)
+load(
     ":needed_coverage.bzl",
     "gather_python_needed_coverage",
     "parse_python_needed_coverage_specs",
@@ -39,6 +43,10 @@ def python_needed_coverage_test_impl(ctx: "context") -> ["provider"]:
     test_cmd.add("--output", "/dev/stdout")
     test_env["TEST_PILOT"] = "1"
 
+    # Support tpx's v1 behavior, where tests can configure themselves to use
+    # RE with a specific platform via labels.
+    legacy_re_executor = get_re_executor_from_labels(ctx.attr.labels)
+
     return [
         DefaultInfo(
             default_outputs = [output],
@@ -52,5 +60,10 @@ def python_needed_coverage_test_impl(ctx: "context") -> ["provider"]:
             env = test_env,
             labels = ctx.attr.labels,
             contacts = ctx.attr.contacts,
+            default_executor = legacy_re_executor,
+            # We implicitly make this test via the project root, instead of
+            # the cell root (e.g. fbcode root).
+            run_from_project_root = legacy_re_executor != None,
+            use_project_relative_paths = legacy_re_executor != None,
         ),
     ]
