@@ -106,7 +106,7 @@ pub(crate) async fn bxl(
     }
 }
 
-pub async fn copy_output<W: Write>(
+async fn copy_output<W: Write>(
     mut output: W,
     dice: &DiceComputations,
     result: &buck2_build_api::bxl::result::BxlResult,
@@ -125,7 +125,7 @@ pub async fn copy_output<W: Write>(
     Ok(())
 }
 
-pub async fn ensure_artifacts(
+async fn ensure_artifacts(
     ctx: &DiceComputations,
     materialization_ctx: &MaterializationContext,
     bxl_result: &buck2_build_api::bxl::result::BxlResult,
