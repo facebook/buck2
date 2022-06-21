@@ -97,6 +97,12 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
             "-fmodules",
             "-fmodule-name=" + get_module_name(ctx),
             "-fmodules-cache-path=" + MODULE_CACHE_PATH,
+            # TODO(T123756899): We have to use this hack to make compilation work
+            # when Clang modules are enabled and using toolchains. That's because
+            # resource-dir is passed as a relative path (so that no abs paths appear
+            # in any .pcm). The compiler will then expand and generate #include paths
+            # that won't work unless we have the directive below.
+            "-I.",
         ],
     )
 
