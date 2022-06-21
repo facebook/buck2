@@ -7,42 +7,46 @@
  * of this source tree.
  */
 
-use std::{
-    cell::RefCell,
-    fmt::{self, Display},
-    iter::Iterator,
-    sync::Arc,
-};
+use std::cell::RefCell;
+use std::fmt::Display;
+use std::fmt::{self};
+use std::iter::Iterator;
+use std::sync::Arc;
 
-use buck2_interpreter::{
-    common::ImportPath,
-    extra::{BuildContext, ExtraContext},
-};
+use buck2_interpreter::common::ImportPath;
+use buck2_interpreter::extra::BuildContext;
+use buck2_interpreter::extra::ExtraContext;
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, dupe::Dupe, prelude::*};
+use gazebo::any::ProvidesStaticType;
+use gazebo::dupe::Dupe;
+use gazebo::prelude::*;
 use itertools::Itertools;
-use starlark::{
-    environment::GlobalsBuilder,
-    eval::{Arguments, Evaluator, ParametersSpec},
-    starlark_type,
-    values::{
-        dict::DictOf,
-        docs,
-        docs::{DocItem, DocStringKind},
-        AllocValue, Freeze, Freezer, FrozenValue, Heap, NoSerialize, StarlarkValue, Trace, Value,
-    },
-};
+use starlark::environment::GlobalsBuilder;
+use starlark::eval::Arguments;
+use starlark::eval::Evaluator;
+use starlark::eval::ParametersSpec;
+use starlark::starlark_type;
+use starlark::values::dict::DictOf;
+use starlark::values::docs;
+use starlark::values::docs::DocItem;
+use starlark::values::docs::DocStringKind;
+use starlark::values::AllocValue;
+use starlark::values::Freeze;
+use starlark::values::Freezer;
+use starlark::values::FrozenValue;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::Value;
 
-use crate::{
-    interpreter::{
-        module_internals::ModuleInternals,
-        rule_defs::{
-            attr::Attribute,
-            transition::{id::TransitionId, starlark::Transition},
-        },
-    },
-    nodes::{attr_spec::AttributeSpec, unconfigured::TargetNode, StarlarkRuleType},
-};
+use crate::interpreter::module_internals::ModuleInternals;
+use crate::interpreter::rule_defs::attr::Attribute;
+use crate::interpreter::rule_defs::transition::id::TransitionId;
+use crate::interpreter::rule_defs::transition::starlark::Transition;
+use crate::nodes::attr_spec::AttributeSpec;
+use crate::nodes::unconfigured::TargetNode;
+use crate::nodes::StarlarkRuleType;
 
 pub static NAME_ATTRIBUTE_FIELD: &str = "name";
 
@@ -310,18 +314,19 @@ mod tests {
     use buck2_interpreter::file_loader::LoadedModules;
     use indoc::indoc;
     use serde_json::json;
-    use starlark::values::{
-        docs,
-        docs::{DocItem, DocString, DocStringKind},
-    };
+    use starlark::values::docs;
+    use starlark::values::docs::DocItem;
+    use starlark::values::docs::DocString;
+    use starlark::values::docs::DocStringKind;
 
-    use crate::{
-        interpreter::testing::{
-            import, run_simple_starlark_test, run_starlark_bzl_test_expecting_error,
-            run_starlark_test, run_starlark_test_expecting_error, Tester,
-        },
-        nodes::{attr_spec::AttributeSpec, unconfigured::testing::targets_to_json},
-    };
+    use crate::interpreter::testing::import;
+    use crate::interpreter::testing::run_simple_starlark_test;
+    use crate::interpreter::testing::run_starlark_bzl_test_expecting_error;
+    use crate::interpreter::testing::run_starlark_test;
+    use crate::interpreter::testing::run_starlark_test_expecting_error;
+    use crate::interpreter::testing::Tester;
+    use crate::nodes::attr_spec::AttributeSpec;
+    use crate::nodes::unconfigured::testing::targets_to_json;
 
     #[test]
     fn rule_creates_callable() -> anyhow::Result<()> {

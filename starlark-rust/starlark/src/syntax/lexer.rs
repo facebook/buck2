@@ -15,7 +15,10 @@
  * limitations under the License.
  */
 
-use std::{char, collections::VecDeque, fmt, fmt::Display};
+use std::char;
+use std::collections::VecDeque;
+use std::fmt;
+use std::fmt::Display;
 
 use derive_more::Display;
 use logos::Logos;
@@ -23,14 +26,13 @@ use num_bigint::BigInt;
 use num_traits::Num;
 use thiserror::Error;
 
-use crate::{
-    codemap::{CodeMap, Pos, Span},
-    errors::Diagnostic,
-    syntax::{
-        cursors::{CursorBytes, CursorChars},
-        dialect::Dialect,
-    },
-};
+use crate::codemap::CodeMap;
+use crate::codemap::Pos;
+use crate::codemap::Span;
+use crate::errors::Diagnostic;
+use crate::syntax::cursors::CursorBytes;
+use crate::syntax::cursors::CursorChars;
+use crate::syntax::dialect::Dialect;
 
 #[derive(Error, Debug)]
 pub(crate) enum LexemeError {

@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-use std::{marker::PhantomData, mem};
+use std::marker::PhantomData;
+use std::mem;
 
 use gazebo::dupe::Dupe;
 

@@ -17,21 +17,20 @@
 
 //! Compile comprehensions.
 
-use crate::eval::{
-    bc::{
-        compiler::{expr::write_n_exprs, if_compiler::write_if_then, stmt::write_for},
-        instr_impl::{
-            InstrComprDictInsert, InstrComprListAppend, InstrContinue, InstrDictNew, InstrListNew,
-        },
-        stack_ptr::BcSlotOut,
-        writer::BcWriter,
-    },
-    compiler::{
-        compr::{ClauseCompiled, ComprCompiled},
-        expr::MaybeNot,
-    },
-    runtime::call_stack::FrozenFileSpan,
-};
+use crate::eval::bc::compiler::expr::write_n_exprs;
+use crate::eval::bc::compiler::if_compiler::write_if_then;
+use crate::eval::bc::compiler::stmt::write_for;
+use crate::eval::bc::instr_impl::InstrComprDictInsert;
+use crate::eval::bc::instr_impl::InstrComprListAppend;
+use crate::eval::bc::instr_impl::InstrContinue;
+use crate::eval::bc::instr_impl::InstrDictNew;
+use crate::eval::bc::instr_impl::InstrListNew;
+use crate::eval::bc::stack_ptr::BcSlotOut;
+use crate::eval::bc::writer::BcWriter;
+use crate::eval::compiler::compr::ClauseCompiled;
+use crate::eval::compiler::compr::ComprCompiled;
+use crate::eval::compiler::expr::MaybeNot;
+use crate::eval::runtime::call_stack::FrozenFileSpan;
 
 impl ClauseCompiled {
     fn write_bc(

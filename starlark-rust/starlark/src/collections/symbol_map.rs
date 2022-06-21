@@ -32,20 +32,21 @@
 //! Measuring some sample strings, the P50 = 21 bytes, P75 = 27, P95 = 35,
 //! so we can reasonably expect to hit the smaller cases most often.
 
-use std::{
-    fmt::{self, Debug},
-    intrinsics::copy_nonoverlapping,
-    mem, slice, str,
-};
+use std::fmt::Debug;
+use std::fmt::{self};
+use std::intrinsics::copy_nonoverlapping;
+use std::mem;
+use std::slice;
+use std::str;
 
 use gazebo::coerce::Coerce;
 use hashbrown::raw::RawTable;
 
 use crate as starlark;
-use crate::{
-    collections::{Hashed, StarlarkHashValue},
-    values::{StringValue, Trace},
-};
+use crate::collections::Hashed;
+use crate::collections::StarlarkHashValue;
+use crate::values::StringValue;
+use crate::values::Trace;
 
 // We use a RawTable (the thing that underlies HashMap) so we can look up efficiently
 // and easily by Symbol and str, without being limited by `Borrow` traits.

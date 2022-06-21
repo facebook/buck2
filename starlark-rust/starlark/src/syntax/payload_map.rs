@@ -19,13 +19,17 @@
 
 use gazebo::prelude::*;
 
-use crate::{
-    codemap::Spanned,
-    syntax::ast::{
-        ArgumentP, AssignIdentP, AssignP, AstPayload, ClauseP, ExprP, ForClauseP, LoadP,
-        ParameterP, StmtP,
-    },
-};
+use crate::codemap::Spanned;
+use crate::syntax::ast::ArgumentP;
+use crate::syntax::ast::AssignIdentP;
+use crate::syntax::ast::AssignP;
+use crate::syntax::ast::AstPayload;
+use crate::syntax::ast::ClauseP;
+use crate::syntax::ast::ExprP;
+use crate::syntax::ast::ForClauseP;
+use crate::syntax::ast::LoadP;
+use crate::syntax::ast::ParameterP;
+use crate::syntax::ast::StmtP;
 
 pub(crate) trait AstPayloadFunction<A: AstPayload, B: AstPayload> {
     fn map_ident(&mut self, a: A::IdentPayload) -> B::IdentPayload;

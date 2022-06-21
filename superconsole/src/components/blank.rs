@@ -7,10 +7,11 @@
  * of this source tree.
  */
 
-use crate::{
-    components::{Dimensions, DrawMode},
-    Component, Line, State,
-};
+use crate::components::Dimensions;
+use crate::components::DrawMode;
+use crate::Component;
+use crate::Line;
+use crate::State;
 
 /// The `Blank` component is a dead-end component that emits nothing.
 /// It can be used for testing purposes or to make a portion of a dividing component empty.
@@ -36,10 +37,11 @@ mod tests {
 
     use derive_more::AsRef;
 
-    use crate::{
-        components::{DrawMode, Echo},
-        Component, Dimensions, Line,
-    };
+    use crate::components::DrawMode;
+    use crate::components::Echo;
+    use crate::Component;
+    use crate::Dimensions;
+    use crate::Line;
 
     #[derive(AsRef, Debug)]
     struct EchoMsg(Vec<Line>);

@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-use crate::{
-    collections::symbol_map::Symbol,
-    environment::slots::ModuleSlotId,
-    eval::{
-        compiler::{expr::CompareOp, span::IrSpanned},
-        runtime::call_stack::FrozenFileSpan,
-    },
-    values::{FrozenRef, FrozenValue, FrozenValueTyped, StarlarkValue},
-};
+use crate::collections::symbol_map::Symbol;
+use crate::environment::slots::ModuleSlotId;
+use crate::eval::compiler::expr::CompareOp;
+use crate::eval::compiler::span::IrSpanned;
+use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::values::FrozenRef;
+use crate::values::FrozenValue;
+use crate::values::FrozenValueTyped;
+use crate::values::StarlarkValue;
 
 /// Visitor for code spans in the IR.
 pub(crate) trait VisitSpanMut {

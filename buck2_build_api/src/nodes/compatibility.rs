@@ -7,13 +7,15 @@
  * of this source tree.
  */
 
-use std::{
-    fmt::{Debug, Display, Formatter, Write},
-    hash::Hash,
-    sync::Arc,
-};
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::fmt::Write;
+use std::hash::Hash;
+use std::sync::Arc;
 
-use buck2_core::target::{ConfiguredTargetLabel, TargetLabel};
+use buck2_core::target::ConfiguredTargetLabel;
+use buck2_core::target::TargetLabel;
 use gazebo::prelude::*;
 use thiserror::Error;
 
@@ -157,10 +159,9 @@ impl Display for IncompatiblePlatformReason {
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::{
-        configuration::Configuration,
-        target::{testing::TargetLabelExt, TargetLabel},
-    };
+    use buck2_core::configuration::Configuration;
+    use buck2_core::target::testing::TargetLabelExt;
+    use buck2_core::target::TargetLabel;
 
     use crate::nodes::compatibility::IncompatiblePlatformReason;
 

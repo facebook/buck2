@@ -15,17 +15,13 @@
  * limitations under the License.
  */
 
-use crate::{
-    collections::SmallMap,
-    eval::{
-        compiler::{
-            def::{Def, FrozenDef},
-            scope::ScopeNames,
-        },
-        Evaluator,
-    },
-    values::{Value, ValueLike},
-};
+use crate::collections::SmallMap;
+use crate::eval::compiler::def::Def;
+use crate::eval::compiler::def::FrozenDef;
+use crate::eval::compiler::scope::ScopeNames;
+use crate::eval::Evaluator;
+use crate::values::Value;
+use crate::values::ValueLike;
 
 pub(crate) fn to_scope_names<'v>(x: Value<'v>) -> Option<&'v ScopeNames> {
     if x.unpack_frozen().is_some() {
@@ -70,12 +66,15 @@ fn inspect_module_variables<'v>(eval: &Evaluator<'v, '_>) -> SmallMap<String, Va
 
 #[cfg(test)]
 mod tests {
-    use gazebo::{coerce::coerce, prelude::*};
+    use gazebo::coerce::coerce;
+    use gazebo::prelude::*;
 
-    use crate::{
-        self as starlark, assert, collections::SmallMap, environment::GlobalsBuilder,
-        eval::Evaluator, values::dict::Dict,
-    };
+    use crate::assert;
+    use crate::collections::SmallMap;
+    use crate::environment::GlobalsBuilder;
+    use crate::eval::Evaluator;
+    use crate::values::dict::Dict;
+    use crate::{self as starlark};
 
     #[starlark_module]
     fn debugger(builder: &mut GlobalsBuilder) {

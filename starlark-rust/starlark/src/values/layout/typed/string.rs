@@ -15,27 +15,29 @@
  * limitations under the License.
  */
 
-use std::{
-    borrow::Borrow,
-    fmt::{Debug, Display},
-    hash::{Hash, Hasher},
-};
+use std::borrow::Borrow;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::hash::Hash;
+use std::hash::Hasher;
 
-use gazebo::{
-    coerce::{Coerce, CoerceKey},
-    prelude::*,
-};
+use gazebo::coerce::Coerce;
+use gazebo::coerce::CoerceKey;
+use gazebo::prelude::*;
 use indexmap::Equivalent;
 use serde::Serialize;
 
-use crate::{
-    collections::Hashed,
-    sealed::Sealed,
-    values::{
-        layout::static_string::VALUE_EMPTY_STRING, string::StarlarkStr, Freeze, Freezer,
-        FrozenValue, FrozenValueTyped, Trace, Value, ValueTyped,
-    },
-};
+use crate::collections::Hashed;
+use crate::sealed::Sealed;
+use crate::values::layout::static_string::VALUE_EMPTY_STRING;
+use crate::values::string::StarlarkStr;
+use crate::values::Freeze;
+use crate::values::Freezer;
+use crate::values::FrozenValue;
+use crate::values::FrozenValueTyped;
+use crate::values::Trace;
+use crate::values::Value;
+use crate::values::ValueTyped;
 
 /// Convenient type alias.
 ///
@@ -253,10 +255,14 @@ impl Ord for FrozenStringValue {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        collections::Hashed,
-        values::{FrozenHeap, FrozenStringValue, FrozenValue, Heap, StringValue, Value, ValueLike},
-    };
+    use crate::collections::Hashed;
+    use crate::values::FrozenHeap;
+    use crate::values::FrozenStringValue;
+    use crate::values::FrozenValue;
+    use crate::values::Heap;
+    use crate::values::StringValue;
+    use crate::values::Value;
+    use crate::values::ValueLike;
 
     #[test]
     fn test_string_hashes() {

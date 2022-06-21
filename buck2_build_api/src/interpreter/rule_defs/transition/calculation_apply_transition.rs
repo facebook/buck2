@@ -7,41 +7,42 @@
  * of this source tree.
  */
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_core::{
-    configuration::Configuration,
-    result::{SharedError, SharedResult, ToSharedResultExt},
-    target::TargetLabel,
-};
+use buck2_core::configuration::Configuration;
+use buck2_core::result::SharedError;
+use buck2_core::result::SharedResult;
+use buck2_core::result::ToSharedResultExt;
+use buck2_core::target::TargetLabel;
 use derive_more::Display;
-use dice::{DiceComputations, Key};
-use gazebo::{dupe::Dupe, prelude::*};
+use dice::DiceComputations;
+use dice::Key;
+use gazebo::dupe::Dupe;
+use gazebo::prelude::*;
 use itertools::Itertools;
-use starlark::{
-    collections::SmallMap,
-    environment::Module,
-    eval::Evaluator,
-    values::{dict::DictOf, structs::Struct, StringValueLike, UnpackValue, Value},
-};
+use starlark::collections::SmallMap;
+use starlark::environment::Module;
+use starlark::eval::Evaluator;
+use starlark::values::dict::DictOf;
+use starlark::values::structs::Struct;
+use starlark::values::StringValueLike;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
 use thiserror::Error;
 
-use crate::{
-    analysis::calculation::RuleAnalysisCalculation,
-    attrs::coerced_attr::CoercedAttr,
-    interpreter::rule_defs::{
-        provider::{
-            builtin::platform_info::PlatformInfo, collection::FrozenProviderCollectionValue,
-        },
-        transition::{
-            applied::TransitionApplied, calculation_fetch_transition::FetchTransition,
-            cfg_diff::cfg_diff, id::TransitionId, starlark::FrozenTransition,
-        },
-    },
-    nodes::unconfigured::TargetNode,
-};
+use crate::analysis::calculation::RuleAnalysisCalculation;
+use crate::attrs::coerced_attr::CoercedAttr;
+use crate::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfo;
+use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use crate::interpreter::rule_defs::transition::applied::TransitionApplied;
+use crate::interpreter::rule_defs::transition::calculation_fetch_transition::FetchTransition;
+use crate::interpreter::rule_defs::transition::cfg_diff::cfg_diff;
+use crate::interpreter::rule_defs::transition::id::TransitionId;
+use crate::interpreter::rule_defs::transition::starlark::FrozenTransition;
+use crate::nodes::unconfigured::TargetNode;
 
 #[derive(Error, Debug)]
 enum ApplyTransitionError {

@@ -9,11 +9,11 @@
 
 //! Utilities and traits for converting certain key Buck2 to objects to protobuf messages, suitable for transmission
 //! in events.
-use buck2_bxl_core::{BxlFunctionLabel, BxlKey};
-use buck2_core::{
-    configuration::Configuration,
-    target::{ConfiguredTargetLabel, TargetLabel},
-};
+use buck2_bxl_core::BxlFunctionLabel;
+use buck2_bxl_core::BxlKey;
+use buck2_core::configuration::Configuration;
+use buck2_core::target::ConfiguredTargetLabel;
+use buck2_core::target::TargetLabel;
 
 /// Trait for things that can be converted into protobuf messages, for ease of emitting events. There are many core Buck
 /// types that are represented in the Daemon API that use this trait to ease conversion.

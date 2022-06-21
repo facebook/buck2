@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-use std::{cmp::Ordering, hash::Hash};
+use std::cmp::Ordering;
+use std::hash::Hash;
 
 use gazebo::prelude::*;
 use indexmap::Equivalent;

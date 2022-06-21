@@ -14,9 +14,11 @@
 use std::borrow::Cow;
 
 use anyhow::anyhow;
-use buck2_core::fs::paths::{
-    AbsPath, AbsPathBuf, FileNameBuf, ForwardRelativePath, ForwardRelativePathBuf,
-};
+use buck2_core::fs::paths::AbsPath;
+use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::paths::FileNameBuf;
+use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_core::fs::paths::ForwardRelativePathBuf;
 
 use crate::roots::Roots;
 
@@ -139,13 +141,17 @@ impl Paths {
 
 #[cfg(test)]
 mod tests {
-    use std::{convert::TryFrom, ffi::OsStr};
+    use std::convert::TryFrom;
+    use std::ffi::OsStr;
 
-    use buck2_core::fs::paths::{
-        AbsPath, AbsPathBuf, FileNameBuf, ForwardRelativePath, ForwardRelativePathBuf,
-    };
+    use buck2_core::fs::paths::AbsPath;
+    use buck2_core::fs::paths::AbsPathBuf;
+    use buck2_core::fs::paths::FileNameBuf;
+    use buck2_core::fs::paths::ForwardRelativePath;
+    use buck2_core::fs::paths::ForwardRelativePathBuf;
 
-    use crate::{paths::Paths, roots::Roots};
+    use crate::paths::Paths;
+    use crate::roots::Roots;
 
     #[test]
     fn test_paths() {

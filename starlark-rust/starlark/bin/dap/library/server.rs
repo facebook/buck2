@@ -17,7 +17,9 @@
 
 use debugserver_types as ds;
 
-use crate::dap::library::{events::*, requests::*, stream::*};
+use crate::dap::library::events::*;
+use crate::dap::library::requests::*;
+use crate::dap::library::stream::*;
 
 pub(crate) struct DapService {
     _private: (),

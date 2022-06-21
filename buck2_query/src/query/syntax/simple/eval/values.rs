@@ -12,12 +12,11 @@
 use buck2_query_parser::spanned::Spanned;
 use gazebo::variants::VariantName;
 
-use crate::query::{
-    environment::QueryTarget,
-    syntax::simple::eval::{
-        error::QueryError, file_set::FileSet, multi_query::MultiQueryResult, set::TargetSet,
-    },
-};
+use crate::query::environment::QueryTarget;
+use crate::query::syntax::simple::eval::error::QueryError;
+use crate::query::syntax::simple::eval::file_set::FileSet;
+use crate::query::syntax::simple::eval::multi_query::MultiQueryResult;
+use crate::query::syntax::simple::eval::set::TargetSet;
 
 pub enum QueryEvaluationResult<T: QueryTarget> {
     Single(QueryEvaluationValue<T>),

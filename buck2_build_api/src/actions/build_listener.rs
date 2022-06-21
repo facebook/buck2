@@ -7,27 +7,30 @@
  * of this source tree.
  */
 
-use std::{
-    collections::{HashMap, HashSet},
-    future::Future,
-    hash::Hash,
-    sync::Arc,
-    time::Duration,
-};
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::future::Future;
+use std::hash::Hash;
+use std::sync::Arc;
+use std::time::Duration;
 
-use buck2_data::{BuildGraphExecutionInfo, CriticalPathEntry};
-use derive_more::{Display, From};
+use buck2_data::BuildGraphExecutionInfo;
+use buck2_data::CriticalPathEntry;
+use derive_more::Display;
+use derive_more::From;
 use dice::UserComputationData;
 use events::dispatch::EventDispatcher;
 use gazebo::prelude::*;
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
-use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
+use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::sync::mpsc::UnboundedSender;
+use tokio_stream::wrappers::UnboundedReceiverStream;
+use tokio_stream::StreamExt;
 
-use crate::{
-    actions::{ActionKey, RegisteredAction},
-    artifact_groups::{ArtifactGroup, TransitiveSetProjectionKey},
-    events::proto::ToProtoMessage,
-};
+use crate::actions::ActionKey;
+use crate::actions::RegisteredAction;
+use crate::artifact_groups::ArtifactGroup;
+use crate::artifact_groups::TransitiveSetProjectionKey;
+use crate::events::proto::ToProtoMessage;
 
 pub struct ActionExecutionSignal {
     pub action: Arc<RegisteredAction>,

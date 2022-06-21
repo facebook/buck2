@@ -7,26 +7,28 @@
  * of this source tree.
  */
 
-use std::{
-    borrow::Cow,
-    collections::HashMap,
-    fmt::{Debug, Display},
-    hash::Hash,
-};
+use std::borrow::Cow;
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::hash::Hash;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_core::{cells::paths::CellPath, package::Package};
+use buck2_core::cells::paths::CellPath;
+use buck2_core::package::Package;
 use buck2_interpreter::common::BuildFilePath;
-use futures::stream::{FuturesUnordered, TryStreamExt};
+use futures::stream::FuturesUnordered;
+use futures::stream::TryStreamExt;
 use gazebo::prelude::*;
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::query::{
-    syntax::simple::eval::{error::QueryError, file_set::FileSet, set::TargetSet},
-    traversal::{AsyncTraversalDelegate, ChildVisitor},
-};
+use crate::query::syntax::simple::eval::error::QueryError;
+use crate::query::syntax::simple::eval::file_set::FileSet;
+use crate::query::syntax::simple::eval::set::TargetSet;
+use crate::query::traversal::AsyncTraversalDelegate;
+use crate::query::traversal::ChildVisitor;
 
 #[derive(Error, Debug)]
 pub enum QueryEnvironmentError {

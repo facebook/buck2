@@ -17,35 +17,46 @@
 
 //! Test starlark-rust embedding.
 
-use std::{
-    cell::RefCell,
-    sync::{Arc, Mutex},
-};
+use std::cell::RefCell;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, cell::AsARef};
+use gazebo::any::ProvidesStaticType;
+use gazebo::cell::AsARef;
 
 use crate as starlark;
-use crate::{
-    assert,
-    assert::Assert,
-    collections::SmallMap,
-    environment::{GlobalsBuilder, Module},
-    eval::Evaluator,
-    syntax::{AstModule, Dialect},
-    values::{
-        any::StarlarkAny, none::NoneType, Freeze, NoSerialize, StarlarkValue, Value, ValueLike,
-    },
-};
+use crate::assert;
+use crate::assert::Assert;
+use crate::collections::SmallMap;
+use crate::environment::GlobalsBuilder;
+use crate::environment::Module;
+use crate::eval::Evaluator;
+use crate::syntax::AstModule;
+use crate::syntax::Dialect;
+use crate::values::any::StarlarkAny;
+use crate::values::none::NoneType;
+use crate::values::Freeze;
+use crate::values::NoSerialize;
+use crate::values::StarlarkValue;
+use crate::values::Value;
+use crate::values::ValueLike;
 
 #[test]
 fn test_export_as() {
-    use std::fmt::{self, Debug, Display};
+    use std::fmt::Debug;
+    use std::fmt::Display;
+    use std::fmt::{self};
 
     use gazebo::any::ProvidesStaticType;
 
     use crate as starlark;
-    use crate::values::{AllocValue, Freezer, Heap, StarlarkValue, Trace, Value};
+    use crate::values::AllocValue;
+    use crate::values::Freezer;
+    use crate::values::Heap;
+    use crate::values::StarlarkValue;
+    use crate::values::Trace;
+    use crate::values::Value;
 
     #[derive(Debug, Trace, ProvidesStaticType, NoSerialize)]
     struct Exporter<T> {

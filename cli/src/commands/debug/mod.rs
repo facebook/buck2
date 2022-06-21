@@ -18,13 +18,11 @@ use internal_version::InternalVersionCommand;
 use materialize::MaterializeCommand;
 use replay::ReplayCommand;
 
-use crate::{
-    commands::{
-        debug::segfault::SegfaultCommand,
-        log::{last_log::LastLogCommand, what_ran::WhatRanCommand},
-    },
-    BuckSubcommand, CommandContext,
-};
+use crate::commands::debug::segfault::SegfaultCommand;
+use crate::commands::log::last_log::LastLogCommand;
+use crate::commands::log::what_ran::WhatRanCommand;
+use crate::BuckSubcommand;
+use crate::CommandContext;
 
 mod allocator_stats;
 mod chrome_trace;

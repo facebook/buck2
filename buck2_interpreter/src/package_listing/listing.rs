@@ -9,14 +9,15 @@
 
 use std::sync::Arc;
 
-use buck2_core::{
-    fs::paths::{FileName, FileNameBuf},
-    package::{PackageRelativePath, PackageRelativePathBuf},
-};
+use buck2_core::fs::paths::FileName;
+use buck2_core::fs::paths::FileNameBuf;
+use buck2_core::package::PackageRelativePath;
+use buck2_core::package::PackageRelativePathBuf;
 use gazebo::dupe::Dupe;
 use indexmap::IndexSet;
 
-use crate::package_listing::{file_listing::PackageFileListing, sorted_index_set::SortedIndexSet};
+use crate::package_listing::file_listing::PackageFileListing;
+use crate::package_listing::sorted_index_set::SortedIndexSet;
 
 #[derive(Clone, Dupe, Eq, PartialEq, Debug)]
 pub struct PackageListing {
@@ -96,10 +97,12 @@ impl PackageListing {
 }
 
 pub mod testing {
-    use buck2_core::{fs::paths::FileNameBuf, package::PackageRelativePathBuf};
+    use buck2_core::fs::paths::FileNameBuf;
+    use buck2_core::package::PackageRelativePathBuf;
     use indexmap::IndexSet;
 
-    use crate::package_listing::{listing::PackageListing, sorted_index_set::SortedIndexSet};
+    use crate::package_listing::listing::PackageListing;
+    use crate::package_listing::sorted_index_set::SortedIndexSet;
 
     pub trait PackageListingExt {
         fn testing_empty() -> Self;

@@ -7,31 +7,32 @@
  * of this source tree.
  */
 
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 
 use anyhow::Context as _;
-use buck2_core::{
-    configuration::Configuration,
-    package::{testing::PackageExt, Package},
-    target::{testing::ConfiguredTargetLabelExt, ConfiguredTargetLabel, TargetName},
-};
+use buck2_core::configuration::Configuration;
+use buck2_core::package::testing::PackageExt;
+use buck2_core::package::Package;
+use buck2_core::target::testing::ConfiguredTargetLabelExt;
+use buck2_core::target::ConfiguredTargetLabel;
+use buck2_core::target::TargetName;
 use indoc::indoc;
-use starlark::{
-    environment::{GlobalsBuilder, Module},
-    eval::Evaluator,
-    values::{OwnedFrozenValueTyped, Value},
-};
+use starlark::environment::GlobalsBuilder;
+use starlark::environment::Module;
+use starlark::eval::Evaluator;
+use starlark::values::OwnedFrozenValueTyped;
+use starlark::values::Value;
 
-use crate::{
-    deferred::{
-        testing::{DeferredDataExt, DeferredIdExt},
-        BaseDeferredKey, DeferredData, DeferredId, DeferredKey,
-    },
-    interpreter::rule_defs::{
-        artifact::testing::artifactory,
-        transitive_set::{FrozenTransitiveSet, TransitiveSet},
-    },
-};
+use crate::deferred::testing::DeferredDataExt;
+use crate::deferred::testing::DeferredIdExt;
+use crate::deferred::BaseDeferredKey;
+use crate::deferred::DeferredData;
+use crate::deferred::DeferredId;
+use crate::deferred::DeferredKey;
+use crate::interpreter::rule_defs::artifact::testing::artifactory;
+use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
 #[starlark_module]
 pub fn tset_factory(builder: &mut GlobalsBuilder) {

@@ -16,7 +16,8 @@
  */
 
 use crate as starlark;
-use crate::{assert::Assert, environment::GlobalsBuilder};
+use crate::assert::Assert;
+use crate::environment::GlobalsBuilder;
 
 const FOO_TYPE: &str = "Foo";
 

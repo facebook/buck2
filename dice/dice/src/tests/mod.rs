@@ -9,28 +9,25 @@
 
 mod demo;
 
-use std::{
-    collections::HashSet,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Barrier,
-    },
-};
+use std::collections::HashSet;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
+use std::sync::Barrier;
 
 use derivative::Derivative;
 use derive_more::Display;
 
 use super::*;
-use crate::{
-    ctx::testing::DiceCtxExt,
-    incremental::{
-        evaluator::testing::EvaluatorUnreachable,
-        testing::{DependencyExt, IncrementalEngineExt, VersionedCacheResultAssertsExt},
-        versions::{
-            testing::VersionRangesExt, MinorVersion, VersionNumber, VersionRange, VersionRanges,
-        },
-    },
-};
+use crate::ctx::testing::DiceCtxExt;
+use crate::incremental::evaluator::testing::EvaluatorUnreachable;
+use crate::incremental::testing::DependencyExt;
+use crate::incremental::testing::IncrementalEngineExt;
+use crate::incremental::testing::VersionedCacheResultAssertsExt;
+use crate::incremental::versions::testing::VersionRangesExt;
+use crate::incremental::versions::MinorVersion;
+use crate::incremental::versions::VersionNumber;
+use crate::incremental::versions::VersionRange;
+use crate::incremental::versions::VersionRanges;
 
 #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq)]
 #[display(fmt = "{:?}", self)]

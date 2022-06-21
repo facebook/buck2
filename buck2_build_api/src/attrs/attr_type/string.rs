@@ -10,12 +10,13 @@
 use std::hash::Hash;
 
 use anyhow::anyhow;
-use starlark::values::{string::STRING_TYPE, Value};
+use starlark::values::string::STRING_TYPE;
+use starlark::values::Value;
 
-use crate::attrs::{
-    attr_type::attr_literal::{AttrLiteral, CoercionError},
-    AttrCoercionContext, CoercedAttr,
-};
+use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::attr_literal::CoercionError;
+use crate::attrs::AttrCoercionContext;
+use crate::attrs::CoercedAttr;
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub(crate) struct StringAttrType;

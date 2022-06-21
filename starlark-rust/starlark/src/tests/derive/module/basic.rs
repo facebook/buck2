@@ -16,7 +16,8 @@
  */
 
 use crate as starlark;
-use crate::{assert::Assert, environment::GlobalsBuilder};
+use crate::assert::Assert;
+use crate::environment::GlobalsBuilder;
 
 // The example from the starlark_module documentation.
 #[test]

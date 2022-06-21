@@ -1,6 +1,7 @@
 use std::hash::Hash;
 
-use indexmap::{Equivalent, IndexMap};
+use indexmap::Equivalent;
+use indexmap::IndexMap;
 
 /// `IndexMap` but with keys sorted.
 #[derive(Debug, Clone)]

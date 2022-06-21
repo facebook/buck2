@@ -7,20 +7,22 @@
  * of this source tree.
  */
 
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
+use std::fmt::Display;
 
-use buck2_core::{provider::ConfiguredProvidersLabel, target::TargetLabel};
-use serde::{Serialize, Serializer};
-use starlark::{
-    collections::{small_map::Entry, SmallMap},
-    values::Value,
-};
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::target::TargetLabel;
+use serde::Serialize;
+use serde::Serializer;
+use starlark::collections::small_map::Entry;
+use starlark::collections::SmallMap;
+use starlark::values::Value;
 
-use crate::attrs::{
-    attr_type::attr_literal::{AttrConfig, AttrLiteral, ConfiguredAttrTraversal},
-    coerced_attr::SelectError,
-    AttrResolutionContext,
-};
+use crate::attrs::attr_type::attr_literal::AttrConfig;
+use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
+use crate::attrs::coerced_attr::SelectError;
+use crate::attrs::AttrResolutionContext;
 
 #[derive(Eq, PartialEq, Hash, Clone)]
 pub struct ConfiguredAttr(pub(crate) AttrLiteral<ConfiguredAttr>);

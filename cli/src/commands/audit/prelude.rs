@@ -7,25 +7,23 @@
  * of this source tree.
  */
 
-use std::{io::Write, sync::Arc};
+use std::io::Write;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_build_api::interpreter::context::fbcode_prelude;
 use buck2_core::cells::*;
-use buck2_interpreter::{
-    common::StarlarkModulePath,
-    dice::{HasCalculationDelegate, HasGlobalInterpreterState},
-    interpreter::InterpreterConfigForCell,
-};
+use buck2_interpreter::common::StarlarkModulePath;
+use buck2_interpreter::dice::HasCalculationDelegate;
+use buck2_interpreter::dice::HasGlobalInterpreterState;
+use buck2_interpreter::interpreter::InterpreterConfigForCell;
 use cli_proto::ClientContext;
 
-use crate::{
-    commands::{
-        audit::AuditSubcommand,
-        common::{CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions},
-    },
-    daemon::server::ServerCommandContext,
-};
+use crate::commands::audit::AuditSubcommand;
+use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonConsoleOptions;
+use crate::commands::common::CommonEventLogOptions;
+use crate::daemon::server::ServerCommandContext;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(

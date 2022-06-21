@@ -12,7 +12,8 @@
 //! Buck2 is compiled with -C panic=abort, which causes the default hook to abort as soon as the panic runtime is
 //! invoked. This module sets up a panic hook to run just before that to do some crash reporting.
 
-use std::panic::{self, PanicInfo};
+use std::panic::PanicInfo;
+use std::panic::{self};
 
 use fbinit::FacebookInit;
 
@@ -47,7 +48,9 @@ fn the_panic_hook(fb: FacebookInit, info: &PanicInfo) {
 
 #[cfg(fbcode_build)]
 mod imp {
-    use std::{collections::HashMap, panic::PanicInfo, thread};
+    use std::collections::HashMap;
+    use std::panic::PanicInfo;
+    use std::thread;
 
     use backtrace::Backtrace;
     use buck2_data::Location;
@@ -152,10 +155,11 @@ mod imp {
 
         use buck2_core::facebook_only;
         use buck2_data::InstantEvent;
-        use events::{
-            sink::scribe::{self, ThriftScribeSink},
-            BuckEvent, EventSink, TraceId,
-        };
+        use events::sink::scribe::ThriftScribeSink;
+        use events::sink::scribe::{self};
+        use events::BuckEvent;
+        use events::EventSink;
+        use events::TraceId;
 
         facebook_only();
         if !scribe::is_enabled() {

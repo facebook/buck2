@@ -7,16 +7,20 @@
  * of this source tree.
  */
 
-use std::{collections::HashSet, io::Write};
+use std::collections::HashSet;
+use std::io::Write;
 
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_interpreter::{
-    common::{BuildFileCell, BuildFilePath, ImportPath, StarlarkModulePath, StarlarkPath},
-    dice::HasCalculationDelegate,
-    file_loader::LoadedModule,
-    package_listing::{dice::HasPackageListingResolver, resolver::PackageListingResolver},
-    pattern::parse_package::parse_package,
-};
+use buck2_interpreter::common::BuildFileCell;
+use buck2_interpreter::common::BuildFilePath;
+use buck2_interpreter::common::ImportPath;
+use buck2_interpreter::common::StarlarkModulePath;
+use buck2_interpreter::common::StarlarkPath;
+use buck2_interpreter::dice::HasCalculationDelegate;
+use buck2_interpreter::file_loader::LoadedModule;
+use buck2_interpreter::package_listing::dice::HasPackageListingResolver;
+use buck2_interpreter::package_listing::resolver::PackageListingResolver;
+use buck2_interpreter::pattern::parse_package::parse_package;
 use cli_proto::ClientContext;
 
 use crate::daemon::server::ServerCommandContext;

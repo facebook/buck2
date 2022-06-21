@@ -7,12 +7,18 @@
  * of this source tree.
  */
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use async_trait::async_trait;
 use gazebo::dupe::Dupe;
 
-use crate::{DetectCycles, Dice, DiceComputations, DiceData, Key, UserComputationData};
+use crate::DetectCycles;
+use crate::Dice;
+use crate::DiceComputations;
+use crate::DiceData;
+use crate::Key;
+use crate::UserComputationData;
 
 #[derive(Debug, PartialEq)]
 enum KeyType {

@@ -15,11 +15,14 @@
  * limitations under the License.
  */
 
-use std::{cell::RefCell, convert::TryInto, iter::Iterator};
+use std::cell::RefCell;
+use std::convert::TryInto;
+use std::iter::Iterator;
 
 use indexmap::map::IndexMap;
 
-use crate::{environment::slots::ModuleSlotId, syntax::ast::Visibility};
+use crate::environment::slots::ModuleSlotId;
+use crate::syntax::ast::Visibility;
 
 /// MutableNames are how we allocate slots (index-based) to variables
 /// (name-based). The slots field is the current active mapping of names to

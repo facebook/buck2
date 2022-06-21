@@ -1,6 +1,7 @@
 // (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
-use futures_intrusive::sync::{SharedSemaphore, SharedSemaphoreReleaser};
+use futures_intrusive::sync::SharedSemaphore;
+use futures_intrusive::sync::SharedSemaphoreReleaser;
 
 use crate::NamedSemaphores;
 
@@ -133,7 +134,9 @@ pub enum HostSharingStrategy {
 
 #[cfg(test)]
 mod tests {
-    use super::{HostSharingBroker, HostSharingStrategy, WeightClass};
+    use super::HostSharingBroker;
+    use super::HostSharingStrategy;
+    use super::WeightClass;
 
     #[test]
     // if we only have 2 machine permits then even a test requiring 4 permits will be capped to only require 2 permits

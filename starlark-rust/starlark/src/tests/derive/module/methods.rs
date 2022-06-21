@@ -18,11 +18,16 @@
 use gazebo::any::ProvidesStaticType;
 
 use crate as starlark;
-use crate::{
-    assert::Assert,
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    values::{AllocFrozenValue, FrozenHeap, FrozenValue, StarlarkValue, Value, ValueLike},
-};
+use crate::assert::Assert;
+use crate::environment::Methods;
+use crate::environment::MethodsBuilder;
+use crate::environment::MethodsStatic;
+use crate::values::AllocFrozenValue;
+use crate::values::FrozenHeap;
+use crate::values::FrozenValue;
+use crate::values::StarlarkValue;
+use crate::values::Value;
+use crate::values::ValueLike;
 
 #[derive(Debug, derive_more::Display, ProvidesStaticType, NoSerialize)]
 #[display(fmt = "{:?}", self)]

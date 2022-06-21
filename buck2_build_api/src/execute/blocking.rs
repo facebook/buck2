@@ -11,12 +11,16 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_core::{env_helper::EnvHelper, fs::project::ProjectFilesystem};
-use crossbeam_channel::{self, unbounded};
-use dice::{DiceComputations, UserComputationData};
+use buck2_core::env_helper::EnvHelper;
+use buck2_core::fs::project::ProjectFilesystem;
+use crossbeam_channel::unbounded;
+use crossbeam_channel::{self};
+use dice::DiceComputations;
+use dice::UserComputationData;
 use gazebo::prelude::*;
 use more_futures::spawn::dropcancel_critical_section;
-use tokio::sync::{oneshot, Semaphore};
+use tokio::sync::oneshot;
+use tokio::sync::Semaphore;
 
 #[async_trait]
 pub trait BlockingExecutor: Send + Sync + 'static {

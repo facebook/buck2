@@ -7,12 +7,15 @@
  * of this source tree.
  */
 
-use std::{fmt, iter::once};
+use std::fmt;
+use std::iter::once;
 
-use super::{
-    DirectoryBuilder, DirectoryEntry, HasDirectoryDigest, OrderedDirectoryWalk, PathAccumulator,
-    UnorderedDirectoryWalk,
-};
+use super::DirectoryBuilder;
+use super::DirectoryEntry;
+use super::HasDirectoryDigest;
+use super::OrderedDirectoryWalk;
+use super::PathAccumulator;
+use super::UnorderedDirectoryWalk;
 use crate::fs::paths::FileName;
 
 pub type DirectoryEntries<'a, L, H> =

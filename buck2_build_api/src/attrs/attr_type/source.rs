@@ -10,19 +10,21 @@
 use std::hash::Hash;
 
 use anyhow::anyhow;
-use buck2_core::{buck_path::BuckPath, provider::ConfiguredProvidersLabel};
+use buck2_core::buck_path::BuckPath;
+use buck2_core::provider::ConfiguredProvidersLabel;
 use gazebo::prelude::*;
-use starlark::values::{list::FrozenList, string::STRING_TYPE, Value};
+use starlark::values::list::FrozenList;
+use starlark::values::string::STRING_TYPE;
+use starlark::values::Value;
 use thiserror::Error;
 
-use crate::{
-    actions::artifact::SourceArtifact,
-    attrs::{
-        attr_type::attr_literal::{AttrLiteral, CoercionError},
-        AttrCoercionContext, AttrResolutionContext, CoercedAttr,
-    },
-    interpreter::rule_defs::artifact::StarlarkArtifact,
-};
+use crate::actions::artifact::SourceArtifact;
+use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::attr_literal::CoercionError;
+use crate::attrs::AttrCoercionContext;
+use crate::attrs::AttrResolutionContext;
+use crate::attrs::CoercedAttr;
+use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 
 #[derive(Error, Debug)]
 enum SourceLabelResolutionError {

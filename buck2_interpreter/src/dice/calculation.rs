@@ -7,47 +7,53 @@
  * of this source tree.
  */
 
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::sync::Arc;
 
-use buck2_common::{
-    dice::{
-        cells::HasCellResolver,
-        file_ops::{DiceFileOps, HasFileOps},
-    },
-    file_ops::FileOps,
-    legacy_configs::dice::{HasLegacyConfigs, LegacyBuckConfigOnDice},
-    package_boundary::HasPackageBoundaryExceptions,
-};
-use buck2_core::{
-    cells::{paths::CellPath, CellName},
-    package::Package,
-    result::SharedResult,
-};
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::file_ops::DiceFileOps;
+use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::file_ops::FileOps;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::dice::LegacyBuckConfigOnDice;
+use buck2_common::package_boundary::HasPackageBoundaryExceptions;
+use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::CellName;
+use buck2_core::package::Package;
+use buck2_core::result::SharedResult;
 use derive_more::Display;
-use dice::{DiceComputations, Key};
+use dice::DiceComputations;
+use dice::Key;
 use events::dispatch::EventDispatcher;
 use gazebo::prelude::*;
 use starlark::syntax::AstModule;
 
-use crate::{
-    common::{
-        BuildFileCell, BuildFilePath, ImportPath, OwnedStarlarkModulePath, StarlarkModulePath,
-        StarlarkPath,
-    },
-    dice::{
-        calculation::keys::EvalImportKey, starlark_profiler::GetStarlarkProfilerInstrumentation,
-        starlark_types::GetDisableStarlarkTypes, HasCalculationDelegate, HasEvents,
-        HasGlobalInterpreterState, HasInterpreterContext, HasPackageListingResolver,
-    },
-    extra::ExtraContext,
-    file_loader::{LoadedModule, ModuleDeps},
-    import_paths::HasImportPaths,
-    interpreter::{
-        GlobalInterpreterState, InterpreterConfigForCell, InterpreterForCell, ParseResult,
-    },
-    package_listing::{listing::PackageListing, resolver::PackageListingResolver},
-    starlark_profiler::{StarlarkProfilerInstrumentation, StarlarkProfilerOrInstrumentation},
-};
+use crate::common::BuildFileCell;
+use crate::common::BuildFilePath;
+use crate::common::ImportPath;
+use crate::common::OwnedStarlarkModulePath;
+use crate::common::StarlarkModulePath;
+use crate::common::StarlarkPath;
+use crate::dice::calculation::keys::EvalImportKey;
+use crate::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
+use crate::dice::starlark_types::GetDisableStarlarkTypes;
+use crate::dice::HasCalculationDelegate;
+use crate::dice::HasEvents;
+use crate::dice::HasGlobalInterpreterState;
+use crate::dice::HasInterpreterContext;
+use crate::dice::HasPackageListingResolver;
+use crate::extra::ExtraContext;
+use crate::file_loader::LoadedModule;
+use crate::file_loader::ModuleDeps;
+use crate::import_paths::HasImportPaths;
+use crate::interpreter::GlobalInterpreterState;
+use crate::interpreter::InterpreterConfigForCell;
+use crate::interpreter::InterpreterForCell;
+use crate::interpreter::ParseResult;
+use crate::package_listing::listing::PackageListing;
+use crate::package_listing::resolver::PackageListingResolver;
+use crate::starlark_profiler::StarlarkProfilerInstrumentation;
+use crate::starlark_profiler::StarlarkProfilerOrInstrumentation;
 
 #[async_trait]
 impl<'c> HasCalculationDelegate<'c> for DiceComputations {

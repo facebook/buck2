@@ -15,49 +15,58 @@
  * limitations under the License.
  */
 
-use std::{
-    cell::Cell,
-    collections::HashSet,
-    mem::{self, MaybeUninit},
-    path::Path,
-};
+use std::cell::Cell;
+use std::collections::HashSet;
+use std::mem::MaybeUninit;
+use std::mem::{self};
+use std::path::Path;
 
-use gazebo::{any::AnyLifetime, cast};
+use gazebo::any::AnyLifetime;
+use gazebo::cast;
 use thiserror::Error;
 
-use crate::{
-    codemap::{FileSpan, FileSpanRef, ResolvedFileSpan},
-    collections::{alloca::Alloca, string_pool::StringPool},
-    environment::{slots::ModuleSlotId, EnvironmentError, FrozenModuleRef, Module},
-    errors::Diagnostic,
-    eval::{
-        bc::frame::BcFramePtr,
-        compiler::def::{Def, DefInfo, FrozenDef},
-        runtime::{
-            before_stmt::BeforeStmt,
-            call_stack::{CheapCallStack, FrozenFileSpan},
-            inlined_frame::InlinedFrames,
-            profile::{
-                bc::BcProfile,
-                flame::FlameProfile,
-                heap::{HeapProfile, HeapProfileFormat},
-                stmt::StmtProfile,
-                typecheck::TypecheckProfile,
-                ProfileMode,
-            },
-            slots::{LocalCapturedSlotId, LocalSlotId},
-        },
-        CallStack, FileLoader,
-    },
-    stdlib::{
-        breakpoint::{BreakpointConsole, RealBreakpointConsole},
-        extra::{PrintHandler, StderrPrintHandler},
-    },
-    values::{
-        layout::value_captured::{value_captured_get, ValueCaptured},
-        FrozenHeap, FrozenRef, Heap, Trace, Tracer, Value, ValueLike,
-    },
-};
+use crate::codemap::FileSpan;
+use crate::codemap::FileSpanRef;
+use crate::codemap::ResolvedFileSpan;
+use crate::collections::alloca::Alloca;
+use crate::collections::string_pool::StringPool;
+use crate::environment::slots::ModuleSlotId;
+use crate::environment::EnvironmentError;
+use crate::environment::FrozenModuleRef;
+use crate::environment::Module;
+use crate::errors::Diagnostic;
+use crate::eval::bc::frame::BcFramePtr;
+use crate::eval::compiler::def::Def;
+use crate::eval::compiler::def::DefInfo;
+use crate::eval::compiler::def::FrozenDef;
+use crate::eval::runtime::before_stmt::BeforeStmt;
+use crate::eval::runtime::call_stack::CheapCallStack;
+use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::inlined_frame::InlinedFrames;
+use crate::eval::runtime::profile::bc::BcProfile;
+use crate::eval::runtime::profile::flame::FlameProfile;
+use crate::eval::runtime::profile::heap::HeapProfile;
+use crate::eval::runtime::profile::heap::HeapProfileFormat;
+use crate::eval::runtime::profile::stmt::StmtProfile;
+use crate::eval::runtime::profile::typecheck::TypecheckProfile;
+use crate::eval::runtime::profile::ProfileMode;
+use crate::eval::runtime::slots::LocalCapturedSlotId;
+use crate::eval::runtime::slots::LocalSlotId;
+use crate::eval::CallStack;
+use crate::eval::FileLoader;
+use crate::stdlib::breakpoint::BreakpointConsole;
+use crate::stdlib::breakpoint::RealBreakpointConsole;
+use crate::stdlib::extra::PrintHandler;
+use crate::stdlib::extra::StderrPrintHandler;
+use crate::values::layout::value_captured::value_captured_get;
+use crate::values::layout::value_captured::ValueCaptured;
+use crate::values::FrozenHeap;
+use crate::values::FrozenRef;
+use crate::values::Heap;
+use crate::values::Trace;
+use crate::values::Tracer;
+use crate::values::Value;
+use crate::values::ValueLike;
 
 #[derive(Error, Debug)]
 pub(crate) enum EvaluatorError {

@@ -7,7 +7,8 @@
  * of this source tree.
  */
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use std::time::Instant;
 
 /// The common module provides a macro that implements a set of benchmarks for you.
 /// These are accessed through the `benchmark!` macro.
@@ -32,12 +33,14 @@ use std::time::{Duration, Instant};
 /// benchmark!(Foo);
 /// ```
 use async_trait::async_trait;
-use criterion::{black_box, Criterion};
-use dice::{cycles::DetectCycles, Dice, DiceTransaction};
-use futures::{
-    stream::{self, StreamExt},
-    Future,
-};
+use criterion::black_box;
+use criterion::Criterion;
+use dice::cycles::DetectCycles;
+use dice::Dice;
+use dice::DiceTransaction;
+use futures::stream::StreamExt;
+use futures::stream::{self};
+use futures::Future;
 
 /// Implementers of this trait gain access to the `benchmark!` macro.
 /// The type that this trait is implemented must not need to be constructed.

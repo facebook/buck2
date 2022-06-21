@@ -17,34 +17,41 @@
 
 //! The string type. All strings must be valid UTF8.
 
-use std::{
-    cmp,
-    cmp::Ordering,
-    fmt,
-    fmt::{Debug, Display},
-    hash::{Hash, Hasher},
-    mem,
-    ops::{Add, Deref, Sub},
-    slice, str,
-    sync::atomic,
-};
+use std::cmp;
+use std::cmp::Ordering;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::mem;
+use std::ops::Add;
+use std::ops::Deref;
+use std::ops::Sub;
+use std::slice;
+use std::str;
+use std::sync::atomic;
 
-use gazebo::{any::ProvidesStaticType, prelude::*};
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
 use serde::Serialize;
 
-use crate::{
-    collections::{
-        aligned_padded_str::AlignedPaddedStr, Hashed, StarlarkHashValue, StarlarkHasher,
-    },
-    environment::{Methods, MethodsStatic},
-    private::Private,
-    values::{
-        index::apply_slice,
-        string::repr::string_repr,
-        types::{none::NoneOr, string::fast_string::StrIndices},
-        Heap, StarlarkValue, UnpackValue, Value, ValueError,
-    },
-};
+use crate::collections::aligned_padded_str::AlignedPaddedStr;
+use crate::collections::Hashed;
+use crate::collections::StarlarkHashValue;
+use crate::collections::StarlarkHasher;
+use crate::environment::Methods;
+use crate::environment::MethodsStatic;
+use crate::private::Private;
+use crate::values::index::apply_slice;
+use crate::values::string::repr::string_repr;
+use crate::values::types::none::NoneOr;
+use crate::values::types::string::fast_string::StrIndices;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::UnpackValue;
+use crate::values::Value;
+use crate::values::ValueError;
 
 mod alloc_unpack;
 pub(crate) mod fast_string;
@@ -444,10 +451,10 @@ impl Serialize for StarlarkStr {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        assert,
-        values::{index::apply_slice, Heap, Value},
-    };
+    use crate::assert;
+    use crate::values::index::apply_slice;
+    use crate::values::Heap;
+    use crate::values::Value;
 
     #[test]
     fn test_string_corruption() {

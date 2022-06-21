@@ -9,14 +9,14 @@
 
 //! Cycle detection in DICE
 
-use std::{
-    fmt::Display,
-    hash::{Hash, Hasher},
-    str::FromStr,
-    sync::Arc,
-};
+use std::fmt::Display;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::str::FromStr;
+use std::sync::Arc;
 
-use gazebo::{cmp::PartialEqAny, prelude::*};
+use gazebo::cmp::PartialEqAny;
+use gazebo::prelude::*;
 use indexmap::set::IndexSet;
 use itertools::Itertools;
 use thiserror::Error;

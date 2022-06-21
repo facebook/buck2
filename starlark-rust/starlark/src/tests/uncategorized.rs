@@ -15,21 +15,31 @@
  * limitations under the License.
  */
 
-use std::{cell::RefCell, fmt::Write};
+use std::cell::RefCell;
+use std::fmt::Write;
 
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
 
-use crate::{
-    self as starlark,
-    assert::{self, Assert},
-    collections::SmallMap,
-    environment::{Globals, GlobalsBuilder, Module},
-    errors::Diagnostic,
-    eval::Evaluator,
-    syntax::{AstModule, Dialect},
-    values::{Freeze, Freezer, Heap, NoSerialize, StarlarkValue, Trace, UnpackValue, Value},
-};
+use crate::assert::Assert;
+use crate::assert::{self};
+use crate::collections::SmallMap;
+use crate::environment::Globals;
+use crate::environment::GlobalsBuilder;
+use crate::environment::Module;
+use crate::errors::Diagnostic;
+use crate::eval::Evaluator;
+use crate::syntax::AstModule;
+use crate::syntax::Dialect;
+use crate::values::Freeze;
+use crate::values::Freezer;
+use crate::values::Heap;
+use crate::values::NoSerialize;
+use crate::values::StarlarkValue;
+use crate::values::Trace;
+use crate::values::UnpackValue;
+use crate::values::Value;
+use crate::{self as starlark};
 
 #[test]
 fn alias_test() {

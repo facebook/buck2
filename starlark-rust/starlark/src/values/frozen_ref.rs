@@ -15,19 +15,21 @@
  * limitations under the License.
  */
 
-use std::{
-    borrow::Borrow,
-    cmp::Ordering,
-    fmt::{self, Display, Formatter},
-    hash::{Hash, Hasher},
-    ops::Deref,
-    ptr,
-    sync::atomic,
-};
+use std::borrow::Borrow;
+use std::cmp::Ordering;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::fmt::{self};
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::ops::Deref;
+use std::ptr;
+use std::sync::atomic;
 
 use gazebo::prelude::*;
 
-use crate::values::{Trace, Tracer};
+use crate::values::Trace;
+use crate::values::Tracer;
 
 /// A [`FrozenRef`] is essentially a [`FrozenValue`](crate::values::FrozenValue),
 /// and has the same memory and access guarantees as it.

@@ -23,10 +23,16 @@
 use std::cell::Cell;
 
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, prelude::*};
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
 
 use crate as starlark;
-use crate::values::{Freeze, Freezer, FrozenValue, StarlarkValue, Value, ValueLike};
+use crate::values::Freeze;
+use crate::values::Freezer;
+use crate::values::FrozenValue;
+use crate::values::StarlarkValue;
+use crate::values::Value;
+use crate::values::ValueLike;
 
 #[derive(Debug, Trace, ProvidesStaticType, Display, NoSerialize)]
 #[display(fmt = "{:?}", self)] // This type should never be user visible

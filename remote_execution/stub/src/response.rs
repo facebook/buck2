@@ -7,7 +7,8 @@
  * of this source tree.
  */
 
-use crate::{digest::*, error::*};
+use crate::digest::*;
+use crate::error::*;
 
 #[derive(Default)]
 pub struct TTimestamp {

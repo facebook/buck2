@@ -9,34 +9,36 @@
 
 //! Contains the internal support within the attribute framework for `select()`.
 
-use std::{
-    fmt::Display,
-    hash::{Hash, Hasher},
-};
+use std::fmt::Display;
+use std::hash::Hash;
+use std::hash::Hasher;
 
-use anyhow::{anyhow, Context};
-use buck2_core::{
-    configuration::{Configuration, ConfigurationData},
-    target::TargetLabel,
-};
-use buck2_interpreter::selector::{Selector, SelectorGen};
+use anyhow::anyhow;
+use anyhow::Context;
+use buck2_core::configuration::Configuration;
+use buck2_core::configuration::ConfigurationData;
+use buck2_core::target::TargetLabel;
+use buck2_interpreter::selector::Selector;
+use buck2_interpreter::selector::SelectorGen;
 use gazebo::prelude::*;
 use itertools::Itertools;
-use serde::{Serialize, Serializer};
-use starlark::{
-    collections::SmallMap,
-    values::{dict::Dict, Heap, Value},
-};
+use serde::Serialize;
+use serde::Serializer;
+use starlark::collections::SmallMap;
+use starlark::values::dict::Dict;
+use starlark::values::Heap;
+use starlark::values::Value;
 use thiserror::Error;
 
-use crate::{
-    attrs::{
-        attr_type::{attr_literal::CoercionError, AttrType},
-        AttrCoercionContext, AttrConfigurationContext, AttrLiteral, CoercedAttrTraversal,
-        ConfiguredAttr, OrderedMap,
-    },
-    interpreter::rule_defs::attr::AttrIsConfigurable,
-};
+use crate::attrs::attr_type::attr_literal::CoercionError;
+use crate::attrs::attr_type::AttrType;
+use crate::attrs::AttrCoercionContext;
+use crate::attrs::AttrConfigurationContext;
+use crate::attrs::AttrLiteral;
+use crate::attrs::CoercedAttrTraversal;
+use crate::attrs::ConfiguredAttr;
+use crate::attrs::OrderedMap;
+use crate::interpreter::rule_defs::attr::AttrIsConfigurable;
 
 #[derive(Error, Debug)]
 pub(crate) enum SelectError {
@@ -444,25 +446,25 @@ impl CoercedAttr {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::BTreeMap, iter::FromIterator, sync::Arc};
+    use std::collections::BTreeMap;
+    use std::iter::FromIterator;
+    use std::sync::Arc;
 
-    use buck2_core::{
-        configuration::{
-            constraints::{ConstraintKey, ConstraintValue},
-            Configuration, ConfigurationData,
-        },
-        target::{testing::TargetLabelExt, TargetLabel},
-    };
+    use buck2_core::configuration::constraints::ConstraintKey;
+    use buck2_core::configuration::constraints::ConstraintValue;
+    use buck2_core::configuration::Configuration;
+    use buck2_core::configuration::ConfigurationData;
+    use buck2_core::target::testing::TargetLabelExt;
+    use buck2_core::target::TargetLabel;
     use gazebo::prelude::Dupe;
     use starlark::collections::SmallMap;
 
-    use crate::{
-        attrs::{
-            attr_type::attr_literal::AttrLiteral, coerced_attr::CoercedAttr,
-            AttrConfigurationContext, OrderedMap,
-        },
-        interpreter::rule_defs::transition::{applied::TransitionApplied, id::TransitionId},
-    };
+    use crate::attrs::attr_type::attr_literal::AttrLiteral;
+    use crate::attrs::coerced_attr::CoercedAttr;
+    use crate::attrs::AttrConfigurationContext;
+    use crate::attrs::OrderedMap;
+    use crate::interpreter::rule_defs::transition::applied::TransitionApplied;
+    use crate::interpreter::rule_defs::transition::id::TransitionId;
 
     #[test]
     fn selector_equals_accounts_for_ordering() {

@@ -5,6 +5,7 @@ mod named_semaphores;
 pub use named_semaphores::NamedSemaphores;
 
 pub mod host_sharing;
-pub use crate::host_sharing::{
-    HostSharingBroker, HostSharingRequirements, HostSharingStrategy, WeightClass,
-};
+pub use crate::host_sharing::HostSharingBroker;
+pub use crate::host_sharing::HostSharingRequirements;
+pub use crate::host_sharing::HostSharingStrategy;
+pub use crate::host_sharing::WeightClass;

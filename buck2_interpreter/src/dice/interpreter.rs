@@ -11,10 +11,12 @@ use std::sync::Arc;
 
 use buck2_common::dice::file_ops::FileChangeHandler;
 use derive_more::Display;
-use dice::{DiceComputations, InjectedKey};
+use dice::DiceComputations;
+use dice::InjectedKey;
 use gazebo::prelude::*;
 
-use crate::{dice::HasInterpreterContext, extra::InterpreterConfiguror};
+use crate::dice::HasInterpreterContext;
+use crate::extra::InterpreterConfiguror;
 
 #[derive(Clone, Dupe)]
 struct BuildContext {

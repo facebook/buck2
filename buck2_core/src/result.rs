@@ -7,10 +7,10 @@
  * of this source tree.
  */
 
-use std::{
-    fmt::{Debug, Display, Formatter},
-    sync::Arc,
-};
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::sync::Arc;
 
 use gazebo::prelude::*;
 

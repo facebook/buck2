@@ -12,13 +12,18 @@
 //! The math computation will calculate a series of addition equations resolving variables.
 //! e.g. `x = 1; y = 2, a = x + y; b = a + a; eval(b)`;
 
-use std::{convert::Infallible, str::FromStr, sync::Arc};
+use std::convert::Infallible;
+use std::str::FromStr;
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
 use derive_more::Display;
-use dice::{DiceComputations, InjectedKey, Key};
-use futures::{future, FutureExt};
+use dice::DiceComputations;
+use dice::InjectedKey;
+use dice::Key;
+use futures::future;
+use futures::FutureExt;
 use gazebo::prelude::*;
 
 #[derive(Clone, Dupe, PartialEq, Eq, Hash, Display, Debug)]

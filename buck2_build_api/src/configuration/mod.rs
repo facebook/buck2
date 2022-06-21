@@ -7,29 +7,29 @@
  * of this source tree.
  */
 
-use std::{
-    collections::BTreeMap,
-    hash::{Hash, Hasher},
-    sync::Arc,
-};
+use std::collections::BTreeMap;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_core::{
-    cells::CellName,
-    configuration::{Configuration, ConfigurationData},
-    result::SharedResult,
-    target::TargetLabel,
-};
+use buck2_core::cells::CellName;
+use buck2_core::configuration::Configuration;
+use buck2_core::configuration::ConfigurationData;
+use buck2_core::result::SharedResult;
+use buck2_core::target::TargetLabel;
 use gazebo::prelude::*;
-use indexmap::{Equivalent, IndexMap, IndexSet};
+use indexmap::Equivalent;
+use indexmap::IndexMap;
+use indexmap::IndexSet;
 use starlark::collections::SmallMap;
 use thiserror::Error;
 
-use crate::{
-    attrs::AttrConfigurationContext,
-    configuration::execution::{ExecutionPlatform, ExecutionPlatformResolution},
-    interpreter::rule_defs::transition::{applied::TransitionApplied, id::TransitionId},
-};
+use crate::attrs::AttrConfigurationContext;
+use crate::configuration::execution::ExecutionPlatform;
+use crate::configuration::execution::ExecutionPlatformResolution;
+use crate::interpreter::rule_defs::transition::applied::TransitionApplied;
+use crate::interpreter::rule_defs::transition::id::TransitionId;
 
 pub mod calculation;
 pub mod execution;

@@ -9,54 +9,53 @@
 
 //! Calculations relating to 'TargetNode's that runs on Dice
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
+use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::anyhow;
+use anyhow::Context;
 use async_trait::async_trait;
-use buck2_core::{
-    configuration::{Configuration, ConfigurationData},
-    provider::ConfiguredProvidersLabel,
-    result::{SharedResult, ToSharedResultExt},
-    target::{ConfiguredTargetLabel, TargetLabel},
-};
+use buck2_core::configuration::Configuration;
+use buck2_core::configuration::ConfigurationData;
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::result::SharedResult;
+use buck2_core::result::ToSharedResultExt;
+use buck2_core::target::ConfiguredTargetLabel;
+use buck2_core::target::TargetLabel;
 use derive_more::Display;
-use dice::{DiceComputations, Key};
+use dice::DiceComputations;
+use dice::Key;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
-use itertools::{Either, Itertools};
-use starlark::collections::{SmallMap, SmallSet};
+use itertools::Either;
+use itertools::Itertools;
+use starlark::collections::SmallMap;
+use starlark::collections::SmallSet;
 
-use crate::{
-    attrs::{
-        attr_type::attr_literal::ConfiguredAttrTraversal, configured_attr::ConfiguredAttr,
-        AttrConfigurationContext,
-    },
-    calculation::BuildErrors,
-    configuration::{
-        execution::{ExecutionPlatform, ExecutionPlatformResolution},
-        AttrConfigurationContextImpl, ConfigurationCalculation, ConfigurationSettingKeyRef,
-        ResolvedConfiguration,
-    },
-    execute::commands::dice_data::HasFallbackExecutorConfig,
-    interpreter::{
-        calculation::InterpreterCalculation,
-        rule_defs::transition::{
-            applied::TransitionApplied, calculation_apply_transition::ApplyTransition,
-            id::TransitionId,
-        },
-    },
-    nodes::{
-        attr_internal::{
-            EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD, LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
-            TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
-        },
-        compatibility::{IncompatiblePlatformReason, MaybeCompatible},
-        configured::ConfiguredTargetNode,
-        unconfigured::TargetNode,
-        visibility::VisibilityError,
-        AttributeError,
-    },
-};
+use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
+use crate::attrs::configured_attr::ConfiguredAttr;
+use crate::attrs::AttrConfigurationContext;
+use crate::calculation::BuildErrors;
+use crate::configuration::execution::ExecutionPlatform;
+use crate::configuration::execution::ExecutionPlatformResolution;
+use crate::configuration::AttrConfigurationContextImpl;
+use crate::configuration::ConfigurationCalculation;
+use crate::configuration::ConfigurationSettingKeyRef;
+use crate::configuration::ResolvedConfiguration;
+use crate::execute::commands::dice_data::HasFallbackExecutorConfig;
+use crate::interpreter::calculation::InterpreterCalculation;
+use crate::interpreter::rule_defs::transition::applied::TransitionApplied;
+use crate::interpreter::rule_defs::transition::calculation_apply_transition::ApplyTransition;
+use crate::interpreter::rule_defs::transition::id::TransitionId;
+use crate::nodes::attr_internal::EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
+use crate::nodes::attr_internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
+use crate::nodes::attr_internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
+use crate::nodes::compatibility::IncompatiblePlatformReason;
+use crate::nodes::compatibility::MaybeCompatible;
+use crate::nodes::configured::ConfiguredTargetNode;
+use crate::nodes::unconfigured::TargetNode;
+use crate::nodes::visibility::VisibilityError;
+use crate::nodes::AttributeError;
 
 #[async_trait]
 pub(crate) trait NodeCalculation {
@@ -576,45 +575,45 @@ impl NodeCalculation for DiceComputations {
 mod tests {
     use std::sync::Arc;
 
-    use buck2_core::{
-        configuration::Configuration,
-        fs::paths::FileNameBuf,
-        package::{testing::PackageExt, Package},
-        provider::{ProvidersLabel, ProvidersName},
-        result::SharedResult,
-        target::{TargetLabel, TargetName},
-    };
-    use buck2_interpreter::common::{BuildFilePath, ImportPath};
-    use dice::{testing::DiceBuilder, UserComputationData};
+    use buck2_core::configuration::Configuration;
+    use buck2_core::fs::paths::FileNameBuf;
+    use buck2_core::package::testing::PackageExt;
+    use buck2_core::package::Package;
+    use buck2_core::provider::ProvidersLabel;
+    use buck2_core::provider::ProvidersName;
+    use buck2_core::result::SharedResult;
+    use buck2_core::target::TargetLabel;
+    use buck2_core::target::TargetName;
+    use buck2_interpreter::common::BuildFilePath;
+    use buck2_interpreter::common::ImportPath;
+    use dice::testing::DiceBuilder;
+    use dice::UserComputationData;
     use gazebo::prelude::*;
     use indexmap::indexmap;
     use starlark::collections::SmallMap;
 
-    use crate::{
-        attrs::{
-            attr_type::{
-                any::AnyAttrType,
-                attr_literal::AttrLiteral,
-                dep::{DepAttr, DepAttrTransition, DepAttrType},
-                AttrType,
-            },
-            coerced_attr::CoercedAttr,
-            configured_attr::ConfiguredAttr,
-            testing::{CoercedAttrExt, ConfiguredAttrExt},
-        },
-        configuration::calculation::ExecutionPlatformsKey,
-        execute::{commands::dice_data::set_fallback_executor_config, CommandExecutorConfig},
-        interpreter::{
-            calculation::testing::InterpreterResultsKey,
-            module_internals::EvaluationResult,
-            rule_defs::attr::{testing::AttributeExt, Attribute},
-        },
-        nodes::{
-            calculation::NodeCalculation,
-            unconfigured::{testing::TargetNodeExt, TargetNode},
-            RuleType, StarlarkRuleType,
-        },
-    };
+    use crate::attrs::attr_type::any::AnyAttrType;
+    use crate::attrs::attr_type::attr_literal::AttrLiteral;
+    use crate::attrs::attr_type::dep::DepAttr;
+    use crate::attrs::attr_type::dep::DepAttrTransition;
+    use crate::attrs::attr_type::dep::DepAttrType;
+    use crate::attrs::attr_type::AttrType;
+    use crate::attrs::coerced_attr::CoercedAttr;
+    use crate::attrs::configured_attr::ConfiguredAttr;
+    use crate::attrs::testing::CoercedAttrExt;
+    use crate::attrs::testing::ConfiguredAttrExt;
+    use crate::configuration::calculation::ExecutionPlatformsKey;
+    use crate::execute::commands::dice_data::set_fallback_executor_config;
+    use crate::execute::CommandExecutorConfig;
+    use crate::interpreter::calculation::testing::InterpreterResultsKey;
+    use crate::interpreter::module_internals::EvaluationResult;
+    use crate::interpreter::rule_defs::attr::testing::AttributeExt;
+    use crate::interpreter::rule_defs::attr::Attribute;
+    use crate::nodes::calculation::NodeCalculation;
+    use crate::nodes::unconfigured::testing::TargetNodeExt;
+    use crate::nodes::unconfigured::TargetNode;
+    use crate::nodes::RuleType;
+    use crate::nodes::StarlarkRuleType;
 
     #[tokio::test]
     async fn test_get_node() -> anyhow::Result<()> {

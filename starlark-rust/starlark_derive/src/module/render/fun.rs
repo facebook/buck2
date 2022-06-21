@@ -16,14 +16,21 @@
  */
 
 use gazebo::prelude::*;
-use proc_macro2::{Ident, TokenStream};
-use quote::{format_ident, quote_spanned};
-use syn::{Attribute, Type};
+use proc_macro2::Ident;
+use proc_macro2::TokenStream;
+use quote::format_ident;
+use quote::quote_spanned;
+use syn::Attribute;
+use syn::Type;
 
-use crate::module::{
-    typ::{SpecialParam, StarArg, StarArgPassStyle, StarArgSource, StarFun, StarFunSource},
-    util::{ident_string, mut_token},
-};
+use crate::module::typ::SpecialParam;
+use crate::module::typ::StarArg;
+use crate::module::typ::StarArgPassStyle;
+use crate::module::typ::StarArgSource;
+use crate::module::typ::StarFun;
+use crate::module::typ::StarFunSource;
+use crate::module::util::ident_string;
+use crate::module::util::mut_token;
 
 impl StarFun {
     fn type_expr(&self) -> TokenStream {

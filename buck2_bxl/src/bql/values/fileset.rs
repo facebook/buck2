@@ -12,12 +12,15 @@ use std::ops::Deref;
 use anyhow::anyhow;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, cell::ARef};
-use starlark::{
-    eval::Evaluator,
-    starlark_simple_value, starlark_type,
-    values::{NoSerialize, StarlarkValue, UnpackValue, Value},
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::cell::ARef;
+use starlark::eval::Evaluator;
+use starlark::starlark_simple_value;
+use starlark::starlark_type;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
 use thiserror::Error;
 
 #[derive(Error, Debug)]

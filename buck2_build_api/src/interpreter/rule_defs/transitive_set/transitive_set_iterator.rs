@@ -10,11 +10,12 @@
 use std::collections::HashSet;
 
 use anyhow::Context as _;
-use starlark::values::{ValueIdentity, ValueLike};
+use starlark::values::ValueIdentity;
+use starlark::values::ValueLike;
 
-use crate::interpreter::rule_defs::transitive_set::{
-    transitive_set::NodeGen, TransitiveSetGen, TransitiveSetLike,
-};
+use crate::interpreter::rule_defs::transitive_set::transitive_set::NodeGen;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSetGen;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSetLike;
 
 /// A DFS, left-to-right iterator over a TransitiveSet.
 pub struct TransitiveSetIteratorGen<'a, 'v, V> {

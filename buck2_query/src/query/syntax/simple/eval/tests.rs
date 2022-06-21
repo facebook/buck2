@@ -21,14 +21,16 @@ use derive_more::Display;
 use gazebo::prelude::*;
 use serde::Serialize;
 
-use crate::query::{
-    environment::{NodeLabel, QueryEnvironment, QueryTarget, QueryTargetAttr},
-    syntax::simple::{
-        eval::{error::QueryError, evaluator::QueryEvaluator, file_set::FileSet, set::TargetSet},
-        functions::DefaultQueryFunctionsModule,
-    },
-    traversal::AsyncTraversalDelegate,
-};
+use crate::query::environment::NodeLabel;
+use crate::query::environment::QueryEnvironment;
+use crate::query::environment::QueryTarget;
+use crate::query::environment::QueryTargetAttr;
+use crate::query::syntax::simple::eval::error::QueryError;
+use crate::query::syntax::simple::eval::evaluator::QueryEvaluator;
+use crate::query::syntax::simple::eval::file_set::FileSet;
+use crate::query::syntax::simple::eval::set::TargetSet;
+use crate::query::syntax::simple::functions::DefaultQueryFunctionsModule;
+use crate::query::traversal::AsyncTraversalDelegate;
 
 #[derive(Clone, Hash, PartialEq, Eq, Debug, Display)]
 struct TargetRef(String);

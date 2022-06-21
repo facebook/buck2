@@ -10,9 +10,16 @@
 //! Evaluates a series of futures, continuing past the first error if appropriate.
 //! Use the environment variable BUCK2_KEEP_GOING to control this behaviour.
 
-use std::{collections::HashSet, fmt::Display, fs::File, hash::Hash, io::Write, sync::Mutex};
+use std::collections::HashSet;
+use std::fmt::Display;
+use std::fs::File;
+use std::hash::Hash;
+use std::io::Write;
+use std::sync::Mutex;
 
-use futures::{Future, Stream, StreamExt};
+use futures::Future;
+use futures::Stream;
+use futures::StreamExt;
 use indexmap::IndexMap;
 use once_cell::sync::Lazy;
 use smallvec::SmallVec;

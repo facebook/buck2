@@ -15,15 +15,21 @@
 
 //! Example that demonstrates stylization.
 
-use std::{convert::TryInto, time::Duration};
+use std::convert::TryInto;
+use std::time::Duration;
 
 use derive_more::Display;
-use superconsole::{
-    components::{Component, DrawMode},
-    state,
-    style::{style, Color, Stylize},
-    Dimensions, Line, Span, State, SuperConsole,
-};
+use superconsole::components::Component;
+use superconsole::components::DrawMode;
+use superconsole::state;
+use superconsole::style::style;
+use superconsole::style::Color;
+use superconsole::style::Stylize;
+use superconsole::Dimensions;
+use superconsole::Line;
+use superconsole::Span;
+use superconsole::State;
+use superconsole::SuperConsole;
 use tokio::time;
 
 /// A component representing a store greeter.

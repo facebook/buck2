@@ -19,13 +19,12 @@
 
 use gazebo::dupe::Dupe;
 
-use crate::{
-    collections::StarlarkHashValue,
-    values::{
-        types::{bigint::StarlarkBigInt, float::StarlarkFloat},
-        UnpackValue, Value, ValueLike,
-    },
-};
+use crate::collections::StarlarkHashValue;
+use crate::values::types::bigint::StarlarkBigInt;
+use crate::values::types::float::StarlarkFloat;
+use crate::values::UnpackValue;
+use crate::values::Value;
+use crate::values::ValueLike;
 
 /// [`Num`] represents a numerical value that can be unpacked from a [`Value`].
 ///

@@ -7,25 +7,28 @@
  * of this source tree.
  */
 
-use std::{convert::TryFrom, path::PathBuf, time::Duration};
+use std::convert::TryFrom;
+use std::path::PathBuf;
+use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
-use cli_proto::{
-    profile_request::{Action, Profiler},
-    ProfileRequest, ProfileResponse,
-};
+use cli_proto::profile_request::Action;
+use cli_proto::profile_request::Profiler;
+use cli_proto::ProfileRequest;
+use cli_proto::ProfileResponse;
 use futures::FutureExt;
 use starlark::eval::ProfileMode;
 
-use crate::{
-    commands::common::{
-        CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions, ConsoleType,
-    },
-    daemon::client::BuckdClientConnector,
-    BuckSubcommand, CommandContext, StreamingCommand,
-};
+use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonConsoleOptions;
+use crate::commands::common::CommonEventLogOptions;
+use crate::commands::common::ConsoleType;
+use crate::daemon::client::BuckdClientConnector;
+use crate::BuckSubcommand;
+use crate::CommandContext;
+use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Profiling mechanisms")]

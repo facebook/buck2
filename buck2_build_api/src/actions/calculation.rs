@@ -11,28 +11,31 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_core::result::{SharedResult, ToSharedResultExt};
+use buck2_core::result::SharedResult;
+use buck2_core::result::ToSharedResultExt;
 use buck2_interpreter::dice::HasEvents;
 use derive_more::Display;
-use dice::{DiceComputations, Key};
+use dice::DiceComputations;
+use dice::Key;
 use futures::stream::FuturesUnordered;
 use gazebo::prelude::*;
 use tracing::debug;
 
-use crate::{
-    actions::{
-        artifact::BuildArtifact,
-        build_listener::{ActionExecutionSignal, ActionRedirectionSignal, HasBuildSignals},
-        ActionKey, RegisteredAction,
-    },
-    artifact_groups::calculation::ArtifactGroupCalculation,
-    deferred::calculation::DeferredCalculation,
-    events::proto::ToProtoMessage,
-    execute::{
-        ActionError, ActionErrorCause, ActionExecutionMetadata, ActionOutputs, HasActionExecutor,
-    },
-    keep_going,
-};
+use crate::actions::artifact::BuildArtifact;
+use crate::actions::build_listener::ActionExecutionSignal;
+use crate::actions::build_listener::ActionRedirectionSignal;
+use crate::actions::build_listener::HasBuildSignals;
+use crate::actions::ActionKey;
+use crate::actions::RegisteredAction;
+use crate::artifact_groups::calculation::ArtifactGroupCalculation;
+use crate::deferred::calculation::DeferredCalculation;
+use crate::events::proto::ToProtoMessage;
+use crate::execute::ActionError;
+use crate::execute::ActionErrorCause;
+use crate::execute::ActionExecutionMetadata;
+use crate::execute::ActionOutputs;
+use crate::execute::HasActionExecutor;
+use crate::keep_going;
 
 #[async_trait]
 pub(crate) trait ActionCalculation {
@@ -301,71 +304,75 @@ async fn error_to_proto(err: &anyhow::Error) -> buck2_data::action_execution_end
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        path::PathBuf,
-        sync::{Arc, Mutex},
-    };
+    use std::path::PathBuf;
+    use std::sync::Arc;
+    use std::sync::Mutex;
 
-    use buck2_common::{
-        dice::{
-            cells::HasCellResolver, data::testing::SetTestingIoProvider,
-            file_ops::testing::FileOpsKey,
-        },
-        file_ops::{
-            testing::TestFileOps, ExternalSymlink, FileDigest, FileMetadata, TrackedFileDigest,
-        },
-    };
-    use buck2_core::{
-        buck_path::BuckPath,
-        category::Category,
-        cells::{
-            paths::{CellPath, CellRelativePathBuf},
-            testing::CellResolverExt,
-            CellName, CellResolver,
-        },
-        configuration::Configuration,
-        directory::DirectoryEntry,
-        fs::{
-            paths::ForwardRelativePathBuf,
-            project::{ProjectFilesystem, ProjectFilesystemTemp, ProjectRelativePathBuf},
-        },
-        package::{testing::PackageExt, Package, PackageRelativePathBuf},
-        result::ToSharedResultExt,
-        target::{testing::ConfiguredTargetLabelExt, ConfiguredTargetLabel, TargetName},
-    };
-    use dice::{testing::DiceBuilder, DiceTransaction, UserComputationData};
+    use buck2_common::dice::cells::HasCellResolver;
+    use buck2_common::dice::data::testing::SetTestingIoProvider;
+    use buck2_common::dice::file_ops::testing::FileOpsKey;
+    use buck2_common::file_ops::testing::TestFileOps;
+    use buck2_common::file_ops::ExternalSymlink;
+    use buck2_common::file_ops::FileDigest;
+    use buck2_common::file_ops::FileMetadata;
+    use buck2_common::file_ops::TrackedFileDigest;
+    use buck2_core::buck_path::BuckPath;
+    use buck2_core::category::Category;
+    use buck2_core::cells::paths::CellPath;
+    use buck2_core::cells::paths::CellRelativePathBuf;
+    use buck2_core::cells::testing::CellResolverExt;
+    use buck2_core::cells::CellName;
+    use buck2_core::cells::CellResolver;
+    use buck2_core::configuration::Configuration;
+    use buck2_core::directory::DirectoryEntry;
+    use buck2_core::fs::paths::ForwardRelativePathBuf;
+    use buck2_core::fs::project::ProjectFilesystem;
+    use buck2_core::fs::project::ProjectFilesystemTemp;
+    use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::package::testing::PackageExt;
+    use buck2_core::package::Package;
+    use buck2_core::package::PackageRelativePathBuf;
+    use buck2_core::result::ToSharedResultExt;
+    use buck2_core::target::testing::ConfiguredTargetLabelExt;
+    use buck2_core::target::ConfiguredTargetLabel;
+    use buck2_core::target::TargetName;
+    use dice::testing::DiceBuilder;
+    use dice::DiceTransaction;
+    use dice::UserComputationData;
     use events::dispatch::EventDispatcher;
     use gazebo::prelude::*;
     use indexmap::indexset;
 
-    use crate::{
-        actions::{
-            artifact::{
-                testing::BuildArtifactTestingExt, Artifact, ArtifactValue, BuildArtifact,
-                SourceArtifact,
-            },
-            calculation::ActionCalculation,
-            directory::ActionDirectoryMember,
-            run::knobs::RunActionKnobs,
-            testing::SimpleAction,
-            Action, ArtifactFs, RegisteredAction,
-        },
-        artifact_groups::{calculation::ArtifactGroupCalculation, ArtifactGroup},
-        context::SetBuildContextData,
-        deferred::{
-            calculation::testing::DeferredResolve, testing::DeferredIdExt, AnyValue, DeferredId,
-        },
-        execute::{
-            blocking::{testing::DummyBlockingExecutor, SetBlockingExecutor},
-            commands::{
-                dice_data::{set_fallback_executor_config, HasCommandExecutor, SetCommandExecutor},
-                dry_run::{DryRunEntry, DryRunExecutor},
-                PreparedCommandExecutor,
-            },
-            materializer::{nodisk::NoDiskMaterializer, SetMaterializer},
-            CommandExecutorConfig,
-        },
-    };
+    use crate::actions::artifact::testing::BuildArtifactTestingExt;
+    use crate::actions::artifact::Artifact;
+    use crate::actions::artifact::ArtifactValue;
+    use crate::actions::artifact::BuildArtifact;
+    use crate::actions::artifact::SourceArtifact;
+    use crate::actions::calculation::ActionCalculation;
+    use crate::actions::directory::ActionDirectoryMember;
+    use crate::actions::run::knobs::RunActionKnobs;
+    use crate::actions::testing::SimpleAction;
+    use crate::actions::Action;
+    use crate::actions::ArtifactFs;
+    use crate::actions::RegisteredAction;
+    use crate::artifact_groups::calculation::ArtifactGroupCalculation;
+    use crate::artifact_groups::ArtifactGroup;
+    use crate::context::SetBuildContextData;
+    use crate::deferred::calculation::testing::DeferredResolve;
+    use crate::deferred::testing::DeferredIdExt;
+    use crate::deferred::AnyValue;
+    use crate::deferred::DeferredId;
+    use crate::execute::blocking::testing::DummyBlockingExecutor;
+    use crate::execute::blocking::SetBlockingExecutor;
+    use crate::execute::commands::dice_data::set_fallback_executor_config;
+    use crate::execute::commands::dice_data::HasCommandExecutor;
+    use crate::execute::commands::dice_data::SetCommandExecutor;
+    use crate::execute::commands::dry_run::DryRunEntry;
+    use crate::execute::commands::dry_run::DryRunExecutor;
+    use crate::execute::commands::PreparedCommandExecutor;
+    use crate::execute::materializer::nodisk::NoDiskMaterializer;
+    use crate::execute::materializer::SetMaterializer;
+    use crate::execute::CommandExecutorConfig;
 
     fn create_test_build_artifact(
         package_cell: &str,

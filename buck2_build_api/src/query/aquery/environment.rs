@@ -7,40 +7,42 @@
  * of this source tree.
  */
 
-use std::{
-    borrow::Cow,
-    collections::{HashSet, VecDeque},
-    hash::Hash,
-    sync::Arc,
-};
+use std::borrow::Cow;
+use std::collections::HashSet;
+use std::collections::VecDeque;
+use std::hash::Hash;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_core::cells::paths::CellPath;
 use buck2_interpreter::common::BuildFilePath;
-use buck2_query::query::{
-    environment::{NodeLabel, QueryEnvironment, QueryTarget, QueryTargetAttr},
-    syntax::simple::eval::{error::QueryError, file_set::FileSet, set::TargetSet},
-    traversal::{
-        async_depth_first_postorder_traversal, async_depth_limited_traversal, AsyncNodeLookup,
-        AsyncTraversalDelegate,
-    },
-};
+use buck2_query::query::environment::NodeLabel;
+use buck2_query::query::environment::QueryEnvironment;
+use buck2_query::query::environment::QueryTarget;
+use buck2_query::query::environment::QueryTargetAttr;
+use buck2_query::query::syntax::simple::eval::error::QueryError;
+use buck2_query::query::syntax::simple::eval::file_set::FileSet;
+use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use buck2_query::query::traversal::async_depth_first_postorder_traversal;
+use buck2_query::query::traversal::async_depth_limited_traversal;
+use buck2_query::query::traversal::AsyncNodeLookup;
+use buck2_query::query::traversal::AsyncTraversalDelegate;
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::{prelude::*, variants::VariantName};
+use gazebo::prelude::*;
+use gazebo::variants::VariantName;
 use indexmap::IndexMap;
 use internment::ArcIntern;
 use ref_cast::RefCast;
 use serde::Serialize;
 
-use crate::{
-    actions::{
-        artifact::{ArtifactFs, ExecutorFs},
-        ActionKey, RegisteredAction,
-    },
-    artifact_groups::TransitiveSetProjectionKey,
-    query::{cquery::environment::CqueryDelegate, uquery::environment::QueryLiterals},
-};
+use crate::actions::artifact::ArtifactFs;
+use crate::actions::artifact::ExecutorFs;
+use crate::actions::ActionKey;
+use crate::actions::RegisteredAction;
+use crate::artifact_groups::TransitiveSetProjectionKey;
+use crate::query::cquery::environment::CqueryDelegate;
+use crate::query::uquery::environment::QueryLiterals;
 
 impl NodeLabel for ActionKey {}
 

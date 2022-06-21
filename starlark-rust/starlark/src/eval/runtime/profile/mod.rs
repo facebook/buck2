@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-use std::{fmt::Display, str::FromStr};
+use std::fmt::Display;
+use std::str::FromStr;
 
 use gazebo::dupe::Dupe;
 

@@ -7,27 +7,24 @@
  * of this source tree.
  */
 
-use std::{convert::TryFrom, sync::Arc};
+use std::convert::TryFrom;
+use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_common::{
-    dice::cells::HasCellResolver,
-    legacy_configs::{dice::HasLegacyConfigs, LegacyBuckConfig},
-};
-use buck2_core::{
-    cells::{
-        paths::{CellPath, CellRelativePathBuf},
-        CellAliasResolver,
-    },
-    result::SharedResult,
-};
-use dice::{DiceComputations, Key};
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::LegacyBuckConfig;
+use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::paths::CellRelativePathBuf;
+use buck2_core::cells::CellAliasResolver;
+use buck2_core::result::SharedResult;
+use dice::DiceComputations;
+use dice::Key;
 use gazebo::dupe::Dupe;
 
-use crate::{
-    common::{BuildFileCell, ImportPath},
-    package_imports::PackageImplicitImports,
-};
+use crate::common::BuildFileCell;
+use crate::common::ImportPath;
+use crate::package_imports::PackageImplicitImports;
 
 #[derive(PartialEq)]
 pub struct ImportPaths {

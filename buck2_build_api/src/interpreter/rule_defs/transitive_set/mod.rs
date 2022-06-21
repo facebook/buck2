@@ -23,17 +23,17 @@ pub mod testing;
 
 use thiserror::Error;
 
-use self::{transitive_set::TransitiveSetGen, transitive_set_iterator::TransitiveSetIteratorGen};
-pub use self::{
-    transitive_set::{FrozenTransitiveSet, TransitiveSet, TransitiveSetLike},
-    transitive_set_args_projection::{
-        FrozenTransitiveSetArgsProjection, TransitiveSetArgsProjection,
-    },
-    transitive_set_definition::{
-        transitive_set_definition_from_value, FrozenTransitiveSetDefinition,
-        TransitiveSetDefinition, TransitiveSetOperations,
-    },
-};
+pub use self::transitive_set::FrozenTransitiveSet;
+pub use self::transitive_set::TransitiveSet;
+use self::transitive_set::TransitiveSetGen;
+pub use self::transitive_set::TransitiveSetLike;
+pub use self::transitive_set_args_projection::FrozenTransitiveSetArgsProjection;
+pub use self::transitive_set_args_projection::TransitiveSetArgsProjection;
+pub use self::transitive_set_definition::transitive_set_definition_from_value;
+pub use self::transitive_set_definition::FrozenTransitiveSetDefinition;
+pub use self::transitive_set_definition::TransitiveSetDefinition;
+pub use self::transitive_set_definition::TransitiveSetOperations;
+use self::transitive_set_iterator::TransitiveSetIteratorGen;
 
 #[derive(Debug, Error)]
 pub enum TransitiveSetError {

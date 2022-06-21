@@ -230,9 +230,13 @@ pub(crate) fn split1_opt_ascii<'a>(
 
 #[cfg(test)]
 mod tests {
-    use std::str::pattern::{Pattern, ReverseSearcher};
+    use std::str::pattern::Pattern;
+    use std::str::pattern::ReverseSearcher;
 
-    use crate::pattern::ascii_pattern::{AsciiChar, AsciiPattern, AsciiStr, AsciiStr2};
+    use crate::pattern::ascii_pattern::AsciiChar;
+    use crate::pattern::ascii_pattern::AsciiPattern;
+    use crate::pattern::ascii_pattern::AsciiStr;
+    use crate::pattern::ascii_pattern::AsciiStr2;
 
     const STRINGS: &[&str] = &[
         "", "x", "y", "xx", "xy", "yx", "yy", "xxx", "xxy", "xyx", "xyy", "yxx", "yxy", "yyx",

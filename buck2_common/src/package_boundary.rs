@@ -7,24 +7,26 @@
  * of this source tree.
  */
 
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_core::{
-    cells::{
-        paths::{CellPath, CellRelativePath},
-        CellName,
-    },
-    fs::paths::{FileNameBuf, ForwardRelativePath, ForwardRelativePathBuf},
-    result::SharedResult,
-};
+use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::cells::CellName;
+use buck2_core::fs::paths::FileNameBuf;
+use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_core::fs::paths::ForwardRelativePathBuf;
+use buck2_core::result::SharedResult;
 use derive_more::Display;
-use dice::{DiceComputations, Key};
+use dice::DiceComputations;
+use dice::Key;
 use gazebo::prelude::*;
 use ref_cast::RefCast;
 
-use crate::legacy_configs::{dice::HasLegacyConfigs, LegacyBuckConfigs};
+use crate::legacy_configs::dice::HasLegacyConfigs;
+use crate::legacy_configs::LegacyBuckConfigs;
 
 #[derive(PartialEq)]
 pub struct PackageBoundaryExceptions(HashMap<CellName, CellPackageBoundaryExceptions>);

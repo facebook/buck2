@@ -7,12 +7,14 @@
  * of this source tree.
  */
 
-use std::{fmt::Debug, marker::PhantomData};
+use std::fmt::Debug;
+use std::marker::PhantomData;
 
-use crate::{
-    components::{Dimensions, DrawMode},
-    Component, Line, State,
-};
+use crate::components::Dimensions;
+use crate::components::DrawMode;
+use crate::Component;
+use crate::Line;
+use crate::State;
 
 /// Component that repeats whatever lines are put into it.
 /// Mostly useful for testing purposes.

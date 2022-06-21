@@ -7,62 +7,64 @@
  * of this source tree.
  */
 
-use std::{
-    collections::{BTreeMap, HashSet},
-    fs::File,
-    io,
-    path::{self, Path},
-    sync::Arc,
-};
+use std::collections::BTreeMap;
+use std::collections::HashSet;
+use std::fs::File;
+use std::io;
+use std::path::Path;
+use std::path::{self};
+use std::sync::Arc;
 
 use anyhow::Context as _;
-use buck2_build_api::{
-    actions::artifact::{ArtifactFs, BaseArtifactKind},
-    build,
-    build::{BuildProviderType, MaterializationContext, ProviderArtifacts, ProvidersToBuild},
-    calculation::Calculation,
-    interpreter::{
-        module_internals::EvaluationResult,
-        rule_defs::provider::collection::FrozenProviderCollectionValue,
-    },
-};
-use buck2_common::{
-    dice::{cells::HasCellResolver, file_ops::HasFileOps},
-    legacy_configs::dice::HasLegacyConfigs,
-};
-use buck2_core::{
-    fs::{anyhow as fs, paths::AbsPathBuf, project::ProjectFilesystem},
-    package::Package,
-    provider::{ConfiguredProvidersLabel, ProvidersLabel, ProvidersName},
-    result::SharedResult,
-    target::{TargetLabel, TargetName},
-};
+use buck2_build_api::actions::artifact::ArtifactFs;
+use buck2_build_api::actions::artifact::BaseArtifactKind;
+use buck2_build_api::build;
+use buck2_build_api::build::BuildProviderType;
+use buck2_build_api::build::MaterializationContext;
+use buck2_build_api::build::ProviderArtifacts;
+use buck2_build_api::build::ProvidersToBuild;
+use buck2_build_api::calculation::Calculation;
+use buck2_build_api::interpreter::module_internals::EvaluationResult;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_core::fs::anyhow as fs;
+use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::package::Package;
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::ProvidersLabel;
+use buck2_core::provider::ProvidersName;
+use buck2_core::result::SharedResult;
+use buck2_core::target::TargetLabel;
+use buck2_core::target::TargetName;
 use buck2_interpreter::pattern::*;
-use cli_proto::{
-    build_request::{
-        build_providers::Action as BuildProviderAction, BuildProviders, Materializations,
-    },
-    BuildRequest, BuildTarget,
-};
+use cli_proto::build_request::build_providers::Action as BuildProviderAction;
+use cli_proto::build_request::BuildProviders;
+use cli_proto::build_request::Materializations;
+use cli_proto::BuildRequest;
+use cli_proto::BuildTarget;
 use dice::DiceComputations;
-use futures::stream::{futures_unordered::FuturesUnordered, StreamExt, TryStreamExt};
+use futures::stream::futures_unordered::FuturesUnordered;
+use futures::stream::StreamExt;
+use futures::stream::TryStreamExt;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
 use itertools::Itertools;
 use thiserror::Error;
 use tracing::info;
 
-use crate::daemon::{
-    build::results::{
-        build_report::BuildReportCollector, providers::ProvidersPrinter,
-        result_report::ResultReporter, BuildOwner, BuildResultCollector,
-    },
-    common::{
-        parse_patterns_from_cli_args, resolve_patterns, target_platform_from_client_context,
-        ConvertMaterializationContext,
-    },
-    server::ServerCommandContext,
-};
+use crate::daemon::build::results::build_report::BuildReportCollector;
+use crate::daemon::build::results::providers::ProvidersPrinter;
+use crate::daemon::build::results::result_report::ResultReporter;
+use crate::daemon::build::results::BuildOwner;
+use crate::daemon::build::results::BuildResultCollector;
+use crate::daemon::common::parse_patterns_from_cli_args;
+use crate::daemon::common::resolve_patterns;
+use crate::daemon::common::target_platform_from_client_context;
+use crate::daemon::common::ConvertMaterializationContext;
+use crate::daemon::server::ServerCommandContext;
 
 pub mod results;
 

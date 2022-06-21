@@ -33,22 +33,20 @@ impl BuildResultCollector for Vec<&mut dyn BuildResultCollector> {
 }
 
 pub mod result_report {
-    use buck2_build_api::{
-        actions::artifact::ArtifactFs,
-        build::{BuildProviderType, ProviderArtifacts},
-    };
-    use buck2_core::{configuration::Configuration, result::SharedError};
-    use cli_proto::{
-        build_target::{build_output::BuildOutputProviders, BuildOutput},
-        BuildTarget,
-    };
+    use buck2_build_api::actions::artifact::ArtifactFs;
+    use buck2_build_api::build::BuildProviderType;
+    use buck2_build_api::build::ProviderArtifacts;
+    use buck2_core::configuration::Configuration;
+    use buck2_core::result::SharedError;
+    use cli_proto::build_target::build_output::BuildOutputProviders;
+    use cli_proto::build_target::BuildOutput;
+    use cli_proto::BuildTarget;
     use gazebo::prelude::*;
     use indexmap::IndexMap;
 
-    use crate::daemon::build::{
-        results::{BuildOwner, BuildResultCollector},
-        BuildTargetResult,
-    };
+    use crate::daemon::build::results::BuildOwner;
+    use crate::daemon::build::results::BuildResultCollector;
+    use crate::daemon::build::BuildTargetResult;
 
     /// Simple container for multiple [`SharedError`]s
     pub(crate) struct SharedErrors {
@@ -171,18 +169,15 @@ pub mod result_report {
 pub mod build_report {
     use std::collections::HashMap;
 
-    use buck2_build_api::{
-        actions::artifact::ArtifactFs, build::BuildProviderType, bxl::BxlFunctionLabel,
-    };
-    use buck2_core::{
-        configuration::Configuration,
-        fs::{
-            paths::{AbsPath, AbsPathBuf},
-            project::ProjectRelativePathBuf,
-        },
-        provider::ProvidersName,
-        target::TargetLabel,
-    };
+    use buck2_build_api::actions::artifact::ArtifactFs;
+    use buck2_build_api::build::BuildProviderType;
+    use buck2_build_api::bxl::BxlFunctionLabel;
+    use buck2_core::configuration::Configuration;
+    use buck2_core::fs::paths::AbsPath;
+    use buck2_core::fs::paths::AbsPathBuf;
+    use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::provider::ProvidersName;
+    use buck2_core::target::TargetLabel;
     use derivative::Derivative;
     use events::TraceId;
     use gazebo::prelude::*;
@@ -190,10 +185,9 @@ pub mod build_report {
     use itertools::Itertools;
     use serde::Serialize;
 
-    use crate::daemon::build::{
-        results::{BuildOwner, BuildResultCollector},
-        BuildTargetResult,
-    };
+    use crate::daemon::build::results::BuildOwner;
+    use crate::daemon::build::results::BuildResultCollector;
+    use crate::daemon::build::BuildTargetResult;
 
     #[derive(Debug, Serialize)]
     #[allow(clippy::upper_case_acronyms)] // We care about how they serialise
@@ -420,10 +414,9 @@ pub mod build_report {
 }
 
 pub mod providers {
-    use crate::daemon::build::{
-        results::{BuildOwner, BuildResultCollector},
-        BuildTargetResult,
-    };
+    use crate::daemon::build::results::BuildOwner;
+    use crate::daemon::build::results::BuildResultCollector;
+    use crate::daemon::build::BuildTargetResult;
 
     pub(crate) struct ProvidersPrinter;
 

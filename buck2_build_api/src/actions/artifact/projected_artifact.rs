@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use buck2_core::fs::paths::{ForwardRelativePath, ForwardRelativePathBuf};
+use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_core::fs::paths::ForwardRelativePathBuf;
 use derive_more::Display;
 use gazebo::prelude::*;
 

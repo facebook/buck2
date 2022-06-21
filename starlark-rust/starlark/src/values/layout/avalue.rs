@@ -15,42 +15,50 @@
  * limitations under the License.
  */
 
-use std::{
-    any::{type_name, TypeId},
-    cmp,
-    fmt::Debug,
-    mem,
-    mem::MaybeUninit,
-};
+use std::any::type_name;
+use std::any::TypeId;
+use std::cmp;
+use std::fmt::Debug;
+use std::mem;
+use std::mem::MaybeUninit;
 
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, cast, prelude::*};
-use serde::{Serialize, Serializer};
+use gazebo::any::ProvidesStaticType;
+use gazebo::cast;
+use gazebo::prelude::*;
+use serde::Serialize;
+use serde::Serializer;
 
-use crate::{
-    collections::{StarlarkHashValue, StarlarkHasher},
-    eval::compiler::def::FrozenDef,
-    private::Private,
-    values::{
-        basic::StarlarkValueBasic,
-        bool::StarlarkBool,
-        float::StarlarkFloat,
-        layout::{
-            arena::{AValueForward, AValueHeader, AValueRepr},
-            vtable::{AValueDyn, AValueVTable},
-        },
-        list::{FrozenList, List, ListGen},
-        none::NoneType,
-        num::Num,
-        string::StarlarkStr,
-        traits::StarlarkValueDyn,
-        types::{
-            array::Array,
-            tuple::{FrozenTuple, Tuple},
-        },
-        ComplexValue, Freezer, FrozenValue, StarlarkValue, Trace, Tracer, Value, ValueTyped,
-    },
-};
+use crate::collections::StarlarkHashValue;
+use crate::collections::StarlarkHasher;
+use crate::eval::compiler::def::FrozenDef;
+use crate::private::Private;
+use crate::values::basic::StarlarkValueBasic;
+use crate::values::bool::StarlarkBool;
+use crate::values::float::StarlarkFloat;
+use crate::values::layout::arena::AValueForward;
+use crate::values::layout::arena::AValueHeader;
+use crate::values::layout::arena::AValueRepr;
+use crate::values::layout::vtable::AValueDyn;
+use crate::values::layout::vtable::AValueVTable;
+use crate::values::list::FrozenList;
+use crate::values::list::List;
+use crate::values::list::ListGen;
+use crate::values::none::NoneType;
+use crate::values::num::Num;
+use crate::values::string::StarlarkStr;
+use crate::values::traits::StarlarkValueDyn;
+use crate::values::types::array::Array;
+use crate::values::types::tuple::FrozenTuple;
+use crate::values::types::tuple::Tuple;
+use crate::values::ComplexValue;
+use crate::values::Freezer;
+use crate::values::FrozenValue;
+use crate::values::StarlarkValue;
+use crate::values::Trace;
+use crate::values::Tracer;
+use crate::values::Value;
+use crate::values::ValueTyped;
 
 pub(crate) static VALUE_NONE: AValueRepr<AValueImpl<Basic, NoneType>> = {
     const PAYLOAD: AValueImpl<Basic, NoneType> = AValueImpl(Basic, NoneType);
@@ -734,7 +742,8 @@ impl<'v, Mode: 'static, T: StarlarkValue<'v>> Serialize for AValueImpl<Mode, T> 
 
 #[cfg(test)]
 mod tests {
-    use crate::{environment::Module, values::list::List};
+    use crate::environment::Module;
+    use crate::values::list::List;
 
     #[test]
     fn tuple_cycle_freeze() {

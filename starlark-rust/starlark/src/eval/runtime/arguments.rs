@@ -15,32 +15,39 @@
  * limitations under the License.
  */
 
-use std::{
-    cell::Cell, cmp, collections::HashMap, convert::TryInto, intrinsics::unlikely, iter,
-    marker::PhantomData,
-};
+use std::cell::Cell;
+use std::cmp;
+use std::collections::HashMap;
+use std::convert::TryInto;
+use std::intrinsics::unlikely;
+use std::iter;
+use std::marker::PhantomData;
 
 use either::Either;
-use gazebo::{
-    coerce::{coerce, Coerce},
-    prelude::*,
-};
+use gazebo::coerce::coerce;
+use gazebo::coerce::Coerce;
+use gazebo::prelude::*;
 use thiserror::Error;
 
 use crate as starlark;
-use crate::{
-    collections::{
-        symbol_map::{Symbol, SymbolMap},
-        Hashed, SmallMap, StarlarkHashValue,
-    },
-    eval::Evaluator,
-    values::{
-        dict::{Dict, DictRef},
-        docs,
-        docs::DocString,
-        Freeze, Heap, StringValue, Trace, UnpackValue, Value, ValueError, ValueLike,
-    },
-};
+use crate::collections::symbol_map::Symbol;
+use crate::collections::symbol_map::SymbolMap;
+use crate::collections::Hashed;
+use crate::collections::SmallMap;
+use crate::collections::StarlarkHashValue;
+use crate::eval::Evaluator;
+use crate::values::dict::Dict;
+use crate::values::dict::DictRef;
+use crate::values::docs;
+use crate::values::docs::DocString;
+use crate::values::Freeze;
+use crate::values::Heap;
+use crate::values::StringValue;
+use crate::values::Trace;
+use crate::values::UnpackValue;
+use crate::values::Value;
+use crate::values::ValueError;
+use crate::values::ValueLike;
 
 #[derive(Debug, Clone, Error)]
 enum FunctionError {
@@ -1279,12 +1286,11 @@ impl<'a> Arguments<'static, 'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        assert::Assert,
-        const_frozen_string,
-        eval::compiler::def::FrozenDef,
-        values::{FrozenValue, StringValueLike},
-    };
+    use crate::assert::Assert;
+    use crate::const_frozen_string;
+    use crate::eval::compiler::def::FrozenDef;
+    use crate::values::FrozenValue;
+    use crate::values::StringValueLike;
 
     #[test]
     fn test_parameter_unpack() {

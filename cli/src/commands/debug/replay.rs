@@ -13,11 +13,11 @@ use buck2_core::exit_result::ExitResult;
 use thiserror::Error;
 use tokio::runtime::Runtime;
 
-use crate::{
-    commands::common::{subscribers::event_log::get_local_logs, NO_EVENT_LOG},
-    daemon::client::Replayer,
-    exec, CommandContext,
-};
+use crate::commands::common::subscribers::event_log::get_local_logs;
+use crate::commands::common::NO_EVENT_LOG;
+use crate::daemon::client::Replayer;
+use crate::exec;
+use crate::CommandContext;
 
 #[derive(Error, Debug)]
 pub(crate) enum ReplayErrors {

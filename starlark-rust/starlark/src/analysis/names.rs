@@ -15,23 +15,26 @@
  * limitations under the License.
  */
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
+use std::collections::HashSet;
 
-use gazebo::{prelude::*, variants::VariantName};
+use gazebo::prelude::*;
+use gazebo::variants::VariantName;
 use thiserror::Error;
 
-use crate::{
-    analysis::{
-        bind,
-        bind::{Assigner, Bind, Scope},
-        types::{LintT, LintWarning},
-    },
-    codemap::{CodeMap, Span},
-    syntax::{
-        ast::{Assign, AstStmt, Expr, Stmt},
-        AstModule,
-    },
-};
+use crate::analysis::bind;
+use crate::analysis::bind::Assigner;
+use crate::analysis::bind::Bind;
+use crate::analysis::bind::Scope;
+use crate::analysis::types::LintT;
+use crate::analysis::types::LintWarning;
+use crate::codemap::CodeMap;
+use crate::codemap::Span;
+use crate::syntax::ast::Assign;
+use crate::syntax::ast::AstStmt;
+use crate::syntax::ast::Expr;
+use crate::syntax::ast::Stmt;
+use crate::syntax::AstModule;
 
 #[derive(Error, Debug, VariantName)]
 pub(crate) enum NameWarning {

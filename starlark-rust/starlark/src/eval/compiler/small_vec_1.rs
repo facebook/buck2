@@ -17,7 +17,9 @@
 
 //! Small `Vec`.
 
-use std::{fmt::Debug, mem, slice};
+use std::fmt::Debug;
+use std::mem;
+use std::slice;
 
 /// A small vector.
 #[derive(Clone)]

@@ -7,31 +7,33 @@
  * of this source tree.
  */
 
-use std::{collections::HashSet, fmt::Write, path::Path};
+use std::collections::HashSet;
+use std::fmt::Write;
+use std::path::Path;
 
-use buck2_build_api::{
-    calculation::load_patterns,
-    nodes::{hacks::value_to_json, unconfigured::TargetNode},
-};
+use buck2_build_api::calculation::load_patterns;
+use buck2_build_api::nodes::hacks::value_to_json;
+use buck2_build_api::nodes::unconfigured::TargetNode;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_core::{
-    cells::paths::CellPath, package::Package, provider::ProvidersLabel, target::TargetLabel,
-};
+use buck2_core::cells::paths::CellPath;
+use buck2_core::package::Package;
+use buck2_core::provider::ProvidersLabel;
+use buck2_core::target::TargetLabel;
 use buck2_interpreter::pattern::*;
-use cli_proto::{targets_request::TargetHashFileMode, TargetsRequest, TargetsResponse};
+use cli_proto::targets_request::TargetHashFileMode;
+use cli_proto::TargetsRequest;
+use cli_proto::TargetsResponse;
 use dice::DiceTransaction;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use regex::RegexSet;
 
-use crate::{
-    daemon::{
-        common::{parse_patterns_from_cli_args, target_platform_from_client_context},
-        json::quote_json_string,
-        server::ServerCommandContext,
-    },
-    target_hash::{BuckTargetHash, TargetHashes},
-};
+use crate::daemon::common::parse_patterns_from_cli_args;
+use crate::daemon::common::target_platform_from_client_context;
+use crate::daemon::json::quote_json_string;
+use crate::daemon::server::ServerCommandContext;
+use crate::target_hash::BuckTargetHash;
+use crate::target_hash::TargetHashes;
 
 struct TargetInfo<'a> {
     node: &'a TargetNode,

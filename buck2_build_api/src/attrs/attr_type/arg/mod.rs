@@ -7,42 +7,42 @@
  * of this source tree.
  */
 
-use std::{
-    collections::HashSet,
-    fmt::{Debug, Display},
-    hash::Hash,
-    mem,
-};
+use std::collections::HashSet;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::hash::Hash;
+use std::mem;
 
 use anyhow::anyhow;
-use buck2_core::{
-    fs::{paths::RelativePathBuf, project::ProjectRelativePathBuf},
-    provider::{ConfiguredProvidersLabel, ProvidersLabel},
-};
+use buck2_core::fs::paths::RelativePathBuf;
+use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::ProvidersLabel;
 use gazebo::prelude::*;
 use once_cell::sync::Lazy;
-use starlark::values::{string::STRING_TYPE, Value};
+use starlark::values::string::STRING_TYPE;
+use starlark::values::Value;
 use thiserror::Error;
 
-use crate::{
-    actions::artifact::ExecutorFs,
-    attrs::{
-        attr_type::{
-            arg::{
-                parser::{parse_macros, ParsedMacro},
-                query::QueryMacroBase,
-                value::ResolvedStringWithMacros,
-            },
-            attr_literal::{AttrConfig, AttrLiteral, CoercionError, ConfiguredAttrTraversal},
-            query::QueryAttrType,
-        },
-        AttrCoercionContext, AttrConfigurationContext, AttrResolutionContext, CoercedAttr,
-        CoercedAttrTraversal, ConfiguredAttr,
-    },
-    interpreter::rule_defs::cmd_args::{
-        CommandLineBuilder, CommandLineBuilderContext, CommandLineLocation,
-    },
-};
+use crate::actions::artifact::ExecutorFs;
+use crate::attrs::attr_type::arg::parser::parse_macros;
+use crate::attrs::attr_type::arg::parser::ParsedMacro;
+use crate::attrs::attr_type::arg::query::QueryMacroBase;
+use crate::attrs::attr_type::arg::value::ResolvedStringWithMacros;
+use crate::attrs::attr_type::attr_literal::AttrConfig;
+use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::attr_literal::CoercionError;
+use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
+use crate::attrs::attr_type::query::QueryAttrType;
+use crate::attrs::AttrCoercionContext;
+use crate::attrs::AttrConfigurationContext;
+use crate::attrs::AttrResolutionContext;
+use crate::attrs::CoercedAttr;
+use crate::attrs::CoercedAttrTraversal;
+use crate::attrs::ConfiguredAttr;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
+use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
 
 pub mod parser;
 pub mod query;
@@ -612,20 +612,16 @@ impl ConfiguredMacro {
 #[cfg(test)]
 mod tests {
     use buck2_core::target::TargetLabel;
-    use starlark::environment::{GlobalsBuilder, Module};
+    use starlark::environment::GlobalsBuilder;
+    use starlark::environment::Module;
 
     use super::*;
-    use crate::{
-        attrs::{
-            attr_type::{
-                attr_literal::{CoercedDepsCollector, ConfiguredAttrInfo},
-                AttrType,
-            },
-            testing::*,
-            AttrConfigurationContext,
-        },
-        interpreter::rule_defs::attr::AttrIsConfigurable,
-    };
+    use crate::attrs::attr_type::attr_literal::CoercedDepsCollector;
+    use crate::attrs::attr_type::attr_literal::ConfiguredAttrInfo;
+    use crate::attrs::attr_type::AttrType;
+    use crate::attrs::testing::*;
+    use crate::attrs::AttrConfigurationContext;
+    use crate::interpreter::rule_defs::attr::AttrIsConfigurable;
 
     trait GetMacroDeps {
         type DepsType;

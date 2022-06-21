@@ -7,50 +7,58 @@
  * of this source tree.
  */
 
-use std::process::{Command, Stdio};
+use std::process::Command;
+use std::process::Stdio;
 
 use anyhow::Context;
-use buck2_build_api::{
-    actions::{
-        artifact::{Artifact, ArtifactFs, ArtifactValue, BaseArtifactKind, ExecutorFs},
-        directory::ActionDirectoryMember,
-    },
-    artifact_groups::{ArtifactGroup, ArtifactGroupValues},
-    calculation::Calculation,
-    execute::{materializer::ArtifactMaterializer, PathSeparatorKind},
-    interpreter::rule_defs::{
-        cmd_args::{AbsCommandLineBuilder, CommandLineArgLike, SimpleCommandLineArtifactVisitor},
-        provider::builtin::install_info::*,
-    },
-};
-use buck2_common::dice::{cells::HasCellResolver, file_ops::HasFileOps};
-use buck2_core::{
-    directory::DirectoryEntry,
-    fs::paths::AbsPathBuf,
-    package::Package,
-    provider::{ProvidersLabel, ProvidersName},
-    target::{TargetLabel, TargetName},
-};
+use buck2_build_api::actions::artifact::Artifact;
+use buck2_build_api::actions::artifact::ArtifactFs;
+use buck2_build_api::actions::artifact::ArtifactValue;
+use buck2_build_api::actions::artifact::BaseArtifactKind;
+use buck2_build_api::actions::artifact::ExecutorFs;
+use buck2_build_api::actions::directory::ActionDirectoryMember;
+use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::artifact_groups::ArtifactGroupValues;
+use buck2_build_api::calculation::Calculation;
+use buck2_build_api::execute::materializer::ArtifactMaterializer;
+use buck2_build_api::execute::PathSeparatorKind;
+use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineBuilder;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::*;
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::file_ops::HasFileOps;
+use buck2_core::directory::DirectoryEntry;
+use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::package::Package;
+use buck2_core::provider::ProvidersLabel;
+use buck2_core::provider::ProvidersName;
+use buck2_core::target::TargetLabel;
+use buck2_core::target::TargetName;
 use buck2_interpreter::pattern::*;
-use cli_proto::{InstallRequest, InstallResponse};
+use cli_proto::InstallRequest;
+use cli_proto::InstallResponse;
 use dice::DiceComputations;
-use futures::{
-    future::{self, try_join},
-    stream::{StreamExt, TryStreamExt},
-};
-use gazebo::prelude::{StrExt, *};
+use futures::future::try_join;
+use futures::future::{self};
+use futures::stream::StreamExt;
+use futures::stream::TryStreamExt;
+use gazebo::prelude::StrExt;
+use gazebo::prelude::*;
 use indexmap::IndexMap;
-use install_proto::{installer_client::InstallerClient, FileReady, Shutdown};
+use install_proto::installer_client::InstallerClient;
+use install_proto::FileReady;
+use install_proto::Shutdown;
 use starlark::values::FrozenRef;
 use tempfile::Builder;
 use thiserror::Error;
 use tokio::sync::mpsc;
 use tonic::transport::Channel;
 
-use crate::daemon::{
-    common::{parse_patterns_from_cli_args, resolve_patterns, target_platform_from_client_context},
-    server::ServerCommandContext,
-};
+use crate::daemon::common::parse_patterns_from_cli_args;
+use crate::daemon::common::resolve_patterns;
+use crate::daemon::common::target_platform_from_client_context;
+use crate::daemon::server::ServerCommandContext;
 
 pub static DEFAULT_PORT: &str = "50055";
 pub static DEFAULT_SOCKET_ADDR: &str = "0.0.0.0";
@@ -270,7 +278,9 @@ async fn materialize_artifact_group(
 async fn connect_to_installer(unix_socket: String) -> anyhow::Result<InstallerClient<Channel>> {
     use std::time::Duration;
 
-    use super::client_utils::{get_channel, retrying, ConnectionType};
+    use super::client_utils::get_channel;
+    use super::client_utils::retrying;
+    use super::client_utils::ConnectionType;
 
     // try to connect using uds first
     let attempt_channel = retrying(

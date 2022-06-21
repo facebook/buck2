@@ -7,25 +7,24 @@
  * of this source tree.
  */
 
-use std::{
-    cmp::{self, Ordering},
-    iter,
-};
+use std::cmp::Ordering;
+use std::cmp::{self};
+use std::iter;
 
-use crossterm::style::{Attribute, Attributes, Color};
-use termwiz::{
-    cell::Intensity,
-    color::ColorSpec,
-    escape::{
-        csi::{Sgr, CSI},
-        Action,
-    },
-};
+use crossterm::style::Attribute;
+use crossterm::style::Attributes;
+use crossterm::style::Color;
+use termwiz::cell::Intensity;
+use termwiz::color::ColorSpec;
+use termwiz::escape::csi::Sgr;
+use termwiz::escape::csi::CSI;
+use termwiz::escape::Action;
 
-use crate::{
-    style::{ContentStyle, StyledContent},
-    Dimensions, Line, Span,
-};
+use crate::style::ContentStyle;
+use crate::style::StyledContent;
+use crate::Dimensions;
+use crate::Line;
+use crate::Span;
 
 pub type Lines = Vec<Line>;
 
@@ -293,7 +292,8 @@ impl LinesExt for Vec<Line> {
 mod tests {
     use std::convert::TryInto;
 
-    use crossterm::style::{Attribute, Color};
+    use crossterm::style::Attribute;
+    use crossterm::style::Color;
     use gazebo::prelude::*;
 
     use super::*;

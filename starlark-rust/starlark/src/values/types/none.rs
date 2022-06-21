@@ -19,17 +19,23 @@
 use std::hash::Hasher;
 
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, prelude::*};
-use serde::{Serialize, Serializer};
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
+use serde::Serialize;
+use serde::Serializer;
 
-use crate::{
-    collections::{StarlarkHashValue, StarlarkHasher},
-    private::Private,
-    values::{
-        basic::StarlarkValueBasic, AllocFrozenValue, AllocValue, FrozenHeap, FrozenValue, Heap,
-        StarlarkValue, UnpackValue, Value,
-    },
-};
+use crate::collections::StarlarkHashValue;
+use crate::collections::StarlarkHasher;
+use crate::private::Private;
+use crate::values::basic::StarlarkValueBasic;
+use crate::values::AllocFrozenValue;
+use crate::values::AllocValue;
+use crate::values::FrozenHeap;
+use crate::values::FrozenValue;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::UnpackValue;
+use crate::values::Value;
 
 /// Define the None type, use [`NoneType`] in Rust.
 #[derive(Debug, Clone, Dupe, ProvidesStaticType, Display)]

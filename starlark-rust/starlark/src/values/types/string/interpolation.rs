@@ -18,19 +18,27 @@
 //! String interpolation-related code.
 //! Based on <https://docs.python.org/3/library/stdtypes.html#printf-style-string-formatting>
 
-use std::{fmt::Write, mem, str::FromStr};
+use std::fmt::Write;
+use std::mem;
+use std::str::FromStr;
 
 use anyhow::anyhow;
-use gazebo::{cast, prelude::*};
+use gazebo::cast;
+use gazebo::prelude::*;
 use thiserror::Error;
 
-use crate::{
-    collections::string_pool::StringPool,
-    values::{
-        dict::Dict, float, num, num::Num, tuple::Tuple, Heap, StringValue, UnpackValue, Value,
-        ValueError, ValueLike,
-    },
-};
+use crate::collections::string_pool::StringPool;
+use crate::values::dict::Dict;
+use crate::values::float;
+use crate::values::num;
+use crate::values::num::Num;
+use crate::values::tuple::Tuple;
+use crate::values::Heap;
+use crate::values::StringValue;
+use crate::values::UnpackValue;
+use crate::values::Value;
+use crate::values::ValueError;
+use crate::values::ValueLike;
 
 /// Operator `%` format or evaluation errors
 #[derive(Clone, Dupe, Debug, Error)]
@@ -482,7 +490,9 @@ mod tests {
     use gazebo::coerce::coerce;
 
     use super::*;
-    use crate::{assert, collections::SmallMap, values::Heap};
+    use crate::assert;
+    use crate::collections::SmallMap;
+    use crate::values::Heap;
 
     fn format_capture_for_test<'v, T: Iterator<Item = Value<'v>>>(
         capture: &str,

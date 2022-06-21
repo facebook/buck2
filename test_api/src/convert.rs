@@ -1,6 +1,7 @@
 //! Utilities for GRPC conversions
 
-use std::{convert::TryInto, time::Duration};
+use std::convert::TryInto;
+use std::time::Duration;
 
 use anyhow::Context as _;
 

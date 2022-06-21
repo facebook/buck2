@@ -20,38 +20,38 @@
 
 pub(crate) mod calculation;
 
-use std::{
-    any::{type_name, Any},
-    collections::{HashMap, HashSet},
-    fmt,
-    fmt::{Debug, Formatter},
-    marker::PhantomData,
-    sync::Arc,
-};
+use std::any::type_name;
+use std::any::Any;
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::marker::PhantomData;
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use buck2_bxl_core::BxlKey;
-use buck2_core::{
-    fs::project::{ProjectFilesystem, ProjectRelativePath, ProjectRelativePathBuf},
-    provider::ConfiguredProvidersLabel,
-    target::ConfiguredTargetLabel,
-};
+use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::target::ConfiguredTargetLabel;
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::{
-    prelude::*,
-    variants::{UnpackVariants, VariantName},
-};
-use indexmap::{indexset, IndexSet};
+use gazebo::prelude::*;
+use gazebo::variants::UnpackVariants;
+use gazebo::variants::VariantName;
+use indexmap::indexset;
+use indexmap::IndexSet;
 use itertools::Itertools;
 use owning_ref::ArcRef;
 use thiserror::Error;
 
-use crate::{
-    actions::artifact::{Artifact, ArtifactValue},
-    interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue,
-    nodes::configured::ConfiguredTargetNode,
-};
+use crate::actions::artifact::Artifact;
+use crate::actions::artifact::ArtifactValue;
+use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use crate::nodes::configured::ConfiguredTargetNode;
 
 /// An asynchronous chunk of work that will be executed when requested.
 /// The 'Deferred' can have "inputs" which are values that will be guaranteed to be ready to use
@@ -661,17 +661,20 @@ where
 }
 
 pub mod testing {
-    use std::{
-        collections::{hash_map::RandomState, HashMap},
-        sync::Arc,
-    };
+    use std::collections::hash_map::RandomState;
+    use std::collections::HashMap;
+    use std::sync::Arc;
 
     use gazebo::variants::VariantName;
 
-    use crate::deferred::{
-        AnyValue, DeferredAny, DeferredData, DeferredId, DeferredKey, DeferredResult,
-        DeferredTable, DeferredValueAny,
-    };
+    use crate::deferred::AnyValue;
+    use crate::deferred::DeferredAny;
+    use crate::deferred::DeferredData;
+    use crate::deferred::DeferredId;
+    use crate::deferred::DeferredKey;
+    use crate::deferred::DeferredResult;
+    use crate::deferred::DeferredTable;
+    use crate::deferred::DeferredValueAny;
 
     pub trait DeferredDataExt<T> {
         fn testing_new(key: DeferredKey) -> DeferredData<T>;
@@ -749,25 +752,37 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        fmt::{self, Debug, Formatter},
-        sync::Arc,
-    };
+    use std::fmt::Debug;
+    use std::fmt::Formatter;
+    use std::fmt::{self};
+    use std::sync::Arc;
 
-    use buck2_core::{
-        configuration::Configuration,
-        fs::{paths::AbsPath, project::ProjectFilesystem},
-        package::{testing::PackageExt, Package},
-        target::{testing::ConfiguredTargetLabelExt, ConfiguredTargetLabel, TargetName},
-    };
+    use buck2_core::configuration::Configuration;
+    use buck2_core::fs::paths::AbsPath;
+    use buck2_core::fs::project::ProjectFilesystem;
+    use buck2_core::package::testing::PackageExt;
+    use buck2_core::package::Package;
+    use buck2_core::target::testing::ConfiguredTargetLabelExt;
+    use buck2_core::target::ConfiguredTargetLabel;
+    use buck2_core::target::TargetName;
     use gazebo::prelude::*;
-    use indexmap::{indexset, IndexSet};
+    use indexmap::indexset;
+    use indexmap::IndexSet;
 
-    use crate::deferred::{
-        testing::DeferredValueAnyExt, AnyValue, BaseDeferredKey, BaseKey, Deferred, DeferredCtx,
-        DeferredData, DeferredId, DeferredInput, DeferredKey, DeferredRegistry, DeferredValue,
-        DeferredValueAny, ResolveDeferredCtx,
-    };
+    use crate::deferred::testing::DeferredValueAnyExt;
+    use crate::deferred::AnyValue;
+    use crate::deferred::BaseDeferredKey;
+    use crate::deferred::BaseKey;
+    use crate::deferred::Deferred;
+    use crate::deferred::DeferredCtx;
+    use crate::deferred::DeferredData;
+    use crate::deferred::DeferredId;
+    use crate::deferred::DeferredInput;
+    use crate::deferred::DeferredKey;
+    use crate::deferred::DeferredRegistry;
+    use crate::deferred::DeferredValue;
+    use crate::deferred::DeferredValueAny;
+    use crate::deferred::ResolveDeferredCtx;
 
     #[derive(Clone, PartialEq, Eq)]
     struct FakeDeferred<T> {

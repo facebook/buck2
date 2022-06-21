@@ -15,17 +15,20 @@
  * limitations under the License.
  */
 
-use std::{cell::RefCell, marker, marker::PhantomData};
+use std::cell::RefCell;
+use std::marker;
+use std::marker::PhantomData;
 
 use gazebo::prelude::*;
 
-use crate::{
-    collections::{
-        vec_map::{Bucket, VecMap},
-        SmallMap,
-    },
-    values::{Freezer, FrozenStringValue, FrozenValue, StringValue, Value},
-};
+use crate::collections::vec_map::Bucket;
+use crate::collections::vec_map::VecMap;
+use crate::collections::SmallMap;
+use crate::values::Freezer;
+use crate::values::FrozenStringValue;
+use crate::values::FrozenValue;
+use crate::values::StringValue;
+use crate::values::Value;
 
 /// Need to be implemented for non-simple `StarlarkValue`.
 ///

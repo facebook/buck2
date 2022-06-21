@@ -7,14 +7,17 @@
  * of this source tree.
  */
 
-use buck2_query::query::{
-    environment::{QueryTarget, QueryTargets},
-    syntax::simple::eval::set::TargetSet,
-};
-use indexmap::{indexmap, IndexMap};
+use buck2_query::query::environment::QueryTarget;
+use buck2_query::query::environment::QueryTargets;
+use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use indexmap::indexmap;
+use indexmap::IndexMap;
 use regex::RegexSet;
 
-use crate::dot::{DotDigraph, DotEdge, DotNode, DotNodeAttrs};
+use crate::dot::DotDigraph;
+use crate::dot::DotEdge;
+use crate::dot::DotNode;
+use crate::dot::DotNodeAttrs;
 
 pub(crate) struct DotTargetGraphNode<'a, T: QueryTarget>(&'a T, &'a DotTargetGraph<T>);
 

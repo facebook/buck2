@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-use std::{
-    iter::Sum,
-    ops::{Add, AddAssign, Div},
-    time::Duration,
-};
+use std::iter::Sum;
+use std::ops::Add;
+use std::ops::AddAssign;
+use std::ops::Div;
+use std::time::Duration;
 
 use gazebo::dupe::Dupe;
 

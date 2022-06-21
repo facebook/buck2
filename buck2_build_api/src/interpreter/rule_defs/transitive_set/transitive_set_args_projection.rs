@@ -7,35 +7,36 @@
  * of this source tree.
  */
 
-use std::fmt::{self, Display};
+use std::fmt::Display;
+use std::fmt::{self};
 
 use anyhow::Context as _;
-use gazebo::{
-    any::ProvidesStaticType,
-    coerce::{coerce, Coerce},
-    prelude::*,
-};
-use starlark::{
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    values::{
-        display::ContainerDisplayHelper, Freeze, Heap, NoSerialize, StarlarkValue, Trace, Value,
-        ValueLike,
-    },
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::coerce;
+use gazebo::coerce::Coerce;
+use gazebo::prelude::*;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::values::display::ContainerDisplayHelper;
+use starlark::values::Freeze;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 
-use crate::{
-    artifact_groups::{ArtifactGroup, TransitiveSetProjectionKey},
-    interpreter::rule_defs::{
-        cmd_args::{
-            CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder,
-            ValueAsCommandLineLike, WriteToFileMacroVisitor,
-        },
-        transitive_set::{
-            transitive_set_definition_from_value, traversal::TransitiveSetArgsProjectionTraversal,
-            TransitiveSet,
-        },
-    },
-};
+use crate::artifact_groups::ArtifactGroup;
+use crate::artifact_groups::TransitiveSetProjectionKey;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
+use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
+use crate::interpreter::rule_defs::transitive_set::transitive_set_definition_from_value;
+use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetArgsProjectionTraversal;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
 #[derive(Debug, Clone, Trace, Coerce, Freeze, ProvidesStaticType)]
 #[derive(NoSerialize)] // TODO we should probably have a serialization for transitive set

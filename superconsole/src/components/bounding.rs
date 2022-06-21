@@ -7,7 +7,12 @@
  * of this source tree.
  */
 
-use crate::{content::LinesExt, Component, Dimensions, DrawMode, Lines, State};
+use crate::content::LinesExt;
+use crate::Component;
+use crate::Dimensions;
+use crate::DrawMode;
+use crate::Lines;
+use crate::State;
 
 /// Component that ensures its child component has at most `max_size` render space.
 #[derive(Debug)]
@@ -48,7 +53,8 @@ mod tests {
     use derive_more::AsRef;
 
     use super::*;
-    use crate::{components::Echo, Span};
+    use crate::components::Echo;
+    use crate::Span;
 
     #[derive(AsRef, Debug)]
     struct Msg(Lines);

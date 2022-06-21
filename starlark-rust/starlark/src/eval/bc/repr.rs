@@ -19,13 +19,10 @@
 
 use std::mem;
 
-use crate::{
-    eval::bc::{
-        instr::BcInstr,
-        opcode::{BcOpcode, BcOpcodeHandler},
-    },
-    values::FrozenValue,
-};
+use crate::eval::bc::instr::BcInstr;
+use crate::eval::bc::opcode::BcOpcode;
+use crate::eval::bc::opcode::BcOpcodeHandler;
+use crate::values::FrozenValue;
 
 /// All instructions must be word aligned.
 pub(crate) const BC_INSTR_ALIGN: usize = mem::align_of::<FrozenValue>();

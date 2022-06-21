@@ -19,16 +19,17 @@
 
 use anyhow::anyhow;
 
-use crate::{
-    self as starlark,
-    environment::MethodsBuilder,
-    stdlib::util::{convert_index, convert_indices},
-    values::{
-        list::{List, ListRef},
-        none::{NoneOr, NoneType},
-        Heap, Value, ValueError,
-    },
-};
+use crate::environment::MethodsBuilder;
+use crate::stdlib::util::convert_index;
+use crate::stdlib::util::convert_indices;
+use crate::values::list::List;
+use crate::values::list::ListRef;
+use crate::values::none::NoneOr;
+use crate::values::none::NoneType;
+use crate::values::Heap;
+use crate::values::Value;
+use crate::values::ValueError;
+use crate::{self as starlark};
 
 #[starlark_module]
 pub(crate) fn list_methods(builder: &mut MethodsBuilder) {

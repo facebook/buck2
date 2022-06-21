@@ -11,12 +11,16 @@ use anyhow::Context;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
 
-use crate::{
-    actions::artifact::{Artifact, OutputArtifact},
-    analysis::registry::AnalysisValueFetcher,
-    deferred::{BaseDeferredKey, DeferredId, DeferredRegistry, ReservedDeferredData},
-    dynamic::deferred::{DynamicAction, DynamicLambda, DynamicLambdaOutput},
-};
+use crate::actions::artifact::Artifact;
+use crate::actions::artifact::OutputArtifact;
+use crate::analysis::registry::AnalysisValueFetcher;
+use crate::deferred::BaseDeferredKey;
+use crate::deferred::DeferredId;
+use crate::deferred::DeferredRegistry;
+use crate::deferred::ReservedDeferredData;
+use crate::dynamic::deferred::DynamicAction;
+use crate::dynamic::deferred::DynamicLambda;
+use crate::dynamic::deferred::DynamicLambdaOutput;
 
 pub(crate) struct DynamicRegistry {
     owner: BaseDeferredKey,

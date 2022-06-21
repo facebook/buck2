@@ -9,28 +9,42 @@
 
 //! Dice calculations relating to deferreds
 
-use std::{collections::HashMap, hash::Hash, sync::Arc};
+use std::collections::HashMap;
+use std::hash::Hash;
+use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_core::result::SharedResult;
 use derive_more::Display;
-use dice::{DiceComputations, Key};
-use futures::{stream::FuturesUnordered, Future, StreamExt};
+use dice::DiceComputations;
+use dice::Key;
+use futures::stream::FuturesUnordered;
+use futures::Future;
+use futures::StreamExt;
 use gazebo::prelude::*;
-use owning_ref::{ArcRef, BoxRef};
+use owning_ref::ArcRef;
+use owning_ref::BoxRef;
 
-use crate::{
-    analysis::{calculation::RuleAnalysisCalculation, AnalysisResult},
-    artifact_groups::ArtifactGroup,
-    bxl::{calculation::BxlCalculation, result::BxlResult},
-    deferred::{
-        calculation::keys::DeferredResolve, AnyValue, BaseDeferredKey, BaseKey, DeferredAny,
-        DeferredData, DeferredId, DeferredInput, DeferredKey, DeferredRegistry, DeferredResult,
-        DeferredValueAny, ResolveDeferredCtx,
-    },
-};
+use crate::analysis::calculation::RuleAnalysisCalculation;
+use crate::analysis::AnalysisResult;
+use crate::artifact_groups::ArtifactGroup;
+use crate::bxl::calculation::BxlCalculation;
+use crate::bxl::result::BxlResult;
+use crate::deferred::calculation::keys::DeferredResolve;
+use crate::deferred::AnyValue;
+use crate::deferred::BaseDeferredKey;
+use crate::deferred::BaseKey;
+use crate::deferred::DeferredAny;
+use crate::deferred::DeferredData;
+use crate::deferred::DeferredId;
+use crate::deferred::DeferredInput;
+use crate::deferred::DeferredKey;
+use crate::deferred::DeferredRegistry;
+use crate::deferred::DeferredResult;
+use crate::deferred::DeferredValueAny;
+use crate::deferred::ResolveDeferredCtx;
 
 #[async_trait]
 pub(crate) trait DeferredCalculation {
@@ -294,38 +308,43 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    };
+    use std::sync::atomic::AtomicBool;
+    use std::sync::atomic::Ordering;
+    use std::sync::Arc;
 
     use buck2_common::dice::data::testing::SetTestingIoProvider;
-    use buck2_core::{
-        configuration::Configuration,
-        fs::project::ProjectFilesystemTemp,
-        result::ToSharedResultExt,
-        target::{testing::TargetLabelExt, TargetLabel},
-    };
+    use buck2_core::configuration::Configuration;
+    use buck2_core::fs::project::ProjectFilesystemTemp;
+    use buck2_core::result::ToSharedResultExt;
+    use buck2_core::target::testing::TargetLabelExt;
+    use buck2_core::target::TargetLabel;
     use buck2_interpreter::common::ImportPath;
-    use dice::{testing::DiceBuilder, UserComputationData};
+    use dice::testing::DiceBuilder;
+    use dice::UserComputationData;
     use gazebo::prelude::*;
     use indexmap::IndexSet;
     use indoc::indoc;
 
-    use crate::{
-        analysis::{calculation::testing::AnalysisKey, AnalysisResult},
-        configuration::execution::ExecutionPlatformResolution,
-        deferred::{
-            calculation::DeferredCalculation, BaseDeferredKey, BaseKey, Deferred, DeferredCtx,
-            DeferredInput, DeferredRegistry, DeferredTable, DeferredValue,
-        },
-        execute::{commands::dice_data::set_fallback_executor_config, CommandExecutorConfig},
-        interpreter::rule_defs::provider::testing::FrozenProviderCollectionValueExt,
-        nodes::{
-            calculation::ConfiguredNodeKey, compatibility::MaybeCompatible,
-            configured::ConfiguredTargetNode, RuleType, StarlarkRuleType,
-        },
-    };
+    use crate::analysis::calculation::testing::AnalysisKey;
+    use crate::analysis::AnalysisResult;
+    use crate::configuration::execution::ExecutionPlatformResolution;
+    use crate::deferred::calculation::DeferredCalculation;
+    use crate::deferred::BaseDeferredKey;
+    use crate::deferred::BaseKey;
+    use crate::deferred::Deferred;
+    use crate::deferred::DeferredCtx;
+    use crate::deferred::DeferredInput;
+    use crate::deferred::DeferredRegistry;
+    use crate::deferred::DeferredTable;
+    use crate::deferred::DeferredValue;
+    use crate::execute::commands::dice_data::set_fallback_executor_config;
+    use crate::execute::CommandExecutorConfig;
+    use crate::interpreter::rule_defs::provider::testing::FrozenProviderCollectionValueExt;
+    use crate::nodes::calculation::ConfiguredNodeKey;
+    use crate::nodes::compatibility::MaybeCompatible;
+    use crate::nodes::configured::ConfiguredTargetNode;
+    use crate::nodes::RuleType;
+    use crate::nodes::StarlarkRuleType;
 
     struct FakeDeferred(usize, IndexSet<DeferredInput>, Arc<AtomicBool>);
 

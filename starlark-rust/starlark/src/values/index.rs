@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-use crate::values::{Value, ValueError};
+use crate::values::Value;
+use crate::values::ValueError;
 
 // Helper for convert_slice_indices
 fn convert_index_aux(

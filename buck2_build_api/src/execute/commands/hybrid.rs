@@ -11,21 +11,23 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use events::dispatch::EventDispatcher;
-use futures::{
-    future::{self, Either, Future},
-    FutureExt,
-};
+use futures::future::Either;
+use futures::future::Future;
+use futures::future::{self};
+use futures::FutureExt;
 use gazebo::prelude::*;
 use remote_execution as RE;
 
-use crate::execute::{
-    commands::{
-        local::LocalExecutor, re::ReExecutor, ActionResultStatus, ClaimManager,
-        CommandExecutionManager, CommandExecutionResult, ExecutorName, PreparedCommand,
-        PreparedCommandExecutor,
-    },
-    HybridExecutionLevel,
-};
+use crate::execute::commands::local::LocalExecutor;
+use crate::execute::commands::re::ReExecutor;
+use crate::execute::commands::ActionResultStatus;
+use crate::execute::commands::ClaimManager;
+use crate::execute::commands::CommandExecutionManager;
+use crate::execute::commands::CommandExecutionResult;
+use crate::execute::commands::ExecutorName;
+use crate::execute::commands::PreparedCommand;
+use crate::execute::commands::PreparedCommandExecutor;
+use crate::execute::HybridExecutionLevel;
 
 /// The [HybridExecutor] will accept requests and dispatch them to both a local and remote delegate
 /// executor, unless the CommandExecutionRequest expresses a preference. That will allow them to

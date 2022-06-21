@@ -23,30 +23,37 @@
 //! [Starlark spec](https://github.com/bazelbuild/starlark/blob/master/spec.md#integers)), and those larger
 //! integer values will be stored on the heap.
 
-use std::{
-    cmp::Ordering,
-    fmt::{self, Debug, Display},
-    hash::Hasher,
-    ptr,
-};
+use std::cmp::Ordering;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::{self};
+use std::hash::Hasher;
+use std::ptr;
 
-use gazebo::{
-    any::{AnyLifetime, ProvidesStaticType},
-    cast,
-};
+use gazebo::any::AnyLifetime;
+use gazebo::any::ProvidesStaticType;
+use gazebo::cast;
 use num_bigint::BigInt;
 use num_traits::Signed;
-use serde::{Serialize, Serializer};
+use serde::Serialize;
+use serde::Serializer;
 
-use crate::{
-    collections::{StarlarkHashValue, StarlarkHasher},
-    private::Private,
-    values::{
-        basic::StarlarkValueBasic, error::ValueError, float::StarlarkFloat, num::Num,
-        types::bigint::StarlarkBigInt, AllocFrozenValue, AllocValue, FrozenHeap, FrozenValue, Heap,
-        StarlarkValue, UnpackValue, Value,
-    },
-};
+use crate::collections::StarlarkHashValue;
+use crate::collections::StarlarkHasher;
+use crate::private::Private;
+use crate::values::basic::StarlarkValueBasic;
+use crate::values::error::ValueError;
+use crate::values::float::StarlarkFloat;
+use crate::values::num::Num;
+use crate::values::types::bigint::StarlarkBigInt;
+use crate::values::AllocFrozenValue;
+use crate::values::AllocValue;
+use crate::values::FrozenHeap;
+use crate::values::FrozenValue;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::UnpackValue;
+use crate::values::Value;
 
 /// The result of calling `type()` on integers.
 pub const INT_TYPE: &str = "int";

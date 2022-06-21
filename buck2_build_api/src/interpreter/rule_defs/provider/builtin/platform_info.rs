@@ -11,11 +11,15 @@ use std::fmt::Debug;
 
 use buck2_build_api_derive::internal_provider;
 use buck2_core::configuration::Configuration;
-use gazebo::{any::ProvidesStaticType, coerce::Coerce};
-use starlark::{
-    environment::GlobalsBuilder,
-    values::{Freeze, Heap, StringValue, Trace, ValueLike, ValueOf},
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::Coerce;
+use starlark::environment::GlobalsBuilder;
+use starlark::values::Freeze;
+use starlark::values::Heap;
+use starlark::values::StringValue;
+use starlark::values::Trace;
+use starlark::values::ValueLike;
+use starlark::values::ValueOf;
 
 use crate::interpreter::rule_defs::provider::builtin::configuration_info::ConfigurationInfo;
 

@@ -20,7 +20,8 @@ use std::mem;
 use gazebo::prelude::*;
 use indexmap::Equivalent;
 
-use crate::collections::hash::{Hashed, StarlarkHashValue};
+use crate::collections::hash::Hashed;
+use crate::collections::hash::StarlarkHashValue;
 
 // We define a lot of iterators on top of other iterators
 // so define a helper macro for that

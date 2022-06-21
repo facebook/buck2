@@ -16,11 +16,16 @@
  */
 
 use proc_macro2::TokenStream;
-use quote::{quote, quote_spanned};
-use syn::{
-    parse_macro_input, spanned::Spanned, FnArg, ItemTrait, Pat, ReturnType, TraitItem,
-    TraitItemMethod,
-};
+use quote::quote;
+use quote::quote_spanned;
+use syn::parse_macro_input;
+use syn::spanned::Spanned;
+use syn::FnArg;
+use syn::ItemTrait;
+use syn::Pat;
+use syn::ReturnType;
+use syn::TraitItem;
+use syn::TraitItemMethod;
 
 struct Gen {
     starlark_value: ItemTrait,

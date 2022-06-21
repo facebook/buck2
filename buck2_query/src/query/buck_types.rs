@@ -7,7 +7,8 @@
  * of this source tree.
  */
 
-use buck2_core::target::{ConfiguredTargetLabel, TargetLabel};
+use buck2_core::target::ConfiguredTargetLabel;
+use buck2_core::target::TargetLabel;
 
 use crate::query::environment::NodeLabel;
 

@@ -28,28 +28,39 @@ use std::mem;
 use gazebo::prelude::*;
 use thiserror::Error;
 
-use crate::{
-    codemap::{FileSpanRef, Span, Spanned},
-    environment::{slots::ModuleSlotId, FrozenModuleRef},
-    eval::{
-        compiler::{
-            expr::{Builtin1, ExprCompiled, ExprLogicalBinOp},
-            expr_bool::ExprCompiledBool,
-            known::list_to_tuple,
-            scope::{Captured, CstAssign, CstExpr, CstStmt, Slot},
-            small_vec_1::SmallVec1,
-            span::IrSpanned,
-            Compiler,
-        },
-        runtime::{
-            call_stack::FrozenFileSpan,
-            evaluator::{Evaluator, GC_THRESHOLD},
-            slots::{LocalCapturedSlotId, LocalSlotId},
-        },
-    },
-    syntax::ast::{AssignOp, AssignP, StmtP},
-    values::{dict::Dict, list::List, FrozenHeap, FrozenValue, Heap, Value, ValueError},
-};
+use crate::codemap::FileSpanRef;
+use crate::codemap::Span;
+use crate::codemap::Spanned;
+use crate::environment::slots::ModuleSlotId;
+use crate::environment::FrozenModuleRef;
+use crate::eval::compiler::expr::Builtin1;
+use crate::eval::compiler::expr::ExprCompiled;
+use crate::eval::compiler::expr::ExprLogicalBinOp;
+use crate::eval::compiler::expr_bool::ExprCompiledBool;
+use crate::eval::compiler::known::list_to_tuple;
+use crate::eval::compiler::scope::Captured;
+use crate::eval::compiler::scope::CstAssign;
+use crate::eval::compiler::scope::CstExpr;
+use crate::eval::compiler::scope::CstStmt;
+use crate::eval::compiler::scope::Slot;
+use crate::eval::compiler::small_vec_1::SmallVec1;
+use crate::eval::compiler::span::IrSpanned;
+use crate::eval::compiler::Compiler;
+use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::evaluator::Evaluator;
+use crate::eval::runtime::evaluator::GC_THRESHOLD;
+use crate::eval::runtime::slots::LocalCapturedSlotId;
+use crate::eval::runtime::slots::LocalSlotId;
+use crate::syntax::ast::AssignOp;
+use crate::syntax::ast::AssignP;
+use crate::syntax::ast::StmtP;
+use crate::values::dict::Dict;
+use crate::values::list::List;
+use crate::values::FrozenHeap;
+use crate::values::FrozenValue;
+use crate::values::Heap;
+use crate::values::Value;
+use crate::values::ValueError;
 
 #[derive(Clone, Debug)]
 pub(crate) enum AssignModifyLhs {

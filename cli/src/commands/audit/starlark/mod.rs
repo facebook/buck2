@@ -15,16 +15,13 @@ mod package_deps;
 use async_trait::async_trait;
 use cli_proto::ClientContext;
 
-use crate::{
-    commands::{
-        audit::{
-            starlark::{module::StarlarkModuleCommand, package_deps::StarlarkPackageDepsCommand},
-            AuditSubcommand,
-        },
-        common::{CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions},
-    },
-    daemon::server::ServerCommandContext,
-};
+use crate::commands::audit::starlark::module::StarlarkModuleCommand;
+use crate::commands::audit::starlark::package_deps::StarlarkPackageDepsCommand;
+use crate::commands::audit::AuditSubcommand;
+use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonConsoleOptions;
+use crate::commands::common::CommonEventLogOptions;
+use crate::daemon::server::ServerCommandContext;
 
 #[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
 #[clap(name = "starlark", about = "Debug Starlark interpreter")]

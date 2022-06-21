@@ -15,30 +15,42 @@
  * limitations under the License.
  */
 
-use std::{collections::HashMap, mem, sync::Arc};
+use std::collections::HashMap;
+use std::mem;
+use std::sync::Arc;
 
 use derive_more::Display;
 use gazebo::prelude::*;
 use itertools::Itertools;
-use once_cell::sync::{Lazy, OnceCell};
+use once_cell::sync::Lazy;
+use once_cell::sync::OnceCell;
 
+use crate::collections::symbol_map::Symbol;
+use crate::collections::symbol_map::SymbolMap;
+use crate::collections::Hashed;
+use crate::collections::SmallMap;
+use crate::stdlib;
 pub use crate::stdlib::LibraryExtension;
-use crate::{
-    collections::{
-        symbol_map::{Symbol, SymbolMap},
-        Hashed, SmallMap,
-    },
-    stdlib,
-    values::{
-        docs,
-        docs::{DocItem, DocString, DocStringKind},
-        function::{NativeAttribute, NativeCallableRawDocs, NativeFunc, NativeMeth},
-        layout::{value::ValueLike, value_not_special::FrozenValueNotSpecial},
-        structs::FrozenStruct,
-        types::function::{NativeFunction, NativeMethod},
-        AllocFrozenValue, FrozenHeap, FrozenHeapRef, FrozenStringValue, FrozenValue, Heap, Value,
-    },
-};
+use crate::values::docs;
+use crate::values::docs::DocItem;
+use crate::values::docs::DocString;
+use crate::values::docs::DocStringKind;
+use crate::values::function::NativeAttribute;
+use crate::values::function::NativeCallableRawDocs;
+use crate::values::function::NativeFunc;
+use crate::values::function::NativeMeth;
+use crate::values::layout::value::ValueLike;
+use crate::values::layout::value_not_special::FrozenValueNotSpecial;
+use crate::values::structs::FrozenStruct;
+use crate::values::types::function::NativeFunction;
+use crate::values::types::function::NativeMethod;
+use crate::values::AllocFrozenValue;
+use crate::values::FrozenHeap;
+use crate::values::FrozenHeapRef;
+use crate::values::FrozenStringValue;
+use crate::values::FrozenValue;
+use crate::values::Heap;
+use crate::values::Value;
 
 /// The global values available during execution.
 #[derive(Clone, Dupe, Debug, Display)]
@@ -581,12 +593,11 @@ mod tests {
     use gazebo::any::ProvidesStaticType;
 
     use super::*;
-    use crate::{
-        self as starlark,
-        assert::Assert,
-        starlark_type,
-        values::{NoSerialize, StarlarkValue},
-    };
+    use crate::assert::Assert;
+    use crate::starlark_type;
+    use crate::values::NoSerialize;
+    use crate::values::StarlarkValue;
+    use crate::{self as starlark};
 
     #[test]
     fn test_send_sync()

@@ -7,10 +7,17 @@
  * of this source tree.
  */
 
-use superconsole::{
-    components::{alignment::HorizontalAlignmentKind, splitting::SplitKind, Aligned, Split},
-    Component, Dimensions, Direction, DrawMode, Lines, Span, State,
-};
+use superconsole::components::alignment::HorizontalAlignmentKind;
+use superconsole::components::splitting::SplitKind;
+use superconsole::components::Aligned;
+use superconsole::components::Split;
+use superconsole::Component;
+use superconsole::Dimensions;
+use superconsole::Direction;
+use superconsole::DrawMode;
+use superconsole::Lines;
+use superconsole::Span;
+use superconsole::State;
 
 #[derive(Debug)]
 pub(crate) struct HeaderLineComponent(Split);

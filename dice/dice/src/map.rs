@@ -9,13 +9,13 @@
 
 use std::sync::Arc;
 
-use anymap::{any::Any, Map};
+use anymap::any::Any;
+use anymap::Map;
 use gazebo::prelude::*;
 
-use crate::{
-    incremental::{introspection::EngineForIntrospection, IncrementalComputeProperties},
-    IncrementalEngine,
-};
+use crate::incremental::introspection::EngineForIntrospection;
+use crate::incremental::IncrementalComputeProperties;
+use crate::IncrementalEngine;
 
 /// A dynamically typed Map for DICE to map computations to their key, value
 /// cache maps.
@@ -68,14 +68,16 @@ mod tests {
     use derive_more::Display;
     use gazebo::prelude::*;
 
-    use crate::{
-        incremental::{
-            testing::IncrementalEngineExt,
-            versions::{MinorVersion, VersionNumber},
-        },
-        map::DiceMap,
-        DetectCycles, Dice, DiceComputations, IncrementalEngine, Key, StoragePropertiesForKey,
-    };
+    use crate::incremental::testing::IncrementalEngineExt;
+    use crate::incremental::versions::MinorVersion;
+    use crate::incremental::versions::VersionNumber;
+    use crate::map::DiceMap;
+    use crate::DetectCycles;
+    use crate::Dice;
+    use crate::DiceComputations;
+    use crate::IncrementalEngine;
+    use crate::Key;
+    use crate::StoragePropertiesForKey;
 
     #[tokio::test]
     async fn test_find_caches() {

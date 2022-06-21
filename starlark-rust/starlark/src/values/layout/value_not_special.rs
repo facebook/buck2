@@ -17,10 +17,14 @@
 
 use gazebo::dupe::Dupe;
 
-use crate::{
-    eval::{runtime::call_stack::FrozenFileSpan, Arguments, Evaluator},
-    values::{layout::vtable::AValueDyn, stack_guard, FrozenRef, FrozenValue, Value},
-};
+use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::Arguments;
+use crate::eval::Evaluator;
+use crate::values::layout::vtable::AValueDyn;
+use crate::values::stack_guard;
+use crate::values::FrozenRef;
+use crate::values::FrozenValue;
+use crate::values::Value;
 
 /// `FrozenValue` which is not `i32` or `str`.
 #[derive(Copy, Clone, Dupe, Debug, derive_more::Display)]

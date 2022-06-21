@@ -11,21 +11,23 @@ use std::fmt::Debug;
 
 use buck2_build_api_derive::internal_provider;
 use either::Either;
-use gazebo::{any::ProvidesStaticType, coerce::Coerce};
-use starlark::{
-    collections::SmallMap,
-    environment::GlobalsBuilder,
-    values::{
-        dict::{Dict, FrozenDict},
-        Freeze, FrozenRef, FrozenValue, Trace, Value,
-    },
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::Coerce;
+use starlark::collections::SmallMap;
+use starlark::environment::GlobalsBuilder;
+use starlark::values::dict::Dict;
+use starlark::values::dict::FrozenDict;
+use starlark::values::Freeze;
+use starlark::values::FrozenRef;
+use starlark::values::FrozenValue;
+use starlark::values::Trace;
+use starlark::values::Value;
 use thiserror::Error;
 
-use crate::interpreter::rule_defs::{
-    cmd_args::{FrozenCommandLineArgLike, ValueAsCommandLineLike, ValueAsFrozenCommandLineLike},
-    provider::collection::FrozenProviderCollectionValue,
-};
+use crate::interpreter::rule_defs::cmd_args::FrozenCommandLineArgLike;
+use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
+use crate::interpreter::rule_defs::cmd_args::ValueAsFrozenCommandLineLike;
+use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 
 #[derive(Debug, Error)]
 enum TemplatePlaceholderInfoError {

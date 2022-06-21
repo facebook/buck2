@@ -7,28 +7,35 @@
  * of this source tree.
  */
 
-use std::fmt::{self, Debug, Display};
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::{self};
 
-use anyhow::{anyhow, Context};
-use gazebo::{any::ProvidesStaticType, prelude::*};
-use starlark::{
-    starlark_type,
-    values::{
-        AllocValue, Freeze, Freezer, Heap, NoSerialize, StarlarkValue, Trace, UnpackValue, Value,
-        ValueLike,
-    },
-};
+use anyhow::anyhow;
+use anyhow::Context;
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
+use starlark::starlark_type;
+use starlark::values::AllocValue;
+use starlark::values::Freeze;
+use starlark::values::Freezer;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 
-use crate::{
-    actions::artifact::{Artifact, BoundBuildArtifact, OutputArtifact},
-    interpreter::rule_defs::{
-        artifact::{ArtifactError, StarlarkDeclaredArtifact},
-        cmd_args::{
-            CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder,
-            WriteToFileMacroVisitor,
-        },
-    },
-};
+use crate::actions::artifact::Artifact;
+use crate::actions::artifact::BoundBuildArtifact;
+use crate::actions::artifact::OutputArtifact;
+use crate::interpreter::rule_defs::artifact::ArtifactError;
+use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 
 /// Thin wrapper around `OutputArtifact`.
 ///

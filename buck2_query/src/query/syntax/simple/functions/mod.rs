@@ -10,27 +10,26 @@
 use std::marker::PhantomData;
 
 use async_trait::async_trait;
-use buck2_query_parser::{spanned::Spanned, BinaryOp, Expr};
+use buck2_query_parser::spanned::Spanned;
+use buck2_query_parser::BinaryOp;
+use buck2_query_parser::Expr;
 use buck2_query_proc_macro::query_module;
 use gazebo::variants::VariantName;
 
-use crate::query::{
-    environment::QueryEnvironment,
-    syntax::simple::{
-        eval::{
-            error::QueryError,
-            evaluator::QueryEvaluator,
-            file_set::FileSet,
-            set::{TargetSet, TargetSetExt},
-            values::{QueryResult, QueryValue},
-        },
-        functions::{
-            deps::DepsFunction,
-            docs::ModuleDescription,
-            helpers::{CapturedExpr, QueryArgType, QueryBinaryOp, QueryFunction},
-        },
-    },
-};
+use crate::query::environment::QueryEnvironment;
+use crate::query::syntax::simple::eval::error::QueryError;
+use crate::query::syntax::simple::eval::evaluator::QueryEvaluator;
+use crate::query::syntax::simple::eval::file_set::FileSet;
+use crate::query::syntax::simple::eval::set::TargetSet;
+use crate::query::syntax::simple::eval::set::TargetSetExt;
+use crate::query::syntax::simple::eval::values::QueryResult;
+use crate::query::syntax::simple::eval::values::QueryValue;
+use crate::query::syntax::simple::functions::deps::DepsFunction;
+use crate::query::syntax::simple::functions::docs::ModuleDescription;
+use crate::query::syntax::simple::functions::helpers::CapturedExpr;
+use crate::query::syntax::simple::functions::helpers::QueryArgType;
+use crate::query::syntax::simple::functions::helpers::QueryBinaryOp;
+use crate::query::syntax::simple::functions::helpers::QueryFunction;
 
 pub mod deps;
 pub mod docs;

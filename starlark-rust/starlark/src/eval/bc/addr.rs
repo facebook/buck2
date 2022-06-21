@@ -17,20 +17,20 @@
 
 //! Address types used in bytecode interpreter.
 
-use std::{
-    marker, mem,
-    ops::{Add, AddAssign, Sub},
-};
+use std::marker;
+use std::mem;
+use std::ops::Add;
+use std::ops::AddAssign;
+use std::ops::Sub;
 
 use derive_more::Display;
 use gazebo::dupe::Dupe;
 
-use crate::eval::bc::{
-    if_debug::IfDebug,
-    instr::BcInstr,
-    opcode::BcOpcode,
-    repr::{BcInstrHeader, BcInstrRepr},
-};
+use crate::eval::bc::if_debug::IfDebug;
+use crate::eval::bc::instr::BcInstr;
+use crate::eval::bc::opcode::BcOpcode;
+use crate::eval::bc::repr::BcInstrHeader;
+use crate::eval::bc::repr::BcInstrRepr;
 
 /// Address relative to bytecode start.
 #[derive(

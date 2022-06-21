@@ -7,32 +7,36 @@
  * of this source tree.
  */
 
-use std::{
-    collections::HashMap,
-    io,
-    path::{Path, PathBuf},
-};
+use std::collections::HashMap;
+use std::io;
+use std::path::Path;
+use std::path::PathBuf;
 
-use anyhow::{anyhow, Context};
+use anyhow::anyhow;
+use anyhow::Context;
 use async_trait::async_trait;
-use buck2_core::exit_result::{ExitResult, FailureExitCode};
-use cli_proto::{
-    build_request::{build_providers, BuildProviders, ResponseOptions},
-    BuildRequest, BuildTarget,
-};
-use futures::{FutureExt, TryStreamExt};
+use buck2_core::exit_result::ExitResult;
+use buck2_core::exit_result::FailureExitCode;
+use cli_proto::build_request::build_providers;
+use cli_proto::build_request::BuildProviders;
+use cli_proto::build_request::ResponseOptions;
+use cli_proto::BuildRequest;
+use cli_proto::BuildTarget;
+use futures::FutureExt;
+use futures::TryStreamExt;
 use gazebo::prelude::*;
 use multimap::MultiMap;
 use serde::Serialize;
 
-use crate::{
-    commands::common::{
-        final_console::FinalConsole, CommonBuildOptions, CommonConfigOptions, CommonConsoleOptions,
-        CommonEventLogOptions,
-    },
-    daemon::client::{BuckdClientConnector, CommandOutcome},
-    CommandContext, StreamingCommand,
-};
+use crate::commands::common::final_console::FinalConsole;
+use crate::commands::common::CommonBuildOptions;
+use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonConsoleOptions;
+use crate::commands::common::CommonEventLogOptions;
+use crate::daemon::client::BuckdClientConnector;
+use crate::daemon::client::CommandOutcome;
+use crate::CommandContext;
+use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "build", about = "Build the specified targets")]

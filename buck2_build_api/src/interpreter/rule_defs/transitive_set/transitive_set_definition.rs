@@ -7,28 +7,31 @@
  * of this source tree.
  */
 
-use std::{
-    cell::RefCell,
-    fmt::{self, Display},
-    sync::Arc,
-};
+use std::cell::RefCell;
+use std::fmt::Display;
+use std::fmt::{self};
+use std::sync::Arc;
 
 use buck2_interpreter::common::ModuleID;
 use derive_more::Display;
-use gazebo::{
-    any::ProvidesStaticType,
-    coerce::{coerce, Coerce},
-    prelude::*,
-};
-use serde::{Serialize, Serializer};
-use starlark::{
-    collections::SmallMap,
-    eval::Evaluator,
-    values::{
-        AllocValue, Freeze, Freezer, FrozenValue, Heap, StarlarkValue, Trace, Tracer, Value,
-        ValueLike,
-    },
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::coerce;
+use gazebo::coerce::Coerce;
+use gazebo::prelude::*;
+use serde::Serialize;
+use serde::Serializer;
+use starlark::collections::SmallMap;
+use starlark::eval::Evaluator;
+use starlark::values::AllocValue;
+use starlark::values::Freeze;
+use starlark::values::Freezer;
+use starlark::values::FrozenValue;
+use starlark::values::Heap;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::Tracer;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
 

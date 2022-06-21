@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-use std::{
-    borrow::Borrow,
-    hash::{Hash, Hasher},
-    ops::Deref,
-};
+use std::borrow::Borrow;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::ops::Deref;
 
-use gazebo::{coerce::Coerce, prelude::*};
+use gazebo::coerce::Coerce;
+use gazebo::prelude::*;
 
 use crate as starlark;
-use crate::collections::{idhasher::mix_u32, StarlarkHasher};
+use crate::collections::idhasher::mix_u32;
+use crate::collections::StarlarkHasher;
 
 /// A hash value.
 ///

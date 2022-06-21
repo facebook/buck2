@@ -52,20 +52,37 @@ pub mod spanned;
 use std::fmt::Display;
 
 use enum_map::Enum;
-use gazebo::{prelude::*, variants::VariantName};
-use nom::{
-    branch::alt,
-    bytes::complete::{is_a, tag, take_till},
-    character::complete::{alpha1, alphanumeric1, char, digit1, multispace0, multispace1},
-    combinator::{all_consuming, cut, recognize},
-    error::{context, convert_error, ErrorKind, VerboseError},
-    multi::{many0, many1, separated_list0},
-    sequence::{delimited, pair, preceded, terminated},
-    IResult,
-};
+use gazebo::prelude::*;
+use gazebo::variants::VariantName;
+use nom::branch::alt;
+use nom::bytes::complete::is_a;
+use nom::bytes::complete::tag;
+use nom::bytes::complete::take_till;
+use nom::character::complete::alpha1;
+use nom::character::complete::alphanumeric1;
+use nom::character::complete::char;
+use nom::character::complete::digit1;
+use nom::character::complete::multispace0;
+use nom::character::complete::multispace1;
+use nom::combinator::all_consuming;
+use nom::combinator::cut;
+use nom::combinator::recognize;
+use nom::error::context;
+use nom::error::convert_error;
+use nom::error::ErrorKind;
+use nom::error::VerboseError;
+use nom::multi::many0;
+use nom::multi::many1;
+use nom::multi::separated_list0;
+use nom::sequence::delimited;
+use nom::sequence::pair;
+use nom::sequence::preceded;
+use nom::sequence::terminated;
+use nom::IResult;
 use thiserror::Error;
 
-use crate::{span::Span, spanned::Spanned};
+use crate::span::Span;
+use crate::spanned::Spanned;
 
 // TODO(cjhopman): Add `LET WORD = expr IN expr`
 

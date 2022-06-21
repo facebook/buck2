@@ -7,55 +7,61 @@
  * of this source tree.
  */
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use buck2_common::legacy_configs::LegacyBuckConfig;
-use buck2_core::{
-    cells::{paths::CellRelativePath, CellAlias, CellAliasResolver, CellName},
-    configuration::{Configuration, ConfigurationData},
-    package::Package,
-    provider::ConfiguredProvidersLabel,
-    result::SharedResult,
-    target::TargetLabel,
-};
-use buck2_interpreter::{
-    common::{BuildFileCell, ImportPath, StarlarkPath},
-    extra::{
-        cell_info::InterpreterCellInfo, BuildContext, InterpreterHostArchitecture,
-        InterpreterHostPlatform,
-    },
-    package_listing::listing::{testing::PackageListingExt, PackageListing},
-};
+use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::cells::CellAlias;
+use buck2_core::cells::CellAliasResolver;
+use buck2_core::cells::CellName;
+use buck2_core::configuration::Configuration;
+use buck2_core::configuration::ConfigurationData;
+use buck2_core::package::Package;
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::result::SharedResult;
+use buck2_core::target::TargetLabel;
+use buck2_interpreter::common::BuildFileCell;
+use buck2_interpreter::common::ImportPath;
+use buck2_interpreter::common::StarlarkPath;
+use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
+use buck2_interpreter::extra::BuildContext;
+use buck2_interpreter::extra::InterpreterHostArchitecture;
+use buck2_interpreter::extra::InterpreterHostPlatform;
+use buck2_interpreter::package_listing::listing::testing::PackageListingExt;
+use buck2_interpreter::package_listing::listing::PackageListing;
 use gazebo::prelude::*;
 use indoc::indoc;
-use starlark::{
-    collections::SmallMap,
-    environment::{FrozenModule, Globals, GlobalsBuilder, Module},
-    eval::Evaluator,
-    syntax::{AstModule, Dialect},
-    values::{dict::FrozenDict, FrozenRef, Value},
-};
+use starlark::collections::SmallMap;
+use starlark::environment::FrozenModule;
+use starlark::environment::Globals;
+use starlark::environment::GlobalsBuilder;
+use starlark::environment::Module;
+use starlark::eval::Evaluator;
+use starlark::syntax::AstModule;
+use starlark::syntax::Dialect;
+use starlark::values::dict::FrozenDict;
+use starlark::values::FrozenRef;
+use starlark::values::Value;
 
-use crate::{
-    attrs::{
-        attr_type::attr_literal::AttrLiteral, AnalysisQueryResult, AttrCoercionContext,
-        AttrConfigurationContext, AttrResolutionContext, CoercedAttr, ConfiguredAttr,
-    },
-    interpreter::{
-        rule_defs::{
-            artifact::testing::artifactory,
-            attr::BuildAttrCoercionContext,
-            cmd_args::FrozenCommandLineArgLike,
-            provider::{
-                builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo,
-                callable::ValueAsProviderCallableLike, collection::FrozenProviderCollectionValue,
-                id::ProviderId, registration::register_builtin_providers,
-            },
-            transition::{applied::TransitionApplied, id::TransitionId},
-        },
-        testing::cells,
-    },
-};
+use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::AnalysisQueryResult;
+use crate::attrs::AttrCoercionContext;
+use crate::attrs::AttrConfigurationContext;
+use crate::attrs::AttrResolutionContext;
+use crate::attrs::CoercedAttr;
+use crate::attrs::ConfiguredAttr;
+use crate::interpreter::rule_defs::artifact::testing::artifactory;
+use crate::interpreter::rule_defs::attr::BuildAttrCoercionContext;
+use crate::interpreter::rule_defs::cmd_args::FrozenCommandLineArgLike;
+use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
+use crate::interpreter::rule_defs::provider::callable::ValueAsProviderCallableLike;
+use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use crate::interpreter::rule_defs::provider::id::ProviderId;
+use crate::interpreter::rule_defs::provider::registration::register_builtin_providers;
+use crate::interpreter::rule_defs::transition::applied::TransitionApplied;
+use crate::interpreter::rule_defs::transition::id::TransitionId;
+use crate::interpreter::testing::cells;
 
 pub trait CoercedAttrExt {
     fn from_literal(lit: AttrLiteral<CoercedAttr>) -> Self;

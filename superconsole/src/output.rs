@@ -7,14 +7,16 @@
  * of this source tree.
  */
 
-use std::{
-    any::Any,
-    io::{self, Write},
-    thread::JoinHandle,
-};
+use std::any::Any;
+use std::io::Write;
+use std::io::{self};
+use std::thread::JoinHandle;
 
 use anyhow::Context as _;
-use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
+use crossbeam_channel::bounded;
+use crossbeam_channel::unbounded;
+use crossbeam_channel::Receiver;
+use crossbeam_channel::Sender;
 
 pub trait SuperConsoleOutput: Send + Sync + 'static {
     /// Called before rendering will occur. This has a chance to prevent rendering by returning

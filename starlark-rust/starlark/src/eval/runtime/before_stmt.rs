@@ -17,7 +17,8 @@
 
 //! Configuration of `BeforeStmt` instrumentation of bytecode.
 
-use crate::{codemap::FileSpanRef, eval::Evaluator};
+use crate::codemap::FileSpanRef;
+use crate::eval::Evaluator;
 
 /// Configuration of `BeforeStmt` instrumentation of bytecode.
 #[derive(Default)]

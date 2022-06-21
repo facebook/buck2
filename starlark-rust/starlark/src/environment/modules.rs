@@ -20,33 +20,40 @@
 //! is the list of variable in the current scope. It can be frozen, after which
 //! all values from this environment become immutable.
 
-use std::{
-    cell::{Cell, RefCell},
-    collections::HashMap,
-    mem,
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::mem;
+use std::sync::Arc;
+use std::time::Duration;
+use std::time::Instant;
 
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, prelude::*};
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
 use itertools::Itertools;
 
-use crate::{
-    environment::{
-        names::{FrozenNames, MutableNames},
-        slots::{FrozenSlots, ModuleSlotId, MutableSlots},
-        EnvironmentError,
-    },
-    errors::did_you_mean::did_you_mean,
-    syntax::ast::Visibility,
-    values::{
-        docs,
-        docs::{DocItem, DocString, DocStringKind},
-        Freezer, FrozenHeap, FrozenHeapRef, FrozenValue, Heap, OwnedFrozenValue, Trace, Tracer,
-        Value,
-    },
-};
+use crate::environment::names::FrozenNames;
+use crate::environment::names::MutableNames;
+use crate::environment::slots::FrozenSlots;
+use crate::environment::slots::ModuleSlotId;
+use crate::environment::slots::MutableSlots;
+use crate::environment::EnvironmentError;
+use crate::errors::did_you_mean::did_you_mean;
+use crate::syntax::ast::Visibility;
+use crate::values::docs;
+use crate::values::docs::DocItem;
+use crate::values::docs::DocString;
+use crate::values::docs::DocStringKind;
+use crate::values::Freezer;
+use crate::values::FrozenHeap;
+use crate::values::FrozenHeapRef;
+use crate::values::FrozenValue;
+use crate::values::Heap;
+use crate::values::OwnedFrozenValue;
+use crate::values::Trace;
+use crate::values::Tracer;
+use crate::values::Value;
 
 /// The result of freezing a [`Module`], making it and its contained values immutable.
 ///

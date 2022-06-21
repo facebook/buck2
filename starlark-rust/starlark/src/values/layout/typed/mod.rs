@@ -17,30 +17,39 @@
 
 pub(crate) mod string;
 
-use std::{
-    fmt,
-    fmt::{Debug, Display, Formatter},
-    marker,
-    ops::Deref,
-};
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::marker;
+use std::ops::Deref;
 
-use gazebo::{
-    cast,
-    coerce::{Coerce, CoerceKey},
-    prelude::*,
-};
+use gazebo::cast;
+use gazebo::coerce::Coerce;
+use gazebo::coerce::CoerceKey;
+use gazebo::prelude::*;
 use serde::Serialize;
 
-use crate::{
-    gazebo::any::{AnyLifetime, ProvidesStaticType},
-    values::{
-        int::PointerI32,
-        layout::{arena::AValueRepr, avalue::AValue},
-        string::StarlarkStr,
-        AllocFrozenValue, AllocValue, Freeze, Freezer, FrozenHeap, FrozenRef, FrozenValue, Heap,
-        StarlarkValue, Trace, Tracer, UnpackValue, Value, ValueLike,
-    },
-};
+use crate::gazebo::any::AnyLifetime;
+use crate::gazebo::any::ProvidesStaticType;
+use crate::values::int::PointerI32;
+use crate::values::layout::arena::AValueRepr;
+use crate::values::layout::avalue::AValue;
+use crate::values::string::StarlarkStr;
+use crate::values::AllocFrozenValue;
+use crate::values::AllocValue;
+use crate::values::Freeze;
+use crate::values::Freezer;
+use crate::values::FrozenHeap;
+use crate::values::FrozenRef;
+use crate::values::FrozenValue;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::Trace;
+use crate::values::Tracer;
+use crate::values::UnpackValue;
+use crate::values::Value;
+use crate::values::ValueLike;
 
 /// [`Value`] wrapper which asserts contained value is of type `<T>`.
 #[derive(Copy_, Clone_, Dupe_, ProvidesStaticType)]
@@ -286,7 +295,10 @@ impl<'v, T: StarlarkValue<'v>> AllocFrozenValue for FrozenValueTyped<'v, T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::values::{int::PointerI32, FrozenValue, FrozenValueTyped, StarlarkValue};
+    use crate::values::int::PointerI32;
+    use crate::values::FrozenValue;
+    use crate::values::FrozenValueTyped;
+    use crate::values::StarlarkValue;
 
     #[test]
     fn int() {

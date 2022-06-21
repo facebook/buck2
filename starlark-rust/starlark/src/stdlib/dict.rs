@@ -17,19 +17,18 @@
 
 //! Methods for the `dict` type.
 
-use std::{intrinsics::unlikely, mem};
+use std::intrinsics::unlikely;
+use std::mem;
 
 use anyhow::anyhow;
 
 use crate as starlark;
-use crate::{
-    environment::MethodsBuilder,
-    values::{
-        dict::{Dict, DictRef},
-        none::NoneType,
-        Heap, Value,
-    },
-};
+use crate::environment::MethodsBuilder;
+use crate::values::dict::Dict;
+use crate::values::dict::DictRef;
+use crate::values::none::NoneType;
+use crate::values::Heap;
+use crate::values::Value;
 
 #[starlark_module]
 pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {

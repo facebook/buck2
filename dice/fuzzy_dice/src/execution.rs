@@ -7,21 +7,31 @@
  * of this source tree.
  */
 
-use std::{
-    collections::HashMap,
-    fmt::{Debug, Formatter},
-    io::{stderr, Write},
-    sync::Arc,
-};
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::io::stderr;
+use std::io::Write;
+use std::sync::Arc;
 
 use crossbeam::queue::SegQueue;
-use dice::{cycles::DetectCycles, Dice, DiceTransaction};
+use dice::cycles::DetectCycles;
+use dice::Dice;
+use dice::DiceTransaction;
 use futures::FutureExt;
 use gazebo::prelude::*;
-use quickcheck::{Arbitrary, Gen};
-use serde::{Deserialize, Serialize};
+use quickcheck::Arbitrary;
+use quickcheck::Gen;
+use serde::Deserialize;
+use serde::Serialize;
 
-use crate::computation::{ComputationStep, Expr, FuzzEquations, FuzzMath, FuzzState, Unit, Var};
+use crate::computation::ComputationStep;
+use crate::computation::Expr;
+use crate::computation::FuzzEquations;
+use crate::computation::FuzzMath;
+use crate::computation::FuzzState;
+use crate::computation::Unit;
+use crate::computation::Var;
 
 /// For a given DiceExecutionOrder that includes some Queries, computes the
 /// expected result of each of those queries.

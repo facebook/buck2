@@ -33,17 +33,15 @@ pub(crate) mod stmt;
 
 use std::fmt::Debug;
 
-use crate::{
-    codemap::CodeMap,
-    environment::Globals,
-    errors::Diagnostic,
-    eval::{
-        compiler::scope::{ScopeData, ScopeId, ScopeNames},
-        runtime::call_stack::FrozenFileSpan,
-        Evaluator,
-    },
-    values::FrozenRef,
-};
+use crate::codemap::CodeMap;
+use crate::environment::Globals;
+use crate::errors::Diagnostic;
+use crate::eval::compiler::scope::ScopeData;
+use crate::eval::compiler::scope::ScopeId;
+use crate::eval::compiler::scope::ScopeNames;
+use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::Evaluator;
+use crate::values::FrozenRef;
 
 /// Error of evaluation of an expression.
 #[derive(Debug)]

@@ -30,13 +30,18 @@
 #![cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_use_box))]
 
 // re-exports
-pub use components::{Component, DrawMode};
-pub use content::{Line, Lines, Span};
-pub use dimensions::{Dimensions, Direction};
+pub use components::Component;
+pub use components::DrawMode;
+pub use content::Line;
+pub use content::Lines;
+pub use content::Span;
+pub use dimensions::Dimensions;
+pub use dimensions::Direction;
 pub use error::Error;
 pub use state::State;
 
-pub use crate::{builder::Builder, superconsole::SuperConsole};
+pub use crate::builder::Builder;
+pub use crate::superconsole::SuperConsole;
 
 pub mod builder;
 pub mod components;

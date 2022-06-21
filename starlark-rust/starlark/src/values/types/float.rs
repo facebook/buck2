@@ -17,23 +17,29 @@
 
 //! The floating point number type (3.14, 4e2).
 
-use std::{
-    cmp::Ordering,
-    fmt::{self, Display, Write},
-    hash::Hasher,
-};
+use std::cmp::Ordering;
+use std::fmt::Display;
+use std::fmt::Write;
+use std::fmt::{self};
+use std::hash::Hasher;
 
-use gazebo::{any::ProvidesStaticType, prelude::*};
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
 use serde::Serialize;
 
-use crate::{
-    collections::StarlarkHasher,
-    private::Private,
-    values::{
-        num::Num, AllocFrozenValue, AllocValue, FrozenHeap, FrozenValue, Heap, StarlarkValue,
-        UnpackValue, Value, ValueError, ValueLike,
-    },
-};
+use crate::collections::StarlarkHasher;
+use crate::private::Private;
+use crate::values::num::Num;
+use crate::values::AllocFrozenValue;
+use crate::values::AllocValue;
+use crate::values::FrozenHeap;
+use crate::values::FrozenValue;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::UnpackValue;
+use crate::values::Value;
+use crate::values::ValueError;
+use crate::values::ValueLike;
 
 const WRITE_PRECISION: usize = 6;
 

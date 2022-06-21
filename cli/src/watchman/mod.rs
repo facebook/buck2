@@ -7,21 +7,20 @@
  * of this source tree.
  */
 
-use std::{
-    fmt::{Debug, Display},
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::path::Path;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
 use futures::future::Future;
 use gazebo::prelude::*;
 use serde::Deserialize;
-use tokio::sync::{
-    mpsc::{UnboundedReceiver, UnboundedSender},
-    oneshot,
-};
+use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::oneshot;
 use watchman_client::prelude::*;
 
 #[cfg(all(test, not(windows)))]

@@ -9,11 +9,12 @@
 
 use std::convert::TryInto;
 
-use buck2_common::legacy_configs::{BuckConfigBasedCells, LegacyBuckConfigs, LegacyConfigCmdArg};
-use buck2_core::{
-    cells::CellResolver,
-    fs::{paths::AbsPath, project::ProjectFilesystem},
-};
+use buck2_common::legacy_configs::BuckConfigBasedCells;
+use buck2_common::legacy_configs::LegacyBuckConfigs;
+use buck2_common::legacy_configs::LegacyConfigCmdArg;
+use buck2_core::cells::CellResolver;
+use buck2_core::fs::paths::AbsPath;
+use buck2_core::fs::project::ProjectFilesystem;
 use cli_proto::ConfigOverride;
 
 use crate::daemon::common::ConfigType;

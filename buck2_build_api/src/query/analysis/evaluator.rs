@@ -9,16 +9,12 @@
 
 //! Implementation of common cquery/uquery pieces.
 
-use buck2_query::query::{
-    environment::QueryEnvironment,
-    syntax::simple::{
-        eval::{
-            evaluator::QueryEvaluator, literals::extract_target_literals,
-            multi_query::process_multi_query, values::QueryEvaluationResult,
-        },
-        functions::DefaultQueryFunctionsModule,
-    },
-};
+use buck2_query::query::environment::QueryEnvironment;
+use buck2_query::query::syntax::simple::eval::evaluator::QueryEvaluator;
+use buck2_query::query::syntax::simple::eval::literals::extract_target_literals;
+use buck2_query::query::syntax::simple::eval::multi_query::process_multi_query;
+use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
+use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use futures::Future;
 use gazebo::prelude::*;
 use starlark::collections::SmallSet;

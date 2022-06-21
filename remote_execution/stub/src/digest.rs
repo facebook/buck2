@@ -7,10 +7,9 @@
  * of this source tree.
  */
 
-use std::{
-    fmt::{self, Display},
-    str::FromStr,
-};
+use std::fmt::Display;
+use std::fmt::{self};
+use std::str::FromStr;
 
 use anyhow::Context;
 use regex::Regex;

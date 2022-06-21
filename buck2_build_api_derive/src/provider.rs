@@ -7,8 +7,10 @@
  * of this source tree.
  */
 
-use convert_case::{Case, Casing};
-use quote::{format_ident, quote};
+use convert_case::Case;
+use convert_case::Casing;
+use quote::format_ident;
+use quote::quote;
 
 pub(crate) struct InternalProviderArgs {
     creator_func: syn::Ident,

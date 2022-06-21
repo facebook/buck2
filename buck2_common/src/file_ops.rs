@@ -7,39 +7,45 @@
  * of this source tree.
  */
 
-use std::{
-    borrow::Borrow,
-    fmt,
-    fs::File,
-    hash::{Hash, Hasher},
-    io::{self, Read},
-    path::{Components, Path, PathBuf},
-    sync::{
-        atomic::{AtomicU64, Ordering},
-        Arc,
-    },
-    time::{Duration, SystemTime},
-};
+use std::borrow::Borrow;
+use std::fmt;
+use std::fs::File;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::io::Read;
+use std::io::{self};
+use std::path::Components;
+use std::path::Path;
+use std::path::PathBuf;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
+use std::time::Duration;
+use std::time::SystemTime;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_core::{
-    cells::{
-        paths::{CellPath, CellRelativePath, CellRelativePathBuf},
-        CellName,
-    },
-    fs::{
-        paths::{AbsPath, FileNameBuf, ForwardRelativePath, ForwardRelativePathBuf},
-        project::{ProjectRelativePath, ProjectRelativePathBuf},
-    },
-    result::SharedResult,
-};
+use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::cells::paths::CellRelativePathBuf;
+use buck2_core::cells::CellName;
+use buck2_core::fs::paths::AbsPath;
+use buck2_core::fs::paths::FileNameBuf;
+use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_core::fs::paths::ForwardRelativePathBuf;
+use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::result::SharedResult;
 use derive_more::Display;
-use gazebo::{cmp::PartialEqAny, prelude::*};
-use globset::{Candidate, GlobSetBuilder};
-use once_cell::sync::{Lazy, OnceCell};
+use gazebo::cmp::PartialEqAny;
+use gazebo::prelude::*;
+use globset::Candidate;
+use globset::GlobSetBuilder;
+use once_cell::sync::Lazy;
+use once_cell::sync::OnceCell;
 use regex::Regex;
-use sha1::{Digest, Sha1};
+use sha1::Digest;
+use sha1::Sha1;
 use thiserror::Error;
 
 use crate::io::IoProvider;
@@ -145,7 +151,9 @@ impl FileDigest {
     /// Read the file from the xattr, or skip if it's not available.
     #[cfg(unix)]
     fn from_file_attr(file: &Path) -> Option<Self> {
-        use std::{borrow::Cow, collections::HashSet, fs};
+        use std::borrow::Cow;
+        use std::collections::HashSet;
+        use std::fs;
 
         let mut file = Cow::Borrowed(file);
         let mut meta;
@@ -813,24 +821,27 @@ impl FileIgnores {
 }
 
 pub mod testing {
-    use std::{
-        collections::{BTreeMap, BTreeSet},
-        sync::Arc,
-    };
+    use std::collections::BTreeMap;
+    use std::collections::BTreeSet;
+    use std::sync::Arc;
 
     use anyhow::anyhow;
     use async_trait::async_trait;
-    use buck2_core::{
-        cells::paths::CellPath,
-        result::{SharedResult, ToSharedResultExt},
-    };
-    use gazebo::{cmp::PartialEqAny, prelude::*};
+    use buck2_core::cells::paths::CellPath;
+    use buck2_core::result::SharedResult;
+    use buck2_core::result::ToSharedResultExt;
+    use gazebo::cmp::PartialEqAny;
+    use gazebo::prelude::*;
     use itertools::Itertools;
 
-    use crate::file_ops::{
-        ExternalSymlink, FileDigest, FileMetadata, FileOps, FileType, PathMetadata, SimpleDirEntry,
-        TrackedFileDigest,
-    };
+    use crate::file_ops::ExternalSymlink;
+    use crate::file_ops::FileDigest;
+    use crate::file_ops::FileMetadata;
+    use crate::file_ops::FileOps;
+    use crate::file_ops::FileType;
+    use crate::file_ops::PathMetadata;
+    use crate::file_ops::SimpleDirEntry;
+    use crate::file_ops::TrackedFileDigest;
 
     enum TestFileOpsEntry {
         File(String /*data*/, FileMetadata),
@@ -1065,7 +1076,8 @@ mod tests {
 
     #[cfg(unix)]
     mod unix {
-        use std::{fs, os::unix::fs::symlink};
+        use std::fs;
+        use std::os::unix::fs::symlink;
 
         use super::*;
 

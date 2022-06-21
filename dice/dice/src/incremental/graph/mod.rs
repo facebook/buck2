@@ -21,34 +21,40 @@
 pub(crate) mod dependencies;
 pub(crate) mod storage_properties;
 
-use std::{
-    collections::{BTreeMap, Bound, HashSet},
-    fmt::Debug,
-    ops::{
-        Bound::{Included, Unbounded},
-        Deref, DerefMut,
-    },
-    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak},
-};
+use std::collections::BTreeMap;
+use std::collections::Bound;
+use std::collections::HashSet;
+use std::fmt::Debug;
+use std::ops::Bound::Included;
+use std::ops::Bound::Unbounded;
+use std::ops::Deref;
+use std::ops::DerefMut;
+use std::sync::Arc;
+use std::sync::RwLock;
+use std::sync::RwLockReadGuard;
+use std::sync::RwLockWriteGuard;
+use std::sync::Weak;
 
-use dashmap::{mapref::one::RefMut, DashMap};
-use gazebo::{
-    prelude::*,
-    variants::{UnpackVariants, VariantName},
-};
-use owning_ref::{RwLockReadGuardRef, RwLockWriteGuardRefMut};
+use dashmap::mapref::one::RefMut;
+use dashmap::DashMap;
+use gazebo::prelude::*;
+use gazebo::variants::UnpackVariants;
+use gazebo::variants::VariantName;
+use owning_ref::RwLockReadGuardRef;
+use owning_ref::RwLockWriteGuardRefMut;
 
-use crate::incremental::{
-    dep_trackers::BothDeps,
-    graph::{
-        dependencies::{ComputedDependency, VersionedDependencies, VersionedRevDependencies},
-        storage_properties::StorageProperties,
-    },
-    history::HistoryState,
-    introspection::AnyKey,
-    versions::{MinorVersion, VersionRanges},
-    CellHistory, Dependency, VersionNumber,
-};
+use crate::incremental::dep_trackers::BothDeps;
+use crate::incremental::graph::dependencies::ComputedDependency;
+use crate::incremental::graph::dependencies::VersionedDependencies;
+use crate::incremental::graph::dependencies::VersionedRevDependencies;
+use crate::incremental::graph::storage_properties::StorageProperties;
+use crate::incremental::history::HistoryState;
+use crate::incremental::introspection::AnyKey;
+use crate::incremental::versions::MinorVersion;
+use crate::incremental::versions::VersionRanges;
+use crate::incremental::CellHistory;
+use crate::incremental::Dependency;
+use crate::incremental::VersionNumber;
 
 /// The Key for a Versioned, incremental computation
 #[derive(Clone, Debug)]
@@ -1275,12 +1281,13 @@ impl<K: StorageProperties> EntryUpdater<K> {
 
 #[cfg(test)]
 pub(crate) mod testing {
-    use gazebo::{prelude::*, variants::VariantName};
+    use gazebo::prelude::*;
+    use gazebo::variants::VariantName;
 
-    use crate::{
-        incremental::graph::{GraphNode, VersionedGraphResult, VersionedGraphResultMismatch},
-        StorageProperties,
-    };
+    use crate::incremental::graph::GraphNode;
+    use crate::incremental::graph::VersionedGraphResult;
+    use crate::incremental::graph::VersionedGraphResultMismatch;
+    use crate::StorageProperties;
 
     pub(crate) trait VersionedCacheResultAssertsExt<K: StorageProperties> {
         fn assert_none(&self);
@@ -1319,44 +1326,47 @@ pub(crate) mod testing {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        collections::HashSet,
-        fmt,
-        fmt::{Debug, Formatter},
-        hash::Hash,
-        marker::PhantomData,
-        sync::{atomic, Arc},
-    };
+    use std::collections::HashSet;
+    use std::fmt;
+    use std::fmt::Debug;
+    use std::fmt::Formatter;
+    use std::hash::Hash;
+    use std::marker::PhantomData;
+    use std::sync::atomic;
+    use std::sync::Arc;
 
     use async_trait::async_trait;
     use derive_more::Display;
     use gazebo::prelude::*;
 
-    use crate::{
-        incremental::{
-            dep_trackers::BothDeps,
-            evaluator::testing::EvaluatorUnreachable,
-            graph::{
-                dependencies::{
-                    testing::VersionedDependenciesExt, Dependency, VersionedDependencies,
-                },
-                storage_properties::testing::StoragePropertiesLastN,
-                testing::VersionedCacheResultAssertsExt,
-                GraphNodeDyn, OccupiedGraphNode, VersionedGraph, VersionedGraphKey,
-                VersionedGraphKeyRef,
-            },
-            history::{
-                testing::{CellHistoryExt, HistoryExt},
-                CellHistory,
-            },
-            testing::{ComputedDependencyExt, DependencyExt},
-            versions::{
-                testing::VersionRangesExt, MinorVersion, VersionNumber, VersionRange, VersionRanges,
-            },
-            Computable,
-        },
-        DiceComputations, InjectedKey, Key, StorageProperties, StorageType,
-    };
+    use crate::incremental::dep_trackers::BothDeps;
+    use crate::incremental::evaluator::testing::EvaluatorUnreachable;
+    use crate::incremental::graph::dependencies::testing::VersionedDependenciesExt;
+    use crate::incremental::graph::dependencies::Dependency;
+    use crate::incremental::graph::dependencies::VersionedDependencies;
+    use crate::incremental::graph::storage_properties::testing::StoragePropertiesLastN;
+    use crate::incremental::graph::testing::VersionedCacheResultAssertsExt;
+    use crate::incremental::graph::GraphNodeDyn;
+    use crate::incremental::graph::OccupiedGraphNode;
+    use crate::incremental::graph::VersionedGraph;
+    use crate::incremental::graph::VersionedGraphKey;
+    use crate::incremental::graph::VersionedGraphKeyRef;
+    use crate::incremental::history::testing::CellHistoryExt;
+    use crate::incremental::history::testing::HistoryExt;
+    use crate::incremental::history::CellHistory;
+    use crate::incremental::testing::ComputedDependencyExt;
+    use crate::incremental::testing::DependencyExt;
+    use crate::incremental::versions::testing::VersionRangesExt;
+    use crate::incremental::versions::MinorVersion;
+    use crate::incremental::versions::VersionNumber;
+    use crate::incremental::versions::VersionRange;
+    use crate::incremental::versions::VersionRanges;
+    use crate::incremental::Computable;
+    use crate::DiceComputations;
+    use crate::InjectedKey;
+    use crate::Key;
+    use crate::StorageProperties;
+    use crate::StorageType;
 
     #[derive(Clone, Dupe, Display, Debug, Eq, PartialEq, Hash)]
     #[display(fmt = "{:?}", self)]

@@ -7,26 +7,24 @@
  * of this source tree.
  */
 
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_core::{
-    provider::{ConfiguredProvidersLabel, ProvidersName},
-    target::ConfiguredTargetLabel,
-};
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::ProvidersName;
+use buck2_core::target::ConfiguredTargetLabel;
 use dice::DiceComputations;
 use gazebo::prelude::*;
 
-use crate::{
-    artifact_groups::ArtifactGroup,
-    calculation::Calculation,
-    interpreter::rule_defs::{
-        cmd_args::{CommandLineArgLike, SimpleCommandLineArtifactVisitor},
-        provider::builtin::template_placeholder_info::TemplatePlaceholderInfo,
-    },
-    nodes::{compatibility::MaybeCompatible, configured::ConfiguredTargetNode},
-    query::analysis::environment::ConfiguredGraphQueryEnvironmentDelegate,
-};
+use crate::artifact_groups::ArtifactGroup;
+use crate::calculation::Calculation;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info::TemplatePlaceholderInfo;
+use crate::nodes::compatibility::MaybeCompatible;
+use crate::nodes::configured::ConfiguredTargetNode;
+use crate::query::analysis::environment::ConfiguredGraphQueryEnvironmentDelegate;
 
 #[derive(Debug, Clone, Dupe)]
 pub struct ConfiguredGraphNode {

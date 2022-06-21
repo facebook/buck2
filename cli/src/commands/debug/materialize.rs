@@ -12,11 +12,13 @@ use buck2_core::exit_result::ExitResult;
 use cli_proto::MaterializeRequest;
 use futures::FutureExt;
 
-use crate::{
-    commands::common::{CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions},
-    daemon::client::{BuckdClientConnector, BuckdConnectOptions},
-    CommandContext, StreamingCommand,
-};
+use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonConsoleOptions;
+use crate::commands::common::CommonEventLogOptions;
+use crate::daemon::client::BuckdClientConnector;
+use crate::daemon::client::BuckdConnectOptions;
+use crate::CommandContext;
+use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
 pub(crate) struct MaterializeCommand {

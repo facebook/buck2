@@ -7,36 +7,38 @@
  * of this source tree.
  */
 
+use std::fs::File;
+use std::io::Write;
 #[cfg(unix)]
 use std::os::unix::io::AsRawFd;
 #[cfg(windows)]
 use std::os::windows::io::AsRawHandle;
-use std::{fs::File, io::Write, path::Path, process, time::Duration};
+use std::path::Path;
+use std::process;
+use std::time::Duration;
 
 use anyhow::Context as _;
 use buck2_common::memory;
-use buck2_core::{
-    env_helper::EnvHelper,
-    fs::paths::{AbsPath, ForwardRelativePath},
-};
+use buck2_core::env_helper::EnvHelper;
+use buck2_core::fs::paths::AbsPath;
+use buck2_core::fs::paths::ForwardRelativePath;
 use cli_proto::DaemonProcessInfo;
 use dice::cycles::DetectCycles;
-use futures::{
-    channel::mpsc::{self, UnboundedSender},
-    pin_mut, select, FutureExt, StreamExt,
-};
+use futures::channel::mpsc::UnboundedSender;
+use futures::channel::mpsc::{self};
+use futures::pin_mut;
+use futures::select;
+use futures::FutureExt;
+use futures::StreamExt;
 use thiserror::Error;
 use tokio::runtime::Builder;
 
-use crate::{
-    daemon::{
-        daemon_utils::create_listener,
-        server::{BuckdServer, BuckdServerDelegate},
-    },
-    paths::Paths,
-    version::BuckVersion,
-    CommandContext,
-};
+use crate::daemon::daemon_utils::create_listener;
+use crate::daemon::server::BuckdServer;
+use crate::daemon::server::BuckdServerDelegate;
+use crate::paths::Paths;
+use crate::version::BuckVersion;
+use crate::CommandContext;
 
 #[derive(Debug, Error)]
 enum DaemonError {
@@ -337,22 +339,23 @@ impl DaemonCommand {
         // We have to call CreateProcessW manually because std::process::Command
         // doesn't allow to set 'bInheritHandles' to false. Without this waiting on
         // parent process will also wait on inherited handles of daemon process.
-        use std::{
-            env,
-            ffi::{OsStr, OsString},
-            iter, mem,
-            os::windows::ffi::OsStrExt,
-            ptr,
-        };
+        use std::env;
+        use std::ffi::OsStr;
+        use std::ffi::OsString;
+        use std::iter;
+        use std::mem;
+        use std::os::windows::ffi::OsStrExt;
+        use std::ptr;
 
-        use winapi::{
-            shared::minwindef::{DWORD, FALSE},
-            um::{
-                handleapi::CloseHandle,
-                processthreadsapi::{CreateProcessW, PROCESS_INFORMATION, STARTUPINFOW},
-                winbase::{CREATE_NEW_PROCESS_GROUP, CREATE_UNICODE_ENVIRONMENT, DETACHED_PROCESS},
-            },
-        };
+        use winapi::shared::minwindef::DWORD;
+        use winapi::shared::minwindef::FALSE;
+        use winapi::um::handleapi::CloseHandle;
+        use winapi::um::processthreadsapi::CreateProcessW;
+        use winapi::um::processthreadsapi::PROCESS_INFORMATION;
+        use winapi::um::processthreadsapi::STARTUPINFOW;
+        use winapi::um::winbase::CREATE_NEW_PROCESS_GROUP;
+        use winapi::um::winbase::CREATE_UNICODE_ENVIRONMENT;
+        use winapi::um::winbase::DETACHED_PROCESS;
 
         fn to_nullterm(s: &OsStr) -> Vec<u16> {
             s.encode_wide().chain(iter::once(0)).collect()

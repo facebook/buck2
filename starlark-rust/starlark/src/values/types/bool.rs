@@ -20,23 +20,27 @@
 //! Can be created with [`new_bool`](Value::new_bool) and unwrapped with [`unpack_bool`](Value::unpack_bool).
 //! Unlike most Starlark values, these aren't actually represented on the [`Heap`], but as special values.
 
-use std::{
-    cmp::Ordering,
-    fmt::{self, Display},
-    hash::Hasher,
-};
+use std::cmp::Ordering;
+use std::fmt::Display;
+use std::fmt::{self};
+use std::hash::Hasher;
 
 use gazebo::any::ProvidesStaticType;
 use serde::Serialize;
 
-use crate::{
-    collections::{StarlarkHashValue, StarlarkHasher},
-    private::Private,
-    values::{
-        basic::StarlarkValueBasic, AllocFrozenValue, AllocValue, FrozenHeap, FrozenValue, Heap,
-        StarlarkValue, UnpackValue, Value, ValueError,
-    },
-};
+use crate::collections::StarlarkHashValue;
+use crate::collections::StarlarkHasher;
+use crate::private::Private;
+use crate::values::basic::StarlarkValueBasic;
+use crate::values::AllocFrozenValue;
+use crate::values::AllocValue;
+use crate::values::FrozenHeap;
+use crate::values::FrozenValue;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::UnpackValue;
+use crate::values::Value;
+use crate::values::ValueError;
 
 /// The result of calling `type()` on booleans.
 pub const BOOL_TYPE: &str = "bool";

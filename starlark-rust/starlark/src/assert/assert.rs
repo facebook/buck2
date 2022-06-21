@@ -28,20 +28,29 @@ use anyhow::anyhow;
 use gazebo::prelude::*;
 use once_cell::sync::Lazy;
 
-use crate::{
-    self as starlark,
-    codemap::{CodeMap, FileSpanRef, Pos, Span},
-    collections::SmallMap,
-    environment::{FrozenModule, Globals, GlobalsBuilder, Module},
-    errors::Diagnostic,
-    eval::{Evaluator, ReturnFileLoader},
-    stdlib::PrintHandler,
-    syntax::{
-        lexer::{Lexer, Token},
-        AstModule, Dialect,
-    },
-    values::{none::NoneType, structs::Struct, Heap, OwnedFrozenValue, Value},
-};
+use crate::codemap::CodeMap;
+use crate::codemap::FileSpanRef;
+use crate::codemap::Pos;
+use crate::codemap::Span;
+use crate::collections::SmallMap;
+use crate::environment::FrozenModule;
+use crate::environment::Globals;
+use crate::environment::GlobalsBuilder;
+use crate::environment::Module;
+use crate::errors::Diagnostic;
+use crate::eval::Evaluator;
+use crate::eval::ReturnFileLoader;
+use crate::stdlib::PrintHandler;
+use crate::syntax::lexer::Lexer;
+use crate::syntax::lexer::Token;
+use crate::syntax::AstModule;
+use crate::syntax::Dialect;
+use crate::values::none::NoneType;
+use crate::values::structs::Struct;
+use crate::values::Heap;
+use crate::values::OwnedFrozenValue;
+use crate::values::Value;
+use crate::{self as starlark};
 
 fn mk_environment() -> GlobalsBuilder {
     GlobalsBuilder::extended().with(test_functions)

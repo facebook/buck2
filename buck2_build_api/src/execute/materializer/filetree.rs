@@ -19,11 +19,10 @@
 //! to figure out which artifact a path belongs to. E.g. we have an artifact at
 //! "foo/bar", and we need to find out which artifact "foo/bar/c" belongs to.
 
-use std::{
-    borrow::Borrow,
-    collections::{hash_map::Entry, HashMap},
-    hash::Hash,
-};
+use std::borrow::Borrow;
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
+use std::hash::Hash;
 
 use buck2_core::fs::paths::FileNameBuf;
 

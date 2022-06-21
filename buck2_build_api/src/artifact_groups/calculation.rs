@@ -12,31 +12,39 @@ use std::collections::HashSet;
 use anyhow::Context as _;
 use async_recursion::async_recursion;
 use async_trait::async_trait;
-use buck2_common::{
-    dice::file_ops::HasFileOps,
-    file_ops::{FileOps, PathMetadata},
-};
-use buck2_core::{buck_path::BuckPath, directory::DirectoryData, result::SharedResult};
+use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::file_ops::FileOps;
+use buck2_common::file_ops::PathMetadata;
+use buck2_core::buck_path::BuckPath;
+use buck2_core::directory::DirectoryData;
+use buck2_core::result::SharedResult;
 use derive_more::Display;
-use dice::{DiceComputations, Key};
+use dice::DiceComputations;
+use dice::Key;
 use futures::stream::FuturesOrdered;
 use gazebo::prelude::*;
 use smallvec::SmallVec;
 
-use crate::{
-    actions::{
-        artifact::{Artifact, ArtifactKind, ArtifactValue, BaseArtifactKind, ProjectedArtifact},
-        build_listener::{HasBuildSignals, TransitiveSetComputationSignal},
-        calculation::ActionCalculation,
-        directory::{
-            extract_artifact_value, insert_artifact, ActionDirectoryBuilder, ActionDirectoryEntry,
-            ActionDirectoryMember, ActionSharedDirectory, INTERNER,
-        },
-    },
-    artifact_groups::{ArtifactGroup, ArtifactGroupValues, TransitiveSetProjectionKey},
-    deferred::calculation::DeferredCalculation,
-    keep_going,
-};
+use crate::actions::artifact::Artifact;
+use crate::actions::artifact::ArtifactKind;
+use crate::actions::artifact::ArtifactValue;
+use crate::actions::artifact::BaseArtifactKind;
+use crate::actions::artifact::ProjectedArtifact;
+use crate::actions::build_listener::HasBuildSignals;
+use crate::actions::build_listener::TransitiveSetComputationSignal;
+use crate::actions::calculation::ActionCalculation;
+use crate::actions::directory::extract_artifact_value;
+use crate::actions::directory::insert_artifact;
+use crate::actions::directory::ActionDirectoryBuilder;
+use crate::actions::directory::ActionDirectoryEntry;
+use crate::actions::directory::ActionDirectoryMember;
+use crate::actions::directory::ActionSharedDirectory;
+use crate::actions::directory::INTERNER;
+use crate::artifact_groups::ArtifactGroup;
+use crate::artifact_groups::ArtifactGroupValues;
+use crate::artifact_groups::TransitiveSetProjectionKey;
+use crate::deferred::calculation::DeferredCalculation;
+use crate::keep_going;
 
 #[async_trait]
 pub(crate) trait ArtifactGroupCalculation {
@@ -271,36 +279,40 @@ impl Key for EnsureTransitiveSetProjectionKey {
 mod tests {
     use std::sync::Arc;
 
-    use buck2_common::{
-        dice::{
-            cells::HasCellResolver, data::testing::SetTestingIoProvider,
-            file_ops::testing::FileOpsKey,
-        },
-        file_ops::{testing::TestFileOps, FileDigest, FileMetadata, TrackedFileDigest},
-    };
-    use buck2_core::{
-        cells::{
-            paths::{CellPath, CellRelativePathBuf},
-            testing::CellResolverExt,
-            CellName, CellResolver,
-        },
-        fs::project::{ProjectFilesystemTemp, ProjectRelativePathBuf},
-        package::{testing::PackageExt, Package, PackageRelativePathBuf},
-        result::ToSharedResultExt,
-    };
-    use dice::{testing::DiceBuilder, UserComputationData};
+    use buck2_common::dice::cells::HasCellResolver;
+    use buck2_common::dice::data::testing::SetTestingIoProvider;
+    use buck2_common::dice::file_ops::testing::FileOpsKey;
+    use buck2_common::file_ops::testing::TestFileOps;
+    use buck2_common::file_ops::FileDigest;
+    use buck2_common::file_ops::FileMetadata;
+    use buck2_common::file_ops::TrackedFileDigest;
+    use buck2_core::cells::paths::CellPath;
+    use buck2_core::cells::paths::CellRelativePathBuf;
+    use buck2_core::cells::testing::CellResolverExt;
+    use buck2_core::cells::CellName;
+    use buck2_core::cells::CellResolver;
+    use buck2_core::fs::project::ProjectFilesystemTemp;
+    use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::package::testing::PackageExt;
+    use buck2_core::package::Package;
+    use buck2_core::package::PackageRelativePathBuf;
+    use buck2_core::result::ToSharedResultExt;
+    use dice::testing::DiceBuilder;
+    use dice::UserComputationData;
     use indoc::indoc;
     use maplit::btreemap;
     use starlark::values::OwnedFrozenValue;
 
     use super::*;
-    use crate::{
-        actions::artifact::{Artifact, ArtifactValue, SourceArtifact},
-        artifact_groups::deferred::DeferredTransitiveSetData,
-        context::SetBuildContextData,
-        deferred::{calculation::testing::DeferredResolve, AnyValue},
-        interpreter::rule_defs::transitive_set::{testing, TransitiveSet},
-    };
+    use crate::actions::artifact::Artifact;
+    use crate::actions::artifact::ArtifactValue;
+    use crate::actions::artifact::SourceArtifact;
+    use crate::artifact_groups::deferred::DeferredTransitiveSetData;
+    use crate::context::SetBuildContextData;
+    use crate::deferred::calculation::testing::DeferredResolve;
+    use crate::deferred::AnyValue;
+    use crate::interpreter::rule_defs::transitive_set::testing;
+    use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
     fn mock_deferred_tset(dice_builder: DiceBuilder, value: OwnedFrozenValue) -> DiceBuilder {
         let tset = TransitiveSet::from_value(value.value()).unwrap();

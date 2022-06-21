@@ -11,12 +11,15 @@ use anyhow::Context;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
 use once_cell::sync::Lazy;
-use starlark::values::{OwnedFrozenValue, Value};
+use starlark::values::OwnedFrozenValue;
+use starlark::values::Value;
 
-use crate::{
-    deferred::{Deferred, DeferredCtx, DeferredData, DeferredInput, DeferredValue},
-    interpreter::rule_defs::transitive_set::TransitiveSet,
-};
+use crate::deferred::Deferred;
+use crate::deferred::DeferredCtx;
+use crate::deferred::DeferredData;
+use crate::deferred::DeferredInput;
+use crate::deferred::DeferredValue;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
 pub type TransitiveSetKey = DeferredData<DeferredTransitiveSetData>;
 

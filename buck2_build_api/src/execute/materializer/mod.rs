@@ -17,30 +17,36 @@ pub mod http;
 pub mod immediate;
 pub mod io;
 
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::sync::Arc;
+use std::time::Duration;
+use std::time::Instant;
 
 use async_trait::async_trait;
-use buck2_common::{file_ops::FileMetadata, legacy_configs::LegacyBuckConfig};
-use buck2_core::fs::project::{ProjectRelativePath, ProjectRelativePathBuf};
+use buck2_common::file_ops::FileMetadata;
+use buck2_common::legacy_configs::LegacyBuckConfig;
+use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_interpreter::dice::HasEvents;
 use derive_more::Display;
-use dice::{DiceComputations, UserComputationData};
-use futures::stream::{self, BoxStream, StreamExt, TryStreamExt};
+use dice::DiceComputations;
+use dice::UserComputationData;
+use futures::stream::BoxStream;
+use futures::stream::StreamExt;
+use futures::stream::TryStreamExt;
+use futures::stream::{self};
 use gazebo::prelude::*;
 use thiserror::Error;
 
-use crate::{
-    actions::{
-        artifact::{Artifact, ArtifactValue, BuildArtifact},
-        directory::{ActionDirectoryEntry, ActionImmutableDirectory, ActionSharedDirectory},
-    },
-    calculation::Calculation,
-    events::proto::ToProtoMessage,
-    execute::{commands::re::client::ActionDigest, materializer::http::Checksum},
-};
+use crate::actions::artifact::Artifact;
+use crate::actions::artifact::ArtifactValue;
+use crate::actions::artifact::BuildArtifact;
+use crate::actions::directory::ActionDirectoryEntry;
+use crate::actions::directory::ActionImmutableDirectory;
+use crate::actions::directory::ActionSharedDirectory;
+use crate::calculation::Calculation;
+use crate::events::proto::ToProtoMessage;
+use crate::execute::commands::re::client::ActionDigest;
+use crate::execute::materializer::http::Checksum;
 
 // Add a stub EdenBuckOut for when we don't have Eden output enabled
 #[cfg(any(not(feature = "eden_materializer"), not(unix)))]

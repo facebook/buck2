@@ -14,9 +14,11 @@ pub mod registry;
 
 pub use artifact_group_values::ArtifactGroupValues;
 use derive_more::Display;
-use gazebo::{prelude::*, variants::UnpackVariants};
+use gazebo::prelude::*;
+use gazebo::variants::UnpackVariants;
 
-use crate::{actions::artifact::Artifact, artifact_groups::deferred::TransitiveSetKey};
+use crate::actions::artifact::Artifact;
+use crate::artifact_groups::deferred::TransitiveSetKey;
 
 /// An [ArtifactGroup] can expand to one or more [Artifact]. Those Artifacts wil be made available
 /// to Actions when they execute.

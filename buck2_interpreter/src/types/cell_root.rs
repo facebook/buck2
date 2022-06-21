@@ -7,16 +7,16 @@
  * of this source tree.
  */
 
-use buck2_core::cells::{
-    paths::{CellPath, CellRelativePathBuf},
-    CellName,
-};
+use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::paths::CellRelativePathBuf;
+use buck2_core::cells::CellName;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
-use starlark::{
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    values::{NoSerialize, StarlarkValue},
-};
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
 
 #[derive(Debug, PartialEq, Display, ProvidesStaticType, NoSerialize)]
 pub struct CellRoot(CellPath);

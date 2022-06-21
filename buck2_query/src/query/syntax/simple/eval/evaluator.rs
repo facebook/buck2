@@ -9,21 +9,20 @@
 
 //! Implementation of the cli and query_* attr query language.
 
-use buck2_query_parser::{parse_expr, spanned::Spanned, Expr};
+use buck2_query_parser::parse_expr;
+use buck2_query_parser::spanned::Spanned;
+use buck2_query_parser::Expr;
 use futures::FutureExt;
-use gazebo::{prelude::*, variants::VariantName};
+use gazebo::prelude::*;
+use gazebo::variants::VariantName;
 
-use crate::query::{
-    environment::QueryEnvironment,
-    syntax::simple::{
-        eval::{
-            error::QueryError,
-            set::TargetSet,
-            values::{QueryEvaluationValue, QueryResult, QueryValue},
-        },
-        functions::QueryFunctions,
-    },
-};
+use crate::query::environment::QueryEnvironment;
+use crate::query::syntax::simple::eval::error::QueryError;
+use crate::query::syntax::simple::eval::set::TargetSet;
+use crate::query::syntax::simple::eval::values::QueryEvaluationValue;
+use crate::query::syntax::simple::eval::values::QueryResult;
+use crate::query::syntax::simple::eval::values::QueryValue;
+use crate::query::syntax::simple::functions::QueryFunctions;
 pub struct QueryEvaluator<'e, Env: QueryEnvironment> {
     env: &'e Env,
     functions: &'e dyn QueryFunctions<Env>,

@@ -7,20 +7,19 @@
  * of this source tree.
  */
 
-use std::{fmt::Display, hash::Hash};
+use std::fmt::Display;
+use std::hash::Hash;
 
-use starlark::{
-    collections::StarlarkHasher,
-    values::{Value, ValueLike},
-};
+use starlark::collections::StarlarkHasher;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 
-use crate::{
-    actions::artifact::{Artifact, ArtifactPath, OutputArtifact},
-    interpreter::rule_defs::{
-        artifact::{StarlarkArtifact, StarlarkDeclaredArtifact},
-        cmd_args::CommandLineArgLike,
-    },
-};
+use crate::actions::artifact::Artifact;
+use crate::actions::artifact::ArtifactPath;
+use crate::actions::artifact::OutputArtifact;
+use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
+use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 
 /// The Starlark representation of an `Artifact`
 ///

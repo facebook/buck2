@@ -14,13 +14,11 @@ use buck2_core::configuration::Configuration;
 use cli_proto::ClientContext;
 use itertools::Itertools;
 
-use crate::{
-    commands::{
-        audit::AuditSubcommand,
-        common::{CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions},
-    },
-    daemon::server::ServerCommandContext,
-};
+use crate::commands::audit::AuditSubcommand;
+use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonConsoleOptions;
+use crate::commands::common::CommonEventLogOptions;
+use crate::daemon::server::ServerCommandContext;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(

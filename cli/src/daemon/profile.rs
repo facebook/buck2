@@ -8,24 +8,26 @@
  */
 
 use anyhow::Context as _;
-use buck2_build_api::{
-    analysis, calculation::Calculation, interpreter::module_internals::ModuleInternals,
-};
-use buck2_common::dice::{cells::HasCellResolver, file_ops::HasFileOps};
+use buck2_build_api::analysis;
+use buck2_build_api::calculation::Calculation;
+use buck2_build_api::interpreter::module_internals::ModuleInternals;
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::file_ops::HasFileOps;
 use buck2_core::target::TargetLabel;
-use buck2_interpreter::{
-    common::BuildFileCell,
-    dice::HasCalculationDelegate,
-    pattern::{PackageSpec, TargetPattern},
-    starlark_profiler::{StarlarkProfiler, StarlarkProfilerOrInstrumentation},
-};
-use cli_proto::{profile_request::Action, ClientContext};
+use buck2_interpreter::common::BuildFileCell;
+use buck2_interpreter::dice::HasCalculationDelegate;
+use buck2_interpreter::pattern::PackageSpec;
+use buck2_interpreter::pattern::TargetPattern;
+use buck2_interpreter::starlark_profiler::StarlarkProfiler;
+use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
+use cli_proto::profile_request::Action;
+use cli_proto::ClientContext;
 use gazebo::prelude::*;
 
-use crate::daemon::{
-    common::{parse_patterns_from_cli_args, resolve_patterns, target_platform_from_client_context},
-    server::ServerCommandContext,
-};
+use crate::daemon::common::parse_patterns_from_cli_args;
+use crate::daemon::common::resolve_patterns;
+use crate::daemon::common::target_platform_from_client_context;
+use crate::daemon::server::ServerCommandContext;
 
 pub(crate) async fn generate_profile(
     server_ctx: ServerCommandContext,

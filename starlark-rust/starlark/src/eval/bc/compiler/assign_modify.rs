@@ -17,25 +17,34 @@
 
 //! Write operators like `+=`.
 
-use crate::{
-    collections::symbol_map::Symbol,
-    eval::{
-        bc::{
-            compiler::expr::write_n_exprs,
-            instr_impl::{
-                InstrAddAssign, InstrArrayIndex, InstrArrayIndexSet, InstrBitAnd, InstrBitOrAssign,
-                InstrBitXor, InstrDivide, InstrFloorDivide, InstrLeftShift, InstrLoadModule,
-                InstrMultiply, InstrObjectField, InstrPercent, InstrRightShift,
-                InstrSetObjectField, InstrStoreModule, InstrSub,
-            },
-            stack_ptr::{BcSlotIn, BcSlotOut, BcSlotsN},
-            writer::BcWriter,
-        },
-        compiler::{expr::ExprCompiled, span::IrSpanned, stmt::AssignModifyLhs},
-        runtime::call_stack::FrozenFileSpan,
-    },
-    syntax::ast::AssignOp,
-};
+use crate::collections::symbol_map::Symbol;
+use crate::eval::bc::compiler::expr::write_n_exprs;
+use crate::eval::bc::instr_impl::InstrAddAssign;
+use crate::eval::bc::instr_impl::InstrArrayIndex;
+use crate::eval::bc::instr_impl::InstrArrayIndexSet;
+use crate::eval::bc::instr_impl::InstrBitAnd;
+use crate::eval::bc::instr_impl::InstrBitOrAssign;
+use crate::eval::bc::instr_impl::InstrBitXor;
+use crate::eval::bc::instr_impl::InstrDivide;
+use crate::eval::bc::instr_impl::InstrFloorDivide;
+use crate::eval::bc::instr_impl::InstrLeftShift;
+use crate::eval::bc::instr_impl::InstrLoadModule;
+use crate::eval::bc::instr_impl::InstrMultiply;
+use crate::eval::bc::instr_impl::InstrObjectField;
+use crate::eval::bc::instr_impl::InstrPercent;
+use crate::eval::bc::instr_impl::InstrRightShift;
+use crate::eval::bc::instr_impl::InstrSetObjectField;
+use crate::eval::bc::instr_impl::InstrStoreModule;
+use crate::eval::bc::instr_impl::InstrSub;
+use crate::eval::bc::stack_ptr::BcSlotIn;
+use crate::eval::bc::stack_ptr::BcSlotOut;
+use crate::eval::bc::stack_ptr::BcSlotsN;
+use crate::eval::bc::writer::BcWriter;
+use crate::eval::compiler::expr::ExprCompiled;
+use crate::eval::compiler::span::IrSpanned;
+use crate::eval::compiler::stmt::AssignModifyLhs;
+use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::syntax::ast::AssignOp;
 
 impl AssignOp {
     fn write_bc(

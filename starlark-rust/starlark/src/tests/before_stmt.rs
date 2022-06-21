@@ -17,12 +17,12 @@
 
 use std::cell::Cell;
 
-use crate::{
-    codemap::FileSpanRef,
-    environment::{Globals, Module},
-    eval::Evaluator,
-    syntax::{AstModule, Dialect},
-};
+use crate::codemap::FileSpanRef;
+use crate::environment::Globals;
+use crate::environment::Module;
+use crate::eval::Evaluator;
+use crate::syntax::AstModule;
+use crate::syntax::Dialect;
 
 #[test]
 fn before_stmt() {

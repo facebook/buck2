@@ -8,7 +8,8 @@
  */
 
 use buck2_common::file_ops::SimpleDirEntry;
-use buck2_core::fs::paths::{FileName, FileNameBuf};
+use buck2_core::fs::paths::FileName;
+use buck2_core::fs::paths::FileNameBuf;
 
 pub(crate) fn find_buildfile<'a>(
     buildfile_candidates: &'a [FileNameBuf],

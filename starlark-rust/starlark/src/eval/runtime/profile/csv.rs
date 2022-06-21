@@ -17,7 +17,8 @@
 
 //! Write CSV files.
 
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
+use std::fmt::Display;
 
 use crate::eval::runtime::small_duration::SmallDuration;
 
@@ -146,7 +147,8 @@ impl CsvValue for u128 {
 
 #[cfg(test)]
 mod tests {
-    use crate::eval::runtime::{profile::csv::CsvWriter, small_duration::SmallDuration};
+    use crate::eval::runtime::profile::csv::CsvWriter;
+    use crate::eval::runtime::small_duration::SmallDuration;
 
     #[test]
     fn test_csv_writer() {

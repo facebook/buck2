@@ -7,19 +7,27 @@
  * of this source tree.
  */
 
-use std::fmt::{self, Display};
+use std::fmt::Display;
+use std::fmt::{self};
 
 use anyhow::anyhow;
-use gazebo::{any::ProvidesStaticType, coerce::Coerce};
-use starlark::{
-    collections::SmallMap,
-    eval::Evaluator,
-    starlark_complex_value, starlark_type,
-    values::{
-        dict::Dict, Freeze, Freezer, FrozenValue, Heap, NoSerialize, StarlarkValue, Trace, Tracer,
-        Value, ValueLike,
-    },
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::Coerce;
+use starlark::collections::SmallMap;
+use starlark::eval::Evaluator;
+use starlark::starlark_complex_value;
+use starlark::starlark_type;
+use starlark::values::dict::Dict;
+use starlark::values::Freeze;
+use starlark::values::Freezer;
+use starlark::values::FrozenValue;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::Tracer;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 
 #[derive(Debug, ProvidesStaticType, NoSerialize)] // TODO selector should probably support serializing
 #[repr(C)]

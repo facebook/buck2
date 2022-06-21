@@ -9,10 +9,9 @@
 
 // We'd love to use fs-err instead, but that code gives bad error messages and doesn't wrap all functions.
 // Various bugs have been raised - if they all get fixed we can migrate.
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::fs;
+use std::path::Path;
+use std::path::PathBuf;
 
 use anyhow::Context;
 

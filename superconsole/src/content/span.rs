@@ -7,14 +7,17 @@
  * of this source tree.
  */
 
-use std::{borrow::Cow, convert::TryFrom};
+use std::borrow::Cow;
+use std::convert::TryFrom;
 
-use crossterm::{
-    queue,
-    style::{ContentStyle, Print, PrintStyledContent, StyledContent},
-};
+use crossterm::queue;
+use crossterm::style::ContentStyle;
+use crossterm::style::Print;
+use crossterm::style::PrintStyledContent;
+use crossterm::style::StyledContent;
 use termwiz::cell;
-use unicode_segmentation::{Graphemes, UnicodeSegmentation};
+use unicode_segmentation::Graphemes;
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::Error;
 

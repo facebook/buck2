@@ -11,13 +11,11 @@ use std::fmt;
 
 use starlark::values::Value;
 
-use crate::{
-    attrs::{
-        attr_type::{attr_literal::AttrLiteral, AttrType},
-        AttrCoercionContext, CoercedAttr,
-    },
-    interpreter::rule_defs::attr::AttrIsConfigurable,
-};
+use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::AttrType;
+use crate::attrs::AttrCoercionContext;
+use crate::attrs::CoercedAttr;
+use crate::interpreter::rule_defs::attr::AttrIsConfigurable;
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub(crate) struct OptionAttrType {

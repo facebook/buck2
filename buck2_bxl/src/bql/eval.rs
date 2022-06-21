@@ -7,25 +7,28 @@
  * of this source tree.
  */
 
-use std::{fmt::Write, sync::Arc};
+use std::fmt::Write;
+use std::sync::Arc;
 
-use buck2_build_api::query::{dice::DiceQueryDelegate, uquery::environment::UqueryEnvironment};
-use buck2_common::{
-    dice::cells::HasCellResolver, package_boundary::HasPackageBoundaryExceptions,
-    target_aliases::HasTargetAliasResolver,
-};
-use buck2_core::fs::{paths::AbsPathBuf, project::ProjectRelativePathBuf};
+use buck2_build_api::query::dice::DiceQueryDelegate;
+use buck2_build_api::query::uquery::environment::UqueryEnvironment;
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::package_boundary::HasPackageBoundaryExceptions;
+use buck2_common::target_aliases::HasTargetAliasResolver;
+use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_interpreter::pattern::ParsedPattern;
 use dice::*;
 use gazebo::prelude::*;
-use starlark::{
-    environment::{GlobalsBuilder, Module},
-    eval::Evaluator,
-    syntax::{AstModule, Dialect},
-};
+use starlark::environment::GlobalsBuilder;
+use starlark::environment::Module;
+use starlark::eval::Evaluator;
+use starlark::syntax::AstModule;
+use starlark::syntax::Dialect;
 use tokio::runtime::Handle;
 
-use crate::bql::{internals::QueryInternals, register_query_functions};
+use crate::bql::internals::QueryInternals;
+use crate::bql::register_query_functions;
 
 /// Evaluates some bql script. TargetNodes are resolved via the interpreter from
 /// the provided DiceCtx.

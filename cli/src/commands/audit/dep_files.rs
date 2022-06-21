@@ -7,33 +7,30 @@
  * of this source tree.
  */
 
-use std::{borrow::Cow, io::Write};
+use std::borrow::Cow;
+use std::io::Write;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_build_api::{
-    actions::run::dep_files::{get_dep_files, DepFilesKey, StoredFingerprints},
-    calculation::Calculation,
-    deferred::BaseDeferredKey,
-    execute::materializer::HasMaterializer,
-};
-use buck2_core::{
-    category::Category,
-    directory::{Directory, DirectoryIterator},
-};
+use buck2_build_api::actions::run::dep_files::get_dep_files;
+use buck2_build_api::actions::run::dep_files::DepFilesKey;
+use buck2_build_api::actions::run::dep_files::StoredFingerprints;
+use buck2_build_api::calculation::Calculation;
+use buck2_build_api::deferred::BaseDeferredKey;
+use buck2_build_api::execute::materializer::HasMaterializer;
+use buck2_core::category::Category;
+use buck2_core::directory::Directory;
+use buck2_core::directory::DirectoryIterator;
 use buck2_interpreter::pattern::TargetPattern;
 use cli_proto::ClientContext;
 
-use crate::{
-    commands::{
-        audit::AuditSubcommand,
-        common::{CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions},
-    },
-    daemon::{
-        common::{parse_patterns_from_cli_args, target_platform_from_client_context},
-        server::ServerCommandContext,
-    },
-};
+use crate::commands::audit::AuditSubcommand;
+use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonConsoleOptions;
+use crate::commands::common::CommonEventLogOptions;
+use crate::daemon::common::parse_patterns_from_cli_args;
+use crate::daemon::common::target_platform_from_client_context;
+use crate::daemon::server::ServerCommandContext;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(

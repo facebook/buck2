@@ -2,8 +2,11 @@
 //! We just verify that this returns some valid looking docs.
 //! We can't compile this with the rest of buck2 as the doc registration will be polluted.
 
-use buck2_docs_gen::{Buck2Docs, StarlarkObject};
-use starlark::{environment::MethodsBuilder, starlark_module, values::Value};
+use buck2_docs_gen::Buck2Docs;
+use buck2_docs_gen::StarlarkObject;
+use starlark::environment::MethodsBuilder;
+use starlark::starlark_module;
+use starlark::values::Value;
 
 #[derive(Buck2Docs)]
 #[buck2_docs(foo)]

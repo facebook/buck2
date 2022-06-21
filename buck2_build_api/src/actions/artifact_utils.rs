@@ -7,27 +7,34 @@
  * of this source tree.
  */
 
-use std::{borrow::Cow, collections::HashMap, path::PathBuf, sync::Arc};
+use std::borrow::Cow;
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_core::{
-    directory::DirectoryEntry,
-    fs::{
-        anyhow as fs,
-        paths::{AbsPath, AbsPathBuf, RelativePath, RelativePathBuf},
-        project::{ProjectFilesystem, ProjectRelativePath},
-    },
-};
+use buck2_core::directory::DirectoryEntry;
+use buck2_core::fs::anyhow as fs;
+use buck2_core::fs::paths::AbsPath;
+use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::paths::RelativePath;
+use buck2_core::fs::paths::RelativePathBuf;
+use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRelativePath;
 use gazebo::prelude::*;
 
-use crate::actions::{
-    artifact::ArtifactValue,
-    directory::{
-        extract_artifact_value, insert_artifact, insert_entry, new_symlink, relativize_directory,
-        ActionDirectory, ActionDirectoryBuilder, ActionDirectoryEntry, ActionDirectoryMember,
-        ActionSharedDirectory, INTERNER,
-    },
-};
+use crate::actions::artifact::ArtifactValue;
+use crate::actions::directory::extract_artifact_value;
+use crate::actions::directory::insert_artifact;
+use crate::actions::directory::insert_entry;
+use crate::actions::directory::new_symlink;
+use crate::actions::directory::relativize_directory;
+use crate::actions::directory::ActionDirectory;
+use crate::actions::directory::ActionDirectoryBuilder;
+use crate::actions::directory::ActionDirectoryEntry;
+use crate::actions::directory::ActionDirectoryMember;
+use crate::actions::directory::ActionSharedDirectory;
+use crate::actions::directory::INTERNER;
 
 pub struct ArtifactValueBuilder<'a> {
     /// Only used to relativize paths; no disk operations performed!

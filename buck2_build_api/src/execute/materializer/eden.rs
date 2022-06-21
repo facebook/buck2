@@ -11,34 +11,36 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_core::{
-    directory::{DirectoryEntry, FingerprintedDirectory},
-    fs::{
-        paths::{AbsPathBuf, ForwardRelativePath},
-        project::{ProjectFilesystem, ProjectRelativePath, ProjectRelativePathBuf},
-    },
-};
-use futures::stream::{self, BoxStream, StreamExt};
+use buck2_core::directory::DirectoryEntry;
+use buck2_core::directory::FingerprintedDirectory;
+use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project::ProjectRelativePathBuf;
+use futures::stream::BoxStream;
+use futures::stream::StreamExt;
+use futures::stream::{self};
 use gazebo::prelude::*;
 use remote_execution::NamedDigest;
 
-use crate::{
-    actions::{
-        artifact::ArtifactValue,
-        digest::FileDigestToReExt,
-        directory::{insert_artifact, ActionDirectoryBuilder, ActionDirectoryMember},
-    },
-    execute::{
-        blocking::BlockingExecutor,
-        commands::re::{
-            manager::ReConnectionManager, uploader::ActionBlobs, ReExecutorGlobalKnobs,
-        },
-        materializer::{
-            eden_api::EdenBuckOut, immediate::ImmediateMaterializer, ArtifactNotMaterializedReason,
-            CasDownloadInfo, CopiedArtifact, HttpDownloadInfo, MaterializationError, Materializer,
-        },
-    },
-};
+use crate::actions::artifact::ArtifactValue;
+use crate::actions::digest::FileDigestToReExt;
+use crate::actions::directory::insert_artifact;
+use crate::actions::directory::ActionDirectoryBuilder;
+use crate::actions::directory::ActionDirectoryMember;
+use crate::execute::blocking::BlockingExecutor;
+use crate::execute::commands::re::manager::ReConnectionManager;
+use crate::execute::commands::re::uploader::ActionBlobs;
+use crate::execute::commands::re::ReExecutorGlobalKnobs;
+use crate::execute::materializer::eden_api::EdenBuckOut;
+use crate::execute::materializer::immediate::ImmediateMaterializer;
+use crate::execute::materializer::ArtifactNotMaterializedReason;
+use crate::execute::materializer::CasDownloadInfo;
+use crate::execute::materializer::CopiedArtifact;
+use crate::execute::materializer::HttpDownloadInfo;
+use crate::execute::materializer::MaterializationError;
+use crate::execute::materializer::Materializer;
 
 pub struct EdenMaterializer {
     re_client_manager: Arc<ReConnectionManager>,

@@ -10,12 +10,14 @@
 //! Module providing ref counted operations beyond [`Rc`](std::rc::Rc) and [`Arc`](Arc)
 //!
 
-use std::{
-    borrow, fmt,
-    fmt::{Debug, Display, Formatter},
-    ops::Deref,
-    sync::{Arc, Weak},
-};
+use std::borrow;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::ops::Deref;
+use std::sync::Arc;
+use std::sync::Weak;
 
 use gazebo::prelude::*;
 

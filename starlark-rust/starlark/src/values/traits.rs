@@ -28,24 +28,29 @@
 //! https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#sequence-types).
 //! We also use the term _container_ for denoting any of those type that can
 //! hold several values.
-use std::{
-    cmp::Ordering,
-    fmt::{Debug, Display, Write},
-};
+use std::cmp::Ordering;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Write;
 
 use erased_serde::Serialize;
 use gazebo::any::ProvidesStaticType;
 
-use crate::{
-    collections::{Hashed, StarlarkHasher},
-    environment::Methods,
-    eval::{Arguments, Evaluator},
-    private::Private,
-    values::{
-        docs::DocItem, error::ControlError, function::FUNCTION_TYPE, Freeze, FrozenStringValue,
-        Heap, Trace, Value, ValueError,
-    },
-};
+use crate::collections::Hashed;
+use crate::collections::StarlarkHasher;
+use crate::environment::Methods;
+use crate::eval::Arguments;
+use crate::eval::Evaluator;
+use crate::private::Private;
+use crate::values::docs::DocItem;
+use crate::values::error::ControlError;
+use crate::values::function::FUNCTION_TYPE;
+use crate::values::Freeze;
+use crate::values::FrozenStringValue;
+use crate::values::Heap;
+use crate::values::Trace;
+use crate::values::Value;
+use crate::values::ValueError;
 
 /// A trait for values which are more complex - because they are either mutable,
 /// or contain references to other values.

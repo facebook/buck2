@@ -9,32 +9,40 @@
 
 use std::fmt::Display;
 
-use buck2_core::provider::{ConfiguredProvidersLabel, ProvidersName};
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::ProvidersName;
 use buck2_interpreter::types::label::Label;
-use gazebo::{any::ProvidesStaticType, prelude::*};
-use serde::{Serialize, Serializer};
-use starlark::{
-    collections::StarlarkHasher,
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    starlark_type,
-    values::{Heap, StarlarkValue, StringValue, UnpackValue, Value, ValueLike},
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
+use serde::Serialize;
+use serde::Serializer;
+use starlark::collections::StarlarkHasher;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::starlark_type;
+use starlark::values::Heap;
+use starlark::values::StarlarkValue;
+use starlark::values::StringValue;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 use thiserror::Error;
 
-use crate::{
-    actions::artifact::{Artifact, ArtifactPath, BaseArtifactKind, OutputArtifact},
-    artifact_groups::ArtifactGroup,
-    deferred::BaseDeferredKey,
-    interpreter::rule_defs::{
-        artifact::{
-            ArtifactError, StarlarkArtifactLike, StarlarkDeclaredArtifact, StarlarkOutputArtifact,
-        },
-        cmd_args::{
-            CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder,
-            WriteToFileMacroVisitor,
-        },
-    },
-};
+use crate::actions::artifact::Artifact;
+use crate::actions::artifact::ArtifactPath;
+use crate::actions::artifact::BaseArtifactKind;
+use crate::actions::artifact::OutputArtifact;
+use crate::artifact_groups::ArtifactGroup;
+use crate::deferred::BaseDeferredKey;
+use crate::interpreter::rule_defs::artifact::ArtifactError;
+use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
+use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
+use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 
 /// A wrapper for an `Artifact` that is guaranteed to be bound, such as outputs
 /// from dependencies, or source files.

@@ -7,15 +7,15 @@
  * of this source tree.
  */
 
-use std::{
-    convert::TryFrom,
-    time::{Duration, Instant},
-};
+use std::convert::TryFrom;
+use std::time::Duration;
+use std::time::Instant;
 
 use anyhow::Context;
 use futures::Future;
 use thiserror::Error;
-use tonic::transport::{Channel, Endpoint};
+use tonic::transport::Channel;
+use tonic::transport::Endpoint;
 
 pub static UDS_DAEMON_FILENAME: &str = "buckd.uds";
 pub static SOCKET_ADDR: &str = "127.0.0.1";

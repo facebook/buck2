@@ -12,14 +12,13 @@ use buck2_core::exit_result::ExitResult;
 use cli_proto::CqueryRequest;
 use futures::FutureExt;
 
-use crate::{
-    commands::{
-        common::{CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions},
-        uquery::CommonQueryArgs,
-    },
-    daemon::client::BuckdClientConnector,
-    CommandContext, StreamingCommand,
-};
+use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonConsoleOptions;
+use crate::commands::common::CommonEventLogOptions;
+use crate::commands::uquery::CommonQueryArgs;
+use crate::daemon::client::BuckdClientConnector;
+use crate::CommandContext;
+use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "cquery", about = "Query configured target graph")]

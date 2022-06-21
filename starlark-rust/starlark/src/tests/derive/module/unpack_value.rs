@@ -18,12 +18,14 @@
 use either::Either;
 use itertools::Itertools;
 
-use crate::{
-    self as starlark,
-    assert::Assert,
-    environment::GlobalsBuilder,
-    values::{dict::DictOf, list::ListOf, structs::StructOf, Value, ValueOf},
-};
+use crate::assert::Assert;
+use crate::environment::GlobalsBuilder;
+use crate::values::dict::DictOf;
+use crate::values::list::ListOf;
+use crate::values::structs::StructOf;
+use crate::values::Value;
+use crate::values::ValueOf;
+use crate::{self as starlark};
 
 // TODO(nmj): Figure out default values here. ValueOf<i32> = 5 should work.
 #[starlark_module]

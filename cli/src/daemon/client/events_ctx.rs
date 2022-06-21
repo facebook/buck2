@@ -7,24 +7,32 @@
  * of this source tree.
  */
 
-use std::{
-    convert::{TryFrom, TryInto},
-    path::Path,
-};
+use std::convert::TryFrom;
+use std::convert::TryInto;
+use std::path::Path;
 
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::fs::paths::AbsPathBuf;
-use cli_proto::{command_result, CommandResult};
-use events::subscriber::{EventSubscriber, Tick};
-use futures::{Future, Stream, StreamExt};
+use cli_proto::command_result;
+use cli_proto::CommandResult;
+use events::subscriber::EventSubscriber;
+use events::subscriber::Tick;
+use futures::Future;
+use futures::Stream;
+use futures::StreamExt;
 use thiserror::Error;
-use tokio::time::{self, Duration, Instant, Interval, MissedTickBehavior};
+use tokio::time::Duration;
+use tokio::time::Instant;
+use tokio::time::Interval;
+use tokio::time::MissedTickBehavior;
+use tokio::time::{self};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
-use crate::daemon::client::{
-    file_tailer::FileTailer, BuckdCommunicationError, CommandOutcome, StreamValue,
-};
+use crate::daemon::client::file_tailer::FileTailer;
+use crate::daemon::client::BuckdCommunicationError;
+use crate::daemon::client::CommandOutcome;
+use crate::daemon::client::StreamValue;
 
 /// Target number of self.tick() calls per second. These can be used by implementations for regular updates, for example
 /// superconsole uses it to re-render the frame and this is what allows it to have constantly updating timers.

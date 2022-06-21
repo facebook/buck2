@@ -7,7 +7,8 @@
  * of this source tree.
  */
 
-use std::{borrow::Cow, convert::TryFrom};
+use std::borrow::Cow;
+use std::convert::TryFrom;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
@@ -18,17 +19,19 @@ use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
 
-use crate::{
-    actions::{
-        artifact::BuildArtifact, artifact_utils::ArtifactValueBuilder, Action, ActionExecutable,
-        ActionExecutionCtx, PristineActionExecutable, UnregisteredAction,
-    },
-    artifact_groups::ArtifactGroup,
-    execute::{
-        materializer::CopiedArtifact, ActionExecutionKind, ActionExecutionMetadata,
-        ActionExecutionTimingData, ActionOutputs,
-    },
-};
+use crate::actions::artifact::BuildArtifact;
+use crate::actions::artifact_utils::ArtifactValueBuilder;
+use crate::actions::Action;
+use crate::actions::ActionExecutable;
+use crate::actions::ActionExecutionCtx;
+use crate::actions::PristineActionExecutable;
+use crate::actions::UnregisteredAction;
+use crate::artifact_groups::ArtifactGroup;
+use crate::execute::materializer::CopiedArtifact;
+use crate::execute::ActionExecutionKind;
+use crate::execute::ActionExecutionMetadata;
+use crate::execute::ActionExecutionTimingData;
+use crate::execute::ActionOutputs;
 
 #[derive(Debug, Error)]
 enum CopyActionValidationError {

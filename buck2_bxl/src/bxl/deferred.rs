@@ -9,33 +9,39 @@
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    };
+    use std::sync::atomic::AtomicBool;
+    use std::sync::atomic::Ordering;
+    use std::sync::Arc;
 
-    use buck2_build_api::{
-        bxl::{calculation::BxlCalculationDyn, result::BxlResult, BxlFunctionLabel, BxlKey},
-        calculation::Calculation,
-        deferred::{
-            BaseDeferredKey, BaseKey, Deferred, DeferredCtx, DeferredInput, DeferredRegistry,
-            DeferredTable, DeferredValue,
-        },
-        execute::{commands::dice_data::set_fallback_executor_config, CommandExecutorConfig},
-        path::BuckOutPath,
-    };
+    use buck2_build_api::bxl::calculation::BxlCalculationDyn;
+    use buck2_build_api::bxl::result::BxlResult;
+    use buck2_build_api::bxl::BxlFunctionLabel;
+    use buck2_build_api::bxl::BxlKey;
+    use buck2_build_api::calculation::Calculation;
+    use buck2_build_api::deferred::BaseDeferredKey;
+    use buck2_build_api::deferred::BaseKey;
+    use buck2_build_api::deferred::Deferred;
+    use buck2_build_api::deferred::DeferredCtx;
+    use buck2_build_api::deferred::DeferredInput;
+    use buck2_build_api::deferred::DeferredRegistry;
+    use buck2_build_api::deferred::DeferredTable;
+    use buck2_build_api::deferred::DeferredValue;
+    use buck2_build_api::execute::commands::dice_data::set_fallback_executor_config;
+    use buck2_build_api::execute::CommandExecutorConfig;
+    use buck2_build_api::path::BuckOutPath;
     use buck2_common::dice::data::testing::SetTestingIoProvider;
-    use buck2_core::{
-        fs::{paths::ForwardRelativePathBuf, project::ProjectFilesystemTemp},
-        result::ToSharedResultExt,
-    };
+    use buck2_core::fs::paths::ForwardRelativePathBuf;
+    use buck2_core::fs::project::ProjectFilesystemTemp;
+    use buck2_core::result::ToSharedResultExt;
     use buck2_interpreter::common::BxlFilePath;
-    use dice::{testing::DiceBuilder, UserComputationData};
+    use dice::testing::DiceBuilder;
+    use dice::UserComputationData;
     use gazebo::dupe::Dupe;
     use indexmap::IndexSet;
     use starlark::collections::SmallMap;
 
-    use crate::bxl::calculation::{testing::BxlComputeKey, BxlCalculationImpl};
+    use crate::bxl::calculation::testing::BxlComputeKey;
+    use crate::bxl::calculation::BxlCalculationImpl;
 
     struct FakeDeferred(usize, IndexSet<DeferredInput>, Arc<AtomicBool>);
 

@@ -17,13 +17,14 @@
 
 //! Runtime typecheck profile.
 
-use std::{fs, path::Path, time::Duration};
+use std::fs;
+use std::path::Path;
+use std::time::Duration;
 
-use crate::{
-    collections::SmallMap,
-    eval::runtime::{profile::csv::CsvWriter, small_duration::SmallDuration},
-    values::FrozenStringValue,
-};
+use crate::collections::SmallMap;
+use crate::eval::runtime::profile::csv::CsvWriter;
+use crate::eval::runtime::small_duration::SmallDuration;
+use crate::values::FrozenStringValue;
 
 #[derive(Default, Debug)]
 pub(crate) struct TypecheckProfile {
@@ -76,11 +77,12 @@ impl TypecheckProfile {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        environment::{Globals, Module},
-        eval::{Evaluator, ProfileMode},
-        syntax::{AstModule, Dialect},
-    };
+    use crate::environment::Globals;
+    use crate::environment::Module;
+    use crate::eval::Evaluator;
+    use crate::eval::ProfileMode;
+    use crate::syntax::AstModule;
+    use crate::syntax::Dialect;
 
     #[test]
     fn test_typecheck_profile() -> anyhow::Result<()> {

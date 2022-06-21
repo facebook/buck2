@@ -7,12 +7,13 @@
  * of this source tree.
  */
 
-use std::{
-    borrow::{Borrow, Cow},
-    ffi::{OsStr, OsString},
-    ops::Deref,
-    path::{Path, PathBuf},
-};
+use std::borrow::Borrow;
+use std::borrow::Cow;
+use std::ffi::OsStr;
+use std::ffi::OsString;
+use std::ops::Deref;
+use std::path::Path;
+use std::path::PathBuf;
 
 use anyhow::anyhow;
 use derive_more::Display;
@@ -21,7 +22,8 @@ use relative_path::RelativePath;
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::fs::paths::{ForwardRelativePath, ForwardRelativePathNormalizer};
+use crate::fs::paths::ForwardRelativePath;
+use crate::fs::paths::ForwardRelativePathNormalizer;
 
 /// An absolute path. This path is not platform agnostic.
 #[derive(Display, Debug, Hash, PartialEq, Eq, Ord, PartialOrd, RefCast)]
@@ -395,7 +397,8 @@ impl AbsPath {
     /// # anyhow::Ok(())
     /// ```
     pub fn windows_prefix(&self) -> anyhow::Result<OsString> {
-        use std::{os::windows::ffi::OsStringExt, path::Prefix};
+        use std::os::windows::ffi::OsStringExt;
+        use std::path::Prefix;
 
         match self
             .0
@@ -729,7 +732,8 @@ enum PathNormalizationError {
 mod tests {
     use std::collections::HashMap;
 
-    use crate::fs::paths::{AbsPath, AbsPathBuf};
+    use crate::fs::paths::AbsPath;
+    use crate::fs::paths::AbsPathBuf;
 
     #[cfg(not(windows))]
     fn make_absolute(s: &str) -> String {

@@ -16,34 +16,35 @@
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
-use std::{borrow::Cow, convert::TryFrom, path::Path, sync::Arc};
+use std::borrow::Cow;
+use std::convert::TryFrom;
+use std::path::Path;
+use std::sync::Arc;
 
 use anyhow::Context as _;
-use buck2_build_api::{
-    configure_dice::configure_dice_for_buck,
-    interpreter::context::{
-        configure_build_file_globals, configure_extension_file_globals, fbcode_prelude,
-        BuildInterpreterConfiguror,
-    },
-};
-use buck2_bxl::{
-    bql::eval::eval_bql,
-    bxl::{calculation::BxlCalculationImpl, starlark_defs::configure_bxl_file_globals},
-};
+use buck2_build_api::configure_dice::configure_dice_for_buck;
+use buck2_build_api::interpreter::context::configure_build_file_globals;
+use buck2_build_api::interpreter::context::configure_extension_file_globals;
+use buck2_build_api::interpreter::context::fbcode_prelude;
+use buck2_build_api::interpreter::context::BuildInterpreterConfiguror;
+use buck2_bxl::bql::eval::eval_bql;
+use buck2_bxl::bxl::calculation::BxlCalculationImpl;
+use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
 use buck2_common::legacy_configs::BuckConfigBasedCells;
-use buck2_core::{
-    exit_result::ExitResult,
-    fs::{paths::AbsPathBuf, project::ProjectFilesystem},
-};
-use buck2_interpreter::{
-    dice::interpreter_setup::setup_interpreter_basic,
-    extra::{InterpreterHostArchitecture, InterpreterHostPlatform},
-};
-use dice::{cycles::DetectCycles, data::DiceData, UserComputationData};
+use buck2_core::exit_result::ExitResult;
+use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::project::ProjectFilesystem;
+use buck2_interpreter::dice::interpreter_setup::setup_interpreter_basic;
+use buck2_interpreter::extra::InterpreterHostArchitecture;
+use buck2_interpreter::extra::InterpreterHostPlatform;
+use dice::cycles::DetectCycles;
+use dice::data::DiceData;
+use dice::UserComputationData;
 use events::dispatch::EventDispatcher;
 use fbinit::FacebookInit;
 use gazebo::prelude::*;
-use structopt::{clap::AppSettings, StructOpt};
+use structopt::clap::AppSettings;
+use structopt::StructOpt;
 
 #[cfg_attr(all(unix, not(fbcode_build)), global_allocator)]
 #[cfg(all(unix, not(fbcode_build)))]

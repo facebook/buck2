@@ -17,13 +17,11 @@
 
 use gazebo::dupe::Dupe;
 
-use crate::{
-    codemap::{CodeMap, FileSpan},
-    syntax::{
-        ast::{AstStmt, Stmt},
-        AstModule,
-    },
-};
+use crate::codemap::CodeMap;
+use crate::codemap::FileSpan;
+use crate::syntax::ast::AstStmt;
+use crate::syntax::ast::Stmt;
+use crate::syntax::AstModule;
 
 fn go(x: &AstStmt, codemap: &CodeMap, res: &mut Vec<FileSpan>) {
     match &**x {

@@ -7,10 +7,9 @@
  * of this source tree.
  */
 
-use std::{
-    collections::HashSet,
-    fmt::{self, Debug},
-};
+use std::collections::HashSet;
+use std::fmt::Debug;
+use std::fmt::{self};
 
 use anyhow::Context;
 use buck2_core::package::PackageRelativePath;

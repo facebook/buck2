@@ -17,7 +17,8 @@
 
 //! Guard to check we don't recurse too deeply with nested operations like Equals.
 
-use std::{cell::Cell, intrinsics::unlikely};
+use std::cell::Cell;
+use std::intrinsics::unlikely;
 
 use crate::values::error::ControlError;
 

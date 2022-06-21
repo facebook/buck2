@@ -7,30 +7,36 @@
  * of this source tree.
  */
 
-use std::{
-    convert::TryFrom,
-    ops::{ControlFlow, FromResidual, Try},
-    pin::Pin,
-    time::{Duration, Instant},
-};
+use std::convert::TryFrom;
+use std::ops::ControlFlow;
+use std::ops::FromResidual;
+use std::ops::Try;
+use std::pin::Pin;
+use std::time::Duration;
+use std::time::Instant;
 
 use anyhow::Context;
 use buck2_core::exit_result::ExitResult;
 use buck2_data::BuckEvent;
-use cli_proto::{daemon_api_client::*, *};
+use cli_proto::daemon_api_client::*;
+use cli_proto::*;
 pub(crate) use connect::BuckdConnectOptions;
-use futures::{future::BoxFuture, pin_mut, stream, Stream, StreamExt};
-use serde::{Deserialize, Serialize};
+use futures::future::BoxFuture;
+use futures::pin_mut;
+use futures::stream;
+use futures::Stream;
+use futures::StreamExt;
+use serde::Deserialize;
+use serde::Serialize;
 use thiserror::Error;
-use tonic::{transport::Channel, Request, Status};
+use tonic::transport::Channel;
+use tonic::Request;
+use tonic::Status;
 
-use crate::{
-    daemon::{
-        client::events_ctx::{EventsCtx, FileTailers},
-        common::ToProtoDuration,
-    },
-    version::BuckVersion,
-};
+use crate::daemon::client::events_ctx::EventsCtx;
+use crate::daemon::client::events_ctx::FileTailers;
+use crate::daemon::common::ToProtoDuration;
+use crate::version::BuckVersion;
 
 pub(crate) mod connect;
 mod events_ctx;
@@ -340,16 +346,15 @@ impl BuckdClient {
 
     #[cfg(windows)]
     async fn kill_impl(pid: i64, timeout: Duration) -> anyhow::Result<()> {
-        use winapi::{
-            shared::winerror::WAIT_TIMEOUT,
-            um::{
-                handleapi::CloseHandle,
-                processthreadsapi::{OpenProcess, TerminateProcess},
-                synchapi::WaitForSingleObject,
-                winbase::WAIT_OBJECT_0,
-                winnt::{HANDLE, PROCESS_TERMINATE, SYNCHRONIZE},
-            },
-        };
+        use winapi::shared::winerror::WAIT_TIMEOUT;
+        use winapi::um::handleapi::CloseHandle;
+        use winapi::um::processthreadsapi::OpenProcess;
+        use winapi::um::processthreadsapi::TerminateProcess;
+        use winapi::um::synchapi::WaitForSingleObject;
+        use winapi::um::winbase::WAIT_OBJECT_0;
+        use winapi::um::winnt::HANDLE;
+        use winapi::um::winnt::PROCESS_TERMINATE;
+        use winapi::um::winnt::SYNCHRONIZE;
 
         struct HandleWrapper {
             handle: HANDLE,

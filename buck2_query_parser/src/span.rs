@@ -7,16 +7,22 @@
  * of this source tree.
  */
 
-use std::{
-    ops::{Deref, RangeFrom, RangeTo},
-    str::{CharIndices, Chars},
-};
+use std::ops::Deref;
+use std::ops::RangeFrom;
+use std::ops::RangeTo;
+use std::str::CharIndices;
+use std::str::Chars;
 
 use gazebo::dupe::Dupe;
-use nom::{
-    Compare, CompareResult, InputIter, InputLength, InputTake, Needed, Offset, Slice,
-    UnspecializedInput,
-};
+use nom::Compare;
+use nom::CompareResult;
+use nom::InputIter;
+use nom::InputLength;
+use nom::InputTake;
+use nom::Needed;
+use nom::Offset;
+use nom::Slice;
+use nom::UnspecializedInput;
 
 /// Similar to `LocatedSpan` from `nom_locate`, but without line number.
 #[derive(Clone, Debug, PartialEq, Copy, Dupe)]

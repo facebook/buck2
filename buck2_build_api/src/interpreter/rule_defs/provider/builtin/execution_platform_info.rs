@@ -10,22 +10,22 @@
 use std::fmt::Debug;
 
 use buck2_build_api_derive::internal_provider;
-use buck2_core::{configuration::Configuration, target::TargetLabel};
+use buck2_core::configuration::Configuration;
+use buck2_core::target::TargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
-use gazebo::{any::ProvidesStaticType, coerce::Coerce, prelude::*};
-use starlark::{
-    environment::GlobalsBuilder,
-    values::{Freeze, Trace, Value, ValueLike},
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::Coerce;
+use gazebo::prelude::*;
+use starlark::environment::GlobalsBuilder;
+use starlark::values::Freeze;
+use starlark::values::Trace;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 use thiserror::Error;
 
-use crate::{
-    configuration::execution::ExecutionPlatform,
-    interpreter::rule_defs::{
-        command_executor_config::StarlarkCommandExecutorConfigLike,
-        provider::builtin::configuration_info::ConfigurationInfo,
-    },
-};
+use crate::configuration::execution::ExecutionPlatform;
+use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfigLike;
+use crate::interpreter::rule_defs::provider::builtin::configuration_info::ConfigurationInfo;
 
 #[derive(Debug, Error)]
 enum ExecutionPlatformProviderErrors {

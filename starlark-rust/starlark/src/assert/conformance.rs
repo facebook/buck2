@@ -26,7 +26,8 @@
 use gazebo::prelude::*;
 use itertools::Itertools;
 
-use crate::{assert::assert::Assert, errors::Diagnostic};
+use crate::assert::assert::Assert;
+use crate::errors::Diagnostic;
 
 impl<'a> Assert<'a> {
     /// Run a conformance test, e.g. the Go Starlark tests

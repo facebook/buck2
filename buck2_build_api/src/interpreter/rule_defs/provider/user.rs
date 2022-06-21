@@ -7,29 +7,36 @@
  * of this source tree.
  */
 
-use std::{
-    cmp::Ordering,
-    fmt,
-    fmt::{Debug, Display},
-    hash::Hash,
-    sync::Arc,
-};
+use std::cmp::Ordering;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::hash::Hash;
+use std::sync::Arc;
 
-use gazebo::{any::ProvidesStaticType, coerce::Coerce};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::Coerce;
 use serde::Serializer;
-use starlark::{
-    collections::{Hashed, SmallMap, StarlarkHasher},
-    environment::{Methods, MethodsStatic},
-    eval::{Evaluator, ParametersParser},
-    values::{
-        display::display_keyed_container, Freeze, Heap, StarlarkValue, Trace, Value, ValueError,
-        ValueLike,
-    },
-};
+use starlark::collections::Hashed;
+use starlark::collections::SmallMap;
+use starlark::collections::StarlarkHasher;
+use starlark::environment::Methods;
+use starlark::environment::MethodsStatic;
+use starlark::eval::Evaluator;
+use starlark::eval::ParametersParser;
+use starlark::values::display::display_keyed_container;
+use starlark::values::Freeze;
+use starlark::values::Heap;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::Value;
+use starlark::values::ValueError;
+use starlark::values::ValueLike;
 
-use crate::interpreter::rule_defs::provider::{
-    id::ProviderId, provider_methods, ProviderLike, ValueAsProviderLike,
-};
+use crate::interpreter::rule_defs::provider::id::ProviderId;
+use crate::interpreter::rule_defs::provider::provider_methods;
+use crate::interpreter::rule_defs::provider::ProviderLike;
+use crate::interpreter::rule_defs::provider::ValueAsProviderLike;
 
 /// The result of calling the output of `provider()`. This is just a simple data structure of
 /// either immediately available values or, later, `FutureValue` types that are resolved

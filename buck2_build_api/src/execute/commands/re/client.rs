@@ -7,44 +7,60 @@
  * of this source tree.
  */
 
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Context;
-use buck2_common::{file_ops::TrackedFileDigest, legacy_configs::LegacyBuckConfig};
+use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::env_helper::EnvHelper;
 use derive_more::Display;
 use either::Either;
 use fbinit::FacebookInit;
-use futures::{stream::BoxStream, StreamExt};
+use futures::stream::BoxStream;
+use futures::StreamExt;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use prost::Message;
 use remote_execution as RE;
-use remote_execution::{
-    create_default_config, ActionHistoryInfo, ActionResultRequest, ActionResultResponse,
-    CASDaemonClientCfg, CopyPolicy, DownloadRequest, EmbeddedCASDaemonClientCfg, ExecuteRequest,
-    ExecuteResponse, ExecuteWithProgressResponse, HostResourceRequirements, InlinedBlobWithDigest,
-    NamedDigest, NamedDigestWithPermissions, NetworkStatisticsResponse, REClient, REClientBuilder,
-    RemoteExecutionMetadata, Stage, TDigest, TExecutionPolicy, TResultsCachePolicy, UploadRequest,
-    ZdbRichClientMode,
-};
+use remote_execution::create_default_config;
+use remote_execution::ActionHistoryInfo;
+use remote_execution::ActionResultRequest;
+use remote_execution::ActionResultResponse;
+use remote_execution::CASDaemonClientCfg;
+use remote_execution::CopyPolicy;
+use remote_execution::DownloadRequest;
+use remote_execution::EmbeddedCASDaemonClientCfg;
+use remote_execution::ExecuteRequest;
+use remote_execution::ExecuteResponse;
+use remote_execution::ExecuteWithProgressResponse;
+use remote_execution::HostResourceRequirements;
+use remote_execution::InlinedBlobWithDigest;
+use remote_execution::NamedDigest;
+use remote_execution::NamedDigestWithPermissions;
+use remote_execution::NetworkStatisticsResponse;
+use remote_execution::REClient;
+use remote_execution::REClientBuilder;
+use remote_execution::RemoteExecutionMetadata;
+use remote_execution::Stage;
+use remote_execution::TDigest;
+use remote_execution::TExecutionPolicy;
+use remote_execution::TResultsCachePolicy;
+use remote_execution::UploadRequest;
+use remote_execution::ZdbRichClientMode;
 use tokio::sync::Semaphore;
 use tracing::warn;
 
-use crate::{
-    actions::{digest::FileDigestToReExt, directory::ActionImmutableDirectory},
-    execute::{
-        commands::{
-            re::{
-                uploader::{ActionBlobs, Uploader},
-                ReActionIdentity, ReExecutorGlobalKnobs,
-            },
-            CommandExecutionManager,
-        },
-        materializer::Materializer,
-        RemoteExecutorUseCase,
-    },
-};
+use crate::actions::digest::FileDigestToReExt;
+use crate::actions::directory::ActionImmutableDirectory;
+use crate::execute::commands::re::uploader::ActionBlobs;
+use crate::execute::commands::re::uploader::Uploader;
+use crate::execute::commands::re::ReActionIdentity;
+use crate::execute::commands::re::ReExecutorGlobalKnobs;
+use crate::execute::commands::CommandExecutionManager;
+use crate::execute::materializer::Materializer;
+use crate::execute::RemoteExecutorUseCase;
 
 static BUCK2_RE_CLIENT_CFG_SECTION: &str = "buck2_re_client";
 
@@ -588,9 +604,12 @@ impl RemoteExecutionClientImpl {
         action_digest: &ActionDigest,
         manager: &mut CommandExecutionManager,
     ) -> anyhow::Result<ExecuteResponse> {
-        use buck2_data::{
-            re_stage, ReExecute, ReQueue, ReUnknown, ReWorkerDownload, ReWorkerUpload,
-        };
+        use buck2_data::re_stage;
+        use buck2_data::ReExecute;
+        use buck2_data::ReQueue;
+        use buck2_data::ReUnknown;
+        use buck2_data::ReWorkerDownload;
+        use buck2_data::ReWorkerUpload;
 
         /// Wait for either the ExecuteResponse to show up, or a stage change, within a span
         /// on the CommandExecutionManager.

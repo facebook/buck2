@@ -10,17 +10,22 @@
 use std::fmt::Debug;
 
 use buck2_build_api_derive::internal_provider;
-use gazebo::{any::ProvidesStaticType, coerce::Coerce};
-use starlark::{
-    environment::GlobalsBuilder,
-    eval::Evaluator,
-    values::{list::FrozenList, Freeze, Trace, Value, ValueLike},
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::Coerce;
+use starlark::environment::GlobalsBuilder;
+use starlark::eval::Evaluator;
+use starlark::values::list::FrozenList;
+use starlark::values::Freeze;
+use starlark::values::Trace;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 
-use crate::interpreter::rule_defs::cmd_args::{
-    CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder, StarlarkCommandLine,
-    ValueAsCommandLineLike, WriteToFileMacroVisitor,
-};
+use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
+use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
+use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 
 /// Provider that signals that a rule is runnable
 #[internal_provider(run_info_creator)]
@@ -88,13 +93,11 @@ mod tests {
     use buck2_core::result::SharedResult;
     use indoc::indoc;
 
-    use crate::interpreter::{
-        rule_defs::{
-            artifact::testing::artifactory, cmd_args::tester::command_line_stringifier,
-            provider::collection::tester::collection_creator,
-        },
-        testing::{run_starlark_bzl_test_expecting_error, Tester},
-    };
+    use crate::interpreter::rule_defs::artifact::testing::artifactory;
+    use crate::interpreter::rule_defs::cmd_args::tester::command_line_stringifier;
+    use crate::interpreter::rule_defs::provider::collection::tester::collection_creator;
+    use crate::interpreter::testing::run_starlark_bzl_test_expecting_error;
+    use crate::interpreter::testing::Tester;
 
     #[test]
     fn run_info_stringifies() -> SharedResult<()> {

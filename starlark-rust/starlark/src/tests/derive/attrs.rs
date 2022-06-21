@@ -19,10 +19,9 @@ use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
 
 use crate as starlark;
-use crate::{
-    assert::Assert,
-    values::{StarlarkAttrs, StarlarkValue},
-};
+use crate::assert::Assert;
+use crate::values::StarlarkAttrs;
+use crate::values::StarlarkValue;
 
 #[test]
 fn test_derive_attrs() {

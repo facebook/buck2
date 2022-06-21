@@ -45,41 +45,42 @@
 //! receive a list of files in the implementation. The intermediate form of that
 //! may be strings or targets or some other thing (e.g. a lazy glob, maybe).
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use anyhow::anyhow;
-use attr_type::{
-    attr_literal::{AttrConfig, AttrLiteral},
-    bool,
-    dep::{ConfiguredExplicitConfiguredDep, UnconfiguredExplicitConfiguredDep},
-    split_transition_dep::{ConfiguredSplitTransitionDep, SplitTransitionDep},
-};
-use buck2_core::{
-    buck_path::BuckPath,
-    configuration::{Configuration, ConfigurationData},
-    provider::{ConfiguredProvidersLabel, ProvidersLabel, ProvidersName},
-    result::{SharedResult, ToSharedResultExt},
-    target::{ConfiguredTargetLabel, TargetLabel},
-};
+use attr_type::attr_literal::AttrConfig;
+use attr_type::attr_literal::AttrLiteral;
+use attr_type::bool;
+use attr_type::dep::ConfiguredExplicitConfiguredDep;
+use attr_type::dep::UnconfiguredExplicitConfiguredDep;
+use attr_type::split_transition_dep::ConfiguredSplitTransitionDep;
+use attr_type::split_transition_dep::SplitTransitionDep;
+use buck2_core::buck_path::BuckPath;
+use buck2_core::configuration::Configuration;
+use buck2_core::configuration::ConfigurationData;
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::ProvidersLabel;
+use buck2_core::provider::ProvidersName;
+use buck2_core::result::SharedResult;
+use buck2_core::result::ToSharedResultExt;
+use buck2_core::target::ConfiguredTargetLabel;
+use buck2_core::target::TargetLabel;
 use either::Either;
 use gazebo::prelude::*;
-use starlark::{
-    collections::{small_map, SmallMap},
-    environment::Module,
-    values::{FrozenRef, Heap},
-};
+use starlark::collections::small_map;
+use starlark::collections::SmallMap;
+use starlark::environment::Module;
+use starlark::values::FrozenRef;
+use starlark::values::Heap;
 
-use crate::{
-    attrs::{
-        attr_type::attr_literal::CoercionError, coerced_attr::CoercedAttr,
-        configured_attr::ConfiguredAttr,
-    },
-    interpreter::rule_defs::{
-        cmd_args::FrozenCommandLineArgLike,
-        provider::collection::FrozenProviderCollectionValue,
-        transition::{applied::TransitionApplied, id::TransitionId},
-    },
-};
+use crate::attrs::attr_type::attr_literal::CoercionError;
+use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::configured_attr::ConfiguredAttr;
+use crate::interpreter::rule_defs::cmd_args::FrozenCommandLineArgLike;
+use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use crate::interpreter::rule_defs::transition::applied::TransitionApplied;
+use crate::interpreter::rule_defs::transition::id::TransitionId;
 
 pub mod attr_type;
 pub mod coerced_attr;

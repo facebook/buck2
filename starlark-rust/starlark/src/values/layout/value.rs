@@ -29,61 +29,82 @@
 // our val_ref requires a pointer to the value. We need to put that pointer
 // somewhere. The solution is to have a separate value storage vs vtable.
 
-use std::{
-    borrow::Cow,
-    cmp::Ordering,
-    fmt,
-    fmt::{Debug, Display},
-};
+use std::borrow::Cow;
+use std::cmp::Ordering;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Display;
 
 use either::Either;
-use gazebo::{
-    any::{AnyLifetime, ProvidesStaticType},
-    cast,
-    coerce::{coerce, Coerce, CoerceKey},
-    prelude::*,
-};
+use gazebo::any::AnyLifetime;
+use gazebo::any::ProvidesStaticType;
+use gazebo::cast;
+use gazebo::coerce::coerce;
+use gazebo::coerce::Coerce;
+use gazebo::coerce::CoerceKey;
+use gazebo::prelude::*;
 use indexmap::Equivalent;
 use num_bigint::BigInt;
-use serde::{Serialize, Serializer};
+use serde::Serialize;
+use serde::Serializer;
 
-use crate::{
-    collections::{Hashed, StarlarkHashValue, StarlarkHasher},
-    eval::{
-        compiler::def::{Def, FrozenDef},
-        runtime::{arguments::ArgumentsFull, call_stack::FrozenFileSpan},
-        Arguments, Evaluator, ParametersSpec,
-    },
-    sealed::Sealed,
-    values::{
-        dict::FrozenDict,
-        docs::DocItem,
-        enumeration::{EnumType, FrozenEnumValue},
-        float::StarlarkFloat,
-        function::{FrozenBoundMethod, NativeFunction, FUNCTION_TYPE},
-        int::PointerI32,
-        layout::{
-            arena::{AValueHeader, AValueRepr},
-            avalue::{basic_ref, AValue, StarlarkStrAValue, VALUE_FALSE, VALUE_NONE, VALUE_TRUE},
-            pointer::{FrozenPointer, Pointer},
-            static_string::VALUE_EMPTY_STRING,
-            typed::string::StringValueLike,
-            vtable::AValueDyn,
-        },
-        list::FrozenList,
-        num::Num,
-        range::Range,
-        record::{FrozenRecord, RecordType},
-        recursive_repr_or_json_guard::{json_stack_push, repr_stack_push},
-        stack_guard,
-        string::StarlarkStr,
-        structs::FrozenStruct,
-        tuple::{FrozenTuple, Tuple},
-        types::unbound::MaybeUnboundValue,
-        Freeze, Freezer, FrozenRef, FrozenStringValue, FrozenValueTyped, Heap, StarlarkValue,
-        StringValue, UnpackValue, ValueError, ValueIdentity,
-    },
-};
+use crate::collections::Hashed;
+use crate::collections::StarlarkHashValue;
+use crate::collections::StarlarkHasher;
+use crate::eval::compiler::def::Def;
+use crate::eval::compiler::def::FrozenDef;
+use crate::eval::runtime::arguments::ArgumentsFull;
+use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::Arguments;
+use crate::eval::Evaluator;
+use crate::eval::ParametersSpec;
+use crate::sealed::Sealed;
+use crate::values::dict::FrozenDict;
+use crate::values::docs::DocItem;
+use crate::values::enumeration::EnumType;
+use crate::values::enumeration::FrozenEnumValue;
+use crate::values::float::StarlarkFloat;
+use crate::values::function::FrozenBoundMethod;
+use crate::values::function::NativeFunction;
+use crate::values::function::FUNCTION_TYPE;
+use crate::values::int::PointerI32;
+use crate::values::layout::arena::AValueHeader;
+use crate::values::layout::arena::AValueRepr;
+use crate::values::layout::avalue::basic_ref;
+use crate::values::layout::avalue::AValue;
+use crate::values::layout::avalue::StarlarkStrAValue;
+use crate::values::layout::avalue::VALUE_FALSE;
+use crate::values::layout::avalue::VALUE_NONE;
+use crate::values::layout::avalue::VALUE_TRUE;
+use crate::values::layout::pointer::FrozenPointer;
+use crate::values::layout::pointer::Pointer;
+use crate::values::layout::static_string::VALUE_EMPTY_STRING;
+use crate::values::layout::typed::string::StringValueLike;
+use crate::values::layout::vtable::AValueDyn;
+use crate::values::list::FrozenList;
+use crate::values::num::Num;
+use crate::values::range::Range;
+use crate::values::record::FrozenRecord;
+use crate::values::record::RecordType;
+use crate::values::recursive_repr_or_json_guard::json_stack_push;
+use crate::values::recursive_repr_or_json_guard::repr_stack_push;
+use crate::values::stack_guard;
+use crate::values::string::StarlarkStr;
+use crate::values::structs::FrozenStruct;
+use crate::values::tuple::FrozenTuple;
+use crate::values::tuple::Tuple;
+use crate::values::types::unbound::MaybeUnboundValue;
+use crate::values::Freeze;
+use crate::values::Freezer;
+use crate::values::FrozenRef;
+use crate::values::FrozenStringValue;
+use crate::values::FrozenValueTyped;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::StringValue;
+use crate::values::UnpackValue;
+use crate::values::ValueError;
+use crate::values::ValueIdentity;
 
 /// A Starlark value. The lifetime argument `'v` corresponds to the [`Heap`](crate::values::Heap) it is stored on.
 ///
@@ -1179,9 +1200,12 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::values::{
-        none::NoneType, string::StarlarkStr, types::int::PointerI32, Heap, Value, ValueLike,
-    };
+    use crate::values::none::NoneType;
+    use crate::values::string::StarlarkStr;
+    use crate::values::types::int::PointerI32;
+    use crate::values::Heap;
+    use crate::values::Value;
+    use crate::values::ValueLike;
 
     #[test]
     fn test_downcast_ref() {

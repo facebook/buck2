@@ -7,126 +7,149 @@
  * of this source tree.
  */
 
-use std::{
-    collections::{HashMap, HashSet},
-    io::{self, BufWriter, Write},
-    marker::PhantomData,
-    path::{Path, PathBuf},
-    pin::Pin,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
-    },
-    task::{Context, Poll},
-    time::{Duration, Instant, SystemTime},
-};
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::io::BufWriter;
+use std::io::Write;
+use std::io::{self};
+use std::marker::PhantomData;
+use std::path::Path;
+use std::path::PathBuf;
+use std::pin::Pin;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::task::Context;
+use std::task::Poll;
+use std::time::Duration;
+use std::time::Instant;
+use std::time::SystemTime;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_build_api::{
-    actions::{
-        build_listener::{self, BuildSignalSender, SetBuildSignals},
-        run::knobs::{HasRunActionKnobs, RunActionKnobs},
-    },
-    configure_dice::configure_dice_for_buck,
-    context::SetBuildContextData,
-    execute::{
-        blocking::{BlockingExecutor, BuckBlockingExecutor, SetBlockingExecutor},
-        commands::{
-            dice_data::{set_fallback_executor_config, SetCommandExecutor},
-            re::{
-                client::RemoteExecutionStaticMetadata,
-                manager::{ReConnectionHandle, ReConnectionManager, ReConnectionObserver},
-                ReExecutorGlobalKnobs,
-            },
-        },
-        materializer::{
-            deferred::{DeferredMaterializer, DeferredMaterializerConfigs},
-            immediate::ImmediateMaterializer,
-            MaterializationMethod, Materializer, SetMaterializer,
-        },
-        CommandExecutorConfig, CommandExecutorKind, LocalExecutorOptions,
-    },
-    interpreter::context::{
-        configure_build_file_globals, configure_extension_file_globals, fbcode_prelude,
-        BuildInterpreterConfiguror,
-    },
-};
-use buck2_bxl::bxl::{calculation::BxlCalculationImpl, starlark_defs::configure_bxl_file_globals};
-use buck2_common::{
-    dice::cells::HasCellResolver,
-    file_ops::IgnoreSet,
-    io::IoProvider,
-    legacy_configs::{dice::HasLegacyConfigs, BuckConfigBasedCells, LegacyBuckConfig},
-    memory,
-    truncate::truncate,
-};
-use buck2_core::{
-    async_once_cell::AsyncOnceCell,
-    cells::CellName,
-    env_helper::EnvHelper,
-    facebook_only,
-    fs::{
-        paths::{AbsPath, AbsPathBuf, ForwardRelativePathBuf},
-        project::{ProjectFilesystem, ProjectRelativePathBuf},
-    },
-    result::{SharedResult, ToSharedResultExt},
-};
+use buck2_build_api::actions::build_listener::BuildSignalSender;
+use buck2_build_api::actions::build_listener::SetBuildSignals;
+use buck2_build_api::actions::build_listener::{self};
+use buck2_build_api::actions::run::knobs::HasRunActionKnobs;
+use buck2_build_api::actions::run::knobs::RunActionKnobs;
+use buck2_build_api::configure_dice::configure_dice_for_buck;
+use buck2_build_api::context::SetBuildContextData;
+use buck2_build_api::execute::blocking::BlockingExecutor;
+use buck2_build_api::execute::blocking::BuckBlockingExecutor;
+use buck2_build_api::execute::blocking::SetBlockingExecutor;
+use buck2_build_api::execute::commands::dice_data::set_fallback_executor_config;
+use buck2_build_api::execute::commands::dice_data::SetCommandExecutor;
+use buck2_build_api::execute::commands::re::client::RemoteExecutionStaticMetadata;
+use buck2_build_api::execute::commands::re::manager::ReConnectionHandle;
+use buck2_build_api::execute::commands::re::manager::ReConnectionManager;
+use buck2_build_api::execute::commands::re::manager::ReConnectionObserver;
+use buck2_build_api::execute::commands::re::ReExecutorGlobalKnobs;
+use buck2_build_api::execute::materializer::deferred::DeferredMaterializer;
+use buck2_build_api::execute::materializer::deferred::DeferredMaterializerConfigs;
+use buck2_build_api::execute::materializer::immediate::ImmediateMaterializer;
+use buck2_build_api::execute::materializer::MaterializationMethod;
+use buck2_build_api::execute::materializer::Materializer;
+use buck2_build_api::execute::materializer::SetMaterializer;
+use buck2_build_api::execute::CommandExecutorConfig;
+use buck2_build_api::execute::CommandExecutorKind;
+use buck2_build_api::execute::LocalExecutorOptions;
+use buck2_build_api::interpreter::context::configure_build_file_globals;
+use buck2_build_api::interpreter::context::configure_extension_file_globals;
+use buck2_build_api::interpreter::context::fbcode_prelude;
+use buck2_build_api::interpreter::context::BuildInterpreterConfiguror;
+use buck2_bxl::bxl::calculation::BxlCalculationImpl;
+use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::file_ops::IgnoreSet;
+use buck2_common::io::IoProvider;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::BuckConfigBasedCells;
+use buck2_common::legacy_configs::LegacyBuckConfig;
+use buck2_common::memory;
+use buck2_common::truncate::truncate;
+use buck2_core::async_once_cell::AsyncOnceCell;
+use buck2_core::cells::CellName;
+use buck2_core::env_helper::EnvHelper;
+use buck2_core::facebook_only;
+use buck2_core::fs::paths::AbsPath;
+use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::paths::ForwardRelativePathBuf;
+use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::result::SharedResult;
+use buck2_core::result::ToSharedResultExt;
 use buck2_data::*;
-use buck2_interpreter::{
-    dice::interpreter_setup::{setup_interpreter, setup_interpreter_basic},
-    extra::{InterpreterHostArchitecture, InterpreterHostPlatform},
-    pattern::ProvidersPattern,
-    starlark_profiler::{StarlarkProfilerImpl, StarlarkProfilerInstrumentation},
-};
-use cli_proto::{
-    client_context::HostPlatformOverride, common_build_options::ExecutionStrategy,
-    daemon_api_server::*, profile_request::Profiler, *,
-};
-use dice::{
-    cycles::DetectCycles, data::DiceData, Dice, DiceEvent, DiceTracker, DiceTransaction,
-    UserComputationData,
-};
-use events::{dispatch::EventDispatcher, ControlEvent, Event, EventSource, TraceId};
-use futures::{
-    channel::mpsc::{self, UnboundedReceiver, UnboundedSender},
-    future::{AbortHandle, Abortable},
-    Future, Stream, StreamExt,
-};
-use gazebo::{dupe::Dupe, prelude::*};
-use host_sharing::{HostSharingBroker, HostSharingStrategy};
-use more_futures::{drop::DropTogether, spawn::spawn_dropcancel};
+use buck2_interpreter::dice::interpreter_setup::setup_interpreter;
+use buck2_interpreter::dice::interpreter_setup::setup_interpreter_basic;
+use buck2_interpreter::extra::InterpreterHostArchitecture;
+use buck2_interpreter::extra::InterpreterHostPlatform;
+use buck2_interpreter::pattern::ProvidersPattern;
+use buck2_interpreter::starlark_profiler::StarlarkProfilerImpl;
+use buck2_interpreter::starlark_profiler::StarlarkProfilerInstrumentation;
+use cli_proto::client_context::HostPlatformOverride;
+use cli_proto::common_build_options::ExecutionStrategy;
+use cli_proto::daemon_api_server::*;
+use cli_proto::profile_request::Profiler;
+use cli_proto::*;
+use dice::cycles::DetectCycles;
+use dice::data::DiceData;
+use dice::Dice;
+use dice::DiceEvent;
+use dice::DiceTracker;
+use dice::DiceTransaction;
+use dice::UserComputationData;
+use events::dispatch::EventDispatcher;
+use events::ControlEvent;
+use events::Event;
+use events::EventSource;
+use events::TraceId;
+use futures::channel::mpsc::UnboundedReceiver;
+use futures::channel::mpsc::UnboundedSender;
+use futures::channel::mpsc::{self};
+use futures::future::AbortHandle;
+use futures::future::Abortable;
+use futures::Future;
+use futures::Stream;
+use futures::StreamExt;
+use gazebo::dupe::Dupe;
+use gazebo::prelude::*;
+use host_sharing::HostSharingBroker;
+use host_sharing::HostSharingStrategy;
+use more_futures::drop::DropTogether;
+use more_futures::spawn::spawn_dropcancel;
 use once_cell::sync::Lazy;
 use starlark::eval::ProfileMode;
 use thiserror::Error;
-use tokio::io::{AsyncRead, AsyncWrite};
-use tonic::{
-    transport::{server::Connected, Server},
-    Code, Request, Response, Status,
-};
+use tokio::io::AsyncRead;
+use tokio::io::AsyncWrite;
+use tonic::transport::server::Connected;
+use tonic::transport::Server;
+use tonic::Code;
+use tonic::Request;
+use tonic::Response;
+use tonic::Status;
 use tracing::debug_span;
 
-use crate::{
-    configs::parse_legacy_cells,
-    daemon::{
-        build::build,
-        bxl::bxl,
-        clean::clean,
-        common::{
-            get_executor_config_for_strategy, parse_concurrency, parse_patterns_from_cli_args,
-            CommandExecutorFactory, ToProtoDuration,
-        },
-        dice_dump::dice_dump_spawn,
-        install::install,
-        materialize::materialize,
-        profile::generate_profile,
-        server::{file_watcher::FileWatcher, lsp::run_lsp_server},
-        test::test,
-        uquery::uquery,
-    },
-    metadata,
-    paths::Paths,
-};
+use crate::configs::parse_legacy_cells;
+use crate::daemon::build::build;
+use crate::daemon::bxl::bxl;
+use crate::daemon::clean::clean;
+use crate::daemon::common::get_executor_config_for_strategy;
+use crate::daemon::common::parse_concurrency;
+use crate::daemon::common::parse_patterns_from_cli_args;
+use crate::daemon::common::CommandExecutorFactory;
+use crate::daemon::common::ToProtoDuration;
+use crate::daemon::dice_dump::dice_dump_spawn;
+use crate::daemon::install::install;
+use crate::daemon::materialize::materialize;
+use crate::daemon::profile::generate_profile;
+use crate::daemon::server::file_watcher::FileWatcher;
+use crate::daemon::server::lsp::run_lsp_server;
+use crate::daemon::test::test;
+use crate::daemon::uquery::uquery;
+use crate::metadata;
+use crate::paths::Paths;
 
 mod file_watcher;
 mod lsp;
@@ -822,10 +845,9 @@ impl DaemonState {
     /// EventDispatcher will log to the returned EventSource and (optionally) to Scribe if enabled via buckconfig.
     #[cfg(fbcode_build)]
     async fn prepare_events(&self) -> SharedResult<(impl EventSource, EventDispatcher)> {
-        use events::sink::{
-            scribe::{self, ThriftScribeSink},
-            tee::TeeSink,
-        };
+        use events::sink::scribe::ThriftScribeSink;
+        use events::sink::scribe::{self};
+        use events::sink::tee::TeeSink;
 
         // The Scribe category to which we'll write buck2 events.
         const BUCK2_EVENTS_CATEGORY: &str = "buck2_events";
@@ -1406,7 +1428,8 @@ where
 
 #[cfg(all(unix, not(fbcode_build)))]
 fn jemalloc_stats(response: &mut StatusResponse) {
-    use jemalloc_ctl::{epoch, stats};
+    use jemalloc_ctl::epoch;
+    use jemalloc_ctl::stats;
 
     fn set<T>(to: &mut u64, from: Result<usize, T>) {
         if let Ok(from) = from {

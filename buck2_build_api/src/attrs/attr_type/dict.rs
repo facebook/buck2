@@ -7,18 +7,19 @@
  * of this source tree.
  */
 
-use std::{cmp::Ordering, fmt};
+use std::cmp::Ordering;
+use std::fmt;
 
 use anyhow::anyhow;
-use starlark::values::{dict::Dict, Value};
+use starlark::values::dict::Dict;
+use starlark::values::Value;
 
-use crate::{
-    attrs::{
-        attr_type::{attr_literal::CoercionError, AttrType},
-        AttrCoercionContext, AttrLiteral, CoercedAttr,
-    },
-    interpreter::rule_defs::attr::AttrIsConfigurable,
-};
+use crate::attrs::attr_type::attr_literal::CoercionError;
+use crate::attrs::attr_type::AttrType;
+use crate::attrs::AttrCoercionContext;
+use crate::attrs::AttrLiteral;
+use crate::attrs::CoercedAttr;
+use crate::interpreter::rule_defs::attr::AttrIsConfigurable;
 
 #[derive(Debug, Hash, Eq, PartialEq)]
 pub(crate) struct DictAttrType {

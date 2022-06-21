@@ -17,29 +17,27 @@
 
 //! Call-related bytecode interpreter code.
 
-use std::{
-    fmt,
-    fmt::{Display, Formatter},
-    marker::PhantomData,
-};
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::marker::PhantomData;
 
-use gazebo::{coerce::coerce, prelude::*};
+use gazebo::coerce::coerce;
+use gazebo::prelude::*;
 
-use crate::{
-    collections::symbol_map::Symbol,
-    eval::{
-        bc::{
-            frame::BcFramePtr,
-            instr_arg::BcInstrArg,
-            stack_ptr::{BcSlotIn, BcSlotInRange},
-        },
-        compiler::def::FrozenDef,
-        runtime::arguments::{
-            ArgNames, ArgSymbol, ArgumentsFull, ArgumentsImpl, ArgumentsPos, ResolvedArgName,
-        },
-    },
-    values::FrozenStringValue,
-};
+use crate::collections::symbol_map::Symbol;
+use crate::eval::bc::frame::BcFramePtr;
+use crate::eval::bc::instr_arg::BcInstrArg;
+use crate::eval::bc::stack_ptr::BcSlotIn;
+use crate::eval::bc::stack_ptr::BcSlotInRange;
+use crate::eval::compiler::def::FrozenDef;
+use crate::eval::runtime::arguments::ArgNames;
+use crate::eval::runtime::arguments::ArgSymbol;
+use crate::eval::runtime::arguments::ArgumentsFull;
+use crate::eval::runtime::arguments::ArgumentsImpl;
+use crate::eval::runtime::arguments::ArgumentsPos;
+use crate::eval::runtime::arguments::ResolvedArgName;
+use crate::values::FrozenStringValue;
 
 /// Call arguments.
 pub(crate) trait BcCallArgs<S: ArgSymbol>: BcInstrArg {

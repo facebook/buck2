@@ -7,61 +7,64 @@
  * of this source tree.
  */
 
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_build_api::{
-    artifact_groups::{ArtifactGroup, ArtifactGroupValues},
-    calculation::Calculation,
-    interpreter::{
-        module_internals::EvaluationResult,
-        rule_defs::{
-            cmd_args::SimpleCommandLineArtifactVisitor,
-            provider::collection::FrozenProviderCollectionValue,
-        },
-    },
-    nodes::compatibility::MaybeCompatible,
-    test::{
-        downward_api::BuckTestDownwardApi,
-        executor_launcher::{ExecutorLaunch, ExecutorLauncher, OutOfProcessTestExecutor},
-        orchestrator::{BuckTestOrchestrator, TestResultOrExitCode},
-        provider::TestProvider,
-        session::{TestSession, TestSessionOptions},
-        translations::build_configured_target_handle,
-    },
-};
-use buck2_common::{
-    dice::{cells::HasCellResolver, file_ops::HasFileOps},
-    legacy_configs::dice::HasLegacyConfigs,
-};
-use buck2_core::{
-    fs::{paths::*, project::*},
-    package::Package,
-    provider::{ConfiguredProvidersLabel, ProvidersLabel, ProvidersName},
-    target::{TargetLabel, TargetName},
-};
+use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::artifact_groups::ArtifactGroupValues;
+use buck2_build_api::calculation::Calculation;
+use buck2_build_api::interpreter::module_internals::EvaluationResult;
+use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use buck2_build_api::nodes::compatibility::MaybeCompatible;
+use buck2_build_api::test::downward_api::BuckTestDownwardApi;
+use buck2_build_api::test::executor_launcher::ExecutorLaunch;
+use buck2_build_api::test::executor_launcher::ExecutorLauncher;
+use buck2_build_api::test::executor_launcher::OutOfProcessTestExecutor;
+use buck2_build_api::test::orchestrator::BuckTestOrchestrator;
+use buck2_build_api::test::orchestrator::TestResultOrExitCode;
+use buck2_build_api::test::provider::TestProvider;
+use buck2_build_api::test::session::TestSession;
+use buck2_build_api::test::session::TestSessionOptions;
+use buck2_build_api::test::translations::build_configured_target_handle;
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_core::fs::paths::*;
+use buck2_core::fs::project::*;
+use buck2_core::package::Package;
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::ProvidersLabel;
+use buck2_core::provider::ProvidersName;
+use buck2_core::target::TargetLabel;
+use buck2_core::target::TargetName;
 use buck2_interpreter::pattern::*;
-use cli_proto::{TestRequest, TestResponse};
+use cli_proto::TestRequest;
+use cli_proto::TestResponse;
 use derive_more::Display;
 use dice::DiceComputations;
-use futures::{
-    channel::mpsc,
-    future::{self, BoxFuture, Future, FutureExt},
-    stream::{FuturesUnordered, StreamExt, TryStreamExt},
-};
+use futures::channel::mpsc;
+use futures::future::BoxFuture;
+use futures::future::Future;
+use futures::future::FutureExt;
+use futures::future::{self};
+use futures::stream::FuturesUnordered;
+use futures::stream::StreamExt;
+use futures::stream::TryStreamExt;
 use gazebo::prelude::*;
-use indexmap::{IndexMap, IndexSet};
+use indexmap::IndexMap;
+use indexmap::IndexSet;
 use serde::Serialize;
-use test_api::{data::TestStatus, protocol::TestExecutor};
+use test_api::data::TestStatus;
+use test_api::protocol::TestExecutor;
 use thiserror::Error;
 
-use crate::daemon::{
-    common::{parse_patterns_from_cli_args, resolve_patterns, target_platform_from_client_context},
-    server::ServerCommandContext,
-};
+use crate::daemon::common::parse_patterns_from_cli_args;
+use crate::daemon::common::resolve_patterns;
+use crate::daemon::common::target_platform_from_client_context;
+use crate::daemon::server::ServerCommandContext;
 
 #[derive(Debug, Error)]
 pub(crate) enum TestError {

@@ -7,13 +7,13 @@
  * of this source tree.
  */
 
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 
 use anyhow::Context as _;
-use buck2_core::{
-    fs::paths::{ForwardRelativePath, ForwardRelativePathBuf},
-    provider::ConfiguredProvidersLabel,
-};
+use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_core::fs::paths::ForwardRelativePathBuf;
+use buck2_core::provider::ConfiguredProvidersLabel;
 use chrono::Local;
 use dashmap::DashMap;
 use gazebo::prelude::*;

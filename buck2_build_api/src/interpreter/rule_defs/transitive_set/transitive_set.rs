@@ -10,27 +10,37 @@
 use std::fmt;
 
 use anyhow::Context as _;
-use gazebo::{any::ProvidesStaticType, coerce::Coerce, prelude::*};
-use serde::{ser::SerializeMap, Serialize, Serializer};
-use starlark::{
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    eval::Evaluator,
-    values::{
-        display::ContainerDisplayHelper, Freeze, Freezer, FrozenValue, Heap, StarlarkValue, Trace,
-        Value, ValueLike,
-    },
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::Coerce;
+use gazebo::prelude::*;
+use serde::ser::SerializeMap;
+use serde::Serialize;
+use serde::Serializer;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::eval::Evaluator;
+use starlark::values::display::ContainerDisplayHelper;
+use starlark::values::Freeze;
+use starlark::values::Freezer;
+use starlark::values::FrozenValue;
+use starlark::values::Heap;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 
-use crate::{
-    artifact_groups::{deferred::TransitiveSetKey, ArtifactGroup, TransitiveSetProjectionKey},
-    interpreter::rule_defs::{
-        cmd_args::{SimpleCommandLineArtifactVisitor, StarlarkCommandLine, ValueAsCommandLineLike},
-        transitive_set::{
-            transitive_set_definition_from_value, traversal::TransitiveSetTraversal,
-            TransitiveSetArgsProjection, TransitiveSetError, TransitiveSetIteratorGen,
-        },
-    },
-};
+use crate::artifact_groups::deferred::TransitiveSetKey;
+use crate::artifact_groups::ArtifactGroup;
+use crate::artifact_groups::TransitiveSetProjectionKey;
+use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
+use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
+use crate::interpreter::rule_defs::transitive_set::transitive_set_definition_from_value;
+use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetTraversal;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSetArgsProjection;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSetIteratorGen;
 
 #[derive(Debug, Clone, Trace, ProvidesStaticType)]
 #[repr(C)]

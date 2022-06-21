@@ -17,7 +17,9 @@
 
 //! Things that operate on known values where we know we can do better.
 
-use crate::{codemap::Spanned, eval::compiler::scope::CstExpr, syntax::ast::ExprP};
+use crate::codemap::Spanned;
+use crate::eval::compiler::scope::CstExpr;
+use crate::syntax::ast::ExprP;
 
 /// Convert a list into a tuple. In many cases (iteration, `in`) these types
 /// behave the same, but a list has identity and mutability, so much better to

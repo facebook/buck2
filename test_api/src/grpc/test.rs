@@ -2,13 +2,14 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use assert_matches::assert_matches;
-use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::io::AsyncRead;
+use tokio::io::AsyncWrite;
 
-use crate::{
-    data::ExternalRunnerSpec,
-    grpc::{spawn_executor_server, DuplexChannel, TestExecutorClient},
-    protocol::TestExecutor,
-};
+use crate::data::ExternalRunnerSpec;
+use crate::grpc::spawn_executor_server;
+use crate::grpc::DuplexChannel;
+use crate::grpc::TestExecutorClient;
+use crate::protocol::TestExecutor;
 
 struct MockExecutor;
 

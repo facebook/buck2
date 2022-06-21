@@ -1,30 +1,32 @@
-use std::{
-    fmt::{Debug, Formatter},
-    sync::Arc,
-};
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_core::{
-    provider::ConfiguredProvidersLabel,
-    result::{SharedResult, ToSharedResultExt},
-};
-use dashmap::{mapref::entry::Entry, DashMap};
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::result::SharedResult;
+use buck2_core::result::ToSharedResultExt;
+use dashmap::mapref::entry::Entry;
+use dashmap::DashMap;
 use dice::DiceComputations;
 use futures::future;
 use gazebo::dupe::Dupe;
 
-use crate::{
-    actions::artifact::{BaseArtifactKind, BuildArtifact, ExecutorFs},
-    artifact_groups::{ArtifactGroup, ArtifactGroupValues},
-    calculation::Calculation,
-    execute::{materializer::ArtifactMaterializer, PathSeparatorKind},
-    interpreter::rule_defs::{
-        cmd_args::{AbsCommandLineBuilder, CommandLineArgLike, SimpleCommandLineArtifactVisitor},
-        provider::{builtin::run_info::RunInfo, collection::FrozenProviderCollectionValue},
-    },
-    nodes::compatibility::MaybeCompatible,
-    test::provider::TestProvider,
-};
+use crate::actions::artifact::BaseArtifactKind;
+use crate::actions::artifact::BuildArtifact;
+use crate::actions::artifact::ExecutorFs;
+use crate::artifact_groups::ArtifactGroup;
+use crate::artifact_groups::ArtifactGroupValues;
+use crate::calculation::Calculation;
+use crate::execute::materializer::ArtifactMaterializer;
+use crate::execute::PathSeparatorKind;
+use crate::interpreter::rule_defs::cmd_args::AbsCommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
+use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use crate::nodes::compatibility::MaybeCompatible;
+use crate::test::provider::TestProvider;
 
 /// The types of provider to build on the configured providers label
 #[derive(Debug, Clone, Dupe)]

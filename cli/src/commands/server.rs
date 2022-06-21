@@ -12,11 +12,12 @@ use buck2_core::exit_result::ExitResult;
 use clap::ArgMatches;
 use futures::FutureExt;
 
-use crate::{
-    commands::common::{CommonConsoleOptions, CommonEventLogOptions, ConsoleType},
-    daemon::client::BuckdClientConnector,
-    CommandContext, StreamingCommand,
-};
+use crate::commands::common::CommonConsoleOptions;
+use crate::commands::common::CommonEventLogOptions;
+use crate::commands::common::ConsoleType;
+use crate::daemon::client::BuckdClientConnector;
+use crate::CommandContext;
+use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Start, query, and control the http server")]

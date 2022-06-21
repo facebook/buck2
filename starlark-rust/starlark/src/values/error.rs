@@ -19,7 +19,8 @@
 
 use thiserror::Error;
 
-use crate::values::{StarlarkValue, Value};
+use crate::values::StarlarkValue;
+use crate::values::Value;
 
 /// Common errors returned by Starlark evaluation.
 #[derive(Debug, Error)]

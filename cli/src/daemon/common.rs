@@ -7,54 +7,54 @@
  * of this source tree.
  */
 
-use std::{
-    convert::{TryFrom, TryInto},
-    sync::Arc,
-    time::Duration,
-};
+use std::convert::TryFrom;
+use std::convert::TryInto;
+use std::sync::Arc;
+use std::time::Duration;
 
-use anyhow::{anyhow, Context as _};
-use buck2_build_api::{
-    actions::artifact::ArtifactFs,
-    build::MaterializationContext,
-    bxl::BxlFunctionLabel,
-    execute::{
-        blocking::BlockingExecutor,
-        commands::{
-            dice_data::HasCommandExecutor,
-            hybrid::HybridExecutor,
-            local::LocalExecutor,
-            re::{
-                cache_check::CacheCheckingExecutor, manager::ReConnectionHandle, ExecutionPlatform,
-                ReExecutor, ReExecutorGlobalKnobs,
-            },
-            PreparedCommandExecutor,
-        },
-        materializer::Materializer,
-        CommandExecutorConfig, CommandExecutorKind, HybridExecutionLevel, LocalExecutorOptions,
-        RemoteExecutorOptions,
-    },
-};
-use buck2_common::{
-    dice::cells::HasCellResolver, file_ops::FileOps, legacy_configs::dice::HasLegacyConfigs,
-    target_aliases::TargetAliasResolver,
-};
-use buck2_core::{
-    cells::{CellInstance, CellResolver},
-    env_helper::EnvHelper,
-    fs::project::{ProjectFilesystem, ProjectRelativePath},
-    package::Package,
-    target::TargetLabel,
-};
-use buck2_interpreter::{
-    common::BxlFilePath,
-    parse_import::{parse_import_with_config, ParseImportOptions},
-    pattern::{resolve_target_patterns, ParsedPattern, PatternType, ResolvedPattern},
-};
-use cli_proto::{
-    build_request::Materializations, client_context::HostPlatformOverride,
-    common_build_options::ExecutionStrategy, ClientContext,
-};
+use anyhow::anyhow;
+use anyhow::Context as _;
+use buck2_build_api::actions::artifact::ArtifactFs;
+use buck2_build_api::build::MaterializationContext;
+use buck2_build_api::bxl::BxlFunctionLabel;
+use buck2_build_api::execute::blocking::BlockingExecutor;
+use buck2_build_api::execute::commands::dice_data::HasCommandExecutor;
+use buck2_build_api::execute::commands::hybrid::HybridExecutor;
+use buck2_build_api::execute::commands::local::LocalExecutor;
+use buck2_build_api::execute::commands::re::cache_check::CacheCheckingExecutor;
+use buck2_build_api::execute::commands::re::manager::ReConnectionHandle;
+use buck2_build_api::execute::commands::re::ExecutionPlatform;
+use buck2_build_api::execute::commands::re::ReExecutor;
+use buck2_build_api::execute::commands::re::ReExecutorGlobalKnobs;
+use buck2_build_api::execute::commands::PreparedCommandExecutor;
+use buck2_build_api::execute::materializer::Materializer;
+use buck2_build_api::execute::CommandExecutorConfig;
+use buck2_build_api::execute::CommandExecutorKind;
+use buck2_build_api::execute::HybridExecutionLevel;
+use buck2_build_api::execute::LocalExecutorOptions;
+use buck2_build_api::execute::RemoteExecutorOptions;
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::file_ops::FileOps;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::target_aliases::TargetAliasResolver;
+use buck2_core::cells::CellInstance;
+use buck2_core::cells::CellResolver;
+use buck2_core::env_helper::EnvHelper;
+use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::package::Package;
+use buck2_core::target::TargetLabel;
+use buck2_interpreter::common::BxlFilePath;
+use buck2_interpreter::parse_import::parse_import_with_config;
+use buck2_interpreter::parse_import::ParseImportOptions;
+use buck2_interpreter::pattern::resolve_target_patterns;
+use buck2_interpreter::pattern::ParsedPattern;
+use buck2_interpreter::pattern::PatternType;
+use buck2_interpreter::pattern::ResolvedPattern;
+use cli_proto::build_request::Materializations;
+use cli_proto::client_context::HostPlatformOverride;
+use cli_proto::common_build_options::ExecutionStrategy;
+use cli_proto::ClientContext;
 use dashmap::DashMap;
 use dice::DiceTransaction;
 use gazebo::prelude::*;

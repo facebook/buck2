@@ -16,23 +16,20 @@ pub mod configured;
 pub mod unconfigured;
 pub mod visibility;
 
-use std::{hash::Hash, sync::Arc};
+use std::hash::Hash;
+use std::sync::Arc;
 
 use buck2_interpreter::common::ImportPath;
 use derive_more::Display;
 use gazebo::prelude::*;
 use thiserror::Error;
 
-use crate::{
-    attrs::{coerced_attr::CoercedAttr, OrderedMap},
-    interpreter::rule_defs::provider::builtin::platform_info::PlatformInfoCallable,
-    nodes::{
-        attr_internal::{
-            LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD, TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
-        },
-        attr_spec::AttributeSpec,
-    },
-};
+use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::OrderedMap;
+use crate::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfoCallable;
+use crate::nodes::attr_internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
+use crate::nodes::attr_internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
+use crate::nodes::attr_spec::AttributeSpec;
 
 /// The identifier used to find the implementation function for this rule. Should point at the output of `rule()`
 #[derive(Debug, Clone, Display, Eq, PartialEq, Hash)]
@@ -102,13 +99,10 @@ mod tests {
     use starlark::values::Heap;
 
     use super::*;
-    use crate::{
-        attrs::attr_type::AttrType,
-        interpreter::{
-            rule_defs::attr::{AttrIsConfigurable, BuildAttrCoercionContext},
-            testing::cells,
-        },
-    };
+    use crate::attrs::attr_type::AttrType;
+    use crate::interpreter::rule_defs::attr::AttrIsConfigurable;
+    use crate::interpreter::rule_defs::attr::BuildAttrCoercionContext;
+    use crate::interpreter::testing::cells;
 
     #[test]
     fn function_id_has_useful_string() {

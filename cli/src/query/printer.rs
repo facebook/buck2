@@ -7,34 +7,32 @@
  * of this source tree.
  */
 
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
+use std::fmt::Formatter;
 
 use async_trait::async_trait;
-use buck2_build_api::{
-    interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue,
-    nodes::compatibility::MaybeCompatible,
-};
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use buck2_build_api::nodes::compatibility::MaybeCompatible;
 use buck2_core::cells::CellResolver;
-use buck2_query::query::{
-    environment::{QueryTarget, QueryTargets},
-    syntax::simple::eval::{
-        file_set::FileSet, multi_query::MultiQueryResult, set::TargetSet,
-        values::QueryEvaluationValue,
-    },
-};
+use buck2_query::query::environment::QueryTarget;
+use buck2_query::query::environment::QueryTargets;
+use buck2_query::query::syntax::simple::eval::file_set::FileSet;
+use buck2_query::query::syntax::simple::eval::multi_query::MultiQueryResult;
+use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use buck2_query::query::syntax::simple::eval::values::QueryEvaluationValue;
 use cli_proto::QueryOutputFormat;
-use gazebo::{prelude::*, variants::UnpackVariants};
+use gazebo::prelude::*;
+use gazebo::variants::UnpackVariants;
 use indent_write::fmt::IndentWriter;
 use regex::RegexSet;
-use serde::{
-    ser::{SerializeMap, SerializeSeq},
-    Serialize, Serializer,
-};
+use serde::ser::SerializeMap;
+use serde::ser::SerializeSeq;
+use serde::Serialize;
+use serde::Serializer;
 
-use crate::{
-    dot::{targets::DotTargetGraph, Dot},
-    query::QueryCommandError,
-};
+use crate::dot::targets::DotTargetGraph;
+use crate::dot::Dot;
+use crate::query::QueryCommandError;
 
 #[derive(Copy_, Dupe_, Clone_, UnpackVariants)]
 pub(crate) enum ShouldPrintProviders<'a, T> {

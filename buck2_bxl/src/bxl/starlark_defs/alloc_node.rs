@@ -7,12 +7,13 @@
  * of this source tree.
  */
 
-use buck2_build_api::nodes::{configured::ConfiguredTargetNode, unconfigured::TargetNode};
-use starlark::values::{Heap, Value};
+use buck2_build_api::nodes::configured::ConfiguredTargetNode;
+use buck2_build_api::nodes::unconfigured::TargetNode;
+use starlark::values::Heap;
+use starlark::values::Value;
 
-use crate::bxl::starlark_defs::nodes::{
-    configured::StarlarkConfiguredTargetNode, unconfigured::StarlarkTargetNode,
-};
+use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
+use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 
 /// BXL-specific node allocator.
 pub trait AllocNode {

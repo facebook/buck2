@@ -8,26 +8,26 @@
  */
 
 use async_trait::async_trait;
-use buck2_build_api::{
-    calculation::Calculation,
-    interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue,
-    nodes::{compatibility::MaybeCompatible, configured::ConfiguredTargetNode},
-    query::cquery::evaluator::get_cquery_evaluator,
-};
+use buck2_build_api::calculation::Calculation;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use buck2_build_api::nodes::compatibility::MaybeCompatible;
+use buck2_build_api::nodes::configured::ConfiguredTargetNode;
+use buck2_build_api::query::cquery::evaluator::get_cquery_evaluator;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_core::{
-    provider::{ConfiguredProvidersLabel, ProvidersName},
-    result::ToUnsharedResultExt,
-};
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::ProvidersName;
+use buck2_core::result::ToUnsharedResultExt;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
-use cli_proto::{CqueryRequest, CqueryResponse};
+use cli_proto::CqueryRequest;
+use cli_proto::CqueryResponse;
 use dice::DiceComputations;
 use gazebo::prelude::*;
 
-use crate::{
-    daemon::{common::target_platform_from_client_context, server::ServerCommandContext},
-    query::printer::{ProviderLookUp, QueryResultPrinter, ShouldPrintProviders},
-};
+use crate::daemon::common::target_platform_from_client_context;
+use crate::daemon::server::ServerCommandContext;
+use crate::query::printer::ProviderLookUp;
+use crate::query::printer::QueryResultPrinter;
+use crate::query::printer::ShouldPrintProviders;
 
 pub(crate) async fn cquery(
     mut server_ctx: ServerCommandContext,

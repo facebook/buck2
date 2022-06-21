@@ -18,19 +18,22 @@
 //! graphs with different build behaviours (split-transitions).
 //!
 
-use std::{
-    borrow::Borrow,
-    collections::{hash_map::DefaultHasher, BTreeMap},
-    fmt::Display,
-    hash::{Hash, Hasher},
-};
+use std::borrow::Borrow;
+use std::collections::hash_map::DefaultHasher;
+use std::collections::BTreeMap;
+use std::fmt::Display;
+use std::hash::Hash;
+use std::hash::Hasher;
 
 use gazebo::prelude::*;
-use internment_tweaks::{Intern, StaticInterner};
-use serde::{Serialize, Serializer};
+use internment_tweaks::Intern;
+use internment_tweaks::StaticInterner;
+use serde::Serialize;
+use serde::Serializer;
 use thiserror::Error;
 
-use crate::configuration::constraints::{ConstraintKey, ConstraintValue};
+use crate::configuration::constraints::ConstraintKey;
+use crate::configuration::constraints::ConstraintValue;
 
 pub mod constraints;
 
@@ -435,17 +438,16 @@ impl HashedPlatformConfigurationData {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::BTreeMap, iter::FromIterator};
+    use std::collections::BTreeMap;
+    use std::iter::FromIterator;
 
     use gazebo::dupe::Dupe;
 
-    use crate::{
-        configuration::{
-            constraints::{ConstraintKey, ConstraintValue},
-            ConfigurationData,
-        },
-        target::{testing::TargetLabelExt, TargetLabel},
-    };
+    use crate::configuration::constraints::ConstraintKey;
+    use crate::configuration::constraints::ConstraintValue;
+    use crate::configuration::ConfigurationData;
+    use crate::target::testing::TargetLabelExt;
+    use crate::target::TargetLabel;
 
     #[test]
     fn is_subset() {

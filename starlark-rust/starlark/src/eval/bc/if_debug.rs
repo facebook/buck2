@@ -17,7 +17,8 @@
 
 //! Utility to make stateful debug assertions easier.
 
-use std::{cmp::Ordering, marker};
+use std::cmp::Ordering;
+use std::marker;
 
 use gazebo::dupe::Dupe;
 

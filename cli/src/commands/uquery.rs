@@ -9,15 +9,17 @@
 
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
-use cli_proto::{QueryOutputFormat, UqueryRequest};
+use cli_proto::QueryOutputFormat;
+use cli_proto::UqueryRequest;
 use futures::FutureExt;
 use gazebo::dupe::Dupe;
 
-use crate::{
-    commands::common::{CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions},
-    daemon::client::BuckdClientConnector,
-    CommandContext, StreamingCommand,
-};
+use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonConsoleOptions;
+use crate::commands::common::CommonEventLogOptions;
+use crate::daemon::client::BuckdClientConnector;
+use crate::CommandContext;
+use crate::StreamingCommand;
 
 #[derive(Debug, Clone, Dupe, clap::ArgEnum)]
 #[clap(rename_all = "snake_case")]

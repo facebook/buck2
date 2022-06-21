@@ -1,4 +1,6 @@
-use std::{fmt::Debug, str::FromStr, sync::Arc};
+use std::fmt::Debug;
+use std::str::FromStr;
+use std::sync::Arc;
 
 use buck2_core::cells::CellName;
 

@@ -7,25 +7,28 @@
  * of this source tree.
  */
 
-use std::{
-    convert::TryFrom,
-    fmt::{self, Display},
-    fs::File,
-    io::BufReader,
-    sync::Arc,
-};
+use std::convert::TryFrom;
+use std::fmt::Display;
+use std::fmt::{self};
+use std::fs::File;
+use std::io::BufReader;
+use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_core::fs::{
-    anyhow as fs,
-    project::{ProjectFilesystem, ProjectRelativePathBuf},
-};
-use gazebo::{any::ProvidesStaticType, prelude::*};
-use starlark::{
-    collections::SmallMap,
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    values::{dict::Dict, Heap, NoSerialize, StarlarkValue, Value},
-};
+use buck2_core::fs::anyhow as fs;
+use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRelativePathBuf;
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
+use starlark::collections::SmallMap;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::values::dict::Dict;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::Value;
 use thiserror::Error;
 
 use crate::actions::artifact::Artifact;

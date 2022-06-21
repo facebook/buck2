@@ -7,44 +7,44 @@
  * of this source tree.
  */
 
-use std::{
-    collections::{HashMap, HashSet},
-    convert::TryInto,
-    hash::{Hash, Hasher},
-    sync::Arc,
-};
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::convert::TryInto;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::sync::Arc;
 
 use async_recursion::async_recursion;
 use async_trait::async_trait;
-use buck2_build_api::{
-    calculation::Calculation,
-    nodes::{configured::ConfiguredTargetNode, unconfigured::TargetNode},
-    query::dice::get_compatible_targets,
-};
-use buck2_common::{
-    dice::file_ops::HasFileOps,
-    file_ops::{FileOps, PathMetadata},
-};
-use buck2_core::{
-    cells::paths::CellPath,
-    package::Package,
-    result::SharedResult,
-    target::{ConfiguredTargetLabel, TargetLabel},
-};
-use buck2_query::query::traversal::{
-    async_depth_first_postorder_traversal, AsyncNodeLookup, AsyncTraversalDelegate, ChildVisitor,
-};
+use buck2_build_api::calculation::Calculation;
+use buck2_build_api::nodes::configured::ConfiguredTargetNode;
+use buck2_build_api::nodes::unconfigured::TargetNode;
+use buck2_build_api::query::dice::get_compatible_targets;
+use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::file_ops::FileOps;
+use buck2_common::file_ops::PathMetadata;
+use buck2_core::cells::paths::CellPath;
+use buck2_core::package::Package;
+use buck2_core::result::SharedResult;
+use buck2_core::target::ConfiguredTargetLabel;
+use buck2_core::target::TargetLabel;
+use buck2_query::query::traversal::async_depth_first_postorder_traversal;
+use buck2_query::query::traversal::AsyncNodeLookup;
+use buck2_query::query::traversal::AsyncTraversalDelegate;
+use buck2_query::query::traversal::ChildVisitor;
 use cli_proto::targets_request::TargetHashFileMode;
 use dice::DiceTransaction;
-use futures::{
-    future::{join_all, BoxFuture, Shared},
-    join,
-    stream::FuturesUnordered,
-    FutureExt, StreamExt,
-};
+use futures::future::join_all;
+use futures::future::BoxFuture;
+use futures::future::Shared;
+use futures::join;
+use futures::stream::FuturesUnordered;
+use futures::FutureExt;
+use futures::StreamExt;
 use gazebo::prelude::*;
 use os_str_bytes::OsStrBytes;
-use siphasher::sip128::{Hasher128, SipHasher24};
+use siphasher::sip128::Hasher128;
+use siphasher::sip128::SipHasher24;
 
 #[derive(Clone, Dupe)]
 pub(crate) struct BuckTargetHash(pub u128);

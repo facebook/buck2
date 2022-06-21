@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 
-use crate::{Event, EventSource};
+use crate::Event;
+use crate::EventSource;
 
 /// A simple EventSource backed by an unbounded channel.
 pub struct ChannelEventSource(crossbeam_channel::Receiver<Event>);
@@ -20,14 +21,20 @@ impl EventSource for ChannelEventSource {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, time::SystemTime};
+    use std::collections::HashMap;
+    use std::time::SystemTime;
 
-    use buck2_data::{
-        buck_event::Data::SpanStart, span_start_event::Data::Command, CommandStart, SpanStartEvent,
-    };
+    use buck2_data::buck_event::Data::SpanStart;
+    use buck2_data::span_start_event::Data::Command;
+    use buck2_data::CommandStart;
+    use buck2_data::SpanStartEvent;
 
     use super::ChannelEventSource;
-    use crate::{sink::channel::ChannelEventSink, BuckEvent, EventSink, EventSource, TraceId};
+    use crate::sink::channel::ChannelEventSink;
+    use crate::BuckEvent;
+    use crate::EventSink;
+    use crate::EventSource;
+    use crate::TraceId;
 
     #[tokio::test]
     async fn receive_smoke() {

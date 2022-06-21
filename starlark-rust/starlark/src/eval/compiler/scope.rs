@@ -15,28 +15,47 @@
  * limitations under the License.
  */
 
-use std::{collections::HashMap, convert::TryInto, iter, mem};
+use std::collections::HashMap;
+use std::convert::TryInto;
+use std::iter;
+use std::mem;
 
 use gazebo::dupe::Dupe;
 use indexmap::map::IndexMap;
 
-use crate::{
-    codemap::CodeMap,
-    environment::{names::MutableNames, slots::ModuleSlotId, EnvironmentError, Globals, Module},
-    errors::{did_you_mean::did_you_mean, Diagnostic},
-    eval::runtime::slots::LocalSlotIdCapturedOrNot,
-    syntax::{
-        ast::{
-            Assign, AssignIdent, AstArgumentP, AstAssignIdentP, AstAssignP, AstExprP, AstLoadP,
-            AstNoPayload, AstParameterP, AstPayload, AstStmtP, AstString, ClauseP, ExprP,
-            ForClauseP, ParameterP, Stmt, StmtP, Visibility,
-        },
-        payload_map::AstPayloadFunction,
-        uniplate::VisitMut,
-        Dialect,
-    },
-    values::{FrozenRef, FrozenValue},
-};
+use crate::codemap::CodeMap;
+use crate::environment::names::MutableNames;
+use crate::environment::slots::ModuleSlotId;
+use crate::environment::EnvironmentError;
+use crate::environment::Globals;
+use crate::environment::Module;
+use crate::errors::did_you_mean::did_you_mean;
+use crate::errors::Diagnostic;
+use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
+use crate::syntax::ast::Assign;
+use crate::syntax::ast::AssignIdent;
+use crate::syntax::ast::AstArgumentP;
+use crate::syntax::ast::AstAssignIdentP;
+use crate::syntax::ast::AstAssignP;
+use crate::syntax::ast::AstExprP;
+use crate::syntax::ast::AstLoadP;
+use crate::syntax::ast::AstNoPayload;
+use crate::syntax::ast::AstParameterP;
+use crate::syntax::ast::AstPayload;
+use crate::syntax::ast::AstStmtP;
+use crate::syntax::ast::AstString;
+use crate::syntax::ast::ClauseP;
+use crate::syntax::ast::ExprP;
+use crate::syntax::ast::ForClauseP;
+use crate::syntax::ast::ParameterP;
+use crate::syntax::ast::Stmt;
+use crate::syntax::ast::StmtP;
+use crate::syntax::ast::Visibility;
+use crate::syntax::payload_map::AstPayloadFunction;
+use crate::syntax::uniplate::VisitMut;
+use crate::syntax::Dialect;
+use crate::values::FrozenRef;
+use crate::values::FrozenValue;
 
 pub(crate) struct Scope<'a> {
     pub(crate) scope_data: ScopeData,
@@ -806,19 +825,26 @@ mod tests {
 
     use gazebo::dupe::Dupe;
 
-    use crate::{
-        environment::{names::MutableNames, Globals},
-        eval::compiler::scope::{
-            AssignCount, Captured, CompilerAstMap, CstAssign, CstAssignIdent, CstExpr, CstStmt,
-            ResolvedIdent, Scope, ScopeData, Slot,
-        },
-        syntax::{
-            ast::{ExprP, StmtP},
-            uniplate::Visit,
-            AstModule, Dialect,
-        },
-        values::{FrozenHeap, FrozenRef},
-    };
+    use crate::environment::names::MutableNames;
+    use crate::environment::Globals;
+    use crate::eval::compiler::scope::AssignCount;
+    use crate::eval::compiler::scope::Captured;
+    use crate::eval::compiler::scope::CompilerAstMap;
+    use crate::eval::compiler::scope::CstAssign;
+    use crate::eval::compiler::scope::CstAssignIdent;
+    use crate::eval::compiler::scope::CstExpr;
+    use crate::eval::compiler::scope::CstStmt;
+    use crate::eval::compiler::scope::ResolvedIdent;
+    use crate::eval::compiler::scope::Scope;
+    use crate::eval::compiler::scope::ScopeData;
+    use crate::eval::compiler::scope::Slot;
+    use crate::syntax::ast::ExprP;
+    use crate::syntax::ast::StmtP;
+    use crate::syntax::uniplate::Visit;
+    use crate::syntax::AstModule;
+    use crate::syntax::Dialect;
+    use crate::values::FrozenHeap;
+    use crate::values::FrozenRef;
 
     fn test_with_module(program: &str, expected: &str, module: &MutableNames) {
         let ast = AstModule::parse("t.star", program.to_owned(), &Dialect::Extended).unwrap();

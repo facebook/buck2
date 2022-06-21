@@ -7,32 +7,32 @@
  * of this source tree.
  */
 
-use std::{
-    fmt,
-    io::Write,
-    time::{Duration, Instant},
-};
+use std::fmt;
+use std::io::Write;
+use std::time::Duration;
+use std::time::Instant;
 
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_data::action_execution_end::CommandExecutionDetails;
-use events::{
-    subscriber::{EventSubscriber, Tick},
-    BuckEvent,
-};
+use events::subscriber::EventSubscriber;
+use events::subscriber::Tick;
+use events::BuckEvent;
 use gazebo::prelude::*;
 use lsp_server::Message;
 use superconsole::SuperConsole;
-use termwiz::escape::{Action, ControlCode};
+use termwiz::escape::Action;
+use termwiz::escape::ControlCode;
 
-use crate::commands::common::{
-    subscribers::{display, span_tracker::SpanTracker},
-    verbosity::Verbosity,
-    what_ran::{
-        self, local_command_to_string, CommandReproducer, WhatRanOptions, WhatRanOutputCommand,
-        WhatRanOutputWriter,
-    },
-};
+use crate::commands::common::subscribers::display;
+use crate::commands::common::subscribers::span_tracker::SpanTracker;
+use crate::commands::common::verbosity::Verbosity;
+use crate::commands::common::what_ran::local_command_to_string;
+use crate::commands::common::what_ran::CommandReproducer;
+use crate::commands::common::what_ran::WhatRanOptions;
+use crate::commands::common::what_ran::WhatRanOutputCommand;
+use crate::commands::common::what_ran::WhatRanOutputWriter;
+use crate::commands::common::what_ran::{self};
 
 const KEEPALIVE_TIME_LIMIT: Duration = Duration::from_secs(7);
 

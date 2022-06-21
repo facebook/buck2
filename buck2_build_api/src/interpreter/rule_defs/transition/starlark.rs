@@ -7,28 +7,36 @@
  * of this source tree.
  */
 
-use std::{cell::RefCell, sync::Arc};
+use std::cell::RefCell;
+use std::sync::Arc;
 
 use buck2_core::target::TargetLabel;
-use buck2_interpreter::{common::ImportPath, extra::BuildContext};
+use buck2_interpreter::common::ImportPath;
+use buck2_interpreter::extra::BuildContext;
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, dupe::Dupe, prelude::*};
+use gazebo::any::ProvidesStaticType;
+use gazebo::dupe::Dupe;
+use gazebo::prelude::*;
 use hashbrown::HashSet;
 use itertools::Itertools;
-use starlark::{
-    collections::SmallMap,
-    environment::GlobalsBuilder,
-    eval::Evaluator,
-    values::{
-        dict::DictOf, Freeze, Freezer, FrozenStringValue, FrozenValue, NoSerialize, StarlarkValue,
-        StringValue, Trace, Value, ValueLike,
-    },
-};
+use starlark::collections::SmallMap;
+use starlark::environment::GlobalsBuilder;
+use starlark::eval::Evaluator;
+use starlark::values::dict::DictOf;
+use starlark::values::Freeze;
+use starlark::values::Freezer;
+use starlark::values::FrozenStringValue;
+use starlark::values::FrozenValue;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::StringValue;
+use starlark::values::Trace;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 
-use crate::{
-    attrs::AttrCoercionContext,
-    interpreter::rule_defs::{attr::get_attr_coercion_context, transition::id::TransitionId},
-};
+use crate::attrs::AttrCoercionContext;
+use crate::interpreter::rule_defs::attr::get_attr_coercion_context;
+use crate::interpreter::rule_defs::transition::id::TransitionId;
 
 #[derive(Debug, thiserror::Error)]
 enum TransitionError {

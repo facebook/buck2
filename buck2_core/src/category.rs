@@ -14,7 +14,8 @@
 //! category of all actions that invoke a C++ compiler, of which there are potentially many in a single C++ rule
 //! implementation.
 
-use std::{convert::TryFrom, fmt};
+use std::convert::TryFrom;
+use std::fmt;
 
 use once_cell::sync::Lazy;
 use regex::Regex;

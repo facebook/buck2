@@ -18,10 +18,14 @@
 //! Implementation of iterators for string type.
 
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, coerce::Coerce};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::Coerce;
 
 use crate as starlark;
-use crate::values::{Heap, StarlarkValue, Value, ValueLike};
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::Value;
+use crate::values::ValueLike;
 
 /// An opaque iterator over a string, produced by elems/codepoints
 #[derive(Debug, Trace, Coerce, Display, Freeze, NoSerialize, ProvidesStaticType)]

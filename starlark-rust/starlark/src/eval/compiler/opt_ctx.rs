@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-use crate::{
-    eval::{compiler::stmt::OptimizeOnFreezeContext, Evaluator},
-    values::{FrozenHeap, Heap},
-};
+use crate::eval::compiler::stmt::OptimizeOnFreezeContext;
+use crate::eval::Evaluator;
+use crate::values::FrozenHeap;
+use crate::values::Heap;
 
 pub(crate) trait OptCtxEval<'v, 'a> {
     fn heap(&self) -> &'v Heap;

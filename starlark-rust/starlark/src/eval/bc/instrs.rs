@@ -17,24 +17,31 @@
 
 //! Instructions serialized in byte array.
 
-use std::{
-    collections::HashSet,
-    convert::TryInto,
-    fmt,
-    fmt::{Display, Formatter, Write},
-    iter, mem, ptr, slice,
-};
+use std::collections::HashSet;
+use std::convert::TryInto;
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::fmt::Write;
+use std::iter;
+use std::mem;
+use std::ptr;
+use std::slice;
 
 use either::Either;
 
-use crate::eval::bc::{
-    addr::{BcAddr, BcAddrOffset, BcPtrAddr},
-    instr::BcInstr,
-    instr_impl::{InstrEnd, InstrForLoop},
-    opcode::{BcOpcode, BcOpcodeHandler},
-    repr::{BcInstrHeader, BcInstrRepr, BC_INSTR_ALIGN},
-    slow_arg::BcInstrSlowArg,
-};
+use crate::eval::bc::addr::BcAddr;
+use crate::eval::bc::addr::BcAddrOffset;
+use crate::eval::bc::addr::BcPtrAddr;
+use crate::eval::bc::instr::BcInstr;
+use crate::eval::bc::instr_impl::InstrEnd;
+use crate::eval::bc::instr_impl::InstrForLoop;
+use crate::eval::bc::opcode::BcOpcode;
+use crate::eval::bc::opcode::BcOpcodeHandler;
+use crate::eval::bc::repr::BcInstrHeader;
+use crate::eval::bc::repr::BcInstrRepr;
+use crate::eval::bc::repr::BC_INSTR_ALIGN;
+use crate::eval::bc::slow_arg::BcInstrSlowArg;
 
 impl BcOpcode {
     /// Drop instruction at given address.
@@ -328,14 +335,14 @@ impl BcInstrsWriter {
 mod tests {
     use std::mem;
 
-    use crate::{
-        eval::bc::{
-            instr_impl::{InstrBreak, InstrConst, InstrPossibleGc, InstrReturn},
-            instrs::{BcInstrs, BcInstrsWriter},
-            stack_ptr::BcSlot,
-        },
-        values::FrozenValue,
-    };
+    use crate::eval::bc::instr_impl::InstrBreak;
+    use crate::eval::bc::instr_impl::InstrConst;
+    use crate::eval::bc::instr_impl::InstrPossibleGc;
+    use crate::eval::bc::instr_impl::InstrReturn;
+    use crate::eval::bc::instrs::BcInstrs;
+    use crate::eval::bc::instrs::BcInstrsWriter;
+    use crate::eval::bc::stack_ptr::BcSlot;
+    use crate::values::FrozenValue;
 
     #[test]
     fn write() {

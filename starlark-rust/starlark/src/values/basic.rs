@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-use crate::{collections::StarlarkHashValue, values::StarlarkValue};
+use crate::collections::StarlarkHashValue;
+use crate::values::StarlarkValue;
 
 /// Implemented by "basic" (non-heap allocated) types like `int` or `NoneType`.
 pub(crate) trait StarlarkValueBasic<'v>: StarlarkValue<'v> {

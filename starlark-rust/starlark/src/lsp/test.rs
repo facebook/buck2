@@ -15,32 +15,52 @@
  * limitations under the License.
  */
 
-use std::{
-    collections::{hash_map::Entry, HashMap, VecDeque},
-    path::{Path, PathBuf},
-    sync::{Arc, RwLock},
-    time::Duration,
-};
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
+use std::collections::VecDeque;
+use std::path::Path;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::RwLock;
+use std::time::Duration;
 
 use gazebo::prelude::*;
-use lsp_server::{Connection, Message, RequestId, Response, ResponseError};
-use lsp_types::{
-    notification::{DidChangeTextDocument, DidOpenTextDocument, Exit, Initialized, Notification},
-    request::{Initialize, Request, Shutdown},
-    ClientCapabilities, DidChangeTextDocumentParams, DidOpenTextDocumentParams, GotoCapability,
-    InitializeParams, InitializeResult, InitializedParams, TextDocumentClientCapabilities,
-    TextDocumentContentChangeEvent, TextDocumentItem, Url, VersionedTextDocumentIdentifier,
-};
+use lsp_server::Connection;
+use lsp_server::Message;
+use lsp_server::RequestId;
+use lsp_server::Response;
+use lsp_server::ResponseError;
+use lsp_types::notification::DidChangeTextDocument;
+use lsp_types::notification::DidOpenTextDocument;
+use lsp_types::notification::Exit;
+use lsp_types::notification::Initialized;
+use lsp_types::notification::Notification;
+use lsp_types::request::Initialize;
+use lsp_types::request::Request;
+use lsp_types::request::Shutdown;
+use lsp_types::ClientCapabilities;
+use lsp_types::DidChangeTextDocumentParams;
+use lsp_types::DidOpenTextDocumentParams;
+use lsp_types::GotoCapability;
+use lsp_types::InitializeParams;
+use lsp_types::InitializeResult;
+use lsp_types::InitializedParams;
+use lsp_types::TextDocumentClientCapabilities;
+use lsp_types::TextDocumentContentChangeEvent;
+use lsp_types::TextDocumentItem;
+use lsp_types::Url;
+use lsp_types::VersionedTextDocumentIdentifier;
 use serde::de::DeserializeOwned;
 
-use crate::{
-    errors::EvalMessage,
-    lsp::server::{
-        new_notification, server_with_connection, LoadContentsError, LspContext, LspEvalResult,
-        ResolveLoadError,
-    },
-    syntax::{AstModule, Dialect},
-};
+use crate::errors::EvalMessage;
+use crate::lsp::server::new_notification;
+use crate::lsp::server::server_with_connection;
+use crate::lsp::server::LoadContentsError;
+use crate::lsp::server::LspContext;
+use crate::lsp::server::LspEvalResult;
+use crate::lsp::server::ResolveLoadError;
+use crate::syntax::AstModule;
+use crate::syntax::Dialect;
 
 /// Get the path from a URL, trimming off things like the leading slash that gets
 /// appended in some windows test environments.

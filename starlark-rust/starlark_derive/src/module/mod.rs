@@ -21,7 +21,8 @@ mod typ;
 mod util;
 
 use proc_macro::TokenStream;
-use syn::{parse_macro_input, ItemFn};
+use syn::parse_macro_input;
+use syn::ItemFn;
 
 pub(crate) fn starlark_module(attr: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as ItemFn);

@@ -17,7 +17,10 @@
 
 //! Basic expression tests.
 
-use crate::{assert, assert::Assert, environment::GlobalsBuilder, values::OwnedFrozenValue};
+use crate::assert;
+use crate::assert::Assert;
+use crate::environment::GlobalsBuilder;
+use crate::values::OwnedFrozenValue;
 
 #[test]
 fn arithmetic_test() {

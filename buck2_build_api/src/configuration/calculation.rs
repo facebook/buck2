@@ -11,38 +11,38 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_common::{
-    dice::cells::HasCellResolver,
-    legacy_configs::{dice::HasLegacyConfigs, parse_config_section_and_key},
-};
-use buck2_core::{
-    cells::CellName,
-    configuration::{Configuration, ConfigurationData},
-    result::{SharedResult, ToSharedResultExt},
-    target::TargetLabel,
-};
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::parse_config_section_and_key;
+use buck2_core::cells::CellName;
+use buck2_core::configuration::Configuration;
+use buck2_core::configuration::ConfigurationData;
+use buck2_core::result::SharedResult;
+use buck2_core::result::ToSharedResultExt;
+use buck2_core::target::TargetLabel;
 use buck2_interpreter::pattern::ParsedPattern;
 use derive_more::Display;
-use dice::{DiceComputations, Key};
+use dice::DiceComputations;
+use dice::Key;
 use gazebo::prelude::*;
-use indexmap::{IndexMap, IndexSet};
+use indexmap::IndexMap;
+use indexmap::IndexSet;
 use thiserror::Error;
 
-use crate::{
-    analysis::calculation::RuleAnalysisCalculation,
-    configuration::{
-        execution::{ExecutionPlatformIncompatibleReason, ExecutionPlatformResolution},
-        target_platform_detector::TargetPlatformDetector,
-        ConfigurationCalculation, ConfigurationNode, ConfigurationSettingKey, ExecutionPlatforms,
-        ResolvedConfiguration,
-    },
-    interpreter::rule_defs::provider::builtin::{
-        configuration_info::FrozenConfigurationInfo,
-        execution_platform_registration_info::ExecutionPlatformRegistrationInfo,
-        platform_info::PlatformInfo,
-    },
-    nodes::{calculation::NodeCalculation, compatibility::MaybeCompatible},
-};
+use crate::analysis::calculation::RuleAnalysisCalculation;
+use crate::configuration::execution::ExecutionPlatformIncompatibleReason;
+use crate::configuration::execution::ExecutionPlatformResolution;
+use crate::configuration::target_platform_detector::TargetPlatformDetector;
+use crate::configuration::ConfigurationCalculation;
+use crate::configuration::ConfigurationNode;
+use crate::configuration::ConfigurationSettingKey;
+use crate::configuration::ExecutionPlatforms;
+use crate::configuration::ResolvedConfiguration;
+use crate::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
+use crate::interpreter::rule_defs::provider::builtin::execution_platform_registration_info::ExecutionPlatformRegistrationInfo;
+use crate::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfo;
+use crate::nodes::calculation::NodeCalculation;
+use crate::nodes::compatibility::MaybeCompatible;
 
 #[derive(Debug, Error)]
 pub enum ConfigurationError {

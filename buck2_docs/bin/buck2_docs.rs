@@ -11,16 +11,23 @@
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-    process::{Command, Stdio},
-};
+use std::collections::HashMap;
+use std::path::Path;
+use std::path::PathBuf;
+use std::process::Command;
+use std::process::Stdio;
 
 use itertools::Itertools;
-use starlark::values::docs::{
-    Doc, DocItem, DocString, Function, Identifier, Member, Module, Object, Param, Type,
-};
+use starlark::values::docs::Doc;
+use starlark::values::docs::DocItem;
+use starlark::values::docs::DocString;
+use starlark::values::docs::Function;
+use starlark::values::docs::Identifier;
+use starlark::values::docs::Member;
+use starlark::values::docs::Module;
+use starlark::values::docs::Object;
+use starlark::values::docs::Param;
+use starlark::values::docs::Type;
 use structopt::StructOpt;
 
 #[derive(Clone, Debug, StructOpt)]

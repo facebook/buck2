@@ -11,16 +11,21 @@
 #![feature(async_closure)]
 
 use anyhow::Context;
-use clap::{Arg, Command};
+use clap::Arg;
+use clap::Command;
 use futures::FutureExt;
-use quickcheck::{Gen, QuickCheck};
+use quickcheck::Gen;
+use quickcheck::QuickCheck;
 use thiserror::Error;
-use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+use tracing_subscriber::fmt;
+use tracing_subscriber::prelude::*;
+use tracing_subscriber::EnvFilter;
 
 mod computation;
 mod execution;
 
-use crate::execution::{DiceExecutionOrder, DiceExecutionOrderOptions};
+use crate::execution::DiceExecutionOrder;
+use crate::execution::DiceExecutionOrderOptions;
 
 #[derive(Error, Debug)]
 pub enum DiceFuzzError {

@@ -17,7 +17,9 @@
 
 use gazebo::prelude::*;
 
-use crate::{assert, assert::Assert, syntax::ast::Stmt};
+use crate::assert;
+use crate::assert::Assert;
+use crate::syntax::ast::Stmt;
 
 #[test]
 fn test_empty() {

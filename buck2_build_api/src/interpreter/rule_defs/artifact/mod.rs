@@ -15,13 +15,13 @@ mod starlark_output_artifact;
 
 use std::fmt::Debug;
 
-pub(crate) use self::starlark_artifact_like::{StarlarkArtifactLike, ValueAsArtifactLike};
-pub use self::{
-    starlark_artifact::StarlarkArtifact,
-    starlark_artifact_value::StarlarkArtifactValue,
-    starlark_declared_artifact::StarlarkDeclaredArtifact,
-    starlark_output_artifact::{FrozenStarlarkOutputArtifact, StarlarkOutputArtifact},
-};
+pub use self::starlark_artifact::StarlarkArtifact;
+pub(crate) use self::starlark_artifact_like::StarlarkArtifactLike;
+pub(crate) use self::starlark_artifact_like::ValueAsArtifactLike;
+pub use self::starlark_artifact_value::StarlarkArtifactValue;
+pub use self::starlark_declared_artifact::StarlarkDeclaredArtifact;
+pub use self::starlark_output_artifact::FrozenStarlarkOutputArtifact;
+pub use self::starlark_output_artifact::StarlarkOutputArtifact;
 use crate::deferred::BaseDeferredKey;
 
 #[derive(Debug, thiserror::Error)]
@@ -47,49 +47,50 @@ enum ArtifactError {
 pub mod testing {
     use std::convert::TryFrom;
 
-    use buck2_core::{
-        buck_path::BuckPath,
-        category::Category,
-        cells::paths::CellRelativePath,
-        configuration::Configuration,
-        fs::{
-            paths::{AbsPathBuf, ForwardRelativePathBuf},
-            project::{ProjectFilesystem, ProjectRelativePathBuf},
-        },
-        package::{Package, PackageRelativePathBuf},
-        target::{ConfiguredTargetLabel, TargetLabel},
-    };
-    use buck2_interpreter::{
-        extra::BuildContext,
-        pattern::{ParsedPattern, TargetPattern},
-    };
+    use buck2_core::buck_path::BuckPath;
+    use buck2_core::category::Category;
+    use buck2_core::cells::paths::CellRelativePath;
+    use buck2_core::configuration::Configuration;
+    use buck2_core::fs::paths::AbsPathBuf;
+    use buck2_core::fs::paths::ForwardRelativePathBuf;
+    use buck2_core::fs::project::ProjectFilesystem;
+    use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::package::Package;
+    use buck2_core::package::PackageRelativePathBuf;
+    use buck2_core::target::ConfiguredTargetLabel;
+    use buck2_core::target::TargetLabel;
+    use buck2_interpreter::extra::BuildContext;
+    use buck2_interpreter::pattern::ParsedPattern;
+    use buck2_interpreter::pattern::TargetPattern;
     use gazebo::prelude::*;
-    use indexmap::{indexset, IndexSet};
-    use starlark::{environment::GlobalsBuilder, eval::Evaluator, values::Value};
+    use indexmap::indexset;
+    use indexmap::IndexSet;
+    use starlark::environment::GlobalsBuilder;
+    use starlark::eval::Evaluator;
+    use starlark::values::Value;
 
-    use crate::{
-        actions::{
-            artifact::{
-                testing::BuildArtifactTestingExt, Artifact, ArtifactFs, BuildArtifact, ExecutorFs,
-                SourceArtifact,
-            },
-            testing::SimpleUnregisteredAction,
-            ActionsRegistry,
-        },
-        configuration::execution::ExecutionPlatformResolution,
-        deferred::{
-            testing::DeferredIdExt, BaseDeferredKey, BaseKey, DeferredId, DeferredRegistry,
-        },
-        execute::PathSeparatorKind,
-        interpreter::{
-            rule_defs::{
-                artifact::{StarlarkArtifact, StarlarkDeclaredArtifact, ValueAsArtifactLike},
-                cmd_args::BaseCommandLineBuilder,
-            },
-            testing::cells,
-        },
-        path::{BuckOutPathResolver, BuckPathResolver},
-    };
+    use crate::actions::artifact::testing::BuildArtifactTestingExt;
+    use crate::actions::artifact::Artifact;
+    use crate::actions::artifact::ArtifactFs;
+    use crate::actions::artifact::BuildArtifact;
+    use crate::actions::artifact::ExecutorFs;
+    use crate::actions::artifact::SourceArtifact;
+    use crate::actions::testing::SimpleUnregisteredAction;
+    use crate::actions::ActionsRegistry;
+    use crate::configuration::execution::ExecutionPlatformResolution;
+    use crate::deferred::testing::DeferredIdExt;
+    use crate::deferred::BaseDeferredKey;
+    use crate::deferred::BaseKey;
+    use crate::deferred::DeferredId;
+    use crate::deferred::DeferredRegistry;
+    use crate::execute::PathSeparatorKind;
+    use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
+    use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
+    use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
+    use crate::interpreter::rule_defs::cmd_args::BaseCommandLineBuilder;
+    use crate::interpreter::testing::cells;
+    use crate::path::BuckOutPathResolver;
+    use crate::path::BuckPathResolver;
 
     fn get_label(eval: &Evaluator, target: &str) -> anyhow::Result<ConfiguredTargetLabel> {
         let ctx = BuildContext::from_context(eval)?;
@@ -228,10 +229,9 @@ mod tests {
     use buck2_core::result::SharedResult;
     use indoc::indoc;
 
-    use crate::interpreter::{
-        rule_defs::artifact::testing::artifactory,
-        testing::{expect_error, Tester},
-    };
+    use crate::interpreter::rule_defs::artifact::testing::artifactory;
+    use crate::interpreter::testing::expect_error;
+    use crate::interpreter::testing::Tester;
 
     #[test]
     fn source_artifact() -> SharedResult<()> {

@@ -13,11 +13,15 @@ use std::fmt::Debug;
 
 use buck2_build_api_derive::internal_provider;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
-use gazebo::{any::ProvidesStaticType, coerce::Coerce};
-use starlark::{
-    environment::GlobalsBuilder,
-    values::{Freeze, Trace, UnpackValue, ValueLike, ValueOf, ValueTyped},
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::Coerce;
+use starlark::environment::GlobalsBuilder;
+use starlark::values::Freeze;
+use starlark::values::Trace;
+use starlark::values::UnpackValue;
+use starlark::values::ValueLike;
+use starlark::values::ValueOf;
+use starlark::values::ValueTyped;
 
 use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::ConstraintSettingInfo;
 

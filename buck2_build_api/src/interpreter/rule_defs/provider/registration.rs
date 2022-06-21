@@ -7,9 +7,11 @@
  * of this source tree.
  */
 
-use starlark::{environment::GlobalsBuilder, values::Value};
+use starlark::environment::GlobalsBuilder;
+use starlark::values::Value;
 
-use crate::interpreter::rule_defs::provider::{callable::ProviderCallableLike, ProviderLike};
+use crate::interpreter::rule_defs::provider::callable::ProviderCallableLike;
+use crate::interpreter::rule_defs::provider::ProviderLike;
 
 pub(crate) struct ProviderRegistration {
     pub(crate) as_provider_callable: fn(Value) -> Option<&dyn ProviderCallableLike>,

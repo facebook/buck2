@@ -22,54 +22,62 @@ use std::cmp::Ordering;
 use gazebo::prelude::*;
 use thiserror::Error;
 
-use crate::{
-    codemap::Spanned,
-    collections::symbol_map::Symbol,
-    environment::slots::ModuleSlotId,
-    errors::did_you_mean::did_you_mean,
-    eval::{
-        compiler::{
-            args::ArgsCompiledValue,
-            call::CallCompiled,
-            compr::ComprCompiled,
-            constants::Constants,
-            def::{DefCompiled, FrozenDef},
-            expr_bool::ExprCompiledBool,
-            known::list_to_tuple,
-            opt_ctx::OptCtx,
-            scope::{AssignCount, Captured, CstExpr, ResolvedIdent, Slot},
-            span::IrSpanned,
-            stmt::OptimizeOnFreezeContext,
-            Compiler,
-        },
-        runtime::{
-            call_stack::FrozenFileSpan,
-            slots::{LocalCapturedSlotId, LocalSlotId},
-        },
-    },
-    syntax::{
-        ast::{AstExprP, AstLiteral, AstPayload, AstString, BinOp, ExprP, StmtP},
-        lexer::TokenInt,
-    },
-    values::{
-        function::{BoundMethodGen, FrozenBoundMethod},
-        layout::value_not_special::FrozenValueNotSpecial,
-        string::interpolation::parse_percent_s_one,
-        types::{
-            bigint::StarlarkBigInt,
-            bool::StarlarkBool,
-            dict::Dict,
-            float::StarlarkFloat,
-            list::{FrozenList, List},
-            range::Range,
-            string::interpolation::{format_one, percent_s_one},
-            tuple::Tuple,
-            unbound::MaybeUnboundValue,
-        },
-        FrozenHeap, FrozenStringValue, FrozenValue, FrozenValueTyped, Heap, StarlarkValue, Value,
-        ValueError, ValueLike,
-    },
-};
+use crate::codemap::Spanned;
+use crate::collections::symbol_map::Symbol;
+use crate::environment::slots::ModuleSlotId;
+use crate::errors::did_you_mean::did_you_mean;
+use crate::eval::compiler::args::ArgsCompiledValue;
+use crate::eval::compiler::call::CallCompiled;
+use crate::eval::compiler::compr::ComprCompiled;
+use crate::eval::compiler::constants::Constants;
+use crate::eval::compiler::def::DefCompiled;
+use crate::eval::compiler::def::FrozenDef;
+use crate::eval::compiler::expr_bool::ExprCompiledBool;
+use crate::eval::compiler::known::list_to_tuple;
+use crate::eval::compiler::opt_ctx::OptCtx;
+use crate::eval::compiler::scope::AssignCount;
+use crate::eval::compiler::scope::Captured;
+use crate::eval::compiler::scope::CstExpr;
+use crate::eval::compiler::scope::ResolvedIdent;
+use crate::eval::compiler::scope::Slot;
+use crate::eval::compiler::span::IrSpanned;
+use crate::eval::compiler::stmt::OptimizeOnFreezeContext;
+use crate::eval::compiler::Compiler;
+use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::slots::LocalCapturedSlotId;
+use crate::eval::runtime::slots::LocalSlotId;
+use crate::syntax::ast::AstExprP;
+use crate::syntax::ast::AstLiteral;
+use crate::syntax::ast::AstPayload;
+use crate::syntax::ast::AstString;
+use crate::syntax::ast::BinOp;
+use crate::syntax::ast::ExprP;
+use crate::syntax::ast::StmtP;
+use crate::syntax::lexer::TokenInt;
+use crate::values::function::BoundMethodGen;
+use crate::values::function::FrozenBoundMethod;
+use crate::values::layout::value_not_special::FrozenValueNotSpecial;
+use crate::values::string::interpolation::parse_percent_s_one;
+use crate::values::types::bigint::StarlarkBigInt;
+use crate::values::types::bool::StarlarkBool;
+use crate::values::types::dict::Dict;
+use crate::values::types::float::StarlarkFloat;
+use crate::values::types::list::FrozenList;
+use crate::values::types::list::List;
+use crate::values::types::range::Range;
+use crate::values::types::string::interpolation::format_one;
+use crate::values::types::string::interpolation::percent_s_one;
+use crate::values::types::tuple::Tuple;
+use crate::values::types::unbound::MaybeUnboundValue;
+use crate::values::FrozenHeap;
+use crate::values::FrozenStringValue;
+use crate::values::FrozenValue;
+use crate::values::FrozenValueTyped;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::Value;
+use crate::values::ValueError;
+use crate::values::ValueLike;
 
 /// `bool` operation.
 #[derive(Copy, Clone, Dupe, Eq, PartialEq, Debug)]

@@ -9,34 +9,36 @@
 
 use std::sync::Arc;
 
-use buck2_build_api::{
-    actions::artifact::Artifact, calculation::Calculation,
-    interpreter::module_internals::EvaluationResult,
-};
-use buck2_common::dice::{cells::HasCellResolver, file_ops::HasFileOps};
-use buck2_core::{
-    cells::CellResolver,
-    package::Package,
-    provider::{ConfiguredProvidersLabel, ProvidersLabel},
-    target::{TargetLabel, TargetName},
-};
-use buck2_interpreter::pattern::{PackageSpec, ParsedPattern, ResolvedPattern, TargetPattern};
-use cli_proto::{
-    targets_show_outputs_response::TargetPaths, TargetsRequest, TargetsShowOutputsResponse,
-};
+use buck2_build_api::actions::artifact::Artifact;
+use buck2_build_api::calculation::Calculation;
+use buck2_build_api::interpreter::module_internals::EvaluationResult;
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::file_ops::HasFileOps;
+use buck2_core::cells::CellResolver;
+use buck2_core::package::Package;
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::ProvidersLabel;
+use buck2_core::target::TargetLabel;
+use buck2_core::target::TargetName;
+use buck2_interpreter::pattern::PackageSpec;
+use buck2_interpreter::pattern::ParsedPattern;
+use buck2_interpreter::pattern::ResolvedPattern;
+use buck2_interpreter::pattern::TargetPattern;
+use cli_proto::targets_show_outputs_response::TargetPaths;
+use cli_proto::TargetsRequest;
+use cli_proto::TargetsShowOutputsResponse;
 use dice::DiceComputations;
 use futures::stream::FuturesUnordered;
-use gazebo::{
-    dupe::Dupe,
-    prelude::{IterDuped, VecExt},
-};
+use gazebo::dupe::Dupe;
+use gazebo::prelude::IterDuped;
+use gazebo::prelude::VecExt;
 use thiserror::Error;
 use tokio_stream::StreamExt;
 
-use crate::daemon::{
-    common::{parse_patterns_from_cli_args, resolve_patterns, target_platform_from_client_context},
-    server::ServerCommandContext,
-};
+use crate::daemon::common::parse_patterns_from_cli_args;
+use crate::daemon::common::resolve_patterns;
+use crate::daemon::common::target_platform_from_client_context;
+use crate::daemon::server::ServerCommandContext;
 
 #[derive(Debug, Error)]
 pub(crate) enum TargetsError {

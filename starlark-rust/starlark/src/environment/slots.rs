@@ -15,11 +15,14 @@
  * limitations under the License.
  */
 
-use std::cell::{RefCell, RefMut};
+use std::cell::RefCell;
+use std::cell::RefMut;
 
 use gazebo::prelude::*;
 
-use crate::values::{Freezer, FrozenValue, Value};
+use crate::values::Freezer;
+use crate::values::FrozenValue;
+use crate::values::Value;
 
 #[derive(Clone, Copy, Dupe, Debug, PartialEq, Eq)]
 pub(crate) struct ModuleSlotId(pub(crate) u32);

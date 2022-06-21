@@ -4,9 +4,8 @@ use dice::DiceComputations;
 use either::Either;
 use gazebo::prelude::*;
 
-use crate::bxl::starlark_defs::{
-    analysis_result::StarlarkAnalysisResult, providers_expr::ProvidersExpr,
-};
+use crate::bxl::starlark_defs::analysis_result::StarlarkAnalysisResult;
+use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 
 pub(crate) async fn analysis(
     ctx: &DiceComputations,

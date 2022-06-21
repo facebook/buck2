@@ -18,15 +18,13 @@
 //! Test for type-is optimizations.
 
 use crate as starlark;
-use crate::{
-    assert::Assert,
-    environment::GlobalsBuilder,
-    eval::compiler::{
-        def::{Def, FrozenDef},
-        def_inline::InlineDefBody,
-    },
-    values::{Value, ValueLike},
-};
+use crate::assert::Assert;
+use crate::environment::GlobalsBuilder;
+use crate::eval::compiler::def::Def;
+use crate::eval::compiler::def::FrozenDef;
+use crate::eval::compiler::def_inline::InlineDefBody;
+use crate::values::Value;
+use crate::values::ValueLike;
 
 #[starlark_module]
 fn globals(builder: &mut GlobalsBuilder) {

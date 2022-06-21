@@ -7,38 +7,49 @@
  * of this source tree.
  */
 
-use std::{
-    collections::{HashMap, HashSet},
-    convert::TryFrom,
-    fmt::Debug,
-    path::{Path, PathBuf},
-    sync::Arc,
-    time::SystemTime,
-};
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::convert::TryFrom;
+use std::fmt::Debug;
+use std::path::Path;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::SystemTime;
 
 use anyhow::Context as _;
-use buck2_common::file_ops::{ExternalSymlink, FileDigest, FileMetadata, TrackedFileDigest};
-use buck2_core::{
-    directory::{
-        find, unordered_entry_walk, DashMapDirectoryInterner, Directory, DirectoryBuilder,
-        DirectoryEntry, DirectoryHasher, DirectoryIterator, DirectorySelector,
-        FingerprintedDirectory, HasDirectoryDigest, ImmutableDirectory, SharedDirectory,
-    },
-    fs::{
-        paths::{FileName, FileNameBuf, ForwardRelativePath, RelativePath, RelativePathBuf},
-        project::ProjectRelativePath,
-    },
-};
+use buck2_common::file_ops::ExternalSymlink;
+use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::FileMetadata;
+use buck2_common::file_ops::TrackedFileDigest;
+use buck2_core::directory::find;
+use buck2_core::directory::unordered_entry_walk;
+use buck2_core::directory::DashMapDirectoryInterner;
+use buck2_core::directory::Directory;
+use buck2_core::directory::DirectoryBuilder;
+use buck2_core::directory::DirectoryEntry;
+use buck2_core::directory::DirectoryHasher;
+use buck2_core::directory::DirectoryIterator;
+use buck2_core::directory::DirectorySelector;
+use buck2_core::directory::FingerprintedDirectory;
+use buck2_core::directory::HasDirectoryDigest;
+use buck2_core::directory::ImmutableDirectory;
+use buck2_core::directory::SharedDirectory;
+use buck2_core::fs::paths::FileName;
+use buck2_core::fs::paths::FileNameBuf;
+use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_core::fs::paths::RelativePath;
+use buck2_core::fs::paths::RelativePathBuf;
+use buck2_core::fs::project::ProjectRelativePath;
 use derive_more::Display;
 use gazebo::prelude::*;
 use once_cell::sync::Lazy;
 use remote_execution as RE;
 use thiserror::Error;
 
-use crate::actions::{
-    artifact::ArtifactValue,
-    digest::{FileDigestFromProtoExt, FileDigestFromReExt, FileDigestToReExt},
-};
+use crate::actions::artifact::ArtifactValue;
+use crate::actions::digest::FileDigestFromProtoExt;
+use crate::actions::digest::FileDigestFromReExt;
+use crate::actions::digest::FileDigestToReExt;
 
 pub static INTERNER: Lazy<DashMapDirectoryInterner<ActionDirectoryMember, ReDirectorySerializer>> =
     Lazy::new(DashMapDirectoryInterner::new);

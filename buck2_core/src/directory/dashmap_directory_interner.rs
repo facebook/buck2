@@ -7,14 +7,18 @@
  * of this source tree.
  */
 
-use std::sync::{Arc, Weak};
+use std::sync::Arc;
+use std::sync::Weak;
 
-use dashmap::{mapref::entry::Entry, DashMap};
+use dashmap::mapref::entry::Entry;
+use dashmap::DashMap;
 use gazebo::prelude::*;
 
-use super::{
-    DirectoryHasher, HasDirectoryDigest, SharedDirectory, SharedDirectoryData, SharedDirectoryInner,
-};
+use super::DirectoryHasher;
+use super::HasDirectoryDigest;
+use super::SharedDirectory;
+use super::SharedDirectoryData;
+use super::SharedDirectoryInner;
 
 #[derive(Dupe_, Clone_)]
 pub struct DashMapDirectoryInterner<L, H>

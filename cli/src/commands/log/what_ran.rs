@@ -7,7 +7,9 @@
  * of this source tree.
  */
 
-use std::{borrow::Cow, collections::HashMap, path::PathBuf};
+use std::borrow::Cow;
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 use buck2_core::exit_result::ExitResult;
 use futures::TryStreamExt;
@@ -15,21 +17,18 @@ use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
 use tokio::runtime;
 
-use crate::{
-    commands::{
-        common::{
-            subscribers::event_log::EventLogPathBuf,
-            what_ran::{
-                self, CommandReproducer, WhatRanOptions, WhatRanOutputCommand,
-                WhatRanOutputCommandExtra, WhatRanOutputWriter, WhatRanRelevantAction,
-                WhatRanState,
-            },
-        },
-        debug::replay::retrieve_nth_recent_log,
-    },
-    daemon::client::StreamValue,
-    CommandContext,
-};
+use crate::commands::common::subscribers::event_log::EventLogPathBuf;
+use crate::commands::common::what_ran::CommandReproducer;
+use crate::commands::common::what_ran::WhatRanOptions;
+use crate::commands::common::what_ran::WhatRanOutputCommand;
+use crate::commands::common::what_ran::WhatRanOutputCommandExtra;
+use crate::commands::common::what_ran::WhatRanOutputWriter;
+use crate::commands::common::what_ran::WhatRanRelevantAction;
+use crate::commands::common::what_ran::WhatRanState;
+use crate::commands::common::what_ran::{self};
+use crate::commands::debug::replay::retrieve_nth_recent_log;
+use crate::daemon::client::StreamValue;
+use crate::CommandContext;
 
 #[derive(
     Debug,

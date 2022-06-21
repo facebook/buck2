@@ -7,15 +7,13 @@
  * of this source tree.
  */
 
-use buck2_core::fs::project::{ProjectFilesystem, ProjectRelativePathBuf};
+use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRelativePathBuf;
 
-use crate::{
-    actions::{
-        artifact_utils::materialize_dirs_and_syms,
-        directory::{ActionDirectoryEntry, ActionSharedDirectory},
-    },
-    execute::blocking::IoRequest,
-};
+use crate::actions::artifact_utils::materialize_dirs_and_syms;
+use crate::actions::directory::ActionDirectoryEntry;
+use crate::actions::directory::ActionSharedDirectory;
+use crate::execute::blocking::IoRequest;
 
 pub struct MaterializeTreeStructure {
     pub path: ProjectRelativePathBuf,

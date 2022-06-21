@@ -19,7 +19,8 @@
 
 use itertools::Itertools;
 
-use crate::{assert, assert::Assert};
+use crate::assert;
+use crate::assert::Assert;
 
 #[test]
 fn test_go() {

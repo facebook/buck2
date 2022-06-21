@@ -7,11 +7,13 @@
  * of this source tree.
  */
 
-use std::sync::{Mutex, MutexGuard};
+use std::sync::Mutex;
+use std::sync::MutexGuard;
 
-use crate::incremental::versions::{
-    MinorVersion, MinorVersionGuard, VersionForWrites, VersionNumber,
-};
+use crate::incremental::versions::MinorVersion;
+use crate::incremental::versions::MinorVersionGuard;
+use crate::incremental::versions::VersionForWrites;
+use crate::incremental::versions::VersionNumber;
 
 /// A context for evaluating in the Engine.
 /// The context is valid for computing the entire subgraph of a particular key

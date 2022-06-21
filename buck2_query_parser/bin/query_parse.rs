@@ -16,7 +16,8 @@
 use std::io::BufRead;
 
 use buck2_query_parser::parse_expr;
-use structopt::{clap::AppSettings, StructOpt};
+use structopt::clap::AppSettings;
+use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
 #[structopt(

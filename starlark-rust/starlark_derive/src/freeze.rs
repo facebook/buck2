@@ -15,12 +15,26 @@
  * limitations under the License.
  */
 
-use proc_macro2::{Ident, TokenStream};
-use quote::{format_ident, quote_spanned};
-use syn::{
-    parse::ParseStream, parse_macro_input, spanned::Spanned, Attribute, Data, DataEnum, DataStruct,
-    DeriveInput, Error, Fields, GenericParam, Index, LitStr, Token, Variant, WherePredicate,
-};
+use proc_macro2::Ident;
+use proc_macro2::TokenStream;
+use quote::format_ident;
+use quote::quote_spanned;
+use syn::parse::ParseStream;
+use syn::parse_macro_input;
+use syn::spanned::Spanned;
+use syn::Attribute;
+use syn::Data;
+use syn::DataEnum;
+use syn::DataStruct;
+use syn::DeriveInput;
+use syn::Error;
+use syn::Fields;
+use syn::GenericParam;
+use syn::Index;
+use syn::LitStr;
+use syn::Token;
+use syn::Variant;
+use syn::WherePredicate;
 
 struct Input<'a> {
     input: &'a DeriveInput,

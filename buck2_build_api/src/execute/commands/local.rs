@@ -7,34 +7,38 @@
  * of this source tree.
  */
 
-use std::{
-    borrow::Cow,
-    ffi::OsStr,
-    fs, io,
-    path::{Path, PathBuf},
-    pin::Pin,
-    process::{ExitStatus, Stdio},
-    sync::Arc,
-    task::{Context, Poll},
-    time::{Duration, Instant, SystemTime},
-};
+use std::borrow::Cow;
+use std::ffi::OsStr;
+use std::fs;
+use std::io;
+use std::path::Path;
+use std::path::PathBuf;
+use std::pin::Pin;
+use std::process::ExitStatus;
+use std::process::Stdio;
+use std::sync::Arc;
+use std::task::Context;
+use std::task::Poll;
+use std::time::Duration;
+use std::time::Instant;
+use std::time::SystemTime;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_common::file_ops::{FileDigest, FileMetadata, TrackedFileDigest};
-use buck2_core::{
-    directory::DirectoryEntry,
-    fs::{
-        paths::{AbsPathBuf, FileNameBuf},
-        project::ProjectRelativePath,
-    },
-};
+use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::FileMetadata;
+use buck2_common::file_ops::TrackedFileDigest;
+use buck2_core::directory::DirectoryEntry;
+use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::paths::FileNameBuf;
+use buck2_core::fs::project::ProjectRelativePath;
 use derive_more::From;
 use faccess::PathExt;
-use futures::{
-    channel::oneshot,
-    future::{try_join3, FusedFuture, Future, FutureExt},
-};
+use futures::channel::oneshot;
+use futures::future::try_join3;
+use futures::future::FusedFuture;
+use futures::future::Future;
+use futures::future::FutureExt;
 use gazebo::prelude::*;
 use host_sharing::HostSharingBroker;
 use indexmap::IndexMap;
@@ -42,32 +46,37 @@ use more_futures::spawn::dropcancel_critical_section;
 use pin_project::pin_project;
 use remote_execution as RE;
 use thiserror::Error;
-use tokio::{
-    io::{AsyncRead, AsyncReadExt, ReadBuf},
-    process::{Child, Command},
-};
+use tokio::io::AsyncRead;
+use tokio::io::AsyncReadExt;
+use tokio::io::ReadBuf;
+use tokio::process::Child;
+use tokio::process::Command;
 use tracing::info;
 
-use crate::{
-    actions::{
-        artifact::{ArtifactFs, ArtifactValue},
-        directory::{
-            extract_artifact_value, insert_entry, new_symlink, ActionDirectoryBuilder,
-            ActionDirectoryEntry, ActionDirectoryMember,
-        },
-    },
-    execute::{
-        blocking::BlockingExecutor,
-        commands::{
-            inputs_directory, output::CommandStdStreams, CommandExecutionInput,
-            CommandExecutionManager, CommandExecutionOutput, CommandExecutionRequest,
-            CommandExecutionResult, CommandExecutionTarget, CommandExecutionTimingData,
-            ExecutorName, PreparedCommand, PreparedCommandExecutor,
-        },
-        materializer::Materializer,
-        ActionExecutionKind, CleanOutputPaths,
-    },
-};
+use crate::actions::artifact::ArtifactFs;
+use crate::actions::artifact::ArtifactValue;
+use crate::actions::directory::extract_artifact_value;
+use crate::actions::directory::insert_entry;
+use crate::actions::directory::new_symlink;
+use crate::actions::directory::ActionDirectoryBuilder;
+use crate::actions::directory::ActionDirectoryEntry;
+use crate::actions::directory::ActionDirectoryMember;
+use crate::execute::blocking::BlockingExecutor;
+use crate::execute::commands::inputs_directory;
+use crate::execute::commands::output::CommandStdStreams;
+use crate::execute::commands::CommandExecutionInput;
+use crate::execute::commands::CommandExecutionManager;
+use crate::execute::commands::CommandExecutionOutput;
+use crate::execute::commands::CommandExecutionRequest;
+use crate::execute::commands::CommandExecutionResult;
+use crate::execute::commands::CommandExecutionTarget;
+use crate::execute::commands::CommandExecutionTimingData;
+use crate::execute::commands::ExecutorName;
+use crate::execute::commands::PreparedCommand;
+use crate::execute::commands::PreparedCommandExecutor;
+use crate::execute::materializer::Materializer;
+use crate::execute::ActionExecutionKind;
+use crate::execute::CleanOutputPaths;
 
 #[derive(Debug, Error)]
 enum LocalExecutionError {
@@ -526,10 +535,9 @@ pub fn kill_process(child: &Child) -> anyhow::Result<()> {
 
 #[cfg(unix)]
 fn kill_process_impl(pid: u32) -> anyhow::Result<()> {
-    use nix::{
-        sys::signal::{self, Signal},
-        unistd::Pid,
-    };
+    use nix::sys::signal::Signal;
+    use nix::sys::signal::{self};
+    use nix::unistd::Pid;
 
     let pid: i32 = pid.try_into().context("PID does not fit a i32")?;
     signal::kill(Pid::from_raw(pid), Signal::SIGKILL)
@@ -538,11 +546,10 @@ fn kill_process_impl(pid: u32) -> anyhow::Result<()> {
 
 #[cfg(windows)]
 fn kill_process_impl(pid: u32) -> anyhow::Result<()> {
-    use winapi::um::{
-        handleapi::CloseHandle,
-        processthreadsapi::{OpenProcess, TerminateProcess},
-        winnt::PROCESS_TERMINATE,
-    };
+    use winapi::um::handleapi::CloseHandle;
+    use winapi::um::processthreadsapi::OpenProcess;
+    use winapi::um::processthreadsapi::TerminateProcess;
+    use winapi::um::winnt::PROCESS_TERMINATE;
 
     let proc_handle = unsafe { OpenProcess(PROCESS_TERMINATE, 0, pid) };
     // If proc_handle is null, proccess died already.
@@ -667,11 +674,10 @@ trait AsyncReadReady {
 
 #[cfg(unix)]
 mod unix_async_read_ready {
-    use std::{
-        io::Read,
-        marker::PhantomData,
-        os::unix::{io::AsRawFd, prelude::RawFd},
-    };
+    use std::io::Read;
+    use std::marker::PhantomData;
+    use std::os::unix::io::AsRawFd;
+    use std::os::unix::prelude::RawFd;
 
     use nix::unistd;
 
@@ -839,21 +845,23 @@ pub async fn create_output_dirs(
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, str, sync::Arc, time::Instant};
+    use std::collections::HashMap;
+    use std::str;
+    use std::sync::Arc;
+    use std::time::Instant;
 
-    use buck2_core::{
-        cells::{testing::CellResolverExt, CellName, CellResolver},
-        fs::project::{ProjectFilesystem, ProjectRelativePathBuf},
-    };
+    use buck2_core::cells::testing::CellResolverExt;
+    use buck2_core::cells::CellName;
+    use buck2_core::cells::CellResolver;
+    use buck2_core::fs::project::ProjectFilesystem;
+    use buck2_core::fs::project::ProjectRelativePathBuf;
     use host_sharing::HostSharingStrategy;
 
     use super::*;
-    use crate::{
-        execute::{
-            blocking::testing::DummyBlockingExecutor, materializer::nodisk::NoDiskMaterializer,
-        },
-        path::{BuckOutPathResolver, BuckPathResolver},
-    };
+    use crate::execute::blocking::testing::DummyBlockingExecutor;
+    use crate::execute::materializer::nodisk::NoDiskMaterializer;
+    use crate::path::BuckOutPathResolver;
+    use crate::path::BuckPathResolver;
 
     #[tokio::test]
     async fn test_gather_output() -> anyhow::Result<()> {
@@ -926,7 +934,8 @@ mod tests {
     #[tokio::test]
     async fn test_spawn_retry_txt_busy() -> anyhow::Result<()> {
         use futures::future;
-        use tokio::{fs::OpenOptions, io::AsyncWriteExt};
+        use tokio::fs::OpenOptions;
+        use tokio::io::AsyncWriteExt;
 
         let tempdir = tempfile::tempdir()?;
         let bin = tempdir.path().join("bin");
@@ -1025,7 +1034,8 @@ mod tests {
 
     #[cfg(unix)]
     mod interruptible_async_read {
-        use std::{io::Read, sync::Mutex};
+        use std::io::Read;
+        use std::sync::Mutex;
 
         use assert_matches::assert_matches;
         use gazebo::prelude::*;

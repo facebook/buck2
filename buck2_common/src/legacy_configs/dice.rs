@@ -9,26 +9,28 @@
 
 //! Dice operations for legacy configuration
 
-use std::{str::FromStr, sync::Arc};
+use std::str::FromStr;
+use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_core::{
-    cells::CellName,
-    result::{SharedResult, ToSharedResultExt},
-};
+use buck2_core::cells::CellName;
+use buck2_core::result::SharedResult;
+use buck2_core::result::ToSharedResultExt;
 use derive_more::Display;
-use dice::{
-    DiceComputations, DiceProjectionComputations, InjectedKey, Key, OpaqueValue, ProjectionKey,
-};
+use dice::DiceComputations;
+use dice::DiceProjectionComputations;
+use dice::InjectedKey;
+use dice::Key;
+use dice::OpaqueValue;
+use dice::ProjectionKey;
 use gazebo::prelude::*;
 
-use crate::{
-    legacy_configs::{
-        view::{LegacyBuckConfigView, LegacyBuckConfigsView},
-        ConfigError, LegacyBuckConfig, LegacyBuckConfigs,
-    },
-    sorted_hash_map::SortedHashMap,
-};
+use crate::legacy_configs::view::LegacyBuckConfigView;
+use crate::legacy_configs::view::LegacyBuckConfigsView;
+use crate::legacy_configs::ConfigError;
+use crate::legacy_configs::LegacyBuckConfig;
+use crate::legacy_configs::LegacyBuckConfigs;
+use crate::sorted_hash_map::SortedHashMap;
 
 /// Buckconfig view which queries buckconfig entry from DICE.
 #[derive(Clone, Dupe, Debug)]
@@ -327,13 +329,15 @@ impl HasLegacyConfigs for DiceComputations {
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::{cells::CellName, fs::paths::AbsPathBuf};
+    use buck2_core::cells::CellName;
+    use buck2_core::fs::paths::AbsPathBuf;
     use dice::InjectedKey;
 
-    use crate::legacy_configs::{
-        dice::LegacyBuckConfigKey, testing::TestConfigParserFileOps, LegacyBuckConfig,
-        LegacyBuckConfigs, LegacyConfigCmdArg,
-    };
+    use crate::legacy_configs::dice::LegacyBuckConfigKey;
+    use crate::legacy_configs::testing::TestConfigParserFileOps;
+    use crate::legacy_configs::LegacyBuckConfig;
+    use crate::legacy_configs::LegacyBuckConfigs;
+    use crate::legacy_configs::LegacyConfigCmdArg;
 
     #[test]
     fn config_equals() -> anyhow::Result<()> {

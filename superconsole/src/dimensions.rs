@@ -11,7 +11,8 @@ use std::cmp;
 
 use gazebo::prelude::*;
 
-use crate::{content::LinesExt, Line};
+use crate::content::LinesExt;
+use crate::Line;
 
 /// Denotes an x by y area.  Passed to [`Component`](crate::Component)s to give valid drawing area.
 #[derive(Debug, Copy, Clone, Dupe, Eq, PartialEq, Default)]

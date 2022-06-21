@@ -7,7 +7,8 @@
  * of this source tree.
  */
 
-use buck2_common::file_ops::{FileDigest, TrackedFileDigest};
+use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::TrackedFileDigest;
 
 pub type ReDigest = remote_execution::TDigest;
 

@@ -17,28 +17,33 @@
 
 //! The list type, an immutable sequence of values.
 
-use std::{
-    cmp::Ordering,
-    fmt,
-    fmt::{Debug, Display, Formatter},
-    slice,
-};
+use std::cmp::Ordering;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::slice;
 
-use gazebo::{
-    any::ProvidesStaticType,
-    coerce::{coerce, Coerce},
-};
-use serde::{ser::SerializeTuple, Serialize};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::coerce;
+use gazebo::coerce::Coerce;
+use serde::ser::SerializeTuple;
+use serde::Serialize;
 
-use crate::{
-    collections::StarlarkHasher,
-    private::Private,
-    values::{
-        comparison::{compare_slice, equals_slice},
-        index::{apply_slice, convert_index},
-        AllocValue, FrozenValue, Heap, StarlarkValue, UnpackValue, Value, ValueError, ValueLike,
-    },
-};
+use crate::collections::StarlarkHasher;
+use crate::private::Private;
+use crate::values::comparison::compare_slice;
+use crate::values::comparison::equals_slice;
+use crate::values::index::apply_slice;
+use crate::values::index::convert_index;
+use crate::values::AllocValue;
+use crate::values::FrozenValue;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::UnpackValue;
+use crate::values::Value;
+use crate::values::ValueError;
+use crate::values::ValueLike;
 
 /// Define the tuple type. See [`Tuple`] and [`FrozenTuple`] as the two aliases.
 #[repr(C)]

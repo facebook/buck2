@@ -34,35 +34,42 @@
 //! # "#);
 //! ```
 
-use std::{
-    cmp::Ordering,
-    fmt::{self, Display},
-    hash::Hash,
-    marker,
-    marker::PhantomData,
-};
+use std::cmp::Ordering;
+use std::fmt::Display;
+use std::fmt::{self};
+use std::hash::Hash;
+use std::marker;
+use std::marker::PhantomData;
 
-use gazebo::{
-    any::ProvidesStaticType,
-    coerce::{coerce, Coerce},
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::coerce;
+use gazebo::coerce::Coerce;
 use serde::Serialize;
 
-use crate::{
-    self as starlark,
-    collections::{Hashed, SmallMap, StarlarkHasher},
-    environment::{Methods, MethodsStatic},
-    values::{
-        comparison::{compare_small_map, equals_small_map},
-        display::display_keyed_container,
-        docs,
-        docs::DocItem,
-        error::ValueError,
-        layout::typed::string::StringValueLike,
-        AllocValue, Freeze, FrozenValue, Heap, StarlarkValue, StringValue, Trace, UnpackValue,
-        Value, ValueLike, ValueOf,
-    },
-};
+use crate::collections::Hashed;
+use crate::collections::SmallMap;
+use crate::collections::StarlarkHasher;
+use crate::environment::Methods;
+use crate::environment::MethodsStatic;
+use crate::values::comparison::compare_small_map;
+use crate::values::comparison::equals_small_map;
+use crate::values::display::display_keyed_container;
+use crate::values::docs;
+use crate::values::docs::DocItem;
+use crate::values::error::ValueError;
+use crate::values::layout::typed::string::StringValueLike;
+use crate::values::AllocValue;
+use crate::values::Freeze;
+use crate::values::FrozenValue;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::StringValue;
+use crate::values::Trace;
+use crate::values::UnpackValue;
+use crate::values::Value;
+use crate::values::ValueLike;
+use crate::values::ValueOf;
+use crate::{self as starlark};
 
 impl<'v, V: ValueLike<'v>> StructGen<'v, V> {
     /// The result of calling `type()` on a struct.
@@ -286,13 +293,11 @@ impl<'v, V: UnpackValue<'v>> StructOf<'v, V> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        assert,
-        values::{
-            docs,
-            docs::{DocItem, DocString, DocStringKind},
-        },
-    };
+    use crate::assert;
+    use crate::values::docs;
+    use crate::values::docs::DocItem;
+    use crate::values::docs::DocString;
+    use crate::values::docs::DocStringKind;
 
     #[test]
     fn test_repr() {

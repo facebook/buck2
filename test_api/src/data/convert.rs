@@ -1,29 +1,41 @@
-use std::{
-    convert::{TryFrom, TryInto},
-    time::SystemTime,
-};
+use std::convert::TryFrom;
+use std::convert::TryInto;
+use std::time::SystemTime;
 
 use anyhow::Context as _;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
 use gazebo::prelude::*;
 
 use super::PrepareForLocalExecutionResult;
-use crate::{
-    convert,
-    data::{
-        ArgHandle, ArgValue, ArgValueContent, ConfiguredTarget, ConfiguredTargetHandle,
-        DeclaredOutput, DisplayMetadata, EnvHandle, ExecuteRequest2, ExecutionResult2,
-        ExecutionStatus, ExecutionStream, ExecutorConfigOverride, ExternalRunnerSpec,
-        ExternalRunnerSpecValue, Output, TestExecutable, TestResult, TestStatus,
-    },
-    protocol::convert::{host_sharing_requirements_from_grpc, host_sharing_requirements_to_grpc},
-};
+use crate::convert;
+use crate::data::ArgHandle;
+use crate::data::ArgValue;
+use crate::data::ArgValueContent;
+use crate::data::ConfiguredTarget;
+use crate::data::ConfiguredTargetHandle;
+use crate::data::DeclaredOutput;
+use crate::data::DisplayMetadata;
+use crate::data::EnvHandle;
+use crate::data::ExecuteRequest2;
+use crate::data::ExecutionResult2;
+use crate::data::ExecutionStatus;
+use crate::data::ExecutionStream;
+use crate::data::ExecutorConfigOverride;
+use crate::data::ExternalRunnerSpec;
+use crate::data::ExternalRunnerSpecValue;
+use crate::data::Output;
+use crate::data::TestExecutable;
+use crate::data::TestResult;
+use crate::data::TestStatus;
+use crate::protocol::convert::host_sharing_requirements_from_grpc;
+use crate::protocol::convert::host_sharing_requirements_to_grpc;
 
 impl TryFrom<test_proto::DisplayMetadata> for DisplayMetadata {
     type Error = anyhow::Error;
 
     fn try_from(s: test_proto::DisplayMetadata) -> Result<Self, Self::Error> {
-        use test_proto::{display_metadata::*, Testing};
+        use test_proto::display_metadata::*;
+        use test_proto::Testing;
 
         let res = match s.item.context("Missing `item`")? {
             Item::Listing(Listing { suite }) => Self::Listing(suite),
@@ -38,7 +50,8 @@ impl TryInto<test_proto::DisplayMetadata> for DisplayMetadata {
     type Error = anyhow::Error;
 
     fn try_into(self) -> Result<test_proto::DisplayMetadata, Self::Error> {
-        use test_proto::{display_metadata::*, Testing};
+        use test_proto::display_metadata::*;
+        use test_proto::Testing;
 
         let item = match self {
             Self::Listing(suite) => Item::Listing(Listing { suite }),
@@ -725,7 +738,11 @@ impl TryFrom<test_proto::PrepareForLocalExecutionResult> for PrepareForLocalExec
 
 #[cfg(test)]
 mod tests {
-    use std::{cmp::PartialEq, collections::HashMap, convert::TryInto, fmt::Debug, time::Duration};
+    use std::cmp::PartialEq;
+    use std::collections::HashMap;
+    use std::convert::TryInto;
+    use std::fmt::Debug;
+    use std::time::Duration;
 
     use host_sharing::HostSharingRequirements;
 

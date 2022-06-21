@@ -7,16 +7,21 @@
  * of this source tree.
  */
 
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use crossbeam::queue::SegQueue;
 use derivative::Derivative;
 use derive_more::Display;
-use dice::{DiceComputations, InjectedKey, Key};
-use futures::{future, FutureExt};
+use dice::DiceComputations;
+use dice::InjectedKey;
+use dice::Key;
+use futures::future;
+use futures::FutureExt;
 use gazebo::prelude::*;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Display, Debug)]
 #[derive(Serialize, Deserialize)]
@@ -206,7 +211,8 @@ impl Key for EvalVar {
 
 #[cfg(test)]
 mod tests {
-    use dice::{cycles::DetectCycles, Dice};
+    use dice::cycles::DetectCycles;
+    use dice::Dice;
 
     use super::*;
 

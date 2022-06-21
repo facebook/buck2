@@ -10,32 +10,27 @@
 use std::io::Write;
 
 use async_trait::async_trait;
-use buck2_build_api::{
-    calculation::Calculation,
-    interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue,
-};
-use buck2_common::dice::{cells::HasCellResolver, file_ops::HasFileOps};
-use buck2_core::{
-    provider::{ProvidersLabel, ProvidersName},
-    target::TargetLabel,
-};
+use buck2_build_api::calculation::Calculation;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::file_ops::HasFileOps;
+use buck2_core::provider::ProvidersLabel;
+use buck2_core::provider::ProvidersName;
+use buck2_core::target::TargetLabel;
 use buck2_interpreter::pattern::ProvidersPattern;
 use cli_proto::ClientContext;
-use futures::{stream::FuturesOrdered, StreamExt};
+use futures::stream::FuturesOrdered;
+use futures::StreamExt;
 use gazebo::prelude::*;
 
-use crate::{
-    commands::{
-        audit::AuditSubcommand,
-        common::{CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions},
-    },
-    daemon::{
-        common::{
-            parse_patterns_from_cli_args, resolve_patterns, target_platform_from_client_context,
-        },
-        server::ServerCommandContext,
-    },
-};
+use crate::commands::audit::AuditSubcommand;
+use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonConsoleOptions;
+use crate::commands::common::CommonEventLogOptions;
+use crate::daemon::common::parse_patterns_from_cli_args;
+use crate::daemon::common::resolve_patterns;
+use crate::daemon::common::target_platform_from_client_context;
+use crate::daemon::server::ServerCommandContext;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(

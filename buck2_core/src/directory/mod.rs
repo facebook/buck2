@@ -32,34 +32,50 @@ mod shared_directory;
 mod test;
 mod walk;
 
-pub use builder::{
-    DirectoryBuilder, DirectoryInsertError, DirectoryMergeError, DirectoryMkdirError,
-};
+pub use builder::DirectoryBuilder;
+pub use builder::DirectoryInsertError;
+pub use builder::DirectoryMergeError;
+pub use builder::DirectoryMkdirError;
 pub use dashmap_directory_interner::DashMapDirectoryInterner;
-pub use directory::{Directory, DirectoryEntries};
+pub use directory::Directory;
+pub use directory::DirectoryEntries;
 pub use directory_data::DirectoryData;
-pub use directory_hasher::{DirectoryHasher, HasDirectoryDigest};
-pub use directory_iterator::{
-    DirectoryIterator, DirectoryIteratorPathAccessor, DirectoryIteratorPathStack,
-    DirectoryIteratorWithPaths, DirectoryIteratorWithoutPaths,
-};
-pub use directory_selector::{
-    DirectorySearchError, DirectorySelector, FingerprintedOrderedDirectorySearch,
-    FingerprintedUnorderedDirectorySearch, OrderedDirectorySearch, UnorderedDirectorySearch,
-};
-use entries::{FingerprintedOrderedDirectoryEntries, OrderedDirectoryEntries};
+pub use directory_hasher::DirectoryHasher;
+pub use directory_hasher::HasDirectoryDigest;
+pub use directory_iterator::DirectoryIterator;
+pub use directory_iterator::DirectoryIteratorPathAccessor;
+pub use directory_iterator::DirectoryIteratorPathStack;
+pub use directory_iterator::DirectoryIteratorWithPaths;
+pub use directory_iterator::DirectoryIteratorWithoutPaths;
+pub use directory_selector::DirectorySearchError;
+pub use directory_selector::DirectorySelector;
+pub use directory_selector::FingerprintedOrderedDirectorySearch;
+pub use directory_selector::FingerprintedUnorderedDirectorySearch;
+pub use directory_selector::OrderedDirectorySearch;
+pub use directory_selector::UnorderedDirectorySearch;
+use entries::FingerprintedOrderedDirectoryEntries;
+use entries::OrderedDirectoryEntries;
 pub use entry::DirectoryEntry;
 pub use exclusive_directory::ExclusiveDirectory;
-pub use find::{find, find_fingerprinted, DirectoryFindError};
-pub use fingerprinted_directory::{FingerprintedDirectory, FingerprintedDirectoryEntries};
+pub use find::find;
+pub use find::find_fingerprinted;
+pub use find::DirectoryFindError;
+pub use fingerprinted_directory::FingerprintedDirectory;
+pub use fingerprinted_directory::FingerprintedDirectoryEntries;
 pub use immutable_directory::ImmutableDirectory;
 pub use no_hasher::NoHasher;
 pub use path_accumulator::PathAccumulator;
-pub use shared_directory::{SharedDirectory, SharedDirectoryData, SharedDirectoryInner};
-pub use walk::{
-    fingerprinted_ordered_entry_walk, fingerprinted_unordered_entry_walk, ordered_entry_walk,
-    unordered_entry_walk, DirectoryEntryWalk, FingerprintedOrderedDirectoryWalk,
-    FingerprintedUnorderedDirectoryWalk, OrderedDirectoryWalk, UnorderedDirectoryWalk,
-};
+pub use shared_directory::SharedDirectory;
+pub use shared_directory::SharedDirectoryData;
+pub use shared_directory::SharedDirectoryInner;
+pub use walk::fingerprinted_ordered_entry_walk;
+pub use walk::fingerprinted_unordered_entry_walk;
+pub use walk::ordered_entry_walk;
+pub use walk::unordered_entry_walk;
+pub use walk::DirectoryEntryWalk;
+pub use walk::FingerprintedOrderedDirectoryWalk;
+pub use walk::FingerprintedUnorderedDirectoryWalk;
+pub use walk::OrderedDirectoryWalk;
+pub use walk::UnorderedDirectoryWalk;
 
 use self::macros::impl_fingerprinted_directory;

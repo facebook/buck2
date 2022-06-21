@@ -7,30 +7,32 @@
  * of this source tree.
  */
 
-use std::{
-    fmt::{self, Debug, Display},
-    marker::PhantomData,
-};
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::{self};
+use std::marker::PhantomData;
 
 use anyhow::anyhow;
-use buck2_core::fs::{
-    paths::{RelativePath, RelativePathBuf},
-    project::ProjectRelativePathBuf,
-};
+use buck2_core::fs::paths::RelativePath;
+use buck2_core::fs::paths::RelativePathBuf;
+use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_interpreter::types::cell_root::CellRoot;
 use derive_more::Display;
 use gazebo::prelude::*;
-use serde::{Serialize, Serializer};
-use starlark::values::{Freeze, StringValueLike, Trace, ValueLike};
+use serde::Serialize;
+use serde::Serializer;
+use starlark::values::Freeze;
+use starlark::values::StringValueLike;
+use starlark::values::Trace;
+use starlark::values::ValueLike;
 
-use crate::{
-    actions::artifact::ExecutorFs,
-    interpreter::rule_defs::{
-        artifact::{StarlarkArtifactLike, ValueAsArtifactLike},
-        cmd_args::{traits::CommandLineBuilderContext, CommandLineBuilder, CommandLineLocation},
-        util::commas,
-    },
-};
+use crate::actions::artifact::ExecutorFs;
+use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
+use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
+use crate::interpreter::rule_defs::cmd_args::traits::CommandLineBuilderContext;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
+use crate::interpreter::rule_defs::util::commas;
 
 /// Supported ways of quoting arguments.
 #[derive(Debug, Clone, Dupe, Trace, Freeze, Serialize)]

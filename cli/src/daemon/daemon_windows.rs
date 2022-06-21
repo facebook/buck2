@@ -7,7 +7,9 @@
  * of this source tree.
  */
 
-use std::{net::SocketAddr, path::Path, pin::Pin};
+use std::net::SocketAddr;
+use std::path::Path;
+use std::pin::Pin;
 
 use futures::Stream;
 

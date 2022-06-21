@@ -3,11 +3,17 @@
 #[allow(unused_extern_crates)] // proc_macro is very special
 extern crate proc_macro;
 
-use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro2::Ident;
+use proc_macro2::Span;
+use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{
-    parse::ParseStream, parse_macro_input, spanned::Spanned, Attribute, DeriveInput, LitStr, Token,
-};
+use syn::parse::ParseStream;
+use syn::parse_macro_input;
+use syn::spanned::Spanned;
+use syn::Attribute;
+use syn::DeriveInput;
+use syn::LitStr;
+use syn::Token;
 
 struct DocDeriveOptions {
     module: Ident,

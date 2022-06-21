@@ -7,20 +7,22 @@
  * of this source tree.
  */
 
-use std::{
-    cmp,
-    cmp::min,
-    collections::{BTreeMap, BTreeSet, Bound},
-    fmt::Debug,
-};
+use std::cmp;
+use std::cmp::min;
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
+use std::collections::Bound;
+use std::fmt::Debug;
 
-use gazebo::{prelude::*, variants::VariantName};
-use serde::{Deserialize, Serialize};
+use gazebo::prelude::*;
+use gazebo::variants::VariantName;
+use serde::Deserialize;
+use serde::Serialize;
 
-use crate::incremental::{
-    graph::ReadOnlyHistory,
-    versions::{VersionNumber, VersionRange, VersionRanges},
-};
+use crate::incremental::graph::ReadOnlyHistory;
+use crate::incremental::versions::VersionNumber;
+use crate::incremental::versions::VersionRange;
+use crate::incremental::versions::VersionRanges;
 
 /// The history of one computation unit.
 /// The history is one of the `HistoryState`s.
@@ -390,10 +392,10 @@ pub(crate) enum HistoryState {
 pub(crate) mod testing {
     use gazebo::variants::VariantName;
 
-    use crate::incremental::{
-        history::{CellHistory, HistoryState},
-        VersionNumber, VersionRanges,
-    };
+    use crate::incremental::history::CellHistory;
+    use crate::incremental::history::HistoryState;
+    use crate::incremental::VersionNumber;
+    use crate::incremental::VersionRanges;
 
     pub(crate) trait CellHistoryExt {
         fn testing_new(verified: &[VersionNumber], dirtied: &[VersionNumber]) -> Self;
@@ -450,15 +452,14 @@ pub(crate) mod testing {
 mod tests {
     use std::collections::BTreeSet;
 
-    use crate::incremental::{
-        graph::ReadOnlyHistory,
-        history::{
-            testing::{CellHistoryExt, HistoryExt},
-            CellHistory,
-        },
-        versions::{testing::VersionRangesExt, VersionRange, VersionRanges},
-        VersionNumber,
-    };
+    use crate::incremental::graph::ReadOnlyHistory;
+    use crate::incremental::history::testing::CellHistoryExt;
+    use crate::incremental::history::testing::HistoryExt;
+    use crate::incremental::history::CellHistory;
+    use crate::incremental::versions::testing::VersionRangesExt;
+    use crate::incremental::versions::VersionRange;
+    use crate::incremental::versions::VersionRanges;
+    use crate::incremental::VersionNumber;
 
     #[test]
     fn cell_history_propagates() {

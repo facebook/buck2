@@ -8,11 +8,10 @@
  */
 
 use fancy_regex::Regex;
-use starlark::{
-    environment::GlobalsBuilder,
-    eval::Evaluator,
-    values::{dict::DictRef, none::NoneType},
-};
+use starlark::environment::GlobalsBuilder;
+use starlark::eval::Evaluator;
+use starlark::values::dict::DictRef;
+use starlark::values::none::NoneType;
 use tracing::warn;
 
 use crate::interpreter::rule_defs::provider::registration::register_builtin_providers;
@@ -67,7 +66,8 @@ pub fn register_rule_defs(globals: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 mod tests {
-    use crate::interpreter::testing::{import, Tester};
+    use crate::interpreter::testing::import;
+    use crate::interpreter::testing::Tester;
 
     #[test]
     fn test_load_symbols() -> anyhow::Result<()> {

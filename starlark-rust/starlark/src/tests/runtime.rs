@@ -17,23 +17,22 @@
 
 //! Test of runtime.
 
-use std::{
-    fmt::Write,
-    mem,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use std::fmt::Write;
+use std::mem;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 
 use derive_more::Display;
 use once_cell::sync::Lazy;
 
 use crate as starlark;
-use crate::{
-    assert,
-    assert::Assert,
-    environment::GlobalsBuilder,
-    eval::Evaluator,
-    values::{any::StarlarkAny, FrozenHeap, Heap},
-};
+use crate::assert;
+use crate::assert::Assert;
+use crate::environment::GlobalsBuilder;
+use crate::eval::Evaluator;
+use crate::values::any::StarlarkAny;
+use crate::values::FrozenHeap;
+use crate::values::Heap;
 
 #[test]
 fn test_garbage_collect() {

@@ -17,9 +17,11 @@
 
 //! Detect recursion when doing `repr` or `to_json`.
 
-use std::{cell::Cell, intrinsics::unlikely};
+use std::cell::Cell;
+use std::intrinsics::unlikely;
 
-use crate::{collections::SmallSet, values::Value};
+use crate::collections::SmallSet;
+use crate::values::Value;
 
 /// Pop the stack on drop.
 pub(crate) struct ReprStackGuard;

@@ -7,30 +7,41 @@
  * of this source tree.
  */
 
-use std::{borrow::Cow, convert::TryFrom, time::Instant};
+use std::borrow::Cow;
+use std::convert::TryFrom;
+use std::time::Instant;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_common::file_ops::{FileDigest, FileMetadata, TrackedFileDigest};
+use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::FileMetadata;
+use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::category::Category;
 use gazebo::dupe::Dupe;
-use indexmap::{indexmap, IndexMap, IndexSet};
+use indexmap::indexmap;
+use indexmap::IndexMap;
+use indexmap::IndexSet;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
 
-use crate::{
-    actions::{
-        artifact::{Artifact, ArtifactValue, BuildArtifact, ExecutorFs},
-        Action, ActionExecutable, ActionExecutionCtx, PristineActionExecutable, UnregisteredAction,
-    },
-    artifact_groups::ArtifactGroup,
-    execute::{
-        ActionExecutionKind, ActionExecutionMetadata, ActionExecutionTimingData, ActionOutputs,
-    },
-    interpreter::rule_defs::cmd_args::{BaseCommandLineBuilder, ValueAsCommandLineLike},
-};
+use crate::actions::artifact::Artifact;
+use crate::actions::artifact::ArtifactValue;
+use crate::actions::artifact::BuildArtifact;
+use crate::actions::artifact::ExecutorFs;
+use crate::actions::Action;
+use crate::actions::ActionExecutable;
+use crate::actions::ActionExecutionCtx;
+use crate::actions::PristineActionExecutable;
+use crate::actions::UnregisteredAction;
+use crate::artifact_groups::ArtifactGroup;
+use crate::execute::ActionExecutionKind;
+use crate::execute::ActionExecutionMetadata;
+use crate::execute::ActionExecutionTimingData;
+use crate::execute::ActionOutputs;
+use crate::interpreter::rule_defs::cmd_args::BaseCommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 
 #[derive(Debug, Error)]
 enum WriteActionValidationError {

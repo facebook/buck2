@@ -7,56 +7,61 @@
  * of this source tree.
  */
 
-use std::{
-    collections::{BTreeMap, HashSet},
-    sync::Arc,
-};
+use std::collections::BTreeMap;
+use std::collections::HashSet;
+use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_common::dice::{cells::HasCellResolver, data::HasIoProvider};
-use buck2_core::{
-    configuration::Configuration,
-    package::Package,
-    provider::{ConfiguredProvidersLabel, ProvidersLabel},
-    result::SharedResult,
-    target::{ConfiguredTargetLabel, TargetLabel, TargetName},
-};
-use buck2_interpreter::{
-    common::StarlarkModulePath,
-    file_loader::LoadedModule,
-    pattern::{
-        find_package_roots_stream, PackageSpec, ParsedPattern, ResolvedPattern, TargetPattern,
-    },
-};
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::data::HasIoProvider;
+use buck2_core::configuration::Configuration;
+use buck2_core::package::Package;
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::ProvidersLabel;
+use buck2_core::result::SharedResult;
+use buck2_core::target::ConfiguredTargetLabel;
+use buck2_core::target::TargetLabel;
+use buck2_core::target::TargetName;
+use buck2_interpreter::common::StarlarkModulePath;
+use buck2_interpreter::file_loader::LoadedModule;
+use buck2_interpreter::pattern::find_package_roots_stream;
+use buck2_interpreter::pattern::PackageSpec;
+use buck2_interpreter::pattern::ParsedPattern;
+use buck2_interpreter::pattern::ResolvedPattern;
+use buck2_interpreter::pattern::TargetPattern;
 use dice::DiceComputations;
-use futures::{future::BoxFuture, stream::FuturesUnordered, FutureExt, Stream, StreamExt};
+use futures::future::BoxFuture;
+use futures::stream::FuturesUnordered;
+use futures::FutureExt;
+use futures::Stream;
+use futures::StreamExt;
 use gazebo::dupe::Dupe;
 use owning_ref::ArcRef;
 use thiserror::Error;
 
-use crate::{
-    actions::{
-        artifact::{ArtifactFs, BuildArtifact},
-        calculation as action_calculation, ActionKey,
-    },
-    analysis::calculation as analysis_calculation,
-    artifact_groups::{
-        calculation as artifact_group_calculation, ArtifactGroup, ArtifactGroupValues,
-    },
-    configuration::ConfigurationCalculation,
-    context::HasBuildContextData,
-    deferred::{calculation as deferred_calculation, AnyValue, DeferredData},
-    execute::ActionOutputs,
-    interpreter::{
-        calculation as interpreter_calculation, module_internals::EvaluationResult,
-        rule_defs::provider::collection::FrozenProviderCollectionValue,
-    },
-    nodes::{
-        calculation as node_calculation, compatibility::MaybeCompatible,
-        configured::ConfiguredTargetNode, unconfigured::TargetNode,
-    },
-    path::{BuckOutPathResolver, BuckPathResolver},
-};
+use crate::actions::artifact::ArtifactFs;
+use crate::actions::artifact::BuildArtifact;
+use crate::actions::calculation as action_calculation;
+use crate::actions::ActionKey;
+use crate::analysis::calculation as analysis_calculation;
+use crate::artifact_groups::calculation as artifact_group_calculation;
+use crate::artifact_groups::ArtifactGroup;
+use crate::artifact_groups::ArtifactGroupValues;
+use crate::configuration::ConfigurationCalculation;
+use crate::context::HasBuildContextData;
+use crate::deferred::calculation as deferred_calculation;
+use crate::deferred::AnyValue;
+use crate::deferred::DeferredData;
+use crate::execute::ActionOutputs;
+use crate::interpreter::calculation as interpreter_calculation;
+use crate::interpreter::module_internals::EvaluationResult;
+use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use crate::nodes::calculation as node_calculation;
+use crate::nodes::compatibility::MaybeCompatible;
+use crate::nodes::configured::ConfiguredTargetNode;
+use crate::nodes::unconfigured::TargetNode;
+use crate::path::BuckOutPathResolver;
+use crate::path::BuckPathResolver;
 
 #[derive(Debug, Error)]
 pub enum BuildErrors {

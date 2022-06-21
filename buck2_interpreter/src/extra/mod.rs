@@ -7,30 +7,34 @@
  * of this source tree.
  */
 
-use std::{any::Any, fmt, fmt::Debug, sync::Arc};
+use std::any::Any;
+use std::fmt;
+use std::fmt::Debug;
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
-use buck2_core::{
-    cells::paths::CellPath,
-    package::{Package, PackageRelativePath},
-    result::SharedResult,
-};
-use gazebo::{any::ProvidesStaticType, cmp::PartialEqAny, dupe::Dupe};
-use starlark::{
-    environment::{GlobalsBuilder, Module},
-    eval::Evaluator,
-};
+use buck2_core::cells::paths::CellPath;
+use buck2_core::package::Package;
+use buck2_core::package::PackageRelativePath;
+use buck2_core::result::SharedResult;
+use gazebo::any::ProvidesStaticType;
+use gazebo::cmp::PartialEqAny;
+use gazebo::dupe::Dupe;
+use starlark::environment::GlobalsBuilder;
+use starlark::environment::Module;
+use starlark::eval::Evaluator;
 use thiserror::Error;
 
-use crate::{
-    common::{BuildFilePath, ImportPath, StarlarkPath},
-    extra::{buckconfig::LegacyBuckConfigForStarlark, cell_info::InterpreterCellInfo},
-    file_loader::LoadedModules,
-    globspec::GlobSpec,
-    package_imports::ImplicitImport,
-    package_listing::listing::PackageListing,
-};
+use crate::common::BuildFilePath;
+use crate::common::ImportPath;
+use crate::common::StarlarkPath;
+use crate::extra::buckconfig::LegacyBuckConfigForStarlark;
+use crate::extra::cell_info::InterpreterCellInfo;
+use crate::file_loader::LoadedModules;
+use crate::globspec::GlobSpec;
+use crate::package_imports::ImplicitImport;
+use crate::package_listing::listing::PackageListing;
 
 pub(crate) mod binary_search;
 pub mod buckconfig;
@@ -267,33 +271,36 @@ impl PartialEq for dyn InterpreterConfiguror {
 
 #[cfg(test)]
 pub(crate) mod testing {
-    use std::{
-        borrow::BorrowMut,
-        collections::HashMap,
-        sync::{Arc, Mutex},
-    };
+    use std::borrow::BorrowMut;
+    use std::collections::HashMap;
+    use std::sync::Arc;
+    use std::sync::Mutex;
 
-    use buck2_core::{cells::paths::CellPath, package::Package, result::SharedResult};
-    use gazebo::{cmp::PartialEqAny, prelude::*};
-    use serde_json::{Map, Value};
-    use starlark::{
-        collections::SmallMap,
-        environment::GlobalsBuilder,
-        eval::{ParametersParser, ParametersSpec},
-        values,
-        values::function::NativeFunction,
-    };
+    use buck2_core::cells::paths::CellPath;
+    use buck2_core::package::Package;
+    use buck2_core::result::SharedResult;
+    use gazebo::cmp::PartialEqAny;
+    use gazebo::prelude::*;
+    use serde_json::Map;
+    use serde_json::Value;
+    use starlark::collections::SmallMap;
+    use starlark::environment::GlobalsBuilder;
+    use starlark::eval::ParametersParser;
+    use starlark::eval::ParametersSpec;
+    use starlark::values;
+    use starlark::values::function::NativeFunction;
 
-    use crate::{
-        common::{BuildFilePath, StarlarkPath},
-        extra::{
-            cell_info::InterpreterCellInfo, ExtraContext, ExtraContextDyn, InterpreterConfiguror,
-            InterpreterHostArchitecture, InterpreterHostPlatform,
-        },
-        file_loader::LoadedModules,
-        package_imports::ImplicitImport,
-        package_listing::listing::PackageListing,
-    };
+    use crate::common::BuildFilePath;
+    use crate::common::StarlarkPath;
+    use crate::extra::cell_info::InterpreterCellInfo;
+    use crate::extra::ExtraContext;
+    use crate::extra::ExtraContextDyn;
+    use crate::extra::InterpreterConfiguror;
+    use crate::extra::InterpreterHostArchitecture;
+    use crate::extra::InterpreterHostPlatform;
+    use crate::file_loader::LoadedModules;
+    use crate::package_imports::ImplicitImport;
+    use crate::package_listing::listing::PackageListing;
 
     #[derive(Clone, Debug)]
     pub struct TesterEvalResult {

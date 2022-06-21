@@ -19,11 +19,11 @@ use std::ptr;
 
 use gazebo::dupe::Dupe;
 
-use crate::{
-    errors::Frame,
-    eval::runtime::call_stack::FrozenFileSpan,
-    values::{FrozenHeap, FrozenRef, FrozenValue},
-};
+use crate::errors::Frame;
+use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::values::FrozenHeap;
+use crate::values::FrozenRef;
+use crate::values::FrozenValue;
 
 /// When a function `a` is inlined into `b`, this struct contains
 /// the inlined frame for expressions in `a` which now reside in `b`.
@@ -144,14 +144,11 @@ impl<'f> InlinedFrameAlloc<'f> {
 mod tests {
     use gazebo::prelude::*;
 
-    use crate::{
-        codemap::CodeMap,
-        eval::runtime::{
-            call_stack::FrozenFileSpan,
-            inlined_frame::{InlinedFrameAlloc, InlinedFrames},
-        },
-        values::FrozenHeap,
-    };
+    use crate::codemap::CodeMap;
+    use crate::eval::runtime::call_stack::FrozenFileSpan;
+    use crate::eval::runtime::inlined_frame::InlinedFrameAlloc;
+    use crate::eval::runtime::inlined_frame::InlinedFrames;
+    use crate::values::FrozenHeap;
 
     #[test]
     fn test_inline_into() {

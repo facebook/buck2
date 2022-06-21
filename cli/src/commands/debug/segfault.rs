@@ -12,10 +12,9 @@ use buck2_core::exit_result::ExitResult;
 use cli_proto::SegfaultRequest;
 use futures::FutureExt;
 
-use crate::{
-    commands::common::{CommonConsoleOptions, CommonEventLogOptions},
-    StreamingCommand,
-};
+use crate::commands::common::CommonConsoleOptions;
+use crate::commands::common::CommonEventLogOptions;
+use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
 pub(crate) struct SegfaultCommand {}

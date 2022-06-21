@@ -7,10 +7,11 @@
  * of this source tree.
  */
 
-use super::{
-    Directory, DirectoryEntries, DirectoryEntry, FingerprintedDirectory,
-    FingerprintedDirectoryEntries,
-};
+use super::Directory;
+use super::DirectoryEntries;
+use super::DirectoryEntry;
+use super::FingerprintedDirectory;
+use super::FingerprintedDirectoryEntries;
 use crate::fs::paths::FileName;
 
 macro_rules! impl_ordered_entries {

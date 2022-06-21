@@ -7,26 +7,32 @@
  * of this source tree.
  */
 
-use std::{
-    cmp::Eq,
-    collections::{BTreeMap, HashMap, HashSet},
-    fmt::{self, Display},
-    hash::{Hash, Hasher},
-    sync::Arc,
-};
+use std::cmp::Eq;
+use std::collections::BTreeMap;
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::fmt::Display;
+use std::fmt::{self};
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::sync::Arc;
 
-use gazebo::{cmp::PartialEqAny, prelude::*};
-use serde::{Deserialize, Serialize};
+use gazebo::cmp::PartialEqAny;
+use gazebo::prelude::*;
+use serde::Deserialize;
+use serde::Serialize;
 
-use crate::incremental::{
-    graph::{
-        dependencies::{VersionedDependencies, VersionedRevDependencies},
-        storage_properties::StorageProperties,
-        GraphNodeDyn, VersionedGraph, VersionedGraphNodeInternal,
-    },
-    versions::VersionNumber,
-    CellHistory, Dependency, IncrementalComputeProperties, IncrementalEngine,
-};
+use crate::incremental::graph::dependencies::VersionedDependencies;
+use crate::incremental::graph::dependencies::VersionedRevDependencies;
+use crate::incremental::graph::storage_properties::StorageProperties;
+use crate::incremental::graph::GraphNodeDyn;
+use crate::incremental::graph::VersionedGraph;
+use crate::incremental::graph::VersionedGraphNodeInternal;
+use crate::incremental::versions::VersionNumber;
+use crate::incremental::CellHistory;
+use crate::incremental::Dependency;
+use crate::incremental::IncrementalComputeProperties;
+use crate::incremental::IncrementalEngine;
 
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Dupe, Copy)]
 #[serde(transparent)]

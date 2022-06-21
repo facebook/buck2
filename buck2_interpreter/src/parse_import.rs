@@ -12,13 +12,12 @@
 use std::convert::TryFrom;
 
 use anyhow::anyhow;
-use buck2_core::{
-    cells::{
-        paths::{CellPath, CellRelativePath, CellRelativePathBuf},
-        CellAliasResolver,
-    },
-    fs::paths::{FileName, ForwardRelativePath},
-};
+use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::cells::paths::CellRelativePathBuf;
+use buck2_core::cells::CellAliasResolver;
+use buck2_core::fs::paths::FileName;
+use buck2_core::fs::paths::ForwardRelativePath;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -158,9 +157,12 @@ pub fn parse_import_with_config(
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, sync::Arc};
+    use std::collections::HashMap;
+    use std::sync::Arc;
 
-    use buck2_core::cells::{CellAlias, CellAliasResolver, CellName};
+    use buck2_core::cells::CellAlias;
+    use buck2_core::cells::CellAliasResolver;
+    use buck2_core::cells::CellName;
 
     use super::*;
 

@@ -7,19 +7,19 @@
  * of this source tree.
  */
 
-use std::{
-    fmt,
-    hash::{Hash, Hasher},
-};
+use std::fmt;
+use std::hash::Hash;
+use std::hash::Hasher;
 
 use indexmap::IndexSet;
-use starlark::values::{string::STRING_TYPE, Value};
+use starlark::values::string::STRING_TYPE;
+use starlark::values::Value;
 use thiserror::Error;
 
-use crate::attrs::{
-    attr_type::attr_literal::{AttrLiteral, CoercionError},
-    AttrCoercionContext, CoercedAttr,
-};
+use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::attr_literal::CoercionError;
+use crate::attrs::AttrCoercionContext;
+use crate::attrs::CoercedAttr;
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) struct EnumAttrType {

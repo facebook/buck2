@@ -15,48 +15,52 @@ pub mod rule_defs;
 
 #[cfg(test)]
 pub mod testing {
-    use std::{convert::TryFrom, sync::Arc};
+    use std::convert::TryFrom;
+    use std::sync::Arc;
 
-    use buck2_common::legacy_configs::{
-        testing::TestConfigParserFileOps, LegacyBuckConfig, LegacyBuckConfigs,
-    };
-    use buck2_core::{
-        cells::{paths::CellPath, *},
-        fs::{paths::*, project::ProjectRelativePathBuf},
-        result::SharedResult,
-    };
-    use buck2_interpreter::{
-        common::{
-            BuildFileCell, BuildFilePath, ImportPath, OwnedStarlarkModulePath, StarlarkModulePath,
-            StarlarkPath,
-        },
-        extra::{
-            cell_info::InterpreterCellInfo, ExtraContextDyn, InterpreterConfiguror,
-            InterpreterHostArchitecture, InterpreterHostPlatform,
-        },
-        file_loader::{LoadedModule, LoadedModules},
-        import_paths::ImportPaths,
-        interpreter::{
-            GlobalInterpreterState, InterpreterConfigForCell, InterpreterForCell, ParseResult,
-        },
-        package_imports::ImplicitImport,
-        package_listing::listing::{testing::PackageListingExt, PackageListing},
-        starlark_profiler::{StarlarkProfilerInstrumentation, StarlarkProfilerOrInstrumentation},
-    };
-    use gazebo::{cmp::PartialEqAny, prelude::*};
+    use buck2_common::legacy_configs::testing::TestConfigParserFileOps;
+    use buck2_common::legacy_configs::LegacyBuckConfig;
+    use buck2_common::legacy_configs::LegacyBuckConfigs;
+    use buck2_core::cells::paths::CellPath;
+    use buck2_core::cells::*;
+    use buck2_core::fs::paths::*;
+    use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::result::SharedResult;
+    use buck2_interpreter::common::BuildFileCell;
+    use buck2_interpreter::common::BuildFilePath;
+    use buck2_interpreter::common::ImportPath;
+    use buck2_interpreter::common::OwnedStarlarkModulePath;
+    use buck2_interpreter::common::StarlarkModulePath;
+    use buck2_interpreter::common::StarlarkPath;
+    use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
+    use buck2_interpreter::extra::ExtraContextDyn;
+    use buck2_interpreter::extra::InterpreterConfiguror;
+    use buck2_interpreter::extra::InterpreterHostArchitecture;
+    use buck2_interpreter::extra::InterpreterHostPlatform;
+    use buck2_interpreter::file_loader::LoadedModule;
+    use buck2_interpreter::file_loader::LoadedModules;
+    use buck2_interpreter::import_paths::ImportPaths;
+    use buck2_interpreter::interpreter::GlobalInterpreterState;
+    use buck2_interpreter::interpreter::InterpreterConfigForCell;
+    use buck2_interpreter::interpreter::InterpreterForCell;
+    use buck2_interpreter::interpreter::ParseResult;
+    use buck2_interpreter::package_imports::ImplicitImport;
+    use buck2_interpreter::package_listing::listing::testing::PackageListingExt;
+    use buck2_interpreter::package_listing::listing::PackageListing;
+    use buck2_interpreter::starlark_profiler::StarlarkProfilerInstrumentation;
+    use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
+    use gazebo::cmp::PartialEqAny;
+    use gazebo::prelude::*;
     use indoc::indoc;
-    use starlark::{environment::GlobalsBuilder, values::Value};
+    use starlark::environment::GlobalsBuilder;
+    use starlark::values::Value;
 
-    use crate::{
-        interpreter::{
-            context::{
-                configure_build_file_globals, configure_extension_file_globals,
-                BuildInterpreterConfiguror,
-            },
-            module_internals::{EvaluationResult, ModuleInternals},
-        },
-        nodes::unconfigured::TargetsMap,
-    };
+    use crate::interpreter::context::configure_build_file_globals;
+    use crate::interpreter::context::configure_extension_file_globals;
+    use crate::interpreter::context::BuildInterpreterConfiguror;
+    use crate::interpreter::module_internals::EvaluationResult;
+    use crate::interpreter::module_internals::ModuleInternals;
+    use crate::nodes::unconfigured::TargetsMap;
 
     pub type GlobalsConfigurationFn = Arc<dyn Fn(&mut GlobalsBuilder) + Sync + Send>;
 
@@ -555,7 +559,9 @@ mod tests {
     use indoc::indoc;
     use starlark::environment::GlobalsBuilder;
 
-    use crate::interpreter::testing::{import, run_starlark_test, Tester};
+    use crate::interpreter::testing::import;
+    use crate::interpreter::testing::run_starlark_test;
+    use crate::interpreter::testing::Tester;
 
     #[test]
     fn cannot_register_target_twice() {

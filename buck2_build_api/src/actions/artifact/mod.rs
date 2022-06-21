@@ -18,28 +18,36 @@
 //! it becomes a 'BuildArtifact' that can be available.
 //!
 
-use std::{
-    borrow::Cow,
-    cell::{Ref, RefCell},
-    cmp::Ordering,
-    fmt,
-    hash::{Hash, Hasher},
-    ops::Deref,
-    rc::Rc,
-    sync::Arc,
-};
+use std::borrow::Cow;
+use std::cell::Ref;
+use std::cell::RefCell;
+use std::cmp::Ordering;
+use std::fmt;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::ops::Deref;
+use std::rc::Rc;
+use std::sync::Arc;
 
-use anyhow::{anyhow, Context as _};
-use buck2_core::{
-    buck_path::BuckPath,
-    fs::paths::{FileName, ForwardRelativePath, ForwardRelativePathBuf},
-};
-use derive_more::{Display, From};
+use anyhow::anyhow;
+use anyhow::Context as _;
+use buck2_core::buck_path::BuckPath;
+use buck2_core::fs::paths::FileName;
+use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_core::fs::paths::ForwardRelativePathBuf;
+use derive_more::Display;
+use derive_more::From;
 use either::Either;
-use gazebo::{cell::ARef, cmp_chain, eq_chain, hash::Hashed, prelude::*};
+use gazebo::cell::ARef;
+use gazebo::cmp_chain;
+use gazebo::eq_chain;
+use gazebo::hash::Hashed;
+use gazebo::prelude::*;
 use thiserror::Error;
 
-use crate::{actions::ActionKey, deferred::BaseDeferredKey, path::BuckOutPath};
+use crate::actions::ActionKey;
+use crate::deferred::BaseDeferredKey;
+use crate::path::BuckOutPath;
 
 mod artifact_value;
 pub use artifact_value::ArtifactValue;
@@ -54,7 +62,8 @@ mod projected_artifact;
 pub use projected_artifact::ProjectedArtifact;
 
 mod fs;
-pub use fs::{ArtifactFs, ExecutorFs};
+pub use fs::ArtifactFs;
+pub use fs::ExecutorFs;
 
 /// An 'Artifact' that can be materialized at its path.
 #[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -501,19 +510,20 @@ impl UnboundArtifact {
 }
 
 pub mod testing {
-    use buck2_core::{fs::paths::ForwardRelativePathBuf, target::ConfiguredTargetLabel};
+    use buck2_core::fs::paths::ForwardRelativePathBuf;
+    use buck2_core::target::ConfiguredTargetLabel;
     use gazebo::prelude::*;
 
-    use crate::{
-        actions::{
-            artifact::{BuildArtifact, DeclaredArtifact, DeclaredArtifactKind},
-            ActionKey,
-        },
-        deferred::{
-            testing::DeferredDataExt, BaseDeferredKey, DeferredData, DeferredId, DeferredKey,
-        },
-        path::BuckOutPath,
-    };
+    use crate::actions::artifact::BuildArtifact;
+    use crate::actions::artifact::DeclaredArtifact;
+    use crate::actions::artifact::DeclaredArtifactKind;
+    use crate::actions::ActionKey;
+    use crate::deferred::testing::DeferredDataExt;
+    use crate::deferred::BaseDeferredKey;
+    use crate::deferred::DeferredData;
+    use crate::deferred::DeferredId;
+    use crate::deferred::DeferredKey;
+    use crate::path::BuckOutPath;
 
     pub trait ArtifactTestingExt {
         fn testing_is_bound(&self) -> bool;
@@ -577,33 +587,39 @@ mod tests {
     use std::convert::TryFrom;
 
     use assert_matches::assert_matches;
-    use buck2_core::{
-        buck_path::BuckPath,
-        cells::{testing::CellResolverExt, CellName, CellResolver},
-        configuration::Configuration,
-        fs::{
-            paths::{AbsPathBuf, ForwardRelativePathBuf},
-            project::{ProjectFilesystem, ProjectRelativePath, ProjectRelativePathBuf},
-        },
-        package::{testing::PackageExt, Package, PackageRelativePathBuf},
-        target::{testing::ConfiguredTargetLabelExt, ConfiguredTargetLabel, TargetName},
-    };
+    use buck2_core::buck_path::BuckPath;
+    use buck2_core::cells::testing::CellResolverExt;
+    use buck2_core::cells::CellName;
+    use buck2_core::cells::CellResolver;
+    use buck2_core::configuration::Configuration;
+    use buck2_core::fs::paths::AbsPathBuf;
+    use buck2_core::fs::paths::ForwardRelativePathBuf;
+    use buck2_core::fs::project::ProjectFilesystem;
+    use buck2_core::fs::project::ProjectRelativePath;
+    use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::package::testing::PackageExt;
+    use buck2_core::package::Package;
+    use buck2_core::package::PackageRelativePathBuf;
+    use buck2_core::target::testing::ConfiguredTargetLabelExt;
+    use buck2_core::target::ConfiguredTargetLabel;
+    use buck2_core::target::TargetName;
     use gazebo::prelude::*;
 
-    use crate::{
-        actions::{
-            artifact::{
-                testing::BuildArtifactTestingExt, ArtifactFs, BuildArtifact, DeclaredArtifact,
-                DeclaredArtifactKind, SourceArtifact,
-            },
-            ActionKey,
-        },
-        deferred::{
-            testing::{DeferredDataExt, DeferredIdExt},
-            BaseDeferredKey, DeferredId, DeferredKey,
-        },
-        path::{BuckOutPath, BuckOutPathResolver, BuckPathResolver},
-    };
+    use crate::actions::artifact::testing::BuildArtifactTestingExt;
+    use crate::actions::artifact::ArtifactFs;
+    use crate::actions::artifact::BuildArtifact;
+    use crate::actions::artifact::DeclaredArtifact;
+    use crate::actions::artifact::DeclaredArtifactKind;
+    use crate::actions::artifact::SourceArtifact;
+    use crate::actions::ActionKey;
+    use crate::deferred::testing::DeferredDataExt;
+    use crate::deferred::testing::DeferredIdExt;
+    use crate::deferred::BaseDeferredKey;
+    use crate::deferred::DeferredId;
+    use crate::deferred::DeferredKey;
+    use crate::path::BuckOutPath;
+    use crate::path::BuckOutPathResolver;
+    use crate::path::BuckPathResolver;
 
     #[test]
     pub fn artifact_binding() -> anyhow::Result<()> {

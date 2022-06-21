@@ -7,11 +7,14 @@
  * of this source tree.
  */
 
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_common::{file_ops::IgnoreSet, legacy_configs::LegacyBuckConfig};
-use buck2_core::cells::{CellName, CellResolver};
+use buck2_common::file_ops::IgnoreSet;
+use buck2_common::legacy_configs::LegacyBuckConfig;
+use buck2_core::cells::CellName;
+use buck2_core::cells::CellResolver;
 use dice::Dice;
 use events::dispatch::EventDispatcher;
 

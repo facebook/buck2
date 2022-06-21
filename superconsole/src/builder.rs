@@ -7,11 +7,12 @@
  * of this source tree.
  */
 
-use crate::{
-    components::Component,
-    output::{BlockingSuperConsoleOutput, NonBlockingSuperConsoleOutput, SuperConsoleOutput},
-    Dimensions, SuperConsole,
-};
+use crate::components::Component;
+use crate::output::BlockingSuperConsoleOutput;
+use crate::output::NonBlockingSuperConsoleOutput;
+use crate::output::SuperConsoleOutput;
+use crate::Dimensions;
+use crate::SuperConsole;
 
 /// A builder to create SuperConsole, with more options.
 pub struct Builder {

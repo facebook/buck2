@@ -17,21 +17,21 @@
 
 //! Inline functions.
 
-use crate::{
-    eval::{
-        compiler::{
-            args::ArgsCompiledValue,
-            call::CallCompiled,
-            def::ParametersCompiled,
-            expr::{Builtin1, Builtin2, ExprCompiled, ExprLogicalBinOp},
-            opt_ctx::OptCtx,
-            span::IrSpanned,
-            stmt::{StmtCompiled, StmtsCompiled},
-        },
-        runtime::{call_stack::FrozenFileSpan, slots::LocalSlotId},
-    },
-    values::{FrozenStringValue, FrozenValue},
-};
+use crate::eval::compiler::args::ArgsCompiledValue;
+use crate::eval::compiler::call::CallCompiled;
+use crate::eval::compiler::def::ParametersCompiled;
+use crate::eval::compiler::expr::Builtin1;
+use crate::eval::compiler::expr::Builtin2;
+use crate::eval::compiler::expr::ExprCompiled;
+use crate::eval::compiler::expr::ExprLogicalBinOp;
+use crate::eval::compiler::opt_ctx::OptCtx;
+use crate::eval::compiler::span::IrSpanned;
+use crate::eval::compiler::stmt::StmtCompiled;
+use crate::eval::compiler::stmt::StmtsCompiled;
+use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::slots::LocalSlotId;
+use crate::values::FrozenStringValue;
+use crate::values::FrozenValue;
 
 /// Function body suitable for inlining.
 #[derive(Debug)]

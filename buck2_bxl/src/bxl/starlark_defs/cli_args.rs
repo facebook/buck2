@@ -9,29 +9,38 @@
 
 //! Command line arguments definition for bxl functions
 
-use std::{
-    collections::HashSet,
-    fmt::{Display, Formatter},
-    sync::Arc,
-};
+use std::collections::HashSet;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::sync::Arc;
 
 use anyhow::Context as _;
 pub use buck2_bxl_core::CliArgValue;
-use buck2_interpreter::{
-    pattern::{lex_target_pattern, ParsedPattern, ProvidersPattern, TargetPattern},
-    types::{label::StarlarkProvidersLabel, target_label::StarlarkTargetLabel},
-};
+use buck2_interpreter::pattern::lex_target_pattern;
+use buck2_interpreter::pattern::ParsedPattern;
+use buck2_interpreter::pattern::ProvidersPattern;
+use buck2_interpreter::pattern::TargetPattern;
+use buck2_interpreter::types::label::StarlarkProvidersLabel;
+use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, prelude::*, variants::VariantName};
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
+use gazebo::variants::VariantName;
 use itertools::Itertools;
-use starlark::{
-    environment::GlobalsBuilder,
-    starlark_module, starlark_simple_value, starlark_type,
-    values::{
-        float::StarlarkFloat, list::List, none::NoneType, Heap, NoSerialize, StarlarkValue,
-        UnpackValue, Value, ValueError, ValueLike,
-    },
-};
+use starlark::environment::GlobalsBuilder;
+use starlark::starlark_module;
+use starlark::starlark_simple_value;
+use starlark::starlark_type;
+use starlark::values::float::StarlarkFloat;
+use starlark::values::list::List;
+use starlark::values::none::NoneType;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
+use starlark::values::ValueError;
+use starlark::values::ValueLike;
 use thiserror::Error;
 
 use crate::bxl::eval::CliResolutionCtx;
@@ -473,16 +482,17 @@ pub fn register_cli_args_module(registry: &mut GlobalsBuilder) {
 mod tests {
     use std::collections::HashSet;
 
-    use buck2_core::{
-        provider::{testing::ProvidersLabelTestExt, ProvidersLabel},
-        target::{testing::TargetLabelExt, TargetLabel},
-    };
-    use buck2_interpreter::types::{
-        label::StarlarkProvidersLabel, target_label::StarlarkTargetLabel,
-    };
-    use starlark::values::{Heap, Value};
+    use buck2_core::provider::testing::ProvidersLabelTestExt;
+    use buck2_core::provider::ProvidersLabel;
+    use buck2_core::target::testing::TargetLabelExt;
+    use buck2_core::target::TargetLabel;
+    use buck2_interpreter::types::label::StarlarkProvidersLabel;
+    use buck2_interpreter::types::target_label::StarlarkTargetLabel;
+    use starlark::values::Heap;
+    use starlark::values::Value;
 
-    use crate::bxl::starlark_defs::cli_args::{CliArgType, CliArgValue};
+    use crate::bxl::starlark_defs::cli_args::CliArgType;
+    use crate::bxl::starlark_defs::cli_args::CliArgValue;
 
     #[test]
     fn coerce_starlark() -> anyhow::Result<()> {

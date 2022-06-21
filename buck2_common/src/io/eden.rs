@@ -10,42 +10,52 @@
 // Eden's Thrift API does sometime want &Vec<...>.
 #![allow(clippy::useless_vec)]
 
-use std::{fmt::Display, path::PathBuf, sync::Arc, time::Duration};
+use std::fmt::Display;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_core::{
-    self,
-    env_helper::EnvHelper,
-    fs::{
-        anyhow as fs,
-        project::{ProjectFilesystem, ProjectRelativePath, ProjectRelativePathBuf},
-    },
-    result::SharedResult,
-};
+use buck2_core::env_helper::EnvHelper;
+use buck2_core::fs::anyhow as fs;
+use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::result::SharedResult;
+use buck2_core::{self};
 use derivative::Derivative;
-use edenfs::{
-    client::EdenService,
-    errors::eden_service::ListMountsError,
-    types::{
-        Dtype, EdenErrorType, FileAttributeDataOrError, FileAttributes, FileInformationOrError,
-        GetAttributesFromFilesParams, GlobParams, MountState, SyncBehavior,
-        SynchronizeWorkingCopyParams,
-    },
-};
+use edenfs::client::EdenService;
+use edenfs::errors::eden_service::ListMountsError;
+use edenfs::types::Dtype;
+use edenfs::types::EdenErrorType;
+use edenfs::types::FileAttributeDataOrError;
+use edenfs::types::FileAttributes;
+use edenfs::types::FileInformationOrError;
+use edenfs::types::GetAttributesFromFilesParams;
+use edenfs::types::GlobParams;
+use edenfs::types::MountState;
+use edenfs::types::SyncBehavior;
+use edenfs::types::SynchronizeWorkingCopyParams;
 use fbinit::FacebookInit;
-use futures::future::{BoxFuture, Future, FutureExt, Shared};
-use gazebo::{cmp::PartialEqAny, prelude::*};
+use futures::future::BoxFuture;
+use futures::future::Future;
+use futures::future::FutureExt;
+use futures::future::Shared;
+use gazebo::cmp::PartialEqAny;
+use gazebo::prelude::*;
 use parking_lot::Mutex;
 use thiserror::Error;
 use tokio::sync::Semaphore;
 
-use crate::{
-    file_ops::{
-        FileDigest, FileMetadata, FileType, PathMetadata, SimpleDirEntry, TrackedFileDigest,
-    },
-    io::{fs::FsIoProvider, IoProvider},
-};
+use crate::file_ops::FileDigest;
+use crate::file_ops::FileMetadata;
+use crate::file_ops::FileType;
+use crate::file_ops::PathMetadata;
+use crate::file_ops::SimpleDirEntry;
+use crate::file_ops::TrackedFileDigest;
+use crate::io::fs::FsIoProvider;
+use crate::io::IoProvider;
 
 #[derive(Debug, Error)]
 #[error("Eden returned an error: {}", .0.message)]

@@ -11,13 +11,13 @@ use std::sync::Arc;
 
 use indoc::indoc;
 
-use crate::interpreter::{
-    rule_defs::{
-        artifact::testing::artifactory, cmd_args::tester::command_line_stringifier,
-        transitive_set::testing::tset_factory,
-    },
-    testing::{expect_error, import, run_simple_starlark_test, Tester},
-};
+use crate::interpreter::rule_defs::artifact::testing::artifactory;
+use crate::interpreter::rule_defs::cmd_args::tester::command_line_stringifier;
+use crate::interpreter::rule_defs::transitive_set::testing::tset_factory;
+use crate::interpreter::testing::expect_error;
+use crate::interpreter::testing::import;
+use crate::interpreter::testing::run_simple_starlark_test;
+use crate::interpreter::testing::Tester;
 
 #[test]
 fn test_define_transitive_set() -> anyhow::Result<()> {

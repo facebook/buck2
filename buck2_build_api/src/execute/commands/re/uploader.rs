@@ -7,39 +7,41 @@
  * of this source tree.
  */
 
-use std::{
-    collections::{HashMap, HashSet},
-    str::FromStr,
-    sync::Arc,
-    time::{Duration, SystemTime},
-};
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::str::FromStr;
+use std::sync::Arc;
+use std::time::Duration;
+use std::time::SystemTime;
 
 use anyhow::Context;
-use buck2_common::file_ops::{FileDigest, TrackedFileDigest};
-use buck2_core::{
-    directory::{DirectoryEntry, DirectoryIterator},
-    env_helper::EnvHelper,
-};
+use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::TrackedFileDigest;
+use buck2_core::directory::DirectoryEntry;
+use buck2_core::directory::DirectoryIterator;
+use buck2_core::env_helper::EnvHelper;
 use gazebo::prelude::*;
 use prost::Message;
-use remote_execution::{
-    GetDigestsTtlRequest, InlinedBlobWithDigest, NamedDigest, REClient, REClientError,
-    RemoteExecutionMetadata, TCode, TDigest, UploadRequest,
-};
+use remote_execution::GetDigestsTtlRequest;
+use remote_execution::InlinedBlobWithDigest;
+use remote_execution::NamedDigest;
+use remote_execution::REClient;
+use remote_execution::REClientError;
+use remote_execution::RemoteExecutionMetadata;
+use remote_execution::TCode;
+use remote_execution::TDigest;
+use remote_execution::UploadRequest;
 
-use crate::{
-    actions::{
-        digest::{FileDigestFromReExt, FileDigestToReExt},
-        directory::{
-            ActionDirectoryMember, ActionFingerprintedDirectory, ActionImmutableDirectory,
-            ReDirectorySerializer,
-        },
-    },
-    execute::{
-        commands::re::ReExecutorGlobalKnobs,
-        materializer::{ArtifactNotMaterializedReason, CasDownloadInfo, Materializer},
-    },
-};
+use crate::actions::digest::FileDigestFromReExt;
+use crate::actions::digest::FileDigestToReExt;
+use crate::actions::directory::ActionDirectoryMember;
+use crate::actions::directory::ActionFingerprintedDirectory;
+use crate::actions::directory::ActionImmutableDirectory;
+use crate::actions::directory::ReDirectorySerializer;
+use crate::execute::commands::re::ReExecutorGlobalKnobs;
+use crate::execute::materializer::ArtifactNotMaterializedReason;
+use crate::execute::materializer::CasDownloadInfo;
+use crate::execute::materializer::Materializer;
 
 /// Contains small blobs referenced from action messages (does not include any file contents blobs).
 pub struct ActionBlobs(HashMap<TrackedFileDigest, Vec<u8>>);

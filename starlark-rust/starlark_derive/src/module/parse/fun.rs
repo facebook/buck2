@@ -15,20 +15,41 @@
  * limitations under the License.
  */
 
-use proc_macro2::{Ident, Span, TokenStream};
-use syn::{
-    parse::ParseStream, spanned::Spanned, visit::Visit, Attribute, Expr, FnArg, GenericArgument,
-    GenericParam, Generics, ItemFn, Lifetime, Meta, NestedMeta, Pat, PatType, PathArguments,
-    ReturnType, Token, Type,
-};
+use proc_macro2::Ident;
+use proc_macro2::Span;
+use proc_macro2::TokenStream;
+use syn::parse::ParseStream;
+use syn::spanned::Spanned;
+use syn::visit::Visit;
+use syn::Attribute;
+use syn::Expr;
+use syn::FnArg;
+use syn::GenericArgument;
+use syn::GenericParam;
+use syn::Generics;
+use syn::ItemFn;
+use syn::Lifetime;
+use syn::Meta;
+use syn::NestedMeta;
+use syn::Pat;
+use syn::PatType;
+use syn::PathArguments;
+use syn::ReturnType;
+use syn::Token;
+use syn::Type;
 
-use crate::module::{
-    parse::{is_attribute_docstring, is_mut_something, is_ref_something, ModuleKind},
-    typ::{
-        SpecialParam, StarArg, StarArgPassStyle, StarArgSource, StarAttr, StarFun, StarFunSource,
-        StarStmt,
-    },
-};
+use crate::module::parse::is_attribute_docstring;
+use crate::module::parse::is_mut_something;
+use crate::module::parse::is_ref_something;
+use crate::module::parse::ModuleKind;
+use crate::module::typ::SpecialParam;
+use crate::module::typ::StarArg;
+use crate::module::typ::StarArgPassStyle;
+use crate::module::typ::StarArgSource;
+use crate::module::typ::StarAttr;
+use crate::module::typ::StarFun;
+use crate::module::typ::StarFunSource;
+use crate::module::typ::StarStmt;
 
 struct ProcessedAttributes {
     is_attribute: bool,

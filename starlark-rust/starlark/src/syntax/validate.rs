@@ -22,17 +22,24 @@ use std::collections::HashSet;
 use gazebo::prelude::*;
 use thiserror::Error;
 
-use crate::{
-    codemap::{CodeMap, Spanned},
-    errors::Diagnostic,
-    syntax::{
-        ast::{
-            Argument, Assign, AssignIdentP, AssignOp, AstArgument, AstAssign, AstAssignIdent,
-            AstExpr, AstParameter, AstStmt, AstString, Expr, Parameter, Stmt,
-        },
-        Dialect,
-    },
-};
+use crate::codemap::CodeMap;
+use crate::codemap::Spanned;
+use crate::errors::Diagnostic;
+use crate::syntax::ast::Argument;
+use crate::syntax::ast::Assign;
+use crate::syntax::ast::AssignIdentP;
+use crate::syntax::ast::AssignOp;
+use crate::syntax::ast::AstArgument;
+use crate::syntax::ast::AstAssign;
+use crate::syntax::ast::AstAssignIdent;
+use crate::syntax::ast::AstExpr;
+use crate::syntax::ast::AstParameter;
+use crate::syntax::ast::AstStmt;
+use crate::syntax::ast::AstString;
+use crate::syntax::ast::Expr;
+use crate::syntax::ast::Parameter;
+use crate::syntax::ast::Stmt;
+use crate::syntax::Dialect;
 
 #[derive(Error, Debug)]
 enum ValidateError {

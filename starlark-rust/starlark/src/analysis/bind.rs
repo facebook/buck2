@@ -17,16 +17,19 @@
 
 use std::collections::HashMap;
 
-use crate::{
-    codemap::Span,
-    syntax::{
-        ast::{
-            AssignIdentP, AstAssign, AstAssignIdent, AstExpr, AstParameter, AstStmt, AstString,
-            Clause, Expr, ForClause, Stmt,
-        },
-        AstModule,
-    },
-};
+use crate::codemap::Span;
+use crate::syntax::ast::AssignIdentP;
+use crate::syntax::ast::AstAssign;
+use crate::syntax::ast::AstAssignIdent;
+use crate::syntax::ast::AstExpr;
+use crate::syntax::ast::AstParameter;
+use crate::syntax::ast::AstStmt;
+use crate::syntax::ast::AstString;
+use crate::syntax::ast::Clause;
+use crate::syntax::ast::Expr;
+use crate::syntax::ast::ForClause;
+use crate::syntax::ast::Stmt;
+use crate::syntax::AstModule;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) enum Assigner {

@@ -7,56 +7,53 @@
  * of this source tree.
  */
 
-use std::{
-    cell::RefCell,
-    fmt::{self, Display},
-    hash::Hash,
-    sync::Arc,
-};
+use std::cell::RefCell;
+use std::fmt::Display;
+use std::fmt::{self};
+use std::hash::Hash;
+use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_core::{
-    buck_path::BuckPath,
-    cells::CellAliasResolver,
-    package::{Package, PackageRelativePathBuf},
-    provider::ProvidersLabel,
-    soft_error,
-    target::TargetLabel,
-};
-use buck2_interpreter::{
-    extra::BuildContext,
-    package_listing::listing::PackageListing,
-    pattern::{ParsedPattern, PatternType, ProvidersPattern},
-};
+use buck2_core::buck_path::BuckPath;
+use buck2_core::cells::CellAliasResolver;
+use buck2_core::package::Package;
+use buck2_core::package::PackageRelativePathBuf;
+use buck2_core::provider::ProvidersLabel;
+use buck2_core::soft_error;
+use buck2_core::target::TargetLabel;
+use buck2_interpreter::extra::BuildContext;
+use buck2_interpreter::package_listing::listing::PackageListing;
+use buck2_interpreter::pattern::ParsedPattern;
+use buck2_interpreter::pattern::PatternType;
+use buck2_interpreter::pattern::ProvidersPattern;
 use bumpalo::Bump;
-use gazebo::{any::ProvidesStaticType, prelude::*};
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
 use hashbrown::raw::RawTable;
-use starlark::{
-    environment::GlobalsBuilder,
-    eval::Evaluator,
-    starlark_type,
-    values::{
-        docs::{DocString, DocStringKind},
-        none::NoneType,
-        NoSerialize, StarlarkValue, Value, ValueError,
-    },
-};
+use starlark::environment::GlobalsBuilder;
+use starlark::eval::Evaluator;
+use starlark::starlark_type;
+use starlark::values::docs::DocString;
+use starlark::values::docs::DocStringKind;
+use starlark::values::none::NoneType;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::Value;
+use starlark::values::ValueError;
 use thiserror::Error;
-use tracing::{error, info};
+use tracing::error;
+use tracing::info;
 use twox_hash::xxh3;
 
-use crate::{
-    attrs::{
-        attr_type::{any::AnyAttrType, AttrType},
-        coerced_attr::CoercedAttr,
-        AttrCoercionContext, CoercedPath,
-    },
-    interpreter::rule_defs::{
-        provider::{callable::ValueAsProviderCallableLike, id::ProviderId},
-        rule::RuleError,
-        transition::starlark::Transition,
-    },
-};
+use crate::attrs::attr_type::any::AnyAttrType;
+use crate::attrs::attr_type::AttrType;
+use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::AttrCoercionContext;
+use crate::attrs::CoercedPath;
+use crate::interpreter::rule_defs::provider::callable::ValueAsProviderCallableLike;
+use crate::interpreter::rule_defs::provider::id::ProviderId;
+use crate::interpreter::rule_defs::rule::RuleError;
+use crate::interpreter::rule_defs::transition::starlark::Transition;
 
 const OPTION_NONE_EXPLANATION: &str = "`None` as an attribute value always picks the default. For `attr.option`, if the default isn't `None`, there is no way to express `None`.";
 
@@ -717,10 +714,9 @@ pub mod testing {
     // utilities to create attributes for testing
     use std::sync::Arc;
 
-    use crate::{
-        attrs::{attr_type::AttrType, coerced_attr::CoercedAttr},
-        interpreter::rule_defs::attr::Attribute,
-    };
+    use crate::attrs::attr_type::AttrType;
+    use crate::attrs::coerced_attr::CoercedAttr;
+    use crate::interpreter::rule_defs::attr::Attribute;
 
     pub(crate) trait AttributeExt {
         fn testing_new(default: Option<Arc<CoercedAttr>>, coercer: AttrType) -> Self;
@@ -739,25 +735,25 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::{
-        buck_path::BuckPath,
-        cells::paths::CellRelativePath,
-        package::{Package, PackageRelativePathBuf},
-        result::SharedResult,
-    };
-    use buck2_interpreter::package_listing::listing::{testing::PackageListingExt, PackageListing};
+    use buck2_core::buck_path::BuckPath;
+    use buck2_core::cells::paths::CellRelativePath;
+    use buck2_core::package::Package;
+    use buck2_core::package::PackageRelativePathBuf;
+    use buck2_core::result::SharedResult;
+    use buck2_interpreter::package_listing::listing::testing::PackageListingExt;
+    use buck2_interpreter::package_listing::listing::PackageListing;
     use gazebo::prelude::*;
     use indoc::indoc;
     use starlark::values::Heap;
 
-    use crate::{
-        attrs::{attr_type::AttrType, AttrCoercionContext},
-        interpreter::{
-            rule_defs::attr::{AttrIsConfigurable, BuildAttrCoercionContext},
-            testing::{cells, run_starlark_bzl_test, run_starlark_bzl_test_expecting_error},
-        },
-        nodes::hacks::value_to_string,
-    };
+    use crate::attrs::attr_type::AttrType;
+    use crate::attrs::AttrCoercionContext;
+    use crate::interpreter::rule_defs::attr::AttrIsConfigurable;
+    use crate::interpreter::rule_defs::attr::BuildAttrCoercionContext;
+    use crate::interpreter::testing::cells;
+    use crate::interpreter::testing::run_starlark_bzl_test;
+    use crate::interpreter::testing::run_starlark_bzl_test_expecting_error;
+    use crate::nodes::hacks::value_to_string;
 
     #[test]
     fn string_works() -> SharedResult<()> {

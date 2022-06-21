@@ -17,19 +17,22 @@
 
 //! AST for parsed starlark files.
 
-use std::{
-    fmt,
-    fmt::{Debug, Display, Formatter},
-};
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
 
 use derivative::Derivative;
-use gazebo::{prelude::*, variants::VariantName};
+use gazebo::prelude::*;
+use gazebo::variants::VariantName;
 use static_assertions::assert_eq_size;
 
-use crate::{
-    codemap::{CodeMap, Pos, Span, Spanned},
-    syntax::{lexer::TokenInt, Dialect},
-};
+use crate::codemap::CodeMap;
+use crate::codemap::Pos;
+use crate::codemap::Span;
+use crate::codemap::Spanned;
+use crate::syntax::lexer::TokenInt;
+use crate::syntax::Dialect;
 
 /// Payload types attached to AST nodes.
 pub(crate) trait AstPayload: Debug {

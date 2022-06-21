@@ -7,11 +7,20 @@
  * of this source tree.
  */
 
-use proc_macro2::{Span, TokenStream};
-use quote::{quote, quote_spanned};
-use syn::{Ident, Path, Type, TypePath, TypeReference};
+use proc_macro2::Span;
+use proc_macro2::TokenStream;
+use quote::quote;
+use quote::quote_spanned;
+use syn::Ident;
+use syn::Path;
+use syn::Type;
+use syn::TypePath;
+use syn::TypeReference;
 
-use crate::parse::{Argument, DocString, Method, Parsed};
+use crate::parse::Argument;
+use crate::parse::DocString;
+use crate::parse::Method;
+use crate::parse::Parsed;
 
 struct MethodCodegen {
     method_def: TokenStream,

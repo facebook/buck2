@@ -7,25 +7,22 @@
  * of this source tree.
  */
 
-use std::{
-    convert::TryFrom,
-    fs::File,
-    io::{self, BufRead},
-    path::Path,
-    process::Command,
-    str,
-};
+use std::convert::TryFrom;
+use std::fs::File;
+use std::io::BufRead;
+use std::io::{self};
+use std::path::Path;
+use std::process::Command;
+use std::str;
 
-use anyhow::{anyhow, Context as _};
+use anyhow::anyhow;
+use anyhow::Context as _;
 use buck2_common::legacy_configs::BuckConfigBasedCells;
-use buck2_core::{
-    cells::CellResolver,
-    fs::{
-        anyhow as fs,
-        paths::{AbsPath, AbsPathBuf},
-        project::ProjectFilesystem,
-    },
-};
+use buck2_core::cells::CellResolver;
+use buck2_core::fs::anyhow as fs;
+use buck2_core::fs::paths::AbsPath;
+use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::project::ProjectFilesystem;
 use once_cell::unsync::OnceCell;
 use termwiz::istty::IsTty;
 use thiserror::Error;
@@ -396,7 +393,8 @@ mod tests {
 
     use buck2_core::fs::paths::AbsPathBuf;
 
-    use crate::args::{expand_argfile_contents, ArgFile};
+    use crate::args::expand_argfile_contents;
+    use crate::args::ArgFile;
 
     #[test]
     fn test_expand_argfile_content() {

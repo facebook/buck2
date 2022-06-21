@@ -1,10 +1,16 @@
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use std::time::Instant;
 
 use async_trait::async_trait;
-use buck2_data::{
-    buck_event, InstantEvent, SpanCancelled, SpanEndEvent, SpanStartEvent, TestDiscoveryEnd,
-    TestDiscoveryStart, TestRunEnd, TestRunStart,
-};
+use buck2_data::buck_event;
+use buck2_data::InstantEvent;
+use buck2_data::SpanCancelled;
+use buck2_data::SpanEndEvent;
+use buck2_data::SpanStartEvent;
+use buck2_data::TestDiscoveryEnd;
+use buck2_data::TestDiscoveryStart;
+use buck2_data::TestRunEnd;
+use buck2_data::TestRunStart;
 use cli_proto::CommandResult;
 use gazebo::prelude::*;
 use thiserror::Error;

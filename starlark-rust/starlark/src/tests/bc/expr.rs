@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-use crate::{assert, tests::bc::golden::bc_golden_test};
+use crate::assert;
+use crate::tests::bc::golden::bc_golden_test;
 
 #[test]
 fn test_type() {

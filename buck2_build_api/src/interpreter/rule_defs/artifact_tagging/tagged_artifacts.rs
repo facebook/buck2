@@ -8,21 +8,24 @@
  */
 
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, coerce::Coerce};
-use starlark::{
-    starlark_type,
-    values::{Freeze, NoSerialize, StarlarkValue, Trace, Value, ValueLike},
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::Coerce;
+use starlark::starlark_type;
+use starlark::values::Freeze;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 
 use super::ArtifactTag;
-use crate::{
-    actions::artifact::OutputArtifact,
-    artifact_groups::ArtifactGroup,
-    interpreter::rule_defs::cmd_args::{
-        CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder, ValueAsCommandLineLike,
-        WriteToFileMacroVisitor,
-    },
-};
+use crate::actions::artifact::OutputArtifact;
+use crate::artifact_groups::ArtifactGroup;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
+use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 
 /// TaggedArtifacts wraps a CommandLineArgLike to apply a given ArtifactTag to all its inputs and
 /// outputs.

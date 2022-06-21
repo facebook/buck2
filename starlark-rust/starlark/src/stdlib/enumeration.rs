@@ -17,10 +17,10 @@
 
 //! Implementation of `enum` function.
 use crate as starlark;
-use crate::{
-    environment::GlobalsBuilder,
-    values::{enumeration::EnumType, Heap, Value},
-};
+use crate::environment::GlobalsBuilder;
+use crate::values::enumeration::EnumType;
+use crate::values::Heap;
+use crate::values::Value;
 
 #[starlark_module]
 pub fn global(builder: &mut GlobalsBuilder) {
@@ -35,7 +35,8 @@ pub fn global(builder: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 mod tests {
-    use crate::assert::{self, Assert};
+    use crate::assert::Assert;
+    use crate::assert::{self};
 
     #[test]
     fn test_enum() {

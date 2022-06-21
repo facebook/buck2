@@ -1,7 +1,6 @@
-use std::{
-    env::{self, VarError},
-    str::FromStr,
-};
+use std::env::VarError;
+use std::env::{self};
+use std::str::FromStr;
 
 use anyhow::Context;
 use once_cell::sync::OnceCell;

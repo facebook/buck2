@@ -18,21 +18,32 @@
 //! A module with the standard function and constants that are by default in all
 //! dialect of Starlark
 
-use std::{cmp::Ordering, fmt::Display, num::NonZeroI32};
+use std::cmp::Ordering;
+use std::fmt::Display;
+use std::num::NonZeroI32;
 
 use anyhow::anyhow;
 
-use crate::{
-    self as starlark,
-    collections::SmallMap,
-    environment::GlobalsBuilder,
-    eval::{Arguments, Evaluator},
-    values::{
-        bool::BOOL_TYPE, dict::Dict, float::StarlarkFloat, int::INT_TYPE, list::List,
-        none::NoneType, num::Num, range::Range, string::STRING_TYPE, tuple::Tuple, Heap,
-        StringValue, Value, ValueError, ValueLike,
-    },
-};
+use crate::collections::SmallMap;
+use crate::environment::GlobalsBuilder;
+use crate::eval::Arguments;
+use crate::eval::Evaluator;
+use crate::values::bool::BOOL_TYPE;
+use crate::values::dict::Dict;
+use crate::values::float::StarlarkFloat;
+use crate::values::int::INT_TYPE;
+use crate::values::list::List;
+use crate::values::none::NoneType;
+use crate::values::num::Num;
+use crate::values::range::Range;
+use crate::values::string::STRING_TYPE;
+use crate::values::tuple::Tuple;
+use crate::values::Heap;
+use crate::values::StringValue;
+use crate::values::Value;
+use crate::values::ValueError;
+use crate::values::ValueLike;
+use crate::{self as starlark};
 
 fn unpack_pair<'v>(pair: Value<'v>, heap: &'v Heap) -> anyhow::Result<(Value<'v>, Value<'v>)> {
     pair.with_iterator(heap, |it| {

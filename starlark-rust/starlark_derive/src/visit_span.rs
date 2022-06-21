@@ -16,8 +16,11 @@
  */
 
 use proc_macro2::TokenStream;
-use quote::{quote, quote_spanned};
-use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
+use quote::quote;
+use quote::quote_spanned;
+use syn::parse_macro_input;
+use syn::spanned::Spanned;
+use syn::DeriveInput;
 
 use crate::for_each_field::for_each_field;
 

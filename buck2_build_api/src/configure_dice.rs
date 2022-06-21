@@ -9,8 +9,10 @@
 
 use std::sync::Arc;
 
-use buck2_common::{dice::data::SetIoProvider, io::IoProvider};
-use dice::{cycles::DetectCycles, Dice};
+use buck2_common::dice::data::SetIoProvider;
+use buck2_common::io::IoProvider;
+use dice::cycles::DetectCycles;
+use dice::Dice;
 
 use crate::bxl::calculation::BxlCalculationDyn;
 

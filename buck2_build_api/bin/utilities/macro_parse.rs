@@ -15,7 +15,8 @@
 
 use std::io::BufRead;
 
-use structopt::{clap::AppSettings, StructOpt};
+use structopt::clap::AppSettings;
+use structopt::StructOpt;
 
 #[cfg_attr(all(unix, not(fbcode_build)), global_allocator)]
 #[cfg(all(unix, not(fbcode_build)))]

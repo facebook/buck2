@@ -9,18 +9,26 @@
 
 use std::hash::Hash;
 
-use buck2_core::target::{ConfiguredTargetLabel, TargetLabel};
-use derive_more::{Display, From};
-use gazebo::{any::ProvidesStaticType, prelude::*};
+use buck2_core::target::ConfiguredTargetLabel;
+use buck2_core::target::TargetLabel;
+use derive_more::Display;
+use derive_more::From;
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
 use serde::Serialize;
-use starlark::{
-    collections::StarlarkHasher,
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    starlark_type,
-    values::{Heap, StarlarkValue, Value, ValueError, ValueLike},
-};
+use starlark::collections::StarlarkHasher;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::starlark_type;
+use starlark::values::Heap;
+use starlark::values::StarlarkValue;
+use starlark::values::Value;
+use starlark::values::ValueError;
+use starlark::values::ValueLike;
 
-use crate::{starlark::values::AllocValue, types::label_relative_path::LabelRelativePath};
+use crate::starlark::values::AllocValue;
+use crate::types::label_relative_path::LabelRelativePath;
 
 #[derive(
     Clone,

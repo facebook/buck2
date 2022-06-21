@@ -53,13 +53,15 @@
 //! # anyhow::Ok(())
 //! ```
 //!
-use std::{
-    borrow::{Borrow, Cow},
-    convert::TryFrom,
-    fs::{File, Metadata},
-    ops::Deref,
-    path::{Component, Path, PathBuf},
-};
+use std::borrow::Borrow;
+use std::borrow::Cow;
+use std::convert::TryFrom;
+use std::fs::File;
+use std::fs::Metadata;
+use std::ops::Deref;
+use std::path::Component;
+use std::path::Path;
+use std::path::PathBuf;
 
 use anyhow::Context;
 use derivative::Derivative;
@@ -67,13 +69,14 @@ use derive_more::Display;
 use ref_cast::RefCast;
 use serde::Serialize;
 
-use crate::fs::{
-    anyhow as fs,
-    paths::{
-        fmt::quoted_display, AbsPath, AbsPathBuf, ForwardRelativePath, ForwardRelativePathBuf,
-        RelativePath, RelativePathBuf,
-    },
-};
+use crate::fs::anyhow as fs;
+use crate::fs::paths::fmt::quoted_display;
+use crate::fs::paths::AbsPath;
+use crate::fs::paths::AbsPathBuf;
+use crate::fs::paths::ForwardRelativePath;
+use crate::fs::paths::ForwardRelativePathBuf;
+use crate::fs::paths::RelativePath;
+use crate::fs::paths::RelativePathBuf;
 
 /// A un-owned forward pointing, fully normalized path that is relative to the
 /// project root.
@@ -465,7 +468,8 @@ impl ProjectFilesystem {
     /// e.g. given a `target` of `/foo/bar1/baz1/out` and `dest` of `/foo/bar2/baz2/out`, the
     ///      result would be `../../bar1/baz1/out`
     fn find_relative_path(target: &AbsPathBuf, dest: &AbsPathBuf) -> PathBuf {
-        use itertools::{EitherOrBoth::*, Itertools};
+        use itertools::EitherOrBoth::*;
+        use itertools::Itertools;
         // Assemble both the '../' traversal, and the component that will come after that
         let mut upward_traversal = PathBuf::new();
         let mut relative_to_common_path = PathBuf::new();
@@ -1053,15 +1057,17 @@ impl Deref for ProjectRelativePathBuf {
 
 pub use internals::PathLike;
 
-use crate::fs::paths::{FileName, ForwardRelativePathIter};
+use crate::fs::paths::FileName;
+use crate::fs::paths::ForwardRelativePathIter;
 
 mod internals {
     use std::borrow::Cow;
 
-    use crate::fs::{
-        paths::{AbsPath, AbsPathBuf},
-        project::{ProjectFilesystem, ProjectRelativePath, ProjectRelativePathBuf},
-    };
+    use crate::fs::paths::AbsPath;
+    use crate::fs::paths::AbsPathBuf;
+    use crate::fs::project::ProjectFilesystem;
+    use crate::fs::project::ProjectRelativePath;
+    use crate::fs::project::ProjectRelativePathBuf;
 
     pub trait PathLike: PathLikeResolvable {}
 
@@ -1098,18 +1104,16 @@ mod internals {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        convert::TryFrom,
-        path::{Path, PathBuf},
-    };
+    use std::convert::TryFrom;
+    use std::path::Path;
+    use std::path::PathBuf;
 
-    use crate::fs::{
-        anyhow as fs,
-        paths::ForwardRelativePath,
-        project::{
-            ProjectFilesystem, ProjectFilesystemTemp, ProjectRelativePath, ProjectRelativePathBuf,
-        },
-    };
+    use crate::fs::anyhow as fs;
+    use crate::fs::paths::ForwardRelativePath;
+    use crate::fs::project::ProjectFilesystem;
+    use crate::fs::project::ProjectFilesystemTemp;
+    use crate::fs::project::ProjectRelativePath;
+    use crate::fs::project::ProjectRelativePathBuf;
 
     #[test]
     fn path_display_is_readable() -> anyhow::Result<()> {

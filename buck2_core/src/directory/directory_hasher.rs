@@ -7,14 +7,14 @@
  * of this source tree.
  */
 
-use std::{
-    fmt::{Debug, Display},
-    hash::Hash,
-};
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::hash::Hash;
 
 use gazebo::prelude::*;
 
-use super::{DirectoryEntry, FingerprintedDirectory};
+use super::DirectoryEntry;
+use super::FingerprintedDirectory;
 use crate::fs::paths::FileName;
 
 pub trait HasDirectoryDigest {

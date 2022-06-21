@@ -15,26 +15,27 @@
  * limitations under the License.
  */
 
-use crate::{
-    eval::{
-        bc::{
-            bytecode::Bc,
-            compiler::if_compiler::{write_if_else, write_if_then},
-            instr_impl::{
-                InstrBeforeStmt, InstrBreak, InstrContinue, InstrPossibleGc, InstrReturn,
-                InstrReturnCheckType, InstrReturnConst,
-            },
-            writer::BcWriter,
-        },
-        compiler::{
-            expr::{ExprCompiled, MaybeNot},
-            span::IrSpanned,
-            stmt::{AssignCompiledValue, StmtCompileContext, StmtCompiled, StmtsCompiled},
-        },
-        runtime::call_stack::FrozenFileSpan,
-    },
-    values::{FrozenHeap, FrozenValue},
-};
+use crate::eval::bc::bytecode::Bc;
+use crate::eval::bc::compiler::if_compiler::write_if_else;
+use crate::eval::bc::compiler::if_compiler::write_if_then;
+use crate::eval::bc::instr_impl::InstrBeforeStmt;
+use crate::eval::bc::instr_impl::InstrBreak;
+use crate::eval::bc::instr_impl::InstrContinue;
+use crate::eval::bc::instr_impl::InstrPossibleGc;
+use crate::eval::bc::instr_impl::InstrReturn;
+use crate::eval::bc::instr_impl::InstrReturnCheckType;
+use crate::eval::bc::instr_impl::InstrReturnConst;
+use crate::eval::bc::writer::BcWriter;
+use crate::eval::compiler::expr::ExprCompiled;
+use crate::eval::compiler::expr::MaybeNot;
+use crate::eval::compiler::span::IrSpanned;
+use crate::eval::compiler::stmt::AssignCompiledValue;
+use crate::eval::compiler::stmt::StmtCompileContext;
+use crate::eval::compiler::stmt::StmtCompiled;
+use crate::eval::compiler::stmt::StmtsCompiled;
+use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::values::FrozenHeap;
+use crate::values::FrozenValue;
 
 pub(crate) fn write_for(
     over: &IrSpanned<ExprCompiled>,

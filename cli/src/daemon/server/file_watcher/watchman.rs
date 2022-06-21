@@ -7,38 +7,38 @@
  * of this source tree.
  */
 
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_build_api::context::{HasBuildContextData, SetBuildContextData};
-use buck2_common::{
-    dice::cells::HasCellResolver,
-    file_ops::IgnoreSet,
-    legacy_configs::{dice::HasLegacyConfigs, LegacyBuckConfig},
-};
-use buck2_core::{
-    cells::{CellName, CellResolver},
-    fs::project::ProjectRelativePath,
-};
-use buck2_interpreter::dice::{
-    interpreter_setup::setup_interpreter, starlark_profiler::GetStarlarkProfilerInstrumentation,
-    starlark_types::GetDisableStarlarkTypes, HasInterpreterContext,
-};
+use buck2_build_api::context::HasBuildContextData;
+use buck2_build_api::context::SetBuildContextData;
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::file_ops::IgnoreSet;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::LegacyBuckConfig;
+use buck2_core::cells::CellName;
+use buck2_core::cells::CellResolver;
+use buck2_core::fs::project::ProjectRelativePath;
+use buck2_interpreter::dice::interpreter_setup::setup_interpreter;
+use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
+use buck2_interpreter::dice::starlark_types::GetDisableStarlarkTypes;
+use buck2_interpreter::dice::HasInterpreterContext;
 use dice::Dice;
 use events::dispatch::EventDispatcher;
-use tracing::{info, warn};
-use watchman_client::{
-    expr::Expr,
-    prelude::{Connector, FileType},
-};
+use tracing::info;
+use tracing::warn;
+use watchman_client::expr::Expr;
+use watchman_client::prelude::Connector;
+use watchman_client::prelude::FileType;
 
-use crate::{
-    daemon::server::file_watcher::FileWatcher,
-    paths::Paths,
-    watchman::{
-        SyncableQuery, SyncableQueryProcessor, WatchmanEvent, WatchmanEventType, WatchmanKind,
-    },
-};
+use crate::daemon::server::file_watcher::FileWatcher;
+use crate::paths::Paths;
+use crate::watchman::SyncableQuery;
+use crate::watchman::SyncableQueryProcessor;
+use crate::watchman::WatchmanEvent;
+use crate::watchman::WatchmanEventType;
+use crate::watchman::WatchmanKind;
 
 const MAX_WATCHMAN_MESSAGES: u64 = 3;
 

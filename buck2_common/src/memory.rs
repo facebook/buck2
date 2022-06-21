@@ -88,4 +88,6 @@ mod imp {
     }
 }
 
-pub use imp::{allocator_stats, enable_background_threads, write_heap_to_file};
+pub use imp::allocator_stats;
+pub use imp::enable_background_threads;
+pub use imp::write_heap_to_file;

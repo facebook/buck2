@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-use crate::{
-    assert::Assert,
-    syntax::{Dialect, DialectTypes},
-};
+use crate::assert::Assert;
+use crate::syntax::Dialect;
+use crate::syntax::DialectTypes;
 
 const PROGRAM: &str = "\
 def f(x: int.type): pass

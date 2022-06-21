@@ -1,4 +1,6 @@
-use crate::{BuckEvent, ControlEvent, EventSink};
+use crate::BuckEvent;
+use crate::ControlEvent;
+use crate::EventSink;
 
 /// A Sink implementation that wraps two EventSinks and sends events to both of them.
 pub struct TeeSink<A, B>(A, B);

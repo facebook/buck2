@@ -7,36 +7,44 @@
  * of this source tree.
  */
 
-use std::{hash::Hash, sync::Arc};
+use std::hash::Hash;
+use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_core::{provider::ProvidersLabel, result::SharedResult, target::TargetLabel};
+use buck2_core::provider::ProvidersLabel;
+use buck2_core::result::SharedResult;
+use buck2_core::target::TargetLabel;
 use buck2_interpreter::pattern::ParsedPattern;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dashmap::DashMap;
-use dice::{DiceComputations, DiceTransaction};
-use futures::{
-    future::{BoxFuture, Shared},
-    stream::FuturesOrdered,
-    Future, FutureExt, StreamExt,
-};
+use dice::DiceComputations;
+use dice::DiceTransaction;
+use futures::future::BoxFuture;
+use futures::future::Shared;
+use futures::stream::FuturesOrdered;
+use futures::Future;
+use futures::FutureExt;
+use futures::StreamExt;
 use gazebo::prelude::*;
-use itertools::{Either, Itertools};
+use itertools::Either;
+use itertools::Itertools;
 use thiserror::Error;
 
-use crate::{
-    actions::{artifact::ArtifactFs, calculation::ActionCalculation, ActionKey},
-    artifact_groups::{ArtifactGroup, TransitiveSetProjectionKey},
-    calculation::Calculation,
-    nodes::compatibility::MaybeCompatible,
-    query::{
-        aquery::environment::{ActionInput, ActionQueryNode, AqueryDelegate, SetProjectionInputs},
-        cquery::environment::CqueryDelegate,
-        dice::DiceQueryDelegate,
-        uquery::environment::QueryLiterals,
-    },
-};
+use crate::actions::artifact::ArtifactFs;
+use crate::actions::calculation::ActionCalculation;
+use crate::actions::ActionKey;
+use crate::artifact_groups::ArtifactGroup;
+use crate::artifact_groups::TransitiveSetProjectionKey;
+use crate::calculation::Calculation;
+use crate::nodes::compatibility::MaybeCompatible;
+use crate::query::aquery::environment::ActionInput;
+use crate::query::aquery::environment::ActionQueryNode;
+use crate::query::aquery::environment::AqueryDelegate;
+use crate::query::aquery::environment::SetProjectionInputs;
+use crate::query::cquery::environment::CqueryDelegate;
+use crate::query::dice::DiceQueryDelegate;
+use crate::query::uquery::environment::QueryLiterals;
 
 #[derive(Debug, Error)]
 enum ActionQueryError {

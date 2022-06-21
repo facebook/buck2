@@ -17,11 +17,14 @@
 
 //! Instruction opcode.
 
-use std::{any, any::TypeId, marker};
+use std::any;
+use std::any::TypeId;
+use std::marker;
 
 use gazebo::dupe::Dupe;
 
-use crate::eval::bc::{instr::BcInstr, instr_impl::*};
+use crate::eval::bc::instr::BcInstr;
+use crate::eval::bc::instr_impl::*;
 
 /// Bytecode instruction opcode.
 #[starlark_internal_bc]

@@ -9,17 +9,17 @@
 
 use anyhow::Context as _;
 use gazebo::prelude::*;
-use starlark::{
-    eval::Evaluator,
-    values::{Value, ValueLike},
-};
+use starlark::eval::Evaluator;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 
-use crate::{
-    analysis::registry::AnalysisValueFetcher,
-    artifact_groups::deferred::{DeferredTransitiveSet, DeferredTransitiveSetData},
-    deferred::{DeferredRegistry, ReservedDeferredData},
-    interpreter::rule_defs::transitive_set::{FrozenTransitiveSet, TransitiveSet},
-};
+use crate::analysis::registry::AnalysisValueFetcher;
+use crate::artifact_groups::deferred::DeferredTransitiveSet;
+use crate::artifact_groups::deferred::DeferredTransitiveSetData;
+use crate::deferred::DeferredRegistry;
+use crate::deferred::ReservedDeferredData;
+use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
 pub struct ArtifactGroupRegistry {
     pending: Vec<ReservedDeferredData<DeferredTransitiveSetData>>,

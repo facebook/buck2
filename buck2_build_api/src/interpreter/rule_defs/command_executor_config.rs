@@ -1,22 +1,30 @@
-use std::{borrow::Cow, fmt};
+use std::borrow::Cow;
+use std::fmt;
 
 use anyhow::Context as _;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
-use starlark::{
-    environment::GlobalsBuilder,
-    values::{
-        dict::Dict,
-        none::{NoneOr, NoneType},
-        Freeze, Freezer, Heap, NoSerialize, StarlarkValue, Trace, Value, ValueLike,
-    },
-};
+use starlark::environment::GlobalsBuilder;
+use starlark::values::dict::Dict;
+use starlark::values::none::NoneOr;
+use starlark::values::none::NoneType;
+use starlark::values::Freeze;
+use starlark::values::Freezer;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 use thiserror::Error;
 
-use crate::execute::{
-    CommandExecutorConfig, CommandExecutorKind, HybridExecutionLevel, LocalExecutorOptions,
-    PathSeparatorKind, RemoteExecutorOptions, RemoteExecutorUseCase,
-};
+use crate::execute::CommandExecutorConfig;
+use crate::execute::CommandExecutorKind;
+use crate::execute::HybridExecutionLevel;
+use crate::execute::LocalExecutorOptions;
+use crate::execute::PathSeparatorKind;
+use crate::execute::RemoteExecutorOptions;
+use crate::execute::RemoteExecutorUseCase;
 
 #[derive(Debug, Error)]
 enum CommandExecutorConfigErrors {

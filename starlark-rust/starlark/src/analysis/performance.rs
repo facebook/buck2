@@ -18,14 +18,13 @@
 use gazebo::variants::VariantName;
 use thiserror::Error;
 
-use crate::{
-    analysis::types::{LintT, LintWarning},
-    codemap::CodeMap,
-    syntax::{
-        ast::{Argument, AstExpr, Expr},
-        AstModule,
-    },
-};
+use crate::analysis::types::LintT;
+use crate::analysis::types::LintWarning;
+use crate::codemap::CodeMap;
+use crate::syntax::ast::Argument;
+use crate::syntax::ast::AstExpr;
+use crate::syntax::ast::Expr;
+use crate::syntax::AstModule;
 
 #[derive(Error, Debug, VariantName)]
 pub(crate) enum Performance {

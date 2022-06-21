@@ -16,7 +16,8 @@
  */
 
 use serde::Serialize;
-use starlark::errors::{EvalMessage, EvalSeverity};
+use starlark::errors::EvalMessage;
+use starlark::errors::EvalSeverity;
 
 /// A JSON-deriving type that gives a stable interface to downstream types.
 /// Do NOT change this type, change Message instead.

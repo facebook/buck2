@@ -9,75 +9,94 @@
 
 //! Implementation of the `TestOrchestrator` from `test_api`.
 
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_common::dice::{cells::HasCellResolver, data::HasIoProvider};
-use buck2_core::{
-    category::Category,
-    fs::{
-        paths::{ForwardRelativePath, ForwardRelativePathBuf, RelativePathBuf},
-        project::{ProjectRelativePath, ProjectRelativePathBuf},
-    },
-    provider::ConfiguredProvidersLabel,
-    target::ConfiguredTargetLabel,
-};
-use buck2_data::{
-    TestDiscovery, TestDiscoveryEnd, TestDiscoveryStart, TestRunEnd, TestRunStart, TestSessionInfo,
-    TestSuite,
-};
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::data::HasIoProvider;
+use buck2_core::category::Category;
+use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_core::fs::paths::ForwardRelativePathBuf;
+use buck2_core::fs::paths::RelativePathBuf;
+use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::target::ConfiguredTargetLabel;
+use buck2_data::TestDiscovery;
+use buck2_data::TestDiscoveryEnd;
+use buck2_data::TestDiscoveryStart;
+use buck2_data::TestRunEnd;
+use buck2_data::TestRunStart;
+use buck2_data::TestSessionInfo;
+use buck2_data::TestSuite;
 use buck2_interpreter::dice::HasEvents;
-use dashmap::{mapref::entry::Entry, DashMap};
+use dashmap::mapref::entry::Entry;
+use dashmap::DashMap;
 use dice::DiceTransaction;
 use events::dispatch::EventDispatcher;
 use futures::channel::mpsc::UnboundedSender;
 use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
-use indexmap::{IndexMap, IndexSet};
+use indexmap::IndexMap;
+use indexmap::IndexSet;
 use once_cell::sync::Lazy;
-use test_api::{
-    data::{
-        ArgValue, ArgValueContent, ConfiguredTargetHandle, DeclaredOutput, DisplayMetadata,
-        ExecutionResult2, ExecutionStatus, ExecutionStream, ExecutorConfigOverride,
-        ExternalRunnerSpecValue, Output, PrepareForLocalExecutionResult, TestResult,
-    },
-    protocol::TestOrchestrator,
-};
+use test_api::data::ArgValue;
+use test_api::data::ArgValueContent;
+use test_api::data::ConfiguredTargetHandle;
+use test_api::data::DeclaredOutput;
+use test_api::data::DisplayMetadata;
+use test_api::data::ExecutionResult2;
+use test_api::data::ExecutionStatus;
+use test_api::data::ExecutionStream;
+use test_api::data::ExecutorConfigOverride;
+use test_api::data::ExternalRunnerSpecValue;
+use test_api::data::Output;
+use test_api::data::PrepareForLocalExecutionResult;
+use test_api::data::TestResult;
+use test_api::protocol::TestOrchestrator;
 use uuid::Uuid;
 
-use crate::{
-    actions::artifact::{ArtifactFs, ArtifactValue, ExecutorFs},
-    artifact_groups::ArtifactGroup,
-    calculation::Calculation,
-    deferred::BaseDeferredKey,
-    execute::{
-        blocking::HasBlockingExecutor,
-        commands::{
-            self,
-            dice_data::HasCommandExecutor,
-            local::{create_output_dirs, materialize_inputs},
-            ClaimManager, CommandExecutionInput, CommandExecutionManager, CommandExecutionRequest,
-            CommandExecutionResult, CommandExecutionTarget, CommandExecutionTimingData,
-            CommandExecutor, OutputCreationBehavior,
-        },
-        materializer::HasMaterializer,
-        CommandExecutorConfig,
-    },
-    interpreter::rule_defs::{
-        cmd_args::{
-            AbsCommandLineBuilder, BaseCommandLineBuilder, CommandLineArgLike,
-            CommandLineArtifactVisitor, CommandLineBuilder, CommandLineBuilderContext,
-            CommandLineLocation, SimpleCommandLineArtifactVisitor,
-        },
-        provider::builtin::external_runner_test_info::{
-            ExternalRunnerTestInfoCallable, FrozenExternalRunnerTestInfo, TestCommandMember,
-        },
-    },
-    nodes::configured::ConfiguredTargetNode,
-    path::BuckOutTestPath,
-    test::{orchestrator::commands::CommandExecutionOutput, session::TestSession, translations},
-};
+use crate::actions::artifact::ArtifactFs;
+use crate::actions::artifact::ArtifactValue;
+use crate::actions::artifact::ExecutorFs;
+use crate::artifact_groups::ArtifactGroup;
+use crate::calculation::Calculation;
+use crate::deferred::BaseDeferredKey;
+use crate::execute::blocking::HasBlockingExecutor;
+use crate::execute::commands::dice_data::HasCommandExecutor;
+use crate::execute::commands::local::create_output_dirs;
+use crate::execute::commands::local::materialize_inputs;
+use crate::execute::commands::ClaimManager;
+use crate::execute::commands::CommandExecutionInput;
+use crate::execute::commands::CommandExecutionManager;
+use crate::execute::commands::CommandExecutionRequest;
+use crate::execute::commands::CommandExecutionResult;
+use crate::execute::commands::CommandExecutionTarget;
+use crate::execute::commands::CommandExecutionTimingData;
+use crate::execute::commands::CommandExecutor;
+use crate::execute::commands::OutputCreationBehavior;
+use crate::execute::commands::{self};
+use crate::execute::materializer::HasMaterializer;
+use crate::execute::CommandExecutorConfig;
+use crate::interpreter::rule_defs::cmd_args::AbsCommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::BaseCommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
+use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
+use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::ExternalRunnerTestInfoCallable;
+use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
+use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
+use crate::nodes::configured::ConfiguredTargetNode;
+use crate::path::BuckOutTestPath;
+use crate::test::orchestrator::commands::CommandExecutionOutput;
+use crate::test::session::TestSession;
+use crate::test::translations;
 
 static TEST_CATEGORY: Lazy<Category> = Lazy::new(|| Category::try_from("test").unwrap());
 
@@ -856,18 +875,21 @@ fn create_prepare_for_local_execution_result(
 
 #[cfg(test)]
 mod tests {
-    use buck2_common::dice::{cells::HasCellResolver, data::testing::SetTestingIoProvider};
-    use buck2_core::{
-        cells::{testing::CellResolverExt, CellName, CellResolver},
-        fs::project::{ProjectFilesystemTemp, ProjectRelativePathBuf},
-    };
-    use dice::{testing::DiceBuilder, UserComputationData};
-    use futures::{
-        channel::mpsc::{self, UnboundedReceiver},
-        future,
-        stream::TryStreamExt,
-    };
-    use test_api::data::{testing::ConfiguredTargetHandleExt, TestStatus};
+    use buck2_common::dice::cells::HasCellResolver;
+    use buck2_common::dice::data::testing::SetTestingIoProvider;
+    use buck2_core::cells::testing::CellResolverExt;
+    use buck2_core::cells::CellName;
+    use buck2_core::cells::CellResolver;
+    use buck2_core::fs::project::ProjectFilesystemTemp;
+    use buck2_core::fs::project::ProjectRelativePathBuf;
+    use dice::testing::DiceBuilder;
+    use dice::UserComputationData;
+    use futures::channel::mpsc::UnboundedReceiver;
+    use futures::channel::mpsc::{self};
+    use futures::future;
+    use futures::stream::TryStreamExt;
+    use test_api::data::testing::ConfiguredTargetHandleExt;
+    use test_api::data::TestStatus;
 
     use super::*;
     use crate::context::SetBuildContextData;

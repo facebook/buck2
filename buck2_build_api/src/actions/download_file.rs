@@ -7,11 +7,15 @@
  * of this source tree.
  */
 
-use std::{borrow::Cow, convert::TryFrom, sync::Arc};
+use std::borrow::Cow;
+use std::convert::TryFrom;
+use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_common::file_ops::{FileDigest, FileMetadata, TrackedFileDigest};
+use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::FileMetadata;
+use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::category::Category;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
@@ -19,20 +23,24 @@ use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
 
-use crate::{
-    actions::{
-        artifact::{ArtifactValue, BuildArtifact},
-        Action, ActionExecutable, ActionExecutionCtx, PristineActionExecutable, UnregisteredAction,
-    },
-    artifact_groups::ArtifactGroup,
-    execute::{
-        materializer::{
-            http::{http_client, http_download, http_head, Checksum, HttpDownloadError},
-            HttpDownloadInfo,
-        },
-        ActionExecutionKind, ActionExecutionMetadata, ActionExecutionTimingData, ActionOutputs,
-    },
-};
+use crate::actions::artifact::ArtifactValue;
+use crate::actions::artifact::BuildArtifact;
+use crate::actions::Action;
+use crate::actions::ActionExecutable;
+use crate::actions::ActionExecutionCtx;
+use crate::actions::PristineActionExecutable;
+use crate::actions::UnregisteredAction;
+use crate::artifact_groups::ArtifactGroup;
+use crate::execute::materializer::http::http_client;
+use crate::execute::materializer::http::http_download;
+use crate::execute::materializer::http::http_head;
+use crate::execute::materializer::http::Checksum;
+use crate::execute::materializer::http::HttpDownloadError;
+use crate::execute::materializer::HttpDownloadInfo;
+use crate::execute::ActionExecutionKind;
+use crate::execute::ActionExecutionMetadata;
+use crate::execute::ActionExecutionTimingData;
+use crate::execute::ActionOutputs;
 
 #[derive(Debug, Error)]
 enum DownloadFileActionError {

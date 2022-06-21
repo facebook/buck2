@@ -9,10 +9,9 @@
 
 #![allow(dead_code)] // Used only on Unix.
 
-use std::{
-    env,
-    path::{Path, PathBuf},
-};
+use std::env;
+use std::path::Path;
+use std::path::PathBuf;
 
 use anyhow::Context;
 

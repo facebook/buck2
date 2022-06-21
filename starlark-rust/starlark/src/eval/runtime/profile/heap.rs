@@ -15,27 +15,30 @@
  * limitations under the License.
  */
 
-use std::{
-    cell::RefCell,
-    collections::{hash_map::Entry, HashMap},
-    fmt::Debug,
-    fs::File,
-    io::Write,
-    mem,
-    path::Path,
-    rc::Rc,
-    time::Instant,
-};
+use std::cell::RefCell;
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::fs::File;
+use std::io::Write;
+use std::mem;
+use std::path::Path;
+use std::rc::Rc;
+use std::time::Instant;
 
 use anyhow::Context;
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, prelude::*};
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
 
 use crate as starlark;
-use crate::{
-    eval::runtime::{profile::csv::CsvWriter, small_duration::SmallDuration},
-    values::{Heap, StarlarkValue, Trace, Value, ValueLike},
-};
+use crate::eval::runtime::profile::csv::CsvWriter;
+use crate::eval::runtime::small_duration::SmallDuration;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::Trace;
+use crate::values::Value;
+use crate::values::ValueLike;
 
 #[derive(Copy, Clone, Dupe, Debug)]
 pub(crate) enum HeapProfileFormat {
@@ -237,7 +240,8 @@ impl HeapProfile {
     }
 
     fn write_summarized_heap_profile_to(mut file: impl Write, heap: &Heap) -> anyhow::Result<()> {
-        use summary::{FuncInfo, Info};
+        use summary::FuncInfo;
+        use summary::Info;
 
         let mut ids = FunctionIds::default();
         let root = ids.get_string("(root)".to_owned());
@@ -585,15 +589,15 @@ mod flame {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        environment::{Globals, Module},
-        eval::{
-            runtime::profile::heap::summary::{FuncInfo, Info},
-            Evaluator, ProfileMode,
-        },
-        syntax::{AstModule, Dialect},
-        values::Value,
-    };
+    use crate::environment::Globals;
+    use crate::environment::Module;
+    use crate::eval::runtime::profile::heap::summary::FuncInfo;
+    use crate::eval::runtime::profile::heap::summary::Info;
+    use crate::eval::Evaluator;
+    use crate::eval::ProfileMode;
+    use crate::syntax::AstModule;
+    use crate::syntax::Dialect;
+    use crate::values::Value;
 
     #[test]
     fn test_profiling() -> anyhow::Result<()> {

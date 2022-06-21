@@ -10,12 +10,20 @@
 use buck2_build_api::nodes::unconfigured::TargetNode;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, prelude::*};
-use starlark::{
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    starlark_module, starlark_simple_value, starlark_type,
-    values::{Heap, NoSerialize, StarlarkValue, UnpackValue, Value, ValueLike},
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::starlark_module;
+use starlark::starlark_simple_value;
+use starlark::starlark_type;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 
 use crate::bxl::starlark_defs::nodes::unconfigured::attribute::StarlarkTargetNodeCoercedAttributes;
 

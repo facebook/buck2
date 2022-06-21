@@ -20,13 +20,11 @@ use events::subscriber::EventSubscriber;
 use gazebo::prelude::*;
 pub(crate) use simpleconsole::SimpleConsole;
 
-use crate::{
-    commands::common::{
-        subscribers::superconsole::StatefulSuperConsole, verbosity::Verbosity,
-        CommonEventLogOptions, ConsoleType,
-    },
-    CommandContext,
-};
+use crate::commands::common::subscribers::superconsole::StatefulSuperConsole;
+use crate::commands::common::verbosity::Verbosity;
+use crate::commands::common::CommonEventLogOptions;
+use crate::commands::common::ConsoleType;
+use crate::CommandContext;
 
 /// Given a command name and the command arguments, create a default console / superconsole.
 pub(crate) fn get_console_with_root(

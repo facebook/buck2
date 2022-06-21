@@ -7,22 +7,27 @@
  * of this source tree.
  */
 
-use std::{
-    fmt,
-    hash::{Hash, Hasher},
-    sync::Arc,
-};
+use std::fmt;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::sync::Arc;
 
-use gazebo::{any::ProvidesStaticType, prelude::*};
-use starlark::{
-    collections::StarlarkHasher,
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    values::{Freeze, Heap, NoSerialize, StarlarkValue, Trace, Value, ValueLike},
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
+use starlark::collections::StarlarkHasher;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::values::Freeze;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 
-use crate::interpreter::rule_defs::{
-    artifact_tagging::TaggedArtifacts, cmd_args::ValueAsCommandLineLike,
-};
+use crate::interpreter::rule_defs::artifact_tagging::TaggedArtifacts;
+use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 
 /// ArtifactTag allows wrapping input and output artifacts in a command line with tags. Those tags
 /// will be made visible to artifact visitors. The tags themselves don't have meaning on their own,

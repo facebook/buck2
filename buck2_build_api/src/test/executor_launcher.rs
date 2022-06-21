@@ -13,20 +13,29 @@ use std::io;
 use std::os::unix::io::AsRawFd;
 #[cfg(windows)]
 use std::os::windows::prelude::AsRawHandle;
-use std::{pin::Pin, process::Stdio};
+use std::pin::Pin;
+use std::process::Stdio;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
 use derive_more::Display;
-use futures::future::{try_join3, Future, FutureExt};
-use test_api::grpc::{spawn_orchestrator_server, DuplexChannel, ServerHandle, TestExecutorClient};
+use futures::future::try_join3;
+use futures::future::Future;
+use futures::future::FutureExt;
+use test_api::grpc::spawn_orchestrator_server;
+use test_api::grpc::DuplexChannel;
+use test_api::grpc::ServerHandle;
+use test_api::grpc::TestExecutorClient;
 #[cfg(windows)]
-use tokio::net::windows::named_pipe::{ClientOptions, ServerOptions};
+use tokio::net::windows::named_pipe::ClientOptions;
+#[cfg(windows)]
+use tokio::net::windows::named_pipe::ServerOptions;
 #[cfg(unix)]
 use tokio::net::UnixStream;
 use tokio::process::Command;
 
-use crate::test::{downward_api::BuckTestDownwardApi, orchestrator::BuckTestOrchestrator};
+use crate::test::downward_api::BuckTestDownwardApi;
+use crate::test::orchestrator::BuckTestOrchestrator;
 
 pub struct ExecutorLaunch {
     pub handle: Pin<Box<dyn Future<Output = anyhow::Result<ExecutorOutput>> + Send>>,
@@ -185,7 +194,9 @@ impl ExecutorLauncher for OutOfProcessTestExecutor {
 mod read_and_log {
     use std::io;
 
-    use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
+    use tokio::io::AsyncBufReadExt;
+    use tokio::io::AsyncRead;
+    use tokio::io::BufReader;
 
     pub async fn read_to_end<A: AsyncRead + Unpin>(
         channel: &str,

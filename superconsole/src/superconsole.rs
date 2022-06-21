@@ -7,20 +7,26 @@
  * of this source tree.
  */
 
-use std::{cmp, io};
+use std::cmp;
+use std::io;
 
-use crossterm::{
-    queue,
-    terminal::{self, Clear, ClearType},
-    tty::IsTty,
-};
+use crossterm::queue;
+use crossterm::terminal::Clear;
+use crossterm::terminal::ClearType;
+use crossterm::terminal::{self};
+use crossterm::tty::IsTty;
 
-use crate::{
-    components::{Canvas, Component, DrawMode},
-    content::{Line, LinesExt},
-    output::{BlockingSuperConsoleOutput, SuperConsoleOutput},
-    Dimensions, Direction, Lines, State,
-};
+use crate::components::Canvas;
+use crate::components::Component;
+use crate::components::DrawMode;
+use crate::content::Line;
+use crate::content::LinesExt;
+use crate::output::BlockingSuperConsoleOutput;
+use crate::output::SuperConsoleOutput;
+use crate::Dimensions;
+use crate::Direction;
+use crate::Lines;
+use crate::State;
 
 const MINIMUM_EMIT: usize = 5;
 const MAX_GRAPHEME_BUFFER: usize = 1000000;
@@ -201,11 +207,11 @@ mod tests {
     use derive_more::AsRef;
 
     use super::*;
-    use crate::{
-        components::Echo,
-        testing::{frame_contains, test_console, SuperConsoleTestingExt},
-        Lines,
-    };
+    use crate::components::Echo;
+    use crate::testing::frame_contains;
+    use crate::testing::test_console;
+    use crate::testing::SuperConsoleTestingExt;
+    use crate::Lines;
 
     #[derive(AsRef, Debug)]
     struct Msg(Lines);

@@ -7,47 +7,51 @@
  * of this source tree.
  */
 
-use std::{
-    fmt::{Debug, Display},
-    hash::Hash,
-    sync::Arc,
-};
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::hash::Hash;
+use std::sync::Arc;
 
-use buck2_core::{
-    buck_path::BuckPath,
-    provider::{ConfiguredProvidersLabel, ProvidersLabelMaybeConfigured},
-    target::{TargetLabel, TargetLabelMaybeConfigured},
-};
-use buck2_interpreter::types::label::{Label, LabelGen};
+use buck2_core::buck_path::BuckPath;
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::ProvidersLabelMaybeConfigured;
+use buck2_core::target::TargetLabel;
+use buck2_core::target::TargetLabelMaybeConfigured;
+use buck2_interpreter::types::label::Label;
+use buck2_interpreter::types::label::LabelGen;
 use gazebo::prelude::*;
-use starlark::{
-    collections::{SmallMap, SmallSet},
-    values::{dict::Dict, none::NoneType, FrozenValue, Heap, StarlarkValue, Value},
-};
+use starlark::collections::SmallMap;
+use starlark::collections::SmallSet;
+use starlark::values::dict::Dict;
+use starlark::values::none::NoneType;
+use starlark::values::FrozenValue;
+use starlark::values::Heap;
+use starlark::values::StarlarkValue;
+use starlark::values::Value;
 
-use crate::{
-    attrs::{
-        attr_type::{
-            arg::{value::ResolvedStringWithMacros, StringWithMacros},
-            configuration_dep::ConfigurationDepAttrType,
-            dep::{
-                DepAttr, DepAttrType, ExplicitConfiguredDepAttrType,
-                ExplicitConfiguredDepMaybeConfigured,
-            },
-            label::LabelAttrType,
-            query::{QueryAttr, ResolvedQueryLiterals},
-            source::SourceAttrType,
-            split_transition_dep::{SplitTransitionDepAttrType, SplitTransitionDepMaybeConfigured},
-            AttrType,
-        },
-        AttrConfigurationContext, AttrResolutionContext, CoercedAttr, CoercedAttrTraversal,
-        CoercedPath, ConfiguredAttr,
-    },
-    interpreter::rule_defs::{
-        artifact::StarlarkArtifact, provider::dependency::DependencyGen,
-        transition::id::TransitionId,
-    },
-};
+use crate::attrs::attr_type::arg::value::ResolvedStringWithMacros;
+use crate::attrs::attr_type::arg::StringWithMacros;
+use crate::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
+use crate::attrs::attr_type::dep::DepAttr;
+use crate::attrs::attr_type::dep::DepAttrType;
+use crate::attrs::attr_type::dep::ExplicitConfiguredDepAttrType;
+use crate::attrs::attr_type::dep::ExplicitConfiguredDepMaybeConfigured;
+use crate::attrs::attr_type::label::LabelAttrType;
+use crate::attrs::attr_type::query::QueryAttr;
+use crate::attrs::attr_type::query::ResolvedQueryLiterals;
+use crate::attrs::attr_type::source::SourceAttrType;
+use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
+use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfigured;
+use crate::attrs::attr_type::AttrType;
+use crate::attrs::AttrConfigurationContext;
+use crate::attrs::AttrResolutionContext;
+use crate::attrs::CoercedAttr;
+use crate::attrs::CoercedAttrTraversal;
+use crate::attrs::CoercedPath;
+use crate::attrs::ConfiguredAttr;
+use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
+use crate::interpreter::rule_defs::provider::dependency::DependencyGen;
+use crate::interpreter::rule_defs::transition::id::TransitionId;
 
 pub trait AttrLike: Display + Debug + Clone + Eq + PartialEq + Hash + Send + Sync {}
 

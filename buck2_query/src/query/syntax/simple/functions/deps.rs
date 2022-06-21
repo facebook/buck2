@@ -13,19 +13,17 @@ use async_trait::async_trait;
 use buck2_query_proc_macro::query_module;
 use gazebo::variants::VariantName;
 
-// Required for use of #[query_module] within the buck_query crate.
-use crate::query::{
-    environment::{QueryEnvironment, QueryTarget, TraversalFilter},
-    syntax::simple::{
-        eval::{
-            error::QueryError,
-            evaluator::QueryEvaluator,
-            set::TargetSet,
-            values::{QueryEvaluationValue, QueryValue},
-        },
-        functions::{helpers::CapturedExpr, AugmentedQueryFunctions, QueryFunctions},
-    },
-};
+use crate::query::environment::QueryEnvironment;
+use crate::query::environment::QueryTarget;
+use crate::query::environment::TraversalFilter;
+use crate::query::syntax::simple::eval::error::QueryError;
+use crate::query::syntax::simple::eval::evaluator::QueryEvaluator;
+use crate::query::syntax::simple::eval::set::TargetSet;
+use crate::query::syntax::simple::eval::values::QueryEvaluationValue;
+use crate::query::syntax::simple::eval::values::QueryValue;
+use crate::query::syntax::simple::functions::helpers::CapturedExpr;
+use crate::query::syntax::simple::functions::AugmentedQueryFunctions;
+use crate::query::syntax::simple::functions::QueryFunctions;
 
 pub(crate) struct DepsContextFunctions<'a, Env: QueryEnvironment> {
     target: &'a Env::Target,

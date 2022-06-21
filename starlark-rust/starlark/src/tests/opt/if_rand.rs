@@ -17,18 +17,23 @@
 
 //! Permutations tests for if condition evaluation.
 
-use std::{cell::Cell, fmt, fmt::Display};
+use std::cell::Cell;
+use std::fmt;
+use std::fmt::Display;
 
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, dupe::Dupe};
-use rand::{rngs::SmallRng, Rng, SeedableRng};
+use gazebo::any::ProvidesStaticType;
+use gazebo::dupe::Dupe;
+use rand::rngs::SmallRng;
+use rand::Rng;
+use rand::SeedableRng;
 
 use crate as starlark;
-use crate::{
-    environment::{GlobalsBuilder, Module},
-    eval::Evaluator,
-    syntax::{AstModule, Dialect},
-};
+use crate::environment::GlobalsBuilder;
+use crate::environment::Module;
+use crate::eval::Evaluator;
+use crate::syntax::AstModule;
+use crate::syntax::Dialect;
 
 /// Count side effects. For example, in expression like:
 ///

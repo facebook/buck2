@@ -7,46 +7,59 @@
  * of this source tree.
  */
 
-use std::{
-    borrow::Cow,
-    convert::TryFrom,
-    io::{sink, Write},
-    time::Instant,
-};
+use std::borrow::Cow;
+use std::convert::TryFrom;
+use std::io::sink;
+use std::io::Write;
+use std::time::Instant;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_common::file_ops::{FileDigest, FileMetadata, TrackedFileDigest};
+use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::FileMetadata;
+use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::category::Category;
-use buck2_interpreter::types::{label::Label, target_label::StarlarkTargetLabel};
+use buck2_interpreter::types::label::Label;
+use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use gazebo::prelude::*;
-use indexmap::{indexmap, IndexMap, IndexSet};
+use indexmap::indexmap;
+use indexmap::IndexMap;
+use indexmap::IndexSet;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
-use serde::{Serialize, Serializer};
-use starlark::values::{
-    dict::Dict, list::List, record::Record, structs::Struct, tuple::Tuple, OwnedFrozenValue, Value,
-    ValueLike,
-};
+use serde::Serialize;
+use serde::Serializer;
+use starlark::values::dict::Dict;
+use starlark::values::list::List;
+use starlark::values::record::Record;
+use starlark::values::structs::Struct;
+use starlark::values::tuple::Tuple;
+use starlark::values::OwnedFrozenValue;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 use thiserror::Error;
 
-use crate::{
-    actions::{
-        artifact::{Artifact, ArtifactValue, BuildArtifact, ExecutorFs},
-        Action, ActionExecutable, ActionExecutionCtx, PristineActionExecutable, UnregisteredAction,
-    },
-    artifact_groups::ArtifactGroup,
-    execute::{
-        ActionExecutionKind, ActionExecutionMetadata, ActionExecutionTimingData, ActionOutputs,
-    },
-    interpreter::rule_defs::{
-        artifact::{FrozenStarlarkOutputArtifact, StarlarkOutputArtifact, ValueAsArtifactLike},
-        cmd_args::{
-            BaseCommandLineBuilder, FrozenStarlarkCommandLine, StarlarkCommandLine,
-            ValueAsCommandLineLike,
-        },
-    },
-};
+use crate::actions::artifact::Artifact;
+use crate::actions::artifact::ArtifactValue;
+use crate::actions::artifact::BuildArtifact;
+use crate::actions::artifact::ExecutorFs;
+use crate::actions::Action;
+use crate::actions::ActionExecutable;
+use crate::actions::ActionExecutionCtx;
+use crate::actions::PristineActionExecutable;
+use crate::actions::UnregisteredAction;
+use crate::artifact_groups::ArtifactGroup;
+use crate::execute::ActionExecutionKind;
+use crate::execute::ActionExecutionMetadata;
+use crate::execute::ActionExecutionTimingData;
+use crate::execute::ActionOutputs;
+use crate::interpreter::rule_defs::artifact::FrozenStarlarkOutputArtifact;
+use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
+use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
+use crate::interpreter::rule_defs::cmd_args::BaseCommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCommandLine;
+use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
+use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 
 #[derive(Debug, Error)]
 enum WriteJsonActionValidationError {

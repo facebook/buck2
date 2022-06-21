@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-use crate::{assert, syntax::lexer::Token::*};
+use crate::assert;
+use crate::syntax::lexer::Token::*;
 
 #[test]
 fn test_int_lit() {

@@ -1,6 +1,9 @@
 use gazebo::prelude::*;
 
-use crate::{BuckEvent, ControlEvent, Event, EventSink};
+use crate::BuckEvent;
+use crate::ControlEvent;
+use crate::Event;
+use crate::EventSink;
 
 /// An EventSink implementation that pushes events onto an unbounded channel, to be consumed by receivers on said
 /// channel.
@@ -54,14 +57,18 @@ impl EventSink for NullEventSink {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, time::SystemTime};
+    use std::collections::HashMap;
+    use std::time::SystemTime;
 
-    use buck2_data::{
-        buck_event::Data::SpanStart, span_start_event::Data::Command, CommandStart, SpanStartEvent,
-    };
+    use buck2_data::buck_event::Data::SpanStart;
+    use buck2_data::span_start_event::Data::Command;
+    use buck2_data::CommandStart;
+    use buck2_data::SpanStartEvent;
 
     use super::ChannelEventSink;
-    use crate::{BuckEvent, EventSink, TraceId};
+    use crate::BuckEvent;
+    use crate::EventSink;
+    use crate::TraceId;
 
     #[tokio::test]
     async fn sending_event_smoke() {

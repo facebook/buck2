@@ -7,10 +7,10 @@
  * of this source tree.
  */
 
-use crate::{
-    cells::paths::CellPath,
-    package::{Package, PackageRelativePath, PackageRelativePathBuf},
-};
+use crate::cells::paths::CellPath;
+use crate::package::Package;
+use crate::package::PackageRelativePath;
+use crate::package::PackageRelativePathBuf;
 
 /// Represents a resolvable path corresponding to some path that is part of a
 /// 'Package'. The 'BuckPath' refers to only paths in the repo source, not

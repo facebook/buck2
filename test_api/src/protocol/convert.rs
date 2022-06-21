@@ -1,7 +1,8 @@
 use std::convert::TryInto;
 
 use anyhow::Context as _;
-use host_sharing::{HostSharingRequirements, WeightClass};
+use host_sharing::HostSharingRequirements;
+use host_sharing::WeightClass;
 
 pub fn host_sharing_requirements_from_grpc(
     input: test_proto::HostSharingRequirements,

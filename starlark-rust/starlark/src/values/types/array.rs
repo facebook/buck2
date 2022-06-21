@@ -19,20 +19,21 @@
 //!
 //! This object is used internally, and not visible outside of `starlark` crate.
 
-use std::{
-    cell::UnsafeCell,
-    fmt,
-    fmt::{Debug, Display, Formatter},
-    ptr, slice,
-};
+use std::cell::UnsafeCell;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::ptr;
+use std::slice;
 
 use gazebo::any::ProvidesStaticType;
 use serde::Serialize;
 
-use crate::{
-    private::Private,
-    values::{types::list::display_list, StarlarkValue, Value},
-};
+use crate::private::Private;
+use crate::values::types::list::display_list;
+use crate::values::StarlarkValue;
+use crate::values::Value;
 
 /// Fixed-capacity list.
 ///
@@ -321,7 +322,8 @@ impl<'v> Serialize for Array<'v> {
 
 #[cfg(test)]
 mod tests {
-    use crate::values::{Heap, Value};
+    use crate::values::Heap;
+    use crate::values::Value;
 
     #[test]
     fn debug() {

@@ -442,6 +442,8 @@ pub mod __macro_refs {
 #[doc(hidden)]
 pub mod __derive_refs {
     pub mod serde {
-        pub use serde::{ser::Error, Serialize, Serializer};
+        pub use serde::ser::Error;
+        pub use serde::Serialize;
+        pub use serde::Serializer;
     }
 }

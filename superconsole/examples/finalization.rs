@@ -15,13 +15,17 @@
 
 //! Example that demonstrates finalization.
 
-use std::{convert::TryInto, time::Duration};
+use std::convert::TryInto;
+use std::time::Duration;
 
 use derive_more::Display;
-use superconsole::{
-    components::{Component, DrawMode},
-    state, Dimensions, Line, State, SuperConsole,
-};
+use superconsole::components::Component;
+use superconsole::components::DrawMode;
+use superconsole::state;
+use superconsole::Dimensions;
+use superconsole::Line;
+use superconsole::State;
+use superconsole::SuperConsole;
 use tokio::time;
 
 /// A component representing a store greeter.

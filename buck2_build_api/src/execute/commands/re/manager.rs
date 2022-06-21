@@ -10,33 +10,35 @@
 // This triggers on Arc<Arc<...>>, but we do that here for lifetime/ownership reasons
 #![allow(clippy::redundant_allocation)]
 
-use std::sync::{Arc, Mutex, RwLock, Weak};
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::sync::RwLock;
+use std::sync::Weak;
 
 use anyhow::Context as _;
-use buck2_core::{async_once_cell::AsyncOnceCell, result::SharedResult};
+use buck2_core::async_once_cell::AsyncOnceCell;
+use buck2_core::result::SharedResult;
 use fbinit::FacebookInit;
 use gazebo::prelude::*;
 use remote_execution as RE;
-use remote_execution::{
-    ActionResultResponse, ExecuteResponse, InlinedBlobWithDigest, NamedDigest,
-    NamedDigestWithPermissions, NetworkStatisticsResponse, TDigest,
-};
+use remote_execution::ActionResultResponse;
+use remote_execution::ExecuteResponse;
+use remote_execution::InlinedBlobWithDigest;
+use remote_execution::NamedDigest;
+use remote_execution::NamedDigestWithPermissions;
+use remote_execution::NetworkStatisticsResponse;
+use remote_execution::TDigest;
 
-use crate::{
-    actions::directory::ActionImmutableDirectory,
-    execute::{
-        commands::{
-            re::{
-                client::{ActionDigest, RemoteExecutionClient, RemoteExecutionStaticMetadata},
-                uploader::ActionBlobs,
-                ReActionIdentity, ReExecutorGlobalKnobs,
-            },
-            CommandExecutionManager,
-        },
-        materializer::Materializer,
-        RemoteExecutorUseCase,
-    },
-};
+use crate::actions::directory::ActionImmutableDirectory;
+use crate::execute::commands::re::client::ActionDigest;
+use crate::execute::commands::re::client::RemoteExecutionClient;
+use crate::execute::commands::re::client::RemoteExecutionStaticMetadata;
+use crate::execute::commands::re::uploader::ActionBlobs;
+use crate::execute::commands::re::ReActionIdentity;
+use crate::execute::commands::re::ReExecutorGlobalKnobs;
+use crate::execute::commands::CommandExecutionManager;
+use crate::execute::materializer::Materializer;
+use crate::execute::RemoteExecutorUseCase;
 
 /// Lifetime management of the Remote Execution connection (i.e. the RemoteExecutionClient).
 ///

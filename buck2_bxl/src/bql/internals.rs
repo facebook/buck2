@@ -11,12 +11,17 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use buck2_build_api::nodes::unconfigured::TargetNode;
-use buck2_query::query::{environment::QueryEnvironment, syntax::simple::eval::set::TargetSet};
-use gazebo::{any::ProvidesStaticType, prelude::*};
-use starlark::{
-    eval::Evaluator,
-    values::{list::List, Heap, UnpackValue, Value, ValueLike, ValueOf},
-};
+use buck2_query::query::environment::QueryEnvironment;
+use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
+use starlark::eval::Evaluator;
+use starlark::values::list::List;
+use starlark::values::Heap;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
+use starlark::values::ValueLike;
+use starlark::values::ValueOf;
 use tokio::runtime::Handle;
 
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;

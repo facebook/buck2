@@ -17,56 +17,73 @@
 
 //! Implementation of `def`.
 
-use std::{
-    cell::UnsafeCell,
-    collections::HashMap,
-    fmt::{self, Display, Write},
-    mem, ptr,
-    time::Instant,
-};
+use std::cell::UnsafeCell;
+use std::collections::HashMap;
+use std::fmt::Display;
+use std::fmt::Write;
+use std::fmt::{self};
+use std::mem;
+use std::ptr;
+use std::time::Instant;
 
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, prelude::*};
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
 use once_cell::sync::Lazy;
 
-use crate::{
-    self as starlark,
-    codemap::CodeMap,
-    collections::Hashed,
-    const_frozen_string,
-    environment::{FrozenModuleRef, Globals},
-    eval::{
-        bc::{bytecode::Bc, frame::alloca_frame},
-        compiler::{
-            def_inline::{inline_def_body, InlineDefBody},
-            expr::ExprCompiled,
-            scope::{
-                Captured, CstAssignIdent, CstExpr, CstParameter, CstStmt, ScopeId, ScopeNames,
-            },
-            span::IrSpanned,
-            stmt::{OptimizeOnFreezeContext, StmtCompileContext, StmtsCompiled},
-            Compiler, EvalException,
-        },
-        runtime::{
-            arguments::{ArgumentsImpl, ParametersSpec, ResolvedArgName},
-            call_stack::FrozenFileSpan,
-            evaluator::Evaluator,
-            slots::{LocalCapturedSlotId, LocalSlotId},
-        },
-        Arguments,
-    },
-    syntax::ast::ParameterP,
-    values::{
-        docs,
-        docs::{DocItem, DocString, DocStringKind},
-        frozen_ref::AtomicFrozenRefOption,
-        function::FUNCTION_TYPE,
-        typing::TypeCompiled,
-        Freeze, Freezer, FrozenHeap, FrozenRef, FrozenStringValue, FrozenValue, Heap,
-        StarlarkValue, Trace, Tracer, Value, ValueLike,
-    },
-};
+use crate::codemap::CodeMap;
+use crate::collections::Hashed;
+use crate::const_frozen_string;
+use crate::environment::FrozenModuleRef;
+use crate::environment::Globals;
+use crate::eval::bc::bytecode::Bc;
+use crate::eval::bc::frame::alloca_frame;
+use crate::eval::compiler::def_inline::inline_def_body;
+use crate::eval::compiler::def_inline::InlineDefBody;
+use crate::eval::compiler::expr::ExprCompiled;
+use crate::eval::compiler::scope::Captured;
+use crate::eval::compiler::scope::CstAssignIdent;
+use crate::eval::compiler::scope::CstExpr;
+use crate::eval::compiler::scope::CstParameter;
+use crate::eval::compiler::scope::CstStmt;
+use crate::eval::compiler::scope::ScopeId;
+use crate::eval::compiler::scope::ScopeNames;
+use crate::eval::compiler::span::IrSpanned;
+use crate::eval::compiler::stmt::OptimizeOnFreezeContext;
+use crate::eval::compiler::stmt::StmtCompileContext;
+use crate::eval::compiler::stmt::StmtsCompiled;
+use crate::eval::compiler::Compiler;
+use crate::eval::compiler::EvalException;
+use crate::eval::runtime::arguments::ArgumentsImpl;
+use crate::eval::runtime::arguments::ParametersSpec;
+use crate::eval::runtime::arguments::ResolvedArgName;
+use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::evaluator::Evaluator;
+use crate::eval::runtime::slots::LocalCapturedSlotId;
+use crate::eval::runtime::slots::LocalSlotId;
+use crate::eval::Arguments;
+use crate::syntax::ast::ParameterP;
+use crate::values::docs;
+use crate::values::docs::DocItem;
+use crate::values::docs::DocString;
+use crate::values::docs::DocStringKind;
+use crate::values::frozen_ref::AtomicFrozenRefOption;
+use crate::values::function::FUNCTION_TYPE;
+use crate::values::typing::TypeCompiled;
+use crate::values::Freeze;
+use crate::values::Freezer;
+use crate::values::FrozenHeap;
+use crate::values::FrozenRef;
+use crate::values::FrozenStringValue;
+use crate::values::FrozenValue;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::Trace;
+use crate::values::Tracer;
+use crate::values::Value;
+use crate::values::ValueLike;
+use crate::{self as starlark};
 
 #[derive(thiserror::Error, Debug)]
 enum DefError {

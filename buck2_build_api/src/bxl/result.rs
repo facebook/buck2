@@ -2,12 +2,12 @@ use std::collections::HashSet;
 
 use itertools::Itertools;
 
-use crate::{
-    actions::artifact::Artifact,
-    bxl::build_result::BxlBuildResult,
-    deferred::{DeferredAny, DeferredId, DeferredTable},
-    path::BuckOutPath,
-};
+use crate::actions::artifact::Artifact;
+use crate::bxl::build_result::BxlBuildResult;
+use crate::deferred::DeferredAny;
+use crate::deferred::DeferredId;
+use crate::deferred::DeferredTable;
+use crate::path::BuckOutPath;
 
 /// The result of evaluating a bxl function
 pub enum BxlResult {

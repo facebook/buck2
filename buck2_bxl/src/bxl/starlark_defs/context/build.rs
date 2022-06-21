@@ -2,25 +2,32 @@
 //! Implements the ability for bxl to build targets
 use std::sync::Arc;
 
-use buck2_build_api::{
-    build::{build_configured_label, MaterializationContext, ProvidersToBuild},
-    bxl::build_result::BxlBuildResult,
-    interpreter::rule_defs::artifact::StarlarkArtifact,
-};
+use buck2_build_api::build::build_configured_label;
+use buck2_build_api::build::MaterializationContext;
+use buck2_build_api::build::ProvidersToBuild;
+use buck2_build_api::bxl::build_result::BxlBuildResult;
+use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_core::result::ToSharedResultExt;
 use buck2_interpreter::types::label::Label;
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, coerce::Coerce, dupe::Dupe};
-use starlark::{
-    collections::small_map::SmallMap,
-    eval::Evaluator,
-    starlark_complex_value, starlark_type,
-    values::{Freeze, Heap, NoSerialize, StarlarkValue, Trace, Value, ValueLike},
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::Coerce;
+use gazebo::dupe::Dupe;
+use starlark::collections::small_map::SmallMap;
+use starlark::eval::Evaluator;
+use starlark::starlark_complex_value;
+use starlark::starlark_type;
+use starlark::values::Freeze;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 
-use crate::bxl::starlark_defs::{
-    build_result::StarlarkBxlBuildResult, context::BxlContext, providers_expr::ProvidersExpr,
-};
+use crate::bxl::starlark_defs::build_result::StarlarkBxlBuildResult;
+use crate::bxl::starlark_defs::context::BxlContext;
+use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 
 #[derive(
     Debug,

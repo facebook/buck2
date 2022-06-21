@@ -7,7 +7,8 @@
  * of this source tree.
  */
 
-use std::fmt::{self, Display};
+use std::fmt::Display;
+use std::fmt::{self};
 
 use thiserror::Error;
 

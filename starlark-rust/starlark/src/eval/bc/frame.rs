@@ -17,18 +17,22 @@
 
 //! Local variables and stack, in single allocation.
 
-use std::{cell::Cell, mem, mem::MaybeUninit, ptr, slice};
+use std::cell::Cell;
+use std::mem;
+use std::mem::MaybeUninit;
+use std::ptr;
+use std::slice;
 
 use gazebo::dupe::Dupe;
 
-use crate::{
-    eval::{
-        bc::stack_ptr::{BcSlotIn, BcSlotInRange, BcSlotOut},
-        runtime::slots::LocalSlotIdCapturedOrNot,
-        Evaluator,
-    },
-    values::{Trace, Tracer, Value},
-};
+use crate::eval::bc::stack_ptr::BcSlotIn;
+use crate::eval::bc::stack_ptr::BcSlotInRange;
+use crate::eval::bc::stack_ptr::BcSlotOut;
+use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
+use crate::eval::Evaluator;
+use crate::values::Trace;
+use crate::values::Tracer;
+use crate::values::Value;
 
 /// Current `def` frame (but not native function frame).
 ///

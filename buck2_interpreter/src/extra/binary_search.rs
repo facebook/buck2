@@ -1,6 +1,7 @@
 // (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
-use std::cmp::Ordering::{self, *};
+use std::cmp::Ordering::*;
+use std::cmp::Ordering::{self};
 
 // code adapted from Rust's std::slice::binary_search_by itself under MIT License
 // https://github.com/rust-lang/rust/blob/0d93d3f4a42fd45b2a0da658d39555316a1b6793/src/libcore/slice/mod.rs

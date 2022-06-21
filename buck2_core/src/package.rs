@@ -40,35 +40,36 @@
 //!
 //!
 
-use std::{
-    borrow::Borrow,
-    convert::TryFrom,
-    hash::{Hash, Hasher},
-    ops::Deref,
-    path::{Path, PathBuf},
-};
+use std::borrow::Borrow;
+use std::convert::TryFrom;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::ops::Deref;
+use std::path::Path;
+use std::path::PathBuf;
 
 use derivative::Derivative;
 use derive_more::Display;
 use fnv::FnvHasher;
 use gazebo::prelude::*;
-use internment_tweaks::{Equiv, Intern, StaticInterner};
+use internment_tweaks::Equiv;
+use internment_tweaks::Intern;
+use internment_tweaks::StaticInterner;
 use ref_cast::RefCast;
 use relative_path::RelativePathBuf;
 
-use crate::{
-    cells::{
-        paths::{CellPath, CellRelativePath},
-        CellName, CellResolver,
-    },
-    fs::{
-        paths::{
-            fmt::quoted_display, FileName, FileNameBuf, ForwardRelativePath,
-            ForwardRelativePathBuf, ForwardRelativePathIter, RelativePath,
-        },
-        project::ProjectRelativePathBuf,
-    },
-};
+use crate::cells::paths::CellPath;
+use crate::cells::paths::CellRelativePath;
+use crate::cells::CellName;
+use crate::cells::CellResolver;
+use crate::fs::paths::fmt::quoted_display;
+use crate::fs::paths::FileName;
+use crate::fs::paths::FileNameBuf;
+use crate::fs::paths::ForwardRelativePath;
+use crate::fs::paths::ForwardRelativePathBuf;
+use crate::fs::paths::ForwardRelativePathIter;
+use crate::fs::paths::RelativePath;
+use crate::fs::project::ProjectRelativePathBuf;
 
 /// A 'Package' as defined above.
 #[derive(Clone, Debug, Display, Eq, PartialEq, Ord, PartialOrd)]
@@ -725,7 +726,8 @@ impl Deref for PackageRelativePathBuf {
 mod tests {
     use std::collections::HashMap;
 
-    use crate::package::{PackageRelativePath, PackageRelativePathBuf};
+    use crate::package::PackageRelativePath;
+    use crate::package::PackageRelativePathBuf;
 
     #[test]
     fn paths_work_in_maps() -> anyhow::Result<()> {
@@ -789,10 +791,9 @@ mod tests {
 }
 
 pub mod testing {
-    use crate::{
-        cells::{paths::CellRelativePathBuf, CellName},
-        package::Package,
-    };
+    use crate::cells::paths::CellRelativePathBuf;
+    use crate::cells::CellName;
+    use crate::package::Package;
 
     pub trait PackageExt {
         fn testing_new(cell: &str, path: &str) -> Self;

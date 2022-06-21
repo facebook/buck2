@@ -7,15 +7,15 @@
  * of this source tree.
  */
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
+use std::collections::HashSet;
 
 use async_trait::async_trait;
 use futures::StreamExt;
 
-use crate::query::{
-    environment::LabeledNode, futures_queue_generic::FuturesQueue,
-    syntax::simple::eval::label_indexed::LabelIndexedSet,
-};
+use crate::query::environment::LabeledNode;
+use crate::query::futures_queue_generic::FuturesQueue;
+use crate::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 
 pub trait ChildVisitor<T: LabeledNode>: Send {
     fn visit(&mut self, node: T::NodeRef) -> anyhow::Result<()>;
@@ -338,7 +338,8 @@ pub async fn async_depth_first_postorder_traversal<
 
 #[cfg(test)]
 mod tests {
-    use std::{borrow::Cow, collections::HashMap};
+    use std::borrow::Cow;
+    use std::collections::HashMap;
 
     use buck2_core::cells::paths::CellPath;
     use buck2_interpreter::common::BuildFilePath;
@@ -347,10 +348,10 @@ mod tests {
     use serde::Serialize;
 
     use super::*;
-    use crate::query::{
-        environment::{NodeLabel, QueryTarget, QueryTargetAttr},
-        syntax::simple::eval::set::TargetSet,
-    };
+    use crate::query::environment::NodeLabel;
+    use crate::query::environment::QueryTarget;
+    use crate::query::environment::QueryTargetAttr;
+    use crate::query::syntax::simple::eval::set::TargetSet;
 
     #[derive(Debug, Clone)]
     struct Node(Ref, Vec<Ref>);

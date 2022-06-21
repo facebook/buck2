@@ -10,16 +10,16 @@
 use std::fmt::Debug;
 
 use anyhow::anyhow;
-use buck2_core::fs::{paths::RelativePathBuf, project::ProjectRelativePathBuf};
+use buck2_core::fs::paths::RelativePathBuf;
+use buck2_core::fs::project::ProjectRelativePathBuf;
 use indexmap::IndexSet;
 use thiserror::Error;
 
-use crate::{
-    actions::artifact::{Artifact, ExecutorFs},
-    interpreter::rule_defs::cmd_args::traits::{
-        CommandLineBuilder, CommandLineBuilderContext, CommandLineLocation,
-    },
-};
+use crate::actions::artifact::Artifact;
+use crate::actions::artifact::ExecutorFs;
+use crate::interpreter::rule_defs::cmd_args::traits::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::traits::CommandLineBuilderContext;
+use crate::interpreter::rule_defs::cmd_args::traits::CommandLineLocation;
 
 #[derive(Error, Debug)]
 pub enum CommandLineBuilderErrors {
@@ -162,23 +162,20 @@ impl CommandLineBuilder for AbsCommandLineBuilder<'_> {
 mod tests {
     use std::convert::TryFrom;
 
-    use buck2_core::{
-        cells::{testing::CellResolverExt, CellName, CellResolver},
-        fs::{
-            paths::AbsPathBuf,
-            project::{ProjectFilesystem, ProjectRelativePathBuf},
-        },
-    };
+    use buck2_core::cells::testing::CellResolverExt;
+    use buck2_core::cells::CellName;
+    use buck2_core::cells::CellResolver;
+    use buck2_core::fs::paths::AbsPathBuf;
+    use buck2_core::fs::project::ProjectFilesystem;
+    use buck2_core::fs::project::ProjectRelativePathBuf;
 
     use super::*;
-    use crate::{
-        actions::artifact::ArtifactFs,
-        execute::PathSeparatorKind,
-        interpreter::rule_defs::cmd_args::{
-            builder::BaseCommandLineBuilder, traits::CommandLineArgLike,
-        },
-        path::{BuckOutPathResolver, BuckPathResolver},
-    };
+    use crate::actions::artifact::ArtifactFs;
+    use crate::execute::PathSeparatorKind;
+    use crate::interpreter::rule_defs::cmd_args::builder::BaseCommandLineBuilder;
+    use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArgLike;
+    use crate::path::BuckOutPathResolver;
+    use crate::path::BuckPathResolver;
 
     #[test]
     fn adds_args_and_builds() -> anyhow::Result<()> {

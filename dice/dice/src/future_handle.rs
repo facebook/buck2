@@ -13,7 +13,10 @@
 
 use more_futures::spawn::WeakJoinHandle;
 
-use crate::{dice_future::DiceFuture, dice_task::DiceTask, GraphNode, StorageProperties};
+use crate::dice_future::DiceFuture;
+use crate::dice_task::DiceTask;
+use crate::GraphNode;
+use crate::StorageProperties;
 
 pub(crate) struct WeakDiceFutureHandle<S: StorageProperties> {
     handle: WeakJoinHandle<GraphNode<S>>,

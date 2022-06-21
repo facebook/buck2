@@ -17,13 +17,14 @@
 
 use gazebo::dupe::Dupe;
 
-use crate::{
-    eval::{Arguments, Evaluator},
-    values::{
-        function::{NativeFunc, NativeFunction},
-        FrozenRef, FrozenValue, FrozenValueTyped, Value,
-    },
-};
+use crate::eval::Arguments;
+use crate::eval::Evaluator;
+use crate::values::function::NativeFunc;
+use crate::values::function::NativeFunction;
+use crate::values::FrozenRef;
+use crate::values::FrozenValue;
+use crate::values::FrozenValueTyped;
+use crate::values::Value;
 
 /// Pointer to a native function optimized for bytecode execution.
 #[derive(Copy, Clone, Dupe)]

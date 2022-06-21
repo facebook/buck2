@@ -7,33 +7,43 @@
  * of this source tree.
  */
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::path::PathBuf;
 
 use anyhow::Context as _;
-use async_compression::tokio::{bufread::GzipDecoder, write::GzipEncoder};
+use async_compression::tokio::bufread::GzipDecoder;
+use async_compression::tokio::write::GzipEncoder;
 use async_trait::async_trait;
-use buck2_core::fs::paths::{AbsPathBuf, ForwardRelativePathBuf};
-use buck2_data::{buck_event, instant_event};
-use chrono::{offset::Utc, DateTime};
-use events::{
-    subscriber::{EventSubscriber, Tick},
-    BuckEvent, TraceId,
-};
-use futures::{
-    future::{Future, FutureExt},
-    stream::Stream,
-    StreamExt,
-};
-use gazebo::{dupe::Dupe, prelude::*};
-use serde::{Deserialize, Serialize};
+use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::paths::ForwardRelativePathBuf;
+use buck2_data::buck_event;
+use buck2_data::instant_event;
+use chrono::offset::Utc;
+use chrono::DateTime;
+use events::subscriber::EventSubscriber;
+use events::subscriber::Tick;
+use events::BuckEvent;
+use events::TraceId;
+use futures::future::Future;
+use futures::future::FutureExt;
+use futures::stream::Stream;
+use futures::StreamExt;
+use gazebo::dupe::Dupe;
+use gazebo::prelude::*;
+use serde::Deserialize;
+use serde::Serialize;
 use thiserror::Error;
-use tokio::{
-    fs::{File, OpenOptions},
-    io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader},
-};
+use tokio::fs::File;
+use tokio::fs::OpenOptions;
+use tokio::io::AsyncBufReadExt;
+use tokio::io::AsyncRead;
+use tokio::io::AsyncWrite;
+use tokio::io::AsyncWriteExt;
+use tokio::io::BufReader;
 use tokio_stream::wrappers::LinesStream;
 
-use crate::{daemon::client::StreamValue, AsyncCleanupContext};
+use crate::daemon::client::StreamValue;
+use crate::AsyncCleanupContext;
 
 #[derive(Error, Debug)]
 pub(crate) enum EventLogErrors {
@@ -461,7 +471,8 @@ pub(crate) fn log_upload_url() -> Option<&'static str> {
 
 #[cfg(unix)]
 fn log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
-    use std::{ffi::OsString, process::Stdio};
+    use std::ffi::OsString;
+    use std::process::Stdio;
 
     buck2_core::facebook_only();
     let manifold_url = match log_upload_url() {

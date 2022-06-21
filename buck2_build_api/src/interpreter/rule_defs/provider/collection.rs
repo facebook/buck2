@@ -7,24 +7,40 @@
  * of this source tree.
  */
 
-use std::{fmt, fmt::Display, sync::Arc};
+use std::fmt;
+use std::fmt::Display;
+use std::sync::Arc;
 
-use gazebo::{any::ProvidesStaticType, coerce::Coerce, dupe::Dupe};
-use serde::{Serialize, Serializer};
-use starlark::{
-    collections::SmallMap,
-    values::{
-        display::display_container, list::List, Freeze, Freezer, FrozenRef, FrozenValue, Heap,
-        OwnedFrozenValue, OwnedFrozenValueTyped, StarlarkValue, Trace, Tracer, Value, ValueError,
-        ValueLike,
-    },
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::Coerce;
+use gazebo::dupe::Dupe;
+use serde::Serialize;
+use serde::Serializer;
+use starlark::collections::SmallMap;
+use starlark::values::display::display_container;
+use starlark::values::list::List;
+use starlark::values::Freeze;
+use starlark::values::Freezer;
+use starlark::values::FrozenRef;
+use starlark::values::FrozenValue;
+use starlark::values::Heap;
+use starlark::values::OwnedFrozenValue;
+use starlark::values::OwnedFrozenValueTyped;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::Tracer;
+use starlark::values::Value;
+use starlark::values::ValueError;
+use starlark::values::ValueLike;
 
-use crate::interpreter::rule_defs::provider::{
-    callable::ValueAsProviderCallableLike,
-    id::{ProviderId, ProviderIdWithType},
-    DefaultInfo, DefaultInfoCallable, FrozenDefaultInfo, ProviderError, ValueAsProviderLike,
-};
+use crate::interpreter::rule_defs::provider::callable::ValueAsProviderCallableLike;
+use crate::interpreter::rule_defs::provider::id::ProviderId;
+use crate::interpreter::rule_defs::provider::id::ProviderIdWithType;
+use crate::interpreter::rule_defs::provider::DefaultInfo;
+use crate::interpreter::rule_defs::provider::DefaultInfoCallable;
+use crate::interpreter::rule_defs::provider::FrozenDefaultInfo;
+use crate::interpreter::rule_defs::provider::ProviderError;
+use crate::interpreter::rule_defs::provider::ValueAsProviderLike;
 
 /// Holds a collection of `UserProvider`s. These can be accessed in Starlark by indexing on
 /// a `ProviderCallable` object.
@@ -272,15 +288,13 @@ impl FrozenProviderCollectionValue {
 #[cfg(test)]
 pub(crate) mod tester {
     use gazebo::dupe::Dupe;
-    use starlark::{
-        environment::GlobalsBuilder,
-        values::{Value, ValueLike},
-    };
+    use starlark::environment::GlobalsBuilder;
+    use starlark::values::Value;
+    use starlark::values::ValueLike;
 
-    use crate::interpreter::rule_defs::provider::{
-        callable::ValueAsProviderCallableLike, collection::FrozenProviderCollection,
-        ProviderCollection,
-    };
+    use crate::interpreter::rule_defs::provider::callable::ValueAsProviderCallableLike;
+    use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
+    use crate::interpreter::rule_defs::provider::ProviderCollection;
 
     #[starlark_module]
     pub fn collection_creator(builder: &mut GlobalsBuilder) {
@@ -355,12 +369,11 @@ mod tests {
     use buck2_core::result::SharedResult;
     use indoc::indoc;
 
-    use crate::interpreter::{
-        rule_defs::{
-            artifact::testing::artifactory, provider::collection::tester::collection_creator,
-        },
-        testing::{expect_error, import, Tester},
-    };
+    use crate::interpreter::rule_defs::artifact::testing::artifactory;
+    use crate::interpreter::rule_defs::provider::collection::tester::collection_creator;
+    use crate::interpreter::testing::expect_error;
+    use crate::interpreter::testing::import;
+    use crate::interpreter::testing::Tester;
 
     fn provider_collection_tester() -> SharedResult<Tester> {
         let mut tester = Tester::new()?;

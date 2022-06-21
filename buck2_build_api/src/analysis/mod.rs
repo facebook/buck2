@@ -7,52 +7,53 @@
  * of this source tree.
  */
 
-use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::sync::Arc;
 
 use anyhow::Context as _;
-use buck2_core::{
-    provider::{ConfiguredProvidersLabel, ProviderName, ProvidersName},
-    result::SharedResult,
-    target::ConfiguredTargetLabel,
-};
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::ProviderName;
+use buck2_core::provider::ProvidersName;
+use buck2_core::result::SharedResult;
+use buck2_core::target::ConfiguredTargetLabel;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use gazebo::prelude::*;
-use starlark::{
-    collections::SmallMap,
-    environment::{FrozenModule, Module},
-    eval::Evaluator,
-    values::{structs::Struct, FrozenRef, Value, ValueLike},
-};
+use starlark::collections::SmallMap;
+use starlark::environment::FrozenModule;
+use starlark::environment::Module;
+use starlark::eval::Evaluator;
+use starlark::values::structs::Struct;
+use starlark::values::FrozenRef;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 use thiserror::Error;
 
-use crate::{
-    analysis::registry::AnalysisRegistry,
-    attrs::{AnalysisQueryResult, AttrResolutionContext},
-    configuration::execution::ExecutionPlatformResolution,
-    deferred::{DeferredAny, DeferredId, DeferredTable},
-    interpreter::rule_defs::{
-        cmd_args::FrozenCommandLineArgLike,
-        context::AnalysisContext,
-        provider::{
-            builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo,
-            collection::ProviderCollection,
-        },
-        rule::FrozenRuleCallable,
-    },
-};
+use crate::analysis::registry::AnalysisRegistry;
+use crate::attrs::AnalysisQueryResult;
+use crate::attrs::AttrResolutionContext;
+use crate::configuration::execution::ExecutionPlatformResolution;
+use crate::deferred::DeferredAny;
+use crate::deferred::DeferredId;
+use crate::deferred::DeferredTable;
+use crate::interpreter::rule_defs::cmd_args::FrozenCommandLineArgLike;
+use crate::interpreter::rule_defs::context::AnalysisContext;
+use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
+use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
+use crate::interpreter::rule_defs::rule::FrozenRuleCallable;
 
 pub mod calculation;
 pub(crate) mod configured_graph;
 pub mod registry;
 use buck2_interpreter::types::label::LabelGen;
-pub use calculation::{profile_analysis, resolve_queries};
+pub use calculation::profile_analysis;
+pub use calculation::resolve_queries;
 use starlark::values::ValueTyped;
 
-use crate::{
-    deferred::BaseDeferredKey,
-    interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue,
-    nodes::{configured::ConfiguredTargetNode, StarlarkRuleType},
-};
+use crate::deferred::BaseDeferredKey;
+use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use crate::nodes::configured::ConfiguredTargetNode;
+use crate::nodes::StarlarkRuleType;
 
 #[derive(Error, Debug)]
 enum AnalysisError {

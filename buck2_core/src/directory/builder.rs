@@ -7,24 +7,32 @@
  * of this source tree.
  */
 
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 
 use derivative::Derivative;
 use either::Either;
 use gazebo::prelude::*;
 use thiserror::Error;
 
-use super::{
-    Directory, DirectoryData, DirectoryEntries, DirectoryEntry, DirectoryHasher,
-    ExclusiveDirectory, FingerprintedDirectory, HasDirectoryDigest, ImmutableDirectory,
-    PathAccumulator, UnorderedDirectoryWalk,
-};
-use crate::fs::{
-    paths::{
-        FileName, FileNameBuf, ForwardRelativePath, ForwardRelativePathBuf, IntoFileNameBufIterator,
-    },
-    project::{ProjectRelativePath, ProjectRelativePathBuf},
-};
+use super::Directory;
+use super::DirectoryData;
+use super::DirectoryEntries;
+use super::DirectoryEntry;
+use super::DirectoryHasher;
+use super::ExclusiveDirectory;
+use super::FingerprintedDirectory;
+use super::HasDirectoryDigest;
+use super::ImmutableDirectory;
+use super::PathAccumulator;
+use super::UnorderedDirectoryWalk;
+use crate::fs::paths::FileName;
+use crate::fs::paths::FileNameBuf;
+use crate::fs::paths::ForwardRelativePath;
+use crate::fs::paths::ForwardRelativePathBuf;
+use crate::fs::paths::IntoFileNameBufIterator;
+use crate::fs::project::ProjectRelativePath;
+use crate::fs::project::ProjectRelativePathBuf;
 
 #[derive(Debug, Error)]
 pub enum DirectoryInsertError {

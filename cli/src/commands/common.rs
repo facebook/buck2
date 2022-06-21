@@ -21,19 +21,18 @@
 //!    ...
 //! }
 //! ```
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::path::PathBuf;
 
 use buck2_core::fs::anyhow as fs;
-use cli_proto::{common_build_options::ExecutionStrategy, ConfigOverride};
+use cli_proto::common_build_options::ExecutionStrategy;
+use cli_proto::ConfigOverride;
 use gazebo::prelude::*;
 use termwiz::istty::IsTty;
 
-use crate::{
-    commands::common::{
-        final_console::FinalConsole, subscribers::superconsole::SuperConsoleConfig,
-    },
-    daemon::common::ConfigType,
-};
+use crate::commands::common::final_console::FinalConsole;
+use crate::commands::common::subscribers::superconsole::SuperConsoleConfig;
+use crate::daemon::common::ConfigType;
 
 pub(crate) mod final_console;
 pub mod subscribers;

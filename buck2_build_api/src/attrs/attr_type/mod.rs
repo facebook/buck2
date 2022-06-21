@@ -7,12 +7,16 @@
  * of this source tree.
  */
 
-use std::{fmt, fmt::Display, sync::Arc};
+use std::fmt;
+use std::fmt::Display;
+use std::sync::Arc;
 
 use attr_literal::AttrLiteral;
 use configuration_dep::ConfigurationDepAttrType;
 use default_only::DefaultOnlyAttrType;
-use dep::{DepAttrTransition, DepAttrType, ExplicitConfiguredDepAttrType};
+use dep::DepAttrTransition;
+use dep::DepAttrType;
+use dep::ExplicitConfiguredDepAttrType;
 use dict::DictAttrType;
 use enumeration::EnumAttrType;
 use gazebo::dupe::Dupe;
@@ -26,19 +30,16 @@ use starlark::values::Value;
 use string::StringAttrType;
 use tuple::TupleAttrType;
 
-use crate::{
-    attrs::{
-        attr_type::{
-            any::AnyAttrType, arg::ArgAttrType, bool::BoolAttrType, int::IntAttrType,
-            list::ListAttrType,
-        },
-        coerced_attr::CoercedAttr,
-        AttrCoercionContext,
-    },
-    interpreter::rule_defs::{
-        attr::AttrIsConfigurable, provider::id::ProviderId, transition::id::TransitionId,
-    },
-};
+use crate::attrs::attr_type::any::AnyAttrType;
+use crate::attrs::attr_type::arg::ArgAttrType;
+use crate::attrs::attr_type::bool::BoolAttrType;
+use crate::attrs::attr_type::int::IntAttrType;
+use crate::attrs::attr_type::list::ListAttrType;
+use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::AttrCoercionContext;
+use crate::interpreter::rule_defs::attr::AttrIsConfigurable;
+use crate::interpreter::rule_defs::provider::id::ProviderId;
+use crate::interpreter::rule_defs::transition::id::TransitionId;
 
 pub(crate) mod any;
 pub mod arg;

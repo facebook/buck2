@@ -9,7 +9,8 @@
 
 use std::slice;
 
-use crate::{attrs::coerced_attr::CoercedAttr, nodes::AttributeId};
+use crate::attrs::coerced_attr::CoercedAttr;
+use crate::nodes::AttributeId;
 
 #[derive(Debug, Eq, PartialEq, Hash, Default)]
 pub(crate) struct AttrValues {

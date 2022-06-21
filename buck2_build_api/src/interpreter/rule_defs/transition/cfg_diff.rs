@@ -7,12 +7,14 @@
  * of this source tree.
  */
 
-use std::{cmp::Ordering, collections::BTreeMap, fmt::Write};
+use std::cmp::Ordering;
+use std::collections::BTreeMap;
+use std::fmt::Write;
 
-use buck2_core::configuration::{
-    constraints::{ConstraintKey, ConstraintValue},
-    Configuration, ConfigurationData,
-};
+use buck2_core::configuration::constraints::ConstraintKey;
+use buck2_core::configuration::constraints::ConstraintValue;
+use buck2_core::configuration::Configuration;
+use buck2_core::configuration::ConfigurationData;
 
 /// If configurations are not equal, return difference.
 pub(crate) fn cfg_diff(a: &Configuration, b: &Configuration) -> Result<(), String> {
@@ -152,13 +154,12 @@ pub(crate) fn cfg_diff(a: &Configuration, b: &Configuration) -> Result<(), Strin
 mod tests {
     use std::collections::BTreeMap;
 
-    use buck2_core::{
-        configuration::{
-            constraints::{ConstraintKey, ConstraintValue},
-            Configuration, ConfigurationData,
-        },
-        target::{testing::TargetLabelExt, TargetLabel},
-    };
+    use buck2_core::configuration::constraints::ConstraintKey;
+    use buck2_core::configuration::constraints::ConstraintValue;
+    use buck2_core::configuration::Configuration;
+    use buck2_core::configuration::ConfigurationData;
+    use buck2_core::target::testing::TargetLabelExt;
+    use buck2_core::target::TargetLabel;
 
     use crate::interpreter::rule_defs::transition::cfg_diff::cfg_diff;
 

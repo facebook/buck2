@@ -34,31 +34,38 @@
 //! assert_eq([v.value for v in Colors], ["Red", "Green", "Blue"])
 //! # "#);
 //! ```
-use std::{
-    cell::RefCell,
-    fmt::{self, Debug, Display},
-};
+use std::cell::RefCell;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::{self};
 
 use derivative::Derivative;
 use either::Either;
-use gazebo::{
-    any::ProvidesStaticType,
-    cell::AsARef,
-    coerce::{coerce, Coerce},
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::cell::AsARef;
+use gazebo::coerce::coerce;
+use gazebo::coerce::Coerce;
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::{
-    self as starlark,
-    collections::{SmallMap, StarlarkHasher},
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    eval::{Arguments, Evaluator},
-    values::{
-        display::display_container, function::FUNCTION_TYPE, index::convert_index, Freeze,
-        FrozenValue, Heap, StarlarkValue, Trace, Value, ValueLike,
-    },
-};
+use crate::collections::SmallMap;
+use crate::collections::StarlarkHasher;
+use crate::environment::Methods;
+use crate::environment::MethodsBuilder;
+use crate::environment::MethodsStatic;
+use crate::eval::Arguments;
+use crate::eval::Evaluator;
+use crate::values::display::display_container;
+use crate::values::function::FUNCTION_TYPE;
+use crate::values::index::convert_index;
+use crate::values::Freeze;
+use crate::values::FrozenValue;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::Trace;
+use crate::values::Value;
+use crate::values::ValueLike;
+use crate::{self as starlark};
 
 #[derive(Error, Debug)]
 enum EnumError {

@@ -14,48 +14,55 @@
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
-use std::{collections::HashSet, convert::TryFrom, sync::Arc};
+use std::collections::HashSet;
+use std::convert::TryFrom;
+use std::sync::Arc;
 
 use anyhow::Context as _;
-use buck2_build_api::{
-    bxl::calculation::BxlCalculationNoBxl,
-    configure_dice::configure_dice_for_buck,
-    interpreter::{
-        context::{
-            configure_build_file_globals, configure_extension_file_globals, fbcode_prelude,
-            BuildInterpreterConfiguror,
-        },
-        module_internals::{EvaluationResult, ModuleInternals},
-    },
-    nodes::{hacks::value_to_json, unconfigured::TargetNode},
-};
-use buck2_common::{dice::file_ops::HasFileOps, legacy_configs::BuckConfigBasedCells};
-use buck2_core::{
-    exit_result::ExitResult,
-    fs::{paths::AbsPathBuf, project::ProjectFilesystem},
-    package::Package,
-    result::SharedResult,
-};
-use buck2_interpreter::{
-    common::BuildFileCell,
-    dice::{
-        calculation::DiceCalculationDelegate, interpreter_setup::setup_interpreter,
-        HasCalculationDelegate,
-    },
-    extra::{InterpreterHostArchitecture, InterpreterHostPlatform},
-    pattern::{
-        resolve_target_patterns, PackageSpec, ParsedPattern, ResolvedPattern, TargetPattern,
-    },
-    starlark_profiler::{StarlarkProfilerInstrumentation, StarlarkProfilerOrInstrumentation},
-};
-use dice::{cycles::DetectCycles, data::DiceData, DiceComputations, UserComputationData};
+use buck2_build_api::bxl::calculation::BxlCalculationNoBxl;
+use buck2_build_api::configure_dice::configure_dice_for_buck;
+use buck2_build_api::interpreter::context::configure_build_file_globals;
+use buck2_build_api::interpreter::context::configure_extension_file_globals;
+use buck2_build_api::interpreter::context::fbcode_prelude;
+use buck2_build_api::interpreter::context::BuildInterpreterConfiguror;
+use buck2_build_api::interpreter::module_internals::EvaluationResult;
+use buck2_build_api::interpreter::module_internals::ModuleInternals;
+use buck2_build_api::nodes::hacks::value_to_json;
+use buck2_build_api::nodes::unconfigured::TargetNode;
+use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::legacy_configs::BuckConfigBasedCells;
+use buck2_core::exit_result::ExitResult;
+use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::package::Package;
+use buck2_core::result::SharedResult;
+use buck2_interpreter::common::BuildFileCell;
+use buck2_interpreter::dice::calculation::DiceCalculationDelegate;
+use buck2_interpreter::dice::interpreter_setup::setup_interpreter;
+use buck2_interpreter::dice::HasCalculationDelegate;
+use buck2_interpreter::extra::InterpreterHostArchitecture;
+use buck2_interpreter::extra::InterpreterHostPlatform;
+use buck2_interpreter::pattern::resolve_target_patterns;
+use buck2_interpreter::pattern::PackageSpec;
+use buck2_interpreter::pattern::ParsedPattern;
+use buck2_interpreter::pattern::ResolvedPattern;
+use buck2_interpreter::pattern::TargetPattern;
+use buck2_interpreter::starlark_profiler::StarlarkProfilerInstrumentation;
+use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
+use dice::cycles::DetectCycles;
+use dice::data::DiceData;
+use dice::DiceComputations;
+use dice::UserComputationData;
 use events::dispatch::EventDispatcher;
 use fbinit::FacebookInit;
-use futures::{future::BoxFuture, stream::futures_unordered::FuturesUnordered, FutureExt};
+use futures::future::BoxFuture;
+use futures::stream::futures_unordered::FuturesUnordered;
+use futures::FutureExt;
 use futures_util::stream::StreamExt;
 use gazebo::prelude::*;
 use regex::Regex;
-use structopt::{clap::AppSettings, StructOpt};
+use structopt::clap::AppSettings;
+use structopt::StructOpt;
 
 #[cfg_attr(all(unix, not(fbcode_build)), global_allocator)]
 #[cfg(all(unix, not(fbcode_build)))]

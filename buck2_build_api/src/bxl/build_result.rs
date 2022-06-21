@@ -7,14 +7,13 @@
  * of this source tree.
  */
 
-use buck2_core::result::{SharedError, SharedResult};
+use buck2_core::result::SharedError;
+use buck2_core::result::SharedResult;
 use gazebo::variants::UnpackVariants;
 use starlark::values::ProvidesStaticType;
 
-use crate::{
-    build::ProviderArtifacts,
-    interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue,
-};
+use crate::build::ProviderArtifacts;
+use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 
 #[derive(Clone, Debug, derive_more::Display, ProvidesStaticType, UnpackVariants)]
 pub enum BxlBuildResult {

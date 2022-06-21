@@ -23,7 +23,10 @@ use gazebo::prelude::*;
 pub use padding::Padded;
 pub use splitting::Split;
 
-use crate::{content::LinesExt, Dimensions, Lines, State};
+use crate::content::LinesExt;
+use crate::Dimensions;
+use crate::Lines;
+use crate::State;
 
 pub mod alignment;
 mod blank;

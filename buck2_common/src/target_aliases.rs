@@ -8,19 +8,20 @@
  */
 
 use async_trait::async_trait;
-use buck2_core::{
-    cells::CellName, fs::project::ProjectRelativePath, package::Package, result::SharedResult,
-};
+use buck2_core::cells::CellName;
+use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::package::Package;
+use buck2_core::result::SharedResult;
 use derive_more::Display;
-use dice::{DiceComputations, Key};
+use dice::DiceComputations;
+use dice::Key;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
 use itertools::Itertools;
 
-use crate::{
-    dice::cells::HasCellResolver,
-    legacy_configs::{dice::HasLegacyConfigs, LegacyBuckConfig},
-};
+use crate::dice::cells::HasCellResolver;
+use crate::legacy_configs::dice::HasLegacyConfigs;
+use crate::legacy_configs::LegacyBuckConfig;
 
 #[derive(thiserror::Error, Debug)]
 enum AliasResolutionError {
@@ -187,10 +188,9 @@ mod tests {
     use assert_matches::assert_matches;
     use indoc::indoc;
 
-    use crate::{
-        legacy_configs,
-        target_aliases::{AliasResolutionError, TargetAliasResolver},
-    };
+    use crate::legacy_configs;
+    use crate::target_aliases::AliasResolutionError;
+    use crate::target_aliases::TargetAliasResolver;
 
     #[test]
     fn test_aliases() -> anyhow::Result<()> {

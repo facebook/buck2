@@ -15,48 +15,65 @@
  * limitations under the License.
  */
 
-use std::{
-    cell::{Cell, RefCell},
-    cmp,
-    collections::HashSet,
-    fmt,
-    fmt::{Debug, Display, Formatter},
-    hash::{Hash, Hasher},
-    intrinsics::copy_nonoverlapping,
-    marker::PhantomData,
-    mem::MaybeUninit,
-    ops::Deref,
-    ptr, slice,
-    sync::Arc,
-    usize,
-};
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::cmp;
+use std::collections::HashSet;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::intrinsics::copy_nonoverlapping;
+use std::marker::PhantomData;
+use std::mem::MaybeUninit;
+use std::ops::Deref;
+use std::ptr;
+use std::slice;
+use std::sync::Arc;
+use std::usize;
 
 use either::Either;
-use gazebo::{cast, prelude::*};
+use gazebo::cast;
+use gazebo::prelude::*;
 use once_cell::sync::Lazy;
 
-use crate::{
-    eval::compiler::def::FrozenDef,
-    values::{
-        any::StarlarkAny,
-        array::Array,
-        layout::{
-            arena::{AValueRepr, Arena, HeapSummary, Reservation},
-            avalue::{
-                array_avalue, complex, complex_no_freeze, float_avalue, frozen_list_avalue,
-                frozen_tuple_avalue, list_avalue, simple, tuple_avalue, AValue, VALUE_EMPTY_ARRAY,
-                VALUE_EMPTY_FROZEN_LIST, VALUE_EMPTY_TUPLE,
-            },
-            fast_cell::FastCell,
-            static_string::constant_string,
-            typed::string::StringValueLike,
-            value::{FrozenValue, Value},
-        },
-        types::float::StarlarkFloat,
-        AllocFrozenValue, ComplexValue, FrozenRef, FrozenStringValue, FrozenValueTyped,
-        StarlarkValue, StringValue, Trace, ValueTyped,
-    },
-};
+use crate::eval::compiler::def::FrozenDef;
+use crate::values::any::StarlarkAny;
+use crate::values::array::Array;
+use crate::values::layout::arena::AValueRepr;
+use crate::values::layout::arena::Arena;
+use crate::values::layout::arena::HeapSummary;
+use crate::values::layout::arena::Reservation;
+use crate::values::layout::avalue::array_avalue;
+use crate::values::layout::avalue::complex;
+use crate::values::layout::avalue::complex_no_freeze;
+use crate::values::layout::avalue::float_avalue;
+use crate::values::layout::avalue::frozen_list_avalue;
+use crate::values::layout::avalue::frozen_tuple_avalue;
+use crate::values::layout::avalue::list_avalue;
+use crate::values::layout::avalue::simple;
+use crate::values::layout::avalue::tuple_avalue;
+use crate::values::layout::avalue::AValue;
+use crate::values::layout::avalue::VALUE_EMPTY_ARRAY;
+use crate::values::layout::avalue::VALUE_EMPTY_FROZEN_LIST;
+use crate::values::layout::avalue::VALUE_EMPTY_TUPLE;
+use crate::values::layout::fast_cell::FastCell;
+use crate::values::layout::static_string::constant_string;
+use crate::values::layout::typed::string::StringValueLike;
+use crate::values::layout::value::FrozenValue;
+use crate::values::layout::value::Value;
+use crate::values::types::float::StarlarkFloat;
+use crate::values::AllocFrozenValue;
+use crate::values::ComplexValue;
+use crate::values::FrozenRef;
+use crate::values::FrozenStringValue;
+use crate::values::FrozenValueTyped;
+use crate::values::StarlarkValue;
+use crate::values::StringValue;
+use crate::values::Trace;
+use crate::values::ValueTyped;
 
 /// A heap on which [`Value`]s can be allocated. The values will be annotated with the heap lifetime.
 #[derive(Default)]

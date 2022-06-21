@@ -17,7 +17,10 @@
 
 //! Test for `def` and `lambda`.
 
-use crate::{assert, assert::Assert, environment::Module, eval::Evaluator};
+use crate::assert;
+use crate::assert::Assert;
+use crate::environment::Module;
+use crate::eval::Evaluator;
 
 #[test]
 fn test_lambda() {

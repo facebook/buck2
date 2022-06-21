@@ -5,10 +5,11 @@ use std::sync::Arc;
 use buck2_core::configuration::Configuration;
 use once_cell::sync::Lazy;
 
-use crate::{
-    configuration::execution::{ExecutionPlatform, ExecutionPlatformResolution},
-    execute::{CommandExecutorConfig, CommandExecutorKind, LocalExecutorOptions},
-};
+use crate::configuration::execution::ExecutionPlatform;
+use crate::configuration::execution::ExecutionPlatformResolution;
+use crate::execute::CommandExecutorConfig;
+use crate::execute::CommandExecutorKind;
+use crate::execute::LocalExecutorOptions;
 
 // TODO(bobyf) this should be configured by the bxl function similar to
 // execution groups, which we don't have yet. Currently we hard code this to

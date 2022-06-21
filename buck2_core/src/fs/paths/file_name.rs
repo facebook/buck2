@@ -7,12 +7,11 @@
  * of this source tree.
  */
 
-use std::{
-    borrow::Borrow,
-    hash::{Hash, Hasher},
-    ops::Deref,
-    path::Path,
-};
+use std::borrow::Borrow;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::ops::Deref;
+use std::path::Path;
 
 use anyhow::anyhow;
 use derive_more::Display;

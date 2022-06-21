@@ -17,22 +17,28 @@
 
 //! Error types used by Starlark, mostly [`Diagnostic`].
 
-use std::{
-    error::Error,
-    fmt::{self, Display, Formatter},
-};
+use std::error::Error;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::fmt::{self};
 
-use annotate_snippets::{
-    display_list::{DisplayList, FormatOptions},
-    snippet::{Annotation, AnnotationType, Slice, Snippet, SourceAnnotation},
-};
+use annotate_snippets::display_list::DisplayList;
+use annotate_snippets::display_list::FormatOptions;
+use annotate_snippets::snippet::Annotation;
+use annotate_snippets::snippet::AnnotationType;
+use annotate_snippets::snippet::Slice;
+use annotate_snippets::snippet::Snippet;
+use annotate_snippets::snippet::SourceAnnotation;
 
-pub use crate::analysis::{EvalMessage, EvalSeverity, Lint};
-use crate::{
-    codemap::{CodeMap, FileSpan, Span},
-    eval::CallStack,
-    values::string::{fast_string, CharIndex},
-};
+pub use crate::analysis::EvalMessage;
+pub use crate::analysis::EvalSeverity;
+pub use crate::analysis::Lint;
+use crate::codemap::CodeMap;
+use crate::codemap::FileSpan;
+use crate::codemap::Span;
+use crate::eval::CallStack;
+use crate::values::string::fast_string;
+use crate::values::string::CharIndex;
 
 pub(crate) mod did_you_mean;
 

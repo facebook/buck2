@@ -10,11 +10,14 @@
 use std::fmt::Debug;
 
 use buck2_build_api_derive::internal_provider;
-use gazebo::{any::ProvidesStaticType, coerce::Coerce};
-use starlark::{
-    environment::GlobalsBuilder,
-    values::{list::FrozenList, Freeze, FrozenRef, Trace, Value},
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::Coerce;
+use starlark::environment::GlobalsBuilder;
+use starlark::values::list::FrozenList;
+use starlark::values::Freeze;
+use starlark::values::FrozenRef;
+use starlark::values::Trace;
+use starlark::values::Value;
 use thiserror::Error;
 
 use crate::interpreter::rule_defs::provider::builtin::execution_platform_info::FrozenExecutionPlatformInfo;

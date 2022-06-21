@@ -7,21 +7,20 @@
  * of this source tree.
  */
 
-use std::fmt::{self, Display};
+use std::fmt::Display;
+use std::fmt::{self};
 
 use anyhow::anyhow;
 use fancy_regex::Regex;
 use indexmap::IndexSet;
 use starlark::values::display::display_container;
 
-use crate::query::{
-    environment::{QueryTarget, QueryTargetAttr},
-    syntax::simple::eval::{
-        error::QueryError,
-        file_set::{FileNode, FileSet},
-        label_indexed::LabelIndexedSet,
-    },
-};
+use crate::query::environment::QueryTarget;
+use crate::query::environment::QueryTargetAttr;
+use crate::query::syntax::simple::eval::error::QueryError;
+use crate::query::syntax::simple::eval::file_set::FileNode;
+use crate::query::syntax::simple::eval::file_set::FileSet;
+use crate::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct TargetSet<T: QueryTarget> {

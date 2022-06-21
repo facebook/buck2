@@ -1,40 +1,49 @@
 //! The output stream for bxl to print values to the console as their result
 //!
 
-use std::{cell::RefCell, io::Write, ops::DerefMut, sync::Arc};
+use std::cell::RefCell;
+use std::io::Write;
+use std::ops::DerefMut;
+use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_build_api::{
-    actions::artifact::ArtifactFs,
-    interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike,
-};
+use buck2_build_api::actions::artifact::ArtifactFs;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_docs_gen::Buck2Docs;
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, prelude::SliceExt};
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::SliceExt;
 use itertools::Itertools;
-use serde::{Serialize, Serializer};
-use starlark::{
-    collections::SmallSet,
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    starlark_module, starlark_type,
-    values::{
-        dict::Dict,
-        list::{List, ListRef},
-        none::NoneType,
-        record::Record,
-        structs::Struct,
-        tuple::Tuple,
-        AllocValue, Heap, NoSerialize, StarlarkValue, Trace, UnpackValue, Value, ValueError,
-        ValueLike,
-    },
-};
+use serde::Serialize;
+use serde::Serializer;
+use starlark::collections::SmallSet;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::starlark_module;
+use starlark::starlark_type;
+use starlark::values::dict::Dict;
+use starlark::values::list::List;
+use starlark::values::list::ListRef;
+use starlark::values::none::NoneType;
+use starlark::values::record::Record;
+use starlark::values::structs::Struct;
+use starlark::values::tuple::Tuple;
+use starlark::values::AllocValue;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
+use starlark::values::ValueError;
+use starlark::values::ValueLike;
 
-use crate::bxl::starlark_defs::{
-    artifacts::{EnsuredArtifact, EnsuredArtifactGen},
-    context::build::StarlarkProvidersArtifactIterable,
-};
+use crate::bxl::starlark_defs::artifacts::EnsuredArtifact;
+use crate::bxl::starlark_defs::artifacts::EnsuredArtifactGen;
+use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable;
 
 #[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize, Buck2Docs)]
 #[display(fmt = "{:?}", self)]

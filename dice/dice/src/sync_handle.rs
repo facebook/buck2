@@ -10,7 +10,9 @@
 use futures::future::Shared;
 use gazebo::prelude::*;
 
-use crate::{dice_task::DiceTask, GraphNode, StorageProperties};
+use crate::dice_task::DiceTask;
+use crate::GraphNode;
+use crate::StorageProperties;
 
 /// `IncrementalEngine` task type for projection key.
 #[derive(Clone_)]

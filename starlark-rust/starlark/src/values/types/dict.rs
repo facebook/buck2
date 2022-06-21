@@ -17,36 +17,51 @@
 
 //! The dictionary type, a mutable associative-map, which iterates in insertion order.
 
-use std::{
-    any::TypeId,
-    cell::{Ref, RefCell, RefMut},
-    fmt,
-    fmt::{Debug, Display},
-    hash::{Hash, Hasher},
-    intrinsics::unlikely,
-    marker::PhantomData,
-    ops::{Deref, DerefMut},
-};
+use std::any::TypeId;
+use std::cell::Ref;
+use std::cell::RefCell;
+use std::cell::RefMut;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::intrinsics::unlikely;
+use std::marker::PhantomData;
+use std::ops::Deref;
+use std::ops::DerefMut;
 
-use gazebo::{
-    any::ProvidesStaticType,
-    cell::ARef,
-    coerce::{coerce, Coerce},
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::cell::ARef;
+use gazebo::coerce::coerce;
+use gazebo::coerce::Coerce;
 use indexmap::Equivalent;
 use serde::Serialize;
 
-use crate::{
-    self as starlark,
-    collections::{Hashed, SmallMap},
-    environment::{Methods, MethodsStatic},
-    values::{
-        comparison::equals_small_map, display::display_keyed_container, error::ValueError,
-        iter::ARefIterator, string::hash_string_value, AllocFrozenValue, AllocValue, Freeze,
-        Freezer, FrozenHeap, FrozenStringValue, FrozenValue, Heap, StarlarkValue, StringValue,
-        Trace, UnpackValue, Value, ValueLike,
-    },
-};
+use crate::collections::Hashed;
+use crate::collections::SmallMap;
+use crate::environment::Methods;
+use crate::environment::MethodsStatic;
+use crate::values::comparison::equals_small_map;
+use crate::values::display::display_keyed_container;
+use crate::values::error::ValueError;
+use crate::values::iter::ARefIterator;
+use crate::values::string::hash_string_value;
+use crate::values::AllocFrozenValue;
+use crate::values::AllocValue;
+use crate::values::Freeze;
+use crate::values::Freezer;
+use crate::values::FrozenHeap;
+use crate::values::FrozenStringValue;
+use crate::values::FrozenValue;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::StringValue;
+use crate::values::Trace;
+use crate::values::UnpackValue;
+use crate::values::Value;
+use crate::values::ValueLike;
+use crate::{self as starlark};
 
 #[derive(Clone, Default, Trace, Debug, ProvidesStaticType)]
 struct DictGen<T>(T);
@@ -614,7 +629,9 @@ impl<'v, K: UnpackValue<'v> + Hash, V: UnpackValue<'v>> Deref for DictOf<'v, K, 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{assert, collections::SmallMap, values::Heap};
+    use crate::assert;
+    use crate::collections::SmallMap;
+    use crate::values::Heap;
 
     #[test]
     fn test_mutate_dict() {

@@ -10,21 +10,19 @@
 use std::io::Write;
 
 use async_trait::async_trait;
-use buck2_build_api::calculation::{load_patterns, Calculation};
+use buck2_build_api::calculation::load_patterns;
+use buck2_build_api::calculation::Calculation;
 use buck2_core::configuration::Configuration;
 use buck2_interpreter::pattern::TargetPattern;
 use cli_proto::ClientContext;
 
-use crate::{
-    commands::{
-        audit::AuditSubcommand,
-        common::{CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions},
-    },
-    daemon::{
-        common::{target_platform_from_client_context, PatternParser},
-        server::ServerCommandContext,
-    },
-};
+use crate::commands::audit::AuditSubcommand;
+use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonConsoleOptions;
+use crate::commands::common::CommonEventLogOptions;
+use crate::daemon::common::target_platform_from_client_context;
+use crate::daemon::common::PatternParser;
+use crate::daemon::server::ServerCommandContext;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(

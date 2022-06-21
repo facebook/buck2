@@ -8,13 +8,16 @@
  */
 
 use async_trait::async_trait;
-use buck2_core::result::{SharedError, SharedResult};
-use buck2_interpreter::{common::StarlarkModulePath, dice::HasCalculationDelegate};
+use buck2_core::result::SharedError;
+use buck2_core::result::SharedResult;
+use buck2_interpreter::common::StarlarkModulePath;
+use buck2_interpreter::dice::HasCalculationDelegate;
 use dice::DiceComputations;
 use starlark::values::OwnedFrozenValueTyped;
 use thiserror::Error;
 
-use crate::interpreter::rule_defs::transition::{id::TransitionId, starlark::FrozenTransition};
+use crate::interpreter::rule_defs::transition::id::TransitionId;
+use crate::interpreter::rule_defs::transition::starlark::FrozenTransition;
 
 /// Fetch transition object (function plus context) by id.
 #[async_trait]

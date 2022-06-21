@@ -7,44 +7,47 @@
  * of this source tree.
  */
 
-use std::{
-    ops::ControlFlow,
-    sync::Arc,
-    time::{Duration, SystemTime},
-};
+use std::ops::ControlFlow;
+use std::sync::Arc;
+use std::time::Duration;
+use std::time::SystemTime;
 
 use async_trait::async_trait;
-use buck2_core::fs::project::{ProjectFilesystem, ProjectRelativePathBuf};
+use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRelativePathBuf;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
 use remote_execution as RE;
-use remote_execution::{
-    ActionResultResponse, ExecuteResponse, TCode, TDirectory2, TExecutedActionMetadata, TFile,
-    TTimestamp,
-};
+use remote_execution::ActionResultResponse;
+use remote_execution::ExecuteResponse;
+use remote_execution::TCode;
+use remote_execution::TDirectory2;
+use remote_execution::TExecutedActionMetadata;
+use remote_execution::TFile;
+use remote_execution::TTimestamp;
 use starlark::collections::SmallMap;
 use thiserror::Error;
 use tracing::info;
 
-use crate::{
-    actions::{artifact::ArtifactFs, directory::ActionImmutableDirectory},
-    execute::{
-        commands::{
-            output::RemoteCommandStdStreams,
-            re::{
-                client::{ActionDigest, PreparedAction},
-                download::download_action_results,
-                manager::ManagedRemoteExecutionClient,
-                uploader::ActionBlobs,
-            },
-            CommandExecutionManager, CommandExecutionRequest, CommandExecutionResult,
-            CommandExecutionTarget, CommandExecutionTimingData, ExecutorName, PreparedCommand,
-            PreparedCommandExecutor,
-        },
-        materializer::Materializer,
-        ActionExecutionKind, RemoteExecutorUseCase,
-    },
-};
+use crate::actions::artifact::ArtifactFs;
+use crate::actions::directory::ActionImmutableDirectory;
+use crate::execute::commands::output::RemoteCommandStdStreams;
+use crate::execute::commands::re::client::ActionDigest;
+use crate::execute::commands::re::client::PreparedAction;
+use crate::execute::commands::re::download::download_action_results;
+use crate::execute::commands::re::manager::ManagedRemoteExecutionClient;
+use crate::execute::commands::re::uploader::ActionBlobs;
+use crate::execute::commands::CommandExecutionManager;
+use crate::execute::commands::CommandExecutionRequest;
+use crate::execute::commands::CommandExecutionResult;
+use crate::execute::commands::CommandExecutionTarget;
+use crate::execute::commands::CommandExecutionTimingData;
+use crate::execute::commands::ExecutorName;
+use crate::execute::commands::PreparedCommand;
+use crate::execute::commands::PreparedCommandExecutor;
+use crate::execute::materializer::Materializer;
+use crate::execute::ActionExecutionKind;
+use crate::execute::RemoteExecutorUseCase;
 
 pub mod cache_check;
 pub mod client;

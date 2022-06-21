@@ -17,13 +17,15 @@
 
 //! Statically allocated strings.
 
-use std::{ptr, sync::atomic::AtomicU32};
+use std::ptr;
+use std::sync::atomic::AtomicU32;
 
-use crate::values::{
-    layout::{arena::AValueRepr, avalue::VALUE_STR_A_VALUE_PTR},
-    string::{StarlarkStr, StarlarkStrN},
-    FrozenStringValue, FrozenValue,
-};
+use crate::values::layout::arena::AValueRepr;
+use crate::values::layout::avalue::VALUE_STR_A_VALUE_PTR;
+use crate::values::string::StarlarkStr;
+use crate::values::string::StarlarkStrN;
+use crate::values::FrozenStringValue;
+use crate::values::FrozenValue;
 
 /// A constant string that can be converted to a [`FrozenValue`].
 ///

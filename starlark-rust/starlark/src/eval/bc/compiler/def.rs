@@ -19,18 +19,14 @@
 
 use gazebo::prelude::*;
 
-use crate::eval::{
-    bc::{
-        instr_impl::{InstrDef, InstrDefData},
-        stack_ptr::BcSlotOut,
-        writer::BcWriter,
-    },
-    compiler::{
-        def::{DefCompiled, ParametersCompiled},
-        span::IrSpanned,
-    },
-    runtime::call_stack::FrozenFileSpan,
-};
+use crate::eval::bc::instr_impl::InstrDef;
+use crate::eval::bc::instr_impl::InstrDefData;
+use crate::eval::bc::stack_ptr::BcSlotOut;
+use crate::eval::bc::writer::BcWriter;
+use crate::eval::compiler::def::DefCompiled;
+use crate::eval::compiler::def::ParametersCompiled;
+use crate::eval::compiler::span::IrSpanned;
+use crate::eval::runtime::call_stack::FrozenFileSpan;
 
 impl DefCompiled {
     pub(crate) fn mark_definitely_assigned_after(&self, bc: &mut BcWriter) {

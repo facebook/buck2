@@ -21,16 +21,17 @@ use gazebo::variants::VariantName;
 use num_bigint::BigInt;
 use thiserror::Error;
 
-use crate::{
-    analysis::types::{LintT, LintWarning},
-    codemap::{CodeMap, FileSpan, Span},
-    syntax::{
-        ast::{AstExpr, AstLiteral, Expr},
-        lexer::TokenInt,
-        AstModule,
-    },
-    values::num::Num,
-};
+use crate::analysis::types::LintT;
+use crate::analysis::types::LintWarning;
+use crate::codemap::CodeMap;
+use crate::codemap::FileSpan;
+use crate::codemap::Span;
+use crate::syntax::ast::AstExpr;
+use crate::syntax::ast::AstLiteral;
+use crate::syntax::ast::Expr;
+use crate::syntax::lexer::TokenInt;
+use crate::syntax::AstModule;
+use crate::values::num::Num;
 
 #[derive(Error, Debug, VariantName)]
 pub(crate) enum Dubious {

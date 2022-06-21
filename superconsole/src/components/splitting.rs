@@ -13,7 +13,13 @@
 use gazebo::prelude::*;
 use itertools::Itertools;
 
-use crate::{content::LinesExt, Component, Dimensions, Direction, DrawMode, Line, State};
+use crate::content::LinesExt;
+use crate::Component;
+use crate::Dimensions;
+use crate::Direction;
+use crate::DrawMode;
+use crate::Line;
+use crate::State;
 
 /// Controls the way the splitter displays its children.
 #[derive(Clone, Debug)]
@@ -179,8 +185,14 @@ mod tests {
 
     use derive_more::AsRef;
 
-    use super::{Split, SplitKind};
-    use crate::{components::Echo, Component, Direction, DrawMode, Line, State};
+    use super::Split;
+    use super::SplitKind;
+    use crate::components::Echo;
+    use crate::Component;
+    use crate::Direction;
+    use crate::DrawMode;
+    use crate::Line;
+    use crate::State;
 
     #[derive(AsRef, Debug)]
     struct Echo1(Vec<Line>);

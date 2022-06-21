@@ -7,29 +7,31 @@
  * of this source tree.
  */
 
-use std::{any::TypeId, fmt::Debug};
+use std::any::TypeId;
+use std::fmt::Debug;
 
 use buck2_interpreter::types::label_relative_path::LabelRelativePath;
 use gazebo::prelude::*;
-use starlark::{
-    environment::GlobalsBuilder,
-    values::{FrozenRef, FrozenValue, StringValue, Value, ValueLike},
-};
+use starlark::environment::GlobalsBuilder;
+use starlark::values::FrozenRef;
+use starlark::values::FrozenValue;
+use starlark::values::StringValue;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 use thiserror::Error;
 
-use crate::{
-    attrs::attr_type::arg::value::ResolvedStringWithMacros,
-    interpreter::rule_defs::{
-        artifact::{
-            FrozenStarlarkOutputArtifact, StarlarkArtifact, StarlarkDeclaredArtifact,
-            StarlarkOutputArtifact,
-        },
-        artifact_tagging::{FrozenTaggedArtifacts, TaggedArtifacts},
-        cmd_args::options::QuoteStyle,
-        provider::builtin::run_info::{FrozenRunInfo, RunInfo},
-        transitive_set::{FrozenTransitiveSetArgsProjection, TransitiveSetArgsProjection},
-    },
-};
+use crate::attrs::attr_type::arg::value::ResolvedStringWithMacros;
+use crate::interpreter::rule_defs::artifact::FrozenStarlarkOutputArtifact;
+use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
+use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
+use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
+use crate::interpreter::rule_defs::artifact_tagging::FrozenTaggedArtifacts;
+use crate::interpreter::rule_defs::artifact_tagging::TaggedArtifacts;
+use crate::interpreter::rule_defs::cmd_args::options::QuoteStyle;
+use crate::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
+use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
+use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSetArgsProjection;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSetArgsProjection;
 
 mod builder;
 mod options;
@@ -152,21 +154,20 @@ pub fn register_args_function(builder: &mut GlobalsBuilder) {
 pub mod tester {
     use std::convert::TryFrom;
 
-    use buck2_core::fs::{
-        paths::AbsPathBuf,
-        project::{ProjectFilesystem, ProjectRelativePathBuf},
-    };
-    use starlark::{environment::GlobalsBuilder, values::Value};
+    use buck2_core::fs::paths::AbsPathBuf;
+    use buck2_core::fs::project::ProjectFilesystem;
+    use buck2_core::fs::project::ProjectRelativePathBuf;
+    use starlark::environment::GlobalsBuilder;
+    use starlark::values::Value;
 
-    use crate::{
-        actions::artifact::{ArtifactFs, ExecutorFs},
-        execute::PathSeparatorKind,
-        interpreter::{
-            rule_defs::cmd_args::{builder::BaseCommandLineBuilder, ValueAsCommandLineLike},
-            testing::cells,
-        },
-        path::{BuckOutPathResolver, BuckPathResolver},
-    };
+    use crate::actions::artifact::ArtifactFs;
+    use crate::actions::artifact::ExecutorFs;
+    use crate::execute::PathSeparatorKind;
+    use crate::interpreter::rule_defs::cmd_args::builder::BaseCommandLineBuilder;
+    use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
+    use crate::interpreter::testing::cells;
+    use crate::path::BuckOutPathResolver;
+    use crate::path::BuckPathResolver;
 
     fn artifact_fs() -> ArtifactFs {
         let cell_info = cells(None).unwrap();

@@ -7,24 +7,40 @@
  * of this source tree.
  */
 
-use std::{cell::RefCell, collections::HashMap, fmt, fmt::Display, sync::Arc};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::fmt;
+use std::fmt::Display;
+use std::sync::Arc;
 
 use buck2_core::cells::paths::CellPath;
-use gazebo::{any::ProvidesStaticType, dupe::Dupe};
-use starlark::{
-    environment::{GlobalsBuilder, Methods, MethodsBuilder, MethodsStatic},
-    eval::{Arguments, Evaluator, ParametersSpec},
-    values::{
-        docs,
-        docs::{DocItem, DocString},
-        AllocValue, Freeze, Freezer, FrozenValue, Heap, NoSerialize, StarlarkValue, Trace, Value,
-        ValueLike,
-    },
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::dupe::Dupe;
+use starlark::environment::GlobalsBuilder;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::eval::Arguments;
+use starlark::eval::Evaluator;
+use starlark::eval::ParametersSpec;
+use starlark::values::docs;
+use starlark::values::docs::DocItem;
+use starlark::values::docs::DocString;
+use starlark::values::AllocValue;
+use starlark::values::Freeze;
+use starlark::values::Freezer;
+use starlark::values::FrozenValue;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 
-use crate::interpreter::rule_defs::provider::{
-    id::ProviderId, registration::ProviderRegistration, user::user_provider_creator, ProviderError,
-};
+use crate::interpreter::rule_defs::provider::id::ProviderId;
+use crate::interpreter::rule_defs::provider::registration::ProviderRegistration;
+use crate::interpreter::rule_defs::provider::user::user_provider_creator;
+use crate::interpreter::rule_defs::provider::ProviderError;
 
 pub trait ProviderCallableLike {
     fn id(&self) -> Option<&Arc<ProviderId>>;

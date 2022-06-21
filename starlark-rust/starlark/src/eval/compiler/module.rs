@@ -17,20 +17,19 @@
 
 //! Compile and evaluate module top-level statements.
 
-use crate::{
-    environment::EnvironmentError,
-    eval::{
-        bc::frame::alloca_frame,
-        compiler::{
-            add_span_to_expr_error, expr_throw,
-            scope::{CstLoad, CstStmt, ScopeId, Slot},
-            Compiler, EvalException,
-        },
-        runtime::call_stack::FrozenFileSpan,
-    },
-    syntax::ast::StmtP,
-    values::Value,
-};
+use crate::environment::EnvironmentError;
+use crate::eval::bc::frame::alloca_frame;
+use crate::eval::compiler::add_span_to_expr_error;
+use crate::eval::compiler::expr_throw;
+use crate::eval::compiler::scope::CstLoad;
+use crate::eval::compiler::scope::CstStmt;
+use crate::eval::compiler::scope::ScopeId;
+use crate::eval::compiler::scope::Slot;
+use crate::eval::compiler::Compiler;
+use crate::eval::compiler::EvalException;
+use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::syntax::ast::StmtP;
+use crate::values::Value;
 
 impl<'v> Compiler<'v, '_, '_> {
     fn eval_load(&mut self, load: CstLoad) -> Result<(), EvalException> {

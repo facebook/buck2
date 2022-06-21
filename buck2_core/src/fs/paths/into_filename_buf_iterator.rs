@@ -9,10 +9,12 @@
 
 use gazebo::prelude::IterOwned;
 
-use crate::fs::{
-    paths::{FileName, FileNameBuf, ForwardRelativePath, ForwardRelativePathBuf},
-    project::{ProjectRelativePath, ProjectRelativePathBuf},
-};
+use crate::fs::paths::FileName;
+use crate::fs::paths::FileNameBuf;
+use crate::fs::paths::ForwardRelativePath;
+use crate::fs::paths::ForwardRelativePathBuf;
+use crate::fs::project::ProjectRelativePath;
+use crate::fs::project::ProjectRelativePathBuf;
 
 /// Provide an iterator of FileNameBuf from inputs that can produce one. This is useful for methods
 /// that insert into directory mappings.

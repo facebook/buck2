@@ -7,31 +7,37 @@
  * of this source tree.
  */
 
-use std::{collections::BTreeMap, fmt::Debug, hash::Hash, sync::Arc};
+use std::collections::BTreeMap;
+use std::fmt::Debug;
+use std::hash::Hash;
+use std::sync::Arc;
 
-use buck2_core::{
-    provider::{ConfiguredProvidersLabel, ProvidersLabel, ProvidersName},
-    result::SharedResult,
-};
-use buck2_query::query::syntax::simple::{
-    eval::error::QueryError,
-    functions::{QueryFunctionsExt, QueryLiteralVisitor},
-};
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::ProvidersLabel;
+use buck2_core::provider::ProvidersName;
+use buck2_core::result::SharedResult;
+use buck2_query::query::syntax::simple::eval::error::QueryError;
+use buck2_query::query::syntax::simple::functions::QueryFunctionsExt;
+use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
 use buck2_query_parser::parse_expr;
 use gazebo::prelude::*;
-use starlark::values::{string::STRING_TYPE, Value};
+use starlark::values::string::STRING_TYPE;
+use starlark::values::Value;
 
-use crate::{
-    attrs::{
-        attr_type::{
-            attr_literal::{AttrConfig, AttrLiteral, CoercionError, ConfiguredAttrTraversal},
-            dep::{DepAttrType, ProviderIdSet},
-        },
-        AnalysisQueryResult, AttrCoercionContext, AttrConfigurationContext, AttrResolutionContext,
-        CoercedAttr, CoercedAttrTraversal, ConfiguredAttr,
-    },
-    query::analysis::environment::ConfiguredGraphQueryEnvironment,
-};
+use crate::attrs::attr_type::attr_literal::AttrConfig;
+use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::attr_literal::CoercionError;
+use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
+use crate::attrs::attr_type::dep::DepAttrType;
+use crate::attrs::attr_type::dep::ProviderIdSet;
+use crate::attrs::AnalysisQueryResult;
+use crate::attrs::AttrCoercionContext;
+use crate::attrs::AttrConfigurationContext;
+use crate::attrs::AttrResolutionContext;
+use crate::attrs::CoercedAttr;
+use crate::attrs::CoercedAttrTraversal;
+use crate::attrs::ConfiguredAttr;
+use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub(crate) struct QueryAttrType {

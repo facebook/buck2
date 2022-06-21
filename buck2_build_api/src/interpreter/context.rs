@@ -7,39 +7,42 @@
  * of this source tree.
  */
 
-use std::{borrow::Borrow, fmt::Debug, ptr, sync::Arc};
+use std::borrow::Borrow;
+use std::fmt::Debug;
+use std::ptr;
+use std::sync::Arc;
 
-use buck2_core::{
-    cells::{
-        paths::{CellPath, CellRelativePath},
-        CellName,
-    },
-    facebook_only,
-    fs::paths::FileName,
-    result::SharedResult,
-};
-use buck2_interpreter::{
-    common::{BuildFileCell, BuildFilePath, ImportPath, StarlarkPath},
-    extra::{
-        cell_info::InterpreterCellInfo, ExtraContextDyn, InterpreterConfiguror,
-        InterpreterHostArchitecture, InterpreterHostPlatform,
-    },
-    file_loader::LoadedModules,
-    package_imports::ImplicitImport,
-    package_listing::listing::PackageListing,
-};
-use gazebo::{cmp::PartialEqAny, prelude::*};
-use starlark::environment::{GlobalsBuilder, LibraryExtension};
+use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::cells::CellName;
+use buck2_core::facebook_only;
+use buck2_core::fs::paths::FileName;
+use buck2_core::result::SharedResult;
+use buck2_interpreter::common::BuildFileCell;
+use buck2_interpreter::common::BuildFilePath;
+use buck2_interpreter::common::ImportPath;
+use buck2_interpreter::common::StarlarkPath;
+use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
+use buck2_interpreter::extra::ExtraContextDyn;
+use buck2_interpreter::extra::InterpreterConfiguror;
+use buck2_interpreter::extra::InterpreterHostArchitecture;
+use buck2_interpreter::extra::InterpreterHostPlatform;
+use buck2_interpreter::file_loader::LoadedModules;
+use buck2_interpreter::package_imports::ImplicitImport;
+use buck2_interpreter::package_listing::listing::PackageListing;
+use gazebo::cmp::PartialEqAny;
+use gazebo::prelude::*;
+use starlark::environment::GlobalsBuilder;
+use starlark::environment::LibraryExtension;
 
-use crate::interpreter::{
-    build_defs::register_natives,
-    module_internals::{ModuleInternals, PackageImplicits},
-    rule_defs::{
-        attr::BuildAttrCoercionContext, cmd_args::register_args_function,
-        command_executor_config::register_command_executor_config, register_rule_defs,
-        transition::starlark::register_transition_defs,
-    },
-};
+use crate::interpreter::build_defs::register_natives;
+use crate::interpreter::module_internals::ModuleInternals;
+use crate::interpreter::module_internals::PackageImplicits;
+use crate::interpreter::rule_defs::attr::BuildAttrCoercionContext;
+use crate::interpreter::rule_defs::cmd_args::register_args_function;
+use crate::interpreter::rule_defs::command_executor_config::register_command_executor_config;
+use crate::interpreter::rule_defs::register_rule_defs;
+use crate::interpreter::rule_defs::transition::starlark::register_transition_defs;
 
 #[derive(Clone)]
 struct ConfigureGlobalsFn(fn(&mut GlobalsBuilder));

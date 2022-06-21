@@ -17,38 +17,42 @@
 
 //! Instruction arguments.
 
-use std::{
-    fmt,
-    fmt::{Display, Formatter, Write},
-};
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::fmt::Write;
 
 use itertools::Itertools;
 
-use crate::{
-    collections::{symbol_map::Symbol, Hashed, SmallMap},
-    environment::slots::ModuleSlotId,
-    eval::{
-        bc::{
-            addr::{BcAddr, BcAddrOffset, BcPtrAddr},
-            call::{BcCallArgsFull, BcCallArgsPos},
-            instr::BcInstr,
-            instr_impl::InstrDefData,
-            native_function::BcNativeFunction,
-            opcode::{BcOpcode, BcOpcodeHandler},
-            slow_arg::BcInstrSlowArg,
-            stack_ptr::{BcSlotIn, BcSlotInRange, BcSlotInRangeFrom, BcSlotOut},
-        },
-        runtime::{
-            arguments::ArgSymbol,
-            call_stack::FrozenFileSpan,
-            slots::{LocalCapturedSlotId, LocalSlotId},
-        },
-    },
-    values::{
-        layout::value_not_special::FrozenValueNotSpecial, types::known_methods::KnownMethod,
-        FrozenRef, FrozenValue, FrozenValueTyped, StarlarkValue,
-    },
-};
+use crate::collections::symbol_map::Symbol;
+use crate::collections::Hashed;
+use crate::collections::SmallMap;
+use crate::environment::slots::ModuleSlotId;
+use crate::eval::bc::addr::BcAddr;
+use crate::eval::bc::addr::BcAddrOffset;
+use crate::eval::bc::addr::BcPtrAddr;
+use crate::eval::bc::call::BcCallArgsFull;
+use crate::eval::bc::call::BcCallArgsPos;
+use crate::eval::bc::instr::BcInstr;
+use crate::eval::bc::instr_impl::InstrDefData;
+use crate::eval::bc::native_function::BcNativeFunction;
+use crate::eval::bc::opcode::BcOpcode;
+use crate::eval::bc::opcode::BcOpcodeHandler;
+use crate::eval::bc::slow_arg::BcInstrSlowArg;
+use crate::eval::bc::stack_ptr::BcSlotIn;
+use crate::eval::bc::stack_ptr::BcSlotInRange;
+use crate::eval::bc::stack_ptr::BcSlotInRangeFrom;
+use crate::eval::bc::stack_ptr::BcSlotOut;
+use crate::eval::runtime::arguments::ArgSymbol;
+use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::slots::LocalCapturedSlotId;
+use crate::eval::runtime::slots::LocalSlotId;
+use crate::values::layout::value_not_special::FrozenValueNotSpecial;
+use crate::values::types::known_methods::KnownMethod;
+use crate::values::FrozenRef;
+use crate::values::FrozenValue;
+use crate::values::FrozenValueTyped;
+use crate::values::StarlarkValue;
 
 /// Truncate value if it is too long.
 struct TruncateValueRepr(FrozenValue);

@@ -7,15 +7,22 @@
  * of this source tree.
  */
 
-use std::{io::Write, sync::Arc};
+use std::io::Write;
+use std::sync::Arc;
 
 use anyhow::Context as _;
-use buck2_common::file_ops::{FileDigest, TrackedFileDigest};
-use buck2_core::fs::project::{ProjectFilesystem, ProjectRelativePath};
+use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::TrackedFileDigest;
+use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRelativePath;
 use futures::StreamExt;
 use gazebo::prelude::*;
-use reqwest::{Client, RequestBuilder, Response, StatusCode};
-use sha1::{Digest, Sha1};
+use reqwest::Client;
+use reqwest::RequestBuilder;
+use reqwest::Response;
+use reqwest::StatusCode;
+use sha1::Digest;
+use sha1::Sha1;
 use sha2::Sha256;
 use thiserror::Error;
 

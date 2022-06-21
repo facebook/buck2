@@ -19,13 +19,20 @@
 //!
 //! The cost of a resource is the sum of each item cost + a company specific flat fee.
 
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use derive_more::Display;
-use dice::{DiceComputations, DiceTransaction, InjectedKey, Key};
-use futures::{future::join_all, stream::FuturesUnordered, StreamExt};
-use gazebo::{dupe::Dupe, prelude::*};
+use dice::DiceComputations;
+use dice::DiceTransaction;
+use dice::InjectedKey;
+use dice::Key;
+use futures::future::join_all;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
+use gazebo::dupe::Dupe;
+use gazebo::prelude::*;
 use ref_cast::RefCast;
 
 #[derive(Display, Debug, Hash, Eq, Clone, PartialEq, Dupe)]

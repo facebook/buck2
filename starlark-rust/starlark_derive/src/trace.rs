@@ -15,12 +15,21 @@
  * limitations under the License.
  */
 
-use proc_macro2::{Span, TokenStream};
-use quote::{quote, quote_spanned};
-use syn::{
-    parse::ParseStream, parse_macro_input, parse_quote, spanned::Spanned, Attribute, Data,
-    DeriveInput, GenericParam, Lifetime, LifetimeDef, TypeParamBound,
-};
+use proc_macro2::Span;
+use proc_macro2::TokenStream;
+use quote::quote;
+use quote::quote_spanned;
+use syn::parse::ParseStream;
+use syn::parse_macro_input;
+use syn::parse_quote;
+use syn::spanned::Spanned;
+use syn::Attribute;
+use syn::Data;
+use syn::DeriveInput;
+use syn::GenericParam;
+use syn::Lifetime;
+use syn::LifetimeDef;
+use syn::TypeParamBound;
 
 use crate::for_each_field::for_each_field;
 

@@ -7,20 +7,23 @@
  * of this source tree.
  */
 
-use std::{collections::BTreeMap, fs, path::Path, process::Command, sync::Arc};
+use std::collections::BTreeMap;
+use std::fs;
+use std::path::Path;
+use std::process::Command;
+use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_core::{
-    directory::DirectoryEntry,
-    env_helper::EnvHelper,
-    fs::{
-        paths::AbsPathBuf,
-        project::{ProjectFilesystem, ProjectRelativePathBuf},
-    },
-};
-use edenfs::{
-    client::EdenService, CheckoutMode, ObjectType, RemoveRecursivelyParams, SetPathObjectIdParams,
-};
+use buck2_core::directory::DirectoryEntry;
+use buck2_core::env_helper::EnvHelper;
+use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRelativePathBuf;
+use edenfs::client::EdenService;
+use edenfs::CheckoutMode;
+use edenfs::ObjectType;
+use edenfs::RemoveRecursivelyParams;
+use edenfs::SetPathObjectIdParams;
 use fbthrift::binary_protocol::BinaryProtocol;
 use fbthrift_socket::SocketTransport;
 use futures::StreamExt;
@@ -32,16 +35,15 @@ use thiserror::Error;
 use tokio::net::windows::named_pipe::ClientOptions;
 #[cfg(unix)]
 use tokio::net::UnixStream;
-use tokio::{
-    sync::{mpsc, oneshot},
-    task::JoinHandle,
-};
+use tokio::sync::mpsc;
+use tokio::sync::oneshot;
+use tokio::task::JoinHandle;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
-use crate::{
-    actions::{digest::FileDigestToReExt, directory::ActionDirectoryMember},
-    execute::{commands::re::manager::ReConnectionManager, ArtifactValue},
-};
+use crate::actions::digest::FileDigestToReExt;
+use crate::actions::directory::ActionDirectoryMember;
+use crate::execute::commands::re::manager::ReConnectionManager;
+use crate::execute::ArtifactValue;
 
 pub type EdenFsClient = Arc<dyn EdenService + Sync>;
 
@@ -467,10 +469,15 @@ impl EdenCommandProcessor {
 
 #[cfg(all(test, not(windows)))]
 mod tests {
-    use std::{path::PathBuf, sync::Arc};
+    use std::path::PathBuf;
+    use std::sync::Arc;
 
-    use buck2_common::file_ops::{ExternalSymlink, FileDigest, FileMetadata, TrackedFileDigest};
-    use buck2_core::fs::paths::{ForwardRelativePathBuf, RelativePathBuf};
+    use buck2_common::file_ops::ExternalSymlink;
+    use buck2_common::file_ops::FileDigest;
+    use buck2_common::file_ops::FileMetadata;
+    use buck2_common::file_ops::TrackedFileDigest;
+    use buck2_core::fs::paths::ForwardRelativePathBuf;
+    use buck2_core::fs::paths::RelativePathBuf;
     use gazebo::prelude::*;
 
     use super::*;

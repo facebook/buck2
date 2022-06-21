@@ -7,41 +7,41 @@
  * of this source tree.
  */
 
-use std::{collections::HashSet, sync::Arc};
+use std::collections::HashSet;
+use std::sync::Arc;
 
-use buck2_build_api::{
-    actions::artifact::{Artifact, SourceArtifact},
-    interpreter::rule_defs::{
-        artifact::StarlarkArtifact, context::AnalysisContext, provider::callable::ProviderCallable,
-    },
-};
+use buck2_build_api::actions::artifact::Artifact;
+use buck2_build_api::actions::artifact::SourceArtifact;
+use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
+use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
+use buck2_build_api::interpreter::rule_defs::provider::callable::ProviderCallable;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_core::{
-    buck_path::BuckPath,
-    cells::{
-        paths::{CellPath, CellRelativePath},
-        CellAliasResolver, CellName,
-    },
-    package::{Package, PackageRelativePathBuf},
-};
+use buck2_core::buck_path::BuckPath;
+use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::cells::CellAliasResolver;
+use buck2_core::cells::CellName;
+use buck2_core::package::Package;
+use buck2_core::package::PackageRelativePathBuf;
 use buck2_docs_gen::StarlarkObject;
-use buck2_interpreter::{
-    common::{BuildFileCell, ImportPath, StarlarkModulePath},
-    dice::{
-        calculation::DiceCalculationDelegate, HasCalculationDelegate, HasGlobalInterpreterState,
-    },
-    interpreter::{GlobalInterpreterState, InterpreterConfigForCell},
-    parse_import::{parse_import_with_config, ParseImportOptions},
-};
-use cli_proto::{UnstableDocsRequest, UnstableDocsResponse};
+use buck2_interpreter::common::BuildFileCell;
+use buck2_interpreter::common::ImportPath;
+use buck2_interpreter::common::StarlarkModulePath;
+use buck2_interpreter::dice::calculation::DiceCalculationDelegate;
+use buck2_interpreter::dice::HasCalculationDelegate;
+use buck2_interpreter::dice::HasGlobalInterpreterState;
+use buck2_interpreter::interpreter::GlobalInterpreterState;
+use buck2_interpreter::interpreter::InterpreterConfigForCell;
+use buck2_interpreter::parse_import::parse_import_with_config;
+use buck2_interpreter::parse_import::ParseImportOptions;
+use cli_proto::UnstableDocsRequest;
+use cli_proto::UnstableDocsResponse;
 use gazebo::prelude::*;
-use starlark::{
-    environment::Globals,
-    values::{
-        docs::{Doc, DocItem, Identifier},
-        StarlarkValue,
-    },
-};
+use starlark::environment::Globals;
+use starlark::values::docs::Doc;
+use starlark::values::docs::DocItem;
+use starlark::values::docs::Identifier;
+use starlark::values::StarlarkValue;
 
 use crate::daemon::server::ServerCommandContext;
 

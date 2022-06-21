@@ -9,13 +9,15 @@
 
 #[cfg(test)]
 pub mod testing {
-    use buck2_core::{configuration::Configuration, provider::ProvidersLabel, target::TargetLabel};
-    use buck2_interpreter::{
-        extra::BuildContext,
-        pattern::{ParsedPattern, ProvidersPattern},
-        types::label::Label,
-    };
-    use starlark::{environment::GlobalsBuilder, eval::Evaluator};
+    use buck2_core::configuration::Configuration;
+    use buck2_core::provider::ProvidersLabel;
+    use buck2_core::target::TargetLabel;
+    use buck2_interpreter::extra::BuildContext;
+    use buck2_interpreter::pattern::ParsedPattern;
+    use buck2_interpreter::pattern::ProvidersPattern;
+    use buck2_interpreter::types::label::Label;
+    use starlark::environment::GlobalsBuilder;
+    use starlark::eval::Evaluator;
 
     #[starlark_module]
     pub fn label_creator(builder: &mut GlobalsBuilder) {
@@ -48,7 +50,8 @@ mod tests {
     use indoc::indoc;
 
     use super::testing::label_creator;
-    use crate::interpreter::testing::{expect_error, Tester};
+    use crate::interpreter::testing::expect_error;
+    use crate::interpreter::testing::Tester;
 
     #[test]
     fn labels_are_usable() -> anyhow::Result<()> {

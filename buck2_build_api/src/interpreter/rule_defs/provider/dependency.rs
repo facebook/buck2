@@ -7,15 +7,23 @@
  * of this source tree.
  */
 
-use std::{fmt, fmt::Display};
+use std::fmt;
+use std::fmt::Display;
 
 use buck2_core::provider::ConfiguredProvidersLabel;
 use buck2_interpreter::types::label::Label;
-use gazebo::{any::ProvidesStaticType, coerce::Coerce};
-use starlark::{
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    values::{Freeze, Heap, NoSerialize, StarlarkValue, Trace, Value, ValueLike},
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::Coerce;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::values::Freeze;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::provider::ProviderCollection;
 
@@ -89,21 +97,21 @@ fn dependency_functions(builder: &mut MethodsBuilder) {
 mod tests {
     use std::sync::Arc;
 
-    use buck2_core::{
-        configuration::Configuration, provider::ProvidersLabel, result::SharedResult,
-        target::TargetLabel,
-    };
-    use buck2_interpreter::{
-        extra::BuildContext,
-        pattern::{ParsedPattern, ProvidersPattern},
-    };
+    use buck2_core::configuration::Configuration;
+    use buck2_core::provider::ProvidersLabel;
+    use buck2_core::result::SharedResult;
+    use buck2_core::target::TargetLabel;
+    use buck2_interpreter::extra::BuildContext;
+    use buck2_interpreter::pattern::ParsedPattern;
+    use buck2_interpreter::pattern::ProvidersPattern;
     use indoc::indoc;
-    use starlark::{environment::GlobalsBuilder, eval::Evaluator, values::Value};
+    use starlark::environment::GlobalsBuilder;
+    use starlark::eval::Evaluator;
+    use starlark::values::Value;
 
-    use crate::interpreter::{
-        rule_defs::provider::{dependency::Dependency, ProviderCollection},
-        testing::Tester,
-    };
+    use crate::interpreter::rule_defs::provider::dependency::Dependency;
+    use crate::interpreter::rule_defs::provider::ProviderCollection;
+    use crate::interpreter::testing::Tester;
 
     #[starlark_module]
     fn dependency_creator(builder: &mut GlobalsBuilder) {

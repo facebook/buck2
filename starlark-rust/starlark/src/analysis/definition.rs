@@ -15,14 +15,17 @@
  * limitations under the License.
  */
 
-use crate::{
-    analysis::bind::{scope, Assigner, Bind, Scope},
-    codemap::{CodeMap, Pos, ResolvedSpan, Span},
-    syntax::{
-        ast::{AstStmt, Stmt},
-        AstModule,
-    },
-};
+use crate::analysis::bind::scope;
+use crate::analysis::bind::Assigner;
+use crate::analysis::bind::Bind;
+use crate::analysis::bind::Scope;
+use crate::codemap::CodeMap;
+use crate::codemap::Pos;
+use crate::codemap::ResolvedSpan;
+use crate::codemap::Span;
+use crate::syntax::ast::AstStmt;
+use crate::syntax::ast::Stmt;
+use crate::syntax::AstModule;
 
 /// The location of a definition for a given symbol. See [`AstModule::find_definition`].
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -232,14 +235,17 @@ impl AstModule {
 
 #[cfg(test)]
 pub(crate) mod helpers {
-    use std::collections::{hash_map::Entry, HashMap};
+    use std::collections::hash_map::Entry;
+    use std::collections::HashMap;
 
     use textwrap::dedent;
 
-    use crate::{
-        codemap::{CodeMap, Pos, ResolvedSpan, Span},
-        syntax::{AstModule, Dialect},
-    };
+    use crate::codemap::CodeMap;
+    use crate::codemap::Pos;
+    use crate::codemap::ResolvedSpan;
+    use crate::codemap::Span;
+    use crate::syntax::AstModule;
+    use crate::syntax::Dialect;
 
     /// Result of parsing a starlark fixture that has range markers in it. See `FixtureWithRanges::from_fixture`
     #[derive(Debug, Clone, PartialEq, Eq)]

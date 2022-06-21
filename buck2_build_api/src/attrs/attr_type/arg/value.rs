@@ -9,39 +9,42 @@
 
 //! Provides the starlark values representing resolved attr.arg() attributes.
 
-use std::fmt::{self, Debug, Display};
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::{self};
 
 use anyhow::Context;
-use buck2_core::fs::{paths::RelativePathBuf, project::ProjectRelativePathBuf};
+use buck2_core::fs::paths::RelativePathBuf;
+use buck2_core::fs::project::ProjectRelativePathBuf;
 use either::Either;
 use gazebo::any::ProvidesStaticType;
-use starlark::{
-    starlark_type,
-    values::{FrozenRef, NoSerialize, StarlarkValue, Value},
-};
+use starlark::starlark_type;
+use starlark::values::FrozenRef;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::Value;
 
-use crate::{
-    actions::artifact::ExecutorFs,
-    attrs::{
-        attr_type::arg::{
-            query::ResolvedQueryMacro, ArgBuilder, ConfiguredMacro, ConfiguredStringWithMacros,
-            ConfiguredStringWithMacrosPart, MacroError, SpaceSeparatedCommandLineBuilder,
-        },
-        AttrResolutionContext,
-    },
-    interpreter::rule_defs::{
-        artifact::{StarlarkArtifact, StarlarkArtifactLike},
-        cmd_args::{
-            CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder,
-            CommandLineBuilderContext, CommandLineLocation, FrozenCommandLineArgLike,
-            WriteToFileMacroVisitor,
-        },
-        provider::builtin::{
-            default_info::FrozenDefaultInfo, run_info::RunInfoCallable,
-            template_placeholder_info::FrozenTemplatePlaceholderInfo,
-        },
-    },
-};
+use crate::actions::artifact::ExecutorFs;
+use crate::attrs::attr_type::arg::query::ResolvedQueryMacro;
+use crate::attrs::attr_type::arg::ArgBuilder;
+use crate::attrs::attr_type::arg::ConfiguredMacro;
+use crate::attrs::attr_type::arg::ConfiguredStringWithMacros;
+use crate::attrs::attr_type::arg::ConfiguredStringWithMacrosPart;
+use crate::attrs::attr_type::arg::MacroError;
+use crate::attrs::attr_type::arg::SpaceSeparatedCommandLineBuilder;
+use crate::attrs::AttrResolutionContext;
+use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
+use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
+use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
+use crate::interpreter::rule_defs::cmd_args::FrozenCommandLineArgLike;
+use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
+use crate::interpreter::rule_defs::provider::builtin::default_info::FrozenDefaultInfo;
+use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfoCallable;
+use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
 
 // TODO(cjhopman): Consider making DefaultOutputs implement CommandLineArgLike
 // itself, and then a resolved macro is just a CommandLineArgLike.

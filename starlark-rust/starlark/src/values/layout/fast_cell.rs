@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-use std::{
-    cell::{Cell, UnsafeCell},
-    mem,
-    mem::MaybeUninit,
-};
+use std::cell::Cell;
+use std::cell::UnsafeCell;
+use std::mem;
+use std::mem::MaybeUninit;
 
 /// Faster but less safe alternative to `RefCell<T>`:
 /// all operations except `borrow` are `unsafe` and may lead to undefined behavior.

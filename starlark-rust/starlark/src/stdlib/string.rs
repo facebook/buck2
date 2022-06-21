@@ -23,21 +23,22 @@ use anyhow::anyhow;
 use gazebo::prelude::*;
 
 use crate as starlark;
-use crate::{
-    environment::MethodsBuilder,
-    eval::{Arguments, Evaluator},
-    stdlib::string::fast_string::convert_str_indices,
-    values::{
-        none::NoneOr,
-        string::{fast_string, interpolation},
-        tuple::Tuple,
-        types::string::{
-            fast_string::StrIndices,
-            iter::{iterate_chars, iterate_codepoints},
-        },
-        Heap, StringValue, UnpackValue, Value, ValueOf,
-    },
-};
+use crate::environment::MethodsBuilder;
+use crate::eval::Arguments;
+use crate::eval::Evaluator;
+use crate::stdlib::string::fast_string::convert_str_indices;
+use crate::values::none::NoneOr;
+use crate::values::string::fast_string;
+use crate::values::string::interpolation;
+use crate::values::tuple::Tuple;
+use crate::values::types::string::fast_string::StrIndices;
+use crate::values::types::string::iter::iterate_chars;
+use crate::values::types::string::iter::iterate_codepoints;
+use crate::values::Heap;
+use crate::values::StringValue;
+use crate::values::UnpackValue;
+use crate::values::Value;
+use crate::values::ValueOf;
 
 // This does not exists in rust, split would cut the string incorrectly and
 // split_whitespace cannot take a n parameter.

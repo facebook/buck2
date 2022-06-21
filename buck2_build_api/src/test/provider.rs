@@ -9,21 +9,19 @@
 
 use std::sync::Arc;
 
-use futures::future::{BoxFuture, FutureExt};
-use test_api::{
-    data::{ConfiguredTarget, ExternalRunnerSpec, ExternalRunnerSpecValue},
-    protocol::TestExecutor,
-};
+use futures::future::BoxFuture;
+use futures::future::FutureExt;
+use test_api::data::ConfiguredTarget;
+use test_api::data::ExternalRunnerSpec;
+use test_api::data::ExternalRunnerSpecValue;
+use test_api::protocol::TestExecutor;
 
-use crate::interpreter::rule_defs::{
-    cmd_args::{AbsCommandLineBuilder, CommandLineArtifactVisitor},
-    provider::{
-        builtin::external_runner_test_info::{
-            ExternalRunnerTestInfoCallable, FrozenExternalRunnerTestInfo, TestCommandMember,
-        },
-        collection::FrozenProviderCollection,
-    },
-};
+use crate::interpreter::rule_defs::cmd_args::AbsCommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::ExternalRunnerTestInfoCallable;
+use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
+use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
+use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 
 pub trait TestProvider {
     fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()>;

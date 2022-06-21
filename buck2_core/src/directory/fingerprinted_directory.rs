@@ -7,12 +7,15 @@
  * of this source tree.
  */
 
-use std::{fmt, iter::once};
+use std::fmt;
+use std::iter::once;
 
-use super::{
-    DirectoryEntry, DirectoryHasher, FingerprintedOrderedDirectoryWalk,
-    FingerprintedUnorderedDirectoryWalk, HasDirectoryDigest, PathAccumulator,
-};
+use super::DirectoryEntry;
+use super::DirectoryHasher;
+use super::FingerprintedOrderedDirectoryWalk;
+use super::FingerprintedUnorderedDirectoryWalk;
+use super::HasDirectoryDigest;
+use super::PathAccumulator;
 use crate::fs::paths::FileName;
 
 pub type FingerprintedDirectoryEntries<'a, L, H> = Box<

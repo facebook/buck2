@@ -1,17 +1,16 @@
 use anyhow::Context;
-use futures::{
-    future,
-    stream::{self, StreamExt},
-};
-use tokio::{
-    io::{AsyncRead, AsyncWrite},
-    sync::mpsc,
-    task::JoinHandle,
-};
+use futures::future;
+use futures::stream::StreamExt;
+use futures::stream::{self};
+use tokio::io::AsyncRead;
+use tokio::io::AsyncWrite;
+use tokio::sync::mpsc;
+use tokio::task::JoinHandle;
 use tonic::transport::server::Router;
 use tower::Service;
 
-use self::{connection_with_extra::ConnectionWithExtra, drop_notifier::DropNotifier};
+use self::connection_with_extra::ConnectionWithExtra;
+use self::drop_notifier::DropNotifier;
 
 pub struct ServerHandle {
     channel: DropNotifier,
@@ -127,14 +126,15 @@ mod drop_notifier {
 }
 
 mod connection_with_extra {
-    use std::{
-        io,
-        pin::Pin,
-        task::{Context, Poll},
-    };
+    use std::io;
+    use std::pin::Pin;
+    use std::task::Context;
+    use std::task::Poll;
 
     use pin_project::pin_project;
-    use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+    use tokio::io::AsyncRead;
+    use tokio::io::AsyncWrite;
+    use tokio::io::ReadBuf;
     use tonic::transport::server::Connected;
 
     use super::DropNotifier;

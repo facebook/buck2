@@ -20,21 +20,20 @@
 //! `some_rule[java]` or `some_rule[cxx]`.
 //!
 
-use std::{
-    fmt,
-    fmt::{Display, Formatter},
-};
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
 
 use derive_more::Display;
 use gazebo::dupe::Dupe;
-use serde::{Serialize, Serializer};
+use serde::Serialize;
+use serde::Serializer;
 use thiserror::Error;
 
-use crate::{
-    ascii_char_set::AsciiCharSet,
-    configuration::Configuration,
-    target::{ConfiguredTargetLabel, TargetLabel},
-};
+use crate::ascii_char_set::AsciiCharSet;
+use crate::configuration::Configuration;
+use crate::target::ConfiguredTargetLabel;
+use crate::target::TargetLabel;
 
 #[derive(Display, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 #[display(fmt = "{}", _0)]
@@ -220,10 +219,10 @@ pub mod testing {
     use gazebo::prelude::*;
 
     use super::*;
-    use crate::{
-        package::{testing::*, Package},
-        target::{TargetLabel, TargetName},
-    };
+    use crate::package::testing::*;
+    use crate::package::Package;
+    use crate::target::TargetLabel;
+    use crate::target::TargetName;
 
     pub trait ProvidersLabelTestExt {
         fn testing_new(
@@ -259,7 +258,8 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
-    use crate::provider::{ProviderName, ProvidersLabel};
+    use crate::provider::ProviderName;
+    use crate::provider::ProvidersLabel;
 
     #[test]
     fn providers_name_validation() {

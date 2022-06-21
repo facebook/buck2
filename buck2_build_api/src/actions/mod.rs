@@ -37,58 +37,67 @@ pub mod write;
 pub mod write_json;
 pub mod write_macros;
 
-use std::{
-    borrow::Cow,
-    collections::{HashMap, HashSet},
-    fmt::Debug,
-    path::PathBuf,
-    sync::Arc,
-};
+use std::borrow::Cow;
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::fmt::Debug;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use buck2_core::{
-    category::Category,
-    directory::{
-        Directory, DirectoryBuilder, DirectoryEntry, DirectoryInsertError, DirectoryIterator,
-        NoHasher,
-    },
-    fs::paths::{ForwardRelativePath, ForwardRelativePathBuf},
-    soft_error,
-};
+use buck2_core::category::Category;
+use buck2_core::directory::Directory;
+use buck2_core::directory::DirectoryBuilder;
+use buck2_core::directory::DirectoryEntry;
+use buck2_core::directory::DirectoryInsertError;
+use buck2_core::directory::DirectoryIterator;
+use buck2_core::directory::NoHasher;
+use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_core::fs::paths::ForwardRelativePathBuf;
+use buck2_core::soft_error;
 use derivative::Derivative;
 use derive_more::Display;
 use events::dispatch::EventDispatcher;
 use gazebo::prelude::*;
-use indexmap::{indexmap, IndexMap, IndexSet};
+use indexmap::indexmap;
+use indexmap::IndexMap;
+use indexmap::IndexSet;
 use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
 use static_assertions::_core::ops::Deref;
 use thiserror::Error;
 
-use crate::{
-    actions::{
-        artifact::{
-            ArtifactFs, ArtifactValue, BuildArtifact, DeclaredArtifact, ExecutorFs, OutputArtifact,
-        },
-        run::knobs::RunActionKnobs,
-    },
-    analysis::registry::AnalysisValueFetcher,
-    artifact_groups::{ArtifactGroup, ArtifactGroupValues},
-    configuration::execution::ExecutionPlatformResolution,
-    deferred::{
-        BaseDeferredKey, Deferred, DeferredCtx, DeferredData, DeferredId, DeferredInput,
-        DeferredRegistry, DeferredValue, ReservedDeferredData,
-    },
-    events::proto::ToProtoMessage,
-    execute::{
-        blocking::BlockingExecutor,
-        commands::{CommandExecutionOutput, CommandExecutionRequest, CommandExecutionTarget},
-        materializer::Materializer,
-        ActionExecutionMetadata, ActionOutputs, CommandExecutorConfig,
-    },
-    path::BuckOutPath,
-};
+use crate::actions::artifact::ArtifactFs;
+use crate::actions::artifact::ArtifactValue;
+use crate::actions::artifact::BuildArtifact;
+use crate::actions::artifact::DeclaredArtifact;
+use crate::actions::artifact::ExecutorFs;
+use crate::actions::artifact::OutputArtifact;
+use crate::actions::run::knobs::RunActionKnobs;
+use crate::analysis::registry::AnalysisValueFetcher;
+use crate::artifact_groups::ArtifactGroup;
+use crate::artifact_groups::ArtifactGroupValues;
+use crate::configuration::execution::ExecutionPlatformResolution;
+use crate::deferred::BaseDeferredKey;
+use crate::deferred::Deferred;
+use crate::deferred::DeferredCtx;
+use crate::deferred::DeferredData;
+use crate::deferred::DeferredId;
+use crate::deferred::DeferredInput;
+use crate::deferred::DeferredRegistry;
+use crate::deferred::DeferredValue;
+use crate::deferred::ReservedDeferredData;
+use crate::events::proto::ToProtoMessage;
+use crate::execute::blocking::BlockingExecutor;
+use crate::execute::commands::CommandExecutionOutput;
+use crate::execute::commands::CommandExecutionRequest;
+use crate::execute::commands::CommandExecutionTarget;
+use crate::execute::materializer::Materializer;
+use crate::execute::ActionExecutionMetadata;
+use crate::execute::ActionOutputs;
+use crate::execute::CommandExecutorConfig;
+use crate::path::BuckOutPath;
 
 /// Represents an unregistered 'Action' that will be registered into the 'Actions' module.
 /// The 'UnregisteredAction' is not executable until it is registered, upon which it becomes an
@@ -585,16 +594,17 @@ pub mod testing {
     use indexmap::IndexSet;
     use starlark::values::OwnedFrozenValue;
 
-    use crate::{
-        actions::{
-            artifact::BuildArtifact, Action, ActionExecutable, ActionExecutionCtx, ArtifactGroup,
-            PristineActionExecutable, UnregisteredAction,
-        },
-        execute::{
-            commands::{CommandExecutionInput, CommandExecutionRequest},
-            ActionExecutionMetadata, ActionOutputs,
-        },
-    };
+    use crate::actions::artifact::BuildArtifact;
+    use crate::actions::Action;
+    use crate::actions::ActionExecutable;
+    use crate::actions::ActionExecutionCtx;
+    use crate::actions::ArtifactGroup;
+    use crate::actions::PristineActionExecutable;
+    use crate::actions::UnregisteredAction;
+    use crate::execute::commands::CommandExecutionInput;
+    use crate::execute::commands::CommandExecutionRequest;
+    use crate::execute::ActionExecutionMetadata;
+    use crate::execute::ActionOutputs;
 
     /// A simple unregistered action that will eventually be resolved into an action that runs the
     /// given cmd as the action execution command. Used for testing
@@ -730,36 +740,38 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
-    use std::{path::PathBuf, sync::Arc};
+    use std::path::PathBuf;
+    use std::sync::Arc;
 
     use assert_matches::assert_matches;
-    use buck2_core::{
-        category::Category,
-        configuration::Configuration,
-        fs::paths::ForwardRelativePathBuf,
-        package::{testing::PackageExt, Package},
-        target::{testing::ConfiguredTargetLabelExt, ConfiguredTargetLabel, TargetName},
-    };
+    use buck2_core::category::Category;
+    use buck2_core::configuration::Configuration;
+    use buck2_core::fs::paths::ForwardRelativePathBuf;
+    use buck2_core::package::testing::PackageExt;
+    use buck2_core::package::Package;
+    use buck2_core::target::testing::ConfiguredTargetLabelExt;
+    use buck2_core::target::ConfiguredTargetLabel;
+    use buck2_core::target::TargetName;
     use gazebo::prelude::*;
     use indexmap::indexset;
 
-    use crate::{
-        actions::{
-            artifact::{
-                testing::{ArtifactTestingExt, BuildArtifactTestingExt},
-                BuildArtifact,
-            },
-            testing::SimpleUnregisteredAction,
-            ActionErrors, ActionsRegistry, ArtifactGroup,
-        },
-        analysis::registry::AnalysisValueFetcher,
-        configuration::execution::{ExecutionPlatform, ExecutionPlatformResolution},
-        deferred::{
-            testing::DeferredIdExt, BaseDeferredKey, BaseKey, DeferredId, DeferredRegistry,
-        },
-        execute::CommandExecutorConfig,
-        path::BuckOutPath,
-    };
+    use crate::actions::artifact::testing::ArtifactTestingExt;
+    use crate::actions::artifact::testing::BuildArtifactTestingExt;
+    use crate::actions::artifact::BuildArtifact;
+    use crate::actions::testing::SimpleUnregisteredAction;
+    use crate::actions::ActionErrors;
+    use crate::actions::ActionsRegistry;
+    use crate::actions::ArtifactGroup;
+    use crate::analysis::registry::AnalysisValueFetcher;
+    use crate::configuration::execution::ExecutionPlatform;
+    use crate::configuration::execution::ExecutionPlatformResolution;
+    use crate::deferred::testing::DeferredIdExt;
+    use crate::deferred::BaseDeferredKey;
+    use crate::deferred::BaseKey;
+    use crate::deferred::DeferredId;
+    use crate::deferred::DeferredRegistry;
+    use crate::execute::CommandExecutorConfig;
+    use crate::path::BuckOutPath;
 
     #[test]
     fn declaring_artifacts() -> anyhow::Result<()> {

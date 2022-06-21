@@ -17,14 +17,16 @@
 
 //! Bytecode profiler.
 
-use std::{collections::HashMap, fs, iter::Sum, path::Path};
+use std::collections::HashMap;
+use std::fs;
+use std::iter::Sum;
+use std::path::Path;
 
 use gazebo::prelude::*;
 
-use crate::eval::{
-    bc::opcode::BcOpcode,
-    runtime::{evaluator::EvaluatorError, profile::csv::CsvWriter},
-};
+use crate::eval::bc::opcode::BcOpcode;
+use crate::eval::runtime::evaluator::EvaluatorError;
+use crate::eval::runtime::profile::csv::CsvWriter;
 
 #[derive(Default, Clone, Dupe, Copy)]
 struct BcInstrStat {
@@ -195,11 +197,13 @@ impl BcProfile {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        environment::{Globals, Module},
-        eval::{bc::opcode::BcOpcode, Evaluator, ProfileMode},
-        syntax::{AstModule, Dialect},
-    };
+    use crate::environment::Globals;
+    use crate::environment::Module;
+    use crate::eval::bc::opcode::BcOpcode;
+    use crate::eval::Evaluator;
+    use crate::eval::ProfileMode;
+    use crate::syntax::AstModule;
+    use crate::syntax::Dialect;
 
     #[test]
     fn test_smoke() {

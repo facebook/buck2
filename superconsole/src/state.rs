@@ -7,10 +7,10 @@
  * of this source tree.
  */
 
-use std::{
-    any::{self, Any, TypeId},
-    collections::HashMap,
-};
+use std::any::Any;
+use std::any::TypeId;
+use std::any::{self};
+use std::collections::HashMap;
 
 use crate::Error;
 

@@ -9,11 +9,10 @@
 
 //! Futures with specialized dropping behaviour
 
-use std::{
-    future::Future,
-    pin::Pin,
-    task::{Context, Poll},
-};
+use std::future::Future;
+use std::pin::Pin;
+use std::task::Context;
+use std::task::Poll;
 
 use futures::Stream;
 use pin_project::pin_project;
@@ -61,7 +60,9 @@ where
 mod tests {
     use std::sync::Arc;
 
-    use futures::{future, stream::FuturesOrdered, StreamExt};
+    use futures::future;
+    use futures::stream::FuturesOrdered;
+    use futures::StreamExt;
     use gazebo::prelude::*;
 
     use crate::drop::DropTogether;

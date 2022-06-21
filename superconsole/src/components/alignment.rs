@@ -14,7 +14,13 @@
 
 use gazebo::prelude::*;
 
-use crate::{components::Blank, content::LinesExt, Component, Dimensions, DrawMode, Line, State};
+use crate::components::Blank;
+use crate::content::LinesExt;
+use crate::Component;
+use crate::Dimensions;
+use crate::DrawMode;
+use crate::Line;
+use crate::State;
 
 /// Select the alignment of the vertical content
 #[derive(Debug, Eq, PartialEq, Clone, Dupe, Copy)]
@@ -130,13 +136,15 @@ mod tests {
 
     use derive_more::AsRef;
 
-    use crate::{
-        components::{
-            alignment::{HorizontalAlignmentKind, VerticalAlignmentKind},
-            Aligned, DrawMode, Echo,
-        },
-        Component, Dimensions, Line, State,
-    };
+    use crate::components::alignment::HorizontalAlignmentKind;
+    use crate::components::alignment::VerticalAlignmentKind;
+    use crate::components::Aligned;
+    use crate::components::DrawMode;
+    use crate::components::Echo;
+    use crate::Component;
+    use crate::Dimensions;
+    use crate::Line;
+    use crate::State;
 
     #[derive(AsRef, Debug)]
     struct Msg(Vec<Line>);

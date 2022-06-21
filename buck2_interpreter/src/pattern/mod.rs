@@ -11,30 +11,34 @@
 //!
 #![doc = include_str ! ("../target_pattern.md")]
 
-use std::{
-    collections::HashSet,
-    fmt::{self, Debug, Display},
-};
+use std::collections::HashSet;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::{self};
 
-use anyhow::{anyhow, Context};
-use buck2_common::{
-    dice::{cells::HasCellResolver, file_ops::HasFileOps},
-    file_ops::FileOps,
-    target_aliases::TargetAliasResolver,
-};
-use buck2_core::{
-    cells::{
-        paths::{CellPath, CellRelativePath},
-        CellAliasResolver, CellResolver,
-    },
-    fs::paths::ForwardRelativePath,
-    package::Package,
-    provider::{ProviderName, ProvidersLabel, ProvidersName},
-    target::{TargetLabel, TargetName},
-};
+use anyhow::anyhow;
+use anyhow::Context;
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::file_ops::FileOps;
+use buck2_common::target_aliases::TargetAliasResolver;
+use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::cells::CellAliasResolver;
+use buck2_core::cells::CellResolver;
+use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_core::package::Package;
+use buck2_core::provider::ProviderName;
+use buck2_core::provider::ProvidersLabel;
+use buck2_core::provider::ProvidersName;
+use buck2_core::target::TargetLabel;
+use buck2_core::target::TargetName;
 use derive_more::From;
 use dice::DiceComputations;
-use futures::{channel::mpsc, stream::FuturesUnordered, Stream, StreamExt};
+use futures::channel::mpsc;
+use futures::stream::FuturesUnordered;
+use futures::Stream;
+use futures::StreamExt;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
 use more_futures::drop::DropTogether;
@@ -43,12 +47,13 @@ use regex::Regex;
 use thiserror::Error;
 use tokio::sync::Semaphore;
 
-use crate::{
-    package_listing::find_buildfile::find_buildfile,
-    pattern::ascii_pattern::{
-        split1_opt_ascii, strip_suffix_ascii, trim_prefix_ascii, AsciiChar, AsciiStr, AsciiStr2,
-    },
-};
+use crate::package_listing::find_buildfile::find_buildfile;
+use crate::pattern::ascii_pattern::split1_opt_ascii;
+use crate::pattern::ascii_pattern::strip_suffix_ascii;
+use crate::pattern::ascii_pattern::trim_prefix_ascii;
+use crate::pattern::ascii_pattern::AsciiChar;
+use crate::pattern::ascii_pattern::AsciiStr;
+use crate::pattern::ascii_pattern::AsciiStr2;
 
 mod ascii_pattern;
 pub mod parse_package;
@@ -966,26 +971,26 @@ async fn find_package_roots(
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        collections::{BTreeMap, BTreeSet, HashMap},
-        convert::TryFrom,
-        marker::PhantomData,
-        sync::Arc,
-    };
+    use std::collections::BTreeMap;
+    use std::collections::BTreeSet;
+    use std::collections::HashMap;
+    use std::convert::TryFrom;
+    use std::marker::PhantomData;
+    use std::sync::Arc;
 
     use assert_matches::assert_matches;
-    use buck2_common::{
-        file_ops::testing::TestFileOps,
-        legacy_configs::{testing::parse, LegacyBuckConfig},
-        target_aliases::TargetAliasResolver,
-    };
-    use buck2_core::{
-        cells::{paths::CellRelativePathBuf, CellAlias, CellName, CellsAggregator},
-        fs::project::ProjectRelativePathBuf,
-        package::testing::PackageExt,
-        provider::ProvidersLabel,
-        target::TargetLabel,
-    };
+    use buck2_common::file_ops::testing::TestFileOps;
+    use buck2_common::legacy_configs::testing::parse;
+    use buck2_common::legacy_configs::LegacyBuckConfig;
+    use buck2_common::target_aliases::TargetAliasResolver;
+    use buck2_core::cells::paths::CellRelativePathBuf;
+    use buck2_core::cells::CellAlias;
+    use buck2_core::cells::CellName;
+    use buck2_core::cells::CellsAggregator;
+    use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::package::testing::PackageExt;
+    use buck2_core::provider::ProvidersLabel;
+    use buck2_core::target::TargetLabel;
     use test_case::test_case;
 
     use super::*;

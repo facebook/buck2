@@ -10,9 +10,13 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_build_api::bxl::{calculation::BxlCalculationDyn, result::BxlResult, BxlKey};
-use buck2_core::result::{SharedResult, ToSharedResultExt};
-use dice::{DiceComputations, Key};
+use buck2_build_api::bxl::calculation::BxlCalculationDyn;
+use buck2_build_api::bxl::result::BxlResult;
+use buck2_build_api::bxl::BxlKey;
+use buck2_core::result::SharedResult;
+use buck2_core::result::ToSharedResultExt;
+use dice::DiceComputations;
+use dice::Key;
 use gazebo::dupe::Dupe;
 
 use crate::bxl::eval::eval;

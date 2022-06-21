@@ -7,19 +7,29 @@
  * of this source tree.
  */
 
-use std::{collections::HashMap, iter::once};
+use std::collections::HashMap;
+use std::iter::once;
 
 use either::Either;
 use gazebo::prelude::*;
 use thiserror::Error;
 
-use super::{
-    Directory, DirectoryBuilder, DirectoryEntries, DirectoryEntry, DirectoryIterator,
-    DirectoryIteratorPathAccessor, DirectoryIteratorPathStack, FingerprintedDirectory,
-    FingerprintedDirectoryEntries, FingerprintedOrderedDirectoryEntries, HasDirectoryDigest,
-    OrderedDirectoryEntries,
-};
-use crate::fs::paths::{FileName, FileNameBuf, ForwardRelativePath, IntoFileNameBufIterator};
+use super::Directory;
+use super::DirectoryBuilder;
+use super::DirectoryEntries;
+use super::DirectoryEntry;
+use super::DirectoryIterator;
+use super::DirectoryIteratorPathAccessor;
+use super::DirectoryIteratorPathStack;
+use super::FingerprintedDirectory;
+use super::FingerprintedDirectoryEntries;
+use super::FingerprintedOrderedDirectoryEntries;
+use super::HasDirectoryDigest;
+use super::OrderedDirectoryEntries;
+use crate::fs::paths::FileName;
+use crate::fs::paths::FileNameBuf;
+use crate::fs::paths::ForwardRelativePath;
+use crate::fs::paths::IntoFileNameBufIterator;
 
 #[derive(Debug, Error)]
 pub enum DirectorySearchError<L> {

@@ -17,39 +17,48 @@
 
 //! The list type, a mutable sequence of values.
 
-use std::{
-    any::TypeId,
-    cell::Cell,
-    cmp,
-    cmp::Ordering,
-    fmt::{self, Debug, Display, Formatter},
-    intrinsics::{likely, unlikely},
-    marker::PhantomData,
-    ops::Deref,
-    slice,
-};
+use std::any::TypeId;
+use std::cell::Cell;
+use std::cmp;
+use std::cmp::Ordering;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::fmt::{self};
+use std::intrinsics::likely;
+use std::intrinsics::unlikely;
+use std::marker::PhantomData;
+use std::ops::Deref;
+use std::slice;
 
-use gazebo::{
-    any::ProvidesStaticType,
-    coerce::{coerce, Coerce},
-    prelude::*,
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::coerce;
+use gazebo::coerce::Coerce;
+use gazebo::prelude::*;
 use serde::Serialize;
 
-use crate::{
-    self as starlark,
-    environment::{Methods, MethodsStatic},
-    private::Private,
-    values::{
-        array::Array,
-        comparison::{compare_slice, equals_slice},
-        display::display_container,
-        error::ValueError,
-        index::{apply_slice, convert_index},
-        AllocFrozenValue, AllocValue, FrozenHeap, FrozenStringValue, FrozenValue, Heap,
-        StarlarkValue, UnpackValue, Value, ValueLike, ValueTyped,
-    },
-};
+use crate::environment::Methods;
+use crate::environment::MethodsStatic;
+use crate::private::Private;
+use crate::values::array::Array;
+use crate::values::comparison::compare_slice;
+use crate::values::comparison::equals_slice;
+use crate::values::display::display_container;
+use crate::values::error::ValueError;
+use crate::values::index::apply_slice;
+use crate::values::index::convert_index;
+use crate::values::AllocFrozenValue;
+use crate::values::AllocValue;
+use crate::values::FrozenHeap;
+use crate::values::FrozenStringValue;
+use crate::values::FrozenValue;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::UnpackValue;
+use crate::values::Value;
+use crate::values::ValueLike;
+use crate::values::ValueTyped;
+use crate::{self as starlark};
 
 #[derive(Clone, Default, Trace, Debug, ProvidesStaticType)]
 #[repr(transparent)]
@@ -642,7 +651,8 @@ impl<'v, V: UnpackValue<'v>> Deref for ListOf<'v, V> {
 
 #[cfg(test)]
 mod tests {
-    use crate::assert::{self, Assert};
+    use crate::assert::Assert;
+    use crate::assert::{self};
 
     #[test]
     fn test_to_str() {

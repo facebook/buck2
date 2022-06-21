@@ -9,7 +9,9 @@
 
 use std::cell::Cell;
 
-use crate::{content::LinesExt, Component, Dimensions};
+use crate::content::LinesExt;
+use crate::Component;
+use crate::Dimensions;
 
 /// A `Component` which refuses to shrink below it's previous maximum size.
 /// Notably, this component implicitly pads to a rectangle for simplicity.
@@ -51,7 +53,11 @@ mod tests {
     use std::convert::TryInto;
 
     use super::*;
-    use crate::{components::Echo, content::LinesExt, DrawMode, Line, Lines};
+    use crate::components::Echo;
+    use crate::content::LinesExt;
+    use crate::DrawMode;
+    use crate::Line;
+    use crate::Lines;
 
     #[test]
     fn test() -> anyhow::Result<()> {

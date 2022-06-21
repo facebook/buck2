@@ -7,28 +7,28 @@
  * of this source tree.
  */
 
-use std::fmt::{self, Display};
+use std::fmt::Display;
+use std::fmt::{self};
 
 use buck2_core::target::ConfiguredTargetLabel;
 use gazebo::prelude::*;
 use starlark::values::FrozenRef;
 
-use crate::{
-    artifact_groups::ArtifactGroup,
-    attrs::{
-        attr_type::{
-            arg::{value::add_output_to_arg, ArgBuilder, QueryExpansion},
-            attr_literal::{AttrConfig, ConfiguredAttrTraversal},
-            query::QueryAttrBase,
-        },
-        AttrConfigurationContext, AttrResolutionContext, CoercedAttr, CoercedAttrTraversal,
-        ConfiguredAttr,
-    },
-    interpreter::rule_defs::{
-        artifact::{StarlarkArtifact, StarlarkArtifactLike},
-        cmd_args::CommandLineArtifactVisitor,
-    },
-};
+use crate::artifact_groups::ArtifactGroup;
+use crate::attrs::attr_type::arg::value::add_output_to_arg;
+use crate::attrs::attr_type::arg::ArgBuilder;
+use crate::attrs::attr_type::arg::QueryExpansion;
+use crate::attrs::attr_type::attr_literal::AttrConfig;
+use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
+use crate::attrs::attr_type::query::QueryAttrBase;
+use crate::attrs::AttrConfigurationContext;
+use crate::attrs::AttrResolutionContext;
+use crate::attrs::CoercedAttr;
+use crate::attrs::CoercedAttrTraversal;
+use crate::attrs::ConfiguredAttr;
+use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
+use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 
 #[derive(Debug, PartialEq)]
 pub enum ResolvedQueryMacro {

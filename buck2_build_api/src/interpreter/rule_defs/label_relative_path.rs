@@ -9,7 +9,8 @@
 
 use buck2_interpreter::types::label_relative_path::LabelRelativePath;
 
-use crate::interpreter::rule_defs::cmd_args::{CommandLineArgLike, CommandLineBuilder};
+use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 
 impl CommandLineArgLike for LabelRelativePath {
     fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {

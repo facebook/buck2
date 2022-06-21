@@ -17,9 +17,13 @@
 
 //! Implementations of alloc and unpack traits for string.
 
-use crate::values::{
-    AllocFrozenValue, AllocValue, FrozenHeap, FrozenValue, Heap, UnpackValue, Value,
-};
+use crate::values::AllocFrozenValue;
+use crate::values::AllocValue;
+use crate::values::FrozenHeap;
+use crate::values::FrozenValue;
+use crate::values::Heap;
+use crate::values::UnpackValue;
+use crate::values::Value;
 
 impl AllocFrozenValue for String {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {

@@ -21,10 +21,16 @@
 // Most consistent to use the closure everywhere.
 #![allow(clippy::redundant_closure)]
 
-use crate::syntax::ast::{
-    AssignP, AstAssignIdentP, AstExprP, AstPayload, AstStmtP, ClauseP, ExprP, ForClauseP,
-    ParameterP, StmtP,
-};
+use crate::syntax::ast::AssignP;
+use crate::syntax::ast::AstAssignIdentP;
+use crate::syntax::ast::AstExprP;
+use crate::syntax::ast::AstPayload;
+use crate::syntax::ast::AstStmtP;
+use crate::syntax::ast::ClauseP;
+use crate::syntax::ast::ExprP;
+use crate::syntax::ast::ForClauseP;
+use crate::syntax::ast::ParameterP;
+use crate::syntax::ast::StmtP;
 
 pub(crate) enum Visit<'a, P: AstPayload> {
     Stmt(&'a AstStmtP<P>),

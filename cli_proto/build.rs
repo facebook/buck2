@@ -7,7 +7,9 @@
  * of this source tree.
  */
 
-use std::{env, io, path::PathBuf};
+use std::env;
+use std::io;
+use std::path::PathBuf;
 
 fn main() -> io::Result<()> {
     let proto_files = &["daemon.proto"];

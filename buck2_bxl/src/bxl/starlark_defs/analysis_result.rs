@@ -3,11 +3,15 @@ use buck2_core::provider::ConfiguredProvidersLabel;
 use buck2_docs_gen::Buck2Docs;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
-use starlark::{
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    starlark_module, starlark_simple_value, starlark_type,
-    values::{FrozenValue, NoSerialize, StarlarkValue},
-};
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::starlark_module;
+use starlark::starlark_simple_value;
+use starlark::starlark_type;
+use starlark::values::FrozenValue;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
 
 #[derive(ProvidesStaticType, Debug, Display, NoSerialize, Buck2Docs)]
 #[display(fmt = "{:?}", self)]

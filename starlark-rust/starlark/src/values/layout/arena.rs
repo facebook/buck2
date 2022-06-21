@@ -26,28 +26,29 @@
 //! to tag it as being a usize, and the word after is the size of the
 //! item it replaced.
 
-use std::{
-    alloc::Layout,
-    cmp,
-    collections::HashMap,
-    hash::Hash,
-    marker::PhantomData,
-    mem::{self, ManuallyDrop, MaybeUninit},
-    ptr, slice,
-};
+use std::alloc::Layout;
+use std::cmp;
+use std::collections::HashMap;
+use std::hash::Hash;
+use std::marker::PhantomData;
+use std::mem::ManuallyDrop;
+use std::mem::MaybeUninit;
+use std::mem::{self};
+use std::ptr;
+use std::slice;
 
 use bumpalo::Bump;
 use either::Either;
-use gazebo::{any::AnyLifetime, prelude::*};
+use gazebo::any::AnyLifetime;
+use gazebo::prelude::*;
 
-use crate::values::{
-    layout::{
-        avalue::{starlark_str, AValue, BlackHole},
-        vtable::{AValueDyn, AValueVTable},
-    },
-    string::StarlarkStr,
-    StarlarkValue,
-};
+use crate::values::layout::avalue::starlark_str;
+use crate::values::layout::avalue::AValue;
+use crate::values::layout::avalue::BlackHole;
+use crate::values::layout::vtable::AValueDyn;
+use crate::values::layout::vtable::AValueVTable;
+use crate::values::string::StarlarkStr;
+use crate::values::StarlarkValue;
 
 /// Min size of allocated object including header.
 /// Should be able to fit `BlackHole` or forward.
@@ -553,7 +554,8 @@ impl Drop for Arena {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::values::{any::StarlarkAny, layout::avalue::simple};
+    use crate::values::any::StarlarkAny;
+    use crate::values::layout::avalue::simple;
 
     fn to_repr(x: &AValueHeader) -> String {
         let mut s = String::new();

@@ -11,4 +11,5 @@ mod artifact_tag;
 mod tagged_artifacts;
 
 pub use artifact_tag::ArtifactTag;
-pub use tagged_artifacts::{FrozenTaggedArtifacts, TaggedArtifacts};
+pub use tagged_artifacts::FrozenTaggedArtifacts;
+pub use tagged_artifacts::TaggedArtifacts;

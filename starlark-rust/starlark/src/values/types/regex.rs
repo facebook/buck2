@@ -16,16 +16,17 @@
  */
 
 //! A type [`StarlarkRegex`] which wraps Rust value fancy_regex::Regex.
-use std::fmt::{self, Display};
+use std::fmt::Display;
+use std::fmt::{self};
 
 use fancy_regex::Regex;
 use gazebo::any::ProvidesStaticType;
 
 use crate as starlark;
-use crate::{
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    values::StarlarkValue,
-};
+use crate::environment::Methods;
+use crate::environment::MethodsBuilder;
+use crate::environment::MethodsStatic;
+use crate::values::StarlarkValue;
 
 /// A type that can be passed around as a StarlarkRegex, which wraps Rust value
 /// fancy_regex::Regex.

@@ -7,22 +7,22 @@
  * of this source tree.
  */
 
-use std::{
-    borrow::{Borrow, Cow},
-    fmt::{Display, Formatter},
-    hash::Hash,
-};
+use std::borrow::Borrow;
+use std::borrow::Cow;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::hash::Hash;
 
-use buck2_core::{
-    cells::{
-        paths::{CellPath, CellRelativePath, CellRelativePathBuf},
-        CellName,
-    },
-    fs::paths::{FileName, FileNameBuf},
-    package::Package,
-};
+use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::cells::paths::CellRelativePathBuf;
+use buck2_core::cells::CellName;
+use buck2_core::fs::paths::FileName;
+use buck2_core::fs::paths::FileNameBuf;
+use buck2_core::package::Package;
 use derive_more::Display;
-use gazebo::{prelude::*, variants::UnpackVariants};
+use gazebo::prelude::*;
+use gazebo::variants::UnpackVariants;
 use ref_cast::RefCast;
 use thiserror::Error;
 

@@ -9,25 +9,32 @@
 
 //! Represents the forward and backward dependencies of the computation graph
 
-use std::{
-    collections::{hash_map::DefaultHasher, BTreeMap, HashMap, HashSet},
-    fmt::{Debug, Display},
-    hash::{Hash, Hasher},
-    sync::{Arc, RwLock, RwLockReadGuard, Weak},
-};
+use std::collections::hash_map::DefaultHasher;
+use std::collections::BTreeMap;
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::sync::Arc;
+use std::sync::RwLock;
+use std::sync::RwLockReadGuard;
+use std::sync::Weak;
 
 use async_trait::async_trait;
-use gazebo::{cmp::PartialEqAny, dupe::Dupe};
+use gazebo::cmp::PartialEqAny;
+use gazebo::dupe::Dupe;
 
-use crate::{
-    ctx::ComputationData,
-    incremental::{
-        graph::{GraphNodeDyn, ReadOnlyHistory},
-        introspection::AnyKey,
-        transaction_ctx::TransactionCtx,
-        versions::{MinorVersion, VersionNumber, VersionRange, VersionRanges},
-    },
-};
+use crate::ctx::ComputationData;
+use crate::incremental::graph::GraphNodeDyn;
+use crate::incremental::graph::ReadOnlyHistory;
+use crate::incremental::introspection::AnyKey;
+use crate::incremental::transaction_ctx::TransactionCtx;
+use crate::incremental::versions::MinorVersion;
+use crate::incremental::versions::VersionNumber;
+use crate::incremental::versions::VersionRange;
+use crate::incremental::versions::VersionRanges;
 
 /// The dependency information stored by the core engine
 #[async_trait]
@@ -251,14 +258,14 @@ impl VersionedRevDependencies {
 
 #[cfg(test)]
 pub(crate) mod testing {
-    use std::{
-        collections::{BTreeMap, HashSet},
-        sync::{Arc, RwLockReadGuard},
-    };
+    use std::collections::BTreeMap;
+    use std::collections::HashSet;
+    use std::sync::Arc;
+    use std::sync::RwLockReadGuard;
 
-    use crate::incremental::{
-        graph::dependencies::VersionedDependencies, versions::VersionNumber, Dependency,
-    };
+    use crate::incremental::graph::dependencies::VersionedDependencies;
+    use crate::incremental::versions::VersionNumber;
+    use crate::incremental::Dependency;
 
     pub(crate) trait VersionedDependenciesExt {
         fn deps<'a>(

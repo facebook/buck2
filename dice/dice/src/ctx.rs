@@ -7,25 +7,31 @@
  * of this source tree.
  */
 
-use std::{fmt::Display, future::Future, hash::Hash, ops::Deref, sync::Arc};
+use std::fmt::Display;
+use std::future::Future;
+use std::hash::Hash;
+use std::ops::Deref;
+use std::sync::Arc;
 
 use futures::FutureExt;
 use gazebo::prelude::*;
 use more_futures::spawn::spawn_dropcancel;
 
-use crate::{
-    cycles::{CycleDetector, DetectCycles},
-    data::DiceData,
-    incremental::{
-        dep_trackers::{BothDepTrackers, BothDeps},
-        transaction_ctx::TransactionCtx,
-        versions::{MinorVersionGuard, VersionForWrites, VersionNumber},
-    },
-    map::DiceMap,
-    opaque::OpaqueValue,
-    projection::ProjectionKeyAsKey,
-    Dice, Key, ProjectionKey,
-};
+use crate::cycles::CycleDetector;
+use crate::cycles::DetectCycles;
+use crate::data::DiceData;
+use crate::incremental::dep_trackers::BothDepTrackers;
+use crate::incremental::dep_trackers::BothDeps;
+use crate::incremental::transaction_ctx::TransactionCtx;
+use crate::incremental::versions::MinorVersionGuard;
+use crate::incremental::versions::VersionForWrites;
+use crate::incremental::versions::VersionNumber;
+use crate::map::DiceMap;
+use crate::opaque::OpaqueValue;
+use crate::projection::ProjectionKeyAsKey;
+use crate::Dice;
+use crate::Key;
+use crate::ProjectionKey;
 
 /// Includes all user related computation-specific data.
 pub struct UserComputationData {
@@ -439,12 +445,12 @@ impl DiceComputationImpl {
 
 #[cfg(test)]
 pub(crate) mod testing {
-    use crate::{
-        ctx::ComputationData,
-        cycles::DetectCycles,
-        incremental::versions::{MinorVersion, VersionNumber},
-        DiceComputations, UserComputationData,
-    };
+    use crate::ctx::ComputationData;
+    use crate::cycles::DetectCycles;
+    use crate::incremental::versions::MinorVersion;
+    use crate::incremental::versions::VersionNumber;
+    use crate::DiceComputations;
+    use crate::UserComputationData;
 
     pub(crate) trait DiceCtxExt {
         fn get_version(&self) -> VersionNumber;
@@ -477,7 +483,9 @@ mod tests {
     use derive_more::Display;
     use gazebo::prelude::*;
 
-    use crate::{ctx::ComputationData, cycles::DetectCycles, UserComputationData};
+    use crate::ctx::ComputationData;
+    use crate::cycles::DetectCycles;
+    use crate::UserComputationData;
 
     #[derive(Clone, Dupe, Display, PartialEq, Eq, Hash)]
     struct K(usize);

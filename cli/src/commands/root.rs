@@ -7,11 +7,13 @@
  * of this source tree.
  */
 
-use std::{path::PathBuf, str::FromStr};
+use std::path::PathBuf;
+use std::str::FromStr;
 
 use thiserror::Error;
 
-use crate::{roots::find_roots, CommandContext};
+use crate::roots::find_roots;
+use crate::CommandContext;
 
 #[derive(Debug)]
 enum RootKind {

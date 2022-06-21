@@ -1,29 +1,29 @@
 use std::borrow::Cow;
 
-use buck2_build_api::{
-    calculation::Calculation,
-    nodes::{configured::ConfiguredTargetNode, unconfigured::TargetNode},
-    query::cquery::environment::CqueryEnvironment,
-};
+use buck2_build_api::calculation::Calculation;
+use buck2_build_api::nodes::configured::ConfiguredTargetNode;
+use buck2_build_api::nodes::unconfigured::TargetNode;
+use buck2_build_api::query::cquery::environment::CqueryEnvironment;
 use buck2_core::target::TargetLabel;
-use buck2_interpreter::types::target_label::{StarlarkConfiguredTargetLabel, StarlarkTargetLabel};
-use buck2_query::query::{
-    environment::{QueryEnvironment, QueryTarget},
-    syntax::simple::eval::set::TargetSet,
-};
+use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
+use buck2_interpreter::types::target_label::StarlarkTargetLabel;
+use buck2_query::query::environment::QueryEnvironment;
+use buck2_query::query::environment::QueryTarget;
+use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use either::Either;
 use gazebo::prelude::*;
-use starlark::{
-    eval::Evaluator,
-    values::{list::List, StarlarkValue, Value, ValueLike},
-};
+use starlark::eval::Evaluator;
+use starlark::values::list::List;
+use starlark::values::StarlarkValue;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 use thiserror::Error;
 
-use crate::bxl::starlark_defs::{
-    context::BxlContext,
-    nodes::{configured::StarlarkConfiguredTargetNode, unconfigured::StarlarkTargetNode},
-    targetset::{NodeLike, StarlarkTargetSet},
-};
+use crate::bxl::starlark_defs::context::BxlContext;
+use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
+use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
+use crate::bxl::starlark_defs::targetset::NodeLike;
+use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 
 /// TargetExpr is just a simple type that can be used in starlark_module
 /// functions for arguments that should be target sets. It will accept a

@@ -26,21 +26,26 @@
 // Disagree these are good hints
 #![allow(clippy::type_complexity)]
 
-use std::{ffi::OsStr, fmt, fmt::Display, path::PathBuf, sync::Arc};
+use std::ffi::OsStr;
+use std::fmt;
+use std::fmt::Display;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use eval::Context;
 use gazebo::prelude::*;
 use itertools::Either;
-use starlark::{
-    errors::{EvalMessage, EvalSeverity},
-    lsp,
-    read_line::ReadLine,
-};
-use structopt::{clap::AppSettings, StructOpt};
+use starlark::errors::EvalMessage;
+use starlark::errors::EvalSeverity;
+use starlark::lsp;
+use starlark::read_line::ReadLine;
+use structopt::clap::AppSettings;
+use structopt::StructOpt;
 use walkdir::WalkDir;
 
-use crate::{eval::ContextMode, types::LintMessage};
+use crate::eval::ContextMode;
+use crate::types::LintMessage;
 
 mod dap;
 mod eval;

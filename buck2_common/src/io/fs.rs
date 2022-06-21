@@ -7,30 +7,31 @@
  * of this source tree.
  */
 
-use std::{ffi::OsString, io::ErrorKind, sync::Arc};
+use std::ffi::OsString;
+use std::io::ErrorKind;
+use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_core::{
-    self,
-    fs::{
-        anyhow as fs,
-        paths::FileNameBuf,
-        project::{ProjectFilesystem, ProjectRelativePathBuf},
-    },
-};
+use buck2_core::fs::anyhow as fs;
+use buck2_core::fs::paths::FileNameBuf;
+use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::{self};
 use faccess::PathExt;
-use gazebo::{cmp::PartialEqAny, prelude::*};
+use gazebo::cmp::PartialEqAny;
+use gazebo::prelude::*;
 use once_cell::sync::Lazy;
 use thiserror::Error;
 use tokio::sync::Semaphore;
 
-use crate::{
-    file_ops::{
-        ExternalSymlink, FileDigest, FileMetadata, PathMetadata, SimpleDirEntry, TrackedFileDigest,
-    },
-    io::IoProvider,
-};
+use crate::file_ops::ExternalSymlink;
+use crate::file_ops::FileDigest;
+use crate::file_ops::FileMetadata;
+use crate::file_ops::PathMetadata;
+use crate::file_ops::SimpleDirEntry;
+use crate::file_ops::TrackedFileDigest;
+use crate::io::IoProvider;
 
 #[derive(PartialEq, Clone, Dupe)]
 pub struct FsIoProvider {

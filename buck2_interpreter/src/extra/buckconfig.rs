@@ -7,15 +7,15 @@
  * of this source tree.
  */
 
-use std::{cell::RefCell, fmt};
+use std::cell::RefCell;
+use std::fmt;
 
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use hashbrown::raw::RawTable;
-use starlark::{
-    collections::Hashed,
-    environment::Module,
-    values::{FrozenStringValue, StringValue},
-};
+use starlark::collections::Hashed;
+use starlark::environment::Module;
+use starlark::values::FrozenStringValue;
+use starlark::values::StringValue;
 
 struct BuckConfigEntry {
     section: Hashed<String>,

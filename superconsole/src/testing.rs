@@ -12,10 +12,11 @@ use std::any::Any;
 
 use anyhow::Context as _;
 
-use crate::{
-    components::Canvas, output::SuperConsoleOutput, superconsole::SuperConsole, Component,
-    Dimensions,
-};
+use crate::components::Canvas;
+use crate::output::SuperConsoleOutput;
+use crate::superconsole::SuperConsole;
+use crate::Component;
+use crate::Dimensions;
 
 /// An output for testing that doesn't do real I/O.
 pub struct TestOutput {

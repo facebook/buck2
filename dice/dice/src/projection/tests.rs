@@ -9,18 +9,21 @@
 
 #![cfg(test)]
 
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use async_trait::async_trait;
 use gazebo::dupe::Dupe;
 
-use crate::{
-    DetectCycles, Dice, DiceComputations, DiceData, DiceProjectionComputations, Key, ProjectionKey,
-    UserComputationData,
-};
+use crate::DetectCycles;
+use crate::Dice;
+use crate::DiceComputations;
+use crate::DiceData;
+use crate::DiceProjectionComputations;
+use crate::Key;
+use crate::ProjectionKey;
+use crate::UserComputationData;
 
 /// We have three keys in this test:
 /// * key for a global "configuration"

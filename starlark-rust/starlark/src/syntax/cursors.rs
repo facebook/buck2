@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-use std::{slice, str::Chars};
+use std::slice;
+use std::str::Chars;
 
 pub(crate) struct CursorBytes<'a>(&'a str, slice::Iter<'a, u8>);
 

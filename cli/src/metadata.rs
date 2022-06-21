@@ -8,7 +8,8 @@
  */
 
 //! Metadata collection, for telemetry purposes.
-use std::{collections::HashMap, env};
+use std::collections::HashMap;
+use std::env;
 
 use buck2_core::facebook_only;
 

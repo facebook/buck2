@@ -30,36 +30,59 @@
 //! * All the nested modules represent the built-in Starlark values. These are all defined using [`StarlarkValue`],
 //!   so may serve as interesting inspiration for writing your own values, in addition to occuring in Starlark programs.
 
-pub use gazebo::{
-    any::{AnyLifetime, ProvidesStaticType},
-    coerce::Coerce,
-};
-pub use starlark_derive::{starlark_attrs, Freeze, NoSerialize, StarlarkAttrs, Trace};
+pub use gazebo::any::AnyLifetime;
+pub use gazebo::any::ProvidesStaticType;
+pub use gazebo::coerce::Coerce;
+pub use starlark_derive::starlark_attrs;
+pub use starlark_derive::Freeze;
+pub use starlark_derive::NoSerialize;
+pub use starlark_derive::StarlarkAttrs;
+pub use starlark_derive::Trace;
 
-pub use crate::values::{
-    alloc_value::{AllocFrozenValue, AllocValue},
-    error::ValueError,
-    freeze::Freeze,
-    frozen_ref::FrozenRef,
-    layout::{
-        heap::{Freezer, FrozenHeap, FrozenHeapRef, Heap, Tracer},
-        identity::ValueIdentity,
-        static_string::{constant_string, StarlarkStrNRepr},
-        typed::{
-            string::{FrozenStringValue, StringValue, StringValueLike},
-            FrozenValueTyped, ValueTyped,
-        },
-        value::{FrozenValue, Value, ValueLike},
-    },
-    owned::{OwnedFrozenValue, OwnedFrozenValueTyped},
-    trace::Trace,
-    traits::{ComplexValue, StarlarkValue},
-    types::{
-        any, array, bool, dict, enumeration, float, function, int, list, none, range, record,
-        regex, string, structs, tuple,
-    },
-    unpack::{UnpackValue, ValueOf},
-};
+pub use crate::values::alloc_value::AllocFrozenValue;
+pub use crate::values::alloc_value::AllocValue;
+pub use crate::values::error::ValueError;
+pub use crate::values::freeze::Freeze;
+pub use crate::values::frozen_ref::FrozenRef;
+pub use crate::values::layout::heap::Freezer;
+pub use crate::values::layout::heap::FrozenHeap;
+pub use crate::values::layout::heap::FrozenHeapRef;
+pub use crate::values::layout::heap::Heap;
+pub use crate::values::layout::heap::Tracer;
+pub use crate::values::layout::identity::ValueIdentity;
+pub use crate::values::layout::static_string::constant_string;
+pub use crate::values::layout::static_string::StarlarkStrNRepr;
+pub use crate::values::layout::typed::string::FrozenStringValue;
+pub use crate::values::layout::typed::string::StringValue;
+pub use crate::values::layout::typed::string::StringValueLike;
+pub use crate::values::layout::typed::FrozenValueTyped;
+pub use crate::values::layout::typed::ValueTyped;
+pub use crate::values::layout::value::FrozenValue;
+pub use crate::values::layout::value::Value;
+pub use crate::values::layout::value::ValueLike;
+pub use crate::values::owned::OwnedFrozenValue;
+pub use crate::values::owned::OwnedFrozenValueTyped;
+pub use crate::values::trace::Trace;
+pub use crate::values::traits::ComplexValue;
+pub use crate::values::traits::StarlarkValue;
+pub use crate::values::types::any;
+pub use crate::values::types::array;
+pub use crate::values::types::bool;
+pub use crate::values::types::dict;
+pub use crate::values::types::enumeration;
+pub use crate::values::types::float;
+pub use crate::values::types::function;
+pub use crate::values::types::int;
+pub use crate::values::types::list;
+pub use crate::values::types::none;
+pub use crate::values::types::range;
+pub use crate::values::types::record;
+pub use crate::values::types::regex;
+pub use crate::values::types::string;
+pub use crate::values::types::structs;
+pub use crate::values::types::tuple;
+pub use crate::values::unpack::UnpackValue;
+pub use crate::values::unpack::ValueOf;
 
 #[macro_use]
 mod comparison;

@@ -7,41 +7,43 @@
  * of this source tree.
  */
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
+use std::sync::Arc;
 
-use buck2_core::{
-    buck_path::BuckPath,
-    cells::paths::CellPath,
-    configuration::Configuration,
-    provider::{ConfiguredProvidersLabel, ProvidersLabel, ProvidersName},
-    target::{ConfiguredTargetLabel, TargetLabel},
-};
+use buck2_core::buck_path::BuckPath;
+use buck2_core::cells::paths::CellPath;
+use buck2_core::configuration::Configuration;
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::ProvidersLabel;
+use buck2_core::provider::ProvidersName;
+use buck2_core::target::ConfiguredTargetLabel;
+use buck2_core::target::TargetLabel;
 use buck2_interpreter::common::BuildFilePath;
 use either::Either;
 use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
-use starlark::collections::{SmallMap, SmallSet};
+use starlark::collections::SmallMap;
+use starlark::collections::SmallSet;
 
-use crate::{
-    attrs::{
-        attr_type::{
-            attr_literal::{AttrLiteral, ConfiguredAttrInfo, ConfiguredAttrTraversal},
-            dep::{DepAttr, DepAttrTransition, DepAttrType, ProviderIdSet},
-            query::ResolvedQueryLiterals,
-        },
-        coerced_attr::CoercedAttr,
-        configured_attr::ConfiguredAttr,
-    },
-    configuration::{
-        execution::ExecutionPlatformResolution, AttrConfigurationContextImpl, ResolvedConfiguration,
-    },
-    interpreter::rule_defs::transition::{applied::TransitionApplied, id::TransitionId},
-    nodes::{
-        attr_internal::{TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD, TESTS_ATTRIBUTE_FIELD},
-        unconfigured::TargetNode,
-        RuleType,
-    },
-};
+use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::attr_literal::ConfiguredAttrInfo;
+use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
+use crate::attrs::attr_type::dep::DepAttr;
+use crate::attrs::attr_type::dep::DepAttrTransition;
+use crate::attrs::attr_type::dep::DepAttrType;
+use crate::attrs::attr_type::dep::ProviderIdSet;
+use crate::attrs::attr_type::query::ResolvedQueryLiterals;
+use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::configured_attr::ConfiguredAttr;
+use crate::configuration::execution::ExecutionPlatformResolution;
+use crate::configuration::AttrConfigurationContextImpl;
+use crate::configuration::ResolvedConfiguration;
+use crate::interpreter::rule_defs::transition::applied::TransitionApplied;
+use crate::interpreter::rule_defs::transition::id::TransitionId;
+use crate::nodes::attr_internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
+use crate::nodes::attr_internal::TESTS_ATTRIBUTE_FIELD;
+use crate::nodes::unconfigured::TargetNode;
+use crate::nodes::RuleType;
 
 /// ConfiguredTargetNode contains the information for a target in a particular configuration.
 ///

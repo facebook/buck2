@@ -7,34 +7,40 @@
  * of this source tree.
  */
 
-use std::{fmt::Debug, ptr};
+use std::fmt::Debug;
+use std::ptr;
 
 use anyhow::Context;
 use buck2_build_api_derive::internal_provider;
-use gazebo::{
-    any::ProvidesStaticType,
-    coerce::{coerce, Coerce},
-};
-use starlark::{
-    collections::SmallMap,
-    environment::GlobalsBuilder,
-    eval::Evaluator,
-    values::{
-        dict::{Dict, FrozenDict},
-        list::{FrozenList, List},
-        Freeze, FrozenRef, FrozenValue, FrozenValueTyped, Trace, Value, ValueError, ValueLike,
-    },
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::coerce;
+use gazebo::coerce::Coerce;
+use starlark::collections::SmallMap;
+use starlark::environment::GlobalsBuilder;
+use starlark::eval::Evaluator;
+use starlark::values::dict::Dict;
+use starlark::values::dict::FrozenDict;
+use starlark::values::list::FrozenList;
+use starlark::values::list::List;
+use starlark::values::Freeze;
+use starlark::values::FrozenRef;
+use starlark::values::FrozenValue;
+use starlark::values::FrozenValueTyped;
+use starlark::values::Trace;
+use starlark::values::Value;
+use starlark::values::ValueError;
+use starlark::values::ValueLike;
 
-use crate::{
-    actions::artifact::Artifact,
-    artifact_groups::ArtifactGroup,
-    interpreter::rule_defs::{
-        artifact::{StarlarkArtifact, StarlarkArtifactLike, ValueAsArtifactLike},
-        cmd_args::{CommandLineArgLike, SimpleCommandLineArtifactVisitor, ValueAsCommandLineLike},
-        provider::{collection::FrozenProviderCollection, ProviderCollection},
-    },
-};
+use crate::actions::artifact::Artifact;
+use crate::artifact_groups::ArtifactGroup;
+use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
+use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
+use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
+use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
+use crate::interpreter::rule_defs::provider::ProviderCollection;
 
 /// A provider that all rules' implementations must return
 ///
@@ -378,10 +384,11 @@ mod tests {
     use buck2_core::result::SharedResult;
     use indoc::indoc;
 
-    use crate::interpreter::{
-        rule_defs::artifact::testing::artifactory,
-        testing::{import, run_starlark_bzl_test, run_starlark_bzl_test_expecting_error, Tester},
-    };
+    use crate::interpreter::rule_defs::artifact::testing::artifactory;
+    use crate::interpreter::testing::import;
+    use crate::interpreter::testing::run_starlark_bzl_test;
+    use crate::interpreter::testing::run_starlark_bzl_test_expecting_error;
+    use crate::interpreter::testing::Tester;
 
     #[test]
     fn default_info_is_available() -> SharedResult<()> {

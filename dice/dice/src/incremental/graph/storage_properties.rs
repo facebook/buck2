@@ -11,7 +11,8 @@ use std::fmt::Debug;
 
 use gazebo::dupe::Dupe;
 
-use crate::{incremental::Computable, StorageType};
+use crate::incremental::Computable;
+use crate::StorageType;
 
 /// Defines key/value operations in the versioned graph storage.
 pub(crate) trait StorageProperties: Debug + Send + Sync + Sized + 'static {
@@ -31,16 +32,21 @@ pub(crate) trait StorageProperties: Debug + Send + Sync + Sized + 'static {
 
 #[cfg(test)]
 pub(crate) mod testing {
-    use std::{fmt, sync::Arc};
+    use std::fmt;
+    use std::sync::Arc;
 
     use async_trait::async_trait;
     use gazebo::dupe::Dupe;
 
-    use crate::{
-        incremental::{Computable, IncrementalComputeProperties},
-        ComputationData, GraphNode, IncrementalEngine, StorageProperties, StorageType,
-        TransactionCtx, WeakDiceFutureHandle,
-    };
+    use crate::incremental::Computable;
+    use crate::incremental::IncrementalComputeProperties;
+    use crate::ComputationData;
+    use crate::GraphNode;
+    use crate::IncrementalEngine;
+    use crate::StorageProperties;
+    use crate::StorageType;
+    use crate::TransactionCtx;
+    use crate::WeakDiceFutureHandle;
 
     /// Simple storage key for tests.
     ///

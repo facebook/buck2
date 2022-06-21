@@ -12,17 +12,19 @@
 //! To allow a new type to be used as an argument, implement the [QueryFunctionArg] trait for that type.
 
 use async_trait::async_trait;
-use buck2_query_parser::{spanned::Spanned, Expr, SpannedExpr};
+use buck2_query_parser::spanned::Spanned;
+use buck2_query_parser::Expr;
+use buck2_query_parser::SpannedExpr;
 use enum_iterator::IntoEnumIterator;
-use gazebo::{prelude::*, variants::VariantName};
+use gazebo::prelude::*;
+use gazebo::variants::VariantName;
 
-use crate::query::{
-    environment::QueryEnvironment,
-    syntax::simple::eval::{
-        error::QueryError, evaluator::QueryEvaluator, file_set::FileSet, set::TargetSet,
-        values::QueryValue,
-    },
-};
+use crate::query::environment::QueryEnvironment;
+use crate::query::syntax::simple::eval::error::QueryError;
+use crate::query::syntax::simple::eval::evaluator::QueryEvaluator;
+use crate::query::syntax::simple::eval::file_set::FileSet;
+use crate::query::syntax::simple::eval::set::TargetSet;
+use crate::query::syntax::simple::eval::values::QueryValue;
 
 // IntoEnumIterator triggers this lint :/
 #[cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_impl_dupe))]

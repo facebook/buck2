@@ -20,26 +20,27 @@
 //! * no index is created for small maps
 //! * short hashes are stored next to keys
 
-use std::{
-    cmp::Ordering,
-    fmt::{self, Debug},
-    hash::{Hash, Hasher},
-    iter::FromIterator,
-    mem,
-};
+use std::cmp::Ordering;
+use std::fmt::Debug;
+use std::fmt::{self};
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::iter::FromIterator;
+use std::mem;
 
-use gazebo::{
-    coerce::{Coerce, CoerceKey},
-    prelude::*,
-};
+use gazebo::coerce::Coerce;
+use gazebo::coerce::CoerceKey;
+use gazebo::prelude::*;
 use hashbrown::raw::RawTable;
 use indexmap::Equivalent;
 
-use crate::collections::{
-    hash::Hashed,
-    vec_map::{Bucket, VMIntoIter, VMIter, VMIterMut, VecMap},
-    StarlarkHasher,
-};
+use crate::collections::hash::Hashed;
+use crate::collections::vec_map::Bucket;
+use crate::collections::vec_map::VMIntoIter;
+use crate::collections::vec_map::VMIter;
+use crate::collections::vec_map::VMIterMut;
+use crate::collections::vec_map::VecMap;
+use crate::collections::StarlarkHasher;
 
 /// Max size of map when we do not create index.
 // TODO: benchmark, is this the right threshold

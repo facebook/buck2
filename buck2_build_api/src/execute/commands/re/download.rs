@@ -7,35 +7,39 @@
  * of this source tree.
  */
 
-use std::{ops::ControlFlow, sync::Arc, time::SystemTime};
+use std::ops::ControlFlow;
+use std::sync::Arc;
+use std::time::SystemTime;
 
 use anyhow::Context as _;
-use buck2_common::file_ops::{FileDigest, FileMetadata, TrackedFileDigest};
-use buck2_core::{directory::DirectoryEntry, fs::paths::ForwardRelativePath};
+use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::FileMetadata;
+use buck2_common::file_ops::TrackedFileDigest;
+use buck2_core::directory::DirectoryEntry;
+use buck2_core::fs::paths::ForwardRelativePath;
 use futures::future;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
 use thiserror::Error;
 
-use crate::{
-    actions::{
-        artifact::ArtifactValue,
-        digest::FileDigestFromReExt,
-        directory::{convert_re_tree, extract_artifact_value, ActionDirectoryMember},
-    },
-    execute::{
-        commands::{
-            re::{
-                client::ActionDigest, manager::ManagedRemoteExecutionClient, ActionPaths,
-                RemoteActionResult,
-            },
-            ClaimedRequest, CommandExecutionManager, CommandExecutionOutput,
-            CommandExecutionOutputRef, CommandExecutionResult,
-        },
-        materializer::{CasDownloadInfo, Materializer},
-        CommandExecutionRequest, RemoteExecutorUseCase,
-    },
-};
+use crate::actions::artifact::ArtifactValue;
+use crate::actions::digest::FileDigestFromReExt;
+use crate::actions::directory::convert_re_tree;
+use crate::actions::directory::extract_artifact_value;
+use crate::actions::directory::ActionDirectoryMember;
+use crate::execute::commands::re::client::ActionDigest;
+use crate::execute::commands::re::manager::ManagedRemoteExecutionClient;
+use crate::execute::commands::re::ActionPaths;
+use crate::execute::commands::re::RemoteActionResult;
+use crate::execute::commands::ClaimedRequest;
+use crate::execute::commands::CommandExecutionManager;
+use crate::execute::commands::CommandExecutionOutput;
+use crate::execute::commands::CommandExecutionOutputRef;
+use crate::execute::commands::CommandExecutionResult;
+use crate::execute::materializer::CasDownloadInfo;
+use crate::execute::materializer::Materializer;
+use crate::execute::CommandExecutionRequest;
+use crate::execute::RemoteExecutorUseCase;
 
 pub async fn download_action_results<'a>(
     request: &CommandExecutionRequest,

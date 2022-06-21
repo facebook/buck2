@@ -11,18 +11,21 @@
 // DEMO USAGE
 // Reading a file is based on the value in that file, plus the file encoding
 
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::fs;
+use std::path::Path;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use derive_more::Display;
 use gazebo::dupe::Dupe;
 use tempfile::NamedTempFile;
 
-use crate::{DetectCycles, Dice, DiceComputations, InjectedKey, Key};
+use crate::DetectCycles;
+use crate::Dice;
+use crate::DiceComputations;
+use crate::InjectedKey;
+use crate::Key;
 
 #[derive(Debug, Clone, Dupe, PartialEq)]
 enum Encoding {

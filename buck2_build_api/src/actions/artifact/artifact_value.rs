@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
-use buck2_common::file_ops::{ExternalSymlink, FileMetadata};
+use buck2_common::file_ops::ExternalSymlink;
+use buck2_common::file_ops::FileMetadata;
 use gazebo::prelude::*;
 
-use crate::actions::directory::{
-    ActionDirectoryEntry, ActionDirectoryMember, ActionSharedDirectory, EMPTY_DIRECTORY,
-};
+use crate::actions::directory::ActionDirectoryEntry;
+use crate::actions::directory::ActionDirectoryMember;
+use crate::actions::directory::ActionSharedDirectory;
+use crate::actions::directory::EMPTY_DIRECTORY;
 
 /// `ArtifactValue` stores enough information about an artifact such that, if
 /// it's in the CAS, we don't have to read anything from disk. In summary:

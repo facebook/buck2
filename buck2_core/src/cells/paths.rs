@@ -13,12 +13,11 @@
 //! There's also a 'CellPath', which is a 'CellName' and 'CellRelativePathBuf' pair that
 //! represents a resolvable path, which can be resolved into a 'ProjectRelativePath'.
 
-use std::{
-    borrow::Borrow,
-    convert::TryFrom,
-    ops::Deref,
-    path::{Path, PathBuf},
-};
+use std::borrow::Borrow;
+use std::convert::TryFrom;
+use std::ops::Deref;
+use std::path::Path;
+use std::path::PathBuf;
 
 use anyhow::anyhow;
 use derivative::Derivative;
@@ -28,13 +27,13 @@ use relative_path::RelativePath;
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::{
-    cells::CellName,
-    fs::paths::{
-        fmt::quoted_display, FileName, ForwardRelativePath, ForwardRelativePathBuf,
-        ForwardRelativePathIter, RelativePathBuf,
-    },
-};
+use crate::cells::CellName;
+use crate::fs::paths::fmt::quoted_display;
+use crate::fs::paths::FileName;
+use crate::fs::paths::ForwardRelativePath;
+use crate::fs::paths::ForwardRelativePathBuf;
+use crate::fs::paths::ForwardRelativePathIter;
+use crate::fs::paths::RelativePathBuf;
 
 /// Represents a resolvable path corresponding to some path that is relative to the cell
 /// corresponding to the 'CellName'.

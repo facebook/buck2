@@ -15,14 +15,17 @@
  * limitations under the License.
  */
 
-use std::{
-    alloc::{alloc, dealloc, Layout},
-    cell::{Cell, RefCell},
-    intrinsics::{likely, unlikely},
-    mem,
-    mem::MaybeUninit,
-    ptr, slice,
-};
+use std::alloc::alloc;
+use std::alloc::dealloc;
+use std::alloc::Layout;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::intrinsics::likely;
+use std::intrinsics::unlikely;
+use std::mem;
+use std::mem::MaybeUninit;
+use std::ptr;
+use std::slice;
 
 /// We'd love to use the real `alloca`, but don't want to blow through the stack space,
 /// so define our own wrapper.

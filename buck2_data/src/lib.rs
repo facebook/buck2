@@ -8,7 +8,10 @@
  */
 
 mod serialize_duration {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde::Deserialize;
+    use serde::Deserializer;
+    use serde::Serialize;
+    use serde::Serializer;
 
     pub fn serialize<S>(
         value: &Option<::prost_types::Duration>,
@@ -32,7 +35,10 @@ mod serialize_duration {
 }
 
 mod serialize_timestamp {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde::Deserialize;
+    use serde::Deserializer;
+    use serde::Serialize;
+    use serde::Serializer;
 
     pub fn serialize<S>(
         value: &Option<::prost_types::Timestamp>,
@@ -58,7 +64,10 @@ mod serialize_timestamp {
 }
 
 mod serialize_bytes {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde::Deserialize;
+    use serde::Deserializer;
+    use serde::Serialize;
+    use serde::Serializer;
 
     pub fn serialize<S>(value: &[u8], serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -79,7 +88,10 @@ mod serialize_bytes {
 }
 
 mod serialize_action_kind {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde::Deserialize;
+    use serde::Deserializer;
+    use serde::Serialize;
+    use serde::Serializer;
 
     #[allow(clippy::trivially_copy_pass_by_ref)]
     pub fn serialize<S>(value: &i32, serializer: S) -> Result<S::Ok, S::Error>

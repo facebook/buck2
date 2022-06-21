@@ -22,14 +22,13 @@ use itertools::Itertools;
 use once_cell::sync::Lazy;
 use thiserror::Error;
 
-use crate::{
-    self as starlark,
-    environment::GlobalsBuilder,
-    eval::Evaluator,
-    read_line::ReadLine,
-    syntax::{AstModule, Dialect},
-    values::none::NoneType,
-};
+use crate::environment::GlobalsBuilder;
+use crate::eval::Evaluator;
+use crate::read_line::ReadLine;
+use crate::syntax::AstModule;
+use crate::syntax::Dialect;
+use crate::values::none::NoneType;
+use crate::{self as starlark};
 
 // A breakpoint takes over the console UI, so having two going at once confuses everything.
 // Have a global mutex to ensure one at a time.
@@ -222,7 +221,9 @@ pub fn global(builder: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 mod tests {
-    use std::{cell::RefCell, env, rc::Rc};
+    use std::cell::RefCell;
+    use std::env;
+    use std::rc::Rc;
 
     use gazebo::dupe::Dupe;
 

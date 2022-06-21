@@ -9,8 +9,16 @@
 
 use std::fmt;
 
-use crossterm::style::{Color, ContentStyle, ResetColor, SetForegroundColor};
-use superconsole::{Component, Dimensions, DrawMode, Line, Lines, State};
+use crossterm::style::Color;
+use crossterm::style::ContentStyle;
+use crossterm::style::ResetColor;
+use crossterm::style::SetForegroundColor;
+use superconsole::Component;
+use superconsole::Dimensions;
+use superconsole::DrawMode;
+use superconsole::Line;
+use superconsole::Lines;
+use superconsole::State;
 use test_api::data::TestStatus;
 
 use crate::commands::common::subscribers::superconsole::SessionInfo;

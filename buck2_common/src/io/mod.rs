@@ -5,13 +5,13 @@ pub mod fs;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_core::fs::project::{ProjectFilesystem, ProjectRelativePathBuf};
+use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRelativePathBuf;
 use gazebo::cmp::PartialEqAny;
 
-use crate::{
-    file_ops::{PathMetadata, SimpleDirEntry},
-    legacy_configs::LegacyBuckConfig,
-};
+use crate::file_ops::PathMetadata;
+use crate::file_ops::SimpleDirEntry;
+use crate::legacy_configs::LegacyBuckConfig;
 
 #[async_trait]
 pub trait IoProvider: Send + Sync {

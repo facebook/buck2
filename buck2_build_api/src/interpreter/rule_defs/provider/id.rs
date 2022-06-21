@@ -7,7 +7,10 @@
  * of this source tree.
  */
 
-use std::{fmt, fmt::Display, marker::PhantomData, sync::Arc};
+use std::fmt;
+use std::fmt::Display;
+use std::marker::PhantomData;
+use std::sync::Arc;
 
 use buck2_core::cells::paths::CellPath;
 

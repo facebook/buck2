@@ -17,20 +17,29 @@
 
 //! Outside of `i32` range int.
 
-use std::{cmp::Ordering, hash::Hash, ops::Not};
+use std::cmp::Ordering;
+use std::hash::Hash;
+use std::ops::Not;
 
 use gazebo::any::ProvidesStaticType;
-use num_bigint::{BigInt, Sign};
-use num_traits::{cast::ToPrimitive, Signed, Zero};
+use num_bigint::BigInt;
+use num_bigint::Sign;
+use num_traits::cast::ToPrimitive;
+use num_traits::Signed;
+use num_traits::Zero;
 use serde::Serialize;
 
-use crate::{
-    collections::StarlarkHasher,
-    values::{
-        float::StarlarkFloat, num::Num, AllocFrozenValue, AllocValue, FrozenHeap, FrozenValue,
-        Heap, StarlarkValue, Value, ValueError,
-    },
-};
+use crate::collections::StarlarkHasher;
+use crate::values::float::StarlarkFloat;
+use crate::values::num::Num;
+use crate::values::AllocFrozenValue;
+use crate::values::AllocValue;
+use crate::values::FrozenHeap;
+use crate::values::FrozenValue;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::Value;
+use crate::values::ValueError;
 
 /// `int` implementation for larger integers.
 #[derive(
@@ -432,11 +441,11 @@ mod tests {
 
     use num_bigint::BigInt;
 
-    use crate::{
-        assert,
-        collections::StarlarkHasher,
-        values::{float::StarlarkFloat, types::bigint::StarlarkBigInt, StarlarkValue},
-    };
+    use crate::assert;
+    use crate::collections::StarlarkHasher;
+    use crate::values::float::StarlarkFloat;
+    use crate::values::types::bigint::StarlarkBigInt;
+    use crate::values::StarlarkValue;
 
     #[test]
     fn test_parse() {

@@ -22,11 +22,12 @@ use num_bigint::BigInt;
 use thiserror::Error;
 
 use crate as starlark;
-use crate::{
-    collections::SmallMap,
-    environment::GlobalsBuilder,
-    values::{dict::Dict, types::bigint::StarlarkBigInt, Heap, Value},
-};
+use crate::collections::SmallMap;
+use crate::environment::GlobalsBuilder;
+use crate::values::dict::Dict;
+use crate::values::types::bigint::StarlarkBigInt;
+use crate::values::Heap;
+use crate::values::Value;
 
 #[derive(Debug, Error)]
 enum JsonError {

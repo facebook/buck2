@@ -15,22 +15,26 @@
  * limitations under the License.
  */
 
-use std::{fmt::Write, fs, path::Path};
+use std::fmt::Write;
+use std::fs;
+use std::path::Path;
 
 use anyhow::anyhow;
 use gazebo::prelude::*;
 use lalrpop_util as lu;
 
-use crate::{
-    codemap::{CodeMap, FileSpan, Pos, Span},
-    errors::Diagnostic,
-    syntax::{
-        ast::{AstModule, AstStmt, Stmt},
-        dialect::Dialect,
-        grammar::StarlarkParser,
-        lexer::{Lexer, Token},
-    },
-};
+use crate::codemap::CodeMap;
+use crate::codemap::FileSpan;
+use crate::codemap::Pos;
+use crate::codemap::Span;
+use crate::errors::Diagnostic;
+use crate::syntax::ast::AstModule;
+use crate::syntax::ast::AstStmt;
+use crate::syntax::ast::Stmt;
+use crate::syntax::dialect::Dialect;
+use crate::syntax::grammar::StarlarkParser;
+use crate::syntax::lexer::Lexer;
+use crate::syntax::lexer::Token;
 
 fn one_of(expected: &[String]) -> String {
     let mut result = String::new();

@@ -7,32 +7,42 @@
  * of this source tree.
  */
 
-use std::{borrow::Cow, path::Path};
+use std::borrow::Cow;
+use std::path::Path;
 
 use anyhow::Context;
-use buck2_build_api::{
-    actions::artifact::{Artifact, SourceArtifact},
-    attrs::{attr_type::attr_literal::ConfiguredAttrTraversal, configured_attr::ConfiguredAttr},
-    deferred::AnyValue,
-    interpreter::rule_defs::artifact::StarlarkArtifact,
-    nodes::configured::ConfiguredTargetNode,
-};
-use buck2_common::dice::{cells::HasCellResolver, data::HasIoProvider};
-use buck2_core::{
-    buck_path::BuckPath,
-    cells::paths::CellPath,
-    fs::{paths::AbsPath, project::ProjectRelativePath},
-    provider::ConfiguredProvidersLabel,
-};
+use buck2_build_api::actions::artifact::Artifact;
+use buck2_build_api::actions::artifact::SourceArtifact;
+use buck2_build_api::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
+use buck2_build_api::attrs::configured_attr::ConfiguredAttr;
+use buck2_build_api::deferred::AnyValue;
+use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
+use buck2_build_api::nodes::configured::ConfiguredTargetNode;
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::data::HasIoProvider;
+use buck2_core::buck_path::BuckPath;
+use buck2_core::cells::paths::CellPath;
+use buck2_core::fs::paths::AbsPath;
+use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::provider::ConfiguredProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, prelude::*};
-use starlark::{
-    collections::SmallMap,
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    starlark_module, starlark_simple_value, starlark_type,
-    values::{structs::Struct, Heap, NoSerialize, StarlarkValue, UnpackValue, Value, ValueLike},
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
+use starlark::collections::SmallMap;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::starlark_module;
+use starlark::starlark_simple_value;
+use starlark::starlark_type;
+use starlark::values::structs::Struct;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 
 use crate::bxl::starlark_defs::context::BxlContext;
 

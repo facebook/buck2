@@ -10,25 +10,24 @@
 use std::io::Write;
 
 use async_trait::async_trait;
-use buck2_build_api::{analysis::resolve_queries, calculation::Calculation};
-use buck2_common::dice::{cells::HasCellResolver, file_ops::HasFileOps};
+use buck2_build_api::analysis::resolve_queries;
+use buck2_build_api::calculation::Calculation;
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::file_ops::HasFileOps;
 use buck2_core::target::TargetLabel;
-use buck2_interpreter::{dice::HasEvents, pattern::TargetPattern};
+use buck2_interpreter::dice::HasEvents;
+use buck2_interpreter::pattern::TargetPattern;
 use cli_proto::ClientContext;
 use gazebo::prelude::*;
 
-use crate::{
-    commands::{
-        audit::AuditSubcommand,
-        common::{CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions},
-    },
-    daemon::{
-        common::{
-            parse_patterns_from_cli_args, resolve_patterns, target_platform_from_client_context,
-        },
-        server::ServerCommandContext,
-    },
-};
+use crate::commands::audit::AuditSubcommand;
+use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonConsoleOptions;
+use crate::commands::common::CommonEventLogOptions;
+use crate::daemon::common::parse_patterns_from_cli_args;
+use crate::daemon::common::resolve_patterns;
+use crate::daemon::common::target_platform_from_client_context;
+use crate::daemon::server::ServerCommandContext;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(

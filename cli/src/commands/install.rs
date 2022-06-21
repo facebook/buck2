@@ -13,13 +13,14 @@ use cli_proto::InstallRequest;
 use futures::FutureExt;
 use gazebo::prelude::*;
 
-use crate::{
-    commands::common::{
-        CommonBuildOptions, CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions,
-    },
-    daemon::client::{BuckdClientConnector, CommandOutcome},
-    CommandContext, StreamingCommand,
-};
+use crate::commands::common::CommonBuildOptions;
+use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonConsoleOptions;
+use crate::commands::common::CommonEventLogOptions;
+use crate::daemon::client::BuckdClientConnector;
+use crate::daemon::client::CommandOutcome;
+use crate::CommandContext;
+use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "install", about = "Build and install an application")]

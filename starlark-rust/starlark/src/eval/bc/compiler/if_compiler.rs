@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-use crate::eval::{
-    bc::{instrs::PatchAddr, writer::BcWriter},
-    compiler::{
-        expr::{Builtin1, ExprCompiled, ExprLogicalBinOp, MaybeNot},
-        span::IrSpanned,
-    },
-};
+use crate::eval::bc::instrs::PatchAddr;
+use crate::eval::bc::writer::BcWriter;
+use crate::eval::compiler::expr::Builtin1;
+use crate::eval::compiler::expr::ExprCompiled;
+use crate::eval::compiler::expr::ExprLogicalBinOp;
+use crate::eval::compiler::expr::MaybeNot;
+use crate::eval::compiler::span::IrSpanned;
 
 /// Common code for compiling if statements and if expressions.
 pub(crate) fn write_if_else(

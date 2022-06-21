@@ -11,36 +11,52 @@
 //! operations of converting file content to ASTs and evaluating import and
 //! build files.
 
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_common::legacy_configs::view::{LegacyBuckConfigView, LegacyBuckConfigsView};
-use buck2_core::{
-    cells::{paths::CellPath, CellAliasResolver, CellResolver},
-    result::{SharedResult, ToSharedResultExt},
-};
+use buck2_common::legacy_configs::view::LegacyBuckConfigView;
+use buck2_common::legacy_configs::view::LegacyBuckConfigsView;
+use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::CellAliasResolver;
+use buck2_core::cells::CellResolver;
+use buck2_core::result::SharedResult;
+use buck2_core::result::ToSharedResultExt;
 use gazebo::prelude::*;
-use starlark::{
-    environment::{FrozenModule, Globals, GlobalsBuilder, LibraryExtension, Module},
-    eval::{Evaluator, ProfileMode},
-    syntax::{AstModule, Dialect, DialectTypes},
-};
+use starlark::environment::FrozenModule;
+use starlark::environment::Globals;
+use starlark::environment::GlobalsBuilder;
+use starlark::environment::LibraryExtension;
+use starlark::environment::Module;
+use starlark::eval::Evaluator;
+use starlark::eval::ProfileMode;
+use starlark::syntax::AstModule;
+use starlark::syntax::Dialect;
+use starlark::syntax::DialectTypes;
 use thiserror::Error;
 
-use crate::{
-    build_defs::{register_globals, register_natives},
-    common::{BuildFileCell, BuildFilePath, ImportPath, StarlarkModulePath, StarlarkPath},
-    extra::{
-        cell_info::InterpreterCellInfo, BuildContext, ExtraContext, ExtraContextDyn,
-        InterpreterConfiguror,
-    },
-    file_loader::{InterpreterFileLoader, LoadResolver, LoadedModules},
-    import_paths::ImportPaths,
-    package_imports::ImplicitImport,
-    package_listing::listing::PackageListing,
-    parse_import::parse_import,
-    starlark_profiler::{self, StarlarkProfilerInstrumentation, StarlarkProfilerOrInstrumentation},
-};
+use crate::build_defs::register_globals;
+use crate::build_defs::register_natives;
+use crate::common::BuildFileCell;
+use crate::common::BuildFilePath;
+use crate::common::ImportPath;
+use crate::common::StarlarkModulePath;
+use crate::common::StarlarkPath;
+use crate::extra::cell_info::InterpreterCellInfo;
+use crate::extra::BuildContext;
+use crate::extra::ExtraContext;
+use crate::extra::ExtraContextDyn;
+use crate::extra::InterpreterConfiguror;
+use crate::file_loader::InterpreterFileLoader;
+use crate::file_loader::LoadResolver;
+use crate::file_loader::LoadedModules;
+use crate::import_paths::ImportPaths;
+use crate::package_imports::ImplicitImport;
+use crate::package_listing::listing::PackageListing;
+use crate::parse_import::parse_import;
+use crate::starlark_profiler::StarlarkProfilerInstrumentation;
+use crate::starlark_profiler::StarlarkProfilerOrInstrumentation;
+use crate::starlark_profiler::{self};
 
 /// What type of file are we parsing - a `.bzl` file, `.bxl` file, or a `BUCK`/`TARGETS` file.
 impl<'a> StarlarkPath<'a> {
@@ -669,24 +685,25 @@ impl InterpreterForCell {
 
 #[cfg(test)]
 mod tests {
-    use buck2_common::legacy_configs::{
-        testing::TestConfigParserFileOps, BuckConfigBasedCells, LegacyBuckConfig, LegacyBuckConfigs,
-    };
-    use buck2_core::{
-        cells::CellName,
-        fs::{paths::AbsPathBuf, project::ProjectFilesystem},
-    };
+    use buck2_common::legacy_configs::testing::TestConfigParserFileOps;
+    use buck2_common::legacy_configs::BuckConfigBasedCells;
+    use buck2_common::legacy_configs::LegacyBuckConfig;
+    use buck2_common::legacy_configs::LegacyBuckConfigs;
+    use buck2_core::cells::CellName;
+    use buck2_core::fs::paths::AbsPathBuf;
+    use buck2_core::fs::project::ProjectFilesystem;
     use indexmap::map::IndexMap;
     use indoc::indoc;
     use serde_json::json;
 
     use super::*;
-    use crate::{
-        common::{OwnedStarlarkModulePath, StarlarkModulePath},
-        extra::testing::{TesterConfiguror, TesterEvalResult, TesterExtraContext},
-        file_loader::LoadedModule,
-        package_listing::listing::testing::PackageListingExt,
-    };
+    use crate::common::OwnedStarlarkModulePath;
+    use crate::common::StarlarkModulePath;
+    use crate::extra::testing::TesterConfiguror;
+    use crate::extra::testing::TesterEvalResult;
+    use crate::extra::testing::TesterExtraContext;
+    use crate::file_loader::LoadedModule;
+    use crate::package_listing::listing::testing::PackageListingExt;
 
     fn cross_cell_import(
         cell: &str,

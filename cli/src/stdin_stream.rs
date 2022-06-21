@@ -1,12 +1,13 @@
-use std::{
-    io::{Stdin, StdinLock},
-    pin::Pin,
-    sync::Mutex,
-    task::{Context, Poll},
-    time::Duration,
-};
+use std::io::Stdin;
+use std::io::StdinLock;
+use std::pin::Pin;
+use std::sync::Mutex;
+use std::task::Context;
+use std::task::Poll;
+use std::time::Duration;
 
-use futures::{Stream, StreamExt};
+use futures::Stream;
+use futures::StreamExt;
 use tokio::sync::oneshot::error::TryRecvError;
 
 /// Read data from stdin when it's ready, attempt to deserialize it, and output the messages as a [`futures::Stream`]
@@ -24,7 +25,8 @@ pub(crate) struct StdinStream<T: Send + Sync> {
 fn is_ready(stdin: &Stdin) -> bool {
     use std::os::unix::io::AsRawFd;
 
-    use nix::poll::{PollFd, PollFlags};
+    use nix::poll::PollFd;
+    use nix::poll::PollFlags;
 
     let fds = &mut [PollFd::new(stdin.as_raw_fd(), PollFlags::POLLIN)];
     match nix::poll::poll(fds, 1000) {

@@ -9,7 +9,8 @@
 
 use buck2_core::exit_result::ExitResult;
 
-use crate::{version::BuckVersion, CommandContext};
+use crate::version::BuckVersion;
+use crate::CommandContext;
 
 #[derive(Debug, clap::Parser)]
 pub(crate) struct InternalVersionCommand {}

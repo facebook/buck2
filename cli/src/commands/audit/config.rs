@@ -7,25 +7,25 @@
  * of this source tree.
  */
 
-use std::{collections::HashMap, io::Write, str::FromStr};
+use std::collections::HashMap;
+use std::io::Write;
+use std::str::FromStr;
 
 use async_trait::async_trait;
-use buck2_common::{
-    dice::cells::HasCellResolver,
-    legacy_configs::{dice::HasLegacyConfigs, LegacyBuckConfigLocation, LegacyBuckConfigValue},
-};
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::LegacyBuckConfigLocation;
+use buck2_common::legacy_configs::LegacyBuckConfigValue;
 use buck2_core::cells::*;
 use cli_proto::ClientContext;
 use gazebo::prelude::*;
 use serde_json::json;
 
-use crate::{
-    commands::{
-        audit::AuditSubcommand,
-        common::{CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions},
-    },
-    daemon::server::ServerCommandContext,
-};
+use crate::commands::audit::AuditSubcommand;
+use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonConsoleOptions;
+use crate::commands::common::CommonEventLogOptions;
+use crate::daemon::server::ServerCommandContext;
 
 #[derive(
     Debug,

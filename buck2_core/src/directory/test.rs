@@ -9,17 +9,18 @@
 
 #![cfg(test)]
 
-use std::{
-    collections::hash_map::DefaultHasher,
-    fmt::Write,
-    hash::{Hash, Hasher},
-};
+use std::collections::hash_map::DefaultHasher;
+use std::fmt::Write;
+use std::hash::Hash;
+use std::hash::Hasher;
 
 use assert_matches::assert_matches;
 use gazebo::prelude::*;
 
 use super::*;
-use crate::fs::paths::{FileName, FileNameBuf, ForwardRelativePath};
+use crate::fs::paths::FileName;
+use crate::fs::paths::FileNameBuf;
+use crate::fs::paths::ForwardRelativePath;
 
 #[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash)]
 pub struct NopEntry;

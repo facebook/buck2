@@ -8,10 +8,9 @@ use futures::future;
 use gazebo::prelude::*;
 use remote_execution::TActionResult2;
 
-use crate::{
-    actions::digest::{FileDigestFromReExt, ReDigest},
-    execute::commands::re::manager::ManagedRemoteExecutionClient,
-};
+use crate::actions::digest::FileDigestFromReExt;
+use crate::actions::digest::ReDigest;
+use crate::execute::commands::re::manager::ManagedRemoteExecutionClient;
 
 /// A pair of streams.
 #[allow(clippy::manual_non_exhaustive)]

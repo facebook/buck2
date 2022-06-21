@@ -7,15 +7,16 @@
  * of this source tree.
  */
 
-use std::{
-    fmt::{Debug, Display},
-    hash::Hash,
-};
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::hash::Hash;
 
 use async_trait::async_trait;
 use gazebo::dupe::Dupe;
 
-use crate::{DiceComputations, Key, StorageType};
+use crate::DiceComputations;
+use crate::Key;
+use crate::StorageType;
 
 /// Specialized version of 'Key' above. This type of Key is never computed. It
 /// should always be injected onto the graph before being requested via

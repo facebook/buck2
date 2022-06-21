@@ -15,10 +15,10 @@ use derive_more::Display;
 use indexmap::IndexSet;
 use starlark::values::display::display_container;
 
-use crate::query::{
-    environment::{QueryEnvironment, QueryTarget},
-    syntax::simple::eval::{error::QueryError, set::TargetSet},
-};
+use crate::query::environment::QueryEnvironment;
+use crate::query::environment::QueryTarget;
+use crate::query::syntax::simple::eval::error::QueryError;
+use crate::query::syntax::simple::eval::set::TargetSet;
 
 /// An entry in a FileSet.
 #[derive(Hash, Eq, PartialEq, Debug, Clone, Display)]

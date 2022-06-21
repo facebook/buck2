@@ -7,41 +7,40 @@
  * of this source tree.
  */
 
-use std::{
-    fmt::{Debug, Display},
-    hash::Hash,
-    sync::Arc,
-};
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::hash::Hash;
+use std::sync::Arc;
 
 use anyhow::anyhow;
-use buck2_core::{
-    provider::{ConfiguredProvidersLabel, ProvidersLabel, ProvidersLabelMaybeConfigured},
-    target::TargetLabel,
-};
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::ProvidersLabel;
+use buck2_core::provider::ProvidersLabelMaybeConfigured;
+use buck2_core::target::TargetLabel;
 use derive_more::Display;
 use gazebo::prelude::*;
 use serde_json::to_value;
-use starlark::{
-    environment::Module,
-    values::{string::STRING_TYPE, UnpackValue, Value},
-};
+use starlark::environment::Module;
+use starlark::values::string::STRING_TYPE;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
 use thiserror::Error;
 
-use crate::{
-    attrs::{
-        attr_type::attr_literal::{AttrLike, AttrLiteral, CoercionError, ConfiguredAttrTraversal},
-        AttrCoercionContext, AttrConfigurationContext, AttrResolutionContext, CoercedAttr,
-        CoercedAttrTraversal, ConfiguredAttr,
-    },
-    interpreter::rule_defs::{
-        provider::{
-            collection::{FrozenProviderCollection, FrozenProviderCollectionValue},
-            dependency::Dependency,
-            id::ProviderId,
-        },
-        transition::id::TransitionId,
-    },
-};
+use crate::attrs::attr_type::attr_literal::AttrLike;
+use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::attr_literal::CoercionError;
+use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
+use crate::attrs::AttrCoercionContext;
+use crate::attrs::AttrConfigurationContext;
+use crate::attrs::AttrResolutionContext;
+use crate::attrs::CoercedAttr;
+use crate::attrs::CoercedAttrTraversal;
+use crate::attrs::ConfiguredAttr;
+use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
+use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use crate::interpreter::rule_defs::provider::dependency::Dependency;
+use crate::interpreter::rule_defs::provider::id::ProviderId;
+use crate::interpreter::rule_defs::transition::id::TransitionId;
 
 #[derive(Error, Debug)]
 pub(crate) enum ResolutionError {

@@ -19,31 +19,39 @@
 
 use std::cmp;
 
-use crate::{
-    eval::{
-        bc::{
-            addr::{BcAddr, BcAddrOffset},
-            bytecode::Bc,
-            definitely_assigned::BcDefinitelyAssigned,
-            instr::BcInstr,
-            instr_impl::{
-                InstrBr, InstrConst, InstrContinue, InstrForLoop, InstrIfBr, InstrIfNotBr,
-                InstrLoadLocal, InstrLoadLocalCaptured, InstrMov, InstrProfileBc,
-                InstrStoreLocalCaptured,
-            },
-            instrs::{BcInstrsWriter, PatchAddr},
-            opcode::BcOpcode,
-            slow_arg::BcInstrSlowArg,
-            stack_ptr::{BcSlot, BcSlotIn, BcSlotInRange, BcSlotOut, BcSlotRange, BcSlotsN},
-        },
-        compiler::expr::MaybeNot,
-        runtime::{
-            call_stack::FrozenFileSpan,
-            slots::{LocalCapturedSlotId, LocalSlotId},
-        },
-    },
-    values::{FrozenHeap, FrozenRef, FrozenValue},
-};
+use crate::eval::bc::addr::BcAddr;
+use crate::eval::bc::addr::BcAddrOffset;
+use crate::eval::bc::bytecode::Bc;
+use crate::eval::bc::definitely_assigned::BcDefinitelyAssigned;
+use crate::eval::bc::instr::BcInstr;
+use crate::eval::bc::instr_impl::InstrBr;
+use crate::eval::bc::instr_impl::InstrConst;
+use crate::eval::bc::instr_impl::InstrContinue;
+use crate::eval::bc::instr_impl::InstrForLoop;
+use crate::eval::bc::instr_impl::InstrIfBr;
+use crate::eval::bc::instr_impl::InstrIfNotBr;
+use crate::eval::bc::instr_impl::InstrLoadLocal;
+use crate::eval::bc::instr_impl::InstrLoadLocalCaptured;
+use crate::eval::bc::instr_impl::InstrMov;
+use crate::eval::bc::instr_impl::InstrProfileBc;
+use crate::eval::bc::instr_impl::InstrStoreLocalCaptured;
+use crate::eval::bc::instrs::BcInstrsWriter;
+use crate::eval::bc::instrs::PatchAddr;
+use crate::eval::bc::opcode::BcOpcode;
+use crate::eval::bc::slow_arg::BcInstrSlowArg;
+use crate::eval::bc::stack_ptr::BcSlot;
+use crate::eval::bc::stack_ptr::BcSlotIn;
+use crate::eval::bc::stack_ptr::BcSlotInRange;
+use crate::eval::bc::stack_ptr::BcSlotOut;
+use crate::eval::bc::stack_ptr::BcSlotRange;
+use crate::eval::bc::stack_ptr::BcSlotsN;
+use crate::eval::compiler::expr::MaybeNot;
+use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::slots::LocalCapturedSlotId;
+use crate::eval::runtime::slots::LocalSlotId;
+use crate::values::FrozenHeap;
+use crate::values::FrozenRef;
+use crate::values::FrozenValue;
 
 /// Write bytecode here.
 pub(crate) struct BcWriter<'f> {

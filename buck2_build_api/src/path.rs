@@ -7,21 +7,19 @@
  * of this source tree.
  */
 
-use std::{
-    collections::hash_map::DefaultHasher,
-    hash::{Hash, Hasher},
-    sync::Arc,
-};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::sync::Arc;
 
-use buck2_core::{
-    buck_path::BuckPath,
-    category::Category,
-    cells::{paths::CellPath, CellResolver},
-    fs::{
-        paths::{ForwardRelativePath, ForwardRelativePathBuf},
-        project::{ProjectRelativePath, ProjectRelativePathBuf},
-    },
-};
+use buck2_core::buck_path::BuckPath;
+use buck2_core::category::Category;
+use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::CellResolver;
+use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_core::fs::paths::ForwardRelativePathBuf;
+use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project::ProjectRelativePathBuf;
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::prelude::*;
@@ -429,22 +427,27 @@ impl BaseDeferredKey {
 mod tests {
     use std::sync::Arc;
 
-    use buck2_core::{
-        buck_path::BuckPath,
-        category::Category,
-        cells::{paths::CellRelativePath, testing::CellResolverExt, CellName, CellResolver},
-        configuration::Configuration,
-        fs::{paths::ForwardRelativePathBuf, project::ProjectRelativePathBuf},
-        package::{Package, PackageRelativePathBuf},
-        target::{TargetLabel, TargetName},
-    };
+    use buck2_core::buck_path::BuckPath;
+    use buck2_core::category::Category;
+    use buck2_core::cells::paths::CellRelativePath;
+    use buck2_core::cells::testing::CellResolverExt;
+    use buck2_core::cells::CellName;
+    use buck2_core::cells::CellResolver;
+    use buck2_core::configuration::Configuration;
+    use buck2_core::fs::paths::ForwardRelativePathBuf;
+    use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::package::Package;
+    use buck2_core::package::PackageRelativePathBuf;
+    use buck2_core::target::TargetLabel;
+    use buck2_core::target::TargetName;
     use gazebo::prelude::*;
     use regex::Regex;
 
-    use crate::{
-        deferred::BaseDeferredKey,
-        path::{BuckOutPath, BuckOutPathResolver, BuckOutScratchPath, BuckPathResolver},
-    };
+    use crate::deferred::BaseDeferredKey;
+    use crate::path::BuckOutPath;
+    use crate::path::BuckOutPathResolver;
+    use crate::path::BuckOutScratchPath;
+    use crate::path::BuckPathResolver;
 
     #[test]
     fn buck_path_resolves() -> anyhow::Result<()> {

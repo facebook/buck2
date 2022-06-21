@@ -18,11 +18,10 @@
 /// Initialize `$loc` to `FrozenRef<FrozenFileSpan>` with rust file and line number.
 macro_rules! rust_loc {
     () => {{
-        use crate::{
-            codemap::{CodeMap, NativeCodeMap},
-            eval::runtime::call_stack::FrozenFileSpan,
-            values::FrozenRef,
-        };
+        use crate::codemap::CodeMap;
+        use crate::codemap::NativeCodeMap;
+        use crate::eval::runtime::call_stack::FrozenFileSpan;
+        use crate::values::FrozenRef;
 
         static NATIVE_CODEMAP: NativeCodeMap = NativeCodeMap::new(file!(), line!(), column!());
         static CODEMAP: CodeMap = NATIVE_CODEMAP.to_codemap();
@@ -38,12 +37,11 @@ pub(crate) use rust_loc;
 #[cfg(test)]
 mod tests {
     use crate as starlark;
-    use crate::{
-        assert::Assert,
-        environment::GlobalsBuilder,
-        eval::{Arguments, Evaluator},
-        values::Value,
-    };
+    use crate::assert::Assert;
+    use crate::environment::GlobalsBuilder;
+    use crate::eval::Arguments;
+    use crate::eval::Evaluator;
+    use crate::values::Value;
 
     #[starlark_module]
     fn rust_loc_globals(globals: &mut GlobalsBuilder) {

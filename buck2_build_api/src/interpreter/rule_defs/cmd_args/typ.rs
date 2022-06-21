@@ -7,50 +7,55 @@
  * of this source tree.
  */
 
-use std::{
-    cell::{RefCell, RefMut},
-    convert::TryInto,
-    fmt::{self, Debug, Display},
-};
+use std::cell::RefCell;
+use std::cell::RefMut;
+use std::convert::TryInto;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::{self};
 
 use buck2_core::fs::paths::RelativePathBuf;
 use derive_more::Display;
-use gazebo::{
-    any::ProvidesStaticType,
-    cell::ARef,
-    coerce::{coerce, Coerce},
-    prelude::*,
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::cell::ARef;
+use gazebo::coerce::coerce;
+use gazebo::coerce::Coerce;
+use gazebo::prelude::*;
 use indexmap::IndexSet;
-use serde::{Serialize, Serializer};
-use starlark::{
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    starlark_type,
-    values::{
-        display::{display_container, ContainerDisplayHelper},
-        list::List,
-        Freeze, Freezer, FrozenValue, NoSerialize, StarlarkValue, StringValue, Trace, Value,
-        ValueError, ValueLike,
-    },
-};
+use serde::Serialize;
+use serde::Serializer;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::starlark_type;
+use starlark::values::display::display_container;
+use starlark::values::display::ContainerDisplayHelper;
+use starlark::values::list::List;
+use starlark::values::Freeze;
+use starlark::values::Freezer;
+use starlark::values::FrozenValue;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::StringValue;
+use starlark::values::Trace;
+use starlark::values::Value;
+use starlark::values::ValueError;
+use starlark::values::ValueLike;
 use static_assertions::assert_eq_size;
 
-use crate::{
-    artifact_groups::ArtifactGroup,
-    interpreter::rule_defs::{
-        artifact::StarlarkOutputArtifact,
-        cmd_args::{
-            options::{CommandLineOptions, QuoteStyle, RelativeOrigin},
-            traits::{
-                CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder,
-                CommandLineBuilderContext, SimpleCommandLineArtifactVisitor,
-                WriteToFileMacroVisitor,
-            },
-            ValueAsCommandLineLike,
-        },
-        util::commas,
-    },
-};
+use crate::artifact_groups::ArtifactGroup;
+use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
+use crate::interpreter::rule_defs::cmd_args::options::CommandLineOptions;
+use crate::interpreter::rule_defs::cmd_args::options::QuoteStyle;
+use crate::interpreter::rule_defs::cmd_args::options::RelativeOrigin;
+use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArgLike;
+use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::traits::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::traits::CommandLineBuilderContext;
+use crate::interpreter::rule_defs::cmd_args::traits::SimpleCommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::traits::WriteToFileMacroVisitor;
+use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
+use crate::interpreter::rule_defs::util::commas;
 
 /// A tiny wrapper around `Value`/`FrozenValue` that proxies `CommandLineArgLike` calls.
 ///

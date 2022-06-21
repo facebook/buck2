@@ -11,51 +11,63 @@ pub mod blocking;
 pub mod commands;
 pub mod materializer;
 
-use std::{
-    borrow::Cow,
-    collections::HashMap,
-    fmt::{Debug, Display, Write},
-    hash::Hash,
-    sync::Arc,
-    time::Duration,
-};
+use std::borrow::Cow;
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Write;
+use std::hash::Hash;
+use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use blocking::{BlockingExecutor, HasBlockingExecutor, IoRequest};
+use blocking::BlockingExecutor;
+use blocking::HasBlockingExecutor;
+use blocking::IoRequest;
 use buck2_common::dice::data::HasIoProvider;
-use buck2_core::{
-    directory::{unordered_entry_walk, DirectoryEntry},
-    fs::project::{ProjectFilesystem, ProjectRelativePath, ProjectRelativePathBuf},
-};
+use buck2_core::directory::unordered_entry_walk;
+use buck2_core::directory::DirectoryEntry;
+use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_interpreter::dice::HasEvents;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
 use events::dispatch::EventDispatcher;
 use gazebo::prelude::*;
-use indexmap::{indexmap, IndexMap, IndexSet};
+use indexmap::indexmap;
+use indexmap::IndexMap;
+use indexmap::IndexSet;
 use starlark::collections::SmallMap;
 use thiserror::Error;
 
-use crate::{
-    actions::{
-        artifact::{ArtifactFs, ArtifactValue, BuildArtifact, ExecutorFs},
-        directory::ActionDirectoryMember,
-        run::knobs::{HasRunActionKnobs, RunActionKnobs},
-        ActionExecutable, ActionExecutionCtx, RegisteredAction,
-    },
-    artifact_groups::{ArtifactGroup, ArtifactGroupValues},
-    calculation::Calculation,
-    execute::{
-        commands::{
-            dice_data::HasCommandExecutor, output::CommandStdStreams, re::client::ActionDigest,
-            ClaimManager, CommandExecutionManager, CommandExecutionOutput, CommandExecutionRequest,
-            CommandExecutionResult, CommandExecutionTarget, CommandExecutor,
-        },
-        materializer::{HasMaterializer, Materializer},
-    },
-};
+use crate::actions::artifact::ArtifactFs;
+use crate::actions::artifact::ArtifactValue;
+use crate::actions::artifact::BuildArtifact;
+use crate::actions::artifact::ExecutorFs;
+use crate::actions::directory::ActionDirectoryMember;
+use crate::actions::run::knobs::HasRunActionKnobs;
+use crate::actions::run::knobs::RunActionKnobs;
+use crate::actions::ActionExecutable;
+use crate::actions::ActionExecutionCtx;
+use crate::actions::RegisteredAction;
+use crate::artifact_groups::ArtifactGroup;
+use crate::artifact_groups::ArtifactGroupValues;
+use crate::calculation::Calculation;
+use crate::execute::commands::dice_data::HasCommandExecutor;
+use crate::execute::commands::output::CommandStdStreams;
+use crate::execute::commands::re::client::ActionDigest;
+use crate::execute::commands::ClaimManager;
+use crate::execute::commands::CommandExecutionManager;
+use crate::execute::commands::CommandExecutionOutput;
+use crate::execute::commands::CommandExecutionRequest;
+use crate::execute::commands::CommandExecutionResult;
+use crate::execute::commands::CommandExecutionTarget;
+use crate::execute::commands::CommandExecutor;
+use crate::execute::materializer::HasMaterializer;
+use crate::execute::materializer::Materializer;
 
 fn error_items<T: Display>(xs: &[T]) -> String {
     if xs.is_empty() {
@@ -698,61 +710,72 @@ impl IoRequest for CleanOutputPaths {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        borrow::Cow,
-        collections::HashMap,
-        convert::TryFrom,
-        sync::{
-            atomic::{AtomicBool, Ordering},
-            Arc, Mutex,
-        },
-    };
+    use std::borrow::Cow;
+    use std::collections::HashMap;
+    use std::convert::TryFrom;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::atomic::Ordering;
+    use std::sync::Arc;
+    use std::sync::Mutex;
 
     use async_trait::async_trait;
-    use buck2_core::{
-        buck_path::BuckPath,
-        category::Category,
-        cells::{paths::CellRelativePath, testing::CellResolverExt, CellName, CellResolver},
-        configuration::Configuration,
-        fs::{
-            paths::ForwardRelativePathBuf,
-            project::{ProjectFilesystemTemp, ProjectRelativePathBuf},
-        },
-        package::{Package, PackageRelativePathBuf},
-        target::{testing::ConfiguredTargetLabelExt, ConfiguredTargetLabel, TargetName},
-    };
+    use buck2_core::buck_path::BuckPath;
+    use buck2_core::category::Category;
+    use buck2_core::cells::paths::CellRelativePath;
+    use buck2_core::cells::testing::CellResolverExt;
+    use buck2_core::cells::CellName;
+    use buck2_core::cells::CellResolver;
+    use buck2_core::configuration::Configuration;
+    use buck2_core::fs::paths::ForwardRelativePathBuf;
+    use buck2_core::fs::project::ProjectFilesystemTemp;
+    use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::package::Package;
+    use buck2_core::package::PackageRelativePathBuf;
+    use buck2_core::target::testing::ConfiguredTargetLabelExt;
+    use buck2_core::target::ConfiguredTargetLabel;
+    use buck2_core::target::TargetName;
     use events::dispatch::EventDispatcher;
     use gazebo::prelude::*;
-    use indexmap::{indexset, IndexSet};
+    use indexmap::indexset;
+    use indexmap::IndexSet;
     use once_cell::sync::Lazy;
 
-    use crate::{
-        actions::{
-            artifact::{
-                testing::BuildArtifactTestingExt, Artifact, ArtifactFs, ArtifactValue,
-                BuildArtifact, SourceArtifact,
-            },
-            Action, ActionExecutable, ActionExecutionCtx, PristineActionExecutable,
-            RegisteredAction,
-        },
-        artifact_groups::{ArtifactGroup, ArtifactGroupValues},
-        deferred::{
-            testing::{DeferredDataExt, DeferredIdExt},
-            BaseDeferredKey, DeferredData, DeferredId, DeferredKey,
-        },
-        execute::{
-            blocking::testing::DummyBlockingExecutor,
-            commands::{
-                dry_run::DryRunExecutor, output::CommandStdStreams, CommandExecutionInput,
-                CommandExecutionRequest, CommandExecutor,
-            },
-            materializer::nodisk::NoDiskMaterializer,
-            ActionExecutionKind, ActionExecutionMetadata, ActionExecutionTimingData,
-            ActionExecutor, ActionOutputs, BuckActionExecutor, CommandExecutorConfig,
-            PathSeparatorKind,
-        },
-        path::{BuckOutPathResolver, BuckPathResolver},
-    };
+    use crate::actions::artifact::testing::BuildArtifactTestingExt;
+    use crate::actions::artifact::Artifact;
+    use crate::actions::artifact::ArtifactFs;
+    use crate::actions::artifact::ArtifactValue;
+    use crate::actions::artifact::BuildArtifact;
+    use crate::actions::artifact::SourceArtifact;
+    use crate::actions::Action;
+    use crate::actions::ActionExecutable;
+    use crate::actions::ActionExecutionCtx;
+    use crate::actions::PristineActionExecutable;
+    use crate::actions::RegisteredAction;
+    use crate::artifact_groups::ArtifactGroup;
+    use crate::artifact_groups::ArtifactGroupValues;
+    use crate::deferred::testing::DeferredDataExt;
+    use crate::deferred::testing::DeferredIdExt;
+    use crate::deferred::BaseDeferredKey;
+    use crate::deferred::DeferredData;
+    use crate::deferred::DeferredId;
+    use crate::deferred::DeferredKey;
+    use crate::execute::blocking::testing::DummyBlockingExecutor;
+    use crate::execute::commands::dry_run::DryRunExecutor;
+    use crate::execute::commands::output::CommandStdStreams;
+    use crate::execute::commands::CommandExecutionInput;
+    use crate::execute::commands::CommandExecutionRequest;
+    use crate::execute::commands::CommandExecutor;
+    use crate::execute::materializer::nodisk::NoDiskMaterializer;
+    use crate::execute::ActionExecutionKind;
+    use crate::execute::ActionExecutionMetadata;
+    use crate::execute::ActionExecutionTimingData;
+    use crate::execute::ActionExecutor;
+    use crate::execute::ActionOutputs;
+    use crate::execute::BuckActionExecutor;
+    use crate::execute::CommandExecutorConfig;
+    use crate::execute::PathSeparatorKind;
+    use crate::path::BuckOutPathResolver;
+    use crate::path::BuckPathResolver;
 
     #[tokio::test]
     async fn can_execute_some_action() {

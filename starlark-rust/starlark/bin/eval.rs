@@ -15,21 +15,27 @@
  * limitations under the License.
  */
 
-use std::{
-    fs, io, iter,
-    path::{Path, PathBuf},
-};
+use std::fs;
+use std::io;
+use std::iter;
+use std::path::Path;
+use std::path::PathBuf;
 
 use gazebo::prelude::*;
 use itertools::Either;
-use lsp_types::{Diagnostic, Url};
-use starlark::{
-    environment::{FrozenModule, Globals, Module},
-    errors::EvalMessage,
-    eval::Evaluator,
-    lsp::server::{LoadContentsError, LspContext, LspEvalResult, ResolveLoadError},
-    syntax::{AstModule, Dialect},
-};
+use lsp_types::Diagnostic;
+use lsp_types::Url;
+use starlark::environment::FrozenModule;
+use starlark::environment::Globals;
+use starlark::environment::Module;
+use starlark::errors::EvalMessage;
+use starlark::eval::Evaluator;
+use starlark::lsp::server::LoadContentsError;
+use starlark::lsp::server::LspContext;
+use starlark::lsp::server::LspEvalResult;
+use starlark::lsp::server::ResolveLoadError;
+use starlark::syntax::AstModule;
+use starlark::syntax::Dialect;
 
 #[derive(Debug)]
 pub(crate) enum ContextMode {

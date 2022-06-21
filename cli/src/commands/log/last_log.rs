@@ -9,7 +9,8 @@
 
 use buck2_core::exit_result::ExitResult;
 
-use crate::{commands::debug::replay::retrieve_nth_recent_log, CommandContext};
+use crate::commands::debug::replay::retrieve_nth_recent_log;
+use crate::CommandContext;
 
 /// This command outputs the path to a redcent log.
 #[derive(Debug, clap::Parser)]

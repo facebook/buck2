@@ -15,11 +15,14 @@
  * limitations under the License.
  */
 
-use std::{env, fmt::Write, fs};
+use std::env;
+use std::fmt::Write;
+use std::fs;
 
 use anyhow::Context;
 
-use crate::{assert::Assert, eval::compiler::def::FrozenDef};
+use crate::assert::Assert;
+use crate::eval::compiler::def::FrozenDef;
 
 const REGENERATE_VAR_NAME: &str = "STARLARK_RUST_REGENERATE_BC_TESTS";
 

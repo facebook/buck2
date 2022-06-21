@@ -1,4 +1,6 @@
-use crate::{BuckEvent, ControlEvent, EventSink};
+use crate::BuckEvent;
+use crate::ControlEvent;
+use crate::EventSink;
 
 /// A null EventSink that discards all messages sent to it.
 pub struct NullEventSink;

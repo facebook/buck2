@@ -12,21 +12,22 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_core::{package::Package, result::SharedResult};
-use buck2_interpreter::{
-    common::{BuildFileCell, StarlarkModulePath},
-    dice::{starlark_profiler::GetStarlarkProfilerInstrumentation, HasCalculationDelegate},
-    file_loader::LoadedModule,
-    starlark_profiler,
-    starlark_profiler::StarlarkProfilerOrInstrumentation,
-};
-use dice::{DiceComputations, Key};
+use buck2_core::package::Package;
+use buck2_core::result::SharedResult;
+use buck2_interpreter::common::BuildFileCell;
+use buck2_interpreter::common::StarlarkModulePath;
+use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
+use buck2_interpreter::dice::HasCalculationDelegate;
+use buck2_interpreter::file_loader::LoadedModule;
+use buck2_interpreter::starlark_profiler;
+use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
+use dice::DiceComputations;
+use dice::Key;
 use gazebo::prelude::*;
 
-use crate::interpreter::{
-    calculation::keys::InterpreterResultsKey,
-    module_internals::{EvaluationResult, ModuleInternals},
-};
+use crate::interpreter::calculation::keys::InterpreterResultsKey;
+use crate::interpreter::module_internals::EvaluationResult;
+use crate::interpreter::module_internals::ModuleInternals;
 
 #[async_trait]
 pub(crate) trait InterpreterCalculation<'c> {

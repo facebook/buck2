@@ -2,19 +2,18 @@ use std::sync::Arc;
 
 use buck2_core::result::SharedResult;
 use indoc::indoc;
-use starlark::{environment::GlobalsBuilder, values::Value};
+use starlark::environment::GlobalsBuilder;
+use starlark::values::Value;
 
 use super::tester;
-use crate::interpreter::{
-    rule_defs::{
-        artifact::testing::artifactory,
-        cmd_args::{
-            SimpleCommandLineArtifactVisitor, StarlarkCommandLineInputs, ValueAsCommandLineLike,
-        },
-        label::testing::label_creator,
-    },
-    testing::{expect_error, import, Tester},
-};
+use crate::interpreter::rule_defs::artifact::testing::artifactory;
+use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLineInputs;
+use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
+use crate::interpreter::rule_defs::label::testing::label_creator;
+use crate::interpreter::testing::expect_error;
+use crate::interpreter::testing::import;
+use crate::interpreter::testing::Tester;
 
 #[starlark_module]
 pub fn inputs_helper(builder: &mut GlobalsBuilder) {

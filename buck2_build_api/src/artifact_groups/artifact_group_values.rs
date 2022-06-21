@@ -7,17 +7,23 @@
  * of this source tree.
  */
 
-use std::{collections::HashSet, hash::Hash, sync::Arc};
+use std::collections::HashSet;
+use std::hash::Hash;
+use std::sync::Arc;
 
 use anyhow::Context as _;
 use buck2_core::directory::Directory;
 use gazebo::prelude::*;
-use smallvec::{smallvec, SmallVec};
+use smallvec::smallvec;
+use smallvec::SmallVec;
 
-use crate::actions::{
-    artifact::{Artifact, ArtifactFs, ArtifactValue},
-    directory::{insert_artifact, ActionDirectoryBuilder, ActionSharedDirectory, INTERNER},
-};
+use crate::actions::artifact::Artifact;
+use crate::actions::artifact::ArtifactFs;
+use crate::actions::artifact::ArtifactValue;
+use crate::actions::directory::insert_artifact;
+use crate::actions::directory::ActionDirectoryBuilder;
+use crate::actions::directory::ActionSharedDirectory;
+use crate::actions::directory::INTERNER;
 
 /// The [`ArtifactValue`]s for an [`crate::artifact_groups::ArtifactGroup`].
 #[derive(Clone, Dupe)]
@@ -208,18 +214,20 @@ where
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::{
-        configuration::Configuration,
-        fs::paths::ForwardRelativePathBuf,
-        package::{testing::PackageExt, Package},
-        target::{testing::ConfiguredTargetLabelExt, ConfiguredTargetLabel, TargetName},
-    };
+    use buck2_core::configuration::Configuration;
+    use buck2_core::fs::paths::ForwardRelativePathBuf;
+    use buck2_core::package::testing::PackageExt;
+    use buck2_core::package::Package;
+    use buck2_core::target::testing::ConfiguredTargetLabelExt;
+    use buck2_core::target::ConfiguredTargetLabel;
+    use buck2_core::target::TargetName;
 
     use super::*;
-    use crate::{
-        actions::artifact::{testing::BuildArtifactTestingExt, ArtifactValue, BuildArtifact},
-        deferred::{testing::DeferredIdExt, DeferredId},
-    };
+    use crate::actions::artifact::testing::BuildArtifactTestingExt;
+    use crate::actions::artifact::ArtifactValue;
+    use crate::actions::artifact::BuildArtifact;
+    use crate::deferred::testing::DeferredIdExt;
+    use crate::deferred::DeferredId;
 
     fn artifact(name: &str) -> (Artifact, ArtifactValue) {
         let target = ConfiguredTargetLabel::testing_new(

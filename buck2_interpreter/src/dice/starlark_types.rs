@@ -8,7 +8,9 @@
  */
 
 use async_trait::async_trait;
-use dice::{DiceComputations, DiceTransaction, InjectedKey};
+use dice::DiceComputations;
+use dice::DiceTransaction;
+use dice::InjectedKey;
 use gazebo::dupe::Dupe;
 
 #[derive(Debug, derive_more::Display, Copy, Clone, Dupe, Eq, PartialEq, Hash)]

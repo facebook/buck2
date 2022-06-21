@@ -10,24 +10,20 @@
 //! Implementation of the cli and query_* attr query language.
 use std::sync::Arc;
 
-use buck2_core::{
-    fs::{paths::AbsPathBuf, project::ProjectRelativePathBuf},
-    target::TargetLabel,
-};
-use buck2_query::query::syntax::simple::{
-    eval::values::QueryEvaluationResult, functions::DefaultQueryFunctionsModule,
-};
+use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::target::TargetLabel;
+use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
+use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use dice::DiceComputations;
 use gazebo::prelude::*;
 
-use crate::{
-    nodes::unconfigured::TargetNode,
-    query::{
-        analysis::evaluator::eval_query,
-        dice::{get_dice_query_delegate, DiceQueryDelegate},
-        uquery::environment::{PreresolvedQueryLiterals, UqueryEnvironment},
-    },
-};
+use crate::nodes::unconfigured::TargetNode;
+use crate::query::analysis::evaluator::eval_query;
+use crate::query::dice::get_dice_query_delegate;
+use crate::query::dice::DiceQueryDelegate;
+use crate::query::uquery::environment::PreresolvedQueryLiterals;
+use crate::query::uquery::environment::UqueryEnvironment;
 
 pub struct UqueryEvaluator<'c> {
     dice_query_delegate: Arc<DiceQueryDelegate<'c>>,

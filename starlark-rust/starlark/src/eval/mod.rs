@@ -18,36 +18,39 @@
 //! Evaluate some code, typically done by creating an [`Evaluator`], then calling
 //! [`eval_module`](Evaluator::eval_module).
 
-use std::{intrinsics::unlikely, mem, time::Instant};
+use std::intrinsics::unlikely;
+use std::mem;
+use std::time::Instant;
 
 use gazebo::prelude::*;
-pub use runtime::{
-    arguments::{Arguments, ParametersParser, ParametersSpec, ParametersSpecBuilder},
-    call_stack::CallStack,
-    evaluator::Evaluator,
-    file_loader::{FileLoader, ReturnFileLoader},
-};
+pub use runtime::arguments::Arguments;
+pub use runtime::arguments::ParametersParser;
+pub use runtime::arguments::ParametersSpec;
+pub use runtime::arguments::ParametersSpecBuilder;
+pub use runtime::call_stack::CallStack;
+pub use runtime::evaluator::Evaluator;
+pub use runtime::file_loader::FileLoader;
+pub use runtime::file_loader::ReturnFileLoader;
 
-use crate::{
-    collections::symbol_map::Symbol,
-    environment::Globals,
-    eval::{
-        compiler::{
-            scope::{CompilerAstMap, Scope, ScopeData},
-            Compiler,
-        },
-        runtime::arguments::{ArgNames, ArgumentsFull},
-    },
-    syntax::ast::AstModule,
-    values::{docs::DocString, Value},
-};
+use crate::collections::symbol_map::Symbol;
+use crate::environment::Globals;
+use crate::eval::compiler::scope::CompilerAstMap;
+use crate::eval::compiler::scope::Scope;
+use crate::eval::compiler::scope::ScopeData;
+use crate::eval::compiler::Compiler;
+use crate::eval::runtime::arguments::ArgNames;
+use crate::eval::runtime::arguments::ArgumentsFull;
+use crate::syntax::ast::AstModule;
+use crate::values::docs::DocString;
+use crate::values::Value;
 
 pub(crate) mod bc;
 pub(crate) mod compiler;
 pub(crate) mod runtime;
 pub use runtime::profile::ProfileMode;
 
-use crate::{eval::compiler::def::DefInfo, syntax::DialectTypes};
+use crate::eval::compiler::def::DefInfo;
+use crate::syntax::DialectTypes;
 
 impl<'v, 'a> Evaluator<'v, 'a> {
     /// Evaluate an [`AstModule`] with this [`Evaluator`], modifying the in-scope

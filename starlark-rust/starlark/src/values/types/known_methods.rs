@@ -19,17 +19,17 @@ use gazebo::dupe::Dupe;
 use hashbrown::HashMap;
 use once_cell::sync::Lazy;
 
-use crate::{
-    environment::Methods,
-    eval::{Arguments, Evaluator},
-    values::{
-        dict::dict_methods,
-        function::{NativeMeth, NativeMethod},
-        list::list_methods,
-        string::str_methods,
-        FrozenRef, FrozenValueTyped, Value,
-    },
-};
+use crate::environment::Methods;
+use crate::eval::Arguments;
+use crate::eval::Evaluator;
+use crate::values::dict::dict_methods;
+use crate::values::function::NativeMeth;
+use crate::values::function::NativeMethod;
+use crate::values::list::list_methods;
+use crate::values::string::str_methods;
+use crate::values::FrozenRef;
+use crate::values::FrozenValueTyped;
+use crate::values::Value;
 
 /// Method and a `Methods` container which declares it.
 #[derive(Clone, Copy, Dupe)]

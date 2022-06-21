@@ -15,22 +15,26 @@
  * limitations under the License.
  */
 
-use std::{
-    collections::{hash_map::Entry, HashMap, HashSet},
-    fs::File,
-    io::Write,
-    iter,
-    path::Path,
-    time::Instant,
-};
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::fs::File;
+use std::io::Write;
+use std::iter;
+use std::path::Path;
+use std::time::Instant;
 
 use anyhow::Context;
 use gazebo::prelude::*;
 
-use crate::{
-    codemap::{CodeMap, CodeMapId, FileSpan, FileSpanRef, ResolvedFileSpan, Span},
-    eval::runtime::{profile::csv::CsvWriter, small_duration::SmallDuration},
-};
+use crate::codemap::CodeMap;
+use crate::codemap::CodeMapId;
+use crate::codemap::FileSpan;
+use crate::codemap::FileSpanRef;
+use crate::codemap::ResolvedFileSpan;
+use crate::codemap::Span;
+use crate::eval::runtime::profile::csv::CsvWriter;
+use crate::eval::runtime::small_duration::SmallDuration;
 
 #[derive(Debug, thiserror::Error)]
 enum StmtProfileError {
@@ -215,12 +219,13 @@ impl StmtProfile {
 #[cfg(test)]
 mod tests {
 
-    use crate::{
-        assert::test_functions,
-        environment::{GlobalsBuilder, Module},
-        eval::{Evaluator, ProfileMode},
-        syntax::{AstModule, Dialect},
-    };
+    use crate::assert::test_functions;
+    use crate::environment::GlobalsBuilder;
+    use crate::environment::Module;
+    use crate::eval::Evaluator;
+    use crate::eval::ProfileMode;
+    use crate::syntax::AstModule;
+    use crate::syntax::Dialect;
 
     #[test]
     fn test_coverage() {

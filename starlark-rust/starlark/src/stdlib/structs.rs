@@ -17,11 +17,12 @@
 
 //! Implementation of `struct` function.
 use crate as starlark;
-use crate::{
-    environment::{GlobalsBuilder, MethodsBuilder},
-    eval::Arguments,
-    values::{structs::Struct, Heap, Value},
-};
+use crate::environment::GlobalsBuilder;
+use crate::environment::MethodsBuilder;
+use crate::eval::Arguments;
+use crate::values::structs::Struct;
+use crate::values::Heap;
+use crate::values::Value;
 
 #[starlark_module]
 pub fn global(builder: &mut GlobalsBuilder) {

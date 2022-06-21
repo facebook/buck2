@@ -8,54 +8,53 @@
  */
 
 //! Rule analysis related Dice calculations
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_core::{
-    configuration::Configuration,
-    provider::ConfiguredProvidersLabel,
-    result::{SharedResult, ToSharedResultExt},
-    target::{ConfiguredTargetLabel, TargetLabel},
-};
-use buck2_interpreter::{
-    common::StarlarkModulePath,
-    dice::{
-        starlark_profiler::GetStarlarkProfilerInstrumentation, HasCalculationDelegate, HasEvents,
-    },
-    starlark_profiler::{self, StarlarkProfiler, StarlarkProfilerOrInstrumentation},
-};
+use buck2_core::configuration::Configuration;
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::result::SharedResult;
+use buck2_core::result::ToSharedResultExt;
+use buck2_core::target::ConfiguredTargetLabel;
+use buck2_core::target::TargetLabel;
+use buck2_interpreter::common::StarlarkModulePath;
+use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
+use buck2_interpreter::dice::HasCalculationDelegate;
+use buck2_interpreter::dice::HasEvents;
+use buck2_interpreter::starlark_profiler::StarlarkProfiler;
+use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
+use buck2_interpreter::starlark_profiler::{self};
 use buck2_query::query::syntax::simple::eval::evaluator::QueryEvaluator;
-use dice::{DiceComputations, Key};
+use dice::DiceComputations;
+use dice::Key;
 use events::dispatch::EventDispatcher;
-use futures::{
-    stream::{FuturesOrdered, FuturesUnordered},
-    StreamExt,
-};
+use futures::stream::FuturesOrdered;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 use gazebo::prelude::*;
 use once_cell::sync::OnceCell;
 
-use crate::{
-    analysis::{
-        calculation::keys::{AnalysisKey, ConfiguredGraphKey},
-        configured_graph::{
-            AnalysisConfiguredGraphQueryDelegate, AnalysisDiceQueryDelegate, ConfiguredGraphNode,
-        },
-        get_user_defined_rule_impl, run_analysis, AnalysisResult,
-    },
-    attrs::{
-        attr_type::query::ResolvedQueryLiterals, configured_attr::ConfiguredAttr,
-        AnalysisQueryResult,
-    },
-    events::proto::ToProtoMessage,
-    interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue,
-    keep_going,
-    nodes::{
-        calculation::NodeCalculation, compatibility::MaybeCompatible,
-        configured::ConfiguredTargetNode, RuleType,
-    },
-    query::analysis::environment::ConfiguredGraphQueryEnvironment,
-};
+use crate::analysis::calculation::keys::AnalysisKey;
+use crate::analysis::calculation::keys::ConfiguredGraphKey;
+use crate::analysis::configured_graph::AnalysisConfiguredGraphQueryDelegate;
+use crate::analysis::configured_graph::AnalysisDiceQueryDelegate;
+use crate::analysis::configured_graph::ConfiguredGraphNode;
+use crate::analysis::get_user_defined_rule_impl;
+use crate::analysis::run_analysis;
+use crate::analysis::AnalysisResult;
+use crate::attrs::attr_type::query::ResolvedQueryLiterals;
+use crate::attrs::configured_attr::ConfiguredAttr;
+use crate::attrs::AnalysisQueryResult;
+use crate::events::proto::ToProtoMessage;
+use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use crate::keep_going;
+use crate::nodes::calculation::NodeCalculation;
+use crate::nodes::compatibility::MaybeCompatible;
+use crate::nodes::configured::ConfiguredTargetNode;
+use crate::nodes::RuleType;
+use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
 #[async_trait]
 pub trait RuleAnalysisCalculation {
@@ -424,50 +423,52 @@ pub mod testing {
 mod tests {
     use std::sync::Arc;
 
-    use buck2_common::{
-        dice::data::testing::SetTestingIoProvider,
-        legacy_configs::{LegacyBuckConfig, LegacyBuckConfigs},
-    };
-    use buck2_core::{
-        cells::{CellAlias, CellAliasResolver, CellName, CellsAggregator},
-        configuration::Configuration,
-        fs::project::{ProjectFilesystemTemp, ProjectRelativePathBuf},
-        package::{testing::PackageExt, Package},
-        result::SharedResult,
-        target::{testing::TargetLabelExt, TargetLabel},
-    };
-    use buck2_interpreter::{
-        common::{BuildFilePath, ImportPath, OwnedStarlarkModulePath},
-        dice::{interpreter_setup::setup_interpreter_basic, testing::EvalImportKey},
-        extra::{InterpreterHostArchitecture, InterpreterHostPlatform},
-        file_loader::LoadedModules,
-        package_listing::listing::{testing::PackageListingExt, PackageListing},
-    };
-    use dice::{testing::DiceBuilder, UserComputationData};
+    use buck2_common::dice::data::testing::SetTestingIoProvider;
+    use buck2_common::legacy_configs::LegacyBuckConfig;
+    use buck2_common::legacy_configs::LegacyBuckConfigs;
+    use buck2_core::cells::CellAlias;
+    use buck2_core::cells::CellAliasResolver;
+    use buck2_core::cells::CellName;
+    use buck2_core::cells::CellsAggregator;
+    use buck2_core::configuration::Configuration;
+    use buck2_core::fs::project::ProjectFilesystemTemp;
+    use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::package::testing::PackageExt;
+    use buck2_core::package::Package;
+    use buck2_core::result::SharedResult;
+    use buck2_core::target::testing::TargetLabelExt;
+    use buck2_core::target::TargetLabel;
+    use buck2_interpreter::common::BuildFilePath;
+    use buck2_interpreter::common::ImportPath;
+    use buck2_interpreter::common::OwnedStarlarkModulePath;
+    use buck2_interpreter::dice::interpreter_setup::setup_interpreter_basic;
+    use buck2_interpreter::dice::testing::EvalImportKey;
+    use buck2_interpreter::extra::InterpreterHostArchitecture;
+    use buck2_interpreter::extra::InterpreterHostPlatform;
+    use buck2_interpreter::file_loader::LoadedModules;
+    use buck2_interpreter::package_listing::listing::testing::PackageListingExt;
+    use buck2_interpreter::package_listing::listing::PackageListing;
+    use dice::testing::DiceBuilder;
+    use dice::UserComputationData;
     use events::dispatch::EventDispatcher;
     use gazebo::prelude::*;
     use indexmap::IndexMap;
     use indoc::indoc;
     use itertools::Itertools;
 
-    use crate::{
-        analysis::calculation::RuleAnalysisCalculation,
-        configuration::calculation::ExecutionPlatformsKey,
-        deferred::testing::DeferredAnalysisResultExt,
-        execute::{commands::dice_data::set_fallback_executor_config, CommandExecutorConfig},
-        interpreter::{
-            calculation::testing::InterpreterResultsKey,
-            context::{
-                configure_build_file_globals, configure_extension_file_globals,
-                BuildInterpreterConfiguror,
-            },
-            rule_defs::provider::{
-                builtin::default_info::DefaultInfoCallable,
-                id::{testing::ProviderIdExt, ProviderId},
-            },
-            testing::Tester,
-        },
-    };
+    use crate::analysis::calculation::RuleAnalysisCalculation;
+    use crate::configuration::calculation::ExecutionPlatformsKey;
+    use crate::deferred::testing::DeferredAnalysisResultExt;
+    use crate::execute::commands::dice_data::set_fallback_executor_config;
+    use crate::execute::CommandExecutorConfig;
+    use crate::interpreter::calculation::testing::InterpreterResultsKey;
+    use crate::interpreter::context::configure_build_file_globals;
+    use crate::interpreter::context::configure_extension_file_globals;
+    use crate::interpreter::context::BuildInterpreterConfiguror;
+    use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;
+    use crate::interpreter::rule_defs::provider::id::testing::ProviderIdExt;
+    use crate::interpreter::rule_defs::provider::id::ProviderId;
+    use crate::interpreter::testing::Tester;
 
     #[tokio::test]
     async fn test_analysis_calculation() -> anyhow::Result<()> {

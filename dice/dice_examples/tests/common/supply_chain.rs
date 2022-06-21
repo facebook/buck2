@@ -7,10 +7,16 @@
  * of this source tree.
  */
 
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::sync::Arc;
 
-use dice::{cycles::DetectCycles, Dice, DiceTransaction};
-use dice_examples::supply_chain::{Company, Cost, Resource, Setup};
+use dice::cycles::DetectCycles;
+use dice::Dice;
+use dice::DiceTransaction;
+use dice_examples::supply_chain::Company;
+use dice_examples::supply_chain::Cost;
+use dice_examples::supply_chain::Resource;
+use dice_examples::supply_chain::Setup;
 
 async fn setup(companies: Vec<Company>) -> DiceTransaction {
     let dice = Dice::builder().build(DetectCycles::Enabled);

@@ -7,21 +7,25 @@
  * of this source tree.
  */
 
-use std::{
-    borrow::{Borrow, Cow},
-    hash::Hash,
-    ops::Deref,
-    path::{Path, PathBuf},
-};
+use std::borrow::Borrow;
+use std::borrow::Cow;
+use std::hash::Hash;
+use std::ops::Deref;
+use std::path::Path;
+use std::path::PathBuf;
 
 use anyhow::anyhow;
 use derive_more::Display;
 use ref_cast::RefCast;
-use relative_path::{RelativePath, RelativePathBuf};
+use relative_path::RelativePath;
+use relative_path::RelativePathBuf;
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::fs::paths::{AbsPath, AbsPathBuf, FileName, FileNameBuf};
+use crate::fs::paths::AbsPath;
+use crate::fs::paths::AbsPathBuf;
+use crate::fs::paths::FileName;
+use crate::fs::paths::FileNameBuf;
 
 /// A forward pointing, fully normalized relative path and owned pathbuf.
 /// This means that there is no '.' or '..' in this path, and does not begin
@@ -1050,7 +1054,8 @@ impl ForwardRelativePathVerifier {
 
 #[cfg(test)]
 mod tests {
-    use crate::fs::paths::{ForwardRelativePath, ForwardRelativePathBuf};
+    use crate::fs::paths::ForwardRelativePath;
+    use crate::fs::paths::ForwardRelativePathBuf;
 
     #[test]
     fn forward_path_is_comparable() -> anyhow::Result<()> {

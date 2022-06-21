@@ -7,55 +7,56 @@
  * of this source tree.
  */
 
-use std::{
-    collections::HashMap,
-    convert::Infallible,
-    fmt::Display,
-    ops::{ControlFlow, FromResidual},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    time::{Duration, SystemTime},
-};
+use std::collections::HashMap;
+use std::convert::Infallible;
+use std::fmt::Display;
+use std::ops::ControlFlow;
+use std::ops::FromResidual;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
+use std::time::Duration;
+use std::time::SystemTime;
 
 use async_trait::async_trait;
-use buck2_common::file_ops::{FileMetadata, TrackedFileDigest};
-use buck2_core::{
-    category::Category,
-    directory::{DirectoryEntry, DirectoryIterator, FingerprintedDirectory},
-    fs::{
-        paths::ForwardRelativePath,
-        project::{ProjectRelativePath, ProjectRelativePathBuf},
-    },
-};
+use buck2_common::file_ops::FileMetadata;
+use buck2_common::file_ops::TrackedFileDigest;
+use buck2_core::category::Category;
+use buck2_core::directory::DirectoryEntry;
+use buck2_core::directory::DirectoryIterator;
+use buck2_core::directory::FingerprintedDirectory;
+use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project::ProjectRelativePathBuf;
 use derive_more::From;
 use events::dispatch::EventDispatcher;
 use futures::future::Future;
-use gazebo::{prelude::*, variants::UnpackVariants};
+use gazebo::prelude::*;
+use gazebo::variants::UnpackVariants;
 use host_sharing::HostSharingRequirements;
-use indexmap::{IndexMap, IndexSet};
+use indexmap::IndexMap;
+use indexmap::IndexSet;
 use remote_execution as RE;
 
-use crate::{
-    actions::{
-        artifact::{ArtifactFs, ArtifactValue, BuildArtifact, ExecutorFs},
-        directory::{insert_entry, ActionDirectoryBuilder, ActionDirectoryMember},
-    },
-    artifact_groups::ArtifactGroupValues,
-    deferred::BaseDeferredKey,
-    execute::{
-        commands::{
-            output::CommandStdStreams,
-            re::{
-                client::{re_create_action, PreparedAction},
-                ActionPaths,
-            },
-        },
-        ActionExecutionKind, ActionExecutionTimingData, PathSeparatorKind,
-    },
-    path::{BuckOutPath, BuckOutScratchPath, BuckOutTestPath},
-};
+use crate::actions::artifact::ArtifactFs;
+use crate::actions::artifact::ArtifactValue;
+use crate::actions::artifact::BuildArtifact;
+use crate::actions::artifact::ExecutorFs;
+use crate::actions::directory::insert_entry;
+use crate::actions::directory::ActionDirectoryBuilder;
+use crate::actions::directory::ActionDirectoryMember;
+use crate::artifact_groups::ArtifactGroupValues;
+use crate::deferred::BaseDeferredKey;
+use crate::execute::commands::output::CommandStdStreams;
+use crate::execute::commands::re::client::re_create_action;
+use crate::execute::commands::re::client::PreparedAction;
+use crate::execute::commands::re::ActionPaths;
+use crate::execute::ActionExecutionKind;
+use crate::execute::ActionExecutionTimingData;
+use crate::execute::PathSeparatorKind;
+use crate::path::BuckOutPath;
+use crate::path::BuckOutScratchPath;
+use crate::path::BuckOutTestPath;
 
 pub mod dice_data;
 #[cfg(test)]

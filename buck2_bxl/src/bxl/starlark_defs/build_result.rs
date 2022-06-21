@@ -9,16 +9,22 @@
 
 use buck2_build_api::bxl::build_result::BxlBuildResult;
 use gazebo::dupe::Dupe;
-use starlark::{
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    starlark_module, starlark_simple_value, starlark_type,
-    values::{NoSerialize, ProvidesStaticType, StarlarkValue, Value, ValueLike},
-};
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::starlark_module;
+use starlark::starlark_simple_value;
+use starlark::starlark_type;
+use starlark::values::NoSerialize;
+use starlark::values::ProvidesStaticType;
+use starlark::values::StarlarkValue;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 
-use crate::bxl::starlark_defs::context::build::{
-    StarlarkFailedArtifactIterable, StarlarkFailedArtifactIterableGen,
-    StarlarkProvidersArtifactIterable, StarlarkProvidersArtifactIterableGen,
-};
+use crate::bxl::starlark_defs::context::build::StarlarkFailedArtifactIterable;
+use crate::bxl::starlark_defs::context::build::StarlarkFailedArtifactIterableGen;
+use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable;
+use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterableGen;
 
 /// Starlark object for `StarlarkBuildResult` (which is not Starlark value).
 #[derive(Clone, Debug, derive_more::Display, ProvidesStaticType, NoSerialize)]

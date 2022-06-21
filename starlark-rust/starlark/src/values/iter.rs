@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-use gazebo::{cast, cell::ARef};
+use gazebo::cast;
+use gazebo::cell::ARef;
 
 use crate::values::Value;
 

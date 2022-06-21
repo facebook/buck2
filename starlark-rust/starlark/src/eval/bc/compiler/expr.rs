@@ -21,26 +21,28 @@ use std::collections::HashSet;
 
 use gazebo::prelude::*;
 
-use crate::{
-    collections::{Hashed, SmallMap},
-    eval::{
-        bc::{
-            compiler::if_compiler::write_if_else,
-            instr_impl::*,
-            slow_arg::BcInstrSlowArg,
-            stack_ptr::{BcSlot, BcSlotIn, BcSlotInRange, BcSlotOut},
-            writer::BcWriter,
-        },
-        compiler::{
-            expr::{Builtin1, Builtin2, CompareOp, ExprCompiled, ExprLogicalBinOp, MaybeNot},
-            span::IrSpanned,
-        },
-        runtime::call_stack::FrozenFileSpan,
-    },
-    values::{
-        layout::value_not_special::FrozenValueNotSpecial, FrozenStringValue, FrozenValue, ValueLike,
-    },
-};
+use crate::collections::Hashed;
+use crate::collections::SmallMap;
+use crate::eval::bc::compiler::if_compiler::write_if_else;
+use crate::eval::bc::instr_impl::*;
+use crate::eval::bc::slow_arg::BcInstrSlowArg;
+use crate::eval::bc::stack_ptr::BcSlot;
+use crate::eval::bc::stack_ptr::BcSlotIn;
+use crate::eval::bc::stack_ptr::BcSlotInRange;
+use crate::eval::bc::stack_ptr::BcSlotOut;
+use crate::eval::bc::writer::BcWriter;
+use crate::eval::compiler::expr::Builtin1;
+use crate::eval::compiler::expr::Builtin2;
+use crate::eval::compiler::expr::CompareOp;
+use crate::eval::compiler::expr::ExprCompiled;
+use crate::eval::compiler::expr::ExprLogicalBinOp;
+use crate::eval::compiler::expr::MaybeNot;
+use crate::eval::compiler::span::IrSpanned;
+use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::values::layout::value_not_special::FrozenValueNotSpecial;
+use crate::values::FrozenStringValue;
+use crate::values::FrozenValue;
+use crate::values::ValueLike;
 
 /// Try extract consecutive definitely initialized locals from expressions.
 fn try_slot_range<'a>(

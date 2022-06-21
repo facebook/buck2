@@ -19,22 +19,19 @@
 
 use std::fmt::Write;
 
-use crate::{
-    eval::{
-        bc::{
-            addr::BcPtrAddr,
-            frame::BcFramePtr,
-            instr::{BcInstr, InstrControl},
-            instr_impl::InstrEnd,
-            instrs::BcInstrs,
-            opcode::{BcOpcode, BcOpcodeHandler},
-            slow_arg::BcInstrSlowArg,
-        },
-        compiler::{add_span_to_expr_error, EvalException},
-        Evaluator,
-    },
-    values::Value,
-};
+use crate::eval::bc::addr::BcPtrAddr;
+use crate::eval::bc::frame::BcFramePtr;
+use crate::eval::bc::instr::BcInstr;
+use crate::eval::bc::instr::InstrControl;
+use crate::eval::bc::instr_impl::InstrEnd;
+use crate::eval::bc::instrs::BcInstrs;
+use crate::eval::bc::opcode::BcOpcode;
+use crate::eval::bc::opcode::BcOpcodeHandler;
+use crate::eval::bc::slow_arg::BcInstrSlowArg;
+use crate::eval::compiler::add_span_to_expr_error;
+use crate::eval::compiler::EvalException;
+use crate::eval::Evaluator;
+use crate::values::Value;
 
 /// Ready to execute bytecode.
 #[derive(Default)]

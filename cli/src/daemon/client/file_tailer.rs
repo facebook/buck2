@@ -7,19 +7,19 @@
  * of this source tree.
  */
 
-use std::{
-    fs::File,
-    io::{BufRead, BufReader, Seek, SeekFrom},
-    path::PathBuf,
-    time::Duration,
-};
+use std::fs::File;
+use std::io::BufRead;
+use std::io::BufReader;
+use std::io::Seek;
+use std::io::SeekFrom;
+use std::path::PathBuf;
+use std::time::Duration;
 
 use anyhow::Context;
 use futures::FutureExt;
-use tokio::{
-    runtime,
-    sync::{mpsc, oneshot},
-};
+use tokio::runtime;
+use tokio::sync::mpsc;
+use tokio::sync::oneshot;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 /// When `tail_file()` is invoked, the FileTailer will open the file and seek

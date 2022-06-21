@@ -7,22 +7,21 @@
  * of this source tree.
  */
 
-use std::{collections::HashMap, convert::TryFrom, sync::Arc};
+use std::collections::HashMap;
+use std::convert::TryFrom;
+use std::sync::Arc;
 
 use anyhow::anyhow;
-use buck2_core::{
-    cells::{
-        paths::{CellPath, CellRelativePath, CellRelativePathBuf},
-        CellAliasResolver,
-    },
-    package::Package,
-};
+use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::cells::paths::CellRelativePathBuf;
+use buck2_core::cells::CellAliasResolver;
+use buck2_core::package::Package;
 use thiserror::Error;
 
-use crate::{
-    common::{BuildFileCell, ImportPath},
-    parse_import::parse_import,
-};
+use crate::common::BuildFileCell;
+use crate::common::ImportPath;
+use crate::parse_import::parse_import;
 
 #[derive(Error, Debug)]
 enum PackageImportsError {
@@ -130,10 +129,10 @@ impl PackageImplicitImports {
 mod tests {
     use std::sync::Arc;
 
-    use buck2_core::{
-        cells::{CellAlias, CellAliasResolver, CellName},
-        package::testing::PackageExt,
-    };
+    use buck2_core::cells::CellAlias;
+    use buck2_core::cells::CellAliasResolver;
+    use buck2_core::cells::CellName;
+    use buck2_core::package::testing::PackageExt;
 
     use super::*;
 

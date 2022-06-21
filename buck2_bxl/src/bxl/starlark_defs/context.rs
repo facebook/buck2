@@ -10,27 +10,27 @@
 //! The context containing the available buck commands and query operations for `bxl` functions.
 //!
 
-use std::{cell::RefCell, collections::HashSet, io::Write, sync::Arc};
+use std::cell::RefCell;
+use std::collections::HashSet;
+use std::io::Write;
+use std::sync::Arc;
 
-use buck2_build_api::{
-    actions::artifact::{Artifact, ArtifactFs},
-    analysis::registry::AnalysisRegistry,
-    interpreter::rule_defs::{
-        artifact::starlark_artifact_like::ValueAsArtifactLike, context::AnalysisActions,
-    },
-    query::dice::DiceQueryDelegate,
-};
+use buck2_build_api::actions::artifact::Artifact;
+use buck2_build_api::actions::artifact::ArtifactFs;
+use buck2_build_api::analysis::registry::AnalysisRegistry;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
+use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
+use buck2_build_api::query::dice::DiceQueryDelegate;
 use buck2_bxl_core::BxlKey;
-use buck2_common::{
-    dice::{cells::HasCellResolver, data::HasIoProvider},
-    package_boundary::HasPackageBoundaryExceptions,
-    target_aliases::{HasTargetAliasResolver, TargetAliasResolver},
-};
-use buck2_core::{
-    cells::CellInstance,
-    fs::{paths::AbsPathBuf, project::ProjectFilesystem},
-    target::TargetLabel,
-};
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::data::HasIoProvider;
+use buck2_common::package_boundary::HasPackageBoundaryExceptions;
+use buck2_common::target_aliases::HasTargetAliasResolver;
+use buck2_common::target_aliases::TargetAliasResolver;
+use buck2_core::cells::CellInstance;
+use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::target::TargetLabel;
 use buck2_docs_gen::Buck2Docs;
 use buck2_interpreter::types::label::Label;
 use derivative::Derivative;
@@ -38,25 +38,32 @@ use derive_more::Display;
 use dice::DiceComputations;
 use either::Either;
 use gazebo::any::ProvidesStaticType;
-use starlark::{
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    eval::Evaluator,
-    starlark_module, starlark_type,
-    values::{
-        dict::Dict, none::NoneType, AllocValue, Heap, NoSerialize, StarlarkValue, Trace,
-        UnpackValue, Value, ValueLike, ValueOf, ValueTyped,
-    },
-};
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::eval::Evaluator;
+use starlark::starlark_module;
+use starlark::starlark_type;
+use starlark::values::dict::Dict;
+use starlark::values::none::NoneType;
+use starlark::values::AllocValue;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
+use starlark::values::ValueLike;
+use starlark::values::ValueOf;
+use starlark::values::ValueTyped;
 
-use crate::bxl::starlark_defs::{
-    context::{
-        actions::BxlActionsCtx, fs::BxlFilesystem, output::OutputStream,
-        starlark_async::BxlSafeDiceComputations,
-    },
-    cquery::StarlarkCQueryCtx,
-    providers_expr::ProvidersExpr,
-    uquery::StarlarkUQueryCtx,
-};
+use crate::bxl::starlark_defs::context::actions::BxlActionsCtx;
+use crate::bxl::starlark_defs::context::fs::BxlFilesystem;
+use crate::bxl::starlark_defs::context::output::OutputStream;
+use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
+use crate::bxl::starlark_defs::cquery::StarlarkCQueryCtx;
+use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
+use crate::bxl::starlark_defs::uquery::StarlarkUQueryCtx;
 
 pub mod actions;
 pub mod analysis;

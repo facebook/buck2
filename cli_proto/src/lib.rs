@@ -180,7 +180,10 @@ macro_rules! define_request {
 }
 
 mod serialize_timestamp {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde::Deserialize;
+    use serde::Deserializer;
+    use serde::Serialize;
+    use serde::Serializer;
 
     pub fn serialize<S>(
         value: &Option<::prost_types::Timestamp>,
@@ -206,7 +209,10 @@ mod serialize_timestamp {
 }
 
 mod serialize_duration {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde::Deserialize;
+    use serde::Deserializer;
+    use serde::Serialize;
+    use serde::Serializer;
 
     pub fn serialize<S>(
         value: &Option<::prost_types::Duration>,

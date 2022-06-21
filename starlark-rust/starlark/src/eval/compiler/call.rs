@@ -21,23 +21,20 @@ use std::cell::Cell;
 
 use gazebo::prelude::*;
 
-use crate::{
-    collections::symbol_map::Symbol,
-    eval::{
-        compiler::{
-            args::ArgsCompiledValue,
-            def_inline::{InlineDefBody, InlineDefCallSite},
-            expr::{Builtin1, ExprCompiled},
-            opt_ctx::OptCtx,
-            span::IrSpanned,
-            stmt::OptimizeOnFreezeContext,
-        },
-        runtime::{
-            call_stack::FrozenFileSpan, inlined_frame::InlinedFrameAlloc, visit_span::VisitSpanMut,
-        },
-    },
-    values::{string::interpolation::parse_format_one, FrozenStringValue},
-};
+use crate::collections::symbol_map::Symbol;
+use crate::eval::compiler::args::ArgsCompiledValue;
+use crate::eval::compiler::def_inline::InlineDefBody;
+use crate::eval::compiler::def_inline::InlineDefCallSite;
+use crate::eval::compiler::expr::Builtin1;
+use crate::eval::compiler::expr::ExprCompiled;
+use crate::eval::compiler::opt_ctx::OptCtx;
+use crate::eval::compiler::span::IrSpanned;
+use crate::eval::compiler::stmt::OptimizeOnFreezeContext;
+use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::inlined_frame::InlinedFrameAlloc;
+use crate::eval::runtime::visit_span::VisitSpanMut;
+use crate::values::string::interpolation::parse_format_one;
+use crate::values::FrozenStringValue;
 
 #[derive(Clone, Debug, VisitSpanMut)]
 pub(crate) struct CallCompiled {

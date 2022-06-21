@@ -7,7 +7,9 @@
  * of this source tree.
  */
 
-use buck2_core::{cells::paths::CellPath, package::Package, result::SharedResult};
+use buck2_core::cells::paths::CellPath;
+use buck2_core::package::Package;
+use buck2_core::result::SharedResult;
 
 use crate::package_listing::listing::PackageListing;
 

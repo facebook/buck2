@@ -1,33 +1,45 @@
-use std::{collections::HashMap, convert::TryInto, time::Duration};
+use std::collections::HashMap;
+use std::convert::TryInto;
+use std::time::Duration;
 
 use anyhow::Context as _;
 use downward_api::DownwardApi;
-use downward_api_proto::{
-    downward_api_client, downward_api_server, ConsoleRequest, ExternalEventRequest, LogRequest,
-};
+use downward_api_proto::downward_api_client;
+use downward_api_proto::downward_api_server;
+use downward_api_proto::ConsoleRequest;
+use downward_api_proto::ExternalEventRequest;
+use downward_api_proto::LogRequest;
 use host_sharing::HostSharingRequirements;
-use test_proto::{
-    test_orchestrator_client, test_orchestrator_server, Empty, EndOfTestResultsRequest,
-    ExecuteResponse2, PrepareForLocalExecutionResponse, ReportTestResultRequest,
-    ReportTestSessionRequest, ReportTestsDiscoveredRequest, Testing,
-};
-use tokio::io::{AsyncRead, AsyncWrite};
+use test_proto::test_orchestrator_client;
+use test_proto::test_orchestrator_server;
+use test_proto::Empty;
+use test_proto::EndOfTestResultsRequest;
+use test_proto::ExecuteResponse2;
+use test_proto::PrepareForLocalExecutionResponse;
+use test_proto::ReportTestResultRequest;
+use test_proto::ReportTestSessionRequest;
+use test_proto::ReportTestsDiscoveredRequest;
+use test_proto::Testing;
+use tokio::io::AsyncRead;
+use tokio::io::AsyncWrite;
 use tonic::transport::Channel;
 use tracing::Level;
 
-use crate::{
-    data::{
-        ArgValue, ConfiguredTargetHandle, DeclaredOutput, DisplayMetadata, ExecuteRequest2,
-        ExecutionResult2, ExecutorConfigOverride, PrepareForLocalExecutionResult, TestExecutable,
-        TestResult,
-    },
-    grpc::{
-        channel,
-        server::{spawn_oneshot, ServerHandle},
-        util::to_tonic,
-    },
-    protocol::TestOrchestrator,
-};
+use crate::data::ArgValue;
+use crate::data::ConfiguredTargetHandle;
+use crate::data::DeclaredOutput;
+use crate::data::DisplayMetadata;
+use crate::data::ExecuteRequest2;
+use crate::data::ExecutionResult2;
+use crate::data::ExecutorConfigOverride;
+use crate::data::PrepareForLocalExecutionResult;
+use crate::data::TestExecutable;
+use crate::data::TestResult;
+use crate::grpc::channel;
+use crate::grpc::server::spawn_oneshot;
+use crate::grpc::server::ServerHandle;
+use crate::grpc::util::to_tonic;
+use crate::protocol::TestOrchestrator;
 
 pub struct TestOrchestratorClient {
     test_orchestrator_client: test_orchestrator_client::TestOrchestratorClient<Channel>,

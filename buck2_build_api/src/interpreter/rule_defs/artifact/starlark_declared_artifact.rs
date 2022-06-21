@@ -7,41 +7,49 @@
  * of this source tree.
  */
 
-use std::fmt::{self, Debug, Display};
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::{self};
 
-use anyhow::{anyhow, Context};
-use buck2_core::{
-    fs::paths::ForwardRelativePath,
-    provider::{ConfiguredProvidersLabel, ProvidersName},
-};
+use anyhow::anyhow;
+use anyhow::Context;
+use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::ProvidersName;
 use buck2_interpreter::types::label::Label;
-use gazebo::{any::ProvidesStaticType, prelude::*};
-use starlark::{
-    codemap::FileSpan,
-    collections::StarlarkHasher,
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    starlark_type,
-    values::{
-        AllocValue, Freeze, Freezer, Heap, NoSerialize, StarlarkValue, StringValue, Trace,
-        UnpackValue, Value, ValueLike,
-    },
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
+use starlark::codemap::FileSpan;
+use starlark::collections::StarlarkHasher;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::starlark_type;
+use starlark::values::AllocValue;
+use starlark::values::Freeze;
+use starlark::values::Freezer;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::StringValue;
+use starlark::values::Trace;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 
-use crate::{
-    actions::{
-        artifact,
-        artifact::{Artifact, ArtifactPath, OutputArtifact},
-    },
-    artifact_groups::ArtifactGroup,
-    deferred::BaseDeferredKey,
-    interpreter::rule_defs::{
-        artifact::{StarlarkArtifact, StarlarkArtifactLike, StarlarkOutputArtifact},
-        cmd_args::{
-            CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder,
-            WriteToFileMacroVisitor,
-        },
-    },
-};
+use crate::actions::artifact;
+use crate::actions::artifact::Artifact;
+use crate::actions::artifact::ArtifactPath;
+use crate::actions::artifact::OutputArtifact;
+use crate::artifact_groups::ArtifactGroup;
+use crate::deferred::BaseDeferredKey;
+use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
+use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
+use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 
 /// A wrapper for an artifact that has been declared in the user's implementation function.
 ///

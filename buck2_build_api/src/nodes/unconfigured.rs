@@ -10,45 +10,39 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_core::{
-    buck_path::BuckPath,
-    cells::paths::CellPath,
-    provider::ProvidersLabel,
-    target::{TargetLabel, TargetName},
-};
-use buck2_interpreter::{common::BuildFilePath, extra::ExtraContext};
+use buck2_core::buck_path::BuckPath;
+use buck2_core::cells::paths::CellPath;
+use buck2_core::provider::ProvidersLabel;
+use buck2_core::target::TargetLabel;
+use buck2_core::target::TargetName;
+use buck2_interpreter::common::BuildFilePath;
+use buck2_interpreter::extra::ExtraContext;
 use buck2_query::query::syntax::simple::eval::file_set::FileNode;
 use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
-use starlark::{
-    eval::{CallStack, Evaluator, ParametersParser},
-    values::Value,
-};
+use starlark::eval::CallStack;
+use starlark::eval::Evaluator;
+use starlark::eval::ParametersParser;
+use starlark::values::Value;
 
-use crate::{
-    attrs::{
-        attr_type::{
-            attr_literal::{AttrLiteral, CoercedDepsCollector},
-            AttrType,
-        },
-        coerced_attr::CoercedAttr,
-        CoercedAttrTraversal,
-    },
-    interpreter::{
-        module_internals::ModuleInternals,
-        rule_defs::{attr::BuildAttrCoercionContext, transition::id::TransitionId},
-    },
-    nodes::{
-        attr_internal::{
-            DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD, NAME_ATTRIBUTE_FIELD, TESTS_ATTRIBUTE_FIELD,
-            VISIBILITY_ATTRIBUTE_FIELD,
-        },
-        attr_spec::AttributeSpec,
-        attr_values::AttrValues,
-        visibility::{VisibilityPattern, VisibilitySpecification},
-        RuleType, StarlarkRuleType,
-    },
-};
+use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::attr_literal::CoercedDepsCollector;
+use crate::attrs::attr_type::AttrType;
+use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::CoercedAttrTraversal;
+use crate::interpreter::module_internals::ModuleInternals;
+use crate::interpreter::rule_defs::attr::BuildAttrCoercionContext;
+use crate::interpreter::rule_defs::transition::id::TransitionId;
+use crate::nodes::attr_internal::DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD;
+use crate::nodes::attr_internal::NAME_ATTRIBUTE_FIELD;
+use crate::nodes::attr_internal::TESTS_ATTRIBUTE_FIELD;
+use crate::nodes::attr_internal::VISIBILITY_ATTRIBUTE_FIELD;
+use crate::nodes::attr_spec::AttributeSpec;
+use crate::nodes::attr_values::AttrValues;
+use crate::nodes::visibility::VisibilityPattern;
+use crate::nodes::visibility::VisibilitySpecification;
+use crate::nodes::RuleType;
+use crate::nodes::StarlarkRuleType;
 
 /// Map of target -> details of those targets within a build file.
 pub type TargetsMap = IndexMap<TargetName, TargetNode>;
@@ -479,22 +473,26 @@ fn parse_visibility(
 pub mod testing {
     use std::sync::Arc;
 
-    use buck2_core::{fs::paths::FileNameBuf, target::TargetLabel};
+    use buck2_core::fs::paths::FileNameBuf;
+    use buck2_core::target::TargetLabel;
     use buck2_interpreter::common::BuildFilePath;
     use gazebo::prelude::*;
-    use serde_json::{map::Map, value::Value};
+    use serde_json::map::Map;
+    use serde_json::value::Value;
 
-    use crate::{
-        attrs::{attr_type::attr_literal::CoercedDepsCollector, coerced_attr::CoercedAttr},
-        interpreter::rule_defs::attr::Attribute,
-        nodes::{
-            attr_values::AttrValues,
-            hacks::value_to_json,
-            unconfigured::{TargetNode, TargetNodeData, TargetsMap},
-            visibility::VisibilitySpecification,
-            AttributeId, AttributeSpec, OrderedMap, RuleType,
-        },
-    };
+    use crate::attrs::attr_type::attr_literal::CoercedDepsCollector;
+    use crate::attrs::coerced_attr::CoercedAttr;
+    use crate::interpreter::rule_defs::attr::Attribute;
+    use crate::nodes::attr_values::AttrValues;
+    use crate::nodes::hacks::value_to_json;
+    use crate::nodes::unconfigured::TargetNode;
+    use crate::nodes::unconfigured::TargetNodeData;
+    use crate::nodes::unconfigured::TargetsMap;
+    use crate::nodes::visibility::VisibilitySpecification;
+    use crate::nodes::AttributeId;
+    use crate::nodes::AttributeSpec;
+    use crate::nodes::OrderedMap;
+    use crate::nodes::RuleType;
 
     pub trait TargetNodeExt {
         fn testing_new(

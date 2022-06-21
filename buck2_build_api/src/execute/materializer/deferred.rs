@@ -7,57 +7,64 @@
  * of this source tree.
  */
 
-use std::{collections::HashSet, str::FromStr, sync::Arc};
+use std::collections::HashSet;
+use std::str::FromStr;
+use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::file_ops::FileDigest;
-use buck2_core::{
-    directory::{unordered_entry_walk, DirectoryEntry},
-    env_helper::EnvHelper,
-    fs::{
-        paths::{AbsPathBuf, RelativePathBuf},
-        project::{ProjectFilesystem, ProjectRelativePath, ProjectRelativePathBuf},
-    },
-    result::SharedError,
-};
+use buck2_core::directory::unordered_entry_walk;
+use buck2_core::directory::DirectoryEntry;
+use buck2_core::env_helper::EnvHelper;
+use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::paths::RelativePathBuf;
+use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::result::SharedError;
 use derive_more::Display;
-use futures::{
-    future::{BoxFuture, FutureExt, Shared, TryFutureExt},
-    stream::{BoxStream, FuturesOrdered, StreamExt},
-};
+use futures::future::BoxFuture;
+use futures::future::FutureExt;
+use futures::future::Shared;
+use futures::future::TryFutureExt;
+use futures::stream::BoxStream;
+use futures::stream::FuturesOrdered;
+use futures::stream::StreamExt;
 use gazebo::prelude::*;
 use once_cell::sync::Lazy;
-use remote_execution::{NamedDigest, NamedDigestWithPermissions, REClientError, TCode, TDigest};
+use remote_execution::NamedDigest;
+use remote_execution::NamedDigestWithPermissions;
+use remote_execution::REClientError;
+use remote_execution::TCode;
+use remote_execution::TDigest;
 use thiserror::Error;
-use tokio::{
-    sync::{mpsc, oneshot},
-    task::JoinHandle,
-};
+use tokio::sync::mpsc;
+use tokio::sync::oneshot;
+use tokio::task::JoinHandle;
 use tracing::instrument;
 
-use crate::{
-    actions::{
-        artifact::ArtifactValue,
-        artifact_utils::materialize_files,
-        digest::{FileDigestFromReExt, FileDigestToReExt},
-        directory::{
-            ActionDirectory, ActionDirectoryEntry, ActionDirectoryMember, ActionSharedDirectory,
-        },
-    },
-    execute::{
-        blocking::BlockingExecutor,
-        commands::re::manager::ReConnectionManager,
-        materializer::{
-            filetree::FileTree,
-            http::{http_client, http_download},
-            io::MaterializeTreeStructure,
-            ArtifactNotMaterializedReason, CasDownloadInfo, CopiedArtifact, HttpDownloadInfo,
-            MaterializationError, Materializer,
-        },
-        CleanOutputPaths,
-    },
-};
+use crate::actions::artifact::ArtifactValue;
+use crate::actions::artifact_utils::materialize_files;
+use crate::actions::digest::FileDigestFromReExt;
+use crate::actions::digest::FileDigestToReExt;
+use crate::actions::directory::ActionDirectory;
+use crate::actions::directory::ActionDirectoryEntry;
+use crate::actions::directory::ActionDirectoryMember;
+use crate::actions::directory::ActionSharedDirectory;
+use crate::execute::blocking::BlockingExecutor;
+use crate::execute::commands::re::manager::ReConnectionManager;
+use crate::execute::materializer::filetree::FileTree;
+use crate::execute::materializer::http::http_client;
+use crate::execute::materializer::http::http_download;
+use crate::execute::materializer::io::MaterializeTreeStructure;
+use crate::execute::materializer::ArtifactNotMaterializedReason;
+use crate::execute::materializer::CasDownloadInfo;
+use crate::execute::materializer::CopiedArtifact;
+use crate::execute::materializer::HttpDownloadInfo;
+use crate::execute::materializer::MaterializationError;
+use crate::execute::materializer::Materializer;
+use crate::execute::CleanOutputPaths;
 
 /// Materializer implementation that defers materialization of declared
 /// artifacts until they are needed (i.e. `ensure_materialized` is called).
@@ -1041,7 +1048,8 @@ mod tests {
     use buck2_common::file_ops::FileMetadata;
 
     use super::*;
-    use crate::actions::directory::{insert_file, ActionDirectoryBuilder};
+    use crate::actions::directory::insert_file;
+    use crate::actions::directory::ActionDirectoryBuilder;
 
     #[test]
     pub fn test_find_artifacts() -> anyhow::Result<()> {

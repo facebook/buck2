@@ -8,16 +8,18 @@
  */
 
 use async_trait::async_trait;
-use buck2_core::{exit_result::ExitResult, fs::anyhow::remove_dir_all};
+use buck2_core::exit_result::ExitResult;
+use buck2_core::fs::anyhow::remove_dir_all;
 use cli_proto::CleanRequest;
 use futures::FutureExt;
 
 use super::common::CommonEventLogOptions;
-use crate::{
-    commands::common::{CommonConfigOptions, CommonConsoleOptions},
-    daemon::client::{BuckdClientConnector, CommandOutcome},
-    CommandContext, StreamingCommand,
-};
+use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonConsoleOptions;
+use crate::daemon::client::BuckdClientConnector;
+use crate::daemon::client::CommandOutcome;
+use crate::CommandContext;
+use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Delete generated files and caches")]

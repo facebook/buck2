@@ -7,33 +7,42 @@
  * of this source tree.
  */
 
-use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::sync::Arc;
 
 use buck2_core::fs::paths::ForwardRelativePath;
 use derivative::Derivative;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
-use starlark::{
-    environment::{FrozenModule, Module},
-    eval::Evaluator,
-    values::{OwnedFrozenValue, Trace, Tracer, UnpackValue, Value, ValueError},
-};
+use starlark::environment::FrozenModule;
+use starlark::environment::Module;
+use starlark::eval::Evaluator;
+use starlark::values::OwnedFrozenValue;
+use starlark::values::Trace;
+use starlark::values::Tracer;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
+use starlark::values::ValueError;
 use thiserror::Error;
 
-use crate::{
-    actions::{
-        artifact::{Artifact, DeclaredArtifact, OutputArtifact},
-        ActionsRegistry, UnregisteredAction,
-    },
-    artifact_groups::{registry::ArtifactGroupRegistry, ArtifactGroup},
-    configuration::execution::ExecutionPlatformResolution,
-    deferred::{BaseDeferredKey, BaseKey, DeferredId, DeferredRegistry},
-    dynamic::registry::DynamicRegistry,
-    interpreter::rule_defs::artifact::{
-        StarlarkDeclaredArtifact, StarlarkOutputArtifact, ValueAsArtifactLike,
-    },
-    path::BuckOutPath,
-};
+use crate::actions::artifact::Artifact;
+use crate::actions::artifact::DeclaredArtifact;
+use crate::actions::artifact::OutputArtifact;
+use crate::actions::ActionsRegistry;
+use crate::actions::UnregisteredAction;
+use crate::artifact_groups::registry::ArtifactGroupRegistry;
+use crate::artifact_groups::ArtifactGroup;
+use crate::configuration::execution::ExecutionPlatformResolution;
+use crate::deferred::BaseDeferredKey;
+use crate::deferred::BaseKey;
+use crate::deferred::DeferredId;
+use crate::deferred::DeferredRegistry;
+use crate::dynamic::registry::DynamicRegistry;
+use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
+use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
+use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
+use crate::path::BuckOutPath;
 
 #[derive(Derivative, Trace)]
 #[derivative(Debug)]

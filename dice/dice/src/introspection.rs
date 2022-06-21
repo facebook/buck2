@@ -7,15 +7,16 @@
  * of this source tree.
  */
 
-use std::{
-    collections::{hash_map::Entry, HashMap},
-    io::Write,
-};
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
+use std::io::Write;
 
 use anyhow::Context as _;
-use serde::{ser::SerializeSeq, Serializer};
+use serde::ser::SerializeSeq;
+use serde::Serializer;
 
-use crate::{incremental::introspection::AnyKey, Dice};
+use crate::incremental::introspection::AnyKey;
+use crate::Dice;
 
 pub(crate) fn serialize_dice_graph(
     dice: &Dice,
@@ -117,10 +118,11 @@ mod tests {
     use gazebo::prelude::*;
 
     use super::*;
-    use crate::{
-        cycles::DetectCycles, incremental::introspection::SerializedGraphNodesForKey, Dice,
-        DiceComputations, Key,
-    };
+    use crate::cycles::DetectCycles;
+    use crate::incremental::introspection::SerializedGraphNodesForKey;
+    use crate::Dice;
+    use crate::DiceComputations;
+    use crate::Key;
 
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq)]
     #[display(fmt = "{:?}", self)]

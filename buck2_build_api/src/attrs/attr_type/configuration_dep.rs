@@ -8,19 +8,21 @@
  */
 
 use anyhow::anyhow;
-use buck2_core::{
-    provider::{ProvidersLabel, ProvidersName},
-    target::TargetLabel,
-};
+use buck2_core::provider::ProvidersLabel;
+use buck2_core::provider::ProvidersName;
+use buck2_core::target::TargetLabel;
 use gazebo::prelude::*;
-use starlark::values::{string::STRING_TYPE, Value};
+use starlark::values::string::STRING_TYPE;
+use starlark::values::Value;
 use thiserror::Error;
 
-use crate::attrs::{
-    attr_type::attr_literal::{AttrLiteral, CoercionError},
-    AttrCoercionContext, AttrConfigurationContext, AttrResolutionContext, CoercedAttr,
-    ConfiguredAttr,
-};
+use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::attr_literal::CoercionError;
+use crate::attrs::AttrCoercionContext;
+use crate::attrs::AttrConfigurationContext;
+use crate::attrs::AttrResolutionContext;
+use crate::attrs::CoercedAttr;
+use crate::attrs::ConfiguredAttr;
 
 #[derive(Debug, Error)]
 pub enum ResolutionError {

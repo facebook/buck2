@@ -13,12 +13,17 @@
 
 mod common;
 
-use std::{fmt::Write, sync::Arc};
+use std::fmt::Write;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use common::BenchmarkComputationsPrerequisites;
 use dice::DiceTransaction;
-use dice_examples::math_computation::{parse_math_equations, Equation, Math, MathEquations, Var};
+use dice_examples::math_computation::parse_math_equations;
+use dice_examples::math_computation::Equation;
+use dice_examples::math_computation::Math;
+use dice_examples::math_computation::MathEquations;
+use dice_examples::math_computation::Var;
 
 /// create equations for the first n fibonacci numbers
 fn fib(n: usize, offset: Option<u8>, swap: bool) -> Vec<(Var, Equation)> {

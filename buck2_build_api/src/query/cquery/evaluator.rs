@@ -8,40 +8,37 @@
  */
 
 //! Implementation of the cli and query_* attr query language.
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    sync::Arc,
-};
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
+use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_core::{
-    fs::{paths::AbsPathBuf, project::ProjectRelativePathBuf},
-    package::Package,
-    result::ToSharedResultExt,
-    target::{TargetLabel, TargetName},
-};
+use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::package::Package;
+use buck2_core::result::ToSharedResultExt;
+use buck2_core::target::TargetLabel;
+use buck2_core::target::TargetName;
 use buck2_interpreter::pattern::PackageSpec;
-use buck2_query::query::{
-    environment::QueryEnvironment,
-    syntax::simple::{
-        eval::{label_indexed::LabelIndexed, set::TargetSet, values::QueryEvaluationResult},
-        functions::DefaultQueryFunctionsModule,
-    },
-    traversal::{AsyncTraversalDelegate, ChildVisitor},
-};
+use buck2_query::query::environment::QueryEnvironment;
+use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexed;
+use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
+use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
+use buck2_query::query::traversal::AsyncTraversalDelegate;
+use buck2_query::query::traversal::ChildVisitor;
 use dice::DiceComputations;
-use futures::{stream::FuturesUnordered, StreamExt};
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 use gazebo::prelude::*;
 
-use crate::{
-    nodes::configured::ConfiguredTargetNode,
-    query::{
-        analysis::evaluator::eval_query,
-        cquery::environment::CqueryEnvironment,
-        dice::{get_dice_query_delegate, DiceQueryDelegate},
-        uquery::environment::{PreresolvedQueryLiterals, UqueryDelegate},
-    },
-};
+use crate::nodes::configured::ConfiguredTargetNode;
+use crate::query::analysis::evaluator::eval_query;
+use crate::query::cquery::environment::CqueryEnvironment;
+use crate::query::dice::get_dice_query_delegate;
+use crate::query::dice::DiceQueryDelegate;
+use crate::query::uquery::environment::PreresolvedQueryLiterals;
+use crate::query::uquery::environment::UqueryDelegate;
 
 pub struct CqueryEvaluator<'c> {
     dice_query_delegate: Arc<DiceQueryDelegate<'c>>,

@@ -15,17 +15,18 @@
  * limitations under the License.
  */
 
-use std::{
-    cmp::Ordering,
-    fmt::{self, Debug},
-    hash::{Hash, Hasher},
-    iter::FromIterator,
-};
+use std::cmp::Ordering;
+use std::fmt::Debug;
+use std::fmt::{self};
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::iter::FromIterator;
 
 use gazebo::prelude::*;
 use indexmap::Equivalent;
 
-use crate::collections::{small_map::SmallMap, Hashed};
+use crate::collections::small_map::SmallMap;
+use crate::collections::Hashed;
 
 /// An memory-efficient set with determinstic order, based on [`SmallMap`].
 #[derive(Clone, Default_)]

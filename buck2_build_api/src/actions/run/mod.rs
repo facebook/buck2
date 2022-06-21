@@ -7,42 +7,51 @@
  * of this source tree.
  */
 
-use std::{borrow::Cow, collections::HashMap};
+use std::borrow::Cow;
+use std::collections::HashMap;
 
 use async_trait::async_trait;
-use buck2_core::{category::Category, fs::paths::ForwardRelativePathBuf};
+use buck2_core::category::Category;
+use buck2_core::fs::paths::ForwardRelativePathBuf;
 use gazebo::prelude::*;
-use host_sharing::{HostSharingRequirements, WeightClass};
-use indexmap::{indexmap, IndexSet};
+use host_sharing::HostSharingRequirements;
+use host_sharing::WeightClass;
+use indexmap::indexmap;
+use indexmap::IndexSet;
 use itertools::Itertools;
-use starlark::values::{dict::Dict, tuple::Tuple, OwnedFrozenValue};
+use starlark::values::dict::Dict;
+use starlark::values::tuple::Tuple;
+use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
 
-use crate::{
-    actions::{
-        artifact::{BuildArtifact, ExecutorFs},
-        run::{
-            dep_files::{
-                match_or_clear_dep_file, populate_dep_files, DepFilesCommandLineVisitor,
-                DepFilesKey, RunActionDepFiles,
-            },
-            expanded_command_line::ExpandedCommandLine,
-            metadata::metadata_content,
-        },
-        Action, ActionExecutable, ActionExecutionCtx, IncrementalActionExecutable,
-        UnregisteredAction,
-    },
-    artifact_groups::{ArtifactGroup, ArtifactGroupValues},
-    execute::{
-        commands::{ActionMetadataBlob, CommandExecutionInput, CommandExecutionRequest},
-        ActionExecutionKind, ActionExecutionMetadata, ActionOutputs,
-    },
-    interpreter::rule_defs::cmd_args::{
-        BaseCommandLineBuilder, CommandLineArgLike, CommandLineArtifactVisitor,
-        SimpleCommandLineArtifactVisitor, ValueAsCommandLineLike,
-    },
-    path::BuckOutPath,
-};
+use crate::actions::artifact::BuildArtifact;
+use crate::actions::artifact::ExecutorFs;
+use crate::actions::run::dep_files::match_or_clear_dep_file;
+use crate::actions::run::dep_files::populate_dep_files;
+use crate::actions::run::dep_files::DepFilesCommandLineVisitor;
+use crate::actions::run::dep_files::DepFilesKey;
+use crate::actions::run::dep_files::RunActionDepFiles;
+use crate::actions::run::expanded_command_line::ExpandedCommandLine;
+use crate::actions::run::metadata::metadata_content;
+use crate::actions::Action;
+use crate::actions::ActionExecutable;
+use crate::actions::ActionExecutionCtx;
+use crate::actions::IncrementalActionExecutable;
+use crate::actions::UnregisteredAction;
+use crate::artifact_groups::ArtifactGroup;
+use crate::artifact_groups::ArtifactGroupValues;
+use crate::execute::commands::ActionMetadataBlob;
+use crate::execute::commands::CommandExecutionInput;
+use crate::execute::commands::CommandExecutionRequest;
+use crate::execute::ActionExecutionKind;
+use crate::execute::ActionExecutionMetadata;
+use crate::execute::ActionOutputs;
+use crate::interpreter::rule_defs::cmd_args::BaseCommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
+use crate::path::BuckOutPath;
 
 pub mod dep_files;
 mod expanded_command_line;

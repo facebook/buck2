@@ -8,13 +8,14 @@
  */
 
 //! Implementation of the cli and query_* attr query language.
-use futures::{stream::FuturesOrdered, Future, StreamExt};
+use futures::stream::FuturesOrdered;
+use futures::Future;
+use futures::StreamExt;
 use indexmap::IndexMap;
 
-use crate::query::{
-    environment::QueryTarget,
-    syntax::simple::eval::{set::TargetSet, values::QueryEvaluationValue},
-};
+use crate::query::environment::QueryTarget;
+use crate::query::syntax::simple::eval::set::TargetSet;
+use crate::query::syntax::simple::eval::values::QueryEvaluationValue;
 
 /// Used to represent the results for a "multi-query" (one that contains a "%s" and potentially is applied against multiple literals).
 pub struct MultiQueryResult<T: QueryTarget>(

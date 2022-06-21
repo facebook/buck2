@@ -9,24 +9,28 @@
 
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
-use cli_proto::{ClientContext, GenericRequest};
+use cli_proto::ClientContext;
+use cli_proto::GenericRequest;
 use futures::FutureExt;
 
-use crate::{
-    commands::{
-        audit::{
-            analysis_queries::AuditAnalysisQueriesCommand, cell::AuditCellCommand,
-            config::AuditConfigCommand, configurations::AuditConfigurationsCommand,
-            dep_files::AuditDepFilesCommand,
-            execution_platform_resolution::AuditExecutionPlatformResolutionCommand,
-            includes::AuditIncludesCommand, prelude::AuditPreludeCommand,
-            providers::AuditProvidersCommand, starlark::StarlarkCommand,
-        },
-        common::{CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions, ConsoleType},
-    },
-    daemon::{client::BuckdClientConnector, server::ServerCommandContext},
-    CommandContext, StreamingCommand,
-};
+use crate::commands::audit::analysis_queries::AuditAnalysisQueriesCommand;
+use crate::commands::audit::cell::AuditCellCommand;
+use crate::commands::audit::config::AuditConfigCommand;
+use crate::commands::audit::configurations::AuditConfigurationsCommand;
+use crate::commands::audit::dep_files::AuditDepFilesCommand;
+use crate::commands::audit::execution_platform_resolution::AuditExecutionPlatformResolutionCommand;
+use crate::commands::audit::includes::AuditIncludesCommand;
+use crate::commands::audit::prelude::AuditPreludeCommand;
+use crate::commands::audit::providers::AuditProvidersCommand;
+use crate::commands::audit::starlark::StarlarkCommand;
+use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonConsoleOptions;
+use crate::commands::common::CommonEventLogOptions;
+use crate::commands::common::ConsoleType;
+use crate::daemon::client::BuckdClientConnector;
+use crate::daemon::server::ServerCommandContext;
+use crate::CommandContext;
+use crate::StreamingCommand;
 
 pub mod analysis_queries;
 pub mod cell;

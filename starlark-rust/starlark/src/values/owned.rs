@@ -15,14 +15,20 @@
  * limitations under the License.
  */
 
-use std::{fmt, fmt::Display, ops::Deref};
+use std::fmt;
+use std::fmt::Display;
+use std::ops::Deref;
 
 use gazebo::prelude::*;
 
-use crate::values::{
-    none::NoneType, AllocFrozenValue, FrozenHeap, FrozenHeapRef, FrozenValue, FrozenValueTyped,
-    StarlarkValue, Value,
-};
+use crate::values::none::NoneType;
+use crate::values::AllocFrozenValue;
+use crate::values::FrozenHeap;
+use crate::values::FrozenHeapRef;
+use crate::values::FrozenValue;
+use crate::values::FrozenValueTyped;
+use crate::values::StarlarkValue;
+use crate::values::Value;
 
 /// A [`FrozenValue`] along with a [`FrozenHeapRef`] that ensures it is kept alive.
 /// Obtained from [`FrozenModule::get`](crate::environment::FrozenModule::get) or

@@ -34,15 +34,19 @@
 //! `my/package/path` is the package, and `my_target` is the target name
 //! belonging to the package.
 
-use std::{borrow::Borrow, sync::Arc};
+use std::borrow::Borrow;
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use derive_more::Display;
 use gazebo::prelude::*;
-use serde::ser::{Serialize, Serializer};
+use serde::ser::Serialize;
+use serde::ser::Serializer;
 use thiserror::Error;
 
-use crate::{ascii_char_set::AsciiCharSet, configuration::Configuration, package::Package};
+use crate::ascii_char_set::AsciiCharSet;
+use crate::configuration::Configuration;
+use crate::package::Package;
 
 /// 'TargetName' is the name given to a particular target.
 /// e.g. `foo` in the label `fbsource//package/path:foo`.
@@ -207,11 +211,12 @@ impl TargetLabelMaybeConfigured for TargetLabel {}
 impl TargetLabelMaybeConfigured for ConfiguredTargetLabel {}
 
 pub mod testing {
-    use crate::{
-        configuration::Configuration,
-        package::{testing::PackageExt, Package},
-        target::{ConfiguredTargetLabel, TargetLabel, TargetName},
-    };
+    use crate::configuration::Configuration;
+    use crate::package::testing::PackageExt;
+    use crate::package::Package;
+    use crate::target::ConfiguredTargetLabel;
+    use crate::target::TargetLabel;
+    use crate::target::TargetName;
 
     pub trait ConfiguredTargetLabelExt {
         /// creates 'ConfiguredTargetLabel'

@@ -15,24 +15,23 @@
  * limitations under the License.
  */
 
-use std::{
-    collections::{hash_map::Entry, HashMap},
-    fs::File,
-    io,
-    io::Write,
-    path::Path,
-    slice,
-    time::Instant,
-};
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
+use std::fs::File;
+use std::io;
+use std::io::Write;
+use std::path::Path;
+use std::slice;
+use std::time::Instant;
 
 use anyhow::Context;
 use gazebo::prelude::*;
 
 use crate as starlark;
-use crate::{
-    eval::runtime::small_duration::SmallDuration,
-    values::{Trace, Tracer, Value},
-};
+use crate::eval::runtime::small_duration::SmallDuration;
+use crate::values::Trace;
+use crate::values::Tracer;
+use crate::values::Value;
 
 /// Index into FlameData.values
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Dupe)]

@@ -22,51 +22,56 @@ pub(crate) mod introspection;
 pub(crate) mod transaction_ctx;
 pub(crate) mod versions;
 
-use std::{
-    borrow::Cow,
-    collections::{hash_map::RandomState, HashSet},
-    fmt::{Debug, Display},
-    future::Future,
-    hash::Hash,
-    sync::Arc,
-};
+use std::borrow::Cow;
+use std::collections::hash_map::RandomState;
+use std::collections::HashSet;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::future::Future;
+use std::hash::Hash;
+use std::sync::Arc;
 
 use async_trait::async_trait;
-use dashmap::{
-    mapref::entry::{Entry, VacantEntry},
-    DashMap,
-};
-use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
+use dashmap::mapref::entry::Entry;
+use dashmap::mapref::entry::VacantEntry;
+use dashmap::DashMap;
+use futures::stream::FuturesUnordered;
+use futures::FutureExt;
+use futures::StreamExt;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use more_futures::spawn::spawn_task;
 use tracing::Span;
 
-pub(crate) use crate::incremental::graph::{
-    dependencies::{ComputedDependency, Dependency},
-    StorageType,
-};
-use crate::{
-    ctx::{ComputationData, DiceEvent},
-    dice_future::DiceFuture,
-    dice_task::DiceTask,
-    future_handle::WeakDiceFutureHandle,
-    incremental::{
-        dep_trackers::BothDeps,
-        evaluator::Evaluator,
-        graph::{
-            GraphNode, VersionedGraph, VersionedGraphKey, VersionedGraphKeyRef,
-            VersionedGraphResult, VersionedGraphResultMismatch,
-        },
-        history::CellHistory,
-        transaction_ctx::TransactionCtx,
-        versions::{VersionNumber, VersionRanges},
-    },
-    projection::{ProjectionKeyAsKey, ProjectionKeyProperties},
-    sync_handle::SyncDiceTaskHandle,
-    DiceProjectionComputations, Key, OpaqueValue, ProjectionKey, StorageProperties,
-    StoragePropertiesForKey,
-};
+use crate::ctx::ComputationData;
+use crate::ctx::DiceEvent;
+use crate::dice_future::DiceFuture;
+use crate::dice_task::DiceTask;
+use crate::future_handle::WeakDiceFutureHandle;
+use crate::incremental::dep_trackers::BothDeps;
+use crate::incremental::evaluator::Evaluator;
+pub(crate) use crate::incremental::graph::dependencies::ComputedDependency;
+pub(crate) use crate::incremental::graph::dependencies::Dependency;
+use crate::incremental::graph::GraphNode;
+pub(crate) use crate::incremental::graph::StorageType;
+use crate::incremental::graph::VersionedGraph;
+use crate::incremental::graph::VersionedGraphKey;
+use crate::incremental::graph::VersionedGraphKeyRef;
+use crate::incremental::graph::VersionedGraphResult;
+use crate::incremental::graph::VersionedGraphResultMismatch;
+use crate::incremental::history::CellHistory;
+use crate::incremental::transaction_ctx::TransactionCtx;
+use crate::incremental::versions::VersionNumber;
+use crate::incremental::versions::VersionRanges;
+use crate::projection::ProjectionKeyAsKey;
+use crate::projection::ProjectionKeyProperties;
+use crate::sync_handle::SyncDiceTaskHandle;
+use crate::DiceProjectionComputations;
+use crate::Key;
+use crate::OpaqueValue;
+use crate::ProjectionKey;
+use crate::StorageProperties;
+use crate::StoragePropertiesForKey;
 
 /// Result of evaluation computation.
 pub(crate) struct ValueWithDeps<T> {
@@ -782,28 +787,34 @@ enum DidDepsChange {
 
 #[cfg(test)]
 pub(crate) mod testing {
-    use std::{
-        hash::{Hash, Hasher},
-        marker::PhantomData,
-        sync::{Arc, RwLock},
-    };
+    use std::hash::Hash;
+    use std::hash::Hasher;
+    use std::marker::PhantomData;
+    use std::sync::Arc;
+    use std::sync::RwLock;
 
     use async_trait::async_trait;
     use derivative::Derivative;
     use gazebo::cmp::PartialEqAny;
 
+    use crate::incremental::dep_trackers::testing::Dep;
+    use crate::incremental::dep_trackers::testing::DepExt;
     // re-export the cache assertion utility
     pub(crate) use crate::incremental::graph::testing::VersionedCacheResultAssertsExt;
-    use crate::{
-        incremental::{
-            dep_trackers::testing::{Dep, DepExt},
-            graph::{GraphNode, ReadOnlyHistory, VersionedGraphKeyRef, VersionedGraphResult},
-            versions::MinorVersion,
-            CellHistory, ComputedDependency, Dependency, DidDepsChange, Evaluator,
-            IncrementalComputeProperties, IncrementalEngine, VersionNumber,
-        },
-        StorageProperties,
-    };
+    use crate::incremental::graph::GraphNode;
+    use crate::incremental::graph::ReadOnlyHistory;
+    use crate::incremental::graph::VersionedGraphKeyRef;
+    use crate::incremental::graph::VersionedGraphResult;
+    use crate::incremental::versions::MinorVersion;
+    use crate::incremental::CellHistory;
+    use crate::incremental::ComputedDependency;
+    use crate::incremental::Dependency;
+    use crate::incremental::DidDepsChange;
+    use crate::incremental::Evaluator;
+    use crate::incremental::IncrementalComputeProperties;
+    use crate::incremental::IncrementalEngine;
+    use crate::incremental::VersionNumber;
+    use crate::StorageProperties;
 
     pub(crate) struct DependencyExt<K>(PhantomData<K>);
 
@@ -941,55 +952,74 @@ pub(crate) mod testing {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        collections::HashSet,
-        fmt,
-        fmt::{Debug, Formatter},
-        hash::{Hash, Hasher},
-        sync::{
-            atomic::{AtomicBool, AtomicU16, AtomicUsize, Ordering},
-            Arc, Barrier, Mutex, RwLock, Weak,
-        },
-    };
+    use std::collections::HashSet;
+    use std::fmt;
+    use std::fmt::Debug;
+    use std::fmt::Formatter;
+    use std::hash::Hash;
+    use std::hash::Hasher;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::atomic::AtomicU16;
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::atomic::Ordering;
+    use std::sync::Arc;
+    use std::sync::Barrier;
+    use std::sync::Mutex;
+    use std::sync::RwLock;
+    use std::sync::Weak;
 
     use async_trait::async_trait;
     use derive_more::Display;
     use futures::FutureExt;
-    use gazebo::{cmp::PartialEqAny, prelude::*};
-    use tokio::sync::{Barrier as AsyncBarrier, Mutex as AsyncMutex, RwLock as AsyncRwLock};
+    use gazebo::cmp::PartialEqAny;
+    use gazebo::prelude::*;
+    use tokio::sync::Barrier as AsyncBarrier;
+    use tokio::sync::Mutex as AsyncMutex;
+    use tokio::sync::RwLock as AsyncRwLock;
 
-    use crate::{
-        ctx::{testing::ComputationDataExt, ComputationData},
-        incremental::{
-            dep_trackers::{
-                testing::{ComputedDep, ComputedDepExt},
-                BothDeps,
-            },
-            evaluator::testing::{EvaluatorFn, EvaluatorUnreachable},
-            graph::{
-                dependencies::{
-                    testing::VersionedDependenciesExt, VersionedDependencies,
-                    VersionedRevDependencies,
-                },
-                storage_properties::testing::StoragePropertiesLastN,
-                GraphNode, GraphNodeDyn, NodeMetadata, OccupiedGraphNode, ReadOnlyHistory,
-                VersionedGraphKeyRef, WritableMetadata,
-            },
-            history::testing::CellHistoryExt,
-            introspection::AnyKey,
-            testing::{
-                DependencyExt, DidDepsChangeExt, IncrementalEngineExt,
-                VersionedCacheResultAssertsExt,
-            },
-            versions::{
-                testing::VersionRangesExt, MinorVersion, MinorVersionGuard, VersionForWrites,
-                VersionNumber, VersionRange, VersionRanges,
-            },
-            CellHistory, ComputedDependency, Dependency, Evaluator, IncrementalComputeProperties,
-            IncrementalEngine, TransactionCtx, VersionedGraphResultMismatch,
-        },
-        StorageProperties, StorageType, ValueWithDeps, WeakDiceFutureHandle,
-    };
+    use crate::ctx::testing::ComputationDataExt;
+    use crate::ctx::ComputationData;
+    use crate::incremental::dep_trackers::testing::ComputedDep;
+    use crate::incremental::dep_trackers::testing::ComputedDepExt;
+    use crate::incremental::dep_trackers::BothDeps;
+    use crate::incremental::evaluator::testing::EvaluatorFn;
+    use crate::incremental::evaluator::testing::EvaluatorUnreachable;
+    use crate::incremental::graph::dependencies::testing::VersionedDependenciesExt;
+    use crate::incremental::graph::dependencies::VersionedDependencies;
+    use crate::incremental::graph::dependencies::VersionedRevDependencies;
+    use crate::incremental::graph::storage_properties::testing::StoragePropertiesLastN;
+    use crate::incremental::graph::GraphNode;
+    use crate::incremental::graph::GraphNodeDyn;
+    use crate::incremental::graph::NodeMetadata;
+    use crate::incremental::graph::OccupiedGraphNode;
+    use crate::incremental::graph::ReadOnlyHistory;
+    use crate::incremental::graph::VersionedGraphKeyRef;
+    use crate::incremental::graph::WritableMetadata;
+    use crate::incremental::history::testing::CellHistoryExt;
+    use crate::incremental::introspection::AnyKey;
+    use crate::incremental::testing::DependencyExt;
+    use crate::incremental::testing::DidDepsChangeExt;
+    use crate::incremental::testing::IncrementalEngineExt;
+    use crate::incremental::testing::VersionedCacheResultAssertsExt;
+    use crate::incremental::versions::testing::VersionRangesExt;
+    use crate::incremental::versions::MinorVersion;
+    use crate::incremental::versions::MinorVersionGuard;
+    use crate::incremental::versions::VersionForWrites;
+    use crate::incremental::versions::VersionNumber;
+    use crate::incremental::versions::VersionRange;
+    use crate::incremental::versions::VersionRanges;
+    use crate::incremental::CellHistory;
+    use crate::incremental::ComputedDependency;
+    use crate::incremental::Dependency;
+    use crate::incremental::Evaluator;
+    use crate::incremental::IncrementalComputeProperties;
+    use crate::incremental::IncrementalEngine;
+    use crate::incremental::TransactionCtx;
+    use crate::incremental::VersionedGraphResultMismatch;
+    use crate::StorageProperties;
+    use crate::StorageType;
+    use crate::ValueWithDeps;
+    use crate::WeakDiceFutureHandle;
 
     #[tokio::test]
     async fn evaluation_tracks_rdeps() {

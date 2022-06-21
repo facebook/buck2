@@ -11,34 +11,35 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_core::{
-    directory::{unordered_entry_walk, DirectoryEntry},
-    fs::{
-        paths::AbsPathBuf,
-        project::{ProjectFilesystem, ProjectRelativePath, ProjectRelativePathBuf},
-    },
-};
-use futures::stream::{self, BoxStream, StreamExt};
+use buck2_core::directory::unordered_entry_walk;
+use buck2_core::directory::DirectoryEntry;
+use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project::ProjectRelativePathBuf;
+use futures::stream::BoxStream;
+use futures::stream::StreamExt;
+use futures::stream::{self};
 use gazebo::prelude::*;
-use remote_execution::{NamedDigest, NamedDigestWithPermissions};
+use remote_execution::NamedDigest;
+use remote_execution::NamedDigestWithPermissions;
 
-use crate::{
-    actions::{
-        artifact::ArtifactValue, artifact_utils::materialize_files, digest::FileDigestToReExt,
-        directory::ActionDirectoryMember,
-    },
-    execute::{
-        blocking::BlockingExecutor,
-        commands::re::manager::ReConnectionManager,
-        materializer::{
-            http::{http_client, http_download},
-            io::MaterializeTreeStructure,
-            ArtifactNotMaterializedReason, CasDownloadInfo, CopiedArtifact, HttpDownloadInfo,
-            MaterializationError, Materializer,
-        },
-        CleanOutputPaths,
-    },
-};
+use crate::actions::artifact::ArtifactValue;
+use crate::actions::artifact_utils::materialize_files;
+use crate::actions::digest::FileDigestToReExt;
+use crate::actions::directory::ActionDirectoryMember;
+use crate::execute::blocking::BlockingExecutor;
+use crate::execute::commands::re::manager::ReConnectionManager;
+use crate::execute::materializer::http::http_client;
+use crate::execute::materializer::http::http_download;
+use crate::execute::materializer::io::MaterializeTreeStructure;
+use crate::execute::materializer::ArtifactNotMaterializedReason;
+use crate::execute::materializer::CasDownloadInfo;
+use crate::execute::materializer::CopiedArtifact;
+use crate::execute::materializer::HttpDownloadInfo;
+use crate::execute::materializer::MaterializationError;
+use crate::execute::materializer::Materializer;
+use crate::execute::CleanOutputPaths;
 
 /// Materializer that materializes everything immediately on declare.
 pub struct ImmediateMaterializer {

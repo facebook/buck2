@@ -7,9 +7,13 @@
  * of this source tree.
  */
 
-use std::{thread::sleep, time::Duration};
+use std::thread::sleep;
+use std::time::Duration;
 
-use superconsole::{style::Stylize, Component, Span, SuperConsole};
+use superconsole::style::Stylize;
+use superconsole::Component;
+use superconsole::Span;
+use superconsole::SuperConsole;
 
 const CRATES: &str = include_str!("cargo/crates.txt");
 const WIDTH: usize = "=======>                  ".len() - 1;

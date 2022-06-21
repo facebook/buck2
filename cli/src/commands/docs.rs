@@ -9,13 +9,11 @@
 
 use buck2_core::exit_result::ExitResult;
 
-use crate::{
-    commands::docs::{
-        query::{DocsCqueryCommand, DocsUqueryCommand},
-        starlark::DocsStarlarkCommand,
-    },
-    BuckSubcommand, CommandContext,
-};
+use crate::commands::docs::query::DocsCqueryCommand;
+use crate::commands::docs::query::DocsUqueryCommand;
+use crate::commands::docs::starlark::DocsStarlarkCommand;
+use crate::BuckSubcommand;
+use crate::CommandContext;
 
 mod query;
 mod starlark;

@@ -12,16 +12,19 @@ use std::ops::Deref;
 use buck2_build_api_derive::internal_provider;
 use gazebo::any::ProvidesStaticType;
 use indexmap::IndexMap;
-use starlark::{
-    collections::SmallMap,
-    environment::GlobalsBuilder,
-    values::{dict::*, Coerce, Freeze, Trace, Value, ValueError, ValueOf},
-};
+use starlark::collections::SmallMap;
+use starlark::environment::GlobalsBuilder;
+use starlark::values::dict::*;
+use starlark::values::Coerce;
+use starlark::values::Freeze;
+use starlark::values::Trace;
+use starlark::values::Value;
+use starlark::values::ValueError;
+use starlark::values::ValueOf;
 
-use crate::{
-    actions::artifact::Artifact,
-    interpreter::rule_defs::{artifact::ValueAsArtifactLike, provider::builtin::run_info::RunInfo},
-};
+use crate::actions::artifact::Artifact;
+use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
+use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 // Provider that singals a rule is installable
 
 #[internal_provider(install_info_creator)]
@@ -79,9 +82,8 @@ mod tests {
     use buck2_core::result::SharedResult;
     use indoc::indoc;
 
-    use crate::interpreter::{
-        rule_defs::provider::collection::tester::collection_creator, testing::Tester,
-    };
+    use crate::interpreter::rule_defs::provider::collection::tester::collection_creator;
+    use crate::interpreter::testing::Tester;
 
     #[test]
     fn install_info_works_as_provider_key() -> SharedResult<()> {

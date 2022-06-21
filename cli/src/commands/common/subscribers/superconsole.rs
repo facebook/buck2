@@ -7,44 +7,58 @@
  * of this source tree.
  */
 
-use std::{borrow::Cow, time::Duration};
+use std::borrow::Cow;
+use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_data::action_execution_end::CommandExecutionDetails;
-use events::{
-    subscriber::{EventSubscriber, Tick},
-    BuckEvent, TraceId,
-};
+use events::subscriber::EventSubscriber;
+use events::subscriber::Tick;
+use events::BuckEvent;
+use events::TraceId;
 use gazebo::prelude::*;
 use itertools::Itertools;
+use superconsole::components::splitting::SplitKind;
+use superconsole::components::Bounded;
+use superconsole::components::Split;
+use superconsole::content::colored_lines_from_multiline_string;
+use superconsole::content::lines_from_multiline_string;
+use superconsole::content::LinesExt;
+use superconsole::style::Attribute;
+use superconsole::style::Color;
+use superconsole::style::ContentStyle;
+use superconsole::style::StyledContent;
+use superconsole::style::Stylize;
+use superconsole::Component;
+use superconsole::Dimensions;
+use superconsole::Direction;
+use superconsole::DrawMode;
+use superconsole::Line;
+use superconsole::Lines;
+use superconsole::Span;
+use superconsole::State;
 pub(crate) use superconsole::SuperConsole;
-use superconsole::{
-    components::{splitting::SplitKind, Bounded, Split},
-    content::{colored_lines_from_multiline_string, lines_from_multiline_string, LinesExt},
-    style::{Attribute, Color, ContentStyle, StyledContent, Stylize},
-    Component, Dimensions, Direction, DrawMode, Line, Lines, Span, State,
-};
 use thiserror::Error;
 
-use crate::commands::common::{
-    subscribers::{
-        display,
-        simpleconsole::WhatRanCommandConsoleFormat,
-        superconsole::{
-            debug_events::{DebugEventsComponent, DebugEventsState},
-            dice::{DiceComponent, DiceState},
-            re::{ReHeader, ReState},
-            test::TestState,
-            timed_list::{Cutoffs, TimedList},
-        },
-        SimpleConsole,
-    },
-    verbosity::Verbosity,
-    what_ran::{
-        self, local_command_to_string, WhatRanOptions, WhatRanOutputCommand, WhatRanOutputWriter,
-    },
-};
+use crate::commands::common::subscribers::display;
+use crate::commands::common::subscribers::simpleconsole::WhatRanCommandConsoleFormat;
+use crate::commands::common::subscribers::superconsole::debug_events::DebugEventsComponent;
+use crate::commands::common::subscribers::superconsole::debug_events::DebugEventsState;
+use crate::commands::common::subscribers::superconsole::dice::DiceComponent;
+use crate::commands::common::subscribers::superconsole::dice::DiceState;
+use crate::commands::common::subscribers::superconsole::re::ReHeader;
+use crate::commands::common::subscribers::superconsole::re::ReState;
+use crate::commands::common::subscribers::superconsole::test::TestState;
+use crate::commands::common::subscribers::superconsole::timed_list::Cutoffs;
+use crate::commands::common::subscribers::superconsole::timed_list::TimedList;
+use crate::commands::common::subscribers::SimpleConsole;
+use crate::commands::common::verbosity::Verbosity;
+use crate::commands::common::what_ran::local_command_to_string;
+use crate::commands::common::what_ran::WhatRanOptions;
+use crate::commands::common::what_ran::WhatRanOutputCommand;
+use crate::commands::common::what_ran::WhatRanOutputWriter;
+use crate::commands::common::what_ran::{self};
 
 mod common;
 pub mod debug_events;
@@ -763,10 +777,16 @@ pub(crate) enum SuperConsoleError {
 mod tests {
     use std::time::SystemTime;
 
-    use buck2_data::{LoadBuildFileEnd, LoadBuildFileStart, SpanEndEvent, SpanStartEvent};
-    use cli_proto::{CommandResult, GenericResponse};
+    use buck2_data::LoadBuildFileEnd;
+    use buck2_data::LoadBuildFileStart;
+    use buck2_data::SpanEndEvent;
+    use buck2_data::SpanStartEvent;
+    use cli_proto::CommandResult;
+    use cli_proto::GenericResponse;
     use events::SpanId;
-    use superconsole::testing::{frame_contains, test_console, SuperConsoleTestingExt};
+    use superconsole::testing::frame_contains;
+    use superconsole::testing::test_console;
+    use superconsole::testing::SuperConsoleTestingExt;
 
     use super::*;
 

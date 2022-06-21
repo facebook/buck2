@@ -17,10 +17,9 @@
 
 use indexmap::IndexMap;
 
-use crate::{
-    codemap::FileSpan,
-    syntax::{ast::Stmt, AstModule},
-};
+use crate::codemap::FileSpan;
+use crate::syntax::ast::Stmt;
+use crate::syntax::AstModule;
 
 impl AstModule {
     /// Which symbols are exported by this module. These are the top-level assignments,

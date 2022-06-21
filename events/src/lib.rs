@@ -22,29 +22,32 @@ pub mod sink;
 pub mod source;
 pub mod subscriber;
 
-use std::{
-    convert::TryFrom,
-    fmt::{Display, Formatter},
-    hash::{Hash, Hasher},
-    num::NonZeroU64,
-    str::FromStr,
-    sync::{
-        atomic::{AtomicU64, Ordering},
-        Arc,
-    },
-    time::SystemTime,
-};
+use std::convert::TryFrom;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::num::NonZeroU64;
+use std::str::FromStr;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
+use std::time::SystemTime;
 
 use async_trait::async_trait;
-use byteorder::{ByteOrder, NetworkEndian};
+use byteorder::ByteOrder;
+use byteorder::NetworkEndian;
 use cli_proto::CommandResult;
-use derive_more::{Display, From};
-use gazebo::{prelude::*, variants::UnpackVariants};
+use derive_more::Display;
+use derive_more::From;
+use gazebo::prelude::*;
+use gazebo::variants::UnpackVariants;
 use serde::Serialize;
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::{sink::channel::ChannelEventSink, source::ChannelEventSource};
+use crate::sink::channel::ChannelEventSink;
+use crate::source::ChannelEventSource;
 
 /// A TraceId is a unique identifier for a trace. Trace IDs are globally unique; their textual form is a v4 UUID.
 ///
@@ -239,7 +242,8 @@ pub enum BuckEventError {
 mod tests {
     use std::collections::HashMap;
 
-    use buck2_data::{CommandStart, SpanStartEvent};
+    use buck2_data::CommandStart;
+    use buck2_data::SpanStartEvent;
 
     use super::*;
 

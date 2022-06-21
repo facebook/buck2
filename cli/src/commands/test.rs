@@ -9,22 +9,22 @@
 
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
-use cli_proto::{TestRequest, TestSessionOptions};
+use cli_proto::TestRequest;
+use cli_proto::TestSessionOptions;
 use crossterm::style::Color;
 use futures::FutureExt;
 use gazebo::prelude::*;
 
-use crate::{
-    commands::{
-        build::print_build_result,
-        common::{
-            subscribers::superconsole::test::{StylizedCount, TestHeader},
-            CommonBuildOptions, CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions,
-        },
-    },
-    daemon::client::BuckdClientConnector,
-    CommandContext, StreamingCommand,
-};
+use crate::commands::build::print_build_result;
+use crate::commands::common::subscribers::superconsole::test::StylizedCount;
+use crate::commands::common::subscribers::superconsole::test::TestHeader;
+use crate::commands::common::CommonBuildOptions;
+use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonConsoleOptions;
+use crate::commands::common::CommonEventLogOptions;
+use crate::daemon::client::BuckdClientConnector;
+use crate::CommandContext;
+use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "test", about = "Build and test the specified targets")]

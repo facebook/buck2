@@ -15,24 +15,29 @@
  * limitations under the License.
  */
 
-use std::{
-    cell::{Cell, RefCell},
-    marker,
-    sync::{
-        atomic::{
-            AtomicBool, AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicIsize, AtomicU16,
-            AtomicU32, AtomicU64, AtomicU8, AtomicUsize,
-        },
-        Arc, Mutex,
-    },
-};
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::marker;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicI16;
+use std::sync::atomic::AtomicI32;
+use std::sync::atomic::AtomicI64;
+use std::sync::atomic::AtomicI8;
+use std::sync::atomic::AtomicIsize;
+use std::sync::atomic::AtomicU16;
+use std::sync::atomic::AtomicU32;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::AtomicU8;
+use std::sync::atomic::AtomicUsize;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use hashbrown::raw::RawTable;
 
-use crate::{
-    collections::SmallMap,
-    values::{FrozenValue, Tracer, Value},
-};
+use crate::collections::SmallMap;
+use crate::values::FrozenValue;
+use crate::values::Tracer;
+use crate::values::Value;
 
 /// Called by the garbage collection, and must walk over every contained `Value` in the type.
 /// Marked `unsafe` because if you miss a nested `Value`, it will probably segfault.

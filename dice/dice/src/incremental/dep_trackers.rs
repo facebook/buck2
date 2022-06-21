@@ -9,19 +9,19 @@
 
 //! Trackers that records dependencies and reverse dependencies during execution of requested nodes
 
-use std::{
-    collections::HashSet,
-    sync::{Arc, Mutex},
-};
+use std::collections::HashSet;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use gazebo::prelude::*;
 
-use crate::incremental::{
-    dep_trackers::internals::ComputedDep,
-    graph::{dependencies::ComputedDependency, GraphNode, GraphNodeDyn},
-    versions::VersionNumber,
-    IncrementalComputeProperties, IncrementalEngine,
-};
+use crate::incremental::dep_trackers::internals::ComputedDep;
+use crate::incremental::graph::dependencies::ComputedDependency;
+use crate::incremental::graph::GraphNode;
+use crate::incremental::graph::GraphNodeDyn;
+use crate::incremental::versions::VersionNumber;
+use crate::incremental::IncrementalComputeProperties;
+use crate::incremental::IncrementalEngine;
 
 /// The 'DepsTracker' is used to record dependencies of a particular compute node by calling
 /// 'record' for each dependency, and then getting a list of 'Dependency's at the end by calling
@@ -166,30 +166,33 @@ impl BothDepTrackers {
 }
 
 mod internals {
-    use std::{
-        any::type_name,
-        fmt,
-        fmt::{Debug, Display, Formatter},
-        hash::{Hash, Hasher},
-        sync::{Arc, Weak},
-    };
+    use std::any::type_name;
+    use std::fmt;
+    use std::fmt::Debug;
+    use std::fmt::Display;
+    use std::fmt::Formatter;
+    use std::hash::Hash;
+    use std::hash::Hasher;
+    use std::sync::Arc;
+    use std::sync::Weak;
 
     use async_trait::async_trait;
-    use gazebo::{cmp::PartialEqAny, prelude::*};
+    use gazebo::cmp::PartialEqAny;
+    use gazebo::prelude::*;
 
-    /// internal representation of dependencies recorded by the trackers
-    use crate::incremental::{
-        introspection::AnyKey, versions::VersionNumber, ComputedDependency, Dependency,
-        IncrementalComputeProperties, IncrementalEngine,
-    };
-    use crate::{
-        ctx::ComputationData,
-        incremental::{
-            graph::{GraphNode, GraphNodeDyn, ReadOnlyHistory, VersionedGraphKeyRef},
-            transaction_ctx::TransactionCtx,
-            versions::MinorVersion,
-        },
-    };
+    use crate::ctx::ComputationData;
+    use crate::incremental::graph::GraphNode;
+    use crate::incremental::graph::GraphNodeDyn;
+    use crate::incremental::graph::ReadOnlyHistory;
+    use crate::incremental::graph::VersionedGraphKeyRef;
+    use crate::incremental::introspection::AnyKey;
+    use crate::incremental::transaction_ctx::TransactionCtx;
+    use crate::incremental::versions::MinorVersion;
+    use crate::incremental::versions::VersionNumber;
+    use crate::incremental::ComputedDependency;
+    use crate::incremental::Dependency;
+    use crate::incremental::IncrementalComputeProperties;
+    use crate::incremental::IncrementalEngine;
 
     pub(crate) struct ComputedDep<K: IncrementalComputeProperties> {
         pub(crate) engine: Weak<IncrementalEngine<K>>,
@@ -339,15 +342,16 @@ mod internals {
 
 #[cfg(test)]
 pub(crate) mod testing {
-    use std::sync::{Arc, Weak};
+    use std::sync::Arc;
+    use std::sync::Weak;
 
-    // re-export internals for testing
-    pub(crate) use crate::incremental::dep_trackers::internals::{ComputedDep, Dep};
-    use crate::incremental::{
-        graph::{GraphNode, OccupiedGraphNode},
-        versions::VersionNumber,
-        IncrementalComputeProperties, IncrementalEngine,
-    };
+    pub(crate) use crate::incremental::dep_trackers::internals::ComputedDep;
+    pub(crate) use crate::incremental::dep_trackers::internals::Dep;
+    use crate::incremental::graph::GraphNode;
+    use crate::incremental::graph::OccupiedGraphNode;
+    use crate::incremental::versions::VersionNumber;
+    use crate::incremental::IncrementalComputeProperties;
+    use crate::incremental::IncrementalEngine;
 
     pub(crate) trait DepExt<K: IncrementalComputeProperties> {
         fn testing_new(engine: Weak<IncrementalEngine<K>>, k: K::Key) -> Self;
@@ -394,19 +398,20 @@ mod tests {
 
     use gazebo::prelude::*;
 
-    use crate::{
-        ctx::{testing::ComputationDataExt, ComputationData},
-        incremental::{
-            dep_trackers::{BothDeps, RecordingDepsTracker, RecordingRdepsTracker},
-            evaluator::testing::{EvaluatorFn, EvaluatorUnreachable},
-            graph::OccupiedGraphNode,
-            history::CellHistory,
-            testing::ComputedDependencyExt,
-            versions::VersionNumber,
-            IncrementalEngine, TransactionCtx,
-        },
-        ValueWithDeps,
-    };
+    use crate::ctx::testing::ComputationDataExt;
+    use crate::ctx::ComputationData;
+    use crate::incremental::dep_trackers::BothDeps;
+    use crate::incremental::dep_trackers::RecordingDepsTracker;
+    use crate::incremental::dep_trackers::RecordingRdepsTracker;
+    use crate::incremental::evaluator::testing::EvaluatorFn;
+    use crate::incremental::evaluator::testing::EvaluatorUnreachable;
+    use crate::incremental::graph::OccupiedGraphNode;
+    use crate::incremental::history::CellHistory;
+    use crate::incremental::testing::ComputedDependencyExt;
+    use crate::incremental::versions::VersionNumber;
+    use crate::incremental::IncrementalEngine;
+    use crate::incremental::TransactionCtx;
+    use crate::ValueWithDeps;
 
     #[test]
     fn recording_rdeps_tracker_tracks_rdeps() {

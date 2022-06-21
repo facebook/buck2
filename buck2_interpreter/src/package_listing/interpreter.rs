@@ -10,20 +10,23 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_common::file_ops::{FileOps, SimpleDirEntry};
-use buck2_core::{
-    cells::{paths::CellPath, CellResolver},
-    fs::paths::{FileNameBuf, ForwardRelativePath},
-    package::{Package, PackageRelativePathBuf},
-    result::SharedResult,
-};
-use futures::{stream::FuturesUnordered, StreamExt};
+use buck2_common::file_ops::FileOps;
+use buck2_common::file_ops::SimpleDirEntry;
+use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::CellResolver;
+use buck2_core::fs::paths::FileNameBuf;
+use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_core::package::Package;
+use buck2_core::package::PackageRelativePathBuf;
+use buck2_core::result::SharedResult;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 use thiserror::Error;
 
-use crate::package_listing::{
-    find_buildfile::find_buildfile, listing::PackageListing, resolver::PackageListingResolver,
-    sorted_index_set::SortedIndexSet,
-};
+use crate::package_listing::find_buildfile::find_buildfile;
+use crate::package_listing::listing::PackageListing;
+use crate::package_listing::resolver::PackageListingResolver;
+use crate::package_listing::sorted_index_set::SortedIndexSet;
 
 #[derive(Debug, Error)]
 enum PackageListingError {

@@ -7,30 +7,31 @@
  * of this source tree.
  */
 
-use std::{collections::HashMap, fs::File, io::Write};
+use std::collections::HashMap;
+use std::fs::File;
+use std::io::Write;
 
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
-use cli_proto::{
-    build_request::{build_providers, BuildProviders, Materializations},
-    BuildRequest,
-};
+use cli_proto::build_request::build_providers;
+use cli_proto::build_request::BuildProviders;
+use cli_proto::build_request::Materializations;
+use cli_proto::BuildRequest;
 use futures::FutureExt;
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::{
-    commands::{
-        build::print_build_result,
-        common::{
-            subscribers::superconsole::SUPERCONSOLE_WIDTH, CommonBuildOptions, CommonConfigOptions,
-            CommonConsoleOptions, CommonEventLogOptions,
-        },
-    },
-    daemon::client::{BuckdClientConnector, CommandOutcome},
-    CommandContext, StreamingCommand,
-};
+use crate::commands::build::print_build_result;
+use crate::commands::common::subscribers::superconsole::SUPERCONSOLE_WIDTH;
+use crate::commands::common::CommonBuildOptions;
+use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonConsoleOptions;
+use crate::commands::common::CommonEventLogOptions;
+use crate::daemon::client::BuckdClientConnector;
+use crate::daemon::client::CommandOutcome;
+use crate::CommandContext;
+use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
 #[clap(

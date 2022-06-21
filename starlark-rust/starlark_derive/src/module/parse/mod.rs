@@ -18,16 +18,24 @@
 mod fun;
 
 use gazebo::prelude::*;
-use syn::{
-    spanned::Spanned, Attribute, FnArg, Item, ItemConst, ItemFn, Meta, MetaNameValue, PatType,
-    Stmt, Type, TypeReference,
-};
+use syn::spanned::Spanned;
+use syn::Attribute;
+use syn::FnArg;
+use syn::Item;
+use syn::ItemConst;
+use syn::ItemFn;
+use syn::Meta;
+use syn::MetaNameValue;
+use syn::PatType;
+use syn::Stmt;
+use syn::Type;
+use syn::TypeReference;
 
-use crate::module::{
-    parse::fun::parse_fun,
-    typ::{StarConst, StarModule, StarStmt},
-    util::is_type_name,
-};
+use crate::module::parse::fun::parse_fun;
+use crate::module::typ::StarConst;
+use crate::module::typ::StarModule;
+use crate::module::typ::StarStmt;
+use crate::module::util::is_type_name;
 
 #[derive(Debug, Copy, Clone, Dupe, PartialEq, Eq)]
 pub(crate) enum ModuleKind {

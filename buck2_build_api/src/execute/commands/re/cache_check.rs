@@ -7,25 +7,26 @@
  * of this source tree.
  */
 
-use std::{ops::ControlFlow, sync::Arc};
+use std::ops::ControlFlow;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use gazebo::prelude::*;
 use remote_execution as RE;
 use tracing::info;
 
-use crate::execute::{
-    commands::{
-        re::{
-            client::ActionDigest, download::download_action_results,
-            manager::ManagedRemoteExecutionClient, ActionPaths,
-        },
-        CommandExecutionManager, CommandExecutionRequest, CommandExecutionResult, ExecutorName,
-        PreparedCommand, PreparedCommandExecutor,
-    },
-    materializer::Materializer,
-    RemoteExecutorUseCase,
-};
+use crate::execute::commands::re::client::ActionDigest;
+use crate::execute::commands::re::download::download_action_results;
+use crate::execute::commands::re::manager::ManagedRemoteExecutionClient;
+use crate::execute::commands::re::ActionPaths;
+use crate::execute::commands::CommandExecutionManager;
+use crate::execute::commands::CommandExecutionRequest;
+use crate::execute::commands::CommandExecutionResult;
+use crate::execute::commands::ExecutorName;
+use crate::execute::commands::PreparedCommand;
+use crate::execute::commands::PreparedCommandExecutor;
+use crate::execute::materializer::Materializer;
+use crate::execute::RemoteExecutorUseCase;
 
 /// A PreparedCommandExecutor that will check the action cache before executing any actions using the underlying executor.
 pub struct CacheCheckingExecutor {

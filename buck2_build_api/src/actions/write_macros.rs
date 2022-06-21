@@ -7,39 +7,45 @@
  * of this source tree.
  */
 
-use std::{
-    borrow::Cow,
-    convert::TryFrom,
-    time::{Duration, Instant},
-};
+use std::borrow::Cow;
+use std::convert::TryFrom;
+use std::time::Duration;
+use std::time::Instant;
 
 use async_trait::async_trait;
-use buck2_common::file_ops::{FileDigest, FileMetadata, TrackedFileDigest};
-use buck2_core::{
-    category::Category,
-    fs::{paths::RelativePathBuf, project::ProjectRelativePathBuf},
-};
+use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::FileMetadata;
+use buck2_common::file_ops::TrackedFileDigest;
+use buck2_core::category::Category;
+use buck2_core::fs::paths::RelativePathBuf;
+use buck2_core::fs::project::ProjectRelativePathBuf;
 use gazebo::prelude::*;
-use indexmap::{IndexMap, IndexSet};
+use indexmap::IndexMap;
+use indexmap::IndexSet;
 use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
 
-use crate::{
-    actions::{
-        artifact::{ArtifactValue, BuildArtifact, ExecutorFs},
-        Action, ActionExecutable, ActionExecutionCtx, ArtifactGroup, PristineActionExecutable,
-        UnregisteredAction,
-    },
-    attrs::attr_type::arg::{value::ResolvedMacro, ArgBuilder},
-    execute::{
-        ActionExecutionKind, ActionExecutionMetadata, ActionExecutionTimingData, ActionOutputs,
-    },
-    interpreter::rule_defs::cmd_args::{
-        BaseCommandLineBuilder, CommandLineBuilderContext, CommandLineLocation,
-        ValueAsCommandLineLike, WriteToFileMacroVisitor,
-    },
-};
+use crate::actions::artifact::ArtifactValue;
+use crate::actions::artifact::BuildArtifact;
+use crate::actions::artifact::ExecutorFs;
+use crate::actions::Action;
+use crate::actions::ActionExecutable;
+use crate::actions::ActionExecutionCtx;
+use crate::actions::ArtifactGroup;
+use crate::actions::PristineActionExecutable;
+use crate::actions::UnregisteredAction;
+use crate::attrs::attr_type::arg::value::ResolvedMacro;
+use crate::attrs::attr_type::arg::ArgBuilder;
+use crate::execute::ActionExecutionKind;
+use crate::execute::ActionExecutionMetadata;
+use crate::execute::ActionExecutionTimingData;
+use crate::execute::ActionOutputs;
+use crate::interpreter::rule_defs::cmd_args::BaseCommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
+use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
+use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
+use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 
 pub struct UnregisteredWriteMacrosToFileAction {
     _private: (),

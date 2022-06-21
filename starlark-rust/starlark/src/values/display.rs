@@ -38,7 +38,9 @@
 // TODO(cjhopman): Starlark values don't really do anything with the rest of the flags so
 // propagating them hasn't been necessary, but it would be easy enough to implement if we wanted to.
 
-use std::fmt::{self, Display, Write};
+use std::fmt::Display;
+use std::fmt::Write;
+use std::fmt::{self};
 
 const INDENT: &str = "  ";
 
@@ -172,7 +174,8 @@ pub fn display_keyed_container<K: Display, V: Display, Iter: ExactSizeIterator<I
 mod tests {
     use std::fmt;
 
-    use indexmap::{indexmap, IndexMap};
+    use indexmap::indexmap;
+    use indexmap::IndexMap;
     use indoc::indoc;
 
     use super::*;

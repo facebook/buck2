@@ -7,48 +7,47 @@
  * of this source tree.
  */
 
-use std::{
-    borrow::Cow,
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::borrow::Cow;
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::sync::Arc;
 
 use anyhow::Context as _;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_core::{
-    category::Category,
-    directory::{DirectorySelector, FingerprintedDirectory},
-    env_helper::EnvHelper,
-    fs::project::ProjectRelativePath,
-};
+use buck2_core::category::Category;
+use buck2_core::directory::DirectorySelector;
+use buck2_core::directory::FingerprintedDirectory;
+use buck2_core::env_helper::EnvHelper;
+use buck2_core::fs::project::ProjectRelativePath;
 use dashmap::DashMap;
 use derive_more::Display;
 use futures::StreamExt;
 use gazebo::prelude::*;
 use once_cell::sync::Lazy;
-use parking_lot::{MappedMutexGuard, Mutex, MutexGuard};
+use parking_lot::MappedMutexGuard;
+use parking_lot::Mutex;
+use parking_lot::MutexGuard;
 use thiserror::Error;
 use tracing::instrument;
 
-use crate::{
-    actions::{
-        artifact::{Artifact, ArtifactFs, OutputArtifact},
-        directory::{
-            expand_selector_for_dependencies, ActionDirectoryBuilder, ActionImmutableDirectory,
-            ActionSharedDirectory, INTERNER,
-        },
-        run::expanded_command_line::ExpandedCommandLineDigest,
-        ActionExecutionCtx,
-    },
-    artifact_groups::ArtifactGroup,
-    deferred::BaseDeferredKey,
-    execute::{
-        commands::CommandExecutionTarget,
-        materializer::{MaterializationError, Materializer},
-        ActionOutputs,
-    },
-    interpreter::rule_defs::{artifact_tagging::ArtifactTag, cmd_args::CommandLineArtifactVisitor},
-};
+use crate::actions::artifact::Artifact;
+use crate::actions::artifact::ArtifactFs;
+use crate::actions::artifact::OutputArtifact;
+use crate::actions::directory::expand_selector_for_dependencies;
+use crate::actions::directory::ActionDirectoryBuilder;
+use crate::actions::directory::ActionImmutableDirectory;
+use crate::actions::directory::ActionSharedDirectory;
+use crate::actions::directory::INTERNER;
+use crate::actions::run::expanded_command_line::ExpandedCommandLineDigest;
+use crate::actions::ActionExecutionCtx;
+use crate::artifact_groups::ArtifactGroup;
+use crate::deferred::BaseDeferredKey;
+use crate::execute::commands::CommandExecutionTarget;
+use crate::execute::materializer::MaterializationError;
+use crate::execute::materializer::Materializer;
+use crate::execute::ActionOutputs;
+use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 
 static DEP_FILES: Lazy<DashMap<DepFilesKey, Arc<DepFileState>>> = Lazy::new(DashMap::new);
 
@@ -668,19 +667,20 @@ impl CommandLineArtifactVisitor for DepFilesCommandLineVisitor<'_> {
 
 #[cfg(test)]
 mod test {
-    use buck2_core::{
-        configuration::Configuration,
-        fs::paths::ForwardRelativePathBuf,
-        package::{testing::PackageExt, Package},
-        target::{testing::ConfiguredTargetLabelExt, ConfiguredTargetLabel, TargetName},
-    };
+    use buck2_core::configuration::Configuration;
+    use buck2_core::fs::paths::ForwardRelativePathBuf;
+    use buck2_core::package::testing::PackageExt;
+    use buck2_core::package::Package;
+    use buck2_core::target::testing::ConfiguredTargetLabelExt;
+    use buck2_core::target::ConfiguredTargetLabel;
+    use buck2_core::target::TargetName;
     use maplit::hashmap;
 
     use super::*;
-    use crate::{
-        actions::artifact::{testing::BuildArtifactTestingExt, BuildArtifact},
-        deferred::{testing::DeferredIdExt, DeferredId},
-    };
+    use crate::actions::artifact::testing::BuildArtifactTestingExt;
+    use crate::actions::artifact::BuildArtifact;
+    use crate::deferred::testing::DeferredIdExt;
+    use crate::deferred::DeferredId;
 
     #[test]
     fn test_declares_same_dep_files() {

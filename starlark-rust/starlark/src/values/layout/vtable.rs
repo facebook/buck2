@@ -15,36 +15,41 @@
  * limitations under the License.
  */
 
-use std::{
-    any::TypeId,
-    cmp::Ordering,
-    fmt,
-    fmt::{Debug, Display},
-    marker::PhantomData,
-    mem, ptr,
-    ptr::DynMetadata,
-};
+use std::any::TypeId;
+use std::cmp::Ordering;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::marker::PhantomData;
+use std::mem;
+use std::ptr;
+use std::ptr::DynMetadata;
 
-use gazebo::{
-    any::{AnyLifetime, ProvidesStaticType},
-    dupe::Dupe,
-};
+use gazebo::any::AnyLifetime;
+use gazebo::any::ProvidesStaticType;
+use gazebo::dupe::Dupe;
 
-use crate::{
-    collections::{Hashed, StarlarkHashValue, StarlarkHasher},
-    environment::Methods,
-    eval::{Arguments, Evaluator},
-    private::Private,
-    values::{
-        docs::DocItem,
-        layout::{
-            arena::{AValueHeader, AValueRepr},
-            avalue::{AValue, BlackHole},
-        },
-        traits::{StarlarkValueVTable, StarlarkValueVTableGet},
-        Freezer, FrozenStringValue, FrozenValue, Heap, StarlarkValue, Tracer, Value,
-    },
-};
+use crate::collections::Hashed;
+use crate::collections::StarlarkHashValue;
+use crate::collections::StarlarkHasher;
+use crate::environment::Methods;
+use crate::eval::Arguments;
+use crate::eval::Evaluator;
+use crate::private::Private;
+use crate::values::docs::DocItem;
+use crate::values::layout::arena::AValueHeader;
+use crate::values::layout::arena::AValueRepr;
+use crate::values::layout::avalue::AValue;
+use crate::values::layout::avalue::BlackHole;
+use crate::values::traits::StarlarkValueVTable;
+use crate::values::traits::StarlarkValueVTableGet;
+use crate::values::Freezer;
+use crate::values::FrozenStringValue;
+use crate::values::FrozenValue;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::Tracer;
+use crate::values::Value;
 
 /// Untyped raw pointer to `StarlarkValue` without vtable.
 ///

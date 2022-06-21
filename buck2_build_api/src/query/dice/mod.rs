@@ -7,52 +7,55 @@
  * of this source tree.
  */
 
-use std::{borrow::Cow, path::PathBuf, sync::Arc};
+use std::borrow::Cow;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_common::{
-    dice::{cells::HasCellResolver, file_ops::HasFileOps},
-    package_boundary::{HasPackageBoundaryExceptions, PackageBoundaryExceptions},
-    target_aliases::{HasTargetAliasResolver, TargetAliasResolver},
-};
-use buck2_core::{
-    cells::{paths::CellPath, CellAliasResolver, CellResolver},
-    fs::{
-        paths::{AbsPath, AbsPathBuf, RelativePath},
-        project::{ProjectRelativePath, ProjectRelativePathBuf},
-    },
-    package::Package,
-    result::SharedResult,
-    target::{ConfiguredTargetLabel, TargetLabel, TargetName},
-};
-use buck2_interpreter::{
-    package_listing::{dice::HasPackageListingResolver, resolver::PackageListingResolver},
-    pattern::{resolve_target_patterns, ParsedPattern, ProvidersPattern},
-};
-use buck2_query::query::syntax::simple::eval::{
-    error::QueryError,
-    file_set::{FileNode, FileSet},
-    set::TargetSet,
-};
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::package_boundary::HasPackageBoundaryExceptions;
+use buck2_common::package_boundary::PackageBoundaryExceptions;
+use buck2_common::target_aliases::HasTargetAliasResolver;
+use buck2_common::target_aliases::TargetAliasResolver;
+use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::CellAliasResolver;
+use buck2_core::cells::CellResolver;
+use buck2_core::fs::paths::AbsPath;
+use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::paths::RelativePath;
+use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::package::Package;
+use buck2_core::result::SharedResult;
+use buck2_core::target::ConfiguredTargetLabel;
+use buck2_core::target::TargetLabel;
+use buck2_core::target::TargetName;
+use buck2_interpreter::package_listing::dice::HasPackageListingResolver;
+use buck2_interpreter::package_listing::resolver::PackageListingResolver;
+use buck2_interpreter::pattern::resolve_target_patterns;
+use buck2_interpreter::pattern::ParsedPattern;
+use buck2_interpreter::pattern::ProvidersPattern;
+use buck2_query::query::syntax::simple::eval::error::QueryError;
+use buck2_query::query::syntax::simple::eval::file_set::FileNode;
+use buck2_query::query::syntax::simple::eval::file_set::FileSet;
+use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dice::DiceComputations;
 use gazebo::prelude::*;
 use indexmap::indexset;
 use ref_cast::RefCast;
 use starlark::collections::SmallSet;
 
-use crate::{
-    calculation::{load_patterns, Calculation},
-    interpreter::module_internals::EvaluationResult,
-    nodes::{
-        compatibility::{IncompatiblePlatformReason, MaybeCompatible},
-        configured::ConfiguredTargetNode,
-        unconfigured::TargetNode,
-    },
-    query::{
-        cquery::environment::CqueryDelegate,
-        uquery::environment::{QueryLiterals, UqueryDelegate},
-    },
-};
+use crate::calculation::load_patterns;
+use crate::calculation::Calculation;
+use crate::interpreter::module_internals::EvaluationResult;
+use crate::nodes::compatibility::IncompatiblePlatformReason;
+use crate::nodes::compatibility::MaybeCompatible;
+use crate::nodes::configured::ConfiguredTargetNode;
+use crate::nodes::unconfigured::TargetNode;
+use crate::query::cquery::environment::CqueryDelegate;
+use crate::query::uquery::environment::QueryLiterals;
+use crate::query::uquery::environment::UqueryDelegate;
 
 pub mod aquery;
 

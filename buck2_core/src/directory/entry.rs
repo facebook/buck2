@@ -8,7 +8,8 @@
  */
 
 use derive_more::Display;
-use gazebo::{prelude::*, variants::UnpackVariants};
+use gazebo::prelude::*;
+use gazebo::variants::UnpackVariants;
 
 /// An entry in a Directory, parameterized by the type of children directories and the type of leaf
 /// nodes. We expect to be able to traverse directories, and we don't traverse leaves.

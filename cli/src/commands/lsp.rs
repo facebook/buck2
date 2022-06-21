@@ -14,11 +14,14 @@ use futures::FutureExt;
 use lsp_server::Message;
 use once_cell::sync::Lazy;
 
-use crate::{
-    commands::common::ConsoleType, daemon::client::BuckdClientConnector, stdin_stream::StdinStream,
-    CommandContext, CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions,
-    StreamingCommand,
-};
+use crate::commands::common::ConsoleType;
+use crate::daemon::client::BuckdClientConnector;
+use crate::stdin_stream::StdinStream;
+use crate::CommandContext;
+use crate::CommonConfigOptions;
+use crate::CommonConsoleOptions;
+use crate::CommonEventLogOptions;
+use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Start an LSP server for starlark files")]

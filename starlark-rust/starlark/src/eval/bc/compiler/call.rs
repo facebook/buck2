@@ -19,34 +19,42 @@
 
 use either::Either;
 
-use crate::{
-    collections::symbol_map::Symbol,
-    eval::{
-        bc::{
-            call::{BcCallArgsFull, BcCallArgsPos},
-            compiler::expr::{write_expr_opt, write_exprs},
-            instr_impl::{
-                InstrCall, InstrCallFrozen, InstrCallFrozenDef, InstrCallFrozenDefPos,
-                InstrCallFrozenNative, InstrCallFrozenNativePos, InstrCallFrozenPos,
-                InstrCallMaybeKnownMethod, InstrCallMaybeKnownMethodPos, InstrCallMethod,
-                InstrCallMethodPos, InstrCallPos, InstrLen, InstrObjectFieldRaw,
-                InstrRecordCallEnter, InstrRecordCallExit, InstrType,
-            },
-            native_function::BcNativeFunction,
-            stack_ptr::{BcSlotIn, BcSlotOut},
-            writer::BcWriter,
-        },
-        compiler::{
-            args::ArgsCompiledValue, call::CallCompiled, def::FrozenDef, expr::ExprCompiled,
-            span::IrSpanned,
-        },
-        runtime::call_stack::FrozenFileSpan,
-    },
-    values::{
-        function::NativeFunction, types::known_methods::get_known_method, FrozenValue,
-        FrozenValueTyped,
-    },
-};
+use crate::collections::symbol_map::Symbol;
+use crate::eval::bc::call::BcCallArgsFull;
+use crate::eval::bc::call::BcCallArgsPos;
+use crate::eval::bc::compiler::expr::write_expr_opt;
+use crate::eval::bc::compiler::expr::write_exprs;
+use crate::eval::bc::instr_impl::InstrCall;
+use crate::eval::bc::instr_impl::InstrCallFrozen;
+use crate::eval::bc::instr_impl::InstrCallFrozenDef;
+use crate::eval::bc::instr_impl::InstrCallFrozenDefPos;
+use crate::eval::bc::instr_impl::InstrCallFrozenNative;
+use crate::eval::bc::instr_impl::InstrCallFrozenNativePos;
+use crate::eval::bc::instr_impl::InstrCallFrozenPos;
+use crate::eval::bc::instr_impl::InstrCallMaybeKnownMethod;
+use crate::eval::bc::instr_impl::InstrCallMaybeKnownMethodPos;
+use crate::eval::bc::instr_impl::InstrCallMethod;
+use crate::eval::bc::instr_impl::InstrCallMethodPos;
+use crate::eval::bc::instr_impl::InstrCallPos;
+use crate::eval::bc::instr_impl::InstrLen;
+use crate::eval::bc::instr_impl::InstrObjectFieldRaw;
+use crate::eval::bc::instr_impl::InstrRecordCallEnter;
+use crate::eval::bc::instr_impl::InstrRecordCallExit;
+use crate::eval::bc::instr_impl::InstrType;
+use crate::eval::bc::native_function::BcNativeFunction;
+use crate::eval::bc::stack_ptr::BcSlotIn;
+use crate::eval::bc::stack_ptr::BcSlotOut;
+use crate::eval::bc::writer::BcWriter;
+use crate::eval::compiler::args::ArgsCompiledValue;
+use crate::eval::compiler::call::CallCompiled;
+use crate::eval::compiler::def::FrozenDef;
+use crate::eval::compiler::expr::ExprCompiled;
+use crate::eval::compiler::span::IrSpanned;
+use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::values::function::NativeFunction;
+use crate::values::types::known_methods::get_known_method;
+use crate::values::FrozenValue;
+use crate::values::FrozenValueTyped;
 
 impl ArgsCompiledValue {
     /// After evaluation of function arguments like `foo(a, b=c[d], **e)`,

@@ -1,6 +1,5 @@
-use buck2_build_api::query::{
-    cquery::environment::CqueryEnvironment, uquery::environment::UqueryEnvironment,
-};
+use buck2_build_api::query::cquery::environment::CqueryEnvironment;
+use buck2_build_api::query::uquery::environment::UqueryEnvironment;
 use buck2_core::exit_result::ExitResult;
 use gazebo::dupe::Dupe;
 

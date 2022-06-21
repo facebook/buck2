@@ -8,7 +8,8 @@
  */
 
 use buck2_core::target::TargetLabel;
-use buck2_interpreter::pattern::{ParsedPattern, TargetPattern};
+use buck2_interpreter::pattern::ParsedPattern;
+use buck2_interpreter::pattern::TargetPattern;
 use thiserror::Error;
 
 #[derive(Debug, Error)]

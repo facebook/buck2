@@ -17,12 +17,11 @@
 
 //! Test function bodies inlined.
 
-use crate::{
-    assert::Assert,
-    eval::{bc::opcode::BcOpcode, compiler::def::FrozenDef},
-    tests::bc::golden::bc_golden_test,
-    values::ValueLike,
-};
+use crate::assert::Assert;
+use crate::eval::bc::opcode::BcOpcode;
+use crate::eval::compiler::def::FrozenDef;
+use crate::tests::bc::golden::bc_golden_test;
+use crate::values::ValueLike;
 
 #[test]
 fn test_def_const_inlined() {

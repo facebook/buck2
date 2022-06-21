@@ -7,7 +7,8 @@
  * of this source tree.
  */
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::path::PathBuf;
 
 use buck2_core::fs::paths::AbsPathBuf;
 use thiserror::Error;

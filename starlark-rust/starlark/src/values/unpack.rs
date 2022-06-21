@@ -22,7 +22,10 @@ use std::ops::Deref;
 use either::Either;
 use gazebo::prelude::*;
 
-use crate::values::{list::List, tuple::Tuple, Value, ValueError};
+use crate::values::list::List;
+use crate::values::tuple::Tuple;
+use crate::values::Value;
+use crate::values::ValueError;
 
 /// How to convert a [`Value`] to a Rust type. Required for all arguments in a [`#[starlark_module]`](macro@starlark_module) definition.
 pub trait UnpackValue<'v>: Sized {

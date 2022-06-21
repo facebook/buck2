@@ -7,17 +7,18 @@
  * of this source tree.
  */
 
-use std::{
-    env,
-    fs::File,
-    io::{BufReader, Read},
-    process::Command,
-    time::Duration,
-};
+use std::env;
+use std::fs::File;
+use std::io::BufReader;
+use std::io::Read;
+use std::process::Command;
+use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::anyhow;
+use anyhow::Context;
 use buck2_core::fs::paths::AbsPathBuf;
-use cli_proto::{daemon_api_client::DaemonApiClient, DaemonProcessInfo};
+use cli_proto::daemon_api_client::DaemonApiClient;
+use cli_proto::DaemonProcessInfo;
 use events::subscriber::EventSubscriber;
 use fs2::FileExt;
 use futures::FutureExt;
@@ -26,17 +27,19 @@ use thiserror::Error;
 use tonic::transport::Channel;
 use wait_timeout::ChildExt;
 
-use crate::{
-    commands::common::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder,
-    daemon::{
-        client::{
-            events_ctx::EventsCtx, BuckdClient, BuckdClientConnector, ClientKind, Replayer,
-            VersionCheckResult,
-        },
-        client_utils::{get_channel, retrying, ConnectionType, ParseError, SOCKET_ADDR},
-    },
-    paths::Paths,
-};
+use crate::commands::common::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
+use crate::daemon::client::events_ctx::EventsCtx;
+use crate::daemon::client::BuckdClient;
+use crate::daemon::client::BuckdClientConnector;
+use crate::daemon::client::ClientKind;
+use crate::daemon::client::Replayer;
+use crate::daemon::client::VersionCheckResult;
+use crate::daemon::client_utils::get_channel;
+use crate::daemon::client_utils::retrying;
+use crate::daemon::client_utils::ConnectionType;
+use crate::daemon::client_utils::ParseError;
+use crate::daemon::client_utils::SOCKET_ADDR;
+use crate::paths::Paths;
 /// Responsible for starting the daemon when no daemon is running.
 /// This struct holds a lock such that only one daemon is ever started per daemon directory.
 struct BuckdLifecycle<'a> {
@@ -100,7 +103,8 @@ impl<'a> BuckdLifecycle<'a> {
 
         #[cfg(unix)]
         {
-            use std::{ffi::OsString, os::unix::process::CommandExt};
+            use std::ffi::OsString;
+            use std::os::unix::process::CommandExt;
 
             let mut title = OsString::new();
             title.push("buck2d");

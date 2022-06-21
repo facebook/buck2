@@ -24,21 +24,24 @@
 // * When an exception happens, decorate it with the call stack on the way back
 //   up, in eval_call.
 
-use std::{
-    fmt,
-    fmt::{Debug, Display},
-    intrinsics::unlikely,
-};
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::intrinsics::unlikely;
 
 use gazebo::prelude::*;
 use once_cell::sync::Lazy;
 
-use crate::{
-    codemap::{CodeMap, FileSpan, Span},
-    errors::Frame,
-    eval::runtime::inlined_frame::InlinedFrames,
-    values::{error::ControlError, FrozenRef, Trace, Tracer, Value},
-};
+use crate::codemap::CodeMap;
+use crate::codemap::FileSpan;
+use crate::codemap::Span;
+use crate::errors::Frame;
+use crate::eval::runtime::inlined_frame::InlinedFrames;
+use crate::values::error::ControlError;
+use crate::values::FrozenRef;
+use crate::values::Trace;
+use crate::values::Tracer;
+use crate::values::Value;
 
 #[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq)]
 pub(crate) struct FrozenFileSpan {

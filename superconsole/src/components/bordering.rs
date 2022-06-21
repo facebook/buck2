@@ -7,11 +7,15 @@
  * of this source tree.
  */
 
-use crate::{
-    components::{alignment::HorizontalAlignmentKind, Aligned},
-    content::LinesExt,
-    Component, Dimensions, DrawMode, Line, Span, State,
-};
+use crate::components::alignment::HorizontalAlignmentKind;
+use crate::components::Aligned;
+use crate::content::LinesExt;
+use crate::Component;
+use crate::Dimensions;
+use crate::DrawMode;
+use crate::Line;
+use crate::Span;
+use crate::State;
 
 /// The `Bordered` component can be used to put borders on all sides of the output of its child.
 /// This is useful for delimiting the boundaries of a component for reading and aesthetic purposes.

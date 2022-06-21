@@ -54,20 +54,21 @@
 //! provider out of their so there's a convenience function for that: `MyProvider::from_providers(collect)`.
 // TODO(cjhopman): That last one would be more discoverable if we moved it onto the
 // `FrozenProviderCollectionValue` itself so you could do `collection.get::<MyProvider>()`.
-use std::{fmt::Debug, sync::Arc};
+use std::fmt::Debug;
+use std::sync::Arc;
 
-use starlark::{
-    environment::MethodsBuilder,
-    values::{Value, ValueLike},
-};
+use starlark::environment::MethodsBuilder;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 
-use crate::interpreter::rule_defs::provider::{
-    builtin::default_info::{DefaultInfo, DefaultInfoCallable, FrozenDefaultInfo},
-    collection::ProviderCollection,
-    id::ProviderId,
-    registration::ProviderRegistration,
-    user::{FrozenUserProvider, UserProvider},
-};
+use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfo;
+use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;
+use crate::interpreter::rule_defs::provider::builtin::default_info::FrozenDefaultInfo;
+use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
+use crate::interpreter::rule_defs::provider::id::ProviderId;
+use crate::interpreter::rule_defs::provider::registration::ProviderRegistration;
+use crate::interpreter::rule_defs::provider::user::FrozenUserProvider;
+use crate::interpreter::rule_defs::provider::user::UserProvider;
 
 pub mod builtin;
 pub mod callable;
@@ -153,17 +154,13 @@ impl<'v, V: ValueLike<'v>> ValueAsProviderLike<'v> for V {
 #[cfg(test)]
 pub mod testing {
 
-    use starlark::environment::{GlobalsBuilder, Module};
+    use starlark::environment::GlobalsBuilder;
+    use starlark::environment::Module;
 
-    use crate::{
-        attrs::testing,
-        interpreter::rule_defs::{
-            artifact::testing::artifactory,
-            provider::{
-                collection::FrozenProviderCollectionValue, registration::register_builtin_providers,
-            },
-        },
-    };
+    use crate::attrs::testing;
+    use crate::interpreter::rule_defs::artifact::testing::artifactory;
+    use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+    use crate::interpreter::rule_defs::provider::registration::register_builtin_providers;
 
     pub trait FrozenProviderCollectionValueExt {
         /// Creates a `FrozenProviderCollectionValue` for testing. The given string should be
@@ -205,14 +202,17 @@ mod tests {
 
     use buck2_build_api_derive::internal_provider;
     use buck2_core::result::SharedResult;
-    use gazebo::{any::ProvidesStaticType, coerce::Coerce};
+    use gazebo::any::ProvidesStaticType;
+    use gazebo::coerce::Coerce;
     use indoc::indoc;
-    use starlark::{
-        environment::GlobalsBuilder,
-        values::{Freeze, Trace, Value},
-    };
+    use starlark::environment::GlobalsBuilder;
+    use starlark::values::Freeze;
+    use starlark::values::Trace;
+    use starlark::values::Value;
 
-    use crate::interpreter::testing::{import, run_starlark_test_expecting_error, Tester};
+    use crate::interpreter::testing::import;
+    use crate::interpreter::testing::run_starlark_test_expecting_error;
+    use crate::interpreter::testing::Tester;
 
     #[internal_provider(simple_info_creator)]
     #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType)]

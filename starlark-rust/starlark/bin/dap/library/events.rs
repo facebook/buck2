@@ -20,7 +20,8 @@ use gazebo::prelude::*;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::dap::library::stream::{log, send};
+use crate::dap::library::stream::log;
+use crate::dap::library::stream::send;
 
 #[derive(Debug, Clone, Dupe)]
 pub(crate) struct Client {

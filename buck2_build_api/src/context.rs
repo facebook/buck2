@@ -12,9 +12,11 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_core::fs::paths::{ForwardRelativePath, ForwardRelativePathBuf};
+use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_core::fs::paths::ForwardRelativePathBuf;
 use derive_more::Display;
-use dice::{DiceComputations, InjectedKey};
+use dice::DiceComputations;
+use dice::InjectedKey;
 use gazebo::prelude::*;
 use owning_ref::ArcRef;
 

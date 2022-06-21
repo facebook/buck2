@@ -15,35 +15,40 @@
  * limitations under the License.
  */
 
-use std::{
-    collections::HashSet,
-    fmt::{self, Display},
-};
+use std::collections::HashSet;
+use std::fmt::Display;
+use std::fmt::{self};
 
-use gazebo::{
-    any::ProvidesStaticType,
-    coerce::{coerce, Coerce},
-    prelude::*,
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::coerce;
+use gazebo::coerce::Coerce;
+use gazebo::prelude::*;
 use itertools::Itertools;
 
-use crate::{
-    self as starlark,
-    collections::symbol_map::Symbol,
-    environment::GlobalsBuilder,
-    eval::{
-        runtime::{
-            arguments::{ArgNames, ArgumentsFull},
-            rust_loc::rust_loc,
-        },
-        Arguments, Evaluator,
-    },
-    values::{
-        dict::DictRef, function::FUNCTION_TYPE, layout::typed::string::StringValueLike,
-        none::NoneType, regex::StarlarkRegex, tuple::Tuple, Freeze, Freezer, FrozenStringValue,
-        FrozenValue, Heap, StarlarkValue, StringValue, Trace, Value, ValueLike,
-    },
-};
+use crate::collections::symbol_map::Symbol;
+use crate::environment::GlobalsBuilder;
+use crate::eval::runtime::arguments::ArgNames;
+use crate::eval::runtime::arguments::ArgumentsFull;
+use crate::eval::runtime::rust_loc::rust_loc;
+use crate::eval::Arguments;
+use crate::eval::Evaluator;
+use crate::values::dict::DictRef;
+use crate::values::function::FUNCTION_TYPE;
+use crate::values::layout::typed::string::StringValueLike;
+use crate::values::none::NoneType;
+use crate::values::regex::StarlarkRegex;
+use crate::values::tuple::Tuple;
+use crate::values::Freeze;
+use crate::values::Freezer;
+use crate::values::FrozenStringValue;
+use crate::values::FrozenValue;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::StringValue;
+use crate::values::Trace;
+use crate::values::Value;
+use crate::values::ValueLike;
+use crate::{self as starlark};
 
 #[starlark_module]
 pub fn filter(builder: &mut GlobalsBuilder) {
@@ -309,11 +314,14 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::{cell::RefCell, rc::Rc};
+    use std::cell::RefCell;
+    use std::rc::Rc;
 
     use gazebo::prelude::*;
 
-    use crate::{assert, assert::Assert, stdlib::PrintHandler};
+    use crate::assert;
+    use crate::assert::Assert;
+    use crate::stdlib::PrintHandler;
 
     #[test]
     fn test_filter() {

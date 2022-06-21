@@ -26,67 +26,70 @@
 #[macro_use]
 extern crate maplit;
 
-use std::{
-    convert::TryFrom,
-    path::{Path, PathBuf},
-    sync::{Arc, Mutex},
-};
+use std::convert::TryFrom;
+use std::path::Path;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_core::{
-    exit_result::{ExitResult, FailureExitCode},
-    fs::paths::FileNameBuf,
-    result::{SharedResult, ToSharedResultExt},
-};
-use clap::{AppSettings, Parser};
-use cli_proto::{client_context::HostPlatformOverride as GrpcHostPlatformOverride, ClientContext};
+use buck2_core::exit_result::ExitResult;
+use buck2_core::exit_result::FailureExitCode;
+use buck2_core::fs::paths::FileNameBuf;
+use buck2_core::result::SharedResult;
+use buck2_core::result::ToSharedResultExt;
+use clap::AppSettings;
+use clap::Parser;
+use cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOverride;
+use cli_proto::ClientContext;
 use dice::cycles::DetectCycles;
 use events::subscriber::EventSubscriber;
-use futures::future::{self, BoxFuture, Either, Future};
+use futures::future::BoxFuture;
+use futures::future::Either;
+use futures::future::Future;
+use futures::future::{self};
 use gazebo::prelude::*;
 use superconsole::Component;
 use tokio::runtime::Builder;
 
-use crate::{
-    args::expand_argfiles,
-    commands::{
-        aquery::AqueryCommand,
-        audit::AuditCommand,
-        build::BuildCommand,
-        bxl::BxlCommand,
-        clean::CleanCommand,
-        common::{
-            subscribers::{
-                get_console_with_root,
-                superconsole::{StatefulSuperConsole, SuperConsoleConfig},
-                try_get_event_log_subscriber,
-            },
-            verbosity::Verbosity,
-            CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions, HostPlatformOverride,
-        },
-        cquery::CqueryCommand,
-        daemon::DaemonCommand,
-        debug::DebugCommand,
-        docs::DocsCommand,
-        install::InstallCommand,
-        kill::KillCommand,
-        log::LogCommand,
-        lsp::LspCommand,
-        profile::ProfileCommand,
-        rage::RageCommand,
-        root::RootCommand,
-        run::RunCommand,
-        server::ServerCommand,
-        status::StatusCommand,
-        targets::TargetsCommand,
-        test::TestCommand,
-        uquery::UqueryCommand,
-    },
-    daemon::client::{BuckdClientConnector, BuckdConnectOptions, Replayer},
-    paths::Paths,
-    version::BuckVersion,
-};
+use crate::args::expand_argfiles;
+use crate::commands::aquery::AqueryCommand;
+use crate::commands::audit::AuditCommand;
+use crate::commands::build::BuildCommand;
+use crate::commands::bxl::BxlCommand;
+use crate::commands::clean::CleanCommand;
+use crate::commands::common::subscribers::get_console_with_root;
+use crate::commands::common::subscribers::superconsole::StatefulSuperConsole;
+use crate::commands::common::subscribers::superconsole::SuperConsoleConfig;
+use crate::commands::common::subscribers::try_get_event_log_subscriber;
+use crate::commands::common::verbosity::Verbosity;
+use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonConsoleOptions;
+use crate::commands::common::CommonEventLogOptions;
+use crate::commands::common::HostPlatformOverride;
+use crate::commands::cquery::CqueryCommand;
+use crate::commands::daemon::DaemonCommand;
+use crate::commands::debug::DebugCommand;
+use crate::commands::docs::DocsCommand;
+use crate::commands::install::InstallCommand;
+use crate::commands::kill::KillCommand;
+use crate::commands::log::LogCommand;
+use crate::commands::lsp::LspCommand;
+use crate::commands::profile::ProfileCommand;
+use crate::commands::rage::RageCommand;
+use crate::commands::root::RootCommand;
+use crate::commands::run::RunCommand;
+use crate::commands::server::ServerCommand;
+use crate::commands::status::StatusCommand;
+use crate::commands::targets::TargetsCommand;
+use crate::commands::test::TestCommand;
+use crate::commands::uquery::UqueryCommand;
+use crate::daemon::client::BuckdClientConnector;
+use crate::daemon::client::BuckdConnectOptions;
+use crate::daemon::client::Replayer;
+use crate::paths::Paths;
+use crate::version::BuckVersion;
 
 #[macro_use]
 pub mod panic;

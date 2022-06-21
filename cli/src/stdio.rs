@@ -11,10 +11,9 @@
 //! macros, which yield panics. The errors returned by those methods don't make sense to handle in
 //! place, and should usually just be propagated in order to lead to a quick exit.
 
-use std::{
-    fmt::Arguments,
-    io::{self, Write},
-};
+use std::fmt::Arguments;
+use std::io::Write;
+use std::io::{self};
 
 use buck2_core::exit_result::FailureExitCode;
 

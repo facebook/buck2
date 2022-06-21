@@ -15,20 +15,26 @@
  * limitations under the License.
  */
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
+use std::collections::HashSet;
 
 use gazebo::variants::VariantName;
 use once_cell::sync::Lazy;
 use thiserror::Error;
 
-use crate::{
-    analysis::types::{LintT, LintWarning},
-    codemap::{CodeMap, FileSpan, Span},
-    syntax::{
-        ast::{Assign, AstAssignIdent, AstExpr, AstStmt, BinOp, Expr, Stmt},
-        AstModule,
-    },
-};
+use crate::analysis::types::LintT;
+use crate::analysis::types::LintWarning;
+use crate::codemap::CodeMap;
+use crate::codemap::FileSpan;
+use crate::codemap::Span;
+use crate::syntax::ast::Assign;
+use crate::syntax::ast::AstAssignIdent;
+use crate::syntax::ast::AstExpr;
+use crate::syntax::ast::AstStmt;
+use crate::syntax::ast::BinOp;
+use crate::syntax::ast::Expr;
+use crate::syntax::ast::Stmt;
+use crate::syntax::AstModule;
 
 #[derive(Error, Debug, VariantName)]
 pub(crate) enum Incompatibility {

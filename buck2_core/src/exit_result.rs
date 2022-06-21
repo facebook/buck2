@@ -7,14 +7,16 @@
  * of this source tree.
  */
 
-use std::{
-    convert::Infallible,
-    ffi::CString,
-    fmt::Display,
-    io::{self, Write},
-    ops::{ControlFlow, FromResidual, Try},
-    process::{ExitCode, Termination},
-};
+use std::convert::Infallible;
+use std::ffi::CString;
+use std::fmt::Display;
+use std::io::Write;
+use std::io::{self};
+use std::ops::ControlFlow;
+use std::ops::FromResidual;
+use std::ops::Try;
+use std::process::ExitCode;
+use std::process::Termination;
 
 use anyhow::Context;
 use cli_proto::command_result;

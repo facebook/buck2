@@ -7,37 +7,40 @@
  * of this source tree.
  */
 
-use std::{borrow::Cow, collections::HashSet, marker::PhantomData};
+use std::borrow::Cow;
+use std::collections::HashSet;
+use std::marker::PhantomData;
 
 use async_trait::async_trait;
-use buck2_core::{cells::paths::CellPath, target::ConfiguredTargetLabel};
+use buck2_core::cells::paths::CellPath;
+use buck2_core::target::ConfiguredTargetLabel;
 use buck2_interpreter::common::BuildFilePath;
-use buck2_query::{
-    query::{
-        environment::{NodeLabel, QueryEnvironment, QueryTarget},
-        syntax::simple::{
-            eval::{error::QueryError, file_set::FileSet, set::TargetSet, values::QueryValue},
-            functions::{
-                helpers::{QueryBinaryOp, QueryFunction},
-                DefaultQueryFunctionsModule, QueryFunctions,
-            },
-        },
-        traversal::{
-            async_depth_limited_traversal, async_fast_depth_first_postorder_traversal,
-            async_unordered_traversal, AsyncTraversalDelegate, ChildVisitor, NodeLookup,
-        },
-    },
-    query_module,
-};
+use buck2_query::query::environment::NodeLabel;
+use buck2_query::query::environment::QueryEnvironment;
+use buck2_query::query::environment::QueryTarget;
+use buck2_query::query::syntax::simple::eval::error::QueryError;
+use buck2_query::query::syntax::simple::eval::file_set::FileSet;
+use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use buck2_query::query::syntax::simple::eval::values::QueryValue;
+use buck2_query::query::syntax::simple::functions::helpers::QueryBinaryOp;
+use buck2_query::query::syntax::simple::functions::helpers::QueryFunction;
+use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
+use buck2_query::query::syntax::simple::functions::QueryFunctions;
+use buck2_query::query::traversal::async_depth_limited_traversal;
+use buck2_query::query::traversal::async_fast_depth_first_postorder_traversal;
+use buck2_query::query::traversal::async_unordered_traversal;
+use buck2_query::query::traversal::AsyncTraversalDelegate;
+use buck2_query::query::traversal::ChildVisitor;
+use buck2_query::query::traversal::NodeLookup;
+use buck2_query::query_module;
 use buck2_query_parser::BinaryOp;
 use futures::Future;
 use gazebo::prelude::*;
 use ref_cast::RefCast;
 use thiserror::Error;
 
-use crate::{
-    analysis::configured_graph::ConfiguredGraphNode, attrs::configured_attr::ConfiguredAttr,
-};
+use crate::analysis::configured_graph::ConfiguredGraphNode;
+use crate::attrs::configured_attr::ConfiguredAttr;
 
 #[derive(Debug, Error)]
 enum AnalysisQueryError {

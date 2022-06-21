@@ -7,36 +7,36 @@
  * of this source tree.
  */
 
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
+use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_core::{
-    cells::paths::CellPath,
-    result::SharedResult,
-    target::{ConfiguredTargetLabel, TargetLabel},
-};
+use buck2_core::cells::paths::CellPath;
+use buck2_core::result::SharedResult;
+use buck2_core::target::ConfiguredTargetLabel;
+use buck2_core::target::TargetLabel;
 use buck2_interpreter::common::BuildFilePath;
-use buck2_query::query::{
-    environment::{QueryEnvironment, QueryTarget, QueryTargetAttr},
-    syntax::simple::{
-        eval::{file_set::FileSet, set::TargetSet},
-        functions::{
-            docs::QueryEnvironmentDescription, DefaultQueryFunctionsModule, HasModuleDescription,
-        },
-    },
-    traversal::{
-        async_depth_first_postorder_traversal, async_depth_limited_traversal, AsyncNodeLookup,
-        AsyncTraversalDelegate,
-    },
-};
+use buck2_query::query::environment::QueryEnvironment;
+use buck2_query::query::environment::QueryTarget;
+use buck2_query::query::environment::QueryTargetAttr;
+use buck2_query::query::syntax::simple::eval::file_set::FileSet;
+use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use buck2_query::query::syntax::simple::functions::docs::QueryEnvironmentDescription;
+use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
+use buck2_query::query::syntax::simple::functions::HasModuleDescription;
+use buck2_query::query::traversal::async_depth_first_postorder_traversal;
+use buck2_query::query::traversal::async_depth_limited_traversal;
+use buck2_query::query::traversal::AsyncNodeLookup;
+use buck2_query::query::traversal::AsyncTraversalDelegate;
 use gazebo::dupe::Dupe;
 use tracing::warn;
 
-use crate::{
-    attrs::{attr_type::attr_literal::AttrConfig, configured_attr::ConfiguredAttr},
-    nodes::{compatibility::MaybeCompatible, configured::ConfiguredTargetNode},
-    query::uquery::environment::{QueryLiterals, UqueryDelegate},
-};
+use crate::attrs::attr_type::attr_literal::AttrConfig;
+use crate::attrs::configured_attr::ConfiguredAttr;
+use crate::nodes::compatibility::MaybeCompatible;
+use crate::nodes::configured::ConfiguredTargetNode;
+use crate::query::uquery::environment::QueryLiterals;
+use crate::query::uquery::environment::UqueryDelegate;
 
 impl QueryTargetAttr for ConfiguredAttr {
     fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {

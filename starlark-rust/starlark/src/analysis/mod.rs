@@ -18,9 +18,12 @@
 #[cfg(all(test, not(windows)))]
 pub(crate) use definition::helpers::FixtureWithRanges;
 pub(crate) use definition::DefinitionLocation;
-pub use types::{EvalMessage, EvalSeverity, Lint};
+pub use types::EvalMessage;
+pub use types::EvalSeverity;
+pub use types::Lint;
 
-use crate::{analysis::types::LintT, syntax::AstModule};
+use crate::analysis::types::LintT;
+use crate::syntax::AstModule;
 
 mod bind;
 mod definition;

@@ -17,7 +17,8 @@
 
 //! Test call expression and parameter binding.
 
-use crate::{assert, assert::Assert};
+use crate::assert;
+use crate::assert::Assert;
 
 #[test]
 fn funcall_test() {

@@ -9,12 +9,18 @@
 
 use derivative::Derivative;
 
-use super::{
-    Directory, DirectoryEntries, DirectoryEntry, DirectoryIterator, DirectoryIteratorPathAccessor,
-    DirectoryIteratorPathStack, FingerprintedDirectory, FingerprintedDirectoryEntries,
-    FingerprintedOrderedDirectoryEntries, OrderedDirectoryEntries,
-};
-use crate::fs::paths::{FileName, ForwardRelativePathBuf};
+use super::Directory;
+use super::DirectoryEntries;
+use super::DirectoryEntry;
+use super::DirectoryIterator;
+use super::DirectoryIteratorPathAccessor;
+use super::DirectoryIteratorPathStack;
+use super::FingerprintedDirectory;
+use super::FingerprintedDirectoryEntries;
+use super::FingerprintedOrderedDirectoryEntries;
+use super::OrderedDirectoryEntries;
+use crate::fs::paths::FileName;
+use crate::fs::paths::ForwardRelativePathBuf;
 
 macro_rules! impl_directory_walk {
     (
@@ -28,13 +34,16 @@ macro_rules! impl_directory_walk {
         mod $mod {
             use std::fmt;
 
-            use $crate::directory::{
-                DirectoryEntry, DirectoryIterator, DirectoryIteratorPathAccessor,
-                DirectoryIteratorPathStack,
-            };
+            use $crate::directory::DirectoryEntry;
+            use $crate::directory::DirectoryIterator;
+            use $crate::directory::DirectoryIteratorPathAccessor;
+            use $crate::directory::DirectoryIteratorPathStack;
 
-            use super::{$dir_ty, $entries_ty, DirectoryEntryWalk};
-            use crate::fs::paths::{FileName, ForwardRelativePathBuf};
+            use super::$dir_ty;
+            use super::$entries_ty;
+            use super::DirectoryEntryWalk;
+            use crate::fs::paths::FileName;
+            use crate::fs::paths::ForwardRelativePathBuf;
 
             struct WalkFrame<'a, L, H> {
                 name: Option<&'a FileName>,
@@ -125,7 +134,8 @@ macro_rules! impl_directory_walk {
             }
         }
 
-        pub use $mod::{$entry_walk_fn, $walk_ty};
+        pub use $mod::$entry_walk_fn;
+        pub use $mod::$walk_ty;
     };
 }
 

@@ -1,19 +1,20 @@
 use std::convert::TryInto;
 
 use anyhow::Context as _;
-use test_proto::{test_executor_client, test_executor_server, Empty, ExternalRunnerSpecRequest};
-use tokio::io::{AsyncRead, AsyncWrite};
+use test_proto::test_executor_client;
+use test_proto::test_executor_server;
+use test_proto::Empty;
+use test_proto::ExternalRunnerSpecRequest;
+use tokio::io::AsyncRead;
+use tokio::io::AsyncWrite;
 use tonic::transport::Channel;
 
-use crate::{
-    data::ExternalRunnerSpec,
-    grpc::{
-        channel,
-        server::{spawn_oneshot, ServerHandle},
-        util::to_tonic,
-    },
-    protocol::TestExecutor,
-};
+use crate::data::ExternalRunnerSpec;
+use crate::grpc::channel;
+use crate::grpc::server::spawn_oneshot;
+use crate::grpc::server::ServerHandle;
+use crate::grpc::util::to_tonic;
+use crate::protocol::TestExecutor;
 
 pub struct TestExecutorClient {
     client: test_executor_client::TestExecutorClient<Channel>,

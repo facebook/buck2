@@ -17,19 +17,22 @@
 
 //! The range type, constructed with `range()`.
 
-use std::{
-    fmt::{self, Display},
-    marker::PhantomData,
-    num::NonZeroI32,
-};
+use std::fmt::Display;
+use std::fmt::{self};
+use std::marker::PhantomData;
+use std::num::NonZeroI32;
 
-use gazebo::{any::ProvidesStaticType, prelude::*};
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
 
 use crate as starlark;
-use crate::values::{
-    index::{convert_index, convert_slice_indices},
-    Heap, StarlarkValue, Value, ValueError, ValueLike,
-};
+use crate::values::index::convert_index;
+use crate::values::index::convert_slice_indices;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::Value;
+use crate::values::ValueError;
+use crate::values::ValueLike;
 
 /// Representation of `range()` type.
 #[derive(Clone, Copy, Dupe, Debug, ProvidesStaticType, NoSerialize)]
@@ -256,7 +259,10 @@ impl PartialEq for Range {
 mod tests {
     use std::num::NonZeroI32;
 
-    use crate::values::{range::Range, Heap, StarlarkValue, Value};
+    use crate::values::range::Range;
+    use crate::values::Heap;
+    use crate::values::StarlarkValue;
+    use crate::values::Value;
 
     fn range(start: i32, stop: i32, range: i32) -> Range {
         Range {

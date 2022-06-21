@@ -19,18 +19,17 @@
 
 use gazebo::prelude::*;
 
-use crate::{
-    eval::compiler::{
-        expr::ExprCompiled,
-        expr_bool::ExprCompiledBool,
-        known::list_to_tuple,
-        scope::{CstExpr, CstPayload},
-        span::IrSpanned,
-        stmt::{AssignCompiledValue, OptimizeOnFreezeContext},
-        Compiler,
-    },
-    syntax::ast::{ClauseP, ForClauseP},
-};
+use crate::eval::compiler::expr::ExprCompiled;
+use crate::eval::compiler::expr_bool::ExprCompiledBool;
+use crate::eval::compiler::known::list_to_tuple;
+use crate::eval::compiler::scope::CstExpr;
+use crate::eval::compiler::scope::CstPayload;
+use crate::eval::compiler::span::IrSpanned;
+use crate::eval::compiler::stmt::AssignCompiledValue;
+use crate::eval::compiler::stmt::OptimizeOnFreezeContext;
+use crate::eval::compiler::Compiler;
+use crate::syntax::ast::ClauseP;
+use crate::syntax::ast::ForClauseP;
 
 impl Compiler<'_, '_, '_> {
     pub fn list_comprehension(

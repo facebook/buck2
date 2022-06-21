@@ -1,6 +1,6 @@
 edition = "2021"
 version = "Two"
-imports_granularity = "Crate"
+imports_granularity = "Item"
 merge_imports = true
 use_field_init_shorthand = true
 use_try_shorthand = true

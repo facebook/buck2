@@ -16,7 +16,10 @@ use derive_more::Display;
 use gazebo::prelude::*;
 use sorted_vector_map::SortedVectorMap;
 
-use super::{DirectoryEntry, DirectoryHasher, FingerprintedDirectory, HasDirectoryDigest};
+use super::DirectoryEntry;
+use super::DirectoryHasher;
+use super::FingerprintedDirectory;
+use super::HasDirectoryDigest;
 use crate::fs::paths::FileNameBuf;
 
 #[derive(Derivative, Display)]

@@ -9,15 +9,20 @@
 
 use std::time::Duration;
 
-use superconsole::{
-    style::{style, StyledContent, Stylize},
-    Component, Dimensions, DrawMode, Line, Lines, Span, State,
-};
+use superconsole::style::style;
+use superconsole::style::StyledContent;
+use superconsole::style::Stylize;
+use superconsole::Component;
+use superconsole::Dimensions;
+use superconsole::DrawMode;
+use superconsole::Line;
+use superconsole::Lines;
+use superconsole::Span;
+use superconsole::State;
 
-use crate::commands::common::subscribers::{
-    span_tracker::SpanInfo,
-    superconsole::{display, timed_list::Cutoffs},
-};
+use crate::commands::common::subscribers::span_tracker::SpanInfo;
+use crate::commands::common::subscribers::superconsole::display;
+use crate::commands::common::subscribers::superconsole::timed_list::Cutoffs;
 
 #[derive(Debug)]
 pub(crate) struct Table<'a> {

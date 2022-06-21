@@ -25,15 +25,19 @@ use std::collections::HashMap;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
-use regex::{Regex, RegexBuilder};
-use serde::{Deserialize, Serialize};
+use regex::Regex;
+use regex::RegexBuilder;
+use serde::Deserialize;
+use serde::Serialize;
 
 use crate as starlark;
-use crate::{
-    codemap::Spanned,
-    syntax::ast::{AstLiteral, AstPayload, AstStmtP, ExprP, StmtP},
-    values::Trace,
-};
+use crate::codemap::Spanned;
+use crate::syntax::ast::AstLiteral;
+use crate::syntax::ast::AstPayload;
+use crate::syntax::ast::AstStmtP;
+use crate::syntax::ast::ExprP;
+use crate::syntax::ast::StmtP;
+use crate::values::Trace;
 
 /// The documentation provided by a user for a specific module, object, function, etc.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Trace)]
@@ -565,17 +569,22 @@ pub struct Doc {
 
 #[cfg(test)]
 mod tests {
-    use std::fmt::{Display, Formatter};
+    use std::fmt::Display;
+    use std::fmt::Formatter;
 
     use gazebo::any::ProvidesStaticType;
     use starlark_derive::starlark_module;
 
     use super::*;
     use crate as starlark;
-    use crate::{
-        environment::{GlobalsBuilder, GlobalsStatic, Methods, MethodsBuilder, MethodsStatic},
-        values::{NoSerialize, StarlarkValue, Value},
-    };
+    use crate::environment::GlobalsBuilder;
+    use crate::environment::GlobalsStatic;
+    use crate::environment::Methods;
+    use crate::environment::MethodsBuilder;
+    use crate::environment::MethodsStatic;
+    use crate::values::NoSerialize;
+    use crate::values::StarlarkValue;
+    use crate::values::Value;
 
     /// These are where the module docs go
     ///

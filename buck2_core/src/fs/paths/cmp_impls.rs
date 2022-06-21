@@ -95,7 +95,8 @@ macro_rules! impl_cmp_str {
     };
 }
 
-use crate::fs::paths::{ForwardRelativePath, ForwardRelativePathBuf};
+use crate::fs::paths::ForwardRelativePath;
+use crate::fs::paths::ForwardRelativePathBuf;
 
 impl_cmp!(
     ForwardRelativePathBuf,
@@ -117,7 +118,8 @@ impl_cmp_str!(ForwardRelativePath, String, ForwardRelativePath);
 impl_cmp_str!(&'_ ForwardRelativePath, str, ForwardRelativePath);
 impl_cmp_str!(&'_ ForwardRelativePath, String, ForwardRelativePath);
 
-use crate::fs::paths::{AbsPath, AbsPathBuf};
+use crate::fs::paths::AbsPath;
+use crate::fs::paths::AbsPathBuf;
 
 impl_cmp!(AbsPathBuf, AbsPath, AbsPath);
 impl_cmp!(AbsPathBuf, &'_ AbsPath, AbsPath);
@@ -131,7 +133,8 @@ impl_cmp_str!(AbsPath, String, AbsPath);
 impl_cmp_str!(&'_ AbsPath, str, AbsPath);
 impl_cmp_str!(&'_ AbsPath, String, AbsPath);
 
-use crate::package::{PackageRelativePath, PackageRelativePathBuf};
+use crate::package::PackageRelativePath;
+use crate::package::PackageRelativePathBuf;
 
 impl_cmp!(
     PackageRelativePathBuf,
@@ -153,7 +156,8 @@ impl_cmp_str!(PackageRelativePath, String, PackageRelativePath);
 impl_cmp_str!(&'_ PackageRelativePath, str, PackageRelativePath);
 impl_cmp_str!(&'_ PackageRelativePath, String, PackageRelativePath);
 
-use crate::fs::project::{ProjectRelativePath, ProjectRelativePathBuf};
+use crate::fs::project::ProjectRelativePath;
+use crate::fs::project::ProjectRelativePathBuf;
 
 impl_cmp!(
     ProjectRelativePathBuf,

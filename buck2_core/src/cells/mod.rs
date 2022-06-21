@@ -132,19 +132,21 @@
 
 pub mod paths;
 
-use std::{
-    borrow::Borrow,
-    collections::{BTreeSet, HashMap},
-    convert::TryFrom,
-    fmt::{Debug, Display},
-    fs::File,
-    hash::Hash,
-    io::{BufRead, BufReader},
-    path::Path,
-    sync::Arc,
-};
+use std::borrow::Borrow;
+use std::collections::BTreeSet;
+use std::collections::HashMap;
+use std::convert::TryFrom;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fs::File;
+use std::hash::Hash;
+use std::io::BufRead;
+use std::io::BufReader;
+use std::path::Path;
+use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::anyhow;
+use anyhow::Context;
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::prelude::*;
@@ -152,13 +154,15 @@ use itertools::Itertools;
 use sequence_trie::SequenceTrie;
 use thiserror::Error;
 
-use crate::{
-    cells::paths::CellPath,
-    fs::{
-        paths::{AbsPath, AbsPathBuf, FileNameBuf, ForwardRelativePath, RelativePath},
-        project::{ProjectFilesystem, ProjectRelativePath, ProjectRelativePathBuf},
-    },
-};
+use crate::cells::paths::CellPath;
+use crate::fs::paths::AbsPath;
+use crate::fs::paths::AbsPathBuf;
+use crate::fs::paths::FileNameBuf;
+use crate::fs::paths::ForwardRelativePath;
+use crate::fs::paths::RelativePath;
+use crate::fs::project::ProjectFilesystem;
+use crate::fs::project::ProjectRelativePath;
+use crate::fs::project::ProjectRelativePathBuf;
 
 /// Errors from cell creation
 #[derive(Error, Debug)]
@@ -706,15 +710,17 @@ impl CellsAggregator {
 
 // test helpers
 pub mod testing {
-    use std::{collections::HashMap, sync::Arc};
+    use std::collections::HashMap;
+    use std::sync::Arc;
 
     use sequence_trie::SequenceTrie;
 
     use super::default_buildfiles;
-    use crate::{
-        cells::{CellAliasResolver, CellInstance, CellName, CellResolver},
-        fs::project::ProjectRelativePathBuf,
-    };
+    use crate::cells::CellAliasResolver;
+    use crate::cells::CellInstance;
+    use crate::cells::CellName;
+    use crate::cells::CellResolver;
+    use crate::fs::project::ProjectRelativePathBuf;
 
     pub trait CellResolverExt {
         /// Creates a new 'CellResolver' based on the given iterator of (cell
@@ -769,7 +775,8 @@ mod tests {
     use gazebo::file;
 
     use super::*;
-    use crate::fs::{paths::ForwardRelativePathBuf, project::ProjectFilesystemTemp};
+    use crate::fs::paths::ForwardRelativePathBuf;
+    use crate::fs::project::ProjectFilesystemTemp;
 
     #[test]
     fn test_cells() -> anyhow::Result<()> {

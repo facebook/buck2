@@ -11,13 +11,13 @@
 //!
 //! This module sets up a panic hook to send the panic message to open CLIs.
 
-use std::{
-    env::temp_dir,
-    panic::{self, PanicInfo},
-    path::PathBuf,
-    sync::Arc,
-    time::{Duration, SystemTime},
-};
+use std::env::temp_dir;
+use std::panic::PanicInfo;
+use std::panic::{self};
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::Duration;
+use std::time::SystemTime;
 
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use events::TraceId;

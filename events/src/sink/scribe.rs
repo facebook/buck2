@@ -1,6 +1,7 @@
 //! A Sink for forwarding events directly to Scribe.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 
 #[cfg(fbcode_build)]
 use fbinit::FacebookInit;
@@ -8,7 +9,11 @@ use fbinit::FacebookInit;
 use prost::Message;
 
 #[cfg(fbcode_build)]
-use crate::{BuckEvent, ControlEvent, EventSink};
+use crate::BuckEvent;
+#[cfg(fbcode_build)]
+use crate::ControlEvent;
+#[cfg(fbcode_build)]
+use crate::EventSink;
 
 /// Whether or not Scribe logging is enabled for this process. It must be explicitly disabled via `disable()`.
 static SCRIBE_ENABLED: AtomicBool = AtomicBool::new(true);

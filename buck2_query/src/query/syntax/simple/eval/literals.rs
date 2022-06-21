@@ -10,15 +10,14 @@
 //! Implementation of the cli and query_* attr query language.
 
 use buck2_query_parser::parse_expr;
-use starlark::collections::{Hashed, SmallSet};
+use starlark::collections::Hashed;
+use starlark::collections::SmallSet;
 
-use crate::query::{
-    environment::QueryEnvironment,
-    syntax::simple::{
-        eval::values::QueryResultExt,
-        functions::{QueryFunctions, QueryFunctionsExt, QueryLiteralVisitor},
-    },
-};
+use crate::query::environment::QueryEnvironment;
+use crate::query::syntax::simple::eval::values::QueryResultExt;
+use crate::query::syntax::simple::functions::QueryFunctions;
+use crate::query::syntax::simple::functions::QueryFunctionsExt;
+use crate::query::syntax::simple::functions::QueryLiteralVisitor;
 
 /// Look through the expression to find all the target literals.
 /// Adds those that are found to `result` set.

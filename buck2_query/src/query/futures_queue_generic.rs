@@ -7,12 +7,13 @@
  * of this source tree.
  */
 
-use std::{future::Future, pin::Pin};
+use std::future::Future;
+use std::pin::Pin;
 
-use futures::{
-    stream::{FuturesOrdered, FuturesUnordered},
-    Stream, StreamExt,
-};
+use futures::stream::FuturesOrdered;
+use futures::stream::FuturesUnordered;
+use futures::Stream;
+use futures::StreamExt;
 
 /// `FuturesOrdered` or `FuturesUnordered`.
 // This can be done with GAT, but GAT is unstable, and requires too much work to make it work,

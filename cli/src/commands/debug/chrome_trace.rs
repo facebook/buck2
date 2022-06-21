@@ -7,16 +7,20 @@
  * of this source tree.
  */
 
-use std::{
-    collections::{BTreeSet, HashMap, HashSet},
-    io::{BufWriter, Write},
-    path::PathBuf,
-    time::{Duration, SystemTime},
-};
+use std::collections::BTreeSet;
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::io::BufWriter;
+use std::io::Write;
+use std::path::PathBuf;
+use std::time::Duration;
+use std::time::SystemTime;
 
 use anyhow::Context;
 use buck2_core::exit_result::ExitResult;
-use events::{subscriber::VisitorError, BuckEvent, SpanId};
+use events::subscriber::VisitorError;
+use events::BuckEvent;
+use events::SpanId;
 use futures::TryStreamExt;
 use gazebo::prelude::*;
 use prost_types;
@@ -25,9 +29,8 @@ use serde_json::json;
 use thiserror::Error;
 use tokio::runtime;
 
-use crate::commands::{
-    common::subscribers::event_log::EventLogPathBuf, debug::replay::retrieve_nth_recent_log,
-};
+use crate::commands::common::subscribers::event_log::EventLogPathBuf;
+use crate::commands::debug::replay::retrieve_nth_recent_log;
 
 #[derive(Error, Debug)]
 pub(crate) enum ChromeTraceError {
@@ -35,11 +38,10 @@ pub(crate) enum ChromeTraceError {
     ParentSpanNotFound(SpanId, SpanId),
 }
 
-use crate::{
-    commands::common::subscribers::{display, event_log::Invocation},
-    daemon::client::StreamValue,
-    CommandContext,
-};
+use crate::commands::common::subscribers::display;
+use crate::commands::common::subscribers::event_log::Invocation;
+use crate::daemon::client::StreamValue;
+use crate::CommandContext;
 
 #[derive(Debug, clap::Parser)]
 pub(crate) struct ChromeTraceCommand {

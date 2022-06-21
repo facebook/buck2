@@ -1,34 +1,39 @@
-use std::{cell::RefCell, collections::HashMap};
+use std::cell::RefCell;
+use std::collections::HashMap;
 
 use anyhow::Context;
-use buck2_build_api::{
-    bxl::{result::BxlResult, BxlFunctionLabel, BxlKey},
-    calculation::Calculation,
-    deferred::{BaseDeferredKey, DeferredTable},
-    path::BuckOutPath,
-};
-use buck2_common::{
-    dice::{cells::HasCellResolver, data::HasIoProvider},
-    legacy_configs::dice::HasLegacyConfigs,
-    target_aliases::TargetAliasResolver,
-};
-use buck2_core::{cells::CellAliasResolver, fs::paths::ForwardRelativePathBuf, package::Package};
-use buck2_interpreter::{common::StarlarkModulePath, file_loader::LoadedModule};
+use buck2_build_api::bxl::result::BxlResult;
+use buck2_build_api::bxl::BxlFunctionLabel;
+use buck2_build_api::bxl::BxlKey;
+use buck2_build_api::calculation::Calculation;
+use buck2_build_api::deferred::BaseDeferredKey;
+use buck2_build_api::deferred::DeferredTable;
+use buck2_build_api::path::BuckOutPath;
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::data::HasIoProvider;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::target_aliases::TargetAliasResolver;
+use buck2_core::cells::CellAliasResolver;
+use buck2_core::fs::paths::ForwardRelativePathBuf;
+use buck2_core::package::Package;
+use buck2_interpreter::common::StarlarkModulePath;
+use buck2_interpreter::file_loader::LoadedModule;
 use dice::DiceTransaction;
 use gazebo::prelude::*;
-use starlark::{
-    collections::SmallMap,
-    environment::Module,
-    eval::Evaluator,
-    values::{structs::Struct, OwnedFrozenValueTyped, Value, ValueTyped},
-};
+use starlark::collections::SmallMap;
+use starlark::environment::Module;
+use starlark::eval::Evaluator;
+use starlark::values::structs::Struct;
+use starlark::values::OwnedFrozenValueTyped;
+use starlark::values::Value;
+use starlark::values::ValueTyped;
 use thiserror::Error;
 
-use crate::bxl::starlark_defs::{
-    cli_args::{CliArgValue, CliArgValueExt},
-    context::{starlark_async::BxlSafeDiceComputations, BxlContext},
-    FrozenBxlFunction,
-};
+use crate::bxl::starlark_defs::cli_args::CliArgValue;
+use crate::bxl::starlark_defs::cli_args::CliArgValueExt;
+use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
+use crate::bxl::starlark_defs::context::BxlContext;
+use crate::bxl::starlark_defs::FrozenBxlFunction;
 
 pub async fn eval(ctx: DiceTransaction, key: BxlKey) -> anyhow::Result<BxlResult> {
     let bxl_module = ctx

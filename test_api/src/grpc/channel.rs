@@ -1,15 +1,19 @@
-use std::{
-    convert::TryFrom,
-    io,
-    pin::Pin,
-    task::{Context, Poll},
-};
+use std::convert::TryFrom;
+use std::io;
+use std::pin::Pin;
+use std::task::Context;
+use std::task::Poll;
 
 use anyhow::Context as _;
 use futures::future;
 use pin_project::pin_project;
-use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
-use tonic::transport::{server::Connected, Channel, Endpoint, Uri};
+use tokio::io::AsyncRead;
+use tokio::io::AsyncWrite;
+use tokio::io::ReadBuf;
+use tonic::transport::server::Connected;
+use tonic::transport::Channel;
+use tonic::transport::Endpoint;
+use tonic::transport::Uri;
 use tower::service_fn;
 
 #[pin_project]

@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-use gazebo::{coerce::coerce, prelude::*};
+use gazebo::coerce::coerce;
+use gazebo::prelude::*;
 
-use crate::{
-    collections::symbol_map::Symbol,
-    eval::{
-        compiler::{
-            expr::ExprCompiled, scope::CstArgument, span::IrSpanned, stmt::OptimizeOnFreezeContext,
-            Compiler,
-        },
-        runtime::arguments::{ArgNames, ArgumentsFull},
-        Arguments,
-    },
-    syntax::ast::ArgumentP,
-    values::{FrozenStringValue, FrozenValue},
-};
+use crate::collections::symbol_map::Symbol;
+use crate::eval::compiler::expr::ExprCompiled;
+use crate::eval::compiler::scope::CstArgument;
+use crate::eval::compiler::span::IrSpanned;
+use crate::eval::compiler::stmt::OptimizeOnFreezeContext;
+use crate::eval::compiler::Compiler;
+use crate::eval::runtime::arguments::ArgNames;
+use crate::eval::runtime::arguments::ArgumentsFull;
+use crate::eval::Arguments;
+use crate::syntax::ast::ArgumentP;
+use crate::values::FrozenStringValue;
+use crate::values::FrozenValue;
 
 #[derive(Default, Clone, Debug, VisitSpanMut)]
 pub(crate) struct ArgsCompiledValue {

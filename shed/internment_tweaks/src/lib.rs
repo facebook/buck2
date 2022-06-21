@@ -18,20 +18,24 @@
 // We deliberately make our code stable compatible
 #![cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_use_box))]
 
-use std::{
-    borrow::Borrow,
-    collections::hash_map::DefaultHasher,
-    fmt,
-    fmt::{Debug, Display, Formatter},
-    hash::{Hash, Hasher},
-    marker,
-    ops::Deref,
-    ptr,
-};
+use std::borrow::Borrow;
+use std::collections::hash_map::DefaultHasher;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::marker;
+use std::ops::Deref;
+use std::ptr;
 
 use gazebo::dupe::Dupe;
-use hashbrown::raw::{RawIter, RawTable};
-use parking_lot::{const_rwlock, RwLock, RwLockReadGuard};
+use hashbrown::raw::RawIter;
+use hashbrown::raw::RawTable;
+use parking_lot::const_rwlock;
+use parking_lot::RwLock;
+use parking_lot::RwLockReadGuard;
 
 pub struct StaticInterner<T: 'static, H = DefaultHasher> {
     tables: [RwLock<RawTable<&'static T>>; 64],

@@ -9,20 +9,32 @@
 
 use std::hash::Hash;
 
-use buck2_core::provider::{ConfiguredProvidersLabel, ProvidersLabel, ProvidersName};
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::ProvidersLabel;
+use buck2_core::provider::ProvidersName;
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, coerce::Coerce, prelude::*};
-use serde::{Serialize, Serializer};
-use starlark::{
-    collections::StarlarkHasher,
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    starlark_complex_value, starlark_type,
-    values::{AllocValue, Freeze, Heap, StarlarkValue, Trace, Value, ValueLike},
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::Coerce;
+use gazebo::prelude::*;
+use serde::Serialize;
+use serde::Serializer;
+use starlark::collections::StarlarkHasher;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::starlark_complex_value;
+use starlark::starlark_type;
+use starlark::values::AllocValue;
+use starlark::values::Freeze;
+use starlark::values::Heap;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 
-use crate::types::{
-    cell_root::CellRoot, label_relative_path::LabelRelativePath, target_label::StarlarkTargetLabel,
-};
+use crate::types::cell_root::CellRoot;
+use crate::types::label_relative_path::LabelRelativePath;
+use crate::types::target_label::StarlarkTargetLabel;
 
 impl<V> LabelGen<V> {
     pub fn label(&self) -> &ConfiguredProvidersLabel {

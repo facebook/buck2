@@ -17,11 +17,14 @@
 
 //! Handle special "unbound" globals: methods or attributes.
 
-use crate::values::{
-    function::{BoundMethodGen, NativeAttribute, NativeMethod},
-    layout::value_not_special::FrozenValueNotSpecial,
-    FrozenValueTyped, Heap, Value, ValueLike,
-};
+use crate::values::function::BoundMethodGen;
+use crate::values::function::NativeAttribute;
+use crate::values::function::NativeMethod;
+use crate::values::layout::value_not_special::FrozenValueNotSpecial;
+use crate::values::FrozenValueTyped;
+use crate::values::Heap;
+use crate::values::Value;
+use crate::values::ValueLike;
 
 /// A value or an unbound method or unbound attribute.
 pub(crate) enum MaybeUnboundValue {

@@ -12,7 +12,8 @@
 use async_trait::async_trait;
 use buck2_core::cells::CellResolver;
 use derive_more::Display;
-use dice::{DiceComputations, InjectedKey};
+use dice::DiceComputations;
+use dice::InjectedKey;
 use gazebo::prelude::*;
 
 #[async_trait]

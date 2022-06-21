@@ -17,55 +17,80 @@
 
 //! Instruction implementations.
 
-use std::{cmp::Ordering, marker, ptr};
+use std::cmp::Ordering;
+use std::marker;
+use std::ptr;
 
 use gazebo::coerce::coerce;
 
-use crate::{
-    collections::{symbol_map::Symbol, Hashed, SmallMap},
-    environment::slots::ModuleSlotId,
-    eval::{
-        bc::{
-            addr::{BcAddr, BcAddrOffset, BcPtrAddr},
-            bytecode::{run_block, Bc, RunBlockResult},
-            call::{BcCallArgs, BcCallArgsForDef, BcCallArgsFull, BcCallArgsPos},
-            frame::BcFramePtr,
-            instr::{BcInstr, InstrControl},
-            instr_arg::BcInstrArg,
-            native_function::BcNativeFunction,
-            opcode::BcOpcode,
-            slow_arg::BcInstrSlowArg,
-            stack_ptr::{BcSlotIn, BcSlotInRange, BcSlotInRangeFrom, BcSlotOut},
-        },
-        compiler::{
-            add_span_to_expr_error,
-            def::{Def, FrozenDef, ParameterCompiled, ParametersCompiled},
-            expr::{get_attr_hashed_bind, get_attr_hashed_raw, EvalError, MemberOrValue},
-            expr_throw,
-            scope::Captured,
-            span::IrSpanned,
-            stmt::{add_assign, before_stmt, bit_or_assign, possible_gc, AssignError},
-            EvalException,
-        },
-        runtime::{
-            arguments::ResolvedArgName,
-            call_stack::FrozenFileSpan,
-            slots::{LocalCapturedSlotId, LocalSlotId},
-        },
-        Arguments, DefInfo, Evaluator, ParametersSpec,
-    },
-    values::{
-        dict::Dict,
-        int::PointerI32,
-        layout::value_not_special::FrozenValueNotSpecial,
-        list::List,
-        string::interpolation::{format_one, percent_s_one},
-        types::known_methods::KnownMethod,
-        typing::TypeCompiled,
-        FrozenRef, FrozenStringValue, FrozenValue, FrozenValueTyped, Heap, StarlarkValue,
-        StringValue, StringValueLike, Value,
-    },
-};
+use crate::collections::symbol_map::Symbol;
+use crate::collections::Hashed;
+use crate::collections::SmallMap;
+use crate::environment::slots::ModuleSlotId;
+use crate::eval::bc::addr::BcAddr;
+use crate::eval::bc::addr::BcAddrOffset;
+use crate::eval::bc::addr::BcPtrAddr;
+use crate::eval::bc::bytecode::run_block;
+use crate::eval::bc::bytecode::Bc;
+use crate::eval::bc::bytecode::RunBlockResult;
+use crate::eval::bc::call::BcCallArgs;
+use crate::eval::bc::call::BcCallArgsForDef;
+use crate::eval::bc::call::BcCallArgsFull;
+use crate::eval::bc::call::BcCallArgsPos;
+use crate::eval::bc::frame::BcFramePtr;
+use crate::eval::bc::instr::BcInstr;
+use crate::eval::bc::instr::InstrControl;
+use crate::eval::bc::instr_arg::BcInstrArg;
+use crate::eval::bc::native_function::BcNativeFunction;
+use crate::eval::bc::opcode::BcOpcode;
+use crate::eval::bc::slow_arg::BcInstrSlowArg;
+use crate::eval::bc::stack_ptr::BcSlotIn;
+use crate::eval::bc::stack_ptr::BcSlotInRange;
+use crate::eval::bc::stack_ptr::BcSlotInRangeFrom;
+use crate::eval::bc::stack_ptr::BcSlotOut;
+use crate::eval::compiler::add_span_to_expr_error;
+use crate::eval::compiler::def::Def;
+use crate::eval::compiler::def::FrozenDef;
+use crate::eval::compiler::def::ParameterCompiled;
+use crate::eval::compiler::def::ParametersCompiled;
+use crate::eval::compiler::expr::get_attr_hashed_bind;
+use crate::eval::compiler::expr::get_attr_hashed_raw;
+use crate::eval::compiler::expr::EvalError;
+use crate::eval::compiler::expr::MemberOrValue;
+use crate::eval::compiler::expr_throw;
+use crate::eval::compiler::scope::Captured;
+use crate::eval::compiler::span::IrSpanned;
+use crate::eval::compiler::stmt::add_assign;
+use crate::eval::compiler::stmt::before_stmt;
+use crate::eval::compiler::stmt::bit_or_assign;
+use crate::eval::compiler::stmt::possible_gc;
+use crate::eval::compiler::stmt::AssignError;
+use crate::eval::compiler::EvalException;
+use crate::eval::runtime::arguments::ResolvedArgName;
+use crate::eval::runtime::call_stack::FrozenFileSpan;
+use crate::eval::runtime::slots::LocalCapturedSlotId;
+use crate::eval::runtime::slots::LocalSlotId;
+use crate::eval::Arguments;
+use crate::eval::DefInfo;
+use crate::eval::Evaluator;
+use crate::eval::ParametersSpec;
+use crate::values::dict::Dict;
+use crate::values::int::PointerI32;
+use crate::values::layout::value_not_special::FrozenValueNotSpecial;
+use crate::values::list::List;
+use crate::values::string::interpolation::format_one;
+use crate::values::string::interpolation::percent_s_one;
+use crate::values::types::known_methods::KnownMethod;
+use crate::values::typing::TypeCompiled;
+use crate::values::FrozenRef;
+use crate::values::FrozenStringValue;
+use crate::values::FrozenValue;
+use crate::values::FrozenValueTyped;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::StringValue;
+use crate::values::StringValueLike;
+use crate::values::Value;
 
 /// Instructions which either fail or proceed to the following instruction,
 /// and it returns error with span.

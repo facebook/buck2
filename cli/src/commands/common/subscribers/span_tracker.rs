@@ -7,19 +7,22 @@
  * of this source tree.
  */
 
-use std::{fmt, iter::ExactSizeIterator, time::Instant};
+use std::fmt;
+use std::iter::ExactSizeIterator;
+use std::time::Instant;
 
 use async_trait::async_trait;
 use buck2_data::SpanStartEvent;
 use derive_more::From;
-use events::{subscriber::EventSubscriber, BuckEvent, SpanId};
+use events::subscriber::EventSubscriber;
+use events::BuckEvent;
+use events::SpanId;
 use gazebo::prelude::*;
 use linked_hash_map::LinkedHashMap;
 
-use crate::commands::common::{
-    subscribers::superconsole::SuperConsoleError,
-    what_ran::{WhatRanRelevantAction, WhatRanState},
-};
+use crate::commands::common::subscribers::superconsole::SuperConsoleError;
+use crate::commands::common::what_ran::WhatRanRelevantAction;
+use crate::commands::common::what_ran::WhatRanState;
 
 #[derive(Clone)]
 pub(crate) struct SpanInfo {

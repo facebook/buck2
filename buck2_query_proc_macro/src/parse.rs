@@ -1,9 +1,24 @@
 use itertools::Itertools;
-use proc_macro2::{Span, TokenStream};
-use syn::{
-    parse::Result, spanned::Spanned, Error, FnArg, Generics, Ident, ImplItem, Item, ItemImpl, Lit,
-    Meta, MetaNameValue, NestedMeta, Pat, PatIdent, PatType, Path, Type,
-};
+use proc_macro2::Span;
+use proc_macro2::TokenStream;
+use syn::parse::Result;
+use syn::spanned::Spanned;
+use syn::Error;
+use syn::FnArg;
+use syn::Generics;
+use syn::Ident;
+use syn::ImplItem;
+use syn::Item;
+use syn::ItemImpl;
+use syn::Lit;
+use syn::Meta;
+use syn::MetaNameValue;
+use syn::NestedMeta;
+use syn::Pat;
+use syn::PatIdent;
+use syn::PatType;
+use syn::Path;
+use syn::Type;
 
 /// Validates and parses the macro input into structured data.
 pub(crate) fn parse(args: TokenStream, item: TokenStream) -> Result<Parsed> {
@@ -270,9 +285,12 @@ impl syn::parse::Parse for QueryModuleArgs {
 #[cfg(test)]
 mod test {
     use quote::quote;
-    use syn::{parse_quote, Generics, Type};
+    use syn::parse_quote;
+    use syn::Generics;
+    use syn::Type;
 
-    use crate::parse::{DocString, Parsed};
+    use crate::parse::DocString;
+    use crate::parse::Parsed;
 
     #[test]
     fn test() {

@@ -7,16 +7,21 @@
  * of this source tree.
  */
 
-use std::{path::PathBuf, pin::Pin, time::SystemTime};
+use std::path::PathBuf;
+use std::pin::Pin;
+use std::time::SystemTime;
 
-use futures::{stream::BoxStream, task::Poll, Future, Stream};
+use futures::stream::BoxStream;
+use futures::task::Poll;
+use futures::Future;
+use futures::Stream;
 use pin_project::pin_project;
-use tokio::time::{Instant, Sleep};
+use tokio::time::Instant;
+use tokio::time::Sleep;
 
-use crate::{
-    commands::common::subscribers::event_log::{EventLogPathBuf, Invocation},
-    daemon::client::StreamValue,
-};
+use crate::commands::common::subscribers::event_log::EventLogPathBuf;
+use crate::commands::common::subscribers::event_log::Invocation;
+use crate::daemon::client::StreamValue;
 
 #[pin_project]
 struct Pending {

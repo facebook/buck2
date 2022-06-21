@@ -9,12 +9,15 @@
 
 use buck2_core::provider::ProvidersLabel;
 use gazebo::dupe::*;
-use starlark::values::{string::STRING_TYPE, Value};
+use starlark::values::string::STRING_TYPE;
+use starlark::values::Value;
 
-use crate::attrs::{
-    attr_type::attr_literal::CoercionError, coerced_attr::CoercedAttr, AttrCoercionContext,
-    AttrConfigurationContext, AttrLiteral, ConfiguredAttr,
-};
+use crate::attrs::attr_type::attr_literal::CoercionError;
+use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::AttrCoercionContext;
+use crate::attrs::AttrConfigurationContext;
+use crate::attrs::AttrLiteral;
+use crate::attrs::ConfiguredAttr;
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe)]
 pub(crate) struct LabelAttrType;

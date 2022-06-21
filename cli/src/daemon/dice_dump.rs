@@ -7,12 +7,16 @@
  * of this source tree.
  */
 
-use std::{fs::File, io::BufWriter, path::Path, sync::Arc};
+use std::fs::File;
+use std::io::BufWriter;
+use std::path::Path;
+use std::sync::Arc;
 
 use anyhow::Context as _;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use dice::Dice;
-use flate2::{write::GzEncoder, Compression};
+use flate2::write::GzEncoder;
+use flate2::Compression;
 use gazebo::dupe::Dupe;
 
 use crate::daemon::server::BaseCommandContext;

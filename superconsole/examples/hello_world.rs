@@ -15,16 +15,19 @@
 
 //! A basic example of using components and emitting content.
 
-use std::{
-    convert::TryInto,
-    time::{Duration, Instant},
-};
+use std::convert::TryInto;
+use std::time::Duration;
+use std::time::Instant;
 
-use superconsole::{
-    components::{Component, DrawMode},
-    state, Dimensions, Line, State, SuperConsole,
-};
-use tokio::{select, time};
+use superconsole::components::Component;
+use superconsole::components::DrawMode;
+use superconsole::state;
+use superconsole::Dimensions;
+use superconsole::Line;
+use superconsole::State;
+use superconsole::SuperConsole;
+use tokio::select;
+use tokio::time;
 
 /// Prints the seconds elapsed since it was created at each render loop
 #[derive(Debug)]

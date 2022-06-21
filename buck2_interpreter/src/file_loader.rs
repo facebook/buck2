@@ -12,9 +12,13 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use gazebo::prelude::*;
 use indexmap::map::IndexMap;
-use starlark::{environment::FrozenModule, eval::FileLoader};
+use starlark::environment::FrozenModule;
+use starlark::eval::FileLoader;
 
-use crate::common::{ImportPath, ModuleID, OwnedStarlarkModulePath, StarlarkModulePath};
+use crate::common::ImportPath;
+use crate::common::ModuleID;
+use crate::common::OwnedStarlarkModulePath;
+use crate::common::StarlarkModulePath;
 
 #[derive(Default, Clone)]
 pub struct LoadedModules {

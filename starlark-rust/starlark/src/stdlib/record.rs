@@ -19,15 +19,13 @@
 use gazebo::prelude::*;
 
 use crate as starlark;
-use crate::{
-    collections::SmallMap,
-    environment::GlobalsBuilder,
-    values::{
-        record::{Field, RecordType},
-        typing::TypeCompiled,
-        Heap, Value,
-    },
-};
+use crate::collections::SmallMap;
+use crate::environment::GlobalsBuilder;
+use crate::values::record::Field;
+use crate::values::record::RecordType;
+use crate::values::typing::TypeCompiled;
+use crate::values::Heap;
+use crate::values::Value;
 
 #[starlark_module]
 pub fn global(builder: &mut GlobalsBuilder) {
@@ -76,7 +74,8 @@ pub fn global(builder: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 mod tests {
-    use crate::assert::{self, Assert};
+    use crate::assert::Assert;
+    use crate::assert::{self};
 
     #[test]
     fn test_record() {

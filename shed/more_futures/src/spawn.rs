@@ -11,24 +11,23 @@
 //! tokio's JoinHandle
 //!
 
-use std::{
-    cell::RefCell,
-    future::Future,
-    pin::Pin,
-    task::{Context, Poll},
-};
+use std::cell::RefCell;
+use std::future::Future;
+use std::pin::Pin;
+use std::task::Context;
+use std::task::Poll;
 
-use futures::{
-    future::{BoxFuture, Shared},
-    FutureExt,
-};
+use futures::future::BoxFuture;
+use futures::future::Shared;
+use futures::FutureExt;
 use pin_project::pin_project;
 use tracing::Span;
 
-use crate::util::{
-    guarded_rc::{guarded_rc, GuardedRcStrongGuard, GuardedRcWeakGuard, GuardedWeakRc},
-    TokioResultExt,
-};
+use crate::util::guarded_rc::guarded_rc;
+use crate::util::guarded_rc::GuardedRcStrongGuard;
+use crate::util::guarded_rc::GuardedRcWeakGuard;
+use crate::util::guarded_rc::GuardedWeakRc;
+use crate::util::TokioResultExt;
 
 thread_local! {
     static CURRENT_TASK_GUARD: RefCell<Option<GuardedRcWeakGuard>> = RefCell::new(None);

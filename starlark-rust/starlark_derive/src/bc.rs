@@ -18,9 +18,16 @@
 //! Generate stubs for bytecode interpreter.
 
 use gazebo::prelude::*;
-use proc_macro2::{Ident, Span, TokenStream};
-use quote::{format_ident, quote_spanned};
-use syn::{parse_macro_input, spanned::Spanned, Fields, ItemEnum, Variant};
+use proc_macro2::Ident;
+use proc_macro2::Span;
+use proc_macro2::TokenStream;
+use quote::format_ident;
+use quote::quote_spanned;
+use syn::parse_macro_input;
+use syn::spanned::Spanned;
+use syn::Fields;
+use syn::ItemEnum;
+use syn::Variant;
 
 struct BcOpcodeEnum {
     span: Span,

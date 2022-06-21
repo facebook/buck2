@@ -11,18 +11,21 @@
 //! This is a fake component since it 1) manages state and 2) cannot be made by users and 3) is heavily coupled with [`superconsole`](crate::SuperConsole).
 //! Do not make this somewhere down the component hierarchy unless you have a good reason for it.
 
-use std::{cell::Cell, convert::TryInto};
+use std::cell::Cell;
+use std::convert::TryInto;
 
-use crossterm::{
-    cursor::{MoveToColumn, MoveUp},
-    queue,
-    terminal::{Clear, ClearType},
-};
+use crossterm::cursor::MoveToColumn;
+use crossterm::cursor::MoveUp;
+use crossterm::queue;
+use crossterm::terminal::Clear;
+use crossterm::terminal::ClearType;
 
-use crate::{
-    components::{Blank, Dimensions, DrawMode},
-    Component, Line, State,
-};
+use crate::components::Blank;
+use crate::components::Dimensions;
+use crate::components::DrawMode;
+use crate::Component;
+use crate::Line;
+use crate::State;
 
 /// The root components which manages all other components.
 #[derive(Debug)]

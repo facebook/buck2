@@ -7,29 +7,29 @@
  * of this source tree.
  */
 
-use buck2_interpreter::extra::{
-    BuildContext, ExtraContext, InterpreterHostArchitecture, InterpreterHostPlatform,
-};
+use buck2_interpreter::extra::BuildContext;
+use buck2_interpreter::extra::ExtraContext;
+use buck2_interpreter::extra::InterpreterHostArchitecture;
+use buck2_interpreter::extra::InterpreterHostPlatform;
 use either::Either;
 use once_cell::sync::Lazy;
-use starlark::{
-    collections::SmallMap,
-    environment::GlobalsBuilder,
-    eval::Evaluator,
-    values::{
-        docs::{DocString, DocStringKind},
-        structs::FrozenStruct,
-        AllocFrozenValue, FrozenHeap, FrozenValue, OwnedFrozenValue, StringValue, Value,
-    },
-};
+use starlark::collections::SmallMap;
+use starlark::environment::GlobalsBuilder;
+use starlark::eval::Evaluator;
+use starlark::values::docs::DocString;
+use starlark::values::docs::DocStringKind;
+use starlark::values::structs::FrozenStruct;
+use starlark::values::AllocFrozenValue;
+use starlark::values::FrozenHeap;
+use starlark::values::FrozenValue;
+use starlark::values::OwnedFrozenValue;
+use starlark::values::StringValue;
+use starlark::values::Value;
 
-use crate::interpreter::{
-    module_internals::ModuleInternals,
-    rule_defs::{
-        provider::callable::ProviderCallable,
-        transitive_set::{TransitiveSetDefinition, TransitiveSetOperations},
-    },
-};
+use crate::interpreter::module_internals::ModuleInternals;
+use crate::interpreter::rule_defs::provider::callable::ProviderCallable;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSetDefinition;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSetOperations;
 
 fn new_host_info(
     host_platform: InterpreterHostPlatform,
@@ -266,18 +266,20 @@ pub(crate) fn register_natives(builder: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 mod tests {
-    use buck2_interpreter::{
-        common::{BuildFilePath, ImportPath},
-        file_loader::LoadedModules,
-        package_listing::listing::{testing::PackageListingExt, PackageListing},
-    };
+    use buck2_interpreter::common::BuildFilePath;
+    use buck2_interpreter::common::ImportPath;
+    use buck2_interpreter::file_loader::LoadedModules;
+    use buck2_interpreter::package_listing::listing::testing::PackageListingExt;
+    use buck2_interpreter::package_listing::listing::PackageListing;
     use indoc::indoc;
     use serde_json::json;
 
-    use crate::{
-        interpreter::testing::{buildfile, cells, import, run_simple_starlark_test, Tester},
-        nodes::unconfigured::testing::targets_to_json,
-    };
+    use crate::interpreter::testing::buildfile;
+    use crate::interpreter::testing::cells;
+    use crate::interpreter::testing::import;
+    use crate::interpreter::testing::run_simple_starlark_test;
+    use crate::interpreter::testing::Tester;
+    use crate::nodes::unconfigured::testing::targets_to_json;
 
     #[test]
     fn prelude_is_included() -> anyhow::Result<()> {

@@ -17,13 +17,11 @@
 
 //! Define the bytecode instruction.
 
-use crate::{
-    eval::{
-        bc::{addr::BcPtrAddr, frame::BcFramePtr, instr_arg::BcInstrArg},
-        Evaluator,
-    },
-    values::Value,
-};
+use crate::eval::bc::addr::BcPtrAddr;
+use crate::eval::bc::frame::BcFramePtr;
+use crate::eval::bc::instr_arg::BcInstrArg;
+use crate::eval::Evaluator;
+use crate::values::Value;
 
 /// Result of instruction evaluation.
 // This is more efficient than `Result<R, EvalException>`,

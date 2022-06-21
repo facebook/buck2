@@ -3,21 +3,31 @@
 //! The [`EventDispatcher`] is a type-erased, dupe-able container for a [`crate::EventSink`]. It is intended to be
 //! liberally duplicated and passed around to the depths of buck2 so that consumers can insert events into it.
 
-use std::{
-    cell::Cell,
-    process::{Command, Stdio},
-    sync::Arc,
-    time::{Duration, Instant, SystemTime},
-};
+use std::cell::Cell;
+use std::process::Command;
+use std::process::Stdio;
+use std::sync::Arc;
+use std::time::Duration;
+use std::time::Instant;
+use std::time::SystemTime;
 
-use buck2_data::{
-    buck_event, instant_event::Data::HgInfo, span_end_event, span_start_event, MercurialInfo,
-    SpanEndEvent, SpanStartEvent,
-};
-use futures::{future, Future};
+use buck2_data::buck_event;
+use buck2_data::instant_event::Data::HgInfo;
+use buck2_data::span_end_event;
+use buck2_data::span_start_event;
+use buck2_data::MercurialInfo;
+use buck2_data::SpanEndEvent;
+use buck2_data::SpanStartEvent;
+use futures::future;
+use futures::Future;
 use gazebo::prelude::*;
 
-use crate::{sink::null::NullEventSink, BuckEvent, ControlEvent, EventSink, SpanId, TraceId};
+use crate::sink::null::NullEventSink;
+use crate::BuckEvent;
+use crate::ControlEvent;
+use crate::EventSink;
+use crate::SpanId;
+use crate::TraceId;
 
 /// A type-erased and dupe-able container for EventSinks, containing some additional metadata useful for all events
 /// emitted through the dispatcher.
@@ -409,13 +419,19 @@ macro_rules! error {
 
 #[cfg(test)]
 mod tests {
-    use std::result::Result::{Err, Ok};
+    use std::result::Result::Err;
+    use std::result::Result::Ok;
 
-    use buck2_data::{CommandEnd, CommandStart, SpanStartEvent};
+    use buck2_data::CommandEnd;
+    use buck2_data::CommandStart;
+    use buck2_data::SpanStartEvent;
     use tokio::task::JoinHandle;
 
-    use super::{EventDispatcher, *};
-    use crate::{sink::channel::ChannelEventSink, source::ChannelEventSource, EventSource};
+    use super::EventDispatcher;
+    use super::*;
+    use crate::sink::channel::ChannelEventSink;
+    use crate::source::ChannelEventSource;
+    use crate::EventSource;
 
     async fn next_event(source: &mut ChannelEventSource) -> BuckEvent {
         source.receive().unwrap().unpack_buck().unwrap().clone()

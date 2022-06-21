@@ -7,9 +7,11 @@
  * of this source tree.
  */
 
-use std::{fmt, iter::once};
+use std::fmt;
+use std::iter::once;
 
-use crate::fs::paths::{FileName, ForwardRelativePathBuf};
+use crate::fs::paths::FileName;
+use crate::fs::paths::ForwardRelativePathBuf;
 
 /// A trait shared by iterators on Directories. Unlike a regular Iterator, this returns an accessor
 /// to give us the current path in addition to the current item (which borrows from the iterator

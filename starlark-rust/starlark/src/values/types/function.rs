@@ -21,19 +21,29 @@ use std::collections::HashMap;
 
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, coerce::Coerce};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::Coerce;
 
 use crate as starlark;
-use crate::{
-    eval::{Arguments, Evaluator, ParametersParser, ParametersSpec},
-    private::Private,
-    values::{
-        docs,
-        docs::{DocItem, DocStringKind},
-        AllocFrozenValue, AllocValue, Freeze, FrozenHeap, FrozenValue, FrozenValueTyped, Heap,
-        StarlarkValue, Trace, Value, ValueLike,
-    },
-};
+use crate::eval::Arguments;
+use crate::eval::Evaluator;
+use crate::eval::ParametersParser;
+use crate::eval::ParametersSpec;
+use crate::private::Private;
+use crate::values::docs;
+use crate::values::docs::DocItem;
+use crate::values::docs::DocStringKind;
+use crate::values::AllocFrozenValue;
+use crate::values::AllocValue;
+use crate::values::Freeze;
+use crate::values::FrozenHeap;
+use crate::values::FrozenValue;
+use crate::values::FrozenValueTyped;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::Trace;
+use crate::values::Value;
+use crate::values::ValueLike;
 
 /// Return value of `type(any function)`.
 pub const FUNCTION_TYPE: &str = "function";

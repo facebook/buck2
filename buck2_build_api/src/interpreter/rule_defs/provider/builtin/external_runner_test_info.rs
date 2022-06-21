@@ -7,33 +7,32 @@
  * of this source tree.
  */
 
-use std::iter::{empty, once};
+use std::iter::empty;
+use std::iter::once;
 
 use anyhow::Context as _;
 use buck2_build_api_derive::internal_provider;
 use either::Either;
-use gazebo::{any::ProvidesStaticType, coerce::Coerce};
-use starlark::{
-    environment::GlobalsBuilder,
-    values::{
-        dict::Dict,
-        list::List,
-        none::{NoneOr, NoneType},
-        tuple::Tuple,
-        Freeze, Trace, UnpackValue, Value, ValueLike,
-    },
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::Coerce;
+use starlark::environment::GlobalsBuilder;
+use starlark::values::dict::Dict;
+use starlark::values::list::List;
+use starlark::values::none::NoneOr;
+use starlark::values::none::NoneType;
+use starlark::values::tuple::Tuple;
+use starlark::values::Freeze;
+use starlark::values::Trace;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 
-use crate::{
-    attrs::attr_type::arg::value::ResolvedStringWithMacros,
-    interpreter::rule_defs::{
-        cmd_args::{
-            CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilder,
-            ValueAsCommandLineLike,
-        },
-        command_executor_config::StarlarkCommandExecutorConfigLike,
-    },
-};
+use crate::attrs::attr_type::arg::value::ResolvedStringWithMacros;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
+use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfigLike;
 
 /// Provider that signals that a rule can be tested using an external runner. This is the
 /// Buck1-compatible API for tests.
@@ -399,9 +398,10 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
 mod tests {
     use indoc::indoc;
 
-    use crate::interpreter::testing::{
-        import, run_starlark_bzl_test, run_starlark_bzl_test_expecting_error, Tester,
-    };
+    use crate::interpreter::testing::import;
+    use crate::interpreter::testing::run_starlark_bzl_test;
+    use crate::interpreter::testing::run_starlark_bzl_test_expecting_error;
+    use crate::interpreter::testing::Tester;
 
     #[test]
     fn test_construction() -> anyhow::Result<()> {

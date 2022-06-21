@@ -204,24 +204,26 @@ extern crate gazebo;
 #[macro_use]
 extern crate tracing;
 
-use std::{
-    fmt::Debug,
-    io::Write,
-    sync::{Arc, RwLock, Weak},
-};
+use std::fmt::Debug;
+use std::io::Write;
+use std::sync::Arc;
+use std::sync::RwLock;
+use std::sync::Weak;
 
 use async_trait::async_trait;
 use bincode::Options;
 use gazebo::prelude::*;
-use serde::{Serialize, Serializer};
+use serde::Serialize;
+use serde::Serializer;
 
-use crate::{
-    ctx::{ComputationData, DiceComputationImpl},
-    cycles::DetectCycles,
-    data::DiceData,
-    incremental::{versions::VersionTracker, IncrementalEngine, StorageType},
-    map::DiceMap,
-};
+use crate::ctx::ComputationData;
+use crate::ctx::DiceComputationImpl;
+use crate::cycles::DetectCycles;
+use crate::data::DiceData;
+use crate::incremental::versions::VersionTracker;
+use crate::incremental::IncrementalEngine;
+use crate::incremental::StorageType;
+use crate::map::DiceMap;
 
 pub mod cycles;
 pub mod data;
@@ -244,23 +246,26 @@ mod tests;
 // data we want to expose
 mod ctx;
 
-pub use ctx::{DiceComputations, DiceEvent, DiceTracker, DiceTransaction, UserComputationData};
+pub use ctx::DiceComputations;
+pub use ctx::DiceEvent;
+pub use ctx::DiceTracker;
+pub use ctx::DiceTransaction;
+pub use ctx::UserComputationData;
 pub use injected::InjectedKey;
 pub use key::Key;
 pub use opaque::OpaqueValue;
-pub use projection::{DiceProjectionComputations, ProjectionKey};
+pub use projection::DiceProjectionComputations;
+pub use projection::ProjectionKey;
 
-use crate::{
-    future_handle::WeakDiceFutureHandle,
-    incremental::{
-        evaluator::Evaluator,
-        graph::{storage_properties::StorageProperties, GraphNode},
-        transaction_ctx::TransactionCtx,
-        IncrementalComputeProperties, ValueWithDeps,
-    },
-    key::StoragePropertiesForKey,
-    projection::ProjectionKeyProperties,
-};
+use crate::future_handle::WeakDiceFutureHandle;
+use crate::incremental::evaluator::Evaluator;
+use crate::incremental::graph::storage_properties::StorageProperties;
+use crate::incremental::graph::GraphNode;
+use crate::incremental::transaction_ctx::TransactionCtx;
+use crate::incremental::IncrementalComputeProperties;
+use crate::incremental::ValueWithDeps;
+use crate::key::StoragePropertiesForKey;
+use crate::projection::ProjectionKeyProperties;
 
 /// An incremental computation engine that executes arbitrary computations that
 /// maps 'Key's to values.
@@ -445,11 +450,12 @@ impl<K: Key> Evaluator for StoragePropertiesForKey<K> {
 }
 
 pub mod testing {
-    use crate::{
-        ctx::{DiceTransaction, UserComputationData},
-        cycles::DetectCycles,
-        Dice, DiceDataBuilder, Key,
-    };
+    use crate::ctx::DiceTransaction;
+    use crate::ctx::UserComputationData;
+    use crate::cycles::DetectCycles;
+    use crate::Dice;
+    use crate::DiceDataBuilder;
+    use crate::Key;
 
     /// Testing utility that can be used to build a specific 'DiceComputation' where certain keys
     /// of computation mocked to return a specific result.

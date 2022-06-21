@@ -18,9 +18,11 @@
 // This is not public API, but it is used by Starlark command line utility.
 #![doc(hidden)]
 
-use std::{env, io};
+use std::env;
+use std::io;
 
-use rustyline::{error::ReadlineError, Editor};
+use rustyline::error::ReadlineError;
+use rustyline::Editor;
 
 /// Wrapper for the readline library, whichever we are using at the moment.
 pub struct ReadLine {

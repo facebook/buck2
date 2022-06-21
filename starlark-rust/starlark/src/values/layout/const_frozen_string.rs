@@ -44,7 +44,8 @@ macro_rules! const_frozen_string {
 
 #[cfg(test)]
 mod tests {
-    use crate::values::{FrozenHeap, Heap};
+    use crate::values::FrozenHeap;
+    use crate::values::Heap;
 
     #[test]
     fn test_const_frozen_string_for_short_strings() {

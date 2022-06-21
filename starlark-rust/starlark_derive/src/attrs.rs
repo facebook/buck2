@@ -18,10 +18,16 @@
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use quote::quote;
-use syn::{
-    parse_macro_input, spanned::Spanned, Attribute, Data, DeriveInput, Error, Meta, NestedMeta,
-    Result, Type,
-};
+use syn::parse_macro_input;
+use syn::spanned::Spanned;
+use syn::Attribute;
+use syn::Data;
+use syn::DeriveInput;
+use syn::Error;
+use syn::Meta;
+use syn::NestedMeta;
+use syn::Result;
+use syn::Type;
 
 pub fn derive_attrs(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

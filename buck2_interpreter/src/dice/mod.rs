@@ -17,16 +17,19 @@
 //! onto the dice graph).
 use std::sync::Arc;
 
-use buck2_common::dice::file_ops::{FileChangeHandler, HasFileOps};
-use buck2_core::{cells::CellName, result::SharedResult};
-use dice::{DiceComputations, UserComputationData};
+use buck2_common::dice::file_ops::FileChangeHandler;
+use buck2_common::dice::file_ops::HasFileOps;
+use buck2_core::cells::CellName;
+use buck2_core::result::SharedResult;
+use dice::DiceComputations;
+use dice::UserComputationData;
 use events::dispatch::EventDispatcher;
 
-use crate::{
-    common::BuildFileCell, dice::calculation::DiceCalculationDelegate,
-    extra::InterpreterConfiguror, interpreter::GlobalInterpreterState,
-    package_listing::dice::HasPackageListingResolver,
-};
+use crate::common::BuildFileCell;
+use crate::dice::calculation::DiceCalculationDelegate;
+use crate::extra::InterpreterConfiguror;
+use crate::interpreter::GlobalInterpreterState;
+use crate::package_listing::dice::HasPackageListingResolver;
 
 pub mod calculation;
 mod interpreter;

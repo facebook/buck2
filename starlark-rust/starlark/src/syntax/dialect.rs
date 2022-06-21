@@ -18,11 +18,12 @@
 use gazebo::dupe::Dupe;
 use thiserror::Error;
 
-use crate::{
-    codemap::{CodeMap, Pos, Span, Spanned},
-    errors::Diagnostic,
-    syntax::ast::Visibility,
-};
+use crate::codemap::CodeMap;
+use crate::codemap::Pos;
+use crate::codemap::Span;
+use crate::codemap::Spanned;
+use crate::errors::Diagnostic;
+use crate::syntax::ast::Visibility;
 
 #[derive(Error, Debug)]
 enum DialectError {

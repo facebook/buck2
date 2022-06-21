@@ -7,14 +7,15 @@
  * of this source tree.
  */
 
-use std::{cmp::Ordering, convert::TryFrom, iter::FromIterator};
+use std::cmp::Ordering;
+use std::convert::TryFrom;
+use std::iter::FromIterator;
 
-use crossterm::{
-    cursor::MoveToColumn,
-    queue,
-    style::Print,
-    terminal::{Clear, ClearType},
-};
+use crossterm::cursor::MoveToColumn;
+use crossterm::queue;
+use crossterm::style::Print;
+use crossterm::terminal::Clear;
+use crossterm::terminal::ClearType;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::Span;

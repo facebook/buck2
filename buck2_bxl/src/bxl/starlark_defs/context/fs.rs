@@ -1,25 +1,35 @@
 //! Provides some basic tracked filesystem access for bxl functions so that they can meaningfully
 //! detect simple properties of artifacts, and source directories.
 
-use std::{borrow::Cow, convert::TryFrom, path::Path};
+use std::borrow::Cow;
+use std::convert::TryFrom;
+use std::path::Path;
 
-use buck2_common::{
-    dice::{cells::HasCellResolver, data::HasIoProvider, file_ops::HasFileOps},
-    file_ops::FileOps,
-};
-use buck2_core::{
-    self,
-    fs::{paths::AbsPath, project::ProjectRelativePath},
-};
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::data::HasIoProvider;
+use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::file_ops::FileOps;
+use buck2_core::fs::paths::AbsPath;
+use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::{self};
 use buck2_docs_gen::Buck2Docs;
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, prelude::*};
-use starlark::{
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    starlark_module, starlark_type,
-    values::{AllocValue, Heap, NoSerialize, StarlarkValue, Trace, UnpackValue, Value, ValueLike},
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::starlark_module;
+use starlark::starlark_type;
+use starlark::values::AllocValue;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 

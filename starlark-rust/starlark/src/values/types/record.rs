@@ -41,32 +41,39 @@
 //! # "#);
 //! ```
 
-use std::{
-    cell::RefCell,
-    fmt,
-    fmt::{Debug, Display},
-    hash::Hash,
-};
+use std::cell::RefCell;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::hash::Hash;
 
 use either::Either;
-use gazebo::{
-    any::ProvidesStaticType,
-    cell::AsARef,
-    coerce::{coerce, Coerce},
-    prelude::*,
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::cell::AsARef;
+use gazebo::coerce::coerce;
+use gazebo::coerce::Coerce;
+use gazebo::prelude::*;
 use serde::Serialize;
 
-use crate::{
-    self as starlark,
-    collections::{Hashed, SmallMap, StarlarkHasher},
-    eval::{Arguments, Evaluator, ParametersSpec},
-    values::{
-        comparison::equals_slice, display::display_keyed_container, function::FUNCTION_TYPE,
-        typing::TypeCompiled, Freeze, Freezer, FrozenValue, Heap, StarlarkValue, Trace, Value,
-        ValueLike,
-    },
-};
+use crate::collections::Hashed;
+use crate::collections::SmallMap;
+use crate::collections::StarlarkHasher;
+use crate::eval::Arguments;
+use crate::eval::Evaluator;
+use crate::eval::ParametersSpec;
+use crate::values::comparison::equals_slice;
+use crate::values::display::display_keyed_container;
+use crate::values::function::FUNCTION_TYPE;
+use crate::values::typing::TypeCompiled;
+use crate::values::Freeze;
+use crate::values::Freezer;
+use crate::values::FrozenValue;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::Trace;
+use crate::values::Value;
+use crate::values::ValueLike;
+use crate::{self as starlark};
 
 /// The result of `field()`.
 #[derive(Clone, Debug, Dupe, Trace, Freeze, NoSerialize, ProvidesStaticType)]

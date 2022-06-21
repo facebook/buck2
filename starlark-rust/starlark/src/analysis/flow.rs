@@ -18,14 +18,18 @@
 use gazebo::variants::VariantName;
 use thiserror::Error;
 
-use crate::{
-    analysis::types::{LintT, LintWarning},
-    codemap::{CodeMap, ResolvedFileSpan, Span, Spanned},
-    syntax::{
-        ast::{AstExpr, AstLiteral, AstStmt, Expr, Stmt},
-        AstModule,
-    },
-};
+use crate::analysis::types::LintT;
+use crate::analysis::types::LintWarning;
+use crate::codemap::CodeMap;
+use crate::codemap::ResolvedFileSpan;
+use crate::codemap::Span;
+use crate::codemap::Spanned;
+use crate::syntax::ast::AstExpr;
+use crate::syntax::ast::AstLiteral;
+use crate::syntax::ast::AstStmt;
+use crate::syntax::ast::Expr;
+use crate::syntax::ast::Stmt;
+use crate::syntax::AstModule;
 
 #[derive(Error, Debug, VariantName)]
 pub(crate) enum FlowIssue {

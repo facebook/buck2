@@ -18,7 +18,8 @@
 //! The AST of Starlark as [`AstModule`], along with a [`parse`](AstModule::parse) function.
 
 pub use ast::AstModule;
-pub use dialect::{Dialect, DialectTypes};
+pub use dialect::Dialect;
+pub use dialect::DialectTypes;
 
 #[cfg(test)]
 mod grammar_tests;

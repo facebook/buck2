@@ -13,20 +13,17 @@
 
 use buck2_build_api::nodes::unconfigured::TargetNode;
 use buck2_query::query::syntax::simple::eval::set::TargetSetExt;
-use starlark::{
-    environment::GlobalsBuilder,
-    eval::Evaluator,
-    starlark_module,
-    values::{Value, ValueOf},
-};
+use starlark::environment::GlobalsBuilder;
+use starlark::eval::Evaluator;
+use starlark::starlark_module;
+use starlark::values::Value;
+use starlark::values::ValueOf;
 
-use crate::{
-    bql::{
-        internals::{QueryInternals, TargetExpr},
-        values::fileset::{FileSetExpr, StarlarkFileSet},
-    },
-    bxl::starlark_defs::targetset::StarlarkTargetSet,
-};
+use crate::bql::internals::QueryInternals;
+use crate::bql::internals::TargetExpr;
+use crate::bql::values::fileset::FileSetExpr;
+use crate::bql::values::fileset::StarlarkFileSet;
+use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 
 pub mod eval;
 pub mod internals;

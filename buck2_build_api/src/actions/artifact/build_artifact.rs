@@ -1,10 +1,13 @@
-use std::{hash::Hash, sync::Arc};
+use std::hash::Hash;
+use std::sync::Arc;
 
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::prelude::*;
 
-use crate::{actions::ActionKey, events::proto::ToProtoMessage, path::BuckOutPath};
+use crate::actions::ActionKey;
+use crate::events::proto::ToProtoMessage;
+use crate::path::BuckOutPath;
 
 /// An artifact that is built by the build system
 #[allow(clippy::derive_hash_xor_eq)] // The Eq is equivalent to what would have been generated

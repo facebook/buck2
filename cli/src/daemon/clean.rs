@@ -7,12 +7,15 @@
  * of this source tree.
  */
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use anyhow::Context as _;
 use buck2_build_api::context::HasBuildContextData;
-use buck2_core::fs::{anyhow as fs, paths::AbsPathBuf};
-use cli_proto::{CleanRequest, CleanResponse};
+use buck2_core::fs::anyhow as fs;
+use buck2_core::fs::paths::AbsPathBuf;
+use cli_proto::CleanRequest;
+use cli_proto::CleanResponse;
 use gazebo::prelude::*;
 use threadpool::ThreadPool;
 use walkdir::WalkDir;

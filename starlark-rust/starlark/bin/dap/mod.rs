@@ -15,29 +15,33 @@
  * limitations under the License.
  */
 
-use std::{
-    collections::{HashMap, HashSet},
-    path::{Path, PathBuf},
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        mpsc::{channel, Receiver, Sender},
-        Arc, Mutex,
-    },
-    thread,
-};
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::path::Path;
+use std::path::PathBuf;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
+use std::sync::mpsc::channel;
+use std::sync::mpsc::Receiver;
+use std::sync::mpsc::Sender;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::thread;
 
 use debugserver_types::*;
 use gazebo::prelude::*;
 pub(crate) use library::*;
-use serde_json::{Map, Value};
-use starlark::{
-    codemap::{FileSpan, FileSpanRef},
-    environment::Module,
-    eval::Evaluator,
-    syntax::{AstModule, Dialect},
-};
+use serde_json::Map;
+use serde_json::Value;
+use starlark::codemap::FileSpan;
+use starlark::codemap::FileSpanRef;
+use starlark::environment::Module;
+use starlark::eval::Evaluator;
+use starlark::syntax::AstModule;
+use starlark::syntax::Dialect;
 
-use crate::eval::{dialect, globals};
+use crate::eval::dialect;
+use crate::eval::globals;
 
 mod library;
 

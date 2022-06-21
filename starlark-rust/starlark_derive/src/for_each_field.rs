@@ -15,9 +15,17 @@
  * limitations under the License.
  */
 
-use proc_macro2::{Ident, TokenStream};
-use quote::{format_ident, quote, quote_spanned};
-use syn::{Data, DataEnum, DataStruct, Field, Fields, Variant};
+use proc_macro2::Ident;
+use proc_macro2::TokenStream;
+use quote::format_ident;
+use quote::quote;
+use quote::quote_spanned;
+use syn::Data;
+use syn::DataEnum;
+use syn::DataStruct;
+use syn::Field;
+use syn::Fields;
+use syn::Variant;
 
 fn for_each_field_in_struct(
     s: &DataStruct,

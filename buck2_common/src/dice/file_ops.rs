@@ -7,28 +7,33 @@
  * of this source tree.
  */
 
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_core::{
-    cells::{paths::CellPath, CellName, CellResolver},
-    fs::project::ProjectRelativePathBuf,
-    result::SharedResult,
-};
+use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::CellName;
+use buck2_core::cells::CellResolver;
+use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::result::SharedResult;
 use derive_more::Display;
-use dice::{DiceComputations, Key};
-use gazebo::{cmp::PartialEqAny, prelude::*};
+use dice::DiceComputations;
+use dice::Key;
+use gazebo::cmp::PartialEqAny;
+use gazebo::prelude::*;
 use itertools::Itertools;
 
-use crate::{
-    dice::{cells::HasCellResolver, data::HasIoProvider, file_ops::keys::FileOpsKey},
-    file_ops::{
-        DefaultFileOpsDelegate, FileIgnoreResult, FileIgnores, FileOps, PathMetadata,
-        SimpleDirEntry,
-    },
-    io::IoProvider,
-    legacy_configs::dice::HasLegacyConfigs,
-};
+use crate::dice::cells::HasCellResolver;
+use crate::dice::data::HasIoProvider;
+use crate::dice::file_ops::keys::FileOpsKey;
+use crate::file_ops::DefaultFileOpsDelegate;
+use crate::file_ops::FileIgnoreResult;
+use crate::file_ops::FileIgnores;
+use crate::file_ops::FileOps;
+use crate::file_ops::PathMetadata;
+use crate::file_ops::SimpleDirEntry;
+use crate::io::IoProvider;
+use crate::legacy_configs::dice::HasLegacyConfigs;
 
 pub trait HasFileOps<'c> {
     type T: FileOps;

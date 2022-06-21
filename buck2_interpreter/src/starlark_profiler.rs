@@ -7,17 +7,15 @@
  * of this source tree.
  */
 
-use std::{
-    path::PathBuf,
-    time::{Duration, Instant},
-};
+use std::path::PathBuf;
+use std::time::Duration;
+use std::time::Instant;
 
 use anyhow::Context;
 use gazebo::dupe::Dupe;
-use starlark::{
-    eval::{Evaluator, ProfileMode},
-    values::FrozenHeapRef,
-};
+use starlark::eval::Evaluator;
+use starlark::eval::ProfileMode;
+use starlark::values::FrozenHeapRef;
 
 /// When profiling Starlark file, all dependencies of that file must be
 /// "instrumented" otherwise the profiler won't work.

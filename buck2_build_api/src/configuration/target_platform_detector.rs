@@ -24,11 +24,11 @@
 //! for `cell//bar/foo/...` has no effect because buck will pick the first matching spec).
 
 use anyhow::Context;
-use buck2_core::{
-    cells::{paths::CellPath, CellAliasResolver},
-    target::TargetLabel,
-};
-use buck2_interpreter::pattern::{ParsedPattern, TargetPattern};
+use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::CellAliasResolver;
+use buck2_core::target::TargetLabel;
+use buck2_interpreter::pattern::ParsedPattern;
+use buck2_interpreter::pattern::TargetPattern;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -119,10 +119,9 @@ impl TargetPlatformDetector {
 mod tests {
     use std::sync::Arc;
 
-    use buck2_core::{
-        cells::{CellAlias, CellName},
-        target::testing::TargetLabelExt,
-    };
+    use buck2_core::cells::CellAlias;
+    use buck2_core::cells::CellName;
+    use buck2_core::target::testing::TargetLabelExt;
 
     use super::*;
 

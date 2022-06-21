@@ -7,23 +7,23 @@
  * of this source tree.
  */
 
-use std::{
-    fmt::{self, Display},
-    iter,
-};
+use std::fmt::Display;
+use std::fmt::{self};
+use std::iter;
 
 use anyhow::anyhow;
 use gazebo::prelude::*;
 use itertools::Itertools;
-use starlark::values::{list::List, tuple::Tuple, Value};
+use starlark::values::list::List;
+use starlark::values::tuple::Tuple;
+use starlark::values::Value;
 
-use crate::{
-    attrs::{
-        attr_type::{attr_literal::CoercionError, AttrType},
-        AttrCoercionContext, AttrLiteral, CoercedAttr,
-    },
-    interpreter::rule_defs::attr::AttrIsConfigurable,
-};
+use crate::attrs::attr_type::attr_literal::CoercionError;
+use crate::attrs::attr_type::AttrType;
+use crate::attrs::AttrCoercionContext;
+use crate::attrs::AttrLiteral;
+use crate::attrs::CoercedAttr;
+use crate::interpreter::rule_defs::attr::AttrIsConfigurable;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub(crate) struct TupleAttrType {

@@ -16,8 +16,10 @@
  */
 
 use debugserver_types::*;
-use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde::Deserialize;
+use serde::Serialize;
+use serde_json::Map;
+use serde_json::Value;
 
 pub(crate) trait DebugServer {
     fn initialize(&self, x: InitializeRequestArguments) -> anyhow::Result<Option<Capabilities>>;

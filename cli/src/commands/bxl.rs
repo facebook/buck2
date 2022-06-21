@@ -3,15 +3,17 @@ use buck2_core::exit_result::ExitResult;
 use cli_proto::BxlRequest;
 use futures::FutureExt;
 
-use crate::{
-    commands::{
-        build::{print_build_result, FinalArtifactMaterializations, MaterializationsToProto},
-        common::CommonBuildOptions,
-    },
-    daemon::client::{BuckdClientConnector, CommandOutcome},
-    CommandContext, CommonConfigOptions, CommonConsoleOptions, CommonEventLogOptions,
-    StreamingCommand,
-};
+use crate::commands::build::print_build_result;
+use crate::commands::build::FinalArtifactMaterializations;
+use crate::commands::build::MaterializationsToProto;
+use crate::commands::common::CommonBuildOptions;
+use crate::daemon::client::BuckdClientConnector;
+use crate::daemon::client::CommandOutcome;
+use crate::CommandContext;
+use crate::CommonConfigOptions;
+use crate::CommonConsoleOptions;
+use crate::CommonEventLogOptions;
+use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "bxl", about = "Run BXL scripts")]

@@ -19,12 +19,12 @@
 //! There are plans afoot to change that, but in the meantime let's use fast algorithms
 //! to make up some of the difference.
 
-use std::{cmp::min, str};
+use std::cmp::min;
+use std::str;
 
-use crate::{
-    stdlib::util::convert_indices,
-    values::types::{none::NoneOr, string::CharIndex},
-};
+use crate::stdlib::util::convert_indices;
+use crate::values::types::none::NoneOr;
+use crate::values::types::string::CharIndex;
 
 #[inline(always)]
 fn is_1byte(x: u8) -> bool {
@@ -277,13 +277,10 @@ pub(crate) fn contains(haystack: &str, needle: &str) -> bool {
 mod tests {
     use std::iter;
 
-    use crate::values::{
-        string::fast_string::convert_str_indices,
-        types::{
-            none::NoneOr,
-            string::{fast_string::StrIndices, CharIndex},
-        },
-    };
+    use crate::values::string::fast_string::convert_str_indices;
+    use crate::values::types::none::NoneOr;
+    use crate::values::types::string::fast_string::StrIndices;
+    use crate::values::types::string::CharIndex;
 
     #[test]
     fn test_convert_str_indices() {

@@ -16,11 +16,10 @@
  */
 
 use crate as starlark;
-use crate::{
-    assert::Assert,
-    environment::GlobalsBuilder,
-    values::{Heap, StringValue},
-};
+use crate::assert::Assert;
+use crate::environment::GlobalsBuilder;
+use crate::values::Heap;
+use crate::values::StringValue;
 
 #[starlark_module]
 fn functions(builder: &mut GlobalsBuilder) {

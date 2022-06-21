@@ -15,17 +15,23 @@
  * limitations under the License.
  */
 
-use std::fmt::{self, Debug};
+use std::fmt::Debug;
+use std::fmt::{self};
 
-use gazebo::{coerce::Coerce, prelude::*};
+use gazebo::coerce::Coerce;
+use gazebo::prelude::*;
 use thiserror::Error;
 
-use crate::values::{
-    dict::{Dict, DictRef},
-    list::{List, ListRef},
-    tuple::{Tuple, TupleGen},
-    Heap, Trace, Tracer, Value,
-};
+use crate::values::dict::Dict;
+use crate::values::dict::DictRef;
+use crate::values::list::List;
+use crate::values::list::ListRef;
+use crate::values::tuple::Tuple;
+use crate::values::tuple::TupleGen;
+use crate::values::Heap;
+use crate::values::Trace;
+use crate::values::Tracer;
+use crate::values::Value;
 
 #[derive(Debug, Error)]
 enum TypingError {

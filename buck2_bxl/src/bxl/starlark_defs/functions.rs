@@ -1,19 +1,20 @@
 use anyhow::Context;
-use buck2_core::provider::{ConfiguredProvidersLabel, ProviderName, ProvidersLabel, ProvidersName};
-use buck2_interpreter::types::{
-    label::{Label, StarlarkProvidersLabel},
-    target_label::{StarlarkConfiguredTargetLabel, StarlarkTargetLabel},
-};
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::ProviderName;
+use buck2_core::provider::ProvidersLabel;
+use buck2_core::provider::ProvidersName;
+use buck2_interpreter::types::label::Label;
+use buck2_interpreter::types::label::StarlarkProvidersLabel;
+use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
+use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use gazebo::prelude::*;
-use starlark::{
-    environment::GlobalsBuilder,
-    eval::Evaluator,
-    starlark_module,
-    values::{
-        list::{FrozenList, List},
-        Value, ValueError,
-    },
-};
+use starlark::environment::GlobalsBuilder;
+use starlark::eval::Evaluator;
+use starlark::starlark_module;
+use starlark::values::list::FrozenList;
+use starlark::values::list::List;
+use starlark::values::Value;
+use starlark::values::ValueError;
 
 #[starlark_module]
 pub fn register_label_function(builder: &mut GlobalsBuilder) {

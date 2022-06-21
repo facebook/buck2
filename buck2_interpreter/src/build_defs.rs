@@ -7,10 +7,15 @@
  * of this source tree.
  */
 
-use sha2::{Digest, Sha256};
-use starlark::{environment::GlobalsBuilder, eval::Evaluator, values::Value};
+use sha2::Digest;
+use sha2::Sha256;
+use starlark::environment::GlobalsBuilder;
+use starlark::eval::Evaluator;
+use starlark::values::Value;
 
-use crate::{extra::BuildContext, globspec::GlobSpec, selector::Selector};
+use crate::extra::BuildContext;
+use crate::globspec::GlobSpec;
+use crate::selector::Selector;
 
 #[starlark_module]
 pub fn native_module(builder: &mut GlobalsBuilder) {
@@ -123,35 +128,41 @@ pub fn register_globals(_env: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 mod tests {
-    use std::{convert::TryFrom, sync::Arc};
+    use std::convert::TryFrom;
+    use std::sync::Arc;
 
-    use buck2_common::legacy_configs::{
-        testing::TestConfigParserFileOps, LegacyBuckConfig, LegacyBuckConfigs,
-    };
-    use buck2_core::{
-        cells::{CellAlias, CellAliasResolver, CellName, CellResolver, CellsAggregator},
-        fs::{
-            paths::{AbsPath, FileNameBuf},
-            project::ProjectRelativePathBuf,
-        },
-    };
+    use buck2_common::legacy_configs::testing::TestConfigParserFileOps;
+    use buck2_common::legacy_configs::LegacyBuckConfig;
+    use buck2_common::legacy_configs::LegacyBuckConfigs;
+    use buck2_core::cells::CellAlias;
+    use buck2_core::cells::CellAliasResolver;
+    use buck2_core::cells::CellName;
+    use buck2_core::cells::CellResolver;
+    use buck2_core::cells::CellsAggregator;
+    use buck2_core::fs::paths::AbsPath;
+    use buck2_core::fs::paths::FileNameBuf;
+    use buck2_core::fs::project::ProjectRelativePathBuf;
     use gazebo::prelude::*;
     use indoc::indoc;
 
-    use crate::{
-        common::{
-            BuildFileCell, BuildFilePath, ImportPath, OwnedStarlarkModulePath, StarlarkModulePath,
-            StarlarkPath,
-        },
-        extra::testing::{TesterConfiguror, TesterExtraContext},
-        file_loader::{LoadedModule, LoadedModules},
-        import_paths::ImportPaths,
-        interpreter::{
-            GlobalInterpreterState, InterpreterConfigForCell, InterpreterForCell, ParseResult,
-        },
-        package_listing::listing::PackageListing,
-        starlark_profiler::{StarlarkProfilerInstrumentation, StarlarkProfilerOrInstrumentation},
-    };
+    use crate::common::BuildFileCell;
+    use crate::common::BuildFilePath;
+    use crate::common::ImportPath;
+    use crate::common::OwnedStarlarkModulePath;
+    use crate::common::StarlarkModulePath;
+    use crate::common::StarlarkPath;
+    use crate::extra::testing::TesterConfiguror;
+    use crate::extra::testing::TesterExtraContext;
+    use crate::file_loader::LoadedModule;
+    use crate::file_loader::LoadedModules;
+    use crate::import_paths::ImportPaths;
+    use crate::interpreter::GlobalInterpreterState;
+    use crate::interpreter::InterpreterConfigForCell;
+    use crate::interpreter::InterpreterForCell;
+    use crate::interpreter::ParseResult;
+    use crate::package_listing::listing::PackageListing;
+    use crate::starlark_profiler::StarlarkProfilerInstrumentation;
+    use crate::starlark_profiler::StarlarkProfilerOrInstrumentation;
 
     fn cells() -> anyhow::Result<(CellAliasResolver, CellResolver, LegacyBuckConfigs)> {
         let mut agg = CellsAggregator::new();

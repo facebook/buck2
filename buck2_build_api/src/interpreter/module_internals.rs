@@ -7,22 +7,23 @@
  * of this source tree.
  */
 
-use std::{cell::RefCell, sync::Arc};
+use std::cell::RefCell;
+use std::sync::Arc;
 
-use buck2_core::{package::Package, target::TargetLabel};
-use buck2_interpreter::{
-    common::{BuildFilePath, ImportPath},
-    extra::ExtraContext,
-    package_imports::ImplicitImport,
-};
+use buck2_core::package::Package;
+use buck2_core::target::TargetLabel;
+use buck2_interpreter::common::BuildFilePath;
+use buck2_interpreter::common::ImportPath;
+use buck2_interpreter::extra::ExtraContext;
+use buck2_interpreter::package_imports::ImplicitImport;
 use gazebo::prelude::*;
 use indexmap::map::Entry;
-use starlark::{environment::FrozenModule, values::OwnedFrozenValue};
+use starlark::environment::FrozenModule;
+use starlark::values::OwnedFrozenValue;
 
-use crate::{
-    interpreter::rule_defs::attr::BuildAttrCoercionContext,
-    nodes::unconfigured::{TargetNode, TargetsMap},
-};
+use crate::interpreter::rule_defs::attr::BuildAttrCoercionContext;
+use crate::nodes::unconfigured::TargetNode;
+use crate::nodes::unconfigured::TargetsMap;
 
 /// An EvaluationResult contains the list of targets resulting from evaluating a build file.
 #[derive(Debug)]

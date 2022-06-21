@@ -35,18 +35,18 @@ pub use abs_path::*;
 pub use file_name::*;
 pub use forward_rel_path::*;
 pub use into_filename_buf_iterator::*;
-/// 'RelativePath' and 'RelativePathBuf' types are OS platform agnostic paths
-/// that always have `/` separators.
-pub use relative_path::{RelativePath, RelativePathBuf};
+pub use relative_path::RelativePath;
+pub use relative_path::RelativePathBuf;
 
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
 
-    use crate::fs::{
-        paths::{AbsPath, AbsPathBuf, ForwardRelativePath, ForwardRelativePathBuf},
-        project::ProjectRelativePath,
-    };
+    use crate::fs::paths::AbsPath;
+    use crate::fs::paths::AbsPathBuf;
+    use crate::fs::paths::ForwardRelativePath;
+    use crate::fs::paths::ForwardRelativePathBuf;
+    use crate::fs::project::ProjectRelativePath;
 
     #[test]
     fn wrapped_paths_work_in_maps() -> anyhow::Result<()> {

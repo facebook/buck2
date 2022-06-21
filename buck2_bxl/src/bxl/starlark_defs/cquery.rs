@@ -1,36 +1,39 @@
 use std::sync::Arc;
 
-use buck2_build_api::{
-    nodes::configured::ConfiguredTargetNode, query::cquery::environment::CqueryEnvironment,
-};
+use buck2_build_api::nodes::configured::ConfiguredTargetNode;
+use buck2_build_api::query::cquery::environment::CqueryEnvironment;
 use buck2_core::target::TargetLabel;
 use buck2_docs_gen::Buck2Docs;
-use buck2_query::query::syntax::simple::functions::{
-    helpers::CapturedExpr, DefaultQueryFunctions, DefaultQueryFunctionsModule,
-};
+use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
+use buck2_query::query::syntax::simple::functions::DefaultQueryFunctions;
+use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
-use gazebo::{any::ProvidesStaticType, prelude::*};
-use starlark::{
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    eval::Evaluator,
-    starlark_module, starlark_type,
-    values::{
-        none::NoneOr, AllocValue, Heap, NoSerialize, StarlarkValue, Trace, UnpackValue, Value,
-        ValueLike,
-    },
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::eval::Evaluator;
+use starlark::starlark_module;
+use starlark::starlark_type;
+use starlark::values::none::NoneOr;
+use starlark::values::AllocValue;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 
-use crate::bxl::{
-    starlark_defs::{
-        context::BxlContext,
-        file_set::{FileSetExpr, StarlarkFileSet},
-        target_expr::TargetExpr,
-        targetset::StarlarkTargetSet,
-    },
-    value_as_starlak_target_label::ValueAsStarlarkTargetLabel,
-};
+use crate::bxl::starlark_defs::context::BxlContext;
+use crate::bxl::starlark_defs::file_set::FileSetExpr;
+use crate::bxl::starlark_defs::file_set::StarlarkFileSet;
+use crate::bxl::starlark_defs::target_expr::TargetExpr;
+use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
+use crate::bxl::value_as_starlak_target_label::ValueAsStarlarkTargetLabel;
 
 /// The context for performing `cquery` operations in bxl. The functions offered on this ctx are
 /// the same behaviour as the query functions available within cquery command.

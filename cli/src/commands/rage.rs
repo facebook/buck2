@@ -11,28 +11,32 @@ use std::str::FromStr;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_core::{
-    exit_result::ExitResult,
-    fs::anyhow::{create_dir_all, remove_dir_all},
-};
+use buck2_core::exit_result::ExitResult;
+use buck2_core::fs::anyhow::create_dir_all;
+use buck2_core::fs::anyhow::remove_dir_all;
 use buck2_data::RageInvoked;
-use cli_proto::{unstable_dice_dump_request::DiceDumpFormat, UnstableDiceDumpRequest};
-use events::{dispatch::EventDispatcher, TraceId};
-use futures::{FutureExt, TryStreamExt};
+use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
+use cli_proto::UnstableDiceDumpRequest;
+use events::dispatch::EventDispatcher;
+use events::TraceId;
+use futures::FutureExt;
+use futures::TryStreamExt;
 use thiserror::Error;
 use tokio::process::Command;
 
-use crate::{
-    commands::{
-        common::{
-            subscribers::event_log::{log_upload_url, EventLogPathBuf},
-            CommonConsoleOptions, CommonEventLogOptions, ConsoleType,
-        },
-        debug::replay::retrieve_nth_recent_log,
-    },
-    daemon::client::{BuckdClientConnector, StreamValue},
-    metadata, BuckdConnectOptions, CommandContext, Path, StreamingCommand,
-};
+use crate::commands::common::subscribers::event_log::log_upload_url;
+use crate::commands::common::subscribers::event_log::EventLogPathBuf;
+use crate::commands::common::CommonConsoleOptions;
+use crate::commands::common::CommonEventLogOptions;
+use crate::commands::common::ConsoleType;
+use crate::commands::debug::replay::retrieve_nth_recent_log;
+use crate::daemon::client::BuckdClientConnector;
+use crate::daemon::client::StreamValue;
+use crate::metadata;
+use crate::BuckdConnectOptions;
+use crate::CommandContext;
+use crate::Path;
+use crate::StreamingCommand;
 
 #[derive(Debug, Error)]
 enum RageError {

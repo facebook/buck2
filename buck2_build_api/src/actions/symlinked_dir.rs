@@ -7,29 +7,38 @@
  * of this source tree.
  */
 
-use std::{borrow::Cow, convert::TryFrom, path::PathBuf};
+use std::borrow::Cow;
+use std::convert::TryFrom;
+use std::path::PathBuf;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_core::{category::Category, fs::paths::ForwardRelativePath, soft_error};
+use buck2_core::category::Category;
+use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_core::soft_error;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
 use once_cell::sync::Lazy;
-use starlark::values::{dict::Dict, OwnedFrozenValue, Value, ValueError};
+use starlark::values::dict::Dict;
+use starlark::values::OwnedFrozenValue;
+use starlark::values::Value;
+use starlark::values::ValueError;
 use thiserror::Error;
 
-use crate::{
-    actions::{
-        artifact::BuildArtifact, artifact_utils::ArtifactValueBuilder, Action, ActionExecutable,
-        ActionExecutionCtx, PristineActionExecutable, UnregisteredAction,
-    },
-    artifact_groups::ArtifactGroup,
-    execute::{
-        materializer::CopiedArtifact, ActionExecutionKind, ActionExecutionMetadata,
-        ActionExecutionTimingData, ActionOutputs,
-    },
-    interpreter::rule_defs::artifact::ValueAsArtifactLike,
-};
+use crate::actions::artifact::BuildArtifact;
+use crate::actions::artifact_utils::ArtifactValueBuilder;
+use crate::actions::Action;
+use crate::actions::ActionExecutable;
+use crate::actions::ActionExecutionCtx;
+use crate::actions::PristineActionExecutable;
+use crate::actions::UnregisteredAction;
+use crate::artifact_groups::ArtifactGroup;
+use crate::execute::materializer::CopiedArtifact;
+use crate::execute::ActionExecutionKind;
+use crate::execute::ActionExecutionMetadata;
+use crate::execute::ActionExecutionTimingData;
+use crate::execute::ActionOutputs;
+use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 
 #[derive(Debug, Error)]
 enum SymlinkedDirError {
@@ -219,16 +228,15 @@ impl PristineActionExecutable for SymlinkedDirAction {
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::{
-        buck_path::BuckPath,
-        package::{testing::PackageExt, Package, PackageRelativePathBuf},
-    };
+    use buck2_core::buck_path::BuckPath;
+    use buck2_core::package::testing::PackageExt;
+    use buck2_core::package::Package;
+    use buck2_core::package::PackageRelativePathBuf;
 
     use super::*;
-    use crate::actions::{
-        artifact::{Artifact, SourceArtifact},
-        ArtifactGroup,
-    };
+    use crate::actions::artifact::Artifact;
+    use crate::actions::artifact::SourceArtifact;
+    use crate::actions::ArtifactGroup;
 
     fn mk_artifact() -> Artifact {
         let pkg = Package::testing_new("cell", "pkg");

@@ -19,12 +19,13 @@
 //! Because DAP debugging is hard, we write everything we see to stdout (for the protocol)
 //! AND stderr (for debugging).
 
-use std::{
-    env,
-    fs::{File, OpenOptions},
-    io::{self, Read, Write},
-    path::PathBuf,
-};
+use std::env;
+use std::fs::File;
+use std::fs::OpenOptions;
+use std::io::Read;
+use std::io::Write;
+use std::io::{self};
+use std::path::PathBuf;
 
 use serde_json::Value;
 

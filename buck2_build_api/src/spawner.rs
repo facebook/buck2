@@ -27,13 +27,16 @@ impl<T: HasEvents> Spawner<T> for BuckSpawner {
 
 #[cfg(test)]
 mod tests {
-    use buck2_data::{CommandEnd, CommandStart};
-    use dice::{data::DiceData, UserComputationData};
-    use events::{
-        create_source_sink_pair,
-        dispatch::{span, EventDispatcher},
-        BuckEvent, EventSource, TraceId,
-    };
+    use buck2_data::CommandEnd;
+    use buck2_data::CommandStart;
+    use dice::data::DiceData;
+    use dice::UserComputationData;
+    use events::create_source_sink_pair;
+    use events::dispatch::span;
+    use events::dispatch::EventDispatcher;
+    use events::BuckEvent;
+    use events::EventSource;
+    use events::TraceId;
     use futures::future::FutureExt;
 
     use super::*;

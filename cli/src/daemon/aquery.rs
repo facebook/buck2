@@ -10,12 +10,13 @@
 use buck2_build_api::query::aquery::evaluator::get_aquery_evaluator;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
-use cli_proto::{AqueryRequest, AqueryResponse};
+use cli_proto::AqueryRequest;
+use cli_proto::AqueryResponse;
 
-use crate::{
-    daemon::{common::target_platform_from_client_context, server::ServerCommandContext},
-    query::printer::{QueryResultPrinter, ShouldPrintProviders},
-};
+use crate::daemon::common::target_platform_from_client_context;
+use crate::daemon::server::ServerCommandContext;
+use crate::query::printer::QueryResultPrinter;
+use crate::query::printer::ShouldPrintProviders;
 
 pub(crate) async fn aquery(
     mut server_ctx: ServerCommandContext,

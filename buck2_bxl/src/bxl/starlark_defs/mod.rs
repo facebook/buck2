@@ -9,33 +9,41 @@
 
 //! Definitions of core functionality just for bxl functions to access
 
-use std::{cell::RefCell, fmt, fmt::Display, sync::Arc};
+use std::cell::RefCell;
+use std::fmt;
+use std::fmt::Display;
+use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_build_api::interpreter::rule_defs::{
-    cmd_args::register_args_function, provider::registration::register_builtin_providers,
-};
+use buck2_build_api::interpreter::rule_defs::cmd_args::register_args_function;
+use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
 use buck2_bxl_core::BxlFunctionLabel;
-use buck2_interpreter::{build_defs::register_natives, common::BxlFilePath, extra::BuildContext};
+use buck2_interpreter::build_defs::register_natives;
+use buck2_interpreter::common::BxlFilePath;
+use buck2_interpreter::extra::BuildContext;
 use cli_args::CliArgs;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
-use starlark::{
-    collections::SmallMap,
-    environment::GlobalsBuilder,
-    eval::Evaluator,
-    starlark_simple_value, starlark_type,
-    values::{
-        dict::DictOf, AllocValue, Freeze, Freezer, FrozenValue, Heap, NoSerialize, StarlarkValue,
-        Trace, Value,
-    },
-};
+use starlark::collections::SmallMap;
+use starlark::environment::GlobalsBuilder;
+use starlark::eval::Evaluator;
+use starlark::starlark_simple_value;
+use starlark::starlark_type;
+use starlark::values::dict::DictOf;
+use starlark::values::AllocValue;
+use starlark::values::Freeze;
+use starlark::values::Freezer;
+use starlark::values::FrozenValue;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::Value;
 use thiserror::Error;
 
-use crate::bxl::starlark_defs::{
-    cli_args::{ArgAccessor, CliArgValue},
-    functions::register_label_function,
-};
+use crate::bxl::starlark_defs::cli_args::ArgAccessor;
+use crate::bxl::starlark_defs::cli_args::CliArgValue;
+use crate::bxl::starlark_defs::functions::register_label_function;
 
 pub mod alloc_node;
 pub mod analysis_result;

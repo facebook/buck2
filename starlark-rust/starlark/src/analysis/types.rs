@@ -15,16 +15,22 @@
  * limitations under the License.
  */
 
-use std::fmt::{self, Display};
+use std::fmt::Display;
+use std::fmt::{self};
 
-use gazebo::{prelude::*, variants::VariantName};
-use lsp_types::{Diagnostic, DiagnosticSeverity, NumberOrString, Range};
+use gazebo::prelude::*;
+use gazebo::variants::VariantName;
+use lsp_types::Diagnostic;
+use lsp_types::DiagnosticSeverity;
+use lsp_types::NumberOrString;
+use lsp_types::Range;
 use serde::Serialize;
 
-use crate::{
-    codemap::{CodeMap, FileSpan, ResolvedSpan, Span},
-    errors::Diagnostic as StarlarkDiagnostic,
-};
+use crate::codemap::CodeMap;
+use crate::codemap::FileSpan;
+use crate::codemap::ResolvedSpan;
+use crate::codemap::Span;
+use crate::errors::Diagnostic as StarlarkDiagnostic;
 
 pub(crate) trait LintWarning: Display + VariantName {
     fn is_serious(&self) -> bool;

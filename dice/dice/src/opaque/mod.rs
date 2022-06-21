@@ -10,17 +10,19 @@
 #[cfg(test)]
 mod tests;
 
-use std::{
-    fmt,
-    fmt::{Debug, Formatter},
-    sync::Arc,
-};
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::sync::Arc;
 
-use crate::{
-    gazebo::dupe::Dupe,
-    incremental::{dep_trackers::BothDeps, graph::GraphNode},
-    DiceComputationImpl, IncrementalEngine, Key, ProjectionKey, StoragePropertiesForKey,
-};
+use crate::gazebo::dupe::Dupe;
+use crate::incremental::dep_trackers::BothDeps;
+use crate::incremental::graph::GraphNode;
+use crate::DiceComputationImpl;
+use crate::IncrementalEngine;
+use crate::Key;
+use crate::ProjectionKey;
+use crate::StoragePropertiesForKey;
 
 /// Computed value which is not directly visible to user.
 ///

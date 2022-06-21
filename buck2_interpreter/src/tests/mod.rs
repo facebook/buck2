@@ -7,33 +7,38 @@
  * of this source tree.
  */
 
-use buck2_common::{
-    dice::{cells::HasCellResolver, data::testing::SetTestingIoProvider},
-    legacy_configs::{dice::HasLegacyConfigs, LegacyBuckConfig, LegacyBuckConfigs},
-};
-use buck2_core::{
-    cells::{paths::CellRelativePath, CellName, CellResolver, CellsConfigParser},
-    fs::{
-        paths::ForwardRelativePath,
-        project::{ProjectFilesystemTemp, ProjectRelativePath},
-    },
-    package::Package,
-};
-use dice::{cycles::DetectCycles, Dice, DiceTransaction, UserComputationData};
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::data::testing::SetTestingIoProvider;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::LegacyBuckConfig;
+use buck2_common::legacy_configs::LegacyBuckConfigs;
+use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::cells::CellName;
+use buck2_core::cells::CellResolver;
+use buck2_core::cells::CellsConfigParser;
+use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_core::fs::project::ProjectFilesystemTemp;
+use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::package::Package;
+use dice::cycles::DetectCycles;
+use dice::Dice;
+use dice::DiceTransaction;
+use dice::UserComputationData;
 use events::dispatch::EventDispatcher;
 use gazebo::dupe::Dupe;
 use indoc::indoc;
 use serde_json::json;
 
-use crate::{
-    common::{BuildFileCell, ImportPath, StarlarkModulePath},
-    dice::{
-        starlark_profiler::SetStarlarkProfilerInstrumentation,
-        starlark_types::SetDisableStarlarkTypes, HasCalculationDelegate, HasInterpreterContext,
-    },
-    extra::testing::{TesterConfiguror, TesterExtraContext},
-    starlark_profiler::StarlarkProfilerOrInstrumentation,
-};
+use crate::common::BuildFileCell;
+use crate::common::ImportPath;
+use crate::common::StarlarkModulePath;
+use crate::dice::starlark_profiler::SetStarlarkProfilerInstrumentation;
+use crate::dice::starlark_types::SetDisableStarlarkTypes;
+use crate::dice::HasCalculationDelegate;
+use crate::dice::HasInterpreterContext;
+use crate::extra::testing::TesterConfiguror;
+use crate::extra::testing::TesterExtraContext;
+use crate::starlark_profiler::StarlarkProfilerOrInstrumentation;
 
 fn rules() -> Vec<String> {
     vec![

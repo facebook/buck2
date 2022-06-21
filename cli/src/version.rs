@@ -9,7 +9,8 @@
 
 use std::fs::File;
 
-use object::{Object, ObjectSection};
+use object::Object;
+use object::ObjectSection;
 use once_cell::sync::OnceCell;
 use serde_json::Value;
 

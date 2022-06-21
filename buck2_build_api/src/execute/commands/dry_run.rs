@@ -7,27 +7,28 @@
  * of this source tree.
  */
 
-use std::{
-    collections::{HashMap, HashSet},
-    sync::{Arc, Mutex},
-};
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use async_trait::async_trait;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
 use remote_execution as RE;
 
-use crate::{
-    actions::artifact::{Artifact, ArtifactFs, ArtifactValue},
-    execute::{
-        commands::{
-            CommandExecutionInput, CommandExecutionManager, CommandExecutionOutput,
-            CommandExecutionResult, CommandExecutionTimingData, ExecutorName, PreparedCommand,
-            PreparedCommandExecutor,
-        },
-        ActionExecutionKind,
-    },
-};
+use crate::actions::artifact::Artifact;
+use crate::actions::artifact::ArtifactFs;
+use crate::actions::artifact::ArtifactValue;
+use crate::execute::commands::CommandExecutionInput;
+use crate::execute::commands::CommandExecutionManager;
+use crate::execute::commands::CommandExecutionOutput;
+use crate::execute::commands::CommandExecutionResult;
+use crate::execute::commands::CommandExecutionTimingData;
+use crate::execute::commands::ExecutorName;
+use crate::execute::commands::PreparedCommand;
+use crate::execute::commands::PreparedCommandExecutor;
+use crate::execute::ActionExecutionKind;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct DryRunEntry {

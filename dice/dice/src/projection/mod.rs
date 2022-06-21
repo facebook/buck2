@@ -11,22 +11,28 @@
 
 mod tests;
 
-use std::{
-    fmt::{Debug, Display},
-    hash::Hash,
-    sync::{Arc, Weak},
-};
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::hash::Hash;
+use std::sync::Arc;
+use std::sync::Weak;
 
 use async_trait::async_trait;
 use gazebo::dupe::Dupe;
 
-use crate::{
-    ctx::UserComputationData,
-    incremental::{introspection::short_type_name, IncrementalComputeProperties},
-    sync_handle::SyncDiceTaskHandle,
-    ComputationData, Dice, DiceData, GraphNode, IncrementalEngine, Key, StorageProperties,
-    StorageType, TransactionCtx,
-};
+use crate::ctx::UserComputationData;
+use crate::incremental::introspection::short_type_name;
+use crate::incremental::IncrementalComputeProperties;
+use crate::sync_handle::SyncDiceTaskHandle;
+use crate::ComputationData;
+use crate::Dice;
+use crate::DiceData;
+use crate::GraphNode;
+use crate::IncrementalEngine;
+use crate::Key;
+use crate::StorageProperties;
+use crate::StorageType;
+use crate::TransactionCtx;
 
 /// Synchronously computed key from an "opaque" value.
 pub trait ProjectionKey:

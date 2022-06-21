@@ -18,7 +18,8 @@
 use gazebo::dupe::Dupe;
 use once_cell::sync::Lazy;
 
-use crate::{environment::Globals, values::FrozenValue};
+use crate::environment::Globals;
+use crate::values::FrozenValue;
 
 #[derive(Copy, Clone, Dupe, Debug)]
 pub(crate) struct BuiltinFn(pub(crate) FrozenValue);
@@ -55,7 +56,8 @@ impl Constants {
 
 #[cfg(test)]
 mod tests {
-    use crate::{environment::Globals, eval::compiler::constants::Constants};
+    use crate::environment::Globals;
+    use crate::eval::compiler::constants::Constants;
 
     #[test]
     fn test_constants() {

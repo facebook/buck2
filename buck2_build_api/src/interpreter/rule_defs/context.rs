@@ -7,67 +7,77 @@
  * of this source tree.
  */
 
-use std::{
-    cell::{RefCell, RefMut},
-    collections::{hash_map::Entry, HashMap},
-    convert::TryFrom,
-    sync::Arc,
-};
+use std::cell::RefCell;
+use std::cell::RefMut;
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
+use std::convert::TryFrom;
+use std::sync::Arc;
 
 use anyhow::anyhow;
-use buck2_core::{
-    category::Category,
-    fs::paths::{ForwardRelativePathBuf, RelativePathBuf},
-};
+use buck2_core::category::Category;
+use buck2_core::fs::paths::ForwardRelativePathBuf;
+use buck2_core::fs::paths::RelativePathBuf;
 use buck2_interpreter::types::label::Label;
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, prelude::*};
-use indexmap::{indexset, IndexSet};
-use sha1::{Digest, Sha1};
-use starlark::{
-    collections::SmallMap,
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    eval::Evaluator,
-    starlark_type,
-    values::{
-        dict::Dict,
-        docs::DocItem,
-        function::FUNCTION_TYPE,
-        none::{NoneOr, NoneType},
-        structs::Struct,
-        AllocValue, Heap, NoSerialize, StarlarkValue, Trace, UnpackValue, Value, ValueError,
-        ValueLike, ValueOf, ValueTyped,
-    },
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
+use indexmap::indexset;
+use indexmap::IndexSet;
+use sha1::Digest;
+use sha1::Sha1;
+use starlark::collections::SmallMap;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::eval::Evaluator;
+use starlark::starlark_type;
+use starlark::values::dict::Dict;
+use starlark::values::docs::DocItem;
+use starlark::values::function::FUNCTION_TYPE;
+use starlark::values::none::NoneOr;
+use starlark::values::none::NoneType;
+use starlark::values::structs::Struct;
+use starlark::values::AllocValue;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
+use starlark::values::ValueError;
+use starlark::values::ValueLike;
+use starlark::values::ValueOf;
+use starlark::values::ValueTyped;
 use thiserror::Error;
 
-use crate::{
-    actions::{
-        artifact::OutputArtifact,
-        copy::{CopyMode, UnregisteredCopyAction},
-        download_file::UnregisteredDownloadFileAction,
-        run::{dep_files::RunActionDepFiles, MetadataParameter, UnregisteredRunAction},
-        symlinked_dir::UnregisteredSymlinkedDirAction,
-        write::UnregisteredWriteAction,
-        write_json::UnregisteredWriteJsonAction,
-        write_macros::UnregisteredWriteMacrosToFileAction,
-    },
-    analysis::registry::AnalysisRegistry,
-    artifact_groups::ArtifactGroup,
-    attrs::attr_type::arg::value::ResolvedMacro,
-    execute::materializer::http::Checksum,
-    interpreter::rule_defs::{
-        artifact::{
-            StarlarkArtifact, StarlarkDeclaredArtifact, StarlarkOutputArtifact, ValueAsArtifactLike,
-        },
-        artifact_tagging::ArtifactTag,
-        cmd_args::{
-            CommandLineArgLike, CommandLineArtifactVisitor, CommandLineBuilderContext,
-            SimpleCommandLineArtifactVisitor, StarlarkCommandLine, ValueAsCommandLineLike,
-            WriteToFileMacroVisitor,
-        },
-    },
-};
+use crate::actions::artifact::OutputArtifact;
+use crate::actions::copy::CopyMode;
+use crate::actions::copy::UnregisteredCopyAction;
+use crate::actions::download_file::UnregisteredDownloadFileAction;
+use crate::actions::run::dep_files::RunActionDepFiles;
+use crate::actions::run::MetadataParameter;
+use crate::actions::run::UnregisteredRunAction;
+use crate::actions::symlinked_dir::UnregisteredSymlinkedDirAction;
+use crate::actions::write::UnregisteredWriteAction;
+use crate::actions::write_json::UnregisteredWriteJsonAction;
+use crate::actions::write_macros::UnregisteredWriteMacrosToFileAction;
+use crate::analysis::registry::AnalysisRegistry;
+use crate::artifact_groups::ArtifactGroup;
+use crate::attrs::attr_type::arg::value::ResolvedMacro;
+use crate::execute::materializer::http::Checksum;
+use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
+use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
+use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
+use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
+use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
+use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
+use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
+use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 
 #[derive(Error, Debug)]
 enum DownloadFileError {
@@ -833,27 +843,30 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::{
-        configuration::Configuration,
-        provider::{ConfiguredProvidersLabel, ProvidersName},
-        target::{testing::TargetLabelExt, TargetLabel},
-    };
+    use buck2_core::configuration::Configuration;
+    use buck2_core::provider::ConfiguredProvidersLabel;
+    use buck2_core::provider::ProvidersName;
+    use buck2_core::target::testing::TargetLabelExt;
+    use buck2_core::target::TargetLabel;
     use buck2_interpreter::types::label::LabelGen;
     use gazebo::prelude::*;
     use indoc::indoc;
-    use starlark::{
-        collections::SmallMap,
-        environment::{GlobalsBuilder, Module},
-        eval::{Evaluator, ReturnFileLoader},
-        syntax::{AstModule, Dialect},
-        values::{structs::Struct, Value, ValueTyped},
-    };
+    use starlark::collections::SmallMap;
+    use starlark::environment::GlobalsBuilder;
+    use starlark::environment::Module;
+    use starlark::eval::Evaluator;
+    use starlark::eval::ReturnFileLoader;
+    use starlark::syntax::AstModule;
+    use starlark::syntax::Dialect;
+    use starlark::values::structs::Struct;
+    use starlark::values::Value;
+    use starlark::values::ValueTyped;
 
-    use crate::{
-        analysis::registry::AnalysisRegistry,
-        configuration::execution::ExecutionPlatformResolution, deferred::BaseDeferredKey,
-        interpreter::rule_defs::context::AnalysisContext, starlark::values::UnpackValue,
-    };
+    use crate::analysis::registry::AnalysisRegistry;
+    use crate::configuration::execution::ExecutionPlatformResolution;
+    use crate::deferred::BaseDeferredKey;
+    use crate::interpreter::rule_defs::context::AnalysisContext;
+    use crate::starlark::values::UnpackValue;
 
     fn run_ctx_test(
         content: &str,

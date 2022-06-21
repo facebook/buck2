@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
-use buck2_data::{DiceComputationStateSnapshot, DiceKeyState};
+use buck2_data::DiceComputationStateSnapshot;
+use buck2_data::DiceKeyState;
 use gazebo::prelude::*;
 use superconsole::Component;
 

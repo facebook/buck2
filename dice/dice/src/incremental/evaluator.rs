@@ -11,11 +11,14 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use crate::{
-    dice_task::DiceTask, incremental::graph::GraphNode, ComputationData,
-    IncrementalComputeProperties, IncrementalEngine, TransactionCtx, ValueWithDeps,
-    WeakDiceFutureHandle,
-};
+use crate::dice_task::DiceTask;
+use crate::incremental::graph::GraphNode;
+use crate::ComputationData;
+use crate::IncrementalComputeProperties;
+use crate::IncrementalEngine;
+use crate::TransactionCtx;
+use crate::ValueWithDeps;
+use crate::WeakDiceFutureHandle;
 
 #[async_trait]
 pub(crate) trait Recompute: IncrementalComputeProperties {
@@ -44,23 +47,27 @@ pub(crate) trait Evaluator:
 
 #[cfg(test)]
 pub(crate) mod testing {
-    use std::{
-        fmt,
-        fmt::{Debug, Display},
-        future::Future,
-        hash::Hash,
-        pin::Pin,
-        sync::Arc,
-    };
+    use std::fmt;
+    use std::fmt::Debug;
+    use std::fmt::Display;
+    use std::future::Future;
+    use std::hash::Hash;
+    use std::pin::Pin;
+    use std::sync::Arc;
 
     use async_trait::async_trait;
     use gazebo::prelude::*;
 
-    use crate::{
-        incremental::{evaluator::Evaluator, graph::GraphNode, IncrementalComputeProperties},
-        ComputationData, IncrementalEngine, StorageProperties, StorageType, TransactionCtx,
-        ValueWithDeps, WeakDiceFutureHandle,
-    };
+    use crate::incremental::evaluator::Evaluator;
+    use crate::incremental::graph::GraphNode;
+    use crate::incremental::IncrementalComputeProperties;
+    use crate::ComputationData;
+    use crate::IncrementalEngine;
+    use crate::StorageProperties;
+    use crate::StorageType;
+    use crate::TransactionCtx;
+    use crate::ValueWithDeps;
+    use crate::WeakDiceFutureHandle;
 
     /// Evaluator which panics on attempt to evaluate.
     #[derive(Default_)]

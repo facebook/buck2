@@ -10,24 +10,28 @@
 use std::time::Duration;
 
 use events::subscriber::Tick;
-use superconsole::{
-    components::{
-        bordering::BorderedSpec, splitting::SplitKind, Bordered, Bounded, Expanding, Split,
-    },
-    style::Stylize,
-    Component, Dimensions, Direction, DrawMode, Lines, Span, State,
-};
+use superconsole::components::bordering::BorderedSpec;
+use superconsole::components::splitting::SplitKind;
+use superconsole::components::Bordered;
+use superconsole::components::Bounded;
+use superconsole::components::Expanding;
+use superconsole::components::Split;
+use superconsole::style::Stylize;
+use superconsole::Component;
+use superconsole::Dimensions;
+use superconsole::Direction;
+use superconsole::DrawMode;
+use superconsole::Lines;
+use superconsole::Span;
+use superconsole::State;
 
 use self::table_builder::Table;
-use crate::commands::common::subscribers::{
-    display,
-    simpleconsole::ActionStats,
-    span_tracker::SpanTracker,
-    superconsole::{
-        common::{HeaderLineComponent, StaticStringComponent},
-        TimeSpeed,
-    },
-};
+use crate::commands::common::subscribers::display;
+use crate::commands::common::subscribers::simpleconsole::ActionStats;
+use crate::commands::common::subscribers::span_tracker::SpanTracker;
+use crate::commands::common::subscribers::superconsole::common::HeaderLineComponent;
+use crate::commands::common::subscribers::superconsole::common::StaticStringComponent;
+use crate::commands::common::subscribers::superconsole::TimeSpeed;
 
 mod table_builder;
 
@@ -319,10 +323,15 @@ impl Component for TimedList {
 
 #[cfg(test)]
 mod tests {
-    use std::{convert::TryInto, time::SystemTime};
+    use std::convert::TryInto;
+    use std::time::SystemTime;
 
-    use buck2_data::{FakeStart, SpanStartEvent};
-    use events::{subscriber::Tick, BuckEvent, SpanId, TraceId};
+    use buck2_data::FakeStart;
+    use buck2_data::SpanStartEvent;
+    use events::subscriber::Tick;
+    use events::BuckEvent;
+    use events::SpanId;
+    use events::TraceId;
     use superconsole::style::style;
 
     use super::*;

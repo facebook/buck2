@@ -7,19 +7,20 @@
  * of this source tree.
  */
 
-use std::{
-    fmt::{Debug, Display},
-    hash::Hash,
-    sync::{Arc, Weak},
-};
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::hash::Hash;
+use std::sync::Arc;
+use std::sync::Weak;
 
 use async_trait::async_trait;
 use gazebo::prelude::*;
 
-use crate::{
-    incremental::introspection::short_type_name, Dice, DiceComputations, StorageProperties,
-    StorageType,
-};
+use crate::incremental::introspection::short_type_name;
+use crate::Dice;
+use crate::DiceComputations;
+use crate::StorageProperties;
+use crate::StorageType;
 
 /// The computation Key that maps to a value. The key will be used as an index
 /// for caching the computed values.

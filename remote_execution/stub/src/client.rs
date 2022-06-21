@@ -13,7 +13,10 @@ use std::pin::Pin;
 
 use futures::Stream;
 
-use crate::{config::*, metadata::*, request::*, response::*};
+use crate::config::*;
+use crate::metadata::*;
+use crate::request::*;
+use crate::response::*;
 
 pub struct REClientBuilder {}
 

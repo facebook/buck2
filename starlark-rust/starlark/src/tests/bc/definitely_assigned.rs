@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-use crate::{assert::Assert, tests::bc::golden::bc_golden_test};
+use crate::assert::Assert;
+use crate::tests::bc::golden::bc_golden_test;
 
 /// Test for bug reported in D36808160.
 #[test]

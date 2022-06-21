@@ -5,15 +5,21 @@
 
 pub mod convert;
 
-use std::{collections::HashMap, time::Duration};
+use std::collections::HashMap;
+use std::time::Duration;
 
 use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
 
-use crate::data::{
-    ArgValue, ConfiguredTargetHandle, DeclaredOutput, DisplayMetadata, ExecutionResult2,
-    ExecutorConfigOverride, ExternalRunnerSpec, PrepareForLocalExecutionResult, TestResult,
-};
+use crate::data::ArgValue;
+use crate::data::ConfiguredTargetHandle;
+use crate::data::DeclaredOutput;
+use crate::data::DisplayMetadata;
+use crate::data::ExecutionResult2;
+use crate::data::ExecutorConfigOverride;
+use crate::data::ExternalRunnerSpec;
+use crate::data::PrepareForLocalExecutionResult;
+use crate::data::TestResult;
 
 /// available to buck to interact with the test executor
 #[async_trait::async_trait]

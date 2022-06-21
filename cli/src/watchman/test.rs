@@ -7,27 +7,26 @@
  * of this source tree.
  */
 
-use std::{
-    fs,
-    fs::File,
-    path::{Path, PathBuf},
-    time::Duration,
-};
+use std::fs;
+use std::fs::File;
+use std::path::Path;
+use std::path::PathBuf;
+use std::time::Duration;
 
 use anyhow::Context as _;
 use assert_matches::assert_matches;
 use async_trait::async_trait;
 use gazebo::prelude::*;
-use tokio::{
-    io::AsyncWriteExt,
-    process::{Child, Command},
-};
-use watchman_client::{
-    expr::Expr,
-    prelude::{Connector, FileType},
-};
+use tokio::io::AsyncWriteExt;
+use tokio::process::Child;
+use tokio::process::Command;
+use watchman_client::expr::Expr;
+use watchman_client::prelude::Connector;
+use watchman_client::prelude::FileType;
 
-use crate::watchman::{SyncableQuery, SyncableQueryProcessor, WatchmanEvent};
+use crate::watchman::SyncableQuery;
+use crate::watchman::SyncableQueryProcessor;
+use crate::watchman::WatchmanEvent;
 
 struct TestQueryProcessor;
 

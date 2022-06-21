@@ -17,11 +17,10 @@
 
 use std::fmt::Write;
 
-use crate::{
-    environment::FrozenModule,
-    eval::compiler::def::FrozenDef,
-    values::{FrozenHeapRef, FrozenValueTyped},
-};
+use crate::environment::FrozenModule;
+use crate::eval::compiler::def::FrozenDef;
+use crate::values::FrozenHeapRef;
+use crate::values::FrozenValueTyped;
 
 impl FrozenModule {
     /// Print a lot of module internals for debugging.

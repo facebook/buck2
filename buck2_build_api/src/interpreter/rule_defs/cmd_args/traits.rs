@@ -7,28 +7,26 @@
  * of this source tree.
  */
 
-use std::{
-    borrow::Cow,
-    fmt::{Debug, Display},
-    path::Path,
-    ptr,
-};
+use std::borrow::Cow;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::path::Path;
+use std::ptr;
 
 use anyhow::Context as _;
-use buck2_core::{
-    cells::paths::CellPath,
-    fs::{paths::RelativePathBuf, project::ProjectRelativePathBuf},
-};
+use buck2_core::cells::paths::CellPath;
+use buck2_core::fs::paths::RelativePathBuf;
+use buck2_core::fs::project::ProjectRelativePathBuf;
 use indexmap::IndexSet;
 use starlark::values::string::StarlarkStr;
 
-use crate::{
-    actions::artifact::{Artifact, ExecutorFs, OutputArtifact},
-    artifact_groups::ArtifactGroup,
-    attrs::attr_type::arg::value::ResolvedMacro,
-    execute::PathSeparatorKind,
-    interpreter::rule_defs::artifact_tagging::ArtifactTag,
-};
+use crate::actions::artifact::Artifact;
+use crate::actions::artifact::ExecutorFs;
+use crate::actions::artifact::OutputArtifact;
+use crate::artifact_groups::ArtifactGroup;
+use crate::attrs::attr_type::arg::value::ResolvedMacro;
+use crate::execute::PathSeparatorKind;
+use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 
 pub trait CommandLineArtifactVisitor {
     fn visit_input(&mut self, input: ArtifactGroup, tag: Option<&ArtifactTag>);

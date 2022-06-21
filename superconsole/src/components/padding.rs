@@ -7,11 +7,13 @@
  * of this source tree.
  */
 
-use crate::{
-    components::{Blank, Dimensions, DrawMode},
-    content::LinesExt,
-    Component, Line, State,
-};
+use crate::components::Blank;
+use crate::components::Dimensions;
+use crate::components::DrawMode;
+use crate::content::LinesExt;
+use crate::Component;
+use crate::Line;
+use crate::State;
 
 /// The `Padded` [`Component`](Component) wraps its child by padding left, right, above, and below its content.
 /// This can be used to shift the content to a different location and ensure that following content comes after a certain distance.
@@ -89,10 +91,13 @@ mod tests {
 
     use derive_more::AsRef;
 
-    use crate::{
-        components::{Echo, Padded},
-        Component, Dimensions, DrawMode, Line, State,
-    };
+    use crate::components::Echo;
+    use crate::components::Padded;
+    use crate::Component;
+    use crate::Dimensions;
+    use crate::DrawMode;
+    use crate::Line;
+    use crate::State;
 
     #[derive(Debug, AsRef)]
     struct Msg(Vec<Line>);

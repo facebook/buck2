@@ -13,21 +13,28 @@
 //! track when a value needs to be updated because its version number is out of
 //! date.
 
-use std::{
-    cell::UnsafeCell,
-    cmp,
-    collections::{BTreeSet, Bound},
-    fmt,
-    fmt::{Debug, Display, Formatter},
-    ops::{Deref, RangeBounds, Sub},
-    sync::{Arc, RwLock, Weak},
-};
+use std::cell::UnsafeCell;
+use std::cmp;
+use std::collections::BTreeSet;
+use std::collections::Bound;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::ops::Deref;
+use std::ops::RangeBounds;
+use std::ops::Sub;
+use std::sync::Arc;
+use std::sync::RwLock;
+use std::sync::Weak;
 
 use derive_more::Display;
 use gazebo::prelude::*;
 use once_cell::sync::OnceCell;
-use parking_lot::{lock_api::RawMutex as RawMutexApi, RawMutex};
-use serde::{Deserialize, Serialize};
+use parking_lot::lock_api::RawMutex as RawMutexApi;
+use parking_lot::RawMutex;
+use serde::Deserialize;
+use serde::Serialize;
 
 /// The incrementing Version number associated with all the cache entries
 #[derive(Copy, Eq, Debug, Display, Dupe)]
@@ -617,7 +624,8 @@ impl MinorVersionTracker {
 pub(crate) mod testing {
     use std::collections::BTreeSet;
 
-    use crate::incremental::versions::{VersionRange, VersionRanges};
+    use crate::incremental::versions::VersionRange;
+    use crate::incremental::versions::VersionRanges;
 
     pub(crate) trait VersionRangesExt {
         fn testing_new(ranges: BTreeSet<VersionRange>) -> Self;
@@ -632,22 +640,22 @@ pub(crate) mod testing {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        mem,
-        sync::{
-            atomic::{AtomicBool, Ordering},
-            Arc, Barrier,
-        },
-        thread,
-        time::Duration,
-    };
+    use std::mem;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::atomic::Ordering;
+    use std::sync::Arc;
+    use std::sync::Barrier;
+    use std::thread;
+    use std::time::Duration;
 
     use gazebo::dupe::Dupe;
 
-    use crate::incremental::versions::{
-        MinorVersion, MinorVersionTracker, VersionNumber, VersionRange, VersionRanges,
-        VersionTracker,
-    };
+    use crate::incremental::versions::MinorVersion;
+    use crate::incremental::versions::MinorVersionTracker;
+    use crate::incremental::versions::VersionNumber;
+    use crate::incremental::versions::VersionRange;
+    use crate::incremental::versions::VersionRanges;
+    use crate::incremental::versions::VersionTracker;
 
     #[test]
     fn simple_version_increases() {

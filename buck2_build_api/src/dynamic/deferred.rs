@@ -7,35 +7,41 @@
  * of this source tree.
  */
 
-use std::{mem, sync::Arc};
+use std::mem;
+use std::sync::Arc;
 
-use buck2_core::provider::{ConfiguredProvidersLabel, ProvidersName};
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::ProvidersName;
 use buck2_interpreter::types::label::LabelGen;
 use gazebo::prelude::*;
-use indexmap::{indexset, IndexSet};
-use starlark::{
-    collections::SmallMap,
-    environment::Module,
-    eval::Evaluator,
-    values::{dict::Dict, tuple::Tuple, OwnedFrozenValue, ValueTyped},
-};
+use indexmap::indexset;
+use indexmap::IndexSet;
+use starlark::collections::SmallMap;
+use starlark::environment::Module;
+use starlark::eval::Evaluator;
+use starlark::values::dict::Dict;
+use starlark::values::tuple::Tuple;
+use starlark::values::OwnedFrozenValue;
+use starlark::values::ValueTyped;
 
-use crate::{
-    actions::{
-        artifact::{Artifact, BuildArtifact},
-        ActionKey, RegisteredAction,
-    },
-    analysis::registry::AnalysisRegistry,
-    bxl,
-    deferred::{
-        BaseDeferredKey, BaseKey, Deferred, DeferredCtx, DeferredData, DeferredInput,
-        DeferredRegistry, DeferredValue,
-    },
-    interpreter::rule_defs::{
-        artifact::{StarlarkArtifact, StarlarkArtifactValue, StarlarkDeclaredArtifact},
-        context::AnalysisContext,
-    },
-};
+use crate::actions::artifact::Artifact;
+use crate::actions::artifact::BuildArtifact;
+use crate::actions::ActionKey;
+use crate::actions::RegisteredAction;
+use crate::analysis::registry::AnalysisRegistry;
+use crate::bxl;
+use crate::deferred::BaseDeferredKey;
+use crate::deferred::BaseKey;
+use crate::deferred::Deferred;
+use crate::deferred::DeferredCtx;
+use crate::deferred::DeferredData;
+use crate::deferred::DeferredInput;
+use crate::deferred::DeferredRegistry;
+use crate::deferred::DeferredValue;
+use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
+use crate::interpreter::rule_defs::artifact::StarlarkArtifactValue;
+use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
+use crate::interpreter::rule_defs::context::AnalysisContext;
 
 /// The artifacts that are returned are dynamic actions, which depend on the `DynamicLambda`
 /// to get their real `RegisteredAction`.

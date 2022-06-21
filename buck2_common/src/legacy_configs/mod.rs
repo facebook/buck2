@@ -14,36 +14,38 @@ pub mod dice;
 pub(crate) mod path;
 pub mod view;
 
-use std::{
-    collections::{BTreeMap, HashMap},
-    convert::TryFrom,
-    fs,
-    io::prelude::*,
-    option::Option,
-    path::PathBuf,
-    str::FromStr,
-    sync::Arc,
-};
+use std::collections::BTreeMap;
+use std::collections::HashMap;
+use std::convert::TryFrom;
+use std::fs;
+use std::io::prelude::*;
+use std::option::Option;
+use std::path::PathBuf;
+use std::str::FromStr;
+use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
-use buck2_core::{
-    cells::{CellAlias, CellName, CellResolver, CellsAggregator},
-    fs::{paths::*, project::*},
-};
-use gazebo::{eq_chain, prelude::*};
+use anyhow::anyhow;
+use anyhow::Context;
+use buck2_core::cells::CellAlias;
+use buck2_core::cells::CellName;
+use buck2_core::cells::CellResolver;
+use buck2_core::cells::CellsAggregator;
+use buck2_core::fs::paths::*;
+use buck2_core::fs::project::*;
+use gazebo::eq_chain;
+use gazebo::prelude::*;
 use itertools::Itertools;
-use once_cell::{sync::Lazy, unsync::OnceCell};
+use once_cell::sync::Lazy;
+use once_cell::unsync::OnceCell;
 use regex::Regex;
 use thiserror::Error;
 
-use crate::{
-    legacy_configs::{
-        path::{BuckConfigFile, DEFAULT_BUCK_CONFIG_FILES},
-        view::{LegacyBuckConfigView, LegacyBuckConfigsView},
-    },
-    sorted_hash_map::SortedHashMap,
-    target_aliases::TargetAliasResolver,
-};
+use crate::legacy_configs::path::BuckConfigFile;
+use crate::legacy_configs::path::DEFAULT_BUCK_CONFIG_FILES;
+use crate::legacy_configs::view::LegacyBuckConfigView;
+use crate::legacy_configs::view::LegacyBuckConfigsView;
+use crate::sorted_hash_map::SortedHashMap;
+use crate::target_aliases::TargetAliasResolver;
 
 #[derive(Error, Debug)]
 pub(crate) enum ConfigError {
@@ -1584,7 +1586,8 @@ mod tests {
     use indoc::indoc;
     use itertools::Itertools;
 
-    use super::{testing::*, *};
+    use super::testing::*;
+    use super::*;
 
     fn assert_config_value(config: &LegacyBuckConfig, section: &str, key: &str, expected: &str) {
         match config.get_section(section) {

@@ -18,7 +18,8 @@
 // data in the right format and maybe escaping. It's not been imported to tp2 so we implement it
 // ourselves for now.
 
-use std::{fmt::Display, io::Write};
+use std::fmt::Display;
+use std::io::Write;
 
 use indexmap::IndexMap;
 use once_cell::sync::Lazy;

@@ -11,7 +11,8 @@
 
 use std::sync::Arc;
 
-use dice::{data::DiceData, DiceDataBuilder};
+use dice::data::DiceData;
+use dice::DiceDataBuilder;
 use gazebo::prelude::*;
 
 use crate::io::IoProvider;

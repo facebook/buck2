@@ -7,34 +7,33 @@
  * of this source tree.
  */
 
-use std::{collections::BTreeMap, fmt::Debug};
+use std::collections::BTreeMap;
+use std::fmt::Debug;
 
 use buck2_build_api_derive::internal_provider;
 use buck2_common::legacy_configs::parse_config_section_and_key;
-use buck2_core::configuration::{
-    constraints::{ConstraintKey, ConstraintValue},
-    ConfigurationData,
-};
+use buck2_core::configuration::constraints::ConstraintKey;
+use buck2_core::configuration::constraints::ConstraintValue;
+use buck2_core::configuration::ConfigurationData;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
-use gazebo::{
-    any::ProvidesStaticType,
-    coerce::{coerce, Coerce},
-    prelude::*,
-};
-use starlark::{
-    collections::SmallMap,
-    environment::GlobalsBuilder,
-    eval::Evaluator,
-    values::{
-        dict::{Dict, DictOf},
-        Freeze, Heap, Trace, ValueLike, ValueOf,
-    },
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::coerce;
+use gazebo::coerce::Coerce;
+use gazebo::prelude::*;
+use starlark::collections::SmallMap;
+use starlark::environment::GlobalsBuilder;
+use starlark::eval::Evaluator;
+use starlark::values::dict::Dict;
+use starlark::values::dict::DictOf;
+use starlark::values::Freeze;
+use starlark::values::Heap;
+use starlark::values::Trace;
+use starlark::values::ValueLike;
+use starlark::values::ValueOf;
 use thiserror::Error;
 
-use crate::interpreter::rule_defs::provider::builtin::{
-    constraint_setting_info::ConstraintSettingInfo, constraint_value_info::ConstraintValueInfo,
-};
+use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::ConstraintSettingInfo;
+use crate::interpreter::rule_defs::provider::builtin::constraint_value_info::ConstraintValueInfo;
 
 /// Provider that signals that a rule contains configuration info. This is used both as part of
 /// defining configurations (`platform()`, `constraint_value()`) and defining whether a target "matches"
@@ -164,9 +163,8 @@ mod tests {
     use buck2_core::result::SharedResult;
     use indoc::indoc;
 
-    use crate::interpreter::testing::{
-        run_starlark_bzl_test, run_starlark_bzl_test_expecting_error,
-    };
+    use crate::interpreter::testing::run_starlark_bzl_test;
+    use crate::interpreter::testing::run_starlark_bzl_test_expecting_error;
 
     #[test]
     fn configuration_info_validates_buckconfigs() -> SharedResult<()> {

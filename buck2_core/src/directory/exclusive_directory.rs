@@ -14,12 +14,21 @@ use derivative::Derivative;
 use derive_more::Display;
 use gazebo::prelude::*;
 
-use super::{
-    impl_fingerprinted_directory, DashMapDirectoryInterner, Directory, DirectoryBuilder,
-    DirectoryData, DirectoryEntries, DirectoryEntry, DirectoryHasher, FingerprintedDirectory,
-    FingerprintedDirectoryEntries, HasDirectoryDigest, ImmutableDirectory, SharedDirectory,
-};
-use crate::fs::paths::{FileName, FileNameBuf};
+use super::impl_fingerprinted_directory;
+use super::DashMapDirectoryInterner;
+use super::Directory;
+use super::DirectoryBuilder;
+use super::DirectoryData;
+use super::DirectoryEntries;
+use super::DirectoryEntry;
+use super::DirectoryHasher;
+use super::FingerprintedDirectory;
+use super::FingerprintedDirectoryEntries;
+use super::HasDirectoryDigest;
+use super::ImmutableDirectory;
+use super::SharedDirectory;
+use crate::fs::paths::FileName;
+use crate::fs::paths::FileNameBuf;
 
 #[derive(Derivative, Display)]
 #[derivative(Debug(bound = "L: ::std::fmt::Debug"))]

@@ -7,15 +7,20 @@
  * of this source tree.
  */
 
-use std::{borrow::Cow, ops::Deref};
+use std::borrow::Cow;
+use std::ops::Deref;
 
-use buck2_query::query::{environment::QueryEnvironment, syntax::simple::eval::file_set::FileSet};
+use buck2_query::query::environment::QueryEnvironment;
+use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
-use starlark::{
-    starlark_simple_value, starlark_type,
-    values::{NoSerialize, StarlarkValue, UnpackValue, Value, ValueLike},
-};
+use starlark::starlark_simple_value;
+use starlark::starlark_type;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 use thiserror::Error;
 
 #[derive(Error, Debug)]

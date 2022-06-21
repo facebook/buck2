@@ -9,19 +9,22 @@
 
 use std::ops::Deref;
 
-use buck2_query::query::{
-    environment::QueryTarget,
-    syntax::simple::eval::set::{TargetSet, TargetSetExt},
-};
+use buck2_query::query::environment::QueryTarget;
+use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use buck2_query::query::syntax::simple::eval::set::TargetSetExt;
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, prelude::*};
-use starlark::{
-    starlark_type,
-    values::{
-        AllocValue, Freeze, Heap, NoSerialize, StarlarkValue, UnpackValue, Value, ValueError,
-        ValueLike,
-    },
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
+use starlark::starlark_type;
+use starlark::values::AllocValue;
+use starlark::values::Freeze;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
+use starlark::values::ValueError;
+use starlark::values::ValueLike;
 
 use crate::bxl::starlark_defs::alloc_node::AllocNode;
 

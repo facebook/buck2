@@ -9,11 +9,15 @@
 
 use std::hash::Hash;
 
-use starlark::values::{dict::Dict, list::List, tuple::Tuple, Value};
+use starlark::values::dict::Dict;
+use starlark::values::list::List;
+use starlark::values::tuple::Tuple;
+use starlark::values::Value;
 
-use crate::attrs::{
-    attr_type::AttrType, coerced_attr::CoercedAttr, AttrCoercionContext, AttrLiteral,
-};
+use crate::attrs::attr_type::AttrType;
+use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::AttrCoercionContext;
+use crate::attrs::AttrLiteral;
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub(crate) struct AnyAttrType;

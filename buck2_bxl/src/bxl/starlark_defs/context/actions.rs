@@ -1,22 +1,28 @@
 //! Starlark Actions API for bxl functions
 //!
 
-use buck2_build_api::{
-    analysis::registry::AnalysisRegistry, bxl::execution_platform::EXECUTION_PLATFORM,
-    deferred::BaseDeferredKey,
-};
+use buck2_build_api::analysis::registry::AnalysisRegistry;
+use buck2_build_api::bxl::execution_platform::EXECUTION_PLATFORM;
+use buck2_build_api::deferred::BaseDeferredKey;
 use buck2_docs_gen::Buck2Docs;
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, prelude::*};
-use starlark::{
-    environment::{Methods, MethodsBuilder, MethodsStatic},
-    starlark_module, starlark_type,
-    values::{
-        AllocValue, Heap, NoSerialize, StarlarkValue, Trace, UnpackValue, Value, ValueLike,
-        ValueTyped,
-    },
-};
+use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::starlark_module;
+use starlark::starlark_type;
+use starlark::values::AllocValue;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
+use starlark::values::ValueLike;
+use starlark::values::ValueTyped;
 use thiserror::Error;
 
 use crate::bxl::starlark_defs::context::BxlContext;

@@ -12,13 +12,20 @@
 use std::time::Duration;
 
 use anyhow::Context as _;
-use buck2_data::{
-    action_key, span_start_event::Data, ActionKey, ActionName, BxlFunctionKey, BxlFunctionLabel,
-    ConfiguredTargetLabel, TargetLabel,
-};
+use buck2_data::action_key;
+use buck2_data::span_start_event::Data;
+use buck2_data::ActionKey;
+use buck2_data::ActionName;
+use buck2_data::BxlFunctionKey;
+use buck2_data::BxlFunctionLabel;
+use buck2_data::ConfiguredTargetLabel;
+use buck2_data::TargetLabel;
 use events::BuckEvent;
 use itertools::Itertools;
-use superconsole::{content::lines_from_multiline_string, style::Stylize, Lines, Span};
+use superconsole::content::lines_from_multiline_string;
+use superconsole::style::Stylize;
+use superconsole::Lines;
+use superconsole::Span;
 use test_api::data::TestStatus;
 use thiserror::Error;
 

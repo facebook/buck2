@@ -9,41 +9,39 @@
 
 use std::convert::TryFrom;
 
-use buck2_core::{
-    cells::{testing::CellResolverExt, CellName, CellResolver},
-    fs::{
-        paths::AbsPathBuf,
-        project::{ProjectFilesystem, ProjectRelativePathBuf},
-    },
-};
-use buck2_interpreter::package_listing::listing::{testing::PackageListingExt, PackageListing};
+use buck2_core::cells::testing::CellResolverExt;
+use buck2_core::cells::CellName;
+use buck2_core::cells::CellResolver;
+use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_interpreter::package_listing::listing::testing::PackageListingExt;
+use buck2_interpreter::package_listing::listing::PackageListing;
 use gazebo::prelude::*;
 use indoc::indoc;
-use starlark::{
-    environment::{GlobalsBuilder, Module},
-    values::{Heap, Value},
-};
+use starlark::environment::GlobalsBuilder;
+use starlark::environment::Module;
+use starlark::values::Heap;
+use starlark::values::Value;
 
-use crate::{
-    actions::artifact::{ArtifactFs, ExecutorFs},
-    attrs::{
-        attr_type::{
-            attr_literal::{CoercedDepsCollector, ConfiguredAttrInfo},
-            AttrType,
-        },
-        testing::{
-            coercion_ctx, coercion_ctx_listing, configuration_ctx, resolution_ctx,
-            resolution_ctx_with_providers, to_value,
-        },
-    },
-    execute::PathSeparatorKind,
-    interpreter::rule_defs::{
-        attr::AttrIsConfigurable,
-        cmd_args::{BaseCommandLineBuilder, ValueAsCommandLineLike},
-        provider::registration::register_builtin_providers,
-    },
-    path::{BuckOutPathResolver, BuckPathResolver},
-};
+use crate::actions::artifact::ArtifactFs;
+use crate::actions::artifact::ExecutorFs;
+use crate::attrs::attr_type::attr_literal::CoercedDepsCollector;
+use crate::attrs::attr_type::attr_literal::ConfiguredAttrInfo;
+use crate::attrs::attr_type::AttrType;
+use crate::attrs::testing::coercion_ctx;
+use crate::attrs::testing::coercion_ctx_listing;
+use crate::attrs::testing::configuration_ctx;
+use crate::attrs::testing::resolution_ctx;
+use crate::attrs::testing::resolution_ctx_with_providers;
+use crate::attrs::testing::to_value;
+use crate::execute::PathSeparatorKind;
+use crate::interpreter::rule_defs::attr::AttrIsConfigurable;
+use crate::interpreter::rule_defs::cmd_args::BaseCommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
+use crate::interpreter::rule_defs::provider::registration::register_builtin_providers;
+use crate::path::BuckOutPathResolver;
+use crate::path::BuckPathResolver;
 
 #[test]
 fn test() -> anyhow::Result<()> {

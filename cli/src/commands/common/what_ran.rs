@@ -7,7 +7,8 @@
  * of this source tree.
  */
 
-use std::{borrow::Cow, fmt};
+use std::borrow::Cow;
+use std::fmt;
 
 use gazebo::dupe::Dupe;
 

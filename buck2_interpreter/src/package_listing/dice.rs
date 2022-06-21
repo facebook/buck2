@@ -9,15 +9,17 @@
 
 use std::sync::Arc;
 
-use buck2_common::dice::{cells::HasCellResolver, file_ops::HasFileOps};
-use buck2_core::{package::Package, result::SharedResult};
-use dice::{DiceComputations, Key};
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::file_ops::HasFileOps;
+use buck2_core::package::Package;
+use buck2_core::result::SharedResult;
+use dice::DiceComputations;
+use dice::Key;
 use gazebo::dupe::Dupe;
 
-use crate::package_listing::{
-    interpreter::InterpreterPackageListingResolver, listing::PackageListing,
-    resolver::PackageListingResolver,
-};
+use crate::package_listing::interpreter::InterpreterPackageListingResolver;
+use crate::package_listing::listing::PackageListing;
+use crate::package_listing::resolver::PackageListingResolver;
 
 pub trait HasPackageListingResolver<'c> {
     type PL: PackageListingResolver + 'c;

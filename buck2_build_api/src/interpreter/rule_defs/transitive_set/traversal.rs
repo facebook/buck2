@@ -9,10 +9,18 @@
 
 use anyhow::Context as _;
 use derive_more::Display;
-use gazebo::{any::ProvidesStaticType, coerce::Coerce};
-use starlark::values::{Freeze, Heap, NoSerialize, StarlarkValue, Trace, Value, ValueLike};
+use gazebo::any::ProvidesStaticType;
+use gazebo::coerce::Coerce;
+use starlark::values::Freeze;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 
-use crate::interpreter::rule_defs::transitive_set::{TransitiveSet, TransitiveSetArgsProjection};
+use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSetArgsProjection;
 
 #[derive(
     Debug,

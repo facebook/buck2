@@ -1,36 +1,31 @@
-use buck2_build_api::{
-    calculation::Calculation,
-    nodes::{configured::ConfiguredTargetNode, unconfigured::TargetNode},
-};
-use buck2_core::{
-    cells::paths::CellRelativePath,
-    package::Package,
-    provider::{ConfiguredProvidersLabel, ProvidersLabel, ProvidersName},
-    target::TargetLabel,
-};
-use buck2_interpreter::{
-    pattern::{ParsedPattern, ProvidersPattern},
-    types::{
-        label::{Label, StarlarkProvidersLabel},
-        target_label::StarlarkTargetLabel,
-    },
-};
+use buck2_build_api::calculation::Calculation;
+use buck2_build_api::nodes::configured::ConfiguredTargetNode;
+use buck2_build_api::nodes::unconfigured::TargetNode;
+use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::package::Package;
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::ProvidersLabel;
+use buck2_core::provider::ProvidersName;
+use buck2_core::target::TargetLabel;
+use buck2_interpreter::pattern::ParsedPattern;
+use buck2_interpreter::pattern::ProvidersPattern;
+use buck2_interpreter::types::label::Label;
+use buck2_interpreter::types::label::StarlarkProvidersLabel;
+use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use gazebo::dupe::Dupe;
 use itertools::Either;
-use starlark::{
-    eval::Evaluator,
-    values::{list::List, StarlarkValue, Value, ValueLike},
-};
+use starlark::eval::Evaluator;
+use starlark::values::list::List;
+use starlark::values::StarlarkValue;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 use thiserror::Error;
 
-use crate::bxl::{
-    starlark_defs::{
-        context::BxlContext,
-        nodes::{configured::StarlarkConfiguredTargetNode, unconfigured::StarlarkTargetNode},
-        targetset::StarlarkTargetSet,
-    },
-    value_as_starlak_target_label::ValueAsStarlarkTargetLabel,
-};
+use crate::bxl::starlark_defs::context::BxlContext;
+use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
+use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
+use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
+use crate::bxl::value_as_starlak_target_label::ValueAsStarlarkTargetLabel;
 
 #[derive(Debug, Error)]
 enum ProviderExprError {

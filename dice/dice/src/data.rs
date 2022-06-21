@@ -53,7 +53,8 @@
 
 use std::collections::BTreeSet;
 
-use anymap::{any::Any, Map};
+use anymap::any::Any;
+use anymap::Map;
 use itertools::Itertools;
 use thiserror::Error;
 

@@ -7,33 +7,32 @@
  * of this source tree.
  */
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
+use std::collections::HashSet;
 
 use anyhow::Context;
 use buck2_core::target::TargetName;
 use buck2_interpreter::extra::ExtraContext;
 use gazebo::prelude::*;
-use starlark::{
-    eval::{Evaluator, ParametersParser, ParametersSpec},
-    values::{docs::DocString, Value},
-};
+use starlark::eval::Evaluator;
+use starlark::eval::ParametersParser;
+use starlark::eval::ParametersSpec;
+use starlark::values::docs::DocString;
+use starlark::values::Value;
 use thiserror::Error;
 
-use crate::{
-    attrs::{
-        attr_type::attr_literal::AttrLiteral, coerced_attr::CoercedAttr, OrderedMap,
-        OrderedMapEntry,
-    },
-    interpreter::{
-        module_internals::ModuleInternals,
-        rule_defs::attr::{Attribute, CoercedValue},
-    },
-    nodes::{
-        attr_internal::{attr_is_configurable, internal_attrs, NAME_ATTRIBUTE_FIELD},
-        attr_values::AttrValues,
-        AttributeId,
-    },
-};
+use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::OrderedMap;
+use crate::attrs::OrderedMapEntry;
+use crate::interpreter::module_internals::ModuleInternals;
+use crate::interpreter::rule_defs::attr::Attribute;
+use crate::interpreter::rule_defs::attr::CoercedValue;
+use crate::nodes::attr_internal::attr_is_configurable;
+use crate::nodes::attr_internal::internal_attrs;
+use crate::nodes::attr_internal::NAME_ATTRIBUTE_FIELD;
+use crate::nodes::attr_values::AttrValues;
+use crate::nodes::AttributeId;
 
 /// AttributeSpec holds the specification for a rules attributes as defined in the rule() call. This
 /// is split into a mapping of "attribute name" -> "attribute id". The Attributes are stored in a vec
@@ -270,11 +269,10 @@ impl AttributeSpec {
 }
 
 pub(crate) mod testing {
-    use crate::{
-        attrs::OrderedMap,
-        interpreter::rule_defs::attr::Attribute,
-        nodes::{attr_spec::AttributeSpec, AttributeId},
-    };
+    use crate::attrs::OrderedMap;
+    use crate::interpreter::rule_defs::attr::Attribute;
+    use crate::nodes::attr_spec::AttributeSpec;
+    use crate::nodes::AttributeId;
 
     impl AttributeSpec {
         pub(crate) fn testing_new(

@@ -7,32 +7,32 @@
  * of this source tree.
  */
 
-use std::{
-    collections::BTreeMap,
-    fmt::{Display, Formatter},
-    sync::Arc,
-};
+use std::collections::BTreeMap;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::sync::Arc;
 
-use buck2_core::provider::{ConfiguredProvidersLabel, ProvidersLabel};
+use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::ProvidersLabel;
 use derive_more::Display;
 use gazebo::dupe::Dupe;
 use serde_json::to_value;
-use starlark::{
-    collections::{Hashed, SmallMap},
-    values::{dict::Dict, string::STRING_TYPE, Value},
-};
+use starlark::collections::Hashed;
+use starlark::collections::SmallMap;
+use starlark::values::dict::Dict;
+use starlark::values::string::STRING_TYPE;
+use starlark::values::Value;
 
-use crate::{
-    attrs::{
-        attr_type::{
-            attr_literal::{AttrLiteral, CoercionError},
-            dep::{DepAttrType, ProviderIdSet},
-        },
-        coerced_attr::CoercedAttr,
-        AttrCoercionContext, AttrConfigurationContext, AttrResolutionContext, ConfiguredAttr,
-    },
-    interpreter::rule_defs::transition::id::TransitionId,
-};
+use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::attr_literal::CoercionError;
+use crate::attrs::attr_type::dep::DepAttrType;
+use crate::attrs::attr_type::dep::ProviderIdSet;
+use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::AttrCoercionContext;
+use crate::attrs::AttrConfigurationContext;
+use crate::attrs::AttrResolutionContext;
+use crate::attrs::ConfiguredAttr;
+use crate::interpreter::rule_defs::transition::id::TransitionId;
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub(crate) struct SplitTransitionDepAttrType {

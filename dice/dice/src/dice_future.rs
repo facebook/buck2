@@ -7,12 +7,16 @@
  * of this source tree.
  */
 
-use std::{future::Future, pin::Pin, task::Poll};
+use std::future::Future;
+use std::pin::Pin;
+use std::task::Poll;
 
-use futures::future::{BoxFuture, Shared};
+use futures::future::BoxFuture;
+use futures::future::Shared;
 use more_futures::spawn::StrongCancellableJoinHandle;
 
-use crate::{GraphNode, StorageProperties};
+use crate::GraphNode;
+use crate::StorageProperties;
 
 pub(crate) enum DiceFuture<S: StorageProperties> {
     /// Earlier computed value.

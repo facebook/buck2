@@ -13,14 +13,13 @@ use std::sync::Arc;
 
 use gazebo::dupe::Dupe;
 
-use crate::{
-    attrs::{
-        attr_type::{any::AnyAttrType, attr_literal::AttrLiteral, AttrType},
-        coerced_attr::CoercedAttr,
-    },
-    interpreter::rule_defs::attr::{AttrIsConfigurable, Attribute},
-    nodes::PlatformInfoCallable,
-};
+use crate::attrs::attr_type::any::AnyAttrType;
+use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::AttrType;
+use crate::attrs::coerced_attr::CoercedAttr;
+use crate::interpreter::rule_defs::attr::AttrIsConfigurable;
+use crate::interpreter::rule_defs::attr::Attribute;
+use crate::nodes::PlatformInfoCallable;
 
 // TODO(cjhopman): figure out something better for these default attributes that we need to interpret
 // internally. There's currently a lot of awkwardness involved: accessing the value, needing to create

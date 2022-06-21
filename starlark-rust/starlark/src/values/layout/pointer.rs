@@ -25,10 +25,14 @@
 // This lint is fairly new, so have to also enable unknown-clippy-lints.
 #![allow(clippy::unusual_byte_groupings)]
 
-use std::{marker::PhantomData, mem, num::NonZeroUsize};
+use std::marker::PhantomData;
+use std::mem;
+use std::num::NonZeroUsize;
 
 use either::Either;
-use gazebo::{cast, phantom::PhantomDataInvariant, prelude::*};
+use gazebo::cast;
+use gazebo::phantom::PhantomDataInvariant;
+use gazebo::prelude::*;
 use static_assertions::assert_eq_size;
 
 use crate::values::int::PointerI32;
