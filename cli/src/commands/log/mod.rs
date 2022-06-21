@@ -8,6 +8,7 @@
  */
 
 pub mod last_log;
+pub mod show_log;
 pub mod what_ran;
 
 use buck2_core::exit_result::ExitResult;
@@ -23,6 +24,9 @@ pub(crate) enum LogCommand {
 
     /// Shows the path to the most recent event log
     Last(last_log::LastLogCommand),
+
+    /// Prints the most recent log to console
+    Show(show_log::ShowLogCommand),
 }
 
 impl LogCommand {
@@ -30,6 +34,7 @@ impl LogCommand {
         match self {
             Self::WhatRan(cmd) => cmd.exec(matches, ctx),
             Self::Last(cmd) => cmd.exec(matches, ctx),
+            Self::Show(cmd) => cmd.exec(matches, ctx),
         }
     }
 }
