@@ -18,11 +18,13 @@
 //! Based on the reference lsp-server example at <https://github.com/rust-analyzer/lsp-server/blob/master/examples/goto_def.rs>.
 
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::RwLock;
 
+use derivative::Derivative;
 use gazebo::prelude::*;
 use lsp_server::Connection;
 use lsp_server::Message;
@@ -50,6 +52,7 @@ use lsp_types::LogMessageParams;
 use lsp_types::MessageType;
 use lsp_types::OneOf;
 use lsp_types::PublishDiagnosticsParams;
+use lsp_types::Range;
 use lsp_types::ServerCapabilities;
 use lsp_types::TextDocumentSyncCapability;
 use lsp_types::TextDocumentSyncKind;
@@ -60,6 +63,18 @@ use serde::de::DeserializeOwned;
 use crate::analysis::DefinitionLocation;
 use crate::analysis::LspModule;
 use crate::syntax::AstModule;
+
+/// The result of resolving a StringLiteral when looking up a definition.
+#[derive(Derivative)]
+#[derivative(Debug)]
+pub struct StringLiteralResult {
+    /// The path that a string literal resolves to.
+    pub url: Url,
+    /// A function that takes the AstModule at path specified by `url` and that same url, and
+    /// allows resolving a location to jump to within the specific URL if desired.
+    #[derivative(Debug = "ignore")]
+    pub location_finder: Box<dyn FnOnce(&AstModule, &Url) -> anyhow::Result<Option<Range>>>,
+}
 
 /// The result of evaluating a starlark program for use in the LSP.
 pub struct LspEvalResult {
@@ -81,6 +96,18 @@ pub trait LspContext {
     /// `current_file` is the the file that is including the `load()` statement, and should be used
     ///                if `path` is "relative" in a semantic sense.
     fn resolve_load(&self, path: &str, current_file: &Path) -> anyhow::Result<Url>;
+
+    /// Resolve a string literal into a Url and a function that specifies a locaction within that
+    /// target file.
+    ///
+    /// This can be used for things like file paths in string literals, build targets, etc.
+    ///
+    /// `current_file` is the file that is currently being evaluated
+    fn resolve_string_literal(
+        &self,
+        literal: &str,
+        current_file: &Path,
+    ) -> anyhow::Result<Option<StringLiteralResult>>;
 
     /// Get the contents of a starlark program at a given path, if it exists.
     fn get_load_contents(&self, uri: &Url) -> anyhow::Result<Option<String>>;
@@ -256,8 +283,28 @@ impl<T: LspContext> Backend<T> {
                         Err(_) => None,
                     }
                 }
-                // TODO(nmj): Implement this
-                DefinitionLocation::StringLiteral { .. } => None,
+                DefinitionLocation::StringLiteral { source, literal } => {
+                    let literal = self
+                        .context
+                        .resolve_string_literal(&literal, Path::new(uri.path()))?;
+                    match literal {
+                        Some(result) => {
+                            let target_range = match self.get_ast_or_load_from_disk(&result.url)? {
+                                Some(module) => (result.location_finder)(&module.ast, &result.url)?,
+                                None => None,
+                            }
+                            .unwrap_or_default();
+
+                            Some(LocationLink {
+                                origin_selection_range: Some(source.into()),
+                                target_uri: result.url,
+                                target_range,
+                                target_selection_range: target_range,
+                            })
+                        }
+                        _ => None,
+                    }
+                }
             },
             None => None,
         };
@@ -945,6 +992,166 @@ mod test {
         let location = goto_definition_response_location(&mut server, request_id)?;
 
         assert_eq!(expected_location, location);
+
+        Ok(())
+    }
+
+    #[test]
+    fn jumps_to_definitions_in_strings() -> anyhow::Result<()> {
+        let foo_uri = temp_file_uri("foo.star");
+        let bar_uri = temp_file_uri("bar.star");
+
+        let bar_contents = r#""Just <bar>a string</bar>""#;
+        let bar = FixtureWithRanges::from_fixture(bar_uri.path(), bar_contents)?;
+        let bar_range = bar.span("bar");
+        let bar_range_str = format!(
+            "{}:{}:{}:{}",
+            bar_range.begin_line, bar_range.begin_column, bar_range.end_line, bar_range.end_column
+        );
+
+        let foo_contents = dedent(
+            r#"
+            <foo1_click>"ba<foo1>r</foo1>.star"</foo1_click>
+            [
+                <foo2_click>"ba<foo2>r</foo2>.star"</foo2_click>,
+                "ignored"
+            ]
+            {
+                <foo3_click>"ba<foo3>r</foo3>.star"</foo3_click>: "ignored",
+                "ignored": <foo4_click>"ba<foo4>r</foo4>.star"</foo4_click>,
+                "ignored_other": "ignored",
+            }
+
+            def f1(x = <foo5_click>"ba<foo5>r</foo5>.star"</foo5_click>):
+                <foo6_click>"ba<foo6>r</foo6>.star"</foo6_click>
+                [
+                    <foo7_click>"ba<foo7>r</foo7>.star"</foo7_click>,
+                    "ignored"
+                ]
+                {
+                    <foo8_click>"ba<foo8>r</foo8>.star"</foo8_click>: "ignored",
+                    "ignored": <foo9_click>"ba<foo9>r</foo9>.star"</foo9_click>,
+                    "ignored_other": "ignored",
+                }
+                if x == <foo10_click>"ba<foo10>r</foo10>.star"</foo10_click>:
+                    <foo11_click>"ba<foo11>r</foo11>.star"</foo11_click>
+                    [
+                        <foo12_click>"ba<foo12>r</foo12>.star"</foo12_click>,
+                        "ignored"
+                    ]
+                    {
+                        <foo13_click>"ba<foo13>r</foo13>.star"</foo13_click>: "ignored",
+                        "ignored": <foo14_click>"ba<foo14>r</foo14>.star"</foo14_click>,
+                        "ignored_other": "ignored",
+                    }
+                return <foo15_click>"ba<foo15>r</foo15>.star"</foo15_click>
+
+            foo16 = <foo16_click>"ba<foo16>r</foo16>.star"</foo16_click>
+
+            <baz1_click>"ba<baz1>r</baz1>.star--{bar_range}"</baz1_click>
+            [
+                <baz2_click>"ba<baz2>r</baz2>.star--{bar_range}"</baz2_click>,
+                "ignored"
+            ]
+            {
+                <baz3_click>"ba<baz3>r</baz3>.star--{bar_range}"</baz3_click>: "ignored",
+                "ignored": <baz4_click>"ba<baz4>r</baz4>.star--{bar_range}"</baz4_click>,
+                "ignored_other": "ignored",
+            }
+
+            def f2(x = <baz5_click>"ba<baz5>r</baz5>.star--{bar_range}"</baz5_click>):
+                <baz6_click>"ba<baz6>r</baz6>.star--{bar_range}"</baz6_click>
+                [
+                    <baz7_click>"ba<baz7>r</baz7>.star--{bar_range}"</baz7_click>,
+                    "ignored"
+                ]
+                {
+                    <baz8_click>"ba<baz8>r</baz8>.star--{bar_range}"</baz8_click>: "ignored",
+                    "ignored": <baz9_click>"ba<baz9>r</baz9>.star--{bar_range}"</baz9_click>,
+                    "ignored_other": "ignored",
+                }
+                if x == <baz10_click>"ba<baz10>r</baz10>.star--{bar_range}"</baz10_click>:
+                    <baz11_click>"ba<baz11>r</baz11>.star--{bar_range}"</baz11_click>
+                    [
+                        <baz12_click>"ba<baz12>r</baz12>.star--{bar_range}"</baz12_click>,
+                        "ignored"
+                    ]
+                    {
+                        <baz13_click>"ba<baz13>r</baz13>.star--{bar_range}"</baz13_click>: "ignored",
+                        "ignored": <baz14_click>"ba<baz14>r</baz14>.star--{bar_range}"</baz14_click>,
+                        "ignored_other": "ignored",
+                    }
+                return <baz15_click>"ba<baz15>r</baz15>.star--{bar_range}"</baz15_click>
+
+            baz16 = <baz16_click>"ba<baz16>r</baz16>.star--{bar_range}"</baz16_click>
+            "#,
+        )
+        .trim()
+        .replace("{bar_range}", &bar_range_str);
+        let foo = FixtureWithRanges::from_fixture(foo_uri.path(), &foo_contents)?;
+
+        let mut server = TestServer::new()?;
+        server.open_file(foo_uri.clone(), foo.program())?;
+        server.open_file(bar_uri.clone(), bar.program())?;
+
+        let mut test = |name: &str, expect_range: bool| -> anyhow::Result<()> {
+            let range = if expect_range {
+                bar_range
+            } else {
+                Default::default()
+            };
+            let expected_location = expected_location_link_from_spans(
+                bar_uri.clone(),
+                foo.span(&format!("{}_click", name)),
+                range,
+            );
+
+            let goto_definition = goto_definition_request(
+                &mut server,
+                foo_uri.clone(),
+                foo.begin_line(name),
+                foo.begin_column(name),
+            );
+            let request_id = server.send_request(goto_definition)?;
+            let location = goto_definition_response_location(&mut server, request_id)?;
+
+            assert_eq!(expected_location, location);
+            Ok(())
+        };
+
+        test("foo1", false)?;
+        test("foo2", false)?;
+        test("foo3", false)?;
+        test("foo4", false)?;
+        test("foo5", false)?;
+        test("foo6", false)?;
+        test("foo7", false)?;
+        test("foo8", false)?;
+        test("foo9", false)?;
+        test("foo10", false)?;
+        test("foo11", false)?;
+        test("foo12", false)?;
+        test("foo13", false)?;
+        test("foo14", false)?;
+        test("foo15", false)?;
+        test("foo16", false)?;
+
+        test("baz1", true)?;
+        test("baz2", true)?;
+        test("baz3", true)?;
+        test("baz4", true)?;
+        test("baz5", true)?;
+        test("baz6", true)?;
+        test("baz7", true)?;
+        test("baz8", true)?;
+        test("baz9", true)?;
+        test("baz10", true)?;
+        test("baz11", true)?;
+        test("baz12", true)?;
+        test("baz13", true)?;
+        test("baz14", true)?;
+        test("baz15", true)?;
+        test("baz16", true)?;
 
         Ok(())
     }

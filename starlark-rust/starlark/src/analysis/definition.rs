@@ -66,7 +66,7 @@ pub enum DefinitionLocation {
 /// Container that holds an AST module and returns things like definition locations,
 /// lists of symbols, etc.
 pub(crate) struct LspModule {
-    ast: AstModule,
+    pub(crate) ast: AstModule,
 }
 
 impl LspModule {
@@ -82,6 +82,11 @@ impl LspModule {
     /// This method also handles scoping properly (i.e. an access of "foo" in a function
     /// will return location of the parameter "foo", even if there is a global called "foo").
     pub(crate) fn find_definition(&self, line: u32, col: u32) -> DefinitionLocation {
+        // TODO(nmj): This should probably just store references to all of the AST nodes
+        //            when the LSPModule object is created, and then we can do a much faster
+        //            lookup, especially in cases where a file has not been changed, so the
+        //            LSPModule doesn't need to reparse anything.
+
         // The inner structure here lets us just hold references, and has some un-resolved
         // spans and the like. We turn it into a more proper structure at the end.
         enum Definition<'a> {

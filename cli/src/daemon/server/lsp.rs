@@ -21,6 +21,7 @@ use lsp_types::Url;
 use starlark::lsp::server::server_with_connection;
 use starlark::lsp::server::LspContext;
 use starlark::lsp::server::LspEvalResult;
+use starlark::lsp::server::StringLiteralResult;
 use tonic::Status;
 
 use crate::daemon::server::ServerCommandContext;
@@ -37,6 +38,14 @@ impl LspContext for BuckLspContext {
     }
 
     fn resolve_load(&self, _path: &str, _current_file: &Path) -> anyhow::Result<Url> {
+        Err(anyhow::anyhow!("unimplemented"))
+    }
+
+    fn resolve_string_literal(
+        &self,
+        _literal: &str,
+        _current_file: &Path,
+    ) -> anyhow::Result<Option<StringLiteralResult>> {
         Err(anyhow::anyhow!("unimplemented"))
     }
 

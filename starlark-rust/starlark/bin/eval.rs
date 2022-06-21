@@ -34,6 +34,7 @@ use starlark::lsp::server::LoadContentsError;
 use starlark::lsp::server::LspContext;
 use starlark::lsp::server::LspEvalResult;
 use starlark::lsp::server::ResolveLoadError;
+use starlark::lsp::server::StringLiteralResult;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
 
@@ -226,6 +227,19 @@ impl LspContext for Context {
             (None, false) => Err(ResolveLoadError::MissingCurrentFilePath(path)),
         }?;
         Ok(Url::from_file_path(absolute_path).unwrap())
+    }
+
+    fn resolve_string_literal(
+        &self,
+        literal: &str,
+        current_file: &Path,
+    ) -> anyhow::Result<Option<StringLiteralResult>> {
+        self.resolve_load(literal, current_file).map(|url| {
+            Some(StringLiteralResult {
+                url,
+                location_finder: box |_ast, _url| Ok(None),
+            })
+        })
     }
 
     fn get_load_contents(&self, uri: &Url) -> anyhow::Result<Option<String>> {

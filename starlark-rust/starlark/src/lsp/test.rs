@@ -45,6 +45,8 @@ use lsp_types::GotoCapability;
 use lsp_types::InitializeParams;
 use lsp_types::InitializeResult;
 use lsp_types::InitializedParams;
+use lsp_types::Position;
+use lsp_types::Range;
 use lsp_types::TextDocumentClientCapabilities;
 use lsp_types::TextDocumentContentChangeEvent;
 use lsp_types::TextDocumentItem;
@@ -59,6 +61,7 @@ use crate::lsp::server::LoadContentsError;
 use crate::lsp::server::LspContext;
 use crate::lsp::server::LspEvalResult;
 use crate::lsp::server::ResolveLoadError;
+use crate::lsp::server::StringLiteralResult;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 
@@ -122,6 +125,37 @@ impl LspContext for TestServerContext {
             (None, false) => Err(ResolveLoadError::MissingCurrentFilePath(path)),
         }?;
         Ok(Url::from_file_path(absolute_path).unwrap())
+    }
+
+    fn resolve_string_literal(
+        &self,
+        literal: &str,
+        current_file: &Path,
+    ) -> anyhow::Result<Option<StringLiteralResult>> {
+        let re = regex::Regex::new(r#"--(\d+):(\d+):(\d+):(\d+)$"#)?;
+        let (literal, range) = match re.captures(literal) {
+            Some(cap) => {
+                let start_line = cap.get(1).unwrap().as_str().parse().unwrap();
+                let start_col = cap.get(2).unwrap().as_str().parse().unwrap();
+                let end_line = cap.get(3).unwrap().as_str().parse().unwrap();
+                let end_col = cap.get(4).unwrap().as_str().parse().unwrap();
+                let range = Range::new(
+                    Position::new(start_line, start_col),
+                    Position::new(end_line, end_col),
+                );
+                (
+                    literal[0..cap.get(0).unwrap().start()].to_owned(),
+                    Some(range),
+                )
+            }
+            None => (literal.to_owned(), None),
+        };
+        self.resolve_load(&literal, current_file).map(|url| {
+            Some(StringLiteralResult {
+                url,
+                location_finder: box move |_ast, _url| Ok(range),
+            })
+        })
     }
 
     fn get_load_contents(&self, uri: &Url) -> anyhow::Result<Option<String>> {
