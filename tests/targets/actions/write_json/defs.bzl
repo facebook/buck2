@@ -24,6 +24,7 @@ def _create_cmdargs_artifact(ctx: "context"):
 
 def _check_cmdargs_artifact(x):
     [a, b] = x
+    b = b.replace("\\", "/")
     if a != "a" or not b.startswith("buck-out/") or not b.endswith("magic/path"):
         fail("Output is not as expected, got " + repr(x))
 
