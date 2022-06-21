@@ -891,3 +891,9 @@ message LocalCommand {
 message RemoteCommand {
   string action_digest = 1;
 }
+
+// A representation of an invocation
+message Invocation {
+  repeated string command_line_args = 1;
+  string working_dir = 2;
+}

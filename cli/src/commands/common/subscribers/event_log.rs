@@ -14,12 +14,14 @@ use anyhow::Context as _;
 use async_compression::tokio::bufread::GzipDecoder;
 use async_compression::tokio::write::GzipEncoder;
 use async_trait::async_trait;
+use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_data::buck_event;
 use buck2_data::instant_event;
 use chrono::offset::Utc;
 use chrono::DateTime;
+use cli_proto::*;
 use events::subscriber::EventSubscriber;
 use events::subscriber::Tick;
 use events::BuckEvent;
@@ -30,6 +32,7 @@ use futures::stream::Stream;
 use futures::StreamExt;
 use gazebo::dupe::Dupe;
 use gazebo::prelude::*;
+use prost::Message;
 use serde::Deserialize;
 use serde::Serialize;
 use thiserror::Error;
@@ -51,20 +54,26 @@ pub(crate) enum EventLogErrors {
         "Trying to write to logfile that hasn't been opened yet - this is an internal error, please report. Unwritten event: {serialized_event}"
     )]
     LogNotOpen { serialized_event: String },
+
+    #[error("Event log does not have an implementation for reading for .proto files")]
+    ReadingProtobufNotImplemented,
 }
 
-const GZIP_EXTENSION: &str = ".json-lines.gz";
-const RAW_EXTENSION: &str = ".json-lines";
+const JSON_GZIP_EXTENSION: &str = ".json-lines.gz";
+const JSON_EXTENSION: &str = ".json-lines";
+const PROTO_EXTENSION: &str = ".proto";
 
-const KNOWN_EXTENSIONS: &[(&str, Compression)] = &[
-    (GZIP_EXTENSION, Compression::Gzip),
-    (RAW_EXTENSION, Compression::Raw),
+const KNOWN_EXTENSIONS: &[(&str, Encoding)] = &[
+    (JSON_GZIP_EXTENSION, Encoding::JsonGzip),
+    (JSON_EXTENSION, Encoding::Json),
+    (PROTO_EXTENSION, Encoding::Proto),
 ];
 
 #[derive(Copy, Clone, Dupe, Debug)]
-enum Compression {
-    Raw,
-    Gzip,
+enum Encoding {
+    Json,
+    JsonGzip,
+    Proto,
 }
 
 type EventLogWriter = Box<dyn AsyncWrite + Send + Sync + Unpin + 'static>;
@@ -92,7 +101,7 @@ fn display_valid_extensions() -> String {
 
 pub(crate) struct EventLogPathBuf {
     path: PathBuf,
-    compression: Compression,
+    encoding: Encoding,
 }
 
 impl EventLogPathBuf {
@@ -103,11 +112,11 @@ impl EventLogPathBuf {
             .to_str()
             .with_context(|| EventLogInferenceError::InvalidFilename(path.clone()))?;
 
-        for (ext, compression) in KNOWN_EXTENSIONS {
+        for (ext, encoding) in KNOWN_EXTENSIONS {
             if name.ends_with(ext) {
                 return Ok(Self {
                     path,
-                    compression: *compression,
+                    encoding: *encoding,
                 });
             }
         }
@@ -145,18 +154,21 @@ impl EventLogPathBuf {
 
     async fn open(&self) -> anyhow::Result<EventLogReader> {
         tracing::info!(
-            "Open {} using compression {:?}",
+            "Open {} using encoding {:?}",
             self.path.display(),
-            self.compression
+            self.encoding
         );
 
         let file = File::open(&self.path)
             .await
             .with_context(|| format!("Failed to open: {}", self.path.display()))?;
 
-        let file = match self.compression {
-            Compression::Raw => box file as EventLogReader,
-            Compression::Gzip => box GzipDecoder::new(BufReader::new(file)) as EventLogReader,
+        let file = match self.encoding {
+            Encoding::Json => box file as EventLogReader,
+            Encoding::JsonGzip => box GzipDecoder::new(BufReader::new(file)) as EventLogReader,
+            Encoding::Proto => {
+                return Err(EventLogErrors::ReadingProtobufNotImplemented.into());
+            }
         };
 
         Ok(file)
@@ -175,11 +187,17 @@ enum LogFileState {
     Closed,
 }
 
+enum LogMode {
+    Json,
+    Protobuf,
+}
+
 /// This EventLog lets us to events emitted by Buck and log them to a file. The events are
 /// serialized as JSON and logged one per line.
 pub(crate) struct EventLog {
     state: LogFileState,
     async_cleanup_context: AsyncCleanupContext,
+    mode: LogMode,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -193,14 +211,20 @@ impl EventLog {
         logdir: AbsPathBuf,
         extra_path: Option<PathBuf>,
         async_cleanup_context: AsyncCleanupContext,
-    ) -> Self {
+    ) -> anyhow::Result<EventLog> {
         // The event-log is going to be written to file containing the build uuid.
         // But we don't know the build uuid until we've gotten the CommandStart event.
         // So we'll just create it when we know where to put it.
-        Self {
+        let mut log_mode = LogMode::Json;
+        static PROTOBUF_LOG: EnvHelper<bool> = EnvHelper::new("BUCK2_PROTOBUF_LOG");
+        if PROTOBUF_LOG.get()?.unwrap_or(false) {
+            log_mode = LogMode::Protobuf;
+        }
+        Ok(Self {
             state: LogFileState::Unopened(logdir, extra_path),
             async_cleanup_context,
-        }
+            mode: log_mode,
+        })
     }
 
     /// Get the command line arguments and cwd and serialize them for replaying later.
@@ -214,9 +238,15 @@ impl EventLog {
         self.write_ln(&invocation).await
     }
 
-    async fn write_ln<'a>(&'a mut self, event: &'a impl Serialize) -> anyhow::Result<()> {
-        let mut serialized = serde_json::to_vec(&event).context("Failed to serialize event")?;
-        serialized.push(b'\n');
+    async fn write_ln<'a>(&'a mut self, event: &'a impl SerializeForLog) -> anyhow::Result<()> {
+        let serialized = match self.mode {
+            LogMode::Json => {
+                let mut serialized = event.serialize_to_json()?;
+                serialized.push(b'\n');
+                Ok(serialized)
+            }
+            LogMode::Protobuf => event.serialize_to_protobuf(),
+        }?;
 
         match &mut self.state {
             LogFileState::Opened(files) => {
@@ -229,7 +259,7 @@ impl EventLog {
                 Ok(())
             }
             LogFileState::Unopened(..) | LogFileState::Closed => Err(EventLogErrors::LogNotOpen {
-                serialized_event: serde_json::to_string(&event)
+                serialized_event: String::from_utf8(event.serialize_to_json()?)
                     .context("Failed to serialize event for debug")?,
             }
             .into()),
@@ -250,22 +280,26 @@ impl EventLog {
         remove_old_logs(logdir).await;
 
         // Open our log fie, gzip encoded.
-        let compression = Compression::Gzip;
+        let encoding = match self.mode {
+            LogMode::Json => Encoding::JsonGzip,
+            LogMode::Protobuf => Encoding::Proto,
+        };
+
         let path = EventLogPathBuf {
             path: logdir
-                .join_unnormalized(get_logfile_name(event, compression))
+                .join_unnormalized(get_logfile_name(event, encoding))
                 .to_path_buf(),
-            compression,
+            encoding,
         };
         let mut log_files = vec![open_event_log_for_writing(path, event.trace_id.dupe()).await?];
 
-        // Also open the user's log file, if any as provided, with no compression.
+        // Also open the user's log file, if any as provided, with no encoding.
         if let Some(extra_path) = maybe_extra_path {
             log_files.push(
                 open_event_log_for_writing(
                     EventLogPathBuf {
                         path: extra_path.clone(),
-                        compression: Compression::Raw,
+                        encoding: Encoding::Json,
                     },
                     event.trace_id.dupe(),
                 )
@@ -325,15 +359,16 @@ impl Drop for EventLog {
     }
 }
 
-fn get_logfile_name(event: &BuckEvent, compression: Compression) -> ForwardRelativePathBuf {
+fn get_logfile_name(event: &BuckEvent, encoding: Encoding) -> ForwardRelativePathBuf {
     let time_str = {
         let datetime: DateTime<Utc> = event.timestamp.into();
         datetime.format("%Y%m%d-%H%M%S").to_string()
     };
 
-    let extension = match compression {
-        Compression::Raw => RAW_EXTENSION,
-        Compression::Gzip => GZIP_EXTENSION,
+    let extension = match encoding {
+        Encoding::Json => JSON_EXTENSION,
+        Encoding::JsonGzip => JSON_GZIP_EXTENSION,
+        Encoding::Proto => PROTO_EXTENSION,
     };
 
     // Sort order matters here: earliest builds are lexicographically first and deleted first.
@@ -359,9 +394,9 @@ async fn open_event_log_for_writing(
             )
         })?;
 
-    let file = match path.compression {
-        Compression::Raw => box file as EventLogWriter,
-        Compression::Gzip => box GzipEncoder::new(file) as EventLogWriter,
+    let file = match path.encoding {
+        Encoding::Json | Encoding::Proto => box file as EventLogWriter,
+        Encoding::JsonGzip => box GzipEncoder::new(file) as EventLogWriter,
     };
 
     Ok(NamedEventLogWriter {
@@ -480,8 +515,8 @@ fn log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
         Some(x) => x,
     };
 
-    let gzipped_log_file: Stdio = match log_file.path.compression {
-        Compression::Raw => {
+    let gzipped_log_file: Stdio = match log_file.path.encoding {
+        Encoding::Json | Encoding::Proto => {
             let gzip = std::process::Command::new("gzip")
                 .args([
                     "--to-stdout",
@@ -495,7 +530,7 @@ fn log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
                 .spawn()?;
             gzip.stdout.unwrap().into()
         }
-        Compression::Gzip => {
+        Encoding::JsonGzip => {
             // Note: we don't use tokio files here since we're just handing a fd to a
             // spawned process.
             std::fs::File::open(&log_file.path.path)?.into()
@@ -573,4 +608,48 @@ fn log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
     let _ignored = &log_file.path;
     let _ignored = &log_file.trace_id;
     Ok(())
+}
+
+trait SerializeForLog {
+    fn serialize_to_json(&self) -> anyhow::Result<Vec<u8>>;
+    fn serialize_to_protobuf(&self) -> anyhow::Result<Vec<u8>>;
+}
+
+impl SerializeForLog for Invocation {
+    fn serialize_to_json(&self) -> anyhow::Result<Vec<u8>> {
+        serde_json::to_vec(&self).context("Failed to serialize event")
+    }
+
+    fn serialize_to_protobuf(&self) -> anyhow::Result<Vec<u8>> {
+        let invocation = buck2_data::Invocation {
+            command_line_args: self.command_line_args.clone(),
+            working_dir: self.working_dir.display().to_string(),
+        };
+        let mut res = Vec::new();
+        invocation
+            .encode_length_delimited(&mut res)
+            .context("Failed to serialize event")?;
+        Ok(res)
+    }
+}
+
+impl SerializeForLog for StreamValue {
+    fn serialize_to_json(&self) -> anyhow::Result<Vec<u8>> {
+        serde_json::to_vec(&self).context("Failed to serialize event")
+    }
+
+    fn serialize_to_protobuf(&self) -> anyhow::Result<Vec<u8>> {
+        let progress = match self {
+            Self::Event(e) => command_progress::Progress::Event(e.clone()),
+            Self::Result(res) => command_progress::Progress::Result(res.clone()),
+        };
+        let stream_val = cli_proto::CommandProgress {
+            progress: Some(progress),
+        };
+        let mut res = Vec::new();
+        stream_val
+            .encode_length_delimited(&mut res)
+            .context("Failed to serialize event")?;
+        Ok(res)
+    }
 }
