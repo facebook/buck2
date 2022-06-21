@@ -58,6 +58,7 @@ use lsp_types::WorkDoneProgressOptions;
 use serde::de::DeserializeOwned;
 
 use crate::analysis::DefinitionLocation;
+use crate::analysis::LspModule;
 use crate::syntax::AstModule;
 
 /// The result of evaluating a starlark program for use in the LSP.
@@ -115,7 +116,7 @@ struct Backend<T: LspContext> {
     context: T,
     /// The `AstModule` from the last time that a file was opened / changed and parsed successfully.
     /// Entries are evicted when the file is closed.
-    last_valid_parse: RwLock<HashMap<Url, Arc<AstModule>>>,
+    last_valid_parse: RwLock<HashMap<Url, Arc<LspModule>>>,
 }
 
 /// The logic implementations of stuff
@@ -132,18 +133,18 @@ impl<T: LspContext> Backend<T> {
         }
     }
 
-    fn get_ast(&self, uri: &Url) -> Option<Arc<AstModule>> {
+    fn get_ast(&self, uri: &Url) -> Option<Arc<LspModule>> {
         let last_valid_parse = self.last_valid_parse.read().unwrap();
         last_valid_parse.get(uri).duped()
     }
 
-    fn get_ast_or_load_from_disk(&self, uri: &Url) -> anyhow::Result<Option<Arc<AstModule>>> {
+    fn get_ast_or_load_from_disk(&self, uri: &Url) -> anyhow::Result<Option<Arc<LspModule>>> {
         let module = match self.get_ast(uri) {
             Some(result) => Some(result),
             None => self
                 .context
                 .parse_file(uri)?
-                .and_then(|eval_result| eval_result.ast.map(Arc::new)),
+                .and_then(|eval_result| eval_result.ast.map(|ast| Arc::new(LspModule::new(ast)))),
         };
         Ok(module)
     }
@@ -151,9 +152,9 @@ impl<T: LspContext> Backend<T> {
     fn validate(&self, uri: Url, version: Option<i64>, text: String) {
         let eval_result = self.context.parse_file_with_contents(&uri, text);
         if let Some(ast) = eval_result.ast {
-            let ast = Arc::new(ast);
+            let module = Arc::new(LspModule::new(ast));
             let mut last_valid_parse = self.last_valid_parse.write().unwrap();
-            last_valid_parse.insert(uri.clone(), ast);
+            last_valid_parse.insert(uri.clone(), module);
         }
         self.publish_diagnostics(uri, eval_result.diagnostics, version)
     }

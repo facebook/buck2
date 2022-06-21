@@ -53,7 +53,17 @@ pub enum DefinitionLocation {
     NotFound,
 }
 
-impl AstModule {
+/// Container that holds an AST module and returns things like definition locations,
+/// lists of symbols, etc.
+pub(crate) struct LspModule {
+    ast: AstModule,
+}
+
+impl LspModule {
+    pub(crate) fn new(ast: AstModule) -> Self {
+        Self { ast }
+    }
+
     /// Attempts to find the location where a symbol is defined in the module, or `None` if it
     /// was not defined anywhere in this file.
     ///
@@ -147,8 +157,8 @@ impl AstModule {
             Definition::NotFound
         }
 
-        let scope = scope(self);
-        let line_span = self.codemap.line_span(line as usize);
+        let scope = scope(&self.ast);
+        let line_span = self.ast.codemap.line_span(line as usize);
         let current_pos = std::cmp::min(line_span.begin() + col, line_span.end());
 
         match find_definition_in_scope(&scope, current_pos) {
@@ -156,20 +166,20 @@ impl AstModule {
                 source,
                 destination,
             } => DefinitionLocation::Location {
-                source: self.codemap.resolve_span(source),
-                destination: self.codemap.resolve_span(destination),
+                source: self.ast.codemap.resolve_span(source),
+                destination: self.ast.codemap.resolve_span(destination),
             },
             Definition::Name { source, name } => match scope.bound.get(name) {
                 None => DefinitionLocation::NotFound,
                 Some((Assigner::Load { path, name }, span)) => DefinitionLocation::LoadedLocation {
-                    source: self.codemap.resolve_span(source),
-                    destination: self.codemap.resolve_span(*span),
+                    source: self.ast.codemap.resolve_span(source),
+                    destination: self.ast.codemap.resolve_span(*span),
                     path: path.node.clone(),
                     name: name.node.clone(),
                 },
                 Some((_, span)) => DefinitionLocation::Location {
-                    source: self.codemap.resolve_span(source),
-                    destination: self.codemap.resolve_span(*span),
+                    source: self.ast.codemap.resolve_span(source),
+                    destination: self.ast.codemap.resolve_span(*span),
                 },
             },
             // If we could not find the symbol, see if the current position is within
@@ -181,8 +191,8 @@ impl AstModule {
                 path,
                 name,
             } => DefinitionLocation::LoadedLocation {
-                source: self.codemap.resolve_span(source),
-                destination: self.codemap.resolve_span(destination),
+                source: self.ast.codemap.resolve_span(source),
+                destination: self.ast.codemap.resolve_span(destination),
                 path: path.to_owned(),
                 name: name.to_owned(),
             },
@@ -191,13 +201,16 @@ impl AstModule {
 
     /// Attempt to find the location where an exported symbol is defined.
     pub(crate) fn find_exported_symbol(&self, name: &str) -> Option<ResolvedSpan> {
-        self.exported_symbols().iter().find_map(|(span, symbol)| {
-            if *symbol == name {
-                Some(span.resolve_span())
-            } else {
-                None
-            }
-        })
+        self.ast
+            .exported_symbols()
+            .iter()
+            .find_map(|(span, symbol)| {
+                if *symbol == name {
+                    Some(span.resolve_span())
+                } else {
+                    None
+                }
+            })
     }
 
     fn find_definition_from_load_statement(&self, pos: Pos) -> DefinitionLocation {
@@ -229,7 +242,7 @@ impl AstModule {
                 _ => None,
             }
         }
-        f(&self.codemap, &self.statement, pos).unwrap_or(DefinitionLocation::NotFound)
+        f(&self.ast.codemap, &self.ast.statement, pos).unwrap_or(DefinitionLocation::NotFound)
     }
 }
 
@@ -240,6 +253,7 @@ pub(crate) mod helpers {
 
     use textwrap::dedent;
 
+    use crate::analysis::LspModule;
     use crate::codemap::CodeMap;
     use crate::codemap::Pos;
     use crate::codemap::ResolvedSpan;
@@ -358,8 +372,12 @@ pub(crate) mod helpers {
                 .expect("identifier to be present")
         }
 
-        pub(crate) fn module(&self) -> anyhow::Result<AstModule> {
-            AstModule::parse(&self.filename, self.program.clone(), &Dialect::Extended)
+        pub(crate) fn module(&self) -> anyhow::Result<LspModule> {
+            Ok(LspModule::new(AstModule::parse(
+                &self.filename,
+                self.program.clone(),
+                &Dialect::Extended,
+            )?))
         }
 
         #[cfg(not(windows))]
