@@ -788,16 +788,19 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// "#, "argument was negative");
     /// ```
     #[starlark(speculative_exec_safe)]
-    fn replace(
-        this: &str,
+    fn replace<'v>(
+        this: ValueOf<'v, &'v str>,
         #[starlark(require = pos)] old: &str,
         #[starlark(require = pos)] new: &str,
         #[starlark(require = pos)] count: Option<i32>,
-    ) -> anyhow::Result<String> {
+        heap: &'v Heap,
+    ) -> anyhow::Result<Value<'v>> {
         match count {
-            Some(count) if count >= 0 => Ok(this.replacen(old, new, count as usize)),
+            Some(count) if count >= 0 => Ok(heap
+                .alloc_str(&this.typed.replacen(old, new, count as usize))
+                .to_value()),
             Some(count) => Err(anyhow!("Replace final argument was negative '{}'", count)),
-            None => Ok(this.replace(old, new)),
+            None => Ok(heap.alloc_str(&this.typed.replace(old, new)).to_value()),
         }
     }
 
