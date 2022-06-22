@@ -250,7 +250,7 @@ pub(crate) async fn run_lsp_server(
     mut req: StreamingRequestHandler<LspRequest>,
 ) -> anyhow::Result<LspResponse> {
     let dice_ctx: DiceTransaction = ctx.dice_ctx().await?;
-    let cell_resolver: CellResolver = dice_ctx.get_cell_resolver().await;
+    let cell_resolver: CellResolver = dice_ctx.get_cell_resolver().await?;
     let fs = ctx.file_system();
 
     // This gets a bit messy because the various frameworks don't quite work the same way.
