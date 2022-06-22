@@ -87,6 +87,7 @@ extra_attributes = {
         "_apple_toolchain": attr.exec_dep(default = default_apple_toolchain(), providers = [AppleToolchainInfo]),
         "_apple_tools": attr.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
         "_codesign_type": attr.option(attr.enum(CodeSignType.values()), default = None),
+        "_incremental_bundling_enabled": attr.bool(),
     },
     "apple_toolchain": {
         # The Buck v1 attribute specs defines those as `attr.source()` but

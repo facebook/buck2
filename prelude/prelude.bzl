@@ -6,6 +6,7 @@
 
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
 load("@fbcode//buck2/prelude/apple:apple_bundle_macro_layer.bzl", "apple_bundle_macro_impl")
+load("@fbcode//buck2/prelude/apple:apple_test_macro_layer.bzl", "apple_test_macro_impl")
 load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", _cxx = "cxx")
 load("@fbcode//buck2/prelude/python:toolchain.bzl", _python = "python")
 load("@fbcode//buck2/prelude/user:all.bzl", _user_rules = "rules")
@@ -228,11 +229,18 @@ def _apple_bundle_macro_stub(**kwargs):
         **kwargs
     )
 
+def _apple_test_macro_stub(**kwargs):
+    apple_test_macro_impl(
+        apple_test_rule = __rules__["apple_test"],
+        **kwargs
+    )
+
 # TODO(cjhopman): These macro wrappers should be handled in prelude/rules.bzl+rule_impl.bzl.
 # Probably good if they were defined to take in the base rule that
 # they are wrapping and return the wrapped one.
 __extra_rules__ = {
     "apple_bundle": _apple_bundle_macro_stub,
+    "apple_test": _apple_test_macro_stub,
     "configured_alias": _configured_alias_macro_stub,
     "export_file": _export_file_macro_stub,
     "prebuilt_cxx_library": _prebuilt_cxx_library_macro_stub,
