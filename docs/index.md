@@ -48,6 +48,7 @@ specific invocations or classes of invocations.
 * [configured_alias](rfcs/configured-alias.md)
 * [BQL => Buck Extension Language (BXL)](rfcs/bxl.md)
 * [bxl analysis](rfcs/bxl-analysis.md)
+* [ProviderCollection[]](rfcs/provider-collection-at.md)
 
 ### Drafts
 
