@@ -800,7 +800,18 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
                 .alloc_str(&this.typed.replacen(old, new, count as usize))
                 .to_value()),
             Some(count) => Err(anyhow!("Replace final argument was negative '{}'", count)),
-            None => Ok(heap.alloc_str(&this.typed.replace(old, new)).to_value()),
+            None => {
+                let x = this.typed;
+                let mut result = String::new();
+                let mut last_end = 0;
+                for (start, part) in x.match_indices(old) {
+                    result.push_str(unsafe { x.get_unchecked(last_end..start) });
+                    result.push_str(new);
+                    last_end = start + part.len();
+                }
+                result.push_str(unsafe { x.get_unchecked(last_end..x.len()) });
+                Ok(heap.alloc_str(&result).to_value())
+            }
         }
     }
 
