@@ -425,6 +425,9 @@ async def run_java_tests(
     )
     await build("fbcode//buck2/tests/targets/rules/java/keystore:")
     await build("fbcode//buck2/tests/targets/rules/java/library:")
+    await build(
+        "fbcode//buck2/tests/targets/rules/java/library/simple_library_with_multiple_deps:lib[ast]"
+    )
     await build("fbcode//buck2/tests/targets/rules/java/library/zipped_sources:")
     await expect_failure(
         build("fbcode//buck2/tests/targets/rules/java/library/java_version_bad:"),
