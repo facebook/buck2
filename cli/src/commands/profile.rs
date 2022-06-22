@@ -195,7 +195,7 @@ impl StreamingCommand for ProfileSubcommand {
 
     fn console_opts(&self) -> &CommonConsoleOptions {
         static OPTS: CommonConsoleOptions = CommonConsoleOptions {
-            console_type: ConsoleType::None,
+            console_type: ConsoleType::Auto,
             ui: vec![],
         };
         &OPTS
