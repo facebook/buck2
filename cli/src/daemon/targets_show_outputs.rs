@@ -66,7 +66,7 @@ pub(crate) async fn targets_show_outputs(
     let parsed_patterns =
         parse_patterns_from_cli_args::<TargetPattern>(&request.target_patterns, &ctx, cwd).await?;
 
-    let artifact_fs = ctx.get_artifact_fs().await;
+    let artifact_fs = ctx.get_artifact_fs().await?;
 
     let mut targets_paths = Vec::new();
 

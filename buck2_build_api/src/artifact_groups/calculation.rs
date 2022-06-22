@@ -157,7 +157,7 @@ impl Key for EnsureProjectedArtifactKey {
     async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
         let base_value = ensure_base_artifact(ctx, self.0.base()).await?;
 
-        let artifact_fs = crate::calculation::Calculation::get_artifact_fs(ctx).await;
+        let artifact_fs = crate::calculation::Calculation::get_artifact_fs(ctx).await?;
 
         let base_path = match self.0.base() {
             BaseArtifactKind::Build(built) => artifact_fs.resolve_build(built),
@@ -260,7 +260,7 @@ impl Key for EnsureTransitiveSetProjectionKey {
             });
         }
 
-        let artifact_fs = crate::calculation::Calculation::get_artifact_fs(ctx).await;
+        let artifact_fs = crate::calculation::Calculation::get_artifact_fs(ctx).await?;
         let values = ArtifactGroupValues::new(values, children, &artifact_fs)
             .context("Failed to construct ArtifactGroupValues")?;
 

@@ -162,7 +162,7 @@ async fn build_install(
         // These numbers might need to be configured based on the installer
         // Current time seems to be 0m0.727s for run from buck2
         let client: InstallerClient<Channel> = connect_to_installer(filename.to_owned()).await?;
-        let artifact_fs = ctx.get_artifact_fs().await;
+        let artifact_fs = ctx.get_artifact_fs().await?;
         let ret = tokio_stream::wrappers::UnboundedReceiverStream::new(files_rx)
             .map(anyhow::Ok)
             .try_for_each_concurrent(None, |file| send_file(file, &artifact_fs, client.clone()))
@@ -185,7 +185,7 @@ async fn build_launch_installer(
 ) -> anyhow::Result<()> {
     let installer_run_info = install_info.get_installer().to_owned();
     let (inputs, run_args) = {
-        let artifact_fs = ctx.get_artifact_fs().await;
+        let artifact_fs = ctx.get_artifact_fs().await?;
         let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
         installer_run_info.visit_artifacts(&mut artifact_visitor)?;
         // Produce arguments for local platform.

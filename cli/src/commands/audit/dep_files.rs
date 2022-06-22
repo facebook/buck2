@@ -97,7 +97,7 @@ impl AuditSubcommand for AuditDepFilesCommand {
 
         let dep_files = state
             .read_dep_files(
-                &ctx.get_artifact_fs().await,
+                &ctx.get_artifact_fs().await?,
                 ctx.per_transaction_data().get_materializer().as_ref(),
             )
             .await

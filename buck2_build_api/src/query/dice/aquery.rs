@@ -214,13 +214,15 @@ async fn get_action_node(
 }
 
 impl<'c> DiceAqueryDelegate<'c> {
-    pub(crate) async fn new<'a>(base_delegate: DiceQueryDelegate<'a>) -> DiceAqueryDelegate<'a> {
-        let artifact_fs = Arc::new(base_delegate.ctx().get_artifact_fs().await);
-        DiceAqueryDelegate {
+    pub(crate) async fn new<'a>(
+        base_delegate: DiceQueryDelegate<'a>,
+    ) -> anyhow::Result<DiceAqueryDelegate<'a>> {
+        let artifact_fs = Arc::new(base_delegate.ctx().get_artifact_fs().await?);
+        Ok(DiceAqueryDelegate {
             base_delegate,
             nodes_cache: DiceAqueryNodesCache::new(),
             artifact_fs,
-        }
+        })
     }
 
     async fn get_action_node(&self, key: &ActionKey) -> anyhow::Result<ActionQueryNode> {

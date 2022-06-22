@@ -183,7 +183,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
     ) -> anyhow::Result<ExecutionResult2> {
         let test_target = self.session.get(test_target)?;
 
-        let fs = self.dice.get_artifact_fs().await;
+        let fs = self.dice.get_artifact_fs().await?;
 
         let test_executable_expanded = self
             .expand_test_executable(
@@ -315,7 +315,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
     ) -> anyhow::Result<PrepareForLocalExecutionResult> {
         let test_target = self.session.get(test_target)?;
 
-        let fs = self.dice.get_artifact_fs().await;
+        let fs = self.dice.get_artifact_fs().await?;
 
         let test_executable_expanded = self
             .expand_test_executable(

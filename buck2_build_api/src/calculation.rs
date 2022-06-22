@@ -108,7 +108,7 @@ impl ConfigurableTarget for ProvidersLabel {
 #[async_trait]
 pub trait Calculation<'c> {
     /// Get the configured ArtifactFs
-    async fn get_artifact_fs(&self) -> ArtifactFs;
+    async fn get_artifact_fs(&self) -> SharedResult<ArtifactFs>;
 
     /// Returns the Configuration for an unconfigured TargetLabel or ProvidersLabel.
     ///
@@ -177,22 +177,16 @@ pub trait Calculation<'c> {
 
 #[async_trait]
 impl<'c> Calculation<'c> for DiceComputations {
-    async fn get_artifact_fs(&self) -> ArtifactFs {
-        let buck_out_path_resolver = BuckOutPathResolver::new(
-            (*self
-                .get_buck_out_path()
-                .await
-                .expect("TODO(bobyf) convert to err"))
-            .to_buf()
-            .into(),
-        );
+    async fn get_artifact_fs(&self) -> SharedResult<ArtifactFs> {
+        let buck_out_path_resolver =
+            BuckOutPathResolver::new((*self.get_buck_out_path().await?).to_buf().into());
         let project_filesystem = (**self.global_data().get_io_provider().fs()).clone();
         let buck_path_resolver = BuckPathResolver::new(self.get_cell_resolver().await);
-        ArtifactFs::new(
+        Ok(ArtifactFs::new(
             buck_path_resolver,
             buck_out_path_resolver,
             project_filesystem,
-        )
+        ))
     }
 
     async fn get_configured_target<T: ConfigurableTarget>(

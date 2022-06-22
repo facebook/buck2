@@ -62,7 +62,7 @@ pub async fn eval(ctx: DiceTransaction, key: BxlKey) -> anyhow::Result<BxlResult
     let target_alias_resolver = config.target_alias_resolver();
 
     let project_fs = ctx.global_data().get_io_provider().fs().dupe();
-    let artifact_fs = ctx.get_artifact_fs().await;
+    let artifact_fs = ctx.get_artifact_fs().await?;
 
     // The bxl function may trigger async operations like builds, analysis, parsing etc, but those
     // will be blocking calls so that starlark can remain synchronous.

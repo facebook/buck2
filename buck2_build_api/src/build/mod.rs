@@ -50,7 +50,7 @@ pub async fn build_configured_label(
         Vec<SharedResult<ProviderArtifacts>>,
     )>,
 > {
-    let artifact_fs = ctx.get_artifact_fs().await;
+    let artifact_fs = ctx.get_artifact_fs().await?;
 
     let (providers, outputs, run_args) = {
         // A couple of these objects aren't Send and so scope them here so async transform doesn't get concerned.

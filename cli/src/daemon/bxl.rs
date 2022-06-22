@@ -120,7 +120,7 @@ async fn copy_output<W: Write>(
     let loc = dice.global_data().get_io_provider().fs().resolve(
         &dice
             .get_artifact_fs()
-            .await
+            .await?
             .buck_out_path_resolver()
             .resolve_gen(result.get_output_loc()),
     );

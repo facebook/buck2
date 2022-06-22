@@ -105,7 +105,7 @@ pub(crate) async fn build(
     let resolved_pattern =
         resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
 
-    let artifact_fs = ctx.get_artifact_fs().await;
+    let artifact_fs = ctx.get_artifact_fs().await?;
     let build_providers = Arc::new(request.build_providers.unwrap());
     let response_options = request.response_options.unwrap_or_default();
 

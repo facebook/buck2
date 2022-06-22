@@ -57,7 +57,7 @@ pub async fn get_aquery_evaluator<'c>(
 ) -> anyhow::Result<AqueryEvaluator<'c>> {
     let dice_query_delegate =
         get_dice_query_delegate(ctx, working_dir, project_root, global_target_platform).await?;
-    let dice_query_delegate = Arc::new(DiceAqueryDelegate::new(dice_query_delegate).await);
+    let dice_query_delegate = Arc::new(DiceAqueryDelegate::new(dice_query_delegate).await?);
     let functions = DefaultQueryFunctionsModule::new();
     Ok(AqueryEvaluator {
         dice_query_delegate,
