@@ -103,7 +103,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
 
         self.module_env.slots().ensure_slots(module_slots);
         let old_def_info = mem::replace(
-            &mut self.def_info,
+            &mut self.module_def_info,
             self.module_env.frozen_heap().alloc_any(DefInfo::for_module(
                 codemap,
                 scope_names,
@@ -140,7 +140,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             self.heap_profile.record_call_exit(self.heap());
             self.flame_profile.record_call_exit();
         }
-        self.def_info = old_def_info;
+        self.module_def_info = old_def_info;
 
         self.module_env.add_eval_duration(start.elapsed());
 

@@ -76,7 +76,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         }
 
         let orig_module_variables = mem::replace(&mut self.module_variables, None);
-        let globals = self.def_info.globals;
+        let globals = self.top_second_frame_def_info_for_debugger()?.globals;
         let res = self.eval_module(statements, &globals);
         self.module_variables = orig_module_variables;
 

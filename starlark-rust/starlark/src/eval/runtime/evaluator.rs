@@ -58,6 +58,7 @@ use crate::stdlib::breakpoint::BreakpointConsole;
 use crate::stdlib::breakpoint::RealBreakpointConsole;
 use crate::stdlib::extra::PrintHandler;
 use crate::stdlib::extra::StderrPrintHandler;
+use crate::values::function::NativeFunction;
 use crate::values::layout::value_captured::value_captured_get;
 use crate::values::layout::value_captured::ValueCaptured;
 use crate::values::FrozenHeap;
@@ -82,6 +83,10 @@ pub(crate) enum EvaluatorError {
     TypecheckProfilingNotEnabled,
     #[error("Top frame is not def (internal error)")]
     TopFrameNotDef,
+    #[error("Top second frame is not def (internal error)")]
+    TopSecondFrameNotDef,
+    #[error("Top frame is not native (internal error)")]
+    TopFrameNotNative,
 }
 
 /// Number of bytes to allocate between GC's.
@@ -99,8 +104,9 @@ pub struct Evaluator<'v, 'a> {
     pub(crate) current_frame: BcFramePtr<'v>,
     // How we deal with a `load` function.
     pub(crate) loader: Option<&'a dyn FileLoader>,
-    // `DefInfo` of currently executed function or module.
-    pub(crate) def_info: FrozenRef<'static, DefInfo>,
+    // `DefInfo` of currently executed module.
+    // `DefInfo` of currently execution function can be obtained from call stack.
+    pub(crate) module_def_info: FrozenRef<'static, DefInfo>,
     // Should we enable heap profiling or not
     pub(crate) heap_profile: HeapProfile,
     // Should we enable flame profiling or not
@@ -171,7 +177,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             flame_profile: FlameProfile::new(),
             heap_or_flame_profile: false,
             before_stmt: BeforeStmt::default(),
-            def_info: DefInfo::empty(), // Will be replaced before it is used
+            module_def_info: DefInfo::empty(), // Will be replaced before it is used
             string_pool: StringPool::default(),
             breakpoint_handler: None,
             print_handler: &StderrPrintHandler,
@@ -379,12 +385,8 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     pub(crate) fn with_function_context<R>(
         &mut self,
         module: Option<FrozenRef<'static, FrozenModuleRef>>, // None == use module_env
-        def_info: FrozenRef<'static, DefInfo>,
         within: impl FnOnce(&mut Self) -> R,
     ) -> R {
-        // Capture the variables we will be mutating
-        let old_def_info = mem::replace(&mut self.def_info, def_info);
-
         // Set up for the new function call
         let old_module_variables = mem::replace(&mut self.module_variables, module);
 
@@ -392,7 +394,6 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         let res = within(self);
 
         // Restore them all back
-        self.def_info = old_def_info;
         self.module_variables = old_module_variables;
         res
     }
@@ -443,7 +444,11 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         &self,
         slot: LocalSlotId,
     ) -> anyhow::Error {
-        let names = &self.def_info.scope_names.used;
+        let def_info = match self.top_frame_def_info() {
+            Ok(def_info) => def_info,
+            Err(e) => return e,
+        };
+        let names = &def_info.scope_names.used;
         let name = names[slot.0 as usize].clone();
         EnvironmentError::LocalVariableReferencedBeforeAssignment(name).into()
     }
@@ -556,6 +561,43 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             func.check_return_type(ret, self)
         } else {
             Err(EvaluatorError::TopFrameNotDef.into())
+        }
+    }
+
+    pub(crate) fn top_frame_def_info(&self) -> anyhow::Result<FrozenRef<DefInfo>> {
+        let func = self.call_stack.top_nth_function(0)?;
+        if let Some(func) = func.downcast_ref::<Def>() {
+            Ok(func.def_info)
+        } else if let Some(func) = func.downcast_ref::<FrozenDef>() {
+            Ok(func.def_info)
+        } else if func.is_none() {
+            // For module, top frame is `None`.
+            Ok(self.module_def_info)
+        } else {
+            Err(EvaluatorError::TopFrameNotDef.into())
+        }
+    }
+
+    /// When top frame is `breakpoint` or `debug_evaluate` function, skip it.
+    pub(crate) fn top_second_frame_def_info_for_debugger(
+        &self,
+    ) -> anyhow::Result<FrozenRef<DefInfo>> {
+        // Self-check: we are in `breakpoint` or `debug_evaluate` function.
+        let breakpoint = self.call_stack.top_nth_function(0)?;
+        breakpoint
+            .downcast_ref::<NativeFunction>()
+            .ok_or(EvaluatorError::TopFrameNotNative)?;
+
+        let func = self.call_stack.top_nth_function(1)?;
+        if let Some(func) = func.downcast_ref::<Def>() {
+            Ok(func.def_info)
+        } else if let Some(func) = func.downcast_ref::<FrozenDef>() {
+            Ok(func.def_info)
+        } else if func.is_none() {
+            // For module, it is `None`.
+            Ok(self.module_def_info)
+        } else {
+            Err(EvaluatorError::TopSecondFrameNotDef.into())
         }
     }
 

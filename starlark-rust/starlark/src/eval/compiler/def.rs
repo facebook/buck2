@@ -703,9 +703,8 @@ where
         if Self::FROZEN {
             debug_assert!(self.module.load_relaxed().is_some());
         }
-        let res = eval.with_function_context(self.module.load_relaxed(), self.def_info, |eval| {
-            self.bc().run(eval)
-        });
+        let res =
+            eval.with_function_context(self.module.load_relaxed(), |eval| self.bc().run(eval));
 
         res.map_err(|EvalException(e)| e)
     }
