@@ -140,7 +140,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         eprintln!("watchman fresh instance event, clearing cache");
 
         let ctx = self.dice.ctx();
-        let isolation_dir = ctx.get_buck_out_path().await;
+        let isolation_dir = ctx.get_buck_out_path().await?;
         let cells = ctx.get_cell_resolver().await;
         let configuror = ctx.get_interpreter_configuror().await;
         let legacy_configs = ctx.get_legacy_configs().await;

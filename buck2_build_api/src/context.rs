@@ -14,6 +14,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
+use buck2_core::result::SharedResult;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::InjectedKey;
@@ -22,7 +23,7 @@ use owning_ref::ArcRef;
 
 #[async_trait]
 pub trait HasBuildContextData {
-    async fn get_buck_out_path(&self) -> ArcRef<BuildData, ForwardRelativePath>;
+    async fn get_buck_out_path(&self) -> SharedResult<ArcRef<BuildData, ForwardRelativePath>>;
 }
 
 pub trait SetBuildContextData {
@@ -39,18 +40,21 @@ pub struct BuildData {
 struct BuildDataKey;
 
 impl InjectedKey for BuildDataKey {
-    type Value = Arc<BuildData>;
+    type Value = SharedResult<Arc<BuildData>>;
 
     fn compare(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+        match (x, y) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
     }
 }
 
 #[async_trait]
 impl HasBuildContextData for DiceComputations {
-    async fn get_buck_out_path(&self) -> ArcRef<BuildData, ForwardRelativePath> {
-        let data = self.compute(&BuildDataKey).await;
-        ArcRef::new(data).map(|d| AsRef::<ForwardRelativePath>::as_ref(&d.buck_out_path))
+    async fn get_buck_out_path(&self) -> SharedResult<ArcRef<BuildData, ForwardRelativePath>> {
+        let data = self.compute(&BuildDataKey).await?;
+        Ok(ArcRef::new(data).map(|d| AsRef::<ForwardRelativePath>::as_ref(&d.buck_out_path)))
     }
 }
 
@@ -58,11 +62,11 @@ impl SetBuildContextData for DiceComputations {
     fn set_buck_out_path(&self, path: Option<ForwardRelativePathBuf>) {
         self.changed_to(vec![(
             BuildDataKey,
-            Arc::new(BuildData {
+            Ok(Arc::new(BuildData {
                 buck_out_path: path.unwrap_or_else(|| {
                     ForwardRelativePathBuf::unchecked_new("buck-out/v2".to_owned())
                 }),
-            }),
+            })),
         )])
     }
 }

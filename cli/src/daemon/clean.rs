@@ -27,7 +27,7 @@ pub(crate) async fn clean(
     request: CleanRequest,
 ) -> anyhow::Result<CleanResponse> {
     let dice_ctx = server_ctx.dice_ctx().await?;
-    let out_path = dice_ctx.get_buck_out_path().await;
+    let out_path = dice_ctx.get_buck_out_path().await?;
     let filesystem = server_ctx.file_system();
     let buck_out_path = (*out_path).resolve(&filesystem.root);
 
