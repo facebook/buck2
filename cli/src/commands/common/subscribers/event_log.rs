@@ -610,7 +610,7 @@ fn log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
     Ok(())
 }
 
-trait SerializeForLog {
+pub(crate) trait SerializeForLog {
     fn serialize_to_json(&self) -> anyhow::Result<Vec<u8>>;
     fn serialize_to_protobuf(&self) -> anyhow::Result<Vec<u8>>;
 }
