@@ -622,12 +622,13 @@ mod tests {
             data: SpanStartEvent {
                 data: Some(
                     buck2_data::ExecutorStageStart {
-                        stage: Some(
-                            buck2_data::ReStage {
-                                stage: Some(buck2_data::ReDownload {}.into()),
-                            }
-                            .into(),
-                        ),
+                        stage:
+                            Some(
+                                buck2_data::ReStage {
+                                    stage: Some(buck2_data::ReDownload {}.into()),
+                                }
+                                .into(),
+                            ),
                     }
                     .into(),
                 ),
