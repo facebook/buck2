@@ -163,10 +163,18 @@ impl Dupe for DiceTransaction {}
 pub struct DiceComputations(pub(super) Arc<DiceComputationImpl>);
 
 impl DiceComputations {
-    /// Gets all the result of of the given computation keys. The returned
-    /// values are in the same order as the given keys. These will be
+    /// Gets all the result of of the given computation key.
     /// recorded as dependencies of the current computation for which this
     /// context is for.
+    pub fn compute<'a, K>(&'a self, key: &'a K) -> impl Future<Output = <K as Key>::Value> + 'a
+    where
+        K: Key,
+    {
+        self.compute_opaque(key).map(OpaqueValue::into_value)
+    }
+
+    /// same as `compute` but for a multiple keys. The returned results will be in order of the
+    /// keys given
     pub fn compute_many<'a, K>(
         &'a self,
         keys: &[&'a K],
@@ -175,44 +183,6 @@ impl DiceComputations {
         K: Key,
     {
         keys.map(|k| self.compute(*k))
-    }
-
-    /// Same as above, but:
-    /// A `rdeps` is provided to indicate that the rdeps for this dependency can
-    /// be inferred by running the `rdeps` function instead of explicitly
-    /// tracked.
-    pub fn compute_many_with_rdeps<'a, K>(
-        &'a self,
-        keys: &[&'a K],
-        _rdeps: (), // TODO(bobyf)
-    ) -> Vec<impl Future<Output = <K as Key>::Value> + 'a>
-    where
-        K: Key,
-    {
-        keys.map(move |k| self.compute_with_rdeps(*k, ()))
-    }
-
-    /// same as `compute_all` but for a single key
-    pub fn compute<'a, K>(&'a self, key: &'a K) -> impl Future<Output = <K as Key>::Value> + 'a
-    where
-        K: Key,
-    {
-        self.compute_opaque(key).map(OpaqueValue::into_value)
-    }
-
-    /// Same as above, but:
-    /// A `rdeps` is provided to indicate that the rdeps for this dependency can
-    /// be inferred by running the `rdeps` function instead of explicitly
-    /// tracked.
-    pub fn compute_with_rdeps<'a, K>(
-        &'a self,
-        key: &'a K,
-        _rdeps: (), // TODO(bobyf)
-    ) -> impl Future<Output = <K as Key>::Value> + 'a
-    where
-        K: Key,
-    {
-        self.compute_opaque(key).map(OpaqueValue::into_value)
     }
 
     /// Compute "opaque" value where the value is only accessible via projections.
