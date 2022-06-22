@@ -200,21 +200,20 @@ async def test_output_size(buck: Buck) -> None:
         return data
 
     output_size = None
-    log = (await buck.log("last")).stdout.strip()
-    with gzip.open(log, mode="rt", encoding="utf-8") as log:
-        for line in log:
-            o = get(
-                line,
-                "Event",
-                "data",
-                "SpanEnd",
-                "data",
-                "ActionExecution",
-                "output_size",
-            )
+    log = (await buck.log("show")).stdout.strip().splitlines()
+    for line in log:
+        o = get(
+            line,
+            "Event",
+            "data",
+            "SpanEnd",
+            "data",
+            "ActionExecution",
+            "output_size",
+        )
 
-            if o is not None:
-                output_size = o
+        if o is not None:
+            output_size = o
 
     assert output_size == 8
 
@@ -1136,24 +1135,23 @@ async def test_critical_path(buck: Buck) -> None:
         return data
 
     await buck.build("//:step_3")
-    log = (await buck.log("last")).stdout.strip()
+    log = (await buck.log("show")).stdout.strip().splitlines()
 
     critical_path = None
 
-    with gzip.open(log, mode="rt", encoding="utf-8") as log:
-        for line in log:
-            critical_path = get(
-                line,
-                "Event",
-                "data",
-                "Instant",
-                "data",
-                "BuildGraphInfo",
-                "critical_path",
-            )
+    for line in log:
+        critical_path = get(
+            line,
+            "Event",
+            "data",
+            "Instant",
+            "data",
+            "BuildGraphInfo",
+            "critical_path",
+        )
 
-            if critical_path is not None:
-                break
+        if critical_path is not None:
+            break
 
     assert critical_path is not None, "No critical path in log"
 
