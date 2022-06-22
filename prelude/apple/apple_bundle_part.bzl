@@ -83,7 +83,32 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: ["AppleBundlePart
         spec_file,
     ] + codesign_args)
     command.hidden([part.source for part in all_parts])
-    ctx.actions.run(command, local_only = True, category = "apple_assemble_bundle")
+    run_incremental_args = {}
+    incremental_state = ctx.actions.declare_output("incremental_state.json").as_output()
+
+    # Fallback to value from buckconfig
+    incremental_bundling_enabled = ctx.attr.incremental_bundling_enabled or ctx.attr._incremental_bundling_enabled
+
+    if incremental_bundling_enabled:
+        command.add("--incremental-state", incremental_state)
+        run_incremental_args = {
+            "metadata_env_var": "ACTION_METADATA",
+            "metadata_path": "action_metadata.json",
+            "no_outputs_cleanup": True,
+        }
+        category = "apple_assemble_bundle_incremental"
+    else:
+        # overwrite file with incremental state so if previous and next builds are incremental
+        # (as opposed to the current non-incremental one), next one won't assume there is a
+        # valid incremental state.
+        command.hidden(ctx.actions.write_json(incremental_state, {}))
+        category = "apple_assemble_bundle"
+    ctx.actions.run(
+        command,
+        local_only = True,
+        category = category,
+        **run_incremental_args
+    )
 
 def _get_bundle_dir_name(ctx: "context") -> str.type:
     return paths.replace_extension(get_product_name(ctx), "." + get_extension_attr(ctx))
