@@ -30,6 +30,8 @@ AndroidBinaryResourcesInfo = provider(
         "proguard_config_file",  # artifact
         # R.txt containing all the linked resources
         "r_dot_java",  # ["JavaLibraryInfo", None]
+        # directory containing filtered string resources files
+        "string_source_map",  # ["artifact", None]
     ],
 )
 

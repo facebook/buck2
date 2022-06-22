@@ -92,6 +92,8 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
             other_outputs = unstripped_native_libs,
         ),
     ]
+    if resources_info.string_source_map:
+        sub_targets["generate_string_resources"] = [DefaultInfo(default_outputs = [resources_info.string_source_map])]
 
     keystore = ctx.attr.keystore[KeystoreInfo]
     output_apk = build_apk(

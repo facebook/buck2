@@ -66,6 +66,12 @@ def get_android_binary_resources_info(
         getattr(ctx.attr, "resource_union_package", None),
         referenced_resources_lists,
     )
+    string_source_map = _maybe_generate_string_source_map(
+        ctx.actions,
+        getattr(ctx.attr, "build_string_source_map", False),
+        resources,
+        android_toolchain,
+    )
 
     cxx_resources = _get_cxx_resources(ctx, deps)
     apk_with_merged_assets = _merge_assets(ctx, aapt2_link_info.primary_resources_apk, resource_infos, cxx_resources)
@@ -75,6 +81,7 @@ def get_android_binary_resources_info(
         primary_resources_apk = apk_with_merged_assets,
         proguard_config_file = aapt2_link_info.proguard_config_file,
         r_dot_java = r_dot_java,
+        string_source_map = string_source_map,
     )
 
 def _maybe_filter_resources(
@@ -206,6 +213,29 @@ def _get_resources_filter(resources_filter_strings: [str.type]) -> [ResourcesFil
 
     downscale = len(densities) < len(resources_filter_strings)
     return ResourcesFilter(densities = densities, downscale = downscale)
+
+def _maybe_generate_string_source_map(
+        actions: "actions",
+        should_build_source_string_map: bool.type,
+        resource_infos: [AndroidResourceInfo.type],
+        android_toolchain: AndroidToolchainInfo.type) -> ["artifact", None]:
+    if not should_build_source_string_map or len(resource_infos) == 0:
+        return None
+
+    res_dirs = [resource_info.res for resource_info in resource_infos]
+    output = actions.declare_output("string_source_map")
+    res_dirs_file = actions.write("resource_dirs_for_string_source_map", res_dirs)
+    generate_string_source_map_cmd = cmd_args([
+        android_toolchain.copy_string_resources[RunInfo],
+        "--res-dirs",
+        res_dirs_file,
+        "--output",
+        output.as_output(),
+    ]).hidden(res_dirs)
+
+    actions.run(generate_string_source_map_cmd, category = "generate_string_source_map")
+
+    return output
 
 def _get_manifest(ctx: "context", android_packageable_info: "AndroidPackageableInfo") -> "artifact":
     robolectric_manifest = getattr(ctx.attr, "robolectric_manifest", None)
