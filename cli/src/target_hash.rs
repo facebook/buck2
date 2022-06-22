@@ -28,6 +28,8 @@ use buck2_core::package::Package;
 use buck2_core::result::SharedResult;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
+use buck2_query::query::environment::QueryTarget;
+use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
@@ -184,6 +186,7 @@ impl TargetHashes {
         struct Lookup {
             ctx: DiceTransaction,
         }
+
         #[async_trait]
         impl AsyncNodeLookup<ConfiguredTargetNode> for Lookup {
             async fn get(
@@ -200,22 +203,19 @@ impl TargetHashes {
             }
         }
 
-        struct Delegate {
-            hashes: HashMap<
-                ConfiguredTargetLabel,
-                Shared<BoxFuture<'static, SharedResult<BuckTargetHash>>>,
-            >,
+        struct Delegate<T: QueryTarget> {
+            hashes: HashMap<T::NodeRef, Shared<BoxFuture<'static, SharedResult<BuckTargetHash>>>>,
             file_hasher: Arc<dyn FileHasher>,
             use_fast_hash: bool,
         }
 
         #[async_trait]
-        impl AsyncTraversalDelegate<ConfiguredTargetNode> for Delegate {
-            fn visit(&mut self, target: ConfiguredTargetNode) -> anyhow::Result<()> {
+        impl<T: Hash + QueryTarget> AsyncTraversalDelegate<T> for Delegate<T> {
+            fn visit(&mut self, target: T) -> anyhow::Result<()> {
                 // this is postorder, so guaranteed that all deps have futures already.
                 let dep_futures: Vec<_> = target
                     .deps()
-                    .map(|dep| self.hashes.get(dep.target()).unwrap().clone())
+                    .map(|dep| self.hashes.get(dep).unwrap().clone())
                     .collect();
                 let file_hasher = self.file_hasher.dupe();
 
@@ -223,22 +223,21 @@ impl TargetHashes {
                 // we spawn off the hash computation since it can't be done in visit directly. Even if it could,
                 // this allows us to start the computations for dependents before finishing the computation for a node.
                 self.hashes.insert(
-                    target.name().dupe(),
+                    target.node_ref().clone(),
                     async move {
                         tokio::spawn(async move {
                             let mut hasher = TargetHashes::new_hasher(use_fast_hash);
                             TargetHashes::hash_node(&target, &mut *hasher)?;
 
-                            let input_futs: Vec<_> = target
-                                .inputs()
-                                .map(|cell_path| {
-                                    let file_hasher = file_hasher.dupe();
-                                    async move {
-                                        let file_hash = file_hasher.hash_path(&cell_path).await;
-                                        (cell_path, file_hash)
-                                    }
-                                })
-                                .collect();
+                            let mut input_futs = Vec::new();
+                            target.inputs_for_each(|cell_path| {
+                                let file_hasher = file_hasher.dupe();
+                                input_futs.push(async move {
+                                    let file_hash = file_hasher.hash_path(&cell_path).await;
+                                    (cell_path, file_hash)
+                                });
+                                anyhow::Ok(())
+                            })?;
 
                             let (dep_hashes, input_hashes) =
                                 join!(join_all(dep_futures), join_all(input_futs));
@@ -260,19 +259,26 @@ impl TargetHashes {
 
             async fn for_each_child(
                 &mut self,
-                target: &ConfiguredTargetNode,
-                func: &mut dyn ChildVisitor<ConfiguredTargetNode>,
+                target: &T,
+                func: &mut dyn ChildVisitor<T>,
             ) -> anyhow::Result<()> {
                 for dep in target.deps() {
-                    func.visit(dep.target().dupe())?;
+                    func.visit(dep.clone())?;
                 }
 
                 Ok(())
             }
         }
 
-        let compatible_targets =
-            get_compatible_targets(&ctx, targets, global_target_platform).await?;
+        // possiblities for printing - TODO: account for all
+        let mut compatible_targets = TargetSet::<ConfiguredTargetNode>::new();
+        match target_hash_graph_type {
+            TargetHashGraphType::None => {}
+            _ => {
+                compatible_targets =
+                    get_compatible_targets(&ctx, targets, global_target_platform).await?
+            }
+        }
 
         let lookup = Lookup { ctx: ctx.dupe() };
         let file_hasher: Arc<dyn FileHasher> = match file_hash_mode {
@@ -329,8 +335,8 @@ impl TargetHashes {
         }
     }
 
-    fn hash_node(
-        node: &ConfiguredTargetNode,
+    fn hash_node<T: Hash + QueryTarget>(
+        node: &T,
         mut hasher: &mut dyn BuckTargetHasher,
     ) -> SharedResult<()> {
         node.hash(&mut hasher);
