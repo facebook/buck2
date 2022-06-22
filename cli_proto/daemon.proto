@@ -79,6 +79,12 @@ message TargetsRequest {
     PATHS_AND_CONTENTS = 1;
   }
 
+  enum TargetHashGraphType {
+    NONE = 0;
+    UNCONFIGURED = 1;
+    CONFIGURED = 2;
+  }
+
   ClientContext context = 1;
   repeated buck.data.TargetPattern target_patterns = 2;
 
@@ -86,7 +92,7 @@ message TargetsRequest {
   bool stats = 4;
   repeated string output_attributes = 5;
 
-  bool show_target_hash = 6;
+  TargetHashGraphType target_hash_graph_type = 6;
   TargetHashFileMode target_hash_file_mode = 7;
   repeated string target_hash_modified_paths = 8;
   bool target_hash_use_fast_hash = 9;

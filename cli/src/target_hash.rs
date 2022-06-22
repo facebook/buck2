@@ -33,6 +33,7 @@ use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query::traversal::ChildVisitor;
 use cli_proto::targets_request::TargetHashFileMode;
+use cli_proto::targets_request::TargetHashGraphType;
 use dice::DiceTransaction;
 use futures::future::join_all;
 use futures::future::BoxFuture;
@@ -178,6 +179,7 @@ impl TargetHashes {
         file_hash_mode: TargetHashFileMode,
         modified_paths: HashSet<CellPath>,
         use_fast_hash: bool,
+        #[allow(unused_variables)] target_hash_graph_type: TargetHashGraphType,
     ) -> anyhow::Result<Self> {
         struct Lookup {
             ctx: DiceTransaction,

@@ -31,11 +31,18 @@ enum TargetHashFileMode {
     PathsAndContents,
 }
 
+#[derive(Debug, clap::ArgEnum, Clone, Dupe)]
+enum TargetHashGraphType {
+    None,
+    Unconfigured,
+    Configured,
+}
+
 // Use non-camel case so the possible values match buck1's
 /// Possible values for the --target-hash-function arg. We don't actually
 /// honor the specific algorithms, we use them as a hint to pick "fast" or "strong".
 #[allow(non_camel_case_types)]
-#[derive(Debug, Clone, Dupe, clap::ArgEnum)]
+#[derive(Debug, clap::ArgEnum, Clone, Dupe)]
 enum TargetHashFunction {
     Sha1,
     Sha256,
@@ -73,6 +80,10 @@ pub(crate) struct TargetsCommand {
     /// Print a stable hash of each target after the target name. Incompatible with '--show-rulekey'.
     #[clap(long)]
     show_target_hash: bool,
+
+    /// TODO: Print a stable unconfigured hash of each target after the target name.
+    #[structopt(long)]
+    show_unconfigured_target_hash: bool,
 
     /// Modifies computation of target hashes. If set to `PATHS_AND_CONTENTS` (the default), the contents
     /// of all files referenced from the targets will be used to compute the target hash. If set to
@@ -163,6 +174,18 @@ impl StreamingCommand for TargetsCommand {
         };
 
         let output_attributes = self.output_attributes();
+        let target_hash_graph_type = match (
+            self.show_target_hash,
+            self.show_unconfigured_target_hash,
+        ) {
+            (true, true) => panic!(
+                "Error: Specifying both \"--show-target-hash\" and \"--show-unconfigured-target-hash\" is currently not supported."
+            ),
+            (true, false) => targets_request::TargetHashGraphType::Configured as i32,
+            (false, true) => targets_request::TargetHashGraphType::Unconfigured as i32,
+            (false, false) => targets_request::TargetHashGraphType::None as i32,
+        };
+
         let target_request = TargetsRequest {
             context: Some(ctx.client_context(&self.config_opts, matches)?),
             target_patterns: self.patterns.map(|pat| buck2_data::TargetPattern {
@@ -171,7 +194,6 @@ impl StreamingCommand for TargetsCommand {
             json: self.json,
             stats: self.stats,
             output_attributes,
-            show_target_hash: self.show_target_hash,
             target_hash_file_mode: match self.target_hash_file_mode {
                 TargetHashFileMode::PathsOnly => {
                     targets_request::TargetHashFileMode::PathsOnly as i32
@@ -184,6 +206,7 @@ impl StreamingCommand for TargetsCommand {
             target_hash_use_fast_hash,
             unstable_resolve_aliases: self.resolve_alias,
             target_call_stacks: self.target_call_stacks,
+            target_hash_graph_type,
         };
 
         if self.show_output {

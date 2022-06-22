@@ -21,6 +21,7 @@ use buck2_core::provider::ProvidersLabel;
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::pattern::*;
 use cli_proto::targets_request::TargetHashFileMode;
+use cli_proto::targets_request::TargetHashGraphType;
 use cli_proto::TargetsRequest;
 use cli_proto::TargetsResponse;
 use dice::DiceTransaction;
@@ -182,7 +183,7 @@ impl TargetPrinter for StatsPrinter {
 struct TargetNamePrinter {
     display_string: String,
     target_call_stacks: bool,
-    show_target_hash: bool,
+    target_hash_graph_type: TargetHashGraphType,
 }
 impl TargetPrinter for TargetNamePrinter {
     fn end(&mut self) -> String {
@@ -190,7 +191,7 @@ impl TargetPrinter for TargetNamePrinter {
     }
 
     fn target(&mut self, package: &Package, target_info: TargetInfo<'_>) {
-        if self.show_target_hash {
+        if self.target_hash_graph_type != TargetHashGraphType::None {
             match target_info.target_hash {
                 Some(BuckTargetHash(hash)) => writeln!(
                     self.display_string,
@@ -227,10 +228,10 @@ impl TargetPrinter for TargetNamePrinter {
 }
 
 struct TargetsOptions {
-    show_target_hash: bool,
     target_hash_mode: TargetHashFileMode,
     target_hash_modified_paths: HashSet<CellPath>,
     use_fast_hash: bool,
+    target_hash_graph_type: TargetHashGraphType,
 }
 
 pub(crate) async fn targets(
@@ -264,7 +265,8 @@ pub(crate) async fn targets(
         box TargetNamePrinter {
             display_string: String::new(),
             target_call_stacks: request.target_call_stacks,
-            show_target_hash: request.show_target_hash,
+            target_hash_graph_type: TargetHashGraphType::from_i32(request.target_hash_graph_type)
+                .expect("buck cli should send valid target hash graph type"),
         }
     };
 
@@ -322,11 +324,12 @@ pub(crate) async fn targets(
         parsed_target_patterns,
         target_platform,
         TargetsOptions {
-            show_target_hash: request.show_target_hash,
             target_hash_mode: TargetHashFileMode::from_i32(request.target_hash_file_mode)
                 .expect("buck cli should send valid target hash file mode"),
             target_hash_modified_paths,
             use_fast_hash: request.target_hash_use_fast_hash,
+            target_hash_graph_type: TargetHashGraphType::from_i32(request.target_hash_graph_type)
+                .expect("buck cli should send valid target hash graph type"),
         },
     )
     .await?;
@@ -344,21 +347,18 @@ async fn parse_and_get_results(
 ) -> anyhow::Result<String> {
     let results = load_patterns(&ctx, parsed_patterns).await?;
 
-    let target_hashes = if options.show_target_hash {
-        Some(
-            TargetHashes::compute(
-                ctx.dupe(),
-                results.iter_loaded_targets_by_package(),
-                target_platform,
-                options.target_hash_mode,
-                options.target_hash_modified_paths,
-                options.use_fast_hash,
-            )
-            .await?,
+    let target_hashes = Some(
+        TargetHashes::compute(
+            ctx.dupe(),
+            results.iter_loaded_targets_by_package(),
+            target_platform,
+            options.target_hash_mode,
+            options.target_hash_modified_paths,
+            options.use_fast_hash,
+            options.target_hash_graph_type,
         )
-    } else {
-        None
-    };
+        .await?,
+    );
 
     printer.begin();
     let mut error_count = 0;
