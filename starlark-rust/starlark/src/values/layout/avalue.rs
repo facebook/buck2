@@ -183,8 +183,11 @@ pub(crate) trait AValue<'v>: StarlarkValueDyn<'v> + Sized {
 }
 
 #[inline]
-pub(crate) fn starlark_str<'v>(len: usize) -> impl AValue<'v, ExtraElem = usize> + Send + Sync {
-    AValueImpl(Direct, unsafe { StarlarkStr::new(len) })
+pub(crate) fn starlark_str<'v>(
+    len: usize,
+    hash: StarlarkHashValue,
+) -> impl AValue<'v, ExtraElem = usize> + Send + Sync {
+    AValueImpl(Direct, unsafe { StarlarkStr::new(len, hash) })
 }
 
 pub(crate) fn tuple_avalue<'v>(len: usize) -> impl AValue<'v, ExtraElem = Value<'v>> {

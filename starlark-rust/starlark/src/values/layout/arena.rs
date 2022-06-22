@@ -42,6 +42,7 @@ use either::Either;
 use gazebo::any::AnyLifetime;
 use gazebo::prelude::*;
 
+use crate::collections::StarlarkHashValue;
 use crate::values::layout::avalue::starlark_str;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::BlackHole;
@@ -309,10 +310,11 @@ impl Arena {
     pub(crate) fn alloc_str_init(
         &self,
         len: usize,
+        hash: StarlarkHashValue,
         init: impl FnOnce(*mut u8),
     ) -> *mut AValueHeader {
         assert!(len > 1);
-        let (v, extra) = self.alloc_extra_non_drop::<_>(starlark_str(len));
+        let (v, extra) = self.alloc_extra_non_drop::<_>(starlark_str(len, hash));
         debug_assert_eq!(StarlarkStr::payload_len_for_len(len), extra.len());
         unsafe {
             extra.last_mut().unwrap_unchecked().write(0usize);
@@ -323,7 +325,7 @@ impl Arena {
 
     #[inline]
     pub(crate) fn alloc_str(&self, x: &str) -> *mut AValueHeader {
-        self.alloc_str_init(x.len(), |dest| unsafe {
+        self.alloc_str_init(x.len(), StarlarkStr::UNINIT_HASH, |dest| unsafe {
             ptr::copy_nonoverlapping(x.as_ptr(), dest, x.len())
         })
     }

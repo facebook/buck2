@@ -39,6 +39,8 @@ use gazebo::cast;
 use gazebo::prelude::*;
 use once_cell::sync::Lazy;
 
+use crate::collections::Hashed;
+use crate::collections::StarlarkHashValue;
 use crate::eval::compiler::def::FrozenDef;
 use crate::values::any::StarlarkAny;
 use crate::values::array::Array;
@@ -64,6 +66,7 @@ use crate::values::layout::static_string::constant_string;
 use crate::values::layout::typed::string::StringValueLike;
 use crate::values::layout::value::FrozenValue;
 use crate::values::layout::value::Value;
+use crate::values::string::StarlarkStr;
 use crate::values::types::float::StarlarkFloat;
 use crate::values::AllocFrozenValue;
 use crate::values::ComplexValue;
@@ -221,8 +224,13 @@ impl FrozenHeap {
     }
 
     #[inline]
-    fn alloc_str_init(&self, len: usize, init: impl FnOnce(*mut u8)) -> FrozenStringValue {
-        let v = self.arena.alloc_str_init(len, init);
+    fn alloc_str_init(
+        &self,
+        len: usize,
+        hash: StarlarkHashValue,
+        init: impl FnOnce(*mut u8),
+    ) -> FrozenStringValue {
+        let v = self.arena.alloc_str_init(len, hash, init);
 
         unsafe {
             let value = FrozenValue::new_ptr(&*v, true);
@@ -230,16 +238,25 @@ impl FrozenHeap {
         }
     }
 
-    /// Allocate a string on this heap. Be careful about the warnings
-    /// around [`FrozenValue`].
-    pub fn alloc_str(&self, x: &str) -> FrozenStringValue {
+    fn alloc_str_impl(&self, x: &str, hash: StarlarkHashValue) -> FrozenStringValue {
         if let Some(x) = constant_string(x) {
             x
         } else {
-            self.alloc_str_init(x.len(), |dest| unsafe {
+            self.alloc_str_init(x.len(), hash, |dest| unsafe {
                 copy_nonoverlapping(x.as_ptr(), dest, x.len())
             })
         }
+    }
+
+    /// Allocate a string on this heap. Be careful about the warnings
+    /// around [`FrozenValue`].
+    pub fn alloc_str(&self, x: &str) -> FrozenStringValue {
+        self.alloc_str_impl(x, StarlarkStr::UNINIT_HASH)
+    }
+
+    /// Allocate prehashed string.
+    pub fn alloc_str_hashed(&self, x: Hashed<&str>) -> FrozenStringValue {
+        self.alloc_str_impl(x.key(), x.hash())
     }
 
     /// Allocate a tuple with the given elements on this heap.
@@ -470,7 +487,7 @@ impl Heap {
         init: impl FnOnce(*mut u8),
     ) -> StringValue<'v> {
         let arena = self.arena.borrow();
-        let v = arena.alloc_str_init(len, init);
+        let v = arena.alloc_str_init(len, StarlarkStr::UNINIT_HASH, init);
 
         // We have an arena inside a RefCell which stores ValueMem<'v>
         // However, we promise not to clear the RefCell other than for GC

@@ -54,7 +54,7 @@ impl StarlarkHashValue {
     /// Directly create a new [`StarlarkHashValue`] using a hash.
     /// The expectation is that the key will be well-swizzled,
     /// or there may be many hash collisions.
-    pub fn new_unchecked(hash: u32) -> Self {
+    pub const fn new_unchecked(hash: u32) -> Self {
         Self(hash)
     }
 
@@ -75,7 +75,7 @@ impl StarlarkHashValue {
     }
 
     /// Get the integer hash value.
-    pub fn get(self) -> u32 {
+    pub const fn get(self) -> u32 {
         self.0
     }
 

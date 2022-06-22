@@ -141,6 +141,9 @@ impl Debug for StarlarkStr {
 }
 
 impl StarlarkStr {
+    /// Hash value when hash field is not initialized.
+    pub(crate) const UNINIT_HASH: StarlarkHashValue = StarlarkHashValue::new_unchecked(0);
+
     /// Used in `const_frozen_string!` macro, so it is public.
     #[doc(hidden)]
     #[inline]
@@ -150,11 +153,11 @@ impl StarlarkStr {
 
     /// Unsafe because if you do `unpack` on this it will blow up
     #[inline]
-    pub(crate) const unsafe fn new(len: usize) -> Self {
+    pub(crate) const unsafe fn new(len: usize, hash: StarlarkHashValue) -> Self {
         assert!(len as u32 as usize == len, "len overflow");
         StarlarkStr {
             str: StarlarkStrN {
-                hash: atomic::AtomicU32::new(0),
+                hash: atomic::AtomicU32::new(hash.get()),
                 len: len as u32,
                 body: [],
             },
