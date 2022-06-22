@@ -93,15 +93,7 @@ pub(crate) enum HostPlatformOverride {
     Windows,
 }
 
-// Workaround to have rustdoc that doesn't override cli help docs.
-// See https://github.com/TeXitoi/structopt/issues/333
-#[cfg_attr(not(doc), allow(missing_docs))]
-#[cfg_attr(
-    doc,
-    doc = r#"
-Defines options related to event logs. Any command that involves a streaming daemon command should include these options.
-"#
-)]
+/// Defines options related to event logs. Any command that involves a streaming daemon command should include these options.
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 pub(crate) struct CommonEventLogOptions {
     /// Write events to this log file
@@ -123,15 +115,7 @@ impl CommonEventLogOptions {
     }
 }
 
-// Workaround to have rustdoc that doesn't override cli help docs.
-// See https://github.com/TeXitoi/structopt/issues/333
-#[cfg_attr(not(doc), allow(missing_docs))]
-#[cfg_attr(
-    doc,
-    doc = r#"
-Defines options for config and configuration related things. Any command that involves the build graph should include these options.
-"#
-)]
+/// Defines options for config and configuration related things. Any command that involves the build graph should include these options.
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 pub(crate) struct CommonConfigOptions {
     #[clap(
@@ -258,15 +242,7 @@ impl CommonConfigOptions {
     }
 }
 
-// Workaround to have rustdoc that doesn't override cli help docs.
-// See https://github.com/TeXitoi/structopt/issues/333
-#[cfg_attr(not(doc), allow(missing_docs))]
-#[cfg_attr(
-    doc,
-    doc = r#"
-Defines common options for build-like commands (build, test, install).
-"#
-)]
+/// Defines common options for build-like commands (build, test, install).
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 pub(crate) struct CommonBuildOptions {
     /// Print a build report
@@ -361,15 +337,7 @@ impl CommonBuildOptions {
     }
 }
 
-// Workaround to have rustdoc that doesn't override cli help docs.
-// See https://github.com/TeXitoi/structopt/issues/333
-#[cfg_attr(not(doc), allow(missing_docs))]
-#[cfg_attr(
-    doc,
-    doc = r#"
-Defines common console options for commands.
-"#
-)]
+/// Defines common console options for commands.
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 pub(crate) struct CommonConsoleOptions {
     #[clap(

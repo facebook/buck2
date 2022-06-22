@@ -28,15 +28,7 @@ enum QueryOutputFormatArg {
     Json,
 }
 
-/// Perform the target graph query
-// Workaround for https://github.com/TeXitoi/structopt/issues/333
-#[cfg_attr(not(doc), allow(missing_docs))]
-#[cfg_attr(
-    doc,
-    doc = r#"
-Perform the target graph query
-"#
-)]
+/// Args common to all the query commands
 #[derive(Debug, clap::Parser)]
 pub(crate) struct CommonQueryArgs {
     #[clap(name = "QUERY", help = "the query to evaluate")]
