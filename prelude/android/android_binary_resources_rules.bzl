@@ -19,7 +19,7 @@ def get_android_binary_resources_info(
         use_proto_format: bool.type,
         referenced_resources_lists: ["artifact"]) -> "AndroidBinaryResourcesInfo":
     android_toolchain = ctx.attr._android_toolchain[AndroidToolchainInfo]
-    resource_infos = _maybe_filter_resources(
+    resource_infos, override_symbols = _maybe_filter_resources(
         ctx,
         list(android_packageable_info.resource_infos.traverse() if android_packageable_info.resource_infos else []),
         android_toolchain,
@@ -48,7 +48,7 @@ def get_android_binary_resources_info(
         filter_locales = getattr(ctx.attr, "aapt2_locale_filtering", False),
     )
 
-    override_symbols_paths = []
+    override_symbols_paths = [override_symbols] if override_symbols else []
     resources = [resource for resource in resource_infos if resource.res != None]
     r_dot_java = None if len(resources) == 0 else generate_r_dot_java(
         ctx,
@@ -77,7 +77,10 @@ def get_android_binary_resources_info(
         r_dot_java = r_dot_java,
     )
 
-def _maybe_filter_resources(ctx: "context", resources: [AndroidResourceInfo.type], android_toolchain: AndroidToolchainInfo.type) -> [AndroidResourceInfo.type]:
+def _maybe_filter_resources(
+        ctx: "context",
+        resources: [AndroidResourceInfo.type],
+        android_toolchain: AndroidToolchainInfo.type) -> ([AndroidResourceInfo.type], ["artifact", None]):
     resources_filter_strings = getattr(ctx.attr, "resource_filter", [])
     resources_filter = _get_resources_filter(resources_filter_strings)
     resource_compression_mode = getattr(ctx.attr, "resource_compression", "disabled")
@@ -85,16 +88,17 @@ def _maybe_filter_resources(ctx: "context", resources: [AndroidResourceInfo.type
     locales = getattr(ctx.attr, "locales", None)
     use_aapt2_locale_filtering = getattr(ctx.attr, "aapt2_locale_filtering", False)
     needs_resource_filtering_for_locales = locales != None and len(locales) > 0 and not use_aapt2_locale_filtering
+    post_filter_resources_cmd = getattr(ctx.attr, "post_filter_resources_cmd", None)
 
-    # TODO(T122759074) support all resource filtering
     needs_resource_filtering = (
         resources_filter != None or
         is_store_strings_as_assets or
-        needs_resource_filtering_for_locales
+        needs_resource_filtering_for_locales or
+        post_filter_resources_cmd != None
     )
 
     if not needs_resource_filtering:
-        return resources
+        return resources, None
 
     res_info_to_out_res_dir = {}
     res_infos_with_no_res = []
@@ -150,6 +154,16 @@ def _maybe_filter_resources(ctx: "context", resources: [AndroidResourceInfo.type
             ",".join(locales),
         ])
 
+    override_symbols_artifact = None
+    if post_filter_resources_cmd != None:
+        override_symbols_artifact = ctx.actions.declare_output("post_filter_resources_cmd/R.json")
+        filter_resources_cmd.add([
+            "--post-filter-resources-cmd",
+            post_filter_resources_cmd,
+            "--post-filter-resources-cmd-override-symbols-output",
+            override_symbols_artifact.as_output(),
+        ])
+
     ctx.actions.run(filter_resources_cmd, category = "filter_resources")
 
     filtered_resource_infos = []
@@ -175,7 +189,7 @@ def _maybe_filter_resources(ctx: "context", resources: [AndroidResourceInfo.type
         )
         filtered_resource_infos.append(filtered_resource)
 
-    return res_infos_with_no_res + filtered_resource_infos
+    return res_infos_with_no_res + filtered_resource_infos, override_symbols_artifact
 
 ResourcesFilter = record(
     densities = [str.type],
