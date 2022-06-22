@@ -57,7 +57,7 @@ impl AuditSubcommand for AuditCellCommand {
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         let ctx = server_ctx.dice_ctx().await?;
-        let cells = ctx.get_cell_resolver().await;
+        let cells = ctx.get_cell_resolver().await?;
         let fs = server_ctx.file_system();
         let cwd = &server_ctx.working_dir;
         let this_cell = cells.get(cells.find(cwd)?).unwrap();

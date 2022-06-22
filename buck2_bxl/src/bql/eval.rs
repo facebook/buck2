@@ -44,7 +44,7 @@ pub async fn eval_bql(
 
     let package_boundary_exceptions = ctx.get_package_boundary_exceptions().await?;
 
-    let cell_resolver = ctx.get_cell_resolver().await;
+    let cell_resolver = ctx.get_cell_resolver().await?;
     let target_alias_resolver = ctx
         .target_alias_resolver_for_working_dir(&working_dir)
         .await?;

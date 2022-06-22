@@ -87,7 +87,7 @@ pub(crate) async fn install(
 
     let ctx = server_ctx.dice_ctx().await?;
 
-    let cell_resolver = ctx.get_cell_resolver().await;
+    let cell_resolver = ctx.get_cell_resolver().await?;
 
     // Note <TargetName> does not return the providers
     let parsed_patterns =

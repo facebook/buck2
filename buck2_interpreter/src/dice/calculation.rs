@@ -74,7 +74,7 @@ impl<'c> HasCalculationDelegate<'c> for DiceComputations {
         impl Key for ConfigsKey {
             type Value = SharedResult<ConfigsValue>;
             async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-                let cell_resolver = ctx.get_cell_resolver().await;
+                let cell_resolver = ctx.get_cell_resolver().await?;
                 let global_state = ctx.get_global_interpreter_state().await?;
 
                 let mut configs = HashMap::new();
@@ -129,7 +129,7 @@ impl HasGlobalInterpreterState for DiceComputations {
             async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
                 let interpreter_configuror = ctx.get_interpreter_configuror().await;
                 let legacy_configs = ctx.get_legacy_configs_on_dice().await;
-                let cell_resolver = ctx.get_cell_resolver().await;
+                let cell_resolver = ctx.get_cell_resolver().await?;
                 let disable_starlark_types = ctx.get_disable_starlark_types().await;
 
                 Ok(GisValue(Arc::new(GlobalInterpreterState::new(

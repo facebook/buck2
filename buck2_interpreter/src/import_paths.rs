@@ -96,7 +96,7 @@ impl HasImportPaths for DiceComputations {
                 let config = ctx
                     .get_legacy_config_for_cell(self.cell_name.name())
                     .await?;
-                let cell_resolver = ctx.get_cell_resolver().await;
+                let cell_resolver = ctx.get_cell_resolver().await?;
                 let cell_alias_resolver = cell_resolver
                     .get(self.cell_name.name())?
                     .cell_alias_resolver();

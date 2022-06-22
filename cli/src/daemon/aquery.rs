@@ -23,7 +23,7 @@ pub(crate) async fn aquery(
     request: AqueryRequest,
 ) -> anyhow::Result<AqueryResponse> {
     let ctx = server_ctx.dice_ctx().await?;
-    let cell_resolver = ctx.get_cell_resolver().await;
+    let cell_resolver = ctx.get_cell_resolver().await?;
 
     let output_configuration = QueryResultPrinter::from_request_options(
         cell_resolver,

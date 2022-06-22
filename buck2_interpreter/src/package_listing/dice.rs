@@ -47,7 +47,7 @@ impl<'c> PackageListingResolver for DicePackageListingResolver<'c> {
         impl Key for PackageListingKey {
             type Value = SharedResult<PackageListing>;
             async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-                let cell_resolver = ctx.get_cell_resolver().await;
+                let cell_resolver = ctx.get_cell_resolver().await?;
                 let file_ops = ctx.file_ops();
                 InterpreterPackageListingResolver::new(cell_resolver, Arc::new(file_ops))
                     .resolve(&self.0)
@@ -69,7 +69,7 @@ impl<'c> PackageListingResolver for DicePackageListingResolver<'c> {
         &self,
         path: &buck2_core::cells::paths::CellPath,
     ) -> anyhow::Result<Package> {
-        let cell_resolver = self.0.get_cell_resolver().await;
+        let cell_resolver = self.0.get_cell_resolver().await?;
         let file_ops = self.0.file_ops();
         InterpreterPackageListingResolver::new(cell_resolver, Arc::new(file_ops))
             .get_enclosing_package(path)
@@ -80,7 +80,7 @@ impl<'c> PackageListingResolver for DicePackageListingResolver<'c> {
         &self,
         path: &buck2_core::cells::paths::CellPath,
     ) -> anyhow::Result<Vec<Package>> {
-        let cell_resolver = self.0.get_cell_resolver().await;
+        let cell_resolver = self.0.get_cell_resolver().await?;
         let file_ops = self.0.file_ops();
         InterpreterPackageListingResolver::new(cell_resolver, Arc::new(file_ops))
             .get_enclosing_packages(path)

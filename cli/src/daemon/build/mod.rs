@@ -96,7 +96,7 @@ pub(crate) async fn build(
 
     let ctx = server_ctx.dice_ctx().await?;
 
-    let cell_resolver = ctx.get_cell_resolver().await;
+    let cell_resolver = ctx.get_cell_resolver().await?;
     let should_create_unhashed_links = ctx
         .parse_legacy_config_property(cell_resolver.root_cell(), "buck2", "create_unhashed_links")
         .await?;

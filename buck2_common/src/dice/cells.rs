@@ -18,7 +18,7 @@ use gazebo::prelude::*;
 
 #[async_trait]
 pub trait HasCellResolver {
-    async fn get_cell_resolver(&self) -> CellResolver;
+    async fn get_cell_resolver(&self) -> anyhow::Result<CellResolver>;
 
     fn set_cell_resolver(&self, cell_resolver: CellResolver);
 }
@@ -37,8 +37,8 @@ impl InjectedKey for CellResolverKey {
 
 #[async_trait]
 impl HasCellResolver for DiceComputations {
-    async fn get_cell_resolver(&self) -> CellResolver {
-        self.compute(&CellResolverKey).await
+    async fn get_cell_resolver(&self) -> anyhow::Result<CellResolver> {
+        Ok(self.compute(&CellResolverKey).await)
     }
 
     fn set_cell_resolver(&self, cell_resolver: CellResolver) {

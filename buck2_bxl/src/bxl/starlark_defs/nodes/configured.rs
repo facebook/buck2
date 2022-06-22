@@ -147,7 +147,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
 
         let cell_path = ctx
             .async_ctx
-            .via_dice(async move |ctx| ctx.get_cell_resolver().await.get_cell_path(&path))?;
+            .via_dice(async move |ctx| ctx.get_cell_resolver().await?.get_cell_path(&path))?;
 
         struct SourceFinder {
             found: Option<StarlarkArtifact>,

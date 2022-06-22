@@ -86,7 +86,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
         };
 
         this.dice.via_dice(async move |ctx| {
-            let path = ctx.get_cell_resolver().await.get_cell_path(&rel)?;
+            let path = ctx.get_cell_resolver().await?.get_cell_path(&rel)?;
 
             ctx.file_ops().try_exists(&path).await
         })

@@ -71,7 +71,7 @@ async fn get_target_platform_detector(
         async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
             // We get this off the root cell's config. It's not clear that that's the appropriate way to do it, but its the easiest to get working at FB.
             // TODO(cjhopman): Consider revisiting that approach.
-            let resolver = ctx.get_cell_resolver().await;
+            let resolver = ctx.get_cell_resolver().await?;
             let root_cell = resolver.root_cell();
             let cell_alias_resolver = resolver.get(root_cell).unwrap().cell_alias_resolver();
 
@@ -105,7 +105,7 @@ async fn get_target_platform_detector(
 async fn get_execution_platforms(
     ctx: &DiceComputations,
 ) -> SharedResult<Option<ExecutionPlatforms>> {
-    let cells = ctx.get_cell_resolver().await;
+    let cells = ctx.get_cell_resolver().await?;
 
     let execution_platforms_target = ctx
         .get_legacy_config_property(cells.root_cell(), "build", "execution_platforms")

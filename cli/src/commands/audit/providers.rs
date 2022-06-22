@@ -68,7 +68,7 @@ impl AuditSubcommand for AuditProvidersCommand {
         client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         let ctx = server_ctx.dice_ctx().await?;
-        let cells = ctx.get_cell_resolver().await;
+        let cells = ctx.get_cell_resolver().await?;
         let target_platform =
             target_platform_from_client_context(Some(&client_ctx), &server_ctx).await?;
 

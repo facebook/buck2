@@ -176,7 +176,7 @@ impl HasTargetAliasResolver for DiceComputations {
         &self,
         working_dir: &ProjectRelativePath,
     ) -> anyhow::Result<TargetAliasResolver> {
-        let cell_resolver = self.get_cell_resolver().await;
+        let cell_resolver = self.get_cell_resolver().await?;
         let working_dir = Package::from_cell_path(&cell_resolver.get_cell_path(&working_dir)?);
         let cell_name = working_dir.as_cell_path().cell();
         self.target_alias_resolver_for_cell(cell_name).await

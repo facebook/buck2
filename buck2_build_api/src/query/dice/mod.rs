@@ -341,7 +341,7 @@ pub(crate) async fn get_dice_query_delegate<'c>(
     project_root: AbsPathBuf,
     global_target_platform: Option<TargetLabel>,
 ) -> anyhow::Result<DiceQueryDelegate<'c>> {
-    let cell_resolver = ctx.get_cell_resolver().await;
+    let cell_resolver = ctx.get_cell_resolver().await?;
     let package_boundary_exceptions = ctx.get_package_boundary_exceptions().await?;
     let target_alias_resolver = ctx
         .target_alias_resolver_for_working_dir(&working_dir)

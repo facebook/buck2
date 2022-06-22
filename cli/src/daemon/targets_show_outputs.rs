@@ -61,7 +61,7 @@ pub(crate) async fn targets_show_outputs(
         target_platform_from_client_context(request.context.as_ref(), &server_ctx).await?;
 
     let ctx = server_ctx.dice_ctx().await?;
-    let cell_resolver = ctx.get_cell_resolver().await;
+    let cell_resolver = ctx.get_cell_resolver().await?;
 
     let parsed_patterns =
         parse_patterns_from_cli_args::<TargetPattern>(&request.target_patterns, &ctx, cwd).await?;

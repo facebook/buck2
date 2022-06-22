@@ -108,7 +108,7 @@ impl PatternParser {
         ctx: &DiceTransaction,
         cwd: &ProjectRelativePath,
     ) -> anyhow::Result<Self> {
-        let cell_resolver = ctx.get_cell_resolver().await;
+        let cell_resolver = ctx.get_cell_resolver().await?;
 
         let cwd = Package::from_cell_path(&cell_resolver.get_cell_path(&cwd)?);
         let cell_name = cwd.as_cell_path().cell();
@@ -189,7 +189,7 @@ pub(crate) async fn target_platform_from_client_context(
     // TODO(cjhopman): This shouldn't be getting a new dice_ctx. We should move this
     // to be a function on the ServerCommandContext that takes in the CellResolver.
     let dice_ctx = server_ctx.unsafe_dice_ctx();
-    let cell_resolver = dice_ctx.get_cell_resolver().await;
+    let cell_resolver = dice_ctx.get_cell_resolver().await?;
     let cwd = cell_resolver.get_cell_path(&server_ctx.working_dir)?;
     let cell_alias_resolver = cell_resolver.get(cwd.cell()).unwrap().cell_alias_resolver();
 

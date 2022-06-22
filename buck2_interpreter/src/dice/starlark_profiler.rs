@@ -33,7 +33,7 @@ impl Key for StarlarkProfilerInstrumentationKey {
             return Ok(instr);
         }
 
-        let cell_resolver = ctx.get_cell_resolver().await;
+        let cell_resolver = ctx.get_cell_resolver().await?;
         let instr = ctx
             .parse_legacy_config_property::<ProfileMode>(
                 cell_resolver.root_cell(),

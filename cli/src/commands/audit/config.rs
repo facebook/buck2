@@ -200,7 +200,7 @@ impl AuditSubcommand for AuditConfigCommand {
     ) -> anyhow::Result<()> {
         let cwd = &server_ctx.working_dir;
         let ctx = server_ctx.dice_ctx().await?;
-        let cell_resolver = ctx.get_cell_resolver().await;
+        let cell_resolver = ctx.get_cell_resolver().await?;
 
         let working_dir_cell = cell_resolver.find(cwd)?;
         let cell_alias_resolver = cell_resolver

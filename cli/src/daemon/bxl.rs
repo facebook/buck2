@@ -44,7 +44,7 @@ pub(crate) async fn bxl(
 
     let ctx = server_ctx.dice_ctx().await?;
 
-    let cell_resolver = ctx.get_cell_resolver().await;
+    let cell_resolver = ctx.get_cell_resolver().await?;
 
     let bxl_label = parse_bxl_label_from_cli(cwd, &request.bxl_label, &cell_resolver)?;
 

@@ -40,7 +40,7 @@ pub async fn eval(ctx: DiceTransaction, key: BxlKey) -> anyhow::Result<BxlResult
         .get_loaded_module(StarlarkModulePath::BxlFile(&key.label().bxl_path))
         .await?;
 
-    let cell_resolver = ctx.get_cell_resolver().await;
+    let cell_resolver = ctx.get_cell_resolver().await?;
 
     let frozen_callable = get_bxl_callable(key.label(), &bxl_module);
 

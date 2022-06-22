@@ -275,7 +275,7 @@ pub(crate) async fn targets(
         target_platform_from_client_context(request.context.as_ref(), &server_ctx).await?;
 
     let ctx = server_ctx.dice_ctx().await?;
-    let cell_resolver = ctx.get_cell_resolver().await;
+    let cell_resolver = ctx.get_cell_resolver().await?;
 
     let parsed_provider_patterns =
         parse_patterns_from_cli_args::<ProvidersPattern>(&request.target_patterns, &ctx, cwd)
