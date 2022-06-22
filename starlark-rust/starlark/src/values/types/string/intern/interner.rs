@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-#![allow(dead_code)] // TODO(nga): use it.
-
 //! Generic interner for starlark strings.
 
 use hashbrown::raw::RawTable;

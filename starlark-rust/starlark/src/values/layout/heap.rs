@@ -66,6 +66,7 @@ use crate::values::layout::static_string::constant_string;
 use crate::values::layout::typed::string::StringValueLike;
 use crate::values::layout::value::FrozenValue;
 use crate::values::layout::value::Value;
+use crate::values::string::intern::interner::FrozenStringInterner;
 use crate::values::string::StarlarkStr;
 use crate::values::types::float::StarlarkFloat;
 use crate::values::AllocFrozenValue;
@@ -101,8 +102,12 @@ impl Debug for Heap {
 /// Can be kept alive by a [`FrozenHeapRef`].
 #[derive(Default)]
 pub struct FrozenHeap {
-    arena: Arena,                          // My memory
-    refs: RefCell<HashSet<FrozenHeapRef>>, // Memory I depend on
+    /// My memory.
+    arena: Arena,
+    /// Memory I depend on.
+    refs: RefCell<HashSet<FrozenHeapRef>>,
+    /// String interner.
+    str_interner: RefCell<FrozenStringInterner>,
 }
 
 /// `FrozenHeap` when it is no longer modified and can be share between threads.
@@ -204,7 +209,7 @@ impl FrozenHeap {
     /// [`FrozenHeapRef`] which can be [`clone`](Clone::clone)d, shared between threads,
     /// and ensures the underlying values allocated on the [`FrozenHeap`] remain valid.
     pub fn into_ref(self) -> FrozenHeapRef {
-        let FrozenHeap { arena, refs } = self;
+        let FrozenHeap { arena, refs, .. } = self;
         FrozenHeapRef(Arc::new(FrozenFrozenHeap {
             arena,
             refs: refs.into_inner(),
@@ -252,6 +257,19 @@ impl FrozenHeap {
     /// around [`FrozenValue`].
     pub fn alloc_str(&self, x: &str) -> FrozenStringValue {
         self.alloc_str_impl(x, StarlarkStr::UNINIT_HASH)
+    }
+
+    /// Intern string.
+    #[allow(dead_code)]
+    pub(crate) fn alloc_str_intern(&self, s: &str) -> FrozenStringValue {
+        if let Some(s) = constant_string(s) {
+            s
+        } else {
+            let s = Hashed::new(s);
+            self.str_interner
+                .borrow_mut()
+                .intern(s, || self.alloc_str_hashed(s))
+        }
     }
 
     /// Allocate prehashed string.
