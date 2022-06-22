@@ -35,6 +35,15 @@ use crate::daemon::server::ServerCommandContext;
     about = "buck audit analysis resolving query attrs"
 )]
 pub(crate) struct AuditAnalysisQueriesCommand {
+    #[clap(flatten)]
+    config_opts: CommonConfigOptions,
+
+    #[clap(flatten)]
+    console_opts: CommonConsoleOptions,
+
+    #[clap(flatten)]
+    event_log_opts: CommonEventLogOptions,
+
     #[clap(
         name = "TARGET_PATTERNS",
         help = "Patterns to evaluate. The query attributes for targets matching these patterns will be evaluated"
@@ -111,14 +120,14 @@ impl AuditSubcommand for AuditAnalysisQueriesCommand {
     }
 
     fn config_opts(&self) -> Option<&CommonConfigOptions> {
-        None
+        Some(&self.config_opts)
     }
 
     fn console_opts(&self) -> Option<&CommonConsoleOptions> {
-        None
+        Some(&self.console_opts)
     }
 
     fn event_log_opts(&self) -> Option<&CommonEventLogOptions> {
-        None
+        Some(&self.event_log_opts)
     }
 }
