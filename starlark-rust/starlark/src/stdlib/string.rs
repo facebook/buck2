@@ -717,12 +717,18 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn lstrip<'v>(
-        this: &'v str,
+        this: ValueOf<'v, &'v str>,
         #[starlark(require = pos)] chars: Option<&str>,
-    ) -> anyhow::Result<&'v str> {
-        match chars {
-            None => Ok(this.trim_start()),
-            Some(s) => Ok(this.trim_start_matches(|c| s.contains(c))),
+        heap: &'v Heap,
+    ) -> anyhow::Result<Value<'v>> {
+        let res = match chars {
+            None => this.typed.trim_start(),
+            Some(s) => this.typed.trim_start_matches(|c| s.contains(c)),
+        };
+        if res.len() == this.typed.len() {
+            Ok(this.value)
+        } else {
+            Ok(heap.alloc_str(res).to_value())
         }
     }
 
@@ -998,12 +1004,18 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn rstrip<'v>(
-        this: &'v str,
+        this: ValueOf<'v, &'v str>,
         #[starlark(require = pos)] chars: Option<&str>,
-    ) -> anyhow::Result<&'v str> {
-        match chars {
-            None => Ok(this.trim_end()),
-            Some(s) => Ok(this.trim_end_matches(|c| s.contains(c))),
+        heap: &'v Heap,
+    ) -> anyhow::Result<Value<'v>> {
+        let res = match chars {
+            None => this.typed.trim_end(),
+            Some(s) => this.typed.trim_end_matches(|c| s.contains(c)),
+        };
+        if res.len() == this.typed.len() {
+            Ok(this.value)
+        } else {
+            Ok(heap.alloc_str(res).to_value())
         }
     }
 
@@ -1185,12 +1197,18 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn strip<'v>(
-        this: &'v str,
+        this: ValueOf<'v, &'v str>,
         #[starlark(require = pos)] chars: Option<&str>,
-    ) -> anyhow::Result<&'v str> {
-        match chars {
-            None => Ok(this.trim()),
-            Some(s) => Ok(this.trim_matches(|c| s.contains(c))),
+        heap: &'v Heap,
+    ) -> anyhow::Result<Value<'v>> {
+        let res = match chars {
+            None => this.typed.trim(),
+            Some(s) => this.typed.trim_matches(|c| s.contains(c)),
+        };
+        if res.len() == this.typed.len() {
+            Ok(this.value)
+        } else {
+            Ok(heap.alloc_str(res).to_value())
         }
     }
 
