@@ -27,17 +27,6 @@ def _srcs(srcs: [""], format = "{}") -> "cmd_args":
         args.add(cmd_args(src, format = format))
     return args
 
-# We support building standalone packages locally to e.g. support fbcode's
-# current style of build info stamping (e.g. T10696178).
-def _local_only(
-        python_toolchain: "PythonToolchainInfo") -> bool.type:
-    # TODO(agallagher): Currently, we attach all input artifacts to the action
-    # that generates inplace Python binaries even though we don't actually need
-    # them to generate the symlink tree, which makes us hit RE CAS limits
-    # blocking larger binaries from building.  So, until we support away to
-    # avoid this, run these locally in addition to standalone binaries.
-    return python_toolchain.build_standalone_binaries_locally
-
 # TODO(nmj): Resources
 # TODO(nmj): Figure out how to harmonize these flags w/ existing make_xar
 #                 invocations. It might be perfectly reasonable to just have a wrapper
@@ -73,9 +62,6 @@ def make_pex(
           standalone.
     """
 
-    # Pex builds may run locally for build stamping.
-    local_only = _local_only(python_toolchain)
-
     modules_args, hidden = _pex_modules_args(ctx, pex_modules, {name: lib for name, (lib, _) in shared_libraries.items()}, symlink_tree_path)
 
     bootstrap_args = _pex_bootstrap_args(ctx, python_toolchain.interpreter, None, main_module, output, shared_libraries, symlink_tree_path)
@@ -84,6 +70,10 @@ def make_pex(
     if package_style == PackageStyle("standalone") or bundled_runtime:
         if symlink_tree_path != None:
             fail("Cannot have a symlink_tree_path for standalone packaging")
+
+        # We support building _standalone_ packages locally to e.g. support fbcode's
+        # current style of build info stamping (e.g. T10696178).
+        local_only = python_toolchain.build_standalone_binaries_locally
 
         cmd = cmd_args(python_toolchain.make_pex_standalone[RunInfo])
         cmd.add(modules_args)
@@ -100,7 +90,7 @@ def make_pex(
 
         bootstrap = cmd_args(python_toolchain.make_pex_inplace[RunInfo])
         bootstrap.add(bootstrap_args)
-        ctx.actions.run(bootstrap, local_only = local_only, category = "par", identifier = "bootstrap")
+        ctx.actions.run(bootstrap, category = "par", identifier = "bootstrap")
 
     else:
         fail("unsupported package style: {}".format(package_style))
