@@ -27,12 +27,12 @@ use termwiz::escape::ControlCode;
 use crate::commands::common::subscribers::display;
 use crate::commands::common::subscribers::span_tracker::SpanTracker;
 use crate::commands::common::verbosity::Verbosity;
+use crate::commands::common::what_ran;
 use crate::commands::common::what_ran::local_command_to_string;
 use crate::commands::common::what_ran::CommandReproducer;
 use crate::commands::common::what_ran::WhatRanOptions;
 use crate::commands::common::what_ran::WhatRanOutputCommand;
 use crate::commands::common::what_ran::WhatRanOutputWriter;
-use crate::commands::common::what_ran::{self};
 
 const KEEPALIVE_TIME_LIMIT: Duration = Duration::from_secs(7);
 

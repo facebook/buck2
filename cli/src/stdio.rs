@@ -12,8 +12,8 @@
 //! place, and should usually just be propagated in order to lead to a quick exit.
 
 use std::fmt::Arguments;
+use std::io;
 use std::io::Write;
-use std::io::{self};
 
 use buck2_core::exit_result::FailureExitCode;
 

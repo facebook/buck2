@@ -1,7 +1,7 @@
 use anyhow::Context;
 use futures::future;
+use futures::stream;
 use futures::stream::StreamExt;
-use futures::stream::{self};
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 use tokio::sync::mpsc;

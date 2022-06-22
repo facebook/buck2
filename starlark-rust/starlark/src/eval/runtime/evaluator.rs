@@ -17,8 +17,8 @@
 
 use std::cell::Cell;
 use std::collections::HashSet;
+use std::mem;
 use std::mem::MaybeUninit;
-use std::mem::{self};
 use std::path::Path;
 
 use gazebo::any::AnyLifetime;

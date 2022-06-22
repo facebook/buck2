@@ -30,10 +30,10 @@ use buck2_interpreter::dice::HasEvents;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::UserComputationData;
+use futures::stream;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
-use futures::stream::{self};
 use gazebo::prelude::*;
 use thiserror::Error;
 

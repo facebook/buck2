@@ -11,9 +11,9 @@ use std::cmp;
 use std::io;
 
 use crossterm::queue;
+use crossterm::terminal;
 use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
-use crossterm::terminal::{self};
 use crossterm::tty::IsTty;
 
 use crate::components::Canvas;

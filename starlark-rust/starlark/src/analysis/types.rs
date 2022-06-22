@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
+use std::fmt;
 use std::fmt::Display;
-use std::fmt::{self};
 
 use gazebo::prelude::*;
 use gazebo::variants::VariantName;

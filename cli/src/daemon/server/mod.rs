@@ -9,9 +9,9 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::io;
 use std::io::BufWriter;
 use std::io::Write;
-use std::io::{self};
 use std::marker::PhantomData;
 use std::path::Path;
 use std::path::PathBuf;
@@ -28,9 +28,9 @@ use std::time::SystemTime;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_build_api::actions::build_listener;
 use buck2_build_api::actions::build_listener::BuildSignalSender;
 use buck2_build_api::actions::build_listener::SetBuildSignals;
-use buck2_build_api::actions::build_listener::{self};
 use buck2_build_api::actions::run::knobs::HasRunActionKnobs;
 use buck2_build_api::actions::run::knobs::RunActionKnobs;
 use buck2_build_api::configure_dice::configure_dice_for_buck;
@@ -104,9 +104,9 @@ use events::ControlEvent;
 use events::Event;
 use events::EventSource;
 use events::TraceId;
+use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::channel::mpsc::UnboundedSender;
-use futures::channel::mpsc::{self};
 use futures::future::AbortHandle;
 use futures::future::Abortable;
 use futures::Future;
@@ -844,8 +844,8 @@ impl DaemonState {
     /// EventDispatcher will log to the returned EventSource and (optionally) to Scribe if enabled via buckconfig.
     #[cfg(fbcode_build)]
     async fn prepare_events(&self) -> SharedResult<(impl EventSource, EventDispatcher)> {
+        use events::sink::scribe;
         use events::sink::scribe::ThriftScribeSink;
-        use events::sink::scribe::{self};
         use events::sink::tee::TeeSink;
 
         // The Scribe category to which we'll write buck2 events.

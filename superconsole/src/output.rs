@@ -8,8 +8,8 @@
  */
 
 use std::any::Any;
+use std::io;
 use std::io::Write;
-use std::io::{self};
 use std::thread::JoinHandle;
 
 use anyhow::Context as _;

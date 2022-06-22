@@ -752,9 +752,9 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
+    use std::fmt;
     use std::fmt::Debug;
     use std::fmt::Formatter;
-    use std::fmt::{self};
     use std::sync::Arc;
 
     use buck2_core::configuration::Configuration;

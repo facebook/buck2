@@ -22,8 +22,8 @@ use dice_examples::supply_chain::Company;
 use dice_examples::supply_chain::Cost;
 use dice_examples::supply_chain::Resource;
 use dice_examples::supply_chain::Setup;
+use futures::stream;
 use futures::stream::StreamExt;
-use futures::stream::{self};
 
 struct SupplyChainBenchmark;
 

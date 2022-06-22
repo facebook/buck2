@@ -18,9 +18,9 @@
 //! Error types used by Starlark, mostly [`Diagnostic`].
 
 use std::error::Error;
+use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
-use std::fmt::{self};
 
 use annotate_snippets::display_list::DisplayList;
 use annotate_snippets::display_list::FormatOptions;

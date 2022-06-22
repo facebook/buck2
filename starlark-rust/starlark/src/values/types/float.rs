@@ -18,9 +18,9 @@
 //! The floating point number type (3.14, 4e2).
 
 use std::cmp::Ordering;
+use std::fmt;
 use std::fmt::Display;
 use std::fmt::Write;
-use std::fmt::{self};
 use std::hash::Hasher;
 
 use gazebo::any::ProvidesStaticType;

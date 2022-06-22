@@ -44,9 +44,9 @@ use crate::values::ValueLike;
 
 #[test]
 fn test_export_as() {
+    use std::fmt;
     use std::fmt::Debug;
     use std::fmt::Display;
-    use std::fmt::{self};
 
     use gazebo::any::ProvidesStaticType;
 

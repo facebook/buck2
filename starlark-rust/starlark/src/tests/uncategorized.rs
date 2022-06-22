@@ -21,8 +21,8 @@ use std::fmt::Write;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
 
+use crate::assert;
 use crate::assert::Assert;
-use crate::assert::{self};
 use crate::collections::SmallMap;
 use crate::environment::Globals;
 use crate::environment::GlobalsBuilder;

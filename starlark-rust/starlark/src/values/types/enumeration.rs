@@ -35,9 +35,9 @@
 //! # "#);
 //! ```
 use std::cell::RefCell;
+use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
-use std::fmt::{self};
 
 use derivative::Derivative;
 use either::Either;

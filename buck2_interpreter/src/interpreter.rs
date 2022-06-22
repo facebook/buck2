@@ -54,9 +54,9 @@ use crate::import_paths::ImportPaths;
 use crate::package_imports::ImplicitImport;
 use crate::package_listing::listing::PackageListing;
 use crate::parse_import::parse_import;
+use crate::starlark_profiler;
 use crate::starlark_profiler::StarlarkProfilerInstrumentation;
 use crate::starlark_profiler::StarlarkProfilerOrInstrumentation;
-use crate::starlark_profiler::{self};
 
 /// What type of file are we parsing - a `.bzl` file, `.bxl` file, or a `BUCK`/`TARGETS` file.
 impl<'a> StarlarkPath<'a> {

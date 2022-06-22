@@ -35,8 +35,8 @@
 //! ```
 
 use std::cmp::Ordering;
+use std::fmt;
 use std::fmt::Display;
-use std::fmt::{self};
 use std::hash::Hash;
 use std::marker;
 use std::marker::PhantomData;

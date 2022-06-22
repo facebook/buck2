@@ -54,11 +54,11 @@ use crate::commands::common::subscribers::superconsole::timed_list::Cutoffs;
 use crate::commands::common::subscribers::superconsole::timed_list::TimedList;
 use crate::commands::common::subscribers::SimpleConsole;
 use crate::commands::common::verbosity::Verbosity;
+use crate::commands::common::what_ran;
 use crate::commands::common::what_ran::local_command_to_string;
 use crate::commands::common::what_ran::WhatRanOptions;
 use crate::commands::common::what_ran::WhatRanOutputCommand;
 use crate::commands::common::what_ran::WhatRanOutputWriter;
-use crate::commands::common::what_ran::{self};
 
 mod common;
 pub mod debug_events;

@@ -10,8 +10,8 @@
 use std::convert::Infallible;
 use std::ffi::CString;
 use std::fmt::Display;
+use std::io;
 use std::io::Write;
-use std::io::{self};
 use std::ops::ControlFlow;
 use std::ops::FromResidual;
 use std::ops::Try;

@@ -19,9 +19,9 @@
 
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
+use std::fmt;
 use std::fmt::Display;
 use std::fmt::Write;
-use std::fmt::{self};
 use std::mem;
 use std::ptr;
 use std::time::Instant;

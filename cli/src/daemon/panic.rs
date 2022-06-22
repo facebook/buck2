@@ -12,8 +12,8 @@
 //! This module sets up a panic hook to send the panic message to open CLIs.
 
 use std::env::temp_dir;
+use std::panic;
 use std::panic::PanicInfo;
-use std::panic::{self};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;

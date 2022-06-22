@@ -22,8 +22,8 @@
 //! source code will not exceed 4GiB. The `CodeMap` can look up the source file, line, and column
 //! of a `Pos` or `Span`, as well as provide source code snippets for error reporting.
 use std::cmp;
+use std::fmt;
 use std::fmt::Display;
-use std::fmt::{self};
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::ops::Add;

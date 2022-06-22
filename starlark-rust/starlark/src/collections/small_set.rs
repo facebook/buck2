@@ -16,8 +16,8 @@
  */
 
 use std::cmp::Ordering;
+use std::fmt;
 use std::fmt::Debug;
-use std::fmt::{self};
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::iter::FromIterator;

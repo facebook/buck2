@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
+use std::fmt;
 use std::fmt::Debug;
-use std::fmt::{self};
 
 use gazebo::coerce::Coerce;
 use gazebo::prelude::*;

@@ -8,8 +8,8 @@
  */
 
 use std::collections::HashSet;
+use std::fmt;
 use std::fmt::Debug;
-use std::fmt::{self};
 
 use anyhow::Context;
 use buck2_core::package::PackageRelativePath;

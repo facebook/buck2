@@ -16,8 +16,8 @@
  */
 
 //! A type [`StarlarkRegex`] which wraps Rust value fancy_regex::Regex.
+use std::fmt;
 use std::fmt::Display;
-use std::fmt::{self};
 
 use fancy_regex::Regex;
 use gazebo::any::ProvidesStaticType;

@@ -8,8 +8,8 @@
  */
 
 use std::cell::RefCell;
+use std::fmt;
 use std::fmt::Display;
-use std::fmt::{self};
 use std::iter::Iterator;
 use std::sync::Arc;
 

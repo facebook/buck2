@@ -38,9 +38,9 @@
 // TODO(cjhopman): Starlark values don't really do anything with the rest of the flags so
 // propagating them hasn't been necessary, but it would be easy enough to implement if we wanted to.
 
+use std::fmt;
 use std::fmt::Display;
 use std::fmt::Write;
-use std::fmt::{self};
 
 const INDENT: &str = "  ";
 

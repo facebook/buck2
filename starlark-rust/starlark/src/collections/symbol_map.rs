@@ -32,8 +32,8 @@
 //! Measuring some sample strings, the P50 = 21 bytes, P75 = 27, P95 = 35,
 //! so we can reasonably expect to hit the smaller cases most often.
 
+use std::fmt;
 use std::fmt::Debug;
-use std::fmt::{self};
 use std::intrinsics::copy_nonoverlapping;
 use std::mem;
 use std::slice;

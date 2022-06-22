@@ -24,9 +24,9 @@
 //! integer values will be stored on the heap.
 
 use std::cmp::Ordering;
+use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
-use std::fmt::{self};
 use std::hash::Hasher;
 use std::ptr;
 

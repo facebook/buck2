@@ -8,8 +8,8 @@
  */
 
 use std::convert::TryFrom;
+use std::fmt;
 use std::fmt::Display;
-use std::fmt::{self};
 use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;

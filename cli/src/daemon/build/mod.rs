@@ -11,8 +11,8 @@ use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io;
+use std::path;
 use std::path::Path;
-use std::path::{self};
 use std::sync::Arc;
 
 use anyhow::Context as _;

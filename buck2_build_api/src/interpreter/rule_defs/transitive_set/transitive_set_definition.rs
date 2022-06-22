@@ -8,8 +8,8 @@
  */
 
 use std::cell::RefCell;
+use std::fmt;
 use std::fmt::Display;
-use std::fmt::{self};
 use std::sync::Arc;
 
 use buck2_interpreter::common::ModuleID;

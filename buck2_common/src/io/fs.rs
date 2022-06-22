@@ -13,11 +13,11 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_core;
 use buck2_core::fs::anyhow as fs;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
-use buck2_core::{self};
 use faccess::PathExt;
 use gazebo::cmp::PartialEqAny;
 use gazebo::prelude::*;

@@ -18,6 +18,7 @@ use indexmap::IndexMap;
 use tokio::runtime;
 
 use crate::commands::common::subscribers::event_log::EventLogPathBuf;
+use crate::commands::common::what_ran;
 use crate::commands::common::what_ran::CommandReproducer;
 use crate::commands::common::what_ran::WhatRanOptions;
 use crate::commands::common::what_ran::WhatRanOutputCommand;
@@ -25,7 +26,6 @@ use crate::commands::common::what_ran::WhatRanOutputCommandExtra;
 use crate::commands::common::what_ran::WhatRanOutputWriter;
 use crate::commands::common::what_ran::WhatRanRelevantAction;
 use crate::commands::common::what_ran::WhatRanState;
-use crate::commands::common::what_ran::{self};
 use crate::commands::debug::replay::retrieve_nth_recent_log;
 use crate::daemon::client::StreamValue;
 use crate::CommandContext;

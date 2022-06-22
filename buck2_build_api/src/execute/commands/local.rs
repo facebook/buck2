@@ -542,8 +542,8 @@ pub fn kill_process(child: &Child) -> anyhow::Result<()> {
 
 #[cfg(unix)]
 fn kill_process_impl(pid: u32) -> anyhow::Result<()> {
+    use nix::sys::signal;
     use nix::sys::signal::Signal;
-    use nix::sys::signal::{self};
     use nix::unistd::Pid;
 
     let pid: i32 = pid.try_into().context("PID does not fit a i32")?;

@@ -1,5 +1,5 @@
+use std::env;
 use std::env::VarError;
-use std::env::{self};
 use std::str::FromStr;
 
 use anyhow::Context;

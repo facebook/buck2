@@ -38,8 +38,8 @@ use criterion::Criterion;
 use dice::cycles::DetectCycles;
 use dice::Dice;
 use dice::DiceTransaction;
+use futures::stream;
 use futures::stream::StreamExt;
-use futures::stream::{self};
 use futures::Future;
 
 /// Implementers of this trait gain access to the `benchmark!` macro.

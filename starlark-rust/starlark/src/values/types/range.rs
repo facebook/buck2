@@ -17,8 +17,8 @@
 
 //! The range type, constructed with `range()`.
 
+use std::fmt;
 use std::fmt::Display;
-use std::fmt::{self};
 use std::marker::PhantomData;
 use std::num::NonZeroI32;
 

@@ -21,10 +21,10 @@ use std::any::TypeId;
 use std::cell::Cell;
 use std::cmp;
 use std::cmp::Ordering;
+use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
-use std::fmt::{self};
 use std::intrinsics::likely;
 use std::intrinsics::unlikely;
 use std::marker::PhantomData;
@@ -651,8 +651,8 @@ impl<'v, V: UnpackValue<'v>> Deref for ListOf<'v, V> {
 
 #[cfg(test)]
 mod tests {
+    use crate::assert;
     use crate::assert::Assert;
-    use crate::assert::{self};
 
     #[test]
     fn test_to_str() {

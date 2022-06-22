@@ -21,8 +21,8 @@
 //! Unlike most Starlark values, these aren't actually represented on the [`Heap`], but as special values.
 
 use std::cmp::Ordering;
+use std::fmt;
 use std::fmt::Display;
-use std::fmt::{self};
 use std::hash::Hasher;
 
 use gazebo::any::ProvidesStaticType;

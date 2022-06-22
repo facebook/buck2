@@ -69,9 +69,9 @@
 //! # }
 //! ```
 
+use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
-use std::fmt::{self};
 
 use gazebo::any::ProvidesStaticType;
 

@@ -12,9 +12,9 @@
 #![doc = include_str ! ("../target_pattern.md")]
 
 use std::collections::HashSet;
+use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
-use std::fmt::{self};
 
 use anyhow::anyhow;
 use anyhow::Context;

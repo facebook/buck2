@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
+use std::cmp;
 use std::cmp::Ordering;
-use std::cmp::{self};
 use std::iter;
 
 use crossterm::style::Attribute;

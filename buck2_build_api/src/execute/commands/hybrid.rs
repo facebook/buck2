@@ -11,9 +11,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use events::dispatch::EventDispatcher;
+use futures::future;
 use futures::future::Either;
 use futures::future::Future;
-use futures::future::{self};
 use futures::FutureExt;
 use gazebo::prelude::*;
 use remote_execution as RE;

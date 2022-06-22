@@ -9,8 +9,8 @@
 
 use std::convert::TryFrom;
 use std::fs::File;
+use std::io;
 use std::io::BufRead;
-use std::io::{self};
 use std::path::Path;
 use std::process::Command;
 use std::str;

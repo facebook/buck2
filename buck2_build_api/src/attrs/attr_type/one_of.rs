@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
+use std::fmt;
 use std::fmt::Display;
-use std::fmt::{self};
 
 use itertools::Itertools;
 use starlark::values::Value;

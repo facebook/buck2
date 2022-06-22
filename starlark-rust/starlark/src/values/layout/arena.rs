@@ -31,9 +31,9 @@ use std::cmp;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::marker::PhantomData;
+use std::mem;
 use std::mem::ManuallyDrop;
 use std::mem::MaybeUninit;
-use std::mem::{self};
 use std::ptr;
 use std::slice;
 

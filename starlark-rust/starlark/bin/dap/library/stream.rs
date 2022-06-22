@@ -22,9 +22,9 @@
 use std::env;
 use std::fs::File;
 use std::fs::OpenOptions;
+use std::io;
 use std::io::Read;
 use std::io::Write;
-use std::io::{self};
 use std::path::PathBuf;
 
 use serde_json::Value;

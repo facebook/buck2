@@ -16,8 +16,8 @@
  */
 
 use std::collections::HashSet;
+use std::fmt;
 use std::fmt::Display;
-use std::fmt::{self};
 
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::coerce;

@@ -35,8 +35,8 @@ pub fn global(builder: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 mod tests {
+    use crate::assert;
     use crate::assert::Assert;
-    use crate::assert::{self};
 
     #[test]
     fn test_enum() {

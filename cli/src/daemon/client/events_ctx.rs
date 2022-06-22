@@ -22,11 +22,11 @@ use futures::Future;
 use futures::Stream;
 use futures::StreamExt;
 use thiserror::Error;
+use tokio::time;
 use tokio::time::Duration;
 use tokio::time::Instant;
 use tokio::time::Interval;
 use tokio::time::MissedTickBehavior;
-use tokio::time::{self};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::daemon::client::file_tailer::FileTailer;
