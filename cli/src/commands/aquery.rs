@@ -20,8 +20,27 @@ use crate::daemon::client::BuckdClientConnector;
 use crate::CommandContext;
 use crate::StreamingCommand;
 
+/// Perform queries on the action graph (experimental).
+///
+/// The action graph consists of all the declared actions for a build, with dependencies
+/// when one action consumes the outputs of another action.
+///
+/// Examples:
+///
+/// Print the action producing a target's default output
+///
+/// `buck aquery //java/com/example/app:amazing`
+///
+/// List all the commands for run actions for building a target
+///
+/// `buck aquery 'kind(run, deps("//java/com/example/app:amazing+more"))' --output-attributes=cmd`
+///
+/// Dynamic outputs (`ctx.actions.dynamic_output`):
+///
+/// Currently, aquery interacts poorly with dynamic outputs. It may return incorrect results or otherwise
+/// behave unexpectedly.
 #[derive(Debug, clap::Parser)]
-#[clap(name = "aquery", about = "Query action graph")]
+#[clap(name = "aquery")]
 pub(crate) struct AqueryCommand {
     #[clap(flatten)]
     config_opts: CommonConfigOptions,

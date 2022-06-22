@@ -20,8 +20,31 @@ use crate::daemon::client::BuckdClientConnector;
 use crate::CommandContext;
 use crate::StreamingCommand;
 
+/// Perform queries on the configured target graph.
+///
+/// The configured target graph includes information about the configuration (platforms) and
+/// transitions involved in building targets. In the configured graph, `selects` are fully
+/// resolved. The same target may appear in multiple different configurations (when printed,
+/// the configuration is after the target in parentheses).
+///
+/// A user can specify a `--target-universe` flag to control how literals are resolved. When
+/// provided, any literals will resolve to all matching targets within the universe (which
+/// includes the targets passed as the universe and all transitive deps of them).
+///
+/// Run `buck2 docs cquery` for more documentation about the functions available in cquery
+/// expressions.
+///
+/// Examples:
+///
+/// Print all the attributes of a target
+///
+/// `buck cquery //java/com/example/app:amazing --output-attributes=.*`
+///
+/// List the deps of a target (special characters in a target will require quotes):
+///
+/// `buck cquery 'deps("//java/com/example/app:amazing+more")'`
 #[derive(Debug, clap::Parser)]
-#[clap(name = "cquery", about = "Query configured target graph")]
+#[clap(name = "cquery")]
 pub(crate) struct CqueryCommand {
     #[clap(flatten)]
     config_opts: CommonConfigOptions,

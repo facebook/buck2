@@ -128,8 +128,37 @@ impl CommonQueryArgs {
     }
 }
 
+/// Perform queries on the unconfigured target graph.
+///
+/// The unconfigured target graph consists of the targets as they are defined in the build
+/// files. In this graph, each target appears exactly once and `select()`s are in the unresolved
+/// form. For large queries, the unconfigured graph may be much smaller than the configured
+/// graph and queries can be much more efficiently performed there.
+///
+/// When querying the unconfigured graph, dependencies appearing in all branches of `select()`
+/// dictionaries will be treated as dependencies.
+///
+/// Run `buck2 docs uquery` for more documentation about the functions available in cquery
+/// expressions.
+///
+/// Examples:
+///
+/// Print all the attributes of a target
+///
+/// `buck uquery //java/com/example/app:amazing --output-attributes=.*`
+///
+/// List the deps of a target (special characters in a target will require quotes):
+/// `buck uquery 'deps("//java/com/example/app:amazing+more")'`
+///
+/// select() encoding:
+///
+/// When printed, values with `select()`s use a special json encoding.
+///
+/// `1 + select({"//:a": 1, "DEFAULT": 2})` will be encoded as:
+///
+/// `{"__type": "concat", "items": [1, {"__type": "selector", "entries": {"//:a": 1, "DEFAULT": 2}}]}`
 #[derive(Debug, clap::Parser)]
-#[clap(name = "uquery", about = "Query unconfigured target graph")]
+#[clap(name = "uquery")]
 pub(crate) struct UqueryCommand {
     #[clap(flatten)]
     config_opts: CommonConfigOptions,
