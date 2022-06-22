@@ -27,4 +27,5 @@ jobs:
       # On Windows we run out of disk space on the test step :(
       if: matrix.os != 'windows-latest'
     - run: cargo bench
-      if: matrix.os != 'windows-latest'
+      # On Linux we run out of disk space on the benchmark step :(
+      if: matrix.os != 'windows-latest' && matrix.os != 'ubuntu-latest'
