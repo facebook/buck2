@@ -118,14 +118,10 @@ def rustfmt(buck2_dir: Path, ci: bool) -> None:
     env["RUSTFMT"] = str(
         buck2_dir.parent.parent / "tools" / "third-party" / "rustfmt" / "rustfmt"
     )
-    output = run([cargo_fmt, "--"], capture_output=True, env=env).stdout
-    for line in output.splitlines():
-        # The fbsource formatter spews out:
-        #   Warning: the `merge_imports` option is deprecated. Use `imports_granularity=Crate` instead
-        # So we just ignore its outputs, until Cargo moves to rustfmt 2.0.
-        if "merge_imports" not in line.strip():
-            print(output, file=sys.stderr)
-            sys.exit(1)
+
+    if run([cargo_fmt, "--"], env=env).returncode != 0:
+        sys.exit(1)
+
     # On CI, fail if any committed files have changed,
     # mainly because of cargo fmt changing a source file
     if ci:
