@@ -14,7 +14,7 @@ load("@fbcode//buck2/prelude/java:java_resources.bzl", "get_resources_map")
 load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "AbiGenerationMode", "JavaToolchainInfo")
 load("@fbcode//buck2/prelude/java:javacd_jar_creator.bzl", "create_jar_artifact_javacd")
 load("@fbcode//buck2/prelude/java/plugins:java_annotation_processor.bzl", "create_ap_params")
-load("@fbcode//buck2/prelude/java/plugins:java_plugin.bzl", "create_plugin_params")
+load("@fbcode//buck2/prelude/java/plugins:java_plugin.bzl", "PluginParams", "create_plugin_params")
 load("@fbcode//buck2/prelude/java/utils:java_utils.bzl", "derive_javac", "get_path_separator")
 load("@fbcode//buck2/prelude/linking:shared_libraries.bzl", "SharedLibraryInfo")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
@@ -499,6 +499,7 @@ def build_java_library(
     javac_tool = derive_javac(ctx.attr.javac) if ctx.attr.javac else None
 
     outputs = None
+    sub_targets = {}
     if srcs or additional_compiled_srcs or resources or ap_params or plugin_params or manifest_file:
         abi_generation_mode = {
             None: None,
@@ -508,27 +509,57 @@ def build_java_library(
             "source_only": AbiGenerationMode("source_only"),
         }[ctx.attr.abi_generation_mode]
 
+        common_compile_kwargs = {
+            "abi_generation_mode": abi_generation_mode,
+            "additional_classpath_entries": additional_classpath_entries,
+            "additional_compiled_srcs": additional_compiled_srcs,
+            "ap_params": ap_params,
+            "bootclasspath_entries": bootclasspath_entries,
+            "deps": first_order_deps,
+            "extra_arguments": ctx.attr.extra_arguments,
+            "manifest_file": manifest_file,
+            "remove_classes": ctx.attr.remove_classes,
+            "required_for_source_only_abi": ctx.attr.required_for_source_only_abi,
+            "resources": resources,
+            "resources_root": ctx.attr.resources_root,
+            "source_level": source_level,
+            "source_only_abi_deps": ctx.attr.source_only_abi_deps,
+            "srcs": srcs,
+            "target_level": target_level,
+        }
+
         outputs = compile_to_jar(
             ctx,
             javac_tool = javac_tool,
-            srcs = srcs,
-            deps = first_order_deps,
-            abi_generation_mode = abi_generation_mode,
-            remove_classes = ctx.attr.remove_classes,
-            resources = resources,
-            resources_root = ctx.attr.resources_root,
-            manifest_file = manifest_file,
-            ap_params = ap_params,
             plugin_params = plugin_params,
-            source_level = source_level,
-            target_level = target_level,
-            extra_arguments = ctx.attr.extra_arguments,
-            additional_classpath_entries = additional_classpath_entries,
-            additional_compiled_srcs = additional_compiled_srcs,
-            bootclasspath_entries = bootclasspath_entries,
-            required_for_source_only_abi = ctx.attr.required_for_source_only_abi,
-            source_only_abi_deps = ctx.attr.source_only_abi_deps,
+            **common_compile_kwargs
         )
+
+        java_toolchain = ctx.attr._java_toolchain[JavaToolchainInfo]
+        ast_dumper = java_toolchain.ast_dumper
+        if ast_dumper:
+            # Replace whatever compiler plugins are present with the AST dumper instead
+            ast_output = ctx.actions.declare_output("ast_json")
+            ast_dumping_plugin_params = create_plugin_params([ast_dumper])
+            ast_dumping_plugin_params = PluginParams(
+                processors = ast_dumping_plugin_params.processors,
+                deps = ast_dumping_plugin_params.deps,
+                args = {
+                    "DumpAstPlugin": cmd_args(ast_output.as_output()),
+                },
+            )
+
+            # We don't actually care about the jar output this time; we just want the AST from the
+            # plugin
+            compile_to_jar(
+                ctx,
+                actions_prefix = "ast",
+                plugin_params = ast_dumping_plugin_params,
+                javac_tool = java_toolchain.fallback_javac,
+                **common_compile_kwargs
+            )
+
+            sub_targets["ast"] = [DefaultInfo(default_outputs = [ast_output])]
 
     java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info = create_java_library_providers(
         ctx,
@@ -548,13 +579,12 @@ def build_java_library(
             ("source-abi", outputs.source_abi),
             ("source-only-abi", outputs.source_only_abi),
         ]
+        for (name, artifact) in abis:
+            if artifact != None:
+                sub_targets[name] = [DefaultInfo(default_outputs = [artifact])]
         default_info = DefaultInfo(
             default_outputs = [outputs.full_library],
-            sub_targets = {
-                name: [DefaultInfo(default_outputs = [artifact])]
-                for (name, artifact) in abis
-                if artifact != None
-            },
+            sub_targets = sub_targets,
         )
 
     return JavaProviders(

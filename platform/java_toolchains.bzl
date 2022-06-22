@@ -17,6 +17,7 @@ DEFAULT_ABI_GENERATOR = "buck//src/com/facebook/buck/jvm/java/abi:api-stubber"
 
 def config_backed_java_toolchain(
         name,
+        ast_dumper = "fbsource//xplat/buck2/tools/java/dump_ast:dump_ast",
         class_abi_generator = DEFAULT_ABI_GENERATOR,
         fat_jar_main_class_lib = "buck//src/com/facebook/buck/jvm/java:fat-jar-main",
         javac = None,
@@ -31,6 +32,7 @@ def config_backed_java_toolchain(
     kwargs["fat_jar"] = "fbsource//xplat/buck2/tools/java:fat_jar"
     kwargs["jar"] = "fbsource//third-party/toolchains/jdk:jar"
     kwargs["java"] = "fbsource//third-party/toolchains/jdk:java"
+    kwargs["fallback_javac"] = "fbsource//third-party/toolchains/jdk:javac"
 
     # Now pull in values from config (overriding defaults).
     sections = ["java", "tools"]
@@ -55,6 +57,7 @@ def config_backed_java_toolchain(
         kwargs["java_for_tests"] = java_for_tests
     if javac != None:
         kwargs["javac"] = javac
+    kwargs["ast_dumper"] = ast_dumper
     kwargs["class_abi_generator"] = class_abi_generator
     kwargs["fat_jar_main_class_lib"] = fat_jar_main_class_lib
 
@@ -82,10 +85,12 @@ def _config_backed_java_toolchain_rule_impl(ctx):
         ),
         JavaToolchainInfo(
             abi_generation_mode = AbiGenerationMode(abi_generation_mode),
+            ast_dumper = ctx.attr.ast_dumper,
             bootclasspath_7 = ctx.attr.bootclasspath_7,
             bootclasspath_8 = ctx.attr.bootclasspath_8,
             class_abi_generator = ctx.attr.class_abi_generator,
             compile_and_package = ctx.attr.compile_and_package,
+            fallback_javac = derive_javac(ctx.attr.fallback_javac),
             merge_to_jar = ctx.attr.merge_to_jar,
             src_dir_helper = ctx.attr.src_dir_helper,
             fat_jar = ctx.attr.fat_jar,
@@ -105,10 +110,12 @@ def _config_backed_java_toolchain_rule_impl(ctx):
 _config_backed_java_toolchain_rule = rule(
     attrs = {
         "abi_generation_mode": attr.enum(["class", "source", "source_only"], default = "class"),
+        "ast_dumper": attr.option(attr.dep(), default = None),
         "bootclasspath_7": attr.list(attr.source()),
         "bootclasspath_8": attr.list(attr.source()),
         "class_abi_generator": attr.option(attr.dep(providers = [RunInfo]), default = None),
         "compile_and_package": attr.dep(),
+        "fallback_javac": attr.option(attr.one_of(attr.dep(), attr.source(), attr.string()), default = None),
         "fat_jar": attr.dep(),
         "fat_jar_main_class_lib": attr.option(attr.source(), default = None),
         "jar": attr.dep(providers = [RunInfo]),

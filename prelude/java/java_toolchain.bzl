@@ -13,10 +13,12 @@ JavaToolchainInfo = provider(
     "Java toolchain info",
     fields = [
         "abi_generation_mode",
+        "ast_dumper",
         "bootclasspath_7",
         "bootclasspath_8",
         "class_abi_generator",
         "compile_and_package",
+        "fallback_javac",
         "fat_jar",
         "fat_jar_main_class_lib",
         "jar",
