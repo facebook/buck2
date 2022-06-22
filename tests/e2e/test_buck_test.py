@@ -332,8 +332,13 @@ if not is_deployed_buck2():
         with open(out) as f:
             config = json.load(f)
 
-        assert "PWD" in config["env"]
-        assert "EXTRA_VAR" not in config["env"]
+        # Expect python/test:test target to support debugging. Executable field is populated only when debugging is supported.
+        assert "debuggers" in config
+        assert len(config["debuggers"]) > 0
+        assert "executable" in config
+        env = config["executable"]["env"]
+        assert "PWD" in env
+        assert "EXTRA_VAR" not in env
 
 
 @buck_test(inplace=True, data_dir="..")
