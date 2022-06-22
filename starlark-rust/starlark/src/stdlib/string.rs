@@ -782,6 +782,10 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// # starlark::assert::all_true(r#"
     /// "banana".replace("a", "o") == "bonono"
     /// "banana".replace("a", "o", 2) == "bonona"
+    /// "banana".replace("z", "x") == "banana"
+    /// "banana".replace("", "x") == "xbxaxnxaxnxax"
+    /// "banana".replace("", "x", 2) == "xbxanana"
+    /// "".replace("", "x") == "x"
     /// "# );
     /// # starlark::assert::fail(r#"
     /// "banana".replace("a", "o", -2)  # error: argument was negative
@@ -801,6 +805,8 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
                 .to_value()),
             Some(count) => Err(anyhow!("Replace final argument was negative '{}'", count)),
             None => {
+                // Optimise `replace` using the Rust standard library definition,
+                // but avoiding redundant allocation in the last step
                 let x = this.typed;
                 let mut result = String::new();
                 let mut last_end = 0;
@@ -809,8 +815,13 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
                     result.push_str(new);
                     last_end = start + part.len();
                 }
-                result.push_str(unsafe { x.get_unchecked(last_end..x.len()) });
-                Ok(heap.alloc_str(&result).to_value())
+                if result.is_empty() && last_end == 0 {
+                    Ok(this.value)
+                } else {
+                    Ok(heap
+                        .alloc_str_concat(&result, unsafe { x.get_unchecked(last_end..x.len()) })
+                        .to_value())
+                }
             }
         }
     }
