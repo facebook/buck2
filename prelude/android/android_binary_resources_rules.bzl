@@ -97,10 +97,14 @@ def _maybe_filter_resources(ctx: "context", resources: [AndroidResourceInfo.type
         return resources
 
     res_info_to_out_res_dir = {}
+    res_infos_with_no_res = []
     skip_crunch_pngs = getattr(ctx.attr, "skip_crunch_pngs", None) or False
     for i, resource in enumerate(resources):
-        filtered_res = ctx.actions.declare_output("filtered_res_{}".format(i))
-        res_info_to_out_res_dir[resource] = filtered_res
+        if resource.res == None:
+            res_infos_with_no_res.append(resource)
+        else:
+            filtered_res = ctx.actions.declare_output("filtered_res_{}".format(i))
+            res_info_to_out_res_dir[resource] = filtered_res
 
     filter_resources_cmd = cmd_args(android_toolchain.filter_resources[RunInfo])
     in_res_dir_to_out_res_dir_dict = {
@@ -150,6 +154,9 @@ def _maybe_filter_resources(ctx: "context", resources: [AndroidResourceInfo.type
 
     filtered_resource_infos = []
     for i, resource in enumerate(resources):
+        if resource.res == None:
+            continue
+
         filtered_res = res_info_to_out_res_dir[resource]
         filtered_aapt2_compile_output = aapt2_compile(
             ctx,
@@ -168,7 +175,7 @@ def _maybe_filter_resources(ctx: "context", resources: [AndroidResourceInfo.type
         )
         filtered_resource_infos.append(filtered_resource)
 
-    return filtered_resource_infos
+    return res_infos_with_no_res + filtered_resource_infos
 
 ResourcesFilter = record(
     densities = [str.type],
