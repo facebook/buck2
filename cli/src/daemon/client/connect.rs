@@ -372,7 +372,7 @@ impl BuckdConnectOptions {
             }
         };
 
-        let client = DaemonApiClient::new(get_channel(connection_type).await?);
+        let client = DaemonApiClient::new(get_channel(connection_type, true).await?);
 
         Ok(BootstrapBuckdClient::new(client, info, daemon_dir))
     }

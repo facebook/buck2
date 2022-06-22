@@ -154,9 +154,8 @@ async fn build_install(
         anyhow::Ok(())
     };
     let build_installer_and_connect = async move {
-        let tmp_dir = Builder::new().prefix("buck2_install").tempdir()?;
+        let tmp_dir = Builder::new().tempdir()?;
         let filename = format!("{}/installer.sock", tmp_dir.into_path().to_str().unwrap());
-
         installer_run_args.extend(vec!["--named-pipe".to_owned(), filename.to_owned()]);
         build_launch_installer(ctx, install_info, installer_run_args).await?;
 
@@ -288,9 +287,12 @@ async fn connect_to_installer(unix_socket: String) -> anyhow::Result<InstallerCl
         Duration::from_millis(500),
         Duration::from_secs(5),
         async || {
-            get_channel(ConnectionType::Uds {
-                unix_socket: unix_socket.to_owned(),
-            })
+            get_channel(
+                ConnectionType::Uds {
+                    unix_socket: unix_socket.to_owned(),
+                },
+                false,
+            )
             .await
         },
     )
@@ -304,10 +306,13 @@ async fn connect_to_installer(unix_socket: String) -> anyhow::Result<InstallerCl
                 Duration::from_millis(500),
                 Duration::from_secs(5),
                 async || {
-                    get_channel(ConnectionType::Tcp {
-                        socket: DEFAULT_SOCKET_ADDR.to_owned(),
-                        port: DEFAULT_PORT.to_owned(),
-                    })
+                    get_channel(
+                        ConnectionType::Tcp {
+                            socket: DEFAULT_SOCKET_ADDR.to_owned(),
+                            port: DEFAULT_PORT.to_owned(),
+                        },
+                        false,
+                    )
                     .await
                 },
             )
