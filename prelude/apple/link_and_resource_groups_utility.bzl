@@ -79,9 +79,14 @@ def _parse_filter_from_mapping(entry: [str.type, None]) -> [(FilterType.type, "r
     label_regex = None
     build_target_pattern = None
     if entry:
-        if entry.startswith("label") or entry.startswith("tag"):
+        # We need the anchors "^"" and "$" because experimental_regex match anywhere in the text,
+        # while we want full text match for link_group label text.
+        if entry.startswith("label"):
             filter_type = FilterType("label")
-            label_regex = experimental_regex(entry[6:])
+            label_regex = experimental_regex("^{}$".format(entry[6:]))
+        elif entry.startswith("tag"):
+            filter_type = FilterType("label")
+            label_regex = experimental_regex("^{}$".format(entry[4:]))
         elif entry.startswith("pattern"):
             filter_type = FilterType("pattern")
             build_target_pattern = parse_build_target_pattern(entry[8:])
