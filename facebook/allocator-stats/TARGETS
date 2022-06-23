@@ -16,6 +16,8 @@ cpp_library(
         "ovr_config//os:macos": [
             "-U",
             "_malloc_stats_print",
+            "-U",
+            "_je_malloc_stats_print",
         ],
     }),
     preferred_linkage = "static",
