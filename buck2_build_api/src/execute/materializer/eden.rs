@@ -176,8 +176,10 @@ impl Materializer for EdenMaterializer {
         &self,
         artifact_paths: Vec<ProjectRelativePathBuf>,
     ) -> anyhow::Result<BoxStream<'static, Result<(), MaterializationError>>> {
-        // EdenFS will handle the on-demand matrialization under the hood, so do nothing here.
-        // TODO(yipu): Add options to proactively materialize files on an Eden mount.
+        // EdenFS' thrift method ensureMaterialized will force materializing a list of provided paths
+        self.eden_buck_out
+            .ensure_materialized(artifact_paths.clone())
+            .await?;
         Ok(stream::iter(artifact_paths.into_iter().map(|_| Ok(()))).boxed())
     }
 
@@ -192,7 +194,6 @@ impl Materializer for EdenMaterializer {
         &self,
         artifact_path: ProjectRelativePathBuf,
     ) -> anyhow::Result<bool> {
-        // Similar to ensure_materialized, EdenFS will handle materialization.
         self.ensure_materialized(vec![artifact_path]).await?;
         Ok(true)
     }

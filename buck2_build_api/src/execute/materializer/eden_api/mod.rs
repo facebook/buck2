@@ -21,6 +21,7 @@ use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use edenfs::client::EdenService;
 use edenfs::CheckoutMode;
+use edenfs::EnsureMaterializedParams;
 use edenfs::ObjectType;
 use edenfs::RemoveRecursivelyParams;
 use edenfs::SetPathObjectIdParams;
@@ -215,8 +216,12 @@ pub struct EdenBuckOut {
 
 #[derive(Debug)]
 enum EdenCommand {
-    SetPathObjectIdCommand(SetPathObjectIdParams, oneshot::Sender<anyhow::Result<()>>),
-    RemoveRecursivelyCommand(RemoveRecursivelyParams, oneshot::Sender<anyhow::Result<()>>),
+    SetPathObjectId(SetPathObjectIdParams, oneshot::Sender<anyhow::Result<()>>),
+    RemoveRecursively(RemoveRecursivelyParams, oneshot::Sender<anyhow::Result<()>>),
+    EnsureMaterialized(
+        EnsureMaterializedParams,
+        oneshot::Sender<anyhow::Result<()>>,
+    ),
 }
 
 impl EdenBuckOut {
@@ -306,7 +311,7 @@ impl EdenBuckOut {
 
         let (sender, recv) = oneshot::channel();
 
-        let cmd = EdenCommand::SetPathObjectIdCommand(
+        let cmd = EdenCommand::SetPathObjectId(
             SetPathObjectIdParams {
                 mountPoint: self.get_mount_point(),
                 path: relpath_to_buck_out.as_str().as_bytes().to_vec(),
@@ -376,7 +381,7 @@ impl EdenBuckOut {
 
         dropcancel_critical_section(async move {
             let (sender, recv) = oneshot::channel();
-            let cmd = EdenCommand::RemoveRecursivelyCommand(
+            let cmd = EdenCommand::RemoveRecursively(
                 RemoveRecursivelyParams {
                     mountPoint: self.get_mount_point(),
                     path: relpath_to_buck_out.as_str().as_bytes().to_vec(),
@@ -405,6 +410,31 @@ impl EdenBuckOut {
         futures::future::try_join_all(futs).await?;
 
         Ok(())
+    }
+
+    pub async fn ensure_materialized(
+        &self,
+        paths: Vec<ProjectRelativePathBuf>,
+    ) -> anyhow::Result<()> {
+        let file_paths = paths
+            .iter()
+            .filter_map(|path| path.strip_prefix(&self.buck_out_path).ok())
+            .map(|relpath| relpath.as_str().as_bytes().to_vec())
+            .collect::<Vec<_>>();
+
+        let (sender, recv) = oneshot::channel();
+
+        let cmd = EdenCommand::EnsureMaterialized(
+            EnsureMaterializedParams {
+                mountPoint: self.get_mount_point(),
+                paths: file_paths,
+                background: true,
+                followSymlink: true, // Also materialize symlink targets
+                ..Default::default()
+            },
+            sender,
+        );
+        self.dispatch_command(cmd, recv).await
     }
 }
 
@@ -439,12 +469,16 @@ impl EdenCommandProcessor {
         command_recv
             .map(|command| async {
                 match command {
-                    EdenCommand::SetPathObjectIdCommand(params, sender) => {
+                    EdenCommand::SetPathObjectId(params, sender) => {
                         let result = self.set_path_object_id(params).await;
                         sender.send(result).ok();
                     }
-                    EdenCommand::RemoveRecursivelyCommand(params, sender) => {
+                    EdenCommand::RemoveRecursively(params, sender) => {
                         let result = self.remove_path_recursive(params).await;
+                        sender.send(result).ok();
+                    }
+                    EdenCommand::EnsureMaterialized(params, sender) => {
+                        let result = self.ensure_materialized(params).await;
                         sender.send(result).ok();
                     }
                 }
@@ -463,6 +497,12 @@ impl EdenCommandProcessor {
     async fn remove_path_recursive(&self, params: RemoveRecursivelyParams) -> anyhow::Result<()> {
         let client = self.connect().await?;
         client.removeRecursively(&params).await?;
+        Ok(())
+    }
+
+    async fn ensure_materialized(&self, params: EnsureMaterializedParams) -> anyhow::Result<()> {
+        let client = self.connect().await?;
+        client.ensureMaterialized(&params).await?;
         Ok(())
     }
 }
