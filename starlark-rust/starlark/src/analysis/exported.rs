@@ -15,9 +15,8 @@
  * limitations under the License.
  */
 
-use indexmap::IndexMap;
-
 use crate::codemap::FileSpan;
+use crate::collections::SmallMap;
 use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
 
@@ -27,7 +26,7 @@ impl AstModule {
     pub fn exported_symbols(&self) -> Vec<(FileSpan, &str)> {
         // Map since we only want to store the first of each export
         // IndexMap since we want the order to match the order they were defined in
-        let mut result: IndexMap<&str, _> = IndexMap::new();
+        let mut result: SmallMap<&str, _> = SmallMap::new();
         self.statement.visit_stmt(|x| match &**x {
             Stmt::Assign(dest, _) | Stmt::AssignModify(dest, _, _) => {
                 dest.visit_lvalue(|name| {

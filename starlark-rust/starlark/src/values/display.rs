@@ -174,11 +174,11 @@ pub fn display_keyed_container<K: Display, V: Display, Iter: ExactSizeIterator<I
 mod tests {
     use std::fmt;
 
-    use indexmap::indexmap;
-    use indexmap::IndexMap;
     use indoc::indoc;
 
     use super::*;
+    use crate::collections::SmallMap;
+    use crate::smallmap;
 
     #[test]
     fn test_container() {
@@ -219,7 +219,7 @@ mod tests {
 
     #[test]
     fn test_keyed_container() {
-        struct Wrapped(IndexMap<u32, &'static str>);
+        struct Wrapped(SmallMap<u32, &'static str>);
         impl fmt::Display for Wrapped {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 display_keyed_container(
@@ -233,24 +233,24 @@ mod tests {
             }
         }
 
-        assert_eq!("prefix[]", format!("{:}", Wrapped(indexmap! {})));
+        assert_eq!("prefix[]", format!("{:}", Wrapped(smallmap! {})));
         assert_eq!(
             "prefix[1: \"1\"]",
-            format!("{:}", Wrapped(indexmap! {1 => "1"}))
+            format!("{:}", Wrapped(smallmap! {1 => "1"}))
         );
         assert_eq!(
             "prefix[1: \"1\", 2: \"2\"]",
-            format!("{:}", Wrapped(indexmap! {1 => "1", 2 => "2"})),
+            format!("{:}", Wrapped(smallmap! {1 => "1", 2 => "2"})),
         );
         assert_eq!(
             "prefix[1: \"1\", 2: \"2\", 3: \"3\"]",
-            format!("{:}", Wrapped(indexmap! {1 => "1", 2 => "2", 3 => "3"})),
+            format!("{:}", Wrapped(smallmap! {1 => "1", 2 => "2", 3 => "3"})),
         );
 
-        assert_eq!("prefix[]", format!("{:#}", Wrapped(indexmap! {})));
+        assert_eq!("prefix[]", format!("{:#}", Wrapped(smallmap! {})));
         assert_eq!(
             "prefix[ 1: \"1\" ]",
-            format!("{:#}", Wrapped(indexmap! {1 => "1"}))
+            format!("{:#}", Wrapped(smallmap! {1 => "1"}))
         );
         assert_eq!(
             indoc!(
@@ -259,7 +259,7 @@ mod tests {
                    2: \"2\"
                  ]"
             ),
-            format!("{:#}", Wrapped(indexmap! {1 => "1", 2 => "2"})),
+            format!("{:#}", Wrapped(smallmap! {1 => "1", 2 => "2"})),
         );
         assert_eq!(
             indoc!(
@@ -269,7 +269,7 @@ mod tests {
                    3: \"3\"
                  ]"
             ),
-            format!("{:#}", Wrapped(indexmap! {1 => "1", 2 => "2", 3 => "3"})),
+            format!("{:#}", Wrapped(smallmap! {1 => "1", 2 => "2", 3 => "3"})),
         );
     }
 

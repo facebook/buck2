@@ -788,6 +788,7 @@ macro_rules! smallmap {
     ($($key:expr => $value:expr),*) => {
         {
             let cap = smallmap!(@count $($key),*);
+            #[allow(unused_mut)]
             let mut map = $crate::collections::SmallMap::with_capacity(cap);
             $(
                 map.insert($key, $value);
