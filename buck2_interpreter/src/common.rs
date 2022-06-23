@@ -7,12 +7,12 @@
  * of this source tree.
  */
 
-use std::borrow::Borrow;
 use std::borrow::Cow;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::hash::Hash;
 
+use buck2_core::bzl::ModuleID;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::cells::paths::CellRelativePath;
@@ -26,32 +26,6 @@ use gazebo::prelude::*;
 use gazebo::variants::UnpackVariants;
 use ref_cast::RefCast;
 use thiserror::Error;
-
-/// The starlark interpreter expects imports
-/// to be identified by a String and requires using this id in some cases.
-/// The id will contain both the package and filename. For a cross-cell load,
-/// it will include an `@cell_name` suffix to indicate the top-level cell
-/// being loaded into.
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct ModuleID(pub String);
-
-impl Display for ModuleID {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Display::fmt(&self.0, f)
-    }
-}
-
-impl Borrow<str> for ModuleID {
-    fn borrow(&self) -> &str {
-        &self.0
-    }
-}
-
-impl ModuleID {
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
 
 /// Path of a build file (e.g. `BUCK`) only. (`bzl` files are not included).
 #[derive(Clone, Hash, Eq, PartialEq, Debug, derive_more::Display)]

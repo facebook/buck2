@@ -35,6 +35,7 @@ pub mod error;
 mod ascii_char_set;
 pub mod async_once_cell;
 pub mod buck_path;
+pub mod bzl;
 pub mod category;
 pub mod cells;
 pub mod configuration;
