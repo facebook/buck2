@@ -55,6 +55,7 @@ rust_library(
         "fbsource//third-party/rust:tracing",
         "//buck2/buck2_core:buck2_core",
         "//buck2/dice/dice:dice",
+        "//buck2/facebook/allocator-stats:allocator-stats",
         "//buck2/gazebo/gazebo:gazebo",
         "//buck2/shed/more_futures:more_futures",
         "//common/rust/folly/memory:memory",

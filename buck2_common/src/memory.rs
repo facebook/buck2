@@ -53,7 +53,7 @@ mod imp {
 
     /// Dump allocator stats from JEMalloc. Intended for debug purposes
     pub fn allocator_stats(options: &str) -> anyhow::Result<String> {
-        memory::malloc_stats(options)
+        allocator_stats::malloc_stats(options)
     }
 
     /// Enables background threads for jemalloc. See [here](http://jemalloc.net/jemalloc.3.html#background_thread) for

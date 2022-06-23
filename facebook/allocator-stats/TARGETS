@@ -1,0 +1,42 @@
+load("@fbcode_macros//build_defs:cpp_library.bzl", "cpp_library")
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+
+cpp_library(
+    name = "allocator-stats-cpp",
+    srcs = [
+        "allocator-stats.cpp",
+    ],
+    headers = [
+        "allocator-stats.h",
+    ],
+    linker_flags = select({
+        "DEFAULT": [
+        ],
+        # MacOS needs an extra linker flag to really do weak symbols.
+        "ovr_config//os:macos": [
+            "-U",
+            "_malloc_stats_print",
+        ],
+    }),
+    preferred_linkage = "static",
+    undefined_symbols = True,
+    exported_deps = [
+        "fbsource//third-party/rust:cxx-core",
+    ],
+)
+
+rust_library(
+    name = "allocator-stats",
+    srcs = [
+        "lib.rs",
+    ],
+    cpp_deps = [":allocator-stats-cpp"],
+    cxx_bridge = "lib.rs",
+    test_deps = [
+        "//common/rust/folly/memory:memory",
+    ],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:cxx",
+    ],
+)
