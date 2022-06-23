@@ -41,6 +41,7 @@ use crate::eval::bc::opcode::BcOpcodeHandler;
 use crate::eval::bc::repr::BcInstrHeader;
 use crate::eval::bc::repr::BcInstrRepr;
 use crate::eval::bc::repr::BC_INSTR_ALIGN;
+use crate::eval::bc::slow_arg::BcInstrEndArg;
 use crate::eval::bc::slow_arg::BcInstrSlowArg;
 
 impl BcOpcode {
@@ -95,7 +96,10 @@ fn empty_instrs() -> &'static [usize] {
         header: BcInstrHeader {
             opcode: BcOpcode::End,
         },
-        arg: (BcAddr(0), Vec::new()),
+        arg: BcInstrEndArg {
+            end_addr: BcAddr(0),
+            slow_args: Vec::new(),
+        },
         _align: [],
     };
     unsafe {
@@ -319,7 +323,10 @@ impl BcInstrsWriter {
     }
 
     pub(crate) fn finish(mut self, slow_args: Vec<(BcAddr, BcInstrSlowArg)>) -> BcInstrs {
-        self.write::<InstrEnd>((self.ip(), slow_args));
+        self.write::<InstrEnd>(BcInstrEndArg {
+            end_addr: self.ip(),
+            slow_args,
+        });
         // We cannot destructure `self` to fetch `instrs` because `Self` has `drop,
         // so we `mem::take`.
         let instrs = mem::take(&mut self.instrs);

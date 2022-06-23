@@ -27,6 +27,7 @@ use crate::eval::bc::instr_impl::InstrEnd;
 use crate::eval::bc::instrs::BcInstrs;
 use crate::eval::bc::opcode::BcOpcode;
 use crate::eval::bc::opcode::BcOpcodeHandler;
+use crate::eval::bc::slow_arg::BcInstrEndArg;
 use crate::eval::bc::slow_arg::BcInstrSlowArg;
 use crate::eval::compiler::add_span_to_expr_error;
 use crate::eval::compiler::EvalException;
@@ -53,10 +54,13 @@ impl Bc {
             let opcode = ptr.get_opcode();
             if opcode == BcOpcode::End {
                 let end_of_bc = ptr.get_instr::<InstrEnd>();
-                let (code_len, spans) = &end_of_bc.arg;
-                let code_start_ptr = ptr.sub(*code_len);
+                let BcInstrEndArg {
+                    slow_args,
+                    end_addr,
+                } = &end_of_bc.arg;
+                let code_start_ptr = ptr.sub(*end_addr);
                 let addr = addr_ptr.offset_from(code_start_ptr);
-                for (next_addr, next_span) in spans {
+                for (next_addr, next_span) in slow_args {
                     if *next_addr == addr {
                         return next_span;
                     }

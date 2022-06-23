@@ -15,14 +15,23 @@
  * limitations under the License.
  */
 
+use crate::eval::bc::addr::BcAddr;
 use crate::eval::runtime::call_stack::FrozenFileSpan;
 
 /// Slow instruction arg: stored in the end of bytecode,
 /// expensive to access. Used to implement errors.
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub(crate) struct BcInstrSlowArg {
     /// Instruction code span.
     pub(crate) span: FrozenFileSpan,
     /// Spans when an instruction needs multiple spans.
     pub(crate) spans: Vec<FrozenFileSpan>,
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct BcInstrEndArg {
+    /// Offset of end instruction.
+    pub(crate) end_addr: BcAddr,
+    /// Spans of all instructions.
+    pub(crate) slow_args: Vec<(BcAddr, BcInstrSlowArg)>,
 }

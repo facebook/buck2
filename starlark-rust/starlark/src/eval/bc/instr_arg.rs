@@ -38,6 +38,7 @@ use crate::eval::bc::instr_impl::InstrDefData;
 use crate::eval::bc::native_function::BcNativeFunction;
 use crate::eval::bc::opcode::BcOpcode;
 use crate::eval::bc::opcode::BcOpcodeHandler;
+use crate::eval::bc::slow_arg::BcInstrEndArg;
 use crate::eval::bc::slow_arg::BcInstrSlowArg;
 use crate::eval::bc::stack_ptr::BcSlotIn;
 use crate::eval::bc::stack_ptr::BcSlotInRange;
@@ -471,6 +472,14 @@ impl<S: ArgSymbol> BcInstrArg for BcCallArgsFull<S> {
 impl BcInstrArg for BcCallArgsPos {
     fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
         write!(f, " {}", param.pos)
+    }
+
+    fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
+}
+
+impl BcInstrArg for BcInstrEndArg {
+    fn fmt_append(_: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+        write!(f, " BcInstrEndArg")
     }
 
     fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}

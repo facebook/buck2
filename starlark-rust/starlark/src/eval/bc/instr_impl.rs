@@ -27,7 +27,6 @@ use crate::collections::symbol_map::Symbol;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::environment::slots::ModuleSlotId;
-use crate::eval::bc::addr::BcAddr;
 use crate::eval::bc::addr::BcAddrOffset;
 use crate::eval::bc::addr::BcPtrAddr;
 use crate::eval::bc::bytecode::run_block;
@@ -43,7 +42,7 @@ use crate::eval::bc::instr::InstrControl;
 use crate::eval::bc::instr_arg::BcInstrArg;
 use crate::eval::bc::native_function::BcNativeFunction;
 use crate::eval::bc::opcode::BcOpcode;
-use crate::eval::bc::slow_arg::BcInstrSlowArg;
+use crate::eval::bc::slow_arg::BcInstrEndArg;
 use crate::eval::bc::stack_ptr::BcSlotIn;
 use crate::eval::bc::stack_ptr::BcSlotInRange;
 use crate::eval::bc::stack_ptr::BcSlotInRangeFrom;
@@ -1753,14 +1752,13 @@ impl InstrNoFlowImpl for InstrRecordCallExitImpl {
 pub(crate) struct InstrEnd;
 
 impl BcInstr for InstrEnd {
-    /// Offset of current instruction and spans of all instructions.
-    type Arg = (BcAddr, Vec<(BcAddr, BcInstrSlowArg)>);
+    type Arg = BcInstrEndArg;
 
     fn run<'v, 'b>(
         _eval: &mut Evaluator<'v, '_>,
         _frame: BcFramePtr<'v>,
         _ip: BcPtrAddr<'b>,
-        (_this_instr_offset, _spans): &Self::Arg,
+        _: &Self::Arg,
     ) -> InstrControl<'v, 'b> {
         unreachable!("this instruction is not meant to be executed");
     }
