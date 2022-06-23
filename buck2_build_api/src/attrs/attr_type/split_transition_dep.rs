@@ -27,9 +27,11 @@ use starlark::values::Value;
 use crate::attrs::analysis::AttrResolutionContext;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::attr_literal::CoercionError;
+use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::attr_type::dep::DepAttrType;
 use crate::attrs::attr_type::dep::ProviderIdSet;
 use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::AttrConfigurationContext;
 use crate::attrs::ConfiguredAttr;
@@ -52,9 +54,12 @@ impl SplitTransitionDepAttrType {
             transition,
         }
     }
+}
 
-    pub(crate) fn coerce_item(
+impl AttrTypeCoerce for SplitTransitionDepAttrType {
+    fn coerce_item(
         &self,
+        _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
@@ -71,10 +76,12 @@ impl SplitTransitionDepAttrType {
         }))
     }
 
-    pub(crate) fn starlark_type(&self) -> String {
+    fn starlark_type(&self) -> String {
         "str.type".to_owned()
     }
+}
 
+impl SplitTransitionDepAttrType {
     pub(crate) fn configure(
         ctx: &dyn AttrConfigurationContext,
         dep_attr: &SplitTransitionDep,

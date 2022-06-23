@@ -13,7 +13,9 @@ use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
 
 use crate::attrs::attr_type::attr_literal::CoercionError;
+use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::AttrConfigurationContext;
 use crate::attrs::AttrLiteral;
@@ -22,9 +24,10 @@ use crate::attrs::ConfiguredAttr;
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe)]
 pub(crate) struct LabelAttrType;
 
-impl LabelAttrType {
-    pub(crate) fn coerce_item(
+impl AttrTypeCoerce for LabelAttrType {
+    fn coerce_item(
         &self,
+        _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
@@ -37,10 +40,12 @@ impl LabelAttrType {
         Ok(AttrLiteral::Label(box label))
     }
 
-    pub(crate) fn starlark_type(&self) -> String {
+    fn starlark_type(&self) -> String {
         "label".to_owned()
     }
+}
 
+impl LabelAttrType {
     pub(crate) fn configure(
         ctx: &dyn AttrConfigurationContext,
         label: &ProvidersLabel,

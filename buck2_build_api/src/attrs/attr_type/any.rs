@@ -14,8 +14,10 @@ use starlark::values::list::List;
 use starlark::values::tuple::Tuple;
 use starlark::values::Value;
 
+use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::AttrLiteral;
 
@@ -58,16 +60,17 @@ fn to_literal(value: Value) -> AttrLiteral<CoercedAttr> {
     }
 }
 
-impl AnyAttrType {
-    pub(crate) fn coerce_item(
+impl AttrTypeCoerce for AnyAttrType {
+    fn coerce_item(
         &self,
+        _configurable: AttrIsConfigurable,
         _ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
         Ok(to_literal(value))
     }
 
-    pub(crate) fn starlark_type(&self) -> String {
+    fn starlark_type(&self) -> String {
         "\"\"".to_owned()
     }
 }

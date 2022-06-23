@@ -16,6 +16,7 @@ use starlark::values::tuple::Tuple;
 use starlark::values::Value;
 
 use crate::attrs::attr_type::attr_literal::CoercionError;
+use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
@@ -37,8 +38,8 @@ impl ListAttrType {
     }
 }
 
-impl ListAttrType {
-    pub(super) fn coerce_item(
+impl AttrTypeCoerce for ListAttrType {
+    fn coerce_item(
         &self,
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
@@ -63,7 +64,7 @@ impl ListAttrType {
         }
     }
 
-    pub(super) fn starlark_type(&self) -> String {
+    fn starlark_type(&self) -> String {
         format!("[{}]", self.inner.starlark_type())
     }
 }

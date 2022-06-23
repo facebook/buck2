@@ -12,6 +12,7 @@ use std::fmt;
 use starlark::values::Value;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
@@ -32,8 +33,8 @@ impl OptionAttrType {
     }
 }
 
-impl OptionAttrType {
-    pub(crate) fn coerce_item(
+impl AttrTypeCoerce for OptionAttrType {
+    fn coerce_item(
         &self,
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
@@ -46,7 +47,7 @@ impl OptionAttrType {
         }
     }
 
-    pub(crate) fn starlark_type(&self) -> String {
+    fn starlark_type(&self) -> String {
         format!("[None, {}]", self.inner.starlark_type())
     }
 }

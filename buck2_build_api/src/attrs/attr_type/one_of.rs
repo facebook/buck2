@@ -15,6 +15,7 @@ use starlark::values::Value;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::attr_literal::CoercionError;
+use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
@@ -42,8 +43,8 @@ impl OneOfAttrType {
     }
 }
 
-impl OneOfAttrType {
-    pub(crate) fn coerce_item(
+impl AttrTypeCoerce for OneOfAttrType {
+    fn coerce_item(
         &self,
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
@@ -60,11 +61,13 @@ impl OneOfAttrType {
         Err(CoercionError::one_of_many(errs))
     }
 
+    fn starlark_type(&self) -> String {
+        format!("[{}]", self.xs.iter().map(|x| x.starlark_type()).join(", "))
+    }
+}
+
+impl OneOfAttrType {
     pub(crate) fn any_supports_concat(&self) -> bool {
         self.xs.iter().any(AttrType::supports_concat)
-    }
-
-    pub(crate) fn starlark_type(&self) -> String {
-        format!("[{}]", self.xs.iter().map(|x| x.starlark_type()).join(", "))
     }
 }

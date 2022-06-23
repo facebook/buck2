@@ -34,7 +34,9 @@ use crate::attrs::attr_type::attr_literal::AttrConfig;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
+use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::attr_type::query::QueryAttrType;
+use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::AttrConfigurationContext;
 use crate::attrs::CoercedAttr;
@@ -95,9 +97,10 @@ impl ArgAttrType {
     }
 }
 
-impl ArgAttrType {
-    pub(crate) fn coerce_item(
+impl AttrTypeCoerce for ArgAttrType {
+    fn coerce_item(
         &self,
+        _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
@@ -152,7 +155,7 @@ impl ArgAttrType {
         )))
     }
 
-    pub(crate) fn starlark_type(&self) -> String {
+    fn starlark_type(&self) -> String {
         "str.type".to_owned()
     }
 }

@@ -10,26 +10,17 @@
 use starlark::values::Value;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
-use crate::attrs::attr_type::attr_literal::CoercionError;
-use crate::attrs::attr_type::coerce::AttrTypeCoerce;
+use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
-use crate::attrs::CoercedAttr;
 
-#[derive(Debug, Eq, PartialEq, Hash)]
-pub(crate) struct DefaultOnlyAttrType;
-
-impl AttrTypeCoerce for DefaultOnlyAttrType {
+pub(crate) trait AttrTypeCoerce {
     fn coerce_item(
         &self,
-        _configurable: AttrIsConfigurable,
+        configurable: AttrIsConfigurable,
         _ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
-        Err(CoercionError::default_only(value).into())
-    }
+    ) -> anyhow::Result<AttrLiteral<CoercedAttr>>;
 
-    fn starlark_type(&self) -> String {
-        "default_only".to_owned()
-    }
+    fn starlark_type(&self) -> String;
 }

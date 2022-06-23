@@ -18,6 +18,8 @@ use thiserror::Error;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::attr_literal::CoercionError;
+use crate::attrs::attr_type::coerce::AttrTypeCoerce;
+use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::CoercedAttr;
 
@@ -69,9 +71,12 @@ impl EnumAttrType {
         }
         write!(f, "]{})", arg)
     }
+}
 
-    pub(crate) fn coerce_item(
+impl AttrTypeCoerce for EnumAttrType {
+    fn coerce_item(
         &self,
+        _configurable: AttrIsConfigurable,
         _ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
@@ -93,7 +98,7 @@ impl EnumAttrType {
         }
     }
 
-    pub(crate) fn starlark_type(&self) -> String {
+    fn starlark_type(&self) -> String {
         "str.type".to_owned()
     }
 }

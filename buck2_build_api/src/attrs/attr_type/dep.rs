@@ -33,6 +33,8 @@ use crate::attrs::attr_type::attr_literal::AttrLike;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
+use crate::attrs::attr_type::coerce::AttrTypeCoerce;
+use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::AttrConfigurationContext;
 use crate::attrs::CoercedAttr;
@@ -214,9 +216,10 @@ impl DepAttrType {
     }
 }
 
-impl DepAttrType {
-    pub(crate) fn coerce_item(
+impl AttrTypeCoerce for DepAttrType {
+    fn coerce_item(
         &self,
+        _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
@@ -229,7 +232,7 @@ impl DepAttrType {
         Ok(AttrLiteral::Dep(box DepAttr::new(self.dupe(), label)))
     }
 
-    pub(crate) fn starlark_type(&self) -> String {
+    fn starlark_type(&self) -> String {
         "str.type".to_owned()
     }
 }
@@ -272,9 +275,10 @@ impl ExplicitConfiguredDepAttrType {
     }
 }
 
-impl ExplicitConfiguredDepAttrType {
-    pub(crate) fn coerce_item(
+impl AttrTypeCoerce for ExplicitConfiguredDepAttrType {
+    fn coerce_item(
         &self,
+        _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
@@ -305,10 +309,12 @@ impl ExplicitConfiguredDepAttrType {
         ))
     }
 
-    pub(crate) fn starlark_type(&self) -> String {
+    fn starlark_type(&self) -> String {
         "(str.type, str.type)".to_owned()
     }
+}
 
+impl ExplicitConfiguredDepAttrType {
     pub(crate) fn resolve_single<'v>(
         ctx: &'v dyn AttrResolutionContext,
         dep_attr: &ConfiguredExplicitConfiguredDep,

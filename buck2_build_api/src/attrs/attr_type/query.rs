@@ -30,8 +30,10 @@ use crate::attrs::attr_type::attr_literal::AttrConfig;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
+use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::attr_type::dep::DepAttrType;
 use crate::attrs::attr_type::dep::ProviderIdSet;
+use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::AttrConfigurationContext;
 use crate::attrs::CoercedAttr;
@@ -47,21 +49,6 @@ pub(crate) struct QueryAttrType {
 impl QueryAttrType {
     pub(crate) fn new(inner: DepAttrType) -> Self {
         Self { inner }
-    }
-
-    pub(crate) fn coerce_item(
-        &self,
-        ctx: &dyn AttrCoercionContext,
-        value: Value,
-    ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
-        let query = value
-            .unpack_str()
-            .ok_or_else(|| CoercionError::type_error(STRING_TYPE, value))?;
-
-        Ok(AttrLiteral::Query(box QueryAttr {
-            query: Self::coerce(ctx, query.to_owned())?,
-            providers: None,
-        }))
     }
 
     pub(crate) fn coerce(
@@ -111,8 +98,26 @@ impl QueryAttrType {
             resolved_literals: collector.literals,
         })
     }
+}
 
-    pub(crate) fn starlark_type(&self) -> String {
+impl AttrTypeCoerce for QueryAttrType {
+    fn coerce_item(
+        &self,
+        _configurable: AttrIsConfigurable,
+        ctx: &dyn AttrCoercionContext,
+        value: Value,
+    ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
+        let query = value
+            .unpack_str()
+            .ok_or_else(|| CoercionError::type_error(STRING_TYPE, value))?;
+
+        Ok(AttrLiteral::Query(box QueryAttr {
+            query: Self::coerce(ctx, query.to_owned())?,
+            providers: None,
+        }))
+    }
+
+    fn starlark_type(&self) -> String {
         "str.type".to_owned()
     }
 }

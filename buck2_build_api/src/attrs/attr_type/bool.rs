@@ -14,15 +14,18 @@ use starlark::values::Value;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::attr_literal::CoercionError;
+use crate::attrs::attr_type::coerce::AttrTypeCoerce;
+use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::CoercedAttr;
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub(crate) struct BoolAttrType;
 
-impl BoolAttrType {
-    pub(crate) fn coerce_item(
+impl AttrTypeCoerce for BoolAttrType {
+    fn coerce_item(
         &self,
+        _configurable: AttrIsConfigurable,
         _ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
@@ -32,7 +35,7 @@ impl BoolAttrType {
         }
     }
 
-    pub(crate) fn starlark_type(&self) -> String {
+    fn starlark_type(&self) -> String {
         "bool.type".to_owned()
     }
 }

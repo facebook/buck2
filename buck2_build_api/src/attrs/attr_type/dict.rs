@@ -15,6 +15,7 @@ use starlark::values::dict::Dict;
 use starlark::values::Value;
 
 use crate::attrs::attr_type::attr_literal::CoercionError;
+use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
@@ -42,8 +43,8 @@ impl DictAttrType {
     }
 }
 
-impl DictAttrType {
-    pub(crate) fn coerce_item(
+impl AttrTypeCoerce for DictAttrType {
+    fn coerce_item(
         &self,
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
@@ -77,7 +78,7 @@ impl DictAttrType {
         }
     }
 
-    pub(crate) fn starlark_type(&self) -> String {
+    fn starlark_type(&self) -> String {
         format!(
             "{{{}: {}}}",
             self.key.starlark_type(),

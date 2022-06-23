@@ -35,6 +35,7 @@ use tuple::TupleAttrType;
 use crate::attrs::attr_type::any::AnyAttrType;
 use crate::attrs::attr_type::arg::ArgAttrType;
 use crate::attrs::attr_type::bool::BoolAttrType;
+use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::attr_type::int::IntAttrType;
 use crate::attrs::attr_type::list::ListAttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
@@ -45,6 +46,7 @@ pub(crate) mod any;
 pub mod arg;
 pub mod attr_literal;
 pub(crate) mod bool;
+pub(crate) mod coerce;
 pub(crate) mod configuration_dep;
 mod default_only;
 pub(crate) mod dep;
@@ -332,25 +334,25 @@ impl AttrTypeInner {
         value: Value,
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
         match self {
-            Self::Any(x) => x.coerce_item(ctx, value),
-            Self::Arg(x) => x.coerce_item(ctx, value),
-            Self::Bool(x) => x.coerce_item(ctx, value),
-            Self::Int(x) => x.coerce_item(ctx, value),
-            Self::Dep(x) => x.coerce_item(ctx, value),
+            Self::Any(x) => x.coerce_item(configurable, ctx, value),
+            Self::Arg(x) => x.coerce_item(configurable, ctx, value),
+            Self::Bool(x) => x.coerce_item(configurable, ctx, value),
+            Self::Int(x) => x.coerce_item(configurable, ctx, value),
+            Self::Dep(x) => x.coerce_item(configurable, ctx, value),
             Self::Dict(x) => x.coerce_item(configurable, ctx, value),
             Self::List(x) => x.coerce_item(configurable, ctx, value),
             Self::Tuple(x) => x.coerce_item(configurable, ctx, value),
             Self::OneOf(x) => x.coerce_item(configurable, ctx, value),
             Self::Option(x) => x.coerce_item(configurable, ctx, value),
-            Self::Source(x) => x.coerce_item(ctx, value),
-            Self::String(x) => x.coerce_item(ctx, value),
-            Self::Query(x) => x.coerce_item(ctx, value),
-            Self::ConfigurationDep(x) => x.coerce_item(ctx, value),
-            Self::ConfiguredDep(x) => x.coerce_item(ctx, value),
-            Self::DefaultOnly(x) => x.coerce_item(ctx, value),
-            Self::Enum(x) => x.coerce_item(ctx, value),
-            Self::SplitTransitionDep(x) => x.coerce_item(ctx, value),
-            Self::Label(x) => x.coerce_item(ctx, value),
+            Self::Source(x) => x.coerce_item(configurable, ctx, value),
+            Self::String(x) => x.coerce_item(configurable, ctx, value),
+            Self::Query(x) => x.coerce_item(configurable, ctx, value),
+            Self::ConfigurationDep(x) => x.coerce_item(configurable, ctx, value),
+            Self::ConfiguredDep(x) => x.coerce_item(configurable, ctx, value),
+            Self::DefaultOnly(x) => x.coerce_item(configurable, ctx, value),
+            Self::Enum(x) => x.coerce_item(configurable, ctx, value),
+            Self::SplitTransitionDep(x) => x.coerce_item(configurable, ctx, value),
+            Self::Label(x) => x.coerce_item(configurable, ctx, value),
         }
     }
 
