@@ -260,7 +260,6 @@ impl FrozenHeap {
     }
 
     /// Intern string.
-    #[allow(dead_code)]
     pub(crate) fn alloc_str_intern(&self, s: &str) -> FrozenStringValue {
         if let Some(s) = constant_string(s) {
             s

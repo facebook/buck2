@@ -197,7 +197,7 @@ impl Context {
     fn check(&self, module: &AstModule) -> impl Iterator<Item = EvalMessage> {
         let mut globals = Vec::new();
         for x in &self.prelude {
-            globals.extend(x.names());
+            globals.extend(x.names().map(|s| s.as_str()));
         }
         let globals = if self.prelude.is_empty() {
             None

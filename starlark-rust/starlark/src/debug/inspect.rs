@@ -58,7 +58,7 @@ fn inspect_module_variables<'v>(eval: &Evaluator<'v, '_>) -> SmallMap<String, Va
     let mut res = SmallMap::new();
     for (name, slot) in eval.module_env.names().all_names() {
         if let Some(v) = eval.module_env.slots().get_slot(slot) {
-            res.insert(name, v);
+            res.insert(name.as_str().to_owned(), v);
         }
     }
     res

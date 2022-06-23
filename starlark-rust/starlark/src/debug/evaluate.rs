@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-use std::collections::HashMap;
 use std::mem;
 
+use crate::collections::SmallMap;
 use crate::debug::inspect::to_scope_names;
 use crate::eval::Evaluator;
 use crate::syntax::AstModule;
+use crate::values::FrozenStringValue;
 use crate::values::Value;
 
 impl<'v, 'a> Evaluator<'v, 'a> {
@@ -43,19 +44,19 @@ impl<'v, 'a> Evaluator<'v, 'a> {
 
         // We want all the local variables to be available to the module, so we capture
         // everything before, shove the local variables into the module, and then revert after
-        let original_module: HashMap<String, Option<Value<'v>>> = self
+        let original_module: SmallMap<FrozenStringValue, Option<Value<'v>>> = self
             .module_env
             .names()
             .all_names()
-            .iter()
-            .map(|(name, slot)| (name.clone(), self.module_env.slots().get_slot(*slot)))
+            .into_iter()
+            .map(|(name, slot)| (name, self.module_env.slots().get_slot(slot)))
             .collect();
 
         // Push all the frozen variables into the module
         if let Some(frozen) = &self.module_variables {
             for (name, slot) in frozen.0.names.symbols() {
                 if let Some(value) = frozen.0.get_slot(slot) {
-                    self.module_env.set(name, value.to_value())
+                    self.module_env.set(&name, value.to_value())
                 }
             }
         }

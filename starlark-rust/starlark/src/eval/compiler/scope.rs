@@ -54,6 +54,7 @@ use crate::syntax::ast::Visibility;
 use crate::syntax::payload_map::AstPayloadFunction;
 use crate::syntax::uniplate::VisitMut;
 use crate::syntax::Dialect;
+use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
 use crate::values::FrozenValue;
 
@@ -186,6 +187,7 @@ impl<'a> Scope<'a> {
 
     pub fn enter_module(
         module: &'a MutableNames,
+        frozen_heap: &'a FrozenHeap,
         scope_id: ScopeId,
         mut scope_data: ScopeData,
         code: &mut CstStmt,
@@ -209,7 +211,7 @@ impl<'a> Scope<'a> {
         let mut module_bindings = HashMap::new();
         for (x, binding_id) in locals {
             let binding = scope_data.mut_binding(binding_id);
-            let slot = module.add_name_visibility(x, binding.vis);
+            let slot = module.add_name_visibility(frozen_heap.alloc_str_intern(x), binding.vis);
             let old_slot = mem::replace(&mut binding.slot, Some(Slot::Module(slot)));
             assert!(old_slot.is_none());
             let old_binding = module_bindings.insert(x.to_owned(), binding_id);
@@ -857,6 +859,7 @@ mod tests {
         let codemap = frozen_heap.alloc_any_display_from_debug(ast.codemap.dupe());
         let scope = Scope::enter_module(
             module,
+            &frozen_heap,
             root_scope_id,
             scope_data,
             &mut cst,
@@ -1005,9 +1008,10 @@ def f():
 
     #[test]
     fn existing_module_with_names() {
+        let frozen_heap = FrozenHeap::new();
         let module = MutableNames::new();
-        module.add_name("x");
-        module.add_name("y");
+        module.add_name(frozen_heap.alloc_str_intern("x"));
+        module.add_name(frozen_heap.alloc_str_intern("y"));
         test_with_module("x = y", "0:m=0+ 1:m=1 | x:0 y:1", &module);
     }
 }

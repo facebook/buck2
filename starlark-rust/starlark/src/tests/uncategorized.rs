@@ -510,7 +510,10 @@ fn test_module_visibility_preserved_by_evaluator() -> anyhow::Result<()> {
 
     let import = Module::new();
     import.set("a", Value::new_int(1));
-    import.set_private("b", Value::new_int(2));
+    import.set_private(
+        import.frozen_heap().alloc_str_intern("b"),
+        Value::new_int(2),
+    );
 
     let mut eval = Evaluator::new(&import);
     let ast = AstModule::parse("prelude.bzl", "c = 3".to_owned(), &Dialect::Standard).unwrap();

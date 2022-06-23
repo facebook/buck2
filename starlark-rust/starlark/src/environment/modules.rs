@@ -33,6 +33,7 @@ use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
 use itertools::Itertools;
 
+use crate::collections::Hashed;
 use crate::environment::names::FrozenNames;
 use crate::environment::names::MutableNames;
 use crate::environment::slots::FrozenSlots;
@@ -48,6 +49,7 @@ use crate::values::docs::DocStringKind;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
+use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::OwnedFrozenValue;
@@ -153,7 +155,7 @@ impl FrozenModule {
     }
 
     /// Iterate through all the names defined in this module.
-    pub fn names(&self) -> impl Iterator<Item = &str> {
+    pub fn names(&self) -> impl Iterator<Item = FrozenStringValue> + '_ {
         self.module.0.names()
     }
 
@@ -167,7 +169,7 @@ impl FrozenModule {
         self.module.0.describe()
     }
 
-    pub(crate) fn all_items(&self) -> impl Iterator<Item = (&str, FrozenValue)> {
+    pub(crate) fn all_items(&self) -> impl Iterator<Item = (FrozenStringValue, FrozenValue)> + '_ {
         self.module.0.all_items()
     }
 
@@ -184,8 +186,8 @@ impl FrozenModule {
             .names()
             .filter(|n| Module::default_visibility(n) == Visibility::Public)
             .filter_map(|n| {
-                self.get(n)
-                    .map(|fv| (n.to_owned(), fv.value().get_ref().documentation()))
+                self.get(&n)
+                    .map(|fv| (n.as_str().to_owned(), fv.value().get_ref().documentation()))
             })
             .collect();
 
@@ -197,23 +199,23 @@ impl FrozenModule {
 }
 
 impl FrozenModuleData {
-    pub fn names(&self) -> impl Iterator<Item = &str> {
+    pub fn names(&self) -> impl Iterator<Item = FrozenStringValue> + '_ {
         self.names.symbols().map(|x| x.0)
     }
 
     pub fn describe(&self) -> String {
         self.items()
-            .map(|(name, val)| val.to_value().describe(name))
+            .map(|(name, val)| val.to_value().describe(&name))
             .join("\n")
     }
 
-    pub(crate) fn items(&self) -> impl Iterator<Item = (&str, FrozenValue)> {
+    pub(crate) fn items(&self) -> impl Iterator<Item = (FrozenStringValue, FrozenValue)> + '_ {
         self.names
             .symbols()
             .filter_map(|(name, slot)| Some((name, self.slots.get_slot(slot)?)))
     }
 
-    pub(crate) fn all_items(&self) -> impl Iterator<Item = (&str, FrozenValue)> {
+    pub(crate) fn all_items(&self) -> impl Iterator<Item = (FrozenStringValue, FrozenValue)> + '_ {
         self.names
             .all_symbols()
             .filter_map(|(name, slot)| Some((name, self.slots.get_slot(slot)?)))
@@ -225,10 +227,10 @@ impl FrozenModuleData {
 
     /// Try and go back from a slot to a name.
     /// Inefficient - only use in error paths.
-    pub(crate) fn get_slot_name(&self, slot: ModuleSlotId) -> Option<String> {
+    pub(crate) fn get_slot_name(&self, slot: ModuleSlotId) -> Option<FrozenStringValue> {
         for (s, i) in self.names.symbols() {
             if i == slot {
-                return Some(s.to_owned());
+                return Some(s);
             }
         }
         None
@@ -285,7 +287,10 @@ impl Module {
     }
 
     /// Get value, exported or private by name.
-    pub(crate) fn get_any_visibility<'v>(&'v self, name: &str) -> Option<(Value<'v>, Visibility)> {
+    pub(crate) fn get_any_visibility<'v>(
+        &'v self,
+        name: Hashed<&str>,
+    ) -> Option<(Value<'v>, Visibility)> {
         let (slot, vis) = self.names.get_name(name)?;
         let value = self.slots().get_slot(slot)?;
         Some((value, vis))
@@ -294,7 +299,7 @@ impl Module {
     /// Get the value of the exported variable `name`.
     /// Returns [`None`] if the variable isn't defined in the module or it is private.
     pub fn get<'v>(&'v self, name: &str) -> Option<Value<'v>> {
-        self.get_any_visibility(name)
+        self.get_any_visibility(Hashed::new(name))
             .and_then(|(v, vis)| match vis {
                 Visibility::Private => None,
                 Visibility::Public => Some(v),
@@ -344,7 +349,7 @@ impl Module {
     /// Modifying these variables while executing is ongoing can have
     /// surprising effects.
     pub fn set<'v>(&'v self, name: &str, value: Value<'v>) {
-        let slot = self.names.add_name(name);
+        let slot = self.names.add_name(self.frozen_heap.alloc_str_intern(name));
         let slots = self.slots();
         slots.ensure_slot(slot);
         slots.set_slot(slot, value);
@@ -360,7 +365,7 @@ impl Module {
 
     /// Set the value of a variable in the environment. Set its visibliity to
     /// "private" to ensure that it is not re-exported
-    pub(crate) fn set_private<'v>(&'v self, name: &str, value: Value<'v>) {
+    pub(crate) fn set_private<'v>(&'v self, name: FrozenStringValue, value: Value<'v>) {
         let slot = self.names.add_name_visibility(name, Visibility::Private);
         let slots = self.slots();
         slots.ensure_slot(slot);
@@ -371,7 +376,7 @@ impl Module {
     pub fn import_public_symbols(&self, module: &FrozenModule) {
         self.frozen_heap.add_reference(&module.heap);
         for (k, slot) in module.module.0.names.symbols() {
-            if Self::default_visibility(k) == Visibility::Public {
+            if Self::default_visibility(&k) == Visibility::Public {
                 if let Some(value) = module.module.0.slots.get_slot(slot) {
                     self.set_private(k, Value::new_frozen(value))
                 }
@@ -389,7 +394,7 @@ impl Module {
         }
         match module.get_any_visibility(symbol) {
             None => Err({
-                match did_you_mean(symbol, module.names()) {
+                match did_you_mean(symbol, module.names().map(|s| s.as_str())) {
                     Some(better) => EnvironmentError::ModuleHasNoSymbolDidYouMean(
                         symbol.to_owned(),
                         better.to_owned(),

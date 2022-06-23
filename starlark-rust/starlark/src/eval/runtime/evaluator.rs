@@ -423,8 +423,12 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         #[inline(never)]
         fn error<'v>(eval: &Evaluator<'v, '_>, slot: ModuleSlotId) -> anyhow::Error {
             let name = match &eval.module_variables {
-                None => eval.module_env.names().get_slot(slot),
-                Some(e) => e.0.get_slot_name(slot),
+                None => eval
+                    .module_env
+                    .names()
+                    .get_slot(slot)
+                    .map(|s| s.as_str().to_owned()),
+                Some(e) => e.0.get_slot_name(slot).map(|s| s.as_str().to_owned()),
             }
             .unwrap_or_else(|| "<unknown>".to_owned());
             EnvironmentError::LocalVariableReferencedBeforeAssignment(name).into()
