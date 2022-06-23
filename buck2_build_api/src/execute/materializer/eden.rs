@@ -215,7 +215,6 @@ impl EdenMaterializer {
         eden_buck_out: EdenBuckOut,
         fs: ProjectFilesystem,
     ) -> anyhow::Result<Self> {
-        eden_buck_out.setup()?;
         Ok(Self {
             re_client_manager: re_client_manager.dupe(),
             delegator: Arc::new(ImmediateMaterializer::new(

@@ -1,4 +1,4 @@
-#[cfg(all(unix, feature = "eden_io"))]
+#[cfg(all(unix, any(feature = "eden_io", feature = "eden_materializer")))]
 pub mod eden;
 pub mod fs;
 

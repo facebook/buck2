@@ -109,7 +109,11 @@ impl EdenConnectionManager {
         }))
     }
 
-    async fn with_eden<F, Fut, T, E>(&self, f: F) -> Result<T, ConnectAndRequestError<E>>
+    pub fn get_mount_point(&self) -> Vec<u8> {
+        self.connector.root.as_bytes().to_vec()
+    }
+
+    pub async fn with_eden<F, Fut, T, E>(&self, f: F) -> Result<T, ConnectAndRequestError<E>>
     where
         F: Fn(&(dyn EdenService + Send + Sync)) -> Fut + 'static,
         Fut: Future<Output = Result<T, E>>,
@@ -211,7 +215,7 @@ impl IoProvider for EdenIoProvider {
 
     async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<SimpleDirEntry>> {
         let params = GlobParams {
-            mountPoint: self.manager.connector.root.as_bytes().to_vec(),
+            mountPoint: self.manager.get_mount_point(),
             globs: vec![format!("{}/*", path)],
             includeDotfiles: true,
             wantDtype: true,
@@ -277,7 +281,7 @@ impl IoProvider for EdenIoProvider {
             i64::from(i32::from(FileAttributes::SHA1_HASH) | i32::from(FileAttributes::FILE_SIZE));
 
         let params = GetAttributesFromFilesParams {
-            mountPoint: self.manager.connector.root.as_bytes().to_vec(),
+            mountPoint: self.manager.get_mount_point(),
             paths: vec![path.to_string().into_bytes()],
             requestedAttributes: requested_attributes,
             sync: no_sync(),
@@ -551,7 +555,7 @@ async fn is_mount_ready(
 }
 
 #[derive(Error, Debug)]
-enum ConnectAndRequestError<E> {
+pub enum ConnectAndRequestError<E> {
     #[error(transparent)]
     ConnectionError(anyhow::Error),
 
@@ -560,13 +564,13 @@ enum ConnectAndRequestError<E> {
 }
 
 #[derive(Copy, Clone, Dupe, PartialEq, Eq)]
-enum ErrorHandlingStrategy {
+pub enum ErrorHandlingStrategy {
     Reconnect,
     Retry,
     Abort,
 }
 
-trait HasErrorHandlingStrategy {
+pub trait HasErrorHandlingStrategy {
     fn error_handling_strategy(&self) -> ErrorHandlingStrategy;
 }
 
@@ -607,3 +611,6 @@ impl_has_error_disposition!(GetFileInformationError);
 impl_has_error_disposition!(GlobFilesError);
 impl_has_error_disposition!(ListMountsError);
 impl_has_error_disposition!(SynchronizeWorkingCopyError);
+impl_has_error_disposition!(SetPathObjectIdError);
+impl_has_error_disposition!(RemoveRecursivelyError);
+impl_has_error_disposition!(EnsureMaterializedError);

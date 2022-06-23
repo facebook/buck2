@@ -104,6 +104,7 @@ use events::ControlEvent;
 use events::Event;
 use events::EventSource;
 use events::TraceId;
+use fbinit::FacebookInit;
 use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::channel::mpsc::UnboundedSender;
@@ -737,6 +738,7 @@ impl DaemonState {
             .parse("buck2", "enable_local_caching_of_re_artifacts")?
             .unwrap_or(false);
         let materializer = Self::create_materializer(
+            fb,
             paths.project_root().to_owned(),
             paths.buck_out_dir(),
             re_client_manager.dupe(),
@@ -782,6 +784,7 @@ impl DaemonState {
     }
 
     fn create_materializer(
+        fb: FacebookInit,
         project_root: AbsPathBuf,
         buck_out_path: ForwardRelativePathBuf,
         re_client_manager: Arc<ReConnectionManager>,
@@ -818,6 +821,7 @@ impl DaemonState {
                             re_client_manager.dupe(),
                             blocking_executor,
                             buck2_build_api::execute::materializer::eden_api::EdenBuckOut::new(
+                                fb,
                                 ProjectRelativePathBuf::from(buck_out_path.clone()),
                                 project_root.join_unnormalized(buck_out_path),
                                 re_client_manager,
@@ -832,6 +836,7 @@ impl DaemonState {
                 {
                     let _unused = buck_out_path;
                     let _unused = fs;
+                    let _unused = fb;
                     Err(anyhow::anyhow!(
                         "`eden` materialization method is not supported unless you build with `eden_materializer`"
                     ))

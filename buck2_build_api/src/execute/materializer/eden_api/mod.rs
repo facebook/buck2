@@ -14,6 +14,7 @@ use std::process::Command;
 use std::sync::Arc;
 
 use anyhow::Context;
+use buck2_common::io::eden::EdenConnectionManager;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::AbsPathBuf;
@@ -25,21 +26,12 @@ use edenfs::EnsureMaterializedParams;
 use edenfs::ObjectType;
 use edenfs::RemoveRecursivelyParams;
 use edenfs::SetPathObjectIdParams;
-use fbthrift::binary_protocol::BinaryProtocol;
-use fbthrift_socket::SocketTransport;
-use futures::StreamExt;
+use fbinit::FacebookInit;
 use more_futures::spawn::dropcancel_critical_section;
 use remote_execution::InlinedBlobWithDigest;
 use serde::Deserialize;
 use thiserror::Error;
-#[cfg(windows)]
-use tokio::net::windows::named_pipe::ClientOptions;
-#[cfg(unix)]
-use tokio::net::UnixStream;
-use tokio::sync::mpsc;
-use tokio::sync::oneshot;
-use tokio::task::JoinHandle;
-use tokio_stream::wrappers::UnboundedReceiverStream;
+use tokio::sync::Semaphore;
 
 use crate::actions::digest::FileDigestToReExt;
 use crate::actions::directory::ActionDirectoryMember;
@@ -200,91 +192,50 @@ fn get_object_id_and_type(value: &ArtifactValue) -> (String, ObjectType) {
     }
 }
 
+fn setup(buck_out: &AbsPathBuf) -> Result<(), SetupBuckOutError> {
+    // Run "eden clone" command to create a brand new buck-out
+    execute_eden_clone(buck_out)?;
+
+    // Run eden redirection to exclude write heavy dirs from using EdenFS
+    ["log", "tmp", "re_logs"]
+        .into_iter()
+        .try_for_each(|dir| -> Result<(), SetupBuckOutError> {
+            execute_eden_redirection_add(buck_out, dir)?;
+            Ok(())
+        })?;
+
+    Ok(())
+}
+
 pub struct EdenBuckOut {
     /// Relative path of buck_out, i.e "buck-out/v2"
     buck_out_path: ProjectRelativePathBuf,
-
-    /// Absolute path of mount point, i.e. "/data/fbsource/buck-out/v2".
-    mount_point: AbsPathBuf,
-
-    /// Send to emit commands to the command loop
-    command_sender: mpsc::UnboundedSender<EdenCommand>,
-    command_thread: JoinHandle<()>,
-
+    connection_manager: EdenConnectionManager,
     re_client_manager: Arc<ReConnectionManager>,
-}
-
-#[derive(Debug)]
-enum EdenCommand {
-    SetPathObjectId(SetPathObjectIdParams, oneshot::Sender<anyhow::Result<()>>),
-    RemoveRecursively(RemoveRecursivelyParams, oneshot::Sender<anyhow::Result<()>>),
-    EnsureMaterialized(
-        EnsureMaterializedParams,
-        oneshot::Sender<anyhow::Result<()>>,
-    ),
 }
 
 impl EdenBuckOut {
     pub fn new(
+        fb: FacebookInit,
         buck_out_path: ProjectRelativePathBuf,
         mount_point: AbsPathBuf,
         re_client_manager: Arc<ReConnectionManager>,
     ) -> anyhow::Result<Self> {
-        let (command_sender, command_recv) = mpsc::unbounded_channel();
-        let command_recv = UnboundedReceiverStream::new(command_recv);
+        setup(&mount_point)?;
 
         // Default to the number of CPUs. This value is very conservative
         // TODO (yipu): Benchmark and figure out optimal default concurrency
         static CONCURRENCY: EnvHelper<usize> = EnvHelper::new("BUCK2_EDEN_CONCURRENCY");
         let concurrency = CONCURRENCY.get()?.unwrap_or_else(num_cpus::get);
-
-        let command_processor = EdenCommandProcessor {
-            mount_point: mount_point.clone(),
-            concurrency,
-        };
-        let command_thread = tokio::spawn(async move { command_processor.run(command_recv).await });
+        let connection_manager =
+            EdenConnectionManager::new(fb, &mount_point, Semaphore::new(concurrency))?
+                .expect("EdenFS mount does not setup correctly");
 
         Ok(Self {
             buck_out_path,
-            mount_point,
-            command_sender,
-            command_thread,
+            connection_manager,
             re_client_manager,
         })
-    }
-
-    pub fn get_mount_point(&self) -> Vec<u8> {
-        self.mount_point
-            .to_str()
-            .unwrap_or_else(|| panic!("[eden] Invalid buck-out path: {}", self.mount_point))
-            .as_bytes()
-            .to_vec()
-    }
-
-    pub fn setup(&self) -> Result<(), SetupBuckOutError> {
-        // Run "eden clone" command to create a brand new buck-out
-        execute_eden_clone(&self.mount_point)?;
-
-        // Run eden redirection to exclude write heavy dir from using EdenFS
-        ["log", "tmp", "re_logs"].into_iter().try_for_each(
-            |dir| -> Result<(), SetupBuckOutError> {
-                execute_eden_redirection_add(&self.mount_point, dir)?;
-                Ok(())
-            },
-        )?;
-
-        Ok(())
-    }
-
-    async fn dispatch_command(
-        &self,
-        command: EdenCommand,
-        recv: oneshot::Receiver<anyhow::Result<()>>,
-    ) -> anyhow::Result<()> {
-        self.command_sender
-            .send(command)
-            .context("EdenCommandProcessor has been dropped")?;
-        recv.await.context("Receiving EdenCommand result")?
     }
 
     pub async fn set_path_object_id(
@@ -309,24 +260,22 @@ impl EdenBuckOut {
             .get_session_id()
             .await?;
 
-        let (sender, recv) = oneshot::channel();
-
-        let cmd = EdenCommand::SetPathObjectId(
-            SetPathObjectIdParams {
-                mountPoint: self.get_mount_point(),
-                path: relpath_to_buck_out.as_str().as_bytes().to_vec(),
-                objectId: object_id.into_bytes(),
-                r#type: object_type,
-                mode: CheckoutMode::FORCE,
-                requestInfo: Some(BTreeMap::from([(
-                    String::from("session-id"),
-                    re_session_id,
-                )])),
-                ..Default::default()
-            },
-            sender,
-        );
-        self.dispatch_command(cmd, recv).await
+        let params = SetPathObjectIdParams {
+            mountPoint: self.connection_manager.get_mount_point(),
+            path: relpath_to_buck_out.as_str().as_bytes().to_vec(),
+            objectId: object_id.into_bytes(),
+            r#type: object_type,
+            mode: CheckoutMode::FORCE,
+            requestInfo: Some(BTreeMap::from([(
+                String::from("session-id"),
+                re_session_id,
+            )])),
+            ..Default::default()
+        };
+        self.connection_manager
+            .with_eden(move |eden| eden.setPathObjectId(&params))
+            .await?;
+        Ok(())
     }
 
     /// Ensure a file is in CAS. This method will call CAS's upload method
@@ -380,18 +329,16 @@ impl EdenBuckOut {
         })?;
 
         dropcancel_critical_section(async move {
-            let (sender, recv) = oneshot::channel();
-            let cmd = EdenCommand::RemoveRecursively(
-                RemoveRecursivelyParams {
-                    mountPoint: self.get_mount_point(),
-                    path: relpath_to_buck_out.as_str().as_bytes().to_vec(),
-                    ..Default::default()
-                },
-                sender,
-            );
-            self.dispatch_command(cmd, recv)
-                .await
-                .context("Pool shut down")
+            let params = RemoveRecursivelyParams {
+                mountPoint: self.connection_manager.get_mount_point(),
+                path: relpath_to_buck_out.as_str().as_bytes().to_vec(),
+                ..Default::default()
+            };
+
+            self.connection_manager
+                .with_eden(move |eden| eden.removeRecursively(&params))
+                .await?;
+            Ok(())
         })
         .await
     }
@@ -422,87 +369,17 @@ impl EdenBuckOut {
             .map(|relpath| relpath.as_str().as_bytes().to_vec())
             .collect::<Vec<_>>();
 
-        let (sender, recv) = oneshot::channel();
+        let params = EnsureMaterializedParams {
+            mountPoint: self.connection_manager.get_mount_point(),
+            paths: file_paths,
+            background: true,
+            followSymlink: true, // Also materialize symlink targets
+            ..Default::default()
+        };
 
-        let cmd = EdenCommand::EnsureMaterialized(
-            EnsureMaterializedParams {
-                mountPoint: self.get_mount_point(),
-                paths: file_paths,
-                background: true,
-                followSymlink: true, // Also materialize symlink targets
-                ..Default::default()
-            },
-            sender,
-        );
-        self.dispatch_command(cmd, recv).await
-    }
-}
-
-impl Drop for EdenBuckOut {
-    fn drop(&mut self) {
-        self.command_thread.abort();
-    }
-}
-
-struct EdenCommandProcessor {
-    /// Absolute path of mount point, i.e. "/data/fbsource/buck-out/v2".
-    mount_point: AbsPathBuf,
-    concurrency: usize,
-}
-
-impl EdenCommandProcessor {
-    pub async fn connect(&self) -> anyhow::Result<EdenFsClient> {
-        let eden_socket_address = std::fs::read_link(self.mount_point.join(".eden/socket"))
-            .context("Error getting eden socket")?;
-        #[cfg(unix)]
-        let socket = UnixStream::connect(&eden_socket_address)
-            .await
-            .context("Can not connect to the Eden socket")?;
-        #[cfg(windows)]
-        let socket = ClientOptions::new().open(&eden_socket_address)?;
-        let transport = SocketTransport::new(socket);
-        let client = <dyn EdenService>::new(BinaryProtocol, transport);
-        Ok(client)
-    }
-
-    pub async fn run(&self, command_recv: UnboundedReceiverStream<EdenCommand>) {
-        command_recv
-            .map(|command| async {
-                match command {
-                    EdenCommand::SetPathObjectId(params, sender) => {
-                        let result = self.set_path_object_id(params).await;
-                        sender.send(result).ok();
-                    }
-                    EdenCommand::RemoveRecursively(params, sender) => {
-                        let result = self.remove_path_recursive(params).await;
-                        sender.send(result).ok();
-                    }
-                    EdenCommand::EnsureMaterialized(params, sender) => {
-                        let result = self.ensure_materialized(params).await;
-                        sender.send(result).ok();
-                    }
-                }
-            })
-            .buffered(self.concurrency)
-            .for_each(|()| async {})
-            .await;
-    }
-
-    async fn set_path_object_id(&self, params: SetPathObjectIdParams) -> anyhow::Result<()> {
-        let client = self.connect().await?;
-        client.setPathObjectId(&params).await?;
-        Ok(())
-    }
-
-    async fn remove_path_recursive(&self, params: RemoveRecursivelyParams) -> anyhow::Result<()> {
-        let client = self.connect().await?;
-        client.removeRecursively(&params).await?;
-        Ok(())
-    }
-
-    async fn ensure_materialized(&self, params: EnsureMaterializedParams) -> anyhow::Result<()> {
-        let client = self.connect().await?;
-        client.ensureMaterialized(&params).await?;
+        self.connection_manager
+            .with_eden(move |eden| eden.ensureMaterialized(&params))
+            .await?;
         Ok(())
     }
 }

@@ -92,8 +92,6 @@ rust_library(
         "//buck2/starlark-rust/starlark:starlark",
         "//buck2/test_api:test_api",
         "//common/rust/shed/fbinit:fbinit",
-        "//common/rust/shed/fbthrift_ext:socket",
-        "//thrift/lib/rust:fbthrift",
     ],
 )
 
