@@ -95,4 +95,8 @@ impl StreamingCommand for DocsStarlarkCommand {
     fn event_log_opts(&self) -> &CommonEventLogOptions {
         &self.event_log_opts
     }
+
+    fn common_opts(&self) -> &CommonConfigOptions {
+        &self.config_opts
+    }
 }

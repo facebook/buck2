@@ -204,4 +204,8 @@ impl StreamingCommand for ProfileSubcommand {
     fn event_log_opts(&self) -> &CommonEventLogOptions {
         &self.opts.event_log_opts
     }
+
+    fn common_opts(&self) -> &CommonConfigOptions {
+        &self.opts.config_opts
+    }
 }

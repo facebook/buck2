@@ -17,6 +17,7 @@ use crate::commands::common::CommonEventLogOptions;
 use crate::commands::common::ConsoleType;
 use crate::daemon::client::BuckdConnectOptions;
 use crate::CommandContext;
+use crate::CommonConfigOptions;
 use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
@@ -55,5 +56,9 @@ impl StreamingCommand for FlushDepFilesCommand {
 
     fn event_log_opts(&self) -> &CommonEventLogOptions {
         CommonEventLogOptions::default_ref()
+    }
+
+    fn common_opts(&self) -> &CommonConfigOptions {
+        CommonConfigOptions::default_ref()
     }
 }

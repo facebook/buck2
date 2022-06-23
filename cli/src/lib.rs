@@ -255,6 +255,8 @@ pub(crate) trait StreamingCommand: Sized + Send + Sync {
 
     fn event_log_opts(&self) -> &CommonEventLogOptions;
 
+    fn common_opts(&self) -> &CommonConfigOptions;
+
     /// Allows a command to add additional superconsole components when superconsole is used.
     fn extra_superconsole_component(&self) -> Option<Box<dyn Component>> {
         None

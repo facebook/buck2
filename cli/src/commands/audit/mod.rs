@@ -168,4 +168,11 @@ impl StreamingCommand for AuditCommand {
             None => &DEFAULT_OPTS,
         }
     }
+
+    fn common_opts(&self) -> &CommonConfigOptions {
+        match self.as_subcommand().config_opts() {
+            Some(v) => v,
+            None => CommonConfigOptions::default_ref(),
+        }
+    }
 }

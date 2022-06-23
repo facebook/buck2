@@ -217,6 +217,10 @@ impl StreamingCommand for TestCommand {
         &self.event_log_opts
     }
 
+    fn common_opts(&self) -> &CommonConfigOptions {
+        &self.config_opts
+    }
+
     fn extra_superconsole_component(&self) -> Option<Box<dyn superconsole::Component>> {
         Some(box TestHeader::new())
     }

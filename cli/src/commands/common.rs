@@ -243,6 +243,19 @@ impl CommonConfigOptions {
             None => HostPlatformOverride::Default,
         }
     }
+
+    pub(crate) fn default_ref() -> &'static Self {
+        static DEFAULT: CommonConfigOptions = CommonConfigOptions {
+            config_values: vec![],
+            config_files: vec![],
+            target_platforms: None,
+            fake_host: None,
+            oncall: None,
+            disable_starlark_types: false,
+            build_id_file: None,
+        };
+        &DEFAULT
+    }
 }
 
 /// Defines common options for build-like commands (build, test, install).

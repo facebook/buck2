@@ -35,6 +35,7 @@ use crate::daemon::client::StreamValue;
 use crate::metadata;
 use crate::BuckdConnectOptions;
 use crate::CommandContext;
+use crate::CommonConfigOptions;
 use crate::Path;
 use crate::StreamingCommand;
 
@@ -157,6 +158,10 @@ impl StreamingCommand for RageCommand {
 
     fn event_log_opts(&self) -> &CommonEventLogOptions {
         CommonEventLogOptions::default_ref()
+    }
+
+    fn common_opts(&self) -> &CommonConfigOptions {
+        CommonConfigOptions::default_ref()
     }
 }
 
