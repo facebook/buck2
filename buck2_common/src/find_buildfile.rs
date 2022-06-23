@@ -7,11 +7,12 @@
  * of this source tree.
  */
 
-use buck2_common::file_ops::SimpleDirEntry;
 use buck2_core::fs::paths::FileName;
 use buck2_core::fs::paths::FileNameBuf;
 
-pub(crate) fn find_buildfile<'a>(
+use crate::file_ops::SimpleDirEntry;
+
+pub fn find_buildfile<'a>(
     buildfile_candidates: &'a [FileNameBuf],
     dir_listing: &[SimpleDirEntry],
 ) -> Option<&'a FileName> {

@@ -24,11 +24,11 @@
 //! for `cell//bar/foo/...` has no effect because buck will pick the first matching spec).
 
 use anyhow::Context;
+use buck2_common::pattern::ParsedPattern;
+use buck2_common::pattern::TargetPattern;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::target::TargetLabel;
-use buck2_interpreter::pattern::ParsedPattern;
-use buck2_interpreter::pattern::TargetPattern;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -68,7 +68,7 @@ impl TargetPlatformDetector {
                             cell_alias_resolver,
                             matcher,
                         )? {
-                            buck2_interpreter::pattern::ParsedPattern::Recursive(root) => root,
+                            buck2_common::pattern::ParsedPattern::Recursive(root) => root,
                             _ => {
                                 return Err(
                                     DetectorSpecParseError::TargetKindRequiresRecursivePattern(

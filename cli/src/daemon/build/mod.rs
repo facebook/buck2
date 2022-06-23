@@ -29,6 +29,7 @@ use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProvide
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::pattern::*;
 use buck2_core::fs::anyhow as fs;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectFilesystem;
@@ -39,7 +40,6 @@ use buck2_core::provider::ProvidersName;
 use buck2_core::result::SharedResult;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
-use buck2_interpreter::pattern::*;
 use cli_proto::build_request::build_providers::Action as BuildProviderAction;
 use cli_proto::build_request::BuildProviders;
 use cli_proto::build_request::Materializations;

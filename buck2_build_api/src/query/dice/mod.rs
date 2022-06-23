@@ -16,6 +16,9 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::package_boundary::PackageBoundaryExceptions;
+use buck2_common::pattern::resolve_target_patterns;
+use buck2_common::pattern::ParsedPattern;
+use buck2_common::pattern::ProvidersPattern;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_common::target_aliases::TargetAliasResolver;
 use buck2_core::cells::paths::CellPath;
@@ -33,9 +36,6 @@ use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use buck2_interpreter::package_listing::dice::HasPackageListingResolver;
 use buck2_interpreter::package_listing::resolver::PackageListingResolver;
-use buck2_interpreter::pattern::resolve_target_patterns;
-use buck2_interpreter::pattern::ParsedPattern;
-use buck2_interpreter::pattern::ProvidersPattern;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::eval::file_set::FileNode;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
@@ -183,7 +183,7 @@ impl<'c> UqueryDelegate for DiceQueryDelegate<'c> {
     async fn resolve_target_patterns(
         &self,
         patterns: &[&str],
-    ) -> anyhow::Result<buck2_interpreter::pattern::ResolvedPattern<TargetName>> {
+    ) -> anyhow::Result<buck2_common::pattern::ResolvedPattern<TargetName>> {
         let parsed_patterns = patterns.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
         let file_ops = self.ctx.file_ops();
         resolve_target_patterns(&self.cell_resolver, parsed_patterns.iter(), &file_ops).await

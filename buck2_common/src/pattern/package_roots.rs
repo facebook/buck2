@@ -9,9 +9,6 @@
 
 use std::collections::HashSet;
 
-use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::file_ops::HasFileOps;
-use buck2_common::file_ops::FileOps;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::ForwardRelativePath;
@@ -26,7 +23,10 @@ use more_futures::drop::DropTogether;
 use once_cell::sync::Lazy;
 use tokio::sync::Semaphore;
 
-use crate::package_listing::find_buildfile::find_buildfile;
+use crate::dice::cells::HasCellResolver;
+use crate::dice::file_ops::HasFileOps;
+use crate::file_ops::FileOps;
+use crate::find_buildfile::find_buildfile;
 
 /// Resolves a list of CellPath to a stream of Package representing all the
 /// packages recursively contained in the paths (used for resolving patterns

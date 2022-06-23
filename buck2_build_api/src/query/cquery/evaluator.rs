@@ -13,13 +13,13 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_common::pattern::PackageSpec;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::package::Package;
 use buck2_core::result::ToSharedResultExt;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
-use buck2_interpreter::pattern::PackageSpec;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexed;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;

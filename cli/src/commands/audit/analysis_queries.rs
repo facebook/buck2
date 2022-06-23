@@ -14,9 +14,9 @@ use buck2_build_api::analysis::resolve_queries;
 use buck2_build_api::calculation::Calculation;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::pattern::TargetPattern;
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::dice::HasEvents;
-use buck2_interpreter::pattern::TargetPattern;
 use cli_proto::ClientContext;
 use gazebo::prelude::*;
 
@@ -85,7 +85,7 @@ impl AuditSubcommand for AuditAnalysisQueriesCommand {
 
         for (package, spec) in resolved_pattern.specs {
             match spec {
-                buck2_interpreter::pattern::PackageSpec::Targets(targets) => {
+                buck2_common::pattern::PackageSpec::Targets(targets) => {
                     for target in targets {
                         let label = TargetLabel::new(package.dupe(), target);
                         let configured_target = ctx
@@ -110,7 +110,7 @@ impl AuditSubcommand for AuditAnalysisQueriesCommand {
                         }
                     }
                 }
-                buck2_interpreter::pattern::PackageSpec::All => {
+                buck2_common::pattern::PackageSpec::All => {
                     unimplemented!()
                 }
             }

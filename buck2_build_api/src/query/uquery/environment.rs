@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_common::pattern::ResolvedPattern;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::package::Package;
 use buck2_core::result::SharedResult;
@@ -20,7 +21,6 @@ use buck2_core::result::ToSharedResultExt;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use buck2_interpreter::common::BuildFilePath;
-use buck2_interpreter::pattern::ResolvedPattern;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryEnvironmentError;
 use buck2_query::query::environment::QueryTarget;

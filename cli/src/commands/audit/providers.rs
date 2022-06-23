@@ -14,10 +14,10 @@ use buck2_build_api::calculation::Calculation;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::pattern::ProvidersPattern;
 use buck2_core::provider::ProvidersLabel;
 use buck2_core::provider::ProvidersName;
 use buck2_core::target::TargetLabel;
-use buck2_interpreter::pattern::ProvidersPattern;
 use cli_proto::ClientContext;
 use futures::stream::FuturesOrdered;
 use futures::StreamExt;
@@ -86,8 +86,8 @@ impl AuditSubcommand for AuditProvidersCommand {
         for (package, spec) in resolved_pattern.specs {
             let ctx = &ctx;
             let targets = match spec {
-                buck2_interpreter::pattern::PackageSpec::Targets(targets) => targets,
-                buck2_interpreter::pattern::PackageSpec::All => {
+                buck2_common::pattern::PackageSpec::Targets(targets) => targets,
+                buck2_common::pattern::PackageSpec::All => {
                     let interpreter_results = ctx.get_interpreter_results(&package).await?;
                     interpreter_results
                         .targets()

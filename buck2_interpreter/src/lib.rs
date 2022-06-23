@@ -25,10 +25,6 @@ extern crate async_trait;
 extern crate starlark;
 
 #[cfg(test)]
-#[macro_use]
-extern crate maplit;
-
-#[cfg(test)]
 mod tests;
 
 pub mod build_defs;
@@ -42,7 +38,6 @@ pub mod interpreter;
 pub mod package_imports;
 pub mod package_listing;
 pub mod parse_import;
-pub mod pattern;
 pub mod selector;
 pub mod starlark_profiler;
 pub mod types;

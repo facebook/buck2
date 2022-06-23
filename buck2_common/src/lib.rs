@@ -16,6 +16,8 @@
 #![feature(box_syntax)]
 #![feature(io_error_more)]
 #![feature(is_sorted)]
+#![feature(never_type)]
+#![feature(pattern)]
 
 #[cfg(test)]
 #[macro_use]
@@ -23,10 +25,12 @@ extern crate maplit;
 
 pub mod dice;
 pub mod file_ops;
+pub mod find_buildfile;
 pub mod io;
 pub mod legacy_configs;
 pub mod memory;
 pub mod package_boundary;
+pub mod pattern;
 mod sorted_hash_map;
 pub mod target_aliases;
 pub mod truncate;

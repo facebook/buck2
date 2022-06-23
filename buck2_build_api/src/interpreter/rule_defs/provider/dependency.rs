@@ -97,13 +97,13 @@ fn dependency_functions(builder: &mut MethodsBuilder) {
 mod tests {
     use std::sync::Arc;
 
+    use buck2_common::pattern::ParsedPattern;
+    use buck2_common::pattern::ProvidersPattern;
     use buck2_core::configuration::Configuration;
     use buck2_core::provider::ProvidersLabel;
     use buck2_core::result::SharedResult;
     use buck2_core::target::TargetLabel;
     use buck2_interpreter::extra::BuildContext;
-    use buck2_interpreter::pattern::ParsedPattern;
-    use buck2_interpreter::pattern::ProvidersPattern;
     use indoc::indoc;
     use starlark::environment::GlobalsBuilder;
     use starlark::eval::Evaluator;

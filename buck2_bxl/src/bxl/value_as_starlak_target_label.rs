@@ -7,13 +7,13 @@
  * of this source tree.
  */
 
+use buck2_common::pattern::ParsedPattern;
+use buck2_common::pattern::TargetPattern;
 use buck2_common::target_aliases::TargetAliasResolver;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellInstance;
 use buck2_core::package::Package;
 use buck2_core::target::TargetLabel;
-use buck2_interpreter::pattern::ParsedPattern;
-use buck2_interpreter::pattern::TargetPattern;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use gazebo::dupe::Dupe;
 use starlark::values::Value;

@@ -147,7 +147,7 @@ pub trait QueryEnvironment: Send + Sync {
         node_ref: &<Self::Target as QueryTarget>::NodeRef,
     ) -> anyhow::Result<Self::Target>;
 
-    /// Evaluates a literal target pattern. See buck2_interpreter::pattern
+    /// Evaluates a literal target pattern. See buck2_common::pattern
     async fn eval_literals(&self, literal: &[&str]) -> anyhow::Result<TargetSet<Self::Target>>;
 
     /// Evaluates a file literal

@@ -12,6 +12,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use buck2_common::file_ops::FileOps;
 use buck2_common::file_ops::SimpleDirEntry;
+use buck2_common::find_buildfile::find_buildfile;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::FileNameBuf;
@@ -23,7 +24,6 @@ use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use thiserror::Error;
 
-use crate::package_listing::find_buildfile::find_buildfile;
 use crate::package_listing::listing::PackageListing;
 use crate::package_listing::resolver::PackageListingResolver;
 use crate::package_listing::sorted_index_set::SortedIndexSet;

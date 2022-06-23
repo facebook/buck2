@@ -9,16 +9,17 @@
 
 //! Implements target pattern resolution.
 //!
-#![doc = include_str ! ("../target_pattern.md")]
+#![doc = include_str!("target_pattern.md")]
+
+mod ascii_pattern;
+pub mod package_roots;
+pub mod parse_package;
 
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 
-use anyhow::anyhow;
 use anyhow::Context;
-use buck2_common::file_ops::FileOps;
-use buck2_common::target_aliases::TargetAliasResolver;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellAliasResolver;
@@ -31,13 +32,12 @@ use buck2_core::provider::ProvidersLabel;
 use buck2_core::provider::ProvidersName;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
-use derive_more::From;
-use gazebo::prelude::*;
+use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use thiserror::Error;
 
+use crate::file_ops::FileOps;
 use crate::pattern::ascii_pattern::split1_opt_ascii;
 use crate::pattern::ascii_pattern::strip_suffix_ascii;
 use crate::pattern::ascii_pattern::trim_prefix_ascii;
@@ -45,12 +45,9 @@ use crate::pattern::ascii_pattern::AsciiChar;
 use crate::pattern::ascii_pattern::AsciiStr;
 use crate::pattern::ascii_pattern::AsciiStr2;
 use crate::pattern::package_roots::find_package_roots;
+use crate::target_aliases::TargetAliasResolver;
 
-mod ascii_pattern;
-pub mod package_roots;
-pub mod parse_package;
-
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 enum TargetPatternParseError {
     #[error("Expected a `:`, a trailing `/...` or the literal `...`.")]
     UnexpectedFormat,
@@ -126,7 +123,7 @@ impl PatternType for ProvidersPattern {
                 names.push(ProviderName::new(p.to_owned())?);
                 r
             } else {
-                return Err(anyhow!(
+                return Err(anyhow::anyhow!(
                     "target pattern with `[` must end with `]` to mark end of providers set label"
                 ));
             };
@@ -139,7 +136,7 @@ impl PatternType for ProvidersPattern {
                         continue;
                     }
                 }
-                return Err(anyhow!(
+                return Err(anyhow::anyhow!(
                     "target pattern with `[` must end with `]` to mark end of providers set label"
                 ));
             }
@@ -316,7 +313,7 @@ pub struct PatternParts<'a, T> {
     pub pattern: PatternDataOrAmbiguous<'a, T>,
 }
 
-#[derive(Debug, From)]
+#[derive(Debug, derive_more::From)]
 pub enum PatternDataOrAmbiguous<'a, T> {
     /// We successfully extracted PatternData.
     PatternData(PatternData<'a, T>),
@@ -585,7 +582,7 @@ where
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 enum ResolveTargetAliasError {
     #[error("Error dereferencing alias `{}` -> `{}`", target, alias)]
     ErrorDereferencing { target: String, alias: String },
@@ -753,10 +750,6 @@ mod tests {
     use std::sync::Arc;
 
     use assert_matches::assert_matches;
-    use buck2_common::file_ops::testing::TestFileOps;
-    use buck2_common::legacy_configs::testing::parse;
-    use buck2_common::legacy_configs::LegacyBuckConfig;
-    use buck2_common::target_aliases::TargetAliasResolver;
     use buck2_core::cells::paths::CellRelativePathBuf;
     use buck2_core::cells::CellAlias;
     use buck2_core::cells::CellName;
@@ -765,9 +758,14 @@ mod tests {
     use buck2_core::package::testing::PackageExt;
     use buck2_core::provider::ProvidersLabel;
     use buck2_core::target::TargetLabel;
+    use gazebo::prelude::*;
     use test_case::test_case;
 
     use super::*;
+    use crate::file_ops::testing::TestFileOps;
+    use crate::legacy_configs::testing::parse;
+    use crate::legacy_configs::LegacyBuckConfig;
+    use crate::target_aliases::TargetAliasResolver;
 
     fn mk_package<P>(cell: &str, path: &str) -> ParsedPattern<P> {
         ParsedPattern::Package(Package::testing_new(cell, path))

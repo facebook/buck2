@@ -1,14 +1,14 @@
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::nodes::configured::ConfiguredTargetNode;
 use buck2_build_api::nodes::unconfigured::TargetNode;
+use buck2_common::pattern::ParsedPattern;
+use buck2_common::pattern::ProvidersPattern;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::package::Package;
 use buck2_core::provider::ConfiguredProvidersLabel;
 use buck2_core::provider::ProvidersLabel;
 use buck2_core::provider::ProvidersName;
 use buck2_core::target::TargetLabel;
-use buck2_interpreter::pattern::ParsedPattern;
-use buck2_interpreter::pattern::ProvidersPattern;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter::types::label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;

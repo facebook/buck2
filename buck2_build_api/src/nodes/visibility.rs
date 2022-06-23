@@ -7,9 +7,9 @@
  * of this source tree.
  */
 
+use buck2_common::pattern::ParsedPattern;
+use buck2_common::pattern::TargetPattern;
 use buck2_core::target::TargetLabel;
-use buck2_interpreter::pattern::ParsedPattern;
-use buck2_interpreter::pattern::TargetPattern;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
