@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-use std::collections::HashMap;
 use std::convert::TryInto;
 use std::iter;
 use std::mem;
 
 use gazebo::dupe::Dupe;
-use indexmap::map::IndexMap;
 
 use crate::codemap::CodeMap;
+use crate::collections::small_map;
+use crate::collections::SmallMap;
 use crate::environment::names::MutableNames;
 use crate::environment::slots::ModuleSlotId;
 use crate::environment::EnvironmentError;
@@ -56,12 +56,14 @@ use crate::syntax::uniplate::VisitMut;
 use crate::syntax::Dialect;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
+use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 
 pub(crate) struct Scope<'a> {
     pub(crate) scope_data: ScopeData,
     module: &'a MutableNames,
-    pub(crate) module_bindings: HashMap<String, BindingId>,
+    frozen_heap: &'a FrozenHeap,
+    pub(crate) module_bindings: SmallMap<FrozenStringValue, BindingId>,
     // The first scope is a module-level scope (including comprehensions in module scope).
     // The rest are scopes for functions (which include their comprehensions).
     locals: Vec<ScopeId>,
@@ -83,15 +85,15 @@ struct UnscopeBinding {
 }
 
 #[derive(Default)]
-struct Unscope(HashMap<String, UnscopeBinding>);
+struct Unscope(SmallMap<FrozenStringValue, UnscopeBinding>);
 
 #[derive(Default, Debug)]
 pub(crate) struct ScopeNames {
     /// Slots this scope uses, including for parameters and `parent`.
     /// Indexed by [`LocalSlotId`], values are variable names.
-    pub used: Vec<String>,
+    pub used: Vec<FrozenStringValue>,
     /// The names that are in this scope
-    pub mp: HashMap<String, (LocalSlotIdCapturedOrNot, BindingId)>,
+    pub mp: SmallMap<FrozenStringValue, (LocalSlotIdCapturedOrNot, BindingId)>,
     /// Slots to copy from the parent. (index in parent, index in child).
     /// Module-level identifiers are not copied over, to avoid excess copying.
     pub parent: Vec<(LocalSlotIdCapturedOrNot, LocalSlotIdCapturedOrNot)>,
@@ -102,7 +104,7 @@ impl ScopeNames {
         &mut self,
         parent_slot: LocalSlotIdCapturedOrNot,
         binding_id: BindingId,
-        name: &str,
+        name: FrozenStringValue,
     ) -> LocalSlotIdCapturedOrNot {
         assert!(self.get_name(name).is_none()); // Or we'll be overwriting our variable
         let res = self.add_name(name, binding_id);
@@ -110,39 +112,47 @@ impl ScopeNames {
         res
     }
 
-    fn next_slot(&mut self, name: &str) -> LocalSlotIdCapturedOrNot {
+    fn next_slot(&mut self, name: FrozenStringValue) -> LocalSlotIdCapturedOrNot {
         let res = LocalSlotIdCapturedOrNot(self.used.len().try_into().unwrap());
-        self.used.push(name.to_owned());
+        self.used.push(name);
         res
     }
 
-    fn add_name(&mut self, name: &str, binding_id: BindingId) -> LocalSlotIdCapturedOrNot {
+    fn add_name(
+        &mut self,
+        name: FrozenStringValue,
+        binding_id: BindingId,
+    ) -> LocalSlotIdCapturedOrNot {
         let slot = self.next_slot(name);
-        let old = self.mp.insert(name.to_owned(), (slot, binding_id));
+        let old = self.mp.insert_hashed(name.get_hashed(), (slot, binding_id));
         assert!(old.is_none());
         slot
     }
 
     fn add_scoped(
         &mut self,
-        name: &str,
+        name: FrozenStringValue,
         binding_id: BindingId,
         unscope: &mut Unscope,
     ) -> LocalSlotIdCapturedOrNot {
         let slot = self.next_slot(name);
-        let undo = match self.mp.get_mut(name) {
+        let undo = match self.mp.get_mut_hashed(name.get_hashed().borrow()) {
             Some(v) => {
                 let old = *v;
                 *v = (slot, binding_id);
                 Some(old)
             }
             None => {
-                self.mp.insert(name.to_owned(), (slot, binding_id));
+                self.mp.insert_hashed(name.get_hashed(), (slot, binding_id));
                 None
             }
         };
-        let name = name.to_owned();
-        assert!(unscope.0.insert(name, UnscopeBinding { undo }).is_none());
+        assert!(
+            unscope
+                .0
+                .insert_hashed(name.get_hashed(), UnscopeBinding { undo })
+                .is_none()
+        );
         slot
     }
 
@@ -157,8 +167,8 @@ impl ScopeNames {
         }
     }
 
-    fn get_name(&self, name: &str) -> Option<(LocalSlotIdCapturedOrNot, BindingId)> {
-        self.mp.get(name).copied()
+    fn get_name(&self, name: FrozenStringValue) -> Option<(LocalSlotIdCapturedOrNot, BindingId)> {
+        self.mp.get_hashed(name.get_hashed().borrow()).copied()
     }
 }
 
@@ -198,30 +208,38 @@ impl<'a> Scope<'a> {
         // Not really important, sanity check
         assert_eq!(scope_id, ScopeId::module());
 
-        let mut locals = IndexMap::new();
+        let mut locals: SmallMap<FrozenStringValue, _> = SmallMap::new();
 
         let existing_module_names_and_visibilites = module.all_names_and_visibilities();
         for (name, vis) in existing_module_names_and_visibilites.iter() {
             let (binding_id, _binding) = scope_data.new_binding(*vis, AssignCount::AtMostOnce);
-            locals.insert(name.as_str(), binding_id);
+            locals.insert_hashed(name.get_hashed(), binding_id);
         }
 
-        Stmt::collect_defines(code, InLoop::No, &mut scope_data, &mut locals, dialect);
+        Stmt::collect_defines(
+            code,
+            InLoop::No,
+            &mut scope_data,
+            frozen_heap,
+            &mut locals,
+            dialect,
+        );
 
-        let mut module_bindings = HashMap::new();
+        let mut module_bindings = SmallMap::new();
         for (x, binding_id) in locals {
             let binding = scope_data.mut_binding(binding_id);
-            let slot = module.add_name_visibility(frozen_heap.alloc_str_intern(x), binding.vis);
+            let slot = module.add_name_visibility(x, binding.vis);
             let old_slot = mem::replace(&mut binding.slot, Some(Slot::Module(slot)));
             assert!(old_slot.is_none());
-            let old_binding = module_bindings.insert(x.to_owned(), binding_id);
+            let old_binding = module_bindings.insert_hashed(x.get_hashed(), binding_id);
             assert!(old_binding.is_none());
         }
 
         // Here we traverse the AST second time to collect scopes of defs
-        Self::collect_defines_recursively(&mut scope_data, code, dialect);
+        Self::collect_defines_recursively(&mut scope_data, code, frozen_heap, dialect);
         let mut scope = Self {
             scope_data,
+            frozen_heap,
             module,
             module_bindings,
             locals: vec![scope_id],
@@ -250,6 +268,7 @@ impl<'a> Scope<'a> {
         scope_id: ScopeId,
         params: &mut [CstParameter],
         body: Option<&mut CstStmt>,
+        frozen_heap: &FrozenHeap,
         dialect: &Dialect,
     ) {
         let params = params.iter_mut().filter_map(|p| match &mut p.node {
@@ -259,7 +278,7 @@ impl<'a> Scope<'a> {
             ParameterP::Args(n, ..) => Some(n),
             ParameterP::KwArgs(n, ..) => Some(n),
         });
-        let mut locals: IndexMap<&str, _> = IndexMap::new();
+        let mut locals: SmallMap<FrozenStringValue, _> = SmallMap::new();
         for p in params {
             // Subtle invariant: the slots for the params must be ordered and at the
             // beginning
@@ -267,11 +286,19 @@ impl<'a> Scope<'a> {
                 .new_binding(Visibility::Public, AssignCount::AtMostOnce)
                 .0;
             p.1 = Some(binding_id);
-            let old_local = locals.insert(&p.0, binding_id);
+            let old_local =
+                locals.insert_hashed(frozen_heap.alloc_str_intern(&p.0).get_hashed(), binding_id);
             assert!(old_local.is_none());
         }
         if let Some(code) = body {
-            Stmt::collect_defines(code, InLoop::No, scope_data, &mut locals, dialect);
+            Stmt::collect_defines(
+                code,
+                InLoop::No,
+                scope_data,
+                frozen_heap,
+                &mut locals,
+                dialect,
+            );
         }
         for (name, binding_id) in locals.into_iter() {
             let slot = scope_data.mut_scope(scope_id).add_name(name, binding_id);
@@ -284,30 +311,45 @@ impl<'a> Scope<'a> {
     fn collect_defines_recursively(
         scope_data: &mut ScopeData,
         code: &mut CstStmt,
+        frozen_heap: &FrozenHeap,
         dialect: &Dialect,
     ) {
         if let StmtP::Def(_name, params, _ret, suite, scope_id) = &mut code.node {
             // Here we traverse the AST twice: once for this def scope,
             // second time below for nested defs.
-            Self::collect_defines_in_def(scope_data, *scope_id, params, Some(suite), dialect);
+            Self::collect_defines_in_def(
+                scope_data,
+                *scope_id,
+                params,
+                Some(suite),
+                frozen_heap,
+                dialect,
+            );
         }
 
         code.visit_children_mut(&mut |visit| match visit {
-            VisitMut::Expr(e) => Self::collect_defines_recursively_in_expr(scope_data, e, dialect),
-            VisitMut::Stmt(s) => Self::collect_defines_recursively(scope_data, s, dialect),
+            VisitMut::Expr(e) => {
+                Self::collect_defines_recursively_in_expr(scope_data, e, frozen_heap, dialect)
+            }
+            VisitMut::Stmt(s) => {
+                Self::collect_defines_recursively(scope_data, s, frozen_heap, dialect)
+            }
         });
     }
 
     fn collect_defines_recursively_in_expr(
         scope_data: &mut ScopeData,
         code: &mut CstExpr,
+        frozen_heap: &FrozenHeap,
         dialect: &Dialect,
     ) {
         if let ExprP::Lambda(params, _expr, scope_id) = &mut code.node {
-            Self::collect_defines_in_def(scope_data, *scope_id, params, None, dialect);
+            Self::collect_defines_in_def(scope_data, *scope_id, params, None, frozen_heap, dialect);
         }
 
-        code.visit_expr_mut(|e| Self::collect_defines_recursively_in_expr(scope_data, e, dialect));
+        code.visit_expr_mut(|e| {
+            Self::collect_defines_recursively_in_expr(scope_data, e, frozen_heap, dialect)
+        });
     }
 
     fn resolve_idents(&mut self, code: &mut CstStmt) {
@@ -371,15 +413,15 @@ impl<'a> Scope<'a> {
         }
     }
 
-    fn current_scope_all_visible_names_for_did_you_mean(&self) -> Vec<String> {
+    fn current_scope_all_visible_names_for_did_you_mean(&self) -> Vec<FrozenStringValue> {
         // It is OK to return non-unique identifiers
-        let mut r = Vec::new();
+        let mut r: Vec<FrozenStringValue> = Vec::new();
         for &scope_id in self.locals.iter().rev() {
             let scope = self.scope_data.get_scope(scope_id);
-            r.extend(scope.mp.keys().cloned());
+            r.extend(scope.mp.keys().copied());
         }
-        r.extend(self.module_bindings.keys().cloned());
-        r.extend(self.globals.names().map(|s| s.as_str().to_owned()));
+        r.extend(self.module_bindings.keys().copied());
+        r.extend(self.globals.names());
         r
     }
 
@@ -401,19 +443,21 @@ impl<'a> Scope<'a> {
 
     fn resolve_ident(&mut self, ident: &AstString, resolved_ident: &mut Option<ResolvedIdent>) {
         assert!(resolved_ident.is_none());
-        *resolved_ident = Some(match self.get_name(ident) {
-            None => {
-                // Must be a global, since we know all variables
-                match self.globals.get_frozen(ident) {
-                    None => {
-                        self.errors.push(self.variable_not_found_err(ident));
-                        return;
+        *resolved_ident = Some(
+            match self.get_name(self.frozen_heap.alloc_str_intern(ident)) {
+                None => {
+                    // Must be a global, since we know all variables
+                    match self.globals.get_frozen(ident) {
+                        None => {
+                            self.errors.push(self.variable_not_found_err(ident));
+                            return;
+                        }
+                        Some(v) => ResolvedIdent::Global(v),
                     }
-                    Some(v) => ResolvedIdent::Global(v),
                 }
-            }
-            Some(slot) => ResolvedIdent::Slot(slot),
-        });
+                Some(slot) => ResolvedIdent::Slot(slot),
+            },
+        );
     }
 
     fn resolve_idents_in_compr(
@@ -480,9 +524,15 @@ impl<'a> Scope<'a> {
 
     fn add_compr<'x>(&mut self, var: impl IntoIterator<Item = &'x mut CstAssign>) {
         let scope_id = self.top_scope_id();
-        let mut locals = IndexMap::new();
+        let mut locals = SmallMap::new();
         for var in var {
-            Assign::collect_defines_lvalue(var, InLoop::Yes, &mut self.scope_data, &mut locals);
+            Assign::collect_defines_lvalue(
+                var,
+                InLoop::Yes,
+                &mut self.scope_data,
+                self.frozen_heap,
+                &mut locals,
+            );
         }
         for (name, binding_id) in locals.into_iter() {
             let slot = self.scope_data.mut_scope(scope_id).add_scoped(
@@ -501,7 +551,7 @@ impl<'a> Scope<'a> {
             .unscope(self.unscopes.pop().unwrap());
     }
 
-    fn get_name(&mut self, name: &str) -> Option<(Slot, BindingId)> {
+    fn get_name(&mut self, name: FrozenStringValue) -> Option<(Slot, BindingId)> {
         // look upwards to find the first place the variable occurs
         // then copy that variable downwards
         for i in (0..self.locals.len()).rev() {
@@ -515,7 +565,10 @@ impl<'a> Scope<'a> {
                 return Some((Slot::Local(v), binding_id));
             }
         }
-        let binding_id = self.module_bindings.get(name).copied();
+        let binding_id = self
+            .module_bindings
+            .get_hashed(name.get_hashed().borrow())
+            .copied();
         match binding_id {
             Some(binding_id) => {
                 let binding = self.scope_data.mut_binding(binding_id);
@@ -544,22 +597,24 @@ impl Stmt {
         stmt: &'a mut CstStmt,
         in_loop: InLoop,
         scope_data: &mut ScopeData,
-        result: &mut IndexMap<&'a str, BindingId>,
+        frozen_heap: &FrozenHeap,
+        result: &mut SmallMap<FrozenStringValue, BindingId>,
         dialect: &Dialect,
     ) {
         match &mut stmt.node {
             StmtP::Assign(dest, _) | StmtP::AssignModify(dest, _, _) => {
-                Assign::collect_defines_lvalue(dest, in_loop, scope_data, result);
+                Assign::collect_defines_lvalue(dest, in_loop, scope_data, frozen_heap, result);
             }
             StmtP::For(dest, box (_, body)) => {
-                Assign::collect_defines_lvalue(dest, InLoop::Yes, scope_data, result);
-                StmtP::collect_defines(body, InLoop::Yes, scope_data, result, dialect);
+                Assign::collect_defines_lvalue(dest, InLoop::Yes, scope_data, frozen_heap, result);
+                StmtP::collect_defines(body, InLoop::Yes, scope_data, frozen_heap, result, dialect);
             }
             StmtP::Def(name, ..) => AssignIdent::collect_assign_ident(
                 name,
                 in_loop,
                 Visibility::Public,
                 scope_data,
+                frozen_heap,
                 result,
             ),
             StmtP::Load(load) => {
@@ -569,11 +624,19 @@ impl Stmt {
                     if Module::default_visibility(&name.0) == Visibility::Private {
                         vis = Visibility::Private;
                     }
-                    AssignIdent::collect_assign_ident(name, in_loop, vis, scope_data, result);
+                    AssignIdent::collect_assign_ident(
+                        name,
+                        in_loop,
+                        vis,
+                        scope_data,
+                        frozen_heap,
+                        result,
+                    );
                 }
             }
-            stmt => stmt
-                .visit_stmt_mut(|x| Stmt::collect_defines(x, in_loop, scope_data, result, dialect)),
+            stmt => stmt.visit_stmt_mut(|x| {
+                Stmt::collect_defines(x, in_loop, scope_data, frozen_heap, result, dialect)
+            }),
         }
     }
 }
@@ -584,27 +647,28 @@ impl AssignIdent {
         in_loop: InLoop,
         vis: Visibility,
         scope_data: &mut ScopeData,
-        result: &mut IndexMap<&'a str, BindingId>,
+        frozen_heap: &FrozenHeap,
+        result: &mut SmallMap<FrozenStringValue, BindingId>,
     ) {
         // Helper function to untangle lifetimes: we read and modify `assign` fields.
         fn assign_ident_impl<'b>(
-            name: &'b str,
+            name: FrozenStringValue,
             binding: &'b mut Option<BindingId>,
             in_loop: InLoop,
             mut vis: Visibility,
             scope_data: &mut ScopeData,
-            result: &mut IndexMap<&'b str, BindingId>,
+            result: &mut SmallMap<FrozenStringValue, BindingId>,
         ) {
             assert!(
                 binding.is_none(),
                 "binding can be assigned only once: `{}`",
-                name
+                name.as_str()
             );
             if vis == Visibility::Public {
-                vis = Module::default_visibility(name);
+                vis = Module::default_visibility(&name);
             }
-            match result.entry(name) {
-                indexmap::map::Entry::Occupied(e) => {
+            match result.entry_hashed(name.get_hashed()) {
+                small_map::Entry::Occupied(e) => {
                     let prev_binding_id = *e.get();
                     let prev_binding = scope_data.mut_binding(prev_binding_id);
                     // If we are in the map as Public and Private, then Public wins.
@@ -616,7 +680,7 @@ impl AssignIdent {
                     prev_binding.assign_count = AssignCount::Any;
                     *binding = Some(prev_binding_id);
                 }
-                indexmap::map::Entry::Vacant(e) => {
+                small_map::Entry::Vacant(e) => {
                     let assign_count = match in_loop {
                         InLoop::Yes => AssignCount::Any,
                         InLoop::No => AssignCount::AtMostOnce,
@@ -628,7 +692,7 @@ impl AssignIdent {
             };
         }
         assign_ident_impl(
-            &assign.node.0,
+            frozen_heap.alloc_str_intern(&assign.node.0),
             &mut assign.node.1,
             in_loop,
             vis,
@@ -645,10 +709,18 @@ impl Assign {
         expr: &'a mut CstAssign,
         in_loop: InLoop,
         scope_data: &mut ScopeData,
-        result: &mut IndexMap<&'a str, BindingId>,
+        frozen_heap: &FrozenHeap,
+        result: &mut SmallMap<FrozenStringValue, BindingId>,
     ) {
         expr.node.visit_lvalue_mut(|x| {
-            AssignIdent::collect_assign_ident(x, in_loop, Visibility::Public, scope_data, result)
+            AssignIdent::collect_assign_ident(
+                x,
+                in_loop,
+                Visibility::Public,
+                scope_data,
+                frozen_heap,
+                result,
+            )
         });
     }
 }
