@@ -38,7 +38,6 @@ use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
-use crate::values::ValueOf;
 
 // This does not exists in rust, split would cut the string incorrectly and
 // split_whitespace cannot take a n parameter.
@@ -717,18 +716,18 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn lstrip<'v>(
-        this: ValueOf<'v, &'v str>,
+        this: StringValue<'v>,
         #[starlark(require = pos)] chars: Option<&str>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<StringValue<'v>> {
         let res = match chars {
-            None => this.typed.trim_start(),
-            Some(s) => this.typed.trim_start_matches(|c| s.contains(c)),
+            None => this.trim_start(),
+            Some(s) => this.trim_start_matches(|c| s.contains(c)),
         };
-        if res.len() == this.typed.len() {
-            Ok(this.value)
+        if res.len() == this.len() {
+            Ok(this)
         } else {
-            Ok(heap.alloc_str(res).to_value())
+            Ok(heap.alloc_str(res))
         }
     }
 
@@ -753,23 +752,23 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn partition<'v>(
-        this: ValueOf<'v, &'v str>,
-        #[starlark(require = pos)] needle: ValueOf<'v, &'v str>,
+        this: StringValue<'v>,
+        #[starlark(require = pos)] needle: StringValue<'v>,
         heap: &'v Heap,
-    ) -> anyhow::Result<(Value<'v>, Value<'v>, Value<'v>)> {
-        if needle.typed.is_empty() {
+    ) -> anyhow::Result<(StringValue<'v>, StringValue<'v>, StringValue<'v>)> {
+        if needle.is_empty() {
             return Err(anyhow!("Empty separator cannot be used for partitioning"));
         }
-        if let Some(offset) = this.typed.find(needle.typed) {
-            let offset2 = offset + needle.typed.len();
+        if let Some(offset) = this.find(needle.as_str()) {
+            let offset2 = offset + needle.len();
             Ok((
-                heap.alloc(this.typed.get(..offset).unwrap()),
-                needle.value,
-                heap.alloc(this.typed.get(offset2..).unwrap()),
+                heap.alloc_str(this.get(..offset).unwrap()),
+                needle,
+                heap.alloc_str(this.get(offset2..).unwrap()),
             ))
         } else {
-            let empty = Value::new_empty_string();
-            Ok((this.value, empty, empty))
+            let empty = StringValue::default();
+            Ok((this, empty, empty))
         }
     }
 
@@ -799,21 +798,21 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn replace<'v>(
-        this: ValueOf<'v, &'v str>,
+        this: StringValue<'v>,
         #[starlark(require = pos)] old: &str,
         #[starlark(require = pos)] new: &str,
         #[starlark(require = pos)] count: Option<i32>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<StringValue<'v>> {
         match count {
-            Some(count) if count >= 0 => Ok(heap
-                .alloc_str(&this.typed.replacen(old, new, count as usize))
-                .to_value()),
+            Some(count) if count >= 0 => {
+                Ok(heap.alloc_str(&this.replacen(old, new, count as usize)))
+            }
             Some(count) => Err(anyhow!("Replace final argument was negative '{}'", count)),
             None => {
                 // Optimise `replace` using the Rust standard library definition,
                 // but avoiding redundant allocation in the last step
-                let x = this.typed;
+                let x = this.as_str();
                 let mut result = String::new();
                 let mut last_end = 0;
                 for (start, part) in x.match_indices(old) {
@@ -822,11 +821,10 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
                     last_end = start + part.len();
                 }
                 if result.is_empty() && last_end == 0 {
-                    Ok(this.value)
+                    Ok(this)
                 } else {
                     Ok(heap
-                        .alloc_str_concat(&result, unsafe { x.get_unchecked(last_end..x.len()) })
-                        .to_value())
+                        .alloc_str_concat(&result, unsafe { x.get_unchecked(last_end..x.len()) }))
                 }
             }
         }
@@ -917,23 +915,23 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn rpartition<'v>(
-        this: ValueOf<'v, &'v str>,
-        #[starlark(require = pos)] needle: ValueOf<'v, &'v str>,
+        this: StringValue<'v>,
+        #[starlark(require = pos)] needle: StringValue<'v>,
         heap: &'v Heap,
-    ) -> anyhow::Result<(Value<'v>, Value<'v>, Value<'v>)> {
-        if needle.typed.is_empty() {
+    ) -> anyhow::Result<(StringValue<'v>, StringValue<'v>, StringValue<'v>)> {
+        if needle.is_empty() {
             return Err(anyhow!("Empty separator cannot be used for partitioning"));
         }
-        if let Some(offset) = this.typed.rfind(needle.typed) {
-            let offset2 = offset + needle.typed.len();
+        if let Some(offset) = this.rfind(needle.as_str()) {
+            let offset2 = offset + needle.len();
             Ok((
-                heap.alloc(this.typed.get(..offset).unwrap()),
-                needle.value,
-                heap.alloc(this.typed.get(offset2..).unwrap()),
+                heap.alloc_str(this.get(..offset).unwrap()),
+                needle,
+                heap.alloc_str(this.get(offset2..).unwrap()),
             ))
         } else {
-            let empty = Value::new_empty_string();
-            Ok((empty, empty, this.value))
+            let empty = StringValue::default();
+            Ok((empty, empty, this))
         }
     }
 
@@ -1004,18 +1002,18 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn rstrip<'v>(
-        this: ValueOf<'v, &'v str>,
+        this: StringValue<'v>,
         #[starlark(require = pos)] chars: Option<&str>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<StringValue<'v>> {
         let res = match chars {
-            None => this.typed.trim_end(),
-            Some(s) => this.typed.trim_end_matches(|c| s.contains(c)),
+            None => this.trim_end(),
+            Some(s) => this.trim_end_matches(|c| s.contains(c)),
         };
-        if res.len() == this.typed.len() {
-            Ok(this.value)
+        if res.len() == this.len() {
+            Ok(this)
         } else {
-            Ok(heap.alloc_str(res).to_value())
+            Ok(heap.alloc_str(res))
         }
     }
 
@@ -1197,18 +1195,18 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn strip<'v>(
-        this: ValueOf<'v, &'v str>,
+        this: StringValue<'v>,
         #[starlark(require = pos)] chars: Option<&str>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<StringValue<'v>> {
         let res = match chars {
-            None => this.typed.trim(),
-            Some(s) => this.typed.trim_matches(|c| s.contains(c)),
+            None => this.trim(),
+            Some(s) => this.trim_matches(|c| s.contains(c)),
         };
-        if res.len() == this.typed.len() {
-            Ok(this.value)
+        if res.len() == this.len() {
+            Ok(this)
         } else {
-            Ok(heap.alloc_str(res).to_value())
+            Ok(heap.alloc_str(res))
         }
     }
 
