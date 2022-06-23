@@ -14,7 +14,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::package_listing::dice::HasPackageListingResolver;
 use buck2_common::package_listing::resolver::PackageListingResolver;
 use buck2_common::pattern::parse_package::parse_package;
-use buck2_interpreter::common::BuildFileCell;
+use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_interpreter::common::BuildFilePath;
 use buck2_interpreter::common::ImportPath;
 use buck2_interpreter::common::StarlarkModulePath;

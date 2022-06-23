@@ -10,10 +10,9 @@
 use std::sync::Arc;
 
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
+use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::CellAliasResolver;
 use gazebo::prelude::*;
-
-use crate::common::BuildFileCell;
 
 #[derive(Clone, Dupe, Debug)]
 pub struct InterpreterCellInfo(Arc<Data>);

@@ -11,7 +11,7 @@ use std::io::Write;
 
 use buck2_build_api::calculation::Calculation;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_interpreter::common::BuildFileCell;
+use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_interpreter::common::ImportPath;
 use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::parse_import::parse_import_with_config;

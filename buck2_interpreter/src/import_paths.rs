@@ -14,6 +14,7 @@ use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfig;
+use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellAliasResolver;
@@ -22,7 +23,6 @@ use dice::DiceComputations;
 use dice::Key;
 use gazebo::dupe::Dupe;
 
-use crate::common::BuildFileCell;
 use crate::common::ImportPath;
 use crate::package_imports::PackageImplicitImports;
 

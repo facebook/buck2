@@ -12,6 +12,7 @@ use buck2_common::dice::data::testing::SetTestingIoProvider;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
+use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
@@ -29,7 +30,6 @@ use gazebo::dupe::Dupe;
 use indoc::indoc;
 use serde_json::json;
 
-use crate::common::BuildFileCell;
 use crate::common::ImportPath;
 use crate::common::StarlarkModulePath;
 use crate::dice::starlark_profiler::SetStarlarkProfilerInstrumentation;

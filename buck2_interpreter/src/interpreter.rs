@@ -18,6 +18,7 @@ use anyhow::Context;
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_common::legacy_configs::view::LegacyBuckConfigsView;
 use buck2_common::package_listing::listing::PackageListing;
+use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
@@ -38,7 +39,6 @@ use thiserror::Error;
 
 use crate::build_defs::register_globals;
 use crate::build_defs::register_natives;
-use crate::common::BuildFileCell;
 use crate::common::BuildFilePath;
 use crate::common::ImportPath;
 use crate::common::StarlarkModulePath;

@@ -13,6 +13,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::hash::Hash;
 
+use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
@@ -48,24 +49,6 @@ impl Borrow<str> for ModuleID {
 
 impl ModuleID {
     pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-/// Used to hold the cell name for the top-level build file being interpreted.
-/// There's a subtlety where that doesn't necessarily match the cell of the file
-/// being interpreted. This gets its own type because its easy to get wrong.
-#[derive(Clone, Hash, Eq, PartialEq, Debug, derive_more::Display, RefCast)]
-#[display(fmt = "{}", .0)]
-#[repr(C)]
-pub struct BuildFileCell(CellName);
-
-impl BuildFileCell {
-    pub fn new(name: CellName) -> Self {
-        Self(name)
-    }
-
-    pub fn name(&self) -> &CellName {
         &self.0
     }
 }
@@ -147,10 +130,10 @@ impl ImportPath {
     }
 
     pub fn unverified_new(path: CellPath, build_file_cell: BuildFileCell) -> Self {
-        let id = ModuleID(if &build_file_cell.0 == path.cell() {
+        let id = ModuleID(if build_file_cell.name() == path.cell() {
             format!("{}", path)
         } else {
-            format!("{}@{}", path, build_file_cell.0)
+            format!("{}@{}", path, build_file_cell.name())
         });
         Self {
             path,
@@ -177,7 +160,7 @@ impl ImportPath {
         );
         Self::unverified_new(
             cell_path,
-            BuildFileCell(CellName::unchecked_new(build_file_cell.to_owned())),
+            BuildFileCell::new(CellName::unchecked_new(build_file_cell.to_owned())),
         )
     }
 

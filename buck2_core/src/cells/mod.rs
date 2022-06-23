@@ -130,6 +130,7 @@
 //! ```
 //!
 
+pub mod build_file_cell;
 pub mod paths;
 
 use std::borrow::Borrow;
