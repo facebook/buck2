@@ -62,6 +62,7 @@ use crate::eval::runtime::call_stack::FrozenFileSpan;
 use crate::eval::runtime::evaluator::Evaluator;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
+use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::eval::Arguments;
 use crate::syntax::ast::ParameterP;
 use crate::values::docs;
@@ -239,7 +240,12 @@ pub(crate) struct DefInfo {
     pub(crate) codemap: FrozenRef<'static, CodeMap>,
     /// The raw docstring pulled out of the AST.
     pub(crate) docstring: Option<String>,
-    pub(crate) scope_names: ScopeNames,
+    /// Slots this scope uses, including for parameters and `parent`.
+    /// Indexed by [`LocalSlotId`], values are variable names.
+    pub(crate) used: Vec<FrozenStringValue>,
+    /// Slots to copy from the parent. (index in parent, index in child).
+    /// Module-level identifiers are not copied over, to avoid excess copying.
+    pub(crate) parent: Vec<(LocalSlotIdCapturedOrNot, LocalSlotIdCapturedOrNot)>,
     /// Statement compiled for non-frozen def.
     #[derivative(Debug = "ignore")]
     stmt_compiled: Bc,
@@ -263,7 +269,8 @@ impl DefInfo {
             name: const_frozen_string!("<empty>"),
             codemap: FrozenRef::new(&EMPTY_CODEMAP),
             docstring: None,
-            scope_names: ScopeNames::default(),
+            used: Vec::new(),
+            parent: Vec::new(),
             stmt_compiled: Bc::default(),
             body_stmts: StmtsCompiled::empty(),
             stmt_compile_context: StmtCompileContext::default(),
@@ -282,7 +289,8 @@ impl DefInfo {
             name: const_frozen_string!("<module>"),
             codemap,
             docstring: None,
-            scope_names,
+            used: scope_names.used,
+            parent: scope_names.parent,
             stmt_compiled: Bc::default(),
             body_stmts: StmtsCompiled::empty(),
             stmt_compile_context: StmtCompileContext::default(),
@@ -392,7 +400,8 @@ impl Compiler<'_, '_, '_> {
             name,
             codemap: self.codemap,
             docstring,
-            scope_names,
+            used: scope_names.used,
+            parent: scope_names.parent,
             stmt_compiled: body.as_bc(
                 &self.compile_context(return_type.is_some()),
                 local_count,
@@ -467,7 +476,6 @@ impl<'v> Def<'v> {
         eval: &mut Evaluator<'v, '_>,
     ) -> Value<'v> {
         let captured = stmt
-            .scope_names
             .parent
             .map(|(x, _)| eval.clone_slot_capture(LocalCapturedSlotId(x.0)));
         eval.heap().alloc(Self {
@@ -510,12 +518,6 @@ impl<'v, T1: ValueLike<'v>> DefGen<T1> {
         );
 
         Some(DocItem::Function(function_docs))
-    }
-}
-
-impl<T1> DefGen<T1> {
-    pub(crate) fn scope_names(&self) -> &ScopeNames {
-        &self.def_info.scope_names
     }
 }
 
@@ -689,13 +691,7 @@ where
         // Explicitly check `self.captured` is not empty to avoid accessing
         // self.def_info.scope_names which is two indirections.
         if !self.captured.is_empty() {
-            for ((_, me), captured) in self
-                .def_info
-                .scope_names
-                .parent
-                .iter()
-                .zip(self.captured.iter())
-            {
+            for ((_, me), captured) in self.def_info.parent.iter().zip(self.captured.iter()) {
                 eval.current_frame.set_slot(*me, captured.to_value());
             }
         }
@@ -754,7 +750,7 @@ impl FrozenDef {
             })
             .as_bc(
                 &self.def_info.stmt_compile_context,
-                self.def_info.scope_names.used.len().try_into().unwrap(),
+                self.def_info.used.len().try_into().unwrap(),
                 self.parameters.len() as u32,
                 frozen_heap,
             );

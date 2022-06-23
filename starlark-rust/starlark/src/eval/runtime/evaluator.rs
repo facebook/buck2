@@ -452,7 +452,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             Ok(def_info) => def_info,
             Err(e) => return e,
         };
-        let names = &def_info.scope_names.used;
+        let names = &def_info.used;
         let name = names[slot.0 as usize].as_str().to_owned();
         EnvironmentError::LocalVariableReferencedBeforeAssignment(name).into()
     }

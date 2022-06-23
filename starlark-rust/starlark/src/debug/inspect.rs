@@ -18,16 +18,18 @@
 use crate::collections::SmallMap;
 use crate::eval::compiler::def::Def;
 use crate::eval::compiler::def::FrozenDef;
-use crate::eval::compiler::scope::ScopeNames;
+use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::eval::Evaluator;
+use crate::values::FrozenStringValue;
 use crate::values::Value;
 use crate::values::ValueLike;
 
-pub(crate) fn to_scope_names<'v>(x: Value<'v>) -> Option<&'v ScopeNames> {
+pub(crate) fn to_scope_names_by_local_slot_id<'v>(x: Value<'v>) -> Option<&'v [FrozenStringValue]> {
     if x.unpack_frozen().is_some() {
-        x.downcast_ref::<FrozenDef>().map(|x| x.scope_names())
+        x.downcast_ref::<FrozenDef>()
+            .map(|x| x.def_info.used.as_slice())
     } else {
-        x.downcast_ref::<Def>().map(|x| x.scope_names())
+        x.downcast_ref::<Def>().map(|x| x.def_info.used.as_slice())
     }
 }
 
@@ -43,11 +45,17 @@ impl<'v, 'a> Evaluator<'v, 'a> {
 fn inspect_local_variables<'v>(eval: &Evaluator<'v, '_>) -> Option<SmallMap<String, Value<'v>>> {
     // First we find the first entry on the call_stack which contains a Def (and thus has locals)
     let xs = eval.call_stack.to_function_values();
-    let names = xs.into_iter().rev().find_map(to_scope_names)?;
+    let names = xs
+        .into_iter()
+        .rev()
+        .find_map(to_scope_names_by_local_slot_id)?;
     let mut res = SmallMap::new();
-    for (name, (slot, _binding_id)) in &names.mp {
+    for (slot, name) in names.iter().enumerate() {
         // TODO(nga): correctly handle captured.
-        if let Some(v) = eval.current_frame.get_slot(*slot) {
+        if let Some(v) = eval
+            .current_frame
+            .get_slot_slow(LocalSlotIdCapturedOrNot(slot as u32))
+        {
             res.insert(name.as_str().to_owned(), v);
         }
     }

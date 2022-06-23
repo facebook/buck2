@@ -93,9 +93,19 @@ impl<'v> BcFramePtr<'v> {
         }
     }
 
+    pub(crate) fn get_slot_slow(self, slot: LocalSlotIdCapturedOrNot) -> Option<Value<'v>> {
+        assert!(slot.0 < self.frame().local_count);
+        self.get_slot(slot)
+    }
+
     #[inline(always)]
     pub(crate) fn get_slot(self, slot: LocalSlotIdCapturedOrNot) -> Option<Value<'v>> {
         self.frame().get_slot(slot)
+    }
+
+    pub(crate) fn set_slot_slow(self, slot: LocalSlotIdCapturedOrNot, value: Value<'v>) {
+        assert!(slot.0 < self.frame().local_count);
+        self.set_slot(slot, value);
     }
 
     #[inline(always)]
