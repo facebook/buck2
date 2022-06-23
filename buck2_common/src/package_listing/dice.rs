@@ -9,14 +9,15 @@
 
 use std::sync::Arc;
 
-use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::file_ops::HasFileOps;
+use async_trait::async_trait;
 use buck2_core::package::Package;
 use buck2_core::result::SharedResult;
 use dice::DiceComputations;
 use dice::Key;
 use gazebo::dupe::Dupe;
 
+use crate::dice::cells::HasCellResolver;
+use crate::dice::file_ops::HasFileOps;
 use crate::package_listing::interpreter::InterpreterPackageListingResolver;
 use crate::package_listing::listing::PackageListing;
 use crate::package_listing::resolver::PackageListingResolver;

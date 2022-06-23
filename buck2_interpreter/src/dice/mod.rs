@@ -19,6 +19,7 @@ use std::sync::Arc;
 
 use buck2_common::dice::file_ops::FileChangeHandler;
 use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::package_listing::dice::HasPackageListingResolver;
 use buck2_core::cells::CellName;
 use buck2_core::result::SharedResult;
 use dice::DiceComputations;
@@ -29,7 +30,6 @@ use crate::common::BuildFileCell;
 use crate::dice::calculation::DiceCalculationDelegate;
 use crate::extra::InterpreterConfiguror;
 use crate::interpreter::GlobalInterpreterState;
-use crate::package_listing::dice::HasPackageListingResolver;
 
 pub mod calculation;
 mod interpreter;

@@ -7,8 +7,9 @@
  * of this source tree.
  */
 
+mod binary_search;
 pub mod dice;
-pub(crate) mod file_listing;
+pub mod file_listing;
 pub(crate) mod interpreter;
 pub mod listing;
 pub mod resolver;

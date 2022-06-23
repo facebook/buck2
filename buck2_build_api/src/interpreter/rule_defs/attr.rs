@@ -14,6 +14,7 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use anyhow::Context;
+use buck2_common::package_listing::listing::PackageListing;
 use buck2_common::pattern::ParsedPattern;
 use buck2_common::pattern::PatternType;
 use buck2_common::pattern::ProvidersPattern;
@@ -25,7 +26,6 @@ use buck2_core::provider::ProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::extra::BuildContext;
-use buck2_interpreter::package_listing::listing::PackageListing;
 use bumpalo::Bump;
 use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
@@ -735,13 +735,13 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
+    use buck2_common::package_listing::listing::testing::PackageListingExt;
+    use buck2_common::package_listing::listing::PackageListing;
     use buck2_core::buck_path::BuckPath;
     use buck2_core::cells::paths::CellRelativePath;
     use buck2_core::package::Package;
     use buck2_core::package::PackageRelativePathBuf;
     use buck2_core::result::SharedResult;
-    use buck2_interpreter::package_listing::listing::testing::PackageListingExt;
-    use buck2_interpreter::package_listing::listing::PackageListing;
     use gazebo::prelude::*;
     use indoc::indoc;
     use starlark::values::Heap;

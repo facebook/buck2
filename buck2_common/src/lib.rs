@@ -18,6 +18,7 @@
 #![feature(is_sorted)]
 #![feature(never_type)]
 #![feature(pattern)]
+#![feature(result_into_ok_or_err)]
 
 #[cfg(test)]
 #[macro_use]
@@ -30,6 +31,7 @@ pub mod io;
 pub mod legacy_configs;
 pub mod memory;
 pub mod package_boundary;
+pub mod package_listing;
 pub mod pattern;
 mod sorted_hash_map;
 pub mod target_aliases;

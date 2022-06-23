@@ -36,7 +36,6 @@ pub mod globspec;
 pub mod import_paths;
 pub mod interpreter;
 pub mod package_imports;
-pub mod package_listing;
 pub mod parse_import;
 pub mod selector;
 pub mod starlark_profiler;

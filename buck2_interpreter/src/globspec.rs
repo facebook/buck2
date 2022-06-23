@@ -12,10 +12,9 @@ use std::fmt;
 use std::fmt::Debug;
 
 use anyhow::Context;
+use buck2_common::package_listing::file_listing::PackageFileListing;
 use buck2_core::package::PackageRelativePath;
 use derivative::Derivative;
-
-use crate::package_listing::file_listing::PackageFileListing;
 
 /// The default Debug for Pattern is horribly verbose with lots of internal
 /// details we don't care about, so create `GlobPattern` so we can have a

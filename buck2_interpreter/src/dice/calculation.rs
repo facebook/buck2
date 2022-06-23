@@ -17,6 +17,8 @@ use buck2_common::file_ops::FileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::dice::LegacyBuckConfigOnDice;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
+use buck2_common::package_listing::listing::PackageListing;
+use buck2_common::package_listing::resolver::PackageListingResolver;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::cells::CellName;
 use buck2_core::package::Package;
@@ -51,8 +53,6 @@ use crate::interpreter::GlobalInterpreterState;
 use crate::interpreter::InterpreterConfigForCell;
 use crate::interpreter::InterpreterForCell;
 use crate::interpreter::ParseResult;
-use crate::package_listing::listing::PackageListing;
-use crate::package_listing::resolver::PackageListingResolver;
 use crate::starlark_profiler::StarlarkProfilerInstrumentation;
 use crate::starlark_profiler::StarlarkProfilerOrInstrumentation;
 

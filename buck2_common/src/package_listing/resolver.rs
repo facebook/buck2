@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use async_trait::async_trait;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::package::Package;
 use buck2_core::result::SharedResult;

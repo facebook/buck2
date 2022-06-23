@@ -11,6 +11,8 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use buck2_common::legacy_configs::LegacyBuckConfig;
+use buck2_common::package_listing::listing::testing::PackageListingExt;
+use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellAlias;
 use buck2_core::cells::CellAliasResolver;
@@ -28,8 +30,6 @@ use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::extra::BuildContext;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
-use buck2_interpreter::package_listing::listing::testing::PackageListingExt;
-use buck2_interpreter::package_listing::listing::PackageListing;
 use gazebo::prelude::*;
 use indoc::indoc;
 use starlark::collections::SmallMap;

@@ -10,17 +10,17 @@
 use buck2_core::package::PackageRelativePath;
 use buck2_core::package::PackageRelativePathBuf;
 
-use crate::extra::binary_search::binary_search_by;
+use crate::package_listing::binary_search::binary_search_by;
 use crate::package_listing::sorted_index_set::SortedIndexSet;
 
 #[derive(Eq, PartialEq, Debug)]
-pub(crate) struct PackageFileListing {
+pub struct PackageFileListing {
     /// This is kept sorted for efficient prefix matching.
     pub(crate) files: SortedIndexSet<PackageRelativePathBuf>,
 }
 
 impl PackageFileListing {
-    pub(crate) fn files(&self) -> impl ExactSizeIterator<Item = &PackageRelativePath> {
+    pub fn files(&self) -> impl ExactSizeIterator<Item = &PackageRelativePath> {
         self.files
             .as_ref()
             .iter()
@@ -39,10 +39,7 @@ impl PackageFileListing {
         })
     }
 
-    pub(crate) fn files_with_prefix(
-        &self,
-        prefix: &str,
-    ) -> impl Iterator<Item = &PackageRelativePath> {
+    pub fn files_with_prefix(&self, prefix: &str) -> impl Iterator<Item = &PackageRelativePath> {
         use std::cmp::Ordering;
         let files = self.files.as_ref();
         let len = files.len();
@@ -84,8 +81,7 @@ impl PackageFileListing {
     }
 }
 
-#[cfg(test)]
-pub(crate) mod testing {
+pub mod testing {
     use buck2_core::package::PackageRelativePath;
     use indexmap::IndexSet;
 
@@ -93,7 +89,7 @@ pub(crate) mod testing {
     use crate::package_listing::sorted_index_set::SortedIndexSet;
 
     impl PackageFileListing {
-        pub(crate) fn testing_new(files: &[&str]) -> PackageFileListing {
+        pub fn testing_new(files: &[&str]) -> PackageFileListing {
             let files: IndexSet<_> = files
                 .iter()
                 .map(|f| PackageRelativePath::new(*f).unwrap().to_owned())

@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
+use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::package::Package;
 use buck2_core::package::PackageRelativePath;
@@ -34,9 +35,7 @@ use crate::extra::cell_info::InterpreterCellInfo;
 use crate::file_loader::LoadedModules;
 use crate::globspec::GlobSpec;
 use crate::package_imports::ImplicitImport;
-use crate::package_listing::listing::PackageListing;
 
-pub(crate) mod binary_search;
 pub mod buckconfig;
 pub mod cell_info;
 
@@ -276,6 +275,7 @@ pub(crate) mod testing {
     use std::sync::Arc;
     use std::sync::Mutex;
 
+    use buck2_common::package_listing::listing::PackageListing;
     use buck2_core::cells::paths::CellPath;
     use buck2_core::package::Package;
     use buck2_core::result::SharedResult;
@@ -300,7 +300,6 @@ pub(crate) mod testing {
     use crate::extra::InterpreterHostPlatform;
     use crate::file_loader::LoadedModules;
     use crate::package_imports::ImplicitImport;
-    use crate::package_listing::listing::PackageListing;
 
     #[derive(Clone, Debug)]
     pub struct TesterEvalResult {

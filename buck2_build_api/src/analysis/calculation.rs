@@ -426,6 +426,8 @@ mod tests {
     use buck2_common::dice::data::testing::SetTestingIoProvider;
     use buck2_common::legacy_configs::LegacyBuckConfig;
     use buck2_common::legacy_configs::LegacyBuckConfigs;
+    use buck2_common::package_listing::listing::testing::PackageListingExt;
+    use buck2_common::package_listing::listing::PackageListing;
     use buck2_core::cells::CellAlias;
     use buck2_core::cells::CellAliasResolver;
     use buck2_core::cells::CellName;
@@ -446,8 +448,6 @@ mod tests {
     use buck2_interpreter::extra::InterpreterHostArchitecture;
     use buck2_interpreter::extra::InterpreterHostPlatform;
     use buck2_interpreter::file_loader::LoadedModules;
-    use buck2_interpreter::package_listing::listing::testing::PackageListingExt;
-    use buck2_interpreter::package_listing::listing::PackageListing;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
     use events::dispatch::EventDispatcher;

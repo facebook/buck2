@@ -17,6 +17,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_common::legacy_configs::view::LegacyBuckConfigsView;
+use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
@@ -52,7 +53,6 @@ use crate::file_loader::LoadResolver;
 use crate::file_loader::LoadedModules;
 use crate::import_paths::ImportPaths;
 use crate::package_imports::ImplicitImport;
-use crate::package_listing::listing::PackageListing;
 use crate::parse_import::parse_import;
 use crate::starlark_profiler;
 use crate::starlark_profiler::StarlarkProfilerInstrumentation;
@@ -697,6 +697,7 @@ mod tests {
     use buck2_common::legacy_configs::BuckConfigBasedCells;
     use buck2_common::legacy_configs::LegacyBuckConfig;
     use buck2_common::legacy_configs::LegacyBuckConfigs;
+    use buck2_common::package_listing::listing::testing::PackageListingExt;
     use buck2_core::cells::CellName;
     use buck2_core::fs::paths::AbsPathBuf;
     use buck2_core::fs::project::ProjectFilesystem;
@@ -711,7 +712,6 @@ mod tests {
     use crate::extra::testing::TesterEvalResult;
     use crate::extra::testing::TesterExtraContext;
     use crate::file_loader::LoadedModule;
-    use crate::package_listing::listing::testing::PackageListingExt;
 
     fn cross_cell_import(
         cell: &str,

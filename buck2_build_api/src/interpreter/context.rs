@@ -12,6 +12,7 @@ use std::fmt::Debug;
 use std::ptr;
 use std::sync::Arc;
 
+use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellName;
@@ -29,7 +30,6 @@ use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::file_loader::LoadedModules;
 use buck2_interpreter::package_imports::ImplicitImport;
-use buck2_interpreter::package_listing::listing::PackageListing;
 use gazebo::cmp::PartialEqAny;
 use gazebo::prelude::*;
 use starlark::environment::GlobalsBuilder;

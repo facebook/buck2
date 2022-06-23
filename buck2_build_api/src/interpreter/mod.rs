@@ -21,6 +21,8 @@ pub mod testing {
     use buck2_common::legacy_configs::testing::TestConfigParserFileOps;
     use buck2_common::legacy_configs::LegacyBuckConfig;
     use buck2_common::legacy_configs::LegacyBuckConfigs;
+    use buck2_common::package_listing::listing::testing::PackageListingExt;
+    use buck2_common::package_listing::listing::PackageListing;
     use buck2_core::cells::paths::CellPath;
     use buck2_core::cells::*;
     use buck2_core::fs::paths::*;
@@ -45,8 +47,6 @@ pub mod testing {
     use buck2_interpreter::interpreter::InterpreterForCell;
     use buck2_interpreter::interpreter::ParseResult;
     use buck2_interpreter::package_imports::ImplicitImport;
-    use buck2_interpreter::package_listing::listing::testing::PackageListingExt;
-    use buck2_interpreter::package_listing::listing::PackageListing;
     use buck2_interpreter::starlark_profiler::StarlarkProfilerInstrumentation;
     use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
     use gazebo::cmp::PartialEqAny;

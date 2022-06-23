@@ -266,11 +266,11 @@ pub(crate) fn register_natives(builder: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 mod tests {
+    use buck2_common::package_listing::listing::testing::PackageListingExt;
+    use buck2_common::package_listing::listing::PackageListing;
     use buck2_interpreter::common::BuildFilePath;
     use buck2_interpreter::common::ImportPath;
     use buck2_interpreter::file_loader::LoadedModules;
-    use buck2_interpreter::package_listing::listing::testing::PackageListingExt;
-    use buck2_interpreter::package_listing::listing::PackageListing;
     use indoc::indoc;
     use serde_json::json;
 

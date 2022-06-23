@@ -58,7 +58,7 @@ impl PackageListing {
         )
     }
 
-    pub(crate) fn files(&self) -> &PackageFileListing {
+    pub fn files(&self) -> &PackageFileListing {
         &self.listing.files
     }
 

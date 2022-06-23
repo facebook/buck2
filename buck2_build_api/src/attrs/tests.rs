@@ -9,14 +9,14 @@
 
 use std::convert::TryFrom;
 
+use buck2_common::package_listing::listing::testing::PackageListingExt;
+use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::cells::testing::CellResolverExt;
 use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
-use buck2_interpreter::package_listing::listing::testing::PackageListingExt;
-use buck2_interpreter::package_listing::listing::PackageListing;
 use gazebo::prelude::*;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
