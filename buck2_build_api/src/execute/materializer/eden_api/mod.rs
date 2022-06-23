@@ -14,7 +14,7 @@ use std::process::Command;
 use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_common::io::eden::EdenConnectionManager;
+use buck2_common::eden::EdenConnectionManager;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::AbsPathBuf;

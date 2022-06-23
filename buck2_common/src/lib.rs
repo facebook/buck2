@@ -25,6 +25,8 @@
 extern crate maplit;
 
 pub mod dice;
+#[cfg(all(unix, any(feature = "eden_io", feature = "eden_materializer")))]
+pub mod eden;
 pub mod file_ops;
 pub mod find_buildfile;
 pub mod io;
