@@ -46,11 +46,11 @@ pub struct CqueryEvaluator<'c> {
 }
 
 impl CqueryEvaluator<'_> {
-    pub async fn eval_query(
+    pub async fn eval_query<A: AsRef<str>, U: AsRef<str>>(
         &self,
         query: &str,
-        query_args: Vec<String>,
-        target_universe: Option<Vec<String>>,
+        query_args: &[A],
+        target_universe: Option<&[U]>,
     ) -> anyhow::Result<QueryEvaluationResult<ConfiguredTargetNode>> {
         eval_query(&self.functions, query, query_args, async move |literals| {
             let resolved_literals = match target_universe {
@@ -66,7 +66,7 @@ impl CqueryEvaluator<'_> {
                             self.dice_query_delegate.dupe(),
                         ),
                         &literals,
-                        &universe,
+                        universe,
                     )
                     .await?
                 }
@@ -100,15 +100,15 @@ pub async fn get_cquery_evaluator<'c>(
 
 // This will first resolve the universe to configured nodes and then gather all
 // the deps. From there, it resolves the literals to any matching nodes in the universe deps.
-async fn resolve_literals_in_universe(
+async fn resolve_literals_in_universe<L: AsRef<str>, U: AsRef<str>>(
     dice_query_delegate: &DiceQueryDelegate<'_>,
     env: &dyn QueryEnvironment<Target = ConfiguredTargetNode>,
-    literals: &[String],
-    universe: &[String],
+    literals: &[L],
+    universe: &[U],
 ) -> anyhow::Result<PreresolvedQueryLiterals<ConfiguredTargetNode>> {
     // TODO(cjhopman): We should probably also resolve the literals to TargetNode so that
     // we can get errors for packages or targets that don't exist or fail to load.
-    let refs: Vec<_> = universe.map(|v| v.as_str());
+    let refs: Vec<_> = universe.map(|v| v.as_ref());
     let universe_resolved = env.eval_literals(&refs).await?;
     // To support package/recursive patterns, we hold the map by package. To support a
     // single target name having multiple instances in the universe, we map them to a list of nodes.
@@ -163,6 +163,7 @@ async fn resolve_literals_in_universe(
     let resolution_futs: FuturesUnordered<_> = literals
         .iter()
         .map(|lit| async move {
+            let lit = lit.as_ref();
             let result: anyhow::Result<_> = try {
                 let resolved_pattern = dice_query_delegate.resolve_target_patterns(&[lit]).await?;
                 let mut targets = TargetSet::new();

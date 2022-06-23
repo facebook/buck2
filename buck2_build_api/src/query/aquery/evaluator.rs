@@ -34,7 +34,7 @@ impl AqueryEvaluator<'_> {
     pub async fn eval_query(
         &self,
         query: &str,
-        query_args: Vec<String>,
+        query_args: &[String],
     ) -> anyhow::Result<QueryEvaluationResult<ActionQueryNode>> {
         eval_query(&self.functions, query, query_args, async move |literals| {
             let resolved_literals =

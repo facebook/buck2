@@ -70,7 +70,11 @@ pub(crate) async fn cquery(
     let evaluator = &evaluator;
 
     let query_result = evaluator
-        .eval_query(&query, query_args, target_universe)
+        .eval_query(
+            &query,
+            &query_args,
+            target_universe.as_ref().map(|v| &v[..]),
+        )
         .await?;
 
     let mut stdout = server_ctx.stdout()?;

@@ -51,9 +51,9 @@ impl<T: QueryTarget> MultiQueryResult<T> {
     }
 }
 
-pub async fn process_multi_query<T, Fut, F>(
+pub async fn process_multi_query<T, Fut, F, A: AsRef<str>>(
     query: &str,
-    query_args: Vec<String>,
+    query_args: &[A],
     func: F,
 ) -> MultiQueryResult<T>
 where
@@ -64,6 +64,7 @@ where
     let mut queue: FuturesOrdered<_> = query_args
         .iter()
         .map(|input| {
+            let input = input.as_ref();
             let query = query.replace("%s", input);
             let input = input.to_owned();
             func(input, query)

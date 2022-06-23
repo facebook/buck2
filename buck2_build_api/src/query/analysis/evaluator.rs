@@ -28,10 +28,14 @@ enum EvalQueryError {
     PlaceholderInPattern(String),
 }
 
-pub async fn eval_query<Env: QueryEnvironment, Fut: Future<Output = anyhow::Result<Env>>>(
+pub async fn eval_query<
+    Env: QueryEnvironment,
+    Fut: Future<Output = anyhow::Result<Env>>,
+    A: AsRef<str>,
+>(
     functions: &DefaultQueryFunctionsModule<Env>,
     query: &str,
-    query_args: Vec<String>,
+    query_args: &[A],
     environment: impl FnOnce(Vec<String>) -> Fut,
 ) -> anyhow::Result<QueryEvaluationResult<Env::Target>> {
     let mut literals = SmallSet::new();
@@ -41,7 +45,8 @@ pub async fn eval_query<Env: QueryEnvironment, Fut: Future<Output = anyhow::Resu
         // Unfortunately Buck1 just substitutes in arbitrarily strings, where the query
         // or query_args may not form anything remotely valid.
         // We have to be backwards compatible :(
-        for q in &query_args {
+        for q in query_args {
+            let q = q.as_ref();
             if q.contains("%s") {
                 return Err(EvalQueryError::PlaceholderInPattern(q.to_owned()).into());
             }
@@ -55,7 +60,10 @@ pub async fn eval_query<Env: QueryEnvironment, Fut: Future<Output = anyhow::Resu
         .await;
         Ok(QueryEvaluationResult::Multiple(results))
     } else if !query_args.is_empty() {
-        Err(EvalQueryError::ArgsWithoutPlaceholder(query_args).into())
+        Err(
+            EvalQueryError::ArgsWithoutPlaceholder(query_args.map(|s| s.as_ref().to_owned()))
+                .into(),
+        )
     } else {
         extract_target_literals(functions, query, &mut literals)?;
         let env = environment(literals.into_iter().collect()).await?;

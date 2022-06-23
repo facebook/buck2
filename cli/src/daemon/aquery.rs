@@ -49,7 +49,7 @@ pub(crate) async fn aquery(
     )
     .await?;
 
-    let query_result = evaluator.eval_query(&query, query_args).await?;
+    let query_result = evaluator.eval_query(&query, &query_args).await?;
 
     let mut stdout = server_ctx.stdout()?;
 
