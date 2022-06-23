@@ -18,7 +18,8 @@
 //! For example, one might imagine a `thrift_rule` exposing itself as various
 //! languages, for which specific languages can be referred to via depends as
 //! `some_rule[java]` or `some_rule[cxx]`.
-//!
+
+pub mod flavors;
 
 use std::fmt;
 use std::fmt::Display;
