@@ -7,43 +7,38 @@
  * of this source tree.
  */
 
-use std::str::FromStr;
-
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use buck2_core::fs::anyhow::create_dir_all;
 use buck2_core::fs::anyhow::remove_dir_all;
 use buck2_data::RageInvoked;
+use chrono::offset::Local;
+use chrono::DateTime;
 use cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use cli_proto::UnstableDiceDumpRequest;
 use events::dispatch::EventDispatcher;
 use events::TraceId;
+use futures::stream::FuturesOrdered;
 use futures::FutureExt;
 use futures::TryStreamExt;
 use thiserror::Error;
 use tokio::process::Command;
 
+use crate::commands::common::subscribers::event_log::get_local_logs;
 use crate::commands::common::subscribers::event_log::log_upload_url;
 use crate::commands::common::subscribers::event_log::EventLogPathBuf;
+use crate::commands::common::subscribers::event_log::EventLogSummary;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonEventLogOptions;
 use crate::commands::common::ConsoleType;
-use crate::commands::debug::replay::retrieve_nth_recent_log;
 use crate::daemon::client::BuckdClientConnector;
-use crate::daemon::client::StreamValue;
 use crate::metadata;
 use crate::BuckdConnectOptions;
 use crate::CommandContext;
 use crate::CommonConfigOptions;
 use crate::Path;
 use crate::StreamingCommand;
-
-#[derive(Debug, Error)]
-enum RageError {
-    #[error("Reached End of File before reading BuckEvent in log `{0}`")]
-    EndOfFile(String),
-}
 
 #[derive(Debug, Error)]
 enum ManifoldUploadError {
@@ -77,10 +72,25 @@ impl StreamingCommand for RageCommand {
         _matches: &clap::ArgMatches,
         ctx: CommandContext,
     ) -> ExitResult {
-        let log_path = retrieve_nth_recent_log(&ctx, 0)?;
-        crate::eprintln!("most recent log: {:?}", log_path)?;
-        let trace_id_str = get_trace_id_from_log(&log_path).await?;
-        let old_trace_id = TraceId::from_str(trace_id_str.as_str())?;
+        let log_dir = ctx.paths()?.log_dir();
+        let logs_summary = get_local_logs(&log_dir)?
+            .into_iter()
+            .rev() // newest first
+            .map(|log| log_dir.join(log.path()))
+            .map(|log_path| async move {
+                let log_path = EventLogPathBuf::infer(log_path.to_path_buf())?;
+                log_path.get_summary().await
+            })
+            .collect::<FuturesOrdered<_>>()
+            .try_collect::<Vec<EventLogSummary>>()
+            .await?;
+
+        if logs_summary.is_empty() {
+            crate::eprintln!("No recent buck invocation to report")?;
+            return ExitResult::failure();
+        }
+        let chosen_log = user_prompt_select_log(&logs_summary).await?;
+        let old_trace_id = &chosen_log.trace_id;
         let new_trace_id = TraceId::new();
 
         // dispatch event to scribe if possible
@@ -246,16 +256,68 @@ async fn dice_dump_upload(dice_dump_folder_to_upload: &Path, filename: &str) -> 
     Ok(())
 }
 
-async fn get_trace_id_from_log(log: &Path) -> anyhow::Result<String> {
-    let log_path = EventLogPathBuf::infer(log.to_path_buf())?;
-    let (_, mut events) = log_path.unpack_stream().await?;
-    while let Some(log) = events.try_next().await? {
-        match log {
-            StreamValue::Result(_) => {}
-            StreamValue::Event(buck_event) => return Ok(buck_event.trace_id),
-        }
+async fn user_prompt_select_log(
+    logs_summary: &[EventLogSummary],
+) -> anyhow::Result<&EventLogSummary> {
+    crate::eprintln!("Which buck invocation would you like to report?\n")?;
+    for (index, log_summary) in logs_summary.iter().enumerate() {
+        print_log_summary(index, log_summary)?;
     }
-    Err(anyhow::anyhow!(RageError::EndOfFile(
-        log.to_str().unwrap().to_owned()
-    )))
+    crate::eprintln!()?;
+    let prompt = format!(
+        "Invocation: (type a number between 0 and {}) ",
+        logs_summary.len() - 1
+    );
+    let selection = get_user_selection(&prompt, |i| i < logs_summary.len()).await?;
+
+    let chosen_log = logs_summary.get(selection).expect("Selection out of range");
+
+    let timestamp: DateTime<Local> = chosen_log.timestamp.into();
+    crate::eprintln!("Selected invocation at {}\n", timestamp.format("%c %Z"))?;
+
+    Ok(chosen_log)
+}
+
+async fn get_user_selection<P>(prompt: &str, predicate: P) -> anyhow::Result<usize>
+where
+    P: Fn(usize) -> bool,
+{
+    crate::eprint!("{}", prompt)?;
+    // For interactive uses, it is recommended to spawn a thread dedicated to user input and
+    // use blocking IO directly in that thread, instead of using tokio::io::Stdin directly
+    // https://docs.rs/tokio/latest/tokio/io/struct.Stdin.html
+    let input = tokio::task::spawn_blocking(|| {
+        let mut input = String::new();
+        match std::io::stdin().read_line(&mut input) {
+            Ok(bytes_read) if bytes_read > 0 => Ok(input),
+            _ => return Err(anyhow::anyhow!("Fail to get a valid selection")),
+        }
+    })
+    .await??;
+    match input.trim().parse() {
+        Ok(selection) if predicate(selection) => Ok(selection),
+        _ => return Err(anyhow::anyhow!("Fail to get a valid selection")),
+    }
+}
+
+fn print_log_summary(index: usize, log_summary: &EventLogSummary) -> anyhow::Result<()> {
+    let cmd: String;
+    if log_summary.invocation.command_line_args.is_empty() {
+        cmd = "???".to_owned();
+    } else {
+        let mut program_name: &str = &log_summary.invocation.command_line_args[0];
+        let program_args = &log_summary.invocation.command_line_args[1..];
+        if program_name.ends_with("fbcode/buck2/.buck2") {
+            program_name = "buck2";
+        }
+        cmd = format!("{} {}", program_name, program_args.join(" "));
+    }
+
+    let timestamp: DateTime<Local> = log_summary.timestamp.into();
+    crate::eprintln!(
+        "{:<7} {}    {}",
+        format!("[{}].", index),
+        timestamp.format("%c %Z"),
+        cmd
+    )
 }

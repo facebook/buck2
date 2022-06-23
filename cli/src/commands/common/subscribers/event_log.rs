@@ -9,6 +9,7 @@
 
 use std::path::Path;
 use std::path::PathBuf;
+use std::time::SystemTime;
 
 use anyhow::Context as _;
 use async_compression::tokio::bufread::GzipDecoder;
@@ -30,6 +31,7 @@ use futures::future::Future;
 use futures::future::FutureExt;
 use futures::stream::Stream;
 use futures::StreamExt;
+use futures::TryStreamExt;
 use gazebo::dupe::Dupe;
 use gazebo::prelude::*;
 use prost::Message;
@@ -57,6 +59,9 @@ pub(crate) enum EventLogErrors {
 
     #[error("Event log does not have an implementation for reading for .proto files")]
     ReadingProtobufNotImplemented,
+
+    #[error("Reached End of File before reading BuckEvent in log `{0}`")]
+    EndOfFile(String),
 }
 
 const JSON_GZIP_EXTENSION: &str = ".json-lines.gz";
@@ -102,6 +107,12 @@ fn display_valid_extensions() -> String {
 pub(crate) struct EventLogPathBuf {
     path: PathBuf,
     encoding: Encoding,
+}
+
+pub(crate) struct EventLogSummary {
+    pub(crate) trace_id: TraceId,
+    pub(crate) timestamp: SystemTime,
+    pub(crate) invocation: Invocation,
 }
 
 impl EventLogPathBuf {
@@ -172,6 +183,31 @@ impl EventLogPathBuf {
         };
 
         Ok(file)
+    }
+
+    pub(crate) async fn get_summary(&self) -> anyhow::Result<EventLogSummary> {
+        let (invocation, events) = self.unpack_stream().await?;
+        let buck_event: BuckEvent = events
+            .try_filter_map(|log| {
+                let maybe_buck_event = match log {
+                    StreamValue::Result(_) => None,
+                    StreamValue::Event(buck_event) => Some(buck_event),
+                };
+                futures::future::ready(Ok(maybe_buck_event))
+            })
+            .try_next()
+            .await?
+            .ok_or_else(|| {
+                anyhow::anyhow!(EventLogErrors::EndOfFile(
+                    self.path.to_str().unwrap().to_owned()
+                ))
+            })?
+            .try_into()?;
+        Ok(EventLogSummary {
+            trace_id: buck_event.trace_id,
+            timestamp: buck_event.timestamp,
+            invocation,
+        })
     }
 }
 
