@@ -9,7 +9,7 @@
 
 use std::collections::BTreeMap;
 
-use buck2_core::configuration::Configuration;
+use crate::configuration::Configuration;
 
 #[derive(thiserror::Error, Debug)]
 enum TransitionAppliedError {
@@ -25,7 +25,7 @@ enum TransitionAppliedError {
 
 /// Result of `transition` function application to a configuration.
 #[derive(PartialEq, Eq, Hash, Debug)]
-pub(crate) enum TransitionApplied {
+pub enum TransitionApplied {
     /// Transition to single configuration.
     Single(Configuration),
     /// Split transition.
@@ -33,14 +33,14 @@ pub(crate) enum TransitionApplied {
 }
 
 impl TransitionApplied {
-    pub(crate) fn single(&self) -> anyhow::Result<&Configuration> {
+    pub fn single(&self) -> anyhow::Result<&Configuration> {
         match self {
             TransitionApplied::Single(configuration) => Ok(configuration),
             _ => Err(TransitionAppliedError::SplitWhereSingleExpected.into()),
         }
     }
 
-    pub(crate) fn split(&self) -> anyhow::Result<&BTreeMap<String, Configuration>> {
+    pub fn split(&self) -> anyhow::Result<&BTreeMap<String, Configuration>> {
         match self {
             TransitionApplied::Split(configurations) => Ok(configurations),
             _ => Err(TransitionAppliedError::SingleWhereSplitExpected.into()),

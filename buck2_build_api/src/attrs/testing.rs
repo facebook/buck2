@@ -19,6 +19,7 @@ use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellAlias;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellName;
+use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
@@ -60,7 +61,6 @@ use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info:
 use crate::interpreter::rule_defs::provider::callable::ValueAsProviderCallableLike;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::interpreter::rule_defs::provider::registration::register_builtin_providers;
-use crate::interpreter::rule_defs::transition::applied::TransitionApplied;
 use crate::interpreter::testing::cells;
 
 pub trait CoercedAttrExt {

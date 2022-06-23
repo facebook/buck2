@@ -451,6 +451,7 @@ mod tests {
 
     use buck2_core::configuration::constraints::ConstraintKey;
     use buck2_core::configuration::constraints::ConstraintValue;
+    use buck2_core::configuration::transition::applied::TransitionApplied;
     use buck2_core::configuration::transition::id::TransitionId;
     use buck2_core::configuration::Configuration;
     use buck2_core::configuration::ConfigurationData;
@@ -463,7 +464,6 @@ mod tests {
     use crate::attrs::coerced_attr::CoercedAttr;
     use crate::attrs::AttrConfigurationContext;
     use crate::attrs::OrderedMap;
-    use crate::interpreter::rule_defs::transition::applied::TransitionApplied;
 
     #[test]
     fn selector_equals_accounts_for_ordering() {

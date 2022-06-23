@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use buck2_core::buck_path::BuckPath;
 use buck2_core::cells::paths::CellPath;
+use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::Configuration;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -39,7 +40,6 @@ use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::configuration::execution::ExecutionPlatformResolution;
 use crate::configuration::AttrConfigurationContextImpl;
 use crate::configuration::ResolvedConfiguration;
-use crate::interpreter::rule_defs::transition::applied::TransitionApplied;
 use crate::nodes::attr_internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use crate::nodes::attr_internal::TESTS_ATTRIBUTE_FIELD;
 use crate::nodes::unconfigured::TargetNode;

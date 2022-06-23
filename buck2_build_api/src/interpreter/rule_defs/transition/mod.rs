@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-pub(crate) mod applied;
 pub(crate) mod calculation_apply_transition;
 pub(crate) mod calculation_fetch_transition;
 pub(crate) mod cfg_diff;

@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::Configuration;
 use buck2_core::result::SharedError;
@@ -38,7 +39,6 @@ use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfo;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
-use crate::interpreter::rule_defs::transition::applied::TransitionApplied;
 use crate::interpreter::rule_defs::transition::calculation_fetch_transition::FetchTransition;
 use crate::interpreter::rule_defs::transition::cfg_diff::cfg_diff;
 use crate::interpreter::rule_defs::transition::starlark::FrozenTransition;
