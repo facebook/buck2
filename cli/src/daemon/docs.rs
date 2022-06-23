@@ -104,11 +104,11 @@ fn get_builtin_build_docs(
         .documentation()
     {
         DocItem::Object(mut b_o) => {
-            let global_symbols: HashSet<_> = globals.names().into_iter().collect();
+            let global_symbols: HashSet<_> = globals.names().map(|s| s.as_str()).collect();
             b_o.members = b_o
                 .members
                 .into_iter()
-                .filter(|(name, _)| !global_symbols.contains(name))
+                .filter(|(name, _)| !global_symbols.contains(&name.as_str()))
                 .collect();
             DocItem::Object(b_o)
         }

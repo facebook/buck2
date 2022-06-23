@@ -379,7 +379,7 @@ impl<'a> Scope<'a> {
             r.extend(scope.mp.keys().cloned());
         }
         r.extend(self.module_bindings.keys().cloned());
-        r.extend(self.globals.names());
+        r.extend(self.globals.names().map(|s| s.as_str().to_owned()));
         r
     }
 

@@ -66,6 +66,7 @@ pub struct Methods(Arc<MethodsData>);
 struct GlobalsData {
     heap: FrozenHeapRef,
     variables: SymbolMap<FrozenValue>,
+    variable_names: Vec<FrozenStringValue>,
     docstring: Option<String>,
 }
 
@@ -145,12 +146,8 @@ impl Globals {
     }
 
     /// Get all the names defined in this environment.
-    pub fn names(&self) -> Vec<String> {
-        self.0
-            .variables
-            .keys()
-            .map(|x| x.as_str().to_owned())
-            .collect()
+    pub fn names(&self) -> impl Iterator<Item = FrozenStringValue> + '_ {
+        self.0.variable_names.iter().copied()
     }
 
     pub(crate) fn heap(&self) -> &FrozenHeapRef {
@@ -291,9 +288,15 @@ impl GlobalsBuilder {
 
     /// Called at the end to build a [`Globals`].
     pub fn build(self) -> Globals {
+        let variable_names = self
+            .variables
+            .keys()
+            .map(|x| self.heap.alloc_str_intern(x.as_str()))
+            .collect();
         Globals(Arc::new(GlobalsData {
             heap: self.heap.into_ref(),
             variables: self.variables,
+            variable_names,
             docstring: self.docstring,
         }))
     }
@@ -508,8 +511,11 @@ impl GlobalsStatic {
         let globals = self.globals(x);
         assert!(
             globals.0.variables.len() == 1,
-            "GlobalsBuilder.function must have exactly 1 member, you had {:?}",
-            globals.names()
+            "GlobalsBuilder.function must have exactly 1 member, you had {}",
+            globals
+                .names()
+                .map(|s| format!("`{}`", s.as_str()))
+                .join(", ")
         );
 
         *globals.0.variables.values().next().unwrap()
