@@ -18,6 +18,7 @@ use crate::CommandContext;
 mod query;
 mod starlark;
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, clap::Parser)]
 enum DocsKind {
     Starlark(DocsStarlarkCommand),

@@ -158,6 +158,9 @@ pub(crate) struct CommonConfigOptions {
     /// to diagnose evaluation performance problems.
     #[clap(long)]
     pub disable_starlark_types: bool,
+
+    #[structopt(long = "--write-build-id")]
+    pub build_id_file: Option<PathBuf>,
 }
 
 impl CommonConfigOptions {
