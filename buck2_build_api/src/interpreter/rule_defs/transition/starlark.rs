@@ -10,8 +10,8 @@
 use std::cell::RefCell;
 use std::sync::Arc;
 
+use buck2_core::bzl::ImportPath;
 use buck2_core::target::TargetLabel;
-use buck2_interpreter::common::ImportPath;
 use buck2_interpreter::extra::BuildContext;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;

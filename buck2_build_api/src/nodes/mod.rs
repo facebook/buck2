@@ -19,7 +19,7 @@ pub mod visibility;
 use std::hash::Hash;
 use std::sync::Arc;
 
-use buck2_interpreter::common::ImportPath;
+use buck2_core::bzl::ImportPath;
 use derive_more::Display;
 use gazebo::prelude::*;
 use thiserror::Error;
@@ -95,7 +95,7 @@ pub mod hacks {
 
 #[cfg(test)]
 mod tests {
-    use buck2_interpreter::common::ImportPath;
+    use buck2_core::bzl::ImportPath;
     use starlark::values::Heap;
 
     use super::*;

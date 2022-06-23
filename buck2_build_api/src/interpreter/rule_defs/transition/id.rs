@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_interpreter::common::ImportPath;
+use buck2_core::bzl::ImportPath;
 use derive_more::Display;
 
 /// Identifier of transition function.

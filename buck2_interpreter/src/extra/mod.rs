@@ -15,6 +15,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_common::package_listing::listing::PackageListing;
+use buck2_core::bzl::ImportPath;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::package::Package;
 use buck2_core::package::PackageRelativePath;
@@ -28,7 +29,6 @@ use starlark::eval::Evaluator;
 use thiserror::Error;
 
 use crate::common::BuildFilePath;
-use crate::common::ImportPath;
 use crate::common::StarlarkPath;
 use crate::extra::buckconfig::LegacyBuckConfigForStarlark;
 use crate::extra::cell_info::InterpreterCellInfo;
@@ -444,7 +444,7 @@ pub(crate) mod testing {
         fn get_prelude_import(
             &self,
             _import: StarlarkPath<'_>,
-        ) -> Option<&crate::common::ImportPath> {
+        ) -> Option<&buck2_core::bzl::ImportPath> {
             None
         }
 

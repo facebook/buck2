@@ -13,6 +13,7 @@ use std::ptr;
 use std::sync::Arc;
 
 use buck2_common::package_listing::listing::PackageListing;
+use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::cells::paths::CellRelativePath;
@@ -21,7 +22,6 @@ use buck2_core::facebook_only;
 use buck2_core::fs::paths::FileName;
 use buck2_core::result::SharedResult;
 use buck2_interpreter::common::BuildFilePath;
-use buck2_interpreter::common::ImportPath;
 use buck2_interpreter::common::StarlarkPath;
 use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::extra::ExtraContextDyn;
@@ -198,10 +198,7 @@ impl InterpreterConfiguror for BuildInterpreterConfiguror {
         ))
     }
 
-    fn get_prelude_import(
-        &self,
-        import: StarlarkPath,
-    ) -> Option<&buck2_interpreter::common::ImportPath> {
+    fn get_prelude_import(&self, import: StarlarkPath) -> Option<&buck2_core::bzl::ImportPath> {
         if let Some(prelude_import) = &self.prelude_import {
             let import_path = import.path();
             let prelude_path = prelude_import.path();

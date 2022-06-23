@@ -23,6 +23,7 @@ pub mod testing {
     use buck2_common::legacy_configs::LegacyBuckConfigs;
     use buck2_common::package_listing::listing::testing::PackageListingExt;
     use buck2_common::package_listing::listing::PackageListing;
+    use buck2_core::bzl::ImportPath;
     use buck2_core::cells::build_file_cell::BuildFileCell;
     use buck2_core::cells::paths::CellPath;
     use buck2_core::cells::*;
@@ -30,7 +31,6 @@ pub mod testing {
     use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::result::SharedResult;
     use buck2_interpreter::common::BuildFilePath;
-    use buck2_interpreter::common::ImportPath;
     use buck2_interpreter::common::OwnedStarlarkModulePath;
     use buck2_interpreter::common::StarlarkModulePath;
     use buck2_interpreter::common::StarlarkPath;

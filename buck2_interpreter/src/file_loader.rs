@@ -10,13 +10,13 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use buck2_core::bzl::ImportPath;
 use buck2_core::bzl::ModuleID;
 use gazebo::prelude::*;
 use indexmap::map::IndexMap;
 use starlark::environment::FrozenModule;
 use starlark::eval::FileLoader;
 
-use crate::common::ImportPath;
 use crate::common::OwnedStarlarkModulePath;
 use crate::common::StarlarkModulePath;
 

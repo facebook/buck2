@@ -104,8 +104,8 @@ pub(crate) fn register_natives(builder: &mut GlobalsBuilder) {
 mod tests {
     use buck2_common::package_listing::listing::testing::PackageListingExt;
     use buck2_common::package_listing::listing::PackageListing;
+    use buck2_core::bzl::ImportPath;
     use buck2_interpreter::common::BuildFilePath;
-    use buck2_interpreter::common::ImportPath;
     use buck2_interpreter::file_loader::LoadedModules;
     use indoc::indoc;
     use serde_json::json;

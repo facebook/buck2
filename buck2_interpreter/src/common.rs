@@ -8,14 +8,12 @@
  */
 
 use std::borrow::Cow;
-use std::fmt::Display;
-use std::fmt::Formatter;
 use std::hash::Hash;
 
+use buck2_core::bzl::ImportPath;
 use buck2_core::bzl::ModuleID;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::paths::CellPath;
-use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellName;
 use buck2_core::fs::paths::FileName;
@@ -82,82 +80,6 @@ impl BuildFilePath {
 
     pub fn id(&self) -> &ModuleID {
         &self.id
-    }
-}
-
-/// Path of a `.bzl` file.
-#[derive(Clone, Hash, Eq, PartialEq, Debug)]
-pub struct ImportPath {
-    /// The path to the import as a 'CellPath', which contains the cell
-    /// information and the cell relative path to the bzl file itself, including the bzl suffix
-    path: CellPath,
-    /// The cell of the top-level build module that this is being loaded
-    /// (perhaps transitively) into.
-    build_file_cell: BuildFileCell,
-    /// A ModuleID for the import.
-    id: ModuleID,
-}
-
-impl ImportPath {
-    pub fn new(path: CellPath, build_file_cell: BuildFileCell) -> anyhow::Result<Self> {
-        Ok(Self::unverified_new(path, build_file_cell))
-    }
-
-    pub fn unverified_new(path: CellPath, build_file_cell: BuildFileCell) -> Self {
-        let id = ModuleID(if build_file_cell.name() == path.cell() {
-            format!("{}", path)
-        } else {
-            format!("{}@{}", path, build_file_cell.name())
-        });
-        Self {
-            path,
-            build_file_cell,
-            id,
-        }
-    }
-
-    pub fn unchecked_new(cell: &str, cell_relative_path: &str, filename: &str) -> Self {
-        let cell = cell.to_owned();
-        Self::unchecked_new_cross_cell(&cell, cell_relative_path, filename, &cell)
-    }
-
-    pub fn unchecked_new_cross_cell(
-        cell: &str,
-        cell_relative_path: &str,
-        filename: &str,
-        build_file_cell: &str,
-    ) -> Self {
-        let cell_path = CellPath::new(
-            CellName::unchecked_new(cell.to_owned()),
-            CellRelativePath::unchecked_new(cell_relative_path)
-                .join_unnormalized(FileName::unchecked_new(filename)),
-        );
-        Self::unverified_new(
-            cell_path,
-            BuildFileCell::new(CellName::unchecked_new(build_file_cell.to_owned())),
-        )
-    }
-
-    pub fn cell(&self) -> &CellName {
-        self.path.cell()
-    }
-
-    pub fn build_file_cell(&self) -> &BuildFileCell {
-        &self.build_file_cell
-    }
-
-    pub fn path(&self) -> &CellPath {
-        &self.path
-    }
-
-    pub fn id(&self) -> &ModuleID {
-        &self.id
-    }
-}
-
-impl Display for ImportPath {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.id)
     }
 }
 
