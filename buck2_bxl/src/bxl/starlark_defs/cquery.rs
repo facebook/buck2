@@ -2,8 +2,13 @@ use std::sync::Arc;
 
 use buck2_build_api::nodes::configured::ConfiguredTargetNode;
 use buck2_build_api::query::cquery::environment::CqueryEnvironment;
+use buck2_build_api::query::cquery::evaluator::get_cquery_evaluator;
+use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::data::HasIoProvider;
 use buck2_core::target::TargetLabel;
 use buck2_docs_gen::Buck2Docs;
+use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
+use buck2_query::query::syntax::simple::eval::values::QueryEvaluationValue;
 use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctions;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
@@ -18,6 +23,7 @@ use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_type;
+use starlark::values::dict::Dict;
 use starlark::values::none::NoneOr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -357,5 +363,68 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                     .await
             })
             .map(StarlarkTargetSet::from)
+    }
+
+    /// evaluates some general query string
+    fn eval<'v>(
+        this: &StarlarkCQueryCtx<'v>,
+        query: &'v str,
+        #[starlark(default = Vec::new())] query_args: Vec<&'v str>,
+        #[starlark(default = NoneOr::None)] target_universe: NoneOr<Vec<&'v str>>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        this.ctx.async_ctx.via_dice(|ctx| async {
+            match get_cquery_evaluator(
+                ctx,
+                ctx.get_cell_resolver()
+                    .await?
+                    .get(this.ctx.current_bxl.label().bxl_path.cell())?
+                    .path(),
+                ctx.global_data().get_io_provider().fs().root.clone(),
+                this.target_platform.dupe(),
+            )
+            .await
+            {
+                Ok(evaluator) => Ok(
+                    match evaluator
+                        .eval_query(
+                            query,
+                            &query_args,
+                            target_universe.into_option().as_ref().map(|v| &v[..]),
+                        )
+                        .await?
+                    {
+                        QueryEvaluationResult::Single(result) => match result {
+                            QueryEvaluationValue::TargetSet(targets) => {
+                                eval.heap().alloc(StarlarkTargetSet::from(targets))
+                            }
+                            QueryEvaluationValue::FileSet(files) => {
+                                eval.heap().alloc(StarlarkFileSet::from(files))
+                            }
+                        },
+                        QueryEvaluationResult::Multiple(multi) => eval.heap().alloc(Dict::new(
+                            multi
+                                .0
+                                .into_iter()
+                                .map(|(q, res)| {
+                                    Ok((
+                                        eval.heap().alloc(q).get_hashed()?,
+                                        match res? {
+                                            QueryEvaluationValue::TargetSet(targets) => {
+                                                eval.heap().alloc(StarlarkTargetSet::from(targets))
+                                            }
+                                            QueryEvaluationValue::FileSet(files) => {
+                                                eval.heap().alloc(StarlarkFileSet::from(files))
+                                            }
+                                        },
+                                    ))
+                                })
+                                .collect::<anyhow::Result<_>>()?,
+                        )),
+                    },
+                ),
+                Err(e) => Err(e),
+            }
+        })
     }
 }

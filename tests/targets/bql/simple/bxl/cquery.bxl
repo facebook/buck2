@@ -60,3 +60,12 @@ filter_test = bxl(
     implementation = _filter_impl,
     cli_args = {},
 )
+
+def _eval_query(ctx):
+    result = ctx.cquery().eval("inputs(root//bin:the_binary)")
+    ctx.output.print(result)
+
+eval_query_test = bxl(
+    implementation = _eval_query,
+    cli_args = {},
+)

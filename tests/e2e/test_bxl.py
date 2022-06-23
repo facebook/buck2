@@ -338,3 +338,12 @@ async def test_bxl_caching(buck: Buck) -> None:
 
     assert "ran me" not in result.stderr
     assert "result print" in result.stdout
+
+
+@buck_test(inplace=False, data_dir="bql/simple")
+async def test_cquery_eval(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl:cquery.bxl:eval_query_test",
+    )
+
+    assert "TARGETS.fixture" in result.stdout
