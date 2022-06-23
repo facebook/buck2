@@ -57,6 +57,7 @@ use attr_type::dep::UnconfiguredExplicitConfiguredDep;
 use attr_type::split_transition_dep::ConfiguredSplitTransitionDep;
 use attr_type::split_transition_dep::SplitTransitionDep;
 use buck2_core::buck_path::BuckPath;
+use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -74,7 +75,6 @@ use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::interpreter::rule_defs::transition::applied::TransitionApplied;
-use crate::interpreter::rule_defs::transition::id::TransitionId;
 
 pub(crate) mod analysis;
 pub mod attr_type;

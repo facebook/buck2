@@ -7,8 +7,14 @@
  * of this source tree.
  */
 
-pub(crate) mod applied;
-pub(crate) mod calculation_apply_transition;
-pub(crate) mod calculation_fetch_transition;
-pub(crate) mod cfg_diff;
-pub(crate) mod starlark;
+use derive_more::Display;
+
+use crate::bzl::ImportPath;
+
+/// Identifier of transition function.
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Display)]
+#[display(fmt = "{}#{}", path, name)]
+pub struct TransitionId {
+    pub path: ImportPath,
+    pub name: String,
+}

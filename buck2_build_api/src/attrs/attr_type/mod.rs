@@ -12,6 +12,7 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use attr_literal::AttrLiteral;
+use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::id::ProviderId;
 use configuration_dep::ConfigurationDepAttrType;
 use default_only::DefaultOnlyAttrType;
@@ -39,7 +40,6 @@ use crate::attrs::attr_type::list::ListAttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::AttrCoercionContext;
 use crate::interpreter::rule_defs::attr::AttrIsConfigurable;
-use crate::interpreter::rule_defs::transition::id::TransitionId;
 
 pub(crate) mod any;
 pub mod arg;

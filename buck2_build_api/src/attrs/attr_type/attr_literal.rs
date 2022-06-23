@@ -13,6 +13,7 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use buck2_core::buck_path::BuckPath;
+use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
 use buck2_core::target::TargetLabel;
@@ -51,7 +52,6 @@ use crate::attrs::CoercedPath;
 use crate::attrs::ConfiguredAttr;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::provider::dependency::DependencyGen;
-use crate::interpreter::rule_defs::transition::id::TransitionId;
 
 pub trait AttrLike: Display + Debug + Clone + Eq + PartialEq + Hash + Send + Sync {}
 

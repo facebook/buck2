@@ -7,13 +7,4 @@
  * of this source tree.
  */
 
-use buck2_core::bzl::ImportPath;
-use derive_more::Display;
-
-/// Identifier of transition function.
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Display)]
-#[display(fmt = "{}#{}", path, name)]
-pub struct TransitionId {
-    pub(crate) path: ImportPath,
-    pub(crate) name: String,
-}
+pub mod id;

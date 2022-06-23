@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_core::cells::CellName;
+use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::result::SharedResult;
@@ -29,7 +30,6 @@ use crate::attrs::AttrConfigurationContext;
 use crate::configuration::execution::ExecutionPlatform;
 use crate::configuration::execution::ExecutionPlatformResolution;
 use crate::interpreter::rule_defs::transition::applied::TransitionApplied;
-use crate::interpreter::rule_defs::transition::id::TransitionId;
 
 pub mod calculation;
 pub mod execution;

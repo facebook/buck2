@@ -8,6 +8,7 @@
  */
 
 use async_trait::async_trait;
+use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::result::SharedError;
 use buck2_core::result::SharedResult;
 use buck2_interpreter::common::StarlarkModulePath;
@@ -16,7 +17,6 @@ use dice::DiceComputations;
 use starlark::values::OwnedFrozenValueTyped;
 use thiserror::Error;
 
-use crate::interpreter::rule_defs::transition::id::TransitionId;
 use crate::interpreter::rule_defs::transition::starlark::FrozenTransition;
 
 /// Fetch transition object (function plus context) by id.

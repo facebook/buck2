@@ -12,6 +12,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::sync::Arc;
 
+use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use derive_more::Display;
@@ -32,7 +33,6 @@ use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::AttrConfigurationContext;
 use crate::attrs::ConfiguredAttr;
-use crate::interpreter::rule_defs::transition::id::TransitionId;
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub(crate) struct SplitTransitionDepAttrType {

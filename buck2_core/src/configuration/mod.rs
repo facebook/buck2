@@ -36,6 +36,7 @@ use crate::configuration::constraints::ConstraintKey;
 use crate::configuration::constraints::ConstraintValue;
 
 pub mod constraints;
+pub mod transition;
 
 #[derive(Debug, Error)]
 enum ConfigurationError {

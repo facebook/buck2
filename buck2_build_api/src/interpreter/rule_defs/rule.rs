@@ -14,6 +14,7 @@ use std::iter::Iterator;
 use std::sync::Arc;
 
 use buck2_core::bzl::ImportPath;
+use buck2_core::configuration::transition::id::TransitionId;
 use buck2_interpreter::extra::BuildContext;
 use buck2_interpreter::extra::ExtraContext;
 use derive_more::Display;
@@ -42,7 +43,6 @@ use starlark::values::Value;
 
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::rule_defs::attr::Attribute;
-use crate::interpreter::rule_defs::transition::id::TransitionId;
 use crate::interpreter::rule_defs::transition::starlark::Transition;
 use crate::nodes::attr_spec::AttributeSpec;
 use crate::nodes::unconfigured::TargetNode;

@@ -13,6 +13,7 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::id::ProviderId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
@@ -40,7 +41,6 @@ use crate::attrs::ConfiguredAttr;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::interpreter::rule_defs::provider::dependency::Dependency;
-use crate::interpreter::rule_defs::transition::id::TransitionId;
 
 #[derive(Error, Debug)]
 pub(crate) enum ResolutionError {
