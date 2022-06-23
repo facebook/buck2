@@ -1,6 +1,7 @@
 load("@fbcode//buck2/prelude/apple:apple_stripping.bzl", "apple_strip_args")
 load("@fbcode//buck2/prelude/cxx:cxx.bzl", "get_srcs_with_flags")
 load("@fbcode//buck2/prelude/cxx:cxx_executable.bzl", "cxx_executable")
+load("@fbcode//buck2/prelude/cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
 load("@fbcode//buck2/prelude/cxx:cxx_types.bzl", "CxxRuleConstructorParams")
 load(
     "@fbcode//buck2/prelude/cxx:preprocessor.bzl",
@@ -50,8 +51,8 @@ def apple_binary_impl(ctx: "context") -> ["provider"]:
     resource_graph = create_resource_graph(
         root = ctx.label,
         labels = ctx.attr.labels,
-        deps = ctx.attr.deps,
-        exported_deps = ctx.attr.exported_deps,
+        deps = cxx_attr_deps(ctx),
+        exported_deps = cxx_attr_exported_deps(ctx),
     )
 
     return [
