@@ -144,7 +144,7 @@ impl<'v> BxlContext<'v> {
             .await?;
         DiceQueryDelegate::new(
             ctx,
-            working_dir,
+            &working_dir,
             project_root,
             cell_resolver,
             target_platform,

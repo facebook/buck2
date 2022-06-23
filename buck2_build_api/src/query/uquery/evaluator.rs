@@ -11,7 +11,7 @@
 use std::sync::Arc;
 
 use buck2_core::fs::paths::AbsPathBuf;
-use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::target::TargetLabel;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
@@ -52,7 +52,7 @@ impl UqueryEvaluator<'_> {
 /// the provided DiceCtx.
 pub async fn get_uquery_evaluator<'c>(
     ctx: &'c DiceComputations,
-    working_dir: ProjectRelativePathBuf,
+    working_dir: &ProjectRelativePath,
     project_root: AbsPathBuf,
     global_target_platform: Option<TargetLabel>,
 ) -> anyhow::Result<UqueryEvaluator<'c>> {

@@ -43,7 +43,7 @@ pub(crate) async fn aquery(
 
     let evaluator = get_aquery_evaluator(
         &ctx,
-        server_ctx.working_dir.clone(),
+        &server_ctx.working_dir,
         server_ctx.project_root().to_buf(),
         global_target_platform,
     )

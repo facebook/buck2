@@ -135,14 +135,14 @@ pub struct DiceQueryDelegate<'c> {
 impl<'c> DiceQueryDelegate<'c> {
     pub fn new(
         ctx: &'c DiceComputations,
-        working_dir: ProjectRelativePathBuf,
+        working_dir: &ProjectRelativePath,
         project_root: AbsPathBuf,
         cell_resolver: CellResolver,
         global_target_platform: Option<TargetLabel>,
         package_boundary_exceptions: Arc<PackageBoundaryExceptions>,
         target_alias_resolver: TargetAliasResolver,
     ) -> anyhow::Result<Self> {
-        let working_dir = Package::from_cell_path(&cell_resolver.get_cell_path(&working_dir)?);
+        let working_dir = Package::from_cell_path(&cell_resolver.get_cell_path(working_dir)?);
         let cell_name = working_dir.as_cell_path().cell();
         let cell_alias_resolver = cell_resolver.get(cell_name)?.cell_alias_resolver().dupe();
 
@@ -337,14 +337,14 @@ impl<'c> QueryLiterals<TargetNode> for DiceQueryDelegate<'c> {
 
 pub(crate) async fn get_dice_query_delegate<'c>(
     ctx: &'c DiceComputations,
-    working_dir: ProjectRelativePathBuf,
+    working_dir: &ProjectRelativePath,
     project_root: AbsPathBuf,
     global_target_platform: Option<TargetLabel>,
 ) -> anyhow::Result<DiceQueryDelegate<'c>> {
     let cell_resolver = ctx.get_cell_resolver().await?;
     let package_boundary_exceptions = ctx.get_package_boundary_exceptions().await?;
     let target_alias_resolver = ctx
-        .target_alias_resolver_for_working_dir(&working_dir)
+        .target_alias_resolver_for_working_dir(working_dir)
         .await?;
     DiceQueryDelegate::new(
         ctx,

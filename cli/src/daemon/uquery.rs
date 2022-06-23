@@ -43,7 +43,7 @@ pub(crate) async fn uquery(
 
     let evaluator = get_uquery_evaluator(
         &ctx,
-        server_ctx.working_dir.clone(),
+        &server_ctx.working_dir,
         server_ctx.project_root().to_buf(),
         global_target_platform,
     )

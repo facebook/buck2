@@ -88,7 +88,7 @@ pub async fn eval_bql(
 
         let uquery_delegate = Arc::new(DiceQueryDelegate::new(
             &ctx,
-            working_dir,
+            &working_dir,
             project_root,
             cell_resolver,
             global_target_platform,
