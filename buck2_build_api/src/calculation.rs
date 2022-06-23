@@ -24,7 +24,7 @@ use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::file_loader::LoadedModule;
-use buck2_interpreter::pattern::find_package_roots_stream;
+use buck2_interpreter::pattern::package_roots::find_package_roots_stream;
 use buck2_interpreter::pattern::PackageSpec;
 use buck2_interpreter::pattern::ParsedPattern;
 use buck2_interpreter::pattern::ResolvedPattern;
