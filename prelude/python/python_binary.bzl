@@ -45,10 +45,11 @@ def _package_style(ctx: "context") -> PackageStyle.type:
         return PackageStyle(ctx.attr.package_style.lower())
     return PackageStyle(ctx.attr._python_toolchain[PythonToolchainInfo].package_style)
 
+# We do a lot of merging extensions, so don't use O(n) type annotations
 def _merge_extensions(
-        extensions: {str.type: ("_a", "label")},
-        incoming_label: "label",
-        incoming_extensions: {str.type: "_a"}):
+        extensions,  # : {str.type: ("_a", "label")},
+        incoming_label,  # : "label",
+        incoming_extensions) -> None:  # : {str.type: "_a"})
     """
     Merges a incoming_extensions into `extensions`. Fails if duplicate dests exist.
     """
