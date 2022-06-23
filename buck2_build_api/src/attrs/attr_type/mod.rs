@@ -38,8 +38,8 @@ use crate::attrs::attr_type::bool::BoolAttrType;
 use crate::attrs::attr_type::int::IntAttrType;
 use crate::attrs::attr_type::list::ListAttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
-use crate::interpreter::rule_defs::attr::AttrIsConfigurable;
 
 pub(crate) mod any;
 pub mod arg;

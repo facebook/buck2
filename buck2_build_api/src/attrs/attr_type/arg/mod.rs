@@ -619,9 +619,9 @@ mod tests {
     use crate::attrs::attr_type::attr_literal::CoercedDepsCollector;
     use crate::attrs::attr_type::attr_literal::ConfiguredAttrInfo;
     use crate::attrs::attr_type::AttrType;
+    use crate::attrs::configurable::AttrIsConfigurable;
     use crate::attrs::testing::*;
     use crate::attrs::AttrConfigurationContext;
-    use crate::interpreter::rule_defs::attr::AttrIsConfigurable;
 
     trait GetMacroDeps {
         type DepsType;

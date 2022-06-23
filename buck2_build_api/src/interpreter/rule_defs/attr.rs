@@ -49,6 +49,7 @@ use twox_hash::xxh3;
 use crate::attrs::attr_type::any::AnyAttrType;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::CoercedPath;
 use crate::interpreter::rule_defs::provider::callable::ValueAsProviderCallableLike;
@@ -222,13 +223,6 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
 
         Ok(CoercedPath::File(BuckPath::new(package.dupe(), path)))
     }
-}
-
-/// Can we use `select` with this attribute?
-#[derive(Copy, Clone, Dupe)]
-pub enum AttrIsConfigurable {
-    Yes,
-    No,
 }
 
 /// Starlark compatible container for results from e.g. `attr.string()`
@@ -747,8 +741,8 @@ mod tests {
     use starlark::values::Heap;
 
     use crate::attrs::attr_type::AttrType;
+    use crate::attrs::configurable::AttrIsConfigurable;
     use crate::attrs::AttrCoercionContext;
-    use crate::interpreter::rule_defs::attr::AttrIsConfigurable;
     use crate::interpreter::rule_defs::attr::BuildAttrCoercionContext;
     use crate::interpreter::testing::cells;
     use crate::interpreter::testing::run_starlark_bzl_test;

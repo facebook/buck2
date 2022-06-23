@@ -13,9 +13,9 @@ use starlark::values::Value;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::AttrType;
+use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::CoercedAttr;
-use crate::interpreter::rule_defs::attr::AttrIsConfigurable;
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub(crate) struct OptionAttrType {

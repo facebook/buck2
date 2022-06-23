@@ -32,13 +32,13 @@ use thiserror::Error;
 
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::AttrType;
+use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::AttrConfigurationContext;
 use crate::attrs::AttrLiteral;
 use crate::attrs::CoercedAttrTraversal;
 use crate::attrs::ConfiguredAttr;
 use crate::attrs::OrderedMap;
-use crate::interpreter::rule_defs::attr::AttrIsConfigurable;
 
 #[derive(Error, Debug)]
 pub(crate) enum SelectError {

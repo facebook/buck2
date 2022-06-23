@@ -17,7 +17,7 @@ use crate::attrs::attr_type::any::AnyAttrType;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
-use crate::interpreter::rule_defs::attr::AttrIsConfigurable;
+use crate::attrs::configurable::AttrIsConfigurable;
 use crate::interpreter::rule_defs::attr::Attribute;
 use crate::nodes::PlatformInfoCallable;
 

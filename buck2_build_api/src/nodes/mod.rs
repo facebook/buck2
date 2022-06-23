@@ -100,7 +100,7 @@ mod tests {
 
     use super::*;
     use crate::attrs::attr_type::AttrType;
-    use crate::interpreter::rule_defs::attr::AttrIsConfigurable;
+    use crate::attrs::configurable::AttrIsConfigurable;
     use crate::interpreter::rule_defs::attr::BuildAttrCoercionContext;
     use crate::interpreter::testing::cells;
 
