@@ -10,6 +10,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fmt::Display;
 use std::sync::Arc;
 
 use anyhow::Context as _;
@@ -217,6 +218,17 @@ impl DepFileState {
 #[derive(Debug)]
 pub struct RunActionDepFiles {
     pub labels: HashMap<ArtifactTag, Arc<str>>,
+}
+
+impl Display for RunActionDepFiles {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let values: Vec<&str> = self
+            .labels
+            .values()
+            .map(|x| x.as_ref())
+            .collect::<Vec<&str>>();
+        write!(f, "{:?}", values)
+    }
 }
 
 impl RunActionDepFiles {

@@ -9,6 +9,7 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::fmt::Display;
 
 use async_trait::async_trait;
 use buck2_core::category::Category;
@@ -19,6 +20,7 @@ use host_sharing::WeightClass;
 use indexmap::indexmap;
 use indexmap::IndexSet;
 use itertools::Itertools;
+use serde_json::json;
 use starlark::values::dict::Dict;
 use starlark::values::tuple::Tuple;
 use starlark::values::OwnedFrozenValue;
@@ -71,6 +73,16 @@ pub(crate) struct MetadataParameter {
     pub(crate) env_var: String,
     /// User-defined path in the output directory of the metadata file.
     pub(crate) path: ForwardRelativePathBuf,
+}
+
+impl Display for MetadataParameter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let json = json!({
+            "env_var": self.env_var,
+            "path": self.path,
+        });
+        write!(f, "{}", json)
+    }
 }
 
 #[derive(Debug)]
@@ -246,6 +258,15 @@ impl Action for RunAction {
         let cmd = format!("[{}]", cli_builder.build().iter().join(", "));
         indexmap! {
             "cmd".to_owned() => cmd,
+            "local_only".to_owned() => self.inner.local_only.to_string(),
+            "always_print_stderr".to_owned() => self.inner.always_print_stderr.to_string(),
+            "weight".to_owned() => self.inner.weight.to_string(),
+            "dep_files".to_owned() => self.inner.dep_files.to_string(),
+            "metadata_param".to_owned() => match &self.inner.metadata_param {
+                None => "None".to_owned(),
+                Some(x) => x.to_string(),
+            },
+            "no_outputs_cleanup".to_owned() => self.inner.no_outputs_cleanup.to_string(),
         }
     }
 }
