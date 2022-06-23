@@ -51,9 +51,10 @@ def create_shared_libraries(
         ) for (name, shlib) in libraries.items()},
     )
 
+# We do a lot of merging library maps, so don't use O(n) type annotations
 def _merge_lib_map(
-        dest_mapping: {str.type: SharedLibrary.type},
-        mapping_to_merge: {str.type: SharedLibrary.type}):
+        dest_mapping,  # : {str.type: SharedLibrary.type}
+        mapping_to_merge) -> None:  # : {str.type: SharedLibrary.type}
     """
     Merges a mapping_to_merge into `dest_mapping`. Fails if different libraries
     map to the same name.
@@ -98,7 +99,7 @@ def merge_shared_libraries(
     return SharedLibraryInfo(set = set)
 
 def traverse_shared_library_info(
-        info: "SharedLibraryInfo") -> {str.type: SharedLibrary.type}:
+        info: "SharedLibraryInfo"):  # -> {str.type: SharedLibrary.type}:
     libraries = {}
     if info.set:
         for libs in info.set.traverse():
