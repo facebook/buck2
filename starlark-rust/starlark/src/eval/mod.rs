@@ -109,6 +109,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                 codemap,
                 scope_names,
                 globals,
+                self.module_env.frozen_heap(),
             )),
         );
 

@@ -27,9 +27,9 @@ use crate::values::ValueLike;
 pub(crate) fn to_scope_names_by_local_slot_id<'v>(x: Value<'v>) -> Option<&'v [FrozenStringValue]> {
     if x.unpack_frozen().is_some() {
         x.downcast_ref::<FrozenDef>()
-            .map(|x| x.def_info.used.as_slice())
+            .map(|x| x.def_info.used.as_ref())
     } else {
-        x.downcast_ref::<Def>().map(|x| x.def_info.used.as_slice())
+        x.downcast_ref::<Def>().map(|x| x.def_info.used.as_ref())
     }
 }
 

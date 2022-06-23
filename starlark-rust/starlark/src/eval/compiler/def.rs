@@ -242,7 +242,7 @@ pub(crate) struct DefInfo {
     pub(crate) docstring: Option<String>,
     /// Slots this scope uses, including for parameters and `parent`.
     /// Indexed by [`LocalSlotId`], values are variable names.
-    pub(crate) used: Vec<FrozenStringValue>,
+    pub(crate) used: FrozenRef<'static, [FrozenStringValue]>,
     /// Slots to copy from the parent. (index in parent, index in child).
     /// Module-level identifiers are not copied over, to avoid excess copying.
     pub(crate) parent: Vec<(LocalSlotIdCapturedOrNot, LocalSlotIdCapturedOrNot)>,
@@ -269,7 +269,7 @@ impl DefInfo {
             name: const_frozen_string!("<empty>"),
             codemap: FrozenRef::new(&EMPTY_CODEMAP),
             docstring: None,
-            used: Vec::new(),
+            used: FrozenRef::new(&[]),
             parent: Vec::new(),
             stmt_compiled: Bc::default(),
             body_stmts: StmtsCompiled::empty(),
@@ -284,12 +284,15 @@ impl DefInfo {
         codemap: FrozenRef<'static, CodeMap>,
         scope_names: ScopeNames,
         globals: FrozenRef<'static, Globals>,
+        frozen_heap: &FrozenHeap,
     ) -> DefInfo {
         DefInfo {
             name: const_frozen_string!("<module>"),
             codemap,
             docstring: None,
-            used: scope_names.used,
+            used: frozen_heap
+                .alloc_any_display_from_debug(scope_names.used)
+                .map(|s| s.as_slice()),
             parent: scope_names.parent,
             stmt_compiled: Bc::default(),
             body_stmts: StmtsCompiled::empty(),
@@ -400,7 +403,11 @@ impl Compiler<'_, '_, '_> {
             name,
             codemap: self.codemap,
             docstring,
-            used: scope_names.used,
+            used: self
+                .eval
+                .frozen_heap()
+                .alloc_any_display_from_debug(scope_names.used)
+                .map(|s| s.as_slice()),
             parent: scope_names.parent,
             stmt_compiled: body.as_bc(
                 &self.compile_context(return_type.is_some()),
