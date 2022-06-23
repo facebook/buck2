@@ -153,3 +153,13 @@ buck2_e2e_test(
     name = "test_linker_argsfile",
     srcs = ["test_linker_argsfile.py"],
 )
+
+buck2_e2e_test(
+    name = "test_common_opts",
+    srcs = ["test_common_opts.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location //buck2:prelude)",
+    },
+)

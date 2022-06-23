@@ -62,6 +62,7 @@ use crate::commands::clean::CleanCommand;
 use crate::commands::common::subscribers::get_console_with_root;
 use crate::commands::common::subscribers::superconsole::StatefulSuperConsole;
 use crate::commands::common::subscribers::superconsole::SuperConsoleConfig;
+use crate::commands::common::subscribers::try_get_build_id_writer;
 use crate::commands::common::subscribers::try_get_event_log_subscriber;
 use crate::commands::common::verbosity::Verbosity;
 use crate::commands::common::CommonConfigOptions;
@@ -217,6 +218,9 @@ fn default_subscribers<T: StreamingCommand>(
     }
     if let Some(event_log) = try_get_event_log_subscriber(cmd.event_log_opts(), ctx)? {
         subscribers.push(event_log)
+    }
+    if let Some(build_id_writer) = try_get_build_id_writer(cmd.common_opts())? {
+        subscribers.push(build_id_writer)
     }
     Ok(subscribers)
 }
