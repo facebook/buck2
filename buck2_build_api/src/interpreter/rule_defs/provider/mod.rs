@@ -57,6 +57,7 @@
 use std::fmt::Debug;
 use std::sync::Arc;
 
+use buck2_core::provider::id::ProviderId;
 use starlark::environment::MethodsBuilder;
 use starlark::values::Value;
 use starlark::values::ValueLike;
@@ -65,7 +66,6 @@ use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfo;
 use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;
 use crate::interpreter::rule_defs::provider::builtin::default_info::FrozenDefaultInfo;
 use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
-use crate::interpreter::rule_defs::provider::id::ProviderId;
 use crate::interpreter::rule_defs::provider::registration::ProviderRegistration;
 use crate::interpreter::rule_defs::provider::user::FrozenUserProvider;
 use crate::interpreter::rule_defs::provider::user::UserProvider;
@@ -74,7 +74,6 @@ pub mod builtin;
 pub mod callable;
 pub mod collection;
 pub(crate) mod dependency;
-pub mod id;
 pub mod registration;
 pub(crate) mod user;
 

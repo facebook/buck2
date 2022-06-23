@@ -12,7 +12,7 @@ use std::fmt::Display;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use buck2_core::cells::paths::CellPath;
+use crate::cells::paths::CellPath;
 
 /// A unique identity for a given provider. Allows correlating `ProviderCallable` objects with `UserProvider` objects.
 ///
@@ -30,8 +30,8 @@ use buck2_core::cells::paths::CellPath;
 pub struct ProviderId {
     /// This is present for all user-specified providers. This is only None if it is a
     /// native provider, which has no affiliated .bzl file
-    pub(crate) path: Option<CellPath>,
-    pub(crate) name: String,
+    pub path: Option<CellPath>,
+    pub name: String,
 }
 
 impl Display for ProviderId {
@@ -64,11 +64,9 @@ impl ProviderId {
     }
 }
 
-#[cfg(test)]
 pub mod testing {
-    use buck2_core::cells::paths::CellPath;
-
-    use crate::interpreter::rule_defs::provider::id::ProviderId;
+    use crate::cells::paths::CellPath;
+    use crate::provider::id::ProviderId;
 
     pub trait ProviderIdExt {
         fn testing_new(path: CellPath, name: &str) -> Self;

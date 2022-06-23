@@ -14,6 +14,7 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use buck2_core::cells::paths::CellPath;
+use buck2_core::provider::id::ProviderId;
 use gazebo::any::ProvidesStaticType;
 use gazebo::dupe::Dupe;
 use starlark::environment::GlobalsBuilder;
@@ -37,7 +38,6 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
-use crate::interpreter::rule_defs::provider::id::ProviderId;
 use crate::interpreter::rule_defs::provider::registration::ProviderRegistration;
 use crate::interpreter::rule_defs::provider::user::user_provider_creator;
 use crate::interpreter::rule_defs::provider::ProviderError;

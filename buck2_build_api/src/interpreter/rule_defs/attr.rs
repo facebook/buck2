@@ -22,6 +22,7 @@ use buck2_core::buck_path::BuckPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::package::Package;
 use buck2_core::package::PackageRelativePathBuf;
+use buck2_core::provider::id::ProviderId;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::TargetLabel;
@@ -51,7 +52,6 @@ use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::CoercedPath;
 use crate::interpreter::rule_defs::provider::callable::ValueAsProviderCallableLike;
-use crate::interpreter::rule_defs::provider::id::ProviderId;
 use crate::interpreter::rule_defs::rule::RuleError;
 use crate::interpreter::rule_defs::transition::starlark::Transition;
 

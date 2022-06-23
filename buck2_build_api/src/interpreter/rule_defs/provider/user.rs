@@ -14,6 +14,7 @@ use std::fmt::Display;
 use std::hash::Hash;
 use std::sync::Arc;
 
+use buck2_core::provider::id::ProviderId;
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
 use serde::Serializer;
@@ -33,7 +34,6 @@ use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueLike;
 
-use crate::interpreter::rule_defs::provider::id::ProviderId;
 use crate::interpreter::rule_defs::provider::provider_methods;
 use crate::interpreter::rule_defs::provider::ProviderLike;
 use crate::interpreter::rule_defs::provider::ValueAsProviderLike;

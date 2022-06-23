@@ -437,6 +437,8 @@ mod tests {
     use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::package::testing::PackageExt;
     use buck2_core::package::Package;
+    use buck2_core::provider::id::testing::ProviderIdExt;
+    use buck2_core::provider::id::ProviderId;
     use buck2_core::result::SharedResult;
     use buck2_core::target::testing::TargetLabelExt;
     use buck2_core::target::TargetLabel;
@@ -466,8 +468,6 @@ mod tests {
     use crate::interpreter::context::configure_extension_file_globals;
     use crate::interpreter::context::BuildInterpreterConfiguror;
     use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;
-    use crate::interpreter::rule_defs::provider::id::testing::ProviderIdExt;
-    use crate::interpreter::rule_defs::provider::id::ProviderId;
     use crate::interpreter::testing::Tester;
 
     #[tokio::test]

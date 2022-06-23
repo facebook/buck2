@@ -11,6 +11,8 @@ use std::fmt;
 use std::fmt::Display;
 use std::sync::Arc;
 
+use buck2_core::provider::id::ProviderId;
+use buck2_core::provider::id::ProviderIdWithType;
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
 use gazebo::dupe::Dupe;
@@ -34,8 +36,6 @@ use starlark::values::ValueError;
 use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::provider::callable::ValueAsProviderCallableLike;
-use crate::interpreter::rule_defs::provider::id::ProviderId;
-use crate::interpreter::rule_defs::provider::id::ProviderIdWithType;
 use crate::interpreter::rule_defs::provider::DefaultInfo;
 use crate::interpreter::rule_defs::provider::DefaultInfoCallable;
 use crate::interpreter::rule_defs::provider::FrozenDefaultInfo;

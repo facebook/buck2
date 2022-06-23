@@ -20,4 +20,5 @@
 //! `some_rule[java]` or `some_rule[cxx]`.
 
 pub mod flavors;
+pub mod id;
 pub mod label;
