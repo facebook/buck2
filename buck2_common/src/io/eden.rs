@@ -20,6 +20,7 @@ use async_trait::async_trait;
 use buck2_core;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::anyhow as fs;
+use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
@@ -65,35 +66,27 @@ struct EdenError(edenfs::types::EdenError);
 #[error("Eden returned an unexpected field: {}", .0)]
 struct UnknownField(i32);
 
-#[derive(Derivative)]
-#[derivative(PartialEq)]
-pub struct EdenIoProvider {
-    #[derivative(PartialEq = "ignore")]
+pub struct EdenConnectionManager {
     connector: EdenConnector,
-    #[derivative(PartialEq = "ignore")]
     connection: Mutex<EdenConnection>,
     /// Eden has limits on concurrency and will return server overloaded (or timeout) errors if we
     /// send too many. Experimentally, even for large builds (see details in D36136516), we don't
     /// much performance improvement beyond 2K concurrent requests, regardless of whether Eden has
     /// a fast or slow connectin to source control, a warm cache or not, and a lot of CPU available
     /// to run or not.
-    #[derivative(PartialEq = "ignore")]
     semaphore: Semaphore,
-    fs: FsIoProvider,
 }
 
-impl EdenIoProvider {
-    pub fn new(fb: FacebookInit, fs: &Arc<ProjectFilesystem>) -> anyhow::Result<Option<Self>> {
-        if cfg!(not(fbcode_build)) {
-            tracing::warn!("Cargo build detected: disabling Eden I/O");
-            return Ok(None);
-        }
-
-        let eden_root = fs.root.join(".eden");
+impl EdenConnectionManager {
+    pub fn new(
+        fb: FacebookInit,
+        root: &AbsPathBuf,
+        semaphore: Semaphore,
+    ) -> anyhow::Result<Option<Self>> {
+        let eden_root = root.join(".eden");
         if !eden_root.exists() {
             return Ok(None);
         }
-
         let root = fs::read_link(eden_root.join("root"))?
             .to_str()
             .context("Eden root is not UTF-8")?
@@ -109,14 +102,10 @@ impl EdenIoProvider {
             client: connector.connect(),
         });
 
-        static EDEN_SEMAPHORE: EnvHelper<usize> = EnvHelper::new("BUCK2_EDEN_SEMAPHORE");
-        let eden_semaphore = EDEN_SEMAPHORE.get()?.unwrap_or(2048);
-
         Ok(Some(Self {
             connector,
             connection,
-            semaphore: Semaphore::new(eden_semaphore),
-            fs: FsIoProvider::new(fs.dupe()),
+            semaphore,
         }))
     }
 
@@ -186,6 +175,34 @@ impl EdenIoProvider {
     }
 }
 
+#[derive(Derivative)]
+#[derivative(PartialEq)]
+pub struct EdenIoProvider {
+    #[derivative(PartialEq = "ignore")]
+    manager: EdenConnectionManager,
+    fs: FsIoProvider,
+}
+
+impl EdenIoProvider {
+    pub fn new(fb: FacebookInit, fs: &Arc<ProjectFilesystem>) -> anyhow::Result<Option<Self>> {
+        if cfg!(not(fbcode_build)) {
+            tracing::warn!("Cargo build detected: disabling Eden I/O");
+            return Ok(None);
+        }
+
+        static EDEN_SEMAPHORE: EnvHelper<usize> = EnvHelper::new("BUCK2_EDEN_SEMAPHORE");
+        let eden_semaphore = EDEN_SEMAPHORE.get()?.unwrap_or(2048);
+
+        match EdenConnectionManager::new(fb, &fs.root, Semaphore::new(eden_semaphore))? {
+            Some(manager) => Ok(Some(Self {
+                manager,
+                fs: FsIoProvider::new(fs.dupe()),
+            })),
+            None => Ok(None),
+        }
+    }
+}
+
 #[async_trait]
 impl IoProvider for EdenIoProvider {
     async fn read_file(&self, path: ProjectRelativePathBuf) -> anyhow::Result<String> {
@@ -194,7 +211,7 @@ impl IoProvider for EdenIoProvider {
 
     async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<SimpleDirEntry>> {
         let params = GlobParams {
-            mountPoint: self.connector.root.as_bytes().to_vec(),
+            mountPoint: self.manager.connector.root.as_bytes().to_vec(),
             globs: vec![format!("{}/*", path)],
             includeDotfiles: true,
             wantDtype: true,
@@ -202,7 +219,10 @@ impl IoProvider for EdenIoProvider {
             ..Default::default()
         };
 
-        let globbed = self.with_eden(move |eden| eden.globFiles(&params)).await?;
+        let globbed = self
+            .manager
+            .with_eden(move |eden| eden.globFiles(&params))
+            .await?;
 
         tracing::trace!(
             "globFiles({}/*): {} files",
@@ -257,7 +277,7 @@ impl IoProvider for EdenIoProvider {
             i64::from(i32::from(FileAttributes::SHA1_HASH) | i32::from(FileAttributes::FILE_SIZE));
 
         let params = GetAttributesFromFilesParams {
-            mountPoint: self.connector.root.as_bytes().to_vec(),
+            mountPoint: self.manager.connector.root.as_bytes().to_vec(),
             paths: vec![path.to_string().into_bytes()],
             requestedAttributes: requested_attributes,
             sync: no_sync(),
@@ -265,6 +285,7 @@ impl IoProvider for EdenIoProvider {
         };
 
         let attrs = self
+            .manager
             .with_eden(move |eden| eden.getAttributesFromFiles(&params))
             .await?;
 
@@ -292,7 +313,8 @@ impl IoProvider for EdenIoProvider {
 
                 let digest = TrackedFileDigest::new(digest);
 
-                let is_executable = fetch_is_executable(self, &self.connector.root, &path).await?;
+                let is_executable =
+                    fetch_is_executable(self, &self.manager.connector.root, &path).await?;
 
                 let meta = FileMetadata {
                     digest,
@@ -333,22 +355,23 @@ impl IoProvider for EdenIoProvider {
     }
 
     async fn settle(&self) -> anyhow::Result<()> {
-        let root = (*self.connector.root).clone().into_bytes();
+        let root = (*self.manager.connector.root).clone().into_bytes();
 
-        self.with_eden(move |eden| {
-            eden.synchronizeWorkingCopy(
-                &root,
-                &SynchronizeWorkingCopyParams {
-                    sync: SyncBehavior {
-                        syncTimeoutSeconds: None,
+        self.manager
+            .with_eden(move |eden| {
+                eden.synchronizeWorkingCopy(
+                    &root,
+                    &SynchronizeWorkingCopyParams {
+                        sync: SyncBehavior {
+                            syncTimeoutSeconds: None,
+                            ..Default::default()
+                        },
                         ..Default::default()
                     },
-                    ..Default::default()
-                },
-            )
-        })
-        .await
-        .context("Error synchronizing Eden working copy")
+                )
+            })
+            .await
+            .context("Error synchronizing Eden working copy")
     }
 
     fn name(&self) -> &'static str {
@@ -375,6 +398,7 @@ async fn fetch_is_executable(
     let paths = vec![path.to_string().into_bytes()];
 
     let attrs = provider
+        .manager
         .with_eden(move |eden| eden.getFileInformation(&root, &paths, &no_sync()))
         .await?;
 
