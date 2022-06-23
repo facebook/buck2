@@ -11,7 +11,7 @@ use std::hash::Hash;
 use std::iter::FromIterator;
 
 use gazebo::prelude::*;
-use indexmap::Equivalent;
+use starlark::collections::Equivalent;
 use starlark::collections::SmallSet;
 
 use crate::query::environment::LabeledNode;

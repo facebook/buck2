@@ -18,8 +18,8 @@
 use std::mem;
 
 use gazebo::prelude::*;
-use indexmap::Equivalent;
 
+use crate::collections::equivalent::Equivalent;
 use crate::collections::hash::Hashed;
 use crate::collections::hash::StarlarkHashValue;
 

@@ -23,8 +23,8 @@ use std::hash::Hasher;
 use std::iter::FromIterator;
 
 use gazebo::prelude::*;
-use indexmap::Equivalent;
 
+use crate::collections::equivalent::Equivalent;
 use crate::collections::small_map::SmallMap;
 use crate::collections::Hashed;
 

@@ -25,7 +25,6 @@ derivative = "2.2"
 derive_more = "0.99"
 erased-serde = "0.3.20"
 lalrpop-util = "0.19.7"
-indexmap = { version = "1.8", features = ["serde-1"] }
 indenter = { version = "0.3.3", features = ["std"] }
 indoc = "1.0"
 itertools = "0.10"

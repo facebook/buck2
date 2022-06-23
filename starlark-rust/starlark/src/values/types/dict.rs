@@ -35,9 +35,9 @@ use gazebo::any::ProvidesStaticType;
 use gazebo::cell::ARef;
 use gazebo::coerce::coerce;
 use gazebo::coerce::Coerce;
-use indexmap::Equivalent;
 use serde::Serialize;
 
+use crate::collections::equivalent::Equivalent;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::environment::Methods;

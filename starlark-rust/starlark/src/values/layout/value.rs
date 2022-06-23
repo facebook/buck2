@@ -43,11 +43,11 @@ use gazebo::coerce::coerce;
 use gazebo::coerce::Coerce;
 use gazebo::coerce::CoerceKey;
 use gazebo::prelude::*;
-use indexmap::Equivalent;
 use num_bigint::BigInt;
 use serde::Serialize;
 use serde::Serializer;
 
+use crate::collections::equivalent::Equivalent;
 use crate::collections::Hashed;
 use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;

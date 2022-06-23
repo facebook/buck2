@@ -75,7 +75,6 @@ rust_library(
         "fbsource//third-party/rust:fnv",
         "fbsource//third-party/rust:hashbrown",
         "fbsource//third-party/rust:indenter",
-        "fbsource//third-party/rust:indexmap",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:lalrpop-util",
         "fbsource//third-party/rust:logos",

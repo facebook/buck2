@@ -17,9 +17,10 @@
 
 //! Defines [`SmallMap`] and [`SmallSet`] - collections with deterministic iteration and small memory footprint.
 //!
-//! These structures use vector backed storage if there are only a few elements, and [`IndexMap`](indexmap::IndexMap)
+//! These structures use vector backed storage if there are only a few elements, and and index
 //! for larger collections. The API mirrors standard Rust collections.
 
+pub use crate::collections::equivalent::Equivalent;
 pub use crate::collections::hash::Hashed;
 pub use crate::collections::hash::StarlarkHashValue;
 pub use crate::collections::hasher::StarlarkHasher;
@@ -31,6 +32,7 @@ pub use crate::collections::small_set::SmallSet;
 
 pub(crate) mod aligned_padded_str;
 pub(crate) mod alloca;
+pub(crate) mod equivalent;
 mod hash;
 pub(crate) mod hasher;
 mod idhasher;

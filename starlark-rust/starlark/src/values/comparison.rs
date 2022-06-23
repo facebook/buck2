@@ -19,9 +19,9 @@ use std::cmp::Ordering;
 use std::hash::Hash;
 
 use gazebo::prelude::*;
-use indexmap::Equivalent;
 use itertools::Itertools;
 
+use crate::collections::equivalent::Equivalent;
 use crate::collections::SmallMap;
 
 pub fn equals_slice<E, X1, X2>(

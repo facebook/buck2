@@ -24,9 +24,9 @@ use std::hash::Hasher;
 use gazebo::coerce::Coerce;
 use gazebo::coerce::CoerceKey;
 use gazebo::prelude::*;
-use indexmap::Equivalent;
 use serde::Serialize;
 
+use crate::collections::equivalent::Equivalent;
 use crate::collections::Hashed;
 use crate::sealed::Sealed;
 use crate::values::layout::static_string::VALUE_EMPTY_STRING;

@@ -32,8 +32,8 @@ use gazebo::coerce::Coerce;
 use gazebo::coerce::CoerceKey;
 use gazebo::prelude::*;
 use hashbrown::raw::RawTable;
-use indexmap::Equivalent;
 
+use crate::collections::equivalent::Equivalent;
 use crate::collections::hash::Hashed;
 use crate::collections::vec_map::Bucket;
 use crate::collections::vec_map::VMIntoIter;
@@ -57,7 +57,7 @@ pub type MHIntoIter<K, V> = VMIntoIter<K, V>;
 
 /// An memory-efficient key-value map with determinstic order.
 ///
-/// Provides the standard container operations, modelled most closely on [`IndexMap`](indexmap::IndexMap), plus:
+/// Provides the standard container operations, modelled most closely on `indexmap::IndexMap`, plus:
 ///
 /// * Variants which take an already hashed value, e.g. [`get_hashed`](SmallMap::get_hashed).
 ///
