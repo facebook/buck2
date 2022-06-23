@@ -24,6 +24,7 @@ use crate::query::aquery::environment::AqueryEnvironment;
 use crate::query::dice::aquery::DiceAqueryDelegate;
 use crate::query::dice::get_dice_query_delegate;
 use crate::query::uquery::environment::PreresolvedQueryLiterals;
+
 pub struct AqueryEvaluator<'c> {
     dice_query_delegate: Arc<DiceAqueryDelegate<'c>>,
     functions: DefaultQueryFunctionsModule<AqueryEnvironment<'c>>,
