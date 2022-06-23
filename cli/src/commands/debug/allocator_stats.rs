@@ -23,8 +23,9 @@ use crate::StreamingCommand;
 #[derive(Debug, clap::Parser)]
 pub(crate) struct AllocatorStatsCommand {
     /// Options to pass to allocator stats. We use JEMalloc, so the docs for `malloc_stats_print`
-    /// indicate what is available (<https://linux.die.net/man/3/jemalloc>).
-    #[clap(short, long, default_value = "", value_name = "OPTION")]
+    /// indicate what is available (<https://jemalloc.net/jemalloc.3.html>). The default
+    /// configuration prints minimal output, formatted as JSON.
+    #[clap(short, long, default_value = "Jmdablxg", value_name = "OPTION")]
     options: String,
 }
 
