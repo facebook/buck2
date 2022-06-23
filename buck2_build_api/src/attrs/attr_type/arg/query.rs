@@ -15,6 +15,7 @@ use gazebo::prelude::*;
 use starlark::values::FrozenRef;
 
 use crate::artifact_groups::ArtifactGroup;
+use crate::attrs::analysis::AttrResolutionContext;
 use crate::attrs::attr_type::arg::value::add_output_to_arg;
 use crate::attrs::attr_type::arg::ArgBuilder;
 use crate::attrs::attr_type::arg::QueryExpansion;
@@ -22,7 +23,6 @@ use crate::attrs::attr_type::attr_literal::AttrConfig;
 use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
 use crate::attrs::attr_type::query::QueryAttrBase;
 use crate::attrs::AttrConfigurationContext;
-use crate::attrs::AttrResolutionContext;
 use crate::attrs::CoercedAttr;
 use crate::attrs::CoercedAttrTraversal;
 use crate::attrs::ConfiguredAttr;

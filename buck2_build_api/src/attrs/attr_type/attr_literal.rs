@@ -29,6 +29,7 @@ use starlark::values::Heap;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 
+use crate::attrs::analysis::AttrResolutionContext;
 use crate::attrs::attr_type::arg::value::ResolvedStringWithMacros;
 use crate::attrs::attr_type::arg::StringWithMacros;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
@@ -44,7 +45,6 @@ use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfigured;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::AttrConfigurationContext;
-use crate::attrs::AttrResolutionContext;
 use crate::attrs::CoercedAttr;
 use crate::attrs::CoercedAttrTraversal;
 use crate::attrs::CoercedPath;

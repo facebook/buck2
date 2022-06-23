@@ -62,7 +62,6 @@ use buck2_core::configuration::ConfigurationData;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
-use buck2_core::result::SharedResult;
 use buck2_core::result::ToSharedResultExt;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
@@ -70,18 +69,14 @@ use either::Either;
 use gazebo::prelude::*;
 use starlark::collections::small_map;
 use starlark::collections::SmallMap;
-use starlark::environment::Module;
-use starlark::values::FrozenRef;
-use starlark::values::Heap;
 
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configured_attr::ConfiguredAttr;
-use crate::interpreter::rule_defs::cmd_args::FrozenCommandLineArgLike;
-use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::interpreter::rule_defs::transition::applied::TransitionApplied;
 use crate::interpreter::rule_defs::transition::id::TransitionId;
 
+pub(crate) mod analysis;
 pub mod attr_type;
 pub mod coerced_attr;
 pub mod configured_attr;
@@ -189,31 +184,6 @@ pub(crate) trait AttrConfigurationContext {
             .map(|(k, v)| (k.to_owned(), label.configure(v.dupe())))
             .collect())
     }
-}
-
-pub type AnalysisQueryResult = Vec<(ConfiguredTargetLabel, FrozenProviderCollectionValue)>;
-
-/// The context for attribute resolution. Provides access to the providers from
-/// dependents.
-pub(crate) trait AttrResolutionContext {
-    fn starlark_module(&self) -> &Module;
-
-    fn heap(&self) -> &Heap {
-        self.starlark_module().heap()
-    }
-
-    /// Get the `ProviderCollection` for this label. This is converted to a `Dependency`
-    /// by the `resolve()` method in `attrs::label`
-    fn get_dep(&self, target: &ConfiguredProvidersLabel) -> Option<FrozenProviderCollectionValue>;
-
-    fn resolve_unkeyed_placeholder(
-        &self,
-        name: &str,
-    ) -> Option<FrozenRef<'static, dyn FrozenCommandLineArgLike + 'static>>;
-
-    /// Provides the result of the query. This will only provide results for queries that are reported during the configured attr traversal.
-    // TODO(cjhopman): Ideally, we wouldn't need to split query attr resolution in this way, but processing queries is an async operation and the starlark Heap cannot be used in async code.
-    fn resolve_query(&self, query: &str) -> SharedResult<Arc<AnalysisQueryResult>>;
 }
 
 pub(crate) trait CoercedAttrTraversal<'a> {

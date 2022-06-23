@@ -25,6 +25,7 @@ use starlark::values::Value;
 use thiserror::Error;
 
 use crate::actions::artifact::ExecutorFs;
+use crate::attrs::analysis::AttrResolutionContext;
 use crate::attrs::attr_type::arg::parser::parse_macros;
 use crate::attrs::attr_type::arg::parser::ParsedMacro;
 use crate::attrs::attr_type::arg::query::QueryMacroBase;
@@ -36,7 +37,6 @@ use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
 use crate::attrs::attr_type::query::QueryAttrType;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::AttrConfigurationContext;
-use crate::attrs::AttrResolutionContext;
 use crate::attrs::CoercedAttr;
 use crate::attrs::CoercedAttrTraversal;
 use crate::attrs::ConfiguredAttr;

@@ -24,16 +24,16 @@ use gazebo::prelude::*;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
 
+use crate::attrs::analysis::AnalysisQueryResult;
+use crate::attrs::analysis::AttrResolutionContext;
 use crate::attrs::attr_type::attr_literal::AttrConfig;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
 use crate::attrs::attr_type::dep::DepAttrType;
 use crate::attrs::attr_type::dep::ProviderIdSet;
-use crate::attrs::AnalysisQueryResult;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::AttrConfigurationContext;
-use crate::attrs::AttrResolutionContext;
 use crate::attrs::CoercedAttr;
 use crate::attrs::CoercedAttrTraversal;
 use crate::attrs::ConfiguredAttr;

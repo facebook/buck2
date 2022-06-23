@@ -25,6 +25,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Value;
 
 use crate::actions::artifact::ExecutorFs;
+use crate::attrs::analysis::AttrResolutionContext;
 use crate::attrs::attr_type::arg::query::ResolvedQueryMacro;
 use crate::attrs::attr_type::arg::ArgBuilder;
 use crate::attrs::attr_type::arg::ConfiguredMacro;
@@ -32,7 +33,6 @@ use crate::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use crate::attrs::attr_type::arg::ConfiguredStringWithMacrosPart;
 use crate::attrs::attr_type::arg::MacroError;
 use crate::attrs::attr_type::arg::SpaceSeparatedCommandLineBuilder;
-use crate::attrs::AttrResolutionContext;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;

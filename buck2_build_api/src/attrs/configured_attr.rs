@@ -18,11 +18,11 @@ use starlark::collections::small_map::Entry;
 use starlark::collections::SmallMap;
 use starlark::values::Value;
 
+use crate::attrs::analysis::AttrResolutionContext;
 use crate::attrs::attr_type::attr_literal::AttrConfig;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
 use crate::attrs::coerced_attr::SelectError;
-use crate::attrs::AttrResolutionContext;
 
 #[derive(Eq, PartialEq, Hash, Clone)]
 pub struct ConfiguredAttr(pub(crate) AttrLiteral<ConfiguredAttr>);

@@ -45,11 +45,11 @@ use starlark::values::dict::FrozenDict;
 use starlark::values::FrozenRef;
 use starlark::values::Value;
 
+use crate::attrs::analysis::AnalysisQueryResult;
+use crate::attrs::analysis::AttrResolutionContext;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
-use crate::attrs::AnalysisQueryResult;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::AttrConfigurationContext;
-use crate::attrs::AttrResolutionContext;
 use crate::attrs::CoercedAttr;
 use crate::attrs::ConfiguredAttr;
 use crate::interpreter::rule_defs::artifact::testing::artifactory;

@@ -23,6 +23,7 @@ use starlark::values::dict::Dict;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
 
+use crate::attrs::analysis::AttrResolutionContext;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::dep::DepAttrType;
@@ -30,7 +31,6 @@ use crate::attrs::attr_type::dep::ProviderIdSet;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::AttrConfigurationContext;
-use crate::attrs::AttrResolutionContext;
 use crate::attrs::ConfiguredAttr;
 use crate::interpreter::rule_defs::transition::id::TransitionId;
 

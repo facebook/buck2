@@ -16,11 +16,11 @@ use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
 use thiserror::Error;
 
+use crate::attrs::analysis::AttrResolutionContext;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::AttrConfigurationContext;
-use crate::attrs::AttrResolutionContext;
 use crate::attrs::CoercedAttr;
 use crate::attrs::ConfiguredAttr;
 

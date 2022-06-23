@@ -30,8 +30,8 @@ use starlark::values::ValueLike;
 use thiserror::Error;
 
 use crate::analysis::registry::AnalysisRegistry;
-use crate::attrs::AnalysisQueryResult;
-use crate::attrs::AttrResolutionContext;
+use crate::attrs::analysis::AnalysisQueryResult;
+use crate::attrs::analysis::AttrResolutionContext;
 use crate::configuration::execution::ExecutionPlatformResolution;
 use crate::deferred::DeferredAny;
 use crate::deferred::DeferredId;
