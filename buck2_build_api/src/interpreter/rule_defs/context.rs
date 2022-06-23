@@ -752,45 +752,6 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         Ok(output_value)
     }
 
-    // NOTE: We want to swap the order of the arguments to download_file, so introduce
-    // download_file_new, migrate everyone, then swap the arguments, then migrate back.
-    fn download_file_new<'v>(
-        this: &AnalysisActions<'v>,
-        #[starlark(require = pos)] output: Value<'v>,
-        #[starlark(require = pos)] url: &str,
-        #[starlark(require = named, default = NoneOr::None)] sha1: NoneOr<&str>,
-        #[starlark(require = named, default = NoneOr::None)] sha256: NoneOr<&str>,
-        #[starlark(require = named, default = false)] is_executable: bool,
-        #[starlark(require = named, default = false)] is_deferrable: bool,
-        eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
-        let mut this = this.state();
-        let (output_value, output_artifact) = this.get_or_declare_output(eval, output, "output")?;
-
-        let checksum = match (
-            sha1.into_option().map(Arc::from),
-            sha256.into_option().map(Arc::from),
-        ) {
-            (Some(sha1), None) => Checksum::Sha1(sha1),
-            (None, Some(sha256)) => Checksum::Sha256(sha256),
-            (Some(sha1), Some(sha256)) => Checksum::Both { sha1, sha256 },
-            (None, None) => return Err(DownloadFileError::MissingChecksum.into()),
-        };
-
-        this.register_action(
-            IndexSet::new(),
-            indexset![output_artifact],
-            UnregisteredDownloadFileAction::new(
-                checksum,
-                Arc::from(url),
-                is_executable,
-                is_deferrable,
-            ),
-            None,
-        )?;
-        Ok(output_value)
-    }
-
     fn tset<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] definition: Value<'v>,
