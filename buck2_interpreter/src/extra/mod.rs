@@ -81,7 +81,7 @@ pub struct BuildContext<'a> {
     /// `load()` statements.
     cell_info: &'a InterpreterCellInfo,
 
-    pub buckconfig: LegacyBuckConfigForStarlark<'a>,
+    pub(crate) buckconfig: LegacyBuckConfigForStarlark<'a>,
 
     /// The import path that is being evaluated
     pub starlark_path: StarlarkPath<'a>,

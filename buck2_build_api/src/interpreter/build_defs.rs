@@ -10,13 +10,13 @@
 use buck2_interpreter::extra::BuildContext;
 use buck2_interpreter::extra::ExtraContext;
 use buck2_interpreter::functions::host_info::register_host_info;
+use buck2_interpreter::functions::read_config::register_read_config;
 use either::Either;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::docs::DocString;
 use starlark::values::docs::DocStringKind;
-use starlark::values::StringValue;
 use starlark::values::Value;
 
 use crate::interpreter::module_internals::ModuleInternals;
@@ -78,27 +78,6 @@ fn natives(builder: &mut GlobalsBuilder) {
         ))
     }
 
-    #[starlark(speculative_exec_safe)]
-    fn read_config<'v>(
-        section: StringValue,
-        key: StringValue,
-        default: Option<Value<'v>>,
-        eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
-        // In Buck v1, we read additional configuration information from /etc/buckconfig.d.
-        // On devservers and other locations, the file fb_chef.ini has host_features.gvfs = true.
-        // Replicate that specific key, otherwise we can't build targets like protoc.
-        if section.as_str() == "host_features" && key.as_str() == "gvfs" {
-            return Ok(eval.heap().alloc("true"));
-        }
-
-        let buckconfig = &BuildContext::from_context(eval)?.buckconfig;
-        match buckconfig.get(section, key) {
-            Some(v) => Ok(v.to_value()),
-            None => Ok(default.unwrap_or_else(Value::new_none)),
-        }
-    }
-
     fn implicit_package_symbol<'v>(
         name: &str,
         default: Option<Value<'v>>,
@@ -118,6 +97,7 @@ fn natives(builder: &mut GlobalsBuilder) {
 pub(crate) fn register_natives(builder: &mut GlobalsBuilder) {
     natives(builder);
     register_host_info(builder);
+    register_read_config(builder);
 }
 
 #[cfg(test)]
