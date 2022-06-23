@@ -12,7 +12,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use buck2_core::buck_path::BuckPath;
 use buck2_core::cells::paths::CellPath;
-use buck2_core::provider::ProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use buck2_interpreter::common::BuildFilePath;

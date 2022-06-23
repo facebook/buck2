@@ -13,9 +13,9 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use buck2_core::provider::ConfiguredProvidersLabel;
-use buck2_core::provider::ProvidersLabel;
-use buck2_core::provider::ProvidersLabelMaybeConfigured;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
 use buck2_core::target::TargetLabel;
 use derive_more::Display;
 use gazebo::prelude::*;

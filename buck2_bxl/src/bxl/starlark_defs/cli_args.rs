@@ -482,8 +482,8 @@ pub fn register_cli_args_module(registry: &mut GlobalsBuilder) {
 mod tests {
     use std::collections::HashSet;
 
-    use buck2_core::provider::testing::ProvidersLabelTestExt;
-    use buck2_core::provider::ProvidersLabel;
+    use buck2_core::provider::label::testing::ProvidersLabelTestExt;
+    use buck2_core::provider::label::ProvidersLabel;
     use buck2_core::target::testing::TargetLabelExt;
     use buck2_core::target::TargetLabel;
     use buck2_interpreter::types::label::StarlarkProvidersLabel;

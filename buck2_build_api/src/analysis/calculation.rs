@@ -14,7 +14,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::configuration::Configuration;
-use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::result::SharedResult;
 use buck2_core::result::ToSharedResultExt;
 use buck2_core::target::ConfiguredTargetLabel;

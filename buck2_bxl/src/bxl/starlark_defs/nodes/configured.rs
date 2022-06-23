@@ -24,7 +24,7 @@ use buck2_core::buck_path::BuckPath;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::project::ProjectRelativePath;
-use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;

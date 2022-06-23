@@ -10,7 +10,7 @@
 //! Processing and reporting the the results of the build
 
 use buck2_build_api::bxl::BxlFunctionLabel;
-use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 
 use crate::daemon::build::BuildTargetResult;
 
@@ -176,7 +176,7 @@ pub mod build_report {
     use buck2_core::fs::paths::AbsPath;
     use buck2_core::fs::paths::AbsPathBuf;
     use buck2_core::fs::project::ProjectRelativePathBuf;
-    use buck2_core::provider::ProvidersName;
+    use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::TargetLabel;
     use derivative::Derivative;
     use events::TraceId;

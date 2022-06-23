@@ -11,7 +11,7 @@ use std::hash::Hash;
 
 use anyhow::anyhow;
 use buck2_core::buck_path::BuckPath;
-use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use gazebo::prelude::*;
 use starlark::values::list::FrozenList;
 use starlark::values::string::STRING_TYPE;

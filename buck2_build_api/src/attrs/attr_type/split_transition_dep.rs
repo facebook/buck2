@@ -12,8 +12,8 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::sync::Arc;
 
-use buck2_core::provider::ConfiguredProvidersLabel;
-use buck2_core::provider::ProvidersLabel;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
 use derive_more::Display;
 use gazebo::dupe::Dupe;
 use serde_json::to_value;

@@ -9,7 +9,7 @@
 
 //! Translation between buck core data and the test spec data types
 use anyhow::Context;
-use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use test_api::data::ConfiguredTarget;
 
 use crate::test::session::TestSession;

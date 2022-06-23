@@ -20,7 +20,7 @@ use buck2_core::cells::CellName;
 use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::package::Package;
-use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::result::SharedResult;
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::common::BuildFileCell;

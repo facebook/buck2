@@ -11,8 +11,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_core::provider::ConfiguredProvidersLabel;
-use buck2_core::provider::ProvidersName;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::ConfiguredTargetLabel;
 use dice::DiceComputations;
 use gazebo::prelude::*;

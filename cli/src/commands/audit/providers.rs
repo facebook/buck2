@@ -15,8 +15,8 @@ use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProvide
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::pattern::ProvidersPattern;
-use buck2_core::provider::ProvidersLabel;
-use buck2_core::provider::ProvidersName;
+use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use cli_proto::ClientContext;
 use futures::stream::FuturesOrdered;

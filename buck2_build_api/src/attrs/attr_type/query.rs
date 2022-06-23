@@ -12,9 +12,9 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
 
-use buck2_core::provider::ConfiguredProvidersLabel;
-use buck2_core::provider::ProvidersLabel;
-use buck2_core::provider::ProvidersName;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::provider::label::ProvidersName;
 use buck2_core::result::SharedResult;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::functions::QueryFunctionsExt;

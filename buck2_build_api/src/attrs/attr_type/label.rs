@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_core::provider::ProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
 use gazebo::dupe::*;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;

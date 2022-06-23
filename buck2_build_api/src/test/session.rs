@@ -13,7 +13,7 @@ use std::sync::atomic::Ordering;
 use anyhow::Context as _;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
-use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use chrono::Local;
 use dashmap::DashMap;
 use gazebo::prelude::*;

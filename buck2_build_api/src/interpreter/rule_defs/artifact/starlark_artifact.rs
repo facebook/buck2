@@ -9,8 +9,8 @@
 
 use std::fmt::Display;
 
-use buck2_core::provider::ConfiguredProvidersLabel;
-use buck2_core::provider::ProvidersName;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersName;
 use buck2_interpreter::types::label::Label;
 use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;

@@ -14,7 +14,7 @@
 
 use std::sync::Arc;
 
-use buck2_core::provider::ProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::common::BxlFilePath;
 use derive_more::Display;

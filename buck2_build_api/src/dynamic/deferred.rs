@@ -10,8 +10,8 @@
 use std::mem;
 use std::sync::Arc;
 
-use buck2_core::provider::ConfiguredProvidersLabel;
-use buck2_core::provider::ProvidersName;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersName;
 use buck2_interpreter::types::label::LabelGen;
 use gazebo::prelude::*;
 use indexmap::indexset;

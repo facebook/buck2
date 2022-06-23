@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use crate::provider::ProviderName;
-use crate::provider::ProvidersName;
+use crate::provider::label::ProviderName;
+use crate::provider::label::ProvidersName;
 
 /// Buck1 uses flavors for a couple different purposes. Some of those flavors have ended
 /// up being used by users. In v2, the functionality of most user-visible flavors ends up

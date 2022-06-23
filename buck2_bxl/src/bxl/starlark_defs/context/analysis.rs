@@ -1,5 +1,5 @@
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
-use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use dice::DiceComputations;
 use either::Either;
 use gazebo::prelude::*;

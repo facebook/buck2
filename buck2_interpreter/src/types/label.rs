@@ -9,9 +9,9 @@
 
 use std::hash::Hash;
 
-use buck2_core::provider::ConfiguredProvidersLabel;
-use buck2_core::provider::ProvidersLabel;
-use buck2_core::provider::ProvidersName;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::provider::label::ProvidersName;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;

@@ -1,5 +1,5 @@
 use buck2_build_api::analysis::AnalysisResult;
-use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_docs_gen::Buck2Docs;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;

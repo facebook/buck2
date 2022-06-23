@@ -24,7 +24,7 @@ use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
-use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_data::TestDiscovery;
 use buck2_data::TestDiscoveryEnd;

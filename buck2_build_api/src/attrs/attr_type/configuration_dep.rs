@@ -8,8 +8,8 @@
  */
 
 use anyhow::anyhow;
-use buck2_core::provider::ProvidersLabel;
-use buck2_core::provider::ProvidersName;
+use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use gazebo::prelude::*;
 use starlark::values::string::STRING_TYPE;

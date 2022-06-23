@@ -3,7 +3,7 @@ use std::fmt::Formatter;
 use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::result::SharedResult;
 use buck2_core::result::ToSharedResultExt;
 use dashmap::mapref::entry::Entry;

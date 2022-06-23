@@ -10,7 +10,7 @@
 use std::fmt;
 use std::fmt::Display;
 
-use buck2_core::provider::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_interpreter::types::label::Label;
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
@@ -100,7 +100,7 @@ mod tests {
     use buck2_common::pattern::ParsedPattern;
     use buck2_common::pattern::ProvidersPattern;
     use buck2_core::configuration::Configuration;
-    use buck2_core::provider::ProvidersLabel;
+    use buck2_core::provider::label::ProvidersLabel;
     use buck2_core::result::SharedResult;
     use buck2_core::target::TargetLabel;
     use buck2_interpreter::extra::BuildContext;

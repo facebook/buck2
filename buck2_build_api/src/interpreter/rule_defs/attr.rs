@@ -22,7 +22,7 @@ use buck2_core::buck_path::BuckPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::package::Package;
 use buck2_core::package::PackageRelativePathBuf;
-use buck2_core::provider::ProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::extra::BuildContext;

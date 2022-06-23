@@ -1,8 +1,8 @@
 use anyhow::Context;
-use buck2_core::provider::ConfiguredProvidersLabel;
-use buck2_core::provider::ProviderName;
-use buck2_core::provider::ProvidersLabel;
-use buck2_core::provider::ProvidersName;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProviderName;
+use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::provider::label::ProvidersName;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter::types::label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;

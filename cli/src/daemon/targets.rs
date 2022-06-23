@@ -18,7 +18,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::pattern::*;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::package::Package;
-use buck2_core::provider::ProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::TargetLabel;
 use cli_proto::targets_request::TargetHashFileMode;
 use cli_proto::targets_request::TargetHashGraphType;

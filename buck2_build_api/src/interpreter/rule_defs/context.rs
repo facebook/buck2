@@ -805,8 +805,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 #[cfg(test)]
 mod tests {
     use buck2_core::configuration::Configuration;
-    use buck2_core::provider::ConfiguredProvidersLabel;
-    use buck2_core::provider::ProvidersName;
+    use buck2_core::provider::label::ConfiguredProvidersLabel;
+    use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::testing::TargetLabelExt;
     use buck2_core::target::TargetLabel;
     use buck2_interpreter::types::label::LabelGen;
