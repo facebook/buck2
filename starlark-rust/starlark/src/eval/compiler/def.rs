@@ -398,8 +398,7 @@ impl Compiler<'_, '_, '_> {
         let used = self
             .eval
             .frozen_heap()
-            .alloc_any_display_from_debug(scope_names.used)
-            .map(|s| s.as_slice());
+            .alloc_any_slice_display_from_debug(&scope_names.used);
         let info = self.eval.module_env.frozen_heap().alloc_any(DefInfo {
             name,
             codemap: self.codemap,
