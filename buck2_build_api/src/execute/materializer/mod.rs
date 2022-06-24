@@ -142,18 +142,6 @@ pub trait Materializer: Send + Sync + 'static {
         srcs: Vec<CopiedArtifact>,
     ) -> anyhow::Result<()>;
 
-    /// Declare an artifact at `path` whose files can be materialized by
-    /// downloading from the CAS. This is equivalent to calling
-    /// `declare_cas_many` with a single artifact.
-    async fn declare_cas(
-        &self,
-        info: Arc<CasDownloadInfo>,
-        path: ProjectRelativePathBuf,
-        value: ArtifactValue,
-    ) -> anyhow::Result<()> {
-        self.declare_cas_many(info, vec![(path, value)]).await
-    }
-
     /// Declares a list of artifacts whose files can be materialized by
     /// downloading from the CAS.
     async fn declare_cas_many<'a, 'b>(
