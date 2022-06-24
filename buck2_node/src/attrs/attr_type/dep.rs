@@ -99,3 +99,9 @@ impl DepAttrType {
         }
     }
 }
+
+/// Represents both configured and unconfigured forms.
+pub trait ExplicitConfiguredDepMaybeConfigured {
+    fn to_json(&self) -> anyhow::Result<serde_json::Value>;
+    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool>;
+}

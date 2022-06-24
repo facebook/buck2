@@ -16,6 +16,7 @@ use buck2_core::result::SharedResult;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::common::BuildFilePath;
+use buck2_node::attrs::attr_type::attr_config::AttrConfig;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::environment::QueryTargetAttr;
@@ -31,7 +32,6 @@ use buck2_query::query::traversal::AsyncTraversalDelegate;
 use gazebo::dupe::Dupe;
 use tracing::warn;
 
-use crate::attrs::attr_type::attr_literal::AttrConfig;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::nodes::compatibility::MaybeCompatible;
 use crate::nodes::configured::ConfiguredTargetNode;

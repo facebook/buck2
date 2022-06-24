@@ -8,6 +8,7 @@ description = "Target graph node"
 anyhow = "1.0.51"
 derive_more = "0.99.3"
 indexmap = { version = "1.6", features = ["serde-1"] }
+serde_json = "1.0.48"
 thiserror = "1.0.9"
 
 gazebo = { path = "../gazebo/gazebo" }

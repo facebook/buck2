@@ -23,7 +23,6 @@ use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::dep::ProviderIdSet;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use gazebo::prelude::*;
-use serde_json::to_value;
 use starlark::environment::Module;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::UnpackValue;
@@ -281,34 +280,5 @@ impl ConfiguredExplicitConfiguredDepExt for ConfiguredExplicitConfiguredDep {
         traversal: &mut dyn ConfiguredAttrTraversal<'a>,
     ) -> anyhow::Result<()> {
         traversal.dep(&self.label)
-    }
-}
-
-/// Represents both configured and unconfigured forms.
-pub trait ExplicitConfiguredDepMaybeConfigured {
-    fn to_json(&self) -> anyhow::Result<serde_json::Value>;
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool>;
-}
-
-impl ExplicitConfiguredDepMaybeConfigured for UnconfiguredExplicitConfiguredDep {
-    fn to_json(&self) -> anyhow::Result<serde_json::Value> {
-        Ok(to_value(&[
-            self.label.to_string(),
-            self.platform.to_string(),
-        ])?)
-    }
-
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
-        filter(&self.to_string())
-    }
-}
-
-impl ExplicitConfiguredDepMaybeConfigured for ConfiguredExplicitConfiguredDep {
-    fn to_json(&self) -> anyhow::Result<serde_json::Value> {
-        Ok(to_value(self.to_string())?)
-    }
-
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
-        filter(&self.to_string())
     }
 }

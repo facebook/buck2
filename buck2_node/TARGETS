@@ -9,6 +9,7 @@ rust_library(
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:indexmap",
+        "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:thiserror",
         "//buck2/buck2_core:buck2_core",
         "//buck2/gazebo/gazebo:gazebo",

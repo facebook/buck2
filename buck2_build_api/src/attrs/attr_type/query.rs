@@ -16,6 +16,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::result::SharedResult;
+use buck2_node::attrs::attr_type::attr_config::AttrConfig;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::dep::ProviderIdSet;
 use buck2_node::attrs::attr_type::query::QueryAttrType;
@@ -31,7 +32,6 @@ use starlark::values::Value;
 
 use crate::attrs::analysis::AnalysisQueryResult;
 use crate::attrs::analysis::AttrResolutionContext;
-use crate::attrs::attr_type::attr_literal::AttrConfig;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;

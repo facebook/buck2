@@ -14,6 +14,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::TargetLabel;
 use gazebo::dupe::Dupe;
 
+use crate::attrs::attr_type::dep::ExplicitConfiguredDepMaybeConfigured;
 use crate::attrs::attr_type::dep::ProviderIdSet;
 use crate::attrs::traversal::CoercedAttrTraversal;
 
@@ -67,5 +68,28 @@ impl UnconfiguredExplicitConfiguredDep {
     ) -> anyhow::Result<()> {
         traversal.dep(self.label.target())?;
         traversal.platform_dep(&self.platform)
+    }
+}
+
+impl ExplicitConfiguredDepMaybeConfigured for ConfiguredExplicitConfiguredDep {
+    fn to_json(&self) -> anyhow::Result<serde_json::Value> {
+        Ok(serde_json::to_value(self.to_string())?)
+    }
+
+    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+        filter(&self.to_string())
+    }
+}
+
+impl ExplicitConfiguredDepMaybeConfigured for UnconfiguredExplicitConfiguredDep {
+    fn to_json(&self) -> anyhow::Result<serde_json::Value> {
+        Ok(serde_json::to_value(&[
+            self.label.to_string(),
+            self.platform.to_string(),
+        ])?)
+    }
+
+    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+        filter(&self.to_string())
     }
 }

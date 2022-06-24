@@ -18,6 +18,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::dep::ProviderIdSet;
 use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
+use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfigured;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use derive_more::Display;
 use gazebo::dupe::Dupe;
@@ -132,12 +133,6 @@ impl Display for ConfiguredSplitTransitionDep {
         write!(f, "}}")?;
         Ok(())
     }
-}
-
-/// Configured or unconfigured.
-pub trait SplitTransitionDepMaybeConfigured {
-    fn to_json(&self) -> anyhow::Result<serde_json::Value>;
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool>;
 }
 
 impl SplitTransitionDepMaybeConfigured for SplitTransitionDep {

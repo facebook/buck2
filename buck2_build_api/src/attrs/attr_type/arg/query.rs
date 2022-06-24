@@ -11,6 +11,7 @@ use std::fmt;
 use std::fmt::Display;
 
 use buck2_core::target::ConfiguredTargetLabel;
+use buck2_node::attrs::attr_type::attr_config::AttrConfig;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
 use gazebo::prelude::*;
@@ -21,7 +22,6 @@ use crate::attrs::analysis::AttrResolutionContext;
 use crate::attrs::attr_type::arg::value::add_output_to_arg;
 use crate::attrs::attr_type::arg::ArgBuilder;
 use crate::attrs::attr_type::arg::QueryExpansion;
-use crate::attrs::attr_type::attr_literal::AttrConfig;
 use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
 use crate::attrs::attr_type::query::QueryAttrBase;
 use crate::attrs::CoercedAttr;

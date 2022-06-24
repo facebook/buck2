@@ -46,7 +46,6 @@
 //! may be strings or targets or some other thing (e.g. a lazy glob, maybe).
 
 use anyhow::anyhow;
-use attr_type::attr_literal::AttrConfig;
 use attr_type::attr_literal::AttrLiteral;
 use attr_type::bool;
 use attr_type::split_transition_dep::ConfiguredSplitTransitionDep;
@@ -57,6 +56,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
+use buck2_node::attrs::attr_type::attr_config::AttrConfig;
 use buck2_node::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
 use buck2_node::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
 use either::Either;

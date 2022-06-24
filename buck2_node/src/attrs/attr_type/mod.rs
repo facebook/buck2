@@ -38,6 +38,7 @@ use crate::attrs::attr_type::tuple::TupleAttrType;
 
 pub mod any;
 pub mod arg;
+pub mod attr_config;
 pub mod attr_like;
 pub mod bool;
 pub mod configuration_dep;

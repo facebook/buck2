@@ -15,19 +15,19 @@ use std::sync::Arc;
 use buck2_core::buck_path::BuckPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
 use buck2_core::target::TargetLabel;
-use buck2_core::target::TargetLabelMaybeConfigured;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter::types::label::LabelGen;
-use buck2_node::attrs::attr_type::attr_like::AttrLike;
+use buck2_node::attrs::attr_type::attr_config::AttrConfig;
 use buck2_node::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
 use buck2_node::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use buck2_node::attrs::attr_type::dep::DepAttr;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
+use buck2_node::attrs::attr_type::dep::ExplicitConfiguredDepMaybeConfigured;
 use buck2_node::attrs::attr_type::label::LabelAttrType;
 use buck2_node::attrs::attr_type::source::SourceAttrType;
 use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
+use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfigured;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
@@ -49,40 +49,16 @@ use crate::attrs::attr_type::dep::ConfiguredDepAttrExt;
 use crate::attrs::attr_type::dep::ConfiguredExplicitConfiguredDepExt;
 use crate::attrs::attr_type::dep::DepAttrTypeExt;
 use crate::attrs::attr_type::dep::ExplicitConfiguredDepAttrTypeExt;
-use crate::attrs::attr_type::dep::ExplicitConfiguredDepMaybeConfigured;
 use crate::attrs::attr_type::label::LabelAttrTypeExt;
 use crate::attrs::attr_type::query::QueryAttr;
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
 use crate::attrs::attr_type::source::SourceAttrTypeExt;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrTypeExt;
-use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfigured;
 use crate::attrs::CoercedAttr;
 use crate::attrs::CoercedPath;
 use crate::attrs::ConfiguredAttr;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::provider::dependency::DependencyGen;
-
-/// AttrConfig is used to implement things just once to cover both the configured and
-/// unconfigured case. For example, a Vec<C::TargetType> where C: AttrConfig, would be
-/// a Vec<TargetLabel> in the unconfigured case and a Vec<ConfiguredTargetLabel> in the
-/// configured case.
-///
-/// For attributes, the difference between the coerced value and the configured value is
-/// (1) selects are resolved and (2) configurable things are configured. This trait allows
-/// most of the attr representation to be shared between those two states.
-///
-/// There's really just two implementations of this, one for coerced attrs with
-/// unconfigured types and one for configured attrs with the configured types.
-pub trait AttrConfig: AttrLike {
-    type TargetType: TargetLabelMaybeConfigured + AttrLike;
-    type ProvidersType: ProvidersLabelMaybeConfigured + AttrLike;
-    type SplitTransitionDepType: SplitTransitionDepMaybeConfigured + AttrLike;
-    type ExplicitConfiguredDepType: ExplicitConfiguredDepMaybeConfigured + AttrLike;
-
-    fn to_json(&self) -> anyhow::Result<serde_json::Value>;
-
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool>;
-}
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum AttrLiteral<C: AttrConfig> {
