@@ -60,8 +60,6 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
 use either::Either;
-use starlark::collections::small_map;
-use starlark::collections::SmallMap;
 
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::coerced_attr::CoercedAttr;
@@ -79,10 +77,10 @@ pub(crate) mod testing;
 mod tests;
 
 /// A simple map that maintains insertion order.
-pub type OrderedMap<K, V> = SmallMap<K, V>;
-pub type OrderedMapEntry<'a, K, V> = small_map::Entry<'a, K, V>;
-pub type OrderedMapOccupiedEntry<'a, K, V> = small_map::OccupiedEntry<'a, K, V>;
-pub type OrderedMapVacantEntry<'a, K, V> = small_map::VacantEntry<'a, K, V>;
+pub type OrderedMap<K, V> = small_map::map::SmallMap<K, V>;
+pub type OrderedMapEntry<'a, K, V> = small_map::map::Entry<'a, K, V>;
+pub type OrderedMapOccupiedEntry<'a, K, V> = small_map::map::OccupiedEntry<'a, K, V>;
+pub type OrderedMapVacantEntry<'a, K, V> = small_map::map::VacantEntry<'a, K, V>;
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum CoercedPath {

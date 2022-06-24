@@ -90,6 +90,7 @@ rust_library(
         "//buck2/host_sharing:host_sharing",
         "//buck2/remote_execution/internal:remote_execution",
         "//buck2/shed/more_futures:more_futures",
+        "//buck2/shed/small_map:small_map",
         "//buck2/starlark-rust/starlark:starlark",
         "//buck2/test_api:test_api",
         "//common/rust/shed/fbinit:fbinit",
