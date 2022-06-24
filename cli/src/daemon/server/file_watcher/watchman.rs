@@ -145,7 +145,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         let configuror = ctx.get_interpreter_configuror().await?;
         let legacy_configs = ctx.get_legacy_configs().await?;
         let starlark_profiler_instrumentation_override =
-            ctx.get_starlark_profiler_instrumentation_override().await;
+            ctx.get_starlark_profiler_instrumentation_override().await?;
         let disable_starlark_types = ctx.get_disable_starlark_types().await;
         ctx.commit();
 
