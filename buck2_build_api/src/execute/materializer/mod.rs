@@ -74,7 +74,7 @@ impl EdenBuckOut {
 
 pub struct WriteRequest {
     pub path: ProjectRelativePathBuf,
-    pub content: String,
+    pub content: Vec<u8>,
     pub is_executable: bool,
 }
 

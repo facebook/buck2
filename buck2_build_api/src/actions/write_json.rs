@@ -15,17 +15,14 @@ use std::time::Instant;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_common::file_ops::FileDigest;
-use buck2_common::file_ops::FileMetadata;
-use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::category::Category;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use gazebo::prelude::*;
 use indexmap::indexmap;
+use indexmap::indexset;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
-use itertools::Itertools;
 use once_cell::sync::Lazy;
 use serde::Serialize;
 use serde::Serializer;
@@ -40,7 +37,6 @@ use starlark::values::ValueLike;
 use thiserror::Error;
 
 use crate::actions::artifact::Artifact;
-use crate::actions::artifact::ArtifactValue;
 use crate::actions::artifact::BuildArtifact;
 use crate::actions::artifact::ExecutorFs;
 use crate::actions::Action;
@@ -49,6 +45,7 @@ use crate::actions::ActionExecutionCtx;
 use crate::actions::PristineActionExecutable;
 use crate::actions::UnregisteredAction;
 use crate::artifact_groups::ArtifactGroup;
+use crate::execute::materializer::WriteRequest;
 use crate::execute::ActionExecutionKind;
 use crate::execute::ActionExecutionMetadata;
 use crate::execute::ActionExecutionTimingData;
@@ -63,8 +60,12 @@ use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 
 #[derive(Debug, Error)]
 enum WriteJsonActionValidationError {
-    #[error("At least one output file must be specified for a write action")]
-    NoOutputsSpecified,
+    #[error("WriteJsonAction received inputs")]
+    TooManyInputs,
+    #[error("WriteJsonAction received no outputs")]
+    NoOutputs,
+    #[error("WriteJsonAction received more than one output")]
+    TooManyOutputs,
 }
 
 /// A wrapper with a Serialize instance so we can pass down the necessary context.
@@ -225,9 +226,7 @@ impl UnregisteredAction for UnregisteredWriteJsonAction {
 #[derive(Debug)]
 struct WriteJsonAction {
     contents: OwnedFrozenValue, // JSON value
-    inputs: IndexSet<ArtifactGroup>,
-    outputs: IndexSet<BuildArtifact>,
-    identifier: String,
+    output: BuildArtifact,
 }
 
 impl WriteJsonAction {
@@ -237,17 +236,22 @@ impl WriteJsonAction {
         outputs: IndexSet<BuildArtifact>,
     ) -> anyhow::Result<Self> {
         UnregisteredWriteJsonAction::validate(contents.value())?;
-        if outputs.is_empty() {
-            Err(WriteJsonActionValidationError::NoOutputsSpecified.into())
-        } else {
-            let identifier = outputs.iter().map(|a| a.get_path().short_path()).join(", ");
-            Ok(WriteJsonAction {
-                contents,
-                inputs,
-                outputs,
-                identifier,
-            })
+
+        let mut outputs = outputs.into_iter();
+
+        let output = match (outputs.next(), outputs.next()) {
+            (Some(o), None) => o,
+            (None, ..) => return Err(WriteJsonActionValidationError::NoOutputs.into()),
+            (Some(..), Some(..)) => {
+                return Err(WriteJsonActionValidationError::TooManyOutputs.into());
+            }
+        };
+
+        if !inputs.is_empty() {
+            return Err(WriteJsonActionValidationError::TooManyInputs.into());
         }
+
+        Ok(WriteJsonAction { contents, output })
     }
 
     fn write(&self, fs: &ExecutorFs, writer: impl Write) -> anyhow::Result<()> {
@@ -268,11 +272,11 @@ impl Action for WriteJsonAction {
     }
 
     fn inputs(&self) -> anyhow::Result<Cow<'_, IndexSet<ArtifactGroup>>> {
-        Ok(Cow::Borrowed(&self.inputs))
+        Ok(Cow::Owned(IndexSet::new()))
     }
 
     fn outputs(&self) -> anyhow::Result<Cow<'_, IndexSet<BuildArtifact>>> {
-        Ok(Cow::Borrowed(&self.outputs))
+        Ok(Cow::Owned(indexset![self.output.dupe()]))
     }
 
     fn as_executable(&self) -> ActionExecutable<'_> {
@@ -287,7 +291,7 @@ impl Action for WriteJsonAction {
     }
 
     fn identifier(&self) -> Option<&str> {
-        Some(&self.identifier)
+        Some(self.output.get_path().short_path().as_str())
     }
 
     fn aquery_attributes(&self, fs: &ExecutorFs) -> IndexMap<String, String> {
@@ -310,35 +314,30 @@ impl PristineActionExecutable for WriteJsonAction {
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let fs = ctx.fs();
 
-        let mut outputs = IndexMap::new();
-        let mut wall_time = None;
+        let mut execution_start = None;
 
-        ctx.blocking_executor()
-            .execute_io_inline(box || {
-                let execution_start = Instant::now();
-                outputs.reserve(self.outputs.len());
-
-                let full_contents = self.get_contents(&ctx.executor_fs())?;
-                let value = ArtifactValue::file(FileMetadata {
-                    digest: TrackedFileDigest::new(FileDigest::from_bytes(&full_contents)),
+        let value = ctx
+            .materializer()
+            .write(box || {
+                execution_start = Some(Instant::now());
+                let content = self.get_contents(&ctx.executor_fs())?;
+                Ok(vec![WriteRequest {
+                    path: fs.resolve_build(&self.output),
+                    content,
                     is_executable: false,
-                });
-
-                for output in &self.outputs {
-                    fs.write_file(output, &full_contents, false)?;
-                    outputs.insert(output.dupe(), value.dupe());
-                }
-
-                wall_time = Some(execution_start.elapsed());
-
-                Ok(())
+                }])
             })
-            .await?;
+            .await?
+            .into_iter()
+            .next()
+            .context("Write did not execute")?;
 
-        let wall_time = wall_time.context("Action did not set wall_time")?;
+        let wall_time = execution_start
+            .context("Action did not set execution_start")?
+            .elapsed();
 
         Ok((
-            ActionOutputs::new(outputs),
+            ActionOutputs::new(indexmap![self.output.dupe() => value]),
             ActionExecutionMetadata {
                 execution_kind: ActionExecutionKind::Simple,
                 timing: ActionExecutionTimingData { wall_time },

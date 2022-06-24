@@ -171,7 +171,7 @@ impl PristineActionExecutable for WriteMacrosToFileAction {
                     std::iter::zip(self.outputs.iter(), output_contents.into_iter())
                         .map(|(output, content)| WriteRequest {
                             path: fs.fs().resolve_build(output),
-                            content,
+                            content: content.into_bytes(),
                             is_executable: false,
                         })
                         .collect(),

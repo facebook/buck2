@@ -258,7 +258,7 @@ async fn write_to_cas<'a>(
         is_executable,
     } in contents
     {
-        let digest = FileDigest::from_bytes(content.as_bytes());
+        let digest = FileDigest::from_bytes(&content);
 
         let meta = FileMetadata {
             digest: TrackedFileDigest::new(digest),
@@ -266,7 +266,7 @@ async fn write_to_cas<'a>(
         };
 
         uploads.push(InlinedBlobWithDigest {
-            blob: content.into_bytes(),
+            blob: content,
             digest: meta.digest.to_re(),
             ..Default::default()
         });

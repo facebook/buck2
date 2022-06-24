@@ -199,7 +199,7 @@ impl PristineActionExecutable for WriteAction {
             .materializer()
             .write(box || {
                 execution_start = Some(Instant::now());
-                let content = self.get_contents(&ctx.executor_fs())?;
+                let content = self.get_contents(&ctx.executor_fs())?.into_bytes();
                 Ok(vec![WriteRequest {
                     path: fs.resolve_build(&self.output),
                     content,

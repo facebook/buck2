@@ -236,7 +236,7 @@ pub async fn write_to_disk<'a>(
                     is_executable,
                 } in requests
                 {
-                    let digest = FileDigest::from_bytes(content.as_bytes());
+                    let digest = FileDigest::from_bytes(&content);
                     fs.write_file(&path, &content, is_executable)?;
 
                     values.push(ArtifactValue::file(FileMetadata {
