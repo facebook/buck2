@@ -45,8 +45,6 @@
 //! receive a list of files in the implementation. The intermediate form of that
 //! may be strings or targets or some other thing (e.g. a lazy glob, maybe).
 
-use std::sync::Arc;
-
 use anyhow::anyhow;
 use attr_type::attr_literal::AttrConfig;
 use attr_type::attr_literal::AttrLiteral;
@@ -56,7 +54,6 @@ use attr_type::dep::UnconfiguredExplicitConfiguredDep;
 use attr_type::split_transition_dep::ConfiguredSplitTransitionDep;
 use attr_type::split_transition_dep::SplitTransitionDep;
 use buck2_core::buck_path::BuckPath;
-use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
@@ -125,27 +122,6 @@ pub trait AttrCoercionContext {
 
     /// Attempt to convert a string into a BuckPath
     fn coerce_path(&self, value: &str, allow_directory: bool) -> anyhow::Result<CoercedPath>;
-}
-
-pub(crate) trait CoercedAttrTraversal<'a> {
-    fn dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()>;
-    fn exec_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()>;
-    fn transition_dep(
-        &mut self,
-        dep: &'a TargetLabel,
-        tr: &'a Arc<TransitionId>,
-    ) -> anyhow::Result<()>;
-    fn split_transition_dep(
-        &mut self,
-        dep: &'a TargetLabel,
-        tr: &'a Arc<TransitionId>,
-    ) -> anyhow::Result<()>;
-    fn configuration_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()>;
-    fn platform_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()>;
-    fn input(&mut self, input: &'a BuckPath) -> anyhow::Result<()>;
-    fn label(&mut self, _label: &'a ProvidersLabel) -> anyhow::Result<()> {
-        Ok(())
-    }
 }
 
 impl AttrConfig for CoercedAttr {

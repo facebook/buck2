@@ -17,6 +17,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::result::SharedResult;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
+use buck2_node::attrs::traversal::CoercedAttrTraversal;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::functions::QueryFunctionsExt;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
@@ -37,7 +38,6 @@ use crate::attrs::attr_type::dep::ProviderIdSet;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::CoercedAttr;
-use crate::attrs::CoercedAttrTraversal;
 use crate::attrs::ConfiguredAttr;
 use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 

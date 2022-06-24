@@ -21,6 +21,7 @@ use buck2_core::target::TargetLabel;
 use buck2_interpreter::selector::Selector;
 use buck2_interpreter::selector::SelectorGen;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
+use buck2_node::attrs::traversal::CoercedAttrTraversal;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use serde::Serialize;
@@ -36,7 +37,6 @@ use crate::attrs::attr_type::AttrType;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::AttrLiteral;
-use crate::attrs::CoercedAttrTraversal;
 use crate::attrs::ConfiguredAttr;
 use crate::attrs::OrderedMap;
 
