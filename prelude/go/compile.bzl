@@ -1,6 +1,6 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
 load(":packages.bzl", "merge_pkgs")
-load(":toolchain.bzl", "GoToolchainInfo")
+load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_cmd_args")
 
 # Provider wrapping packages used for compiling.
 GoPkgCompileInfo = provider(fields = [
@@ -32,7 +32,7 @@ def get_filtered_srcs(ctx: "context", srcs: ["artifact"], tests: bool.type = Fal
         "__srcs__",
         {src.short_path: src for src in srcs},
     )
-    filter_cmd = cmd_args()
+    filter_cmd = get_toolchain_cmd_args(go_toolchain, go_root = False)
     filter_cmd.add(go_toolchain.filter_srcs[RunInfo])
     filter_cmd.add(cmd_args(go_toolchain.go, format = "--go={}"))
     if tests:
@@ -114,7 +114,7 @@ def compile(
     go_toolchain = ctx.attr._go_toolchain[GoToolchainInfo]
     output = ctx.actions.declare_output(paths.basename(pkg_name) + ".a")
 
-    cmd = cmd_args()
+    cmd = get_toolchain_cmd_args(go_toolchain)
     cmd.add(go_toolchain.compile_wrapper[RunInfo])
     cmd.add(cmd_args(output.as_output(), format = "--output={}"))
     cmd.add(cmd_args(_compile_cmd(ctx, pkg_name, pkgs, deps, compile_flags), format = "--compiler={}"))

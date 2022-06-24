@@ -7,7 +7,7 @@ load(
     "unpack_link_args",
 )
 load(":packages.bzl", "merge_pkgs")
-load(":toolchain.bzl", "GoToolchainInfo")
+load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_cmd_args")
 
 # Provider wrapping packages used for linking.
 GoPkgLinkInfo = provider(fields = [
@@ -18,11 +18,11 @@ def get_inherited_link_pkgs(deps: ["dependency"]) -> {str.type: "artifact"}:
     return merge_pkgs([d[GoPkgLinkInfo].pkgs for d in deps if d[GoPkgLinkInfo]])
 
 def link(ctx: "context", main: "artifact", pkgs: {str.type: "artifact"} = {}, deps: ["dependency"] = []):
+    go_toolchain = ctx.attr._go_toolchain[GoToolchainInfo]
     output = ctx.actions.declare_output(ctx.label.name)
 
-    cmd = cmd_args()
+    cmd = get_toolchain_cmd_args(go_toolchain)
 
-    go_toolchain = ctx.attr._go_toolchain[GoToolchainInfo]
     cmd.add(go_toolchain.linker)
 
     cmd.add("-o", output.as_output())
