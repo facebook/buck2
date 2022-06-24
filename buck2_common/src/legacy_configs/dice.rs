@@ -99,7 +99,7 @@ pub trait HasLegacyConfigs {
     /// if any buckconfig property changes.
     ///
     /// Consider using `get_legacy_config_property` instead.
-    async fn get_legacy_configs(&self) -> LegacyBuckConfigs;
+    async fn get_legacy_configs(&self) -> anyhow::Result<LegacyBuckConfigs>;
 
     /// Use this function carefully: a computation which fetches this key will be recomputed
     /// if any buckconfig property changes.
@@ -153,7 +153,7 @@ impl Key for LegacyBuckConfigForCellKey {
     type Value = SharedResult<LegacyBuckConfig>;
 
     async fn compute(&self, ctx: &DiceComputations) -> SharedResult<LegacyBuckConfig> {
-        let legacy_configs = ctx.get_legacy_configs().await;
+        let legacy_configs = ctx.get_legacy_configs().await?;
         legacy_configs
             .get(&self.cell_name)
             .map(|x| x.dupe())
@@ -274,8 +274,8 @@ impl HasLegacyConfigs for DiceComputations {
         }
     }
 
-    async fn get_legacy_configs(&self) -> LegacyBuckConfigs {
-        self.compute(&LegacyBuckConfigKey).await.dupe()
+    async fn get_legacy_configs(&self) -> anyhow::Result<LegacyBuckConfigs> {
+        Ok(self.compute(&LegacyBuckConfigKey).await.dupe())
     }
 
     async fn get_legacy_config_for_cell(

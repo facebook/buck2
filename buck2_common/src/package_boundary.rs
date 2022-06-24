@@ -135,7 +135,7 @@ impl HasPackageBoundaryExceptions for DiceComputations {
 
             async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
                 Ok(Arc::new(PackageBoundaryExceptions::new(
-                    &ctx.get_legacy_configs().await,
+                    &ctx.get_legacy_configs().await?,
                 )?))
             }
 
