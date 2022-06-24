@@ -739,11 +739,10 @@ impl DaemonState {
             .unwrap_or(false);
         let materializer = Self::create_materializer(
             fb,
-            paths.project_root().to_owned(),
+            (**io.fs()).clone(),
             paths.buck_out_dir(),
             re_client_manager.dupe(),
             blocking_executor.dupe(),
-            (**io.fs()).clone(),
             materialization_method,
             enable_local_caching_of_re_artifacts,
         )?;
@@ -785,17 +784,16 @@ impl DaemonState {
 
     fn create_materializer(
         fb: FacebookInit,
-        project_root: AbsPathBuf,
+        fs: ProjectFilesystem,
         buck_out_path: ForwardRelativePathBuf,
         re_client_manager: Arc<ReConnectionManager>,
         blocking_executor: Arc<dyn BlockingExecutor>,
-        fs: ProjectFilesystem,
         materialization_method: MaterializationMethod,
         enable_local_caching_of_re_artifacts: bool,
     ) -> anyhow::Result<Arc<dyn Materializer>> {
         match materialization_method {
             MaterializationMethod::Immediate => Ok(Arc::new(ImmediateMaterializer::new(
-                project_root,
+                fs,
                 re_client_manager,
                 blocking_executor,
             ))),
@@ -803,7 +801,7 @@ impl DaemonState {
                 let materialize_final_artifacts =
                     matches!(materialization_method, MaterializationMethod::Deferred);
                 Ok(Arc::new(DeferredMaterializer::new(
-                    project_root,
+                    fs,
                     re_client_manager,
                     blocking_executor,
                     DeferredMaterializerConfigs {
@@ -815,19 +813,23 @@ impl DaemonState {
             MaterializationMethod::Eden => {
                 #[cfg(all(unix, feature = "eden_materializer"))]
                 {
+                    use buck2_build_api::execute::materializer::eden::EdenMaterializer;
+                    use buck2_build_api::execute::materializer::eden_api::EdenBuckOut;
+
+                    let buck_out_mount = fs.root.join_unnormalized(&buck_out_path);
+
                     Ok(Arc::new(
-                        buck2_build_api::execute::materializer::eden::EdenMaterializer::new(
-                            project_root.clone(),
+                        EdenMaterializer::new(
+                            fs,
                             re_client_manager.dupe(),
                             blocking_executor,
-                            buck2_build_api::execute::materializer::eden_api::EdenBuckOut::new(
+                            EdenBuckOut::new(
                                 fb,
-                                ProjectRelativePathBuf::from(buck_out_path.clone()),
-                                project_root.join_unnormalized(buck_out_path),
+                                ProjectRelativePathBuf::from(buck_out_path),
+                                buck_out_mount,
                                 re_client_manager,
                             )
                             .context("Failed to create EdenFS-based buck-out")?,
-                            fs,
                         )
                         .context("Failed to create Eden materializer")?,
                     ))

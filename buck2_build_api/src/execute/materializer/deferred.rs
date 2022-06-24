@@ -17,7 +17,6 @@ use buck2_common::file_ops::FileDigest;
 use buck2_core::directory::unordered_entry_walk;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::env_helper::EnvHelper;
-use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePath;
@@ -112,7 +111,7 @@ pub struct DeferredMaterializerConfigs {
 }
 
 struct DeferredMaterializerCommandProcessor {
-    project_root: AbsPathBuf,
+    fs: ProjectFilesystem,
     re_client_manager: Arc<ReConnectionManager>,
     /// Executor for blocking IO operations
     io_executor: Arc<dyn BlockingExecutor>,
@@ -412,7 +411,7 @@ impl DeferredMaterializer {
     /// Creates and returns a new `DeferredMaterializer` that aborts those
     /// threads when dropped.
     pub fn new(
-        project_root: AbsPathBuf,
+        fs: ProjectFilesystem,
         re_client_manager: Arc<ReConnectionManager>,
         io_executor: Arc<dyn BlockingExecutor>,
         configs: DeferredMaterializerConfigs,
@@ -420,7 +419,7 @@ impl DeferredMaterializer {
         let (command_sender, command_recv) = mpsc::unbounded_channel();
 
         let command_processor = Arc::new(DeferredMaterializerCommandProcessor {
-            project_root,
+            fs,
             re_client_manager,
             io_executor,
             command_sender: command_sender.clone(),
@@ -765,9 +764,7 @@ impl DeferredMaterializerCommandProcessor {
                 async {
                     let downloaded = http_download(
                         &http_client()?,
-                        &ProjectFilesystem {
-                            root: self.project_root.clone(),
-                        },
+                        &self.fs,
                         &path,
                         &info.url,
                         &info.checksum,
@@ -803,8 +800,8 @@ impl DeferredMaterializerCommandProcessor {
                         for a in copied_artifacts {
                             materialize_files(
                                 a.dest_entry.as_ref(),
-                                &self.project_root.join_unnormalized(&a.src),
-                                &self.project_root.join_unnormalized(&a.dest),
+                                &self.fs.root.join_unnormalized(&a.src),
+                                &self.fs.root.join_unnormalized(&a.dest),
                             )?;
                         }
                         Ok(())

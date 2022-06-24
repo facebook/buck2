@@ -13,7 +13,6 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::directory::unordered_entry_walk;
 use buck2_core::directory::DirectoryEntry;
-use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use futures::stream;
@@ -42,19 +41,19 @@ use crate::execute::CleanOutputPaths;
 
 /// Materializer that materializes everything immediately on declare.
 pub struct ImmediateMaterializer {
-    project_root: AbsPathBuf,
+    fs: ProjectFilesystem,
     re_client_manager: Arc<ReConnectionManager>,
     io_executor: Arc<dyn BlockingExecutor>,
 }
 
 impl ImmediateMaterializer {
     pub fn new(
-        project_root: AbsPathBuf,
+        fs: ProjectFilesystem,
         re_client_manager: Arc<ReConnectionManager>,
         io_executor: Arc<dyn BlockingExecutor>,
     ) -> Self {
         Self {
-            project_root,
+            fs,
             re_client_manager,
             io_executor,
         }
@@ -96,8 +95,8 @@ impl Materializer for ImmediateMaterializer {
                         ))?;
                     materialize_files(
                         copied_artifact.dest_entry.as_ref(),
-                        &self.project_root.join_unnormalized(&copied_artifact.src),
-                        &self.project_root.join_unnormalized(&copied_artifact.dest),
+                        &self.fs.root.join_unnormalized(&copied_artifact.src),
+                        &self.fs.root.join_unnormalized(&copied_artifact.dest),
                     )?;
                 }
                 Ok(())
@@ -163,9 +162,7 @@ impl Materializer for ImmediateMaterializer {
 
         http_download(
             &http_client()?,
-            &ProjectFilesystem {
-                root: self.project_root.clone(),
-            },
+            &self.fs,
             &path,
             &info.url,
             &info.checksum,

@@ -13,7 +13,6 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::FingerprintedDirectory;
-use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use futures::stream;
@@ -205,16 +204,15 @@ impl Materializer for EdenMaterializer {
 
 impl EdenMaterializer {
     pub fn new(
-        project_root: AbsPathBuf,
+        fs: ProjectFilesystem,
         re_client_manager: Arc<ReConnectionManager>,
         blocking_executor: Arc<dyn BlockingExecutor>,
         eden_buck_out: EdenBuckOut,
-        fs: ProjectFilesystem,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             re_client_manager: re_client_manager.dupe(),
             delegator: Arc::new(ImmediateMaterializer::new(
-                project_root,
+                fs.clone(),
                 re_client_manager,
                 blocking_executor,
             )),
