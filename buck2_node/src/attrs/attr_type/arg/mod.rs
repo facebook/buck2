@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+pub mod parser;
+
 use std::fmt::Display;
 
 use crate::attrs::attr_type::attr_config::AttrConfig;

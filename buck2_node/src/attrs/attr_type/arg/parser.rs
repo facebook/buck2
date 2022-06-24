@@ -73,18 +73,18 @@ use std::result;
 use thiserror::Error;
 
 #[derive(Debug, PartialEq)]
-pub(crate) struct ParsedMacro {
+pub struct ParsedMacro {
     /// Indicates that the value of the macro should be written to a file and the command should be passed `@<filename>` where
     /// <filename> is the file where the macro value has been written.
-    pub(crate) write_to_file: bool,
+    pub write_to_file: bool,
     /// "type" of the macro. Ex. "location", "exe".
-    pub(crate) macro_type: String,
+    pub macro_type: String,
     /// Macro args. Ex $(some_macro //a:b //c:d) would have ["//a:b", "//c:d"] as the args.
-    pub(crate) args: Vec<String>,
+    pub args: Vec<String>,
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) enum ArgItem {
+pub enum ArgItem {
     String(String),
     Macro(ParsedMacro),
 }
@@ -93,7 +93,7 @@ pub(crate) enum ArgItem {
 pub struct ParsedArg(pub(crate) Vec<ArgItem>);
 
 impl ParsedArg {
-    pub(crate) fn into_items(self) -> Vec<ArgItem> {
+    pub fn into_items(self) -> Vec<ArgItem> {
         self.0
     }
 }

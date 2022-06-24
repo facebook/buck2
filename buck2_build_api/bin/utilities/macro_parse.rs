@@ -45,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
         println!(
             "line: `{}`\n result: `{:?}`",
             line,
-            buck2_build_api::attrs::attr_type::arg::parser::parse_macros(&line)
+            buck2_node::attrs::attr_type::arg::parser::parse_macros(&line)
         );
     }
 

@@ -16,6 +16,9 @@ use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_node::attrs::attr_type::arg::parser;
+use buck2_node::attrs::attr_type::arg::parser::parse_macros;
+use buck2_node::attrs::attr_type::arg::parser::ParsedMacro;
 use buck2_node::attrs::attr_type::arg::ArgAttrType;
 use buck2_node::attrs::attr_type::arg::MacroBase;
 use buck2_node::attrs::attr_type::arg::QueryExpansion;
@@ -36,8 +39,6 @@ use thiserror::Error;
 
 use crate::actions::artifact::ExecutorFs;
 use crate::attrs::analysis::AttrResolutionContext;
-use crate::attrs::attr_type::arg::parser::parse_macros;
-use crate::attrs::attr_type::arg::parser::ParsedMacro;
 use crate::attrs::attr_type::arg::query::ConfiguredQueryMacroBaseExt;
 use crate::attrs::attr_type::arg::query::UnconfiguredQueryMacroBaseExt;
 use crate::attrs::attr_type::arg::value::ResolvedStringWithMacros;
@@ -51,7 +52,6 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
 
-pub mod parser;
 pub mod query;
 pub mod value;
 
