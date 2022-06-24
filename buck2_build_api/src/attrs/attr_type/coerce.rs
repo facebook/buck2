@@ -7,9 +7,9 @@
  * of this source tree.
  */
 
+use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use starlark::values::Value;
 
-use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;

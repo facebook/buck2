@@ -10,6 +10,7 @@
 use anyhow::anyhow;
 use buck2_core::buck_path::BuckPath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::source::SourceAttrType;
 use gazebo::prelude::*;
 use starlark::values::list::FrozenList;
@@ -19,7 +20,6 @@ use thiserror::Error;
 
 use crate::actions::artifact::SourceArtifact;
 use crate::attrs::analysis::AttrResolutionContext;
-use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::configurable::AttrIsConfigurable;

@@ -8,6 +8,7 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:either",
         "fbsource//third-party/rust:indexmap",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:thiserror",

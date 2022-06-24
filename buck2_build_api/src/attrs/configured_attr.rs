@@ -13,6 +13,7 @@ use std::fmt::Display;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::TargetLabel;
 use buck2_node::attrs::attr_type::attr_config::AttrConfig;
+use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::collections::small_map::Entry;
@@ -20,7 +21,7 @@ use starlark::collections::SmallMap;
 use starlark::values::Value;
 
 use crate::attrs::analysis::AttrResolutionContext;
-use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::attr_literal::ConfiguredAttrLiteralExt;
 use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
 use crate::attrs::coerced_attr::SelectError;
 

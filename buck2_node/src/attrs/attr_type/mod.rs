@@ -40,6 +40,7 @@ pub mod any;
 pub mod arg;
 pub mod attr_config;
 pub mod attr_like;
+pub mod attr_literal;
 pub mod bool;
 pub mod configuration_dep;
 pub mod configured_dep;

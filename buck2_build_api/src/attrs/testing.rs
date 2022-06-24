@@ -33,6 +33,7 @@ use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::extra::BuildContext;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
+use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
@@ -51,7 +52,6 @@ use starlark::values::Value;
 
 use crate::attrs::analysis::AnalysisQueryResult;
 use crate::attrs::analysis::AttrResolutionContext;
-use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::CoercedAttr;
 use crate::attrs::ConfiguredAttr;

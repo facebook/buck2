@@ -9,8 +9,6 @@
 
 use std::collections::HashSet;
 use std::fmt::Debug;
-use std::fmt::Display;
-use std::hash::Hash;
 use std::mem;
 
 use anyhow::anyhow;
@@ -19,8 +17,13 @@ use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_node::attrs::attr_type::arg::ArgAttrType;
-use buck2_node::attrs::attr_type::attr_config::AttrConfig;
+use buck2_node::attrs::attr_type::arg::MacroBase;
+use buck2_node::attrs::attr_type::arg::QueryExpansion;
+use buck2_node::attrs::attr_type::arg::StringWithMacros;
+use buck2_node::attrs::attr_type::arg::StringWithMacrosPart;
+use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::query::QueryAttrType;
+use buck2_node::attrs::attr_type::query::QueryMacroBase;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
 use gazebo::prelude::*;
@@ -33,9 +36,9 @@ use crate::actions::artifact::ExecutorFs;
 use crate::attrs::analysis::AttrResolutionContext;
 use crate::attrs::attr_type::arg::parser::parse_macros;
 use crate::attrs::attr_type::arg::parser::ParsedMacro;
-use crate::attrs::attr_type::arg::query::QueryMacroBase;
+use crate::attrs::attr_type::arg::query::ConfiguredQueryMacroBaseExt;
+use crate::attrs::attr_type::arg::query::UnconfiguredQueryMacroBaseExt;
 use crate::attrs::attr_type::arg::value::ResolvedStringWithMacros;
-use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
 use crate::attrs::attr_type::coerce::AttrTypeCoerce;
@@ -153,150 +156,6 @@ impl AttrTypeCoerce for ArgAttrType {
     }
 }
 
-/// [StringWithMacros] is the core representation for an attr.arg() (in all of it's coerced, configured, and resolved
-/// forms). The parsed arg string is held as a sequence of parts (each part either a literal string or a macro). When
-/// being added to a command line, these parts will be concattenated together and added as a single arg.
-#[derive(Debug, Eq, PartialEq, Hash, Clone)]
-pub enum StringWithMacros<C: AttrConfig> {
-    /// Semantically, StringWithMacros::StringPart(s) is equivalent to
-    /// StringWithMacros::ManyParts(vec![StringWithMacrosPart::String(s)]). We special-case this
-    /// for memory efficiency to avoid allocating unnecessary vectors, since lone string parts are
-    /// very frequent.
-    StringPart(Box<str>),
-    // For resolution, we defer all work and simply alloc a ConfiguredStringWithMacros into the starlark
-    // context. This allows us to defer resolution work to the point that it is being added to a command
-    // line, but it requires that we can cheaply copy ConfiguredStringWithMacros.
-    ManyParts(Box<[StringWithMacrosPart<C>]>),
-}
-
-/// Represents the type of a query placeholder (e.g. query_outputs, query_targets, query_targets_and_outputs).
-#[derive(Debug, Eq, PartialEq, Hash, Clone)]
-pub enum QueryExpansion {
-    Output,
-    Target,
-    /// Holds the separator used between a target and its output. If not provided, they will be space-separated.
-    TargetAndOutput(Option<String>),
-}
-
-impl Display for QueryExpansion {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            QueryExpansion::Output => f.write_str("query_outputs ")?,
-            QueryExpansion::Target => f.write_str("query_targets ")?,
-            QueryExpansion::TargetAndOutput(Some(separator)) => {
-                write!(f, "query_targets_and_outputs '{}' ", separator)?;
-            }
-            QueryExpansion::TargetAndOutput(None) => f.write_str("query_targets_and_outputs ")?,
-        };
-
-        Ok(())
-    }
-}
-
-impl<C: AttrConfig> StringWithMacros<C> {
-    pub fn concat(self, items: impl Iterator<Item = anyhow::Result<Self>>) -> anyhow::Result<Self> {
-        let mut parts = Vec::new();
-        for x in std::iter::once(Ok(self)).chain(items) {
-            match x? {
-                Self::StringPart(x) => parts.push(StringWithMacrosPart::String(x.into_string())),
-                Self::ManyParts(xs) => parts.extend(xs.into_vec().into_iter()),
-            }
-        }
-        Ok(Self::ManyParts(parts.into_boxed_slice()))
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Hash, Clone)]
-pub enum StringWithMacrosPart<C: AttrConfig> {
-    String(String),
-    Macro(/* write_to_file */ bool, MacroBase<C>),
-}
-
-#[derive(Debug, Eq, PartialEq, Hash, Clone)]
-pub enum MacroBase<C: AttrConfig> {
-    Location(C::ProvidersType),
-    /// Represents both $(exe) and $(exe_target) usages.
-    Exe {
-        label: C::ProvidersType,
-        exec_dep: bool,
-    },
-    /// A user-defined make variable (like `$(CXX)`). This will be resolved based on the propagated TemplateVariableInfos.
-    UserUnkeyedPlaceholder(String),
-
-    /// A user-defined macro (like `$(cxxppflags //some:target)`). This will be resolved based on the propagated TemplateVariableInfos.
-    UserKeyedPlaceholder(String, C::ProvidersType, Option<String>),
-
-    Query(Box<QueryMacroBase<C>>),
-
-    /// Right now, we defer error for unrecognized macros to the place where they are used. This just allows
-    /// us to progress further into a build and detect more issues. Once we have all (or most) of the buckv1 macros
-    /// recognized we'll remove this and make it an early error.
-    UnrecognizedMacro(String, Vec<String>),
-}
-
-/// Display attempts to approximately reproduce the string that created a macro.
-impl<C: AttrConfig> Display for MacroBase<C> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // TODO: this should re-escape values in the args that need to be escaped to have returned that arg (it's not possible
-        // to tell where there were unnecessary escapes and it's not worth tracking that).
-        match self {
-            MacroBase::Location(l) => write!(f, "location {}", l),
-            MacroBase::Exe { label, exec_dep } => {
-                write!(
-                    f,
-                    "{} {}",
-                    if *exec_dep { "exe" } else { "exe_target" },
-                    label
-                )
-            }
-            MacroBase::Query(query) => Display::fmt(query, f),
-            MacroBase::UserUnkeyedPlaceholder(var) => write!(f, "{}", var),
-            MacroBase::UserKeyedPlaceholder(macro_type, target, arg) => write!(
-                f,
-                "{} {}{}",
-                macro_type,
-                target,
-                if let Some(arg) = arg {
-                    format!(" {}", arg)
-                } else {
-                    "".to_owned()
-                }
-            ),
-            MacroBase::UnrecognizedMacro(macro_type, args) => {
-                write!(f, "<unknown>({}) {}", macro_type, args.join(" "))
-            }
-        }
-    }
-}
-
-impl<C: AttrConfig> Display for StringWithMacrosPart<C> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            StringWithMacrosPart::String(s) => write!(f, "{}", s),
-            StringWithMacrosPart::Macro(write_to_file, m) => {
-                write!(f, "$({}{})", if *write_to_file { "@" } else { "" }, m)
-            }
-        }
-    }
-}
-
-impl<C: AttrConfig> Display for StringWithMacros<C> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::StringPart(part) => {
-                write!(f, "{}", part)?;
-            }
-            Self::ManyParts(ref parts) => {
-                for part in parts.iter() {
-                    write!(f, "{}", part)?;
-                }
-            }
-        }
-
-        Ok(())
-    }
-}
-
 // These type aliases are just a little bit easier to use, the differentiating thing comes
 // right at the beginning instead of at the end in a type param.
 type UnconfiguredMacro = MacroBase<CoercedAttr>;
@@ -308,8 +167,17 @@ type ConfiguredStringWithMacrosPart = StringWithMacrosPart<ConfiguredAttr>;
 type UnconfiguredStringWithMacros = StringWithMacros<CoercedAttr>;
 type ConfiguredStringWithMacros = StringWithMacros<ConfiguredAttr>;
 
-impl UnconfiguredStringWithMacros {
-    pub(crate) fn configure(
+pub(crate) trait UnconfiguredStringWithMacrosExt {
+    fn configure(
+        &self,
+        ctx: &dyn AttrConfigurationContext,
+    ) -> anyhow::Result<ConfiguredStringWithMacros>;
+
+    fn traverse<'a>(&'a self, traversal: &mut dyn CoercedAttrTraversal<'a>) -> anyhow::Result<()>;
+}
+
+impl UnconfiguredStringWithMacrosExt for UnconfiguredStringWithMacros {
+    fn configure(
         &self,
         ctx: &dyn AttrConfigurationContext,
     ) -> anyhow::Result<ConfiguredStringWithMacros> {
@@ -321,10 +189,7 @@ impl UnconfiguredStringWithMacros {
         }
     }
 
-    pub(crate) fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn CoercedAttrTraversal<'a>,
-    ) -> anyhow::Result<()> {
+    fn traverse<'a>(&'a self, traversal: &mut dyn CoercedAttrTraversal<'a>) -> anyhow::Result<()> {
         match self {
             Self::StringPart(..) => {}
             Self::ManyParts(ref parts) => {
@@ -343,7 +208,14 @@ impl UnconfiguredStringWithMacros {
     }
 }
 
-impl UnconfiguredStringWithMacrosPart {
+pub(crate) trait UnconfiguredStringWithMacrosPartExt {
+    fn configure(
+        &self,
+        ctx: &dyn AttrConfigurationContext,
+    ) -> anyhow::Result<ConfiguredStringWithMacrosPart>;
+}
+
+impl UnconfiguredStringWithMacrosPartExt for UnconfiguredStringWithMacrosPart {
     fn configure(
         &self,
         ctx: &dyn AttrConfigurationContext,
@@ -359,15 +231,21 @@ impl UnconfiguredStringWithMacrosPart {
     }
 }
 
-impl ConfiguredStringWithMacros {
-    pub(crate) fn resolve<'v>(
-        &self,
-        ctx: &'v dyn AttrResolutionContext,
-    ) -> anyhow::Result<Value<'v>> {
+pub(crate) trait ConfiguredStringWithMacrosExt {
+    fn resolve<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Value<'v>>;
+
+    fn traverse<'a>(
+        &'a self,
+        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
+    ) -> anyhow::Result<()>;
+}
+
+impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
+    fn resolve<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Value<'v>> {
         ResolvedStringWithMacros::resolved(self, ctx)
     }
 
-    pub fn traverse<'a>(
+    fn traverse<'a>(
         &'a self,
         traversal: &mut dyn ConfiguredAttrTraversal<'a>,
     ) -> anyhow::Result<()> {
@@ -401,7 +279,7 @@ fn get_single_target_arg(
     ctx.coerce_label(&args[0])
 }
 
-impl UnconfiguredMacro {
+pub(crate) trait UnconfiguredMacroExt {
     fn new_location(
         ctx: &dyn AttrCoercionContext,
         args: Vec<String>,
@@ -480,6 +358,12 @@ impl UnconfiguredMacro {
         UnconfiguredMacro::UnrecognizedMacro(macro_type, args)
     }
 
+    fn configure(&self, ctx: &dyn AttrConfigurationContext) -> anyhow::Result<ConfiguredMacro>;
+
+    fn traverse<'a>(&'a self, traversal: &mut dyn CoercedAttrTraversal<'a>) -> anyhow::Result<()>;
+}
+
+impl UnconfiguredMacroExt for UnconfiguredMacro {
     fn configure(&self, ctx: &dyn AttrConfigurationContext) -> anyhow::Result<ConfiguredMacro> {
         Ok(match self {
             UnconfiguredMacro::Location(target) => {
@@ -510,10 +394,7 @@ impl UnconfiguredMacro {
         })
     }
 
-    pub(crate) fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn CoercedAttrTraversal<'a>,
-    ) -> anyhow::Result<()> {
+    fn traverse<'a>(&'a self, traversal: &mut dyn CoercedAttrTraversal<'a>) -> anyhow::Result<()> {
         match self {
             MacroBase::Location(l) | MacroBase::UserKeyedPlaceholder(_, l, _) => {
                 traversal.dep(l.target())
@@ -583,8 +464,15 @@ impl CommandLineBuilder for SpaceSeparatedCommandLineBuilder<'_> {
     }
 }
 
-impl ConfiguredMacro {
-    pub fn traverse<'a>(
+pub(crate) trait ConfiguredMacroExt {
+    fn traverse<'a>(
+        &'a self,
+        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
+    ) -> anyhow::Result<()>;
+}
+
+impl ConfiguredMacroExt for ConfiguredMacro {
+    fn traverse<'a>(
         &'a self,
         traversal: &mut dyn ConfiguredAttrTraversal<'a>,
     ) -> anyhow::Result<()> {

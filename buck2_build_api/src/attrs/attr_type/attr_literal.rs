@@ -8,7 +8,6 @@
  */
 
 use std::fmt::Debug;
-use std::fmt::Display;
 use std::hash::Hash;
 use std::sync::Arc;
 
@@ -18,17 +17,14 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter::types::label::LabelGen;
-use buck2_node::attrs::attr_type::attr_config::AttrConfig;
+use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
 use buck2_node::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
-use buck2_node::attrs::attr_type::dep::DepAttr;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
-use buck2_node::attrs::attr_type::dep::ExplicitConfiguredDepMaybeConfigured;
 use buck2_node::attrs::attr_type::label::LabelAttrType;
+use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
 use buck2_node::attrs::attr_type::source::SourceAttrType;
 use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
-use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfigured;
-use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
 use gazebo::prelude::*;
@@ -43,192 +39,36 @@ use starlark::values::Value;
 
 use crate::attrs::analysis::AttrResolutionContext;
 use crate::attrs::attr_type::arg::value::ResolvedStringWithMacros;
-use crate::attrs::attr_type::arg::StringWithMacros;
+use crate::attrs::attr_type::arg::ConfiguredStringWithMacrosExt;
+use crate::attrs::attr_type::arg::UnconfiguredStringWithMacrosExt;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepAttrTypeExt;
 use crate::attrs::attr_type::dep::ConfiguredDepAttrExt;
 use crate::attrs::attr_type::dep::ConfiguredExplicitConfiguredDepExt;
 use crate::attrs::attr_type::dep::DepAttrTypeExt;
 use crate::attrs::attr_type::dep::ExplicitConfiguredDepAttrTypeExt;
 use crate::attrs::attr_type::label::LabelAttrTypeExt;
-use crate::attrs::attr_type::query::QueryAttr;
-use crate::attrs::attr_type::query::ResolvedQueryLiterals;
+use crate::attrs::attr_type::query::ConfiguredQueryAttrExt;
+use crate::attrs::attr_type::query::UnconfiguredQueryAttrExt;
 use crate::attrs::attr_type::source::SourceAttrTypeExt;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrTypeExt;
 use crate::attrs::CoercedAttr;
-use crate::attrs::CoercedPath;
 use crate::attrs::ConfiguredAttr;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::provider::dependency::DependencyGen;
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone)]
-pub enum AttrLiteral<C: AttrConfig> {
-    Bool(bool),
-    Int(i32),
-    String(String),
-    // Type of list elements is used to verify that concatenation is valid.
-    // That only can be checked after configuration took place,
-    // so pass the type info together with values to be used later.
-    List(Box<[C]>, AttrType),
-    // We make Tuple a Box<[C]> so we can share code paths with List
-    Tuple(Box<[C]>),
-    Dict(Vec<(C, C)>),
-    None,
-    Dep(Box<DepAttr<C::ProvidersType>>),
-    ConfiguredDep(Box<DepAttr<ConfiguredProvidersLabel>>),
-    ExplicitConfiguredDep(Box<C::ExplicitConfiguredDepType>),
-    ConfigurationDep(TargetLabel),
-    SplitTransitionDep(Box<C::SplitTransitionDepType>),
-    Query(Box<QueryAttr<C>>),
-    SourceLabel(Box<C::ProvidersType>),
-    SourceFile(Box<CoercedPath>),
-    Arg(StringWithMacros<C>),
-    // NOTE: unlike deps, labels are not traversed, as they are typically used in lieu of deps in
-    // cases that would cause cycles.
-    Label(Box<C::ProvidersType>),
-}
-
 static_assertions::assert_eq_size!(AttrLiteral<CoercedAttr>, [usize; 4]);
 static_assertions::assert_eq_size!(AttrLiteral<ConfiguredAttr>, [usize; 4]);
 
-impl<C: AttrConfig> AttrLiteral<C> {
-    pub fn to_json(&self) -> anyhow::Result<serde_json::Value> {
-        use serde_json::to_value;
-        match self {
-            AttrLiteral::Bool(v) => Ok(to_value(v)?),
-            AttrLiteral::Int(v) => Ok(to_value(v)?),
-            AttrLiteral::String(v) => Ok(to_value(v)?),
-            AttrLiteral::List(list, _) | AttrLiteral::Tuple(list) => {
-                Ok(to_value(list.try_map(|c| c.to_json())?)?)
-            }
-            AttrLiteral::Dict(dict) => {
-                let mut res: serde_json::Map<String, serde_json::Value> =
-                    serde_json::Map::with_capacity(dict.len());
-                for (k, v) in dict {
-                    res.insert(k.to_json()?.as_str().unwrap().to_owned(), v.to_json()?);
-                }
-                Ok(res.into())
-            }
-            AttrLiteral::None => Ok(serde_json::Value::Null),
-            AttrLiteral::Dep(l) => Ok(to_value(l.to_string())?),
-            AttrLiteral::ConfiguredDep(l) => Ok(to_value(l.to_string())?),
-            AttrLiteral::ExplicitConfiguredDep(l) => l.to_json(),
-            AttrLiteral::Query(q) => Ok(to_value(q.query())?),
-            AttrLiteral::SourceFile(s) => Ok(to_value(s.path().to_string())?),
-            AttrLiteral::SourceLabel(s) => Ok(to_value(s.to_string())?),
-            AttrLiteral::Arg(a) => Ok(to_value(a.to_string())?),
-            AttrLiteral::ConfigurationDep(l) => Ok(to_value(l.to_string())?),
-            AttrLiteral::SplitTransitionDep(l) => l.to_json(),
-            AttrLiteral::Label(l) => Ok(to_value(l.to_string())?),
-        }
-    }
+pub(crate) trait UnconfiguredAttrLiteralExt {
+    fn to_value<'v>(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>>;
 
-    /// Checks if this attr matches the filter. For container-like things, will return true if any contained item matches the filter.
-    pub fn any_matches(
-        &self,
-        filter: &dyn Fn(&str) -> anyhow::Result<bool>,
-    ) -> anyhow::Result<bool> {
-        match self {
-            AttrLiteral::String(v) => filter(v),
-            AttrLiteral::Tuple(vals) | AttrLiteral::List(vals, _) => {
-                for v in vals.iter() {
-                    if v.any_matches(filter)? {
-                        return Ok(true);
-                    }
-                }
-                Ok(false)
-            }
-            AttrLiteral::Dict(d) => {
-                for (k, v) in d {
-                    if k.any_matches(filter)? || v.any_matches(filter)? {
-                        return Ok(true);
-                    }
-                }
-                Ok(false)
-            }
-            AttrLiteral::None => Ok(false),
-            AttrLiteral::Dep(d) => filter(&d.to_string()),
-            AttrLiteral::ConfiguredDep(d) => filter(&d.to_string()),
-            AttrLiteral::ExplicitConfiguredDep(d) => d.any_matches(filter),
-            AttrLiteral::SourceFile(s) => filter(&s.path().to_string()),
-            AttrLiteral::SourceLabel(s) => filter(&s.to_string()),
-            AttrLiteral::Query(q) => filter(q.query()),
-            AttrLiteral::Arg(a) => filter(&a.to_string()),
-            AttrLiteral::Bool(b) => filter(if *b { "True" } else { "False" }),
-            AttrLiteral::Int(i) => filter(&i.to_string()),
-            AttrLiteral::ConfigurationDep(d) => filter(&d.to_string()),
-            AttrLiteral::SplitTransitionDep(d) => d.any_matches(filter),
-            AttrLiteral::Label(l) => filter(&l.to_string()),
-        }
-    }
+    fn configure(&self, ctx: &dyn AttrConfigurationContext) -> anyhow::Result<ConfiguredAttr>;
+
+    fn traverse<'a>(&'a self, traversal: &mut dyn CoercedAttrTraversal<'a>) -> anyhow::Result<()>;
 }
 
-impl<C: AttrConfig> Display for AttrLiteral<C> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AttrLiteral::Bool(v) => {
-                let s = if *v { "True" } else { "False" };
-                write!(f, "{}", s)
-            }
-            AttrLiteral::Int(v) => {
-                write!(f, "{}", v)
-            }
-            AttrLiteral::String(v) => {
-                if f.alternate() {
-                    f.write_str(v)
-                } else {
-                    write!(f, "\"{}\"", v)
-                }
-            }
-            AttrLiteral::List(v, _) => {
-                write!(f, "[")?;
-                for (i, v) in v.iter().enumerate() {
-                    if i != 0 {
-                        write!(f, ",")?;
-                    }
-                    Display::fmt(v, f)?;
-                }
-                write!(f, "]")?;
-                Ok(())
-            }
-            AttrLiteral::Tuple(v) => {
-                write!(f, "(")?;
-                for (i, v) in v.iter().enumerate() {
-                    if i != 0 {
-                        write!(f, ",")?;
-                    }
-                    Display::fmt(v, f)?;
-                }
-                write!(f, ")")?;
-                Ok(())
-            }
-            AttrLiteral::Dict(v) => {
-                write!(f, "{{")?;
-                for (i, (k, v)) in v.iter().enumerate() {
-                    if i != 0 {
-                        write!(f, ",")?;
-                    }
-                    write!(f, "{}: {}", k, v)?;
-                }
-                write!(f, "}}")?;
-                Ok(())
-            }
-            AttrLiteral::None => write!(f, "None"),
-            AttrLiteral::Dep(v) => write!(f, "\"{}\"", v),
-            AttrLiteral::ConfiguredDep(v) => write!(f, "\"{}\"", v),
-            AttrLiteral::ExplicitConfiguredDep(d) => Display::fmt(d, f),
-            AttrLiteral::ConfigurationDep(v) => write!(f, "\"{}\"", v),
-            AttrLiteral::Query(v) => write!(f, "\"{}\"", v.query()),
-            AttrLiteral::SourceLabel(v) => write!(f, "\"{}\"", v),
-            AttrLiteral::SourceFile(v) => write!(f, "\"{}\"", v.path()),
-            AttrLiteral::Arg(a) => write!(f, "\"{}\"", a),
-            AttrLiteral::SplitTransitionDep(d) => Display::fmt(d, f),
-            AttrLiteral::Label(l) => write!(f, "\"{}\"", l),
-        }
-    }
-}
-
-impl AttrLiteral<CoercedAttr> {
-    pub(crate) fn to_value<'v>(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+impl UnconfiguredAttrLiteralExt for AttrLiteral<CoercedAttr> {
+    fn to_value<'v>(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match self {
             AttrLiteral::None => Ok(Value::new_none()),
             AttrLiteral::Bool(b) => Ok(Value::new_bool(*b)),
@@ -268,10 +108,7 @@ impl AttrLiteral<CoercedAttr> {
         }
     }
 
-    pub(crate) fn configure(
-        &self,
-        ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<ConfiguredAttr> {
+    fn configure(&self, ctx: &dyn AttrConfigurationContext) -> anyhow::Result<ConfiguredAttr> {
         Ok(ConfiguredAttr(match self {
             AttrLiteral::Bool(v) => AttrLiteral::Bool(*v),
             AttrLiteral::Int(v) => AttrLiteral::Int(*v),
@@ -308,10 +145,7 @@ impl AttrLiteral<CoercedAttr> {
         }))
     }
 
-    pub(crate) fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn CoercedAttrTraversal<'a>,
-    ) -> anyhow::Result<()> {
+    fn traverse<'a>(&'a self, traversal: &mut dyn CoercedAttrTraversal<'a>) -> anyhow::Result<()> {
         match self {
             AttrLiteral::Bool(_) => Ok(()),
             AttrLiteral::Int(_) => Ok(()),
@@ -415,8 +249,21 @@ impl<'a> ConfiguredAttrTraversal<'a> for ConfiguredAttrInfo {
     }
 }
 
-impl AttrLiteral<ConfiguredAttr> {
-    pub fn traverse<'a>(
+pub(crate) trait ConfiguredAttrLiteralExt {
+    fn traverse<'a>(
+        &'a self,
+        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
+    ) -> anyhow::Result<()>;
+
+    fn resolve_single<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Value<'v>>;
+
+    fn resolve<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Vec<Value<'v>>>;
+
+    fn resolved_starlark_type(&self) -> anyhow::Result<&'static str>;
+}
+
+impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
+    fn traverse<'a>(
         &'a self,
         traversal: &mut dyn ConfiguredAttrTraversal<'a>,
     ) -> anyhow::Result<()> {
@@ -461,10 +308,7 @@ impl AttrLiteral<ConfiguredAttr> {
         }
     }
 
-    pub(crate) fn resolve_single<'v>(
-        &self,
-        ctx: &'v dyn AttrResolutionContext,
-    ) -> anyhow::Result<Value<'v>> {
+    fn resolve_single<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Value<'v>> {
         match self {
             AttrLiteral::Bool(v) => Ok(Value::new_bool(*v)),
             AttrLiteral::Int(v) => Ok(Value::new_int(*v)),
@@ -514,10 +358,7 @@ impl AttrLiteral<ConfiguredAttr> {
         }
     }
 
-    pub(crate) fn resolve<'v>(
-        &self,
-        ctx: &'v dyn AttrResolutionContext,
-    ) -> anyhow::Result<Vec<Value<'v>>> {
+    fn resolve<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Vec<Value<'v>>> {
         match self {
             // SourceLabel is special since it is the only type that can be expand to many
             AttrLiteral::SourceLabel(src) => SourceAttrType::resolve_label(ctx, src),
@@ -525,7 +366,7 @@ impl AttrLiteral<ConfiguredAttr> {
         }
     }
 
-    pub fn resolved_starlark_type(&self) -> anyhow::Result<&'static str> {
+    fn resolved_starlark_type(&self) -> anyhow::Result<&'static str> {
         match self {
             AttrLiteral::Bool(_) => Ok(starlark::values::bool::BOOL_TYPE),
             AttrLiteral::Int(_) => Ok(starlark::values::int::INT_TYPE),

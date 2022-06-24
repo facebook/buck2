@@ -46,20 +46,19 @@
 //! may be strings or targets or some other thing (e.g. a lazy glob, maybe).
 
 use anyhow::anyhow;
-use attr_type::attr_literal::AttrLiteral;
 use attr_type::bool;
 use attr_type::split_transition_dep::ConfiguredSplitTransitionDep;
 use attr_type::split_transition_dep::SplitTransitionDep;
-use buck2_core::buck_path::BuckPath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
 use buck2_node::attrs::attr_type::attr_config::AttrConfig;
+use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
 use buck2_node::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
-use either::Either;
+use buck2_node::attrs::coerced_path::CoercedPath;
 
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::coerced_attr::CoercedAttr;
@@ -81,28 +80,6 @@ pub type OrderedMap<K, V> = small_map::map::SmallMap<K, V>;
 pub type OrderedMapEntry<'a, K, V> = small_map::map::Entry<'a, K, V>;
 pub type OrderedMapOccupiedEntry<'a, K, V> = small_map::map::OccupiedEntry<'a, K, V>;
 pub type OrderedMapVacantEntry<'a, K, V> = small_map::map::VacantEntry<'a, K, V>;
-
-#[derive(Debug, Eq, PartialEq, Hash, Clone)]
-pub enum CoercedPath {
-    File(BuckPath),
-    Directory(BuckPath, Vec<BuckPath>),
-}
-
-impl CoercedPath {
-    pub fn path(&self) -> &BuckPath {
-        match self {
-            CoercedPath::File(x) => x,
-            CoercedPath::Directory(x, _) => x,
-        }
-    }
-
-    pub fn inputs(&self) -> impl Iterator<Item = &BuckPath> {
-        match self {
-            CoercedPath::File(x) => Either::Left(std::iter::once(x)),
-            CoercedPath::Directory(_, xs) => Either::Right(xs.iter()),
-        }
-    }
-}
 
 /// The context for attribute coercion. Mostly just contains information about
 /// the current package (to support things like parsing targets from strings).

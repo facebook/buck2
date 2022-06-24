@@ -34,6 +34,7 @@ use starlark::values::Value;
 use thiserror::Error;
 
 use crate::attrs::attr_type::attr_literal::CoercionError;
+use crate::attrs::attr_type::attr_literal::UnconfiguredAttrLiteralExt;
 use crate::attrs::attr_type::AttrTypeExt;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
@@ -458,11 +459,11 @@ mod tests {
     use buck2_core::configuration::ConfigurationData;
     use buck2_core::target::testing::TargetLabelExt;
     use buck2_core::target::TargetLabel;
+    use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
     use gazebo::prelude::Dupe;
     use indexmap::IndexMap;
 
-    use crate::attrs::attr_type::attr_literal::AttrLiteral;
     use crate::attrs::coerced_attr::CoercedAttr;
     use crate::attrs::OrderedMap;
 

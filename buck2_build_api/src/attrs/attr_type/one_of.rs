@@ -7,11 +7,11 @@
  * of this source tree.
  */
 
+use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::one_of::OneOfAttrType;
 use itertools::Itertools;
 use starlark::values::Value;
 
-use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::attr_type::AttrTypeExt;

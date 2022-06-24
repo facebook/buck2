@@ -18,6 +18,7 @@ use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use buck2_interpreter::common::BuildFilePath;
 use buck2_interpreter::extra::ExtraContext;
+use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
 use buck2_query::query::syntax::simple::eval::file_set::FileNode;
@@ -28,7 +29,6 @@ use starlark::eval::Evaluator;
 use starlark::eval::ParametersParser;
 use starlark::values::Value;
 
-use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::attr_literal::CoercedDepsCollector;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::interpreter::module_internals::ModuleInternals;

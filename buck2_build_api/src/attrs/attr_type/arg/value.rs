@@ -26,6 +26,7 @@ use starlark::values::Value;
 
 use crate::actions::artifact::ExecutorFs;
 use crate::attrs::analysis::AttrResolutionContext;
+use crate::attrs::attr_type::arg::query::ConfiguredQueryMacroBaseExt;
 use crate::attrs::attr_type::arg::query::ResolvedQueryMacro;
 use crate::attrs::attr_type::arg::ArgBuilder;
 use crate::attrs::attr_type::arg::ConfiguredMacro;

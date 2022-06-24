@@ -8,5 +8,6 @@
  */
 
 pub mod attr_type;
+pub mod coerced_path;
 pub mod configuration_context;
 pub mod traversal;

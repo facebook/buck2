@@ -8,11 +8,11 @@
  */
 
 use anyhow::anyhow;
+use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::string::StringAttrType;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
 
-use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::configurable::AttrIsConfigurable;

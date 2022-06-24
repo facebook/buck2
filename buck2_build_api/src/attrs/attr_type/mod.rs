@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use attr_literal::AttrLiteral;
+use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::attr_type::AttrTypeInner;
 use starlark::values::Value;
