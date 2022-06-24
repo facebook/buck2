@@ -137,9 +137,8 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
     impl Key for FileOpsKey {
         type Value = SharedResult<Arc<dyn FileOps>>;
         async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-            let (cells, configs) =
-                futures::join!(ctx.get_cell_resolver(), ctx.get_legacy_configs_on_dice());
-            let cells = cells?;
+            let cells = ctx.get_cell_resolver().await?;
+            let configs = ctx.get_legacy_configs_on_dice().await?;
             let io = ctx.global_data().get_io_provider();
 
             let cell_paths: Vec<_> = cells.cells().map(|e| (e.1.name(), e.1.path())).collect();

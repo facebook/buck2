@@ -93,7 +93,7 @@ pub trait HasLegacyConfigs {
     ///
     /// This operation does not record buckconfig as a dependency of current computation.
     /// Accessing specific buckconfig property, records that key as dependency.
-    async fn get_legacy_configs_on_dice(&self) -> LegacyBuckConfigsOnDice;
+    async fn get_legacy_configs_on_dice(&self) -> anyhow::Result<LegacyBuckConfigsOnDice>;
 
     /// Use this function carefully: a computation which fetches this key will be recomputed
     /// if any buckconfig property changes.
@@ -252,7 +252,7 @@ impl ProjectionKey for LegacyBuckConfigCellNamesKey {
 
 #[async_trait]
 impl HasLegacyConfigs for DiceComputations {
-    async fn get_legacy_configs_on_dice(&self) -> LegacyBuckConfigsOnDice {
+    async fn get_legacy_configs_on_dice(&self) -> anyhow::Result<LegacyBuckConfigsOnDice> {
         let configs = self.compute_opaque(&LegacyBuckConfigKey).await;
         let cell_names = configs.projection(&LegacyBuckConfigCellNamesKey);
         let mut configs_on_dice = Vec::with_capacity(cell_names.len());
@@ -269,9 +269,9 @@ impl HasLegacyConfigs for DiceComputations {
                 },
             ));
         }
-        LegacyBuckConfigsOnDice {
+        Ok(LegacyBuckConfigsOnDice {
             configs: SortedHashMap::from_iter(configs_on_dice),
-        }
+        })
     }
 
     async fn get_legacy_configs(&self) -> anyhow::Result<LegacyBuckConfigs> {
