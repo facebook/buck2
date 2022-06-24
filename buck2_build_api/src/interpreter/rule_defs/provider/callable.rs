@@ -116,10 +116,14 @@ fn create_callable_function_signature(
     signature.finish()
 }
 
-#[derive(Debug)]
+#[derive(Debug, Trace)]
 enum ProviderCallableImpl {
     Unbound,
-    Bound(ParametersSpec<FrozenValue>, Arc<ProviderId>, Vec<String>),
+    Bound(
+        ParametersSpec<FrozenValue>,
+        #[trace(unsafe_ignore)] Arc<ProviderId>,
+        Vec<String>,
+    ),
 }
 
 impl ProviderCallableImpl {
@@ -161,7 +165,6 @@ pub struct ProviderCallable {
     /// The names of the fields used in `callable`
     fields: Vec<String>,
     /// The actual callable that creates instances of `UserProvider`
-    #[trace(unsafe_ignore)]
     callable: RefCell<ProviderCallableImpl>,
 }
 
