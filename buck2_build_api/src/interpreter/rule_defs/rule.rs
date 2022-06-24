@@ -198,15 +198,6 @@ pub struct FrozenRuleCallable {
 starlark_simple_value!(FrozenRuleCallable);
 
 impl FrozenRuleCallable {
-    fn record_target<'v>(
-        eval: &mut Evaluator<'v, '_>,
-        target_node: TargetNode,
-    ) -> anyhow::Result<()> {
-        let internals = ModuleInternals::from_context(eval)?;
-        internals.recorder().record(target_node)?;
-        Ok(())
-    }
-
     pub fn get_impl(&self) -> FrozenValue {
         self.implementation
     }
@@ -246,7 +237,8 @@ impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
                 self.attributes.dupe(),
                 call_stack,
             )?;
-            FrozenRuleCallable::record_target(eval, target_node)?;
+            let internals = ModuleInternals::from_context(eval)?;
+            internals.recorder().record(target_node)?;
             Ok(Value::new_none())
         })
     }
