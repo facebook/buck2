@@ -67,7 +67,7 @@ pub trait HasGlobalInterpreterState {
 pub trait HasInterpreterContext {
     fn get_file_change_handler(&self) -> &dyn FileChangeHandler;
 
-    async fn get_interpreter_configuror(&self) -> Arc<dyn InterpreterConfiguror>;
+    async fn get_interpreter_configuror(&self) -> anyhow::Result<Arc<dyn InterpreterConfiguror>>;
 
     fn set_interpreter_context(&self, interpreter_configuror: Arc<dyn InterpreterConfiguror>);
 }

@@ -142,7 +142,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         let ctx = self.dice.ctx();
         let isolation_dir = ctx.get_buck_out_path().await?;
         let cells = ctx.get_cell_resolver().await?;
-        let configuror = ctx.get_interpreter_configuror().await;
+        let configuror = ctx.get_interpreter_configuror().await?;
         let legacy_configs = ctx.get_legacy_configs().await?;
         let starlark_profiler_instrumentation_override =
             ctx.get_starlark_profiler_instrumentation_override().await;

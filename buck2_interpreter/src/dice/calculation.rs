@@ -127,7 +127,7 @@ impl HasGlobalInterpreterState for DiceComputations {
         impl Key for GisKey {
             type Value = SharedResult<GisValue>;
             async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-                let interpreter_configuror = ctx.get_interpreter_configuror().await;
+                let interpreter_configuror = ctx.get_interpreter_configuror().await?;
                 let legacy_configs = ctx.get_legacy_configs_on_dice().await?;
                 let cell_resolver = ctx.get_cell_resolver().await?;
                 let disable_starlark_types = ctx.get_disable_starlark_types().await;
