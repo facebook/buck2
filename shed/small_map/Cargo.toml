@@ -1,0 +1,12 @@
+[package]
+name = "small_map"
+version = "0.1.0"
+edition = "2021"
+description = """
+Fake SmallMap crate
+
+It reexports starlark maps now, but will be a proper crate in the future
+"""
+
+[dependencies]
+starlark = { version = "0.8", path = "../../starlark-rust/starlark" }
