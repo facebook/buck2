@@ -27,7 +27,7 @@ def bundle_output(ctx: "context") -> "artifact":
     output = ctx.actions.declare_output(bundle_dir_name)
     return output
 
-def assemble_bundle(ctx: "context", bundle: "artifact", parts: ["AppleBundlePart"], info_plist_part: ["AppleBundlePart", None]) -> None:
+def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.type], info_plist_part: [AppleBundlePart.type, None]) -> None:
     all_parts = parts + [info_plist_part] if info_plist_part else []
     spec_file = _bundle_spec_json(ctx, all_parts)
 
@@ -113,13 +113,13 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: ["AppleBundlePart
 def _get_bundle_dir_name(ctx: "context") -> str.type:
     return paths.replace_extension(get_product_name(ctx), "." + get_extension_attr(ctx))
 
-def _bundle_relative_destination_path(ctx: "context", part: "AppleBundlePart") -> str.type:
+def _bundle_relative_destination_path(ctx: "context", part: AppleBundlePart.type) -> str.type:
     bundle_relative_path = bundle_relative_path_for_destination(part.destination, get_apple_sdk_name(ctx), ctx.attr.extension)
     destination_file_or_directory_name = part.new_name if part.new_name != None else paths.basename(part.source.short_path)
     return paths.join(bundle_relative_path, destination_file_or_directory_name)
 
 # Returns JSON to be passed into bundle assembling tool. It should contain a dictionary which maps bundle relative destination paths to source paths."
-def _bundle_spec_json(ctx: "context", parts: ["AppleBundlePart"]) -> "artifact":
+def _bundle_spec_json(ctx: "context", parts: [AppleBundlePart.type]) -> "artifact":
     specs = []
 
     for part in parts:
