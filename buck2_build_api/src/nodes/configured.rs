@@ -7,7 +7,11 @@
  * of this source tree.
  */
 
+use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::ops::Deref;
 use std::sync::Arc;
 
 use buck2_core::buck_path::BuckPath;
@@ -108,6 +112,38 @@ impl TargetNodeOrForward {
     }
 }
 
+/// Wrapper for a map, which computes hashes ignoring the iteration order
+/// so the hash is compatible with the equality.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub(crate) struct MapHash<M>(M);
+
+#[allow(clippy::derive_hash_xor_eq)]
+impl<M> Hash for MapHash<M>
+where
+    for<'a> &'a M: IntoIterator,
+    for<'a> <&'a M as IntoIterator>::Item: Hash,
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0
+            .into_iter()
+            .map(|e| {
+                let mut s = DefaultHasher::new();
+                e.hash(&mut s);
+                std::num::Wrapping(s.finish())
+            })
+            .sum::<std::num::Wrapping<u64>>()
+            .hash(state)
+    }
+}
+
+impl<M> Deref for MapHash<M> {
+    type Target = M;
+
+    fn deref(&self) -> &M {
+        &self.0
+    }
+}
+
 // TODO(cjhopman): There's a lot of optimization opportunities here.
 //  1. we iterate over and configure the attributes multiple times, that could be improved in a bunch of ways
 //  2. we store the same resolvedconfiguration probably in a bunch of nodes, that could be made smaller or shared
@@ -117,7 +153,8 @@ struct ConfiguredTargetNodeData {
     name: ConfiguredTargetLabel,
     target_node: TargetNodeOrForward,
     resolved_configuration: ResolvedConfiguration,
-    resolved_transition_configurations: SmallMap<Arc<TransitionId>, Arc<TransitionApplied>>,
+    resolved_transition_configurations:
+        MapHash<SmallMap<Arc<TransitionId>, Arc<TransitionApplied>>>,
     execution_platform_resolution: ExecutionPlatformResolution,
     // Deps includes regular deps and transitioned deps,
     // but excludes exec deps or configuration deps.
@@ -174,7 +211,7 @@ impl ConfiguredTargetNode {
             name,
             target_node: TargetNodeOrForward::TargetNode(target_node),
             resolved_configuration,
-            resolved_transition_configurations: resolved_tr_configurations,
+            resolved_transition_configurations: MapHash(resolved_tr_configurations),
             execution_platform_resolution,
             deps,
             exec_deps,
@@ -218,7 +255,7 @@ impl ConfiguredTargetNode {
             // We have no attributes with selects, so resolved configurations is empty.
             resolved_configuration: ResolvedConfiguration::new(name.cfg().dupe(), IndexMap::new()),
             // We have no attributes to transition, so empty map is fine.
-            resolved_transition_configurations: SmallMap::new(),
+            resolved_transition_configurations: MapHash(SmallMap::new()),
             // Nothing to execute for a forward node.
             execution_platform_resolution: ExecutionPlatformResolution::unspecified(),
             deps: SmallSet::from_iter([configured_providers_label]),
