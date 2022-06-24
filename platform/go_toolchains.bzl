@@ -6,7 +6,7 @@ def config_backed_go_toolchain(name, flavor, **kwargs):
     section = "go#" + flavor
     go_platform = "linux_amd64"
     root = paths.normalize(string_attr.reader(section, "root"))
-    _config_backed_go_toolchain_rule(
+    go_toolchain(
         name = name,
         assembler = "fbcode//{}:pkg/tool/{}/asm.exe".format(root, go_platform),
         compiler = "fbcode//{}:pkg/tool/{}/compile.exe".format(root, go_platform),
@@ -19,7 +19,7 @@ def config_backed_go_toolchain(name, flavor, **kwargs):
         **kwargs
     )
 
-def _config_backed_go_toolchain_rule_impl(ctx):
+def _go_toolchain_impl(ctx):
     return [
         DefaultInfo(),
         GoToolchainInfo(
@@ -34,8 +34,8 @@ def _config_backed_go_toolchain_rule_impl(ctx):
         ),
     ]
 
-_config_backed_go_toolchain_rule = rule(
-    implementation = _config_backed_go_toolchain_rule_impl,
+go_toolchain = rule(
+    implementation = _go_toolchain_impl,
     attrs = {
         "assembler": attr.dep(providers = [RunInfo]),
         "assembler_flags": attr.list(attr.arg(), default = []),
