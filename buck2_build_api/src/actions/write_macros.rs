@@ -149,21 +149,40 @@ impl PristineActionExecutable for WriteMacrosToFileAction {
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let fs = ctx.executor_fs();
         let mut output_values = IndexMap::with_capacity(self.outputs.len());
-        let mut macro_writer = MacroToFileWriter::new(&fs, &self.outputs, &mut output_values);
 
         let mut wall_time = Duration::ZERO;
         ctx.blocking_executor()
             .execute_io_inline(box || {
                 let execution_start = Instant::now();
-                let result = self
-                    .contents
+
+                let mut output_contents = Vec::with_capacity(self.outputs.len());
+                let mut macro_writer = MacroToFileWriter::new(&fs, &mut output_contents);
+
+                self.contents
                     .value()
                     .as_command_line()
                     .unwrap()
-                    .visit_write_to_file_macros(&mut macro_writer);
+                    .visit_write_to_file_macros(&mut macro_writer)?;
+
+                if self.outputs.len() != output_contents.len() {
+                    return Err(
+                        WriteMacrosActionValidationError::InconsistentNumberOfMacroArtifacts.into(),
+                    );
+                }
+
+                for (output, content) in std::iter::zip(self.outputs.iter(), output_contents.iter())
+                {
+                    let meta = FileMetadata {
+                        digest: TrackedFileDigest::new(FileDigest::from_bytes(content.as_bytes())),
+                        is_executable: false,
+                    };
+                    let value = ArtifactValue::file(meta);
+                    output_values.insert(output.dupe(), value);
+                    fs.fs().write_file(output, content, false)?;
+                }
+
                 wall_time = execution_start.elapsed();
-                result?;
-                Ok(())
+                anyhow::Ok(())
             })
             .await?;
 
@@ -180,23 +199,15 @@ impl PristineActionExecutable for WriteMacrosToFileAction {
 
 struct MacroToFileWriter<'a> {
     fs: &'a ExecutorFs<'a>,
-    outputs: &'a IndexSet<BuildArtifact>,
-    output_values: &'a mut IndexMap<BuildArtifact, ArtifactValue>,
+    outputs: &'a mut Vec<String>,
     relative_to_path: Option<RelativePathBuf>,
-    output_pos: usize,
 }
 
 impl<'a> MacroToFileWriter<'a> {
-    fn new(
-        fs: &'a ExecutorFs,
-        outputs: &'a IndexSet<BuildArtifact>,
-        output_values: &'a mut IndexMap<BuildArtifact, ArtifactValue>,
-    ) -> Self {
+    fn new(fs: &'a ExecutorFs<'a>, outputs: &'a mut Vec<String>) -> Self {
         Self {
             fs,
             outputs,
-            output_values,
-            output_pos: 0,
             relative_to_path: None,
         }
     }
@@ -210,23 +221,8 @@ impl WriteToFileMacroVisitor for MacroToFileWriter<'_> {
             builder.result
         };
 
-        let pos = self.output_pos;
-
-        if pos >= self.outputs.len() {
-            return Err(anyhow::anyhow!(
-                WriteMacrosActionValidationError::InconsistentNumberOfMacroArtifacts
-            ));
-        }
-
-        let meta = FileMetadata {
-            digest: TrackedFileDigest::new(FileDigest::from_bytes(content.as_bytes())),
-            is_executable: false,
-        };
-        let value = ArtifactValue::file(meta);
-        self.output_values.insert(self.outputs[pos].dupe(), value);
-
-        self.output_pos += 1;
-        self.fs.fs().write_file(&self.outputs[pos], &content, false)
+        self.outputs.push(content);
+        Ok(())
     }
 
     fn set_current_relative_to_path(
@@ -265,10 +261,10 @@ impl<'a> MacroContentBuilder<'a> {
 impl CommandLineBuilderContext for MacroContentBuilder<'_> {
     fn resolve_project_path(
         &self,
-        project_path: ProjectRelativePathBuf,
+        path: ProjectRelativePathBuf,
     ) -> anyhow::Result<CommandLineLocation> {
         Ok(CommandLineLocation::from_relative_path(
-            self.relativize_path(project_path),
+            self.relativize_path(path),
             self.fs.path_separator(),
         ))
     }
