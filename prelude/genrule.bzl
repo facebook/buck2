@@ -116,6 +116,9 @@ _LOCAL_LABELS = [
 
     # Uses network access (unspecified what as of yet)
     "network_access",
+
+    # Uses clang format which is not in RE
+    "uses_clang_format",
 ]
 
 # Currently, some rules require running from the project root, so provide an
