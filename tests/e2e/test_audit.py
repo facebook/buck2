@@ -1,4 +1,5 @@
 import re
+import tempfile
 import textwrap
 from pathlib import Path
 
@@ -72,6 +73,23 @@ async def test_audit_config_with_config_file(buck: Buck) -> None:
 
     assert result_file_json is not None
     assert result_file_json.get("project.buck_out") == "buck-out/opt"
+
+
+@buck_test(inplace=True)
+async def test_audit_config_argfile_outside_repo(buck: Buck) -> None:
+    with tempfile.NamedTemporaryFile(mode="w") as argfile:
+        argfile.write("@fbcode//mode/opt")
+        argfile.flush()
+        result_file = await buck.audit_config(
+            f"@{argfile.name}",
+            "project.buck_out",
+            "--style",
+            "json",
+        )
+        result_file_json = result_file.get_json()
+
+        assert result_file_json is not None
+        assert result_file_json.get("project.buck_out") == "buck-out/opt"
 
 
 @buck_test(inplace=True)
