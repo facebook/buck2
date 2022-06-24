@@ -27,6 +27,7 @@ use buck2_node::attrs::attr_type::source::SourceAttrType;
 use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
+use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
 use gazebo::prelude::*;
 use starlark::collections::SmallMap;
@@ -183,35 +184,6 @@ impl UnconfiguredAttrLiteralExt for AttrLiteral<CoercedAttr> {
             AttrLiteral::Arg(arg) => arg.traverse(traversal),
             AttrLiteral::Label(label) => traversal.label(label),
         }
-    }
-}
-
-pub trait ConfiguredAttrTraversal<'a> {
-    fn dep(&mut self, dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()>;
-
-    fn exec_dep(&mut self, dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
-        // By default, just treat it as a dep. Most things don't care about the distinction.
-        self.dep(dep)
-    }
-
-    fn configuration_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn query_macro(
-        &mut self,
-        _query: &'a str,
-        _resolved_literals: &'a ResolvedQueryLiterals<ConfiguredAttr>,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn input(&mut self, _path: &'a BuckPath) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn label(&mut self, _label: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
-        Ok(())
     }
 }
 

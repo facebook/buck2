@@ -32,13 +32,13 @@ use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::dep::ProviderIdSet;
 use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
+use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use either::Either;
 use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
 use starlark::collections::SmallSet;
 
 use crate::attrs::attr_type::attr_literal::ConfiguredAttrInfo;
-use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configured_attr::ConfiguredAttrExt;
 use crate::configuration::execution::ExecutionPlatformResolution;

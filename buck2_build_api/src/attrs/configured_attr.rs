@@ -8,11 +8,11 @@
  */
 
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
+use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use starlark::values::Value;
 
 use crate::attrs::analysis::AttrResolutionContext;
 use crate::attrs::attr_type::attr_literal::ConfiguredAttrLiteralExt;
-use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
 
 pub trait ConfiguredAttrExt {
     fn traverse<'a>(
