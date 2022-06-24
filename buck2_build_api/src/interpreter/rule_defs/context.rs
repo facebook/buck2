@@ -510,7 +510,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             UnregisteredWriteAction::new(is_executable, maybe_macro_files)
         };
         this.register_action(
-            IndexSet::new(),
+            indexset![],
             indexset![output_artifact],
             action,
             Some(content_cli),

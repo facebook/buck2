@@ -19,9 +19,9 @@ use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::category::Category;
 use gazebo::dupe::Dupe;
 use indexmap::indexmap;
+use indexmap::indexset;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
-use itertools::Itertools;
 use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
@@ -45,8 +45,12 @@ use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 
 #[derive(Debug, Error)]
 enum WriteActionValidationError {
-    #[error("At least one output file must be specified for a write action")]
-    NoOutputsSpecified,
+    #[error("WriteAction received inputs")]
+    TooManyInputs,
+    #[error("WriteAction received no outputs")]
+    NoOutputs,
+    #[error("WriteAction received more than one output")]
+    TooManyOutputs,
     #[error("Expected command line value, got {0}")]
     ContentsNotCommandLineValue(String),
 }
@@ -89,10 +93,8 @@ impl UnregisteredAction for UnregisteredWriteAction {
 struct WriteAction {
     contents: OwnedFrozenValue, // StarlarkCommandLine
     is_executable: bool,
-    inputs: IndexSet<ArtifactGroup>,
     macro_files: Option<IndexSet<Artifact>>,
-    outputs: IndexSet<BuildArtifact>,
-    identifier: String,
+    output: BuildArtifact,
 }
 
 impl WriteAction {
@@ -103,25 +105,31 @@ impl WriteAction {
         macro_files: Option<IndexSet<Artifact>>,
         outputs: IndexSet<BuildArtifact>,
     ) -> anyhow::Result<Self> {
-        if outputs.is_empty() {
-            Err(anyhow::anyhow!(
-                WriteActionValidationError::NoOutputsSpecified
-            ))
-        } else if contents.value().as_command_line().is_none() {
-            Err(anyhow::anyhow!(
-                WriteActionValidationError::ContentsNotCommandLineValue(contents.value().to_repr())
-            ))
-        } else {
-            let identifier = outputs.iter().map(|a| a.get_path().short_path()).join(", ");
-            Ok(WriteAction {
-                contents,
-                is_executable,
-                inputs,
-                macro_files,
-                outputs,
-                identifier,
-            })
+        let mut outputs = outputs.into_iter();
+
+        let output = match (outputs.next(), outputs.next()) {
+            (Some(o), None) => o,
+            (None, ..) => return Err(WriteActionValidationError::NoOutputs.into()),
+            (Some(..), Some(..)) => return Err(WriteActionValidationError::TooManyOutputs.into()),
+        };
+
+        if !inputs.is_empty() {
+            return Err(WriteActionValidationError::TooManyInputs.into());
         }
+
+        if contents.value().as_command_line().is_none() {
+            return Err(WriteActionValidationError::ContentsNotCommandLineValue(
+                contents.value().to_repr(),
+            )
+            .into());
+        }
+
+        Ok(WriteAction {
+            contents,
+            is_executable,
+            macro_files,
+            output,
+        })
     }
 
     fn get_contents(&self, fs: &ExecutorFs) -> anyhow::Result<String> {
@@ -148,11 +156,11 @@ impl Action for WriteAction {
     }
 
     fn inputs(&self) -> anyhow::Result<Cow<'_, IndexSet<ArtifactGroup>>> {
-        Ok(Cow::Borrowed(&self.inputs))
+        Ok(Cow::Owned(IndexSet::new()))
     }
 
     fn outputs(&self) -> anyhow::Result<Cow<'_, IndexSet<BuildArtifact>>> {
-        Ok(Cow::Borrowed(&self.outputs))
+        Ok(Cow::Owned(indexset![self.output.dupe()]))
     }
 
     fn as_executable(&self) -> ActionExecutable<'_> {
@@ -166,7 +174,7 @@ impl Action for WriteAction {
     }
 
     fn identifier(&self) -> Option<&str> {
-        Some(&self.identifier)
+        Some(self.output.get_path().short_path().as_str())
     }
 
     fn aquery_attributes(&self, fs: &ExecutorFs) -> IndexMap<String, String> {
@@ -188,7 +196,7 @@ impl PristineActionExecutable for WriteAction {
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let fs = ctx.fs();
 
-        let mut outputs = IndexMap::new();
+        let mut outputs = IndexMap::with_capacity(1);
         let mut wall_time = None;
 
         // For EdenFS-based buck out, we can do "virtual write" instead, which
@@ -205,19 +213,16 @@ impl PristineActionExecutable for WriteAction {
             eden_buck_out
                 .ensure_file_in_cas(&value, full_contents)
                 .await?;
-            for output in &self.outputs {
-                let output_path = fs.resolve_build(output);
-                eden_buck_out
-                    .set_path_object_id(&output_path, &value)
-                    .await?;
-                outputs.insert(output.dupe(), value.dupe());
-            }
+            let output_path = fs.resolve_build(&self.output);
+            eden_buck_out
+                .set_path_object_id(&output_path, &value)
+                .await?;
+            outputs.insert(self.output.dupe(), value.dupe());
             wall_time = Some(execution_start.elapsed());
         } else {
             ctx.blocking_executor()
                 .execute_io_inline(box || {
                     let execution_start = Instant::now();
-                    outputs.reserve(self.outputs.len());
 
                     let full_contents = self.get_contents(&ctx.executor_fs())?;
                     let value = ArtifactValue::file(FileMetadata {
@@ -227,10 +232,8 @@ impl PristineActionExecutable for WriteAction {
                         is_executable: self.is_executable,
                     });
 
-                    for output in &self.outputs {
-                        fs.write_file(output, &full_contents, self.is_executable)?;
-                        outputs.insert(output.dupe(), value.dupe());
-                    }
+                    fs.write_file(&self.output, &full_contents, self.is_executable)?;
+                    outputs.insert(self.output.dupe(), value.dupe());
 
                     wall_time = Some(execution_start.elapsed());
 
