@@ -29,6 +29,8 @@ use crate::eval::compiler::Compiler;
 use crate::eval::compiler::EvalException;
 use crate::eval::runtime::call_stack::FrozenFileSpan;
 use crate::syntax::ast::StmtP;
+use crate::values::FrozenRef;
+use crate::values::FrozenStringValue;
 use crate::values::Value;
 
 impl<'v> Compiler<'v, '_, '_> {
@@ -68,13 +70,13 @@ impl<'v> Compiler<'v, '_, '_> {
     fn eval_top_level_stmt(
         &mut self,
         stmt: CstStmt,
-        local_count: u32,
+        local_names: FrozenRef<'static, [FrozenStringValue]>,
     ) -> Result<Value<'v>, EvalException> {
         match stmt.node {
             StmtP::Statements(stmts) => {
                 let mut last = Value::new_none();
                 for stmt in stmts {
-                    last = self.eval_top_level_stmt(stmt, local_count)?;
+                    last = self.eval_top_level_stmt(stmt, local_names)?;
                 }
                 Ok(last)
             }
@@ -86,13 +88,14 @@ impl<'v> Compiler<'v, '_, '_> {
                 let stmt = self.module_top_level_stmt(stmt);
                 let bc = stmt.as_bc(
                     &self.compile_context(false),
-                    local_count,
+                    local_names,
                     0,
                     self.eval.module_env.frozen_heap(),
                 );
                 // We don't preserve locals between top level statements.
                 // That is OK for now: the only locals used in module evaluation
                 // are comprehension bindings.
+                let local_count = local_names.len().try_into().unwrap();
                 alloca_frame(self.eval, local_count, bc.max_stack_size, |eval| {
                     bc.run(eval)
                 })
@@ -103,10 +106,10 @@ impl<'v> Compiler<'v, '_, '_> {
     pub(crate) fn eval_module(
         &mut self,
         stmt: CstStmt,
-        local_count: u32,
+        local_names: FrozenRef<'static, [FrozenStringValue]>,
     ) -> Result<Value<'v>, EvalException> {
         self.enter_scope(ScopeId::module());
-        let value = self.eval_top_level_stmt(stmt, local_count)?;
+        let value = self.eval_top_level_stmt(stmt, local_names)?;
         self.exit_scope();
         assert!(self.locals.is_empty());
         Ok(value)

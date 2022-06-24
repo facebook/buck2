@@ -51,6 +51,7 @@ use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
+use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 
 /// Write bytecode here.
@@ -67,7 +68,7 @@ pub(crate) struct BcWriter<'f> {
     /// Current stack size.
     stack_size: u32,
     /// Local slot count.
-    local_count: u32,
+    local_names: FrozenRef<'f, [FrozenStringValue]>,
     /// Local variables which are known to be definitely assigned at current program point.
     definitely_assigned: BcDefinitelyAssigned,
     /// Max observed stack size.
@@ -82,12 +83,13 @@ impl<'f> BcWriter<'f> {
     pub(crate) fn new(
         profile: bool,
         call_enter_exit: bool,
-        local_count: u32,
+        local_names: FrozenRef<'f, [FrozenStringValue]>,
         param_count: u32,
         heap: &'f FrozenHeap,
     ) -> BcWriter<'f> {
-        assert!(param_count <= local_count);
-        let mut definitely_assigned = BcDefinitelyAssigned::new(local_count);
+        assert!(param_count as usize <= local_names.len());
+        let mut definitely_assigned =
+            BcDefinitelyAssigned::new(local_names.len().try_into().unwrap());
         for i in 0..param_count {
             definitely_assigned.mark_definitely_assigned(LocalSlotId(i));
         }
@@ -97,7 +99,7 @@ impl<'f> BcWriter<'f> {
             instrs: BcInstrsWriter::new(),
             slow_args: Vec::new(),
             stack_size: 0,
-            local_count,
+            local_names,
             definitely_assigned,
             max_stack_size: 0,
             heap,
@@ -113,7 +115,7 @@ impl<'f> BcWriter<'f> {
             instrs,
             slow_args: spans,
             stack_size,
-            local_count,
+            local_names,
             definitely_assigned,
             max_stack_size,
             heap,
@@ -123,11 +125,23 @@ impl<'f> BcWriter<'f> {
         let _ = heap;
         let _ = definitely_assigned;
         assert_eq!(stack_size, 0);
+        // Drop lifetime.
+        let local_names = unsafe {
+            transmute!(
+                FrozenRef<[FrozenStringValue]>,
+                FrozenRef<[FrozenStringValue]>,
+                local_names
+            )
+        };
         Bc {
-            instrs: instrs.finish(spans),
-            local_count,
+            instrs: instrs.finish(spans, local_names),
+            local_count: local_names.len().try_into().unwrap(),
             max_stack_size,
         }
+    }
+
+    fn local_count(&self) -> u32 {
+        self.local_names.len().try_into().unwrap()
     }
 
     pub(crate) fn record_call_enter_exit(&self) -> bool {
@@ -203,7 +217,7 @@ impl<'f> BcWriter<'f> {
         value: FrozenValue,
         slot: BcSlotOut,
     ) {
-        assert!(slot.get().0 < self.local_count + self.stack_size);
+        assert!(slot.get().0 < self.local_count() + self.stack_size);
 
         self.write_instr::<InstrConst>(span, (value, slot));
     }
@@ -215,7 +229,7 @@ impl<'f> BcWriter<'f> {
         slot: LocalSlotId,
         target: BcSlotOut,
     ) {
-        assert!(slot.0 < self.local_count);
+        assert!(slot.0 < self.local_count());
 
         if let Some(slot) = self.try_definitely_assigned(slot) {
             self.write_mov(span, slot, target);
@@ -230,12 +244,15 @@ impl<'f> BcWriter<'f> {
         source: LocalCapturedSlotId,
         target: BcSlotOut,
     ) {
-        assert!(source.0 < self.local_count);
-        assert!(target.get().0 < self.local_count + self.stack_size);
+        assert!(source.0 < self.local_count());
+        assert!(target.get().0 < self.local_count() + self.stack_size);
         self.write_instr_ret_arg::<InstrLoadLocalCaptured>(span, (source, target));
     }
 
     pub(crate) fn write_mov(&mut self, span: FrozenFileSpan, source: BcSlotIn, target: BcSlotOut) {
+        assert!(source.get().0 < self.local_count() + self.stack_size);
+        assert!(target.get().0 < self.local_count() + self.stack_size);
+
         // Do not emit no-op `Mov`.
         // It can occur when compiling code like `x = x`.
         // Currently we do not erase these no-op assignments at IR.
@@ -243,8 +260,6 @@ impl<'f> BcWriter<'f> {
             return;
         }
 
-        assert!(source.get().0 < self.local_count + self.stack_size);
-        assert!(target.get().0 < self.local_count + self.stack_size);
         self.write_instr_ret_arg::<InstrMov>(span, (source, target));
     }
 
@@ -254,8 +269,8 @@ impl<'f> BcWriter<'f> {
         source: BcSlotIn,
         target: LocalCapturedSlotId,
     ) {
-        assert!(source.get().0 < self.local_count + self.stack_size);
-        assert!(target.0 < self.local_count);
+        assert!(source.get().0 < self.local_count() + self.stack_size);
+        assert!(target.0 < self.local_count());
         self.write_instr_ret_arg::<InstrStoreLocalCaptured>(span, (source, target));
     }
 
@@ -362,7 +377,7 @@ impl<'f> BcWriter<'f> {
     /// Convert local variable to BC slot if it is known to be definitely assigned
     /// at this execution point.
     pub(crate) fn try_definitely_assigned(&self, local: LocalSlotId) -> Option<BcSlotIn> {
-        assert!(local.0 < self.local_count);
+        assert!(local.0 < self.local_count());
         if self.definitely_assigned.is_definitely_assigned(local) {
             Some(local.to_bc_slot().to_in())
         } else {
@@ -387,7 +402,7 @@ impl<'f> BcWriter<'f> {
     ///
     /// The slot is valid during the callback run, and can be reused later.
     pub(crate) fn alloc_slot<R>(&mut self, k: impl FnOnce(BcSlot, &mut BcWriter) -> R) -> R {
-        let slot = BcSlot(self.local_count + self.stack_size);
+        let slot = BcSlot(self.local_count() + self.stack_size);
         self.stack_add(1);
         let r = k(slot, self);
         self.stack_sub(1);
@@ -401,8 +416,8 @@ impl<'f> BcWriter<'f> {
         k: impl FnOnce(BcSlotRange, &mut BcWriter) -> R,
     ) -> R {
         let slots = BcSlotRange {
-            start: BcSlot(self.local_count + self.stack_size),
-            end: BcSlot(self.local_count + self.stack_size + count),
+            start: BcSlot(self.local_count() + self.stack_size),
+            end: BcSlot(self.local_count() + self.stack_size + count),
         };
         self.stack_add(count);
         let r = k(slots, self);
@@ -428,7 +443,7 @@ impl<'f> BcWriter<'f> {
         // And then invoke a callback which consumes all the slots again together.
         k: impl FnOnce(BcSlotInRange, &mut BcWriter) -> R,
     ) -> R {
-        let start = BcSlot(self.local_count + self.stack_size);
+        let start = BcSlot(self.local_count() + self.stack_size);
         let mut end = start;
         for item in exprs {
             self.stack_add(1);

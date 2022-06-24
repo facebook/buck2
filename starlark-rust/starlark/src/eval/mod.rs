@@ -100,16 +100,19 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         }
 
         let (module_slots, scope_names, scope_data) = scope.exit_module();
-        let local_count = scope_names.used.len().try_into().unwrap();
+        let local_names = self
+            .frozen_heap()
+            .alloc_any_display_from_debug(scope_names.used)
+            .map(|s| s.as_slice());
 
         self.module_env.slots().ensure_slots(module_slots);
         let old_def_info = mem::replace(
             &mut self.module_def_info,
             self.module_env.frozen_heap().alloc_any(DefInfo::for_module(
                 codemap,
-                scope_names,
+                local_names,
+                scope_names.parent,
                 globals,
-                self.module_env.frozen_heap(),
             )),
         );
 
@@ -134,7 +137,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             check_types: dialect.enable_types == DialectTypes::Enable,
         };
 
-        let res = compiler.eval_module(statement, local_count);
+        let res = compiler.eval_module(statement, local_names);
 
         // Clean up the world, putting everything back
         self.call_stack.pop();

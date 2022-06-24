@@ -48,7 +48,6 @@ use crate::eval::compiler::scope::CstExpr;
 use crate::eval::compiler::scope::CstParameter;
 use crate::eval::compiler::scope::CstStmt;
 use crate::eval::compiler::scope::ScopeId;
-use crate::eval::compiler::scope::ScopeNames;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::stmt::OptimizeOnFreezeContext;
 use crate::eval::compiler::stmt::StmtCompileContext;
@@ -282,18 +281,16 @@ impl DefInfo {
 
     pub(crate) fn for_module(
         codemap: FrozenRef<'static, CodeMap>,
-        scope_names: ScopeNames,
+        local_names: FrozenRef<'static, [FrozenStringValue]>,
+        parent: Vec<(LocalSlotIdCapturedOrNot, LocalSlotIdCapturedOrNot)>,
         globals: FrozenRef<'static, Globals>,
-        frozen_heap: &FrozenHeap,
     ) -> DefInfo {
         DefInfo {
             name: const_frozen_string!("<module>"),
             codemap,
             docstring: None,
-            used: frozen_heap
-                .alloc_any_display_from_debug(scope_names.used)
-                .map(|s| s.as_slice()),
-            parent: scope_names.parent,
+            used: local_names,
+            parent,
             stmt_compiled: Bc::default(),
             body_stmts: StmtsCompiled::empty(),
             stmt_compile_context: StmtCompileContext::default(),
@@ -386,7 +383,6 @@ impl Compiler<'_, '_, '_> {
         let scope_names = self.exit_scope();
 
         let scope_names = mem::take(scope_names);
-        let local_count = scope_names.used.len().try_into().unwrap();
 
         let has_types = return_type.is_some() || params.has_types();
 
@@ -399,19 +395,20 @@ impl Compiler<'_, '_, '_> {
 
         let param_count = params.count_param_variables();
 
+        let used = self
+            .eval
+            .frozen_heap()
+            .alloc_any_display_from_debug(scope_names.used)
+            .map(|s| s.as_slice());
         let info = self.eval.module_env.frozen_heap().alloc_any(DefInfo {
             name,
             codemap: self.codemap,
             docstring,
-            used: self
-                .eval
-                .frozen_heap()
-                .alloc_any_display_from_debug(scope_names.used)
-                .map(|s| s.as_slice()),
+            used,
             parent: scope_names.parent,
             stmt_compiled: body.as_bc(
                 &self.compile_context(return_type.is_some()),
-                local_count,
+                used,
                 param_count,
                 self.eval.module_env.frozen_heap(),
             ),
@@ -757,7 +754,7 @@ impl FrozenDef {
             })
             .as_bc(
                 &self.def_info.stmt_compile_context,
-                self.def_info.used.len().try_into().unwrap(),
+                self.def_info.used,
                 self.parameters.len() as u32,
                 frozen_heap,
             );

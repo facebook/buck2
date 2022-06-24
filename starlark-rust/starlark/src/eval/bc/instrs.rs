@@ -43,6 +43,8 @@ use crate::eval::bc::repr::BcInstrRepr;
 use crate::eval::bc::repr::BC_INSTR_ALIGN;
 use crate::eval::bc::slow_arg::BcInstrEndArg;
 use crate::eval::bc::slow_arg::BcInstrSlowArg;
+use crate::values::FrozenRef;
+use crate::values::FrozenStringValue;
 
 impl BcOpcode {
     /// Drop instruction at given address.
@@ -99,6 +101,7 @@ fn empty_instrs() -> &'static [usize] {
         arg: BcInstrEndArg {
             end_addr: BcAddr(0),
             slow_args: Vec::new(),
+            local_names: FrozenRef::new(&[]),
         },
         _align: [],
     };
@@ -322,10 +325,15 @@ impl BcInstrsWriter {
         }
     }
 
-    pub(crate) fn finish(mut self, slow_args: Vec<(BcAddr, BcInstrSlowArg)>) -> BcInstrs {
+    pub(crate) fn finish(
+        mut self,
+        slow_args: Vec<(BcAddr, BcInstrSlowArg)>,
+        local_names: FrozenRef<'static, [FrozenStringValue]>,
+    ) -> BcInstrs {
         self.write::<InstrEnd>(BcInstrEndArg {
             end_addr: self.ip(),
             slow_args,
+            local_names,
         });
         // We cannot destructure `self` to fetch `instrs` because `Self` has `drop,
         // so we `mem::take`.
@@ -349,6 +357,7 @@ mod tests {
     use crate::eval::bc::instrs::BcInstrs;
     use crate::eval::bc::instrs::BcInstrsWriter;
     use crate::eval::bc::stack_ptr::BcSlot;
+    use crate::values::FrozenRef;
     use crate::values::FrozenValue;
 
     #[test]
@@ -371,7 +380,7 @@ mod tests {
         let mut bc = BcInstrsWriter::new();
         bc.write::<InstrConst>((FrozenValue::new_bool(true), BcSlot(17).to_out()));
         bc.write::<InstrReturn>(BcSlot(17).to_in());
-        let bc = bc.finish(Vec::new());
+        let bc = bc.finish(Vec::new(), FrozenRef::new(&[]));
         if mem::size_of::<usize>() == 8 {
             assert_eq!("0: Const True &17; 24: Return &17; 32: End", bc.to_string());
             assert_eq!(

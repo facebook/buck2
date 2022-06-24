@@ -57,6 +57,7 @@ impl Bc {
                 let BcInstrEndArg {
                     slow_args,
                     end_addr,
+                    ..
                 } = &end_of_bc.arg;
                 let code_start_ptr = ptr.sub(*end_addr);
                 let addr = addr_ptr.offset_from(code_start_ptr);

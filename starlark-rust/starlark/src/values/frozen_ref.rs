@@ -41,6 +41,12 @@ pub struct FrozenRef<'f, T: 'f + ?Sized> {
     pub(crate) value: &'f T,
 }
 
+impl<'f, T> Default for FrozenRef<'f, [T]> {
+    fn default() -> FrozenRef<'f, [T]> {
+        FrozenRef { value: &[] }
+    }
+}
+
 unsafe impl<'v, 'f, T: 'f + ?Sized> Trace<'v> for FrozenRef<'f, T> {
     fn trace(&mut self, _: &Tracer<'v>) {
         // Do nothing, because `FrozenRef` can only point to frozen value.

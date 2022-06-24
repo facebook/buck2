@@ -35,6 +35,8 @@ use crate::eval::compiler::stmt::StmtCompiled;
 use crate::eval::compiler::stmt::StmtsCompiled;
 use crate::eval::runtime::call_stack::FrozenFileSpan;
 use crate::values::FrozenHeap;
+use crate::values::FrozenRef;
+use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 
 pub(crate) fn write_for(
@@ -245,14 +247,14 @@ impl StmtsCompiled {
     pub(crate) fn as_bc(
         &self,
         compiler: &StmtCompileContext,
-        local_count: u32,
+        local_names: FrozenRef<'static, [FrozenStringValue]>,
         param_count: u32,
         heap: &FrozenHeap,
     ) -> Bc {
         let mut bc = BcWriter::new(
             compiler.bc_profile,
             compiler.record_call_enter_exit,
-            local_count,
+            local_names,
             param_count,
             heap,
         );
