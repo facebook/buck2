@@ -60,7 +60,6 @@ struct ArgCellPathResolver<'a> {
     // we don't get the result by a shared reference but instead as local
     // value which can be returned.
     data: OnceCell<ArgCellPathResolverData>,
-    #[allow(unused)]
     cwd: &'a AbsPath,
 }
 
@@ -82,14 +81,10 @@ impl<'a> ArgCellPathResolver<'a> {
     /// Resolves an argument which can possibly be a cell-relative path.
     /// If the argument is not a cell-relative path, it returns `None`.
     /// Otherwise, it tries to resolve the cell and returns a `Result`.
-    pub(crate) fn resolve_cell_path_arg(
-        &self,
-        path: &str,
-        cwd: &AbsPath,
-    ) -> Option<anyhow::Result<AbsPathBuf>> {
+    pub(crate) fn resolve_cell_path_arg(&self, path: &str) -> Option<anyhow::Result<AbsPathBuf>> {
         path.split_once("//")
             .map(|(cell_alias, cell_relative_path)| {
-                self.resolve_cell_path(cell_alias, cell_relative_path, cwd)
+                self.resolve_cell_path(cell_alias, cell_relative_path)
             })
     }
 
@@ -102,7 +97,6 @@ impl<'a> ArgCellPathResolver<'a> {
         &self,
         cell_alias: &str,
         cell_relative_path: &str,
-        cwd: &AbsPath,
     ) -> anyhow::Result<AbsPathBuf> {
         let resolver_data = self
             .data
@@ -126,7 +120,7 @@ impl<'a> ArgCellPathResolver<'a> {
             cell_alias,
             cell_relative_path,
             &resolver_data.project_filesystem,
-            cwd,
+            self.cwd,
         )
     }
 }
@@ -247,7 +241,7 @@ fn resolve_and_expand_argfile(
     context: &ArgExpansionContext,
     current_path: &AbsPath,
 ) -> anyhow::Result<Vec<String>> {
-    let flagfile = resolve_flagfile(path, context, current_path)
+    let flagfile = resolve_flagfile(path, context)
         .with_context(|| format!("Error resolving flagfile `{}`", path))?;
     let flagfile_lines = expand_argfile_contents(&flagfile)?;
     let effective_cwd = match &flagfile {
@@ -326,11 +320,7 @@ fn expand_argfile_contents(flagfile: &ArgFile) -> anyhow::Result<Vec<String>> {
 }
 
 // Resolves a path argument to an absolute path, so that it can be read.
-fn resolve_flagfile(
-    path: &str,
-    context: &ArgExpansionContext,
-    current_path: &AbsPath,
-) -> anyhow::Result<ArgFile> {
+fn resolve_flagfile(path: &str, context: &ArgExpansionContext) -> anyhow::Result<ArgFile> {
     if path == "-" {
         return Ok(ArgFile::Stdin);
     }
@@ -340,43 +330,39 @@ fn resolve_flagfile(
         None => (path, None),
     };
 
-    let resolved_path = if let Some(cell_resolved_path) = context
-        .arg_resolver
-        .resolve_cell_path_arg(path_part, current_path)
-    {
-        cell_resolved_path.context("Error resolving cell path")?
-    } else {
-        let p = Path::new(path_part);
-        if !p.is_absolute() {
-            let abs_path = match fs::canonicalize(p) {
-                Ok(abs_path) => Ok(abs_path),
-                Err(original_error) => {
-                    let cell_relative_path =
-                        context
-                            .arg_resolver
-                            .resolve_cell_path("", path_part, current_path)?;
-                    // If the relative path does not exist relative to the cwd,
-                    // attempt to make it relative to the cell root. If *that*
-                    // doesn't exist, just report the original error back, and
-                    // don't tip users off that they can use relative-to-cell paths.
-                    // We want to deprecate that.
-                    match fs::canonicalize(cell_relative_path) {
-                        Ok(abs_path) => {
-                            context.log_relative_path_from_cell_root(path_part)?;
-                            Ok(abs_path)
-                        }
-                        Err(_) => Err(ArgExpansionError::MissingFlagFileOnDisk {
-                            source: original_error,
-                            path: p.to_string_lossy().into_owned(),
-                        }),
-                    }
-                }
-            }?;
-            AbsPathBuf::try_from(abs_path)?
+    let resolved_path =
+        if let Some(cell_resolved_path) = context.arg_resolver.resolve_cell_path_arg(path_part) {
+            cell_resolved_path.context("Error resolving cell path")?
         } else {
-            AbsPathBuf::try_from(p.to_owned())?
-        }
-    };
+            let p = Path::new(path_part);
+            if !p.is_absolute() {
+                let abs_path = match fs::canonicalize(p) {
+                    Ok(abs_path) => Ok(abs_path),
+                    Err(original_error) => {
+                        let cell_relative_path =
+                            context.arg_resolver.resolve_cell_path("", path_part)?;
+                        // If the relative path does not exist relative to the cwd,
+                        // attempt to make it relative to the cell root. If *that*
+                        // doesn't exist, just report the original error back, and
+                        // don't tip users off that they can use relative-to-cell paths.
+                        // We want to deprecate that.
+                        match fs::canonicalize(cell_relative_path) {
+                            Ok(abs_path) => {
+                                context.log_relative_path_from_cell_root(path_part)?;
+                                Ok(abs_path)
+                            }
+                            Err(_) => Err(ArgExpansionError::MissingFlagFileOnDisk {
+                                source: original_error,
+                                path: p.to_string_lossy().into_owned(),
+                            }),
+                        }
+                    }
+                }?;
+                AbsPathBuf::try_from(abs_path)?
+            } else {
+                AbsPathBuf::try_from(p.to_owned())?
+            }
+        };
 
     if path_part.ends_with(".py") {
         Ok(ArgFile::PythonExecutable(
