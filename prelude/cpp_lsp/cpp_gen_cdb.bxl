@@ -79,7 +79,7 @@ def findOwningTarget(ctx, filename):
     if owner != None:
         return owner
     if isSourceFile(filename):
-        print("Cannot find owner for source file " + filename)
+        ctx.output.print("Cannot find owner for source file " + filename)
         return None
     elif isHeaderFile(filename):
         correspondingSourceFile = filename.split(".")[0] + ".cpp"
@@ -94,15 +94,15 @@ def findOwningTarget(ctx, filename):
             ctx.cquery().owner(filename),
         )
         if len(unfilteredTargets) == 0:
-            print("Cannot find unfiltered owner for header file " + filename)
+            ctx.output.print("Cannot find unfiltered owner for header file " + filename)
             return None
         rdepOwners = findTargetsByReverseDependency(ctx, unfilteredTargets)
         if len(rdepOwners) == 0:
-            print("Cannot find rdep owner for header file " + filename)
+            ctx.output.print("Cannot find rdep owner for header file " + filename)
             return None
         return pickTarget(ctx, rdepOwners)
     else:
-        print("File extension not supported " + filename)
+        ctx.output.print("File extension not supported " + filename)
         return None
 
 def runCqueryOwner(ctx, filename):
