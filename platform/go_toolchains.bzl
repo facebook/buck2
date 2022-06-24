@@ -23,7 +23,7 @@ def _config_backed_go_toolchain_rule_impl(ctx):
     return [
         DefaultInfo(),
         GoToolchainInfo(
-            assembler = cmd_args(ctx.attr.assembler[RunInfo]),
+            assembler = cmd_args(ctx.attr.assembler[RunInfo]).add(ctx.attr.assembler_flags),
             compile_wrapper = ctx.attr.compile_wrapper,
             compiler = cmd_args(ctx.attr.compiler[RunInfo]).add(ctx.attr.compiler_flags),
             external_linker_flags = ctx.attr.external_linker_flags,
@@ -38,6 +38,7 @@ _config_backed_go_toolchain_rule = rule(
     implementation = _config_backed_go_toolchain_rule_impl,
     attrs = {
         "assembler": attr.dep(providers = [RunInfo]),
+        "assembler_flags": attr.list(attr.arg(), default = []),
         "compile_wrapper": attr.dep(providers = [RunInfo], default = "fbcode//buck2/prelude/go/tools:compile_wrapper"),
         "compiler": attr.dep(providers = [RunInfo]),
         "compiler_flags": attr.list(attr.arg(), default = []),
