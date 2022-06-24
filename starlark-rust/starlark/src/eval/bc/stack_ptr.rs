@@ -158,6 +158,10 @@ impl BcSlotInRange {
         BcSlotInRangeFrom(self.start)
     }
 
+    pub(crate) fn iter(self) -> impl Iterator<Item = BcSlotIn> {
+        (self.start.0.0..self.end.0.0).map(|s| BcSlotIn(BcSlot(s)))
+    }
+
     /// Add an element to the slot range if possible.
     pub(crate) fn try_push(&mut self, slot: BcSlotIn) -> bool {
         if self.len() == 0 {

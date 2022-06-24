@@ -40,6 +40,7 @@ use crate::eval::bc::opcode::BcOpcode;
 use crate::eval::bc::opcode::BcOpcodeHandler;
 use crate::eval::bc::slow_arg::BcInstrEndArg;
 use crate::eval::bc::slow_arg::BcInstrSlowArg;
+use crate::eval::bc::stack_ptr::BcSlot;
 use crate::eval::bc::stack_ptr::BcSlotIn;
 use crate::eval::bc::stack_ptr::BcSlotInRange;
 use crate::eval::bc::stack_ptr::BcSlotInRangeFrom;
@@ -73,13 +74,23 @@ impl Display for TruncateValueRepr {
 /// Instruction fixed argument.
 pub(crate) trait BcInstrArg: 'static {
     /// Append space then append the argument, or append nothing if the argument is empty.
-    fn fmt_append(param: &Self, ip: BcAddr, f: &mut dyn Write) -> fmt::Result;
+    fn fmt_append(
+        param: &Self,
+        ip: BcAddr,
+        end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result;
     /// Collect instruction jump addresses.
     fn visit_jump_addr(param: &Self, consumer: &mut dyn FnMut(BcAddrOffset));
 }
 
 impl BcInstrArg for () {
-    fn fmt_append(_param: &Self, _ip: BcAddr, _f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        _param: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        _f: &mut dyn Write,
+    ) -> fmt::Result {
         Ok(())
     }
 
@@ -87,7 +98,12 @@ impl BcInstrArg for () {
 }
 
 impl BcInstrArg for u32 {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         write!(f, " {}", param)
     }
 
@@ -95,7 +111,12 @@ impl BcInstrArg for u32 {
 }
 
 impl BcInstrArg for i32 {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         write!(f, " {}", param)
     }
 
@@ -103,9 +124,14 @@ impl BcInstrArg for i32 {
 }
 
 impl<A: BcInstrArg, B: BcInstrArg> BcInstrArg for (A, B) {
-    fn fmt_append((a, b): &Self, ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
-        A::fmt_append(a, ip, f)?;
-        B::fmt_append(b, ip, f)?;
+    fn fmt_append(
+        (a, b): &Self,
+        ip: BcAddr,
+        end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
+        A::fmt_append(a, ip, end_arg, f)?;
+        B::fmt_append(b, ip, end_arg, f)?;
         Ok(())
     }
 
@@ -116,10 +142,15 @@ impl<A: BcInstrArg, B: BcInstrArg> BcInstrArg for (A, B) {
 }
 
 impl<A: BcInstrArg, B: BcInstrArg, C: BcInstrArg> BcInstrArg for (A, B, C) {
-    fn fmt_append((a, b, c): &Self, ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
-        A::fmt_append(a, ip, f)?;
-        B::fmt_append(b, ip, f)?;
-        C::fmt_append(c, ip, f)?;
+    fn fmt_append(
+        (a, b, c): &Self,
+        ip: BcAddr,
+        end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
+        A::fmt_append(a, ip, end_arg, f)?;
+        B::fmt_append(b, ip, end_arg, f)?;
+        C::fmt_append(c, ip, end_arg, f)?;
         Ok(())
     }
 
@@ -132,11 +163,16 @@ impl<A: BcInstrArg, B: BcInstrArg, C: BcInstrArg> BcInstrArg for (A, B, C) {
 
 #[allow(clippy::many_single_char_names)]
 impl<A: BcInstrArg, B: BcInstrArg, C: BcInstrArg, D: BcInstrArg> BcInstrArg for (A, B, C, D) {
-    fn fmt_append((a, b, c, d): &Self, ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
-        A::fmt_append(a, ip, f)?;
-        B::fmt_append(b, ip, f)?;
-        C::fmt_append(c, ip, f)?;
-        D::fmt_append(d, ip, f)?;
+    fn fmt_append(
+        (a, b, c, d): &Self,
+        ip: BcAddr,
+        end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
+        A::fmt_append(a, ip, end_arg, f)?;
+        B::fmt_append(b, ip, end_arg, f)?;
+        C::fmt_append(c, ip, end_arg, f)?;
+        D::fmt_append(d, ip, end_arg, f)?;
         Ok(())
     }
 
@@ -152,12 +188,17 @@ impl<A: BcInstrArg, B: BcInstrArg, C: BcInstrArg, D: BcInstrArg> BcInstrArg for 
 impl<A: BcInstrArg, B: BcInstrArg, C: BcInstrArg, D: BcInstrArg, E: BcInstrArg> BcInstrArg
     for (A, B, C, D, E)
 {
-    fn fmt_append((a, b, c, d, e): &Self, ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
-        A::fmt_append(a, ip, f)?;
-        B::fmt_append(b, ip, f)?;
-        C::fmt_append(c, ip, f)?;
-        D::fmt_append(d, ip, f)?;
-        E::fmt_append(e, ip, f)?;
+    fn fmt_append(
+        (a, b, c, d, e): &Self,
+        ip: BcAddr,
+        end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
+        A::fmt_append(a, ip, end_arg, f)?;
+        B::fmt_append(b, ip, end_arg, f)?;
+        C::fmt_append(c, ip, end_arg, f)?;
+        D::fmt_append(d, ip, end_arg, f)?;
+        E::fmt_append(e, ip, end_arg, f)?;
         Ok(())
     }
 
@@ -174,13 +215,18 @@ impl<A: BcInstrArg, B: BcInstrArg, C: BcInstrArg, D: BcInstrArg, E: BcInstrArg> 
 impl<A: BcInstrArg, B: BcInstrArg, C: BcInstrArg, D: BcInstrArg, E: BcInstrArg, F: BcInstrArg>
     BcInstrArg for (A, B, C, D, E, F)
 {
-    fn fmt_append((a, b, c, d, e, f): &Self, ip: BcAddr, w: &mut dyn Write) -> fmt::Result {
-        A::fmt_append(a, ip, w)?;
-        B::fmt_append(b, ip, w)?;
-        C::fmt_append(c, ip, w)?;
-        D::fmt_append(d, ip, w)?;
-        E::fmt_append(e, ip, w)?;
-        F::fmt_append(f, ip, w)?;
+    fn fmt_append(
+        (a, b, c, d, e, f): &Self,
+        ip: BcAddr,
+        end_arg: Option<&BcInstrEndArg>,
+        w: &mut dyn Write,
+    ) -> fmt::Result {
+        A::fmt_append(a, ip, end_arg, w)?;
+        B::fmt_append(b, ip, end_arg, w)?;
+        C::fmt_append(c, ip, end_arg, w)?;
+        D::fmt_append(d, ip, end_arg, w)?;
+        E::fmt_append(e, ip, end_arg, w)?;
+        F::fmt_append(f, ip, end_arg, w)?;
         Ok(())
     }
 
@@ -195,9 +241,14 @@ impl<A: BcInstrArg, B: BcInstrArg, C: BcInstrArg, D: BcInstrArg, E: BcInstrArg, 
 }
 
 impl<A: BcInstrArg, const N: usize> BcInstrArg for [A; N] {
-    fn fmt_append(param: &Self, ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        param: &Self,
+        ip: BcAddr,
+        end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         for a in param {
-            A::fmt_append(a, ip, f)?;
+            A::fmt_append(a, ip, end_arg, f)?;
         }
         Ok(())
     }
@@ -210,7 +261,12 @@ impl<A: BcInstrArg, const N: usize> BcInstrArg for [A; N] {
 }
 
 impl BcInstrArg for BcAddrOffset {
-    fn fmt_append(param: &Self, ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        param: &Self,
+        ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         write!(f, " {}", ip.offset(*param).0)
     }
 
@@ -220,7 +276,12 @@ impl BcInstrArg for BcAddrOffset {
 }
 
 impl BcInstrArg for BcAddr {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         write!(f, " {}", param.0)
     }
 
@@ -228,7 +289,12 @@ impl BcInstrArg for BcAddr {
 }
 
 impl BcInstrArg for FrozenValue {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         write!(f, " {}", TruncateValueRepr(*param))
     }
 
@@ -236,18 +302,28 @@ impl BcInstrArg for FrozenValue {
 }
 
 impl BcInstrArg for FrozenValueNotSpecial {
-    fn fmt_append(param: &Self, ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
-        FrozenValue::fmt_append(&param.to_frozen_value(), ip, f)
+    fn fmt_append(
+        param: &Self,
+        ip: BcAddr,
+        end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
+        FrozenValue::fmt_append(&param.to_frozen_value(), ip, end_arg, f)
     }
 
     fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
 }
 
 impl<T: BcInstrArg> BcInstrArg for Option<T> {
-    fn fmt_append(param: &Self, ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        param: &Self,
+        ip: BcAddr,
+        end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         match param {
             None => write!(f, " ()"),
-            Some(v) => T::fmt_append(v, ip, f),
+            Some(v) => T::fmt_append(v, ip, end_arg, f),
         }
     }
 
@@ -259,7 +335,12 @@ impl<T: BcInstrArg> BcInstrArg for Option<T> {
 }
 
 impl BcInstrArg for String {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         write!(f, "{:?}", param)
     }
 
@@ -270,7 +351,12 @@ impl<T: Display> BcInstrArg for FrozenRef<'static, T>
 where
     FrozenRef<'static, T>: Copy,
 {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         write!(f, " {}", param.as_ref())
     }
 
@@ -281,7 +367,12 @@ impl<T: Display> BcInstrArg for FrozenRef<'static, [T]>
 where
     FrozenRef<'static, T>: Copy,
 {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         write!(
             f,
             " [{}]",
@@ -293,7 +384,12 @@ where
 }
 
 impl<T: StarlarkValue<'static>> BcInstrArg for FrozenValueTyped<'static, T> {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         write!(f, " {}", TruncateValueRepr(param.to_frozen_value()))
     }
 
@@ -301,55 +397,111 @@ impl<T: StarlarkValue<'static>> BcInstrArg for FrozenValueTyped<'static, T> {
 }
 
 impl BcInstrArg for BcNativeFunction {
-    fn fmt_append(param: &Self, ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
-        BcInstrArg::fmt_append(&param.fun(), ip, f)
+    fn fmt_append(
+        param: &Self,
+        ip: BcAddr,
+        end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
+        BcInstrArg::fmt_append(&param.fun(), ip, end_arg, f)
     }
 
     fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
 }
 
+struct BcSlotDisplay<'a>(BcSlot, Option<&'a BcInstrEndArg>);
+
+impl<'a> Display for BcSlotDisplay<'a> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let name = self
+            .1
+            .and_then(|end_arg| end_arg.local_names.get(self.0.0 as usize));
+        match name {
+            Some(name) => write!(f, "&{}", name.as_str()),
+            None => write!(f, "&{}", self.0.0),
+        }
+    }
+}
+
 impl BcInstrArg for LocalSlotId {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
-        write!(f, " &{}", param.0)
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
+        write!(f, " {}", BcSlotDisplay(param.to_bc_slot(), end_arg))
     }
 
     fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
 }
 
 impl BcInstrArg for LocalCapturedSlotId {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
-        write!(f, " &{}", param.0)
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
+        write!(f, " {}", BcSlotDisplay(param.to_bc_slot(), end_arg))
     }
 
     fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
 }
 
 impl BcInstrArg for BcSlotIn {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
-        write!(f, " {}", param.get())
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
+        write!(f, " {}", BcSlotDisplay(param.get(), end_arg))
     }
 
     fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
 }
 
 impl BcInstrArg for BcSlotOut {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
-        write!(f, " {}", param.get())
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
+        write!(f, " {}", BcSlotDisplay(param.get(), end_arg))
     }
 
     fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
 }
 
 impl BcInstrArg for BcSlotInRange {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
-        write!(f, " {}..{}", param.start, param.end)
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
+        write!(
+            f,
+            " [{}]",
+            param
+                .iter()
+                .map(|s| BcSlotDisplay(s.get(), end_arg).to_string())
+                .join(", ")
+        )
     }
 
     fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
 }
 
 impl BcInstrArg for BcSlotInRangeFrom {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         write!(f, " {}..", param.0)
     }
 
@@ -357,7 +509,12 @@ impl BcInstrArg for BcSlotInRangeFrom {
 }
 
 impl BcInstrArg for ModuleSlotId {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         write!(f, " m{}", param.0)
     }
 
@@ -365,7 +522,12 @@ impl BcInstrArg for ModuleSlotId {
 }
 
 impl BcInstrArg for FrozenFileSpan {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         write!(f, " {}", param)
     }
 
@@ -374,7 +536,12 @@ impl BcInstrArg for FrozenFileSpan {
 
 /// Opcode as instruction argument.
 impl BcInstrArg for BcOpcode {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         write!(f, " {:?}", param)
     }
 
@@ -382,7 +549,12 @@ impl BcInstrArg for BcOpcode {
 }
 
 impl BcInstrArg for KnownMethod {
-    fn fmt_append(_param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        _param: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         write!(f, " <m>")
     }
 
@@ -390,7 +562,12 @@ impl BcInstrArg for KnownMethod {
 }
 
 impl BcInstrArg for Vec<(BcAddr, BcInstrSlowArg)> {
-    fn fmt_append(_param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        _param: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         write!(f, " args")
     }
 
@@ -398,7 +575,12 @@ impl BcInstrArg for Vec<(BcAddr, BcInstrSlowArg)> {
 }
 
 impl BcInstrArg for Symbol {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         write!(f, " {}", param.as_str())
     }
 
@@ -406,7 +588,12 @@ impl BcInstrArg for Symbol {
 }
 
 impl BcInstrArg for Box<[FrozenValue]> {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         write!(f, " [")?;
         for (i, v) in param.iter().enumerate() {
             if i != 0 {
@@ -422,7 +609,12 @@ impl BcInstrArg for Box<[FrozenValue]> {
 }
 
 impl BcInstrArg for Box<[Hashed<FrozenValue>]> {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         write!(f, " [")?;
         for (i, v) in param.iter().enumerate() {
             if i != 0 {
@@ -438,7 +630,12 @@ impl BcInstrArg for Box<[Hashed<FrozenValue>]> {
 }
 
 impl BcInstrArg for SmallMap<FrozenValue, FrozenValue> {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         write!(f, " {{")?;
         for (i, (k, v)) in param.iter().enumerate() {
             if i != 0 {
@@ -454,7 +651,12 @@ impl BcInstrArg for SmallMap<FrozenValue, FrozenValue> {
 }
 
 impl BcInstrArg for InstrDefData {
-    fn fmt_append(_param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        _param: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         write!(f, " InstrDefData")
     }
 
@@ -462,7 +664,12 @@ impl BcInstrArg for InstrDefData {
 }
 
 impl<S: ArgSymbol> BcInstrArg for BcCallArgsFull<S> {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         write!(f, " {{{}}}", param)
     }
 
@@ -470,7 +677,12 @@ impl<S: ArgSymbol> BcInstrArg for BcCallArgsFull<S> {
 }
 
 impl BcInstrArg for BcCallArgsPos {
-    fn fmt_append(param: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         write!(f, " {}", param.pos)
     }
 
@@ -478,7 +690,12 @@ impl BcInstrArg for BcCallArgsPos {
 }
 
 impl BcInstrArg for BcInstrEndArg {
-    fn fmt_append(_: &Self, _ip: BcAddr, f: &mut dyn Write) -> fmt::Result {
+    fn fmt_append(
+        _: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
         write!(f, " BcInstrEndArg")
     }
 
@@ -491,23 +708,35 @@ impl BcOpcode {
         self,
         ptr: BcPtrAddr,
         ip: BcAddr,
+        end_arg: Option<&BcInstrEndArg>,
         f: &mut dyn Write,
     ) -> fmt::Result {
         struct HandlerImpl<'b, 'g> {
             ptr: BcPtrAddr<'b>,
             ip: BcAddr,
+            end_arg: Option<&'b BcInstrEndArg>,
             f: &'g mut dyn Write,
         }
 
         impl BcOpcodeHandler<fmt::Result> for HandlerImpl<'_, '_> {
             fn handle<I: BcInstr>(self) -> fmt::Result {
-                let HandlerImpl { ptr, ip, f } = self;
+                let HandlerImpl {
+                    ptr,
+                    ip,
+                    end_arg,
+                    f,
+                } = self;
                 let instr = ptr.get_instr::<I>();
-                I::Arg::fmt_append(&instr.arg, ip, f)
+                I::Arg::fmt_append(&instr.arg, ip, end_arg, f)
             }
         }
 
-        self.dispatch(HandlerImpl { ptr, ip, f })
+        self.dispatch(HandlerImpl {
+            ptr,
+            ip,
+            end_arg,
+            f,
+        })
     }
 
     pub(crate) fn visit_jump_addr(self, ptr: BcPtrAddr, consumer: &mut dyn FnMut(BcAddrOffset)) {

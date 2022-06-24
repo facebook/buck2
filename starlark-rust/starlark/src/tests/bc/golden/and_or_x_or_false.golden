@@ -10,8 +10,8 @@ def test(x): return x or False
 
 Max stack size: 1
 Instructions:
-   0: IfNotBr &0 40
-   16: Mov &0 &1
+   0: IfNotBr &x 40
+   16: Mov &x &1
    32: Br 64
   >40: Const False &1
   >64: Return &1

@@ -11,8 +11,8 @@ def test(y): return [x for x in y if True]
 Max stack size: 2
 Instructions:
    0: ListNew &3
-   8: ForLoop &0 &1 48
-     24: ComprListAppend &3 &1
+   8: ForLoop &y &x 48
+     24: ComprListAppend &3 &x
      40: Continue
   >48: Mov &3 &2
    64: Return &2

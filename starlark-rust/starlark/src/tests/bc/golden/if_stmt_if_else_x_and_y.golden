@@ -14,8 +14,8 @@ def test(x, y):
 
 Max stack size: 0
 Instructions:
-   0: IfNotBr &0 56
-   16: IfNotBr &1 56
+   0: IfNotBr &x 56
+   16: IfNotBr &y 56
    32: ReturnConst 10
    48: Br 72
   >56: ReturnConst 20

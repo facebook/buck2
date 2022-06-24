@@ -153,6 +153,14 @@ impl<'b> BcPtrAddr<'b> {
         repr
     }
 
+    pub(crate) fn get_instr_checked<I: BcInstr>(self) -> Option<&'b BcInstrRepr<I>> {
+        if self.get_opcode() == BcOpcode::for_instr::<I>() {
+            Some(self.get_instr())
+        } else {
+            None
+        }
+    }
+
     pub(crate) fn get_instr_mut<I: BcInstr>(self) -> *mut BcInstrRepr<I> {
         debug_assert!(self.remaining_if_debug() >= mem::size_of::<BcInstrRepr<I>>());
         self.ptr as *mut BcInstrRepr<I>

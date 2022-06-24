@@ -207,7 +207,14 @@ impl BcInstrs {
         })
     }
 
+    fn end_arg(&self) -> Option<&BcInstrEndArg> {
+        self.iter()
+            .find_map(|(ptr, _ip)| ptr.get_instr_checked::<InstrEnd>().map(|i| &i.arg))
+    }
+
     pub(crate) fn fmt_impl(&self, f: &mut dyn Write, newline: bool) -> fmt::Result {
+        let end_arg = self.end_arg();
+
         let mut loop_ends = Vec::new();
         let mut jump_targets = HashSet::new();
         for (ptr, ip) in self.iter() {
@@ -239,7 +246,7 @@ impl BcInstrs {
             write!(f, "{}: {:?}", ip.0, opcode)?;
             if opcode != BcOpcode::End {
                 // `End` args are too verbose and not really instruction args.
-                opcode.fmt_append_arg(ptr, ip, f)?;
+                opcode.fmt_append_arg(ptr, ip, end_arg, f)?;
             }
             if newline {
                 writeln!(f)?;
@@ -350,6 +357,7 @@ impl BcInstrsWriter {
 mod tests {
     use std::mem;
 
+    use crate::const_frozen_string;
     use crate::eval::bc::instr_impl::InstrBreak;
     use crate::eval::bc::instr_impl::InstrConst;
     use crate::eval::bc::instr_impl::InstrPossibleGc;
@@ -357,7 +365,7 @@ mod tests {
     use crate::eval::bc::instrs::BcInstrs;
     use crate::eval::bc::instrs::BcInstrsWriter;
     use crate::eval::bc::stack_ptr::BcSlot;
-    use crate::values::FrozenRef;
+    use crate::values::FrozenHeap;
     use crate::values::FrozenValue;
 
     #[test]
@@ -377,14 +385,21 @@ mod tests {
 
     #[test]
     fn display() {
+        let heap = FrozenHeap::new();
+        let local_names = heap
+            .alloc_any_display_from_debug(vec![const_frozen_string!("abc")])
+            .map(|s| s.as_slice());
         let mut bc = BcInstrsWriter::new();
-        bc.write::<InstrConst>((FrozenValue::new_bool(true), BcSlot(17).to_out()));
-        bc.write::<InstrReturn>(BcSlot(17).to_in());
-        let bc = bc.finish(Vec::new(), FrozenRef::new(&[]));
+        bc.write::<InstrConst>((FrozenValue::new_bool(true), BcSlot(0).to_out()));
+        bc.write::<InstrReturn>(BcSlot(0).to_in());
+        let bc = bc.finish(Vec::new(), local_names);
         if mem::size_of::<usize>() == 8 {
-            assert_eq!("0: Const True &17; 24: Return &17; 32: End", bc.to_string());
             assert_eq!(
-                "0: Const True &17\n24: Return &17\n32: End\n",
+                "0: Const True &abc; 24: Return &abc; 32: End",
+                bc.to_string()
+            );
+            assert_eq!(
+                "0: Const True &abc\n24: Return &abc\n32: End\n",
                 bc.dump_debug()
             );
         } else if mem::size_of::<usize>() == 4 {

@@ -37,6 +37,5 @@ pub(crate) struct BcInstrEndArg {
     /// Spans of all instructions.
     pub(crate) slow_args: Vec<(BcAddr, BcInstrSlowArg)>,
     /// Frame local names.
-    #[allow(dead_code)] // TODO(nga): use
     pub(crate) local_names: FrozenRef<'static, [FrozenStringValue]>,
 }

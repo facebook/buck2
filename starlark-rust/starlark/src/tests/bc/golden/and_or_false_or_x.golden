@@ -10,5 +10,5 @@ def test(x): return False or x
 
 Max stack size: 0
 Instructions:
-  0: Return &0
+  0: Return &x
   8: End

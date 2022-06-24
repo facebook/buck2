@@ -10,6 +10,6 @@ def test(x, y): return [x, y]
 
 Max stack size: 1
 Instructions:
-  0: ListNPop &0..&2 &2
+  0: ListNPop [&x, &y] &2
   16: Return &2
   24: End

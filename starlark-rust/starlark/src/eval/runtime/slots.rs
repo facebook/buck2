@@ -60,6 +60,11 @@ impl LocalCapturedSlotId {
     pub(crate) fn to_captured_or_not(self) -> LocalSlotIdCapturedOrNot {
         LocalSlotIdCapturedOrNot(self.0)
     }
+
+    #[inline]
+    pub(crate) fn to_bc_slot(self) -> BcSlot {
+        BcSlot(self.0)
+    }
 }
 
 /// Local slot id, when we don't know if it is captured or not.
