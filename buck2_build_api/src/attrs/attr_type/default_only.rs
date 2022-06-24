@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_node::attrs::attr_type::default_only::DefaultOnlyAttrType;
 use starlark::values::Value;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
@@ -15,9 +16,6 @@ use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::CoercedAttr;
-
-#[derive(Debug, Eq, PartialEq, Hash)]
-pub(crate) struct DefaultOnlyAttrType;
 
 impl AttrTypeCoerce for DefaultOnlyAttrType {
     fn coerce_item(

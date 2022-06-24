@@ -27,6 +27,8 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::extra::BuildContext;
+use buck2_node::attrs::attr_type::any::AnyAttrType;
+use buck2_node::attrs::attr_type::AttrType;
 use bumpalo::Bump;
 use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
@@ -46,8 +48,8 @@ use tracing::error;
 use tracing::info;
 use twox_hash::xxh3;
 
-use crate::attrs::attr_type::any::AnyAttrType;
-use crate::attrs::attr_type::AttrType;
+use crate::attrs::attr_type::any::AnyAttrTypeExt;
+use crate::attrs::attr_type::AttrTypeExt;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
@@ -708,7 +710,8 @@ pub mod testing {
     // utilities to create attributes for testing
     use std::sync::Arc;
 
-    use crate::attrs::attr_type::AttrType;
+    use buck2_node::attrs::attr_type::AttrType;
+
     use crate::attrs::coerced_attr::CoercedAttr;
     use crate::interpreter::rule_defs::attr::Attribute;
 
@@ -736,11 +739,12 @@ mod tests {
     use buck2_core::package::Package;
     use buck2_core::package::PackageRelativePathBuf;
     use buck2_core::result::SharedResult;
+    use buck2_node::attrs::attr_type::AttrType;
     use gazebo::prelude::*;
     use indoc::indoc;
     use starlark::values::Heap;
 
-    use crate::attrs::attr_type::AttrType;
+    use crate::attrs::attr_type::AttrTypeExt;
     use crate::attrs::configurable::AttrIsConfigurable;
     use crate::attrs::AttrCoercionContext;
     use crate::interpreter::rule_defs::attr::BuildAttrCoercionContext;

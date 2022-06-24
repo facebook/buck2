@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
-#![feature(box_syntax)]
-
-pub mod attrs;
+#[derive(Debug, Eq, PartialEq, Hash)]
+pub struct SourceAttrType {
+    pub allow_directory: bool,
+}

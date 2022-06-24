@@ -586,18 +586,19 @@ mod tests {
     use buck2_core::target::TargetLabel;
     use buck2_core::target::TargetName;
     use buck2_interpreter::common::BuildFilePath;
+    use buck2_node::attrs::attr_type::any::AnyAttrType;
+    use buck2_node::attrs::attr_type::dep::DepAttr;
+    use buck2_node::attrs::attr_type::dep::DepAttrTransition;
+    use buck2_node::attrs::attr_type::dep::DepAttrType;
+    use buck2_node::attrs::attr_type::AttrType;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
     use gazebo::prelude::*;
     use indexmap::indexmap;
     use starlark::collections::SmallMap;
 
-    use crate::attrs::attr_type::any::AnyAttrType;
+    use crate::attrs::attr_type::any::AnyAttrTypeExt;
     use crate::attrs::attr_type::attr_literal::AttrLiteral;
-    use crate::attrs::attr_type::dep::DepAttr;
-    use crate::attrs::attr_type::dep::DepAttrTransition;
-    use crate::attrs::attr_type::dep::DepAttrType;
-    use crate::attrs::attr_type::AttrType;
     use crate::attrs::coerced_attr::CoercedAttr;
     use crate::attrs::configured_attr::ConfiguredAttr;
     use crate::attrs::testing::CoercedAttrExt;

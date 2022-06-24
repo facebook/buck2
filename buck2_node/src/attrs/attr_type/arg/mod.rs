@@ -7,6 +7,5 @@
  * of this source tree.
  */
 
-#![feature(box_syntax)]
-
-pub mod attrs;
+#[derive(Debug, Eq, PartialEq, Hash)]
+pub struct ArgAttrType;

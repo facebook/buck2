@@ -6,7 +6,9 @@ description = "Target graph node"
 
 [dependencies]
 anyhow = "1.0.51"
+derive_more = "0.99.3"
 indexmap = { version = "1.6", features = ["serde-1"] }
+thiserror = "1.0.9"
 
 gazebo = { path = "../gazebo/gazebo" }
 

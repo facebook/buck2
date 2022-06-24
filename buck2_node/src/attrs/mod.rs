@@ -7,5 +7,6 @@
  * of this source tree.
  */
 
+pub mod attr_type;
 pub mod configuration_context;
 pub mod traversal;

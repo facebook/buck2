@@ -15,6 +15,9 @@ use std::sync::Arc;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_node::attrs::attr_type::dep::DepAttrType;
+use buck2_node::attrs::attr_type::dep::ProviderIdSet;
+use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use derive_more::Display;
 use gazebo::dupe::Dupe;
@@ -29,32 +32,11 @@ use crate::attrs::analysis::AttrResolutionContext;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::coerce::AttrTypeCoerce;
-use crate::attrs::attr_type::dep::DepAttrType;
-use crate::attrs::attr_type::dep::ProviderIdSet;
+use crate::attrs::attr_type::dep::DepAttrTypeExt;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::ConfiguredAttr;
-
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub(crate) struct SplitTransitionDepAttrType {
-    required_providers: Option<Arc<ProviderIdSet>>,
-    transition: Arc<TransitionId>,
-}
-
-impl SplitTransitionDepAttrType {
-    pub(crate) fn new(required_providers: ProviderIdSet, transition: Arc<TransitionId>) -> Self {
-        let required_providers = if required_providers.is_empty() {
-            None
-        } else {
-            Some(Arc::new(required_providers))
-        };
-        SplitTransitionDepAttrType {
-            required_providers,
-            transition,
-        }
-    }
-}
 
 impl AttrTypeCoerce for SplitTransitionDepAttrType {
     fn coerce_item(
@@ -81,8 +63,20 @@ impl AttrTypeCoerce for SplitTransitionDepAttrType {
     }
 }
 
-impl SplitTransitionDepAttrType {
-    pub(crate) fn configure(
+pub(crate) trait SplitTransitionDepAttrTypeExt {
+    fn configure(
+        ctx: &dyn AttrConfigurationContext,
+        dep_attr: &SplitTransitionDep,
+    ) -> anyhow::Result<AttrLiteral<ConfiguredAttr>>;
+
+    fn resolve_single<'v>(
+        ctx: &'v dyn AttrResolutionContext,
+        deps: &ConfiguredSplitTransitionDep,
+    ) -> anyhow::Result<Value<'v>>;
+}
+
+impl SplitTransitionDepAttrTypeExt for SplitTransitionDepAttrType {
+    fn configure(
         ctx: &dyn AttrConfigurationContext,
         dep_attr: &SplitTransitionDep,
     ) -> anyhow::Result<AttrLiteral<ConfiguredAttr>> {
@@ -96,7 +90,7 @@ impl SplitTransitionDepAttrType {
         ))
     }
 
-    pub(crate) fn resolve_single<'v>(
+    fn resolve_single<'v>(
         ctx: &'v dyn AttrResolutionContext,
         deps: &ConfiguredSplitTransitionDep,
     ) -> anyhow::Result<Value<'v>> {

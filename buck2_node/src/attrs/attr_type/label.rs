@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
-#![feature(box_syntax)]
+use gazebo::dupe::Dupe;
 
-pub mod attrs;
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe)]
+pub struct LabelAttrType;

@@ -7,31 +7,15 @@
  * of this source tree.
  */
 
-use std::fmt;
-
+use buck2_node::attrs::attr_type::option::OptionAttrType;
 use starlark::values::Value;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::coerce::AttrTypeCoerce;
-use crate::attrs::attr_type::AttrType;
+use crate::attrs::attr_type::AttrTypeExt;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::CoercedAttr;
-
-#[derive(Debug, Eq, PartialEq, Hash)]
-pub(crate) struct OptionAttrType {
-    inner: AttrType,
-}
-
-impl OptionAttrType {
-    pub fn new(inner: AttrType) -> Self {
-        Self { inner }
-    }
-
-    pub(crate) fn fmt_with_arg(&self, f: &mut fmt::Formatter<'_>, arg: &str) -> fmt::Result {
-        write!(f, "attr.option({}{})", self.inner, arg)
-    }
-}
 
 impl AttrTypeCoerce for OptionAttrType {
     fn coerce_item(

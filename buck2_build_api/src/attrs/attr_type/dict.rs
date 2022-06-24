@@ -8,40 +8,19 @@
  */
 
 use std::cmp::Ordering;
-use std::fmt;
 
 use anyhow::anyhow;
+use buck2_node::attrs::attr_type::dict::DictAttrType;
 use starlark::values::dict::Dict;
 use starlark::values::Value;
 
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::coerce::AttrTypeCoerce;
-use crate::attrs::attr_type::AttrType;
+use crate::attrs::attr_type::AttrTypeExt;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::AttrLiteral;
 use crate::attrs::CoercedAttr;
-
-#[derive(Debug, Hash, Eq, PartialEq)]
-pub(crate) struct DictAttrType {
-    key: AttrType,
-    value: AttrType,
-    sorted: bool,
-}
-
-impl DictAttrType {
-    pub fn new(key: AttrType, value: AttrType, sorted: bool) -> Self {
-        Self { key, value, sorted }
-    }
-
-    pub(crate) fn fmt_with_arg(&self, f: &mut fmt::Formatter<'_>, arg: &str) -> fmt::Result {
-        write!(
-            f,
-            "attr.dict({}, {}, sorted={}{})",
-            self.key, self.value, self.sorted, arg
-        )
-    }
-}
 
 impl AttrTypeCoerce for DictAttrType {
     fn coerce_item(

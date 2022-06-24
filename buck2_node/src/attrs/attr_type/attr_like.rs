@@ -7,6 +7,10 @@
  * of this source tree.
  */
 
-#![feature(box_syntax)]
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::hash::Hash;
 
-pub mod attrs;
+pub trait AttrLike: Display + Debug + Clone + Eq + PartialEq + Hash + Send + Sync {}
+
+impl<T: Display + Debug + Clone + Eq + Hash + Send + Sync + PartialEq> AttrLike for T {}

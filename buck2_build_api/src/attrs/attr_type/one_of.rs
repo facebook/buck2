@@ -7,41 +7,17 @@
  * of this source tree.
  */
 
-use std::fmt;
-use std::fmt::Display;
-
+use buck2_node::attrs::attr_type::one_of::OneOfAttrType;
 use itertools::Itertools;
 use starlark::values::Value;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::coerce::AttrTypeCoerce;
-use crate::attrs::attr_type::AttrType;
+use crate::attrs::attr_type::AttrTypeExt;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::CoercedAttr;
-
-#[derive(Debug, Eq, PartialEq, Hash)]
-pub(crate) struct OneOfAttrType {
-    xs: Vec<AttrType>,
-}
-
-impl OneOfAttrType {
-    pub(crate) fn new(xs: Vec<AttrType>) -> Self {
-        Self { xs }
-    }
-
-    pub(crate) fn fmt_with_arg(&self, f: &mut fmt::Formatter<'_>, arg: &str) -> fmt::Result {
-        write!(f, "attr.one_of(")?;
-        for (i, x) in self.xs.iter().enumerate() {
-            if i != 0 {
-                write!(f, ", ")?;
-            }
-            x.fmt(f)?;
-        }
-        write!(f, "{})", arg)
-    }
-}
 
 impl AttrTypeCoerce for OneOfAttrType {
     fn coerce_item(
@@ -63,11 +39,5 @@ impl AttrTypeCoerce for OneOfAttrType {
 
     fn starlark_type(&self) -> String {
         format!("[{}]", self.xs.iter().map(|x| x.starlark_type()).join(", "))
-    }
-}
-
-impl OneOfAttrType {
-    pub(crate) fn any_supports_concat(&self) -> bool {
-        self.xs.iter().any(AttrType::supports_concat)
     }
 }

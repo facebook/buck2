@@ -7,11 +7,10 @@
  * of this source tree.
  */
 
-use std::fmt;
-use std::fmt::Display;
 use std::iter;
 
 use anyhow::anyhow;
+use buck2_node::attrs::attr_type::tuple::TupleAttrType;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use starlark::values::list::List;
@@ -20,33 +19,11 @@ use starlark::values::Value;
 
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::coerce::AttrTypeCoerce;
-use crate::attrs::attr_type::AttrType;
+use crate::attrs::attr_type::AttrTypeExt;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::AttrLiteral;
 use crate::attrs::CoercedAttr;
-
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub(crate) struct TupleAttrType {
-    xs: Vec<AttrType>,
-}
-
-impl TupleAttrType {
-    pub fn new(xs: Vec<AttrType>) -> Self {
-        Self { xs }
-    }
-
-    pub(crate) fn fmt_with_arg(&self, f: &mut fmt::Formatter<'_>, arg: &str) -> fmt::Result {
-        write!(f, "attr.tuple(")?;
-        for (i, x) in self.xs.iter().enumerate() {
-            if i != 0 {
-                write!(f, ", ")?;
-            }
-            x.fmt(f)?;
-        }
-        write!(f, "{})", arg)
-    }
-}
 
 impl AttrTypeCoerce for TupleAttrType {
     fn coerce_item(

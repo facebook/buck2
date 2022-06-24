@@ -8,8 +8,8 @@
  */
 
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_node::attrs::attr_type::label::LabelAttrType;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
-use gazebo::dupe::*;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
 
@@ -20,9 +20,6 @@ use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::AttrLiteral;
 use crate::attrs::ConfiguredAttr;
-
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe)]
-pub(crate) struct LabelAttrType;
 
 impl AttrTypeCoerce for LabelAttrType {
     fn coerce_item(
@@ -45,8 +42,15 @@ impl AttrTypeCoerce for LabelAttrType {
     }
 }
 
-impl LabelAttrType {
-    pub(crate) fn configure(
+pub(crate) trait LabelAttrTypeExt {
+    fn configure(
+        ctx: &dyn AttrConfigurationContext,
+        label: &ProvidersLabel,
+    ) -> anyhow::Result<AttrLiteral<ConfiguredAttr>>;
+}
+
+impl LabelAttrTypeExt for LabelAttrType {
+    fn configure(
         ctx: &dyn AttrConfigurationContext,
         label: &ProvidersLabel,
     ) -> anyhow::Result<AttrLiteral<ConfiguredAttr>> {

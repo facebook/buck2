@@ -7,14 +7,9 @@
  * of this source tree.
  */
 
-use std::fmt;
-use std::hash::Hash;
-use std::hash::Hasher;
-
-use indexmap::IndexSet;
+use buck2_node::attrs::attr_type::enumeration::EnumAttrType;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
-use thiserror::Error;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::attr_literal::CoercionError;
@@ -22,56 +17,6 @@ use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::CoercedAttr;
-
-#[derive(Debug, Eq, PartialEq)]
-pub(crate) struct EnumAttrType {
-    variants: IndexSet<String>,
-}
-
-#[allow(clippy::derive_hash_xor_eq)]
-impl Hash for EnumAttrType {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.variants.len().hash(state);
-        for x in self.variants.iter() {
-            x.hash(state);
-        }
-    }
-}
-
-#[derive(Debug, Error)]
-enum EnumAttrError {
-    #[error("enum.attr() variant names must all be lowercase, got `{0}`")]
-    NotLowercase(String),
-    #[error("enum.attr() variant names must all be distinct, got repeated `{0}`")]
-    DuplicateVariant(String),
-}
-
-impl EnumAttrType {
-    pub fn new(variants: Vec<String>) -> anyhow::Result<Self> {
-        let mut result = IndexSet::with_capacity(variants.len());
-        for x in variants {
-            if x != x.to_lowercase() {
-                return Err(EnumAttrError::NotLowercase(x).into());
-            }
-            if result.contains(&x) {
-                return Err(EnumAttrError::DuplicateVariant(x).into());
-            }
-            result.insert(x);
-        }
-        Ok(Self { variants: result })
-    }
-
-    pub(crate) fn fmt_with_arg(&self, f: &mut fmt::Formatter<'_>, arg: &str) -> fmt::Result {
-        write!(f, "attr.enum([")?;
-        for (i, x) in self.variants.iter().enumerate() {
-            if i != 0 {
-                write!(f, ",")?;
-            }
-            write!(f, "{:?}", x)?;
-        }
-        write!(f, "]{})", arg)
-    }
-}
 
 impl AttrTypeCoerce for EnumAttrType {
     fn coerce_item(

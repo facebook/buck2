@@ -7,9 +7,8 @@
  * of this source tree.
  */
 
-use std::hash::Hash;
-
 use anyhow::anyhow;
+use buck2_node::attrs::attr_type::bool::BoolAttrType;
 use starlark::values::Value;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
@@ -18,9 +17,6 @@ use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::CoercedAttr;
-
-#[derive(Debug, Eq, PartialEq, Hash)]
-pub(crate) struct BoolAttrType;
 
 impl AttrTypeCoerce for BoolAttrType {
     fn coerce_item(

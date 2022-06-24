@@ -7,9 +7,8 @@
  * of this source tree.
  */
 
-use std::fmt;
-
 use anyhow::anyhow;
+use buck2_node::attrs::attr_type::list::ListAttrType;
 use gazebo::prelude::*;
 use starlark::values::list::List;
 use starlark::values::tuple::Tuple;
@@ -17,26 +16,11 @@ use starlark::values::Value;
 
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::coerce::AttrTypeCoerce;
-use crate::attrs::attr_type::AttrType;
+use crate::attrs::attr_type::AttrTypeExt;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::AttrLiteral;
 use crate::attrs::CoercedAttr;
-
-#[derive(Debug, Hash, Eq, PartialEq)]
-pub(crate) struct ListAttrType {
-    inner: AttrType,
-}
-
-impl ListAttrType {
-    pub(crate) fn new(inner: AttrType) -> Self {
-        Self { inner }
-    }
-
-    pub(crate) fn fmt_with_arg(&self, f: &mut fmt::Formatter<'_>, arg: &str) -> fmt::Result {
-        write!(f, "attr.list({}{})", self.inner, arg)
-    }
-}
 
 impl AttrTypeCoerce for ListAttrType {
     fn coerce_item(

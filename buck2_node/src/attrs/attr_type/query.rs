@@ -7,6 +7,15 @@
  * of this source tree.
  */
 
-#![feature(box_syntax)]
+use crate::attrs::attr_type::dep::DepAttrType;
 
-pub mod attrs;
+#[derive(Debug, Eq, PartialEq, Hash)]
+pub struct QueryAttrType {
+    pub inner: DepAttrType,
+}
+
+impl QueryAttrType {
+    pub fn new(inner: DepAttrType) -> Self {
+        Self { inner }
+    }
+}

@@ -16,6 +16,9 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::result::SharedResult;
+use buck2_node::attrs::attr_type::dep::DepAttrType;
+use buck2_node::attrs::attr_type::dep::ProviderIdSet;
+use buck2_node::attrs::attr_type::query::QueryAttrType;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
@@ -33,25 +36,22 @@ use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
 use crate::attrs::attr_type::coerce::AttrTypeCoerce;
-use crate::attrs::attr_type::dep::DepAttrType;
-use crate::attrs::attr_type::dep::ProviderIdSet;
+use crate::attrs::attr_type::dep::DepAttrTypeExt;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::CoercedAttr;
 use crate::attrs::ConfiguredAttr;
 use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
-#[derive(Debug, Eq, PartialEq, Hash)]
-pub(crate) struct QueryAttrType {
-    inner: DepAttrType,
+pub(crate) trait QueryAttrTypeExt {
+    fn coerce(
+        ctx: &dyn AttrCoercionContext,
+        query: String,
+    ) -> anyhow::Result<QueryAttrBase<CoercedAttr>>;
 }
 
-impl QueryAttrType {
-    pub(crate) fn new(inner: DepAttrType) -> Self {
-        Self { inner }
-    }
-
-    pub(crate) fn coerce(
+impl QueryAttrTypeExt for QueryAttrType {
+    fn coerce(
         ctx: &dyn AttrCoercionContext,
         query: String,
     ) -> anyhow::Result<QueryAttrBase<CoercedAttr>> {

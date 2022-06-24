@@ -11,11 +11,12 @@
 
 use std::sync::Arc;
 
+use buck2_node::attrs::attr_type::any::AnyAttrType;
+use buck2_node::attrs::attr_type::AttrType;
 use gazebo::dupe::Dupe;
 
-use crate::attrs::attr_type::any::AnyAttrType;
+use crate::attrs::attr_type::any::AnyAttrTypeExt;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
-use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::interpreter::rule_defs::attr::Attribute;

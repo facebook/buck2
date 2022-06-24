@@ -7,11 +7,10 @@
  * of this source tree.
  */
 
-use std::hash::Hash;
-
 use anyhow::anyhow;
 use buck2_core::buck_path::BuckPath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_node::attrs::attr_type::source::SourceAttrType;
 use gazebo::prelude::*;
 use starlark::values::list::FrozenList;
 use starlark::values::string::STRING_TYPE;
@@ -38,11 +37,6 @@ enum SourceLabelResolutionError {
         "Couldn't coerce `{0}` as a source.\n  Error when treated as a target: {1:#}\n  Error when treated as a path: {2:#}"
     )]
     CoercionFailed(String, anyhow::Error, anyhow::Error),
-}
-
-#[derive(Debug, Eq, PartialEq, Hash)]
-pub(crate) struct SourceAttrType {
-    pub allow_directory: bool,
 }
 
 /// Try cleaning up irrelvant details users often type
@@ -83,17 +77,14 @@ impl AttrTypeCoerce for SourceAttrType {
     }
 }
 
-impl SourceAttrType {
-    pub(crate) fn resolve_single_file<'v>(
-        ctx: &'v dyn AttrResolutionContext,
-        path: &BuckPath,
-    ) -> Value<'v> {
+pub(crate) trait SourceAttrTypeExt {
+    fn resolve_single_file<'v>(ctx: &'v dyn AttrResolutionContext, path: &BuckPath) -> Value<'v> {
         ctx.heap().alloc(StarlarkArtifact::new(
             SourceArtifact::new(path.clone()).into(),
         ))
     }
 
-    pub(crate) fn resolve_label<'v>(
+    fn resolve_label<'v>(
         ctx: &'v dyn AttrResolutionContext,
         label: &ConfiguredProvidersLabel,
     ) -> anyhow::Result<Vec<Value<'v>>> {
@@ -115,7 +106,7 @@ impl SourceAttrType {
         }
     }
 
-    pub(crate) fn resolve_single_label<'v>(
+    fn resolve_single_label<'v>(
         ctx: &'v dyn AttrResolutionContext,
         value: &ConfiguredProvidersLabel,
     ) -> anyhow::Result<Value<'v>> {
@@ -130,3 +121,5 @@ impl SourceAttrType {
         }
     }
 }
+
+impl SourceAttrTypeExt for SourceAttrType {}

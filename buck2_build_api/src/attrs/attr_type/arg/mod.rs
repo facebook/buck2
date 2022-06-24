@@ -18,6 +18,8 @@ use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_node::attrs::attr_type::arg::ArgAttrType;
+use buck2_node::attrs::attr_type::query::QueryAttrType;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
 use gazebo::prelude::*;
@@ -37,7 +39,7 @@ use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
 use crate::attrs::attr_type::coerce::AttrTypeCoerce;
-use crate::attrs::attr_type::query::QueryAttrType;
+use crate::attrs::attr_type::query::QueryAttrTypeExt;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::CoercedAttr;
@@ -86,15 +88,6 @@ enum MacroError {
 
     #[error("There was no mapping for {0}.")]
     UnkeyedPlaceholderUnresolved(String),
-}
-
-#[derive(Debug, Eq, PartialEq, Hash)]
-pub struct ArgAttrType;
-
-impl ArgAttrType {
-    pub fn _new() -> Self {
-        Self {}
-    }
 }
 
 impl AttrTypeCoerce for ArgAttrType {
@@ -615,6 +608,7 @@ impl ConfiguredMacro {
 #[cfg(test)]
 mod tests {
     use buck2_core::target::TargetLabel;
+    use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
     use starlark::environment::GlobalsBuilder;
     use starlark::environment::Module;
@@ -622,7 +616,7 @@ mod tests {
     use super::*;
     use crate::attrs::attr_type::attr_literal::CoercedDepsCollector;
     use crate::attrs::attr_type::attr_literal::ConfiguredAttrInfo;
-    use crate::attrs::attr_type::AttrType;
+    use crate::attrs::attr_type::AttrTypeExt;
     use crate::attrs::configurable::AttrIsConfigurable;
     use crate::attrs::testing::*;
 

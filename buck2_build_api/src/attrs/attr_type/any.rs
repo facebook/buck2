@@ -7,32 +7,30 @@
  * of this source tree.
  */
 
-use std::hash::Hash;
-
+use buck2_node::attrs::attr_type::any::AnyAttrType;
+use buck2_node::attrs::attr_type::AttrType;
 use starlark::values::dict::Dict;
 use starlark::values::list::List;
 use starlark::values::tuple::Tuple;
 use starlark::values::Value;
 
 use crate::attrs::attr_type::coerce::AttrTypeCoerce;
-use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::AttrLiteral;
 
-#[derive(Debug, Eq, PartialEq, Hash)]
-pub(crate) struct AnyAttrType;
-
-impl AnyAttrType {
-    pub(crate) fn empty_string() -> CoercedAttr {
+pub(crate) trait AnyAttrTypeExt {
+    fn empty_string() -> CoercedAttr {
         CoercedAttr::new_literal(AttrLiteral::String("".to_owned()))
     }
 
-    pub(crate) fn empty_list(element_type: AttrType) -> CoercedAttr {
+    fn empty_list(element_type: AttrType) -> CoercedAttr {
         CoercedAttr::new_literal(AttrLiteral::List(Default::default(), element_type))
     }
 }
+
+impl AnyAttrTypeExt for AnyAttrType {}
 
 fn to_coerced_literal(value: Value) -> CoercedAttr {
     CoercedAttr::Literal(to_literal(value))
