@@ -279,7 +279,7 @@ impl Uploader {
 
                         return Err(error_for_missing_file(&digest, err));
                     }
-                    Err(ArtifactNotMaterializedReason::RequiresHttpDownload { path }) => {
+                    Err(ArtifactNotMaterializedReason::RequiresMaterialization { path }) => {
                         upload_files.push(NamedDigest {
                             name: path.to_string(),
                             digest,

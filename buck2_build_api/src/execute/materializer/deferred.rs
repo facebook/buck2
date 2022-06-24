@@ -14,6 +14,8 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::FileMetadata;
+use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::unordered_entry_walk;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::env_helper::EnvHelper;
@@ -97,6 +99,7 @@ pub struct DeferredMaterializer {
     /// Determines what to do on `try_materialize_final_artifact`: if true,
     /// materializes them, otherwise skips them.
     materialize_final_artifacts: bool,
+    defer_write_actions: bool,
 
     /// To be removed, used to implement write for now.
     fs: ProjectFilesystem,
@@ -113,6 +116,7 @@ impl Drop for DeferredMaterializer {
 pub struct DeferredMaterializerConfigs {
     pub materialize_final_artifacts: bool,
     pub enable_local_caching_of_re_artifacts: bool,
+    pub defer_write_actions: bool,
 }
 
 struct DeferredMaterializerCommandProcessor {
@@ -280,6 +284,13 @@ enum ArtifactMaterializationMethod {
     #[display(fmt = "local copy")]
     LocalCopy(FileTree<ProjectRelativePathBuf>, Vec<CopiedArtifact>),
 
+    #[display(fmt = "write")]
+    Write {
+        compressed_data: Box<[u8]>,
+        decompressed_size: usize,
+        is_executable: bool,
+    },
+
     /// The files must be fetched from the CAS.
     #[display(fmt = "cas download (action: {})", .info)]
     CasDownload {
@@ -365,7 +376,56 @@ impl Materializer for DeferredMaterializer {
         &self,
         gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
     ) -> anyhow::Result<Vec<ArtifactValue>> {
-        super::immediate::write_to_disk(&self.fs, self.io_executor.as_ref(), gen).await
+        if !self.defer_write_actions {
+            return super::immediate::write_to_disk(&self.fs, self.io_executor.as_ref(), gen).await;
+        }
+
+        let contents = gen()?;
+
+        let mut paths = Vec::with_capacity(contents.len());
+        let mut values = Vec::with_capacity(contents.len());
+        let mut methods = Vec::with_capacity(contents.len());
+
+        for WriteRequest {
+            path,
+            content,
+            is_executable,
+        } in contents
+        {
+            let digest = FileDigest::from_bytes(&content);
+
+            let meta = FileMetadata {
+                digest: TrackedFileDigest::new(digest),
+                is_executable,
+            };
+
+            // NOTE: The zstd crate doesn't release extra capacity of its encoding buffer so it's
+            // important to do so here (or the compressed Vec is the same capacity as the input!).
+            let compressed_data = zstd::bulk::compress(&content, 0)
+                .with_context(|| format!("Error compressing {} bytes", content.len()))?
+                .into_boxed_slice();
+
+            paths.push(path);
+            values.push(ArtifactValue::file(meta));
+            methods.push(ArtifactMaterializationMethod::Write {
+                compressed_data,
+                decompressed_size: content.len(),
+                is_executable,
+            });
+        }
+
+        for (path, (value, method)) in std::iter::zip(
+            paths.into_iter(),
+            std::iter::zip(values.iter(), methods.into_iter()),
+        ) {
+            self.command_sender.send(MaterializerCommand::Declare(
+                path,
+                value.dupe(),
+                box method,
+            ))?;
+        }
+
+        Ok(values)
     }
 
     async fn invalidate_many(&self, paths: Vec<ProjectRelativePathBuf>) -> anyhow::Result<()> {
@@ -443,6 +503,7 @@ impl DeferredMaterializer {
             command_sender,
             command_thread,
             materialize_final_artifacts: configs.materialize_final_artifacts,
+            defer_write_actions: configs.defer_write_actions,
             fs,
             io_executor,
         }
@@ -639,7 +700,8 @@ impl DeferredMaterializerCommandProcessor {
         // If the artifact copies from other artifacts, we must materialize them first
         let deps_tasks = match method.as_ref() {
             ArtifactMaterializationMethod::CasDownload { .. }
-            | ArtifactMaterializationMethod::HttpDownload { .. } => Vec::new(),
+            | ArtifactMaterializationMethod::HttpDownload { .. }
+            | ArtifactMaterializationMethod::Write { .. } => Vec::new(),
             ArtifactMaterializationMethod::LocalCopy(_, copied_artifacts) => copied_artifacts
                 .iter()
                 .filter_map(|a| self.dupe().materialize_artifact(tree, a.src.as_ref()))
@@ -822,6 +884,20 @@ impl DeferredMaterializerCommandProcessor {
                     })
                     .await?;
             }
+            ArtifactMaterializationMethod::Write {
+                compressed_data,
+                decompressed_size,
+                is_executable,
+                ..
+            } => {
+                self.io_executor
+                    .execute_io_inline(box || {
+                        let data = zstd::bulk::decompress(compressed_data, *decompressed_size)
+                            .context("Error decompressing data")?;
+                        self.fs.write_file(&path, &data, *is_executable)
+                    })
+                    .await?;
+            }
         };
         Ok(())
     }
@@ -893,8 +969,10 @@ impl ArtifactTree {
                     ),
                 }
             }
-            ArtifactMaterializationMethod::HttpDownload { .. } => {
-                Err(ArtifactNotMaterializedReason::RequiresHttpDownload { path })
+            ArtifactMaterializationMethod::HttpDownload { .. }
+            | ArtifactMaterializationMethod::Write { .. } => {
+                // TODO: Do the write directly to RE instead of materializing locally?
+                Err(ArtifactNotMaterializedReason::RequiresMaterialization { path })
             }
             // TODO: also record and check materialized_files for LocalCopy
             ArtifactMaterializationMethod::LocalCopy(srcs, _) => {

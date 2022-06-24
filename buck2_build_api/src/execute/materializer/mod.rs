@@ -325,7 +325,7 @@ pub enum ArtifactNotMaterializedReason {
     },
 
     #[error("The artifact at path '{}' has not been downloaded yet", .path)]
-    RequiresHttpDownload { path: ProjectRelativePathBuf },
+    RequiresMaterialization { path: ProjectRelativePathBuf },
 
     #[error(
         "The artifact at path '{}' points into an entry ({}) \
