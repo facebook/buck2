@@ -12,6 +12,8 @@ use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use buck2_core::fs::anyhow::create_dir_all;
 use buck2_core::fs::anyhow::remove_dir_all;
+use buck2_core::process::async_background_command;
+use buck2_core::process::background_command;
 use buck2_data::RageInvoked;
 use chrono::offset::Local;
 use chrono::DateTime;
@@ -23,7 +25,6 @@ use futures::stream::FuturesOrdered;
 use futures::FutureExt;
 use futures::TryStreamExt;
 use thiserror::Error;
-use tokio::process::Command;
 
 use crate::commands::common::subscribers::event_log::get_local_logs;
 use crate::commands::common::subscribers::event_log::log_upload_url;
@@ -212,14 +213,14 @@ async fn dice_dump_upload(dice_dump_folder_to_upload: &Path, filename: &str) -> 
             Some(x) => x,
         };
 
-        let tar_gzip = std::process::Command::new("tar")
+        let tar_gzip = background_command("tar")
             .arg("-c")
             .arg(dice_dump_folder_to_upload)
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::null())
             .spawn()?;
-        let exit_code_result = Command::new("curl")
+        let exit_code_result = async_background_command("curl")
             .args([
                 "--fail",
                 "-X",

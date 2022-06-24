@@ -4,13 +4,13 @@
 //! liberally duplicated and passed around to the depths of buck2 so that consumers can insert events into it.
 
 use std::cell::Cell;
-use std::process::Command;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
 
+use buck2_core::process::background_command;
 use buck2_data::buck_event;
 use buck2_data::instant_event::Data::HgInfo;
 use buck2_data::span_end_event;
@@ -119,7 +119,7 @@ impl EventDispatcher {
     // Logs mercurial data
     pub async fn instant_hg(&self) {
         // TODO use tokio/tokio::process::Command instead of command (see D29824148)
-        let committed = Command::new("hg").arg("status").arg("-mard").output();
+        let committed = background_command("hg").arg("status").arg("-mard").output();
         let log_changes = if let Ok(status) = committed {
             !status.stdout.is_empty()
         } else {
@@ -127,7 +127,7 @@ impl EventDispatcher {
         };
 
         // TODO use `hg debughiddencommit` instead of `hg id`, `hg diff`, and `pastry`
-        let hash = if let Ok(commit) = Command::new("hg")
+        let hash = if let Ok(commit) = background_command("hg")
             .arg("--debug")
             .arg("id")
             .arg("-i")
@@ -139,7 +139,7 @@ impl EventDispatcher {
         };
         let mut pastry = "".to_owned();
         if log_changes {
-            if let Ok(diff) = Command::new("hg")
+            if let Ok(diff) = background_command("hg")
                 .arg("diff")
                 .arg("-r")
                 .arg("master")
@@ -147,7 +147,7 @@ impl EventDispatcher {
                 .spawn()
             {
                 if let Some(d) = diff.stdout {
-                    if let Ok(paste) = Command::new("pastry").stdin(d).output() {
+                    if let Ok(paste) = background_command("pastry").stdin(d).output() {
                         pastry = String::from_utf8_lossy(&paste.stdout).to_string();
                     }
                 }

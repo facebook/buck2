@@ -11,12 +11,12 @@ use std::env;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::Read;
-use std::process::Command;
 use std::time::Duration;
 
 use anyhow::anyhow;
 use anyhow::Context;
 use buck2_core::fs::paths::AbsPathBuf;
+use buck2_core::process::background_command;
 use cli_proto::daemon_api_client::DaemonApiClient;
 use cli_proto::DaemonProcessInfo;
 use events::subscriber::EventSubscriber;
@@ -72,7 +72,7 @@ impl<'a> BuckdLifecycle<'a> {
         let project_dir = self.paths.project_root();
 
         let mut cmd =
-            Command::new(std::env::current_exe().expect("somehow couldn't get current exe"));
+            background_command(std::env::current_exe().expect("somehow couldn't get current exe"));
         // --isolation-dir is an option on the root `buck` cli, not the subcommand.
         cmd.arg("--isolation-dir");
         cmd.arg(self.paths.isolation.as_str());

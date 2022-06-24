@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::process::Command;
 use std::process::Stdio;
 
 use anyhow::Context;
@@ -32,6 +31,7 @@ use buck2_common::pattern::*;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::package::Package;
+use buck2_core::process::background_command;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
@@ -208,7 +208,7 @@ async fn build_launch_installer(
     }))
     .await
     .context("Failed to build installer")?;
-    Command::new(&run_args[0])
+    background_command(&run_args[0])
         .args(&run_args[1..])
         .args(installer_run_args)
         .stdout(Stdio::piped())

@@ -20,6 +20,7 @@ rust_library(
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:uuid",
+        "//buck2/buck2_core:buck2_core",
         "//buck2/buck2_data:buck2_data",
         "//buck2/cli_proto:cli_proto",
         "//buck2/facebook/scribe_client:scribe_client",

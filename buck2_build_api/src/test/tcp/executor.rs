@@ -11,10 +11,10 @@ use std::net::SocketAddr;
 use std::process::Stdio;
 
 use anyhow::Context as _;
+use buck2_core::process::async_background_command;
 use tokio::net::TcpListener;
 use tokio::net::TcpStream;
 use tokio::process::Child;
-use tokio::process::Command;
 
 pub(crate) async fn spawn(
     name: &str,
@@ -24,7 +24,7 @@ pub(crate) async fn spawn(
     let (executor_addr, executor_tcp_listener) = create_tcp_listener().await?;
     let (orchestrator_addr, orchestrator_tcp_listener) = create_tcp_listener().await?;
 
-    let mut command = Command::new(name);
+    let mut command = async_background_command(name);
     command
         .stdin(Stdio::null())
         .stdout(Stdio::piped())

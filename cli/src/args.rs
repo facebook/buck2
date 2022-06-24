@@ -23,6 +23,7 @@ use buck2_core::fs::anyhow as fs;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectFilesystem;
+use buck2_core::process::background_command;
 use once_cell::unsync::OnceCell;
 use termwiz::istty::IsTty;
 use thiserror::Error;
@@ -285,7 +286,7 @@ fn expand_argfile_contents(flagfile: &ArgFile) -> anyhow::Result<Vec<String>> {
             Ok(lines)
         }
         ArgFile::PythonExecutable(path, flag) => {
-            let mut cmd = Command::new("python3");
+            let mut cmd = background_command("python3");
             cmd.arg(path.as_os_str());
             if let Some(flag) = flag.as_deref() {
                 cmd.args(["--flavors", flag]);

@@ -6,6 +6,14 @@ rust_library(
     srcs = glob(
         ["src/**/*.rs"],
     ),
+    os_deps = [
+        (
+            "windows",
+            [
+                "fbsource//third-party/rust:winapi",
+            ],
+        ),
+    ],
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
     ],

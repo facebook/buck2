@@ -32,6 +32,7 @@ use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::process::async_background_command;
 use derive_more::From;
 use faccess::PathExt;
 use futures::channel::oneshot;
@@ -127,7 +128,7 @@ impl LocalExecutor {
 
         let root: &Path = root.as_ref();
 
-        let mut cmd = Command::new(exe);
+        let mut cmd = async_background_command(exe);
         cmd.current_dir(root);
         cmd.args(args);
         apply_local_execution_environment(&mut cmd, root, env, env_inheritance);
@@ -476,6 +477,8 @@ async fn gather_output(
     cmd.stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    #[cfg(windows)]
+    cmd.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
 
     let mut child = spawn_retry_txt_busy(cmd, || tokio::time::sleep(Duration::from_millis(50)))
         .await
@@ -914,9 +917,9 @@ mod tests {
     #[tokio::test]
     async fn test_gather_output() -> anyhow::Result<()> {
         let mut cmd = if cfg!(windows) {
-            Command::new("powershell")
+            async_background_command("powershell")
         } else {
-            Command::new("sh")
+            async_background_command("sh")
         };
         cmd.args(&["-c", "echo hello"]);
 
@@ -932,9 +935,9 @@ mod tests {
     async fn test_gather_does_not_wait_for_children() -> anyhow::Result<()> {
         // If we wait for sleep, this will time out.
         let mut cmd = if cfg!(windows) {
-            Command::new("powershell")
+            async_background_command("powershell")
         } else {
-            Command::new("sh")
+            async_background_command("sh")
         };
         if cfg!(windows) {
             cmd.args(&[
@@ -960,9 +963,9 @@ mod tests {
         let now = Instant::now();
 
         let mut cmd = if cfg!(windows) {
-            Command::new("powershell")
+            async_background_command("powershell")
         } else {
-            Command::new("sh")
+            async_background_command("sh")
         };
         cmd.args(&["-c", "echo hello; sleep 10; echo bye"]);
 
@@ -997,7 +1000,7 @@ mod tests {
 
         file.write_all(b"#!/bin/bash\ntrue\n").await?;
 
-        let cmd = Command::new(&bin);
+        let cmd = async_background_command(&bin);
         let mut child = spawn_retry_txt_busy(cmd, {
             let mut file = Some(file);
             move || {
@@ -1018,7 +1021,7 @@ mod tests {
         let tempdir = tempfile::tempdir()?;
         let bin = tempdir.path().join("bin"); // Does not actually exist
 
-        let cmd = Command::new(&bin);
+        let cmd = async_background_command(&bin);
         let res = spawn_retry_txt_busy(cmd, || async { panic!("Should not be called!") }).await;
         assert!(res.is_err());
 

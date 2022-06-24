@@ -12,9 +12,9 @@ use std::os::unix::io::AsRawFd as _;
 use std::process::Stdio;
 
 use anyhow::Context as _;
+use buck2_core::process::async_background_command;
 use tokio::net::UnixStream;
 use tokio::process::Child;
-use tokio::process::Command;
 
 pub(crate) async fn spawn(
     name: &str,
@@ -38,7 +38,7 @@ pub(crate) async fn spawn(
         .context("Failed to convert orchestrator_client_io to std")?;
     let orchestrator_client_fd = orchestrator_client_io.as_raw_fd().to_string();
 
-    let mut command = Command::new(name);
+    let mut command = async_background_command(name);
     command
         .stdin(Stdio::null())
         .stdout(Stdio::piped())

@@ -38,5 +38,8 @@ either = "1.5"
 assert_matches = "1.5"
 tracing = "0.1.22"
 
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["everything"] }
+
 [features]
 # @oss-disable: default = ["gazebo_lint"]

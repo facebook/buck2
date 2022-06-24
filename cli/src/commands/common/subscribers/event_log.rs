@@ -553,7 +553,7 @@ fn log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
 
     let gzipped_log_file: Stdio = match log_file.path.encoding {
         Encoding::Json | Encoding::Proto => {
-            let gzip = std::process::Command::new("gzip")
+            let gzip = buck2_core::process::background_command("gzip")
                 .args([
                     "--to-stdout",
                     "--keep",
@@ -601,7 +601,7 @@ fn log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
     // of a bit of delay.
     let block_on_upload = std::env::var_os("SANDCASTLE").is_some();
 
-    let mut upload = std::process::Command::new("curl");
+    let mut upload = buck2_core::process::background_command("curl");
     upload.args([
         "--silent",
         "--show-error",

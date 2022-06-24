@@ -10,7 +10,6 @@
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
-use std::process::Command;
 use std::sync::Arc;
 
 use anyhow::Context;
@@ -20,6 +19,7 @@ use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_core::process::background_command;
 use edenfs::client::EdenService;
 use edenfs::CheckoutMode;
 use edenfs::EnsureMaterializedParams;
@@ -106,7 +106,7 @@ fn execute_eden_clone(buck_out: &AbsPathBuf) -> Result<(), SetupBuckOutError> {
         fs::remove_dir_all(buck_out).map_err(SetupBuckOutError::CleanBuckOutFailed)?;
     }
 
-    let eden_clone = Command::new("eden")
+    let eden_clone = background_command("eden")
         .arg("clone")
         .arg("")
         .arg(buck_out.as_os_str())
@@ -147,7 +147,7 @@ fn execute_eden_redirection_add(
     if is_path_redirect(buck_out, path)? {
         return Ok(());
     }
-    let eden_direct = Command::new("eden")
+    let eden_direct = background_command("eden")
         .arg("redirect")
         .arg("add")
         .arg(path)

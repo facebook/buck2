@@ -44,6 +44,7 @@ pub mod env_helper;
 pub mod exit_result;
 pub mod fs;
 pub mod package;
+pub mod process;
 pub mod provider;
 pub mod result;
 pub mod target;
