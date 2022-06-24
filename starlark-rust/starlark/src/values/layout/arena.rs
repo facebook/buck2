@@ -292,13 +292,12 @@ impl Arena {
     /// Allocate a type `T` plus `extra` bytes.
     ///
     /// The type `T` will never be dropped, so had better not do any memory allocation.
-    pub(crate) fn alloc_extra_non_drop<'v, 'v2: 'v, T: AValue<'v2>>(
+    pub(crate) fn alloc_extra<'v, 'v2: 'v, T: AValue<'v2>>(
         &'v self,
         x: T,
     ) -> (*mut AValueRepr<T>, &'v mut [MaybeUninit<T::ExtraElem>]) {
-        assert!(!mem::needs_drop::<T>());
-
-        let (p, extra) = Self::alloc_uninit::<T>(&self.non_drop, x.extra_len());
+        let bump = self.bump_for_type::<T>();
+        let (p, extra) = Self::alloc_uninit::<T>(bump, x.extra_len());
         let p = p.write(AValueRepr {
             header: AValueHeader::new::<T>(),
             payload: x,
@@ -314,7 +313,7 @@ impl Arena {
         init: impl FnOnce(*mut u8),
     ) -> *mut AValueHeader {
         assert!(len > 1);
-        let (v, extra) = self.alloc_extra_non_drop::<_>(starlark_str(len, hash));
+        let (v, extra) = self.alloc_extra::<_>(starlark_str(len, hash));
         debug_assert_eq!(StarlarkStr::payload_len_for_len(len), extra.len());
         unsafe {
             extra.last_mut().unwrap_unchecked().write(0usize);

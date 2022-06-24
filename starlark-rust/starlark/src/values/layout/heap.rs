@@ -285,7 +285,7 @@ impl FrozenHeap {
         unsafe {
             let (avalue, extra) = self
                 .arena
-                .alloc_extra_non_drop::<_>(frozen_tuple_avalue(elems.len()));
+                .alloc_extra::<_>(frozen_tuple_avalue(elems.len()));
             MaybeUninit::write_slice(extra, elems);
             FrozenValue::new_repr(&*avalue)
         }
@@ -298,9 +298,7 @@ impl FrozenHeap {
         }
 
         unsafe {
-            let (avalue, elem_places) = self
-                .arena
-                .alloc_extra_non_drop(frozen_list_avalue(elems.len()));
+            let (avalue, elem_places) = self.arena.alloc_extra(frozen_list_avalue(elems.len()));
             MaybeUninit::write_slice(elem_places, elems);
             FrozenValue::new_repr(&*avalue)
         }
@@ -567,7 +565,7 @@ impl Heap {
 
         unsafe {
             let arena = self.arena.borrow();
-            let (avalue, extra) = arena.alloc_extra_non_drop(tuple_avalue(elems.len()));
+            let (avalue, extra) = arena.alloc_extra(tuple_avalue(elems.len()));
             MaybeUninit::write_slice(extra, elems);
             Value::new_repr(&*avalue)
         }
@@ -579,10 +577,7 @@ impl Heap {
         }
 
         unsafe {
-            let (avalue, _) = self
-                .arena
-                .borrow()
-                .alloc_extra_non_drop(array_avalue(cap as u32));
+            let (avalue, _) = self.arena.borrow().alloc_extra(array_avalue(cap as u32));
             ValueTyped::new_repr(&*avalue)
         }
     }
