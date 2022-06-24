@@ -24,7 +24,6 @@ use std::time::Instant;
 use async_trait::async_trait;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::legacy_configs::LegacyBuckConfig;
-use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_interpreter::dice::HasEvents;
 use derive_more::Display;
@@ -152,7 +151,7 @@ pub trait Materializer: Send + Sync + 'static {
 
     async fn declare_http(
         &self,
-        path: &ProjectRelativePath,
+        path: ProjectRelativePathBuf,
         info: HttpDownloadInfo,
     ) -> anyhow::Result<()>;
 
@@ -368,7 +367,7 @@ pub mod nodisk {
 
         async fn declare_http(
             &self,
-            _path: &ProjectRelativePath,
+            _path: ProjectRelativePathBuf,
             _info: HttpDownloadInfo,
         ) -> anyhow::Result<()> {
             Ok(())

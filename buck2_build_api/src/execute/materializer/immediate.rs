@@ -15,7 +15,6 @@ use buck2_core::directory::unordered_entry_walk;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectFilesystem;
-use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use futures::stream;
 use futures::stream::BoxStream;
@@ -153,7 +152,7 @@ impl Materializer for ImmediateMaterializer {
 
     async fn declare_http(
         &self,
-        path: &ProjectRelativePath,
+        path: ProjectRelativePathBuf,
         info: HttpDownloadInfo,
     ) -> anyhow::Result<()> {
         self.io_executor
@@ -167,7 +166,7 @@ impl Materializer for ImmediateMaterializer {
             &ProjectFilesystem {
                 root: self.project_root.clone(),
             },
-            path,
+            &path,
             &info.url,
             &info.checksum,
             info.metadata.is_executable,

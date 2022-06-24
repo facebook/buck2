@@ -226,7 +226,7 @@ impl PristineActionExecutable for DownloadFileAction {
                 // Fast path: download later via the materializer.
                 ctx.materializer()
                     .declare_http(
-                        &rel_path,
+                        rel_path,
                         HttpDownloadInfo {
                             url: self.inner.url.dupe(),
                             checksum: self.inner.checksum.dupe(),

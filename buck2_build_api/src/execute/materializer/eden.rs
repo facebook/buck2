@@ -15,7 +15,6 @@ use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectFilesystem;
-use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use futures::stream;
 use futures::stream::BoxStream;
@@ -158,7 +157,7 @@ impl Materializer for EdenMaterializer {
 
     async fn declare_http(
         &self,
-        path: &ProjectRelativePath,
+        path: ProjectRelativePathBuf,
         info: HttpDownloadInfo,
     ) -> anyhow::Result<()> {
         // Use eden's remove_paths_recursive because it's faster.

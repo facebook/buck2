@@ -344,11 +344,11 @@ impl Materializer for DeferredMaterializer {
 
     async fn declare_http(
         &self,
-        path: &ProjectRelativePath,
+        path: ProjectRelativePathBuf,
         info: HttpDownloadInfo,
     ) -> anyhow::Result<()> {
         let cmd = MaterializerCommand::Declare(
-            path.to_owned(),
+            path,
             ArtifactValue::file(info.metadata.dupe()),
             box ArtifactMaterializationMethod::HttpDownload { info },
         );
