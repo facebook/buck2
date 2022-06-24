@@ -34,6 +34,7 @@ use buck2_interpreter::extra::BuildContext;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use gazebo::prelude::*;
+use indexmap::IndexMap;
 use indoc::indoc;
 use starlark::collections::SmallMap;
 use starlark::environment::FrozenModule;
@@ -127,7 +128,7 @@ pub(crate) fn configuration_ctx() -> impl AttrConfigurationContext {
             panic!("not used in tests")
         }
 
-        fn resolved_transitions(&self) -> &SmallMap<Arc<TransitionId>, Arc<TransitionApplied>> {
+        fn resolved_transitions(&self) -> &IndexMap<Arc<TransitionId>, Arc<TransitionApplied>> {
             panic!("not used in tests")
         }
     }

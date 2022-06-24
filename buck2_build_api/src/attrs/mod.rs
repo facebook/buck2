@@ -69,6 +69,7 @@ use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
 use either::Either;
 use gazebo::prelude::*;
+use indexmap::IndexMap;
 use starlark::collections::small_map;
 use starlark::collections::SmallMap;
 
@@ -147,7 +148,7 @@ pub(crate) trait AttrConfigurationContext {
 
     /// Map of transition ids resolved to configurations
     /// using current node configuration as input.
-    fn resolved_transitions(&self) -> &SmallMap<Arc<TransitionId>, Arc<TransitionApplied>>;
+    fn resolved_transitions(&self) -> &IndexMap<Arc<TransitionId>, Arc<TransitionApplied>>;
 
     fn configure_target(&self, label: &ProvidersLabel) -> ConfiguredProvidersLabel {
         label.configure(self.cfg().dupe())

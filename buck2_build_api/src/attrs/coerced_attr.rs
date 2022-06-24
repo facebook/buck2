@@ -458,7 +458,7 @@ mod tests {
     use buck2_core::target::testing::TargetLabelExt;
     use buck2_core::target::TargetLabel;
     use gazebo::prelude::Dupe;
-    use starlark::collections::SmallMap;
+    use indexmap::IndexMap;
 
     use crate::attrs::attr_type::attr_literal::AttrLiteral;
     use crate::attrs::coerced_attr::CoercedAttr;
@@ -522,7 +522,7 @@ mod tests {
                 panic!("not used in test")
             }
 
-            fn resolved_transitions(&self) -> &SmallMap<Arc<TransitionId>, Arc<TransitionApplied>> {
+            fn resolved_transitions(&self) -> &IndexMap<Arc<TransitionId>, Arc<TransitionApplied>> {
                 panic!("not used in test")
             }
         }

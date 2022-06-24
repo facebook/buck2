@@ -24,7 +24,6 @@ use gazebo::prelude::*;
 use indexmap::Equivalent;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
-use starlark::collections::SmallMap;
 use thiserror::Error;
 
 use crate::attrs::AttrConfigurationContext;
@@ -175,7 +174,7 @@ pub enum PlatformConfigurationError {
 pub(crate) struct AttrConfigurationContextImpl<'b> {
     pub(crate) resolved_cfg: &'b ResolvedConfiguration,
     pub(crate) exec_cfg: &'b Configuration,
-    pub(crate) resolved_transitions: &'b SmallMap<Arc<TransitionId>, Arc<TransitionApplied>>,
+    pub(crate) resolved_transitions: &'b IndexMap<Arc<TransitionId>, Arc<TransitionApplied>>,
     pub(crate) platform_cfgs: &'b BTreeMap<TargetLabel, Configuration>,
 }
 
@@ -202,7 +201,7 @@ impl<'b> AttrConfigurationContext for AttrConfigurationContextImpl<'b> {
         }
     }
 
-    fn resolved_transitions(&self) -> &SmallMap<Arc<TransitionId>, Arc<TransitionApplied>> {
+    fn resolved_transitions(&self) -> &IndexMap<Arc<TransitionId>, Arc<TransitionApplied>> {
         self.resolved_transitions
     }
 }

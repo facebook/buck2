@@ -28,10 +28,10 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use gazebo::prelude::*;
+use indexmap::IndexMap;
 use indexmap::IndexSet;
 use itertools::Either;
 use itertools::Itertools;
-use starlark::collections::SmallMap;
 use starlark::collections::SmallSet;
 
 use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
@@ -93,7 +93,7 @@ async fn resolve_execution_platform(
     ctx: &DiceComputations,
     node: &TargetNode,
     resolved_configuration: &ResolvedConfiguration,
-    resolved_transitions: &SmallMap<Arc<TransitionId>, Arc<TransitionApplied>>,
+    resolved_transitions: &IndexMap<Arc<TransitionId>, Arc<TransitionApplied>>,
 ) -> SharedResult<ExecutionPlatformResolution> {
     // If no execution platforms are configured, we fall back to the legacy execution
     // platform behavior. We currently only support legacy execution platforms. That behavior is that there is a
@@ -211,7 +211,7 @@ fn unpack_target_compatible_with_attr(
             )
         }
 
-        fn resolved_transitions(&self) -> &SmallMap<Arc<TransitionId>, Arc<TransitionApplied>> {
+        fn resolved_transitions(&self) -> &IndexMap<Arc<TransitionId>, Arc<TransitionApplied>> {
             unreachable!(
                 "resolved_transitions() is not needed to resolve `{}` or `{}`",
                 TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
@@ -351,7 +351,7 @@ async fn compute_configured_target_node_no_transition(
         }
     }
 
-    let mut resolved_transitions = SmallMap::new();
+    let mut resolved_transitions = IndexMap::new();
     for (_dep, tr) in target_node.transition_deps() {
         let resolved_cfg = ctx.apply_transition(&target_node, target_cfg, tr).await?;
         resolved_transitions.insert(tr.dupe(), resolved_cfg);
