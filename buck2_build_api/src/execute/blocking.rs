@@ -28,7 +28,7 @@ pub trait BlockingExecutor: Send + Sync + 'static {
     /// is appropriate to use in cases we are doing a minimal amount of I/O (e.g. writing to just
     /// one file), or where I/O is mixed with other blocking operations.  Those operations run with
     /// fairly high concurrency as they aren't expected to contend with each other.
-    async fn execute_io_inline<'a>(
+    async fn execute_dyn_io_inline<'a>(
         &self,
         f: Box<dyn FnOnce() -> anyhow::Result<()> + Send + 'a>,
     ) -> anyhow::Result<()>;
@@ -40,6 +40,22 @@ pub trait BlockingExecutor: Send + Sync + 'static {
 
     /// The size of the queue of pending I/O.
     fn queue_size(&self) -> usize;
+}
+
+impl dyn BlockingExecutor {
+    pub async fn execute_io_inline<F, T>(&self, f: F) -> anyhow::Result<T>
+    where
+        F: FnOnce() -> anyhow::Result<T> + Send,
+        T: Send,
+    {
+        let mut res = None;
+        self.execute_dyn_io_inline(box || {
+            res = Some(f()?);
+            Ok(())
+        })
+        .await?;
+        res.context("Inline I/O did not execute")
+    }
 }
 
 pub trait IoRequest: Send + Sync + 'static {
@@ -101,7 +117,7 @@ impl BuckBlockingExecutor {
 
 #[async_trait]
 impl BlockingExecutor for BuckBlockingExecutor {
-    async fn execute_io_inline<'a>(
+    async fn execute_dyn_io_inline<'a>(
         &self,
         f: Box<dyn FnOnce() -> anyhow::Result<()> + Send + 'a>,
     ) -> anyhow::Result<()> {
@@ -163,7 +179,7 @@ pub mod testing {
 
     #[async_trait]
     impl BlockingExecutor for DummyBlockingExecutor {
-        async fn execute_io_inline<'a>(
+        async fn execute_dyn_io_inline<'a>(
             &self,
             f: Box<dyn FnOnce() -> anyhow::Result<()> + Send + 'a>,
         ) -> anyhow::Result<()> {

@@ -872,7 +872,7 @@ impl DeferredMaterializerCommandProcessor {
             }
             ArtifactMaterializationMethod::LocalCopy(_, copied_artifacts) => {
                 self.io_executor
-                    .execute_io_inline(box || {
+                    .execute_io_inline(|| {
                         for a in copied_artifacts {
                             materialize_files(
                                 a.dest_entry.as_ref(),
@@ -891,7 +891,7 @@ impl DeferredMaterializerCommandProcessor {
                 ..
             } => {
                 self.io_executor
-                    .execute_io_inline(box || {
+                    .execute_io_inline(|| {
                         let data = zstd::bulk::decompress(compressed_data, *decompressed_size)
                             .context("Error decompressing data")?;
                         self.fs.write_file(&path, &data, *is_executable)

@@ -87,7 +87,7 @@ impl Materializer for ImmediateMaterializer {
             .await?;
 
         self.io_executor
-            .execute_io_inline(box || {
+            .execute_io_inline(|| {
                 for copied_artifact in srcs {
                     // Make sure `path` is a prefix of `dest`, so we don't
                     // materialize anything outside `path`.
@@ -221,12 +221,9 @@ pub async fn write_to_disk<'a>(
     io_executor: &dyn BlockingExecutor,
     gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
 ) -> anyhow::Result<Vec<ArtifactValue>> {
-    let mut res = None;
-
     io_executor
         .execute_io_inline({
-            let res = &mut res;
-            box move || {
+            move || {
                 let requests = gen()?;
                 let mut values = Vec::with_capacity(requests.len());
 
@@ -245,12 +242,8 @@ pub async fn write_to_disk<'a>(
                     }));
                 }
 
-                *res = Some(values);
-
-                Ok(())
+                Ok(values)
             }
         })
-        .await?;
-
-    res.context("Inline I/O did not execute")
+        .await
 }
