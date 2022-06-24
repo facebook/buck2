@@ -292,14 +292,14 @@ enum ArtifactMaterializationMethod {
 impl Materializer for DeferredMaterializer {
     async fn declare_copy(
         &self,
-        path: &ProjectRelativePath,
+        path: ProjectRelativePathBuf,
         value: ArtifactValue,
         srcs: Vec<CopiedArtifact>,
     ) -> anyhow::Result<()> {
         // TODO(rafaelc): get rid of this tree; it'd save a lot of memory.
         let mut srcs_tree = FileTree::new();
         for copied_artifact in srcs.iter() {
-            let dest = copied_artifact.dest.strip_prefix(path)?;
+            let dest = copied_artifact.dest.strip_prefix(&path)?;
 
             {
                 let mut walk = unordered_entry_walk(copied_artifact.dest_entry.as_ref());
@@ -318,7 +318,7 @@ impl Materializer for DeferredMaterializer {
             }
         }
         let cmd = MaterializerCommand::Declare(
-            path.to_buf(),
+            path,
             value,
             box ArtifactMaterializationMethod::LocalCopy(srcs_tree, srcs),
         );

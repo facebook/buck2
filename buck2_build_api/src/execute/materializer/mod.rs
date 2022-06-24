@@ -137,7 +137,7 @@ pub trait Materializer: Send + Sync + 'static {
     /// `path`, or be a subpath of `path`; otherwise, [`Err`] is returned.
     async fn declare_copy(
         &self,
-        path: &ProjectRelativePath,
+        path: ProjectRelativePathBuf,
         value: ArtifactValue,
         srcs: Vec<CopiedArtifact>,
     ) -> anyhow::Result<()>;
@@ -351,7 +351,7 @@ pub mod nodisk {
     impl Materializer for NoDiskMaterializer {
         async fn declare_copy(
             &self,
-            _path: &ProjectRelativePath,
+            _path: ProjectRelativePathBuf,
             _value: ArtifactValue,
             _srcs: Vec<CopiedArtifact>,
         ) -> anyhow::Result<()> {

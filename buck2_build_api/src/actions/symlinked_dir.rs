@@ -213,7 +213,7 @@ impl PristineActionExecutable for SymlinkedDirAction {
 
         let value = builder.build(output.as_ref())?;
         ctx.materializer()
-            .declare_copy(output.as_ref(), value.dupe(), srcs)
+            .declare_copy(output, value.dupe(), srcs)
             .await?;
         Ok((
             ActionOutputs::from_single(self.output().dupe(), value),

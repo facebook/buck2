@@ -182,11 +182,11 @@ impl PristineActionExecutable for CopyAction {
 
         ctx.materializer()
             .declare_copy(
-                dest.as_ref(),
+                dest.clone(),
                 value.dupe(),
                 vec![CopiedArtifact::new(
                     src,
-                    dest.clone(),
+                    dest,
                     value.entry().dupe().map_dir(|d| d.as_immutable()),
                 )],
             )

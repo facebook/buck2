@@ -14,7 +14,6 @@ use async_trait::async_trait;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::fs::paths::AbsPathBuf;
-use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
@@ -56,7 +55,7 @@ impl Materializer for EdenMaterializer {
     /// declare on Eden would be faster so not all tree nodes would be actually materialized.
     async fn declare_copy(
         &self,
-        path: &ProjectRelativePath,
+        path: ProjectRelativePathBuf,
         value: ArtifactValue,
         srcs: Vec<CopiedArtifact>,
     ) -> anyhow::Result<()> {
@@ -97,10 +96,8 @@ impl Materializer for EdenMaterializer {
 
         // Second upload the tree structure that contains directories/file/symlink metadata
         // TODO(yipu) We don't need to upload CAS, and we should pass ArtifactValue to eden directly
-        let path_buf = path.to_buf();
         let mut builder = ActionDirectoryBuilder::empty();
-        let path = ForwardRelativePath::new_trim_trailing_slashes(path_buf.as_str())?;
-        insert_artifact(&mut builder, path, &value)?;
+        insert_artifact(&mut builder, path.as_ref(), &value)?;
         let input_dir = builder.fingerprint();
 
         self.re_client_manager
@@ -118,7 +115,7 @@ impl Materializer for EdenMaterializer {
             .await?;
 
         self.eden_buck_out
-            .set_path_object_id(&path_buf, &value)
+            .set_path_object_id(&path, &value)
             .await
             .with_context(|| {
                 format!(

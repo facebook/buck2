@@ -66,7 +66,7 @@ impl ImmediateMaterializer {
 impl Materializer for ImmediateMaterializer {
     async fn declare_copy(
         &self,
-        path: &ProjectRelativePath,
+        path: ProjectRelativePathBuf,
         value: ArtifactValue,
         srcs: Vec<CopiedArtifact>,
     ) -> anyhow::Result<()> {
@@ -79,7 +79,7 @@ impl Materializer for ImmediateMaterializer {
         // TODO: display [materializing] in superconsole
         self.io_executor
             .execute_io(box MaterializeTreeStructure {
-                path: path.to_owned(),
+                path: path.clone(),
                 entry: value.entry().dupe(),
             })
             .await?;
@@ -89,7 +89,7 @@ impl Materializer for ImmediateMaterializer {
                 for copied_artifact in srcs {
                     // Make sure `path` is a prefix of `dest`, so we don't
                     // materialize anything outside `path`.
-                    copied_artifact.dest.strip_prefix(path)
+                    copied_artifact.dest.strip_prefix(&path)
                         .with_context(|| format!(
                             "declare_copy: artifact at `{}` copies into `{}`. This is a bug in Buck, not a user error.",
                             path,
