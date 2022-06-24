@@ -7,12 +7,17 @@
  * of this source tree.
  */
 
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
+use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabelMaybeConfigured;
 
 use crate::attrs::attr_type::attr_like::AttrLike;
+use crate::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
 use crate::attrs::attr_type::dep::ExplicitConfiguredDepMaybeConfigured;
+use crate::attrs::attr_type::split_transition_dep::ConfiguredSplitTransitionDep;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfigured;
+use crate::attrs::configured_attr::ConfiguredAttr;
 
 /// AttrConfig is used to implement things just once to cover both the configured and
 /// unconfigured case. For example, a Vec<C::TargetType> where C: AttrConfig, would be
@@ -34,4 +39,19 @@ pub trait AttrConfig: AttrLike {
     fn to_json(&self) -> anyhow::Result<serde_json::Value>;
 
     fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool>;
+}
+
+impl AttrConfig for ConfiguredAttr {
+    type TargetType = ConfiguredTargetLabel;
+    type ProvidersType = ConfiguredProvidersLabel;
+    type SplitTransitionDepType = ConfiguredSplitTransitionDep;
+    type ExplicitConfiguredDepType = ConfiguredExplicitConfiguredDep;
+
+    fn to_json(&self) -> anyhow::Result<serde_json::Value> {
+        self.0.to_json()
+    }
+
+    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+        self.0.any_matches(filter)
+    }
 }

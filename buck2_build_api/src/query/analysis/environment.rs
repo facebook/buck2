@@ -15,6 +15,7 @@ use async_trait::async_trait;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_interpreter::common::BuildFilePath;
+use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_query::query::environment::NodeLabel;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryTarget;
@@ -40,7 +41,6 @@ use ref_cast::RefCast;
 use thiserror::Error;
 
 use crate::analysis::configured_graph::ConfiguredGraphNode;
-use crate::attrs::configured_attr::ConfiguredAttr;
 
 #[derive(Debug, Error)]
 enum AnalysisQueryError {

@@ -31,6 +31,7 @@ use crate::attrs::attr_type::attr_literal::CoercedDepsCollector;
 use crate::attrs::attr_type::attr_literal::ConfiguredAttrInfo;
 use crate::attrs::attr_type::AttrTypeExt;
 use crate::attrs::configurable::AttrIsConfigurable;
+use crate::attrs::configured_attr::ConfiguredAttrExt;
 use crate::attrs::testing::coercion_ctx;
 use crate::attrs::testing::coercion_ctx_listing;
 use crate::attrs::testing::configuration_ctx;

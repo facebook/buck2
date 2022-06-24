@@ -47,22 +47,17 @@
 
 use anyhow::anyhow;
 use attr_type::bool;
-use attr_type::split_transition_dep::ConfiguredSplitTransitionDep;
 use attr_type::split_transition_dep::SplitTransitionDep;
-use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
-use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
 use buck2_node::attrs::attr_type::attr_config::AttrConfig;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
-use buck2_node::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
 use buck2_node::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
 use buck2_node::attrs::coerced_path::CoercedPath;
 
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::coerced_attr::CoercedAttr;
-use crate::attrs::configured_attr::ConfiguredAttr;
 
 pub(crate) mod analysis;
 pub mod attr_type;
@@ -111,20 +106,5 @@ impl AttrConfig for CoercedAttr {
 
     fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
         CoercedAttr::any_matches(self, filter)
-    }
-}
-
-impl AttrConfig for ConfiguredAttr {
-    type TargetType = ConfiguredTargetLabel;
-    type ProvidersType = ConfiguredProvidersLabel;
-    type SplitTransitionDepType = ConfiguredSplitTransitionDep;
-    type ExplicitConfiguredDepType = ConfiguredExplicitConfiguredDep;
-
-    fn to_json(&self) -> anyhow::Result<serde_json::Value> {
-        self.0.to_json()
-    }
-
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
-        self.0.any_matches(filter)
     }
 }

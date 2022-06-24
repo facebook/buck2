@@ -25,6 +25,7 @@ use buck2_core::result::ToSharedResultExt;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
+use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -36,7 +37,7 @@ use itertools::Itertools;
 use starlark::collections::SmallSet;
 
 use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
-use crate::attrs::configured_attr::ConfiguredAttr;
+use crate::attrs::configured_attr::ConfiguredAttrExt;
 use crate::calculation::BuildErrors;
 use crate::configuration::execution::ExecutionPlatform;
 use crate::configuration::execution::ExecutionPlatformResolution;
@@ -592,6 +593,7 @@ mod tests {
     use buck2_node::attrs::attr_type::dep::DepAttrTransition;
     use buck2_node::attrs::attr_type::dep::DepAttrType;
     use buck2_node::attrs::attr_type::AttrType;
+    use buck2_node::attrs::configured_attr::ConfiguredAttr;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
     use gazebo::prelude::*;
@@ -600,7 +602,6 @@ mod tests {
 
     use crate::attrs::attr_type::any::AnyAttrTypeExt;
     use crate::attrs::coerced_attr::CoercedAttr;
-    use crate::attrs::configured_attr::ConfiguredAttr;
     use crate::attrs::testing::CoercedAttrExt;
     use crate::attrs::testing::ConfiguredAttrExt;
     use crate::configuration::calculation::ExecutionPlatformsKey;

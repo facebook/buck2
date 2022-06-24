@@ -50,6 +50,7 @@ pub use calculation::profile_analysis;
 pub use calculation::resolve_queries;
 use starlark::values::ValueTyped;
 
+use crate::attrs::configured_attr::ConfiguredAttrExt;
 use crate::deferred::BaseDeferredKey;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::nodes::configured::ConfiguredTargetNode;

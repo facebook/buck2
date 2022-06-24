@@ -7,20 +7,18 @@
  * of this source tree.
  */
 
-use std::collections::BTreeMap;
-use std::fmt::Display;
-use std::fmt::Formatter;
 use std::sync::Arc;
 
 use buck2_core::configuration::transition::id::TransitionId;
-use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::dep::ProviderIdSet;
+use buck2_node::attrs::attr_type::split_transition_dep::ConfiguredSplitTransitionDep;
 use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfigured;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
+use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use derive_more::Display;
 use gazebo::dupe::Dupe;
 use serde_json::to_value;
@@ -37,7 +35,6 @@ use crate::attrs::attr_type::dep::DepAttrTypeExt;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
-use crate::attrs::ConfiguredAttr;
 
 impl AttrTypeCoerce for SplitTransitionDepAttrType {
     fn coerce_item(
@@ -115,26 +112,6 @@ pub struct SplitTransitionDep {
     pub(crate) required_providers: Option<Arc<ProviderIdSet>>,
 }
 
-#[derive(Hash, PartialEq, Eq, Debug, Clone)]
-pub struct ConfiguredSplitTransitionDep {
-    pub(crate) deps: BTreeMap<String, ConfiguredProvidersLabel>,
-    pub(crate) required_providers: Option<Arc<ProviderIdSet>>,
-}
-
-impl Display for ConfiguredSplitTransitionDep {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{{")?;
-        for (i, dep) in self.deps.iter().enumerate() {
-            if i != 0 {
-                write!(f, ", ")?;
-            }
-            write!(f, "{:?}: {}", dep.0, dep.1)?;
-        }
-        write!(f, "}}")?;
-        Ok(())
-    }
-}
-
 impl SplitTransitionDepMaybeConfigured for SplitTransitionDep {
     fn to_json(&self) -> anyhow::Result<serde_json::Value> {
         Ok(to_value(self.to_string())?)
@@ -142,24 +119,5 @@ impl SplitTransitionDepMaybeConfigured for SplitTransitionDep {
 
     fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
         filter(&self.to_string())
-    }
-}
-
-impl SplitTransitionDepMaybeConfigured for ConfiguredSplitTransitionDep {
-    fn to_json(&self) -> anyhow::Result<serde_json::Value> {
-        let mut map = serde_json::Map::with_capacity(self.deps.len());
-        for (label, target) in &self.deps {
-            map.insert(label.clone(), to_value(target.to_string())?);
-        }
-        Ok(serde_json::Value::Object(map))
-    }
-
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
-        for (label, target) in &self.deps {
-            if filter(label)? || filter(&target.to_string())? {
-                return Ok(true);
-            }
-        }
-        Ok(false)
     }
 }

@@ -22,6 +22,7 @@ use buck2_interpreter::selector::Selector;
 use buck2_interpreter::selector::SelectorGen;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
+use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
 use gazebo::prelude::*;
 use itertools::Itertools;
@@ -39,7 +40,6 @@ use crate::attrs::attr_type::AttrTypeExt;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::AttrLiteral;
-use crate::attrs::ConfiguredAttr;
 use crate::attrs::OrderedMap;
 
 #[derive(Error, Debug)]
@@ -56,12 +56,6 @@ pub(crate) enum SelectError {
     ValueNotDict(String),
     #[error("addition not supported for this attribute type `{0}`.")]
     ConcatNotSupported(String),
-    #[error("addition not supported for these attribute type `{0}` and value `{1}`.")]
-    ConcatNotSupportedValues(&'static str, String),
-    #[error("addition not supported for lists of different types, got `{0}` and `{1}`.")]
-    ConcatListDifferentTypes(String, String),
-    #[error("got same key in both sides of dictionary concat (key `{0}`).")]
-    DictConcatDuplicateKeys(String),
     #[error(
         "Both select keys `{0}` and `{1}` match the configuration, but neither is more specific"
     )]

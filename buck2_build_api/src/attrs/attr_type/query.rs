@@ -20,6 +20,7 @@ use buck2_node::attrs::attr_type::query::QueryAttr;
 use buck2_node::attrs::attr_type::query::QueryAttrBase;
 use buck2_node::attrs::attr_type::query::QueryAttrType;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
+use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::functions::QueryFunctionsExt;
@@ -38,7 +39,6 @@ use crate::attrs::attr_type::dep::DepAttrTypeExt;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::CoercedAttr;
-use crate::attrs::ConfiguredAttr;
 use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
 pub(crate) trait QueryAttrTypeExt {

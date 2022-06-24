@@ -14,6 +14,7 @@ use buck2_core::target::TargetLabel;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
+use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use gazebo::prelude::*;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
@@ -25,7 +26,6 @@ use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::CoercedAttr;
-use crate::attrs::ConfiguredAttr;
 
 #[derive(Debug, Error)]
 pub enum ResolutionError {

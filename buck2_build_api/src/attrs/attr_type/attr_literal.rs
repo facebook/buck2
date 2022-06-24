@@ -26,6 +26,7 @@ use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
 use buck2_node::attrs::attr_type::source::SourceAttrType;
 use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
+use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
 use gazebo::prelude::*;
 use starlark::collections::SmallMap;
@@ -51,8 +52,8 @@ use crate::attrs::attr_type::query::ConfiguredQueryAttrExt;
 use crate::attrs::attr_type::query::UnconfiguredQueryAttrExt;
 use crate::attrs::attr_type::source::SourceAttrTypeExt;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrTypeExt;
+use crate::attrs::configured_attr::ConfiguredAttrExt;
 use crate::attrs::CoercedAttr;
-use crate::attrs::ConfiguredAttr;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::provider::dependency::DependencyGen;
 

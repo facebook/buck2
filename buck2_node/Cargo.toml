@@ -9,9 +9,11 @@ anyhow = "1.0.51"
 derive_more = "0.99.3"
 either = "1.5"
 indexmap = { version = "1.6", features = ["serde-1"] }
+serde = "1.0.48"
 serde_json = "1.0.48"
 thiserror = "1.0.9"
 
 gazebo = { path = "../gazebo/gazebo" }
 
 buck2_core = { path = "../buck2_core" }
+buck2_query = { path = "../buck2_query" }
