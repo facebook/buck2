@@ -657,48 +657,71 @@ impl CleanOutputPaths {
         fs: &'a ProjectFilesystem,
     ) -> anyhow::Result<()> {
         for path in paths {
-            fs.remove_path_recursive(path)?;
-
-            if let Some(parent) = path.parent() {
-                if let Err(err) = fs.create_dir(parent) {
-                    // Be aware of T85589819 - the parent directory might already exist, but as a _file_.
-                    // It might be even worse, it might be 2 parents up, which will cause create_dir to fail.
-                    // We know create_dir fails, so start walking upwards looking for a file to delete.
-                    // It's safe to delete this file because we know it doesn't overlap with a current output,
-                    // or that check would have failed, so it must be a stale file.
-                    let mut x = parent;
-                    loop {
-                        match fs.symlink_metadata(x) {
-                            Ok(m) => {
-                                if m.is_dir() {
-                                    // Not sure why we couldn't create this, just rethrow the original error
-                                    return Err(err);
-                                } else {
-                                    // Seems like it's a file, so delete it, then try creating again
-                                    fs.remove_path_recursive(x)?;
-                                    fs.create_dir(parent)?;
-                                    break;
-                                }
-                            }
-                            _ => {
-                                match x.parent() {
-                                    None => {
-                                        // We weren't able to find something to remedy,
-                                        // and have reached the root, so have to give up
-                                        return Err(err);
-                                    }
-                                    Some(p) => {
-                                        // Try again one level up
-                                        x = p;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            cleanup_path(fs, path)
+                .with_context(|| format!("Error cleaning up output path `{}`", path))?;
         }
         Ok(())
+    }
+}
+
+fn cleanup_path(fs: &ProjectFilesystem, mut path: &ProjectRelativePath) -> anyhow::Result<()> {
+    fs.remove_path_recursive(path)?;
+
+    // Be aware of T85589819 - the parent directory might already exist, but as a _file_.  It might
+    // be even worse, it might be 2 parents up, which will cause create_dir to fail when we try to
+    // execute. So, we walk up the tree until we either find a dir we're happy with, or a file we
+    // can delete. It's safe to delete this file because we know it doesn't overlap with a current
+    // output, or that check would have failed, so it must be a stale file.
+    loop {
+        path = match path.parent() {
+            Some(path) => path,
+            None => {
+                return Err(anyhow::anyhow!(
+                    "Internal Error: reached root before finding a directory that exists!"
+                ));
+            }
+        };
+
+        match fs.symlink_metadata(path) {
+            Ok(m) => {
+                if m.is_dir() {
+                    // It's a dir, no need to go further, and no need to delete.
+                } else {
+                    // There was a file , so it's safe to delete and then we can exit because we'll
+                    // be able to create a dir here.
+                    fs.remove_path_recursive(path)?;
+                }
+                return Ok(());
+            }
+            Err(e) => {
+                #[cfg(unix)]
+                {
+                    use std::io;
+
+                    // If we get ENOENT that guarantees there is no file on the path. If there was
+                    // one, we would get ENOTDIR. TODO (T123279320) This probably works on Windows,
+                    // but it wasn't tested there.
+                    let is_enoent = e.downcast_ref::<io::Error>().map(|e| e.kind())
+                        == Some(io::ErrorKind::NotFound);
+
+                    if is_enoent {
+                        return Ok(());
+                    }
+                }
+
+                #[cfg(not(unix))]
+                {
+                    // On non-Unix we don't have the optimization above. Recursing all the way up
+                    // until we find the first dir (or file to delete) is fine. There will
+                    // eventually be *a* directory (at buck-out, then another one at the empty
+                    // directory, which is our cwd, and should exist by now).
+                    let _e = e;
+                }
+
+                // Continue going up. Eventually we should reach the output directory, which should
+                // exist.
+            }
+        }
     }
 }
 
@@ -728,6 +751,7 @@ mod tests {
     use buck2_core::configuration::Configuration;
     use buck2_core::fs::paths::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectFilesystemTemp;
+    use buck2_core::fs::project::ProjectRelativePath;
     use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::package::Package;
     use buck2_core::package::PackageRelativePathBuf;
@@ -760,6 +784,7 @@ mod tests {
     use crate::deferred::DeferredId;
     use crate::deferred::DeferredKey;
     use crate::execute::blocking::testing::DummyBlockingExecutor;
+    use crate::execute::cleanup_path;
     use crate::execute::commands::dry_run::DryRunExecutor;
     use crate::execute::commands::output::CommandStdStreams;
     use crate::execute::commands::CommandExecutionInput;
@@ -930,5 +955,51 @@ mod tests {
             .map(|o| (o.dupe(), ArtifactValue::empty_file()))
             .collect();
         assert_eq!(res.0, ActionOutputs::new(outputs));
+    }
+
+    #[test]
+    fn test_cleanup_path_missing() -> anyhow::Result<()> {
+        let fs = ProjectFilesystemTemp::new()?;
+        let fs = fs.path();
+        fs.create_dir(ProjectRelativePath::unchecked_new("foo/bar/qux"))?;
+        cleanup_path(fs, ProjectRelativePath::unchecked_new("foo/bar/qux/xx"))?;
+        assert!(fs.exists(ProjectRelativePath::unchecked_new("foo/bar/qux")));
+        Ok(())
+    }
+
+    #[test]
+    fn test_cleanup_path_present() -> anyhow::Result<()> {
+        let fs = ProjectFilesystemTemp::new()?;
+        let fs = fs.path();
+        fs.create_dir(ProjectRelativePath::unchecked_new("foo/bar/qux"))?;
+        cleanup_path(fs, ProjectRelativePath::unchecked_new("foo/bar/qux"))?;
+        assert!(!fs.exists(ProjectRelativePath::unchecked_new("foo/bar/qux")));
+        assert!(fs.exists(ProjectRelativePath::unchecked_new("foo/bar")));
+        Ok(())
+    }
+
+    #[test]
+    fn test_cleanup_path_overlap() -> anyhow::Result<()> {
+        let fs = ProjectFilesystemTemp::new()?;
+        let fs = fs.path();
+        fs.write_file(ProjectRelativePath::unchecked_new("foo/bar"), "xx", false)?;
+        cleanup_path(fs, ProjectRelativePath::unchecked_new("foo/bar/qux"))?;
+        assert!(!fs.exists(ProjectRelativePath::unchecked_new("foo/bar")));
+        assert!(fs.exists(ProjectRelativePath::unchecked_new("foo")));
+        Ok(())
+    }
+
+    #[test]
+    fn test_cleanup_path_overlap_deep() -> anyhow::Result<()> {
+        let fs = ProjectFilesystemTemp::new()?;
+        let fs = fs.path();
+        fs.write_file(ProjectRelativePath::unchecked_new("foo/bar"), "xx", false)?;
+        cleanup_path(
+            fs,
+            ProjectRelativePath::unchecked_new("foo/bar/qux/1/2/3/4"),
+        )?;
+        assert!(!fs.exists(ProjectRelativePath::unchecked_new("foo/bar")));
+        assert!(fs.exists(ProjectRelativePath::unchecked_new("foo")));
+        Ok(())
     }
 }
