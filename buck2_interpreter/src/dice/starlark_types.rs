@@ -37,12 +37,12 @@ impl SetDisableStarlarkTypes for DiceTransaction {
 
 #[async_trait]
 pub trait GetDisableStarlarkTypes {
-    async fn get_disable_starlark_types(&self) -> bool;
+    async fn get_disable_starlark_types(&self) -> anyhow::Result<bool>;
 }
 
 #[async_trait]
 impl GetDisableStarlarkTypes for DiceComputations {
-    async fn get_disable_starlark_types(&self) -> bool {
-        self.compute(&DisableStarlarkTypesKey).await
+    async fn get_disable_starlark_types(&self) -> anyhow::Result<bool> {
+        Ok(self.compute(&DisableStarlarkTypesKey).await)
     }
 }

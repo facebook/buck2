@@ -146,7 +146,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         let legacy_configs = ctx.get_legacy_configs().await?;
         let starlark_profiler_instrumentation_override =
             ctx.get_starlark_profiler_instrumentation_override().await?;
-        let disable_starlark_types = ctx.get_disable_starlark_types().await;
+        let disable_starlark_types = ctx.get_disable_starlark_types().await?;
         ctx.commit();
 
         buck2_build_api::actions::run::dep_files::flush_dep_files();
