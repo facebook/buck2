@@ -11,6 +11,9 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::FileMetadata;
+use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::unordered_entry_walk;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::project::ProjectFilesystem;
@@ -37,6 +40,7 @@ use crate::execute::materializer::CopiedArtifact;
 use crate::execute::materializer::HttpDownloadInfo;
 use crate::execute::materializer::MaterializationError;
 use crate::execute::materializer::Materializer;
+use crate::execute::materializer::WriteRequest;
 use crate::execute::CleanOutputPaths;
 
 /// Materializer that materializes everything immediately on declare.
@@ -173,6 +177,13 @@ impl Materializer for ImmediateMaterializer {
         Ok(())
     }
 
+    async fn write<'a>(
+        &self,
+        gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
+    ) -> anyhow::Result<Vec<ArtifactValue>> {
+        write_to_disk(&self.fs, self.io_executor.as_ref(), gen).await
+    }
+
     async fn invalidate_many(&self, _paths: Vec<ProjectRelativePathBuf>) -> anyhow::Result<()> {
         // Nothing to do, we don't keep track of anything.
         Ok(())
@@ -203,4 +214,43 @@ impl Materializer for ImmediateMaterializer {
         // materialized. We can simply return them as is.
         Ok(paths.into_map(Ok))
     }
+}
+
+pub async fn write_to_disk<'a>(
+    fs: &ProjectFilesystem,
+    io_executor: &dyn BlockingExecutor,
+    gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
+) -> anyhow::Result<Vec<ArtifactValue>> {
+    let mut res = None;
+
+    io_executor
+        .execute_io_inline({
+            let res = &mut res;
+            box move || {
+                let requests = gen()?;
+                let mut values = Vec::with_capacity(requests.len());
+
+                for WriteRequest {
+                    path,
+                    content,
+                    is_executable,
+                } in requests
+                {
+                    let digest = FileDigest::from_bytes(content.as_bytes());
+                    fs.write_file(&path, &content, is_executable)?;
+
+                    values.push(ArtifactValue::file(FileMetadata {
+                        digest: TrackedFileDigest::new(digest),
+                        is_executable,
+                    }));
+                }
+
+                *res = Some(values);
+
+                Ok(())
+            }
+        })
+        .await?;
+
+    res.context("Inline I/O did not execute")
 }

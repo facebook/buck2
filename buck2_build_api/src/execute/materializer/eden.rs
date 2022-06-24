@@ -11,6 +11,9 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::FileMetadata;
+use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::fs::project::ProjectFilesystem;
@@ -19,6 +22,7 @@ use futures::stream;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
 use gazebo::prelude::*;
+use remote_execution::InlinedBlobWithDigest;
 use remote_execution::NamedDigest;
 
 use crate::actions::artifact::ArtifactValue;
@@ -38,6 +42,7 @@ use crate::execute::materializer::CopiedArtifact;
 use crate::execute::materializer::HttpDownloadInfo;
 use crate::execute::materializer::MaterializationError;
 use crate::execute::materializer::Materializer;
+use crate::execute::materializer::WriteRequest;
 
 pub struct EdenMaterializer {
     re_client_manager: Arc<ReConnectionManager>,
@@ -167,6 +172,21 @@ impl Materializer for EdenMaterializer {
         self.delegator.declare_http(path, info).await
     }
 
+    async fn write<'a>(
+        &self,
+        gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
+    ) -> anyhow::Result<Vec<ArtifactValue>> {
+        let (paths, values) = write_to_cas(self.re_client_manager.as_ref(), gen).await?;
+
+        futures::future::try_join_all(
+            std::iter::zip(paths.iter(), values.iter())
+                .map(|(path, value)| self.eden_buck_out.set_path_object_id(path, value)),
+        )
+        .await?;
+
+        Ok(values)
+    }
+
     async fn materialize_many(
         &self,
         artifact_paths: Vec<ProjectRelativePathBuf>,
@@ -220,4 +240,44 @@ impl EdenMaterializer {
             fs,
         })
     }
+}
+
+async fn write_to_cas<'a>(
+    re: &ReConnectionManager,
+    gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
+) -> anyhow::Result<(Vec<ProjectRelativePathBuf>, Vec<ArtifactValue>)> {
+    let contents = gen()?;
+
+    let mut uploads = Vec::with_capacity(contents.len());
+    let mut paths = Vec::with_capacity(contents.len());
+    let mut values = Vec::with_capacity(contents.len());
+
+    for WriteRequest {
+        path,
+        content,
+        is_executable,
+    } in contents
+    {
+        let digest = FileDigest::from_bytes(content.as_bytes());
+
+        let meta = FileMetadata {
+            digest: TrackedFileDigest::new(digest),
+            is_executable,
+        };
+
+        uploads.push(InlinedBlobWithDigest {
+            blob: content.into_bytes(),
+            digest: meta.digest.to_re(),
+            ..Default::default()
+        });
+        paths.push(path);
+        values.push(ArtifactValue::file(meta));
+    }
+
+    re.get_re_connection()
+        .get_client()
+        .upload_files_and_directories(Vec::new(), Vec::new(), uploads, Default::default())
+        .await?;
+
+    Ok((paths, values))
 }

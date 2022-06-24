@@ -13,9 +13,6 @@ use std::time::Instant;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_common::file_ops::FileDigest;
-use buck2_common::file_ops::FileMetadata;
-use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::category::Category;
 use gazebo::dupe::Dupe;
 use indexmap::indexmap;
@@ -27,7 +24,6 @@ use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
 
 use crate::actions::artifact::Artifact;
-use crate::actions::artifact::ArtifactValue;
 use crate::actions::artifact::BuildArtifact;
 use crate::actions::artifact::ExecutorFs;
 use crate::actions::Action;
@@ -36,6 +32,7 @@ use crate::actions::ActionExecutionCtx;
 use crate::actions::PristineActionExecutable;
 use crate::actions::UnregisteredAction;
 use crate::artifact_groups::ArtifactGroup;
+use crate::execute::materializer::WriteRequest;
 use crate::execute::ActionExecutionKind;
 use crate::execute::ActionExecutionMetadata;
 use crate::execute::ActionExecutionTimingData;
@@ -196,56 +193,30 @@ impl PristineActionExecutable for WriteAction {
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let fs = ctx.fs();
 
-        let mut outputs = IndexMap::with_capacity(1);
-        let mut wall_time = None;
+        let mut execution_start = None;
 
-        // For EdenFS-based buck out, we can do "virtual write" instead, which
-        // set the path on the Eden buck-out to a digest and ensure what is about to
-        // write exists in CAS.
-        // TODO(yipu): We should do the same "virutal write" to write_macro
-        if let Some(eden_buck_out) = ctx.materializer().eden_buck_out() {
-            let execution_start = Instant::now();
-            let full_contents = self.get_contents(&ctx.executor_fs())?;
-            let value = ArtifactValue::file(FileMetadata {
-                digest: TrackedFileDigest::new(FileDigest::from_bytes(full_contents.as_bytes())),
-                is_executable: self.is_executable,
-            });
-            eden_buck_out
-                .ensure_file_in_cas(&value, full_contents)
-                .await?;
-            let output_path = fs.resolve_build(&self.output);
-            eden_buck_out
-                .set_path_object_id(&output_path, &value)
-                .await?;
-            outputs.insert(self.output.dupe(), value.dupe());
-            wall_time = Some(execution_start.elapsed());
-        } else {
-            ctx.blocking_executor()
-                .execute_io_inline(box || {
-                    let execution_start = Instant::now();
+        let value = ctx
+            .materializer()
+            .write(box || {
+                execution_start = Some(Instant::now());
+                let content = self.get_contents(&ctx.executor_fs())?;
+                Ok(vec![WriteRequest {
+                    path: fs.resolve_build(&self.output),
+                    content,
+                    is_executable: self.is_executable,
+                }])
+            })
+            .await?
+            .into_iter()
+            .next()
+            .context("Write did not execute")?;
 
-                    let full_contents = self.get_contents(&ctx.executor_fs())?;
-                    let value = ArtifactValue::file(FileMetadata {
-                        digest: TrackedFileDigest::new(FileDigest::from_bytes(
-                            full_contents.as_bytes(),
-                        )),
-                        is_executable: self.is_executable,
-                    });
-
-                    fs.write_file(&self.output, &full_contents, self.is_executable)?;
-                    outputs.insert(self.output.dupe(), value.dupe());
-
-                    wall_time = Some(execution_start.elapsed());
-
-                    Ok(())
-                })
-                .await?;
-        }
-
-        let wall_time = wall_time.context("Action did not set execution_time")?;
+        let wall_time = execution_start
+            .context("Action did not set execution_start")?
+            .elapsed();
 
         Ok((
-            ActionOutputs::new(outputs),
+            ActionOutputs::new(indexmap![self.output.dupe() => value]),
             ActionExecutionMetadata {
                 execution_kind: ActionExecutionKind::Simple,
                 timing: ActionExecutionTimingData { wall_time },

@@ -9,24 +9,19 @@
 
 use std::borrow::Cow;
 use std::convert::TryFrom;
-use std::time::Duration;
 use std::time::Instant;
 
+use anyhow::Context;
 use async_trait::async_trait;
-use buck2_common::file_ops::FileDigest;
-use buck2_common::file_ops::FileMetadata;
-use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::category::Category;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use gazebo::prelude::*;
-use indexmap::IndexMap;
 use indexmap::IndexSet;
 use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
 
-use crate::actions::artifact::ArtifactValue;
 use crate::actions::artifact::BuildArtifact;
 use crate::actions::artifact::ExecutorFs;
 use crate::actions::Action;
@@ -37,6 +32,7 @@ use crate::actions::PristineActionExecutable;
 use crate::actions::UnregisteredAction;
 use crate::attrs::attr_type::arg::value::ResolvedMacro;
 use crate::attrs::attr_type::arg::ArgBuilder;
+use crate::execute::materializer::WriteRequest;
 use crate::execute::ActionExecutionKind;
 use crate::execute::ActionExecutionMetadata;
 use crate::execute::ActionExecutionTimingData;
@@ -147,13 +143,14 @@ impl PristineActionExecutable for WriteMacrosToFileAction {
         &self,
         ctx: &dyn ActionExecutionCtx,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
-        let fs = ctx.executor_fs();
-        let mut output_values = IndexMap::with_capacity(self.outputs.len());
+        let mut execution_start = None;
 
-        let mut wall_time = Duration::ZERO;
-        ctx.blocking_executor()
-            .execute_io_inline(box || {
-                let execution_start = Instant::now();
+        let values = ctx
+            .materializer()
+            .write(box || {
+                execution_start = Some(Instant::now());
+
+                let fs = ctx.executor_fs();
 
                 let mut output_contents = Vec::with_capacity(self.outputs.len());
                 let mut macro_writer = MacroToFileWriter::new(&fs, &mut output_contents);
@@ -170,21 +167,25 @@ impl PristineActionExecutable for WriteMacrosToFileAction {
                     );
                 }
 
-                for (output, content) in std::iter::zip(self.outputs.iter(), output_contents.iter())
-                {
-                    let meta = FileMetadata {
-                        digest: TrackedFileDigest::new(FileDigest::from_bytes(content.as_bytes())),
-                        is_executable: false,
-                    };
-                    let value = ArtifactValue::file(meta);
-                    output_values.insert(output.dupe(), value);
-                    fs.fs().write_file(output, content, false)?;
-                }
-
-                wall_time = execution_start.elapsed();
-                anyhow::Ok(())
+                Ok(
+                    std::iter::zip(self.outputs.iter(), output_contents.into_iter())
+                        .map(|(output, content)| WriteRequest {
+                            path: fs.fs().resolve_build(output),
+                            content,
+                            is_executable: false,
+                        })
+                        .collect(),
+                )
             })
             .await?;
+
+        let wall_time = execution_start
+            .context("Action did not set execution_start")?
+            .elapsed();
+
+        let output_values = std::iter::zip(self.outputs.iter(), values.into_iter())
+            .map(|(output, value)| (output.dupe(), value))
+            .collect();
 
         Ok((
             ActionOutputs::new(output_values),

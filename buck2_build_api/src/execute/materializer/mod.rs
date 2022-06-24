@@ -63,14 +63,6 @@ impl EdenBuckOut {
         self.not_implemented
     }
 
-    pub async fn ensure_file_in_cas(
-        &self,
-        _value: &ArtifactValue,
-        _full_contents: String,
-    ) -> anyhow::Result<()> {
-        self.not_implemented
-    }
-
     pub async fn set_path_object_id(
         &self,
         __path: &ProjectRelativePathBuf,
@@ -78,6 +70,12 @@ impl EdenBuckOut {
     ) -> anyhow::Result<()> {
         self.not_implemented
     }
+}
+
+pub struct WriteRequest {
+    pub path: ProjectRelativePathBuf,
+    pub content: String,
+    pub is_executable: bool,
 }
 
 use crate::deferred::BaseDeferredKey;
@@ -154,6 +152,12 @@ pub trait Materializer: Send + Sync + 'static {
         path: ProjectRelativePathBuf,
         info: HttpDownloadInfo,
     ) -> anyhow::Result<()>;
+
+    /// Write contents to paths. The output is ordered in the same order as the input.
+    async fn write<'a>(
+        &self,
+        gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
+    ) -> anyhow::Result<Vec<ArtifactValue>>;
 
     /// Declare an artifact at `path` exists. This will overwrite any pre-existing materialization
     /// methods for this file and indicate that no materialization is necessary.
@@ -371,6 +375,13 @@ pub mod nodisk {
             _info: HttpDownloadInfo,
         ) -> anyhow::Result<()> {
             Ok(())
+        }
+
+        async fn write<'a>(
+            &self,
+            _gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
+        ) -> anyhow::Result<Vec<ArtifactValue>> {
+            Err(anyhow::anyhow!("NoDiskMaterializer cannot write"))
         }
 
         async fn invalidate_many(&self, _paths: Vec<ProjectRelativePathBuf>) -> anyhow::Result<()> {

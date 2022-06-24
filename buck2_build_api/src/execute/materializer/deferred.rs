@@ -63,6 +63,7 @@ use crate::execute::materializer::CopiedArtifact;
 use crate::execute::materializer::HttpDownloadInfo;
 use crate::execute::materializer::MaterializationError;
 use crate::execute::materializer::Materializer;
+use crate::execute::materializer::WriteRequest;
 use crate::execute::CleanOutputPaths;
 
 /// Materializer implementation that defers materialization of declared
@@ -96,6 +97,10 @@ pub struct DeferredMaterializer {
     /// Determines what to do on `try_materialize_final_artifact`: if true,
     /// materializes them, otherwise skips them.
     materialize_final_artifacts: bool,
+
+    /// To be removed, used to implement write for now.
+    fs: ProjectFilesystem,
+    io_executor: Arc<dyn BlockingExecutor>,
 }
 
 impl Drop for DeferredMaterializer {
@@ -356,6 +361,13 @@ impl Materializer for DeferredMaterializer {
         Ok(())
     }
 
+    async fn write<'a>(
+        &self,
+        gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
+    ) -> anyhow::Result<Vec<ArtifactValue>> {
+        super::immediate::write_to_disk(&self.fs, self.io_executor.as_ref(), gen).await
+    }
+
     async fn invalidate_many(&self, paths: Vec<ProjectRelativePathBuf>) -> anyhow::Result<()> {
         for path in paths {
             self.command_sender
@@ -419,9 +431,9 @@ impl DeferredMaterializer {
         let (command_sender, command_recv) = mpsc::unbounded_channel();
 
         let command_processor = Arc::new(DeferredMaterializerCommandProcessor {
-            fs,
+            fs: fs.clone(),
             re_client_manager,
-            io_executor,
+            io_executor: io_executor.dupe(),
             command_sender: command_sender.clone(),
             enable_local_caching_of_re_artifacts: configs.enable_local_caching_of_re_artifacts,
         });
@@ -431,6 +443,8 @@ impl DeferredMaterializer {
             command_sender,
             command_thread,
             materialize_final_artifacts: configs.materialize_final_artifacts,
+            fs,
+            io_executor,
         }
     }
 }

@@ -28,12 +28,10 @@ use edenfs::RemoveRecursivelyParams;
 use edenfs::SetPathObjectIdParams;
 use fbinit::FacebookInit;
 use more_futures::spawn::dropcancel_critical_section;
-use remote_execution::InlinedBlobWithDigest;
 use serde::Deserialize;
 use thiserror::Error;
 use tokio::sync::Semaphore;
 
-use crate::actions::digest::FileDigestToReExt;
 use crate::actions::directory::ActionDirectoryMember;
 use crate::execute::commands::re::manager::ReConnectionManager;
 use crate::execute::ArtifactValue;
@@ -276,37 +274,6 @@ impl EdenBuckOut {
             .with_eden(move |eden| eden.setPathObjectId(&params))
             .await?;
         Ok(())
-    }
-
-    /// Ensure a file is in CAS. This method will call CAS's upload method
-    /// and the file will be uploaded only it is missing. Currently, as the
-    /// name suggests, only support file.
-    pub async fn ensure_file_in_cas(
-        &self,
-        value: &ArtifactValue,
-        full_contents: String,
-    ) -> anyhow::Result<()> {
-        match value.entry() {
-            DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) => {
-                // upload_files_and_directories will only upload if missing.
-                self.re_client_manager
-                    .get_re_connection()
-                    .get_client()
-                    .upload_files_and_directories(
-                        Vec::new(),
-                        Vec::new(),
-                        vec![InlinedBlobWithDigest {
-                            blob: full_contents.into_bytes(),
-                            digest: file.digest.to_re(),
-                            ..Default::default()
-                        }],
-                        Default::default(),
-                    )
-                    .await?;
-                Ok(())
-            }
-            _ => Err(anyhow::Error::msg("Expected a file, but did not get one")),
-        }
     }
 
     async fn remove_path_recursive(
