@@ -20,13 +20,13 @@ use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::result::SharedResult;
 use buck2_core::target::TargetLabel;
+use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use gazebo::prelude::*;
 use indexmap::Equivalent;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use thiserror::Error;
 
-use crate::attrs::AttrConfigurationContext;
 use crate::configuration::execution::ExecutionPlatform;
 use crate::configuration::execution::ExecutionPlatformResolution;
 

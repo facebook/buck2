@@ -18,6 +18,7 @@ use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use gazebo::prelude::*;
 use once_cell::sync::Lazy;
 use starlark::values::string::STRING_TYPE;
@@ -38,7 +39,6 @@ use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::attr_type::query::QueryAttrType;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
-use crate::attrs::AttrConfigurationContext;
 use crate::attrs::CoercedAttr;
 use crate::attrs::CoercedAttrTraversal;
 use crate::attrs::ConfiguredAttr;
@@ -615,6 +615,7 @@ impl ConfiguredMacro {
 #[cfg(test)]
 mod tests {
     use buck2_core::target::TargetLabel;
+    use buck2_node::attrs::configuration_context::AttrConfigurationContext;
     use starlark::environment::GlobalsBuilder;
     use starlark::environment::Module;
 
@@ -624,7 +625,6 @@ mod tests {
     use crate::attrs::attr_type::AttrType;
     use crate::attrs::configurable::AttrIsConfigurable;
     use crate::attrs::testing::*;
-    use crate::attrs::AttrConfigurationContext;
 
     trait GetMacroDeps {
         type DepsType;

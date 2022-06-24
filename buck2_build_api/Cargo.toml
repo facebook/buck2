@@ -13,6 +13,7 @@ blake3 = "0.3.7"
 buck2_bxl_core = { path = "../buck2_bxl_core" }
 buck2_core = { path = "../buck2_core" }
 buck2_common = { path = "../buck2_common" }
+buck2_node = { path = "../buck2_node" }
 buck2_query = { path = "../buck2_query" }
 buck2_query_parser = { path = "../buck2_query_parser" }
 buck2_build_api_derive = { path = "../buck2_build_api_derive" }

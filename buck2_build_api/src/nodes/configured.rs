@@ -429,7 +429,7 @@ impl ConfiguredTargetNode {
                 attr.configure(&AttrConfigurationContextImpl {
                     resolved_cfg: &self.0.resolved_configuration,
                     exec_cfg: &self.0.execution_platform_resolution.cfg(),
-                    resolved_transitions: &self.0.resolved_transition_configurations,
+                    resolved_transitions: &self.0.resolved_transition_configurations.0,
                     platform_cfgs: &self.0.platform_cfgs,
                 })
                 .expect("checked attr configuration in constructor"),
@@ -442,7 +442,7 @@ impl ConfiguredTargetNode {
             v.configure(&AttrConfigurationContextImpl {
                 resolved_cfg: &self.0.resolved_configuration,
                 exec_cfg: &self.0.execution_platform_resolution.cfg(),
-                resolved_transitions: &self.0.resolved_transition_configurations,
+                resolved_transitions: &self.0.resolved_transition_configurations.0,
                 platform_cfgs: &self.0.platform_cfgs,
             })
             .expect("checked attr configuration in constructor")

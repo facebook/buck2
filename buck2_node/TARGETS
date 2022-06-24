@@ -5,4 +5,10 @@ rust_library(
     name = "buck2_node",
     srcs = glob(["src/**/*.rs"]),
     crate_root = "src/lib.rs",
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:indexmap",
+        "//buck2/buck2_core:buck2_core",
+        "//buck2/gazebo/gazebo:gazebo",
+    ],
 )

@@ -20,6 +20,7 @@ use buck2_core::configuration::ConfigurationData;
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::selector::Selector;
 use buck2_interpreter::selector::SelectorGen;
+use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use serde::Serialize;
@@ -34,7 +35,6 @@ use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
-use crate::attrs::AttrConfigurationContext;
 use crate::attrs::AttrLiteral;
 use crate::attrs::CoercedAttrTraversal;
 use crate::attrs::ConfiguredAttr;
@@ -457,12 +457,12 @@ mod tests {
     use buck2_core::configuration::ConfigurationData;
     use buck2_core::target::testing::TargetLabelExt;
     use buck2_core::target::TargetLabel;
+    use buck2_node::attrs::configuration_context::AttrConfigurationContext;
     use gazebo::prelude::Dupe;
     use indexmap::IndexMap;
 
     use crate::attrs::attr_type::attr_literal::AttrLiteral;
     use crate::attrs::coerced_attr::CoercedAttr;
-    use crate::attrs::AttrConfigurationContext;
     use crate::attrs::OrderedMap;
 
     #[test]

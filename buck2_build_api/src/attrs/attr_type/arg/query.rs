@@ -11,6 +11,7 @@ use std::fmt;
 use std::fmt::Display;
 
 use buck2_core::target::ConfiguredTargetLabel;
+use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use gazebo::prelude::*;
 use starlark::values::FrozenRef;
 
@@ -22,7 +23,6 @@ use crate::attrs::attr_type::arg::QueryExpansion;
 use crate::attrs::attr_type::attr_literal::AttrConfig;
 use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
 use crate::attrs::attr_type::query::QueryAttrBase;
-use crate::attrs::AttrConfigurationContext;
 use crate::attrs::CoercedAttr;
 use crate::attrs::CoercedAttrTraversal;
 use crate::attrs::ConfiguredAttr;

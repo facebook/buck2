@@ -15,6 +15,7 @@ use std::sync::Arc;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use derive_more::Display;
 use gazebo::dupe::Dupe;
 use serde_json::to_value;
@@ -33,7 +34,6 @@ use crate::attrs::attr_type::dep::ProviderIdSet;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
-use crate::attrs::AttrConfigurationContext;
 use crate::attrs::ConfiguredAttr;
 
 #[derive(Debug, PartialEq, Eq, Hash)]

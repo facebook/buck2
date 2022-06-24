@@ -7,4 +7,4 @@
  * of this source tree.
  */
 
-pub mod attrs;
+pub mod configuration_context;

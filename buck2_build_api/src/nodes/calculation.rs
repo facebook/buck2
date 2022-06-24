@@ -24,6 +24,7 @@ use buck2_core::result::SharedResult;
 use buck2_core::result::ToSharedResultExt;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
+use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -36,7 +37,6 @@ use starlark::collections::SmallSet;
 
 use crate::attrs::attr_type::attr_literal::ConfiguredAttrTraversal;
 use crate::attrs::configured_attr::ConfiguredAttr;
-use crate::attrs::AttrConfigurationContext;
 use crate::calculation::BuildErrors;
 use crate::configuration::execution::ExecutionPlatform;
 use crate::configuration::execution::ExecutionPlatformResolution;

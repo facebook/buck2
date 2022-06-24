@@ -45,7 +45,6 @@
 //! receive a list of files in the implementation. The intermediate form of that
 //! may be strings or targets or some other thing (e.g. a lazy glob, maybe).
 
-use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -57,19 +56,13 @@ use attr_type::dep::UnconfiguredExplicitConfiguredDep;
 use attr_type::split_transition_dep::ConfiguredSplitTransitionDep;
 use attr_type::split_transition_dep::SplitTransitionDep;
 use buck2_core::buck_path::BuckPath;
-use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
-use buck2_core::configuration::Configuration;
-use buck2_core::configuration::ConfigurationData;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
-use buck2_core::result::ToSharedResultExt;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
 use either::Either;
-use gazebo::prelude::*;
-use indexmap::IndexMap;
 use starlark::collections::small_map;
 use starlark::collections::SmallMap;
 
@@ -132,60 +125,6 @@ pub trait AttrCoercionContext {
 
     /// Attempt to convert a string into a BuckPath
     fn coerce_path(&self, value: &str, allow_directory: bool) -> anyhow::Result<CoercedPath>;
-}
-
-/// The context for attribute configuration. Contains information about the
-/// configuration.
-pub(crate) trait AttrConfigurationContext {
-    /// Return the content of the resolved `config_setting` on match.
-    fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigurationData>;
-
-    fn cfg(&self) -> &Configuration;
-
-    fn exec_cfg(&self) -> &Configuration;
-
-    fn platform_cfg(&self, label: &TargetLabel) -> anyhow::Result<&Configuration>;
-
-    /// Map of transition ids resolved to configurations
-    /// using current node configuration as input.
-    fn resolved_transitions(&self) -> &IndexMap<Arc<TransitionId>, Arc<TransitionApplied>>;
-
-    fn configure_target(&self, label: &ProvidersLabel) -> ConfiguredProvidersLabel {
-        label.configure(self.cfg().dupe())
-    }
-
-    fn configure_exec_target(&self, label: &ProvidersLabel) -> ConfiguredProvidersLabel {
-        label.configure(self.exec_cfg().dupe())
-    }
-
-    /// Configure a transition target.
-    fn configure_transition_target(
-        &self,
-        label: &ProvidersLabel,
-        tr: &TransitionId,
-    ) -> anyhow::Result<ConfiguredProvidersLabel> {
-        let cfg = self
-            .resolved_transitions()
-            .get(tr)
-            .expect("internal error: no resolved transition");
-        Ok(label.configure(cfg.single().shared_error()?.dupe()))
-    }
-
-    fn configure_split_transition_target(
-        &self,
-        label: &ProvidersLabel,
-        tr: &TransitionId,
-    ) -> anyhow::Result<BTreeMap<String, ConfiguredProvidersLabel>> {
-        let cfg = self
-            .resolved_transitions()
-            .get(tr)
-            .expect("internal error: no resolved transition");
-        let split = cfg.split()?;
-        Ok(split
-            .iter()
-            .map(|(k, v)| (k.to_owned(), label.configure(v.dupe())))
-            .collect())
-    }
 }
 
 pub(crate) trait CoercedAttrTraversal<'a> {

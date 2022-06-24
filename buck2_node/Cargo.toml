@@ -3,3 +3,11 @@ name = "buck2_node"
 version = "0.1.0"
 edition = "2021"
 description = "Target graph node"
+
+[dependencies]
+anyhow = "1.0.51"
+indexmap = { version = "1.6", features = ["serde-1"] }
+
+gazebo = { path = "../gazebo/gazebo" }
+
+buck2_core = { path = "../buck2_core" }

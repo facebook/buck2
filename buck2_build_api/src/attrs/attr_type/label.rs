@@ -8,6 +8,7 @@
  */
 
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use gazebo::dupe::*;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
@@ -17,7 +18,6 @@ use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
-use crate::attrs::AttrConfigurationContext;
 use crate::attrs::AttrLiteral;
 use crate::attrs::ConfiguredAttr;
 

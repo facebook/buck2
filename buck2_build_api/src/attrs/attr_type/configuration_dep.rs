@@ -11,6 +11,7 @@ use anyhow::anyhow;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
+use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use gazebo::prelude::*;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
@@ -22,7 +23,6 @@ use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
-use crate::attrs::AttrConfigurationContext;
 use crate::attrs::CoercedAttr;
 use crate::attrs::ConfiguredAttr;
 
