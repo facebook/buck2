@@ -42,8 +42,6 @@ enum ArgExpansionError {
     PythonOutputNotUtf8 { path: String },
     #[error("No flag file path after @ symbol in argfile argument")]
     MissingFlagFilePathInArgfile,
-    #[error("Failed to compute parent dir of argfile")]
-    FailedToComputeParentOfArgFile,
     #[error("Python argfile at `{path}` exited with non-zero status, stderr: {err:?}")]
     PythonExecutableFailed { path: String, err: String },
     #[error("Python argfile command ({cmd:?}) execution failed")]
@@ -189,13 +187,12 @@ enum ArgFile {
 //       Buck v1 for reference.
 pub(crate) fn expand_argfiles(args: Vec<String>, cwd: &Path) -> anyhow::Result<Vec<String>> {
     let abs_cwd = AbsPath::new(cwd)?;
-    expand_argfiles_with_context(args, &ArgExpansionContext::new(abs_cwd), abs_cwd)
+    expand_argfiles_with_context(args, &ArgExpansionContext::new(abs_cwd))
 }
 
 fn expand_argfiles_with_context(
     args: Vec<String>,
     context: &ArgExpansionContext,
-    current_path: &AbsPath,
 ) -> anyhow::Result<Vec<String>> {
     let mut expanded_args = Vec::new();
     let mut arg_iterator = args.into_iter();
@@ -213,8 +210,7 @@ fn expand_argfiles_with_context(
                     None => return Err(anyhow!(ArgExpansionError::MissingFlagFilePath)),
                 };
                 // TODO: We want to detect cyclic inclusion
-                let expanded_flagfile_args =
-                    resolve_and_expand_argfile(&flagfile, context, current_path)?;
+                let expanded_flagfile_args = resolve_and_expand_argfile(&flagfile, context)?;
                 expanded_args.extend(expanded_flagfile_args);
             }
             next_arg if next_arg.starts_with('@') => {
@@ -223,8 +219,7 @@ fn expand_argfiles_with_context(
                     return Err(anyhow!(ArgExpansionError::MissingFlagFilePathInArgfile));
                 }
                 // TODO: We want to detect cyclic inclusion
-                let expanded_flagfile_args =
-                    resolve_and_expand_argfile(flagfile, context, current_path)?;
+                let expanded_flagfile_args = resolve_and_expand_argfile(flagfile, context)?;
                 expanded_args.extend(expanded_flagfile_args);
             }
             _ => expanded_args.push(next_arg),
@@ -239,22 +234,11 @@ fn expand_argfiles_with_context(
 fn resolve_and_expand_argfile(
     path: &str,
     context: &ArgExpansionContext,
-    current_path: &AbsPath,
 ) -> anyhow::Result<Vec<String>> {
     let flagfile = resolve_flagfile(path, context)
         .with_context(|| format!("Error resolving flagfile `{}`", path))?;
     let flagfile_lines = expand_argfile_contents(&flagfile)?;
-    let effective_cwd = match &flagfile {
-        ArgFile::Path(file_path) | ArgFile::PythonExecutable(file_path, _) => {
-            // Cell resolution inside flag files must be performed relative to the cell
-            // which contains the flag file itself.
-            file_path
-                .parent()
-                .ok_or_else(|| anyhow!(ArgExpansionError::FailedToComputeParentOfArgFile))?
-        }
-        ArgFile::Stdin => current_path,
-    };
-    expand_argfiles_with_context(flagfile_lines, context, effective_cwd)
+    expand_argfiles_with_context(flagfile_lines, context)
 }
 
 fn expand_argfile_contents(flagfile: &ArgFile) -> anyhow::Result<Vec<String>> {
