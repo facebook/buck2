@@ -23,19 +23,18 @@ use std::ops::Deref;
 use gazebo::coerce::Coerce;
 use gazebo::prelude::*;
 
-use crate as starlark;
 use crate::collections::idhasher::mix_u32;
 use crate::collections::StarlarkHasher;
 
 /// A hash value.
 ///
 /// Contained value must be compatible with a value produced by `StarlarkHasher`
-#[derive(Hash, Eq, PartialEq, Clone, Copy, Dupe, Debug, Default, Trace)]
+#[derive(Hash, Eq, PartialEq, Clone, Copy, Dupe, Debug, Default)]
 // Hash value must be well swizzled.
 pub struct StarlarkHashValue(u32);
 
 /// A key and its hash.
-#[derive(PartialEq, Eq, Debug, Clone, Copy, Trace, Coerce)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Coerce)]
 #[repr(C)]
 pub struct Hashed<K> {
     hash: StarlarkHashValue,
