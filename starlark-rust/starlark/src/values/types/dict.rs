@@ -37,11 +37,11 @@ use gazebo::coerce::coerce;
 use gazebo::coerce::Coerce;
 use serde::Serialize;
 
-use crate::collections::equivalent::Equivalent;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::environment::Methods;
 use crate::environment::MethodsStatic;
+use crate::small_map::Equivalent;
 use crate::values::comparison::equals_small_map;
 use crate::values::display::display_keyed_container;
 use crate::values::error::ValueError;

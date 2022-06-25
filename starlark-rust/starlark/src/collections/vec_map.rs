@@ -19,9 +19,9 @@ use std::mem;
 
 use gazebo::prelude::*;
 
-use crate::collections::equivalent::Equivalent;
 use crate::collections::hash::Hashed;
 use crate::collections::hash::StarlarkHashValue;
+use crate::small_map::Equivalent;
 
 // We define a lot of iterators on top of other iterators
 // so define a helper macro for that

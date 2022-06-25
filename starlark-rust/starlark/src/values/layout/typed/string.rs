@@ -26,9 +26,9 @@ use gazebo::coerce::CoerceKey;
 use gazebo::prelude::*;
 use serde::Serialize;
 
-use crate::collections::equivalent::Equivalent;
 use crate::collections::Hashed;
 use crate::sealed::Sealed;
+use crate::small_map::Equivalent;
 use crate::values::layout::static_string::VALUE_EMPTY_STRING;
 use crate::values::string::StarlarkStr;
 use crate::values::Freeze;

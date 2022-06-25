@@ -24,9 +24,9 @@ use std::iter::FromIterator;
 
 use gazebo::prelude::*;
 
-use crate::collections::equivalent::Equivalent;
 use crate::collections::small_map::SmallMap;
 use crate::collections::Hashed;
+use crate::small_map::Equivalent;
 
 /// An memory-efficient set with determinstic order, based on [`SmallMap`].
 #[derive(Clone, Default_)]

@@ -33,7 +33,6 @@ use gazebo::coerce::CoerceKey;
 use gazebo::prelude::*;
 use hashbrown::raw::RawTable;
 
-use crate::collections::equivalent::Equivalent;
 use crate::collections::hash::Hashed;
 use crate::collections::vec_map::Bucket;
 use crate::collections::vec_map::VMIntoIter;
@@ -41,6 +40,7 @@ use crate::collections::vec_map::VMIter;
 use crate::collections::vec_map::VMIterMut;
 use crate::collections::vec_map::VecMap;
 use crate::collections::StarlarkHasher;
+use crate::small_map::Equivalent;
 
 /// Max size of map when we do not create index.
 // TODO: benchmark, is this the right threshold
