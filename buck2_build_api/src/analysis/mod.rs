@@ -114,7 +114,7 @@ impl AnalysisResult {
 // that are NOT tied to that module. Must claim ownership of them via `add_reference` before returning them.
 struct RuleAnalysisAttrResolutionContext<'v> {
     module: &'v Module,
-    dep_analysis_results: HashMap<&'v ConfiguredProvidersLabel, FrozenProviderCollectionValue>,
+    dep_analysis_results: HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>,
     query_results: HashMap<String, Arc<AnalysisQueryResult>>,
 }
 
@@ -127,9 +127,10 @@ impl<'v> AttrResolutionContext for RuleAnalysisAttrResolutionContext<'v> {
         &self,
         target: &ConfiguredProvidersLabel,
     ) -> anyhow::Result<FrozenProviderCollectionValue> {
-        match self.dep_analysis_results.get(target) {
+        match self.dep_analysis_results.get(target.target()) {
             None => Err(ResolutionError::MissingDep(target.clone()).into()),
             Some(x) => {
+                let x = x.lookup_inner(target)?;
                 // IMPORTANT: Anything given back to the user must be kept alive
                 self.module.frozen_heap().add_reference(x.value().owner());
                 Ok(x.dupe())
@@ -180,7 +181,7 @@ pub trait RuleImplFunction {
 /// Container for the environment that analysis implementation functions should run in
 struct AnalysisEnv<'a> {
     impl_function: &'a dyn RuleImplFunction,
-    deps: HashMap<&'a ConfiguredProvidersLabel, FrozenProviderCollectionValue>,
+    deps: HashMap<&'a ConfiguredTargetLabel, FrozenProviderCollectionValue>,
     query_results: HashMap<String, Arc<AnalysisQueryResult>>,
     execution_platform: &'a ExecutionPlatformResolution,
     label: ConfiguredTargetLabel,
@@ -188,7 +189,7 @@ struct AnalysisEnv<'a> {
 
 fn run_analysis<'a>(
     label: &ConfiguredTargetLabel,
-    results: Vec<(&'a ConfiguredProvidersLabel, AnalysisResult)>,
+    results: Vec<(&'a ConfiguredTargetLabel, AnalysisResult)>,
     query_results: HashMap<String, Arc<AnalysisQueryResult>>,
     execution_platform: &'a ExecutionPlatformResolution,
     impl_function: &'a dyn RuleImplFunction,
@@ -209,7 +210,7 @@ impl<'a> AnalysisEnv<'a> {
     /// Create a new `AnalysisEnv`, ensuring that all heaps are kept alive that need to be
     fn new(
         label: &ConfiguredTargetLabel,
-        results: Vec<(&'a ConfiguredProvidersLabel, AnalysisResult)>,
+        results: Vec<(&'a ConfiguredTargetLabel, AnalysisResult)>,
         query_results: HashMap<String, Arc<AnalysisQueryResult>>,
         execution_platform: &'a ExecutionPlatformResolution,
         impl_function: &'a dyn RuleImplFunction,
@@ -217,9 +218,9 @@ impl<'a> AnalysisEnv<'a> {
         let deps =
             results
                 .into_iter()
-                .map(|(label, result)| Ok((label, result.lookup_inner(label)?)))
+                .map(|(label, result)| Ok((label, result.providers().dupe())))
                 .collect::<anyhow::Result<
-                    HashMap<&'a ConfiguredProvidersLabel, FrozenProviderCollectionValue>,
+                    HashMap<&'a ConfiguredTargetLabel, FrozenProviderCollectionValue>,
                 >>()?;
 
         Ok(AnalysisEnv {

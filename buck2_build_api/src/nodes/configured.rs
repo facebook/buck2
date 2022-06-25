@@ -317,8 +317,12 @@ impl ConfiguredTargetNode {
     /// (it may be missing things like toolchain deps or other things that are determined
     /// later in the build process).
     // TODO(cjhopman): Should this include configuration deps? Should it include the configuration deps that were inspected resolving selects?
-    pub fn deps(&self) -> impl Iterator<Item = &ConfiguredProvidersLabel> {
-        self.0.deps.iter().chain(self.0.exec_deps.iter())
+    pub fn deps(&self) -> impl Iterator<Item = &ConfiguredTargetLabel> {
+        self.0
+            .deps
+            .iter()
+            .chain(self.0.exec_deps.iter())
+            .map(|v| v.target())
     }
 
     pub fn inputs(&self) -> impl Iterator<Item = CellPath> + '_ {
@@ -374,12 +378,12 @@ impl ConfiguredTargetNode {
         traversal.queries.into_iter()
     }
 
-    pub fn target_deps(&self) -> impl Iterator<Item = &ConfiguredProvidersLabel> {
-        self.0.deps.iter()
+    pub fn target_deps(&self) -> impl Iterator<Item = &ConfiguredTargetLabel> {
+        self.0.deps.iter().map(|v| v.target())
     }
 
-    pub fn execution_deps(&self) -> impl Iterator<Item = &ConfiguredProvidersLabel> {
-        self.0.exec_deps.iter()
+    pub fn execution_deps(&self) -> impl Iterator<Item = &ConfiguredTargetLabel> {
+        self.0.exec_deps.iter().map(|v| v.target())
     }
 
     /// Return the `tests` declared for this target.

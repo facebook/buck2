@@ -147,7 +147,7 @@ async fn get_configuration_graph_node(
             // is not deterministic here, then it will be non-deterministic in e.g. query_targets.
             let deps = keep_going::try_join_all(
                 node.deps()
-                    .map(|label| get_configuration_graph_node(ctx, label.target()))
+                    .map(|label| get_configuration_graph_node(ctx, label))
                     .collect::<FuturesOrdered<_>>(),
             )
             .await
@@ -266,7 +266,7 @@ async fn get_analysis_result(
             .chain(configured_node.execution_deps())
             .map(async move |dep| {
                 let res = ctx
-                    .get_analysis_result(dep.target())
+                    .get_analysis_result(dep)
                     .await
                     .and_then(|v| v.require_compatible().shared_error());
                 res.map(|x| (dep, x))
