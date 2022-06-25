@@ -146,18 +146,25 @@ impl<'v, V: ValueLike<'v>> TransitiveSetGen<V> {
         definition.ptr_eq(self.definition.to_value())
     }
 
+    pub fn get_projection_value(&self, projection: usize) -> anyhow::Result<Option<V>> {
+        match &self.node {
+            None => Ok(None),
+            Some(node) => Ok(Some(
+                *node
+                    .args_projections
+                    .get(projection)
+                    .context("Invalid projection id")?,
+            )),
+        }
+    }
+
     pub fn get_projection_sub_inputs(
         &self,
         projection: usize,
     ) -> anyhow::Result<Vec<ArtifactGroup>> {
         let mut sub_inputs = Vec::new();
 
-        if let Some(node) = self.node.as_ref() {
-            let projection = node
-                .args_projections
-                .get(projection)
-                .context("Invalid projection id")?;
-
+        if let Some(projection) = self.get_projection_value(projection)? {
             let mut visitor = SimpleCommandLineArtifactVisitor::new();
             projection
                 .to_value()
