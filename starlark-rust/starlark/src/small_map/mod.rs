@@ -19,7 +19,9 @@
 
 mod equivalent;
 mod hash_value;
+mod hashed;
 mod mix_u32;
 
 pub use equivalent::Equivalent;
 pub use hash_value::SmallHashValue;
+pub use hashed::SmallHashed;
