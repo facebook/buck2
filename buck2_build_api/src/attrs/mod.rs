@@ -62,7 +62,6 @@ use crate::attrs::coerced_attr::CoercedAttr;
 pub(crate) mod analysis;
 pub mod attr_type;
 pub mod coerced_attr;
-pub mod configurable;
 pub mod configured_attr;
 
 #[cfg(test)]

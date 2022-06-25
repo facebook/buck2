@@ -9,13 +9,13 @@
 
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::one_of::OneOfAttrType;
+use buck2_node::attrs::configurable::AttrIsConfigurable;
 use itertools::Itertools;
 use starlark::values::Value;
 
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::attr_type::AttrTypeExt;
-use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::CoercedAttr;
 

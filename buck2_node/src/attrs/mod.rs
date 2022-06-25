@@ -9,6 +9,7 @@
 
 pub mod attr_type;
 pub mod coerced_path;
+pub mod configurable;
 pub mod configuration_context;
 pub mod configured_attr;
 pub mod configured_traversal;

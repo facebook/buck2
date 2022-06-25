@@ -97,11 +97,11 @@ pub mod hacks {
 mod tests {
     use buck2_core::bzl::ImportPath;
     use buck2_node::attrs::attr_type::AttrType;
+    use buck2_node::attrs::configurable::AttrIsConfigurable;
     use starlark::values::Heap;
 
     use super::*;
     use crate::attrs::attr_type::AttrTypeExt;
-    use crate::attrs::configurable::AttrIsConfigurable;
     use crate::interpreter::rule_defs::attr::BuildAttrCoercionContext;
     use crate::interpreter::testing::cells;
 

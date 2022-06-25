@@ -27,6 +27,7 @@ use buck2_node::attrs::attr_type::arg::StringWithMacrosPart;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::query::QueryAttrType;
 use buck2_node::attrs::attr_type::query::QueryMacroBase;
+use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
@@ -43,7 +44,6 @@ use crate::attrs::attr_type::arg::value::ResolvedStringWithMacros;
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::attr_type::query::QueryAttrTypeExt;
-use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::AttrCoercionContext;
 use crate::attrs::CoercedAttr;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
@@ -439,6 +439,7 @@ impl CommandLineBuilder for SpaceSeparatedCommandLineBuilder<'_> {
 mod tests {
     use buck2_core::target::TargetLabel;
     use buck2_node::attrs::attr_type::AttrType;
+    use buck2_node::attrs::configurable::AttrIsConfigurable;
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
     use starlark::environment::GlobalsBuilder;
     use starlark::environment::Module;
@@ -447,7 +448,6 @@ mod tests {
     use crate::attrs::attr_type::attr_literal::CoercedDepsCollector;
     use crate::attrs::attr_type::attr_literal::ConfiguredAttrInfo;
     use crate::attrs::attr_type::AttrTypeExt;
-    use crate::attrs::configurable::AttrIsConfigurable;
     use crate::attrs::testing::*;
 
     trait GetMacroDeps {
