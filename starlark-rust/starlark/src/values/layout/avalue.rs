@@ -48,6 +48,7 @@ use crate::values::none::NoneType;
 use crate::values::num::Num;
 use crate::values::string::StarlarkStr;
 use crate::values::traits::StarlarkValueDyn;
+use crate::values::types::any_array::AnyArray;
 use crate::values::types::array::Array;
 use crate::values::types::tuple::FrozenTuple;
 use crate::values::types::tuple::Tuple;
@@ -212,6 +213,12 @@ pub(crate) fn array_avalue<'v>(
     cap: u32,
 ) -> impl AValue<'v, StarlarkValue = Array<'v>, ExtraElem = Value<'v>> {
     AValueImpl(Direct, unsafe { Array::new(0, cap) })
+}
+
+pub(crate) fn any_array_avalue<T: Debug + 'static>(
+    cap: usize,
+) -> impl AValue<'static, StarlarkValue = AnyArray<T>, ExtraElem = T> {
+    AValueImpl(Direct, unsafe { AnyArray::new(cap) })
 }
 
 pub(crate) fn basic_ref<T: StarlarkValueBasic<'static>>(x: &'static T) -> AValueDyn<'static> {
@@ -586,6 +593,30 @@ impl<'v> AValue<'v> for AValueImpl<Direct, Array<'v>> {
         ));
         MaybeUninit::write_slice(extra, content);
         v
+    }
+}
+
+impl<'v, T: Debug + 'static> AValue<'v> for AValueImpl<Direct, AnyArray<T>> {
+    type StarlarkValue = AnyArray<T>;
+    type ExtraElem = T;
+
+    fn extra_len(&self) -> usize {
+        self.1.len
+    }
+
+    fn offset_of_extra() -> usize {
+        AnyArray::<T>::offset_of_content()
+    }
+
+    unsafe fn heap_freeze(
+        _me: *mut AValueRepr<Self>,
+        _freezer: &Freezer,
+    ) -> anyhow::Result<FrozenValue> {
+        panic!("AnyArray for now can only be allocated in FrozenHeap");
+    }
+
+    unsafe fn heap_copy(_me: *mut AValueRepr<Self>, _tracer: &Tracer<'v>) -> Value<'v> {
+        panic!("AnyArray for now can only be allocated in FrozenHeap");
     }
 }
 

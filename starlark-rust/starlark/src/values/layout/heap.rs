@@ -48,6 +48,7 @@ use crate::values::layout::arena::AValueRepr;
 use crate::values::layout::arena::Arena;
 use crate::values::layout::arena::HeapSummary;
 use crate::values::layout::arena::Reservation;
+use crate::values::layout::avalue::any_array_avalue;
 use crate::values::layout::avalue::array_avalue;
 use crate::values::layout::avalue::complex;
 use crate::values::layout::avalue::complex_no_freeze;
@@ -347,6 +348,16 @@ impl FrozenHeap {
         self.alloc_any(Wrapper(value)).map(|r| &r.0)
     }
 
+    fn do_alloc_any_slice_display_from_debug<T: Debug + Send + Sync + Clone>(
+        &self,
+        values: &[T],
+    ) -> FrozenRef<'static, [T]> {
+        let (_any_array, content) = self.arena.alloc_extra(any_array_avalue(values.len()));
+        // Drop lifetime.
+        let content = unsafe { transmute!(&mut [MaybeUninit<T>], &mut [MaybeUninit<T>], content) };
+        FrozenRef::new(&*MaybeUninit::write_slice_cloned(content, values))
+    }
+
     /// Allocate a slice in the frozen heap.
     pub(crate) fn alloc_any_slice_display_from_debug<T: Debug + Send + Sync + Clone>(
         &self,
@@ -358,9 +369,7 @@ impl FrozenHeap {
             self.alloc_any_display_from_debug(values[0].clone())
                 .map(|r| slice::from_ref(r))
         } else {
-            // TODO(nga): do not allocate `Vec`
-            self.alloc_any_display_from_debug(values.to_vec())
-                .map(|r| r.as_slice())
+            self.do_alloc_any_slice_display_from_debug(values)
         }
     }
 

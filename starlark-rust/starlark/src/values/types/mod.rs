@@ -16,6 +16,7 @@
  */
 
 pub mod any;
+pub mod any_array;
 pub mod array;
 pub mod bigint;
 pub mod bool;
