@@ -81,6 +81,7 @@ rust_library(
         "fbsource//third-party/rust:siphasher",
         "fbsource//third-party/rust:sync_wrapper",
         "fbsource//third-party/rust:tempfile",
+        "fbsource//third-party/rust:termimad",
         "fbsource//third-party/rust:termwiz",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:threadpool",

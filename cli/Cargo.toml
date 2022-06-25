@@ -71,6 +71,7 @@ starlark = { version = "0.8", path = "../starlark-rust/starlark" }
 superconsole = { version = "0.1.0", path = "../superconsole" }
 sync_wrapper = "0.1.0"
 tempfile = "3.1"
+termimad = "0.20.1"
 termwiz = "0.15"
 test_api = { path = "../test_api" }
 thiserror = "1.0.9"

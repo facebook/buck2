@@ -6,6 +6,11 @@ use itertools::Itertools;
 
 use crate::query::syntax::simple::functions::helpers::QueryArgType;
 
+pub struct MarkdownOptions {
+    /// Whether to include alt text (used for expression type links).
+    pub include_alt_text: bool,
+}
+
 // Instances created by #[query_module]
 pub struct ArgDescription {
     pub name: String,
@@ -19,7 +24,7 @@ impl ArgDescription {
             "{}: {}",
             &self.name,
             self.repr_format
-                .replace("{}", &format!("_\\<{}\\>_", self.arg_type.repr()))
+                .replace("{}", &format!("*{}*", self.arg_type.repr()))
         )
     }
 }
@@ -102,7 +107,7 @@ pub struct QueryEnvironmentDescription {
 }
 
 impl QueryEnvironmentDescription {
-    pub fn render_markdown(&self) -> String {
+    pub fn render_markdown(&self, options: &MarkdownOptions) -> String {
         format!(
             indoc::indoc! {r#"
             # {}
@@ -114,22 +119,19 @@ impl QueryEnvironmentDescription {
             "#},
             &self.name,
             QueryArgType::into_enum_iter()
-                .map(render_arg_type_markdown)
+                .map(|v| render_arg_type_markdown(v, options))
                 .join("\n\n"),
             self.mods.iter().map(|v| v.render_markdown()).join("\n\n")
         )
     }
 }
 
-fn render_arg_type_markdown(v: QueryArgType) -> String {
-    format!(
-        indoc::indoc! {r#"
-        *[\<{}\>]: {}
-        - _{}_: {}
-    "#},
-        v.repr(),
-        v.short_description(),
-        v.repr(),
-        v.description()
-    )
+fn render_arg_type_markdown(v: QueryArgType, options: &MarkdownOptions) -> String {
+    let mut rendered = if options.include_alt_text {
+        format!("*[{}]: {}\n", v.repr(), v.short_description(),)
+    } else {
+        String::new()
+    };
+    rendered.push_str(&format!("- *{}*: {}", v.repr(), v.description()));
+    rendered
 }
