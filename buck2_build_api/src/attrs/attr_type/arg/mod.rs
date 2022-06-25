@@ -315,10 +315,10 @@ pub(crate) trait UnconfiguredMacroExt {
 
         // TODO(cjhopman): errors when args aren't the right size (too many, or separator for non-separator query)
 
-        Ok(MacroBase::Query(box QueryMacroBase::new(
+        Ok(MacroBase::Query(box QueryMacroBase {
             expansion_type,
-            QueryAttrType::coerce(ctx, query)?,
-        )))
+            query: QueryAttrType::coerce(ctx, query)?,
+        }))
     }
 
     fn new_user_unkeyed_placeholder(var_name: String) -> UnconfiguredMacro {

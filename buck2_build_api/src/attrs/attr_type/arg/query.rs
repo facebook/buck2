@@ -11,7 +11,6 @@ use std::fmt;
 use std::fmt::Display;
 
 use buck2_core::target::ConfiguredTargetLabel;
-use buck2_node::attrs::attr_type::query::QueryAttrBase;
 use buck2_node::attrs::attr_type::query::QueryMacroBase;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
@@ -130,17 +129,6 @@ impl ResolvedQueryMacro {
 }
 
 pub(crate) trait UnconfiguredQueryMacroBaseExt {
-    #[allow(clippy::new_ret_no_self)]
-    fn new(
-        expansion_type: QueryExpansion,
-        query: QueryAttrBase<CoercedAttr>,
-    ) -> QueryMacroBase<CoercedAttr> {
-        QueryMacroBase {
-            expansion_type,
-            query,
-        }
-    }
-
     fn traverse<'a>(&'a self, traversal: &mut dyn CoercedAttrTraversal<'a>) -> anyhow::Result<()>;
 
     fn configure(
