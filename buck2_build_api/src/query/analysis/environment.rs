@@ -41,6 +41,7 @@ use ref_cast::RefCast;
 use thiserror::Error;
 
 use crate::analysis::configured_graph::ConfiguredGraphNode;
+use crate::nodes::unconfigured::AttrInspectOptions;
 
 #[derive(Debug, Error)]
 enum AnalysisQueryError {
@@ -342,14 +343,14 @@ impl QueryTarget for ConfiguredGraphNodeRef {
         &self,
         mut func: F,
     ) -> Result<(), E> {
-        for (name, attr) in self.0.node().attrs() {
+        for (name, attr) in self.0.node().attrs(AttrInspectOptions::All) {
             func(name, &attr)?;
         }
         Ok(())
     }
 
     fn map_attr<R, F: FnMut(Option<&Self::Attr>) -> R>(&self, key: &str, mut func: F) -> R {
-        func(self.0.node().get(key).as_ref())
+        func(self.0.node().get(key, AttrInspectOptions::All).as_ref())
     }
 
     fn inputs_for_each<E, F: FnMut(CellPath) -> Result<(), E>>(

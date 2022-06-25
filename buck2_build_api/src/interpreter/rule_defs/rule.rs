@@ -319,6 +319,7 @@ mod tests {
     use crate::interpreter::testing::Tester;
     use crate::nodes::attr_spec::AttributeSpec;
     use crate::nodes::unconfigured::testing::targets_to_json;
+    use crate::nodes::unconfigured::AttrInspectOptions;
 
     #[test]
     fn rule_creates_callable() -> anyhow::Result<()> {
@@ -470,7 +471,7 @@ mod tests {
                 "visibility": [],
             },
         });
-        let actual = targets_to_json(&result)?;
+        let actual = targets_to_json(&result, AttrInspectOptions::All)?;
         assert_eq!(expected, actual, "`{:#?}` != `{:#?}`", expected, actual);
         Ok(())
     }

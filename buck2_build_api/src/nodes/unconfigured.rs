@@ -44,6 +44,29 @@ use crate::nodes::visibility::VisibilitySpecification;
 use crate::nodes::RuleType;
 use crate::nodes::StarlarkRuleType;
 
+#[derive(Clone, Dupe, Copy)]
+pub enum AttrInspectOptions {
+    DefaultOnly,
+    DefinedOnly,
+    All,
+}
+
+impl AttrInspectOptions {
+    pub fn include_defined(&self) -> bool {
+        match self {
+            AttrInspectOptions::DefaultOnly => false,
+            _ => true,
+        }
+    }
+
+    pub fn include_default(&self) -> bool {
+        match self {
+            AttrInspectOptions::DefinedOnly => false,
+            _ => true,
+        }
+    }
+}
+
 /// Map of target -> details of those targets within a build file.
 pub type TargetsMap = IndexMap<TargetName, TargetNode>;
 
@@ -160,8 +183,11 @@ impl TargetNode {
         let internals = ModuleInternals::from_context(eval)?;
         let package = internals.package();
 
-        let mut visibility = match attr_spec.attr_or_none(&attr_values, VISIBILITY_ATTRIBUTE_FIELD)
-        {
+        let mut visibility = match attr_spec.attr_or_none(
+            &attr_values,
+            VISIBILITY_ATTRIBUTE_FIELD,
+            AttrInspectOptions::All,
+        ) {
             Some(visibility) => parse_visibility(internals.attr_coercion_context(), visibility)
                 .context("When parsing `visibility` attribute")?,
             None => VisibilitySpecification::Default,
@@ -176,7 +202,7 @@ impl TargetNode {
         let label = TargetLabel::new(package.dupe(), target_name);
         let mut deps_cache = CoercedDepsCollector::new();
 
-        for (_, value) in attr_spec.attrs(&attr_values) {
+        for (_, value) in attr_spec.attrs(&attr_values, AttrInspectOptions::All) {
             value.traverse(&mut deps_cache)?;
         }
 
@@ -199,7 +225,10 @@ impl TargetNode {
     }
 
     pub fn get_default_target_platform(&self) -> Option<&TargetLabel> {
-        match self.attr_or_none(DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD) {
+        match self.attr_or_none(
+            DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD,
+            AttrInspectOptions::All,
+        ) {
             Some(v) => match v {
                 CoercedAttr::Literal(v) => match v {
                     AttrLiteral::None => None,
@@ -279,8 +308,8 @@ impl TargetNode {
         self.0.visibility.is_visible_to(target)
     }
 
-    pub fn attrs(&self) -> impl Iterator<Item = (&str, &CoercedAttr)> {
-        self.0.attr_spec.attrs(&self.0.attributes)
+    pub fn attrs(&self, opts: AttrInspectOptions) -> impl Iterator<Item = (&str, &CoercedAttr)> {
+        self.0.attr_spec.attrs(&self.0.attributes, opts)
     }
 
     pub fn platform_deps(&self) -> impl Iterator<Item = &TargetLabel> {
@@ -288,18 +317,22 @@ impl TargetNode {
     }
 
     /// Return `None` if attribute is not present or unknown.
-    pub fn attr_or_none(&self, key: &str) -> Option<&CoercedAttr> {
-        self.0.attr_spec.attr_or_none(&self.0.attributes, key)
+    pub fn attr_or_none(&self, key: &str, opts: AttrInspectOptions) -> Option<&CoercedAttr> {
+        self.0.attr_spec.attr_or_none(&self.0.attributes, key, opts)
     }
 
     /// Get attribute.
     ///
     /// * `None` if attribute is known but not set and no default.
     /// * error if attribute is unknown.
-    pub fn attr(&self, key: &str) -> anyhow::Result<Option<&CoercedAttr>> {
+    pub fn attr(
+        &self,
+        key: &str,
+        opts: AttrInspectOptions,
+    ) -> anyhow::Result<Option<&CoercedAttr>> {
         self.0
             .attr_spec
-            .attr(&self.0.attributes, key)
+            .attr(&self.0.attributes, key, opts)
             .with_context(|| format!("attribute `{}` not found", key))
     }
 
@@ -365,7 +398,7 @@ impl TargetNode {
         }
 
         let tests = self
-            .attr_or_none(TESTS_ATTRIBUTE_FIELD)
+            .attr_or_none(TESTS_ATTRIBUTE_FIELD, AttrInspectOptions::All)
             .expect("tests is an internal attribute field and will always be present");
 
         let mut traversal = TestCollector::default();
@@ -417,7 +450,7 @@ impl TargetNode {
             }
         }
         let mut traversal = InputsCollector { inputs: Vec::new() };
-        for (_, attr) in self.attrs() {
+        for (_, attr) in self.attrs(AttrInspectOptions::All) {
             attr.traverse(&mut traversal)
                 .expect("inputs collector shouldn't return errors");
         }
@@ -485,6 +518,7 @@ pub mod testing {
     use crate::interpreter::rule_defs::attr::Attribute;
     use crate::nodes::attr_values::AttrValues;
     use crate::nodes::hacks::value_to_json;
+    use crate::nodes::unconfigured::AttrInspectOptions;
     use crate::nodes::unconfigured::TargetNode;
     use crate::nodes::unconfigured::TargetNodeData;
     use crate::nodes::unconfigured::TargetsMap;
@@ -546,12 +580,12 @@ pub mod testing {
     /// Take a TargetsMap and convert it to a nice json representation. Adds in a __type__ attr
     /// for each target's values to make it clear what the rule type is. That can probably go
     /// away eventually.
-    pub fn targets_to_json(target: &TargetsMap) -> anyhow::Result<Value> {
+    pub fn targets_to_json(target: &TargetsMap, opts: AttrInspectOptions) -> anyhow::Result<Value> {
         let map: Map<String, Value> = target
             .iter()
             .map(|(target_name, values)| {
                 let mut json_values: Map<String, Value> = values
-                    .attrs()
+                    .attrs(opts)
                     .map(|(key, value)| Ok((key.to_owned(), value_to_json(value)?)))
                     .collect::<anyhow::Result<Map<String, Value>>>()?;
                 json_values.insert(

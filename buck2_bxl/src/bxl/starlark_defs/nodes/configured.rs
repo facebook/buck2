@@ -17,6 +17,7 @@ use buck2_build_api::attrs::configured_attr::ConfiguredAttrExt;
 use buck2_build_api::deferred::AnyValue;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_build_api::nodes::configured::ConfiguredTargetNode;
+use buck2_build_api::nodes::unconfigured::AttrInspectOptions;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_core::buck_path::BuckPath;
@@ -86,8 +87,10 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkConfiguredTargetNode,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
-        let mut attrs = SmallMap::with_capacity(this.0.attrs().size_hint().0);
-        for (name, attr) in this.0.attrs() {
+        // TODO(cjhopman): This configures all attributes twice, just to get the size hint.
+        let mut attrs =
+            SmallMap::with_capacity(this.0.attrs(AttrInspectOptions::All).size_hint().0);
+        for (name, attr) in this.0.attrs(AttrInspectOptions::All) {
             attrs.insert(
                 heap.alloc_str(name),
                 heap.alloc(StarlarkConfiguredValue(attr)),
@@ -123,7 +126,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
             }
         }
         let mut traversal = InputsCollector { inputs: Vec::new() };
-        for (_, attr) in this.0.attrs() {
+        for (_, attr) in this.0.attrs(AttrInspectOptions::All) {
             attr.traverse(&mut traversal)?;
         }
         Ok(traversal.inputs)
@@ -172,7 +175,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
             found: None,
             target: cell_path,
         };
-        for (_, attr) in this.0.attrs() {
+        for (_, attr) in this.0.attrs(AttrInspectOptions::All) {
             attr.traverse(&mut traversal)?;
 
             if let Some(found) = traversal.found {

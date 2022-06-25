@@ -116,6 +116,7 @@ mod tests {
     use crate::interpreter::testing::run_simple_starlark_test;
     use crate::interpreter::testing::Tester;
     use crate::nodes::unconfigured::testing::targets_to_json;
+    use crate::nodes::unconfigured::AttrInspectOptions;
 
     #[test]
     fn prelude_is_included() -> anyhow::Result<()> {
@@ -214,7 +215,7 @@ mod tests {
                         "visibility": [],
                     },
             }),
-            targets_to_json(eval_result.targets())?
+            targets_to_json(eval_result.targets(), AttrInspectOptions::All)?
         );
         Ok(())
     }

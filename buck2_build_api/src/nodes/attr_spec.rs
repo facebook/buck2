@@ -32,6 +32,7 @@ use crate::nodes::attr_internal::attr_is_configurable;
 use crate::nodes::attr_internal::internal_attrs;
 use crate::nodes::attr_internal::NAME_ATTRIBUTE_FIELD;
 use crate::nodes::attr_values::AttrValues;
+use crate::nodes::unconfigured::AttrInspectOptions;
 use crate::nodes::AttributeId;
 
 /// AttributeSpec holds the specification for a rules attributes as defined in the rule() call. This
@@ -194,35 +195,61 @@ impl AttributeSpec {
     pub(crate) fn attrs<'v>(
         &'v self,
         attr_values: &'v AttrValues,
+        opts: AttrInspectOptions,
     ) -> impl Iterator<Item = (&'v str, &'v CoercedAttr)> {
         let mut pos = 0;
         let mut entry: Option<&(AttributeId, CoercedAttr)> = attr_values.get_by_index(0);
 
         self.attr_specs()
-            .map(move |(name, idx, attr)| match &entry {
+            .filter_map(move |(name, idx, attr)| match &entry {
                 Some((entry_idx, entry_attr)) if *entry_idx == idx => {
                     pos += 1;
                     entry = attr_values.get_by_index(pos);
-                    (name, entry_attr)
+                    if opts.include_defined() {
+                        Some((name, entry_attr))
+                    } else {
+                        None
+                    }
                 }
                 _ => {
                     let default: &CoercedAttr = attr.default.as_ref().unwrap();
-                    (name, default)
+                    if opts.include_default() {
+                        Some((name, default))
+                    } else {
+                        None
+                    }
                 }
             })
+    }
+
+    fn known_attr_or_none<'v>(
+        &'v self,
+        idx: AttributeId,
+        attr_values: &'v AttrValues,
+        opts: AttrInspectOptions,
+    ) -> Option<&'v CoercedAttr> {
+        if let Some(attr) = attr_values.get(idx) {
+            if opts.include_defined() {
+                return Some(attr);
+            } else {
+                return None;
+            }
+        }
+
+        if opts.include_default() {
+            return self.get_attribute(idx).default.as_deref();
+        }
+        None
     }
 
     pub(crate) fn attr_or_none<'v>(
         &'v self,
         attr_values: &'v AttrValues,
         key: &str,
+        opts: AttrInspectOptions,
     ) -> Option<&'v CoercedAttr> {
         if let Some(idx) = self.indices.get(key) {
-            if let Some(attr) = attr_values.get(*idx) {
-                return Some(attr);
-            }
-
-            self.get_attribute(*idx).default.as_deref()
+            self.known_attr_or_none(*idx, attr_values, opts)
         } else {
             None
         }
@@ -232,13 +259,10 @@ impl AttributeSpec {
         &'v self,
         attr_values: &'v AttrValues,
         key: &str,
+        opts: AttrInspectOptions,
     ) -> anyhow::Result<Option<&'v CoercedAttr>> {
         if let Some(idx) = self.indices.get(key) {
-            if let Some(attr) = attr_values.get(*idx) {
-                return Ok(Some(attr));
-            }
-
-            Ok(self.get_attribute(*idx).default.as_deref())
+            Ok(self.known_attr_or_none(*idx, attr_values, opts))
         } else {
             Err(AttributeSpecError::UnknownAttribute(key.to_owned()).into())
         }

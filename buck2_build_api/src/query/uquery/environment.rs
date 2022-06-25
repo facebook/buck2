@@ -41,6 +41,7 @@ use tracing::warn;
 
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::interpreter::module_internals::EvaluationResult;
+use crate::nodes::unconfigured::AttrInspectOptions;
 use crate::nodes::unconfigured::TargetNode;
 
 #[derive(Debug, Error)]
@@ -106,14 +107,14 @@ impl QueryTarget for TargetNode {
         &self,
         mut func: F,
     ) -> Result<(), E> {
-        for (name, attr) in self.attrs() {
+        for (name, attr) in self.attrs(AttrInspectOptions::All) {
             func(name, attr)?;
         }
         Ok(())
     }
 
     fn map_attr<R, F: FnMut(Option<&Self::Attr>) -> R>(&self, key: &str, mut func: F) -> R {
-        func(self.attr_or_none(key))
+        func(self.attr_or_none(key, AttrInspectOptions::All))
     }
 
     fn inputs_for_each<E, F: FnMut(CellPath) -> Result<(), E>>(

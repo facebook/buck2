@@ -54,6 +54,7 @@ use crate::nodes::attr_internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use crate::nodes::compatibility::IncompatiblePlatformReason;
 use crate::nodes::compatibility::MaybeCompatible;
 use crate::nodes::configured::ConfiguredTargetNode;
+use crate::nodes::unconfigured::AttrInspectOptions;
 use crate::nodes::unconfigured::TargetNode;
 use crate::nodes::visibility::VisibilityError;
 use crate::nodes::AttributeError;
@@ -137,7 +138,7 @@ async fn resolve_execution_platform(
 
     let platform_cfgs = &compute_platform_cfgs(ctx, node).await?;
 
-    for (name, attr) in node.attrs() {
+    for (name, attr) in node.attrs(AttrInspectOptions::All) {
         let configured_attr = attr
             .configure(&AttrConfigurationContextImpl {
                 resolved_cfg: resolved_configuration,
@@ -176,7 +177,7 @@ fn unpack_target_compatible_with_attr(
     resolved_cfg: &ResolvedConfiguration,
     attr_name: &str,
 ) -> anyhow::Result<Option<ConfiguredAttr>> {
-    let attr = target_node.attr_or_none(attr_name);
+    let attr = target_node.attr_or_none(attr_name, AttrInspectOptions::All);
     let attr = match attr {
         Some(attr) => attr,
         None => return Ok(None),
@@ -382,7 +383,7 @@ async fn compute_configured_target_node_no_transition(
 
     // We need to collect deps and to ensure that all attrs can be successfully
     // configured so that we don't need to support propagate configuration errors on attr access.
-    for (attr_name, attr) in target_node.attrs() {
+    for (attr_name, attr) in target_node.attrs(AttrInspectOptions::All) {
         let mut traversal = Traversal {
             deps: &mut deps,
             exec_deps: &mut exec_deps,
@@ -613,6 +614,7 @@ mod tests {
     use crate::interpreter::rule_defs::attr::Attribute;
     use crate::nodes::calculation::NodeCalculation;
     use crate::nodes::unconfigured::testing::TargetNodeExt;
+    use crate::nodes::unconfigured::AttrInspectOptions;
     use crate::nodes::unconfigured::TargetNode;
     use crate::nodes::RuleType;
     use crate::nodes::StarlarkRuleType;
@@ -738,14 +740,14 @@ mod tests {
             .get_configured_target_node(&label1.configure(cfg.dupe()))
             .await?;
         let node = node.require_compatible()?;
-        let node_attrs: SmallMap<_, _> = node.attrs().collect();
+        let node_attrs: SmallMap<_, _> = node.attrs(AttrInspectOptions::All).collect();
         assert_eq!(node_attrs, conf_attrs1);
 
         let node = computations
             .get_configured_target_node(&label2.configure(cfg.dupe()))
             .await?;
         let node = node.require_compatible()?;
-        let node_attrs: SmallMap<_, _> = node.attrs().collect();
+        let node_attrs: SmallMap<_, _> = node.attrs(AttrInspectOptions::All).collect();
         assert_eq!(node_attrs, conf_attrs2);
 
         Ok(())

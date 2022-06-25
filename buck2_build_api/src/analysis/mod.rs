@@ -41,6 +41,7 @@ use crate::interpreter::rule_defs::context::AnalysisContext;
 use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
 use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 use crate::interpreter::rule_defs::rule::FrozenRuleCallable;
+use crate::nodes::unconfigured::AttrInspectOptions;
 
 pub mod calculation;
 pub(crate) mod configured_graph;
@@ -283,8 +284,9 @@ fn run_analysis_with_env(
         query_results: analysis_env.query_results,
     };
 
-    let mut resolved_attrs = SmallMap::with_capacity(node.attrs().size_hint().0);
-    for (name, attr) in node.attrs() {
+    let mut resolved_attrs =
+        SmallMap::with_capacity(node.attrs(AttrInspectOptions::All).size_hint().0);
+    for (name, attr) in node.attrs(AttrInspectOptions::All) {
         resolved_attrs.insert(
             env.heap().alloc_str(name),
             attr.resolve_single(&resolution_ctx)?,

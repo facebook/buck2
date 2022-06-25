@@ -13,6 +13,7 @@ use std::path::Path;
 
 use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::nodes::hacks::value_to_json;
+use buck2_build_api::nodes::unconfigured::AttrInspectOptions;
 use buck2_build_api::nodes::unconfigured::TargetNode;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::pattern::*;
@@ -120,7 +121,7 @@ impl TargetPrinter for JsonPrinter {
         }
         print_attr("$package", &format!("\"{}\"", package));
 
-        for (k, v) in target_info.node.attrs() {
+        for (k, v) in target_info.node.attrs(AttrInspectOptions::All) {
             print_attr(k, &value_to_json(v).unwrap().to_string());
         }
 

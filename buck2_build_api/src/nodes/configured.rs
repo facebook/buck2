@@ -46,6 +46,7 @@ use crate::configuration::AttrConfigurationContextImpl;
 use crate::configuration::ResolvedConfiguration;
 use crate::nodes::attr_internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use crate::nodes::attr_internal::TESTS_ATTRIBUTE_FIELD;
+use crate::nodes::unconfigured::AttrInspectOptions;
 use crate::nodes::unconfigured::TargetNode;
 use crate::nodes::RuleType;
 
@@ -68,11 +69,16 @@ enum TargetNodeOrForward {
 const ACTUAL_ATTR_NAME: &str = "actual";
 
 impl TargetNodeOrForward {
-    fn attrs(&self) -> impl Iterator<Item = (&str, &CoercedAttr)> {
+    fn attrs(&self, opts: AttrInspectOptions) -> impl Iterator<Item = (&str, &CoercedAttr)> {
         match self {
-            TargetNodeOrForward::TargetNode(target_node) => Either::Left(target_node.attrs()),
+            TargetNodeOrForward::TargetNode(target_node) => Either::Left(target_node.attrs(opts)),
             TargetNodeOrForward::Forward(actual, _) => {
-                Either::Right(std::iter::once((ACTUAL_ATTR_NAME, actual)))
+                let actual_attr = if opts.include_defined() {
+                    Some((ACTUAL_ATTR_NAME, actual))
+                } else {
+                    None
+                };
+                Either::Right(actual_attr.into_iter())
             }
         }
     }
@@ -98,11 +104,11 @@ impl TargetNodeOrForward {
         }
     }
 
-    fn attr_or_none(&self, name: &str) -> Option<&CoercedAttr> {
+    fn attr_or_none(&self, name: &str, opts: AttrInspectOptions) -> Option<&CoercedAttr> {
         match self {
-            TargetNodeOrForward::TargetNode(target_node) => target_node.attr_or_none(name),
+            TargetNodeOrForward::TargetNode(target_node) => target_node.attr_or_none(name, opts),
             TargetNodeOrForward::Forward(actual, _) => {
-                if name == ACTUAL_ATTR_NAME {
+                if name == ACTUAL_ATTR_NAME && opts.include_defined() {
                     Some(actual)
                 } else {
                     None
@@ -273,7 +279,7 @@ impl ConfiguredTargetNode {
     pub fn get_declared_deps(
         &self,
     ) -> anyhow::Result<Option<impl Iterator<Item = ConfiguredProvidersLabel>>> {
-        match self.get("deps") {
+        match self.get("deps", AttrInspectOptions::All) {
             Some(attr) => {
                 let mut info = ConfiguredAttrInfo::new();
                 attr.traverse(&mut info)?;
@@ -284,9 +290,12 @@ impl ConfiguredTargetNode {
     }
 
     pub fn target_compatible_with(&self) -> impl Iterator<Item = TargetLabel> {
-        self.get(TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD)
-            .into_iter()
-            .flat_map(Self::attr_as_target_compatible_with)
+        self.get(
+            TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
+            AttrInspectOptions::All,
+        )
+        .into_iter()
+        .flat_map(Self::attr_as_target_compatible_with)
     }
 
     pub fn attr_as_target_compatible_with(
@@ -327,7 +336,7 @@ impl ConfiguredTargetNode {
             }
         }
         let mut traversal = InputsCollector { inputs: Vec::new() };
-        for (_, attr) in self.attrs() {
+        for (_, attr) in self.attrs(AttrInspectOptions::All) {
             attr.traverse(&mut traversal)
                 .expect("inputs collector shouldn't return errors");
         }
@@ -359,7 +368,7 @@ impl ConfiguredTargetNode {
             }
         }
         // TODO(cjhopman): optimize for non-query attrs
-        for (_, attr) in self.attrs() {
+        for (_, attr) in self.attrs(AttrInspectOptions::All) {
             attr.traverse(&mut traversal).unwrap();
         }
         traversal.queries.into_iter()
@@ -393,7 +402,7 @@ impl ConfiguredTargetNode {
         }
 
         let mut traversal = TestCollector::default();
-        if let Some(tests) = self.get(TESTS_ATTRIBUTE_FIELD) {
+        if let Some(tests) = self.get(TESTS_ATTRIBUTE_FIELD, AttrInspectOptions::All) {
             tests.traverse(&mut traversal).unwrap();
         }
         traversal.labels.into_iter()
@@ -423,8 +432,11 @@ impl ConfiguredTargetNode {
         .into_iter()
     }
 
-    pub fn attrs<'a>(&'a self) -> impl Iterator<Item = (&str, ConfiguredAttr)> + 'a {
-        self.0.target_node.attrs().map(move |(name, attr)| {
+    pub fn attrs<'a>(
+        &'a self,
+        opts: AttrInspectOptions,
+    ) -> impl Iterator<Item = (&str, ConfiguredAttr)> + 'a {
+        self.0.target_node.attrs(opts).map(move |(name, attr)| {
             (
                 name,
                 attr.configure(&AttrConfigurationContextImpl {
@@ -438,8 +450,8 @@ impl ConfiguredTargetNode {
         })
     }
 
-    pub fn get(&self, attr: &str) -> Option<ConfiguredAttr> {
-        self.0.target_node.attr_or_none(attr).map(|v| {
+    pub fn get(&self, attr: &str, opts: AttrInspectOptions) -> Option<ConfiguredAttr> {
+        self.0.target_node.attr_or_none(attr, opts).map(|v| {
             v.configure(&AttrConfigurationContextImpl {
                 resolved_cfg: &self.0.resolved_configuration,
                 exec_cfg: &self.0.execution_platform_resolution.cfg(),

@@ -28,6 +28,7 @@ use buck2_build_api::interpreter::context::BuildInterpreterConfiguror;
 use buck2_build_api::interpreter::module_internals::EvaluationResult;
 use buck2_build_api::interpreter::module_internals::ModuleInternals;
 use buck2_build_api::nodes::hacks::value_to_json;
+use buck2_build_api::nodes::unconfigured::AttrInspectOptions;
 use buck2_build_api::nodes::unconfigured::TargetNode;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::BuckConfigBasedCells;
@@ -145,7 +146,10 @@ impl TargetPrinter for JsonPrinter {
     fn target(&mut self, package: &Package, target_info: &TargetNode) {
         println!("    \"{}:{}\": {{", package, target_info.label().name());
         println!("      \"$type\": {}", target_info.rule_type());
-        for (k, v) in target_info.attrs().filter(|e| self.attrs.is_match(e.0)) {
+        for (k, v) in target_info
+            .attrs(AttrInspectOptions::All)
+            .filter(|e| self.attrs.is_match(e.0))
+        {
             println!("      \"{}\": {}", k, value_to_json(v).unwrap());
         }
         println!("    }}");

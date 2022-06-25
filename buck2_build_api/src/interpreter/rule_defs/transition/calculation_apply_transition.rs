@@ -42,6 +42,7 @@ use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectio
 use crate::interpreter::rule_defs::transition::calculation_fetch_transition::FetchTransition;
 use crate::interpreter::rule_defs::transition::cfg_diff::cfg_diff;
 use crate::interpreter::rule_defs::transition::starlark::FrozenTransition;
+use crate::nodes::unconfigured::AttrInspectOptions;
 use crate::nodes::unconfigured::TargetNode;
 
 #[derive(Error, Debug)]
@@ -283,7 +284,11 @@ impl ApplyTransition for DiceComputations {
 
         #[allow(clippy::manual_map)]
         let attrs = if let Some(attrs) = &transition.attrs {
-            Some(attrs.try_map(|attr| target_node.attr(attr).map(|o| o.cloned()))?)
+            Some(attrs.try_map(|attr| {
+                target_node
+                    .attr(attr, AttrInspectOptions::All)
+                    .map(|o| o.cloned())
+            })?)
         } else {
             None
         };

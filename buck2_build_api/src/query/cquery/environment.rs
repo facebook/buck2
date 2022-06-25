@@ -33,6 +33,7 @@ use tracing::warn;
 
 use crate::nodes::compatibility::MaybeCompatible;
 use crate::nodes::configured::ConfiguredTargetNode;
+use crate::nodes::unconfigured::AttrInspectOptions;
 use crate::query::uquery::environment::QueryLiterals;
 use crate::query::uquery::environment::UqueryDelegate;
 
@@ -83,14 +84,14 @@ impl QueryTarget for ConfiguredTargetNode {
         &self,
         mut func: F,
     ) -> Result<(), E> {
-        for (name, attr) in self.attrs() {
+        for (name, attr) in self.attrs(AttrInspectOptions::All) {
             func(name, &attr)?;
         }
         Ok(())
     }
 
     fn map_attr<R, F: FnMut(Option<&Self::Attr>) -> R>(&self, key: &str, mut func: F) -> R {
-        func(self.get(key).as_ref())
+        func(self.get(key, AttrInspectOptions::All).as_ref())
     }
 
     fn inputs_for_each<E, F: FnMut(CellPath) -> Result<(), E>>(

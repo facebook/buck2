@@ -9,6 +9,7 @@
 
 use anyhow::Context;
 use buck2_build_api::attrs::coerced_attr::CoercedAttr;
+use buck2_build_api::nodes::unconfigured::AttrInspectOptions;
 use derive_more::Display;
 use derive_more::From;
 use gazebo::any::ProvidesStaticType;
@@ -63,7 +64,7 @@ where
             .context("invalid inner")?;
         let target_node = &starlark_target_node.0;
         Ok(box target_node
-            .attrs()
+            .attrs(AttrInspectOptions::All)
             .map(|(name, value)| heap.alloc((name, StarlarkCoercedAttr::from(value.clone())))))
     }
 }
