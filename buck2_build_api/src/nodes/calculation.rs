@@ -10,6 +10,7 @@
 //! Calculations relating to 'TargetNode's that runs on Dice
 
 use std::collections::BTreeMap;
+use std::ops::ControlFlow;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -27,6 +28,7 @@ use buck2_core::target::TargetLabel;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
+use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -402,30 +404,59 @@ async fn compute_configured_target_node_no_transition(
     }
 
     // Check transitive target compatibility.
-    let dep_nodes: Vec<_> = deps
+    let dep_futures: Vec<_> = deps
         .iter()
-        .chain(exec_deps.iter())
         .map(|v| ctx.get_configured_target_node(v.target()))
         .collect();
 
-    let dep_nodes: Vec<_> = futures::future::join_all(dep_nodes).await;
+    let exec_dep_futures: Vec<_> = exec_deps
+        .iter()
+        .map(|v| ctx.get_configured_target_node(v.target()))
+        .collect();
 
-    for dep in dep_nodes {
-        let dep = dep?;
-        match dep {
-            MaybeCompatible::Incompatible(reason) => {
-                return Ok(MaybeCompatible::Incompatible(reason.dupe()));
+    let (dep_results, exec_dep_results): (Vec<_>, Vec<_>) = futures::future::join(
+        futures::future::join_all(dep_futures),
+        futures::future::join_all(exec_dep_futures),
+    )
+    .await;
+    let unpack_dep = |
+        result: SharedResult<MaybeCompatible<ConfiguredTargetNode>>| -> ControlFlow<_, ConfiguredTargetNode>
+    {
+        match result {
+            Err(e) => ControlFlow::Break(Err(e)),
+            Ok(MaybeCompatible::Incompatible(reason)) => {
+                ControlFlow::Break(Ok(MaybeCompatible::Incompatible(reason.dupe())))
             }
-            MaybeCompatible::Compatible(dep) => {
+            Ok(MaybeCompatible::Compatible(dep)) => {
                 if !dep.is_visible_to(target_label.unconfigured()) {
-                    return Err(anyhow::anyhow!(VisibilityError::NotVisibleTo(
-                        dep.name().unconfigured().dupe(),
-                        target_label.unconfigured().dupe(),
-                    )))
-                    .shared_error();
+                    ControlFlow::Break(
+                        Err(anyhow::anyhow!(VisibilityError::NotVisibleTo(
+                            dep.name().unconfigured().dupe(),
+                            target_label.unconfigured().dupe(),
+                        )))
+                        .shared_error(),
+                    )
+                } else {
+                    ControlFlow::Continue(dep)
                 }
             }
         }
+    };
+
+    let mut deps = LabelIndexedSet::new();
+    for dep in dep_results {
+        match unpack_dep(dep) {
+            ControlFlow::Continue(dep) => deps.insert(dep),
+            ControlFlow::Break(r) => return r,
+        };
+    }
+
+    let mut exec_deps = LabelIndexedSet::new();
+    for dep in exec_dep_results {
+        match unpack_dep(dep) {
+            ControlFlow::Continue(dep) => exec_deps.insert(dep),
+            ControlFlow::Break(r) => return r,
+        };
     }
 
     Ok(MaybeCompatible::Compatible(ConfiguredTargetNode::new(

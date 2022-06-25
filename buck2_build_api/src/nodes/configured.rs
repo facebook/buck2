@@ -33,10 +33,10 @@ use buck2_node::attrs::attr_type::dep::ProviderIdSet;
 use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
+use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use either::Either;
 use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
-use starlark::collections::SmallSet;
 
 use crate::attrs::attr_type::attr_literal::ConfiguredAttrInfo;
 use crate::attrs::coerced_attr::CoercedAttr;
@@ -165,9 +165,9 @@ struct ConfiguredTargetNodeData {
     execution_platform_resolution: ExecutionPlatformResolution,
     // Deps includes regular deps and transitioned deps,
     // but excludes exec deps or configuration deps.
-    // TODO(cjhopman): Probably should be a diff against the node's deps
-    deps: SmallSet<ConfiguredProvidersLabel>,
-    exec_deps: SmallSet<ConfiguredProvidersLabel>,
+    // TODO(cjhopman): Should this be a diff against the node's deps?
+    deps: LabelIndexedSet<ConfiguredTargetNode>,
+    exec_deps: LabelIndexedSet<ConfiguredTargetNode>,
     platform_cfgs: BTreeMap<TargetLabel, Configuration>,
 }
 
@@ -198,8 +198,8 @@ impl ConfiguredTargetNode {
             ResolvedConfiguration::new(name.cfg().dupe(), IndexMap::new()),
             IndexMap::new(),
             execution_platform_resolution,
-            SmallSet::new(),
-            SmallSet::new(),
+            LabelIndexedSet::new(),
+            LabelIndexedSet::new(),
             BTreeMap::new(),
         )
     }
@@ -210,8 +210,8 @@ impl ConfiguredTargetNode {
         resolved_configuration: ResolvedConfiguration,
         resolved_tr_configurations: IndexMap<Arc<TransitionId>, Arc<TransitionApplied>>,
         execution_platform_resolution: ExecutionPlatformResolution,
-        deps: SmallSet<ConfiguredProvidersLabel>,
-        exec_deps: SmallSet<ConfiguredProvidersLabel>,
+        deps: LabelIndexedSet<ConfiguredTargetNode>,
+        exec_deps: LabelIndexedSet<ConfiguredTargetNode>,
         platform_cfgs: BTreeMap<TargetLabel, Configuration>,
     ) -> Self {
         Self(Arc::new(ConfiguredTargetNodeData {
@@ -250,12 +250,13 @@ impl ConfiguredTargetNode {
 
         let configured_providers_label =
             providers_label.configure(transitioned_node.name().cfg().dupe());
+        let platform_cfgs = transitioned_node.0.platform_cfgs.clone();
         Self(Arc::new(ConfiguredTargetNodeData {
             name: name.dupe(),
             target_node: TargetNodeOrForward::Forward(
                 CoercedAttr::Literal(AttrLiteral::ConfiguredDep(box DepAttr::new(
                     DepAttrType::new(ProviderIdSet::new(), DepAttrTransition::Identity),
-                    configured_providers_label.clone(),
+                    configured_providers_label,
                 ))),
                 transitioned_node.dupe(),
             ),
@@ -265,9 +266,9 @@ impl ConfiguredTargetNode {
             resolved_transition_configurations: MapHash(IndexMap::new()),
             // Nothing to execute for a forward node.
             execution_platform_resolution: ExecutionPlatformResolution::unspecified(),
-            deps: SmallSet::from_iter([configured_providers_label]),
-            exec_deps: SmallSet::new(),
-            platform_cfgs: transitioned_node.0.platform_cfgs.clone(),
+            deps: LabelIndexedSet::from_iter([transitioned_node]),
+            exec_deps: LabelIndexedSet::new(),
+            platform_cfgs,
         }))
     }
 
@@ -322,7 +323,7 @@ impl ConfiguredTargetNode {
             .deps
             .iter()
             .chain(self.0.exec_deps.iter())
-            .map(|v| v.target())
+            .map(|v| v.name())
     }
 
     pub fn inputs(&self) -> impl Iterator<Item = CellPath> + '_ {
@@ -379,11 +380,11 @@ impl ConfiguredTargetNode {
     }
 
     pub fn target_deps(&self) -> impl Iterator<Item = &ConfiguredTargetLabel> {
-        self.0.deps.iter().map(|v| v.target())
+        self.0.deps.iter().map(|v| v.name())
     }
 
     pub fn execution_deps(&self) -> impl Iterator<Item = &ConfiguredTargetLabel> {
-        self.0.exec_deps.iter().map(|v| v.target())
+        self.0.exec_deps.iter().map(|v| v.name())
     }
 
     /// Return the `tests` declared for this target.
