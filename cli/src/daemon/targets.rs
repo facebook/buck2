@@ -56,6 +56,7 @@ trait TargetPrinter: Send {
 
 struct JsonPrinter {
     attributes: Option<RegexSet>,
+    attr_inspect_opts: AttrInspectOptions,
     target_idx: u32,
     json_string: String,
     target_call_stacks: bool,
@@ -121,7 +122,7 @@ impl TargetPrinter for JsonPrinter {
         }
         print_attr("$package", &format!("\"{}\"", package));
 
-        for (k, v) in target_info.node.attrs(AttrInspectOptions::All) {
+        for (k, v) in target_info.node.attrs(self.attr_inspect_opts) {
             print_attr(k, &value_to_json(v).unwrap().to_string());
         }
 
@@ -256,6 +257,11 @@ pub(crate) async fn targets(
     let mut printer: Box<dyn TargetPrinter> = if is_json {
         box JsonPrinter {
             attributes,
+            attr_inspect_opts: if request.include_default_attributes {
+                AttrInspectOptions::All
+            } else {
+                AttrInspectOptions::DefinedOnly
+            },
             target_idx: 0,
             json_string: String::new(),
             target_call_stacks: request.target_call_stacks,

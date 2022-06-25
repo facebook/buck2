@@ -121,6 +121,11 @@ pub(crate) struct TargetsCommand {
     )]
     output_attribute: Vec<String>,
 
+    /// Enables printing of default attributes. This would be attributes in a target that aren't
+    /// explicitly set in the target but instead use the default set in the rule declaration.
+    #[structopt(long)]
+    include_defaults: bool,
+
     /// Deprecated: Use `--output-attribute` instead.
     ///
     /// List of space-separated attributes to output, --output-attributes attr1 attr2.
@@ -207,6 +212,7 @@ impl StreamingCommand for TargetsCommand {
             unstable_resolve_aliases: self.resolve_alias,
             target_call_stacks: self.target_call_stacks,
             target_hash_graph_type,
+            include_default_attributes: self.include_defaults,
         };
 
         if self.show_output {

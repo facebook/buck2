@@ -99,6 +99,8 @@ message TargetsRequest {
 
   bool target_call_stacks = 10;
 
+  bool include_default_attributes = 11;
+
   /// These options may be removed at any time.
   bool unstable_resolve_aliases = 4242000;
 }
