@@ -43,6 +43,7 @@ use starlark::values::Value;
 
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::rule_defs::attr::Attribute;
+use crate::interpreter::rule_defs::attr::AttributeAsStarlarkValue;
 use crate::interpreter::rule_defs::transition::starlark::Transition;
 use crate::nodes::attr_spec::AttributeSpec;
 use crate::nodes::unconfigured::TargetNode;
@@ -252,7 +253,7 @@ impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
 pub fn register_rule_function(builder: &mut GlobalsBuilder) {
     fn rule<'v>(
         implementation: Value<'v>,
-        attrs: DictOf<'v, &'v str, &'v Attribute>,
+        attrs: DictOf<'v, &'v str, &'v AttributeAsStarlarkValue>,
         #[starlark(require = named)] cfg: Option<Value>,
         #[starlark(require = named, default = "")] doc: &str,
         #[allow(unused_variables)]
@@ -280,7 +281,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
                 if name == NAME_ATTRIBUTE_FIELD {
                     Err(RuleError::InvalidParameterName(NAME_ATTRIBUTE_FIELD.to_owned()).into())
                 } else {
-                    Ok((name.to_owned(), value.clone()))
+                    Ok((name.to_owned(), value.0.clone()))
                 }
             })
             .collect::<anyhow::Result<Vec<(String, Attribute)>>>()?;
