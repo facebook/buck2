@@ -17,3 +17,5 @@ pub mod map {
 pub mod set {
     pub use starlark::collections::SmallSet;
 }
+
+pub use starlark::small_map::Equivalent;
