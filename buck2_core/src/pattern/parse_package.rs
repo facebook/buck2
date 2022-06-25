@@ -8,10 +8,11 @@
  */
 
 use anyhow::Context;
-use buck2_core::cells::paths::CellRelativePath;
-use buck2_core::cells::CellAliasResolver;
-use buck2_core::fs::paths::ForwardRelativePath;
-use buck2_core::package::Package;
+
+use crate::cells::paths::CellRelativePath;
+use crate::cells::CellAliasResolver;
+use crate::fs::paths::ForwardRelativePath;
+use crate::package::Package;
 
 #[derive(Debug, thiserror::Error)]
 enum ParsePackageError {
@@ -41,10 +42,9 @@ pub fn parse_package(
 mod tests {
     use std::sync::Arc;
 
-    use buck2_core::cells::CellAlias;
-    use buck2_core::cells::CellAliasResolver;
-    use buck2_core::cells::CellName;
-
+    use crate::cells::CellAlias;
+    use crate::cells::CellAliasResolver;
+    use crate::cells::CellName;
     use crate::pattern::parse_package::parse_package;
 
     #[test]

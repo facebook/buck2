@@ -10,14 +10,14 @@
 use anyhow::Context;
 use buck2_core::cells::CellResolver;
 use buck2_core::package::Package;
+use buck2_core::pattern::PackageSpec;
+use buck2_core::pattern::ParsedPattern;
+use buck2_core::pattern::PatternType;
 use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
 
 use crate::file_ops::FileOps;
 use crate::pattern::package_roots::find_package_roots;
-use crate::pattern::PackageSpec;
-use crate::pattern::ParsedPattern;
-use crate::pattern::PatternType;
 
 #[derive(Debug)]
 pub struct ResolvedPattern<T> {
@@ -98,6 +98,11 @@ mod tests {
     use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::package::testing::PackageExt;
     use buck2_core::package::Package;
+    use buck2_core::pattern::PackageSpec;
+    use buck2_core::pattern::ParsedPattern;
+    use buck2_core::pattern::PatternType;
+    use buck2_core::pattern::ProvidersPattern;
+    use buck2_core::pattern::TargetPattern;
     use buck2_core::provider::label::ProviderName;
     use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::TargetName;
@@ -108,11 +113,6 @@ mod tests {
     use crate::file_ops::FileOps;
     use crate::pattern::resolve::resolve_target_patterns;
     use crate::pattern::resolve::ResolvedPattern;
-    use crate::pattern::PackageSpec;
-    use crate::pattern::ParsedPattern;
-    use crate::pattern::PatternType;
-    use crate::pattern::ProvidersPattern;
-    use crate::pattern::TargetPattern;
 
     #[derive(Clone)]
     struct TestPatternResolver {

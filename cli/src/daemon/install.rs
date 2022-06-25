@@ -27,10 +27,10 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifact
 use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::*;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
-use buck2_common::pattern::*;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::package::Package;
+use buck2_core::pattern::ProvidersPattern;
 use buck2_core::process::background_command;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
@@ -98,8 +98,8 @@ pub(crate) async fn install(
     for (package, spec) in resolved_pattern.specs {
         let ctx = &ctx;
         let targets: anyhow::Result<Vec<ProvidersPattern>> = match spec {
-            buck2_common::pattern::PackageSpec::Targets(targets) => Ok(targets),
-            buck2_common::pattern::PackageSpec::All => {
+            buck2_core::pattern::PackageSpec::Targets(targets) => Ok(targets),
+            buck2_core::pattern::PackageSpec::All => {
                 let interpreter_results = ctx.get_interpreter_results(&package).await?;
                 let targets = interpreter_results
                     .targets()

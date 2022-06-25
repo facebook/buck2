@@ -41,5 +41,8 @@ tracing = "0.1.22"
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["everything"] }
 
+[dev-dependencies]
+test-case = "1.2.0"
+
 [features]
 # @oss-disable: default = ["gazebo_lint"]

@@ -5,7 +5,7 @@ rust_library(
     name = "buck2_common",
     srcs = glob(
         ["src/**/*.rs"],
-    ) + ["src/pattern/target_pattern.md"],
+    ),
     features = ["eden_io"],
     named_deps = {
         "edenfs": "//eden/fs/service:thrift-rust",
@@ -43,7 +43,6 @@ rust_library(
         "fbsource//third-party/rust:hex",
         "fbsource//third-party/rust:indexmap",
         "fbsource//third-party/rust:itertools",
-        "fbsource//third-party/rust:memchr",
         "fbsource//third-party/rust:nix",
         "fbsource//third-party/rust:once_cell",
         "fbsource//third-party/rust:parking_lot",

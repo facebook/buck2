@@ -13,10 +13,10 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_common::pattern::PackageSpec;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::package::Package;
+use buck2_core::pattern::PackageSpec;
 use buck2_core::result::ToSharedResultExt;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;

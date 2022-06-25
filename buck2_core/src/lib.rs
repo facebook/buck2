@@ -21,6 +21,7 @@
 #![feature(box_syntax)]
 #![feature(never_type)]
 #![feature(path_try_exists)]
+#![feature(pattern)]
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
@@ -44,6 +45,7 @@ pub mod env_helper;
 pub mod exit_result;
 pub mod fs;
 pub mod package;
+pub mod pattern;
 pub mod process;
 pub mod provider;
 pub mod result;

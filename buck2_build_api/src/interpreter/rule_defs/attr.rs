@@ -16,13 +16,13 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_common::package_listing::listing::PackageListing;
-use buck2_common::pattern::ParsedPattern;
-use buck2_common::pattern::PatternType;
-use buck2_common::pattern::ProvidersPattern;
 use buck2_core::buck_path::BuckPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::package::Package;
 use buck2_core::package::PackageRelativePathBuf;
+use buck2_core::pattern::ParsedPattern;
+use buck2_core::pattern::PatternType;
+use buck2_core::pattern::ProvidersPattern;
 use buck2_core::provider::id::ProviderId;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;

@@ -1,10 +1,10 @@
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::nodes::configured::ConfiguredTargetNode;
 use buck2_build_api::nodes::unconfigured::TargetNode;
-use buck2_common::pattern::ParsedPattern;
-use buck2_common::pattern::ProvidersPattern;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::package::Package;
+use buck2_core::pattern::ParsedPattern;
+use buck2_core::pattern::ProvidersPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;

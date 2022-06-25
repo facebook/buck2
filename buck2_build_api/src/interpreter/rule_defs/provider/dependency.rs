@@ -97,9 +97,9 @@ fn dependency_functions(builder: &mut MethodsBuilder) {
 mod tests {
     use std::sync::Arc;
 
-    use buck2_common::pattern::ParsedPattern;
-    use buck2_common::pattern::ProvidersPattern;
     use buck2_core::configuration::Configuration;
+    use buck2_core::pattern::ParsedPattern;
+    use buck2_core::pattern::ProvidersPattern;
     use buck2_core::provider::label::ProvidersLabel;
     use buck2_core::result::SharedResult;
     use buck2_core::target::TargetLabel;

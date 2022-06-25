@@ -5,7 +5,7 @@ rust_library(
     name = "buck2_core",
     srcs = glob(
         ["src/**/*.rs"],
-    ),
+    ) + ["src/pattern/target_pattern.md"],
     os_deps = [
         (
             "windows",
@@ -16,6 +16,7 @@ rust_library(
     ],
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
+        "fbsource//third-party/rust:test-case",
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",

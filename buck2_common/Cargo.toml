@@ -18,7 +18,6 @@ globset = "0.4.7"
 hex = "0.4.2"
 indexmap = { version = "1.6", features = ["serde-1"] }
 itertools = "0.10.0"
-memchr = "2.4.1"
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"

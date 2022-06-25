@@ -16,10 +16,10 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 pub use buck2_bxl_core::CliArgValue;
-use buck2_common::pattern::lex_target_pattern;
-use buck2_common::pattern::ParsedPattern;
-use buck2_common::pattern::ProvidersPattern;
-use buck2_common::pattern::TargetPattern;
+use buck2_core::pattern::lex_target_pattern;
+use buck2_core::pattern::ParsedPattern;
+use buck2_core::pattern::ProvidersPattern;
+use buck2_core::pattern::TargetPattern;
 use buck2_interpreter::types::label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use derive_more::Display;

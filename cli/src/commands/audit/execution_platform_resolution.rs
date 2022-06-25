@@ -12,8 +12,8 @@ use std::io::Write;
 use async_trait::async_trait;
 use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::calculation::Calculation;
-use buck2_common::pattern::TargetPattern;
 use buck2_core::configuration::Configuration;
+use buck2_core::pattern::TargetPattern;
 use cli_proto::ClientContext;
 
 use crate::commands::audit::AuditSubcommand;

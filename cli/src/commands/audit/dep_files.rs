@@ -18,10 +18,10 @@ use buck2_build_api::actions::run::dep_files::StoredFingerprints;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::deferred::BaseDeferredKey;
 use buck2_build_api::execute::materializer::HasMaterializer;
-use buck2_common::pattern::TargetPattern;
 use buck2_core::category::Category;
 use buck2_core::directory::Directory;
 use buck2_core::directory::DirectoryIterator;
+use buck2_core::pattern::TargetPattern;
 use cli_proto::ClientContext;
 
 use crate::commands::audit::AuditSubcommand;

@@ -47,8 +47,6 @@ enum ArtifactError {
 pub mod testing {
     use std::convert::TryFrom;
 
-    use buck2_common::pattern::ParsedPattern;
-    use buck2_common::pattern::TargetPattern;
     use buck2_core::buck_path::BuckPath;
     use buck2_core::category::Category;
     use buck2_core::cells::paths::CellRelativePath;
@@ -59,6 +57,8 @@ pub mod testing {
     use buck2_core::fs::project::ProjectRelativePathBuf;
     use buck2_core::package::Package;
     use buck2_core::package::PackageRelativePathBuf;
+    use buck2_core::pattern::ParsedPattern;
+    use buck2_core::pattern::TargetPattern;
     use buck2_core::target::ConfiguredTargetLabel;
     use buck2_core::target::TargetLabel;
     use buck2_interpreter::extra::BuildContext;
