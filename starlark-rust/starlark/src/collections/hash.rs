@@ -23,15 +23,13 @@ use std::ops::Deref;
 use gazebo::coerce::Coerce;
 use gazebo::prelude::*;
 
-use crate::collections::idhasher::mix_u32;
 use crate::collections::StarlarkHasher;
+use crate::small_map::SmallHashValue;
 
 /// A hash value.
 ///
 /// Contained value must be compatible with a value produced by `StarlarkHasher`
-#[derive(Hash, Eq, PartialEq, Clone, Copy, Dupe, Debug, Default)]
-// Hash value must be well swizzled.
-pub struct StarlarkHashValue(u32);
+pub type StarlarkHashValue = SmallHashValue<StarlarkHasher>;
 
 /// A key and its hash.
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Coerce)]
@@ -39,52 +37,6 @@ pub struct StarlarkHashValue(u32);
 pub struct Hashed<K> {
     hash: StarlarkHashValue,
     key: K,
-}
-
-impl StarlarkHashValue {
-    /// Create a new [`StarlarkHashValue`] using the [`Hash`] trait
-    /// for given key.
-    pub fn new<K: Hash + ?Sized>(key: &K) -> Self {
-        let mut hasher = StarlarkHasher::new();
-        key.hash(&mut hasher);
-        hasher.finish_small()
-    }
-
-    /// Directly create a new [`StarlarkHashValue`] using a hash.
-    /// The expectation is that the key will be well-swizzled,
-    /// or there may be many hash collisions.
-    pub const fn new_unchecked(hash: u32) -> Self {
-        Self(hash)
-    }
-
-    /// Hash 64-bit integer.
-    ///
-    /// Input can also be a non-well swizzled hash to create better hash.
-    pub(crate) const fn hash_64(h: u64) -> Self {
-        // `fmix64` function from MurMur3 hash (which is in public domain).
-        // https://github.com/aappleby/smhasher/blob/61a0530f28277f2e850bfc39600ce61d02b518de/src/MurmurHash3.cpp#L81
-
-        let h = h ^ (h >> 33);
-        let h = h.wrapping_mul(0xff51afd7ed558ccd);
-        let h = h ^ (h >> 33);
-        let h = h.wrapping_mul(0xc4ceb9fe1a85ec53);
-        let h = h ^ (h >> 33);
-
-        StarlarkHashValue(h as u32)
-    }
-
-    /// Get the integer hash value.
-    pub const fn get(self) -> u32 {
-        self.0
-    }
-
-    /// Make u64 hash from this hash.
-    ///
-    /// The resulting hash should be good enough to be used in hashbrown hashtable.
-    #[inline(always)]
-    pub fn promote(self) -> u64 {
-        mix_u32(self.0)
-    }
 }
 
 impl<K> Deref for Hashed<K> {

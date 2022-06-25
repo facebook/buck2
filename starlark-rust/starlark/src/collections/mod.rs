@@ -34,7 +34,6 @@ pub(crate) mod aligned_padded_str;
 pub(crate) mod alloca;
 mod hash;
 pub(crate) mod hasher;
-mod idhasher;
 pub mod small_map;
 mod small_set;
 pub(crate) mod string_pool;

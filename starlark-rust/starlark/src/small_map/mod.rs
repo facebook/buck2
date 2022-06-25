@@ -18,5 +18,8 @@
 //! Future `small_map` crate.
 
 mod equivalent;
+mod hash_value;
+mod mix_u32;
 
 pub use equivalent::Equivalent;
+pub use hash_value::SmallHashValue;
