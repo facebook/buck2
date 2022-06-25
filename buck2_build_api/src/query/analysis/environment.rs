@@ -40,6 +40,7 @@ use gazebo::prelude::*;
 use ref_cast::RefCast;
 use thiserror::Error;
 
+use crate::actions::artifact::Artifact;
 use crate::analysis::configured_graph::ConfiguredGraphNode;
 use crate::artifact_groups::ArtifactGroup;
 use crate::nodes::unconfigured::AttrInspectOptions;
@@ -48,6 +49,10 @@ use crate::nodes::unconfigured::AttrInspectOptions;
 enum AnalysisQueryError {
     #[error("file literals aren't supported in query attributes (got `{0}`)")]
     FileLiteralsNotAllowed(String),
+    #[error(
+        "template_placeholder_info `{0}` of target `{1}` used in query attributes had artifact (`{2}`) not produced by a target, only target-produced artifacts supported here"
+    )]
+    NonTargetBoundArtifact(String, ConfiguredTargetLabel, Artifact),
 }
 
 #[async_trait]
@@ -157,7 +162,14 @@ impl<'a> ConfiguredGraphQueryEnvironment<'a> {
                     match artifact {
                         ArtifactGroup::Artifact(artifact) => {
                             if let Some(owner) = artifact.owner() {
-                                let target_label = owner.unpack_target_label().ok_or_else(|| anyhow::anyhow!("Providers from rules should only have artifacts created by other rules"))?;
+                                let target_label =
+                                    owner.unpack_target_label().ok_or_else(|| {
+                                        AnalysisQueryError::NonTargetBoundArtifact(
+                                            template_name.to_owned(),
+                                            target.label().dupe(),
+                                            artifact.dupe(),
+                                        )
+                                    })?;
                                 labels.insert(target_label.dupe());
                             }
                         }
