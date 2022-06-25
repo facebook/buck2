@@ -22,8 +22,8 @@ use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::pattern::ParsedPattern;
 use buck2_common::pattern::ProvidersPattern;
+use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
-use buck2_common::target_aliases::TargetAliasResolver;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
@@ -66,7 +66,7 @@ pub(crate) struct LiteralParser {
     project_root: AbsPathBuf,
     cell_resolver: CellResolver,
     cell_alias_resolver: CellAliasResolver,
-    target_alias_resolver: TargetAliasResolver,
+    target_alias_resolver: BuckConfigTargetAliasResolver,
 }
 
 impl LiteralParser {
@@ -141,7 +141,7 @@ impl<'c> DiceQueryDelegate<'c> {
         cell_resolver: CellResolver,
         global_target_platform: Option<TargetLabel>,
         package_boundary_exceptions: Arc<PackageBoundaryExceptions>,
-        target_alias_resolver: TargetAliasResolver,
+        target_alias_resolver: BuckConfigTargetAliasResolver,
     ) -> anyhow::Result<Self> {
         let working_dir = Package::from_cell_path(&cell_resolver.get_cell_path(working_dir)?);
         let cell_name = working_dir.as_cell_path().cell();

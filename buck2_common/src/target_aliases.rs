@@ -12,6 +12,7 @@ use buck2_core::cells::CellName;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::package::Package;
 use buck2_core::result::SharedResult;
+use buck2_core::target_aliases::TargetAliasResolver;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -36,12 +37,12 @@ enum AliasResolutionError {
 }
 
 #[derive(Dupe, Clone)]
-pub struct TargetAliasResolver {
+pub struct BuckConfigTargetAliasResolver {
     config: LegacyBuckConfig,
 }
 
-impl PartialEq for TargetAliasResolver {
-    fn eq(&self, other: &TargetAliasResolver) -> bool {
+impl PartialEq for BuckConfigTargetAliasResolver {
+    fn eq(&self, other: &BuckConfigTargetAliasResolver) -> bool {
         // `TargetAliasResolver` only uses `alias` section of buckconfig,
         // comparing only this section is enough.
         // Please update this code if `TargetAliasResolver` uses other buckconfigs.
@@ -55,12 +56,8 @@ impl PartialEq for TargetAliasResolver {
     }
 }
 
-impl TargetAliasResolver {
-    pub fn new(config: LegacyBuckConfig) -> Self {
-        Self { config }
-    }
-
-    pub fn get<'r, 'a: 'r, 'b: 'r>(&'a self, name: &'b str) -> anyhow::Result<Option<&'r str>> {
+impl TargetAliasResolver for BuckConfigTargetAliasResolver {
+    fn get<'r, 'a: 'r, 'b: 'r>(&'a self, name: &'b str) -> anyhow::Result<Option<&'r str>> {
         match self.resolve_alias(name) {
             Ok(a) => Ok(Some(a)),
             Err(AliasResolutionError::MissingAliasSection | AliasResolutionError::NotAnAlias) => {
@@ -71,6 +68,12 @@ impl TargetAliasResolver {
                 | e @ AliasResolutionError::AliasCycle(..),
             ) => Err(anyhow::Error::from(e).context(format!("Error resolving alias `{}`", name))),
         }
+    }
+}
+
+impl BuckConfigTargetAliasResolver {
+    pub fn new(config: LegacyBuckConfig) -> Self {
+        Self { config }
     }
 
     /// Resolves an alias in the `[alias]` section. Aliases can refer to other aliases. Any
@@ -128,12 +131,12 @@ pub trait HasTargetAliasResolver {
     async fn target_alias_resolver_for_cell(
         &self,
         cell_name: &CellName,
-    ) -> anyhow::Result<TargetAliasResolver>;
+    ) -> anyhow::Result<BuckConfigTargetAliasResolver>;
 
     async fn target_alias_resolver_for_working_dir(
         &self,
         working_dir: &ProjectRelativePath,
-    ) -> anyhow::Result<TargetAliasResolver>;
+    ) -> anyhow::Result<BuckConfigTargetAliasResolver>;
 }
 
 #[derive(Debug, Display, Hash, PartialEq, Eq, Clone)]
@@ -144,9 +147,9 @@ struct TargetAliasResolverKey {
 
 #[async_trait]
 impl Key for TargetAliasResolverKey {
-    type Value = SharedResult<TargetAliasResolver>;
+    type Value = SharedResult<BuckConfigTargetAliasResolver>;
 
-    async fn compute(&self, ctx: &DiceComputations) -> SharedResult<TargetAliasResolver> {
+    async fn compute(&self, ctx: &DiceComputations) -> SharedResult<BuckConfigTargetAliasResolver> {
         let legacy_configs = ctx.get_legacy_config_for_cell(&self.cell_name).await?;
         Ok(legacy_configs.target_alias_resolver())
     }
@@ -164,7 +167,7 @@ impl HasTargetAliasResolver for DiceComputations {
     async fn target_alias_resolver_for_cell(
         &self,
         cell_name: &CellName,
-    ) -> anyhow::Result<TargetAliasResolver> {
+    ) -> anyhow::Result<BuckConfigTargetAliasResolver> {
         Ok(self
             .compute(&TargetAliasResolverKey {
                 cell_name: cell_name.clone(),
@@ -175,7 +178,7 @@ impl HasTargetAliasResolver for DiceComputations {
     async fn target_alias_resolver_for_working_dir(
         &self,
         working_dir: &ProjectRelativePath,
-    ) -> anyhow::Result<TargetAliasResolver> {
+    ) -> anyhow::Result<BuckConfigTargetAliasResolver> {
         let cell_resolver = self.get_cell_resolver().await?;
         let working_dir = Package::from_cell_path(&cell_resolver.get_cell_path(&working_dir)?);
         let cell_name = working_dir.as_cell_path().cell();
@@ -190,7 +193,7 @@ mod tests {
 
     use crate::legacy_configs;
     use crate::target_aliases::AliasResolutionError;
-    use crate::target_aliases::TargetAliasResolver;
+    use crate::target_aliases::BuckConfigTargetAliasResolver;
 
     #[test]
     fn test_aliases() -> anyhow::Result<()> {
@@ -216,7 +219,7 @@ mod tests {
             "/config",
         )?;
 
-        let target_alias_resolver = TargetAliasResolver::new(config);
+        let target_alias_resolver = BuckConfigTargetAliasResolver::new(config);
 
         assert_eq!("//:foo", target_alias_resolver.resolve_alias("foo")?);
         assert_eq!("//:foo", target_alias_resolver.resolve_alias("bar")?);

@@ -45,7 +45,7 @@ use crate::legacy_configs::path::DEFAULT_BUCK_CONFIG_FILES;
 use crate::legacy_configs::view::LegacyBuckConfigView;
 use crate::legacy_configs::view::LegacyBuckConfigsView;
 use crate::sorted_hash_map::SortedHashMap;
-use crate::target_aliases::TargetAliasResolver;
+use crate::target_aliases::BuckConfigTargetAliasResolver;
 
 #[derive(Error, Debug)]
 pub(crate) enum ConfigError {
@@ -102,7 +102,7 @@ impl LegacyBuckConfigs {
     pub fn target_alias_resolver(
         &self,
         cell_name: &CellName,
-    ) -> anyhow::Result<TargetAliasResolver> {
+    ) -> anyhow::Result<BuckConfigTargetAliasResolver> {
         Ok(self.get(cell_name)?.target_alias_resolver())
     }
 
@@ -950,8 +950,8 @@ impl LegacyBuckConfig {
         }))
     }
 
-    pub fn target_alias_resolver(&self) -> TargetAliasResolver {
-        TargetAliasResolver::new(self.dupe())
+    pub fn target_alias_resolver(&self) -> BuckConfigTargetAliasResolver {
+        BuckConfigTargetAliasResolver::new(self.dupe())
     }
 
     pub fn parse_with_file_ops(

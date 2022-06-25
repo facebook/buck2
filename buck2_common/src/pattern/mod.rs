@@ -32,6 +32,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
+use buck2_core::target_aliases::TargetAliasResolver;
 use gazebo::dupe::Dupe;
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -42,7 +43,6 @@ use crate::pattern::ascii_pattern::trim_prefix_ascii;
 use crate::pattern::ascii_pattern::AsciiChar;
 use crate::pattern::ascii_pattern::AsciiStr;
 use crate::pattern::ascii_pattern::AsciiStr2;
-use crate::target_aliases::TargetAliasResolver;
 
 #[derive(thiserror::Error, Debug)]
 enum TargetPatternParseError {
@@ -240,7 +240,7 @@ impl<T: PatternType> ParsedPattern<T> {
     /// targets via `enclosing_package`, if provided.
     /// Allows everything from `parse_absolute`, plus relative patterns.
     pub fn parse_relative(
-        target_alias_resolver: &TargetAliasResolver,
+        target_alias_resolver: &dyn TargetAliasResolver,
         cell_resolver: &CellAliasResolver,
         relative_dir: &Package,
         pattern: &str,
@@ -267,7 +267,7 @@ impl<T: PatternType> ParsedPattern<T> {
     /// This should only be used with user-provided command line arguments, as precision is
     /// generally preferred elsewhere.
     pub fn parse_relaxed(
-        target_alias_resolver: &TargetAliasResolver,
+        target_alias_resolver: &dyn TargetAliasResolver,
         cell_resolver: &CellAliasResolver,
         relative_dir: &Package,
         pattern: &str,
@@ -505,7 +505,7 @@ impl<'a> TargetParsingOptions<'a> {
 /// targets via `enclosing_package`, if provided.
 fn parse_target_pattern<T>(
     cell_resolver: &CellAliasResolver,
-    target_alias_resolver: Option<&TargetAliasResolver>,
+    target_alias_resolver: Option<&dyn TargetAliasResolver>,
     opts: TargetParsingOptions,
     pattern: &str,
 ) -> anyhow::Result<ParsedPattern<T>>
@@ -593,7 +593,7 @@ enum ResolveTargetAliasError {
 
 fn resolve_target_alias<T>(
     cell_resolver: &CellAliasResolver,
-    target_alias_resolver: &TargetAliasResolver,
+    target_alias_resolver: &dyn TargetAliasResolver,
     lex: &PatternParts<T>,
 ) -> anyhow::Result<Option<ParsedPattern<T>>>
 where
@@ -691,7 +691,7 @@ mod tests {
     use super::*;
     use crate::legacy_configs::testing::parse;
     use crate::legacy_configs::LegacyBuckConfig;
-    use crate::target_aliases::TargetAliasResolver;
+    use crate::target_aliases::BuckConfigTargetAliasResolver;
 
     fn mk_package<P>(cell: &str, path: &str) -> ParsedPattern<P> {
         ParsedPattern::Package(Package::testing_new(cell, path))
@@ -742,8 +742,8 @@ mod tests {
         }
     }
 
-    fn no_aliases() -> TargetAliasResolver {
-        TargetAliasResolver::new(LegacyBuckConfig::empty())
+    fn no_aliases() -> BuckConfigTargetAliasResolver {
+        BuckConfigTargetAliasResolver::new(LegacyBuckConfig::empty())
     }
 
     fn resolver() -> CellAliasResolver {

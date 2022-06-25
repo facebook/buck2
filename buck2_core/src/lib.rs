@@ -48,6 +48,7 @@ pub mod process;
 pub mod provider;
 pub mod result;
 pub mod target;
+pub mod target_aliases;
 
 /// Marker for things that are only sensible to use inside Facebook,
 /// not intended to be complete, but intended to be useful to audit

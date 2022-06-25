@@ -12,7 +12,7 @@ use buck2_build_api::path::BuckOutPath;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
-use buck2_common::target_aliases::TargetAliasResolver;
+use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_core::package::Package;
@@ -174,7 +174,7 @@ pub fn get_bxl_callable<'a>(
 }
 
 pub struct CliResolutionCtx {
-    pub target_alias_resolver: TargetAliasResolver,
+    pub target_alias_resolver: BuckConfigTargetAliasResolver,
     pub cell_resolver: CellAliasResolver,
     pub relative_dir: Package,
 }

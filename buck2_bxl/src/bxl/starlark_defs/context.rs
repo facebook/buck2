@@ -25,8 +25,8 @@ use buck2_bxl_core::BxlKey;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
+use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
-use buck2_common::target_aliases::TargetAliasResolver;
 use buck2_core::cells::CellInstance;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectFilesystem;
@@ -83,7 +83,7 @@ pub struct BxlContext<'v> {
     pub(crate) current_bxl: BxlKey,
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
-    pub(crate) target_alias_resolver: TargetAliasResolver,
+    pub(crate) target_alias_resolver: BuckConfigTargetAliasResolver,
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     pub(crate) cell: CellInstance,
@@ -100,7 +100,7 @@ impl<'v> BxlContext<'v> {
         heap: &'v Heap,
         current_bxl: BxlKey,
         cli_args: Value<'v>,
-        target_alias_resolver: TargetAliasResolver,
+        target_alias_resolver: BuckConfigTargetAliasResolver,
         project_fs: Arc<ProjectFilesystem>,
         artifact_fs: ArtifactFs,
         cell: CellInstance,

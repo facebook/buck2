@@ -40,7 +40,7 @@ use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::pattern::ParsedPattern;
 use buck2_common::pattern::PatternType;
-use buck2_common::target_aliases::TargetAliasResolver;
+use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_core::cells::CellInstance;
 use buck2_core::cells::CellResolver;
 use buck2_core::env_helper::EnvHelper;
@@ -100,7 +100,7 @@ impl TryFrom<i32> for ConfigType {
 pub(crate) struct PatternParser {
     cell: CellInstance,
     cwd: Package,
-    target_alias_resolver: TargetAliasResolver,
+    target_alias_resolver: BuckConfigTargetAliasResolver,
 }
 
 impl PatternParser {

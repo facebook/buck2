@@ -9,7 +9,7 @@
 
 use buck2_common::pattern::ParsedPattern;
 use buck2_common::pattern::TargetPattern;
-use buck2_common::target_aliases::TargetAliasResolver;
+use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellInstance;
 use buck2_core::package::Package;
@@ -28,7 +28,7 @@ enum ValueAsTargetLabelError {
 pub trait ValueAsStarlarkTargetLabel {
     fn parse_target_platforms(
         self,
-        target_alias_resolver: &TargetAliasResolver,
+        target_alias_resolver: &BuckConfigTargetAliasResolver,
         cell: &CellInstance,
     ) -> anyhow::Result<Option<TargetLabel>>;
 }
@@ -36,7 +36,7 @@ pub trait ValueAsStarlarkTargetLabel {
 impl<'v> ValueAsStarlarkTargetLabel for Value<'v> {
     fn parse_target_platforms(
         self,
-        target_alias_resolver: &TargetAliasResolver,
+        target_alias_resolver: &BuckConfigTargetAliasResolver,
         cell: &CellInstance,
     ) -> anyhow::Result<Option<TargetLabel>> {
         let target_platform = if self.is_none() {
