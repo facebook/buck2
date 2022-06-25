@@ -58,7 +58,7 @@ use crate::nodes::configured::ConfiguredTargetNode;
 use crate::nodes::StarlarkRuleType;
 
 #[derive(Error, Debug)]
-enum AnalysisError {
+pub enum AnalysisError {
     #[error(
         "Cannot handle flavor `{flavor}` on target `{target}`. Most flavors are unsupported in Buck2."
     )]
@@ -101,49 +101,7 @@ impl AnalysisResult {
         &self,
         label: &ConfiguredProvidersLabel,
     ) -> anyhow::Result<FrozenProviderCollectionValue> {
-        match label.name() {
-            ProvidersName::Default => anyhow::Ok(self.provider_collection.dupe()),
-            ProvidersName::Named(provider_names) => {
-                Ok(FrozenProviderCollectionValue::from_value(
-                    self.provider_collection.value().try_map(|v| {
-                        let mut collection_value = v;
-
-                        for provider_name in provider_names {
-                            let maybe_di = collection_value
-                                .default_info()
-                                .get_sub_target_providers(provider_name.as_str());
-
-                            match maybe_di {
-                                // The inner values should all be frozen if in a frozen provider collection
-                                Some(inner) => {
-                                    collection_value = inner;
-                                }
-                                None => {
-                                    return Err(anyhow::anyhow!(
-                                        AnalysisError::RequestedInvalidSubTarget(
-                                            provider_name.clone(),
-                                            label.clone(),
-                                            v.default_info()
-                                                .sub_targets()
-                                                .keys()
-                                                .map(|s| (*s).to_owned())
-                                                .collect()
-                                        )
-                                    ));
-                                }
-                            }
-                        }
-
-                        Ok(collection_value)
-                    })?,
-                ))
-            }
-            ProvidersName::UnrecognizedFlavor(flavor) => Err(AnalysisError::UnknownFlavors {
-                target: label.unconfigured().to_string(),
-                flavor: flavor.clone(),
-            }
-            .into()),
-        }
+        self.provider_collection.lookup_inner(label)
     }
 
     pub fn lookup_deferred(&self, id: DeferredId) -> anyhow::Result<&(dyn DeferredAny + 'static)> {

@@ -13,6 +13,8 @@ use std::sync::Arc;
 
 use buck2_core::provider::id::ProviderId;
 use buck2_core::provider::id::ProviderIdWithType;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersName;
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
 use gazebo::dupe::Dupe;
@@ -35,6 +37,7 @@ use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueLike;
 
+use crate::analysis::AnalysisError;
 use crate::interpreter::rule_defs::provider::callable::ValueAsProviderCallableLike;
 use crate::interpreter::rule_defs::provider::DefaultInfo;
 use crate::interpreter::rule_defs::provider::DefaultInfoCallable;
@@ -282,6 +285,52 @@ impl FrozenProviderCollectionValue {
 
     pub fn provider_collection(&self) -> &FrozenProviderCollection {
         self.value.as_ref()
+    }
+
+    pub fn lookup_inner(&self, label: &ConfiguredProvidersLabel) -> anyhow::Result<Self> {
+        match label.name() {
+            ProvidersName::Default => anyhow::Ok(self.dupe()),
+            ProvidersName::Named(provider_names) => {
+                Ok(FrozenProviderCollectionValue::from_value(
+                    self.value().try_map(|v| {
+                        let mut collection_value = v;
+
+                        for provider_name in provider_names {
+                            let maybe_di = collection_value
+                                .default_info()
+                                .get_sub_target_providers(provider_name.as_str());
+
+                            match maybe_di {
+                                // The inner values should all be frozen if in a frozen provider collection
+                                Some(inner) => {
+                                    collection_value = inner;
+                                }
+                                None => {
+                                    return Err(anyhow::anyhow!(
+                                        AnalysisError::RequestedInvalidSubTarget(
+                                            provider_name.clone(),
+                                            label.clone(),
+                                            v.default_info()
+                                                .sub_targets()
+                                                .keys()
+                                                .map(|s| (*s).to_owned())
+                                                .collect()
+                                        )
+                                    ));
+                                }
+                            }
+                        }
+
+                        Ok(collection_value)
+                    })?,
+                ))
+            }
+            ProvidersName::UnrecognizedFlavor(flavor) => Err(AnalysisError::UnknownFlavors {
+                target: label.unconfigured().to_string(),
+                flavor: flavor.clone(),
+            }
+            .into()),
+        }
     }
 }
 
