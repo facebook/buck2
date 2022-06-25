@@ -21,6 +21,8 @@ use crate::attrs::attr_type::query::QueryAttr;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfigured;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_path::CoercedPath;
+use crate::attrs::configured_attr::ConfiguredAttr;
+use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum AttrLiteral<C: AttrConfig> {
@@ -182,6 +184,53 @@ impl<C: AttrConfig> AttrLiteral<C> {
             AttrLiteral::ConfigurationDep(d) => filter(&d.to_string()),
             AttrLiteral::SplitTransitionDep(d) => d.any_matches(filter),
             AttrLiteral::Label(l) => filter(&l.to_string()),
+        }
+    }
+}
+
+impl AttrLiteral<ConfiguredAttr> {
+    pub(crate) fn traverse<'a>(
+        &'a self,
+        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
+    ) -> anyhow::Result<()> {
+        match self {
+            AttrLiteral::Bool(_) => Ok(()),
+            AttrLiteral::Int(_) => Ok(()),
+            AttrLiteral::String(_) => Ok(()),
+            AttrLiteral::List(list, _) | AttrLiteral::Tuple(list) => {
+                for v in list.iter() {
+                    v.traverse(traversal)?;
+                }
+                Ok(())
+            }
+            AttrLiteral::Dict(dict) => {
+                for (k, v) in dict {
+                    k.traverse(traversal)?;
+                    v.traverse(traversal)?;
+                }
+                Ok(())
+            }
+            AttrLiteral::None => Ok(()),
+            AttrLiteral::Dep(dep) => dep.traverse(traversal),
+            AttrLiteral::ConfiguredDep(dep) => dep.traverse(traversal),
+            AttrLiteral::ConfigurationDep(dep) => traversal.configuration_dep(dep),
+            AttrLiteral::ExplicitConfiguredDep(dep) => dep.traverse(traversal),
+            AttrLiteral::SplitTransitionDep(deps) => {
+                for target in deps.deps.values() {
+                    traversal.dep(target)?;
+                }
+                Ok(())
+            }
+            AttrLiteral::Query(query) => query.traverse(traversal),
+            AttrLiteral::SourceFile(box source) => {
+                for x in source.inputs() {
+                    traversal.input(x)?;
+                }
+                Ok(())
+            }
+            AttrLiteral::SourceLabel(box dep) => traversal.dep(dep),
+            AttrLiteral::Arg(arg) => arg.traverse(traversal),
+            AttrLiteral::Label(label) => traversal.label(label),
         }
     }
 }

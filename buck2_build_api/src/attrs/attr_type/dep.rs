@@ -24,7 +24,6 @@ use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::dep::ProviderIdSet;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
-use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use gazebo::prelude::*;
 use starlark::environment::Module;
 use starlark::values::string::STRING_TYPE;
@@ -48,26 +47,6 @@ pub(crate) enum ResolutionError {
     MissingDep(ConfiguredProvidersLabel),
     #[error("required provider {0} was not found on {1}. Found these providers: {}", .2.join(", "))]
     MissingRequiredProvider(String, ConfiguredProvidersLabel, Vec<String>),
-}
-
-pub(crate) trait ConfiguredDepAttrExt {
-    fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
-    ) -> anyhow::Result<()>;
-}
-
-impl ConfiguredDepAttrExt for DepAttr<ConfiguredProvidersLabel> {
-    fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
-    ) -> anyhow::Result<()> {
-        match &self.attr_type.transition {
-            DepAttrTransition::Identity => traversal.dep(&self.label),
-            DepAttrTransition::Exec => traversal.exec_dep(&self.label),
-            DepAttrTransition::Transition(..) => traversal.dep(&self.label),
-        }
-    }
 }
 
 pub(crate) trait DepAttrTypeExt {
@@ -260,21 +239,5 @@ impl AttrTypeCoerce for ExplicitConfiguredDepAttrType {
 
     fn starlark_type(&self) -> String {
         "(str.type, str.type)".to_owned()
-    }
-}
-
-pub(crate) trait ConfiguredExplicitConfiguredDepExt {
-    fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
-    ) -> anyhow::Result<()>;
-}
-
-impl ConfiguredExplicitConfiguredDepExt for ConfiguredExplicitConfiguredDep {
-    fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
-    ) -> anyhow::Result<()> {
-        traversal.dep(&self.label)
     }
 }

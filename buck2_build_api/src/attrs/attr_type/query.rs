@@ -21,7 +21,6 @@ use buck2_node::attrs::attr_type::query::QueryAttrBase;
 use buck2_node::attrs::attr_type::query::QueryAttrType;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
-use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::functions::QueryFunctionsExt;
@@ -154,27 +153,10 @@ impl UnconfiguredQueryAttrBaseExt for QueryAttrBase<CoercedAttr> {
 }
 
 pub(crate) trait ConfiguredQueryAttrBaseExt {
-    fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
-    ) -> anyhow::Result<()>;
-
     fn resolve(&self, ctx: &dyn AttrResolutionContext) -> SharedResult<Arc<AnalysisQueryResult>>;
 }
 
 impl ConfiguredQueryAttrBaseExt for QueryAttrBase<ConfiguredAttr> {
-    fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
-    ) -> anyhow::Result<()> {
-        // queries have no inputs.
-        for dep in self.resolved_literals.values() {
-            traversal.dep(dep)?;
-        }
-        traversal.query_macro(&self.query, &self.resolved_literals)?;
-        Ok(())
-    }
-
     fn resolve(&self, ctx: &dyn AttrResolutionContext) -> SharedResult<Arc<AnalysisQueryResult>> {
         ctx.resolve_query(&self.query)
     }
@@ -206,22 +188,10 @@ impl UnconfiguredQueryAttrExt for QueryAttr<CoercedAttr> {
 }
 
 pub(crate) trait ConfiguredQueryAttrExt {
-    fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
-    ) -> anyhow::Result<()>;
-
     fn resolve<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Value<'v>>;
 }
 
 impl ConfiguredQueryAttrExt for QueryAttr<ConfiguredAttr> {
-    fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
-    ) -> anyhow::Result<()> {
-        self.query.traverse(traversal)
-    }
-
     fn resolve<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Value<'v>> {
         let query_results = self.query.resolve(ctx)?;
         let mut dependencies = Vec::new();

@@ -13,6 +13,8 @@ use std::fmt::Display;
 
 use crate::attrs::attr_type::attr_config::AttrConfig;
 use crate::attrs::attr_type::query::QueryMacroBase;
+use crate::attrs::configured_attr::ConfiguredAttr;
+use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct ArgAttrType;
@@ -46,6 +48,28 @@ impl<C: AttrConfig> StringWithMacros<C> {
     }
 }
 
+impl StringWithMacros<ConfiguredAttr> {
+    pub(crate) fn traverse<'a>(
+        &'a self,
+        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
+    ) -> anyhow::Result<()> {
+        match self {
+            Self::StringPart(..) => {}
+            Self::ManyParts(ref parts) => {
+                for part in parts.iter() {
+                    match part {
+                        StringWithMacrosPart::String(_) => {}
+                        StringWithMacrosPart::Macro(_, m) => {
+                            m.traverse(traversal)?;
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum StringWithMacrosPart<C: AttrConfig> {
     String(String),
@@ -72,6 +96,28 @@ pub enum MacroBase<C: AttrConfig> {
     /// us to progress further into a build and detect more issues. Once we have all (or most) of the buckv1 macros
     /// recognized we'll remove this and make it an early error.
     UnrecognizedMacro(String, Vec<String>),
+}
+
+impl MacroBase<ConfiguredAttr> {
+    pub fn traverse<'a>(
+        &'a self,
+        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
+    ) -> anyhow::Result<()> {
+        // macros can't reference repo inputs (they only reference the outputs of other targets)
+        match self {
+            MacroBase::Location(l) | MacroBase::UserKeyedPlaceholder(_, l, _) => traversal.dep(l),
+            MacroBase::Exe {
+                label,
+                exec_dep: true,
+            } => traversal.exec_dep(label),
+            MacroBase::Exe {
+                label,
+                exec_dep: false,
+            } => traversal.dep(label),
+            MacroBase::Query(query_macro) => query_macro.traverse(traversal),
+            MacroBase::UserUnkeyedPlaceholder(_) | MacroBase::UnrecognizedMacro(..) => Ok(()),
+        }
+    }
 }
 
 /// Display attempts to approximately reproduce the string that created a macro.

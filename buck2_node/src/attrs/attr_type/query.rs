@@ -15,6 +15,8 @@ use crate::attrs::attr_type::arg::QueryExpansion;
 use crate::attrs::attr_type::attr_config::AttrConfig;
 use crate::attrs::attr_type::dep::DepAttrType;
 use crate::attrs::attr_type::dep::ProviderIdSet;
+use crate::attrs::configured_attr::ConfiguredAttr;
+use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct QueryAttrType {
@@ -39,6 +41,15 @@ impl<C: AttrConfig> QueryAttr<C> {
     }
 }
 
+impl QueryAttr<ConfiguredAttr> {
+    pub(crate) fn traverse<'a>(
+        &'a self,
+        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
+    ) -> anyhow::Result<()> {
+        self.query.traverse(traversal)
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub struct QueryMacroBase<C: AttrConfig> {
     pub expansion_type: QueryExpansion,
@@ -49,6 +60,15 @@ impl<C: AttrConfig> Display for QueryMacroBase<C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} {}", &self.expansion_type, self.query.query())?;
         Ok(())
+    }
+}
+
+impl QueryMacroBase<ConfiguredAttr> {
+    pub(crate) fn traverse<'a>(
+        &'a self,
+        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
+    ) -> anyhow::Result<()> {
+        self.query.traverse(traversal)
     }
 }
 
@@ -65,3 +85,17 @@ impl<C: AttrConfig> QueryAttrBase<C> {
 }
 
 pub type ResolvedQueryLiterals<C> = BTreeMap<String, <C as AttrConfig>::ProvidersType>;
+
+impl QueryAttrBase<ConfiguredAttr> {
+    pub(crate) fn traverse<'a>(
+        &'a self,
+        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
+    ) -> anyhow::Result<()> {
+        // queries have no inputs.
+        for dep in self.resolved_literals.values() {
+            traversal.dep(dep)?;
+        }
+        traversal.query_macro(&self.query, &self.resolved_literals)?;
+        Ok(())
+    }
+}

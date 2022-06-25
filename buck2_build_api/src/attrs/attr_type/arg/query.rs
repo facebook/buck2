@@ -15,7 +15,6 @@ use buck2_node::attrs::attr_type::query::QueryAttrBase;
 use buck2_node::attrs::attr_type::query::QueryMacroBase;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
-use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
 use gazebo::prelude::*;
 use starlark::values::FrozenRef;
@@ -167,22 +166,10 @@ impl UnconfiguredQueryMacroBaseExt for QueryMacroBase<CoercedAttr> {
 }
 
 pub(crate) trait ConfiguredQueryMacroBaseExt {
-    fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
-    ) -> anyhow::Result<()>;
-
     fn resolve(&self, ctx: &dyn AttrResolutionContext) -> anyhow::Result<ResolvedQueryMacro>;
 }
 
 impl ConfiguredQueryMacroBaseExt for QueryMacroBase<ConfiguredAttr> {
-    fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
-    ) -> anyhow::Result<()> {
-        self.query.traverse(traversal)
-    }
-
     fn resolve(&self, ctx: &dyn AttrResolutionContext) -> anyhow::Result<ResolvedQueryMacro> {
         let query_result = self.query.resolve(ctx)?;
 

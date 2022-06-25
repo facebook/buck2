@@ -39,7 +39,6 @@ use itertools::Either;
 use itertools::Itertools;
 use starlark::collections::SmallSet;
 
-use crate::attrs::configured_attr::ConfiguredAttrExt;
 use crate::calculation::BuildErrors;
 use crate::configuration::execution::ExecutionPlatform;
 use crate::configuration::execution::ExecutionPlatformResolution;

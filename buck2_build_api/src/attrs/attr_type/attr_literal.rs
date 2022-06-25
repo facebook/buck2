@@ -44,8 +44,6 @@ use crate::attrs::attr_type::arg::value::ResolvedStringWithMacros;
 use crate::attrs::attr_type::arg::ConfiguredStringWithMacrosExt;
 use crate::attrs::attr_type::arg::UnconfiguredStringWithMacrosExt;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepAttrTypeExt;
-use crate::attrs::attr_type::dep::ConfiguredDepAttrExt;
-use crate::attrs::attr_type::dep::ConfiguredExplicitConfiguredDepExt;
 use crate::attrs::attr_type::dep::DepAttrTypeExt;
 use crate::attrs::attr_type::dep::ExplicitConfiguredDepAttrTypeExt;
 use crate::attrs::attr_type::label::LabelAttrTypeExt;
@@ -223,11 +221,6 @@ impl<'a> ConfiguredAttrTraversal<'a> for ConfiguredAttrInfo {
 }
 
 pub(crate) trait ConfiguredAttrLiteralExt {
-    fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
-    ) -> anyhow::Result<()>;
-
     fn resolve_single<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Value<'v>>;
 
     fn resolve<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Vec<Value<'v>>>;
@@ -236,51 +229,6 @@ pub(crate) trait ConfiguredAttrLiteralExt {
 }
 
 impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
-    fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
-    ) -> anyhow::Result<()> {
-        match self {
-            AttrLiteral::Bool(_) => Ok(()),
-            AttrLiteral::Int(_) => Ok(()),
-            AttrLiteral::String(_) => Ok(()),
-            AttrLiteral::List(list, _) | AttrLiteral::Tuple(list) => {
-                for v in list.iter() {
-                    v.traverse(traversal)?;
-                }
-                Ok(())
-            }
-            AttrLiteral::Dict(dict) => {
-                for (k, v) in dict {
-                    k.traverse(traversal)?;
-                    v.traverse(traversal)?;
-                }
-                Ok(())
-            }
-            AttrLiteral::None => Ok(()),
-            AttrLiteral::Dep(dep) => dep.traverse(traversal),
-            AttrLiteral::ConfiguredDep(dep) => dep.traverse(traversal),
-            AttrLiteral::ConfigurationDep(dep) => traversal.configuration_dep(dep),
-            AttrLiteral::ExplicitConfiguredDep(dep) => dep.traverse(traversal),
-            AttrLiteral::SplitTransitionDep(deps) => {
-                for target in deps.deps.values() {
-                    traversal.dep(target)?;
-                }
-                Ok(())
-            }
-            AttrLiteral::Query(query) => query.traverse(traversal),
-            AttrLiteral::SourceFile(box source) => {
-                for x in source.inputs() {
-                    traversal.input(x)?;
-                }
-                Ok(())
-            }
-            AttrLiteral::SourceLabel(box dep) => traversal.dep(dep),
-            AttrLiteral::Arg(arg) => arg.traverse(traversal),
-            AttrLiteral::Label(label) => traversal.label(label),
-        }
-    }
-
     fn resolve_single<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Value<'v>> {
         match self {
             AttrLiteral::Bool(v) => Ok(Value::new_bool(*v)),

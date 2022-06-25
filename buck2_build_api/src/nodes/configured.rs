@@ -40,7 +40,6 @@ use indexmap::IndexMap;
 
 use crate::attrs::attr_type::attr_literal::ConfiguredAttrInfo;
 use crate::attrs::coerced_attr::CoercedAttr;
-use crate::attrs::configured_attr::ConfiguredAttrExt;
 use crate::configuration::execution::ExecutionPlatformResolution;
 use crate::configuration::AttrConfigurationContextImpl;
 use crate::configuration::ResolvedConfiguration;

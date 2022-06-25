@@ -8,32 +8,18 @@
  */
 
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
-use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use starlark::values::Value;
 
 use crate::attrs::analysis::AttrResolutionContext;
 use crate::attrs::attr_type::attr_literal::ConfiguredAttrLiteralExt;
 
 pub trait ConfiguredAttrExt {
-    fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
-    ) -> anyhow::Result<()>;
-
     fn resolve<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Vec<Value<'v>>>;
 
     fn resolve_single<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Value<'v>>;
 }
 
 impl ConfiguredAttrExt for ConfiguredAttr {
-    /// Traverses the configured attribute and calls the traverse for every encountered target label (in deps, sources, or other places).
-    fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
-    ) -> anyhow::Result<()> {
-        self.0.traverse(traversal)
-    }
-
     /// "Resolves" the configured value to the resolved value provided to the rule implementation.
     ///
     /// `resolve` may return multiple values. It is up to the caller to fail if

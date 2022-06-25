@@ -29,7 +29,6 @@ use buck2_node::attrs::attr_type::query::QueryAttrType;
 use buck2_node::attrs::attr_type::query::QueryMacroBase;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
-use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
 use gazebo::prelude::*;
 use once_cell::sync::Lazy;
@@ -39,7 +38,6 @@ use thiserror::Error;
 
 use crate::actions::artifact::ExecutorFs;
 use crate::attrs::analysis::AttrResolutionContext;
-use crate::attrs::attr_type::arg::query::ConfiguredQueryMacroBaseExt;
 use crate::attrs::attr_type::arg::query::UnconfiguredQueryMacroBaseExt;
 use crate::attrs::attr_type::arg::value::ResolvedStringWithMacros;
 use crate::attrs::attr_type::attr_literal::CoercionError;
@@ -231,36 +229,11 @@ impl UnconfiguredStringWithMacrosPartExt for UnconfiguredStringWithMacrosPart {
 
 pub(crate) trait ConfiguredStringWithMacrosExt {
     fn resolve<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Value<'v>>;
-
-    fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
-    ) -> anyhow::Result<()>;
 }
 
 impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
     fn resolve<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Value<'v>> {
         ResolvedStringWithMacros::resolved(self, ctx)
-    }
-
-    fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
-    ) -> anyhow::Result<()> {
-        match self {
-            Self::StringPart(..) => {}
-            Self::ManyParts(ref parts) => {
-                for part in parts.iter() {
-                    match part {
-                        StringWithMacrosPart::String(_) => {}
-                        StringWithMacrosPart::Macro(_, m) => {
-                            m.traverse(traversal)?;
-                        }
-                    }
-                }
-            }
-        }
-        Ok(())
     }
 }
 
@@ -459,35 +432,6 @@ impl CommandLineBuilder for SpaceSeparatedCommandLineBuilder<'_> {
             self.builder.push_str(" ");
         }
         self.builder.push_str(&s);
-    }
-}
-
-pub(crate) trait ConfiguredMacroExt {
-    fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
-    ) -> anyhow::Result<()>;
-}
-
-impl ConfiguredMacroExt for ConfiguredMacro {
-    fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
-    ) -> anyhow::Result<()> {
-        // macros can't reference repo inputs (they only reference the outputs of other targets)
-        match self {
-            MacroBase::Location(l) | MacroBase::UserKeyedPlaceholder(_, l, _) => traversal.dep(l),
-            MacroBase::Exe {
-                label,
-                exec_dep: true,
-            } => traversal.exec_dep(label),
-            MacroBase::Exe {
-                label,
-                exec_dep: false,
-            } => traversal.dep(label),
-            MacroBase::Query(query_macro) => query_macro.traverse(traversal),
-            MacroBase::UserUnkeyedPlaceholder(_) | MacroBase::UnrecognizedMacro(..) => Ok(()),
-        }
     }
 }
 

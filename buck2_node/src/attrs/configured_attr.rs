@@ -19,6 +19,7 @@ use serde::Serializer;
 
 use crate::attrs::attr_type::attr_config::AttrConfig;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 
 #[derive(Debug, thiserror::Error)]
 enum ConfiguredAttrError {
@@ -62,6 +63,14 @@ impl Debug for ConfiguredAttr {
 impl ConfiguredAttr {
     pub fn new(v: AttrLiteral<ConfiguredAttr>) -> Self {
         Self(v)
+    }
+
+    /// Traverses the configured attribute and calls the traverse for every encountered target label (in deps, sources, or other places).
+    pub fn traverse<'a>(
+        &'a self,
+        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
+    ) -> anyhow::Result<()> {
+        self.0.traverse(traversal)
     }
 
     /// Used for concatting the configured result of concatted selects. For most types this isn't allowed (it

@@ -12,11 +12,14 @@ use std::sync::Arc;
 
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::id::ProviderId;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
 use gazebo::dupe::Dupe;
 
 use crate::attrs::attr_type::attr_like::AttrLike;
+use crate::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
+use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::traversal::CoercedAttrTraversal;
 
 // Just a placeholder for what a label should resolve to.
@@ -73,6 +76,19 @@ impl<T: ProvidersLabelMaybeConfigured + AttrLike> Display for DepAttr<T> {
     }
 }
 
+impl DepAttr<ConfiguredProvidersLabel> {
+    pub(crate) fn traverse<'a>(
+        &'a self,
+        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
+    ) -> anyhow::Result<()> {
+        match &self.attr_type.transition {
+            DepAttrTransition::Identity => traversal.dep(&self.label),
+            DepAttrTransition::Exec => traversal.exec_dep(&self.label),
+            DepAttrTransition::Transition(..) => traversal.dep(&self.label),
+        }
+    }
+}
+
 impl DepAttr<ProvidersLabel> {
     pub fn traverse<'a>(
         &'a self,
@@ -104,4 +120,13 @@ impl DepAttrType {
 pub trait ExplicitConfiguredDepMaybeConfigured {
     fn to_json(&self) -> anyhow::Result<serde_json::Value>;
     fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool>;
+}
+
+impl ConfiguredExplicitConfiguredDep {
+    pub(crate) fn traverse<'a>(
+        &'a self,
+        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
+    ) -> anyhow::Result<()> {
+        traversal.dep(&self.label)
+    }
 }
