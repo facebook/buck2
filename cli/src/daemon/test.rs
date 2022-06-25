@@ -32,6 +32,7 @@ use buck2_build_api::test::translations::build_configured_target_handle;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::pattern::*;
 use buck2_core::fs::paths::*;
 use buck2_core::fs::project::*;

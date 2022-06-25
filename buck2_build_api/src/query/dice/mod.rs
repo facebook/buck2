@@ -18,7 +18,8 @@ use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::package_boundary::PackageBoundaryExceptions;
 use buck2_common::package_listing::dice::HasPackageListingResolver;
 use buck2_common::package_listing::resolver::PackageListingResolver;
-use buck2_common::pattern::resolve_target_patterns;
+use buck2_common::pattern::resolve::resolve_target_patterns;
+use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::pattern::ParsedPattern;
 use buck2_common::pattern::ProvidersPattern;
 use buck2_common::target_aliases::HasTargetAliasResolver;
@@ -183,7 +184,7 @@ impl<'c> UqueryDelegate for DiceQueryDelegate<'c> {
     async fn resolve_target_patterns(
         &self,
         patterns: &[&str],
-    ) -> anyhow::Result<buck2_common::pattern::ResolvedPattern<TargetName>> {
+    ) -> anyhow::Result<ResolvedPattern<TargetName>> {
         let parsed_patterns = patterns.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
         let file_ops = self.ctx.file_ops();
         resolve_target_patterns(&self.cell_resolver, parsed_patterns.iter(), &file_ops).await
