@@ -78,11 +78,11 @@ impl<'a> ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQuer
             .ok_or_else(|| anyhow::anyhow!(""))
     }
 
-    async fn get_template_info_provider(
+    async fn get_template_info_provider_artifacts(
         &self,
         configured_label: &ConfiguredTargetLabel,
         template_name: &str,
-    ) -> anyhow::Result<Vec<ConfiguredTargetLabel>> {
+    ) -> anyhow::Result<Vec<ArtifactGroup>> {
         let providers_label =
             ConfiguredProvidersLabel::new(configured_label.dupe(), ProvidersName::Default);
 
@@ -91,7 +91,7 @@ impl<'a> ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQuer
             .ctx()
             .get_providers(&providers_label);
 
-        let mut labels: Vec<ConfiguredTargetLabel> = vec![];
+        let mut artifacts = vec![];
 
         match providers.await? {
             MaybeCompatible::Incompatible(reason) => {
@@ -123,23 +123,13 @@ impl<'a> ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQuer
                         }
 
                         for input in cmd_visitor.inputs {
-                            match input {
-                                ArtifactGroup::Artifact(artifact) => {
-                                    if let Some(owner) = artifact.owner() {
-                                        let target_label = owner.unpack_target_label().ok_or_else(|| anyhow::anyhow!("Providers from rules should only have artifacts created by other rules"))?;
-                                        labels.push(target_label.dupe());
-                                    }
-                                }
-                                _ => {
-                                    // ignore
-                                }
-                            }
+                            artifacts.push(input);
                         }
                     }
                 }
             }
         }
 
-        Ok(labels)
+        Ok(artifacts)
     }
 }

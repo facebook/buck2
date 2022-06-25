@@ -41,6 +41,7 @@ use ref_cast::RefCast;
 use thiserror::Error;
 
 use crate::analysis::configured_graph::ConfiguredGraphNode;
+use crate::artifact_groups::ArtifactGroup;
 use crate::nodes::unconfigured::AttrInspectOptions;
 
 #[derive(Debug, Error)]
@@ -53,11 +54,11 @@ enum AnalysisQueryError {
 pub trait ConfiguredGraphQueryEnvironmentDelegate: Send + Sync {
     fn eval_literal(&self, literal: &str) -> anyhow::Result<ConfiguredGraphNode>;
 
-    async fn get_template_info_provider(
+    async fn get_template_info_provider_artifacts(
         &self,
         configured_label: &ConfiguredTargetLabel,
         template_name: &str,
-    ) -> anyhow::Result<Vec<ConfiguredTargetLabel>>;
+    ) -> anyhow::Result<Vec<ArtifactGroup>>;
 }
 
 pub struct ConfiguredGraphQueryEnvironment<'a> {
@@ -148,11 +149,23 @@ impl<'a> ConfiguredGraphQueryEnvironment<'a> {
             let mut labels: HashSet<ConfiguredTargetLabel> = HashSet::new();
 
             for target in targets.iter() {
-                let target_labels = self
+                let artifacts = self
                     .delegate
-                    .get_template_info_provider(target.label(), template_name)
+                    .get_template_info_provider_artifacts(target.label(), template_name)
                     .await?;
-                labels.extend(target_labels);
+                for artifact in artifacts {
+                    match artifact {
+                        ArtifactGroup::Artifact(artifact) => {
+                            if let Some(owner) = artifact.owner() {
+                                let target_label = owner.unpack_target_label().ok_or_else(|| anyhow::anyhow!("Providers from rules should only have artifacts created by other rules"))?;
+                                labels.insert(target_label.dupe());
+                            }
+                        }
+                        _ => {
+                            // ignore
+                        }
+                    }
+                }
             }
 
             struct TraversalDelegate {
