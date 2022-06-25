@@ -689,9 +689,6 @@ mod tests {
     use test_case::test_case;
 
     use super::*;
-    use crate::legacy_configs::testing::parse;
-    use crate::legacy_configs::LegacyBuckConfig;
-    use crate::target_aliases::BuckConfigTargetAliasResolver;
 
     fn mk_package<P>(cell: &str, path: &str) -> ParsedPattern<P> {
         ParsedPattern::Package(Package::testing_new(cell, path))
@@ -742,8 +739,33 @@ mod tests {
         }
     }
 
-    fn no_aliases() -> BuckConfigTargetAliasResolver {
-        BuckConfigTargetAliasResolver::new(LegacyBuckConfig::empty())
+    struct NoAliases;
+
+    impl TargetAliasResolver for NoAliases {
+        fn get<'r, 'a: 'r, 'b: 'r>(&'a self, _name: &'b str) -> anyhow::Result<Option<&'r str>> {
+            Ok(None)
+        }
+    }
+
+    fn aliases(aliases: &[(&str, &str)]) -> impl TargetAliasResolver {
+        struct Aliases(Vec<(String, String)>);
+
+        impl TargetAliasResolver for Aliases {
+            fn get<'r, 'a: 'r, 'b: 'r>(&'a self, name: &'b str) -> anyhow::Result<Option<&'r str>> {
+                Ok(self
+                    .0
+                    .iter()
+                    .find(|(a, _)| *a == name)
+                    .map(|(_, b)| b.as_str()))
+            }
+        }
+
+        Aliases(
+            aliases
+                .iter()
+                .map(|(a, b)| ((*a).to_owned(), (*b).to_owned()))
+                .collect(),
+        )
     }
 
     fn resolver() -> CellAliasResolver {
@@ -798,12 +820,11 @@ mod tests {
         );
         assert_eq!(
             mk_recursive::<T>("root", "package/path"),
-            ParsedPattern::<T>::parse_relative(&no_aliases(), &resolver(), &package, "...")
-                .unwrap()
+            ParsedPattern::<T>::parse_relative(&NoAliases, &resolver(), &package, "...").unwrap()
         );
         assert_eq!(
             mk_recursive::<T>("root", "package/path/foo"),
-            ParsedPattern::<T>::parse_relative(&no_aliases(), &resolver(), &package, "foo/...")
+            ParsedPattern::<T>::parse_relative(&NoAliases, &resolver(), &package, "foo/...")
                 .unwrap()
         );
     }
@@ -821,7 +842,7 @@ mod tests {
         );
         assert_eq!(
             mk_target("root", "package/path/foo", "target"),
-            ParsedPattern::parse_relative(&no_aliases(), &resolver(), &package, "foo:target")?
+            ParsedPattern::parse_relative(&NoAliases, &resolver(), &package, "foo:target")?
         );
         Ok(())
     }
@@ -835,7 +856,7 @@ mod tests {
 
         assert_matches!(
             ParsedPattern::<TargetPattern>::parse_relative(
-                &no_aliases(),
+                &NoAliases,
                 &resolver(),
                 &package,
                 "path"
@@ -850,15 +871,15 @@ mod tests {
 
         assert_eq!(
             mk_target("root", "package/path", "path"),
-            ParsedPattern::parse_relaxed(&no_aliases(), &resolver(), &package, "//package/path")?
+            ParsedPattern::parse_relaxed(&NoAliases, &resolver(), &package, "//package/path")?
         );
         assert_eq!(
             mk_target("root", "package/path", "path"),
-            ParsedPattern::parse_relaxed(&no_aliases(), &resolver(), &package, "path")?
+            ParsedPattern::parse_relaxed(&NoAliases, &resolver(), &package, "path")?
         );
         assert_eq!(
             mk_providers("root", "package/path", "path", Some(&["provider"])),
-            ParsedPattern::parse_relaxed(&no_aliases(), &resolver(), &package, "path[provider]")?
+            ParsedPattern::parse_relaxed(&NoAliases, &resolver(), &package, "path[provider]")?
         );
         assert_eq!(
             mk_providers(
@@ -868,7 +889,7 @@ mod tests {
                 Some(&["provider"])
             ),
             ParsedPattern::parse_relaxed(
-                &no_aliases(),
+                &NoAliases,
                 &resolver(),
                 &package,
                 "path/subpath[provider]"
@@ -876,16 +897,16 @@ mod tests {
         );
         assert_eq!(
             mk_target("root", "package/path/subpath", "subpath"),
-            ParsedPattern::parse_relaxed(&no_aliases(), &resolver(), &package, "path/subpath")?
+            ParsedPattern::parse_relaxed(&NoAliases, &resolver(), &package, "path/subpath")?
         );
         assert_eq!(
             mk_target("root", "package/path", "path"),
-            ParsedPattern::parse_relaxed(&no_aliases(), &resolver(), &package, "//package/path/")?
+            ParsedPattern::parse_relaxed(&NoAliases, &resolver(), &package, "//package/path/")?
         );
         assert_eq!(
             mk_target("root", "package/path", "target"),
             ParsedPattern::parse_relaxed(
-                &no_aliases(),
+                &NoAliases,
                 &resolver(),
                 &package,
                 "//package/path/:target"
@@ -895,13 +916,13 @@ mod tests {
         // Awkward but technically valid?
         assert_eq!(
             mk_target("root", "package", "foo"),
-            ParsedPattern::parse_relaxed(&no_aliases(), &resolver(), &package, "/:foo")?
+            ParsedPattern::parse_relaxed(&NoAliases, &resolver(), &package, "/:foo")?
         );
 
         // There's no target here so this is invalid.
         assert_matches!(
             ParsedPattern::<TargetPattern>::parse_relaxed(
-                &no_aliases(),
+                &NoAliases,
                 &resolver(),
                 &package,
                 "/"
@@ -971,34 +992,20 @@ mod tests {
             CellRelativePath::unchecked_new("package"),
         );
 
-        let config = parse(
-            &[(
-                "/config",
-                indoc::indoc!(
-                    r#"
-                    [alias]
-                      foo = cell1//foo/bar:target
-                      invalid/alias = cell1//foo/bar:target
-                      badalias = cell1//foo/bar:
-                    "#
-                ),
-            )],
-            "/config",
-        )?;
+        let config = aliases(&[
+            ("foo", "cell1//foo/bar:target"),
+            ("invalid/alias", "cell1//foo/bar:target"),
+            ("badalias", "cell1//foo/bar:"),
+        ]);
 
         assert_eq!(
             mk_target("cell1", "foo/bar", "target"),
-            ParsedPattern::parse_relaxed(
-                &config.target_alias_resolver(),
-                &resolver(),
-                &package,
-                "foo"
-            )?
+            ParsedPattern::parse_relaxed(&config, &resolver(), &package, "foo")?
         );
 
         assert_matches!(
             ParsedPattern::<TargetPattern>::parse_relaxed(
-                &config.target_alias_resolver(),
+                &config,
                 &resolver(),
                 &package,
                 "invalid/alias"
@@ -1013,7 +1020,7 @@ mod tests {
 
         assert_matches!(
             ParsedPattern::<TargetPattern>::parse_relaxed(
-                &config.target_alias_resolver(),
+                &config,
                 &resolver(),
                 &package,
                 "badalias"
@@ -1069,27 +1076,11 @@ mod tests {
             CellRelativePath::unchecked_new("package"),
         );
 
-        let config = parse(
-            &[(
-                "/config",
-                indoc::indoc!(
-                    r#"
-                    [alias]
-                      foo = cell1//foo/bar:target
-                    "#
-                ),
-            )],
-            "/config",
-        )?;
+        let config = aliases(&[("foo", "cell1//foo/bar:target")]);
 
         assert_eq!(
             mk_providers("cell1", "foo/bar", "target", Some(&["qux"])),
-            ParsedPattern::parse_relaxed(
-                &config.target_alias_resolver(),
-                &resolver(),
-                &package,
-                "foo[qux]"
-            )?
+            ParsedPattern::parse_relaxed(&config, &resolver(), &package, "foo[qux]")?
         );
 
         Ok(())
