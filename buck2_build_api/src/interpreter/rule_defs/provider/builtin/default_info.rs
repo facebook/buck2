@@ -13,7 +13,6 @@ use std::ptr;
 use anyhow::Context;
 use buck2_build_api_derive::internal_provider;
 use gazebo::any::ProvidesStaticType;
-use gazebo::coerce::coerce;
 use gazebo::coerce::Coerce;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
@@ -363,7 +362,7 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
                 let as_provider_collection =
                     ProviderCollection::try_from_value_with_default_info(v, &default_info_creator)?;
                 Ok((
-                    coerce(heap.alloc_str(&k).get_hashed()),
+                    heap.alloc_str(&k).get_hashed_value(),
                     heap.alloc(as_provider_collection),
                 ))
             })
