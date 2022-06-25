@@ -151,17 +151,13 @@ impl DepAttrTypeExt for DepAttrType {
         target: &ConfiguredProvidersLabel,
         required_providers: &Option<Arc<ProviderIdSet>>,
     ) -> anyhow::Result<Value<'v>> {
-        match ctx.get_dep(target) {
-            Some(v) => {
-                let provider_collection = v.provider_collection();
-                if let Some(provider_ids) = required_providers {
-                    Self::check_providers(provider_ids, provider_collection, target)?;
-                }
-
-                Ok(Self::alloc_dependency(ctx.starlark_module(), target, &v))
-            }
-            None => Err(anyhow::anyhow!(ResolutionError::MissingDep(target.clone()))),
+        let v = ctx.get_dep(target)?;
+        let provider_collection = v.provider_collection();
+        if let Some(provider_ids) = required_providers {
+            Self::check_providers(provider_ids, provider_collection, target)?;
         }
+
+        Ok(Self::alloc_dependency(ctx.starlark_module(), target, &v))
     }
 
     fn resolve_single<'v>(

@@ -107,17 +107,13 @@ impl ResolvedMacro {
     ) -> anyhow::Result<ResolvedMacro> {
         match configured_macro {
             ConfiguredMacro::Location(target) => {
-                let providers_value = ctx
-                    .get_dep(target)
-                    .unwrap_or_else(|| panic!("Should have had dep for {}", target));
+                let providers_value = ctx.get_dep(target)?;
                 let providers = providers_value.provider_collection();
                 Ok(ResolvedMacro::Location(providers.default_info()))
             }
             ConfiguredMacro::Exe { label, .. } => {
                 // Don't need to consider exec_dep as it already was applied when configuring the label.
-                let providers_value = ctx
-                    .get_dep(label)
-                    .unwrap_or_else(|| panic!("Should have had dep for {}", label));
+                let providers_value = ctx.get_dep(label)?;
                 let providers = providers_value.provider_collection();
                 let run_info = match providers.get_provider(RunInfoCallable::provider_id_t()) {
                     Some(value) => value,
@@ -135,9 +131,7 @@ impl ResolvedMacro {
                 Ok(ResolvedMacro::ArgLike(provider))
             }
             ConfiguredMacro::UserKeyedPlaceholder(name, label, arg) => {
-                let providers = ctx
-                    .get_dep(label)
-                    .ok_or_else(|| MacroError::KeyedPlaceholderDepMissing(label.clone()))?;
+                let providers = ctx.get_dep(label)?;
                 let placeholder_info =
                     FrozenTemplatePlaceholderInfo::from_providers(providers.provider_collection())
                         .ok_or_else(|| MacroError::KeyedPlaceholderInfoMissing(label.clone()))?;

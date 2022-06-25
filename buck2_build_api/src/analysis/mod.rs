@@ -32,6 +32,7 @@ use thiserror::Error;
 use crate::analysis::registry::AnalysisRegistry;
 use crate::attrs::analysis::AnalysisQueryResult;
 use crate::attrs::analysis::AttrResolutionContext;
+use crate::attrs::attr_type::dep::ResolutionError;
 use crate::configuration::execution::ExecutionPlatformResolution;
 use crate::deferred::DeferredAny;
 use crate::deferred::DeferredId;
@@ -122,13 +123,16 @@ impl<'v> AttrResolutionContext for RuleAnalysisAttrResolutionContext<'v> {
         self.module
     }
 
-    fn get_dep(&self, target: &ConfiguredProvidersLabel) -> Option<FrozenProviderCollectionValue> {
+    fn get_dep(
+        &self,
+        target: &ConfiguredProvidersLabel,
+    ) -> anyhow::Result<FrozenProviderCollectionValue> {
         match self.dep_analysis_results.get(target) {
-            None => None,
+            None => Err(ResolutionError::MissingDep(target.clone()).into()),
             Some(x) => {
                 // IMPORTANT: Anything given back to the user must be kept alive
                 self.module.frozen_heap().add_reference(x.value().owner());
-                Some(x.dupe())
+                Ok(x.dupe())
             }
         }
     }

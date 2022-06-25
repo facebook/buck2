@@ -327,8 +327,11 @@ pub(crate) fn resolution_ctx_with_providers() -> (impl AttrResolutionContext, Ve
         fn get_dep(
             &self,
             target: &ConfiguredProvidersLabel,
-        ) -> Option<FrozenProviderCollectionValue> {
-            self.deps.get(target).duped()
+        ) -> anyhow::Result<FrozenProviderCollectionValue> {
+            self.deps
+                .get(target)
+                .duped()
+                .ok_or_else(|| anyhow::anyhow!("missing dep"))
         }
 
         fn resolve_unkeyed_placeholder(

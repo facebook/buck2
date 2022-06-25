@@ -71,8 +71,6 @@ enum MacroError {
     #[error("Expected a RunInfo provider from target `{0}`.")]
     ExpectedRunInfo(String),
 
-    #[error("{0} was not available in the analysis deps.")]
-    KeyedPlaceholderDepMissing(ConfiguredProvidersLabel),
     #[error("There was no TemplatePlaceholderInfo for {0}.")]
     KeyedPlaceholderInfoMissing(ConfiguredProvidersLabel),
     #[error("There was no mapping for {0} in the TemplatePlaceholderInfo for {1}.")]

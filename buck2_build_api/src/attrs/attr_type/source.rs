@@ -29,8 +29,6 @@ use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 
 #[derive(Error, Debug)]
 enum SourceLabelResolutionError {
-    #[error("Tried to convert {0}, but it was not a dependency")]
-    MissingDep(ConfiguredProvidersLabel),
     #[error("Expected a single artifact from {0}, but it returned {1} artifacts")]
     ExpectedSingleValue(String, usize),
     #[error(
@@ -88,22 +86,16 @@ pub(crate) trait SourceAttrTypeExt {
         ctx: &'v dyn AttrResolutionContext,
         label: &ConfiguredProvidersLabel,
     ) -> anyhow::Result<Vec<Value<'v>>> {
-        match ctx.get_dep(label) {
-            Some(dep) => {
-                let default_outputs = dep
-                    .provider_collection()
-                    .default_info()
-                    .default_outputs_raw();
-                let res = FrozenList::from_frozen_value(&default_outputs)
-                    .unwrap()
-                    .iter()
-                    .collect();
-                Ok(res)
-            }
-            None => Err(anyhow::anyhow!(SourceLabelResolutionError::MissingDep(
-                label.clone()
-            ))),
-        }
+        let dep = ctx.get_dep(label)?;
+        let default_outputs = dep
+            .provider_collection()
+            .default_info()
+            .default_outputs_raw();
+        let res = FrozenList::from_frozen_value(&default_outputs)
+            .unwrap()
+            .iter()
+            .collect();
+        Ok(res)
     }
 
     fn resolve_single_label<'v>(

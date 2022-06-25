@@ -32,7 +32,10 @@ pub trait AttrResolutionContext {
 
     /// Get the `ProviderCollection` for this label. This is converted to a `Dependency`
     /// by the `resolve()` method in `attrs::label`
-    fn get_dep(&self, target: &ConfiguredProvidersLabel) -> Option<FrozenProviderCollectionValue>;
+    fn get_dep(
+        &self,
+        target: &ConfiguredProvidersLabel,
+    ) -> anyhow::Result<FrozenProviderCollectionValue>;
 
     fn resolve_unkeyed_placeholder(
         &self,
