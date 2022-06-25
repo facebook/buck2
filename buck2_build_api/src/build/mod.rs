@@ -6,6 +6,7 @@ use anyhow::Context;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::result::SharedResult;
 use buck2_core::result::ToSharedResultExt;
+use buck2_node::compatibility::MaybeCompatible;
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use dice::DiceComputations;
@@ -25,7 +26,6 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
-use crate::nodes::compatibility::MaybeCompatible;
 use crate::test::provider::TestProvider;
 
 /// The types of provider to build on the configured providers label

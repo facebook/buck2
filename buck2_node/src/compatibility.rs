@@ -163,7 +163,7 @@ mod tests {
     use buck2_core::target::testing::TargetLabelExt;
     use buck2_core::target::TargetLabel;
 
-    use crate::nodes::compatibility::IncompatiblePlatformReason;
+    use crate::compatibility::IncompatiblePlatformReason;
 
     #[test]
     fn test_skipping_message_for_multiple() {

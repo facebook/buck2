@@ -15,6 +15,7 @@ buck2_docs_gen = { path = "../buck2_docs_gen/buck2_docs_gen" }
 buck2_query = { path = "../buck2_query" }
 buck2_build_api = { path = "../buck2_build_api" }
 buck2_bxl = { path = "../buck2_bxl" }
+buck2_node = { path = "../buck2_node" }
 # @oss-disable: build_info = { path = "../../common/rust/build_info", optional = true }
 chrono = "0.4.19"
 clap = { version = "3.1.18", features = ["derive", "env"] }

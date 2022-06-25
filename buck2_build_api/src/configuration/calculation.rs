@@ -21,6 +21,7 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_core::result::SharedResult;
 use buck2_core::result::ToSharedResultExt;
 use buck2_core::target::TargetLabel;
+use buck2_node::compatibility::MaybeCompatible;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -42,7 +43,6 @@ use crate::interpreter::rule_defs::provider::builtin::configuration_info::Frozen
 use crate::interpreter::rule_defs::provider::builtin::execution_platform_registration_info::ExecutionPlatformRegistrationInfo;
 use crate::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfo;
 use crate::nodes::calculation::NodeCalculation;
-use crate::nodes::compatibility::MaybeCompatible;
 
 #[derive(Debug, Error)]
 pub enum ConfigurationError {

@@ -319,6 +319,7 @@ mod tests {
     use buck2_core::result::ToSharedResultExt;
     use buck2_core::target::testing::TargetLabelExt;
     use buck2_core::target::TargetLabel;
+    use buck2_node::compatibility::MaybeCompatible;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
     use gazebo::prelude::*;
@@ -341,7 +342,6 @@ mod tests {
     use crate::execute::CommandExecutorConfig;
     use crate::interpreter::rule_defs::provider::testing::FrozenProviderCollectionValueExt;
     use crate::nodes::calculation::ConfiguredNodeKey;
-    use crate::nodes::compatibility::MaybeCompatible;
     use crate::nodes::configured::ConfiguredTargetNode;
     use crate::nodes::RuleType;
     use crate::nodes::StarlarkRuleType;

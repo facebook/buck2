@@ -12,8 +12,8 @@ use std::fmt::Formatter;
 
 use async_trait::async_trait;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
-use buck2_build_api::nodes::compatibility::MaybeCompatible;
 use buck2_core::cells::CellResolver;
+use buck2_node::compatibility::MaybeCompatible;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::environment::QueryTargets;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;

@@ -28,6 +28,8 @@ use buck2_core::target::TargetLabel;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
+use buck2_node::compatibility::IncompatiblePlatformReason;
+use buck2_node::compatibility::MaybeCompatible;
 use buck2_node::visibility::VisibilityError;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use derive_more::Display;
@@ -53,8 +55,6 @@ use crate::interpreter::rule_defs::transition::calculation_apply_transition::App
 use crate::nodes::attr_internal::EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use crate::nodes::attr_internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use crate::nodes::attr_internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
-use crate::nodes::compatibility::IncompatiblePlatformReason;
-use crate::nodes::compatibility::MaybeCompatible;
 use crate::nodes::configured::ConfiguredTargetNode;
 use crate::nodes::unconfigured::AttrInspectOptions;
 use crate::nodes::unconfigured::TargetNode;

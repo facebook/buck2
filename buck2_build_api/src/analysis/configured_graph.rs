@@ -14,6 +14,7 @@ use async_trait::async_trait;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::ConfiguredTargetLabel;
+use buck2_node::compatibility::MaybeCompatible;
 use dice::DiceComputations;
 use gazebo::prelude::*;
 
@@ -22,7 +23,6 @@ use crate::calculation::Calculation;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info::TemplatePlaceholderInfo;
-use crate::nodes::compatibility::MaybeCompatible;
 use crate::nodes::configured::ConfiguredTargetNode;
 use crate::query::analysis::environment::ConfiguredGraphQueryEnvironmentDelegate;
 

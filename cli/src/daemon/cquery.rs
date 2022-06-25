@@ -10,13 +10,13 @@
 use async_trait::async_trait;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
-use buck2_build_api::nodes::compatibility::MaybeCompatible;
 use buck2_build_api::nodes::configured::ConfiguredTargetNode;
 use buck2_build_api::query::cquery::evaluator::get_cquery_evaluator;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::result::ToUnsharedResultExt;
+use buck2_node::compatibility::MaybeCompatible;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use cli_proto::CqueryRequest;
 use cli_proto::CqueryResponse;

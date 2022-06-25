@@ -11,7 +11,6 @@ pub(crate) mod attr_internal;
 pub(crate) mod attr_spec;
 pub mod attr_values;
 pub mod calculation;
-pub mod compatibility;
 pub mod configured;
 pub mod unconfigured;
 
