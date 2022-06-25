@@ -48,6 +48,7 @@ pub mod calculation;
 pub(crate) mod configured_graph;
 pub mod registry;
 use buck2_interpreter::types::label::LabelGen;
+use buck2_node::rule_type::StarlarkRuleType;
 pub use calculation::profile_analysis;
 pub use calculation::resolve_queries;
 use starlark::values::ValueTyped;
@@ -56,7 +57,6 @@ use crate::attrs::configured_attr::ConfiguredAttrExt;
 use crate::deferred::BaseDeferredKey;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::nodes::configured::ConfiguredTargetNode;
-use crate::nodes::StarlarkRuleType;
 
 #[derive(Error, Debug)]
 pub enum AnalysisError {

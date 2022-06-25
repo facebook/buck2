@@ -625,6 +625,8 @@ mod tests {
     use buck2_node::attrs::attr_type::dep::DepAttrType;
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::configured_attr::ConfiguredAttr;
+    use buck2_node::rule_type::RuleType;
+    use buck2_node::rule_type::StarlarkRuleType;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
     use gazebo::prelude::*;
@@ -646,8 +648,6 @@ mod tests {
     use crate::nodes::unconfigured::testing::TargetNodeExt;
     use crate::nodes::unconfigured::AttrInspectOptions;
     use crate::nodes::unconfigured::TargetNode;
-    use crate::nodes::RuleType;
-    use crate::nodes::StarlarkRuleType;
 
     #[tokio::test]
     async fn test_get_node() -> anyhow::Result<()> {

@@ -15,10 +15,7 @@ pub mod configured;
 pub mod unconfigured;
 
 use std::hash::Hash;
-use std::sync::Arc;
 
-use buck2_core::bzl::ImportPath;
-use derive_more::Display;
 use gazebo::prelude::*;
 use thiserror::Error;
 
@@ -28,33 +25,6 @@ use crate::interpreter::rule_defs::provider::builtin::platform_info::PlatformInf
 use crate::nodes::attr_internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use crate::nodes::attr_internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use crate::nodes::attr_spec::AttributeSpec;
-
-/// The identifier used to find the implementation function for this rule. Should point at the output of `rule()`
-#[derive(Debug, Clone, Display, Eq, PartialEq, Hash)]
-#[display(fmt = "{}:{}", "import_path.id()", name)]
-pub struct StarlarkRuleType {
-    /// The cell, package, and file that contains the output of `rule()`
-    pub import_path: ImportPath,
-    /// The name of the symbol that is bound to the output of `rule()`, e.g. `cxx_binary`
-    pub name: String,
-}
-
-#[derive(Debug, Clone, Dupe, Display, Eq, PartialEq, Hash)]
-pub enum RuleType {
-    #[display(fmt = "{}", _0)]
-    Starlark(Arc<StarlarkRuleType>),
-    #[display(fmt = "forward")]
-    Forward,
-}
-
-impl RuleType {
-    pub fn name(&self) -> &str {
-        match self {
-            RuleType::Starlark(rule_type) => rule_type.name.as_str(),
-            RuleType::Forward => "forward",
-        }
-    }
-}
 
 #[derive(Debug, Clone, Dupe, Copy, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub struct AttributeId {
@@ -96,6 +66,7 @@ mod tests {
     use buck2_core::bzl::ImportPath;
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::configurable::AttrIsConfigurable;
+    use buck2_node::rule_type::StarlarkRuleType;
     use starlark::values::Heap;
 
     use super::*;

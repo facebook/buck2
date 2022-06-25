@@ -320,6 +320,8 @@ mod tests {
     use buck2_core::target::testing::TargetLabelExt;
     use buck2_core::target::TargetLabel;
     use buck2_node::compatibility::MaybeCompatible;
+    use buck2_node::rule_type::RuleType;
+    use buck2_node::rule_type::StarlarkRuleType;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
     use gazebo::prelude::*;
@@ -343,8 +345,6 @@ mod tests {
     use crate::interpreter::rule_defs::provider::testing::FrozenProviderCollectionValueExt;
     use crate::nodes::calculation::ConfiguredNodeKey;
     use crate::nodes::configured::ConfiguredTargetNode;
-    use crate::nodes::RuleType;
-    use crate::nodes::StarlarkRuleType;
 
     struct FakeDeferred(usize, IndexSet<DeferredInput>, Arc<AtomicBool>);
 

@@ -12,4 +12,5 @@
 
 pub mod attrs;
 pub mod compatibility;
+pub mod rule_type;
 pub mod visibility;

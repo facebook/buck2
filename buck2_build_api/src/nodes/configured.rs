@@ -33,6 +33,7 @@ use buck2_node::attrs::attr_type::dep::ProviderIdSet;
 use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
+use buck2_node::rule_type::RuleType;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use either::Either;
 use gazebo::dupe::Dupe;
@@ -47,7 +48,6 @@ use crate::nodes::attr_internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use crate::nodes::attr_internal::TESTS_ATTRIBUTE_FIELD;
 use crate::nodes::unconfigured::AttrInspectOptions;
 use crate::nodes::unconfigured::TargetNode;
-use crate::nodes::RuleType;
 
 /// ConfiguredTargetNode contains the information for a target in a particular configuration.
 ///

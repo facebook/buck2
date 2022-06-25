@@ -21,6 +21,8 @@ use buck2_interpreter::extra::ExtraContext;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
+use buck2_node::rule_type::RuleType;
+use buck2_node::rule_type::StarlarkRuleType;
 use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilitySpecification;
 use buck2_query::query::syntax::simple::eval::file_set::FileNode;
@@ -41,8 +43,6 @@ use crate::nodes::attr_internal::TESTS_ATTRIBUTE_FIELD;
 use crate::nodes::attr_internal::VISIBILITY_ATTRIBUTE_FIELD;
 use crate::nodes::attr_spec::AttributeSpec;
 use crate::nodes::attr_values::AttrValues;
-use crate::nodes::RuleType;
-use crate::nodes::StarlarkRuleType;
 
 #[derive(Clone, Dupe, Copy)]
 pub enum AttrInspectOptions {
@@ -509,6 +509,7 @@ pub mod testing {
     use buck2_core::fs::paths::FileNameBuf;
     use buck2_core::target::TargetLabel;
     use buck2_interpreter::common::BuildFilePath;
+    use buck2_node::rule_type::RuleType;
     use buck2_node::visibility::VisibilitySpecification;
     use gazebo::prelude::*;
     use serde_json::map::Map;
@@ -526,7 +527,6 @@ pub mod testing {
     use crate::nodes::AttributeId;
     use crate::nodes::AttributeSpec;
     use crate::nodes::OrderedMap;
-    use crate::nodes::RuleType;
 
     pub trait TargetNodeExt {
         fn testing_new(
