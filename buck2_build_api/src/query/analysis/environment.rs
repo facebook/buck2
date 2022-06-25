@@ -180,48 +180,63 @@ impl<'a> ConfiguredGraphQueryEnvironment<'a> {
                 }
             }
 
-            struct TraversalDelegate {
-                targets: TargetSet<ConfiguredGraphNodeRef>,
-                labels_to_find: HashSet<ConfiguredTargetLabel>,
-            }
-
-            #[async_trait]
-            impl AsyncTraversalDelegate<ConfiguredGraphNodeRef> for TraversalDelegate {
-                fn visit(&mut self, target: ConfiguredGraphNodeRef) -> anyhow::Result<()> {
-                    let label = &target.label();
-                    if self.labels_to_find.contains(label) {
-                        self.targets.insert(target);
-                    }
-
-                    Ok(())
-                }
-
-                async fn for_each_child(
-                    &mut self,
-                    target: &ConfiguredGraphNodeRef,
-                    func: &mut dyn ChildVisitor<ConfiguredGraphNodeRef>,
-                ) -> anyhow::Result<()> {
-                    // if all found then skip traversing further
-                    if self.targets.len() == self.labels_to_find.len() {
-                        return Ok(());
-                    }
-
-                    for dep in target.deps() {
-                        func.visit(dep.node_ref().dupe())?;
-                    }
-
-                    Ok(())
-                }
-            }
-
-            let mut delegate = TraversalDelegate {
-                targets: TargetSet::new(),
-                labels_to_find: labels,
-            };
-            async_unordered_traversal(self, targets.iter(), &mut delegate).await?;
-
-            Ok(delegate.targets)
+            self.find_target_nodes(targets, labels).await
         }
+    }
+
+    /// Finds the nodes for a list of target labels within the deps of the provided targets.
+    ///
+    /// It may seem like if we have ConfiguredTargetLabel we should just be able to lookup the
+    /// nodes directly, but that would require going through dice and then dice would record
+    /// dependencies on all the nodes that we lookup. It's common for these queries to operate
+    /// over inputs that are aggregated as data flows up the graph and it's important that we
+    /// don't inadvertently cause flattening of those sets.
+    async fn find_target_nodes(
+        &self,
+        targets: &TargetSet<ConfiguredGraphNodeRef>,
+        labels_to_find: HashSet<ConfiguredTargetLabel>,
+    ) -> anyhow::Result<TargetSet<ConfiguredGraphNodeRef>> {
+        struct TraversalDelegate {
+            targets: TargetSet<ConfiguredGraphNodeRef>,
+            labels_to_find: HashSet<ConfiguredTargetLabel>,
+        }
+
+        #[async_trait]
+        impl AsyncTraversalDelegate<ConfiguredGraphNodeRef> for TraversalDelegate {
+            fn visit(&mut self, target: ConfiguredGraphNodeRef) -> anyhow::Result<()> {
+                let label = &target.label();
+                if self.labels_to_find.contains(label) {
+                    self.targets.insert(target);
+                }
+
+                Ok(())
+            }
+
+            async fn for_each_child(
+                &mut self,
+                target: &ConfiguredGraphNodeRef,
+                func: &mut dyn ChildVisitor<ConfiguredGraphNodeRef>,
+            ) -> anyhow::Result<()> {
+                // if all found then skip traversing further
+                if self.targets.len() == self.labels_to_find.len() {
+                    return Ok(());
+                }
+
+                for dep in target.deps() {
+                    func.visit(dep.node_ref().dupe())?;
+                }
+
+                Ok(())
+            }
+        }
+
+        let mut delegate = TraversalDelegate {
+            targets: TargetSet::new(),
+            labels_to_find,
+        };
+        async_unordered_traversal(self, targets.iter(), &mut delegate).await?;
+
+        Ok(delegate.targets)
     }
 }
 
