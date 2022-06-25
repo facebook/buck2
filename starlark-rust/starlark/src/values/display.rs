@@ -53,6 +53,13 @@ fn subwriter<T: Display>(indent: &'static str, f: &mut fmt::Formatter, v: T) -> 
     }
 }
 
+/// Iterator length for display.
+enum Len {
+    Zero,
+    One,
+    Many, // > 1
+}
+
 /// The low-level helper for displaying containers. For simple containers, it may be more convenient to use `display_container` or `display_keyed_container`.
 pub struct ContainerDisplayHelper<'a, 'b> {
     f: &'a mut fmt::Formatter<'b>,
@@ -73,13 +80,27 @@ impl<'a, 'b> ContainerDisplayHelper<'a, 'b> {
         prefix: &str,
         num_items: usize,
     ) -> Result<Self, fmt::Error> {
+        let num_items = match num_items {
+            0 => Len::Zero,
+            1 => Len::One,
+            _ => Len::Many,
+        };
+        Self::begin_inner(f, prefix, num_items)
+    }
+
+    /// Begins displaying a container. The provided num_items will be used to select which formatting to use for alternate display.
+    fn begin_inner(
+        f: &'a mut fmt::Formatter<'b>,
+        prefix: &str,
+        num_items: Len,
+    ) -> Result<Self, fmt::Error> {
         let (separator, outer, indent) = match (f.alternate(), num_items) {
             // We want to be formatted as `{prefix}item1, item2{suffix}`, like `[1, 2]` for lists.
             (false, _) => (", ", "", ""),
             // We want to be formatted as `{prefix}{suffix}`, like `[]` for lists.
-            (true, 0) => ("", "", ""),
+            (true, Len::Zero) => ("", "", ""),
             // We want to be formatted as `{prefix} item {suffix}`, like `[ item ]` for lists
-            (true, 1) => ("", " ", ""),
+            (true, Len::One) => ("", " ", ""),
             // We want to be formatted as `{prefix}\n  item1,\n  item2\n{suffix}`, for lists like:
             // ```
             // [
@@ -139,16 +160,31 @@ impl<'a, 'b> ContainerDisplayHelper<'a, 'b> {
 ///
 /// When displaying a container that produces an ExactSizeIterator, this is more convenient
 /// than using `ContainerDisplayHelper` directly.
-pub fn display_container<T: Display, Iter: ExactSizeIterator<Item = T>>(
+pub fn display_container<T: Display, Iter: Iterator<Item = T>>(
     f: &mut fmt::Formatter,
     prefix: &str,
     suffix: &str,
-    items: Iter,
+    mut items: Iter,
 ) -> fmt::Result {
-    let mut helper = ContainerDisplayHelper::begin(f, prefix, items.len())?;
-    for v in items {
-        helper.item(v)?;
-    }
+    let helper = match items.next() {
+        None => ContainerDisplayHelper::begin_inner(f, prefix, Len::Zero)?,
+        Some(first) => match items.next() {
+            None => {
+                let mut helper = ContainerDisplayHelper::begin_inner(f, prefix, Len::One)?;
+                helper.item(first)?;
+                helper
+            }
+            Some(second) => {
+                let mut helper = ContainerDisplayHelper::begin_inner(f, prefix, Len::Many)?;
+                helper.item(first)?;
+                helper.item(second)?;
+                for v in items {
+                    helper.item(v)?;
+                }
+                helper
+            }
+        },
+    };
     helper.end(suffix)
 }
 
@@ -156,17 +192,32 @@ pub fn display_container<T: Display, Iter: ExactSizeIterator<Item = T>>(
 ///
 /// When displaying a keyed container that produces an ExactSizeIterator, this is more convenient
 /// than using `ContainerDisplayHelper` directly.
-pub fn display_keyed_container<K: Display, V: Display, Iter: ExactSizeIterator<Item = (K, V)>>(
+pub fn display_keyed_container<K: Display, V: Display, Iter: Iterator<Item = (K, V)>>(
     f: &mut fmt::Formatter,
     prefix: &str,
     suffix: &str,
     separator: &str,
-    items: Iter,
+    mut items: Iter,
 ) -> fmt::Result {
-    let mut helper = ContainerDisplayHelper::begin(f, prefix, items.len())?;
-    for (k, v) in items {
-        helper.keyed_item(k, separator, v)?;
-    }
+    let helper = match items.next() {
+        None => ContainerDisplayHelper::begin_inner(f, prefix, Len::Zero)?,
+        Some(first) => match items.next() {
+            None => {
+                let mut helper = ContainerDisplayHelper::begin_inner(f, prefix, Len::One)?;
+                helper.keyed_item(first.0, separator, first.1)?;
+                helper
+            }
+            Some(second) => {
+                let mut helper = ContainerDisplayHelper::begin_inner(f, prefix, Len::Many)?;
+                helper.keyed_item(first.0, separator, first.1)?;
+                helper.keyed_item(second.0, separator, second.1)?;
+                for (k, v) in items {
+                    helper.keyed_item(k, separator, v)?;
+                }
+                helper
+            }
+        },
+    };
     helper.end(suffix)
 }
 
