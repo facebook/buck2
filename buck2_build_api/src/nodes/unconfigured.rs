@@ -21,6 +21,8 @@ use buck2_interpreter::extra::ExtraContext;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
+use buck2_node::visibility::VisibilityPattern;
+use buck2_node::visibility::VisibilitySpecification;
 use buck2_query::query::syntax::simple::eval::file_set::FileNode;
 use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
@@ -39,8 +41,6 @@ use crate::nodes::attr_internal::TESTS_ATTRIBUTE_FIELD;
 use crate::nodes::attr_internal::VISIBILITY_ATTRIBUTE_FIELD;
 use crate::nodes::attr_spec::AttributeSpec;
 use crate::nodes::attr_values::AttrValues;
-use crate::nodes::visibility::VisibilityPattern;
-use crate::nodes::visibility::VisibilitySpecification;
 use crate::nodes::RuleType;
 use crate::nodes::StarlarkRuleType;
 
@@ -509,6 +509,7 @@ pub mod testing {
     use buck2_core::fs::paths::FileNameBuf;
     use buck2_core::target::TargetLabel;
     use buck2_interpreter::common::BuildFilePath;
+    use buck2_node::visibility::VisibilitySpecification;
     use gazebo::prelude::*;
     use serde_json::map::Map;
     use serde_json::value::Value;
@@ -522,7 +523,6 @@ pub mod testing {
     use crate::nodes::unconfigured::TargetNode;
     use crate::nodes::unconfigured::TargetNodeData;
     use crate::nodes::unconfigured::TargetsMap;
-    use crate::nodes::visibility::VisibilitySpecification;
     use crate::nodes::AttributeId;
     use crate::nodes::AttributeSpec;
     use crate::nodes::OrderedMap;

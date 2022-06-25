@@ -14,7 +14,6 @@ pub mod calculation;
 pub mod compatibility;
 pub mod configured;
 pub mod unconfigured;
-pub mod visibility;
 
 use std::hash::Hash;
 use std::sync::Arc;

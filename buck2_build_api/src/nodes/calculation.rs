@@ -28,6 +28,7 @@ use buck2_core::target::TargetLabel;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
+use buck2_node::visibility::VisibilityError;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -57,7 +58,6 @@ use crate::nodes::compatibility::MaybeCompatible;
 use crate::nodes::configured::ConfiguredTargetNode;
 use crate::nodes::unconfigured::AttrInspectOptions;
 use crate::nodes::unconfigured::TargetNode;
-use crate::nodes::visibility::VisibilityError;
 use crate::nodes::AttributeError;
 
 #[async_trait]
