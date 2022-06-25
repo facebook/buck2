@@ -22,6 +22,7 @@
 use std::borrow::Borrow;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::hash::Hash;
 
 use buck2_core::fs::paths::FileNameBuf;
@@ -180,5 +181,62 @@ impl<K: Eq + Hash, V> DataTree<K, V> {
             Self::Tree(children) => Some(children),
             Self::Data(_) => None,
         }
+    }
+
+    /// Returns an iterator over DataTree<K, V>, where each element is a tuple consisting of iterator
+    /// of K (as a VecDeque) and V.
+    #[allow(dead_code)]
+    pub fn iter(&self) -> Box<dyn Iterator<Item = (VecDeque<&K>, &V)> + '_> {
+        fn iter_helper<K, V>(
+            tree: &DataTree<K, V>,
+            depth: usize, // Used to allocate VecDeque capacity
+        ) -> Box<dyn Iterator<Item = (VecDeque<&K>, &V)> + '_> {
+            match tree {
+                DataTree::Tree(children) => box children.iter().flat_map(move |(k, data_tree)| {
+                    iter_helper(data_tree, depth + 1)
+                        .into_iter()
+                        .map(move |(mut key_iter, v)| {
+                            // Need to return a VecDeque and not Vec because keys are pushed from the front
+                            key_iter.push_front(k);
+                            (key_iter, v)
+                        })
+                }),
+                DataTree::Data(v) => box std::iter::once((VecDeque::with_capacity(depth), v)),
+            }
+        }
+
+        iter_helper(self, 0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use super::*;
+
+    #[test]
+    fn test_iter() {
+        let expected: BTreeMap<Vec<i32>, String> = [
+            (vec![1, 2, 3], "123".to_owned()),
+            (vec![1, 2, 4], "124".to_owned()),
+            (vec![1, 2, 5, 6], "1256".to_owned()),
+            (vec![1, 3, 4], "134".to_owned()),
+            (vec![1, 3, 5], "135".to_owned()),
+        ]
+        .into_iter()
+        .collect();
+
+        let mut tree = DataTree::<i32, String>::new();
+        for (k, v) in expected.iter() {
+            tree.insert(k.clone().into_iter(), v.clone());
+        }
+        let actual = tree
+            .iter()
+            .into_iter()
+            .map(|(k, v)| (k.into_iter().copied().collect::<Vec<_>>(), v.to_owned()))
+            .collect::<BTreeMap<_, _>>();
+
+        assert_eq!(expected, actual);
     }
 }
