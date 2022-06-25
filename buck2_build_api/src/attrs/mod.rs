@@ -47,13 +47,13 @@
 
 use anyhow::anyhow;
 use attr_type::bool;
-use attr_type::split_transition_dep::SplitTransitionDep;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use buck2_node::attrs::attr_type::attr_config::AttrConfig;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
+use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDep;
 use buck2_node::attrs::coerced_path::CoercedPath;
 
 use crate::attrs::attr_type::attr_literal::CoercionError;

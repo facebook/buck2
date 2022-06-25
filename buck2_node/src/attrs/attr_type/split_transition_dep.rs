@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
 
 use crate::attrs::attr_type::dep::ProviderIdSet;
 
@@ -79,5 +80,23 @@ impl SplitTransitionDepMaybeConfigured for ConfiguredSplitTransitionDep {
             }
         }
         Ok(false)
+    }
+}
+
+#[derive(derive_more::Display, Debug, Hash, PartialEq, Eq, Clone)]
+#[display(fmt = "{}", label)]
+pub struct SplitTransitionDep {
+    pub label: ProvidersLabel,
+    pub transition: Arc<TransitionId>,
+    pub required_providers: Option<Arc<ProviderIdSet>>,
+}
+
+impl SplitTransitionDepMaybeConfigured for SplitTransitionDep {
+    fn to_json(&self) -> anyhow::Result<serde_json::Value> {
+        Ok(serde_json::to_value(self.to_string())?)
+    }
+
+    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+        filter(&self.to_string())
     }
 }

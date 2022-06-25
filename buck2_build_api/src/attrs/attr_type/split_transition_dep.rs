@@ -7,21 +7,14 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
-
-use buck2_core::configuration::transition::id::TransitionId;
-use buck2_core::provider::label::ProvidersLabel;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
-use buck2_node::attrs::attr_type::dep::ProviderIdSet;
 use buck2_node::attrs::attr_type::split_transition_dep::ConfiguredSplitTransitionDep;
+use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDep;
 use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
-use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfigured;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
-use derive_more::Display;
 use gazebo::dupe::Dupe;
-use serde_json::to_value;
 use starlark::collections::Hashed;
 use starlark::collections::SmallMap;
 use starlark::values::dict::Dict;
@@ -101,23 +94,5 @@ impl SplitTransitionDepAttrTypeExt for SplitTransitionDepAttrType {
             );
         }
         Ok(ctx.heap().alloc(Dict::new(res)))
-    }
-}
-
-#[derive(Display, Debug, Hash, PartialEq, Eq, Clone)]
-#[display(fmt = "{}", label)]
-pub struct SplitTransitionDep {
-    pub(crate) label: ProvidersLabel,
-    pub(crate) transition: Arc<TransitionId>,
-    pub(crate) required_providers: Option<Arc<ProviderIdSet>>,
-}
-
-impl SplitTransitionDepMaybeConfigured for SplitTransitionDep {
-    fn to_json(&self) -> anyhow::Result<serde_json::Value> {
-        Ok(to_value(self.to_string())?)
-    }
-
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
-        filter(&self.to_string())
     }
 }
