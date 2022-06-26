@@ -163,23 +163,23 @@ impl<'a, K: 'a, V: 'a> ExactSizeIterator for VMValuesMut<'a, K, V> {
 }
 
 #[derive(Clone_)]
-pub struct VMIter<'a, K: 'a, V: 'a> {
+pub struct Iter<'a, K: 'a, V: 'a> {
     iter: std::slice::Iter<'a, Bucket<K, V>>,
 }
 
-impl<'a, K: 'a, V: 'a> Iterator for VMIter<'a, K, V> {
+impl<'a, K: 'a, V: 'a> Iterator for Iter<'a, K, V> {
     type Item = (&'a K, &'a V);
 
     def_iter!();
 }
 
-impl<'a, K: 'a, V: 'a> DoubleEndedIterator for VMIter<'a, K, V> {
+impl<'a, K: 'a, V: 'a> DoubleEndedIterator for Iter<'a, K, V> {
     def_double_ended_iter!();
 }
 
-impl<'a, K: 'a, V: 'a> ExactSizeIterator for VMIter<'a, K, V> {}
+impl<'a, K: 'a, V: 'a> ExactSizeIterator for Iter<'a, K, V> {}
 
-impl<'a, K: 'a, V: 'a> VMIter<'a, K, V> {
+impl<'a, K: 'a, V: 'a> Iter<'a, K, V> {
     #[inline]
     fn map(b: &Bucket<K, V>) -> (&K, &V) {
         (&b.key, &b.value)
@@ -214,28 +214,28 @@ impl<'a, K: 'a, V: 'a> ExactSizeIterator for VMIterHash<'a, K, V> {
     }
 }
 
-pub struct VMIterMut<'a, K: 'a, V: 'a> {
+pub struct IterMut<'a, K: 'a, V: 'a> {
     iter: std::slice::IterMut<'a, Bucket<K, V>>,
 }
 
-impl<'a, K: 'a, V: 'a> VMIterMut<'a, K, V> {
+impl<'a, K: 'a, V: 'a> IterMut<'a, K, V> {
     #[inline]
     fn map(b: &mut Bucket<K, V>) -> (&K, &mut V) {
         (&b.key, &mut b.value)
     }
 }
 
-impl<'a, K: 'a, V: 'a> Iterator for VMIterMut<'a, K, V> {
+impl<'a, K: 'a, V: 'a> Iterator for IterMut<'a, K, V> {
     type Item = (&'a K, &'a mut V);
 
     def_iter!();
 }
 
-impl<'a, K: 'a, V: 'a> DoubleEndedIterator for VMIterMut<'a, K, V> {
+impl<'a, K: 'a, V: 'a> DoubleEndedIterator for IterMut<'a, K, V> {
     def_double_ended_iter!();
 }
 
-impl<'a, K: 'a, V: 'a> ExactSizeIterator for VMIterMut<'a, K, V> {
+impl<'a, K: 'a, V: 'a> ExactSizeIterator for IterMut<'a, K, V> {
     #[inline]
     fn len(&self) -> usize {
         self.iter.len()
@@ -295,28 +295,28 @@ impl<K, V> ExactSizeIterator for VMIntoIterHash<K, V> {
     }
 }
 
-pub struct VMIntoIter<K, V> {
+pub struct IntoIter<K, V> {
     iter: std::vec::IntoIter<Bucket<K, V>>,
 }
 
-impl<K, V> VMIntoIter<K, V> {
+impl<K, V> IntoIter<K, V> {
     #[inline]
     fn map(b: Bucket<K, V>) -> (K, V) {
         (b.key, b.value)
     }
 }
 
-impl<'a, K: 'a, V: 'a> Iterator for VMIntoIter<K, V> {
+impl<'a, K: 'a, V: 'a> Iterator for IntoIter<K, V> {
     type Item = (K, V);
 
     def_iter!();
 }
 
-impl<'a, K: 'a, V: 'a> DoubleEndedIterator for VMIntoIter<K, V> {
+impl<'a, K: 'a, V: 'a> DoubleEndedIterator for IntoIter<K, V> {
     def_double_ended_iter!();
 }
 
-impl<'a, K: 'a, V: 'a> ExactSizeIterator for VMIntoIter<K, V> {
+impl<'a, K: 'a, V: 'a> ExactSizeIterator for IntoIter<K, V> {
     #[inline]
     fn len(&self) -> usize {
         self.iter.len()
@@ -462,15 +462,15 @@ impl<K, V> VecMap<K, V> {
     }
 
     #[inline]
-    pub(crate) fn into_iter(self) -> VMIntoIter<K, V> {
-        VMIntoIter {
+    pub(crate) fn into_iter(self) -> IntoIter<K, V> {
+        IntoIter {
             iter: self.buckets.into_iter(),
         }
     }
 
     #[inline]
-    pub(crate) fn iter(&self) -> VMIter<K, V> {
-        VMIter {
+    pub(crate) fn iter(&self) -> Iter<K, V> {
+        Iter {
             iter: self.buckets.iter(),
         }
     }
@@ -492,8 +492,8 @@ impl<K, V> VecMap<K, V> {
     }
 
     #[inline]
-    pub(crate) fn iter_mut(&mut self) -> VMIterMut<K, V> {
-        VMIterMut {
+    pub(crate) fn iter_mut(&mut self) -> IterMut<K, V> {
+        IterMut {
             iter: self.buckets.iter_mut(),
         }
     }

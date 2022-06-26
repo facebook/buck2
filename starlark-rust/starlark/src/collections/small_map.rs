@@ -34,10 +34,8 @@ use gazebo::prelude::*;
 use hashbrown::raw::RawTable;
 
 use crate::collections::hash::Hashed;
+use crate::collections::vec_map;
 use crate::collections::vec_map::Bucket;
-use crate::collections::vec_map::VMIntoIter;
-use crate::collections::vec_map::VMIter;
-use crate::collections::vec_map::VMIterMut;
 use crate::collections::vec_map::VecMap;
 use crate::collections::StarlarkHasher;
 use crate::small_map::Equivalent;
@@ -47,13 +45,13 @@ use crate::small_map::Equivalent;
 const NO_INDEX_THRESHOLD: usize = 12;
 
 /// Iterator over a small map entry references.
-pub type MHIter<'a, K, V> = VMIter<'a, K, V>;
+pub type MHIter<'a, K, V> = vec_map::Iter<'a, K, V>;
 
 /// Iterator over a small map mutable entry references.
-pub type MHIterMut<'a, K, V> = VMIterMut<'a, K, V>;
+pub type MHIterMut<'a, K, V> = vec_map::IterMut<'a, K, V>;
 
 /// Iterator over a small map entries.
-pub type MHIntoIter<K, V> = VMIntoIter<K, V>;
+pub type MHIntoIter<K, V> = vec_map::IntoIter<K, V>;
 
 /// An memory-efficient key-value map with determinstic order.
 ///
