@@ -83,6 +83,7 @@ use buck2_core::result::ToSharedResultExt;
 use buck2_data::*;
 use buck2_interpreter::dice::interpreter_setup::setup_interpreter;
 use buck2_interpreter::dice::interpreter_setup::setup_interpreter_basic;
+use buck2_interpreter::dice::HasEvents;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerImpl;
@@ -119,6 +120,7 @@ use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingStrategy;
 use more_futures::drop::DropTogether;
 use more_futures::spawn::spawn_dropcancel;
+use more_futures::spawner::TokioSpawner;
 use once_cell::sync::Lazy;
 use starlark::eval::ProfileMode;
 use thiserror::Error;
@@ -1117,7 +1119,7 @@ impl BuckdServer {
             .await
             .map_err(|e| Status::new(Code::Internal, format!("{:?}", e)))?;
 
-        streaming(req, events, move |req| async move {
+        streaming(req, events, dispatch.dupe(), move |req| async move {
             let result: CommandResult = {
                 let result: anyhow::Result<CommandResult> = try {
                     let data = daemon_state.data().await?;
@@ -1363,6 +1365,16 @@ impl Write for RawOutputWriter {
     }
 }
 
+struct EventsCtx {
+    dispatcher: EventDispatcher,
+}
+
+impl HasEvents for EventsCtx {
+    fn get_dispatcher(&self) -> &EventDispatcher {
+        &self.dispatcher
+    }
+}
+
 /// Dispatches a request to the given function and returns a stream of responses, suitable for streaming to a client.
 #[allow(clippy::mut_mut)] // select! does this internally
 async fn streaming<
@@ -1373,6 +1385,7 @@ async fn streaming<
 >(
     req: Request<Req>,
     mut events: E,
+    dispatcher: EventDispatcher,
     func: F,
 ) -> Result<Response<ResponseStream>, Status>
 where
@@ -1387,7 +1400,13 @@ where
     // The function `func` is the computation that we are going to run. It communicates its success or failure using
     // control events; our first step is to spawn it.
     let req = req.into_inner();
-    let cancellable = spawn_dropcancel(func(req), debug_span!(parent: None, "running-command",));
+    let events_ctx = EventsCtx { dispatcher };
+    let cancellable = spawn_dropcancel(
+        func(req),
+        Arc::new(TokioSpawner::default()),
+        &events_ctx,
+        debug_span!(parent: None, "running-command",),
+    );
     let (output_send, output_recv) = tokio::sync::mpsc::unbounded_channel();
 
     // We run the event consumer on a totally separate tokio runtime to avoid the consumer task from getting stuck behind

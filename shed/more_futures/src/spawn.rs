@@ -14,6 +14,7 @@
 use std::cell::RefCell;
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::Context;
 use std::task::Poll;
 
@@ -21,13 +22,14 @@ use futures::future::BoxFuture;
 use futures::future::Shared;
 use futures::FutureExt;
 use pin_project::pin_project;
+use tokio::sync::oneshot;
 use tracing::Span;
 
+use crate::spawner::Spawner;
 use crate::util::guarded_rc::guarded_rc;
 use crate::util::guarded_rc::GuardedRcStrongGuard;
 use crate::util::guarded_rc::GuardedRcWeakGuard;
 use crate::util::guarded_rc::GuardedWeakRc;
-use crate::util::TokioResultExt;
 
 thread_local! {
     static CURRENT_TASK_GUARD: RefCell<Option<GuardedRcWeakGuard>> = RefCell::new(None);
@@ -106,8 +108,10 @@ impl<F: Future> Future for StrongCancellableJoinHandle<F> {
     }
 }
 
-pub fn spawn_task<T>(
+pub fn spawn_task<T, S>(
     task: T,
+    spawner: &Arc<dyn Spawner<S>>,
+    ctx: &S,
     span: Span,
 ) -> (
     WeakJoinHandle<T::Output>,
@@ -117,52 +121,78 @@ where
     T: Future + Send + 'static,
     T::Output: Clone + Send + 'static,
 {
+    let (tx, rx) = oneshot::channel::<T::Output>();
+
+    // Await the task and send the result to the oneshot channel.
+    //
+    // We can ignore any error from tx.send because the only instance of an error is when
+    // the receiver was dropped by the client (the result is no longer useful).
+    let task = async move {
+        let res = task.await;
+        let _ignored = tx.send(res);
+    };
+
     let (weak_task, guard) = guarded_rc(RefCell::new(task.boxed()));
 
     let drop = DropCancel {
         inner: weak_task,
         instrumented_span: span,
     };
-    let join = tokio::spawn(drop)
-        .map(|r| r.expect_completion().expect("Task was cancelled"))
+
+    spawner.spawn(ctx, drop.boxed());
+
+    // recv operation only fails if tx is dropped/disconnected (cancelled).
+    let fut = rx
+        .map(|r: Result<T::Output, oneshot::error::RecvError>| r.expect("spawned task cancelled"))
         .boxed()
         .shared();
 
     let task = WeakJoinHandle {
-        join_handle: join.clone(),
+        join_handle: fut.clone(),
         ref_handle: guard.downgrade(),
     };
 
-    let poll = StrongCancellableJoinHandle {
-        _ref: guard,
-        fut: join,
-    };
+    let poll = StrongCancellableJoinHandle { _ref: guard, fut };
 
     (task, poll)
 }
 
-pub fn spawn_dropcancel<T>(
+pub fn spawn_dropcancel<T, S>(
     task: T,
+    spawner: Arc<dyn Spawner<S>>,
+    ctx: &S,
     span: Span,
 ) -> StrongCancellableJoinHandle<BoxFuture<'static, T::Output>>
 where
     T: Future + Send + 'static,
     T::Output: Send + 'static,
 {
+    let (tx, rx) = oneshot::channel();
+
+    // Await the task and send the result to the oneshot channel.
+    //
+    // We can ignore any error from tx.send because the only instance of an error is when
+    // the receiver was dropped by the client (the result is no longer useful).
+    let task = async move {
+        let res = task.await;
+        let _ignored = tx.send(res);
+    };
+
     let (weak_task, guard) = guarded_rc(RefCell::new(task.boxed()));
 
     let drop = DropCancel {
         inner: weak_task,
         instrumented_span: span,
     };
-    let join = tokio::spawn(drop)
-        .map(|r| r.expect_completion().expect("Task was cancelled"))
+
+    spawner.spawn(ctx, drop.boxed());
+
+    // recv operation only fails if tx is dropped/disconnected (cancelled).
+    let fut = rx
+        .map(|r: Result<T::Output, oneshot::error::RecvError>| r.expect("spawned task cancelled"))
         .boxed();
 
-    StrongCancellableJoinHandle {
-        _ref: guard,
-        fut: join,
-    }
+    StrongCancellableJoinHandle { _ref: guard, fut }
 }
 
 /// Obtain a GuardedRcStrongGuard that keeps the current task alive, assuming it polls a DropCancel
@@ -187,17 +217,25 @@ mod tests {
     use tokio::sync::oneshot;
 
     use super::*;
+    use crate::spawner::TokioSpawner;
+
+    #[derive(Default)]
+    struct MockCtx;
 
     #[tokio::test]
     async fn test_cancellation() {
         let (release_task, recv_release_task) = oneshot::channel();
         let (notify_success, recv_success) = oneshot::channel();
 
+        let sp: Arc<dyn Spawner<MockCtx>> = Arc::new(TokioSpawner::default());
+
         let (_task, poll) = spawn_task(
             async move {
                 recv_release_task.await.unwrap();
                 notify_success.send(()).unwrap();
             },
+            &sp,
+            &MockCtx::default(),
             tracing::debug_span!("test"),
         );
 
@@ -218,6 +256,8 @@ mod tests {
         let (task_ready, recv_task_ready) = oneshot::channel();
         let (notify_success, recv_success) = oneshot::channel();
 
+        let sp: Arc<dyn Spawner<MockCtx>> = Arc::new(TokioSpawner::default());
+
         let (_task, poll) = spawn_task(
             async move {
                 dropcancel_critical_section(async {
@@ -227,6 +267,8 @@ mod tests {
                 })
                 .await;
             },
+            &sp,
+            &MockCtx::default(),
             tracing::debug_span!("test"),
         );
 
@@ -243,5 +285,16 @@ mod tests {
 
         // If this fails, that means the task died.
         recv_success.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_spawn() {
+        let sp: Arc<dyn Spawner<MockCtx>> = Arc::new(TokioSpawner::default());
+        let fut = async { "Hello world!" };
+
+        let (_task, poll) = spawn_task(fut, &sp, &MockCtx::default(), tracing::debug_span!("test"));
+
+        let res = poll.await;
+        assert_eq!(res, "Hello world!");
     }
 }

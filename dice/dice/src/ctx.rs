@@ -16,6 +16,8 @@ use std::sync::Arc;
 use futures::FutureExt;
 use gazebo::prelude::*;
 use more_futures::spawn::spawn_dropcancel;
+use more_futures::spawner::Spawner;
+use more_futures::spawner::TokioSpawner;
 
 use crate::cycles::CycleDetector;
 use crate::cycles::DetectCycles;
@@ -41,6 +43,7 @@ pub struct UserComputationData {
     /// As an example, users may want to inject some form of event dispatcher to send events from their computations.
     pub data: DiceData,
     pub tracker: Arc<dyn DiceTracker>,
+    pub spawner: Arc<dyn Spawner<Self>>,
 
     /// We require that UserComputationData always be constructed with `..Default::default()`
     pub _requires_default: RequireDefault,
@@ -59,6 +62,7 @@ impl Default for UserComputationData {
         Self {
             data: DiceData::new(),
             tracker: Arc::new(NoOpTracker),
+            spawner: Arc::new(TokioSpawner::default()),
             _requires_default: RequireDefault(()),
         }
     }
@@ -235,6 +239,8 @@ impl DiceComputations {
 
         spawn_dropcancel(
             async move { f(duped).await },
+            self.0.extra.user_data.spawner.dupe(),
+            &self.0.extra.user_data,
             debug_span!(parent: None, "spawned_task",),
         )
     }

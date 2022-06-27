@@ -72,6 +72,7 @@ use crate::OpaqueValue;
 use crate::ProjectionKey;
 use crate::StorageProperties;
 use crate::StoragePropertiesForKey;
+use crate::UserComputationData;
 
 /// Result of evaluation computation.
 pub(crate) struct ValueWithDeps<T> {
@@ -286,6 +287,8 @@ where
         let key = k.clone();
         let v = eval_ctx.get_version();
 
+        let user_data = extra.user_data.dupe();
+
         Self::spawn_task(
             async move {
                 // check again since another thread could have inserted into the versioned
@@ -310,34 +313,35 @@ where
                         {
                             DidDepsChange::Changed | DidDepsChange::NoDeps => {
                                 debug!("dependencies changed. recomputing...");
-
                                 self.compute(k, eval_ctx, extra).await
                             }
                             DidDepsChange::NoChange(unchanged_both_deps) => {
                                 debug!("dependencies are unchanged, reusing entry");
-
                                 self.reuse(k, &eval_ctx, mismatch.entry, unchanged_both_deps)
                             }
                         }
                     }
-                    VersionedGraphResult::Dirty => self.compute(k, eval_ctx, extra).await,
-                    VersionedGraphResult::None => self.compute(k, eval_ctx, extra).await,
+                    VersionedGraphResult::Dirty | VersionedGraphResult::None => {
+                        self.compute(k, eval_ctx, extra).await
+                    }
                 }
             },
+            &user_data,
             debug_span!(
-            parent: None,
-            "spawned_dice_task",
-            key = % key,
-            version = % v
+                parent: None,
+                "spawned_dice_task",
+                key = % key,
+                version = % v
             ),
         )
     }
 
     fn spawn_task(
         future: impl Future<Output = GraphNode<K>> + Send + 'static,
+        spawner_ctx: &UserComputationData,
         span: Span,
     ) -> (WeakDiceFutureHandle<K>, DiceFuture<K>) {
-        let (task, fut) = spawn_task(future, span);
+        let (task, fut) = spawn_task(future, &spawner_ctx.spawner, spawner_ctx, span);
         let task = WeakDiceFutureHandle::async_cancellable(task);
         let fut = DiceFuture::AsyncCancellableSpawned(fut);
         (task, fut)

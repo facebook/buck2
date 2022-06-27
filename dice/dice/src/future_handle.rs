@@ -10,7 +10,6 @@
 //! The future that is spawned and managed by DICE. This is a single computation unit that is
 //! shareable across different computation units.
 //!
-
 use more_futures::spawn::WeakJoinHandle;
 
 use crate::dice_future::DiceFuture;
