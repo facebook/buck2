@@ -190,6 +190,72 @@ async def test_bxl(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="bql/simple")
+async def test_cli_target_pattern(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl/cli_args.bxl:target_expr_test",
+        "--",
+        "--targets",
+        ":bin",
+    )
+    assert "[root//:bin]" in result.stdout
+
+    result = await buck.bxl(
+        "//bxl/cli_args.bxl:target_expr_test",
+        "--",
+        "--targets",
+        "root//:",
+    )
+    assert "root//:bin" in result.stdout
+    assert "root//:data" in result.stdout
+    assert "root//:foo_toolchain" in result.stdout
+    assert "root//:genrule_binary" in result.stdout
+    assert "root//:package_boundary_violation" in result.stdout
+    assert "root//:buildable" in result.stdout
+
+    result = await buck.bxl(
+        "//bxl/cli_args.bxl:target_expr_test",
+        "--",
+        "--targets",
+        "root//:",
+    )
+    assert "root//:bin" in result.stdout
+    assert "root//:data" in result.stdout
+    assert "root//:foo_toolchain" in result.stdout
+    assert "root//:genrule_binary" in result.stdout
+    assert "root//:package_boundary_violation" in result.stdout
+    assert "root//:buildable" in result.stdout
+
+    result = await buck.bxl(
+        "//bxl/cli_args.bxl:target_expr_test",
+        "--",
+        "--targets",
+        "root//bin/...",
+    )
+    assert "root//bin/kind:foo" in result.stdout
+    assert "root//bin/kind:bar" in result.stdout
+    assert "root//bin/kind:bzzt" in result.stdout
+    assert "root//bin:the_binary" in result.stdout
+
+    await expect_failure(
+        buck.bxl(
+            "//bxl/cli_args.bxl:target_expr_test",
+            "--",
+            "--targets",
+            ":non-existent",
+        )
+    )
+
+    await expect_failure(
+        buck.bxl(
+            "//bxl/cli_args.bxl:target_expr_test",
+            "--",
+            "--targets",
+            "invalid/...",
+        )
+    )
+
+
+@buck_test(inplace=False, data_dir="bql/simple")
 async def test_cquery_owner(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl/cquery.bxl:owner_test",

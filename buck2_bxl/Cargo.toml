@@ -24,6 +24,7 @@ tokio = { version = "1.5", features = ["full"]}
 fbinit.version = "0.1"
 # @oss-disable: fbinit.path = "../../common/rust/shed/fbinit"
 
+async_std_ext = { path = "../shed/async_std_ext" }
 gazebo.version = "0.7.1"
 gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "../gazebo/gazebo"

@@ -216,22 +216,22 @@ impl FrozenBxlFunction {
     }
 
     /// parses the cli args as defined by this bxl function
-    pub fn parse_clap(
+    pub async fn parse_clap<'a>(
         &self,
         clap: clap::ArgMatches,
-        ctx: &CliResolutionCtx,
+        ctx: &CliResolutionCtx<'a>,
     ) -> anyhow::Result<SmallMap<String, CliArgValue>> {
-        self.cli_args
-            .iter()
-            .map(|(arg, cli)| try {
-                (
-                    arg.clone(),
-                    cli.parse_clap(ArgAccessor::Clap { clap: &clap, arg }, ctx)
-                        .with_context(|| {
-                            format!("when parsing cli flag `{}` for bxl function", arg)
-                        })?,
-                )
-            })
-            .collect()
+        let mut res = SmallMap::with_capacity(self.cli_args.len());
+
+        for (arg, cli) in self.cli_args.iter() {
+            res.insert(
+                arg.clone(),
+                cli.parse_clap(ArgAccessor::Clap { clap: &clap, arg }, ctx)
+                    .await
+                    .with_context(|| format!("when parsing cli flag `{}` for bxl function", arg))?,
+            );
+        }
+
+        Ok(res)
     }
 }

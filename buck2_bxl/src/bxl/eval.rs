@@ -181,18 +181,20 @@ pub struct CliResolutionCtx<'a> {
     pub dice: &'a DiceComputations,
 }
 
-pub fn resolve_cli_args<'a>(
+pub async fn resolve_cli_args<'a>(
     spec: &BxlFunctionLabel,
-    cli_ctx: &CliResolutionCtx,
+    cli_ctx: &CliResolutionCtx<'a>,
     bxl_args: Vec<String>,
     frozen_callable: &'a FrozenBxlFunction,
 ) -> anyhow::Result<SmallMap<String, CliArgValue>> {
-    frozen_callable.parse_clap(
-        frozen_callable
-            .to_clap(clap::Command::new(&spec.name).no_binary_name(true))
-            .try_get_matches_from(bxl_args)?,
-        cli_ctx,
-    )
+    frozen_callable
+        .parse_clap(
+            frozen_callable
+                .to_clap(clap::Command::new(&spec.name).no_binary_name(true))
+                .try_get_matches_from(bxl_args)?,
+            cli_ctx,
+        )
+        .await
 }
 
 #[derive(Debug, Error)]

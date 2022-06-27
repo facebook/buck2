@@ -23,3 +23,13 @@ cli_test = bxl(
         "target": cli_args.target_label(),
     },
 )
+
+def _target_expr_impl(ctx):
+    ctx.output.print(repr(ctx.cli_args.targets))
+
+target_expr_test = bxl(
+    implementation = _target_expr_impl,
+    cli_args = {
+        "targets": cli_args.target_expr(),
+    },
+)

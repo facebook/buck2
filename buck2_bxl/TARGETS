@@ -33,6 +33,7 @@ rust_library(
         "//buck2/buck2_query_parser:buck2_query_parser",
         "//buck2/dice/dice:dice",
         "//buck2/gazebo/gazebo:gazebo",
+        "//buck2/shed/async_std_ext:async_std_ext",
         "//buck2/starlark-rust/starlark:starlark",
     ],
 )

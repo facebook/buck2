@@ -78,12 +78,8 @@ pub(crate) async fn bxl(
         dice: &ctx,
     };
 
-    let bxl_args = Arc::new(resolve_cli_args(
-        &bxl_label,
-        &cli_ctx,
-        request.bxl_args,
-        &frozen_callable,
-    )?);
+    let bxl_args =
+        Arc::new(resolve_cli_args(&bxl_label, &cli_ctx, request.bxl_args, &frozen_callable).await?);
 
     let result = ctx
         .eval_bxl(BxlKey::new(bxl_label.clone(), bxl_args))

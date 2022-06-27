@@ -15,6 +15,8 @@ use std::fmt::Formatter;
 use std::sync::Arc;
 
 use anyhow::Context as _;
+use async_std_ext::prelude::AsyncOptionExt;
+use buck2_build_api::calculation::load_patterns;
 pub use buck2_bxl_core::CliArgValue;
 use buck2_core::pattern::lex_target_pattern;
 use buck2_core::pattern::ParsedPattern;
@@ -23,6 +25,8 @@ use buck2_core::pattern::TargetPattern;
 use buck2_interpreter::types::label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use derive_more::Display;
+use futures::future::BoxFuture;
+use futures::FutureExt;
 use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
 use gazebo::variants::VariantName;
@@ -91,12 +95,12 @@ impl CliArgs {
         }
     }
 
-    pub fn parse_clap(
+    pub async fn parse_clap<'a>(
         &self,
-        clap: ArgAccessor,
-        ctx: &CliResolutionCtx,
+        clap: ArgAccessor<'a>,
+        ctx: &CliResolutionCtx<'a>,
     ) -> anyhow::Result<CliArgValue> {
-        Ok(match self.coercer.parse_clap(clap, ctx)? {
+        Ok(match self.coercer.parse_clap(clap, ctx).await? {
             None => (**self.default.as_ref().ok_or(CliArgError::MissingCliArg)?).clone(),
             Some(v) => v,
         })
@@ -135,6 +139,7 @@ enum CliArgType {
     List(Arc<CliArgType>),
     Option(Arc<CliArgType>),
     TargetLabel,
+    TargetExpr,
     SubTarget,
 }
 
@@ -189,6 +194,10 @@ impl CliArgType {
         CliArgType::TargetLabel
     }
 
+    fn target_expr() -> Self {
+        CliArgType::TargetExpr
+    }
+
     fn sub_target() -> Self {
         CliArgType::SubTarget
     }
@@ -206,6 +215,8 @@ enum CliArgError {
     MissingCliArg,
     #[error("`{0}` is not a {1} label.")]
     NotALabel(String, &'static str),
+    #[error("Defaults are not allowed for cli arg type `{0}`.")]
+    NoDefaultsAllowed(CliArgType),
 }
 
 impl CliArgType {
@@ -281,6 +292,11 @@ impl CliArgType {
                     })?;
                 CliArgValue::ProvidersLabel((*label.label()).clone())
             }
+            CliArgType::TargetExpr => {
+                return Err(anyhow::anyhow!(CliArgError::NoDefaultsAllowed(
+                    CliArgType::TargetExpr
+                )));
+            }
         })
     }
 
@@ -320,85 +336,112 @@ impl CliArgType {
                             .map(|_| ())
                     })
             }),
+            CliArgType::TargetExpr => clap.takes_value(true),
         }
     }
 
-    pub fn parse_clap(
-        &self,
-        clap: ArgAccessor,
-        ctx: &CliResolutionCtx,
-    ) -> anyhow::Result<Option<CliArgValue>> {
-        Ok(match self {
-            CliArgType::Bool => Some(CliArgValue::Bool(
-                clap.value_of().unwrap_or("false").parse::<bool>()?,
-            )),
-            CliArgType::Int => clap.value_of().map_or(Ok(None), |x| {
-                let r: anyhow::Result<_> = try { CliArgValue::Int(x.parse::<i32>()?) };
-                r.map(Some)
-            })?,
-            CliArgType::Float => clap.value_of().map_or(Ok(None), |x| {
-                let r: anyhow::Result<_> = try {
-                    CliArgValue::Float({
-                        x.parse::<f64>()?;
-                        x.to_owned()
-                    })
-                };
-                r.map(Some)
-            })?,
-            CliArgType::String => clap.value_of().map(|s| CliArgValue::String(s.to_owned())),
-            CliArgType::Enumeration(_variants) => {
-                // the validators should have already made sure the strings are only of the variants
-                clap.value_of().map(|s| CliArgValue::String(s.to_owned()))
-            }
-            CliArgType::List(inner) => {
-                let r: anyhow::Result<_> = clap.values_of().map_or(Ok(None), |values| {
-                    values
-                        .map(|v| try {
-                            inner
-                                .parse_clap(ArgAccessor::Literal(v), ctx)?
-                                .expect("shouldn't be empty when parsing list items")
+    pub fn parse_clap<'a>(
+        &'a self,
+        clap: ArgAccessor<'a>,
+        ctx: &'a CliResolutionCtx<'a>,
+    ) -> BoxFuture<'a, anyhow::Result<Option<CliArgValue>>> {
+        async move {
+            Ok(match self {
+                CliArgType::Bool => Some(CliArgValue::Bool(
+                    clap.value_of().unwrap_or("false").parse::<bool>()?,
+                )),
+                CliArgType::Int => clap.value_of().map_or(Ok(None), |x| {
+                    let r: anyhow::Result<_> = try { CliArgValue::Int(x.parse::<i32>()?) };
+                    r.map(Some)
+                })?,
+                CliArgType::Float => clap.value_of().map_or(Ok(None), |x| {
+                    let r: anyhow::Result<_> = try {
+                        CliArgValue::Float({
+                            x.parse::<f64>()?;
+                            x.to_owned()
                         })
-                        .collect::<Result<_, anyhow::Error>>()
-                        .map(Some)
-                });
-                r?.map(CliArgValue::List)
-            }
-            CliArgType::Option(inner) => Some(if clap.value_of().is_some() {
-                inner
-                    .parse_clap(clap, ctx)?
-                    .expect("arg is verified to be present")
-            } else {
-                CliArgValue::None
-            }),
-            CliArgType::TargetLabel => clap.value_of().map_or(Ok(None), |x| {
-                let r: anyhow::Result<_> = try {
-                    CliArgValue::TargetLabel(
-                        ParsedPattern::<TargetPattern>::parse_relaxed(
-                            &ctx.target_alias_resolver,
-                            &ctx.cell_resolver,
-                            &ctx.relative_dir,
-                            x,
-                        )?
-                        .as_target_label(x)?,
-                    )
-                };
-                r.map(Some)
-            })?,
-            CliArgType::SubTarget => clap.value_of().map_or(Ok(None), |x| {
-                let r: anyhow::Result<_> = try {
-                    CliArgValue::ProvidersLabel(
-                        ParsedPattern::<ProvidersPattern>::parse_relaxed(
-                            &ctx.target_alias_resolver,
-                            &ctx.cell_resolver,
-                            &ctx.relative_dir,
-                            x,
-                        )?
-                        .as_providers_label(x)?,
-                    )
-                };
-                r.map(Some)
-            })?,
-        })
+                    };
+                    r.map(Some)
+                })?,
+                CliArgType::String => clap.value_of().map(|s| CliArgValue::String(s.to_owned())),
+                CliArgType::Enumeration(_variants) => {
+                    // the validators should have already made sure the strings are only of the variants
+                    clap.value_of().map(|s| CliArgValue::String(s.to_owned()))
+                }
+                CliArgType::List(inner) => {
+                    let r: anyhow::Result<_> = clap
+                        .values_of()
+                        .async_map_or(Ok(None), async move |values| {
+                            futures::future::join_all(values.map(async move |v| try {
+                                inner
+                                    .parse_clap(ArgAccessor::Literal(v), ctx)
+                                    .await?
+                                    .expect("shouldn't be empty when parsing list items")
+                            }))
+                            .await
+                            .into_iter()
+                            .collect::<Result<_, anyhow::Error>>()
+                            .map(Some)
+                        })
+                        .await;
+                    r?.map(CliArgValue::List)
+                }
+                CliArgType::Option(inner) => Some(if clap.value_of().is_some() {
+                    inner
+                        .parse_clap(clap, ctx)
+                        .await?
+                        .expect("arg is verified to be present")
+                } else {
+                    CliArgValue::None
+                }),
+                CliArgType::TargetLabel => clap.value_of().map_or(Ok(None), |x| {
+                    let r: anyhow::Result<_> = try {
+                        CliArgValue::TargetLabel(
+                            ParsedPattern::<TargetPattern>::parse_relaxed(
+                                &ctx.target_alias_resolver,
+                                &ctx.cell_resolver,
+                                &ctx.relative_dir,
+                                x,
+                            )?
+                            .as_target_label(x)?,
+                        )
+                    };
+                    r.map(Some)
+                })?,
+                CliArgType::SubTarget => clap.value_of().map_or(Ok(None), |x| {
+                    let r: anyhow::Result<_> = try {
+                        CliArgValue::ProvidersLabel(
+                            ParsedPattern::<ProvidersPattern>::parse_relaxed(
+                                &ctx.target_alias_resolver,
+                                &ctx.cell_resolver,
+                                &ctx.relative_dir,
+                                x,
+                            )?
+                            .as_providers_label(x)?,
+                        )
+                    };
+                    r.map(Some)
+                })?,
+                CliArgType::TargetExpr => {
+                    let x = clap.value_of().unwrap_or("");
+                    let pattern = ParsedPattern::<TargetPattern>::parse_relaxed(
+                        &ctx.target_alias_resolver,
+                        &ctx.cell_resolver,
+                        &ctx.relative_dir,
+                        x,
+                    )?;
+
+                    let loaded = load_patterns(ctx.dice, vec![pattern]).await?;
+                    Some(CliArgValue::List(
+                        loaded
+                            .iter_loaded_targets()
+                            .map(|t| CliArgValue::TargetLabel(t.label().dupe()))
+                            .collect(),
+                    ))
+                }
+            })
+        }
+        .boxed()
     }
 }
 
@@ -471,6 +514,10 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
 
     fn sub_target(#[starlark(default = "")] doc: &str) -> anyhow::Result<CliArgs> {
         CliArgs::new(None, doc, CliArgType::sub_target())
+    }
+
+    fn target_expr(#[starlark(default = "")] doc: &str) -> anyhow::Result<CliArgs> {
+        CliArgs::new(None, doc, CliArgType::target_expr())
     }
 }
 
