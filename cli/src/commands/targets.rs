@@ -178,18 +178,24 @@ impl StreamingCommand for TargetsCommand {
             TargetHashFunction::Strong => false,
         };
 
+        #[derive(thiserror::Error, Debug)]
+        enum TargetsError {
+            #[error("Flags are mutually exclusive (internal error)")]
+            IncompatibleArguments,
+        }
+
         let output_attributes = self.output_attributes();
-        let target_hash_graph_type = match (
-            self.show_target_hash,
-            self.show_unconfigured_target_hash,
-        ) {
-            (true, true) => panic!(
-                "Error: Specifying both \"--show-target-hash\" and \"--show-unconfigured-target-hash\" is currently not supported."
-            ),
-            (true, false) => targets_request::TargetHashGraphType::Configured as i32,
-            (false, true) => targets_request::TargetHashGraphType::Unconfigured as i32,
-            (false, false) => targets_request::TargetHashGraphType::None as i32,
-        };
+        let target_hash_graph_type =
+            match (self.show_target_hash, self.show_unconfigured_target_hash) {
+                (true, true) => {
+                    return ExitResult::Err(anyhow::Error::new(
+                        TargetsError::IncompatibleArguments,
+                    ));
+                }
+                (true, false) => targets_request::TargetHashGraphType::Configured as i32,
+                (false, true) => targets_request::TargetHashGraphType::Unconfigured as i32,
+                (false, false) => targets_request::TargetHashGraphType::None as i32,
+            };
 
         let target_request = TargetsRequest {
             context: Some(ctx.client_context(&self.config_opts, matches)?),
