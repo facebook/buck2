@@ -80,3 +80,13 @@ fn print(mut writer: impl Write, fmt: Arguments, err: FailureExitCode) -> anyhow
         }
     })
 }
+
+pub(crate) fn print_bytes(vec: &[u8]) -> anyhow::Result<()> {
+    io::stdout().lock().write_all(vec).map_err(|e| {
+        if e.kind() == io::ErrorKind::BrokenPipe {
+            anyhow::Error::new(FailureExitCode::StdoutBrokenPipe)
+        } else {
+            anyhow::Error::new(e)
+        }
+    })
+}

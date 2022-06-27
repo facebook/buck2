@@ -14,8 +14,11 @@ use tokio::runtime;
 use tokio_stream::StreamExt;
 
 use crate::commands::common::subscribers::event_log::EventLogPathBuf;
+use crate::commands::common::subscribers::event_log::SerializeForLog;
 use crate::commands::debug::replay::retrieve_nth_recent_log;
+use crate::stdio;
 use crate::CommandContext;
+
 /// This command outputs the path to a redcent log.
 #[derive(Debug, clap::Parser)]
 #[clap(group = clap::ArgGroup::with_name("event_log"))]
@@ -55,9 +58,12 @@ impl ShowLogCommand {
 
         rt.block_on(async move {
             let (invocation, mut events) = log_path.unpack_stream().await?;
-            crate::println!("{}", serde_json::to_string(&invocation)?)?;
+
+            stdio::print_bytes(&invocation.serialize_to_json()?)?;
+            stdio::print_bytes("\n".as_bytes())?;
             while let Some(event) = events.try_next().await? {
-                crate::println!("{}", serde_json::to_string(&event)?)?;
+                stdio::print_bytes(&event.serialize_to_json()?)?;
+                stdio::print_bytes("\n".as_bytes())?;
             }
 
             anyhow::Ok(())
