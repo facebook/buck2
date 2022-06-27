@@ -12,8 +12,8 @@ use std::fmt::Display;
 
 use anyhow::anyhow;
 use fancy_regex::Regex;
+use gazebo::display::display_container;
 use indexmap::IndexSet;
-use starlark::values::display::display_container;
 
 use crate::query::environment::QueryTarget;
 use crate::query::environment::QueryTargetAttr;

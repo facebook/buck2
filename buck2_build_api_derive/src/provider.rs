@@ -83,7 +83,7 @@ impl ProviderCodegen {
         Ok(quote! {
             impl<V: std::fmt::Display> std::fmt::Display for #gen_name<V> {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    starlark::values::display::display_keyed_container(
+                    gazebo::display::display_keyed_container(
                         f,
                         &format!("{}(", #name_str),
                         ")",
