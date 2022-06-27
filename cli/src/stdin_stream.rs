@@ -14,6 +14,8 @@ use tokio::sync::oneshot::error::TryRecvError;
 ///
 /// Note that this should be the only way that stdin is read, as it locks stdin.
 /// It also runs a background thread to read asynchronously.
+///
+/// Dropping this struct tells the stdin reading thread to stop reading, and cleans the thread up.
 pub(crate) struct StdinStream<T: Send + Sync> {
     messages: tokio_stream::wrappers::UnboundedReceiverStream<T>,
     stdio_thread: Option<std::thread::JoinHandle<()>>,
@@ -53,12 +55,13 @@ impl<T: Send + Sync + 'static> StdinStream<T> {
             let mut stdin = raw_stdin.lock();
 
             loop {
-                if !is_ready(&raw_stdin) {
-                    match stop_receiver.try_recv() {
-                        Err(TryRecvError::Empty) => {}
-                        _ => break,
-                    }
-                } else {
+                // Check for shutdown on every loop, otherwise we might enter a state
+                // where we're waiting for input, even if we've shut down.
+                match stop_receiver.try_recv() {
+                    Err(TryRecvError::Empty) => {}
+                    _ => break,
+                }
+                if is_ready(&raw_stdin) {
                     match deserializer(&mut stdin) {
                         Ok(Some(msg)) => {
                             let _ignore = sender.send(msg);
