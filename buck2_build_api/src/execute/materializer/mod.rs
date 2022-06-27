@@ -93,7 +93,15 @@ pub enum MaterializationError {
     },
 
     /// The artifact wasn't found. This typically means it expired in the CAS.
-    #[error("Artifact not found for path {}: {}", .path, .info)]
+    #[error(
+        "Your build requires materializing an artifact that has expired in the \
+        RE CAS and Buck does not have it (path: {}, digest info: {}). \
+        This likely happened because your Buck daemon \
+        has been online for a long time. This error is currently unrecoverable. \
+        To proceed, you should restart Buck using `buck2 kill`.",
+        .path,
+        .info
+    )]
     NotFound {
         path: ProjectRelativePathBuf,
         info: Arc<CasDownloadInfo>,
