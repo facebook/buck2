@@ -21,6 +21,7 @@ use buck2_interpreter::extra::ExtraContext;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
+use buck2_node::call_stack::StarlarkCallStack;
 use buck2_node::rule_type::RuleType;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_node::visibility::VisibilityPattern;
@@ -113,8 +114,7 @@ pub(crate) struct TargetNodeData {
     visibility: VisibilitySpecification,
 
     /// Call stack for the target.
-    #[allow(clippy::box_collection)] // We are optimizing memory consumption here.
-    call_stack: Option<Box<CallStack>>,
+    call_stack: Option<StarlarkCallStack>,
 }
 
 impl TargetNode {
@@ -165,7 +165,7 @@ impl TargetNode {
         buildfile_path: Arc<BuildFilePath>,
         is_configuration_rule: bool,
         attr_spec: Arc<AttributeSpec>,
-        call_stack: Option<Box<CallStack>>,
+        call_stack: Option<CallStack>,
     ) -> anyhow::Result<Self> {
         if ignore_attrs_for_profiling {
             return Self::from_params_ignore_attrs_for_profiling(
@@ -216,7 +216,7 @@ impl TargetNode {
             cfg,
             visibility,
             is_configuration_rule,
-            call_stack,
+            call_stack: call_stack.map(StarlarkCallStack::new),
         })))
     }
 

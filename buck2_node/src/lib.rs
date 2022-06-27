@@ -15,6 +15,7 @@
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
 pub mod attrs;
+pub mod call_stack;
 pub mod compatibility;
 pub mod rule_type;
 pub mod visibility;

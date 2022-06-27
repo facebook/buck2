@@ -216,7 +216,7 @@ impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
         let record_target_call_stack =
             ModuleInternals::from_context(eval)?.record_target_call_stacks();
         let call_stack = if record_target_call_stack {
-            Some(box eval.call_stack())
+            Some(eval.call_stack())
         } else {
             None
         };
