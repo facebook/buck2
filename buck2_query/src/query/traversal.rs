@@ -66,13 +66,6 @@ pub trait AsyncNodeLookup<T: LabeledNode>: Send + Sync {
     async fn get(&self, label: &T::NodeRef) -> anyhow::Result<T>;
 }
 
-#[async_trait]
-impl<T: LabeledNode, L: NodeLookup<T> + Send + Sync> AsyncNodeLookup<T> for L {
-    async fn get(&self, label: &T::NodeRef) -> anyhow::Result<T> {
-        NodeLookup::get(self, label)
-    }
-}
-
 /// Implements a completely unordered graph traversal that visits nodes in a random order. When
 /// traversing the graph (potentially) requires work to produce each node (like processing build files)
 /// this unordered traversal will parallelize the work efficiently.

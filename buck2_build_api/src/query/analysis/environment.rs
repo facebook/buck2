@@ -17,6 +17,7 @@ use buck2_core::cells::paths::CellPath;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_node::attrs::attr_type::attr_config::AttrConfig;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
+use buck2_query::query::environment::LabeledNode;
 use buck2_query::query::environment::NodeLabel;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryTarget;
@@ -31,6 +32,7 @@ use buck2_query::query::syntax::simple::functions::QueryFunctions;
 use buck2_query::query::traversal::async_depth_limited_traversal;
 use buck2_query::query::traversal::async_fast_depth_first_postorder_traversal;
 use buck2_query::query::traversal::async_unordered_traversal;
+use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query::traversal::ChildVisitor;
 use buck2_query::query::traversal::NodeLookup;
@@ -224,7 +226,7 @@ impl<'a> ConfiguredGraphQueryEnvironment<'a> {
                 }
 
                 for dep in target.deps() {
-                    func.visit(dep.node_ref().dupe())?;
+                    func.visit(LabeledNode::node_ref(dep).dupe())?;
                 }
 
                 Ok(())
@@ -268,7 +270,7 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
     ) -> anyhow::Result<()> {
         async_fast_depth_first_postorder_traversal(
             self,
-            root.iter().map(|e| e.node_ref()),
+            root.iter().map(LabeledNode::node_ref),
             delegate,
         )
         .await
@@ -291,6 +293,13 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
 #[async_trait]
 impl<'a> NodeLookup<ConfiguredGraphNodeRef> for ConfiguredGraphQueryEnvironment<'a> {
     fn get(&self, label: &ConfiguredGraphNodeRef) -> anyhow::Result<ConfiguredGraphNodeRef> {
+        Ok(label.dupe())
+    }
+}
+
+#[async_trait]
+impl<'a> AsyncNodeLookup<ConfiguredGraphNodeRef> for ConfiguredGraphQueryEnvironment<'a> {
+    async fn get(&self, label: &ConfiguredGraphNodeRef) -> anyhow::Result<ConfiguredGraphNodeRef> {
         Ok(label.dupe())
     }
 }

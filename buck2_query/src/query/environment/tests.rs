@@ -11,6 +11,7 @@ use derive_more::From;
 use indexmap::IndexSet;
 
 use super::*;
+use crate::query::traversal::AsyncNodeLookup;
 
 #[derive(Debug, Copy, Clone, Dupe, Eq, PartialEq, Hash, Display, From)]
 struct TestTargetId(u64);
@@ -101,6 +102,19 @@ struct TestEnv {
 
 impl NodeLookup<TestTarget> for TestEnv {
     fn get(&self, label: &<TestTarget as LabeledNode>::NodeRef) -> anyhow::Result<TestTarget> {
+        self.graph
+            .get(label)
+            .duped()
+            .with_context(|| format!("Invalid node: {:?}", label))
+    }
+}
+
+#[async_trait]
+impl AsyncNodeLookup<TestTarget> for TestEnv {
+    async fn get(
+        &self,
+        label: &<TestTarget as LabeledNode>::NodeRef,
+    ) -> anyhow::Result<TestTarget> {
         self.graph
             .get(label)
             .duped()
