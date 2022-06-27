@@ -220,7 +220,7 @@ impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
         } else {
             None
         };
-        let param_count = args.len()?;
+        let arg_count = args.len()?;
         self.signature.parser(args, eval, |param_parser, eval| {
             // The body of the callable returned by `rule()`.
             // Records the target in this package's `TargetMap`.
@@ -230,7 +230,7 @@ impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
                 internals,
                 self.cfg.dupe(),
                 param_parser,
-                param_count,
+                arg_count,
                 self.ignore_attrs_for_profiling,
                 self.rule_type.dupe(),
                 buildfile_path,

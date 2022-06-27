@@ -129,10 +129,10 @@ impl AttributeSpec {
     pub(crate) fn parse_params<'v>(
         &self,
         mut param_parser: ParametersParser<'v, '_>,
-        param_count: usize,
+        arg_count: usize,
         internals: &ModuleInternals,
     ) -> anyhow::Result<(TargetName, AttrValues)> {
-        let mut attr_values = AttrValues::with_capacity(param_count);
+        let mut attr_values = AttrValues::with_capacity(arg_count);
 
         let mut indices = self.attr_specs();
         let name = match indices.next() {

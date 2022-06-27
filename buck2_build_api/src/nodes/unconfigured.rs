@@ -156,7 +156,7 @@ impl TargetNode {
         internals: &ModuleInternals,
         cfg: Option<Arc<TransitionId>>,
         param_parser: ParametersParser<'v, '_>,
-        param_count: usize,
+        arg_count: usize,
         ignore_attrs_for_profiling: bool,
         rule_type: Arc<StarlarkRuleType>,
         buildfile_path: Arc<BuildFilePath>,
@@ -177,7 +177,7 @@ impl TargetNode {
         }
 
         let (target_name, attr_values) =
-            attr_spec.parse_params(param_parser, param_count, internals)?;
+            attr_spec.parse_params(param_parser, arg_count, internals)?;
         let package = internals.buildfile_path().package();
 
         let mut visibility = match attr_spec.attr_or_none(
