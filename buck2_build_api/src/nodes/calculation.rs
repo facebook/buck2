@@ -636,7 +636,6 @@ mod tests {
     use indexmap::indexmap;
     use starlark::collections::SmallMap;
 
-    use crate::attrs::attr_type::any::AnyAttrTypeExt;
     use crate::attrs::testing::CoercedAttrExt;
     use crate::attrs::testing::ConfiguredAttrExt;
     use crate::configuration::calculation::ExecutionPlatformsKey;

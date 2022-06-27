@@ -20,18 +20,6 @@ use starlark::values::Value;
 use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::AttrLiteral;
 
-pub(crate) trait AnyAttrTypeExt {
-    fn empty_string() -> CoercedAttr {
-        CoercedAttr::new_literal(AttrLiteral::String("".to_owned()))
-    }
-
-    fn empty_list(element_type: AttrType) -> CoercedAttr {
-        CoercedAttr::new_literal(AttrLiteral::List(Default::default(), element_type))
-    }
-}
-
-impl AnyAttrTypeExt for AnyAttrType {}
-
 fn to_coerced_literal(value: Value) -> CoercedAttr {
     CoercedAttr::Literal(to_literal(value))
 }

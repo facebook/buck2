@@ -7,5 +7,19 @@
  * of this source tree.
  */
 
+use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::AttrType;
+use crate::attrs::coerced_attr::CoercedAttr;
+
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct AnyAttrType;
+
+impl AnyAttrType {
+    pub fn empty_string() -> CoercedAttr {
+        CoercedAttr::new_literal(AttrLiteral::String("".to_owned()))
+    }
+
+    pub fn empty_list(element_type: AttrType) -> CoercedAttr {
+        CoercedAttr::new_literal(AttrLiteral::List(Default::default(), element_type))
+    }
+}

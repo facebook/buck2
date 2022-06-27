@@ -51,7 +51,6 @@ use tracing::error;
 use tracing::info;
 use twox_hash::xxh3;
 
-use crate::attrs::attr_type::any::AnyAttrTypeExt;
 use crate::attrs::attr_type::AttrTypeExt;
 use crate::interpreter::rule_defs::provider::callable::ValueAsProviderCallableLike;
 use crate::interpreter::rule_defs::rule::RuleError;

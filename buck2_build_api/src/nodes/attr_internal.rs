@@ -19,7 +19,6 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use gazebo::dupe::Dupe;
 
-use crate::attrs::attr_type::any::AnyAttrTypeExt;
 use crate::nodes::PlatformInfoCallable;
 
 // TODO(cjhopman): figure out something better for these default attributes that we need to interpret
