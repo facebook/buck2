@@ -94,8 +94,11 @@ pub(crate) struct ProfileOptions {
     #[clap(value_name = "TARGET")]
     target_pattern: String,
 
-    #[clap(value_name = "PATH")]
-    destination_path: String,
+    /// Output file path for profile data.
+    ///
+    /// File will be created if it does not exist, and overwritten if it does.
+    #[clap(long, short = 'o', value_name = "PATH")]
+    output: String,
 
     #[clap(long, short = 'm', value_enum)]
     mode: BuckProfileMode,
@@ -131,7 +134,7 @@ impl StreamingCommand for ProfileSubcommand {
         let context = ctx.client_context(&self.opts.config_opts, matches)?;
 
         let mut destination_path = PathBuf::from(&context.working_dir);
-        destination_path.push(&self.opts.destination_path);
+        destination_path.push(&self.opts.output);
 
         let profile_mode = self.opts.mode.to_profile_mode();
 
@@ -176,7 +179,7 @@ impl StreamingCommand for ProfileSubcommand {
         crate::println!(
             "Starlark {} profile has been written to {}",
             profile_mode,
-            self.opts.destination_path
+            self.opts.output
         )?;
         crate::println!("Elapsed: {:.3}s", elapsed.as_secs_f64())?;
         crate::println!("Total Allocated Bytes: {}", total_allocated_bytes)?;

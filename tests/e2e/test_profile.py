@@ -29,6 +29,7 @@ async def test_profile_analysis(buck: Buck, tmpdir: LocalPath, profiler: str) ->
         "--mode",
         profiler,
         "fbcode//buck2/tests/targets/rules/sh_test:test",
+        "--output",
         file_path,
     )
 
@@ -48,6 +49,7 @@ async def test_profile_loading(buck: Buck, tmpdir: LocalPath, profiler: str) -> 
         "--mode",
         profiler,
         "fbcode//buck2/tests/targets/rules/sh_test:",
+        "--output",
         file_path,
     )
 
@@ -62,6 +64,7 @@ async def test_profile_shows_errors(buck: Buck) -> None:
             "--mode",
             "statement",
             "invalid",
+            "--output",
             "/dev/null",
         ),
         stderr_regex="use a package",
