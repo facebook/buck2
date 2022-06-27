@@ -118,6 +118,10 @@ impl<T: QueryTarget> TargetSet<T> {
     pub fn get_index_of(&self, item: &T::NodeRef) -> Option<usize> {
         self.targets.get_index_of(item)
     }
+
+    pub fn last(&self) -> Option<&T> {
+        self.targets.last()
+    }
 }
 
 /// This contains additional TargetSet functions implemented via the core

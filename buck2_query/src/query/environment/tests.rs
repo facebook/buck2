@@ -1,7 +1,6 @@
 #![cfg(test)]
 
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fmt;
 use std::sync::Arc;
 
@@ -9,6 +8,7 @@ use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::NodeLookup;
 use derive_more::Display;
 use derive_more::From;
+use indexmap::IndexSet;
 
 use super::*;
 
@@ -29,7 +29,7 @@ impl QueryTargetAttr for TestTargetAttr {
 #[derive(Clone, Dupe, Eq, PartialEq)]
 struct TestTarget {
     id: TestTargetId,
-    deps: Arc<HashSet<TestTargetId>>,
+    deps: Arc<IndexSet<TestTargetId>>,
 }
 
 /// Custom debug to make the test output more readable
@@ -163,7 +163,7 @@ impl TestEnv {
 
 #[derive(Default)]
 pub struct TestEnvBuilder {
-    graph: HashMap<u64, HashSet<u64>>,
+    graph: HashMap<u64, IndexSet<u64>>,
 }
 
 impl TestEnvBuilder {
@@ -203,6 +203,10 @@ async fn test_one_path() -> anyhow::Result<()> {
     let expected = env.set("1,2,3")?;
     assert_eq!(path, expected);
 
+    let path = env.somepath(&env.set("1")?, &env.set("3")?).await?;
+    let expected = env.set("1,2,3")?;
+    assert_eq!(path, expected);
+
     Ok(())
 }
 
@@ -223,6 +227,11 @@ async fn test_many_paths() -> anyhow::Result<()> {
     let expected = env.set("1,2,3,10,11")?;
     assert_eq!(path, expected);
 
+    // We iterate with a stack so this is why we find this path
+    let path = env.somepath(&env.set("1")?, &env.set("3")?).await?;
+    let expected = env.set("1,10,11,3")?;
+    assert_eq!(path, expected);
+
     Ok(())
 }
 
@@ -239,6 +248,11 @@ async fn test_distinct_paths() -> anyhow::Result<()> {
     let expected = env.set("1,10,100,2,20,200")?;
     assert_eq!(path, expected);
 
+    // Same as above
+    let path = env.somepath(&env.set("1,2")?, &env.set("100,200")?).await?;
+    let expected = env.set("2,20,200")?;
+    assert_eq!(path, expected);
+
     Ok(())
 }
 
@@ -250,6 +264,10 @@ async fn test_no_path() -> anyhow::Result<()> {
     let env = env.build();
 
     let path = env.allpaths(&env.set("1")?, &env.set("20")?).await?;
+    let expected = TargetSet::new();
+    assert_eq!(path, expected);
+
+    let path = env.somepath(&env.set("1")?, &env.set("20")?).await?;
     let expected = TargetSet::new();
     assert_eq!(path, expected);
 
@@ -266,6 +284,9 @@ async fn test_nested_paths() -> anyhow::Result<()> {
 
     let path = env.allpaths(&env.set("1")?, &env.set("2,4")?).await?;
     assert_eq!(path, env.set("1,2,3,4")?);
+
+    let path = env.somepath(&env.set("1")?, &env.set("2,4")?).await?;
+    assert_eq!(path, env.set("1,2")?);
 
     Ok(())
 }

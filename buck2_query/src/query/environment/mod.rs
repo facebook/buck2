@@ -180,10 +180,63 @@ pub trait QueryEnvironment: Send + Sync {
 
     async fn somepath(
         &self,
-        _from: &TargetSet<Self::Target>,
-        _to: &TargetSet<Self::Target>,
+        from: &TargetSet<Self::Target>,
+        to: &TargetSet<Self::Target>,
     ) -> anyhow::Result<TargetSet<Self::Target>> {
-        Err(QueryError::FunctionUnimplemented("somepath").into())
+        struct Delegate<'a, Q: QueryTarget> {
+            to: &'a TargetSet<Q>,
+            /// Contains targets that were reached starting from `from` that have a path to `to`.
+            path: TargetSet<Q>,
+        }
+
+        #[async_trait]
+        impl<'a, Q: QueryTarget> AsyncTraversalDelegate<Q> for Delegate<'a, Q> {
+            fn visit(&mut self, target: Q) -> anyhow::Result<()> {
+                // NOTE: It would be better to just only post-order visit our parents, but that is
+                // not possible because we push *all* children when visiting a node, so we will not
+                // just post-visit all parents when we interrupt the search.
+                // NOTE: We assert! around the insertions below because we know each node should
+                // only be post-visited once but since we rely on `last()`, it matters so we check
+                // it.
+
+                if let Some(head) = self.path.last() {
+                    if target.deps().any(|t| t == head.node_ref()) {
+                        assert!(self.path.insert(target));
+                    }
+                    return Ok(());
+                }
+
+                if self.to.contains(target.node_ref()) {
+                    assert!(self.path.insert(target));
+                }
+
+                Ok(())
+            }
+
+            async fn for_each_child(
+                &mut self,
+                target: &Q,
+                func: &mut dyn ChildVisitor<Q>,
+            ) -> anyhow::Result<()> {
+                // Stop adding more children if we are putting a path back together.
+                if self.path.len() > 0 || self.to.contains(target.node_ref()) {
+                    return Ok(());
+                }
+                let res: anyhow::Result<_> = try {
+                    for dep in target.deps() {
+                        func.visit(dep.clone())?;
+                    }
+                };
+                res.with_context(|| format!("When traversing children of `{}`", target.node_ref()))
+            }
+        }
+
+        let mut delegate = Delegate {
+            path: TargetSet::new(),
+            to,
+        };
+        self.dfs_postorder(from, &mut delegate).await?;
+        Ok(delegate.path)
     }
 
     async fn rdeps(

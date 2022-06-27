@@ -118,6 +118,10 @@ impl<T: LabeledNode> LabelIndexedSet<T> {
     pub fn get_index_of(&self, value: &T::NodeRef) -> Option<usize> {
         self.nodes.get_index_of(&LabelIndexer(value))
     }
+
+    pub fn last(&self) -> Option<&T> {
+        self.nodes.last().map(|e| &e.0)
+    }
 }
 
 impl<T: LabeledNode> FromIterator<T> for LabelIndexedSet<T> {
