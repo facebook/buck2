@@ -8,4 +8,13 @@
 # This is necessary as the inputs to the modules will
 # be transient and can be removed at any point, causing
 # module validation errors to fail builds.
-exec "$@" -debug-prefix-map "$PWD"=. -module-cache-path "$TMPDIR"/module-cache
+if [ -n "$INSIDE_RE_WORKER" ]; then
+    MODULE_CACHE_PATH="$TMPDIR/module-cache"
+else
+    # When building locally we can use a shared module
+    # cache as the inputs should remain at a fixed
+    # location.
+    MODULE_CACHE_PATH="/tmp/buck-module-cache"
+fi
+
+exec "$@" -debug-prefix-map "$PWD"=. -module-cache-path "$MODULE_CACHE_PATH"
