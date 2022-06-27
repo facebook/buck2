@@ -180,8 +180,6 @@ where
         }
     }
 
-    fn package(&self) -> &Package;
-
     /// Convert the untyped, boxed version of this context into a final
     /// interpreter result
     fn into_eval_result(untyped: Box<dyn ExtraContextDyn>) -> anyhow::Result<Self::EvalResult> {
@@ -347,10 +345,6 @@ pub(crate) mod testing {
 
     impl ExtraContext for TesterExtraContext {
         type EvalResult = TesterEvalResult;
-
-        fn package(&self) -> &Package {
-            &self.package
-        }
     }
 
     impl TesterConfiguror {

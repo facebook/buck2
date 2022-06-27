@@ -96,10 +96,6 @@ pub struct ModuleInternals {
 
 impl ExtraContext for ModuleInternals {
     type EvalResult = EvaluationResult;
-
-    fn package(&self) -> &Package {
-        self.buildfile_path().package()
-    }
 }
 
 pub struct PackageImplicits {

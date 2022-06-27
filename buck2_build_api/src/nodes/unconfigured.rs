@@ -17,7 +17,6 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
-use buck2_interpreter::extra::ExtraContext;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
@@ -131,7 +130,7 @@ impl TargetNode {
             let value: Value = param_parser.next(attr_name)?;
             if attr_name == NAME_ATTRIBUTE_FIELD {
                 let label = TargetLabel::new(
-                    internals.package().dupe(),
+                    internals.buildfile_path().package().dupe(),
                     TargetName::new(value.unpack_str().unwrap()).unwrap(),
                 );
                 return Ok(Self(Arc::new(TargetNodeData {
@@ -179,7 +178,7 @@ impl TargetNode {
 
         let (target_name, attr_values) =
             attr_spec.parse_params(param_parser, param_count, internals)?;
-        let package = internals.package();
+        let package = internals.buildfile_path().package();
 
         let mut visibility = match attr_spec.attr_or_none(
             &attr_values,

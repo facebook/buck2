@@ -12,7 +12,6 @@ use std::collections::HashSet;
 
 use anyhow::Context;
 use buck2_core::target::TargetName;
-use buck2_interpreter::extra::ExtraContext;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use gazebo::prelude::*;
 use starlark::eval::ParametersParser;
@@ -171,7 +170,7 @@ impl AttributeSpec {
                     .with_context(|| {
                         format!(
                             "when coercing attributes of {}:{}",
-                            internals.package(),
+                            internals.buildfile_path().package(),
                             name,
                         )
                     })?;
