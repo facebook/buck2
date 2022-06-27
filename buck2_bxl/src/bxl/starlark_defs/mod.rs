@@ -21,6 +21,7 @@ use buck2_bxl_core::BxlFunctionLabel;
 use buck2_interpreter::build_defs::register_natives;
 use buck2_interpreter::common::BxlFilePath;
 use buck2_interpreter::extra::BuildContext;
+use buck2_interpreter::functions::host_info::register_host_info;
 use buck2_interpreter::functions::read_config::register_read_config;
 use cli_args::CliArgs;
 use derive_more::Display;
@@ -99,6 +100,7 @@ fn register_bxl_defs(globals: &mut GlobalsBuilder) {
     register_bxl_function(globals);
     register_label_function(globals);
     register_read_config(globals);
+    register_host_info(globals);
 }
 
 pub fn configure_bxl_file_globals(globals_builder: &mut GlobalsBuilder) {

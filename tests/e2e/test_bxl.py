@@ -358,3 +358,4 @@ async def test_bxl_read_config(buck: Buck) -> None:
     )
 
     assert "foo" in result.stdout
+    assert "True" in result.stdout
