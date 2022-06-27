@@ -373,7 +373,11 @@ impl EventLog {
             // NOTE: we ignore outputs here so that we don't fail if e.g. something deleted our log
             // file while we were about to upload it.
             if let Err(e) = log_upload(log_file_to_upload) {
-                tracing::warn!("Error uploading logs: {:#}", e);
+                if e.is::<LogWasDeleted>() {
+                    tracing::debug!("{}", e);
+                } else {
+                    tracing::warn!("Error uploading logs: {:#}", e);
+                };
             }
 
             Ok(())
@@ -540,9 +544,14 @@ pub(crate) fn log_upload_url() -> Option<&'static str> {
     None
 }
 
+#[derive(Error, Debug)]
+#[error("Log file deleted before upload")]
+struct LogWasDeleted;
+
 #[cfg(unix)]
 fn log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
     use std::ffi::OsString;
+    use std::io::ErrorKind;
     use std::process::Stdio;
 
     buck2_core::facebook_only();
@@ -569,7 +578,16 @@ fn log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
         Encoding::JsonGzip => {
             // Note: we don't use tokio files here since we're just handing a fd to a
             // spawned process.
-            std::fs::File::open(&log_file.path.path)?.into()
+            match std::fs::File::open(&log_file.path.path) {
+                Ok(f) => f.into(),
+                Err(e) => {
+                    return Err(if e.kind() == ErrorKind::NotFound {
+                        LogWasDeleted.into()
+                    } else {
+                        e.into()
+                    });
+                }
+            }
         }
     };
 
