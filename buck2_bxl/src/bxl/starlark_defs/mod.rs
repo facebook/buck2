@@ -21,6 +21,7 @@ use buck2_bxl_core::BxlFunctionLabel;
 use buck2_interpreter::build_defs::register_natives;
 use buck2_interpreter::common::BxlFilePath;
 use buck2_interpreter::extra::BuildContext;
+use buck2_interpreter::functions::read_config::register_read_config;
 use cli_args::CliArgs;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
@@ -97,6 +98,7 @@ fn register_bxl_defs(globals: &mut GlobalsBuilder) {
     globals.struct_("cli_args", cli_args::register_cli_args_module);
     register_bxl_function(globals);
     register_label_function(globals);
+    register_read_config(globals);
 }
 
 pub fn configure_bxl_file_globals(globals_builder: &mut GlobalsBuilder) {

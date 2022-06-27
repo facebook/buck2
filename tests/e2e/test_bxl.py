@@ -347,3 +347,14 @@ async def test_cquery_eval(buck: Buck) -> None:
     )
 
     assert "TARGETS.fixture" in result.stdout
+
+
+@buck_test(inplace=False, data_dir="bql/simple")
+async def test_bxl_read_config(buck: Buck) -> None:
+    result = await buck.bxl(
+        "-c",
+        "key.section=foo",
+        "//bxl/read_config.bxl:read_config_test",
+    )
+
+    assert "foo" in result.stdout

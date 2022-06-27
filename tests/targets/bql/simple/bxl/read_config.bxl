@@ -1,0 +1,7 @@
+def _impl(ctx):
+    ctx.output.print(read_config("key", "section"))
+
+read_config_test = bxl(
+    implementation = _impl,
+    cli_args = {},
+)
