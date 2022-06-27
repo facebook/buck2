@@ -98,7 +98,7 @@ pub(crate) struct ProfileOptions {
     ///
     /// File will be created if it does not exist, and overwritten if it does.
     #[clap(long, short = 'o', value_name = "PATH")]
-    output: String,
+    output: PathBuf,
 
     #[clap(long, short = 'm', value_enum)]
     mode: BuckProfileMode,
@@ -179,7 +179,7 @@ impl StreamingCommand for ProfileSubcommand {
         crate::println!(
             "Starlark {} profile has been written to {}",
             profile_mode,
-            self.opts.output
+            self.opts.output.display(),
         )?;
         crate::println!("Elapsed: {:.3}s", elapsed.as_secs_f64())?;
         crate::println!("Total Allocated Bytes: {}", total_allocated_bytes)?;
