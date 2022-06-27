@@ -7,18 +7,15 @@
  * of this source tree.
  */
 
-use buck2_core::provider::label::ProvidersLabel;
 use buck2_node::attrs::attr_type::label::LabelAttrType;
+use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use buck2_node::attrs::configuration_context::AttrConfigurationContext;
-use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
 
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::coerce::AttrTypeCoerce;
-use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::AttrLiteral;
 
 impl AttrTypeCoerce for LabelAttrType {
@@ -39,21 +36,5 @@ impl AttrTypeCoerce for LabelAttrType {
 
     fn starlark_type(&self) -> String {
         "label".to_owned()
-    }
-}
-
-pub(crate) trait LabelAttrTypeExt {
-    fn configure(
-        ctx: &dyn AttrConfigurationContext,
-        label: &ProvidersLabel,
-    ) -> anyhow::Result<AttrLiteral<ConfiguredAttr>>;
-}
-
-impl LabelAttrTypeExt for LabelAttrType {
-    fn configure(
-        ctx: &dyn AttrConfigurationContext,
-        label: &ProvidersLabel,
-    ) -> anyhow::Result<AttrLiteral<ConfiguredAttr>> {
-        Ok(AttrLiteral::Label(box ctx.configure_target(label)))
     }
 }

@@ -6,7 +6,6 @@
  * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
  * of this source tree.
  */
-
 use std::convert::TryFrom;
 
 use buck2_common::package_listing::listing::testing::PackageListingExt;
@@ -19,6 +18,7 @@ use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
+use buck2_node::attrs::testing::configuration_ctx;
 use gazebo::prelude::*;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
@@ -34,7 +34,6 @@ use crate::attrs::attr_type::AttrTypeExt;
 use crate::attrs::configured_attr::ConfiguredAttrExt;
 use crate::attrs::testing::coercion_ctx;
 use crate::attrs::testing::coercion_ctx_listing;
-use crate::attrs::testing::configuration_ctx;
 use crate::attrs::testing::resolution_ctx;
 use crate::attrs::testing::resolution_ctx_with_providers;
 use crate::attrs::testing::to_value;

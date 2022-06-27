@@ -19,6 +19,7 @@ use buck2_core::result::SharedError;
 use buck2_core::result::SharedResult;
 use buck2_core::result::ToSharedResultExt;
 use buck2_core::target::TargetLabel;
+use buck2_node::attrs::coerced_attr::CoercedAttr;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -36,7 +37,7 @@ use starlark::values::Value;
 use thiserror::Error;
 
 use crate::analysis::calculation::RuleAnalysisCalculation;
-use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::coerced_attr::CoercedAttrExr;
 use crate::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfo;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::interpreter::rule_defs::transition::calculation_fetch_transition::FetchTransition;

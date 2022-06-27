@@ -9,6 +9,7 @@
 
 use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::AttrType;
+use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::values::dict::Dict;
@@ -17,7 +18,6 @@ use starlark::values::tuple::Tuple;
 use starlark::values::Value;
 
 use crate::attrs::attr_type::coerce::AttrTypeCoerce;
-use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::AttrLiteral;
 
 pub(crate) trait AnyAttrTypeExt {

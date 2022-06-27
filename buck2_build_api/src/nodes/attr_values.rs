@@ -9,7 +9,8 @@
 
 use std::slice;
 
-use crate::attrs::coerced_attr::CoercedAttr;
+use buck2_node::attrs::coerced_attr::CoercedAttr;
+
 use crate::nodes::AttributeId;
 
 #[derive(Debug, Eq, PartialEq, Hash, Default)]

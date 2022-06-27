@@ -16,10 +16,10 @@ pub mod unconfigured;
 
 use std::hash::Hash;
 
+use buck2_node::attrs::coerced_attr::CoercedAttr;
 use gazebo::prelude::*;
 use thiserror::Error;
 
-use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::OrderedMap;
 use crate::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfoCallable;
 use crate::nodes::attr_internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;

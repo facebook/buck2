@@ -11,10 +11,15 @@ pub mod parser;
 
 use std::fmt::Display;
 
+use gazebo::prelude::SliceExt;
+
 use crate::attrs::attr_type::attr_config::AttrConfig;
 use crate::attrs::attr_type::query::QueryMacroBase;
+use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
+use crate::attrs::traversal::CoercedAttrTraversal;
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct ArgAttrType;
@@ -70,6 +75,41 @@ impl StringWithMacros<ConfiguredAttr> {
     }
 }
 
+impl StringWithMacros<CoercedAttr> {
+    pub(crate) fn configure(
+        &self,
+        ctx: &dyn AttrConfigurationContext,
+    ) -> anyhow::Result<ConfiguredStringWithMacros> {
+        match self {
+            Self::StringPart(part) => Ok(ConfiguredStringWithMacros::StringPart(part.clone())),
+            Self::ManyParts(parts) => Ok(ConfiguredStringWithMacros::ManyParts(
+                parts.try_map(|p| p.configure(ctx))?.into_boxed_slice(),
+            )),
+        }
+    }
+
+    pub(crate) fn traverse<'a>(
+        &'a self,
+        traversal: &mut dyn CoercedAttrTraversal<'a>,
+    ) -> anyhow::Result<()> {
+        match self {
+            Self::StringPart(..) => {}
+            Self::ManyParts(ref parts) => {
+                for part in parts.iter() {
+                    match part {
+                        StringWithMacrosPart::String(_) => {}
+                        StringWithMacrosPart::Macro(_, m) => {
+                            m.traverse(traversal)?;
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum StringWithMacrosPart<C: AttrConfig> {
     String(String),
@@ -120,6 +160,70 @@ impl MacroBase<ConfiguredAttr> {
     }
 }
 
+impl MacroBase<CoercedAttr> {
+    pub fn configure(&self, ctx: &dyn AttrConfigurationContext) -> anyhow::Result<ConfiguredMacro> {
+        Ok(match self {
+            UnconfiguredMacro::Location(target) => {
+                ConfiguredMacro::Location(ctx.configure_target(target))
+            }
+            UnconfiguredMacro::Exe { label, exec_dep } => ConfiguredMacro::Exe {
+                label: if *exec_dep {
+                    ctx.configure_exec_target(label)
+                } else {
+                    ctx.configure_target(label)
+                },
+                exec_dep: *exec_dep,
+            },
+            UnconfiguredMacro::UserUnkeyedPlaceholder(var_name) => {
+                ConfiguredMacro::UserUnkeyedPlaceholder(var_name.clone())
+            }
+            UnconfiguredMacro::UserKeyedPlaceholder(var_name, target, arg) => {
+                ConfiguredMacro::UserKeyedPlaceholder(
+                    var_name.clone(),
+                    ctx.configure_target(target),
+                    arg.clone(),
+                )
+            }
+            UnconfiguredMacro::Query(query) => ConfiguredMacro::Query(box query.configure(ctx)?),
+            UnconfiguredMacro::UnrecognizedMacro(macro_type, args) => {
+                ConfiguredMacro::UnrecognizedMacro(macro_type.clone(), args.clone())
+            }
+        })
+    }
+
+    pub fn traverse<'a>(
+        &'a self,
+        traversal: &mut dyn CoercedAttrTraversal<'a>,
+    ) -> anyhow::Result<()> {
+        match self {
+            MacroBase::Location(l) | MacroBase::UserKeyedPlaceholder(_, l, _) => {
+                traversal.dep(l.target())
+            }
+            MacroBase::Exe {
+                label,
+                exec_dep: true,
+            } => traversal.exec_dep(label.target()),
+            MacroBase::Exe {
+                label,
+                exec_dep: false,
+            } => traversal.dep(label.target()),
+            MacroBase::Query(query) => query.traverse(traversal),
+            MacroBase::UserUnkeyedPlaceholder(_) | MacroBase::UnrecognizedMacro(..) => Ok(()),
+        }
+    }
+}
+
+// These type aliases are just a little bit easier to use, the differentiating thing comes
+// right at the beginning instead of at the end in a type param.
+pub type UnconfiguredMacro = MacroBase<CoercedAttr>;
+pub type ConfiguredMacro = MacroBase<ConfiguredAttr>;
+
+pub type UnconfiguredStringWithMacrosPart = StringWithMacrosPart<CoercedAttr>;
+pub type ConfiguredStringWithMacrosPart = StringWithMacrosPart<ConfiguredAttr>;
+
+pub type UnconfiguredStringWithMacros = StringWithMacros<CoercedAttr>;
+pub type ConfiguredStringWithMacros = StringWithMacros<ConfiguredAttr>;
+
 /// Display attempts to approximately reproduce the string that created a macro.
 impl<C: AttrConfig> Display for MacroBase<C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -162,6 +266,22 @@ impl<C: AttrConfig> Display for StringWithMacrosPart<C> {
             StringWithMacrosPart::Macro(write_to_file, m) => {
                 write!(f, "$({}{})", if *write_to_file { "@" } else { "" }, m)
             }
+        }
+    }
+}
+
+impl StringWithMacrosPart<CoercedAttr> {
+    pub(crate) fn configure(
+        &self,
+        ctx: &dyn AttrConfigurationContext,
+    ) -> anyhow::Result<ConfiguredStringWithMacrosPart> {
+        match self {
+            StringWithMacrosPart::String(val) => {
+                Ok(ConfiguredStringWithMacrosPart::String(val.clone()))
+            }
+            StringWithMacrosPart::Macro(write_to_file, unconfigured) => Ok(
+                ConfiguredStringWithMacrosPart::Macro(*write_to_file, unconfigured.configure(ctx)?),
+            ),
         }
     }
 }

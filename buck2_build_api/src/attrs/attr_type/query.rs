@@ -21,9 +21,7 @@ use buck2_node::attrs::attr_type::query::QueryAttrBase;
 use buck2_node::attrs::attr_type::query::QueryAttrType;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
-use buck2_node::attrs::traversal::CoercedAttrTraversal;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::functions::QueryFunctionsExt;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
@@ -119,39 +117,6 @@ impl AttrTypeCoerce for QueryAttrType {
     }
 }
 
-pub(crate) trait UnconfiguredQueryAttrBaseExt {
-    fn configure(
-        &self,
-        ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<QueryAttrBase<ConfiguredAttr>>;
-
-    fn traverse<'a>(&'a self, traversal: &mut dyn CoercedAttrTraversal<'a>) -> anyhow::Result<()>;
-}
-
-impl UnconfiguredQueryAttrBaseExt for QueryAttrBase<CoercedAttr> {
-    fn configure(
-        &self,
-        ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<QueryAttrBase<ConfiguredAttr>> {
-        Ok(QueryAttrBase {
-            query: self.query.clone(),
-            resolved_literals: self
-                .resolved_literals
-                .iter()
-                .map(|(key, value)| Ok((key.clone(), ctx.configure_target(value))))
-                .collect::<anyhow::Result<_>>()?,
-        })
-    }
-
-    fn traverse<'a>(&'a self, traversal: &mut dyn CoercedAttrTraversal<'a>) -> anyhow::Result<()> {
-        // queries don't have any configuration_deps or inputs currently.
-        for dep in self.resolved_literals.values() {
-            traversal.dep(dep.target())?;
-        }
-        Ok(())
-    }
-}
-
 pub(crate) trait ConfiguredQueryAttrBaseExt {
     fn resolve(&self, ctx: &dyn AttrResolutionContext) -> SharedResult<Arc<AnalysisQueryResult>>;
 }
@@ -159,31 +124,6 @@ pub(crate) trait ConfiguredQueryAttrBaseExt {
 impl ConfiguredQueryAttrBaseExt for QueryAttrBase<ConfiguredAttr> {
     fn resolve(&self, ctx: &dyn AttrResolutionContext) -> SharedResult<Arc<AnalysisQueryResult>> {
         ctx.resolve_query(&self.query)
-    }
-}
-
-pub(crate) trait UnconfiguredQueryAttrExt {
-    fn configure(
-        &self,
-        ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<QueryAttr<ConfiguredAttr>>;
-
-    fn traverse<'a>(&'a self, traversal: &mut dyn CoercedAttrTraversal<'a>) -> anyhow::Result<()>;
-}
-
-impl UnconfiguredQueryAttrExt for QueryAttr<CoercedAttr> {
-    fn configure(
-        &self,
-        ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<QueryAttr<ConfiguredAttr>> {
-        Ok(QueryAttr {
-            query: self.query.configure(ctx)?,
-            providers: self.providers.dupe(),
-        })
-    }
-
-    fn traverse<'a>(&'a self, traversal: &mut dyn CoercedAttrTraversal<'a>) -> anyhow::Result<()> {
-        self.query.traverse(traversal)
     }
 }
 

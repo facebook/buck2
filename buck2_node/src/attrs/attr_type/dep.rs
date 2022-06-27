@@ -18,7 +18,10 @@ use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
 use gazebo::dupe::Dupe;
 
 use crate::attrs::attr_type::attr_like::AttrLike;
+use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
+use crate::attrs::configuration_context::AttrConfigurationContext;
+use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::traversal::CoercedAttrTraversal;
 
@@ -113,6 +116,22 @@ impl DepAttrType {
             required_providers,
             transition,
         }
+    }
+
+    pub(crate) fn configure(
+        ctx: &dyn AttrConfigurationContext,
+        dep_attr: &DepAttr<ProvidersLabel>,
+    ) -> anyhow::Result<AttrLiteral<ConfiguredAttr>> {
+        let label = &dep_attr.label;
+        let configured_label = match &dep_attr.attr_type.transition {
+            DepAttrTransition::Identity => ctx.configure_target(label),
+            DepAttrTransition::Exec => ctx.configure_exec_target(label),
+            DepAttrTransition::Transition(tr) => ctx.configure_transition_target(label, tr)?,
+        };
+        Ok(AttrLiteral::Dep(box DepAttr::new(
+            dep_attr.attr_type.dupe(),
+            configured_label,
+        )))
     }
 }
 

@@ -31,6 +31,7 @@ use buck2_node::attrs::attr_type::dep::DepAttrTransition;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::dep::ProviderIdSet;
 use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
+use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::rule_type::RuleType;
@@ -40,7 +41,6 @@ use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
 
 use crate::attrs::attr_type::attr_literal::ConfiguredAttrInfo;
-use crate::attrs::coerced_attr::CoercedAttr;
 use crate::configuration::execution::ExecutionPlatformResolution;
 use crate::configuration::resolved::ResolvedConfiguration;
 use crate::configuration::AttrConfigurationContextImpl;

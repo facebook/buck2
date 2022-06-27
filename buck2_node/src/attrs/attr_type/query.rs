@@ -11,12 +11,17 @@ use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::sync::Arc;
 
+use gazebo::dupe::Dupe;
+
 use crate::attrs::attr_type::arg::QueryExpansion;
 use crate::attrs::attr_type::attr_config::AttrConfig;
 use crate::attrs::attr_type::dep::DepAttrType;
 use crate::attrs::attr_type::dep::ProviderIdSet;
+use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
+use crate::attrs::traversal::CoercedAttrTraversal;
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct QueryAttrType {
@@ -50,6 +55,25 @@ impl QueryAttr<ConfiguredAttr> {
     }
 }
 
+impl QueryAttr<CoercedAttr> {
+    pub(crate) fn configure(
+        &self,
+        ctx: &dyn AttrConfigurationContext,
+    ) -> anyhow::Result<QueryAttr<ConfiguredAttr>> {
+        Ok(QueryAttr {
+            query: self.query.configure(ctx)?,
+            providers: self.providers.dupe(),
+        })
+    }
+
+    pub(crate) fn traverse<'a>(
+        &'a self,
+        traversal: &mut dyn CoercedAttrTraversal<'a>,
+    ) -> anyhow::Result<()> {
+        self.query.traverse(traversal)
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub struct QueryMacroBase<C: AttrConfig> {
     pub expansion_type: QueryExpansion,
@@ -69,6 +93,25 @@ impl QueryMacroBase<ConfiguredAttr> {
         traversal: &mut dyn ConfiguredAttrTraversal<'a>,
     ) -> anyhow::Result<()> {
         self.query.traverse(traversal)
+    }
+}
+
+impl QueryMacroBase<CoercedAttr> {
+    pub(crate) fn traverse<'a>(
+        &'a self,
+        traversal: &mut dyn CoercedAttrTraversal<'a>,
+    ) -> anyhow::Result<()> {
+        self.query.traverse(traversal)
+    }
+
+    pub(crate) fn configure(
+        &self,
+        ctx: &dyn AttrConfigurationContext,
+    ) -> anyhow::Result<QueryMacroBase<ConfiguredAttr>> {
+        Ok(QueryMacroBase {
+            expansion_type: self.expansion_type.clone(),
+            query: self.query.configure(ctx)?,
+        })
     }
 }
 
@@ -96,6 +139,30 @@ impl QueryAttrBase<ConfiguredAttr> {
             traversal.dep(dep)?;
         }
         traversal.query_macro(&self.query, &self.resolved_literals)?;
+        Ok(())
+    }
+}
+
+impl QueryAttrBase<CoercedAttr> {
+    fn configure(
+        &self,
+        ctx: &dyn AttrConfigurationContext,
+    ) -> anyhow::Result<QueryAttrBase<ConfiguredAttr>> {
+        Ok(QueryAttrBase {
+            query: self.query.clone(),
+            resolved_literals: self
+                .resolved_literals
+                .iter()
+                .map(|(key, value)| Ok((key.clone(), ctx.configure_target(value))))
+                .collect::<anyhow::Result<_>>()?,
+        })
+    }
+
+    fn traverse<'a>(&'a self, traversal: &mut dyn CoercedAttrTraversal<'a>) -> anyhow::Result<()> {
+        // queries don't have any configuration_deps or inputs currently.
+        for dep in self.resolved_literals.values() {
+            traversal.dep(dep.target())?;
+        }
         Ok(())
     }
 }

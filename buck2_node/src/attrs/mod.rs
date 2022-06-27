@@ -8,10 +8,12 @@
  */
 
 pub mod attr_type;
+pub mod coerced_attr;
 pub mod coerced_path;
 pub mod coercion_context;
 pub mod configurable;
 pub mod configuration_context;
 pub mod configured_attr;
 pub mod configured_traversal;
+pub mod testing;
 pub mod traversal;

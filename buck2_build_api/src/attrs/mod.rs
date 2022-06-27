@@ -45,15 +45,8 @@
 //! receive a list of files in the implementation. The intermediate form of that
 //! may be strings or targets or some other thing (e.g. a lazy glob, maybe).
 
-use attr_type::bool;
-use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::target::TargetLabel;
-use buck2_node::attrs::attr_type::attr_config::AttrConfig;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
-use buck2_node::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
-use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDep;
-
-use crate::attrs::coerced_attr::CoercedAttr;
+use buck2_node::attrs::coerced_attr::CoercedAttr;
 
 pub(crate) mod analysis;
 pub mod attr_type;
@@ -70,18 +63,3 @@ pub type OrderedMap<K, V> = small_map::map::SmallMap<K, V>;
 pub type OrderedMapEntry<'a, K, V> = small_map::map::Entry<'a, K, V>;
 pub type OrderedMapOccupiedEntry<'a, K, V> = small_map::map::OccupiedEntry<'a, K, V>;
 pub type OrderedMapVacantEntry<'a, K, V> = small_map::map::VacantEntry<'a, K, V>;
-
-impl AttrConfig for CoercedAttr {
-    type TargetType = TargetLabel;
-    type ProvidersType = ProvidersLabel;
-    type SplitTransitionDepType = SplitTransitionDep;
-    type ExplicitConfiguredDepType = UnconfiguredExplicitConfiguredDep;
-
-    fn to_json(&self) -> anyhow::Result<serde_json::Value> {
-        CoercedAttr::to_json(self)
-    }
-
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
-        CoercedAttr::any_matches(self, filter)
-    }
-}

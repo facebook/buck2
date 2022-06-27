@@ -19,6 +19,7 @@ use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::AttrType;
+use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
 use buck2_node::call_stack::StarlarkCallStack;
 use buck2_node::rule_type::RuleType;
@@ -33,7 +34,6 @@ use starlark::eval::ParametersParser;
 use starlark::values::Value;
 
 use crate::attrs::attr_type::attr_literal::CoercedDepsCollector;
-use crate::attrs::coerced_attr::CoercedAttr;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::rule_defs::attr::BuildAttrCoercionContext;
 use crate::nodes::attr_internal::DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD;
@@ -506,6 +506,7 @@ pub mod testing {
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::fs::paths::FileNameBuf;
     use buck2_core::target::TargetLabel;
+    use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::rule_type::RuleType;
     use buck2_node::visibility::VisibilitySpecification;
     use gazebo::prelude::*;
@@ -513,7 +514,6 @@ pub mod testing {
     use serde_json::value::Value;
 
     use crate::attrs::attr_type::attr_literal::CoercedDepsCollector;
-    use crate::attrs::coerced_attr::CoercedAttr;
     use crate::interpreter::rule_defs::attr::Attribute;
     use crate::nodes::attr_values::AttrValues;
     use crate::nodes::hacks::value_to_json;

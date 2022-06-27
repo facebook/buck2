@@ -13,6 +13,7 @@ use std::collections::HashSet;
 use anyhow::Context;
 use buck2_core::target::TargetName;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
+use buck2_node::attrs::coerced_attr::CoercedAttr;
 use gazebo::prelude::*;
 use starlark::eval::ParametersParser;
 use starlark::eval::ParametersSpec;
@@ -20,7 +21,6 @@ use starlark::values::docs::DocString;
 use starlark::values::Value;
 use thiserror::Error;
 
-use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::OrderedMap;
 use crate::attrs::OrderedMapEntry;
 use crate::interpreter::module_internals::ModuleInternals;

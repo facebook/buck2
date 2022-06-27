@@ -8,15 +8,20 @@
  */
 
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
 use buck2_core::target::ConfiguredTargetLabel;
+use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetLabelMaybeConfigured;
 
 use crate::attrs::attr_type::attr_like::AttrLike;
 use crate::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
+use crate::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
 use crate::attrs::attr_type::dep::ExplicitConfiguredDepMaybeConfigured;
 use crate::attrs::attr_type::split_transition_dep::ConfiguredSplitTransitionDep;
+use crate::attrs::attr_type::split_transition_dep::SplitTransitionDep;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfigured;
+use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configured_attr::ConfiguredAttr;
 
 /// AttrConfig is used to implement things just once to cover both the configured and
@@ -53,5 +58,20 @@ impl AttrConfig for ConfiguredAttr {
 
     fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
         self.0.any_matches(filter)
+    }
+}
+
+impl AttrConfig for CoercedAttr {
+    type TargetType = TargetLabel;
+    type ProvidersType = ProvidersLabel;
+    type SplitTransitionDepType = SplitTransitionDep;
+    type ExplicitConfiguredDepType = UnconfiguredExplicitConfiguredDep;
+
+    fn to_json(&self) -> anyhow::Result<serde_json::Value> {
+        CoercedAttr::to_json(self)
+    }
+
+    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+        CoercedAttr::any_matches(self, filter)
     }
 }

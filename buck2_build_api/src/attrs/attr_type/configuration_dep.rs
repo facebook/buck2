@@ -15,9 +15,6 @@ use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use buck2_node::attrs::configuration_context::AttrConfigurationContext;
-use buck2_node::attrs::configured_attr::ConfiguredAttr;
-use gazebo::prelude::*;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
 use thiserror::Error;
@@ -34,13 +31,6 @@ pub enum ResolutionError {
 }
 
 pub(crate) trait ConfigurationDepAttrTypeExt {
-    fn configure(
-        _ctx: &dyn AttrConfigurationContext,
-        label: &TargetLabel,
-    ) -> anyhow::Result<AttrLiteral<ConfiguredAttr>> {
-        Ok(AttrLiteral::ConfigurationDep(label.dupe()))
-    }
-
     fn resolve_single<'v>(
         ctx: &'v dyn AttrResolutionContext,
         label: &TargetLabel,

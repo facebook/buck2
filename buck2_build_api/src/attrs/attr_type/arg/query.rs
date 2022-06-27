@@ -12,9 +12,7 @@ use std::fmt::Display;
 
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_node::attrs::attr_type::query::QueryMacroBase;
-use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
-use buck2_node::attrs::traversal::CoercedAttrTraversal;
 use gazebo::prelude::*;
 use starlark::values::FrozenRef;
 
@@ -24,8 +22,6 @@ use crate::attrs::attr_type::arg::value::add_output_to_arg;
 use crate::attrs::attr_type::arg::ArgBuilder;
 use crate::attrs::attr_type::arg::QueryExpansion;
 use crate::attrs::attr_type::query::ConfiguredQueryAttrBaseExt;
-use crate::attrs::attr_type::query::UnconfiguredQueryAttrBaseExt;
-use crate::attrs::CoercedAttr;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
@@ -125,31 +121,6 @@ impl ResolvedQueryMacro {
             }
         }
         Ok(())
-    }
-}
-
-pub(crate) trait UnconfiguredQueryMacroBaseExt {
-    fn traverse<'a>(&'a self, traversal: &mut dyn CoercedAttrTraversal<'a>) -> anyhow::Result<()>;
-
-    fn configure(
-        &self,
-        ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<QueryMacroBase<ConfiguredAttr>>;
-}
-
-impl UnconfiguredQueryMacroBaseExt for QueryMacroBase<CoercedAttr> {
-    fn traverse<'a>(&'a self, traversal: &mut dyn CoercedAttrTraversal<'a>) -> anyhow::Result<()> {
-        self.query.traverse(traversal)
-    }
-
-    fn configure(
-        &self,
-        ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<QueryMacroBase<ConfiguredAttr>> {
-        Ok(QueryMacroBase {
-            expansion_type: self.expansion_type.clone(),
-            query: self.query.configure(ctx)?,
-        })
     }
 }
 

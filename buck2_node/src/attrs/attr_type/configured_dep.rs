@@ -14,8 +14,11 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::TargetLabel;
 use gazebo::dupe::Dupe;
 
+use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::dep::ExplicitConfiguredDepMaybeConfigured;
 use crate::attrs::attr_type::dep::ProviderIdSet;
+use crate::attrs::configuration_context::AttrConfigurationContext;
+use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::traversal::CoercedAttrTraversal;
 
 /// Represents attr.configured_dep()
@@ -33,6 +36,26 @@ impl ExplicitConfiguredDepAttrType {
         };
 
         Self { required_providers }
+    }
+
+    pub(crate) fn configure(
+        ctx: &dyn AttrConfigurationContext,
+        dep_attr: &UnconfiguredExplicitConfiguredDep,
+    ) -> anyhow::Result<AttrLiteral<ConfiguredAttr>> {
+        let configured = Self::configure_target_with_platform(ctx, dep_attr)?;
+        Ok(AttrLiteral::ExplicitConfiguredDep(box configured))
+    }
+
+    fn configure_target_with_platform(
+        ctx: &dyn AttrConfigurationContext,
+        dep_attr: &UnconfiguredExplicitConfiguredDep,
+    ) -> anyhow::Result<ConfiguredExplicitConfiguredDep> {
+        let configuration = ctx.platform_cfg(&dep_attr.platform)?;
+        let configured_label = dep_attr.label.configure(configuration.dupe());
+        Ok(ConfiguredExplicitConfiguredDep::new(
+            dep_attr.attr_type.dupe(),
+            configured_label,
+        ))
     }
 }
 

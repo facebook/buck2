@@ -12,10 +12,9 @@ use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::split_transition_dep::ConfiguredSplitTransitionDep;
 use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDep;
 use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
+use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use buck2_node::attrs::configuration_context::AttrConfigurationContext;
-use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use gazebo::dupe::Dupe;
 use starlark::collections::Hashed;
 use starlark::collections::SmallMap;
@@ -27,7 +26,6 @@ use crate::attrs::analysis::AttrResolutionContext;
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::attr_type::dep::DepAttrTypeExt;
-use crate::attrs::coerced_attr::CoercedAttr;
 
 impl AttrTypeCoerce for SplitTransitionDepAttrType {
     fn coerce_item(
@@ -55,11 +53,6 @@ impl AttrTypeCoerce for SplitTransitionDepAttrType {
 }
 
 pub(crate) trait SplitTransitionDepAttrTypeExt {
-    fn configure(
-        ctx: &dyn AttrConfigurationContext,
-        dep_attr: &SplitTransitionDep,
-    ) -> anyhow::Result<AttrLiteral<ConfiguredAttr>>;
-
     fn resolve_single<'v>(
         ctx: &'v dyn AttrResolutionContext,
         deps: &ConfiguredSplitTransitionDep,
@@ -67,20 +60,6 @@ pub(crate) trait SplitTransitionDepAttrTypeExt {
 }
 
 impl SplitTransitionDepAttrTypeExt for SplitTransitionDepAttrType {
-    fn configure(
-        ctx: &dyn AttrConfigurationContext,
-        dep_attr: &SplitTransitionDep,
-    ) -> anyhow::Result<AttrLiteral<ConfiguredAttr>> {
-        let configured_providers =
-            ctx.configure_split_transition_target(&dep_attr.label, &dep_attr.transition)?;
-        Ok(AttrLiteral::SplitTransitionDep(
-            box ConfiguredSplitTransitionDep {
-                deps: configured_providers,
-                required_providers: dep_attr.required_providers.dupe(),
-            },
-        ))
-    }
-
     fn resolve_single<'v>(
         ctx: &'v dyn AttrResolutionContext,
         deps: &ConfiguredSplitTransitionDep,

@@ -624,6 +624,7 @@ mod tests {
     use buck2_node::attrs::attr_type::dep::DepAttrTransition;
     use buck2_node::attrs::attr_type::dep::DepAttrType;
     use buck2_node::attrs::attr_type::AttrType;
+    use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::attrs::configured_attr::ConfiguredAttr;
     use buck2_node::rule_type::RuleType;
     use buck2_node::rule_type::StarlarkRuleType;
@@ -634,7 +635,6 @@ mod tests {
     use starlark::collections::SmallMap;
 
     use crate::attrs::attr_type::any::AnyAttrTypeExt;
-    use crate::attrs::coerced_attr::CoercedAttr;
     use crate::attrs::testing::CoercedAttrExt;
     use crate::attrs::testing::ConfiguredAttrExt;
     use crate::configuration::calculation::ExecutionPlatformsKey;

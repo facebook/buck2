@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use buck2_common::legacy_configs::LegacyBuckConfig;
@@ -19,15 +18,11 @@ use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellAlias;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellName;
-use buck2_core::configuration::transition::applied::TransitionApplied;
-use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::Configuration;
-use buck2_core::configuration::ConfigurationData;
 use buck2_core::package::Package;
 use buck2_core::provider::id::ProviderId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::result::SharedResult;
-use buck2_core::target::TargetLabel;
 use buck2_interpreter::common::StarlarkPath;
 use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::extra::BuildContext;
@@ -35,10 +30,8 @@ use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
-use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use gazebo::prelude::*;
-use indexmap::IndexMap;
 use indoc::indoc;
 use starlark::collections::SmallMap;
 use starlark::environment::FrozenModule;
@@ -103,50 +96,6 @@ pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercio
         CellAliasResolver::new(Arc::new(aliases)).unwrap(),
         (package, package_listing),
         false,
-    )
-}
-
-pub(crate) fn configuration_ctx() -> impl AttrConfigurationContext {
-    struct TestAttrConfigurationContext(Configuration, Configuration, ConfigurationData);
-    impl AttrConfigurationContext for TestAttrConfigurationContext {
-        fn cfg(&self) -> &Configuration {
-            &self.0
-        }
-
-        fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigurationData> {
-            match label.to_string().as_ref() {
-                "root//other:config" => Some(&self.2),
-                _ => None,
-            }
-        }
-
-        fn exec_cfg(&self) -> &Configuration {
-            &self.1
-        }
-
-        fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<&Configuration> {
-            panic!("not used in tests")
-        }
-
-        fn resolved_transitions(&self) -> &IndexMap<Arc<TransitionId>, Arc<TransitionApplied>> {
-            panic!("not used in tests")
-        }
-    }
-
-    TestAttrConfigurationContext(
-        Configuration::testing_new(),
-        Configuration::from_platform(
-            "cfg_for//:testing_exec".to_owned(),
-            ConfigurationData {
-                constraints: BTreeMap::new(),
-                buckconfigs: BTreeMap::new(),
-            },
-        )
-        .unwrap(),
-        ConfigurationData {
-            constraints: BTreeMap::new(),
-            buckconfigs: BTreeMap::new(),
-        },
     )
 }
 

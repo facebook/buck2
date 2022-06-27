@@ -7,6 +7,13 @@
  * of this source tree.
  */
 
+use buck2_core::target::TargetLabel;
+use gazebo::dupe::Dupe;
+
+use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::configuration_context::AttrConfigurationContext;
+use crate::attrs::configured_attr::ConfiguredAttr;
+
 /// A configuration dep attribute accepts a target as a value. This is different from
 /// a dep in that the values themselves never undergo configuration and appear as bare
 /// unconfigured labels even in the configured node. While the values aren't configured,
@@ -21,3 +28,12 @@
 /// directly (they are used by the framework).
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct ConfigurationDepAttrType;
+
+impl ConfigurationDepAttrType {
+    pub(crate) fn configure(
+        _ctx: &dyn AttrConfigurationContext,
+        label: &TargetLabel,
+    ) -> anyhow::Result<AttrLiteral<ConfiguredAttr>> {
+        Ok(AttrLiteral::ConfigurationDep(label.dupe()))
+    }
+}

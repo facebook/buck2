@@ -13,19 +13,15 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use buck2_core::provider::id::ProviderId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::provider::label::ProvidersLabel;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
 use buck2_node::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use buck2_node::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
 use buck2_node::attrs::attr_type::dep::DepAttr;
-use buck2_node::attrs::attr_type::dep::DepAttrTransition;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::dep::ProviderIdSet;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use buck2_node::attrs::configuration_context::AttrConfigurationContext;
-use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use gazebo::prelude::*;
 use starlark::environment::Module;
 use starlark::values::string::STRING_TYPE;
@@ -50,11 +46,6 @@ pub(crate) enum ResolutionError {
 }
 
 pub(crate) trait DepAttrTypeExt {
-    fn configure(
-        ctx: &dyn AttrConfigurationContext,
-        dep_attr: &DepAttr<ProvidersLabel>,
-    ) -> anyhow::Result<AttrLiteral<ConfiguredAttr>>;
-
     fn check_providers(
         required_providers: &[Arc<ProviderId>],
         providers: &FrozenProviderCollection,
@@ -80,22 +71,6 @@ pub(crate) trait DepAttrTypeExt {
 }
 
 impl DepAttrTypeExt for DepAttrType {
-    fn configure(
-        ctx: &dyn AttrConfigurationContext,
-        dep_attr: &DepAttr<ProvidersLabel>,
-    ) -> anyhow::Result<AttrLiteral<ConfiguredAttr>> {
-        let label = &dep_attr.label;
-        let configured_label = match &dep_attr.attr_type.transition {
-            DepAttrTransition::Identity => ctx.configure_target(label),
-            DepAttrTransition::Exec => ctx.configure_exec_target(label),
-            DepAttrTransition::Transition(tr) => ctx.configure_transition_target(label, tr)?,
-        };
-        Ok(AttrLiteral::Dep(box DepAttr::new(
-            dep_attr.attr_type.dupe(),
-            configured_label,
-        )))
-    }
-
     fn check_providers(
         required_providers: &[Arc<ProviderId>],
         providers: &FrozenProviderCollection,
@@ -169,26 +144,6 @@ impl AttrTypeCoerce for DepAttrType {
 }
 
 pub(crate) trait ExplicitConfiguredDepAttrTypeExt {
-    fn configure(
-        ctx: &dyn AttrConfigurationContext,
-        dep_attr: &UnconfiguredExplicitConfiguredDep,
-    ) -> anyhow::Result<AttrLiteral<ConfiguredAttr>> {
-        let configured = Self::configure_target_with_platform(ctx, dep_attr)?;
-        Ok(AttrLiteral::ExplicitConfiguredDep(box configured))
-    }
-
-    fn configure_target_with_platform(
-        ctx: &dyn AttrConfigurationContext,
-        dep_attr: &UnconfiguredExplicitConfiguredDep,
-    ) -> anyhow::Result<ConfiguredExplicitConfiguredDep> {
-        let configuration = ctx.platform_cfg(&dep_attr.platform)?;
-        let configured_label = dep_attr.label.configure(configuration.dupe());
-        Ok(ConfiguredExplicitConfiguredDep::new(
-            dep_attr.attr_type.dupe(),
-            configured_label,
-        ))
-    }
-
     fn resolve_single<'v>(
         ctx: &'v dyn AttrResolutionContext,
         dep_attr: &ConfiguredExplicitConfiguredDep,

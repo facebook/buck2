@@ -15,14 +15,22 @@ use gazebo::prelude::*;
 
 use crate::attrs::attr_type::arg::StringWithMacros;
 use crate::attrs::attr_type::attr_config::AttrConfig;
+use crate::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
+use crate::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use crate::attrs::attr_type::dep::DepAttr;
+use crate::attrs::attr_type::dep::DepAttrType;
 use crate::attrs::attr_type::dep::ExplicitConfiguredDepMaybeConfigured;
+use crate::attrs::attr_type::label::LabelAttrType;
 use crate::attrs::attr_type::query::QueryAttr;
+use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfigured;
 use crate::attrs::attr_type::AttrType;
+use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_path::CoercedPath;
+use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
+use crate::attrs::traversal::CoercedAttrTraversal;
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum AttrLiteral<C: AttrConfig> {
@@ -229,6 +237,90 @@ impl AttrLiteral<ConfiguredAttr> {
                 Ok(())
             }
             AttrLiteral::SourceLabel(box dep) => traversal.dep(dep),
+            AttrLiteral::Arg(arg) => arg.traverse(traversal),
+            AttrLiteral::Label(label) => traversal.label(label),
+        }
+    }
+}
+
+impl AttrLiteral<CoercedAttr> {
+    pub(crate) fn configure(
+        &self,
+        ctx: &dyn AttrConfigurationContext,
+    ) -> anyhow::Result<ConfiguredAttr> {
+        Ok(ConfiguredAttr(match self {
+            AttrLiteral::Bool(v) => AttrLiteral::Bool(*v),
+            AttrLiteral::Int(v) => AttrLiteral::Int(*v),
+            AttrLiteral::String(v) => AttrLiteral::String(v.clone()),
+            AttrLiteral::List(list, element_type) => AttrLiteral::List(
+                list.try_map(|v| v.configure(ctx))?.into_boxed_slice(),
+                element_type.dupe(),
+            ),
+            AttrLiteral::Tuple(list) => {
+                AttrLiteral::Tuple(list.try_map(|v| v.configure(ctx))?.into_boxed_slice())
+            }
+            AttrLiteral::Dict(dict) => AttrLiteral::Dict(dict.try_map(|(k, v)| {
+                let k2 = k.configure(ctx)?;
+                let v2 = v.configure(ctx)?;
+                anyhow::Ok((k2, v2))
+            })?),
+            AttrLiteral::None => AttrLiteral::None,
+            AttrLiteral::Dep(dep) => DepAttrType::configure(ctx, dep)?,
+            AttrLiteral::ConfiguredDep(dep) => AttrLiteral::Dep(dep.clone()),
+            AttrLiteral::ExplicitConfiguredDep(dep) => {
+                ExplicitConfiguredDepAttrType::configure(ctx, dep)?
+            }
+            AttrLiteral::ConfigurationDep(dep) => ConfigurationDepAttrType::configure(ctx, dep)?,
+            AttrLiteral::SplitTransitionDep(dep) => {
+                SplitTransitionDepAttrType::configure(ctx, dep)?
+            }
+            AttrLiteral::Query(query) => AttrLiteral::Query(box query.configure(ctx)?),
+            AttrLiteral::SourceFile(s) => AttrLiteral::SourceFile(s.clone()),
+            AttrLiteral::SourceLabel(box source) => {
+                AttrLiteral::SourceLabel(box source.configure(ctx.cfg().dupe()))
+            }
+            AttrLiteral::Arg(arg) => AttrLiteral::Arg(arg.configure(ctx)?),
+            AttrLiteral::Label(label) => LabelAttrType::configure(ctx, label)?,
+        }))
+    }
+
+    pub(crate) fn traverse<'a>(
+        &'a self,
+        traversal: &mut dyn CoercedAttrTraversal<'a>,
+    ) -> anyhow::Result<()> {
+        match self {
+            AttrLiteral::Bool(_) => Ok(()),
+            AttrLiteral::Int(_) => Ok(()),
+            AttrLiteral::String(_) => Ok(()),
+            AttrLiteral::List(list, _) | AttrLiteral::Tuple(list) => {
+                for v in list.iter() {
+                    v.traverse(traversal)?;
+                }
+                Ok(())
+            }
+            AttrLiteral::Dict(dict) => {
+                for (k, v) in dict {
+                    k.traverse(traversal)?;
+                    v.traverse(traversal)?;
+                }
+                Ok(())
+            }
+            AttrLiteral::None => Ok(()),
+            AttrLiteral::Dep(dep) => dep.traverse(traversal),
+            AttrLiteral::ConfigurationDep(dep) => traversal.configuration_dep(dep),
+            AttrLiteral::ConfiguredDep(dep) => traversal.dep(dep.label().target().unconfigured()),
+            AttrLiteral::ExplicitConfiguredDep(dep) => dep.traverse(traversal),
+            AttrLiteral::SplitTransitionDep(dep) => {
+                traversal.split_transition_dep(dep.label.target(), &dep.transition)
+            }
+            AttrLiteral::Query(query) => query.traverse(traversal),
+            AttrLiteral::SourceFile(box source) => {
+                for x in source.inputs() {
+                    traversal.input(x)?;
+                }
+                Ok(())
+            }
+            AttrLiteral::SourceLabel(box s) => traversal.dep(s.target()),
             AttrLiteral::Arg(arg) => arg.traverse(traversal),
             AttrLiteral::Label(label) => traversal.label(label),
         }

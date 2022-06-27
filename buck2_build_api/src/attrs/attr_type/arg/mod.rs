@@ -20,19 +20,17 @@ use buck2_node::attrs::attr_type::arg::parser;
 use buck2_node::attrs::attr_type::arg::parser::parse_macros;
 use buck2_node::attrs::attr_type::arg::parser::ParsedMacro;
 use buck2_node::attrs::attr_type::arg::ArgAttrType;
+use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use buck2_node::attrs::attr_type::arg::MacroBase;
 use buck2_node::attrs::attr_type::arg::QueryExpansion;
-use buck2_node::attrs::attr_type::arg::StringWithMacros;
 use buck2_node::attrs::attr_type::arg::StringWithMacrosPart;
+use buck2_node::attrs::attr_type::arg::UnconfiguredMacro;
+use buck2_node::attrs::attr_type::arg::UnconfiguredStringWithMacros;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::query::QueryAttrType;
 use buck2_node::attrs::attr_type::query::QueryMacroBase;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use buck2_node::attrs::configuration_context::AttrConfigurationContext;
-use buck2_node::attrs::configured_attr::ConfiguredAttr;
-use buck2_node::attrs::traversal::CoercedAttrTraversal;
-use gazebo::prelude::*;
 use once_cell::sync::Lazy;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
@@ -40,7 +38,6 @@ use thiserror::Error;
 
 use crate::actions::artifact::ExecutorFs;
 use crate::attrs::analysis::AttrResolutionContext;
-use crate::attrs::attr_type::arg::query::UnconfiguredQueryMacroBaseExt;
 use crate::attrs::attr_type::arg::value::ResolvedStringWithMacros;
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::coerce::AttrTypeCoerce;
@@ -152,81 +149,6 @@ impl AttrTypeCoerce for ArgAttrType {
     }
 }
 
-// These type aliases are just a little bit easier to use, the differentiating thing comes
-// right at the beginning instead of at the end in a type param.
-type UnconfiguredMacro = MacroBase<CoercedAttr>;
-type ConfiguredMacro = MacroBase<ConfiguredAttr>;
-
-type UnconfiguredStringWithMacrosPart = StringWithMacrosPart<CoercedAttr>;
-type ConfiguredStringWithMacrosPart = StringWithMacrosPart<ConfiguredAttr>;
-
-type UnconfiguredStringWithMacros = StringWithMacros<CoercedAttr>;
-type ConfiguredStringWithMacros = StringWithMacros<ConfiguredAttr>;
-
-pub(crate) trait UnconfiguredStringWithMacrosExt {
-    fn configure(
-        &self,
-        ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<ConfiguredStringWithMacros>;
-
-    fn traverse<'a>(&'a self, traversal: &mut dyn CoercedAttrTraversal<'a>) -> anyhow::Result<()>;
-}
-
-impl UnconfiguredStringWithMacrosExt for UnconfiguredStringWithMacros {
-    fn configure(
-        &self,
-        ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<ConfiguredStringWithMacros> {
-        match self {
-            Self::StringPart(part) => Ok(ConfiguredStringWithMacros::StringPart(part.clone())),
-            Self::ManyParts(parts) => Ok(ConfiguredStringWithMacros::ManyParts(
-                parts.try_map(|p| p.configure(ctx))?.into_boxed_slice(),
-            )),
-        }
-    }
-
-    fn traverse<'a>(&'a self, traversal: &mut dyn CoercedAttrTraversal<'a>) -> anyhow::Result<()> {
-        match self {
-            Self::StringPart(..) => {}
-            Self::ManyParts(ref parts) => {
-                for part in parts.iter() {
-                    match part {
-                        StringWithMacrosPart::String(_) => {}
-                        StringWithMacrosPart::Macro(_, m) => {
-                            m.traverse(traversal)?;
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(())
-    }
-}
-
-pub(crate) trait UnconfiguredStringWithMacrosPartExt {
-    fn configure(
-        &self,
-        ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<ConfiguredStringWithMacrosPart>;
-}
-
-impl UnconfiguredStringWithMacrosPartExt for UnconfiguredStringWithMacrosPart {
-    fn configure(
-        &self,
-        ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<ConfiguredStringWithMacrosPart> {
-        match self {
-            StringWithMacrosPart::String(val) => {
-                Ok(ConfiguredStringWithMacrosPart::String(val.clone()))
-            }
-            StringWithMacrosPart::Macro(write_to_file, unconfigured) => Ok(
-                ConfiguredStringWithMacrosPart::Macro(*write_to_file, unconfigured.configure(ctx)?),
-            ),
-        }
-    }
-}
-
 pub(crate) trait ConfiguredStringWithMacrosExt {
     fn resolve<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Value<'v>>;
 }
@@ -328,61 +250,9 @@ pub(crate) trait UnconfiguredMacroExt {
     fn new_unrecognized(macro_type: String, args: Vec<String>) -> UnconfiguredMacro {
         UnconfiguredMacro::UnrecognizedMacro(macro_type, args)
     }
-
-    fn configure(&self, ctx: &dyn AttrConfigurationContext) -> anyhow::Result<ConfiguredMacro>;
-
-    fn traverse<'a>(&'a self, traversal: &mut dyn CoercedAttrTraversal<'a>) -> anyhow::Result<()>;
 }
 
-impl UnconfiguredMacroExt for UnconfiguredMacro {
-    fn configure(&self, ctx: &dyn AttrConfigurationContext) -> anyhow::Result<ConfiguredMacro> {
-        Ok(match self {
-            UnconfiguredMacro::Location(target) => {
-                ConfiguredMacro::Location(ctx.configure_target(target))
-            }
-            UnconfiguredMacro::Exe { label, exec_dep } => ConfiguredMacro::Exe {
-                label: if *exec_dep {
-                    ctx.configure_exec_target(label)
-                } else {
-                    ctx.configure_target(label)
-                },
-                exec_dep: *exec_dep,
-            },
-            UnconfiguredMacro::UserUnkeyedPlaceholder(var_name) => {
-                ConfiguredMacro::UserUnkeyedPlaceholder(var_name.clone())
-            }
-            UnconfiguredMacro::UserKeyedPlaceholder(var_name, target, arg) => {
-                ConfiguredMacro::UserKeyedPlaceholder(
-                    var_name.clone(),
-                    ctx.configure_target(target),
-                    arg.clone(),
-                )
-            }
-            UnconfiguredMacro::Query(query) => ConfiguredMacro::Query(box query.configure(ctx)?),
-            UnconfiguredMacro::UnrecognizedMacro(macro_type, args) => {
-                ConfiguredMacro::UnrecognizedMacro(macro_type.clone(), args.clone())
-            }
-        })
-    }
-
-    fn traverse<'a>(&'a self, traversal: &mut dyn CoercedAttrTraversal<'a>) -> anyhow::Result<()> {
-        match self {
-            MacroBase::Location(l) | MacroBase::UserKeyedPlaceholder(_, l, _) => {
-                traversal.dep(l.target())
-            }
-            MacroBase::Exe {
-                label,
-                exec_dep: true,
-            } => traversal.exec_dep(label.target()),
-            MacroBase::Exe {
-                label,
-                exec_dep: false,
-            } => traversal.dep(label.target()),
-            MacroBase::Query(query) => query.traverse(traversal),
-            MacroBase::UserUnkeyedPlaceholder(_) | MacroBase::UnrecognizedMacro(..) => Ok(()),
-        }
-    }
-}
+impl UnconfiguredMacroExt for UnconfiguredMacro {}
 
 /// An ArgBuilder is almost exactly a CommandLineBuilder. The difference is that while a commandline
 /// builder is building a list of strings, argbuilder is appending the values to a single string.
@@ -441,6 +311,8 @@ mod tests {
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::configurable::AttrIsConfigurable;
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
+    use buck2_node::attrs::testing::configuration_ctx;
+    use gazebo::prelude::SliceExt;
     use starlark::environment::GlobalsBuilder;
     use starlark::environment::Module;
 

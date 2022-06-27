@@ -30,6 +30,7 @@ use buck2_core::target::TargetLabel;
 use buck2_interpreter::extra::BuildContext;
 use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::AttrType;
+use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
@@ -54,7 +55,6 @@ use twox_hash::xxh3;
 
 use crate::attrs::attr_type::any::AnyAttrTypeExt;
 use crate::attrs::attr_type::AttrTypeExt;
-use crate::attrs::coerced_attr::CoercedAttr;
 use crate::interpreter::rule_defs::provider::callable::ValueAsProviderCallableLike;
 use crate::interpreter::rule_defs::rule::RuleError;
 use crate::interpreter::rule_defs::transition::starlark::Transition;
@@ -726,8 +726,8 @@ pub mod testing {
     use std::sync::Arc;
 
     use buck2_node::attrs::attr_type::AttrType;
+    use buck2_node::attrs::coerced_attr::CoercedAttr;
 
-    use crate::attrs::coerced_attr::CoercedAttr;
     use crate::interpreter::rule_defs::attr::Attribute;
 
     pub(crate) trait AttributeExt {
