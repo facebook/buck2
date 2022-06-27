@@ -34,6 +34,7 @@ use buck2_interpreter::extra::BuildContext;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
+use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use gazebo::prelude::*;
@@ -53,7 +54,6 @@ use starlark::values::Value;
 
 use crate::attrs::analysis::AnalysisQueryResult;
 use crate::attrs::analysis::AttrResolutionContext;
-use crate::attrs::AttrCoercionContext;
 use crate::attrs::CoercedAttr;
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
 use crate::interpreter::rule_defs::attr::BuildAttrCoercionContext;

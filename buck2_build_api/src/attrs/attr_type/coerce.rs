@@ -8,11 +8,11 @@
  */
 
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
+use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::values::Value;
 
 use crate::attrs::coerced_attr::CoercedAttr;
-use crate::attrs::AttrCoercionContext;
 
 pub(crate) trait AttrTypeCoerce {
     fn coerce_item(

@@ -10,12 +10,12 @@
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::attr_type::AttrTypeInner;
+use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::values::Value;
 
 use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::coerced_attr::CoercedAttr;
-use crate::attrs::AttrCoercionContext;
 
 pub(crate) mod any;
 pub mod arg;

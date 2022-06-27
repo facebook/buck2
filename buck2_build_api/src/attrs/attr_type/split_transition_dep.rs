@@ -12,6 +12,7 @@ use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::split_transition_dep::ConfiguredSplitTransitionDep;
 use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDep;
 use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
+use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
@@ -27,7 +28,6 @@ use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::attr_type::dep::DepAttrTypeExt;
 use crate::attrs::coerced_attr::CoercedAttr;
-use crate::attrs::AttrCoercionContext;
 
 impl AttrTypeCoerce for SplitTransitionDepAttrType {
     fn coerce_item(

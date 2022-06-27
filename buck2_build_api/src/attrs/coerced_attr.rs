@@ -21,6 +21,7 @@ use buck2_core::target::TargetLabel;
 use buck2_interpreter::selector::Selector;
 use buck2_interpreter::selector::SelectorGen;
 use buck2_node::attrs::attr_type::AttrType;
+use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
@@ -38,7 +39,6 @@ use thiserror::Error;
 use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::attr_type::attr_literal::UnconfiguredAttrLiteralExt;
 use crate::attrs::attr_type::AttrTypeExt;
-use crate::attrs::AttrCoercionContext;
 use crate::attrs::AttrLiteral;
 use crate::attrs::OrderedMap;
 

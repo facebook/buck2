@@ -9,12 +9,12 @@
 
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::option::OptionAttrType;
+use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::values::Value;
 
 use crate::attrs::attr_type::coerce::AttrTypeCoerce;
 use crate::attrs::attr_type::AttrTypeExt;
-use crate::attrs::AttrCoercionContext;
 use crate::attrs::CoercedAttr;
 
 impl AttrTypeCoerce for OptionAttrType {

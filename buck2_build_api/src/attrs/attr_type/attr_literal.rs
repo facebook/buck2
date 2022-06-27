@@ -321,8 +321,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
 pub(crate) enum CoercionError {
     #[error("Expected value of type `{0}`, got value with type `{1}` (value was `{2}`)")]
     TypeError(String, String, String),
-    #[error("Expected target label without name. Got `{0}`")]
-    UnexpectedProvidersName(String),
     #[error("Used one_of with an empty list.")]
     OneOfEmpty,
     #[error("one_of fails, the errors against each alternative in turn were:\n{}", .0.map(|x| format!("{:#}", x)).join("\n"))]
@@ -342,10 +340,6 @@ impl CoercionError {
             value.get_type().to_owned(),
             value.to_repr(),
         )
-    }
-
-    pub fn unexpected_providers_name(val: &str) -> CoercionError {
-        CoercionError::UnexpectedProvidersName(val.to_owned())
     }
 
     pub fn one_of_empty() -> CoercionError {

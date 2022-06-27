@@ -45,18 +45,14 @@
 //! receive a list of files in the implementation. The intermediate form of that
 //! may be strings or targets or some other thing (e.g. a lazy glob, maybe).
 
-use anyhow::anyhow;
 use attr_type::bool;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use buck2_node::attrs::attr_type::attr_config::AttrConfig;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
 use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDep;
-use buck2_node::attrs::coerced_path::CoercedPath;
 
-use crate::attrs::attr_type::attr_literal::CoercionError;
 use crate::attrs::coerced_attr::CoercedAttr;
 
 pub(crate) mod analysis;
@@ -74,24 +70,6 @@ pub type OrderedMap<K, V> = small_map::map::SmallMap<K, V>;
 pub type OrderedMapEntry<'a, K, V> = small_map::map::Entry<'a, K, V>;
 pub type OrderedMapOccupiedEntry<'a, K, V> = small_map::map::OccupiedEntry<'a, K, V>;
 pub type OrderedMapVacantEntry<'a, K, V> = small_map::map::VacantEntry<'a, K, V>;
-
-/// The context for attribute coercion. Mostly just contains information about
-/// the current package (to support things like parsing targets from strings).
-pub trait AttrCoercionContext {
-    fn coerce_target(&self, value: &str) -> anyhow::Result<TargetLabel> {
-        let label = self.coerce_label(value)?;
-        if let ProvidersName::Named(_) = label.name() {
-            return Err(anyhow!(CoercionError::unexpected_providers_name(value)));
-        }
-        Ok(label.into_parts().0)
-    }
-
-    /// Attempt to convert a string into a label
-    fn coerce_label(&self, value: &str) -> anyhow::Result<ProvidersLabel>;
-
-    /// Attempt to convert a string into a BuckPath
-    fn coerce_path(&self, value: &str, allow_directory: bool) -> anyhow::Result<CoercedPath>;
-}
 
 impl AttrConfig for CoercedAttr {
     type TargetType = TargetLabel;

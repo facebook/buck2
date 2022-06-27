@@ -14,6 +14,7 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::extra::BuildContext;
+use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
 use gazebo::dupe::Dupe;
@@ -35,7 +36,6 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
-use crate::attrs::AttrCoercionContext;
 use crate::interpreter::rule_defs::attr::get_attr_coercion_context;
 
 #[derive(Debug, thiserror::Error)]
