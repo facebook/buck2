@@ -20,12 +20,6 @@ impl NodeLabel for TestTargetId {}
 #[derive(Debug, Copy, Clone, Dupe, Eq, PartialEq, Hash, Display, Serialize)]
 struct TestTargetAttr;
 
-impl QueryTargetAttr for TestTargetAttr {
-    fn any_matches(&self, _filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
-        unimplemented!()
-    }
-}
-
 #[derive(Clone, Dupe, Eq, PartialEq)]
 struct TestTarget {
     id: TestTargetId,
@@ -69,6 +63,13 @@ impl QueryTarget for TestTarget {
 
     fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
         box std::iter::empty()
+    }
+
+    fn attr_any_matches(
+        _attr: &Self::Attr,
+        _filter: &dyn Fn(&str) -> anyhow::Result<bool>,
+    ) -> anyhow::Result<bool> {
+        unimplemented!()
     }
 
     fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr) -> Result<(), E>>(
