@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+// TODO(nga): replace with gazebo version when gazebo is bumped.
+
 //! Provides utilities to implement `Display` (or `repr`) for Starlark values.
 //!
 //! For "normal" display, produces output like (with `prefix="prefix[", suffix="]"`):
@@ -61,7 +63,7 @@ enum Len {
 }
 
 /// The low-level helper for displaying containers. For simple containers, it may be more convenient to use `display_container` or `display_keyed_container`.
-pub struct ContainerDisplayHelper<'a, 'b> {
+pub(crate) struct ContainerDisplayHelper<'a, 'b> {
     f: &'a mut fmt::Formatter<'b>,
     /// The additional separator to be added after each item (except the last).
     separator: &'static str,
@@ -74,20 +76,6 @@ pub struct ContainerDisplayHelper<'a, 'b> {
 }
 
 impl<'a, 'b> ContainerDisplayHelper<'a, 'b> {
-    /// Begins displaying a container. The provided num_items will be used to select which formatting to use for alternate display.
-    pub fn begin(
-        f: &'a mut fmt::Formatter<'b>,
-        prefix: &str,
-        num_items: usize,
-    ) -> Result<Self, fmt::Error> {
-        let num_items = match num_items {
-            0 => Len::Zero,
-            1 => Len::One,
-            _ => Len::Many,
-        };
-        Self::begin_inner(f, prefix, num_items)
-    }
-
     /// Begins displaying a container. The provided num_items will be used to select which formatting to use for alternate display.
     fn begin_inner(
         f: &'a mut fmt::Formatter<'b>,
@@ -123,7 +111,7 @@ impl<'a, 'b> ContainerDisplayHelper<'a, 'b> {
     }
 
     /// Displays an item.
-    pub fn item<T: Display>(&mut self, v: T) -> fmt::Result {
+    pub(crate) fn item<T: Display>(&mut self, v: T) -> fmt::Result {
         if self.seen_items != 0 {
             self.f.write_str(self.separator)?;
         }
@@ -132,7 +120,7 @@ impl<'a, 'b> ContainerDisplayHelper<'a, 'b> {
     }
 
     /// Displays a keyed item (will be displayed as `<key><separator><value>`)
-    pub fn keyed_item<K: Display, V: Display>(
+    pub(crate) fn keyed_item<K: Display, V: Display>(
         &mut self,
         k: K,
         separator: &str,
@@ -150,7 +138,7 @@ impl<'a, 'b> ContainerDisplayHelper<'a, 'b> {
     }
 
     /// Ends displaying a container.
-    pub fn end(self, suffix: &str) -> fmt::Result {
+    pub(crate) fn end(self, suffix: &str) -> fmt::Result {
         self.f.write_str(self.outer)?;
         self.f.write_str(suffix)
     }
@@ -160,7 +148,7 @@ impl<'a, 'b> ContainerDisplayHelper<'a, 'b> {
 ///
 /// When displaying a container that produces an ExactSizeIterator, this is more convenient
 /// than using `ContainerDisplayHelper` directly.
-pub fn display_container<T: Display, Iter: Iterator<Item = T>>(
+pub(crate) fn display_container<T: Display, Iter: Iterator<Item = T>>(
     f: &mut fmt::Formatter,
     prefix: &str,
     suffix: &str,
@@ -192,7 +180,7 @@ pub fn display_container<T: Display, Iter: Iterator<Item = T>>(
 ///
 /// When displaying a keyed container that produces an ExactSizeIterator, this is more convenient
 /// than using `ContainerDisplayHelper` directly.
-pub fn display_keyed_container<K: Display, V: Display, Iter: Iterator<Item = (K, V)>>(
+pub(crate) fn display_keyed_container<K: Display, V: Display, Iter: Iterator<Item = (K, V)>>(
     f: &mut fmt::Formatter,
     prefix: &str,
     suffix: &str,
@@ -329,7 +317,7 @@ mod tests {
         struct Tester;
         impl fmt::Display for Tester {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                let mut helper = ContainerDisplayHelper::begin(f, "prefix{", 3)?;
+                let mut helper = ContainerDisplayHelper::begin_inner(f, "prefix{", Len::Many)?;
                 helper.item("1")?;
                 helper.keyed_item("x", "=", 2)?;
                 helper.item(3)?;
