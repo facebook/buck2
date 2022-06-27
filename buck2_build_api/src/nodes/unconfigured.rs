@@ -30,7 +30,6 @@ use buck2_query::query::syntax::simple::eval::file_set::FileNode;
 use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
 use starlark::eval::CallStack;
-use starlark::eval::Evaluator;
 use starlark::eval::ParametersParser;
 use starlark::values::Value;
 
@@ -120,7 +119,7 @@ pub(crate) struct TargetNodeData {
 impl TargetNode {
     /// Extact only the name attribute from rule arguments, ignore the others.
     fn from_params_ignore_attrs_for_profiling<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        internals: &ModuleInternals,
         cfg: Option<Arc<TransitionId>>,
         mut param_parser: ParametersParser<'v, '_>,
         rule_type: Arc<StarlarkRuleType>,
@@ -131,7 +130,6 @@ impl TargetNode {
         for (attr_name, _attr_idx, _attr) in attr_spec.attr_specs() {
             let value: Value = param_parser.next(attr_name)?;
             if attr_name == NAME_ATTRIBUTE_FIELD {
-                let internals = ModuleInternals::from_context(eval)?;
                 let label = TargetLabel::new(
                     internals.package().dupe(),
                     TargetName::new(value.unpack_str().unwrap()).unwrap(),
@@ -156,7 +154,7 @@ impl TargetNode {
     /// The body of the callable returned by `rule()`. Records the target in this package's `TargetMap`
     #[allow(clippy::box_collection)] // Parameter `call_stack`, because this is the field type.
     pub(crate) fn from_params<'v>(
-        eval: &mut Evaluator<'v, '_>,
+        internals: &ModuleInternals,
         cfg: Option<Arc<TransitionId>>,
         param_parser: ParametersParser<'v, '_>,
         param_count: usize,
@@ -169,7 +167,7 @@ impl TargetNode {
     ) -> anyhow::Result<Self> {
         if ignore_attrs_for_profiling {
             return Self::from_params_ignore_attrs_for_profiling(
-                eval,
+                internals,
                 cfg,
                 param_parser,
                 rule_type,
@@ -179,8 +177,8 @@ impl TargetNode {
             );
         }
 
-        let (target_name, attr_values) = attr_spec.parse_params(param_parser, param_count, eval)?;
-        let internals = ModuleInternals::from_context(eval)?;
+        let (target_name, attr_values) =
+            attr_spec.parse_params(param_parser, param_count, internals)?;
         let package = internals.package();
 
         let mut visibility = match attr_spec.attr_or_none(

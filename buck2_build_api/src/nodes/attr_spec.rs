@@ -15,7 +15,6 @@ use buck2_core::target::TargetName;
 use buck2_interpreter::extra::ExtraContext;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use gazebo::prelude::*;
-use starlark::eval::Evaluator;
 use starlark::eval::ParametersParser;
 use starlark::eval::ParametersSpec;
 use starlark::values::docs::DocString;
@@ -132,10 +131,8 @@ impl AttributeSpec {
         &self,
         mut param_parser: ParametersParser<'v, '_>,
         param_count: usize,
-        eval: &mut Evaluator<'v, '_>,
+        internals: &ModuleInternals,
     ) -> anyhow::Result<(TargetName, AttrValues)> {
-        let internals = ModuleInternals::from_context(eval)?;
-
         let mut attr_values = AttrValues::with_capacity(param_count);
 
         let mut indices = self.attr_specs();

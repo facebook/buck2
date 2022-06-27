@@ -227,7 +227,7 @@ impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
             let internals = ModuleInternals::from_context(eval)?;
             let buildfile_path = internals.buildfile_path().dupe();
             let target_node = TargetNode::from_params(
-                eval,
+                internals,
                 self.cfg.dupe(),
                 param_parser,
                 param_count,
@@ -238,7 +238,6 @@ impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
                 self.attributes.dupe(),
                 call_stack,
             )?;
-            let internals = ModuleInternals::from_context(eval)?;
             internals.recorder().record(target_node)?;
             Ok(Value::new_none())
         })
