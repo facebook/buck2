@@ -30,6 +30,8 @@ use crate::query::syntax::simple::eval::set::TargetSet;
 use crate::query::traversal::AsyncTraversalDelegate;
 use crate::query::traversal::ChildVisitor;
 
+mod tests;
+
 #[derive(Error, Debug)]
 pub enum QueryEnvironmentError {
     #[error("Missing target `{}`. Targets in the package: <{}>", .0, .1.join(", "))]
@@ -170,10 +172,10 @@ pub trait QueryEnvironment: Send + Sync {
 
     async fn allpaths(
         &self,
-        _from: &TargetSet<Self::Target>,
-        _to: &TargetSet<Self::Target>,
+        from: &TargetSet<Self::Target>,
+        to: &TargetSet<Self::Target>,
     ) -> anyhow::Result<TargetSet<Self::Target>> {
-        Err(QueryError::FunctionUnimplemented("allpaths").into())
+        self.rdeps(from, to, None).await
     }
 
     async fn somepath(
