@@ -78,11 +78,11 @@ pub(crate) struct TargetsCommand {
     resolve_alias: bool,
 
     /// Print a stable hash of each target after the target name. Incompatible with '--show-rulekey'.
-    #[clap(long)]
+    #[clap(long, conflicts_with = "show-unconfigured-target-hash")]
     show_target_hash: bool,
 
     /// TODO: Print a stable unconfigured hash of each target after the target name.
-    #[structopt(long)]
+    #[clap(long, conflicts_with = "show-target-hash")]
     show_unconfigured_target_hash: bool,
 
     /// Modifies computation of target hashes. If set to `PATHS_AND_CONTENTS` (the default), the contents
