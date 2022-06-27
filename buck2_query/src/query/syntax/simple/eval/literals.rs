@@ -10,7 +10,6 @@
 //! Implementation of the cli and query_* attr query language.
 
 use buck2_query_parser::parse_expr;
-use starlark::collections::Hashed;
 use starlark::collections::SmallSet;
 
 use crate::query::environment::QueryEnvironment;
@@ -33,12 +32,7 @@ pub fn extract_target_literals<Env: QueryEnvironment, F: QueryFunctions<Env>>(
     impl QueryLiteralVisitor for LiteralExtractor<'_> {
         fn target_pattern(&mut self, pattern: &str) -> anyhow::Result<()> {
             if pattern != "%s" {
-                // NOTE: We hash once, lookup at most twice, allocate at most once.
-                // If there was `SmallMap.get_or_insert_owned` we could be optimum.
-                let x = Hashed::new(pattern);
-                if self.literals.get_hashed(x).is_none() {
-                    self.literals.insert_hashed(x.owned());
-                }
+                self.literals.get_or_insert_owned(pattern);
             }
             Ok(())
         }
