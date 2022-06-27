@@ -11,6 +11,7 @@
 
 use std::sync::Arc;
 
+use buck2_core::provider::id::ProviderId;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
@@ -18,8 +19,7 @@ use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use gazebo::dupe::Dupe;
-
-use crate::nodes::PlatformInfoCallable;
+use once_cell::sync::Lazy;
 
 // TODO(cjhopman): figure out something better for these default attributes that we need to interpret
 // internally. There's currently a lot of awkwardness involved: accessing the value, needing to create
@@ -46,6 +46,17 @@ fn name_attribute() -> Attribute {
     Attribute::new_internal(None, "name of the target".to_owned(), AttrType::string())
 }
 
+pub(crate) fn internal_attrs_platform_info_provider_id() -> &'static Arc<ProviderId> {
+    static PLATFORM_INFO_PROVIDER_ID: Lazy<Arc<ProviderId>> = Lazy::new(|| {
+        // Hardcode provider name, because we do not depend on providers here.
+        Arc::new(ProviderId {
+            path: None,
+            name: "PlatformInfo".to_owned(),
+        })
+    });
+    &PLATFORM_INFO_PROVIDER_ID
+}
+
 fn default_target_platform_attribute() -> Attribute {
     Attribute::new_internal(
         Some(Arc::new(CoercedAttr::Literal(
@@ -53,7 +64,7 @@ fn default_target_platform_attribute() -> Attribute {
         ))),
         "specifies the default target platform, used when no platforms are specified on the command line".to_owned(),
         AttrType::option(AttrType::dep(vec![
-            PlatformInfoCallable::provider_id().dupe(),
+            internal_attrs_platform_info_provider_id().dupe(),
         ])),
     )
 }

@@ -21,7 +21,6 @@ use gazebo::prelude::*;
 use thiserror::Error;
 
 use crate::attrs::OrderedMap;
-use crate::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfoCallable;
 use crate::nodes::attr_internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use crate::nodes::attr_internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use crate::nodes::attr_spec::AttributeSpec;
