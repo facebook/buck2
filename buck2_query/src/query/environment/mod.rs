@@ -56,10 +56,6 @@ impl QueryEnvironmentError {
 
 pub trait NodeLabel: Clone + Hash + PartialEq + Eq + Debug + Display + Send + Sync {}
 
-pub trait QueryTargetAttr: Debug + Display {
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool>;
-}
-
 pub trait LabeledNode: Dupe + Send + Sync + 'static {
     type NodeRef: NodeLabel;
 
@@ -84,7 +80,7 @@ impl QueryTargets {
 
 pub trait QueryTarget: Dupe + Send + Sync + 'static {
     type NodeRef: NodeLabel;
-    type Attr: ?Sized + QueryTargetAttr + Serialize;
+    type Attr: ?Sized + Display + Debug + Serialize;
 
     fn node_ref(&self) -> &Self::NodeRef;
 
@@ -108,6 +104,11 @@ pub trait QueryTarget: Dupe + Send + Sync + 'static {
     fn tests<'a>(&'a self) -> Option<Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a>> {
         None
     }
+
+    fn attr_any_matches(
+        attr: &Self::Attr,
+        filter: &dyn Fn(&str) -> anyhow::Result<bool>,
+    ) -> anyhow::Result<bool>;
 
     fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr) -> Result<(), E>>(
         &self,

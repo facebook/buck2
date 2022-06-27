@@ -15,6 +15,7 @@ use async_trait::async_trait;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::target::ConfiguredTargetLabel;
+use buck2_node::attrs::attr_type::attr_config::AttrConfig;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_query::query::environment::NodeLabel;
 use buck2_query::query::environment::QueryEnvironment;
@@ -367,6 +368,13 @@ impl QueryTarget for ConfiguredGraphNodeRef {
     fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
         // TODO(cjhopman): This should return a Result. It should also be implemented.
         unimplemented!("target_deps() isn't implemented for query attrs")
+    }
+
+    fn attr_any_matches(
+        attr: &Self::Attr,
+        filter: &dyn Fn(&str) -> anyhow::Result<bool>,
+    ) -> anyhow::Result<bool> {
+        attr.any_matches(filter)
     }
 
     fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr) -> Result<(), E>>(

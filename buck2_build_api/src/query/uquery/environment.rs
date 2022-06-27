@@ -21,11 +21,9 @@ use buck2_core::result::SharedResult;
 use buck2_core::result::ToSharedResultExt;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
-use buck2_node::attrs::attr_type::attr_config::AttrConfig;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryEnvironmentError;
 use buck2_query::query::environment::QueryTarget;
-use buck2_query::query::environment::QueryTargetAttr;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::functions::docs::QueryEnvironmentDescription;
@@ -48,12 +46,6 @@ use crate::nodes::unconfigured::TargetNode;
 enum QueryLiteralResolutionError {
     #[error("literal `{0}` missing in pre-resolved literals")]
     LiteralMissing(String),
-}
-
-impl QueryTargetAttr for CoercedAttr {
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
-        AttrConfig::any_matches(self, filter)
-    }
 }
 
 pub enum SpecialAttr {
@@ -91,6 +83,13 @@ impl QueryTarget for TargetNode {
 
     fn tests<'a>(&'a self) -> Option<Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a>> {
         Some(box self.tests().map(|t| t.target().dupe()))
+    }
+
+    fn attr_any_matches(
+        attr: &Self::Attr,
+        filter: &dyn Fn(&str) -> anyhow::Result<bool>,
+    ) -> anyhow::Result<bool> {
+        attr.any_matches(filter)
     }
 
     fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr) -> Result<(), E>>(

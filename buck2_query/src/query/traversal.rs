@@ -350,7 +350,6 @@ mod tests {
     use super::*;
     use crate::query::environment::NodeLabel;
     use crate::query::environment::QueryTarget;
-    use crate::query::environment::QueryTargetAttr;
     use crate::query::syntax::simple::eval::set::TargetSet;
 
     #[derive(Debug, Clone)]
@@ -366,15 +365,6 @@ mod tests {
     struct Attr(String);
 
     impl NodeLabel for Ref {}
-
-    impl QueryTargetAttr for Attr {
-        fn any_matches(
-            &self,
-            _filter: &dyn Fn(&str) -> anyhow::Result<bool>,
-        ) -> anyhow::Result<bool> {
-            unimplemented!()
-        }
-    }
 
     impl QueryTarget for Node {
         type NodeRef = Ref;
@@ -398,6 +388,13 @@ mod tests {
             &self,
             _func: F,
         ) -> Result<(), E> {
+            unimplemented!()
+        }
+
+        fn attr_any_matches(
+            _attr: &Self::Attr,
+            _filter: &dyn Fn(&str) -> anyhow::Result<bool>,
+        ) -> anyhow::Result<bool> {
             unimplemented!()
         }
 

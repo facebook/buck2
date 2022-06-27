@@ -12,7 +12,6 @@ use std::fmt::Display;
 
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::TargetLabel;
-use buck2_query::query::environment::QueryTargetAttr;
 use indexmap::IndexMap;
 use serde::Serialize;
 use serde::Serializer;
@@ -201,11 +200,5 @@ impl ConfiguredAttr {
             AttrLiteral::Label(label) => Some(*label),
             _ => None,
         }
-    }
-}
-
-impl QueryTargetAttr for ConfiguredAttr {
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
-        AttrConfig::any_matches(self, filter)
     }
 }

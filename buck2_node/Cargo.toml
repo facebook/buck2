@@ -20,7 +20,6 @@ gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
 
 buck2_core = { path = "../buck2_core" }
-buck2_query = { path = "../buck2_query" }
 
 [features]
 # @oss-disable: default = ["gazebo_lint"]

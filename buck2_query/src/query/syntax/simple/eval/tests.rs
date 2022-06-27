@@ -24,7 +24,6 @@ use serde::Serialize;
 use crate::query::environment::NodeLabel;
 use crate::query::environment::QueryEnvironment;
 use crate::query::environment::QueryTarget;
-use crate::query::environment::QueryTargetAttr;
 use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::evaluator::QueryEvaluator;
 use crate::query::syntax::simple::eval::file_set::FileSet;
@@ -38,12 +37,6 @@ impl NodeLabel for TargetRef {}
 
 #[derive(Debug, Display, Serialize)]
 struct TargetAttr(String);
-
-impl QueryTargetAttr for TargetAttr {
-    fn any_matches(&self, _filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
-        unimplemented!()
-    }
-}
 
 #[derive(Debug, Clone, Dupe, Eq, PartialEq)]
 struct Target {}
@@ -83,6 +76,13 @@ impl QueryTarget for Target {
         &self,
         _func: F,
     ) -> Result<(), E> {
+        unimplemented!()
+    }
+
+    fn attr_any_matches(
+        _attr: &Self::Attr,
+        _filter: &dyn Fn(&str) -> anyhow::Result<bool>,
+    ) -> anyhow::Result<bool> {
         unimplemented!()
     }
 

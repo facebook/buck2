@@ -14,7 +14,6 @@ rust_library(
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:thiserror",
         "//buck2/buck2_core:buck2_core",
-        "//buck2/buck2_query:buck2_query",
         "//buck2/gazebo/gazebo:gazebo",
     ],
 )

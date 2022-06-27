@@ -16,6 +16,7 @@ use buck2_core::cells::paths::CellPath;
 use buck2_core::result::SharedResult;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
+use buck2_node::attrs::attr_type::attr_config::AttrConfig;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::compatibility::MaybeCompatible;
 use buck2_query::query::environment::QueryEnvironment;
@@ -78,6 +79,13 @@ impl QueryTarget for ConfiguredTargetNode {
             func(&name, &attr)?;
         }
         Ok(())
+    }
+
+    fn attr_any_matches(
+        attr: &Self::Attr,
+        filter: &dyn Fn(&str) -> anyhow::Result<bool>,
+    ) -> anyhow::Result<bool> {
+        attr.any_matches(filter)
     }
 
     fn attrs_for_each<E, F: FnMut(&str, &Self::Attr) -> Result<(), E>>(

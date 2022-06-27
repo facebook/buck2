@@ -19,7 +19,6 @@ use buck2_core::cells::paths::CellPath;
 use buck2_query::query::environment::NodeLabel;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryTarget;
-use buck2_query::query::environment::QueryTargetAttr;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
@@ -54,12 +53,6 @@ pub struct ActionAttr(str);
 impl ActionAttr {
     fn new(x: &str) -> &Self {
         ActionAttr::ref_cast(x)
-    }
-}
-
-impl QueryTargetAttr for ActionAttr {
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
-        filter(&self.0)
     }
 }
 
@@ -201,6 +194,13 @@ impl QueryTarget for ActionQueryNode {
 
     fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
         self.deps()
+    }
+
+    fn attr_any_matches(
+        attr: &Self::Attr,
+        filter: &dyn Fn(&str) -> anyhow::Result<bool>,
+    ) -> anyhow::Result<bool> {
+        filter(&attr.0)
     }
 
     fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr) -> Result<(), E>>(

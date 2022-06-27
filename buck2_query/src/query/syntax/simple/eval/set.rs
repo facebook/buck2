@@ -16,7 +16,6 @@ use gazebo::display::display_container;
 use indexmap::IndexSet;
 
 use crate::query::environment::QueryTarget;
-use crate::query::environment::QueryTargetAttr;
 use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::file_set::FileNode;
 use crate::query::syntax::simple::eval::file_set::FileSet;
@@ -142,7 +141,7 @@ pub trait TargetSetExt {
         self.filter(move |node| {
             node.map_attr(attribute, |val| match val {
                 None => Ok(false),
-                Some(v) => v.any_matches(&filter),
+                Some(v) => Self::T::attr_any_matches(v, &filter),
             })
         })
     }
@@ -155,7 +154,7 @@ pub trait TargetSetExt {
         self.filter(move |node| {
             node.map_attr(attribute, |val| match val {
                 None => Ok(false),
-                Some(v) => Ok(!v.any_matches(&filter)?),
+                Some(v) => Ok(!Self::T::attr_any_matches(v, &filter)?),
             })
         })
     }
