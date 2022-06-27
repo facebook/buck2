@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-use std::borrow::Borrow;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::ops::Deref;
 
+use crate::small_map::Equivalent;
 use crate::small_map::SmallHashValue;
 
 /// A key and its hash.
@@ -138,7 +138,7 @@ impl<'a, K: ?Sized, H: Hasher + Default> SmallHashed<&'a K, H> {
     /// Make `Hashed<K>` from `Hashed<&K>`, where `T` is the owned form of `K`.
     pub fn owned<T>(self) -> SmallHashed<T, H>
     where
-        T: Borrow<K>,
+        K: Equivalent<T>,
         K: ToOwned<Owned = T>,
     {
         SmallHashed::new_unchecked(self.hash, self.key.to_owned())
