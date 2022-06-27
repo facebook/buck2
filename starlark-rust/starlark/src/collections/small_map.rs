@@ -355,6 +355,16 @@ impl<K, V> SmallMap<K, V> {
             }
     }
 
+    /// Returns a reference to the first key-value pair.
+    pub fn first(&self) -> Option<(&K, &V)> {
+        self.iter().next()
+    }
+
+    /// Returns a reference to the last key-value pair.
+    pub fn last(&self) -> Option<(&K, &V)> {
+        self.iter().next_back()
+    }
+
     #[cold]
     fn create_index(&mut self, capacity: usize) {
         debug_assert!(self.index.is_none());
@@ -1010,5 +1020,27 @@ mod tests {
             }
         }
         assert!(map.is_empty());
+    }
+
+    #[test]
+    fn test_first() {
+        let mut map = SmallMap::new();
+        map.insert(1, 10);
+        assert_eq!(map.first(), Some((&1, &10)));
+        map.insert(2, 20);
+        assert_eq!(map.first(), Some((&1, &10)));
+        map.remove(&1);
+        assert_eq!(map.first(), Some((&2, &20)));
+    }
+
+    #[test]
+    fn test_last() {
+        let mut map = SmallMap::new();
+        map.insert(1, 10);
+        assert_eq!(map.last(), Some((&1, &10)));
+        map.insert(2, 20);
+        assert_eq!(map.last(), Some((&2, &20)));
+        map.insert(1, 100);
+        assert_eq!(map.last(), Some((&2, &20)));
     }
 }

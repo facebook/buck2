@@ -264,6 +264,16 @@ impl<T> SmallSet<T> {
     pub fn clear(&mut self) {
         self.0.clear()
     }
+
+    /// Returns a reference to the first item.
+    pub fn first(&self) -> Option<&T> {
+        self.0.first().map(|(k, ())| k)
+    }
+
+    /// Returns a reference to the last item.
+    pub fn last(&self) -> Option<&T> {
+        self.0.last().map(|(k, ())| k)
+    }
 }
 
 /// Create a [`SmallSet`](SmallSet) from a list of values.
@@ -403,5 +413,25 @@ mod tests {
         let x = set.get_or_insert_owned(&Rc::new(1)).dupe();
         let x1 = set.get_or_insert_owned(&Rc::new(1));
         assert!(Rc::ptr_eq(&x, x1));
+    }
+
+    #[test]
+    fn test_first() {
+        let mut s = SmallSet::new();
+        s.insert(1);
+        assert_eq!(s.first(), Some(&1));
+        s.insert(2);
+        assert_eq!(s.first(), Some(&1));
+        s.remove(&1);
+        assert_eq!(s.first(), Some(&2));
+    }
+
+    #[test]
+    fn test_last() {
+        let mut s = SmallSet::new();
+        s.insert(1);
+        assert_eq!(s.last(), Some(&1));
+        s.insert(2);
+        assert_eq!(s.last(), Some(&2));
     }
 }
