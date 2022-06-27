@@ -185,7 +185,6 @@ pub struct TestServer {
     notifications: VecDeque<lsp_server::Notification>,
     /// How long to wait for messages to be received.
     recv_timeout: Duration,
-    #[allow(dead_code)]
     file_contents: Arc<RwLock<HashMap<PathBuf, String>>>,
 }
 
