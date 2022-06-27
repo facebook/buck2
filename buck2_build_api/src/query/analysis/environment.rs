@@ -12,9 +12,9 @@ use std::collections::HashSet;
 use std::marker::PhantomData;
 
 use async_trait::async_trait;
+use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::target::ConfiguredTargetLabel;
-use buck2_interpreter::common::BuildFilePath;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_query::query::environment::NodeLabel;
 use buck2_query::query::environment::QueryEnvironment;

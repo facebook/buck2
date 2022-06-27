@@ -15,6 +15,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_common::package_listing::listing::PackageListing;
+use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::package::Package;
@@ -28,7 +29,6 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use thiserror::Error;
 
-use crate::common::BuildFilePath;
 use crate::common::StarlarkPath;
 use crate::extra::buckconfig::LegacyBuckConfigForStarlark;
 use crate::extra::cell_info::InterpreterCellInfo;
@@ -276,6 +276,7 @@ pub(crate) mod testing {
     use std::sync::Mutex;
 
     use buck2_common::package_listing::listing::PackageListing;
+    use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::cells::paths::CellPath;
     use buck2_core::package::Package;
     use buck2_core::result::SharedResult;
@@ -290,7 +291,6 @@ pub(crate) mod testing {
     use starlark::values;
     use starlark::values::function::NativeFunction;
 
-    use crate::common::BuildFilePath;
     use crate::common::StarlarkPath;
     use crate::extra::cell_info::InterpreterCellInfo;
     use crate::extra::ExtraContext;

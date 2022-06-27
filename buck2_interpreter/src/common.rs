@@ -10,78 +10,18 @@
 use std::borrow::Cow;
 use std::hash::Hash;
 
+use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::bzl::ModuleID;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellName;
-use buck2_core::fs::paths::FileName;
-use buck2_core::fs::paths::FileNameBuf;
-use buck2_core::package::Package;
 use derive_more::Display;
 use gazebo::prelude::*;
 use gazebo::variants::UnpackVariants;
 use ref_cast::RefCast;
 use thiserror::Error;
-
-/// Path of a build file (e.g. `BUCK`) only. (`bzl` files are not included).
-#[derive(Clone, Hash, Eq, PartialEq, Debug, derive_more::Display)]
-#[display(fmt = "{}", id)]
-pub struct BuildFilePath {
-    /// The package of this build file
-    package: Package,
-    /// The build file's filename (which can be configured). i.e. `BUCK`
-    filename: FileNameBuf,
-    /// A ModuleID for the import.
-    id: ModuleID,
-}
-
-impl BuildFilePath {
-    pub fn new(package: Package, filename: FileNameBuf) -> Self {
-        let id = ModuleID(format!("{}:{}", package, filename));
-        Self {
-            package,
-            filename,
-            id,
-        }
-    }
-
-    pub fn unchecked_new(cell: &str, package: &str, filename: &str) -> Self {
-        let package = Package::new(
-            &CellName::unchecked_new(cell.to_owned()),
-            &CellRelativePathBuf::unchecked_new(package.to_owned()),
-        );
-        let filename = FileNameBuf::unchecked_new(filename.to_owned());
-        Self::new(package, filename)
-    }
-
-    pub fn cell(&self) -> &CellName {
-        self.package.cell_name()
-    }
-
-    pub fn package(&self) -> &Package {
-        &self.package
-    }
-
-    pub fn path(&self) -> CellPath {
-        self.package
-            .as_cell_path()
-            .join_unnormalized(&self.filename)
-    }
-
-    pub fn build_file_cell(&self) -> &BuildFileCell {
-        BuildFileCell::ref_cast(self.cell())
-    }
-
-    pub fn filename(&self) -> &FileName {
-        &self.filename
-    }
-
-    pub fn id(&self) -> &ModuleID {
-        &self.id
-    }
-}
 
 /// Path of a `bxl` file for `bxl` commands
 #[derive(

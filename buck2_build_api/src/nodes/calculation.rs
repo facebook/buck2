@@ -607,6 +607,7 @@ impl NodeCalculation for DiceComputations {
 mod tests {
     use std::sync::Arc;
 
+    use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::bzl::ImportPath;
     use buck2_core::configuration::Configuration;
     use buck2_core::fs::paths::FileNameBuf;
@@ -617,7 +618,6 @@ mod tests {
     use buck2_core::result::SharedResult;
     use buck2_core::target::TargetLabel;
     use buck2_core::target::TargetName;
-    use buck2_interpreter::common::BuildFilePath;
     use buck2_node::attrs::attr_type::any::AnyAttrType;
     use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
     use buck2_node::attrs::attr_type::dep::DepAttr;

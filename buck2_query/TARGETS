@@ -19,7 +19,6 @@ rust_library(
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
         "//buck2/buck2_core:buck2_core",
-        "//buck2/buck2_interpreter:buck2_interpreter",
         "//buck2/buck2_query_parser:buck2_query_parser",
         "//buck2/buck2_query_proc_macro:buck2_query_proc_macro",
         "//buck2/gazebo/gazebo:gazebo",

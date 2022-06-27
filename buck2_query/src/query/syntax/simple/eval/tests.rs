@@ -14,8 +14,8 @@
 use std::borrow::Cow;
 
 use async_trait::async_trait;
+use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::paths::CellPath;
-use buck2_interpreter::common::BuildFilePath;
 use buck2_query_parser::parse_expr;
 use derive_more::Display;
 use gazebo::prelude::*;

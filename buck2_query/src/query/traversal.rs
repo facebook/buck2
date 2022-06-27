@@ -341,8 +341,8 @@ mod tests {
     use std::borrow::Cow;
     use std::collections::HashMap;
 
+    use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::cells::paths::CellPath;
-    use buck2_interpreter::common::BuildFilePath;
     use derive_more::Display;
     use gazebo::prelude::*;
     use serde::Serialize;

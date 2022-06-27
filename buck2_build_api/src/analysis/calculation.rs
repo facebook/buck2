@@ -428,6 +428,7 @@ mod tests {
     use buck2_common::legacy_configs::LegacyBuckConfigs;
     use buck2_common::package_listing::listing::testing::PackageListingExt;
     use buck2_common::package_listing::listing::PackageListing;
+    use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::bzl::ImportPath;
     use buck2_core::cells::CellAlias;
     use buck2_core::cells::CellAliasResolver;
@@ -443,7 +444,6 @@ mod tests {
     use buck2_core::result::SharedResult;
     use buck2_core::target::testing::TargetLabelExt;
     use buck2_core::target::TargetLabel;
-    use buck2_interpreter::common::BuildFilePath;
     use buck2_interpreter::common::OwnedStarlarkModulePath;
     use buck2_interpreter::dice::interpreter_setup::setup_interpreter_basic;
     use buck2_interpreter::dice::testing::EvalImportKey;

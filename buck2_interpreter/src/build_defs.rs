@@ -135,6 +135,7 @@ mod tests {
     use buck2_common::legacy_configs::LegacyBuckConfig;
     use buck2_common::legacy_configs::LegacyBuckConfigs;
     use buck2_common::package_listing::listing::PackageListing;
+    use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::bzl::ImportPath;
     use buck2_core::cells::build_file_cell::BuildFileCell;
     use buck2_core::cells::CellAlias;
@@ -148,7 +149,6 @@ mod tests {
     use gazebo::prelude::*;
     use indoc::indoc;
 
-    use crate::common::BuildFilePath;
     use crate::common::OwnedStarlarkModulePath;
     use crate::common::StarlarkModulePath;
     use crate::common::StarlarkPath;

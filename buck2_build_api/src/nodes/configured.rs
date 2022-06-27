@@ -15,6 +15,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use buck2_core::buck_path::BuckPath;
+use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
@@ -24,7 +25,6 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
-use buck2_interpreter::common::BuildFilePath;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::dep::DepAttr;
 use buck2_node::attrs::attr_type::dep::DepAttrTransition;

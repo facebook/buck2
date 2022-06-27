@@ -8,7 +8,6 @@ description = "Buck query generic implementation"
 anyhow = "1.0.51"
 async-trait = "0.1.24"
 buck2_core = { path = "../buck2_core" }
-buck2_interpreter = { path = "../buck2_interpreter" }
 buck2_query_parser = { path = "../buck2_query_parser" }
 buck2_query_proc_macro = { path = "../buck2_query_proc_macro" }
 derive_more = "0.99.3"

@@ -19,6 +19,7 @@ use buck2_common::legacy_configs::dice::LegacyBuckConfigOnDice;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_common::package_listing::resolver::PackageListingResolver;
+use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::paths::CellPath;
@@ -33,7 +34,6 @@ use events::dispatch::EventDispatcher;
 use gazebo::prelude::*;
 use starlark::syntax::AstModule;
 
-use crate::common::BuildFilePath;
 use crate::common::OwnedStarlarkModulePath;
 use crate::common::StarlarkModulePath;
 use crate::common::StarlarkPath;

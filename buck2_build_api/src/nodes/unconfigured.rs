@@ -11,12 +11,12 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_core::buck_path::BuckPath;
+use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
-use buck2_interpreter::common::BuildFilePath;
 use buck2_interpreter::extra::ExtraContext;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::AttrType;
@@ -506,9 +506,9 @@ fn parse_visibility(
 pub mod testing {
     use std::sync::Arc;
 
+    use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::fs::paths::FileNameBuf;
     use buck2_core::target::TargetLabel;
-    use buck2_interpreter::common::BuildFilePath;
     use buck2_node::rule_type::RuleType;
     use buck2_node::visibility::VisibilitySpecification;
     use gazebo::prelude::*;
