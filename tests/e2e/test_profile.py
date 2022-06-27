@@ -26,7 +26,8 @@ async def test_profile_analysis(buck: Buck, tmpdir: LocalPath, profiler: str) ->
 
     await buck.profile(
         "analysis",
-        f"--{profiler}",
+        "--mode",
+        profiler,
         "fbcode//buck2/tests/targets/rules/sh_test:test",
         file_path,
     )
@@ -44,7 +45,8 @@ async def test_profile_loading(buck: Buck, tmpdir: LocalPath, profiler: str) -> 
 
     await buck.profile(
         "loading",
-        f"--{profiler}",
+        "--mode",
+        profiler,
         "fbcode//buck2/tests/targets/rules/sh_test:",
         file_path,
     )
@@ -57,7 +59,8 @@ async def test_profile_shows_errors(buck: Buck) -> None:
     expect_failure(
         buck.profile(
             "loading",
-            "--statement",
+            "--mode",
+            "statement",
             "invalid",
             "/dev/null",
         ),

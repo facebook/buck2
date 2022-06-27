@@ -19,6 +19,7 @@ use cli_proto::profile_request::Profiler;
 use cli_proto::ProfileRequest;
 use cli_proto::ProfileResponse;
 use futures::FutureExt;
+use gazebo::dupe::Dupe;
 use starlark::eval::ProfileMode;
 
 use crate::commands::common::CommonConfigOptions;
@@ -57,8 +58,32 @@ impl ProfileCommand {
     }
 }
 
+#[derive(clap::ValueEnum, Dupe, Clone, Debug)]
+enum BuckProfileMode {
+    TimeFlame,
+    HeapFlame,
+    HeapSummary,
+    Statement,
+    Bytecode,
+    BytecodePairs,
+    Typecheck,
+}
+
+impl BuckProfileMode {
+    fn to_profile_mode(&self) -> ProfileMode {
+        match self {
+            BuckProfileMode::TimeFlame => ProfileMode::TimeFlame,
+            BuckProfileMode::HeapFlame => ProfileMode::HeapFlame,
+            BuckProfileMode::HeapSummary => ProfileMode::HeapSummary,
+            BuckProfileMode::Statement => ProfileMode::Statement,
+            BuckProfileMode::Bytecode => ProfileMode::Bytecode,
+            BuckProfileMode::BytecodePairs => ProfileMode::BytecodePairs,
+            BuckProfileMode::Typecheck => ProfileMode::Typecheck,
+        }
+    }
+}
+
 #[derive(Debug, clap::Parser)]
-#[clap(group = clap::ArgGroup::with_name("profiler").required(true))]
 pub(crate) struct ProfileOptions {
     #[clap(flatten)]
     config_opts: CommonConfigOptions,
@@ -72,26 +97,8 @@ pub(crate) struct ProfileOptions {
     #[clap(value_name = "PATH")]
     destination_path: String,
 
-    #[clap(long, group = "profiler")]
-    heap_flame: bool,
-
-    #[clap(long, group = "profiler")]
-    heap_summary: bool,
-
-    #[clap(long, group = "profiler")]
-    time_flame: bool,
-
-    #[clap(long, group = "profiler")]
-    statement: bool,
-
-    #[clap(long, group = "profiler")]
-    bytecode: bool,
-
-    #[clap(long, group = "profiler")]
-    bytecode_pairs: bool,
-
-    #[clap(long, group = "profiler")]
-    typecheck: bool,
+    #[clap(long, short = 'm', value_enum)]
+    mode: BuckProfileMode,
 }
 
 pub(crate) struct ProfileSubcommand {
@@ -126,23 +133,7 @@ impl StreamingCommand for ProfileSubcommand {
         let mut destination_path = PathBuf::from(&context.working_dir);
         destination_path.push(&self.opts.destination_path);
 
-        let profile_mode = if self.opts.heap_flame {
-            ProfileMode::HeapFlame
-        } else if self.opts.heap_summary {
-            ProfileMode::HeapSummary
-        } else if self.opts.time_flame {
-            ProfileMode::TimeFlame
-        } else if self.opts.statement {
-            ProfileMode::Statement
-        } else if self.opts.bytecode {
-            ProfileMode::Bytecode
-        } else if self.opts.bytecode_pairs {
-            ProfileMode::BytecodePairs
-        } else if self.opts.typecheck {
-            ProfileMode::Typecheck
-        } else {
-            unreachable!("profile mode missing");
-        };
+        let profile_mode = self.opts.mode.to_profile_mode();
 
         // Impossible: both current directory and relative path are known to be UTF-8.
         #[derive(Debug, thiserror::Error)]
