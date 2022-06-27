@@ -26,8 +26,8 @@ use buck2_common::file_ops::PathMetadata;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::package::Package;
 use buck2_core::result::SharedResult;
-use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
+use buck2_query::query::environment::ConfiguredOrUnconfiguredTargetLabel;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
@@ -35,7 +35,7 @@ use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query::traversal::ChildVisitor;
 use cli_proto::targets_request::TargetHashFileMode;
-use cli_proto::targets_request::TargetHashGraphType;
+use dice::DiceComputations;
 use dice::DiceTransaction;
 use futures::future::join_all;
 use futures::future::BoxFuture;
@@ -164,9 +164,72 @@ impl FileHasher for PathsAndContentsHasher {
     }
 }
 
+#[async_trait]
+pub(crate) trait TargetHashingTargetNode: QueryTarget + Hash {
+    // Get the (un)Configured Target Node from a (un)Configured Target Label.
+    async fn get_from_ctx(ctx: &DiceTransaction, label: &Self::NodeRef) -> anyhow::Result<Self>;
+
+    // Takes in Target Nodes and returns a new set of (un)Configured
+    // Target Nodes based on type of hashing specified.
+    async fn get_target_nodes(
+        ctx: &DiceComputations,
+        loaded_targets: impl Iterator<Item = (&Package, SharedResult<Vec<TargetNode>>)>
+        + std::marker::Send,
+        global_target_platform: Option<TargetLabel>,
+    ) -> anyhow::Result<TargetSet<Self>>;
+}
+
+#[async_trait]
+impl TargetHashingTargetNode for ConfiguredTargetNode {
+    async fn get_from_ctx(ctx: &DiceTransaction, label: &Self::NodeRef) -> anyhow::Result<Self> {
+        Ok(ctx
+            .get_configured_target_node(label)
+            .await?
+            .require_compatible()?)
+    }
+    async fn get_target_nodes(
+        ctx: &DiceComputations,
+        loaded_targets: impl Iterator<Item = (&Package, SharedResult<Vec<TargetNode>>)>
+        + std::marker::Send,
+        global_target_platform: Option<TargetLabel>,
+    ) -> anyhow::Result<TargetSet<Self>> {
+        get_compatible_targets(ctx, loaded_targets, global_target_platform).await
+    }
+}
+
+#[async_trait]
+impl TargetHashingTargetNode for TargetNode {
+    async fn get_from_ctx(ctx: &DiceTransaction, label: &Self::NodeRef) -> anyhow::Result<Self> {
+        Ok(ctx.get_target_node(label).await?)
+    }
+
+    async fn get_target_nodes(
+        _ctx: &DiceComputations,
+        loaded_targets: impl Iterator<Item = (&Package, SharedResult<Vec<TargetNode>>)>
+        + std::marker::Send,
+        _global_target_platform: Option<TargetLabel>,
+    ) -> anyhow::Result<TargetSet<Self>> {
+        let mut target_set = TargetSet::new();
+        for (_package, result) in loaded_targets {
+            let targets = result?;
+            for target in targets {
+                target_set.insert(target);
+            }
+        }
+        Ok(target_set)
+    }
+}
 pub(crate) struct TargetHashes {
     // key is an unconfigured target label, but the hash is generated from the configured target label.
     target_mapping: HashMap<TargetLabel, SharedResult<BuckTargetHash>>,
+}
+
+#[derive(thiserror::Error, Debug)]
+enum TargetHashError {
+    #[error(
+        "Found a dependency `{0}` of target `{1}` which has not been hashed yet. This may indicate a dependency cycle in the unconfigured graph."
+    )]
+    DependencyCycle(String, String),
 }
 
 impl TargetHashes {
@@ -174,32 +237,25 @@ impl TargetHashes {
         return self.target_mapping.get(label).cloned();
     }
 
-    pub(crate) async fn compute(
+    pub(crate) async fn compute<T: TargetHashingTargetNode>(
         ctx: DiceTransaction,
-        targets: impl Iterator<Item = (&Package, SharedResult<Vec<TargetNode>>)>,
+        targets: Vec<(&Package, SharedResult<Vec<TargetNode>>)>,
         global_target_platform: Option<TargetLabel>,
         file_hash_mode: TargetHashFileMode,
         modified_paths: HashSet<CellPath>,
         use_fast_hash: bool,
-        #[allow(unused_variables)] target_hash_graph_type: TargetHashGraphType,
-    ) -> anyhow::Result<Self> {
+    ) -> anyhow::Result<Self>
+    where
+        T::NodeRef: ConfiguredOrUnconfiguredTargetLabel,
+    {
         struct Lookup {
             ctx: DiceTransaction,
         }
 
         #[async_trait]
-        impl AsyncNodeLookup<ConfiguredTargetNode> for Lookup {
-            async fn get(
-                &self,
-                label: &ConfiguredTargetLabel,
-            ) -> anyhow::Result<ConfiguredTargetNode> {
-                // TODO(scottcao): We can get ConfiguredTargetNode using `compatible_target_mapping` before
-                // calling `get_configured_target_node`
-                Ok(self
-                    .ctx
-                    .get_configured_target_node(label)
-                    .await?
-                    .require_compatible()?)
+        impl<T: TargetHashingTargetNode> AsyncNodeLookup<T> for Lookup {
+            async fn get(&self, label: &T::NodeRef) -> anyhow::Result<T> {
+                T::get_from_ctx(&self.ctx, label).await
             }
         }
 
@@ -215,8 +271,16 @@ impl TargetHashes {
                 // this is postorder, so guaranteed that all deps have futures already.
                 let dep_futures: Vec<_> = target
                     .deps()
-                    .map(|dep| self.hashes.get(dep).unwrap().clone())
-                    .collect();
+                    .map(|dep| {
+                        self.hashes.get(dep).cloned().ok_or_else(|| {
+                            TargetHashError::DependencyCycle(
+                                dep.clone().to_string(),
+                                target.node_ref().to_string(),
+                            )
+                        })
+                    })
+                    .collect::<Result<Vec<_>, TargetHashError>>()?;
+
                 let file_hasher = self.file_hasher.dupe();
 
                 let use_fast_hash = self.use_fast_hash;
@@ -270,15 +334,8 @@ impl TargetHashes {
             }
         }
 
-        // possiblities for printing - TODO: account for all
-        let mut compatible_targets = TargetSet::<ConfiguredTargetNode>::new();
-        match target_hash_graph_type {
-            TargetHashGraphType::None => {}
-            _ => {
-                compatible_targets =
-                    get_compatible_targets(&ctx, targets, global_target_platform).await?
-            }
-        }
+        let targets =
+            T::get_target_nodes(&ctx, targets.into_iter(), global_target_platform).await?;
 
         let lookup = Lookup { ctx: ctx.dupe() };
         let file_hasher: Arc<dyn FileHasher> = match file_hash_mode {
@@ -288,18 +345,13 @@ impl TargetHashes {
             TargetHashFileMode::PathsAndContents => Arc::new(PathsAndContentsHasher { ctx }),
         };
 
-        let mut delegate = Delegate {
+        let mut delegate = Delegate::<T> {
             hashes: HashMap::new(),
             file_hasher,
             use_fast_hash,
         };
 
-        async_depth_first_postorder_traversal(
-            &lookup,
-            compatible_targets.iter_names(),
-            &mut delegate,
-        )
-        .await?;
+        async_depth_first_postorder_traversal(&lookup, targets.iter_names(), &mut delegate).await?;
 
         let mut futures: FuturesUnordered<_> = delegate
             .hashes
@@ -315,12 +367,12 @@ impl TargetHashes {
 
         while let Some((target, hash)) = tokio::task::unconstrained(futures.next()).await {
             // Only need the hashes of the requested target, not of dependencies.
-            if compatible_targets.contains(&target) {
-                let overwrite = target_mapping.insert(target.unconfigured().dupe(), hash);
+            if targets.contains(&target) {
+                let overwrite = target_mapping.insert(target.unconfigured_label().dupe(), hash);
                 assert!(
                     overwrite.is_none(),
                     "Target {} was computed multiple times.",
-                    target.name().value()
+                    target.unconfigured_label().name().value()
                 );
             }
         }

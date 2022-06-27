@@ -12,6 +12,7 @@ use std::fmt::Write;
 use std::path::Path;
 
 use buck2_build_api::calculation::load_patterns;
+use buck2_build_api::nodes::configured::ConfiguredTargetNode;
 use buck2_build_api::nodes::hacks::value_to_json;
 use buck2_build_api::nodes::unconfigured::AttrInspectOptions;
 use buck2_build_api::nodes::unconfigured::TargetNode;
@@ -355,19 +356,33 @@ async fn parse_and_get_results(
     options: TargetsOptions,
 ) -> anyhow::Result<String> {
     let results = load_patterns(&ctx, parsed_patterns).await?;
+    let vec_results: Vec<_> = results.iter_loaded_targets_by_package().collect();
 
-    let target_hashes = Some(
-        TargetHashes::compute(
-            ctx.dupe(),
-            results.iter_loaded_targets_by_package(),
-            target_platform,
-            options.target_hash_mode,
-            options.target_hash_modified_paths,
-            options.use_fast_hash,
-            options.target_hash_graph_type,
-        )
-        .await?,
-    );
+    let target_hashes = match options.target_hash_graph_type {
+        TargetHashGraphType::Configured => Some(
+            TargetHashes::compute::<ConfiguredTargetNode>(
+                ctx.dupe(),
+                vec_results,
+                target_platform,
+                options.target_hash_mode,
+                options.target_hash_modified_paths,
+                options.use_fast_hash,
+            )
+            .await?,
+        ),
+        TargetHashGraphType::Unconfigured => Some(
+            TargetHashes::compute::<TargetNode>(
+                ctx.dupe(),
+                vec_results,
+                target_platform,
+                options.target_hash_mode,
+                options.target_hash_modified_paths,
+                options.use_fast_hash,
+            )
+            .await?,
+        ),
+        _ => None,
+    };
 
     printer.begin();
     let mut error_count = 0;

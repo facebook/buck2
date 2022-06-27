@@ -18,6 +18,7 @@ use async_trait::async_trait;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::package::Package;
+use buck2_core::target::TargetLabel;
 use futures::stream::FuturesUnordered;
 use futures::stream::TryStreamExt;
 use gazebo::prelude::*;
@@ -55,6 +56,9 @@ impl QueryEnvironmentError {
 }
 
 pub trait NodeLabel: Clone + Hash + PartialEq + Eq + Debug + Display + Send + Sync {}
+pub trait ConfiguredOrUnconfiguredTargetLabel: NodeLabel {
+    fn unconfigured_label(&self) -> &TargetLabel;
+}
 
 pub trait LabeledNode: Dupe + Send + Sync + 'static {
     type NodeRef: NodeLabel;
