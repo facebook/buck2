@@ -24,7 +24,7 @@ indexmap = { version = "1.6", features = ["serde-1"] }
 indoc = "1.0.3"
 itertools = "0.10.0"
 serde = "1.0"
-starlark = { version = "0.8", path = "../starlark-rust/starlark" }
+small_map = { path = "../shed/small_map" }
 thiserror = "1.0.9"
 tokio = { version = "1.5", features = ["full"]}
 ref-cast = "1.0.0"
