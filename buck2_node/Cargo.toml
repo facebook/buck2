@@ -15,7 +15,12 @@ thiserror = "1.0.9"
 gazebo.version = "0.7.1"
 gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "../gazebo/gazebo"
-
+gazebo_lint.version = "0.1"
+gazebo_lint.optional = true
+# @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
 
 buck2_core = { path = "../buck2_core" }
 buck2_query = { path = "../buck2_query" }
+
+[features]
+# @oss-disable: default = ["gazebo_lint"]
