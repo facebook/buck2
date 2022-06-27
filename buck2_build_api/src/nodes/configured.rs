@@ -34,6 +34,8 @@ use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
+use buck2_node::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
+use buck2_node::attrs::internal::TESTS_ATTRIBUTE_FIELD;
 use buck2_node::rule_type::RuleType;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use either::Either;
@@ -44,8 +46,6 @@ use crate::attrs::attr_type::attr_literal::ConfiguredAttrInfo;
 use crate::configuration::execution::ExecutionPlatformResolution;
 use crate::configuration::resolved::ResolvedConfiguration;
 use crate::configuration::AttrConfigurationContextImpl;
-use crate::nodes::attr_internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
-use crate::nodes::attr_internal::TESTS_ATTRIBUTE_FIELD;
 use crate::nodes::unconfigured::AttrInspectOptions;
 use crate::nodes::unconfigured::TargetNode;
 

@@ -12,14 +12,15 @@
 use std::sync::Arc;
 
 use buck2_core::provider::id::ProviderId;
-use buck2_node::attrs::attr::Attribute;
-use buck2_node::attrs::attr_type::any::AnyAttrType;
-use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
-use buck2_node::attrs::attr_type::AttrType;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
-use buck2_node::attrs::configurable::AttrIsConfigurable;
 use gazebo::dupe::Dupe;
 use once_cell::sync::Lazy;
+
+use crate::attrs::attr::Attribute;
+use crate::attrs::attr_type::any::AnyAttrType;
+use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::AttrType;
+use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::configurable::AttrIsConfigurable;
 
 // TODO(cjhopman): figure out something better for these default attributes that we need to interpret
 // internally. There's currently a lot of awkwardness involved: accessing the value, needing to create
@@ -28,25 +29,25 @@ use once_cell::sync::Lazy;
 // accessing them off nodes.
 // TODO(cjhopman): these attributes should be marked as "unconfigurable" or "unselectable" or something
 // since we need to be able to read them in their unconfigured form.
-pub(crate) const NAME_ATTRIBUTE_FIELD: &str = "name";
-pub(crate) const DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD: &str = "default_target_platform";
+pub const NAME_ATTRIBUTE_FIELD: &str = "name";
+pub const DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD: &str = "default_target_platform";
 
-pub(crate) const TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD: &str = "target_compatible_with";
+pub const TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD: &str = "target_compatible_with";
 /// buck1 used "compatible_with" for this. in buck2, we have two "compatible with" concepts, both
 /// target and exec compatibility and so we are switching to "target_compatible_with". For now we'll accept
 /// either form for target compatibility (but not both).
-pub(crate) const LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD: &str = "compatible_with";
-pub(crate) const EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD: &str = "exec_compatible_with";
+pub const LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD: &str = "compatible_with";
+pub const EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD: &str = "exec_compatible_with";
 
-pub(crate) const VISIBILITY_ATTRIBUTE_FIELD: &str = "visibility";
+pub const VISIBILITY_ATTRIBUTE_FIELD: &str = "visibility";
 
-pub(crate) const TESTS_ATTRIBUTE_FIELD: &str = "tests";
+pub const TESTS_ATTRIBUTE_FIELD: &str = "tests";
 
 fn name_attribute() -> Attribute {
     Attribute::new_internal(None, "name of the target".to_owned(), AttrType::string())
 }
 
-pub(crate) fn internal_attrs_platform_info_provider_id() -> &'static Arc<ProviderId> {
+pub fn internal_attrs_platform_info_provider_id() -> &'static Arc<ProviderId> {
     static PLATFORM_INFO_PROVIDER_ID: Lazy<Arc<ProviderId>> = Lazy::new(|| {
         // Hardcode provider name, because we do not depend on providers here.
         Arc::new(ProviderId {
@@ -108,7 +109,7 @@ fn tests_attribute() -> Attribute {
     )
 }
 
-pub(crate) fn internal_attrs() -> Vec<(&'static str, Attribute)> {
+pub fn internal_attrs() -> Vec<(&'static str, Attribute)> {
     vec![
         (NAME_ATTRIBUTE_FIELD, name_attribute()),
         (
@@ -132,7 +133,7 @@ pub(crate) fn internal_attrs() -> Vec<(&'static str, Attribute)> {
     ]
 }
 
-pub(crate) fn attr_is_configurable(name: &str) -> AttrIsConfigurable {
+pub fn attr_is_configurable(name: &str) -> AttrIsConfigurable {
     // `compatible_with` is not configurable in Buck v1.
     if name == NAME_ATTRIBUTE_FIELD
         || name == LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD

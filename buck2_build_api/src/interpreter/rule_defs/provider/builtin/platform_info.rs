@@ -81,8 +81,9 @@ fn platform_info_creator(globals: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 mod tests {
+    use buck2_node::attrs::internal::internal_attrs_platform_info_provider_id;
+
     use crate::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfoCallable;
-    use crate::nodes::attr_internal::internal_attrs_platform_info_provider_id;
 
     #[test]
     fn test_platform_info_provider_id_in_internal_attrs_correct() {

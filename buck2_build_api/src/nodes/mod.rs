@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-pub(crate) mod attr_internal;
 pub(crate) mod attr_spec;
 pub mod attr_values;
 pub mod calculation;
@@ -17,12 +16,12 @@ pub mod unconfigured;
 use std::hash::Hash;
 
 use buck2_node::attrs::coerced_attr::CoercedAttr;
+use buck2_node::attrs::internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
+use buck2_node::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use gazebo::prelude::*;
 use thiserror::Error;
 
 use crate::attrs::OrderedMap;
-use crate::nodes::attr_internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
-use crate::nodes::attr_internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use crate::nodes::attr_spec::AttributeSpec;
 
 #[derive(Debug, Clone, Dupe, Copy, Eq, Hash, PartialEq, Ord, PartialOrd)]

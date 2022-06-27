@@ -16,5 +16,6 @@ pub mod configurable;
 pub mod configuration_context;
 pub mod configured_attr;
 pub mod configured_traversal;
+pub mod internal;
 pub mod testing;
 pub mod traversal;
