@@ -75,6 +75,7 @@ pub(crate) async fn bxl(
         target_alias_resolver,
         cell_resolver: cell.cell_alias_resolver().dupe(),
         relative_dir: cur_package,
+        dice: &ctx,
     };
 
     let bxl_args = Arc::new(resolve_cli_args(

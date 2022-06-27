@@ -18,6 +18,7 @@ use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_core::package::Package;
 use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::file_loader::LoadedModule;
+use dice::DiceComputations;
 use dice::DiceTransaction;
 use gazebo::prelude::*;
 use starlark::collections::SmallMap;
@@ -173,10 +174,11 @@ pub fn get_bxl_callable<'a>(
         })
 }
 
-pub struct CliResolutionCtx {
+pub struct CliResolutionCtx<'a> {
     pub target_alias_resolver: BuckConfigTargetAliasResolver,
     pub cell_resolver: CellAliasResolver,
     pub relative_dir: Package,
+    pub dice: &'a DiceComputations,
 }
 
 pub fn resolve_cli_args<'a>(
