@@ -12,6 +12,8 @@ use std::collections::HashSet;
 
 use anyhow::Context;
 use buck2_core::target::TargetName;
+use buck2_node::attrs::attr::Attribute;
+use buck2_node::attrs::attr::CoercedValue;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use gazebo::prelude::*;
@@ -24,8 +26,7 @@ use thiserror::Error;
 use crate::attrs::OrderedMap;
 use crate::attrs::OrderedMapEntry;
 use crate::interpreter::module_internals::ModuleInternals;
-use crate::interpreter::rule_defs::attr::Attribute;
-use crate::interpreter::rule_defs::attr::CoercedValue;
+use crate::interpreter::rule_defs::attr::AttributeExt;
 use crate::nodes::attr_internal::attr_is_configurable;
 use crate::nodes::attr_internal::internal_attrs;
 use crate::nodes::attr_internal::NAME_ATTRIBUTE_FIELD;
@@ -289,8 +290,9 @@ impl AttributeSpec {
 }
 
 pub(crate) mod testing {
+    use buck2_node::attrs::attr::Attribute;
+
     use crate::attrs::OrderedMap;
-    use crate::interpreter::rule_defs::attr::Attribute;
     use crate::nodes::attr_spec::AttributeSpec;
     use crate::nodes::AttributeId;
 

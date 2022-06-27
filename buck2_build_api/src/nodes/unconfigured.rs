@@ -506,6 +506,7 @@ pub mod testing {
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::fs::paths::FileNameBuf;
     use buck2_core::target::TargetLabel;
+    use buck2_node::attrs::attr::Attribute;
     use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::rule_type::RuleType;
     use buck2_node::visibility::VisibilitySpecification;
@@ -514,7 +515,6 @@ pub mod testing {
     use serde_json::value::Value;
 
     use crate::attrs::attr_type::attr_literal::CoercedDepsCollector;
-    use crate::interpreter::rule_defs::attr::Attribute;
     use crate::nodes::attr_values::AttrValues;
     use crate::nodes::hacks::value_to_json;
     use crate::nodes::unconfigured::AttrInspectOptions;

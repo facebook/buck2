@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+pub mod attr;
 pub mod attr_type;
 pub mod coerced_attr;
 pub mod coerced_path;

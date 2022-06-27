@@ -8,9 +8,6 @@
  */
 
 use std::cell::RefCell;
-use std::fmt;
-use std::fmt::Display;
-use std::hash::Hash;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -28,9 +25,10 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::extra::BuildContext;
+use buck2_node::attrs::attr::Attribute;
+use buck2_node::attrs::attr::CoercedValue;
 use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::AttrType;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
@@ -228,44 +226,32 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
     }
 }
 
-/// Starlark compatible container for results from e.g. `attr.string()`
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Attribute {
-    /// The default value. If None, the value is not optional and must be provided by the user
-    pub(crate) default: Option<Arc<CoercedAttr>>,
-    /// Documentation for what the attribute actually means
-    doc: String,
-    /// The coercer to take this parameter's value from Starlark value -> an
-    /// internal representation
-    coercer: AttrType,
-}
-
-impl Display for Attribute {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.coercer
-            .fmt_with_default(f, self.default.as_ref().map(|x| x.to_string()).as_deref())
-    }
-}
-
-/// Attribute which may be either a custom value supplied by the user, or missing/None to indicate use the default.
-pub(crate) enum CoercedValue {
-    Custom(CoercedAttr),
-    Default,
-}
-
-impl Attribute {
-    pub(crate) fn new_internal(
-        default: Option<Arc<CoercedAttr>>,
-        doc: String,
+pub(crate) trait AttributeExt {
+    /// Helper to create an attribute from attr.foo functions
+    fn attr<'v>(
+        eval: &mut Evaluator<'v, '_>,
+        default: Option<Value<'v>>,
+        doc: &str,
         coercer: AttrType,
-    ) -> Self {
-        Self {
-            default,
-            doc,
-            coercer,
-        }
-    }
+    ) -> anyhow::Result<AttributeAsStarlarkValue>;
 
+    /// An `attr` which is not allowed to have a default as a relative label.
+    fn check_not_relative_label<'v>(default: Option<Value<'v>>, attr: &str) -> anyhow::Result<()>;
+
+    fn coerce<'v>(
+        &self,
+        param_name: &str,
+        configurable: AttrIsConfigurable,
+        coercer_ctx: &dyn AttrCoercionContext,
+        value: Option<Value<'v>>,
+    ) -> anyhow::Result<CoercedValue>;
+
+    fn docstring(&self) -> Option<DocString>;
+
+    fn starlark_type(&self) -> String;
+}
+
+impl AttributeExt for Attribute {
     /// Helper to create an attribute from attr.foo functions
     fn attr<'v>(
         eval: &mut Evaluator<'v, '_>,
@@ -308,7 +294,7 @@ impl Attribute {
 
     /// Attempt to coerce a value. If the value provided is `None`, and a default value is available,
     /// that default value is returned.
-    pub(crate) fn coerce<'v>(
+    fn coerce<'v>(
         &self,
         param_name: &str,
         configurable: AttrIsConfigurable,
@@ -331,11 +317,11 @@ impl Attribute {
         }
     }
 
-    pub fn docstring(&self) -> Option<DocString> {
+    fn docstring(&self) -> Option<DocString> {
         DocString::from_docstring(DocStringKind::Starlark, &self.doc)
     }
 
-    pub fn starlark_type(&self) -> String {
+    fn starlark_type(&self) -> String {
         self.coercer.starlark_type()
     }
 }
@@ -719,30 +705,6 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
 
 pub fn register_attr_module(registry: &mut GlobalsBuilder) {
     attr_module(registry)
-}
-
-pub mod testing {
-    // utilities to create attributes for testing
-    use std::sync::Arc;
-
-    use buck2_node::attrs::attr_type::AttrType;
-    use buck2_node::attrs::coerced_attr::CoercedAttr;
-
-    use crate::interpreter::rule_defs::attr::Attribute;
-
-    pub(crate) trait AttributeExt {
-        fn testing_new(default: Option<Arc<CoercedAttr>>, coercer: AttrType) -> Self;
-    }
-
-    impl AttributeExt for Attribute {
-        fn testing_new(default: Option<Arc<CoercedAttr>>, coercer: AttrType) -> Attribute {
-            Attribute {
-                default,
-                doc: String::new(),
-                coercer,
-            }
-        }
-    }
 }
 
 #[cfg(test)]

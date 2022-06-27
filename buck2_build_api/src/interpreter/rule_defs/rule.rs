@@ -17,6 +17,7 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_interpreter::extra::BuildContext;
 use buck2_interpreter::extra::ExtraContext;
+use buck2_node::attrs::attr::Attribute;
 use buck2_node::rule_type::StarlarkRuleType;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
@@ -43,7 +44,6 @@ use starlark::values::Trace;
 use starlark::values::Value;
 
 use crate::interpreter::module_internals::ModuleInternals;
-use crate::interpreter::rule_defs::attr::Attribute;
 use crate::interpreter::rule_defs::attr::AttributeAsStarlarkValue;
 use crate::interpreter::rule_defs::transition::starlark::Transition;
 use crate::nodes::attr_spec::AttributeSpec;

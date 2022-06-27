@@ -183,11 +183,7 @@ impl ConfiguredTargetNode {
     pub(crate) fn testing_new(
         name: ConfiguredTargetLabel,
         rule_type: RuleType,
-        attrs: Vec<(
-            &str,
-            crate::interpreter::rule_defs::attr::Attribute,
-            CoercedAttr,
-        )>,
+        attrs: Vec<(&str, buck2_node::attrs::attr::Attribute, CoercedAttr)>,
         execution_platform_resolution: ExecutionPlatformResolution,
     ) -> Self {
         use crate::nodes::unconfigured::testing::TargetNodeExt;

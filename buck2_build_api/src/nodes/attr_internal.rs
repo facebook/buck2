@@ -11,6 +11,7 @@
 
 use std::sync::Arc;
 
+use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::AttrType;
@@ -19,7 +20,6 @@ use buck2_node::attrs::configurable::AttrIsConfigurable;
 use gazebo::dupe::Dupe;
 
 use crate::attrs::attr_type::any::AnyAttrTypeExt;
-use crate::interpreter::rule_defs::attr::Attribute;
 use crate::nodes::PlatformInfoCallable;
 
 // TODO(cjhopman): figure out something better for these default attributes that we need to interpret

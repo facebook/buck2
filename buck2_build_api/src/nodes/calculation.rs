@@ -618,6 +618,8 @@ mod tests {
     use buck2_core::result::SharedResult;
     use buck2_core::target::TargetLabel;
     use buck2_core::target::TargetName;
+    use buck2_node::attrs::attr::testing::AttributeExt;
+    use buck2_node::attrs::attr::Attribute;
     use buck2_node::attrs::attr_type::any::AnyAttrType;
     use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
     use buck2_node::attrs::attr_type::dep::DepAttr;
@@ -642,8 +644,6 @@ mod tests {
     use crate::execute::CommandExecutorConfig;
     use crate::interpreter::calculation::testing::InterpreterResultsKey;
     use crate::interpreter::module_internals::EvaluationResult;
-    use crate::interpreter::rule_defs::attr::testing::AttributeExt;
-    use crate::interpreter::rule_defs::attr::Attribute;
     use crate::nodes::calculation::NodeCalculation;
     use crate::nodes::unconfigured::testing::TargetNodeExt;
     use crate::nodes::unconfigured::AttrInspectOptions;
