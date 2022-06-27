@@ -138,15 +138,16 @@ impl ConfiguredAttr {
                 Ok(Self(AttrLiteral::String(res)))
             }
             AttrLiteral::Arg(left) => {
-                let res =
-                    left.concat(items.map(|x| match x?.0 {
+                let res = left.concat(items.map(|x| {
+                    match x?.0 {
                         AttrLiteral::Arg(x) => Ok(x),
                         attr => Err(ConfiguredAttrError::ConcatNotSupportedValues(
                             "arg",
                             attr.to_string(),
                         )
                         .into()),
-                    }))?;
+                    }
+                }))?;
                 Ok(Self(AttrLiteral::Arg(res)))
             }
             val => Err(ConfiguredAttrError::ConcatNotSupported(val.to_string()).into()),
