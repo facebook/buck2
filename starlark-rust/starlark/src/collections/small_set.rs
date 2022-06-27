@@ -191,6 +191,35 @@ impl<T> SmallSet<T> {
         self.0.remove(key);
     }
 
+    /// Insert entry if it doesn't exist.
+    ///
+    /// Return the resulting entry in the map.
+    pub fn get_or_insert(&mut self, value: T) -> &T
+    where
+        T: Hash + Eq,
+    {
+        let value = Hashed::new(value);
+        match self.0.get_index_of_hashed(value.borrow()) {
+            Some(index) => self.0.get_index(index).unwrap().0,
+            None => self.0.insert_unique_unchecked(value, ()).0,
+        }
+    }
+
+    /// Insert entry if it doesn't exist.
+    ///
+    /// Return the resulting entry in the map.
+    pub fn get_or_insert_owned<Q>(&mut self, value: &Q) -> &T
+    where
+        Q: Hash + Equivalent<T> + ToOwned<Owned = T> + ?Sized,
+        T: Eq,
+    {
+        let value = Hashed::new(value);
+        match self.0.get_index_of_hashed(value) {
+            Some(index) => self.0.get_index(index).unwrap().0,
+            None => self.0.insert_unique_unchecked(value.owned(), ()).0,
+        }
+    }
+
     /// Remove the element from the set if it is present,
     ///
     /// and return the removed element.
@@ -271,6 +300,8 @@ macro_rules! smallset {
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use super::*;
 
     #[test]
@@ -356,5 +387,21 @@ mod tests {
         assert_eq!(s.insert(5), true);
 
         assert_eq!(s.insert(5), false);
+    }
+
+    #[test]
+    fn get_or_insert() {
+        let mut set = SmallSet::new();
+        let x = set.get_or_insert(Rc::new(1)).dupe();
+        let x1 = set.get_or_insert(Rc::new(1));
+        assert!(Rc::ptr_eq(&x, x1));
+    }
+
+    #[test]
+    fn get_or_insert_owned() {
+        let mut set = SmallSet::new();
+        let x = set.get_or_insert_owned(&Rc::new(1)).dupe();
+        let x1 = set.get_or_insert_owned(&Rc::new(1));
+        assert!(Rc::ptr_eq(&x, x1));
     }
 }

@@ -377,7 +377,7 @@ impl<K, V> SmallMap<K, V> {
 
     /// Insert an entry into the map without checking for a duplicate key.
     #[inline]
-    fn insert_unique_unchecked(&mut self, key: Hashed<K>, val: V) -> &mut V {
+    pub(crate) fn insert_unique_unchecked(&mut self, key: Hashed<K>, val: V) -> (&K, &mut V) {
         let hash = key.hash();
         let entry_index = self.entries.len();
         self.entries.insert_unique_unchecked(key, val);
@@ -389,7 +389,10 @@ impl<K, V> SmallMap<K, V> {
             debug_assert!(self.entries.len() < NO_INDEX_THRESHOLD + 1);
         }
         // SAFETY: We've just inserted an entry, so we know entries is not empty.
-        unsafe { &mut self.entries.get_unchecked_mut(self.entries.len() - 1).value }
+        unsafe {
+            let entry = self.entries.get_unchecked_mut(self.entries.len() - 1);
+            (&entry.key, &mut entry.value)
+        }
     }
 
     /// Insert a key-value pair into the map.
@@ -576,7 +579,9 @@ impl<K, V> SmallMap<K, V> {
 
 /// Reference to the actual entry in the map.
 pub struct OccupiedEntry<'a, K, V> {
+    /// Pointer to the key in the map.
     key: &'a K,
+    /// Pointer to the value in the map.
     value: &'a mut V,
 }
 
@@ -620,6 +625,11 @@ impl<'a, K, V> OccupiedEntry<'a, K, V> {
     pub fn into_mut(self) -> &'a mut V {
         self.value
     }
+
+    #[inline]
+    pub(crate) fn into_mut_entry(self) -> (&'a K, &'a mut V) {
+        (self.key, self.value)
+    }
 }
 
 impl<'a, K, V> VacantEntry<'a, K, V>
@@ -635,6 +645,11 @@ where
     /// Insert the value into the entry.
     #[inline]
     pub fn insert(self, value: V) -> &'a mut V {
+        self.insert_entry(value).1
+    }
+
+    #[inline]
+    pub(crate) fn insert_entry(self, value: V) -> (&'a K, &'a mut V) {
         self.map.insert_unique_unchecked(self.key, value)
     }
 }
@@ -655,9 +670,14 @@ where
     /// Insert if vacant.
     #[inline]
     pub fn or_insert(self, default: V) -> &'a mut V {
+        self.or_insert_entry(default).1
+    }
+
+    #[inline]
+    pub(crate) fn or_insert_entry(self, default: V) -> (&'a K, &'a mut V) {
         match self {
-            Entry::Occupied(e) => e.into_mut(),
-            Entry::Vacant(e) => e.insert(default),
+            Entry::Occupied(e) => e.into_mut_entry(),
+            Entry::Vacant(e) => e.insert_entry(default),
         }
     }
 }
