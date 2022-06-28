@@ -166,7 +166,14 @@ def _process_apple_resource_file_if_needed(ctx: "context", file: "artifact", des
     output_is_contents_dir = False
     if basename.endswith(".plist") or basename.endswith(".stringsdict"):
         processed = ctx.actions.declare_output(paths.join(output_dir, file.short_path))
-        process_plist(ctx, file, None, processed.as_output(), destination_relative_path)
+        process_plist(
+            ctx = ctx,
+            input = file,
+            additional_input = None,
+            additional_keys = None,
+            output = processed.as_output(),
+            action_id = destination_relative_path,
+        )
     elif basename.endswith(".storyboard"):
         compiled = ctx.actions.declare_output(paths.join(output_dir, paths.replace_extension(file.short_path, ".storyboardc")))
         if _is_watch_bundle(ctx):
