@@ -175,8 +175,11 @@ def _create_root(
     # add native target link input
     inputs.append(root.link_info)
 
+    # Link to Omnibus
+    if spec.body:
+        inputs.append(LinkInfo(linkables = [SharedLibLinkable(lib = omnibus)]))
+
     # Add deps of the root to the link line.
-    omnibus_is_already_added = False
     for dep in link_deps:
         node = spec.link_infos[dep]
         actual_link_style = get_actual_link_style(
@@ -203,9 +206,6 @@ def _create_root(
 
         # If this node is in omnibus, just add that to the link line.
         if dep in spec.body:
-            if not omnibus_is_already_added:
-                inputs.append(LinkInfo(linkables = [SharedLibLinkable(lib = omnibus)]))
-                omnibus_is_already_added = True
             continue
 
         # At this point, this should definitely be an excluded node.
