@@ -51,11 +51,6 @@ AppleBundleBinaryOutput = record(
     is_watchkit_stub_binary = field(bool.type, False),
 )
 
-def _get_info_plist_attr(ctx: "context") -> "":
-    if ctx.attr.info_plist == None:
-        fail("`info_plist` attribute is required")
-    return ctx.attr.info_plist
-
 # Same logic as in v1, see `buck_client/src/com/facebook/buck/apple/ApplePkgInfo.java`
 def _create_pkg_info_if_needed(ctx: "context") -> [AppleBundlePart.type]:
     extension = get_extension_attr(ctx)
@@ -269,7 +264,7 @@ def _plist_substitutions_as_json_file(ctx: "context") -> ["artifact", None]:
     return substitutions_json
 
 def _preprocess_info_plist(ctx: "context") -> "artifact":
-    input = _get_info_plist_attr(ctx)
+    input = ctx.attr.info_plist
     output = ctx.actions.declare_output("PreprocessedInfo.plist")
     substitutions_json = _plist_substitutions_as_json_file(ctx)
     apple_tools = ctx.attr._apple_tools[AppleToolsInfo]
@@ -409,7 +404,7 @@ def _select_resources(ctx: "context") -> ([AppleResourceSpec.type], [AppleAssetC
 def _xcode_populate_attributes(ctx) -> {str.type: ""}:
     return {
         "deployment_version": get_bundle_min_target_version(ctx),
-        "info_plist": _get_info_plist_attr(ctx),
+        "info_plist": ctx.attr.info_plist,
         "product_name": get_product_name(ctx),
         "sdk": get_apple_sdk_name(ctx),
     }
