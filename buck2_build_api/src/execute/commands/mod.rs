@@ -82,11 +82,13 @@ pub struct CommandExecutionResult {
 /// Describes how a command executed.
 #[derive(Debug)]
 pub struct CommandExecutionReport {
+    /// This should contain the ClaimedRequest if this execution successfully claimed it.
+    pub claim: Option<ClaimedRequest>,
+    pub status: CommandExecutionStatus,
+    pub executor: ExecutorName,
+    pub timing: CommandExecutionTimingData,
     pub std_streams: CommandStdStreams,
     pub exit_code: Option<i32>,
-
-    /// metadata holds information about **how** the result was produced rather than information about the result itself.
-    pub metadata: CommandExecutionMetadata, // TODO (@torozco): flatten
 }
 
 /// Implement FromResidual so that it's easier to refactor functions returning a CommandExecutionResult
@@ -132,15 +134,6 @@ impl From<CommandExecutionTimingData> for ActionExecutionTimingData {
             wall_time: command.wall_time,
         }
     }
-}
-
-#[derive(Debug)]
-pub struct CommandExecutionMetadata {
-    // This should contain the ClaimedRequest if this execution successfully claimed it.
-    pub claim: Option<ClaimedRequest>,
-    pub status: CommandExecutionStatus,
-    pub executor: ExecutorName,
-    pub timing: CommandExecutionTimingData,
 }
 
 pub trait ClaimManager: Send + Sync + 'static {
@@ -319,18 +312,16 @@ impl CommandExecutionManager {
         CommandExecutionResult {
             outputs,
             report: CommandExecutionReport {
+                claim: if self.claimed {
+                    Some(ClaimedRequest {})
+                } else {
+                    None
+                },
+                status,
+                executor: self.executor_name,
+                timing,
                 std_streams,
                 exit_code,
-                metadata: CommandExecutionMetadata {
-                    claim: if self.claimed {
-                        Some(ClaimedRequest {})
-                    } else {
-                        None
-                    },
-                    status,
-                    executor: self.executor_name,
-                    timing,
-                },
             },
             rejected_execution: None,
         }

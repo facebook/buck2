@@ -124,7 +124,7 @@ impl PreparedCommandExecutor for HybridExecutor {
         };
 
         let is_retryable_status = move |r: &CommandExecutionResult| {
-            match &r.report.metadata.status {
+            match &r.report.status {
                 // This doesn't really matter sicne we only ever pass this with statuses known /
                 // expected to not be ClaimRejected.
                 super::CommandExecutionStatus::ClaimRejected => false,
@@ -208,7 +208,7 @@ impl PreparedCommandExecutor for HybridExecutor {
 }
 
 fn is_claim_rejected(res: &CommandExecutionResult) -> bool {
-    match &res.report.metadata.status {
+    match &res.report.status {
         CommandExecutionStatus::ClaimRejected => true,
         _ => false,
     }

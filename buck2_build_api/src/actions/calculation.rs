@@ -180,7 +180,7 @@ impl ActionCalculation for DiceComputations {
                                 success_stderr = None;
                                 execution_kind = command_reports
                                     .last()
-                                    .and_then(|r| r.metadata.status.execution_kind())
+                                    .and_then(|r| r.status.execution_kind())
                                     .map(|e| e.as_enum());
                                 wall_time = None;
                                 error = Some(error_to_proto(&e, &command_reports).await);
@@ -285,7 +285,7 @@ fn make_command_failed(
     let command_report = command_reports.last()?;
     let command = command?;
 
-    let res = match &command_report.metadata.status {
+    let res = match &command_report.status {
         CommandExecutionStatus::Success { .. } | CommandExecutionStatus::ClaimRejected => {
             return None;
         }
@@ -320,7 +320,7 @@ async fn command_details(
     // protobuf change for little benefit, so for now we don't do it.
     let exit_code = command.exit_code.unwrap_or(0) as u32;
     let std_streams = command.std_streams.to_lossy().await;
-    let execution_kind = command.metadata.status.execution_kind();
+    let execution_kind = command.status.execution_kind();
 
     buck2_data::action_execution_end::CommandExecutionDetails {
         exit_code,

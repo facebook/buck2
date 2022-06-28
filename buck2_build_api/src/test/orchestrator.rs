@@ -424,7 +424,9 @@ impl BuckTestOrchestrator {
                 CommandExecutionReport {
                     std_streams,
                     exit_code,
-                    metadata,
+                    status,
+                    timing,
+                    ..
                 },
             rejected_execution: _,
         } = match metadata {
@@ -458,14 +460,14 @@ impl BuckTestOrchestrator {
         let stdout = ExecutionStream::Inline(std_streams.stdout);
         let stderr = ExecutionStream::Inline(std_streams.stderr);
 
-        Ok(match metadata.status {
+        Ok(match status {
             commands::CommandExecutionStatus::Success { .. } => (
                 stdout,
                 stderr,
                 ExecutionStatus::Finished {
                     exitcode: exit_code.unwrap_or(0),
                 },
-                metadata.timing,
+                timing,
                 outputs,
             ),
             commands::CommandExecutionStatus::Failure { .. } => (
@@ -474,14 +476,14 @@ impl BuckTestOrchestrator {
                 ExecutionStatus::Finished {
                     exitcode: exit_code.unwrap_or(1),
                 },
-                metadata.timing,
+                timing,
                 outputs,
             ),
             commands::CommandExecutionStatus::TimedOut { duration, .. } => (
                 stdout,
                 stderr,
                 ExecutionStatus::TimedOut { duration },
-                metadata.timing,
+                timing,
                 outputs,
             ),
             commands::CommandExecutionStatus::Error { stage: _, error } => (
@@ -490,7 +492,7 @@ impl BuckTestOrchestrator {
                 ExecutionStatus::Finished {
                     exitcode: exit_code.unwrap_or(1),
                 },
-                metadata.timing,
+                timing,
                 outputs,
             ),
             commands::CommandExecutionStatus::ClaimRejected => {

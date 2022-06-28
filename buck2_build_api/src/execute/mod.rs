@@ -490,12 +490,12 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             .await;
 
         // TODO (@torozco): The execution kind should be made to come via the command reports too.
-        let res = match &report.metadata.status {
+        let res = match &report.status {
             CommandExecutionStatus::Success { execution_kind } => Ok((
                 outputs,
                 ActionExecutionMetadata {
                     execution_kind: execution_kind.clone(),
-                    timing: report.metadata.timing.into(),
+                    timing: report.timing.into(),
                 },
             )),
 
