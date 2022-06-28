@@ -27,6 +27,7 @@ use crate::execute::commands::CommandExecutionStatus;
 use crate::execute::commands::ExecutorName;
 use crate::execute::commands::PreparedCommand;
 use crate::execute::commands::PreparedCommandExecutor;
+use crate::execute::CommandExecutionReport;
 use crate::execute::HybridExecutionLevel;
 
 /// The [HybridExecutor] will accept requests and dispatch them to both a local and remote delegate
@@ -144,6 +145,7 @@ impl PreparedCommandExecutor for HybridExecutor {
                 manager,
                 primary.into_future(),
                 &is_retryable_status,
+                None,
             )
             .await;
         }
@@ -164,7 +166,14 @@ impl PreparedCommandExecutor for HybridExecutor {
             // If the first result was rejected then wait for the second one and then if that
             // provides a status we must retry, we'll use its fallback executor (which is the one
             // that just produced the rejected claim).
-            exec_with_restart(command, manager, second, &is_retryable_status).await
+            exec_with_restart(
+                command,
+                manager,
+                second,
+                &is_retryable_status,
+                Some(first_res.report),
+            )
+            .await
         } else if is_retryable_status(&first_res) {
             // If the first result is retryable, then we have to watch out for the case where the
             // second executor returns a rejected claim (meaning it didn't execute). When that
@@ -176,6 +185,7 @@ impl PreparedCommandExecutor for HybridExecutor {
                 manager,
                 future::ready((second_res, first_fallback)),
                 is_claim_rejected,
+                Some(first_res.report),
             )
             .await
         } else {
@@ -210,6 +220,7 @@ async fn exec_with_restart<S>(
     manager: CommandExecutionManager,
     exec: impl Future<Output = (CommandExecutionResult, FallbackExecutor<'_>)>,
     should_restart: S,
+    rejected_execution: Option<CommandExecutionReport>,
 ) -> CommandExecutionResult
 where
     S: FnOnce(&CommandExecutionResult) -> bool,
@@ -227,7 +238,9 @@ where
         manager.events.dupe(),
     );
 
-    fallback.executor.exec_cmd(command, fallback_manager).await
+    let mut res = fallback.executor.exec_cmd(command, fallback_manager).await;
+    res.rejected_execution = rejected_execution;
+    res
 }
 
 struct Executable<'a, F> {

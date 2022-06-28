@@ -75,6 +75,8 @@ pub struct CommandExecutionResult {
     pub outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
     /// How it executed.
     pub report: CommandExecutionReport,
+    /// A previously rejected execution of this command.
+    pub rejected_execution: Option<CommandExecutionReport>,
 }
 
 /// Describes how a command executed.
@@ -330,6 +332,7 @@ impl CommandExecutionManager {
                     timing,
                 },
             },
+            rejected_execution: None,
         }
     }
 }

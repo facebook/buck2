@@ -479,7 +479,11 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             <dyn ClaimManager>::new_simple(),
             self.executor.events.dupe(),
         );
-        let CommandExecutionResult { outputs, report } = self
+        let CommandExecutionResult {
+            outputs,
+            report,
+            rejected_execution,
+        } = self
             .executor
             .command_executor
             .exec_cmd(action, request, manager)
@@ -498,6 +502,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             _ => Err(CommandExecutionErrorMarker.into()),
         };
 
+        self.command_reports.extend(rejected_execution.into_iter());
         self.command_reports.push(report);
 
         res

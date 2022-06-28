@@ -426,6 +426,7 @@ impl BuckTestOrchestrator {
                     exit_code,
                     metadata,
                 },
+            rejected_execution: _,
         } = match metadata {
             DisplayMetadata::Listing(listing) => {
                 let start = TestDiscoveryStart {
