@@ -133,7 +133,7 @@ impl PreparedCommandExecutor for HybridExecutor {
                 super::ActionResultStatus::Failure { .. } => fallback_on_failure,
                 // Errors are infra errors and are always retried because that is the point of
                 // falling back.
-                super::ActionResultStatus::Error(_, _)
+                super::ActionResultStatus::Error { .. }
                 | super::ActionResultStatus::TimedOut { .. } => true,
             }
         };

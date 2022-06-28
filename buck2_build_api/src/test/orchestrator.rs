@@ -479,7 +479,7 @@ impl BuckTestOrchestrator {
                 metadata.timing,
                 outputs,
             ),
-            commands::ActionResultStatus::Error(_, error) => (
+            commands::ActionResultStatus::Error { stage: _, error } => (
                 ExecutionStream::Inline(Default::default()),
                 ExecutionStream::Inline(format!("{:?}", error).into_bytes()),
                 ExecutionStatus::Finished {

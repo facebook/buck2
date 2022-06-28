@@ -528,7 +528,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                 },
             }
             .into()),
-            commands::ActionResultStatus::Error(stage, error) => {
+            commands::ActionResultStatus::Error { stage, error } => {
                 // The string "During execution" is parsed by the ingress tailer, please check it if you change this string!
                 Err(error.context(format!("During execution, {}", stage)))
             }

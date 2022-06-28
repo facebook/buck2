@@ -296,9 +296,9 @@ impl CommandExecutionManager {
         )
     }
 
-    pub fn error(self, failure_type: String, err: anyhow::Error) -> CommandExecutionResult {
+    pub fn error(self, stage: String, error: anyhow::Error) -> CommandExecutionResult {
         self.result(
-            ActionResultStatus::Error(failure_type, err),
+            ActionResultStatus::Error { stage, error },
             IndexMap::new(),
             Default::default(),
             None,
@@ -682,7 +682,10 @@ pub enum ActionResultStatus {
     Failure {
         execution_kind: ActionExecutionKind,
     },
-    Error(String, anyhow::Error),
+    Error {
+        stage: String,
+        error: anyhow::Error,
+    },
     TimedOut {
         execution_kind: ActionExecutionKind,
         duration: Duration,
@@ -699,7 +702,7 @@ impl Display for ActionResultStatus {
             ActionResultStatus::Failure { execution_kind } => {
                 write!(f, "failure {}", execution_kind,)
             }
-            ActionResultStatus::Error(kind, err) => write!(f, "error:{}\n{:#}", kind, err),
+            ActionResultStatus::Error { stage, error } => write!(f, "error:{}\n{:#}", stage, error),
             ActionResultStatus::TimedOut { duration, .. } => {
                 write!(f, "timed out after {:.3}s", duration.as_secs_f64())
             }
