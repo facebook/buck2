@@ -161,7 +161,6 @@ async fn resolve_execution_platform(
 
     let mut skipped = Vec::new();
     'platform: for exec_platform in candidates.iter() {
-        // First check if the platform satisfies compatible_with
         let resolved_platform_configuration = ctx
             .get_resolved_configuration(
                 &exec_platform.cfg(),
@@ -170,6 +169,7 @@ async fn resolve_execution_platform(
             )
             .await?;
 
+        // First check if the platform satisfies compatible_with
         for constraint in &exec_compatible_with {
             if resolved_platform_configuration
                 .matches(constraint)
@@ -183,6 +183,7 @@ async fn resolve_execution_platform(
             }
         }
 
+        // Then check that all exec_deps are compatible with the platform
         for dep in &exec_deps {
             let dep_node = ctx
                 .get_configured_target_node(&dep.configure(exec_platform.cfg().dupe()))
@@ -198,8 +199,6 @@ async fn resolve_execution_platform(
                 continue 'platform;
             }
         }
-
-        // Then check that all exec_deps are compatible with the platform
 
         return Ok(ExecutionPlatformResolution::new(
             Some(exec_platform.dupe()),
