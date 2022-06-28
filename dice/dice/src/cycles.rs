@@ -9,6 +9,7 @@
 
 //! Cycle detection in DICE
 
+use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -43,14 +44,14 @@ impl FromStr for DetectCycles {
     }
 }
 
-trait CycleKey: Display + Send + Sync {
+pub trait CycleKey: Display + Debug + Send + Sync {
     fn get_key_equality(&self) -> PartialEqAny;
     fn hash(&self, state: &mut dyn Hasher);
 }
 
 impl<T> CycleKey for T
 where
-    T: Display + Hash + Eq + Send + Sync + 'static,
+    T: Display + Debug + Hash + Eq + Send + Sync + 'static,
 {
     fn get_key_equality(&self) -> PartialEqAny {
         PartialEqAny::new(self)
@@ -88,7 +89,7 @@ impl CycleDetector {
 
     pub(crate) fn visit<K>(&self, key: &K) -> Self
     where
-        K: Clone + Display + Eq + Hash + Send + Sync + 'static,
+        K: Clone + Debug + Display + Eq + Hash + Send + Sync + 'static,
     {
         // quick and dirty cycle detection. we will have to make this more efficient
         // TODO(bobyf)
@@ -112,7 +113,7 @@ mod tests {
 
     use crate::cycles::CycleDetector;
 
-    #[derive(Clone, Dupe, Display, PartialEq, Eq, Hash)]
+    #[derive(Clone, Dupe, Display, Debug, PartialEq, Eq, Hash)]
     struct K(usize);
 
     #[test]

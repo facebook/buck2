@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::fmt::Debug;
 use std::fmt::Display;
 use std::future::Future;
 use std::hash::Hash;
@@ -107,7 +108,7 @@ impl ComputationData {
     /// i.e. computing key a, which during its evaluation requests key b, enters a new subrequest.
     pub(crate) fn subrequest<K>(&self, key: &K) -> Self
     where
-        K: Clone + Display + Eq + Hash + Send + Sync + 'static,
+        K: Clone + Display + Debug + Eq + Hash + Send + Sync + 'static,
     {
         Self {
             user_data: self.user_data.dupe(),
@@ -463,7 +464,7 @@ mod tests {
     use crate::cycles::DetectCycles;
     use crate::UserComputationData;
 
-    #[derive(Clone, Dupe, Display, PartialEq, Eq, Hash)]
+    #[derive(Clone, Dupe, Display, Debug, PartialEq, Eq, Hash)]
     struct K(usize);
 
     #[test]
