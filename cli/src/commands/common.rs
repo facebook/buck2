@@ -159,7 +159,7 @@ pub(crate) struct CommonConfigOptions {
     #[clap(long)]
     pub disable_starlark_types: bool,
 
-    #[structopt(long = "--write-build-id")]
+    #[clap(long = "--write-build-id")]
     pub build_id_file: Option<PathBuf>,
 }
 
