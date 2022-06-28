@@ -332,7 +332,6 @@ impl IncrementalActionExecutable for RunAction {
                     ActionExecutionMetadata {
                         execution_kind: ActionExecutionKind::Skipped,
                         timing: Default::default(),
-                        std_streams: Default::default(),
                     },
                 ));
             }

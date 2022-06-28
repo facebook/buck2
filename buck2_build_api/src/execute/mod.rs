@@ -14,8 +14,6 @@ pub mod materializer;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::fmt::Display;
-use std::fmt::Write;
 use std::hash::Hash;
 use std::sync::Arc;
 use std::time::Duration;
@@ -57,7 +55,6 @@ use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 use crate::calculation::Calculation;
 use crate::execute::commands::dice_data::HasCommandExecutor;
-use crate::execute::commands::output::CommandStdStreams;
 use crate::execute::commands::re::client::ActionDigest;
 use crate::execute::commands::ClaimManager;
 use crate::execute::commands::CommandExecutionManager;
@@ -71,46 +68,36 @@ use crate::execute::commands::CommandExecutor;
 use crate::execute::materializer::HasMaterializer;
 use crate::execute::materializer::Materializer;
 
-fn error_items<T: Display>(xs: &[T]) -> String {
-    if xs.is_empty() {
-        return "none".to_owned();
-    }
-    let mut res = String::new();
-    for (i, x) in xs.iter().enumerate() {
-        if i != 0 {
-            res.push_str(", ");
-        }
-        write!(res, "`{}`", x).unwrap();
-    }
-    res
-}
+#[derive(Debug)]
+pub enum ExecuteError {
+    MissingOutputs {
+        wanted: Vec<ProjectRelativePathBuf>,
+    },
 
-// NOTE: In practice, this never gets rendered as an error (we unpack it instead).
-#[derive(Error, Debug)]
-#[error("Action failed")]
-pub struct ActionError {
-    #[source]
-    pub cause: ActionErrorCause,
-    pub metadata: ActionExecutionMetadata,
-}
-
-#[derive(Error, Debug)]
-pub enum ActionErrorCause {
-    #[error("Action failed to produce outputs: {}", error_items(.0))]
-    MissingOutputs(Vec<ProjectRelativePathBuf>),
-    #[error("Action didn't produce the right set of outputs.\nExpected {}`\nGot {}", error_items(.wanted), error_items(.got))]
     MismatchedOutputs {
         wanted: Vec<ProjectRelativePathBuf>,
         got: Vec<ProjectRelativePathBuf>,
     },
-    #[error("Command timed out after {:.3}s", .elapsed.as_secs_f64())]
-    TimedOut { elapsed: Duration },
-    #[error(
-        "Command failed with exit code {}",
-        .exit_code.map(|v| v.to_string()).unwrap_or_else(|| "no_code".to_owned()),
-    )]
-    CommandFailed { exit_code: Option<i32> },
+
+    Error {
+        error: anyhow::Error,
+    },
+
+    CommandExecutionError,
 }
+
+impl From<anyhow::Error> for ExecuteError {
+    fn from(error: anyhow::Error) -> Self {
+        if error.is::<CommandExecutionErrorMarker>() {
+            return Self::CommandExecutionError;
+        }
+        Self::Error { error }
+    }
+}
+
+#[derive(Error, Debug)]
+#[error("Command execution failed. Details are in the command report.")]
+pub struct CommandExecutionErrorMarker;
 
 /// This is the result of the action as exposed to other things in the dice computation.
 #[derive(Clone, Dupe, Debug, PartialEq, Eq)]
@@ -140,11 +127,10 @@ impl Default for ActionExecutionTimingData {
 pub struct ActionExecutionMetadata {
     pub execution_kind: ActionExecutionKind,
     pub timing: ActionExecutionTimingData,
-    pub std_streams: CommandStdStreams,
 }
 
 /// The *way* that a particular action was executed.
-#[derive(Debug, Display)]
+#[derive(Debug, Display, Clone)]
 pub enum ActionExecutionKind {
     /// This action was executed locally.
     #[display(fmt = "local")]
@@ -364,7 +350,7 @@ pub trait ActionExecutor: Send + Sync {
         inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
         action: &RegisteredAction,
     ) -> (
-        anyhow::Result<(ActionOutputs, ActionExecutionMetadata)>,
+        Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError>,
         Vec<CommandExecutionReport>,
     );
 }
@@ -439,7 +425,6 @@ struct BuckActionExecutionContext<'a> {
     action: &'a RegisteredAction,
     inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
     outputs: &'a IndexSet<BuildArtifact>,
-    #[allow(unused)]
     command_reports: &'a mut Vec<CommandExecutionReport>,
 }
 
@@ -494,58 +479,28 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             <dyn ClaimManager>::new_simple(),
             self.executor.events.dupe(),
         );
-        let CommandExecutionResult {
-            outputs,
-            report:
-                CommandExecutionReport {
-                    std_streams,
-                    exit_code,
-                    metadata,
-                },
-        } = self
+        let CommandExecutionResult { outputs, report } = self
             .executor
             .command_executor
             .exec_cmd(action, request, manager)
             .await;
 
-        match metadata.status {
+        // TODO (@torozco): The execution kind should be made to come via the command reports too.
+        let res = match &report.metadata.status {
             CommandExecutionStatus::Success { execution_kind } => Ok((
                 outputs,
                 ActionExecutionMetadata {
-                    execution_kind,
-                    timing: metadata.timing.into(),
-                    std_streams,
+                    execution_kind: execution_kind.clone(),
+                    timing: report.metadata.timing.into(),
                 },
             )),
-            CommandExecutionStatus::Failure { execution_kind } => Err(ActionError {
-                cause: ActionErrorCause::CommandFailed { exit_code },
-                metadata: ActionExecutionMetadata {
-                    execution_kind,
-                    timing: metadata.timing.into(),
-                    std_streams,
-                },
-            }
-            .into()),
-            CommandExecutionStatus::TimedOut {
-                duration,
-                execution_kind,
-            } => Err(ActionError {
-                cause: ActionErrorCause::TimedOut { elapsed: duration },
-                metadata: ActionExecutionMetadata {
-                    execution_kind,
-                    timing: metadata.timing.into(),
-                    std_streams,
-                },
-            }
-            .into()),
-            CommandExecutionStatus::Error { stage, error } => {
-                // The string "During execution" is parsed by the ingress tailer, please check it if you change this string!
-                Err(error.context(format!("During execution, {}", stage)))
-            }
-            CommandExecutionStatus::ClaimRejected => {
-                panic!("should be impossible for the executor to finish with a rejected claim")
-            }
-        }
+
+            _ => Err(CommandExecutionErrorMarker.into()),
+        };
+
+        self.command_reports.push(report);
+
+        res
     }
 
     async fn cleanup_outputs(&mut self) -> anyhow::Result<()> {
@@ -594,7 +549,7 @@ impl ActionExecutor for BuckActionExecutor {
         inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
         action: &RegisteredAction,
     ) -> (
-        anyhow::Result<(ActionOutputs, ActionExecutionMetadata)>,
+        Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError>,
         Vec<CommandExecutionReport>,
     ) {
         let mut command_reports = Vec::new();
@@ -602,64 +557,48 @@ impl ActionExecutor for BuckActionExecutor {
         let res = async {
             let outputs = action.outputs()?;
 
-            let execution_result: anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> = try {
-                let mut ctx = BuckActionExecutionContext {
-                    executor: self,
-                    action,
-                    inputs,
-                    outputs: outputs.as_ref(),
-                    command_reports: &mut command_reports,
-                };
-
-                let (result, metadata) = match action.as_executable() {
-                    ActionExecutable::Pristine(exe) => {
-                        ctx.cleanup_outputs().await?;
-                        exe.execute(&mut ctx).await?
-                    }
-                    ActionExecutable::Incremental(exe) => {
-                        // Let the action perform clean up in this case.
-                        exe.execute(&mut ctx).await?
-                    }
-                };
-
-                // Check all the outputs were returned, and no additional outputs
-                // TODO (T122966509): Check projections here as well
-                if !outputs.iter().eq(result.0.outputs.keys()) {
-                    let wanted = outputs
-                        .iter()
-                        .filter(|x| !result.0.outputs.contains_key(*x))
-                        .map(|x| self.command_executor.fs().resolve_build(x))
-                        .collect();
-                    let got = result
-                        .0
-                        .outputs
-                        .keys()
-                        .filter(|x| !outputs.contains(*x))
-                        .map(|x| self.command_executor.fs().resolve_build(x))
-                        .collect::<Vec<_>>();
-                    if got.is_empty() {
-                        Err(ActionError {
-                            cause: ActionErrorCause::MissingOutputs(wanted),
-                            metadata,
-                        })
-                    } else {
-                        Err(ActionError {
-                            cause: ActionErrorCause::MismatchedOutputs { wanted, got },
-                            metadata,
-                        })
-                    }
-                } else {
-                    Ok((result, metadata))
-                }?
+            let mut ctx = BuckActionExecutionContext {
+                executor: self,
+                action,
+                inputs,
+                outputs: outputs.as_ref(),
+                command_reports: &mut command_reports,
             };
 
-            execution_result.with_context(|| {
-                format!(
-                    "Error when executing action `{}` for rule `{}`",
-                    action.name(),
-                    action.owner()
-                )
-            })
+            let (result, metadata) = match action.as_executable() {
+                ActionExecutable::Pristine(exe) => {
+                    ctx.cleanup_outputs().await?;
+                    exe.execute(&mut ctx).await?
+                }
+                ActionExecutable::Incremental(exe) => {
+                    // Let the action perform clean up in this case.
+                    exe.execute(&mut ctx).await?
+                }
+            };
+
+            // Check all the outputs were returned, and no additional outputs
+            // TODO (T122966509): Check projections here as well
+            if !outputs.iter().eq(result.0.outputs.keys()) {
+                let wanted = outputs
+                    .iter()
+                    .filter(|x| !result.0.outputs.contains_key(*x))
+                    .map(|x| self.command_executor.fs().resolve_build(x))
+                    .collect();
+                let got = result
+                    .0
+                    .outputs
+                    .keys()
+                    .filter(|x| !outputs.contains(*x))
+                    .map(|x| self.command_executor.fs().resolve_build(x))
+                    .collect::<Vec<_>>();
+                if got.is_empty() {
+                    Err(ExecuteError::MissingOutputs { wanted })
+                } else {
+                    Err(ExecuteError::MismatchedOutputs { wanted, got })
+                }
+            } else {
+                Ok((result, metadata))
+            }
         }
         .await;
 
@@ -807,7 +746,6 @@ mod tests {
     use crate::execute::blocking::testing::DummyBlockingExecutor;
     use crate::execute::cleanup_path;
     use crate::execute::commands::dry_run::DryRunExecutor;
-    use crate::execute::commands::output::CommandStdStreams;
     use crate::execute::commands::CommandExecutionInput;
     use crate::execute::commands::CommandExecutionRequest;
     use crate::execute::commands::CommandExecutor;
@@ -930,7 +868,6 @@ mod tests {
                     ActionExecutionMetadata {
                         execution_kind: ActionExecutionKind::Simple,
                         timing: ActionExecutionTimingData::default(),
-                        std_streams: CommandStdStreams::Empty,
                     },
                 ))
             }

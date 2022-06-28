@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::fmt::Display;
+use std::fmt::Write;
 use std::sync::Arc;
 
 use anyhow::Context;
@@ -30,10 +32,10 @@ use crate::actions::RegisteredAction;
 use crate::artifact_groups::calculation::ArtifactGroupCalculation;
 use crate::deferred::calculation::DeferredCalculation;
 use crate::events::proto::ToProtoMessage;
-use crate::execute::ActionError;
-use crate::execute::ActionErrorCause;
-use crate::execute::ActionExecutionMetadata;
+use crate::execute::commands::CommandExecutionReport;
+use crate::execute::commands::CommandExecutionStatus;
 use crate::execute::ActionOutputs;
+use crate::execute::ExecuteError;
 use crate::execute::HasActionExecutor;
 use crate::keep_going;
 
@@ -133,7 +135,7 @@ impl ActionCalculation for DiceComputations {
                 // this can be RE
                 events
                     .span_async(start_event, async move {
-                        let (execute_result, _command_reports) =
+                        let (execute_result, command_reports) =
                             executor.execute(materialized_inputs, &action).await;
 
                         let action_result;
@@ -154,7 +156,12 @@ impl ActionCalculation for DiceComputations {
 
                                 output_size = outputs.calc_output_bytes();
                                 action_result = Ok(outputs);
-                                success_stderr = Some(meta.std_streams.to_lossy_stderr().await);
+                                success_stderr = match command_reports.last() {
+                                    Some(report) => {
+                                        Some(report.std_streams.to_lossy_stderr().await)
+                                    }
+                                    None => None,
+                                };
                                 execution_kind = Some(meta.execution_kind.as_enum());
                                 wall_time = Some(meta.timing.wall_time);
                                 error = None;
@@ -171,11 +178,12 @@ impl ActionCalculation for DiceComputations {
                                 )
                                 .into());
                                 success_stderr = None;
-                                execution_kind = e
-                                    .downcast_ref::<ActionError>()
-                                    .map(|e| e.metadata.execution_kind.as_enum());
+                                execution_kind = command_reports
+                                    .last()
+                                    .and_then(|r| r.metadata.status.execution_kind())
+                                    .map(|e| e.as_enum());
                                 wall_time = None;
-                                error = Some(error_to_proto(&e).await);
+                                error = Some(error_to_proto(&e, &command_reports).await);
                                 output_size = 0;
                             }
                         };
@@ -228,79 +236,113 @@ impl ActionCalculation for DiceComputations {
     }
 }
 
-async fn error_to_proto(err: &anyhow::Error) -> buck2_data::action_execution_end::Error {
-    match err.downcast_ref::<ActionError>() {
-        // CommandFailed errors don't necessarily have an exit code; no exit code implies that some other failure
-        // happened during action execution (e.g. RE problems) that prevented the command from being executed.
-        //
-        // They are not user errors, so they're listed as Unknown errors here.
-        //
-        // TODO (torozco): Those should use manager.error() and they won't be ActionError (just a
-        // regular anyhow::Error). We should update the exit_code to come via CommandExecutionStatus
-        // and have it only on Success and Failure, which would prove this branch cannot in fact
-        // exist.
-        Some(
-            err @ ActionError {
-                cause:
-                    ActionErrorCause::CommandFailed {
-                        exit_code: None, ..
-                    },
-                ..
-            },
-        ) => buck2_data::action_execution_end::Error::Unknown(format!("{:#}", err)),
-        Some(ActionError {
-            cause,
-            metadata:
-                ActionExecutionMetadata {
-                    std_streams,
-                    execution_kind,
-                    timing: _,
+async fn error_to_proto(
+    err: &ExecuteError,
+    command_reports: &[CommandExecutionReport],
+) -> buck2_data::action_execution_end::Error {
+    let command = match command_reports.last() {
+        Some(command) => Some(command_details(command).await),
+        None => None,
+    };
+
+    match err {
+        ExecuteError::MissingOutputs { wanted } => {
+            buck2_data::action_execution_end::Error::MissingOutputs(
+                buck2_data::action_execution_end::CommandOutputsMissing {
+                    command,
+                    message: format!("Action failed to produce outputs: {}", error_items(wanted)),
                 },
-        }) => {
-            // NOTE: This is a bit sketchy. We know that either we don't care about the exit code,
-            // or that it's there and nonzero. A better representation would be to move the
-            // exit_code to only be present on the CommandFailed variant, but that's a breaking
-            // protobuf change for little benefit, so for now we don't do it.
-            let exit_code = match cause {
-                ActionErrorCause::CommandFailed { exit_code: Some(i) } => *i as u32,
-                _ => 0,
-            };
-
-            let std_streams = std_streams.to_lossy().await;
-
-            let command = buck2_data::action_execution_end::CommandExecutionDetails {
-                exit_code,
-                stdout: std_streams.stdout,
-                stderr: std_streams.stderr,
-                local_command: execution_kind.as_local_command(),
-                remote_command: execution_kind.as_remote_command(),
-            };
-
-            match cause {
-                outputs @ ActionErrorCause::MissingOutputs(..)
-                | outputs @ ActionErrorCause::MismatchedOutputs { .. } => {
-                    buck2_data::action_execution_end::Error::MissingOutputs(
-                        buck2_data::action_execution_end::CommandOutputsMissing {
-                            command: Some(command),
-                            message: format!("{:#}", outputs),
-                        },
-                    )
-                }
-                timed_out @ ActionErrorCause::TimedOut { .. } => {
-                    buck2_data::action_execution_end::Error::TimedOut(
-                        buck2_data::action_execution_end::CommandTimedOut {
-                            command: Some(command),
-                            message: format!("{:#}", timed_out),
-                        },
-                    )
-                }
-                ActionErrorCause::CommandFailed { .. } => {
-                    buck2_data::action_execution_end::Error::CommandFailed(command)
-                }
-            }
+            )
         }
-        None => buck2_data::action_execution_end::Error::Unknown(format!("{:#}", err)),
+        ExecuteError::MismatchedOutputs { wanted, got } => {
+            buck2_data::action_execution_end::Error::MissingOutputs(
+                buck2_data::action_execution_end::CommandOutputsMissing {
+                    command,
+                    message: format!(
+                        "Action didn't produce the right set of outputs.\nExpected {}`\nGot {}",
+                        error_items(wanted),
+                        error_items(got)
+                    ),
+                },
+            )
+        }
+        ExecuteError::Error { error } => {
+            buck2_data::action_execution_end::Error::Unknown(format!("{:#}", error))
+        }
+        ExecuteError::CommandExecutionError => make_command_failed(command_reports, command)
+            .unwrap_or_else(|| {
+                buck2_data::action_execution_end::Error::Unknown(
+                    "Command failed but CommandReport was not a failure!".to_owned(),
+                )
+            }),
     }
+}
+
+fn make_command_failed(
+    command_reports: &[CommandExecutionReport],
+    command: Option<buck2_data::action_execution_end::CommandExecutionDetails>,
+) -> Option<buck2_data::action_execution_end::Error> {
+    let command_report = command_reports.last()?;
+    let command = command?;
+
+    let res = match &command_report.metadata.status {
+        CommandExecutionStatus::Success { .. } | CommandExecutionStatus::ClaimRejected => {
+            return None;
+        }
+        CommandExecutionStatus::Failure { .. } => {
+            buck2_data::action_execution_end::Error::CommandFailed(command)
+        }
+        CommandExecutionStatus::TimedOut { duration, .. } => {
+            buck2_data::action_execution_end::Error::TimedOut(
+                buck2_data::action_execution_end::CommandTimedOut {
+                    command: Some(command),
+                    message: format!("Command timed out after {:.3}s", duration.as_secs_f64()),
+                },
+            )
+        }
+        CommandExecutionStatus::Error { stage, error } => {
+            buck2_data::action_execution_end::Error::Unknown(format!(
+                "During execution, {}: {:#}",
+                stage, error
+            ))
+        }
+    };
+
+    Some(res)
+}
+
+async fn command_details(
+    command: &CommandExecutionReport,
+) -> buck2_data::action_execution_end::CommandExecutionDetails {
+    // NOTE: This is a bit sketchy. We know that either we don't care about the exit code,
+    // or that it's there and nonzero. A better representation would be to move the
+    // exit_code to only be present on the CommandFailed variant, but that's a breaking
+    // protobuf change for little benefit, so for now we don't do it.
+    let exit_code = command.exit_code.unwrap_or(0) as u32;
+    let std_streams = command.std_streams.to_lossy().await;
+    let execution_kind = command.metadata.status.execution_kind();
+
+    buck2_data::action_execution_end::CommandExecutionDetails {
+        exit_code,
+        stdout: std_streams.stdout,
+        stderr: std_streams.stderr,
+        local_command: execution_kind.and_then(|e| e.as_local_command()),
+        remote_command: execution_kind.and_then(|e| e.as_remote_command()),
+    }
+}
+
+fn error_items<T: Display>(xs: &[T]) -> String {
+    if xs.is_empty() {
+        return "none".to_owned();
+    }
+    let mut res = String::new();
+    for (i, x) in xs.iter().enumerate() {
+        if i != 0 {
+            res.push_str(", ");
+        }
+        write!(res, "`{}`", x).unwrap();
+    }
+    res
 }
 
 #[cfg(test)]

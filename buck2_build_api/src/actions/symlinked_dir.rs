@@ -220,7 +220,6 @@ impl PristineActionExecutable for SymlinkedDirAction {
             ActionExecutionMetadata {
                 execution_kind: ActionExecutionKind::Simple,
                 timing: ActionExecutionTimingData::default(),
-                std_streams: Default::default(),
             },
         ))
     }

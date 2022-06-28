@@ -84,7 +84,7 @@ pub struct CommandExecutionReport {
     pub exit_code: Option<i32>,
 
     /// metadata holds information about **how** the result was produced rather than information about the result itself.
-    pub metadata: CommandExecutionMetadata,
+    pub metadata: CommandExecutionMetadata, // TODO (@torozco): flatten
 }
 
 /// Implement FromResidual so that it's easier to refactor functions returning a CommandExecutionResult
@@ -100,7 +100,7 @@ impl FromResidual<ControlFlow<Self, Infallible>> for CommandExecutionResult {
 
 /// Unlike action where we only really have just 1 time, commands can have slightly richer timing
 /// data.
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, Dupe)]
 pub struct CommandExecutionTimingData {
     /// How long this build actually waited for this action to complete
     pub wall_time: Duration,
@@ -693,6 +693,18 @@ pub enum CommandExecutionStatus {
         duration: Duration,
     },
     ClaimRejected,
+}
+
+impl CommandExecutionStatus {
+    pub fn execution_kind(&self) -> Option<&ActionExecutionKind> {
+        match self {
+            CommandExecutionStatus::Success { execution_kind, .. } => Some(execution_kind),
+            CommandExecutionStatus::Failure { execution_kind } => Some(execution_kind),
+            CommandExecutionStatus::Error { .. } => None,
+            CommandExecutionStatus::TimedOut { execution_kind, .. } => Some(execution_kind),
+            CommandExecutionStatus::ClaimRejected => None,
+        }
+    }
 }
 
 impl Display for CommandExecutionStatus {

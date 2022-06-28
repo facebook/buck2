@@ -192,7 +192,6 @@ impl PristineActionExecutable for WriteMacrosToFileAction {
             ActionExecutionMetadata {
                 execution_kind: ActionExecutionKind::Simple,
                 timing: ActionExecutionTimingData { wall_time },
-                std_streams: Default::default(),
             },
         ))
     }
