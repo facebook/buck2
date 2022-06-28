@@ -49,7 +49,7 @@ test_fat_binary(
 # linux host (the normal fat platform always uses linux RE).
 fat_platform = execution_platform(
     name = "fat_platform",
-    base_platform = "fbcode//buck2/platform/execution:fat_platform_posix_platform009",
+    base_platform = "fbcode//buck2/platform/execution:fat_platform_posix_platform010",
     local_enabled = True,
     remote_enabled = True,
     remote_execution_properties = {

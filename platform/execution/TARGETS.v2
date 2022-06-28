@@ -113,7 +113,7 @@ windows_platforms = execution_platform(
 
 fat_mac_linux = execution_platform(
     name = "fat_mac_linux",
-    base_platform = ":fat_platform_posix_platform009",
+    base_platform = ":fat_platform_posix_platform010",
     local_enabled = True,
     remote_enabled = True,
     remote_execution_properties = {
@@ -217,14 +217,14 @@ prelude.constraint_setting(
 ]
 
 prelude.platform(
-    name = "fat_platform_posix_platform009",
+    name = "fat_platform_posix_platform010",
     # TODO(cjhopman): we probably want to actually have some base os-agnostic
     # platform that all of these, including the fat platform, depend on, but
     # the fbsource platforms just aren't that useful yet.
     constraint_values = [
         ":fat_platform_enabled",
         ":fat_platform_mac=x86_64-fbsource",
-        ":fat_platform_linux=platform009",
+        ":fat_platform_linux=platform010",
     ],
     visibility = ["PUBLIC"],
 )
