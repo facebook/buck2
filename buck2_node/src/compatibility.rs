@@ -101,9 +101,15 @@ impl<T: MaybeCompatibleTypeConstraints> MaybeCompatible<T> {
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
-pub struct IncompatiblePlatformReason {
-    pub root_incompatible_target: ConfiguredTargetLabel,
-    pub unsatisfied_config: TargetLabel,
+pub enum IncompatiblePlatformReason {
+    Root {
+        target: ConfiguredTargetLabel,
+        unsatisfied_config: TargetLabel,
+    },
+    Dependent {
+        target: ConfiguredTargetLabel,
+        previous: Arc<IncompatiblePlatformReason>,
+    },
 }
 
 impl IncompatiblePlatformReason {
@@ -147,13 +153,23 @@ impl IncompatiblePlatformReason {
 
 impl Display for IncompatiblePlatformReason {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{} incompatible in configuration {} ({} unsatisfied)",
-            self.root_incompatible_target.unconfigured(),
-            self.root_incompatible_target.cfg(),
-            &self.unsatisfied_config
-        )
+        match self {
+            IncompatiblePlatformReason::Root {
+                target,
+                unsatisfied_config,
+            } => write!(
+                f,
+                "{} incompatible ({} unsatisfied)",
+                target, unsatisfied_config
+            ),
+            IncompatiblePlatformReason::Dependent { target, previous } => {
+                if f.alternate() {
+                    write!(f, "{}\n-> {:#}", target, previous)
+                } else {
+                    write!(f, "{} -> {}", target, previous)
+                }
+            }
+        }
     }
 }
 

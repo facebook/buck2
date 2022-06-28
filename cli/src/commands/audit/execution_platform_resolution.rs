@@ -15,6 +15,7 @@ use buck2_build_api::calculation::Calculation;
 use buck2_core::configuration::Configuration;
 use buck2_core::pattern::TargetPattern;
 use cli_proto::ClientContext;
+use indent_write::io::IndentWriter;
 
 use crate::commands::audit::AuditSubcommand;
 use crate::commands::common::CommonConfigOptions;
@@ -105,7 +106,7 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
                     }
                     for (label, reason) in resolution.skipped() {
                         writeln!(stdout, "    Skipped {}", label)?;
-                        writeln!(stdout, "      {}", reason)?;
+                        writeln!(IndentWriter::new("      ", &mut stdout), "{:#}", reason)?;
                     }
                 }
                 Err(e) => writeln!(stdout, "{}", e)?,

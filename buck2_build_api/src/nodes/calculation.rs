@@ -307,8 +307,8 @@ fn check_compatible(
         }
     };
     Ok(MaybeCompatible::Incompatible(Arc::new(
-        IncompatiblePlatformReason {
-            root_incompatible_target: target_label.dupe(),
+        IncompatiblePlatformReason::Root {
+            target: target_label.dupe(),
             unsatisfied_config: incompatible_target,
         },
     )))
@@ -424,7 +424,10 @@ async fn compute_configured_target_node_no_transition(
         match result {
             Err(e) => ControlFlow::Break(Err(e)),
             Ok(MaybeCompatible::Incompatible(reason)) => {
-                ControlFlow::Break(Ok(MaybeCompatible::Incompatible(reason.dupe())))
+                ControlFlow::Break(Ok(MaybeCompatible::Incompatible(Arc::new(IncompatiblePlatformReason::Dependent{
+                    target: target_label.dupe(),
+                    previous: reason.dupe(),
+                }))))
             }
             Ok(MaybeCompatible::Compatible(dep)) => {
                 if !dep.is_visible_to(target_label.unconfigured()) {

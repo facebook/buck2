@@ -12,7 +12,6 @@ use std::sync::Arc;
 use buck2_core::configuration::Configuration;
 use buck2_core::target::TargetLabel;
 use buck2_node::compatibility::IncompatiblePlatformReason;
-use derive_more::Display;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use thiserror::Error;
@@ -93,15 +92,23 @@ impl ExecutionPlatform {
     }
 }
 
-#[derive(Display, Debug, Eq, PartialEq, Hash)]
+#[derive(Debug, Eq, PartialEq, Hash)]
 pub enum ExecutionPlatformIncompatibleReason {
-    #[display(
-        fmt = "exec_compatible_with requires `{}` but it was not satisfied",
-        _0
-    )]
     ConstraintNotSatisfied(TargetLabel),
-    #[display(fmt = "{} incompatible due to {}", _0, _1)]
     ExecutionDependencyIncompatible(TargetLabel, Arc<IncompatiblePlatformReason>),
+}
+
+impl std::fmt::Display for ExecutionPlatformIncompatibleReason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ExecutionPlatformIncompatibleReason::ConstraintNotSatisfied(v) => write!(
+                f,
+                "exec_compatible_with requires `{}` but it was not satisfied",
+                v
+            ),
+            ExecutionPlatformIncompatibleReason::ExecutionDependencyIncompatible(_, v) => v.fmt(f),
+        }
+    }
 }
 
 #[derive(Debug, Error)]
