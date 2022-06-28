@@ -248,7 +248,7 @@ async fn error_to_proto(
     match err {
         ExecuteError::MissingOutputs { wanted } => {
             buck2_data::action_execution_end::Error::MissingOutputs(
-                buck2_data::action_execution_end::CommandOutputsMissing {
+                buck2_data::CommandOutputsMissing {
                     command,
                     message: format!("Action failed to produce outputs: {}", error_items(wanted)),
                 },
@@ -256,7 +256,7 @@ async fn error_to_proto(
         }
         ExecuteError::MismatchedOutputs { wanted, got } => {
             buck2_data::action_execution_end::Error::MissingOutputs(
-                buck2_data::action_execution_end::CommandOutputsMissing {
+                buck2_data::CommandOutputsMissing {
                     command,
                     message: format!(
                         "Action didn't produce the right set of outputs.\nExpected {}`\nGot {}",
@@ -280,7 +280,7 @@ async fn error_to_proto(
 
 fn make_command_failed(
     command_reports: &[CommandExecutionReport],
-    command: Option<buck2_data::action_execution_end::CommandExecutionDetails>,
+    command: Option<buck2_data::CommandExecutionDetails>,
 ) -> Option<buck2_data::action_execution_end::Error> {
     let command_report = command_reports.last()?;
     let command = command?;
@@ -293,12 +293,10 @@ fn make_command_failed(
             buck2_data::action_execution_end::Error::CommandFailed(command)
         }
         CommandExecutionStatus::TimedOut { duration, .. } => {
-            buck2_data::action_execution_end::Error::TimedOut(
-                buck2_data::action_execution_end::CommandTimedOut {
-                    command: Some(command),
-                    message: format!("Command timed out after {:.3}s", duration.as_secs_f64()),
-                },
-            )
+            buck2_data::action_execution_end::Error::TimedOut(buck2_data::CommandTimedOut {
+                command: Some(command),
+                message: format!("Command timed out after {:.3}s", duration.as_secs_f64()),
+            })
         }
         CommandExecutionStatus::Error { stage, error } => {
             buck2_data::action_execution_end::Error::Unknown(format!(
@@ -311,9 +309,7 @@ fn make_command_failed(
     Some(res)
 }
 
-async fn command_details(
-    command: &CommandExecutionReport,
-) -> buck2_data::action_execution_end::CommandExecutionDetails {
+async fn command_details(command: &CommandExecutionReport) -> buck2_data::CommandExecutionDetails {
     // NOTE: This is a bit sketchy. We know that either we don't care about the exit code,
     // or that it's there and nonzero. A better representation would be to move the
     // exit_code to only be present on the CommandFailed variant, but that's a breaking
@@ -322,7 +318,7 @@ async fn command_details(
     let std_streams = command.std_streams.to_lossy().await;
     let execution_kind = command.status.execution_kind();
 
-    buck2_data::action_execution_end::CommandExecutionDetails {
+    buck2_data::CommandExecutionDetails {
         exit_code,
         stdout: std_streams.stdout,
         stderr: std_streams.stderr,

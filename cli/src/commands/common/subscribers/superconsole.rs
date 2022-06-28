@@ -12,7 +12,7 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_data::action_execution_end::CommandExecutionDetails;
+use buck2_data::CommandExecutionDetails;
 use events::subscriber::EventSubscriber;
 use events::subscriber::Tick;
 use events::BuckEvent;
@@ -550,7 +550,7 @@ fn lines_for_command_failed(
 
 fn lines_for_command_missing_outputs(
     action: &buck2_data::ActionExecutionEnd,
-    missing_outputs: &buck2_data::action_execution_end::CommandOutputsMissing,
+    missing_outputs: &buck2_data::CommandOutputsMissing,
     verbosity: Verbosity,
     lines: &mut Vec<Line>,
 ) {
@@ -575,7 +575,7 @@ fn lines_for_command_missing_outputs(
 
 fn lines_for_command_timed_out(
     action: &buck2_data::ActionExecutionEnd,
-    timed_out: &buck2_data::action_execution_end::CommandTimedOut,
+    timed_out: &buck2_data::CommandTimedOut,
     verbosity: Verbosity,
     lines: &mut Vec<Line>,
 ) {

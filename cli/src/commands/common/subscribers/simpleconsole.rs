@@ -14,7 +14,7 @@ use std::time::Instant;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_data::action_execution_end::CommandExecutionDetails;
+use buck2_data::CommandExecutionDetails;
 use events::subscriber::EventSubscriber;
 use events::subscriber::Tick;
 use events::BuckEvent;

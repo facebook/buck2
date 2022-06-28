@@ -570,33 +570,33 @@ message ActionExecutionStart {
   ActionName name = 4;
 }
 
+message CommandExecutionDetails {
+  reserved 6;
+
+  // The exit code of the failed command.
+  uint32 exit_code = 1;
+  // The stdout of the failed command.
+  string stdout = 2;
+  // The stderr of the failed command.
+  string stderr = 3;
+  // The failed command, if it was local.
+  LocalCommand local_command = 7;
+  // The failed command, if it was remote.
+  RemoteCommand remote_command = 8;
+}
+
+message CommandOutputsMissing {
+  CommandExecutionDetails command = 1;
+  // A description of what outputs are missing.
+  string message = 2;
+}
+
+message CommandTimedOut {
+  CommandExecutionDetails command = 1;
+  string message = 2;
+}
+
 message ActionExecutionEnd {
-  message CommandExecutionDetails {
-    reserved 6;
-
-    // The exit code of the failed command.
-    uint32 exit_code = 1;
-    // The stdout of the failed command.
-    string stdout = 2;
-    // The stderr of the failed command.
-    string stderr = 3;
-    // The failed command, if it was local.
-    LocalCommand local_command = 7;
-    // The failed command, if it was remote.
-    RemoteCommand remote_command = 8;
-  }
-
-  message CommandOutputsMissing {
-    CommandExecutionDetails command = 1;
-    // A description of what outputs are missing.
-    string message = 2;
-  }
-
-  message CommandTimedOut {
-    CommandExecutionDetails command = 1;
-    string message = 2;
-  }
-
   reserved 2;
 
   // A unique key identifying this action within the build.
