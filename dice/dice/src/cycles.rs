@@ -44,12 +44,13 @@ impl FromStr for DetectCycles {
     }
 }
 
-pub trait CycleKey: Display + Debug + Send + Sync {
+/// A `Key` that has been requested within Dice.
+pub trait RequestedKey: Display + Debug + Send + Sync {
     fn get_key_equality(&self) -> PartialEqAny;
     fn hash(&self, state: &mut dyn Hasher);
 }
 
-impl<T> CycleKey for T
+impl<T> RequestedKey for T
 where
     T: Display + Debug + Hash + Eq + Send + Sync + 'static,
 {
@@ -62,22 +63,22 @@ where
     }
 }
 
-impl Hash for dyn CycleKey {
+impl Hash for dyn RequestedKey {
     fn hash<H: Hasher>(&self, mut state: &mut H) {
         self.hash(&mut state)
     }
 }
 
-impl PartialEq for dyn CycleKey {
+impl PartialEq for dyn RequestedKey {
     fn eq(&self, other: &Self) -> bool {
         self.get_key_equality() == other.get_key_equality()
     }
 }
 
-impl Eq for dyn CycleKey {}
+impl Eq for dyn RequestedKey {}
 
 pub(crate) struct CycleDetector {
-    stack: IndexSet<Arc<dyn CycleKey>>,
+    stack: IndexSet<Arc<dyn RequestedKey>>,
 }
 
 impl CycleDetector {
