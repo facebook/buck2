@@ -196,8 +196,13 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
         Ok(self.implementation.allpaths(env, &from, &to).await?.into())
     }
 
-    async fn somepath(&self) -> QueryFuncResult<Env> {
-        Ok(self.implementation.somepath()?.into())
+    async fn somepath(
+        &self,
+        env: &Env,
+        from: TargetSet<Env::Target>,
+        to: TargetSet<Env::Target>,
+    ) -> QueryFuncResult<Env> {
+        Ok(self.implementation.somepath(env, &from, &to).await?.into())
     }
 
     async fn attrfilter(
@@ -364,8 +369,13 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         Ok(env.allpaths(from, to).await?)
     }
 
-    pub fn somepath(&self) -> Result<TargetSet<Env::Target>, QueryError> {
-        Err(QueryError::FunctionUnimplemented("somepath"))
+    pub async fn somepath(
+        &self,
+        env: &Env,
+        from: &TargetSet<Env::Target>,
+        to: &TargetSet<Env::Target>,
+    ) -> Result<TargetSet<Env::Target>, QueryError> {
+        Ok(env.somepath(from, to).await?)
     }
 
     pub fn attrfilter(
