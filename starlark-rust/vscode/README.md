@@ -1,5 +1,9 @@
 # Starlark VS Code LSP extension
 
+A VSCode LSP extension that talks over stdin/stdout to a binary. This can either be the starlark binary itself, or any binary that has implemented `starlark::lsp::server::LspContext` and runs `starlark::lsp::server::stdio_server()`.
+
+If using another binary, the settings to be aware of are `starlark.lspPath` (the binary path) and `starlark.lspArguments` (the arguments to that binary). These are available in the VSCode extension settings UI.
+
 Based on a combination of:
 
 * Tutorial at https://code.visualstudio.com/api/language-extensions/language-server-extension-guide
@@ -24,8 +28,10 @@ You need to have npm v7+ installed. Afterwards, run `npm install` in this folder
 - Follow steps in Pre-requisites section.
 - Run `npm install vsce`
 - Run `npm exec vsce package`
-- In VS Code, go to Extensions, click on the "..." button in the Extensions bar, select "Install from VSIX" and then select the `starlark-1.0.0.vsix` file.
-- Build Starlark binary and put it on your `$PATH`, e.g. `cargo build --bin=starlark && cp $CARGO_TARGET_DIR/debug/starlark ~/.cargo/bin/starlark`.
+- In VS Code, go to Extensions, click on the "..." button in the Extensions bar, select "Install from VSIX" and then select the `starlark-1.0.0.vsix` file that was produced.
+- Build the starlark binary with `cargo build --bin=starlark` and then do one of:
+  - Put it on your `$PATH`, e.g. `cp $CARGO_TARGET_DIR/debug/starlark ~/.cargo/bin/starlark`.
+  - Configure the setting `starlark.lspPath` for this extension to point to the starlark binary. e.g. `$CARGO_TARGET_DIR/debug/starlark`.
 
 ## Updating
 
