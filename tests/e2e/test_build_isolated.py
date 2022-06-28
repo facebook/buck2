@@ -1,5 +1,4 @@
 import fileinput
-import gzip
 import json
 import os
 import platform
