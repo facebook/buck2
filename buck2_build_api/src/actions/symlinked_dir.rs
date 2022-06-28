@@ -182,7 +182,7 @@ impl Action for SymlinkedDirAction {
 impl PristineActionExecutable for SymlinkedDirAction {
     async fn execute(
         &self,
-        ctx: &dyn ActionExecutionCtx,
+        ctx: &mut dyn ActionExecutionCtx,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let fs = ctx.fs().fs();
         let output = ctx.fs().resolve_build(self.output());

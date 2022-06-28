@@ -310,7 +310,7 @@ impl Action for WriteJsonAction {
 impl PristineActionExecutable for WriteJsonAction {
     async fn execute(
         &self,
-        ctx: &dyn ActionExecutionCtx,
+        ctx: &mut dyn ActionExecutionCtx,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let fs = ctx.fs();
 

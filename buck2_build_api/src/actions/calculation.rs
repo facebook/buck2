@@ -133,7 +133,8 @@ impl ActionCalculation for DiceComputations {
                 // this can be RE
                 events
                     .span_async(start_event, async move {
-                        let execute_result = executor.execute(materialized_inputs, &action).await;
+                        let (execute_result, _command_reports) =
+                            executor.execute(materialized_inputs, &action).await;
 
                         let action_result;
                         let success_stderr;

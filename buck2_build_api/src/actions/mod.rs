@@ -184,7 +184,7 @@ pub trait PristineActionExecutable: Send + Sync + 'static {
     /// up. Upon success, it is expected that all outputs will be available
     async fn execute(
         &self,
-        ctx: &dyn ActionExecutionCtx,
+        ctx: &mut dyn ActionExecutionCtx,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)>;
 }
 
@@ -215,7 +215,7 @@ pub trait ActionExecutionCtx: Send + Sync {
 
     /// Executes a command
     async fn exec_cmd(
-        &self,
+        &mut self,
         request: &CommandExecutionRequest,
     ) -> anyhow::Result<(
         IndexMap<CommandExecutionOutput, ArtifactValue>,
@@ -716,7 +716,7 @@ pub mod testing {
     impl PristineActionExecutable for SimpleAction {
         async fn execute(
             &self,
-            ctx: &dyn ActionExecutionCtx,
+            ctx: &mut dyn ActionExecutionCtx,
         ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
             let req = CommandExecutionRequest::new(
                 self.cmd.clone(),

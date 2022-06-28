@@ -189,7 +189,7 @@ impl Action for WriteAction {
 impl PristineActionExecutable for WriteAction {
     async fn execute(
         &self,
-        ctx: &dyn ActionExecutionCtx,
+        ctx: &mut dyn ActionExecutionCtx,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let fs = ctx.fs();
 

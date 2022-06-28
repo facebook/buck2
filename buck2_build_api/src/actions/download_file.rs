@@ -213,7 +213,7 @@ impl Action for DownloadFileAction {
 impl PristineActionExecutable for DownloadFileAction {
     async fn execute(
         &self,
-        ctx: &dyn ActionExecutionCtx,
+        ctx: &mut dyn ActionExecutionCtx,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let artifact_fs = ctx.fs();
         let project_fs = artifact_fs.fs();

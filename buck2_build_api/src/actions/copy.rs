@@ -153,7 +153,7 @@ impl Action for CopyAction {
 impl PristineActionExecutable for CopyAction {
     async fn execute(
         &self,
-        ctx: &dyn ActionExecutionCtx,
+        ctx: &mut dyn ActionExecutionCtx,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let (input, src_value) = ctx
             .artifact_values(self.input())

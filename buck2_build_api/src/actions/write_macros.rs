@@ -141,7 +141,7 @@ impl Action for WriteMacrosToFileAction {
 impl PristineActionExecutable for WriteMacrosToFileAction {
     async fn execute(
         &self,
-        ctx: &dyn ActionExecutionCtx,
+        ctx: &mut dyn ActionExecutionCtx,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let mut execution_start = None;
 

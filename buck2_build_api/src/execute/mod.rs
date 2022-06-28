@@ -363,7 +363,10 @@ pub trait ActionExecutor: Send + Sync {
         &self,
         inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
         action: &RegisteredAction,
-    ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)>;
+    ) -> (
+        anyhow::Result<(ActionOutputs, ActionExecutionMetadata)>,
+        Vec<CommandExecutionReport>,
+    );
 }
 
 #[async_trait]
@@ -436,6 +439,8 @@ struct BuckActionExecutionContext<'a> {
     action: &'a RegisteredAction,
     inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
     outputs: &'a IndexSet<BuildArtifact>,
+    #[allow(unused)]
+    command_reports: &'a mut Vec<CommandExecutionReport>,
 }
 
 #[async_trait]
@@ -477,7 +482,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     }
 
     async fn exec_cmd(
-        &self,
+        &mut self,
         request: &CommandExecutionRequest,
     ) -> anyhow::Result<(
         IndexMap<CommandExecutionOutput, ArtifactValue>,
@@ -588,66 +593,77 @@ impl ActionExecutor for BuckActionExecutor {
         &self,
         inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
         action: &RegisteredAction,
-    ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
-        let outputs = action.outputs()?;
+    ) -> (
+        anyhow::Result<(ActionOutputs, ActionExecutionMetadata)>,
+        Vec<CommandExecutionReport>,
+    ) {
+        let mut command_reports = Vec::new();
 
-        let execution_result: anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> = try {
-            let mut ctx = BuckActionExecutionContext {
-                executor: self,
-                action,
-                inputs,
-                outputs: outputs.as_ref(),
-            };
+        let res = async {
+            let outputs = action.outputs()?;
 
-            let (result, metadata) = match action.as_executable() {
-                ActionExecutable::Pristine(exe) => {
-                    ctx.cleanup_outputs().await?;
-                    exe.execute(&ctx).await?
-                }
-                ActionExecutable::Incremental(exe) => {
-                    // Let the action perform clean up in this case.
-                    exe.execute(&mut ctx).await?
-                }
-            };
+            let execution_result: anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> = try {
+                let mut ctx = BuckActionExecutionContext {
+                    executor: self,
+                    action,
+                    inputs,
+                    outputs: outputs.as_ref(),
+                    command_reports: &mut command_reports,
+                };
 
-            // Check all the outputs were returned, and no additional outputs
-            // TODO (T122966509): Check projections here as well
-            if !outputs.iter().eq(result.0.outputs.keys()) {
-                let wanted = outputs
-                    .iter()
-                    .filter(|x| !result.0.outputs.contains_key(*x))
-                    .map(|x| self.command_executor.fs().resolve_build(x))
-                    .collect();
-                let got = result
-                    .0
-                    .outputs
-                    .keys()
-                    .filter(|x| !outputs.contains(*x))
-                    .map(|x| self.command_executor.fs().resolve_build(x))
-                    .collect::<Vec<_>>();
-                if got.is_empty() {
-                    Err(ActionError {
-                        cause: ActionErrorCause::MissingOutputs(wanted),
-                        metadata,
-                    })
+                let (result, metadata) = match action.as_executable() {
+                    ActionExecutable::Pristine(exe) => {
+                        ctx.cleanup_outputs().await?;
+                        exe.execute(&mut ctx).await?
+                    }
+                    ActionExecutable::Incremental(exe) => {
+                        // Let the action perform clean up in this case.
+                        exe.execute(&mut ctx).await?
+                    }
+                };
+
+                // Check all the outputs were returned, and no additional outputs
+                // TODO (T122966509): Check projections here as well
+                if !outputs.iter().eq(result.0.outputs.keys()) {
+                    let wanted = outputs
+                        .iter()
+                        .filter(|x| !result.0.outputs.contains_key(*x))
+                        .map(|x| self.command_executor.fs().resolve_build(x))
+                        .collect();
+                    let got = result
+                        .0
+                        .outputs
+                        .keys()
+                        .filter(|x| !outputs.contains(*x))
+                        .map(|x| self.command_executor.fs().resolve_build(x))
+                        .collect::<Vec<_>>();
+                    if got.is_empty() {
+                        Err(ActionError {
+                            cause: ActionErrorCause::MissingOutputs(wanted),
+                            metadata,
+                        })
+                    } else {
+                        Err(ActionError {
+                            cause: ActionErrorCause::MismatchedOutputs { wanted, got },
+                            metadata,
+                        })
+                    }
                 } else {
-                    Err(ActionError {
-                        cause: ActionErrorCause::MismatchedOutputs { wanted, got },
-                        metadata,
-                    })
-                }
-            } else {
-                Ok((result, metadata))
-            }?
-        };
+                    Ok((result, metadata))
+                }?
+            };
 
-        execution_result.with_context(|| {
-            format!(
-                "Error when executing action `{}` for rule `{}`",
-                action.name(),
-                action.owner()
-            )
-        })
+            execution_result.with_context(|| {
+                format!(
+                    "Error when executing action `{}` for rule `{}`",
+                    action.name(),
+                    action.owner()
+                )
+            })
+        }
+        .await;
+
+        (res, command_reports)
     }
 }
 
@@ -876,7 +892,7 @@ mod tests {
         impl PristineActionExecutable for TestingAction {
             async fn execute(
                 &self,
-                ctx: &dyn ActionExecutionCtx,
+                ctx: &mut dyn ActionExecutionCtx,
             ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
                 self.ran.store(true, Ordering::SeqCst);
 
@@ -954,7 +970,11 @@ mod tests {
             },
             CommandExecutorConfig::testing_local(),
         );
-        let res = executor.execute(Default::default(), &action).await.unwrap();
+        let res = executor
+            .execute(Default::default(), &action)
+            .await
+            .0
+            .unwrap();
         let outputs = outputs
             .iter()
             .map(|o| (o.dupe(), ArtifactValue::empty_file()))
