@@ -99,7 +99,8 @@ All (non-configuration) rules support a `target_compatible_with` attribute. In a
 `target_compatible_with` constraints that affect all instances. The `target_compatible_with` attribute is a list of
 constraints/config settings and it **is selectable**.
 
-Target platform compatibility is transitive, all dependents of an incompatible target are incompatible.
+Target platform compatibility is transitive, all *dependents* of an incompatible target are incompatible. In other words,
+a node is compatible if and only if the node itself and all of its transitive dependencies are compatible.
 
 In buck, this is implemented by target analysis returning either the normal analysis result or an indicator
 that the node is incompatible with the target platform. It is not part of the "configured target node" because
@@ -111,8 +112,8 @@ TODO(cjhopman): Something about debuggability of incompatibility, especially due
 
 Buck2 also supports the Buck v1 legacy `compatible_with` field on nodes but it has different behavior. In summary:
 
-- `compatible_with`: List of constraints, *any* of them must match the configuration to be compatible, applies *only to the node itself*. Those constraints are *not* inherited by dependents.
-- `target_compatible_with`: List of constraints, *all* of them must match the configuration to be compatible, applies to the node and *all transitive dependents*. Dependents *inherit* constraints from this field.
+- `compatible_with`: List of constraints, *any* of them must match the configuration to be compatible.
+- `target_compatible_with`: List of constraints, *all* of them must match the configuration to be compatible.
 
 ## Incompatible target skipping
 
@@ -164,6 +165,31 @@ we've resolved the execution platform can we configure the execution deps (and c
 
 For the normal case, a particular configured target node performs execution platform resolution a single time. The execution platform
 **is not** encoded in output paths.
+
+Regarding target compatibility, you can imagine the following pseudo-code for the `target_compatible_with()` function above:
+
+```python
+def target_compatible_with(target, cfg):
+    for constraint in target.target_compatible_with:
+        if not satisfied(constraint, cfg):
+            return False
+
+    if len(target.compatible_with) > 0:
+        found_satisfied_constraint = False
+        for constraint in target.compatible_with:
+            if satisfied(constraint, cfg):
+                found_satisfied_constraint = True
+                break
+        if not found_satisfied_constraint:
+            return False
+
+    for (dep, dep_cfg) in direct_deps(target):
+        # NB: recursive call
+        if not target_compatible_with(dep, dep_cfg):
+            return False
+
+    return True
+```
 
 TODO(cjhopman): What are the requirements on rule authors? Especially, do they need to ensure that all possible execution platforms will produce the same results?
 
