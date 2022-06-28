@@ -115,9 +115,27 @@ To debug Rust code install [the CodeLLDB extension](https://marketplace.visualst
 * To debug a binary, hit the `Run` icon (play icon with an insect beneath it) on the VS Code left menu and you should see a little green play icon at the top with `Debug buck-build`. Set whatever breakpoints you want, then hit the green play icon. To modify the command or arguments (it defaults to building `process_wrapper` with `buck-build`) see `.vscode/launch.json` in the `buck2` directory (or just click the cog icon next to "Debug buck-build"). In most cases, don't commit your modifications. See this [screenshot](https://pxl.cl/1Cp5F) for visual guidance.
 * To debug a running buck2 daemon, see the instructions in [`docs/developers.md`](docs/developers.md).
 
-#### Starlark VS Code Extension
+### Starlark VS Code Extension
 
-The Starlark VS Code extension gives IDE support, including errors as you type and lints, but doesn't support docs on hover, goto definition or hyperlinks via `load()` statements. It also supports debugging Starlark, but only standalone files with no Buck usage. It can only be installed locally on Mac machines. If you want to use it, follow the instructions at `starlark-rust/vscode/README.md`.
+The Starlark VS Code extension, located in `starlark-rust/vscode`, gives IDE support for build files and .bzl files. It is under active development and will be gaining features regularly.
+
+This plugin works by talking to `buck2 lsp` over stdin/stderr. As features are implemented in buck2's LSP server, they will automatically start working in the plugin.
+
+If trying to build and install the plugin on an eden FS, it can help to add a redirect to the vscode plugin's node_modules directory:
+
+```shell
+eden redirect add fbcode/buck2/starlark-rust/vscode/node_modules bind
+```
+
+To use the plugin for development, follow the instructions at `starlark-rust/vscode/README.md`, or the abbreviated ones here.
+
+- `cd starlark-rust/vscode && npm install && npm install vsce && npm exec vsce package`
+- In VS Code, go to Extensions, click on the "..." button in the Extensions bar, select "Install from VSIX" and then select the `starlark-1.0.0.vsix` file at `$FBCODE/buck2/starlark-rust/vscode/starlark-1.0.0.vsix`
+- Update the extension settings to point to `buck2` for `starlark.lspPath`, and `["lsp"]` for `starlark.lspArguments`. This can be done in the VS Code UI by going to the extension's settings panel.
+
+If you want to use a local build of buck2, just change the path accordingly (`$FBCODE/buck-out/gen/<HASH>/buck2/cli/buck2#binary/buck2`, `$CARGO_TARGET_DIR/debug/buck2`, etc)
+
+NOTE: If you're seeing slightly confusing behavior, make sure that you're using "Starlark" as the language for files that you're editing.
 
 ### Upgrading dependencies
 
