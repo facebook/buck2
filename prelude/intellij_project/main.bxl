@@ -1,6 +1,7 @@
 def _impl(ctx):
+    final_output_dir_dict = {}
     action_factory = ctx.bxl_actions.action_factory()
-    output_module = action_factory.declare_output(".idea/modules.xml")
+    output_module = _create_output(action_factory, "modules.xml", final_output_dir_dict)
     action_factory.write(output_module, """\
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
@@ -11,7 +12,18 @@ def _impl(ctx):
 </project>
 """)
 
-    ctx.output.print(ctx.output.ensure(output_module).abs_path())
+    dot_idea_dir = action_factory.symlinked_dir(".idea", final_output_dir_dict)
+
+    ctx.output.print(ctx.output.ensure(dot_idea_dir).abs_path())
+
+def _create_output(
+        action_factory: "actions",
+        output_path: str.type,
+        final_output_dir_dict: dict.type) -> "artifact":
+    output = action_factory.declare_output("outputs/{}".format(output_path))
+    final_output_dir_dict[output_path] = output
+
+    return output
 
 generate_intellij_project = bxl(
     implementation = _impl,
