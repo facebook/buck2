@@ -76,6 +76,7 @@ use crate::execute::commands::local::EnvironmentBuilder;
 use crate::execute::commands::ClaimManager;
 use crate::execute::commands::CommandExecutionInput;
 use crate::execute::commands::CommandExecutionManager;
+use crate::execute::commands::CommandExecutionReport;
 use crate::execute::commands::CommandExecutionRequest;
 use crate::execute::commands::CommandExecutionResult;
 use crate::execute::commands::CommandExecutionTarget;
@@ -419,9 +420,12 @@ impl BuckTestOrchestrator {
         // TODO(brasselsprouts): migrate this into the executor to get better accuracy.
         let CommandExecutionResult {
             outputs,
-            std_streams,
-            exit_code,
-            metadata,
+            report:
+                CommandExecutionReport {
+                    std_streams,
+                    exit_code,
+                    metadata,
+                },
         } = match metadata {
             DisplayMetadata::Listing(listing) => {
                 let start = TestDiscoveryStart {

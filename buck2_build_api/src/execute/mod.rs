@@ -62,6 +62,7 @@ use crate::execute::commands::re::client::ActionDigest;
 use crate::execute::commands::ClaimManager;
 use crate::execute::commands::CommandExecutionManager;
 use crate::execute::commands::CommandExecutionOutput;
+use crate::execute::commands::CommandExecutionReport;
 use crate::execute::commands::CommandExecutionRequest;
 use crate::execute::commands::CommandExecutionResult;
 use crate::execute::commands::CommandExecutionStatus;
@@ -490,9 +491,12 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         );
         let CommandExecutionResult {
             outputs,
-            std_streams,
-            exit_code,
-            metadata,
+            report:
+                CommandExecutionReport {
+                    std_streams,
+                    exit_code,
+                    metadata,
+                },
         } = self
             .executor
             .command_executor

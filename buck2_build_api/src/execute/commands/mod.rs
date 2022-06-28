@@ -73,18 +73,18 @@ pub mod re;
 pub struct CommandExecutionResult {
     /// The outputs produced by this command
     pub outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
+    /// How it executed.
+    pub report: CommandExecutionReport,
+}
 
+/// Describes how a command executed.
+#[derive(Debug)]
+pub struct CommandExecutionReport {
     pub std_streams: CommandStdStreams,
     pub exit_code: Option<i32>,
 
     /// metadata holds information about **how** the result was produced rather than information about the result itself.
     pub metadata: CommandExecutionMetadata,
-}
-
-impl CommandExecutionResult {
-    pub fn metadata(&self) -> &CommandExecutionMetadata {
-        &self.metadata
-    }
 }
 
 /// Implement FromResidual so that it's easier to refactor functions returning a CommandExecutionResult
@@ -316,17 +316,19 @@ impl CommandExecutionManager {
     ) -> CommandExecutionResult {
         CommandExecutionResult {
             outputs,
-            std_streams,
-            exit_code,
-            metadata: CommandExecutionMetadata {
-                claim: if self.claimed {
-                    Some(ClaimedRequest {})
-                } else {
-                    None
+            report: CommandExecutionReport {
+                std_streams,
+                exit_code,
+                metadata: CommandExecutionMetadata {
+                    claim: if self.claimed {
+                        Some(ClaimedRequest {})
+                    } else {
+                        None
+                    },
+                    status,
+                    executor: self.executor_name,
+                    timing,
                 },
-                status,
-                executor: self.executor_name,
-                timing,
             },
         }
     }
