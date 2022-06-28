@@ -1,4 +1,5 @@
 load("@fbcode//buck2/platform/build_mode:defs.bzl", "BuildModeInfo")
+load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool")
 
 mac_execution_base_platforms = {
     "x86_64-fbsource": "ovr_config//platform/macos:x86_64-fbsource",
@@ -30,7 +31,7 @@ def _execution_platform_impl(ctx: "context"):
                 remote_execution_action_key = remote_execution_action_key,
                 remote_execution_max_input_files_mebibytes = ctx.attr.remote_execution_max_input_files_mebibytes,
                 allow_limited_hybrid_fallbacks = True,
-                use_limited_hybrid = True,
+                use_limited_hybrid = ctx.attr.use_limited_hybrid,
                 allow_hybrid_fallbacks_on_failure = ctx.attr.allow_hybrid_fallbacks_on_failure,
                 use_windows_path_separators = ctx.attr.use_windows_path_separators,
             ),
@@ -46,6 +47,7 @@ execution_platform_rule = rule(
         "remote_execution_action_key_providers": attr.list(attr.dep()),
         "remote_execution_max_input_files_mebibytes": attr.int(),
         "remote_execution_properties": attr.dict(key = attr.string(), value = attr.string(), default = {}),
+        "use_limited_hybrid": attr.bool(default = read_bool("build", "use_limited_hybrid", True)),
         "use_windows_path_separators": attr.bool(default = False),
     },
     implementation = _execution_platform_impl,
