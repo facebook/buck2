@@ -1,5 +1,5 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
-load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
+load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(
     "@fbcode//buck2/prelude/ide_integrations:xcode.bzl",
     "XCODE_DATA_SUB_TARGET",
@@ -24,6 +24,7 @@ load(
     "AppleCoreDataSpec",  # @unused Used as a type
 )
 load(":apple_dsym.bzl", "AppleDebuggableInfo", "DSYM_SUBTARGET")
+load(":apple_info_plist.bzl", "process_info_plist", "process_plist")
 load(
     ":apple_resource_types.bzl",
     "AppleResourceSpec",  # @unused Used as a type
@@ -165,7 +166,7 @@ def _process_apple_resource_file_if_needed(ctx: "context", file: "artifact", des
     output_is_contents_dir = False
     if basename.endswith(".plist") or basename.endswith(".stringsdict"):
         processed = ctx.actions.declare_output(paths.join(output_dir, file.short_path))
-        _process_plist(ctx, file, None, processed.as_output(), destination_relative_path)
+        process_plist(ctx, file, None, processed.as_output(), destination_relative_path)
     elif basename.endswith(".storyboard"):
         compiled = ctx.actions.declare_output(paths.join(output_dir, paths.replace_extension(file.short_path, ".storyboardc")))
         if _is_watch_bundle(ctx):
@@ -255,56 +256,6 @@ def _apple_bundle_run_validity_checks(ctx: "context"):
     if ctx.attr.extension == None:
         fail("`extension` attribute is required")
 
-def _plist_substitutions_as_json_file(ctx: "context") -> ["artifact", None]:
-    info_plist_substitutions = ctx.attr.info_plist_substitutions
-    if not info_plist_substitutions:
-        return None
-
-    substitutions_json = ctx.actions.write_json("plist_substitutions.json", info_plist_substitutions)
-    return substitutions_json
-
-def _preprocess_info_plist(ctx: "context") -> "artifact":
-    input = ctx.attr.info_plist
-    output = ctx.actions.declare_output("PreprocessedInfo.plist")
-    substitutions_json = _plist_substitutions_as_json_file(ctx)
-    apple_tools = ctx.attr._apple_tools[AppleToolsInfo]
-    processor = apple_tools.info_plist_processor
-    command = cmd_args([
-        processor,
-        "preprocess",
-        "--input",
-        input,
-        "--output",
-        output.as_output(),
-        "--product-name",
-        get_product_name(ctx),
-    ])
-    if substitutions_json != None:
-        command.add(["--substitutions-json", substitutions_json])
-    ctx.actions.run(command, category = "apple_preprocess_info_plist")
-    return output
-
-def _process_info_plist(ctx: "context", additional_input: ["artifact", None]) -> AppleBundlePart.type:
-    input = _preprocess_info_plist(ctx)
-    output = ctx.actions.declare_output("Info.plist")
-    _process_plist(ctx, input, additional_input, output.as_output(), None)
-    return AppleBundlePart(source = output, destination = AppleBundleDestination("metadata"))
-
-def _process_plist(ctx: "context", input: "artifact", additional_input: ["artifact", None], output: "output_artifact", action_id: [str.type, None]):
-    apple_tools = ctx.attr._apple_tools[AppleToolsInfo]
-    processor = apple_tools.info_plist_processor
-    command = cmd_args([
-        processor,
-        "process",
-        "--input",
-        input,
-        "--output",
-        output,
-    ] + (
-        ["--additional-input", additional_input] if additional_input != None else []
-    ))
-    ctx.actions.run(command, category = "apple_process_info_plist", identifier = action_id or input.basename)
-
 def _is_watch_bundle(ctx: "context") -> bool.type:
     return ctx.attr._apple_toolchain[AppleToolchainInfo].watch_kit_stub_binary != None
 
@@ -342,7 +293,7 @@ def get_apple_bundle_part_list(ctx: "context", params: AppleBundlePartListConstr
         parts.append(asset_catalog_part)
 
     extra_plist = asset_catalog_result.catalog_plist if asset_catalog_result != None else None
-    info_plist_part = _process_info_plist(ctx, extra_plist)
+    info_plist_part = process_info_plist(ctx, extra_plist)
 
     product_name = ctx.attr.name
     core_data_result = compile_apple_core_data(ctx, core_data_specs, product_name)
