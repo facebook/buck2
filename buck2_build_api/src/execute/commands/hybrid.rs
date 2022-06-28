@@ -20,10 +20,10 @@ use remote_execution as RE;
 
 use crate::execute::commands::local::LocalExecutor;
 use crate::execute::commands::re::ReExecutor;
-use crate::execute::commands::ActionResultStatus;
 use crate::execute::commands::ClaimManager;
 use crate::execute::commands::CommandExecutionManager;
 use crate::execute::commands::CommandExecutionResult;
+use crate::execute::commands::CommandExecutionStatus;
 use crate::execute::commands::ExecutorName;
 use crate::execute::commands::PreparedCommand;
 use crate::execute::commands::PreparedCommandExecutor;
@@ -126,15 +126,15 @@ impl PreparedCommandExecutor for HybridExecutor {
             match r.metadata().status {
                 // This doesn't really matter sicne we only ever pass this with statuses known /
                 // expected to not be ClaimRejected.
-                super::ActionResultStatus::ClaimRejected => false,
+                super::CommandExecutionStatus::ClaimRejected => false,
                 // If the execution is successful, use the result.
-                super::ActionResultStatus::Success { .. } => false,
+                super::CommandExecutionStatus::Success { .. } => false,
                 // Retry commands that failed (i.e. exit 1) only if we're instructed to do so.
-                super::ActionResultStatus::Failure { .. } => fallback_on_failure,
+                super::CommandExecutionStatus::Failure { .. } => fallback_on_failure,
                 // Errors are infra errors and are always retried because that is the point of
                 // falling back.
-                super::ActionResultStatus::Error { .. }
-                | super::ActionResultStatus::TimedOut { .. } => true,
+                super::CommandExecutionStatus::Error { .. }
+                | super::CommandExecutionStatus::TimedOut { .. } => true,
             }
         };
 
@@ -199,7 +199,7 @@ impl PreparedCommandExecutor for HybridExecutor {
 
 fn is_claim_rejected(res: &CommandExecutionResult) -> bool {
     match res.metadata().status {
-        ActionResultStatus::ClaimRejected => true,
+        CommandExecutionStatus::ClaimRejected => true,
         _ => false,
     }
 }

@@ -64,6 +64,7 @@ use crate::execute::commands::CommandExecutionManager;
 use crate::execute::commands::CommandExecutionOutput;
 use crate::execute::commands::CommandExecutionRequest;
 use crate::execute::commands::CommandExecutionResult;
+use crate::execute::commands::CommandExecutionStatus;
 use crate::execute::commands::CommandExecutionTarget;
 use crate::execute::commands::CommandExecutor;
 use crate::execute::materializer::HasMaterializer;
@@ -499,7 +500,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             .await;
 
         match metadata.status {
-            commands::ActionResultStatus::Success { execution_kind } => Ok((
+            CommandExecutionStatus::Success { execution_kind } => Ok((
                 outputs,
                 ActionExecutionMetadata {
                     execution_kind,
@@ -507,7 +508,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                     std_streams,
                 },
             )),
-            commands::ActionResultStatus::Failure { execution_kind } => Err(ActionError {
+            CommandExecutionStatus::Failure { execution_kind } => Err(ActionError {
                 cause: ActionErrorCause::CommandFailed { exit_code },
                 metadata: ActionExecutionMetadata {
                     execution_kind,
@@ -516,7 +517,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                 },
             }
             .into()),
-            commands::ActionResultStatus::TimedOut {
+            CommandExecutionStatus::TimedOut {
                 duration,
                 execution_kind,
             } => Err(ActionError {
@@ -528,11 +529,11 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                 },
             }
             .into()),
-            commands::ActionResultStatus::Error { stage, error } => {
+            CommandExecutionStatus::Error { stage, error } => {
                 // The string "During execution" is parsed by the ingress tailer, please check it if you change this string!
                 Err(error.context(format!("During execution, {}", stage)))
             }
-            commands::ActionResultStatus::ClaimRejected => {
+            CommandExecutionStatus::ClaimRejected => {
                 panic!("should be impossible for the executor to finish with a rejected claim")
             }
         }

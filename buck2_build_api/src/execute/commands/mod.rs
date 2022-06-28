@@ -136,7 +136,7 @@ impl From<CommandExecutionTimingData> for ActionExecutionTimingData {
 pub struct CommandExecutionMetadata {
     // This should contain the ClaimedRequest if this execution successfully claimed it.
     pub claim: Option<ClaimedRequest>,
-    pub status: ActionResultStatus,
+    pub status: CommandExecutionStatus,
     pub executor: ExecutorName,
     pub timing: CommandExecutionTimingData,
 }
@@ -232,7 +232,7 @@ impl CommandExecutionManager {
 
     pub fn claim_rejected(self) -> CommandExecutionResult {
         self.result(
-            ActionResultStatus::ClaimRejected,
+            CommandExecutionStatus::ClaimRejected,
             IndexMap::new(),
             Default::default(),
             None,
@@ -253,7 +253,7 @@ impl CommandExecutionManager {
         // just make the claim look used in the function signature.
         let _ = claim;
         self.result(
-            ActionResultStatus::Success { execution_kind },
+            CommandExecutionStatus::Success { execution_kind },
             outputs,
             std_streams,
             Some(0),
@@ -269,7 +269,7 @@ impl CommandExecutionManager {
         exit_code: Option<i32>,
     ) -> CommandExecutionResult {
         self.result(
-            ActionResultStatus::Failure { execution_kind },
+            CommandExecutionStatus::Failure { execution_kind },
             outputs,
             std_streams,
             exit_code,
@@ -285,7 +285,7 @@ impl CommandExecutionManager {
         timing: CommandExecutionTimingData,
     ) -> CommandExecutionResult {
         self.result(
-            ActionResultStatus::TimedOut {
+            CommandExecutionStatus::TimedOut {
                 duration,
                 execution_kind,
             },
@@ -298,7 +298,7 @@ impl CommandExecutionManager {
 
     pub fn error(self, stage: String, error: anyhow::Error) -> CommandExecutionResult {
         self.result(
-            ActionResultStatus::Error { stage, error },
+            CommandExecutionStatus::Error { stage, error },
             IndexMap::new(),
             Default::default(),
             None,
@@ -308,7 +308,7 @@ impl CommandExecutionManager {
 
     fn result(
         self,
-        status: ActionResultStatus,
+        status: CommandExecutionStatus,
         outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
@@ -675,7 +675,7 @@ impl EnvironmentInheritance {
 
 /// "Status" of an action execution indicating how it finished. E.g. "built_remotely", "local_fallback", "action_cache".
 #[derive(Debug)]
-pub enum ActionResultStatus {
+pub enum CommandExecutionStatus {
     Success {
         execution_kind: ActionExecutionKind,
     },
@@ -693,20 +693,22 @@ pub enum ActionResultStatus {
     ClaimRejected,
 }
 
-impl Display for ActionResultStatus {
+impl Display for CommandExecutionStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ActionResultStatus::Success { execution_kind, .. } => {
+            CommandExecutionStatus::Success { execution_kind, .. } => {
                 write!(f, "success {}", execution_kind,)
             }
-            ActionResultStatus::Failure { execution_kind } => {
+            CommandExecutionStatus::Failure { execution_kind } => {
                 write!(f, "failure {}", execution_kind,)
             }
-            ActionResultStatus::Error { stage, error } => write!(f, "error:{}\n{:#}", stage, error),
-            ActionResultStatus::TimedOut { duration, .. } => {
+            CommandExecutionStatus::Error { stage, error } => {
+                write!(f, "error:{}\n{:#}", stage, error)
+            }
+            CommandExecutionStatus::TimedOut { duration, .. } => {
                 write!(f, "timed out after {:.3}s", duration.as_secs_f64())
             }
-            ActionResultStatus::ClaimRejected => write!(f, "claim_rejected!"),
+            CommandExecutionStatus::ClaimRejected => write!(f, "claim_rejected!"),
         }
     }
 }

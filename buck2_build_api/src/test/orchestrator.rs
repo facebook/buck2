@@ -454,7 +454,7 @@ impl BuckTestOrchestrator {
         let stderr = ExecutionStream::Inline(std_streams.stderr);
 
         Ok(match metadata.status {
-            commands::ActionResultStatus::Success { .. } => (
+            commands::CommandExecutionStatus::Success { .. } => (
                 stdout,
                 stderr,
                 ExecutionStatus::Finished {
@@ -463,7 +463,7 @@ impl BuckTestOrchestrator {
                 metadata.timing,
                 outputs,
             ),
-            commands::ActionResultStatus::Failure { .. } => (
+            commands::CommandExecutionStatus::Failure { .. } => (
                 stdout,
                 stderr,
                 ExecutionStatus::Finished {
@@ -472,14 +472,14 @@ impl BuckTestOrchestrator {
                 metadata.timing,
                 outputs,
             ),
-            commands::ActionResultStatus::TimedOut { duration, .. } => (
+            commands::CommandExecutionStatus::TimedOut { duration, .. } => (
                 stdout,
                 stderr,
                 ExecutionStatus::TimedOut { duration },
                 metadata.timing,
                 outputs,
             ),
-            commands::ActionResultStatus::Error { stage: _, error } => (
+            commands::CommandExecutionStatus::Error { stage: _, error } => (
                 ExecutionStream::Inline(Default::default()),
                 ExecutionStream::Inline(format!("{:?}", error).into_bytes()),
                 ExecutionStatus::Finished {
@@ -488,7 +488,7 @@ impl BuckTestOrchestrator {
                 metadata.timing,
                 outputs,
             ),
-            commands::ActionResultStatus::ClaimRejected => {
+            commands::CommandExecutionStatus::ClaimRejected => {
                 panic!("should be impossible for the executor to finish with a rejected claim")
             }
         })

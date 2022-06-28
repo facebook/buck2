@@ -235,7 +235,7 @@ async fn error_to_proto(err: &anyhow::Error) -> buck2_data::action_execution_end
         // They are not user errors, so they're listed as Unknown errors here.
         //
         // TODO (torozco): Those should use manager.error() and they won't be ActionError (just a
-        // regular anyhow::Error). We should update the exit_code to come via ActionResultStatus
+        // regular anyhow::Error). We should update the exit_code to come via CommandExecutionStatus
         // and have it only on Success and Failure, which would prove this branch cannot in fact
         // exist.
         Some(
