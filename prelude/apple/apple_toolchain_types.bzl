@@ -20,6 +20,8 @@ AppleToolchainInfo = provider(fields = [
     "sdk_version",  # [None, str.type]
     "swift_toolchain_info",  # "SwiftToolchainInfo"
     "watch_kit_stub_binary",  # "artifact"
+    "xcode_version",  # "[None, str.type]"
+    "xcode_build_version",  # "[None, str.type]"
 ])
 
 AppleToolsInfo = provider(fields = [

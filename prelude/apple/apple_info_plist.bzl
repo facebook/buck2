@@ -81,6 +81,12 @@ def _info_plist_additional_keys(ctx: "context") -> {str.type: ""}:
     if sdk_version:
         result["DTPlatformVersion"] = sdk_version
         result["DTSDKName"] = sdk_name + sdk_version
+    xcode_build_version = ctx.attr._apple_toolchain[AppleToolchainInfo].xcode_build_version
+    if xcode_build_version:
+        result["DTXcodeBuild"] = xcode_build_version
+    xcode_version = ctx.attr._apple_toolchain[AppleToolchainInfo].xcode_version
+    if xcode_version:
+        result["DTXcode"] = xcode_version
     return result
 
 def _extra_mac_info_plist_keys(sdk_metadata: AppleSdkMetadata.type, extension: str.type) -> {str.type: ""}:
