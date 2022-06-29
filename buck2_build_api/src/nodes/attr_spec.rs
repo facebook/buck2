@@ -8,126 +8,44 @@
  */
 
 use std::collections::HashMap;
-use std::collections::HashSet;
 
 use anyhow::Context;
 use buck2_core::target::TargetName;
-use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr::CoercedValue;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::internal::attr_is_configurable;
-use buck2_node::attrs::internal::internal_attrs;
 use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
+use buck2_node::attrs::spec::AttributeSpec;
+use buck2_node::attrs::values::AttrValues;
 use gazebo::prelude::*;
 use starlark::eval::ParametersParser;
 use starlark::eval::ParametersSpec;
 use starlark::values::docs::DocString;
 use starlark::values::Value;
-use thiserror::Error;
 
-use crate::attrs::OrderedMap;
-use crate::attrs::OrderedMapEntry;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::rule_defs::attr::AttributeExt;
-use crate::nodes::attr_values::AttrValues;
-use crate::nodes::unconfigured::AttrInspectOptions;
-use crate::nodes::AttributeId;
 
-/// AttributeSpec holds the specification for a rules attributes as defined in the rule() call. This
-/// is split into a mapping of "attribute name" -> "attribute id". The Attributes are stored in a vec
-/// that can then be indexed using the name->id mapping (the id is really just an index into this vec).
-///
-/// For its attribute values, a TargetNode will hold a sorted Vec<(AttributeId, CoercedAttr)> that will have values
-/// only for the values that are explicitly set. Default values need to be looked up through the AttributeSpec.
-#[derive(Debug, Eq, PartialEq, Hash)]
-pub(crate) struct AttributeSpec {
-    // TODO(nga): either "map" or "ordered" is redundant here:
-    //   `AttributeId` in `indices` is always equal to the index of the entry in ordered map.
-    indices: OrderedMap<String, AttributeId>,
-    attributes: Vec<Attribute>,
+pub(crate) trait AttributeSpecExt {
+    fn parse_params<'v>(
+        &self,
+        param_parser: ParametersParser<'v, '_>,
+        arg_count: usize,
+        internals: &ModuleInternals,
+    ) -> anyhow::Result<(TargetName, AttrValues)>;
+
+    /// Returns a starlark Parameters for the rule callable.
+    fn signature(&self, rule_name: String) -> ParametersSpec<Value<'_>>;
+
+    fn starlark_types(&self) -> Vec<String>;
+
+    fn docstrings(&self) -> HashMap<String, Option<DocString>>;
 }
 
-#[derive(Debug, Error)]
-pub(crate) enum AttributeSpecError {
-    #[error("User provided attribute `{0}` overrides internal attribute")]
-    InternalAttributeRedefined(String),
-    #[error("Duplicate attribute `{0}`")]
-    DuplicateAttribute(String),
-    #[error("Rule definition has no attribute `{0}`")]
-    UnknownAttribute(String),
-}
-
-impl AttributeSpec {
-    pub(crate) fn from(attributes: Vec<(String, Attribute)>) -> anyhow::Result<Self> {
-        let internal_attrs = internal_attrs();
-
-        let mut indices = OrderedMap::with_capacity(attributes.len() + internal_attrs.len());
-        let mut instances = Vec::with_capacity(attributes.len());
-        let mut internal_attr_names = HashSet::new();
-        for (name, instance) in internal_attrs {
-            let index_in_attribute_spec = indices.len();
-            internal_attr_names.insert(name);
-            if indices
-                .insert(
-                    name.to_owned(),
-                    AttributeId {
-                        index_in_attribute_spec,
-                    },
-                )
-                .is_some()
-            {
-                unreachable!("duplicate internal attr: '{}'", name);
-            }
-            instances.push(instance);
-        }
-
-        for (name, instance) in attributes.into_iter() {
-            let index_in_attribute_spec = indices.len();
-            match indices.entry(name) {
-                OrderedMapEntry::Vacant(e) => {
-                    e.insert(AttributeId {
-                        index_in_attribute_spec,
-                    });
-                }
-                OrderedMapEntry::Occupied(e) => {
-                    let name = e.key();
-                    if internal_attr_names.contains(name.as_str()) {
-                        return Err(anyhow::anyhow!(
-                            AttributeSpecError::InternalAttributeRedefined(name.to_owned())
-                        ));
-                    } else {
-                        return Err(anyhow::anyhow!(AttributeSpecError::DuplicateAttribute(
-                            name.to_owned()
-                        )));
-                    }
-                }
-            }
-            instances.push(instance);
-        }
-
-        Ok(Self {
-            indices,
-            attributes: instances,
-        })
-    }
-
-    pub(crate) fn attr_specs(&self) -> impl Iterator<Item = (&str, AttributeId, &Attribute)> {
-        self.indices.iter().map(|(name, id)| {
-            (
-                name.as_str(),
-                *id,
-                &self.attributes[id.index_in_attribute_spec],
-            )
-        })
-    }
-
-    pub(crate) fn get_attribute(&self, id: AttributeId) -> &Attribute {
-        &self.attributes[id.index_in_attribute_spec]
-    }
-
+impl AttributeSpecExt for AttributeSpec {
     /// Parses params extracting the TargetName and the attribute values to store in the TargetNode.
-    pub(crate) fn parse_params<'v>(
+    fn parse_params<'v>(
         &self,
         mut param_parser: ParametersParser<'v, '_>,
         arg_count: usize,
@@ -188,85 +106,8 @@ impl AttributeSpec {
         Ok((name, attr_values))
     }
 
-    /// Returns an iterator over all of the attribute (name, value) pairs.
-    pub(crate) fn attrs<'v>(
-        &'v self,
-        attr_values: &'v AttrValues,
-        opts: AttrInspectOptions,
-    ) -> impl Iterator<Item = (&'v str, &'v CoercedAttr)> {
-        let mut pos = 0;
-        let mut entry: Option<&(AttributeId, CoercedAttr)> = attr_values.get_by_index(0);
-
-        self.attr_specs()
-            .filter_map(move |(name, idx, attr)| match &entry {
-                Some((entry_idx, entry_attr)) if *entry_idx == idx => {
-                    pos += 1;
-                    entry = attr_values.get_by_index(pos);
-                    if opts.include_defined() {
-                        Some((name, entry_attr))
-                    } else {
-                        None
-                    }
-                }
-                _ => {
-                    let default: &CoercedAttr = attr.default.as_ref().unwrap();
-                    if opts.include_default() {
-                        Some((name, default))
-                    } else {
-                        None
-                    }
-                }
-            })
-    }
-
-    fn known_attr_or_none<'v>(
-        &'v self,
-        idx: AttributeId,
-        attr_values: &'v AttrValues,
-        opts: AttrInspectOptions,
-    ) -> Option<&'v CoercedAttr> {
-        if let Some(attr) = attr_values.get(idx) {
-            if opts.include_defined() {
-                return Some(attr);
-            } else {
-                return None;
-            }
-        }
-
-        if opts.include_default() {
-            return self.get_attribute(idx).default.as_deref();
-        }
-        None
-    }
-
-    pub(crate) fn attr_or_none<'v>(
-        &'v self,
-        attr_values: &'v AttrValues,
-        key: &str,
-        opts: AttrInspectOptions,
-    ) -> Option<&'v CoercedAttr> {
-        if let Some(idx) = self.indices.get(key) {
-            self.known_attr_or_none(*idx, attr_values, opts)
-        } else {
-            None
-        }
-    }
-
-    pub(crate) fn attr<'v>(
-        &'v self,
-        attr_values: &'v AttrValues,
-        key: &str,
-        opts: AttrInspectOptions,
-    ) -> anyhow::Result<Option<&'v CoercedAttr>> {
-        if let Some(idx) = self.indices.get(key) {
-            Ok(self.known_attr_or_none(*idx, attr_values, opts))
-        } else {
-            Err(AttributeSpecError::UnknownAttribute(key.to_owned()).into())
-        }
-    }
-
     /// Returns a starlark Parameters for the rule callable.
-    pub(crate) fn signature(&self, rule_name: String) -> ParametersSpec<Value<'_>> {
+    fn signature(&self, rule_name: String) -> ParametersSpec<Value<'_>> {
         let mut signature = ParametersSpec::with_capacity(rule_name, self.indices.len());
         signature.no_more_positional_args();
         for (name, _idx, attribute) in self.attr_specs() {
@@ -278,33 +119,13 @@ impl AttributeSpec {
         signature.finish()
     }
 
-    pub(crate) fn starlark_types(&self) -> Vec<String> {
+    fn starlark_types(&self) -> Vec<String> {
         self.attributes.map(|a| a.starlark_type())
     }
 
-    pub(crate) fn docstrings(&self) -> HashMap<String, Option<DocString>> {
+    fn docstrings(&self) -> HashMap<String, Option<DocString>> {
         self.attr_specs()
             .map(|(name, _idx, attr)| (name.to_owned(), attr.docstring()))
             .collect()
-    }
-}
-
-pub(crate) mod testing {
-    use buck2_node::attrs::attr::Attribute;
-
-    use crate::attrs::OrderedMap;
-    use crate::nodes::attr_spec::AttributeSpec;
-    use crate::nodes::AttributeId;
-
-    impl AttributeSpec {
-        pub(crate) fn testing_new(
-            indices: OrderedMap<String, AttributeId>,
-            attributes: Vec<Attribute>,
-        ) -> AttributeSpec {
-            AttributeSpec {
-                indices,
-                attributes,
-            }
-        }
     }
 }

@@ -17,6 +17,7 @@ use buck2_core::cells::paths::CellPath;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_node::attrs::attr_type::attr_config::AttrConfig;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
+use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_query::query::environment::LabeledNode;
 use buck2_query::query::environment::NodeLabel;
 use buck2_query::query::environment::QueryEnvironment;
@@ -46,7 +47,6 @@ use thiserror::Error;
 use crate::actions::artifact::Artifact;
 use crate::analysis::configured_graph::ConfiguredGraphNode;
 use crate::artifact_groups::ArtifactGroup;
-use crate::nodes::unconfigured::AttrInspectOptions;
 
 #[derive(Debug, Error)]
 enum AnalysisQueryError {

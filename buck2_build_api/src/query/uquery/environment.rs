@@ -22,6 +22,7 @@ use buck2_core::result::ToSharedResultExt;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
+use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryEnvironmentError;
 use buck2_query::query::environment::QueryTarget;
@@ -39,7 +40,6 @@ use thiserror::Error;
 use tracing::warn;
 
 use crate::interpreter::module_internals::EvaluationResult;
-use crate::nodes::unconfigured::AttrInspectOptions;
 use crate::nodes::unconfigured::TargetNode;
 
 #[derive(Debug, Error)]

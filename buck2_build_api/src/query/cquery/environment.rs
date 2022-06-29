@@ -18,6 +18,7 @@ use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
 use buck2_node::attrs::attr_type::attr_config::AttrConfig;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
+use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::compatibility::MaybeCompatible;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryTarget;
@@ -34,7 +35,6 @@ use gazebo::dupe::Dupe;
 use tracing::warn;
 
 use crate::nodes::configured::ConfiguredTargetNode;
-use crate::nodes::unconfigured::AttrInspectOptions;
 use crate::query::uquery::environment::QueryLiterals;
 use crate::query::uquery::environment::UqueryDelegate;
 

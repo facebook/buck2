@@ -28,6 +28,7 @@ use buck2_core::target::TargetLabel;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
+use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::internal::EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
@@ -56,7 +57,6 @@ use crate::execute::commands::dice_data::HasFallbackExecutorConfig;
 use crate::interpreter::calculation::InterpreterCalculation;
 use crate::interpreter::rule_defs::transition::calculation_apply_transition::ApplyTransition;
 use crate::nodes::configured::ConfiguredTargetNode;
-use crate::nodes::unconfigured::AttrInspectOptions;
 use crate::nodes::unconfigured::TargetNode;
 use crate::nodes::AttributeError;
 
@@ -631,6 +631,7 @@ mod tests {
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::attrs::configured_attr::ConfiguredAttr;
+    use buck2_node::attrs::inspect_options::AttrInspectOptions;
     use buck2_node::rule_type::RuleType;
     use buck2_node::rule_type::StarlarkRuleType;
     use dice::testing::DiceBuilder;
@@ -648,7 +649,6 @@ mod tests {
     use crate::interpreter::module_internals::EvaluationResult;
     use crate::nodes::calculation::NodeCalculation;
     use crate::nodes::unconfigured::testing::TargetNodeExt;
-    use crate::nodes::unconfigured::AttrInspectOptions;
     use crate::nodes::unconfigured::TargetNode;
 
     #[tokio::test]

@@ -42,12 +42,12 @@ use crate::interpreter::rule_defs::context::AnalysisContext;
 use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
 use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 use crate::interpreter::rule_defs::rule::FrozenRuleCallable;
-use crate::nodes::unconfigured::AttrInspectOptions;
 
 pub mod calculation;
 pub(crate) mod configured_graph;
 pub mod registry;
 use buck2_interpreter::types::label::LabelGen;
+use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::rule_type::StarlarkRuleType;
 pub use calculation::profile_analysis;
 pub use calculation::resolve_queries;

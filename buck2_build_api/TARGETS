@@ -114,6 +114,7 @@ buck_rust_binary(
         "//buck2/buck2_common:buck2_common",
         "//buck2/buck2_core:buck2_core",
         "//buck2/buck2_interpreter:buck2_interpreter",
+        "//buck2/buck2_node:buck2_node",
         "//buck2/dice/dice:dice",
         "//buck2/events:events",
         "//buck2/gazebo/gazebo:gazebo",

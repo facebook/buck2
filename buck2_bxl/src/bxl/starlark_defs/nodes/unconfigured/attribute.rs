@@ -8,8 +8,8 @@
  */
 
 use anyhow::Context;
-use buck2_build_api::nodes::unconfigured::AttrInspectOptions;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
+use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use derive_more::Display;
 use derive_more::From;
 use gazebo::any::ProvidesStaticType;

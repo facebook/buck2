@@ -20,11 +20,14 @@ use buck2_core::target::TargetName;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
+use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::internal::DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::TESTS_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::VISIBILITY_ATTRIBUTE_FIELD;
+use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
+use buck2_node::attrs::values::AttrValues;
 use buck2_node::call_stack::StarlarkCallStack;
 use buck2_node::rule_type::RuleType;
 use buck2_node::rule_type::StarlarkRuleType;
@@ -40,31 +43,7 @@ use starlark::values::Value;
 use crate::attrs::attr_type::attr_literal::CoercedDepsCollector;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::rule_defs::attr::BuildAttrCoercionContext;
-use crate::nodes::attr_spec::AttributeSpec;
-use crate::nodes::attr_values::AttrValues;
-
-#[derive(Clone, Dupe, Copy)]
-pub enum AttrInspectOptions {
-    DefaultOnly,
-    DefinedOnly,
-    All,
-}
-
-impl AttrInspectOptions {
-    pub fn include_defined(&self) -> bool {
-        match self {
-            AttrInspectOptions::DefaultOnly => false,
-            _ => true,
-        }
-    }
-
-    pub fn include_default(&self) -> bool {
-        match self {
-            AttrInspectOptions::DefinedOnly => false,
-            _ => true,
-        }
-    }
-}
+use crate::nodes::attr_spec::AttributeSpecExt;
 
 /// Map of target -> details of those targets within a build file.
 pub type TargetsMap = IndexMap<TargetName, TargetNode>;
@@ -508,6 +487,10 @@ pub mod testing {
     use buck2_core::target::TargetLabel;
     use buck2_node::attrs::attr::Attribute;
     use buck2_node::attrs::coerced_attr::CoercedAttr;
+    use buck2_node::attrs::id::AttributeId;
+    use buck2_node::attrs::inspect_options::AttrInspectOptions;
+    use buck2_node::attrs::spec::AttributeSpec;
+    use buck2_node::attrs::values::AttrValues;
     use buck2_node::rule_type::RuleType;
     use buck2_node::visibility::VisibilitySpecification;
     use gazebo::prelude::*;
@@ -515,14 +498,10 @@ pub mod testing {
     use serde_json::value::Value;
 
     use crate::attrs::attr_type::attr_literal::CoercedDepsCollector;
-    use crate::nodes::attr_values::AttrValues;
     use crate::nodes::hacks::value_to_json;
-    use crate::nodes::unconfigured::AttrInspectOptions;
     use crate::nodes::unconfigured::TargetNode;
     use crate::nodes::unconfigured::TargetNodeData;
     use crate::nodes::unconfigured::TargetsMap;
-    use crate::nodes::AttributeId;
-    use crate::nodes::AttributeSpec;
     use crate::nodes::OrderedMap;
 
     pub trait TargetNodeExt {

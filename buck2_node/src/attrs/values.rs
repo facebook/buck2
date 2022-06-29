@@ -9,17 +9,16 @@
 
 use std::slice;
 
-use buck2_node::attrs::coerced_attr::CoercedAttr;
-
-use crate::nodes::AttributeId;
+use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::id::AttributeId;
 
 #[derive(Debug, Eq, PartialEq, Hash, Default)]
-pub(crate) struct AttrValues {
+pub struct AttrValues {
     sorted: Vec<(AttributeId, CoercedAttr)>,
 }
 
 impl AttrValues {
-    pub(crate) fn with_capacity(capacity: usize) -> AttrValues {
+    pub fn with_capacity(capacity: usize) -> AttrValues {
         AttrValues {
             sorted: Vec::with_capacity(capacity),
         }
@@ -45,11 +44,11 @@ impl AttrValues {
         None
     }
 
-    pub(crate) fn shrink_to_fit(&mut self) {
+    pub fn shrink_to_fit(&mut self) {
         self.sorted.shrink_to_fit();
     }
 
-    pub(crate) fn push_sorted(&mut self, id: AttributeId, value: CoercedAttr) {
+    pub fn push_sorted(&mut self, id: AttributeId, value: CoercedAttr) {
         if let Some((last_id, _)) = self.sorted.last() {
             assert!(&id > last_id, "attributed must be sorted");
         }
