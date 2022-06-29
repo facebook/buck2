@@ -78,7 +78,7 @@ pub enum HybridExecutionLevel {
     /// Expose both executors but only run it in one preferred executor.
     Limited,
     /// Expose both executors, fallback to the non-preferred executor if execution on the preferred
-    /// executor doesn't provide a succesful response. By default, we fallback only on errors (i.e.
+    /// executor doesn't provide a successful response. By default, we fallback only on errors (i.e.
     /// the infra failed), but not on failures (i.e. the job exited with 1). If
     /// `fallback_on_failure` is set, then we also fallback on failures.
     Fallback { fallback_on_failure: bool },

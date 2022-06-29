@@ -164,7 +164,7 @@ impl StarlarkStr {
         }
     }
 
-    /// Get a Rust string refence from this Starlark string.
+    /// Get a Rust string reference from this Starlark string.
     pub fn as_str(&self) -> &str {
         unsafe {
             let slice = slice::from_raw_parts(self.str.body.as_ptr() as *const u8, self.len());

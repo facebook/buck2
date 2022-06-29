@@ -617,7 +617,7 @@ message ActionExecutionEnd {
   oneof error {
     // An error message whose nature is unknown. This often comes from cases
     // where action execution fails for reasons other than the command failing.
-    // This should not be prefered, and should be an error type of last resort.
+    // This should not be preferred, and should be an error type of last resort.
     string unknown = 7;
 
     // An error message indicating that a command exited with a non-zero exit
