@@ -1,6 +1,6 @@
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart")
-load(":apple_bundle_utility.bzl", "get_product_name")
+load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_product_name")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(
     ":apple_sdk_metadata.bzl",
@@ -87,6 +87,7 @@ def _info_plist_additional_keys(ctx: "context") -> {str.type: ""}:
     xcode_version = ctx.attr._apple_toolchain[AppleToolchainInfo].xcode_version
     if xcode_version:
         result["DTXcode"] = xcode_version
+    result[sdk_metadata.min_version_plist_info_key] = get_bundle_min_target_version(ctx)
     return result
 
 def _extra_mac_info_plist_keys(sdk_metadata: AppleSdkMetadata.type, extension: str.type) -> {str.type: ""}:
