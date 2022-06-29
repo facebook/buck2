@@ -2,6 +2,13 @@ use std::borrow::Cow;
 use std::fmt;
 
 use anyhow::Context as _;
+use buck2_node::execute::config::CommandExecutorConfig;
+use buck2_node::execute::config::CommandExecutorKind;
+use buck2_node::execute::config::HybridExecutionLevel;
+use buck2_node::execute::config::LocalExecutorOptions;
+use buck2_node::execute::config::PathSeparatorKind;
+use buck2_node::execute::config::RemoteExecutorOptions;
+use buck2_node::execute::config::RemoteExecutorUseCase;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
@@ -17,14 +24,6 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
-
-use crate::execute::CommandExecutorConfig;
-use crate::execute::CommandExecutorKind;
-use crate::execute::HybridExecutionLevel;
-use crate::execute::LocalExecutorOptions;
-use crate::execute::PathSeparatorKind;
-use crate::execute::RemoteExecutorOptions;
-use crate::execute::RemoteExecutorUseCase;
 
 #[derive(Debug, Error)]
 enum CommandExecutorConfigErrors {

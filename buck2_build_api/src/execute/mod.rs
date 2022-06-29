@@ -11,10 +11,8 @@ pub mod blocking;
 pub mod commands;
 pub mod materializer;
 
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::hash::Hash;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -30,6 +28,7 @@ use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_interpreter::dice::HasEvents;
+use buck2_node::execute::config::CommandExecutorConfig;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -38,7 +37,6 @@ use gazebo::prelude::*;
 use indexmap::indexmap;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
-use starlark::collections::SmallMap;
 use thiserror::Error;
 
 use crate::actions::artifact::ArtifactFs;
@@ -191,123 +189,6 @@ impl ActionExecutionKind {
             }),
             _ => None,
         }
-    }
-}
-
-#[derive(Debug, Eq, Hash, PartialEq, Clone, Dupe)]
-pub struct LocalExecutorOptions {}
-
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
-pub struct RemoteExecutorUseCase(Cow<'static, str>);
-
-impl RemoteExecutorUseCase {
-    pub fn new(use_case: String) -> Self {
-        Self(Cow::Owned(use_case))
-    }
-}
-
-impl Default for RemoteExecutorUseCase {
-    fn default() -> Self {
-        Self(Cow::Borrowed("buck2-default"))
-    }
-}
-
-impl From<RemoteExecutorUseCase> for String {
-    fn from(use_case: RemoteExecutorUseCase) -> String {
-        use_case.0.into_owned()
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Default, Hash)]
-pub struct RemoteExecutorOptions {
-    pub re_properties: SmallMap<String, String>,
-    pub re_action_key: Option<String>,
-    pub re_max_input_files_bytes: Option<u64>,
-    pub re_use_case: RemoteExecutorUseCase,
-}
-
-#[derive(Debug, Error)]
-enum ExecutorConfigError {
-    #[error("Action executor config must have at least one of local or remote options")]
-    MissingLocalAndRemote,
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
-pub enum CommandExecutorKind {
-    Local(LocalExecutorOptions),
-    Remote(RemoteExecutorOptions),
-    Hybrid {
-        local: LocalExecutorOptions,
-        remote: RemoteExecutorOptions,
-        level: HybridExecutionLevel,
-    },
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash)]
-pub enum PathSeparatorKind {
-    Unix,
-    Windows,
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
-pub struct CommandExecutorConfig {
-    pub executor_kind: CommandExecutorKind,
-    pub path_separator: PathSeparatorKind,
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash)]
-pub enum HybridExecutionLevel {
-    /// Expose both executors but only run it in one preferred executor.
-    Limited,
-    /// Expose both executors, fallback to the non-preferred executor if execution on the preferred
-    /// executor doesn't provide a succesful response. By default, we fallback only on errors (i.e.
-    /// the infra failed), but not on failures (i.e. the job exited with 1). If
-    /// `fallback_on_failure` is set, then we also fallback on failures.
-    Fallback { fallback_on_failure: bool },
-    /// Race both executors.
-    Full { fallback_on_failure: bool },
-}
-
-impl CommandExecutorKind {
-    pub fn new(
-        local: Option<LocalExecutorOptions>,
-        remote: Option<RemoteExecutorOptions>,
-        hybrid_level: HybridExecutionLevel,
-    ) -> anyhow::Result<Self> {
-        match (local, remote) {
-            (None, None) => Err(ExecutorConfigError::MissingLocalAndRemote.into()),
-            (None, Some(remote)) => Ok(Self::Remote(remote)),
-            (Some(local), None) => Ok(Self::Local(local)),
-            (Some(local), Some(remote)) => Ok(Self::Hybrid {
-                local,
-                remote,
-                level: hybrid_level,
-            }),
-        }
-    }
-}
-
-impl CommandExecutorConfig {
-    pub fn new(executor_kind: CommandExecutorKind, path_separator: PathSeparatorKind) -> Self {
-        Self {
-            executor_kind,
-            path_separator,
-        }
-    }
-
-    pub fn new_with_default_path_separator(executor_kind: CommandExecutorKind) -> Self {
-        Self {
-            executor_kind,
-            path_separator: if cfg!(windows) {
-                PathSeparatorKind::Windows
-            } else {
-                PathSeparatorKind::Unix
-            },
-        }
-    }
-
-    pub fn testing_local() -> Self {
-        Self::new_with_default_path_separator(CommandExecutorKind::Local(LocalExecutorOptions {}))
     }
 }
 
@@ -723,6 +604,8 @@ mod tests {
     use buck2_core::target::testing::ConfiguredTargetLabelExt;
     use buck2_core::target::ConfiguredTargetLabel;
     use buck2_core::target::TargetName;
+    use buck2_node::execute::config::CommandExecutorConfig;
+    use buck2_node::execute::config::PathSeparatorKind;
     use events::dispatch::EventDispatcher;
     use gazebo::prelude::*;
     use indexmap::indexset;
@@ -761,8 +644,6 @@ mod tests {
     use crate::execute::ActionExecutor;
     use crate::execute::ActionOutputs;
     use crate::execute::BuckActionExecutor;
-    use crate::execute::CommandExecutorConfig;
-    use crate::execute::PathSeparatorKind;
     use crate::path::BuckOutPathResolver;
     use crate::path::BuckPathResolver;
 

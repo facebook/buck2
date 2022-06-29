@@ -11,6 +11,7 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_node::execute::config::RemoteExecutorUseCase;
 use gazebo::prelude::*;
 use remote_execution as RE;
 use tracing::info;
@@ -26,7 +27,6 @@ use crate::execute::commands::ExecutorName;
 use crate::execute::commands::PreparedCommand;
 use crate::execute::commands::PreparedCommandExecutor;
 use crate::execute::materializer::Materializer;
-use crate::execute::RemoteExecutorUseCase;
 
 /// A PreparedCommandExecutor that will check the action cache before executing any actions using the underlying executor.
 pub struct CacheCheckingExecutor {

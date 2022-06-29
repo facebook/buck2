@@ -320,6 +320,7 @@ mod tests {
     use buck2_core::target::testing::TargetLabelExt;
     use buck2_core::target::TargetLabel;
     use buck2_node::compatibility::MaybeCompatible;
+    use buck2_node::execute::config::CommandExecutorConfig;
     use buck2_node::rule_type::RuleType;
     use buck2_node::rule_type::StarlarkRuleType;
     use dice::testing::DiceBuilder;
@@ -341,7 +342,6 @@ mod tests {
     use crate::deferred::DeferredTable;
     use crate::deferred::DeferredValue;
     use crate::execute::commands::dice_data::set_fallback_executor_config;
-    use crate::execute::CommandExecutorConfig;
     use crate::interpreter::rule_defs::provider::testing::FrozenProviderCollectionValueExt;
     use crate::nodes::calculation::ConfiguredNodeKey;
     use crate::nodes::configured::ConfiguredTargetNode;

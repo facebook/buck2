@@ -375,6 +375,7 @@ mod tests {
     use buck2_core::target::testing::ConfiguredTargetLabelExt;
     use buck2_core::target::ConfiguredTargetLabel;
     use buck2_core::target::TargetName;
+    use buck2_node::execute::config::CommandExecutorConfig;
     use dice::testing::DiceBuilder;
     use dice::DiceTransaction;
     use dice::UserComputationData;
@@ -411,7 +412,6 @@ mod tests {
     use crate::execute::commands::PreparedCommandExecutor;
     use crate::execute::materializer::nodisk::NoDiskMaterializer;
     use crate::execute::materializer::SetMaterializer;
-    use crate::execute::CommandExecutorConfig;
 
     fn create_test_build_artifact(
         package_cell: &str,

@@ -62,6 +62,7 @@ pub mod testing {
     use buck2_core::target::ConfiguredTargetLabel;
     use buck2_core::target::TargetLabel;
     use buck2_interpreter::extra::BuildContext;
+    use buck2_node::execute::config::PathSeparatorKind;
     use gazebo::prelude::*;
     use indexmap::indexset;
     use indexmap::IndexSet;
@@ -83,7 +84,6 @@ pub mod testing {
     use crate::deferred::BaseKey;
     use crate::deferred::DeferredId;
     use crate::deferred::DeferredRegistry;
-    use crate::execute::PathSeparatorKind;
     use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
     use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
     use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;

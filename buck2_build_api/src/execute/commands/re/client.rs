@@ -15,6 +15,7 @@ use anyhow::Context;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::env_helper::EnvHelper;
+use buck2_node::execute::config::RemoteExecutorUseCase;
 use derive_more::Display;
 use either::Either;
 use fbinit::FacebookInit;
@@ -60,7 +61,6 @@ use crate::execute::commands::re::ReActionIdentity;
 use crate::execute::commands::re::ReExecutorGlobalKnobs;
 use crate::execute::commands::CommandExecutionManager;
 use crate::execute::materializer::Materializer;
-use crate::execute::RemoteExecutorUseCase;
 
 static BUCK2_RE_CLIENT_CFG_SECTION: &str = "buck2_re_client";
 

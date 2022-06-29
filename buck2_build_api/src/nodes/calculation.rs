@@ -632,6 +632,7 @@ mod tests {
     use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::attrs::configured_attr::ConfiguredAttr;
     use buck2_node::attrs::inspect_options::AttrInspectOptions;
+    use buck2_node::execute::config::CommandExecutorConfig;
     use buck2_node::nodes::unconfigured::TargetNode;
     use buck2_node::rule_type::RuleType;
     use buck2_node::rule_type::StarlarkRuleType;
@@ -645,7 +646,6 @@ mod tests {
     use crate::attrs::testing::ConfiguredAttrExt;
     use crate::configuration::calculation::ExecutionPlatformsKey;
     use crate::execute::commands::dice_data::set_fallback_executor_config;
-    use crate::execute::CommandExecutorConfig;
     use crate::interpreter::calculation::testing::InterpreterResultsKey;
     use crate::interpreter::module_internals::EvaluationResult;
     use crate::nodes::calculation::NodeCalculation;

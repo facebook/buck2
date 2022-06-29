@@ -12,13 +12,13 @@
 use std::sync::Arc;
 
 use buck2_core::fs::project::ProjectFilesystem;
+use buck2_node::execute::config::CommandExecutorConfig;
 use dice::data::DiceData;
 use dice::DiceComputations;
 use dice::UserComputationData;
 
 use crate::actions::artifact::ArtifactFs;
 use crate::execute::commands::PreparedCommandExecutor;
-use crate::execute::CommandExecutorConfig;
 
 pub trait SetCommandExecutor {
     fn set_command_executor(&mut self, init: Box<dyn HasCommandExecutor + Send + Sync + 'static>);

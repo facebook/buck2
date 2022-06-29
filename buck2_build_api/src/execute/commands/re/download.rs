@@ -17,6 +17,7 @@ use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_node::execute::config::RemoteExecutorUseCase;
 use futures::future;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
@@ -39,7 +40,6 @@ use crate::execute::commands::CommandExecutionResult;
 use crate::execute::materializer::CasDownloadInfo;
 use crate::execute::materializer::Materializer;
 use crate::execute::CommandExecutionRequest;
-use crate::execute::RemoteExecutorUseCase;
 
 pub async fn download_action_results<'a>(
     request: &CommandExecutionRequest,

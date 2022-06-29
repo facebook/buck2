@@ -157,12 +157,12 @@ pub mod tester {
     use buck2_core::fs::paths::AbsPathBuf;
     use buck2_core::fs::project::ProjectFilesystem;
     use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_node::execute::config::PathSeparatorKind;
     use starlark::environment::GlobalsBuilder;
     use starlark::values::Value;
 
     use crate::actions::artifact::ArtifactFs;
     use crate::actions::artifact::ExecutorFs;
-    use crate::execute::PathSeparatorKind;
     use crate::interpreter::rule_defs::cmd_args::builder::BaseCommandLineBuilder;
     use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
     use crate::interpreter::testing::cells;

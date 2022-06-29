@@ -168,10 +168,10 @@ mod tests {
     use buck2_core::fs::paths::AbsPathBuf;
     use buck2_core::fs::project::ProjectFilesystem;
     use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_node::execute::config::PathSeparatorKind;
 
     use super::*;
     use crate::actions::artifact::ArtifactFs;
-    use crate::execute::PathSeparatorKind;
     use crate::interpreter::rule_defs::cmd_args::builder::BaseCommandLineBuilder;
     use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArgLike;
     use crate::path::BuckOutPathResolver;

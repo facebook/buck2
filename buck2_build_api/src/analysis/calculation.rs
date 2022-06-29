@@ -450,6 +450,7 @@ mod tests {
     use buck2_interpreter::extra::InterpreterHostArchitecture;
     use buck2_interpreter::extra::InterpreterHostPlatform;
     use buck2_interpreter::file_loader::LoadedModules;
+    use buck2_node::execute::config::CommandExecutorConfig;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
     use events::dispatch::EventDispatcher;
@@ -462,7 +463,6 @@ mod tests {
     use crate::configuration::calculation::ExecutionPlatformsKey;
     use crate::deferred::testing::DeferredAnalysisResultExt;
     use crate::execute::commands::dice_data::set_fallback_executor_config;
-    use crate::execute::CommandExecutorConfig;
     use crate::interpreter::calculation::testing::InterpreterResultsKey;
     use crate::interpreter::context::configure_build_file_globals;
     use crate::interpreter::context::configure_extension_file_globals;

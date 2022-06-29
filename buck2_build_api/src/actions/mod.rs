@@ -56,6 +56,7 @@ use buck2_core::directory::NoHasher;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_core::soft_error;
+use buck2_node::execute::config::CommandExecutorConfig;
 use derivative::Derivative;
 use derive_more::Display;
 use events::dispatch::EventDispatcher;
@@ -96,7 +97,6 @@ use crate::execute::commands::CommandExecutionTarget;
 use crate::execute::materializer::Materializer;
 use crate::execute::ActionExecutionMetadata;
 use crate::execute::ActionOutputs;
-use crate::execute::CommandExecutorConfig;
 use crate::path::BuckOutPath;
 
 /// Represents an unregistered 'Action' that will be registered into the 'Actions' module.
@@ -752,6 +752,7 @@ mod tests {
     use buck2_core::target::testing::ConfiguredTargetLabelExt;
     use buck2_core::target::ConfiguredTargetLabel;
     use buck2_core::target::TargetName;
+    use buck2_node::execute::config::CommandExecutorConfig;
     use gazebo::prelude::*;
     use indexmap::indexset;
 
@@ -770,7 +771,6 @@ mod tests {
     use crate::deferred::BaseKey;
     use crate::deferred::DeferredId;
     use crate::deferred::DeferredRegistry;
-    use crate::execute::CommandExecutorConfig;
     use crate::path::BuckOutPath;
 
     #[test]

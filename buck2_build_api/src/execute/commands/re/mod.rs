@@ -15,6 +15,7 @@ use std::time::SystemTime;
 use async_trait::async_trait;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_node::execute::config::RemoteExecutorUseCase;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
 use remote_execution as RE;
@@ -47,7 +48,6 @@ use crate::execute::commands::PreparedCommand;
 use crate::execute::commands::PreparedCommandExecutor;
 use crate::execute::materializer::Materializer;
 use crate::execute::ActionExecutionKind;
-use crate::execute::RemoteExecutorUseCase;
 
 pub mod cache_check;
 pub mod client;

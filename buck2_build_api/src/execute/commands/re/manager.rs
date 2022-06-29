@@ -18,6 +18,7 @@ use std::sync::Weak;
 use anyhow::Context as _;
 use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_core::result::SharedResult;
+use buck2_node::execute::config::RemoteExecutorUseCase;
 use fbinit::FacebookInit;
 use gazebo::prelude::*;
 use remote_execution as RE;
@@ -38,7 +39,6 @@ use crate::execute::commands::re::ReActionIdentity;
 use crate::execute::commands::re::ReExecutorGlobalKnobs;
 use crate::execute::commands::CommandExecutionManager;
 use crate::execute::materializer::Materializer;
-use crate::execute::RemoteExecutorUseCase;
 
 /// Lifetime management of the Remote Execution connection (i.e. the RemoteExecutionClient).
 ///

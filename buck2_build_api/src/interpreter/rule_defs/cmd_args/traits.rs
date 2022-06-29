@@ -17,6 +17,7 @@ use anyhow::Context as _;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
+use buck2_node::execute::config::PathSeparatorKind;
 use indexmap::IndexSet;
 use starlark::values::string::StarlarkStr;
 
@@ -25,7 +26,6 @@ use crate::actions::artifact::ExecutorFs;
 use crate::actions::artifact::OutputArtifact;
 use crate::artifact_groups::ArtifactGroup;
 use crate::attrs::attr_type::arg::value::ResolvedMacro;
-use crate::execute::PathSeparatorKind;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 
 pub trait CommandLineArtifactVisitor {
