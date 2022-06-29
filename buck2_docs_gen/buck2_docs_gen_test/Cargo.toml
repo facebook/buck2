@@ -8,4 +8,4 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.51"
 buck2_docs_gen= { version = "0.1.0", path = "../buck2_docs_gen" }
-starlark = { version = "0.8", path = "../../starlark-rust/starlark" }
+starlark = { version = "0.9.0-pre", path = "../../starlark-rust/starlark" }

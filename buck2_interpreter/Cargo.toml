@@ -28,7 +28,7 @@ once_cell = "1.3"
 ref-cast = "1.0.0"
 serde = { version = "1.0", features = ["derive"] }
 sha2 = "0.9"
-starlark = { version = "0.8", path = "../starlark-rust/starlark" }
+starlark = { version = "0.9.0-pre", path = "../starlark-rust/starlark" }
 thiserror = "1.0.9"
 glob = "0.3.0"
 

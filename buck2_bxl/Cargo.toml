@@ -31,7 +31,7 @@ gazebo.features = ["str_pattern_extensions"]
 dice = { path = "../dice/dice" }
 events = { path = "../events" }
 # For `SmallMap`
-starlark = { version = "0.8", path = "../starlark-rust/starlark" }
+starlark = { version = "0.9.0-pre", path = "../starlark-rust/starlark" }
 
 buck2_build_api = { path = "../buck2_build_api" }
 buck2_bxl_core = { path = "../buck2_bxl_core" }

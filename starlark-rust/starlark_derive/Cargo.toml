@@ -1,6 +1,6 @@
 [package]
 name = "starlark_derive"
-version = "0.7.0"
+version = "0.9.0-pre"
 edition = "2021"
 license = "Apache-2.0"
 description = "Derive helpers for the starlark package."
