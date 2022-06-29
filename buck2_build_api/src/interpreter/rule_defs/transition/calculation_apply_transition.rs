@@ -21,6 +21,7 @@ use buck2_core::result::ToSharedResultExt;
 use buck2_core::target::TargetLabel;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
+use buck2_node::nodes::unconfigured::TargetNode;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -44,7 +45,6 @@ use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectio
 use crate::interpreter::rule_defs::transition::calculation_fetch_transition::FetchTransition;
 use crate::interpreter::rule_defs::transition::cfg_diff::cfg_diff;
 use crate::interpreter::rule_defs::transition::starlark::FrozenTransition;
-use crate::nodes::unconfigured::TargetNode;
 
 #[derive(Error, Debug)]
 enum ApplyTransitionError {

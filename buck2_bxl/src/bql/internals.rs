@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use buck2_build_api::nodes::unconfigured::TargetNode;
+use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use gazebo::any::ProvidesStaticType;

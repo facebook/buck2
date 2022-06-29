@@ -11,7 +11,7 @@
 //!
 //! See <https://buck.build/command/query.html#allpaths> and <https://docs.bazel.build/versions/master/query.html> for rough semantics
 
-use buck2_build_api::nodes::unconfigured::TargetNode;
+use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::syntax::simple::eval::set::TargetSetExt;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;

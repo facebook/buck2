@@ -34,6 +34,7 @@ use buck2_node::attrs::internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::compatibility::IncompatiblePlatformReason;
 use buck2_node::compatibility::MaybeCompatible;
+use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::visibility::VisibilityError;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use derive_more::Display;
@@ -57,7 +58,6 @@ use crate::execute::commands::dice_data::HasFallbackExecutorConfig;
 use crate::interpreter::calculation::InterpreterCalculation;
 use crate::interpreter::rule_defs::transition::calculation_apply_transition::ApplyTransition;
 use crate::nodes::configured::ConfiguredTargetNode;
-use crate::nodes::unconfigured::TargetNode;
 use crate::nodes::AttributeError;
 
 #[async_trait]
@@ -632,6 +632,7 @@ mod tests {
     use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::attrs::configured_attr::ConfiguredAttr;
     use buck2_node::attrs::inspect_options::AttrInspectOptions;
+    use buck2_node::nodes::unconfigured::TargetNode;
     use buck2_node::rule_type::RuleType;
     use buck2_node::rule_type::StarlarkRuleType;
     use dice::testing::DiceBuilder;
@@ -649,7 +650,6 @@ mod tests {
     use crate::interpreter::module_internals::EvaluationResult;
     use crate::nodes::calculation::NodeCalculation;
     use crate::nodes::unconfigured::testing::TargetNodeExt;
-    use crate::nodes::unconfigured::TargetNode;
 
     #[tokio::test]
     async fn test_get_node() -> anyhow::Result<()> {

@@ -49,6 +49,7 @@ pub mod testing {
     use buck2_interpreter::package_imports::ImplicitImport;
     use buck2_interpreter::starlark_profiler::StarlarkProfilerInstrumentation;
     use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
+    use buck2_node::nodes::unconfigured::TargetsMap;
     use gazebo::cmp::PartialEqAny;
     use gazebo::prelude::*;
     use indoc::indoc;
@@ -60,7 +61,6 @@ pub mod testing {
     use crate::interpreter::context::BuildInterpreterConfiguror;
     use crate::interpreter::module_internals::EvaluationResult;
     use crate::interpreter::module_internals::ModuleInternals;
-    use crate::nodes::unconfigured::TargetsMap;
 
     pub type GlobalsConfigurationFn = Arc<dyn Fn(&mut GlobalsBuilder) + Sync + Send>;
 

@@ -17,14 +17,14 @@ use buck2_core::package::Package;
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::extra::ExtraContext;
 use buck2_interpreter::package_imports::ImplicitImport;
+use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::nodes::unconfigured::TargetsMap;
 use gazebo::prelude::*;
 use indexmap::map::Entry;
 use starlark::environment::FrozenModule;
 use starlark::values::OwnedFrozenValue;
 
 use crate::interpreter::rule_defs::attr::BuildAttrCoercionContext;
-use crate::nodes::unconfigured::TargetNode;
-use crate::nodes::unconfigured::TargetsMap;
 
 /// An EvaluationResult contains the list of targets resulting from evaluating a build file.
 #[derive(Debug)]

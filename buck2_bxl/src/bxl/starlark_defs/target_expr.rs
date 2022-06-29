@@ -2,11 +2,11 @@ use std::borrow::Cow;
 
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::nodes::configured::ConfiguredTargetNode;
-use buck2_build_api::nodes::unconfigured::TargetNode;
 use buck2_build_api::query::cquery::environment::CqueryEnvironment;
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
+use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;

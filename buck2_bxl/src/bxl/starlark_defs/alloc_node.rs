@@ -8,7 +8,7 @@
  */
 
 use buck2_build_api::nodes::configured::ConfiguredTargetNode;
-use buck2_build_api::nodes::unconfigured::TargetNode;
+use buck2_node::nodes::unconfigured::TargetNode;
 use starlark::values::Heap;
 use starlark::values::Value;
 

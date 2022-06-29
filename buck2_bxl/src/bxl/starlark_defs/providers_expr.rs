@@ -1,6 +1,5 @@
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::nodes::configured::ConfiguredTargetNode;
-use buck2_build_api::nodes::unconfigured::TargetNode;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::package::Package;
 use buck2_core::pattern::ParsedPattern;
@@ -12,6 +11,7 @@ use buck2_core::target::TargetLabel;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter::types::label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
+use buck2_node::nodes::unconfigured::TargetNode;
 use gazebo::dupe::Dupe;
 use itertools::Either;
 use starlark::eval::Evaluator;

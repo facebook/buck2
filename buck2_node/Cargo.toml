@@ -24,6 +24,7 @@ gazebo_lint.optional = true
 small_map = { path = "../shed/small_map" }
 
 buck2_core = { path = "../buck2_core" }
+buck2_query = { path = "../buck2_query" }
 
 [features]
 # @oss-disable: default = ["gazebo_lint"]

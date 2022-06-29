@@ -13,12 +13,12 @@ use std::sync::Arc;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::target::TargetLabel;
+use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use dice::DiceComputations;
 use gazebo::prelude::*;
 
-use crate::nodes::unconfigured::TargetNode;
 use crate::query::analysis::evaluator::eval_query;
 use crate::query::dice::get_dice_query_delegate;
 use crate::query::dice::DiceQueryDelegate;

@@ -17,5 +17,7 @@
 pub mod attrs;
 pub mod call_stack;
 pub mod compatibility;
+pub mod nodes;
+pub mod query;
 pub mod rule_type;
 pub mod visibility;

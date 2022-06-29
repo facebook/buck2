@@ -10,34 +10,26 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_core::buck_path::BuckPath;
 use buck2_core::build_file_path::BuildFilePath;
-use buck2_core::cells::paths::CellPath;
 use buck2_core::configuration::transition::id::TransitionId;
-use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
-use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
-use buck2_node::attrs::internal::DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
-use buck2_node::attrs::internal::TESTS_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::VISIBILITY_ATTRIBUTE_FIELD;
 use buck2_node::attrs::spec::AttributeSpec;
-use buck2_node::attrs::traversal::CoercedAttrTraversal;
 use buck2_node::attrs::values::AttrValues;
 use buck2_node::call_stack::StarlarkCallStack;
+use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::rule_type::RuleType;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilitySpecification;
-use buck2_query::query::syntax::simple::eval::file_set::FileNode;
 use gazebo::dupe::Dupe;
-use indexmap::IndexMap;
 use starlark::eval::CallStack;
 use starlark::eval::ParametersParser;
 use starlark::values::Value;
@@ -45,56 +37,32 @@ use starlark::values::Value;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::nodes::attr_spec::AttributeSpecExt;
 
-/// Map of target -> details of those targets within a build file.
-pub type TargetsMap = IndexMap<TargetName, TargetNode>;
+pub(crate) trait TargetNodeExt: Sized {
+    fn from_params_ignore_attrs_for_profiling<'v>(
+        internals: &ModuleInternals,
+        cfg: Option<Arc<TransitionId>>,
+        param_parser: ParametersParser<'v, '_>,
+        rule_type: Arc<StarlarkRuleType>,
+        buildfile_path: Arc<BuildFilePath>,
+        is_configuration_rule: bool,
+        attr_spec: Arc<AttributeSpec>,
+    ) -> anyhow::Result<Self>;
 
-/// Describes a target including its name, type, and the values that the user provided.
-/// Some information (e.g. deps) is extracted eagerly, most is in the attrs map and needs to be
-/// accessed via attribute visitors.
-///
-/// For attributes, to avoid duplicating data across many nodes the TargetNode itself doesn't store
-/// the attribute names and it doesn't store an entry for something that has a default value. All
-/// that information is contained in the AttributeSpec. This means that to access an attribute we
-/// need to look at both the attrs held by the TargetNode and the information in the AttributeSpec.
-#[derive(Debug, Clone, Dupe, Eq, PartialEq, Hash)]
-pub struct TargetNode(pub(crate) Arc<TargetNodeData>);
-
-#[derive(Debug, Eq, PartialEq, Hash)]
-pub(crate) struct TargetNodeData {
-    label: TargetLabel,
-
-    /// The 'type', used to find the implementation function from the graph
-    rule_type: RuleType,
-
-    /// The build file which defined this target, e.g. `fbcode//foo/bar/TARGETS`
-    buildfile_path: Arc<BuildFilePath>,
-
-    /// The rule is marked as configuration rule.
-    is_configuration_rule: bool,
-
-    /// Transition to apply to the target.
-    pub(crate) cfg: Option<Arc<TransitionId>>,
-
-    /// The attribute spec. This holds the attribute name -> index mapping and the default values
-    /// (for those attributes without explicit values).
-    attr_spec: Arc<AttributeSpec>,
-
-    /// The attribute->value mapping for this rule. It's guaranteed that if an attribute does not
-    /// have a value here, it does have a default value in the AttributeSpec.
-    attributes: AttrValues,
-
-    // TODO(cjhopman): Consider removing these cached derived fields. Query definitely needs deps
-    // cached, but for builds it's potentially unimportant.
-    deps_cache: CoercedDepsCollector,
-
-    /// Visibility specification restricts what targets can depend on this one.
-    visibility: VisibilitySpecification,
-
-    /// Call stack for the target.
-    call_stack: Option<StarlarkCallStack>,
+    fn from_params<'v>(
+        internals: &ModuleInternals,
+        cfg: Option<Arc<TransitionId>>,
+        param_parser: ParametersParser<'v, '_>,
+        arg_count: usize,
+        ignore_attrs_for_profiling: bool,
+        rule_type: Arc<StarlarkRuleType>,
+        buildfile_path: Arc<BuildFilePath>,
+        is_configuration_rule: bool,
+        attr_spec: Arc<AttributeSpec>,
+        call_stack: Option<CallStack>,
+    ) -> anyhow::Result<Self>;
 }
 
-impl TargetNode {
+impl TargetNodeExt for TargetNode {
     /// Extact only the name attribute from rule arguments, ignore the others.
     fn from_params_ignore_attrs_for_profiling<'v>(
         internals: &ModuleInternals,
@@ -112,18 +80,18 @@ impl TargetNode {
                     internals.buildfile_path().package().dupe(),
                     TargetName::new(value.unpack_str().unwrap()).unwrap(),
                 );
-                return Ok(Self(Arc::new(TargetNodeData {
+                return Ok(TargetNode::new(
                     label,
-                    rule_type: RuleType::Starlark(rule_type),
+                    RuleType::Starlark(rule_type),
                     buildfile_path,
-                    deps_cache: CoercedDepsCollector::new(),
-                    attributes: AttrValues::with_capacity(0),
-                    attr_spec: attr_spec.dupe(),
-                    cfg,
-                    visibility: VisibilitySpecification::Public,
                     is_configuration_rule,
-                    call_stack: None,
-                })));
+                    cfg,
+                    attr_spec.dupe(),
+                    AttrValues::with_capacity(0),
+                    CoercedDepsCollector::new(),
+                    VisibilitySpecification::Public,
+                    None,
+                ));
             }
         }
         unreachable!("`name` attribute not found");
@@ -131,7 +99,7 @@ impl TargetNode {
 
     /// The body of the callable returned by `rule()`. Records the target in this package's `TargetMap`
     #[allow(clippy::box_collection)] // Parameter `call_stack`, because this is the field type.
-    pub(crate) fn from_params<'v>(
+    fn from_params<'v>(
         internals: &ModuleInternals,
         cfg: Option<Arc<TransitionId>>,
         param_parser: ParametersParser<'v, '_>,
@@ -182,260 +150,18 @@ impl TargetNode {
             value.traverse(&mut deps_cache)?;
         }
 
-        Ok(Self(Arc::new(TargetNodeData {
+        Ok(TargetNode::new(
             label,
-            rule_type: RuleType::Starlark(rule_type),
+            RuleType::Starlark(rule_type),
             buildfile_path,
-            deps_cache,
-            attributes: attr_values,
-            attr_spec,
-            cfg,
-            visibility,
             is_configuration_rule,
-            call_stack: call_stack.map(StarlarkCallStack::new),
-        })))
-    }
-
-    pub(crate) fn is_configuration_rule(&self) -> bool {
-        self.0.is_configuration_rule
-    }
-
-    pub fn get_default_target_platform(&self) -> Option<&TargetLabel> {
-        match self.attr_or_none(
-            DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD,
-            AttrInspectOptions::All,
-        ) {
-            Some(v) => match v {
-                CoercedAttr::Literal(v) => match v {
-                    AttrLiteral::None => None,
-                    AttrLiteral::Dep(t) => Some(t.label().target()),
-                    _ => unreachable!("coercer verified the attribute is dep"),
-                },
-                CoercedAttr::Selector(_) | CoercedAttr::Concat(_) => {
-                    unreachable!("coercer verified attribute is not configurable")
-                }
-            },
-            None => None,
-        }
-    }
-
-    /// Returns the input files for this node.
-    pub fn files(&self) -> anyhow::Result<Vec<FileNode>> {
-        unimplemented!()
-    }
-
-    pub fn rule_type(&self) -> &RuleType {
-        &self.0.rule_type
-    }
-
-    pub fn buildfile_path(&self) -> &BuildFilePath {
-        &*self.0.buildfile_path
-    }
-
-    fn deps_cache(&self) -> &CoercedDepsCollector {
-        &self.0.deps_cache
-    }
-
-    /// Returns all deps for this node that we know about after processing the build file
-    pub fn deps(&self) -> impl Iterator<Item = &TargetLabel> {
-        let deps_cache = self.deps_cache();
-        deps_cache
-            .deps
-            .iter()
-            .chain(deps_cache.transition_deps.iter().map(|(dep, _tr)| dep))
-            .chain(deps_cache.exec_deps.iter())
-    }
-
-    /// Deps which are to be transitioned to other configuration using transition function.
-    pub fn transition_deps(&self) -> impl Iterator<Item = (&TargetLabel, &Arc<TransitionId>)> {
-        self.deps_cache()
-            .transition_deps
-            .iter()
-            .map(|x| (&x.0, &x.1))
-    }
-
-    pub fn label(&self) -> &TargetLabel {
-        &self.0.label
-    }
-
-    pub(crate) fn special_attrs(&self) -> impl Iterator<Item = (String, CoercedAttr)> {
-        vec![
-            (
-                "buck.type".to_owned(),
-                CoercedAttr::new_literal(AttrLiteral::String(self.rule_type().name().to_owned())),
-            ),
-            (
-                "buck.configuration_deps".to_owned(),
-                CoercedAttr::new_literal(AttrLiteral::List(
-                    self.get_configuration_deps()
-                        .map(|t| CoercedAttr::new_literal(AttrLiteral::ConfigurationDep(t.dupe())))
-                        .collect(),
-                    AttrType::configuration_dep(),
-                )),
-            ),
-        ]
-        .into_iter()
-    }
-
-    pub fn is_visible_to(&self, target: &TargetLabel) -> bool {
-        if self.label().pkg() == target.pkg() {
-            return true;
-        }
-        self.0.visibility.is_visible_to(target)
-    }
-
-    pub fn attrs(&self, opts: AttrInspectOptions) -> impl Iterator<Item = (&str, &CoercedAttr)> {
-        self.0.attr_spec.attrs(&self.0.attributes, opts)
-    }
-
-    pub fn platform_deps(&self) -> impl Iterator<Item = &TargetLabel> {
-        self.deps_cache().platform_deps.iter()
-    }
-
-    /// Return `None` if attribute is not present or unknown.
-    pub fn attr_or_none(&self, key: &str, opts: AttrInspectOptions) -> Option<&CoercedAttr> {
-        self.0.attr_spec.attr_or_none(&self.0.attributes, key, opts)
-    }
-
-    /// Get attribute.
-    ///
-    /// * `None` if attribute is known but not set and no default.
-    /// * error if attribute is unknown.
-    pub fn attr(
-        &self,
-        key: &str,
-        opts: AttrInspectOptions,
-    ) -> anyhow::Result<Option<&CoercedAttr>> {
-        self.0
-            .attr_spec
-            .attr(&self.0.attributes, key, opts)
-            .with_context(|| format!("attribute `{}` not found", key))
-    }
-
-    pub fn target_deps(&self) -> impl Iterator<Item = &TargetLabel> {
-        self.deps_cache().deps.iter()
-    }
-
-    pub fn execution_deps(&self) -> impl Iterator<Item = &TargetLabel> {
-        self.deps_cache().exec_deps.iter()
-    }
-
-    pub fn get_configuration_deps(&self) -> impl Iterator<Item = &TargetLabel> {
-        self.deps_cache().configuration_deps.iter()
-    }
-
-    pub fn tests(&self) -> impl Iterator<Item = &ProvidersLabel> {
-        #[derive(Default)]
-        struct TestCollector<'a> {
-            labels: Vec<&'a ProvidersLabel>,
-        }
-
-        impl<'a> CoercedAttrTraversal<'a> for TestCollector<'a> {
-            fn input(&mut self, _path: &'a BuckPath) -> anyhow::Result<()> {
-                Ok(())
-            }
-
-            fn dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
-                Ok(())
-            }
-
-            fn exec_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
-                Ok(())
-            }
-
-            fn transition_dep(
-                &mut self,
-                _dep: &'a TargetLabel,
-                _tr: &Arc<TransitionId>,
-            ) -> anyhow::Result<()> {
-                Ok(())
-            }
-
-            fn platform_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
-                Ok(())
-            }
-
-            fn split_transition_dep(
-                &mut self,
-                _dep: &'a TargetLabel,
-                _tr: &Arc<TransitionId>,
-            ) -> anyhow::Result<()> {
-                Ok(())
-            }
-
-            fn configuration_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
-                Ok(())
-            }
-
-            fn label(&mut self, label: &'a ProvidersLabel) -> anyhow::Result<()> {
-                self.labels.push(label);
-                Ok(())
-            }
-        }
-
-        let tests = self
-            .attr_or_none(TESTS_ATTRIBUTE_FIELD, AttrInspectOptions::All)
-            .expect("tests is an internal attribute field and will always be present");
-
-        let mut traversal = TestCollector::default();
-        tests.traverse(&mut traversal).unwrap();
-        traversal.labels.into_iter()
-    }
-
-    pub fn inputs(&self) -> impl Iterator<Item = CellPath> + '_ {
-        struct InputsCollector {
-            inputs: Vec<CellPath>,
-        }
-
-        impl<'a> CoercedAttrTraversal<'a> for InputsCollector {
-            fn input(&mut self, path: &'a BuckPath) -> anyhow::Result<()> {
-                self.inputs.push(path.to_cell_path());
-                Ok(())
-            }
-
-            fn dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
-                Ok(())
-            }
-
-            fn exec_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
-                Ok(())
-            }
-
-            fn platform_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
-                Ok(())
-            }
-
-            fn transition_dep(
-                &mut self,
-                _dep: &'a TargetLabel,
-                _tr: &Arc<TransitionId>,
-            ) -> anyhow::Result<()> {
-                Ok(())
-            }
-
-            fn split_transition_dep(
-                &mut self,
-                _dep: &'a TargetLabel,
-                _tr: &Arc<TransitionId>,
-            ) -> anyhow::Result<()> {
-                Ok(())
-            }
-
-            fn configuration_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
-                Ok(())
-            }
-        }
-        let mut traversal = InputsCollector { inputs: Vec::new() };
-        for (_, attr) in self.attrs(AttrInspectOptions::All) {
-            attr.traverse(&mut traversal)
-                .expect("inputs collector shouldn't return errors");
-        }
-
-        traversal.inputs.into_iter()
-    }
-
-    pub fn call_stack(&self) -> Option<String> {
-        self.0.call_stack.as_ref().map(|s| s.to_string())
+            cfg,
+            attr_spec,
+            attr_values,
+            deps_cache,
+            visibility,
+            call_stack.map(StarlarkCallStack::new),
+        ))
     }
 }
 
@@ -492,6 +218,8 @@ pub mod testing {
     use buck2_node::attrs::inspect_options::AttrInspectOptions;
     use buck2_node::attrs::spec::AttributeSpec;
     use buck2_node::attrs::values::AttrValues;
+    use buck2_node::nodes::unconfigured::TargetNode;
+    use buck2_node::nodes::unconfigured::TargetsMap;
     use buck2_node::rule_type::RuleType;
     use buck2_node::visibility::VisibilitySpecification;
     use gazebo::prelude::*;
@@ -499,9 +227,6 @@ pub mod testing {
     use serde_json::value::Value;
 
     use crate::nodes::hacks::value_to_json;
-    use crate::nodes::unconfigured::TargetNode;
-    use crate::nodes::unconfigured::TargetNodeData;
-    use crate::nodes::unconfigured::TargetsMap;
     use crate::nodes::OrderedMap;
 
     pub trait TargetNodeExt {
@@ -538,18 +263,18 @@ pub mod testing {
                 label.pkg().dupe(),
                 FileNameBuf::unchecked_new("BUCK".to_owned()),
             ));
-            TargetNode(Arc::new(TargetNodeData {
+            TargetNode::new(
                 label,
                 rule_type,
                 buildfile_path,
-                is_configuration_rule: false,
-                cfg: None,
-                attr_spec: Arc::new(AttributeSpec::testing_new(indices, instances)),
+                false,
+                None,
+                Arc::new(AttributeSpec::testing_new(indices, instances)),
                 attributes,
                 deps_cache,
-                visibility: VisibilitySpecification::Public,
-                call_stack: None,
-            }))
+                VisibilitySpecification::Public,
+                None,
+            )
         }
     }
 
