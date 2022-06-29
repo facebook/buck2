@@ -16,6 +16,7 @@ pub mod coercion_context;
 pub mod configurable;
 pub mod configuration_context;
 pub mod configured_attr;
+pub mod configured_info;
 pub mod configured_traversal;
 pub mod id;
 pub mod inspect_options;

@@ -9,21 +9,17 @@
 
 use std::fmt::Debug;
 
-use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter::types::label::LabelGen;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
 use buck2_node::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
-use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
 use buck2_node::attrs::attr_type::source::SourceAttrType;
 use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
-use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use gazebo::prelude::*;
 use starlark::collections::SmallMap;
-use starlark::collections::SmallSet;
 use starlark::values::dict::Dict;
 use starlark::values::none::NoneType;
 use starlark::values::FrozenValue;
@@ -92,41 +88,6 @@ impl UnconfiguredAttrLiteralExt for AttrLiteral<CoercedAttr> {
                 Err(CoercionError::AttrCannotBeConvertedToValue(x.to_string()).into())
             }
         }
-    }
-}
-
-#[derive(Default, Debug)]
-pub struct ConfiguredAttrInfo {
-    // Including transitioned deps.
-    pub deps: SmallSet<ConfiguredProvidersLabel>,
-    pub execution_deps: SmallSet<ConfiguredProvidersLabel>,
-    pub has_query: bool,
-}
-
-impl ConfiguredAttrInfo {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
-
-impl<'a> ConfiguredAttrTraversal<'a> for ConfiguredAttrInfo {
-    fn dep(&mut self, dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
-        self.deps.insert(dep.clone());
-        Ok(())
-    }
-
-    fn query_macro(
-        &mut self,
-        _query: &'a str,
-        _resolved_literals: &'a ResolvedQueryLiterals<ConfiguredAttr>,
-    ) -> anyhow::Result<()> {
-        self.has_query = true;
-        Ok(())
-    }
-
-    fn exec_dep(&mut self, dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
-        self.execution_deps.insert(dep.clone());
-        Ok(())
     }
 }
 
