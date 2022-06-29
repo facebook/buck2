@@ -169,8 +169,6 @@ def _process_apple_resource_file_if_needed(ctx: "context", file: "artifact", des
         process_plist(
             ctx = ctx,
             input = file,
-            additional_input = None,
-            additional_keys = None,
             output = processed.as_output(),
             action_id = destination_relative_path,
         )
@@ -300,7 +298,7 @@ def get_apple_bundle_part_list(ctx: "context", params: AppleBundlePartListConstr
         parts.append(asset_catalog_part)
 
     extra_plist = asset_catalog_result.catalog_plist if asset_catalog_result != None else None
-    info_plist_part = process_info_plist(ctx, extra_plist)
+    info_plist_part = process_info_plist(ctx = ctx, override_input = extra_plist)
 
     product_name = ctx.attr.name
     core_data_result = compile_apple_core_data(ctx, core_data_specs, product_name)
