@@ -23,7 +23,7 @@ module.exports = {
     {
       type: 'category',
       label: 'Rule authors',
-      items: ['writing_rules', 'rule_api', 'transitive_sets', 'configurations', 'test_execution', 'optimization', 'rule_writing_tips'],
+      items: ['writing_rules', 'rule_api', 'transitive_sets', 'configurations', 'test_execution', 'optimization', 'rule_writing_tips', 'incremental_actions'],
     },
     {
       type: 'category',
