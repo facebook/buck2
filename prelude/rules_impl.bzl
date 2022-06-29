@@ -207,7 +207,7 @@ def _cxx_binary_and_test_attrs():
 
 extra_attributes = struct(
     export_file = {
-        "src": attr.option(attr.source(allow_directory = True), default = None),
+        "src": attr.source(allow_directory = True),
     },
     genrule = {
         "srcs": attr.named_set(attr.source(allow_directory = True), sorted = False, default = []),
