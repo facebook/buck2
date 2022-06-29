@@ -62,6 +62,7 @@ pub mod testing {
     use buck2_core::target::ConfiguredTargetLabel;
     use buck2_core::target::TargetLabel;
     use buck2_interpreter::extra::BuildContext;
+    use buck2_node::configuration::execution::ExecutionPlatformResolution;
     use buck2_node::execute::config::PathSeparatorKind;
     use gazebo::prelude::*;
     use indexmap::indexset;
@@ -78,7 +79,6 @@ pub mod testing {
     use crate::actions::artifact::SourceArtifact;
     use crate::actions::testing::SimpleUnregisteredAction;
     use crate::actions::ActionsRegistry;
-    use crate::configuration::execution::ExecutionPlatformResolution;
     use crate::deferred::testing::DeferredIdExt;
     use crate::deferred::BaseDeferredKey;
     use crate::deferred::BaseKey;

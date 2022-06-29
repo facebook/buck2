@@ -320,6 +320,7 @@ mod tests {
     use buck2_core::target::testing::TargetLabelExt;
     use buck2_core::target::TargetLabel;
     use buck2_node::compatibility::MaybeCompatible;
+    use buck2_node::configuration::execution::ExecutionPlatformResolution;
     use buck2_node::execute::config::CommandExecutorConfig;
     use buck2_node::rule_type::RuleType;
     use buck2_node::rule_type::StarlarkRuleType;
@@ -331,7 +332,6 @@ mod tests {
 
     use crate::analysis::calculation::testing::AnalysisKey;
     use crate::analysis::AnalysisResult;
-    use crate::configuration::execution::ExecutionPlatformResolution;
     use crate::deferred::calculation::DeferredCalculation;
     use crate::deferred::BaseDeferredKey;
     use crate::deferred::BaseKey;

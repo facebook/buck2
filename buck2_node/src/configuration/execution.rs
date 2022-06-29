@@ -11,11 +11,12 @@ use std::sync::Arc;
 
 use buck2_core::configuration::Configuration;
 use buck2_core::target::TargetLabel;
-use buck2_node::compatibility::IncompatiblePlatformReason;
-use buck2_node::execute::config::CommandExecutorConfig;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use thiserror::Error;
+
+use crate::compatibility::IncompatiblePlatformReason;
+use crate::execute::config::CommandExecutorConfig;
 
 /// An execution platform is used for the execution deps of a target, those dependencies that
 /// need to be invoked as part of a build action or otherwise need to be configured against the

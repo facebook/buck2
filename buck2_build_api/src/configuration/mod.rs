@@ -14,15 +14,13 @@ use buck2_core::cells::CellName;
 use buck2_core::configuration::Configuration;
 use buck2_core::result::SharedResult;
 use buck2_core::target::TargetLabel;
+use buck2_node::configuration::execution::ExecutionPlatform;
+use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use buck2_node::configuration::resolved::ConfigurationNode;
 use buck2_node::configuration::resolved::ResolvedConfiguration;
 use indexmap::IndexSet;
 
-use crate::configuration::execution::ExecutionPlatform;
-use crate::configuration::execution::ExecutionPlatformResolution;
-
 pub mod calculation;
-pub mod execution;
 
 pub mod target_platform_detector;
 

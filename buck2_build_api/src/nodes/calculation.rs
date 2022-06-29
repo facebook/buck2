@@ -35,6 +35,8 @@ use buck2_node::attrs::internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::compatibility::IncompatiblePlatformReason;
 use buck2_node::compatibility::MaybeCompatible;
+use buck2_node::configuration::execution::ExecutionPlatform;
+use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use buck2_node::configuration::resolved::ConfigurationSettingKeyRef;
 use buck2_node::configuration::resolved::ResolvedConfiguration;
 use buck2_node::nodes::unconfigured::TargetNode;
@@ -51,8 +53,6 @@ use itertools::Itertools;
 use starlark::collections::SmallSet;
 
 use crate::calculation::BuildErrors;
-use crate::configuration::execution::ExecutionPlatform;
-use crate::configuration::execution::ExecutionPlatformResolution;
 use crate::configuration::ConfigurationCalculation;
 use crate::execute::commands::dice_data::HasFallbackExecutorConfig;
 use crate::interpreter::calculation::InterpreterCalculation;

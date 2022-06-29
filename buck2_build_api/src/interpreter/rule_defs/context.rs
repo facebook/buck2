@@ -810,6 +810,7 @@ mod tests {
     use buck2_core::target::testing::TargetLabelExt;
     use buck2_core::target::TargetLabel;
     use buck2_interpreter::types::label::LabelGen;
+    use buck2_node::configuration::execution::ExecutionPlatformResolution;
     use gazebo::prelude::*;
     use indoc::indoc;
     use starlark::collections::SmallMap;
@@ -824,7 +825,6 @@ mod tests {
     use starlark::values::ValueTyped;
 
     use crate::analysis::registry::AnalysisRegistry;
-    use crate::configuration::execution::ExecutionPlatformResolution;
     use crate::deferred::BaseDeferredKey;
     use crate::interpreter::rule_defs::context::AnalysisContext;
     use crate::starlark::values::UnpackValue;

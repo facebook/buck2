@@ -12,6 +12,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use derivative::Derivative;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
@@ -33,7 +34,6 @@ use crate::actions::ActionsRegistry;
 use crate::actions::UnregisteredAction;
 use crate::artifact_groups::registry::ArtifactGroupRegistry;
 use crate::artifact_groups::ArtifactGroup;
-use crate::configuration::execution::ExecutionPlatformResolution;
 use crate::deferred::BaseDeferredKey;
 use crate::deferred::BaseKey;
 use crate::deferred::DeferredId;

@@ -22,6 +22,8 @@ use buck2_core::result::SharedResult;
 use buck2_core::result::ToSharedResultExt;
 use buck2_core::target::TargetLabel;
 use buck2_node::compatibility::MaybeCompatible;
+use buck2_node::configuration::execution::ExecutionPlatformIncompatibleReason;
+use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use buck2_node::configuration::resolved::ConfigurationNode;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use derive_more::Display;
@@ -33,8 +35,6 @@ use indexmap::IndexSet;
 use thiserror::Error;
 
 use crate::analysis::calculation::RuleAnalysisCalculation;
-use crate::configuration::execution::ExecutionPlatformIncompatibleReason;
-use crate::configuration::execution::ExecutionPlatformResolution;
 use crate::configuration::target_platform_detector::TargetPlatformDetector;
 use crate::configuration::ConfigurationCalculation;
 use crate::configuration::ExecutionPlatforms;

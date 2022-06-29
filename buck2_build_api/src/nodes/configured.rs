@@ -39,6 +39,7 @@ use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::TESTS_ATTRIBUTE_FIELD;
+use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use buck2_node::configuration::resolved::ResolvedConfiguration;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::rule_type::RuleType;
@@ -46,8 +47,6 @@ use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use either::Either;
 use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
-
-use crate::configuration::execution::ExecutionPlatformResolution;
 
 /// ConfiguredTargetNode contains the information for a target in a particular configuration.
 ///

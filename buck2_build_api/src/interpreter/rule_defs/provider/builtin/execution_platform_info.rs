@@ -13,6 +13,7 @@ use buck2_build_api_derive::internal_provider;
 use buck2_core::configuration::Configuration;
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
+use buck2_node::configuration::execution::ExecutionPlatform;
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
 use gazebo::prelude::*;
@@ -23,7 +24,6 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
 
-use crate::configuration::execution::ExecutionPlatform;
 use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfigLike;
 use crate::interpreter::rule_defs::provider::builtin::configuration_info::ConfigurationInfo;
 
