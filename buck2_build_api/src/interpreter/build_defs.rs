@@ -17,12 +17,22 @@ use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::docs::DocString;
 use starlark::values::docs::DocStringKind;
+use starlark::values::none::NoneType;
 use starlark::values::Value;
+use thiserror::Error;
 
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::rule_defs::provider::callable::ProviderCallable;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetDefinition;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetOperations;
+
+#[derive(Debug, Error)]
+enum OncallErrors {
+    #[error("Called `oncall` after one or more targets were declared, `oncall` must be first.")]
+    OncallAfterTargets,
+    #[error("Called `oncall` more than once in the file.")]
+    DuplicateOncall,
+}
 
 #[starlark_module]
 fn natives(builder: &mut GlobalsBuilder) {
@@ -30,6 +40,26 @@ fn natives(builder: &mut GlobalsBuilder) {
     /// (if this should exist at all).
     fn rule_exists(name: &str, eval: &mut Evaluator) -> anyhow::Result<bool> {
         Ok(ModuleInternals::from_context(eval)?.target_exists(name))
+    }
+
+    /// Called in a TARGETS/BUCK file to declare the oncall contact details for
+    /// all the targets defined. Must be called at most once, before any targets
+    /// have been declared. Errors if called from a `.bzl` file.
+    fn oncall(
+        #[starlark(require = pos)] _name: &str,
+        eval: &mut Evaluator,
+    ) -> anyhow::Result<NoneType> {
+        let internals = ModuleInternals::from_context(eval)?;
+        if !internals.recorder().is_empty() {
+            // We require oncall to be first both so users can find it,
+            // and so we can propagate it to all targets more easily.
+            Err(OncallErrors::OncallAfterTargets.into())
+        } else if internals.has_seen_oncall() {
+            Err(OncallErrors::DuplicateOncall.into())
+        } else {
+            internals.set_seen_oncall();
+            Ok(NoneType)
+        }
     }
 
     fn provider(
@@ -115,6 +145,7 @@ mod tests {
     use crate::interpreter::testing::cells;
     use crate::interpreter::testing::import;
     use crate::interpreter::testing::run_simple_starlark_test;
+    use crate::interpreter::testing::run_starlark_test_expecting_error;
     use crate::interpreter::testing::Tester;
     use crate::nodes::unconfigured::testing::targets_to_json;
 
@@ -323,5 +354,45 @@ mod tests {
                 print("multiple", "strings")
             "#
         ))
+    }
+
+    #[test]
+    fn test_oncall() -> anyhow::Result<()> {
+        run_simple_starlark_test(indoc!(
+            r#"
+            def _impl(ctx):
+                pass
+            export_file = rule(implementation=_impl, attrs = {})
+
+            def test():
+                oncall("valid")
+                export_file(name = "rule_name")
+            "#
+        ))?;
+        run_starlark_test_expecting_error(
+            indoc!(
+                r#"
+            def test():
+                oncall("valid")
+                oncall("twice")
+            "#
+            ),
+            "more than once",
+        );
+        run_starlark_test_expecting_error(
+            indoc!(
+                r#"
+            def _impl(ctx):
+                pass
+            export_file = rule(implementation=_impl, attrs = {})
+
+            def test():
+                export_file(name = "rule_name")
+                oncall("failure after")
+            "#
+            ),
+            "after one or more targets",
+        );
+        Ok(())
     }
 }

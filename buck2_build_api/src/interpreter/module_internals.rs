@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::cell::Cell;
 use std::cell::RefCell;
 use std::sync::Arc;
 
@@ -86,6 +87,8 @@ impl From<ModuleInternals> for EvaluationResult {
 pub struct ModuleInternals {
     attr_coercion_context: BuildAttrCoercionContext,
     buildfile_path: Arc<BuildFilePath>,
+    /// Have you seen an oncall annotation yet
+    seen_oncall: Cell<bool>,
     /// Directly imported modules.
     imports: Vec<ImportPath>,
     recorder: TargetsRecorder,
@@ -125,6 +128,7 @@ impl ModuleInternals {
         Self {
             attr_coercion_context,
             buildfile_path,
+            seen_oncall: Cell::new(false),
             imports,
             package_implicits,
             recorder: TargetsRecorder::new(),
@@ -139,6 +143,14 @@ impl ModuleInternals {
 
     pub fn recorder(&self) -> &TargetsRecorder {
         &self.recorder
+    }
+
+    pub fn has_seen_oncall(&self) -> bool {
+        self.seen_oncall.get()
+    }
+
+    pub fn set_seen_oncall(&self) {
+        self.seen_oncall.set(true)
     }
 
     pub fn target_exists(&self, name: &str) -> bool {
@@ -180,6 +192,10 @@ impl TargetsRecorder {
         Self {
             targets: RefCell::new(TargetsMap::new()),
         }
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.targets.borrow().is_empty()
     }
 
     pub fn record(&self, target_node: TargetNode) -> anyhow::Result<()> {
