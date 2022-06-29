@@ -256,16 +256,12 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
         attrs: DictOf<'v, &'v str, &'v AttributeAsStarlarkValue>,
         #[starlark(require = named)] cfg: Option<Value>,
         #[starlark(require = named, default = "")] doc: &str,
-        #[allow(unused_variables)]
-        #[starlark(require = named, default = false)]
-        allow_unknown_attrs: bool,
         #[starlark(require = named, default = false)] is_configuration_rule: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         // TODO(nmj): Add default attributes in here like 'name', 'visibility', etc
         // TODO(nmj): Verify that names are valid. This is technically handled by the Params
         //                 objects, but will blow up in a friendlier way here.
-        // TODO(cjhopman): Implement allow_unknown_attrs.
 
         let build_context = BuildContext::from_context(eval)?;
         let bzl_path = (*build_context
