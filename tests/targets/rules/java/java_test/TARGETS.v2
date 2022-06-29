@@ -9,6 +9,17 @@ native.java_test(
 )
 
 native.java_test(
+    name = "java_test_running_from_cell_root",
+    srcs = ["com/example/SimpleJavaTest.java"],
+    # fbcode java wrapper requires this env var.
+    env = {"FBCODE_JAVA_VERSION": "11"},
+    deps = [
+        "fbsource//third-party/junit:junit",
+    ],
+    labels = ["buck2_run_from_cell_root"],
+)
+
+native.java_test(
     name = "java_test_with_cxx_library_allowlist",
     srcs = ["com/example/JavaTestWithNativeLib.java"],
     # fbcode java wrapper requires this env var.

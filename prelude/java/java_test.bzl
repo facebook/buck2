@@ -33,8 +33,11 @@ def build_junit_test(
         if packaging_dep.jar
     ] + extra_classpath_entries
 
+    run_from_cell_root = "buck2_run_from_cell_root" in (ctx.attr.labels or [])
+
     classpath_args = cmd_args()
-    classpath_args.relative_to(ctx.label.cell_root)
+    if run_from_cell_root:
+        classpath_args.relative_to(ctx.label.cell_root)
     classpath_args.add("-classpath")
     classpath_args.add(cmd_args(classpath, delimiter = get_path_separator()))
     classpath_args_file = ctx.actions.write("classpath_args_file", classpath_args)
@@ -71,6 +74,8 @@ def build_junit_test(
         env = env,
         labels = ctx.attr.labels,
         contacts = ctx.attr.contacts,
+        run_from_project_root = not run_from_cell_root,
+        use_project_relative_paths = not run_from_cell_root,
     )
     return test_info, run_info
 
