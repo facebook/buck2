@@ -16,7 +16,6 @@ use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use gazebo::prelude::*;
 use starlark::values::FrozenRef;
 
-use crate::artifact_groups::ArtifactGroup;
 use crate::attrs::analysis::AttrResolutionContext;
 use crate::attrs::attr_type::arg::value::add_output_to_arg;
 use crate::attrs::attr_type::arg::ArgBuilder;
@@ -105,14 +104,14 @@ impl ResolvedQueryMacro {
             Self::Outputs(list) => {
                 for target_outputs in list.iter() {
                     for artifact in target_outputs.iter() {
-                        visitor.visit_input(ArtifactGroup::Artifact(artifact.get_bound()?), None);
+                        artifact.as_command_line_like().visit_artifacts(visitor)?;
                     }
                 }
             }
             Self::TargetsAndOutputs(_, list) => {
                 for (_, target_outputs) in list.iter() {
                     for artifact in target_outputs.iter() {
-                        visitor.visit_input(ArtifactGroup::Artifact(artifact.get_bound()?), None);
+                        artifact.as_command_line_like().visit_artifacts(visitor)?;
                     }
                 }
             }
