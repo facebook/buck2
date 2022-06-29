@@ -22,6 +22,7 @@ def config_backed_android_toolchain(
 
     aapt2_config = read("tools", "aapt2")
     kwargs["aapt2"] = aapt2_config if aapt2_config else "fbsource//third-party/toolchains/android-sdk:aapt2"
+    kwargs["adb"] = "fbsource//third-party/toolchains/android-sdk:adb"
     kwargs["zipalign"] = "fbsource//third-party/toolchains/android-sdk:zipalign_and_deps"
 
     kwargs["proguard_config"] = "fbsource//third-party/toolchains/android-sdk:proguard_config"
@@ -72,6 +73,7 @@ def _config_backed_android_toolchain_rule_impl(ctx):
         ),
         AndroidToolchainInfo(
             aapt2 = ctx.attr.aapt2[RunInfo],
+            adb = ctx.attr.adb[RunInfo],
             aidl = ctx.attr.aidl[RunInfo],
             android_bootclasspath = bootclasspath,
             android_jar = ctx.attr.android_jar,
@@ -102,6 +104,7 @@ def _config_backed_android_toolchain_rule_impl(ctx):
 _config_backed_android_toolchain_rule = rule(
     attrs = {
         "aapt2": attr.dep(providers = [RunInfo]),
+        "adb": attr.dep(providers = [RunInfo]),
         "aidl": attr.dep(providers = [RunInfo]),
         "android_jar": attr.source(),
         "android_optional_jars": attr.list(attr.source()),
