@@ -26,6 +26,7 @@ use buck2_node::configuration::execution::ExecutionPlatformIncompatibleReason;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use buck2_node::configuration::resolved::ConfigurationNode;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
+use buck2_node::configuration::target_platform_detector::TargetPlatformDetector;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -35,7 +36,6 @@ use indexmap::IndexSet;
 use thiserror::Error;
 
 use crate::analysis::calculation::RuleAnalysisCalculation;
-use crate::configuration::target_platform_detector::TargetPlatformDetector;
 use crate::configuration::ConfigurationCalculation;
 use crate::configuration::ExecutionPlatforms;
 use crate::configuration::ResolvedConfiguration;

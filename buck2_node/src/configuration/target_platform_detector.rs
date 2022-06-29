@@ -122,6 +122,7 @@ mod tests {
     use buck2_core::cells::CellAlias;
     use buck2_core::cells::CellName;
     use buck2_core::target::testing::TargetLabelExt;
+    use maplit::hashmap;
 
     use super::*;
 

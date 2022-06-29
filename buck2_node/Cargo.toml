@@ -26,5 +26,8 @@ small_map = { path = "../shed/small_map" }
 buck2_core = { path = "../buck2_core" }
 buck2_query = { path = "../buck2_query" }
 
+[dev-dependencies]
+maplit = "1.0.2"
+
 [features]
 # @oss-disable: default = ["gazebo_lint"]

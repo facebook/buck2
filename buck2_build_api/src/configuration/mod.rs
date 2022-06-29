@@ -22,8 +22,6 @@ use indexmap::IndexSet;
 
 pub mod calculation;
 
-pub mod target_platform_detector;
-
 pub type ExecutionPlatforms = Arc<Vec<Arc<ExecutionPlatform>>>;
 
 #[async_trait]
