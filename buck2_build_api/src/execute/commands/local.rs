@@ -36,6 +36,7 @@ use buck2_core::process::async_background_command;
 use derive_more::From;
 use faccess::PathExt;
 use futures::channel::oneshot;
+use futures::future;
 use futures::future::try_join3;
 use futures::future::FusedFuture;
 use futures::future::Future;
@@ -68,6 +69,7 @@ use crate::execute::commands::output::CommandStdStreams;
 use crate::execute::commands::CommandExecutionInput;
 use crate::execute::commands::CommandExecutionManager;
 use crate::execute::commands::CommandExecutionOutput;
+use crate::execute::commands::CommandExecutionOutputRef;
 use crate::execute::commands::CommandExecutionRequest;
 use crate::execute::commands::CommandExecutionResult;
 use crate::execute::commands::CommandExecutionTarget;
@@ -159,7 +161,28 @@ impl LocalExecutor {
                 buck2_data::LocalStage {
                     stage: Some(buck2_data::LocalMaterializeInputs {}.into()),
                 },
-                materialize_inputs(&self.artifact_fs, &self.materializer, request),
+                async {
+                    let (r1, r2) = future::join(
+                        materialize_inputs(&self.artifact_fs, &self.materializer, request),
+                        async {
+                            // When user requests to not perform a cleanup for a specific action
+                            // output from previous run of that action could actually be used as the
+                            // input during current run (e.g. extra output which is an incremental state describing the actual output).
+                            if !request.outputs_cleanup {
+                                materialize_build_outputs_from_previous_run(
+                                    &self.artifact_fs,
+                                    &self.materializer,
+                                    request,
+                                )
+                                .await
+                            } else {
+                                Ok(())
+                            }
+                        },
+                    )
+                    .await;
+                    r1.and(r2)
+                },
             )
             .await
         {
@@ -794,6 +817,29 @@ pub async fn materialize_inputs(
                 CleanOutputPaths::clean(std::iter::once(path.as_ref()), artifact_fs.fs())?;
                 artifact_fs.fs().write_file(&path, &metadata.data, false)?;
             }
+        }
+    }
+
+    materializer.ensure_materialized(paths).await
+}
+
+/// Materialize build outputs from the previous run of the same command.
+/// Useful when executing incremental actions first remotely and then locally.
+/// In that case output from remote execution which is incremental state should be materialized prior local execution.
+/// Such incremental state in fact serves as the input while being output as well.
+pub async fn materialize_build_outputs_from_previous_run(
+    artifact_fs: &ArtifactFs,
+    materializer: &Arc<dyn Materializer>,
+    request: &CommandExecutionRequest,
+) -> anyhow::Result<()> {
+    let mut paths = vec![];
+
+    for output in request.outputs() {
+        match output {
+            CommandExecutionOutputRef::BuildArtifact(artifact) => {
+                paths.push(artifact_fs.resolve_build(artifact));
+            }
+            CommandExecutionOutputRef::TestPath { path: _, create: _ } => {}
         }
     }
 
