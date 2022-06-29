@@ -132,8 +132,8 @@ extra_attributes = {
         "platform_path": attr.option(attr.source()),  # Mark as optional until we remove `_internal_platform_path`
         "sdk_modules": attr.list(attr.dep(), default = []),  # A list or a root target that represent a graph of sdk modules (e.g Frameworks)
         "sdk_path": attr.option(attr.source()),  # Mark as optional until we remove `_internal_sdk_path`
-        "swift_stdlib_tool": attr.dep(providers = [RunInfo]),
-        "swiftc": attr.dep(providers = [RunInfo]),
+        "swift_stdlib_tool": attr.exec_dep(providers = [RunInfo]),
+        "swiftc": attr.exec_dep(providers = [RunInfo]),
         # TODO(T111858757): Mirror of `platform_path` but treated as a string. It allows us to
         #                   pass abs paths during development and using the currently selected Xcode.
         "_internal_platform_path": attr.option(attr.string(), default = None),
