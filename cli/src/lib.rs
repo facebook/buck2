@@ -169,14 +169,20 @@ impl Opt {
         matches: &clap::ArgMatches,
         init: fbinit::FacebookInit,
         replayer: Option<Replayer>,
+        async_cleanup_context: AsyncCleanupContext,
     ) -> ExitResult {
         let subcommand_matches = match matches.subcommand().map(|s| s.1) {
             Some(submatches) => submatches,
             None => panic!("Parsed a subcommand but couldn't extract subcommand argument matches"),
         };
 
-        self.cmd
-            .exec(subcommand_matches, self.common_opts, init, replayer)
+        self.cmd.exec(
+            subcommand_matches,
+            self.common_opts,
+            init,
+            replayer,
+            async_cleanup_context,
+        )
     }
 }
 
@@ -186,12 +192,15 @@ pub fn exec(
     init: fbinit::FacebookInit,
     replayer: Option<Replayer>,
 ) -> ExitResult {
+    let guard = AsyncCleanupContextGuard::new();
+    let async_cleanup_context = guard.ctx().dupe();
+
     let expanded_args = expand_argfiles(args, &cwd).context("Error expanding argsfiles")?;
 
     let clap = Opt::clap();
     let matches = clap.get_matches_from(expanded_args);
     let opt = Opt::from_clap(&matches);
-    opt.exec(&matches, init, replayer)
+    opt.exec(&matches, init, replayer, async_cleanup_context)
 }
 
 fn default_subscribers<T: StreamingCommand>(
@@ -329,10 +338,7 @@ impl CommandContext {
             .enable_all()
             .build()
             .expect("Should be able to start a runtime");
-        let async_cleanup_context = self.async_cleanup_context().dupe();
-        let res = runtime.block_on(func(self));
-        runtime.block_on(async_cleanup_context.join());
-        res
+        runtime.block_on(func(self))
     }
 
     pub(crate) async fn connect_buckd(
@@ -399,12 +405,6 @@ pub(crate) struct AsyncCleanupContext {
 }
 
 impl AsyncCleanupContext {
-    pub(crate) fn new() -> Self {
-        Self {
-            jobs: Arc::new(Mutex::new(Vec::new())),
-        }
-    }
-
     pub(crate) fn register(&self, fut: BoxFuture<'static, ()>) {
         self.jobs.lock().expect("Poisoned mutex").push(fut);
     }
@@ -412,6 +412,30 @@ impl AsyncCleanupContext {
     async fn join(&self) {
         let futs = std::mem::take(&mut *self.jobs.lock().expect("Poisoned mutex"));
         future::join_all(futs).await;
+    }
+}
+
+pub(crate) struct AsyncCleanupContextGuard(AsyncCleanupContext);
+
+impl AsyncCleanupContextGuard {
+    pub fn new() -> Self {
+        Self(AsyncCleanupContext {
+            jobs: Arc::new(Mutex::new(Vec::new())),
+        })
+    }
+
+    pub fn ctx(&self) -> &AsyncCleanupContext {
+        &self.0
+    }
+}
+
+impl Drop for AsyncCleanupContextGuard {
+    fn drop(&mut self) {
+        let runtime = Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("Should be able to start a runtime");
+        runtime.block_on(self.0.join());
     }
 }
 
@@ -461,6 +485,7 @@ impl CommandKind {
         common_opts: CommonOptions,
         init: fbinit::FacebookInit,
         replayer: Option<Replayer>,
+        async_cleanup_context: AsyncCleanupContext,
     ) -> ExitResult {
         let roots = roots::find_current_roots();
         let replay_speed = replayer.as_ref().map(|r| r.speed());
@@ -476,7 +501,7 @@ impl CommandKind {
             replayer: replayer.map(sync_wrapper::SyncWrapper::new),
             replay_speed,
             verbosity: common_opts.verbosity,
-            async_cleanup_context: AsyncCleanupContext::new(),
+            async_cleanup_context,
         };
         match self {
             CommandKind::Daemon(cmd) => cmd.exec(matches, command_ctx).into(),
