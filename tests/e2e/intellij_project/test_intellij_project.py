@@ -11,6 +11,9 @@ async def test_generate_intellij_project(buck: Buck) -> None:
     )
     result = await buck.bxl(
         bxl_label,
+        "--",
+        "--targets",
+        "fbsource//fbandroid/buck2/tests/good/sample_intellij_project/apk:apk",
     )
 
     output_dir = Path(result.stdout.strip())
@@ -24,6 +27,23 @@ async def test_generate_intellij_project(buck: Buck) -> None:
     </modules>
   </component>
 </project>
+"""
+    )
+
+    assert (
+        (
+            output_dir
+            / "libraries/__fbandroid_buck2_tests_good_sample_intellij_project_prebuilt_jar_prebuilt__.xml"
+        ).read_text()
+        == """\
+<component name="libraryTable">
+  <library name="fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar:prebuilt">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/"fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar/prebuilt.jar"!/" />
+    </CLASSES>
+    <JAVADOC />
+  </library>
+</component>
 """
     )
 

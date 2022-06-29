@@ -1,0 +1,61 @@
+load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+
+IjLibrary = record(
+    # TODO(T124404955) this should be an artifact so that we point to the correct path
+    jar = "configured_attr_val",
+    name = str.type,
+    rule_type = str.type,
+    sources_jar = ["artifact", None],
+)
+
+_PREBUILT_JAR_RULE_TYPE = "fbcode//buck2/prelude/rules.bzl:prebuilt_jar"
+_LIBRARY_RULE_TYPES = [
+    _PREBUILT_JAR_RULE_TYPE,
+]
+
+def get_libraries(all_nodes: "target_set") -> {"configured_target_label": IjLibrary.type}:
+    libraries = {}
+    for node in all_nodes:
+        # TODO(T124404704) find a better way to exclude exec_deps()
+        if node.label.cell != "fbsource":
+            continue
+
+        rule_type = node.rule_type
+        if rule_type not in _LIBRARY_RULE_TYPES:
+            continue
+
+        if rule_type == _PREBUILT_JAR_RULE_TYPE:
+            libraries[node.label] = _get_prebuilt_jar_ij_library(node)
+        else:
+            fail("Should add if branch above for rule type: {}".format(rule_type))
+
+    return libraries
+
+def _get_prebuilt_jar_ij_library(node: "target_node") -> IjLibrary.type:
+    expect(node.rule_type == _PREBUILT_JAR_RULE_TYPE, "Rule type must be {} but was {}".format(_PREBUILT_JAR_RULE_TYPE, node.rule_type))
+    return IjLibrary(
+        name = str(node.label.raw_target()),
+        jar = node.attributes().binary_jar,
+        rule_type = _PREBUILT_JAR_RULE_TYPE,
+        # TODO(T124404955) Get the sources jar defined on the attrs
+        sources_jar = None,
+    )
+
+def get_project_library_file_name(library_label: "configured_target_label") -> str.type:
+    # TODO(T124405159) this should also include the config
+    package_name = library_label.package.replace("/", "_")
+    return "libraries/__{}_{}__.xml".format(package_name, library_label.name)
+
+def get_project_library_contents(ij_library: IjLibrary.type) -> str.type:
+    # TODO(T124405159) name should also include the config
+    # TODO(T124404955) add sources tag
+    return """\
+<component name="libraryTable">
+  <library name="{name}">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/{jar}!/" />
+    </CLASSES>
+    <JAVADOC />
+  </library>
+</component>
+""".format(name = ij_library.name, jar = ij_library.jar)

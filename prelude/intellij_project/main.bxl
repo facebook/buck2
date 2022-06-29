@@ -1,6 +1,25 @@
+load("@fbcode//buck2/prelude/intellij_project:libraries.bxl", "get_libraries", "get_project_library_contents", "get_project_library_file_name")
+
 def _impl(ctx):
+    all_nodes = ctx.cquery().deps(ctx.cli_args.targets, -1)
+
     final_output_dir_dict = {}
     action_factory = ctx.bxl_actions.action_factory()
+
+    libraries = get_libraries(all_nodes)
+
+    # TODO(T124403530) support module libraries
+    file_names = []
+    for label, library in libraries.items():
+        file_name = get_project_library_file_name(label)
+
+        # TODO(T124405159) once we correct include config in the file name, we don't need to do this check.
+        if file_name in file_names:
+            continue
+        file_names.append(file_name)
+        library_output = _create_output(action_factory, file_name, final_output_dir_dict)
+        action_factory.write(library_output, get_project_library_contents(library))
+
     output_module = _create_output(action_factory, "modules.xml", final_output_dir_dict)
     action_factory.write(output_module, """\
 <?xml version="1.0" encoding="UTF-8"?>
@@ -27,5 +46,7 @@ def _create_output(
 
 generate_intellij_project = bxl(
     implementation = _impl,
-    cli_args = {},
+    cli_args = {
+        "targets": cli_args.list(cli_args.target_label()),
+    },
 )
