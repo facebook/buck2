@@ -39,6 +39,8 @@ CxxExtension = enum(
     ".hip",
     ".asm",
     ".asmpp",
+    ".h",
+    ".hpp",
 )
 
 # Information on argsfiles created for Cxx compilation.
@@ -94,6 +96,14 @@ CxxCompileCommandOutput = record(
     argsfile_by_ext = field({CxxExtension.type: "artifact"}),
 )
 
+# Output of creating compile commands for Cxx source files.
+CxxCompileCommandOutputForCompDb = record(
+    # Output of creating compile commands for Cxx source files.
+    source_commands = field(CxxCompileCommandOutput.type),
+    # this field is only to be used in CDB generation
+    comp_db_commands = field(CxxCompileCommandOutput.type),
+)
+
 # An input to cxx compilation, consisting of a file to compile and optional
 # file specific flags to compile with.
 CxxSrcWithFlags = record(
@@ -105,15 +115,29 @@ def create_compile_cmds(
         ctx: "context",
         impl_params: "CxxRuleConstructorParams",
         own_preprocessors: [CPreprocessor.type],
-        inherited_preprocessor_infos: [CPreprocessorInfo.type]) -> CxxCompileCommandOutput.type:
+        inherited_preprocessor_infos: [CPreprocessorInfo.type]) -> CxxCompileCommandOutputForCompDb.type:
     """
     Forms the CxxSrcCompileCommand to use for each source file based on it's extension
     and optional source file flags. Returns CxxCompileCommandOutput containing an array
     of the generated compile commands and argsfile output.
     """
-    srcs_with_flags = impl_params.srcs
-    if not srcs_with_flags:
-        return CxxCompileCommandOutput(src_compile_cmds = [], argsfiles_info = DefaultInfo(), argsfile_by_ext = {})
+
+    srcs_with_flags = []
+    for src in impl_params.srcs:
+        srcs_with_flags.append(src)
+    header_only = False
+    if len(srcs_with_flags) == 0:
+        all_headers = flatten([x.headers for x in own_preprocessors])
+        if len(all_headers) == 0:
+            return CxxCompileCommandOutputForCompDb(
+                source_commands = CxxCompileCommandOutput(src_compile_cmds = [], argsfiles_info = DefaultInfo(), argsfile_by_ext = {}),
+                comp_db_commands = CxxCompileCommandOutput(src_compile_cmds = [], argsfiles_info = DefaultInfo(), argsfile_by_ext = {}),
+            )
+        else:
+            header_only = True
+            for header in all_headers:
+                if header.artifact.extension in [".h", ".hpp"]:
+                    srcs_with_flags.append(CxxSrcWithFlags(file = header.artifact))
 
     # TODO(T110378129): Buck v1 validates *all* headers used by a compilation
     # at compile time, but that doing that here/eagerly might be expensive (but
@@ -186,7 +210,16 @@ def create_compile_cmds(
     # Create a provider that will output all the argsfiles necessary and generate those argsfiles.
     argsfiles = DefaultInfo(default_outputs = [argsfiles_summary] + argsfiles, other_outputs = other_outputs)
 
-    return CxxCompileCommandOutput(src_compile_cmds = src_compile_cmds, argsfiles_info = argsfiles, argsfile_by_ext = argsfile_artifacts_by_ext)
+    if header_only:
+        return CxxCompileCommandOutputForCompDb(
+            source_commands = CxxCompileCommandOutput(src_compile_cmds = [], argsfiles_info = DefaultInfo(), argsfile_by_ext = {}),
+            comp_db_commands = CxxCompileCommandOutput(src_compile_cmds = src_compile_cmds, argsfiles_info = argsfiles, argsfile_by_ext = argsfile_artifacts_by_ext),
+        )
+    else:
+        return CxxCompileCommandOutputForCompDb(
+            source_commands = CxxCompileCommandOutput(src_compile_cmds = src_compile_cmds, argsfiles_info = argsfiles, argsfile_by_ext = argsfile_artifacts_by_ext),
+            comp_db_commands = CxxCompileCommandOutput(src_compile_cmds = src_compile_cmds, argsfiles_info = argsfiles, argsfile_by_ext = argsfile_artifacts_by_ext),
+        )
 
 def compile_cxx(
         ctx: "context",
@@ -264,7 +297,7 @@ def _validate_target_headers(ctx: "context", preprocessor: [CPreprocessor.type])
             path_to_artifact[header_path] = header.artifact
 
 def _get_compiler_info(toolchain: "CxxToolchainInfo", ext: CxxExtension.type) -> "_compiler_info":
-    if ext.value in (".cpp", ".cc", ".mm", ".cxx", ".c++"):
+    if ext.value in (".cpp", ".cc", ".mm", ".cxx", ".c++", ".h", ".hpp"):
         return toolchain.cxx_compiler_info
     elif ext.value in (".c", ".m"):
         return toolchain.c_compiler_info

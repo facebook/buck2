@@ -66,7 +66,7 @@ load(
 )
 load(
     ":compile.bzl",
-    "CxxCompileCommandOutput",
+    "CxxCompileCommandOutputForCompDb",
     "compile_cxx",
     "create_compile_cmds",
 )
@@ -154,7 +154,7 @@ _CxxAllLibraryOutputs = record(
 # the commands use to compile them and all the object file variants.
 _CxxCompiledSourcesOutput = record(
     # Compile commands used to compile the source files ot generate object files
-    compile_cmds = field(CxxCompileCommandOutput.type),
+    compile_cmds = field(CxxCompileCommandOutputForCompDb.type),
     # Non-PIC object files
     objects = field([["artifact"], None]),
     # PIC Object files
@@ -233,14 +233,14 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         )
 
     if impl_params.generate_sub_targets.argsfiles:
-        sub_targets[ARGSFILES_SUBTARGET] = [compiled_srcs.compile_cmds.argsfiles_info]
+        sub_targets[ARGSFILES_SUBTARGET] = [compiled_srcs.compile_cmds.source_commands.argsfiles_info]
 
     # Compilation DB.
     if impl_params.generate_sub_targets.compilation_database:
-        comp_db = create_compilation_database(ctx, compiled_srcs.compile_cmds.src_compile_cmds)
+        comp_db = create_compilation_database(ctx, compiled_srcs.compile_cmds.comp_db_commands.src_compile_cmds)
         sub_targets["compilation-database"] = [comp_db]
     if impl_params.generate_providers.compilation_database:
-        comp_db_info = make_compilation_db_info(compiled_srcs.compile_cmds.src_compile_cmds, get_cxx_toolchain_info(ctx), get_cxx_platform_info(ctx))
+        comp_db_info = make_compilation_db_info(compiled_srcs.compile_cmds.comp_db_commands.src_compile_cmds, get_cxx_toolchain_info(ctx), get_cxx_platform_info(ctx))
         providers.append(comp_db_info)
 
     # Link Groups
@@ -328,7 +328,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
             output = default_output.default if default_output else None,
             populate_rule_specific_attributes_func = impl_params.cxx_populate_xcode_attributes_func,
             srcs = impl_params.srcs + impl_params.additional_srcs,
-            argsfiles_by_ext = compiled_srcs.compile_cmds.argsfile_by_ext,
+            argsfiles_by_ext = compiled_srcs.compile_cmds.source_commands.argsfile_by_ext,
             product_name = get_default_cxx_library_product_name(ctx),
         )
 
@@ -504,10 +504,10 @@ def _compile_srcs(
     # Define object files.
     objects = None
     stripped_objects = []
-    pic_objects = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = True)
+    pic_objects = compile_cxx(ctx, compile_cmd_output.source_commands.src_compile_cmds, pic = True)
     stripped_pic_objects = None
     if preferred_linkage != Linkage("shared"):
-        objects = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = False)
+        objects = compile_cxx(ctx, compile_cmd_output.source_commands.src_compile_cmds, pic = False)
         stripped_objects = _strip_objects(ctx, objects)
         stripped_pic_objects = _strip_objects(ctx, pic_objects)
 

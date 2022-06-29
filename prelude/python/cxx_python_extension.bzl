@@ -84,13 +84,13 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
 
     # Compile objects.
     compile_cmd_output = create_compile_cmds(ctx, impl_params, [own_pre], inherited_pre)
-    objects = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = True)
+    objects = compile_cxx(ctx, compile_cmd_output.source_commands.src_compile_cmds, pic = True)
 
     # The name of the extension.
     name = value_or(ctx.attr.module_name, ctx.label.name) + ".so"
 
     # Compilation DB.
-    comp_db = create_compilation_database(ctx, compile_cmd_output.src_compile_cmds)
+    comp_db = create_compilation_database(ctx, compile_cmd_output.source_commands.src_compile_cmds)
     sub_targets["compilation-database"] = [comp_db]
 
     # Link extension.
