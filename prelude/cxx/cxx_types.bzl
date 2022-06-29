@@ -44,6 +44,7 @@ CxxRuleProviderParams = record(
     resources = field(bool.type, True),
     shared_libraries = field(bool.type, True),
     template_placeholders = field(bool.type, True),
+    preprocessor_for_tests = field(bool.type, True),
 )
 
 # Parameters that allows to configure/extend generic implementation of C++ rules.
@@ -56,6 +57,8 @@ CxxRuleProviderParams = record(
 CxxRuleConstructorParams = record(
     # Name of the top level rule utilizing the cxx rule.
     rule_type = str.type,
+    # If the rule is a test.
+    is_test = field(bool.type, False),
     # Header layout to use importing headers.
     headers_layout = CxxHeadersLayout.type,
     # Additional information used to preprocess every unit of translation in the rule

@@ -75,7 +75,7 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
     link_flags = cxx_attr_linker_flags(ctx)
 
     # Gather preprocessor inputs.
-    own_pre = cxx_private_preprocessor_info(
+    (own_pre, _) = cxx_private_preprocessor_info(
         ctx,
         impl_params.headers_layout,
         raw_headers = ctx.attr.raw_headers,

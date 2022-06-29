@@ -108,11 +108,13 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     first_order_deps = cxx_attr_deps(ctx) + filter(None, [ctx.attr.precompiled_header])
 
     # Gather preprocessor inputs.
-    own_preprocessor_info = cxx_private_preprocessor_info(
+    (own_preprocessor_info, test_preprocessor_infos) = cxx_private_preprocessor_info(
         ctx,
         impl_params.headers_layout,
         raw_headers = ctx.attr.raw_headers,
         extra_preprocessors = impl_params.extra_preprocessors,
+        non_exported_deps = first_order_deps,
+        is_test = is_cxx_test,
     )
     inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(first_order_deps)
 
@@ -125,7 +127,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     compile_cmd_output = create_compile_cmds(
         ctx,
         impl_params,
-        [own_preprocessor_info],
+        [own_preprocessor_info] + test_preprocessor_infos,
         inherited_preprocessor_infos,
     )
     objects = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = link_style != LinkStyle("static"))

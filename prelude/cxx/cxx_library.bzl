@@ -113,6 +113,7 @@ load(":platform.bzl", "cxx_by_platform")
 load(
     ":preprocessor.bzl",
     "CPreprocessor",  # @unused Used as a type
+    "CPreprocessorForTestsInfo",
     "CPreprocessorInfo",  # @unused Used as a type
     "cxx_exported_preprocessor_info",
     "cxx_inherited_preprocessor_infos",
@@ -194,13 +195,15 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     # TODO(T110378095) right now we implement reexport of exported_* flags manually, we should improve/automate that in the macro layer
 
     # Gather preprocessor inputs.
-    own_non_exported_preprocessor_info = cxx_private_preprocessor_info(
+    (own_non_exported_preprocessor_info, test_preprocessor_infos) = cxx_private_preprocessor_info(
         ctx = ctx,
         headers_layout = impl_params.headers_layout,
         extra_preprocessors = impl_params.extra_preprocessors,
+        non_exported_deps = non_exported_deps,
+        is_test = impl_params.is_test,
     )
     own_exported_preprocessor_info = cxx_exported_preprocessor_info(ctx, impl_params.headers_layout, impl_params.extra_exported_preprocessors)
-    own_preprocessors = [own_non_exported_preprocessor_info, own_exported_preprocessor_info]
+    own_preprocessors = [own_non_exported_preprocessor_info, own_exported_preprocessor_info] + test_preprocessor_infos
 
     inherited_non_exported_preprocessor_infos = cxx_inherited_preprocessor_infos(
         non_exported_deps + filter(None, [ctx.attr.precompiled_header]),
@@ -220,6 +223,14 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
 
     sub_targets = {}
     providers = []
+
+    if len(ctx.attr.tests) > 0 and impl_params.generate_providers.preprocessor_for_tests:
+        providers.append(
+            CPreprocessorForTestsInfo(
+                test_names = [test_target.name for test_target in ctx.attr.tests],
+                own_non_exported_preprocessor = own_non_exported_preprocessor_info,
+            ),
+        )
 
     if impl_params.generate_sub_targets.argsfiles:
         sub_targets[ARGSFILES_SUBTARGET] = [compiled_srcs.compile_cmds.argsfiles_info]

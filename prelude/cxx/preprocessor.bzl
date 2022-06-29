@@ -84,6 +84,18 @@ CPreprocessorInfo = provider(fields = [
     "set",  # "CPreprocessorTSet"
 ])
 
+# Defines the provider exposed by libraries to test targets,
+# so that tests can have access to the private headers of
+# the first order deps (for testing purposes).
+CPreprocessorForTestsInfo = provider(fields = [
+    # [str.type] - list of targets in "tests"
+    "test_names",  #
+    # CPreprocessor.type - the private preprocessor
+    # for the target which is _only_ exposed to any
+    # test targets defined in `test_names`
+    "own_non_exported_preprocessor",
+])
+
 # Preprocessor flags
 def cxx_attr_preprocessor_flags(ctx: "context", ext: str.type) -> [""]:
     return (
@@ -202,7 +214,25 @@ def cxx_private_preprocessor_info(
         ctx: "context",
         headers_layout: CxxHeadersLayout.type,
         raw_headers: ["artifact"] = [],
-        extra_preprocessors: [CPreprocessor.type] = []) -> CPreprocessor.type:
+        extra_preprocessors: [CPreprocessor.type] = [],
+        non_exported_deps: ["dependency"] = [],
+        is_test: bool.type = False) -> (CPreprocessor.type, [CPreprocessor.type]):
+    private_preprocessor = _cxx_private_preprocessor_info(ctx, headers_layout, raw_headers, extra_preprocessors)
+
+    test_preprocessors = []
+    if is_test:
+        for non_exported_dep in non_exported_deps:
+            preprocessor_for_tests = non_exported_dep[CPreprocessorForTestsInfo]
+            if preprocessor_for_tests and ctx.label.name in preprocessor_for_tests.test_names:
+                test_preprocessors.append(preprocessor_for_tests.own_non_exported_preprocessor)
+
+    return (private_preprocessor, test_preprocessors)
+
+def _cxx_private_preprocessor_info(
+        ctx: "context",
+        headers_layout: CxxHeadersLayout.type,
+        raw_headers: ["artifact"],
+        extra_preprocessors: [CPreprocessor.type]) -> CPreprocessor.type:
     """
     This rule's preprocessor info which is only applied to the compilation of
     its source, and not propagated to dependents.

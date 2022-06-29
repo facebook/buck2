@@ -113,6 +113,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
 
     return CxxRuleConstructorParams(
         rule_type = params.rule_type,
+        is_test = (params.rule_type == "apple_test"),
         headers_layout = get_apple_cxx_headers_layout(ctx),
         extra_exported_link_flags = params.extra_exported_link_flags,
         extra_link_flags = get_min_deployment_version_target_linker_flags(ctx),
