@@ -25,7 +25,7 @@ use once_cell::sync::Lazy;
 use thiserror::Error;
 use tokio::sync::Semaphore;
 
-use crate::file_ops::ExternalSymlink;
+use crate::external_symlink::ExternalSymlink;
 use crate::file_ops::FileDigest;
 use crate::file_ops::FileMetadata;
 use crate::file_ops::PathMetadata;

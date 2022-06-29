@@ -356,7 +356,7 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::Arc;
 
-    use buck2_common::file_ops::ExternalSymlink;
+    use buck2_common::external_symlink::ExternalSymlink;
     use buck2_common::file_ops::FileDigest;
     use buck2_common::file_ops::FileMetadata;
     use buck2_common::file_ops::TrackedFileDigest;

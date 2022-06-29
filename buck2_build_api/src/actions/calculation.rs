@@ -350,8 +350,8 @@ mod tests {
     use buck2_common::dice::cells::HasCellResolver;
     use buck2_common::dice::data::testing::SetTestingIoProvider;
     use buck2_common::dice::file_ops::testing::FileOpsKey;
+    use buck2_common::external_symlink::ExternalSymlink;
     use buck2_common::file_ops::testing::TestFileOps;
-    use buck2_common::file_ops::ExternalSymlink;
     use buck2_common::file_ops::FileDigest;
     use buck2_common::file_ops::FileMetadata;
     use buck2_common::file_ops::TrackedFileDigest;
