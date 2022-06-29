@@ -18,6 +18,7 @@ AppleToolchainInfo = provider(fields = [
     "sdk_path",  # [str.type, artifact]
     # TODO(T124581557) Make it non-optional once there is no "selected xcode" toolchain
     "sdk_version",  # [None, str.type]
+    "sdk_build_version",  # "[None, str.type]"
     "swift_toolchain_info",  # "SwiftToolchainInfo"
     "watch_kit_stub_binary",  # "artifact"
     "xcode_version",  # "[None, str.type]"

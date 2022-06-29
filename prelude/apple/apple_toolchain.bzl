@@ -25,6 +25,7 @@ def apple_toolchain_impl(ctx: "context") -> ["provider"]:
             sdk_name = ctx.attr.sdk_name,
             sdk_path = sdk_path,
             sdk_version = ctx.attr.version,
+            sdk_build_version = ctx.attr.build_version,
             swift_toolchain_info = ctx.attr.swift_toolchain[SwiftToolchainInfo] if ctx.attr.swift_toolchain else None,
             watch_kit_stub_binary = ctx.attr.watch_kit_stub_binary,
             xcode_version = ctx.attr.xcode_version,
