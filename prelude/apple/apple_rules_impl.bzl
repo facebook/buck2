@@ -105,6 +105,7 @@ extra_attributes = {
         "momc": attr.dep(providers = [RunInfo]),
         "platform_path": attr.option(attr.source()),  # Mark as optional until we remove `_internal_platform_path`
         "sdk_path": attr.option(attr.source()),  # Mark as optional until we remove `_internal_sdk_path`
+        "version": attr.option(attr.string(), default = None),
         "xctest": attr.dep(providers = [RunInfo]),
         # TODO(T111858757): Mirror of `platform_path` but treated as a string. It allows us to
         #                   pass abs paths during development and using the currently selected Xcode.

@@ -8,7 +8,7 @@ load(
     "MacOSXSdkMetadata",
     "get_apple_sdk_metadata_for_sdk_name",
 )
-load(":apple_toolchain_types.bzl", "AppleToolsInfo")
+load(":apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 
 def process_info_plist(ctx: "context", additional_input: ["artifact", None]) -> AppleBundlePart.type:
     input = _preprocess_info_plist(ctx)
@@ -78,6 +78,10 @@ def _info_plist_additional_keys(ctx: "context") -> {str.type: ""}:
     result = _extra_mac_info_plist_keys(sdk_metadata, ctx.attr.extension)
     result["CFBundleSupportedPlatforms"] = sdk_metadata.info_plist_supported_platforms_values
     result["DTPlatformName"] = sdk_name
+    sdk_version = ctx.attr._apple_toolchain[AppleToolchainInfo].sdk_version
+    if sdk_version:
+        result["DTPlatformVersion"] = sdk_version
+        result["DTSDKName"] = sdk_name + sdk_version
     return result
 
 def _extra_mac_info_plist_keys(sdk_metadata: AppleSdkMetadata.type, extension: str.type) -> {str.type: ""}:
