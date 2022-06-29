@@ -8,8 +8,6 @@
  */
 
 use std::collections::BTreeMap;
-use std::hash::Hash;
-use std::hash::Hasher;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -21,20 +19,20 @@ use buck2_core::configuration::ConfigurationData;
 use buck2_core::result::SharedResult;
 use buck2_core::target::TargetLabel;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
+use buck2_node::configuration::resolved::ConfigurationNode;
+use buck2_node::configuration::resolved::ConfigurationSettingKeyRef;
+use buck2_node::configuration::resolved::ResolvedConfiguration;
 use gazebo::prelude::*;
-use indexmap::Equivalent;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use thiserror::Error;
 
 use crate::configuration::execution::ExecutionPlatform;
 use crate::configuration::execution::ExecutionPlatformResolution;
-use crate::configuration::resolved::ConfigurationNode;
-use crate::configuration::resolved::ResolvedConfiguration;
 
 pub mod calculation;
 pub mod execution;
-pub(crate) mod resolved;
+
 pub mod target_platform_detector;
 
 pub type ExecutionPlatforms = Arc<Vec<Arc<ExecutionPlatform>>>;
@@ -82,36 +80,6 @@ pub trait ConfigurationCalculation {
         exec_compatible_with: Vec<TargetLabel>,
         exec_deps: IndexSet<TargetLabel>,
     ) -> SharedResult<ExecutionPlatformResolution>;
-}
-
-#[derive(Debug, Eq)]
-pub struct ConfigurationSettingKey(pub(crate) TargetLabel);
-
-#[derive(Debug, Hash, Eq, PartialEq)]
-pub struct ConfigurationSettingKeyRef<'a>(pub(crate) &'a TargetLabel);
-
-impl Equivalent<ConfigurationSettingKey> for ConfigurationSettingKeyRef<'_> {
-    fn equivalent(&self, key: &ConfigurationSettingKey) -> bool {
-        self == &key.as_ref()
-    }
-}
-
-impl ConfigurationSettingKey {
-    fn as_ref(&self) -> ConfigurationSettingKeyRef {
-        ConfigurationSettingKeyRef(&self.0)
-    }
-}
-
-impl PartialEq for ConfigurationSettingKey {
-    fn eq(&self, other: &Self) -> bool {
-        self.as_ref() == other.as_ref()
-    }
-}
-
-impl Hash for ConfigurationSettingKey {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.as_ref().hash(state);
-    }
 }
 
 #[derive(Debug, Error)]

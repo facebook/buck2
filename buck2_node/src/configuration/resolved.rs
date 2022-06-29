@@ -15,10 +15,38 @@ use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::target::TargetLabel;
 use gazebo::prelude::*;
+use indexmap::Equivalent;
 use indexmap::IndexMap;
 
-use crate::configuration::ConfigurationSettingKey;
-use crate::configuration::ConfigurationSettingKeyRef;
+#[derive(Debug, Eq)]
+pub struct ConfigurationSettingKey(pub TargetLabel);
+
+#[derive(Debug, Hash, Eq, PartialEq)]
+pub struct ConfigurationSettingKeyRef<'a>(pub &'a TargetLabel);
+
+impl Equivalent<ConfigurationSettingKey> for ConfigurationSettingKeyRef<'_> {
+    fn equivalent(&self, key: &ConfigurationSettingKey) -> bool {
+        self == &key.as_ref()
+    }
+}
+
+impl ConfigurationSettingKey {
+    fn as_ref(&self) -> ConfigurationSettingKeyRef {
+        ConfigurationSettingKeyRef(&self.0)
+    }
+}
+
+impl PartialEq for ConfigurationSettingKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_ref() == other.as_ref()
+    }
+}
+
+impl Hash for ConfigurationSettingKey {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.as_ref().hash(state);
+    }
+}
 
 /// For a target, some of the configuration comes down the graph from its dependents, other
 /// parts of the configuration (those not specified by the target platform or transitions)
