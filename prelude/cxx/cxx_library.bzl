@@ -200,6 +200,8 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         extra_preprocessors = impl_params.extra_preprocessors,
     )
     own_exported_preprocessor_info = cxx_exported_preprocessor_info(ctx, impl_params.headers_layout, impl_params.extra_exported_preprocessors)
+    own_preprocessors = [own_non_exported_preprocessor_info, own_exported_preprocessor_info]
+
     inherited_non_exported_preprocessor_infos = cxx_inherited_preprocessor_infos(
         non_exported_deps + filter(None, [ctx.attr.precompiled_header]),
     )
@@ -210,8 +212,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     compiled_srcs = _compile_srcs(
         ctx = ctx,
         impl_params = impl_params,
-        own_non_exported_preprocessor_info = own_non_exported_preprocessor_info,
-        own_exported_preprocessor_info = own_exported_preprocessor_info,
+        own_preprocessors = own_preprocessors,
         inherited_non_exported_preprocessor_infos = inherited_non_exported_preprocessor_infos,
         inherited_exported_preprocessor_infos = inherited_exported_preprocessor_infos,
         preferred_linkage = preferred_linkage,
@@ -473,8 +474,7 @@ def get_default_cxx_library_product_name(ctx) -> str.type:
 def _compile_srcs(
         ctx: "context",
         impl_params: CxxRuleConstructorParams.type,
-        own_non_exported_preprocessor_info: CPreprocessor.type,
-        own_exported_preprocessor_info: CPreprocessor.type,
+        own_preprocessors: [CPreprocessor.type],
         inherited_non_exported_preprocessor_infos: [CPreprocessorInfo.type],
         inherited_exported_preprocessor_infos: [CPreprocessorInfo.type],
         preferred_linkage: Linkage.type) -> _CxxCompiledSourcesOutput.type:
@@ -486,7 +486,7 @@ def _compile_srcs(
     compile_cmd_output = create_compile_cmds(
         ctx = ctx,
         impl_params = impl_params,
-        own_preprocessors = [own_non_exported_preprocessor_info, own_exported_preprocessor_info],
+        own_preprocessors = own_preprocessors,
         inherited_preprocessor_infos = inherited_non_exported_preprocessor_infos + inherited_exported_preprocessor_infos,
     )
 
