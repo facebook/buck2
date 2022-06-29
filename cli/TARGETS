@@ -125,7 +125,6 @@ rust_library(
 buck_rust_binary(
     name = "buck2",
     srcs = ["bin/buck2.rs"],
-    rustc_flags = ["-Cpanic=abort"],
     unittests = False,
     deps = [
         "fbsource//third-party/rust:anyhow",
@@ -133,7 +132,6 @@ buck_rust_binary(
         "//buck2/buck2_core:buck2_core",
         "//buck2/cli:cli",
         "//buck2/events:events",
-        "//buck2/gazebo/gazebo:gazebo",
         "//common/rust/folly/logging:logging",
         "//common/rust/gflags:gflags",
         "//common/rust/shed/fbinit:fbinit",

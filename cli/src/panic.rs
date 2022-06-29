@@ -9,8 +9,8 @@
 
 //! The panic hook, shared by the buck2 CLI and daemon.
 //!
-//! Buck2 is compiled with -C panic=abort, which causes the default hook to abort as soon as the panic runtime is
-//! invoked. This module sets up a panic hook to run just before that to do some crash reporting.
+//! The Buck2 CLI unwinds the stack on a panic, while the Buck2 daemon terminates without unwinding.
+//! This module sets up a shared panic hook to run before unwinding/termination for crash reporting.
 
 use std::panic;
 use std::panic::PanicInfo;

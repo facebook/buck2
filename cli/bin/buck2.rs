@@ -96,9 +96,6 @@ fn check_cargo() {
 // will start up their own tokio runtime.
 #[fbinit::main]
 fn main(init: fbinit::FacebookInit) -> ExitResult {
-    // Need to add the terminate on panic handler _before_
-    // panic::initialize so that we report panics for logging, then abort.
-    gazebo::terminate_on_panic();
     panic::initialize(init);
     check_cargo();
     init_logging(init)?;

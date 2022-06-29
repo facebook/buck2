@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
+
 use std::fs::File;
 use std::io::Write;
 #[cfg(unix)]
@@ -269,6 +271,7 @@ impl DaemonCommand {
                 return Ok(());
             }
         }
+        gazebo::terminate_on_panic();
 
         maybe_schedule_termination()?;
 
