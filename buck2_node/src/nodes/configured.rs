@@ -25,28 +25,29 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
-use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
-use buck2_node::attrs::attr_type::dep::DepAttr;
-use buck2_node::attrs::attr_type::dep::DepAttrTransition;
-use buck2_node::attrs::attr_type::dep::DepAttrType;
-use buck2_node::attrs::attr_type::dep::ProviderIdSet;
-use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
-use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;
-use buck2_node::attrs::configured_attr::ConfiguredAttr;
-use buck2_node::attrs::configured_info::ConfiguredAttrInfo;
-use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
-use buck2_node::attrs::inspect_options::AttrInspectOptions;
-use buck2_node::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
-use buck2_node::attrs::internal::TESTS_ATTRIBUTE_FIELD;
-use buck2_node::configuration::execution::ExecutionPlatformResolution;
-use buck2_node::configuration::resolved::ResolvedConfiguration;
-use buck2_node::nodes::unconfigured::TargetNode;
-use buck2_node::rule_type::RuleType;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use either::Either;
 use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
+
+use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::dep::DepAttr;
+use crate::attrs::attr_type::dep::DepAttrTransition;
+use crate::attrs::attr_type::dep::DepAttrType;
+use crate::attrs::attr_type::dep::ProviderIdSet;
+use crate::attrs::attr_type::query::ResolvedQueryLiterals;
+use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::configuration_context::AttrConfigurationContextImpl;
+use crate::attrs::configured_attr::ConfiguredAttr;
+use crate::attrs::configured_info::ConfiguredAttrInfo;
+use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
+use crate::attrs::inspect_options::AttrInspectOptions;
+use crate::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
+use crate::attrs::internal::TESTS_ATTRIBUTE_FIELD;
+use crate::configuration::execution::ExecutionPlatformResolution;
+use crate::configuration::resolved::ResolvedConfiguration;
+use crate::nodes::unconfigured::TargetNode;
+use crate::rule_type::RuleType;
 
 /// ConfiguredTargetNode contains the information for a target in a particular configuration.
 ///
@@ -178,11 +179,10 @@ struct ConfiguredNodeAttr {
 
 impl ConfiguredTargetNode {
     /// Creates a minimal ConfiguredTargetNode. Some operations may unexpectedly fail.
-    #[cfg(test)]
-    pub(crate) fn testing_new(
+    pub fn testing_new(
         name: ConfiguredTargetLabel,
         rule_type: RuleType,
-        attrs: Vec<(&str, buck2_node::attrs::attr::Attribute, CoercedAttr)>,
+        attrs: Vec<(&str, crate::attrs::attr::Attribute, CoercedAttr)>,
         execution_platform_resolution: ExecutionPlatformResolution,
     ) -> Self {
         use crate::nodes::unconfigured::testing::TargetNodeExt;
@@ -198,7 +198,7 @@ impl ConfiguredTargetNode {
         )
     }
 
-    pub(crate) fn new(
+    pub fn new(
         name: ConfiguredTargetLabel,
         target_node: TargetNode,
         resolved_configuration: ResolvedConfiguration,
@@ -221,7 +221,7 @@ impl ConfiguredTargetNode {
     }
 
     /// New `ConfiguredTargetNode` for a forward node for transitioned target.
-    pub(crate) fn new_forward(
+    pub fn new_forward(
         // Forward node to create.
         name: ConfiguredTargetLabel,
         // The transitioned target node.

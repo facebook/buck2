@@ -206,77 +206,13 @@ fn parse_visibility(
 }
 
 pub mod testing {
-    use std::sync::Arc;
 
-    use buck2_core::build_file_path::BuildFilePath;
-    use buck2_core::fs::paths::FileNameBuf;
-    use buck2_core::target::TargetLabel;
-    use buck2_node::attrs::attr::Attribute;
-    use buck2_node::attrs::coerced_attr::CoercedAttr;
-    use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
-    use buck2_node::attrs::id::AttributeId;
     use buck2_node::attrs::inspect_options::AttrInspectOptions;
-    use buck2_node::attrs::spec::AttributeSpec;
-    use buck2_node::attrs::values::AttrValues;
-    use buck2_node::nodes::unconfigured::TargetNode;
     use buck2_node::nodes::unconfigured::TargetsMap;
-    use buck2_node::rule_type::RuleType;
-    use buck2_node::visibility::VisibilitySpecification;
-    use gazebo::prelude::*;
     use serde_json::map::Map;
     use serde_json::value::Value;
 
     use crate::nodes::hacks::value_to_json;
-    use crate::nodes::OrderedMap;
-
-    pub trait TargetNodeExt {
-        fn testing_new(
-            label: TargetLabel,
-            rule_type: RuleType,
-            attrs: Vec<(&str, Attribute, CoercedAttr)>,
-        ) -> Self;
-    }
-
-    impl TargetNodeExt for TargetNode {
-        fn testing_new(
-            label: TargetLabel,
-            rule_type: RuleType,
-            attrs: Vec<(&str, Attribute, CoercedAttr)>,
-        ) -> TargetNode {
-            let mut indices = OrderedMap::with_capacity(attrs.len());
-            let mut instances = Vec::with_capacity(attrs.len());
-            let mut attributes = AttrValues::with_capacity(attrs.len());
-
-            let mut deps_cache = CoercedDepsCollector::new();
-
-            for (index_in_attribute_spec, (name, attr, val)) in attrs.into_iter().enumerate() {
-                let idx = AttributeId {
-                    index_in_attribute_spec,
-                };
-                indices.insert(name.to_owned(), idx);
-                instances.push(attr);
-                val.traverse(&mut deps_cache).unwrap();
-                attributes.push_sorted(idx, val);
-            }
-
-            let buildfile_path = Arc::new(BuildFilePath::new(
-                label.pkg().dupe(),
-                FileNameBuf::unchecked_new("BUCK".to_owned()),
-            ));
-            TargetNode::new(
-                label,
-                rule_type,
-                buildfile_path,
-                false,
-                None,
-                Arc::new(AttributeSpec::testing_new(indices, instances)),
-                attributes,
-                deps_cache,
-                VisibilitySpecification::Public,
-                None,
-            )
-        }
-    }
 
     /// Take a TargetsMap and convert it to a nice json representation. Adds in a __type__ attr
     /// for each target's values to make it clear what the rule type is. That can probably go

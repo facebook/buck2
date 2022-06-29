@@ -12,7 +12,6 @@ use std::fmt::Write;
 use std::path::Path;
 
 use buck2_build_api::calculation::load_patterns;
-use buck2_build_api::nodes::configured::ConfiguredTargetNode;
 use buck2_build_api::nodes::hacks::value_to_json;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::paths::CellPath;
@@ -23,6 +22,7 @@ use buck2_core::pattern::TargetPattern;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::TargetLabel;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
+use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use cli_proto::targets_request::TargetHashFileMode;
 use cli_proto::targets_request::TargetHashGraphType;

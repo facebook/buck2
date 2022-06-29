@@ -20,6 +20,7 @@ use buck2_core::pattern::PackageSpec;
 use buck2_core::result::ToSharedResultExt;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
+use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexed;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
@@ -32,7 +33,6 @@ use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use gazebo::prelude::*;
 
-use crate::nodes::configured::ConfiguredTargetNode;
 use crate::query::analysis::evaluator::eval_query;
 use crate::query::cquery::environment::CqueryEnvironment;
 use crate::query::dice::get_dice_query_delegate;

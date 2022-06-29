@@ -7,21 +7,15 @@
  * of this source tree.
  */
 
-use std::borrow::Cow;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_core::build_file_path::BuildFilePath;
-use buck2_core::cells::paths::CellPath;
 use buck2_core::result::SharedResult;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
-use buck2_node::attrs::attr_type::attr_config::AttrConfig;
-use buck2_node::attrs::configured_attr::ConfiguredAttr;
-use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::compatibility::MaybeCompatible;
+use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::environment::QueryEnvironment;
-use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::functions::docs::QueryEnvironmentDescription;
@@ -34,88 +28,8 @@ use buck2_query::query::traversal::AsyncTraversalDelegate;
 use gazebo::dupe::Dupe;
 use tracing::warn;
 
-use crate::nodes::configured::ConfiguredTargetNode;
 use crate::query::uquery::environment::QueryLiterals;
 use crate::query::uquery::environment::UqueryDelegate;
-
-impl QueryTarget for ConfiguredTargetNode {
-    type NodeRef = ConfiguredTargetLabel;
-    type Attr = ConfiguredAttr;
-
-    fn node_ref(&self) -> &Self::NodeRef {
-        ConfiguredTargetNode::name(self)
-    }
-
-    fn rule_type(&self) -> Cow<str> {
-        Cow::Borrowed(ConfiguredTargetNode::rule_type(self).name())
-    }
-
-    fn buildfile_path(&self) -> &BuildFilePath {
-        ConfiguredTargetNode::buildfile_path(self)
-    }
-
-    // TODO(cjhopman): Use existential traits to remove the Box<> once they are stabilized.
-    fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        box ConfiguredTargetNode::deps(self)
-    }
-
-    fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        box ConfiguredTargetNode::execution_deps(self)
-    }
-
-    fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        box ConfiguredTargetNode::target_deps(self)
-    }
-
-    fn tests<'a>(&'a self) -> Option<Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a>> {
-        Some(box self.tests().map(|t| t.target().dupe()))
-    }
-
-    fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr) -> Result<(), E>>(
-        &self,
-        mut func: F,
-    ) -> Result<(), E> {
-        for (name, attr) in ConfiguredTargetNode::special_attrs(self) {
-            func(&name, &attr)?;
-        }
-        Ok(())
-    }
-
-    fn attr_any_matches(
-        attr: &Self::Attr,
-        filter: &dyn Fn(&str) -> anyhow::Result<bool>,
-    ) -> anyhow::Result<bool> {
-        attr.any_matches(filter)
-    }
-
-    fn attrs_for_each<E, F: FnMut(&str, &Self::Attr) -> Result<(), E>>(
-        &self,
-        mut func: F,
-    ) -> Result<(), E> {
-        for (name, attr) in self.attrs(AttrInspectOptions::All) {
-            func(name, &attr)?;
-        }
-        Ok(())
-    }
-
-    fn map_attr<R, F: FnMut(Option<&Self::Attr>) -> R>(&self, key: &str, mut func: F) -> R {
-        func(self.get(key, AttrInspectOptions::All).as_ref())
-    }
-
-    fn inputs_for_each<E, F: FnMut(CellPath) -> Result<(), E>>(
-        &self,
-        mut func: F,
-    ) -> Result<(), E> {
-        for input in self.inputs() {
-            func(input)?;
-        }
-        Ok(())
-    }
-
-    fn call_stack(&self) -> Option<String> {
-        self.call_stack()
-    }
-}
 
 /// CqueryDelegate resolves information needed by the QueryEnvironment.
 #[async_trait]

@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use buck2_build_api::nodes::configured::ConfiguredTargetNode;
 use buck2_build_api::query::cquery::environment::CqueryEnvironment;
 use buck2_build_api::query::cquery::evaluator::get_cquery_evaluator;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_core::target::TargetLabel;
 use buck2_docs_gen::Buck2Docs;
+use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationValue;
 use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;

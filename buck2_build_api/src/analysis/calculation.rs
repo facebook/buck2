@@ -29,6 +29,7 @@ use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::compatibility::MaybeCompatible;
+use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::rule_type::RuleType;
 use buck2_query::query::syntax::simple::eval::evaluator::QueryEvaluator;
 use dice::DiceComputations;
@@ -53,7 +54,6 @@ use crate::events::proto::ToProtoMessage;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::keep_going;
 use crate::nodes::calculation::NodeCalculation;
-use crate::nodes::configured::ConfiguredTargetNode;
 use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
 #[async_trait]

@@ -7,4 +7,5 @@
  * of this source tree.
  */
 
+pub mod configured;
 pub mod unconfigured;

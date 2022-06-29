@@ -30,6 +30,7 @@ use buck2_core::target::TargetName;
 use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_node::compatibility::MaybeCompatible;
+use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use dice::DiceComputations;
 use futures::future::BoxFuture;
@@ -59,7 +60,6 @@ use crate::interpreter::calculation as interpreter_calculation;
 use crate::interpreter::module_internals::EvaluationResult;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::nodes::calculation as node_calculation;
-use crate::nodes::configured::ConfiguredTargetNode;
 use crate::path::BuckOutPathResolver;
 use crate::path::BuckPathResolver;
 

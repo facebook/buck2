@@ -9,15 +9,12 @@
 
 pub(crate) mod attr_spec;
 pub mod calculation;
-pub mod configured;
 pub mod unconfigured;
 
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use thiserror::Error;
-
-use crate::attrs::OrderedMap;
 
 #[derive(Debug, Error)]
 pub enum AttributeError {

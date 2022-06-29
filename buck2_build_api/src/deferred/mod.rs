@@ -37,6 +37,7 @@ use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::ConfiguredTargetLabel;
+use buck2_node::nodes::configured::ConfiguredTargetNode;
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::prelude::*;
@@ -51,7 +52,6 @@ use thiserror::Error;
 use crate::actions::artifact::Artifact;
 use crate::actions::artifact::ArtifactValue;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
-use crate::nodes::configured::ConfiguredTargetNode;
 
 /// An asynchronous chunk of work that will be executed when requested.
 /// The 'Deferred' can have "inputs" which are values that will be guaranteed to be ready to use

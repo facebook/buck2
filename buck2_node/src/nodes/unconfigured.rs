@@ -353,3 +353,72 @@ impl TargetNode {
         self.0.call_stack.as_ref().map(|s| s.to_string())
     }
 }
+
+pub mod testing {
+    use std::sync::Arc;
+
+    use buck2_core::build_file_path::BuildFilePath;
+    use buck2_core::fs::paths::FileNameBuf;
+    use buck2_core::target::TargetLabel;
+    use gazebo::dupe::Dupe;
+    use small_map::map::SmallMap;
+
+    use crate::attrs::attr::Attribute;
+    use crate::attrs::coerced_attr::CoercedAttr;
+    use crate::attrs::coerced_deps_collector::CoercedDepsCollector;
+    use crate::attrs::id::AttributeId;
+    use crate::attrs::spec::AttributeSpec;
+    use crate::attrs::values::AttrValues;
+    use crate::nodes::unconfigured::TargetNode;
+    use crate::rule_type::RuleType;
+    use crate::visibility::VisibilitySpecification;
+
+    pub trait TargetNodeExt {
+        fn testing_new(
+            label: TargetLabel,
+            rule_type: RuleType,
+            attrs: Vec<(&str, Attribute, CoercedAttr)>,
+        ) -> Self;
+    }
+
+    impl TargetNodeExt for TargetNode {
+        fn testing_new(
+            label: TargetLabel,
+            rule_type: RuleType,
+            attrs: Vec<(&str, Attribute, CoercedAttr)>,
+        ) -> TargetNode {
+            let mut indices = SmallMap::with_capacity(attrs.len());
+            let mut instances = Vec::with_capacity(attrs.len());
+            let mut attributes = AttrValues::with_capacity(attrs.len());
+
+            let mut deps_cache = CoercedDepsCollector::new();
+
+            for (index_in_attribute_spec, (name, attr, val)) in attrs.into_iter().enumerate() {
+                let idx = AttributeId {
+                    index_in_attribute_spec,
+                };
+                indices.insert(name.to_owned(), idx);
+                instances.push(attr);
+                val.traverse(&mut deps_cache).unwrap();
+                attributes.push_sorted(idx, val);
+            }
+
+            let buildfile_path = Arc::new(BuildFilePath::new(
+                label.pkg().dupe(),
+                FileNameBuf::unchecked_new("BUCK".to_owned()),
+            ));
+            TargetNode::new(
+                label,
+                rule_type,
+                buildfile_path,
+                false,
+                None,
+                Arc::new(AttributeSpec::testing_new(indices, instances)),
+                attributes,
+                deps_cache,
+                VisibilitySpecification::Public,
+                None,
+            )
+        }
+    }
+}
