@@ -7,25 +7,16 @@
  * of this source tree.
  */
 
-use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_core::cells::CellName;
-use buck2_core::configuration::transition::applied::TransitionApplied;
-use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::Configuration;
-use buck2_core::configuration::ConfigurationData;
 use buck2_core::result::SharedResult;
 use buck2_core::target::TargetLabel;
-use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::configuration::resolved::ConfigurationNode;
-use buck2_node::configuration::resolved::ConfigurationSettingKeyRef;
 use buck2_node::configuration::resolved::ResolvedConfiguration;
-use gazebo::prelude::*;
-use indexmap::IndexMap;
 use indexmap::IndexSet;
-use thiserror::Error;
 
 use crate::configuration::execution::ExecutionPlatform;
 use crate::configuration::execution::ExecutionPlatformResolution;
@@ -80,45 +71,4 @@ pub trait ConfigurationCalculation {
         exec_compatible_with: Vec<TargetLabel>,
         exec_deps: IndexSet<TargetLabel>,
     ) -> SharedResult<ExecutionPlatformResolution>;
-}
-
-#[derive(Debug, Error)]
-pub enum PlatformConfigurationError {
-    #[error("Could not find configuration for platform target `{0}`")]
-    UnknownPlatformTarget(TargetLabel),
-}
-
-pub(crate) struct AttrConfigurationContextImpl<'b> {
-    pub(crate) resolved_cfg: &'b ResolvedConfiguration,
-    pub(crate) exec_cfg: &'b Configuration,
-    pub(crate) resolved_transitions: &'b IndexMap<Arc<TransitionId>, Arc<TransitionApplied>>,
-    pub(crate) platform_cfgs: &'b BTreeMap<TargetLabel, Configuration>,
-}
-
-impl<'b> AttrConfigurationContext for AttrConfigurationContextImpl<'b> {
-    fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigurationData> {
-        self.resolved_cfg
-            .setting_matches(ConfigurationSettingKeyRef(label))
-    }
-
-    fn cfg(&self) -> &Configuration {
-        self.resolved_cfg.cfg()
-    }
-
-    fn exec_cfg(&self) -> &Configuration {
-        self.exec_cfg
-    }
-
-    fn platform_cfg(&self, label: &TargetLabel) -> anyhow::Result<&Configuration> {
-        match self.platform_cfgs.get(label) {
-            Some(configuration) => Ok(configuration),
-            None => Err(anyhow::anyhow!(
-                PlatformConfigurationError::UnknownPlatformTarget(label.dupe())
-            )),
-        }
-    }
-
-    fn resolved_transitions(&self) -> &IndexMap<Arc<TransitionId>, Arc<TransitionApplied>> {
-        self.resolved_transitions
-    }
 }

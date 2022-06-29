@@ -32,6 +32,7 @@ use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::dep::ProviderIdSet;
 use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
+use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::configured_info::ConfiguredAttrInfo;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
@@ -47,7 +48,6 @@ use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
 
 use crate::configuration::execution::ExecutionPlatformResolution;
-use crate::configuration::AttrConfigurationContextImpl;
 
 /// ConfiguredTargetNode contains the information for a target in a particular configuration.
 ///

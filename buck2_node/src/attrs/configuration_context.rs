@@ -20,6 +20,15 @@ use buck2_core::target::TargetLabel;
 use gazebo::dupe::Dupe;
 use indexmap::IndexMap;
 
+use crate::configuration::resolved::ConfigurationSettingKeyRef;
+use crate::configuration::resolved::ResolvedConfiguration;
+
+#[derive(Debug, thiserror::Error)]
+pub enum PlatformConfigurationError {
+    #[error("Could not find configuration for platform target `{0}`")]
+    UnknownPlatformTarget(TargetLabel),
+}
+
 /// The context for attribute configuration. Contains information about the
 /// configuration.
 pub trait AttrConfigurationContext {
@@ -71,5 +80,40 @@ pub trait AttrConfigurationContext {
             .iter()
             .map(|(k, v)| (k.to_owned(), label.configure(v.dupe())))
             .collect())
+    }
+}
+
+pub struct AttrConfigurationContextImpl<'b> {
+    pub resolved_cfg: &'b ResolvedConfiguration,
+    pub exec_cfg: &'b Configuration,
+    pub resolved_transitions: &'b IndexMap<Arc<TransitionId>, Arc<TransitionApplied>>,
+    pub platform_cfgs: &'b BTreeMap<TargetLabel, Configuration>,
+}
+
+impl<'b> AttrConfigurationContext for AttrConfigurationContextImpl<'b> {
+    fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigurationData> {
+        self.resolved_cfg
+            .setting_matches(ConfigurationSettingKeyRef(label))
+    }
+
+    fn cfg(&self) -> &Configuration {
+        self.resolved_cfg.cfg()
+    }
+
+    fn exec_cfg(&self) -> &Configuration {
+        self.exec_cfg
+    }
+
+    fn platform_cfg(&self, label: &TargetLabel) -> anyhow::Result<&Configuration> {
+        match self.platform_cfgs.get(label) {
+            Some(configuration) => Ok(configuration),
+            None => Err(anyhow::anyhow!(
+                PlatformConfigurationError::UnknownPlatformTarget(label.dupe())
+            )),
+        }
+    }
+
+    fn resolved_transitions(&self) -> &IndexMap<Arc<TransitionId>, Arc<TransitionApplied>> {
+        self.resolved_transitions
     }
 }
