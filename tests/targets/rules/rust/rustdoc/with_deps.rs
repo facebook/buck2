@@ -1,8 +1,9 @@
 //! should produce a link to [`crate::dep::Struct`] [`Struct`]
 //! should produce a link to [`std::time::Duration`]
 
-pub use crate::dep::Struct;
 use fbinit::FacebookInit;
+
+pub use crate::dep::Struct;
 
 mod dep;
 

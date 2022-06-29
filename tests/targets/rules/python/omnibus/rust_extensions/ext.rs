@@ -1,4 +1,8 @@
-use cpython::{py_fn, py_module_initializer, PyObject, PyResult, Python};
+use cpython::py_fn;
+use cpython::py_module_initializer;
+use cpython::PyObject;
+use cpython::PyResult;
+use cpython::Python;
 
 fn main(py: Python) -> PyResult<PyObject> {
     println!("the_test_string");

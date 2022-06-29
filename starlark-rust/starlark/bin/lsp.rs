@@ -17,24 +17,41 @@
 
 //! Based on the reference lsp-server example at <https://github.com/rust-analyzer/lsp-server/blob/master/examples/goto_def.rs>.
 
-use std::{
-    collections::HashMap,
-    sync::{Arc, RwLock},
-};
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::sync::RwLock;
 
 use gazebo::prelude::*;
-use lsp_server::{Connection, Message, Notification, Request, RequestId, Response};
-use lsp_types::{
-    notification::{
-        DidChangeTextDocument, DidCloseTextDocument, DidOpenTextDocument, LogMessage,
-        PublishDiagnostics,
-    },
-    request::GotoDefinition,
-    DefinitionOptions, Diagnostic, DidChangeTextDocumentParams, DidCloseTextDocumentParams,
-    DidOpenTextDocumentParams, GotoDefinitionParams, GotoDefinitionResponse, InitializeParams,
-    Location, LogMessageParams, MessageType, OneOf, PublishDiagnosticsParams, ServerCapabilities,
-    TextDocumentSyncCapability, TextDocumentSyncKind, Url, WorkDoneProgressOptions,
-};
+use lsp_server::Connection;
+use lsp_server::Message;
+use lsp_server::Notification;
+use lsp_server::Request;
+use lsp_server::RequestId;
+use lsp_server::Response;
+use lsp_types::notification::DidChangeTextDocument;
+use lsp_types::notification::DidCloseTextDocument;
+use lsp_types::notification::DidOpenTextDocument;
+use lsp_types::notification::LogMessage;
+use lsp_types::notification::PublishDiagnostics;
+use lsp_types::request::GotoDefinition;
+use lsp_types::DefinitionOptions;
+use lsp_types::Diagnostic;
+use lsp_types::DidChangeTextDocumentParams;
+use lsp_types::DidCloseTextDocumentParams;
+use lsp_types::DidOpenTextDocumentParams;
+use lsp_types::GotoDefinitionParams;
+use lsp_types::GotoDefinitionResponse;
+use lsp_types::InitializeParams;
+use lsp_types::Location;
+use lsp_types::LogMessageParams;
+use lsp_types::MessageType;
+use lsp_types::OneOf;
+use lsp_types::PublishDiagnosticsParams;
+use lsp_types::ServerCapabilities;
+use lsp_types::TextDocumentSyncCapability;
+use lsp_types::TextDocumentSyncKind;
+use lsp_types::Url;
+use lsp_types::WorkDoneProgressOptions;
 use serde::de::DeserializeOwned;
 use starlark::syntax::AstModule;
 
@@ -288,10 +305,15 @@ where
 
 #[cfg(test)]
 mod test {
-    use lsp_types::{
-        request::GotoDefinition, GotoDefinitionParams, GotoDefinitionResponse, Location, Position,
-        Range, TextDocumentIdentifier, TextDocumentPositionParams, Url,
-    };
+    use lsp_types::request::GotoDefinition;
+    use lsp_types::GotoDefinitionParams;
+    use lsp_types::GotoDefinitionResponse;
+    use lsp_types::Location;
+    use lsp_types::Position;
+    use lsp_types::Range;
+    use lsp_types::TextDocumentIdentifier;
+    use lsp_types::TextDocumentPositionParams;
+    use lsp_types::Url;
 
     use super::helpers::TestServer;
 
