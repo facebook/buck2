@@ -92,19 +92,23 @@
             }
         ],
         "configuration": {
-          "properties": {
-            "starlark.lspPath": {
-              "type": "string",
-              "default": "starlark",
-              "description": "The path to the binary to invoke (possibly on the path) for the plugin to invoke that handles LSP over stdin/stdout"
-            },
-            "starlark.lspArguments": {
-              "type": "array",
-              "items": { "type": "string" },
-              "default": ["--lsp"],
-              "description": "Additional arguments that should be passed to the binary at starlark.lspPath"
+            "properties": {
+                "starlark.lspPath": {
+                    "type": "string",
+                    "default": "starlark",
+                    "description": "The path to the binary to invoke (possibly on the path) for the plugin to invoke that handles LSP over stdin/stdout"
+                },
+                "starlark.lspArguments": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [
+                        "--lsp"
+                    ],
+                    "description": "Additional arguments that should be passed to the binary at starlark.lspPath"
+                }
             }
-          }
         }
     },
     "scripts": {
@@ -122,6 +126,6 @@
         "typescript": "^4.4.3"
     },
     "dependencies": {
-        "vsce": "^2.6.7"
+        "vsce": "^2.9.2"
     }
 }
