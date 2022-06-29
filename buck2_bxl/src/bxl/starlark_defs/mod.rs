@@ -68,9 +68,9 @@ use crate::bxl::eval::CliResolutionCtx;
 #[starlark_module]
 pub fn register_bxl_function(builder: &mut GlobalsBuilder) {
     fn bxl<'v>(
-        implementation: Value<'v>,
-        cli_args: DictOf<'v, &'v str, &'v CliArgs>,
-        #[starlark(default = "")] doc: &str,
+        #[starlark(require = named)] implementation: Value<'v>,
+        #[starlark(require = named)] cli_args: DictOf<'v, &'v str, &'v CliArgs>,
+        #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let build_context = BuildContext::from_context(eval)?;
