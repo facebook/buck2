@@ -141,7 +141,7 @@ impl<'v> AnalysisRegistry<'v> {
     ///  - `StarlarkArtifact`/`StarlarkDeclaredArtifact`: If the artifact has not been bound yet,
     ///         the original value and its `OutputArtifact` will be returned. If the artifact
     ///         has been bound, an error is returned
-    ///  - `StarlarkOutputArtifact`: This value and its `OutputArtifact` are returned
+    ///  - `StarlarkOutputArtifact`: The artifact as a `StarlarkDeclaredArtifact` and its `OutputArtifact` are returned
     pub(crate) fn get_or_declare_output<'v2>(
         &mut self,
         eval: &Evaluator<'v2, '_>,
