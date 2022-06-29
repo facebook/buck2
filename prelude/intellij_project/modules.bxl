@@ -1,0 +1,57 @@
+load("@fbcode//buck2/prelude/java:java_providers.bzl", "JavaLibraryInfo")
+load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+
+IjModule = record(
+    deps = ["label"],
+    file_name = str.type,
+    rule_type = str.type,
+    # TODO(T124404955) should this be a list of artifacts?
+    srcs = "configured_attr_val",
+)
+
+_JAVA_LIBRARY_RULE_TYPE = "fbcode//buck2/prelude/rules.bzl:java_library"
+_MODULE_RULE_TYPES = [
+    _JAVA_LIBRARY_RULE_TYPE,
+]
+
+def get_modules(all_nodes: [("target_node", "label")], analysis: dict.type) -> {"configured_target_label": IjModule.type}:
+    modules = {}
+    for node, target in all_nodes:
+        # TODO(T124404704) find a better way to exclude exec_deps()
+        if node.label.cell != "fbsource":
+            continue
+
+        rule_type = node.rule_type
+        if rule_type not in _MODULE_RULE_TYPES:
+            continue
+
+        if rule_type == _JAVA_LIBRARY_RULE_TYPE:
+            providers = analysis[target].providers()
+            modules[node.label] = _get_java_library_module(node, providers)
+        else:
+            fail("Should add if branch above for rule type: {}".format(rule_type))
+
+    return modules
+
+def _get_java_library_module(node: "target_node", providers: "provider_collection") -> IjModule.type:
+    expect(node.rule_type == _JAVA_LIBRARY_RULE_TYPE, "Rule type must be {} but was {}".format(_JAVA_LIBRARY_RULE_TYPE, node.rule_type))
+    java_library_info = providers[JavaLibraryInfo]
+    return IjModule(
+        deps = [compiling_dep.full_library.owner for compiling_dep in (java_library_info.compiling_deps.traverse() if java_library_info.compiling_deps else [])],
+        file_name = _get_module_file_name(node.label),
+        rule_type = _JAVA_LIBRARY_RULE_TYPE,
+        srcs = node.attributes().srcs,
+    )
+
+def _get_module_file_name(module_label: "configured_target_label") -> str.type:
+    return "modules/{}.iml".format(module_label.package.replace("/", "_"))
+
+# TODO(T124403530) Fill this in correctly
+def get_module_file_contents() -> str.type:
+    return """\
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="JAVA_MODULE" version="4">
+  <component name="NewModuleRootManager" inherit-compiler-output="false">
+  </component>
+</project>
+"""

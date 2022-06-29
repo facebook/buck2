@@ -1,10 +1,27 @@
 load("@fbcode//buck2/prelude/intellij_project:libraries.bxl", "get_libraries", "get_project_library_contents", "get_project_library_file_name")
+load("@fbcode//buck2/prelude/intellij_project:modules.bxl", "get_module_file_contents", "get_modules")
 
 def _impl(ctx):
     all_nodes = ctx.cquery().deps(ctx.cli_args.targets, -1)
+    all_analysis = ctx.analysis(all_nodes)
 
     final_output_dir_dict = {}
     action_factory = ctx.bxl_actions.action_factory()
+
+    # TODO(T124427198) move configured_sub_target to modules.bxl once it is available there
+    nodes_and_targets = [(node, configured_sub_target(node.label)) for node in all_nodes]
+    modules = get_modules(nodes_and_targets, all_analysis)
+
+    file_names = []
+    for _, module in modules.items():
+        file_name = module.file_name
+
+        # TODO(T124403530) account for multiple copies of the same lib (with different configs)
+        if file_name in file_names:
+            continue
+        file_names.append(file_name)
+        module_output = _create_output(action_factory, module.file_name, final_output_dir_dict)
+        action_factory.write(module_output, get_module_file_contents())
 
     libraries = get_libraries(all_nodes)
 

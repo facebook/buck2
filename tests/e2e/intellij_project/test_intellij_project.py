@@ -47,6 +47,20 @@ async def test_generate_intellij_project(buck: Buck) -> None:
 """
     )
 
+    assert (
+        (
+            output_dir
+            / "modules/fbandroid_buck2_tests_good_sample_intellij_project_java_single_lib.iml"
+        ).read_text()
+        == """\
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="JAVA_MODULE" version="4">
+  <component name="NewModuleRootManager" inherit-compiler-output="false">
+  </component>
+</project>
+"""
+    )
+
 
 @buck_test(inplace=True)
 async def test_generate_sample_project(buck: Buck) -> None:
