@@ -309,6 +309,7 @@ impl CommandLineBuilder for SpaceSeparatedCommandLineBuilder<'_> {
 mod tests {
     use buck2_core::target::TargetLabel;
     use buck2_node::attrs::attr_type::AttrType;
+    use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
     use buck2_node::attrs::configurable::AttrIsConfigurable;
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
     use buck2_node::attrs::testing::configuration_ctx;
@@ -317,7 +318,6 @@ mod tests {
     use starlark::environment::Module;
 
     use super::*;
-    use crate::attrs::attr_type::attr_literal::CoercedDepsCollector;
     use crate::attrs::attr_type::attr_literal::ConfiguredAttrInfo;
     use crate::attrs::attr_type::AttrTypeExt;
     use crate::attrs::testing::*;

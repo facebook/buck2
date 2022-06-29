@@ -17,6 +17,7 @@ use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_node::attrs::attr_type::AttrType;
+use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::testing::configuration_ctx;
 use gazebo::prelude::*;
@@ -28,7 +29,6 @@ use starlark::values::Value;
 
 use crate::actions::artifact::ArtifactFs;
 use crate::actions::artifact::ExecutorFs;
-use crate::attrs::attr_type::attr_literal::CoercedDepsCollector;
 use crate::attrs::attr_type::attr_literal::ConfiguredAttrInfo;
 use crate::attrs::attr_type::AttrTypeExt;
 use crate::attrs::configured_attr::ConfiguredAttrExt;

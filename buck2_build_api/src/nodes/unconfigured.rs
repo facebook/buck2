@@ -20,6 +20,7 @@ use buck2_core::target::TargetName;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
+use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::internal::DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD;
@@ -41,7 +42,6 @@ use starlark::eval::CallStack;
 use starlark::eval::ParametersParser;
 use starlark::values::Value;
 
-use crate::attrs::attr_type::attr_literal::CoercedDepsCollector;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::nodes::attr_spec::AttributeSpecExt;
 
@@ -487,6 +487,7 @@ pub mod testing {
     use buck2_core::target::TargetLabel;
     use buck2_node::attrs::attr::Attribute;
     use buck2_node::attrs::coerced_attr::CoercedAttr;
+    use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
     use buck2_node::attrs::id::AttributeId;
     use buck2_node::attrs::inspect_options::AttrInspectOptions;
     use buck2_node::attrs::spec::AttributeSpec;
@@ -497,7 +498,6 @@ pub mod testing {
     use serde_json::map::Map;
     use serde_json::value::Value;
 
-    use crate::attrs::attr_type::attr_literal::CoercedDepsCollector;
     use crate::nodes::hacks::value_to_json;
     use crate::nodes::unconfigured::TargetNode;
     use crate::nodes::unconfigured::TargetNodeData;
