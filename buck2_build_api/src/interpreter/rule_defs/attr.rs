@@ -20,6 +20,7 @@ use buck2_core::package::PackageRelativePathBuf;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternType;
 use buck2_core::pattern::ProvidersPattern;
+use buck2_core::pattern::TargetPattern;
 use buck2_core::provider::id::ProviderId;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
@@ -222,6 +223,10 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
         }
 
         Ok(CoercedPath::File(BuckPath::new(package.dupe(), path)))
+    }
+
+    fn coerce_target_pattern(&self, pattern: &str) -> anyhow::Result<ParsedPattern<TargetPattern>> {
+        self.parse_pattern(pattern)
     }
 }
 

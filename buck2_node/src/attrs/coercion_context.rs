@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use buck2_core::pattern::ParsedPattern;
+use buck2_core::pattern::TargetPattern;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
@@ -35,4 +37,6 @@ pub trait AttrCoercionContext {
 
     /// Attempt to convert a string into a BuckPath
     fn coerce_path(&self, value: &str, allow_directory: bool) -> anyhow::Result<CoercedPath>;
+
+    fn coerce_target_pattern(&self, pattern: &str) -> anyhow::Result<ParsedPattern<TargetPattern>>;
 }

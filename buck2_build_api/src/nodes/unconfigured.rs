@@ -20,6 +20,7 @@ use buck2_core::target::TargetName;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
+use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::internal::DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
@@ -42,7 +43,6 @@ use starlark::values::Value;
 
 use crate::attrs::attr_type::attr_literal::CoercedDepsCollector;
 use crate::interpreter::module_internals::ModuleInternals;
-use crate::interpreter::rule_defs::attr::BuildAttrCoercionContext;
 use crate::nodes::attr_spec::AttributeSpecExt;
 
 /// Map of target -> details of those targets within a build file.
@@ -440,7 +440,7 @@ impl TargetNode {
 }
 
 fn parse_visibility(
-    ctx: &BuildAttrCoercionContext,
+    ctx: &dyn AttrCoercionContext,
     attr: &CoercedAttr,
 ) -> anyhow::Result<VisibilitySpecification> {
     let visibility = match attr {
@@ -470,7 +470,7 @@ fn parse_visibility(
             return Ok(VisibilitySpecification::Public);
         }
 
-        specs.push(VisibilityPattern(ctx.parse_pattern(value)?));
+        specs.push(VisibilityPattern(ctx.coerce_target_pattern(value)?));
     }
     if specs.is_empty() {
         Ok(VisibilitySpecification::Default)
