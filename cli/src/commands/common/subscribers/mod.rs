@@ -27,7 +27,6 @@ use crate::commands::common::verbosity::Verbosity;
 use crate::commands::common::CommonEventLogOptions;
 use crate::commands::common::ConsoleType;
 use crate::CommandContext;
-use crate::CommonConfigOptions;
 
 /// Given a command name and the command arguments, create a default console / superconsole.
 pub(crate) fn get_console_with_root(
@@ -73,7 +72,7 @@ pub(crate) fn try_get_event_log_subscriber(
 }
 
 pub(crate) fn try_get_build_id_writer(
-    opts: &CommonConfigOptions,
+    opts: &CommonEventLogOptions,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     if let Some(file_loc) = opts.build_id_file.as_ref() {
         Ok(Some(box BuildIdWriter::new(file_loc.clone())))

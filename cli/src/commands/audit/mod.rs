@@ -161,6 +161,7 @@ impl StreamingCommand for AuditCommand {
         static DEFAULT_OPTS: CommonEventLogOptions = CommonEventLogOptions {
             no_event_log: false,
             event_log: None,
+            build_id_file: None,
         };
 
         match self.as_subcommand().event_log_opts() {

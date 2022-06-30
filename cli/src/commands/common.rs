@@ -103,6 +103,9 @@ pub(crate) struct CommonEventLogOptions {
     /// Do not write any event logs. Overrides --event-log. Used from `replay` to avoid recursive logging
     #[clap(long = NO_EVENT_LOG, hidden = true)]
     pub no_event_log: bool,
+
+    #[clap(long = "--write-build-id")]
+    pub build_id_file: Option<PathBuf>,
 }
 
 impl CommonEventLogOptions {
@@ -110,6 +113,7 @@ impl CommonEventLogOptions {
         static DEFAULT: CommonEventLogOptions = CommonEventLogOptions {
             event_log: None,
             no_event_log: false,
+            build_id_file: None,
         };
         &DEFAULT
     }
@@ -158,9 +162,6 @@ pub(crate) struct CommonConfigOptions {
     /// to diagnose evaluation performance problems.
     #[clap(long)]
     pub disable_starlark_types: bool,
-
-    #[clap(long = "--write-build-id")]
-    pub build_id_file: Option<PathBuf>,
 }
 
 impl CommonConfigOptions {
@@ -252,7 +253,6 @@ impl CommonConfigOptions {
             fake_host: None,
             oncall: None,
             disable_starlark_types: false,
-            build_id_file: None,
         };
         &DEFAULT
     }
