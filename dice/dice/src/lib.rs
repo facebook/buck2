@@ -213,12 +213,14 @@ use std::sync::Weak;
 use async_trait::async_trait;
 use bincode::Options;
 use gazebo::prelude::*;
+use indexmap::IndexSet;
 use serde::Serialize;
 use serde::Serializer;
 
 use crate::ctx::ComputationData;
 use crate::ctx::DiceComputationImpl;
 use crate::cycles::DetectCycles;
+use crate::cycles::RequestedKey;
 use crate::data::DiceData;
 use crate::incremental::versions::VersionTracker;
 use crate::incremental::IncrementalEngine;
@@ -252,10 +254,12 @@ pub use ctx::DiceTracker;
 pub use ctx::DiceTransaction;
 pub use ctx::UserComputationData;
 pub use injected::InjectedKey;
+use itertools::Itertools;
 pub use key::Key;
 pub use opaque::OpaqueValue;
 pub use projection::DiceProjectionComputations;
 pub use projection::ProjectionKey;
+use thiserror::Error;
 
 use crate::future_handle::WeakDiceFutureHandle;
 use crate::incremental::evaluator::Evaluator;
@@ -266,6 +270,15 @@ use crate::incremental::IncrementalComputeProperties;
 use crate::incremental::ValueWithDeps;
 use crate::key::StoragePropertiesForKey;
 use crate::projection::ProjectionKeyProperties;
+
+#[derive(Debug, Error)]
+pub enum DiceError {
+    #[error("Cyclic computation detect when computing key `{}`, which forms a cycle in computation chain: `{}`", trigger, cyclic_keys.iter().join(","))]
+    Cycles {
+        trigger: Arc<dyn RequestedKey>,
+        cyclic_keys: IndexSet<Arc<dyn RequestedKey>>,
+    },
+}
 
 /// An incremental computation engine that executes arbitrary computations that
 /// maps 'Key's to values.
