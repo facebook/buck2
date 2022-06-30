@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project::ProjectRelativePathBuf;

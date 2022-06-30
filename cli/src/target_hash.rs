@@ -21,7 +21,7 @@ use buck2_build_api::query::dice::get_compatible_targets;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::file_ops::FileOps;
 use buck2_common::file_ops::PathMetadata;
-use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::Package;
 use buck2_core::result::SharedResult;
 use buck2_core::target::TargetLabel;

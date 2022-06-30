@@ -23,7 +23,7 @@ use gazebo::dupe::Dupe;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-use crate::cells::paths::CellPath;
+use crate::cells::cell_path::CellPath;
 use crate::cells::paths::CellRelativePath;
 use crate::cells::CellAliasResolver;
 use crate::fs::paths::ForwardRelativePath;

@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellName;
 use buck2_core::fs::paths::FileNameBuf;

@@ -13,7 +13,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::pattern::resolve::ResolvedPattern;
-use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::Package;
 use buck2_core::result::SharedResult;
 use buck2_core::result::ToSharedResultExt;

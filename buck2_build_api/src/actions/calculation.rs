@@ -357,7 +357,7 @@ mod tests {
     use buck2_common::file_ops::TrackedFileDigest;
     use buck2_core::buck_path::BuckPath;
     use buck2_core::category::Category;
-    use buck2_core::cells::paths::CellPath;
+    use buck2_core::cells::cell_path::CellPath;
     use buck2_core::cells::paths::CellRelativePathBuf;
     use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellName;

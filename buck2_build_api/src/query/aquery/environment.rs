@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_core::build_file_path::BuildFilePath;
-use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_query::query::environment::NodeLabel;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryTarget;

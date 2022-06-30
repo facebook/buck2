@@ -12,7 +12,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 use crate::cells::build_file_cell::BuildFileCell;
-use crate::cells::paths::CellPath;
+use crate::cells::cell_path::CellPath;
 use crate::cells::paths::CellRelativePath;
 use crate::cells::CellName;
 use crate::fs::paths::FileName;

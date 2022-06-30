@@ -9,7 +9,7 @@
 
 use std::collections::HashSet;
 
-use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::package::Package;

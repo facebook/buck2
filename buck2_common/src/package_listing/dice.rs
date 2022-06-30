@@ -68,7 +68,7 @@ impl<'c> PackageListingResolver for DicePackageListingResolver<'c> {
 
     async fn get_enclosing_package(
         &self,
-        path: &buck2_core::cells::paths::CellPath,
+        path: &buck2_core::cells::cell_path::CellPath,
     ) -> anyhow::Result<Package> {
         let cell_resolver = self.0.get_cell_resolver().await?;
         let file_ops = self.0.file_ops();
@@ -79,7 +79,7 @@ impl<'c> PackageListingResolver for DicePackageListingResolver<'c> {
 
     async fn get_enclosing_packages(
         &self,
-        path: &buck2_core::cells::paths::CellPath,
+        path: &buck2_core::cells::cell_path::CellPath,
     ) -> anyhow::Result<Vec<Package>> {
         let cell_resolver = self.0.get_cell_resolver().await?;
         let file_ops = self.0.file_ops();

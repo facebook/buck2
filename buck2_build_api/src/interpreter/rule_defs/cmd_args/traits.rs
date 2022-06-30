@@ -14,7 +14,7 @@ use std::path::Path;
 use std::ptr;
 
 use anyhow::Context as _;
-use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_node::execute::config::PathSeparatorKind;

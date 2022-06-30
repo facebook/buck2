@@ -58,7 +58,7 @@ use internment_tweaks::StaticInterner;
 use ref_cast::RefCast;
 use relative_path::RelativePathBuf;
 
-use crate::cells::paths::CellPath;
+use crate::cells::cell_path::CellPath;
 use crate::cells::paths::CellRelativePath;
 use crate::cells::CellName;
 use crate::cells::CellResolver;

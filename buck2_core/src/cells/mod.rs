@@ -131,6 +131,7 @@
 //!
 
 pub mod build_file_cell;
+pub mod cell_path;
 pub mod paths;
 
 use std::borrow::Borrow;
@@ -155,7 +156,7 @@ use itertools::Itertools;
 use sequence_trie::SequenceTrie;
 use thiserror::Error;
 
-use crate::cells::paths::CellPath;
+use crate::cells::cell_path::CellPath;
 use crate::fs::paths::AbsPath;
 use crate::fs::paths::AbsPathBuf;
 use crate::fs::paths::FileNameBuf;
@@ -460,7 +461,8 @@ impl CellResolver {
     /// use buck2_core::fs::paths::{ForwardRelativePathBuf, ForwardRelativePath, AbsPathBuf};
     /// use gazebo::file;
     /// use std::convert::TryFrom;
-    /// use buck2_core::cells::paths::{CellPath, CellRelativePathBuf};
+    /// use buck2_core::cells::cell_path::CellPath;
+    /// use buck2_core::cells::paths::{ CellRelativePathBuf};
     ///
     /// let temp = tempfile::tempdir()?;
     /// let fs = ProjectFilesystem::new(

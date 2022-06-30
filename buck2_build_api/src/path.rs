@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use buck2_core::buck_path::BuckPath;
 use buck2_core::category::Category;
-use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::fs::paths::ForwardRelativePathBuf;

@@ -10,7 +10,7 @@
 use std::borrow::Cow;
 
 use buck2_core::build_file_path::BuildFilePath;
-use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::target::TargetLabel;
 use buck2_query::query::environment::QueryTarget;
 use gazebo::dupe::Dupe;

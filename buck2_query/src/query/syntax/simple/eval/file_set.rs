@@ -10,7 +10,7 @@
 use std::fmt;
 
 use anyhow::anyhow;
-use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::cell_path::CellPath;
 use derive_more::Display;
 use gazebo::display::display_container;
 use indexmap::IndexSet;

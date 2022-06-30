@@ -13,7 +13,7 @@ use std::fmt;
 use std::fmt::Display;
 use std::sync::Arc;
 
-use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::provider::id::ProviderId;
 use gazebo::any::ProvidesStaticType;
 use gazebo::dupe::Dupe;

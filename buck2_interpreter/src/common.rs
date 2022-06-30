@@ -14,7 +14,7 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::bzl::ModuleID;
 use buck2_core::cells::build_file_cell::BuildFileCell;
-use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellName;
 use derive_more::Display;

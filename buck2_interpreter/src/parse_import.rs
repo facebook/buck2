@@ -12,7 +12,7 @@
 use std::convert::TryFrom;
 
 use anyhow::anyhow;
-use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellAliasResolver;

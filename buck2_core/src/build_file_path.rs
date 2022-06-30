@@ -11,7 +11,7 @@ use ref_cast::RefCast;
 
 use crate::bzl::ModuleID;
 use crate::cells::build_file_cell::BuildFileCell;
-use crate::cells::paths::CellPath;
+use crate::cells::cell_path::CellPath;
 use crate::cells::paths::CellRelativePathBuf;
 use crate::cells::CellName;
 use crate::fs::paths::FileName;

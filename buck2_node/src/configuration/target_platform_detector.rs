@@ -24,7 +24,7 @@
 //! for `cell//bar/foo/...` has no effect because buck will pick the first matching spec).
 
 use anyhow::Context;
-use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::TargetPattern;

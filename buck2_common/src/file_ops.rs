@@ -22,7 +22,7 @@ use std::time::SystemTime;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellName;
@@ -682,7 +682,7 @@ pub mod testing {
 
     use anyhow::anyhow;
     use async_trait::async_trait;
-    use buck2_core::cells::paths::CellPath;
+    use buck2_core::cells::cell_path::CellPath;
     use buck2_core::result::SharedResult;
     use buck2_core::result::ToSharedResultExt;
     use gazebo::cmp::PartialEqAny;

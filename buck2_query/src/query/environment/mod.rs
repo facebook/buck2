@@ -16,7 +16,7 @@ use std::hash::Hash;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::build_file_path::BuildFilePath;
-use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::Package;
 use buck2_core::target::TargetLabel;
 use futures::stream::FuturesUnordered;

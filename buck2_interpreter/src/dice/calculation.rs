@@ -21,7 +21,7 @@ use buck2_common::package_listing::listing::PackageListing;
 use buck2_common::package_listing::resolver::PackageListingResolver;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
-use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellName;
 use buck2_core::package::Package;
 use buck2_core::result::SharedResult;

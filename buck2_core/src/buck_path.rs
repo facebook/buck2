@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use crate::cells::paths::CellPath;
+use crate::cells::cell_path::CellPath;
 use crate::package::Package;
 use crate::package::PackageRelativePath;
 use crate::package::PackageRelativePathBuf;

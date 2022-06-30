@@ -15,7 +15,7 @@ use buck2_build_api::calculation::Calculation;
 use buck2_build_api::interpreter::module_internals::EvaluationResult;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::bzl::ImportPath;
-use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellInstance;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::AbsPath;

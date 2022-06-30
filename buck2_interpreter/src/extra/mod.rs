@@ -17,7 +17,7 @@ use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
-use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::Package;
 use buck2_core::package::PackageRelativePath;
 use buck2_core::result::SharedResult;
@@ -275,7 +275,7 @@ pub(crate) mod testing {
 
     use buck2_common::package_listing::listing::PackageListing;
     use buck2_core::build_file_path::BuildFilePath;
-    use buck2_core::cells::paths::CellPath;
+    use buck2_core::cells::cell_path::CellPath;
     use buck2_core::package::Package;
     use buck2_core::result::SharedResult;
     use gazebo::cmp::PartialEqAny;

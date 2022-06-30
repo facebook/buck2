@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellName;
 use derive_more::Display;

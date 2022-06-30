@@ -12,7 +12,7 @@ use std::fmt::Display;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use crate::cells::paths::CellPath;
+use crate::cells::cell_path::CellPath;
 
 /// A unique identity for a given provider. Allows correlating `ProviderCallable` objects with `UserProvider` objects.
 ///
@@ -65,7 +65,7 @@ impl ProviderId {
 }
 
 pub mod testing {
-    use crate::cells::paths::CellPath;
+    use crate::cells::cell_path::CellPath;
     use crate::provider::id::ProviderId;
 
     pub trait ProviderIdExt {

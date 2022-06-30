@@ -14,7 +14,7 @@ use std::path::Path;
 use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::nodes::hacks::value_to_json;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_core::cells::paths::CellPath;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::Package;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;
