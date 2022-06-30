@@ -34,6 +34,9 @@ load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(":link_groups.bzl", "get_link_group_mappings")
 load(":resource_groups.bzl", "create_resource_graph", "get_filtered_resources", "get_resource_groups")
 
+INSTALL_DATA_SUB_TARGET = "install-data"
+_INSTALL_DATA_FILE_NAME = "install_apple_data.json"
+
 AppleBundlePartListConstructorParams = record(
     # The binaries/executables, required to create a bundle
     binaries = field([AppleBundlePart.type]),
@@ -371,14 +374,25 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
     bundle = bundle_output(ctx)
 
     assemble_bundle(ctx, bundle, apple_bundle_part_list_output.parts, apple_bundle_part_list_output.info_plist_part)
+    installer_run_info = ctx.attr._apple_installer[RunInfo]
 
     # Define the xcode data sub target
     sub_targets[XCODE_DATA_SUB_TARGET] = generate_xcode_data(ctx, "apple_bundle", bundle, _xcode_populate_attributes)
+    install_data = generate_install_data(ctx)
+    product_name_santized = get_product_name(ctx).replace(" ", "_")
 
+    install_info_data = "options_" + product_name_santized
     return [
         DefaultInfo(default_outputs = [bundle], sub_targets = sub_targets),
         AppleBundleInfo(bundle = bundle, binary_name = get_product_name(ctx), is_watchos = _is_watch_bundle(ctx)),
         AppleDebuggableInfo(dsyms = dsym_artifacts),
+        InstallInfo(
+            installer = installer_run_info,
+            files = {
+                product_name_santized: bundle,
+                install_info_data: install_data,
+            },
+        ),
     ]
 
 def _select_resources(ctx: "context") -> ([AppleResourceSpec.type], [AppleAssetCatalogSpec.type], [AppleCoreDataSpec.type]):
@@ -400,3 +414,21 @@ def _xcode_populate_attributes(ctx) -> {str.type: ""}:
         "product_name": get_product_name(ctx),
         "sdk": get_apple_sdk_name(ctx),
     }
+
+def generate_install_data(
+        ctx: "context",
+        populate_rule_specific_attributes_func: ["function", None] = None,
+        **kwargs) -> "artifact":
+    data = {
+        "fullyQualifiedName": ctx.label,
+        ## TODO(T110665037): populate full path similar to bundle_spec.json
+        "info_plist": ctx.attr.info_plist,
+        "use_idb": "true",
+        ## TODO(T110665037): read from .buckconfig
+        "xcode_developer_path": "/Applications/Xcode_13.4.0_fb.app/Contents/Developer",
+    }
+
+    if populate_rule_specific_attributes_func:
+        data.update(populate_rule_specific_attributes_func(ctx, **kwargs))
+
+    return ctx.actions.write_json(_INSTALL_DATA_FILE_NAME, data)
