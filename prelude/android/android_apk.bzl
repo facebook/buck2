@@ -114,6 +114,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
             keystore = keystore,
             platforms = platforms,
             primary_platform = primary_platform,
+            resource_infos = resources_info.unfiltered_resource_infos,
         ),
         DefaultInfo(default_outputs = [output_apk], sub_targets = sub_targets),
     ]

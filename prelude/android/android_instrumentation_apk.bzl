@@ -27,10 +27,16 @@ def android_instrumentation_apk_impl(ctx: "context"):
 
     java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, deps) if packaging_dep.dex and packaging_dep not in apk_under_test_info.java_packaging_deps]
 
-    # TODO(T122203218) Filter out packageables that are also in the apk_under_test
     android_packageable_info = merge_android_packageable_info(ctx.actions, deps)
 
-    resources_info = get_android_binary_resources_info(ctx, deps, android_packageable_info, use_proto_format = False, referenced_resources_lists = [])
+    resources_info = get_android_binary_resources_info(
+        ctx,
+        deps,
+        android_packageable_info,
+        use_proto_format = False,
+        referenced_resources_lists = [],
+        resource_infos_to_exclude = apk_under_test_info.resource_infos,
+    )
     if resources_info.r_dot_java:
         java_packaging_deps += [create_java_packaging_dep(ctx, resources_info.r_dot_java.library_output.full_library)]
 

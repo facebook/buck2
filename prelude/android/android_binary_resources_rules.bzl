@@ -17,11 +17,13 @@ def get_android_binary_resources_info(
         deps: ["dependency"],
         android_packageable_info: "AndroidPackageableInfo",
         use_proto_format: bool.type,
-        referenced_resources_lists: ["artifact"]) -> "AndroidBinaryResourcesInfo":
+        referenced_resources_lists: ["artifact"],
+        resource_infos_to_exclude: [AndroidResourceInfo.type] = []) -> "AndroidBinaryResourcesInfo":
     android_toolchain = ctx.attr._android_toolchain[AndroidToolchainInfo]
+    unfiltered_resource_infos = [resource_info for resource_info in list(android_packageable_info.resource_infos.traverse() if android_packageable_info.resource_infos else []) if resource_info not in resource_infos_to_exclude]
     resource_infos, override_symbols = _maybe_filter_resources(
         ctx,
-        list(android_packageable_info.resource_infos.traverse() if android_packageable_info.resource_infos else []),
+        unfiltered_resource_infos,
         android_toolchain,
     )
 
@@ -82,6 +84,7 @@ def get_android_binary_resources_info(
         proguard_config_file = aapt2_link_info.proguard_config_file,
         r_dot_java = r_dot_java,
         string_source_map = string_source_map,
+        unfiltered_resource_infos = unfiltered_resource_infos,
     )
 
 def _maybe_filter_resources(

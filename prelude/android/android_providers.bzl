@@ -32,6 +32,8 @@ AndroidBinaryResourcesInfo = provider(
         "r_dot_java",  # ["JavaLibraryInfo", None]
         # directory containing filtered string resources files
         "string_source_map",  # ["artifact", None]
+        # The resource infos that are used in this APK
+        "unfiltered_resource_infos",  # ["AndroidResourceInfo"]
     ],
 )
 
@@ -70,6 +72,7 @@ AndroidApkUnderTestInfo = provider(
         "keystore",  # "KeystoreInfo"
         "platforms",  # [str.type]
         "primary_platform",  # str.type
+        "resource_infos",  # ["ResourceInfos"]
     ],
 )
 
