@@ -349,8 +349,6 @@ def _select_resources(ctx: "context") -> ([AppleResourceSpec.type], [AppleAssetC
     resource_graph = create_resource_graph(
         root = ctx.label,
         labels = [],
-        # TODO(T110378108): Support for resources from ctx.attr.platform_deps and ctx.attr.exported_platform_deps
-        # TODO(T110378102): Support for assets from ctx.attr.platform_deps and ctx.attr.exported_platform_deps
         deps = ctx.attr.deps + filter(None, [ctx.attr.binary]) + resource_groups_deps,
         exported_deps = [],
     )
