@@ -65,7 +65,7 @@ use crate::commands::common::subscribers::superconsole::SuperConsoleConfig;
 use crate::commands::common::subscribers::try_get_build_id_writer;
 use crate::commands::common::subscribers::try_get_event_log_subscriber;
 use crate::commands::common::verbosity::Verbosity;
-use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonEventLogOptions;
 use crate::commands::common::HostPlatformOverride;
@@ -268,7 +268,7 @@ pub(crate) trait StreamingCommand: Sized + Send + Sync {
 
     fn event_log_opts(&self) -> &CommonEventLogOptions;
 
-    fn common_opts(&self) -> &CommonConfigOptions;
+    fn common_opts(&self) -> &CommonBuildConfigurationOptions;
 
     /// Allows a command to add additional superconsole components when superconsole is used.
     fn extra_superconsole_component(&self) -> Option<Box<dyn Component>> {
@@ -353,7 +353,7 @@ impl CommandContext {
 
     pub(crate) fn client_context(
         &self,
-        config_opts: &CommonConfigOptions,
+        config_opts: &CommonBuildConfigurationOptions,
         arg_matches: &clap::ArgMatches,
     ) -> anyhow::Result<ClientContext> {
         let config_overrides = config_opts.config_overrides(arg_matches)?;

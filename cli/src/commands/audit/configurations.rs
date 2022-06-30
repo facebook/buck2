@@ -15,7 +15,7 @@ use cli_proto::ClientContext;
 use itertools::Itertools;
 
 use crate::commands::audit::AuditSubcommand;
-use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonEventLogOptions;
 use crate::daemon::server::ServerCommandContext;
@@ -27,7 +27,7 @@ use crate::daemon::server::ServerCommandContext;
 )]
 pub(crate) struct AuditConfigurationsCommand {
     #[clap(flatten)]
-    pub config_opts: CommonConfigOptions,
+    pub config_opts: CommonBuildConfigurationOptions,
 
     #[clap(flatten)]
     console_opts: CommonConsoleOptions,
@@ -69,7 +69,7 @@ impl AuditSubcommand for AuditConfigurationsCommand {
         Ok(())
     }
 
-    fn config_opts(&self) -> Option<&CommonConfigOptions> {
+    fn config_opts(&self) -> Option<&CommonBuildConfigurationOptions> {
         Some(&self.config_opts)
     }
 

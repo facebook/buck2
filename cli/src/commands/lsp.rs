@@ -18,7 +18,7 @@ use crate::commands::common::ConsoleType;
 use crate::daemon::client::BuckdClientConnector;
 use crate::stdin_stream::StdinStream;
 use crate::CommandContext;
-use crate::CommonConfigOptions;
+use crate::CommonBuildConfigurationOptions;
 use crate::CommonConsoleOptions;
 use crate::CommonEventLogOptions;
 use crate::StreamingCommand;
@@ -27,7 +27,7 @@ use crate::StreamingCommand;
 #[clap(about = "Start an LSP server for starlark files")]
 pub(crate) struct LspCommand {
     #[clap(flatten)]
-    config_opts: CommonConfigOptions,
+    config_opts: CommonBuildConfigurationOptions,
 
     #[clap(flatten)]
     event_log_opts: CommonEventLogOptions,
@@ -74,7 +74,7 @@ impl StreamingCommand for LspCommand {
         &self.event_log_opts
     }
 
-    fn common_opts(&self) -> &CommonConfigOptions {
+    fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.config_opts
     }
 }

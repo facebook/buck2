@@ -22,7 +22,7 @@ use futures::FutureExt;
 use gazebo::dupe::Dupe;
 use starlark::eval::ProfileMode;
 
-use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonEventLogOptions;
 use crate::commands::common::ConsoleType;
@@ -86,7 +86,7 @@ impl BuckProfileMode {
 #[derive(Debug, clap::Parser)]
 pub(crate) struct ProfileOptions {
     #[clap(flatten)]
-    config_opts: CommonConfigOptions,
+    config_opts: CommonBuildConfigurationOptions,
 
     #[clap(flatten)]
     event_log_opts: CommonEventLogOptions,
@@ -199,7 +199,7 @@ impl StreamingCommand for ProfileSubcommand {
         &self.opts.event_log_opts
     }
 
-    fn common_opts(&self) -> &CommonConfigOptions {
+    fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.opts.config_opts
     }
 }

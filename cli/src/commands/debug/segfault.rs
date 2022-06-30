@@ -14,7 +14,7 @@ use futures::FutureExt;
 
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonEventLogOptions;
-use crate::CommonConfigOptions;
+use crate::CommonBuildConfigurationOptions;
 use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
@@ -44,7 +44,7 @@ impl StreamingCommand for SegfaultCommand {
         CommonEventLogOptions::default_ref()
     }
 
-    fn common_opts(&self) -> &CommonConfigOptions {
-        CommonConfigOptions::default_ref()
+    fn common_opts(&self) -> &CommonBuildConfigurationOptions {
+        CommonBuildConfigurationOptions::default_ref()
     }
 }

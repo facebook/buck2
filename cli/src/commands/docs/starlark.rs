@@ -5,7 +5,7 @@ use futures::FutureExt;
 use gazebo::dupe::Dupe;
 use starlark::values::docs::Doc;
 
-use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonEventLogOptions;
 use crate::daemon::client::BuckdClientConnector;
@@ -25,7 +25,7 @@ enum DocsOutputFormatArg {
 )]
 pub(crate) struct DocsStarlarkCommand {
     #[clap(flatten)]
-    pub config_opts: CommonConfigOptions,
+    pub config_opts: CommonBuildConfigurationOptions,
 
     #[clap(flatten)]
     console_opts: CommonConsoleOptions,
@@ -96,7 +96,7 @@ impl StreamingCommand for DocsStarlarkCommand {
         &self.event_log_opts
     }
 
-    fn common_opts(&self) -> &CommonConfigOptions {
+    fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.config_opts
     }
 }

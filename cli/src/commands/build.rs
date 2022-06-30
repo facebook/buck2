@@ -30,8 +30,8 @@ use multimap::MultiMap;
 use serde::Serialize;
 
 use crate::commands::common::final_console::FinalConsole;
+use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonBuildOptions;
-use crate::commands::common::CommonConfigOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonEventLogOptions;
 use crate::daemon::client::BuckdClientConnector;
@@ -43,7 +43,7 @@ use crate::StreamingCommand;
 #[clap(name = "build", about = "Build the specified targets")]
 pub(crate) struct BuildCommand {
     #[clap(flatten)]
-    config_opts: CommonConfigOptions,
+    config_opts: CommonBuildConfigurationOptions,
 
     #[clap(flatten)]
     console_opts: CommonConsoleOptions,
@@ -313,7 +313,7 @@ impl StreamingCommand for BuildCommand {
         &self.event_log_opts
     }
 
-    fn common_opts(&self) -> &CommonConfigOptions {
+    fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.config_opts
     }
 }

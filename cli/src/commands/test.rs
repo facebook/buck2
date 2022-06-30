@@ -18,8 +18,8 @@ use gazebo::prelude::*;
 use crate::commands::build::print_build_result;
 use crate::commands::common::subscribers::superconsole::test::StylizedCount;
 use crate::commands::common::subscribers::superconsole::test::TestHeader;
+use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonBuildOptions;
-use crate::commands::common::CommonConfigOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonEventLogOptions;
 use crate::daemon::client::BuckdClientConnector;
@@ -30,7 +30,7 @@ use crate::StreamingCommand;
 #[clap(name = "test", about = "Build and test the specified targets")]
 pub(crate) struct TestCommand {
     #[clap(flatten)]
-    config_opts: CommonConfigOptions,
+    config_opts: CommonBuildConfigurationOptions,
 
     #[clap(flatten)]
     console_opts: CommonConsoleOptions,
@@ -217,7 +217,7 @@ impl StreamingCommand for TestCommand {
         &self.event_log_opts
     }
 
-    fn common_opts(&self) -> &CommonConfigOptions {
+    fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.config_opts
     }
 

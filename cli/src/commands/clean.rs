@@ -14,7 +14,7 @@ use cli_proto::CleanRequest;
 use futures::FutureExt;
 
 use super::common::CommonEventLogOptions;
-use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::CommandOutcome;
@@ -25,7 +25,7 @@ use crate::StreamingCommand;
 #[clap(about = "Delete generated files and caches")]
 pub(crate) struct CleanCommand {
     #[clap(flatten)]
-    config_opts: CommonConfigOptions,
+    config_opts: CommonBuildConfigurationOptions,
 
     #[clap(flatten)]
     console_opts: CommonConsoleOptions,
@@ -96,7 +96,7 @@ impl StreamingCommand for CleanCommand {
         &self.event_log_opts
     }
 
-    fn common_opts(&self) -> &CommonConfigOptions {
+    fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.config_opts
     }
 }

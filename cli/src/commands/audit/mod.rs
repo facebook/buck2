@@ -23,7 +23,7 @@ use crate::commands::audit::includes::AuditIncludesCommand;
 use crate::commands::audit::prelude::AuditPreludeCommand;
 use crate::commands::audit::providers::AuditProvidersCommand;
 use crate::commands::audit::starlark::StarlarkCommand;
-use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonEventLogOptions;
 use crate::commands::common::ConsoleType;
@@ -75,7 +75,7 @@ pub(crate) trait AuditSubcommand: Send + Sync + 'static {
         client_server_ctx: ClientContext,
     ) -> anyhow::Result<()>;
 
-    fn config_opts(&self) -> Option<&CommonConfigOptions>;
+    fn config_opts(&self) -> Option<&CommonBuildConfigurationOptions>;
 
     fn console_opts(&self) -> Option<&CommonConsoleOptions>;
 
@@ -170,10 +170,10 @@ impl StreamingCommand for AuditCommand {
         }
     }
 
-    fn common_opts(&self) -> &CommonConfigOptions {
+    fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         match self.as_subcommand().config_opts() {
             Some(v) => v,
-            None => CommonConfigOptions::default_ref(),
+            None => CommonBuildConfigurationOptions::default_ref(),
         }
     }
 }

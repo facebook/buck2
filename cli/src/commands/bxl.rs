@@ -10,7 +10,7 @@ use crate::commands::common::CommonBuildOptions;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::CommandOutcome;
 use crate::CommandContext;
-use crate::CommonConfigOptions;
+use crate::CommonBuildConfigurationOptions;
 use crate::CommonConsoleOptions;
 use crate::CommonEventLogOptions;
 use crate::StreamingCommand;
@@ -19,7 +19,7 @@ use crate::StreamingCommand;
 #[clap(name = "bxl", about = "Run BXL scripts")]
 pub(crate) struct BxlCommand {
     #[clap(flatten)]
-    config_opts: CommonConfigOptions,
+    config_opts: CommonBuildConfigurationOptions,
 
     #[clap(flatten)]
     console_opts: CommonConsoleOptions,
@@ -110,7 +110,7 @@ impl StreamingCommand for BxlCommand {
         &self.event_log_opts
     }
 
-    fn common_opts(&self) -> &CommonConfigOptions {
+    fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.config_opts
     }
 }

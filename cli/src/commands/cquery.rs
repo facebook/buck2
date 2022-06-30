@@ -12,7 +12,7 @@ use buck2_core::exit_result::ExitResult;
 use cli_proto::CqueryRequest;
 use futures::FutureExt;
 
-use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonEventLogOptions;
 use crate::commands::uquery::CommonQueryArgs;
@@ -47,7 +47,7 @@ use crate::StreamingCommand;
 #[clap(name = "cquery")]
 pub(crate) struct CqueryCommand {
     #[clap(flatten)]
-    config_opts: CommonConfigOptions,
+    config_opts: CommonBuildConfigurationOptions,
 
     #[clap(flatten)]
     #[allow(unused)]
@@ -126,7 +126,7 @@ impl StreamingCommand for CqueryCommand {
         &self.event_log_opts
     }
 
-    fn common_opts(&self) -> &CommonConfigOptions {
+    fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.config_opts
     }
 }

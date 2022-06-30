@@ -18,7 +18,7 @@ use cli_proto::ClientContext;
 use crate::commands::audit::starlark::module::StarlarkModuleCommand;
 use crate::commands::audit::starlark::package_deps::StarlarkPackageDepsCommand;
 use crate::commands::audit::AuditSubcommand;
-use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonEventLogOptions;
 use crate::daemon::server::ServerCommandContext;
@@ -43,7 +43,7 @@ impl AuditSubcommand for StarlarkCommand {
         }
     }
 
-    fn config_opts(&self) -> Option<&CommonConfigOptions> {
+    fn config_opts(&self) -> Option<&CommonBuildConfigurationOptions> {
         None
     }
 

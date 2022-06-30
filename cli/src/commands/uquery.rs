@@ -14,7 +14,7 @@ use cli_proto::UqueryRequest;
 use futures::FutureExt;
 use gazebo::dupe::Dupe;
 
-use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonEventLogOptions;
 use crate::daemon::client::BuckdClientConnector;
@@ -161,7 +161,7 @@ impl CommonQueryArgs {
 #[clap(name = "uquery")]
 pub(crate) struct UqueryCommand {
     #[clap(flatten)]
-    config_opts: CommonConfigOptions,
+    config_opts: CommonBuildConfigurationOptions,
 
     #[clap(flatten)]
     console_opts: CommonConsoleOptions,
@@ -222,7 +222,7 @@ impl StreamingCommand for UqueryCommand {
         &self.event_log_opts
     }
 
-    fn common_opts(&self) -> &CommonConfigOptions {
+    fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.config_opts
     }
 }

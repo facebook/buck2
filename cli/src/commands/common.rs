@@ -121,7 +121,7 @@ impl CommonEventLogOptions {
 
 /// Defines options for config and configuration related things. Any command that involves the build graph should include these options.
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
-pub(crate) struct CommonConfigOptions {
+pub(crate) struct CommonBuildConfigurationOptions {
     #[clap(
         value_name = "SECTION.OPTION=VALUE",
         long = "config",
@@ -164,7 +164,7 @@ pub(crate) struct CommonConfigOptions {
     pub disable_starlark_types: bool,
 }
 
-impl CommonConfigOptions {
+impl CommonBuildConfigurationOptions {
     /// Produces a single, ordered list of config overrides. A `ConfigOverride`
     /// represents either a file, passed via `--config-file`, or a config value,
     /// passed via `-c`/`--config`. The relative order of those are important,
@@ -246,7 +246,7 @@ impl CommonConfigOptions {
     }
 
     pub(crate) fn default_ref() -> &'static Self {
-        static DEFAULT: CommonConfigOptions = CommonConfigOptions {
+        static DEFAULT: CommonBuildConfigurationOptions = CommonBuildConfigurationOptions {
             config_values: vec![],
             config_files: vec![],
             target_platforms: None,

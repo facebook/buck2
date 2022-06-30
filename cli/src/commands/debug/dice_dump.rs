@@ -19,7 +19,7 @@ use crate::commands::common::ConsoleType;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::BuckdConnectOptions;
 use crate::CommandContext;
-use crate::CommonConfigOptions;
+use crate::CommonBuildConfigurationOptions;
 use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
@@ -78,7 +78,7 @@ impl StreamingCommand for DiceDumpCommand {
         CommonEventLogOptions::default_ref()
     }
 
-    fn common_opts(&self) -> &CommonConfigOptions {
-        CommonConfigOptions::default_ref()
+    fn common_opts(&self) -> &CommonBuildConfigurationOptions {
+        CommonBuildConfigurationOptions::default_ref()
     }
 }

@@ -21,7 +21,7 @@ use cli_proto::ClientContext;
 use gazebo::prelude::*;
 
 use crate::commands::audit::AuditSubcommand;
-use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonEventLogOptions;
 use crate::daemon::common::parse_patterns_from_cli_args;
@@ -36,7 +36,7 @@ use crate::daemon::server::ServerCommandContext;
 )]
 pub(crate) struct AuditAnalysisQueriesCommand {
     #[clap(flatten)]
-    config_opts: CommonConfigOptions,
+    config_opts: CommonBuildConfigurationOptions,
 
     #[clap(flatten)]
     console_opts: CommonConsoleOptions,
@@ -119,7 +119,7 @@ impl AuditSubcommand for AuditAnalysisQueriesCommand {
         Ok(())
     }
 
-    fn config_opts(&self) -> Option<&CommonConfigOptions> {
+    fn config_opts(&self) -> Option<&CommonBuildConfigurationOptions> {
         Some(&self.config_opts)
     }
 

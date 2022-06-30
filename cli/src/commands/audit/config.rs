@@ -22,7 +22,7 @@ use gazebo::prelude::*;
 use serde_json::json;
 
 use crate::commands::audit::AuditSubcommand;
-use crate::commands::common::CommonConfigOptions;
+use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonEventLogOptions;
 use crate::daemon::server::ServerCommandContext;
@@ -84,7 +84,7 @@ impl FromStr for ValueStyle {
 #[clap(name = "audit-config", about = "buck audit config")]
 pub(crate) struct AuditConfigCommand {
     #[clap(flatten)]
-    pub config_opts: CommonConfigOptions,
+    pub config_opts: CommonBuildConfigurationOptions,
 
     #[clap(long = "cell")]
     cell: Option<String>,
@@ -273,7 +273,7 @@ impl AuditSubcommand for AuditConfigCommand {
         Ok(())
     }
 
-    fn config_opts(&self) -> Option<&CommonConfigOptions> {
+    fn config_opts(&self) -> Option<&CommonBuildConfigurationOptions> {
         Some(&self.config_opts)
     }
 
