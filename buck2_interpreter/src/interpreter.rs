@@ -41,6 +41,7 @@ use thiserror::Error;
 
 use crate::build_defs::register_globals;
 use crate::build_defs::register_natives;
+use crate::common::BxlFilePath;
 use crate::common::OwnedStarlarkModulePath;
 use crate::common::StarlarkModulePath;
 use crate::common::StarlarkPath;
@@ -270,7 +271,22 @@ impl GlobalInterpreterState {
 struct InterpreterLoadResolver {
     config: Arc<InterpreterConfigForCell>,
     loader_path: CellPath,
+    loader_file_type: StarlarkFileType,
     build_file_cell: BuildFileCell,
+}
+
+enum StarlarkFileType {
+    Bzl,
+    Bxl,
+    Buck,
+}
+
+#[derive(Debug, Error)]
+enum LoadResolutionError {
+    #[error(
+        "Cannot load `{0}`. Bxl loads are not allowed from within this context. bxl files can only be loaded from other bxl files."
+    )]
+    BxlLoadNotAllowed(CellPath),
 }
 
 impl LoadResolver for InterpreterLoadResolver {
@@ -288,6 +304,17 @@ impl LoadResolver for InterpreterLoadResolver {
                 path,
                 BuildFileCell::new(cell),
             )?));
+        }
+
+        if path.path().extension() == Some("bxl") {
+            match self.loader_file_type {
+                StarlarkFileType::Bzl | StarlarkFileType::Buck => {
+                    return Err(LoadResolutionError::BxlLoadNotAllowed(path).into());
+                }
+                StarlarkFileType::Bxl => {
+                    return Ok(OwnedStarlarkModulePath::BxlFile(BxlFilePath::new(path)?));
+                }
+            }
         }
 
         Ok(OwnedStarlarkModulePath::LoadFile(ImportPath::new(
@@ -488,6 +515,11 @@ impl InterpreterForCell {
                 .path()
                 .parent()
                 .expect("loading file should have parent directory"),
+            loader_file_type: match current_file_path {
+                StarlarkPath::BuildFile(_) => StarlarkFileType::Buck,
+                StarlarkPath::LoadFile(_) => StarlarkFileType::Bzl,
+                StarlarkPath::BxlFile(_) => StarlarkFileType::Bxl,
+            },
             build_file_cell: current_file_path.build_file_cell().clone(),
         }
     }

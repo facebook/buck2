@@ -425,3 +425,12 @@ async def test_bxl_read_config(buck: Buck) -> None:
 
     assert "foo" in result.stdout
     assert "True" in result.stdout
+
+
+@buck_test(inplace=False, data_dir="bql/simple")
+async def test_load_file(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl:load_file.bxl:load_test",
+    )
+
+    assert str(buck.cwd) in result.stdout
