@@ -163,3 +163,9 @@ buck2_e2e_test(
         "PRELUDE": "$(location //buck2:prelude)",
     },
 )
+
+buck2_e2e_test(
+    name = "test_apple_incremental",
+    srcs = ["test_apple_incremental_bundling.py"],
+    test_with_compiled_buck2_and_deployed_buck2 = True,
+)
