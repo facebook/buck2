@@ -247,9 +247,9 @@ fn run_analysis_with_env(
         query_results: analysis_env.query_results,
     };
 
-    let mut resolved_attrs =
-        SmallMap::with_capacity(node.attrs(AttrInspectOptions::All).size_hint().0);
-    for (name, attr) in node.attrs(AttrInspectOptions::All) {
+    let attrs_iter = node.attrs(AttrInspectOptions::All);
+    let mut resolved_attrs = SmallMap::with_capacity(attrs_iter.size_hint().0);
+    for (name, attr) in attrs_iter {
         resolved_attrs.insert(
             env.heap().alloc_str(name),
             attr.resolve_single(&resolution_ctx)?,
