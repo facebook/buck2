@@ -140,8 +140,11 @@ def _maybe_filter_resources(
         ])
 
     if is_store_strings_as_assets:
+        all_strings_files_list = ctx.actions.declare_output("all_strings_files")
         filter_resources_cmd.add([
             "--enable-string-as-assets-filtering",
+            "--string-files-list-output",
+            all_strings_files_list.as_output(),
         ])
 
         packaged_locales = getattr(ctx.attr, "packaged_locales", [])
