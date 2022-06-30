@@ -354,7 +354,7 @@ mod tests {
 
             string_attr = attr.string(default="something", doc = "foo")
             frozen_rule = rule(
-                implementation=impl,
+                impl=impl,
                 attrs={
                     "param1": string_attr,
                     "param2": attr.list(string_attr, default=[], doc = "foo"),
@@ -379,7 +379,7 @@ mod tests {
             def test():
                 string_attr = attr.string(default="something", doc = "foo")
                 nonfrozen_rule = rule(
-                    implementation=impl,
+                    impl=impl,
                     attrs={
                         "param1": string_attr,
                     }
@@ -401,7 +401,7 @@ mod tests {
 
             string_attr = attr.string(default="something", doc = "foo")
             frozen_rule = rule(
-                implementation=impl,
+                impl=impl,
                 attrs={
                     "name": string_attr,
                     "param1": string_attr,
@@ -424,7 +424,7 @@ mod tests {
                 pass
             rules = []
             rules.append(rule(
-                implementation=impl,
+                impl=impl,
                 attrs={}
             ))
             def test():
@@ -447,7 +447,7 @@ mod tests {
             dep_attr = attr.dep(default="//foo:baz")
             src_attr = attr.source(default="//foo:baz")
             foo_binary = rule(
-                implementation=impl,
+                impl=impl,
                 attrs={
                     "optional": string_attr,
                     "other_optional": string_attr,
@@ -510,7 +510,7 @@ mod tests {
             string_attr = attr.string(default="some_default")
             mandatory_string_attr = attr.string(doc="")
             foo_binary = rule(
-                implementation=impl,
+                impl=impl,
                 attrs={"optional":string_attr, "mandatory": mandatory_string_attr},
             )
 
@@ -590,7 +590,7 @@ mod tests {
             """
 
             foo_binary = rule(
-                implementation=impl,
+                impl=impl,
                 attrs={
                     "any": any_attr,
                     "arg": arg_attr,

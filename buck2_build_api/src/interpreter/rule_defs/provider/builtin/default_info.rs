@@ -84,7 +84,7 @@ use crate::interpreter::rule_defs::provider::ProviderCollection;
 ///     ]
 ///
 /// foo_binary = rule(
-///     implementation=impl,
+///     impl=impl,
 ///     attrs={
 ///         "srcs": attr.list(attr.source()),
 ///         "out": attr.output(),

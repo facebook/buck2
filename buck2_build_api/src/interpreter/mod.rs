@@ -570,7 +570,7 @@ mod tests {
             r#"
             def _impl(ctx):
                 pass
-            export_file = rule(implementation=_impl, attrs = {})
+            export_file = rule(impl=_impl, attrs = {})
             def test():
                 export_file(name="foo")
                 export_file(name="foo")

@@ -513,7 +513,7 @@ mod tests {
                                 if ctx.attr.dep:
                                     str = ctx.attr.dep[FooInfo].str
                                 return [FooInfo(str=(str + ctx.attr.str)), DefaultInfo()]
-                            foo_binary = rule(implementation=impl, attrs={"dep": attr.option(attr.dep(providers=[FooInfo])), "str": attr.string()})
+                            foo_binary = rule(impl=impl, attrs={"dep": attr.option(attr.dep(providers=[FooInfo])), "str": attr.string()})
                         "#),
                 LoadedModules::default(),
             )?;
