@@ -386,20 +386,18 @@ impl EventSubscriber for SimpleConsole {
             let complete = self.span_tracker.roots_completed();
             let incomplete = self.span_tracker.roots_ongoing();
             echo!("{} / {}: {}", complete, complete + incomplete, action_id)?;
-            if !action.success_stderr.is_empty()
-                && (action.always_print_stderr || self.verbosity.print_success_stderr())
-            {
+            if let Some(stderr) = display::success_stderr(action, self.verbosity)? {
                 // TODO(nmj): Factor out behavior here so that handling ttymode isn't ad hoc.  i.e. write a method that formats text based on tty mode
                 match self.tty_mode {
                     TtyMode::Enabled => {
                         // Add the extra control character so that users' stderr messages can't
                         // mess up the terminal
-                        echo!("stderr:{}\x1b[0m", action.success_stderr)?;
+                        echo!("stderr:{}\x1b[0m", stderr)?;
                     }
                     TtyMode::Disabled => {
                         echo!(
                             "stderr:\n{}",
-                            Self::sanitize_output_colors(action.success_stderr.as_bytes())
+                            Self::sanitize_output_colors(stderr.as_bytes())
                         )?;
                     }
                 }

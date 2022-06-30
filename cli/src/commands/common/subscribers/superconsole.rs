@@ -429,9 +429,7 @@ impl EventSubscriber for StatefulSuperConsole {
                 }
             }
             None => {
-                if !action.success_stderr.is_empty()
-                    && (action.always_print_stderr || self.verbosity.print_success_stderr())
-                {
+                if let Some(stderr) = display::success_stderr(action, self.verbosity)? {
                     let action_id = StyledContent::new(
                         ContentStyle {
                             foreground_color: Some(Color::White),
@@ -447,7 +445,7 @@ impl EventSubscriber for StatefulSuperConsole {
                         ),
                     );
                     lines.push(superconsole::line!(Span::new_styled_lossy(action_id)));
-                    lines.extend(colored_lines_from_multiline_string(&action.success_stderr));
+                    lines.extend(colored_lines_from_multiline_string(stderr));
                 }
             }
         }

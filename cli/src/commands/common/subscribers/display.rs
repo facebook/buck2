@@ -30,6 +30,8 @@ use superconsole::Span;
 use test_api::data::TestStatus;
 use thiserror::Error;
 
+use crate::commands::common::verbosity::Verbosity;
+
 pub(crate) fn display_configured_target_label(
     ctl: &ConfiguredTargetLabel,
 ) -> anyhow::Result<String> {
@@ -408,4 +410,21 @@ fn failure_reason_for_command_execution(
         }
         Status::ClaimRejected(ClaimRejected {}) => "Command was rejected".to_owned(),
     })
+}
+
+pub(crate) fn success_stderr<'a>(
+    action: &'a buck2_data::ActionExecutionEnd,
+    verbosity: Verbosity,
+) -> anyhow::Result<Option<&'a str>> {
+    if !(verbosity.print_success_stderr() || action.always_print_stderr) {
+        return Ok(None);
+    }
+
+    let stderr = &action.success_stderr;
+
+    if stderr.is_empty() {
+        return Ok(None);
+    }
+
+    Ok(Some(stderr))
 }
