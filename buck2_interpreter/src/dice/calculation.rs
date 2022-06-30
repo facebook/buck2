@@ -20,7 +20,6 @@ use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_common::package_listing::resolver::PackageListingResolver;
 use buck2_core::build_file_path::BuildFilePath;
-use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::paths::CellPath;
 use buck2_core::cells::CellName;
@@ -262,12 +261,12 @@ impl<'c> DiceCalculationDelegate<'c> {
             .parse(starlark_path, content)
     }
 
-    async fn eval_deps(&self, modules: &[ImportPath]) -> SharedResult<ModuleDeps> {
+    async fn eval_deps(&self, modules: &[OwnedStarlarkModulePath]) -> SharedResult<ModuleDeps> {
         Ok(ModuleDeps(
             futures::future::join_all(
                 modules
                     .iter()
-                    .map(|import| self.eval_module(StarlarkModulePath::LoadFile(import))),
+                    .map(|import| self.eval_module(import.borrow())),
             )
             .await
             .into_iter()
@@ -297,7 +296,7 @@ impl<'c> DiceCalculationDelegate<'c> {
         &self,
         starlark_file: StarlarkPath<'_>,
         load_string: &str,
-    ) -> SharedResult<ImportPath> {
+    ) -> SharedResult<OwnedStarlarkModulePath> {
         self.get_interpreter_for_cell()
             .await?
             .resolve_path(starlark_file, load_string)

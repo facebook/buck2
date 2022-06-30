@@ -37,7 +37,7 @@ impl LoadedModules {
 }
 
 pub trait LoadResolver {
-    fn resolve_load(&self, path: &str) -> anyhow::Result<ImportPath>;
+    fn resolve_load(&self, path: &str) -> anyhow::Result<OwnedStarlarkModulePath>;
 }
 
 pub struct ModuleDeps(pub Vec<LoadedModule>);
@@ -131,7 +131,7 @@ impl FileLoader for InterpreterFileLoader {
     /// statements.
     fn load(&self, path: &str) -> anyhow::Result<FrozenModule> {
         match self.info.resolve_load(path) {
-            Ok(import) => Ok(self.find_module(import.id())?.dupe()),
+            Ok(import) => Ok(self.find_module(import.borrow().id())?.dupe()),
             Err(e) => Err(to_diagnostic(&e, path)),
         }
     }
@@ -146,15 +146,23 @@ mod tests {
     struct TestLoadResolver {}
 
     impl LoadResolver for TestLoadResolver {
-        fn resolve_load(&self, path: &str) -> anyhow::Result<ImportPath> {
+        fn resolve_load(&self, path: &str) -> anyhow::Result<OwnedStarlarkModulePath> {
             match path {
-                "//some/package:import.bzl" => Ok(import("root", "some/package", "import.bzl")),
-                "cell1//next/package:import.bzl" => {
-                    Ok(import("cell1", "next/package", "import.bzl"))
-                }
-                "alias2//last/package:import.bzl" => {
-                    Ok(import("cell2", "last/package", "import.bzl"))
-                }
+                "//some/package:import.bzl" => Ok(OwnedStarlarkModulePath::LoadFile(import(
+                    "root",
+                    "some/package",
+                    "import.bzl",
+                ))),
+                "cell1//next/package:import.bzl" => Ok(OwnedStarlarkModulePath::LoadFile(import(
+                    "cell1",
+                    "next/package",
+                    "import.bzl",
+                ))),
+                "alias2//last/package:import.bzl" => Ok(OwnedStarlarkModulePath::LoadFile(import(
+                    "cell2",
+                    "last/package",
+                    "import.bzl",
+                ))),
                 _ => Err(anyhow!("error")),
             }
         }
@@ -176,12 +184,8 @@ mod tests {
 
         let mut insert = |path| {
             let import_path = resolver.resolve_load(path).unwrap();
-            let id = import_path.id().clone();
-            let module = LoadedModule::new(
-                OwnedStarlarkModulePath::LoadFile(import_path),
-                LoadedModules::default(),
-                env(&id),
-            );
+            let id = import_path.borrow().id().clone();
+            let module = LoadedModule::new(import_path, LoadedModules::default(), env(&id));
             loaded_modules.map.insert(id, module);
         };
 
@@ -214,7 +218,7 @@ mod tests {
     fn missing_in_loaded_modules() -> anyhow::Result<()> {
         let path = "cell1//next/package:import.bzl".to_owned();
         let resolver = resolver();
-        let id = resolver.resolve_load(&path)?.id().to_owned();
+        let id = resolver.resolve_load(&path)?.borrow().id().to_owned();
 
         let mut loaded_modules = loaded_modules();
         loaded_modules.map.remove(&id);
@@ -232,7 +236,7 @@ mod tests {
     fn valid_load() -> anyhow::Result<()> {
         let path = "cell1//next/package:import.bzl".to_owned();
         let resolver = resolver();
-        let id = resolver.resolve_load(&path)?.id().to_owned();
+        let id = resolver.resolve_load(&path)?.borrow().id().to_owned();
 
         let loader = InterpreterFileLoader::new(loaded_modules(), resolver);
         let loaded = loader.load(&path)?;
@@ -248,7 +252,8 @@ mod tests {
         let path = "cell1//next/package:import.bzl".to_owned();
         let resolver = resolver();
         let resolved = resolver.resolve_load(&path)?;
-        let id = resolved.id();
+        let borrow = resolved.borrow();
+        let id = borrow.id();
 
         let loader = InterpreterFileLoader::new(loaded_modules(), resolver);
         let found = loader.find_module(id)?;

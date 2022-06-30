@@ -192,7 +192,9 @@ impl LspContext for BuckLspContext {
 
             let starlark_file = StarlarkPath::LoadFile(&current_import_path);
             let loaded_import_path = calculator.resolve_load(starlark_file, path).await?;
-            let relative_path = self.cell_resolver.resolve_path(loaded_import_path.path())?;
+            let relative_path = self
+                .cell_resolver
+                .resolve_path(loaded_import_path.borrow().path())?;
             let abs_path = self.fs.resolve(&relative_path);
             let url = Url::from_file_path(abs_path).unwrap();
 

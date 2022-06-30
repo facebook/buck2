@@ -41,6 +41,7 @@ use thiserror::Error;
 
 use crate::build_defs::register_globals;
 use crate::build_defs::register_natives;
+use crate::common::OwnedStarlarkModulePath;
 use crate::common::StarlarkModulePath;
 use crate::common::StarlarkPath;
 use crate::extra::cell_info::InterpreterCellInfo;
@@ -115,12 +116,12 @@ impl<'a> StarlarkPath<'a> {
 /// The imports are under a separate Arc so that that can be shared with
 /// the evaluation result (which needs the imports but no longer needs the AST).
 #[derive(Debug)]
-pub struct ParseResult(pub AstModule, pub Arc<Vec<ImportPath>>);
+pub struct ParseResult(pub AstModule, pub Arc<Vec<OwnedStarlarkModulePath>>);
 
 impl ParseResult {
     fn new(
         ast: AstModule,
-        implicit_imports: Vec<ImportPath>,
+        implicit_imports: Vec<OwnedStarlarkModulePath>,
         resolver: &dyn LoadResolver,
     ) -> anyhow::Result<Self> {
         let mut loads = implicit_imports;
@@ -134,7 +135,7 @@ impl ParseResult {
         &self.0
     }
 
-    pub fn imports(&self) -> &Arc<Vec<ImportPath>> {
+    pub fn imports(&self) -> &Arc<Vec<OwnedStarlarkModulePath>> {
         &self.1
     }
 }
@@ -273,7 +274,7 @@ struct InterpreterLoadResolver {
 }
 
 impl LoadResolver for InterpreterLoadResolver {
-    fn resolve_load(&self, path: &str) -> anyhow::Result<ImportPath> {
+    fn resolve_load(&self, path: &str) -> anyhow::Result<OwnedStarlarkModulePath> {
         let path = parse_import(&self.config.cell_names, &self.loader_path, path)?;
 
         // If importing from the prelude, then do not let that inherit the configuration. This
@@ -283,10 +284,16 @@ impl LoadResolver for InterpreterLoadResolver {
 
         if self.config.global_state.configuror.is_prelude_path(&path) {
             let cell = path.cell().clone();
-            return ImportPath::new(path, BuildFileCell::new(cell));
+            return Ok(OwnedStarlarkModulePath::LoadFile(ImportPath::new(
+                path,
+                BuildFileCell::new(cell),
+            )?));
         }
 
-        ImportPath::new(path, self.build_file_cell.clone())
+        Ok(OwnedStarlarkModulePath::LoadFile(ImportPath::new(
+            path,
+            self.build_file_cell.clone(),
+        )?))
     }
 }
 
@@ -518,14 +525,14 @@ impl InterpreterForCell {
             )?;
             let mut implicit_imports = Vec::new();
             if let Some(i) = self.prelude_import(import) {
-                implicit_imports.push(i.clone());
+                implicit_imports.push(OwnedStarlarkModulePath::LoadFile(i.clone()));
             }
             if let StarlarkPath::BuildFile(build_file) = import {
                 if let Some(i) = self.package_import(build_file) {
-                    implicit_imports.push(i.import().clone());
+                    implicit_imports.push(OwnedStarlarkModulePath::LoadFile(i.import().clone()));
                 }
                 if let Some(i) = self.root_import() {
-                    implicit_imports.push(i);
+                    implicit_imports.push(OwnedStarlarkModulePath::LoadFile(i));
                 }
             }
             ParseResult::new(ast, implicit_imports, &self.load_resolver(import))?
@@ -537,7 +544,7 @@ impl InterpreterForCell {
         &self,
         import: StarlarkPath<'_>,
         import_string: &str,
-    ) -> anyhow::Result<ImportPath> {
+    ) -> anyhow::Result<OwnedStarlarkModulePath> {
         self.load_resolver(import).resolve_load(import_string)
     }
 
