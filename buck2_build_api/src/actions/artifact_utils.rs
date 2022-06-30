@@ -117,7 +117,9 @@ impl<'a> ArtifactValueBuilder<'a> {
             DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(s)) => {
                 DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(s.with_full_target()))
             }
-            e => e.dupe().map_dir(|d| d.as_immutable()),
+            DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {
+                DirectoryEntry::Leaf(ActionDirectoryMember::File(f.dupe()))
+            }
         };
 
         let entry = entry.map_dir(|d| d.shared(&*INTERNER));
