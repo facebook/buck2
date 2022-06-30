@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::borrow::Cow;
 use std::fmt;
 use std::io::Write;
 use std::time::Duration;
@@ -469,11 +470,21 @@ impl EventSubscriber for SimpleConsole {
             let mut roots = self.span_tracker.iter_roots();
             let sample_event = roots.next();
             match sample_event {
-                Some(sample_event) => echo!(
-                    "Waiting on {}, and {} other actions",
-                    display::display_event(&sample_event.info().event)?,
-                    roots.len()
-                )?,
+                Some(sample_event) => {
+                    let child = match sample_event.children().next() {
+                        Some(c) => {
+                            Cow::Owned(format!(" [{}]", display::display_event(&c.info().event)?))
+                        }
+                        None => Cow::Borrowed(""),
+                    };
+
+                    echo!(
+                        "Waiting on {}{}, and {} other actions",
+                        display::display_event(&sample_event.info().event)?,
+                        child,
+                        roots.len()
+                    )?
+                }
                 None => echo!("Waiting on daemon...")?,
             }
             // roots must be dropped here because it mutably borrows `self`
