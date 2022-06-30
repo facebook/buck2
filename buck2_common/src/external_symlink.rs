@@ -142,12 +142,8 @@ impl ExternalSymlink {
         // TODO: change ExternalSymlink to include information about the
         // followed symlinks (we can do that with a `next` attr?)
 
-        let path = root.as_ref().join(relpath.as_str());
-        let path = AbsPath::unchecked_new(&path);
-
         let root = root.as_ref();
-        let stripped_path = path.strip_prefix(&root).ok()?;
-        let relpath = Path::new(stripped_path.as_str());
+        let relpath = Path::new(relpath.as_str());
         let mut remaining_path = relpath.components();
 
         external_sym(&mut root.to_path_buf(), &mut remaining_path)
