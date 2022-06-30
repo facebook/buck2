@@ -162,6 +162,7 @@ mod tests {
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
     use gazebo::prelude::Dupe;
     use indexmap::IndexMap;
+    use starlark_map::smallmap;
 
     use crate::attrs::OrderedMap;
 

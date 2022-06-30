@@ -642,6 +642,7 @@ mod tests {
     use gazebo::prelude::*;
     use indexmap::indexmap;
     use starlark::collections::SmallMap;
+    use starlark_map::smallmap;
 
     use crate::attrs::testing::CoercedAttrExt;
     use crate::attrs::testing::ConfiguredAttrExt;

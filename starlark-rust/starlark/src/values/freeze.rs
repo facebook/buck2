@@ -20,10 +20,10 @@ use std::marker;
 use std::marker::PhantomData;
 
 use gazebo::prelude::*;
+use starlark_map::small_map::SmallMap;
+use starlark_map::vec_map::Bucket;
+use starlark_map::vec_map::VecMap;
 
-use crate::collections::vec_map::Bucket;
-use crate::collections::vec_map::VecMap;
-use crate::collections::SmallMap;
 use crate::values::Freezer;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;

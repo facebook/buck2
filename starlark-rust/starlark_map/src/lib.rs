@@ -15,14 +15,22 @@
  * limitations under the License.
  */
 
-use crate::collections::StarlarkHasher;
-use crate::small_map::SmallHashValue;
-use crate::small_map::SmallHashed;
+//! Ordered map optimized for starlark-rust use cases.
 
-/// A hash value.
-///
-/// Contained value must be compatible with a value produced by `StarlarkHasher`
-pub type StarlarkHashValue = SmallHashValue<StarlarkHasher>;
+// TODO(nga): fix.
+#![allow(clippy::should_implement_trait)]
 
-/// A key and its hash.
-pub type Hashed<K> = SmallHashed<K, StarlarkHasher>;
+mod equivalent;
+mod hash_value;
+mod hashed;
+mod hasher;
+mod mix_u32;
+pub mod small_map;
+pub mod small_set;
+// TODO(nga): make private.
+pub mod vec_map;
+
+pub use equivalent::Equivalent;
+pub use hash_value::StarlarkHashValue;
+pub use hashed::Hashed;
+pub use hasher::StarlarkHasher;

@@ -20,10 +20,10 @@ use std::iter;
 use std::mem;
 
 use gazebo::dupe::Dupe;
+use starlark_map::small_map;
+use starlark_map::small_map::SmallMap;
 
 use crate::codemap::CodeMap;
-use crate::collections::small_map;
-use crate::collections::SmallMap;
 use crate::environment::names::MutableNames;
 use crate::environment::slots::ModuleSlotId;
 use crate::environment::EnvironmentError;

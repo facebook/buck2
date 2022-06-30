@@ -13,7 +13,6 @@ use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
 use gazebo::dupe::Dupe;
-use starlark::collections::small_map::SmallMap;
 use starlark::eval::Evaluator;
 use starlark::starlark_complex_value;
 use starlark::starlark_type;
@@ -24,6 +23,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark_map::small_map::SmallMap;
 
 use crate::bxl::starlark_defs::build_result::StarlarkBxlBuildResult;
 use crate::bxl::starlark_defs::context::BxlContext;

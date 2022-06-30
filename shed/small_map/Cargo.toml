@@ -9,4 +9,4 @@ It reexports starlark maps now, but will be a proper crate in the future
 """
 
 [dependencies]
-starlark = { version = "0.9.0-pre", path = "../../starlark-rust/starlark" }
+starlark_map = { version = "0.9.0-pre", path = "../../starlark-rust/starlark_map" }

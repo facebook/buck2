@@ -46,6 +46,7 @@ use gazebo::prelude::*;
 use num_bigint::BigInt;
 use serde::Serialize;
 use serde::Serializer;
+use starlark_map::Equivalent;
 
 use crate::collections::Hashed;
 use crate::collections::StarlarkHashValue;
@@ -58,7 +59,6 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;
 use crate::sealed::Sealed;
-use crate::small_map::Equivalent;
 use crate::values::dict::FrozenDict;
 use crate::values::docs::DocItem;
 use crate::values::enumeration::EnumType;

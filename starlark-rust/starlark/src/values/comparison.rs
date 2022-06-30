@@ -20,9 +20,9 @@ use std::hash::Hash;
 
 use gazebo::prelude::*;
 use itertools::Itertools;
+use starlark_map::Equivalent;
 
 use crate::collections::SmallMap;
-use crate::small_map::Equivalent;
 
 pub fn equals_slice<E, X1, X2>(
     xs: &[X1],

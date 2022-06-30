@@ -214,10 +214,10 @@ mod tests {
     use std::fmt;
 
     use indoc::indoc;
+    use starlark_map::smallmap;
 
     use super::*;
     use crate::collections::SmallMap;
-    use crate::smallmap;
 
     #[test]
     fn test_container() {

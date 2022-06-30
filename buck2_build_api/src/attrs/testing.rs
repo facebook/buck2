@@ -44,6 +44,7 @@ use starlark::syntax::Dialect;
 use starlark::values::dict::FrozenDict;
 use starlark::values::FrozenRef;
 use starlark::values::Value;
+use starlark_map::smallmap;
 
 use crate::attrs::analysis::AnalysisQueryResult;
 use crate::attrs::analysis::AttrResolutionContext;

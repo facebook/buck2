@@ -419,7 +419,7 @@ pub mod lsp;
 mod private;
 pub mod read_line;
 mod sealed;
-pub mod small_map;
+
 mod stdlib;
 pub mod syntax;
 pub mod values;

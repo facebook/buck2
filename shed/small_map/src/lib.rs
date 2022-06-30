@@ -8,14 +8,14 @@
  */
 
 pub mod map {
-    pub use starlark::collections::small_map::Entry;
-    pub use starlark::collections::small_map::OccupiedEntry;
-    pub use starlark::collections::small_map::VacantEntry;
-    pub use starlark::collections::SmallMap;
+    pub use starlark_map::small_map::Entry;
+    pub use starlark_map::small_map::OccupiedEntry;
+    pub use starlark_map::small_map::SmallMap;
+    pub use starlark_map::small_map::VacantEntry;
 }
 
 pub mod set {
-    pub use starlark::collections::SmallSet;
+    pub use starlark_map::small_set::SmallSet;
 }
 
-pub use starlark::small_map::Equivalent;
+pub use starlark_map::Equivalent;

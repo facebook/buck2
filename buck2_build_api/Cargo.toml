@@ -54,6 +54,7 @@ gazebo.features = ["str_pattern_extensions"]
 ref-cast = "1.0.0"
 shlex = "1.0.0"
 starlark = { version = "0.9.0-pre", path = "../starlark-rust/starlark" }
+starlark_map = { version = "0.9.0-pre", path = "../starlark-rust/starlark_map" }
 static_assertions = "1.1.0"
 buck2_interpreter = { path = "../buck2_interpreter" }
 structopt = "0.3.0"

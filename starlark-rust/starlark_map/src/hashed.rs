@@ -20,53 +20,28 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::ops::Deref;
 
-use crate::small_map::Equivalent;
-use crate::small_map::SmallHashValue;
+use gazebo::prelude::Dupe;
+
+use crate::equivalent::Equivalent;
+use crate::hash_value::StarlarkHashValue;
 
 /// A key and its hash.
-pub struct SmallHashed<K, H: Hasher + Default> {
-    hash: SmallHashValue<H>,
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Dupe)]
+pub struct Hashed<K> {
+    hash: StarlarkHashValue,
     key: K,
 }
 
-impl<K: PartialEq, H: Hasher + Default> PartialEq for SmallHashed<K, H> {
-    fn eq(&self, other: &Self) -> bool {
-        self.hash == other.hash && self.key == other.key
-    }
-}
-
-impl<K: Eq, H: Hasher + Default> Eq for SmallHashed<K, H> {}
-
 // We deliberately know that this is a hash and value, so our Eq/Hash are fine
 #[allow(clippy::derive_hash_xor_eq)]
-impl<K, H: Hasher + Default> Hash for SmallHashed<K, H> {
+impl<K> Hash for Hashed<K> {
     fn hash<S: Hasher>(&self, state: &mut S) {
         // Only hash the hash, not the key.
         self.hash.hash(state)
     }
 }
 
-impl<K: Debug, H: Hasher + Default> Debug for SmallHashed<K, H> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SmallHashed")
-            .field("hash", &self.hash)
-            .field("key", &self.key)
-            .finish()
-    }
-}
-
-impl<K: Clone, H: Hasher + Default> Clone for SmallHashed<K, H> {
-    fn clone(&self) -> SmallHashed<K, H> {
-        SmallHashed {
-            hash: self.hash,
-            key: self.key.clone(),
-        }
-    }
-}
-
-impl<K: Copy, H: Hasher + Default> Copy for SmallHashed<K, H> {}
-
-impl<K, H: Hasher + Default> Deref for SmallHashed<K, H> {
+impl<K> Deref for Hashed<K> {
     type Target = K;
 
     fn deref(&self) -> &Self::Target {
@@ -74,19 +49,19 @@ impl<K, H: Hasher + Default> Deref for SmallHashed<K, H> {
     }
 }
 
-impl<K, H: Hasher + Default> SmallHashed<K, H> {
-    /// Create a new [`SmallHashed`] value using the [`Hash`] of the key.
+impl<K> Hashed<K> {
+    /// Create a new [`Hashed`] value using the [`Hash`] of the key.
     pub fn new(key: K) -> Self
     where
         K: Hash,
     {
-        SmallHashed::new_unchecked(SmallHashValue::new(&key), key)
+        Hashed::new_unchecked(StarlarkHashValue::new(&key), key)
     }
 
-    /// Directly create a new [`SmallHashed`] using a given hash value.
+    /// Directly create a new [`Hashed`] using a given hash value.
     /// If the hash does not correspond to the key, its will cause issues.
-    pub fn new_unchecked(hash: SmallHashValue<H>, key: K) -> Self {
-        SmallHashed { hash, key }
+    pub fn new_unchecked(hash: StarlarkHashValue, key: K) -> Self {
+        Hashed { hash, key }
     }
 
     /// Get the underlying key.
@@ -105,42 +80,42 @@ impl<K, H: Hasher + Default> SmallHashed<K, H> {
     }
 
     /// Get the underlying hash.
-    pub fn hash(&self) -> SmallHashValue<H> {
+    pub fn hash(&self) -> StarlarkHashValue {
         self.hash
     }
 
     /// Convert `Hashed<K>` to `Hashed<&K>`.
     // TODO(nga): rename to `as_ref`.
-    pub fn borrow(&self) -> SmallHashed<&K, H> {
-        SmallHashed::new_unchecked(self.hash, &self.key)
+    pub fn borrow(&self) -> Hashed<&K> {
+        Hashed::new_unchecked(self.hash, &self.key)
     }
 }
 
-impl<'a, K, H: Hasher + Default> SmallHashed<&'a K, H> {
+impl<'a, K> Hashed<&'a K> {
     /// Make `Hashed<K>` from `Hashed<&K>`.
-    pub fn copied(self) -> SmallHashed<K, H>
+    pub fn copied(self) -> Hashed<K>
     where
         K: Copy,
     {
-        SmallHashed::new_unchecked(self.hash, *self.key)
+        Hashed::new_unchecked(self.hash, *self.key)
     }
 
     /// Make `Hashed<K>` from `Hashed<&K>`, where `K` is `Clone`.
-    pub fn cloned(self) -> SmallHashed<K, H>
+    pub fn cloned(self) -> Hashed<K>
     where
         K: Clone,
     {
-        SmallHashed::new_unchecked(self.hash, self.key.clone())
+        Hashed::new_unchecked(self.hash, self.key.clone())
     }
 }
 
-impl<'a, K: ?Sized, H: Hasher + Default> SmallHashed<&'a K, H> {
+impl<'a, K: ?Sized> Hashed<&'a K> {
     /// Make `Hashed<K>` from `Hashed<&K>`, where `T` is the owned form of `K`.
-    pub fn owned<T>(self) -> SmallHashed<T, H>
+    pub fn owned<T>(self) -> Hashed<T>
     where
         K: Equivalent<T>,
         K: ToOwned<Owned = T>,
     {
-        SmallHashed::new_unchecked(self.hash, self.key.to_owned())
+        Hashed::new_unchecked(self.hash, self.key.to_owned())
     }
 }

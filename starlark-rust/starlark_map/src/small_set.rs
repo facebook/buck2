@@ -24,9 +24,9 @@ use std::iter::FromIterator;
 
 use gazebo::prelude::*;
 
-use crate::collections::small_map::SmallMap;
-use crate::collections::Hashed;
-use crate::small_map::Equivalent;
+use crate::equivalent::Equivalent;
+use crate::hashed::Hashed;
+use crate::small_map::SmallMap;
 
 /// An memory-efficient set with determinstic order, based on [`SmallMap`].
 #[derive(Clone, Default_)]
@@ -281,14 +281,12 @@ impl<T> SmallSet<T> {
 /// ## Example
 ///
 /// ```
-/// #[macro_use] extern crate starlark;
-/// # fn main() {
+/// use starlark_map::smallset;
 ///
 /// let set = smallset!{"a", "b"};
 /// assert_eq!(set.contains("a"), true);
 /// assert_eq!(set.len(), 2);
 /// assert_eq!(set.contains("c"), false);
-/// # }
 /// ```
 #[macro_export]
 macro_rules! smallset {
@@ -299,7 +297,7 @@ macro_rules! smallset {
     ($($key:expr),*) => {
         {
             let cap = smallset!(@count $($key),*);
-            let mut set = $crate::collections::SmallSet::with_capacity(cap);
+            let mut set = $crate::small_set::SmallSet::with_capacity(cap);
             $(
                 set.insert($key);
             )*

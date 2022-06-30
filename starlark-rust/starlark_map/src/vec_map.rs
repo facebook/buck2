@@ -19,9 +19,9 @@ use std::mem;
 
 use gazebo::prelude::*;
 
-use crate::collections::hash::Hashed;
-use crate::collections::hash::StarlarkHashValue;
-use crate::small_map::Equivalent;
+use crate::equivalent::Equivalent;
+use crate::hash_value::StarlarkHashValue;
+use crate::hashed::Hashed;
 
 // We define a lot of iterators on top of other iterators
 // so define a helper macro for that
@@ -70,15 +70,17 @@ macro_rules! def_double_ended_iter {
 
 /// Bucket in [`VecMap`].
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub(crate) struct Bucket<K, V> {
-    pub(crate) hash: StarlarkHashValue,
-    pub(crate) key: K,
-    pub(crate) value: V,
+// TODO(nga): make it private.
+pub struct Bucket<K, V> {
+    pub hash: StarlarkHashValue,
+    pub key: K,
+    pub value: V,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Default_)]
-pub(crate) struct VecMap<K, V> {
-    pub(crate) buckets: Vec<Bucket<K, V>>,
+pub struct VecMap<K, V> {
+    // TODO(nga): make private.
+    pub buckets: Vec<Bucket<K, V>>,
 }
 
 #[derive(Clone_)]

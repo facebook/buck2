@@ -20,22 +20,17 @@
 //! These structures use vector backed storage if there are only a few elements, and and index
 //! for larger collections. The API mirrors standard Rust collections.
 
-pub use crate::collections::hash::Hashed;
-pub use crate::collections::hash::StarlarkHashValue;
-pub use crate::collections::hasher::StarlarkHasher;
-pub use crate::collections::small_map::MHIntoIter;
-pub use crate::collections::small_map::MHIter;
-pub use crate::collections::small_map::MHIterMut;
-pub use crate::collections::small_map::SmallMap;
-pub use crate::collections::small_set::SmallSet;
-pub use crate::small_map::Equivalent;
+pub use starlark_map::small_map::MHIntoIter;
+pub use starlark_map::small_map::MHIter;
+pub use starlark_map::small_map::MHIterMut;
+pub use starlark_map::small_map::SmallMap;
+pub use starlark_map::small_set::SmallSet;
+pub use starlark_map::Equivalent;
+pub use starlark_map::Hashed;
+pub use starlark_map::StarlarkHashValue;
+pub use starlark_map::StarlarkHasher;
 
 pub(crate) mod aligned_padded_str;
 pub(crate) mod alloca;
-mod hash;
-pub(crate) mod hasher;
-pub mod small_map;
-mod small_set;
 pub(crate) mod string_pool;
 pub(crate) mod symbol_map;
-pub(crate) mod vec_map;

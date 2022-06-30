@@ -72,7 +72,6 @@ rust_library(
         "fbsource//third-party/rust:either",
         "fbsource//third-party/rust:erased-serde",
         "fbsource//third-party/rust:fancy-regex",
-        "fbsource//third-party/rust:fnv",
         "fbsource//third-party/rust:hashbrown",
         "fbsource//third-party/rust:indenter",
         "fbsource//third-party/rust:itertools",
@@ -97,5 +96,6 @@ rust_library(
         "fbsource//third-party/rust:thiserror",
         "//buck2/gazebo/gazebo:gazebo",
         "//buck2/starlark-rust/starlark_derive:starlark_derive",
+        "//buck2/starlark-rust/starlark_map:starlark_map",
     ],
 )

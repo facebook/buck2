@@ -33,12 +33,12 @@ use gazebo::coerce::CoerceKey;
 use gazebo::prelude::*;
 use hashbrown::raw::RawTable;
 
-use crate::collections::hash::Hashed;
-use crate::collections::vec_map;
-use crate::collections::vec_map::Bucket;
-use crate::collections::vec_map::VecMap;
-use crate::collections::StarlarkHasher;
-use crate::small_map::Equivalent;
+use crate::equivalent::Equivalent;
+use crate::hashed::Hashed;
+use crate::hasher::StarlarkHasher;
+use crate::vec_map;
+use crate::vec_map::Bucket;
+use crate::vec_map::VecMap;
 
 /// Max size of map when we do not create index.
 // TODO: benchmark, is this the right threshold
@@ -103,14 +103,14 @@ impl<K, V> SmallMap<K, V> {
         } else {
             SmallMap {
                 entries: VecMap::with_capacity(n),
-                index: Some(box RawTable::with_capacity(n)),
+                index: Some(Box::new(RawTable::with_capacity(n))),
             }
         }
     }
 
     /// Create with largest capacity which is represented by `Vec`.
     #[inline]
-    pub(crate) fn with_capacity_largest_vec() -> Self {
+    pub fn with_capacity_largest_vec() -> Self {
         Self::with_capacity(NO_INDEX_THRESHOLD)
     }
 
@@ -120,19 +120,19 @@ impl<K, V> SmallMap<K, V> {
     /// but we keep it allocated when we remove entries from the map.
     ///
     /// This function allows to reclaim memory after some entries are removed.
-    pub(crate) fn maybe_drop_index(&mut self) {
+    pub fn maybe_drop_index(&mut self) {
         if self.entries.len() <= NO_INDEX_THRESHOLD {
             self.index = None;
         }
     }
 
     #[inline]
-    pub(crate) fn into_raw_parts(self) -> (VecMap<K, V>, Option<Box<RawTable<usize>>>) {
+    pub fn into_raw_parts(self) -> (VecMap<K, V>, Option<Box<RawTable<usize>>>) {
         (self.entries, self.index)
     }
 
     #[inline]
-    pub(crate) unsafe fn from_raw_parts(
+    pub unsafe fn from_raw_parts(
         entries: VecMap<K, V>,
         index: Option<Box<RawTable<usize>>>,
     ) -> SmallMap<K, V> {
@@ -339,7 +339,7 @@ impl<K, V> SmallMap<K, V> {
 
     /// Give a best guess as to how much heap memory is being used.
     /// Used internally, but not exported as this isn't a usual API.
-    pub(crate) fn extra_memory(&self) -> usize {
+    pub fn extra_memory(&self) -> usize {
         self.entries.extra_memory()
             + match &self.index {
                 None => 0,
@@ -373,7 +373,7 @@ impl<K, V> SmallMap<K, V> {
         for (i, b) in self.entries.buckets.iter().enumerate() {
             index.insert_no_grow(b.hash.promote(), i);
         }
-        self.index = Some(box index);
+        self.index = Some(Box::new(index));
     }
 
     /// Hasher for index resize.
@@ -795,8 +795,7 @@ impl<K: Ord, V: Ord> Ord for SmallMap<K, V> {
 /// ## Example
 ///
 /// ```
-/// #[macro_use] extern crate starlark;
-/// # fn main() {
+/// use starlark_map::smallmap;
 ///
 /// let map = smallmap!{
 ///     "a" => 1,
@@ -805,7 +804,6 @@ impl<K: Ord, V: Ord> Ord for SmallMap<K, V> {
 /// assert_eq!(map.get("a"), Some(&1));
 /// assert_eq!(map.get("b"), Some(&2));
 /// assert_eq!(map.get("c"), None);
-/// # }
 /// ```
 #[macro_export]
 macro_rules! smallmap {
@@ -817,7 +815,7 @@ macro_rules! smallmap {
         {
             let cap = smallmap!(@count $($key),*);
             #[allow(unused_mut)]
-            let mut map = $crate::collections::SmallMap::with_capacity(cap);
+            let mut map = $crate::small_map::SmallMap::with_capacity(cap);
             $(
                 map.insert($key, $value);
             )*

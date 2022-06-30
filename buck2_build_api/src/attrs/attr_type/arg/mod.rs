@@ -317,6 +317,7 @@ mod tests {
     use gazebo::prelude::SliceExt;
     use starlark::environment::GlobalsBuilder;
     use starlark::environment::Module;
+    use starlark_map::smallset;
 
     use super::*;
     use crate::attrs::attr_type::AttrTypeExt;
