@@ -45,8 +45,13 @@ def android_instrumentation_apk_impl(ctx: "context"):
     pre_dexed_libs = [java_packaging_dep.dex for java_packaging_dep in java_packaging_deps]
     dex_files_info = merge_to_single_dex(ctx, android_toolchain, pre_dexed_libs)
 
-    # TODO(T122203218) Filter out native libs that are also in the apk_under_test
-    native_library_info = get_android_binary_native_library_info(ctx, android_packageable_info, deps_by_platform)
+    native_library_info = get_android_binary_native_library_info(
+        ctx,
+        android_packageable_info,
+        deps_by_platform,
+        native_libs_from_prebuilt_aars_to_exclude = apk_under_test_info.native_libs_from_prebuilt_aars,
+        shared_libraries_to_exclude = apk_under_test_info.shared_libraries,
+    )
 
     output_apk = build_apk(
         actions = ctx.actions,

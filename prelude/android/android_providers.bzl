@@ -13,6 +13,8 @@ Aapt2LinkInfo = provider(
 
 AndroidBinaryNativeLibsInfo = provider(
     fields = [
+        "apk_under_test_native_libs_from_prebuilt_aars",  # ["NativeLibraryFromPrebuiltAar"]
+        "apk_under_test_shared_libraries",  # ["SharedLibrary"]
         "native_libs",  # ["artifact"]
         "native_lib_assets",  # ["artifact"]
         "native_libs_for_system_library_loader",  # ["artifact"]
@@ -70,9 +72,11 @@ AndroidApkUnderTestInfo = provider(
     fields = [
         "java_packaging_deps",  # ["JavaPackagingDep"]
         "keystore",  # "KeystoreInfo"
+        "native_libs_from_prebuilt_aars",  # ["NativeLibraryFromPrebuiltAar"]
         "platforms",  # [str.type]
         "primary_platform",  # str.type
         "resource_infos",  # ["ResourceInfos"]
+        "shared_libraries",  # ["SharedLibrary"]
     ],
 )
 

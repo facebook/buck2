@@ -6,8 +6,11 @@ load("@fbcode//buck2/prelude/utils:utils.bzl", "filter_and_map_idx")
 def get_android_binary_native_library_info(
         ctx: "context",
         android_packageable_info: "AndroidPackageableInfo",
-        deps_by_platform: {str.type: ["dependency"]}) -> AndroidBinaryNativeLibsInfo.type:
-    all_native_libs_from_prebuilt_aars = android_packageable_info.native_libs_from_prebuilt_aars.traverse() if android_packageable_info.native_libs_from_prebuilt_aars else []
+        deps_by_platform: {str.type: ["dependency"]},
+        native_libs_from_prebuilt_aars_to_exclude: ["NativeLibraryFromPrebuiltAar"] = [],
+        shared_libraries_to_exclude: ["SharedLibrary"] = []) -> AndroidBinaryNativeLibsInfo.type:
+    traversed_native_libs_from_prebuilt_aars = android_packageable_info.native_libs_from_prebuilt_aars.traverse() if android_packageable_info.native_libs_from_prebuilt_aars else []
+    all_native_libs_from_prebuilt_aars = [native_lib for native_lib in traversed_native_libs_from_prebuilt_aars if native_lib not in native_libs_from_prebuilt_aars_to_exclude]
 
     native_libs_from_prebuilt_aars, native_libs_from_prebuilt_aars_for_system_library_loader = [], []
     for native_lib in all_native_libs_from_prebuilt_aars:
@@ -24,12 +27,14 @@ def get_android_binary_native_library_info(
     )
 
     unstripped_libs, native_lib_assets = [], []
+    all_shared_libraries = []
     for platform, deps in deps_by_platform.items():
         shared_library_info = merge_shared_libraries(
             ctx.actions,
             deps = filter_and_map_idx(SharedLibraryInfo, deps),
         )
-        native_linkables = traverse_shared_library_info(shared_library_info)
+        native_linkables = {so_name: shared_lib for so_name, shared_lib in traverse_shared_library_info(shared_library_info).items() if shared_lib not in shared_libraries_to_exclude}
+        all_shared_libraries.extend(native_linkables.values())
         unstripped_libs += [shared_lib.lib.output for shared_lib in native_linkables.values()]
 
         platform_stripped_native_linkables, platform_stripped_native_linkable_assets = _get_native_linkables(ctx, platform, native_linkables)
@@ -37,6 +42,8 @@ def get_android_binary_native_library_info(
         native_lib_assets += platform_stripped_native_linkable_assets
 
     return AndroidBinaryNativeLibsInfo(
+        apk_under_test_native_libs_from_prebuilt_aars = all_native_libs_from_prebuilt_aars,
+        apk_under_test_shared_libraries = all_shared_libraries,
         native_libs = native_libs,
         native_libs_for_system_library_loader = native_libs_for_system_library_loader,
         unstripped_libs = unstripped_libs,
