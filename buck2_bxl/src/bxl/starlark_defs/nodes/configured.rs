@@ -86,10 +86,9 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkConfiguredTargetNode,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
-        // TODO(cjhopman): This configures all attributes twice, just to get the size hint.
-        let mut attrs =
-            SmallMap::with_capacity(this.0.attrs(AttrInspectOptions::All).size_hint().0);
-        for (name, attr) in this.0.attrs(AttrInspectOptions::All) {
+        let attrs_iter = this.0.attrs(AttrInspectOptions::All);
+        let mut attrs = SmallMap::with_capacity(attrs_iter.size_hint().0);
+        for (name, attr) in attrs_iter {
             attrs.insert(
                 heap.alloc_str(name),
                 heap.alloc(StarlarkConfiguredValue(attr)),
