@@ -13,7 +13,7 @@ use std::fmt::Debug;
 
 use anyhow::Context;
 use buck2_common::package_listing::file_listing::PackageFileListing;
-use buck2_core::package::PackageRelativePath;
+use buck2_core::package::package_relative_path::PackageRelativePath;
 use derivative::Derivative;
 
 /// The default Debug for Pattern is horribly verbose with lots of internal
@@ -134,7 +134,7 @@ impl GlobSpec {
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::package::PackageRelativePathBuf;
+    use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 
     use super::*;
 

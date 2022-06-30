@@ -133,8 +133,8 @@ impl_cmp_str!(AbsPath, String, AbsPath);
 impl_cmp_str!(&'_ AbsPath, str, AbsPath);
 impl_cmp_str!(&'_ AbsPath, String, AbsPath);
 
-use crate::package::PackageRelativePath;
-use crate::package::PackageRelativePathBuf;
+use crate::package::package_relative_path::PackageRelativePath;
+use crate::package::package_relative_path::PackageRelativePathBuf;
 
 impl_cmp!(
     PackageRelativePathBuf,

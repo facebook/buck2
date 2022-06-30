@@ -436,8 +436,8 @@ mod tests {
     use buck2_core::configuration::Configuration;
     use buck2_core::fs::paths::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::Package;
-    use buck2_core::package::PackageRelativePathBuf;
     use buck2_core::target::TargetLabel;
     use buck2_core::target::TargetName;
     use gazebo::prelude::*;

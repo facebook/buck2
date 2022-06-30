@@ -11,8 +11,8 @@ use std::sync::Arc;
 
 use buck2_core::fs::paths::FileName;
 use buck2_core::fs::paths::FileNameBuf;
-use buck2_core::package::PackageRelativePath;
-use buck2_core::package::PackageRelativePathBuf;
+use buck2_core::package::package_relative_path::PackageRelativePath;
+use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use gazebo::dupe::Dupe;
 use indexmap::IndexSet;
 
@@ -98,7 +98,7 @@ impl PackageListing {
 
 pub mod testing {
     use buck2_core::fs::paths::FileNameBuf;
-    use buck2_core::package::PackageRelativePathBuf;
+    use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use indexmap::IndexSet;
 
     use crate::package_listing::listing::PackageListing;

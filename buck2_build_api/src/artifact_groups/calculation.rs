@@ -293,9 +293,9 @@ mod tests {
     use buck2_core::cells::CellResolver;
     use buck2_core::fs::project::ProjectFilesystemTemp;
     use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::testing::PackageExt;
     use buck2_core::package::Package;
-    use buck2_core::package::PackageRelativePathBuf;
     use buck2_core::result::ToSharedResultExt;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;

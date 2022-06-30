@@ -55,8 +55,8 @@ pub mod testing {
     use buck2_core::fs::paths::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectFilesystem;
     use buck2_core::fs::project::ProjectRelativePathBuf;
+    use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::Package;
-    use buck2_core::package::PackageRelativePathBuf;
     use buck2_core::pattern::ParsedPattern;
     use buck2_core::pattern::TargetPattern;
     use buck2_core::target::ConfiguredTargetLabel;
