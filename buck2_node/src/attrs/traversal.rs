@@ -17,6 +17,7 @@ use buck2_core::target::TargetLabel;
 pub trait CoercedAttrTraversal<'a> {
     fn dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()>;
     fn exec_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()>;
+    fn toolchain_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()>;
     fn transition_dep(
         &mut self,
         dep: &'a TargetLabel,

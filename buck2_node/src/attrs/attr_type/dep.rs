@@ -38,6 +38,8 @@ pub enum DepAttrTransition {
     Identity,
     // Transition to execution platform.
     Exec,
+    // Transition to toolchain.
+    Toolchain,
     // Transition dependency using given transition function.
     Transition(Arc<TransitionId>),
 }
@@ -87,6 +89,7 @@ impl DepAttr<ConfiguredProvidersLabel> {
         match &self.attr_type.transition {
             DepAttrTransition::Identity => traversal.dep(&self.label),
             DepAttrTransition::Exec => traversal.exec_dep(&self.label),
+            DepAttrTransition::Toolchain => traversal.toolchain_dep(&self.label),
             DepAttrTransition::Transition(..) => traversal.dep(&self.label),
         }
     }
@@ -100,6 +103,7 @@ impl DepAttr<ProvidersLabel> {
         match &self.attr_type.transition {
             DepAttrTransition::Identity => traversal.dep(self.label.target()),
             DepAttrTransition::Exec => traversal.exec_dep(self.label.target()),
+            DepAttrTransition::Toolchain => traversal.toolchain_dep(self.label.target()),
             DepAttrTransition::Transition(tr) => traversal.transition_dep(self.label.target(), tr),
         }
     }
@@ -126,6 +130,7 @@ impl DepAttrType {
         let configured_label = match &dep_attr.attr_type.transition {
             DepAttrTransition::Identity => ctx.configure_target(label),
             DepAttrTransition::Exec => ctx.configure_exec_target(label),
+            DepAttrTransition::Toolchain => ctx.configure_toolchain_target(label),
             DepAttrTransition::Transition(tr) => ctx.configure_transition_target(label, tr)?,
         };
         Ok(AttrLiteral::Dep(box DepAttr::new(

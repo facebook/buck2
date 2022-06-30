@@ -258,6 +258,10 @@ impl TargetNode {
                 Ok(())
             }
 
+            fn toolchain_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
+                Ok(())
+            }
+
             fn transition_dep(
                 &mut self,
                 _dep: &'a TargetLabel,
@@ -313,6 +317,10 @@ impl TargetNode {
             }
 
             fn exec_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
+                Ok(())
+            }
+
+            fn toolchain_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
                 Ok(())
             }
 

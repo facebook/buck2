@@ -22,6 +22,11 @@ pub trait ConfiguredAttrTraversal<'a> {
         self.dep(dep)
     }
 
+    fn toolchain_dep(&mut self, dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
+        // By default, just treat it as a dep. Most things don't care about the distinction.
+        self.dep(dep)
+    }
+
     fn configuration_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
         Ok(())
     }

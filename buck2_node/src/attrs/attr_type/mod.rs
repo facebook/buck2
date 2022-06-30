@@ -179,6 +179,18 @@ impl AttrType {
         ))))
     }
 
+    /// A toolchain dependency attribute optionally with a specific provider/providers
+    /// that are expected.
+    ///
+    /// If `required_providers` is non-empty, the dependency must return those providers
+    /// from its implementation function. Otherwise an error will result at resolution time.
+    pub fn toolchain_dep(required_providers: Vec<Arc<ProviderId>>) -> Self {
+        Self(Arc::new(AttrTypeInner::Dep(DepAttrType::new(
+            required_providers,
+            DepAttrTransition::Toolchain,
+        ))))
+    }
+
     /// An a dependency attribute which changes the configuration optionally with a specific
     /// provider/providers that are expected.
     ///

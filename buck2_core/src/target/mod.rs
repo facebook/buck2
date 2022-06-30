@@ -35,6 +35,8 @@
 //! belonging to the package.
 
 use std::borrow::Borrow;
+use std::fmt;
+use std::fmt::Display;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -154,6 +156,20 @@ impl TargetLabel {
         ConfiguredTargetLabel {
             target: self.dupe(),
             cfg,
+            exec_cfg: None,
+        }
+    }
+
+    /// Like `configure`, but forces the execution configuration too.
+    pub fn configure_with_exec(
+        &self,
+        cfg: Configuration,
+        exec_cfg: Configuration,
+    ) -> ConfiguredTargetLabel {
+        ConfiguredTargetLabel {
+            target: self.dupe(),
+            cfg,
+            exec_cfg: Some(exec_cfg),
         }
     }
 }
@@ -170,11 +186,22 @@ impl Serialize for TargetLabel {
 /// 'ConfiguredTargetLabel' are 'TargetLabel's with an 'Configuration' attached.
 /// These uniquely map to nodes of the build graph with 'Configuration's
 /// applied.
-#[derive(Clone, Dupe, Debug, Display, Hash, Eq, PartialEq, Ord, PartialOrd)]
-#[display(fmt = "{} ({})", target, cfg)]
+#[derive(Clone, Dupe, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct ConfiguredTargetLabel {
     target: TargetLabel,
     cfg: Configuration,
+    /// Usually this is None, but for toolchain deps where the exec_cfg isn't picked it is set
+    exec_cfg: Option<Configuration>,
+}
+
+impl Display for ConfiguredTargetLabel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} ({})", self.target, self.cfg)?;
+        if let Some(exec_cfg) = &self.exec_cfg {
+            write!(f, " ({})", exec_cfg)?;
+        }
+        Ok(())
+    }
 }
 
 impl ConfiguredTargetLabel {
@@ -192,6 +219,10 @@ impl ConfiguredTargetLabel {
 
     pub fn cfg(&self) -> &Configuration {
         &self.cfg
+    }
+
+    pub fn exec_cfg(&self) -> Option<&Configuration> {
+        self.exec_cfg.as_ref()
     }
 }
 
@@ -228,6 +259,7 @@ pub mod testing {
             ConfiguredTargetLabel {
                 target: TargetLabel { pkg, name: label },
                 cfg,
+                exec_cfg: None,
             }
         }
     }

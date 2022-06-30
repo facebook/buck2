@@ -21,6 +21,7 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::result::SharedError;
 use buck2_core::result::SharedResult;
 use buck2_core::result::ToSharedResultExt;
 use buck2_core::target::ConfiguredTargetLabel;
@@ -52,6 +53,7 @@ use indexmap::IndexSet;
 use itertools::Either;
 use itertools::Itertools;
 use starlark::collections::SmallSet;
+use thiserror::Error;
 
 use crate::calculation::BuildErrors;
 use crate::configuration::ConfigurationCalculation;
@@ -92,6 +94,46 @@ async fn compute_platform_cfgs(
     Ok(platform_map)
 }
 
+async fn legacy_execution_platform(
+    ctx: &DiceComputations,
+    resolved_configuration: &ResolvedConfiguration,
+) -> ExecutionPlatform {
+    ExecutionPlatform::LegacyExecutionPlatform {
+        executor_config: ctx.get_fallback_executor_config().clone(),
+        cfg: resolved_configuration.cfg().dupe(),
+    }
+}
+
+#[derive(Debug, Error)]
+enum ToolchainDepError {
+    #[error("Nested toolchain_dep reaching `{0}`")]
+    NestedToolchainDep(TargetLabel),
+    #[error("Can't find toolchain_dep execution platform using configuration `{0}`")]
+    ToolchainDepMissingPlatform(Configuration),
+}
+
+async fn find_execution_platform_by_configuration(
+    ctx: &DiceComputations,
+    exec_cfg: &Configuration,
+    resolved_configuration: &ResolvedConfiguration,
+) -> SharedResult<Arc<ExecutionPlatform>> {
+    match ctx.get_execution_platforms().await? {
+        Some(candidates) if exec_cfg != &Configuration::unbound_exec() => {
+            for c in candidates.iter() {
+                if &c.cfg() == exec_cfg {
+                    return Ok(c.dupe());
+                }
+            }
+            Err(SharedError::new(
+                ToolchainDepError::ToolchainDepMissingPlatform(exec_cfg.dupe()),
+            ))
+        }
+        _ => Ok(Arc::new(
+            legacy_execution_platform(ctx, resolved_configuration).await,
+        )),
+    }
+}
+
 async fn resolve_execution_platform(
     ctx: &DiceComputations,
     node: &TargetNode,
@@ -105,22 +147,22 @@ async fn resolve_execution_platform(
     // The non-none case will be handled when we invoke the resolve_execution_platform() on ctx below, the none
     // case can't be handled there because we don't pass the full configuration into it.
     if ctx.get_execution_platforms().await?.is_none() {
-        let execution_platform = Arc::new(ExecutionPlatform::LegacyExecutionPlatform {
-            executor_config: ctx.get_fallback_executor_config().clone(),
-            cfg: resolved_configuration.cfg().dupe(),
-        });
         return Ok(ExecutionPlatformResolution::new(
-            Some(execution_platform),
+            Some(Arc::new(
+                legacy_execution_platform(ctx, resolved_configuration).await,
+            )),
             Vec::new(),
         ));
     };
 
     let mut exec_compatible_with = Vec::new();
     let mut exec_deps = IndexSet::new();
+    let mut toolchain_deps = IndexSet::new();
     let unbound_exe_configuration = Configuration::unbound_exec();
 
     struct Traversal<'a> {
         exec_deps: &'a mut IndexSet<TargetLabel>,
+        toolchain_deps: &'a mut IndexSet<TargetLabel>,
     }
     impl<'a> ConfiguredAttrTraversal<'a> for Traversal<'_> {
         fn dep(&mut self, _dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
@@ -132,37 +174,81 @@ async fn resolve_execution_platform(
             self.exec_deps.insert(dep.target().unconfigured().dupe());
             Ok(())
         }
+
+        fn toolchain_dep(&mut self, dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
+            self.toolchain_deps
+                .insert(dep.target().unconfigured().dupe());
+            Ok(())
+        }
     }
     let mut traversal = Traversal {
         exec_deps: &mut exec_deps,
+        toolchain_deps: &mut toolchain_deps,
+    };
+    let cfg_ctx = AttrConfigurationContextImpl {
+        resolved_cfg: resolved_configuration,
+        exec_cfg: &unbound_exe_configuration,
+        // We don't really need `resolved_transitions` here:
+        // `Traversal` declared above ignores transitioned dependencies.
+        // But we pass `resolved_transitions` here to prevent breakages in the future
+        // if something here changes.
+        resolved_transitions,
+        platform_cfgs: &compute_platform_cfgs(ctx, node).await?,
     };
 
-    let platform_cfgs = &compute_platform_cfgs(ctx, node).await?;
-
     for (name, attr) in node.attrs(AttrInspectOptions::All) {
-        let configured_attr = attr
-            .configure(&AttrConfigurationContextImpl {
-                resolved_cfg: resolved_configuration,
-                exec_cfg: &unbound_exe_configuration,
-                // We don't really need `resolved_transitions` here:
-                // `Traversal` declared above ignores transitioned dependencies.
-                // But we pass `resolved_transitions` here to prevent breakages in the future
-                // if something here changes.
-                resolved_transitions,
-                platform_cfgs,
-            })
-            .with_context(|| {
-                format!(
-                    "when configuring attribute `{}` to resolve execution platform",
-                    name
-                )
-            })?;
+        let configured_attr = attr.configure(&cfg_ctx).with_context(|| {
+            format!(
+                "when configuring attribute `{}` to resolve execution platform",
+                name
+            )
+        })?;
         configured_attr.traverse(&mut traversal)?;
         if name == EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD {
             exec_compatible_with.extend(ConfiguredTargetNode::attr_as_target_compatible_with(
                 configured_attr,
             ));
         }
+    }
+
+    let mut toolchain_toolchain_deps = IndexSet::new();
+    traversal = Traversal {
+        exec_deps: &mut exec_deps,
+        toolchain_deps: &mut toolchain_toolchain_deps,
+    };
+    for toolchain_dep in toolchain_deps {
+        let toolchain_node = ctx.get_target_node(&toolchain_dep).await?;
+        let toolchain_ctx_cfg = AttrConfigurationContextImpl {
+            resolved_cfg: &ctx
+                .get_resolved_configuration(
+                    resolved_configuration.cfg(),
+                    toolchain_dep.pkg().cell_name(),
+                    toolchain_node.get_configuration_deps(),
+                )
+                .await?,
+            exec_cfg: &unbound_exe_configuration,
+            resolved_transitions,
+            platform_cfgs: &compute_platform_cfgs(ctx, &toolchain_node).await?,
+        };
+        for (name, attr) in toolchain_node.attrs(AttrInspectOptions::All) {
+            let configured_attr = attr.configure(&toolchain_ctx_cfg).with_context(|| {
+                format!(
+                    "when configuring attribute `{}` of `{}` to resolve toolchain_dep execution platform",
+                    name, toolchain_dep
+                )
+            })?;
+            configured_attr.traverse(&mut traversal)?;
+            if name == EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD {
+                exec_compatible_with.extend(ConfiguredTargetNode::attr_as_target_compatible_with(
+                    configured_attr,
+                ));
+            }
+        }
+    }
+    if !toolchain_toolchain_deps.is_empty() {
+        return Err(SharedError::new(ToolchainDepError::NestedToolchainDep(
+            toolchain_toolchain_deps.first().unwrap().dupe(),
+        )));
     }
 
     ctx.resolve_execution_platform(
@@ -367,6 +453,16 @@ async fn compute_configured_target_node_no_transition(
         // (2) isn't allowed to do execution
         // And so we use an "unspecified" execution platform to avoid cycles and cause any attempts at execution to fail.
         ExecutionPlatformResolution::unspecified()
+    } else if let Some(exec_cfg) = target_label.exec_cfg() {
+        // The label was produced by a toolchain_dep, so we use the execution platform of our parent
+        // We need to convert that to an execution platform, so just find the one with the same configuration.
+        ExecutionPlatformResolution::new(
+            Some(
+                find_execution_platform_by_configuration(ctx, exec_cfg, &resolved_configuration)
+                    .await?,
+            ),
+            Vec::new(),
+        )
     } else {
         resolve_execution_platform(
             ctx,

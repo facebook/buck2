@@ -30,6 +30,9 @@ pub struct CoercedDepsCollector {
     /// Contains the execution deps derived from the attributes.
     pub exec_deps: SmallSet<TargetLabel>,
 
+    /// Contains the toolchain deps derived from the attributes.
+    pub toolchain_deps: SmallSet<TargetLabel>,
+
     /// Contains the configuration deps. These are deps that appear as conditions in selects.
     pub configuration_deps: SmallSet<TargetLabel>,
 
@@ -42,6 +45,7 @@ impl CoercedDepsCollector {
         Self {
             deps: SmallSet::new(),
             exec_deps: SmallSet::new(),
+            toolchain_deps: SmallSet::new(),
             transition_deps: SmallSet::new(),
             configuration_deps: SmallSet::new(),
             platform_deps: SmallSet::new(),
@@ -57,6 +61,11 @@ impl<'a> CoercedAttrTraversal<'a> for CoercedDepsCollector {
 
     fn exec_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()> {
         self.exec_deps.insert(dep.dupe());
+        Ok(())
+    }
+
+    fn toolchain_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()> {
+        self.toolchain_deps.insert(dep.dupe());
         Ok(())
     }
 

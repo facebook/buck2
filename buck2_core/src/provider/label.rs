@@ -139,6 +139,18 @@ impl ProvidersLabel {
         }
     }
 
+    /// Like `configure`, but forces the execution configuration too.
+    pub fn configure_with_exec(
+        &self,
+        cfg: Configuration,
+        exec_cfg: Configuration,
+    ) -> ConfiguredProvidersLabel {
+        ConfiguredProvidersLabel {
+            target: self.target.configure_with_exec(cfg, exec_cfg),
+            name: self.name.clone(),
+        }
+    }
+
     /// Determines whether a string, **IF IT IS LATER COERCED** would be a relative label.
     ///
     /// This function **DOES NOT** validate the entire label string.

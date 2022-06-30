@@ -53,6 +53,13 @@ pub trait AttrConfigurationContext {
         label.configure(self.exec_cfg().dupe())
     }
 
+    fn configure_toolchain_target(&self, label: &ProvidersLabel) -> ConfiguredProvidersLabel {
+        // The toolchain dependency itself is always configured in the target configuration,
+        // but its exec_deps are considered when picking an execution platform, and MUST
+        // use the execution dependency of its parent.
+        label.configure_with_exec(self.cfg().dupe(), self.exec_cfg().dupe())
+    }
+
     /// Configure a transition target.
     fn configure_transition_target(
         &self,

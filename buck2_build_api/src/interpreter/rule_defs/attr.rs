@@ -426,6 +426,18 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         Attribute::attr(eval, default, doc, coercer)
     }
 
+    fn toolchain_dep<'v>(
+        #[starlark(default = Vec::new())] providers: Vec<Value<'v>>,
+        #[starlark(require = named)] default: Option<Value<'v>>,
+        #[starlark(require = named, default = "")] doc: &str,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<AttributeAsStarlarkValue> {
+        Attribute::check_not_relative_label(default, "attr.toolchain_dep")?;
+        let required_providers = dep_like_attr_handle_providers_arg(providers)?;
+        let coercer = AttrType::toolchain_dep(required_providers);
+        Attribute::attr(eval, default, doc, coercer)
+    }
+
     fn transition_dep<'v>(
         #[starlark(default = Vec::new())] providers: Vec<Value<'v>>,
         cfg: Value<'v>,
