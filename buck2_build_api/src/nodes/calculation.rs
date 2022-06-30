@@ -110,6 +110,10 @@ enum ToolchainDepError {
     NestedToolchainDep(TargetLabel),
     #[error("Can't find toolchain_dep execution platform using configuration `{0}`")]
     ToolchainDepMissingPlatform(Configuration),
+    #[error("Target `{0}` was used as a toolchain_dep, but is not a toolchain rule")]
+    NonToolchainRuleUsedAsToolchainDep(TargetLabel),
+    #[error("Target `{0}` was used not as a toolchain_dep, but is a toolchain rule")]
+    ToolchainRuleUsedAsNormalDep(TargetLabel),
 }
 
 async fn find_execution_platform_by_configuration(
@@ -602,6 +606,20 @@ async fn compute_configured_target_node(
     ctx: &DiceComputations,
 ) -> SharedResult<MaybeCompatible<ConfiguredTargetNode>> {
     let target_node = ctx.get_target_node(key.0.unconfigured()).await?;
+
+    match key.0.exec_cfg() {
+        None if target_node.is_toolchain_rule() => {
+            return Err(SharedError::new(
+                ToolchainDepError::ToolchainRuleUsedAsNormalDep(key.0.unconfigured().dupe()),
+            ));
+        }
+        Some(_) if !target_node.is_toolchain_rule() => {
+            return Err(SharedError::new(
+                ToolchainDepError::NonToolchainRuleUsedAsToolchainDep(key.0.unconfigured().dupe()),
+            ));
+        }
+        _ => {}
+    }
 
     if let Some(transition_id) = &target_node.0.cfg {
         #[async_trait]

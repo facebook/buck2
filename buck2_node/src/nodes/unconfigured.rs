@@ -56,6 +56,8 @@ pub enum RuleKind {
     Normal,
     /// A configuration rule, meaning it is usable in a configuration context.
     Configuration,
+    /// A toolchain rule, meaning it is only usable as a toolchain dep.
+    Toolchain,
 }
 
 #[derive(Debug, Eq, PartialEq, Hash)]
@@ -122,6 +124,10 @@ impl TargetNode {
 
     pub fn is_configuration_rule(&self) -> bool {
         self.0.rule_kind == RuleKind::Configuration
+    }
+
+    pub fn is_toolchain_rule(&self) -> bool {
+        self.0.rule_kind == RuleKind::Toolchain
     }
 
     pub fn get_default_target_platform(&self) -> Option<&TargetLabel> {

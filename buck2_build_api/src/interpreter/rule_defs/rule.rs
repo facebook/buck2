@@ -104,6 +104,10 @@ pub enum RuleError {
     MissingMandatoryParameter(String),
     #[error("Rule defined in `{0}` must be assigned to a variable, e.g. `my_rule = rule(...)`")]
     RuleNotAssigned(ImportPath),
+    #[error(
+        "Rule defined with both `is_configuration_rule` and `is_toolchain_rule`, these options are mutually exclusive"
+    )]
+    IsConfigurationAndToolchain,
 }
 
 impl<'v> AllocValue<'v> for RuleCallable<'v> {
@@ -261,6 +265,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
         #[starlark(require = named)] cfg: Option<Value>,
         #[starlark(require = named, default = "")] doc: &str,
         #[starlark(require = named, default = false)] is_configuration_rule: bool,
+        #[starlark(require = named, default = false)] is_toolchain_rule: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         // TODO(nmj): Add default attributes in here like 'name', 'visibility', etc
@@ -298,10 +303,11 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
 
         let cfg = cfg.try_map(|x| Transition::id_from_value(*x))?;
 
-        let rule_kind = if is_configuration_rule {
-            RuleKind::Configuration
-        } else {
-            RuleKind::Normal
+        let rule_kind = match (is_configuration_rule, is_toolchain_rule) {
+            (false, false) => RuleKind::Normal,
+            (true, false) => RuleKind::Configuration,
+            (false, true) => RuleKind::Toolchain,
+            (true, true) => return Err(RuleError::IsConfigurationAndToolchain.into()),
         };
 
         Ok(eval.heap().alloc(RuleCallable {
