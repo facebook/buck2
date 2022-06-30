@@ -184,7 +184,7 @@ fn get_object_id_and_type(value: &ArtifactValue) -> (String, ObjectType) {
             ObjectType::SYMLINK,
         ),
         DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(external_sym)) => (
-            get_symlink_object_id(external_sym.with_full_target().target().to_str().unwrap()),
+            get_symlink_object_id(external_sym.to_path_buf().to_str().unwrap()),
             ObjectType::SYMLINK,
         ),
     }
@@ -385,13 +385,7 @@ mod tests {
         );
         assert_eq!(
             "re-symlink:/mnt/gvfs/include",
-            get_symlink_object_id(
-                Arc::new(symlink)
-                    .with_full_target()
-                    .target()
-                    .to_str()
-                    .unwrap()
-            )
+            get_symlink_object_id(Arc::new(symlink).to_path_buf().to_str().unwrap())
         );
         Ok(())
     }
