@@ -158,3 +158,98 @@ impl ExternalSymlink {
             })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    #[cfg(unix)]
+    use std::os::unix;
+
+    use buck2_core::fs::paths::AbsPath;
+    use tempfile::TempDir;
+
+    use crate::external_symlink::ExternalSymlink;
+
+    #[test]
+    fn test_from_disk_not_symlink() -> anyhow::Result<()> {
+        let t = TempDir::new()?;
+
+        fs::write(t.path().join("x"), "xx")?;
+
+        assert_eq!(
+            None,
+            ExternalSymlink::from_disk(AbsPath::new(&t.path().join("x"))?, AbsPath::new(t.path())?)
+        );
+
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_from_disk_local_rel() -> anyhow::Result<()> {
+        let t = TempDir::new()?;
+
+        fs::write(t.path().join("y"), "yy")?;
+
+        unix::fs::symlink("y", t.path().join("x"))?;
+
+        assert_eq!(
+            None,
+            ExternalSymlink::from_disk(AbsPath::new(&t.path().join("y"))?, AbsPath::new(t.path())?)
+        );
+
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_from_disk_local_abs() -> anyhow::Result<()> {
+        let t = TempDir::new()?;
+
+        fs::write(t.path().join("y"), "yy")?;
+
+        unix::fs::symlink(t.path().join("y"), t.path().join("x"))?;
+
+        assert_eq!(
+            None,
+            ExternalSymlink::from_disk(AbsPath::new(&t.path().join("y"))?, AbsPath::new(t.path())?)
+        );
+
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_from_disk_external() -> anyhow::Result<()> {
+        let external = TempDir::new()?;
+
+        let t = TempDir::new()?;
+
+        unix::fs::symlink(external.path(), t.path().join("x"))?;
+
+        assert_eq!(
+            Some(ExternalSymlink {
+                abs_target: external.path().to_path_buf(),
+                remaining_path: None
+            }),
+            ExternalSymlink::from_disk(AbsPath::new(&t.path().join("x"))?, AbsPath::new(t.path())?)
+        );
+
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_from_disk_local_rel_broken() -> anyhow::Result<()> {
+        let t = TempDir::new()?;
+
+        unix::fs::symlink("x", t.path().join("y"))?;
+
+        assert_eq!(
+            None,
+            ExternalSymlink::from_disk(AbsPath::new(&t.path().join("y"))?, AbsPath::new(t.path())?)
+        );
+
+        Ok(())
+    }
+}
