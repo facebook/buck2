@@ -114,9 +114,7 @@ impl<'a> ArtifactValueBuilder<'a> {
                 let s = s.relativized(reldest);
                 DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(Arc::new(s)))
             }
-            DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(s))
-                if s.remaining_path().is_some() =>
-            {
+            DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(s)) => {
                 DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(s.with_full_target()))
             }
             e => e.dupe().map_dir(|d| d.as_immutable()),
