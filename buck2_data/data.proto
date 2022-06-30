@@ -630,6 +630,10 @@ message CommandExecution {
   }
 }
 
+// NOTE: This is an empty message. When this is returned as an error, the
+// relevant execution details are in the reports field.
+message CommandExecutionError {}
+
 message ActionExecutionEnd {
   reserved 2;
 
@@ -652,17 +656,23 @@ message ActionExecutionEnd {
     // An error message whose nature is unknown. This often comes from cases
     // where action execution fails for reasons other than the command failing.
     // This should not be preferred, and should be an error type of last resort.
+    // TODO (torozco): Remove
     string unknown = 7;
 
     // An error message indicating that a command exited with a non-zero exit
     // code.
+    // TODO (torozco): Remove
     CommandExecutionDetails command_failed = 8;
 
     // Command executed successfully but did not produce the desired outputs.
     CommandOutputsMissing missing_outputs = 9;
 
     // Command timed out.
+    // TODO (torozco): Remove
     CommandTimedOut timed_out = 10;
+
+    // TODO (torozco): Rename to command_failed.
+    CommandExecutionError command_execution_error = 11;
   };
   // If not-empty, the stderr for the process. This may contain ANSI control
   // characters, so consumers should sanitize it before displaying it to users.

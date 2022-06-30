@@ -333,7 +333,7 @@ pub(crate) fn display_action_error<'a>(
     use buck2_data::action_execution_end::Error;
 
     let reason;
-    let mut command = None;
+    let mut command = action.commands.last().and_then(|c| c.command.as_ref());
 
     match error {
         Error::CommandFailed(command_failed) => {
@@ -353,11 +353,59 @@ pub(crate) fn display_action_error<'a>(
         Error::Unknown(error_string) => {
             reason = format!("Internal error: {}", error_string);
         }
+        Error::CommandExecutionError(buck2_data::CommandExecutionError {}) => {
+            reason = match action.commands.last() {
+                Some(c) => failure_reason_for_command_execution(c)?,
+                None => "Unexpected command status".to_owned(),
+            }
+        }
     }
 
     Ok(ActionErrorDisplay {
         action_id: display_action_identity(action.key.as_ref(), action.name.as_ref())?,
         reason,
         command: command.map(Cow::Borrowed),
+    })
+}
+
+fn failure_reason_for_command_execution(
+    command_execution: &buck2_data::CommandExecution,
+) -> anyhow::Result<String> {
+    use buck2_data::command_execution::ClaimRejected;
+    use buck2_data::command_execution::Error;
+    use buck2_data::command_execution::Failure;
+    use buck2_data::command_execution::Status;
+    use buck2_data::command_execution::Success;
+    use buck2_data::command_execution::Timeout;
+
+    let command = command_execution
+        .command
+        .as_ref()
+        .context("CommandExecution did not include a `command`")?;
+
+    let status = command_execution
+        .status
+        .as_ref()
+        .context("CommandExecution did not include a `status`")?;
+
+    Ok(match status {
+        Status::Success(Success {}) => "Unexpected command status".to_owned(),
+        Status::Failure(Failure {}) => {
+            format!("Command returned non-zero exit code {}", command.exit_code)
+        }
+        Status::Timeout(Timeout { duration }) => {
+            let duration = duration
+                .as_ref()
+                .context("Timeout did not include a `duration`")?;
+
+            format!(
+                "Command timed out after {:.3}s",
+                (duration.seconds as f64 + duration.nanos as f64 / 1_000_000_000.0)
+            )
+        }
+        Status::Error(Error { stage, error }) => {
+            format!("Internal error (stage: {}): {}", stage, error)
+        }
+        Status::ClaimRejected(ClaimRejected {}) => "Command was rejected".to_owned(),
     })
 }
