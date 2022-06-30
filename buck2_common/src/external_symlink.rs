@@ -151,7 +151,11 @@ impl ExternalSymlink {
             .map(|dest| {
                 let remaining_path = remaining_path.as_path();
                 let remaining_path = if !remaining_path.as_os_str().is_empty() {
-                    Some(ForwardRelativePath::new(remaining_path).unwrap().to_owned())
+                    Some(
+                        ForwardRelativePath::new(remaining_path)
+                            .expect("cannot fail: Path was constructed from ForwardRelativePath")
+                            .to_owned(),
+                    )
                 } else {
                     None
                 };
