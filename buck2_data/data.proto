@@ -573,15 +573,15 @@ message ActionExecutionStart {
 message CommandExecutionDetails {
   reserved 6;
 
-  // The exit code of the failed command.
+  // The exit code of the command.
   uint32 exit_code = 1;
-  // The stdout of the failed command.
+  // The stdout of the command. This may be omitted for successful commands.
   string stdout = 2;
-  // The stderr of the failed command.
+  // The stderr of the command.
   string stderr = 3;
-  // The failed command, if it was local.
+  // The command, if it was local.
   LocalCommand local_command = 7;
-  // The failed command, if it was remote.
+  // The command, if it was remote.
   RemoteCommand remote_command = 8;
 }
 
@@ -594,6 +594,35 @@ message CommandOutputsMissing {
 message CommandTimedOut {
   CommandExecutionDetails command = 1;
   string message = 2;
+}
+
+// Serialization of CommandExecutionReport
+message CommandExecution {
+  CommandExecutionDetails command = 1;
+
+  message Success {}
+
+  message Failure {}
+
+  message Timeout {
+    google.protobuf.Duration duration = 1;
+  }
+
+  message Error {
+    string stage = 1;
+    string error = 2;
+  }
+
+  message ClaimRejected {}
+
+  // Serialization of CommandExecutionStatus.
+  oneof status {
+    Success success = 2;
+    Failure failure = 3;
+    Timeout timeout = 4;
+    Error error = 5;
+    ClaimRejected claim_rejected = 6;
+  }
 }
 
 message ActionExecutionEnd {
@@ -634,17 +663,25 @@ message ActionExecutionEnd {
   // characters, so consumers should sanitize it before displaying it to users.
   // If it is empty, the stderr contents are available elsewhere, e.g. in an
   // error message for failed actions.
+  // TODO (torozco): Remove this in favor of CommandExecution.
   string success_stderr = 20;
   // Whether, in the normal case, stderr should be printed for successful
   // actions. It *may* still be presented to users if they request it
   // specifically.
   bool always_print_stderr = 21;
   // The kind of execution used to service this action.
+  // TODO (torozco): Remove the command variants? This should probably just be
+  // "Command" if there was a command and then we should look at the command
+  // reports to tell if it was RE or Local.
   ActionExecutionKind execution_kind = 22;
   /// How long this build waited for this action to complete. Omits queue time.
   google.protobuf.Duration wall_time = 23;
   // the total size of the outputs of this action.
   uint64 output_size = 24;
+  // The commands executed by this action. These are in the order they were
+  // attempted. If a command was executed, the one that should be shown to the
+  // user wil always be last.
+  repeated CommandExecution commands = 25;
 }
 
 // The beginning of materialization for the output of a target requested,

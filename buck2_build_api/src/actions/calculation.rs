@@ -19,6 +19,7 @@ use buck2_interpreter::dice::HasEvents;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
+use futures::future;
 use futures::stream::FuturesUnordered;
 use gazebo::prelude::*;
 use tracing::debug;
@@ -138,6 +139,13 @@ impl ActionCalculation for DiceComputations {
                         let (execute_result, command_reports) =
                             executor.execute(materialized_inputs, &action).await;
 
+                        let commands = future::join_all(
+                            command_reports
+                                .iter()
+                                .map(command_execution_report_to_proto),
+                        )
+                        .await;
+
                         let action_result;
                         let success_stderr;
                         let execution_kind;
@@ -156,12 +164,11 @@ impl ActionCalculation for DiceComputations {
 
                                 output_size = outputs.calc_output_bytes();
                                 action_result = Ok(outputs);
-                                success_stderr = match command_reports.last() {
-                                    Some(report) => {
-                                        Some(report.std_streams.to_lossy_stderr().await)
-                                    }
-                                    None => None,
-                                };
+                                // TODO (torozco): Remove
+                                success_stderr = commands
+                                    .last()
+                                    .and_then(|c| c.command.as_ref())
+                                    .map(|c| c.stderr.clone());
                                 execution_kind = Some(meta.execution_kind.as_enum());
                                 wall_time = Some(meta.timing.wall_time);
                                 error = None;
@@ -178,12 +185,13 @@ impl ActionCalculation for DiceComputations {
                                 )
                                 .into());
                                 success_stderr = None;
+                                // TODO (torozco): Remove (see protobuf file)?
                                 execution_kind = command_reports
                                     .last()
                                     .and_then(|r| r.status.execution_kind())
                                     .map(|e| e.as_enum());
                                 wall_time = None;
-                                error = Some(error_to_proto(&e, &command_reports).await);
+                                error = Some(error_to_proto(&e, &commands, &command_reports));
                                 output_size = 0;
                             }
                         };
@@ -206,6 +214,7 @@ impl ActionCalculation for DiceComputations {
                                     .unwrap_or(buck2_data::ActionExecutionKind::NotSet)
                                     as i32,
                                 output_size,
+                                commands,
                             },
                         )
                     })
@@ -236,20 +245,48 @@ impl ActionCalculation for DiceComputations {
     }
 }
 
-async fn error_to_proto(
+async fn command_execution_report_to_proto(
+    report: &CommandExecutionReport,
+) -> buck2_data::CommandExecution {
+    let command = command_details(report).await;
+
+    let status = match &report.status {
+        CommandExecutionStatus::Success { .. } => buck2_data::command_execution::Success {}.into(),
+        CommandExecutionStatus::ClaimRejected => {
+            buck2_data::command_execution::ClaimRejected {}.into()
+        }
+        CommandExecutionStatus::Failure { .. } => buck2_data::command_execution::Failure {}.into(),
+        CommandExecutionStatus::TimedOut { duration, .. } => {
+            buck2_data::command_execution::Timeout {
+                duration: Some((*duration).into()),
+            }
+            .into()
+        }
+        CommandExecutionStatus::Error { stage, error } => buck2_data::command_execution::Error {
+            stage: stage.to_owned(),
+            error: format!("{:#}", error),
+        }
+        .into(),
+    };
+
+    buck2_data::CommandExecution {
+        command: Some(command),
+        status: Some(status),
+    }
+}
+
+fn error_to_proto(
     err: &ExecuteError,
+    commands: &[buck2_data::CommandExecution],
     command_reports: &[CommandExecutionReport],
 ) -> buck2_data::action_execution_end::Error {
-    let command = match command_reports.last() {
-        Some(command) => Some(command_details(command).await),
-        None => None,
-    };
+    let command = commands.last().and_then(|c| c.command.as_ref());
 
     match err {
         ExecuteError::MissingOutputs { wanted } => {
             buck2_data::action_execution_end::Error::MissingOutputs(
                 buck2_data::CommandOutputsMissing {
-                    command,
+                    command: command.cloned(), // TODO (torozco): Remove
                     message: format!("Action failed to produce outputs: {}", error_items(wanted)),
                 },
             )
@@ -257,7 +294,7 @@ async fn error_to_proto(
         ExecuteError::MismatchedOutputs { wanted, got } => {
             buck2_data::action_execution_end::Error::MissingOutputs(
                 buck2_data::CommandOutputsMissing {
-                    command,
+                    command: command.cloned(), //  TODO (torozco): Remove
                     message: format!(
                         "Action didn't produce the right set of outputs.\nExpected {}`\nGot {}",
                         error_items(wanted),
@@ -269,18 +306,20 @@ async fn error_to_proto(
         ExecuteError::Error { error } => {
             buck2_data::action_execution_end::Error::Unknown(format!("{:#}", error))
         }
-        ExecuteError::CommandExecutionError => make_command_failed(command_reports, command)
-            .unwrap_or_else(|| {
+        ExecuteError::CommandExecutionError => {
+            // TODO (torozco): Remove
+            make_command_failed(command_reports, command).unwrap_or_else(|| {
                 buck2_data::action_execution_end::Error::Unknown(
                     "Command failed but CommandReport was not a failure!".to_owned(),
                 )
-            }),
+            })
+        }
     }
 }
 
 fn make_command_failed(
     command_reports: &[CommandExecutionReport],
-    command: Option<buck2_data::CommandExecutionDetails>,
+    command: Option<&buck2_data::CommandExecutionDetails>,
 ) -> Option<buck2_data::action_execution_end::Error> {
     let command_report = command_reports.last()?;
     let command = command?;
@@ -290,11 +329,11 @@ fn make_command_failed(
             return None;
         }
         CommandExecutionStatus::Failure { .. } => {
-            buck2_data::action_execution_end::Error::CommandFailed(command)
+            buck2_data::action_execution_end::Error::CommandFailed(command.clone())
         }
         CommandExecutionStatus::TimedOut { duration, .. } => {
             buck2_data::action_execution_end::Error::TimedOut(buck2_data::CommandTimedOut {
-                command: Some(command),
+                command: Some(command.clone()),
                 message: format!("Command timed out after {:.3}s", duration.as_secs_f64()),
             })
         }
