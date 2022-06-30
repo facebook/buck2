@@ -25,8 +25,7 @@ def android_instrumentation_apk_impl(ctx: "context"):
     primary_platform = apk_under_test_info.primary_platform
     deps = deps_by_platform[primary_platform]
 
-    # TODO(T122203218) Filter out packaging deps that are also in the apk_under_test
-    java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, deps) if packaging_dep.dex]
+    java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, deps) if packaging_dep.dex and packaging_dep not in apk_under_test_info.java_packaging_deps]
 
     # TODO(T122203218) Filter out packageables that are also in the apk_under_test
     android_packageable_info = merge_android_packageable_info(ctx.actions, deps)

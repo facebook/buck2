@@ -110,6 +110,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
     return [
         AndroidApkInfo(apk = output_apk, manifest = resources_info.manifest),
         AndroidApkUnderTestInfo(
+            java_packaging_deps = java_packaging_deps,
             keystore = keystore,
             platforms = platforms,
             primary_platform = primary_platform,
