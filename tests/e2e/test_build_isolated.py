@@ -1076,6 +1076,14 @@ async def test_out_single_default_output(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="out")
+async def test_out_single_default_output_to_dir(buck: Buck) -> None:
+    with tempfile.TemporaryDirectory() as out:
+        await buck.build("//:a", "--out", out)
+        with open(Path(out) / "a.txt") as readable:
+            assert readable.read() == "a\n"
+
+
+@buck_test(inplace=False, data_dir="out")
 async def test_out_no_outputs(buck: Buck) -> None:
     with tempfile.NamedTemporaryFile("w") as out:
         await expect_failure(

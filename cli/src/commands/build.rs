@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io;
 use std::path::Path;
@@ -460,15 +461,29 @@ async fn copy_to_out(targets: &[BuildTarget], root_path: &str, out: &Path) -> an
     if output_meta.is_dir() {
         copy_directory(&output_path, out).await?;
     } else {
-        tokio::fs::copy(Path::new(root_path).join(Path::new(&output.path)), out)
-            .await
-            .map_err(|e| {
-                if e.kind() == io::ErrorKind::BrokenPipe {
-                    anyhow::Error::new(FailureExitCode::OutputFileBrokenPipe)
-                } else {
-                    anyhow::Error::new(e).context("when writing build artifact to --out")
-                }
-            })?;
+        let dest_path = match out.is_dir() {
+            true => Cow::Owned(
+                out.join(Path::new(
+                    output_path
+                        .file_name()
+                        .context("Failed getting output name")?,
+                )),
+            ),
+            false => Cow::Borrowed(out),
+        };
+
+        tokio::fs::copy(
+            Path::new(root_path).join(Path::new(&output.path)),
+            dest_path,
+        )
+        .await
+        .map_err(|e| {
+            if e.kind() == io::ErrorKind::BrokenPipe {
+                anyhow::Error::new(FailureExitCode::OutputFileBrokenPipe)
+            } else {
+                anyhow::Error::new(e).context("when writing build artifact to --out")
+            }
+        })?;
     }
 
     Ok(())
