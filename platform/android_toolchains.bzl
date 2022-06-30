@@ -15,6 +15,7 @@ def config_backed_android_toolchain(
         merge_android_resources,
         merge_assets,
         mini_aapt,
+        package_strings_as_assets,
         unpack_aar,
         **kwargs):
     kwargs["aidl"] = "fbsource//third-party/toolchains/android-sdk:aidl_and_deps"
@@ -48,6 +49,7 @@ def config_backed_android_toolchain(
     kwargs["merge_android_resources"] = merge_android_resources
     kwargs["merge_assets"] = merge_assets
     kwargs["mini_aapt"] = mini_aapt
+    kwargs["package_strings_as_assets"] = package_strings_as_assets
     kwargs["unpack_aar"] = unpack_aar
 
     kwargs["instrumentation_test_runner_classpath"] = [
@@ -92,6 +94,7 @@ def _config_backed_android_toolchain_rule_impl(ctx):
             merge_assets = ctx.attr.merge_assets,
             mini_aapt = ctx.attr.mini_aapt,
             optimized_proguard_config = ctx.attr.optimized_proguard_config,
+            package_strings_as_assets = ctx.attr.package_strings_as_assets,
             proguard_config = ctx.attr.proguard_config,
             proguard_jar = ctx.attr.proguard_jar,
             proguard_max_heap_size = ctx.attr.proguard_max_heap_size,
@@ -123,6 +126,7 @@ _config_backed_android_toolchain_rule = rule(
         "mini_aapt": attr.dep(providers = [RunInfo]),
         "multi_dex_command": attr.dep(providers = [RunInfo]),
         "optimized_proguard_config": attr.source(),
+        "package_strings_as_assets": attr.dep(providers = [RunInfo]),
         "proguard_config": attr.source(),
         "proguard_jar": attr.source(),
         "proguard_max_heap_size": attr.string(),

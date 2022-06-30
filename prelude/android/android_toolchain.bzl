@@ -23,6 +23,7 @@ AndroidToolchainInfo = provider(fields = [
     "merge_assets",
     "mini_aapt",
     "optimized_proguard_config",
+    "package_strings_as_assets",
     "proguard_config",
     "proguard_jar",
     "proguard_max_heap_size",

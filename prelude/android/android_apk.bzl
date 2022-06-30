@@ -161,7 +161,9 @@ def build_apk(
     apk_builder_args.hidden(dex_files_info.secondary_dex_dirs)
     native_library_directories = actions.write("native_library_directories", all_native_libs)
     apk_builder_args.hidden(all_native_libs)
-    zip_files = actions.write("zip_files", [])
+    all_zip_files = [resources_info.packaged_string_assets] if resources_info.packaged_string_assets else []
+    zip_files = actions.write("zip_files", all_zip_files)
+    apk_builder_args.hidden(all_zip_files)
     prebuilt_jars = [packaging_dep.jar for packaging_dep in java_packaging_deps if packaging_dep.is_prebuilt_jar]
     jar_files_that_may_contain_resources = actions.write("jar_files_that_may_contain_resources", prebuilt_jars)
     apk_builder_args.hidden(prebuilt_jars)

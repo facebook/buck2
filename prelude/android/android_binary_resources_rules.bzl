@@ -21,7 +21,7 @@ def get_android_binary_resources_info(
         resource_infos_to_exclude: [AndroidResourceInfo.type] = []) -> "AndroidBinaryResourcesInfo":
     android_toolchain = ctx.attr._android_toolchain[AndroidToolchainInfo]
     unfiltered_resource_infos = [resource_info for resource_info in list(android_packageable_info.resource_infos.traverse() if android_packageable_info.resource_infos else []) if resource_info not in resource_infos_to_exclude]
-    resource_infos, override_symbols = _maybe_filter_resources(
+    resource_infos, override_symbols, string_files_list, string_files_res_dirs = _maybe_filter_resources(
         ctx,
         unfiltered_resource_infos,
         android_toolchain,
@@ -74,12 +74,20 @@ def get_android_binary_resources_info(
         resources,
         android_toolchain,
     )
+    packaged_string_assets = _maybe_package_strings_as_assets(
+        ctx,
+        string_files_list,
+        string_files_res_dirs,
+        aapt2_link_info.r_dot_txt,
+        android_toolchain,
+    )
 
     cxx_resources = _get_cxx_resources(ctx, deps)
     apk_with_merged_assets = _merge_assets(ctx, aapt2_link_info.primary_resources_apk, resource_infos, cxx_resources)
 
     return AndroidBinaryResourcesInfo(
         manifest = android_manifest,
+        packaged_string_assets = packaged_string_assets,
         primary_resources_apk = apk_with_merged_assets,
         proguard_config_file = aapt2_link_info.proguard_config_file,
         r_dot_java = r_dot_java,
@@ -90,7 +98,7 @@ def get_android_binary_resources_info(
 def _maybe_filter_resources(
         ctx: "context",
         resources: [AndroidResourceInfo.type],
-        android_toolchain: AndroidToolchainInfo.type) -> ([AndroidResourceInfo.type], ["artifact", None]):
+        android_toolchain: AndroidToolchainInfo.type) -> ([AndroidResourceInfo.type], ["artifact", None], ["artifact", None], ["artifact"]):
     resources_filter_strings = getattr(ctx.attr, "resource_filter", [])
     resources_filter = _get_resources_filter(resources_filter_strings)
     resource_compression_mode = getattr(ctx.attr, "resource_compression", "disabled")
@@ -108,7 +116,7 @@ def _maybe_filter_resources(
     )
 
     if not needs_resource_filtering:
-        return resources, None
+        return resources, None, None, []
 
     res_info_to_out_res_dir = {}
     res_infos_with_no_res = []
@@ -126,7 +134,8 @@ def _maybe_filter_resources(
         for in_res, out_res in res_info_to_out_res_dir.items()
     }
     in_res_dir_to_out_res_dir_map = ctx.actions.write_json("in_res_dir_to_out_res_dir_map", {"res_dir_map": in_res_dir_to_out_res_dir_dict})
-    filter_resources_cmd.hidden([in_res.res for in_res in res_info_to_out_res_dir.keys()])
+    in_res_dirs = [in_res.res for in_res in res_info_to_out_res_dir.keys()]
+    filter_resources_cmd.hidden(in_res_dirs)
     filter_resources_cmd.hidden([out_res.as_output() for out_res in res_info_to_out_res_dir.values()])
     filter_resources_cmd.add([
         "--in-res-dir-to-out-res-dir-map",
@@ -139,8 +148,11 @@ def _maybe_filter_resources(
             ",".join(resources_filter.densities),
         ])
 
+    all_strings_files_list = None
+    all_strings_files_res_dirs = []
     if is_store_strings_as_assets:
         all_strings_files_list = ctx.actions.declare_output("all_strings_files")
+        all_strings_files_res_dirs = in_res_dirs
         filter_resources_cmd.add([
             "--enable-string-as-assets-filtering",
             "--string-files-list-output",
@@ -202,7 +214,12 @@ def _maybe_filter_resources(
         )
         filtered_resource_infos.append(filtered_resource)
 
-    return res_infos_with_no_res + filtered_resource_infos, override_symbols_artifact
+    return (
+        res_infos_with_no_res + filtered_resource_infos,
+        override_symbols_artifact,
+        all_strings_files_list,
+        all_strings_files_res_dirs,
+    )
 
 ResourcesFilter = record(
     densities = [str.type],
@@ -242,6 +259,46 @@ def _maybe_generate_string_source_map(
     actions.run(generate_string_source_map_cmd, category = "generate_string_source_map")
 
     return output
+
+def _maybe_package_strings_as_assets(
+        ctx: "context",
+        string_files_list: ["artifact", None],
+        string_files_res_dirs: ["artifact"],
+        r_dot_txt: "artifact",
+        android_toolchain: AndroidToolchainInfo.type) -> ["artifact", None]:
+    resource_compression_mode = getattr(ctx.attr, "resource_compression", "disabled")
+    is_store_strings_as_assets = _is_store_strings_as_assets(resource_compression_mode)
+    expect(is_store_strings_as_assets == (string_files_list != None))
+
+    if not is_store_strings_as_assets:
+        return None
+
+    string_assets_dir = ctx.actions.declare_output("package_strings_as_assets/string_assets")
+    string_assets_zip = ctx.actions.declare_output("package_strings_as_assets/string_assets_zip.zip")
+    all_locales_string_assets_zip = ctx.actions.declare_output("package_strings_as_assets/all_locales_string_assets_zip.zip")
+
+    locales = getattr(ctx.attr, "locales", [])
+
+    package_strings_as_assets_cmd = cmd_args([
+        android_toolchain.package_strings_as_assets[RunInfo],
+        "--string-files-list",
+        string_files_list,
+        "--r-dot-txt",
+        r_dot_txt,
+        "--string-assets-dir",
+        string_assets_dir.as_output(),
+        "--string-assets-zip",
+        string_assets_zip.as_output(),
+        "--all-locales-string-assets-zip",
+        all_locales_string_assets_zip.as_output(),
+    ]).hidden(string_files_res_dirs)
+
+    if locales:
+        package_strings_as_assets_cmd.add("--locales", ",".join(locales))
+
+    ctx.actions.run(package_strings_as_assets_cmd, category = "package_strings_as_assets")
+
+    return string_assets_zip
 
 def _get_manifest(ctx: "context", android_packageable_info: "AndroidPackageableInfo") -> "artifact":
     robolectric_manifest = getattr(ctx.attr, "robolectric_manifest", None)

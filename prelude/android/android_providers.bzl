@@ -26,6 +26,8 @@ AndroidBinaryResourcesInfo = provider(
     fields = [
         # manifest to be used by the APK
         "manifest",  # artifact
+        # zip containing any strings packaged as assets
+        "packaged_string_assets",  # ["artifact", None]
         # "APK" containing resources to be used by the Android binary
         "primary_resources_apk",  # artifact
         # proguard config needed to retain used resources
