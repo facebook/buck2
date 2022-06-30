@@ -253,7 +253,8 @@ impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
 #[starlark_module]
 pub fn register_rule_function(builder: &mut GlobalsBuilder) {
     fn rule<'v>(
-        #[starlark(require = named)] implementation: Value<'v>,
+        #[starlark(require = named)] implementation: Option<Value<'v>>,
+        #[starlark(require = named)] r#impl: Option<Value<'v>>,
         #[starlark(require = named)] attrs: DictOf<'v, &'v str, &'v AttributeAsStarlarkValue>,
         #[starlark(require = named)] cfg: Option<Value>,
         #[starlark(require = named, default = "")] doc: &str,
@@ -263,6 +264,16 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
         // TODO(nmj): Add default attributes in here like 'name', 'visibility', etc
         // TODO(nmj): Verify that names are valid. This is technically handled by the Params
         //                 objects, but will blow up in a friendlier way here.
+
+        let implementation = match (implementation, r#impl) {
+            (None, None) => return Err(anyhow::anyhow!("Must pass `impl` to rule")),
+            (Some(x), None) | (None, Some(x)) => x,
+            (Some(_), Some(_)) => {
+                return Err(anyhow::anyhow!(
+                    "Can't pass both `impl` and `implementation` to rule"
+                ));
+            }
+        };
 
         let build_context = BuildContext::from_context(eval)?;
         let bzl_path = (*build_context
