@@ -49,6 +49,15 @@ pub type TargetsMap = IndexMap<TargetName, TargetNode>;
 #[derive(Debug, Clone, Dupe, Eq, PartialEq, Hash)]
 pub struct TargetNode(pub Arc<TargetNodeData>);
 
+/// The kind of the rule, denoting where it can be used and how.
+#[derive(Debug, Copy, Clone, Dupe, Eq, PartialEq, Hash)]
+pub enum RuleKind {
+    /// A normal rule with no special properties.
+    Normal,
+    /// A configuration rule, meaning it is usable in a configuration context.
+    Configuration,
+}
+
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct TargetNodeData {
     label: TargetLabel,
@@ -59,8 +68,8 @@ pub struct TargetNodeData {
     /// The build file which defined this target, e.g. `fbcode//foo/bar/TARGETS`
     buildfile_path: Arc<BuildFilePath>,
 
-    /// The rule is marked as configuration rule.
-    is_configuration_rule: bool,
+    /// The kind of rule, e.g. configuration or otherwise.
+    rule_kind: RuleKind,
 
     /// Transition to apply to the target.
     pub cfg: Option<Arc<TransitionId>>,
@@ -89,7 +98,7 @@ impl TargetNode {
         label: TargetLabel,
         rule_type: RuleType,
         buildfile_path: Arc<BuildFilePath>,
-        is_configuration_rule: bool,
+        rule_kind: RuleKind,
         cfg: Option<Arc<TransitionId>>,
         attr_spec: Arc<AttributeSpec>,
         attributes: AttrValues,
@@ -101,7 +110,7 @@ impl TargetNode {
             label,
             rule_type,
             buildfile_path,
-            is_configuration_rule,
+            rule_kind,
             cfg,
             attr_spec,
             attributes,
@@ -112,7 +121,7 @@ impl TargetNode {
     }
 
     pub fn is_configuration_rule(&self) -> bool {
-        self.0.is_configuration_rule
+        self.0.rule_kind == RuleKind::Configuration
     }
 
     pub fn get_default_target_platform(&self) -> Option<&TargetLabel> {
@@ -371,13 +380,13 @@ pub mod testing {
     use gazebo::dupe::Dupe;
     use small_map::map::SmallMap;
 
+    use super::*;
     use crate::attrs::attr::Attribute;
     use crate::attrs::coerced_attr::CoercedAttr;
     use crate::attrs::coerced_deps_collector::CoercedDepsCollector;
     use crate::attrs::id::AttributeId;
     use crate::attrs::spec::AttributeSpec;
     use crate::attrs::values::AttrValues;
-    use crate::nodes::unconfigured::TargetNode;
     use crate::rule_type::RuleType;
     use crate::visibility::VisibilitySpecification;
 
@@ -419,7 +428,7 @@ pub mod testing {
                 label,
                 rule_type,
                 buildfile_path,
-                false,
+                RuleKind::Normal,
                 None,
                 Arc::new(AttributeSpec::testing_new(indices, instances)),
                 attributes,

@@ -19,6 +19,7 @@ use buck2_interpreter::extra::BuildContext;
 use buck2_interpreter::extra::ExtraContext;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::spec::AttributeSpec;
+use buck2_node::nodes::unconfigured::RuleKind;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::rule_type::StarlarkRuleType;
 use derive_more::Display;
@@ -74,8 +75,9 @@ struct RuleCallable<'v> {
     /// When specified, this transition will be applied to the target before configuring it.
     #[trace(unsafe_ignore)]
     cfg: Option<Arc<TransitionId>>,
-    /// This rule is configuration rule, which means it is usable in configuration context.
-    is_configuration_rule: bool,
+    /// This kind of the rule, e.g. whether it can be used in configuration context.
+    #[trace(unsafe_ignore)]
+    rule_kind: RuleKind,
     /// The raw docstring for this rule
     docs: Option<String>,
     /// When evaluating rule function, take only the `name` argument, ignore the others.
@@ -179,7 +181,7 @@ impl<'v> Freeze for RuleCallable<'v> {
             rule_type,
             attributes: self.attributes,
             cfg: self.cfg,
-            is_configuration_rule: self.is_configuration_rule,
+            rule_kind: self.rule_kind,
             rule_docs,
             ignore_attrs_for_profiling: self.ignore_attrs_for_profiling,
         })
@@ -194,7 +196,7 @@ pub struct FrozenRuleCallable {
     rule_type: Arc<StarlarkRuleType>,
     attributes: Arc<AttributeSpec>,
     cfg: Option<Arc<TransitionId>>,
-    is_configuration_rule: bool,
+    rule_kind: RuleKind,
     rule_docs: Option<DocItem>,
     ignore_attrs_for_profiling: bool,
 }
@@ -236,7 +238,7 @@ impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
                 self.ignore_attrs_for_profiling,
                 self.rule_type.dupe(),
                 buildfile_path,
-                self.is_configuration_rule,
+                self.rule_kind,
                 self.attributes.dupe(),
                 call_stack,
             )?;
@@ -296,13 +298,19 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
 
         let cfg = cfg.try_map(|x| Transition::id_from_value(*x))?;
 
+        let rule_kind = if is_configuration_rule {
+            RuleKind::Configuration
+        } else {
+            RuleKind::Normal
+        };
+
         Ok(eval.heap().alloc(RuleCallable {
             import_path: bzl_path,
             id: RefCell::new(None),
             implementation,
             attributes: Arc::new(AttributeSpec::from(sorted_validated_attrs)?),
             cfg,
-            is_configuration_rule,
+            rule_kind,
             docs: Some(doc.to_owned()),
             ignore_attrs_for_profiling: build_context.ignore_attrs_for_profiling,
         }))

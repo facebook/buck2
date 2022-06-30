@@ -24,6 +24,7 @@ use buck2_node::attrs::internal::VISIBILITY_ATTRIBUTE_FIELD;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::attrs::values::AttrValues;
 use buck2_node::call_stack::StarlarkCallStack;
+use buck2_node::nodes::unconfigured::RuleKind;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::rule_type::RuleType;
 use buck2_node::rule_type::StarlarkRuleType;
@@ -44,7 +45,7 @@ pub(crate) trait TargetNodeExt: Sized {
         param_parser: ParametersParser<'v, '_>,
         rule_type: Arc<StarlarkRuleType>,
         buildfile_path: Arc<BuildFilePath>,
-        is_configuration_rule: bool,
+        rule_kind: RuleKind,
         attr_spec: Arc<AttributeSpec>,
     ) -> anyhow::Result<Self>;
 
@@ -56,7 +57,7 @@ pub(crate) trait TargetNodeExt: Sized {
         ignore_attrs_for_profiling: bool,
         rule_type: Arc<StarlarkRuleType>,
         buildfile_path: Arc<BuildFilePath>,
-        is_configuration_rule: bool,
+        rule_kind: RuleKind,
         attr_spec: Arc<AttributeSpec>,
         call_stack: Option<CallStack>,
     ) -> anyhow::Result<Self>;
@@ -70,7 +71,7 @@ impl TargetNodeExt for TargetNode {
         mut param_parser: ParametersParser<'v, '_>,
         rule_type: Arc<StarlarkRuleType>,
         buildfile_path: Arc<BuildFilePath>,
-        is_configuration_rule: bool,
+        rule_kind: RuleKind,
         attr_spec: Arc<AttributeSpec>,
     ) -> anyhow::Result<Self> {
         for (attr_name, _attr_idx, _attr) in attr_spec.attr_specs() {
@@ -84,7 +85,7 @@ impl TargetNodeExt for TargetNode {
                     label,
                     RuleType::Starlark(rule_type),
                     buildfile_path,
-                    is_configuration_rule,
+                    rule_kind,
                     cfg,
                     attr_spec.dupe(),
                     AttrValues::with_capacity(0),
@@ -107,7 +108,7 @@ impl TargetNodeExt for TargetNode {
         ignore_attrs_for_profiling: bool,
         rule_type: Arc<StarlarkRuleType>,
         buildfile_path: Arc<BuildFilePath>,
-        is_configuration_rule: bool,
+        rule_kind: RuleKind,
         attr_spec: Arc<AttributeSpec>,
         call_stack: Option<CallStack>,
     ) -> anyhow::Result<Self> {
@@ -118,7 +119,7 @@ impl TargetNodeExt for TargetNode {
                 param_parser,
                 rule_type,
                 buildfile_path,
-                is_configuration_rule,
+                rule_kind,
                 attr_spec,
             );
         }
@@ -154,7 +155,7 @@ impl TargetNodeExt for TargetNode {
             label,
             RuleType::Starlark(rule_type),
             buildfile_path,
-            is_configuration_rule,
+            rule_kind,
             cfg,
             attr_spec,
             attr_values,
