@@ -12,12 +12,18 @@ def android_instrumentation_apk_impl(ctx: "context"):
     # To begin with, let's just implement something that has a single DEX file and a manifest.
     _verify_params(ctx)
 
-    deps_by_platform = get_deps_by_platform(ctx)
-    platforms = deps_by_platform.keys()
-    primary_platform = platforms[0]
-    deps = deps_by_platform[primary_platform]
-
     apk_under_test_info = ctx.attr.apk[AndroidApkUnderTestInfo]
+
+    # android_instrumentation_apk should just use the same platforms and primary_platform as the APK-under-test
+    unfiltered_deps_by_platform = get_deps_by_platform(ctx)
+    for platform in apk_under_test_info.platforms:
+        expect(
+            platform in unfiltered_deps_by_platform,
+            "Android instrumentation APK must have any platforms that are in the APK-under-test!",
+        )
+    deps_by_platform = {platform: deps for platform, deps in unfiltered_deps_by_platform.items() if platform in apk_under_test_info.platforms}
+    primary_platform = apk_under_test_info.primary_platform
+    deps = deps_by_platform[primary_platform]
 
     # TODO(T122203218) Filter out packaging deps that are also in the apk_under_test
     java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, deps) if packaging_dep.dex]

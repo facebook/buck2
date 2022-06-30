@@ -67,6 +67,8 @@ AndroidApkInfo = provider(
 AndroidApkUnderTestInfo = provider(
     fields = [
         "keystore",  # "KeystoreInfo"
+        "platforms",  # [str.type]
+        "primary_platform",  # str.type
     ],
 )
 
