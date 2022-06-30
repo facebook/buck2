@@ -1,5 +1,13 @@
 load("@fbcode//buck2/prelude/android:android_providers.bzl", "CPU_FILTER_TO_ABI_DIRECTORY")
 
+_REFS = {
+    "arm64": "ovr_config//cpu/constraints:arm64",
+    "armv7": "ovr_config//cpu/constraints:arm32",
+    "cpu": "ovr_config//cpu/constraints:cpu",
+    "x86": "ovr_config//cpu/constraints:x86_32",
+    "x86_64": "ovr_config//cpu/constraints:x86_64",
+}
+
 def _cpu_split_transition_impl(
         platform: PlatformInfo.type,
         refs: struct.type,
@@ -44,19 +52,34 @@ def _cpu_split_transition_impl(
 
     return new_configs
 
+def _cpu_transition_impl(
+        platform: PlatformInfo.type,
+        refs: struct.type,
+        attrs: struct.type) -> PlatformInfo.type:
+    return _cpu_split_transition_impl(platform, refs, attrs).values()[0]
+
 cpu_split_transition = transition(
     implementation = _cpu_split_transition_impl,
-    refs = {
-        "arm64": "ovr_config//cpu/constraints:arm64",
-        "armv7": "ovr_config//cpu/constraints:arm32",
-        "cpu": "ovr_config//cpu/constraints:cpu",
-        "x86": "ovr_config//cpu/constraints:x86_32",
-        "x86_64": "ovr_config//cpu/constraints:x86_64",
-    },
+    refs = _REFS,
     attrs = [
         "cpu_filters",
     ],
     split = True,
+)
+
+# If our deps have been split-transitioned by CPU then we are already analyzing the dependency
+# graph using the resulting configurations. If there are any other attributes on the same target
+# that also need to analyze the dependency graph, then we want to use one of the configurations
+# from the split transition so that we don't end up analyzing the graph again using a different
+# configuration. This rule just picks the first configuration from the split-transition.
+#
+# This is used for the `manifest` attribute of `android_binary`.
+cpu_transition = transition(
+    implementation = _cpu_transition_impl,
+    refs = _REFS,
+    attrs = [
+        "cpu_filters",
+    ],
 )
 
 def get_deps_by_platform(ctx: "context") -> {str.type: ["dependency"]}:

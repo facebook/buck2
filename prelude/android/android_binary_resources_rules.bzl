@@ -247,7 +247,10 @@ def _get_manifest(ctx: "context", android_packageable_info: "AndroidPackageableI
 
     if ctx.attr.manifest:
         expect(ctx.attr.manifest_skeleton == None, "Only one of manifest and manifest_skeleton should be declared")
-        android_manifest = ctx.attr.manifest
+        if type(ctx.attr.manifest) == "dependency":
+            android_manifest = ctx.attr.manifest[DefaultInfo].default_outputs[0]
+        else:
+            android_manifest = ctx.attr.manifest
     else:
         expect(ctx.attr.manifest_skeleton != None, "Must declare one of manifest and manifest_skeleton")
         android_manifest, _ = generate_android_manifest(

@@ -1,7 +1,7 @@
 load("@fbcode//buck2/prelude/android:android_binary_native_library_rules.bzl", "get_android_binary_native_library_info")
 load("@fbcode//buck2/prelude/android:android_binary_resources_rules.bzl", "get_android_binary_resources_info")
 load("@fbcode//buck2/prelude/android:android_build_config.bzl", "generate_android_build_config", "get_build_config_fields")
-load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidApkInfo", "AndroidApkUnderTestInfo", "BuildConfigField", "merge_android_packageable_info")
+load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidApkInfo", "AndroidApkUnderTestInfo", "BuildConfigField", "CPU_FILTER_TO_ABI_DIRECTORY", "merge_android_packageable_info")
 load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@fbcode//buck2/prelude/android:configuration.bzl", "get_deps_by_platform")
 load("@fbcode//buck2/prelude/android:dex_rules.bzl", "get_multi_dex", "get_single_primary_dex", "get_split_dex_merge_config", "merge_to_single_dex", "merge_to_split_dex")
@@ -15,9 +15,9 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
 
     _verify_params(ctx)
 
+    cpu_filters = ctx.attr.cpu_filters or CPU_FILTER_TO_ABI_DIRECTORY.keys()
     deps_by_platform = get_deps_by_platform(ctx)
-    platforms = deps_by_platform.keys()
-    primary_platform = platforms[0]
+    primary_platform = cpu_filters[0]
     deps = deps_by_platform[primary_platform]
 
     java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, deps) if packaging_dep.dex]
@@ -113,7 +113,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
             java_packaging_deps = java_packaging_deps,
             keystore = keystore,
             native_libs_from_prebuilt_aars = native_library_info.apk_under_test_native_libs_from_prebuilt_aars,
-            platforms = platforms,
+            platforms = deps_by_platform.keys(),
             primary_platform = primary_platform,
             resource_infos = resources_info.unfiltered_resource_infos,
             shared_libraries = native_library_info.apk_under_test_shared_libraries,
@@ -213,7 +213,7 @@ def _get_build_config_java_libraries(ctx: "context", build_config_infos: ["Andro
             java_package,
             True,  # use_constant_expressions
             all_build_config_values.values(),
-            ctx.attr.build_config_values_file,
+            ctx.attr.build_config_values_file[DefaultInfo].default_outputs[0] if type(ctx.attr.build_config_values_file) == "dependency" else ctx.attr.build_config_values_file,
         )[1])
 
     return java_libraries

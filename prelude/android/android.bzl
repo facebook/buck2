@@ -12,7 +12,7 @@ load(":android_manifest.bzl", "android_manifest_impl")
 load(":android_prebuilt_aar.bzl", "android_prebuilt_aar_impl")
 load(":android_resource.bzl", "android_resource_impl")
 load(":android_toolchain.bzl", "AndroidPlatformInfo", "AndroidToolchainInfo")
-load(":configuration.bzl", "cpu_split_transition")
+load(":configuration.bzl", "cpu_split_transition", "cpu_transition")
 load(":gen_aidl.bzl", "gen_aidl_impl")
 load(":robolectric_test.bzl", "robolectric_test_impl")
 
@@ -47,9 +47,11 @@ extra_attributes = {
     },
     "android_binary": {
         "aapt_mode": attr.enum(AaptMode, default = "aapt1"),  # Match default in V1
+        "build_config_values_file": attr.option(attr.one_of(attr.transition_dep(cfg = cpu_transition), attr.source()), default = None),
         "deps": attr.list(attr.split_transition_dep(cfg = cpu_split_transition), default = []),
         "dex_tool": attr.string(default = "d8"),  # Match default in V1
         "duplicate_resource_behavior": attr.enum(DuplicateResourceBehaviour, default = "allow_by_default"),  # Match default in V1
+        "manifest": attr.option(attr.one_of(attr.transition_dep(cfg = cpu_transition), attr.source()), default = None),
         "_android_toolchain": attr.exec_dep(
             default = select_android_toolchain(),
             providers = [
@@ -92,6 +94,7 @@ extra_attributes = {
         "cpu_filters": attr.list(attr.enum(TargetCpuType), default = []),
         "deps": attr.list(attr.split_transition_dep(cfg = cpu_split_transition), default = []),
         "dex_tool": attr.string(default = "d8"),  # Match default in V1
+        "manifest": attr.option(attr.one_of(attr.transition_dep(cfg = cpu_transition), attr.source()), default = None),
         "_android_toolchain": attr.exec_dep(
             default = select_android_toolchain(),
             providers = [
