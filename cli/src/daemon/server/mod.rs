@@ -55,6 +55,7 @@ use buck2_build_api::interpreter::context::configure_build_file_globals;
 use buck2_build_api::interpreter::context::configure_extension_file_globals;
 use buck2_build_api::interpreter::context::fbcode_prelude;
 use buck2_build_api::interpreter::context::BuildInterpreterConfiguror;
+use buck2_build_api::spawner::BuckSpawner;
 use buck2_bxl::bxl::calculation::BxlCalculationImpl;
 use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
 use buck2_common::dice::cells::HasCellResolver;
@@ -100,6 +101,7 @@ use dice::DiceEvent;
 use dice::DiceTracker;
 use dice::DiceTransaction;
 use dice::UserComputationData;
+use events::dispatch::with_dispatcher_async;
 use events::dispatch::EventDispatcher;
 use events::ControlEvent;
 use events::Event;
@@ -120,7 +122,6 @@ use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingStrategy;
 use more_futures::drop::DropTogether;
 use more_futures::spawn::spawn_dropcancel;
-use more_futures::spawner::TokioSpawner;
 use once_cell::sync::Lazy;
 use starlark::eval::ProfileMode;
 use thiserror::Error;
@@ -277,7 +278,10 @@ impl BuckDiceTracker {
                 .enable_all()
                 .build()
                 .unwrap();
-            runtime.block_on(Self::run_task(events, receiver))
+            runtime.block_on(with_dispatcher_async(
+                events.dupe(),
+                Self::run_task(events, receiver),
+            ))
         });
 
         Self { event_forwarder }
@@ -591,6 +595,7 @@ impl ServerCommandContext {
                 data.set_materializer(materializer);
                 data.set_build_signals(build_signals);
                 data.set_run_action_knobs(run_action_knobs);
+                data.spawner = Arc::new(BuckSpawner::default());
                 data
             }))
     }
@@ -1230,21 +1235,22 @@ struct HeartbeatGuard {
 impl HeartbeatGuard {
     fn new(events: EventDispatcher, daemon_data: Arc<DaemonStateData>) -> Self {
         let (abort_handle, abort_registration) = AbortHandle::new_pair();
-        let _heartbeat_handle = tokio::spawn(Abortable::new(
-            async move {
-                let mut interval = tokio::time::interval(Duration::from_secs(1));
-                interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-                loop {
-                    interval.tick().await;
+        let _heartbeat_handle = tokio::spawn(with_dispatcher_async(
+            events.dupe(),
+            Abortable::new(
+                async move {
+                    let mut interval = tokio::time::interval(Duration::from_secs(1));
+                    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+                    loop {
+                        interval.tick().await;
 
-                    let snapshot = snapshot::create_snapshot(&daemon_data);
+                        let snapshot = snapshot::create_snapshot(&daemon_data);
 
-                    events.event(buck2_data::InstantEvent {
-                        data: Some(snapshot.into()),
-                    });
-                }
-            },
-            abort_registration,
+                        events.instant_event(snapshot);
+                    }
+                },
+                abort_registration,
+            ),
         ));
         Self { abort_handle }
     }
@@ -1403,7 +1409,7 @@ where
     let events_ctx = EventsCtx { dispatcher };
     let cancellable = spawn_dropcancel(
         func(req),
-        Arc::new(TokioSpawner::default()),
+        Arc::new(BuckSpawner::default()),
         &events_ctx,
         debug_span!(parent: None, "running-command",),
     );
@@ -2110,7 +2116,11 @@ impl DaemonApi for BuckdServer {
         let path = inner.destination_path;
         let res: anyhow::Result<_> = try {
             let (_, dispatch) = self.daemon_state.prepare_events().await?;
-            let ctx = self.daemon_state.prepare_command(dispatch.dupe()).await?;
+            let ctx = with_dispatcher_async(
+                dispatch.dupe(),
+                self.daemon_state.prepare_command(dispatch.dupe()),
+            )
+            .await?;
 
             let path = Path::new(&path);
             let format_proto =

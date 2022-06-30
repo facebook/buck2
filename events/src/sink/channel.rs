@@ -89,6 +89,7 @@ mod tests {
                 ),
             }
             .into(),
+            is_global_dispatcher_diff: false,
         });
         let event = recv.recv().unwrap().unpack_buck().unwrap().clone();
         assert!(matches!(

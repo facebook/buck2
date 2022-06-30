@@ -35,6 +35,9 @@ message BuckEvent {
     SpanEndEvent span_end = 21;
     InstantEvent instant = 22;
   }
+  // A temporary field to verify that the locally-held dispatcher is the
+  // same as the one in global state.
+  bool is_global_dispatcher_diff = 2047;
 }
 
 // An event that begins a span.

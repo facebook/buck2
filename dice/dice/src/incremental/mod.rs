@@ -85,7 +85,7 @@ pub(crate) trait IncrementalComputeProperties: StorageProperties {
     /// Dice task executed in the `IncrementalEngine` for compute or recompute.
     type DiceTask: DiceTask;
 
-    /// Recompute previously compute value.
+    /// Recompute previously computed value.
     async fn recompute(
         key: &Self::Key,
         engine: &Arc<IncrementalEngine<Self>>,

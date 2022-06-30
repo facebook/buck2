@@ -27,6 +27,7 @@ use buck2_build_api::interpreter::context::configure_build_file_globals;
 use buck2_build_api::interpreter::context::configure_extension_file_globals;
 use buck2_build_api::interpreter::context::fbcode_prelude;
 use buck2_build_api::interpreter::context::BuildInterpreterConfiguror;
+use buck2_build_api::spawner::BuckSpawner;
 use buck2_bxl::bql::eval::eval_bql;
 use buck2_bxl::bxl::calculation::BxlCalculationImpl;
 use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
@@ -141,6 +142,7 @@ fn main(fb: FacebookInit) -> ExitResult {
         };
         let ctx = dice.with_ctx_data(UserComputationData {
             data: per_request_data,
+            spawner: Arc::new(BuckSpawner::default()),
             ..Default::default()
         });
 

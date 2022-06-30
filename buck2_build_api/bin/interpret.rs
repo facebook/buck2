@@ -28,6 +28,7 @@ use buck2_build_api::interpreter::context::BuildInterpreterConfiguror;
 use buck2_build_api::interpreter::module_internals::EvaluationResult;
 use buck2_build_api::interpreter::module_internals::ModuleInternals;
 use buck2_build_api::nodes::hacks::value_to_json;
+use buck2_build_api::spawner::BuckSpawner;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::BuckConfigBasedCells;
 use buck2_common::pattern::resolve::resolve_target_patterns;
@@ -249,6 +250,7 @@ fn main(fb: FacebookInit) -> ExitResult {
             };
             let ctx = dice.with_ctx_data(UserComputationData {
                 data: dice_data,
+                spawner: Arc::new(BuckSpawner::default()),
                 ..Default::default()
             });
 

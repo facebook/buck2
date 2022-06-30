@@ -134,7 +134,7 @@ pub struct BuckEvent {
     /// does not have to.
     pub trace_id: TraceId,
 
-    /// If this event starts a new span, the span ID assigned to this span, or None if this event is al eaf event
+    /// If this event starts a new span, the span ID assigned to this span, or None if this event is a leaf event
     /// that does not start a new span.
     pub span_id: Option<SpanId>,
 
@@ -144,6 +144,10 @@ pub struct BuckEvent {
 
     /// The kind of this event, combined with the event payload.
     pub data: buck2_data::buck_event::Data,
+
+    /// A temporary field to verify that the locally-held dispatcher is the same as the one in global state.
+    /// True if global dispatcher is not set.
+    pub is_global_dispatcher_diff: bool,
 }
 
 impl From<BuckEvent> for buck2_data::BuckEvent {
@@ -154,6 +158,7 @@ impl From<BuckEvent> for buck2_data::BuckEvent {
             span_id: e.span_id.map_or(0, |s| s.0.into()),
             parent_id: e.parent_id.map_or(0, |s| s.0.into()),
             data: Some(e.data),
+            is_global_dispatcher_diff: e.is_global_dispatcher_diff,
         }
     }
 }
@@ -168,6 +173,7 @@ impl TryFrom<buck2_data::BuckEvent> for BuckEvent {
             span_id,
             parent_id,
             data,
+            is_global_dispatcher_diff,
         }: buck2_data::BuckEvent,
     ) -> Result<BuckEvent, BuckEventError> {
         fn new_span_id(num: u64) -> Option<SpanId> {
@@ -179,6 +185,7 @@ impl TryFrom<buck2_data::BuckEvent> for BuckEvent {
             span_id: new_span_id(span_id),
             parent_id: new_span_id(parent_id),
             data: data.ok_or(BuckEventError::MissingData)?,
+            is_global_dispatcher_diff,
         })
     }
 }
@@ -264,6 +271,7 @@ mod tests {
                 ),
             }
             .into(),
+            is_global_dispatcher_diff: false,
         };
         assert_eq!(
             test,

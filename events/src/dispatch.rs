@@ -61,8 +61,6 @@ impl EventDispatcher {
         self.event_with_span_id(data, None, current_span());
     }
 
-    // TODO(mufeezamjad): remove once all uses of this function are changed to use the global event dispatcher.
-    //
     /// Emits an InstantEvent annotated with the current trace ID
     pub fn instant_event<E: Into<buck2_data::instant_event::Data>>(&self, data: E) {
         let instant = buck2_data::InstantEvent {
@@ -78,42 +76,25 @@ impl EventDispatcher {
         parent_id: Option<SpanId>,
     ) {
         let now = SystemTime::now();
+        let is_global_dispatcher_diff = if let Some(dispatcher) = get_dispatcher() {
+            dispatcher.trace_id != self.trace_id
+        } else {
+            true
+        };
+
         let event = BuckEvent {
             timestamp: now,
             trace_id: self.trace_id.dupe(),
             span_id,
             parent_id,
             data: data.into(),
+            is_global_dispatcher_diff,
         };
         self.sink.send(event);
     }
 
     pub fn control_event<E: Into<ControlEvent>>(&self, data: E) {
         self.sink.send_control(data.into());
-    }
-
-    pub fn info(&self, msg: &str, filepath: &str, lineno: u32, col: u32) {
-        self.log(buck2_data::log::Level::Info, msg, filepath, lineno, col);
-    }
-
-    pub fn warn(&self, msg: &str, filepath: &str, lineno: u32, col: u32) {
-        self.log(buck2_data::log::Level::Warn, msg, filepath, lineno, col);
-    }
-
-    pub fn error(&self, msg: &str, filepath: &str, lineno: u32, col: u32) {
-        self.log(buck2_data::log::Level::Error, msg, filepath, lineno, col);
-    }
-
-    fn log(&self, level: buck2_data::log::Level, msg: &str, filepath: &str, lineno: u32, col: u32) {
-        self.instant_event(buck2_data::Log {
-            level: level as i32,
-            message: msg.to_owned(),
-            location: Some(buck2_data::Location {
-                file: filepath.to_owned(),
-                line: lineno,
-                column: col,
-            }),
-        });
     }
 
     // Logs mercurial data
@@ -159,8 +140,6 @@ impl EventDispatcher {
         }));
     }
 
-    // TODO(mufeezamjad): remove once all uses of this function are changed to use the global event dispatcher.
-    //
     /// Introduces a new span and immediately fires the given start event. When the given synchronous function returns,
     /// the span is closed and the end event emitted.
     pub fn span<Start, End, F, R>(&self, start: Start, func: F) -> R
@@ -175,8 +154,6 @@ impl EventDispatcher {
         result
     }
 
-    // TODO(mufeezamjad): remove once all uses of this function are changed to use the global event dispatcher.
-    //
     /// Introduces a new span and immediately fires the given start event. When the given future resolves,  the span is
     /// closed and the event is emitted. This span is a "suspending span"; it is intended to suspend and resume whenever
     /// the future itself is suspended and resumed, respectively.
@@ -325,8 +302,11 @@ where
     EVENTS.scope(dispatcher, fut)
 }
 
-fn get_dispatcher() -> EventDispatcher {
-    EVENTS.with(|dispatcher| dispatcher.dupe())
+fn get_dispatcher() -> Option<EventDispatcher> {
+    match EVENTS.try_with(|dispatcher| dispatcher.dupe()) {
+        Ok(dispatcher) => Some(dispatcher),
+        Err(_) => None,
+    }
 }
 
 fn current_span() -> Option<SpanId> {
@@ -341,22 +321,20 @@ where
     End: Into<span_end_event::Data>,
     F: FnOnce() -> (R, End),
 {
-    let events = get_dispatcher();
-
-    let mut span = Span::start(&events, start);
-    let (result, end) = span.call_in_span(func);
-    span.end(end);
-    result
+    let events = get_dispatcher().unwrap();
+    events.span(start, func)
 }
 
 /// Emits an InstantEvent annotated with the current trace ID
 pub fn instant_event<E: Into<buck2_data::instant_event::Data>>(data: E) {
-    let events = get_dispatcher();
+    let events = get_dispatcher().unwrap();
+    events.instant_event(data)
+}
 
-    let instant = buck2_data::InstantEvent {
-        data: Some(data.into()),
-    };
-    events.event_with_span_id(instant, None, current_span())
+// Logs mercurial data
+pub async fn instant_hg() {
+    let events = get_dispatcher().unwrap();
+    events.instant_hg().await
 }
 
 /// Introduces a new span and immediately fires the given start event. When the given future resolves,  the span is
@@ -370,50 +348,67 @@ where
     End: Into<span_end_event::Data>,
     Fut: Future<Output = (R, End)>,
 {
-    let events = get_dispatcher();
+    let events = get_dispatcher().unwrap();
+    events.span_async(start, fut).await
+}
 
-    let mut span = Span::start(&events, start);
+pub fn info(msg: &str, filepath: &str, lineno: u32, col: u32) {
+    log(buck2_data::log::Level::Info, msg, filepath, lineno, col);
+}
 
-    futures::pin_mut!(fut);
-    let (result, end) = future::poll_fn(|cx| span.call_in_span(|| fut.as_mut().poll(cx))).await;
+pub fn warn(msg: &str, filepath: &str, lineno: u32, col: u32) {
+    log(buck2_data::log::Level::Warn, msg, filepath, lineno, col);
+}
 
-    span.end(end);
-    result
+pub fn error(msg: &str, filepath: &str, lineno: u32, col: u32) {
+    log(buck2_data::log::Level::Error, msg, filepath, lineno, col);
+}
+
+fn log(level: buck2_data::log::Level, msg: &str, filepath: &str, lineno: u32, col: u32) {
+    instant_event(buck2_data::Log {
+        level: level as i32,
+        message: msg.to_owned(),
+        location: Some(buck2_data::Location {
+            file: filepath.to_owned(),
+            line: lineno,
+            column: col,
+        }),
+    });
 }
 
 #[macro_export]
 macro_rules! info {
-    ( $dispatcher:expr, $fmt_str:literal ) => {
-        $dispatcher.info($fmt_str, file!(), line!(), column!());
+    ( $fmt_str:literal ) => {
+        info($fmt_str, file!(), line!(), column!());
     };
 
-    ( $dispatcher:expr, $fmt_str:literal, $( $arg:tt ),* ) => {
+    ( $fmt_str:literal, $( $arg:tt ),* ) => {
         let msg: String = format!($fmt_str, $($arg),*);
-        $dispatcher.info(&msg, file!(), line!(), column!());
+        info(&msg, file!(), line!(), column!());
     };
 }
 
 #[macro_export]
 macro_rules! warn {
-    ( $dispatcher:expr, $fmt_str:literal ) => {
-        $dispatcher.warn($fmt_str, file!(), line!(), column!());
+    ( $fmt_str:literal ) => {
+        warn($fmt_str, file!(), line!(), column!());
     };
 
-    ( $dispatcher:expr, $fmt_str:literal, $( $arg:tt ),* ) => {
+    ( $fmt_str:literal, $( $arg:tt ),* ) => {
         let msg: String = format!($fmt_str, $($arg),*);
-        $dispatcher.warn(&msg, file!(), line!(), column!());
+        warn(&msg, file!(), line!(), column!());
     };
 }
 
 #[macro_export]
 macro_rules! error {
-    ( $dispatcher:expr, $fmt_str:literal ) => {
-        $dispatcher.error($fmt_str, file!(), line!(), column!());
+    ( $fmt_str:literal ) => {
+        error($fmt_str, file!(), line!(), column!());
     };
 
-    ( $dispatcher:expr, $fmt_str:literal, $( $arg:tt ),* ) => {
+    ( $fmt_str:literal, $( $arg:tt ),* ) => {
         let msg: String = format!($fmt_str, $($arg),*);
-        $dispatcher.error(&msg, file!(), line!(), column!());
+        error(&msg, file!(), line!(), column!());
     };
 }
 
@@ -584,7 +579,7 @@ mod tests {
         ) {
             async fn yield_and_check(trace_id: &TraceId, err: &mut bool) {
                 tokio::task::yield_now().await;
-                *err |= get_dispatcher().trace_id != *trace_id;
+                *err |= get_dispatcher().unwrap().trace_id != *trace_id;
             }
 
             // 2*2 for Start and End events, for 2 spans

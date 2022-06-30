@@ -19,6 +19,7 @@ use buck2_data::CriticalPathEntry;
 use derive_more::Display;
 use derive_more::From;
 use dice::UserComputationData;
+use events::dispatch::with_dispatcher_async;
 use events::dispatch::EventDispatcher;
 use gazebo::prelude::*;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -312,7 +313,9 @@ where
     Fut: Future<Output = anyhow::Result<R>>,
 {
     let (sender, mut receiver) = create_matched_pair();
-    let receiver_task_handle = tokio::spawn(async move { receiver.run_and_log(events).await });
+    let receiver_task_handle = tokio::spawn(with_dispatcher_async(events.dupe(), async move {
+        receiver.run_and_log(events).await
+    }));
     let result = func(sender.dupe()).await;
     sender.signal(BuildSignal::BuildFinished);
     receiver_task_handle.await??;

@@ -56,6 +56,7 @@ mod tests {
                 ),
             }
             .into(),
+            is_global_dispatcher_diff: false,
         });
         let event = source.receive().unwrap().unpack_buck().unwrap().clone();
         assert!(matches!(
