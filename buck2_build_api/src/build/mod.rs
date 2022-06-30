@@ -26,7 +26,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
-use crate::test::provider::TestProvider;
+use crate::interpreter::rule_defs::provider::test_provider::TestProvider;
 
 /// The types of provider to build on the configured providers label
 #[derive(Debug, Clone, Dupe)]

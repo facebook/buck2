@@ -75,6 +75,7 @@ pub mod callable;
 pub mod collection;
 pub(crate) mod dependency;
 pub mod registration;
+pub mod test_provider;
 pub(crate) mod user;
 
 #[derive(Debug, thiserror::Error)]

@@ -12,7 +12,6 @@
 pub mod downward_api;
 pub mod executor_launcher;
 pub mod orchestrator;
-pub mod provider;
 pub mod session;
 pub(crate) mod tcp;
 pub mod translations;
