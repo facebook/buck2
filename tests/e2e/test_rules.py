@@ -28,7 +28,7 @@ async def test_genrule(buck: Buck) -> None:
     )
     await expect_failure(
         buck.build("fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad_2"),
-        stderr_regex="failed with exit code 1",
+        stderr_regex="(failed with exit code 1|returned non-zero exit code 1)",
     )
     await expect_failure(
         buck.build("fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad_2"),

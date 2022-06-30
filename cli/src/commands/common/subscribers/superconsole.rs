@@ -18,7 +18,6 @@ use events::subscriber::Tick;
 use events::BuckEvent;
 use events::TraceId;
 use gazebo::prelude::*;
-use itertools::Itertools;
 use superconsole::components::splitting::SplitKind;
 use superconsole::components::Bounded;
 use superconsole::components::Split;
@@ -400,44 +399,34 @@ impl EventSubscriber for StatefulSuperConsole {
             }
         };
 
-        use buck2_data::action_execution_end::Error;
-
         let mut lines = vec![];
 
-        match &action.error {
-            Some(Error::CommandFailed(command_failed)) => {
-                lines_for_command_failed(action, command_failed, self.verbosity, &mut lines);
-            }
-            Some(Error::MissingOutputs(missing_outputs)) => {
-                lines_for_command_missing_outputs(
-                    action,
-                    missing_outputs,
-                    self.verbosity,
-                    &mut lines,
-                );
-            }
-            Some(Error::TimedOut(timed_out)) => {
-                lines_for_command_timed_out(action, timed_out, self.verbosity, &mut lines);
-            }
-            Some(Error::Unknown(error_string)) => {
-                let action_failed = StyledContent::new(
-                    ContentStyle {
-                        foreground_color: Some(Color::White),
-                        attributes: Attribute::Bold.into(),
-                        ..Default::default()
-                    },
-                    "Action Failed:".to_owned(),
-                );
-                let span = Span::new_styled_lossy(action_failed);
-                lines.push(superconsole::line!(span));
-                lines.extend(lines_from_multiline_string(
-                    error_string,
-                    ContentStyle {
-                        foreground_color: Some(Color::DarkRed),
-                        ..Default::default()
-                    },
-                ));
-                lines.push(superconsole::line!(Span::sanitized("")));
+        match action.error.as_ref() {
+            Some(error) => {
+                let display::ActionErrorDisplay {
+                    action_id,
+                    reason,
+                    command,
+                } = display::display_action_error(action, error)?;
+
+                lines.push(superconsole::line!(Span::new_styled_lossy(
+                    StyledContent::new(
+                        ContentStyle {
+                            foreground_color: Some(Color::White),
+                            attributes: Attribute::Bold.into(),
+                            ..Default::default()
+                        },
+                        format!("Action failed: {}", action_id,),
+                    )
+                )));
+
+                lines.push(superconsole::line!(Span::new_styled_lossy(
+                    reason.with(Color::DarkRed)
+                )));
+
+                if let Some(command) = command {
+                    lines_for_command_details(&command, self.verbosity, &mut lines);
+                }
             }
             None => {
                 if !action.success_stderr.is_empty()
@@ -520,84 +509,6 @@ impl EventSubscriber for StatefulSuperConsole {
     }
 }
 
-fn lines_for_command_failed(
-    action: &buck2_data::ActionExecutionEnd,
-    details: &CommandExecutionDetails,
-    verbosity: Verbosity,
-    lines: &mut Vec<Line>,
-) {
-    let action_failed = StyledContent::new(
-        ContentStyle {
-            foreground_color: Some(Color::White),
-            attributes: Attribute::Bold.into(),
-            ..Default::default()
-        },
-        format!("Action Failed for {}:", action_key(action)),
-    );
-    let span = Span::new_styled_lossy(action_failed);
-    lines.push(superconsole::line!(span));
-    lines.push(superconsole::line!(Span::new_styled_lossy(
-        format!(
-            "{} failed with non-zero exit code {}",
-            action_name(action),
-            details.exit_code
-        )
-        .with(Color::DarkRed)
-    )));
-
-    lines_for_command_details(details, verbosity, lines);
-}
-
-fn lines_for_command_missing_outputs(
-    action: &buck2_data::ActionExecutionEnd,
-    missing_outputs: &buck2_data::CommandOutputsMissing,
-    verbosity: Verbosity,
-    lines: &mut Vec<Line>,
-) {
-    let title = StyledContent::new(
-        ContentStyle {
-            foreground_color: Some(Color::White),
-            attributes: Attribute::Bold.into(),
-            ..Default::default()
-        },
-        format!("Action missing outputs for {}:", action_key(action)),
-    );
-    let span = Span::new_styled_lossy(title);
-    lines.push(superconsole::line!(span));
-    lines.push(superconsole::line!(Span::new_styled_lossy(
-        format!("{}: {}", action_name(action), missing_outputs.message).with(Color::DarkRed)
-    )));
-
-    if let Some(command) = &missing_outputs.command {
-        lines_for_command_details(command, verbosity, lines);
-    }
-}
-
-fn lines_for_command_timed_out(
-    action: &buck2_data::ActionExecutionEnd,
-    timed_out: &buck2_data::CommandTimedOut,
-    verbosity: Verbosity,
-    lines: &mut Vec<Line>,
-) {
-    let title = StyledContent::new(
-        ContentStyle {
-            foreground_color: Some(Color::White),
-            attributes: Attribute::Bold.into(),
-            ..Default::default()
-        },
-        format!("Action timed out for: {}", action_key(action)),
-    );
-    let span = Span::new_styled_lossy(title);
-    lines.push(superconsole::line!(span));
-    lines.push(superconsole::line!(Span::new_styled_lossy(
-        format!("{}: {}", action_name(action), timed_out.message).with(Color::DarkRed)
-    )));
-
-    if let Some(command) = &timed_out.command {
-        lines_for_command_details(command, verbosity, lines);
-    }
-}
-
 fn lines_for_command_details(
     command_failed: &CommandExecutionDetails,
     verbosity: Verbosity,
@@ -664,47 +575,6 @@ fn truncate(contents: &str) -> Option<String> {
         ))
     } else {
         None
-    }
-}
-
-fn action_name(end: &buck2_data::ActionExecutionEnd) -> String {
-    match &end.name {
-        Some(name) => match (&name.category, name.identifier.as_ref()) {
-            (category, "") => category.clone(),
-            (category, identifier) => format!("{} {}", category, identifier),
-        },
-        None => "<unnamed>".to_owned(),
-    }
-}
-
-fn action_key(end: &buck2_data::ActionExecutionEnd) -> String {
-    match &end.key {
-        Some(key) => match &key.owner {
-            Some(buck2_data::action_key::Owner::TargetLabel(
-                buck2_data::ConfiguredTargetLabel {
-                    label: Some(label),
-                    configuration: Some(configuration),
-                },
-            )) => format!(
-                "{}:{} ({})#{}",
-                label.package,
-                label.name,
-                configuration.full_name,
-                usize::from_ne_bytes(key.id[..].try_into().expect("should be usize"))
-            ),
-            Some(buck2_data::action_key::Owner::BxlKey(buck2_data::BxlFunctionKey {
-                label: Some(label),
-                args,
-            })) => format!(
-                "{}:{}({})#{}",
-                label.bxl_path,
-                label.name,
-                args.iter().join(","),
-                usize::from_ne_bytes(key.id[..].try_into().expect("should be usize"))
-            ),
-            _ => "unnamed".to_owned(),
-        },
-        None => "unnamed".to_owned(),
     }
 }
 

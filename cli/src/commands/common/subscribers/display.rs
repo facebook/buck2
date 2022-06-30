@@ -9,6 +9,7 @@
 
 // TODO(brasselsprouts): move this onto the original core types and convert in events
 
+use std::borrow::Cow;
 use std::time::Duration;
 
 use anyhow::Context as _;
@@ -307,4 +308,56 @@ pub(crate) fn format_test_result(
     }
 
     Ok(Some(lines))
+}
+
+pub struct ActionErrorDisplay<'a> {
+    pub action_id: String,
+    pub reason: String,
+    pub command: Option<Cow<'a, buck2_data::CommandExecutionDetails>>,
+}
+
+impl<'a> ActionErrorDisplay<'a> {
+    pub fn to_static(self) -> ActionErrorDisplay<'static> {
+        ActionErrorDisplay {
+            action_id: self.action_id,
+            reason: self.reason,
+            command: self.command.map(|c| Cow::Owned(c.into_owned())),
+        }
+    }
+}
+
+pub(crate) fn display_action_error<'a>(
+    action: &'a buck2_data::ActionExecutionEnd,
+    error: &'a buck2_data::action_execution_end::Error,
+) -> anyhow::Result<ActionErrorDisplay<'a>> {
+    use buck2_data::action_execution_end::Error;
+
+    let reason;
+    let mut command = None;
+
+    match error {
+        Error::CommandFailed(command_failed) => {
+            reason = format!(
+                "Command returned non-zero exit code {}",
+                command_failed.exit_code
+            );
+            command = Some(command_failed);
+        }
+        Error::TimedOut(timed_out) => {
+            reason = timed_out.message.clone();
+            command = timed_out.command.as_ref();
+        }
+        Error::MissingOutputs(missing_outputs) => {
+            reason = format!("Required outputs are missing: {}", missing_outputs.message);
+        }
+        Error::Unknown(error_string) => {
+            reason = format!("Internal error: {}", error_string);
+        }
+    }
+
+    Ok(ActionErrorDisplay {
+        action_id: display_action_identity(action.key.as_ref(), action.name.as_ref())?,
+        reason,
+        command: command.map(Cow::Borrowed),
+    })
 }

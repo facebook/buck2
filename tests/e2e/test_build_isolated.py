@@ -477,9 +477,12 @@ async def test_multiple_errors_print_with_simple_console(buck: Buck) -> None:
     assert_occurrences("RE Session: ", e.stderr, 1)
     assert_occurrences_regex("^BUILD FAILED", e.stderr, 1)
 
-    execution_error = "Action {} (bin_false) failed with exit code 1"
+    execution_error = "Action failed: {} (bin_false)"
     assert_occurrences(execution_error.format("root//:foo"), e.stderr, 2)
     assert_occurrences(execution_error.format("root//:bar"), e.stderr, 2)
+
+    exit_code = "Command returned non-zero exit code 1"
+    assert_occurrences(exit_code, e.stderr, 6)
 
     build_error = "Failed to build artifact(s) for '{} (<unspecified>)'"
     assert_occurrences(build_error.format("root//:foo"), e.stderr, 1)
@@ -510,8 +513,11 @@ async def test_multiple_errors_print_with_super_console(buck: Buck) -> None:
     DARK_RED = re.escape("\033[38;5;1m")
     DEFAULT = re.escape("\033[39m")
 
-    execution_error = f"{DARK_RED}bin_false failed with non-zero exit code 1"
+    execution_error = "Action failed: "
     assert_occurrences_regex(execution_error, e.stderr, 3)
+
+    exit_code = "Command returned non-zero exit code 1"
+    assert_occurrences_regex(exit_code, e.stderr, 3)
 
     # These will eventually be red.
     build_error = "Failed to build artifact(s) for '{} (<unspecified>)'"

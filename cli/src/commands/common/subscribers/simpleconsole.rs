@@ -55,47 +55,16 @@ enum TtyMode {
 }
 
 struct ActionError {
-    action_id: String,
-    error: buck2_data::action_execution_end::Error,
+    display: display::ActionErrorDisplay<'static>,
 }
 
 impl ActionError {
     fn print(&self, tty_mode: TtyMode) -> anyhow::Result<()> {
-        match &self.error {
-            buck2_data::action_execution_end::Error::CommandFailed(command_failed) => {
-                echo!(
-                    "Action {} failed with exit code {}",
-                    self.action_id,
-                    command_failed.exit_code,
-                )?;
-                eprint_command_details(command_failed, tty_mode)?;
-            }
-            buck2_data::action_execution_end::Error::MissingOutputs(missing_outputs) => {
-                echo!(
-                    "Action {} missing outputs: {}",
-                    self.action_id,
-                    missing_outputs.message,
-                )?;
-                if let Some(command) = &missing_outputs.command {
-                    eprint_command_details(command, tty_mode)?;
-                }
-            }
-            buck2_data::action_execution_end::Error::TimedOut(timed_out) => {
-                echo!("Action {} timed out: {}", self.action_id, timed_out.message,)?;
-                if let Some(command) = &timed_out.command {
-                    eprint_command_details(command, tty_mode)?;
-                }
-            }
-            buck2_data::action_execution_end::Error::Unknown(message) => {
-                let message = if message.is_empty() {
-                    "no error details available"
-                } else {
-                    message.as_str()
-                };
-                echo!("Action {} failed: {}", self.action_id, message)?;
-            }
+        echo!("Action failed: {}", self.display.action_id)?;
+        echo!("{}", self.display.reason)?;
+        if let Some(command) = &self.display.command {
+            eprint_command_details(command, tty_mode)?;
         }
-
         Ok(())
     }
 }
@@ -438,12 +407,8 @@ impl EventSubscriber for SimpleConsole {
         }
 
         if let Some(error) = &action.error {
-            let action_id =
-                display::display_action_identity(action.key.as_ref(), action.name.as_ref())?;
-
             let action_error = ActionError {
-                action_id,
-                error: error.clone(),
+                display: display::display_action_error(action, error)?.to_static(),
             };
 
             action_error.print(self.tty_mode)?;
