@@ -9,7 +9,6 @@ AppleResourceDestination = enum(
 
 # Defines _where_ resources need to be placed in an `apple_bundle`
 AppleResourceSpec = record(
-    # TODO(T110378104): Add support for `variants`, `codesign_on_copy`
     files = field(["artifact"], []),
     dirs = field(["artifact"], []),
     content_dirs = field(["artifact"], []),
@@ -18,4 +17,5 @@ AppleResourceSpec = record(
     # Map from locale to list of files for that locale, e.g.
     # `{ "ru.lproj" : ["Localizable.strings"] }`
     named_variant_files = field({str.type: ["artifact"]}, {}),
+    codesign_files_on_copy = field(bool.type, False),
 )

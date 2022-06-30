@@ -62,6 +62,7 @@ extra_attributes = {
         "_apple_tools": attr.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
     },
     "apple_resource": {
+        "codesign_on_copy": attr.bool(default = False),
         "content_dirs": attr.list(attr.source(allow_directory = True), default = []),
         "dirs": attr.list(attr.source(allow_directory = True), default = []),
     },

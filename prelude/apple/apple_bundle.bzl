@@ -99,7 +99,14 @@ def _get_dest_subpath_for_variant_file(variant_file: "artifact") -> str.type:
     file_name = paths.basename(variant_file.short_path)
     return paths.join(dir_name, file_name)
 
-def _run_ibtool(ctx: "context", raw_file: "artifact", output: "output_artifact", action_flags: [str.type], target_device: [None, str.type], action_identifier: str.type, output_is_dir: bool.type) -> None:
+def _run_ibtool(
+        ctx: "context",
+        raw_file: "artifact",
+        output: "output_artifact",
+        action_flags: [str.type],
+        target_device: [None, str.type],
+        action_identifier: str.type,
+        output_is_dir: bool.type) -> None:
     # TODO(T110378103): detect and add minimum deployment target automatically
     # TODO(T110378113): add support for ibtool modules (turned on by `ibtool_module_flag` field of `apple_bundle` rule)
 
@@ -138,7 +145,12 @@ def _run_ibtool(ctx: "context", raw_file: "artifact", output: "output_artifact",
 
     ctx.actions.run(command, category = "apple_ibtool", identifier = action_identifier)
 
-def _compile_ui_resource(ctx: "context", raw_file: "artifact", output: "output_artifact", target_device: [None, str.type] = None, output_is_dir: bool.type = False) -> None:
+def _compile_ui_resource(
+        ctx: "context",
+        raw_file: "artifact",
+        output: "output_artifact",
+        target_device: [None, str.type] = None,
+        output_is_dir: bool.type = False) -> None:
     _run_ibtool(
         ctx = ctx,
         raw_file = raw_file,
@@ -149,7 +161,12 @@ def _compile_ui_resource(ctx: "context", raw_file: "artifact", output: "output_a
         output_is_dir = output_is_dir,
     )
 
-def _link_ui_resource(ctx: "context", raw_file: "artifact", output: "output_artifact", target_device: [None, str.type] = None, output_is_dir: bool.type = False) -> None:
+def _link_ui_resource(
+        ctx: "context",
+        raw_file: "artifact",
+        output: "output_artifact",
+        target_device: [None, str.type] = None,
+        output_is_dir: bool.type = False) -> None:
     _run_ibtool(
         ctx = ctx,
         raw_file = raw_file,
@@ -160,7 +177,12 @@ def _link_ui_resource(ctx: "context", raw_file: "artifact", output: "output_arti
         output_is_dir = output_is_dir,
     )
 
-def _process_apple_resource_file_if_needed(ctx: "context", file: "artifact", destination: AppleBundleDestination.type, destination_relative_path: [str.type, None]) -> AppleBundlePart.type:
+def _process_apple_resource_file_if_needed(
+        ctx: "context",
+        file: "artifact",
+        destination: AppleBundleDestination.type,
+        destination_relative_path: [str.type, None],
+        codesign_on_copy: bool.type = False) -> AppleBundlePart.type:
     output_dir = "_ProcessedResources"
     basename = paths.basename(file.short_path)
     output_is_contents_dir = False
@@ -191,7 +213,7 @@ def _process_apple_resource_file_if_needed(ctx: "context", file: "artifact", des
     # When name is empty string only content of the directory will be copied, as opposed to the directory itself.
     # When name is `None`, directory or file will be copied as it is, without renaming.
     new_name = destination_relative_path if destination_relative_path else ("" if output_is_contents_dir else None)
-    return AppleBundlePart(source = processed, destination = destination, new_name = new_name)
+    return AppleBundlePart(source = processed, destination = destination, new_name = new_name, codesign_on_copy = codesign_on_copy)
 
 def _bundle_parts_for_dirs(generated_dirs: ["artifact"], destination: AppleBundleDestination.type, copy_contents_only: bool.type) -> [AppleBundlePart.type]:
     return [AppleBundlePart(
@@ -207,14 +229,24 @@ def _bundle_parts_for_variant_files(ctx: "context", spec: AppleResourceSpec.type
     bundle_destination = AppleBundleDestination("resources")
     for variant_file in spec.variant_files:
         variant_dest_subpath = _get_dest_subpath_for_variant_file(variant_file)
-        bundle_part = _process_apple_resource_file_if_needed(ctx, variant_file, bundle_destination, variant_dest_subpath)
+        bundle_part = _process_apple_resource_file_if_needed(
+            ctx = ctx,
+            file = variant_file,
+            destination = bundle_destination,
+            destination_relative_path = variant_dest_subpath,
+        )
         result.append(bundle_part)
 
     for locale, variant_files in spec.named_variant_files.items():
         if not locale.endswith(".lproj"):
             fail("Keys for named variant files have to end with '.lproj' suffix, got {}".format(locale))
         result += [
-            _process_apple_resource_file_if_needed(ctx, variant_file, bundle_destination, paths.join(locale, paths.basename(variant_file.short_path)))
+            _process_apple_resource_file_if_needed(
+                ctx = ctx,
+                file = variant_file,
+                destination = bundle_destination,
+                destination_relative_path = paths.join(locale, paths.basename(variant_file.short_path)),
+            )
             for variant_file in variant_files
         ]
 
@@ -225,7 +257,13 @@ def _copy_resources(ctx: "context", specs: [AppleResourceSpec.type]) -> [AppleBu
 
     for spec in specs:
         bundle_destination = apple_bundle_destination_from_resource_destination(spec.destination)
-        result += [_process_apple_resource_file_if_needed(ctx, x, bundle_destination, None) for x in spec.files]
+        result += [_process_apple_resource_file_if_needed(
+            ctx = ctx,
+            file = x,
+            destination = bundle_destination,
+            destination_relative_path = None,
+            codesign_on_copy = spec.codesign_files_on_copy,
+        ) for x in spec.files]
         result += _bundle_parts_for_dirs(spec.dirs, bundle_destination, False)
         result += _bundle_parts_for_dirs(spec.content_dirs, bundle_destination, True)
         result += _bundle_parts_for_variant_files(ctx, spec)

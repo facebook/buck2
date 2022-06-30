@@ -10,6 +10,7 @@ def apple_resource_impl(ctx: "context") -> ["provider"]:
         destination = AppleResourceDestination(destination),
         variant_files = ctx.attr.variants or [],
         named_variant_files = ctx.attr.named_variants or {},
+        codesign_files_on_copy = ctx.attr.codesign_on_copy,
     )
     graph = create_resource_graph(
         root = ctx.label,
