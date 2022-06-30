@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePath;
@@ -148,7 +149,7 @@ impl IoProvider for EdenIoProvider {
 
     async fn read_path_metadata_if_exists(
         &self,
-        cell_root: ProjectRelativePathBuf,
+        cell_root: CellRootPathBuf,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<PathMetadata>> {
         let requested_attributes =

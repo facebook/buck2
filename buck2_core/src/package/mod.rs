@@ -174,6 +174,7 @@ impl CellResolver {
     /// use buck2_core::package::Package;
     /// use gazebo::file;
     /// use std::convert::TryFrom;
+    /// use buck2_core::cells::cell_root_path::CellRootPathBuf;
     /// use buck2_core::cells::paths::CellRelativePath;
     ///
     /// let temp = tempfile::tempdir()?;
@@ -188,7 +189,8 @@ impl CellResolver {
     ///     "mycell=.\n",
     /// )?;
     ///
-    /// let cells = CellsConfigParser::parse_cells_from_path(cell_path.to_buf(), &fs, &cell_config)?;
+    /// let cells = CellsConfigParser::parse_cells_from_path(
+    ///     CellRootPathBuf::new(cell_path.to_buf()), &fs, &cell_config)?;
     ///
     /// let pkg = Package::new(
     ///     &CellName::unchecked_new("mycell".into()),

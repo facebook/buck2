@@ -81,6 +81,7 @@
 //! use buck2_core::fs::paths::{ForwardRelativePathBuf, AbsPathBuf};
 //! use buck2_core::cells::{CellsConfigParser, CellResolver, CellName};
 //! use std::convert::TryFrom;
+//! use buck2_core::cells::cell_root_path::CellRootPathBuf;
 //!
 //! let temp_dir = tempfile::tempdir()?;
 //! let temp_dir = AbsPathBuf::try_from(temp_dir.path().to_owned())?;
@@ -100,7 +101,7 @@
 //! # );
 //!
 //! let cells = CellsConfigParser::parse_cells_from_path(
-//!     ProjectRelativePathBuf::try_from("".to_owned())?,
+//!     CellRootPathBuf::new(ProjectRelativePathBuf::try_from("".to_owned())?),
 //!     &fs,
 //!     &cell_config
 //! )?;
@@ -132,6 +133,7 @@
 
 pub mod build_file_cell;
 pub mod cell_path;
+pub mod cell_root_path;
 pub mod paths;
 
 use std::borrow::Borrow;
@@ -157,6 +159,8 @@ use sequence_trie::SequenceTrie;
 use thiserror::Error;
 
 use crate::cells::cell_path::CellPath;
+use crate::cells::cell_root_path::CellRootPath;
+use crate::cells::cell_root_path::CellRootPathBuf;
 use crate::fs::paths::AbsPath;
 use crate::fs::paths::AbsPathBuf;
 use crate::fs::paths::FileNameBuf;
@@ -170,9 +174,9 @@ use crate::fs::project::ProjectRelativePathBuf;
 #[derive(Error, Debug)]
 pub enum CellError {
     #[error("Cell paths `{1}` and `{2}` had the same alias `{0}`.")]
-    DuplicateAliases(CellAlias, ProjectRelativePathBuf, ProjectRelativePathBuf),
+    DuplicateAliases(CellAlias, CellRootPathBuf, CellRootPathBuf),
     #[error("Cell paths `{1}` and `{2}` had the same cell name `{0}`.")]
-    DuplicateNames(CellName, ProjectRelativePathBuf, ProjectRelativePathBuf),
+    DuplicateNames(CellName, CellRootPathBuf, CellRootPathBuf),
     #[error("cannot find the cell at current path `{0}`. Known roots are `<{}>`", .1.join(", "))]
     UnknownCellPath(ProjectRelativePathBuf, Vec<String>),
     #[error("unknown cell alias: `{0}`. known aliases are: `{}`", .1.iter().join(", "))]
@@ -283,7 +287,7 @@ struct CellData {
     /// the fully canonicalized 'CellName'
     name: CellName,
     /// the project relative path to this 'CellInstance'
-    path: ProjectRelativePathBuf,
+    path: CellRootPathBuf,
     /// a list of potential buildfile names for this cell (e.g. 'BUCK', 'TARGETS',
     /// 'TARGET.v2'). The candidates are listed in priority order, buck will use
     /// the first one it encounters in a directory.
@@ -296,7 +300,7 @@ struct CellData {
 impl CellInstance {
     fn new(
         name: CellName,
-        path: ProjectRelativePathBuf,
+        path: CellRootPathBuf,
         buildfiles: Vec<FileNameBuf>,
         aliases: CellAliasResolver,
     ) -> CellInstance {
@@ -314,7 +318,7 @@ impl CellInstance {
     }
 
     /// Get the path of the cell, where it is routed.
-    pub fn path(&self) -> &ProjectRelativePath {
+    pub fn path(&self) -> &CellRootPath {
         &self.0.path
     }
 
@@ -404,7 +408,7 @@ impl CellResolver {
         let path = path.as_ref();
         let cell = self.find(path)?;
         let instance = self.get(cell)?;
-        let relative = path.strip_prefix(instance.path())?;
+        let relative = path.strip_prefix(instance.path().project_relative_path())?;
         Ok(CellPath::new(cell.clone(), relative.to_owned().into()))
     }
 
@@ -448,7 +452,7 @@ impl CellResolver {
 
         let resolved_cell_name = context_cell.cell_alias_resolver().resolve(cell_alias)?;
         let cell = self.get(resolved_cell_name)?;
-        let cell_absolute_path = project_filesystem.resolve(cell.path());
+        let cell_absolute_path = project_filesystem.resolve(cell.path().project_relative_path());
         cell_absolute_path.join_normalized(cell_relative_path)
     }
 
@@ -462,7 +466,8 @@ impl CellResolver {
     /// use gazebo::file;
     /// use std::convert::TryFrom;
     /// use buck2_core::cells::cell_path::CellPath;
-    /// use buck2_core::cells::paths::{ CellRelativePathBuf};
+    /// use buck2_core::cells::cell_root_path::CellRootPathBuf;
+    /// use buck2_core::cells::paths::CellRelativePathBuf;
     ///
     /// let temp = tempfile::tempdir()?;
     /// let fs = ProjectFilesystem::new(
@@ -476,7 +481,8 @@ impl CellResolver {
     ///     "mycell=.\n",
     /// )?;
     ///
-    /// let cells = CellsConfigParser::parse_cells_from_path(cell_path.to_buf(), &fs, &cell_config)?;
+    /// let cells = CellsConfigParser::parse_cells_from_path(
+    ///     CellRootPathBuf::new(cell_path.to_buf()), &fs, &cell_config)?;
     ///
     /// let cell_path = CellPath::new(
     ///     CellName::unchecked_new("mycell".into()),
@@ -490,10 +496,7 @@ impl CellResolver {
     /// # anyhow::Ok(())
     /// ```
     pub fn resolve_path(&self, cell_path: &CellPath) -> anyhow::Result<ProjectRelativePathBuf> {
-        Ok(self
-            .get(cell_path.cell())?
-            .path()
-            .join_unnormalized(cell_path.path()))
+        Ok(self.get(cell_path.cell())?.path().join(cell_path.path()))
     }
 }
 
@@ -513,7 +516,7 @@ impl CellsConfigParser {
                 root.clone() =>
                 CellInstance::new(
                     root.clone(),
-                    ProjectRelativePathBuf::try_from("".to_owned())?,
+                    CellRootPathBuf::new(ProjectRelativePathBuf::try_from("".to_owned())?),
                     default_buildfiles(),
                     aliases,
                 )
@@ -534,7 +537,7 @@ impl CellsConfigParser {
     /// Create a cell map from a config file located at the given `path` for the
     /// current project filesystem `fs`.
     pub fn parse_cells_from_path(
-        path: ProjectRelativePathBuf,
+        path: CellRootPathBuf,
         fs: &ProjectFilesystem,
         config_file: &ForwardRelativePath,
     ) -> anyhow::Result<CellResolver> {
@@ -569,6 +572,8 @@ impl CellsConfigParser {
                         format!("expected path to be a relative path, but found `{}`", right)
                     })?;
 
+                let path = CellRootPathBuf::new(path);
+
                 aggregator.add_cell_alias_entry(to_parse.clone(), alias, path.clone())?;
 
                 if scheduled.insert(path.clone()) {
@@ -584,7 +589,7 @@ impl CellsConfigParser {
 /// Aggregates cell information as we parse cell configs and keeps state to
 /// generate a final 'CellResolver'
 pub struct CellsAggregator {
-    cell_infos: HashMap<ProjectRelativePathBuf, CellAggregatorInfo>,
+    cell_infos: HashMap<CellRootPathBuf, CellAggregatorInfo>,
 }
 
 fn default_buildfiles() -> Vec<FileNameBuf> {
@@ -594,7 +599,7 @@ fn default_buildfiles() -> Vec<FileNameBuf> {
 #[derive(Default)]
 struct CellAggregatorInfo {
     all_aliases: BTreeSet<String>,
-    alias_mapping: HashMap<CellAlias, ProjectRelativePathBuf>,
+    alias_mapping: HashMap<CellAlias, CellRootPathBuf>,
     /// The build file name in this if it's been set. If it hasn't we'll use the
     /// default `["BUCK.v2", "BUCK"]` when building the resolver.
     buildfiles: Option<Vec<FileNameBuf>>,
@@ -607,7 +612,7 @@ impl CellsAggregator {
         }
     }
 
-    fn cell_info(&mut self, cell_path: ProjectRelativePathBuf) -> &mut CellAggregatorInfo {
+    fn cell_info(&mut self, cell_path: CellRootPathBuf) -> &mut CellAggregatorInfo {
         self.cell_infos
             .entry(cell_path)
             .or_insert_with(CellAggregatorInfo::default)
@@ -616,9 +621,9 @@ impl CellsAggregator {
     /// Adds a cell alias configuration entry
     pub fn add_cell_alias_entry(
         &mut self,
-        cell_root: ProjectRelativePathBuf,
+        cell_root: CellRootPathBuf,
         parsed_alias: CellAlias,
-        alias_path: ProjectRelativePathBuf,
+        alias_path: CellRootPathBuf,
     ) -> anyhow::Result<()> {
         self.cell_info(alias_path.clone())
             .all_aliases
@@ -641,25 +646,21 @@ impl CellsAggregator {
         Ok(())
     }
 
-    pub fn set_buildfiles(
-        &mut self,
-        cell_root: ProjectRelativePathBuf,
-        buildfiles: Vec<FileNameBuf>,
-    ) {
+    pub fn set_buildfiles(&mut self, cell_root: CellRootPathBuf, buildfiles: Vec<FileNameBuf>) {
         let mut cell_info = self.cell_info(cell_root);
         cell_info.buildfiles = Some(buildfiles);
     }
 
     /// for now, the global cell-name is the first alias in lexicographic sorted
     /// order of all the aliases for a particular cell path
-    fn get_cell_name_from_path(&self, path: &ProjectRelativePath) -> anyhow::Result<CellName> {
+    fn get_cell_name_from_path(&self, path: &CellRootPath) -> anyhow::Result<CellName> {
         self.cell_infos
             .get(path)
             .and_then(|info| info.all_aliases.first())
             .map(|alias| CellName::unchecked_new(alias.clone()))
             .ok_or_else(|| {
                 anyhow!(CellError::UnknownCellPath(
-                    path.to_buf(),
+                    path.project_relative_path().to_buf(),
                     self.cell_infos
                         .keys()
                         .map(|p| p.as_str().to_owned())
@@ -719,21 +720,20 @@ pub mod testing {
     use sequence_trie::SequenceTrie;
 
     use super::default_buildfiles;
+    use crate::cells::cell_root_path::CellRootPathBuf;
     use crate::cells::CellAliasResolver;
     use crate::cells::CellInstance;
     use crate::cells::CellName;
     use crate::cells::CellResolver;
-    use crate::fs::project::ProjectRelativePathBuf;
-
     pub trait CellResolverExt {
         /// Creates a new 'CellResolver' based on the given iterator of (cell
         /// name, cell path). The 'CellAliasResolver' of each cell is
         /// empty. i.e. no aliases are defined for any of the cells.
-        fn of_names_and_paths(cells: &[(CellName, ProjectRelativePathBuf)]) -> CellResolver;
+        fn of_names_and_paths(cells: &[(CellName, CellRootPathBuf)]) -> CellResolver;
     }
 
     impl CellResolverExt for CellResolver {
-        fn of_names_and_paths(cells: &[(CellName, ProjectRelativePathBuf)]) -> CellResolver {
+        fn of_names_and_paths(cells: &[(CellName, CellRootPathBuf)]) -> CellResolver {
             let mut cell_mappings = HashMap::new();
             let mut path_mappings = SequenceTrie::new();
 
@@ -758,16 +758,16 @@ pub mod testing {
     #[cfg(test)]
     #[test]
     fn test_of_names_and_paths() -> anyhow::Result<()> {
-        use crate::fs::project::ProjectRelativePath;
+        use crate::fs::project::ProjectRelativePathBuf;
 
         let cell_resolver = CellResolver::of_names_and_paths(&[(
             CellName::unchecked_new("foo".into()),
-            ProjectRelativePathBuf::unchecked_new("bar".into()),
+            CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("bar".into())),
         )]);
 
         let cell = cell_resolver.get(&CellName::unchecked_new("foo".into()))?;
         assert_eq!(&CellName::unchecked_new("foo".into()), cell.name());
-        assert_eq!(ProjectRelativePath::new("bar")?, cell.path());
+        assert_eq!("bar", cell.path().as_str());
 
         Ok(())
     }
@@ -786,9 +786,9 @@ mod tests {
         let fs = ProjectFilesystemTemp::new()?;
 
         let cell_config = ForwardRelativePathBuf::unchecked_new("myconfig".into());
-        let cell1_path = ProjectRelativePath::new("my/cell1")?;
-        let cell2_path = ProjectRelativePath::new("cell2")?;
-        let cell3_path = ProjectRelativePath::new("my/cell3")?;
+        let cell1_path = CellRootPath::new(ProjectRelativePath::new("my/cell1")?);
+        let cell2_path = CellRootPath::new(ProjectRelativePath::new("cell2")?);
+        let cell3_path = CellRootPath::new(ProjectRelativePath::new("my/cell3")?);
 
         file::create_dirs_and_write(
             fs.path()
@@ -943,7 +943,7 @@ mod tests {
 
         assert_eq!(
             CellsConfigParser::parse_cells_from_path(
-                ProjectRelativePathBuf::unchecked_new("".into()),
+                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".into())),
                 fs.path(),
                 &config_path
             )
@@ -956,7 +956,7 @@ mod tests {
 
         assert_eq!(
             CellsConfigParser::parse_cells_from_path(
-                ProjectRelativePathBuf::unchecked_new("".into()),
+                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".into())),
                 fs.path(),
                 &config_path
             )
@@ -969,7 +969,7 @@ mod tests {
 
         assert_eq!(
             CellsConfigParser::parse_cells_from_path(
-                ProjectRelativePathBuf::unchecked_new("".into()),
+                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".into())),
                 fs.path(),
                 &config_path
             )

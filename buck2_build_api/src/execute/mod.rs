@@ -590,6 +590,7 @@ mod tests {
     use async_trait::async_trait;
     use buck2_core::buck_path::BuckPath;
     use buck2_core::category::Category;
+    use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::paths::CellRelativePath;
     use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellName;
@@ -651,7 +652,7 @@ mod tests {
     async fn can_execute_some_action() {
         let cells = CellResolver::of_names_and_paths(&[(
             CellName::unchecked_new("cell".into()),
-            ProjectRelativePathBuf::unchecked_new("cell_path".into()),
+            CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
         )]);
 
         let temp_fs = ProjectFilesystemTemp::new().unwrap();

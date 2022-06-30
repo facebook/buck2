@@ -71,14 +71,21 @@ impl AuditSubcommand for AuditCellCommand {
                         .map(|(alias, cell_name)| {
                             (
                                 alias.to_string(),
-                                fs.resolve(cells.get(cell_name).unwrap().path()),
+                                fs.resolve(
+                                    cells.get(cell_name).unwrap().path().project_relative_path(),
+                                ),
                             )
                         })
                         .collect()
                 } else {
                     cells
                         .cells()
-                        .map(|(name, cell)| (name.as_str().to_owned(), fs.resolve(cell.path())))
+                        .map(|(name, cell)| {
+                            (
+                                name.as_str().to_owned(),
+                                fs.resolve(cell.path().project_relative_path()),
+                            )
+                        })
                         .collect()
                 }
             } else {
@@ -95,7 +102,8 @@ impl AuditSubcommand for AuditCellCommand {
                                             .resolve(&CellAlias::new(alias.to_owned()))?,
                                     )
                                     .unwrap()
-                                    .path(),
+                                    .path()
+                                    .project_relative_path(),
                             ),
                         ))
                     })

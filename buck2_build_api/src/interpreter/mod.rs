@@ -27,6 +27,7 @@ pub mod testing {
     use buck2_core::bzl::ImportPath;
     use buck2_core::cells::build_file_cell::BuildFileCell;
     use buck2_core::cells::cell_path::CellPath;
+    use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::*;
     use buck2_core::fs::paths::*;
     use buck2_core::fs::project::ProjectRelativePathBuf;
@@ -145,9 +146,9 @@ pub mod testing {
     pub fn cells(extra_root_config: Option<&str>) -> anyhow::Result<CellsData> {
         let mut agg = CellsAggregator::new();
         agg.add_cell_alias_entry(
-            ProjectRelativePathBuf::try_from("".to_owned())?,
+            CellRootPathBuf::new(ProjectRelativePathBuf::try_from("".to_owned())?),
             CellAlias::new("root".to_owned()),
-            ProjectRelativePathBuf::try_from("".to_owned())?,
+            CellRootPathBuf::new(ProjectRelativePathBuf::try_from("".to_owned())?),
         )?;
         let resolver = agg.make_cell_resolver()?;
         let root_path = if cfg!(windows) {

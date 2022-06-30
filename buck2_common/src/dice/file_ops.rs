@@ -12,9 +12,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
-use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::result::SharedResult;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -118,14 +118,8 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
                 .check(path.path()))
         }
 
-        fn resolve(&self, path: &CellPath) -> anyhow::Result<ProjectRelativePathBuf> {
-            let project_path = self
-                .cells
-                .get(path.cell())
-                .unwrap()
-                .path()
-                .join_unnormalized(path.path());
-            Ok(project_path)
+        fn resolve_cell_root(&self, cell: &CellName) -> anyhow::Result<CellRootPathBuf> {
+            Ok(self.cells.get(cell).unwrap().path().to_buf())
         }
 
         fn io_provider(&self) -> &dyn IoProvider {

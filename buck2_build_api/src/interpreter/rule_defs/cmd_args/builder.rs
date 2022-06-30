@@ -162,6 +162,7 @@ impl CommandLineBuilder for AbsCommandLineBuilder<'_> {
 mod tests {
     use std::convert::TryFrom;
 
+    use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellName;
     use buck2_core::cells::CellResolver;
@@ -184,7 +185,7 @@ mod tests {
         let fs = ArtifactFs::new(
             BuckPathResolver::new(CellResolver::of_names_and_paths(&[(
                 CellName::unchecked_new("cell".into()),
-                ProjectRelativePathBuf::unchecked_new("cell_path".into()),
+                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
             )])),
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out".into())),
             project_fs,

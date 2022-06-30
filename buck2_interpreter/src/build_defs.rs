@@ -138,6 +138,7 @@ mod tests {
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::bzl::ImportPath;
     use buck2_core::cells::build_file_cell::BuildFileCell;
+    use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::CellAlias;
     use buck2_core::cells::CellAliasResolver;
     use buck2_core::cells::CellName;
@@ -167,9 +168,9 @@ mod tests {
     fn cells() -> anyhow::Result<(CellAliasResolver, CellResolver, LegacyBuckConfigs)> {
         let mut agg = CellsAggregator::new();
         agg.add_cell_alias_entry(
-            ProjectRelativePathBuf::try_from("".to_owned())?,
+            CellRootPathBuf::new(ProjectRelativePathBuf::try_from("".to_owned())?),
             CellAlias::new("root".to_owned()),
-            ProjectRelativePathBuf::try_from("".to_owned())?,
+            CellRootPathBuf::new(ProjectRelativePathBuf::try_from("".to_owned())?),
         )?;
         let resolver = agg.make_cell_resolver()?;
         let repo_root = if cfg!(windows) { "C:/root" } else { "/root" };

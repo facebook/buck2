@@ -588,6 +588,7 @@ mod tests {
 
     use assert_matches::assert_matches;
     use buck2_core::buck_path::BuckPath;
+    use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellName;
     use buck2_core::cells::CellResolver;
@@ -676,7 +677,7 @@ mod tests {
         let fs = ArtifactFs::new(
             BuckPathResolver::new(CellResolver::of_names_and_paths(&[(
                 CellName::unchecked_new("cell".into()),
-                ProjectRelativePathBuf::unchecked_new("cell_path".into()),
+                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
             )])),
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out".into())),
             project_fs,
@@ -720,7 +721,7 @@ mod tests {
         let fs = ArtifactFs::new(
             BuckPathResolver::new(CellResolver::of_names_and_paths(&[(
                 CellName::unchecked_new("cell".into()),
-                ProjectRelativePathBuf::unchecked_new("cell_path".into()),
+                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
             )])),
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out".into())),
             project_fs.clone(),

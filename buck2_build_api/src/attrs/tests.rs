@@ -10,6 +10,7 @@ use std::convert::TryFrom;
 
 use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
+use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::testing::CellResolverExt;
 use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
@@ -812,7 +813,7 @@ fn test_user_placeholders() -> anyhow::Result<()> {
             let fs = ArtifactFs::new(
                 BuckPathResolver::new(CellResolver::of_names_and_paths(&[(
                     CellName::unchecked_new("cell".into()),
-                    ProjectRelativePathBuf::unchecked_new("cell_path".into()),
+                    CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
                 )])),
                 BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(
                     "buck_out/v2".into(),

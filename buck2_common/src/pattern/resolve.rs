@@ -91,6 +91,7 @@ mod tests {
     use std::marker::PhantomData;
     use std::sync::Arc;
 
+    use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::CellAlias;
     use buck2_core::cells::CellName;
     use buck2_core::cells::CellResolver;
@@ -132,9 +133,13 @@ mod tests {
                 for (_, path) in cells {
                     for (alias, alias_path) in &cell_paths {
                         agg.add_cell_alias_entry(
-                            ProjectRelativePathBuf::try_from((*path).to_owned())?,
+                            CellRootPathBuf::new(ProjectRelativePathBuf::try_from(
+                                (*path).to_owned(),
+                            )?),
                             CellAlias::new((*alias).to_owned()),
-                            ProjectRelativePathBuf::try_from((*alias_path).to_owned())?,
+                            CellRootPathBuf::new(ProjectRelativePathBuf::try_from(
+                                (*alias_path).to_owned(),
+                            )?),
                         )?;
                     }
                 }

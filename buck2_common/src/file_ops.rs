@@ -23,11 +23,12 @@ use std::time::SystemTime;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_root_path::CellRootPath;
+use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellName;
 use buck2_core::fs::paths::FileNameBuf;
-use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::result::SharedResult;
 use derive_more::Display;
@@ -414,7 +415,13 @@ impl PartialEq for dyn FileOps {
 
 pub trait DefaultFileOpsDelegate: PartialEq + Send + Sync + 'static {
     fn check_ignored(&self, path: &CellPath) -> anyhow::Result<FileIgnoreResult>;
-    fn resolve(&self, path: &CellPath) -> anyhow::Result<ProjectRelativePathBuf>;
+    fn resolve_cell_root(&self, cell: &CellName) -> anyhow::Result<CellRootPathBuf>;
+    fn resolve(&self, path: &CellPath) -> anyhow::Result<ProjectRelativePathBuf> {
+        let cell_root = self.resolve_cell_root(path.cell())?;
+        Ok(cell_root
+            .project_relative_path()
+            .join_unnormalized(path.path()))
+    }
     fn io_provider(&self) -> &dyn IoProvider;
 }
 
@@ -469,10 +476,7 @@ impl<T: DefaultFileOpsDelegate> FileOps for T {
         path: &CellPath,
     ) -> SharedResult<Option<PathMetadata>> {
         let project_path = self.resolve(path)?;
-        let cell_project_path = self.resolve(&CellPath::new(
-            path.cell().clone(),
-            CellRelativePathBuf::unchecked_new("".to_owned()),
-        ))?;
+        let cell_project_path = self.resolve_cell_root(path.cell())?;
 
         let res = self
             .io_provider()
@@ -596,8 +600,8 @@ impl IgnoreSet {
     /// `some/cell/deeper`, this would construct an IgnoreSet to ignore `deeper/**`
     /// (note that these ignores are expected to receive cell-relative paths.)
     fn from_cell_roots(
-        all_cells: &[(&CellName, &ProjectRelativePath)],
-        this_cell: &ProjectRelativePath,
+        all_cells: &[(&CellName, &CellRootPath)],
+        this_cell: &CellRootPath,
     ) -> anyhow::Result<Self> {
         let mut cells_builder = GlobSetBuilder::new();
         let mut cell_names = Vec::new();
@@ -651,8 +655,8 @@ impl FileIgnores {
     /// This will ignore files/dirs in the ignore spec and those in other cells.
     pub fn new_for_interpreter(
         ignore_spec: &str,
-        all_cells: &[(&CellName, &ProjectRelativePath)],
-        this_cell: &ProjectRelativePath,
+        all_cells: &[(&CellName, &CellRootPath)],
+        this_cell: &CellRootPath,
     ) -> anyhow::Result<FileIgnores> {
         Ok(FileIgnores {
             ignores: IgnoreSet::from_ignore_spec(ignore_spec)?,
@@ -853,6 +857,8 @@ pub mod testing {
 mod tests {
     use std::collections::hash_map::DefaultHasher;
 
+    use buck2_core::fs::project::ProjectRelativePath;
+
     use super::*;
 
     #[test]
@@ -860,21 +866,21 @@ mod tests {
         let cells = &[
             (
                 &CellName::unchecked_new("root".to_owned()),
-                ProjectRelativePath::unchecked_new("root"),
+                CellRootPath::new(ProjectRelativePath::unchecked_new("root")),
             ),
             (
                 &CellName::unchecked_new("other".to_owned()),
-                ProjectRelativePath::unchecked_new("root/other_cell"),
+                CellRootPath::new(ProjectRelativePath::unchecked_new("root/other_cell")),
             ),
             (
                 &CellName::unchecked_new("third".to_owned()),
-                ProjectRelativePath::unchecked_new("third"),
+                CellRootPath::new(ProjectRelativePath::unchecked_new("third")),
             ),
         ];
         let ignores = FileIgnores::new_for_interpreter(
             "**/*.java , some/dir/**, one/*, \n    recursive, trailing_slash/",
             cells,
-            ProjectRelativePath::unchecked_new("root"),
+            CellRootPath::new(ProjectRelativePath::unchecked_new("root")),
         )?;
 
         assert_eq!(

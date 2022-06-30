@@ -14,6 +14,7 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core;
+use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::fs::anyhow as fs;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::project::ProjectFilesystem;
@@ -102,10 +103,10 @@ impl IoProvider for FsIoProvider {
 
     async fn read_path_metadata_if_exists(
         &self,
-        cell_root: ProjectRelativePathBuf,
+        cell_root: CellRootPathBuf,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<PathMetadata>> {
-        let cell_root = self.fs.resolve(&cell_root);
+        let cell_root = self.fs.resolve(cell_root.project_relative_path());
         let path = self.fs.resolve(&path);
 
         tokio::task::spawn_blocking(move || {

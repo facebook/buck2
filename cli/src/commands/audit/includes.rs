@@ -208,7 +208,7 @@ fn resolve_path(
     } else {
         // otherwise, to match buck1 it is treated as relative to the working dir cell root (not the working dir).
         // the easiest way to consistently handle non-forward relative paths is to just resolve to absolute here.
-        fs.resolve(current_cell.path())
+        fs.resolve(current_cell.path().project_relative_path())
             .join_normalized(RelativePath::from_path(as_path)?)?
     };
 

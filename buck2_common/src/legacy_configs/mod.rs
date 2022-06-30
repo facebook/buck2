@@ -26,6 +26,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use anyhow::Context;
+use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::CellAlias;
 use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
@@ -1253,7 +1254,9 @@ impl BuckConfigBasedCells {
         options: BuckConfigParseOptions,
     ) -> anyhow::Result<Self> {
         let mut buckconfigs = HashMap::new();
-        let mut work = vec![ProjectRelativePathBuf::try_from("".to_owned())?];
+        let mut work = vec![CellRootPathBuf::new(ProjectRelativePathBuf::try_from(
+            "".to_owned(),
+        )?)];
         let mut cells_aggregator = CellsAggregator::new();
         let mut root_aliases = HashMap::new();
 
@@ -1372,6 +1375,7 @@ impl BuckConfigBasedCells {
                                 path
                             )
                         })?;
+                    let alias_path = CellRootPathBuf::new(alias_path);
                     let alias = CellAlias::new(alias.to_owned());
                     if path.as_str() == "" {
                         root_aliases.insert(alias.clone(), alias_path.clone());
@@ -1407,7 +1411,15 @@ impl BuckConfigBasedCells {
         let cell_resolver = cells_aggregator.make_cell_resolver()?;
         let configs_by_name = buckconfigs
             .into_iter()
-            .map(|(path, config)| (cell_resolver.find(&path).unwrap().clone(), config))
+            .map(|(path, config)| {
+                (
+                    cell_resolver
+                        .find(path.project_relative_path())
+                        .unwrap()
+                        .clone(),
+                    config,
+                )
+            })
             .collect();
 
         Ok(Self {
@@ -1936,9 +1948,9 @@ mod tests {
                 .as_str()
         );
 
-        assert_eq!("", root_instance.path());
-        assert_eq!("other", other_instance.path());
-        assert_eq!("third_party", tp_instance.path());
+        assert_eq!("", root_instance.path().as_str());
+        assert_eq!("other", other_instance.path().as_str());
+        assert_eq!("third_party", tp_instance.path().as_str());
 
         Ok(())
     }

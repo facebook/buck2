@@ -429,6 +429,7 @@ mod tests {
 
     use buck2_core::buck_path::BuckPath;
     use buck2_core::category::Category;
+    use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::paths::CellRelativePath;
     use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellName;
@@ -453,7 +454,7 @@ mod tests {
     fn buck_path_resolves() -> anyhow::Result<()> {
         let cell_resolver = CellResolver::of_names_and_paths(&[(
             CellName::unchecked_new("foo".into()),
-            ProjectRelativePathBuf::unchecked_new("bar-cell".into()),
+            CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("bar-cell".into())),
         )]);
         let path_resolver = BuckPathResolver::new(cell_resolver);
 

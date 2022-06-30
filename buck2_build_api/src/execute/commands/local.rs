@@ -942,6 +942,7 @@ mod tests {
     use std::sync::Arc;
     use std::time::Instant;
 
+    use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellName;
     use buck2_core::cells::CellResolver;
@@ -1073,7 +1074,7 @@ mod tests {
         ArtifactFs::new(
             BuckPathResolver::new(CellResolver::of_names_and_paths(&[(
                 CellName::unchecked_new("cell".into()),
-                ProjectRelativePathBuf::unchecked_new("cell_path".into()),
+                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
             )])),
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out/v2".into())),
             project_fs,

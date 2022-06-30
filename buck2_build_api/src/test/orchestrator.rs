@@ -19,6 +19,7 @@ use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_core::category::Category;
+use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_core::fs::paths::RelativePathBuf;
@@ -572,13 +573,13 @@ impl BuckTestOrchestrator {
                 .context("Test executable only supports ExternalRunnerTestInfo providers")?;
 
             cwd = if test_info.run_from_project_root() || opts.force_run_from_project_root {
-                ProjectRelativePathBuf::unchecked_new("".to_owned())
+                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".to_owned()))
             } else {
                 supports_re = false;
                 // For compatibility with v1,
                 let cell_resolver = self.dice.get_cell_resolver().await?;
                 let cell = cell_resolver.get(test_target.target().pkg().cell_name())?;
-                cell.path().to_owned()
+                cell.path().to_buf()
             };
 
             let resolved_executor_override = match executor_override.as_ref() {
@@ -637,7 +638,7 @@ impl BuckTestOrchestrator {
         }
 
         Ok(ExpandedTestExecutable {
-            cwd,
+            cwd: cwd.project_relative_path().to_buf(),
             cmd: expanded_cmd,
             env: expanded_env,
             inputs,
@@ -958,7 +959,7 @@ mod tests {
 
         let cell_resolver = CellResolver::of_names_and_paths(&[(
             CellName::unchecked_new("cell".to_owned()),
-            ProjectRelativePathBuf::unchecked_new("cell".to_owned()),
+            CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell".to_owned())),
         )]);
         let buckout_path = ForwardRelativePathBuf::unchecked_new("buck_out/v2".into());
         let dice = DiceBuilder::new()
