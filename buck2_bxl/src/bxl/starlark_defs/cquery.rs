@@ -146,6 +146,30 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         })?)
     }
 
+    fn somepaths<'v>(
+        this: &StarlarkCQueryCtx<'v>,
+        from: Value<'v>,
+        to: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
+        Ok(this.ctx.async_ctx.via(|| async {
+            this.functions
+                .somepath(
+                    &this.env,
+                    &*TargetExpr::unpack(from, &this.target_platform, this.ctx, &this.env, eval)
+                        .await?
+                        .get(&this.env)
+                        .await?,
+                    &*TargetExpr::unpack(to, &this.target_platform, this.ctx, &this.env, eval)
+                        .await?
+                        .get(&this.env)
+                        .await?,
+                )
+                .await
+                .map(StarlarkTargetSet::from)
+        })?)
+    }
+
     fn attrfilter<'v>(
         this: &StarlarkCQueryCtx<'v>,
         attr: &str,
