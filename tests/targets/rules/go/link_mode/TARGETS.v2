@@ -1,0 +1,13 @@
+buck_genrule(
+    name = "check",
+    cmd = "ldd $(exe :hello_world) | grep 'not a dynamic executable' > $OUT",
+    out = "out.txt",
+)
+
+go_binary(
+    name = "hello_world",
+    link_mode = "internal",
+    srcs = [
+        "main.go",
+    ],
+)
