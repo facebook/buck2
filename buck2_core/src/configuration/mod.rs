@@ -28,6 +28,7 @@ use std::hash::Hasher;
 use gazebo::prelude::*;
 use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
+use once_cell::sync::Lazy;
 use serde::Serialize;
 use serde::Serializer;
 use thiserror::Error;
@@ -115,55 +116,69 @@ impl Configuration {
         )))
     }
 
-    // TODO(cjhopman): use static once_cell for these constant ones.
     pub fn unspecified() -> Self {
-        Self::from_data(HashedPlatformConfigurationData::new(
-            PlatformConfigurationData {
-                platform: ConfigurationPlatform::Unspecified,
-                data: ConfigurationData::empty(),
-            },
-        ))
+        static CONFIG: Lazy<Configuration> = Lazy::new(|| {
+            Configuration::from_data(HashedPlatformConfigurationData::new(
+                PlatformConfigurationData {
+                    platform: ConfigurationPlatform::Unspecified,
+                    data: ConfigurationData::empty(),
+                },
+            ))
+        });
+        CONFIG.dupe()
     }
 
     pub fn unspecified_exec() -> Self {
-        Self::from_data(HashedPlatformConfigurationData::new(
-            PlatformConfigurationData {
-                platform: ConfigurationPlatform::UnspecifiedExec,
-                data: ConfigurationData::empty(),
-            },
-        ))
+        static CONFIG: Lazy<Configuration> = Lazy::new(|| {
+            Configuration::from_data(HashedPlatformConfigurationData::new(
+                PlatformConfigurationData {
+                    platform: ConfigurationPlatform::UnspecifiedExec,
+                    data: ConfigurationData::empty(),
+                },
+            ))
+        });
+        CONFIG.dupe()
     }
 
     /// Produces the "unbound" configuration. This is used only when performing analysis of platform() targets and
     /// their dependencies (which is done to form the initial "bound" configurations).
     pub fn unbound() -> Self {
-        Self::from_data(HashedPlatformConfigurationData::new(
-            PlatformConfigurationData {
-                platform: ConfigurationPlatform::Unbound,
-                data: ConfigurationData::empty(),
-            },
-        ))
+        static CONFIG: Lazy<Configuration> = Lazy::new(|| {
+            Configuration::from_data(HashedPlatformConfigurationData::new(
+                PlatformConfigurationData {
+                    platform: ConfigurationPlatform::Unbound,
+                    data: ConfigurationData::empty(),
+                },
+            ))
+        });
+        CONFIG.dupe()
     }
 
     /// Produces the "unbound_exec" configuration. This is used only when getting the exec_deps for a configured node
     /// before we've determined the execution configuration for the node.
     pub fn unbound_exec() -> Self {
-        Self::from_data(HashedPlatformConfigurationData::new(
-            PlatformConfigurationData {
-                platform: ConfigurationPlatform::Unbound,
-                data: ConfigurationData::empty(),
-            },
-        ))
+        static CONFIG: Lazy<Configuration> = Lazy::new(|| {
+            Configuration::from_data(HashedPlatformConfigurationData::new(
+                PlatformConfigurationData {
+                    platform: ConfigurationPlatform::Unbound,
+                    data: ConfigurationData::empty(),
+                },
+            ))
+        });
+        CONFIG.dupe()
     }
 
     /// Produces an "invalid" configuration for testing.
     pub fn testing_new() -> Self {
-        Self::from_data(HashedPlatformConfigurationData::new(
-            PlatformConfigurationData {
-                platform: ConfigurationPlatform::Testing,
-                data: ConfigurationData::empty(),
-            },
-        ))
+        static CONFIG: Lazy<Configuration> = Lazy::new(|| {
+            Configuration::from_data(HashedPlatformConfigurationData::new(
+                PlatformConfigurationData {
+                    platform: ConfigurationPlatform::Testing,
+                    data: ConfigurationData::empty(),
+                },
+            ))
+        });
+        CONFIG.dupe()
     }
 
     fn from_data(data: HashedPlatformConfigurationData) -> Self {
