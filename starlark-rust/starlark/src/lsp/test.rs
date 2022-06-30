@@ -35,6 +35,7 @@ use lsp_types::notification::DidOpenTextDocument;
 use lsp_types::notification::Exit;
 use lsp_types::notification::Initialized;
 use lsp_types::notification::Notification;
+use lsp_types::notification::PublishDiagnostics;
 use lsp_types::request::Initialize;
 use lsp_types::request::Request;
 use lsp_types::request::Shutdown;
@@ -46,6 +47,7 @@ use lsp_types::InitializeParams;
 use lsp_types::InitializeResult;
 use lsp_types::InitializedParams;
 use lsp_types::Position;
+use lsp_types::PublishDiagnosticsParams;
 use lsp_types::Range;
 use lsp_types::TextDocumentClientCapabilities;
 use lsp_types::TextDocumentContentChangeEvent;
@@ -350,14 +352,23 @@ impl TestServer {
         }
     }
 
-    #[allow(dead_code)]
     pub fn get_notification<T: Notification>(&mut self) -> anyhow::Result<T::Params> {
-        loop {
+        for _ in 0..10 {
             self.receive()?;
-            if let Some(notification) = self.notifications.pop_front() {
-                break Ok(serde_json::from_value(notification.params)?);
+            let notification = self
+                .notifications
+                .iter()
+                .enumerate()
+                .find_map(|(i, n)| if T::METHOD == n.method { Some(i) } else { None })
+                .and_then(|i| self.notifications.remove(i));
+            if let Some(notification) = notification {
+                return Ok(serde_json::from_value(notification.params)?);
             }
         }
+        Err(anyhow::anyhow!(
+            "Did not get a notification of type `{}` in 10 retries",
+            T::METHOD
+        ))
     }
 
     /// Attempt to receive a message and either put it in the `responses` map if it's a
@@ -391,10 +402,14 @@ impl TestServer {
     }
 
     /// Send a notification saying that a file was opened with the given contents.
-    pub fn open_file(&mut self, uri: Url, contents: String) -> anyhow::Result<()> {
+    pub fn open_file(
+        &mut self,
+        uri: Url,
+        contents: String,
+    ) -> anyhow::Result<PublishDiagnosticsParams> {
         let open_params = DidOpenTextDocumentParams {
             text_document: TextDocumentItem {
-                uri,
+                uri: uri.clone(),
                 language_id: String::new(),
                 version: self.next_document_version(),
                 text: contents,
@@ -402,7 +417,16 @@ impl TestServer {
         };
         let open_notification = new_notification::<DidOpenTextDocument>(open_params);
         self.send_notification(open_notification)?;
-        Ok(())
+        let notification = self.get_notification::<PublishDiagnostics>()?;
+        if notification.uri != uri {
+            Err(anyhow::anyhow!(
+                "Got a diagnostics message for `{}`, but expected it for `{}`",
+                notification.uri,
+                uri
+            ))
+        } else {
+            Ok(notification)
+        }
     }
 
     /// Send a notification saying that a file was changed with the given contents.
