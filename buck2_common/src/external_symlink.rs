@@ -100,7 +100,7 @@ impl ExternalSymlink {
         }
     }
 
-    pub fn from_disk<P: AsRef<AbsPath>>(path: P, root: P) -> Option<Self> {
+    pub fn from_disk<P: AsRef<AbsPath>>(relpath: &ForwardRelativePath, root: P) -> Option<Self> {
         fn external_sym(
             path: &mut PathBuf,
             remaining_path: &mut Components,
@@ -142,8 +142,11 @@ impl ExternalSymlink {
         // TODO: change ExternalSymlink to include information about the
         // followed symlinks (we can do that with a `next` attr?)
 
+        let path = root.as_ref().join(relpath.as_str());
+        let path = AbsPath::unchecked_new(&path);
+
         let root = root.as_ref();
-        let stripped_path = path.as_ref().strip_prefix(&root).ok()?;
+        let stripped_path = path.strip_prefix(&root).ok()?;
         let relpath = Path::new(stripped_path.as_str());
         let mut remaining_path = relpath.components();
 
@@ -168,6 +171,7 @@ mod tests {
     use std::os::unix;
 
     use buck2_core::fs::paths::AbsPath;
+    use buck2_core::fs::paths::ForwardRelativePath;
     use tempfile::TempDir;
 
     use crate::external_symlink::ExternalSymlink;
@@ -180,7 +184,7 @@ mod tests {
 
         assert_eq!(
             None,
-            ExternalSymlink::from_disk(AbsPath::new(&t.path().join("x"))?, AbsPath::new(t.path())?)
+            ExternalSymlink::from_disk(ForwardRelativePath::new("x")?, AbsPath::new(t.path())?)
         );
 
         Ok(())
@@ -197,7 +201,7 @@ mod tests {
 
         assert_eq!(
             None,
-            ExternalSymlink::from_disk(AbsPath::new(&t.path().join("y"))?, AbsPath::new(t.path())?)
+            ExternalSymlink::from_disk(ForwardRelativePath::new("y")?, AbsPath::new(t.path())?)
         );
 
         Ok(())
@@ -214,7 +218,7 @@ mod tests {
 
         assert_eq!(
             None,
-            ExternalSymlink::from_disk(AbsPath::new(&t.path().join("y"))?, AbsPath::new(t.path())?)
+            ExternalSymlink::from_disk(ForwardRelativePath::new("y")?, AbsPath::new(t.path())?)
         );
 
         Ok(())
@@ -234,7 +238,7 @@ mod tests {
                 abs_target: external.path().to_path_buf(),
                 remaining_path: None
             }),
-            ExternalSymlink::from_disk(AbsPath::new(&t.path().join("x"))?, AbsPath::new(t.path())?)
+            ExternalSymlink::from_disk(ForwardRelativePath::new("x")?, AbsPath::new(t.path())?)
         );
 
         Ok(())
@@ -249,7 +253,7 @@ mod tests {
 
         assert_eq!(
             None,
-            ExternalSymlink::from_disk(AbsPath::new(&t.path().join("y"))?, AbsPath::new(t.path())?)
+            ExternalSymlink::from_disk(ForwardRelativePath::new("y")?, AbsPath::new(t.path())?)
         );
 
         Ok(())

@@ -112,7 +112,7 @@ impl IoProvider for FsIoProvider {
         let path = self.fs.resolve(&path);
 
         tokio::task::spawn_blocking(move || {
-            let info = match ExternalSymlink::from_disk(&path, &cell_root) {
+            let info = match ExternalSymlink::from_disk(cell_relative_path.as_ref(), &cell_root) {
                 Some(esym) => PathMetadata::ExternalSymlink(Arc::new(esym)),
                 None => {
                     let m = match path.to_path_buf().metadata() {
