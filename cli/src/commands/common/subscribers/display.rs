@@ -420,7 +420,16 @@ pub(crate) fn success_stderr<'a>(
         return Ok(None);
     }
 
-    let stderr = &action.success_stderr;
+    let stderr = match action.commands.last() {
+        Some(command) => {
+            &command
+                .command
+                .as_ref()
+                .context("CommandExecution did not include a `command`")?
+                .stderr
+        }
+        None => &action.success_stderr,
+    };
 
     if stderr.is_empty() {
         return Ok(None);
