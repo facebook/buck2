@@ -84,7 +84,9 @@ impl PreparedCommandExecutor for HybridExecutor {
         let remote_result =
             self.remote_exec_cmd(command, manager.claim_manager.dupe(), manager.events.dupe());
 
-        if command.request.local_only() || self.remote.is_action_too_large(&command.action_paths) {
+        if command.request.local_preference().is_local_only()
+            || self.remote.is_action_too_large(&command.action_paths)
+        {
             return local_result.await;
         };
 

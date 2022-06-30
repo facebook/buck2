@@ -66,6 +66,7 @@ use uuid::Uuid;
 use crate::actions::artifact::ArtifactFs;
 use crate::actions::artifact::ArtifactValue;
 use crate::actions::artifact::ExecutorFs;
+use crate::actions::run::ExecutorPreference;
 use crate::artifact_groups::ArtifactGroup;
 use crate::calculation::Calculation;
 use crate::deferred::BaseDeferredKey;
@@ -393,7 +394,7 @@ impl BuckTestOrchestrator {
         }
 
         if !(self.session.options().allow_re && supports_re) {
-            request = request.with_local_only(true)
+            request = request.with_local_preference(ExecutorPreference::LocalRequired)
         }
 
         let manager = CommandExecutionManager::new(

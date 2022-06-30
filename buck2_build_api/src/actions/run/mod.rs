@@ -14,6 +14,7 @@ use std::fmt::Display;
 use async_trait::async_trait;
 use buck2_core::category::Category;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
+use derive_more::Display;
 use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
 use host_sharing::WeightClass;
@@ -85,11 +86,34 @@ impl Display for MetadataParameter {
     }
 }
 
+#[derive(Copy, Clone, Dupe, Display, Debug)]
+pub enum ExecutorPreference {
+    Default,
+    /// Fails when executed by a remote-only executor
+    LocalRequired,
+}
+
+impl ExecutorPreference {
+    pub fn new(local_only: bool) -> Self {
+        match local_only {
+            true => Self::LocalRequired,
+            false => Self::Default,
+        }
+    }
+
+    pub fn is_local_only(&self) -> bool {
+        match self {
+            Self::LocalRequired => true,
+            Self::Default => false,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct UnregisteredRunAction {
     category: Category,
     identifier: Option<String>,
-    local_only: bool,
+    local_preference: ExecutorPreference,
     always_print_stderr: bool,
     weight: usize,
     dep_files: RunActionDepFiles,
@@ -101,7 +125,7 @@ impl UnregisteredRunAction {
     pub(crate) fn new(
         category: Category,
         identifier: Option<String>,
-        local_only: bool,
+        local_preference: ExecutorPreference,
         always_print_stderr: bool,
         weight: usize,
         dep_files: RunActionDepFiles,
@@ -111,7 +135,7 @@ impl UnregisteredRunAction {
         Self {
             category,
             identifier,
-            local_only,
+            local_preference,
             always_print_stderr,
             weight,
             dep_files,
@@ -258,7 +282,7 @@ impl Action for RunAction {
         let cmd = format!("[{}]", cli_builder.build().iter().join(", "));
         indexmap! {
             "cmd".to_owned() => cmd,
-            "local_only".to_owned() => self.inner.local_only.to_string(),
+            "local_preference".to_owned() => self.inner.local_preference.to_string(),
             "always_print_stderr".to_owned() => self.inner.always_print_stderr.to_string(),
             "weight".to_owned() => self.inner.weight.to_string(),
             "dep_files".to_owned() => self.inner.dep_files.to_string(),
@@ -379,7 +403,7 @@ impl IncrementalActionExecutable for RunAction {
 
         let req = CommandExecutionRequest::new(cli, inputs, self.outputs.clone(), env)
             .with_prefetch_lossy_stderr(true)
-            .with_local_only(self.inner.local_only)
+            .with_local_preference(self.inner.local_preference)
             .with_host_sharing_requirements(host_sharing_requirements)
             .with_outputs_cleanup(!self.inner.no_outputs_cleanup);
 

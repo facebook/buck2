@@ -56,6 +56,7 @@ use crate::actions::copy::CopyMode;
 use crate::actions::copy::UnregisteredCopyAction;
 use crate::actions::download_file::UnregisteredDownloadFileAction;
 use crate::actions::run::dep_files::RunActionDepFiles;
+use crate::actions::run::ExecutorPreference;
 use crate::actions::run::MetadataParameter;
 use crate::actions::run::UnregisteredRunAction;
 use crate::actions::symlinked_dir::UnregisteredSymlinkedDirAction;
@@ -614,6 +615,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             }
         }
 
+        let local_preference = ExecutorPreference::new(local_only);
+
         let mut artifact_visitor = RunCommandArtifactVisitor::new();
 
         let starlark_cli = StarlarkCommandLine::try_from_value(arguments)?;
@@ -699,7 +702,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         let action = UnregisteredRunAction::new(
             category,
             identifier,
-            local_only,
+            local_preference,
             always_print_stderr,
             weight,
             dep_files_configuration,
