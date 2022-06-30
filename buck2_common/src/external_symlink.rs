@@ -106,6 +106,8 @@ impl ExternalSymlink {
             remaining_path: &mut Components,
         ) -> io::Result<Option<PathBuf>> {
             for c in remaining_path {
+                // TODO(nga): this code does not make sense: we push one component here,
+                //   and we pop it 10 lines down, and on the next iteration we push next component?
                 path.push(c);
                 if !path.symlink_metadata()?.file_type().is_symlink() {
                     continue;
