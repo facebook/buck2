@@ -13,14 +13,19 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
+use buck2_core::result::SharedResult;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_node::compatibility::MaybeCompatible;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use dice::DiceComputations;
 use gazebo::prelude::*;
+use owning_ref::ArcRef;
 
+use crate::artifact_groups::deferred::DeferredTransitiveSetData;
+use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::ArtifactGroup;
 use crate::calculation::Calculation;
+use crate::deferred::AnyValue;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info::TemplatePlaceholderInfo;
@@ -76,6 +81,16 @@ impl<'a> ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQuer
             .get(literal)
             .duped()
             .ok_or_else(|| anyhow::anyhow!(""))
+    }
+
+    async fn dice_lookup_transitive_set(
+        &self,
+        key: TransitiveSetKey,
+    ) -> SharedResult<ArcRef<dyn AnyValue, DeferredTransitiveSetData>> {
+        self.dice_query_delegate
+            .ctx
+            .compute_deferred_data(&key)
+            .await
     }
 
     async fn get_template_info_provider_artifacts(

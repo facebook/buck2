@@ -9,11 +9,14 @@
 
 use std::borrow::Cow;
 use std::collections::HashSet;
+use std::collections::VecDeque;
 use std::marker::PhantomData;
 
+use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::result::SharedResult;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_node::attrs::attr_type::attr_config::AttrConfig;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
@@ -41,12 +44,22 @@ use buck2_query::query_module;
 use buck2_query_parser::BinaryOp;
 use futures::Future;
 use gazebo::prelude::*;
+use indexmap::IndexSet;
+use owning_ref::ArcRef;
 use ref_cast::RefCast;
 use thiserror::Error;
 
 use crate::actions::artifact::Artifact;
+use crate::actions::artifact::OutputArtifact;
 use crate::analysis::configured_graph::ConfiguredGraphNode;
+use crate::artifact_groups::deferred::DeferredTransitiveSetData;
+use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::ArtifactGroup;
+use crate::deferred::AnyValue;
+use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
 #[derive(Debug, Error)]
 enum AnalysisQueryError {
@@ -67,6 +80,23 @@ pub trait ConfiguredGraphQueryEnvironmentDelegate: Send + Sync {
         configured_label: &ConfiguredTargetLabel,
         template_name: &str,
     ) -> anyhow::Result<Vec<ArtifactGroup>>;
+
+    /// Looks up a transitive set.
+    ///
+    /// WE CANNOT USE THIS TO LOOKUP ALL NODES IN A TSET GRAPH!!! Doing so can lead to
+    /// massive memory regressions.
+    ///
+    /// Using this will add dice edges for any fetched keys. It's very important
+    /// that we do not flatten a full tset into the dice deps of our analysis nodes.
+    ///
+    /// Really, we shouldn't need this at all. We have references to the starlark
+    /// values and we should be able to traverse them directly, but the cmdlinearg
+    /// apis don't allow us to do that (they convert values into ArtifactGroup,
+    /// which holds only the symbolic reference to the tset, for example).
+    async fn dice_lookup_transitive_set(
+        &self,
+        key: TransitiveSetKey,
+    ) -> SharedResult<ArcRef<dyn AnyValue, DeferredTransitiveSetData>>;
 }
 
 pub struct ConfiguredGraphQueryEnvironment<'a> {
@@ -154,30 +184,120 @@ impl<'a> ConfiguredGraphQueryEnvironment<'a> {
         targets: &'x TargetSet<ConfiguredGraphNodeRef>,
     ) -> impl Future<Output = anyhow::Result<TargetSet<ConfiguredGraphNodeRef>>> + 'x {
         async move {
-            let mut labels: HashSet<ConfiguredTargetLabel> = HashSet::new();
+            let mut labels: IndexSet<ConfiguredTargetLabel> = IndexSet::new();
+
+            // Traversing tsets adds complexity here. Ideally, we could just do a normal traversal of these starlark values
+            // we get from the template_info provider, but the cmdlinearglike interface only gives us access via ArtifactGroup
+            // which only have the key for the tset projection, not the tset or projection itself.
+            //
+            // Then, next we would want to do a traversal over those ArtifactGroup and use the dice ctx to map the tset projection
+            // keys back to their values. We can't do that because that would flatten the tset into the dice deps and rdeps storage.
+            //
+            // So, instead we need to extract out the ArtifactGroups from the template_info values and lookup the corresponding
+            // tsets, manually traverse them and repeat (because the tset node values themselves return ArtifactGroup).
+            //
+            // This means that we will have unnessary dice nodes pointing to each tset value appearing in the template info and any
+            // tset value appearing in another tset's nodes. In the common case, though, that set will be small and we won't have
+            // flattened any full tset into the dice deps storage. We'll call those "top-level" tset nodes.
+
+            // This will contain the ArtifactGroups we encounter during our traversal (so only artifacts and top-level tset nodes).
+            // Artifacts are put here to keep them in the correct order in the output, tsets are top-level tset nodes that we need
+            // to traverse.
+            let mut artifacts = VecDeque::new();
+
+            // This will contain the TransitiveSetProjectionKey we encounter as top-level nodes and we will also put in TransitiveSetProjectionKey
+            // for all the tset nodes that we encounter during our traversal of those top-level nodes. We don't need to track artifacts because
+            // we just extract the targetlabel and put that in the output set and that can dedupe them (and we don't need to further
+            // traverse artifacts).
+            let mut seen = HashSet::new();
 
             for target in targets.iter() {
-                let artifacts = self
+                for artifact in self
                     .delegate
                     .get_template_info_provider_artifacts(target.label(), template_name)
-                    .await?;
-                for artifact in artifacts {
-                    match artifact {
-                        ArtifactGroup::Artifact(artifact) => {
-                            if let Some(owner) = artifact.owner() {
-                                let target_label =
-                                    owner.unpack_target_label().ok_or_else(|| {
-                                        AnalysisQueryError::NonTargetBoundArtifact(
-                                            template_name.to_owned(),
-                                            target.label().dupe(),
-                                            artifact.dupe(),
-                                        )
-                                    })?;
-                                labels.insert(target_label.dupe());
-                            }
+                    .await?
+                {
+                    artifacts.push_back((target.label().dupe(), artifact))
+                }
+            }
+
+            while let Some((target, artifact)) = artifacts.pop_front() {
+                match artifact {
+                    ArtifactGroup::Artifact(artifact) => {
+                        if let Some(owner) = artifact.owner() {
+                            let target_label = owner.unpack_target_label().ok_or_else(|| {
+                                AnalysisQueryError::NonTargetBoundArtifact(
+                                    template_name.to_owned(),
+                                    target.dupe(),
+                                    artifact.dupe(),
+                                )
+                            })?;
+                            labels.insert(target_label.dupe());
                         }
-                        _ => {
-                            // ignore
+                    }
+                    ArtifactGroup::TransitiveSetProjection(tset_key) => {
+                        // We've encountered a "top-level" tset node that we haven't yet seen (as either a top-level or intermediate node, doesn't matter).
+                        if seen.insert(tset_key.dupe()) {
+                            let tset_value = self
+                                .delegate
+                                .dice_lookup_transitive_set(tset_key.key)
+                                .await?;
+
+                            // Now we can traverse this tset from that node. This is a different traversal than our top-level one as we will
+                            // be accessing tset internals directly and so we can actually traverse the starlark objects without going back through
+                            // dice. We'll be working all with values with lifetimes from `tset_value`.
+                            //
+                            // We can't use tset's normal traverse because we need to avoid retraversing parts of the tset graph that we've already
+                            // traversed (through other top-level tset nodes).
+                            let mut queue = VecDeque::new();
+                            queue.push_back(tset_value.as_value());
+                            while let Some(v) = queue.pop_front() {
+                                let as_tset = TransitiveSet::from_value(v)
+                                    .context("invalid tset structure")?;
+
+                                // Visit the projection value itself. As this is an opaque cmdargs-like thing, it may contain more top-level tset node
+                                // references that need to be pushed into the outer queue.
+                                if let Some(v) =
+                                    as_tset.get_projection_value(tset_key.projection)?
+                                {
+                                    struct Visitor<'a>(
+                                        &'a mut VecDeque<(ConfiguredTargetLabel, ArtifactGroup)>,
+                                        ConfiguredTargetLabel,
+                                    );
+                                    impl<'a> CommandLineArtifactVisitor for Visitor<'a> {
+                                        fn visit_input(
+                                            &mut self,
+                                            input: ArtifactGroup,
+                                            _tag: Option<&ArtifactTag>,
+                                        ) {
+                                            self.0.push_back((self.1.dupe(), input));
+                                        }
+
+                                        fn visit_output(
+                                            &mut self,
+                                            _artifact: OutputArtifact,
+                                            _tag: Option<&ArtifactTag>,
+                                        ) {
+                                            // ignored
+                                        }
+                                    }
+                                    v.as_command_line_err()?.visit_artifacts(&mut Visitor(
+                                        &mut artifacts,
+                                        target.dupe(),
+                                    ))?;
+                                }
+
+                                // Enqueue any children we haven't yet seen (and mark them seen).
+                                for child in as_tset.children.iter() {
+                                    let child_as_tset = TransitiveSet::from_value(*child)
+                                        .context("Invalid deferred")?;
+                                    let projection_key =
+                                        child_as_tset.get_projection_key(tset_key.projection);
+                                    if seen.insert(projection_key) {
+                                        queue.push_back(*child);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -197,17 +317,17 @@ impl<'a> ConfiguredGraphQueryEnvironment<'a> {
     async fn find_target_nodes(
         &self,
         targets: &TargetSet<ConfiguredGraphNodeRef>,
-        labels_to_find: HashSet<ConfiguredTargetLabel>,
+        labels_to_find: IndexSet<ConfiguredTargetLabel>,
     ) -> anyhow::Result<TargetSet<ConfiguredGraphNodeRef>> {
         struct TraversalDelegate {
             targets: TargetSet<ConfiguredGraphNodeRef>,
-            labels_to_find: HashSet<ConfiguredTargetLabel>,
+            labels_to_find: IndexSet<ConfiguredTargetLabel>,
         }
 
         #[async_trait]
         impl AsyncTraversalDelegate<ConfiguredGraphNodeRef> for TraversalDelegate {
             fn visit(&mut self, target: ConfiguredGraphNodeRef) -> anyhow::Result<()> {
-                let label = &target.label();
+                let label = target.label();
                 if self.labels_to_find.contains(label) {
                     self.targets.insert(target);
                 }

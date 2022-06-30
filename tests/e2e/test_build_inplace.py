@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from xplat.build_infra.buck_e2e.api.buck import Buck
 from xplat.build_infra.buck_e2e.api.buck_result import BuckException, ExitCode
-from xplat.build_infra.buck_e2e.buck_workspace import buck_test, env
+from xplat.build_infra.buck_e2e.buck_workspace import buck_test, env, is_deployed_buck2
 
 # rust rule implementations hardcode invocation of `/bin/jq` which is not available on Mac RE workers (or mac laptops)
 def rust_linux_only() -> bool:
@@ -443,3 +443,9 @@ async def test_fat_platforms(buck: Buck) -> None:
         s = output.read()
         assert "darwin" in s, "expected 'darwin' in output: `{}`".format(output)
         assert "linux" in s, "expected 'darwin' in output: `{}`".format(output)
+
+
+@buck_test(inplace=True)
+@pytest.mark.skipif(is_deployed_buck2(), reason="Not implemented yet on master")
+async def test_classpath_query(buck: Buck) -> None:
+    await buck.build("fbcode//buck2/tests/targets/template_placeholder/...")

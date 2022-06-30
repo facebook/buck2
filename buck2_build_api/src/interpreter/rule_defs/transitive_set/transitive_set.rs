@@ -158,6 +158,13 @@ impl<'v, V: ValueLike<'v>> TransitiveSetGen<V> {
         }
     }
 
+    pub fn get_projection_key(&self, projection: usize) -> TransitiveSetProjectionKey {
+        TransitiveSetProjectionKey {
+            key: self.key.dupe(),
+            projection,
+        }
+    }
+
     pub fn get_projection_sub_inputs(
         &self,
         projection: usize,
