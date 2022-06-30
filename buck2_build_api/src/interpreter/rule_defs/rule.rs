@@ -253,8 +253,8 @@ impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
 #[starlark_module]
 pub fn register_rule_function(builder: &mut GlobalsBuilder) {
     fn rule<'v>(
-        implementation: Value<'v>,
-        attrs: DictOf<'v, &'v str, &'v AttributeAsStarlarkValue>,
+        #[starlark(require = named)] implementation: Value<'v>,
+        #[starlark(require = named)] attrs: DictOf<'v, &'v str, &'v AttributeAsStarlarkValue>,
         #[starlark(require = named)] cfg: Option<Value>,
         #[starlark(require = named, default = "")] doc: &str,
         #[starlark(require = named, default = false)] is_configuration_rule: bool,
