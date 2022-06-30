@@ -169,3 +169,9 @@ buck2_e2e_test(
     srcs = ["test_apple_incremental_bundling.py"],
     test_with_compiled_buck2_and_deployed_buck2 = True,
 )
+
+buck2_e2e_test(
+    name = "test_lsp",
+    srcs = ["test_lsp.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+)

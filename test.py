@@ -248,6 +248,7 @@ def starlark_linter() -> None:
                 "--include=**/TARGETS",
                 "--include=**/TARGETS.v2",
                 "--exclude=starlark-rust/starlark/testcases",
+                "--exclude=tests/targets/lsp/bad_syntax.bzl",
             ],
             capture_output=True,
         )

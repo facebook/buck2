@@ -74,5 +74,7 @@ buck_filegroup(
         "critical_path/**/.*",
         "projected_artifacts/**",
         "projected_artifacts/**/.*",
+        "lsp/**",
+        "lsp/**/.*",
     ]),
 )
