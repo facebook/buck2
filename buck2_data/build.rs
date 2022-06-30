@@ -67,22 +67,28 @@ fn main() -> io::Result<()> {
             "#[derive(::gazebo::variants::VariantName)]",
         )
         .type_attribute(".", "#[derive(::serde::Serialize, ::serde::Deserialize)]")
-        .field_attribute("timestamp", "#[serde(with = \"serialize_timestamp\")]")
-        .field_attribute("duration", "#[serde(with = \"serialize_duration\")]")
+        .field_attribute(
+            "timestamp",
+            "#[serde(with = \"crate::serialize_timestamp\")]",
+        )
+        .field_attribute("duration", "#[serde(with = \"crate::serialize_duration\")]")
         .field_attribute(
             "ActionExecutionEnd.wall_time",
-            "#[serde(with = \"serialize_duration\")]",
+            "#[serde(with = \"crate::serialize_duration\")]",
         )
-        .field_attribute("ActionKey.id", "#[serde(with = \"serialize_bytes\")]")
+        .field_attribute(
+            "ActionKey.id",
+            "#[serde(with = \"crate::serialize_bytes\")]",
+        )
         // When serializing using Serde we don't want those to just be i32s, since those are
         // meaningless without the Protobuf schema.
         .field_attribute(
             "ActionExecutionStart.kind",
-            "#[serde(with = \"serialize_action_kind\")]",
+            "#[serde(with = \"crate::serialize_action_kind\")]",
         )
         .field_attribute(
             "ActionExecutionEnd.kind",
-            "#[serde(with = \"serialize_action_kind\")]",
+            "#[serde(with = \"crate::serialize_action_kind\")]",
         )
         .compile(proto_files, &["."])
         .unwrap();
