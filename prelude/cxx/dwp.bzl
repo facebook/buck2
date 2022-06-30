@@ -1,3 +1,4 @@
+load("@fbcode//buck2/prelude:local_only.bzl", "link_cxx_binary_locally")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 def dwp_available(ctx: "context"):
@@ -26,7 +27,7 @@ def run_dwp_action(
         # dwp produces ELF files on the same size scale as the corresponding @obj.
         # The files are a concatentation of input DWARF debug info.
         # Caching dwp has the same issues as caching binaries, so use the same local_only policy.
-        local_only = get_cxx_toolchain_info(ctx).linker_info.link_binaries_locally,
+        local_only = link_cxx_binary_locally(ctx),
     )
 
 def dwp(

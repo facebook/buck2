@@ -43,6 +43,7 @@
 #     quux/corge/corge.o
 #   quux
 
+load("@fbcode//buck2/prelude:local_only.bzl", "link_cxx_binary_locally")
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
 load(
     "@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl",
@@ -617,7 +618,7 @@ def ocaml_binary_impl(ctx: "context") -> ["provider"]:
     cmd_nat.hidden(cmxs, cmis_nat, cmts_nat, cmtis_nat, objs)
     binary_nat = ctx.actions.declare_output(ctx.attr.name + ".opt")
     cmd_nat.add("-o", binary_nat.as_output())
-    local_only = ctx.attr._cxx_toolchain[CxxToolchainInfo].linker_info.link_binaries_locally
+    local_only = link_cxx_binary_locally(ctx)
     ctx.actions.run(cmd_nat, category = "ocaml_link_native", local_only = local_only)
 
     cmxs_order, stbs_byt, _objs, cmis_byt, cmos, _cmxs, cmts_byt, cmtis_byt = _compile_result_to_tuple(_compile(ctx, ocamlc, BuildMode("bytecode")))
@@ -629,7 +630,7 @@ def ocaml_binary_impl(ctx: "context") -> ["provider"]:
     binary_byt = ctx.actions.declare_output(ctx.attr.name)
     cmd_byt.add("-custom")
     cmd_byt.add("-o", binary_byt.as_output())
-    local_only = ctx.attr._cxx_toolchain[CxxToolchainInfo].linker_info.link_binaries_locally
+    local_only = link_cxx_binary_locally(ctx)
     ctx.actions.run(cmd_byt, category = "ocaml_link_bytecode", local_only = local_only)
 
     return [
@@ -662,7 +663,7 @@ def ocaml_object_impl(ctx: "context") -> ["provider"]:
     obj = ctx.actions.declare_output(ctx.attr.name + ".o")
     cmd.add("-output-complete-obj")
     cmd.add("-o", obj.as_output())
-    local_only = ctx.attr._cxx_toolchain[CxxToolchainInfo].linker_info.link_binaries_locally
+    local_only = link_cxx_binary_locally(ctx)
     ctx.actions.run(cmd, category = "ocaml_link", local_only = local_only)
 
     linker_type = ctx.attr._cxx_toolchain[CxxToolchainInfo].linker_info.type

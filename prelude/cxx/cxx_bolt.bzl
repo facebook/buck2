@@ -1,6 +1,7 @@
 # BOLT (Binary Optimization Layout Tool) is a post link profile guided optimizer used for
 # performance-critical services in fbcode: https://www.internalfb.com/intern/wiki/HHVM-BOLT/
 
+load("@fbcode//buck2/prelude:local_only.bzl", "link_cxx_binary_locally")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 def cxx_use_bolt(ctx: "context") -> bool.type:
@@ -22,7 +23,7 @@ def bolt_gdb_index(ctx: "context", bolt_output: "artifact", identifier: [str.typ
         gdb_index_args,
         category = "gdb_index",
         identifier = identifier,
-        local_only = get_cxx_toolchain_info(ctx).linker_info.link_binaries_locally,
+        local_only = link_cxx_binary_locally(ctx),
     )
 
     # Run objcopy
@@ -41,7 +42,7 @@ def bolt_gdb_index(ctx: "context", bolt_output: "artifact", identifier: [str.typ
         objcopy_args,
         category = "objcopy",
         identifier = identifier,
-        local_only = get_cxx_toolchain_info(ctx).linker_info.link_binaries_locally,
+        local_only = link_cxx_binary_locally(ctx),
     )
 
     return objcopy_output

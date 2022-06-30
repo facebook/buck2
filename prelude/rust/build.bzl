@@ -1,3 +1,4 @@
+load("@fbcode//buck2/prelude:local_only.bzl", "link_cxx_binary_locally")
 load("@fbcode//buck2/prelude/cxx:cxx_link_utility.bzl", "make_link_args")
 load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
@@ -714,7 +715,7 @@ def _rustc_invoke(
     compile_cmd.add(rustc_cmd)
     compile_cmd.hidden(toolchain_info.compiler, compile_ctx.symlinked_srcs)
 
-    local_only = is_binary and ctx.attr._cxx_toolchain[CxxToolchainInfo].linker_info.link_binaries_locally
+    local_only = is_binary and link_cxx_binary_locally(ctx)
     identifier = "{} {} [{}]".format(prefix, short_cmd, diag)
     ctx.actions.run(compile_cmd, env = plain_env, local_only = local_only, category = "rustc", identifier = identifier)
 

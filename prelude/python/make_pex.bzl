@@ -3,6 +3,7 @@ Rule for the inplace pex builder, and some utility methods for generic pex build
 execution
 """
 
+load("@fbcode//buck2/prelude:local_only.bzl", "package_python_locally")
 load(
     "@fbcode//buck2/prelude/linking:link_info.bzl",
     "LinkedObject",  # @unused Used as a type
@@ -73,7 +74,7 @@ def make_pex(
 
         # We support building _standalone_ packages locally to e.g. support fbcode's
         # current style of build info stamping (e.g. T10696178).
-        local_only = python_toolchain.build_standalone_binaries_locally
+        local_only = package_python_locally(ctx, python_toolchain)
 
         cmd = cmd_args(python_toolchain.make_pex_standalone[RunInfo])
         cmd.add(modules_args)

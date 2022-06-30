@@ -1,3 +1,4 @@
+load("@fbcode//buck2/prelude:local_only.bzl", "link_cxx_binary_locally")
 load(
     "@fbcode//buck2/prelude/cxx:link.bzl",
     "cxx_link_into_shared_library",
@@ -475,7 +476,8 @@ def _create_omnibus(
     ]))
 
     soname = _omnibus_soname(ctx)
-    linker_info = get_cxx_toolchain_info(ctx).linker_info
+    toolchain_info = get_cxx_toolchain_info(ctx)
+    linker_info = toolchain_info.linker_info
     return cxx_link_into_shared_library(
         ctx,
         soname,
@@ -487,7 +489,7 @@ def _create_omnibus(
         # the linker_info.link_libraries_locally that's used by `cxx_link_into_shared_library`.
         # That's because we do not want to apply the linking behavior universally,
         # just use it for omnibus.
-        local_only = linker_info.link_binaries_locally,
+        local_only = link_cxx_binary_locally(ctx, toolchain_info),
         link_weight = linker_info.link_weight,
         identifier = soname,
     )

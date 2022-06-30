@@ -1,3 +1,4 @@
+load("@fbcode//buck2/prelude:local_only.bzl", "link_cxx_binary_locally")
 load(
     "@fbcode//buck2/prelude/apple:apple_frameworks.bzl",
     "build_link_args_with_deduped_framework_flags",
@@ -212,7 +213,8 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             if not use_link_groups or is_link_group_shlib(label, filtered_labels_to_links_map) or is_link_group_shlib(label, rest_labels_to_links_map):
                 shared_libs[name] = shared_lib.lib
 
-    linker_info = get_cxx_toolchain_info(ctx).linker_info
+    toolchain_info = get_cxx_toolchain_info(ctx)
+    linker_info = toolchain_info.linker_info
     links = [
         LinkArgs(infos = [
             LinkInfo(
@@ -228,7 +230,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         links,
         shared_libs,
         linker_info.link_weight,
-        local_only = linker_info.link_binaries_locally,
+        local_only = link_cxx_binary_locally(ctx),
         enable_distributed_thinlto = ctx.attr.enable_distributed_thinlto,
         strip = impl_params.strip_executable,
         strip_args_factory = impl_params.strip_args_factory,
@@ -283,7 +285,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         ctx,
         binary,
         [LinkArgs(flags = extra_args)] + links,
-        local_only = linker_info.link_binaries_locally,
+        local_only = link_cxx_binary_locally(ctx, toolchain_info),
         link_weight = linker_info.link_weight,
     ))]
 
