@@ -15,6 +15,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
+use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::fs::anyhow as fs;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::project::ProjectFilesystem;
@@ -104,8 +105,9 @@ impl IoProvider for FsIoProvider {
     async fn read_path_metadata_if_exists(
         &self,
         cell_root: CellRootPathBuf,
-        path: ProjectRelativePathBuf,
+        cell_relative_path: CellRelativePathBuf,
     ) -> anyhow::Result<Option<PathMetadata>> {
+        let path = cell_root.join(&cell_relative_path);
         let cell_root = self.fs.resolve(cell_root.project_relative_path());
         let path = self.fs.resolve(&path);
 
