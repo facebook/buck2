@@ -142,8 +142,7 @@ impl IoProvider for FsIoProvider {
             };
             Ok(Some(info))
         })
-        .await
-        .unwrap()
+        .await?
     }
 
     async fn settle(&self) -> anyhow::Result<()> {
