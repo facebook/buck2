@@ -723,7 +723,7 @@ impl Display for CommandExecutionStatus {
 
 /// Name of an executor. E.g. "remote", "local".
 #[derive(Debug, Copy, Clone, Dupe)]
-pub struct ExecutorName(&'static str);
+pub struct ExecutorName(pub &'static str);
 
 #[derive(Clone, Dupe)]
 pub struct CommandExecutor(Arc<CommandExecutorData>);

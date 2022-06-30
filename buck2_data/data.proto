@@ -570,6 +570,8 @@ message ActionExecutionStart {
   ActionName name = 4;
 }
 
+message OmittedLocalComand {}
+
 message CommandExecutionDetails {
   reserved 6;
 
@@ -579,10 +581,13 @@ message CommandExecutionDetails {
   string stdout = 2;
   // The stderr of the command.
   string stderr = 3;
+  // TODO(torozco) move the following 3 fields into a `onenof`.
   // The command, if it was local.
   LocalCommand local_command = 7;
   // The command, if it was remote.
   RemoteCommand remote_command = 8;
+  // The command, if it was local and omitted from this log record for brevity.
+  OmittedLocalComand omitted_local_command = 9;
 }
 
 message CommandOutputsMissing {

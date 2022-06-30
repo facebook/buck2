@@ -349,20 +349,41 @@ fn make_command_failed(
 }
 
 async fn command_details(command: &CommandExecutionReport) -> buck2_data::CommandExecutionDetails {
+    let omit_details = matches!(command.status, CommandExecutionStatus::Success { .. });
+
     // NOTE: This is a bit sketchy. We know that either we don't care about the exit code,
     // or that it's there and nonzero. A better representation would be to move the
     // exit_code to only be present on the CommandFailed variant, but that's a breaking
     // protobuf change for little benefit, so for now we don't do it.
     let exit_code = command.exit_code.unwrap_or(0) as u32;
-    let std_streams = command.std_streams.to_lossy().await;
+
+    let stdout;
+    let stderr;
+
+    if omit_details {
+        stdout = Default::default();
+        stderr = command.std_streams.to_lossy_stderr().await;
+    } else {
+        let pair = command.std_streams.to_lossy().await;
+        stdout = pair.stdout;
+        stderr = pair.stderr;
+    };
     let execution_kind = command.status.execution_kind();
+
+    let mut omitted_local_command = None;
+    let mut local_command = execution_kind.and_then(|e| e.as_local_command());
+    if omit_details && local_command.is_some() {
+        omitted_local_command = Some(buck2_data::OmittedLocalComand {});
+        local_command = None;
+    }
 
     buck2_data::CommandExecutionDetails {
         exit_code,
-        stdout: std_streams.stdout,
-        stderr: std_streams.stderr,
-        local_command: execution_kind.and_then(|e| e.as_local_command()),
+        stdout,
+        stderr,
+        local_command,
         remote_command: execution_kind.and_then(|e| e.as_remote_command()),
+        omitted_local_command,
     }
 }
 
@@ -386,6 +407,7 @@ mod tests {
     use std::sync::Arc;
     use std::sync::Mutex;
 
+    use assert_matches::assert_matches;
     use buck2_common::dice::cells::HasCellResolver;
     use buck2_common::dice::data::testing::SetTestingIoProvider;
     use buck2_common::dice::file_ops::testing::FileOpsKey;
@@ -427,6 +449,7 @@ mod tests {
     use crate::actions::artifact::ArtifactValue;
     use crate::actions::artifact::BuildArtifact;
     use crate::actions::artifact::SourceArtifact;
+    use crate::actions::calculation::command_details;
     use crate::actions::calculation::ActionCalculation;
     use crate::actions::directory::ActionDirectoryMember;
     use crate::actions::run::knobs::RunActionKnobs;
@@ -448,9 +471,14 @@ mod tests {
     use crate::execute::commands::dice_data::SetCommandExecutor;
     use crate::execute::commands::dry_run::DryRunEntry;
     use crate::execute::commands::dry_run::DryRunExecutor;
+    use crate::execute::commands::output::CommandStdStreams;
+    use crate::execute::commands::CommandExecutionReport;
+    use crate::execute::commands::CommandExecutionStatus;
+    use crate::execute::commands::ExecutorName;
     use crate::execute::commands::PreparedCommandExecutor;
     use crate::execute::materializer::nodisk::NoDiskMaterializer;
     use crate::execute::materializer::SetMaterializer;
+    use crate::execute::ActionExecutionKind;
 
     fn create_test_build_artifact(
         package_cell: &str,
@@ -803,5 +831,43 @@ mod tests {
             )]
         );
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_command_details_omission() {
+        let mut report = CommandExecutionReport {
+            claim: None,
+            status: CommandExecutionStatus::Success {
+                execution_kind: ActionExecutionKind::Local {
+                    command: vec![],
+                    env: hashmap![],
+                },
+            },
+            executor: ExecutorName("test"),
+            timing: Default::default(),
+            std_streams: CommandStdStreams::Local {
+                stdout: "stdout".to_owned().into_bytes(),
+                stderr: "stderr".to_owned().into_bytes(),
+            },
+            exit_code: Some(1),
+        };
+
+        let proto = command_details(&report).await;
+        assert_matches!(proto.local_command, None);
+        assert_matches!(proto.omitted_local_command, Some(..));
+        assert_eq!(&proto.stdout, "");
+        assert_eq!(&proto.stderr, "stderr");
+
+        report.status = CommandExecutionStatus::Failure {
+            execution_kind: ActionExecutionKind::Local {
+                command: vec![],
+                env: hashmap![],
+            },
+        };
+        let proto = command_details(&report).await;
+        assert_matches!(proto.local_command, Some(..));
+        assert_matches!(proto.omitted_local_command, None);
+        assert_eq!(&proto.stdout, "stdout");
+        assert_eq!(&proto.stderr, "stderr");
     }
 }
