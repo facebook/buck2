@@ -86,24 +86,45 @@ impl Display for MetadataParameter {
     }
 }
 
+#[derive(Debug, Error)]
+enum LocalPreferenceError {
+    #[error("cannot have `local_only = True` and `prefer_local = True` at the same time")]
+    LocalOnlyAndPreferLocal,
+}
+
 #[derive(Copy, Clone, Dupe, Display, Debug)]
 pub enum ExecutorPreference {
     Default,
     /// Fails when executed by a remote-only executor
     LocalRequired,
+    /// Does not fail when executed by a remote-only executor
+    LocalPreferred,
 }
 
 impl ExecutorPreference {
-    pub fn new(local_only: bool) -> Self {
-        match local_only {
-            true => Self::LocalRequired,
-            false => Self::Default,
+    pub fn new(local_only: bool, prefer_local: bool) -> anyhow::Result<Self> {
+        match (local_only, prefer_local) {
+            (true, false) => Ok(Self::LocalRequired),
+            (false, true) => Ok(Self::LocalPreferred),
+            (false, false) => Ok(Self::Default),
+            (true, true) => Err(anyhow::anyhow!(
+                LocalPreferenceError::LocalOnlyAndPreferLocal
+            )),
         }
     }
 
     pub fn is_local_only(&self) -> bool {
         match self {
             Self::LocalRequired => true,
+            Self::LocalPreferred => false,
+            Self::Default => false,
+        }
+    }
+
+    pub fn is_local(&self) -> bool {
+        match self {
+            Self::LocalRequired => true,
+            Self::LocalPreferred => true,
             Self::Default => false,
         }
     }

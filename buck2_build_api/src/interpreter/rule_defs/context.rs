@@ -572,6 +572,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] identifier: NoneOr<String>,
         #[starlark(require = named)] env: Option<ValueOf<'v, SmallMap<&'v str, Value<'v>>>>,
         #[starlark(require = named, default = false)] local_only: bool,
+        #[starlark(require = named, default = false)] prefer_local: bool,
         #[starlark(require = named, default = false)] always_print_stderr: bool,
         #[starlark(require = named, default = 1)] weight: i32,
         #[starlark(require = named)] dep_files: Option<ValueOf<'v, SmallMap<&'v str, Value<'v>>>>,
@@ -615,7 +616,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             }
         }
 
-        let local_preference = ExecutorPreference::new(local_only);
+        let local_preference = ExecutorPreference::new(local_only, prefer_local)?;
 
         let mut artifact_visitor = RunCommandArtifactVisitor::new();
 
