@@ -31,7 +31,7 @@ use crate::commands::common::subscribers::event_log::log_upload_url;
 use crate::commands::common::subscribers::event_log::EventLogPathBuf;
 use crate::commands::common::subscribers::event_log::EventLogSummary;
 use crate::commands::common::CommonConsoleOptions;
-use crate::commands::common::CommonEventLogOptions;
+use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;
 use crate::daemon::client::BuckdClientConnector;
 use crate::metadata;
@@ -167,8 +167,8 @@ impl StreamingCommand for RageCommand {
         &OPTS
     }
 
-    fn event_log_opts(&self) -> &CommonEventLogOptions {
-        CommonEventLogOptions::default_ref()
+    fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
+        CommonDaemonCommandOptions::default_ref()
     }
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {

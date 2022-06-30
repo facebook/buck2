@@ -13,7 +13,7 @@ use cli_proto::SegfaultRequest;
 use futures::FutureExt;
 
 use crate::commands::common::CommonConsoleOptions;
-use crate::commands::common::CommonEventLogOptions;
+use crate::commands::common::CommonDaemonCommandOptions;
 use crate::CommonBuildConfigurationOptions;
 use crate::StreamingCommand;
 
@@ -40,8 +40,8 @@ impl StreamingCommand for SegfaultCommand {
         CommonConsoleOptions::default_ref()
     }
 
-    fn event_log_opts(&self) -> &CommonEventLogOptions {
-        CommonEventLogOptions::default_ref()
+    fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
+        CommonDaemonCommandOptions::default_ref()
     }
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {

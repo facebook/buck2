@@ -21,7 +21,7 @@ use crate::commands::common::subscribers::superconsole::test::TestHeader;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonBuildOptions;
 use crate::commands::common::CommonConsoleOptions;
-use crate::commands::common::CommonEventLogOptions;
+use crate::commands::common::CommonDaemonCommandOptions;
 use crate::daemon::client::BuckdClientConnector;
 use crate::CommandContext;
 use crate::StreamingCommand;
@@ -36,7 +36,7 @@ pub(crate) struct TestCommand {
     console_opts: CommonConsoleOptions,
 
     #[clap(flatten)]
-    event_log_opts: CommonEventLogOptions,
+    event_log_opts: CommonDaemonCommandOptions,
 
     #[clap(flatten)]
     build_opts: CommonBuildOptions,
@@ -213,7 +213,7 @@ impl StreamingCommand for TestCommand {
         &self.console_opts
     }
 
-    fn event_log_opts(&self) -> &CommonEventLogOptions {
+    fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
         &self.event_log_opts
     }
 

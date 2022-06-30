@@ -27,7 +27,7 @@ use crate::commands::common::subscribers::superconsole::SUPERCONSOLE_WIDTH;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonBuildOptions;
 use crate::commands::common::CommonConsoleOptions;
-use crate::commands::common::CommonEventLogOptions;
+use crate::commands::common::CommonDaemonCommandOptions;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::CommandOutcome;
 use crate::CommandContext;
@@ -47,7 +47,7 @@ pub(crate) struct RunCommand {
     console_opts: CommonConsoleOptions,
 
     #[clap(flatten)]
-    event_log_opts: CommonEventLogOptions,
+    event_log_opts: CommonDaemonCommandOptions,
 
     #[clap(flatten)]
     build_opts: CommonBuildOptions,
@@ -175,7 +175,7 @@ impl StreamingCommand for RunCommand {
         &self.console_opts
     }
 
-    fn event_log_opts(&self) -> &CommonEventLogOptions {
+    fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
         &self.event_log_opts
     }
 

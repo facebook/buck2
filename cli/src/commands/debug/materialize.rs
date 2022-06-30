@@ -14,7 +14,7 @@ use futures::FutureExt;
 
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
-use crate::commands::common::CommonEventLogOptions;
+use crate::commands::common::CommonDaemonCommandOptions;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::BuckdConnectOptions;
 use crate::CommandContext;
@@ -29,7 +29,7 @@ pub(crate) struct MaterializeCommand {
     console_opts: CommonConsoleOptions,
 
     #[clap(flatten)]
-    event_log_opts: CommonEventLogOptions,
+    event_log_opts: CommonDaemonCommandOptions,
 
     /// Paths to materialize, relative to project root
     #[clap(value_name = "PATH")]
@@ -72,7 +72,7 @@ impl StreamingCommand for MaterializeCommand {
         &self.console_opts
     }
 
-    fn event_log_opts(&self) -> &CommonEventLogOptions {
+    fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
         &self.event_log_opts
     }
 

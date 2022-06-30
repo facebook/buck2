@@ -13,7 +13,7 @@ use buck2_core::fs::anyhow::remove_dir_all;
 use cli_proto::CleanRequest;
 use futures::FutureExt;
 
-use super::common::CommonEventLogOptions;
+use super::common::CommonDaemonCommandOptions;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::daemon::client::BuckdClientConnector;
@@ -31,7 +31,7 @@ pub(crate) struct CleanCommand {
     console_opts: CommonConsoleOptions,
 
     #[clap(flatten)]
-    event_log_opts: CommonEventLogOptions,
+    event_log_opts: CommonDaemonCommandOptions,
 
     #[clap(
         long = "dry-run",
@@ -92,7 +92,7 @@ impl StreamingCommand for CleanCommand {
         &self.console_opts
     }
 
-    fn event_log_opts(&self) -> &CommonEventLogOptions {
+    fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
         &self.event_log_opts
     }
 

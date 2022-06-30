@@ -26,7 +26,7 @@ use gazebo::prelude::*;
 use crate::commands::audit::AuditSubcommand;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
-use crate::commands::common::CommonEventLogOptions;
+use crate::commands::common::CommonDaemonCommandOptions;
 use crate::daemon::common::parse_patterns_from_cli_args;
 use crate::daemon::common::resolve_patterns;
 use crate::daemon::common::target_platform_from_client_context;
@@ -45,7 +45,7 @@ pub(crate) struct AuditProvidersCommand {
     console_opts: CommonConsoleOptions,
 
     #[clap(flatten)]
-    event_log_opts: CommonEventLogOptions,
+    event_log_opts: CommonDaemonCommandOptions,
 
     #[clap(name = "TARGET_PATTERNS", help = "Patterns to analyze")]
     patterns: Vec<String>,
@@ -148,7 +148,7 @@ impl AuditSubcommand for AuditProvidersCommand {
         Some(&self.console_opts)
     }
 
-    fn event_log_opts(&self) -> Option<&CommonEventLogOptions> {
+    fn event_log_opts(&self) -> Option<&CommonDaemonCommandOptions> {
         Some(&self.event_log_opts)
     }
 }

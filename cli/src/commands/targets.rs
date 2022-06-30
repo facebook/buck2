@@ -17,7 +17,7 @@ use gazebo::prelude::*;
 
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
-use crate::commands::common::CommonEventLogOptions;
+use crate::commands::common::CommonDaemonCommandOptions;
 use crate::daemon::client::BuckdClientConnector;
 use crate::CommandContext;
 use crate::StreamingCommand;
@@ -62,7 +62,7 @@ pub(crate) struct TargetsCommand {
     console_opts: CommonConsoleOptions,
 
     #[clap(flatten)]
-    event_log_opts: CommonEventLogOptions,
+    event_log_opts: CommonDaemonCommandOptions,
 
     #[clap(long = "json", help = "print targets json")]
     json: bool,
@@ -235,7 +235,7 @@ impl StreamingCommand for TargetsCommand {
         &self.console_opts
     }
 
-    fn event_log_opts(&self) -> &CommonEventLogOptions {
+    fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
         &self.event_log_opts
     }
 

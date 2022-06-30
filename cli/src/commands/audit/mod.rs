@@ -25,7 +25,7 @@ use crate::commands::audit::providers::AuditProvidersCommand;
 use crate::commands::audit::starlark::StarlarkCommand;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
-use crate::commands::common::CommonEventLogOptions;
+use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::server::ServerCommandContext;
@@ -79,7 +79,7 @@ pub(crate) trait AuditSubcommand: Send + Sync + 'static {
 
     fn console_opts(&self) -> Option<&CommonConsoleOptions>;
 
-    fn event_log_opts(&self) -> Option<&CommonEventLogOptions>;
+    fn event_log_opts(&self) -> Option<&CommonDaemonCommandOptions>;
 }
 
 impl AuditCommand {
@@ -157,8 +157,8 @@ impl StreamingCommand for AuditCommand {
         }
     }
 
-    fn event_log_opts(&self) -> &super::common::CommonEventLogOptions {
-        static DEFAULT_OPTS: CommonEventLogOptions = CommonEventLogOptions {
+    fn event_log_opts(&self) -> &super::common::CommonDaemonCommandOptions {
+        static DEFAULT_OPTS: CommonDaemonCommandOptions = CommonDaemonCommandOptions {
             no_event_log: false,
             event_log: None,
             build_id_file: None,

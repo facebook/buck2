@@ -50,7 +50,7 @@ use thiserror::Error;
 use crate::commands::audit::AuditSubcommand;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
-use crate::commands::common::CommonEventLogOptions;
+use crate::commands::common::CommonDaemonCommandOptions;
 use crate::daemon::server::ServerCommandContext;
 
 #[derive(Debug, Error)]
@@ -74,7 +74,7 @@ pub(crate) struct AuditIncludesCommand {
     console_opts: CommonConsoleOptions,
 
     #[clap(flatten)]
-    event_log_opts: CommonEventLogOptions,
+    event_log_opts: CommonDaemonCommandOptions,
 
     /// Print json representation of outputs
     #[clap(long)]
@@ -326,7 +326,7 @@ impl AuditSubcommand for AuditIncludesCommand {
         Some(&self.console_opts)
     }
 
-    fn event_log_opts(&self) -> Option<&CommonEventLogOptions> {
+    fn event_log_opts(&self) -> Option<&CommonDaemonCommandOptions> {
         Some(&self.event_log_opts)
     }
 }

@@ -13,7 +13,7 @@ use cli_proto::UnstableAllocatorStatsRequest;
 use futures::FutureExt;
 
 use crate::commands::common::CommonConsoleOptions;
-use crate::commands::common::CommonEventLogOptions;
+use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::BuckdConnectOptions;
@@ -70,8 +70,8 @@ impl StreamingCommand for AllocatorStatsCommand {
         &OPTS
     }
 
-    fn event_log_opts(&self) -> &CommonEventLogOptions {
-        CommonEventLogOptions::default_ref()
+    fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
+        CommonDaemonCommandOptions::default_ref()
     }
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {

@@ -24,7 +24,7 @@ pub(crate) use simpleconsole::SimpleConsole;
 use crate::commands::common::subscribers::build_id_writer::BuildIdWriter;
 use crate::commands::common::subscribers::superconsole::StatefulSuperConsole;
 use crate::commands::common::verbosity::Verbosity;
-use crate::commands::common::CommonEventLogOptions;
+use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;
 use crate::CommandContext;
 
@@ -56,7 +56,7 @@ pub(crate) fn get_console_with_root(
 
 /// Given the command arguments, conditionally create an event log.
 pub(crate) fn try_get_event_log_subscriber(
-    event_log_opts: &CommonEventLogOptions,
+    event_log_opts: &CommonDaemonCommandOptions,
     ctx: &CommandContext,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     if event_log_opts.no_event_log {
@@ -72,7 +72,7 @@ pub(crate) fn try_get_event_log_subscriber(
 }
 
 pub(crate) fn try_get_build_id_writer(
-    opts: &CommonEventLogOptions,
+    opts: &CommonDaemonCommandOptions,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     if let Some(file_loc) = opts.build_id_file.as_ref() {
         Ok(Some(box BuildIdWriter::new(file_loc.clone())))

@@ -24,7 +24,7 @@ use starlark::eval::ProfileMode;
 
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
-use crate::commands::common::CommonEventLogOptions;
+use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::ConsoleType;
 use crate::daemon::client::BuckdClientConnector;
 use crate::BuckSubcommand;
@@ -89,7 +89,7 @@ pub(crate) struct ProfileOptions {
     config_opts: CommonBuildConfigurationOptions,
 
     #[clap(flatten)]
-    event_log_opts: CommonEventLogOptions,
+    event_log_opts: CommonDaemonCommandOptions,
 
     #[clap(value_name = "TARGET")]
     target_pattern: String,
@@ -195,7 +195,7 @@ impl StreamingCommand for ProfileSubcommand {
         &OPTS
     }
 
-    fn event_log_opts(&self) -> &CommonEventLogOptions {
+    fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
         &self.opts.event_log_opts
     }
 

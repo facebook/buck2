@@ -20,7 +20,7 @@ use crate::commands::audit::starlark::package_deps::StarlarkPackageDepsCommand;
 use crate::commands::audit::AuditSubcommand;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
-use crate::commands::common::CommonEventLogOptions;
+use crate::commands::common::CommonDaemonCommandOptions;
 use crate::daemon::server::ServerCommandContext;
 
 #[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
@@ -51,7 +51,7 @@ impl AuditSubcommand for StarlarkCommand {
         None
     }
 
-    fn event_log_opts(&self) -> Option<&CommonEventLogOptions> {
+    fn event_log_opts(&self) -> Option<&CommonDaemonCommandOptions> {
         None
     }
 }

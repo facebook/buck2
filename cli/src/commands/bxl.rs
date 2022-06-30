@@ -12,7 +12,7 @@ use crate::daemon::client::CommandOutcome;
 use crate::CommandContext;
 use crate::CommonBuildConfigurationOptions;
 use crate::CommonConsoleOptions;
-use crate::CommonEventLogOptions;
+use crate::CommonDaemonCommandOptions;
 use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
@@ -25,7 +25,7 @@ pub(crate) struct BxlCommand {
     console_opts: CommonConsoleOptions,
 
     #[clap(flatten)]
-    event_log_opts: CommonEventLogOptions,
+    event_log_opts: CommonDaemonCommandOptions,
 
     #[clap(flatten)]
     build_opts: CommonBuildOptions,
@@ -106,7 +106,7 @@ impl StreamingCommand for BxlCommand {
         &self.console_opts
     }
 
-    fn event_log_opts(&self) -> &CommonEventLogOptions {
+    fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
         &self.event_log_opts
     }
 

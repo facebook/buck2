@@ -20,7 +20,7 @@ use indent_write::io::IndentWriter;
 use crate::commands::audit::AuditSubcommand;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
-use crate::commands::common::CommonEventLogOptions;
+use crate::commands::common::CommonDaemonCommandOptions;
 use crate::daemon::common::target_platform_from_client_context;
 use crate::daemon::common::PatternParser;
 use crate::daemon::server::ServerCommandContext;
@@ -38,7 +38,7 @@ pub(crate) struct AuditExecutionPlatformResolutionCommand {
     console_opts: CommonConsoleOptions,
 
     #[clap(flatten)]
-    event_log_opts: CommonEventLogOptions,
+    event_log_opts: CommonDaemonCommandOptions,
 
     #[clap(name = "TARGET_PATTERNS", help = "Patterns to analyze")]
     patterns: Vec<String>,
@@ -124,7 +124,7 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
         Some(&self.console_opts)
     }
 
-    fn event_log_opts(&self) -> Option<&CommonEventLogOptions> {
+    fn event_log_opts(&self) -> Option<&CommonDaemonCommandOptions> {
         Some(&self.event_log_opts)
     }
 }

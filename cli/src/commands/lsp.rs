@@ -20,7 +20,7 @@ use crate::stdin_stream::StdinStream;
 use crate::CommandContext;
 use crate::CommonBuildConfigurationOptions;
 use crate::CommonConsoleOptions;
-use crate::CommonEventLogOptions;
+use crate::CommonDaemonCommandOptions;
 use crate::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
@@ -30,7 +30,7 @@ pub(crate) struct LspCommand {
     config_opts: CommonBuildConfigurationOptions,
 
     #[clap(flatten)]
-    event_log_opts: CommonEventLogOptions,
+    event_log_opts: CommonDaemonCommandOptions,
 }
 
 #[async_trait]
@@ -70,7 +70,7 @@ impl StreamingCommand for LspCommand {
         &SIMPLE_CONSOLE
     }
 
-    fn event_log_opts(&self) -> &CommonEventLogOptions {
+    fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
         &self.event_log_opts
     }
 

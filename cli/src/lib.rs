@@ -67,7 +67,7 @@ use crate::commands::common::subscribers::try_get_event_log_subscriber;
 use crate::commands::common::verbosity::Verbosity;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
-use crate::commands::common::CommonEventLogOptions;
+use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::common::HostPlatformOverride;
 use crate::commands::cquery::CqueryCommand;
 use crate::commands::daemon::DaemonCommand;
@@ -266,7 +266,7 @@ pub(crate) trait StreamingCommand: Sized + Send + Sync {
 
     fn console_opts(&self) -> &CommonConsoleOptions;
 
-    fn event_log_opts(&self) -> &CommonEventLogOptions;
+    fn event_log_opts(&self) -> &CommonDaemonCommandOptions;
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions;
 

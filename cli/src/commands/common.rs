@@ -93,9 +93,9 @@ pub(crate) enum HostPlatformOverride {
     Windows,
 }
 
-/// Defines options related to event logs. Any command that involves a streaming daemon command should include these options.
+/// Defines options related to commands that involves a streaming daemon command.
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
-pub(crate) struct CommonEventLogOptions {
+pub(crate) struct CommonDaemonCommandOptions {
     /// Write events to this log file
     #[clap(value_name = "PATH", long = EVENT_LOG)]
     pub event_log: Option<PathBuf>,
@@ -108,9 +108,9 @@ pub(crate) struct CommonEventLogOptions {
     pub build_id_file: Option<PathBuf>,
 }
 
-impl CommonEventLogOptions {
+impl CommonDaemonCommandOptions {
     pub(crate) fn default_ref() -> &'static Self {
-        static DEFAULT: CommonEventLogOptions = CommonEventLogOptions {
+        static DEFAULT: CommonDaemonCommandOptions = CommonDaemonCommandOptions {
             event_log: None,
             no_event_log: false,
             build_id_file: None,
