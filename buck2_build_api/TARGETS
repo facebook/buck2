@@ -22,6 +22,7 @@ rust_library(
         "fbsource//third-party/rust:indoc",
         "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:tempfile",
+        "//buck2/starlark-rust/starlark_map:starlark_map",
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",
@@ -93,7 +94,6 @@ rust_library(
         "//buck2/shed/more_futures:more_futures",
         "//buck2/shed/small_map:small_map",
         "//buck2/starlark-rust/starlark:starlark",
-        "//buck2/starlark-rust/starlark_map:starlark_map",
         "//buck2/test_api:test_api",
         "//common/rust/shed/fbinit:fbinit",
     ],
