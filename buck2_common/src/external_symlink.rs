@@ -105,6 +105,8 @@ impl ExternalSymlink {
             path: &mut PathBuf,
             remaining_path: &mut Components,
         ) -> io::Result<Option<PathBuf>> {
+            assert!(path.is_absolute());
+
             for c in remaining_path {
                 // TODO(nga): this code does not make sense: we push one component here,
                 //   and we pop it 10 lines down, and on the next iteration we push next component?
