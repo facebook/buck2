@@ -257,7 +257,7 @@ pub(crate) enum ParseEventError {
 }
 
 #[derive(Error, Debug)]
-#[error("Invalid buck event: `{:?}`", .0)]
+#[error("Invalid buck event: `{0:?}`")]
 pub(crate) struct InvalidBuckEvent(pub BuckEvent);
 
 pub(crate) fn duration_as_secs_elapsed(elapsed: Duration, time_speed: f64) -> String {

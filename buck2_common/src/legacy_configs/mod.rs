@@ -66,13 +66,13 @@ pub(crate) enum ConfigError {
     ReferenceCycle(Vec<(String, String)>),
     #[error("Unable to resolve cell-relative path `{0}`")]
     UnableToResolveCellRelativePath(String),
-    #[error("Invalid value for buckconfig `{}.{}`: conversion to {} failed", .section, .key, .ty)]
+    #[error("Invalid value for buckconfig `{section}.{key}`: conversion to {ty} failed")]
     ParseFailed {
         section: String,
         key: String,
         ty: &'static str,
     },
-    #[error("Unknown cell: `{}`", .0)]
+    #[error("Unknown cell: `{0}`")]
     UnknownCell(CellName),
 }
 

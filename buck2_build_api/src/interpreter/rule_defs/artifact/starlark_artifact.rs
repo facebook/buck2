@@ -192,7 +192,7 @@ impl<'v> StarlarkValue<'v> for StarlarkArtifact {
 enum CannotProject {
     #[error("Source artifacts cannot be projected")]
     SourceArtifact,
-    #[error("This artifact was declared by another rule: `{}`", .0)]
+    #[error("This artifact was declared by another rule: `{0}`")]
     DeclaredElsewhere(BaseDeferredKey),
 }
 

@@ -29,9 +29,9 @@ use crate::attrs::attr_type::AttrTypeExt;
 
 #[derive(Error, Debug)]
 pub(crate) enum SelectError {
-    #[error("select() condition was not a string, got `{}`.", {0})]
+    #[error("select() condition was not a string, got `{0}`.")]
     KeyNotString(String),
-    #[error("select() value was not a dict, got `{}`.", {0})]
+    #[error("select() value was not a dict, got `{0}`.")]
     ValueNotDict(String),
     #[error("addition not supported for this attribute type `{0}`.")]
     ConcatNotSupported(String),

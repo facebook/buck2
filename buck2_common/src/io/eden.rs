@@ -52,7 +52,7 @@ use crate::io::IoProvider;
 struct EdenError(edenfs::types::EdenError);
 
 #[derive(Debug, Error)]
-#[error("Eden returned an unexpected field: {}", .0)]
+#[error("Eden returned an unexpected field: {0}")]
 struct UnknownField(i32);
 
 #[derive(Derivative)]

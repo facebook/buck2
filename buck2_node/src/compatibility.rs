@@ -21,7 +21,7 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum CompatibilityErrors {
-    #[error("{}", .0)]
+    #[error("{0}")]
     TargetIncompatible(IncompatiblePlatformReason),
 }
 
