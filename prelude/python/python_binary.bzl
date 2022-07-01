@@ -11,6 +11,10 @@ load(
     "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
     "create_merged_linkable_graph",
 )
+load(
+    "@fbcode//buck2/prelude/utils:types.bzl",
+    "unchecked",  # @unused Used as a type
+)
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "flatten", "value_or")
 load(":compile.bzl", "compile_manifests")
 load(
@@ -47,9 +51,9 @@ def _package_style(ctx: "context") -> PackageStyle.type:
 
 # We do a lot of merging extensions, so don't use O(n) type annotations
 def _merge_extensions(
-        extensions,  # : {str.type: ("_a", "label")},
-        incoming_label,  # : "label",
-        incoming_extensions) -> None:  # : {str.type: "_a"})
+        extensions: unchecked({str.type: ("_a", "label")}),
+        incoming_label: unchecked("label"),
+        incoming_extensions: unchecked({str.type: "_a"})) -> None:
     """
     Merges a incoming_extensions into `extensions`. Fails if duplicate dests exist.
     """
