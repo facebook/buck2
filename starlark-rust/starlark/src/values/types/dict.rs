@@ -159,7 +159,7 @@ impl<'v> Dict<'v> {
     #[inline]
     pub fn from_value_mut(x: Value<'v>) -> anyhow::Result<DictMut> {
         #[derive(thiserror::Error, Debug)]
-        #[error("Value is not dict, value type: `{}`", .0)]
+        #[error("Value is not dict, value type: `{0}`")]
         struct NotDictError(&'static str);
 
         #[cold]

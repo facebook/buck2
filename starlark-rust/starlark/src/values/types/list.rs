@@ -135,7 +135,7 @@ impl<'v> List<'v> {
     #[inline]
     pub(crate) fn from_value_mut(x: Value<'v>) -> anyhow::Result<&'v Self> {
         #[derive(thiserror::Error, Debug)]
-        #[error("Value is not list, value type: `{}`", .0)]
+        #[error("Value is not list, value type: `{0}`")]
         struct NotListError(&'static str);
 
         #[cold]

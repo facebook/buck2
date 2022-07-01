@@ -84,11 +84,11 @@ pub(crate) enum TestServerError {
     #[error("Attempted to set the contents of a file with a non-absolute path `{}`", .0.display())]
     SetFileNotAbsolute(PathBuf),
     /// The response came back, but was an error response, not a successful one.
-    #[error("Response error: {:?}", .0)]
+    #[error("Response error: {0:?}")]
     ResponseError(ResponseError),
-    #[error("Invalid response message for request {}: {:?}", .0, .1)]
+    #[error("Invalid response message for request {0}: {1:?}")]
     InvalidResponse(RequestId, Response),
-    #[error("Client received a request (not response/notification) from the server: {:?}", .0)]
+    #[error("Client received a request (not response/notification) from the server: {0:?}")]
     ReceivedRequest(lsp_server::Request),
     #[error("Got a duplicate response for request ID {:?}: Existing: {:?}, New: {:?}", .new.id, .existing, .new)]
     DuplicateResponse { new: Response, existing: Response },
