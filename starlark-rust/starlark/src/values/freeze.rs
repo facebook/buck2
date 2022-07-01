@@ -21,8 +21,8 @@ use std::marker::PhantomData;
 
 use gazebo::prelude::*;
 use starlark_map::small_map::SmallMap;
-use starlark_map::vec_map::Bucket;
 use starlark_map::vec_map::VecMap;
+use starlark_map::Hashed;
 
 use crate::values::Freezer;
 use crate::values::FrozenStringValue;
@@ -168,6 +168,18 @@ where
     }
 }
 
+impl<K: Freeze> Freeze for Hashed<K> {
+    type Frozen = Hashed<K::Frozen>;
+
+    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+        // `freeze` must not change hash.
+        Ok(Hashed::new_unchecked(
+            self.hash(),
+            self.into_key().freeze(freezer)?,
+        ))
+    }
+}
+
 impl<K, V> Freeze for VecMap<K, V>
 where
     K: Freeze,
@@ -176,13 +188,7 @@ where
     type Frozen = VecMap<K::Frozen, V::Frozen>;
 
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
-        let buckets = self.buckets.into_try_map(|Bucket { hash, key, value }| {
-            let key = key.freeze(freezer)?;
-            let value = value.freeze(freezer)?;
-            // `freeze` must not change hash.
-            anyhow::Ok(Bucket { hash, key, value })
-        })?;
-        Ok(VecMap { buckets })
+        self.into_try_map(|k, v| Ok((k.freeze(freezer)?, v.freeze(freezer)?)))
     }
 }
 

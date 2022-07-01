@@ -70,17 +70,15 @@ macro_rules! def_double_ended_iter {
 
 /// Bucket in [`VecMap`].
 #[derive(Debug, Clone, Eq, PartialEq)]
-// TODO(nga): make it private.
-pub struct Bucket<K, V> {
-    pub hash: StarlarkHashValue,
-    pub key: K,
-    pub value: V,
+pub(crate) struct Bucket<K, V> {
+    pub(crate) hash: StarlarkHashValue,
+    pub(crate) key: K,
+    pub(crate) value: V,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Default_)]
 pub struct VecMap<K, V> {
-    // TODO(nga): make private.
-    pub buckets: Vec<Bucket<K, V>>,
+    pub(crate) buckets: Vec<Bucket<K, V>>,
 }
 
 #[derive(Clone_)]
@@ -498,5 +496,28 @@ impl<K, V> VecMap<K, V> {
         IterMut {
             iter: self.buckets.iter_mut(),
         }
+    }
+
+    /// Apply a function to each element in the map.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if for any key hash is different after function application.
+    pub fn into_try_map<E, K1, V1, F>(self, f: F) -> Result<VecMap<K1, V1>, E>
+    where
+        F: Fn(Hashed<K>, V) -> Result<(Hashed<K1>, V1), E>,
+    {
+        Ok(VecMap {
+            buckets: self.buckets.into_try_map(|Bucket { hash, key, value }| {
+                let hashed_key = Hashed::new_unchecked(hash, key);
+                let (new_hashed_key, new_value) = f(hashed_key, value)?;
+                assert!(hash == new_hashed_key.hash());
+                Ok(Bucket {
+                    hash: new_hashed_key.hash(),
+                    key: new_hashed_key.into_key(),
+                    value: new_value,
+                })
+            })?,
+        })
     }
 }
