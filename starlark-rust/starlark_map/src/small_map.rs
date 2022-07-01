@@ -45,13 +45,13 @@ use crate::vec_map::VecMap;
 const NO_INDEX_THRESHOLD: usize = 12;
 
 /// Iterator over a small map entry references.
-pub type MHIter<'a, K, V> = vec_map::Iter<'a, K, V>;
+pub type Iter<'a, K, V> = vec_map::Iter<'a, K, V>;
 
 /// Iterator over a small map mutable entry references.
-pub type MHIterMut<'a, K, V> = vec_map::IterMut<'a, K, V>;
+pub type IterMut<'a, K, V> = vec_map::IterMut<'a, K, V>;
 
 /// Iterator over a small map entries.
-pub type MHIntoIter<K, V> = vec_map::IntoIter<K, V>;
+pub type IntoIter<K, V> = vec_map::IntoIter<K, V>;
 
 /// An memory-efficient key-value map with determinstic order.
 ///
@@ -168,7 +168,7 @@ impl<K, V> SmallMap<K, V> {
 
     /// Entry references iterator.
     #[inline]
-    pub fn iter(&self) -> MHIter<'_, K, V> {
+    pub fn iter(&self) -> Iter<'_, K, V> {
         self.entries.iter()
     }
 
@@ -186,13 +186,13 @@ impl<K, V> SmallMap<K, V> {
 
     /// Mutable entry references iterator.
     #[inline]
-    pub fn iter_mut(&mut self) -> MHIterMut<'_, K, V> {
+    pub fn iter_mut(&mut self) -> IterMut<'_, K, V> {
         self.entries.iter_mut()
     }
 
     /// Entries iterator.
     #[inline]
-    pub fn into_iter(self) -> MHIntoIter<K, V> {
+    pub fn into_iter(self) -> IntoIter<K, V> {
         self.entries.into_iter()
     }
 
@@ -722,7 +722,7 @@ where
 
 impl<K, V> IntoIterator for SmallMap<K, V> {
     type Item = (K, V);
-    type IntoIter = MHIntoIter<K, V>;
+    type IntoIter = IntoIter<K, V>;
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
@@ -732,7 +732,7 @@ impl<K, V> IntoIterator for SmallMap<K, V> {
 
 impl<'a, K, V> IntoIterator for &'a SmallMap<K, V> {
     type Item = (&'a K, &'a V);
-    type IntoIter = MHIter<'a, K, V>;
+    type IntoIter = Iter<'a, K, V>;
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
@@ -742,7 +742,7 @@ impl<'a, K, V> IntoIterator for &'a SmallMap<K, V> {
 
 impl<'a, K, V> IntoIterator for &'a mut SmallMap<K, V> {
     type Item = (&'a K, &'a mut V);
-    type IntoIter = MHIterMut<'a, K, V>;
+    type IntoIter = IterMut<'a, K, V>;
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {

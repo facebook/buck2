@@ -20,9 +20,9 @@
 //! These structures use vector backed storage if there are only a few elements, and and index
 //! for larger collections. The API mirrors standard Rust collections.
 
-pub use starlark_map::small_map::MHIntoIter;
-pub use starlark_map::small_map::MHIter;
-pub use starlark_map::small_map::MHIterMut;
+pub use starlark_map::small_map::IntoIter;
+pub use starlark_map::small_map::Iter;
+pub use starlark_map::small_map::IterMut;
 pub use starlark_map::small_map::SmallMap;
 pub use starlark_map::small_set::SmallSet;
 pub use starlark_map::Equivalent;
