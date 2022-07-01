@@ -22,51 +22,8 @@ use gazebo::prelude::*;
 use crate::equivalent::Equivalent;
 use crate::hash_value::StarlarkHashValue;
 use crate::hashed::Hashed;
-
-// We define a lot of iterators on top of other iterators
-// so define a helper macro for that
-macro_rules! def_iter {
-    () => {
-        #[inline]
-        fn next(&mut self) -> Option<Self::Item> {
-            self.iter.next().map(Self::map)
-        }
-
-        fn nth(&mut self, n: usize) -> Option<Self::Item> {
-            self.iter.nth(n).map(Self::map)
-        }
-
-        fn last(mut self) -> Option<Self::Item> {
-            // Since these are all double-ended iterators we can skip to the end quickly
-            self.iter.next_back().map(Self::map)
-        }
-
-        #[inline]
-        fn size_hint(&self) -> (usize, Option<usize>) {
-            self.iter.size_hint()
-        }
-
-        fn count(self) -> usize {
-            self.iter.len()
-        }
-
-        fn collect<C>(self) -> C
-        where
-            C: std::iter::FromIterator<Self::Item>,
-        {
-            self.iter.map(Self::map).collect()
-        }
-    };
-}
-
-macro_rules! def_double_ended_iter {
-    () => {
-        #[inline]
-        fn next_back(&mut self) -> Option<Self::Item> {
-            self.iter.next_back().map(Self::map)
-        }
-    };
-}
+use crate::iter::def_double_ended_iter;
+use crate::iter::def_iter;
 
 /// Bucket in [`VecMap`].
 #[derive(Debug, Clone, Eq, PartialEq)]
