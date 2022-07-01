@@ -33,8 +33,8 @@ pub(crate) enum SelectError {
     KeyNotString(String),
     #[error("select() value was not a dict, got `{0}`.")]
     ValueNotDict(String),
-    #[error("addition not supported for this attribute type `{0}`.")]
-    ConcatNotSupported(String),
+    #[error("addition not supported for this attribute type `{0}`, got `{1}`.")]
+    ConcatNotSupported(String, String),
     #[error("select() cannot be used in non-configuable attribute")]
     SelectCannotBeUsedForNonConfigurableAttr,
 }
@@ -106,7 +106,10 @@ impl CoercedAttrExr for CoercedAttr {
                 }
                 SelectorGen::Added(l, r) => {
                     if !attr.supports_concat() {
-                        return Err(anyhow!(SelectError::ConcatNotSupported(attr.to_string())));
+                        return Err(anyhow!(SelectError::ConcatNotSupported(
+                            attr.to_string(),
+                            format!("{} + {}", l, r)
+                        )));
                     }
                     let l = CoercedAttr::coerce(attr, configuable, ctx, l, None)?;
                     let mut l = match l {
