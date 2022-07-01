@@ -22,7 +22,6 @@ rust_library(
         "fbsource//third-party/rust:indoc",
         "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:tempfile",
-        "//buck2/starlark-rust/starlark_map:starlark_map",
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",
