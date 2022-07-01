@@ -30,9 +30,8 @@ macro_rules! def_iter {
         }
 
         #[inline]
-        fn last(mut self) -> Option<Self::Item> {
-            // Since these are all double-ended iterators we can skip to the end quickly
-            self.iter.next_back().map(Self::map)
+        fn last(self) -> Option<Self::Item> {
+            self.iter.last().map(Self::map)
         }
 
         #[inline]
@@ -42,7 +41,7 @@ macro_rules! def_iter {
 
         #[inline]
         fn count(self) -> usize {
-            self.iter.len()
+            self.iter.count()
         }
 
         #[inline]
