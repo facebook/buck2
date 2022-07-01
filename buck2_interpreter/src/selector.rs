@@ -39,7 +39,7 @@ pub enum SelectorGen<ValueType> {
 impl<V: Display> Display for SelectorGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SelectorGen::Inner(v) => write!(f, "select[{}]", v),
+            SelectorGen::Inner(v) => write!(f, "select({})", v),
             SelectorGen::Added(l, r) => write!(f, "{} + {}", l, r),
         }
     }
