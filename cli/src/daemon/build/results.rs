@@ -9,7 +9,7 @@
 
 //! Processing and reporting the the results of the build
 
-use buck2_build_api::bxl::BxlFunctionLabel;
+use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 
 use crate::daemon::build::BuildTargetResult;
@@ -171,7 +171,7 @@ pub mod build_report {
 
     use buck2_build_api::actions::artifact::ArtifactFs;
     use buck2_build_api::build::BuildProviderType;
-    use buck2_build_api::bxl::BxlFunctionLabel;
+    use buck2_build_api::bxl::types::BxlFunctionLabel;
     use buck2_core::configuration::Configuration;
     use buck2_core::fs::paths::AbsPath;
     use buck2_core::fs::paths::AbsPathBuf;

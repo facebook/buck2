@@ -3,8 +3,9 @@ use std::collections::HashMap;
 
 use anyhow::Context;
 use buck2_build_api::bxl::result::BxlResult;
-use buck2_build_api::bxl::BxlFunctionLabel;
-use buck2_build_api::bxl::BxlKey;
+use buck2_build_api::bxl::types::BxlFunctionLabel;
+use buck2_build_api::bxl::types::BxlKey;
+use buck2_build_api::bxl::types::CliArgValue;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::deferred::BaseDeferredKey;
 use buck2_build_api::deferred::DeferredTable;
@@ -30,7 +31,6 @@ use starlark::values::Value;
 use starlark::values::ValueTyped;
 use thiserror::Error;
 
-use crate::bxl::starlark_defs::cli_args::CliArgValue;
 use crate::bxl::starlark_defs::cli_args::CliArgValueExt;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::context::BxlContext;

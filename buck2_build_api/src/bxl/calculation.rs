@@ -8,7 +8,7 @@ use buck2_core::result::SharedResult;
 use dice::DiceComputations;
 
 use crate::bxl::result::BxlResult;
-use crate::bxl::BxlKey;
+use crate::bxl::types::BxlKey;
 
 #[derive(Debug, thiserror::Error)]
 enum BxlCalculationError {

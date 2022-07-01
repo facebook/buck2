@@ -12,7 +12,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use buck2_build_api::bxl::calculation::BxlCalculationDyn;
 use buck2_build_api::bxl::result::BxlResult;
-use buck2_build_api::bxl::BxlKey;
+use buck2_build_api::bxl::types::BxlKey;
 use buck2_core::result::SharedResult;
 use buck2_core::result::ToSharedResultExt;
 use dice::DiceComputations;
@@ -46,7 +46,7 @@ impl Key for internal::BxlComputeKey {
 }
 
 mod internal {
-    use buck2_build_api::bxl::BxlKey;
+    use buck2_build_api::bxl::types::BxlKey;
     use derive_more::Display;
     use gazebo::prelude::*;
 

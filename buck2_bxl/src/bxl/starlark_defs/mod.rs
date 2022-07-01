@@ -15,9 +15,10 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use anyhow::Context;
+use buck2_build_api::bxl::types::BxlFunctionLabel;
+use buck2_build_api::bxl::types::CliArgValue;
 use buck2_build_api::interpreter::rule_defs::cmd_args::register_args_function;
 use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
-use buck2_bxl_core::BxlFunctionLabel;
 use buck2_interpreter::build_defs::register_natives;
 use buck2_interpreter::common::BxlFilePath;
 use buck2_interpreter::extra::BuildContext;
@@ -44,7 +45,6 @@ use starlark::values::Value;
 use thiserror::Error;
 
 use crate::bxl::starlark_defs::cli_args::ArgAccessor;
-use crate::bxl::starlark_defs::cli_args::CliArgValue;
 use crate::bxl::starlark_defs::functions::register_label_function;
 
 pub mod alloc_node;

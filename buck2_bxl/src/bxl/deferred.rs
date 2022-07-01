@@ -15,8 +15,8 @@ mod tests {
 
     use buck2_build_api::bxl::calculation::BxlCalculationDyn;
     use buck2_build_api::bxl::result::BxlResult;
-    use buck2_build_api::bxl::BxlFunctionLabel;
-    use buck2_build_api::bxl::BxlKey;
+    use buck2_build_api::bxl::types::BxlFunctionLabel;
+    use buck2_build_api::bxl::types::BxlKey;
     use buck2_build_api::calculation::Calculation;
     use buck2_build_api::deferred::BaseDeferredKey;
     use buck2_build_api::deferred::BaseKey;

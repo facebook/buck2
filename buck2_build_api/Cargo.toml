@@ -10,7 +10,6 @@ anyhow = "1.0.51"
 async-recursion = "1.0"
 async-trait = "0.1.24"
 blake3 = "0.3.7"
-buck2_bxl_core = { path = "../buck2_bxl_core" }
 buck2_core = { path = "../buck2_core" }
 buck2_common = { path = "../buck2_common" }
 buck2_node = { path = "../buck2_node" }

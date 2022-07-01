@@ -9,7 +9,7 @@ use buck2_build_api::build::materialize_artifact_group;
 use buck2_build_api::build::MaterializationContext;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::bxl::calculation::BxlCalculation;
-use buck2_build_api::bxl::BxlKey;
+use buck2_build_api::bxl::types::BxlKey;
 use buck2_build_api::calculation::Calculation;
 use buck2_bxl::bxl::eval::get_bxl_callable;
 use buck2_bxl::bxl::eval::resolve_cli_args;

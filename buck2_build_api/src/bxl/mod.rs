@@ -17,6 +17,4 @@ pub mod build_result;
 pub mod calculation;
 pub mod execution_platform;
 pub mod result;
-
-pub use buck2_bxl_core::BxlFunctionLabel;
-pub use buck2_bxl_core::BxlKey;
+pub mod types;

@@ -16,8 +16,8 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_std_ext::prelude::AsyncOptionExt;
+use buck2_build_api::bxl::types::CliArgValue;
 use buck2_build_api::calculation::load_patterns;
-pub use buck2_bxl_core::CliArgValue;
 use buck2_core::pattern::lex_target_pattern;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPattern;

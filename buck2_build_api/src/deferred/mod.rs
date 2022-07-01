@@ -31,7 +31,6 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use buck2_bxl_core::BxlKey;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
@@ -51,6 +50,7 @@ use thiserror::Error;
 
 use crate::actions::artifact::Artifact;
 use crate::actions::artifact::ArtifactValue;
+use crate::bxl::types::BxlKey;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 
 /// An asynchronous chunk of work that will be executed when requested.
