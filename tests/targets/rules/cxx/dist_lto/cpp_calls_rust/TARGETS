@@ -1,10 +1,9 @@
-# @noautodeps
-
 load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
 load("@fbcode_macros//build_defs:cpp_library.bzl", "cpp_library")
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
 
 cpp_binary(
+    # @autodeps-skip
     name = "main",
     srcs = ["main.cpp"],
     deps = [":lib"],

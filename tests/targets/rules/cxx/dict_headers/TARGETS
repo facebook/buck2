@@ -1,9 +1,8 @@
-# @noautodeps
-
 load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
 load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
 
 cpp_binary(
+    # @autodeps-skip
     name = "my_binary",
     srcs = ["foo.cpp"],
     deps = [":dep"],

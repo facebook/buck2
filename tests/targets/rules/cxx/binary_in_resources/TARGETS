@@ -1,5 +1,3 @@
-# @noautodeps
-
 load("@fbcode_macros//build_defs:cpp_binary.bzl", "cpp_binary")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")

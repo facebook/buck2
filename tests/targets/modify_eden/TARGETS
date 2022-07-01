@@ -1,5 +1,3 @@
-# @noautodeps
-
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 
 buck_genrule(

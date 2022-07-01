@@ -1,5 +1,3 @@
-# @noautodeps
-
 # this file is just empty
 # tests expect this package to have a "buildfile" target
 # that only appears in the TARGETS.v2 file so this
