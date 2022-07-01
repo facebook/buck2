@@ -100,7 +100,10 @@ impl ExternalSymlink {
         }
     }
 
-    pub fn from_disk<P: AsRef<AbsPath>>(relpath: &ForwardRelativePath, root: P) -> Option<Self> {
+    pub fn from_disk<P: AsRef<AbsPath>>(
+        relpath: &ForwardRelativePath,
+        root: P,
+    ) -> anyhow::Result<Option<Self>> {
         fn external_sym(
             path: &mut PathBuf,
             remaining_path: &mut Components,
@@ -111,8 +114,17 @@ impl ExternalSymlink {
                 // TODO(nga): this code does not make sense: we push one component here,
                 //   and we pop it 10 lines down, and on the next iteration we push next component?
                 path.push(c);
-                if !path.symlink_metadata()?.file_type().is_symlink() {
-                    continue;
+
+                match path.symlink_metadata() {
+                    Ok(symlink_metadata) => {
+                        if !symlink_metadata.file_type().is_symlink() {
+                            continue;
+                        }
+                    }
+                    Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                        return Ok(None);
+                    }
+                    Err(e) => return Err(e),
                 }
 
                 // We got a symlink, does it point to an absolute path?
@@ -148,9 +160,8 @@ impl ExternalSymlink {
         let relpath = Path::new(relpath.as_str());
         let mut remaining_path = relpath.components();
 
-        external_sym(&mut root.to_path_buf(), &mut remaining_path)
-            .ok()?
-            .map(|dest| {
+        Ok(
+            external_sym(&mut root.to_path_buf(), &mut remaining_path)?.map(|dest| {
                 let remaining_path = remaining_path.as_path();
                 let remaining_path = if !remaining_path.as_os_str().is_empty() {
                     Some(
@@ -162,7 +173,8 @@ impl ExternalSymlink {
                     None
                 };
                 Self::new(dest, remaining_path)
-            })
+            }),
+        )
     }
 }
 
@@ -186,7 +198,7 @@ mod tests {
 
         assert_eq!(
             None,
-            ExternalSymlink::from_disk(ForwardRelativePath::new("x")?, AbsPath::new(t.path())?)
+            ExternalSymlink::from_disk(ForwardRelativePath::new("x")?, AbsPath::new(t.path())?)?
         );
 
         Ok(())
@@ -202,7 +214,7 @@ mod tests {
 
         assert_eq!(
             None,
-            ExternalSymlink::from_disk(ForwardRelativePath::new("y")?, AbsPath::new(t.path())?)
+            ExternalSymlink::from_disk(ForwardRelativePath::new("y")?, AbsPath::new(t.path())?)?
         );
 
         Ok(())
@@ -218,7 +230,7 @@ mod tests {
 
         assert_eq!(
             None,
-            ExternalSymlink::from_disk(ForwardRelativePath::new("y")?, AbsPath::new(t.path())?)
+            ExternalSymlink::from_disk(ForwardRelativePath::new("y")?, AbsPath::new(t.path())?)?
         );
 
         Ok(())
@@ -239,7 +251,7 @@ mod tests {
                 abs_target: external.path().to_path_buf(),
                 remaining_path: None
             }),
-            ExternalSymlink::from_disk(ForwardRelativePath::new("x/y")?, AbsPath::new(t.path())?)
+            ExternalSymlink::from_disk(ForwardRelativePath::new("x/y")?, AbsPath::new(t.path())?)?
         );
 
         Ok(())
@@ -263,7 +275,7 @@ mod tests {
             ExternalSymlink::from_disk(
                 ForwardRelativePath::new("x/y/z/w")?,
                 AbsPath::new(t.path())?
-            )
+            )?
         );
 
         Ok(())
@@ -277,7 +289,7 @@ mod tests {
 
         assert_eq!(
             None,
-            ExternalSymlink::from_disk(ForwardRelativePath::new("y")?, AbsPath::new(t.path())?)
+            ExternalSymlink::from_disk(ForwardRelativePath::new("y")?, AbsPath::new(t.path())?)?
         );
 
         Ok(())
