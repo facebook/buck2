@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+mod iter;
+
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Debug;
@@ -27,6 +29,8 @@ use gazebo::prelude::*;
 use crate::equivalent::Equivalent;
 use crate::hashed::Hashed;
 use crate::small_map::SmallMap;
+pub use crate::small_set::iter::IntoIter;
+pub use crate::small_set::iter::Iter;
 
 /// An memory-efficient set with determinstic order, based on [`SmallMap`].
 #[derive(Clone, Default_)]
@@ -104,15 +108,17 @@ impl<T> SmallSet<T> {
     }
 
     /// Iterate the element references.
-    pub fn iter(
-        &self,
-    ) -> impl ExactSizeIterator<Item = &T> + DoubleEndedIterator<Item = &T> + Clone {
-        self.0.keys()
+    pub fn iter(&self) -> Iter<T> {
+        Iter {
+            iter: self.0.iter(),
+        }
     }
 
     /// Convert the set into the iterator over the elements.
-    pub fn into_iter(self) -> impl ExactSizeIterator<Item = T> {
-        self.0.into_iter().map(|(t, _)| t)
+    pub fn into_iter(self) -> IntoIter<T> {
+        IntoIter {
+            iter: self.0.into_iter(),
+        }
     }
 
     /// Insert the element into the set.
