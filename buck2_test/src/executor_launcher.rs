@@ -65,16 +65,15 @@ impl ExecutorLauncher for OutOfProcessTestExecutor {
             let use_tcp = EnvHelper::<bool>::new("BUCK2_TEST_TPX_USE_TCP")
                 .get()?
                 .unwrap_or_default();
-            if use_tcp {
-                spawn_orchestrator(crate::tcp::executor::spawn(&self.name, tpx_args).await?).await
-            } else {
-                spawn_orchestrator(crate::unix::executor::spawn(&self.name, tpx_args).await?).await
+            if !use_tcp {
+                return spawn_orchestrator(
+                    crate::unix::executor::spawn(&self.name, tpx_args).await?,
+                )
+                .await;
             }
         }
-        #[cfg(not(unix))]
-        {
-            spawn_orchestrator(crate::tcp::executor::spawn(&self.name, tpx_args).await?).await
-        }
+
+        spawn_orchestrator(crate::tcp::executor::spawn(&self.name, tpx_args).await?).await
     }
 }
 async fn spawn_orchestrator<T: AsyncRead + AsyncWrite + Send + Sync + Unpin + 'static>(
