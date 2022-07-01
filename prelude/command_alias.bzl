@@ -64,6 +64,8 @@ def command_alias_impl(ctx):
         run_info_args.add(base.args)
         run_info_args.add(ctx.attr.args)
 
+    run_info_args.hidden(ctx.attr.resources)
+
     # TODO(cjhopman): Consider what this should have for default outputs. Using
     # the base's default outputs may not really be correct (it makes more sense to
     # be the outputs required by the args).
