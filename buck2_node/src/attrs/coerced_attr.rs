@@ -20,7 +20,7 @@ use gazebo::prelude::SliceExt;
 use itertools::Itertools;
 use serde::Serialize;
 use serde::Serializer;
-use small_map::map::SmallMap;
+use starlark_map::small_map::SmallMap;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::configuration_context::AttrConfigurationContext;

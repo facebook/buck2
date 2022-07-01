@@ -88,7 +88,6 @@ crossbeam-channel = "0.5"
 # 0.9.8 is only compatible with nightly 1.61
 crossbeam-epoch = "=0.9.7"
 more_futures = { path = "../shed/more_futures" }
-small_map = { path = "../shed/small_map" }
 http = "0.2"
 parking_lot = { version = "0.11.2" }
 uuid = { version = "0.8", features = ["v4"] }

@@ -21,7 +21,7 @@ gazebo.features = ["str_pattern_extensions"]
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
-small_map = { path = "../shed/small_map" }
+starlark_map = { version = "0.9.0-pre", path = "../starlark-rust/starlark_map" }
 
 buck2_core = { path = "../buck2_core" }
 buck2_query = { path = "../buck2_query" }

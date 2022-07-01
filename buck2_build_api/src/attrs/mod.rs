@@ -47,6 +47,7 @@
 
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
+use starlark_map::small_map;
 
 pub(crate) mod analysis;
 pub mod attr_type;
@@ -59,7 +60,7 @@ pub(crate) mod testing;
 mod tests;
 
 /// A simple map that maintains insertion order.
-pub type OrderedMap<K, V> = small_map::map::SmallMap<K, V>;
-pub type OrderedMapEntry<'a, K, V> = small_map::map::Entry<'a, K, V>;
-pub type OrderedMapOccupiedEntry<'a, K, V> = small_map::map::OccupiedEntry<'a, K, V>;
-pub type OrderedMapVacantEntry<'a, K, V> = small_map::map::VacantEntry<'a, K, V>;
+pub type OrderedMap<K, V> = small_map::SmallMap<K, V>;
+pub type OrderedMapEntry<'a, K, V> = small_map::Entry<'a, K, V>;
+pub type OrderedMapOccupiedEntry<'a, K, V> = small_map::OccupiedEntry<'a, K, V>;
+pub type OrderedMapVacantEntry<'a, K, V> = small_map::VacantEntry<'a, K, V>;

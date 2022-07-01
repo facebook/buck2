@@ -9,7 +9,8 @@
 
 use std::collections::HashSet;
 
-use small_map::map::SmallMap;
+use starlark_map::small_map;
+use starlark_map::small_map::SmallMap;
 
 use crate::attrs::attr::Attribute;
 use crate::attrs::coerced_attr::CoercedAttr;
@@ -69,12 +70,12 @@ impl AttributeSpec {
         for (name, instance) in attributes.into_iter() {
             let index_in_attribute_spec = indices.len();
             match indices.entry(name) {
-                small_map::map::Entry::Vacant(e) => {
+                small_map::Entry::Vacant(e) => {
                     e.insert(AttributeId {
                         index_in_attribute_spec,
                     });
                 }
-                small_map::map::Entry::Occupied(e) => {
+                small_map::Entry::Occupied(e) => {
                     let name = e.key();
                     if internal_attr_names.contains(name.as_str()) {
                         return Err(anyhow::anyhow!(
@@ -189,7 +190,7 @@ impl AttributeSpec {
 }
 
 pub(crate) mod testing {
-    use small_map::map::SmallMap;
+    use starlark_map::small_map::SmallMap;
 
     use crate::attrs::attr::Attribute;
     use crate::attrs::id::AttributeId;

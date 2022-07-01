@@ -13,7 +13,7 @@ use buck2_core::buck_path::BuckPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::TargetLabel;
 use gazebo::dupe::Dupe;
-use small_map::set::SmallSet;
+use starlark_map::small_set::SmallSet;
 
 use crate::attrs::traversal::CoercedAttrTraversal;
 

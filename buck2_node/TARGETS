@@ -20,6 +20,6 @@ rust_library(
         "//buck2/buck2_core:buck2_core",
         "//buck2/buck2_query:buck2_query",
         "//buck2/gazebo/gazebo:gazebo",
-        "//buck2/shed/small_map:small_map",
+        "//buck2/starlark-rust/starlark_map:starlark_map",
     ],
 )

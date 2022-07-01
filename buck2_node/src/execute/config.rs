@@ -10,7 +10,7 @@
 use std::borrow::Cow;
 
 use gazebo::prelude::Dupe;
-use small_map::map::SmallMap;
+use starlark_map::small_map::SmallMap;
 
 #[derive(Debug, Eq, Hash, PartialEq, Clone, Dupe)]
 pub struct LocalExecutorOptions {}

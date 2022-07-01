@@ -384,7 +384,7 @@ pub mod testing {
     use buck2_core::fs::paths::FileNameBuf;
     use buck2_core::target::TargetLabel;
     use gazebo::dupe::Dupe;
-    use small_map::map::SmallMap;
+    use starlark_map::small_map::SmallMap;
 
     use super::*;
     use crate::attrs::attr::Attribute;

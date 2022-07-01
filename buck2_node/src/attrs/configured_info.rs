@@ -8,7 +8,7 @@
  */
 
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use small_map::set::SmallSet;
+use starlark_map::small_set::SmallSet;
 
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
 use crate::attrs::configured_attr::ConfiguredAttr;

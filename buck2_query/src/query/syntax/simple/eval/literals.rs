@@ -10,7 +10,7 @@
 //! Implementation of the cli and query_* attr query language.
 
 use buck2_query_parser::parse_expr;
-use small_map::set::SmallSet;
+use starlark_map::small_set::SmallSet;
 
 use crate::query::environment::QueryEnvironment;
 use crate::query::syntax::simple::eval::values::QueryResultExt;
