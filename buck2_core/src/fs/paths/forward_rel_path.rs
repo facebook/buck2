@@ -550,6 +550,11 @@ impl ForwardRelativePath {
 }
 
 impl ForwardRelativePathBuf {
+    pub fn new(s: String) -> anyhow::Result<ForwardRelativePathBuf> {
+        ForwardRelativePath::new(&s)?;
+        Ok(ForwardRelativePathBuf(s))
+    }
+
     pub fn unchecked_new(s: String) -> Self {
         Self(s)
     }

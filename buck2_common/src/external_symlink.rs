@@ -164,14 +164,14 @@ impl ExternalSymlink {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use std::fs;
-    #[cfg(unix)]
     use std::os::unix;
 
     use buck2_core::fs::paths::AbsPath;
     use buck2_core::fs::paths::ForwardRelativePath;
+    use buck2_core::fs::paths::ForwardRelativePathBuf;
     use tempfile::TempDir;
 
     use crate::external_symlink::ExternalSymlink;
@@ -190,7 +190,6 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(unix)]
     #[test]
     fn test_from_disk_local_rel() -> anyhow::Result<()> {
         let t = TempDir::new()?;
@@ -207,7 +206,6 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(unix)]
     #[test]
     fn test_from_disk_local_abs() -> anyhow::Result<()> {
         let t = TempDir::new()?;
@@ -224,27 +222,51 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(unix)]
     #[test]
     fn test_from_disk_external() -> anyhow::Result<()> {
         let external = TempDir::new()?;
 
         let t = TempDir::new()?;
 
-        unix::fs::symlink(external.path(), t.path().join("x"))?;
+        fs::create_dir(t.path().join("x"))?;
+
+        unix::fs::symlink(external.path(), t.path().join("x/y"))?;
 
         assert_eq!(
             Some(ExternalSymlink {
                 abs_target: external.path().to_path_buf(),
                 remaining_path: None
             }),
-            ExternalSymlink::from_disk(ForwardRelativePath::new("x")?, AbsPath::new(t.path())?)
+            ExternalSymlink::from_disk(ForwardRelativePath::new("x/y")?, AbsPath::new(t.path())?)
         );
 
         Ok(())
     }
 
-    #[cfg(unix)]
+    #[test]
+    fn test_from_disk_external_with_suffix() -> anyhow::Result<()> {
+        let external = TempDir::new()?;
+
+        let t = TempDir::new()?;
+
+        fs::create_dir(t.path().join("x"))?;
+
+        unix::fs::symlink(external.path(), t.path().join("x/y"))?;
+
+        assert_eq!(
+            Some(ExternalSymlink {
+                abs_target: external.path().to_path_buf(),
+                remaining_path: Some(ForwardRelativePathBuf::new("z/w".to_owned())?),
+            }),
+            ExternalSymlink::from_disk(
+                ForwardRelativePath::new("x/y/z/w")?,
+                AbsPath::new(t.path())?
+            )
+        );
+
+        Ok(())
+    }
+
     #[test]
     fn test_from_disk_local_rel_broken() -> anyhow::Result<()> {
         let t = TempDir::new()?;
