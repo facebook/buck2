@@ -308,6 +308,28 @@ Test the change by doing
 packman build --build-local <path-to-packman.yml>
 ```
 
+### DotSlash integration
+
+The helper functions in `lib/dotslash.py` accept a `buck_cmd` parameter that can be specified in your `.dotslash.py` config files. Supported values from the `dotslash.BuckCommand` enum are `BUCK` and `BUCK2` (default).
+
+Existing configs can be migrated with a change like:
+
+```shell
+$ hg diff
+diff --git a/fbcode/tools/bloatfinder/bloatfinder.dotslash.py b/fbcode/tools/bloatfinder/bloatfinder.dotslash.py
+--- a/fbcode/tools/bloatfinder/bloatfinder.dotslash.py
++++ b/fbcode/tools/bloatfinder/bloatfinder.dotslash.py
+@@ -7,5 +7,5 @@
+     target="//tools/bloatfinder:bloatfinder",
+     oncall="fbcode_build_infra",
+     generated_dotslash_file="fbcode/tools/bloatfinder/deploy/bloatfinder",
+-    buck_cmd=dotslash.BuckCommand.BUCK,
++    buck_cmd=dotslash.BuckCommand.BUCK2,
+ )
+ ```
+
+You can test the changes by adding a comment like `#msdkbuild <name>` on your diff where the `name` can be found in the generated dotslash file for your config. This will attach a sandcastle job to your diff signals and you can inspect the associated build logs to verify that Buck 2 was used successfully. See D37525965 for an example.
+
 ## Opt-in GK for buck using buck2
 
 By default without opting in, `buck` command is using `buck1`.
