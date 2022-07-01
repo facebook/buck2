@@ -9,6 +9,8 @@
 
 //! Implementation of test running.
 
+#![feature(box_syntax)]
+
 pub mod downward_api;
 pub mod executor_launcher;
 pub mod orchestrator;

@@ -118,15 +118,12 @@ impl FrozenExternalRunnerTestInfo {
             .unwrap_or_default()
     }
 
-    pub(crate) fn default_executor(&self) -> Option<&dyn StarlarkCommandExecutorConfigLike> {
+    pub fn default_executor(&self) -> Option<&dyn StarlarkCommandExecutorConfigLike> {
         unpack_opt_executor(self.default_executor.to_value()).unwrap()
     }
 
     /// Access a specific executor override.
-    pub(crate) fn executor_override(
-        &self,
-        key: &str,
-    ) -> Option<&dyn StarlarkCommandExecutorConfigLike> {
+    pub fn executor_override(&self, key: &str) -> Option<&dyn StarlarkCommandExecutorConfigLike> {
         let executor_overrides = Dict::from_value(self.executor_overrides.to_value()).unwrap();
         executor_overrides
             .get_str(key)

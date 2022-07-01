@@ -23,8 +23,8 @@ use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 use tokio::process::Child;
 
-use crate::test::downward_api::BuckTestDownwardApi;
-use crate::test::orchestrator::BuckTestOrchestrator;
+use crate::downward_api::BuckTestDownwardApi;
+use crate::orchestrator::BuckTestOrchestrator;
 
 pub struct ExecutorLaunch {
     pub handle: Pin<Box<dyn Future<Output = anyhow::Result<ExecutorOutput>> + Send>>,
@@ -66,16 +66,14 @@ impl ExecutorLauncher for OutOfProcessTestExecutor {
                 .get()?
                 .unwrap_or_default();
             if use_tcp {
-                spawn_orchestrator(crate::test::tcp::executor::spawn(&self.name, tpx_args).await?)
-                    .await
+                spawn_orchestrator(crate::tcp::executor::spawn(&self.name, tpx_args).await?).await
             } else {
-                spawn_orchestrator(crate::test::unix::executor::spawn(&self.name, tpx_args).await?)
-                    .await
+                spawn_orchestrator(crate::unix::executor::spawn(&self.name, tpx_args).await?).await
             }
         }
         #[cfg(not(unix))]
         {
-            spawn_orchestrator(crate::test::tcp::executor::spawn(&self.name, tpx_args).await?).await
+            spawn_orchestrator(crate::tcp::executor::spawn(&self.name, tpx_args).await?).await
         }
     }
 }

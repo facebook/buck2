@@ -12,7 +12,7 @@ use anyhow::Context;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use test_api::data::ConfiguredTarget;
 
-use crate::test::session::TestSession;
+use crate::session::TestSession;
 
 pub fn build_configured_target_handle(
     target: ConfiguredProvidersLabel,

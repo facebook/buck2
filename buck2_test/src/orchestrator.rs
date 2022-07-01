@@ -16,6 +16,44 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_build_api::actions::artifact::ArtifactFs;
+use buck2_build_api::actions::artifact::ArtifactValue;
+use buck2_build_api::actions::artifact::ExecutorFs;
+use buck2_build_api::actions::run::ExecutorPreference;
+use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::calculation::Calculation;
+use buck2_build_api::deferred::BaseDeferredKey;
+use buck2_build_api::execute::blocking::HasBlockingExecutor;
+use buck2_build_api::execute::commands;
+use buck2_build_api::execute::commands::dice_data::HasCommandExecutor;
+use buck2_build_api::execute::commands::local::apply_local_execution_environment;
+use buck2_build_api::execute::commands::local::create_output_dirs;
+use buck2_build_api::execute::commands::local::materialize_inputs;
+use buck2_build_api::execute::commands::local::EnvironmentBuilder;
+use buck2_build_api::execute::commands::ClaimManager;
+use buck2_build_api::execute::commands::CommandExecutionInput;
+use buck2_build_api::execute::commands::CommandExecutionManager;
+use buck2_build_api::execute::commands::CommandExecutionReport;
+use buck2_build_api::execute::commands::CommandExecutionRequest;
+use buck2_build_api::execute::commands::CommandExecutionResult;
+use buck2_build_api::execute::commands::CommandExecutionTarget;
+use buck2_build_api::execute::commands::CommandExecutionTimingData;
+use buck2_build_api::execute::commands::CommandExecutor;
+use buck2_build_api::execute::commands::EnvironmentInheritance;
+use buck2_build_api::execute::commands::OutputCreationBehavior;
+use buck2_build_api::execute::materializer::HasMaterializer;
+use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineBuilder;
+use buck2_build_api::interpreter::rule_defs::cmd_args::BaseCommandLineBuilder;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineLocation;
+use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::ExternalRunnerTestInfoCallable;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
+use buck2_build_api::path::BuckOutTestPath;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_core::category::Category;
@@ -63,47 +101,9 @@ use test_api::data::TestResult;
 use test_api::protocol::TestOrchestrator;
 use uuid::Uuid;
 
-use crate::actions::artifact::ArtifactFs;
-use crate::actions::artifact::ArtifactValue;
-use crate::actions::artifact::ExecutorFs;
-use crate::actions::run::ExecutorPreference;
-use crate::artifact_groups::ArtifactGroup;
-use crate::calculation::Calculation;
-use crate::deferred::BaseDeferredKey;
-use crate::execute::blocking::HasBlockingExecutor;
-use crate::execute::commands;
-use crate::execute::commands::dice_data::HasCommandExecutor;
-use crate::execute::commands::local::apply_local_execution_environment;
-use crate::execute::commands::local::create_output_dirs;
-use crate::execute::commands::local::materialize_inputs;
-use crate::execute::commands::local::EnvironmentBuilder;
-use crate::execute::commands::ClaimManager;
-use crate::execute::commands::CommandExecutionInput;
-use crate::execute::commands::CommandExecutionManager;
-use crate::execute::commands::CommandExecutionReport;
-use crate::execute::commands::CommandExecutionRequest;
-use crate::execute::commands::CommandExecutionResult;
-use crate::execute::commands::CommandExecutionTarget;
-use crate::execute::commands::CommandExecutionTimingData;
-use crate::execute::commands::CommandExecutor;
-use crate::execute::commands::EnvironmentInheritance;
-use crate::execute::commands::OutputCreationBehavior;
-use crate::execute::materializer::HasMaterializer;
-use crate::interpreter::rule_defs::cmd_args::AbsCommandLineBuilder;
-use crate::interpreter::rule_defs::cmd_args::BaseCommandLineBuilder;
-use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
-use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
-use crate::interpreter::rule_defs::cmd_args::CommandLineBuilderContext;
-use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
-use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::ExternalRunnerTestInfoCallable;
-use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
-use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
-use crate::path::BuckOutTestPath;
-use crate::test::orchestrator::commands::CommandExecutionOutput;
-use crate::test::session::TestSession;
-use crate::test::translations;
+use crate::orchestrator::commands::CommandExecutionOutput;
+use crate::session::TestSession;
+use crate::translations;
 
 static TEST_CATEGORY: Lazy<Category> = Lazy::new(|| Category::try_from("test").unwrap());
 
@@ -933,6 +933,7 @@ impl EnvironmentBuilder for LossyEnvironment {
 
 #[cfg(test)]
 mod tests {
+    use buck2_build_api::context::SetBuildContextData;
     use buck2_common::dice::cells::HasCellResolver;
     use buck2_common::dice::data::testing::SetTestingIoProvider;
     use buck2_core::cells::testing::CellResolverExt;
@@ -950,7 +951,6 @@ mod tests {
     use test_api::data::TestStatus;
 
     use super::*;
-    use crate::context::SetBuildContextData;
 
     fn make() -> (
         BuckTestOrchestrator,

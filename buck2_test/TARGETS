@@ -1,0 +1,33 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+rust_library(
+    name = "buck2_test",
+    srcs = glob(["src/**/*.rs"]),
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:chrono",
+        "fbsource//third-party/rust:dashmap",
+        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:indexmap",
+        "fbsource//third-party/rust:libc",
+        "fbsource//third-party/rust:once_cell",
+        "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:tracing",
+        "fbsource//third-party/rust:uuid",
+        "//buck2/buck2_build_api:buck2_build_api",
+        "//buck2/buck2_common:buck2_common",
+        "//buck2/buck2_core:buck2_core",
+        "//buck2/buck2_data:buck2_data",
+        "//buck2/buck2_interpreter:buck2_interpreter",
+        "//buck2/buck2_node:buck2_node",
+        "//buck2/dice/dice:dice",
+        "//buck2/downward_api:downward_api",
+        "//buck2/events:events",
+        "//buck2/gazebo/gazebo:gazebo",
+        "//buck2/host_sharing:host_sharing",
+        "//buck2/test_api:test_api",
+    ],
+)

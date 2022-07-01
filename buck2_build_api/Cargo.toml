@@ -21,7 +21,6 @@ bumpalo = "3.8"
 dice = { path = "../dice/dice" }
 derive_more = "0.99.3"
 derivative = "2.1.1"
-downward_api = { path = "../downward_api" }
 faccess = "0.2.3"
 events = { path = "../events" }
 hashbrown = { version = "0.11.2", features = ["raw"] }
@@ -90,8 +89,6 @@ crossbeam-epoch = "=0.9.7"
 more_futures = { path = "../shed/more_futures" }
 http = "0.2"
 parking_lot = { version = "0.11.2" }
-uuid = { version = "0.8", features = ["v4"] }
-chrono = "0.4.19"
 zstd = "0.11.1"
 
 [target.'cfg(unix)'.dependencies]
