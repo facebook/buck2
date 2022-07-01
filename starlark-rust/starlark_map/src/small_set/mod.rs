@@ -93,21 +93,25 @@ where
 
 impl<T> SmallSet<T> {
     /// Creates an empty `SmallSet`.
+    #[inline]
     pub const fn new() -> Self {
         SmallSet(SmallMap::new())
     }
 
     /// Empty small set with preallocated capacity.
+    #[inline]
     pub fn with_capacity(n: usize) -> Self {
         Self(SmallMap::with_capacity(n))
     }
 
     /// Current capacity of the set.
+    #[inline]
     pub fn capacity(&self) -> usize {
         self.0.capacity()
     }
 
     /// Iterate the element references.
+    #[inline]
     pub fn iter(&self) -> Iter<T> {
         Iter {
             iter: self.0.iter(),
@@ -115,6 +119,7 @@ impl<T> SmallSet<T> {
     }
 
     /// Convert the set into the iterator over the elements.
+    #[inline]
     pub fn into_iter(self) -> IntoIter<T> {
         IntoIter {
             iter: self.0.into_iter(),
@@ -124,6 +129,7 @@ impl<T> SmallSet<T> {
     /// Insert the element into the set.
     ///
     /// Return `true` iff the element was inserted.
+    #[inline]
     pub fn insert(&mut self, key: T) -> bool
     where
         T: Hash + Eq,
@@ -134,6 +140,7 @@ impl<T> SmallSet<T> {
     /// Insert the element into the set.
     ///
     /// Return `true` iff the element was inserted.
+    #[inline]
     pub fn insert_hashed(&mut self, key: Hashed<T>) -> bool
     where
         T: Eq,
@@ -145,6 +152,7 @@ impl<T> SmallSet<T> {
     /// else `None`.
     ///
     /// Computes in **O(1)** time (average).
+    #[inline]
     pub fn get<Q>(&self, value: &Q) -> Option<&T>
     where
         Q: Hash + Equivalent<T> + ?Sized,
@@ -170,6 +178,7 @@ impl<T> SmallSet<T> {
     }
 
     /// Return item index, if it exists in the set
+    #[inline]
     pub fn get_index_of<Q>(&self, value: &Q) -> Option<usize>
     where
         Q: Hash + Equivalent<T> + ?Sized,
@@ -189,6 +198,7 @@ impl<T> SmallSet<T> {
     }
 
     /// Remove the element from the set if it is present.
+    #[inline]
     pub fn remove<Q>(&mut self, key: &Q)
     where
         Q: ?Sized + Hash + Equivalent<T>,
@@ -200,6 +210,7 @@ impl<T> SmallSet<T> {
     /// Insert entry if it doesn't exist.
     ///
     /// Return the resulting entry in the map.
+    #[inline]
     pub fn get_or_insert(&mut self, value: T) -> &T
     where
         T: Hash + Eq,
@@ -214,6 +225,7 @@ impl<T> SmallSet<T> {
     /// Insert entry if it doesn't exist.
     ///
     /// Return the resulting entry in the map.
+    #[inline]
     pub fn get_or_insert_owned<Q>(&mut self, value: &Q) -> &T
     where
         Q: Hash + Equivalent<T> + ToOwned<Owned = T> + ?Sized,
@@ -229,6 +241,7 @@ impl<T> SmallSet<T> {
     /// Remove the element from the set if it is present,
     ///
     /// and return the removed element.
+    #[inline]
     pub fn take<Q>(&mut self, key: &Q) -> Option<T>
     where
         Q: ?Sized + Hash + Equivalent<T>,
@@ -238,6 +251,7 @@ impl<T> SmallSet<T> {
     }
 
     /// Remove the last element from the set.
+    #[inline]
     pub fn pop(&mut self) -> Option<T>
     where
         T: Eq,
@@ -246,16 +260,19 @@ impl<T> SmallSet<T> {
     }
 
     /// Is the set empty?
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
     /// Number of elements in the set.
+    #[inline]
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
     /// Check if the set contains an element.
+    #[inline]
     pub fn contains<Q>(&self, key: &Q) -> bool
     where
         Q: Hash + Equivalent<T> + ?Sized,
@@ -267,16 +284,19 @@ impl<T> SmallSet<T> {
     /// Remove all elements from the set.
     ///
     /// Retain the capacity.
+    #[inline]
     pub fn clear(&mut self) {
         self.0.clear()
     }
 
     /// Returns a reference to the first item.
+    #[inline]
     pub fn first(&self) -> Option<&T> {
         self.0.first().map(|(k, ())| k)
     }
 
     /// Returns a reference to the last item.
+    #[inline]
     pub fn last(&self) -> Option<&T> {
         self.0.last().map(|(k, ())| k)
     }
