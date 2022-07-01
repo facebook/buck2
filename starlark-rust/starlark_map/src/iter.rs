@@ -24,10 +24,12 @@ macro_rules! def_iter {
             self.iter.next().map(Self::map)
         }
 
+        #[inline]
         fn nth(&mut self, n: usize) -> Option<Self::Item> {
             self.iter.nth(n).map(Self::map)
         }
 
+        #[inline]
         fn last(mut self) -> Option<Self::Item> {
             // Since these are all double-ended iterators we can skip to the end quickly
             self.iter.next_back().map(Self::map)
@@ -38,10 +40,12 @@ macro_rules! def_iter {
             self.iter.size_hint()
         }
 
+        #[inline]
         fn count(self) -> usize {
             self.iter.len()
         }
 
+        #[inline]
         fn collect<C>(self) -> C
         where
             C: std::iter::FromIterator<Self::Item>,
