@@ -19,9 +19,6 @@
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
-// TODO(nga): multiple clap warnings, and it's not possible
-//   to put this allow next to structs because clap does not preserve them.
-#![allow(deprecated)]
 
 #[macro_use]
 extern crate maplit;
