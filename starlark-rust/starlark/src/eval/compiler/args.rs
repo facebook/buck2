@@ -30,6 +30,7 @@ use crate::eval::Arguments;
 use crate::syntax::ast::ArgumentP;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
+use crate::values::Value;
 
 #[derive(Default, Clone, Debug, VisitSpanMut)]
 pub(crate) struct ArgsCompiledValue {
@@ -77,22 +78,27 @@ impl ArgsCompiledValue {
         &self,
         handler: impl FnOnce(&Arguments<'v, '_>) -> R,
     ) -> Option<R> {
+        self.all_values_generic(|e| e.as_value().map(FrozenValue::to_value), handler)
+    }
+
+    /// Invoke a callback if all arguments are frozen values.
+    pub(crate) fn all_values_generic<'v, R>(
+        &self,
+        expr_to_value: impl Fn(&ExprCompiled) -> Option<Value<'v>>,
+        handler: impl FnOnce(&Arguments<'v, '_>) -> R,
+    ) -> Option<R> {
         let (pos, named) = self.split_pos_names();
-        let pos = pos
-            .try_map(|e| e.as_value().map(FrozenValue::to_value).ok_or(()))
-            .ok()?;
-        let named = named
-            .try_map(|e| e.as_value().map(FrozenValue::to_value).ok_or(()))
-            .ok()?;
+        let pos = pos.try_map(|e| expr_to_value(e).ok_or(())).ok()?;
+        let named = named.try_map(|e| expr_to_value(e).ok_or(())).ok()?;
         let args = self
             .args
             .as_ref()
-            .try_map(|args| args.as_value().map(FrozenValue::to_value).ok_or(()))
+            .try_map(|args| expr_to_value(args).ok_or(()))
             .ok()?;
         let kwargs = self
             .kwargs
             .as_ref()
-            .try_map(|kwargs| kwargs.as_value().map(FrozenValue::to_value).ok_or(()))
+            .try_map(|kwargs| expr_to_value(kwargs).ok_or(()))
             .ok()?;
         Some(handler(&Arguments(ArgumentsFull {
             pos: &pos,
