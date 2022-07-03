@@ -1109,7 +1109,7 @@ pub(crate) fn get_attr_hashed_bind<'v>(
     }
 }
 
-impl Compiler<'_, '_, '_> {
+impl<'v, 'a, 'e> Compiler<'v, 'a, 'e> {
     pub fn expr_opt(&mut self, expr: Option<Box<CstExpr>>) -> Option<IrSpanned<ExprCompiled>> {
         expr.map(|v| self.expr(*v))
     }
@@ -1153,6 +1153,10 @@ impl Compiler<'_, '_, '_> {
         }
     }
 
+    fn opt_ctx<'s>(&'s mut self) -> OptCtx<'v, 'a, 's> {
+        OptCtx::new(self.eval)
+    }
+
     pub(crate) fn expr(&mut self, expr: CstExpr) -> IrSpanned<ExprCompiled> {
         // println!("compile {}", expr.node);
         let span = FrozenFileSpan::new(self.codemap, expr.span);
@@ -1187,31 +1191,24 @@ impl Compiler<'_, '_, '_> {
                 let left = self.expr(*left);
                 let s = Symbol::new(&right.node);
 
-                ExprCompiled::dot(left, &s, &mut OptCtx::new(self.eval))
+                ExprCompiled::dot(left, &s, &mut self.opt_ctx())
             }
             ExprP::Call(box left, args) => {
                 let left = self.expr(left);
                 let args = self.args(args);
-                CallCompiled::call(span, left, args, &mut OptCtx::new(self.eval))
+                CallCompiled::call(span, left, args, &mut self.opt_ctx())
             }
             ExprP::ArrayIndirection(box (array, index)) => {
                 let array = self.expr(array);
                 let index = self.expr(index);
-                ExprCompiled::array_indirection(array, index, &mut OptCtx::new(self.eval))
+                ExprCompiled::array_indirection(array, index, &mut self.opt_ctx())
             }
             ExprP::Slice(collection, start, stop, stride) => {
                 let collection = self.expr(*collection);
                 let start = start.map(|x| self.expr(*x));
                 let stop = stop.map(|x| self.expr(*x));
                 let stride = stride.map(|x| self.expr(*x));
-                ExprCompiled::slice(
-                    span,
-                    collection,
-                    start,
-                    stop,
-                    stride,
-                    &mut OptCtx::new(self.eval),
-                )
+                ExprCompiled::slice(span, collection, start, stop, stride, &mut self.opt_ctx())
             }
             ExprP::Not(expr) => {
                 let expr = self.expr(*expr);
@@ -1219,15 +1216,15 @@ impl Compiler<'_, '_, '_> {
             }
             ExprP::Minus(expr) => {
                 let expr = self.expr(*expr);
-                ExprCompiled::un_op(span, &Builtin1::Minus, expr, &mut OptCtx::new(self.eval))
+                ExprCompiled::un_op(span, &Builtin1::Minus, expr, &mut self.opt_ctx())
             }
             ExprP::Plus(expr) => {
                 let expr = self.expr(*expr);
-                ExprCompiled::un_op(span, &Builtin1::Plus, expr, &mut OptCtx::new(self.eval))
+                ExprCompiled::un_op(span, &Builtin1::Plus, expr, &mut self.opt_ctx())
             }
             ExprP::BitNot(expr) => {
                 let expr = self.expr(*expr);
-                ExprCompiled::un_op(span, &Builtin1::BitNot, expr, &mut OptCtx::new(self.eval))
+                ExprCompiled::un_op(span, &Builtin1::BitNot, expr, &mut self.opt_ctx())
             }
             ExprP::Op(left, op, right) => {
                 if let Some(x) = ExprP::reduces_to_string(op, &left, &right) {
@@ -1256,29 +1253,27 @@ impl Compiler<'_, '_, '_> {
                             Builtin2::Compare(CompareOp::Less),
                             l,
                             r,
-                            &mut OptCtx::new(self.eval),
+                            &mut self.opt_ctx(),
                         ),
                         BinOp::Greater => ExprCompiled::bin_op(
                             Builtin2::Compare(CompareOp::Greater),
                             l,
                             r,
-                            &mut OptCtx::new(self.eval),
+                            &mut self.opt_ctx(),
                         ),
                         BinOp::LessOrEqual => ExprCompiled::bin_op(
                             Builtin2::Compare(CompareOp::LessOrEqual),
                             l,
                             r,
-                            &mut OptCtx::new(self.eval),
+                            &mut self.opt_ctx(),
                         ),
                         BinOp::GreaterOrEqual => ExprCompiled::bin_op(
                             Builtin2::Compare(CompareOp::GreaterOrEqual),
                             l,
                             r,
-                            &mut OptCtx::new(self.eval),
+                            &mut self.opt_ctx(),
                         ),
-                        BinOp::In => {
-                            ExprCompiled::bin_op(Builtin2::In, l, r, &mut OptCtx::new(self.eval))
-                        }
+                        BinOp::In => ExprCompiled::bin_op(Builtin2::In, l, r, &mut self.opt_ctx()),
                         BinOp::NotIn => {
                             ExprCompiled::not(
                                 span,
@@ -1288,69 +1283,45 @@ impl Compiler<'_, '_, '_> {
                                         Builtin2::In,
                                         l,
                                         r,
-                                        &mut OptCtx::new(self.eval),
+                                        &mut self.opt_ctx(),
                                     ),
                                 },
                             )
                             .node
                         }
                         BinOp::Subtract => {
-                            ExprCompiled::bin_op(Builtin2::Sub, l, r, &mut OptCtx::new(self.eval))
+                            ExprCompiled::bin_op(Builtin2::Sub, l, r, &mut self.opt_ctx())
                         }
                         BinOp::Add => {
-                            ExprCompiled::bin_op(Builtin2::Add, l, r, &mut OptCtx::new(self.eval))
+                            ExprCompiled::bin_op(Builtin2::Add, l, r, &mut self.opt_ctx())
                         }
-                        BinOp::Multiply => ExprCompiled::bin_op(
-                            Builtin2::Multiply,
-                            l,
-                            r,
-                            &mut OptCtx::new(self.eval),
-                        ),
-                        BinOp::Percent => ExprCompiled::bin_op(
-                            Builtin2::Percent,
-                            l,
-                            r,
-                            &mut OptCtx::new(self.eval),
-                        ),
-                        BinOp::Divide => ExprCompiled::bin_op(
-                            Builtin2::Divide,
-                            l,
-                            r,
-                            &mut OptCtx::new(self.eval),
-                        ),
-                        BinOp::FloorDivide => ExprCompiled::bin_op(
-                            Builtin2::FloorDivide,
-                            l,
-                            r,
-                            &mut OptCtx::new(self.eval),
-                        ),
-                        BinOp::BitAnd => ExprCompiled::bin_op(
-                            Builtin2::BitAnd,
-                            l,
-                            r,
-                            &mut OptCtx::new(self.eval),
-                        ),
+                        BinOp::Multiply => {
+                            ExprCompiled::bin_op(Builtin2::Multiply, l, r, &mut self.opt_ctx())
+                        }
+                        BinOp::Percent => {
+                            ExprCompiled::bin_op(Builtin2::Percent, l, r, &mut self.opt_ctx())
+                        }
+                        BinOp::Divide => {
+                            ExprCompiled::bin_op(Builtin2::Divide, l, r, &mut self.opt_ctx())
+                        }
+                        BinOp::FloorDivide => {
+                            ExprCompiled::bin_op(Builtin2::FloorDivide, l, r, &mut self.opt_ctx())
+                        }
+                        BinOp::BitAnd => {
+                            ExprCompiled::bin_op(Builtin2::BitAnd, l, r, &mut self.opt_ctx())
+                        }
                         BinOp::BitOr => {
-                            ExprCompiled::bin_op(Builtin2::BitOr, l, r, &mut OptCtx::new(self.eval))
+                            ExprCompiled::bin_op(Builtin2::BitOr, l, r, &mut self.opt_ctx())
                         }
-                        BinOp::BitXor => ExprCompiled::bin_op(
-                            Builtin2::BitXor,
-                            l,
-                            r,
-                            &mut OptCtx::new(self.eval),
-                        ),
-                        BinOp::LeftShift => ExprCompiled::bin_op(
-                            Builtin2::LeftShift,
-                            l,
-                            r,
-                            &mut OptCtx::new(self.eval),
-                        ),
-                        BinOp::RightShift => ExprCompiled::bin_op(
-                            Builtin2::RightShift,
-                            l,
-                            r,
-                            &mut OptCtx::new(self.eval),
-                        ),
+                        BinOp::BitXor => {
+                            ExprCompiled::bin_op(Builtin2::BitXor, l, r, &mut self.opt_ctx())
+                        }
+                        BinOp::LeftShift => {
+                            ExprCompiled::bin_op(Builtin2::LeftShift, l, r, &mut self.opt_ctx())
+                        }
+                        BinOp::RightShift => {
+                            ExprCompiled::bin_op(Builtin2::RightShift, l, r, &mut self.opt_ctx())
+                        }
                     }
                 }
             }
