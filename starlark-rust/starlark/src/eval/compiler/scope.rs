@@ -89,6 +89,9 @@ struct Unscope(SmallMap<FrozenStringValue, UnscopeBinding>);
 
 #[derive(Default, Debug)]
 pub(crate) struct ScopeNames {
+    /// `Some` when scope is initialized.
+    /// For module scope, the value is zero.
+    pub param_count: Option<u32>,
     /// Slots this scope uses, including for parameters and `parent`.
     /// Indexed by [`LocalSlotId`], values are variable names.
     pub used: Vec<FrozenStringValue>,
@@ -100,6 +103,11 @@ pub(crate) struct ScopeNames {
 }
 
 impl ScopeNames {
+    fn set_param_count(&mut self, param_count: u32) {
+        assert!(self.param_count.is_none());
+        self.param_count = Some(param_count);
+    }
+
     fn copy_parent(
         &mut self,
         parent_slot: LocalSlotIdCapturedOrNot,
@@ -208,6 +216,8 @@ impl<'a> Scope<'a> {
         // Not really important, sanity check
         assert_eq!(scope_id, ScopeId::module());
 
+        scope_data.mut_scope(scope_id).set_param_count(0);
+
         let mut locals: SmallMap<FrozenStringValue, _> = SmallMap::new();
 
         let existing_module_names_and_visibilites = module.all_names_and_visibilities();
@@ -271,13 +281,19 @@ impl<'a> Scope<'a> {
         frozen_heap: &FrozenHeap,
         dialect: &Dialect,
     ) {
-        let params = params.iter_mut().filter_map(|p| match &mut p.node {
-            ParameterP::Normal(n, ..) => Some(n),
-            ParameterP::WithDefaultValue(n, ..) => Some(n),
-            ParameterP::NoArgs => None,
-            ParameterP::Args(n, ..) => Some(n),
-            ParameterP::KwArgs(n, ..) => Some(n),
-        });
+        let params = params
+            .iter_mut()
+            .filter_map(|p| match &mut p.node {
+                ParameterP::Normal(n, ..) => Some(n),
+                ParameterP::WithDefaultValue(n, ..) => Some(n),
+                ParameterP::NoArgs => None,
+                ParameterP::Args(n, ..) => Some(n),
+                ParameterP::KwArgs(n, ..) => Some(n),
+            })
+            .collect::<Vec<_>>();
+        scope_data
+            .mut_scope(scope_id)
+            .set_param_count(params.len().try_into().unwrap());
         let mut locals: SmallMap<FrozenStringValue, _> = SmallMap::new();
         for p in params {
             // Subtle invariant: the slots for the params must be ordered and at the
