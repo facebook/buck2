@@ -110,7 +110,9 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             self.module_env.frozen_heap().alloc_any(DefInfo::for_module(
                 codemap,
                 local_names,
-                scope_names.parent,
+                self.module_env
+                    .frozen_heap()
+                    .alloc_any_slice_display_from_debug(&scope_names.parent),
                 globals,
             )),
         );

@@ -245,7 +245,7 @@ pub(crate) struct DefInfo {
     pub(crate) used: FrozenRef<'static, [FrozenStringValue]>,
     /// Slots to copy from the parent. (index in parent, index in child).
     /// Module-level identifiers are not copied over, to avoid excess copying.
-    pub(crate) parent: Vec<(LocalSlotIdCapturedOrNot, LocalSlotIdCapturedOrNot)>,
+    pub(crate) parent: FrozenRef<'static, [(LocalSlotIdCapturedOrNot, LocalSlotIdCapturedOrNot)]>,
     /// Statement compiled for non-frozen def.
     #[derivative(Debug = "ignore")]
     stmt_compiled: Bc,
@@ -270,7 +270,7 @@ impl DefInfo {
             codemap: FrozenRef::new(&EMPTY_CODEMAP),
             docstring: None,
             used: FrozenRef::new(&[]),
-            parent: Vec::new(),
+            parent: FrozenRef::new(&[]),
             stmt_compiled: Bc::default(),
             body_stmts: StmtsCompiled::empty(),
             stmt_compile_context: StmtCompileContext::default(),
@@ -283,7 +283,7 @@ impl DefInfo {
     pub(crate) fn for_module(
         codemap: FrozenRef<'static, CodeMap>,
         local_names: FrozenRef<'static, [FrozenStringValue]>,
-        parent: Vec<(LocalSlotIdCapturedOrNot, LocalSlotIdCapturedOrNot)>,
+        parent: FrozenRef<'static, [(LocalSlotIdCapturedOrNot, LocalSlotIdCapturedOrNot)]>,
         globals: FrozenRef<'static, Globals>,
     ) -> DefInfo {
         DefInfo {
@@ -405,7 +405,10 @@ impl Compiler<'_, '_, '_> {
             codemap: self.codemap,
             docstring,
             used,
-            parent: scope_names.parent,
+            parent: self
+                .eval
+                .frozen_heap()
+                .alloc_any_slice_display_from_debug(&scope_names.parent),
             stmt_compiled: body.as_bc(
                 &self.compile_context(return_type.is_some()),
                 used,
@@ -481,6 +484,7 @@ impl<'v> Def<'v> {
     ) -> Value<'v> {
         let captured = stmt
             .parent
+            .as_ref()
             .map(|(x, _)| eval.clone_slot_capture(LocalCapturedSlotId(x.0)));
         eval.heap().alloc(Self {
             parameters,
