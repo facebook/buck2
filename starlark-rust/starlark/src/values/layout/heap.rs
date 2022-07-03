@@ -309,13 +309,21 @@ impl FrozenHeap {
         self.alloc_raw(float_avalue(f))
     }
 
+    pub(crate) fn alloc_simple_typed<T: StarlarkValue<'static>>(
+        &self,
+        val: T,
+    ) -> FrozenValueTyped<'static, T> {
+        // SAFETY: we we've just allocated `T`.
+        unsafe { FrozenValueTyped::new_unchecked(self.alloc_raw(simple(val))) }
+    }
+
     /// Allocate a simple [`StarlarkValue`] on this heap.
     ///
     /// Simple value is any starlark value which:
     /// * bound by `'static` lifetime (in particular, it cannot contain references to other `Value`s)
     /// * is not special builtin (e.g. `None`)
     pub fn alloc_simple<T: StarlarkValue<'static>>(&self, val: T) -> FrozenValue {
-        self.alloc_raw(simple(val))
+        self.alloc_simple_typed(val).to_frozen_value()
     }
 
     /// Allocate a simple [`StarlarkValue`] and return `FrozenRef` to it.
@@ -323,9 +331,7 @@ impl FrozenHeap {
         &self,
         value: T,
     ) -> FrozenRef<'static, T> {
-        let value = self.alloc_simple(value);
-        // Here we could avoid dynamic cast, but this code is not executed frequently.
-        value.downcast_frozen_ref().unwrap()
+        self.alloc_simple_typed(value).as_frozen_ref()
     }
 
     /// Allocate any value in the frozen heap.
