@@ -41,7 +41,6 @@ use crate::eval::compiler::scope::CstExpr;
 use crate::eval::compiler::scope::ResolvedIdent;
 use crate::eval::compiler::scope::Slot;
 use crate::eval::compiler::span::IrSpanned;
-use crate::eval::compiler::stmt::OptimizeOnFreezeContext;
 use crate::eval::compiler::Compiler;
 use crate::eval::runtime::call_stack::FrozenFileSpan;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
@@ -435,17 +434,17 @@ impl ExprCompiled {
 }
 
 impl IrSpanned<ExprCompiled> {
-    pub(crate) fn optimize_on_freeze(
-        &self,
-        ctx: &mut OptimizeOnFreezeContext,
-    ) -> IrSpanned<ExprCompiled> {
+    pub(crate) fn optimize(&self, ctx: &mut OptCtx) -> IrSpanned<ExprCompiled> {
         let span = self.span;
         let expr = match self.node {
             ref e @ (ExprCompiled::Value(..)
             | ExprCompiled::Local(..)
             | ExprCompiled::LocalCaptured(..)) => e.clone(),
             ExprCompiled::Module(slot) => {
-                match ctx.module.get_module_data().get_slot(slot) {
+                match ctx
+                    .frozen_module()
+                    .and_then(|m| m.get_module_data().get_slot(slot))
+                {
                     None => {
                         // Let if fail at runtime.
                         ExprCompiled::Module(slot)
@@ -454,47 +453,47 @@ impl IrSpanned<ExprCompiled> {
                 }
             }
             ExprCompiled::Tuple(ref xs) => {
-                ExprCompiled::tuple(xs.map(|e| e.optimize_on_freeze(ctx)), ctx.frozen_heap)
+                ExprCompiled::tuple(xs.map(|e| e.optimize(ctx)), ctx.frozen_heap())
             }
-            ExprCompiled::List(ref xs) => ExprCompiled::List(xs.map(|e| e.optimize_on_freeze(ctx))),
-            ExprCompiled::Dict(ref kvs) => ExprCompiled::Dict(
-                kvs.map(|(k, v)| (k.optimize_on_freeze(ctx), v.optimize_on_freeze(ctx))),
-            ),
-            ExprCompiled::Compr(ref compr) => compr.optimize_on_freeze(ctx),
+            ExprCompiled::List(ref xs) => ExprCompiled::List(xs.map(|e| e.optimize(ctx))),
+            ExprCompiled::Dict(ref kvs) => {
+                ExprCompiled::Dict(kvs.map(|(k, v)| (k.optimize(ctx), v.optimize(ctx))))
+            }
+            ExprCompiled::Compr(ref compr) => compr.optimize(ctx),
             ExprCompiled::If(box (ref cond, ref t, ref f)) => {
-                let cond = cond.optimize_on_freeze(ctx);
-                let t = t.optimize_on_freeze(ctx);
-                let f = f.optimize_on_freeze(ctx);
+                let cond = cond.optimize(ctx);
+                let t = t.optimize(ctx);
+                let f = f.optimize(ctx);
                 return ExprCompiled::if_expr(cond, t, f);
             }
             ExprCompiled::Slice(box (ref v, ref start, ref stop, ref step)) => {
-                let v = v.optimize_on_freeze(ctx);
-                let start = start.as_ref().map(|x| x.optimize_on_freeze(ctx));
-                let stop = stop.as_ref().map(|x| x.optimize_on_freeze(ctx));
-                let step = step.as_ref().map(|x| x.optimize_on_freeze(ctx));
-                ExprCompiled::slice(span, v, start, stop, step, &mut OptCtx::new(ctx))
+                let v = v.optimize(ctx);
+                let start = start.as_ref().map(|x| x.optimize(ctx));
+                let stop = stop.as_ref().map(|x| x.optimize(ctx));
+                let step = step.as_ref().map(|x| x.optimize(ctx));
+                ExprCompiled::slice(span, v, start, stop, step, ctx)
             }
             ExprCompiled::Builtin1(ref op, ref e) => {
-                let e = e.optimize_on_freeze(ctx);
-                ExprCompiled::un_op(span, op, e, &mut OptCtx::new(ctx))
+                let e = e.optimize(ctx);
+                ExprCompiled::un_op(span, op, e, ctx)
             }
             ExprCompiled::LogicalBinOp(op, box (ref l, ref r)) => {
-                let l = l.optimize_on_freeze(ctx);
-                let r = r.optimize_on_freeze(ctx);
+                let l = l.optimize(ctx);
+                let r = r.optimize(ctx);
                 return ExprCompiled::logical_bin_op(op, l, r);
             }
             ExprCompiled::Seq(box (ref l, ref r)) => {
-                let l = l.optimize_on_freeze(ctx);
-                let r = r.optimize_on_freeze(ctx);
+                let l = l.optimize(ctx);
+                let r = r.optimize(ctx);
                 return ExprCompiled::seq(l, r);
             }
             ExprCompiled::Builtin2(op, box (ref l, ref r)) => {
-                let l = l.optimize_on_freeze(ctx);
-                let r = r.optimize_on_freeze(ctx);
-                ExprCompiled::bin_op(op, l, r, &mut OptCtx::new(ctx))
+                let l = l.optimize(ctx);
+                let r = r.optimize(ctx);
+                ExprCompiled::bin_op(op, l, r, ctx)
             }
             ref d @ ExprCompiled::Def(..) => d.clone(),
-            ExprCompiled::Call(ref call) => call.optimize_on_freeze(ctx),
+            ExprCompiled::Call(ref call) => call.optimize(ctx),
         };
         IrSpanned { node: expr, span }
     }

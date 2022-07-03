@@ -38,6 +38,7 @@ use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::expr::ExprLogicalBinOp;
 use crate::eval::compiler::expr_bool::ExprCompiledBool;
 use crate::eval::compiler::known::list_to_tuple;
+use crate::eval::compiler::opt_ctx::OptCtx;
 use crate::eval::compiler::scope::Captured;
 use crate::eval::compiler::scope::CstAssign;
 use crate::eval::compiler::scope::CstExpr;
@@ -112,13 +113,13 @@ pub(crate) struct OptimizeOnFreezeContext<'v, 'a> {
 }
 
 impl AssignModifyLhs {
-    fn optimize_on_freeze(&self, ctx: &mut OptimizeOnFreezeContext) -> AssignModifyLhs {
+    fn optimize(&self, ctx: &mut OptCtx) -> AssignModifyLhs {
         match self {
             AssignModifyLhs::Dot(expr, name) => {
-                AssignModifyLhs::Dot(expr.optimize_on_freeze(ctx), name.clone())
+                AssignModifyLhs::Dot(expr.optimize(ctx), name.clone())
             }
             AssignModifyLhs::Array(expr, index) => {
-                AssignModifyLhs::Array(expr.optimize_on_freeze(ctx), index.optimize_on_freeze(ctx))
+                AssignModifyLhs::Array(expr.optimize(ctx), index.optimize(ctx))
             }
             l @ (AssignModifyLhs::Local(..)
             | AssignModifyLhs::LocalCaptured(..)
@@ -128,35 +129,35 @@ impl AssignModifyLhs {
 }
 
 impl IrSpanned<StmtCompiled> {
-    fn optimize_on_freeze(&self, ctx: &mut OptimizeOnFreezeContext) -> StmtsCompiled {
+    fn optimize(&self, ctx: &mut OptCtx) -> StmtsCompiled {
         let span = self.span;
         match self.node {
             StmtCompiled::Return(ref e) => StmtsCompiled::one(IrSpanned {
                 span,
-                node: StmtCompiled::Return(e.optimize_on_freeze(ctx)),
+                node: StmtCompiled::Return(e.optimize(ctx)),
             }),
             StmtCompiled::Expr(ref expr) => {
-                let expr = expr.optimize_on_freeze(ctx);
+                let expr = expr.optimize(ctx);
                 StmtsCompiled::expr(expr)
             }
             StmtCompiled::Assign(ref lhs, ref rhs) => {
-                let lhs = lhs.optimize_on_freeze(ctx);
-                let rhs = rhs.optimize_on_freeze(ctx);
+                let lhs = lhs.optimize(ctx);
+                let rhs = rhs.optimize(ctx);
                 StmtsCompiled::one(IrSpanned {
                     span,
                     node: StmtCompiled::Assign(lhs, rhs),
                 })
             }
             StmtCompiled::If(box (ref cond, ref t, ref f)) => {
-                let cond = cond.optimize_on_freeze(ctx);
-                let t = t.optimize_on_freeze(ctx);
-                let f = f.optimize_on_freeze(ctx);
+                let cond = cond.optimize(ctx);
+                let t = t.optimize(ctx);
+                let f = f.optimize(ctx);
                 StmtsCompiled::if_stmt(span, cond, t, f)
             }
             StmtCompiled::For(box (ref var, ref over, ref body)) => {
-                let var = var.optimize_on_freeze(ctx);
-                let over = over.optimize_on_freeze(ctx);
-                let body = body.optimize_on_freeze(ctx);
+                let var = var.optimize(ctx);
+                let over = over.optimize(ctx);
+                let body = body.optimize(ctx);
                 StmtsCompiled::for_stmt(span, var, over, body)
             }
             ref s @ (StmtCompiled::PossibleGc | StmtCompiled::Break | StmtCompiled::Continue) => {
@@ -167,11 +168,7 @@ impl IrSpanned<StmtCompiled> {
             }
             StmtCompiled::AssignModify(ref lhs, op, ref rhs) => StmtsCompiled::one(IrSpanned {
                 span,
-                node: StmtCompiled::AssignModify(
-                    lhs.optimize_on_freeze(ctx),
-                    op,
-                    rhs.optimize_on_freeze(ctx),
-                ),
+                node: StmtCompiled::AssignModify(lhs.optimize(ctx), op, rhs.optimize(ctx)),
             }),
         }
     }
@@ -224,17 +221,17 @@ impl StmtsCompiled {
         self.0.extend(right.0);
     }
 
-    pub(crate) fn optimize_on_freeze(&self, ctx: &mut OptimizeOnFreezeContext) -> StmtsCompiled {
+    pub(crate) fn optimize(&self, ctx: &mut OptCtx) -> StmtsCompiled {
         let mut stmts = StmtsCompiled::empty();
         match &self.0 {
             SmallVec1::Empty => {}
-            SmallVec1::One(s) => stmts.extend(s.optimize_on_freeze(ctx)),
+            SmallVec1::One(s) => stmts.extend(s.optimize(ctx)),
             SmallVec1::Many(ss) => {
                 for s in ss {
                     if stmts.is_terminal() {
                         break;
                     }
-                    stmts.extend(s.optimize_on_freeze(ctx));
+                    stmts.extend(s.optimize(ctx));
                 }
             }
         }
@@ -367,24 +364,21 @@ impl AssignCompiledValue {
 }
 
 impl IrSpanned<AssignCompiledValue> {
-    pub(crate) fn optimize_on_freeze(
-        &self,
-        ctx: &mut OptimizeOnFreezeContext,
-    ) -> IrSpanned<AssignCompiledValue> {
+    pub(crate) fn optimize(&self, ctx: &mut OptCtx) -> IrSpanned<AssignCompiledValue> {
         let span = self.span;
         let assign = match self.node {
             AssignCompiledValue::Dot(ref object, ref field) => {
-                let object = object.optimize_on_freeze(ctx);
+                let object = object.optimize(ctx);
                 let field = field.clone();
                 AssignCompiledValue::Dot(object, field)
             }
             AssignCompiledValue::ArrayIndirection(ref array, ref index) => {
-                let array = array.optimize_on_freeze(ctx);
-                let index = index.optimize_on_freeze(ctx);
+                let array = array.optimize(ctx);
+                let index = index.optimize(ctx);
                 AssignCompiledValue::ArrayIndirection(array, index)
             }
             AssignCompiledValue::Tuple(ref xs) => {
-                let xs = xs.map(|x| x.optimize_on_freeze(ctx));
+                let xs = xs.map(|x| x.optimize(ctx));
                 AssignCompiledValue::Tuple(xs)
             }
             ref e @ (AssignCompiledValue::Local(..)

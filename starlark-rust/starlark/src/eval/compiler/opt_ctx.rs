@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use crate::environment::FrozenModuleRef;
 use crate::eval::compiler::stmt::OptimizeOnFreezeContext;
 use crate::eval::Evaluator;
 use crate::values::FrozenHeap;
@@ -24,6 +25,7 @@ pub(crate) trait OptCtxEval<'v, 'a> {
     fn heap(&self) -> &'v Heap;
     fn frozen_heap(&self) -> &FrozenHeap;
     fn eval(&mut self) -> Option<&mut Evaluator<'v, 'a>>;
+    fn frozen_module(&self) -> Option<&FrozenModuleRef>;
 }
 
 impl<'v, 'a> OptCtxEval<'v, 'a> for OptimizeOnFreezeContext<'v, 'a> {
@@ -38,6 +40,10 @@ impl<'v, 'a> OptCtxEval<'v, 'a> for OptimizeOnFreezeContext<'v, 'a> {
     fn eval(&mut self) -> Option<&mut Evaluator<'v, 'a>> {
         None
     }
+
+    fn frozen_module(&self) -> Option<&FrozenModuleRef> {
+        Some(self.module)
+    }
 }
 
 impl<'v, 'a> OptCtxEval<'v, 'a> for Evaluator<'v, 'a> {
@@ -51,6 +57,10 @@ impl<'v, 'a> OptCtxEval<'v, 'a> for Evaluator<'v, 'a> {
 
     fn eval(&mut self) -> Option<&mut Evaluator<'v, 'a>> {
         Some(self)
+    }
+
+    fn frozen_module(&self) -> Option<&FrozenModuleRef> {
+        None
     }
 }
 
@@ -78,5 +88,9 @@ impl<'v, 'a, 'e> OptCtx<'v, 'a, 'e> {
 
     pub(crate) fn eval(&mut self) -> Option<&mut Evaluator<'v, 'a>> {
         self.eval.eval()
+    }
+
+    pub(crate) fn frozen_module(&self) -> Option<&FrozenModuleRef> {
+        self.eval.frozen_module()
     }
 }

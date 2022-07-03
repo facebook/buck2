@@ -20,9 +20,9 @@ use gazebo::prelude::*;
 
 use crate::collections::symbol_map::Symbol;
 use crate::eval::compiler::expr::ExprCompiled;
+use crate::eval::compiler::opt_ctx::OptCtx;
 use crate::eval::compiler::scope::CstArgument;
 use crate::eval::compiler::span::IrSpanned;
-use crate::eval::compiler::stmt::OptimizeOnFreezeContext;
 use crate::eval::compiler::Compiler;
 use crate::eval::runtime::arguments::ArgNames;
 use crate::eval::runtime::arguments::ArgumentsFull;
@@ -129,12 +129,9 @@ impl ArgsCompiledValue {
         })
     }
 
-    pub(crate) fn optimize_on_freeze(
-        &self,
-        ctx: &mut OptimizeOnFreezeContext,
-    ) -> ArgsCompiledValue {
+    pub(crate) fn optimize(&self, ctx: &mut OptCtx) -> ArgsCompiledValue {
         enum Never {}
-        self.map_exprs(|e| Ok(e.optimize_on_freeze(ctx)))
+        self.map_exprs(|e| Ok(e.optimize(ctx)))
             .unwrap_or_else(|e: Never| match e {})
     }
 }

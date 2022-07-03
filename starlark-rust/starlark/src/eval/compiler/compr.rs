@@ -22,11 +22,11 @@ use gazebo::prelude::*;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::expr_bool::ExprCompiledBool;
 use crate::eval::compiler::known::list_to_tuple;
+use crate::eval::compiler::opt_ctx::OptCtx;
 use crate::eval::compiler::scope::CstExpr;
 use crate::eval::compiler::scope::CstPayload;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::stmt::AssignCompiledValue;
-use crate::eval::compiler::stmt::OptimizeOnFreezeContext;
 use crate::eval::compiler::Compiler;
 use crate::syntax::ast::ClauseP;
 use crate::syntax::ast::ForClauseP;
@@ -134,17 +134,17 @@ impl ComprCompiled {
         }
     }
 
-    pub(crate) fn optimize_on_freeze(&self, ctx: &mut OptimizeOnFreezeContext) -> ExprCompiled {
+    pub(crate) fn optimize(&self, ctx: &mut OptCtx) -> ExprCompiled {
         match self {
             ComprCompiled::List(box ref x, ref clauses) => {
-                let clauses = clauses.optimize_on_freeze(ctx);
-                ExprCompiled::compr(ComprCompiled::List(box x.optimize_on_freeze(ctx), clauses))
+                let clauses = clauses.optimize(ctx);
+                ExprCompiled::compr(ComprCompiled::List(box x.optimize(ctx), clauses))
             }
             ComprCompiled::Dict(box (ref k, ref v), ref clauses) => {
-                let clauses = clauses.optimize_on_freeze(ctx);
+                let clauses = clauses.optimize(ctx);
                 ExprCompiled::compr(ComprCompiled::Dict(
-                    box (k.optimize_on_freeze(ctx), v.optimize_on_freeze(ctx)),
-                    clauses.optimize_on_freeze(ctx),
+                    box (k.optimize(ctx), v.optimize(ctx)),
+                    clauses.optimize(ctx),
                 ))
             }
         }
@@ -159,19 +159,19 @@ pub(crate) struct ClauseCompiled {
 }
 
 impl ClauseCompiled {
-    fn optimize_on_freeze(&self, ctx: &mut OptimizeOnFreezeContext) -> ClauseCompiled {
+    fn optimize(&self, ctx: &mut OptCtx) -> ClauseCompiled {
         let ClauseCompiled {
             ref var,
             ref over,
             ref ifs,
         } = *self;
         ClauseCompiled {
-            var: var.optimize_on_freeze(ctx),
-            over: over.optimize_on_freeze(ctx),
+            var: var.optimize(ctx),
+            over: over.optimize(ctx),
             ifs: ifs
                 .iter()
                 .filter_map(|e| {
-                    let e = e.optimize_on_freeze(ctx);
+                    let e = e.optimize(ctx);
                     let e = ExprCompiledBool::new(e);
                     match &e.node {
                         ExprCompiledBool::Const(true) => None,
@@ -215,9 +215,9 @@ impl ClausesCompiled {
         self.clauses.split_last().unwrap()
     }
 
-    fn optimize_on_freeze(&self, ctx: &mut OptimizeOnFreezeContext) -> ClausesCompiled {
+    fn optimize(&self, ctx: &mut OptCtx) -> ClausesCompiled {
         ClausesCompiled {
-            clauses: self.clauses.map(|c| c.optimize_on_freeze(ctx)),
+            clauses: self.clauses.map(|c| c.optimize(ctx)),
         }
     }
 }

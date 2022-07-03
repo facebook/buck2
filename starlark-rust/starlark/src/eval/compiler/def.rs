@@ -42,6 +42,7 @@ use crate::eval::bc::frame::alloca_frame;
 use crate::eval::compiler::def_inline::inline_def_body;
 use crate::eval::compiler::def_inline::InlineDefBody;
 use crate::eval::compiler::expr::ExprCompiled;
+use crate::eval::compiler::opt_ctx::OptCtx;
 use crate::eval::compiler::scope::Captured;
 use crate::eval::compiler::scope::CstAssignIdent;
 use crate::eval::compiler::scope::CstExpr;
@@ -746,11 +747,11 @@ impl FrozenDef {
         let body_optimized = self
             .def_info
             .body_stmts
-            .optimize_on_freeze(&mut OptimizeOnFreezeContext {
+            .optimize(&mut OptCtx::new(&mut OptimizeOnFreezeContext {
                 module: def_module.as_ref(),
                 heap,
                 frozen_heap,
-            })
+            }))
             .as_bc(
                 &self.def_info.stmt_compile_context,
                 self.def_info.used,

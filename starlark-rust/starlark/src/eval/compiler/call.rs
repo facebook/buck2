@@ -29,7 +29,6 @@ use crate::eval::compiler::expr::Builtin1;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::opt_ctx::OptCtx;
 use crate::eval::compiler::span::IrSpanned;
-use crate::eval::compiler::stmt::OptimizeOnFreezeContext;
 use crate::eval::runtime::call_stack::FrozenFileSpan;
 use crate::eval::runtime::inlined_frame::InlinedFrameAlloc;
 use crate::eval::runtime::visit_span::VisitSpanMut;
@@ -257,10 +256,10 @@ impl CallCompiled {
 }
 
 impl IrSpanned<CallCompiled> {
-    pub(crate) fn optimize_on_freeze(&self, ctx: &mut OptimizeOnFreezeContext) -> ExprCompiled {
+    pub(crate) fn optimize(&self, ctx: &mut OptCtx) -> ExprCompiled {
         let CallCompiled { fun: expr, args } = &self.node;
-        let expr = expr.optimize_on_freeze(ctx);
-        let args = args.optimize_on_freeze(ctx);
-        CallCompiled::call(self.span, expr, args, &mut OptCtx::new(ctx))
+        let expr = expr.optimize(ctx);
+        let args = args.optimize(ctx);
+        CallCompiled::call(self.span, expr, args, ctx)
     }
 }
