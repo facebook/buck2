@@ -102,8 +102,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         let (module_slots, scope_names, scope_data) = scope.exit_module();
         let local_names = self
             .frozen_heap()
-            .alloc_any_display_from_debug(scope_names.used)
-            .map(|s| s.as_slice());
+            .alloc_any_slice_display_from_debug(&scope_names.used);
 
         self.module_env.slots().ensure_slots(module_slots);
         let old_def_info = mem::replace(
