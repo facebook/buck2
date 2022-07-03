@@ -108,6 +108,11 @@ impl ScopeNames {
         self.param_count = Some(param_count);
     }
 
+    pub(crate) fn param_count(&self) -> u32 {
+        self.param_count
+            .expect("param_count must be set during analysis")
+    }
+
     fn copy_parent(
         &mut self,
         parent_slot: LocalSlotIdCapturedOrNot,

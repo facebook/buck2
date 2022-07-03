@@ -749,11 +749,14 @@ impl FrozenDef {
         let body_optimized = self
             .def_info
             .body_stmts
-            .optimize(&mut OptCtx::new(&mut OptimizeOnFreezeContext {
-                module: def_module.as_ref(),
-                heap,
-                frozen_heap,
-            }))
+            .optimize(&mut OptCtx::new(
+                &mut OptimizeOnFreezeContext {
+                    module: def_module.as_ref(),
+                    heap,
+                    frozen_heap,
+                },
+                self.parameters.len().try_into().unwrap(),
+            ))
             .as_bc(
                 &self.def_info.stmt_compile_context,
                 self.def_info.used,

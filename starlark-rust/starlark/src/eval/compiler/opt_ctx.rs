@@ -71,11 +71,17 @@ impl<'v, 'a> OptCtxEval<'v, 'a> for Evaluator<'v, 'a> {
 /// * when freezing the heap.
 pub(crate) struct OptCtx<'v, 'a, 'e> {
     pub(crate) eval: &'e mut dyn OptCtxEval<'v, 'a>,
+    /// Current function parameter slot count. Zero when compiling module.
+    #[allow(dead_code)] // TODO(nga): used in the following diff D37589841.
+    pub(crate) param_count: u32,
 }
 
 impl<'v, 'a, 'e> OptCtx<'v, 'a, 'e> {
-    pub(crate) fn new(eval: &'e mut dyn OptCtxEval<'v, 'a>) -> OptCtx<'v, 'a, 'e> {
-        OptCtx { eval }
+    pub(crate) fn new(
+        eval: &'e mut dyn OptCtxEval<'v, 'a>,
+        param_count: u32,
+    ) -> OptCtx<'v, 'a, 'e> {
+        OptCtx { eval, param_count }
     }
 
     pub(crate) fn heap(&self) -> &'v Heap {

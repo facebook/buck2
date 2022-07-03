@@ -1154,7 +1154,8 @@ impl<'v, 'a, 'e> Compiler<'v, 'a, 'e> {
     }
 
     fn opt_ctx<'s>(&'s mut self) -> OptCtx<'v, 'a, 's> {
-        OptCtx::new(self.eval)
+        let param_count = self.current_scope().param_count();
+        OptCtx::new(self.eval, param_count)
     }
 
     pub(crate) fn expr(&mut self, expr: CstExpr) -> IrSpanned<ExprCompiled> {
