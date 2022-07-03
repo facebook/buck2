@@ -37,6 +37,7 @@ use crate::environment::Globals;
 use crate::eval::compiler::scope::CompilerAstMap;
 use crate::eval::compiler::scope::Scope;
 use crate::eval::compiler::scope::ScopeData;
+use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::Compiler;
 use crate::eval::runtime::arguments::ArgNames;
 use crate::eval::runtime::arguments::ArgumentsFull;
@@ -99,7 +100,8 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             return Err(e);
         }
 
-        let (module_slots, scope_names, scope_data) = scope.exit_module();
+        let (module_slots, scope_data) = scope.exit_module();
+        let scope_names = scope_data.get_scope(ScopeId::module());
         let local_names = self
             .frozen_heap()
             .alloc_any_slice_display_from_debug(&scope_names.used);

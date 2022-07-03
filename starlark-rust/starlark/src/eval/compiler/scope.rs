@@ -262,15 +262,15 @@ impl<'a> Scope<'a> {
         scope
     }
 
-    // Number of module slots I need, local anon slot names
-    pub fn exit_module(mut self) -> (u32, ScopeNames, ScopeData) {
+    // Number of module slots I need, and a struct holding all scopes.
+    pub fn exit_module(mut self) -> (u32, ScopeData) {
         assert!(self.locals.len() == 1);
         assert!(self.unscopes.is_empty());
         let scope_id = self.locals.pop().unwrap();
         assert!(scope_id == ScopeId::module());
-        let scope = mem::take(self.scope_data.mut_scope(scope_id));
+        let scope = self.scope_data.get_scope(scope_id);
         assert!(scope.parent.is_empty());
-        (self.module.slot_count(), scope, self.scope_data)
+        (self.module.slot_count(), self.scope_data)
     }
 
     fn collect_defines_in_def(

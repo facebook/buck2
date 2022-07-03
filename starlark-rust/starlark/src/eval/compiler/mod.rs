@@ -38,7 +38,6 @@ use crate::environment::Globals;
 use crate::errors::Diagnostic;
 use crate::eval::compiler::scope::ScopeData;
 use crate::eval::compiler::scope::ScopeId;
-use crate::eval::compiler::scope::ScopeNames;
 use crate::eval::runtime::call_stack::FrozenFileSpan;
 use crate::eval::Evaluator;
 use crate::values::FrozenRef;
@@ -95,8 +94,7 @@ impl Compiler<'_, '_, '_> {
         self.locals.push(scope_id);
     }
 
-    pub(crate) fn exit_scope(&mut self) -> &mut ScopeNames {
-        let scope_id = self.locals.pop().unwrap();
-        self.scope_data.mut_scope(scope_id)
+    pub(crate) fn exit_scope(&mut self) -> ScopeId {
+        self.locals.pop().unwrap()
     }
 }

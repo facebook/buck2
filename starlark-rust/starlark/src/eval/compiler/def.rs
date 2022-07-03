@@ -22,7 +22,6 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Write;
-use std::mem;
 use std::ptr;
 use std::time::Instant;
 
@@ -381,9 +380,8 @@ impl Compiler<'_, '_, '_> {
 
         let docstring = DocString::extract_raw_starlark_docstring(&suite);
         let body = self.stmt(suite, false);
-        let scope_names = self.exit_scope();
-
-        let scope_names = mem::take(scope_names);
+        let scope_id = self.exit_scope();
+        let scope_names = self.scope_data.get_scope(scope_id);
 
         let has_types = return_type.is_some() || params.has_types();
 
