@@ -334,34 +334,22 @@ pub(crate) fn display_action_error<'a>(
 ) -> anyhow::Result<ActionErrorDisplay<'a>> {
     use buck2_data::action_execution_end::Error;
 
-    let reason;
-    let mut command = action.commands.last().and_then(|c| c.command.as_ref());
+    let command = action.commands.last().and_then(|c| c.command.as_ref());
 
-    match error {
-        Error::CommandFailed(command_failed) => {
-            reason = format!(
-                "Command returned non-zero exit code {}",
-                command_failed.exit_code
-            );
-            command = Some(command_failed);
-        }
-        Error::TimedOut(timed_out) => {
-            reason = timed_out.message.clone();
-            command = timed_out.command.as_ref();
-        }
+    let reason = match error {
         Error::MissingOutputs(missing_outputs) => {
-            reason = format!("Required outputs are missing: {}", missing_outputs.message);
+            format!("Required outputs are missing: {}", missing_outputs.message)
         }
         Error::Unknown(error_string) => {
-            reason = format!("Internal error: {}", error_string);
+            format!("Internal error: {}", error_string)
         }
         Error::CommandExecutionError(buck2_data::CommandExecutionError {}) => {
-            reason = match action.commands.last() {
+            match action.commands.last() {
                 Some(c) => failure_reason_for_command_execution(c)?,
                 None => "Unexpected command status".to_owned(),
             }
         }
-    }
+    };
 
     Ok(ActionErrorDisplay {
         action_id: display_action_identity(action.key.as_ref(), action.name.as_ref())?,

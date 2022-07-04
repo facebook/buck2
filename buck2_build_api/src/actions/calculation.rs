@@ -191,7 +191,7 @@ impl ActionCalculation for DiceComputations {
                                     .and_then(|r| r.status.execution_kind())
                                     .map(|e| e.as_enum());
                                 wall_time = None;
-                                error = Some(error_to_proto(&e, &commands, &command_reports));
+                                error = Some(error_to_proto(&e));
                                 output_size = 0;
                             }
                         };
@@ -275,79 +275,6 @@ async fn command_execution_report_to_proto(
     }
 }
 
-fn error_to_proto(
-    err: &ExecuteError,
-    commands: &[buck2_data::CommandExecution],
-    command_reports: &[CommandExecutionReport],
-) -> buck2_data::action_execution_end::Error {
-    let command = commands.last().and_then(|c| c.command.as_ref());
-
-    match err {
-        ExecuteError::MissingOutputs { wanted } => {
-            buck2_data::action_execution_end::Error::MissingOutputs(
-                buck2_data::CommandOutputsMissing {
-                    command: command.cloned(), // TODO (torozco): Remove
-                    message: format!("Action failed to produce outputs: {}", error_items(wanted)),
-                },
-            )
-        }
-        ExecuteError::MismatchedOutputs { wanted, got } => {
-            buck2_data::action_execution_end::Error::MissingOutputs(
-                buck2_data::CommandOutputsMissing {
-                    command: command.cloned(), //  TODO (torozco): Remove
-                    message: format!(
-                        "Action didn't produce the right set of outputs.\nExpected {}`\nGot {}",
-                        error_items(wanted),
-                        error_items(got)
-                    ),
-                },
-            )
-        }
-        ExecuteError::Error { error } => {
-            buck2_data::action_execution_end::Error::Unknown(format!("{:#}", error))
-        }
-        ExecuteError::CommandExecutionError => {
-            // TODO (torozco): Remove
-            make_command_failed(command_reports, command).unwrap_or_else(|| {
-                buck2_data::action_execution_end::Error::Unknown(
-                    "Command failed but CommandReport was not a failure!".to_owned(),
-                )
-            })
-        }
-    }
-}
-
-fn make_command_failed(
-    command_reports: &[CommandExecutionReport],
-    command: Option<&buck2_data::CommandExecutionDetails>,
-) -> Option<buck2_data::action_execution_end::Error> {
-    let command_report = command_reports.last()?;
-    let command = command?;
-
-    let res = match &command_report.status {
-        CommandExecutionStatus::Success { .. } | CommandExecutionStatus::ClaimRejected => {
-            return None;
-        }
-        CommandExecutionStatus::Failure { .. } => {
-            buck2_data::action_execution_end::Error::CommandFailed(command.clone())
-        }
-        CommandExecutionStatus::TimedOut { duration, .. } => {
-            buck2_data::action_execution_end::Error::TimedOut(buck2_data::CommandTimedOut {
-                command: Some(command.clone()),
-                message: format!("Command timed out after {:.3}s", duration.as_secs_f64()),
-            })
-        }
-        CommandExecutionStatus::Error { stage, error } => {
-            buck2_data::action_execution_end::Error::Unknown(format!(
-                "During execution, {}: {:#}",
-                stage, error
-            ))
-        }
-    };
-
-    Some(res)
-}
-
 async fn command_details(command: &CommandExecutionReport) -> buck2_data::CommandExecutionDetails {
     let omit_details = matches!(command.status, CommandExecutionStatus::Success { .. });
 
@@ -384,6 +311,25 @@ async fn command_details(command: &CommandExecutionReport) -> buck2_data::Comman
         local_command,
         remote_command: execution_kind.and_then(|e| e.as_remote_command()),
         omitted_local_command,
+    }
+}
+
+fn error_to_proto(err: &ExecuteError) -> buck2_data::action_execution_end::Error {
+    match err {
+        ExecuteError::MissingOutputs { wanted } => buck2_data::CommandOutputsMissing {
+            message: format!("Action failed to produce outputs: {}", error_items(wanted)),
+        }
+        .into(),
+        ExecuteError::MismatchedOutputs { wanted, got } => buck2_data::CommandOutputsMissing {
+            message: format!(
+                "Action didn't produce the right set of outputs.\nExpected {}`\nGot {}",
+                error_items(wanted),
+                error_items(got)
+            ),
+        }
+        .into(),
+        ExecuteError::Error { error } => format!("{:#}", error).into(),
+        ExecuteError::CommandExecutionError => buck2_data::CommandExecutionError {}.into(),
     }
 }
 

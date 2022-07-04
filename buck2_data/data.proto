@@ -594,13 +594,11 @@ message CommandExecutionDetails {
 }
 
 message CommandOutputsMissing {
-  CommandExecutionDetails command = 1;
   // A description of what outputs are missing.
   string message = 2;
 }
 
 message CommandTimedOut {
-  CommandExecutionDetails command = 1;
   string message = 2;
 }
 
@@ -662,17 +660,8 @@ message ActionExecutionEnd {
     // TODO (torozco): Remove
     string unknown = 7;
 
-    // An error message indicating that a command exited with a non-zero exit
-    // code.
-    // TODO (torozco): Remove
-    CommandExecutionDetails command_failed = 8;
-
     // Command executed successfully but did not produce the desired outputs.
     CommandOutputsMissing missing_outputs = 9;
-
-    // Command timed out.
-    // TODO (torozco): Remove
-    CommandTimedOut timed_out = 10;
 
     // TODO (torozco): Rename to command_failed.
     CommandExecutionError command_execution_error = 11;
