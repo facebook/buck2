@@ -52,6 +52,8 @@ buck_filegroup(
         "testsof/**/.*",
         "execution_platforms/**",
         "execution_platforms/**/.*",
+        "toolchain_deps/**",
+        "toolchain_deps/**/.*",
         "prelude_import/**",
         "prelude_import/**/.*",
         "dep_files/**",

@@ -909,6 +909,31 @@ async def test_hybrid_executor_fallbacks(buck: Buck) -> None:
     )
 
 
+@buck_test(inplace=False, data_dir="toolchain_deps")
+async def test_toolchain_deps(buck: Buck) -> None:
+    # This test builds two targets, both with the same `default_target_platform` platform
+    # but which should resolve to different execution platforms because of toolchain deps.
+    # Both targets still get configured with the `default_target_platform` of release.
+    #
+    # The Python toolchain works on Windows/Linux, but we prefer Linux as an exec platform.
+    # The ASIC toolchain only works on Windows, so `python_and_asic` (which does both) must
+    # pick Windows for Python as well.
+    result = await buck.build("root//tests:python_and_asic", "root//tests:python_only")
+    python_and_asic = (
+        result.get_build_report()
+        .output_for_target("root//tests:python_and_asic")
+        .read_text()
+    )
+    python_only = (
+        result.get_build_report()
+        .output_for_target("root//tests:python_only")
+        .read_text()
+    )
+    # If any of the selects get resolved incorrectly, the toolchain binaries below will change.
+    assert python_and_asic == "python_release_windows asic\n"
+    assert python_only == "python_release_linux\n"
+
+
 @buck_test(inplace=False, data_dir="prelude_import")
 async def test_prelude_imported_once(buck: Buck) -> None:
     # See the comments in the relevant targets files: they explain how this

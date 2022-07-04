@@ -1,0 +1,11 @@
+load(":defs.bzl", "python_binary_asic", "python_binary")
+
+python_binary_asic(
+    name = "python_and_asic",
+    default_target_platform = "//config:platform_windows",
+)
+
+python_binary(
+    name = "python_only",
+    default_target_platform = "//config:platform_windows",
+)
