@@ -440,6 +440,9 @@ pub(crate) struct ServerCommandContext {
 
     /// The DiceTransaction to use when servicing computations triggered by this command.
     dice: AsyncOnceCell<SharedResult<DiceTransaction>>,
+
+    /// Keep emitting heartbeat events while the ServerCommandContext is alive.
+    _heartbeat_guard_handle: HeartbeatGuard,
 }
 
 impl ServerCommandContext {
@@ -486,6 +489,8 @@ impl ServerCommandContext {
             Some(client_context.oncall.clone())
         };
 
+        let heartbeat = HeartbeatGuard::new(&base_context);
+
         Ok(ServerCommandContext {
             base_context,
             working_dir: project_path.to_buf().into(),
@@ -499,6 +504,7 @@ impl ServerCommandContext {
             dice: AsyncOnceCell::new(),
             record_target_call_stacks,
             disable_starlark_types: client_context.disable_starlark_types,
+            _heartbeat_guard_handle: heartbeat,
         })
     }
 
@@ -1127,8 +1133,6 @@ impl BuckdServer {
         streaming(req, events, dispatch.dupe(), move |req| async move {
             let result: CommandResult = {
                 let result: anyhow::Result<CommandResult> = try {
-                    let data = daemon_state.data().await?;
-                    let _heartbeat = HeartbeatGuard::new(dispatch.dupe(), data);
                     let base_context = daemon_state.prepare_command(dispatch.dupe()).await?;
                     build_listener::scope(base_context.events.dupe(), |build_sender| async {
                         let context = ServerCommandContext::new(
@@ -1233,7 +1237,9 @@ struct HeartbeatGuard {
 }
 
 impl HeartbeatGuard {
-    fn new(events: EventDispatcher, daemon_data: Arc<DaemonStateData>) -> Self {
+    fn new(ctx: &BaseCommandContext) -> Self {
+        let events = ctx.events.dupe();
+        let collector = snapshot::SnapshotCollector::from_command(ctx);
         let (abort_handle, abort_registration) = AbortHandle::new_pair();
         let _heartbeat_handle = tokio::spawn(with_dispatcher_async(
             events.dupe(),
@@ -1244,7 +1250,7 @@ impl HeartbeatGuard {
                     loop {
                         interval.tick().await;
 
-                        let snapshot = snapshot::create_snapshot(&daemon_data);
+                        let snapshot = collector.create_snapshot();
 
                         events.instant_event(snapshot);
                     }
@@ -1534,7 +1540,7 @@ impl DaemonApi for BuckdServer {
         self.oneshot(req, DefaultCommandOptions, move |req| async move {
             let snapshot = if req.snapshot {
                 let data = daemon_state.data().await?;
-                Some(snapshot::create_snapshot(&data))
+                Some(snapshot::SnapshotCollector::from_state(&data).create_snapshot())
             } else {
                 None
             };

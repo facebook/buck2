@@ -7,22 +7,83 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
 use anyhow::Context as _;
 use buck2_build_api::execute::commands::re::manager::ReConnectionManager;
+use gazebo::prelude::*;
 
+use crate::daemon::server::BaseCommandContext;
+use crate::daemon::server::BlockingExecutor;
 use crate::daemon::server::DaemonStateData;
 
-/// Create a new Snapshot.
-pub(crate) fn create_snapshot(daemon_data: &DaemonStateData) -> buck2_data::Snapshot {
-    let mut snapshot = buck2_data::Snapshot::default();
-    add_daemon_metrics(&mut snapshot, daemon_data);
-    add_system_metrics(&mut snapshot);
-    add_re_metrics(&mut snapshot, daemon_data.re_client_manager.as_ref());
-    snapshot
+/// Stores state handles necessary to produce snapshots.
+pub(crate) struct SnapshotCollector {
+    re_client_manager: Arc<ReConnectionManager>,
+    blocking_executor: Arc<dyn BlockingExecutor>,
 }
 
-fn add_daemon_metrics(snapshot: &mut buck2_data::Snapshot, data: &DaemonStateData) {
-    snapshot.blocking_executor_io_queue_size = data.blocking_executor.queue_size() as u64;
+impl SnapshotCollector {
+    // NOTE: This would probably be easier if BaseCommandContext just embedded DaemonStateData, or
+    // parts thereof we care about, but it's only two fields for now.
+    pub(crate) fn from_command(ctx: &BaseCommandContext) -> Self {
+        Self {
+            re_client_manager: ctx.re_client_manager.dupe(),
+            blocking_executor: ctx.blocking_executor.dupe(),
+        }
+    }
+
+    pub(crate) fn from_state(state: &DaemonStateData) -> Self {
+        Self {
+            re_client_manager: state.re_client_manager.dupe(),
+            blocking_executor: state.blocking_executor.dupe(),
+        }
+    }
+
+    /// Create a new Snapshot.
+    pub(crate) fn create_snapshot(&self) -> buck2_data::Snapshot {
+        let mut snapshot = buck2_data::Snapshot::default();
+        add_system_metrics(&mut snapshot);
+        self.add_daemon_metrics(&mut snapshot);
+        self.add_re_metrics(&mut snapshot);
+        snapshot
+    }
+
+    fn add_daemon_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
+        snapshot.blocking_executor_io_queue_size = self.blocking_executor.queue_size() as u64;
+    }
+
+    fn add_re_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
+        fn inner(
+            snapshot: &mut buck2_data::Snapshot,
+            re: &ReConnectionManager,
+        ) -> anyhow::Result<()> {
+            let stats = match re
+                .get_network_stats()
+                .context("Error collecting network stats")?
+            {
+                Some(stats) => stats,
+                None => return Ok(()),
+            };
+
+            snapshot.re_download_bytes = stats
+                .downloaded
+                .try_into()
+                .with_context(|| format!("Invalid downloaded bytes: `{}`", stats.downloaded))?;
+
+            snapshot.re_upload_bytes = stats
+                .uploaded
+                .try_into()
+                .with_context(|| format!("Invalid uploaded bytes: `{}`", stats.uploaded))?;
+
+            Ok(())
+        }
+
+        // Nothing we can do if we get an error, unfortunately.
+        if let Err(e) = inner(snapshot, &self.re_client_manager) {
+            tracing::debug!("Error collecting network stats: {:#}", e);
+        }
+    }
 }
 
 #[cfg(unix)]
@@ -53,32 +114,3 @@ fn add_system_metrics(snapshot: &mut buck2_data::Snapshot) {
 
 #[cfg(not(unix))]
 fn add_system_metrics(_: &mut buck2_data::Snapshot) {}
-
-fn add_re_metrics(snapshot: &mut buck2_data::Snapshot, re: &ReConnectionManager) {
-    fn inner(snapshot: &mut buck2_data::Snapshot, re: &ReConnectionManager) -> anyhow::Result<()> {
-        let stats = match re
-            .get_network_stats()
-            .context("Error collecting network stats")?
-        {
-            Some(stats) => stats,
-            None => return Ok(()),
-        };
-
-        snapshot.re_download_bytes = stats
-            .downloaded
-            .try_into()
-            .with_context(|| format!("Invalid downloaded bytes: `{}`", stats.downloaded))?;
-
-        snapshot.re_upload_bytes = stats
-            .uploaded
-            .try_into()
-            .with_context(|| format!("Invalid uploaded bytes: `{}`", stats.uploaded))?;
-
-        Ok(())
-    }
-
-    // Nothing we can do if we get an error, unfortunately.
-    if let Err(e) = inner(snapshot, re) {
-        tracing::debug!("Error collecting network stats: {:#}", e);
-    }
-}
