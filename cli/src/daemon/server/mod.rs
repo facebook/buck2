@@ -111,8 +111,6 @@ use fbinit::FacebookInit;
 use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::channel::mpsc::UnboundedSender;
-use futures::future::AbortHandle;
-use futures::future::Abortable;
 use futures::Future;
 use futures::Stream;
 use futures::StreamExt;
@@ -127,6 +125,7 @@ use starlark::eval::ProfileMode;
 use thiserror::Error;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
+use tokio::task::JoinHandle;
 use tonic::transport::server::Connected;
 use tonic::transport::Server;
 use tonic::Code;
@@ -441,8 +440,10 @@ pub(crate) struct ServerCommandContext {
     /// The DiceTransaction to use when servicing computations triggered by this command.
     dice: AsyncOnceCell<SharedResult<DiceTransaction>>,
 
-    /// Keep emitting heartbeat events while the ServerCommandContext is alive.
-    _heartbeat_guard_handle: HeartbeatGuard,
+    /// Keep emitting heartbeat events while the ServerCommandContext is alive  We put this in an
+    /// Option so that we can ensure heartbeat events are cancelled before everything else is
+    /// dropped.
+    heartbeat_guard_handle: Option<HeartbeatGuard>,
 }
 
 impl ServerCommandContext {
@@ -489,7 +490,7 @@ impl ServerCommandContext {
             Some(client_context.oncall.clone())
         };
 
-        let heartbeat = HeartbeatGuard::new(&base_context);
+        let heartbeat_guard_handle = HeartbeatGuard::new(&base_context);
 
         Ok(ServerCommandContext {
             base_context,
@@ -504,7 +505,7 @@ impl ServerCommandContext {
             dice: AsyncOnceCell::new(),
             record_target_call_stacks,
             disable_starlark_types: client_context.disable_starlark_types,
-            _heartbeat_guard_handle: heartbeat,
+            heartbeat_guard_handle: Some(heartbeat_guard_handle),
         })
     }
 
@@ -628,6 +629,13 @@ impl ServerCommandContext {
             _phantom: PhantomData,
             inner: BufWriter::with_capacity(4096, RawOutputWriter::new(self)?),
         })
+    }
+}
+
+impl Drop for ServerCommandContext {
+    fn drop(&mut self) {
+        // Ensure we cancel the heartbeat guard first.
+        std::mem::drop(self.heartbeat_guard_handle.take());
     }
 }
 
@@ -1233,38 +1241,43 @@ impl<T: TryFrom<StreamingRequest, Error = Status>> StreamingRequestHandler<T> {
 
 // Spawns a thread to occasionally output snapshots of resource utilization.
 struct HeartbeatGuard {
-    abort_handle: AbortHandle,
+    handle: JoinHandle<()>,
+    events: Arc<Mutex<Option<EventDispatcher>>>,
 }
 
 impl HeartbeatGuard {
     fn new(ctx: &BaseCommandContext) -> Self {
-        let events = ctx.events.dupe();
+        let events = Arc::new(Mutex::new(Some(ctx.events.dupe())));
         let collector = snapshot::SnapshotCollector::from_command(ctx);
-        let (abort_handle, abort_registration) = AbortHandle::new_pair();
-        let _heartbeat_handle = tokio::spawn(with_dispatcher_async(
-            events.dupe(),
-            Abortable::new(
-                async move {
-                    let mut interval = tokio::time::interval(Duration::from_secs(1));
-                    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-                    loop {
-                        interval.tick().await;
 
-                        let snapshot = collector.create_snapshot();
-
-                        events.instant_event(snapshot);
+        // NOTE: This doesn't use the ambient dispatcher wrappers because we want to control the
+        // exact lifetime of the dispatcher.
+        let handle = tokio::spawn({
+            let events = events.dupe();
+            async move {
+                let mut interval = tokio::time::interval(Duration::from_secs(1));
+                interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+                loop {
+                    interval.tick().await;
+                    let snapshot = collector.create_snapshot();
+                    match events.lock().expect("Poisoned lock").as_ref() {
+                        Some(events) => events.instant_event(snapshot),
+                        None => break,
                     }
-                },
-                abort_registration,
-            ),
-        ));
-        Self { abort_handle }
+                }
+            }
+        });
+
+        Self { handle, events }
     }
 }
 
 impl Drop for HeartbeatGuard {
     fn drop(&mut self) {
-        self.abort_handle.abort();
+        // Synchronously remove access for sending new heartbeats.
+        self.events.lock().expect("Poisoned lock").take();
+        // Cancel the task as well.
+        self.handle.abort();
     }
 }
 
@@ -2281,8 +2294,8 @@ impl DaemonApi for BuckdServer {
             };
             let events = context.events().dupe();
             events
-                .span_async(start_event, async {
-                    let result = materialize(context.base_context, req.paths)
+                .span_async(start_event, async move {
+                    let result = materialize(&context.base_context, req.paths)
                         .await
                         .map(|()| MaterializeResponse {})
                         .context("Failed to materialize paths");
