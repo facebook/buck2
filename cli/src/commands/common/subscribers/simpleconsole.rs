@@ -156,22 +156,35 @@ impl ActionStats {
         self.local_actions + self.remote_actions + self.cached_actions
     }
 
-    pub(crate) fn update(&mut self, action_execution_kind: buck2_data::ActionExecutionKind) {
-        match action_execution_kind {
-            buck2_data::ActionExecutionKind::Local => {
+    pub(crate) fn update(&mut self, action: &buck2_data::ActionExecutionEnd) {
+        // NOTE: This currently shows the commands that actually produced a result (or an error!),
+        // but not commands that fell back and were retried.
+        use buck2_data::command_execution_details::Command;
+
+        let last_command = action
+            .commands
+            .last()
+            .and_then(|c| c.command.as_ref())
+            .and_then(|c| c.command.as_ref());
+
+        match last_command {
+            Some(Command::LocalCommand(..)) | Some(Command::OmittedLocalCommand(..)) => {
                 self.local_actions += 1;
             }
-            buck2_data::ActionExecutionKind::Remote => {
+            Some(Command::RemoteCommand(buck2_data::RemoteCommand {
+                cache_hit: true, ..
+            })) => {
                 self.remote_actions += 1;
             }
-            buck2_data::ActionExecutionKind::ActionCache => {
+            Some(Command::RemoteCommand(buck2_data::RemoteCommand {
+                cache_hit: false, ..
+            })) => {
                 self.cached_actions += 1;
             }
-            buck2_data::ActionExecutionKind::Simple => {}
-            buck2_data::ActionExecutionKind::Skipped => {}
-            buck2_data::ActionExecutionKind::Deferred => {}
-            buck2_data::ActionExecutionKind::NotSet => {}
-        }
+            None => {
+                // no command
+            }
+        };
     }
 
     pub(crate) fn log_stats(&self) -> bool {
@@ -385,7 +398,7 @@ impl EventSubscriber for SimpleConsole {
         action: &buck2_data::ActionExecutionEnd,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        self.action_stats.update(action.execution_kind());
+        self.action_stats.update(action);
 
         let action_id =
             display::display_action_identity(action.key.as_ref(), action.name.as_ref())?;
