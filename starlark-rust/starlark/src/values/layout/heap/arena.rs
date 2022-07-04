@@ -305,9 +305,9 @@ impl Arena {
             .for_each(|chunk| Self::iter_chunk(chunk, &mut f))
     }
 
-    // For each Rust-level type (the String) report how many entries there are in the heap, and how much size they consume
-    pub fn allocated_summary(&self) -> HeapSummary {
-        fn for_each<'a>(bump: &'a Bump, mut f: impl FnMut(&'a AValueHeader)) {
+    // Iterate over the values in the both bumps in any order
+    fn for_each_unordered<'a>(&'a self, mut f: impl FnMut(&'a AValueHeader)) {
+        for bump in [&self.drop, &self.non_drop] {
             // SAFE: We're consuming the iterator immediately and not allocating from the arena during.
             unsafe {
                 bump.iter_allocated_chunks_raw().for_each(|(data, len)| {
@@ -315,11 +315,14 @@ impl Arena {
                 })
             }
         }
+    }
 
+    // For each Rust-level type (the String) report how many entries there are in the heap, and how much size they consume
+    pub fn allocated_summary(&self) -> HeapSummary {
         // Record how many times each header occurs
         // We deliberately hash by the AValueHeader for higher performance, less type lookup
         let mut entries: HashMap<AValueHeader, (&'static str, (usize, usize))> = HashMap::new();
-        let mut f = |x: &AValueHeader| {
+        let f = |x: &AValueHeader| {
             let v = x.unpack();
             let e = entries
                 .entry(x.dupe())
@@ -327,8 +330,7 @@ impl Arena {
             e.1.0 += 1;
             e.1.1 += v.total_memory()
         };
-        for_each(&self.drop, &mut f);
-        for_each(&self.non_drop, &mut f);
+        self.for_each_unordered(f);
 
         // For a given type, the AValueHeader isn't always unique
         // (if they get compiled in different translation units),
