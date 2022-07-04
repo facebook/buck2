@@ -63,24 +63,24 @@ use crate::interpreter::rule_defs::provider::ProviderCollection;
 /// ```starlark
 /// # //foo_binary.bzl
 /// def impl(ctx):
-///     ctx.action.run([ctx.attr._cc[RunInfo], "-o", ctx.attr.out.as_output()] + ctx.attr.srcs)
+///     ctx.action.run([ctx.attrs._cc[RunInfo], "-o", ctx.attrs.out.as_output()] + ctx.attrs.srcs)
 ///     ctx.action.run([
-///         ctx.attr._strip[RunInfo],
+///         ctx.attrs._strip[RunInfo],
 ///         "--binary",
-///         ctx.attr.out,
+///         ctx.attrs.out,
 ///         "--stripped-out",
-///         ctx.attr.stripped.as_output(),
+///         ctx.attrs.stripped.as_output(),
 ///         "--debug-symbols-out",
-///         ctx.attr.debug_info.as_output(),
+///         ctx.attrs.debug_info.as_output(),
 ///     ])
 ///     return [
 ///         DefaultInfo(
 ///             sub_targets = {
 ///                 "stripped": [
-///                     DefaultInfo(default_outputs = [ctx.attr.stripped, ctx.attr.debug_info]),
+///                     DefaultInfo(default_outputs = [ctx.attrs.stripped, ctx.attrs.debug_info]),
 ///                 ],
 ///             },
-///             default_outputs = [ctx.attr.out],
+///             default_outputs = [ctx.attrs.out],
 ///     ]
 ///
 /// foo_binary = rule(

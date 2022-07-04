@@ -903,11 +903,11 @@ mod tests {
     fn ctx_instantiates() -> anyhow::Result<()> {
         let content = indoc!(
             r#"
-            def test(c):
-                assert_eq("foo/bar", c.label.package)
-                assert_eq("some_name", c.label.name)
-                assert_eq(None, c.label.sub_target)
-                return c.attr.name
+            def test(ctx):
+                assert_eq("foo/bar", ctx.label.package)
+                assert_eq("some_name", ctx.label.name)
+                assert_eq(None, ctx.label.sub_target)
+                return ctx.attrs.name
             "#
         );
         run_ctx_test(content, |ret| {

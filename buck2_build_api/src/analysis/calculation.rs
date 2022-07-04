@@ -510,9 +510,9 @@ mod tests {
 
                             def impl(ctx):
                                 str = ""
-                                if ctx.attr.dep:
-                                    str = ctx.attr.dep[FooInfo].str
-                                return [FooInfo(str=(str + ctx.attr.str)), DefaultInfo()]
+                                if ctx.attrs.dep:
+                                    str = ctx.attrs.dep[FooInfo].str
+                                return [FooInfo(str=(str + ctx.attrs.str)), DefaultInfo()]
                             foo_binary = rule(impl=impl, attrs={"dep": attr.option(attr.dep(providers=[FooInfo])), "str": attr.string()})
                         "#),
                 LoadedModules::default(),

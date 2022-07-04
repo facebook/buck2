@@ -23,7 +23,7 @@ use crate::cells::cell_path::CellPath;
 /// def impl(ctx):
 ///     # We can guarantee when setting up the context that there
 ///     # is a provider that came from FooInfo
-///     ctx.actions.write("out.txt", ctx.attr.dep[FooInfo].bar)
+///     ctx.actions.write("out.txt", ctx.attrs.dep[FooInfo].bar)
 /// foo_binary = rule(impl=impl, attrs={"dep": attr.dep(providers=[FooInfo])})
 /// ```
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
