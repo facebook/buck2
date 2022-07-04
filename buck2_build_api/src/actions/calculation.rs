@@ -168,7 +168,7 @@ impl ActionCalculation for DiceComputations {
                                 // TODO (torozco): Remove
                                 success_stderr = commands
                                     .last()
-                                    .and_then(|c| c.command.as_ref())
+                                    .and_then(|c| c.details.as_ref())
                                     .map(|c| c.stderr.clone());
                                 execution_kind = Some(meta.execution_kind.as_enum());
                                 wall_time = Some(meta.timing.wall_time);
@@ -249,7 +249,7 @@ impl ActionCalculation for DiceComputations {
 async fn command_execution_report_to_proto(
     report: &CommandExecutionReport,
 ) -> buck2_data::CommandExecution {
-    let command = command_details(report).await;
+    let details = command_details(report).await;
 
     let status = match &report.status {
         CommandExecutionStatus::Success { .. } => buck2_data::command_execution::Success {}.into(),
@@ -271,7 +271,7 @@ async fn command_execution_report_to_proto(
     };
 
     buck2_data::CommandExecution {
-        command: Some(command),
+        details: Some(details),
         status: Some(status),
     }
 }

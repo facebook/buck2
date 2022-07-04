@@ -607,7 +607,7 @@ message CommandTimedOut {
 
 // Serialization of CommandExecutionReport
 message CommandExecution {
-  CommandExecutionDetails command = 1;
+  CommandExecutionDetails details = 1;
 
   message Success {}
 

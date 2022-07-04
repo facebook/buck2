@@ -334,7 +334,7 @@ pub(crate) fn display_action_error<'a>(
 ) -> anyhow::Result<ActionErrorDisplay<'a>> {
     use buck2_data::action_execution_end::Error;
 
-    let command = action.commands.last().and_then(|c| c.command.as_ref());
+    let command = action.commands.last().and_then(|c| c.details.as_ref());
 
     let reason = match error {
         Error::MissingOutputs(missing_outputs) => {
@@ -369,7 +369,7 @@ fn failure_reason_for_command_execution(
     use buck2_data::command_execution::Timeout;
 
     let command = command_execution
-        .command
+        .details
         .as_ref()
         .context("CommandExecution did not include a `command`")?;
 
@@ -411,7 +411,7 @@ pub(crate) fn success_stderr<'a>(
     let stderr = match action.commands.last() {
         Some(command) => {
             &command
-                .command
+                .details
                 .as_ref()
                 .context("CommandExecution did not include a `command`")?
                 .stderr

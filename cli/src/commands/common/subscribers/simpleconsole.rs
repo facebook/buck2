@@ -164,7 +164,7 @@ impl ActionStats {
         let last_command = action
             .commands
             .last()
-            .and_then(|c| c.command.as_ref())
+            .and_then(|c| c.details.as_ref())
             .and_then(|c| c.command.as_ref());
 
         match last_command {
