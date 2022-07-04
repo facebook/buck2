@@ -7,157 +7,106 @@
 def _uri(_s):
     return True
 
-# @name-conventions
 AaptMode = ["aapt1", "aapt2"]
 
-# @name-conventions
 AbiGenerationMode = ["unknown", "class", "source", "migrating_to_source_only", "source_only", "unrecognized"]
 
-# @name-conventions
 AdditionalActions = ["pre_scheme_actions", "post_scheme_actions"]
 
-# @name-conventions
 AnnotationProcessingTool = ["kapt", "javac"]
 
-# @name-conventions
 AppleBundleExtension = ["app", "framework", "appex", "plugin", "bundle", "xctest", "dsym", "xpc", "prefpane", "qlgenerator"]
 
-# @name-conventions
 AppleResourceBundleDestination = ["resources", "frameworks", "executables", "plugins", "xpcservices", "loginitems"]
 
-# @name-conventions
 ArchiveContents = ["normal", "thin"]
 
-# @name-conventions
 ArchiverProviderType = ["bsd", "gnu", "windows", "windows_clang"]
 
-# @name-conventions
 BuildMode = ["executable", "c_shared", "c_archive"]
 
-# @name-conventions
 CompressionAlgorithm = ["xz", "zstd"]
 
-# @name-conventions
 CxxRuntimeType = ["dynamic", "static"]
 
-# @name-conventions
 CxxSourceType = ["c", "cxx", "cxx_thinlink", "objc", "objcxx", "cuda", "hip", "swift", "c_cpp_output", "cxx_cpp_output", "objc_cpp_output", "objcxx_cpp_output", "cuda_cpp_output", "hip_cpp_output", "assembler_with_cpp", "assembler", "asm_with_cpp", "asm", "pcm"]
 
-# @name-conventions
 CxxTestType = ["gtest", "boost"]
 
-# @name-conventions
 CxxToolProviderType = ["clang", "clang_cl", "clang_windows", "gcc", "windows", "windows_ml64"]
 
-# @name-conventions
 DexStore = ["raw", "jar", "xz", "xzs"]
 
-# @name-conventions
 DuplicateResourceBehaviour = ["allow_by_default", "ban_by_default"]
 
-# @name-conventions
 ExopackageMode = ["secondary_dex", "native_library", "resources", "modules", "arch64"]
 
-# @name-conventions
 ExportFileDescriptionMode = ["reference", "copy"]
 
-# @name-conventions
 ForkMode = ["none", "per_test"]
 
-# @name-conventions
 FrameworkVersion = ["net35", "net40", "net45", "net46"]
 
-# @name-conventions
 GoTestCoverStepMode = ["set", "count", "atomic", "none"]
 
-# @name-conventions
 HeadersAsRawHeadersMode = ["required", "preferred", "disabled"]
 
-# @name-conventions
 IncludeType = ["local", "system", "raw"]
 
-# @name-conventions
 JvmLanguage = ["java", "kotlin", "scala"]
 
-# @name-conventions
 LaunchStyle = ["auto", "wait"]
 
-# @name-conventions
 LinkMode = ["internal", "external"]
 
-# @name-conventions
 LinkableDepType = ["static", "static_pic", "shared"]
 
-# @name-conventions
 Linkage = ["any", "static", "shared"]
 
-# @name-conventions
 LinkerProviderType = ["darwin", "gnu", "windows", "unknown"]
 
-# @name-conventions
 LogLevel = ["off", "severe", "warning", "info", "config", "fine", "finer", "finest", "all"]
 
-# @name-conventions
 LuaPlatformPackageStyle = ["standalone", "inplace"]
 
-# @name-conventions
 NativeLinkStrategy = ["separate", "merged"]
 
-# @name-conventions
 NdkCxxRuntime = ["system", "gabixx", "stlport", "gnustl", "libcxx"]
 
-# @name-conventions
 OnDuplicateEntry = ["fail", "overwrite", "append"]
 
-# @name-conventions
 PackageType = ["debug", "instrumented", "release", "test"]
 
-# @name-conventions
 PicType = ["pic", "pdc"]
 
-# @name-conventions
 Platform = ["linux", "macos", "windows", "freebsd", "unknown"]
 
-# @name-conventions
 PythonBuckConfigPackageStyle = ["standalone", "inplace", "inplace_lite"]
 
-# @name-conventions
 RType = ["anim", "animator", "array", "attr", "bool", "color", "dimen", "drawable", "fraction", "font", "id", "integer", "interpolator", "layout", "menu", "navigation", "mipmap", "plurals", "raw", "string", "style", "styleable", "transition", "xml"]
 
-# @name-conventions
 RemoteFileType = ["data", "executable", "exploded_zip"]
 
-# @name-conventions
 ResourceCompressionMode = ["disabled", "enabled", "enabled_strings_only", "enabled_with_strings_as_assets"]
 
-# @name-conventions
 SchemeActionType = ["build", "launch", "test", "profile", "analyze", "archive"]
 
-# @name-conventions
 SdkProguardType = ["default", "optimized", "none"]
 
-# @name-conventions
 SharedLibraryInterfaceParamsType = ["disabled", "enabled", "defined_only"]
 
-# @name-conventions
 SourceAbiVerificationMode = ["off", "log", "fail"]
 
-# @name-conventions
 Style = ["obf", "pretty", "detailed"]
 
-# @name-conventions
 TargetCpuType = ["arm", "armv7", "arm64", "x86", "x86_64", "mips"]
 
-# @name-conventions
 TestType = ["junit", "junit5", "testng"]
 
-# @name-conventions
 Traversal = ["tree", "node"]
 
-# @name-conventions
 UnusedDependenciesAction = ["unknown", "fail", "warn", "ignore", "unrecognized"]
 
-# @name-conventions
 WatchInterface = ["main", "complication", "dynamic_notification", "static_notification"]
 
 attributes = {
