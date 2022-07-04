@@ -24,13 +24,13 @@ use std::time::Instant;
 
 use gazebo::prelude::*;
 pub use runtime::arguments::Arguments;
-pub use runtime::arguments::ParametersParser;
-pub use runtime::arguments::ParametersSpec;
-pub use runtime::arguments::ParametersSpecBuilder;
 pub use runtime::call_stack::CallStack;
 pub use runtime::evaluator::Evaluator;
 pub use runtime::file_loader::FileLoader;
 pub use runtime::file_loader::ReturnFileLoader;
+pub use runtime::params::ParametersParser;
+pub use runtime::params::ParametersSpec;
+pub use runtime::params::ParametersSpecBuilder;
 
 use crate::collections::symbol_map::Symbol;
 use crate::environment::Globals;
