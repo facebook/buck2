@@ -14,7 +14,7 @@ use std::sync::Arc;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 
-/// Starlark compatible container for results from e.g. `attr.string()`
+/// Starlark compatible container for results from e.g. `attrs.string()`
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Attribute {
     /// The default value. If None, the value is not optional and must be provided by the user

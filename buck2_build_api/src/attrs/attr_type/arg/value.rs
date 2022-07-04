@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-//! Provides the starlark values representing resolved attr.arg() attributes.
+//! Provides the starlark values representing resolved attrs.arg() attributes.
 
 use std::fmt;
 use std::fmt::Debug;

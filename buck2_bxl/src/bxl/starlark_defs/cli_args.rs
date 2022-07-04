@@ -69,7 +69,7 @@ impl<'v> StarlarkValue<'v> for CliArgs {
 }
 
 impl CliArgs {
-    /// Helper to create an attribute from attr.foo functions
+    /// Helper to create an attribute from attrs.foo functions
     fn new<'v>(default: Option<Value<'v>>, doc: &str, coercer: CliArgType) -> anyhow::Result<Self> {
         let default = match default {
             None => None,

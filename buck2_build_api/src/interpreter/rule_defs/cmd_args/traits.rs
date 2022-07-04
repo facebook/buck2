@@ -79,7 +79,7 @@ pub trait CommandLineArgLike {
         Ok(())
     }
 
-    /// Allows to query if object contains a value resolved from `attr.arg()`
+    /// Allows to query if object contains a value resolved from `attrs.arg()`
     fn contains_arg_attr(&self) -> bool;
 
     fn visit_write_to_file_macros(

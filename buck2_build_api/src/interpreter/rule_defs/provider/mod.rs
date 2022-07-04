@@ -45,7 +45,7 @@
 //!
 //! This will generate a "ProviderCallable" starlark type named (in starlark) `MyProvider` that acts like
 //! the instance returned by a `provider()` call in starlark (so can be used to construct instances of the
-//! provider or used in places like `attr.dep(required_providers=[MyProvider]))`.
+//! provider or used in places like `attrs.dep(required_providers=[MyProvider]))`.
 //!
 //! For provider instances, in starlark all of their fields will be accessible by the field name.
 //!

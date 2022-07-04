@@ -26,7 +26,7 @@ impl DictAttrType {
     pub(crate) fn fmt_with_arg(&self, f: &mut fmt::Formatter<'_>, arg: &str) -> fmt::Result {
         write!(
             f,
-            "attr.dict({}, {}, sorted={}{})",
+            "attrs.dict({}, {}, sorted={}{})",
             self.key, self.value, self.sorted, arg
         )
     }

@@ -18,7 +18,7 @@ use crate::attrs::configured_attr::ConfiguredAttr;
 /// a dep in that the values themselves never undergo configuration and appear as bare
 /// unconfigured labels even in the configured node. While the values aren't configured,
 /// the attribute still is and so selects are still resolved and other values in the
-/// attribute could be configured (for example, a `attr.dict(attr.dep(), attr.configuration_dep())`
+/// attribute could be configured (for example, a `attrs.dict(attrs.dep(), attrs.configuration_dep())`
 /// would have the keys configured).
 ///
 /// This is generally used for things that refer to configuration nodes (like platforms or constraints)

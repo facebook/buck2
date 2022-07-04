@@ -22,6 +22,6 @@ impl OptionAttrType {
     }
 
     pub(crate) fn fmt_with_arg(&self, f: &mut fmt::Formatter<'_>, arg: &str) -> fmt::Result {
-        write!(f, "attr.option({}{})", self.inner, arg)
+        write!(f, "attrs.option({}{})", self.inner, arg)
     }
 }

@@ -57,7 +57,7 @@ use crate::interpreter::rule_defs::provider::callable::ValueAsProviderCallableLi
 use crate::interpreter::rule_defs::rule::RuleError;
 use crate::interpreter::rule_defs::transition::starlark::Transition;
 
-const OPTION_NONE_EXPLANATION: &str = "`None` as an attribute value always picks the default. For `attr.option`, if the default isn't `None`, there is no way to express `None`.";
+const OPTION_NONE_EXPLANATION: &str = "`None` as an attribute value always picks the default. For `attrs.option`, if the default isn't `None`, there is no way to express `None`.";
 
 #[derive(Error, Debug)]
 enum AttrError {
@@ -74,7 +74,7 @@ enum AttrError {
     )]
     SourceDirectoryIncludesSubPackage(Package, String, PackageRelativePathBuf),
     #[error(
-        "`attr.option` `default` parameter must be `None` or absent, got `{0}`.\n{}",
+        "`attrs.option` `default` parameter must be `None` or absent, got `{0}`.\n{}",
         OPTION_NONE_EXPLANATION
     )]
     OptionDefaultNone(String),
@@ -231,7 +231,7 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
 }
 
 pub(crate) trait AttributeExt {
-    /// Helper to create an attribute from attr.foo functions
+    /// Helper to create an attribute from attrs.foo functions
     fn attr<'v>(
         eval: &mut Evaluator<'v, '_>,
         default: Option<Value<'v>>,
@@ -256,7 +256,7 @@ pub(crate) trait AttributeExt {
 }
 
 impl AttributeExt for Attribute {
-    /// Helper to create an attribute from attr.foo functions
+    /// Helper to create an attribute from attrs.foo functions
     fn attr<'v>(
         eval: &mut Evaluator<'v, '_>,
         default: Option<Value<'v>>,
@@ -420,7 +420,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
-        Attribute::check_not_relative_label(default, "attr.exec_dep")?;
+        Attribute::check_not_relative_label(default, "attrs.exec_dep")?;
         let required_providers = dep_like_attr_handle_providers_arg(providers)?;
         let coercer = AttrType::exec_dep(required_providers);
         Attribute::attr(eval, default, doc, coercer)
@@ -432,7 +432,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
-        Attribute::check_not_relative_label(default, "attr.toolchain_dep")?;
+        Attribute::check_not_relative_label(default, "attrs.toolchain_dep")?;
         let required_providers = dep_like_attr_handle_providers_arg(providers)?;
         let coercer = AttrType::toolchain_dep(required_providers);
         Attribute::attr(eval, default, doc, coercer)
@@ -445,7 +445,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
-        Attribute::check_not_relative_label(default, "attr.transition_dep")?;
+        Attribute::check_not_relative_label(default, "attrs.transition_dep")?;
         let required_providers = dep_like_attr_handle_providers_arg(providers)?;
         let transition_id = Transition::id_from_value(cfg)?;
         let coercer = AttrType::transition_dep(required_providers, transition_id);
@@ -477,7 +477,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
-        Attribute::check_not_relative_label(default, "attr.configured_dep")?;
+        Attribute::check_not_relative_label(default, "attrs.configured_dep")?;
         let required_providers = dep_like_attr_handle_providers_arg(providers)?;
         let coercer = AttrType::configured_dep(required_providers);
         Attribute::attr(eval, default, doc, coercer)
@@ -490,7 +490,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
-        Attribute::check_not_relative_label(default, "attr.split_transition_dep")?;
+        Attribute::check_not_relative_label(default, "attrs.split_transition_dep")?;
         let required_providers = dep_like_attr_handle_providers_arg(providers)?;
         let transition_id = Transition::id_from_value(cfg)?;
         let coercer = AttrType::split_transition_dep(required_providers, transition_id);
@@ -522,7 +522,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
-        Attribute::check_not_relative_label(default, "attr.dep")?;
+        Attribute::check_not_relative_label(default, "attrs.dep")?;
         let required_providers = dep_like_attr_handle_providers_arg(providers)?;
         let coercer = AttrType::dep(required_providers);
         Attribute::attr(eval, default, doc, coercer)
@@ -714,7 +714,7 @@ pub(crate) fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
-        Attribute::check_not_relative_label(default, "attr.source")?;
+        Attribute::check_not_relative_label(default, "attrs.source")?;
         Attribute::attr(eval, default, doc, AttrType::source(allow_directory))
     }
 }
@@ -750,10 +750,10 @@ mod tests {
     fn string_works() -> SharedResult<()> {
         run_starlark_bzl_test(indoc!(
             r#"
-            frozen = attr.string(default="something", doc = "foo")
+            frozen = attrs.string(default="something", doc = "foo")
             def test():
-                assert_eq('attr.string(default="something")', repr(attr.string(default="something", doc = "foo")))
-                assert_eq('attr.string(default="something")', repr(frozen))
+                assert_eq('attrs.string(default="something")', repr(attrs.string(default="something", doc = "foo")))
+                assert_eq('attrs.string(default="something")', repr(frozen))
             "#
         ))
     }
@@ -762,10 +762,10 @@ mod tests {
     fn boolean_works() -> SharedResult<()> {
         run_starlark_bzl_test(indoc!(
             r#"
-            frozen = attr.bool()
+            frozen = attrs.bool()
             def test():
-                assert_eq('attr.bool(default=True)', repr(attr.bool(default=True, doc = "foo")))
-                assert_eq('attr.bool(default=False)', repr(frozen))
+                assert_eq('attrs.bool(default=True)', repr(attrs.bool(default=True, doc = "foo")))
+                assert_eq('attrs.bool(default=False)', repr(frozen))
             "#
         ))
     }
@@ -775,7 +775,7 @@ mod tests {
         run_starlark_bzl_test(indoc!(
             r#"
             def test():
-                assert_eq(True, attr.string != None)
+                assert_eq(True, attrs.string != None)
             "#
         ))
     }
@@ -784,20 +784,20 @@ mod tests {
     fn list_works() -> SharedResult<()> {
         run_starlark_bzl_test(indoc!(
             r#"
-            frozen = attr.list(
-                attr.string(default = "something", doc = "foo"),
+            frozen = attrs.list(
+                attrs.string(default = "something", doc = "foo"),
                 default=["1", "2"],
                 doc = "foo",
             )
             def test():
-                not_frozen = attr.list(
-                    attr.string(default = "something", doc = "foo"),
+                not_frozen = attrs.list(
+                    attrs.string(default = "something", doc = "foo"),
                     default=[],
                     doc = "foo",
                 )
 
-                assert_eq('attr.list(attr.string(), default=[])', repr(not_frozen))
-                assert_eq('attr.list(attr.string(), default=["1","2"])', repr(frozen))
+                assert_eq('attrs.list(attrs.string(), default=[])', repr(not_frozen))
+                assert_eq('attrs.list(attrs.string(), default=["1","2"])', repr(frozen))
             "#
         ))
     }
@@ -806,11 +806,11 @@ mod tests {
     fn enum_works() -> SharedResult<()> {
         run_starlark_bzl_test(indoc!(
             r#"
-            frozen = attr.enum(["red", "green", "blue"])
+            frozen = attrs.enum(["red", "green", "blue"])
             def test():
-                not_frozen = attr.enum(["yes", "no"], default="no")
-                assert_eq('attr.enum(["red","green","blue"])', repr(frozen))
-                assert_eq('attr.enum(["yes","no"], default="no")', repr(not_frozen))
+                not_frozen = attrs.enum(["yes", "no"], default="no")
+                assert_eq('attrs.enum(["red","green","blue"])', repr(frozen))
+                assert_eq('attrs.enum(["yes","no"], default="no")', repr(not_frozen))
             "#
         ))
     }
@@ -914,12 +914,12 @@ mod tests {
     fn dep_works() -> SharedResult<()> {
         run_starlark_bzl_test(indoc!(
             r#"
-            frozen1 = attr.dep(default="root//foo:bar")
-            frozen2 = attr.dep(default="//foo:bar")
+            frozen1 = attrs.dep(default="root//foo:bar")
+            frozen2 = attrs.dep(default="//foo:bar")
             def test():
-                assert_eq('attr.dep(default="root//foo:bar")', repr(attr.dep(default="//foo:bar")))
-                assert_eq('attr.dep(default="root//foo:bar")', repr(frozen1))
-                assert_eq('attr.dep(default="root//foo:bar")', repr(frozen2))
+                assert_eq('attrs.dep(default="root//foo:bar")', repr(attrs.dep(default="//foo:bar")))
+                assert_eq('attrs.dep(default="root//foo:bar")', repr(frozen1))
+                assert_eq('attrs.dep(default="root//foo:bar")', repr(frozen2))
             "#
         ))?;
 
@@ -927,7 +927,7 @@ mod tests {
             indoc!(
                 r#"
             def test():
-                attr.dep(default="notatarget")
+                attrs.dep(default="notatarget")
             "#
             ),
             "Type of parameter",
@@ -938,7 +938,7 @@ mod tests {
             indoc!(
                 r#"
             def test():
-                attr.dep(default=":reltarget")
+                attrs.dep(default=":reltarget")
             "#
             ),
             "Use a fully qualified",
@@ -950,12 +950,12 @@ mod tests {
     fn source_works() -> SharedResult<()> {
         run_starlark_bzl_test(indoc!(
             r#"
-            frozen1 = attr.source(default="root//foo:bar")
-            frozen2 = attr.source(default="//foo:bar")
+            frozen1 = attrs.source(default="root//foo:bar")
+            frozen2 = attrs.source(default="//foo:bar")
             def test():
-                assert_eq('attr.source(default="root//foo:bar")', repr(attr.source(default="root//foo:bar")))
-                assert_eq('attr.source(default="root//foo:bar")', repr(frozen1))
-                assert_eq('attr.source(default="root//foo:bar")', repr(frozen2))
+                assert_eq('attrs.source(default="root//foo:bar")', repr(attrs.source(default="root//foo:bar")))
+                assert_eq('attrs.source(default="root//foo:bar")', repr(frozen1))
+                assert_eq('attrs.source(default="root//foo:bar")', repr(frozen2))
             "#
         ))?;
 
@@ -964,7 +964,7 @@ mod tests {
             indoc!(
                 r#"
             def test():
-                attr.source(default=":reltarget")
+                attrs.source(default=":reltarget")
             "#
             ),
             "Use a fully qualified",

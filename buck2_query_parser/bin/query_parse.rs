@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-//! A debugging tool for working on the macro parser (used to parse attr.arg() values into structured data).
+//! A debugging tool for working on the macro parser (used to parse attrs.arg() values into structured data).
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(

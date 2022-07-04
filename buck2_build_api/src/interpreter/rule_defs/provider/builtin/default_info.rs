@@ -86,12 +86,12 @@ use crate::interpreter::rule_defs::provider::ProviderCollection;
 /// foo_binary = rule(
 ///     impl=impl,
 ///     attrs={
-///         "srcs": attr.list(attr.source()),
-///         "out": attr.output(),
-///         "stripped": attr.output(),
-///         "debug_info": attr.output(),
-///         "_cc": attr.dep(default="//tools:cc", providers=[RunInfo]),
-///         "_strip_script": attr.dep(default="//tools:strip", providers=[RunInfo])
+///         "srcs": attrs.list(attrs.source()),
+///         "out": attrs.output(),
+///         "stripped": attrs.output(),
+///         "debug_info": attrs.output(),
+///         "_cc": attrs.dep(default="//tools:cc", providers=[RunInfo]),
+///         "_strip_script": attrs.dep(default="//tools:strip", providers=[RunInfo])
 /// )
 ///
 /// def foo_binary_wrapper(name, srcs):

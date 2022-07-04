@@ -26,7 +26,7 @@ use crate::attrs::CoercedAttr;
 
 #[derive(Debug, Error)]
 pub enum ResolutionError {
-    #[error("attr.configuration_dep() attributes shouldn't have any subtargets, but got `{0}`")]
+    #[error("attrs.configuration_dep() attributes shouldn't have any subtargets, but got `{0}`")]
     UnexpectedSubTarget(ProvidersLabel),
 }
 

@@ -15,7 +15,7 @@
 //! Attribute values are present in 4 different states:
 //!   1. initial starlark value - the value passed to the rule function
 //!   2. coerced value - the value captured after processing the build file. At this point, the type has
-//!      been checked (i.e. for an attr.list(attr.string()), we've confirmed that (1) was an iterable of strings).
+//!      been checked (i.e. for an attrs.list(attrs.string()), we've confirmed that (1) was an iterable of strings).
 //!      This is done when invoking a rule function, so it has no access to configuration or information from
 //!      other build files.
 //!   3. configured value - this is roughly (2) with a specific configuration attached to all configurable
@@ -41,7 +41,7 @@
 //!
 //! Generally an attribute type is specified as its "resolved" type that the
 //! rule implementation requests. For example, a rule that wants a list of files
-//! for its sources would specify `attr.list(attr.file())` and would
+//! for its sources would specify `attrs.list(attrs.file())` and would
 //! receive a list of files in the implementation. The intermediate form of that
 //! may be strings or targets or some other thing (e.g. a lazy glob, maybe).
 

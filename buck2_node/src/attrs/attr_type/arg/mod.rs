@@ -24,7 +24,7 @@ use crate::attrs::traversal::CoercedAttrTraversal;
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct ArgAttrType;
 
-/// [StringWithMacros] is the core representation for an attr.arg() (in all of it's coerced, configured, and resolved
+/// [StringWithMacros] is the core representation for an attrs.arg() (in all of it's coerced, configured, and resolved
 /// forms). The parsed arg string is held as a sequence of parts (each part either a literal string or a macro). When
 /// being added to a command line, these parts will be concattenated together and added as a single arg.
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]

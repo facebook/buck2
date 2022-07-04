@@ -23,9 +23,9 @@ impl ConfiguredAttrExt for ConfiguredAttr {
     /// "Resolves" the configured value to the resolved value provided to the rule implementation.
     ///
     /// `resolve` may return multiple values. It is up to the caller to fail if
-    /// an inappropriate number of elements is returned. e.g. `attr.list()` might
-    /// accept and merge multiple returned values from `attr.source()`, but
-    /// `attr.optional()` might only accept a single value, and fail otherwise.
+    /// an inappropriate number of elements is returned. e.g. `attrs.list()` might
+    /// accept and merge multiple returned values from `attrs.source()`, but
+    /// `attrs.optional()` might only accept a single value, and fail otherwise.
     fn resolve<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Vec<Value<'v>>> {
         self.0.resolve(ctx)
     }

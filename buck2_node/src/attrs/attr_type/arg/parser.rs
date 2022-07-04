@@ -7,13 +7,13 @@
  * of this source tree.
  */
 
-//! Handles parsing macros out of an attr.arg()
+//! Handles parsing macros out of an attrs.arg()
 //!
 //! Much of this behavior is inherited from buckv1, which is documented
 //! here <https://buck.build/function/string_parameter_macros.html> and here
 //! <https://github.com/facebook/buck/blob/5bc82b7c90f1a5c5ac70e2de7d2c2170c289ee79/src/com/facebook/buck/core/macros/MacroFinderAutomaton.java>
 //!
-//! Many rule attributes that accept strings actually accept an attr.arg(). These allow
+//! Many rule attributes that accept strings actually accept an attrs.arg(). These allow
 //! users to specify "String parameter macros" that are placeholders that buck will expand
 //! to their final values later in the build. Common examples of these would `$(location //some:target)`
 //! or `$(exe //some:target)`.

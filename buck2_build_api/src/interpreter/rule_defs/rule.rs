@@ -352,12 +352,12 @@ mod tests {
             def impl(ctx):
                 pass
 
-            string_attr = attr.string(default="something", doc = "foo")
+            string_attr = attrs.string(default="something", doc = "foo")
             frozen_rule = rule(
                 impl=impl,
                 attrs={
                     "param1": string_attr,
-                    "param2": attr.list(string_attr, default=[], doc = "foo"),
+                    "param2": attrs.list(string_attr, default=[], doc = "foo"),
                 }
             )
 
@@ -377,7 +377,7 @@ mod tests {
                 pass
 
             def test():
-                string_attr = attr.string(default="something", doc = "foo")
+                string_attr = attrs.string(default="something", doc = "foo")
                 nonfrozen_rule = rule(
                     impl=impl,
                     attrs={
@@ -399,7 +399,7 @@ mod tests {
             def impl(ctx):
                 pass
 
-            string_attr = attr.string(default="something", doc = "foo")
+            string_attr = attrs.string(default="something", doc = "foo")
             frozen_rule = rule(
                 impl=impl,
                 attrs={
@@ -442,10 +442,10 @@ mod tests {
             def impl(ctx):
                 pass
 
-            string_attr = attr.string(default="some_default", doc="")
-            mandatory_string_attr = attr.string(default="", doc="")
-            dep_attr = attr.dep(default="//foo:baz")
-            src_attr = attr.source(default="//foo:baz")
+            string_attr = attrs.string(default="some_default", doc="")
+            mandatory_string_attr = attrs.string(default="", doc="")
+            dep_attr = attrs.dep(default="//foo:baz")
+            src_attr = attrs.source(default="//foo:baz")
             foo_binary = rule(
                 impl=impl,
                 attrs={
@@ -507,8 +507,8 @@ mod tests {
             def impl(ctx):
                 pass
 
-            string_attr = attr.string(default="some_default")
-            mandatory_string_attr = attr.string(doc="")
+            string_attr = attrs.string(default="some_default")
+            mandatory_string_attr = attrs.string(doc="")
             foo_binary = rule(
                 impl=impl,
                 attrs={"optional":string_attr, "mandatory": mandatory_string_attr},
@@ -549,17 +549,17 @@ mod tests {
     #[test]
     fn option_allows_none() -> anyhow::Result<()> {
         run_starlark_test_expecting_error(
-            "def test():\n attr.option(attr.string(), default = 'test')",
+            "def test():\n attrs.option(attrs.string(), default = 'test')",
             "parameter must be `None` or absent",
         );
-        run_starlark_test("def test():\n attr.option(attr.string(), default = None)")?;
-        run_starlark_test("def test():\n attr.option(attr.string())")?;
+        run_starlark_test("def test():\n attrs.option(attrs.string(), default = None)")?;
+        run_starlark_test("def test():\n attrs.option(attrs.string())")?;
         run_starlark_test_expecting_error(
-            "def test():\n attr.option(attr.string(), default = select({'DEFAULT': 'test'}))",
+            "def test():\n attrs.option(attrs.string(), default = select({'DEFAULT': 'test'}))",
             "parameter must be `None` or absent",
         );
         run_starlark_test(
-            "def test():\n attr.option(attr.string(), default = select({'DEFAULT': None}))",
+            "def test():\n attrs.option(attrs.string(), default = select({'DEFAULT': None}))",
         )?;
         Ok(())
     }
@@ -570,19 +570,19 @@ mod tests {
             r#"def impl(ctx):
                 pass
 
-            any_attr = attr.any(doc="any docs")
-            arg_attr = attr.arg(default="arg", doc="arg docs")
-            bool_attr = attr.bool(default=True, doc="bool docs")
-            string_attr = attr.string(default="string", doc="string docs")
-            default_only_attr = attr.default_only(attr.string(default="default_only"), doc="default_only docs")
-            dep_attr = attr.dep(default="//:dep", doc="dep docs")
-            dict_attr = attr.dict(attr.string(), attr.bool(), default={"dict": True}, doc="dict docs")
-            list_attr = attr.list(attr.string(), default=["list"], doc="list docs")
-            one_of_attr = attr.one_of(attr.bool(), attr.string(), default="", doc="one_of docs")
-            option_attr = attr.option(attr.string(), default=None, doc="option docs")
-            query_attr = attr.query(doc="query docs")
-            source_attr = attr.source(default="//:src", doc="source docs")
-            tuple_attr = attr.tuple(attr.bool(), attr.string(), default=(True, "some string"), doc="tuple docs")
+            any_attr = attrs.any(doc="any docs")
+            arg_attr = attrs.arg(default="arg", doc="arg docs")
+            bool_attr = attrs.bool(default=True, doc="bool docs")
+            string_attr = attrs.string(default="string", doc="string docs")
+            default_only_attr = attrs.default_only(attrs.string(default="default_only"), doc="default_only docs")
+            dep_attr = attrs.dep(default="//:dep", doc="dep docs")
+            dict_attr = attrs.dict(attrs.string(), attrs.bool(), default={"dict": True}, doc="dict docs")
+            list_attr = attrs.list(attrs.string(), default=["list"], doc="list docs")
+            one_of_attr = attrs.one_of(attrs.bool(), attrs.string(), default="", doc="one_of docs")
+            option_attr = attrs.option(attrs.string(), default=None, doc="option docs")
+            query_attr = attrs.query(doc="query docs")
+            source_attr = attrs.source(default="//:src", doc="source docs")
+            tuple_attr = attrs.tuple(attrs.bool(), attrs.string(), default=(True, "some string"), doc="tuple docs")
 
             doc = """Summary for foo_binary
 

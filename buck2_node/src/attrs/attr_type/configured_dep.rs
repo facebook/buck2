@@ -21,7 +21,7 @@ use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::traversal::CoercedAttrTraversal;
 
-/// Represents attr.configured_dep()
+/// Represents attrs.configured_dep()
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe)]
 pub struct ExplicitConfiguredDepAttrType {
     pub required_providers: Option<Arc<ProviderIdSet>>,
@@ -59,7 +59,7 @@ impl ExplicitConfiguredDepAttrType {
     }
 }
 
-/// Represents the value of an `attr.configured_dep()`
+/// Represents the value of an `attrs.configured_dep()`
 /// in its unconfigured form.
 #[derive(derive_more::Display, Debug, Hash, PartialEq, Eq, Clone)]
 #[display(fmt = "({}, {})", label, platform)]
@@ -69,7 +69,7 @@ pub struct UnconfiguredExplicitConfiguredDep {
     pub platform: TargetLabel,
 }
 
-/// Represents the value of an `attr.configured_dep()`
+/// Represents the value of an `attrs.configured_dep()`
 /// in its configured form.
 #[derive(derive_more::Display, Hash, PartialEq, Eq, Debug, Clone)]
 #[display(fmt = "{}", label)]

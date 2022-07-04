@@ -52,7 +52,7 @@ impl EnumAttrType {
     }
 
     pub fn fmt_with_arg(&self, f: &mut fmt::Formatter<'_>, arg: &str) -> fmt::Result {
-        write!(f, "attr.enum([")?;
+        write!(f, "attrs.enum([")?;
         for (i, x) in self.variants.iter().enumerate() {
             if i != 0 {
                 write!(f, ",")?;

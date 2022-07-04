@@ -23,7 +23,7 @@ impl OneOfAttrType {
     }
 
     pub fn fmt_with_arg(&self, f: &mut fmt::Formatter<'_>, arg: &str) -> fmt::Result {
-        write!(f, "attr.one_of(")?;
+        write!(f, "attrs.one_of(")?;
         for (i, x) in self.xs.iter().enumerate() {
             if i != 0 {
                 write!(f, ", ")?;

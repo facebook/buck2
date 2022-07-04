@@ -22,6 +22,6 @@ impl ListAttrType {
     }
 
     pub(crate) fn fmt_with_arg(&self, f: &mut fmt::Formatter<'_>, arg: &str) -> fmt::Result {
-        write!(f, "attr.list({}{})", self.inner, arg)
+        write!(f, "attrs.list({}{})", self.inner, arg)
     }
 }

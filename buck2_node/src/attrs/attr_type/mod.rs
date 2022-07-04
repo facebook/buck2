@@ -92,8 +92,8 @@ impl AttrType {
         default: Option<&str>,
     ) -> fmt::Result {
         let mut attr = |s| match default {
-            None => write!(f, "attr.{}()", s),
-            Some(default) => write!(f, "attr.{}(default={})", s, default),
+            None => write!(f, "attrs.{}()", s),
+            Some(default) => write!(f, "attrs.{}(default={})", s, default),
         };
         let arg = || match default {
             None => String::new(),
@@ -293,7 +293,7 @@ impl AttrType {
     }
 }
 
-/// Invariant: All these displays look like function calls, so follow the pattern `attr.foo(...)`.
+/// Invariant: All these displays look like function calls, so follow the pattern `attrs.foo(...)`.
 impl Display for AttrType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.fmt_with_default(f, None)
