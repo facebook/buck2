@@ -74,15 +74,22 @@ fn eprint_command_details(
     command_failed: &CommandExecutionDetails,
     tty_mode: TtyMode,
 ) -> anyhow::Result<()> {
-    if let Some(local_command) = &command_failed.local_command {
-        echo!("Local command: {}", local_command_to_string(local_command))?;
-    }
-    if let Some(remote_command) = &command_failed.remote_command {
-        echo!(
-            "Remote action, reproduce with: `frecli cas download-action {}`",
-            remote_command.action_digest
-        )?;
-    }
+    use buck2_data::command_execution_details::Command;
+
+    match command_failed.command.as_ref() {
+        Some(Command::LocalCommand(local_command)) => {
+            echo!("Local command: {}", local_command_to_string(local_command))?;
+        }
+        Some(Command::RemoteCommand(remote_command)) => {
+            echo!(
+                "Remote action, reproduce with: `frecli cas download-action {}`",
+                remote_command.action_digest
+            )?;
+        }
+        Some(Command::OmittedLocalCommand(..)) | None => {
+            // Nothing to show in this case.
+        }
+    };
     let (stdout, stderr) = if tty_mode == TtyMode::Disabled {
         (
             SimpleConsole::sanitize_output_colors(command_failed.stdout.as_bytes()),

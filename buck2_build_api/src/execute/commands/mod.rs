@@ -695,33 +695,6 @@ impl CommandExecutionKind {
             Self::ActionCache { .. } => buck2_data::ActionExecutionKind::ActionCache,
         }
     }
-
-    pub fn as_local_command(&self) -> Option<buck2_data::LocalCommand> {
-        match self {
-            Self::Local { command, env } => Some(buck2_data::LocalCommand {
-                argv: command.to_owned(),
-                env: env
-                    .iter()
-                    .map(|(key, value)| buck2_data::local_command::EnvironmentEntry {
-                        key: key.clone(),
-                        value: value.clone(),
-                    })
-                    .collect(),
-            }),
-            _ => None,
-        }
-    }
-
-    pub fn as_remote_command(&self) -> Option<buck2_data::RemoteCommand> {
-        match self {
-            Self::Remote { digest } | Self::ActionCache { digest } => {
-                Some(buck2_data::RemoteCommand {
-                    action_digest: digest.to_string(),
-                })
-            }
-            _ => None,
-        }
-    }
 }
 
 /// "Status" of an action execution indicating how it finished. E.g. "built_remotely", "local_fallback", "action_cache".

@@ -584,13 +584,16 @@ message CommandExecutionDetails {
   string stdout = 2;
   // The stderr of the command.
   string stderr = 3;
-  // TODO(torozco) move the following 3 fields into a `onenof`.
-  // The command, if it was local.
-  LocalCommand local_command = 7;
-  // The command, if it was remote.
-  RemoteCommand remote_command = 8;
-  // The command, if it was local and omitted from this log record for brevity.
-  OmittedLocalCommand omitted_local_command = 9;
+
+  oneof command {
+    // The command, if it was local.
+    LocalCommand local_command = 7;
+    // The command, if it was remote.
+    RemoteCommand remote_command = 8;
+    // The command, if it was local and omitted from this log record for
+    // brevity.
+    OmittedLocalCommand omitted_local_command = 9;
+  }
 }
 
 message CommandOutputsMissing {
@@ -934,6 +937,7 @@ message LocalCommand {
 // A representation of a command we executed remotely.
 message RemoteCommand {
   string action_digest = 1;
+  bool cache_hit = 2;
 }
 
 // A representation of an invocation

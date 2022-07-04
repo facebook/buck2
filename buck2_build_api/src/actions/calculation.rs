@@ -33,6 +33,7 @@ use crate::actions::RegisteredAction;
 use crate::artifact_groups::calculation::ArtifactGroupCalculation;
 use crate::deferred::calculation::DeferredCalculation;
 use crate::events::proto::ToProtoMessage;
+use crate::execute::commands::CommandExecutionKind;
 use crate::execute::commands::CommandExecutionReport;
 use crate::execute::commands::CommandExecutionStatus;
 use crate::execute::ActionOutputs;
@@ -295,22 +296,42 @@ async fn command_details(command: &CommandExecutionReport) -> buck2_data::Comman
         stdout = pair.stdout;
         stderr = pair.stderr;
     };
-    let execution_kind = command.status.execution_kind();
 
-    let mut omitted_local_command = None;
-    let mut local_command = execution_kind.and_then(|e| e.as_local_command());
-    if omit_details && local_command.is_some() {
-        omitted_local_command = Some(buck2_data::OmittedLocalCommand {});
-        local_command = None;
-    }
+    let command = command.status.execution_kind().map(|kind| match kind {
+        CommandExecutionKind::Local { command, env } => {
+            if omit_details {
+                buck2_data::OmittedLocalCommand {}.into()
+            } else {
+                buck2_data::LocalCommand {
+                    argv: command.to_owned(),
+                    env: env
+                        .iter()
+                        .map(|(key, value)| buck2_data::local_command::EnvironmentEntry {
+                            key: key.clone(),
+                            value: value.clone(),
+                        })
+                        .collect(),
+                }
+                .into()
+            }
+        }
+        CommandExecutionKind::Remote { digest } => buck2_data::RemoteCommand {
+            action_digest: digest.to_string(),
+            cache_hit: false,
+        }
+        .into(),
+        CommandExecutionKind::ActionCache { digest } => buck2_data::RemoteCommand {
+            action_digest: digest.to_string(),
+            cache_hit: true,
+        }
+        .into(),
+    });
 
     buck2_data::CommandExecutionDetails {
         exit_code,
         stdout,
         stderr,
-        local_command,
-        remote_command: execution_kind.and_then(|e| e.as_remote_command()),
-        omitted_local_command,
+        command,
     }
 }
 
@@ -782,6 +803,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_command_details_omission() {
+        use buck2_data::command_execution_details::Command;
+
         let mut report = CommandExecutionReport {
             claim: None,
             status: CommandExecutionStatus::Success {
@@ -800,8 +823,7 @@ mod tests {
         };
 
         let proto = command_details(&report).await;
-        assert_matches!(proto.local_command, None);
-        assert_matches!(proto.omitted_local_command, Some(..));
+        assert_matches!(proto.command, Some(Command::OmittedLocalCommand(..)));
         assert_eq!(&proto.stdout, "");
         assert_eq!(&proto.stderr, "stderr");
 
@@ -812,8 +834,7 @@ mod tests {
             },
         };
         let proto = command_details(&report).await;
-        assert_matches!(proto.local_command, Some(..));
-        assert_matches!(proto.omitted_local_command, None);
+        assert_matches!(proto.command, Some(Command::LocalCommand(..)));
         assert_eq!(&proto.stdout, "stdout");
         assert_eq!(&proto.stderr, "stderr");
     }

@@ -512,35 +512,41 @@ fn lines_for_command_details(
     verbosity: Verbosity,
     lines: &mut Vec<Line>,
 ) {
-    if let Some(local_command) = &command_failed.local_command {
-        let command = local_command_to_string(local_command);
-        let command = command.as_str();
-        let command = if verbosity.print_failure_full_command() {
-            Cow::Borrowed(command)
-        } else {
-            match truncate(command) {
-                None => Cow::Borrowed(command),
-                Some(short) => Cow::Owned(format!(
-                    "{} (rerun your previous command with -v2 to view the untruncated command)",
-                    short
-                )),
-            }
-        };
+    use buck2_data::command_execution_details::Command;
 
-        lines.push(superconsole::line!(Span::new_styled_lossy(
-            format!("Reproduce locally: `{}`", command).with(Color::DarkRed)
-        )));
-    }
+    match command_failed.command.as_ref() {
+        Some(Command::LocalCommand(local_command)) => {
+            let command = local_command_to_string(local_command);
+            let command = command.as_str();
+            let command = if verbosity.print_failure_full_command() {
+                Cow::Borrowed(command)
+            } else {
+                match truncate(command) {
+                    None => Cow::Borrowed(command),
+                    Some(short) => Cow::Owned(format!(
+                        "{} (rerun your previous command with -v2 to view the untruncated command)",
+                        short
+                    )),
+                }
+            };
 
-    if let Some(remote_command) = &command_failed.remote_command {
-        lines.push(superconsole::line!(Span::new_styled_lossy(
-            format!(
-                "Reproduce locally: `frecli cas download-action {}`",
-                remote_command.action_digest
-            )
-            .with(Color::DarkRed)
-        )));
-    }
+            lines.push(superconsole::line!(Span::new_styled_lossy(
+                format!("Reproduce locally: `{}`", command).with(Color::DarkRed)
+            )));
+        }
+        Some(Command::RemoteCommand(remote_command)) => {
+            lines.push(superconsole::line!(Span::new_styled_lossy(
+                format!(
+                    "Reproduce locally: `frecli cas download-action {}`",
+                    remote_command.action_digest
+                )
+                .with(Color::DarkRed)
+            )));
+        }
+        Some(Command::OmittedLocalCommand(..)) | None => {
+            // Nothing to show in this case.
+        }
+    };
 
     lines.push(superconsole::line!(Span::new_styled_lossy(
         "stdout:"

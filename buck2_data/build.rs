@@ -63,6 +63,10 @@ fn main() -> io::Result<()> {
             "buck.data.ActionExecutionEnd.error",
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
         )
+        .type_attribute(
+            "buck.data.CommandExecutionDetails.command",
+            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+        )
         .type_attribute("buck.data.TargetLabel", "#[derive(Eq, Hash)]")
         .type_attribute("buck.data.Configuration", "#[derive(Eq, Hash)]")
         .type_attribute("buck.data.ConfiguredTargetLabel", "#[derive(Eq, Hash)]")
