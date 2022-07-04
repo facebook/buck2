@@ -9,6 +9,9 @@ rust_python_extension(
     srcs = ["ext.rs"],
     base_module = "",
     crate_root = "ext.rs",
+    deps = [
+        "fbsource//third-party/rust:cpython",
+    ],
 )
 
 fb_python_binary(
