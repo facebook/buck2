@@ -95,9 +95,9 @@ watchos_resource = rule(
 
 ## Per attribute transition
 
-`attr` object has two attribute constructors:
-* `attr.transition_dep(cfg)`
-* `attr.split_transition_dep(cfg)`
+`attrs` object has two attribute constructors:
+* `attrs.transition_dep(cfg)`
+* `attrs.split_transition_dep(cfg)`
 
 These attributes are similar to `dep` attribute except for when dependencies are resolved
 for the rule instance, they are resolved not with the rule instance configuration,
@@ -111,7 +111,7 @@ For example:
 android_binary = rule(
     ...
     attrs = {
-        "deps": attr.list(attr.split_transition_dep(cfg = cpu_split_transition), default = []),
+        "deps": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition), default = []),
     },
 )
 ```
@@ -142,8 +142,8 @@ the rule implementation gets something like this in `deps` attribute:
 }
 ```
 
-It is an error to pass split transition object to `attr.transition_dep`
-and non-split transition to `attr.split_transition_dep`.
+It is an error to pass split transition object to `attrs.transition_dep`
+and non-split transition to `attrs.split_transition_dep`.
 
 ## Per target transition
 

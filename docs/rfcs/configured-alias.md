@@ -29,14 +29,14 @@ and builds the "actual" target with the configuration specified as "platform" ar
 ### New rule attribute type: `configured_dep`
 
 Currently, we have several dependency attributes:
-* `attr.dep`
-* `attr.exec_dep`
-* `attr.transition_dep`
-* `attr.split_transition_dep`
+* `attrs.dep`
+* `attrs.exec_dep`
+* `attrs.transition_dep`
+* `attrs.split_transition_dep`
 
 This RFC proposes adding another attribute:
 
-* `attr.configured_dep`
+* `attrs.configured_dep`
 
 `configured_dep` is an attribute which accepts a pair of strings: target and configuration.
 During analysis, configured attr deps are resolved to providers resolved using given configuration.
@@ -53,7 +53,7 @@ def _configured_alias_impl(ctx):
 configured_alias_impl = rule(
     implementation = _configured_alias_impl,
     attrs = {
-        "actual": attr.configured_dep(),
+        "actual": attrs.configured_dep(),
     }
 )
 ```

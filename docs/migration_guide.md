@@ -172,7 +172,7 @@ In Buck2 all attributes of type target are qualified with their cell, so the `de
 
 This difference can be observed with operations such as `buck2 query "attrfilter(deps, //package:target, cell//...)"`, which works in Buck1 (if run from inside the `cell` directory), but in Buck2 won't match anything, as `//package:target` is compared as a string for equality, and lacks the leading `cell//`.
 
-Furthermore, when using `cquery` or `attr.query` (e.g. a query inside of a `genrule`), attributes of type target will include the configuration - i.e. you might see `cell//package:target (my_configuration)`.
+Furthermore, when using `cquery` or `attrs.query` (e.g. a query inside of a `genrule`), attributes of type target will include the configuration - i.e. you might see `cell//package:target (my_configuration)`.
 
 In order to express this filter in a way that is Buck1 and Buck2 compatible, you can use `attrregexfilter(deps, '//package:target($| )', cell//...)`, where `//package:target($| )` is a regex asserting the target string ends with `//package:target`, rather than is precisely equal to it.
 

@@ -20,9 +20,9 @@ For example java language rules are defined in `java.bzl` file that is imported 
 
 `javac` attribute type has been changed from `source` type into `one_of(dep, source)`
 
-  * `attributes.bzl` [sets](https://www.internalfb.com/code/fbsource/[6c2955c9092258ac145d8378f2e8d9c02b90e16f]/fbcode/buck2/prelude/attributes.bzl?lines=2154) `"javac": attr.option(attr.source(), default = None)`
+  * `attributes.bzl` [sets](https://www.internalfb.com/code/fbsource/[6c2955c9092258ac145d8378f2e8d9c02b90e16f]/fbcode/buck2/prelude/attributes.bzl?lines=2154) `"javac": attrs.option(attrs.source(), default = None)`
 
-  * `java.bzl` [overrides](https://www.internalfb.com/code/fbsource/[1831a8883e65c2f81e78bbbd874e9d1a6cc6ad47]/fbcode/buck2/prelude/java/java.bzl?lines=69) `"javac": attr.option(attr.one_of(attr.dep(), attr.source()), default = None)`
+  * `java.bzl` [overrides](https://www.internalfb.com/code/fbsource/[1831a8883e65c2f81e78bbbd874e9d1a6cc6ad47]/fbcode/buck2/prelude/java/java.bzl?lines=69) `"javac": attrs.option(attrs.one_of(attrs.dep(), attrs.source()), default = None)`
 
 New attribute type may require some special [handling](https://www.internalfb.com/code/fbsource/[1831a8883e65c2f81e78bbbd874e9d1a6cc6ad47]/fbcode/buck2/prelude/java/java_library.bzl?lines=288%2C296%2C299).
 

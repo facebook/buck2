@@ -138,10 +138,10 @@ A build configures a fixed list of one or more execution platforms.
 ## Execution deps
 
 Some target deps are "execution deps". These are the dependencies of the target that should be built for the execution platform. For example,
-a compiler or other build tool would be an execution dep. This includes all exe macro deps (ex. `$(exe //:tool)`) and includes all `attr.tool()` deps.
+a compiler or other build tool would be an execution dep. This includes all exe macro deps (ex. `$(exe //:tool)`) and includes all `attrs.tool()` deps.
 
-TODO(cjhopman): `attr.tool()` is just a placeholder i guess, should it be a separate attr? or an arg to `attr.dep()` (and maybe
-`attr.src()`)? Or should it be an attr "type" itself like `attr.exe(attr.list(attr.dep()))`?
+TODO(cjhopman): `attrs.tool()` is just a placeholder i guess, should it be a separate attr? or an arg to `attrs.dep()` (and maybe
+`attrs.src()`)? Or should it be an attr "type" itself like `attrs.exe(attrs.list(attrs.dep()))`?
 
 ## Execution platform resolution
 

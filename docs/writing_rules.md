@@ -148,8 +148,8 @@ If your rule is _not_ already in Buck1, then you can define it wherever you like
 pascal_binary = rule(
     implementation = pascal_binary_impl,
     attrs = {
-        "deps": attr.list(attr.dep()),
-        "src": attr.source(),
+        "deps": attrs.list(attrs.dep()),
+        "src": attrs.source(),
     }
 )
 ```
