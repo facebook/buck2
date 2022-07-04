@@ -300,7 +300,7 @@ async fn command_details(command: &CommandExecutionReport) -> buck2_data::Comman
     let mut omitted_local_command = None;
     let mut local_command = execution_kind.and_then(|e| e.as_local_command());
     if omit_details && local_command.is_some() {
-        omitted_local_command = Some(buck2_data::OmittedLocalComand {});
+        omitted_local_command = Some(buck2_data::OmittedLocalCommand {});
         local_command = None;
     }
 
