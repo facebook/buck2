@@ -40,12 +40,12 @@ _buckconfig_cxx_toolchain_attrs = {
     "cpp": binary_attr,
     "cpp_type": string_attr,
     "cppflags": flags_attr,
-    "cuda": binary_attr,
-    "cuda_type": string_attr,
-    "cudaflags": flags_attr,
-    "cudapp": binary_attr,
-    "cudapp_type": string_attr,
-    "cudappflags": flags_attr,
+    "cuda": optional_binary_attr,
+    "cuda_type": optional_string_attr,
+    "cudaflags": optional_flags_attr,
+    "cudapp": optional_binary_attr,
+    "cudapp_type": optional_string_attr,
+    "cudappflags": optional_flags_attr,
     "cxx": binary_attr,
     "cxx_type": string_attr,
     "cxxflags": flags_attr,
@@ -90,6 +90,27 @@ _buckconfig_cxx_toolchain_attrs = {
     "_dep_files_processor": attr_info(reader = read_string, attr_type = attr.dep(default = DEFAULT_DEP_FILES_PROCESSOR)),
     "_dist_lto_tools_info": attr_info(reader = read_string, attr_type = attr.dep(default = DEFAULT_DIST_LTO_TOOLS)),
 }
+
+def _cuda_info(ctx: "context") -> [native.cxx.CudaCompilerInfo.type, None]:
+    # If we see a HIP compiler setting, require all other vals are set and fill
+    # out a `HipCompilerInfo` provider.
+    if ctx.attr.cuda != None:
+        return native.cxx.CudaCompilerInfo(
+            compiler = ctx.attr.cuda[RunInfo],
+            compiler_type = expect_non_none(ctx.attr.cuda_type),
+            compiler_flags = cmd_args(expect_non_none(ctx.attr.cudaflags)),
+            preprocessor = expect_non_none(ctx.attr.cudapp)[RunInfo],
+            preprocessor_type = expect_non_none(ctx.attr.cudapp_type),
+            preprocessor_flags = cmd_args(expect_non_none(ctx.attr.cudappflags)),
+            dep_files_processor = ctx.attr._dep_files_processor[RunInfo],
+        )
+    else:
+        expect(ctx.attr.cuda_type == None)
+        expect(ctx.attr.cudaflags == None)
+        expect(ctx.attr.cudapp == None)
+        expect(ctx.attr.cudapp_type == None)
+        expect(ctx.attr.cudappflags == None)
+        return None
 
 def _hip_info(ctx: "context") -> [native.cxx.HipCompilerInfo.type, None]:
     # If we see a HIP compiler setting, require all other vals are set and fill
@@ -149,15 +170,6 @@ def _config_backed_toolchain_impl(ctx):
         preprocessor = ctx.attr.aspp[RunInfo],
         preprocessor_type = ctx.attr.aspp_type,
         preprocessor_flags = cmd_args(ctx.attr.asppflags),
-        dep_files_processor = ctx.attr._dep_files_processor[RunInfo],
-    )
-    cuda_info = native.cxx.CudaCompilerInfo(
-        compiler = ctx.attr.cuda[RunInfo],
-        compiler_type = ctx.attr.cuda_type,
-        compiler_flags = cmd_args(ctx.attr.cudaflags),
-        preprocessor = ctx.attr.cudapp[RunInfo],
-        preprocessor_type = ctx.attr.cudapp_type,
-        preprocessor_flags = cmd_args(ctx.attr.cudappflags),
         dep_files_processor = ctx.attr._dep_files_processor[RunInfo],
     )
     strip_flags_info = native.cxx.StripFlagsInfo(
@@ -230,7 +242,7 @@ def _config_backed_toolchain_impl(ctx):
         cxx_compiler_info = cxx_info,
         asm_compiler_info = asm_info,
         as_compiler_info = as_info,
-        cuda_compiler_info = cuda_info,
+        cuda_compiler_info = _cuda_info(ctx),
         hip_compiler_info = _hip_info(ctx),
         header_mode = _header_mode_or_default(ctx.attr.header_mode, c_info.compiler_type, cxx_info.compiler_type),
         headers_as_raw_headers_mode = headers_as_raw_headers_mode,
