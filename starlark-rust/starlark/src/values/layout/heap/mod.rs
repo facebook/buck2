@@ -15,17 +15,8 @@
  * limitations under the License.
  */
 
-// Possible optimisations:
-// Encoding none, bool etc in the pointer of frozen value
+//! Starlark heap implementation.
 
-mod avalue;
-mod const_frozen_string;
-pub(crate) mod heap;
-pub(crate) mod identity;
-mod pointer;
-pub(crate) mod static_string;
-pub(crate) mod typed;
-pub(crate) mod value;
-pub(crate) mod value_captured;
-pub(crate) mod value_not_special;
-pub(crate) mod vtable;
+pub(crate) mod arena;
+mod fast_cell;
+pub(crate) mod heap_type;

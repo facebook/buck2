@@ -20,8 +20,8 @@
 use std::ptr;
 use std::sync::atomic::AtomicU32;
 
-use crate::values::layout::arena::AValueRepr;
 use crate::values::layout::avalue::VALUE_STR_A_VALUE_PTR;
+use crate::values::layout::heap::arena::AValueRepr;
 use crate::values::string::StarlarkStr;
 use crate::values::string::StarlarkStrN;
 use crate::values::FrozenStringValue;
