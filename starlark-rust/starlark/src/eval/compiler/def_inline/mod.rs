@@ -17,6 +17,8 @@
 
 //! Inline functions.
 
+pub(crate) mod local_as_value;
+
 use crate::eval::compiler::args::ArgsCompiledValue;
 use crate::eval::compiler::call::CallCompiled;
 use crate::eval::compiler::def::ParametersCompiled;

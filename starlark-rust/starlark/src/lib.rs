@@ -369,6 +369,7 @@
 #![feature(thread_local)]
 #![feature(try_blocks)]
 #![feature(iter_intersperse)]
+#![feature(array_from_fn)]
 //
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
