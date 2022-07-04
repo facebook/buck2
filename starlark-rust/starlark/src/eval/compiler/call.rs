@@ -23,6 +23,7 @@ use gazebo::prelude::*;
 
 use crate::collections::symbol_map::Symbol;
 use crate::eval::compiler::args::ArgsCompiledValue;
+use crate::eval::compiler::def_inline::local_as_value::local_as_value;
 use crate::eval::compiler::def_inline::InlineDefBody;
 use crate::eval::compiler::def_inline::InlineDefCallSite;
 use crate::eval::compiler::expr::Builtin1;
@@ -34,6 +35,7 @@ use crate::eval::runtime::inlined_frame::InlinedFrameAlloc;
 use crate::eval::runtime::visit_span::VisitSpanMut;
 use crate::values::string::interpolation::parse_format_one;
 use crate::values::FrozenStringValue;
+use crate::values::Value;
 
 #[derive(Clone, Debug, VisitSpanMut)]
 pub(crate) struct CallCompiled {
@@ -139,7 +141,30 @@ impl CallCompiled {
             return None;
         };
 
-        args.all_values(|arguments| {
+        let param_count = ctx.param_count;
+        let expr_to_value = |expr: &ExprCompiled| -> Option<Value> {
+            match expr {
+                ExprCompiled::Value(v) => Some(v.to_value()),
+                ExprCompiled::Local(local) if local.0 < param_count => {
+                    // Definitely assigned local variable.
+                    //
+                    // Consider this example:
+                    // ```
+                    // def foo(x): bar() + x
+                    // ```
+                    // We can inline calls like `foo(x)` when `x` is definitely assigned,
+                    // but if `x` is not we cannot do that, because
+                    // we should emit `x` is not assigned error before call to `bar()`
+                    // which may fail. We can implement inlining of variables which
+                    // may be not assigned, or inlining of any expression arguments,
+                    // but more work is needed for that.
+                    Some(local_as_value(*local)?.to_value())
+                }
+                _ => None,
+            }
+        };
+
+        args.all_values_generic(expr_to_value, |arguments| {
             let slots = vec![Cell::new(None); fun.parameters.len()];
             fun.parameters
                 .collect(arguments.frozen_to_v(), &slots, ctx.heap())

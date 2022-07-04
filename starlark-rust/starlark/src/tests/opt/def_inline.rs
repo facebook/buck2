@@ -163,3 +163,18 @@ def test():
 "#,
     );
 }
+
+#[test]
+fn test_calls_with_locals_inlined() {
+    bc_golden_test(
+        "def_inline_locals_inlined",
+        r#"
+def foo(x, y):
+    return noop(y, x)
+
+def test(x, y):
+    # This call should be inlined.
+    return foo(y, x)
+"#,
+    );
+}

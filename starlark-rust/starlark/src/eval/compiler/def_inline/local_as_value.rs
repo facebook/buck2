@@ -36,7 +36,7 @@ use crate::values::StarlarkValue;
 #[derive(derive_more::Display, Debug, ProvidesStaticType, NoSerialize)]
 #[display(fmt = "{:?}", self)]
 pub(crate) struct LocalAsValue {
-    local: LocalSlotId,
+    pub(crate) local: LocalSlotId,
 }
 
 impl<'v> StarlarkValue<'v> for LocalAsValue {
@@ -46,7 +46,6 @@ impl<'v> StarlarkValue<'v> for LocalAsValue {
 starlark_simple_value!(LocalAsValue);
 
 /// Create a value which represents a reference to local slot id during optimization.
-#[allow(dead_code)] // TODO(nga): used in the following diff D37589841.
 pub(crate) fn local_as_value(
     local: LocalSlotId,
 ) -> Option<FrozenValueTyped<'static, LocalAsValue>> {

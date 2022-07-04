@@ -72,7 +72,6 @@ impl<'v, 'a> OptCtxEval<'v, 'a> for Evaluator<'v, 'a> {
 pub(crate) struct OptCtx<'v, 'a, 'e> {
     pub(crate) eval: &'e mut dyn OptCtxEval<'v, 'a>,
     /// Current function parameter slot count. Zero when compiling module.
-    #[allow(dead_code)] // TODO(nga): used in the following diff D37589841.
     pub(crate) param_count: u32,
 }
 

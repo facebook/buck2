@@ -22,6 +22,7 @@ pub(crate) mod local_as_value;
 use crate::eval::compiler::args::ArgsCompiledValue;
 use crate::eval::compiler::call::CallCompiled;
 use crate::eval::compiler::def::ParametersCompiled;
+use crate::eval::compiler::def_inline::local_as_value::LocalAsValue;
 use crate::eval::compiler::expr::Builtin1;
 use crate::eval::compiler::expr::Builtin2;
 use crate::eval::compiler::expr::ExprCompiled;
@@ -34,6 +35,7 @@ use crate::eval::runtime::call_stack::FrozenFileSpan;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
+use crate::values::FrozenValueTyped;
 
 /// Function body suitable for inlining.
 #[derive(Debug)]
@@ -192,6 +194,8 @@ pub(crate) struct CannotInline;
 /// Utility to inline function body at call site.
 pub(crate) struct InlineDefCallSite<'s, 'v, 'a, 'e> {
     pub(crate) ctx: &'s mut OptCtx<'v, 'a, 'e>,
+    // Values in the slots are either real frozen values
+    // or `LocalAsValue` which are the parameters to be substituted with caller locals.
     pub(crate) slots: &'s [FrozenValue],
 }
 
@@ -236,10 +240,12 @@ impl<'s, 'v, 'a, 'e> InlineDefCallSite<'s, 'v, 'a, 'e> {
             },
             ExprCompiled::Local(local) => {
                 let value = self.slots[local.0 as usize];
-                IrSpanned {
-                    span,
-                    node: ExprCompiled::Value(value),
-                }
+                let expr = if let Some(local) = FrozenValueTyped::<LocalAsValue>::new(value) {
+                    ExprCompiled::Local(local.local)
+                } else {
+                    ExprCompiled::Value(value)
+                };
+                IrSpanned { span, node: expr }
             }
             ExprCompiled::If(box (c, t, f)) => {
                 let c = self.inline(c)?;
