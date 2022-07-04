@@ -933,6 +933,8 @@ async def test_toolchain_deps(buck: Buck) -> None:
     assert python_and_asic == "python_release_windows asic\n"
     assert python_only == "python_release_linux\n"
 
+    await buck.build("root//...", "--target-platforms=root//config:platform_windows")
+
 
 @buck_test(inplace=False, data_dir="prelude_import")
 async def test_prelude_imported_once(buck: Buck) -> None:

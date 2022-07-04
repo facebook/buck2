@@ -609,9 +609,14 @@ async fn compute_configured_target_node(
 
     match key.0.exec_cfg() {
         None if target_node.is_toolchain_rule() => {
-            return Err(SharedError::new(
-                ToolchainDepError::ToolchainRuleUsedAsNormalDep(key.0.unconfigured().dupe()),
-            ));
+            // FIXME(ndmitchell): Would like to disable toolchain rules that are used outside
+            // toolchain_dep, but we still want them to work as the root of the build.
+            // Not sure how to do that.
+            if false {
+                return Err(SharedError::new(
+                    ToolchainDepError::ToolchainRuleUsedAsNormalDep(key.0.unconfigured().dupe()),
+                ));
+            }
         }
         Some(_) if !target_node.is_toolchain_rule() => {
             return Err(SharedError::new(
