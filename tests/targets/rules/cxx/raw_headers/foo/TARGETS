@@ -1,5 +1,3 @@
-# @noautodeps
-
 load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
 
 bzl_native.cxx_library(
