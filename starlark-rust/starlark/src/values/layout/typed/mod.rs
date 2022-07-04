@@ -34,7 +34,7 @@ use crate::gazebo::any::AnyLifetime;
 use crate::gazebo::any::ProvidesStaticType;
 use crate::values::int::PointerI32;
 use crate::values::layout::avalue::AValue;
-use crate::values::layout::heap::arena::AValueRepr;
+use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::string::StarlarkStr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;

@@ -20,3 +20,4 @@
 pub(crate) mod arena;
 mod fast_cell;
 pub(crate) mod heap_type;
+pub(crate) mod repr;
