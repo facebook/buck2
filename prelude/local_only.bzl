@@ -4,6 +4,8 @@ def _is_core_cool(ctx: "context"):
     return "is_core_tool" in ctx.attr.labels
 
 def link_cxx_binary_locally(ctx: "context", cxx_toolchain: ["CxxToolchainInfo", None] = None) -> bool.type:
+    # core tools are linked on RE because they are a) small enough to do so and
+    # b) don't get build stamping so they do cache correctly.
     if _is_core_cool(ctx):
         return False
     if not cxx_toolchain:
