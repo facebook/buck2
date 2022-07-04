@@ -33,7 +33,8 @@ def main(argv):
         [
             "env",
             "-i",
-            # TODO: Do we need to add e.g. GOOS/GOARCH?
+            "GOARCH={}".format(os.environ.get("GOARCH", "")),
+            "GOOS={}".format(os.environ.get("GOOS", "")),
             "GO111MODULE=off",
             "GOCACHE=/tmp",
             args.go.resolve(),
