@@ -67,6 +67,7 @@ use crate::execute::blocking::BlockingExecutor;
 use crate::execute::commands::inputs_directory;
 use crate::execute::commands::output::CommandStdStreams;
 use crate::execute::commands::CommandExecutionInput;
+use crate::execute::commands::CommandExecutionKind;
 use crate::execute::commands::CommandExecutionManager;
 use crate::execute::commands::CommandExecutionOutput;
 use crate::execute::commands::CommandExecutionOutputRef;
@@ -79,7 +80,6 @@ use crate::execute::commands::ExecutorName;
 use crate::execute::commands::PreparedCommand;
 use crate::execute::commands::PreparedCommandExecutor;
 use crate::execute::materializer::Materializer;
-use crate::execute::ActionExecutionKind;
 use crate::execute::CleanOutputPaths;
 
 #[derive(Debug, Error)]
@@ -297,14 +297,14 @@ impl LocalExecutor {
             )
             .await;
 
-        let execution_kind = ActionExecutionKind::Local {
+        let execution_kind = CommandExecutionKind::Local {
             command: args.to_vec(),
             env: request.env().clone(),
         };
 
         let (status, stdout, stderr) = match res {
             Ok(res) => res,
-            Err(e) => return manager.error("exec_failed".into(), e), // TODO (torozco): Can this take ActionExecutionKind?
+            Err(e) => return manager.error("exec_failed".into(), e), // TODO (torozco): Can this take CommandExecutionKind? Should this be a failure?
         };
 
         let std_streams = CommandStdStreams::Local { stdout, stderr };

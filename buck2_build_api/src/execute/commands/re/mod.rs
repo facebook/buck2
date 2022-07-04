@@ -38,6 +38,7 @@ use crate::execute::commands::re::client::PreparedAction;
 use crate::execute::commands::re::download::download_action_results;
 use crate::execute::commands::re::manager::ManagedRemoteExecutionClient;
 use crate::execute::commands::re::uploader::ActionBlobs;
+use crate::execute::commands::CommandExecutionKind;
 use crate::execute::commands::CommandExecutionManager;
 use crate::execute::commands::CommandExecutionRequest;
 use crate::execute::commands::CommandExecutionResult;
@@ -47,7 +48,6 @@ use crate::execute::commands::ExecutorName;
 use crate::execute::commands::PreparedCommand;
 use crate::execute::commands::PreparedCommandExecutor;
 use crate::execute::materializer::Materializer;
-use crate::execute::ActionExecutionKind;
 
 pub mod cache_check;
 pub mod client;
@@ -222,7 +222,7 @@ impl ReExecutor {
         }
         if action_result.exit_code != 0 {
             return ControlFlow::Break(manager.failure(
-                ActionExecutionKind::Remote {
+                CommandExecutionKind::Remote {
                     digest: action_digest.dupe(),
                 },
                 // TODO: we want to expose RE outputs even when actions fail,
@@ -293,7 +293,7 @@ pub trait RemoteActionResult: Send + Sync {
     fn output_files(&self) -> &[TFile];
     fn output_directories(&self) -> &[TDirectory2];
 
-    fn execution_kind(&self, digest: ActionDigest) -> ActionExecutionKind;
+    fn execution_kind(&self, digest: ActionDigest) -> CommandExecutionKind;
 
     fn timing(&self) -> CommandExecutionTimingData;
 
@@ -312,8 +312,8 @@ impl RemoteActionResult for ExecuteResponse {
         &self.action_result.output_directories
     }
 
-    fn execution_kind(&self, digest: ActionDigest) -> ActionExecutionKind {
-        ActionExecutionKind::Remote { digest }
+    fn execution_kind(&self, digest: ActionDigest) -> CommandExecutionKind {
+        CommandExecutionKind::Remote { digest }
     }
 
     fn timing(&self) -> CommandExecutionTimingData {
@@ -338,8 +338,8 @@ impl RemoteActionResult for ActionResultResponse {
         &self.action_result.output_directories
     }
 
-    fn execution_kind(&self, digest: ActionDigest) -> ActionExecutionKind {
-        ActionExecutionKind::ActionCache { digest }
+    fn execution_kind(&self, digest: ActionDigest) -> CommandExecutionKind {
+        CommandExecutionKind::ActionCache { digest }
     }
 
     fn timing(&self) -> CommandExecutionTimingData {

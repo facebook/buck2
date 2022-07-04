@@ -11,7 +11,6 @@ pub mod blocking;
 pub mod commands;
 pub mod materializer;
 
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::Duration;
@@ -55,6 +54,7 @@ use crate::calculation::Calculation;
 use crate::execute::commands::dice_data::HasCommandExecutor;
 use crate::execute::commands::re::client::ActionDigest;
 use crate::execute::commands::ClaimManager;
+use crate::execute::commands::CommandExecutionKind;
 use crate::execute::commands::CommandExecutionManager;
 use crate::execute::commands::CommandExecutionOutput;
 use crate::execute::commands::CommandExecutionReport;
@@ -130,18 +130,8 @@ pub struct ActionExecutionMetadata {
 /// The *way* that a particular action was executed.
 #[derive(Debug, Display, Clone)]
 pub enum ActionExecutionKind {
-    /// This action was executed locally.
-    #[display(fmt = "local")]
-    Local {
-        command: Vec<String>,
-        env: HashMap<String, String>,
-    },
-    /// This action was executed via a remote executor.
-    #[display(fmt = "remote")]
-    Remote { digest: ActionDigest },
-    /// This action was served by the action cache and not executed.
-    #[display(fmt = "action_cache")]
-    ActionCache { digest: ActionDigest },
+    #[display(fmt = "command({})", self.0)]
+    Command(CommandExecutionKind),
     /// This action is simple and executed inline within buck2 (e.g. write, symlink_dir)
     #[display(fmt = "simple")]
     Simple,
@@ -156,38 +146,10 @@ pub enum ActionExecutionKind {
 impl ActionExecutionKind {
     pub fn as_enum(&self) -> buck2_data::ActionExecutionKind {
         match self {
-            ActionExecutionKind::Local { .. } => buck2_data::ActionExecutionKind::Local,
-            ActionExecutionKind::Remote { .. } => buck2_data::ActionExecutionKind::Remote,
-            ActionExecutionKind::ActionCache { .. } => buck2_data::ActionExecutionKind::ActionCache,
+            ActionExecutionKind::Command(command) => command.as_enum(),
             ActionExecutionKind::Simple => buck2_data::ActionExecutionKind::Simple,
             ActionExecutionKind::Skipped => buck2_data::ActionExecutionKind::Skipped,
             ActionExecutionKind::Deferred => buck2_data::ActionExecutionKind::Deferred,
-        }
-    }
-
-    pub fn as_local_command(&self) -> Option<buck2_data::LocalCommand> {
-        match self {
-            ActionExecutionKind::Local { command, env } => Some(buck2_data::LocalCommand {
-                argv: command.to_owned(),
-                env: env
-                    .iter()
-                    .map(|(key, value)| buck2_data::local_command::EnvironmentEntry {
-                        key: key.clone(),
-                        value: value.clone(),
-                    })
-                    .collect(),
-            }),
-            _ => None,
-        }
-    }
-
-    pub fn as_remote_command(&self) -> Option<buck2_data::RemoteCommand> {
-        match self {
-            ActionExecutionKind::Remote { digest }
-            | ActionExecutionKind::ActionCache { digest } => Some(buck2_data::RemoteCommand {
-                action_digest: digest.to_string(),
-            }),
-            _ => None,
         }
     }
 }
@@ -375,7 +337,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             CommandExecutionStatus::Success { execution_kind } => Ok((
                 outputs,
                 ActionExecutionMetadata {
-                    execution_kind: execution_kind.clone(),
+                    execution_kind: ActionExecutionKind::Command(execution_kind.clone()),
                     timing: report.timing.into(),
                 },
             )),

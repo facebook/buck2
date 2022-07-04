@@ -30,6 +30,7 @@ use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_node::execute::config::PathSeparatorKind;
+use derive_more::Display;
 use derive_more::From;
 use events::dispatch::EventDispatcher;
 use futures::future::Future;
@@ -55,7 +56,7 @@ use crate::execute::commands::output::CommandStdStreams;
 use crate::execute::commands::re::client::re_create_action;
 use crate::execute::commands::re::client::PreparedAction;
 use crate::execute::commands::re::ActionPaths;
-use crate::execute::ActionExecutionKind;
+use crate::execute::ActionDigest;
 use crate::execute::ActionExecutionTimingData;
 use crate::path::BuckOutPath;
 use crate::path::BuckOutScratchPath;
@@ -241,7 +242,7 @@ impl CommandExecutionManager {
     pub fn success(
         self,
         claim: ClaimedRequest,
-        execution_kind: ActionExecutionKind,
+        execution_kind: CommandExecutionKind,
         outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
         std_streams: CommandStdStreams,
         timing: CommandExecutionTimingData,
@@ -259,7 +260,7 @@ impl CommandExecutionManager {
 
     pub fn failure(
         self,
-        execution_kind: ActionExecutionKind,
+        execution_kind: CommandExecutionKind,
         outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
@@ -275,7 +276,7 @@ impl CommandExecutionManager {
 
     pub fn timeout(
         self,
-        execution_kind: ActionExecutionKind,
+        execution_kind: CommandExecutionKind,
         duration: Duration,
         std_streams: CommandStdStreams,
         timing: CommandExecutionTimingData,
@@ -670,28 +671,81 @@ impl EnvironmentInheritance {
     }
 }
 
+#[derive(Debug, Display, Clone)]
+pub enum CommandExecutionKind {
+    /// This action was executed locally.
+    #[display(fmt = "local")]
+    Local {
+        command: Vec<String>,
+        env: HashMap<String, String>,
+    },
+    /// This action was executed via a remote executor.
+    #[display(fmt = "remote")]
+    Remote { digest: ActionDigest },
+    /// This action was served by the action cache and not executed.
+    #[display(fmt = "action_cache")]
+    ActionCache { digest: ActionDigest },
+}
+
+impl CommandExecutionKind {
+    pub fn as_enum(&self) -> buck2_data::ActionExecutionKind {
+        match self {
+            Self::Local { .. } => buck2_data::ActionExecutionKind::Local,
+            Self::Remote { .. } => buck2_data::ActionExecutionKind::Remote,
+            Self::ActionCache { .. } => buck2_data::ActionExecutionKind::ActionCache,
+        }
+    }
+
+    pub fn as_local_command(&self) -> Option<buck2_data::LocalCommand> {
+        match self {
+            Self::Local { command, env } => Some(buck2_data::LocalCommand {
+                argv: command.to_owned(),
+                env: env
+                    .iter()
+                    .map(|(key, value)| buck2_data::local_command::EnvironmentEntry {
+                        key: key.clone(),
+                        value: value.clone(),
+                    })
+                    .collect(),
+            }),
+            _ => None,
+        }
+    }
+
+    pub fn as_remote_command(&self) -> Option<buck2_data::RemoteCommand> {
+        match self {
+            Self::Remote { digest } | Self::ActionCache { digest } => {
+                Some(buck2_data::RemoteCommand {
+                    action_digest: digest.to_string(),
+                })
+            }
+            _ => None,
+        }
+    }
+}
+
 /// "Status" of an action execution indicating how it finished. E.g. "built_remotely", "local_fallback", "action_cache".
 #[derive(Debug)]
 pub enum CommandExecutionStatus {
     Success {
-        execution_kind: ActionExecutionKind,
+        execution_kind: CommandExecutionKind,
     },
     Failure {
-        execution_kind: ActionExecutionKind,
+        execution_kind: CommandExecutionKind,
     },
     Error {
         stage: String,
         error: anyhow::Error,
     },
     TimedOut {
-        execution_kind: ActionExecutionKind,
+        execution_kind: CommandExecutionKind,
         duration: Duration,
     },
     ClaimRejected,
 }
 
 impl CommandExecutionStatus {
-    pub fn execution_kind(&self) -> Option<&ActionExecutionKind> {
+    pub fn execution_kind(&self) -> Option<&CommandExecutionKind> {
         match self {
             CommandExecutionStatus::Success { execution_kind, .. } => Some(execution_kind),
             CommandExecutionStatus::Failure { execution_kind } => Some(execution_kind),

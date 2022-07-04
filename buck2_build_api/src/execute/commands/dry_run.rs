@@ -21,6 +21,7 @@ use crate::actions::artifact::Artifact;
 use crate::actions::artifact::ArtifactFs;
 use crate::actions::artifact::ArtifactValue;
 use crate::execute::commands::CommandExecutionInput;
+use crate::execute::commands::CommandExecutionKind;
 use crate::execute::commands::CommandExecutionManager;
 use crate::execute::commands::CommandExecutionOutput;
 use crate::execute::commands::CommandExecutionResult;
@@ -28,7 +29,6 @@ use crate::execute::commands::CommandExecutionTimingData;
 use crate::execute::commands::ExecutorName;
 use crate::execute::commands::PreparedCommand;
 use crate::execute::commands::PreparedCommandExecutor;
-use crate::execute::ActionExecutionKind;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct DryRunEntry {
@@ -94,6 +94,11 @@ impl PreparedCommandExecutor for DryRunExecutor {
             env,
         });
 
+        let exec_kind = CommandExecutionKind::Local {
+            command: Default::default(),
+            env: Default::default(),
+        };
+
         match request
             .outputs()
             .map(|x| {
@@ -107,18 +112,13 @@ impl PreparedCommandExecutor for DryRunExecutor {
         {
             Ok(outputs) => manager.success(
                 claim,
-                ActionExecutionKind::Simple,
+                exec_kind,
                 outputs,
                 Default::default(),
                 CommandExecutionTimingData::default(),
             ),
             // NOTE: This should probaby be an error() but who cares.
-            Err(..) => manager.failure(
-                ActionExecutionKind::Simple,
-                IndexMap::new(),
-                Default::default(),
-                Some(1),
-            ),
+            Err(..) => manager.failure(exec_kind, IndexMap::new(), Default::default(), Some(1)),
         }
     }
 

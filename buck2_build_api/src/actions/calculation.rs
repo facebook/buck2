@@ -419,13 +419,13 @@ mod tests {
     use crate::execute::commands::dry_run::DryRunEntry;
     use crate::execute::commands::dry_run::DryRunExecutor;
     use crate::execute::commands::output::CommandStdStreams;
+    use crate::execute::commands::CommandExecutionKind;
     use crate::execute::commands::CommandExecutionReport;
     use crate::execute::commands::CommandExecutionStatus;
     use crate::execute::commands::ExecutorName;
     use crate::execute::commands::PreparedCommandExecutor;
     use crate::execute::materializer::nodisk::NoDiskMaterializer;
     use crate::execute::materializer::SetMaterializer;
-    use crate::execute::ActionExecutionKind;
 
     fn create_test_build_artifact(
         package_cell: &str,
@@ -785,7 +785,7 @@ mod tests {
         let mut report = CommandExecutionReport {
             claim: None,
             status: CommandExecutionStatus::Success {
-                execution_kind: ActionExecutionKind::Local {
+                execution_kind: CommandExecutionKind::Local {
                     command: vec![],
                     env: hashmap![],
                 },
@@ -806,7 +806,7 @@ mod tests {
         assert_eq!(&proto.stderr, "stderr");
 
         report.status = CommandExecutionStatus::Failure {
-            execution_kind: ActionExecutionKind::Local {
+            execution_kind: CommandExecutionKind::Local {
                 command: vec![],
                 env: hashmap![],
             },
