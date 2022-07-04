@@ -34,7 +34,7 @@ For example, given:
 ```python
 def pascal_binary_impl(ctx: "context") -> ["provider"]:
     ...
-    binary = ctx.actions.declare_output(ctx.attr.out)
+    binary = ctx.actions.declare_output(ctx.attrs.out)
     ctx.actions.run(["pascalc", args, "-o", binary.as_output()])
     return [
         DefaultInfo(default_outputs = [binary]),
@@ -43,12 +43,12 @@ def pascal_binary_impl(ctx: "context") -> ["provider"]:
 
 * The _rule_ is `pascal_binary` which is implemented by `pascal_binary_impl`. The rule says how to build things.
 * The _target_ will be something like `fbcode//buck2/tests/targets/rules/pascal:my_binary`. The rule implementation `pascal_binary_impl` will be called once per target.
-* The _attributes_ are the fields on the target, e.g. you might have `out` - a rule can access these via `ctx.attr.out`.
+* The _attributes_ are the fields on the target, e.g. you might have `out` - a rule can access these via `ctx.attrs.out`.
 * The _actions_ are declared by the rule with things like `ctx.actions.run`, which takes a command line. Note that the actions are not run by the rule, but declared, so that Buck2 can run them later.
 * The _artifacts_ represent files on disk, perhaps source, perhaps build outputs - e.g. `binary` in the above example. For build outputs, the artifact is produced by an action, and the existence of the artifact does not imply the build has been run - the artifact remembers what should be run if it is required.
 * We return _providers_, which are the information that other rules get to use. These will often contain artifacts.
 
-The rule implementation takes in a `ctx`, which is the rule context. The two most important fields are `ctx.attr`, which picks up the rules attributes declared by the rule, and `ctx.actions`, which lets you create new actions to actually do something.
+The rule implementation takes in a `ctx`, which is the rule context. The two most important fields are `ctx.attrs`, which picks up the rules attributes declared by the rule, and `ctx.actions`, which lets you create new actions to actually do something.
 
 The output of any actions performed will be materialized in `buck-out`. However, only the defined outputs of providers are available for dependent rules to consume. And, only the actions necessary to produce those outputs being consumed will be run. By default, the `default_outputs` of the `DefaultInfo` provider are built and output during a `buck build`.
 
@@ -73,7 +73,7 @@ PascalLibraryInfo = provider(fields=[
 Often you'll grab your dependencies from all your providers:
 
 ```python
-my_deps = [x[PascalLibraryInfo] for x in ctx.attr.deps]
+my_deps = [x[PascalLibraryInfo] for x in ctx.attrs.deps]
 ```
 
 In many cases it becomes apparent you need the transitive closure of all libraries (e.g. the libraries and everything they depend upon), in which case the standard pattern is to move to a provider of a list of `record` (see the [`types.md`](https://github.com/facebookexperimental/starlark-rust/blob/main/docs/types.md) document) and the `flatten/dedupe` functions, defining it as:
@@ -87,7 +87,7 @@ LinkData = record(name = str.type, object = "artifact")
 And then consuming it:
 
 ```python
-my_links = dedupe(flatten([x[PascalLibraryInfo].links for x in ctx.attr.deps]))
+my_links = dedupe(flatten([x[PascalLibraryInfo].links for x in ctx.attrs.deps]))
 my_info = PascalLibraryInfo(links = my_links)
 ```
 
@@ -104,7 +104,7 @@ Of the various actions, the `run` action is by far the most important - it's the
 ```python
 cmd = cmd_args(["some", "arguments"])
 cmd.add("another-arg")
-cmd.add(ctx.attr.src) # An input artifact
+cmd.add(ctx.attrs.src) # An input artifact
 out = ctx.actions.declare_output("an output")
 cmd.add(out.as_output())
 ctx.actions.run(cmd)

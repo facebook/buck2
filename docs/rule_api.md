@@ -15,7 +15,7 @@ When implementing a rule, you are given a value of type `context` and are expect
 
 The starting type, usually bound as `ctx`.
 
-* `ctx.attr` returns the attributes of the target as a Starlark dictionary indexed by the name of the attribute, which varies per rule.
+* `ctx.attrs` returns the attributes of the target as a Starlark dictionary indexed by the name of the attribute, which varies per rule.
 * `ctx.actions` returns a `actions` allowing you to define actions.
 * `ctx.label` returns a `label` representing the target.
 

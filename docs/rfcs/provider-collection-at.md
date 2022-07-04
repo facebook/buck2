@@ -1,19 +1,19 @@
 # Return error in `ProviderCollection[]` on undeclared provider
 
-Currently, `ctx.attr.foo[UnknownInfo]` returns `None` if `foo` is
+Currently, `ctx.attrs.foo[UnknownInfo]` returns `None` if `foo` is
 a provider collection.
 
 This RFC proposes these changes:
-* `ctx.attr.foo[UnknownInfo]` is an error
-* `UnknownInfo in ctx.attr.foo` is `False`
-* `ctx.attr.foo.get(UnknownInfo)` returns `None`
+* `ctx.attrs.foo[UnknownInfo]` is an error
+* `UnknownInfo in ctx.attrs.foo` is `False`
+* `ctx.attrs.foo.get(UnknownInfo)` returns `None`
 
 ## Why
 
 Better diagnostics when accessing unknown provider. E. g. when writing:
 
 ```python
-ctx.attr.foo[UnknownInfo].bar
+ctx.attrs.foo[UnknownInfo].bar
 ```
 
 Currently, the error is:

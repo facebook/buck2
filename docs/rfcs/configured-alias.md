@@ -48,7 +48,7 @@ The rule implementation is trivial:
 ```python
 
 def _configured_alias_impl(ctx):
-    return ctx.attr.actual.providers
+    return ctx.attrs.actual.providers
 
 configured_alias_impl = rule(
     implementation = _configured_alias_impl,
