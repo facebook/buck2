@@ -148,7 +148,6 @@ impl ActionCalculation for DiceComputations {
                         .await;
 
                         let action_result;
-                        let success_stderr;
                         let execution_kind;
                         let wall_time;
                         let error;
@@ -165,11 +164,6 @@ impl ActionCalculation for DiceComputations {
 
                                 output_size = outputs.calc_output_bytes();
                                 action_result = Ok(outputs);
-                                // TODO (torozco): Remove
-                                success_stderr = commands
-                                    .last()
-                                    .and_then(|c| c.details.as_ref())
-                                    .map(|c| c.stderr.clone());
                                 execution_kind = Some(meta.execution_kind.as_enum());
                                 wall_time = Some(meta.timing.wall_time);
                                 error = None;
@@ -185,7 +179,6 @@ impl ActionCalculation for DiceComputations {
                                     action.owner()
                                 )
                                 .into());
-                                success_stderr = None;
                                 // TODO (torozco): Remove (see protobuf file)?
                                 execution_kind = command_reports
                                     .last()
@@ -209,7 +202,6 @@ impl ActionCalculation for DiceComputations {
                                 failed: error.is_some(),
                                 error,
                                 always_print_stderr: action.always_print_stderr(),
-                                success_stderr: success_stderr.unwrap_or_default(),
                                 wall_time: wall_time.map(Into::into),
                                 execution_kind: execution_kind
                                     .unwrap_or(buck2_data::ActionExecutionKind::NotSet)

@@ -416,7 +416,7 @@ pub(crate) fn success_stderr<'a>(
                 .context("CommandExecution did not include a `command`")?
                 .stderr
         }
-        None => &action.success_stderr,
+        None => return Ok(None),
     };
 
     if stderr.is_empty() {
