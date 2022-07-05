@@ -341,8 +341,7 @@ def get_apple_bundle_part_list(ctx: "context", params: AppleBundlePartListConstr
     extra_plist = asset_catalog_result.catalog_plist if asset_catalog_result != None else None
     info_plist_part = process_info_plist(ctx = ctx, override_input = extra_plist)
 
-    product_name = ctx.attr.name
-    core_data_result = compile_apple_core_data(ctx, core_data_specs, product_name)
+    core_data_result = compile_apple_core_data(ctx, core_data_specs, get_product_name(ctx))
     if core_data_result != None:
         core_data_part = AppleBundlePart(
             source = core_data_result,
