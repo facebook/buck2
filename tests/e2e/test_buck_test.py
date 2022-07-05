@@ -347,3 +347,70 @@ async def test_tcp(buck: Buck) -> None:
     await buck.test(
         "fbcode//buck2/tests/targets/rules/python/test:test",
     )
+
+
+if not is_deployed_buck2():
+
+    @buck_test(inplace=True, data_dir="..")
+    async def test_passing_test_names_are_shown(buck: Buck) -> None:
+        tests = await buck.test(
+            "fbcode//buck2/tests/targets/rules/python/test:test",
+        )
+        assert "Pass: buck2/tests/targets/rules/python/test:test - test" in tests.stderr
+
+    @buck_test(inplace=True, data_dir="..")
+    async def test_failing_test_names_are_shown(buck: Buck) -> None:
+        await expect_failure(
+            buck.test(
+                "fbcode//buck2/tests/targets/rules/python/test:test",
+                "--",
+                "--env",
+                "TEST_ENV=fail",
+            ),
+            stderr_regex="Fail: buck2/tests/targets/rules/python/test:test - test",
+        )
+
+    @buck_test(inplace=True, data_dir="..")
+    async def test_no_print_passing_details(buck: Buck) -> None:
+        # Without --print-passing-details, test stdout is NOT displayed.
+        tests = await buck.test(
+            "fbcode//buck2/tests/targets/rules/python/test:test",
+        )
+        assert "TESTED!" not in tests.stderr
+
+    @buck_test(inplace=True, data_dir="..")
+    async def test_print_passing_details(buck: Buck) -> None:
+        # With --print-passing-details, test stdout is displayed.
+        tests = await buck.test(
+            "fbcode//buck2/tests/targets/rules/python/test:test",
+            "--",
+            "--print-passing-details",
+        )
+        assert "TESTED!" in tests.stderr
+
+    @buck_test(inplace=True, data_dir="..")
+    async def test_no_no_print_details(buck: Buck) -> None:
+        # Without --no-print-details the stack trace is displayed.
+        await expect_failure(
+            buck.test(
+                "fbcode//buck2/tests/targets/rules/python/test:test",
+                "--",
+                "--env",
+                "TEST_ENV=fail",
+            ),
+            stderr_regex="AssertionError: 41 != 42",
+        )
+
+    @buck_test(inplace=True, data_dir="..")
+    async def test_no_print_details(buck: Buck) -> None:
+        # With --no-print-details the stack trace is not displayed.
+        tests = await expect_failure(
+            buck.test(
+                "fbcode//buck2/tests/targets/rules/python/test:test",
+                "--",
+                "--env",
+                "TEST_ENV=fail",
+                "--no-print-details",
+            ),
+        )
+        assert "AssertionError: 41 != 42" not in tests.stderr
