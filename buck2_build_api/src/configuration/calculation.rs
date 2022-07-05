@@ -22,6 +22,7 @@ use buck2_core::result::SharedResult;
 use buck2_core::result::ToSharedResultExt;
 use buck2_core::target::TargetLabel;
 use buck2_node::compatibility::MaybeCompatible;
+use buck2_node::configuration::execution::ExecutionPlatform;
 use buck2_node::configuration::execution::ExecutionPlatformIncompatibleReason;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use buck2_node::configuration::resolved::ConfigurationNode;
@@ -145,6 +146,53 @@ async fn get_execution_platforms(
     Ok(Some(Arc::new(platforms)))
 }
 
+/// Check if a particular execution platform is compatible with the constraints or not.
+/// Return either Ok/Ok if it is, or a reason if not.
+async fn check_execution_platform(
+    ctx: &DiceComputations,
+    target_node_cell: &CellName,
+    exec_compatible_with: &[TargetLabel],
+    exec_deps: &IndexSet<TargetLabel>,
+    exec_platform: &ExecutionPlatform,
+) -> anyhow::Result<Result<(), ExecutionPlatformIncompatibleReason>> {
+    let resolved_platform_configuration = ctx
+        .get_resolved_configuration(
+            &exec_platform.cfg(),
+            target_node_cell,
+            exec_compatible_with.iter(),
+        )
+        .await?;
+
+    // First check if the platform satisfies compatible_with
+    for constraint in exec_compatible_with {
+        if resolved_platform_configuration
+            .matches(constraint)
+            .is_none()
+        {
+            return Ok(Err(
+                ExecutionPlatformIncompatibleReason::ConstraintNotSatisfied(constraint.dupe()),
+            ));
+        }
+    }
+
+    // Then check that all exec_deps are compatible with the platform
+    for dep in exec_deps {
+        let dep_node = ctx
+            .get_configured_target_node(&dep.configure(exec_platform.cfg().dupe()))
+            .await?;
+        if let MaybeCompatible::Incompatible(reason) = dep_node {
+            return Ok(Err(
+                ExecutionPlatformIncompatibleReason::ExecutionDependencyIncompatible(
+                    dep.dupe(),
+                    reason.dupe(),
+                ),
+            ));
+        }
+    }
+
+    Ok(Ok(()))
+}
+
 async fn resolve_execution_platform_from_constraints(
     ctx: &DiceComputations,
     target_node_cell: &CellName,
@@ -160,52 +208,27 @@ async fn resolve_execution_platform_from_constraints(
     };
 
     let mut skipped = Vec::new();
-    'platform: for exec_platform in candidates.iter() {
-        let resolved_platform_configuration = ctx
-            .get_resolved_configuration(
-                &exec_platform.cfg(),
-                target_node_cell,
-                exec_compatible_with.iter(),
-            )
-            .await?;
-
-        // First check if the platform satisfies compatible_with
-        for constraint in exec_compatible_with {
-            if resolved_platform_configuration
-                .matches(constraint)
-                .is_none()
-            {
-                skipped.push((
-                    exec_platform.id(),
-                    ExecutionPlatformIncompatibleReason::ConstraintNotSatisfied(constraint.dupe()),
+    for exec_platform in candidates.iter() {
+        match check_execution_platform(
+            ctx,
+            target_node_cell,
+            exec_compatible_with,
+            exec_deps,
+            exec_platform,
+        )
+        .await?
+        {
+            Ok(()) => {
+                return Ok(ExecutionPlatformResolution::new(
+                    Some(exec_platform.dupe()),
+                    skipped,
                 ));
-                continue 'platform;
+            }
+            Err(reason) => {
+                skipped.push((exec_platform.id(), reason));
             }
         }
-
-        // Then check that all exec_deps are compatible with the platform
-        for dep in exec_deps {
-            let dep_node = ctx
-                .get_configured_target_node(&dep.configure(exec_platform.cfg().dupe()))
-                .await?;
-            if let MaybeCompatible::Incompatible(reason) = dep_node {
-                skipped.push((
-                    exec_platform.id(),
-                    ExecutionPlatformIncompatibleReason::ExecutionDependencyIncompatible(
-                        dep.dupe(),
-                        reason.dupe(),
-                    ),
-                ));
-                continue 'platform;
-            }
-        }
-
-        return Ok(ExecutionPlatformResolution::new(
-            Some(exec_platform.dupe()),
-            skipped,
-        ));
     }
-
     Ok(ExecutionPlatformResolution::new(None, skipped))
 }
 
