@@ -124,11 +124,15 @@ cxx_hacks(
     visibility = ["PUBLIC"],
 )
 
-[config_backed_go_toolchain(
-    name = "go-" + flavor,
-    flavor = flavor,
-    visibility = ["PUBLIC"],
-) for flavor in _fbcode_cxx_flavors]
+[
+    config_backed_go_toolchain(
+        name = "go-" + flavor,
+        flavor = flavor,
+        visibility = ["PUBLIC"],
+    )
+    for flavor in _fbcode_cxx_flavors
+    if read_config("go#" + flavor, "root")
+]
 
 [config_backed_python_toolchain(
     flavor = flavor,
@@ -145,15 +149,23 @@ cxx_hacks(
     visibility = ["PUBLIC"],
 ) for flavor in _rust_flavors]
 
-[config_backed_ocaml_toolchain(
-    flavor = flavor,
-    visibility = ["PUBLIC"],
-) for flavor in _fbcode_cxx_flavors]
+[
+    config_backed_ocaml_toolchain(
+        flavor = flavor,
+        visibility = ["PUBLIC"],
+    )
+    for flavor in _fbcode_cxx_flavors
+    if read_config("ocaml#" + flavor, "ocaml.compiler")
+]
 
-[config_backed_haskell_toolchain(
-    flavor = flavor,
-    visibility = ["PUBLIC"],
-) for flavor in _fbcode_cxx_flavors]
+[
+    config_backed_haskell_toolchain(
+        flavor = flavor,
+        visibility = ["PUBLIC"],
+    )
+    for flavor in _fbcode_cxx_flavors
+    if read_config("haskell#" + flavor, "compiler")
+]
 
 config_backed_java_toolchain(
     name = "java_fbcode",
