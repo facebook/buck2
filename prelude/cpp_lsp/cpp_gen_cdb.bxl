@@ -30,7 +30,11 @@ def _impl(ctx):
         compileCommands = []
         arguments = cmd_args()
         arguments.add(cxx_compile_info.cxx_compile_cmd.base_compile_cmd)
-        arguments.add(cxx_compile_info.cxx_compile_cmd.argsfile.argfile_args)
+
+        # `_CxxCompileArgsfile.argfile_args` are shell quoted
+        # use `args` for original values to store in compile_commands.json
+        # see: https://fburl.com/code/5x7td4h1
+        arguments.add(cxx_compile_info.cxx_compile_cmd.argsfile.args)
         arguments.add(cxx_compile_info.args[:-1])
         arguments.add(filename)
 

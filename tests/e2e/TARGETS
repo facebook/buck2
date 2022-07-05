@@ -176,3 +176,8 @@ buck2_e2e_test(
     srcs = ["test_lsp.py"],
     data = "//buck2/tests/targets:isolated_targets",
 )
+
+buck2_e2e_test(
+    name = "test_cpp_gen_cdb",
+    srcs = ["test_cpp_gen_cdb.py"],
+)

@@ -51,6 +51,8 @@ _CxxCompileArgsfile = record(
     cmd_form = field("cmd_args"),
     # The args that was written to the argfile
     argfile_args = field("cmd_args"),
+    # The args in their prisitine form without shell quoting
+    args = field("cmd_args"),
     # Hidden args necessary for the argsfile to reference
     hidden_args = field([["artifacts", "cmd_args"]]),
 )
@@ -371,7 +373,7 @@ def _mk_argsfile(ctx: "context", preprocessor: CPreprocessorInfo.type, ext: CxxE
 
     cmd_form = cmd_args(argfile, format = "@{}").hidden(hidden_args)
 
-    return _CxxCompileArgsfile(file = argfile, cmd_form = cmd_form, argfile_args = shell_quoted_args, hidden_args = hidden_args)
+    return _CxxCompileArgsfile(file = argfile, cmd_form = cmd_form, argfile_args = shell_quoted_args, args = args, hidden_args = hidden_args)
 
 def _attr_compiler_flags(ctx: "context", ext: str.type) -> [""]:
     return (
