@@ -15,6 +15,9 @@ BUCK_CPP_RULE_KINDS = [
     ".*xx_resources",
 ]
 
+# Update this whenever this file is changed.
+CPP_GEN_CDB_SCRIPT_VERSION = "1.0.0"
+
 def _impl(ctx):
     filename = ctx.cli_args.filename
     owner = findOwningTarget(ctx, filename)
@@ -61,9 +64,7 @@ def _impl(ctx):
         cmd.hidden(cxx_compile_info.cxx_compile_cmd.argsfile.argfile_args)
         actionFactory.run(cmd, category = "cxx_merge_compdb_hmap")
         ensured = ctx.output.ensure(outputDir)
-
-        #ctx.output.print(ensured.abs_path())
-        ctx.output.print_json({"compilationDatabasePath": ensured.abs_path(), "platform": platform, "toolchain": toolchain})
+        ctx.output.print_json({"compilationDatabasePath": ensured.abs_path(), "platform": platform, "toolchain": toolchain, "version": CPP_GEN_CDB_SCRIPT_VERSION})
 
 def parseToolChain(platform, toolchain):
     if "llvm-fb" in toolchain:
