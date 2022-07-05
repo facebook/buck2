@@ -604,6 +604,11 @@ impl<'v> Value<'v> {
         self.get_ref().get_type_value()
     }
 
+    /// The literal string that a user would need to use this in type annotations.
+    pub fn get_type_starlark_repr(self) -> String {
+        self.get_ref().get_type_starlark_repr()
+    }
+
     /// Add two [`Value`]s together. Will first try using [`radd`](StarlarkValue::radd),
     /// before falling back to [`add`](StarlarkValue::add).
     pub fn add(self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {

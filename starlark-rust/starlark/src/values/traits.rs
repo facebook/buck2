@@ -214,6 +214,18 @@ pub trait StarlarkValue<'v>: 'v + ProvidesStaticType + Debug + Display + Seriali
     where
         Self: Sized;
 
+    /// Return a string that is the representation of a type that a user would use in
+    /// type annotations. This often will be the same as [`Self::get_type()`], but in
+    /// some instances it might be slightly different than what is returned by `type()`
+    ///
+    /// This can be only implemented by the [`starlark_type!`] macro.
+    fn get_type_starlark_repr() -> String
+    where
+        Self: Sized,
+    {
+        format!("\"{}\"", Self::get_type_value_static().as_str())
+    }
+
     /// Please do not implement this method or `get_type`, but use `starlark_type!` macro.
     #[doc(hidden)]
     fn please_use_starlark_type_macro()

@@ -234,6 +234,11 @@ impl<'v> AValueDyn<'v> {
     }
 
     #[inline]
+    pub(crate) fn get_type_starlark_repr(self) -> String {
+        (self.vtable.starlark_value.get_type_starlark_repr)()
+    }
+
+    #[inline]
     pub(crate) fn get_type_value(self) -> FrozenStringValue {
         (self.vtable.starlark_value.get_type_value_static)()
     }

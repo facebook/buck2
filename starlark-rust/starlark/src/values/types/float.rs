@@ -239,6 +239,10 @@ impl Display for StarlarkFloat {
 impl<'v> StarlarkValue<'v> for StarlarkFloat {
     starlark_type!(StarlarkFloat::TYPE);
 
+    fn get_type_starlark_repr() -> String {
+        "float.type".to_owned()
+    }
+
     fn is_special(_: Private) -> bool
     where
         Self: Sized,

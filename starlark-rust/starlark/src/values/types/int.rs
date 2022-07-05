@@ -134,6 +134,10 @@ impl Display for PointerI32 {
 impl<'v> StarlarkValue<'v> for PointerI32 {
     starlark_type!(INT_TYPE);
 
+    fn get_type_starlark_repr() -> String {
+        "int.type".to_owned()
+    }
+
     fn is_special(_: Private) -> bool
     where
         Self: Sized,
