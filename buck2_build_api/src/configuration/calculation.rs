@@ -148,8 +148,8 @@ async fn get_execution_platforms(
 async fn resolve_execution_platform_from_constraints(
     ctx: &DiceComputations,
     target_node_cell: &CellName,
-    exec_compatible_with: Vec<TargetLabel>,
-    exec_deps: IndexSet<TargetLabel>,
+    exec_compatible_with: &[TargetLabel],
+    exec_deps: &IndexSet<TargetLabel>,
 ) -> SharedResult<ExecutionPlatformResolution> {
     let candidates = match ctx.get_execution_platforms().await? {
         // The caller should've verified that some execution platforms are configured.
@@ -170,7 +170,7 @@ async fn resolve_execution_platform_from_constraints(
             .await?;
 
         // First check if the platform satisfies compatible_with
-        for constraint in &exec_compatible_with {
+        for constraint in exec_compatible_with {
             if resolved_platform_configuration
                 .matches(constraint)
                 .is_none()
@@ -184,7 +184,7 @@ async fn resolve_execution_platform_from_constraints(
         }
 
         // Then check that all exec_deps are compatible with the platform
-        for dep in &exec_deps {
+        for dep in exec_deps {
             let dep_node = ctx
                 .get_configured_target_node(&dep.configure(exec_platform.cfg().dupe()))
                 .await?;
@@ -413,8 +413,8 @@ impl ConfigurationCalculation for DiceComputations {
     async fn resolve_execution_platform_from_constraints(
         &self,
         target_node_cell: &CellName,
-        exec_compatible_with: Vec<TargetLabel>,
-        exec_deps: IndexSet<TargetLabel>,
+        exec_compatible_with: &[TargetLabel],
+        exec_deps: &IndexSet<TargetLabel>,
     ) -> SharedResult<ExecutionPlatformResolution> {
         resolve_execution_platform_from_constraints(
             self,

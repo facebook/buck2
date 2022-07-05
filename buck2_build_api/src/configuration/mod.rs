@@ -64,7 +64,7 @@ pub trait ConfigurationCalculation {
     async fn resolve_execution_platform_from_constraints(
         &self,
         target_node_cell: &CellName,
-        exec_compatible_with: Vec<TargetLabel>,
-        exec_deps: IndexSet<TargetLabel>,
+        exec_compatible_with: &[TargetLabel],
+        exec_deps: &IndexSet<TargetLabel>,
     ) -> SharedResult<ExecutionPlatformResolution>;
 }
