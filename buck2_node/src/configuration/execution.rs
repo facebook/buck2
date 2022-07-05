@@ -112,7 +112,7 @@ impl std::fmt::Display for ExecutionPlatformIncompatibleReason {
 }
 
 #[derive(Debug, Error)]
-pub enum ExecutionPlatformError {
+enum ExecutionPlatformError {
     #[error("No compatible execution platform.\n{}", .0.iter().map(|(id, reason)| format!("  `{}` skipped because\n:   {}", id, reason)).join("\n"))]
     NoCompatiblePlatform(Arc<Vec<(String, ExecutionPlatformIncompatibleReason)>>),
     #[error(
