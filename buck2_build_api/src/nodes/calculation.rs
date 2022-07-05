@@ -255,7 +255,7 @@ async fn resolve_execution_platform(
         )));
     }
 
-    ctx.resolve_execution_platform(
+    ctx.resolve_execution_platform_from_constraints(
         node.label().pkg().cell_name(),
         exec_compatible_with,
         exec_deps,

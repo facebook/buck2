@@ -145,7 +145,7 @@ async fn get_execution_platforms(
     Ok(Some(Arc::new(platforms)))
 }
 
-async fn resolve_execution_platform(
+async fn resolve_execution_platform_from_constraints(
     ctx: &DiceComputations,
     target_node_cell: &CellName,
     exec_compatible_with: Vec<TargetLabel>,
@@ -410,12 +410,18 @@ impl ConfigurationCalculation for DiceComputations {
         self.compute(&ExecutionPlatformsKey).await
     }
 
-    async fn resolve_execution_platform(
+    async fn resolve_execution_platform_from_constraints(
         &self,
         target_node_cell: &CellName,
         exec_compatible_with: Vec<TargetLabel>,
         exec_deps: IndexSet<TargetLabel>,
     ) -> SharedResult<ExecutionPlatformResolution> {
-        resolve_execution_platform(self, target_node_cell, exec_compatible_with, exec_deps).await
+        resolve_execution_platform_from_constraints(
+            self,
+            target_node_cell,
+            exec_compatible_with,
+            exec_deps,
+        )
+        .await
     }
 }

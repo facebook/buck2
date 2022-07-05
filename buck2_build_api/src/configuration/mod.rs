@@ -61,7 +61,7 @@ pub trait ConfigurationCalculation {
     /// for some rare exceptions). By having a monolithic key like `(Vec<TargetLabel>, Vec<TargetLabel>)` allows all
     /// those nodes to just have a single dice dep. This approach has the downside that it is less incremental, but
     /// we expect these things to change rarely.
-    async fn resolve_execution_platform(
+    async fn resolve_execution_platform_from_constraints(
         &self,
         target_node_cell: &CellName,
         exec_compatible_with: Vec<TargetLabel>,
