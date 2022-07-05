@@ -993,11 +993,10 @@ mod tests {
                 .report_test_result(TestResult {
                     target: ConfiguredTargetHandle::testing_new(0),
                     status: TestStatus::PASS,
-                    stdout: "1".to_owned(),
-                    stderr: "2".to_owned(),
                     msg: None,
                     name: "First - test".to_owned(),
                     duration: Some(Duration::from_micros(1)),
+                    details: "1".to_owned(),
                 })
                 .await?;
 
@@ -1005,11 +1004,10 @@ mod tests {
                 .report_test_result(TestResult {
                     target: ConfiguredTargetHandle::testing_new(0),
                     status: TestStatus::FAIL,
-                    stdout: "3".to_owned(),
-                    stderr: "4".to_owned(),
                     msg: None,
                     name: "Second - test".to_owned(),
                     duration: Some(Duration::from_micros(2)),
+                    details: "2".to_owned(),
                 })
                 .await?;
 
@@ -1027,21 +1025,19 @@ mod tests {
                     target: ConfiguredTargetHandle::testing_new(0),
 
                     status: TestStatus::PASS,
-                    stdout: "1".to_owned(),
-                    stderr: "2".to_owned(),
                     msg: None,
                     name: "First - test".to_owned(),
-                    duration: Some(Duration::from_micros(1))
+                    duration: Some(Duration::from_micros(1)),
+                    details: "1".to_owned(),
                 }),
                 TestResultOrExitCode::TestResult(TestResult {
                     target: ConfiguredTargetHandle::testing_new(0),
 
                     status: TestStatus::FAIL,
-                    stdout: "3".to_owned(),
-                    stderr: "4".to_owned(),
                     msg: None,
                     name: "Second - test".to_owned(),
-                    duration: Some(Duration::from_micros(2))
+                    duration: Some(Duration::from_micros(2)),
+                    details: "2".to_owned(),
                 }),
                 TestResultOrExitCode::ExitCode(0),
             ]

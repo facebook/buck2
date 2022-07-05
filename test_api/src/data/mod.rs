@@ -75,15 +75,13 @@ pub struct TestResult {
     pub name: String,
     // the status of running the test
     pub status: TestStatus,
-    // the stdout of the test execution
-    pub stdout: String,
-    // the stderr of the test execution
-    pub stderr: String,
     // additional optional messages
     pub msg: Option<String>,
     // the duration of the test run
     // TODO(skcd) should this be optional? why doesn't everything have duration
     pub duration: Option<Duration>,
+    // the output of the test execution (combining stdout and stderr)
+    pub details: String,
 }
 
 /// different possible test results

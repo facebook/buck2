@@ -90,11 +90,10 @@ message TestResult {
 
   string name = 1; // Required
   TestStatus status = 2; // Required
-  string stdout = 3; // Required
-  string stderr = 4; // Required
   OptionalMsg msg = 5; // Optional
   ConfiguredTargetHandle target = 6; // Required
   google.protobuf.Duration duration = 7; // Optional
+  string details = 8; // Required
 }
 
 message ReportTestResultRequest {

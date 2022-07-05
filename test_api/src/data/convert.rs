@@ -230,10 +230,9 @@ impl TryFrom<test_proto::TestResult> for TestResult {
             target,
             name,
             status,
-            stdout,
-            stderr,
             msg,
             duration,
+            details,
         } = s;
 
         let duration = duration
@@ -248,10 +247,9 @@ impl TryFrom<test_proto::TestResult> for TestResult {
                 .context("Invalid `target`")?,
             name,
             status: status.try_into().context("Invalid `status`")?,
-            stdout,
-            stderr,
             msg: msg.map(|m| m.msg),
             duration,
+            details,
         })
     }
 }
@@ -266,8 +264,7 @@ impl TryInto<test_proto::TestResult> for TestResult {
             target: Some(self.target.try_into().context("Invalid `target`")?),
             name: self.name,
             status: self.status.try_into().context("Invalid `status`")?,
-            stdout: self.stdout,
-            stderr: self.stderr,
+            details: self.details,
             msg: self.msg.map(|msg| OptionalMsg { msg }),
             duration: self.duration.map(|d| d.into()),
         })

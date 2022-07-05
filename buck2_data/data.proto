@@ -286,10 +286,9 @@ message TestResult {
 
   string name = 1; // Required
   TestStatus status = 2; // Required
-  string stdout = 3; // Required
-  string stderr = 4; // Required
   OptionalMsg msg = 5; // Optional
   google.protobuf.Duration duration = 7; // Optional
+  string details = 8; // Required
 }
 
 // At the beginning of discovery, the test orchestrator will advertise

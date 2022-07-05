@@ -49,18 +49,16 @@ pub fn convert_test_result(
     let test_api::data::TestResult {
         name,
         status,
-        stdout,
-        stderr,
         msg,
         duration,
+        details,
         ..
     } = test_result;
     Ok(buck2_data::TestResult {
         name,
         status: status.try_into().context("Invalid `status`")?,
-        stdout,
-        stderr,
         msg: msg.map(|msg| buck2_data::test_result::OptionalMsg { msg }),
         duration: duration.map(Into::into),
+        details,
     })
 }

@@ -269,8 +269,7 @@ pub(crate) fn format_test_result(test_result: &buck2_data::TestResult) -> anyhow
         name,
         status,
         duration,
-        stdout,
-        stderr,
+        details,
         ..
     } = test_result;
     let status = TestStatus::try_from(*status)?;
@@ -303,11 +302,11 @@ pub(crate) fn format_test_result(test_result: &buck2_data::TestResult) -> anyhow
     // For instance, tpx will always withhold details of passing tests
     // unless the --print-passing-details is set.
     let mut lines = vec![base];
-    if !stderr.is_empty() {
-        lines.append(&mut lines_from_multiline_string(stderr, Default::default()));
-    }
-    if !stdout.is_empty() {
-        lines.append(&mut lines_from_multiline_string(stdout, Default::default()));
+    if !details.is_empty() {
+        lines.append(&mut lines_from_multiline_string(
+            details,
+            Default::default(),
+        ));
     }
     Ok(lines)
 }
