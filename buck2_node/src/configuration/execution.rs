@@ -96,6 +96,7 @@ impl ExecutionPlatform {
 pub enum ExecutionPlatformIncompatibleReason {
     ConstraintNotSatisfied(TargetLabel),
     ExecutionDependencyIncompatible(TargetLabel, Arc<IncompatiblePlatformReason>),
+    ToolchainDependencyIncompatible,
 }
 
 impl std::fmt::Display for ExecutionPlatformIncompatibleReason {
@@ -107,6 +108,9 @@ impl std::fmt::Display for ExecutionPlatformIncompatibleReason {
                 v
             ),
             ExecutionPlatformIncompatibleReason::ExecutionDependencyIncompatible(_, v) => v.fmt(f),
+            ExecutionPlatformIncompatibleReason::ToolchainDependencyIncompatible => {
+                write!(f, "toolchain dependency was incompatible")
+            }
         }
     }
 }

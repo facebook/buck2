@@ -19,6 +19,7 @@ use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use buck2_node::configuration::resolved::ConfigurationNode;
 use buck2_node::configuration::resolved::ResolvedConfiguration;
 use indexmap::IndexSet;
+use starlark::collections::SmallSet;
 
 pub mod calculation;
 
@@ -66,5 +67,14 @@ pub trait ConfigurationCalculation {
         target_node_cell: &CellName,
         exec_compatible_with: &[TargetLabel],
         exec_deps: &IndexSet<TargetLabel>,
+        toolchain_allows: Option<&SmallSet<Arc<ExecutionPlatform>>>,
     ) -> SharedResult<ExecutionPlatformResolution>;
+
+    async fn resolve_execution_platform_from_constraints_many(
+        &self,
+        target_node_cell: &CellName,
+        exec_compatible_with: &[TargetLabel],
+        exec_deps: &IndexSet<TargetLabel>,
+        toolchain_allows: Option<&SmallSet<Arc<ExecutionPlatform>>>,
+    ) -> SharedResult<SmallSet<Arc<ExecutionPlatform>>>;
 }

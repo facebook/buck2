@@ -31,9 +31,11 @@ use buck2_node::configuration::target_platform_detector::TargetPlatformDetector;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
+use either::Either;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
+use starlark::collections::SmallSet;
 use thiserror::Error;
 
 use crate::analysis::calculation::RuleAnalysisCalculation;
@@ -205,14 +207,58 @@ async fn get_execution_platforms_non_empty(
     }
 }
 
+async fn resolve_execution_platform_from_constraints_many(
+    ctx: &DiceComputations,
+    target_node_cell: &CellName,
+    exec_compatible_with: &[TargetLabel],
+    exec_deps: &IndexSet<TargetLabel>,
+    toolchain_allows: Option<&SmallSet<Arc<ExecutionPlatform>>>,
+) -> SharedResult<SmallSet<Arc<ExecutionPlatform>>> {
+    let mut result = SmallSet::new();
+    let execution_platforms;
+    let candidates = match toolchain_allows {
+        None => {
+            execution_platforms = get_execution_platforms_non_empty(ctx).await?;
+            Either::Left(execution_platforms.iter())
+        }
+        Some(xs) => Either::Right(xs.iter()),
+    };
+    for exec_platform in candidates {
+        if check_execution_platform(
+            ctx,
+            target_node_cell,
+            exec_compatible_with,
+            exec_deps,
+            exec_platform,
+        )
+        .await?
+        .is_ok()
+        {
+            result.insert(exec_platform.dupe());
+        }
+    }
+    Ok(result)
+}
+
 async fn resolve_execution_platform_from_constraints(
     ctx: &DiceComputations,
     target_node_cell: &CellName,
     exec_compatible_with: &[TargetLabel],
     exec_deps: &IndexSet<TargetLabel>,
+    toolchain_allows: Option<&SmallSet<Arc<ExecutionPlatform>>>,
 ) -> SharedResult<ExecutionPlatformResolution> {
     let mut skipped = Vec::new();
     for exec_platform in get_execution_platforms_non_empty(ctx).await?.iter() {
+        if let Some(allowed) = toolchain_allows {
+            if !allowed.contains(exec_platform) {
+                skipped.push((
+                    exec_platform.id(),
+                    ExecutionPlatformIncompatibleReason::ToolchainDependencyIncompatible,
+                ));
+                continue;
+            }
+        }
+
         match check_execution_platform(
             ctx,
             target_node_cell,
@@ -442,12 +488,31 @@ impl ConfigurationCalculation for DiceComputations {
         target_node_cell: &CellName,
         exec_compatible_with: &[TargetLabel],
         exec_deps: &IndexSet<TargetLabel>,
+        toolchain_allows: Option<&SmallSet<Arc<ExecutionPlatform>>>,
     ) -> SharedResult<ExecutionPlatformResolution> {
         resolve_execution_platform_from_constraints(
             self,
             target_node_cell,
             exec_compatible_with,
             exec_deps,
+            toolchain_allows,
+        )
+        .await
+    }
+
+    async fn resolve_execution_platform_from_constraints_many(
+        &self,
+        target_node_cell: &CellName,
+        exec_compatible_with: &[TargetLabel],
+        exec_deps: &IndexSet<TargetLabel>,
+        toolchain_allows: Option<&SmallSet<Arc<ExecutionPlatform>>>,
+    ) -> SharedResult<SmallSet<Arc<ExecutionPlatform>>> {
+        resolve_execution_platform_from_constraints_many(
+            self,
+            target_node_cell,
+            exec_compatible_with,
+            exec_deps,
+            toolchain_allows,
         )
         .await
     }

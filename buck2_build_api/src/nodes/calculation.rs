@@ -106,8 +106,6 @@ async fn legacy_execution_platform(
 
 #[derive(Debug, Error)]
 enum ToolchainDepError {
-    #[error("Nested toolchain_dep reaching `{0}`")]
-    NestedToolchainDep(TargetLabel),
     #[error("Can't find toolchain_dep execution platform using configuration `{0}`")]
     ToolchainDepMissingPlatform(Configuration),
     #[error("Target `{0}` was used as a toolchain_dep, but is not a toolchain rule")]
@@ -140,6 +138,179 @@ async fn find_execution_platform_by_configuration(
     }
 }
 
+#[derive(Default)]
+struct ExecutionPlatformConstraints {
+    exec_deps: IndexSet<TargetLabel>,
+    toolchain_deps: IndexSet<ConfiguredTargetLabel>,
+    exec_compatible_with: Vec<TargetLabel>,
+}
+
+impl<'a> ConfiguredAttrTraversal<'a> for ExecutionPlatformConstraints {
+    fn dep(&mut self, _dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn exec_dep(&mut self, dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
+        // TODO(cjhopman): Check that the dep is in the unbound_exe configuration
+        self.exec_deps.insert(dep.target().unconfigured().dupe());
+        Ok(())
+    }
+
+    fn toolchain_dep(&mut self, dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
+        self.toolchain_deps.insert(dep.target().dupe());
+        Ok(())
+    }
+}
+
+impl ExecutionPlatformConstraints {
+    async fn new(
+        ctx: &DiceComputations,
+        node: &TargetNode,
+        resolved_configuration: &ResolvedConfiguration,
+        resolved_transitions: &IndexMap<Arc<TransitionId>, Arc<TransitionApplied>>,
+    ) -> SharedResult<Self> {
+        let mut me = Self::default();
+
+        let cfg_ctx = AttrConfigurationContextImpl {
+            resolved_cfg: resolved_configuration,
+            exec_cfg: &Configuration::unbound_exec(),
+            // We don't really need `resolved_transitions` here:
+            // `Traversal` declared above ignores transitioned dependencies.
+            // But we pass `resolved_transitions` here to prevent breakages in the future
+            // if something here changes.
+            resolved_transitions,
+            platform_cfgs: &compute_platform_cfgs(ctx, node).await?,
+        };
+
+        for (name, attr) in node.attrs(AttrInspectOptions::All) {
+            let configured_attr = attr.configure(&cfg_ctx).with_context(|| {
+                format!(
+                    "when configuring attribute `{}` to resolve execution platform",
+                    name
+                )
+            })?;
+            configured_attr.traverse(&mut me)?;
+            if name == EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD {
+                me.exec_compatible_with.extend(
+                    ConfiguredTargetNode::attr_as_target_compatible_with(configured_attr),
+                );
+            }
+        }
+        Ok(me)
+    }
+
+    // Slightly odd return type - we return an extra Arc so in the common case of a singleton
+    // toolchain_dep we can cheaply clone without constructing a new SmallMap.
+    async fn toolchain_allows(
+        &self,
+        ctx: &DiceComputations,
+    ) -> SharedResult<Option<Arc<SmallSet<Arc<ExecutionPlatform>>>>> {
+        match self.toolchain_deps.len() {
+            0 => Ok(None),
+            1 => {
+                let only = self.toolchain_deps.first().unwrap();
+                Ok(Some(
+                    execution_platforms_for_toolchain(ctx, only.dupe()).await?,
+                ))
+            }
+            _ => {
+                let mut rest = self.toolchain_deps.iter();
+                let first = rest.next().unwrap();
+
+                let mut result = execution_platforms_for_toolchain(ctx, first.dupe())
+                    .await?
+                    .iter()
+                    .duped()
+                    .collect::<Vec<_>>();
+                for x in rest {
+                    let ep = execution_platforms_for_toolchain(ctx, x.dupe()).await?;
+                    result.retain(|x| ep.contains(x));
+                }
+                Ok(Some(Arc::new(SmallSet::from_iter(result))))
+            }
+        }
+    }
+
+    async fn one(
+        &self,
+        ctx: &DiceComputations,
+        node: &TargetNode,
+    ) -> SharedResult<ExecutionPlatformResolution> {
+        ctx.resolve_execution_platform_from_constraints(
+            node.label().pkg().cell_name(),
+            &self.exec_compatible_with,
+            &self.exec_deps,
+            self.toolchain_allows(ctx).await?.as_deref(),
+        )
+        .await
+    }
+
+    async fn many(
+        &self,
+        ctx: &DiceComputations,
+        node: &TargetNode,
+    ) -> SharedResult<Arc<SmallSet<Arc<ExecutionPlatform>>>> {
+        Ok(Arc::new(
+            ctx.resolve_execution_platform_from_constraints_many(
+                node.label().pkg().cell_name(),
+                &self.exec_compatible_with,
+                &self.exec_deps,
+                self.toolchain_allows(ctx).await?.as_deref(),
+            )
+            .await?,
+        ))
+    }
+}
+
+async fn execution_platforms_for_toolchain(
+    ctx: &DiceComputations,
+    target: ConfiguredTargetLabel,
+) -> SharedResult<Arc<SmallSet<Arc<ExecutionPlatform>>>> {
+    #[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq)]
+    #[display(fmt = "ExecutionPlatformsForToolchainKey({})", .0)]
+    struct ExecutionPlatformsForToolchainKey(ConfiguredTargetLabel);
+
+    #[async_trait]
+    impl Key for ExecutionPlatformsForToolchainKey {
+        type Value = SharedResult<Arc<SmallSet<Arc<ExecutionPlatform>>>>;
+        async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+            let node = ctx.get_target_node(self.0.unconfigured()).await?;
+            if node.transition_deps().next().is_some() {
+                // We could actually check this when defining the rule, but a bit of a corner
+                // case, and much simpler to do so here.
+                return Err(SharedError::new(ToolchainDepError::ToolchainTransitionDep(
+                    self.0.unconfigured().dupe(),
+                )));
+            }
+            let resolved_configuration = &ctx
+                .get_resolved_configuration(
+                    self.0.cfg(),
+                    self.0.pkg().cell_name(),
+                    node.get_configuration_deps(),
+                )
+                .await?;
+            let constraints = ExecutionPlatformConstraints::new(
+                ctx,
+                &node,
+                resolved_configuration,
+                &IndexMap::new(),
+            )
+            .await?;
+            constraints.many(ctx, &node).await
+        }
+
+        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+            match (x, y) {
+                (Ok(x), Ok(y)) => x == y,
+                _ => false,
+            }
+        }
+    }
+
+    ctx.compute(&ExecutionPlatformsForToolchainKey(target))
+        .await
+}
+
 async fn resolve_execution_platform(
     ctx: &DiceComputations,
     node: &TargetNode,
@@ -161,115 +332,10 @@ async fn resolve_execution_platform(
         ));
     };
 
-    let mut exec_compatible_with = Vec::new();
-    let mut exec_deps = IndexSet::new();
-    let mut toolchain_deps = IndexSet::new();
-    let unbound_exe_configuration = Configuration::unbound_exec();
-
-    struct Traversal<'a> {
-        exec_deps: &'a mut IndexSet<TargetLabel>,
-        toolchain_deps: &'a mut IndexSet<TargetLabel>,
-    }
-    impl<'a> ConfiguredAttrTraversal<'a> for Traversal<'_> {
-        fn dep(&mut self, _dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
-            Ok(())
-        }
-
-        fn exec_dep(&mut self, dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
-            // TODO(cjhopman): Check that the dep is in the unbound_exe configuration
-            self.exec_deps.insert(dep.target().unconfigured().dupe());
-            Ok(())
-        }
-
-        fn toolchain_dep(&mut self, dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
-            self.toolchain_deps
-                .insert(dep.target().unconfigured().dupe());
-            Ok(())
-        }
-    }
-    let mut traversal = Traversal {
-        exec_deps: &mut exec_deps,
-        toolchain_deps: &mut toolchain_deps,
-    };
-    let cfg_ctx = AttrConfigurationContextImpl {
-        resolved_cfg: resolved_configuration,
-        exec_cfg: &unbound_exe_configuration,
-        // We don't really need `resolved_transitions` here:
-        // `Traversal` declared above ignores transitioned dependencies.
-        // But we pass `resolved_transitions` here to prevent breakages in the future
-        // if something here changes.
-        resolved_transitions,
-        platform_cfgs: &compute_platform_cfgs(ctx, node).await?,
-    };
-
-    for (name, attr) in node.attrs(AttrInspectOptions::All) {
-        let configured_attr = attr.configure(&cfg_ctx).with_context(|| {
-            format!(
-                "when configuring attribute `{}` to resolve execution platform",
-                name
-            )
-        })?;
-        configured_attr.traverse(&mut traversal)?;
-        if name == EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD {
-            exec_compatible_with.extend(ConfiguredTargetNode::attr_as_target_compatible_with(
-                configured_attr,
-            ));
-        }
-    }
-
-    let mut toolchain_toolchain_deps = IndexSet::new();
-    traversal = Traversal {
-        exec_deps: &mut exec_deps,
-        toolchain_deps: &mut toolchain_toolchain_deps,
-    };
-    for toolchain_dep in toolchain_deps {
-        let toolchain_node = ctx.get_target_node(&toolchain_dep).await?;
-        if toolchain_node.transition_deps().next().is_some() {
-            // We could actually check this when defining the rule, but a bit of a corner
-            // case, and much simpler to do so here.
-            return Err(SharedError::new(ToolchainDepError::ToolchainTransitionDep(
-                toolchain_dep.dupe(),
-            )));
-        }
-        let toolchain_ctx_cfg = AttrConfigurationContextImpl {
-            resolved_cfg: &ctx
-                .get_resolved_configuration(
-                    resolved_configuration.cfg(),
-                    toolchain_dep.pkg().cell_name(),
-                    toolchain_node.get_configuration_deps(),
-                )
-                .await?,
-            exec_cfg: &unbound_exe_configuration,
-            resolved_transitions: &IndexMap::new(),
-            platform_cfgs: &compute_platform_cfgs(ctx, &toolchain_node).await?,
-        };
-        for (name, attr) in toolchain_node.attrs(AttrInspectOptions::All) {
-            let configured_attr = attr.configure(&toolchain_ctx_cfg).with_context(|| {
-                format!(
-                    "when configuring attribute `{}` of `{}` to resolve toolchain_dep execution platform",
-                    name, toolchain_dep
-                )
-            })?;
-            configured_attr.traverse(&mut traversal)?;
-            if name == EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD {
-                exec_compatible_with.extend(ConfiguredTargetNode::attr_as_target_compatible_with(
-                    configured_attr,
-                ));
-            }
-        }
-    }
-    if !toolchain_toolchain_deps.is_empty() {
-        return Err(SharedError::new(ToolchainDepError::NestedToolchainDep(
-            toolchain_toolchain_deps.first().unwrap().dupe(),
-        )));
-    }
-
-    ctx.resolve_execution_platform_from_constraints(
-        node.label().pkg().cell_name(),
-        &exec_compatible_with,
-        &exec_deps,
-    )
-    .await
+    let constraints =
+        ExecutionPlatformConstraints::new(ctx, node, resolved_configuration, resolved_transitions)
+            .await?;
+    constraints.one(ctx, node).await
 }
 
 fn unpack_target_compatible_with_attr(
