@@ -15,7 +15,6 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::category::Category;
 use buck2_core::fs::paths::ForwardRelativePath;
-use buck2_core::soft_error;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
 use once_cell::sync::Lazy;
@@ -70,7 +69,7 @@ impl UnregisteredSymlinkedDirAction {
             }
         }
         if args.len() == 1 && args[0].1.as_os_str().is_empty() {
-            soft_error!(SymlinkedDirError::EmptyPath.into())?;
+            return Err(SymlinkedDirError::EmptyPath.into());
         }
 
         for (g, _) in args.iter() {
