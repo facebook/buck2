@@ -193,22 +193,26 @@ async fn check_execution_platform(
     Ok(Ok(()))
 }
 
+async fn get_execution_platforms_non_empty(
+    ctx: &DiceComputations,
+) -> anyhow::Result<Arc<Vec<Arc<ExecutionPlatform>>>> {
+    match ctx.get_execution_platforms().await? {
+        // The caller should've verified that some execution platforms are configured.
+        None => unreachable!(
+            "execution platform resolution should only be invoked when execution platforms are configured"
+        ),
+        Some(v) => Ok(v),
+    }
+}
+
 async fn resolve_execution_platform_from_constraints(
     ctx: &DiceComputations,
     target_node_cell: &CellName,
     exec_compatible_with: &[TargetLabel],
     exec_deps: &IndexSet<TargetLabel>,
 ) -> SharedResult<ExecutionPlatformResolution> {
-    let candidates = match ctx.get_execution_platforms().await? {
-        // The caller should've verified that some execution platforms are configured.
-        None => unreachable!(
-            "execution platform resolution should only be invoked when execution platforms are configured"
-        ),
-        Some(v) => v,
-    };
-
     let mut skipped = Vec::new();
-    for exec_platform in candidates.iter() {
+    for exec_platform in get_execution_platforms_non_empty(ctx).await?.iter() {
         match check_execution_platform(
             ctx,
             target_node_cell,
