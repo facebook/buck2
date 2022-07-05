@@ -58,25 +58,25 @@ pub mod uploader;
 // temporary platform like thing to build apple. We probably eventually want to replace this with
 // the action/target/execution group platform.
 #[derive(Clone)]
-pub enum ExecutionPlatform {
+pub enum ReExecutionPlatform {
     Linux,
     MacOS { xcode_version: String },
     Windows,
 }
 
-impl ExecutionPlatform {
+impl ReExecutionPlatform {
     pub fn intrinsic_properties(&self) -> SmallMap<String, String> {
         let mut map = SmallMap::new();
 
         match self {
-            ExecutionPlatform::Linux => {
+            Self::Linux => {
                 map.insert("platform".to_owned(), "linux-remote-execution".to_owned());
             }
-            ExecutionPlatform::MacOS { xcode_version } => {
+            Self::MacOS { xcode_version } => {
                 map.insert("platform".to_owned(), "mac".to_owned());
                 map.insert("subplatform".to_owned(), format!("xcode-{}", xcode_version));
             }
-            ExecutionPlatform::Windows => {
+            Self::Windows => {
                 map.insert("platform".to_owned(), "windows".to_owned());
             }
         };

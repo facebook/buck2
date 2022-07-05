@@ -23,7 +23,7 @@ use buck2_build_api::execute::commands::hybrid::HybridExecutor;
 use buck2_build_api::execute::commands::local::LocalExecutor;
 use buck2_build_api::execute::commands::re::cache_check::CacheCheckingExecutor;
 use buck2_build_api::execute::commands::re::manager::ReConnectionHandle;
-use buck2_build_api::execute::commands::re::ExecutionPlatform;
+use buck2_build_api::execute::commands::re::ReExecutionPlatform;
 use buck2_build_api::execute::commands::re::ReExecutor;
 use buck2_build_api::execute::commands::re::ReExecutorGlobalKnobs;
 use buck2_build_api::execute::commands::PreparedCommandExecutor;
@@ -402,7 +402,7 @@ pub(crate) fn get_executor_config_for_strategy(
     strategy: ExecutionStrategy,
     host_platform: HostPlatformOverride,
 ) -> CommandExecutorConfig {
-    let execution_platform = get_execution_platform(host_platform);
+    let re_execution_platform = get_re_execution_platform(host_platform);
     let executor_kind = match strategy {
         // NOTE: NoExecution here retunrs a default config, which is fine because the filter will
         // kick in later.
@@ -410,7 +410,7 @@ pub(crate) fn get_executor_config_for_strategy(
             CommandExecutorKind::Hybrid {
                 local: LocalExecutorOptions {},
                 remote: RemoteExecutorOptions {
-                    re_properties: execution_platform.intrinsic_properties(),
+                    re_properties: re_execution_platform.intrinsic_properties(),
                     ..Default::default()
                 },
                 level: HybridExecutionLevel::Limited,
@@ -422,7 +422,7 @@ pub(crate) fn get_executor_config_for_strategy(
             CommandExecutorKind::Hybrid {
                 local: LocalExecutorOptions {},
                 remote: RemoteExecutorOptions {
-                    re_properties: execution_platform.intrinsic_properties(),
+                    re_properties: re_execution_platform.intrinsic_properties(),
                     ..Default::default()
                 },
                 level: HybridExecutionLevel::Limited,
@@ -430,21 +430,21 @@ pub(crate) fn get_executor_config_for_strategy(
         }
         ExecutionStrategy::LocalOnly => CommandExecutorKind::Local(LocalExecutorOptions {}),
         ExecutionStrategy::RemoteOnly => CommandExecutorKind::Remote(RemoteExecutorOptions {
-            re_properties: execution_platform.intrinsic_properties(),
+            re_properties: re_execution_platform.intrinsic_properties(),
             ..Default::default()
         }),
     };
     CommandExecutorConfig::new_with_default_path_separator(executor_kind)
 }
 
-fn get_execution_platform(host_platform: HostPlatformOverride) -> ExecutionPlatform {
-    let linux = ExecutionPlatform::Linux;
+fn get_re_execution_platform(host_platform: HostPlatformOverride) -> ReExecutionPlatform {
+    let linux = ReExecutionPlatform::Linux;
     // TODO(T110757645): The xcode version should come from the execution platform or toolchain
-    let mac = ExecutionPlatform::MacOS {
+    let mac = ReExecutionPlatform::MacOS {
         xcode_version: "13.4".to_owned(),
     };
 
-    let windows = ExecutionPlatform::Windows;
+    let windows = ReExecutionPlatform::Windows;
 
     match host_platform {
         HostPlatformOverride::Linux => linux,
