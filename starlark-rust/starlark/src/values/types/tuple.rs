@@ -36,6 +36,7 @@ use crate::values::comparison::compare_slice;
 use crate::values::comparison::equals_slice;
 use crate::values::index::apply_slice;
 use crate::values::index::convert_index;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
@@ -283,6 +284,35 @@ impl<'v, T1: AllocValue<'v>, T2: AllocValue<'v>, T3: AllocValue<'v>> AllocValue<
             self.1.alloc_value(heap),
             self.2.alloc_value(heap),
         ])
+    }
+}
+
+impl<T1: StarlarkTypeRepr, T2: StarlarkTypeRepr> StarlarkTypeRepr for (T1, T2) {
+    fn starlark_type_repr() -> String {
+        format!(
+            "({}, {})",
+            T1::starlark_type_repr(),
+            T2::starlark_type_repr()
+        )
+    }
+}
+
+impl<'v, T1: StarlarkTypeRepr> StarlarkTypeRepr for (T1,) {
+    fn starlark_type_repr() -> String {
+        format!("({},)", T1::starlark_type_repr())
+    }
+}
+
+impl<T1: StarlarkTypeRepr, T2: StarlarkTypeRepr, T3: StarlarkTypeRepr> StarlarkTypeRepr
+    for (T1, T2, T3)
+{
+    fn starlark_type_repr() -> String {
+        format!(
+            "({}, {}, {})",
+            T1::starlark_type_repr(),
+            T2::starlark_type_repr(),
+            T3::starlark_type_repr()
+        )
     }
 }
 

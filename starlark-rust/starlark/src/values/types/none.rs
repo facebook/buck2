@@ -28,6 +28,7 @@ use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::values::basic::StarlarkValueBasic;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -128,6 +129,12 @@ impl<T> NoneOr<T> {
     /// Is the value a [`NoneOr::None`].
     pub fn is_none(&self) -> bool {
         matches!(self, NoneOr::None)
+    }
+}
+
+impl<'v, T: UnpackValue<'v>> StarlarkTypeRepr for NoneOr<T> {
+    fn starlark_type_repr() -> String {
+        Option::<T>::starlark_type_repr()
     }
 }
 

@@ -204,10 +204,6 @@ impl AllocFrozenValue for f64 {
 }
 
 impl<'v> UnpackValue<'v> for StarlarkFloat {
-    fn expected() -> String {
-        StarlarkFloat::get_type_value_static().as_str().to_owned()
-    }
-
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         Some(*value.downcast_ref::<StarlarkFloat>()?)
     }

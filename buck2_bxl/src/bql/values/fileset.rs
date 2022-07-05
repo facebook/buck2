@@ -17,6 +17,7 @@ use gazebo::cell::ARef;
 use starlark::eval::Evaluator;
 use starlark::starlark_simple_value;
 use starlark::starlark_type;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::UnpackValue;
@@ -44,6 +45,12 @@ impl<'a> FileSetExpr<'a> {
             FileSetExpr::Literal(_val) => Err(anyhow!(BqlFilesetError::FileSetLiteral)),
             FileSetExpr::FileSet(val) => Ok(val),
         }
+    }
+}
+
+impl<'v> StarlarkTypeRepr for FileSetExpr<'v> {
+    fn starlark_type_repr() -> String {
+        "unimplemented".to_owned()
     }
 }
 

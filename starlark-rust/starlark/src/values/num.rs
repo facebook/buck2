@@ -20,6 +20,7 @@
 use gazebo::dupe::Dupe;
 
 use crate::collections::StarlarkHashValue;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::types::float::StarlarkFloat;
 use crate::values::UnpackValue;
@@ -36,6 +37,16 @@ pub enum Num<'v> {
     Int(i32),
     BigInt(&'v StarlarkBigInt),
     Float(f64),
+}
+
+impl<'v> StarlarkTypeRepr for Num<'v> {
+    fn starlark_type_repr() -> String {
+        format!(
+            "[{}, {}]",
+            i32::starlark_type_repr(),
+            StarlarkFloat::starlark_type_repr()
+        )
+    }
 }
 
 impl<'v> UnpackValue<'v> for Num<'v> {

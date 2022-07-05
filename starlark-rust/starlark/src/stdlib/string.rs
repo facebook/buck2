@@ -31,6 +31,7 @@ use crate::values::none::NoneOr;
 use crate::values::string::fast_string;
 use crate::values::string::interpolation;
 use crate::values::tuple::Tuple;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::string::fast_string::StrIndices;
 use crate::values::types::string::iter::iterate_chars;
 use crate::values::types::string::iter::iterate_codepoints;
@@ -97,6 +98,16 @@ fn rsplitn_whitespace(s: &str, maxsplit: usize) -> Vec<String> {
 enum StringOrTuple<'v> {
     String(&'v str),
     Tuple(Vec<&'v str>),
+}
+
+impl<'v> StarlarkTypeRepr for StringOrTuple<'v> {
+    fn starlark_type_repr() -> String {
+        format!(
+            "[{}, {}]",
+            String::starlark_type_repr(),
+            Tuple::starlark_type_repr()
+        )
+    }
 }
 
 impl<'v> UnpackValue<'v> for StringOrTuple<'v> {

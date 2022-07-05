@@ -47,6 +47,7 @@ use crate::values::display::display_container;
 use crate::values::error::ValueError;
 use crate::values::index::apply_slice;
 use crate::values::index::convert_index;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -265,6 +266,15 @@ impl<'v, V: AllocValue<'v>> AllocValue<'v> for Vec<V> {
 impl<V: AllocFrozenValue> AllocFrozenValue for Vec<V> {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         heap.alloc_list(&self.into_map(|x| x.alloc_frozen_value(heap)))
+    }
+}
+
+impl<'a, 'v, V: 'a> StarlarkTypeRepr for &'a [V]
+where
+    &'a V: AllocValue<'v> + StarlarkTypeRepr,
+{
+    fn starlark_type_repr() -> String {
+        Vec::<&'a V>::starlark_type_repr()
     }
 }
 
@@ -613,6 +623,12 @@ impl<'v, V: UnpackValue<'v>> ListOf<'v, V> {
     }
 }
 
+impl<'v> StarlarkTypeRepr for &'v ListRef<'v> {
+    fn starlark_type_repr() -> String {
+        Vec::<Value<'v>>::starlark_type_repr()
+    }
+}
+
 impl<'v> UnpackValue<'v> for &'v ListRef<'v> {
     fn expected() -> String {
         "list".to_owned()
@@ -620,6 +636,12 @@ impl<'v> UnpackValue<'v> for &'v ListRef<'v> {
 
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         List::from_value(value)
+    }
+}
+
+impl<'v, V: UnpackValue<'v>> StarlarkTypeRepr for ListOf<'v, V> {
+    fn starlark_type_repr() -> String {
+        Vec::<V>::starlark_type_repr()
     }
 }
 

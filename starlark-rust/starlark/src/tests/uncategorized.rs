@@ -292,10 +292,6 @@ fn test_radd() {
     starlark_simple_value!(Select);
 
     impl<'v> UnpackValue<'v> for Select {
-        fn expected() -> String {
-            Select::get_type_value_static().as_str().to_owned()
-        }
-
         fn unpack_value(value: Value<'v>) -> Option<Self> {
             match Select::from_value(value) {
                 Some(x) => Some(x.clone()),

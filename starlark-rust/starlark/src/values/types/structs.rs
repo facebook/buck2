@@ -58,6 +58,7 @@ use crate::values::docs;
 use crate::values::docs::DocItem;
 use crate::values::error::ValueError;
 use crate::values::layout::typed::string::StringValueLike;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocValue;
 use crate::values::Freeze;
 use crate::values::FrozenValue;
@@ -250,6 +251,12 @@ impl<'v, V: ValueLike<'v>> Serialize for StructGen<'v, V> {
 pub struct StructOf<'v, V: UnpackValue<'v>> {
     value: ValueOf<'v, &'v Struct<'v>>,
     _marker: PhantomData<V>,
+}
+
+impl<'v, V: UnpackValue<'v>> StarlarkTypeRepr for StructOf<'v, V> {
+    fn starlark_type_repr() -> String {
+        Struct::TYPE.to_owned()
+    }
 }
 
 impl<'v, V: UnpackValue<'v>> UnpackValue<'v> for StructOf<'v, V> {

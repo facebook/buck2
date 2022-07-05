@@ -16,6 +16,7 @@ use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
 use starlark::starlark_type;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Heap;
@@ -47,13 +48,15 @@ impl<Node: QueryTarget> Freeze for StarlarkTargetSet<Node> {
     }
 }
 
-impl<'v, Node: NodeLike> UnpackValue<'v> for &'v StarlarkTargetSet<Node> {
-    fn expected() -> String {
+impl<'v, Node: NodeLike> StarlarkTypeRepr for &'v StarlarkTargetSet<Node> {
+    fn starlark_type_repr() -> String {
         StarlarkTargetSet::<Node>::get_type_value_static()
             .as_str()
             .to_owned()
     }
+}
 
+impl<'v, Node: NodeLike> UnpackValue<'v> for &'v StarlarkTargetSet<Node> {
     fn unpack_value(x: Value<'v>) -> Option<Self> {
         StarlarkTargetSet::from_value(x)
     }

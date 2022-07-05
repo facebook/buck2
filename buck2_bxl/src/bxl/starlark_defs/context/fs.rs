@@ -22,6 +22,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_type;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -64,11 +65,13 @@ impl<'v> AllocValue<'v> for BxlFilesystem<'v> {
     }
 }
 
-impl<'v> UnpackValue<'v> for &'v BxlFilesystem<'v> {
-    fn expected() -> String {
-        BxlFilesystem::get_type_value_static().as_str().to_owned()
+impl<'v> StarlarkTypeRepr for &'v BxlFilesystem<'v> {
+    fn starlark_type_repr() -> String {
+        BxlFilesystem::get_type_starlark_repr()
     }
+}
 
+impl<'v> UnpackValue<'v> for &'v BxlFilesystem<'v> {
     fn unpack_value(x: Value<'v>) -> Option<&'v BxlFilesystem<'v>> {
         x.downcast_ref()
     }

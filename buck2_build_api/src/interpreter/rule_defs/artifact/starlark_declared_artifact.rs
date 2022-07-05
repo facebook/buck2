@@ -25,6 +25,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_type;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
@@ -172,13 +173,13 @@ impl<'v> StarlarkValue<'v> for StarlarkDeclaredArtifact {
     }
 }
 
-impl<'v> UnpackValue<'v> for &'v StarlarkDeclaredArtifact {
-    fn expected() -> String {
-        StarlarkDeclaredArtifact::get_type_value_static()
-            .as_str()
-            .to_owned()
+impl<'v> StarlarkTypeRepr for &'v StarlarkDeclaredArtifact {
+    fn starlark_type_repr() -> String {
+        StarlarkDeclaredArtifact::get_type_starlark_repr()
     }
+}
 
+impl<'v> UnpackValue<'v> for &'v StarlarkDeclaredArtifact {
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         value.downcast_ref::<StarlarkDeclaredArtifact>()
     }

@@ -31,6 +31,7 @@ use starlark::values::none::NoneType;
 use starlark::values::record::Record;
 use starlark::values::structs::Struct;
 use starlark::values::tuple::Tuple;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -82,11 +83,13 @@ impl<'v> OutputStream<'v> {
     }
 }
 
-impl<'v> UnpackValue<'v> for &'v OutputStream<'v> {
-    fn expected() -> String {
-        OutputStream::get_type_value_static().as_str().to_owned()
+impl<'v> StarlarkTypeRepr for &'v OutputStream<'v> {
+    fn starlark_type_repr() -> String {
+        OutputStream::get_type_starlark_repr()
     }
+}
 
+impl<'v> UnpackValue<'v> for &'v OutputStream<'v> {
     fn unpack_value(x: Value<'v>) -> Option<&'v OutputStream> {
         x.downcast_ref()
     }

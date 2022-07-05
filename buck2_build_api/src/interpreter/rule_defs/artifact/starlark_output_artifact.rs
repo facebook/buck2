@@ -55,12 +55,6 @@ impl Display for StarlarkOutputArtifact {
 }
 
 impl<'v> UnpackValue<'v> for StarlarkOutputArtifact {
-    fn expected() -> String {
-        StarlarkOutputArtifact::get_type_value_static()
-            .as_str()
-            .to_owned()
-    }
-
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         #[allow(clippy::manual_map)]
         if let Some(x) = value.downcast_ref::<StarlarkOutputArtifact>() {

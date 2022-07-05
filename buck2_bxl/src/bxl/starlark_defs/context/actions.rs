@@ -14,6 +14,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_type;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -64,11 +65,13 @@ impl<'v> AllocValue<'v> for BxlActionsCtx<'v> {
     }
 }
 
-impl<'v> UnpackValue<'v> for &'v BxlActionsCtx<'v> {
-    fn expected() -> String {
+impl<'v> StarlarkTypeRepr for &'v BxlActionsCtx<'v> {
+    fn starlark_type_repr() -> String {
         BxlActionsCtx::get_type_value_static().as_str().to_owned()
     }
+}
 
+impl<'v> UnpackValue<'v> for &'v BxlActionsCtx<'v> {
     fn unpack_value(x: Value<'v>) -> Option<&'v BxlActionsCtx<'v>> {
         x.downcast_ref()
     }

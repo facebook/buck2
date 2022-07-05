@@ -25,6 +25,7 @@ use starlark::starlark_module;
 use starlark::starlark_type;
 use starlark::values::dict::Dict;
 use starlark::values::none::NoneOr;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -77,13 +78,13 @@ impl<'v> AllocValue<'v> for StarlarkCQueryCtx<'v> {
     }
 }
 
-impl<'v> UnpackValue<'v> for &'v StarlarkCQueryCtx<'v> {
-    fn expected() -> String {
-        StarlarkCQueryCtx::get_type_value_static()
-            .as_str()
-            .to_owned()
+impl<'v> StarlarkTypeRepr for &'v StarlarkCQueryCtx<'v> {
+    fn starlark_type_repr() -> String {
+        StarlarkCQueryCtx::get_type_starlark_repr()
     }
+}
 
+impl<'v> UnpackValue<'v> for &'v StarlarkCQueryCtx<'v> {
     fn unpack_value(x: Value<'v>) -> Option<&'v StarlarkCQueryCtx<'v>> {
         x.downcast_ref()
     }

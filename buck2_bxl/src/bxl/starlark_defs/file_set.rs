@@ -13,9 +13,11 @@ use std::ops::Deref;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use derive_more::Display;
+use either::Either;
 use gazebo::any::ProvidesStaticType;
 use starlark::starlark_simple_value;
 use starlark::starlark_type;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::UnpackValue;
@@ -56,6 +58,12 @@ impl<'a> FileSetExpr<'a> {
         value
             .downcast_ref::<StarlarkFileSet>()
             .map(|s| FileSetExpr::FileSet(s))
+    }
+}
+
+impl<'v> StarlarkTypeRepr for FileSetExpr<'v> {
+    fn starlark_type_repr() -> String {
+        Either::<String, StarlarkFileSet>::starlark_type_repr()
     }
 }
 

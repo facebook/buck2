@@ -189,10 +189,6 @@ mod tests {
         }
 
         impl<'v> UnpackValue<'v> for Bool2 {
-            fn expected() -> String {
-                Bool2::get_type_value_static().as_str().to_owned()
-            }
-
             fn unpack_value(value: Value<'v>) -> Option<Self> {
                 Some(*value.downcast_ref::<Bool2>().unwrap())
             }

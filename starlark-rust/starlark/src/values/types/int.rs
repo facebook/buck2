@@ -45,6 +45,7 @@ use crate::values::basic::StarlarkValueBasic;
 use crate::values::error::ValueError;
 use crate::values::float::StarlarkFloat;
 use crate::values::num::Num;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
@@ -69,11 +70,13 @@ impl AllocFrozenValue for i32 {
     }
 }
 
-impl UnpackValue<'_> for i32 {
-    fn expected() -> String {
-        "int".to_owned()
+impl StarlarkTypeRepr for i32 {
+    fn starlark_type_repr() -> String {
+        PointerI32::starlark_type_repr()
     }
+}
 
+impl UnpackValue<'_> for i32 {
     fn unpack_value(value: Value) -> Option<Self> {
         value.unpack_int()
     }

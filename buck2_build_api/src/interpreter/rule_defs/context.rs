@@ -38,6 +38,7 @@ use starlark::values::function::FUNCTION_TYPE;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::structs::Struct;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -109,11 +110,13 @@ pub struct AnalysisActions<'v> {
     pub attributes: Value<'v>,
 }
 
-impl<'v> UnpackValue<'v> for &'v AnalysisActions<'v> {
-    fn expected() -> String {
-        AnalysisActions::get_type_value_static().as_str().to_owned()
+impl<'v> StarlarkTypeRepr for &'v AnalysisActions<'v> {
+    fn starlark_type_repr() -> String {
+        AnalysisActions::get_type_starlark_repr()
     }
+}
 
+impl<'v> UnpackValue<'v> for &'v AnalysisActions<'v> {
     fn unpack_value(x: Value<'v>) -> Option<&'v AnalysisActions<'v>> {
         x.downcast_ref()
     }
@@ -144,11 +147,13 @@ impl<'v> AllocValue<'v> for AnalysisActions<'v> {
 
 struct RefAnalysisAction<'v>(&'v AnalysisActions<'v>);
 
-impl<'v> UnpackValue<'v> for RefAnalysisAction<'v> {
-    fn expected() -> String {
-        AnalysisActions::get_type_value_static().as_str().to_owned()
+impl<'v> StarlarkTypeRepr for RefAnalysisAction<'v> {
+    fn starlark_type_repr() -> String {
+        AnalysisActions::starlark_type_repr()
     }
+}
 
+impl<'v> UnpackValue<'v> for RefAnalysisAction<'v> {
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         Some(RefAnalysisAction(
             value.downcast_ref::<AnalysisActions>().unwrap(),
@@ -264,11 +269,13 @@ impl<'v> AllocValue<'v> for AnalysisContext<'v> {
 
 struct RefAnalysisContext<'v>(&'v AnalysisContext<'v>);
 
-impl<'v> UnpackValue<'v> for RefAnalysisContext<'v> {
-    fn expected() -> String {
-        AnalysisContext::get_type_value_static().as_str().to_owned()
+impl<'v> StarlarkTypeRepr for RefAnalysisContext<'v> {
+    fn starlark_type_repr() -> String {
+        AnalysisContext::starlark_type_repr()
     }
+}
 
+impl<'v> UnpackValue<'v> for RefAnalysisContext<'v> {
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         Some(RefAnalysisContext(
             value.downcast_ref::<AnalysisContext>().unwrap(),

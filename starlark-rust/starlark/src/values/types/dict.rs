@@ -47,6 +47,7 @@ use crate::values::display::display_keyed_container;
 use crate::values::error::ValueError;
 use crate::values::iter::ARefIterator;
 use crate::values::string::hash_string_value;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
@@ -84,6 +85,12 @@ impl<'v> Display for Dict<'v> {
 pub struct Dict<'v> {
     /// The data stored by the dictionary. The keys must all be hashable values.
     content: SmallMap<Value<'v>, Value<'v>>,
+}
+
+impl<'v> StarlarkTypeRepr for Dict<'v> {
+    fn starlark_type_repr() -> String {
+        DictOf::<Value<'v>, Value<'v>>::starlark_type_repr()
+    }
 }
 
 /// Define the list type. See [`Dict`] and [`FrozenDict`] as the two possible representations.
@@ -190,6 +197,12 @@ impl<'v> Dict<'v> {
     pub(crate) unsafe fn from_value_unchecked_mut(x: Value<'v>) -> RefMut<'v, Self> {
         let dict = &x.downcast_ref_unchecked::<DictGen<RefCell<Dict<'v>>>>().0;
         dict.borrow_mut()
+    }
+}
+
+impl<'v> StarlarkTypeRepr for DictRef<'v> {
+    fn starlark_type_repr() -> String {
+        Dict::<'v>::starlark_type_repr()
     }
 }
 
@@ -542,6 +555,12 @@ impl<'v, T: DictLike<'v>> Serialize for DictGen<T> {
     }
 }
 
+impl<'v, K: UnpackValue<'v> + Hash + Eq, V: UnpackValue<'v>> StarlarkTypeRepr for SmallMap<K, V> {
+    fn starlark_type_repr() -> String {
+        DictOf::<K, V>::starlark_type_repr()
+    }
+}
+
 impl<'v, K: UnpackValue<'v> + Hash + Eq, V: UnpackValue<'v>> UnpackValue<'v> for SmallMap<K, V> {
     fn expected() -> String {
         format!("dict mapping {} to {}", K::expected(), V::expected())
@@ -594,6 +613,16 @@ impl<'v, K: UnpackValue<'v> + Hash + Eq, V: UnpackValue<'v>> DictOf<'v, K, V> {
                 )
             })
             .collect()
+    }
+}
+
+impl<'v, K: UnpackValue<'v>, V: UnpackValue<'v>> StarlarkTypeRepr for DictOf<'v, K, V> {
+    fn starlark_type_repr() -> String {
+        format!(
+            "{{{}: {}}}",
+            K::starlark_type_repr(),
+            V::starlark_type_repr()
+        )
     }
 }
 

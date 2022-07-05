@@ -61,11 +61,13 @@ macro_rules! starlark_complex_value {
                 }
             }
 
-            impl<'v> $crate::values::UnpackValue<'v> for &'v $x<'v> {
-                fn expected() -> String {
-                    <$x as $crate::values::StarlarkValue>::get_type_value_static().as_str().to_owned()
+            impl<'v> $crate::values::type_repr::StarlarkTypeRepr for &'v $x<'v> {
+                fn starlark_type_repr() -> String {
+                    <$x as $crate::values::StarlarkValue>::get_type_starlark_repr()
                 }
+            }
 
+            impl<'v> $crate::values::UnpackValue<'v> for &'v $x<'v> {
                 fn unpack_value(x: $crate::values::Value<'v>) -> Option<&'v $x<'v>> {
                     $x::from_value(x)
                 }
@@ -190,6 +192,12 @@ macro_rules! starlark_simple_value {
                 /// Downcast a value to self type.
                 pub fn from_value<'v>(x: $crate::values::Value<'v>) -> Option<&'v Self> {
                     $crate::values::ValueLike::downcast_ref::< $x >(x)
+                }
+            }
+
+            impl<'v> $crate::values::type_repr::StarlarkTypeRepr for &'v $x {
+                fn starlark_type_repr() -> String {
+                    <$x as $crate::values::StarlarkValue>::get_type_starlark_repr()
                 }
             }
 

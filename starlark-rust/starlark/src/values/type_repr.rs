@@ -15,6 +15,11 @@
  * limitations under the License.
  */
 
+//! Trait and default implementations of a trait that will show starlark type annotations for a
+//! given type.
+
+use either::Either;
+
 use crate::values::none::NoneType;
 use crate::values::StarlarkValue;
 
@@ -56,6 +61,21 @@ impl<T: StarlarkTypeRepr> StarlarkTypeRepr for Option<T> {
             "[{}, {}]",
             NoneType::starlark_type_repr(),
             T::starlark_type_repr()
+        )
+    }
+}
+
+impl<T: StarlarkTypeRepr> StarlarkTypeRepr for Vec<T> {
+    fn starlark_type_repr() -> String {
+        format!("[{}]", T::starlark_type_repr())
+    }
+}
+impl<TLeft: StarlarkTypeRepr, TRight: StarlarkTypeRepr> StarlarkTypeRepr for Either<TLeft, TRight> {
+    fn starlark_type_repr() -> String {
+        format!(
+            "[{}, {}]",
+            TLeft::starlark_type_repr(),
+            TRight::starlark_type_repr()
         )
     }
 }

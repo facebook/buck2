@@ -24,13 +24,16 @@ use gazebo::prelude::*;
 
 use crate::values::list::List;
 use crate::values::tuple::Tuple;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::Value;
 use crate::values::ValueError;
 
 /// How to convert a [`Value`] to a Rust type. Required for all arguments in a [`#[starlark_module]`](macro@starlark_module) definition.
-pub trait UnpackValue<'v>: Sized {
+pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
     /// Description of values acceptable by `unpack_value`, e. g. `list or str`.
-    fn expected() -> String;
+    fn expected() -> String {
+        Self::starlark_type_repr()
+    }
 
     /// Given a [`Value`], try and unpack it into the given type, which may involve some element of conversion.
     fn unpack_value(value: Value<'v>) -> Option<Self>;
@@ -100,6 +103,12 @@ impl<'v, T: UnpackValue<'v>> Deref for ValueOf<'v, T> {
 
     fn deref(&self) -> &Self::Target {
         &self.value
+    }
+}
+
+impl<'v, T: UnpackValue<'v>> StarlarkTypeRepr for ValueOf<'v, T> {
+    fn starlark_type_repr() -> String {
+        T::starlark_type_repr()
     }
 }
 

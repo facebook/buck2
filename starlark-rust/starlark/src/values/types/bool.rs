@@ -32,6 +32,7 @@ use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::values::basic::StarlarkValueBasic;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -72,11 +73,13 @@ impl AllocFrozenValue for bool {
     }
 }
 
-impl UnpackValue<'_> for bool {
-    fn expected() -> String {
-        "bool".to_owned()
+impl StarlarkTypeRepr for bool {
+    fn starlark_type_repr() -> String {
+        format!("{}.type", BOOL_TYPE)
     }
+}
 
+impl UnpackValue<'_> for bool {
     fn unpack_value(value: Value) -> Option<Self> {
         value.unpack_bool()
     }

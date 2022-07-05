@@ -36,6 +36,7 @@ use crate::values::int::PointerI32;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::string::StarlarkStr;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
@@ -265,6 +266,12 @@ impl<'v, T: StarlarkValue<'v>> Deref for ValueTyped<'v, T> {
     }
 }
 
+impl<'v, T: StarlarkValue<'v>> StarlarkTypeRepr for ValueTyped<'v, T> {
+    fn starlark_type_repr() -> String {
+        T::starlark_type_repr()
+    }
+}
+
 impl<'v, T: StarlarkValue<'v>> UnpackValue<'v> for ValueTyped<'v, T> {
     fn expected() -> String {
         T::get_type_value_static().as_str().to_owned()
@@ -278,6 +285,12 @@ impl<'v, T: StarlarkValue<'v>> UnpackValue<'v> for ValueTyped<'v, T> {
 impl<'v, T: StarlarkValue<'v>> AllocValue<'v> for ValueTyped<'v, T> {
     fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
         self.0
+    }
+}
+
+impl<'v, T: StarlarkValue<'v>> StarlarkTypeRepr for FrozenValueTyped<'v, T> {
+    fn starlark_type_repr() -> String {
+        T::starlark_type_repr()
     }
 }
 
