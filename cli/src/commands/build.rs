@@ -417,7 +417,7 @@ pub(crate) fn print_outputs(
 ///  3. A single top-level target was built, but it produced more than two default outputs
 ///
 /// Otherwise, we'll extract the single default output from the single top-level target and copy it to the output
-/// path.
+/// path. If the given path is a directory then all output files will be copied inside of it.
 async fn copy_to_out(targets: &[BuildTarget], root_path: &str, out: &Path) -> anyhow::Result<()> {
     let target = if targets.len() != 1 {
         return Err(anyhow!(
