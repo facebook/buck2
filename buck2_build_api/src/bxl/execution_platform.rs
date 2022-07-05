@@ -1,7 +1,5 @@
 //! Common utilities for bxl
 
-use std::sync::Arc;
-
 use buck2_core::configuration::Configuration;
 use buck2_node::configuration::execution::ExecutionPlatform;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
@@ -15,12 +13,12 @@ use once_cell::sync::Lazy;
 // local since IDE will mostly be invoking local tools anyways
 pub static EXECUTION_PLATFORM: Lazy<ExecutionPlatformResolution> = Lazy::new(|| {
     ExecutionPlatformResolution::new(
-        Some(Arc::new(ExecutionPlatform::legacy_execution_platform(
+        Some(ExecutionPlatform::legacy_execution_platform(
             CommandExecutorConfig::new_with_default_path_separator(CommandExecutorKind::Local(
                 LocalExecutorOptions {},
             )),
             Configuration::unspecified(),
-        ))),
+        )),
         vec![],
     )
 });

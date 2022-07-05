@@ -23,7 +23,7 @@ use starlark::collections::SmallSet;
 
 pub mod calculation;
 
-pub type ExecutionPlatforms = Arc<Vec<Arc<ExecutionPlatform>>>;
+pub type ExecutionPlatforms = Arc<Vec<ExecutionPlatform>>;
 
 #[async_trait]
 pub trait ConfigurationCalculation {
@@ -67,7 +67,7 @@ pub trait ConfigurationCalculation {
         target_node_cell: &CellName,
         exec_compatible_with: &[TargetLabel],
         exec_deps: &IndexSet<TargetLabel>,
-        toolchain_allows: Option<&SmallSet<Arc<ExecutionPlatform>>>,
+        toolchain_allows: Option<&SmallSet<ExecutionPlatform>>,
     ) -> SharedResult<ExecutionPlatformResolution>;
 
     async fn resolve_execution_platform_from_constraints_many(
@@ -75,6 +75,6 @@ pub trait ConfigurationCalculation {
         target_node_cell: &CellName,
         exec_compatible_with: &[TargetLabel],
         exec_deps: &IndexSet<TargetLabel>,
-        toolchain_allows: Option<&SmallSet<Arc<ExecutionPlatform>>>,
-    ) -> SharedResult<SmallSet<Arc<ExecutionPlatform>>>;
+        toolchain_allows: Option<&SmallSet<ExecutionPlatform>>,
+    ) -> SharedResult<SmallSet<ExecutionPlatform>>;
 }

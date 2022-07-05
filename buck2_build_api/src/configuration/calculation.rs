@@ -143,7 +143,7 @@ async fn get_execution_platforms(
 
     let mut platforms = Vec::new();
     for platform in result.platforms()? {
-        platforms.push(Arc::new(platform.to_execution_platform()?));
+        platforms.push(platform.to_execution_platform()?);
     }
     Ok(Some(Arc::new(platforms)))
 }
@@ -197,7 +197,7 @@ async fn check_execution_platform(
 
 async fn get_execution_platforms_non_empty(
     ctx: &DiceComputations,
-) -> anyhow::Result<Arc<Vec<Arc<ExecutionPlatform>>>> {
+) -> anyhow::Result<Arc<Vec<ExecutionPlatform>>> {
     match ctx.get_execution_platforms().await? {
         // The caller should've verified that some execution platforms are configured.
         None => unreachable!(
@@ -212,8 +212,8 @@ async fn resolve_execution_platform_from_constraints_many(
     target_node_cell: &CellName,
     exec_compatible_with: &[TargetLabel],
     exec_deps: &IndexSet<TargetLabel>,
-    toolchain_allows: Option<&SmallSet<Arc<ExecutionPlatform>>>,
-) -> SharedResult<SmallSet<Arc<ExecutionPlatform>>> {
+    toolchain_allows: Option<&SmallSet<ExecutionPlatform>>,
+) -> SharedResult<SmallSet<ExecutionPlatform>> {
     let mut result = SmallSet::new();
     let execution_platforms;
     let candidates = match toolchain_allows {
@@ -245,7 +245,7 @@ async fn resolve_execution_platform_from_constraints(
     target_node_cell: &CellName,
     exec_compatible_with: &[TargetLabel],
     exec_deps: &IndexSet<TargetLabel>,
-    toolchain_allows: Option<&SmallSet<Arc<ExecutionPlatform>>>,
+    toolchain_allows: Option<&SmallSet<ExecutionPlatform>>,
 ) -> SharedResult<ExecutionPlatformResolution> {
     let mut skipped = Vec::new();
     for exec_platform in get_execution_platforms_non_empty(ctx).await?.iter() {
@@ -488,7 +488,7 @@ impl ConfigurationCalculation for DiceComputations {
         target_node_cell: &CellName,
         exec_compatible_with: &[TargetLabel],
         exec_deps: &IndexSet<TargetLabel>,
-        toolchain_allows: Option<&SmallSet<Arc<ExecutionPlatform>>>,
+        toolchain_allows: Option<&SmallSet<ExecutionPlatform>>,
     ) -> SharedResult<ExecutionPlatformResolution> {
         resolve_execution_platform_from_constraints(
             self,
@@ -505,8 +505,8 @@ impl ConfigurationCalculation for DiceComputations {
         target_node_cell: &CellName,
         exec_compatible_with: &[TargetLabel],
         exec_deps: &IndexSet<TargetLabel>,
-        toolchain_allows: Option<&SmallSet<Arc<ExecutionPlatform>>>,
-    ) -> SharedResult<SmallSet<Arc<ExecutionPlatform>>> {
+        toolchain_allows: Option<&SmallSet<ExecutionPlatform>>,
+    ) -> SharedResult<SmallSet<ExecutionPlatform>> {
         resolve_execution_platform_from_constraints_many(
             self,
             target_node_cell,

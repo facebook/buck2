@@ -120,7 +120,7 @@ async fn find_execution_platform_by_configuration(
     ctx: &DiceComputations,
     exec_cfg: &Configuration,
     resolved_configuration: &ResolvedConfiguration,
-) -> SharedResult<Arc<ExecutionPlatform>> {
+) -> SharedResult<ExecutionPlatform> {
     match ctx.get_execution_platforms().await? {
         Some(candidates) if exec_cfg != &Configuration::unbound_exec() => {
             for c in candidates.iter() {
@@ -132,9 +132,7 @@ async fn find_execution_platform_by_configuration(
                 ToolchainDepError::ToolchainDepMissingPlatform(exec_cfg.dupe()),
             ))
         }
-        _ => Ok(Arc::new(
-            legacy_execution_platform(ctx, resolved_configuration).await,
-        )),
+        _ => Ok(legacy_execution_platform(ctx, resolved_configuration).await),
     }
 }
 
@@ -204,7 +202,7 @@ impl ExecutionPlatformConstraints {
     async fn toolchain_allows(
         &self,
         ctx: &DiceComputations,
-    ) -> SharedResult<Option<Arc<SmallSet<Arc<ExecutionPlatform>>>>> {
+    ) -> SharedResult<Option<Arc<SmallSet<ExecutionPlatform>>>> {
         match self.toolchain_deps.len() {
             0 => Ok(None),
             1 => {
@@ -249,7 +247,7 @@ impl ExecutionPlatformConstraints {
         &self,
         ctx: &DiceComputations,
         node: &TargetNode,
-    ) -> SharedResult<Arc<SmallSet<Arc<ExecutionPlatform>>>> {
+    ) -> SharedResult<Arc<SmallSet<ExecutionPlatform>>> {
         Ok(Arc::new(
             ctx.resolve_execution_platform_from_constraints_many(
                 node.label().pkg().cell_name(),
@@ -265,14 +263,14 @@ impl ExecutionPlatformConstraints {
 async fn execution_platforms_for_toolchain(
     ctx: &DiceComputations,
     target: ConfiguredTargetLabel,
-) -> SharedResult<Arc<SmallSet<Arc<ExecutionPlatform>>>> {
+) -> SharedResult<Arc<SmallSet<ExecutionPlatform>>> {
     #[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq)]
     #[display(fmt = "ExecutionPlatformsForToolchainKey({})", .0)]
     struct ExecutionPlatformsForToolchainKey(ConfiguredTargetLabel);
 
     #[async_trait]
     impl Key for ExecutionPlatformsForToolchainKey {
-        type Value = SharedResult<Arc<SmallSet<Arc<ExecutionPlatform>>>>;
+        type Value = SharedResult<Arc<SmallSet<ExecutionPlatform>>>;
         async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
             let node = ctx.get_target_node(self.0.unconfigured()).await?;
             if node.transition_deps().next().is_some() {
@@ -325,9 +323,7 @@ async fn resolve_execution_platform(
     // case can't be handled there because we don't pass the full configuration into it.
     if ctx.get_execution_platforms().await?.is_none() {
         return Ok(ExecutionPlatformResolution::new(
-            Some(Arc::new(
-                legacy_execution_platform(ctx, resolved_configuration).await,
-            )),
+            Some(legacy_execution_platform(ctx, resolved_configuration).await),
             Vec::new(),
         ));
     };

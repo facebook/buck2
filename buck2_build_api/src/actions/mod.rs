@@ -741,7 +741,6 @@ pub mod testing {
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
-    use std::sync::Arc;
 
     use assert_matches::assert_matches;
     use buck2_core::category::Category;
@@ -929,10 +928,10 @@ mod tests {
         let mut actions = ActionsRegistry::new(
             base.dupe(),
             ExecutionPlatformResolution::new(
-                Some(Arc::new(ExecutionPlatform::legacy_execution_platform(
+                Some(ExecutionPlatform::legacy_execution_platform(
                     CommandExecutorConfig::testing_local(),
                     Configuration::testing_new(),
-                ))),
+                )),
                 Vec::new(),
             ),
         );
@@ -1016,10 +1015,10 @@ mod tests {
         let mut actions = ActionsRegistry::new(
             base.dupe(),
             ExecutionPlatformResolution::new(
-                Some(Arc::new(ExecutionPlatform::legacy_execution_platform(
+                Some(ExecutionPlatform::legacy_execution_platform(
                     CommandExecutorConfig::testing_local(),
                     Configuration::testing_new(),
-                ))),
+                )),
                 Vec::new(),
             ),
         );

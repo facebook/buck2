@@ -25,7 +25,7 @@ use crate::execute::config::CommandExecutorConfig;
 ///
 /// It consists of that platform `Configuration` and configuration of how to do the execution
 /// (e.g. local, remote, etc.).
-#[derive(Debug, Eq, PartialEq, Hash)]
+#[derive(Debug, Eq, PartialEq, Hash, Dupe, Clone)]
 pub struct ExecutionPlatform(Arc<ExecutionPlatformData>);
 
 #[derive(Debug, Eq, PartialEq, Hash)]
@@ -130,7 +130,7 @@ enum ExecutionPlatformError {
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe)]
 pub struct ExecutionPlatformResolution {
     /// The platform if resolution found one. If all platforms are skipped, this will be `None`.
-    platform: Option<Arc<ExecutionPlatform>>,
+    platform: Option<ExecutionPlatform>,
     /// The human readable names of skipped platforms and the reason they were skipped.
     skipped_platforms: Arc<Vec<(String, ExecutionPlatformIncompatibleReason)>>,
 }
@@ -144,7 +144,7 @@ impl ExecutionPlatformResolution {
     }
 
     pub fn new(
-        platform: Option<Arc<ExecutionPlatform>>,
+        platform: Option<ExecutionPlatform>,
         skipped: Vec<(String, ExecutionPlatformIncompatibleReason)>,
     ) -> Self {
         Self {
