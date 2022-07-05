@@ -104,6 +104,7 @@ pub(crate) mod recursive_repr_or_json_guard;
 mod stack_guard;
 mod trace;
 mod traits;
+pub(crate) mod type_repr;
 pub(crate) mod types;
 pub(crate) mod typing;
 mod unpack;

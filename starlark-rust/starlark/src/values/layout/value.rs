@@ -93,6 +93,7 @@ use crate::values::string::StarlarkStr;
 use crate::values::structs::FrozenStruct;
 use crate::values::tuple::FrozenTuple;
 use crate::values::tuple::Tuple;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::unbound::MaybeUnboundValue;
 use crate::values::Freeze;
 use crate::values::Freezer;
@@ -1012,6 +1013,18 @@ impl Serialize for FrozenValue {
         S: Serializer,
     {
         self.to_value().serialize(s)
+    }
+}
+
+impl<'v> StarlarkTypeRepr for Value<'v> {
+    fn starlark_type_repr() -> String {
+        FrozenValue::starlark_type_repr()
+    }
+}
+
+impl StarlarkTypeRepr for FrozenValue {
+    fn starlark_type_repr() -> String {
+        "\"\"".to_owned()
     }
 }
 
