@@ -114,6 +114,8 @@ enum ToolchainDepError {
     NonToolchainRuleUsedAsToolchainDep(TargetLabel),
     #[error("Target `{0}` was used not as a toolchain_dep, but is a toolchain rule")]
     ToolchainRuleUsedAsNormalDep(TargetLabel),
+    #[error("Target `{0}` has a transition_dep, which is not permitted on a toolchain rule")]
+    ToolchainTransitionDep(TargetLabel),
 }
 
 async fn find_execution_platform_by_configuration(
@@ -222,6 +224,13 @@ async fn resolve_execution_platform(
     };
     for toolchain_dep in toolchain_deps {
         let toolchain_node = ctx.get_target_node(&toolchain_dep).await?;
+        if toolchain_node.transition_deps().next().is_some() {
+            // We could actually check this when defining the rule, but a bit of a corner
+            // case, and much simpler to do so here.
+            return Err(SharedError::new(ToolchainDepError::ToolchainTransitionDep(
+                toolchain_dep.dupe(),
+            )));
+        }
         let toolchain_ctx_cfg = AttrConfigurationContextImpl {
             resolved_cfg: &ctx
                 .get_resolved_configuration(
@@ -231,7 +240,7 @@ async fn resolve_execution_platform(
                 )
                 .await?,
             exec_cfg: &unbound_exe_configuration,
-            resolved_transitions,
+            resolved_transitions: &IndexMap::new(),
             platform_cfgs: &compute_platform_cfgs(ctx, &toolchain_node).await?,
         };
         for (name, attr) in toolchain_node.attrs(AttrInspectOptions::All) {
