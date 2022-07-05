@@ -174,12 +174,12 @@ impl ActionStats {
             Some(Command::RemoteCommand(buck2_data::RemoteCommand {
                 cache_hit: true, ..
             })) => {
-                self.remote_actions += 1;
+                self.cached_actions += 1;
             }
             Some(Command::RemoteCommand(buck2_data::RemoteCommand {
                 cache_hit: false, ..
             })) => {
-                self.cached_actions += 1;
+                self.remote_actions += 1;
             }
             None => {
                 // no command
