@@ -80,14 +80,14 @@ impl ExecutionPlatform {
         }
     }
 
-    pub fn executor_config(&self) -> anyhow::Result<&CommandExecutorConfig> {
+    pub fn executor_config(&self) -> &CommandExecutorConfig {
         match self {
             ExecutionPlatform::Platform {
                 executor_config, ..
-            } => Ok(executor_config),
+            } => executor_config,
             ExecutionPlatform::LegacyExecutionPlatform {
                 executor_config, ..
-            } => Ok(executor_config),
+            } => executor_config,
         }
     }
 }
@@ -173,6 +173,6 @@ impl ExecutionPlatformResolution {
     }
 
     pub fn executor_config(&self) -> anyhow::Result<&CommandExecutorConfig> {
-        self.platform()?.executor_config()
+        Ok(self.platform()?.executor_config())
     }
 }
