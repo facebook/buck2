@@ -39,19 +39,9 @@ pub enum ExecutionPlatform {
         executor_config: CommandExecutorConfig,
         cfg: Configuration,
     },
-    /// An invalid execution platform.
-    Unspecified,
-    /// There are some contexts where we need an ExecutionPlatform but cannot first perform
-    /// execution platform resolution. This is a placeholder for those places, but it will
-    /// be an error if it is ever used for actual execution.
-    Unbound,
 }
 
 impl ExecutionPlatform {
-    pub fn unspecified() -> Self {
-        Self::Unspecified
-    }
-
     pub fn platform(
         target: TargetLabel,
         cfg: Configuration,
@@ -78,10 +68,6 @@ impl ExecutionPlatform {
         match self {
             ExecutionPlatform::Platform { cfg, .. } => cfg.dupe(),
             ExecutionPlatform::LegacyExecutionPlatform { cfg, .. } => cfg.dupe(),
-            ExecutionPlatform::Unspecified => Configuration::unspecified_exec(),
-            ExecutionPlatform::Unbound => {
-                panic!("configuration of the unbound execution platform should never be accessed.")
-            }
         }
     }
 
@@ -91,8 +77,6 @@ impl ExecutionPlatform {
             ExecutionPlatform::LegacyExecutionPlatform { .. } => {
                 "<legacy_global_exec_platform>".to_owned()
             }
-            ExecutionPlatform::Unspecified => "<unspecified_exec_platform>".to_owned(),
-            ExecutionPlatform::Unbound => "<unbound_exec_platform>".to_owned(),
         }
     }
 
@@ -104,12 +88,6 @@ impl ExecutionPlatform {
             ExecutionPlatform::LegacyExecutionPlatform {
                 executor_config, ..
             } => Ok(executor_config),
-            ExecutionPlatform::Unspecified => {
-                Err(ExecutionPlatformError::UnspecifiedPlatformCantExecute.into())
-            }
-            ExecutionPlatform::Unbound => {
-                Err(ExecutionPlatformError::UnboundPlatformCantExecute.into())
-            }
         }
     }
 }
@@ -141,14 +119,6 @@ impl std::fmt::Display for ExecutionPlatformIncompatibleReason {
 enum ExecutionPlatformError {
     #[error("No compatible execution platform.\n{}", .0.iter().map(|(id, reason)| format!("  `{}` skipped because\n:   {}", id, reason)).join("\n"))]
     NoCompatiblePlatform(Arc<Vec<(String, ExecutionPlatformIncompatibleReason)>>),
-    #[error(
-        "The <unspecified> execution platform has no executor config and shouldn't be used in a context that requires one."
-    )]
-    UnspecifiedPlatformCantExecute,
-    #[error(
-        "The <unbound> execution platform is used when no execution platform can be found for an action and shouldn't be used in a context that requires actually executing."
-    )]
-    UnboundPlatformCantExecute,
 }
 
 /// Represents the result of performing execution platform resolution. It stores both the
