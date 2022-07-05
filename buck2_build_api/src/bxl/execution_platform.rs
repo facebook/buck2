@@ -15,12 +15,12 @@ use once_cell::sync::Lazy;
 // local since IDE will mostly be invoking local tools anyways
 pub static EXECUTION_PLATFORM: Lazy<ExecutionPlatformResolution> = Lazy::new(|| {
     ExecutionPlatformResolution::new(
-        Some(Arc::new(ExecutionPlatform::LegacyExecutionPlatform {
-            executor_config: CommandExecutorConfig::new_with_default_path_separator(
-                CommandExecutorKind::Local(LocalExecutorOptions {}),
-            ),
-            cfg: Configuration::unspecified(),
-        })),
+        Some(Arc::new(ExecutionPlatform::legacy_execution_platform(
+            CommandExecutorConfig::new_with_default_path_separator(CommandExecutorKind::Local(
+                LocalExecutorOptions {},
+            )),
+            Configuration::unspecified(),
+        ))),
         vec![],
     )
 });

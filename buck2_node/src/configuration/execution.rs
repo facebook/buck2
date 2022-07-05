@@ -52,6 +52,28 @@ impl ExecutionPlatform {
         Self::Unspecified
     }
 
+    pub fn platform(
+        target: TargetLabel,
+        cfg: Configuration,
+        executor_config: CommandExecutorConfig,
+    ) -> Self {
+        Self::Platform {
+            target,
+            cfg,
+            executor_config,
+        }
+    }
+
+    pub fn legacy_execution_platform(
+        executor_config: CommandExecutorConfig,
+        cfg: Configuration,
+    ) -> Self {
+        Self::LegacyExecutionPlatform {
+            executor_config,
+            cfg,
+        }
+    }
+
     pub fn cfg(&self) -> Configuration {
         match self {
             ExecutionPlatform::Platform { cfg, .. } => cfg.dupe(),

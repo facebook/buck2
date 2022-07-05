@@ -98,10 +98,10 @@ async fn legacy_execution_platform(
     ctx: &DiceComputations,
     resolved_configuration: &ResolvedConfiguration,
 ) -> ExecutionPlatform {
-    ExecutionPlatform::LegacyExecutionPlatform {
-        executor_config: ctx.get_fallback_executor_config().clone(),
-        cfg: resolved_configuration.cfg().dupe(),
-    }
+    ExecutionPlatform::legacy_execution_platform(
+        ctx.get_fallback_executor_config().clone(),
+        resolved_configuration.cfg().dupe(),
+    )
 }
 
 #[derive(Debug, Error)]

@@ -79,11 +79,11 @@ impl<'v, V: ValueLike<'v>> ExecutionPlatformInfoGen<V> {
                     )
                 })?
                 .command_executor_config()?;
-        Ok(ExecutionPlatform::Platform {
+        Ok(ExecutionPlatform::platform(
             target,
             cfg,
-            executor_config: executor_config.into_owned(),
-        })
+            executor_config.into_owned(),
+        ))
     }
 }
 

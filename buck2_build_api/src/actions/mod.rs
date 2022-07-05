@@ -929,10 +929,10 @@ mod tests {
         let mut actions = ActionsRegistry::new(
             base.dupe(),
             ExecutionPlatformResolution::new(
-                Some(Arc::new(ExecutionPlatform::LegacyExecutionPlatform {
-                    executor_config: CommandExecutorConfig::testing_local(),
-                    cfg: Configuration::testing_new(),
-                })),
+                Some(Arc::new(ExecutionPlatform::legacy_execution_platform(
+                    CommandExecutorConfig::testing_local(),
+                    Configuration::testing_new(),
+                ))),
                 Vec::new(),
             ),
         );
@@ -1016,10 +1016,10 @@ mod tests {
         let mut actions = ActionsRegistry::new(
             base.dupe(),
             ExecutionPlatformResolution::new(
-                Some(Arc::new(ExecutionPlatform::LegacyExecutionPlatform {
-                    executor_config: CommandExecutorConfig::testing_local(),
-                    cfg: Configuration::testing_new(),
-                })),
+                Some(Arc::new(ExecutionPlatform::legacy_execution_platform(
+                    CommandExecutorConfig::testing_local(),
+                    Configuration::testing_new(),
+                ))),
                 Vec::new(),
             ),
         );
