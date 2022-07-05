@@ -64,7 +64,7 @@ impl fmt::Display for Category {
 #[derive(Debug, Error)]
 pub enum CategoryParseError {
     #[error(
-        "Invalid category `{0}`. Must be a snake_cased identifier consisting of lowercase alphanumeric characters, e.g. `cxx_compile`. Each section of the snake_cased identifier must begin with a lowercase alphanumeric character."
+        "Invalid category `{0}`. Must be a snake_cased identifier consisting of lowercase alphanumeric characters, e.g. `cxx_compile`. Each section of the snake_cased identifier must begin with a lowercase letter (not a number)."
     )]
     NotSnakeCase(String),
 }
