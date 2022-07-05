@@ -805,9 +805,10 @@ def _shared_library(
         cxx_link_shared_library(
             ctx,
             output = shlib_for_interface,
+            category_suffix = "interface",
             name = soname,
             links = [LinkArgs(flags = args)],
-            identifier = soname + " (interface)",
+            identifier = soname,
         )
 
         # Convert the shared library into an interface.

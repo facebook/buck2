@@ -120,6 +120,7 @@ def cxx_link(
             ctx,
             final_output,
             identifier = identifier,
+            category_suffix = category_suffix,
             # TODO(T110378142): Ideally, referenced objects are a list of
             # artifacts, but currently we don't track them properly.  So, we
             # just pass in the full link line and extract all inputs from that,

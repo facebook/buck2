@@ -222,6 +222,7 @@ def _create_root(
         output,
         name = root.name,
         links = [LinkArgs(flags = extra_ldflags), LinkArgs(infos = inputs)],
+        category_suffix = "omnibus_root",
         identifier = root.name or output.short_path,
     )
 
@@ -482,6 +483,7 @@ def _create_omnibus(
         ctx,
         soname,
         links = [LinkArgs(flags = extra_ldflags), LinkArgs(infos = inputs)],
+        category_suffix = "omnibus",
         # TODO(T110378138): As with static C++ links, omnibus links are
         # currently too large for RE, so run them locally for now (e.g.
         # https://fb.prod.workplace.com/groups/buck2dev/posts/2953023738319012/).

@@ -34,13 +34,13 @@ if fbcode_linux_only():
     async def test_replay(buck: Buck) -> None:
         await buck.build("fbcode//buck2/tests/targets/rules/cxx/hello_world:welcome")
         replay = await buck.debug("replay")
-        assert "welcome (cxx_link)" in replay.stderr
+        assert "welcome (cxx_link_executable)" in replay.stderr
 
     @buck_test(inplace=True)
     async def test_what_ran(buck: Buck) -> None:
         await buck.build("fbcode//buck2/tests/targets/rules/cxx/hello_world:welcome")
         out = await buck.debug("what-ran")
-        assert "welcome (cxx_link)" in out.stdout
+        assert "welcome (cxx_link_executable)" in out.stdout
 
         await buck.test("fbcode//buck2/tests/targets/rules/sh_test:test")
         out = await buck.debug("what-ran")

@@ -111,6 +111,7 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
         ],
         # Python extensions don't use SONAMEs.
         soname = False,
+        category_suffix = "python_extension",
     )
     providers.append(DefaultInfo(
         default_outputs = [extension.output],

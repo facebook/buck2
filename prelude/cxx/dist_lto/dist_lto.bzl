@@ -511,6 +511,7 @@ def cxx_dist_link(
             ctx = ctx,
             obj = final_output,
             identifier = identifier,
+            category_suffix = category_suffix,
             referenced_objects = final_link_inputs,
             dwp_output = dwp_output,
         )

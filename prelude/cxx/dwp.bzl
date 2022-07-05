@@ -9,6 +9,7 @@ def run_dwp_action(
         ctx: "context",
         obj: "artifact",
         identifier: [str.type, None],
+        category_suffix: [str.type, None],
         referenced_objects: ["_arglike", ["artifact"]],
         dwp_output: "artifact"):
     args = cmd_args()
@@ -20,9 +21,13 @@ def run_dwp_action(
     # processed by dwp.
     args.hidden(referenced_objects)
 
+    category = "dwp"
+    if category_suffix != None:
+        category += "_" + category_suffix
+
     ctx.actions.run(
         args,
-        category = "dwp",
+        category = category,
         identifier = identifier,
         # dwp produces ELF files on the same size scale as the corresponding @obj.
         # The files are a concatentation of input DWARF debug info.
@@ -37,6 +42,8 @@ def dwp(
         # An identifier that will uniquely name this link action in the context of a category. Useful for
         # differentiating multiple link actions in the same rule.
         identifier: [str.type, None],
+        # A category suffix that will be added to the category of the link action that is generated.
+        category_suffix: [str.type, None],
         # All `.o`/`.dwo` paths referenced in `obj`.
         # TODO(T110378122): Ideally, referenced objects are a list of artifacts,
         # but currently we don't track them properly.  So, we just pass in the full
@@ -45,5 +52,5 @@ def dwp(
         referenced_objects: ["_arglike", ["artifact"]]) -> "artifact":
     # gdb/lldb expect to find a file named $file.dwp next to $file.
     output = ctx.actions.declare_output(obj.short_path + ".dwp")
-    run_dwp_action(ctx, obj, identifier, referenced_objects, output)
+    run_dwp_action(ctx, obj, identifier, category_suffix, referenced_objects, output)
     return output
