@@ -264,9 +264,7 @@ pub(crate) fn duration_as_secs_elapsed(elapsed: Duration, time_speed: f64) -> St
     format!("{:.1}s", elapsed.mul_f64(time_speed).as_secs_f64())
 }
 
-pub(crate) fn format_test_result(
-    test_result: &buck2_data::TestResult,
-) -> anyhow::Result<Option<Lines>> {
+pub(crate) fn format_test_result(test_result: &buck2_data::TestResult) -> anyhow::Result<Lines> {
     let buck2_data::TestResult {
         name,
         status,
@@ -282,7 +280,9 @@ pub(crate) fn format_test_result(
         TestStatus::OMITTED => Span::new_styled("\u{20E0} Omitted".to_owned().cyan()),
         TestStatus::FATAL => Span::new_styled("⚠ Fatal".to_owned().red()),
         TestStatus::TIMEOUT => Span::new_styled("✉ Timeout".to_owned().cyan()),
-        TestStatus::PASS | TestStatus::LISTING_SUCCESS | TestStatus::UNKNOWN => return Ok(None),
+        TestStatus::PASS => Span::new_styled("✓ Pass".to_owned().green()),
+        TestStatus::LISTING_SUCCESS => Span::new_styled("✓ Listing success".to_owned().green()),
+        TestStatus::UNKNOWN => Span::new_styled("? Unknown".to_owned().cyan()),
         TestStatus::RERUN => Span::new_styled("↻ Rerun".to_owned().cyan()),
         TestStatus::LISTING_FAILED => Span::new_styled("⚠ Listing failed".to_owned().red()),
     }?;
@@ -298,18 +298,18 @@ pub(crate) fn format_test_result(
             duration_as_secs_elapsed(duration, 1.0)
         ))?);
     }
+    // If a test has details, we always show them. It's the test runner's
+    // responsibility to withhold details when these are not relevant.
+    // For instance, tpx will always withhold details of passing tests
+    // unless the --print-passing-details is set.
     let mut lines = vec![base];
-
-    if matches!(
-        status,
-        TestStatus::FAIL | TestStatus::FATAL | TestStatus::LISTING_FAILED
-    ) {
-        let style = Default::default();
-        lines.append(&mut lines_from_multiline_string(stderr, style));
-        lines.append(&mut lines_from_multiline_string(stdout, style));
+    if !stderr.is_empty() {
+        lines.append(&mut lines_from_multiline_string(stderr, Default::default()));
     }
-
-    Ok(Some(lines))
+    if !stdout.is_empty() {
+        lines.append(&mut lines_from_multiline_string(stdout, Default::default()));
+    }
+    Ok(lines)
 }
 
 pub struct ActionErrorDisplay<'a> {
