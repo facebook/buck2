@@ -26,7 +26,10 @@ use crate::execute::config::CommandExecutorConfig;
 /// It consists of that platform `Configuration` and configuration of how to do the execution
 /// (e.g. local, remote, etc.).
 #[derive(Debug, Eq, PartialEq, Hash)]
-pub enum ExecutionPlatform {
+pub struct ExecutionPlatform(Arc<ExecutionPlatformData>);
+
+#[derive(Debug, Eq, PartialEq, Hash)]
+pub enum ExecutionPlatformData {
     /// A user-defined platform.
     Platform {
         target: TargetLabel,
@@ -47,45 +50,45 @@ impl ExecutionPlatform {
         cfg: Configuration,
         executor_config: CommandExecutorConfig,
     ) -> Self {
-        Self::Platform {
+        Self(Arc::new(ExecutionPlatformData::Platform {
             target,
             cfg,
             executor_config,
-        }
+        }))
     }
 
     pub fn legacy_execution_platform(
         executor_config: CommandExecutorConfig,
         cfg: Configuration,
     ) -> Self {
-        Self::LegacyExecutionPlatform {
+        Self(Arc::new(ExecutionPlatformData::LegacyExecutionPlatform {
             executor_config,
             cfg,
-        }
+        }))
     }
 
     pub fn cfg(&self) -> Configuration {
-        match self {
-            ExecutionPlatform::Platform { cfg, .. } => cfg.dupe(),
-            ExecutionPlatform::LegacyExecutionPlatform { cfg, .. } => cfg.dupe(),
+        match &*self.0 {
+            ExecutionPlatformData::Platform { cfg, .. } => cfg.dupe(),
+            ExecutionPlatformData::LegacyExecutionPlatform { cfg, .. } => cfg.dupe(),
         }
     }
 
     pub fn id(&self) -> String {
-        match self {
-            ExecutionPlatform::Platform { target, .. } => target.to_string(),
-            ExecutionPlatform::LegacyExecutionPlatform { .. } => {
+        match &*self.0 {
+            ExecutionPlatformData::Platform { target, .. } => target.to_string(),
+            ExecutionPlatformData::LegacyExecutionPlatform { .. } => {
                 "<legacy_global_exec_platform>".to_owned()
             }
         }
     }
 
     pub fn executor_config(&self) -> &CommandExecutorConfig {
-        match self {
-            ExecutionPlatform::Platform {
+        match &*self.0 {
+            ExecutionPlatformData::Platform {
                 executor_config, ..
             } => executor_config,
-            ExecutionPlatform::LegacyExecutionPlatform {
+            ExecutionPlatformData::LegacyExecutionPlatform {
                 executor_config, ..
             } => executor_config,
         }
