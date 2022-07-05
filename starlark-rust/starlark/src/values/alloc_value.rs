@@ -17,6 +17,7 @@
 
 //! This mod defines utilities to easily create Rust values as Starlark values.
 
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
@@ -30,7 +31,7 @@ use crate::values::ValueOf;
 /// For example, this trait is implemented for `char`,
 /// but there's no Starlark type for `char`, this trait
 /// is implemented for `char` to construct Starlark `str`.
-pub trait AllocValue<'v> {
+pub trait AllocValue<'v>: StarlarkTypeRepr {
     /// Allocate the value on a heap and return a reference to the allocated value.
     ///
     /// Note, for certain values (e.g. empty strings) no allocation is actually performed,

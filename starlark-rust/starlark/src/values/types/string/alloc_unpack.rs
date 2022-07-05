@@ -17,6 +17,7 @@
 
 //! Implementations of alloc and unpack traits for string.
 
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -43,9 +44,21 @@ impl<'v> AllocValue<'v> for String {
     }
 }
 
+impl StarlarkTypeRepr for char {
+    fn starlark_type_repr() -> String {
+        String::starlark_type_repr()
+    }
+}
+
 impl<'v> AllocValue<'v> for char {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
         heap.alloc_char(self).to_value()
+    }
+}
+
+impl StarlarkTypeRepr for &'_ String {
+    fn starlark_type_repr() -> String {
+        String::starlark_type_repr()
     }
 }
 

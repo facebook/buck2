@@ -32,6 +32,7 @@ use serde::Serialize;
 use crate::collections::StarlarkHasher;
 use crate::values::float::StarlarkFloat;
 use crate::values::num::Num;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -399,6 +400,12 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     }
 }
 
+impl StarlarkTypeRepr for u64 {
+    fn starlark_type_repr() -> String {
+        i32::starlark_type_repr()
+    }
+}
+
 impl<'v> AllocValue<'v> for u64 {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
         match i32::try_from(self) {
@@ -414,6 +421,12 @@ impl AllocFrozenValue for u64 {
             Ok(x) => FrozenValue::new_int(x),
             Err(_) => StarlarkBigInt::alloc_bigint_frozen(self.into(), heap),
         }
+    }
+}
+
+impl StarlarkTypeRepr for i64 {
+    fn starlark_type_repr() -> String {
+        i32::starlark_type_repr()
     }
 }
 

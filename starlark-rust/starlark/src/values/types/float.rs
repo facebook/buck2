@@ -30,6 +30,7 @@ use serde::Serialize;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::values::num::Num;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -188,6 +189,12 @@ impl StarlarkFloat {
                 Ok(if b.signum() != r.signum() { r + b } else { r })
             }
         }
+    }
+}
+
+impl StarlarkTypeRepr for f64 {
+    fn starlark_type_repr() -> String {
+        StarlarkFloat::starlark_type_repr()
     }
 }
 
