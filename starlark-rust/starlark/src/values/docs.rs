@@ -683,7 +683,7 @@ mod tests {
         let docs = globals.documentation();
 
         let string_typ = Some(Type {
-            raw_type: "String".to_owned(),
+            raw_type: "str.type".to_owned(),
         });
         let expected_object = super::Object {
             docs: DocString::from_docstring(
@@ -733,7 +733,7 @@ mod tests {
                                 name: "a1".to_owned(),
                                 docs: None,
                                 typ: Some(Type {
-                                    raw_type: "i32".to_owned(),
+                                    raw_type: "int.type".to_owned(),
                                 }),
                                 default_value: None,
                             },
@@ -741,7 +741,7 @@ mod tests {
                                 name: "a2".to_owned(),
                                 docs: None,
                                 typ: Some(Type {
-                                    raw_type: "Option < i32 >".to_owned(),
+                                    raw_type: "[None, int.type]".to_owned(),
                                 }),
                                 default_value: Some("None".to_owned()),
                             },
@@ -749,7 +749,7 @@ mod tests {
                                 name: "step".to_owned(),
                                 docs: None,
                                 typ: Some(Type {
-                                    raw_type: "i32".to_owned(),
+                                    raw_type: "int.type".to_owned(),
                                 }),
                                 // TODO: This should actually show '1'...
                                 default_value: Some("None".to_owned()),
@@ -772,7 +772,7 @@ mod tests {
     fn methods_docs_work() {
         let docs = SomeValue {}.documentation();
         let string_typ = Some(Type {
-            raw_type: "String".to_owned(),
+            raw_type: "str.type".to_owned(),
         });
         let expected_object = super::Object {
             docs: DocString::from_docstring(

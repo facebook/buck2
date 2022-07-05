@@ -23,6 +23,7 @@ use quote::quote_spanned;
 use syn::Attribute;
 use syn::Type;
 
+use crate::module::render::render_starlark_type;
 use crate::module::typ::SpecialParam;
 use crate::module::typ::StarArg;
 use crate::module::typ::StarArgPassStyle;
@@ -421,22 +422,26 @@ fn render_documentation(x: &StarFun) -> syn::Result<TokenStream> {
         None => quote_spanned!(span=> None),
     };
     let return_type_arg = &x.return_type_arg;
-    let parameter_types: Vec<_> = x.args
-            .iter()
-            .filter(|a| a.pass_style != StarArgPassStyle::This) // "this" gets ignored when creating the signature, so make sure the indexes match up.
-            .enumerate()
-            .map(|(i, arg)| {
-                let typ = &arg.ty;
-                quote_spanned!(span=> (#i, starlark::values::docs::Type { raw_type: stringify!(#typ).to_owned() }) )
-            }).collect();
+    let parameter_types: Vec<_> = x
+        .args
+        .iter()
+        .filter(|a| a.pass_style != StarArgPassStyle::This) // "this" gets ignored when creating the signature, so make sure the indexes match up.
+        .enumerate()
+        .map(|(i, arg)| {
+            let typ = &arg.ty;
+            let typ_str = render_starlark_type(span, typ);
+            quote_spanned!(span=> (#i, starlark::values::docs::Type { raw_type: #typ_str }) )
+        })
+        .collect();
 
+    let return_type_str = render_starlark_type(span, return_type_arg);
     Ok(quote_spanned!(span=>
         let __documentation_renderer = {
             let signature = #documentation_signature;
             let parameter_types = std::collections::HashMap::from([#(#parameter_types),*]);
             let return_type = Some(
                 starlark::values::docs::Type {
-                    raw_type: stringify!(#return_type_arg).to_owned()
+                    raw_type: #return_type_str
                 }
             );
             starlark::values::function::NativeCallableRawDocs {

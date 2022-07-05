@@ -17,6 +17,8 @@
 
 mod fun;
 
+use std::collections::HashSet;
+
 use gazebo::prelude::*;
 use proc_macro2::TokenStream;
 use quote::format_ident;
@@ -102,6 +104,8 @@ fn render_attr(x: StarAttr) -> TokenStream {
         None
     };
 
+    let return_type_str = render_starlark_type(span, &return_type_arg);
+
     quote_spanned! {
         span=>
         #( #attrs )*
@@ -130,6 +134,87 @@ fn render_attr(x: StarAttr) -> TokenStream {
             }
             Ok(heap.alloc(inner(this, heap)?))
         }
-        globals_builder.set_attribute_fn(#name_str, #speculative_exec_safe, #docstring, stringify!(#return_type_arg).to_owned(), #name);
+
+        globals_builder.set_attribute_fn(#name_str, #speculative_exec_safe, #docstring, #return_type_str, #name);
+    }
+}
+
+/// Get the lifetimes that are mentioned in a given type and its nested generics.
+fn get_lifetimes_inner<'a>(
+    ret: &mut HashSet<&'a syn::Lifetime>,
+    span: proc_macro2::Span,
+    typ: &'a syn::Type,
+) {
+    match typ {
+        syn::Type::Path(path) => {
+            if let Some(segment) = path.path.segments.last() {
+                match &segment.arguments {
+                    syn::PathArguments::None => {}
+                    syn::PathArguments::AngleBracketed(args) => {
+                        for arg in &args.args {
+                            match arg {
+                                syn::GenericArgument::Lifetime(l) => {
+                                    ret.insert(l);
+                                }
+                                syn::GenericArgument::Type(t) => get_lifetimes_inner(ret, span, t),
+                                _ => {}
+                            };
+                        }
+                    }
+                    syn::PathArguments::Parenthesized(args) => {
+                        for t in &args.inputs {
+                            get_lifetimes_inner(ret, span, t);
+                        }
+                        match &args.output {
+                            syn::ReturnType::Default => {}
+                            syn::ReturnType::Type(_, t) => get_lifetimes_inner(ret, span, t),
+                        };
+                    }
+                };
+            }
+        }
+        syn::Type::Group(g) => get_lifetimes_inner(ret, span, &g.elem),
+        syn::Type::Paren(p) => get_lifetimes_inner(ret, span, &p.elem),
+        syn::Type::Ptr(p) => get_lifetimes_inner(ret, span, &p.elem),
+        syn::Type::Reference(r) => {
+            if let Some(l) = &r.lifetime {
+                ret.insert(l);
+            };
+            get_lifetimes_inner(ret, span, &r.elem);
+        }
+        syn::Type::Tuple(t) => {
+            for t in &t.elems {
+                get_lifetimes_inner(ret, span, t);
+            }
+        }
+        _ => {}
+    };
+}
+
+/// Get the lifetime specifications to use with a function based on the lifetimes mentioned in `typ`.
+///
+/// e.g. `i32` would return ``, `Vec<(&'a str, &'b str)>` would return `<'a, 'b>`
+fn get_lifetimes(span: proc_macro2::Span, typ: &syn::Type) -> TokenStream {
+    let mut ret = HashSet::new();
+    get_lifetimes_inner(&mut ret, span, typ);
+    if ret.is_empty() {
+        TokenStream::new()
+    } else {
+        let mut ret: Vec<_> = ret.into_iter().filter(|l| l.ident != "_").collect();
+        ret.sort_by(|l, r| l.ident.cmp(&r.ident));
+        quote_spanned!(span=> <#(#ret),*>)
+    }
+}
+
+pub(crate) fn render_starlark_type(span: proc_macro2::Span, typ: &syn::Type) -> TokenStream {
+    let lifetimes = get_lifetimes(span, typ);
+    quote_spanned! {span=>
+        {
+            #[allow(clippy::extra_unused_lifetimes)]
+            fn get_type_string #lifetimes() -> String {
+                <#typ as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
+            }
+            get_type_string()
+        }
     }
 }
