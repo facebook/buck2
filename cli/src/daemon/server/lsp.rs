@@ -113,7 +113,7 @@ impl BuckLspContext {
                 let url = Url::from_file_path(path).unwrap();
                 let string_literal = StringLiteralResult {
                     url,
-                    location_finder: box |_ast, _url| Ok(None),
+                    location_finder: None,
                 };
                 Ok(Some(string_literal))
             }
@@ -147,7 +147,9 @@ impl BuckLspContext {
                         let url = Url::from_file_path(path).unwrap();
                         let string_literal = StringLiteralResult {
                             url,
-                            location_finder: box |ast, _url| Ok(Self::find_target(ast, target)),
+                            location_finder: Some(box |ast, _url| {
+                                Ok(Self::find_target(ast, target))
+                            }),
                         };
                         Ok(Some(string_literal))
                     })?;

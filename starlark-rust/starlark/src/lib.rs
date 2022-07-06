@@ -370,6 +370,8 @@
 #![feature(try_blocks)]
 #![feature(iter_intersperse)]
 #![feature(array_from_fn)]
+#![feature(io_error_more)]
+#![feature(result_option_inspect)]
 //
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]

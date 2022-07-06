@@ -237,7 +237,7 @@ impl LspContext for Context {
         self.resolve_load(literal, current_file).map(|url| {
             Some(StringLiteralResult {
                 url,
-                location_finder: box |_ast, _url| Ok(None),
+                location_finder: None,
             })
         })
     }

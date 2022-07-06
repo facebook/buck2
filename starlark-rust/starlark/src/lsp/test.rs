@@ -17,6 +17,7 @@
 
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::path::Path;
 use std::path::PathBuf;
@@ -96,6 +97,7 @@ pub(crate) enum TestServerError {
 
 struct TestServerContext {
     file_contents: Arc<RwLock<HashMap<PathBuf, String>>>,
+    dirs: Arc<RwLock<HashSet<PathBuf>>>,
 }
 
 impl LspContext for TestServerContext {
@@ -153,18 +155,27 @@ impl LspContext for TestServerContext {
             None => (literal.to_owned(), None),
         };
         self.resolve_load(&literal, current_file).map(|url| {
-            Some(StringLiteralResult {
-                url,
-                location_finder: box move |_ast, _url| Ok(range),
-            })
+            if url.path().ends_with(".star") {
+                Some(StringLiteralResult {
+                    url,
+                    location_finder: Some(box move |_ast, _url| Ok(range)),
+                })
+            } else {
+                Some(StringLiteralResult {
+                    url,
+                    location_finder: None,
+                })
+            }
         })
     }
 
     fn get_load_contents(&self, uri: &Url) -> anyhow::Result<Option<String>> {
         let path = get_path_from_uri(uri.path());
-        match path.is_absolute() {
-            true => Ok(self.file_contents.read().unwrap().get(&path).cloned()),
-            false => Err(LoadContentsError::NotAbsolute(uri.clone()).into()),
+        let is_dir = self.dirs.read().unwrap().contains(&path);
+        match (path.is_absolute(), is_dir) {
+            (true, false) => Ok(self.file_contents.read().unwrap().get(&path).cloned()),
+            (true, true) => Err(std::io::Error::from(std::io::ErrorKind::IsADirectory).into()),
+            (false, _) => Err(LoadContentsError::NotAbsolute(uri.clone()).into()),
         }
     }
 }
@@ -188,6 +199,7 @@ pub struct TestServer {
     /// How long to wait for messages to be received.
     recv_timeout: Duration,
     file_contents: Arc<RwLock<HashMap<PathBuf, String>>>,
+    dirs: Arc<RwLock<HashSet<PathBuf>>>,
 }
 
 impl Drop for TestServer {
@@ -246,8 +258,10 @@ impl TestServer {
         let (server_connection, client_connection) = Connection::memory();
 
         let file_contents = Arc::new(RwLock::new(HashMap::new()));
+        let dirs = Arc::new(RwLock::new(HashSet::new()));
         let ctx = TestServerContext {
             file_contents: file_contents.dupe(),
+            dirs: dirs.dupe(),
         };
 
         let server_thread = std::thread::spawn(|| {
@@ -265,6 +279,7 @@ impl TestServer {
             notifications: Default::default(),
             recv_timeout: Duration::from_secs(2),
             file_contents,
+            dirs,
         };
         ret.initialize()
     }
@@ -456,5 +471,11 @@ impl TestServer {
             self.file_contents.write().unwrap().insert(path, contents);
             Ok(())
         }
+    }
+
+    /// Configure a path to be "a directory". This will return IsADirectory as an
+    /// error from get_load_contents
+    pub fn mkdir(&self, uri: Url) {
+        self.dirs.write().unwrap().insert(PathBuf::from(uri.path()));
     }
 }

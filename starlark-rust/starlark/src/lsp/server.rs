@@ -72,8 +72,10 @@ pub struct StringLiteralResult {
     pub url: Url,
     /// A function that takes the AstModule at path specified by `url` and that same url, and
     /// allows resolving a location to jump to within the specific URL if desired.
+    ///
+    /// If `None`, then just jump to the URL. Do not attempt to load the file.
     #[derivative(Debug = "ignore")]
-    pub location_finder: Box<dyn FnOnce(&AstModule, &Url) -> anyhow::Result<Option<Range>>>,
+    pub location_finder: Option<Box<dyn FnOnce(&AstModule, &Url) -> anyhow::Result<Option<Range>>>>,
 }
 
 /// The result of evaluating a starlark program for use in the LSP.
@@ -288,16 +290,38 @@ impl<T: LspContext> Backend<T> {
                         .context
                         .resolve_string_literal(&literal, Path::new(uri.path()))?;
                     match literal {
-                        Some(result) => {
-                            let target_range = match self.get_ast_or_load_from_disk(&result.url)? {
-                                Some(module) => (result.location_finder)(&module.ast, &result.url)?,
-                                None => None,
-                            }
-                            .unwrap_or_default();
-
+                        Some(StringLiteralResult {
+                            url,
+                            location_finder: Some(location_finder),
+                        }) => {
+                            // If there's an error loading the file to parse it, at least
+                            // try to get to the file.
+                            let target_range = self
+                                .get_ast_or_load_from_disk(&url)
+                                .and_then(|ast| match ast {
+                                    Some(module) => location_finder(&module.ast, &url),
+                                    None => Ok(None),
+                                })
+                                .inspect_err(|e| {
+                                    eprintln!("Error jumping to definition: {:#}", e);
+                                })
+                                .unwrap_or_default()
+                                .unwrap_or_default();
                             Some(LocationLink {
                                 origin_selection_range: Some(source.into()),
-                                target_uri: result.url,
+                                target_uri: url,
+                                target_range,
+                                target_selection_range: target_range,
+                            })
+                        }
+                        Some(StringLiteralResult {
+                            url,
+                            location_finder: None,
+                        }) => {
+                            let target_range = Range::default();
+                            Some(LocationLink {
+                                origin_selection_range: Some(source.into()),
+                                target_uri: url,
                                 target_range,
                                 target_selection_range: target_range,
                             })
@@ -1153,6 +1177,119 @@ mod test {
         test("baz15", true)?;
         test("baz16", true)?;
 
+        Ok(())
+    }
+
+    #[test]
+    fn handles_paths_that_are_not_starlark() -> anyhow::Result<()> {
+        let foo_uri = temp_file_uri("foo.star");
+        let bar_uri = temp_file_uri("bar.star");
+        let baz_uri = temp_file_uri("baz");
+        let dir1_uri = temp_file_uri("dir1");
+        let dir2_uri = temp_file_uri("dir2.star");
+
+        let foo_contents = dedent(
+            r#"
+            <bar>"b<bar_click>a</bar_click>r.star"</bar>
+            <baz>"b<baz_click>a</baz_click>z"</baz>
+            <dir1>"d<dir1_click>i</dir1_click>r1"</dir1>
+            <dir2>"d<dir2_click>i</dir2_click>r2.star"</dir2>
+            "#,
+        )
+        .trim()
+        .to_owned();
+
+        let bar_contents = dedent(
+            r#"
+            def ba r():
+                # This has broken syntax
+                pass
+            "#,
+        )
+        .trim()
+        .to_owned();
+
+        let foo = FixtureWithRanges::from_fixture("foo.star", &foo_contents)?;
+        let bar = FixtureWithRanges::from_fixture("bar.star", &bar_contents)?;
+
+        let mut server = TestServer::new()?;
+        server.open_file(foo_uri.clone(), foo.program())?;
+        server.set_file_contents(PathBuf::from(bar_uri.path()), bar.program())?;
+        server.mkdir(dir1_uri.clone());
+        server.mkdir(dir2_uri.clone());
+
+        // File with broken syntax
+        let goto_definition = goto_definition_request(
+            &mut server,
+            foo_uri.clone(),
+            foo.begin_line("bar_click"),
+            foo.begin_column("bar_click"),
+        );
+        let req_id = server.send_request(goto_definition)?;
+        let response = goto_definition_response_location(&mut server, req_id)?;
+
+        let expected = LocationLink {
+            origin_selection_range: Some(foo.span("bar").into()),
+            target_uri: bar_uri,
+            target_range: Default::default(),
+            target_selection_range: Default::default(),
+        };
+        assert_eq!(expected, response);
+
+        // File that is not starlark at all
+        let goto_definition = goto_definition_request(
+            &mut server,
+            foo_uri.clone(),
+            foo.begin_line("baz_click"),
+            foo.begin_column("baz_click"),
+        );
+        let req_id = server.send_request(goto_definition)?;
+        let response = goto_definition_response_location(&mut server, req_id)?;
+
+        let expected = LocationLink {
+            origin_selection_range: Some(foo.span("baz").into()),
+            target_uri: baz_uri,
+            target_range: Default::default(),
+            target_selection_range: Default::default(),
+        };
+        assert_eq!(expected, response);
+
+        // Directory that doesn't look like a starlark file.
+        let goto_definition = goto_definition_request(
+            &mut server,
+            foo_uri.clone(),
+            foo.begin_line("dir1_click"),
+            foo.begin_column("dir1_click"),
+        );
+        let req_id = server.send_request(goto_definition)?;
+        let response = goto_definition_response_location(&mut server, req_id)?;
+
+        let expected = LocationLink {
+            origin_selection_range: Some(foo.span("dir1").into()),
+            target_uri: dir1_uri,
+            target_range: Default::default(),
+            target_selection_range: Default::default(),
+        };
+        assert_eq!(expected, response);
+
+        // Directory that looks like a starlark file by name, but isn't
+        // File that is not starlark at all
+        let goto_definition = goto_definition_request(
+            &mut server,
+            foo_uri,
+            foo.begin_line("dir2_click"),
+            foo.begin_column("dir2_click"),
+        );
+        let req_id = server.send_request(goto_definition)?;
+        let response = goto_definition_response_location(&mut server, req_id)?;
+
+        let expected = LocationLink {
+            origin_selection_range: Some(foo.span("dir2").into()),
+            target_uri: dir2_uri,
+            target_range: Default::default(),
+            target_selection_range: Default::default(),
+        };
+        assert_eq!(expected, response);
         Ok(())
     }
 }
