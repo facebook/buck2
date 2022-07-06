@@ -1,0 +1,15 @@
+Those are fixtures used for CLI tests. The idea is to not regenerate them very
+often, we should only need to do this when our daemon / cli protocol changes.
+
+Those fixtures are event logs, so they should be possible to re-generate by
+just re-running the corresponding build.
+
+Regenerate `my_genrule0` using, from the `buck2` path:
+
+```
+./buck2.sh build fbcode//buck2/tests/targets/rules/genrule:my_genrule0 && \
+./buck2.sh kill && \
+./buck2.sh build fbcode//buck2/tests/targets/rules/genrule:my_genrule0 --event-log "$(hg root)/fbcode/buck2/tests/e2e/console/fixtures/my_genrule0.json-lines"
+```
+
+(this runs Buck twice to ensure we get a cache hit)
