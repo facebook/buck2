@@ -4,14 +4,17 @@ Techniques for figuring out the performance of Buck2, and specific actions that 
 
 ## Starlark Profiling
 
-You can cause `buck2` to profile a specific Starlark file by setting the environment variable `BUCK2_STARLARK_PROFILE=<file>`, for example, you could set `<file>` to `fbsource//fbandroid/apps/fb4a:BUCK` (or any substring thereof) to profile the `fb4a` file. It will then write a profile in `fbsource/profile.csv`. You can additional add a suffix `=STMT` (to get statement profiling) or `=FLAME` (to get flame profiling). Note that because `buck2` is a daemon, you should `buck2 kill` the daemon first. As a concrete example:
+`buck2` supports profiling of evaluation of specific `BUCK` files
+and profiling of analysis of specific targets. There are two `buck2` commands to do that:
+* `buck2 profile loading`
+* `buck2 profile analysis`
+
+For example:
 
 ```shell
-buck2 kill
-BUCK2_STARLARK_PROFILE=fb4a ./buck2.sh uquery 'fbsource//fbandroid/apps/fb4a:x'
+buck2 profile loading --mode=heap-summary -o heap-summary.csv //some/package:
+buck2 profile analysis --mode=heap-summary -o heap-summary.csv //some/package:target
 ```
-
-That command will give an error (since `x` isn't a named target), but will cause that file to evaluate and the profile to be produced.
 
 ### Heap profiling
 
