@@ -378,9 +378,9 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
     # Define the xcode data sub target
     sub_targets[XCODE_DATA_SUB_TARGET] = generate_xcode_data(ctx, "apple_bundle", bundle, _xcode_populate_attributes)
     install_data = generate_install_data(ctx)
-    product_name_santized = get_product_name(ctx).replace(" ", "_")
+    product_name_sanitized = get_product_name(ctx).replace(" ", "_")
 
-    install_info_data = "options_" + product_name_santized
+    install_info_data = "options_" + product_name_sanitized
     return [
         DefaultInfo(default_outputs = [bundle], sub_targets = sub_targets),
         AppleBundleInfo(bundle = bundle, binary_name = get_product_name(ctx), is_watchos = _is_watch_bundle(ctx)),
@@ -388,7 +388,7 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
         InstallInfo(
             installer = installer_run_info,
             files = {
-                product_name_santized: bundle,
+                product_name_sanitized: bundle,
                 install_info_data: install_data,
             },
         ),
