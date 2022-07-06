@@ -267,7 +267,7 @@ impl HeapProfile {
         } = info;
         let totals = FuncInfo::merge(info.iter());
         let mut columns: Vec<(&'static str, usize)> =
-            totals.allocs.iter().map(|(k, v)| (*k, *v)).collect();
+            totals.alloc_counts.iter().map(|(k, v)| (*k, *v)).collect();
         info[total_id.0] = totals;
         let mut info = info.iter().enumerate().collect::<Vec<_>>();
 
@@ -292,7 +292,7 @@ impl HeapProfile {
         let blank = ids.get_string("".to_owned());
         let un_ids = ids.invert();
         for (rowname, info) in info {
-            let allocs = info.allocs.values().sum::<usize>();
+            let allocs = info.alloc_counts.values().sum::<usize>();
             let callers = info
                 .callers
                 .iter()
@@ -313,7 +313,7 @@ impl HeapProfile {
             csv.write_value(callers.1);
             csv.write_value(allocs);
             for c in &columns {
-                csv.write_value(info.allocs.get(c.0).unwrap_or(&0));
+                csv.write_value(info.alloc_counts.get(c.0).unwrap_or(&0));
             }
             csv.finish_row();
         }
@@ -338,7 +338,7 @@ mod summary {
         /// Time spent directly in this function and recursive functions.
         pub time_rec: SmallDuration,
         /// Allocations made by this function
-        pub allocs: HashMap<&'static str, usize>,
+        pub alloc_counts: HashMap<&'static str, usize>,
     }
 
     impl FuncInfo {
@@ -347,8 +347,8 @@ mod summary {
             for x in xs {
                 result.calls += x.calls;
                 result.time += x.time;
-                for (k, v) in x.allocs.iter() {
-                    *result.allocs.entry(k).or_insert(0) += v;
+                for (k, v) in x.alloc_counts.iter() {
+                    *result.alloc_counts.entry(k).or_insert(0) += v;
                 }
             }
             // Recursive time doesn't accumulate nicely, the time is the right value
@@ -432,7 +432,7 @@ mod summary {
                 self.process_call_exit(call_exit)
             } else {
                 let typ = x.get_ref().get_type();
-                *self.top_info().allocs.entry(typ).or_insert(0) += 1;
+                *self.top_info().alloc_counts.entry(typ).or_insert(0) += 1;
             }
         }
     }
@@ -679,8 +679,8 @@ _ignore = str([1])     # allocate a string in non_drop
 
         let total = FuncInfo::merge(info.info.iter());
         // from non-drop heap
-        assert_eq!(*total.allocs.get("string").unwrap(), 1);
+        assert_eq!(*total.alloc_counts.get("string").unwrap(), 1);
         // from drop heap
-        assert_eq!(*total.allocs.get("dict").unwrap(), 1);
+        assert_eq!(*total.alloc_counts.get("dict").unwrap(), 1);
     }
 }
