@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::ffi::OsString;
+use std::io::Cursor;
 use std::path::Path;
 use std::path::PathBuf;
 use std::time::SystemTime;
@@ -20,6 +22,7 @@ use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_data::buck_event;
 use buck2_data::instant_event;
+use bytes::BytesMut;
 use chrono::offset::Utc;
 use chrono::DateTime;
 use cli_proto::*;
@@ -30,8 +33,8 @@ use events::TraceId;
 use futures::future::Future;
 use futures::future::FutureExt;
 use futures::stream::Stream;
+use futures::stream::TryStreamExt;
 use futures::StreamExt;
-use futures::TryStreamExt;
 use gazebo::dupe::Dupe;
 use gazebo::prelude::*;
 use prost::Message;
@@ -46,6 +49,8 @@ use tokio::io::AsyncWrite;
 use tokio::io::AsyncWriteExt;
 use tokio::io::BufReader;
 use tokio_stream::wrappers::LinesStream;
+use tokio_util::codec::Decoder;
+use tokio_util::codec::FramedRead;
 
 use crate::daemon::client::StreamValue;
 use crate::AsyncCleanupContext;
@@ -56,9 +61,6 @@ pub(crate) enum EventLogErrors {
         "Trying to write to logfile that hasn't been opened yet - this is an internal error, please report. Unwritten event: {serialized_event}"
     )]
     LogNotOpen { serialized_event: String },
-
-    #[error("Event log does not have an implementation for reading for .proto files")]
-    ReadingProtobufNotImplemented,
 
     #[error("Reached End of File before reading BuckEvent in log `{0}`")]
     EndOfFile(String),
@@ -141,26 +143,62 @@ impl EventLogPathBuf {
     ) -> anyhow::Result<(Invocation, impl Stream<Item = anyhow::Result<StreamValue>>)> {
         let log_file = self.open().await?;
 
-        let log_file = BufReader::new(log_file);
-        let mut log_lines = log_file.lines();
+        let res = match self.encoding {
+            Encoding::Json | Encoding::JsonGzip => {
+                let log_file = BufReader::new(log_file);
+                let mut log_lines = log_file.lines();
 
-        // This one is not an event.
-        let header = log_lines
-            .next_line()
-            .await
-            .context("Error reading header line")?
-            .context("No header line")?;
+                // This one is not an event.
+                let header = log_lines
+                    .next_line()
+                    .await
+                    .context("Error reading header line")?
+                    .context("No header line")?;
+                let invocation = serde_json::from_str::<Invocation>(&header)
+                    .with_context(|| format!("Invalid header: {}", header.trim_end()))?;
 
-        let invocation = serde_json::from_str::<Invocation>(&header)
-            .with_context(|| format!("Invalid header: {}", header.trim_end()))?;
+                let events = LinesStream::new(log_lines).map(|line| {
+                    let line = line.context("Error reading next line")?;
+                    serde_json::from_str::<StreamValue>(&line)
+                        .with_context(|| format!("Invalid line: {}", line.trim_end()))
+                });
 
-        let events = LinesStream::new(log_lines).map(|line| {
-            let line = line.context("Error reading next line")?;
-            serde_json::from_str::<StreamValue>(&line)
-                .with_context(|| format!("Invalid line: {}", line.trim_end()))
-        });
+                Ok((invocation, events.boxed()))
+            }
+            Encoding::Proto => {
+                let mut stream = FramedRead::new(log_file, EventLogDecoder::new());
 
-        Ok((invocation, events))
+                let invocation = match stream.try_next().await?.context("No invocation found")? {
+                    Frame::Invocation(inv) => Invocation {
+                        command_line_args: inv.command_line_args,
+                        working_dir: PathBuf::from(OsString::from(inv.working_dir)),
+                    },
+                    Frame::Value(_) => {
+                        return Err(anyhow::anyhow!("Expected Invocation, found StreamValue"));
+                    }
+                };
+
+                let events = stream.and_then(|frame| async move {
+                    match frame {
+                        Frame::Invocation(_) => {
+                            Err(anyhow::anyhow!("Expected StreamValue, found Invocation"))
+                        }
+                        Frame::Value(val) => match val.progress {
+                            Some(command_progress::Progress::Event(event)) => {
+                                Ok(StreamValue::Event(event))
+                            }
+                            Some(command_progress::Progress::Result(result)) => {
+                                Ok(StreamValue::Result(result))
+                            }
+                            None => return Err(anyhow::anyhow!("Event type not recognized")),
+                        },
+                    }
+                });
+
+                Ok((invocation, events.boxed()))
+            }
+        };
+        res
     }
 
     async fn open(&self) -> anyhow::Result<EventLogReader> {
@@ -175,11 +213,8 @@ impl EventLogPathBuf {
             .with_context(|| format!("Failed to open: {}", self.path.display()))?;
 
         let file = match self.encoding {
-            Encoding::Json => box file as EventLogReader,
+            Encoding::Json | Encoding::Proto => box file as EventLogReader,
             Encoding::JsonGzip => box GzipDecoder::new(BufReader::new(file)) as EventLogReader,
-            Encoding::Proto => {
-                return Err(EventLogErrors::ReadingProtobufNotImplemented.into());
-            }
         };
 
         Ok(file)
@@ -551,7 +586,6 @@ struct LogWasDeleted;
 
 #[cfg(unix)]
 fn log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
-    use std::ffi::OsString;
     use std::io::ErrorKind;
     use std::process::Stdio;
 
@@ -706,5 +740,60 @@ impl SerializeForLog for StreamValue {
             .encode_length_delimited(&mut res)
             .context("Failed to serialize event")?;
         Ok(res)
+    }
+}
+
+#[allow(clippy::large_enum_variant)]
+enum Frame {
+    Invocation(buck2_data::Invocation),
+    Value(cli_proto::CommandProgress),
+}
+
+struct EventLogDecoder {
+    saw_invocation: bool,
+}
+
+impl EventLogDecoder {
+    pub(crate) fn new() -> EventLogDecoder {
+        Self {
+            saw_invocation: false,
+        }
+    }
+}
+impl Decoder for EventLogDecoder {
+    type Item = Frame;
+    type Error = anyhow::Error;
+
+    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        let orig_len = src.len();
+
+        let data_length = match prost::decode_length_delimiter(Cursor::new(src.as_mut())) {
+            Ok(length) => length,
+            Err(..) => {
+                // 10 bytes is the largest length of an encoded size
+                if orig_len > 10 {
+                    return Err(anyhow::anyhow!("Corrupted stream"));
+                } else {
+                    return Ok(None);
+                }
+            }
+        };
+
+        let required_len = prost::length_delimiter_len(data_length) + data_length;
+        if orig_len < required_len {
+            return Ok(None);
+        }
+        let data = src.split_to(required_len);
+
+        Some(
+            if self.saw_invocation {
+                cli_proto::CommandProgress::decode_length_delimited(data).map(Frame::Value)
+            } else {
+                self.saw_invocation = true;
+                buck2_data::Invocation::decode_length_delimited(data).map(Frame::Invocation)
+            }
+            .context("Failed to decode"),
+        )
+        .transpose()
     }
 }
