@@ -6,10 +6,10 @@ native.js_bundle(
     deps = [
         "fbcode//buck2/tests/targets/rules/js/js_library:fruit",
     ],
-    extra_json = struct(
+    extra_json = json.encode(struct(
         some_int = 5,
         location_macro = "$(location :exported_file)",
-    ).to_json(),
+    )),
     entry = "apple",
     worker = "fbcode//buck2/tests/targets/rules/js:js_worker_tool",
     android_package = "com.facebook",
