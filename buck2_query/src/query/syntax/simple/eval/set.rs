@@ -110,6 +110,10 @@ impl<T: QueryTarget> TargetSet<T> {
         self.targets.contains(item)
     }
 
+    pub fn get(&self, item: &T::NodeRef) -> Option<&T> {
+        self.targets.get(item)
+    }
+
     pub fn get_index(&self, index: usize) -> Option<&T> {
         self.targets.get_index(index)
     }
