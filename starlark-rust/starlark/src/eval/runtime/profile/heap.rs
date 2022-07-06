@@ -395,7 +395,7 @@ mod summary {
         fn change(&mut self, time: Instant) {
             let old_time = self.last_changed;
             let ti = self.top_info();
-            ti.time += time.checked_duration_since(old_time).unwrap_or_default();
+            ti.time += time.saturating_duration_since(old_time);
             self.last_changed = time;
         }
 
@@ -416,8 +416,7 @@ mod summary {
             let CallExit { time, .. } = call_exit;
             self.change(*time);
             let (name, time_rec, start) = self.call_stack.pop().unwrap();
-            self.info[name.0].time_rec =
-                time_rec + time.checked_duration_since(start).unwrap_or_default();
+            self.info[name.0].time_rec = time_rec + time.saturating_duration_since(start);
         }
 
         /// Process each ValueMem in their chronological order
