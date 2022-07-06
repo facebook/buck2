@@ -25,7 +25,7 @@ def _merge_dictionaries(dicts):
     return result
 
 # The default platform for fbcode rules that didn't specify it properly
-_default_fbcode_platform = read_config("fbcode", "platform", "platform009")
+_default_fbcode_platform = read_config("fbcode", "platform", "platform010")
 
 def _get_fbcode_select_map(prefix):
     """
