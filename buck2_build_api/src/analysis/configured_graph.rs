@@ -31,34 +31,6 @@ use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info::TemplatePlaceholderInfo;
 use crate::query::analysis::environment::ConfiguredGraphQueryEnvironmentDelegate;
 
-#[derive(Debug, Clone, Dupe)]
-pub struct ConfiguredGraphNode {
-    node: ConfiguredTargetNode,
-    // These are in the order of deps provided by `node.deps()`
-    deps: Arc<Vec<ConfiguredGraphNode>>,
-}
-
-impl ConfiguredGraphNode {
-    pub fn new(node: ConfiguredTargetNode, deps: Vec<ConfiguredGraphNode>) -> Self {
-        Self {
-            node,
-            deps: Arc::new(deps),
-        }
-    }
-
-    pub fn graph_deps(&self) -> impl Iterator<Item = &ConfiguredGraphNode> {
-        self.deps.iter()
-    }
-
-    pub fn node(&self) -> &ConfiguredTargetNode {
-        &self.node
-    }
-
-    pub fn label(&self) -> &ConfiguredTargetLabel {
-        self.node.name()
-    }
-}
-
 pub struct AnalysisDiceQueryDelegate<'c> {
     pub ctx: &'c DiceComputations,
 }
@@ -71,12 +43,12 @@ impl<'c> AnalysisDiceQueryDelegate<'c> {
 
 pub struct AnalysisConfiguredGraphQueryDelegate<'a> {
     pub dice_query_delegate: Arc<AnalysisDiceQueryDelegate<'a>>,
-    pub resolved_literals: HashMap<&'a str, ConfiguredGraphNode>,
+    pub resolved_literals: HashMap<&'a str, ConfiguredTargetNode>,
 }
 
 #[async_trait]
 impl<'a> ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDelegate<'a> {
-    fn eval_literal(&self, literal: &str) -> anyhow::Result<ConfiguredGraphNode> {
+    fn eval_literal(&self, literal: &str) -> anyhow::Result<ConfiguredTargetNode> {
         self.resolved_literals
             .get(literal)
             .duped()

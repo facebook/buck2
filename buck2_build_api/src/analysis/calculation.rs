@@ -42,10 +42,8 @@ use gazebo::prelude::*;
 use once_cell::sync::OnceCell;
 
 use crate::analysis::calculation::keys::AnalysisKey;
-use crate::analysis::calculation::keys::ConfiguredGraphKey;
 use crate::analysis::configured_graph::AnalysisConfiguredGraphQueryDelegate;
 use crate::analysis::configured_graph::AnalysisDiceQueryDelegate;
-use crate::analysis::configured_graph::ConfiguredGraphNode;
 use crate::analysis::get_user_defined_rule_impl;
 use crate::analysis::run_analysis;
 use crate::analysis::AnalysisResult;
@@ -131,40 +129,6 @@ impl RuleAnalysisCalculation for DiceComputations {
     }
 }
 
-async fn get_configuration_graph_node(
-    ctx: &DiceComputations,
-    target: &ConfiguredTargetLabel,
-) -> SharedResult<ConfiguredGraphNode> {
-    #[async_trait]
-    impl Key for ConfiguredGraphKey {
-        type Value = SharedResult<ConfiguredGraphNode>;
-        async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-            let node = ctx.get_configured_target_node(&self.0).await?;
-            let node = node.require_compatible()?;
-
-            // NOTE: It is important that this be FuturesOrdered! This will yield the deps of our
-            // ConfiguredGraphNode, which in turn is what's used for all query macros. If the order
-            // is not deterministic here, then it will be non-deterministic in e.g. query_targets.
-            let deps = keep_going::try_join_all(
-                node.deps()
-                    .map(|node| get_configuration_graph_node(ctx, node.name()))
-                    .collect::<FuturesOrdered<_>>(),
-            )
-            .await
-            .with_context(|| format!("When getting configuration graph node for `{}`", &self.0))?;
-
-            Ok(ConfiguredGraphNode::new(node, deps))
-        }
-
-        fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-            // TODO(bobyf) should these be comparable for caching
-            false
-        }
-    }
-
-    ctx.compute(&ConfiguredGraphKey(target.dupe())).await
-}
-
 pub async fn resolve_queries(
     ctx: &DiceComputations,
     events: &EventDispatcher,
@@ -203,14 +167,14 @@ async fn resolve_queries_impl(
             .map(|(literal, label)| async move {
                 (
                     literal,
-                    get_configuration_graph_node(ctx, label.target()).await,
+                    ctx.get_configured_target_node(label.target()).await,
                 )
             })
             .collect();
 
         let mut resolved_literals: HashMap<&str, _> = HashMap::new();
         while let Some((literal, result)) = node_lookups.next().await {
-            resolved_literals.insert(literal, result?);
+            resolved_literals.insert(literal, result?.require_compatible()?);
         }
 
         let dice_query_delegate = Arc::new(AnalysisDiceQueryDelegate { ctx });
