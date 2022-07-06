@@ -144,7 +144,7 @@ async fn resolve_literals_in_universe<L: AsRef<str>, U: AsRef<str>>(
             func: &mut dyn ChildVisitor<ConfiguredTargetNode>,
         ) -> anyhow::Result<()> {
             for dep in target.deps() {
-                func.visit(dep.dupe())?;
+                func.visit(dep.name().dupe())?;
             }
             Ok(())
         }

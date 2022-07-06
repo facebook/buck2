@@ -102,7 +102,7 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
                     writeln!(stdout, "  Execution platform: {}", platform.cfg())?;
                     writeln!(stdout, "    Execution deps:")?;
                     for execution_dep in configured_node.execution_deps() {
-                        writeln!(stdout, "      {}", execution_dep)?;
+                        writeln!(stdout, "      {}", execution_dep.name())?;
                     }
                     for (label, reason) in resolution.skipped() {
                         writeln!(stdout, "    Skipped {}", label)?;

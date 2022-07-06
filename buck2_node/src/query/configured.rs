@@ -38,15 +38,15 @@ impl QueryTarget for ConfiguredTargetNode {
 
     // TODO(cjhopman): Use existential traits to remove the Box<> once they are stabilized.
     fn deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        box ConfiguredTargetNode::deps(self)
+        box ConfiguredTargetNode::deps(self).map(|v| v.name())
     }
 
     fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        box ConfiguredTargetNode::execution_deps(self)
+        box ConfiguredTargetNode::execution_deps(self).map(|v| v.name())
     }
 
     fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        box ConfiguredTargetNode::target_deps(self)
+        box ConfiguredTargetNode::target_deps(self).map(|v| v.name())
     }
 
     fn tests<'a>(&'a self) -> Option<Box<dyn Iterator<Item = Self::NodeRef> + Send + 'a>> {
