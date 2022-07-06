@@ -34,6 +34,9 @@ message BuckEvent {
     SpanStartEvent span_start = 20;
     SpanEndEvent span_end = 21;
     InstantEvent instant = 22;
+    // Not present in daemon -> CLI stream or event-log, sent to Scribe
+    // directly.
+    RecordEvent record = 23;
   }
   // A temporary field to verify that the locally-held dispatcher is the
   // same as the one in global state.
@@ -941,4 +944,27 @@ message RemoteCommand {
 message Invocation {
   repeated string command_line_args = 1;
   string working_dir = 2;
+}
+
+message RecordEvent {
+  oneof data {
+    InvocationRecord invocation_record = 1;
+  }
+}
+
+message InvocationRecord {
+  // Optional - present if ever sent to client.
+  CommandStart command_start = 1;
+  // Optional - present if ever sent to client.
+  // Will be missing on a cancelled build.
+  CommandEnd command_end = 2;
+  // Optional - present if event-log had RemoteExecutionSessionCreated.
+  string re_session_id = 3;
+  repeated string cli_args = 4;
+  // Optional - present if CommandEnd sent to client.
+  google.protobuf.Duration command_duration = 5;
+  // Required. The walltime as measured by the client.
+  google.protobuf.Duration client_walltime = 6;
+  // Optional - present if BuildGraphExecutionInfo sent to client.
+  google.protobuf.Duration critical_path_duration = 7;
 }

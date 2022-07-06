@@ -59,6 +59,7 @@ use crate::commands::build::BuildCommand;
 use crate::commands::bxl::BxlCommand;
 use crate::commands::clean::CleanCommand;
 use crate::commands::common::subscribers::get_console_with_root;
+use crate::commands::common::subscribers::recorder::try_get_invocation_recorder;
 use crate::commands::common::subscribers::superconsole::StatefulSuperConsole;
 use crate::commands::common::subscribers::superconsole::SuperConsoleConfig;
 use crate::commands::common::subscribers::try_get_build_id_writer;
@@ -229,6 +230,9 @@ fn default_subscribers<T: StreamingCommand>(
     }
     if let Some(build_id_writer) = try_get_build_id_writer(cmd.event_log_opts())? {
         subscribers.push(build_id_writer)
+    }
+    if let Some(recorder) = try_get_invocation_recorder(ctx)? {
+        subscribers.push(recorder);
     }
     Ok(subscribers)
 }

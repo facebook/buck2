@@ -150,6 +150,7 @@ impl ChromeTraceFirstPass {
                 }
                 _ => {}
             },
+            buck2_data::buck_event::Data::Record(_) => {}
         };
         Ok(())
     }
@@ -676,6 +677,7 @@ impl ChromeTraceWriter {
                     )?;
                 }
             }
+            buck2_data::buck_event::Data::Record(_) => {}
         };
         Ok(())
     }

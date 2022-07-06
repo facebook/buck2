@@ -136,5 +136,6 @@ fn should_send_event(d: &buck2_data::buck_event::Data) -> bool {
                 _ => true,
             }
         }
+        Data::Record(_) => true,
     }
 }

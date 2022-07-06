@@ -88,6 +88,7 @@ pub fn unpack_event(event: &BuckEvent) -> anyhow::Result<UnpackedBuckEvent> {
                 .as_ref()
                 .ok_or_else(|| VisitorError::MissingField((*event).clone()))?,
         )),
+        buck_event::Data::Record(_) => Err(VisitorError::UnexpectedRecord(event.clone()).into()),
     }
 }
 
@@ -113,6 +114,8 @@ pub trait EventSubscriber: Send {
             buck_event::Data::SpanStart(ref start) => self.handle_event_start(start, event.dupe()),
             buck_event::Data::SpanEnd(ref end) => self.handle_event_end(end, event.dupe()),
             buck_event::Data::Instant(ref instant) => self.handle_instant(instant, event.dupe()),
+            // Not present in the event stream from the daemon to CLI.
+            buck_event::Data::Record(_) => Box::pin(async { Ok(()) }),
         }
         .await
     }
@@ -548,4 +551,6 @@ pub trait EventSubscriber: Send {
 pub enum VisitorError {
     #[error("Sent an event missing one or more fields: `{0:?}`")]
     MissingField(BuckEvent),
+    #[error("Sent an unexpected Record event: `{0:?}`")]
+    UnexpectedRecord(BuckEvent),
 }

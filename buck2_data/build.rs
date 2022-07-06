@@ -47,6 +47,10 @@ fn main() -> io::Result<()> {
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
         )
         .type_attribute(
+            "buck.data.RecordEvent.data",
+            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+        )
+        .type_attribute(
             "buck.data.LocalStage.stage",
             "#[derive(::derive_more::From)]",
         )
@@ -84,6 +88,18 @@ fn main() -> io::Result<()> {
             "#[serde(with = \"crate::serialize_timestamp\")]",
         )
         .field_attribute("duration", "#[serde(with = \"crate::serialize_duration\")]")
+        .field_attribute(
+            "command_duration",
+            "#[serde(with = \"crate::serialize_duration\")]",
+        )
+        .field_attribute(
+            "client_walltime",
+            "#[serde(with = \"crate::serialize_duration\")]",
+        )
+        .field_attribute(
+            "critical_path_duration",
+            "#[serde(with = \"crate::serialize_duration\")]",
+        )
         .field_attribute(
             "ActionExecutionEnd.wall_time",
             "#[serde(with = \"crate::serialize_duration\")]",

@@ -10,6 +10,7 @@
 mod build_id_writer;
 pub mod display;
 pub mod event_log;
+pub(crate) mod recorder;
 mod simpleconsole;
 pub mod span_tracker;
 pub(crate) mod stdout_stderr_forwarder;
