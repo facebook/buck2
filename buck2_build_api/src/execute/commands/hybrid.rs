@@ -23,7 +23,6 @@ use crate::execute::commands::local::LocalExecutor;
 use crate::execute::commands::re::ReExecutor;
 use crate::execute::commands::ClaimManager;
 use crate::execute::commands::CommandExecutionManager;
-use crate::execute::commands::CommandExecutionReport;
 use crate::execute::commands::CommandExecutionResult;
 use crate::execute::commands::CommandExecutionStatus;
 use crate::execute::commands::ExecutorName;
@@ -147,7 +146,6 @@ impl PreparedCommandExecutor for HybridExecutor {
                 manager,
                 primary.into_future(),
                 &is_retryable_status,
-                None,
             )
             .await;
         }
@@ -168,28 +166,24 @@ impl PreparedCommandExecutor for HybridExecutor {
             // If the first result was rejected then wait for the second one and then if that
             // provides a status we must retry, we'll use its fallback executor (which is the one
             // that just produced the rejected claim).
-            exec_with_restart(
-                command,
-                manager,
-                second,
-                &is_retryable_status,
-                Some(first_res.report),
-            )
-            .await
+            exec_with_restart(command, manager, second, &is_retryable_status).await
         } else if is_retryable_status(&first_res) {
             // If the first result is retryable, then we have to watch out for the case where the
             // second executor returns a rejected claim (meaning it didn't execute). When that
             // happens, we should retry it on that executor itself, which is the first fallback we
             // received.
             let (second_res, _unused_fallback) = second.await;
-            exec_with_restart(
+            let mut out = exec_with_restart(
                 command,
                 manager,
                 future::ready((second_res, first_fallback)),
                 is_claim_rejected,
-                Some(first_res.report),
             )
-            .await
+            .await;
+            // NOTE: we passed is_claim_rejected as the `should_restart` condition so we definitely don't
+            // care about what we're overwriting here.
+            out.rejected_execution = Some(first_res.report);
+            out
         } else {
             // Everyone is happy, we got our result.
             first_res
@@ -222,7 +216,6 @@ async fn exec_with_restart<S>(
     manager: CommandExecutionManager,
     exec: impl Future<Output = (CommandExecutionResult, FallbackExecutor<'_>)>,
     should_restart: S,
-    rejected_execution: Option<CommandExecutionReport>,
 ) -> CommandExecutionResult
 where
     S: FnOnce(&CommandExecutionResult) -> bool,
@@ -241,7 +234,7 @@ where
     );
 
     let mut res = fallback.executor.exec_cmd(command, fallback_manager).await;
-    res.rejected_execution = rejected_execution;
+    res.rejected_execution = Some(result.report);
     res
 }
 

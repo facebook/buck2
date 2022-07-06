@@ -190,18 +190,10 @@ async def test_write_files(buck: Buck) -> None:
 async def test_output_size(buck: Buck) -> None:
     await buck.build("//write:simple")
 
-    def get(data, *key):
-        data = json.loads(data)
-        for k in key:
-            data = data.get(k)
-            if data is None:
-                break
-        return data
-
     output_size = None
     log = (await buck.log("show")).stdout.strip().splitlines()
     for line in log:
-        o = get(
+        o = json_get(
             line,
             "Event",
             "data",
@@ -909,6 +901,34 @@ async def test_hybrid_executor_fallbacks(buck: Buck) -> None:
     )
 
 
+@buck_test(inplace=False, data_dir="execution_platforms")
+async def test_hybrid_executor_logging(buck: Buck) -> None:
+    await buck.build(
+        "root//executor_fallback_tests:local_only",
+    )
+
+    log = (await buck.log("show")).stdout.strip().splitlines()
+    commands = None
+
+    for line in log:
+        commands = commands or json_get(
+            line,
+            "Event",
+            "data",
+            "SpanEnd",
+            "data",
+            "ActionExecution",
+            "commands",
+        )
+
+    assert commands is not None
+    assert len(commands) == 2
+    assert commands[0]["details"]["exit_code"] != 0
+    assert commands[0]["status"] == {"Failure": {}}
+    assert commands[1]["details"]["exit_code"] == 0
+    assert commands[1]["status"] == {"Success": {}}
+
+
 @buck_test(inplace=False, data_dir="toolchain_deps")
 async def test_toolchain_deps(buck: Buck) -> None:
     # This test builds two targets, both with the same `default_target_platform` platform
@@ -1164,23 +1184,13 @@ async def test_no_output_wildcard(buck: Buck) -> None:
 @buck_test(inplace=False, data_dir="critical_path")
 @env("BUCK2_TEST_DISABLE_CACHING", "true")
 async def test_critical_path(buck: Buck) -> None:
-    def get(data, *key):
-        data = json.loads(data)
-
-        for k in key:
-            data = data.get(k)
-            if data is None:
-                break
-
-        return data
-
     await buck.build("//:step_3")
     log = (await buck.log("show")).stdout.strip().splitlines()
 
     critical_path = None
 
     for line in log:
-        critical_path = get(
+        critical_path = json_get(
             line,
             "Event",
             "data",
@@ -1240,3 +1250,14 @@ def read_all_outputs(buck: Buck, report: str) -> typing.List[str]:
             ret.extend(state["other_outputs"].get("DEFAULT", []))
 
     return ret
+
+
+def json_get(data, *key):
+    data = json.loads(data)
+
+    for k in key:
+        data = data.get(k)
+        if data is None:
+            break
+
+    return data
