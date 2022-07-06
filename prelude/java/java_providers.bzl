@@ -82,9 +82,14 @@ JavaClasspathEntry = record(
     required_for_source_only_abi = field(bool.type),
 )
 
-JavaCompilingDepsTSet = transitive_set()
+def _args_for_compiling(args: "cmd_args", entry: JavaClasspathEntry.type):
+    args.add(entry.abi)
 
-JavaPackagingDepTSet = transitive_set()
+JavaCompilingDepsTSet = transitive_set(
+    args_projections = {
+        "args_for_compiling": _args_for_compiling,
+    },
+)
 
 JavaPackagingDep = record(
     jar = ["artifact", None],
@@ -95,6 +100,20 @@ JavaPackagingDep = record(
     # An output that is used solely by the system to have an artifact bound to the target (that the core can then use to find
     # the right target from the given artifact).
     output_for_classpath_macro = "artifact",
+)
+
+def _full_jar_args(args: "cmd_args", dep: JavaPackagingDep.type):
+    if dep.jar:
+        args.add(dep.jar)
+
+def _args_for_classpath_macro(args: "cmd_args", dep: JavaPackagingDep.type):
+    args.add(dep.output_for_classpath_macro)
+
+JavaPackagingDepTSet = transitive_set(
+    args_projections = {
+        "args_for_classpath_macro": _args_for_classpath_macro,
+        "full_jar_args": _full_jar_args,
+    },
 )
 
 JavaLibraryInfo = provider(
@@ -202,15 +221,17 @@ def derive_compiling_deps(
         actions: "actions",
         library_output: [JavaClasspathEntry.type, None],
         children: ["dependency"]) -> ["JavaCompilingDepsTSet", None]:
-    compiling_deps_kwargs = {}
-    if library_output:
-        compiling_deps_kwargs["value"] = library_output
-
-    filtered_children = filter(None, [exported_dep.compiling_deps for exported_dep in filter_and_map_idx(JavaLibraryInfo, children)])
     if children:
-        compiling_deps_kwargs["children"] = filtered_children
+        filtered_children = filter(None, [exported_dep.compiling_deps for exported_dep in filter_and_map_idx(JavaLibraryInfo, children)])
+        children = filtered_children
 
-    return actions.tset(JavaCompilingDepsTSet, **compiling_deps_kwargs) if compiling_deps_kwargs else None
+    if not library_output and not children:
+        return None
+
+    if library_output:
+        return actions.tset(JavaCompilingDepsTSet, children = children, value = library_output)
+    else:
+        return actions.tset(JavaCompilingDepsTSet, children = children)
 
 def create_java_packaging_dep(
         ctx: "context",
@@ -249,8 +270,7 @@ def get_all_java_packaging_deps_from_packaging_infos(ctx: "context", infos: ["Ja
     if not children:
         return []
 
-    kwargs = {"children": children}
-    tset = ctx.actions.tset(JavaPackagingDepTSet, **kwargs)
+    tset = ctx.actions.tset(JavaPackagingDepTSet, children = children)
 
     return list(tset.traverse())
 
@@ -322,13 +342,11 @@ def _create_non_template_providers(
         cxx_resource_info,
     )
 
-def create_template_info(all_packaging_deps: ["JavaPackagingDep"], first_order_libs: ["artifact"]) -> TemplatePlaceholderInfo.type:
-    classpath_libs = [packaging_dep.jar for packaging_dep in all_packaging_deps if packaging_dep.jar]
-    classpath_libs_including_targets_with_no_output = [packaging_dep.output_for_classpath_macro for packaging_dep in all_packaging_deps]
+def create_template_info(packaging_info: JavaPackagingInfo.type, first_order_classpath_libs: ["artifact"]) -> TemplatePlaceholderInfo.type:
     return TemplatePlaceholderInfo(keyed_variables = {
-        "classpath": cmd_args(classpath_libs, delimiter = get_path_separator()),
-        "classpath_including_targets_with_no_output": cmd_args(classpath_libs_including_targets_with_no_output, delimiter = get_path_separator()),
-        "first_order_classpath": cmd_args(first_order_libs, delimiter = get_path_separator()),
+        "classpath": cmd_args(packaging_info.packaging_deps.project_as_args("full_jar_args")) if packaging_info.packaging_deps else cmd_args(),
+        "classpath_including_targets_with_no_output": cmd_args(packaging_info.packaging_deps.project_as_args("args_for_classpath_macro")),
+        "first_order_classpath": cmd_args(first_order_classpath_libs, delimiter = get_path_separator()),
     })
 
 def create_java_library_providers(
@@ -363,7 +381,6 @@ def create_java_library_providers(
     )
 
     first_order_libs = first_order_classpath_libs + [library_info.library_output.full_library] if library_info.library_output else first_order_classpath_libs
-    all_packaging_deps = list(packaging_info.packaging_deps.traverse()) if packaging_info.packaging_deps else []
-    template_info = create_template_info(all_packaging_deps, first_order_libs)
+    template_info = create_template_info(packaging_info, first_order_libs)
 
     return (library_info, packaging_info, shared_library_info, cxx_resource_info, template_info)

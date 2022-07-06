@@ -48,42 +48,34 @@ def _get_java_version_attributes(ctx: "context") -> (int.type, int.type):
 
 def _to_java_version(java_version: str.type) -> int.type:
     if java_version.startswith("1."):
-        expect(len(java_version) == 3, "Supported java vesion number format is 1.X, where X is a single digit numnber, but it was set to {}", java_version)
+        expect(len(java_version) == 3, "Supported java version number format is 1.X, where X is a single digit numnber, but it was set to {}", java_version)
         java_version_number = int(java_version[2:])
-        expect(java_version_number < 9, "Supported java vesion number format is 1.X, where X is a single digit numnber that is less than 9, but it was set to {}", java_version)
+        expect(java_version_number < 9, "Supported java version number format is 1.X, where X is a single digit numnber that is less than 9, but it was set to {}", java_version)
         return java_version_number
     else:
         return int(java_version)
 
 def _process_classpath(
         actions: "actions",
-        classpath_artifacts: ["artifact"],
+        classpath_args: "cmd_args",
         cmd: "cmd_args",
         args_file_name: "string",
-        option_name: "string") -> "bool":
-    classpath_artifacts = dedupe(classpath_artifacts)
-    if not classpath_artifacts:
-        return False
-
-    classpath_cmd = cmd_args(
-        classpath_artifacts,
-        delimiter = get_path_separator(),
-    )
-
+        option_name: "string"):
     # write joined classpath string into args file
     classpath_args_file, classpath_macro_files = actions.write(
         args_file_name,
-        classpath_cmd,
+        classpath_args,
         allow_args = True,
     )
 
     # mark classpath artifacts as input
-    cmd.hidden(classpath_artifacts, classpath_macro_files)
+    cmd.hidden(classpath_args, classpath_macro_files)
 
     # add classpath args file to cmd
     cmd.add(option_name, classpath_args_file)
 
-    return True
+def classpath_args(args):
+    return cmd_args(args, delimiter = get_path_separator())
 
 def _process_plugins(
         actions: "actions",
@@ -124,13 +116,15 @@ def _process_plugins(
         javac_args.add(plugin_arg)
         processors_classpath = processors_classpath + plugin_params.deps
 
-    _process_classpath(
-        actions,
-        processors_classpath,
-        cmd,
-        "{}plugin_cp_args".format(actions_prefix),
-        "--javac_processors_classpath_file",
-    )
+    if processors_classpath:
+        processors_classpath = classpath_args(processors_classpath)
+        _process_classpath(
+            actions,
+            processors_classpath,
+            cmd,
+            "{}plugin_cp_args".format(actions_prefix),
+            "--javac_processors_classpath_file",
+        )
 
 def _append_javac_params(
         actions: "actions",
@@ -160,20 +154,20 @@ def _append_javac_params(
     if actions_prefix:
         actions_prefix += "_"
 
-    compiling_classpath = [] + additional_classpath_entries
     compiling_deps_tset = derive_compiling_deps(actions, None, deps)
-    if compiling_deps_tset:
-        compiling_classpath.extend(
-            [compiling_dep.abi for compiling_dep in list(compiling_deps_tset.traverse())],
-        )
 
-    if not _process_classpath(
-        actions,
-        compiling_classpath,
-        cmd,
-        "{}classpath_args".format(actions_prefix),
-        "--javac_classpath_file",
-    ):
+    if additional_classpath_entries or compiling_deps_tset:
+        compiling_classpath = classpath_args(additional_classpath_entries)
+        if compiling_deps_tset:
+            compiling_classpath = classpath_args([compiling_deps_tset.project_as_args("args_for_compiling"), compiling_classpath])
+        _process_classpath(
+            actions,
+            compiling_classpath,
+            cmd,
+            "{}classpath_args".format(actions_prefix),
+            "--javac_classpath_file",
+        )
+    else:
         javac_args.add("-classpath ''")
 
     javac_args.add("-source")
@@ -193,7 +187,7 @@ def _append_javac_params(
     if bootclasspath_list:
         _process_classpath(
             actions,
-            bootclasspath_list,
+            classpath_args(bootclasspath_list),
             cmd,
             "{}bootclasspath_args".format(actions_prefix),
             "--javac_bootclasspath_file",

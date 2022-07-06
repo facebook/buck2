@@ -5,7 +5,7 @@ load(
     ":java_providers.bzl",
     "create_template_info",
     "derive_compiling_deps",
-    "get_all_java_packaging_deps",
+    "get_java_packaging_info",
 )
 
 def _generate_script(generate_wrapper: bool.type, native_libs: ["artifact"]) -> bool.type:
@@ -16,7 +16,7 @@ def _generate_script(generate_wrapper: bool.type, native_libs: ["artifact"]) -> 
 def _create_fat_jar(
         ctx: "context",
         java_toolchain: JavaToolchainInfo.type,
-        jars: ["artifact"],
+        jars: "cmd_args",
         native_libs: ["artifact"],
         generate_wrapper: bool.type) -> ["artifact"]:
     extension = "sh" if _generate_script(generate_wrapper, native_libs) else "jar"
@@ -110,7 +110,7 @@ def java_binary_impl(ctx: "context") -> ["provider"]:
         list of created providers (DefaultInfo and RunInfo)
     """
 
-    packaging_deps = get_all_java_packaging_deps(ctx, ctx.attr.deps)
+    packaging_info = get_java_packaging_info(ctx, ctx.attr.deps, None)
 
     first_order_deps = derive_compiling_deps(ctx.actions, None, ctx.attr.deps)
     first_order_libs = [dep.full_library for dep in (list(first_order_deps.traverse()) if first_order_deps else [])]
@@ -123,8 +123,8 @@ def java_binary_impl(ctx: "context") -> ["provider"]:
 
     java_toolchain = ctx.attr._java_toolchain[JavaToolchainInfo]
     need_to_generate_wrapper = ctx.attr.generate_wrapper == True
-    packaging_jars = [packaging_dep.jar for packaging_dep in packaging_deps if packaging_dep.jar]
-    outputs = _create_fat_jar(ctx, java_toolchain, packaging_jars, native_deps, need_to_generate_wrapper)
+    packaging_jar_args = packaging_info.packaging_deps.project_as_args("full_jar_args")
+    outputs = _create_fat_jar(ctx, java_toolchain, cmd_args(packaging_jar_args), native_deps, need_to_generate_wrapper)
 
     main_artifact = outputs[0]
     other_outputs = []
@@ -140,12 +140,12 @@ def java_binary_impl(ctx: "context") -> ["provider"]:
         run_cmd.hidden(
             java_toolchain.java[RunInfo],
             classpath_file,
-            packaging_jars,
+            packaging_jar_args,
         )
-        other_outputs = [classpath_file] + packaging_jars + _get_java_tool_artifacts(java_toolchain)
+        other_outputs = [classpath_file] + [packaging_jar_args] + _get_java_tool_artifacts(java_toolchain)
 
     return [
         DefaultInfo(default_outputs = [main_artifact], other_outputs = other_outputs),
         RunInfo(args = run_cmd),
-        create_template_info(packaging_deps, first_order_libs),
+        create_template_info(packaging_info, first_order_libs),
     ]
