@@ -81,7 +81,7 @@ pub(crate) struct TargetsCommand {
     #[clap(long, conflicts_with = "show-unconfigured-target-hash")]
     show_target_hash: bool,
 
-    /// TODO: Print a stable unconfigured hash of each target after the target name.
+    /// Print a stable unconfigured hash of each target after the target name.
     #[clap(long, conflicts_with = "show-target-hash")]
     show_unconfigured_target_hash: bool,
 
