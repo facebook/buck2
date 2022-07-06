@@ -24,6 +24,7 @@
 #[macro_use]
 extern crate maplit;
 
+pub mod convert;
 pub mod dice;
 #[cfg(all(unix, any(feature = "eden_io", feature = "eden_materializer")))]
 pub mod eden;

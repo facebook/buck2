@@ -17,13 +17,13 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use anyhow::Context;
+use buck2_common::convert::ProstDurationExt;
 use buck2_core::exit_result::ExitResult;
 use events::subscriber::VisitorError;
 use events::BuckEvent;
 use events::SpanId;
 use futures::TryStreamExt;
 use gazebo::prelude::*;
-use prost_types;
 use serde::Serialize;
 use serde_json::json;
 use thiserror::Error;
@@ -67,17 +67,6 @@ pub(crate) struct ChromeTraceCommand {
         value_name = "NUMBER"
     )]
     pub recent: Option<usize>,
-}
-
-trait ProstDurationExt {
-    fn try_into_duration(&self) -> anyhow::Result<Duration>;
-}
-
-impl ProstDurationExt for prost_types::Duration {
-    fn try_into_duration(&self) -> anyhow::Result<Duration> {
-        Ok(Duration::from_secs(self.seconds.try_into()?)
-            + Duration::from_nanos(self.nanos.try_into()?))
-    }
 }
 
 struct ChromeTraceFirstPass {
