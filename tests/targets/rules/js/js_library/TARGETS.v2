@@ -7,10 +7,10 @@ native.js_library(
         "apple.js",
         "banana.js",
     ],
-    extra_json = struct(
+    extra_json = json.encode(struct(
         key = "value",
         exported_filepath = "$(location :exported_file)",
-    ).to_json(),
+    )),
     worker = "fbcode//buck2/tests/targets/rules/js:js_worker_tool",
     visibility = ["PUBLIC"],
 )
