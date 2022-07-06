@@ -13,6 +13,7 @@ use std::borrow::Cow;
 use std::time::Duration;
 
 use anyhow::Context as _;
+use buck2_common::convert::ProstDurationExt;
 use buck2_data::action_key;
 use buck2_data::span_start_event::Data;
 use buck2_data::ActionKey;
@@ -385,12 +386,11 @@ fn failure_reason_for_command_execution(
         Status::Timeout(Timeout { duration }) => {
             let duration = duration
                 .as_ref()
-                .context("Timeout did not include a `duration`")?;
+                .context("Timeout did not include a `duration`")?
+                .try_into_duration()
+                .context("Timeout `duration` was invalid")?;
 
-            format!(
-                "Command timed out after {:.3}s",
-                (duration.seconds as f64 + duration.nanos as f64 / 1_000_000_000.0)
-            )
+            format!("Command timed out after {:.3}s", duration.as_secs_f64(),)
         }
         Status::Error(Error { stage, error }) => {
             format!("Internal error (stage: {}): {}", stage, error)
