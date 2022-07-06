@@ -44,12 +44,12 @@ use remote_execution::NetworkStatisticsResponse;
 use remote_execution::REClient;
 use remote_execution::REClientBuilder;
 use remote_execution::RemoteExecutionMetadata;
+use remote_execution::RichClientMode;
 use remote_execution::Stage;
 use remote_execution::TDigest;
 use remote_execution::TExecutionPolicy;
 use remote_execution::TResultsCachePolicy;
 use remote_execution::UploadRequest;
-use remote_execution::ZdbRichClientMode;
 use tokio::sync::Semaphore;
 use tracing::warn;
 
@@ -448,9 +448,9 @@ impl RemoteExecutionClientImpl {
             embedded_cas_daemon_config
                 .rich_client_config
                 .zdb_client_mode = if static_metadata.use_zippy_rich_client {
-                ZdbRichClientMode::HYBRID
+                RichClientMode::HYBRID
             } else {
-                ZdbRichClientMode::DISABLED
+                RichClientMode::DISABLED
             };
             embedded_cas_daemon_config.rich_client_config.disable_p2p = !static_metadata.use_p2p;
             embedded_cas_daemon_config
