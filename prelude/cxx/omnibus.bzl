@@ -224,6 +224,10 @@ def _create_root(
         links = [LinkArgs(flags = extra_ldflags), LinkArgs(infos = inputs)],
         category_suffix = "omnibus_root",
         identifier = root.name or output.short_path,
+        # We prefer local execution because there are lot of cxx_link_omnibus_root
+        # running simultaneously, so while their overall load is reasonable,
+        # their peak execution load is very high.
+        local_only = True,
     )
 
 def _create_undefined_symbols_argsfile(
