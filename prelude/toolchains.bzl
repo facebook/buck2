@@ -77,6 +77,9 @@ def _get_infer_select_map():
     return {"ovr_config//toolchain/fb:platform009-infer": "fbcode//buck2/platform:buck2-infer"}
 
 def default_cxx_toolchain():
+    return "fbcode//buck2/platform/toolchain:cxx"
+
+def default_cxx_toolchain_inner():
     return select(
         _merge_dictionaries([
             _get_android_cxx_select_map(),

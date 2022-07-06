@@ -1,0 +1,8 @@
+load("@fbcode//buck2/prelude:toolchains.bzl", "default_cxx_toolchain_inner")
+load(":defs.bzl", "toolchain")
+
+toolchain(
+    name = "cxx",
+    dep = default_cxx_toolchain_inner(),
+    visibility = ["PUBLIC"],
+)
