@@ -8,6 +8,7 @@ def extract_symbol_names(
         identifier: [str.type, None] = None,
         undefined_only: bool.type = False,
         dynamic: bool.type = False,
+        prefer_local: bool.type = False,
         global_only: bool.type = False) -> "artifact":
     """
     Generate a file with a sorted list of symbol names extracted from the given
@@ -53,5 +54,6 @@ def extract_symbol_names(
         objects,
         category = category,
         identifier = identifier,
+        prefer_local = prefer_local,
     )
     return output

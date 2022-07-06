@@ -397,6 +397,10 @@ def _create_omnibus(
             undefined_only = True,
             category = "omnibus_undefined_syms",
             identifier = out.basename,
+            # We prefer local execution because there are lot of omnibus_undefined_syms
+            # running simultaneously, so while their overall load is reasonable,
+            # their peak execution load is very high.
+            prefer_local = True,
         )
         for label, (_, out) in spec.roots.items()
         if label not in spec.body
