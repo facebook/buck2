@@ -12,12 +12,12 @@ Regenerate by running `buck2_docs --buck-command=buck2 --destination-dir=docs/ge
 | Member | Type | Description |
 |--------|------|-------------|
 | alias | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [None, str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
-| android_aar | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], bool.type, [str.type], [str.type], [str.type], [str.type], [str.type], bool.type, [None, str.type], [None, str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], str.type, [None, str.type], [None, str.type], [None, str.type], [None, [str.type]], {str.type: [str.type]}, [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
+| android_aar | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], bool.type, [str.type], [str.type], [str.type], [str.type], [str.type], bool.type, [None, str.type], [None, str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], str.type, [None, str.type], [None, str.type], [None, str.type], [None, [str.type]], [None, {str.type: [str.type]}], [None, [(str.type, [str.type])]], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
 | android_app_modularity | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, [str.type]], {str.type: [str.type]}, [None, {str.type: [str.type]}], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], bool.type, bool.type, [None, [str.type]]) -> None` |  |
-| android_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, bool.type, bool.type, str.type, [str.type], bool.type, [str.type], [None, str.type], [None, [str.type]], {str.type: [str.type]}, [None, {str.type: [str.type]}], [None, str.type], [str.type], [str.type], [None, str.type], bool.type, bool.type, [str.type], [str.type], [None, str.type], [str.type], [None, str.type], int.type, str.type, bool.type, str.type, [None, str.type], bool.type, [str.type], [str.type], int.type, bool.type, bool.type, bool.type, str.type, [str.type], [str.type], int.type, [str.type], [None, str.type], {str.type: ""}, [None, str.type], int.type, bool.type, [None, str.type], [None, str.type], [None, str.type], [None, [str.type]], {str.type: [str.type]}, bool.type, bool.type, [str.type], bool.type, int.type, bool.type, str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, str.type], [None, int.type], [None, bool.type], bool.type, bool.type, bool.type, [None, [str.type]], int.type) -> None` |  |
+| android_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, bool.type, bool.type, str.type, [str.type], bool.type, [str.type], [None, str.type], [None, [str.type]], {str.type: [str.type]}, [None, {str.type: [str.type]}], [None, str.type], [str.type], [str.type], [None, [str.type, str.type]], bool.type, bool.type, [str.type], [str.type], [None, str.type], [str.type], [None, str.type], int.type, str.type, bool.type, str.type, [None, str.type], bool.type, [str.type], [str.type], int.type, bool.type, bool.type, bool.type, str.type, [str.type], [str.type], int.type, [str.type], [None, [str.type, str.type]], {str.type: ""}, [None, str.type], int.type, bool.type, [None, str.type], [None, str.type], [None, str.type], [None, [str.type]], [None, {str.type: [str.type]}], [None, [(str.type, [str.type])]], bool.type, bool.type, [str.type], bool.type, int.type, bool.type, str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, str.type], [None, int.type], [None, bool.type], bool.type, bool.type, bool.type, [None, [str.type]], int.type) -> None` |  |
 | android_build_config | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [str.type], [None, str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
-| android_bundle | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], bool.type, bool.type, str.type, [str.type], bool.type, [str.type], [None, str.type], [None, [str.type]], {str.type: [str.type]}, [None, {str.type: [str.type]}], [None, str.type], [str.type], [str.type], [None, str.type], bool.type, [None, str.type], bool.type, [str.type], [str.type], [None, str.type], [str.type], [None, str.type], int.type, str.type, bool.type, str.type, [None, str.type], bool.type, [str.type], [str.type], int.type, bool.type, bool.type, bool.type, str.type, [str.type], [str.type], int.type, [str.type], [None, str.type], {str.type: ""}, [None, str.type], int.type, bool.type, [None, str.type], [None, str.type], [None, str.type], [None, [str.type]], {str.type: [str.type]}, bool.type, bool.type, [str.type], bool.type, int.type, bool.type, str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, str.type], [None, int.type], [None, bool.type], bool.type, bool.type, bool.type, [None, [str.type]], int.type) -> None` |  |
-| android_instrumentation_apk | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, str.type, [str.type], [str.type], [None, str.type], [str.type], str.type, bool.type, [str.type], [str.type], [None, str.type], [None, str.type], [None, [str.type]]) -> None` |  |
+| android_bundle | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], bool.type, bool.type, str.type, [str.type], bool.type, [str.type], [None, str.type], [None, [str.type]], {str.type: [str.type]}, [None, {str.type: [str.type]}], [None, str.type], [str.type], [str.type], [None, str.type], bool.type, [None, str.type], bool.type, [str.type], [str.type], [None, str.type], [str.type], [None, str.type], int.type, str.type, bool.type, str.type, [None, str.type], bool.type, [str.type], [str.type], int.type, bool.type, bool.type, bool.type, str.type, [str.type], [str.type], int.type, [str.type], [None, str.type], {str.type: ""}, [None, str.type], int.type, bool.type, [None, str.type], [None, str.type], [None, str.type], [None, [str.type]], [None, {str.type: [str.type]}], [None, [(str.type, [str.type])]], bool.type, bool.type, [str.type], bool.type, int.type, bool.type, str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, str.type], [None, int.type], [None, bool.type], bool.type, bool.type, bool.type, [None, [str.type]], int.type) -> None` |  |
+| android_instrumentation_apk | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, str.type, [str.type], [str.type], [None, str.type], [str.type], str.type, bool.type, [str.type], [str.type], [None, [str.type, str.type]], [None, str.type], [None, [str.type]]) -> None` |  |
 | android_instrumentation_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [str.type], [None, str.type], {str.type: str.type}, [str.type], [str.type], [None, int.type], [None, [str.type]]) -> None` |  |
 | android_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], bool.type, [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
 | android_manifest | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, [None, [str.type]]) -> None` |  |
@@ -31,13 +31,13 @@ Regenerate by running `buck2_docs --buck-command=buck2 --destination-dir=docs/ge
 | apple_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [None, str.type], [None, bool.type], [str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], bool.type, {str.type: str.type}, bool.type, [None, str.type], [str.type], str.type, [{str.type: str.type}, [str.type]], {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [str.type], [(str.type, [str.type])], [str.type], [str.type], [str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], [None, bool.type], [str.type], [str.type], bool.type, [None, str.type], bool.type, [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, bool.type], [str.type], bool.type, [None, str.type], [[str.type, (str.type, [str.type])]], [None, str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], bool.type, [None, bool.type], bool.type, bool.type, bool.type, bool.type, [None, [str.type]], [None, bool.type], [None, bool.type]) -> None` |  |
 | apple_package | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [None, str.type], [None, str.type], [str.type], [str.type], bool.type, [None, [str.type]]) -> None` |  |
 | apple_resource | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], bool.type, [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], {str.type: [str.type]}, [str.type], [str.type], [None, [str.type]]) -> None` |  |
-| apple_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [None, str.type], str.type, {str.type: ""}, [None, str.type], [None, str.type], [None, bool.type], [str.type], [None, str.type], [str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], {str.type: str.type}, bool.type, {str.type: str.type}, bool.type, [None, str.type], [None, {str.type: str.type}], [None, str.type], [str.type], str.type, [{str.type: str.type}, [str.type]], {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [str.type], [(str.type, [str.type])], [str.type], str.type, [str.type], [str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [None, bool.type], str.type, {str.type: str.type}, bool.type, [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], str.type, [None, bool.type], [str.type], [str.type], bool.type, [None, str.type], bool.type, [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, bool.type], [None, str.type], [None, str.type], bool.type, [None, str.type], [str.type], bool.type, [None, bool.type], [None, [str.type, str.type]], [None, str.type], [None, str.type], [[str.type, (str.type, [str.type])]], [None, str.type], bool.type, [None, str.type], [None, bool.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [None, int.type], bool.type, [None, bool.type], [None, str.type], bool.type, bool.type, bool.type, bool.type, [None, [str.type]], [None, bool.type], [None, str.type], [None, bool.type]) -> None` |  |
-| apple_toolchain | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [None, str.type], str.type, str.type, [None, str.type], str.type, str.type, [str.type], [None, str.type], str.type, [None, str.type], [None, str.type], str.type, [None, str.type], str.type, [str.type], str.type, [str.type], str.type, [None, str.type], str.type, [None, str.type], [None, str.type], str.type, [None, str.type], [None, str.type], str.type, [None, str.type], [None, [str.type]], [None, bool.type], str.type, str.type, str.type) -> None` |  |
+| apple_test | `(**UNKNOWN) -> UNKNOWN` |  |
+| apple_toolchain | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [None, str.type], str.type, str.type, [None, str.type], str.type, str.type, [str.type], [None, str.type], str.type, [None, str.type], [None, str.type], str.type, [None, str.type], str.type, [str.type], str.type, [str.type], str.type, [None, str.type], str.type, [None, str.type], [None, str.type], str.type, [None, str.type], [None, str.type], [None, str.type], [None, str.type], [None, [str.type]], [None, bool.type], [None, str.type], [None, str.type], str.type) -> None` |  |
 | apple_toolchain_set | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [None, str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
 | apple_tools | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, str.type) -> None` |  |
 | cgo_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], {str.type: str.type}, [str.type], [None, str.type], bool.type, [None, str.type], [str.type], bool.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, str.type], [str.type], [str.type], {str.type: [str.type]}, {str.type: [(str.type, [str.type])]}, {str.type: [(str.type, [str.type])]}, {str.type: [str.type]}, [str.type], [str.type], bool.type, [None, str.type], [None, [(str.type, [(str.type, str.type, [None, str.type])])]], [None, str.type], [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [[str.type, (str.type, [str.type])]])], [str.type], [(str.type, [str.type])], [None, str.type], bool.type, [None, str.type], [str.type], [str.type], [[str.type, (str.type, [str.type])]], bool.type, [None, str.type], [None, [str.type]]) -> None` |  |
-| cmd_args | `(*Vec < Value < 'v > >, Option < StringValue < 'v > >, Option < StringValue < 'v > >, Option < StringValue < 'v > >, Option < & str >) -> StarlarkCommandLine < 'v >` |  |
-| command_alias | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [None, str.type], {str.type: str.type}, [None, str.type], [str.type], [str.type], {str.type: str.type}, [None, [str.type]]) -> None` |  |
+| cmd_args | `(*[""], [None, str.type], [None, str.type], [None, str.type], [None, str.type]) -> "cmd_args"` |  |
+| command_alias | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [None, str.type], {str.type: str.type}, [None, str.type], [str.type], [str.type], {str.type: str.type}, [str.type], [None, [str.type]]) -> None` |  |
 | config_setting | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], {str.type: str.type}, [None, [str.type]]) -> None` |  |
 | configured_alias | `(UNKNOWN, UNKNOWN, UNKNOWN, **UNKNOWN) -> UNKNOWN` |  |
 | constraint_setting | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, [str.type]]) -> None` |  |
@@ -60,12 +60,12 @@ Regenerate by running `buck2_docs --buck-command=buck2 --destination-dir=docs/ge
 | external_test_runner | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [None, str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
 | extract_archive | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [None, str.type]) -> None` |  |
 | filegroup | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
-| filter | `(Value < 'v >, Value < 'v >) -> Value < 'v >` |  |
+| filter | `("", "") -> ""` |  |
 | gen_aidl | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [str.type], [str.type], [None, str.type], [str.type], str.type, [str.type], [str.type], [None, [str.type]]) -> None` |  |
 | genrule | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [None, bool.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [None, [str.type]], [None, bool.type], [None, str.type], [None, bool.type], [str.type], [str.type], bool.type, [None, str.type], [None, {str.type: [str.type]}], [None, bool.type], [{str.type: str.type}, [str.type]], [None, str.type], [None, [str.type]]) -> None` |  |
-| get_base_path | `() -> String` |  |
-| get_cell_name | `() -> String` |  |
-| glob | `(Vec < String >, *, Option < Vec < String > >) -> Value < 'v >` |  |
+| get_base_path | `() -> str.type` |  |
+| get_cell_name | `() -> str.type` |  |
+| glob | `([str.type], *, [None, [str.type]]) -> ""` |  |
 | go_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [(str.type, [str.type])], [str.type], [str.type], [None, [str.type]]) -> None` |  |
 | go_exported_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], str.type, [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [(str.type, [str.type])], [str.type], [str.type], [None, [str.type]]) -> None` |  |
 | go_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [None, [str.type]]) -> None` |  |
@@ -81,10 +81,10 @@ Regenerate by running `buck2_docs --buck-command=buck2 --destination-dir=docs/ge
 | haskell_ide | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [(str.type, [str.type])], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
 | haskell_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [str.type], [str.type], [None, str.type], [str.type], bool.type, [(str.type, [str.type])], [str.type], [str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], str.type, [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
 | haskell_prebuilt_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], str.type, [None, str.type], [str.type], bool.type, [str.type], [str.type], str.type, [str.type], [str.type], [str.type], [str.type], [str.type], [str.type], {str.type: str.type}, [str.type], str.type, [None, [str.type]]) -> None` |  |
-| host_info | `() -> Value < 'v >` |  |
+| host_info | `() -> ""` |  |
 | http_archive | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [None, [str.type]]) -> None` |  |
 | http_file | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [None, bool.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [None, [str.type]]) -> None` |  |
-| implicit_package_symbol | `(& str, Option < Value < 'v > >) -> Value < 'v >` |  |
+| implicit_package_symbol | `(str.type, [None, ""]) -> ""` |  |
 | jar_genrule | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [None, str.type], [None, bool.type], [None, str.type], [None, str.type], [str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [str.type], bool.type, [None, bool.type], [{str.type: str.type}, [str.type]], [None, str.type], [None, [str.type]]) -> None` |  |
 | java_annotation_processor | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], bool.type, bool.type, [str.type], [str.type], str.type, bool.type, [None, [str.type]]) -> None` |  |
 | java_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [str.type], [None, str.type], [None, str.type], [str.type], bool.type, [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [None, [str.type]]) -> None` |  |
@@ -102,15 +102,16 @@ Regenerate by running `buck2_docs --buck-command=buck2 --destination-dir=docs/ge
 | legacy_toolchain | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], str.type, [None, [str.type]]) -> None` |  |
 | lua_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, [None, str.type], [None, str.type], [None, str.type], [(str.type, [str.type])], [None, str.type], [None, [str.type]]) -> None` |  |
 | lua_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [(str.type, [str.type])], [{str.type: str.type}, [str.type]], [None, [str.type]]) -> None` |  |
-| map | `(Value < 'v >, Value < 'v >) -> Value < 'v >` |  |
+| map | `("", "") -> ""` |  |
 | ndk_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
 | ndk_toolchain | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], str.type, [None, str.type], [str.type], [str.type], str.type, [None, str.type], [None, [str.type]], [None, [str.type]]) -> None` |  |
 | ocaml_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [None, bool.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [None, [{str.type: str.type}, [str.type]]], [None, str.type], [None, [str.type]]) -> None` |  |
 | ocaml_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, bool.type, [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], bool.type, [str.type], [(str.type, [str.type])], [(str.type, [str.type])], [None, [{str.type: str.type}, [str.type]]], [None, str.type], [None, [str.type]]) -> None` |  |
 | ocaml_object | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [None, bool.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [None, [{str.type: str.type}, [str.type]]], [None, str.type], [None, [str.type]]) -> None` |  |
-| package | `() -> String` |  |
-| package_name | `() -> String` |  |
-| partial | `(Value < 'v >, *Value < 'v >, **DictRef < 'v >) -> Partial < 'v >` |  |
+| oncall | `(str.type) -> None` | Called in a TARGETS/BUCK file to declare the oncall contact details for all the targets defined. Must be called at most once, before any targets have been declared. Errors if called from a `.bzl` file. |
+| package | `() -> str.type` |  |
+| package_name | `() -> str.type` |  |
+| partial | `("", *"", **{"": ""}) -> "function"` |  |
 | platform | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [None, [str.type]]) -> None` |  |
 | prebuilt_apple_framework | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, [None, bool.type], [str.type], [None, str.type], [str.type], [str.type], [(str.type, [str.type])], [None, str.type], [str.type], [str.type], [str.type], [str.type], str.type, [None, str.type], [None, [str.type]]) -> None` |  |
 | prebuilt_cxx_library | `(UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, **UNKNOWN) -> UNKNOWN` |  |
@@ -122,7 +123,7 @@ Regenerate by running `buck2_docs --buck-command=buck2 --destination-dir=docs/ge
 | prebuilt_ocaml_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], bool.type, [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [None, str.type], str.type, [str.type], [str.type], [None, str.type], [(str.type, [str.type])], [None, [str.type]]) -> None` |  |
 | prebuilt_python_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, bool.type, [str.type], [None, str.type], [str.type], bool.type, bool.type, [str.type], [str.type], [None, [str.type]]) -> None` |  |
 | prebuilt_rust_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [str.type], str.type, [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [(str.type, [str.type])], bool.type, str.type, [None, [str.type]]) -> None` |  |
-| provider | `(& str, Either < Vec < String >, SmallMap < & str, & str > >) -> ProviderCallable` |  |
+| provider | `(str.type, [[str.type], {str.type: str.type}]) -> "provider_callable"` |  |
 | python | `UNKNOWN` |  |
 | python_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, str.type, [None, str.type], [str.type], bool.type, [None, bool.type], [str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], bool.type, [None, str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], bool.type, [str.type], [None, str.type], [None, [str.type]], [None, bool.type]) -> None` |  |
 | python_bootstrap_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], str.type) -> None` |  |
@@ -131,29 +132,29 @@ Regenerate by running `buck2_docs --buck-command=buck2 --destination-dir=docs/ge
 | python_needed_coverage_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, str.type, str.type, [str.type], [None, str.type], [str.type], bool.type, [None, bool.type], [str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, bool.type, [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [(int.type, str.type, [None, str.type])], bool.type, [None, str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [{str.type: str.type}, [str.type]])], bool.type, [str.type], [{str.type: [str.type, str.type]}, [[str.type, str.type]]], [None, str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, int.type], [None, str.type], [None, [({str.type: str.type}, [{str.type: str.type}, [str.type]])]], [None, [({str.type: str.type}, [{str.type: str.type}, [str.type]])]], [None, [str.type]], [None, bool.type]) -> None` |  |
 | python_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, str.type, str.type, [str.type], [None, str.type], [str.type], bool.type, [None, bool.type], [str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, bool.type, [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [(int.type, str.type, [None, str.type])], bool.type, [None, str.type], [None, str.type], [(str.type, [str.type])], [(str.type, [str.type])], [(str.type, [{str.type: str.type}, [str.type]])], [(str.type, [{str.type: str.type}, [str.type]])], bool.type, [str.type], [{str.type: [str.type, str.type]}, [[str.type, str.type]]], [None, str.type], [None, str.type], [{str.type: str.type}, [str.type]], [None, int.type], [None, str.type], [None, [({str.type: str.type}, [{str.type: str.type}, [str.type]])]], [None, [({str.type: str.type}, [{str.type: str.type}, [str.type]])]], [None, [str.type]], [None, bool.type]) -> None` |  |
 | python_test_runner | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], str.type, str.type, [None, [str.type]]) -> None` |  |
-| read_config | `(StringValue, StringValue, Option < Value < 'v > >) -> Value < 'v >` |  |
+| read_config | `(str.type, str.type, [None, ""]) -> ""` |  |
 | remote_file | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], str.type, [None, [str.type]]) -> None` |  |
-| repository_name | `() -> String` |  |
+| repository_name | `() -> str.type` |  |
 | robolectric_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, str.type, [None, str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, str.type], [None, str.type], {str.type: {str.type: str.type}}, [str.type], [None, str.type], [str.type], [str.type], {str.type: ""}, [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], bool.type, [None, str.type], [str.type], [None, str.type], str.type, [str.type], [None, str.type], bool.type, [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, [str.type, int.type]], [None, [str.type, int.type]], [None, str.type], [None, int.type], [None, int.type], [None, str.type], [None, bool.type], [None, bool.type], [str.type], [None, [str.type]]) -> None` |  |
-| rule_exists | `(& str) -> bool` | This should be called "target exists", not "rule exists" (if this should exist at all). |
+| rule_exists | `(str.type) -> bool.type` | This should be called "target exists", not "rule exists" (if this should exist at all). |
 | rust_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [(str.type, [str.type])], bool.type, [str.type], [str.type], [None, str.type], [str.type], {str.type: str.type}, {str.type: str.type}, [(str.type, [str.type])], [(str.type, [(str.type, [str.type])])], [(str.type, [str.type])], {str.type: [str.type]}, bool.type, [str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
 | rust_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [(str.type, [str.type])], [str.type], [str.type], [str.type], {str.type: str.type}, {str.type: str.type}, [(str.type, [str.type])], [(str.type, [(str.type, [str.type])])], {str.type: [str.type]}, str.type, bool.type, [str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
 | rust_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, str.type, str.type, [str.type], [None, str.type], [None, str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [(str.type, [str.type])], bool.type, [str.type], [str.type], [None, str.type], [str.type], {str.type: str.type}, {str.type: str.type}, [(str.type, [str.type])], [(str.type, [(str.type, [str.type])])], [(str.type, [str.type])], {str.type: [str.type]}, bool.type, [str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
 | scala_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, [str.type]]) -> None` |  |
 | scala_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [str.type], [str.type], [str.type], [str.type], [str.type], [None, str.type], [None, str.type], [str.type], [None, str.type], {str.type: str.type}, [str.type], [str.type], [str.type], str.type, [None, str.type], [None, str.type], [str.type], [str.type], [None, str.type], [None, str.type], [None, bool.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], bool.type, [str.type], [None, str.type], bool.type, [str.type], [None, str.type], [None, str.type], [str.type], [str.type], [None, [str.type, int.type]], [None, [str.type, int.type]], [None, str.type], [None, int.type], [None, int.type], [None, str.type], [None, bool.type], [None, bool.type], [str.type], [None, [str.type]]) -> None` |  |
 | scene_kit_assets | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], str.type, [None, [str.type]]) -> None` |  |
-| select | `(Value < 'v >) -> Selector < 'v >` |  |
-| select_equal_internal | `(Value < 'v >, Value < 'v >) -> bool` | Tests that two selects are equal to each other. For testing use only. |
-| select_map | `(Value < 'v >, Value < 'v >) -> Value < 'v >` | Applies a mapping function to a selector. See [Selector::select_map]. |
-| select_test | `(Value < 'v >, Value < 'v >) -> bool` | Applies a test function to a selector. See [Selector::select_test]. |
+| select | `("") -> "selector"` |  |
+| select_equal_internal | `("", "") -> bool.type` | Tests that two selects are equal to each other. For testing use only. |
+| select_map | `("", "") -> ""` | Applies a mapping function to a selector. See [Selector::select_map]. |
+| select_test | `("", "") -> bool.type` | Applies a test function to a selector. See [Selector::select_test]. |
 | sh_binary | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [str.type], str.type, [str.type], [None, [str.type]]) -> None` |  |
 | sh_test | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [str.type], [None, str.type], [str.type], {str.type: str.type}, [str.type], [str.type], [None, [str.type]], [None, {str.type: str.type}], [str.type], [str.type], {str.type: str.type}, bool.type, [None, [str.type, str.type]], [None, int.type], [None, str.type], [None, [str.type]]) -> None` |  |
-| sha256 | `(& str) -> String` | Computes a sha256 digest for a string. Returns the hex representation of the digest. |
+| sha256 | `(str.type) -> str.type` | Computes a sha256 digest for a string. Returns the hex representation of the digest. |
 | supermodule_target_graph | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], [str.type], str.type, str.type, [None, [str.type]]) -> None` |  |
 | swift_library | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [str.type], [str.type], [None, str.type], [str.type], bool.type, [str.type], [str.type], [str.type], [str.type], [None, str.type], str.type, [str.type], bool.type, [None, str.type], [str.type], [None, str.type], [None, str.type], bool.type, [None, str.type], [None, [str.type]]) -> None` |  |
 | swift_toolchain | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [None, str.type], [None, str.type], str.type, [None, str.type], [str.type], [None, str.type], [str.type], [str.type], [None, str.type], bool.type, [None, str.type], [str.type], [str.type], [str.type], [None, str.type], [str.type], [None, str.type], [str.type], str.type, [str.type], str.type, [str.type], [None, [str.type]]) -> None` |  |
 | test_suite | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], [str.type], [None, str.type], [str.type], [str.type], [str.type], [None, [str.type]]) -> None` |  |
-| transitive_set | `(Option < SmallMap < String, Value < 'v > > >, Option < SmallMap < String, Value < 'v > > >) -> TransitiveSetDefinition < 'v >` |  |
+| transitive_set | `([None, {str.type: ""}], [None, {str.type: ""}]) -> "transitive_set_definition"` |  |
 | versioned_alias | `(UNKNOWN, **UNKNOWN) -> UNKNOWN` |  |
 | watchos_bundle | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type) -> None` |  |
 | worker_tool | `(*, str.type, [None, str.type], [str.type], [str.type], [str.type], [str.type], [label], str.type, [str.type, [str.type]], [str.type], [None, str.type], {str.type: str.type}, [None, str.type], [str.type], [str.type], [None, int.type], [None, int.type], [None, bool.type], [None, [str.type]]) -> None` |  |
@@ -248,7 +249,8 @@ def android_aar(
     native_library_merge_code_generator: [None, str.type] = None,
     native_library_merge_glue: [None, str.type] = None,
     native_library_merge_localized_symbols: [None, [str.type]] = None,
-    native_library_merge_map: {str.type: [str.type]} = None,
+    native_library_merge_map: [None, {str.type: [str.type]}] = None,
+    native_library_merge_sequence: [None, [(str.type, [str.type])]] = None,
     never_mark_as_unused_dependency: [None, bool.type] = None,
     on_unused_dependencies: [None, str.type] = None,
     plugins: [str.type] = None,
@@ -316,6 +318,7 @@ def android_aar(
 | `native_library_merge_glue` |  |
 | `native_library_merge_localized_symbols` |  |
 | `native_library_merge_map` |  |
+| `native_library_merge_sequence` |  |
 | `never_mark_as_unused_dependency` |  |
 | `on_unused_dependencies` |  |
 | `plugins` |  |
@@ -419,7 +422,7 @@ def android_binary(
     asset_compression_algorithm: [None, str.type] = None,
     banned_duplicate_resource_types: [str.type] = None,
     build_config_values: [str.type] = None,
-    build_config_values_file: [None, str.type] = None,
+    build_config_values_file: [None, [str.type, str.type]] = None,
     build_string_source_map: bool.type = None,
     compress_asset_libraries: bool.type = None,
     contacts: [str.type] = None,
@@ -444,7 +447,7 @@ def android_binary(
     licenses: [str.type] = None,
     linear_alloc_hard_limit: int.type = None,
     locales: [str.type] = None,
-    manifest: [None, str.type] = None,
+    manifest: [None, [str.type, str.type]] = None,
     manifest_entries: {str.type: ""} = None,
     manifest_skeleton: [None, str.type] = None,
     method_ref_count_buffer_space: int.type = None,
@@ -453,7 +456,8 @@ def android_binary(
     native_library_merge_code_generator: [None, str.type] = None,
     native_library_merge_glue: [None, str.type] = None,
     native_library_merge_localized_symbols: [None, [str.type]] = None,
-    native_library_merge_map: {str.type: [str.type]} = None,
+    native_library_merge_map: [None, {str.type: [str.type]}] = None,
+    native_library_merge_sequence: [None, [(str.type, [str.type])]] = None,
     no_auto_add_overlay_resources: bool.type = None,
     no_auto_version_resources: bool.type = None,
     no_dx: [str.type] = None,
@@ -548,6 +552,7 @@ def android_binary(
 | `native_library_merge_glue` |  |
 | `native_library_merge_localized_symbols` |  |
 | `native_library_merge_map` |  |
+| `native_library_merge_sequence` |  |
 | `no_auto_add_overlay_resources` |  |
 | `no_auto_version_resources` |  |
 | `no_dx` |  |
@@ -687,7 +692,8 @@ def android_bundle(
     native_library_merge_code_generator: [None, str.type] = None,
     native_library_merge_glue: [None, str.type] = None,
     native_library_merge_localized_symbols: [None, [str.type]] = None,
-    native_library_merge_map: {str.type: [str.type]} = None,
+    native_library_merge_map: [None, {str.type: [str.type]}] = None,
+    native_library_merge_sequence: [None, [(str.type, [str.type])]] = None,
     no_auto_add_overlay_resources: bool.type = None,
     no_auto_version_resources: bool.type = None,
     no_dx: [str.type] = None,
@@ -780,6 +786,7 @@ def android_bundle(
 | `native_library_merge_glue` |  |
 | `native_library_merge_localized_symbols` |  |
 | `native_library_merge_map` |  |
+| `native_library_merge_sequence` |  |
 | `no_auto_add_overlay_resources` |  |
 | `no_auto_version_resources` |  |
 | `no_dx` |  |
@@ -834,7 +841,7 @@ def android_instrumentation_apk(
     includes_vector_drawables: bool.type = None,
     labels: [str.type] = None,
     licenses: [str.type] = None,
-    manifest: [None, str.type] = None,
+    manifest: [None, [str.type, str.type]] = None,
     manifest_skeleton: [None, str.type] = None,
     within_view: [None, [str.type]] = None
 ) -> None
@@ -1909,265 +1916,8 @@ def apple_resource(
 ## apple_test
 
 ```python
-def apple_test(
-    *,
-    name: str.type,
-    default_target_platform: [None, str.type] = None,
-    target_compatible_with: [str.type] = None,
-    compatible_with: [str.type] = None,
-    exec_compatible_with: [str.type] = None,
-    visibility: [str.type] = None,
-    tests: [label] = None,
-    _apple_toolchain: str.type = None,
-    _apple_tools: str.type = None,
-    _codesign_type: [None, str.type] = None,
-    _cxx_toolchain_target_configuration: str.type = None,
-    asset_catalogs_compilation_options: {str.type: ""} = None,
-    binary: [None, str.type] = None,
-    bridging_header: [None, str.type] = None,
-    can_be_asset: [None, bool.type] = None,
-    codesign_flags: [str.type] = None,
-    codesign_identity: [None, str.type] = None,
-    compiler_flags: [str.type] = None,
-    configs: {str.type: {str.type: str.type}} = None,
-    contacts: [str.type] = None,
-    cxx_runtime_type: [None, str.type] = None,
-    default_host_platform: [None, str.type] = None,
-    default_platform: [None, str.type] = None,
-    defaults: {str.type: str.type} = None,
-    deps: [str.type] = None,
-    destination_specifier: {str.type: str.type} = None,
-    devirt_enabled: bool.type = None,
-    diagnostics: {str.type: str.type} = None,
-    enable_cxx_interop: bool.type = None,
-    entitlements_file: [None, str.type] = None,
-    env: [None, {str.type: str.type}] = None,
-    executable_name: [None, str.type] = None,
-    exported_deps: [str.type] = None,
-    exported_header_style: str.type = None,
-    exported_headers: [{str.type: str.type}, [str.type]] = None,
-    exported_lang_platform_preprocessor_flags: {str.type: [(str.type, [str.type])]} = None,
-    exported_lang_preprocessor_flags: {str.type: [str.type]} = None,
-    exported_linker_flags: [str.type] = None,
-    exported_platform_deps: [(str.type, [str.type])] = None,
-    exported_platform_headers: [(str.type, [{str.type: str.type}, [str.type]])] = None,
-    exported_platform_linker_flags: [(str.type, [str.type])] = None,
-    exported_platform_preprocessor_flags: [(str.type, [str.type])] = None,
-    exported_post_linker_flags: [str.type] = None,
-    exported_post_platform_linker_flags: [(str.type, [str.type])] = None,
-    exported_preprocessor_flags: [str.type] = None,
-    extension: str.type = None,
-    extra_xcode_files: [str.type] = None,
-    extra_xcode_sources: [str.type] = None,
-    fat_lto: bool.type = None,
-    focused_list_target: [None, str.type] = None,
-    force_static: [None, bool.type] = None,
-    frameworks: [str.type] = None,
-    header_namespace: [None, str.type] = None,
-    header_path_prefix: [None, str.type] = None,
-    headers: [{str.type: str.type}, [str.type]] = None,
-    headers_as_raw_headers_mode: [None, str.type] = None,
-    include_directories: [str.type] = None,
-    incremental_bundling_enabled: [None, bool.type] = None,
-    info_plist: str.type,
-    info_plist_substitutions: {str.type: str.type} = None,
-    is_ui_test: bool.type = None,
-    labels: [str.type] = None,
-    lang_compiler_flags: {str.type: [str.type]} = None,
-    lang_platform_compiler_flags: {str.type: [(str.type, [str.type])]} = None,
-    lang_platform_preprocessor_flags: {str.type: [(str.type, [str.type])]} = None,
-    lang_preprocessor_flags: {str.type: [str.type]} = None,
-    libraries: [str.type] = None,
-    licenses: [str.type] = None,
-    link_group: [None, str.type] = None,
-    link_group_map: [None, [(str.type, [(str.type, str.type, [None, str.type])])]] = None,
-    link_style: str.type = None,
-    link_whole: [None, bool.type] = None,
-    linker_extra_outputs: [str.type] = None,
-    linker_flags: [str.type] = None,
-    modular: bool.type = None,
-    module_name: [None, str.type] = None,
-    module_requires_cxx: bool.type = None,
-    platform_compiler_flags: [(str.type, [str.type])] = None,
-    platform_deps: [(str.type, [str.type])] = None,
-    platform_headers: [(str.type, [{str.type: str.type}, [str.type]])] = None,
-    platform_linker_flags: [(str.type, [str.type])] = None,
-    platform_preprocessor_flags: [(str.type, [str.type])] = None,
-    platform_srcs: [(str.type, [[str.type, (str.type, [str.type])]])] = None,
-    post_linker_flags: [str.type] = None,
-    post_platform_linker_flags: [(str.type, [str.type])] = None,
-    precompiled_header: [None, str.type] = None,
-    preferred_linkage: str.type = None,
-    prefix_header: [None, str.type] = None,
-    preprocessor_flags: [str.type] = None,
-    public_include_directories: [str.type] = None,
-    public_system_include_directories: [str.type] = None,
-    raw_headers: [str.type] = None,
-    reexport_all_header_dependencies: [None, bool.type] = None,
-    resource_group: [None, str.type] = None,
-    resource_group_map: [None, str.type] = None,
-    run_test_separately: bool.type = None,
-    runner: [None, str.type] = None,
-    sdk_modules: [str.type] = None,
-    serialize_debugging_options: bool.type = None,
-    skip_copying_swift_stdlib: [None, bool.type] = None,
-    snapshot_reference_images_path: [None, [str.type, str.type]] = None,
-    soname: [None, str.type] = None,
-    specs: [None, str.type] = None,
-    srcs: [[str.type, (str.type, [str.type])]] = None,
-    static_library_basename: [None, str.type] = None,
-    stripped: bool.type = None,
-    supported_platforms_regex: [None, str.type] = None,
-    supports_merged_linking: [None, bool.type] = None,
-    swift_compiler_flags: [str.type] = None,
-    swift_version: [None, str.type] = None,
-    target_sdk_version: [None, str.type] = None,
-    test_host_app: [None, str.type] = None,
-    test_rule_timeout_ms: [None, int.type] = None,
-    thin_lto: bool.type = None,
-    try_skip_code_signing: [None, bool.type] = None,
-    ui_test_target_app: [None, str.type] = None,
-    use_submodules: bool.type = None,
-    uses_cxx_explicit_modules: bool.type = None,
-    uses_explicit_modules: bool.type = None,
-    uses_modules: bool.type = None,
-    within_view: [None, [str.type]] = None,
-    xcode_private_headers_symlinks: [None, bool.type] = None,
-    xcode_product_type: [None, str.type] = None,
-    xcode_public_headers_symlinks: [None, bool.type] = None
-) -> None
+def apple_test(**kwargs: UNKNOWN) -> UNKNOWN
 ```
-
-
-
-### Parameters
-
-| Name | Details |
-|------|---------|
-| `name` | name of the target |
-| `default_target_platform` | specifies the default target platform, used when no platforms are specified on the command line |
-| `target_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
-| `compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with a configuration |
-| `exec_compatible_with` | a list of constraints that are required to be satisfied for this target to be compatible with an execution platform |
-| `visibility` | a list of visibility patterns restricting what targets can depend on this one |
-| `tests` | a list of targets that provide tests for this one |
-| `_apple_toolchain` |  |
-| `_apple_tools` |  |
-| `_codesign_type` |  |
-| `_cxx_toolchain_target_configuration` |  |
-| `asset_catalogs_compilation_options` |  |
-| `binary` |  |
-| `bridging_header` |  |
-| `can_be_asset` |  |
-| `codesign_flags` |  |
-| `codesign_identity` |  |
-| `compiler_flags` |  |
-| `configs` |  |
-| `contacts` |  |
-| `cxx_runtime_type` |  |
-| `default_host_platform` |  |
-| `default_platform` |  |
-| `defaults` |  |
-| `deps` |  |
-| `destination_specifier` |  |
-| `devirt_enabled` |  |
-| `diagnostics` |  |
-| `enable_cxx_interop` |  |
-| `entitlements_file` |  |
-| `env` |  |
-| `executable_name` |  |
-| `exported_deps` |  |
-| `exported_header_style` |  |
-| `exported_headers` |  |
-| `exported_lang_platform_preprocessor_flags` |  |
-| `exported_lang_preprocessor_flags` |  |
-| `exported_linker_flags` |  |
-| `exported_platform_deps` |  |
-| `exported_platform_headers` |  |
-| `exported_platform_linker_flags` |  |
-| `exported_platform_preprocessor_flags` |  |
-| `exported_post_linker_flags` |  |
-| `exported_post_platform_linker_flags` |  |
-| `exported_preprocessor_flags` |  |
-| `extension` |  |
-| `extra_xcode_files` |  |
-| `extra_xcode_sources` |  |
-| `fat_lto` |  |
-| `focused_list_target` |  |
-| `force_static` |  |
-| `frameworks` |  |
-| `header_namespace` |  |
-| `header_path_prefix` |  |
-| `headers` |  |
-| `headers_as_raw_headers_mode` |  |
-| `include_directories` |  |
-| `incremental_bundling_enabled` |  |
-| `info_plist` |  |
-| `info_plist_substitutions` |  |
-| `is_ui_test` |  |
-| `labels` |  |
-| `lang_compiler_flags` |  |
-| `lang_platform_compiler_flags` |  |
-| `lang_platform_preprocessor_flags` |  |
-| `lang_preprocessor_flags` |  |
-| `libraries` |  |
-| `licenses` |  |
-| `link_group` |  |
-| `link_group_map` |  |
-| `link_style` |  |
-| `link_whole` |  |
-| `linker_extra_outputs` |  |
-| `linker_flags` |  |
-| `modular` |  |
-| `module_name` |  |
-| `module_requires_cxx` |  |
-| `platform_compiler_flags` |  |
-| `platform_deps` |  |
-| `platform_headers` |  |
-| `platform_linker_flags` |  |
-| `platform_preprocessor_flags` |  |
-| `platform_srcs` |  |
-| `post_linker_flags` |  |
-| `post_platform_linker_flags` |  |
-| `precompiled_header` |  |
-| `preferred_linkage` |  |
-| `prefix_header` |  |
-| `preprocessor_flags` |  |
-| `public_include_directories` |  |
-| `public_system_include_directories` |  |
-| `raw_headers` |  |
-| `reexport_all_header_dependencies` |  |
-| `resource_group` |  |
-| `resource_group_map` |  |
-| `run_test_separately` |  |
-| `runner` |  |
-| `sdk_modules` |  |
-| `serialize_debugging_options` |  |
-| `skip_copying_swift_stdlib` |  |
-| `snapshot_reference_images_path` |  |
-| `soname` |  |
-| `specs` |  |
-| `srcs` |  |
-| `static_library_basename` |  |
-| `stripped` |  |
-| `supported_platforms_regex` |  |
-| `supports_merged_linking` |  |
-| `swift_compiler_flags` |  |
-| `swift_version` |  |
-| `target_sdk_version` |  |
-| `test_host_app` |  |
-| `test_rule_timeout_ms` |  |
-| `thin_lto` |  |
-| `try_skip_code_signing` |  |
-| `ui_test_target_app` |  |
-| `use_submodules` |  |
-| `uses_cxx_explicit_modules` |  |
-| `uses_explicit_modules` |  |
-| `uses_modules` |  |
-| `within_view` |  |
-| `xcode_private_headers_symlinks` |  |
-| `xcode_product_type` |  |
-| `xcode_public_headers_symlinks` |  |
 
 ---
 ## apple_toolchain
@@ -2208,12 +1958,12 @@ def apple_toolchain(
     sdk_name: str.type = None,
     sdk_path: [None, str.type] = None,
     swift_toolchain: [None, str.type] = None,
-    version: str.type = None,
+    version: [None, str.type] = None,
     watch_kit_stub_binary: [None, str.type] = None,
     within_view: [None, [str.type]] = None,
     work_around_dsymutil_lto_stack_overflow_bug: [None, bool.type] = None,
-    xcode_build_version: str.type = None,
-    xcode_version: str.type = None,
+    xcode_build_version: [None, str.type] = None,
+    xcode_version: [None, str.type] = None,
     xctest: str.type
 ) -> None
 ```
@@ -2487,7 +2237,7 @@ def cgo_library(
 ## cmd_args
 
 ```python
-def cmd_args(*args: Vec < Value < 'v > >, delimiter: Option < StringValue < 'v > > = None, format: Option < StringValue < 'v > > = None, prepend: Option < StringValue < 'v > > = None, quote: Option < & str > = None) -> StarlarkCommandLine < 'v >
+def cmd_args(*args: [""], delimiter: [None, str.type] = None, format: [None, str.type] = None, prepend: [None, str.type] = None, quote: [None, str.type] = None) -> "cmd_args"
 ```
 
 ---
@@ -2511,6 +2261,7 @@ def command_alias(
     labels: [str.type] = None,
     licenses: [str.type] = None,
     platform_exe: {str.type: str.type} = None,
+    resources: [str.type] = None,
     within_view: [None, [str.type]] = None
 ) -> None
 ```
@@ -2536,6 +2287,7 @@ def command_alias(
 | `labels` |  |
 | `licenses` |  |
 | `platform_exe` |  |
+| `resources` |  |
 | `within_view` |  |
 
 ---
@@ -4143,7 +3895,7 @@ def filegroup(
 ## filter
 
 ```python
-def filter(func: Value < 'v >, seq: Value < 'v >) -> Value < 'v >
+def filter(func: "", seq: "") -> ""
 ```
 
 ---
@@ -4270,21 +4022,21 @@ def genrule(
 ## get_base_path
 
 ```python
-def get_base_path() -> String
+def get_base_path() -> str.type
 ```
 
 ---
 ## get_cell_name
 
 ```python
-def get_cell_name() -> String
+def get_cell_name() -> str.type
 ```
 
 ---
 ## glob
 
 ```python
-def glob(include: Vec < String >, *, exclude: Option < Vec < String > > = None) -> Value < 'v >
+def glob(include: [str.type], *, exclude: [None, [str.type]] = None) -> ""
 ```
 
 ---
@@ -5399,7 +5151,7 @@ def haskell_prebuilt_library(
 ## host_info
 
 ```python
-def host_info() -> Value < 'v >
+def host_info() -> ""
 ```
 
 ---
@@ -5512,7 +5264,7 @@ def http_file(
 ## implicit_package_symbol
 
 ```python
-def implicit_package_symbol(name: & str, default: Option < Value < 'v > > = None) -> Value < 'v >
+def implicit_package_symbol(name: str.type, default: [None, ""] = None) -> ""
 ```
 
 ---
@@ -6704,7 +6456,7 @@ def lua_library(
 ## map
 
 ```python
-def map(func: Value < 'v >, seq: Value < 'v >) -> Value < 'v >
+def map(func: "", seq: "") -> ""
 ```
 
 ---
@@ -7004,24 +6756,33 @@ def ocaml_object(
 | `within_view` |  |
 
 ---
+## oncall
+
+```python
+def oncall(_name: str.type) -> None
+```
+
+Called in a TARGETS/BUCK file to declare the oncall contact details for all the targets defined. Must be called at most once, before any targets have been declared. Errors if called from a `.bzl` file.
+
+---
 ## package
 
 ```python
-def package() -> String
+def package() -> str.type
 ```
 
 ---
 ## package_name
 
 ```python
-def package_name() -> String
+def package_name() -> str.type
 ```
 
 ---
 ## partial
 
 ```python
-def partial(func: Value < 'v >, *args: Value < 'v >, **kwargs: DictRef < 'v >) -> Partial < 'v >
+def partial(func: "", *args: "", **kwargs: {"": ""}) -> "function"
 ```
 
 ---
@@ -7593,7 +7354,7 @@ def prebuilt_rust_library(
 ## provider
 
 ```python
-def provider(doc: & str = None, fields: Either < Vec < String >, SmallMap < & str, & str > >) -> ProviderCallable
+def provider(doc: str.type = None, fields: [[str.type], {str.type: str.type}]) -> "provider_callable"
 ```
 
 ---
@@ -8058,7 +7819,7 @@ def python_test_runner(
 ## read_config
 
 ```python
-def read_config(section: StringValue, key: StringValue, default: Option < Value < 'v > > = None) -> Value < 'v >
+def read_config(section: str.type, key: str.type, default: [None, ""] = None) -> ""
 ```
 
 ---
@@ -8117,7 +7878,7 @@ def remote_file(
 ## repository_name
 
 ```python
-def repository_name() -> String
+def repository_name() -> str.type
 ```
 
 ---
@@ -8278,7 +8039,7 @@ def robolectric_test(
 ## rule_exists
 
 ```python
-def rule_exists(name: & str) -> bool
+def rule_exists(name: str.type) -> bool.type
 ```
 
 This should be called "target exists", not "rule exists" (if this should exist at all).
@@ -8811,14 +8572,14 @@ def scene_kit_assets(
 ## select
 
 ```python
-def select(d: Value < 'v >) -> Selector < 'v >
+def select(d: "") -> "selector"
 ```
 
 ---
 ## select_equal_internal
 
 ```python
-def select_equal_internal(left: Value < 'v >, right: Value < 'v >) -> bool
+def select_equal_internal(left: "", right: "") -> bool.type
 ```
 
 Tests that two selects are equal to each other. For testing use only.
@@ -8827,7 +8588,7 @@ Tests that two selects are equal to each other. For testing use only.
 ## select_map
 
 ```python
-def select_map(d: Value < 'v >, func: Value < 'v >) -> Value < 'v >
+def select_map(d: "", func: "") -> ""
 ```
 
 Applies a mapping function to a selector. See [Selector::select_map].
@@ -8836,7 +8597,7 @@ Applies a mapping function to a selector. See [Selector::select_map].
 ## select_test
 
 ```python
-def select_test(d: Value < 'v >, func: Value < 'v >) -> bool
+def select_test(d: "", func: "") -> bool.type
 ```
 
 Applies a test function to a selector. See [Selector::select_test].
@@ -8955,7 +8716,7 @@ def sh_test(
 ## sha256
 
 ```python
-def sha256(val: & str) -> String
+def sha256(val: str.type) -> str.type
 ```
 
 Computes a sha256 digest for a string. Returns the hex representation of the digest.
@@ -9202,7 +8963,7 @@ def test_suite(
 ## transitive_set
 
 ```python
-def transitive_set(args_projections: Option < SmallMap < String, Value < 'v > > > = None, reductions: Option < SmallMap < String, Value < 'v > > > = None) -> TransitiveSetDefinition < 'v >
+def transitive_set(args_projections: [None, {str.type: ""}] = None, reductions: [None, {str.type: ""}] = None) -> "transitive_set_definition"
 ```
 
 ---

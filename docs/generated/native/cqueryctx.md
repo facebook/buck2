@@ -11,19 +11,24 @@ Regenerate by running `buck2_docs --buck-command=buck2 --destination-dir=docs/ge
 
 | Member | Type | Description |
 |--------|------|-------------|
-| allpaths | `(TargetExpr < ConfiguredTargetNode >, TargetExpr < ConfiguredTargetNode >) -> StarlarkTargetSet < ConfiguredTargetNode >` | the `allpaths` query. |
-| attrfilter | `(& str, & str, TargetExpr < ConfiguredTargetNode >) -> StarlarkTargetSet < ConfiguredTargetNode >` |  |
-| attrregexfilter | `(& str, & str, TargetExpr < ConfiguredTargetNode >) -> StarlarkTargetSet < ConfiguredTargetNode >` |  |
-| deps | `(TargetExpr < ConfiguredTargetNode >, NoneOr < i32 >, NoneOr < & 'v str >) -> StarlarkTargetSet < ConfiguredTargetNode >` |  |
-| kind | `(& str, TargetExpr < ConfiguredTargetNode >) -> StarlarkTargetSet < ConfiguredTargetNode >` |  |
-| owner | `(FileSetExpr) -> StarlarkTargetSet < ConfiguredTargetNode >` |  |
-| rdeps | `(TargetExpr < ConfiguredTargetNode >, TargetExpr < ConfiguredTargetNode >, Option < i32 >) -> StarlarkTargetSet < ConfiguredTargetNode >` |  |
+| allpaths | `("", "") -> "target_set"` | the `allpaths` query. |
+| attrfilter | `(str.type, str.type, "") -> "target_set"` |  |
+| attrregexfilter | `(str.type, str.type, "") -> "target_set"` |  |
+| deps | `("", [None, int.type], [None, str.type]) -> "target_set"` |  |
+| eval | `(str.type, [str.type], [None, [str.type]]) -> ""` | evaluates some general query string |
+| filter | `(str.type, "") -> "target_set"` |  |
+| inputs | `("") -> "file_set"` |  |
+| kind | `(str.type, "") -> "target_set"` |  |
+| owner | `([str.type, "file_set"]) -> "target_set"` |  |
+| rdeps | `("", "", [None, int.type]) -> "target_set"` |  |
+| somepaths | `("", "") -> "target_set"` |  |
+| testsof | `("") -> "target_set"` |  |
 
 
 ## allpaths
 
 ```python
-def allpaths(from: TargetExpr < ConfiguredTargetNode >, to: TargetExpr < ConfiguredTargetNode >) -> StarlarkTargetSet < ConfiguredTargetNode >
+def allpaths(from: "", to: "") -> "target_set"
 ```
 
 the `allpaths` query.
@@ -32,40 +37,77 @@ the `allpaths` query.
 ## attrfilter
 
 ```python
-def attrfilter(attr: & str, value: & str, targets: TargetExpr < ConfiguredTargetNode >) -> StarlarkTargetSet < ConfiguredTargetNode >
+def attrfilter(attr: str.type, value: str.type, targets: "") -> "target_set"
 ```
 
 ---
 ## attrregexfilter
 
 ```python
-def attrregexfilter(attribute: & str, value: & str, targets: TargetExpr < ConfiguredTargetNode >) -> StarlarkTargetSet < ConfiguredTargetNode >
+def attrregexfilter(attribute: str.type, value: str.type, targets: "") -> "target_set"
 ```
 
 ---
 ## deps
 
 ```python
-def deps(universe: TargetExpr < ConfiguredTargetNode >, depth: NoneOr < i32 > = None, filter: NoneOr < & 'v str > = None) -> StarlarkTargetSet < ConfiguredTargetNode >
+def deps(universe: "", depth: [None, int.type] = None, filter: [None, str.type] = None) -> "target_set"
+```
+
+---
+## eval
+
+```python
+def eval(query: str.type, query_args: [str.type] = None, target_universe: [None, [str.type]] = None) -> ""
+```
+
+evaluates some general query string
+
+---
+## filter
+
+```python
+def filter(regex: str.type, targets: "") -> "target_set"
+```
+
+---
+## inputs
+
+```python
+def inputs(targets: "") -> "file_set"
 ```
 
 ---
 ## kind
 
 ```python
-def kind(regex: & str, targets: TargetExpr < ConfiguredTargetNode >) -> StarlarkTargetSet < ConfiguredTargetNode >
+def kind(regex: str.type, targets: "") -> "target_set"
 ```
 
 ---
 ## owner
 
 ```python
-def owner(files: FileSetExpr) -> StarlarkTargetSet < ConfiguredTargetNode >
+def owner(files: [str.type, "file_set"]) -> "target_set"
 ```
 
 ---
 ## rdeps
 
 ```python
-def rdeps(universe: TargetExpr < ConfiguredTargetNode >, from: TargetExpr < ConfiguredTargetNode >, depth: Option < i32 > = None) -> StarlarkTargetSet < ConfiguredTargetNode >
+def rdeps(universe: "", from: "", depth: [None, int.type] = None) -> "target_set"
+```
+
+---
+## somepaths
+
+```python
+def somepaths(from: "", to: "") -> "target_set"
+```
+
+---
+## testsof
+
+```python
+def testsof(targets: "") -> "target_set"
 ```

@@ -11,27 +11,24 @@ Regenerate by running `buck2_docs --buck-command=buck2 --destination-dir=docs/ge
 
 | Member | Type | Description |
 |--------|------|-------------|
-| artifact_tag | `() -> Value < 'v >` | Allocate a new input tag |
-| copied_dir | `(Value < 'v >, Value < 'v >) -> Value < 'v >` |  |
-| copy | `(Value < 'v >, Value < 'v >) -> Value < 'v >` |  |
-| copy_file | `(Value < 'v >, Value < 'v >) -> Value < 'v >` |  |
-| declare_output | `(& str, Option < & str >) -> StarlarkDeclaredArtifact` |  |
-| download_file | `(Value < 'v >, & str, *, NoneOr < & str >, NoneOr < & str >, bool, bool) -> Value < 'v >` |  |
-| download_file_new | `(Value < 'v >, & str, *, NoneOr < & str >, NoneOr < & str >, bool, bool) -> Value < 'v >` |  |
-| dynamic_output | `(Vec < StarlarkArtifact >, Vec < StarlarkArtifact >, Vec < StarlarkOutputArtifact >, Value < 'v >) -> NoneType` |  |
-| run | `(Value < 'v >, *, String, NoneOr < String >, Option < ValueOf < 'v, SmallMap < & 'v str, Value < 'v > > > >, bool, bool, i32, Option < ValueOf < 'v, SmallMap < & 'v str, Value < 'v > > > >, Option < String >, Option < String >, bool) -> NoneType` |  |
-| symlink | `(Value < 'v >, Value < 'v >) -> Value < 'v >` |  |
-| symlink_file | `(Value < 'v >, Value < 'v >) -> Value < 'v >` |  |
-| symlinked_dir | `(Value < 'v >, Value < 'v >) -> Value < 'v >` |  |
-| tset | `(Value < 'v >, Option < Value < 'v > >, Option < Value < 'v > >) -> Value < 'v >` |  |
-| write | `(Value < 'v >, Value < 'v >, *, bool, bool) -> Value < 'v >` |  |
-| write_json | `(Value < 'v >, Value < 'v >) -> Value < 'v >` |  |
+| artifact_tag | `() -> ""` | Allocate a new input tag |
+| copied_dir | `("", "") -> ""` |  |
+| copy_file | `("", "") -> ""` |  |
+| declare_output | `(str.type, [None, str.type]) -> "artifact"` |  |
+| download_file | `("", str.type, *, [None, str.type], [None, str.type], bool.type, bool.type) -> ""` |  |
+| dynamic_output | `(["artifact"], ["artifact"], ["output_artifact"], "") -> None` |  |
+| run | `("", *, str.type, [None, str.type], [None, {str.type: ""}], bool.type, bool.type, bool.type, int.type, [None, {str.type: ""}], [None, str.type], [None, str.type], bool.type) -> None` |  |
+| symlink_file | `("", "") -> ""` |  |
+| symlinked_dir | `("", "") -> ""` |  |
+| tset | `("", [None, ""], [None, ""]) -> ""` |  |
+| write | `("", "", *, bool.type, bool.type) -> ""` |  |
+| write_json | `("", "") -> ""` |  |
 
 
 ## artifact_tag
 
 ```python
-def artifact_tag() -> Value < 'v >
+def artifact_tag() -> ""
 ```
 
 Allocate a new input tag
@@ -40,28 +37,21 @@ Allocate a new input tag
 ## copied_dir
 
 ```python
-def copied_dir(output: Value < 'v >, srcs: Value < 'v >) -> Value < 'v >
-```
-
----
-## copy
-
-```python
-def copy(src: Value < 'v >, dest: Value < 'v >) -> Value < 'v >
+def copied_dir(output: "", srcs: "") -> ""
 ```
 
 ---
 ## copy_file
 
 ```python
-def copy_file(dest: Value < 'v >, src: Value < 'v >) -> Value < 'v >
+def copy_file(dest: "", src: "") -> ""
 ```
 
 ---
 ## declare_output
 
 ```python
-def declare_output(prefix: & str, filename: Option < & str > = None) -> StarlarkDeclaredArtifact
+def declare_output(prefix: str.type, filename: [None, str.type] = None) -> "artifact"
 ```
 
 ---
@@ -69,36 +59,21 @@ def declare_output(prefix: & str, filename: Option < & str > = None) -> Starlark
 
 ```python
 def download_file(
-    output: Value < 'v >,
-    url: & str,
+    output: "",
+    url: str.type,
     *,
-    sha1: NoneOr < & str > = None,
-    sha256: NoneOr < & str > = None,
-    is_executable: bool = None,
-    is_deferrable: bool = None
-) -> Value < 'v >
-```
-
----
-## download_file_new
-
-```python
-def download_file_new(
-    output: Value < 'v >,
-    url: & str,
-    *,
-    sha1: NoneOr < & str > = None,
-    sha256: NoneOr < & str > = None,
-    is_executable: bool = None,
-    is_deferrable: bool = None
-) -> Value < 'v >
+    sha1: [None, str.type] = None,
+    sha256: [None, str.type] = None,
+    is_executable: bool.type = None,
+    is_deferrable: bool.type = None
+) -> ""
 ```
 
 ---
 ## dynamic_output
 
 ```python
-def dynamic_output(dynamic: Vec < StarlarkArtifact >, inputs: Vec < StarlarkArtifact >, outputs: Vec < StarlarkOutputArtifact >, lambda: Value < 'v >) -> NoneType
+def dynamic_output(dynamic: ["artifact"], inputs: ["artifact"], outputs: ["output_artifact"], lambda: "") -> None
 ```
 
 ---
@@ -106,59 +81,53 @@ def dynamic_output(dynamic: Vec < StarlarkArtifact >, inputs: Vec < StarlarkArti
 
 ```python
 def run(
-    arguments: Value < 'v >,
+    arguments: "",
     *,
-    category: String,
-    identifier: NoneOr < String > = None,
-    env: Option < ValueOf < 'v, SmallMap < & 'v str, Value < 'v > > > > = None,
-    local_only: bool = None,
-    always_print_stderr: bool = None,
-    weight: i32 = None,
-    dep_files: Option < ValueOf < 'v, SmallMap < & 'v str, Value < 'v > > > > = None,
-    metadata_env_var: Option < String > = None,
-    metadata_path: Option < String > = None,
-    no_outputs_cleanup: bool = None
-) -> NoneType
-```
-
----
-## symlink
-
-```python
-def symlink(src: Value < 'v >, dest: Value < 'v >) -> Value < 'v >
+    category: str.type,
+    identifier: [None, str.type] = None,
+    env: [None, {str.type: ""}] = None,
+    local_only: bool.type = None,
+    prefer_local: bool.type = None,
+    always_print_stderr: bool.type = None,
+    weight: int.type = None,
+    dep_files: [None, {str.type: ""}] = None,
+    metadata_env_var: [None, str.type] = None,
+    metadata_path: [None, str.type] = None,
+    no_outputs_cleanup: bool.type = None
+) -> None
 ```
 
 ---
 ## symlink_file
 
 ```python
-def symlink_file(dest: Value < 'v >, src: Value < 'v >) -> Value < 'v >
+def symlink_file(dest: "", src: "") -> ""
 ```
 
 ---
 ## symlinked_dir
 
 ```python
-def symlinked_dir(output: Value < 'v >, srcs: Value < 'v >) -> Value < 'v >
+def symlinked_dir(output: "", srcs: "") -> ""
 ```
 
 ---
 ## tset
 
 ```python
-def tset(definition: Value < 'v >, value: Option < Value < 'v > > = None, children: Option < Value < 'v > > = None) -> Value < 'v >
+def tset(definition: "", value: [None, ""] = None, children: [None, ""] = None) -> ""
 ```
 
 ---
 ## write
 
 ```python
-def write(output: Value < 'v >, content: Value < 'v >, *, is_executable: bool = None, allow_args: bool = None) -> Value < 'v >
+def write(output: "", content: "", *, is_executable: bool.type = None, allow_args: bool.type = None) -> ""
 ```
 
 ---
 ## write_json
 
 ```python
-def write_json(output: Value < 'v >, content: Value < 'v >) -> Value < 'v >
+def write_json(output: "", content: "") -> ""
 ```

@@ -11,59 +11,59 @@ Regenerate by running `buck2_docs --buck-command=buck2 --destination-dir=docs/ge
 
 | Member | Type | Description |
 |--------|------|-------------|
-| abs | `(i32) -> i32` |  |
-| all | `(Value < 'v >) -> bool` | [all]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#all ): returns true if all values in the iterable object have a truth value of true. |
-| any | `(Value < 'v >) -> bool` | [any]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#any ): returns true if any value in the iterable object have a truth value of true. |
-| bool | `(Option < Value >) -> bool` | [bool]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#bool ): returns the truth value of any starlark value. |
-| breakpoint | `() -> NoneType` |  |
-| chr | `(Value) -> String` | [chr]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#bool ): returns a string encoding a codepoint. |
-| debug | `(Value) -> String` | Print the value with full debug formatting. The result may not be stable over time, mostly intended for debugging purposes. |
-| dedupe | `(Value < 'v >) -> Value < 'v >` | Remove duplicates in a list. Uses identity of value (pointer), rather than by equality. |
-| dict | `() -> Dict < 'v >` | [dict]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#dict ): creates a dictionary. |
-| dir | `(Value) -> Vec < String >` | [dir]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#dir ): list attributes of a value. |
-| enum | `(*Vec < Value < 'v > >) -> Value < 'v >` |  |
-| enumerate | `(Value < 'v >, i32) -> Value < 'v >` | [enumerate]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#enumerate ): return a list of (index, element) from an iterable. |
-| experimental_regex | `(& str) -> StarlarkRegex` | Creates a regex which can be used for matching |
-| fail | `(*Vec < Value >) -> NoneType` | fail: fail the execution |
-| field | `(Value < 'v >, Option < Value < 'v > >) -> Field < 'v >` | Creates a field record. |
-| filter | `(Value < 'v >, Value < 'v >) -> Value < 'v >` |  |
-| float | `(Option < Value >) -> f64` | [float]( https://github.com/google/skylark/blob/a5f7082aabed29c0e429c722292c66ec8ecf9591/doc/spec.md#float ): interprets its argument as a floating-point number. |
-| getattr | `(Value < 'v >, & str, Option < Value < 'v > >) -> Value < 'v >` | [getattr]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#getattr ): returns the value of an attribute |
-| hasattr | `(Value, & str) -> bool` | [hasattr]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#hasattr ): test if an object has an attribute |
-| hash | `(& str) -> i32` | [hash]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#hash ): returns the hash number of a value. |
-| int | `(Option < Value < 'v > >, Option < Value < 'v > >) -> Value < 'v >` | [int]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#int ): convert a value to integer. |
-| len | `(Value) -> i32` | [len]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#len ): get the length of a sequence |
-| list | `(Option < Value < 'v > >) -> Value < 'v >` | [list]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#list ): construct a list. |
-| map | `(Value < 'v >, Value < 'v >) -> Value < 'v >` |  |
-| max | `(*Vec < Value < 'v > >, Option < Value < 'v > >) -> Value < 'v >` | [max]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#max ): returns the maximum of a sequence. |
-| min | `(*Vec < Value < 'v > >, Option < Value < 'v > >) -> Value < 'v >` | [min]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#min ): returns the minimum of a sequence. |
-| ord | `(Value) -> i32` | [ord]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.mdord ): returns the codepoint of a character |
-| partial | `(Value < 'v >, *Value < 'v >, **DictRef < 'v >) -> Partial < 'v >` |  |
-| pprint | `(*Vec < Value >) -> NoneType` |  |
-| print | `(*Vec < Value >) -> NoneType` |  |
-| range | `(i32, Option < i32 >, i32) -> Range` | [range]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#range ): return a range of integers |
-| record | `(**SmallMap < String, Value < 'v > >) -> RecordType < 'v >` |  |
-| repr | `(Value < 'v >) -> StringValue < 'v >` | [repr]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#repr ): formats its argument as a string. |
-| reversed | `(Value < 'v >) -> Value < 'v >` | [reversed]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#reversed ): reverse a sequence |
-| sorted | `(Value < 'v >, Option < Value < 'v > >, Option < Value < 'v > >) -> Value < 'v >` | [sorted]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#sorted ): sort a sequence |
-| str | `(Value < 'v >) -> StringValue < 'v >` | [str]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#str ): formats its argument as a string. |
-| struct | `() -> Struct < 'v >` |  |
-| tuple | `(Option < Value < 'v > >) -> Value < 'v >` | [tuple]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#tuple ): returns a tuple containing the elements of the iterable x. |
-| type | `(Value) -> Value < 'v >` | [type]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#type ): returns a string describing the type of its operand. |
-| zip | `(*Vec < Value < 'v > >) -> Value < 'v >` | [zip]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#zip ): zip several iterables together |
+| abs | `(int.type) -> int.type` |  |
+| all | `("") -> bool.type` | [all]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#all ): returns true if all values in the iterable object have a truth value of true. |
+| any | `("") -> bool.type` | [any]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#any ): returns true if any value in the iterable object have a truth value of true. |
+| bool | `([None, ""]) -> bool.type` | [bool]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#bool ): returns the truth value of any starlark value. |
+| breakpoint | `() -> None` |  |
+| chr | `("") -> str.type` | [chr]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#bool ): returns a string encoding a codepoint. |
+| debug | `("") -> str.type` | Print the value with full debug formatting. The result may not be stable over time, mostly intended for debugging purposes. |
+| dedupe | `("") -> ""` | Remove duplicates in a list. Uses identity of value (pointer), rather than by equality. |
+| dict | `() -> {"": ""}` | [dict]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#dict ): creates a dictionary. |
+| dir | `("") -> [str.type]` | [dir]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#dir ): list attributes of a value. |
+| enum | `(*[""]) -> ""` |  |
+| enumerate | `("", int.type) -> ""` | [enumerate]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#enumerate ): return a list of (index, element) from an iterable. |
+| experimental_regex | `(str.type) -> "regex"` | Creates a regex which can be used for matching |
+| fail | `(*[""]) -> None` | fail: fail the execution |
+| field | `("", [None, ""]) -> "field"` | Creates a field record. |
+| filter | `("", "") -> ""` |  |
+| float | `([None, ""]) -> float.type` | [float]( https://github.com/google/skylark/blob/a5f7082aabed29c0e429c722292c66ec8ecf9591/doc/spec.md#float ): interprets its argument as a floating-point number. |
+| getattr | `("", str.type, [None, ""]) -> ""` | [getattr]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#getattr ): returns the value of an attribute |
+| hasattr | `("", str.type) -> bool.type` | [hasattr]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#hasattr ): test if an object has an attribute |
+| hash | `(str.type) -> int.type` | [hash]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#hash ): returns the hash number of a value. |
+| int | `([None, ""], [None, ""]) -> ""` | [int]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#int ): convert a value to integer. |
+| len | `("") -> int.type` | [len]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#len ): get the length of a sequence |
+| list | `([None, ""]) -> ""` | [list]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#list ): construct a list. |
+| map | `("", "") -> ""` |  |
+| max | `(*[""], [None, ""]) -> ""` | [max]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#max ): returns the maximum of a sequence. |
+| min | `(*[""], [None, ""]) -> ""` | [min]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#min ): returns the minimum of a sequence. |
+| ord | `("") -> int.type` | [ord]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.mdord ): returns the codepoint of a character |
+| partial | `("", *"", **{"": ""}) -> "function"` |  |
+| pprint | `(*[""]) -> None` |  |
+| print | `(*[""]) -> None` |  |
+| range | `(int.type, [None, int.type], int.type) -> "range"` | [range]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#range ): return a range of integers |
+| record | `(**{str.type: ""}) -> "function"` |  |
+| repr | `("") -> str.type` | [repr]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#repr ): formats its argument as a string. |
+| reversed | `("") -> ""` | [reversed]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#reversed ): reverse a sequence |
+| sorted | `("", [None, ""], [None, ""]) -> ""` | [sorted]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#sorted ): sort a sequence |
+| str | `("") -> str.type` | [str]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#str ): formats its argument as a string. |
+| struct | `() -> "struct"` |  |
+| tuple | `([None, ""]) -> ""` | [tuple]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#tuple ): returns a tuple containing the elements of the iterable x. |
+| type | `("") -> ""` | [type]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#type ): returns a string describing the type of its operand. |
+| zip | `(*[""]) -> ""` | [zip]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#zip ): zip several iterables together |
 
 
 ## abs
 
 ```python
-def abs(x: i32) -> i32
+def abs(x: int.type) -> int.type
 ```
 
 ---
 ## all
 
 ```python
-def all(x: Value < 'v >) -> bool
+def all(x: "") -> bool.type
 ```
 
 [all]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#all ): returns true if all values in the iterable object have a truth value of true.
@@ -87,7 +87,7 @@ all([1, False]) == False
 ## any
 
 ```python
-def any(x: Value < 'v >) -> bool
+def any(x: "") -> bool.type
 ```
 
 [any]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#any ): returns true if any value in the iterable object have a truth value of true.
@@ -108,7 +108,7 @@ any([0, False]) == False
 ## bool
 
 ```python
-def bool(x: Option < Value > = None) -> bool
+def bool(x: [None, ""] = None) -> bool.type
 ```
 
 [bool]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#bool ): returns the truth value of any starlark value.
@@ -139,14 +139,14 @@ bool("1") == True
 ## breakpoint
 
 ```python
-def breakpoint() -> NoneType
+def breakpoint() -> None
 ```
 
 ---
 ## chr
 
 ```python
-def chr(i: Value) -> String
+def chr(i: "") -> str.type
 ```
 
 [chr]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#bool ): returns a string encoding a codepoint.
@@ -169,7 +169,7 @@ chr(0x1F63F) == '😿'
 ## debug
 
 ```python
-def debug(val: Value) -> String
+def debug(val: "") -> str.type
 ```
 
 Print the value with full debug formatting. The result may not be stable over time, mostly intended for debugging purposes.
@@ -178,7 +178,7 @@ Print the value with full debug formatting. The result may not be stable over ti
 ## dedupe
 
 ```python
-def dedupe(val: Value < 'v >) -> Value < 'v >
+def dedupe(val: "") -> ""
 ```
 
 Remove duplicates in a list. Uses identity of value (pointer), rather than by equality.
@@ -187,7 +187,7 @@ Remove duplicates in a list. Uses identity of value (pointer), rather than by eq
 ## dict
 
 ```python
-def dict() -> Dict < 'v >
+def dict() -> {"": ""}
 ```
 
 [dict]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#dict ): creates a dictionary.
@@ -222,7 +222,7 @@ x == {'a': 1} and y == {'x': 2, 'a': 1}
 ## dir
 
 ```python
-def dir(x: Value) -> Vec < String >
+def dir(x: "") -> [str.type]
 ```
 
 [dir]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#dir ): list attributes of a value.
@@ -243,14 +243,14 @@ Examples:
 ## enum
 
 ```python
-def enum(*args: Vec < Value < 'v > >) -> Value < 'v >
+def enum(*args: [""]) -> ""
 ```
 
 ---
 ## enumerate
 
 ```python
-def enumerate(it: Value < 'v >, start: i32 = None) -> Value < 'v >
+def enumerate(it: "", start: int.type = None) -> ""
 ```
 
 [enumerate]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#enumerate ): return a list of (index, element) from an iterable.
@@ -275,7 +275,7 @@ enumerate(["one", "two"], 1) == [(1, "one"), (2, "two")]
 ## experimental_regex
 
 ```python
-def experimental_regex(regex: & str) -> StarlarkRegex
+def experimental_regex(regex: str.type) -> "regex"
 ```
 
 Creates a regex which can be used for matching
@@ -284,7 +284,7 @@ Creates a regex which can be used for matching
 ## fail
 
 ```python
-def fail(*args: Vec < Value >) -> NoneType
+def fail(*args: [""]) -> None
 ```
 
 fail: fail the execution
@@ -301,7 +301,7 @@ fail("oops", 1, False)  # fail: oops 1 False
 ## field
 
 ```python
-def field(typ: Value < 'v >, default: Option < Value < 'v > > = None) -> Field < 'v >
+def field(typ: "", default: [None, ""] = None) -> "field"
 ```
 
 Creates a field record.
@@ -321,14 +321,14 @@ rec.mask == 255
 ## filter
 
 ```python
-def filter(func: Value < 'v >, seq: Value < 'v >) -> Value < 'v >
+def filter(func: "", seq: "") -> ""
 ```
 
 ---
 ## float
 
 ```python
-def float(a: Option < Value > = None) -> f64
+def float(a: [None, ""] = None) -> float.type
 ```
 
 [float]( https://github.com/google/skylark/blob/a5f7082aabed29c0e429c722292c66ec8ecf9591/doc/spec.md#float ): interprets its argument as a floating-point number.
@@ -357,7 +357,7 @@ float([])   # error: argument must be a string, a number, or a boolean
 ## getattr
 
 ```python
-def getattr(a: Value < 'v >, attr: & str, default: Option < Value < 'v > > = None) -> Value < 'v >
+def getattr(a: "", attr: str.type, default: [None, ""] = None) -> ""
 ```
 
 [getattr]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#getattr ): returns the value of an attribute
@@ -377,7 +377,7 @@ getattr("banana", "split")("a") == ["b", "n", "n", ""] # equivalent to "banana".
 ## hasattr
 
 ```python
-def hasattr(a: Value, attr: & str) -> bool
+def hasattr(a: "", attr: str.type) -> bool.type
 ```
 
 [hasattr]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#hasattr ): test if an object has an attribute
@@ -391,7 +391,7 @@ named `name`.
 ## hash
 
 ```python
-def hash(a: & str) -> i32
+def hash(a: str.type) -> int.type
 ```
 
 [hash]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#hash ): returns the hash number of a value.
@@ -412,7 +412,7 @@ hash("hello") != hash("world")
 ## int
 
 ```python
-def int(a: Option < Value < 'v > > = None, base: Option < Value < 'v > > = None) -> Value < 'v >
+def int(a: [None, ""] = None, base: [None, ""] = None) -> ""
 ```
 
 [int]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#int ): convert a value to integer.
@@ -461,7 +461,7 @@ int(float("inf"))   # error: cannot convert infinity to int
 ## len
 
 ```python
-def len(a: Value) -> i32
+def len(a: "") -> int.type
 ```
 
 [len]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#len ): get the length of a sequence
@@ -486,7 +486,7 @@ len(True)    # error: not supported
 ## list
 
 ```python
-def list(a: Option < Value < 'v > > = None) -> Value < 'v >
+def list(a: [None, ""] = None) -> ""
 ```
 
 [list]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#list ): construct a list.
@@ -508,14 +508,14 @@ list("strings are not iterable") # error: not supported
 ## map
 
 ```python
-def map(func: Value < 'v >, seq: Value < 'v >) -> Value < 'v >
+def map(func: "", seq: "") -> ""
 ```
 
 ---
 ## max
 
 ```python
-def max(*args: Vec < Value < 'v > >, key: Option < Value < 'v > > = None) -> Value < 'v >
+def max(*args: [""], key: [None, ""] = None) -> ""
 ```
 
 [max]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#max ): returns the maximum of a sequence.
@@ -540,7 +540,7 @@ max("two", "three", "four", key=len)  == "three"  # the longest
 ## min
 
 ```python
-def min(*args: Vec < Value < 'v > >, key: Option < Value < 'v > > = None) -> Value < 'v >
+def min(*args: [""], key: [None, ""] = None) -> ""
 ```
 
 [min]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#min ): returns the minimum of a sequence.
@@ -562,7 +562,7 @@ min("two", "three", "four", key=len)    == "two"   # the shortest
 ## ord
 
 ```python
-def ord(a: Value) -> i32
+def ord(a: "") -> int.type
 ```
 
 [ord]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.mdord ): returns the codepoint of a character
@@ -588,28 +588,28 @@ ord("😿")                               == 0x1F63F
 ## partial
 
 ```python
-def partial(func: Value < 'v >, *args: Value < 'v >, **kwargs: DictRef < 'v >) -> Partial < 'v >
+def partial(func: "", *args: "", **kwargs: {"": ""}) -> "function"
 ```
 
 ---
 ## pprint
 
 ```python
-def pprint(*args: Vec < Value >) -> NoneType
+def pprint(*args: [""]) -> None
 ```
 
 ---
 ## print
 
 ```python
-def print(*args: Vec < Value >) -> NoneType
+def print(*args: [""]) -> None
 ```
 
 ---
 ## range
 
 ```python
-def range(a1: i32, a2: Option < i32 > = None, step: i32 = None) -> Range
+def range(a1: int.type, a2: [None, int.type] = None, step: int.type = None) -> "range"
 ```
 
 [range]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#range ): return a range of integers
@@ -647,14 +647,14 @@ list(range(10, 3, -2))                  == [10, 8, 6, 4]
 ## record
 
 ```python
-def record(**kwargs: SmallMap < String, Value < 'v > >) -> RecordType < 'v >
+def record(**kwargs: {str.type: ""}) -> "function"
 ```
 
 ---
 ## repr
 
 ```python
-def repr(a: Value < 'v >) -> StringValue < 'v >
+def repr(a: "") -> str.type
 ```
 
 [repr]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#repr ): formats its argument as a string.
@@ -676,7 +676,7 @@ repr("x\"y😿 \\'")      == "\"x\\\"y\\U0001f63f \\\\'\""
 ## reversed
 
 ```python
-def reversed(a: Value < 'v >) -> Value < 'v >
+def reversed(a: "") -> ""
 ```
 
 [reversed]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#reversed ): reverse a sequence
@@ -697,7 +697,7 @@ reversed({"one": 1, "two": 2}.keys())  == ["two", "one"]
 ## sorted
 
 ```python
-def sorted(x: Value < 'v >, key: Option < Value < 'v > > = None, reverse: Option < Value < 'v > > = None) -> Value < 'v >
+def sorted(x: "", key: [None, ""] = None, reverse: [None, ""] = None) -> ""
 ```
 
 [sorted]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#sorted ): sort a sequence
@@ -725,7 +725,7 @@ sorted(["two", "three", "four"], key=len, reverse=True)  == ["three", "four", "t
 ## str
 
 ```python
-def str(a: Value < 'v >) -> StringValue < 'v >
+def str(a: "") -> str.type
 ```
 
 [str]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#str ): formats its argument as a string.
@@ -746,14 +746,14 @@ str([1, "x"])                   == "[1, \"x\"]"
 ## struct
 
 ```python
-def struct() -> Struct < 'v >
+def struct() -> "struct"
 ```
 
 ---
 ## tuple
 
 ```python
-def tuple(a: Option < Value < 'v > > = None) -> Value < 'v >
+def tuple(a: [None, ""] = None) -> ""
 ```
 
 [tuple]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#tuple ): returns a tuple containing the elements of the iterable x.
@@ -771,7 +771,7 @@ tuple([1,2,3]) == (1, 2, 3)
 ## type
 
 ```python
-def type(a: Value) -> Value < 'v >
+def type(a: "") -> ""
 ```
 
 [type]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#type ): returns a string describing the type of its operand.
@@ -790,7 +790,7 @@ type("hello")           == "string"
 ## zip
 
 ```python
-def zip(*args: Vec < Value < 'v > >) -> Value < 'v >
+def zip(*args: [""]) -> ""
 ```
 
 [zip]( https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#zip ): zip several iterables together

@@ -11,31 +11,37 @@ Regenerate by running `buck2_docs --buck-command=buck2 --destination-dir=docs/ge
 
 | Member | Type | Description |
 |--------|------|-------------|
-| actions | `Value < 'v >` |  |
-| artifacts | `Value < 'v >` |  |
-| attr | `Value < 'v >` |  |
-| label | `Value < 'v >` |  |
-| outputs | `Value < 'v >` |  |
+| actions | `""` |  |
+| artifacts | `""` |  |
+| attr | `""` |  |
+| attrs | `""` |  |
+| label | `""` |  |
+| outputs | `""` |  |
 
 
-## actions : `Value < 'v >`
-
-
-
----
-## artifacts : `Value < 'v >`
+## actions : `""`
 
 
 
 ---
-## attr : `Value < 'v >`
+## artifacts : `""`
 
 
 
 ---
-## label : `Value < 'v >`
+## attr : `""`
 
 
 
 ---
-## outputs : `Value < 'v >`
+## attrs : `""`
+
+
+
+---
+## label : `""`
+
+
+
+---
+## outputs : `""`
