@@ -344,8 +344,8 @@ def _create_non_template_providers(
 
 def create_template_info(packaging_info: JavaPackagingInfo.type, first_order_classpath_libs: ["artifact"]) -> TemplatePlaceholderInfo.type:
     return TemplatePlaceholderInfo(keyed_variables = {
-        "classpath": cmd_args(packaging_info.packaging_deps.project_as_args("full_jar_args")) if packaging_info.packaging_deps else cmd_args(),
-        "classpath_including_targets_with_no_output": cmd_args(packaging_info.packaging_deps.project_as_args("args_for_classpath_macro")),
+        "classpath": cmd_args(packaging_info.packaging_deps.project_as_args("full_jar_args"), delimiter = get_path_separator()) if packaging_info.packaging_deps else cmd_args(),
+        "classpath_including_targets_with_no_output": cmd_args(packaging_info.packaging_deps.project_as_args("args_for_classpath_macro"), delimiter = get_path_separator()),
         "first_order_classpath": cmd_args(first_order_classpath_libs, delimiter = get_path_separator()),
     })
 

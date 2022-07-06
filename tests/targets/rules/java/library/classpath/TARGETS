@@ -67,5 +67,5 @@ fb_native.genrule(
 fb_native.genrule(
     name = "check_direct_usage_of_classpath",
     out = "out.txt",
-    cmd = "echo \"$(classpath :top_level_library)\" | grep 'top_level_library' | grep -v 'library_with_deps' | grep 'normal_dep' | grep 'exported_dep' | grep 'runtime_dep' | grep -v 'provided_dep' | grep -v 'exported_provided_dep' && touch $OUT",
+    cmd = "echo \"$(classpath :top_level_library)\" | grep '.*:.*:.*:.*' | grep 'top_level_library' | grep -v 'library_with_deps' | grep 'normal_dep' | grep 'exported_dep' | grep 'runtime_dep' | grep -v 'provided_dep' | grep -v 'exported_provided_dep' && touch $OUT",
 )
