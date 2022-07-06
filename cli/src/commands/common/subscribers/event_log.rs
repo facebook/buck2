@@ -258,7 +258,7 @@ enum LogFileState {
     Closed,
 }
 
-enum LogMode {
+pub enum LogMode {
     Json,
     Protobuf,
 }
@@ -267,7 +267,7 @@ enum LogMode {
 /// serialized as JSON and logged one per line.
 pub(crate) struct EventLog {
     state: LogFileState,
-    async_cleanup_context: AsyncCleanupContext,
+    async_cleanup_context: Option<AsyncCleanupContext>,
     mode: LogMode,
 }
 
@@ -293,7 +293,20 @@ impl EventLog {
         }
         Ok(Self {
             state: LogFileState::Unopened(logdir, extra_path),
-            async_cleanup_context,
+            async_cleanup_context: Some(async_cleanup_context),
+            mode: log_mode,
+        })
+    }
+
+    //Constructor to be used only for testing purposes
+    #[cfg(test)]
+    pub(crate) fn new_test_event_log(
+        logdir: AbsPathBuf,
+        log_mode: LogMode,
+    ) -> anyhow::Result<EventLog> {
+        Ok(Self {
+            state: LogFileState::Unopened(logdir, None),
+            async_cleanup_context: None,
             mode: log_mode,
         })
     }
@@ -423,15 +436,20 @@ impl EventLog {
 impl Drop for EventLog {
     fn drop(&mut self) {
         let exit = self.exit();
-        self.async_cleanup_context.register(
-            "event log upload",
-            async move {
-                if let Err(e) = exit.await {
-                    tracing::warn!("Failed to cleanup EventLog: {:#}", e);
-                }
+        match self.async_cleanup_context.as_ref() {
+            Some(async_cleanup_context) => {
+                async_cleanup_context.register(
+                    "event log upload",
+                    async move {
+                        if let Err(e) = exit.await {
+                            tracing::warn!("Failed to cleanup EventLog: {:#}", e);
+                        }
+                    }
+                    .boxed(),
+                );
             }
-            .boxed(),
-        );
+            None => (),
+        }
     }
 }
 
@@ -795,5 +813,76 @@ impl Decoder for EventLogDecoder {
             .context("Failed to decode"),
         )
         .transpose()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use anyhow::Context;
+    use buck2_core::fs::paths::AbsPath;
+    use buck2_data::LoadBuildFileStart;
+    use buck2_data::SpanStartEvent;
+    use events::BuckEventError;
+    use events::SpanId;
+    use futures::TryStreamExt;
+    use tempfile::TempDir;
+
+    use super::*;
+    use crate::daemon::client::StreamValue;
+
+    #[tokio::test]
+    async fn test_protobuf_decoding() -> anyhow::Result<()> {
+        //Create log dir
+        let tmp_dir = TempDir::new()?;
+
+        //Create mock event
+        let id = SpanId::new();
+        let event = BuckEvent {
+            timestamp: SystemTime::now(),
+            trace_id: TraceId::new(),
+            span_id: Some(id),
+            parent_id: None,
+            data: buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
+                data: Some(buck2_data::span_start_event::Data::Load(
+                    LoadBuildFileStart {
+                        module_id: "foo".to_owned(),
+                        cell: "bar".to_owned(),
+                    },
+                )),
+            }),
+            is_global_dispatcher_diff: false,
+        };
+
+        // Create event log
+        let log_dir = AbsPath::new(tmp_dir.path())?.to_buf();
+        let mut event_log = EventLog::new_test_event_log(log_dir, LogMode::Protobuf)?;
+
+        //Log event
+        event_log.ensure_log_files_opened(&event).await?;
+        let value = StreamValue::Event(buck2_data::BuckEvent::from(event.clone()));
+        event_log.write_ln(&value).await?;
+
+        //Retrieve log path
+        let mut logfiles = get_local_logs(tmp_dir.path())?;
+        logfiles.reverse(); // newest first
+        let chosen = logfiles.pop().context("No event was looged")?;
+
+        //Get and decode log
+        let log_path = EventLogPathBuf::infer(tmp_dir.path().join(chosen.path()))?;
+        let (_invocation, mut events) = log_path.unpack_stream().await?;
+
+        //Get event
+        let retrieved_event = match events.try_next().await?.expect("Failed getting log") {
+            StreamValue::Event(e) => events::BuckEvent::try_from(e),
+            StreamValue::Result(_) => Err(BuckEventError::FoundResult),
+        }?;
+
+        //Assert it's the same event created in the beginning
+        assert_eq!(retrieved_event.timestamp, event.timestamp);
+        assert_eq!(retrieved_event.trace_id, event.trace_id);
+        assert_eq!(retrieved_event.span_id, event.span_id);
+        assert_eq!(retrieved_event.data, event.data);
+        Ok(())
     }
 }

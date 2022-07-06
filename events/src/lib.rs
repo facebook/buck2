@@ -243,6 +243,8 @@ pub enum BuckEventError {
     MissingData,
     #[error("The `buck2_data::BuckEvent` contains an invalid UUID")]
     InvalidUUID(#[from] uuid::Error),
+    #[error("Expected BuckEvent, found Result")]
+    FoundResult,
 }
 
 #[cfg(test)]
