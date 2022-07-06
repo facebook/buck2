@@ -226,6 +226,8 @@ def _build_params_for_styles(ctx: "context") -> (
         if ctx.attr.proc_macro and linkage_lang == LinkageLang("c++"):
             continue
 
+        linker_type = ctx.attr._cxx_toolchain[CxxToolchainInfo].linker_info.type
+
         for link_style in LinkStyle:
             params = build_params(
                 rule = RuleType("library"),
@@ -233,6 +235,7 @@ def _build_params_for_styles(ctx: "context") -> (
                 link_style = link_style,
                 preferred_linkage = Linkage(ctx.attr.preferred_linkage),
                 lang = linkage_lang,
+                linker_type = linker_type,
             )
             if params not in param_lang:
                 param_lang[params] = []

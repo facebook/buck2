@@ -1,4 +1,5 @@
 load("@fbcode//buck2/prelude/cxx:cxx_link_utility.bzl", "executable_shared_lib_arguments")
+load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@fbcode//buck2/prelude/linking:link_info.bzl",
     "LinkStyle",
@@ -45,6 +46,8 @@ def _rust_binary_common(
     specified_link_style = LinkStyle(ctx.attr.link_style or "static_pic")
     compile_ctx = compile_context(ctx)
 
+    linker_type = ctx.attr._cxx_toolchain[CxxToolchainInfo].linker_info.type
+
     for link_style in LinkStyle:
         params = build_params(
             rule = RuleType("binary"),
@@ -52,6 +55,7 @@ def _rust_binary_common(
             link_style = link_style,
             preferred_linkage = Linkage("any"),
             lang = LinkageLang("rust"),
+            linker_type = linker_type,
         )
         style_param[link_style] = params
         name = link_style.value + "/" + output_filename(crate, Emit("link"), params)

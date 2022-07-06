@@ -81,6 +81,12 @@ BuildParams = record(
     suffix = field(str.type),
 )
 
+RustcFlags = record(
+    crate_type = field(CrateType.type),
+    reloc_model = field(RelocModel.type),
+    dep_link_style = field(LinkStyle.type),
+)
+
 # Filenames used for various emitted forms
 # `None` for a prefix or suffix means use the build_param version
 _EMIT_PREFIX_SUFFIX = {
@@ -108,66 +114,89 @@ RuleType = enum("binary", "library")
 # What language we're generating artifacts to be linked with
 LinkageLang = enum("rust", "c++")
 
-_BUILD_PARAMS = [
-    BuildParams(crate_type = CrateType("bin"), reloc_model = RelocModel("pic"), dep_link_style = LinkStyle("shared"), prefix = "", suffix = ""),
-    BuildParams(crate_type = CrateType("bin"), reloc_model = RelocModel("pic"), dep_link_style = LinkStyle("static_pic"), prefix = "", suffix = ""),
-    BuildParams(crate_type = CrateType("bin"), reloc_model = RelocModel("static"), dep_link_style = LinkStyle("static"), prefix = "", suffix = ""),
-    BuildParams(crate_type = CrateType("cdylib"), reloc_model = RelocModel("pic"), dep_link_style = LinkStyle("shared"), prefix = "lib", suffix = ".so"),
-    BuildParams(crate_type = CrateType("dylib"), reloc_model = RelocModel("pic"), dep_link_style = LinkStyle("shared"), prefix = "lib", suffix = ".so"),
-    BuildParams(crate_type = CrateType("proc-macro"), reloc_model = RelocModel("pic"), dep_link_style = LinkStyle("static_pic"), prefix = "lib", suffix = ".so"),
-    BuildParams(crate_type = CrateType("rlib"), reloc_model = RelocModel("pic"), dep_link_style = LinkStyle("static_pic"), prefix = "lib", suffix = ".rlib"),
-    BuildParams(crate_type = CrateType("rlib"), reloc_model = RelocModel("static"), dep_link_style = LinkStyle("static"), prefix = "lib", suffix = ".rlib"),
-    BuildParams(crate_type = CrateType("staticlib"), reloc_model = RelocModel("pic"), dep_link_style = LinkStyle("static_pic"), prefix = "lib", suffix = "_pic.a"),
-    BuildParams(crate_type = CrateType("staticlib"), reloc_model = RelocModel("static"), dep_link_style = LinkStyle("static"), prefix = "lib", suffix = ".a"),
-]
+_BINARY_SHARED = 0
+_BINARY_PIE = 1
+_BINARY_NON_PIE = 2
+_NATIVE_LINKABLE_SHARED_OBJECT = 3
+_RUST_DYLIB_SHARED = 4
+_RUST_PROC_MACRO = 5
+_RUST_STATIC_PIC_LIBRARY = 6
+_RUST_STATIC_NON_PIC_LIBRARY = 7
+_NATIVE_LINKABLE_STATIC_PIC = 8
+_NATIVE_LINKABLE_STATIC_NON_PIC = 9
+
+_BUILD_PARAMS = {
+    _BINARY_SHARED: (RustcFlags(crate_type = CrateType("bin"), reloc_model = RelocModel("pic"), dep_link_style = LinkStyle("shared")), lambda _: ("", "")),
+    _BINARY_PIE: (RustcFlags(crate_type = CrateType("bin"), reloc_model = RelocModel("pic"), dep_link_style = LinkStyle("static_pic")), lambda _: ("", "")),
+    _BINARY_NON_PIE: (RustcFlags(crate_type = CrateType("bin"), reloc_model = RelocModel("static"), dep_link_style = LinkStyle("static")), lambda _: ("", "")),
+    _NATIVE_LINKABLE_SHARED_OBJECT: (RustcFlags(crate_type = CrateType("cdylib"), reloc_model = RelocModel("pic"), dep_link_style = LinkStyle("shared")), lambda platform: {
+        "darwin": ("", ".dylib"),
+        "gnu": ("lib", ".so"),
+        "windows": ("", ".dll"),
+    }[platform]),
+    _RUST_DYLIB_SHARED: (RustcFlags(crate_type = CrateType("dylib"), reloc_model = RelocModel("pic"), dep_link_style = LinkStyle("shared")), lambda platform: {
+        "darwin": ("lib", ".dylib"),
+        "gnu": ("lib", ".so"),
+        "windows": ("", ".dll"),
+    }[platform]),
+    _RUST_PROC_MACRO: (RustcFlags(crate_type = CrateType("proc-macro"), reloc_model = RelocModel("pic"), dep_link_style = LinkStyle("static_pic")), lambda platform: {
+        "darwin": ("lib", ".dylib"),
+        "gnu": ("lib", ".so"),
+        "windows": ("", ".dll"),
+    }[platform]),
+    _RUST_STATIC_PIC_LIBRARY: (RustcFlags(crate_type = CrateType("rlib"), reloc_model = RelocModel("pic"), dep_link_style = LinkStyle("static_pic")), lambda _: ("lib", ".rlib")),
+    _RUST_STATIC_NON_PIC_LIBRARY: (RustcFlags(crate_type = CrateType("rlib"), reloc_model = RelocModel("static"), dep_link_style = LinkStyle("static")), lambda _: ("lib", ".rlib")),
+    _NATIVE_LINKABLE_STATIC_PIC: (RustcFlags(crate_type = CrateType("staticlib"), reloc_model = RelocModel("pic"), dep_link_style = LinkStyle("static_pic")), lambda _: ("lib", "_pic.a")),
+    _NATIVE_LINKABLE_STATIC_NON_PIC: (RustcFlags(crate_type = CrateType("staticlib"), reloc_model = RelocModel("static"), dep_link_style = LinkStyle("static")), lambda _: ("lib", ".a")),
+}
 
 _INPUTS = {
     # Binary, shared
-    ("binary", False, "shared", "any", "rust"): _BUILD_PARAMS[0],
-    ("binary", False, "shared", "shared", "rust"): _BUILD_PARAMS[0],
-    ("binary", False, "shared", "static", "rust"): _BUILD_PARAMS[0],
+    ("binary", False, "shared", "any", "rust"): _BINARY_SHARED,
+    ("binary", False, "shared", "shared", "rust"): _BINARY_SHARED,
+    ("binary", False, "shared", "static", "rust"): _BINARY_SHARED,
     # Binary, PIE
-    ("binary", False, "static_pic", "any", "rust"): _BUILD_PARAMS[1],
-    ("binary", False, "static_pic", "shared", "rust"): _BUILD_PARAMS[1],
-    ("binary", False, "static_pic", "static", "rust"): _BUILD_PARAMS[1],
+    ("binary", False, "static_pic", "any", "rust"): _BINARY_PIE,
+    ("binary", False, "static_pic", "shared", "rust"): _BINARY_PIE,
+    ("binary", False, "static_pic", "static", "rust"): _BINARY_PIE,
     # Binary, non-PIE
-    ("binary", False, "static", "any", "rust"): _BUILD_PARAMS[2],
-    ("binary", False, "static", "shared", "rust"): _BUILD_PARAMS[2],
-    ("binary", False, "static", "static", "rust"): _BUILD_PARAMS[2],
+    ("binary", False, "static", "any", "rust"): _BINARY_NON_PIE,
+    ("binary", False, "static", "shared", "rust"): _BINARY_NON_PIE,
+    ("binary", False, "static", "static", "rust"): _BINARY_NON_PIE,
     # Native linkable shared object
-    ("library", False, "shared", "any", "c++"): _BUILD_PARAMS[3],
-    ("library", False, "shared", "shared", "c++"): _BUILD_PARAMS[3],
-    ("library", False, "static", "shared", "c++"): _BUILD_PARAMS[3],
-    ("library", False, "static_pic", "shared", "c++"): _BUILD_PARAMS[3],
+    ("library", False, "shared", "any", "c++"): _NATIVE_LINKABLE_SHARED_OBJECT,
+    ("library", False, "shared", "shared", "c++"): _NATIVE_LINKABLE_SHARED_OBJECT,
+    ("library", False, "static", "shared", "c++"): _NATIVE_LINKABLE_SHARED_OBJECT,
+    ("library", False, "static_pic", "shared", "c++"): _NATIVE_LINKABLE_SHARED_OBJECT,
     # Rust dylib shared object
-    ("library", False, "shared", "any", "rust"): _BUILD_PARAMS[4],
-    ("library", False, "shared", "shared", "rust"): _BUILD_PARAMS[4],
-    ("library", False, "static", "shared", "rust"): _BUILD_PARAMS[4],
-    ("library", False, "static_pic", "shared", "rust"): _BUILD_PARAMS[4],
+    ("library", False, "shared", "any", "rust"): _RUST_DYLIB_SHARED,
+    ("library", False, "shared", "shared", "rust"): _RUST_DYLIB_SHARED,
+    ("library", False, "static", "shared", "rust"): _RUST_DYLIB_SHARED,
+    ("library", False, "static_pic", "shared", "rust"): _RUST_DYLIB_SHARED,
     # Rust proc-macro
-    ("library", True, "shared", "any", "rust"): _BUILD_PARAMS[5],
-    ("library", True, "shared", "shared", "rust"): _BUILD_PARAMS[5],
-    ("library", True, "shared", "static", "rust"): _BUILD_PARAMS[5],
-    ("library", True, "static", "any", "rust"): _BUILD_PARAMS[5],
-    ("library", True, "static", "shared", "rust"): _BUILD_PARAMS[5],
-    ("library", True, "static", "static", "rust"): _BUILD_PARAMS[5],
-    ("library", True, "static_pic", "any", "rust"): _BUILD_PARAMS[5],
-    ("library", True, "static_pic", "shared", "rust"): _BUILD_PARAMS[5],
-    ("library", True, "static_pic", "static", "rust"): _BUILD_PARAMS[5],
+    ("library", True, "shared", "any", "rust"): _RUST_PROC_MACRO,
+    ("library", True, "shared", "shared", "rust"): _RUST_PROC_MACRO,
+    ("library", True, "shared", "static", "rust"): _RUST_PROC_MACRO,
+    ("library", True, "static", "any", "rust"): _RUST_PROC_MACRO,
+    ("library", True, "static", "shared", "rust"): _RUST_PROC_MACRO,
+    ("library", True, "static", "static", "rust"): _RUST_PROC_MACRO,
+    ("library", True, "static_pic", "any", "rust"): _RUST_PROC_MACRO,
+    ("library", True, "static_pic", "shared", "rust"): _RUST_PROC_MACRO,
+    ("library", True, "static_pic", "static", "rust"): _RUST_PROC_MACRO,
     # Rust static_pic library
-    ("library", False, "shared", "static", "rust"): _BUILD_PARAMS[6],
-    ("library", False, "static_pic", "any", "rust"): _BUILD_PARAMS[6],
-    ("library", False, "static_pic", "static", "rust"): _BUILD_PARAMS[6],
+    ("library", False, "shared", "static", "rust"): _RUST_STATIC_PIC_LIBRARY,
+    ("library", False, "static_pic", "any", "rust"): _RUST_STATIC_PIC_LIBRARY,
+    ("library", False, "static_pic", "static", "rust"): _RUST_STATIC_PIC_LIBRARY,
     # Rust static (non-pic) library
-    ("library", False, "static", "any", "rust"): _BUILD_PARAMS[7],
-    ("library", False, "static", "static", "rust"): _BUILD_PARAMS[7],
+    ("library", False, "static", "any", "rust"): _RUST_STATIC_NON_PIC_LIBRARY,
+    ("library", False, "static", "static", "rust"): _RUST_STATIC_NON_PIC_LIBRARY,
     # Native linkable static_pic
-    ("library", False, "shared", "static", "c++"): _BUILD_PARAMS[8],
-    ("library", False, "static_pic", "any", "c++"): _BUILD_PARAMS[8],
-    ("library", False, "static_pic", "static", "c++"): _BUILD_PARAMS[8],
+    ("library", False, "shared", "static", "c++"): _NATIVE_LINKABLE_STATIC_PIC,
+    ("library", False, "static_pic", "any", "c++"): _NATIVE_LINKABLE_STATIC_PIC,
+    ("library", False, "static_pic", "static", "c++"): _NATIVE_LINKABLE_STATIC_PIC,
     # Native linkable static non-pic
-    ("library", False, "static", "any", "c++"): _BUILD_PARAMS[9],
-    ("library", False, "static", "static", "c++"): _BUILD_PARAMS[9],
+    ("library", False, "static", "any", "c++"): _NATIVE_LINKABLE_STATIC_NON_PIC,
+    ("library", False, "static", "static", "c++"): _NATIVE_LINKABLE_STATIC_NON_PIC,
 }
 
 # Compute crate type, relocation model and name mapping given what rule we're building,
@@ -177,7 +206,8 @@ def build_params(
         proc_macro: bool.type,
         link_style: LinkStyle.type,
         preferred_linkage: Linkage.type,
-        lang: LinkageLang.type) -> BuildParams.type:
+        lang: LinkageLang.type,
+        linker_type: str.type) -> BuildParams.type:
     input = (rule.value, proc_macro, link_style.value, preferred_linkage.value, lang.value)
 
     expect(
@@ -190,4 +220,14 @@ def build_params(
         lang,
     )
 
-    return _INPUTS[input]
+    build_kind_key = _INPUTS[input]
+    (flags, platform_to_affix) = _BUILD_PARAMS[build_kind_key]
+    (prefix, suffix) = platform_to_affix(linker_type)
+
+    return BuildParams(
+        crate_type = flags.crate_type,
+        reloc_model = flags.reloc_model,
+        dep_link_style = flags.dep_link_style,
+        prefix = prefix,
+        suffix = suffix,
+    )
