@@ -33,7 +33,6 @@ use starlark::environment::GlobalsBuilder;
 use starlark::environment::LibraryExtension;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
-use starlark::eval::ProfileMode;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
 use starlark::syntax::DialectTypes;
@@ -158,8 +157,6 @@ pub struct InterpreterConfigForCell {
     global_state: Arc<GlobalInterpreterState>,
     /// Cell-specific alias resolver.
     cell_names: CellAliasResolver,
-    /// Profile information
-    profile_mode: Box<dyn Fn(StarlarkPath) -> Option<ProfileMode> + Send + Sync>,
     /// Log GC.
     verbose_gc: bool,
     /// When true, rule function creates a node with no attributes.
@@ -324,12 +321,6 @@ impl LoadResolver for InterpreterLoadResolver {
     }
 }
 
-#[derive(Error, Debug)]
-enum InterpreterConfigError {
-    #[error("Unknown profile mode: {:?}", _0)]
-    UnknownProfileMode(String),
-}
-
 impl InterpreterConfigForCell {
     fn verbose_gc() -> anyhow::Result<bool> {
         match std::env::var_os("BUCK2_STARLARK_VERBOSE_GC") {
@@ -359,38 +350,9 @@ impl InterpreterConfigForCell {
         cell_names: CellAliasResolver,
         global_state: Arc<GlobalInterpreterState>,
     ) -> anyhow::Result<Self> {
-        let profile_mode: Box<dyn Fn(StarlarkPath<'_>) -> Option<ProfileMode> + Send + Sync> =
-            match std::env::var("BUCK2_STARLARK_PROFILE") {
-                Ok(v) => {
-                    let (v, typ) = v.split1('=');
-                    let mode = match typ {
-                        "STMT" => ProfileMode::Statement,
-                        "FLAME" => ProfileMode::TimeFlame,
-                        "BYTECODE" => ProfileMode::Bytecode,
-                        "BYTECODE_PAIRS" => ProfileMode::BytecodePairs,
-                        "HEAP" => ProfileMode::HeapSummary,
-                        mode => {
-                            return Err(InterpreterConfigError::UnknownProfileMode(
-                                mode.to_owned(),
-                            )
-                            .into());
-                        }
-                    };
-                    let v = v.to_owned();
-                    box move |x: StarlarkPath<'_>| {
-                        if x.id().as_str().contains(&v) {
-                            Some(mode.dupe())
-                        } else {
-                            None
-                        }
-                    }
-                }
-                _ => box |_| None,
-            };
         Ok(Self {
             global_state,
             cell_names,
-            profile_mode,
             verbose_gc: Self::verbose_gc()?,
             ignore_attrs_for_profiling: Self::is_ignore_attrs_for_profiling()?,
         })
@@ -615,11 +577,6 @@ impl InterpreterForCell {
         let mut eval = Evaluator::new(env);
         eval.set_loader(&file_loader);
         eval.extra = Some(&extra);
-        // TODO (T101249736): Remove this
-        let profile = (self.config.profile_mode)(import);
-        if let Some(profile) = &profile {
-            eval.enable_profile(profile);
-        }
         profiler.initialize(&mut eval);
         if self.config.verbose_gc {
             eval.verbose_gc();
@@ -634,32 +591,6 @@ impl InterpreterForCell {
                     .visit_heap(None)
                     .context("Profiler heap visitation failed")?;
 
-                // TODO (T101249736): Remove this
-                if let Some(profile) = &profile {
-                    // FIXME(ndmitchell): Figure out a good place for this file to go, based on import path
-                    match profile {
-                        ProfileMode::HeapSummary => {
-                            eval.write_profile(profile, "buck2-starlark-heap-profile.csv")?
-                        }
-                        ProfileMode::Statement => {
-                            eval.write_profile(profile, "buck2-starlark-stmt-profile.csv")?
-                        }
-                        ProfileMode::Bytecode => {
-                            eval.write_profile(profile, "buck2-starlark-bytecode-profile.csv")?
-                        }
-                        ProfileMode::BytecodePairs => eval
-                            .write_profile(profile, "buck2-starlark-bytecode-pairs-profile.csv")?,
-                        ProfileMode::TimeFlame => {
-                            eval.write_profile(profile, "buck2-starlark-flame-profile.flame")?
-                        }
-                        ProfileMode::HeapFlame => {
-                            eval.write_profile(profile, "buck2-starlark-heap-flame-profile.flame")?
-                        }
-                        ProfileMode::Typecheck => {
-                            eval.write_profile(profile, "buck2-starlark-typecheck-profile.txt")?
-                        }
-                    }
-                }
                 Ok(extra.additional)
             }
             Err(p) => Err(p.into()),
