@@ -164,9 +164,6 @@ async fn ensure_artifacts(
                 }
 
                 BxlBuildResult::None => {}
-                BxlBuildResult::Error(e) => {
-                    futs.push(futures::future::ready(Err(e.dupe())).boxed())
-                }
             });
 
             artifacts.iter().for_each(|a| {

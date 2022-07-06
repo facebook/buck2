@@ -160,17 +160,17 @@ pub(crate) fn build<'v>(
         .await
     });
 
-    Ok(build_result
+    build_result
         .into_iter()
         .map(|(target, result)| {
-            (
+            Ok((
                 eval.heap()
                     .alloc(Label::new(eval.heap(), target))
                     .get_hashed()
                     .unwrap(),
                 eval.heap()
-                    .alloc(StarlarkBxlBuildResult(BxlBuildResult::new(result))),
-            )
+                    .alloc(StarlarkBxlBuildResult(BxlBuildResult::new(result?))),
+            ))
         })
-        .collect::<SmallMap<_, _>>())
+        .collect::<anyhow::Result<SmallMap<_, _>>>()
 }

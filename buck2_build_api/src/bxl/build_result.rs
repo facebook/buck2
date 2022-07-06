@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use buck2_core::result::SharedError;
 use buck2_core::result::SharedResult;
 use gazebo::variants::UnpackVariants;
 use starlark::values::ProvidesStaticType;
@@ -17,7 +16,6 @@ use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectio
 
 #[derive(Clone, Debug, derive_more::Display, ProvidesStaticType, UnpackVariants)]
 pub enum BxlBuildResult {
-    Error(SharedError),
     None,
     #[display(fmt = "successful build result")]
     Built {
@@ -29,22 +27,19 @@ pub enum BxlBuildResult {
 
 impl BxlBuildResult {
     pub fn new(
-        result: SharedResult<
-            Option<(
-                FrozenProviderCollectionValue,
-                Option<Vec<String>>,
-                Vec<SharedResult<ProviderArtifacts>>,
-            )>,
-        >,
+        result: Option<(
+            FrozenProviderCollectionValue,
+            Option<Vec<String>>,
+            Vec<SharedResult<ProviderArtifacts>>,
+        )>,
     ) -> Self {
         match result {
-            Ok(Some((providers, run_args, built))) => Self::Built {
+            Some((providers, run_args, built)) => Self::Built {
                 providers,
                 run_args,
                 built,
             },
-            Ok(None) => Self::None,
-            Err(e) => Self::Error(e),
+            None => Self::None,
         }
     }
 }
