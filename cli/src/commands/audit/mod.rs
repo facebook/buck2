@@ -23,6 +23,7 @@ use crate::commands::audit::includes::AuditIncludesCommand;
 use crate::commands::audit::prelude::AuditPreludeCommand;
 use crate::commands::audit::providers::AuditProvidersCommand;
 use crate::commands::audit::starlark::StarlarkCommand;
+use crate::commands::audit::visibility::AuditVisibilityCommand;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
@@ -42,6 +43,7 @@ pub mod includes;
 pub mod prelude;
 pub mod providers;
 pub mod starlark;
+pub mod visibility;
 
 #[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
 #[clap(name = "audit", about = "Perform lower level queries")]
@@ -54,6 +56,7 @@ pub(crate) enum AuditCommand {
     Providers(AuditProvidersCommand),
     AnalysisQueries(AuditAnalysisQueriesCommand),
     ExecutionPlatformResolution(AuditExecutionPlatformResolutionCommand),
+    Visibility(AuditVisibilityCommand),
     #[clap(subcommand)]
     Starlark(StarlarkCommand),
     DepFiles(AuditDepFilesCommand),
@@ -104,6 +107,7 @@ impl AuditCommand {
             AuditCommand::ExecutionPlatformResolution(cmd) => cmd,
             AuditCommand::Starlark(cmd) => cmd,
             AuditCommand::DepFiles(cmd) => cmd,
+            AuditCommand::Visibility(cmd) => cmd,
         }
     }
 }
