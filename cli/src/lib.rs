@@ -28,6 +28,8 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::time::Duration;
+use std::time::Instant;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
@@ -402,8 +404,21 @@ pub(crate) struct AsyncCleanupContext {
 }
 
 impl AsyncCleanupContext {
-    pub(crate) fn register(&self, fut: BoxFuture<'static, ()>) {
-        self.jobs.lock().expect("Poisoned mutex").push(fut);
+    pub(crate) fn register(&self, name: &'static str, fut: BoxFuture<'static, ()>) {
+        const WARNING_TIMEOUT: Duration = Duration::from_millis(100);
+        self.jobs
+            .lock()
+            .expect("Poisoned mutex")
+            .push(Box::pin(async move {
+                let start = Instant::now();
+                fut.await;
+                let elapsed = start.elapsed();
+                if elapsed > WARNING_TIMEOUT {
+                    tracing::warn!("Async cleanup step \'{}\' took {:?}", name, elapsed);
+                } else {
+                    tracing::info!("Async cleanup step \'{}\' took {:?}", name, elapsed);
+                };
+            }));
     }
 
     async fn join(&self) {

@@ -389,6 +389,7 @@ impl Drop for EventLog {
     fn drop(&mut self) {
         let exit = self.exit();
         self.async_cleanup_context.register(
+            "event log upload",
             async move {
                 if let Err(e) = exit.await {
                     tracing::warn!("Failed to cleanup EventLog: {:#}", e);
