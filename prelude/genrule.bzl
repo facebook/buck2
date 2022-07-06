@@ -49,6 +49,9 @@ _LOCAL_LABELS = [
     # Uses xz which is not on RE.
     "uses_xz",
 
+    # Uses tw tool which is not on RE.
+    "uses_tw",
+
     # Yarn installs use a large in-repo yarn repo that's ~6.1GB at the time of
     # writing, and so v1 uses workarounds (D17359502) to avoid the overhead this
     # would causes.  So, run these rules locally to maintain compatiblity and
