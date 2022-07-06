@@ -38,7 +38,7 @@ def impl(ctx):
     ctx.output.print(ctx.output.ensure(output_module).abs_path())
 
 project_gen = bxl(
-    implementation = impl,
+    impl = impl,
     cli_args = {
         "mode": cli_args.string(),
         "roots": cli_args.list(cli_args.target_label()),

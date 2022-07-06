@@ -62,7 +62,7 @@ def _create_output(
     return output
 
 generate_intellij_project = bxl(
-    implementation = _impl,
+    impl = _impl,
     cli_args = {
         "targets": cli_args.list(cli_args.target_label()),
     },

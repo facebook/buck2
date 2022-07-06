@@ -2,7 +2,7 @@ def _impl(ctx):
     ctx.output.print(ctx.root())
 
 root_test = bxl(
-    implementation = _impl,
+    impl = _impl,
     cli_args = {
     },
 )

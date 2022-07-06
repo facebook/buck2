@@ -10,6 +10,6 @@ def _providers_test_impl(ctx):
     ctx.output.print(providers[FooInfo])
 
 providers_test = bxl(
-    implementation = _providers_test_impl,
+    impl = _providers_test_impl,
     cli_args = {},
 )

@@ -10,7 +10,7 @@ def _impl(ctx):
     ctx.output.print("list: " + repr(ctx.cli_args.list_type))
 
 cli_test = bxl(
-    implementation = _impl,
+    impl = _impl,
     cli_args = {
         "bool_arg": cli_args.bool(),
         "enum_type": cli_args.enum(["a", "b"]),
@@ -28,7 +28,7 @@ def _target_expr_impl(ctx):
     ctx.output.print(repr(ctx.cli_args.targets))
 
 target_expr_test = bxl(
-    implementation = _target_expr_impl,
+    impl = _target_expr_impl,
     cli_args = {
         "targets": cli_args.target_expr(),
     },

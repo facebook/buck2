@@ -5,7 +5,7 @@ def _impl(ctx):
     ctx.output.print(node.rule_type)
 
 configured_node_test = bxl(
-    implementation = _impl,
+    impl = _impl,
     cli_args = {
     },
 )

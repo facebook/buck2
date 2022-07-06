@@ -3,6 +3,6 @@ def _impl(ctx):
     ctx.output.print(hasattr(host_info(), "os"))
 
 read_config_test = bxl(
-    implementation = _impl,
+    impl = _impl,
     cli_args = {},
 )

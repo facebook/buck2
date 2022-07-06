@@ -3,7 +3,7 @@ def _owner_impl(ctx):
     ctx.output.print(owner)
 
 owner_test = bxl(
-    implementation = _owner_impl,
+    impl = _owner_impl,
     cli_args = {},
 )
 
@@ -12,7 +12,7 @@ def _kind_impl(ctx):
     ctx.output.print(kind)
 
 kind_test = bxl(
-    implementation = _kind_impl,
+    impl = _kind_impl,
     cli_args = {},
 )
 
@@ -21,7 +21,7 @@ def _attrregexfilter_impl(ctx):
     ctx.output.print(filtered)
 
 attrregexfilter_test = bxl(
-    implementation = _attrregexfilter_impl,
+    impl = _attrregexfilter_impl,
     cli_args = {},
 )
 
@@ -30,7 +30,7 @@ def _rdeps_impl(ctx):
     ctx.output.print(result)
 
 rdeps_test = bxl(
-    implementation = _rdeps_impl,
+    impl = _rdeps_impl,
     cli_args = {},
 )
 
@@ -39,7 +39,7 @@ def _deps_impl(ctx):
     ctx.output.print(result)
 
 deps_test = bxl(
-    implementation = _deps_impl,
+    impl = _deps_impl,
     cli_args = {},
 )
 
@@ -48,7 +48,7 @@ def _inputs_impl(ctx):
     ctx.output.print(result)
 
 inputs_test = bxl(
-    implementation = _inputs_impl,
+    impl = _inputs_impl,
     cli_args = {},
 )
 
@@ -57,7 +57,7 @@ def _filter_impl(ctx):
     ctx.output.print(result)
 
 filter_test = bxl(
-    implementation = _filter_impl,
+    impl = _filter_impl,
     cli_args = {},
 )
 
@@ -66,6 +66,6 @@ def _eval_query(ctx):
     ctx.output.print(result)
 
 eval_query_test = bxl(
-    implementation = _eval_query,
+    impl = _eval_query,
     cli_args = {},
 )

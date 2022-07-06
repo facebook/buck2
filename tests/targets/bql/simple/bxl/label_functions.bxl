@@ -12,6 +12,6 @@ def _impl(ctx):
         ctx.output.print(sub_target(unconfigured, ["sub1", "sub2"]))
 
 label_func_test = bxl(
-    implementation = _impl,
+    impl = _impl,
     cli_args = {},
 )

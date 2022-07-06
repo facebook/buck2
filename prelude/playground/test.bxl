@@ -2,6 +2,6 @@ def _impl(ctx):
     ctx.output.print("123")
 
 playground = bxl(
-    implementation = _impl,
+    impl = _impl,
     cli_args = {},
 )

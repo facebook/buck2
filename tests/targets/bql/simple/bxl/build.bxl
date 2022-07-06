@@ -6,7 +6,7 @@ def _impl(ctx):
     ctx.output.print_json(outputs)
 
 build_test = bxl(
-    implementation = _impl,
+    impl = _impl,
     cli_args = {
         "target": cli_args.target_label(),
     },
@@ -22,6 +22,6 @@ def _cquery_build(ctx):
     ctx.output.print(sep = "\n", *outputs)
 
 cquery_build_test = bxl(
-    implementation = _cquery_build,
+    impl = _cquery_build,
     cli_args = {},
 )

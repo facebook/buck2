@@ -104,7 +104,7 @@ def pickTarget(ctx, targets):
     return sortedTargets[0]
 
 cpp_gen_cdb = bxl(
-    implementation = _impl,
+    impl = _impl,
     cli_args = {
         "filename": cli_args.string(),
         "os": cli_args.string(),

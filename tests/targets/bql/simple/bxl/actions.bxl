@@ -6,7 +6,7 @@ def _artifact_test_impl(ctx):
     ctx.output.print(owner.get_source("bin/TARGETS.fixture", ctx))
 
 artifact_test = bxl(
-    implementation = _artifact_test_impl,
+    impl = _artifact_test_impl,
     cli_args = {
     },
 )
@@ -20,7 +20,7 @@ def _build_actions_impl(ctx):
     ctx.output.print(ensured)
 
 build_actions_test = bxl(
-    implementation = _build_actions_impl,
+    impl = _build_actions_impl,
     cli_args = {
         "content": cli_args.string(),
     },
