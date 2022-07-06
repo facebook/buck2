@@ -18,11 +18,9 @@
 //! Implementation of `struct` function.
 use crate as starlark;
 use crate::environment::GlobalsBuilder;
-use crate::environment::MethodsBuilder;
 use crate::eval::Arguments;
 use crate::values::structs::Struct;
 use crate::values::Heap;
-use crate::values::Value;
 
 #[starlark_module]
 pub fn global(builder: &mut GlobalsBuilder) {
@@ -30,13 +28,5 @@ pub fn global(builder: &mut GlobalsBuilder) {
     fn r#struct<'v>(args: &Arguments<'v, '_>, heap: &'v Heap) -> anyhow::Result<Struct<'v>> {
         args.no_positional_args(heap)?;
         Ok(Struct::new(args.names_map()?))
-    }
-}
-
-#[starlark_module]
-pub(crate) fn struct_methods(builder: &mut MethodsBuilder) {
-    #[starlark(speculative_exec_safe)]
-    fn to_json(this: Value) -> anyhow::Result<String> {
-        this.to_json()
     }
 }

@@ -49,8 +49,6 @@ use serde::Serialize;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::collections::StarlarkHasher;
-use crate::environment::Methods;
-use crate::environment::MethodsStatic;
 use crate::values::comparison::compare_small_map;
 use crate::values::comparison::equals_small_map;
 use crate::values::display::display_keyed_container;
@@ -153,11 +151,6 @@ where
     Self: ProvidesStaticType,
 {
     starlark_type!(Struct::TYPE);
-
-    fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(crate::stdlib::structs::struct_methods)
-    }
 
     fn extra_memory(&self) -> usize {
         self.fields.extra_memory()
