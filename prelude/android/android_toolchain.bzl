@@ -10,6 +10,7 @@ AndroidToolchainInfo = provider(fields = [
     "android_bootclasspath",
     "apk_builder",
     "d8_command",
+    "filter_dex_class_names",
     "multi_dex_command",
     "copy_string_resources",
     "filter_resources",

@@ -8,6 +8,7 @@ def config_backed_android_toolchain(
         d8_command,
         multi_dex_command,
         copy_string_resources,
+        filter_dex_class_names,
         filter_resources,
         generate_build_config,
         generate_manifest,
@@ -40,6 +41,7 @@ def config_backed_android_toolchain(
     kwargs["apk_builder"] = apk_builder
     kwargs["d8_command"] = d8_command
     kwargs["multi_dex_command"] = multi_dex_command
+    kwargs["filter_dex_class_names"] = filter_dex_class_names
     kwargs["secondary_dex_weight_limit"] = read_int("android", "secondary_dex_weight_limit", 12 * 1024 * 1024)
     kwargs["copy_string_resources"] = copy_string_resources
     kwargs["filter_resources"] = filter_resources
@@ -81,6 +83,7 @@ def _config_backed_android_toolchain_rule_impl(ctx):
             android_jar = ctx.attr.android_jar,
             apk_builder = ctx.attr.apk_builder,
             d8_command = ctx.attr.d8_command,
+            filter_dex_class_names = ctx.attr.filter_dex_class_names,
             multi_dex_command = ctx.attr.multi_dex_command,
             copy_string_resources = ctx.attr.copy_string_resources,
             filter_resources = ctx.attr.filter_resources,
@@ -114,6 +117,7 @@ _config_backed_android_toolchain_rule = rule(
         "apk_builder": attr.dep(providers = [RunInfo]),
         "copy_string_resources": attr.dep(providers = [RunInfo]),
         "d8_command": attr.dep(providers = [RunInfo]),
+        "filter_dex_class_names": attr.dep(providers = [RunInfo]),
         "filter_resources": attr.dep(providers = [RunInfo]),
         "framework_aidl_file": attr.source(),
         "generate_build_config": attr.dep(providers = [RunInfo]),
