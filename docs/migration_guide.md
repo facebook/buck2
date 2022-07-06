@@ -270,14 +270,6 @@ The Buck version used by `fbpkg` is controlled by Configerator. To switch it to 
 
 Valid settings are `"v2"`, `"v1"` (default).
 
-In case you would like to explicitly use buck1 you can similarly set the `use_buck1` parameter to True. The resulted materialised configerator config will contain `buck1` command instead of `buck`. (Example: D35914012)
-
-```python
-  buck_fbpkg(use_buck1=True, ...)
-```
-
-The `use_buck2` flag has presedence over `use_buck1`.
-
 ### Packman integration
 
 Migrate your packman config to use Buck2 by updating it to select the `buck2` builder type.
