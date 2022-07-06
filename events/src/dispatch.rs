@@ -422,7 +422,6 @@ mod tests {
     use buck2_data::SpanStartEvent;
     use tokio::task::JoinHandle;
 
-    use super::EventDispatcher;
     use super::*;
     use crate::sink::channel::ChannelEventSink;
     use crate::source::ChannelEventSource;
@@ -661,5 +660,37 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_concurrent_multi_thread() {
         test_concurrent().await;
+    }
+
+    #[tokio::test]
+    async fn test_logging() {
+        let (events, mut source, _trace_id) = create_dispatcher();
+        let (start, end) = create_start_end_events();
+
+        let res = tokio::spawn(with_dispatcher_async(
+            events.dupe(),
+            span_async(start.clone(), async move {
+                let s = "format str";
+                info!("INFO: literal");
+                info!("INFO: {}", s);
+                warn!("WARN: literal");
+                warn!("WARN: {}", s);
+                error!("ERROR: literal");
+                error!("ERROR: {}", s);
+                ((), end.clone())
+            }),
+        ))
+        .await;
+        assert!(res.is_ok());
+
+        let span_start = next_event(&mut source).await;
+
+        for _ in 0..6 {
+            let log_event = next_event(&mut source).await;
+            assert_eq!(span_start.span_id, log_event.parent_id);
+        }
+
+        let span_end = next_event(&mut source).await;
+        assert_eq!(span_start.span_id, span_end.span_id);
     }
 }
