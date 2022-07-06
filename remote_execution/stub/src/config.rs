@@ -80,6 +80,7 @@ pub struct ClientCfg {
     pub log_max_file_size: i64,
     pub log_rollup_window_size: i32,
     pub log_file_location: Option<String>,
+    pub features_config_path: String,
 }
 
 pub fn create_default_config() -> ClientCfg {

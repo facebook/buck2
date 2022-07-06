@@ -500,6 +500,9 @@ impl RemoteExecutionClientImpl {
                 re_client_config.log_rollup_window_size = 10;
             }
 
+            re_client_config.features_config_path =
+                "remote_execution/features/re_client_buck2".to_owned();
+
             // TODO(ndmitchell): For now, we just drop RE log messages, but ideally we'd put them in our log stream.
             let logger = slog::Logger::root(slog::Discard, slog::o!());
             let client = REClientBuilder::new(fb)
