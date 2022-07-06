@@ -586,8 +586,13 @@ def ocaml_library_impl(ctx: "context") -> ["provider"]:
         )]),
     )
 
+    if ctx.attr.bytecode_only:
+        info = DefaultInfo(default_outputs = [cma])
+    else:
+        info = DefaultInfo(default_outputs = [cmxa], sub_targets = {"bytecode": [DefaultInfo(default_outputs = [cma])]})
+
     return [
-        DefaultInfo(default_outputs = [cmxa], sub_targets = {"bytecode": [DefaultInfo(default_outputs = [cma])]}),
+        info,
         merge_ocaml_link_infos(infos),
         merge_link_infos(ctx, _attr_deps_merged_link_infos(ctx)),
         create_merged_linkable_graph(ctx.label, _attr_deps(ctx)),
@@ -633,10 +638,16 @@ def ocaml_binary_impl(ctx: "context") -> ["provider"]:
     local_only = link_cxx_binary_locally(ctx)
     ctx.actions.run(cmd_byt, category = "ocaml_link_bytecode", local_only = local_only)
 
-    return [
-        DefaultInfo(default_outputs = [binary_nat], sub_targets = {"bytecode": [DefaultInfo(default_outputs = [binary_byt]), RunInfo(args = [binary_byt])]}),
-        RunInfo(args = [binary_nat]),
-    ]
+    if ctx.attr.bytecode_only:
+        return [
+            DefaultInfo(default_outputs = [binary_byt]),
+            RunInfo(args = [binary_byt]),
+        ]
+    else:
+        return [
+            DefaultInfo(default_outputs = [binary_nat], sub_targets = {"bytecode": [DefaultInfo(default_outputs = [binary_byt]), RunInfo(args = [binary_byt])]}),
+            RunInfo(args = [binary_nat]),
+        ]
 
 def ocaml_object_impl(ctx: "context") -> ["provider"]:
     # ocamlopt & ld scripts.
