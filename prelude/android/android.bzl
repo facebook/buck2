@@ -17,8 +17,8 @@ load(":gen_aidl.bzl", "gen_aidl_impl")
 load(":robolectric_test.bzl", "robolectric_test_impl")
 
 def android_toolchain():
-    return attr.exec_dep(
-        default = "fbsource//xplat/buck2/platform/android:android",
+    return attr.toolchain_dep(
+        default = "fbcode//buck2/platform/toolchain:android",
         providers = [
             AndroidPlatformInfo,
             AndroidToolchainInfo,
@@ -26,16 +26,16 @@ def android_toolchain():
     )
 
 def _dex_toolchain():
-    return attr.exec_dep(
-        default = "fbsource//xplat/buck2/platform/java:dex",
+    return attr.toolchain_dep(
+        default = "fbcode//buck2/platform/toolchain:dex_for_android",
         providers = [
             DexToolchainInfo,
         ],
     )
 
 def _java_toolchain():
-    return attr.exec_dep(
-        default = "fbsource//xplat/buck2/platform/java:java",
+    return attr.toolchain_dep(
+        default = "fbcode//buck2/platform/toolchain:java_for_android",
         providers = [
             JavaPlatformInfo,
             JavaToolchainInfo,
@@ -43,8 +43,8 @@ def _java_toolchain():
     )
 
 def _kotlin_toolchain():
-    return attr.exec_dep(
-        default = "fbsource//xplat/buck2/platform/kotlin:kotlin",
+    return attr.toolchain_dep(
+        default = "fbcode//buck2/platform/toolchain:kotlin",
         providers = [
             KotlinToolchainInfo,
         ],
