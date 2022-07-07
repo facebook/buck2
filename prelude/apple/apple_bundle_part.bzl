@@ -105,7 +105,7 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.
         category = "apple_assemble_bundle"
     ctx.actions.run(
         command,
-        local_only = True,
+        prefer_local = True,
         category = category,
         **run_incremental_args
     )

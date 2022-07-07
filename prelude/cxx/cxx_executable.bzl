@@ -230,7 +230,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         links,
         shared_libs,
         linker_info.link_weight,
-        local_only = link_cxx_binary_locally(ctx),
+        prefer_local = link_cxx_binary_locally(ctx),
         enable_distributed_thinlto = ctx.attr.enable_distributed_thinlto,
         strip = impl_params.strip_executable,
         strip_args_factory = impl_params.strip_args_factory,
@@ -285,7 +285,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         ctx,
         binary,
         [LinkArgs(flags = extra_args)] + links,
-        local_only = link_cxx_binary_locally(ctx, toolchain_info),
+        prefer_local = link_cxx_binary_locally(ctx, toolchain_info),
         link_weight = linker_info.link_weight,
     ))]
 
@@ -314,7 +314,7 @@ def _link_into_executable(
         links: [LinkArgs.type],
         shared_libs: {str.type: LinkedObject.type},
         link_weight: int.type,
-        local_only: bool.type = False,
+        prefer_local: bool.type = False,
         enable_distributed_thinlto = False,
         strip: bool.type = False,
         strip_args_factory = None) -> (LinkedObject.type, ["artifact"], [""]):
@@ -324,7 +324,7 @@ def _link_into_executable(
         ctx,
         [LinkArgs(flags = extra_args)] + links,
         output,
-        local_only = local_only,
+        prefer_local = prefer_local,
         link_weight = link_weight,
         enable_distributed_thinlto = enable_distributed_thinlto,
         category_suffix = "executable",
@@ -338,7 +338,7 @@ def _linker_map(
         ctx: "context",
         binary: LinkedObject.type,
         links: [LinkArgs.type],
-        local_only: bool.type,
+        prefer_local: bool.type,
         link_weight: int.type) -> ["artifact"]:
     identifier = binary.output.short_path + ".linker-map-binary"
     binary_for_linker_map = ctx.actions.declare_output(identifier)
@@ -349,7 +349,7 @@ def _linker_map(
         binary_for_linker_map,
         category_suffix = "linker_map",
         linker_map = linker_map,
-        local_only = local_only,
+        prefer_local = prefer_local,
         link_weight = link_weight,
         identifier = identifier,
         generate_dwp = False,

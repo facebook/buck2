@@ -74,12 +74,12 @@ def make_pex(
 
         # We support building _standalone_ packages locally to e.g. support fbcode's
         # current style of build info stamping (e.g. T10696178).
-        local_only = package_python_locally(ctx, python_toolchain)
+        prefer_local = package_python_locally(ctx, python_toolchain)
 
         cmd = cmd_args(python_toolchain.make_pex_standalone[RunInfo])
         cmd.add(modules_args)
         cmd.add(bootstrap_args)
-        ctx.actions.run(cmd, local_only = local_only, category = "par", identifier = "standalone")
+        ctx.actions.run(cmd, prefer_local = prefer_local, category = "par", identifier = "standalone")
 
     elif package_style == PackageStyle("inplace") or package_style == PackageStyle("inplace_lite"):
         if symlink_tree_path == None:

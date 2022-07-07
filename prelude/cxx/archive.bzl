@@ -31,7 +31,7 @@ def _archive_flags(linker_type: str.type, use_archiver_flags: bool.type, thin: b
     return [flags]
 
 # Create a static library from a list of object files.
-def _archive(ctx: "context", name: str.type, args: "cmd_args", thin: bool.type, local_only: bool.type) -> "artifact":
+def _archive(ctx: "context", name: str.type, args: "cmd_args", thin: bool.type, prefer_local: bool.type) -> "artifact":
     archive_output = ctx.actions.declare_output(name)
     toolchain = get_cxx_toolchain_info(ctx)
     command = cmd_args(toolchain.linker_info.archiver)
@@ -41,7 +41,7 @@ def _archive(ctx: "context", name: str.type, args: "cmd_args", thin: bool.type, 
     category = "archive"
     if thin:
         category = "archive_thin"
-    ctx.actions.run(command, category = category, identifier = name, local_only = local_only)
+    ctx.actions.run(command, category = category, identifier = name, prefer_local = prefer_local)
     return archive_output
 
 # Creates a static library given a list of object files.
@@ -58,7 +58,7 @@ def make_archive(
 
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     thin = _supports_thin(linker_info.type) and linker_info.archive_contents == "thin"
-    archive = _archive(ctx, name, args, thin = thin, local_only = linker_info.archive_objects_locally)
+    archive = _archive(ctx, name, args, thin = thin, prefer_local = linker_info.archive_objects_locally)
 
     # TODO(T110378125): use argsfiles for GNU archiver for long lists of objects.
     # TODO(T110378123): for BSD archiver, split long args over multiple invocations.

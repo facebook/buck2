@@ -18,7 +18,7 @@ def http_archive_impl(ctx: "context") -> ["provider"]:
 
     # The HTTP download is local so it makes little sense to run actions
     # remotely, unless we can defer them.
-    local_only = ctx.attr.sha1 == None
+    prefer_local = ctx.attr.sha1 == None
 
     # Download archive.
     archive = ctx.actions.declare_output("archive.tgz")
@@ -46,7 +46,7 @@ def http_archive_impl(ctx: "context") -> ["provider"]:
         for exclusion in ctx.attr.excludes:
             create_exclusion_list.append(cmd_args(exclusion, format = "--exclude={}"))
 
-        ctx.actions.run(create_exclusion_list, category = "process_exclusions", local_only = local_only)
+        ctx.actions.run(create_exclusion_list, category = "process_exclusions", prefer_local = prefer_local)
         exclude_flags.append(cmd_args(exclusions, format = "--exclude-from={}"))
         exclude_hidden.append(exclusions)
 
@@ -71,6 +71,6 @@ def http_archive_impl(ctx: "context") -> ["provider"]:
         allow_args = True,
     )
     ctx.actions.run(cmd_args(["/bin/sh", script])
-        .hidden(hidden + exclude_hidden + [archive, output.as_output()]), category = "http_archive", local_only = local_only)
+        .hidden(hidden + exclude_hidden + [archive, output.as_output()]), category = "http_archive", prefer_local = prefer_local)
 
     return [DefaultInfo(default_outputs = [output])]

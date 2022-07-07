@@ -227,13 +227,13 @@ def _create_root(
         # We prefer local execution because there are lot of cxx_link_omnibus_root
         # running simultaneously, so while their overall load is reasonable,
         # their peak execution load is very high.
-        local_only = True,
+        prefer_local = True,
     )
 
 def _create_undefined_symbols_argsfile(
         ctx: "context",
         symbol_files: ["artifact"],
-        local_only: bool.type = False) -> "artifact":
+        prefer_local: bool.type = False) -> "artifact":
     """
     Combine files with sorted lists of symbols names into an argsfile to pass
     to the linker to mark these symbols as undefined (e.g. `-m`).
@@ -252,7 +252,7 @@ def _create_undefined_symbols_argsfile(
         ] +
         symbol_files,
         category = "omnibus_undefined_syms_argsfile",
-        local_only = local_only,
+        prefer_local = prefer_local,
     )
     return output
 
@@ -260,7 +260,7 @@ def _extract_global_symbols_from_link_args(
         ctx: "context",
         name: str.type,
         link_args: [["artifact", "resolved_macro", "cmd_args", str.type]],
-        local_only: bool.type = False) -> "artifact":
+        prefer_local: bool.type = False) -> "artifact":
     """
     Extract global symbols explicitly set in the given linker args (e.g.
     `-Wl,--export-dynamic-symbol=<sym>`).
@@ -297,7 +297,7 @@ def _extract_global_symbols_from_link_args(
             argsfile,
         ],
         category = "omnibus_global_symbol_flags",
-        local_only = local_only,
+        prefer_local = prefer_local,
     )
     return output
 
@@ -499,7 +499,7 @@ def _create_omnibus(
         # the linker_info.link_libraries_locally that's used by `cxx_link_into_shared_library`.
         # That's because we do not want to apply the linking behavior universally,
         # just use it for omnibus.
-        local_only = link_cxx_binary_locally(ctx, toolchain_info),
+        prefer_local = link_cxx_binary_locally(ctx, toolchain_info),
         link_weight = linker_info.link_weight,
         identifier = soname,
     )

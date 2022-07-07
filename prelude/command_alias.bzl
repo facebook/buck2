@@ -46,7 +46,7 @@ def command_alias_impl(ctx):
         # as well, which will render it inoperable. To fix this, we emit
         # __BUCK_COMMAND_ALIAS_ABSOLUTE__ instead, and then we use sed to work
         # around our own quoting to produce the thing we want.
-        # NOTE: We do this with local_only = True since the only input is a
+        # NOTE: We do this with prefer_local = True since the only input is a
         # file we just wrote locally.
         trampoline = ctx.actions.declare_output("__command_alias_trampoline.sh")
         ctx.actions.run([
@@ -56,7 +56,7 @@ def command_alias_impl(ctx):
             "--",
             trampoline_tmp,
             trampoline.as_output(),
-        ], category = "sed", local_only = True)
+        ], category = "sed", prefer_local = True)
 
         run_info_args.add(trampoline)
         run_info_args.hidden([trampoline_args, deps])

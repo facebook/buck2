@@ -715,9 +715,9 @@ def _rustc_invoke(
     compile_cmd.add(rustc_cmd)
     compile_cmd.hidden(toolchain_info.compiler, compile_ctx.symlinked_srcs)
 
-    local_only = is_binary and link_cxx_binary_locally(ctx)
+    prefer_local = is_binary and link_cxx_binary_locally(ctx)
     identifier = "{} {} [{}]".format(prefix, short_cmd, diag)
-    ctx.actions.run(compile_cmd, env = plain_env, local_only = local_only, category = "rustc", identifier = identifier)
+    ctx.actions.run(compile_cmd, env = plain_env, prefer_local = prefer_local, category = "rustc", identifier = identifier)
 
     return ({diag + ".json": json_diag, diag + ".txt": txt_diag}, build_status)
 

@@ -30,7 +30,7 @@ def http_file_shared(
                 output.as_output(),
             ]),
             category = "exploded_zip_unzip",
-            local_only = sha1 == None,
+            prefer_local = sha1 == None,
         )
 
     providers = [DefaultInfo(default_outputs = [output])]

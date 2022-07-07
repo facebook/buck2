@@ -37,7 +37,7 @@ def cxx_link(
         # The destination for the link output.
         output: "artifact",
         linker_map: ["artifact", None] = None,
-        local_only: bool.type = False,
+        prefer_local: bool.type = False,
         link_weight: int.type = 1,
         enable_distributed_thinlto: bool.type = False,
         # A category suffix that will be added to the category of the link action that is generated.
@@ -99,7 +99,7 @@ def cxx_link(
         cmd.hidden(command)
         command = cmd
 
-    ctx.actions.run(command, local_only = local_only, weight = link_weight, category = category, identifier = identifier)
+    ctx.actions.run(command, prefer_local = prefer_local, weight = link_weight, category = category, identifier = identifier)
     if strip:
         strip_args = strip_args_factory(ctx) if strip_args_factory else cmd_args()
         output = strip_shared_library(ctx, cxx_toolchain_info, output, strip_args)
@@ -143,7 +143,7 @@ def cxx_link_shared_library(
         # Optional soname to link into shared library.
         name: [str.type, None] = None,
         links: [LinkArgs.type] = [],
-        local_only: [bool.type, None] = None,
+        prefer_local: [bool.type, None] = None,
         link_weight: int.type = 1,
         # A category suffix that will be added to the category of the link action that is generated.
         category_suffix: [str.type, None] = None,
@@ -169,7 +169,7 @@ def cxx_link_shared_library(
         ctx,
         [LinkArgs(flags = extra_args)] + links,
         output,
-        local_only = value_or(local_only, value_or(linker_info.link_libraries_locally, False)),
+        prefer_local = value_or(prefer_local, value_or(linker_info.link_libraries_locally, False)),
         link_weight = link_weight,
         category_suffix = category_suffix,
         identifier = identifier,
@@ -184,7 +184,7 @@ def cxx_link_into_shared_library(
         links: [LinkArgs.type] = [],
         # Wether to embed the library name as the SONAME.
         soname: bool.type = True,
-        local_only: [bool.type, None] = None,
+        prefer_local: [bool.type, None] = None,
         link_weight: int.type = 1,
         # A category suffix that will be added to the category of the link action that is generated.
         category_suffix: [str.type, None] = None,
@@ -201,7 +201,7 @@ def cxx_link_into_shared_library(
         output,
         name = name if soname else None,
         links = links,
-        local_only = local_only,
+        prefer_local = prefer_local,
         link_weight = link_weight,
         category_suffix = category_suffix,
         identifier = identifier,
