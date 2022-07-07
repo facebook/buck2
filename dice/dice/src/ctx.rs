@@ -128,7 +128,6 @@ impl ComputationData {
 /// This SHOULD NOT be ever stored by computations, or any results of computations.
 pub struct DiceTransaction(pub(super) DiceComputations);
 
-#[allow(unused)] // Temporary
 impl DiceTransaction {
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version.
     /// This can only be called when the this is the only node remaining in the computation graph
