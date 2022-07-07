@@ -23,6 +23,8 @@ def sh_test_impl(ctx):
 
     command = [args] + ctx.attr.args
 
+    run_from_project_root = "buck2_run_from_project_root" in (ctx.attr.labels or [])
+
     # TODO support default info and runinfo properly by writing a sh script that invokes the command properly
 
     return [
@@ -34,5 +36,7 @@ def sh_test_impl(ctx):
             env = ctx.attr.env,
             labels = ctx.attr.labels,
             contacts = ctx.attr.contacts,
+            run_from_project_root = run_from_project_root,
+            use_project_relative_paths = run_from_project_root,
         ),
     ]
