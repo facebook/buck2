@@ -245,7 +245,7 @@ Test your fbpkg with buck2 in CI by creating two seperate fbpkg configs/build ru
 
 ### fbpkg.builder integration
 
-The Buck version used by `fbpkg.builder` is configuerd on the build rule itself. To switch it to Buck2 use `version="v2"` parameter. (examples: D35663292)
+The Buck version used by `fbpkg.builder` is configuerd on the build rule itself. By default it is using Buck2. To switch it to Buck1 use `version="v1"` parameter. (examples: D35663292)
 
 ```python
 fbpkg.builder(
@@ -255,7 +255,7 @@ fbpkg.builder(
 )
 ```
 
-Valid settings are `"v2"`, `"v1"` (default).
+Valid settings are `"v2"`(default), `"v1"`.
 
 Buliding the rule with buck1 or buck2 affects only the fbpkg script itself and doesnt apply to the build system used by the fbpkg binary.
 Thus building with buck2 an fbpkg that wasnt configured to use buck2, will invoke buck1 to build the actual code.
