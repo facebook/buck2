@@ -43,7 +43,7 @@ def _check_impl(ctx):
             ],
         ).hidden(text),
         category = "test",
-        local_only = True,
+        prefer_local = True,
     )
 
     return [DefaultInfo(default_outputs = [out])]

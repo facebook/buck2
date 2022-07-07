@@ -19,7 +19,7 @@ def _run_command_impl(ctx):
         return [DefaultInfo(default_outputs = [declared])]
     if test in ("runs_script_locally", "runs_script_locally_outputs_symlink"):
         declared = ctx.actions.declare_output(ctx.attr.out)
-        ctx.actions.run(_platform_args([ctx.attr.script, declared.as_output()]), local_only = True, category = "local")
+        ctx.actions.run(_platform_args([ctx.attr.script, declared.as_output()]), prefer_local = True, category = "local")
         return [DefaultInfo(default_outputs = [declared])]
     elif test == "rejects_zero_outputs":
         ctx.actions.run(_platform_args([ctx.attr.script, "foo"]), category = "rejects_zero_outputs")

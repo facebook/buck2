@@ -17,7 +17,7 @@ def _exists(ctx: "context") -> ["provider"]:
     ctx.actions.run(
         [ctx.attr.command, out.as_output(), ctx.attr.paths],
         category = "check",
-        local_only = ctx.attr.local,
+        prefer_local = ctx.attr.local,
     )
     return [DefaultInfo(default_outputs = [out])]
 

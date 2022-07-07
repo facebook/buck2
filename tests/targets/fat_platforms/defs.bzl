@@ -23,7 +23,7 @@ def _test_fat_binary_impl(ctx):
     local = ctx.actions.declare_output("local")
 
     ctx.actions.run([ctx.attr.fat_bin[RunInfo], remote.as_output()], category = "fat_test_remote")
-    ctx.actions.run([ctx.attr.fat_bin[RunInfo], local.as_output()], local_only = True, category = "fat_test_local")
+    ctx.actions.run([ctx.attr.fat_bin[RunInfo], local.as_output()], prefer_local = True, category = "fat_test_local")
 
     combined = ctx.actions.declare_output("combined")
     ctx.actions.run([ctx.attr.cat_main, combined.as_output(), remote, local], category = "fat_test_combine")
