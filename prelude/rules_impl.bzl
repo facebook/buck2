@@ -175,7 +175,7 @@ def _cxx_python_extension_attrs():
         "_cxx_toolchain": _cxx_toolchain(),
         "_hacks": attr.dep(default = "fbcode//buck2/platform:cxx-hacks"),
         # Copied from python_library.
-        "_python_toolchain": attr.exec_dep(default = default_python_toolchain(), providers = [PythonToolchainInfo, PythonPlatformInfo]),
+        "_python_toolchain": _python_toolchain(),
     })
     return res
 
@@ -187,7 +187,7 @@ def _python_test_attrs():
         "_create_manifest_for_source_dir": attr.dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir"),
         "_cxx_toolchain": _cxx_toolchain(),
         "_hacks": attr.dep(default = "fbcode//buck2/platform:cxx-hacks"),
-        "_python_toolchain": attr.exec_dep(default = default_python_toolchain(), providers = [PythonToolchainInfo, PythonPlatformInfo]),
+        "_python_toolchain": _python_toolchain(),
         "_test_main": attr.source(default = "fbcode//buck2/prelude/python/tools:__test_main__.py"),
     }
 
@@ -207,6 +207,24 @@ def _cxx_binary_and_test_attrs():
 
 def _cxx_toolchain():
     return attr.toolchain_dep(default = default_cxx_toolchain(), providers = [CxxToolchainInfo, CxxPlatformInfo])
+
+def _haskell_toolchain():
+    return attr.toolchain_dep(default = default_haskell_toolchain(), providers = [HaskellToolchainInfo, HaskellPlatformInfo])
+
+def _rust_toolchain():
+    return attr.toolchain_dep(default = default_rust_toolchain(), providers = [RustToolchainInfo, RustPlatformInfo])
+
+def _go_toolchain():
+    return attr.toolchain_dep(default = default_go_toolchain(), providers = [GoToolchainInfo])
+
+def _ocaml_toolchain():
+    return attr.toolchain_dep(default = default_ocaml_toolchain(), providers = [OCamlToolchainInfo, OCamlPlatformInfo])
+
+def _python_toolchain():
+    return attr.toolchain_dep(default = default_python_toolchain(), providers = [PythonToolchainInfo, PythonPlatformInfo])
+
+def _python_bootstrap_toolchain():
+    return attr.toolchain_dep(default = default_python_bootstrap_toolchain(), providers = [PythonBootstrapToolchainInfo])
 
 extra_attributes = struct(
     export_file = {
@@ -299,22 +317,22 @@ extra_attributes = struct(
     go_binary = {
         "resources": attr.list(attr.source(allow_directory = True), default = []),
         "_cxx_toolchain": _cxx_toolchain(),
-        "_go_toolchain": attr.dep(default = default_go_toolchain(), providers = [GoToolchainInfo]),
+        "_go_toolchain": _go_toolchain(),
     },
     go_library = {
-        "_go_toolchain": attr.dep(default = default_go_toolchain(), providers = [GoToolchainInfo]),
+        "_go_toolchain": _go_toolchain(),
     },
     go_test = {
         "resources": attr.list(attr.source(allow_directory = True), default = []),
         "_cxx_toolchain": _cxx_toolchain(),
-        "_go_toolchain": attr.dep(default = default_go_toolchain(), providers = [GoToolchainInfo]),
+        "_go_toolchain": _go_toolchain(),
         "_testmaingen": attr.dep(default = "fbcode//buck2/prelude/go/tools:testmaingen"),
     },
 
     #ocaml
     ocaml_binary = {
         "_cxx_toolchain": _cxx_toolchain(),
-        "_ocaml_toolchain": attr.exec_dep(default = default_ocaml_toolchain(), providers = [OCamlToolchainInfo, OCamlPlatformInfo]),
+        "_ocaml_toolchain": _ocaml_toolchain(),
     },
     ocaml_object = {
         "bytecode_only": attr.option(attr.bool(), default = None),
@@ -333,11 +351,11 @@ extra_attributes = struct(
         "warnings_flags": attr.option(attr.string(), default = None),
         "within_view": attr.option(attr.list(attr.string())),
         "_cxx_toolchain": _cxx_toolchain(),
-        "_ocaml_toolchain": attr.exec_dep(default = default_ocaml_toolchain(), providers = [OCamlToolchainInfo, OCamlPlatformInfo]),
+        "_ocaml_toolchain": _ocaml_toolchain(),
     },
     ocaml_library = {
         "_cxx_toolchain": _cxx_toolchain(),
-        "_ocaml_toolchain": attr.exec_dep(default = default_ocaml_toolchain(), providers = [OCamlToolchainInfo, OCamlPlatformInfo]),
+        "_ocaml_toolchain": _ocaml_toolchain(),
     },
     prebuilt_ocaml_library = {
 
@@ -359,13 +377,13 @@ extra_attributes = struct(
     prebuilt_python_library = {
         "_create_manifest_for_source_dir": attr.dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir"),
         "_extract": attr.dep(default = "fbcode//buck2/prelude/python/tools:extract"),
-        "_python_toolchain": attr.exec_dep(default = default_python_toolchain(), providers = [PythonToolchainInfo, PythonPlatformInfo]),
+        "_python_toolchain": _python_toolchain(),
     },
     python_library = {
         "resources": attr.named_set(attr.one_of(attr.dep(), attr.source(allow_directory = True)), sorted = True, default = []),
         "_create_manifest_for_source_dir": attr.dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir"),
         "_cxx_toolchain": _cxx_toolchain(),
-        "_python_toolchain": attr.exec_dep(default = default_python_toolchain(), providers = [PythonToolchainInfo, PythonPlatformInfo]),
+        "_python_toolchain": _python_toolchain(),
     },
     python_binary = {
         "bundled_runtime": attr.bool(default = False),
@@ -373,7 +391,7 @@ extra_attributes = struct(
         "_create_manifest_for_source_dir": attr.dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir"),
         "_cxx_toolchain": _cxx_toolchain(),
         "_hacks": attr.dep(default = "fbcode//buck2/platform:cxx-hacks"),
-        "_python_toolchain": attr.exec_dep(default = default_python_toolchain(), providers = [PythonToolchainInfo, PythonPlatformInfo]),
+        "_python_toolchain": _python_toolchain(),
     },
     python_needed_coverage_test = dict(
         attributes["python_test"],
@@ -384,7 +402,7 @@ extra_attributes = struct(
     python_bootstrap_binary = {
         "deps": attr.list(attr.dep(providers = [PythonBootstrapSources]), default = []),
         "main": attr.source(),
-        "_python_bootstrap_toolchain": attr.exec_dep(default = default_python_bootstrap_toolchain(), providers = [PythonBootstrapToolchainInfo]),
+        "_python_bootstrap_toolchain": _python_bootstrap_toolchain(),
     },
     python_bootstrap_library = {
         "srcs": attr.list(attr.source()),
@@ -392,11 +410,11 @@ extra_attributes = struct(
     #rust
     rust_binary = {
         "_cxx_toolchain": _cxx_toolchain(),
-        "_rust_toolchain": attr.exec_dep(default = default_rust_toolchain(), providers = [RustToolchainInfo, RustPlatformInfo]),
+        "_rust_toolchain": _rust_toolchain(),
     },
     prebuilt_rust_library = {
         "_cxx_toolchain": _cxx_toolchain(),
-        "_rust_toolchain": attr.exec_dep(default = default_rust_toolchain(), providers = [RustToolchainInfo, RustPlatformInfo]),
+        "_rust_toolchain": _rust_toolchain(),
     },
     rust_library = {
         # linker_flags weren't supported for rust_library in Buck v1 but the
@@ -408,21 +426,21 @@ extra_attributes = struct(
         "linker_flags": attr.list(attr.arg(), default = []),
         "preferred_linkage": attr.enum(Linkage, default = "any"),
         "_cxx_toolchain": _cxx_toolchain(),
-        "_rust_toolchain": attr.exec_dep(default = default_rust_toolchain(), providers = [RustToolchainInfo, RustPlatformInfo]),
+        "_rust_toolchain": _rust_toolchain(),
     },
     rust_test = {
         "framework": attr.bool(default = True),
         "_cxx_toolchain": _cxx_toolchain(),
-        "_rust_toolchain": attr.exec_dep(default = default_rust_toolchain(), providers = [RustToolchainInfo, RustPlatformInfo]),
+        "_rust_toolchain": _rust_toolchain(),
     },
     haskell_binary = {
         "_cxx_toolchain": _cxx_toolchain(),
-        "_haskell_toolchain": attr.exec_dep(default = default_haskell_toolchain(), providers = [HaskellToolchainInfo, HaskellPlatformInfo]),
+        "_haskell_toolchain": _haskell_toolchain(),
     },
     haskell_library = {
         "preferred_linkage": attr.enum(Linkage, default = "any"),
         "_cxx_toolchain": _cxx_toolchain(),
-        "_haskell_toolchain": attr.exec_dep(default = default_haskell_toolchain(), providers = [HaskellToolchainInfo, HaskellPlatformInfo]),
+        "_haskell_toolchain": _haskell_toolchain(),
     },
 
     # scala

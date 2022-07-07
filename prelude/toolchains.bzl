@@ -90,9 +90,15 @@ def default_cxx_toolchain_inner():
     )
 
 def default_go_toolchain():
+    return "fbcode//buck2/platform/toolchain:go"
+
+def default_go_toolchain_inner():
     return "fbcode//buck2/platform:go-{}-clang".format(_default_fbcode_platform)
 
 def default_python_toolchain():
+    return "fbcode//buck2/platform/toolchain:python"
+
+def default_python_toolchain_inner():
     return select({
         # TODO: Ideally we don't need this, `.buckconfig`s set the coarser fbcode
         # platform to work with v1, which leaks into the few rules which don't
@@ -114,6 +120,9 @@ def default_python_toolchain():
     })
 
 def default_python_bootstrap_toolchain():
+    return "fbcode//buck2/platform/toolchain:python_bootstrap"
+
+def default_python_bootstrap_toolchain_inner():
     return select({
         "DEFAULT": "fbcode//buck2/platform:bootstrap-py3.8-{}".format(_default_fbcode_platform),
         "ovr_config//runtime/constraints:platform009": "fbcode//buck2/platform:bootstrap-py3.8-platform009",
@@ -121,13 +130,22 @@ def default_python_bootstrap_toolchain():
     })
 
 def default_rust_toolchain():
+    return "fbcode//buck2/platform/toolchain:rust"
+
+def default_rust_toolchain_inner():
     return select(_merge_dictionaries([
         _get_apple_rust_select_map(),
         _get_fbcode_select_map("rust"),
     ]))
 
 def default_ocaml_toolchain():
+    return "fbcode//buck2/platform/toolchain:ocaml"
+
+def default_ocaml_toolchain_inner():
     return select(_get_fbcode_select_map("ocaml"))
 
 def default_haskell_toolchain():
+    return "fbcode//buck2/platform/toolchain:haskell"
+
+def default_haskell_toolchain_inner():
     return select(_get_fbcode_select_map("haskell"))

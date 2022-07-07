@@ -1,8 +1,44 @@
-load("@fbcode//buck2/prelude:toolchains.bzl", "default_cxx_toolchain_inner")
+load("@fbcode//buck2/prelude:toolchains.bzl", "default_cxx_toolchain_inner", "default_go_toolchain_inner", "default_haskell_toolchain_inner", "default_ocaml_toolchain_inner", "default_python_bootstrap_toolchain_inner", "default_python_toolchain_inner", "default_rust_toolchain_inner")
 load(":defs.bzl", "toolchain")
 
 toolchain(
     name = "cxx",
     dep = default_cxx_toolchain_inner(),
+    visibility = ["PUBLIC"],
+)
+
+toolchain(
+    name = "python",
+    dep = default_python_toolchain_inner(),
+    visibility = ["PUBLIC"],
+)
+
+toolchain(
+    name = "python_bootstrap",
+    dep = default_python_bootstrap_toolchain_inner(),
+    visibility = ["PUBLIC"],
+)
+
+toolchain(
+    name = "haskell",
+    dep = default_haskell_toolchain_inner(),
+    visibility = ["PUBLIC"],
+)
+
+toolchain(
+    name = "ocaml",
+    dep = default_ocaml_toolchain_inner(),
+    visibility = ["PUBLIC"],
+)
+
+toolchain(
+    name = "go",
+    dep = default_go_toolchain_inner(),
+    visibility = ["PUBLIC"],
+)
+
+toolchain(
+    name = "rust",
+    dep = default_rust_toolchain_inner(),
     visibility = ["PUBLIC"],
 )
