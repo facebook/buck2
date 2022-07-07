@@ -29,30 +29,29 @@ def _get_apple_select_map(include_default: bool.type, toolchain_type: AppleToolc
         "ovr_config//os/sdk/apple:iphonesimulator": _get_iphone_simulator_toolchain_select_map(toolchain_type = toolchain_type, default_arch = default_arch),
         # SDK forces OS, `watchos` means proper device watchOS build
         "ovr_config//os/sdk/apple:watchos": _get_watchos_device_toolchain_select_map(toolchain_type = toolchain_type),
-        "ovr_config//os/sdk/apple:watchsimulator": select({
-            "DEFAULT": _get_apple_watch_simulator_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
-            "fbsource//xplat/buck2/platform/apple/config:apple-xcode-current-macos": _get_apple_watch_simulator_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
-            "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-linux": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "linux", sdk = "watchsimulator"),
-            "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "macos", sdk = "watchsimulator"),
-            "fbsource//xplat/buck2/platform/apple/config:meta-xcode-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "xcode", host = "macos", sdk = "watchsimulator"),
-        }),
+        "ovr_config//os/sdk/apple:watchsimulator": _get_watch_simulator_toolchain_select_map(toolchain_type = toolchain_type, default_arch = default_arch),
         # `iphoneos` OS constraint allows both device and simulator builds, default to simulator if SDK is not specified
         "ovr_config//os:iphoneos": _get_iphone_simulator_toolchain_select_map(toolchain_type = toolchain_type, default_arch = default_arch),
         "ovr_config//os:macos": _get_apple_macos_select_map(toolchain_type = toolchain_type, default_arch = default_arch),
         # `watchos` OS constraint allows both device and simulator builds, default to simulator if SDK is not specified
-        "ovr_config//os:watchos": select({
-            "DEFAULT": _get_apple_watch_simulator_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
-            "fbsource//xplat/buck2/platform/apple/config:apple-xcode-current-macos": _get_apple_watch_simulator_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
-            "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-linux": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "linux", sdk = "watchsimulator"),
-            "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "macos", sdk = "watchsimulator"),
-            "fbsource//xplat/buck2/platform/apple/config:meta-xcode-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "xcode", host = "macos", sdk = "watchsimulator"),
-        }),
+        "ovr_config//os:watchos": _get_watch_simulator_toolchain_select_map(toolchain_type = toolchain_type, default_arch = default_arch),
     }
 
     if include_default:
         select_map["DEFAULT"] = _get_iphone_simulator_toolchain_select_map(toolchain_type = toolchain_type, default_arch = default_arch)
 
     return select_map
+
+def _get_watch_simulator_toolchain_select_map(toolchain_type: AppleToolchainRuleType.type, default_arch: str.type):
+    select_map = {
+        "DEFAULT": _get_apple_watch_simulator_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
+        "fbsource//xplat/buck2/platform/apple/config:apple-xcode-current-macos": _get_apple_watch_simulator_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
+        "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-linux": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "linux", sdk = "watchsimulator"),
+        "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "macos", sdk = "watchsimulator"),
+        "fbsource//xplat/buck2/platform/apple/config:meta-xcode-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "xcode", host = "macos", sdk = "watchsimulator"),
+    }
+
+    return select(select_map)
 
 def _get_watchos_device_toolchain_select_map(toolchain_type: AppleToolchainRuleType.type):
     select_map = {
