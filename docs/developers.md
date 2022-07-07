@@ -35,7 +35,7 @@ To test your macOS setup, you can try executing this command:
 
 The VB only look at changes in the `buck2` directory. If the change is elsewhere, you may need a no-op change in v2.
 
-Increment this number if you do, I guess: 1.
+Increment this number if you do, I guess: 2.
 
 ## Working with Buck1
 
