@@ -152,7 +152,7 @@ struct Backend<T: LspContext> {
 impl<T: LspContext> Backend<T> {
     fn server_capabilities() -> ServerCapabilities {
         ServerCapabilities {
-            text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::Full)),
+            text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
             definition_provider: Some(OneOf::Right(DefinitionOptions {
                 work_done_progress_options: WorkDoneProgressOptions {
                     work_done_progress: None,
@@ -368,7 +368,7 @@ impl<T: LspContext> Backend<T> {
     }
 
     fn main_loop(&self, _params: InitializeParams) -> anyhow::Result<()> {
-        self.log_message(MessageType::Info, "Starlark server initialised");
+        self.log_message(MessageType::INFO, "Starlark server initialised");
         for msg in &self.connection.receiver {
             match msg {
                 Message::Request(req) => {

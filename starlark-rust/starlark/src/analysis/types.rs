@@ -121,10 +121,10 @@ impl Display for EvalSeverity {
 impl From<EvalSeverity> for DiagnosticSeverity {
     fn from(s: EvalSeverity) -> Self {
         match s {
-            EvalSeverity::Error => DiagnosticSeverity::Error,
-            EvalSeverity::Warning => DiagnosticSeverity::Warning,
-            EvalSeverity::Advice => DiagnosticSeverity::Hint,
-            EvalSeverity::Disabled => DiagnosticSeverity::Information,
+            EvalSeverity::Error => DiagnosticSeverity::ERROR,
+            EvalSeverity::Warning => DiagnosticSeverity::WARNING,
+            EvalSeverity::Advice => DiagnosticSeverity::HINT,
+            EvalSeverity::Disabled => DiagnosticSeverity::INFORMATION,
         }
     }
 }
