@@ -8,7 +8,7 @@ load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "flatten")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart", "assemble_bundle", "bundle_output")
 load(":apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list", "get_is_watch_bundle")
-load(":apple_bundle_types.bzl", "AppleBundleInfo")
+load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleResourceInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_product_name")
 load(":apple_dsym.bzl", "AppleDebuggableInfo", "DSYM_SUBTARGET")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
@@ -83,7 +83,15 @@ def _get_dsym_artifacts(ctx: "context") -> ["artifact"]:
     ])
 
 def get_apple_bundle_part_list(ctx: "context", params: AppleBundlePartListConstructorParams.type) -> AppleBundlePartListOutput.type:
-    resource_part_list = get_apple_bundle_resource_part_list(ctx)
+    resource_part_list = None
+    if hasattr(ctx.attr, "_resource_bundle") and ctx.attr._resource_bundle != None:
+        resource_info = ctx.attr._resource_bundle[AppleBundleResourceInfo]
+        if resource_info != None:
+            resource_part_list = resource_info.resource_output
+
+    if resource_part_list == None:
+        resource_part_list = get_apple_bundle_resource_part_list(ctx)
+
     return AppleBundlePartListOutput(
         parts = resource_part_list.resource_parts + params.binaries,
         info_plist_part = resource_part_list.info_plist_part,
