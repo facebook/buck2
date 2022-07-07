@@ -79,6 +79,9 @@ def main(argv):
         with open(manifest_path) as mf:
             manifest = json.load(mf)
         for dst, src, _ in manifest:
+            # This is going to try to turn a path into a Python module, so
+            # reduce the scope for bugs in get_pyc_path by normalizing first.
+            dst = os.path.normpath(dst)
             # We only care about python sources.
             base, ext = os.path.splitext(dst)
             if ext != ".py":

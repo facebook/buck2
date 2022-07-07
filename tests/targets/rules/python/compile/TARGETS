@@ -1,0 +1,24 @@
+# @noautodeps
+
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
+
+python_binary(
+    name = "compile",
+    # Note the leading `./`. This is a regression test for compile.py, which
+    # didn't handle this properly.
+    srcs = [
+        "./src/main.py",
+    ],
+    base_module = "",
+    # compile + package style standalone means we run compile.py
+    compile = True,
+    main_module = "src.main",
+    package_style = "standalone",
+)
+
+buck_genrule(
+    name = "compile_run",
+    out = "out",
+    bash = "$(exe_target :compile) | grep hello && touch $OUT",
+)
