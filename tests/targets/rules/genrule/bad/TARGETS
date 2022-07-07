@@ -33,3 +33,11 @@ buck_genrule(
     bash = "exit 1",
     executable = True,
 )
+
+# Should fail beacuse it runs an invalid command (and we run with -e)
+buck_genrule(
+    name = "my_genrule_bad_4",
+    srcs = [],
+    out = "out.txt",
+    bash = "script_that_doesnt_exist; echo HELLO > $OUT",
+)

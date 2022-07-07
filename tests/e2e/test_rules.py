@@ -33,6 +33,10 @@ async def test_genrule(buck: Buck) -> None:
         buck.build("fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad_2"),
         stderr_regex="frecli cas download-action",
     )
+    await expect_failure(
+        buck.build("fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad_4"),
+        stderr_regex="script_that_doesnt_exist",
+    )
 
 
 if fbcode_linux_only():
