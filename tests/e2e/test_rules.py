@@ -23,8 +23,7 @@ async def test_genrule(buck: Buck) -> None:
     await buck.build("fbcode//buck2/tests/targets/rules/genrule/named_outputs:")
     await expect_failure(
         buck.build("fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad"),
-        # TODO(cjhopman): Improve error message for output not produced w/ local execution
-        stderr_regex="(Action failed to produce output|calculate_output_values_failed)",
+        stderr_regex="Action failed to produce output",
     )
     await expect_failure(
         buck.build("fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad_2"),

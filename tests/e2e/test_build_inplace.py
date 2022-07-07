@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from xplat.build_infra.buck_e2e.api.buck import Buck
 from xplat.build_infra.buck_e2e.api.buck_result import BuckException, ExitCode
+from xplat.build_infra.buck_e2e.asserts import expect_failure
 from xplat.build_infra.buck_e2e.buck_workspace import buck_test, env, is_deployed_buck2
 
 # rust rule implementations hardcode invocation of `/bin/jq` which is not available on Mac RE workers (or mac laptops)
@@ -449,3 +450,22 @@ async def test_fat_platforms(buck: Buck) -> None:
 @pytest.mark.skipif(is_deployed_buck2(), reason="Not implemented yet on master")
 async def test_classpath_query(buck: Buck) -> None:
     await buck.build("fbcode//buck2/tests/targets/template_placeholder/...")
+
+
+@buck_test(inplace=True)
+@pytest.mark.skipif(is_deployed_buck2(), reason="Not implemented yet on master")
+async def test_missing_outputs_error(buck: Buck) -> None:
+    # Check that we a) say what went wrong, b) show the command and c) show
+    # stdout & stderr.
+    await expect_failure(
+        buck.build("fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad"),
+        stderr_regex="Action failed to produce output.*frecli.*HELLO_STDOUT.*HELLO_STDERR",
+    )
+
+    # Same, but locally.
+    await expect_failure(
+        buck.build(
+            "fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad_local"
+        ),
+        stderr_regex="Action failed to produce output.*OUT=.*HELLO_STDOUT.*HELLO_STDERR",
+    )

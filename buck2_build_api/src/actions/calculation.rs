@@ -140,10 +140,12 @@ impl ActionCalculation for DiceComputations {
                         let (execute_result, command_reports) =
                             executor.execute(materialized_inputs, &action).await;
 
+                        let allow_omit_details = execute_result.is_ok();
+
                         let commands = future::join_all(
                             command_reports
                                 .iter()
-                                .map(command_execution_report_to_proto),
+                                .map(|r| command_execution_report_to_proto(r, allow_omit_details)),
                         )
                         .await;
 
@@ -240,8 +242,9 @@ impl ActionCalculation for DiceComputations {
 
 async fn command_execution_report_to_proto(
     report: &CommandExecutionReport,
+    allow_omit_details: bool,
 ) -> buck2_data::CommandExecution {
-    let details = command_details(report).await;
+    let details = command_details(report, allow_omit_details).await;
 
     let status = match &report.status {
         CommandExecutionStatus::Success { .. } => buck2_data::command_execution::Success {}.into(),
@@ -268,8 +271,15 @@ async fn command_execution_report_to_proto(
     }
 }
 
-async fn command_details(command: &CommandExecutionReport) -> buck2_data::CommandExecutionDetails {
-    let omit_details = matches!(command.status, CommandExecutionStatus::Success { .. });
+async fn command_details(
+    command: &CommandExecutionReport,
+    allow_omit_details: bool,
+) -> buck2_data::CommandExecutionDetails {
+    // If the top-level command failed then we don't want to omit any details. If it succeeded and
+    // so did this command (it could succeed while not having a success here if we have rejected
+    // executions), then we'll strip non-relevant stuff.
+    let omit_details =
+        allow_omit_details && matches!(command.status, CommandExecutionStatus::Success { .. });
 
     // NOTE: This is a bit sketchy. We know that either we don't care about the exit code,
     // or that it's there and nonzero. A better representation would be to move the
@@ -814,7 +824,12 @@ mod tests {
             exit_code: Some(1),
         };
 
-        let proto = command_details(&report).await;
+        let proto = command_details(&report, false).await;
+        assert_matches!(proto.command, Some(Command::LocalCommand(..)));
+        assert_eq!(&proto.stdout, "stdout");
+        assert_eq!(&proto.stderr, "stderr");
+
+        let proto = command_details(&report, true).await;
         assert_matches!(proto.command, Some(Command::OmittedLocalCommand(..)));
         assert_eq!(&proto.stdout, "");
         assert_eq!(&proto.stderr, "stderr");
@@ -825,7 +840,7 @@ mod tests {
                 env: hashmap![],
             },
         };
-        let proto = command_details(&report).await;
+        let proto = command_details(&report, true).await;
         assert_matches!(proto.command, Some(Command::LocalCommand(..)));
         assert_eq!(&proto.stdout, "stdout");
         assert_eq!(&proto.stderr, "stderr");

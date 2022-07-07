@@ -7,7 +7,15 @@ buck_genrule(
     name = "my_genrule_bad",
     srcs = [],
     out = "out.txt",
-    bash = "echo HELLO",
+    bash = "echo HELLO_STDOUT && echo HELLO_STDERR >&2",
+)
+
+buck_genrule(
+    name = "my_genrule_bad_local",
+    srcs = [],
+    out = "out.txt",
+    bash = "echo HELLO_STDOUT && echo HELLO_STDERR >&2",
+    labels = ["buck2_test_local_exec"],
 )
 
 # Should fail because false returns non-zero exit code
