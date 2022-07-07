@@ -17,6 +17,8 @@ pub trait ConfiguredAttrExt {
     fn resolve<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Vec<Value<'v>>>;
 
     fn resolve_single<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Value<'v>>;
+
+    fn resolved_starlark_type(&self) -> anyhow::Result<&'static str>;
 }
 
 impl ConfiguredAttrExt for ConfiguredAttr {
@@ -34,5 +36,9 @@ impl ConfiguredAttrExt for ConfiguredAttr {
     /// this function's output, and return a single value or an error.
     fn resolve_single<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Value<'v>> {
         self.0.resolve_single(ctx)
+    }
+
+    fn resolved_starlark_type(&self) -> anyhow::Result<&'static str> {
+        self.0.resolved_starlark_type()
     }
 }

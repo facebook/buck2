@@ -13,7 +13,7 @@ use std::path::Path;
 use anyhow::Context;
 use buck2_build_api::actions::artifact::Artifact;
 use buck2_build_api::actions::artifact::SourceArtifact;
-use buck2_build_api::deferred::AnyValue;
+use buck2_build_api::attrs::configured_attr::ConfiguredAttrExt;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
@@ -201,7 +201,7 @@ fn configured_value_methods(builder: &mut MethodsBuilder) {
     /// returns the type name of the attribute
     #[starlark(attribute)]
     fn r#type<'v>(this: &StarlarkConfiguredValue) -> anyhow::Result<&'v str> {
-        Ok(this.0.type_name())
+        this.0.resolved_starlark_type()
     }
 }
 
