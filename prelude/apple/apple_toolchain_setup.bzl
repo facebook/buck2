@@ -26,13 +26,7 @@ def _get_apple_select_map(include_default: bool.type, toolchain_type: AppleToolc
             "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "macos", sdk = "iphoneos"),
             "fbsource//xplat/buck2/platform/apple/config:meta-xcode-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "xcode", host = "macos", sdk = "iphoneos"),
         }),
-        "ovr_config//os/sdk/apple:iphonesimulator": select({
-            "DEFAULT": _get_apple_iphone_simulator_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
-            "fbsource//xplat/buck2/platform/apple/config:apple-xcode-current-macos": _get_apple_iphone_simulator_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
-            "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-linux": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "linux", sdk = "iphonesimulator"),
-            "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "macos", sdk = "iphonesimulator"),
-            "fbsource//xplat/buck2/platform/apple/config:meta-xcode-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "xcode", host = "macos", sdk = "iphonesimulator"),
-        }),
+        "ovr_config//os/sdk/apple:iphonesimulator": _get_iphone_simulator_toolchain_select_map(toolchain_type = toolchain_type, default_arch = default_arch),
         # SDK forces OS, `watchos` means proper device watchOS build
         "ovr_config//os/sdk/apple:watchos": select({
             "DEFAULT": _get_apple_watchos_device_arch_select(toolchain_type = toolchain_type),
@@ -49,13 +43,7 @@ def _get_apple_select_map(include_default: bool.type, toolchain_type: AppleToolc
             "fbsource//xplat/buck2/platform/apple/config:meta-xcode-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "xcode", host = "macos", sdk = "watchsimulator"),
         }),
         # `iphoneos` OS constraint allows both device and simulator builds, default to simulator if SDK is not specified
-        "ovr_config//os:iphoneos": select({
-            "DEFAULT": _get_apple_iphone_simulator_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
-            "fbsource//xplat/buck2/platform/apple/config:apple-xcode-current-macos": _get_apple_iphone_simulator_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
-            "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-linux": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "linux", sdk = "iphonesimulator"),
-            "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "macos", sdk = "iphonesimulator"),
-            "fbsource//xplat/buck2/platform/apple/config:meta-xcode-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "xcode", host = "macos", sdk = "iphonesimulator"),
-        }),
+        "ovr_config//os:iphoneos": _get_iphone_simulator_toolchain_select_map(toolchain_type = toolchain_type, default_arch = default_arch),
         "ovr_config//os:macos": _get_apple_macos_select_map(toolchain_type = toolchain_type, default_arch = default_arch),
         # `watchos` OS constraint allows both device and simulator builds, default to simulator if SDK is not specified
         "ovr_config//os:watchos": select({
@@ -68,15 +56,20 @@ def _get_apple_select_map(include_default: bool.type, toolchain_type: AppleToolc
     }
 
     if include_default:
-        select_map["DEFAULT"] = select({
-            "DEFAULT": _get_apple_iphone_simulator_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
-            "fbsource//xplat/buck2/platform/apple/config:apple-xcode-current-macos": _get_apple_iphone_simulator_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
-            "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-linux": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "linux", sdk = "iphonesimulator"),
-            "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "macos", sdk = "iphonesimulator"),
-            "fbsource//xplat/buck2/platform/apple/config:meta-xcode-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "xcode", host = "macos", sdk = "iphonesimulator"),
-        })
+        select_map["DEFAULT"] = _get_iphone_simulator_toolchain_select_map(toolchain_type = toolchain_type, default_arch = default_arch)
 
     return select_map
+
+def _get_iphone_simulator_toolchain_select_map(toolchain_type: AppleToolchainRuleType.type, default_arch: str.type):
+    select_map = {
+        "DEFAULT": _get_apple_iphone_simulator_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
+        "fbsource//xplat/buck2/platform/apple/config:apple-xcode-current-macos": _get_apple_iphone_simulator_arch_select(toolchain_type = toolchain_type, default_arch = default_arch),
+        "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-linux": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "linux", sdk = "iphonesimulator"),
+        "fbsource//xplat/buck2/platform/apple/config:meta-pika-13.3-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "pika-13.3", host = "macos", sdk = "iphonesimulator"),
+        "fbsource//xplat/buck2/platform/apple/config:meta-xcode-macos": _get_pika_arch_select(toolchain_type = toolchain_type, toolchain_name = "xcode", host = "macos", sdk = "iphonesimulator"),
+    }
+
+    return select(select_map)
 
 def _get_apple_macos_select_map(toolchain_type: AppleToolchainRuleType.type, default_arch: str.type):
     select_map = {
