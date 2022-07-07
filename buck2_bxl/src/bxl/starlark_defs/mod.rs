@@ -68,21 +68,12 @@ use crate::bxl::eval::CliResolutionCtx;
 #[starlark_module]
 pub fn register_bxl_function(builder: &mut GlobalsBuilder) {
     fn bxl<'v>(
-        #[starlark(require = named)] implementation: Option<Value<'v>>,
-        #[starlark(require = named)] r#impl: Option<Value<'v>>,
+        #[starlark(require = named)] r#impl: Value<'v>,
         #[starlark(require = named)] cli_args: DictOf<'v, &'v str, &'v CliArgs>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let implementation = match (implementation, r#impl) {
-            (None, None) => return Err(anyhow::anyhow!("Must pass `impl` to bxl")),
-            (Some(x), None) | (None, Some(x)) => x,
-            (Some(_), Some(_)) => {
-                return Err(anyhow::anyhow!(
-                    "Can't pass both `impl` and `implementation` to bxl"
-                ));
-            }
-        };
+        let implementation = r#impl;
 
         let build_context = BuildContext::from_context(eval)?;
         let bxl_path = (*build_context
