@@ -1,5 +1,4 @@
-load("@fbcode//buck2/prelude/android:android.bzl", "select_android_toolchain")
-load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidPlatformInfo", "AndroidToolchainInfo")
+load("@fbcode//buck2/prelude/android:android.bzl", "android_toolchain")
 load("@fbcode//buck2/prelude/js:js_bundle.bzl", "js_bundle_impl")
 load("@fbcode//buck2/prelude/js:js_bundle_genrule.bzl", "js_bundle_genrule_impl")
 load("@fbcode//buck2/prelude/js:js_library.bzl", "js_library_impl")
@@ -28,13 +27,7 @@ implemented_rules = {
 
 extra_attributes = {
     "js_bundle": {
-        "_android_toolchain": attr.exec_dep(
-            default = select_android_toolchain(),
-            providers = [
-                AndroidPlatformInfo,
-                AndroidToolchainInfo,
-            ],
-        ),
+        "_android_toolchain": android_toolchain(),
         "_is_release": attr.bool(
             default = _is_release(),
         ),
