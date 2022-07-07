@@ -18,3 +18,7 @@ AppleMinDeploymentVersionInfo = provider(fields = [
     # `str.type`
     "version",
 ])
+
+AppleBundleResourceInfo = provider(fields = [
+    "resource_output",  # AppleBundleResourcePartListOutput.type
+])
