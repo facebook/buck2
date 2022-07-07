@@ -43,8 +43,15 @@ AppleBundlePartListConstructorParams = record(
 )
 
 AppleBundlePartListOutput = record(
-    # The parts to be copied into an Apple bundle
+    # The parts to be copied into an Apple bundle, *including* binaries
     parts = field([AppleBundlePart.type]),
+    # Part that holds the info.plist
+    info_plist_part = field(AppleBundlePart.type),
+)
+
+AppleBundleResourcePartListOutput = record(
+    # Resource parts to be copied into an Apple bundle, *excluding* binaries
+    resource_parts = field([AppleBundlePart.type]),
     # Part that holds the info.plist
     info_plist_part = field(AppleBundlePart.type),
 )
@@ -321,9 +328,15 @@ def _get_dsym_artifacts(ctx: "context") -> ["artifact"]:
     ])
 
 def get_apple_bundle_part_list(ctx: "context", params: AppleBundlePartListConstructorParams.type) -> AppleBundlePartListOutput.type:
+    resource_part_list = get_apple_bundle_resource_part_list(ctx)
+    return AppleBundlePartListOutput(
+        parts = resource_part_list.resource_parts + params.binaries,
+        info_plist_part = resource_part_list.info_plist_part,
+    )
+
+def get_apple_bundle_resource_part_list(ctx: "context") -> AppleBundleResourcePartListOutput.type:
     parts = []
 
-    parts.extend(params.binaries)
     parts.extend(_create_pkg_info_if_needed(ctx))
 
     resource_specs, asset_catalog_specs, core_data_specs = _select_resources(ctx)
@@ -354,8 +367,8 @@ def get_apple_bundle_part_list(ctx: "context", params: AppleBundlePartListConstr
     parts.extend(_copy_resources(ctx, resource_specs))
     parts.extend(_copy_first_level_bundles(ctx))
 
-    return AppleBundlePartListOutput(
-        parts = parts,
+    return AppleBundleResourcePartListOutput(
+        resource_parts = parts,
         info_plist_part = info_plist_part,
     )
 
