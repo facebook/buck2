@@ -35,6 +35,10 @@ def default_apple_toolchain():
     select_map = _get_apple_select_map(include_default = True, rule_type = _APPLE_TOOLCHAIN_RULE_TYPE, usage_type = _GENERIC_USAGE_TYPE)
     return select(select_map)
 
+def resources_apple_toolchain():
+    select_map = _get_apple_select_map(include_default = True, rule_type = _APPLE_TOOLCHAIN_RULE_TYPE, usage_type = _RESOURCES_USAGE_TYPE)
+    return select(select_map)
+
 def _get_apple_select_map(include_default: bool.type, rule_type: AppleToolchainRuleType.type, usage_type: AppleToolchainUsageType.type):
     default_arch = _get_default_arch_for_macos_and_simulator_targets()
     select_map = {

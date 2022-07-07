@@ -1,7 +1,7 @@
 load("@fbcode//buck2/prelude:attributes.bzl", "AppleBundleExtension", "Traversal")
 load("@fbcode//buck2/prelude/apple:apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list")
 load("@fbcode//buck2/prelude/apple:apple_bundle_types.bzl", "AppleBundleResourceInfo")
-load("@fbcode//buck2/prelude/apple:apple_toolchain_setup.bzl", "default_apple_toolchain")
+load("@fbcode//buck2/prelude/apple:apple_toolchain_setup.bzl", "resources_apple_toolchain")
 load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 load("@fbcode//buck2/prelude/user:rule_spec.bzl", "RuleRegistrationSpec")
 
@@ -29,7 +29,8 @@ registration_spec = RuleRegistrationSpec(
         "product_name": attr.option(attr.string(), default = None),
         "resource_group": attr.option(attr.string(), default = None),
         "resource_group_map": attr.option(attr.list(attr.tuple(attr.string(), attr.list(attr.tuple(attr.dep(), attr.enum(Traversal), attr.option(attr.string()))))), default = None),
-        "_apple_toolchain": attr.exec_dep(default = default_apple_toolchain(), providers = [AppleToolchainInfo]),
+        # Only include macOS hosted toolchains, so we compile resources directly on Mac RE
+        "_apple_toolchain": attr.exec_dep(default = resources_apple_toolchain(), providers = [AppleToolchainInfo]),
         "_apple_tools": attr.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
     },
 )
