@@ -226,6 +226,7 @@ def _configured_alias_macro_stub(name, actual, platform, **kwargs):
 def _apple_bundle_macro_stub(**kwargs):
     apple_bundle_macro_impl(
         apple_bundle_rule = __rules__["apple_bundle"],
+        apple_resource_bundle_rule = _user_rules["apple_resource_bundle"],
         **kwargs
     )
 

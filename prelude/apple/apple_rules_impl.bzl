@@ -3,6 +3,7 @@ load("@fbcode//buck2/prelude/cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load(":apple_asset_catalog.bzl", "apple_asset_catalog_impl")
 load(":apple_binary.bzl", "apple_binary_impl")
 load(":apple_bundle.bzl", "apple_bundle_impl")
+load(":apple_bundle_types.bzl", "AppleBundleResourceInfo")
 load(":apple_code_signing_types.bzl", "CodeSignType")
 load(":apple_core_data.bzl", "apple_core_data_impl")
 load(":apple_library.bzl", "apple_library_impl")
@@ -52,6 +53,7 @@ extra_attributes = {
         "_codesign_type": attr.option(attr.enum(CodeSignType.values()), default = None),
         "_incremental_bundling_enabled": attr.bool(),
         "_provisioning_profiles": attr.dep(default = "fbsource//xplat/buck2/provisioning_profiles:all"),
+        "_resource_bundle": attr.option(attr.dep(providers = [AppleBundleResourceInfo]), default = None),
     },
     "apple_library": {
         "extra_xcode_sources": attr.list(attr.source(allow_directory = True), default = []),
