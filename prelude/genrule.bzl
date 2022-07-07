@@ -326,7 +326,7 @@ def process_genrule(
         # As of 09/2021, all genrule types were legal snake case if their dashes and periods were replaced with underscores.
         category += "_" + ctx.attr.type.replace("-", "_").replace(".", "_")
     ctx.actions.run(
-        cmd_args(["/bin/bash", sh_script]).hidden([cmd, srcs_artifact, macro_files] + [a.as_output() for a in all_outputs]),
+        cmd_args(["/bin/bash", "-e", sh_script]).hidden([cmd, srcs_artifact, macro_files] + [a.as_output() for a in all_outputs]),
         env = env_vars,
         local_only = _requires_local(ctx),
         category = category,
