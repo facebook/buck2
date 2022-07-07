@@ -434,3 +434,19 @@ async def test_load_file(buck: Buck) -> None:
     )
 
     assert str(buck.cwd) in result.stdout
+
+
+@buck_test(inplace=False, data_dir="bql/simple")
+async def test_node_attrs(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl:node_attributes.bxl:attrs_test",
+    )
+
+    assert result.stdout.splitlines() == [
+        "string",
+        "the_binary",
+        "list",
+        "[root//lib:lib1 (root//platforms:platform1), root//lib:lib2 (root//platforms:platform1), root//lib:lib3 (root//platforms:platform1)]",
+        "list",
+        '["$(exe root//:bin (root//platforms:platform1))", "$(location root//:data (root//platforms:platform1))"]',
+    ]
