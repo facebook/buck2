@@ -76,9 +76,6 @@ def _get_apple_rust_select_map():
 def _get_infer_select_map():
     return {"ovr_config//toolchain/fb:platform009-infer": "fbcode//buck2/platform:buck2-infer"}
 
-def default_cxx_toolchain():
-    return "fbcode//buck2/platform/toolchain:cxx"
-
 def default_cxx_toolchain_inner():
     return select(
         _merge_dictionaries([
@@ -89,14 +86,8 @@ def default_cxx_toolchain_inner():
         ]),
     )
 
-def default_go_toolchain():
-    return "fbcode//buck2/platform/toolchain:go"
-
 def default_go_toolchain_inner():
     return "fbcode//buck2/platform:go-{}-clang".format(_default_fbcode_platform)
-
-def default_python_toolchain():
-    return "fbcode//buck2/platform/toolchain:python"
 
 def default_python_toolchain_inner():
     return select({
@@ -119,9 +110,6 @@ def default_python_toolchain_inner():
         }),
     })
 
-def default_python_bootstrap_toolchain():
-    return "fbcode//buck2/platform/toolchain:python_bootstrap"
-
 def default_python_bootstrap_toolchain_inner():
     return select({
         "DEFAULT": "fbcode//buck2/platform:bootstrap-py3.8-{}".format(_default_fbcode_platform),
@@ -129,23 +117,14 @@ def default_python_bootstrap_toolchain_inner():
         "ovr_config//runtime/constraints:platform010": "fbcode//buck2/platform:bootstrap-py3.8-platform010",
     })
 
-def default_rust_toolchain():
-    return "fbcode//buck2/platform/toolchain:rust"
-
 def default_rust_toolchain_inner():
     return select(_merge_dictionaries([
         _get_apple_rust_select_map(),
         _get_fbcode_select_map("rust"),
     ]))
 
-def default_ocaml_toolchain():
-    return "fbcode//buck2/platform/toolchain:ocaml"
-
 def default_ocaml_toolchain_inner():
     return select(_get_fbcode_select_map("ocaml"))
-
-def default_haskell_toolchain():
-    return "fbcode//buck2/platform/toolchain:haskell"
 
 def default_haskell_toolchain_inner():
     return select(_get_fbcode_select_map("haskell"))

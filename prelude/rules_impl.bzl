@@ -73,7 +73,6 @@ load(":sh_test.bzl", "sh_test_impl")
 load(":test_suite.bzl", "test_suite_impl")
 
 # Other
-load(":toolchains.bzl", "default_cxx_toolchain", "default_go_toolchain", "default_haskell_toolchain", "default_ocaml_toolchain", "default_python_bootstrap_toolchain", "default_python_toolchain", "default_rust_toolchain")
 load(":worker_tool.bzl", "worker_tool")
 
 def _merge_dictionaries(dicts):
@@ -205,26 +204,29 @@ def _cxx_binary_and_test_attrs():
         "_hacks": attr.dep(default = "fbcode//buck2/platform:cxx-hacks"),
     }
 
+def _toolchain(lang: str.type, providers: [""]) -> "attribute":
+    return attr.toolchain_dep(default = "fbcode//buck2/platform/toolchain:" + lang, providers = providers)
+
 def _cxx_toolchain():
-    return attr.toolchain_dep(default = default_cxx_toolchain(), providers = [CxxToolchainInfo, CxxPlatformInfo])
+    return _toolchain("cxx", [CxxToolchainInfo, CxxPlatformInfo])
 
 def _haskell_toolchain():
-    return attr.toolchain_dep(default = default_haskell_toolchain(), providers = [HaskellToolchainInfo, HaskellPlatformInfo])
+    return _toolchain("haskell", [HaskellToolchainInfo, HaskellPlatformInfo])
 
 def _rust_toolchain():
-    return attr.toolchain_dep(default = default_rust_toolchain(), providers = [RustToolchainInfo, RustPlatformInfo])
+    return _toolchain("rust", [RustToolchainInfo, RustPlatformInfo])
 
 def _go_toolchain():
-    return attr.toolchain_dep(default = default_go_toolchain(), providers = [GoToolchainInfo])
+    return _toolchain("go", [GoToolchainInfo])
 
 def _ocaml_toolchain():
-    return attr.toolchain_dep(default = default_ocaml_toolchain(), providers = [OCamlToolchainInfo, OCamlPlatformInfo])
+    return _toolchain("ocaml", [OCamlToolchainInfo, OCamlPlatformInfo])
 
 def _python_toolchain():
-    return attr.toolchain_dep(default = default_python_toolchain(), providers = [PythonToolchainInfo, PythonPlatformInfo])
+    return _toolchain("python", [PythonToolchainInfo, PythonPlatformInfo])
 
 def _python_bootstrap_toolchain():
-    return attr.toolchain_dep(default = default_python_bootstrap_toolchain(), providers = [PythonBootstrapToolchainInfo])
+    return _toolchain("python_bootstrap", [PythonBootstrapToolchainInfo])
 
 extra_attributes = struct(
     export_file = {
