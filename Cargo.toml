@@ -5,7 +5,6 @@ members = [
     "buck2_data",
     "buck2_query",
     "buck2_query_parser",
-    "buck2_docs",
     "buck2_build_api",
     "buck2_build_api_derive",
     "cli",
