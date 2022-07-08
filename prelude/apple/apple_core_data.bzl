@@ -1,5 +1,5 @@
 load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-load(":apple_bundle_utility.bzl", "get_bundle_min_target_version")
+load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_bundle_resource_processing_options")
 load(":apple_core_data_types.bzl", "AppleCoreDataSpec")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(":resource_groups.bzl", "create_resource_graph")
@@ -43,9 +43,9 @@ def compile_apple_core_data(ctx: "context", specs: [AppleCoreDataSpec.type], pro
         ],
         allow_args = True,
     )
-
     combined_command = cmd_args(["/bin/sh", wrapper_script]).hidden(hidden + momc_commands + [output.as_output()])
-    ctx.actions.run(combined_command, category = "apple_core_data")
+    processing_options = get_bundle_resource_processing_options(ctx)
+    ctx.actions.run(combined_command, prefer_local = processing_options.prefer_local, category = "apple_core_data")
     return output
 
 def _get_momc_command(ctx: "context", core_data_spec: AppleCoreDataSpec.type, product_name: str.type, output_directory: "cmd_args") -> "cmd_args":

@@ -19,3 +19,8 @@ AppleResourceSpec = record(
     named_variant_files = field({str.type: ["artifact"]}, {}),
     codesign_files_on_copy = field(bool.type, False),
 )
+
+# Used when invoking `ibtool`, `actool` and `momc`
+AppleResourceProcessingOptions = record(
+    prefer_local = field(bool.type, False),
+)

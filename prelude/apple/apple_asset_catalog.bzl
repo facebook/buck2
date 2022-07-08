@@ -2,7 +2,7 @@ load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainIn
 load("@fbcode//buck2/prelude/utils:utils.bzl", "flatten")
 load(":apple_asset_catalog_compilation_options.bzl", "AppleAssetCatalogsCompilationOptions", "get_apple_asset_catalogs_compilation_options")  # @unused Used as a type
 load(":apple_asset_catalog_types.bzl", "AppleAssetCatalogResult", "AppleAssetCatalogSpec", "StringWithSourceTarget")
-load(":apple_bundle_utility.bzl", "get_bundle_min_target_version")
+load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_bundle_resource_processing_options")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(":apple_sdk_metadata.bzl", "get_apple_sdk_metadata_for_sdk_name")
 load(":resource_groups.bzl", "create_resource_graph")
@@ -28,9 +28,10 @@ def compile_apple_asset_catalog(ctx: "context", specs: [AppleAssetCatalogSpec.ty
         return None
     plist = ctx.actions.declare_output("AssetCatalog.plist")
     catalog = ctx.actions.declare_output("AssetCatalogCompiled")
+    processing_options = get_bundle_resource_processing_options(ctx)
     compilation_options = get_apple_asset_catalogs_compilation_options(ctx)
     command = _get_actool_command(ctx, single_spec, catalog.as_output(), plist.as_output(), compilation_options)
-    ctx.actions.run(command, category = "apple_asset_catalog")
+    ctx.actions.run(command, prefer_local = processing_options.prefer_local, category = "apple_asset_catalog")
     return AppleAssetCatalogResult(compiled_catalog = catalog, catalog_plist = plist)
 
 def _merge_asset_catalog_specs(ctx: "context", xs: [AppleAssetCatalogSpec.type]) -> AppleAssetCatalogSpec.type:

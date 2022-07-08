@@ -12,7 +12,7 @@ load(
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart")
 load(":apple_bundle_types.bzl", "AppleBundleInfo")
-load(":apple_bundle_utility.bzl", "get_extension_attr", "get_product_name")
+load(":apple_bundle_utility.bzl", "get_bundle_resource_processing_options", "get_extension_attr", "get_product_name")
 load(":apple_core_data.bzl", "compile_apple_core_data")
 load(
     ":apple_core_data_types.bzl",
@@ -216,7 +216,8 @@ def _run_ibtool(
     else:
         command = ibtool_command
 
-    ctx.actions.run(command, category = "apple_ibtool", identifier = action_identifier)
+    processing_options = get_bundle_resource_processing_options(ctx)
+    ctx.actions.run(command, prefer_local = processing_options.prefer_local, category = "apple_ibtool", identifier = action_identifier)
 
 def _compile_ui_resource(
         ctx: "context",
