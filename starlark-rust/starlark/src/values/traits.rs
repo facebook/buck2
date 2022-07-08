@@ -210,19 +210,14 @@ pub trait StarlarkValue<'v>: 'v + ProvidesStaticType + Debug + Display + Seriali
     /// as it would not be performant to allocate a new value each time.
     ///
     /// This can be only implemented by the [`starlark_type!`] macro.
-    fn get_type_value_static() -> FrozenStringValue
-    where
-        Self: Sized;
+    fn get_type_value_static() -> FrozenStringValue;
 
     /// Return a string that is the representation of a type that a user would use in
     /// type annotations. This often will be the same as [`Self::get_type()`], but in
     /// some instances it might be slightly different than what is returned by `type()`
     ///
     /// This can be only implemented by the [`starlark_type!`] macro.
-    fn get_type_starlark_repr() -> String
-    where
-        Self: Sized,
-    {
+    fn get_type_starlark_repr() -> String {
         format!("\"{}\"", Self::get_type_value_static().as_str())
     }
 

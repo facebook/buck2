@@ -29,7 +29,7 @@ pub trait StarlarkTypeRepr {
     fn starlark_type_repr() -> String;
 }
 
-impl<'v, T: StarlarkValue<'v>> StarlarkTypeRepr for T {
+impl<'v, T: StarlarkValue<'v> + ?Sized> StarlarkTypeRepr for T {
     fn starlark_type_repr() -> String {
         Self::get_type_starlark_repr()
     }
@@ -38,14 +38,6 @@ impl<'v, T: StarlarkValue<'v>> StarlarkTypeRepr for T {
 impl StarlarkTypeRepr for String {
     fn starlark_type_repr() -> String {
         str::starlark_type_repr()
-    }
-}
-
-impl StarlarkTypeRepr for str {
-    fn starlark_type_repr() -> String {
-        // Here because str is not Sized so StarlarkValue doesn't
-        // implement get_type_starlark_repr
-        "str.type".to_owned()
     }
 }
 
