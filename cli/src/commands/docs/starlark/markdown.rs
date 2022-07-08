@@ -16,7 +16,10 @@ use starlark::values::docs::Type;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 pub(crate) struct MarkdownFileOptions {
-    #[structopt(long = "--markdown-files-destination-dir")]
+    #[structopt(
+        long = "--markdown-files-destination-dir",
+        required_if_eq("format", "markdown_files")
+    )]
     destination_dir: Option<PathBuf>,
     #[structopt(long = "--markdown-files-native-subdir", default_value="native", parse(try_from_str = PathBuf::try_from))]
     native_subdir: PathBuf,
@@ -29,10 +32,10 @@ pub(crate) fn generate_markdown_files(
     opts: &MarkdownFileOptions,
     docs: Vec<Doc>,
 ) -> anyhow::Result<()> {
-    let destination_dir = match &opts.destination_dir {
-        Some(d) => Ok(d),
-        None => Err(anyhow::anyhow!("err")),
-    }?;
+    let destination_dir = opts
+        .destination_dir
+        .as_ref()
+        .expect("clap enforces when --format=markdown_files");
     let mut outputs = HashMap::new();
 
     for doc in docs.into_iter().sorted_by(|l, r| l.id.name.cmp(&r.id.name)) {
