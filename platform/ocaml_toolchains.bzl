@@ -58,6 +58,10 @@ def config_backed_ocaml_toolchain(flavor, **kwargs):
     if flavor_bits[1] == "compat":
         platform += "-" + flavor_bits[1]
 
+    # Special case: "platform010-aarch64"
+    if flavor_bits[1] == "aarch64":
+        platform += "-" + flavor_bits[1]
+
     sections = ["ocaml#" + flavor, "ocaml"]
     for (key, (info, default)) in _buckconfig_ocaml_toolchain_attrs.items():
         if key in kwargs:
