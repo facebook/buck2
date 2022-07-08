@@ -237,7 +237,7 @@ impl GlobalInterpreterState {
         let extension_file_global_env = base_env(&interpreter_configuror)
             .with(|x| interpreter_configuror.configure_extension_file_globals(x))
             .build();
-        let bql_file_global_env = base_env(&interpreter_configuror)
+        let bxl_file_global_env = base_env(&interpreter_configuror)
             .with(|x| interpreter_configuror.configure_bxl_file_globals(x))
             .build();
 
@@ -258,7 +258,7 @@ impl GlobalInterpreterState {
             cell_configs,
             build_file_global_env,
             extension_file_global_env,
-            bql_file_global_env,
+            bql_file_global_env: bxl_file_global_env,
             configuror: interpreter_configuror,
             disable_starlark_types,
         })
