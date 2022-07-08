@@ -37,3 +37,13 @@ foo_target(
     name = "badrecursive",
     visibility = [ "//buck2/..." ],
 )
+
+foo_target(
+    name = "badvisibility",
+    visibility = [ "//:pass2" ],
+)
+
+foo_target(
+    name = "badtransitivevisibility",
+    visibility = ["//subdir:badvisibility"],
+)

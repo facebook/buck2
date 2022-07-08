@@ -37,3 +37,13 @@ foo_target(
     name = "fail4",
     actual = "//subdir:default",
 )
+
+foo_target(
+    name = "fail5",
+    actual = "//subdir:badvisibility",
+)
+
+foo_target(
+    name = "fail6",
+    actual = "//subdir:badtransitivevisibility",
+)

@@ -3,7 +3,10 @@ import tempfile
 import textwrap
 from pathlib import Path
 
+import pytest
+
 from xplat.build_infra.buck_e2e.api.buck import Buck
+from xplat.build_infra.buck_e2e.asserts import expect_failure
 from xplat.build_infra.buck_e2e.buck_workspace import buck_test
 
 
@@ -237,3 +240,30 @@ async def test_cell_relative_configs(buck: Buck) -> None:
 
     assert result_all_cell_json is not None
     assert result_all_cell_json.get("foo.b") == "5"
+
+
+@buck_test(inplace=False, data_dir="visibility")
+@pytest.mark.parametrize(
+    "rule, passes",
+    [
+        ("fbcode//:pass1", True),
+        ("fbcode//:pass2", True),
+        ("fbcode//:pass3", True),
+        ("fbcode//:pass4", True),
+        ("fbcode//:fail1", False),
+        ("fbcode//:fail2", False),
+        ("fbcode//:fail3", False),
+        ("fbcode//:fail4", False),
+        ("fbcode//:fail5", False),
+        ("fbcode//:fail6", False),
+    ],
+)
+async def test_audit_visibility(buck: Buck, rule: str, passes: bool) -> None:
+    if passes:
+        out = await buck.audit_visibility(rule)
+        assert out.stdout == ""
+    else:
+        await expect_failure(
+            buck.audit_visibility(rule),
+            stderr_regex=f"not visible to `{rule}`",
+        )
