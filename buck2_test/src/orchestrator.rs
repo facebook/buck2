@@ -394,7 +394,8 @@ impl BuckTestOrchestrator {
         }
 
         if !(self.session.options().allow_re && supports_re) {
-            request = request.with_local_preference(ExecutorPreference::LocalRequired)
+            //  Needed so that we allow going to a simulator on RE even if `--allow-tests-on-re` was not passed
+            request = request.with_local_preference(ExecutorPreference::LocalPreferred)
         }
 
         let manager = CommandExecutionManager::new(

@@ -64,6 +64,12 @@ pub enum ReExecutionPlatform {
     Windows,
 }
 
+#[derive(Debug, Error)]
+pub enum RemoteExecutorError {
+    #[error("Trying to execute a `local_only = True` action on remote executor for {0}")]
+    LocalOnlyAction(String),
+}
+
 impl ReExecutionPlatform {
     pub fn intrinsic_properties(&self) -> SmallMap<String, String> {
         let mut map = SmallMap::new();
@@ -255,6 +261,11 @@ impl PreparedCommandExecutor for ReExecutor {
                     blobs,
                 },
         } = command;
+
+        if command.request.local_preference().is_local_only() {
+            let error = anyhow::anyhow!(RemoteExecutorError::LocalOnlyAction(target.to_string()));
+            return ControlFlow::Break(manager.error("remote_prepare".into(), error))?;
+        }
 
         let manager = self.upload(manager, blobs, action_paths).await?;
 
