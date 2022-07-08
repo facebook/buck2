@@ -324,11 +324,9 @@ impl DocString {
 /// Line / column for where in a file a symbol is.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Pos {
-    /// Line number.
-    // TODO(nga): explain is it 0-based or 1-based?
+    /// Line number, zero based.
     pub line: usize,
-    /// Column number.
-    // TODO(nga): explain is it 0-based or 1-based?
+    /// Column number, zero based.
     pub column: usize,
 }
 
