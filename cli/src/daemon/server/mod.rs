@@ -1719,7 +1719,12 @@ impl DaemonApi for BuckdServer {
             let metadata = request_metadata(&context).await?;
             let start_event = buck2_data::CommandStart {
                 metadata: metadata.clone(),
-                data: Some(buck2_data::BxlCommandStart {}.into()),
+                data: Some(
+                    buck2_data::BxlCommandStart {
+                        bxl_label: req.bxl_label.clone(),
+                    }
+                    .into(),
+                ),
             };
             let events = context.base_context.events.dupe();
             let result = events

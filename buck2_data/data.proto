@@ -340,7 +340,10 @@ message BuildCommandStart {
   // TODO(swgillespie) fill this with useful fields
 }
 
-message BxlCommandStart {}
+message BxlCommandStart {
+  // The full bxl label that was run, excluding the arguments to the bxl
+  string bxl_label = 1;
+}
 
 message LspCommandStart {}
 
