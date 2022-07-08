@@ -1,12 +1,11 @@
 load("@fbcode//buck2/prelude:attributes.bzl", "AppleBundleExtension", "Traversal")
 load("@fbcode//buck2/prelude/apple:apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list")
 load("@fbcode//buck2/prelude/apple:apple_bundle_types.bzl", "AppleBundleResourceInfo")
-load("@fbcode//buck2/prelude/apple:apple_toolchain_setup.bzl", "resources_apple_toolchain")
 load("@fbcode//buck2/prelude/apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 load("@fbcode//buck2/prelude/user:rule_spec.bzl", "RuleRegistrationSpec")
 
 def _get_apple_resources_tolchain_attr():
-    return attr.exec_dep(default = resources_apple_toolchain(), providers = [AppleToolchainInfo])
+    return attr.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-resources", providers = [AppleToolchainInfo])
 
 def _impl(ctx: "context") -> ["provider"]:
     resource_output = get_apple_bundle_resource_part_list(ctx)

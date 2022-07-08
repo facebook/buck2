@@ -11,14 +11,13 @@ load(":apple_package.bzl", "apple_package_impl")
 load(":apple_resource.bzl", "apple_resource_impl")
 load(":apple_test.bzl", "apple_test_impl")
 load(":apple_toolchain.bzl", "apple_toolchain_impl")
-load(":apple_toolchain_setup.bzl", "default_apple_toolchain")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 load(":prebuilt_apple_framework.bzl", "prebuilt_apple_framework_impl")
 load(":swift_toolchain.bzl", "swift_toolchain_impl")
 load(":xcode_prebuild_script.bzl", "xcode_prebuild_script_impl")
 
 def _get_apple_tolchain_attr():
-    return attr.exec_dep(default = default_apple_toolchain(), providers = [AppleToolchainInfo])
+    return attr.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-default", providers = [AppleToolchainInfo])
 
 implemented_rules = {
     "apple_asset_catalog": apple_asset_catalog_impl,
