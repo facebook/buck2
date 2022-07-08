@@ -1,3 +1,5 @@
+mod markdown;
+
 use async_trait::async_trait;
 use buck2_core::exit_result::ExitResult;
 use cli_proto::UnstableDocsRequest;
@@ -8,6 +10,8 @@ use starlark::values::docs::Doc;
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
 use crate::commands::common::CommonDaemonCommandOptions;
+use crate::commands::docs::starlark::markdown::generate_markdown_files;
+use crate::commands::docs::starlark::markdown::MarkdownFileOptions;
 use crate::daemon::client::BuckdClientConnector;
 use crate::CommandContext;
 use crate::StreamingCommand;
@@ -16,6 +20,7 @@ use crate::StreamingCommand;
 #[clap(rename_all = "snake_case")]
 enum DocsOutputFormatArg {
     Json,
+    MarkdownFiles,
 }
 
 #[derive(Debug, clap::Parser)]
@@ -32,6 +37,9 @@ pub(crate) struct DocsStarlarkCommand {
 
     #[clap(flatten)]
     event_log_opts: CommonDaemonCommandOptions,
+
+    #[clap(flatten)]
+    markdown_file_opts: MarkdownFileOptions,
 
     #[clap(
         long = "format",
@@ -82,6 +90,9 @@ impl StreamingCommand for DocsStarlarkCommand {
         match self.format {
             DocsOutputFormatArg::Json => {
                 serde_json::to_writer_pretty(std::io::stdout(), &docs)?;
+            }
+            DocsOutputFormatArg::MarkdownFiles => {
+                generate_markdown_files(&self.markdown_file_opts, docs)?;
             }
         }
 

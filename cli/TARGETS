@@ -1,7 +1,13 @@
 # Copyright 2004-present Facebook. All Rights Reserved.
 load("@fbcode//buck2:buck_rust_binary.bzl", "buck_rust_binary")
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+buck_filegroup(
+    name = "testdata",
+    srcs = glob(["testdata/**"]),
+)
 
 rust_library(
     name = "cli",
@@ -34,6 +40,11 @@ rust_library(
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:pretty_assertions",
     ],
+    test_env = {
+        # Some of our tests include testcase files relative to CARGO_MANIFEST_DIR.
+        # This is a hack that allows both `cargo test` and `buck test` to work.
+        "CARGO_MANIFEST_DIR": "$(location :testdata)",
+    },
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-compression",
