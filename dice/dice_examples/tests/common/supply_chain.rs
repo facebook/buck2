@@ -27,34 +27,36 @@ async fn setup(companies: Vec<Company>) -> DiceTransaction {
 }
 
 #[tokio::test]
-async fn test_no_resources() {
+async fn test_no_resources() -> Result<(), Arc<anyhow::Error>> {
     let ctx = setup(vec![Company {
         name: Arc::new("hello world".to_owned()),
         makes: HashMap::new(),
     }])
     .await;
 
-    assert_eq!(None, ctx.resource_cost(&Resource::Wood).await);
+    assert_eq!(None, ctx.resource_cost(&Resource::Wood).await?);
     let success = ctx
         .change_company_resource_cost("hello world", &Resource::Stick, 5)
         .await;
     assert!(success.is_err());
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_other_resource() {
+async fn test_other_resource() -> Result<(), Arc<anyhow::Error>> {
     let ctx = setup(vec![Company {
         name: Arc::new("hello world".to_owned()),
         makes: [(Resource::Wood, 2)].iter().cloned().collect(),
     }])
     .await;
 
-    assert_eq!(None, ctx.resource_cost(&Resource::Stick).await);
-    assert_eq!(Some(2), ctx.resource_cost(&Resource::Wood).await);
+    assert_eq!(None, ctx.resource_cost(&Resource::Stick).await?);
+    assert_eq!(Some(2), ctx.resource_cost(&Resource::Wood).await?);
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_simple() {
+async fn test_simple() -> Result<(), Arc<anyhow::Error>> {
     let ctx = setup(vec![
         Company {
             name: Arc::new("Steve".to_owned()),
@@ -90,15 +92,16 @@ async fn test_simple() {
     for (resource, cost) in &expected {
         assert_eq!(
             Some(*cost),
-            ctx.resource_cost(resource).await,
+            ctx.resource_cost(resource).await?,
             "Testing {}",
             resource
         );
     }
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_complex() {
+async fn test_complex() -> Result<(), Arc<anyhow::Error>> {
     let ctx = setup(vec![
         Company {
             name: Arc::new("Steve".to_owned()),
@@ -149,15 +152,16 @@ async fn test_complex() {
     for (resource, cost) in &expected {
         assert_eq!(
             Some(*cost),
-            ctx.resource_cost(resource).await,
+            ctx.resource_cost(resource).await?,
             "Testing {}",
             resource
         );
     }
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_change_cost() -> Result<(), &'static str> {
+async fn test_change_cost() -> Result<(), Arc<anyhow::Error>> {
     let ctx = setup(vec![
         Company {
             name: Arc::new("Steve".to_owned()),
@@ -182,13 +186,14 @@ async fn test_change_cost() -> Result<(), &'static str> {
     .await;
 
     ctx.change_company_resource_cost("Steve", &Resource::Stick, 2)
-        .await?;
+        .await
+        .map_err(|e| Arc::new(anyhow::anyhow!(e)))?;
 
     let ctx = ctx.commit();
 
     assert_eq!(
         Some(3 * 7 + 2 * (2 * (1 + 2) + 2) + 10),
-        ctx.resource_cost(&Resource::Pickaxe).await
+        ctx.resource_cost(&Resource::Pickaxe).await?
     );
 
     let update_success = ctx

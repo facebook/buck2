@@ -97,7 +97,7 @@ pub trait MathEquations {
 
 #[async_trait]
 pub trait Math {
-    async fn eval(&self, var: Var) -> i64;
+    async fn eval(&self, var: Var) -> Result<i64, Arc<anyhow::Error>>;
 }
 
 impl MathEquations for DiceComputations {
@@ -119,39 +119,48 @@ impl MathEquations for DiceComputations {
 pub struct EvalVar(pub Var);
 #[async_trait]
 impl Key for EvalVar {
-    type Value = i64;
+    type Value = Result<i64, Arc<anyhow::Error>>;
 
-    async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-        let equation = lookup_unit(ctx, &self.0).await;
-        match &*equation {
-            Equation::Add(adds) => resolve_units(ctx, &adds[..]).await.iter().sum(),
-            Equation::Unit(unit) => resolve_units(ctx, &[unit.clone()]).await[0],
-        }
+    async fn compute(&self, ctx: &DiceComputations) -> Result<i64, Arc<anyhow::Error>> {
+        let equation = lookup_unit(ctx, &self.0).await.map_err(Arc::new)?;
+        Ok(match &*equation {
+            Equation::Add(adds) => resolve_units(ctx, &adds[..]).await?.iter().sum(),
+            Equation::Unit(unit) => resolve_units(ctx, &[unit.clone()]).await?[0],
+        })
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+        match (x, y) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
     }
 }
 
 #[async_trait]
 impl Math for DiceComputations {
-    async fn eval(&self, var: Var) -> i64 {
-        self.compute(&EvalVar(var)).await
+    async fn eval(&self, var: Var) -> Result<i64, Arc<anyhow::Error>> {
+        Ok(self.compute(&EvalVar(var)).await?)
     }
 }
 
-async fn resolve_units(ctx: &DiceComputations, units: &[Unit]) -> Vec<i64> {
+async fn resolve_units(
+    ctx: &DiceComputations,
+    units: &[Unit],
+) -> Result<Vec<i64>, Arc<anyhow::Error>> {
     let futs = units.map(|unit| match unit {
         Unit::Var(var) => ctx.eval(var.clone()),
-        Unit::Literal(lit) => async move { *lit }.boxed(),
+        Unit::Literal(lit) => async move { Ok(*lit) }.boxed(),
     });
 
-    future::join_all(futs).await
+    future::join_all(futs)
+        .await
+        .into_iter()
+        .collect::<Result<_, _>>()
 }
 
-async fn lookup_unit(ctx: &DiceComputations, var: &Var) -> Arc<Equation> {
-    ctx.compute(&LookupVar(var.clone())).await
+async fn lookup_unit(ctx: &DiceComputations, var: &Var) -> anyhow::Result<Arc<Equation>> {
+    Ok(ctx.compute(&LookupVar(var.clone())).await)
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq)]

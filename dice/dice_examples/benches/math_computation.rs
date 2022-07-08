@@ -56,7 +56,7 @@ const SIZE: usize = 1000;
 impl BenchmarkComputationsPrerequisites for MathBenchmark {
     type Updater = (Var, Equation);
     type Key = Var;
-    type Value = i64;
+    type Value = Result<i64, Arc<anyhow::Error>>;
 
     async fn fresh(ctx: DiceTransaction) -> DiceTransaction {
         Self::update(ctx, fib(SIZE, None, false)).await

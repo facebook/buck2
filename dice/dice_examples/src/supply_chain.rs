@@ -178,7 +178,7 @@ impl Setup for DiceTransaction {
 #[async_trait]
 pub trait Cost {
     /// Find the cheapest manufacturing cost for a resource
-    async fn resource_cost(&self, resource: &Resource) -> Option<u16>;
+    async fn resource_cost(&self, resource: &Resource) -> Result<Option<u16>, Arc<anyhow::Error>>;
     /// Change the upcharge of a company for a resource.
     async fn change_company_resource_cost(
         &self,
@@ -192,41 +192,53 @@ async fn lookup_company_resource_cost(
     ctx: &DiceComputations,
     company: &LookupCompany,
     resource: &Resource,
-) -> Option<u16> {
+) -> Result<Option<u16>, Arc<anyhow::Error>> {
     #[derive(Display, Debug, Hash, Eq, Clone, Dupe, PartialEq)]
     #[display(fmt = "{:?}", self)]
     struct LookupCompanyResourceCost(LookupCompany, Resource);
     #[async_trait]
     impl Key for LookupCompanyResourceCost {
-        type Value = Option<u16>;
+        type Value = Result<Option<u16>, Arc<anyhow::Error>>;
 
         async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
             let company = ctx.compute(&self.0).await;
             let recipe = self.1.recipe();
 
-            let upcharge = company.makes.get(&self.1)?;
+            let upcharge = company.makes.get(&self.1);
+            if upcharge.is_none() {
+                return Ok(None);
+            }
 
             // get the unit cost for each resource needed to make item
             let mut futs: FuturesUnordered<_> = recipe
                 .ingredients
                 .iter()
                 .map(|(required, resource)| async move {
-                    ctx.resource_cost(resource)
-                        .await
-                        .map(|x| x * *required as u16)
+                    Ok::<_, Arc<anyhow::Error>>(
+                        ctx.resource_cost(resource)
+                            .await?
+                            .map(|x| x * *required as u16),
+                    )
                 })
                 .collect();
 
             let mut sum = 0;
             while let Some(x) = futs.next().await {
-                sum += x?;
+                if let Some(x) = x? {
+                    sum += x;
+                } else {
+                    return Ok(None);
+                }
             }
 
-            Some(sum + upcharge)
+            Ok(Some(sum + upcharge.unwrap()))
         }
 
         fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            x == y
+            match (x, y) {
+                (Ok(x), Ok(y)) => x == y,
+                _ => false,
+            }
         }
     }
 
@@ -236,13 +248,13 @@ async fn lookup_company_resource_cost(
 
 #[async_trait]
 impl Cost for DiceComputations {
-    async fn resource_cost(&self, resource: &Resource) -> Option<u16> {
+    async fn resource_cost(&self, resource: &Resource) -> Result<Option<u16>, Arc<anyhow::Error>> {
         #[derive(Display, Debug, Hash, Eq, Dupe, Clone, PartialEq, RefCast)]
         #[repr(transparent)]
         struct LookupResourceCost(Resource);
         #[async_trait]
         impl Key for LookupResourceCost {
-            type Value = Option<u16>;
+            type Value = Result<Option<u16>, Arc<anyhow::Error>>;
 
             async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
                 let companies = ctx.compute(LookupResource::ref_cast(&self.0)).await;
@@ -252,11 +264,19 @@ impl Cost for DiceComputations {
                 }))
                 .await;
 
-                costs.into_iter().min()?
+                Ok(costs
+                    .into_iter()
+                    .collect::<Result<Vec<_>, Arc<_>>>()?
+                    .into_iter()
+                    .min()
+                    .flatten())
             }
 
             fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-                x == y
+                match (x, y) {
+                    (Ok(x), Ok(y)) => x == y,
+                    _ => false,
+                }
             }
         }
 

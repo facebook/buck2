@@ -31,7 +31,7 @@ struct SupplyChainBenchmark;
 impl BenchmarkComputationsPrerequisites for SupplyChainBenchmark {
     type Key = Resource;
     type Updater = (&'static str, Resource, u16);
-    type Value = Option<u16>;
+    type Value = Result<Option<u16>, Arc<anyhow::Error>>;
 
     async fn fresh(ctx: DiceTransaction) -> DiceTransaction {
         let ctx = ctx.init_state();

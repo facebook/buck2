@@ -25,18 +25,20 @@ fn var(name: &str) -> Var {
 }
 
 #[tokio::test]
-async fn test_literal() {
+async fn test_literal() -> Result<(), Arc<anyhow::Error>> {
     let dice = Dice::builder().build(DetectCycles::Enabled);
     let ctx = dice.ctx();
     let (var, eq) = parse_math_equation("a=5").unwrap();
     ctx.set_equation(var.dupe(), eq);
     let ctx = ctx.commit();
 
-    assert_eq!(5, ctx.eval(var).await);
+    assert_eq!(5, ctx.eval(var).await?);
+
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_var() {
+async fn test_var() -> Result<(), Arc<anyhow::Error>> {
     let dice = Dice::builder().build(DetectCycles::Enabled);
     let ctx = dice.ctx();
 
@@ -45,11 +47,12 @@ async fn test_var() {
     ctx.set_equations(eqs);
     let ctx = ctx.commit();
 
-    assert_eq!(3, ctx.eval(var("b")).await);
+    assert_eq!(3, ctx.eval(var("b")).await?);
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_compound() {
+async fn test_compound() -> Result<(), Arc<anyhow::Error>> {
     let dice = Dice::builder().build(DetectCycles::Enabled);
     let ctx = dice.ctx();
 
@@ -59,12 +62,14 @@ async fn test_compound() {
     ctx.set_equations(eq);
     let ctx = ctx.commit();
 
-    assert_eq!(3, ctx.eval(var("a")).await);
-    assert_eq!(6, ctx.eval(var("b")).await);
+    assert_eq!(3, ctx.eval(var("a")).await?);
+    assert_eq!(6, ctx.eval(var("b")).await?);
+
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_changed_eq() {
+async fn test_changed_eq() -> Result<(), Arc<anyhow::Error>> {
     let dice = Dice::builder().build(DetectCycles::Enabled);
     let ctx = dice.ctx();
 
@@ -74,10 +79,12 @@ async fn test_changed_eq() {
     ctx.set_equations(eq);
     let ctx = ctx.commit();
 
-    assert_eq!(6, ctx.eval(var("b")).await);
+    assert_eq!(6, ctx.eval(var("b")).await?);
 
     ctx.set_equation(var("a"), Equation::Unit(Unit::Literal(4)));
     let ctx = ctx.commit();
 
-    assert_eq!(8, ctx.eval(var("b")).await)
+    assert_eq!(8, ctx.eval(var("b")).await?);
+
+    Ok(())
 }
