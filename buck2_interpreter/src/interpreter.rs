@@ -290,19 +290,8 @@ impl LoadResolver for InterpreterLoadResolver {
     fn resolve_load(&self, path: &str) -> anyhow::Result<OwnedStarlarkModulePath> {
         let path = parse_import(&self.config.cell_names, &self.loader_path, path)?;
 
-        // If importing from the prelude, then do not let that inherit the configuration. This
-        // ensures that if you define a UDR outside of the prelude's cell, it gets the same prelude
-        // as using the exported rules from the prelude would. This matters notably for identity
-        // checks in t-sets, which would fail if we had > 1 copy of the prelude.
-
-        if self.config.global_state.configuror.is_prelude_path(&path) {
-            let cell = path.cell().clone();
-            return Ok(OwnedStarlarkModulePath::LoadFile(ImportPath::new(
-                path,
-                BuildFileCell::new(cell),
-            )?));
-        }
-
+        // check for bxl files first before checking for prelude.
+        // All bxl imports are parsed the same regardless of prelude or not.
         if path.path().extension() == Some("bxl") {
             match self.loader_file_type {
                 StarlarkFileType::Bzl | StarlarkFileType::Buck => {
@@ -312,6 +301,18 @@ impl LoadResolver for InterpreterLoadResolver {
                     return Ok(OwnedStarlarkModulePath::BxlFile(BxlFilePath::new(path)?));
                 }
             }
+        }
+
+        // If importing from the prelude, then do not let that inherit the configuration. This
+        // ensures that if you define a UDR outside of the prelude's cell, it gets the same prelude
+        // as using the exported rules from the prelude would. This matters notably for identity
+        // checks in t-sets, which would fail if we had > 1 copy of the prelude.
+        if self.config.global_state.configuror.is_prelude_path(&path) {
+            let cell = path.cell().clone();
+            return Ok(OwnedStarlarkModulePath::LoadFile(ImportPath::new(
+                path,
+                BuildFileCell::new(cell),
+            )?));
         }
 
         Ok(OwnedStarlarkModulePath::LoadFile(ImportPath::new(
