@@ -17,6 +17,9 @@ load(":prebuilt_apple_framework.bzl", "prebuilt_apple_framework_impl")
 load(":swift_toolchain.bzl", "swift_toolchain_impl")
 load(":xcode_prebuild_script.bzl", "xcode_prebuild_script_impl")
 
+def _get_apple_tolchain_attr():
+    return attr.exec_dep(default = default_apple_toolchain(), providers = [AppleToolchainInfo])
+
 implemented_rules = {
     "apple_asset_catalog": apple_asset_catalog_impl,
     "apple_binary": apple_binary_impl,
@@ -43,11 +46,11 @@ extra_attributes = {
         "prefer_stripped_objects": attr.bool(default = False),
         "preferred_linkage": attr.enum(Linkage, default = "any"),
         "stripped": attr.bool(default = False),
-        "_apple_toolchain": attr.exec_dep(default = default_apple_toolchain(), providers = [AppleToolchainInfo]),
+        "_apple_toolchain": _get_apple_tolchain_attr(),
     },
     "apple_bundle": {
         "_apple_installer": attr.exec_dep(default = "buck//src/com/facebook/buck/installer:apple_installer", providers = [RunInfo]),
-        "_apple_toolchain": attr.exec_dep(default = default_apple_toolchain(), providers = [AppleToolchainInfo]),
+        "_apple_toolchain": _get_apple_tolchain_attr(),
         "_apple_tools": attr.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
         "_codesign_entitlements": attr.option(attr.source(), default = None),
         "_codesign_type": attr.option(attr.enum(CodeSignType.values()), default = None),
@@ -61,7 +64,7 @@ extra_attributes = {
         "preferred_linkage": attr.enum(Linkage, default = "any"),
         "stripped": attr.bool(default = False),
         "use_archive": attr.option(attr.bool(), default = None),
-        "_apple_toolchain": attr.exec_dep(default = default_apple_toolchain(), providers = [AppleToolchainInfo]),
+        "_apple_toolchain": _get_apple_tolchain_attr(),
         "_apple_tools": attr.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
     },
     "apple_resource": {
@@ -88,7 +91,7 @@ extra_attributes = {
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
         "resource_group_map": attr.option(attr.string(), default = None),
         "stripped": attr.bool(default = False),
-        "_apple_toolchain": attr.exec_dep(default = default_apple_toolchain(), providers = [AppleToolchainInfo]),
+        "_apple_toolchain": _get_apple_tolchain_attr(),
         "_apple_tools": attr.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
         "_codesign_type": attr.option(attr.enum(CodeSignType.values()), default = None),
         "_incremental_bundling_enabled": attr.bool(),
@@ -126,7 +129,7 @@ extra_attributes = {
     "prebuilt_apple_framework": {
         "framework": attr.option(attr.source(allow_directory = True), default = None),
         "preferred_linkage": attr.enum(Linkage, default = "any"),
-        "_apple_toolchain": attr.exec_dep(default = default_apple_toolchain(), providers = [AppleToolchainInfo]),
+        "_apple_toolchain": _get_apple_tolchain_attr(),
     },
     "scene_kit_assets": {
         "path": attr.source(allow_directory = True),
