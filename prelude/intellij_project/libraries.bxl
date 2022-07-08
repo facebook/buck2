@@ -35,7 +35,7 @@ def _get_prebuilt_jar_ij_library(node: "target_node") -> IjLibrary.type:
     expect(node.rule_type == _PREBUILT_JAR_RULE_TYPE, "Rule type must be {} but was {}".format(_PREBUILT_JAR_RULE_TYPE, node.rule_type))
     return IjLibrary(
         name = str(node.label.raw_target()),
-        jar = node.attributes().binary_jar,
+        jar = node.attrs().binary_jar,
         rule_type = _PREBUILT_JAR_RULE_TYPE,
         # TODO(T124404955) Get the sources jar defined on the attrs
         sources_jar = None,

@@ -40,7 +40,7 @@ def _get_java_library_module(node: "target_node", providers: "provider_collectio
         deps = [compiling_dep.full_library.owner for compiling_dep in (java_library_info.compiling_deps.traverse() if java_library_info.compiling_deps else [])],
         file_name = _get_module_file_name(node.label),
         rule_type = _JAVA_LIBRARY_RULE_TYPE,
-        srcs = node.attributes().srcs,
+        srcs = node.attrs().srcs,
     )
 
 def _get_module_file_name(module_label: "configured_target_label") -> str.type:
