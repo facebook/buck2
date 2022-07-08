@@ -12,6 +12,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::sync::Arc;
 
+use dice::DiceError;
 use gazebo::prelude::*;
 
 /// SharedError is a simple, cloneable Error wrapper. It holds the inner error in an Arc to support Clone.
@@ -97,6 +98,12 @@ impl From<std::io::Error> for SharedError {
 
 impl From<tokio::task::JoinError> for SharedError {
     fn from(err: tokio::task::JoinError) -> Self {
+        SharedError(Arc::new(err.into()))
+    }
+}
+
+impl From<DiceError> for SharedError {
+    fn from(err: DiceError) -> Self {
         SharedError(Arc::new(err.into()))
     }
 }
