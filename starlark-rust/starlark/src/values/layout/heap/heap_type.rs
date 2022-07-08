@@ -27,11 +27,13 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::intrinsics::copy_nonoverlapping;
 use std::marker::PhantomData;
+use std::mem;
 use std::mem::MaybeUninit;
 use std::ops::Deref;
 use std::ptr;
 use std::slice;
 use std::sync::Arc;
+use std::time::Instant;
 use std::usize;
 
 use either::Either;
@@ -61,6 +63,10 @@ use crate::values::layout::avalue::VALUE_EMPTY_TUPLE;
 use crate::values::layout::heap::arena::Arena;
 use crate::values::layout::heap::arena::HeapSummary;
 use crate::values::layout::heap::arena::Reservation;
+use crate::values::layout::heap::call_enter_exit::CallEnter;
+use crate::values::layout::heap::call_enter_exit::CallExit;
+use crate::values::layout::heap::call_enter_exit::NeedsDrop;
+use crate::values::layout::heap::call_enter_exit::NoDrop;
 use crate::values::layout::heap::fast_cell::FastCell;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::static_string::constant_string;
@@ -695,6 +701,36 @@ impl Heap {
     /// Obtain a summary of how much memory is currently allocated by this heap.
     pub fn allocated_summary(&self) -> HeapSummary {
         self.arena.borrow().allocated_summary()
+    }
+
+    pub(crate) fn record_call_enter<'v>(&'v self, function: Value<'v>) {
+        let time = Instant::now();
+        assert!(mem::needs_drop::<CallEnter<NeedsDrop>>());
+        assert!(!mem::needs_drop::<CallEnter<NoDrop>>());
+        self.alloc_complex_no_freeze(CallEnter {
+            function,
+            time,
+            maybe_drop: NeedsDrop,
+        });
+        self.alloc_complex_no_freeze(CallEnter {
+            function,
+            time,
+            maybe_drop: NoDrop,
+        });
+    }
+
+    pub(crate) fn record_call_exit<'v>(&'v self) {
+        let time = Instant::now();
+        assert!(mem::needs_drop::<CallExit<NeedsDrop>>());
+        assert!(!mem::needs_drop::<CallExit<NoDrop>>());
+        self.alloc_simple(CallExit {
+            time,
+            maybe_drop: NeedsDrop,
+        });
+        self.alloc_simple(CallExit {
+            time,
+            maybe_drop: NoDrop,
+        });
     }
 }
 

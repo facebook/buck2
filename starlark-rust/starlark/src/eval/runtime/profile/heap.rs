@@ -21,22 +21,16 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs::File;
 use std::io::Write;
-use std::mem;
 use std::path::Path;
 use std::rc::Rc;
 use std::time::Instant;
 
 use anyhow::Context;
-use derive_more::Display;
-use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
 
-use crate as starlark;
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::values::Heap;
-use crate::values::StarlarkValue;
-use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueLike;
 
@@ -48,50 +42,6 @@ pub(crate) enum HeapProfileFormat {
 
 pub(crate) struct HeapProfile {
     enabled: bool,
-}
-
-/// A type which is either drop or non-drop.
-trait MaybeDrop: Debug + Sync + Send + 'static {}
-
-/// Type which has `Drop`.
-#[derive(ProvidesStaticType, Debug, Trace)]
-struct NeedsDrop;
-impl Drop for NeedsDrop {
-    fn drop(&mut self) {
-        // Just make this type `Drop`.
-        // Note `mem::needs_drop()` would return `true` for this type,
-        // even if `drop` is optimized away: https://rust.godbolt.org/z/1cxKoMzdM
-    }
-}
-
-/// Type which doesn't have `Drop`.
-#[derive(ProvidesStaticType, Debug, Trace)]
-struct NoDrop;
-
-impl MaybeDrop for NeedsDrop {}
-impl MaybeDrop for NoDrop {}
-
-#[derive(Trace, Debug, Display, ProvidesStaticType, NoSerialize)]
-#[display(fmt = "CallEnter")]
-struct CallEnter<'v, D: MaybeDrop + 'static> {
-    function: Value<'v>,
-    time: Instant,
-    maybe_drop: D,
-}
-
-impl<'v, D: MaybeDrop + Trace<'v> + 'v> StarlarkValue<'v> for CallEnter<'v, D> {
-    starlark_type!("call_enter");
-}
-
-#[derive(Debug, Display, ProvidesStaticType, NoSerialize)]
-#[display(fmt = "CallExit")]
-struct CallExit<D: MaybeDrop + 'static> {
-    time: Instant,
-    maybe_drop: D,
-}
-
-impl<'v, D: MaybeDrop> StarlarkValue<'v> for CallExit<D> {
-    starlark_type!("call_exit");
 }
 
 #[derive(Copy, Clone, Dupe, Debug, Eq, PartialEq, Hash)]
@@ -161,19 +111,7 @@ impl HeapProfile {
     #[inline(never)]
     pub(crate) fn record_call_enter<'v>(&self, function: Value<'v>, heap: &'v Heap) {
         if self.enabled {
-            let time = Instant::now();
-            assert!(mem::needs_drop::<CallEnter<NeedsDrop>>());
-            assert!(!mem::needs_drop::<CallEnter<NoDrop>>());
-            heap.alloc_complex_no_freeze(CallEnter {
-                function,
-                time,
-                maybe_drop: NeedsDrop,
-            });
-            heap.alloc_complex_no_freeze(CallEnter {
-                function,
-                time,
-                maybe_drop: NoDrop,
-            });
+            heap.record_call_enter(function);
         }
     }
 
@@ -181,17 +119,7 @@ impl HeapProfile {
     #[inline(never)]
     pub(crate) fn record_call_exit<'v>(&self, heap: &'v Heap) {
         if self.enabled {
-            let time = Instant::now();
-            assert!(mem::needs_drop::<CallExit<NeedsDrop>>());
-            assert!(!mem::needs_drop::<CallExit<NoDrop>>());
-            heap.alloc_simple(CallExit {
-                time,
-                maybe_drop: NeedsDrop,
-            });
-            heap.alloc_simple(CallExit {
-                time,
-                maybe_drop: NoDrop,
-            });
+            heap.record_call_exit();
         }
     }
 
@@ -325,6 +253,11 @@ impl HeapProfile {
 mod summary {
     use super::*;
     use crate::eval::runtime::small_duration::SmallDuration;
+    use crate::values::layout::heap::call_enter_exit::CallEnter;
+    use crate::values::layout::heap::call_enter_exit::CallExit;
+    use crate::values::layout::heap::call_enter_exit::MaybeDrop;
+    use crate::values::layout::heap::call_enter_exit::NeedsDrop;
+    use crate::values::layout::heap::call_enter_exit::NoDrop;
 
     /// Information relating to a function.
     #[derive(Default, Debug, Clone)]
@@ -439,6 +372,10 @@ mod summary {
 
 mod flame {
     use super::*;
+    use crate::values::layout::heap::call_enter_exit::CallEnter;
+    use crate::values::layout::heap::call_enter_exit::CallExit;
+    use crate::values::layout::heap::call_enter_exit::NeedsDrop;
+    use crate::values::layout::heap::call_enter_exit::NoDrop;
 
     /// Allocations made in a given stack frame for a given type.
     #[derive(Default)]
