@@ -184,7 +184,7 @@ pub struct GlobalInterpreterState {
     /// The GlobalEnvironment contains all the globally available symbols
     /// (primarily starlark stdlib and Buck-provided functions) that should
     /// be available in a bxl file.
-    bql_file_global_env: Globals,
+    bxl_file_global_env: Globals,
 
     /// Interpreter Configurer
     configuror: Arc<dyn InterpreterConfiguror>,
@@ -258,7 +258,7 @@ impl GlobalInterpreterState {
             cell_configs,
             build_file_global_env,
             extension_file_global_env,
-            bql_file_global_env: bxl_file_global_env,
+            bxl_file_global_env,
             configuror: interpreter_configuror,
             disable_starlark_types,
         })
@@ -367,7 +367,7 @@ impl InterpreterConfigForCell {
     }
 
     pub fn bxl_file_global_env(&self) -> &Globals {
-        &self.global_state.bql_file_global_env
+        &self.global_state.bxl_file_global_env
     }
 }
 
