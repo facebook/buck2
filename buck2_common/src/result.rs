@@ -111,13 +111,10 @@ pub trait ToSharedResultExt<T> {
     fn shared_error(self) -> SharedResult<T>;
 }
 
-impl<T> ToSharedResultExt<T> for Result<T, anyhow::Error> {
-    fn shared_error(self) -> SharedResult<T> {
-        Ok(self?)
-    }
-}
-
-impl<T> ToSharedResultExt<T> for Result<T, std::io::Error> {
+impl<T, E> ToSharedResultExt<T> for Result<T, E>
+where
+    SharedError: From<E>,
+{
     fn shared_error(self) -> SharedResult<T> {
         Ok(self?)
     }
