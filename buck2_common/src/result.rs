@@ -20,7 +20,7 @@ use gazebo::prelude::*;
 /// as different error types requires use of `shared_error()` or `unshared_error()`.
 ///
 /// ```
-/// use buck2_core::result::*;
+/// use buck2_common::result::*;
 ///
 /// fn foo() -> Result<(), anyhow::Error> {
 ///     bar()?;

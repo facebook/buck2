@@ -13,8 +13,8 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_core::result::SharedResult;
-use buck2_core::result::ToSharedResultExt;
+use buck2_common::result::SharedResult;
+use buck2_common::result::ToSharedResultExt;
 use buck2_interpreter::dice::HasEvents;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -385,6 +385,7 @@ mod tests {
     use buck2_common::file_ops::FileDigest;
     use buck2_common::file_ops::FileMetadata;
     use buck2_common::file_ops::TrackedFileDigest;
+    use buck2_common::result::ToSharedResultExt;
     use buck2_core::buck_path::BuckPath;
     use buck2_core::category::Category;
     use buck2_core::cells::cell_path::CellPath;
@@ -402,7 +403,6 @@ mod tests {
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::testing::PackageExt;
     use buck2_core::package::Package;
-    use buck2_core::result::ToSharedResultExt;
     use buck2_core::target::testing::ConfiguredTargetLabelExt;
     use buck2_core::target::ConfiguredTargetLabel;
     use buck2_core::target::TargetName;

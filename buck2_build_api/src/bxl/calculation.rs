@@ -3,8 +3,8 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_core::result::SharedError;
-use buck2_core::result::SharedResult;
+use buck2_common::result::SharedError;
+use buck2_common::result::SharedResult;
 use dice::DiceComputations;
 
 use crate::bxl::result::BxlResult;

@@ -12,12 +12,12 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_common::result::SharedError;
+use buck2_common::result::SharedResult;
+use buck2_common::result::ToSharedResultExt;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::Configuration;
-use buck2_core::result::SharedError;
-use buck2_core::result::SharedResult;
-use buck2_core::result::ToSharedResultExt;
 use buck2_core::target::TargetLabel;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;

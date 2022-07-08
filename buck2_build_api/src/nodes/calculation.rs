@@ -16,14 +16,14 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_common::result::SharedError;
+use buck2_common::result::SharedResult;
+use buck2_common::result::ToSharedResultExt;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::result::SharedError;
-use buck2_core::result::SharedResult;
-use buck2_core::result::ToSharedResultExt;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
@@ -800,6 +800,7 @@ impl NodeCalculation for DiceComputations {
 mod tests {
     use std::sync::Arc;
 
+    use buck2_common::result::SharedResult;
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::bzl::ImportPath;
     use buck2_core::configuration::Configuration;
@@ -808,7 +809,6 @@ mod tests {
     use buck2_core::package::Package;
     use buck2_core::provider::label::ProvidersLabel;
     use buck2_core::provider::label::ProvidersName;
-    use buck2_core::result::SharedResult;
     use buck2_core::target::TargetLabel;
     use buck2_core::target::TargetName;
     use buck2_node::attrs::attr::testing::AttributeExt;

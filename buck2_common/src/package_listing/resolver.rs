@@ -10,9 +10,9 @@
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::Package;
-use buck2_core::result::SharedResult;
 
 use crate::package_listing::listing::PackageListing;
+use crate::result::SharedResult;
 
 #[async_trait]
 pub trait PackageListingResolver: Send + Sync {

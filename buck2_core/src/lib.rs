@@ -49,7 +49,6 @@ pub mod package;
 pub mod pattern;
 pub mod process;
 pub mod provider;
-pub mod result;
 pub mod target;
 pub mod target_aliases;
 

@@ -727,11 +727,11 @@ pub fn register_attr_module(registry: &mut GlobalsBuilder) {
 mod tests {
     use buck2_common::package_listing::listing::testing::PackageListingExt;
     use buck2_common::package_listing::listing::PackageListing;
+    use buck2_common::result::SharedResult;
     use buck2_core::buck_path::BuckPath;
     use buck2_core::cells::paths::CellRelativePath;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::Package;
-    use buck2_core::result::SharedResult;
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::coercion_context::AttrCoercionContext;
     use buck2_node::attrs::configurable::AttrIsConfigurable;

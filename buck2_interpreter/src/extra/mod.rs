@@ -15,12 +15,12 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_common::package_listing::listing::PackageListing;
+use buck2_common::result::SharedResult;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::Package;
-use buck2_core::result::SharedResult;
 use gazebo::any::ProvidesStaticType;
 use gazebo::cmp::PartialEqAny;
 use gazebo::dupe::Dupe;
@@ -274,10 +274,10 @@ pub(crate) mod testing {
     use std::sync::Mutex;
 
     use buck2_common::package_listing::listing::PackageListing;
+    use buck2_common::result::SharedResult;
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::cells::cell_path::CellPath;
     use buck2_core::package::Package;
-    use buck2_core::result::SharedResult;
     use gazebo::cmp::PartialEqAny;
     use gazebo::prelude::*;
     use serde_json::Map;

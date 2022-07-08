@@ -11,7 +11,6 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_core::package::Package;
-use buck2_core::result::SharedResult;
 use dice::DiceComputations;
 use dice::Key;
 use gazebo::dupe::Dupe;
@@ -21,6 +20,7 @@ use crate::dice::file_ops::HasFileOps;
 use crate::package_listing::interpreter::InterpreterPackageListingResolver;
 use crate::package_listing::listing::PackageListing;
 use crate::package_listing::resolver::PackageListingResolver;
+use crate::result::SharedResult;
 
 pub trait HasPackageListingResolver<'c> {
     type PL: PackageListingResolver + 'c;

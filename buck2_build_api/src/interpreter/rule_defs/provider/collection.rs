@@ -415,7 +415,7 @@ pub(crate) mod tester {
 mod tests {
     use std::sync::Arc;
 
-    use buck2_core::result::SharedResult;
+    use buck2_common::result::SharedResult;
     use indoc::indoc;
 
     use crate::interpreter::rule_defs::artifact::testing::artifactory;

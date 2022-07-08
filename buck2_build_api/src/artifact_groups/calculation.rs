@@ -15,9 +15,9 @@ use async_trait::async_trait;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::file_ops::FileOps;
 use buck2_common::file_ops::PathMetadata;
+use buck2_common::result::SharedResult;
 use buck2_core::buck_path::BuckPath;
 use buck2_core::directory::DirectoryData;
-use buck2_core::result::SharedResult;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -286,6 +286,7 @@ mod tests {
     use buck2_common::file_ops::FileDigest;
     use buck2_common::file_ops::FileMetadata;
     use buck2_common::file_ops::TrackedFileDigest;
+    use buck2_common::result::ToSharedResultExt;
     use buck2_core::cells::cell_path::CellPath;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::paths::CellRelativePathBuf;
@@ -297,7 +298,6 @@ mod tests {
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::testing::PackageExt;
     use buck2_core::package::Package;
-    use buck2_core::result::ToSharedResultExt;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
     use indoc::indoc;

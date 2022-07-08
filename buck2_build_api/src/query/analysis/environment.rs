@@ -14,9 +14,9 @@ use std::marker::PhantomData;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_common::result::SharedResult;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::result::SharedResult;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_node::attrs::attr_type::attr_config::AttrConfig;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;

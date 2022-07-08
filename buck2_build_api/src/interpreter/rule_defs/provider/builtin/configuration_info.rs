@@ -160,7 +160,7 @@ fn configuration_info_creator(globals: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::result::SharedResult;
+    use buck2_common::result::SharedResult;
     use indoc::indoc;
 
     use crate::interpreter::testing::run_starlark_bzl_test;

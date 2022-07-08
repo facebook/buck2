@@ -18,7 +18,6 @@ use std::time::Duration;
 use anyhow::Context as _;
 use buck2_core::fs::anyhow as fs;
 use buck2_core::fs::paths::AbsPathBuf;
-use buck2_core::result::SharedResult;
 use buck2_core::{self};
 use edenfs::client::EdenService;
 use edenfs::errors::eden_service::ListMountsError;
@@ -32,6 +31,8 @@ use gazebo::prelude::*;
 use parking_lot::Mutex;
 use thiserror::Error;
 use tokio::sync::Semaphore;
+
+use crate::result::SharedResult;
 
 pub struct EdenConnectionManager {
     connector: EdenConnector,

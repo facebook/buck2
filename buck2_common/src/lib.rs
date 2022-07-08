@@ -13,6 +13,7 @@
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
+#![feature(backtrace)]
 #![feature(box_syntax)]
 #![feature(io_error_more)]
 #![feature(is_sorted)]
@@ -37,6 +38,7 @@ pub mod memory;
 pub mod package_boundary;
 pub mod package_listing;
 pub mod pattern;
+pub mod result;
 mod sorted_hash_map;
 pub mod target_aliases;
 pub mod truncate;

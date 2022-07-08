@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_core::result::SharedResult;
+use buck2_common::result::SharedResult;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
 use buck2_node::compatibility::MaybeCompatible;

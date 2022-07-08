@@ -18,7 +18,6 @@ use buck2_core::cells::CellName;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
-use buck2_core::result::SharedResult;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -27,6 +26,7 @@ use ref_cast::RefCast;
 
 use crate::legacy_configs::dice::HasLegacyConfigs;
 use crate::legacy_configs::LegacyBuckConfigs;
+use crate::result::SharedResult;
 
 #[derive(PartialEq)]
 pub struct PackageBoundaryExceptions(HashMap<CellName, CellPackageBoundaryExceptions>);

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use buck2_core::result::SharedResult;
+use buck2_common::result::SharedResult;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::Value;

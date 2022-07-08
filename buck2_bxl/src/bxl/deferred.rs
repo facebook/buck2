@@ -29,9 +29,9 @@ mod tests {
     use buck2_build_api::execute::commands::dice_data::set_fallback_executor_config;
     use buck2_build_api::path::BuckOutPath;
     use buck2_common::dice::data::testing::SetTestingIoProvider;
+    use buck2_common::result::ToSharedResultExt;
     use buck2_core::fs::paths::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectFilesystemTemp;
-    use buck2_core::result::ToSharedResultExt;
     use buck2_interpreter::common::BxlFilePath;
     use buck2_node::execute::config::CommandExecutorConfig;
     use dice::testing::DiceBuilder;

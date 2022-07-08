@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_core::result::SharedResult;
+use buck2_common::result::SharedResult;
 use gazebo::variants::UnpackVariants;
 use starlark::values::ProvidesStaticType;
 

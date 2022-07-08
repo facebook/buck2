@@ -30,7 +30,6 @@ use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellName;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
-use buck2_core::result::SharedResult;
 use derive_more::Display;
 use gazebo::cmp::PartialEqAny;
 use gazebo::prelude::*;
@@ -45,6 +44,7 @@ use thiserror::Error;
 
 use crate::external_symlink::ExternalSymlink;
 use crate::io::IoProvider;
+use crate::result::SharedResult;
 
 #[derive(Debug, Error)]
 enum FileOpsError {
@@ -686,8 +686,6 @@ pub mod testing {
     use anyhow::anyhow;
     use async_trait::async_trait;
     use buck2_core::cells::cell_path::CellPath;
-    use buck2_core::result::SharedResult;
-    use buck2_core::result::ToSharedResultExt;
     use gazebo::cmp::PartialEqAny;
     use gazebo::prelude::*;
     use itertools::Itertools;
@@ -700,6 +698,8 @@ pub mod testing {
     use crate::file_ops::PathMetadata;
     use crate::file_ops::SimpleDirEntry;
     use crate::file_ops::TrackedFileDigest;
+    use crate::result::SharedResult;
+    use crate::result::ToSharedResultExt;
 
     enum TestFileOpsEntry {
         File(String /*data*/, FileMetadata),

@@ -325,7 +325,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::result::SharedResult;
+    use buck2_common::result::SharedResult;
     use buck2_interpreter::file_loader::LoadedModules;
     use buck2_node::attrs::inspect_options::AttrInspectOptions;
     use buck2_node::attrs::spec::AttributeSpec;

@@ -17,7 +17,6 @@ use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::Package;
-use buck2_core::result::SharedResult;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use thiserror::Error;
@@ -28,6 +27,7 @@ use crate::find_buildfile::find_buildfile;
 use crate::package_listing::listing::PackageListing;
 use crate::package_listing::resolver::PackageListingResolver;
 use crate::package_listing::sorted_index_set::SortedIndexSet;
+use crate::result::SharedResult;
 
 #[derive(Debug, Error)]
 enum PackageListingError {

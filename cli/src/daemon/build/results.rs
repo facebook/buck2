@@ -36,8 +36,8 @@ pub mod result_report {
     use buck2_build_api::actions::artifact::ArtifactFs;
     use buck2_build_api::build::BuildProviderType;
     use buck2_build_api::build::ProviderArtifacts;
+    use buck2_common::result::SharedError;
     use buck2_core::configuration::Configuration;
-    use buck2_core::result::SharedError;
     use cli_proto::build_target::build_output::BuildOutputProviders;
     use cli_proto::build_target::BuildOutput;
     use cli_proto::BuildTarget;

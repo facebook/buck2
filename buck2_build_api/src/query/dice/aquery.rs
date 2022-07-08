@@ -12,9 +12,9 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_common::result::SharedResult;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::result::SharedResult;
 use buck2_core::target::TargetLabel;
 use buck2_node::compatibility::MaybeCompatible;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;

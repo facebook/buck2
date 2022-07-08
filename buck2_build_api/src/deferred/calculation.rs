@@ -16,7 +16,7 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_common::dice::data::HasIoProvider;
-use buck2_core::result::SharedResult;
+use buck2_common::result::SharedResult;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -313,10 +313,10 @@ mod tests {
     use std::sync::Arc;
 
     use buck2_common::dice::data::testing::SetTestingIoProvider;
+    use buck2_common::result::ToSharedResultExt;
     use buck2_core::bzl::ImportPath;
     use buck2_core::configuration::Configuration;
     use buck2_core::fs::project::ProjectFilesystemTemp;
-    use buck2_core::result::ToSharedResultExt;
     use buck2_core::target::testing::TargetLabelExt;
     use buck2_core::target::TargetLabel;
     use buck2_node::compatibility::MaybeCompatible;

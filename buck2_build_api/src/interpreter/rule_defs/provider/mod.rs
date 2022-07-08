@@ -201,7 +201,7 @@ mod tests {
     use std::sync::Arc;
 
     use buck2_build_api_derive::internal_provider;
-    use buck2_core::result::SharedResult;
+    use buck2_common::result::SharedResult;
     use gazebo::any::ProvidesStaticType;
     use gazebo::coerce::Coerce;
     use indoc::indoc;

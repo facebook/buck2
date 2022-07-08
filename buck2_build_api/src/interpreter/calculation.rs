@@ -12,9 +12,9 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_common::result::SharedResult;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::package::Package;
-use buck2_core::result::SharedResult;
 use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::dice::HasCalculationDelegate;

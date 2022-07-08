@@ -23,6 +23,7 @@ pub mod testing {
     use buck2_common::legacy_configs::LegacyBuckConfigs;
     use buck2_common::package_listing::listing::testing::PackageListingExt;
     use buck2_common::package_listing::listing::PackageListing;
+    use buck2_common::result::SharedResult;
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::bzl::ImportPath;
     use buck2_core::cells::build_file_cell::BuildFileCell;
@@ -31,7 +32,6 @@ pub mod testing {
     use buck2_core::cells::*;
     use buck2_core::fs::paths::*;
     use buck2_core::fs::project::ProjectRelativePathBuf;
-    use buck2_core::result::SharedResult;
     use buck2_interpreter::common::OwnedStarlarkModulePath;
     use buck2_interpreter::common::StarlarkModulePath;
     use buck2_interpreter::common::StarlarkPath;
@@ -556,7 +556,7 @@ pub mod testing {
 mod tests {
     use std::sync::Arc;
 
-    use buck2_core::result::SharedResult;
+    use buck2_common::result::SharedResult;
     use indoc::indoc;
     use starlark::environment::GlobalsBuilder;
 

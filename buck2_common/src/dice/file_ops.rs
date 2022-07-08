@@ -15,7 +15,6 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::CellName;
 use buck2_core::cells::CellResolver;
-use buck2_core::result::SharedResult;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -34,6 +33,7 @@ use crate::file_ops::PathMetadata;
 use crate::file_ops::SimpleDirEntry;
 use crate::io::IoProvider;
 use crate::legacy_configs::dice::HasLegacyConfigs;
+use crate::result::SharedResult;
 
 pub trait HasFileOps<'c> {
     type T: FileOps;

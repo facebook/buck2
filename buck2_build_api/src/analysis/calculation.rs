@@ -13,10 +13,10 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_common::result::SharedResult;
+use buck2_common::result::ToSharedResultExt;
 use buck2_core::configuration::Configuration;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::result::SharedResult;
-use buck2_core::result::ToSharedResultExt;
 use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::common::StarlarkModulePath;
@@ -392,6 +392,7 @@ mod tests {
     use buck2_common::legacy_configs::LegacyBuckConfigs;
     use buck2_common::package_listing::listing::testing::PackageListingExt;
     use buck2_common::package_listing::listing::PackageListing;
+    use buck2_common::result::SharedResult;
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::bzl::ImportPath;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -406,7 +407,6 @@ mod tests {
     use buck2_core::package::Package;
     use buck2_core::provider::id::testing::ProviderIdExt;
     use buck2_core::provider::id::ProviderId;
-    use buck2_core::result::SharedResult;
     use buck2_core::target::testing::TargetLabelExt;
     use buck2_core::target::TargetLabel;
     use buck2_interpreter::common::OwnedStarlarkModulePath;

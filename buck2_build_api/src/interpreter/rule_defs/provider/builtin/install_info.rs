@@ -79,7 +79,7 @@ fn install_info_creator(globals: &mut GlobalsBuilder) {
 mod tests {
     use std::sync::Arc;
 
-    use buck2_core::result::SharedResult;
+    use buck2_common::result::SharedResult;
     use indoc::indoc;
 
     use crate::interpreter::rule_defs::provider::collection::tester::collection_creator;
