@@ -665,13 +665,8 @@ impl Heap {
         self.alloc_raw(complex_no_freeze(x))
     }
 
-    pub(crate) unsafe fn for_each_ordered<'v>(&'v self, mut f: impl FnMut(Value<'v>)) {
-        (*self.arena.get_mut()).for_each_ordered(|x| {
-            // Otherwise the Value is constrainted by the borrow_mut, when
-            // we consider values to be kept alive permanently, other than
-            // when a GC happens
-            f(Value::new_ptr_query_is_str(cast::ptr_lifetime(x)))
-        })
+    pub(crate) unsafe fn for_each_ordered<'v>(&'v self, f: impl FnMut(Value<'v>)) {
+        (*self.arena.get_mut()).for_each_value_ordered(f)
     }
 
     /// Garbage collect any values that are unused. This function is _unsafe_ in

@@ -37,6 +37,7 @@ use std::slice;
 
 use bumpalo::Bump;
 use either::Either;
+use gazebo::cast;
 use gazebo::prelude::*;
 
 use crate::collections::StarlarkHashValue;
@@ -49,6 +50,7 @@ use crate::values::layout::heap::repr::AValueOrForward;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::string::StarlarkStr;
+use crate::values::Value;
 
 /// Min size of allocated object including header.
 /// Should be able to fit `BlackHole` or forward.
@@ -296,6 +298,15 @@ impl Arena {
                 buffer.clear();
             }
         }
+    }
+
+    pub(crate) unsafe fn for_each_value_ordered<'v>(&'v mut self, mut f: impl FnMut(Value<'v>)) {
+        self.for_each_ordered(|x| {
+            // Otherwise the Value is constrainted by the borrow_mut, when
+            // we consider values to be kept alive permanently, other than
+            // when a GC happens
+            f(Value::new_ptr_query_is_str(cast::ptr_lifetime(x)))
+        })
     }
 
     // Iterate over the values in the drop bump in any order
