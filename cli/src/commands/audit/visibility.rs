@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use anyhow::private::Err;
 use async_trait::async_trait;
 use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::calculation::Calculation;
