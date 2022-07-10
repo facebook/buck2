@@ -38,12 +38,57 @@ use static_assertions::assert_eq_size;
 use crate::values::int::PointerI32;
 use crate::values::layout::heap::repr::AValueHeader;
 
+/// Tagged pointer logically equivalent to `*mut AValueHeader`.
+#[derive(Clone, Copy, Dupe, PartialEq, Eq, Hash)]
+pub(crate) struct RawPointer(pub(crate) NonZeroUsize);
+
+impl RawPointer {
+    #[inline]
+    pub(crate) unsafe fn new_unchecked(ptr: usize) -> RawPointer {
+        debug_assert!(ptr != 0);
+        RawPointer(NonZeroUsize::new_unchecked(ptr))
+    }
+
+    #[inline]
+    pub(crate) fn ptr_value(self) -> usize {
+        self.0.get()
+    }
+
+    #[inline]
+    pub(crate) fn is_str(self) -> bool {
+        (self.0.get() & TAG_STR) != 0
+    }
+
+    #[inline]
+    pub(crate) fn is_unfrozen(self) -> bool {
+        (self.0.get() & TAG_UNFROZEN) != 0
+    }
+
+    #[inline]
+    pub(crate) fn unpack_int(self) -> Option<i32> {
+        let p = self.0.get();
+        if p & TAG_INT == 0 {
+            None
+        } else {
+            Some(untag_int(p))
+        }
+    }
+
+    /// Unpack integer when it is known to be not a pointer.
+    #[inline]
+    pub(crate) unsafe fn unpack_int_unchecked(self) -> i32 {
+        let p = self.0.get();
+        debug_assert!(p & TAG_BITS == TAG_INT);
+        untag_int(p)
+    }
+}
+
 // A structure that is morally a `PointerUnpack`, but gets encoded in one
 // pointer sized lump. The two types P1 and P2 are arbitrary pointers (which we
 // instantiate to FrozenValueMem and ValueMem)
 #[derive(Clone, Copy, Dupe)]
 pub(crate) struct Pointer<'p> {
-    pointer: NonZeroUsize,
+    pointer: RawPointer,
     // Make sure we are invariant in all the types/lifetimes.
     // See https://stackoverflow.com/questions/62659221/why-does-a-program-compile-despite-an-apparent-lifetime-mismatch
     phantom: PhantomDataInvariant<&'p AValueHeader>,
@@ -52,7 +97,7 @@ pub(crate) struct Pointer<'p> {
 // Similar to `Pointer` but allows widening lifetime, which is valid operation for frozen pointers.
 #[derive(Clone, Copy, Dupe)]
 pub(crate) struct FrozenPointer<'p> {
-    pointer: NonZeroUsize,
+    pointer: RawPointer,
     phantom: PhantomData<&'p AValueHeader>,
 }
 
@@ -102,9 +147,7 @@ impl<'p> Pointer<'p> {
     #[inline]
     fn new(pointer: usize) -> Self {
         let phantom = PhantomDataInvariant::new();
-        // Never zero because the only TAG which is zero is P1, and that must be a pointer
-        debug_assert!(pointer != 0);
-        let pointer = unsafe { NonZeroUsize::new_unchecked(pointer) };
+        let pointer = unsafe { RawPointer::new_unchecked(pointer) };
         Self { pointer, phantom }
     }
 
@@ -128,17 +171,17 @@ impl<'p> Pointer<'p> {
 
     #[inline]
     pub(crate) fn is_str(self) -> bool {
-        (self.pointer.get() & TAG_STR) != 0
+        self.pointer.is_str()
     }
 
     #[inline]
     pub fn is_unfrozen(self) -> bool {
-        (self.pointer.get() & TAG_UNFROZEN) != 0
+        self.pointer.is_unfrozen()
     }
 
     #[inline]
     pub fn unpack(self) -> Either<&'p AValueHeader, &'static PointerI32> {
-        let p = self.pointer.get();
+        let p = self.pointer.0.get();
         if p & TAG_INT == 0 {
             Either::Left(unsafe { untag_pointer(p) })
         } else {
@@ -148,17 +191,12 @@ impl<'p> Pointer<'p> {
 
     #[inline]
     pub fn unpack_int(self) -> Option<i32> {
-        let p = self.pointer.get();
-        if p & TAG_INT == 0 {
-            None
-        } else {
-            Some(untag_int(p))
-        }
+        self.pointer.unpack_int()
     }
 
     #[inline]
     pub fn unpack_ptr(self) -> Option<&'p AValueHeader> {
-        let p = self.pointer.get();
+        let p = self.pointer.0.get();
         if p & TAG_INT == 0 {
             Some(unsafe { untag_pointer(p) })
         } else {
@@ -169,7 +207,7 @@ impl<'p> Pointer<'p> {
     /// Unpack pointer when it is known to be not an integer.
     #[inline]
     pub(crate) unsafe fn unpack_ptr_no_int_unchecked(self) -> &'p AValueHeader {
-        let p = self.pointer.get();
+        let p = self.pointer.0.get();
         debug_assert!(p & TAG_INT == 0);
         untag_pointer(p)
     }
@@ -177,9 +215,7 @@ impl<'p> Pointer<'p> {
     /// Unpack integer when it is known to be not a pointer.
     #[inline]
     pub(crate) unsafe fn unpack_int_unchecked(self) -> i32 {
-        let p = self.pointer.get();
-        debug_assert!(p & TAG_BITS == TAG_INT);
-        untag_int(p)
+        self.pointer.unpack_int_unchecked()
     }
 
     #[inline]
@@ -188,8 +224,8 @@ impl<'p> Pointer<'p> {
     }
 
     #[inline]
-    pub fn ptr_value(self) -> usize {
-        self.pointer.get()
+    pub fn raw(self) -> RawPointer {
+        self.pointer
     }
 
     #[inline]
@@ -216,7 +252,7 @@ impl<'p> FrozenPointer<'p> {
         // Never zero because the only TAG which is zero is P1, and that must be a pointer
         debug_assert!(pointer != 0);
         debug_assert!((pointer & TAG_UNFROZEN) == 0);
-        let pointer = NonZeroUsize::new_unchecked(pointer);
+        let pointer = RawPointer::new_unchecked(pointer);
         Self {
             pointer,
             phantom: PhantomData,
@@ -257,8 +293,8 @@ impl<'p> FrozenPointer<'p> {
     }
 
     #[inline]
-    pub(crate) fn ptr_value(self) -> usize {
-        self.pointer.get()
+    pub(crate) fn raw(self) -> RawPointer {
+        self.pointer
     }
 
     #[inline]
@@ -274,7 +310,7 @@ impl<'p> FrozenPointer<'p> {
     /// Unpack pointer when it is known to be not an integer.
     #[inline]
     pub(crate) unsafe fn unpack_ptr_no_int_unchecked(self) -> &'p AValueHeader {
-        let p = self.pointer.get();
+        let p = self.pointer.0.get();
         debug_assert!(p & TAG_INT == 0);
         untag_pointer(p)
     }
@@ -282,15 +318,13 @@ impl<'p> FrozenPointer<'p> {
     /// Unpack integer when it is known to be not a pointer.
     #[inline]
     pub(crate) unsafe fn unpack_int_unchecked(self) -> i32 {
-        let p = self.pointer.get();
-        debug_assert!(p & TAG_BITS == TAG_INT);
-        untag_int(p)
+        self.pointer.unpack_int_unchecked()
     }
 
     /// Unpack pointer when it is known to be not an integer, not a string, and not frozen.
     #[inline]
     pub(crate) unsafe fn unpack_ptr_no_int_no_str_unchecked(self) -> &'p AValueHeader {
-        let p = self.pointer.get();
+        let p = self.pointer.0.get();
         debug_assert!(p & TAG_BITS == 0);
         cast::usize_to_ptr(p)
     }

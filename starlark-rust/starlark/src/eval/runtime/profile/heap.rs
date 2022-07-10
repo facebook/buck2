@@ -30,6 +30,7 @@ use gazebo::prelude::*;
 
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::small_duration::SmallDuration;
+use crate::values::layout::pointer::RawPointer;
 use crate::values::Heap;
 use crate::values::Value;
 
@@ -49,8 +50,7 @@ struct FunctionId(usize);
 /// A mapping from function Value to FunctionId, which must be continuous
 #[derive(Default)]
 struct FunctionIds {
-    // The usize is the result of ptr_value()
-    values: HashMap<usize, FunctionId>,
+    values: HashMap<RawPointer, FunctionId>,
     strings: HashMap<String, FunctionId>,
 }
 

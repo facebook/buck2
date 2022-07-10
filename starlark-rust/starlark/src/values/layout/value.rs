@@ -78,6 +78,7 @@ use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::pointer::FrozenPointer;
 use crate::values::layout::pointer::Pointer;
+use crate::values::layout::pointer::RawPointer;
 use crate::values::layout::static_string::VALUE_EMPTY_STRING;
 use crate::values::layout::typed::string::StringValueLike;
 use crate::values::layout::vtable::AValueDyn;
@@ -291,7 +292,7 @@ impl<'v> Value<'v> {
     #[inline]
     pub fn is_none(self) -> bool {
         // Safe because frozen values never have a tag
-        self.0.ptr_value() == cast::ptr_to_usize(&VALUE_NONE)
+        self.0.raw().ptr_value() == cast::ptr_to_usize(&VALUE_NONE)
     }
 
     /// Obtain the underlying numerical value, if it is one.
@@ -310,7 +311,7 @@ impl<'v> Value<'v> {
 
     /// Obtain the underlying `bool` if it is a boolean.
     pub fn unpack_bool(self) -> Option<bool> {
-        let p = self.0.ptr_value();
+        let p = self.0.raw().ptr_value();
         if p == cast::ptr_to_usize(&VALUE_TRUE) {
             Some(true)
         } else if p == cast::ptr_to_usize(&VALUE_FALSE) {
@@ -434,8 +435,8 @@ impl<'v> Value<'v> {
     /// For external users, `Value::identity` returns an opaque `ValueIdentity` that makes fewer
     /// guarantees.
     #[inline]
-    pub(crate) fn ptr_value(self) -> usize {
-        self.0.ptr_value()
+    pub(crate) fn ptr_value(self) -> RawPointer {
+        self.0.raw()
     }
 
     /// `type(x)`.
@@ -863,20 +864,20 @@ impl FrozenValue {
     }
 
     #[inline]
-    pub(crate) fn ptr_value(self) -> usize {
-        self.0.ptr_value()
+    pub(crate) fn ptr_value(self) -> RawPointer {
+        self.0.raw()
     }
 
     /// Is a value a Starlark `None`.
     #[inline]
     pub fn is_none(self) -> bool {
         // Safe because frozen values never have a tag
-        self.0.ptr_value() == cast::ptr_to_usize(&VALUE_NONE)
+        self.0.raw().ptr_value() == cast::ptr_to_usize(&VALUE_NONE)
     }
 
     /// Return the [`bool`] if the value is a boolean, otherwise [`None`].
     pub fn unpack_bool(self) -> Option<bool> {
-        let p = self.0.ptr_value();
+        let p = self.0.raw().ptr_value();
         if p == cast::ptr_to_usize(&VALUE_TRUE) {
             Some(true)
         } else if p == cast::ptr_to_usize(&VALUE_FALSE) {

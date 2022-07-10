@@ -29,6 +29,7 @@ use gazebo::prelude::*;
 
 use crate as starlark;
 use crate::eval::runtime::small_duration::SmallDuration;
+use crate::values::layout::pointer::RawPointer;
 use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
@@ -37,19 +38,9 @@ use crate::values::Value;
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Dupe)]
 struct ValueIndex(usize);
 
-/// Index into FlameData.map
-#[derive(Hash, PartialEq, Eq, Clone, Copy, Dupe)]
-struct ValuePtr(usize);
-
 impl ValueIndex {
     fn lookup<T>(self, xs: &[T]) -> &T {
         &xs[self.0]
-    }
-}
-
-impl ValuePtr {
-    fn new(x: Value) -> Self {
-        Self(x.ptr_value())
     }
 }
 
@@ -68,7 +59,7 @@ pub(crate) struct FlameProfile<'v>(Option<Box<FlameData<'v>>>);
 struct FlameData<'v> {
     frames: Vec<(Frame, Instant)>,
     values: Vec<Value<'v>>,
-    map: HashMap<ValuePtr, ValueIndex>,
+    map: HashMap<RawPointer, ValueIndex>,
 }
 
 unsafe impl<'v> Trace<'v> for FlameData<'v> {
@@ -77,7 +68,7 @@ unsafe impl<'v> Trace<'v> for FlameData<'v> {
         // Have to rebuild the map, as its keyed by ValuePtr which changes on GC
         self.map.clear();
         for (i, x) in self.values.iter().enumerate() {
-            self.map.insert(ValuePtr::new(*x), ValueIndex(i));
+            self.map.insert(x.ptr_value(), ValueIndex(i));
         }
     }
 }
@@ -162,7 +153,7 @@ impl<'v> FlameProfile<'v> {
     #[inline(never)]
     pub(crate) fn record_call_enter(&mut self, function: Value<'v>) {
         if let Some(box x) = &mut self.0 {
-            let ind = match x.map.entry(ValuePtr::new(function)) {
+            let ind = match x.map.entry(function.ptr_value()) {
                 Entry::Occupied(e) => *e.get(),
                 Entry::Vacant(e) => {
                     let res = ValueIndex(x.values.len());

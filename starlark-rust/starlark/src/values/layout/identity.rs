@@ -19,13 +19,14 @@ use std::marker::PhantomData;
 
 use gazebo::dupe::Dupe;
 
+use crate::values::layout::pointer::RawPointer;
 use crate::values::Value;
 
 /// An opaque value representing the identity of a given Value. Two values have the same identity
 /// if and only if [`Value::ptr_eq`] would return [`true`] on them.
 #[derive(Eq, PartialEq, Copy, Clone, Dupe, Hash)]
 pub struct ValueIdentity<'v> {
-    identity: usize,
+    identity: RawPointer,
     phantom: PhantomData<&'v ()>,
 }
 

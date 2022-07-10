@@ -21,6 +21,7 @@ use std::cell::Cell;
 use std::intrinsics::unlikely;
 
 use crate::collections::SmallSet;
+use crate::values::layout::pointer::RawPointer;
 use crate::values::Value;
 
 /// Pop the stack on drop.
@@ -88,10 +89,10 @@ pub(crate) struct ReprCycle;
 pub(crate) struct JsonCycle;
 
 #[thread_local]
-static REPR_STACK: Cell<SmallSet<usize>> = Cell::new(SmallSet::new());
+static REPR_STACK: Cell<SmallSet<RawPointer>> = Cell::new(SmallSet::new());
 
 #[thread_local]
-static JSON_STACK: Cell<SmallSet<usize>> = Cell::new(SmallSet::new());
+static JSON_STACK: Cell<SmallSet<RawPointer>> = Cell::new(SmallSet::new());
 
 /// Push a value to the stack, return error if it is already on the stack.
 pub(crate) fn repr_stack_push(value: Value) -> Result<ReprStackGuard, ReprCycle> {

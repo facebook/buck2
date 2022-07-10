@@ -110,7 +110,7 @@ impl PointerI32 {
         // UB if the pointer isn't aligned, or it is zero
         // Alignment is 1, so that's not an issue.
         // And the pointer is not zero because it has `TAG_INT` bit set.
-        unsafe { cast::usize_to_ptr(FrozenValue::new_int(x).ptr_value()) }
+        unsafe { cast::usize_to_ptr(FrozenValue::new_int(x).ptr_value().ptr_value()) }
     }
 
     pub(crate) fn get(&self) -> i32 {

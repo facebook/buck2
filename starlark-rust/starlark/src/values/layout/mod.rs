@@ -22,7 +22,7 @@ mod avalue;
 mod const_frozen_string;
 pub(crate) mod heap;
 pub(crate) mod identity;
-mod pointer;
+pub(crate) mod pointer;
 pub(crate) mod static_string;
 pub(crate) mod typed;
 pub(crate) mod value;
