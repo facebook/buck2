@@ -61,6 +61,7 @@ use crate::values::layout::avalue::VALUE_EMPTY_ARRAY;
 use crate::values::layout::avalue::VALUE_EMPTY_FROZEN_LIST;
 use crate::values::layout::avalue::VALUE_EMPTY_TUPLE;
 use crate::values::layout::heap::arena::Arena;
+use crate::values::layout::heap::arena::ArenaVisitor;
 use crate::values::layout::heap::arena::HeapSummary;
 use crate::values::layout::heap::arena::Reservation;
 use crate::values::layout::heap::call_enter_exit::CallEnter;
@@ -665,8 +666,8 @@ impl Heap {
         self.alloc_raw(complex_no_freeze(x))
     }
 
-    pub(crate) unsafe fn for_each_ordered<'v>(&'v self, f: impl FnMut(Value<'v>)) {
-        (*self.arena.get_mut()).for_each_value_ordered(f)
+    pub(crate) unsafe fn visit_arena<'v>(&'v self, v: &mut impl ArenaVisitor<'v>) {
+        (*self.arena.get_mut()).visit_arena(v)
     }
 
     /// Garbage collect any values that are unused. This function is _unsafe_ in

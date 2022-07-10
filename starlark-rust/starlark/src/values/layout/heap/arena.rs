@@ -34,6 +34,7 @@ use std::mem;
 use std::mem::MaybeUninit;
 use std::ptr;
 use std::slice;
+use std::time::Instant;
 
 use bumpalo::Bump;
 use either::Either;
@@ -44,6 +45,10 @@ use crate::collections::StarlarkHashValue;
 use crate::values::layout::avalue::starlark_str;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::BlackHole;
+use crate::values::layout::heap::call_enter_exit::CallEnter;
+use crate::values::layout::heap::call_enter_exit::CallExit;
+use crate::values::layout::heap::call_enter_exit::NeedsDrop;
+use crate::values::layout::heap::call_enter_exit::NoDrop;
 use crate::values::layout::heap::repr::AValueForward;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueOrForward;
@@ -51,6 +56,7 @@ use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::string::StarlarkStr;
 use crate::values::Value;
+use crate::values::ValueLike;
 
 /// Min size of allocated object including header.
 /// Should be able to fit `BlackHole` or forward.
@@ -108,6 +114,12 @@ pub struct HeapSummary {
     /// The size may be approximate as it includes information from
     /// the approximate [`memory_size`](StarlarkValue::memory_size) function.
     pub summary: HashMap<String, (usize, usize)>,
+}
+
+pub(crate) trait ArenaVisitor<'v> {
+    fn regular_value(&mut self, value: Value<'v>);
+    fn call_enter(&mut self, function: Value<'v>, time: Instant);
+    fn call_exit(&mut self, time: Instant);
 }
 
 impl Arena {
@@ -306,6 +318,22 @@ impl Arena {
             // we consider values to be kept alive permanently, other than
             // when a GC happens
             f(Value::new_ptr_query_is_str(cast::ptr_lifetime(x)))
+        })
+    }
+
+    pub(crate) unsafe fn visit_arena<'v>(&'v mut self, v: &mut impl ArenaVisitor<'v>) {
+        self.for_each_value_ordered(|x| {
+            if let Some(call_enter) = x.downcast_ref::<CallEnter<NeedsDrop>>() {
+                v.call_enter(call_enter.function, call_enter.time);
+            } else if let Some(call_enter) = x.downcast_ref::<CallEnter<NoDrop>>() {
+                v.call_enter(call_enter.function, call_enter.time);
+            } else if let Some(call_exit) = x.downcast_ref::<CallExit<NeedsDrop>>() {
+                v.call_exit(call_exit.time);
+            } else if let Some(call_exit) = x.downcast_ref::<CallExit<NoDrop>>() {
+                v.call_exit(call_exit.time);
+            } else {
+                v.regular_value(x);
+            }
         })
     }
 

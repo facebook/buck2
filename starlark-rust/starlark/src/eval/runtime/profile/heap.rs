@@ -32,7 +32,6 @@ use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::values::Heap;
 use crate::values::Value;
-use crate::values::ValueLike;
 
 #[derive(Copy, Clone, Dupe, Debug)]
 pub(crate) enum HeapProfileFormat {
@@ -161,7 +160,7 @@ impl HeapProfile {
     fn write_flame_heap_profile_to(mut file: impl Write, heap: &Heap) -> anyhow::Result<()> {
         let mut collector = flame::StackCollector::new();
         unsafe {
-            heap.for_each_ordered(|x| collector.process(x));
+            heap.visit_arena(&mut collector);
         }
         collector.write_to(&mut file)?;
         Ok(())
@@ -182,7 +181,7 @@ impl HeapProfile {
         };
         info.ensure(root);
         unsafe {
-            heap.for_each_ordered(|x| info.process(x));
+            heap.visit_arena(&mut info);
         }
         // Just has root left on it
         assert!(info.call_stack.len() == 1);
@@ -253,11 +252,7 @@ impl HeapProfile {
 mod summary {
     use super::*;
     use crate::eval::runtime::small_duration::SmallDuration;
-    use crate::values::layout::heap::call_enter_exit::CallEnter;
-    use crate::values::layout::heap::call_enter_exit::CallExit;
-    use crate::values::layout::heap::call_enter_exit::MaybeDrop;
-    use crate::values::layout::heap::call_enter_exit::NeedsDrop;
-    use crate::values::layout::heap::call_enter_exit::NoDrop;
+    use crate::values::layout::heap::arena::ArenaVisitor;
 
     /// Information relating to a function.
     #[derive(Default, Debug, Clone)]
@@ -331,51 +326,37 @@ mod summary {
             ti.time += time.saturating_duration_since(old_time);
             self.last_changed = time;
         }
+    }
 
-        fn process_call_enter<D: MaybeDrop>(&mut self, call_enter: &CallEnter<D>) {
-            let CallEnter { function, time, .. } = call_enter;
-            let id = self.ids.get_value(*function);
+    impl<'v> ArenaVisitor<'v> for Info {
+        fn regular_value(&mut self, x: Value<'v>) {
+            let typ = x.get_ref().get_type();
+            *self.top_info().alloc_counts.entry(typ).or_insert(0) += 1;
+        }
+
+        fn call_enter(&mut self, function: Value<'v>, time: Instant) {
+            let id = self.ids.get_value(function);
             self.ensure(id);
-            self.change(*time);
+            self.change(time);
 
             let top = self.top_id();
             let mut me = &mut self.info[id.0];
             me.calls += 1;
             *me.callers.entry(top).or_insert(0) += 1;
-            self.call_stack.push((id, me.time_rec, *time));
+            self.call_stack.push((id, me.time_rec, time));
         }
 
-        fn process_call_exit<D: MaybeDrop>(&mut self, call_exit: &CallExit<D>) {
-            let CallExit { time, .. } = call_exit;
-            self.change(*time);
+        fn call_exit(&mut self, time: Instant) {
+            self.change(time);
             let (name, time_rec, start) = self.call_stack.pop().unwrap();
             self.info[name.0].time_rec = time_rec + time.saturating_duration_since(start);
-        }
-
-        /// Process each ValueMem in their chronological order
-        pub(crate) fn process<'v>(&mut self, x: Value<'v>) {
-            if let Some(call_enter) = x.downcast_ref::<CallEnter<NeedsDrop>>() {
-                self.process_call_enter(call_enter);
-            } else if let Some(call_enter) = x.downcast_ref::<CallEnter<NoDrop>>() {
-                self.process_call_enter(call_enter);
-            } else if let Some(call_exit) = x.downcast_ref::<CallExit<NeedsDrop>>() {
-                self.process_call_exit(call_exit)
-            } else if let Some(call_exit) = x.downcast_ref::<CallExit<NoDrop>>() {
-                self.process_call_exit(call_exit)
-            } else {
-                let typ = x.get_ref().get_type();
-                *self.top_info().alloc_counts.entry(typ).or_insert(0) += 1;
-            }
         }
     }
 }
 
 mod flame {
     use super::*;
-    use crate::values::layout::heap::call_enter_exit::CallEnter;
-    use crate::values::layout::heap::call_enter_exit::CallExit;
-    use crate::values::layout::heap::call_enter_exit::NeedsDrop;
-    use crate::values::layout::heap::call_enter_exit::NoDrop;
+    use crate::values::layout::heap::arena::ArenaVisitor;
 
     /// Allocations made in a given stack frame for a given type.
     #[derive(Default)]
@@ -462,43 +443,49 @@ mod flame {
             }
         }
 
-        /// Visit a value from the heap.
-        pub(crate) fn process<'v>(&mut self, x: Value<'v>) {
-            let frame = match self.current.as_ref() {
-                Some(frame) => frame,
-                None => return,
-            };
-
-            if let Some(CallEnter { function, .. }) = x.downcast_ref::<CallEnter<NeedsDrop>>() {
-                // New frame, enter it.
-                let id = self.ids.get_value(*function);
-                self.current = Some(frame.push(id));
-            } else if let Some(CallEnter { function, .. }) = x.downcast_ref::<CallEnter<NoDrop>>() {
-                // New frame, enter it.
-                let id = self.ids.get_value(*function);
-                self.current = Some(frame.push(id));
-            } else if x.downcast_ref::<CallExit<NeedsDrop>>().is_some()
-                || x.downcast_ref::<CallExit<NoDrop>>().is_some()
-            {
-                // End of frame, exit!
-                self.current = frame.pop();
-            } else {
-                // Value allocated in this frame, record it!
-                let typ = x.get_ref().get_type();
-                let mut frame = frame.0.borrow_mut();
-                let mut entry = frame.allocs.entry(typ).or_default();
-                entry.bytes += x.get_ref().total_memory();
-                entry.count += 1;
-            }
-        }
-
-        /// Write this our recursively to a file.
+        /// Write recursively to a file.
         pub(crate) fn write_to(&self, file: &mut impl Write) -> anyhow::Result<()> {
             let current = self.current.as_ref().context("Popped the root frame")?;
             current
                 .write(file, &mut vec![], &self.ids.invert())
                 .context("Writing failed")?;
             Ok(())
+        }
+    }
+
+    impl<'v> ArenaVisitor<'v> for StackCollector {
+        fn regular_value(&mut self, value: Value<'v>) {
+            let frame = match self.current.as_ref() {
+                Some(frame) => frame,
+                None => return,
+            };
+
+            // Value allocated in this frame, record it!
+            let typ = value.get_ref().get_type();
+            let mut frame = frame.0.borrow_mut();
+            let mut entry = frame.allocs.entry(typ).or_default();
+            entry.bytes += value.get_ref().total_memory();
+            entry.count += 1;
+        }
+
+        fn call_enter(&mut self, function: Value<'v>, _time: Instant) {
+            let frame = match self.current.as_ref() {
+                Some(frame) => frame,
+                None => return,
+            };
+
+            // New frame, enter it.
+            let id = self.ids.get_value(function);
+            self.current = Some(frame.push(id));
+        }
+
+        fn call_exit(&mut self, _time: Instant) {
+            let frame = match self.current.as_ref() {
+                Some(frame) => frame,
+                None => return,
+            };
+
+            self.current = frame.pop();
         }
     }
 
@@ -610,7 +597,7 @@ _ignore = str([1])     # allocate a string in non_drop
         };
 
         unsafe {
-            eval.heap().for_each_ordered(|v| info.process(v));
+            eval.heap().visit_arena(&mut info);
         }
 
         let total = FuncInfo::merge(info.info.iter());
