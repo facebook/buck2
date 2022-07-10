@@ -86,6 +86,7 @@ pub(crate) union AValueOrForward {
 
 impl AValueOrForward {
     /// Is this pointer a value or forward?
+    #[inline]
     fn is_forward(&self) -> bool {
         unsafe { (self.flags & 1) != 0 }
     }
@@ -96,6 +97,20 @@ impl AValueOrForward {
         } else {
             Either::Left(unsafe { &self.header })
         }
+    }
+
+    /// Unpack something that might have been overwritten.
+    pub(crate) fn unpack_overwrite<'v>(&'v self) -> Either<usize, AValueDyn<'v>> {
+        match self.unpack() {
+            Either::Left(header) => Either::Right(header.unpack()),
+            Either::Right(forward) => Either::Left(forward.forward_ptr()),
+        }
+    }
+
+    #[inline]
+    pub(crate) unsafe fn unpack_header_unchecked(&self) -> &AValueHeader {
+        debug_assert!(!self.is_forward());
+        &self.header
     }
 }
 
@@ -147,16 +162,6 @@ impl AValueHeader {
                 value: &*self.payload_ptr(),
                 vtable: self.0,
             }
-        }
-    }
-
-    /// Unpack something that might have been overwritten.
-    // TODO(nga): this function does not belong here, it should accept `AValueOrForward`.
-    pub(crate) fn unpack_overwrite<'v>(&'v self) -> Either<usize, AValueDyn<'v>> {
-        let x = unsafe { &*(self as *const AValueHeader as *const AValueOrForward) };
-        match x.unpack() {
-            Either::Left(header) => Either::Right(header.unpack()),
-            Either::Right(forward) => Either::Left(forward.forward_ptr()),
         }
     }
 

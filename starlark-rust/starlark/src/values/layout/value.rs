@@ -360,6 +360,7 @@ impl<'v> Value<'v> {
                     &self
                         .0
                         .unpack_ptr_no_int_unchecked()
+                        .unpack_header_unchecked()
                         .as_repr::<StarlarkStrAValue>()
                         .payload
                         .1,
@@ -378,9 +379,11 @@ impl<'v> Value<'v> {
 
     /// Get a pointer to a [`AValue`].
     pub(crate) fn get_ref(self) -> AValueDyn<'v> {
-        match self.0.unpack() {
-            Either::Left(x) => x.unpack(),
-            Either::Right(x) => basic_ref(x),
+        unsafe {
+            match self.0.unpack() {
+                Either::Left(x) => x.unpack_header_unchecked().unpack(),
+                Either::Right(x) => basic_ref(x),
+            }
         }
     }
 
@@ -395,7 +398,10 @@ impl<'v> Value<'v> {
                 PointerI32::new(self.0.unpack_int_unchecked())
             )
         } else {
-            self.0.unpack_ptr_no_int_unchecked().payload()
+            self.0
+                .unpack_ptr_no_int_unchecked()
+                .unpack_header_unchecked()
+                .payload()
         }
     }
 
@@ -915,9 +921,11 @@ impl FrozenValue {
 
     /// Get a pointer to the [`AValue`] object this value represents.
     pub(crate) fn get_ref<'v>(self) -> AValueDyn<'v> {
-        match self.0.unpack() {
-            Either::Left(x) => x.unpack(),
-            Either::Right(x) => basic_ref(x),
+        unsafe {
+            match self.0.unpack() {
+                Either::Left(x) => x.unpack_header_unchecked().unpack(),
+                Either::Right(x) => basic_ref(x),
+            }
         }
     }
 

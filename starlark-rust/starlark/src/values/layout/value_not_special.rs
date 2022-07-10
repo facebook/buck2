@@ -54,7 +54,13 @@ impl FrozenValueNotSpecial {
     #[inline]
     fn get_ref<'v>(self) -> AValueDyn<'v> {
         // SAFETY: we checked in constructor that it is not a str or i32.
-        unsafe { self.0.0.unpack_ptr_no_int_no_str_unchecked().unpack() }
+        unsafe {
+            self.0
+                .0
+                .unpack_ptr_no_int_no_str_unchecked()
+                .unpack_header_unchecked()
+                .unpack()
+        }
     }
 
     pub(crate) fn equals(self, other: Value) -> anyhow::Result<bool> {
