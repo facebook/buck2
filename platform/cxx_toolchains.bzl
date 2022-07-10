@@ -21,12 +21,12 @@ _buckconfig_cxx_toolchain_attrs = {
     "as": binary_attr,
     "as_type": string_attr,
     "asflags": flags_attr,
-    "asm": binary_attr,
-    "asm_type": string_attr,
-    "asmflags": flags_attr,
-    "asmpp": binary_attr,
-    "asmpp_type": string_attr,
-    "asmppflags": flags_attr,
+    "asm": optional_binary_attr,
+    "asm_type": optional_string_attr,
+    "asmflags": optional_flags_attr,
+    "asmpp": optional_binary_attr,
+    "asmpp_type": optional_string_attr,
+    "asmppflags": optional_flags_attr,
     "aspp": binary_attr,
     "aspp_type": string_attr,
     "asppflags": flags_attr,
@@ -132,6 +132,25 @@ def _hip_info(ctx: "context") -> [native.cxx.HipCompilerInfo.type, None]:
         expect(ctx.attr.hipppflags == None)
         return None
 
+def _asm_info(ctx: "context") -> [native.cxx.AsmCompilerInfo.type, None]:
+    if ctx.attr.asm != None:
+        return native.cxx.AsmCompilerInfo(
+            compiler = ctx.attr.asm[RunInfo],
+            compiler_type = ctx.attr.asm_type,
+            compiler_flags = cmd_args(ctx.attr.asmflags),
+            preprocessor = ctx.attr.asmpp[RunInfo],
+            preprocessor_type = ctx.attr.asmpp_type,
+            preprocessor_flags = cmd_args(ctx.attr.asmppflags),
+            dep_files_processor = ctx.attr._dep_files_processor[RunInfo],
+        )
+    else:
+        expect(ctx.attr.asm_type == None)
+        expect(ctx.attr.asmflags == None)
+        expect(ctx.attr.asmpp == None)
+        expect(ctx.attr.asmpp_type == None)
+        expect(ctx.attr.asmppflags == None)
+        return None
+
 # TODO(cjhopman): This duplicates a lot of the cxx_toolchain impl. We should
 # probably have the config-backed version just convert the config values to
 # appropriate cxx_toolchain attrs in the macro layer.
@@ -152,15 +171,6 @@ def _config_backed_toolchain_impl(ctx):
         preprocessor = ctx.attr.cxxpp[RunInfo],
         preprocessor_type = ctx.attr.cxxpp_type,
         preprocessor_flags = cmd_args(ctx.attr.cxxppflags),
-        dep_files_processor = ctx.attr._dep_files_processor[RunInfo],
-    )
-    asm_info = native.cxx.AsmCompilerInfo(
-        compiler = ctx.attr.asm[RunInfo],
-        compiler_type = ctx.attr.asm_type,
-        compiler_flags = cmd_args(ctx.attr.asmflags),
-        preprocessor = ctx.attr.asmpp[RunInfo],
-        preprocessor_type = ctx.attr.asmpp_type,
-        preprocessor_flags = cmd_args(ctx.attr.asmppflags),
         dep_files_processor = ctx.attr._dep_files_processor[RunInfo],
     )
     as_info = native.cxx.AsCompilerInfo(
@@ -240,7 +250,7 @@ def _config_backed_toolchain_impl(ctx):
         bolt_enabled = ctx.attr.bolt_enabled,
         c_compiler_info = c_info,
         cxx_compiler_info = cxx_info,
-        asm_compiler_info = asm_info,
+        asm_compiler_info = _asm_info(ctx),
         as_compiler_info = as_info,
         cuda_compiler_info = _cuda_info(ctx),
         hip_compiler_info = _hip_info(ctx),
