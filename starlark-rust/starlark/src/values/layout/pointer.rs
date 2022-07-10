@@ -36,33 +36,34 @@ use gazebo::prelude::*;
 use static_assertions::assert_eq_size;
 
 use crate::values::int::PointerI32;
+use crate::values::layout::heap::repr::AValueHeader;
 
 // A structure that is morally a `PointerUnpack`, but gets encoded in one
 // pointer sized lump. The two types P1 and P2 are arbitrary pointers (which we
 // instantiate to FrozenValueMem and ValueMem)
-#[derive(Clone_, Copy_, Dupe_)]
-pub(crate) struct Pointer<'p, P> {
+#[derive(Clone, Copy, Dupe)]
+pub(crate) struct Pointer<'p> {
     pointer: NonZeroUsize,
     // Make sure we are invariant in all the types/lifetimes.
     // See https://stackoverflow.com/questions/62659221/why-does-a-program-compile-despite-an-apparent-lifetime-mismatch
-    phantom: PhantomDataInvariant<&'p P>,
+    phantom: PhantomDataInvariant<&'p AValueHeader>,
 }
 
 // Similar to `Pointer` but allows widening lifetime, which is valid operation for frozen pointers.
-#[derive(Clone_, Copy_, Dupe_)]
-pub(crate) struct FrozenPointer<'p, P> {
+#[derive(Clone, Copy, Dupe)]
+pub(crate) struct FrozenPointer<'p> {
     pointer: NonZeroUsize,
-    phantom: PhantomData<&'p P>,
+    phantom: PhantomData<&'p AValueHeader>,
 }
 
-fn _test_lifetime_covariant<'a>(p: FrozenPointer<'static, String>) -> FrozenPointer<'a, String> {
+fn _test_lifetime_covariant<'a>(p: FrozenPointer<'static>) -> FrozenPointer<'a> {
     p
 }
 
-assert_eq_size!(Pointer<'static, String>, usize);
-assert_eq_size!(Option<Pointer<'static, String>>, usize);
-assert_eq_size!(FrozenPointer<'static, String>, usize);
-assert_eq_size!(Option<FrozenPointer<'static, String>>, usize);
+assert_eq_size!(Pointer<'static>, usize);
+assert_eq_size!(Option<Pointer<'static>>, usize);
+assert_eq_size!(FrozenPointer<'static>, usize);
+assert_eq_size!(Option<FrozenPointer<'static>>, usize);
 
 const TAG_BITS: usize = 0b111;
 
@@ -97,7 +98,7 @@ fn untag_int(x: usize) -> i32 {
     ((x as isize) >> 3) as i32
 }
 
-impl<'p, P> Pointer<'p, P> {
+impl<'p> Pointer<'p> {
     #[inline]
     fn new(pointer: usize) -> Self {
         let phantom = PhantomDataInvariant::new();
@@ -121,7 +122,7 @@ impl<'p, P> Pointer<'p, P> {
     }
 
     #[inline]
-    pub fn new_unfrozen(x: &'p P, is_string: bool) -> Self {
+    pub fn new_unfrozen(x: &'p AValueHeader, is_string: bool) -> Self {
         Self::new_unfrozen_usize(cast::ptr_to_usize(x), is_string)
     }
 
@@ -136,7 +137,7 @@ impl<'p, P> Pointer<'p, P> {
     }
 
     #[inline]
-    pub fn unpack(self) -> Either<&'p P, &'static PointerI32> {
+    pub fn unpack(self) -> Either<&'p AValueHeader, &'static PointerI32> {
         let p = self.pointer.get();
         if p & TAG_INT == 0 {
             Either::Left(unsafe { untag_pointer(p) })
@@ -156,7 +157,7 @@ impl<'p, P> Pointer<'p, P> {
     }
 
     #[inline]
-    pub fn unpack_ptr(self) -> Option<&'p P> {
+    pub fn unpack_ptr(self) -> Option<&'p AValueHeader> {
         let p = self.pointer.get();
         if p & TAG_INT == 0 {
             Some(unsafe { untag_pointer(p) })
@@ -167,7 +168,7 @@ impl<'p, P> Pointer<'p, P> {
 
     /// Unpack pointer when it is known to be not an integer.
     #[inline]
-    pub(crate) unsafe fn unpack_ptr_no_int_unchecked(self) -> &'p P {
+    pub(crate) unsafe fn unpack_ptr_no_int_unchecked(self) -> &'p AValueHeader {
         let p = self.pointer.get();
         debug_assert!(p & TAG_INT == 0);
         untag_pointer(p)
@@ -182,7 +183,7 @@ impl<'p, P> Pointer<'p, P> {
     }
 
     #[inline]
-    pub fn ptr_eq(self, other: Pointer<'_, P>) -> bool {
+    pub fn ptr_eq(self, other: Pointer<'_>) -> bool {
         self.pointer == other.pointer
     }
 
@@ -192,7 +193,7 @@ impl<'p, P> Pointer<'p, P> {
     }
 
     #[inline]
-    pub unsafe fn cast_lifetime<'p2>(self) -> Pointer<'p2, P> {
+    pub unsafe fn cast_lifetime<'p2>(self) -> Pointer<'p2> {
         Pointer {
             pointer: self.pointer,
             phantom: PhantomDataInvariant::new(),
@@ -200,7 +201,7 @@ impl<'p, P> Pointer<'p, P> {
     }
 
     #[inline]
-    pub(crate) unsafe fn to_frozen_pointer(self) -> FrozenPointer<'p, P> {
+    pub(crate) unsafe fn to_frozen_pointer(self) -> FrozenPointer<'p> {
         debug_assert!(!self.is_unfrozen());
         FrozenPointer {
             pointer: self.pointer,
@@ -209,7 +210,7 @@ impl<'p, P> Pointer<'p, P> {
     }
 }
 
-impl<'p, P> FrozenPointer<'p, P> {
+impl<'p> FrozenPointer<'p> {
     #[inline]
     pub(crate) unsafe fn new(pointer: usize) -> Self {
         // Never zero because the only TAG which is zero is P1, and that must be a pointer
@@ -236,7 +237,7 @@ impl<'p, P> FrozenPointer<'p, P> {
     }
 
     #[inline]
-    pub(crate) fn new_frozen(x: &'p P, is_str: bool) -> Self {
+    pub(crate) fn new_frozen(x: &'p AValueHeader, is_str: bool) -> Self {
         Self::new_frozen_usize(cast::ptr_to_usize(x), is_str)
     }
 
@@ -248,7 +249,7 @@ impl<'p, P> FrozenPointer<'p, P> {
     /// It is safe to bitcast `FrozenPointer` to `Pointer`
     /// but not vice versa.
     #[inline]
-    pub(crate) fn to_pointer(self) -> Pointer<'p, P> {
+    pub(crate) fn to_pointer(self) -> Pointer<'p> {
         Pointer {
             pointer: self.pointer,
             phantom: PhantomDataInvariant::new(),
@@ -261,7 +262,7 @@ impl<'p, P> FrozenPointer<'p, P> {
     }
 
     #[inline]
-    pub fn unpack(self) -> Either<&'p P, &'static PointerI32> {
+    pub fn unpack(self) -> Either<&'p AValueHeader, &'static PointerI32> {
         self.to_pointer().unpack()
     }
 
@@ -272,7 +273,7 @@ impl<'p, P> FrozenPointer<'p, P> {
 
     /// Unpack pointer when it is known to be not an integer.
     #[inline]
-    pub(crate) unsafe fn unpack_ptr_no_int_unchecked(self) -> &'p P {
+    pub(crate) unsafe fn unpack_ptr_no_int_unchecked(self) -> &'p AValueHeader {
         let p = self.pointer.get();
         debug_assert!(p & TAG_INT == 0);
         untag_pointer(p)
@@ -288,7 +289,7 @@ impl<'p, P> FrozenPointer<'p, P> {
 
     /// Unpack pointer when it is known to be not an integer, not a string, and not frozen.
     #[inline]
-    pub(crate) unsafe fn unpack_ptr_no_int_no_str_unchecked(self) -> &'p P {
+    pub(crate) unsafe fn unpack_ptr_no_int_no_str_unchecked(self) -> &'p AValueHeader {
         let p = self.pointer.get();
         debug_assert!(p & TAG_BITS == 0);
         cast::usize_to_ptr(p)

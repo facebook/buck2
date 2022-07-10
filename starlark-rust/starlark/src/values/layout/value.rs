@@ -113,7 +113,7 @@ use crate::values::ValueIdentity;
 /// The [`Display`](std::fmt::Display) trait is equivalent to the `repr()` function in Starlark.
 #[derive(Clone_, Copy_, Dupe_, ProvidesStaticType)]
 // One possible change: moving to Forward during GC.
-pub struct Value<'v>(pub(crate) Pointer<'v, AValueHeader>);
+pub struct Value<'v>(pub(crate) Pointer<'v>);
 
 unsafe impl<'v> Coerce<Value<'v>> for Value<'v> {}
 unsafe impl<'v> CoerceKey<Value<'v>> for Value<'v> {}
@@ -208,7 +208,7 @@ impl Equivalent<Value<'_>> for FrozenValue {
 /// for a little bit more safety.
 #[derive(Clone, Copy, Dupe, ProvidesStaticType)]
 // One possible change: moving from Blackhole during GC
-pub struct FrozenValue(pub(crate) FrozenPointer<'static, AValueHeader>);
+pub struct FrozenValue(pub(crate) FrozenPointer<'static>);
 
 // These can both be shared, but not obviously, because we hide a fake RefCell in Pointer to stop
 // it having variance.
