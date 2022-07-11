@@ -37,13 +37,28 @@ fn bar(builder: &mut MethodsBuilder) {
     }
 }
 
+#[derive(Buck2Docs)]
+#[buck2_docs(baz, directory = "namespaced", name = "baz_name_override")]
+#[allow(unused)]
+struct Baz;
+
+#[starlark_module]
+fn baz(builder: &mut MethodsBuilder) {
+    /// baz_b docs
+    fn baz_b<'v>(this: Value<'v>) -> anyhow::Result<Value<'v>> {
+        let _ = this;
+        Ok(Value::new_none())
+    }
+}
+
 fn main() {
     for StarlarkObjectDoc {
         name,
-        directory: _directory,
+        directory,
         item,
     } in StarlarkObject::all_docs()
     {
-        println!("{}: {:?}", name, item);
+        let dir = directory.path().to_string_lossy().to_string();
+        println!("`{}` {}: {:?}", dir, name, item);
     }
 }

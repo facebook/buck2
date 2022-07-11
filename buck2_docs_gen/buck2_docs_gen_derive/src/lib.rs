@@ -18,6 +18,7 @@ use syn::Token;
 struct DocDeriveOptions {
     module: Ident,
     name_override: Option<String>,
+    directory: Option<String>,
 }
 
 /// Derive the starlark documentation registration
@@ -44,6 +45,23 @@ fn render(input: DeriveInput, opts: DocDeriveOptions) -> syn::Result<TokenStream
     } else {
         name.to_string()
     };
+    let doc_directory = match opts.directory {
+        None => {
+            quote! { Default::default() }
+        }
+        Some(directory) => {
+            quote! {
+                {
+                    match buck2_docs_gen::OutputDirectory::try_from_string(#directory) {
+                        Ok(ns) => ns,
+                        Err(e) => {
+                            panic!("Invalid directory `{}` for type `{}`: {}", #directory, #doc_name, e);
+                        }
+                    }
+                }
+            }
+        }
+    };
 
     let module = opts.module;
 
@@ -64,7 +82,7 @@ fn render(input: DeriveInput, opts: DocDeriveOptions) -> syn::Result<TokenStream
                 buck2_docs_gen::StarlarkObject {
                     name: #doc_name,
                     module: Box::new(#gen_docs_fun),
-                    directory: Default::default(),
+                    directory: #doc_directory,
                 }
             }
         }
@@ -74,9 +92,11 @@ fn render(input: DeriveInput, opts: DocDeriveOptions) -> syn::Result<TokenStream
 fn parse_opts(attrs: &[Attribute], span: Span) -> syn::Result<DocDeriveOptions> {
     syn::custom_keyword!(builder);
     syn::custom_keyword!(name);
+    syn::custom_keyword!(directory);
 
     let mut module = None;
     let mut name_override = None;
+    let mut directory = None;
 
     let mut first = true;
 
@@ -104,6 +124,12 @@ fn parse_opts(attrs: &[Attribute], span: Span) -> syn::Result<DocDeriveOptions> 
                         }
                         input.parse::<Token![=]>()?;
                         name_override = Some(input.parse::<LitStr>()?.value());
+                    } else if input.parse::<directory>().is_ok() {
+                        if directory.is_some() {
+                            return Err(input.error("`directory` was set twice"));
+                        }
+                        input.parse::<Token![=]>()?;
+                        directory = Some(input.parse::<LitStr>()?.value());
                     } else {
                         return Err(input.lookahead1().error());
                     }
@@ -128,5 +154,6 @@ fn parse_opts(attrs: &[Attribute], span: Span) -> syn::Result<DocDeriveOptions> 
     Ok(DocDeriveOptions {
         module: module.unwrap(),
         name_override,
+        directory,
     })
 }
