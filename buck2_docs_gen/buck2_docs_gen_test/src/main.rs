@@ -7,6 +7,7 @@ use buck2_docs_gen::StarlarkObject;
 use buck2_docs_gen::StarlarkObjectDoc;
 use starlark::environment::MethodsBuilder;
 use starlark::starlark_module;
+use starlark::values::docs::DocItem;
 use starlark::values::Value;
 
 #[derive(Buck2Docs)]
@@ -59,6 +60,15 @@ fn main() {
     } in StarlarkObject::all_docs()
     {
         let dir = directory.path().to_string_lossy().to_string();
-        println!("`{}` {}: {:?}", dir, name, item);
+        let first_member = match item {
+            DocItem::Object(o) => o.members.first().map(|(id, _)| id.to_owned()),
+            _ => None,
+        };
+        println!(
+            "`{}` {}: {}",
+            dir,
+            name,
+            first_member.unwrap_or_else(|| "MISSING MEMBER".to_owned())
+        );
     }
 }
