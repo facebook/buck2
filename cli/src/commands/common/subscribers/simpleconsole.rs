@@ -26,6 +26,7 @@ use termwiz::escape::Action;
 use termwiz::escape::ControlCode;
 
 use crate::commands::common::subscribers::display;
+use crate::commands::common::subscribers::display::TargetDisplayOptions;
 use crate::commands::common::subscribers::span_tracker::SpanTracker;
 use crate::commands::common::verbosity::Verbosity;
 use crate::commands::common::what_ran;
@@ -400,8 +401,11 @@ impl EventSubscriber for SimpleConsole {
     ) -> anyhow::Result<()> {
         self.action_stats.update(action);
 
-        let action_id =
-            display::display_action_identity(action.key.as_ref(), action.name.as_ref())?;
+        let action_id = display::display_action_identity(
+            action.key.as_ref(),
+            action.name.as_ref(),
+            TargetDisplayOptions::for_log(),
+        )?;
 
         if self.verbosity.print_status() {
             let complete = self.span_tracker.roots_completed();
@@ -427,7 +431,12 @@ impl EventSubscriber for SimpleConsole {
 
         if let Some(error) = &action.error {
             let action_error = ActionError {
-                display: display::display_action_error(action, error)?.to_static(),
+                display: display::display_action_error(
+                    action,
+                    error,
+                    TargetDisplayOptions::for_log(),
+                )?
+                .to_static(),
             };
 
             action_error.print(self.tty_mode)?;
@@ -491,15 +500,22 @@ impl EventSubscriber for SimpleConsole {
             match sample_event {
                 Some(sample_event) => {
                     let child = match sample_event.children().next() {
-                        Some(c) => {
-                            Cow::Owned(format!(" [{}]", display::display_event(&c.info().event)?))
-                        }
+                        Some(c) => Cow::Owned(format!(
+                            " [{}]",
+                            display::display_event(
+                                &c.info().event,
+                                TargetDisplayOptions::for_log()
+                            )?
+                        )),
                         None => Cow::Borrowed(""),
                     };
 
                     echo!(
                         "Waiting on {}{}, and {} other actions",
-                        display::display_event(&sample_event.info().event)?,
+                        display::display_event(
+                            &sample_event.info().event,
+                            TargetDisplayOptions::for_log()
+                        )?,
                         child,
                         roots.len()
                     )?

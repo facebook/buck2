@@ -23,6 +23,7 @@ use buck2_data::BxlFunctionLabel;
 use buck2_data::ConfiguredTargetLabel;
 use buck2_data::TargetLabel;
 use events::BuckEvent;
+use gazebo::prelude::*;
 use itertools::Itertools;
 use superconsole::content::lines_from_multiline_string;
 use superconsole::style::Stylize;
@@ -33,17 +34,41 @@ use thiserror::Error;
 
 use crate::commands::common::verbosity::Verbosity;
 
+#[derive(Copy, Clone, Dupe)]
+pub(crate) struct TargetDisplayOptions {
+    with_configuration: bool,
+}
+
+impl TargetDisplayOptions {
+    pub fn for_log() -> Self {
+        Self {
+            with_configuration: true,
+        }
+    }
+
+    pub fn for_console() -> Self {
+        Self {
+            with_configuration: false,
+        }
+    }
+}
+
 pub(crate) fn display_configured_target_label(
     ctl: &ConfiguredTargetLabel,
+    opts: TargetDisplayOptions,
 ) -> anyhow::Result<String> {
     if let ConfiguredTargetLabel {
         label: Some(TargetLabel { package, name }),
-        ..
+        configuration: Some(configuration),
     } = ctl
     {
-        Ok(format!("{}:{}", package, name))
+        Ok(if opts.with_configuration {
+            format!("{}:{} ({})", package, name, configuration.full_name)
+        } else {
+            format!("{}:{}", package, name)
+        })
     } else {
-        Err(ParseEventError::MissingTargetLabel.into())
+        Err(ParseEventError::InvalidConfiguredTargetLabel.into())
     }
 }
 
@@ -59,21 +84,27 @@ pub(crate) fn display_bxl_key(ctl: &BxlFunctionKey) -> anyhow::Result<String> {
     }
 }
 
-pub(crate) fn display_action_owner(owner: &action_key::Owner) -> anyhow::Result<String> {
+pub(crate) fn display_action_owner(
+    owner: &action_key::Owner,
+    opts: TargetDisplayOptions,
+) -> anyhow::Result<String> {
     match owner {
         action_key::Owner::TargetLabel(target_label) => {
-            display_configured_target_label(target_label)
+            display_configured_target_label(target_label, opts)
         }
         action_key::Owner::BxlKey(bxl_key) => display_bxl_key(bxl_key),
     }
 }
 
-pub(crate) fn display_action_key(action_key: &ActionKey) -> anyhow::Result<String> {
+pub(crate) fn display_action_key(
+    action_key: &ActionKey,
+    opts: TargetDisplayOptions,
+) -> anyhow::Result<String> {
     if let ActionKey {
         owner: Some(owner), ..
     } = action_key
     {
-        display_action_owner(owner)
+        display_action_owner(owner, opts)
     } else {
         Err(ParseEventError::MissingActionOwner.into())
     }
@@ -82,9 +113,10 @@ pub(crate) fn display_action_key(action_key: &ActionKey) -> anyhow::Result<Strin
 pub(crate) fn display_action_identity(
     action_key: Option<&ActionKey>,
     name: Option<&ActionName>,
+    opts: TargetDisplayOptions,
 ) -> anyhow::Result<String> {
     let key_string = match action_key {
-        Some(key) => display_action_key(key),
+        Some(key) => display_action_key(key, opts),
         None => Err(ParseEventError::MissingActionKey.into()),
     }?;
     let action_string = match name {
@@ -100,7 +132,10 @@ pub(crate) fn display_action_identity(
 }
 
 /// Formats event payloads for display.
-pub(crate) fn display_event(event: &BuckEvent) -> anyhow::Result<String> {
+pub(crate) fn display_event(
+    event: &BuckEvent,
+    opts: TargetDisplayOptions,
+) -> anyhow::Result<String> {
     let res: anyhow::Result<_> = try {
         let data = match event.data {
             buck2_data::buck_event::Data::SpanStart(ref start) => start.data.as_ref().unwrap(),
@@ -110,7 +145,7 @@ pub(crate) fn display_event(event: &BuckEvent) -> anyhow::Result<String> {
         let res: anyhow::Result<_> = match data {
             Data::ActionExecution(action) => match &action.key {
                 Some(key) => {
-                    let string = display_action_key(key)?;
+                    let string = display_action_key(key, opts)?;
                     let action_descriptor = match &action.name {
                         Some(name) if name.identifier.is_empty() => name.category.clone(),
                         Some(name) => format!("{} {}", name.category, name.identifier),
@@ -134,6 +169,7 @@ pub(crate) fn display_event(event: &BuckEvent) -> anyhow::Result<String> {
                         .key
                         .as_ref()
                         .ok_or(ParseEventError::MissingActionKey)?,
+                    opts,
                 )?;
                 let path = {
                     if build.path.is_empty() {
@@ -146,10 +182,10 @@ pub(crate) fn display_event(event: &BuckEvent) -> anyhow::Result<String> {
             }
             Data::Analysis(analysis) => match &analysis.target {
                 Some(ctl) => {
-                    let target = display_configured_target_label(ctl)?;
+                    let target = display_configured_target_label(ctl, opts)?;
                     Ok(format!("{} -- running analysis", target))
                 }
-                None => Err(ParseEventError::MissingConfiguratedTargetLabel.into()),
+                None => Err(ParseEventError::MissingConfiguredTargetLabel.into()),
             },
             Data::AnalysisStage(info) => {
                 let stage = info.stage.as_ref().context("analysis stage is missing")?;
@@ -238,9 +274,9 @@ pub(crate) fn display_executor_stage(
 #[derive(Error, Debug)]
 pub(crate) enum ParseEventError {
     #[error("Missing configured target label")]
-    MissingConfiguratedTargetLabel,
-    #[error("Missing target label")]
-    MissingTargetLabel,
+    MissingConfiguredTargetLabel,
+    #[error("Invalid configured target label")]
+    InvalidConfiguredTargetLabel,
     #[error("Missing action key")]
     MissingActionKey,
     #[error("Missing suite name")]
@@ -331,6 +367,7 @@ impl<'a> ActionErrorDisplay<'a> {
 pub(crate) fn display_action_error<'a>(
     action: &'a buck2_data::ActionExecutionEnd,
     error: &'a buck2_data::action_execution_end::Error,
+    opts: TargetDisplayOptions,
 ) -> anyhow::Result<ActionErrorDisplay<'a>> {
     use buck2_data::action_execution_end::Error;
 
@@ -352,7 +389,7 @@ pub(crate) fn display_action_error<'a>(
     };
 
     Ok(ActionErrorDisplay {
-        action_id: display_action_identity(action.key.as_ref(), action.name.as_ref())?,
+        action_id: display_action_identity(action.key.as_ref(), action.name.as_ref(), opts)?,
         reason,
         command: command.map(Cow::Borrowed),
     })

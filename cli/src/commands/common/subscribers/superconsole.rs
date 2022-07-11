@@ -41,6 +41,7 @@ pub(crate) use superconsole::SuperConsole;
 use thiserror::Error;
 
 use crate::commands::common::subscribers::display;
+use crate::commands::common::subscribers::display::TargetDisplayOptions;
 use crate::commands::common::subscribers::simpleconsole::WhatRanCommandConsoleFormat;
 use crate::commands::common::subscribers::superconsole::debug_events::DebugEventsComponent;
 use crate::commands::common::subscribers::superconsole::debug_events::DebugEventsState;
@@ -404,7 +405,11 @@ impl EventSubscriber for StatefulSuperConsole {
                     action_id,
                     reason,
                     command,
-                } = display::display_action_error(action, error)?;
+                } = display::display_action_error(
+                    action,
+                    error,
+                    TargetDisplayOptions::for_console(),
+                )?;
 
                 lines.push(superconsole::line!(Span::new_styled_lossy(
                     StyledContent::new(
@@ -438,6 +443,7 @@ impl EventSubscriber for StatefulSuperConsole {
                             display::display_action_identity(
                                 action.key.as_ref(),
                                 action.name.as_ref(),
+                                TargetDisplayOptions::for_console(),
                             )?
                         ),
                     );

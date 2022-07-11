@@ -22,6 +22,7 @@ use superconsole::State;
 
 use crate::commands::common::subscribers::span_tracker::SpanInfo;
 use crate::commands::common::subscribers::superconsole::display;
+use crate::commands::common::subscribers::superconsole::display::TargetDisplayOptions;
 use crate::commands::common::subscribers::superconsole::timed_list::Cutoffs;
 
 #[derive(Debug)]
@@ -111,7 +112,7 @@ impl<'a, 'b> Push<'a, 'b> {
 
     pub(crate) fn span(self, span: &SpanInfo, time_speed: f64) -> anyhow::Result<()> {
         self.text(
-            display::display_event(&span.event)?,
+            display::display_event(&span.event, TargetDisplayOptions::for_console())?,
             display::duration_as_secs_elapsed(span.start.elapsed(), time_speed),
             span.start.elapsed(),
         )

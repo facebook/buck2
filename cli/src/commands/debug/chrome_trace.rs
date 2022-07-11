@@ -29,6 +29,7 @@ use serde_json::json;
 use thiserror::Error;
 use tokio::runtime;
 
+use crate::commands::common::subscribers::display::TargetDisplayOptions;
 use crate::commands::common::subscribers::event_log::EventLogPathBuf;
 use crate::commands::debug::replay::retrieve_nth_recent_log;
 
@@ -593,7 +594,8 @@ impl ChromeTraceWriter {
                                 analysis
                                     .target
                                     .as_ref()
-                                    .expect("AnalysisStart event missing 'target' field")
+                                    .expect("AnalysisStart event missing 'target' field"),
+                                TargetDisplayOptions::for_console()
                             )?,
                         );
                         self.open_named_span(event, name, Self::UNCATEGORIZED)?;
@@ -627,6 +629,7 @@ impl ChromeTraceWriter {
                         let name = display::display_action_identity(
                             action.key.as_ref(),
                             action.name.as_ref(),
+                            TargetDisplayOptions::for_console(),
                         )?;
                         self.open_named_span(event, name, track)?;
                     }

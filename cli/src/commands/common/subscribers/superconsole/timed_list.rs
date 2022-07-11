@@ -31,6 +31,7 @@ use crate::commands::common::subscribers::simpleconsole::ActionStats;
 use crate::commands::common::subscribers::span_tracker::SpanTracker;
 use crate::commands::common::subscribers::superconsole::common::HeaderLineComponent;
 use crate::commands::common::subscribers::superconsole::common::StaticStringComponent;
+use crate::commands::common::subscribers::superconsole::display::TargetDisplayOptions;
 use crate::commands::common::subscribers::superconsole::TimeSpeed;
 
 mod table_builder;
@@ -127,8 +128,14 @@ impl Component for TimedListBodyInner {
                         // always display the event and subaction
                         let mut builder = format!(
                             "{} [{}",
-                            display::display_event(&info.event)?,
-                            display::display_event(&child_info.event)?
+                            display::display_event(
+                                &info.event,
+                                TargetDisplayOptions::for_console()
+                            )?,
+                            display::display_event(
+                                &child_info.event,
+                                TargetDisplayOptions::for_console()
+                            )?
                         );
 
                         let subaction_ratio = child_info.start.elapsed().as_secs_f64()

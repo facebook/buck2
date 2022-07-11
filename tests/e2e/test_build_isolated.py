@@ -469,7 +469,7 @@ async def test_multiple_errors_print_with_simple_console(buck: Buck) -> None:
     assert_occurrences("RE Session: ", e.stderr, 1)
     assert_occurrences_regex("^BUILD FAILED", e.stderr, 1)
 
-    execution_error = "Action failed: {} (bin_false)"
+    execution_error = "Action failed: {} (<unspecified>) (bin_false)"
     assert_occurrences(execution_error.format("root//:foo"), e.stderr, 2)
     assert_occurrences(execution_error.format("root//:bar"), e.stderr, 2)
 
@@ -877,10 +877,10 @@ async def test_hybrid_executor_threshold(buck: Buck) -> None:
     # pyre-ignore[16]
     executors = {line["identity"]: line["reproducer"]["executor"] for line in out}
     expected = {
-        "root//executor_threshold_tests:big (head)": "Local",
-        "root//executor_threshold_tests:cp_big (cp)": "Local",
-        "root//executor_threshold_tests:small (head)": "Local",
-        "root//executor_threshold_tests:cp_small (cp)": "Re",
+        "root//executor_threshold_tests:big (<unspecified>) (head)": "Local",
+        "root//executor_threshold_tests:cp_big (<unspecified>) (cp)": "Local",
+        "root//executor_threshold_tests:small (<unspecified>) (head)": "Local",
+        "root//executor_threshold_tests:cp_small (<unspecified>) (cp)": "Re",
     }
     assert executors == expected
 

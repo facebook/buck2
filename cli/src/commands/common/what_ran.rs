@@ -13,6 +13,7 @@ use std::fmt;
 use gazebo::dupe::Dupe;
 
 use crate::commands::common::subscribers::display;
+use crate::commands::common::subscribers::display::TargetDisplayOptions;
 
 /// Options controlling what WhatRan produces.
 #[derive(Debug, Default, clap::Parser)]
@@ -183,6 +184,7 @@ fn emit<T: fmt::Display + Copy>(
             Cow::Owned(display::display_action_identity(
                 action.key.as_ref(),
                 action.name.as_ref(),
+                TargetDisplayOptions::for_log(),
             )?),
             None,
         ),
