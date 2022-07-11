@@ -4,6 +4,7 @@
 
 use buck2_docs_gen::Buck2Docs;
 use buck2_docs_gen::StarlarkObject;
+use buck2_docs_gen::StarlarkObjectDoc;
 use starlark::environment::MethodsBuilder;
 use starlark::starlark_module;
 use starlark::values::Value;
@@ -37,7 +38,12 @@ fn bar(builder: &mut MethodsBuilder) {
 }
 
 fn main() {
-    for (item, doc) in StarlarkObject::all_docs() {
-        println!("{}: {:?}", item, doc);
+    for StarlarkObjectDoc {
+        name,
+        directory: _directory,
+        item,
+    } in StarlarkObject::all_docs()
+    {
+        println!("{}: {:?}", name, item);
     }
 }

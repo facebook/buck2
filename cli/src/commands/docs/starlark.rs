@@ -5,7 +5,7 @@ use buck2_core::exit_result::ExitResult;
 use cli_proto::UnstableDocsRequest;
 use futures::FutureExt;
 use gazebo::dupe::Dupe;
-use starlark::values::docs::Doc;
+use gazebo::prelude::VecExt;
 
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
@@ -13,6 +13,7 @@ use crate::commands::common::CommonDaemonCommandOptions;
 use crate::commands::docs::starlark::markdown::generate_markdown_files;
 use crate::commands::docs::starlark::markdown::MarkdownFileOptions;
 use crate::daemon::client::BuckdClientConnector;
+use crate::daemon::docs::OutputDirAndDoc;
 use crate::CommandContext;
 use crate::StreamingCommand;
 
@@ -86,9 +87,11 @@ impl StreamingCommand for DocsStarlarkCommand {
             })
             .await???;
 
-        let docs: Vec<Doc> = serde_json::from_str(&response.docs_json)?;
+        let docs: Vec<OutputDirAndDoc> = serde_json::from_str(&response.docs_json)?;
         match self.format {
             DocsOutputFormatArg::Json => {
+                // There isn't a solid place for the output dir in the json output yet.
+                let docs = docs.into_map(|(_, doc)| doc);
                 serde_json::to_writer_pretty(std::io::stdout(), &docs)?;
             }
             DocsOutputFormatArg::MarkdownFiles => {

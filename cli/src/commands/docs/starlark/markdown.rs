@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 
+use buck2_docs_gen::OutputDirectory;
 use itertools::Itertools;
 use starlark::values::docs::Doc;
 use starlark::values::docs::DocItem;
@@ -13,6 +14,8 @@ use starlark::values::docs::Module;
 use starlark::values::docs::Object;
 use starlark::values::docs::Param;
 use starlark::values::docs::Type;
+
+use crate::daemon::docs::OutputDirAndDoc;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 pub(crate) struct MarkdownFileOptions {
@@ -30,7 +33,7 @@ pub(crate) struct MarkdownFileOptions {
 /// Does the heavy work of processing the docs and writing them to markdown files.
 pub(crate) fn generate_markdown_files(
     opts: &MarkdownFileOptions,
-    docs: Vec<Doc>,
+    docs: Vec<OutputDirAndDoc>,
 ) -> anyhow::Result<()> {
     let destination_dir = opts
         .destination_dir
@@ -38,8 +41,11 @@ pub(crate) fn generate_markdown_files(
         .expect("clap enforces when --format=markdown_files");
     let mut outputs = HashMap::new();
 
-    for doc in docs.into_iter().sorted_by(|l, r| l.id.name.cmp(&r.id.name)) {
-        let markdown_path = MarkdownOutput::markdown_path_for_doc(opts, &doc)?;
+    for (output_dir, doc) in docs
+        .into_iter()
+        .sorted_by(|l, r| l.1.id.name.cmp(&r.1.id.name))
+    {
+        let markdown_path = MarkdownOutput::markdown_path_for_doc(opts, &output_dir, &doc)?;
         let markdown_file = outputs
             .entry(markdown_path)
             .or_insert_with(MarkdownOutput::default);
@@ -389,16 +395,24 @@ impl MarkdownOutput {
     }
 
     /// Get the output path for the markdown for a given [`Doc`], whether it's in a starlark file, or a native symbol.
-    fn markdown_path_for_doc(opts: &MarkdownFileOptions, doc: &Doc) -> anyhow::Result<PathBuf> {
+    fn markdown_path_for_doc(
+        opts: &MarkdownFileOptions,
+        output_dir: &OutputDirectory,
+        doc: &Doc,
+    ) -> anyhow::Result<PathBuf> {
+        let subdir = output_dir.path();
         let path = match &doc.id.location {
             Some(loc) => opts
                 .starlark_subdir
+                .join(&subdir)
                 .join(Self::path_from_location(&loc.path)?),
             None => match &doc.item {
                 // Functions all go in one file. Objects get their on file (e.g. each provider,
                 // Artifact, etc)
-                DocItem::Module(_) | DocItem::Function(_) => opts.native_subdir.join("native"),
-                DocItem::Object(_) => opts.native_subdir.join(&doc.id.name),
+                DocItem::Module(_) | DocItem::Function(_) => {
+                    opts.native_subdir.join(&subdir).join("native")
+                }
+                DocItem::Object(_) => opts.native_subdir.join(&subdir).join(&doc.id.name),
             },
         };
         let path = path.with_extension(match path.extension() {
@@ -411,6 +425,7 @@ impl MarkdownOutput {
 
 #[cfg(test)]
 mod tests {
+    use gazebo::prelude::VecExt;
     use starlark::values::docs::*;
 
     use super::*;
@@ -544,6 +559,7 @@ mod tests {
         let expected = maplit::hashmap! {
             "native/native.md" => test_data!("native/native.md"),
             "native/SomeInfo.md" => test_data!("native/SomeInfo.md"),
+            "native/namespaced/OtherInfo.md" => test_data!("native/namespaced/OtherInfo.md"),
             "starlark/cell/foo/bar/baz.bzl.md" => test_data!("starlark/cell/foo/bar/baz.bzl.md"),
         };
 
@@ -734,6 +750,21 @@ mod tests {
                 }),
             },
         ];
+        let mut sample_data = sample_data.into_map(|d| (OutputDirectory::default(), d));
+        // Small module, but in a subdir
+        sample_data.push((
+            OutputDirectory::try_from_string("namespaced").unwrap(),
+            Doc {
+                id: Identifier {
+                    name: "OtherInfo".to_owned(),
+                    location: None,
+                },
+                item: DocItem::Object(Object {
+                    docs: simple_docstring("OtherInfo", true),
+                    members: vec![],
+                }),
+            },
+        ));
 
         let temp = tempfile::tempdir()?;
 

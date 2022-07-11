@@ -64,6 +64,7 @@ fn render(input: DeriveInput, opts: DocDeriveOptions) -> syn::Result<TokenStream
                 buck2_docs_gen::StarlarkObject {
                     name: #doc_name,
                     module: Box::new(#gen_docs_fun),
+                    directory: Default::default(),
                 }
             }
         }

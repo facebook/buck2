@@ -25,6 +25,7 @@ use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellName;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::Package;
+use buck2_docs_gen::OutputDirectory;
 use buck2_docs_gen::StarlarkObject;
 use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::dice::calculation::DiceCalculationDelegate;
@@ -44,6 +45,9 @@ use starlark::values::docs::Identifier;
 use starlark::values::StarlarkValue;
 
 use crate::daemon::server::ServerCommandContext;
+
+/// Quick wrapper around docs and the directory each should be written into.
+pub(crate) type OutputDirAndDoc = (OutputDirectory, Doc);
 
 fn parse_import_paths(
     cell_resolver: &CellAliasResolver,
@@ -70,25 +74,35 @@ fn parse_import_paths(
         .collect()
 }
 
-fn builtin_doc(name: &str, item: DocItem) -> Doc {
-    Doc {
-        id: Identifier {
-            name: name.to_owned(),
-            location: None,
+fn builtin_doc<S: ToString>(name: S, directory: OutputDirectory, item: DocItem) -> OutputDirAndDoc {
+    (
+        directory,
+        Doc {
+            id: Identifier {
+                name: name.to_string(),
+                location: None,
+            },
+            item,
         },
-        item,
-    }
+    )
 }
 
-fn get_builtin_global_starlark_docs() -> Doc {
+fn get_builtin_global_starlark_docs() -> OutputDirAndDoc {
     let globals = Globals::extended();
-    builtin_doc("builtins", globals.documentation())
+    builtin_doc(
+        "builtins",
+        OutputDirectory::default(),
+        globals.documentation(),
+    )
 }
 
-fn get_builtin_provider_docs() -> Vec<Doc> {
+fn get_builtin_provider_docs() -> Vec<OutputDirAndDoc> {
+    let provider_directory = OutputDirectory::try_from_string("providers").unwrap();
     ProviderCallable::builtin_provider_documentation()
         .into_iter()
-        .filter_map(|(name, docs)| docs.map(|item| builtin_doc(&name, item)))
+        .filter_map(|(name, docs)| {
+            docs.map(|item| builtin_doc(name, provider_directory.clone(), item))
+        })
         .collect()
 }
 
@@ -96,7 +110,7 @@ fn get_builtin_provider_docs() -> Vec<Doc> {
 fn get_builtin_build_docs(
     cell_alias_resolver: CellAliasResolver,
     interpreter_state: Arc<GlobalInterpreterState>,
-) -> anyhow::Result<Doc> {
+) -> anyhow::Result<OutputDirAndDoc> {
     let globals = Globals::extended();
     let interpreter_config = InterpreterConfigForCell::new(cell_alias_resolver, interpreter_state)?;
     let cleaned_build = match interpreter_config
@@ -114,10 +128,14 @@ fn get_builtin_build_docs(
         }
         item => item,
     };
-    Ok(builtin_doc("build", cleaned_build))
+    Ok(builtin_doc(
+        "build",
+        OutputDirectory::default(),
+        cleaned_build,
+    ))
 }
 
-fn get_artifact_docs() -> Option<Doc> {
+fn get_artifact_docs() -> Option<OutputDirAndDoc> {
     let pkg = Package::new(
         &CellName::unchecked_new("".to_owned()),
         CellRelativePath::unchecked_new("__native__"),
@@ -130,30 +148,34 @@ fn get_artifact_docs() -> Option<Doc> {
     ))));
     artifact
         .documentation()
-        .map(|artifact_docs| builtin_doc("Artifact", artifact_docs))
+        .map(|artifact_docs| builtin_doc("Artifact", OutputDirectory::default(), artifact_docs))
 }
 
-fn get_ctx_docs() -> Vec<Doc> {
+fn get_ctx_docs() -> Vec<OutputDirAndDoc> {
     let mut docs = vec![];
     // Grab the 'ctx', and 'ctx.actions' structs from analysis
     let ctx = AnalysisContext::ctx_documentation();
     if let Some(ctx_docs) = ctx.context {
-        docs.push(builtin_doc("ctx", ctx_docs));
+        docs.push(builtin_doc("ctx", OutputDirectory::default(), ctx_docs));
     }
     if let Some(actions_docs) = ctx.actions {
-        docs.push(builtin_doc("ctx.actions", actions_docs));
+        docs.push(builtin_doc(
+            "ctx.actions",
+            OutputDirectory::default(),
+            actions_docs,
+        ));
     }
     docs
 }
 
-fn get_generated_docs() -> impl Iterator<Item = Doc> {
-    StarlarkObject::all_docs().map(|(n, doc)| builtin_doc(n, doc))
+fn get_generated_docs() -> impl Iterator<Item = OutputDirAndDoc> {
+    StarlarkObject::all_docs().map(|doc| builtin_doc(doc.name, doc.directory, doc.item))
 }
 
 fn get_builtin_docs(
     cell_alias_resolver: CellAliasResolver,
     interpreter_state: Arc<GlobalInterpreterState>,
-) -> anyhow::Result<Vec<Doc>> {
+) -> anyhow::Result<Vec<OutputDirAndDoc>> {
     let mut all_builtins = vec![
         get_builtin_global_starlark_docs(),
         get_builtin_build_docs(cell_alias_resolver, interpreter_state)?,
@@ -173,7 +195,7 @@ fn get_builtin_docs(
 async fn get_docs_from_module(
     interpreter_calc: &DiceCalculationDelegate<'_>,
     import_path: ImportPath,
-) -> anyhow::Result<Vec<Doc>> {
+) -> anyhow::Result<Vec<OutputDirAndDoc>> {
     // Do this so that we don't get the '@' in the display if we're printing targets from a
     // different cell root. i.e. `//foo:bar.bzl`, rather than `//foo:bar.bzl @ fbsource`
     let import_path_string = format!(
@@ -190,30 +212,36 @@ async fn get_docs_from_module(
     let mut docs = vec![];
 
     if let Some(module_doc) = module_docs.module {
-        docs.push(Doc {
-            id: Identifier {
-                name: import_path_string.clone(),
-                location: Some(starlark::values::docs::Location {
-                    path: import_path_string.clone(),
-                    position: None,
-                }),
-            },
-            item: module_doc,
-        });
-    }
-    docs.extend(module_docs.members.into_iter().filter_map(|(symbol, d)| {
-        d.map(|doc_item| {
+        docs.push((
+            OutputDirectory::default(),
             Doc {
-                // TODO(nmj): Map this back into the codemap to get a line/column
                 id: Identifier {
-                    name: symbol,
+                    name: import_path_string.clone(),
                     location: Some(starlark::values::docs::Location {
                         path: import_path_string.clone(),
                         position: None,
                     }),
                 },
-                item: doc_item,
-            }
+                item: module_doc,
+            },
+        ));
+    }
+    docs.extend(module_docs.members.into_iter().filter_map(|(symbol, d)| {
+        d.map(|doc_item| {
+            (
+                OutputDirectory::default(),
+                Doc {
+                    // TODO(nmj): Map this back into the codemap to get a line/column
+                    id: Identifier {
+                        name: symbol,
+                        location: Some(starlark::values::docs::Location {
+                            path: import_path_string.clone(),
+                            position: None,
+                        }),
+                    },
+                    item: doc_item,
+                },
+            )
         })
     }));
 
