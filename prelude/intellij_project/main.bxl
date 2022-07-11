@@ -8,9 +8,7 @@ def _impl(ctx):
     final_output_dir_dict = {}
     action_factory = ctx.bxl_actions.action_factory()
 
-    # TODO(T124427198) move configured_sub_target to modules.bxl once it is available there
-    nodes_and_targets = [(node, configured_sub_target(node.label)) for node in all_nodes]
-    modules = get_modules(nodes_and_targets, all_analysis)
+    modules = get_modules(all_nodes, all_analysis)
 
     file_names = []
     for _, module in modules.items():
