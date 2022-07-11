@@ -51,7 +51,7 @@ def _configured_alias_impl(ctx):
     return ctx.attrs.actual.providers
 
 configured_alias_impl = rule(
-    implementation = _configured_alias_impl,
+    impl = _configured_alias_impl,
     attrs = {
         "actual": attrs.configured_dep(),
     }
