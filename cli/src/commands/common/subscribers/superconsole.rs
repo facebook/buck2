@@ -484,8 +484,9 @@ impl EventSubscriber for StatefulSuperConsole {
     ) -> anyhow::Result<()> {
         self.state.test_state.update(result)?;
         if let Some(super_console) = &mut self.super_console {
-            let msg = display::format_test_result(result)?;
-            super_console.emit(msg);
+            if let Some(msg) = display::format_test_result(result)? {
+                super_console.emit(msg);
+            }
         }
 
         Ok(())

@@ -352,11 +352,15 @@ async def test_tcp(buck: Buck) -> None:
 if not is_deployed_buck2():
 
     @buck_test(inplace=True, data_dir="..")
-    async def test_passing_test_names_are_shown(buck: Buck) -> None:
+    async def test_passing_test_names_are_not_shown(buck: Buck) -> None:
+        # Passing test headers are not shown unless we pass --print-passing-details explicitly.
         tests = await buck.test(
             "fbcode//buck2/tests/targets/rules/python/test:test",
         )
-        assert "Pass: buck2/tests/targets/rules/python/test:test - test" in tests.stderr
+        assert (
+            "Pass: buck2/tests/targets/rules/python/test:test - test"
+            not in tests.stderr
+        )
 
     @buck_test(inplace=True, data_dir="..")
     async def test_failing_test_names_are_shown(buck: Buck) -> None:
@@ -372,20 +376,25 @@ if not is_deployed_buck2():
 
     @buck_test(inplace=True, data_dir="..")
     async def test_no_print_passing_details(buck: Buck) -> None:
-        # Without --print-passing-details, test stdout is NOT displayed.
+        # Without --print-passing-details, test headers and stdout is NOT displayed.
         tests = await buck.test(
             "fbcode//buck2/tests/targets/rules/python/test:test",
+        )
+        assert (
+            "Pass: buck2/tests/targets/rules/python/test:test - test"
+            not in tests.stderr
         )
         assert "TESTED!" not in tests.stderr
 
     @buck_test(inplace=True, data_dir="..")
     async def test_print_passing_details(buck: Buck) -> None:
-        # With --print-passing-details, test stdout is displayed.
+        # With --print-passing-details, test headers and stdout is displayed.
         tests = await buck.test(
             "fbcode//buck2/tests/targets/rules/python/test:test",
             "--",
             "--print-passing-details",
         )
+        assert "Pass: buck2/tests/targets/rules/python/test:test - test" in tests.stderr
         assert "TESTED!" in tests.stderr
 
     @buck_test(inplace=True, data_dir="..")

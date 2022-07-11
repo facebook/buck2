@@ -496,14 +496,15 @@ impl EventSubscriber for SimpleConsole {
         result: &buck2_data::TestResult,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        let msg = display::format_test_result(result)?;
-        let mut buffer: Vec<u8> = Vec::new();
+        if let Some(msg) = display::format_test_result(result)? {
+            let mut buffer: Vec<u8> = Vec::new();
 
-        for line in msg {
-            line.render(&mut buffer)?;
+            for line in msg {
+                line.render(&mut buffer)?;
+            }
+            //Printing the test output in multiple lines. It makes easier for the user to read.
+            echo!("{}", Self::sanitize_output_colors(&buffer))?;
         }
-        //Printing the test output in multiple lines. It makes easier for the user to read.
-        echo!("{}", Self::sanitize_output_colors(&buffer))?;
 
         Ok(())
     }

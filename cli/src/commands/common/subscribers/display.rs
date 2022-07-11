@@ -301,7 +301,9 @@ pub(crate) fn duration_as_secs_elapsed(elapsed: Duration, time_speed: f64) -> St
     format!("{:.1}s", elapsed.mul_f64(time_speed).as_secs_f64())
 }
 
-pub(crate) fn format_test_result(test_result: &buck2_data::TestResult) -> anyhow::Result<Lines> {
+pub(crate) fn format_test_result(
+    test_result: &buck2_data::TestResult,
+) -> anyhow::Result<Option<Lines>> {
     let buck2_data::TestResult {
         name,
         status,
@@ -310,6 +312,14 @@ pub(crate) fn format_test_result(test_result: &buck2_data::TestResult) -> anyhow
         ..
     } = test_result;
     let status = TestStatus::try_from(*status)?;
+
+    // Pass results normally have no details, unless the --print-passing-details is set.
+    // Do not display anything for passing tests unless details are present to avoid
+    // cluttering the UI with unimportant test results.
+    if matches!(&status, TestStatus::PASS | TestStatus::LISTING_SUCCESS) && details.is_empty() {
+        return Ok(None);
+    }
+
     let prefix = match status {
         TestStatus::FAIL => Span::new_styled("✗ Fail".to_owned().red()),
         TestStatus::SKIP => Span::new_styled("↷ Skip".to_owned().cyan()),
@@ -345,7 +355,7 @@ pub(crate) fn format_test_result(test_result: &buck2_data::TestResult) -> anyhow
             Default::default(),
         ));
     }
-    Ok(lines)
+    Ok(Some(lines))
 }
 
 pub struct ActionErrorDisplay<'a> {
