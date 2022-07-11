@@ -36,7 +36,7 @@ use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 
 #[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize, Buck2Docs)]
 #[derivative(Debug)]
-#[buck2_docs(fs_operations)]
+#[buck2_docs(fs_operations, directory = "bxl")]
 #[display(fmt = "{:?}", self)]
 pub struct BxlFilesystem<'v> {
     #[trace(unsafe_ignore)]

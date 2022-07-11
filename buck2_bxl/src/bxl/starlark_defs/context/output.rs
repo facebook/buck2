@@ -48,7 +48,7 @@ use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable
 
 #[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize, Buck2Docs)]
 #[display(fmt = "{:?}", self)]
-#[buck2_docs(register_output_stream)]
+#[buck2_docs(register_output_stream, directory = "bxl")]
 #[derivative(Debug)]
 pub struct OutputStream<'v> {
     #[derivative(Debug = "ignore")]

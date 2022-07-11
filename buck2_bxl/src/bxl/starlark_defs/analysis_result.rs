@@ -15,7 +15,7 @@ use starlark::values::StarlarkValue;
 
 #[derive(ProvidesStaticType, Debug, Display, NoSerialize, Buck2Docs)]
 #[display(fmt = "{:?}", self)]
-#[buck2_docs(starlark_analysis_result_methods)]
+#[buck2_docs(starlark_analysis_result_methods, directory = "bxl")]
 pub struct StarlarkAnalysisResult {
     analysis: AnalysisResult,
     label: ConfiguredProvidersLabel,

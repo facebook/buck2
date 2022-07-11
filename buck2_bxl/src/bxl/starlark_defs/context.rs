@@ -76,7 +76,7 @@ pub mod starlark_async;
 /// The bxl context that the top level bxl implementation receives as parameter.
 /// This context contains all the core bxl functions to query, build, create actions, etc.
 #[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize, Buck2Docs)]
-#[buck2_docs(register_context)]
+#[buck2_docs(register_context, directory = "bxl")]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 pub struct BxlContext<'v> {

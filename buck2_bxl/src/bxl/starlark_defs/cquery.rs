@@ -45,7 +45,7 @@ use crate::bxl::value_as_starlak_target_label::ValueAsStarlarkTargetLabel;
 /// The context for performing `cquery` operations in bxl. The functions offered on this ctx are
 /// the same behaviour as the query functions available within cquery command.
 #[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize, Buck2Docs)]
-#[buck2_docs(register_cquery, name = "cqueryctx")]
+#[buck2_docs(register_cquery, name = "cqueryctx", directory = "bxl")]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 pub struct StarlarkCQueryCtx<'v> {

@@ -37,7 +37,7 @@ enum BxlActionsError {
 }
 
 #[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize, Buck2Docs)]
-#[buck2_docs(register_context, name = "bxl_actions")]
+#[buck2_docs(register_context, name = "bxl_actions", directory = "bxl")]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 pub(crate) struct BxlActionsCtx<'v> {
