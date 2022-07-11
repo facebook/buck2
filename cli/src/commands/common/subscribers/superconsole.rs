@@ -48,7 +48,6 @@ use crate::commands::common::subscribers::superconsole::debug_events::DebugEvent
 use crate::commands::common::subscribers::superconsole::dice::DiceComponent;
 use crate::commands::common::subscribers::superconsole::dice::DiceState;
 use crate::commands::common::subscribers::superconsole::re::ReHeader;
-use crate::commands::common::subscribers::superconsole::re::ReState;
 use crate::commands::common::subscribers::superconsole::test::TestState;
 use crate::commands::common::subscribers::superconsole::timed_list::Cutoffs;
 use crate::commands::common::subscribers::superconsole::timed_list::TimedList;
@@ -63,7 +62,7 @@ use crate::commands::common::what_ran::WhatRanOutputWriter;
 mod common;
 pub mod debug_events;
 pub mod dice;
-pub mod re;
+mod re;
 pub mod test;
 pub mod timed_list;
 
@@ -118,7 +117,6 @@ struct SuperConsoleState {
     time_speed: TimeSpeed,
     dice_state: DiceState,
     debug_events: DebugEventsState,
-    re_state: ReState,
     /// This contains the SpanTracker, which is why it's part of the SuperConsoleState.
     simple_console: SimpleConsole,
 }
@@ -191,7 +189,6 @@ impl StatefulSuperConsole {
                 time_speed: TimeSpeed::new(replay_speed)?,
                 simple_console: SimpleConsole::with_tty(verbosity),
                 dice_state: DiceState::new(),
-                re_state: ReState::new(),
                 debug_events: DebugEventsState::new(),
             },
             super_console: Some(super_console),
@@ -227,7 +224,7 @@ impl SuperConsoleState {
             &self.current_tick,
             &self.time_speed,
             &self.dice_state,
-            &self.re_state,
+            self.simple_console.re_state(),
             &self.debug_events,
         ]
     }
@@ -351,7 +348,10 @@ impl EventSubscriber for StatefulSuperConsole {
         session: &buck2_data::RemoteExecutionSessionCreated,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        self.state.re_state.add_re_session(session);
+        self.state
+            .simple_console
+            .re_state_mut()
+            .add_re_session(session);
         Ok(())
     }
 
@@ -504,7 +504,7 @@ impl EventSubscriber for StatefulSuperConsole {
         update: &buck2_data::Snapshot,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        self.state.re_state.update(update);
+        self.state.simple_console.re_state_mut().update(update);
         Ok(())
     }
 }

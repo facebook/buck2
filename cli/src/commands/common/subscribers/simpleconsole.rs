@@ -27,6 +27,7 @@ use termwiz::escape::ControlCode;
 
 use crate::commands::common::subscribers::display;
 use crate::commands::common::subscribers::display::TargetDisplayOptions;
+use crate::commands::common::subscribers::re::ReState;
 use crate::commands::common::subscribers::span_tracker::SpanTracker;
 use crate::commands::common::verbosity::Verbosity;
 use crate::commands::common::what_ran;
@@ -202,6 +203,7 @@ pub(crate) struct SimpleConsole {
     last_print_time: Instant,
     test_session: Option<String>,
     action_stats: ActionStats,
+    re_state: ReState,
 }
 
 impl SimpleConsole {
@@ -214,6 +216,7 @@ impl SimpleConsole {
             last_print_time: Instant::now(),
             test_session: None,
             action_stats: ActionStats::default(),
+            re_state: ReState::new(),
         }
     }
 
@@ -226,6 +229,7 @@ impl SimpleConsole {
             last_print_time: Instant::now(),
             test_session: None,
             action_stats: ActionStats::default(),
+            re_state: ReState::new(),
         }
     }
 
@@ -247,6 +251,14 @@ impl SimpleConsole {
 
     pub(crate) fn action_stats_mut(&mut self) -> &mut ActionStats {
         &mut self.action_stats
+    }
+
+    pub(crate) fn re_state(&self) -> &ReState {
+        &self.re_state
+    }
+
+    pub(crate) fn re_state_mut(&mut self) -> &mut ReState {
+        &mut self.re_state
     }
 
     pub(crate) async fn update_span_tracker(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
@@ -366,12 +378,14 @@ impl EventSubscriber for SimpleConsole {
                 self.action_stats.remote_actions,
                 self.action_stats.local_actions
             )?;
-            self.notify_printed();
+        }
+
+        if let Some(re) = &self.re_state.render() {
+            echo!("{}", re)?;
         }
 
         if let Some(info) = &self.test_session {
             echo!("Test session: {}", info)?;
-            self.notify_printed();
         }
 
         Ok(())
@@ -390,6 +404,7 @@ impl EventSubscriber for SimpleConsole {
         session: &buck2_data::RemoteExecutionSessionCreated,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
+        self.re_state_mut().add_re_session(session);
         let message = format!("RE Session: {}", session.session_id);
         self.handle_stderr(&message).await
     }
@@ -539,6 +554,15 @@ impl EventSubscriber for SimpleConsole {
         let mut stdout = stdout.lock();
         lsp_message.write(&mut stdout)?;
         stdout.flush()?;
+        Ok(())
+    }
+
+    async fn handle_snapshot(
+        &mut self,
+        update: &buck2_data::Snapshot,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        self.re_state_mut().update(update);
         Ok(())
     }
 }
