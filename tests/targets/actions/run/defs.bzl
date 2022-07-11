@@ -30,7 +30,7 @@ def _run_command_impl(ctx):
     return None
 
 run_command = rule(
-    implementation = _run_command_impl,
+    impl = _run_command_impl,
     attrs = {
         "other_src": attr.option(attr.source()),
         "out": attr.string(default = "out.txt"),

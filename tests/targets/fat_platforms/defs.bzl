@@ -11,7 +11,7 @@ def _fat_binary_impl(ctx):
     ]
 
 fat_binary = rule(
-    implementation = _fat_binary_impl,
+    impl = _fat_binary_impl,
     attrs = {
         "bin": attr.split_transition_dep(cfg = fat_platform_transition),
         "main": attr.source(),
@@ -31,7 +31,7 @@ def _test_fat_binary_impl(ctx):
     return [DefaultInfo(default_outputs = [combined])]
 
 test_fat_binary = rule(
-    implementation = _test_fat_binary_impl,
+    impl = _test_fat_binary_impl,
     attrs = {
         "cat_main": attr.source(),
         "fat_bin": attr.exec_dep(providers = [RunInfo]),

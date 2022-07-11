@@ -5,7 +5,7 @@ def _installer_impl(ctx: "context") -> ["provider"]:
     expect(run_info != None, "installer tool executable must have a RunInfo!")
     return [DefaultInfo(), InstallInfo(installer = run_info, files = ctx.attr.files)]
 
-installer = rule(implementation = _installer_impl, attrs = {
+installer = rule(impl = _installer_impl, attrs = {
     "files": attr.dict(key = attr.string(), value = attr.source(), default = {}),
     "installer": attr.option(attr.dep(), default = None),
 })

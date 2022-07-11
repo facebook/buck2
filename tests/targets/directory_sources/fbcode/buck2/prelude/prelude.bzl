@@ -4,7 +4,7 @@ def _test_impl(ctx):
     ]
 
 test = rule(
-    implementation = _test_impl,
+    impl = _test_impl,
     attrs = {
         "src": attr.source(allow_directory = True),
     },

@@ -8,7 +8,7 @@ def _test_parse_codesign_entitlements(ctx):
     return [DefaultInfo()]
 
 test_parse_code_sign_entitlements = rule(
-    implementation = _test_parse_codesign_entitlements,
+    impl = _test_parse_codesign_entitlements,
     attrs = {
         "expected_code_sign_entitlements": attr.option(attr.string()),
         "info_plist_substitutions": attr.option(attr.dict(key = attr.string(), value = attr.string())),

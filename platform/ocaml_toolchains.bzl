@@ -102,7 +102,7 @@ def _config_backed_ocaml_toolchain_rule_impl(ctx):
     ]
 
 _config_backed_ocaml_toolchain_rule = rule(
-    implementation = _config_backed_ocaml_toolchain_rule_impl,
+    impl = _config_backed_ocaml_toolchain_rule_impl,
     attrs = {
         "binutils_ld": attr.dep(default = "fbcode//third-party-buck/platform010/build/binutils:bin/ld"),
         "debug": attr.dep(providers = [RunInfo]),

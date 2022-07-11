@@ -292,7 +292,7 @@ def config_backed_cxx_toolchain(name, flavor, **kwargs):
     )
 
 _config_backed_cxx_toolchain_rule = rule(
-    implementation = _config_backed_toolchain_impl,
+    impl = _config_backed_toolchain_impl,
     attrs = {k: v.attr_type for (k, v) in _buckconfig_cxx_toolchain_attrs.items()},
 )
 
@@ -404,7 +404,7 @@ def _cxx_toolchain_override(ctx):
     )
 
 cxx_toolchain_override = rule(
-    implementation = _cxx_toolchain_override,
+    impl = _cxx_toolchain_override,
     attrs = {
         "archive_objects_locally": attr.option(attr.bool()),
         "archiver": attr.option(attr.dep(providers = [RunInfo])),
@@ -452,7 +452,7 @@ def _cxx_hacks_impl(_ctx):
     )]
 
 cxx_hacks = rule(
-    implementation = _cxx_hacks_impl,
+    impl = _cxx_hacks_impl,
     attrs = {
     },
 )

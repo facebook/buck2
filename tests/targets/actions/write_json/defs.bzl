@@ -86,7 +86,7 @@ def _write_json_test_impl(ctx: "context") -> ["provider"]:
             return [DefaultInfo(default_outputs = [output_file])]
     fail("Test named " + want + " not found")
 
-write_json_test = rule(implementation = _write_json_test_impl, attrs = {})
+write_json_test = rule(impl = _write_json_test_impl, attrs = {})
 
 def test():
     for name, _, _ in tests:

@@ -25,7 +25,7 @@ def _impl(ctx: "context") -> ["provider"]:
 
 registration_spec = RuleRegistrationSpec(
     name = "extract_archive",
-    implementation = _impl,
+    impl = _impl,
     attributes = {
         # .tar.gz archive with the contents of the result directory
         "contents_archive": attr.source(),

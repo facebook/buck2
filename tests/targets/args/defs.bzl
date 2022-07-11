@@ -29,19 +29,19 @@ def _binary_impl(ctx):
     ]
 
 foo_toolchain = rule(
-    implementation = _toolchain_impl,
+    impl = _toolchain_impl,
     attrs = {},
 )
 
 foo_library = rule(
-    implementation = _library_impl,
+    impl = _library_impl,
     attrs = {
         "flags": attr.list(attr.arg()),
     },
 )
 
 foo_binary = rule(
-    implementation = _binary_impl,
+    impl = _binary_impl,
     attrs = {
         "flags": attr.list(attr.arg()),
         "_toolchains": attr.list(attr.dep(), default = ["//:toolchain"]),

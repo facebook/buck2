@@ -4,7 +4,7 @@ def _dummy_binary_impl(ctx):
     return [DefaultInfo(default_outputs=[out])]
 
 <rule>dummy_binary</rule> = rule(
-    implementation=dummy_binary_impl,
+    impl=dummy_binary_impl,
     attrs={
         "deps": attr.list(attr.dep(), default=[])
     }

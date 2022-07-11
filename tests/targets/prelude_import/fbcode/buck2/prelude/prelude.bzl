@@ -8,4 +8,4 @@ def _check_config_impl(_ctx):
         fail("Unexpected config!")
     return [DefaultInfo()]
 
-check_config = rule(attrs = {}, implementation = _check_config_impl)
+check_config = rule(attrs = {}, impl = _check_config_impl)

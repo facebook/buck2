@@ -21,7 +21,7 @@ def _copy_file_impl(ctx):
         fail("invalid test")
 
 copy_file = rule(
-    implementation = _copy_file_impl,
+    impl = _copy_file_impl,
     attrs = {
         "out": attr.string(),
         "src": attr.source(),

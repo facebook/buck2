@@ -15,7 +15,7 @@ def _test_parse_build_target_pattern_impl(ctx):
     return [DefaultInfo()]
 
 test_parse_build_target_pattern = rule(
-    implementation = _test_parse_build_target_pattern_impl,
+    impl = _test_parse_build_target_pattern_impl,
     attrs = {
         "patterns": attr.dict(key = attr.string(), value = attr.dict(key = attr.string(), value = attr.option(attr.string()))),
     },
@@ -29,7 +29,7 @@ def _test_label_matches_build_target_pattern(ctx):
     return [DefaultInfo()]
 
 test_label_matches_build_target_pattern = rule(
-    implementation = _test_label_matches_build_target_pattern,
+    impl = _test_label_matches_build_target_pattern,
     attrs = {
         "patterns": attr.dict(key = attr.string(), value = attr.bool()),
     },
@@ -43,7 +43,7 @@ def _test_parse_build_target_pattern_fail(ctx):
     ))
 
 test_parse_build_target_pattern_fail = rule(
-    implementation = _test_parse_build_target_pattern_fail,
+    impl = _test_parse_build_target_pattern_fail,
     attrs = {
         "pattern": attr.string(),
     },
@@ -60,7 +60,7 @@ def _test_expect(ctx):
     return [DefaultInfo()]
 
 test_expect = rule(
-    implementation = _test_expect,
+    impl = _test_expect,
     attrs = {
         "arg_1": attr.option(attr.string(), default = None),
         "arg_2": attr.option(attr.string(), default = None),

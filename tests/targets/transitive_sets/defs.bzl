@@ -34,7 +34,7 @@ def _test_impl(ctx):
     ]
 
 test = rule(
-    implementation = _test_impl,
+    impl = _test_impl,
     attrs = {
         "deps": attr.list(attr.dep(providers = [NameInfo]), default = []),
     },

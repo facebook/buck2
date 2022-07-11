@@ -15,7 +15,7 @@ def _platform_impl(ctx):
     ]
 
 foo_platform = rule(
-    implementation = _platform_impl,
+    impl = _platform_impl,
     attrs = {},
 )
 
@@ -23,7 +23,7 @@ def _config_setting_impl(_ctx):
     return [DefaultInfo(), ConfigurationInfo(constraints = {}, values = {})]
 
 foo_config_setting = rule(
-    implementation = _config_setting_impl,
+    impl = _config_setting_impl,
     attrs = {},
 )
 
@@ -34,7 +34,7 @@ def _binary_impl(ctx):
     return [DefaultInfo(), RunInfo(args = []), FooInfo(foo = ctx.attr.name + "_foo")]
 
 _foo_library = rule(
-    implementation = _impl,
+    impl = _impl,
     attrs = {
         "cmd": attr.list(attr.arg(), default = []),
         "deps": attr.list(attr.dep(), default = []),
@@ -46,7 +46,7 @@ _foo_library = rule(
 )
 
 _foo_binary = rule(
-    implementation = _binary_impl,
+    impl = _binary_impl,
     attrs = {
         "cmd": attr.list(attr.arg(), default = []),
         "deps": attr.list(attr.dep(), default = []),
@@ -57,7 +57,7 @@ _foo_binary = rule(
 )
 
 _foo_genrule = rule(
-    implementation = _binary_impl,
+    impl = _binary_impl,
     attrs = {
         "cmd": attr.arg(),
         "description": attr.string(default = ""),

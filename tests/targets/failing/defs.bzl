@@ -8,6 +8,6 @@ def _failing_binary_impl(ctx: "context"):
     return [DefaultInfo(default_outputs = [out])]
 
 failing_binary = rule(
-    implementation = _failing_binary_impl,
+    impl = _failing_binary_impl,
     attrs = {"src": attr.option(attr.source(allow_directory = True))},
 )

@@ -38,7 +38,7 @@ def _platform(ctx):
     ]
 
 platform = rule(
-    implementation = _platform,
+    impl = _platform,
     attrs = {
         "allow_hybrid_fallbacks_on_failure": attr.bool(default = False),
         "setting": attr.configuration_label(),
@@ -55,7 +55,7 @@ def _platforms(ctx):
     ]
 
 platforms = rule(
-    implementation = _platforms,
+    impl = _platforms,
     attrs = {
         "platforms": attr.list(attr.dep(providers = [ExecutionPlatformInfo])),
     },
@@ -71,7 +71,7 @@ def _target_platform(ctx):
     ]
 
 target_platform = rule(
-    implementation = _target_platform,
+    impl = _target_platform,
     attrs = {},
 )
 
@@ -79,7 +79,7 @@ def _config_setting(ctx):
     return [DefaultInfo(), ConstraintSettingInfo(label = ctx.label.raw_target())]
 
 config_setting = rule(
-    implementation = _config_setting,
+    impl = _config_setting,
     attrs = {},
 )
 
@@ -99,7 +99,7 @@ def _file_impl(ctx):
     )
     return [DefaultInfo(default_outputs = [out])]
 
-file = rule(implementation = _file_impl, attrs = {"file_size": attr.int()})
+file = rule(impl = _file_impl, attrs = {"file_size": attr.int()})
 
 def _cp_impl(ctx):
     out = ctx.actions.declare_output("out")
@@ -113,7 +113,7 @@ def _cp_impl(ctx):
     )
     return [DefaultInfo(default_outputs = [out])]
 
-cp = rule(implementation = _cp_impl, attrs = {"file": attr.dep()})
+cp = rule(impl = _cp_impl, attrs = {"file": attr.dep()})
 
 def _command_impl(ctx):
     out = ctx.actions.declare_output("out")
@@ -126,4 +126,4 @@ def _command_impl(ctx):
     )
     return [DefaultInfo(default_outputs = [out])]
 
-command = rule(implementation = _command_impl, attrs = {"command": attr.source()})
+command = rule(impl = _command_impl, attrs = {"command": attr.source()})

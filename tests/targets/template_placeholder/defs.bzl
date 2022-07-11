@@ -33,7 +33,7 @@ def _combiner(ctx):
     ]
 
 combiner = rule(
-    implementation = _combiner,
+    impl = _combiner,
     attrs = {
         "children": attr.list(attr.dep(), default = []),
         "extra_value": attr.option(attr.dep()),
@@ -65,7 +65,7 @@ def _tester(ctx):
     return [DefaultInfo()]
 
 tester = rule(
-    implementation = _tester,
+    impl = _tester,
     attrs = {
         "expected": attr.list(attr.dep()),
         "query": attr.query(),

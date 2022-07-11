@@ -36,7 +36,7 @@ def _mk_rule(name: str.type, attrs: {str.type: "attribute"}) -> "rule":
         attrs["_cxx_toolchain_target_configuration"] = attr.dep(default = "fbcode//buck2/platform/execution:fat_platform_incompatible")
 
     return rule(
-        implementation = getattr(implemented_rules, name, _unimplemented_impl(name)),
+        impl = getattr(implemented_rules, name, _unimplemented_impl(name)),
         attrs = attrs,
         is_configuration_rule = name in _config_implemented_rules,
     )

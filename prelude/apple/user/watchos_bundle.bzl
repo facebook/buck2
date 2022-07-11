@@ -7,7 +7,7 @@ def _impl(ctx: "context") -> ["provider"]:
 
 registration_spec = RuleRegistrationSpec(
     name = "watchos_bundle",
-    implementation = _impl,
+    impl = _impl,
     attributes = {
         "actual": attr.dep(providers = [DefaultInfo, AppleBundleInfo]),
     },

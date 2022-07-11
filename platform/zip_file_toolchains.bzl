@@ -20,5 +20,5 @@ _config_backed_zip_file_toolchain_rule = rule(
     attrs = {
         "create_zip": attr.dep(providers = [RunInfo]),
     },
-    implementation = _config_backed_zip_file_toolchain_rule_impl,
+    impl = _config_backed_zip_file_toolchain_rule_impl,
 )

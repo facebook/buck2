@@ -10,7 +10,7 @@ def _remote_text_impl(ctx):
     return [DefaultInfo(default_outputs = [out])]
 
 remote_text = rule(
-    implementation = _remote_text_impl,
+    impl = _remote_text_impl,
     attrs = {
         "text": attr.source(),
     },
@@ -22,7 +22,7 @@ def _symlink_dir_impl(ctx):
     return [DefaultInfo(default_outputs = [link])]
 
 symlink_dir = rule(
-    implementation = _symlink_dir_impl,
+    impl = _symlink_dir_impl,
     attrs = {
         "remote_text": attr.dep(),
     },
@@ -49,7 +49,7 @@ def _check_impl(ctx):
     return [DefaultInfo(default_outputs = [out])]
 
 check = rule(
-    implementation = _check_impl,
+    impl = _check_impl,
     attrs = {
         "symlink_dir": attr.dep(),
         "text": attr.source(),

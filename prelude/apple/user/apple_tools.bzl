@@ -18,7 +18,7 @@ def _impl(ctx: "context") -> ["provider"]:
 # toolchain/SDK specific, they're just internal helper tools.
 registration_spec = RuleRegistrationSpec(
     name = "apple_tools",
-    implementation = _impl,
+    impl = _impl,
     attributes = {
         "assemble_bundle": attr.dep(providers = [RunInfo]),
         "info_plist_processor": attr.dep(providers = [RunInfo]),

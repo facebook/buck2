@@ -15,7 +15,7 @@ def _modify_file_impl(ctx):
     return [DefaultInfo(default_outputs = [out])]
 
 modify_file = rule(
-    implementation = _modify_file_impl,
+    impl = _modify_file_impl,
     attrs = {
         "text": attr.source(),
     },
@@ -41,7 +41,7 @@ def _depend_impl(ctx):
     return [DefaultInfo(default_outputs = [out])]
 
 depend_file = rule(
-    implementation = _depend_impl,
+    impl = _depend_impl,
     attrs = {
         "modify_file": attr.dep(),
         "text": attr.source(),

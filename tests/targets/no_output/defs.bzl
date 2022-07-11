@@ -8,7 +8,7 @@ def _out_library_impl(ctx):
     return [DefaultInfo(default_outputs = outs)]
 
 out_library = rule(
-    implementation = _out_library_impl,
+    impl = _out_library_impl,
     attrs = {
         "outs": attr.list(attr.dep()),
     },

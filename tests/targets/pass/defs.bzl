@@ -33,4 +33,4 @@ touch "$1"
     )
     return [DefaultInfo(default_outputs = [out])]
 
-printing_binary = rule(implementation = _printing_binary_impl, attrs = {"always_print": attr.bool()})
+printing_binary = rule(impl = _printing_binary_impl, attrs = {"always_print": attr.bool()})

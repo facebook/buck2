@@ -38,7 +38,7 @@ def _go_toolchain_impl(ctx):
     ]
 
 go_toolchain = rule(
-    implementation = _go_toolchain_impl,
+    impl = _go_toolchain_impl,
     attrs = {
         "assembler": attr.dep(providers = [RunInfo]),
         "assembler_flags": attr.list(attr.arg(), default = []),

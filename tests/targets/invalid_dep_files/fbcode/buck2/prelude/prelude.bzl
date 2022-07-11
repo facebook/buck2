@@ -31,5 +31,5 @@ test = rule(
     attrs = {
         "seed": attr.string(default = ""),
     },
-    implementation = _test_impl,
+    impl = _test_impl,
 )

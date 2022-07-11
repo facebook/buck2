@@ -17,7 +17,7 @@ def symlink_files_impl(ctx):
     return [DefaultInfo(default_outputs = [out])]
 
 write_file = rule(
-    implementation = write_file_impl,
+    impl = write_file_impl,
     attrs = {
         "contents": attr.string(),
         "out": attr.string(),
@@ -25,7 +25,7 @@ write_file = rule(
 )
 
 symlink_files = rule(
-    implementation = symlink_files_impl,
+    impl = symlink_files_impl,
     attrs = {
         "srcs": attr.list(attr.source()),
     },

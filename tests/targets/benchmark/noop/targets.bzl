@@ -1,7 +1,7 @@
 def implementation(_ctx):
     return [DefaultInfo()]
 
-noop_rule = rule(implementation = implementation, attrs = {})
+noop_rule = rule(impl = implementation, attrs = {})
 
 def targets(n):
     for i in range(n):

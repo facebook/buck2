@@ -39,7 +39,7 @@ def _write_file_impl(ctx):
     return [DefaultInfo(default_outputs = [output])]
 
 write_file = rule(
-    implementation = _write_file_impl,
+    impl = _write_file_impl,
     attrs = {
         "content": attr.string(default = "some content"),
         "dep": attr.option(attr.dep(providers = [FooInfo])),
@@ -49,7 +49,7 @@ write_file = rule(
 )
 
 simple_write = rule(
-    implementation = _simple_write_impl,
+    impl = _simple_write_impl,
     attrs = {
     },
 )

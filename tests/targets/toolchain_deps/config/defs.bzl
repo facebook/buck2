@@ -2,7 +2,7 @@ def _constraint_setting(ctx):
     return [DefaultInfo(), ConstraintSettingInfo(label = ctx.label.raw_target())]
 
 constraint_setting = rule(
-    implementation = _constraint_setting,
+    impl = _constraint_setting,
     attrs = {},
 )
 
@@ -21,7 +21,7 @@ def _constraint_value(ctx):
     ]
 
 constraint_value = rule(
-    implementation = _constraint_value,
+    impl = _constraint_value,
     attrs = {"setting": attr.dep(providers = [ConstraintSettingInfo])},
 )
 
@@ -45,7 +45,7 @@ def _platform(ctx):
     return [DefaultInfo(), platform, PlatformInfo(label = str(ctx.label.raw_target()), configuration = cfg)]
 
 platform = rule(
-    implementation = _platform,
+    impl = _platform,
     attrs = {"configuration": attr.list(attr.dep(providers = [ConfigurationInfo]))},
 )
 
@@ -58,6 +58,6 @@ def _platforms(ctx):
     ]
 
 platforms = rule(
-    implementation = _platforms,
+    impl = _platforms,
     attrs = {"platforms": attr.list(attr.dep(providers = [ExecutionPlatformInfo]))},
 )

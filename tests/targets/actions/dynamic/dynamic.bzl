@@ -157,7 +157,7 @@ def _impl(ctx: "context") -> ["provider"]:
     else:
         fail("Unknown test: " + ctx.label.name)
 
-dynamic_test = rule(implementation = _impl, attrs = {})
+dynamic_test = rule(impl = _impl, attrs = {})
 
 def assert_eq(a, b):
     if a != b:
@@ -180,7 +180,7 @@ def _assert_output_value_impl(ctx: "context") -> ["provider"]:
     ctx.actions.run(cmd_args(run).hidden([produced, value, output.as_output()]), category = "test_category")
     return [DefaultInfo(default_outputs = [output])]
 
-assert_output_value = rule(implementation = _assert_output_value_impl, attrs = {
+assert_output_value = rule(impl = _assert_output_value_impl, attrs = {
     "dep": attr.dep(),
     "value": attr.string(),
 })

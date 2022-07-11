@@ -13,7 +13,7 @@ def _test_impl(ctx: "context"):
     ]
 
 test = rule(
-    implementation = _test_impl,
+    impl = _test_impl,
     attrs = {
     },
 )

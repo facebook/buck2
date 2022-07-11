@@ -35,5 +35,5 @@ _config_backed_dex_toolchain_rule = rule(
         "android_jar": attr.option(attr.source()),
         "d8_command_binary": attr.option(attr.dep(providers = [RunInfo])),
     },
-    implementation = _config_backed_dex_toolchain_rule_impl,
+    impl = _config_backed_dex_toolchain_rule_impl,
 )

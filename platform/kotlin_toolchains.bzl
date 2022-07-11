@@ -43,5 +43,5 @@ _config_backed_kotlin_toolchain_rule = rule(
         "kotlinc": attr.dep(providers = [RunInfo]),
         "kotlinc_classpath": attr.list(attr.dep(), default = []),
     },
-    implementation = _config_backed_kotlin_toolchain_rule_impl,
+    impl = _config_backed_kotlin_toolchain_rule_impl,
 )

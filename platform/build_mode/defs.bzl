@@ -13,5 +13,5 @@ build_mode = rule(
         "cell": attr.string(),
         "mode": attr.option(attr.string(), default = None),
     },
-    implementation = _build_mode_impl,
+    impl = _build_mode_impl,
 )

@@ -12,7 +12,7 @@ def _assert_artifact_properties(ctx: "context") -> [DefaultInfo.type]:
 
 # Assert that a given `src` artifact have specific properties
 assert_artifact_properties = rule(
-    implementation = _assert_artifact_properties,
+    impl = _assert_artifact_properties,
     attrs = {
         "basename": attr.option(attr.string(), default = None),
         "short_path": attr.option(attr.string(), default = None),
@@ -28,7 +28,7 @@ def _assert_exists(ctx: "context") -> [DefaultInfo.type]:
 
 # Assert that a file exists
 assert_exists = rule(
-    implementation = _assert_exists,
+    impl = _assert_exists,
     attrs = {
         "path": attr.arg(),
     },

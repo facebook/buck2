@@ -96,7 +96,7 @@ def apple_sdk_swift_module_impl(ctx: "context") -> ["provider"]:
 
 # This rule represent a Swift module from SDK and forms a graph of dependencies between such modules.
 apple_sdk_swift_module = rule(
-    implementation = apple_sdk_swift_module_impl,
+    impl = apple_sdk_swift_module_impl,
     attrs = {
         "deps": attr.list(attr.dep(), default = []),
         "is_framework": attr.bool(),

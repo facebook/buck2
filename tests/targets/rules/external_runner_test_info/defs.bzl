@@ -32,7 +32,7 @@ def _test_impl(ctx):
         ),
     ]
 
-test = rule(implementation = _test_impl, attrs = {
+test = rule(impl = _test_impl, attrs = {
     "artifact": attr.source(),
     "labels": attr.list(attr.string(), default = []),
     "run_from_project_root": attr.option(attr.bool()),

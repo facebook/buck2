@@ -109,7 +109,7 @@ def _config_backed_haskell_toolchain_rule_impl(ctx):
     ]
 
 _config_backed_haskell_toolchain_rule = rule(
-    implementation = _config_backed_haskell_toolchain_rule_impl,
+    impl = _config_backed_haskell_toolchain_rule_impl,
     attrs = {
         "archive_contents": attr.arg(),
         "cache_links": attr.bool(),

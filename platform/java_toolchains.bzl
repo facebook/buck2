@@ -129,7 +129,7 @@ _config_backed_java_toolchain_rule = rule(
         "src_roots": attr.list(attr.string()),
         "target_level": attr.string(),
     },
-    implementation = _config_backed_java_toolchain_rule_impl,
+    impl = _config_backed_java_toolchain_rule_impl,
 )
 
 def _parse_src_roots(src_roots: [str.type]) -> ([str.type], [str.type]):
@@ -170,7 +170,7 @@ _junit_toolchain_rule = rule(
         "junit_test_runner_main_class": attr.string(),
         "list_class_names": attr.dep(providers = [RunInfo]),
     },
-    implementation = _junit_toolchain_rule_impl,
+    impl = _junit_toolchain_rule_impl,
 )
 
 def prebuilt_jar_toolchain(name, **kwargs):
@@ -189,5 +189,5 @@ _prebuilt_jar_toolchain_rule = rule(
     attrs = {
         "class_abi_generator": attr.option(attr.dep(providers = [RunInfo]), default = None),
     },
-    implementation = _prebuilt_jar_toolchain_rule_impl,
+    impl = _prebuilt_jar_toolchain_rule_impl,
 )

@@ -12,6 +12,6 @@ def _nested_subtargets(ctx):
     )]
 
 nested_subtargets = rule(
-    implementation = _nested_subtargets,
+    impl = _nested_subtargets,
     attrs = {},
 )

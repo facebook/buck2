@@ -9,7 +9,7 @@ def _impl(_ctx):
     pass
 
 foo_library = rule(
-    implementation = _impl,
+    impl = _impl,
     attrs = {
         "deps": attr.list(attr.dep(), default = []),
     },

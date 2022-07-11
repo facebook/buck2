@@ -44,10 +44,10 @@ c_binary = rule(
         "main": attr.source(),
         "_cc": attr.dep(default = "root//tools:gcc"),
     },
-    implementation = _c_binary_impl,
+    impl = _c_binary_impl,
 )
 
 def _tool_impl(ctx):
     return [DefaultInfo(default_outputs = [ctx.attr.src]), RunInfo(args = cmd_args(ctx.attr.src))]
 
-tool = rule(attrs = {"src": attr.source()}, implementation = _tool_impl)
+tool = rule(attrs = {"src": attr.source()}, impl = _tool_impl)

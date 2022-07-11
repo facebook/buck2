@@ -2,7 +2,7 @@ def _write(ctx: "context") -> ["provider"]:
     out = ctx.actions.write("out", "test")
     return [DefaultInfo(default_outputs = [out])]
 
-write = rule(implementation = _write, attrs = {
+write = rule(impl = _write, attrs = {
 })
 
 def _cp(ctx: "context") -> ["provider"]:
@@ -20,7 +20,7 @@ def _cp(ctx: "context") -> ["provider"]:
     ], category = "cp_action")
     return [DefaultInfo(default_outputs = [out])]
 
-cp = rule(implementation = _cp, attrs = {
+cp = rule(impl = _cp, attrs = {
     "dep": attr.dep(),
     "sleep": attr.int(default = 0),
 })
@@ -43,6 +43,6 @@ def _dynamic_cp(ctx: "context") -> ["provider"]:
     ctx.actions.dynamic_output([dummy], [inp], [out], f)
     return [DefaultInfo(default_outputs = [out])]
 
-dynamic_cp = rule(implementation = _dynamic_cp, attrs = {
+dynamic_cp = rule(impl = _dynamic_cp, attrs = {
     "dep": attr.dep(),
 })

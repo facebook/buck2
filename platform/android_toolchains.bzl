@@ -138,5 +138,5 @@ _config_backed_android_toolchain_rule = rule(
         "unpack_aar": attr.dep(providers = [RunInfo]),
         "zipalign": attr.dep(providers = [RunInfo]),
     },
-    implementation = _config_backed_android_toolchain_rule_impl,
+    impl = _config_backed_android_toolchain_rule_impl,
 )

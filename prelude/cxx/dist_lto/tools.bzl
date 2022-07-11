@@ -12,7 +12,7 @@ def _impl(ctx):
     ]
 
 dist_lto_tools = rule(
-    implementation = _impl,
+    impl = _impl,
     attrs = {
         "copy": attr.dep(),
         "opt": attr.dep(),

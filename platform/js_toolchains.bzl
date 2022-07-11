@@ -12,5 +12,5 @@ js_toolchain = rule(
     attrs = {
         "command_args_fixup": attr.dep(),
     },
-    implementation = _js_toolchain_rule_impl,
+    impl = _js_toolchain_rule_impl,
 )

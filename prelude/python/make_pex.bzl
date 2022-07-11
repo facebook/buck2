@@ -230,7 +230,7 @@ def _make_pex_inplace_binary_impl(ctx: "context") -> ["provider"]:
     ]
 
 make_pex_inplace_binary = rule(
-    implementation = _make_pex_inplace_binary_impl,
+    impl = _make_pex_inplace_binary_impl,
     attrs = {
         "src": attr.source(),
         "template": attr.source(),
@@ -245,7 +245,7 @@ def _make_pex_modules_binary_impl(ctx: "context") -> ["provider"]:
     ]
 
 make_pex_modules_binary = rule(
-    implementation = _make_pex_modules_binary_impl,
+    impl = _make_pex_modules_binary_impl,
     attrs = {
         "src": attr.source(),
     },

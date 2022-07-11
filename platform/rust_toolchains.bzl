@@ -86,7 +86,7 @@ def _config_backed_rust_toolchain_rule_impl(ctx):
     ]
 
 _config_backed_rust_toolchain_rule = rule(
-    implementation = _config_backed_rust_toolchain_rule_impl,
+    impl = _config_backed_rust_toolchain_rule_impl,
     attrs = {
         "allow_lints": attr.list(attr.arg()),
         "clippy_driver": attr.dep(default = "fbsource//xplat/rust/toolchain/current:clippy-driver"),

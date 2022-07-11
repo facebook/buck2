@@ -50,7 +50,7 @@ execution_platform_rule = rule(
         "use_limited_hybrid": attr.bool(default = read_bool("build", "use_limited_hybrid", True)),
         "use_windows_path_separators": attr.bool(default = False),
     },
-    implementation = _execution_platform_impl,
+    impl = _execution_platform_impl,
 )
 
 def _pkg(s: str.type) -> str.type:
@@ -154,7 +154,7 @@ execution_platforms = rule(
     attrs = {
         "platforms": attr.list(attr.dep(providers = [ExecutionPlatformInfo])),
     },
-    implementation = _execution_platforms_impl,
+    impl = _execution_platforms_impl,
 )
 
 FatPlatformTransitionInfo = provider(
@@ -171,7 +171,7 @@ def _fat_platforms_transition_helper(ctx: "context") -> ["provider"]:
     ]
 
 fat_platform_transition_helper = rule(
-    implementation = _fat_platforms_transition_helper,
+    impl = _fat_platforms_transition_helper,
     attrs = {
         "linux": attr.list(attr.tuple(attr.dep(providers = [ConstraintValueInfo]), attr.dep(providers = [PlatformInfo]))),
         "mac": attr.list(attr.tuple(attr.dep(providers = [ConstraintValueInfo]), attr.dep(providers = [PlatformInfo]))),

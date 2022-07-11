@@ -11,6 +11,6 @@ def providers_assert_impl(ctx: "context") -> ["provider"]:
     return [DefaultInfo()]
 
 providers_assert = rule(
-    implementation = providers_assert_impl,
+    impl = providers_assert_impl,
     attrs = {"dep": attr.dep()},
 )

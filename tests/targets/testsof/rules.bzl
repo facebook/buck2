@@ -2,7 +2,7 @@ def _impl(_ctx):
     return [DefaultInfo()]
 
 test_rule = rule(
-    implementation = _impl,
+    impl = _impl,
     attrs = {
     },
 )
@@ -11,7 +11,7 @@ def _config_setting_impl(ctx):
     return [DefaultInfo(), ConstraintSettingInfo(label = ctx.label.raw_target())]
 
 config_setting = rule(
-    implementation = _config_setting_impl,
+    impl = _config_setting_impl,
     attrs = {
     },
 )
@@ -29,7 +29,7 @@ def _configuration_impl(ctx):
     ]
 
 configuration = rule(
-    implementation = _configuration_impl,
+    impl = _configuration_impl,
     attrs = {
         "config_setting": attr.configuration_label(),
     },
@@ -45,7 +45,7 @@ def _platform_impl(ctx):
     ]
 
 platform = rule(
-    implementation = _platform_impl,
+    impl = _platform_impl,
     attrs = {
         "configuration": attr.configuration_label(),
     },

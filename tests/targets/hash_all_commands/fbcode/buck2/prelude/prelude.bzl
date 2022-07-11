@@ -20,5 +20,5 @@ test = rule(
         # NOTE: This gets ignored
         "seed": attr.string(default = ""),
     },
-    implementation = _test_impl,
+    impl = _test_impl,
 )

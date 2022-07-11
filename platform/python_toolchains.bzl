@@ -61,7 +61,7 @@ def _config_backed_python_toolchain_rule_impl(ctx):
     ]
 
 _config_backed_python_toolchain_rule = rule(
-    implementation = _config_backed_python_toolchain_rule_impl,
+    impl = _config_backed_python_toolchain_rule_impl,
     attrs = {
         "cache_binaries": attr.bool(default = True),
         "compile": attr.source(default = "fbcode//buck2/prelude/python/tools:compile.py"),

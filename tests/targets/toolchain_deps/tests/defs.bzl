@@ -5,7 +5,7 @@ def _python_binary_asic(ctx):
     return [DefaultInfo(default_outputs = [out])]
 
 python_binary_asic = rule(
-    implementation = _python_binary_asic,
+    impl = _python_binary_asic,
     attrs = {
         "_asic_toolchain": attr.toolchain_dep(default = "//toolchains:asic"),
         "_python_toolchain": attr.toolchain_dep(default = "//toolchains:python"),
@@ -19,7 +19,7 @@ def _python_binary(ctx):
     return [DefaultInfo(default_outputs = [out])]
 
 python_binary = rule(
-    implementation = _python_binary,
+    impl = _python_binary,
     attrs = {
         "_python_toolchain": attr.toolchain_dep(default = "//toolchains:python"),
     },
