@@ -16,6 +16,7 @@ use std::os::unix::io::AsRawFd;
 #[cfg(windows)]
 use std::os::windows::io::AsRawHandle;
 use std::path::Path;
+use std::path::PathBuf;
 use std::process;
 use std::time::Duration;
 
@@ -44,8 +45,8 @@ use crate::CommandContext;
 
 #[derive(Debug, Error)]
 enum DaemonError {
-    #[error("The buckd pid file had a mismatched pid, expected `{0}`, got `{1}`")]
-    PidFileMismatch(u32, u32),
+    #[error("The buckd pid file at `{0}` had a mismatched pid, expected `{1}`, got `{2}`")]
+    PidFileMismatch(PathBuf, u32, u32),
 }
 
 #[derive(Clone, Debug, clap::Parser)]
@@ -95,13 +96,12 @@ pub(crate) fn write_process_info(
 }
 
 fn verify_current_daemon(daemon_dir: &Path) -> anyhow::Result<()> {
+    let file = daemon_dir.join("buckd.pid");
     let my_pid = process::id();
 
-    let recorded_pid: u32 = std::fs::read_to_string(daemon_dir.join("buckd.pid"))?
-        .trim()
-        .parse()?;
+    let recorded_pid: u32 = std::fs::read_to_string(&file)?.trim().parse()?;
     if recorded_pid != my_pid {
-        return Err(DaemonError::PidFileMismatch(my_pid, recorded_pid).into());
+        return Err(DaemonError::PidFileMismatch(file, my_pid, recorded_pid).into());
     }
 
     Ok(())
