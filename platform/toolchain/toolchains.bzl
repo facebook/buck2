@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/apple:apple_toolchain_setup.bzl", _get_apple_cxx_select_map = "get_apple_cxx_select_map")
+load(":apple_toolchain_setup.bzl", _get_apple_cxx_select_map = "get_apple_cxx_select_map")
 
 # This module defines the toolchains for languages like C++, Python etc. These are expressed
 # as large `select` expressions which are used as default attributes attached to every rule that
@@ -25,7 +25,7 @@ def _merge_dictionaries(dicts):
     return result
 
 # The default platform for fbcode rules that didn't specify it properly
-_default_fbcode_platform = read_config("fbcode", "platform", "platform010")
+_default_fbcode_platform = native.read_config("fbcode", "platform", "platform010")
 
 def _get_fbcode_select_map(prefix):
     """

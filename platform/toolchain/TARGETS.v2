@@ -1,6 +1,6 @@
-load("@fbcode//buck2/prelude:toolchains.bzl", "default_cxx_toolchain_inner", "default_go_toolchain_inner", "default_haskell_toolchain_inner", "default_ocaml_toolchain_inner", "default_python_bootstrap_toolchain_inner", "default_python_toolchain_inner", "default_rust_toolchain_inner")
-load("@fbcode//buck2/prelude/apple:apple_toolchain_setup.bzl", "default_apple_toolchain", "resources_apple_toolchain")
+load(":apple_toolchain_setup.bzl", "default_apple_toolchain", "resources_apple_toolchain")
 load(":defs.bzl", "toolchain")
+load(":toolchains.bzl", "default_cxx_toolchain_inner", "default_go_toolchain_inner", "default_haskell_toolchain_inner", "default_ocaml_toolchain_inner", "default_python_bootstrap_toolchain_inner", "default_python_toolchain_inner", "default_rust_toolchain_inner")
 
 toolchain(
     name = "cxx",

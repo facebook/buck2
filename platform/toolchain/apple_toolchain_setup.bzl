@@ -128,7 +128,7 @@ def _get_apple_macos_select_map(rule_type: AppleToolchainRuleType.type, usage_ty
     return select(select_map)
 
 def _get_default_arch_for_macos_and_simulator_targets():
-    use_default_host_based_target_arch = read_config("apple", "default_host_based_target_arch", True)
+    use_default_host_based_target_arch = native.read_config("apple", "default_host_based_target_arch", True)
     if not use_default_host_based_target_arch:
         return "x86_64"
 
