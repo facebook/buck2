@@ -12,7 +12,7 @@ def _impl(platform, refs):
         }, values = {})),
     }
 
-cpu_split_transition = transition(implementation = _impl, refs = {
+cpu_split_transition = transition(_impl, refs = {
     "arm32": "fbcode//buck2/tests/targets/configurations/transition/attr_split:arm32",
     "arm64": "fbcode//buck2/tests/targets/configurations/transition/attr_split:arm64",
     "cpu": "fbcode//buck2/tests/targets/configurations/transition/attr_split:cpu",
