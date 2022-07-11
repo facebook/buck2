@@ -149,7 +149,7 @@ pub(crate) struct CommonBuildConfigurationOptions {
     )]
     pub target_platforms: Option<String>,
 
-    #[clap(long, ignore_case = true, arg_enum)]
+    #[clap(long, ignore_case = true, value_name = "HOST", arg_enum)]
     fake_host: Option<HostPlatformOverride>,
 
     // TODO(cjhopman): Why is this only in CommonConfigOptions options, it has nothing to do with config? Shouldn't all commands support --oncall?
@@ -362,6 +362,7 @@ pub(crate) struct CommonConsoleOptions {
         default_value = "auto",
         ignore_case = true,
         env = "BUCK_CONSOLE",
+        value_name = "super|simple|...",
         arg_enum
     )]
     pub console_type: ConsoleType,

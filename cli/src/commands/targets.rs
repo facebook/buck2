@@ -112,6 +112,7 @@ pub(crate) struct TargetsCommand {
 
     #[clap(
         long,
+        value_name = "ATTRIBUTE",
         help = "List of attributes to output, --output-attribute attr1. Attributes can be \
         regular expressions. Multiple attributes may be selected by specifying this option \
         multiple times.",
@@ -129,7 +130,7 @@ pub(crate) struct TargetsCommand {
     /// Deprecated: Use `--output-attribute` instead.
     ///
     /// List of space-separated attributes to output, --output-attributes attr1 attr2.
-    #[clap(long, multiple_values = true)]
+    #[clap(long, multiple_values = true, value_name = "ATTRIBUTE")]
     output_attributes: Vec<String>,
 
     #[clap(name = "TARGET_PATTERNS", help = "Patterns to interpret")]
