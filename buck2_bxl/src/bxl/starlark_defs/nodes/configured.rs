@@ -86,16 +86,17 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         Ok(StarlarkConfiguredTargetLabel::new(this.0.name().dupe()))
     }
 
-    /// Deprecated, use `attrs`
-    fn attributes<'v>(
-        this: &StarlarkConfiguredTargetNode,
-        heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
-        attrs_helper(this, heap)
-    }
-
     fn attrs<'v>(this: &StarlarkConfiguredTargetNode, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        attrs_helper(this, heap)
+        let attrs_iter = this.0.attrs(AttrInspectOptions::All);
+        let mut attrs = SmallMap::with_capacity(attrs_iter.size_hint().0);
+        for (name, attr) in attrs_iter {
+            attrs.insert(
+                heap.alloc_str(name),
+                heap.alloc(StarlarkConfiguredValue(attr)),
+            );
+        }
+
+        Ok(heap.alloc(Struct::new(attrs)))
     }
 
     /// Gets the targets' corresponding rule's name. This is the fully qualified rule name including
@@ -249,20 +250,4 @@ fn attr_to_value<'v>(heap: &'v Heap, attr: &ConfiguredAttr) -> anyhow::Result<Va
         AttrLiteral::Arg(arg) => heap.alloc(arg.to_string()),
         AttrLiteral::Label(l) => heap.alloc(Label::new(heap, *l.clone())),
     })
-}
-
-fn attrs_helper<'v>(
-    this: &StarlarkConfiguredTargetNode,
-    heap: &'v Heap,
-) -> anyhow::Result<Value<'v>> {
-    let attrs_iter = this.0.attrs(AttrInspectOptions::All);
-    let mut attrs = SmallMap::with_capacity(attrs_iter.size_hint().0);
-    for (name, attr) in attrs_iter {
-        attrs.insert(
-            heap.alloc_str(name),
-            heap.alloc(StarlarkConfiguredValue(attr)),
-        );
-    }
-
-    Ok(heap.alloc(Struct::new(attrs)))
 }
