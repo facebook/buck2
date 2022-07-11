@@ -111,6 +111,7 @@ pub(crate) struct TargetsCommand {
     target_hash_function: TargetHashFunction,
 
     #[clap(
+        short = 'a',
         long,
         value_name = "ATTRIBUTE",
         help = "List of attributes to output, --output-attribute attr1. Attributes can be \
