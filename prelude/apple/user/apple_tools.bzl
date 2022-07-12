@@ -19,7 +19,7 @@ def _impl(ctx: "context") -> ["provider"]:
 registration_spec = RuleRegistrationSpec(
     name = "apple_tools",
     impl = _impl,
-    attributes = {
+    attrs = {
         "assemble_bundle": attr.dep(providers = [RunInfo]),
         "info_plist_processor": attr.dep(providers = [RunInfo]),
         "make_modulemap": attr.dep(providers = [RunInfo]),

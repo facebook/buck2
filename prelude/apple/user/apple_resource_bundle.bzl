@@ -19,7 +19,7 @@ def _impl(ctx: "context") -> ["provider"]:
 registration_spec = RuleRegistrationSpec(
     name = "apple_resource_bundle",
     impl = _impl,
-    attributes = {
+    attrs = {
         "asset_catalogs_compilation_options": attr.dict(key = attr.string(), value = attr.any(), default = {}),
         "binary": attr.option(attr.dep(), default = None),
         "deps": attr.list(attr.dep(), default = []),
