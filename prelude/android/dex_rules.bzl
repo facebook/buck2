@@ -1,5 +1,4 @@
 load("@fbcode//buck2/prelude/android:android_providers.bzl", "DexFilesInfo")
-load("@fbcode//buck2/prelude/android:class_name_filter.bzl", "class_name_matches_filter", "get_class_name_filter")
 load("@fbcode//buck2/prelude/java:dex.bzl", "get_dex_produced_from_java_library")
 load("@fbcode//buck2/prelude/java:dex_toolchain.bzl", "DexToolchainInfo")
 load("@fbcode//buck2/prelude/java:java_library.bzl", "compile_to_jar")
@@ -124,6 +123,11 @@ DexInputWithSpecifiedClasses = record(
     dex_class_names = [str.type],
 )
 
+DexInputWithClassNamesFile = record(
+    lib = "DexLibraryInfo",
+    filtered_class_names_file = "artifact",
+)
+
 # When using jar compression, the secondary dex directory consists of N secondary dex jars, each
 # of which has a corresponding .meta file (the secondary_dex_metadata_file) containing a single
 # line of the form:
@@ -158,7 +162,29 @@ def merge_to_split_dex(
         android_toolchain: "AndroidToolchainInfo",
         pre_dexed_libs: ["DexLibraryInfo"],
         split_dex_merge_config: "SplitDexMergeConfig") -> "DexFilesInfo":
-    input_artifacts = flatten([[pre_dexed_lib.dex, pre_dexed_lib.class_names, pre_dexed_lib.weight_estimate] for pre_dexed_lib in pre_dexed_libs])
+    primary_dex_patterns_file = ctx.actions.write("primary_dex_patterns_file", split_dex_merge_config.primary_dex_patterns)
+
+    pre_dexed_lib_with_class_names_files = []
+    for pre_dexed_lib in pre_dexed_libs:
+        class_names = pre_dexed_lib.class_names
+        id = "{}_{}_{}".format(class_names.owner.package, class_names.owner.name, class_names.short_path)
+        filtered_class_names_file = ctx.actions.declare_output("primary_dex_class_names_for_{}".format(id))
+        filter_dex_cmd = cmd_args([
+            android_toolchain.filter_dex_class_names[RunInfo],
+            "--primary-dex-patterns",
+            primary_dex_patterns_file,
+            "--class-names",
+            class_names,
+            "--output",
+            filtered_class_names_file.as_output(),
+        ])
+        ctx.actions.run(filter_dex_cmd, category = "filter_dex", identifier = id)
+
+        pre_dexed_lib_with_class_names_files.append(
+            DexInputWithClassNamesFile(lib = pre_dexed_lib, filtered_class_names_file = filtered_class_names_file),
+        )
+
+    input_artifacts = flatten([[input.lib.dex, input.lib.weight_estimate, input.filtered_class_names_file] for input in pre_dexed_lib_with_class_names_files])
     primary_dex_artifact_list = ctx.actions.declare_output("pre_dexed_artifacts_for_primary_dex.txt")
     primary_dex_output = ctx.actions.declare_output("classes.dex")
     initial_secondary_dexes_dir = ctx.actions.declare_output("initial_secondary_dexes_dir")
@@ -166,7 +192,7 @@ def merge_to_split_dex(
     outputs = [primary_dex_output, primary_dex_artifact_list, initial_secondary_dexes_dir]
 
     def merge_pre_dexed_libs(ctx: "context"):
-        primary_dex_inputs, secondary_dex_inputs = _sort_pre_dexed_files(ctx, pre_dexed_libs, split_dex_merge_config)
+        primary_dex_inputs, secondary_dex_inputs = _sort_pre_dexed_files(ctx, pre_dexed_lib_with_class_names_files, split_dex_merge_config)
         secondary_dexes_for_symlinking = {}
 
         pre_dexed_artifacts = [primary_dex_input.lib.dex for primary_dex_input in primary_dex_inputs if primary_dex_input.lib.dex]
@@ -292,20 +318,17 @@ def _merge_dexes(
 
 def _sort_pre_dexed_files(
         ctx: "context",
-        pre_dexed_libs: ["DexLibraryInfo"],
+        pre_dexed_lib_with_class_names_files: ["DexInputWithClassNamesFile"],
         split_dex_merge_config: "SplitDexMergeConfig") -> ([DexInputWithSpecifiedClasses.type], [[DexInputWithSpecifiedClasses.type]]):
-    primary_dex_class_name_filter = get_class_name_filter(split_dex_merge_config.primary_dex_patterns)
     primary_dex_inputs = []
-
     secondary_dex_inputs = []
     current_secondary_dex_size = 0
     current_secondary_dex_inputs = []
-    for pre_dexed_lib in pre_dexed_libs:
-        primary_dex_class_names, secondary_dex_class_names = _sort_dex_class_names(
-            ctx,
-            pre_dexed_lib,
-            primary_dex_class_name_filter,
-        )
+    for pre_dexed_lib_with_class_names_file in pre_dexed_lib_with_class_names_files:
+        pre_dexed_lib = pre_dexed_lib_with_class_names_file.lib
+        primary_dex_data, secondary_dex_data = ctx.artifacts[pre_dexed_lib_with_class_names_file.filtered_class_names_file].read_string().split(";")
+        primary_dex_class_names = primary_dex_data.split(",") if primary_dex_data else []
+        secondary_dex_class_names = secondary_dex_data.split(",") if secondary_dex_data else []
 
         if len(primary_dex_class_names) > 0:
             primary_dex_inputs.append(
@@ -329,24 +352,6 @@ def _sort_pre_dexed_files(
             )
 
     return (primary_dex_inputs, secondary_dex_inputs)
-
-def _sort_dex_class_names(
-        ctx: "context",
-        pre_dexed_lib: "DexLibraryInfo",
-        primary_dex_class_name_filter: "ClassNameFilter") -> ([str.type], [str.type]):
-    all_java_classes = ctx.artifacts[pre_dexed_lib.class_names].read_string().splitlines()
-    primary_dex_class_names = []
-    secondary_dex_class_names = []
-    for java_class in all_java_classes:
-        if _is_primary_dex_class(java_class, primary_dex_class_name_filter):
-            primary_dex_class_names.append(java_class + ".class")
-        else:
-            secondary_dex_class_names.append(java_class + ".class")
-
-    return primary_dex_class_names, secondary_dex_class_names
-
-def _is_primary_dex_class(class_name: str.type, primary_dex_class_name_filter: "ClassNameFilter"):
-    return class_name_matches_filter(class_name, primary_dex_class_name_filter)
 
 def _get_raw_secondary_dex_path(index: int.type):
     return "classes{}.dex".format(index + 2)
