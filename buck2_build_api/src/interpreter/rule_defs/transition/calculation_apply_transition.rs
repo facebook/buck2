@@ -300,6 +300,6 @@ impl ApplyTransition for DiceComputations {
             attrs,
         };
 
-        self.compute(&key).await
+        self.compute(&key).await?
     }
 }

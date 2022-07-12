@@ -63,7 +63,7 @@ impl<'c> PackageListingResolver for DicePackageListingResolver<'c> {
             }
         }
 
-        self.0.compute(&PackageListingKey(package.dupe())).await
+        self.0.compute(&PackageListingKey(package.dupe())).await?
     }
 
     async fn get_enclosing_package(

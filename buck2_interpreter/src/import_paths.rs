@@ -118,6 +118,6 @@ impl HasImportPaths for DiceComputations {
         self.compute(&ImportPathsKey {
             cell_name: cell_name.clone(),
         })
-        .await
+        .await?
     }
 }

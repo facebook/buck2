@@ -18,7 +18,7 @@ use dice_examples::supply_chain::Cost;
 use dice_examples::supply_chain::Resource;
 use dice_examples::supply_chain::Setup;
 
-async fn setup(companies: Vec<Company>) -> DiceTransaction {
+async fn setup(companies: Vec<Company>) -> anyhow::Result<DiceTransaction> {
     let dice = Dice::builder().build(DetectCycles::Enabled);
     let ctx = dice.ctx();
     let ctx = ctx.init_state();
@@ -32,7 +32,7 @@ async fn test_no_resources() -> Result<(), Arc<anyhow::Error>> {
         name: Arc::new("hello world".to_owned()),
         makes: HashMap::new(),
     }])
-    .await;
+    .await?;
 
     assert_eq!(None, ctx.resource_cost(&Resource::Wood).await?);
     let success = ctx
@@ -48,7 +48,7 @@ async fn test_other_resource() -> Result<(), Arc<anyhow::Error>> {
         name: Arc::new("hello world".to_owned()),
         makes: [(Resource::Wood, 2)].iter().cloned().collect(),
     }])
-    .await;
+    .await?;
 
     assert_eq!(None, ctx.resource_cost(&Resource::Stick).await?);
     assert_eq!(Some(2), ctx.resource_cost(&Resource::Wood).await?);
@@ -78,7 +78,7 @@ async fn test_simple() -> Result<(), Arc<anyhow::Error>> {
                 .collect(),
         },
     ])
-    .await;
+    .await?;
 
     let expected = [
         (Resource::Wood, 1),
@@ -138,7 +138,7 @@ async fn test_complex() -> Result<(), Arc<anyhow::Error>> {
             makes: [(Resource::Stick, 1)].iter().cloned().collect(),
         },
     ])
-    .await;
+    .await?;
 
     let expected = [
         (Resource::Wood, 1),
@@ -183,7 +183,7 @@ async fn test_change_cost() -> Result<(), Arc<anyhow::Error>> {
                 .collect(),
         },
     ])
-    .await;
+    .await?;
 
     ctx.change_company_resource_cost("Steve", &Resource::Stick, 2)
         .await

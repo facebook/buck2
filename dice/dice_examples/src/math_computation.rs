@@ -140,7 +140,10 @@ impl Key for EvalVar {
 #[async_trait]
 impl Math for DiceComputations {
     async fn eval(&self, var: Var) -> Result<i64, Arc<anyhow::Error>> {
-        Ok(self.compute(&EvalVar(var)).await?)
+        Ok(self
+            .compute(&EvalVar(var))
+            .await
+            .map_err(|e| Arc::new(anyhow::anyhow!(e)))??)
     }
 }
 
@@ -160,7 +163,7 @@ async fn resolve_units(
 }
 
 async fn lookup_unit(ctx: &DiceComputations, var: &Var) -> anyhow::Result<Arc<Equation>> {
-    Ok(ctx.compute(&LookupVar(var.clone())).await)
+    Ok(ctx.compute(&LookupVar(var.clone())).await?)
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq)]

@@ -34,7 +34,7 @@
 //!         }
 //!
 //!         pub async fn get_config(&self) -> usize {
-//!             self.0.compute(&ConfigKey).await
+//!             self.0.compute(&ConfigKey).await.unwrap()
 //!         }
 //!     }
 //!
@@ -75,12 +75,12 @@
 //!                 }
 //!             }
 //!
-//!             self.0.compute(&ComputeA(a, s)).await
+//!             self.0.compute(&ComputeA(a, s)).await.unwrap()
 //!         }
 //!
 //!         // second computation function
 //!         pub async fn compute_b(&self, a: usize) -> usize {
-//!                 self.0.compute(&ComputeB(a)).await
+//!                 self.0.compute(&ComputeB(a)).await.unwrap()
 //!         }
 //!
 //!         // computations can choose to expose specific compute functions as invalidatable,
@@ -279,6 +279,8 @@ pub enum DiceError {
         cyclic_keys: IndexSet<Arc<dyn RequestedKey>>,
     },
 }
+
+pub type DiceResult<T> = Result<T, DiceError>;
 
 /// An incremental computation engine that executes arbitrary computations that
 /// maps 'Key's to values.

@@ -232,7 +232,7 @@ impl ActionCalculation for DiceComputations {
             }
         }
 
-        self.compute(&BuildKey(action_key.dupe())).await
+        self.compute(&BuildKey(action_key.dupe())).await?
     }
 
     async fn build_artifact(&self, artifact: &BuildArtifact) -> SharedResult<ActionOutputs> {

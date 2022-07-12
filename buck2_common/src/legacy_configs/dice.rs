@@ -253,7 +253,7 @@ impl ProjectionKey for LegacyBuckConfigCellNamesKey {
 #[async_trait]
 impl HasLegacyConfigs for DiceComputations {
     async fn get_legacy_configs_on_dice(&self) -> anyhow::Result<LegacyBuckConfigsOnDice> {
-        let configs = self.compute_opaque(&LegacyBuckConfigKey).await;
+        let configs = self.compute_opaque(&LegacyBuckConfigKey).await?;
         let cell_names = configs.projection(&LegacyBuckConfigCellNamesKey);
         let mut configs_on_dice = Vec::with_capacity(cell_names.len());
         for cell_name in &*cell_names {
@@ -261,7 +261,7 @@ impl HasLegacyConfigs for DiceComputations {
                 .compute_opaque(&LegacyBuckConfigForCellKey {
                     cell_name: cell_name.clone(),
                 })
-                .await;
+                .await?;
             configs_on_dice.push((
                 cell_name.clone(),
                 LegacyBuckConfigOnDice {
@@ -275,7 +275,7 @@ impl HasLegacyConfigs for DiceComputations {
     }
 
     async fn get_legacy_configs(&self) -> anyhow::Result<LegacyBuckConfigs> {
-        Ok(self.compute(&LegacyBuckConfigKey).await.dupe())
+        Ok(self.compute(&LegacyBuckConfigKey).await?.dupe())
     }
 
     async fn get_legacy_config_for_cell(
@@ -285,7 +285,7 @@ impl HasLegacyConfigs for DiceComputations {
         self.compute(&LegacyBuckConfigForCellKey {
             cell_name: cell_name.clone(),
         })
-        .await
+        .await?
     }
 
     async fn get_legacy_config_property(
@@ -300,7 +300,7 @@ impl HasLegacyConfigs for DiceComputations {
                 section: section.to_owned(),
                 property: property.to_owned(),
             })
-            .await?)
+            .await??)
     }
 
     async fn parse_legacy_config_property<T: FromStr>(

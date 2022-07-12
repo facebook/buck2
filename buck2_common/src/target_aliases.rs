@@ -172,7 +172,7 @@ impl HasTargetAliasResolver for DiceComputations {
             .compute(&TargetAliasResolverKey {
                 cell_name: cell_name.clone(),
             })
-            .await?)
+            .await??)
     }
 
     async fn target_alias_resolver_for_working_dir(

@@ -151,7 +151,7 @@ impl HasPackageBoundaryExceptions for DiceComputations {
             }
         }
 
-        self.compute(&PackageBoundaryExceptionsKey).await
+        self.compute(&PackageBoundaryExceptionsKey).await?
     }
 
     async fn get_package_boundary_exception(&self, path: &CellPath) -> SharedResult<bool> {
@@ -184,7 +184,7 @@ impl HasPackageBoundaryExceptions for DiceComputations {
         }
 
         self.compute(PackageBoundaryExceptionKey::ref_cast(path))
-            .await
+            .await?
     }
 }
 

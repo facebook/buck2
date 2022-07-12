@@ -43,6 +43,6 @@ pub trait GetDisableStarlarkTypes {
 #[async_trait]
 impl GetDisableStarlarkTypes for DiceComputations {
     async fn get_disable_starlark_types(&self) -> anyhow::Result<bool> {
-        Ok(self.compute(&DisableStarlarkTypesKey).await)
+        Ok(self.compute(&DisableStarlarkTypesKey).await?)
     }
 }

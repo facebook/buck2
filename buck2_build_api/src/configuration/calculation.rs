@@ -101,7 +101,7 @@ async fn get_target_platform_detector(
         }
     }
 
-    ctx.compute(&TargetPlatformDetectorKey).await
+    ctx.compute(&TargetPlatformDetectorKey).await?
 }
 
 /// Returns the configured [ExecutionPlatforms] or None if `build.execution_platforms` is not configured.
@@ -395,7 +395,7 @@ impl ConfigurationCalculation for DiceComputations {
             target_cell: target_cell.clone(),
             configuration_deps,
         })
-        .await
+        .await?
     }
 
     async fn get_configuration_node(
@@ -456,7 +456,7 @@ impl ConfigurationCalculation for DiceComputations {
             target_cell: target_cell.clone(),
             cfg_target: cfg_target.dupe(),
         })
-        .await
+        .await?
         .with_context(|| {
             format!(
                 "when getting configuration node of `{}` within the `{}` configuration",
@@ -480,7 +480,7 @@ impl ConfigurationCalculation for DiceComputations {
             }
         }
 
-        self.compute(&ExecutionPlatformsKey).await
+        self.compute(&ExecutionPlatformsKey).await?
     }
 
     async fn resolve_execution_platform_from_constraints(

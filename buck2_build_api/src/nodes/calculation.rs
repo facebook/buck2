@@ -306,7 +306,7 @@ async fn execution_platforms_for_toolchain(
     }
 
     ctx.compute(&ExecutionPlatformsForToolchainKey(target))
-        .await
+        .await?
 }
 
 async fn resolve_execution_platform(
@@ -731,7 +731,7 @@ async fn compute_configured_target_node(
                 forward: key.0.dupe(),
                 transitioned: configured_target_label,
             })
-            .await
+            .await?
         }
     } else {
         // We are not caching `ConfiguredTransitionedNodeKey` because this is cheap,
@@ -792,7 +792,7 @@ impl NodeCalculation for DiceComputations {
             }
         }
 
-        self.compute(&ConfiguredNodeKey(target.dupe())).await
+        self.compute(&ConfiguredNodeKey(target.dupe())).await?
     }
 }
 

@@ -96,7 +96,7 @@ impl<'c> HasCalculationDelegate<'c> for DiceComputations {
         }
 
         let file_ops = self.file_ops();
-        let configs = self.compute(&ConfigsKey()).await?;
+        let configs = self.compute(&ConfigsKey()).await??;
 
         Ok(DiceCalculationDelegate {
             build_file_cell: build_file_cell.clone(),
@@ -144,7 +144,7 @@ impl HasGlobalInterpreterState for DiceComputations {
             }
         }
 
-        Ok(self.compute(&GisKey()).await?.0)
+        Ok(self.compute(&GisKey()).await??.0)
     }
 }
 
@@ -200,7 +200,7 @@ impl<'c> DiceCalculationDelegate<'c> {
 
         self.ctx
             .compute(&EvalImportKey(OwnedStarlarkModulePath::new(starlark_path)))
-            .await
+            .await?
     }
 
     fn get_file_ops(&self) -> &dyn FileOps {

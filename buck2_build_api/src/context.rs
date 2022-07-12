@@ -53,7 +53,7 @@ impl InjectedKey for BuildDataKey {
 #[async_trait]
 impl HasBuildContextData for DiceComputations {
     async fn get_buck_out_path(&self) -> SharedResult<ArcRef<BuildData, ForwardRelativePath>> {
-        let data = self.compute(&BuildDataKey).await?;
+        let data = self.compute(&BuildDataKey).await??;
         Ok(ArcRef::new(data).map(|d| AsRef::<ForwardRelativePath>::as_ref(&d.buck_out_path)))
     }
 }

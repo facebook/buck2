@@ -48,8 +48,11 @@ impl InjectedKey for EncodingConfig {
 struct Encodings<'c>(&'c DiceComputations);
 
 impl<'c> Encodings<'c> {
-    async fn get(&self) -> Encoding {
-        self.0.compute(&EncodingConfig()).await
+    async fn get(&self) -> Result<Encoding, Arc<anyhow::Error>> {
+        self.0
+            .compute(&EncodingConfig())
+            .await
+            .map_err(|e| Arc::new(anyhow::anyhow!(e)))
     }
 
     fn set(&self, enc: Encoding) {
@@ -74,27 +77,33 @@ struct Filesystem<'c>(&'c DiceComputations);
 struct File(PathBuf);
 
 impl<'c> Filesystem<'c> {
-    async fn read_file(&self, file: &Path) -> Arc<String> {
+    async fn read_file(&self, file: &Path) -> Result<Arc<String>, Arc<anyhow::Error>> {
         #[async_trait]
         impl Key for File {
-            type Value = Arc<String>;
+            type Value = Result<Arc<String>, Arc<anyhow::Error>>;
             async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-                let encoding = ctx.encodings().get().await;
+                let encoding = ctx.encodings().get().await?;
 
                 let s = fs::read_to_string(&self.0).unwrap();
 
-                Arc::new(match encoding {
+                Ok(Arc::new(match encoding {
                     Encoding::Utf8 => s,
                     Encoding::Ascii => s.replace(":-)", "smile"),
-                })
+                }))
             }
 
             fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-                x == y
+                match (x, y) {
+                    (Ok(x), Ok(y)) => x == y,
+                    _ => false,
+                }
             }
         }
 
-        self.0.compute(&File(file.to_path_buf())).await
+        self.0
+            .compute(&File(file.to_path_buf()))
+            .await
+            .map_err(|e| Arc::new(anyhow::anyhow!(e)))?
     }
 
     fn changed(&self, file: &Path) {
@@ -128,7 +137,7 @@ fn demo() {
 
     let get = |x: &str| {
         rt.block_on(async {
-            let contents = dice.ctx().filesystem().read_file(&f).await;
+            let contents = dice.ctx().filesystem().read_file(&f).await.unwrap();
             assert_eq!(*contents, x)
         })
     };

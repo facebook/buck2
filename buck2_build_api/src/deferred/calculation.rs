@@ -128,7 +128,7 @@ async fn resolve_deferred(
         }
     }
 
-    dice.compute(&DeferredResolve(deferred.dupe())).await
+    dice.compute(&DeferredResolve(deferred.dupe())).await?
 }
 
 /// Computes and returns the untyped deferred at the given key. This does not fully resolve
@@ -254,7 +254,7 @@ async fn compute_deferred(
         }
     }
 
-    dice.compute(&DeferredCompute(deferred.dupe())).await
+    dice.compute(&DeferredCompute(deferred.dupe())).await?
 }
 
 async fn futures_pair_to_map<K: Eq + Hash, V>(

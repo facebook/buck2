@@ -102,7 +102,7 @@ impl RuleAnalysisCalculation for DiceComputations {
             }
         }
 
-        self.compute(&AnalysisKey(target.dupe())).await
+        self.compute(&AnalysisKey(target.dupe())).await?
     }
 
     async fn get_configuration_analysis_result(

@@ -71,7 +71,7 @@ impl ArtifactGroupCalculation for DiceComputations {
             }
             ArtifactGroup::TransitiveSetProjection(key) => {
                 self.compute(&EnsureTransitiveSetProjectionKey(key.dupe()))
-                    .await?
+                    .await??
             }
         };
 
@@ -141,7 +141,7 @@ async fn ensure_artifact(
         ArtifactKind::Base(ref base) => ensure_base_artifact(dice, base).await?,
         ArtifactKind::Projected(projected) => {
             dice.compute(&EnsureProjectedArtifactKey(projected.dupe()))
-                .await?
+                .await??
         }
     })
 }
@@ -238,7 +238,7 @@ impl Key for EnsureTransitiveSetProjectionKey {
         let children = keep_going::try_join_all(
             projections
                 .iter()
-                .map(|key| async move { Ok(ctx.compute(key).await?) })
+                .map(|key| async move { Ok(ctx.compute(key).await??) })
                 .collect::<FuturesOrdered<_>>(),
         );
 

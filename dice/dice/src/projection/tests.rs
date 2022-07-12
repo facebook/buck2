@@ -58,11 +58,14 @@ struct FileKey {
 
 #[async_trait]
 impl Key for FileKey {
-    type Value = Arc<String>;
+    type Value = Result<Arc<String>, Arc<anyhow::Error>>;
 
     async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
         // Read "config".
-        let config = ctx.compute_opaque(&ConfigKey).await;
+        let config = ctx
+            .compute_opaque(&ConfigKey)
+            .await
+            .map_err(|e| Arc::new(anyhow::anyhow!(e)))?;
         // But use only one "property" of the "config",
         // which is the result of file evaluation.
         // We are testing that file evaluation is not invalidated
@@ -78,7 +81,7 @@ impl Key for FileKey {
             .unwrap()
             .computations
             .push(Computation::File);
-        Arc::new(format!("<{}>", value))
+        Ok(Arc::new(format!("<{}>", value)))
     }
 
     fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
@@ -186,7 +189,8 @@ async fn smoke() -> anyhow::Result<()> {
         .compute(&FileKey {
             name: "file.fl".to_owned(),
         })
-        .await;
+        .await?
+        .map_err(|e| anyhow::anyhow!(format!("{:#}", e)))?;
     assert_eq!("<X>", &*file);
 
     assert_eq!(
@@ -217,7 +221,8 @@ async fn smoke() -> anyhow::Result<()> {
         .compute(&FileKey {
             name: "file.fl".to_owned(),
         })
-        .await;
+        .await?
+        .map_err(|e| anyhow::anyhow!(format!("{:#}", e)))?;
     assert_eq!("<X>", &*file);
 
     assert_eq!(
@@ -247,7 +252,8 @@ async fn smoke() -> anyhow::Result<()> {
         .compute(&FileKey {
             name: "file.fl".to_owned(),
         })
-        .await;
+        .await?
+        .map_err(|e| anyhow::anyhow!(format!("{:#}", e)))?;
     assert_eq!("<X>", &*file);
 
     assert_eq!(

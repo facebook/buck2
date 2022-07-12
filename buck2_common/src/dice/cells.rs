@@ -38,7 +38,7 @@ impl InjectedKey for CellResolverKey {
 #[async_trait]
 impl HasCellResolver for DiceComputations {
     async fn get_cell_resolver(&self) -> anyhow::Result<CellResolver> {
-        Ok(self.compute(&CellResolverKey).await)
+        Ok(self.compute(&CellResolverKey).await?)
     }
 
     fn set_cell_resolver(&self, cell_resolver: CellResolver) {

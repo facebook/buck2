@@ -113,7 +113,7 @@ pub trait Setup {
     /// Sets the state of the resource map.
     fn init_state(self) -> DiceTransaction;
     /// Adds a list of companies and maps them to their resources.
-    async fn add_companies(self, companies: Vec<Company>) -> DiceTransaction;
+    async fn add_companies(self, companies: Vec<Company>) -> anyhow::Result<DiceTransaction>;
 }
 
 #[async_trait]
@@ -127,7 +127,7 @@ impl Setup for DiceTransaction {
         self.commit()
     }
 
-    async fn add_companies(self, companies: Vec<Company>) -> DiceTransaction {
+    async fn add_companies(self, companies: Vec<Company>) -> anyhow::Result<DiceTransaction> {
         let mut resource_to_company_local = HashMap::new();
 
         // convert company to insertion ready format
@@ -163,15 +163,15 @@ impl Setup for DiceTransaction {
             .zip(companies.into_iter())
             .zip(remote_resources.into_iter())
             .map(|((resource, mut local_companies), remote_companies)| {
-                local_companies.append(&mut (*remote_companies).clone());
+                local_companies.append(&mut (*remote_companies?).clone());
 
-                (resource, Arc::new(local_companies))
+                Ok((resource, Arc::new(local_companies)))
             })
-            .collect();
+            .collect::<anyhow::Result<_>>()?;
 
         self.changed_to(joined);
 
-        self.commit()
+        Ok(self.commit())
     }
 }
 
@@ -185,7 +185,7 @@ pub trait Cost {
         company: &str,
         resource: &Resource,
         new_price: u16,
-    ) -> Result<(), &'static str>;
+    ) -> anyhow::Result<()>;
 }
 
 async fn lookup_company_resource_cost(
@@ -201,7 +201,10 @@ async fn lookup_company_resource_cost(
         type Value = Result<Option<u16>, Arc<anyhow::Error>>;
 
         async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-            let company = ctx.compute(&self.0).await;
+            let company = ctx
+                .compute(&self.0)
+                .await
+                .map_err(|e| Arc::new(anyhow::anyhow!(e)))?;
             let recipe = self.1.recipe();
 
             let upcharge = company.makes.get(&self.1);
@@ -244,6 +247,7 @@ async fn lookup_company_resource_cost(
 
     ctx.compute(&LookupCompanyResourceCost(company.clone(), resource.dupe()))
         .await
+        .map_err(|e| Arc::new(anyhow::anyhow!(e)))?
 }
 
 #[async_trait]
@@ -257,7 +261,10 @@ impl Cost for DiceComputations {
             type Value = Result<Option<u16>, Arc<anyhow::Error>>;
 
             async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-                let companies = ctx.compute(LookupResource::ref_cast(&self.0)).await;
+                let companies = ctx
+                    .compute(LookupResource::ref_cast(&self.0))
+                    .await
+                    .map_err(|e| Arc::new(anyhow::anyhow!(e)))?;
 
                 let costs = join_all(companies.iter().map(|company| async move {
                     lookup_company_resource_cost(ctx, company, &self.0).await
@@ -280,7 +287,9 @@ impl Cost for DiceComputations {
             }
         }
 
-        self.compute(LookupResourceCost::ref_cast(resource)).await
+        self.compute(LookupResourceCost::ref_cast(resource))
+            .await
+            .map_err(|e| Arc::new(anyhow::anyhow!(e)))?
     }
 
     async fn change_company_resource_cost(
@@ -288,14 +297,13 @@ impl Cost for DiceComputations {
         company: &str,
         resource: &Resource,
         new_price: u16,
-    ) -> Result<(), &'static str> {
+    ) -> anyhow::Result<()> {
         let company_lookup = LookupCompany(Arc::new(company.to_owned()));
-        let old_company = self.compute(&company_lookup).await;
+        let old_company = self.compute(&company_lookup).await?;
         let mut new_company = (*old_company).clone();
-        let old_price = new_company
-            .makes
-            .get_mut(resource)
-            .ok_or("Tried to update cost for a resource company does not make")?;
+        let old_price = new_company.makes.get_mut(resource).ok_or_else(|| {
+            anyhow::anyhow!("Tried to update cost for a resource company does not make")
+        })?;
         *old_price = new_price;
 
         self.changed_to(vec![(company_lookup, Arc::new(new_company))]);

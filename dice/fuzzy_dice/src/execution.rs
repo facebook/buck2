@@ -211,7 +211,7 @@ impl DiceExecutionOrder {
                         let expected = answer_key.value_of_at_ctx(*ctx_id, *var);
                         match expected {
                             Some(expected_result) => {
-                                let result = ctx.eval(state.dupe(), *var).await;
+                                let result = ctx.eval(state.dupe(), *var).await?;
                                 Self::maybe_dump_dice(options, &dice)
                                     .expect("couldn't dump DICE to stderr");
                                 assert_eq!(
@@ -226,7 +226,7 @@ impl DiceExecutionOrder {
                                 // This environment variable disables this class of bugs, so other errors are easier to find.
                                 if std::env::var("ALLOW_INCORRECT_WHEN_SHOULD_PANIC").is_err() {
                                     if let Ok(actual_value) = std::panic::AssertUnwindSafe(async {
-                                        ctx.eval(state.dupe(), *var).await
+                                        ctx.eval(state.dupe(), *var).await.expect("eval errored")
                                     })
                                     .catch_unwind()
                                     .await

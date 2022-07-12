@@ -184,29 +184,39 @@ struct K(i32);
 
 #[async_trait]
 impl Key for K {
-    type Value = K;
+    type Value = Result<K, Arc<anyhow::Error>>;
 
-    async fn compute(&self, ctx: &DiceComputations) -> K {
+    async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
         let mut sum = self.0;
         for i in 0..self.0 {
-            sum += ctx.compute(&K(i)).await.0;
+            sum += ctx
+                .compute(&K(i))
+                .await
+                .map_err(|e| Arc::new(anyhow::anyhow!(e)))??
+                .0;
         }
-        K(sum)
+        Ok(K(sum))
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+        match (x, y) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
     }
 }
 
 #[test]
-fn ctx_tracks_deps_properly() {
+fn ctx_tracks_deps_properly() -> anyhow::Result<()> {
     let dice = Dice::builder().build(DetectCycles::Enabled);
 
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let ctx = dice.ctx();
-        let res = ctx.compute(&K(5)).await;
+        let res = ctx
+            .compute(&K(5))
+            .await?
+            .map_err(|e| anyhow::anyhow!(format!("{:#}", e)))?;
         assert_eq!(res, K(31));
 
         // introspect the caches for dependency info
@@ -241,11 +251,13 @@ fn ctx_tracks_deps_properly() {
         assert_cached_deps(&dice, 2);
         assert_cached_deps(&dice, 1);
         assert_cached_deps(&dice, 0);
-    });
+
+        Ok(())
+    })
 }
 
 #[test]
-fn ctx_tracks_rdeps_properly() {
+fn ctx_tracks_rdeps_properly() -> anyhow::Result<()> {
     let dice = Dice::builder().build(DetectCycles::Enabled);
 
     let rt = tokio::runtime::Builder::new_multi_thread()
@@ -255,7 +267,10 @@ fn ctx_tracks_rdeps_properly() {
         .unwrap();
     rt.block_on(async {
         let ctx = dice.ctx();
-        let res = ctx.compute(&K(5)).await;
+        let res = ctx
+            .compute(&K(5))
+            .await?
+            .map_err(|e| anyhow::anyhow!(format!("{:#}", e)))?;
         assert_eq!(res, K(31));
 
         // introspect the caches for dependency info
@@ -295,7 +310,9 @@ fn ctx_tracks_rdeps_properly() {
         assert_cached_rdeps(&dice, 2);
         assert_cached_rdeps(&dice, 1);
         assert_cached_rdeps(&dice, 0);
-    });
+
+        Ok(())
+    })
 }
 
 // ignore this for now. Need to change ctx to better represent lifetimes and ownership
@@ -375,6 +392,7 @@ fn dice_computations_are_parallel() {
                         barrier: barrier.dupe(),
                     })
                     .await
+                    .unwrap()
             })
             .collect::<Vec<_>>();
 
@@ -426,12 +444,12 @@ async fn different_data_per_compute_ctx() {
     let request0 = ctx0.compute(&DataRequest(0));
     let request1 = ctx1.compute(&DataRequest(1));
 
-    assert_eq!(request0.await, 0);
-    assert_eq!(request1.await, 1);
+    assert_eq!(request0.await.unwrap(), 0);
+    assert_eq!(request1.await.unwrap(), 1);
 }
 
 #[tokio::test]
-async fn invalid_results_are_not_cached() {
+async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
     #[derive(Clone, Dupe, Debug, Display, Derivative)]
     #[derivative(Hash, PartialEq, Eq)]
     #[display(fmt = "{:?}", self)]
@@ -459,18 +477,18 @@ async fn invalid_results_are_not_cached() {
     let is_ran = Arc::new(AtomicBool::new(false));
     {
         let ctx = dice.ctx();
-        ctx.compute(&AlwaysTransient(is_ran.dupe())).await;
+        ctx.compute(&AlwaysTransient(is_ran.dupe())).await?;
         assert!(is_ran.load(Ordering::SeqCst));
 
         // same ctx, so should reuse the result and
         is_ran.store(false, Ordering::SeqCst);
-        ctx.compute(&AlwaysTransient(is_ran.dupe())).await;
+        ctx.compute(&AlwaysTransient(is_ran.dupe())).await?;
         assert!(!is_ran.load(Ordering::SeqCst));
 
         // simultaneously ctx should also re-use the result
         let ctx1 = dice.ctx();
         is_ran.store(false, Ordering::SeqCst);
-        ctx1.compute(&AlwaysTransient(is_ran.dupe())).await;
+        ctx1.compute(&AlwaysTransient(is_ran.dupe())).await?;
         assert!(!is_ran.load(Ordering::SeqCst));
     }
 
@@ -478,18 +496,20 @@ async fn invalid_results_are_not_cached() {
         // new context should re-run
         let ctx = dice.ctx();
         is_ran.store(false, Ordering::SeqCst);
-        ctx.compute(&AlwaysTransient(is_ran.dupe())).await;
+        ctx.compute(&AlwaysTransient(is_ran.dupe())).await?;
         assert!(is_ran.load(Ordering::SeqCst));
 
         // same ctx, so should reuse the result and
         is_ran.store(false, Ordering::SeqCst);
-        ctx.compute(&AlwaysTransient(is_ran.dupe())).await;
+        ctx.compute(&AlwaysTransient(is_ran.dupe())).await?;
         assert!(!is_ran.load(Ordering::SeqCst));
     }
+
+    Ok(())
 }
 
 #[tokio::test]
-async fn demo_with_transient() {
+async fn demo_with_transient() -> anyhow::Result<()> {
     #[derive(Clone, Dupe, Debug, Display, Derivative)]
     #[derivative(Hash, PartialEq, Eq)]
     #[display(fmt = "{:?}", self)]
@@ -512,7 +532,11 @@ async fn demo_with_transient() {
             } else {
                 let mut sum = 0;
                 for i in 0..self.0 {
-                    if let Ok(v) = ctx.compute(&MaybeTransient(i, self.1.dupe())).await {
+                    if let Ok(v) = ctx
+                        .compute(&MaybeTransient(i, self.1.dupe()))
+                        .await
+                        .unwrap()
+                    {
                         sum += v;
                     } else {
                         return Err(false);
@@ -540,14 +564,14 @@ async fn demo_with_transient() {
 
     assert!(
         ctx.compute(&MaybeTransient(10, validity.dupe()))
-            .await
+            .await?
             .is_err(),
     );
 
     validity.store(true, Ordering::SeqCst);
     assert!(
         ctx.compute(&MaybeTransient(10, validity.dupe()))
-            .await
+            .await?
             .is_err(),
     );
 
@@ -555,7 +579,9 @@ async fn demo_with_transient() {
 
     let ctx = dice.ctx();
     assert_eq!(
-        ctx.compute(&MaybeTransient(10, validity.dupe())).await,
+        ctx.compute(&MaybeTransient(10, validity.dupe())).await?,
         Ok(512)
     );
+
+    Ok(())
 }

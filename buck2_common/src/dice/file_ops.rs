@@ -168,7 +168,7 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
         }
     }
 
-    dice.compute(&FileOpsKey()).await
+    dice.compute(&FileOpsKey()).await?
 }
 
 fn panic_expected_parent(path: &CellPath) -> ! {
@@ -294,20 +294,20 @@ impl<'c> FileOps for DiceFileOps<'c> {
 
         self.0
             .compute(&ReadFileKey(path.to_owned()))
-            .await
+            .await?
             .read(&*file_ops)
             .await
     }
 
     async fn read_dir(&self, path: &CellPath) -> SharedResult<Arc<Vec<SimpleDirEntry>>> {
-        self.0.compute(&ReadDirKey(path.clone())).await
+        self.0.compute(&ReadDirKey(path.clone())).await?
     }
 
     async fn read_path_metadata_if_exists(
         &self,
         path: &CellPath,
     ) -> SharedResult<Option<PathMetadata>> {
-        self.0.compute(&PathMetadataKey(path.clone())).await
+        self.0.compute(&PathMetadataKey(path.clone())).await?
     }
 
     async fn is_ignored(&self, path: &CellPath) -> anyhow::Result<bool> {

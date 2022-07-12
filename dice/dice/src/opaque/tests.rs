@@ -105,7 +105,7 @@ async fn key_does_not_read_opaque() -> anyhow::Result<()> {
     });
 
     // Both keys are computed.
-    assert_eq!("Aaa", &*ctx.compute(&DoesNotReadOpaque).await);
+    assert_eq!("Aaa", &*ctx.compute(&DoesNotReadOpaque).await?);
     assert_eq!(
         vec![KeyType::DoesNotReadOpaque, KeyType::IsOpaque],
         tracker.lock().unwrap().computations
@@ -119,7 +119,7 @@ async fn key_does_not_read_opaque() -> anyhow::Result<()> {
     tracker.lock().unwrap().computations.clear();
 
     // No keys are recomputed, because `Aaa` does not depend on `KeyWhichIsOpaque`.
-    assert_eq!("Aaa", &*ctx.compute(&DoesNotReadOpaque).await);
+    assert_eq!("Aaa", &*ctx.compute(&DoesNotReadOpaque).await?);
     assert_eq!(Vec::<KeyType>::new(), tracker.lock().unwrap().computations);
 
     Ok(())

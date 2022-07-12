@@ -79,7 +79,7 @@ impl<'c> InterpreterCalculation<'c> for DiceComputations {
             }
         }
 
-        self.compute(&InterpreterResultsKey(package.dupe())).await
+        self.compute(&InterpreterResultsKey(package.dupe())).await?
     }
 
     async fn get_loaded_module(&self, path: StarlarkModulePath<'_>) -> SharedResult<LoadedModule> {

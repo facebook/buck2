@@ -72,6 +72,7 @@ impl BenchmarkComputationsPrerequisites for SupplyChainBenchmark {
             },
         ])
         .await
+        .unwrap()
     }
 
     async fn update<I>(ctx: DiceTransaction, keys: I) -> DiceTransaction

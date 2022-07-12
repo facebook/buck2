@@ -33,6 +33,7 @@ use crate::map::DiceMap;
 use crate::opaque::OpaqueValue;
 use crate::projection::ProjectionKeyAsKey;
 use crate::Dice;
+use crate::DiceResult;
 use crate::Key;
 use crate::ProjectionKey;
 
@@ -170,11 +171,15 @@ impl DiceComputations {
     /// Gets all the result of of the given computation key.
     /// recorded as dependencies of the current computation for which this
     /// context is for.
-    pub fn compute<'a, K>(&'a self, key: &'a K) -> impl Future<Output = <K as Key>::Value> + 'a
+    pub fn compute<'a, K>(
+        &'a self,
+        key: &'a K,
+    ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + 'a
     where
         K: Key,
     {
-        self.compute_opaque(key).map(OpaqueValue::into_value)
+        self.compute_opaque(key)
+            .map(|r| r.map(OpaqueValue::into_value))
     }
 
     /// same as `compute` but for a multiple keys. The returned results will be in order of the
@@ -182,7 +187,7 @@ impl DiceComputations {
     pub fn compute_many<'a, K>(
         &'a self,
         keys: &[&'a K],
-    ) -> Vec<impl Future<Output = <K as Key>::Value> + 'a>
+    ) -> Vec<impl Future<Output = DiceResult<<K as Key>::Value>> + 'a>
     where
         K: Key,
     {
@@ -193,7 +198,10 @@ impl DiceComputations {
     /// Projections allow accessing derived results from the "opaque" value,
     /// where the dependency of reading a projection is the projection value rather
     /// than the entire opaque value.
-    pub fn compute_opaque<'a, K>(&'a self, key: &K) -> impl Future<Output = OpaqueValue<'a, K>> + 'a
+    pub fn compute_opaque<'a, K>(
+        &'a self,
+        key: &K,
+    ) -> impl Future<Output = DiceResult<OpaqueValue<'a, K>>> + 'a
     where
         K: Key,
     {
@@ -317,7 +325,7 @@ impl DiceComputationImpl {
     pub(super) fn compute_opaque<'a, K>(
         self: &'a Arc<Self>,
         key: &K,
-    ) -> impl Future<Output = OpaqueValue<'a, K>> + 'a
+    ) -> impl Future<Output = DiceResult<OpaqueValue<'a, K>>> + 'a
     where
         K: Key,
     {
@@ -328,7 +336,7 @@ impl DiceComputationImpl {
             let value = cache
                 .eval_for_opaque(&key, &self.transaction_ctx, extra)
                 .await;
-            OpaqueValue::new(key, value, self, cache)
+            Ok(OpaqueValue::new(key, value, self, cache))
         }
         .boxed()
     }

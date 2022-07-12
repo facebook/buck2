@@ -134,9 +134,9 @@ mod tests {
 
         async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
             if self.0 > 0 {
-                ctx.compute(&KeyA(self.0 - 1)).await;
+                ctx.compute(&KeyA(self.0 - 1)).await.unwrap();
             } else {
-                ctx.compute(&KeyB).await;
+                ctx.compute(&KeyB).await.unwrap();
             }
         }
 
@@ -166,7 +166,7 @@ mod tests {
     async fn test_serialization() -> anyhow::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Disabled);
         let ctx = dice.ctx();
-        ctx.compute(&KeyA(3)).await;
+        ctx.compute(&KeyA(3)).await?;
 
         let mut nodes = Vec::new();
         let mut edges = Vec::new();
@@ -210,7 +210,7 @@ mod tests {
     async fn test_serialization_dense() -> anyhow::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Disabled);
         let ctx = dice.ctx();
-        ctx.compute(&KeyA(3)).await;
+        ctx.compute(&KeyA(3)).await?;
 
         let nodes = bincode::serialize(dice.as_ref())?;
         let _out: Vec<SerializedGraphNodesForKey> = bincode::deserialize(&nodes)?;

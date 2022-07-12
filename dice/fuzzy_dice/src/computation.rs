@@ -35,12 +35,16 @@ pub enum Unit {
     Literal(bool),
 }
 
-async fn resolve_units(ctx: &DiceComputations, units: &[Unit], state: Arc<FuzzState>) -> Vec<bool> {
+async fn resolve_units(
+    ctx: &DiceComputations,
+    units: &[Unit],
+    state: Arc<FuzzState>,
+) -> anyhow::Result<Vec<bool>> {
     let futs = units.map(|unit| match unit {
         Unit::Variable(var) => ctx.eval(state.dupe(), *var),
-        Unit::Literal(lit) => async move { *lit }.boxed(),
+        Unit::Literal(lit) => async move { Ok(*lit) }.boxed(),
     });
-    future::join_all(futs).await
+    future::join_all(futs).await.into_iter().collect()
 }
 
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
@@ -54,9 +58,10 @@ pub enum Expr {
     Xor(Vec<Unit>),
 }
 
-async fn lookup_unit(ctx: &DiceComputations, var: Var) -> Arc<Expr> {
-    ctx.compute(&LookupVar(var)).await
+async fn lookup_unit(ctx: &DiceComputations, var: Var) -> anyhow::Result<Arc<Expr>> {
+    Ok(ctx.compute(&LookupVar(var)).await?)
 }
+
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq)]
 #[display(fmt = "Lookup({})", _0)]
 struct LookupVar(Var);
@@ -89,13 +94,17 @@ impl FuzzEquations for DiceComputations {
 
 #[async_trait]
 pub trait FuzzMath {
-    async fn eval(&self, state: Arc<FuzzState>, var: Var) -> bool;
+    async fn eval(&self, state: Arc<FuzzState>, var: Var) -> anyhow::Result<bool>;
 }
 
 #[async_trait]
 impl FuzzMath for DiceComputations {
-    async fn eval(&self, state: Arc<FuzzState>, var: Var) -> bool {
-        *self.compute(&state.eval_var(var)).await.as_ref()
+    async fn eval(&self, state: Arc<FuzzState>, var: Var) -> anyhow::Result<bool> {
+        Ok(*self
+            .compute(&state.eval_var(var))
+            .await?
+            .map_err(|e| anyhow::anyhow!(format!("{:#}", e)))?
+            .as_ref())
     }
 }
 
@@ -171,41 +180,54 @@ impl<T> MaybeTransient<T> {
 
 #[async_trait]
 impl Key for EvalVar {
-    type Value = MaybeTransient<bool>;
+    type Value = Result<MaybeTransient<bool>, Arc<anyhow::Error>>;
 
     async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
         let step = self.state.next_step_for_var(self.key);
-        let ret = match &*lookup_unit(ctx, self.key).await {
-            Expr::Unit(unit) => resolve_units(ctx, &[unit.clone()], self.state.dupe()).await[0],
+        let ret = match &*lookup_unit(ctx, self.key).await.map_err(Arc::new)? {
+            Expr::Unit(unit) => resolve_units(ctx, &[unit.clone()], self.state.dupe())
+                .await
+                .map_err(Arc::new)?[0],
             Expr::Cond {
                 test,
                 then,
                 otherwise,
             } => {
-                if resolve_units(ctx, &[test.clone()], self.state.dupe()).await[0] {
-                    resolve_units(ctx, &[then.clone()], self.state.dupe()).await[0]
+                if resolve_units(ctx, &[test.clone()], self.state.dupe())
+                    .await
+                    .map_err(Arc::new)?[0]
+                {
+                    resolve_units(ctx, &[then.clone()], self.state.dupe())
+                        .await
+                        .map_err(Arc::new)?[0]
                 } else {
-                    resolve_units(ctx, &[otherwise.clone()], self.state.dupe()).await[0]
+                    resolve_units(ctx, &[otherwise.clone()], self.state.dupe())
+                        .await
+                        .map_err(Arc::new)?[0]
                 }
             }
             Expr::Xor(vars) => resolve_units(ctx, vars, self.state.dupe())
                 .await
+                .map_err(Arc::new)?
                 .into_iter()
                 .reduce(|x, y| x ^ y)
                 .unwrap_or(false),
         };
-        match step {
+        Ok(match step {
             ComputationStep::ReturnStable => MaybeTransient::Stable(ret),
             ComputationStep::ReturnTransient => MaybeTransient::Transient(ret),
-        }
+        })
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+        match (x, y) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
     }
 
     fn validity(x: &Self::Value) -> bool {
-        !x.is_transient()
+        x.as_ref().map_or(false, |x| !x.is_transient())
     }
 }
 
@@ -242,10 +264,10 @@ mod tests {
             );
             ctx.commit()
         };
-        assert!(ctx.eval(empty_state.dupe(), Var(1)).await);
-        assert!(ctx.eval(empty_state.dupe(), Var(2)).await);
-        assert!(!ctx.eval(empty_state.dupe(), Var(3)).await);
-        assert!(ctx.eval(empty_state.dupe(), Var(4)).await);
+        assert!(ctx.eval(empty_state.dupe(), Var(1)).await?);
+        assert!(ctx.eval(empty_state.dupe(), Var(2)).await?);
+        assert!(!ctx.eval(empty_state.dupe(), Var(3)).await?);
+        assert!(ctx.eval(empty_state.dupe(), Var(4)).await?);
         Ok(())
     }
 }

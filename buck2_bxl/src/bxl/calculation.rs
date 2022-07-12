@@ -26,7 +26,7 @@ pub struct BxlCalculationImpl;
 #[async_trait]
 impl BxlCalculationDyn for BxlCalculationImpl {
     async fn eval_ctx(&self, ctx: &DiceComputations, bxl: BxlKey) -> SharedResult<Arc<BxlResult>> {
-        ctx.compute(&internal::BxlComputeKey(bxl)).await
+        ctx.compute(&internal::BxlComputeKey(bxl)).await?
     }
 }
 

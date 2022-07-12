@@ -109,12 +109,12 @@ impl GetStarlarkProfilerInstrumentation for DiceComputations {
     ) -> anyhow::Result<Option<StarlarkProfilerInstrumentation>> {
         Ok(self
             .compute(&StarlarkProfilerInstrumentationOverrideKey)
-            .await)
+            .await?)
     }
 
     async fn get_starlark_profiler_instrumentation(
         &self,
     ) -> anyhow::Result<StarlarkProfilerInstrumentation> {
-        Ok(self.compute(&StarlarkProfilerInstrumentationKey).await?)
+        Ok(self.compute(&StarlarkProfilerInstrumentationKey).await??)
     }
 }
