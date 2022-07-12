@@ -12,7 +12,7 @@ def _not_hermetic_action_impl(ctx):
             sentinel,
             out.as_output(),
         ]).hidden(dep),
-        prefer_local = True,
+        local_only = True,
         category = "test",
     )
 
