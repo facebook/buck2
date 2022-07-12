@@ -10,7 +10,7 @@ def _modify_file_impl(ctx):
         "--",
         text,
         out.as_output(),
-    ], prefer_local = True, category = "test")
+    ], local_only = True, category = "test")
 
     return [DefaultInfo(default_outputs = [out])]
 
