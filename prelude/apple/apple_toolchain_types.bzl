@@ -8,6 +8,7 @@ AppleToolchainInfo = provider(fields = [
     "cxx_toolchain_info",  # "CxxToolchainInfo"
     "codesign",  # "RunInfo"
     "codesign_allocate",  # "RunInfo"
+    "compile_resources_locally",  # bool.type
     "libtool",  # "RunInfo"
     "momc",  # "RunInfo"
     "min_version",  # [None, str.type]

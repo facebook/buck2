@@ -104,6 +104,8 @@ extra_attributes = {
         "actool": attr.dep(providers = [RunInfo]),
         "codesign": attr.dep(providers = [RunInfo]),
         "codesign_allocate": attr.dep(providers = [RunInfo]),
+        # Controls invocations of `ibtool`, `actool` and `momc`
+        "compile_resources_locally": attr.bool(default = False),
         "dsymutil": attr.dep(providers = [RunInfo]),
         "dwarfdump": attr.option(attr.dep(providers = [RunInfo]), default = None),
         "ibtool": attr.dep(providers = [RunInfo]),
