@@ -179,7 +179,7 @@ config_backed_java_toolchain(
 
 prebuilt_jar_toolchain(
     name = "prebuilt_jar_bootstrap",
-    class_abi_generator = None,
+    is_bootstrap_toolchain = True,
     visibility = ["PUBLIC"],
 )
 

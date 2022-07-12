@@ -32,6 +32,7 @@ JavaToolchainInfo = provider(
         "src_root_elements",
         "src_root_prefixes",
         "target_level",
+        "is_bootstrap_toolchain",
     ],
 )
 
@@ -51,5 +52,6 @@ PrebuiltJarToolchainInfo = provider(
     "prebuilt_jar toolchain info",
     fields = [
         "class_abi_generator",
+        "is_bootstrap_toolchain",
     ],
 )

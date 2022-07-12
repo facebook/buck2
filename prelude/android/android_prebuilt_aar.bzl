@@ -4,8 +4,8 @@ load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainIn
 load(
     "@fbcode//buck2/prelude/java:java_providers.bzl",
     "JavaClasspathEntry",
+    "create_abi",
     "create_java_library_providers",
-    "maybe_create_abi",
 )
 load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JavaToolchainInfo")
 
@@ -59,7 +59,8 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
         text_symbols = r_dot_txt,
     )
 
-    abi = maybe_create_abi(ctx.actions, java_toolchain.class_abi_generator, all_classes_jar)
+    abi = None if java_toolchain.is_bootstrap_toolchain else create_abi(ctx.actions, java_toolchain.class_abi_generator, all_classes_jar)
+
     library_output_classpath_entry = JavaClasspathEntry(
         full_library = all_classes_jar,
         abi = abi or all_classes_jar,

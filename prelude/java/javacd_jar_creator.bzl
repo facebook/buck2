@@ -1,9 +1,9 @@
 load(
     "@fbcode//buck2/prelude/java:java_providers.bzl",
     "JavaLibraryInfo",
+    "create_abi",
     "derive_compiling_deps",
     "make_compile_outputs",
-    "maybe_create_abi",
 )
 load("@fbcode//buck2/prelude/java:java_resources.bzl", "get_resources_map")
 load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "AbiGenerationMode")
@@ -438,7 +438,7 @@ def create_jar_artifact_javacd(
         return merged_jar
 
     final_jar = prepare_final_jar()
-    class_abi = maybe_create_abi(actions, java_toolchain.class_abi_generator, final_jar)
+    class_abi = None if java_toolchain.is_bootstrap_toolchain else create_abi(actions, java_toolchain.class_abi_generator, final_jar)
 
     source_abi = None
     source_only_abi = None

@@ -4,10 +4,10 @@ load(
     "@fbcode//buck2/prelude/java:java_providers.bzl",
     "JavaLibraryInfo",
     "JavaProviders",
+    "create_abi",
     "create_java_library_providers",
     "derive_compiling_deps",
     "make_compile_outputs",
-    "maybe_create_abi",
     "to_list",
 )
 load("@fbcode//buck2/prelude/java:java_resources.bzl", "get_resources_map")
@@ -409,7 +409,9 @@ def _create_jar_artifact(
         _append_javac_params(actions, actions_prefix, java_toolchain, srcs, remove_classes, ap_params, plugin_params, source_level, target_level, deps, extra_arguments, additional_classpath_entries, bootclasspath_entries, compile_and_package_cmd)
 
     actions.run(compile_and_package_cmd, category = "javac_and_jar", identifier = actions_prefix)
-    abi = maybe_create_abi(actions, java_toolchain.class_abi_generator, jar_out)
+
+    abi = None if java_toolchain.is_bootstrap_toolchain else create_abi(actions, java_toolchain.class_abi_generator, jar_out)
+
     return make_compile_outputs(
         full_library = jar_out,
         class_abi = abi,
@@ -530,8 +532,9 @@ def build_java_library(
         )
 
         java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
-        ast_dumper = java_toolchain.ast_dumper
-        if ast_dumper:
+        if not java_toolchain.is_bootstrap_toolchain:
+            ast_dumper = java_toolchain.ast_dumper
+
             # Replace whatever compiler plugins are present with the AST dumper instead
             ast_output = ctx.actions.declare_output("ast_json")
             ast_dumping_plugin_params = create_plugin_params([ast_dumper])

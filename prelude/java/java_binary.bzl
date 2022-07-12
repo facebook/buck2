@@ -33,6 +33,10 @@ def _create_fat_jar(
     ]
 
     if native_libs:
+        expect(
+            java_toolchain.is_bootstrap_toolchain == False,
+            "Bootstrap java toolchain could not be used for java_binary() with native code.",
+        )
         args += [
             "--fat_jar_lib",
             java_toolchain.fat_jar_main_class_lib,

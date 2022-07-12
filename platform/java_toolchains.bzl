@@ -14,12 +14,12 @@ _buckconfig_java_toolchain_attrs = {
 }
 
 DEFAULT_ABI_GENERATOR = "buck//src/com/facebook/buck/jvm/java/abi:api-stubber"
+AST_DUMPER = "fbsource//xplat/buck2/tools/java/dump_ast:dump_ast"
+FAT_JAR_MAIN_CLASS_LIB = "buck//src/com/facebook/buck/jvm/java:fat-jar-main"
 
 def config_backed_java_toolchain(
         name,
-        ast_dumper = "fbsource//xplat/buck2/tools/java/dump_ast:dump_ast",
-        class_abi_generator = DEFAULT_ABI_GENERATOR,
-        fat_jar_main_class_lib = "buck//src/com/facebook/buck/jvm/java:fat-jar-main",
+        is_bootstrap_toolchain = False,
         javac = None,
         java = None,
         java_for_tests = None,
@@ -57,9 +57,17 @@ def config_backed_java_toolchain(
         kwargs["java_for_tests"] = java_for_tests
     if javac != None:
         kwargs["javac"] = javac
-    kwargs["ast_dumper"] = ast_dumper
-    kwargs["class_abi_generator"] = class_abi_generator
-    kwargs["fat_jar_main_class_lib"] = fat_jar_main_class_lib
+
+    kwargs["is_bootstrap_toolchain"] = is_bootstrap_toolchain
+    if is_bootstrap_toolchain:
+        # set none for tools that don't used for bootstrap toolchain
+        kwargs["ast_dumper"] = None
+        kwargs["class_abi_generator"] = None
+        kwargs["fat_jar_main_class_lib"] = None
+    else:
+        kwargs["ast_dumper"] = AST_DUMPER
+        kwargs["class_abi_generator"] = DEFAULT_ABI_GENERATOR
+        kwargs["fat_jar_main_class_lib"] = FAT_JAR_MAIN_CLASS_LIB
 
     if "javac" in kwargs:
         kwargs["javac_protocol"] = "classic"
@@ -104,6 +112,7 @@ def _config_backed_java_toolchain_rule_impl(ctx):
             src_root_elements = src_root_elements,
             src_root_prefixes = src_root_prefixes,
             target_level = ctx.attrs.target_level,
+            is_bootstrap_toolchain = ctx.attr.is_bootstrap_toolchain,
         ),
     ]
 
@@ -118,6 +127,7 @@ _config_backed_java_toolchain_rule = rule(
         "fallback_javac": attr.option(attr.one_of(attr.dep(), attr.source(), attr.string()), default = None),
         "fat_jar": attr.dep(),
         "fat_jar_main_class_lib": attr.option(attr.source(), default = None),
+        "is_bootstrap_toolchain": attr.bool(default = False),
         "jar": attr.dep(providers = [RunInfo]),
         "java": attr.dep(),
         "java_for_tests": attr.option(attr.dep(providers = [RunInfo])),
@@ -173,21 +183,25 @@ _junit_toolchain_rule = rule(
     impl = _junit_toolchain_rule_impl,
 )
 
-def prebuilt_jar_toolchain(name, **kwargs):
-    if "class_abi_generator" not in kwargs:
-        kwargs["class_abi_generator"] = DEFAULT_ABI_GENERATOR
-
-    _prebuilt_jar_toolchain_rule(name = name, **kwargs)
+def prebuilt_jar_toolchain(name, is_bootstrap_toolchain = False, visibility = None):
+    kwargs = {}
+    kwargs["is_bootstrap_toolchain"] = is_bootstrap_toolchain
+    kwargs["class_abi_generator"] = None if is_bootstrap_toolchain else DEFAULT_ABI_GENERATOR
+    _prebuilt_jar_toolchain_rule(name = name, visibility = visibility, **kwargs)
 
 def _prebuilt_jar_toolchain_rule_impl(ctx):
     return [
         DefaultInfo(),
-        PrebuiltJarToolchainInfo(class_abi_generator = ctx.attrs.class_abi_generator),
+        PrebuiltJarToolchainInfo(
+            class_abi_generator = ctx.attrs.class_abi_generator,
+            is_bootstrap_toolchain = ctx.attrs.is_bootstrap_toolchain,
+        ),
     ]
 
 _prebuilt_jar_toolchain_rule = rule(
     attrs = {
         "class_abi_generator": attr.option(attr.dep(providers = [RunInfo]), default = None),
+        "is_bootstrap_toolchain": attr.bool(default = False),
     },
     impl = _prebuilt_jar_toolchain_rule_impl,
 )
