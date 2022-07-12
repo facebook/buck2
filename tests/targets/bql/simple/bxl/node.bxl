@@ -1,5 +1,5 @@
 def _impl(ctx):
-    node = ctx.cquery().owner("bin/TARGETS.fixture")[0]
+    node = ctx.configured_targets("root//bin:the_binary")
 
     ctx.output.print(node.label)
     ctx.output.print(node.rule_type)

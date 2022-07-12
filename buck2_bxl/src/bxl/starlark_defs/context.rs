@@ -19,6 +19,7 @@ use buck2_build_api::actions::artifact::Artifact;
 use buck2_build_api::actions::artifact::ArtifactFs;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::bxl::types::BxlKey;
+use buck2_build_api::calculation::Calculation;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::query::dice::DiceQueryDelegate;
@@ -38,6 +39,7 @@ use derive_more::Display;
 use dice::DiceComputations;
 use either::Either;
 use gazebo::any::ProvidesStaticType;
+use gazebo::prelude::*;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
@@ -58,13 +60,18 @@ use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueTyped;
 
+use crate::bxl::starlark_defs::alloc_node::AllocNode;
 use crate::bxl::starlark_defs::context::actions::BxlActionsCtx;
 use crate::bxl::starlark_defs::context::fs::BxlFilesystem;
 use crate::bxl::starlark_defs::context::output::OutputStream;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
+use crate::bxl::starlark_defs::cquery::get_cquery_env;
 use crate::bxl::starlark_defs::cquery::StarlarkCQueryCtx;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
+use crate::bxl::starlark_defs::target_expr::TargetExpr;
+use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::uquery::StarlarkUQueryCtx;
+use crate::bxl::value_as_starlak_target_label::ValueAsStarlarkTargetLabel;
 
 pub mod actions;
 pub mod analysis;
@@ -232,6 +239,53 @@ fn register_context(builder: &mut MethodsBuilder) {
             .to_str()
             .ok_or_else(|| anyhow::anyhow!("Non utf-8 path"))?
             .to_owned())
+    }
+
+    /// Gets the target nodes for the `labels`, accepting an optional `target_platform` which is the
+    /// target platform configuration used to resolve configurations of any unconfigured target
+    /// nodes.
+    /// The `target_platform` is either a string that can be parsed as a target label, or a
+    /// target label.
+    ///
+    /// The given `labels` is a [`TargetExpr`], which is either:
+    ///     - a single string that is a `target pattern`.
+    ///     - a single target node or label, configured or unconfigured
+    ///     - a list of the two options above.
+    ///
+    /// This returns either a single [`StarlarkConfiguredTargetNode`] if the given `labels`
+    /// is "singular", a dict keyed by target labels of [`StarlarkConfiguredTargetNode`] if the
+    /// given `labels` is list-like
+    fn configured_targets<'v>(
+        this: &'v BxlContext<'v>,
+        #[starlark(require = pos)] labels: Value<'v>,
+        #[starlark(default = NoneType)] target_platform: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        let target_platform =
+            target_platform.parse_target_platforms(&this.target_alias_resolver, &this.cell)?;
+
+        let res: anyhow::Result<Value<'v>> = this.async_ctx.via_dice(|ctx| async move {
+            let query_env = get_cquery_env(ctx, target_platform.dupe()).await?;
+            Ok(
+                match TargetExpr::unpack(labels, &target_platform, this, eval).await? {
+                    TargetExpr::Label(label) => {
+                        let node = ctx
+                            .get_configured_target_node(&label)
+                            .await?
+                            .require_compatible()?;
+
+                        node.alloc(eval.heap())
+                    }
+
+                    TargetExpr::Node(node) => node.alloc(eval.heap()),
+                    multi => eval.heap().alloc(StarlarkTargetSet::from(
+                        multi.get(&query_env).await?.into_owned(),
+                    )),
+                },
+            )
+        });
+
+        res
     }
 
     /// Returns the [`StarlarkUQueryCtx`] that holds all uquery functions.
