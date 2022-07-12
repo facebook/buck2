@@ -284,7 +284,7 @@ def compile_cxx(
     return objects
 
 def _cxx_compile_requires_local(ctx: "context") -> bool.type:
-    return "exceeds_re_memory_limits" in ctx.attr.labels
+    return "exceeds_re_memory_limits" in ctx.attrs.labels
 
 def _validate_target_headers(ctx: "context", preprocessor: [CPreprocessor.type]):
     path_to_artifact = {}
@@ -360,10 +360,10 @@ def _mk_argsfile(ctx: "context", preprocessor: CPreprocessorInfo.type, ext: CxxE
 
     # Workaround as that's not precompiled, but working just as prefix header.
     # Another thing is that it's clang specific, should be generalized.
-    if ctx.attr.precompiled_header != None:
-        args.add(["-include", headers_tag.tag_artifacts(ctx.attr.precompiled_header[CPrecompiledHeaderInfo].header)])
-    if ctx.attr.prefix_header != None:
-        args.add(["-include", headers_tag.tag_artifacts(ctx.attr.prefix_header)])
+    if ctx.attrs.precompiled_header != None:
+        args.add(["-include", headers_tag.tag_artifacts(ctx.attrs.precompiled_header[CPrecompiledHeaderInfo].header)])
+    if ctx.attrs.prefix_header != None:
+        args.add(["-include", headers_tag.tag_artifacts(ctx.attrs.prefix_header)])
 
     shell_quoted_args = cmd_args(args, quote = "shell")
     argfile, macro_files = ctx.actions.write(ext.value + ".argsfile", shell_quoted_args, allow_args = True)
@@ -377,8 +377,8 @@ def _mk_argsfile(ctx: "context", preprocessor: CPreprocessorInfo.type, ext: CxxE
 
 def _attr_compiler_flags(ctx: "context", ext: str.type) -> [""]:
     return (
-        ctx.attr.compiler_flags +
-        cxx_by_language_ext(ctx.attr.lang_compiler_flags, ext) +
-        flatten(cxx_by_platform(ctx, ctx.attr.platform_compiler_flags)) +
-        flatten(cxx_by_platform(ctx, cxx_by_language_ext(ctx.attr.lang_platform_compiler_flags, ext)))
+        ctx.attrs.compiler_flags +
+        cxx_by_language_ext(ctx.attrs.lang_compiler_flags, ext) +
+        flatten(cxx_by_platform(ctx, ctx.attrs.platform_compiler_flags)) +
+        flatten(cxx_by_platform(ctx, cxx_by_language_ext(ctx.attrs.lang_platform_compiler_flags, ext)))
     )

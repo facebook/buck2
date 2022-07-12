@@ -112,11 +112,11 @@ def _get_processor_type(processor_class: str.type) -> JavaProcessorsType.type:
 def java_annotation_processor_impl(ctx: "context") -> ["provider"]:
     return [
         JavaProcessorsInfo(
-            deps = derive_transitive_deps(ctx, ctx.attr.deps),
-            processors = [ctx.attr.processor_class],
-            type = _get_processor_type(ctx.attr.processor_class),
-            affects_abi = not ctx.attr.does_not_affect_abi,
-            supports_source_only_abi = ctx.attr.supports_abi_generation_from_source,
+            deps = derive_transitive_deps(ctx, ctx.attrs.deps),
+            processors = [ctx.attrs.processor_class],
+            type = _get_processor_type(ctx.attrs.processor_class),
+            affects_abi = not ctx.attrs.does_not_affect_abi,
+            supports_source_only_abi = ctx.attrs.supports_abi_generation_from_source,
         ),
         DefaultInfo(default_outputs = []),
     ]

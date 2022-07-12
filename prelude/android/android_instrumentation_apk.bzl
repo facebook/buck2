@@ -12,7 +12,7 @@ def android_instrumentation_apk_impl(ctx: "context"):
     # To begin with, let's just implement something that has a single DEX file and a manifest.
     _verify_params(ctx)
 
-    apk_under_test_info = ctx.attr.apk[AndroidApkUnderTestInfo]
+    apk_under_test_info = ctx.attrs.apk[AndroidApkUnderTestInfo]
 
     # android_instrumentation_apk should just use the same platforms and primary_platform as the APK-under-test
     unfiltered_deps_by_platform = get_deps_by_platform(ctx)
@@ -41,7 +41,7 @@ def android_instrumentation_apk_impl(ctx: "context"):
         java_packaging_deps += [create_java_packaging_dep(ctx, resources_info.r_dot_java.library_output.full_library)]
 
     # For instrumentation test APKs we always pre-dex, and we also always merge to a single dex.
-    android_toolchain = ctx.attr._android_toolchain[AndroidToolchainInfo]
+    android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     pre_dexed_libs = [java_packaging_dep.dex for java_packaging_dep in java_packaging_deps]
     dex_files_info = merge_to_single_dex(ctx, android_toolchain, pre_dexed_libs)
 
@@ -55,7 +55,7 @@ def android_instrumentation_apk_impl(ctx: "context"):
 
     output_apk = build_apk(
         actions = ctx.actions,
-        android_toolchain = ctx.attr._android_toolchain[AndroidToolchainInfo],
+        android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo],
         keystore = apk_under_test_info.keystore,
         dex_files_info = dex_files_info,
         native_library_info = native_library_info,
@@ -65,10 +65,10 @@ def android_instrumentation_apk_impl(ctx: "context"):
 
     return [
         AndroidApkInfo(apk = output_apk, manifest = resources_info.manifest),
-        AndroidInstrumentationApkInfo(apk_under_test = ctx.attr.apk[AndroidApkInfo].apk),
+        AndroidInstrumentationApkInfo(apk_under_test = ctx.attrs.apk[AndroidApkInfo].apk),
         DefaultInfo(default_outputs = [output_apk]),
     ]
 
 def _verify_params(ctx: "context"):
-    expect(ctx.attr.aapt_mode == "aapt2", "aapt1 is deprecated!")
-    expect(ctx.attr.dex_tool == "d8", "dx is deprecated!")
+    expect(ctx.attrs.aapt_mode == "aapt2", "aapt1 is deprecated!")
+    expect(ctx.attrs.dex_tool == "d8", "dx is deprecated!")

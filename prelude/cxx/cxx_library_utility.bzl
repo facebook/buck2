@@ -29,21 +29,21 @@ ARGSFILES_SUBTARGET = "argsfiles"
 
 # The dependencies
 def cxx_attr_deps(ctx: "context") -> ["dependency"]:
-    return ctx.attr.deps + flatten(cxx_by_platform(ctx, ctx.attr.platform_deps))
+    return ctx.attrs.deps + flatten(cxx_by_platform(ctx, ctx.attrs.platform_deps))
 
 def cxx_attr_exported_deps(ctx: "context") -> ["dependency"]:
-    return ctx.attr.exported_deps + flatten(cxx_by_platform(ctx, ctx.attr.exported_platform_deps))
+    return ctx.attrs.exported_deps + flatten(cxx_by_platform(ctx, ctx.attrs.exported_platform_deps))
 
 def cxx_attr_exported_linker_flags(ctx: "context") -> [""]:
     return (
-        ctx.attr.exported_linker_flags +
-        flatten(cxx_by_platform(ctx, ctx.attr.exported_platform_linker_flags))
+        ctx.attrs.exported_linker_flags +
+        flatten(cxx_by_platform(ctx, ctx.attrs.exported_platform_linker_flags))
     )
 
 def cxx_attr_exported_post_linker_flags(ctx: "context") -> [""]:
     return (
-        ctx.attr.exported_post_linker_flags +
-        flatten(cxx_by_platform(ctx, ctx.attr.exported_post_platform_linker_flags))
+        ctx.attrs.exported_post_linker_flags +
+        flatten(cxx_by_platform(ctx, ctx.attrs.exported_post_platform_linker_flags))
     )
 
 def cxx_inherited_link_info(ctx, first_order_deps: ["dependency"]) -> MergedLinkInfo.type:
@@ -55,24 +55,24 @@ def cxx_inherited_link_info(ctx, first_order_deps: ["dependency"]) -> MergedLink
 # Linker flags
 def cxx_attr_linker_flags(ctx: "context") -> [""]:
     return (
-        ctx.attr.linker_flags +
-        flatten(cxx_by_platform(ctx, ctx.attr.platform_linker_flags))
+        ctx.attrs.linker_flags +
+        flatten(cxx_by_platform(ctx, ctx.attrs.platform_linker_flags))
     )
 
 def cxx_attr_link_style(ctx: "context") -> LinkStyle.type:
-    if ctx.attr.link_style != None:
-        return LinkStyle(ctx.attr.link_style)
-    if ctx.attr.defaults != None:
+    if ctx.attrs.link_style != None:
+        return LinkStyle(ctx.attrs.link_style)
+    if ctx.attrs.defaults != None:
         # v1 equivalent code is in CxxConstructorArg::getDefaultFlavors and ParserWithConfigurableAttributes::applyDefaultFlavors
         # Only values in the map are used by v1 as flavors, copy this behavior and return the first value which is compatible with link style.
-        v1_flavors = ctx.attr.defaults.values()
+        v1_flavors = ctx.attrs.defaults.values()
         for s in [LinkStyle("static"), LinkStyle("static_pic"), LinkStyle("shared")]:
             if s.value in v1_flavors:
                 return s
     return get_cxx_toolchain_info(ctx).linker_info.link_style
 
 def cxx_attr_preferred_linkage(ctx: "context") -> Linkage.type:
-    preferred_linkage = ctx.attr.preferred_linkage
+    preferred_linkage = ctx.attrs.preferred_linkage
 
     # force_static is deprecated, but it has precedence over preferred_linkage
     if getattr(ctx.attr, "force_static", False):
@@ -128,7 +128,7 @@ def cxx_is_gnu(ctx: "context") -> bool.type:
 
 def cxx_use_link_groups(ctx: "context") -> bool.type:
     # Link groups is enabled by default in darwin
-    return cxx_is_gnu(ctx) and value_or(ctx.attr.use_link_groups, False)
+    return cxx_is_gnu(ctx) and value_or(ctx.attrs.use_link_groups, False)
 
 def cxx_use_shlib_intfs(ctx: "context") -> bool.type:
     """
@@ -146,10 +146,10 @@ def cxx_platform_supported(ctx: "context") -> bool.type:
     platform name.
     """
 
-    if ctx.attr.supported_platforms_regex == None:
+    if ctx.attrs.supported_platforms_regex == None:
         return True
 
     return regex_match(
-        ctx.attr.supported_platforms_regex,
+        ctx.attrs.supported_platforms_regex,
         get_cxx_platform_info(ctx).name,
     )

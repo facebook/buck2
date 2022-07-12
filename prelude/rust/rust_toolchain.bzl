@@ -54,4 +54,4 @@ RustPlatformInfo = provider(fields = [
 ])
 
 def ctx_toolchain_info(ctx: "context") -> "RustToolchainInfo":
-    return ctx.attr._rust_toolchain[RustToolchainInfo]
+    return ctx.attrs._rust_toolchain[RustToolchainInfo]

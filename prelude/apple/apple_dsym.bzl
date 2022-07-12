@@ -12,7 +12,7 @@ AppleDebuggableInfo = provider(fields = [
 # - oso_prefix
 # - dsym_verification
 def get_apple_dsym(ctx: "context", executable: "artifact", object_files: ["artifact"], action_identifier: "string") -> "artifact":
-    dsymutil = ctx.attr._apple_toolchain[AppleToolchainInfo].dsymutil
+    dsymutil = ctx.attrs._apple_toolchain[AppleToolchainInfo].dsymutil
     output = ctx.actions.declare_output("{}.dSYM".format(executable.short_path))
 
     cmd = cmd_args([dsymutil, "-o", output.as_output(), executable])

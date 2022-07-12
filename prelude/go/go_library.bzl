@@ -6,13 +6,13 @@ def go_library_impl(ctx: "context") -> ["provider"]:
     pkgs = {}
     default_outputs = []
     pkg_name = None
-    if ctx.attr.srcs:
+    if ctx.attrs.srcs:
         pkg_name = go_attr_pkg_name(ctx)
         lib = compile(
             ctx,
             pkg_name,
-            get_filtered_srcs(ctx, ctx.attr.srcs),
-            deps = ctx.attr.deps + ctx.attr.exported_deps,
+            get_filtered_srcs(ctx, ctx.attrs.srcs),
+            deps = ctx.attrs.deps + ctx.attrs.exported_deps,
         )
         default_outputs.append(lib)
         pkgs[pkg_name] = lib
@@ -21,15 +21,15 @@ def go_library_impl(ctx: "context") -> ["provider"]:
         DefaultInfo(default_outputs = default_outputs),
         GoPkgCompileInfo(pkgs = merge_pkgs([
             pkgs,
-            get_inherited_compile_pkgs(ctx.attr.exported_deps),
+            get_inherited_compile_pkgs(ctx.attrs.exported_deps),
         ])),
         GoPkgLinkInfo(pkgs = merge_pkgs([
             pkgs,
-            get_inherited_link_pkgs(ctx.attr.deps + ctx.attr.exported_deps),
+            get_inherited_link_pkgs(ctx.attrs.deps + ctx.attrs.exported_deps),
         ])),
         GoTestInfo(
-            deps = ctx.attr.deps,
-            srcs = ctx.attr.srcs,
+            deps = ctx.attrs.deps,
+            srcs = ctx.attrs.srcs,
             pkg_name = pkg_name,
         ),
     ]

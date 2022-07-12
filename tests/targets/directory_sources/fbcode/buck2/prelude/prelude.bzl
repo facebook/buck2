@@ -1,6 +1,6 @@
 def _test_impl(ctx):
     return [
-        DefaultInfo(default_outputs = [ctx.attr.src]),
+        DefaultInfo(default_outputs = [ctx.attrs.src]),
     ]
 
 test = rule(

@@ -31,20 +31,20 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.
     all_parts = parts + [info_plist_part] if info_plist_part else []
     spec_file = _bundle_spec_json(ctx, all_parts)
 
-    tools = ctx.attr._apple_tools[AppleToolsInfo]
+    tools = ctx.attrs._apple_tools[AppleToolsInfo]
     tool = tools.assemble_bundle
 
     codesign_args = []
     codesign_type = _detect_codesign_type(ctx)
 
-    if ctx.attr.extension not in ["app", "appex"]:
+    if ctx.attrs.extension not in ["app", "appex"]:
         # Only code sign application bundles and extensions
         pass
     elif codesign_type.value in ["distribution", "adhoc"]:
         codesign_args = [
             "--codesign",
             "--codesign-tool",
-            ctx.attr._apple_toolchain[AppleToolchainInfo].codesign,
+            ctx.attrs._apple_toolchain[AppleToolchainInfo].codesign,
         ]
 
         external_name = get_apple_sdk_name(ctx)
@@ -52,7 +52,7 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.
         codesign_args.extend(platform_args)
 
         if codesign_type.value != "adhoc":
-            provisioning_profiles = ctx.attr._provisioning_profiles[DefaultInfo]
+            provisioning_profiles = ctx.attrs._provisioning_profiles[DefaultInfo]
             provisioning_profiles_args = ["--profiles-dir"] + provisioning_profiles.default_outputs
             codesign_args.extend(provisioning_profiles_args)
 
@@ -87,7 +87,7 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.
     incremental_state = ctx.actions.declare_output("incremental_state.json").as_output()
 
     # Fallback to value from buckconfig
-    incremental_bundling_enabled = ctx.attr.incremental_bundling_enabled or ctx.attr._incremental_bundling_enabled
+    incremental_bundling_enabled = ctx.attrs.incremental_bundling_enabled or ctx.attrs._incremental_bundling_enabled
 
     if incremental_bundling_enabled:
         command.add("--incremental-state", incremental_state)
@@ -114,7 +114,7 @@ def _get_bundle_dir_name(ctx: "context") -> str.type:
     return paths.replace_extension(get_product_name(ctx), "." + get_extension_attr(ctx))
 
 def _bundle_relative_destination_path(ctx: "context", part: AppleBundlePart.type) -> str.type:
-    bundle_relative_path = bundle_relative_path_for_destination(part.destination, get_apple_sdk_name(ctx), ctx.attr.extension)
+    bundle_relative_path = bundle_relative_path_for_destination(part.destination, get_apple_sdk_name(ctx), ctx.attrs.extension)
     destination_file_or_directory_name = part.new_name if part.new_name != None else paths.basename(part.source.short_path)
     return paths.join(bundle_relative_path, destination_file_or_directory_name)
 
@@ -134,19 +134,19 @@ def _bundle_spec_json(ctx: "context", parts: [AppleBundlePart.type]) -> "artifac
     return ctx.actions.write_json("bundle_spec.json", specs)
 
 def _detect_codesign_type(ctx: "context") -> CodeSignType.type:
-    if ctx.attr._codesign_type:
-        return CodeSignType(ctx.attr._codesign_type)
+    if ctx.attrs._codesign_type:
+        return CodeSignType(ctx.attrs._codesign_type)
     sdk_name = get_apple_sdk_name(ctx)
     is_ad_hoc_sufficient = get_apple_sdk_metadata_for_sdk_name(sdk_name).is_ad_hoc_code_sign_sufficient
     return CodeSignType("adhoc" if is_ad_hoc_sufficient else "distribution")
 
 def _entitlements_file(ctx: "context") -> ["artifact", None]:
-    if not ctx.attr.binary:
+    if not ctx.attrs.binary:
         return None
 
     # The `binary` attribute can be either an apple_binary or a dynamic library from apple_library
-    binary_entitlement_info = ctx.attr.binary[AppleEntitlementsInfo]
+    binary_entitlement_info = ctx.attrs.binary[AppleEntitlementsInfo]
     if binary_entitlement_info and binary_entitlement_info.entitlements_file:
         return binary_entitlement_info.entitlements_file
 
-    return ctx.attr._codesign_entitlements
+    return ctx.attrs._codesign_entitlements

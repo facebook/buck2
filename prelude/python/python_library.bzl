@@ -153,7 +153,7 @@ def _exclude_deps_from_omnibus(
         ctx: "context",
         srcs: {str.type: "artifact"}) -> bool.type:
     # User-specified parameter.
-    if ctx.attr.exclude_deps_from_merged_linking:
+    if ctx.attrs.exclude_deps_from_merged_linking:
         return True
 
     # In some cases, Python library rules package prebuilt native extensions,
@@ -168,11 +168,11 @@ def _exclude_deps_from_omnibus(
     return False
 
 def _attr_srcs(ctx: "context") -> {str.type: "artifact"}:
-    python_platform = ctx.attr._python_toolchain[PythonPlatformInfo]
-    cxx_platform = ctx.attr._cxx_toolchain[CxxPlatformInfo]
+    python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
+    cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
     all_srcs = {}
-    all_srcs.update(from_named_set(ctx.attr.srcs))
-    for srcs in get_platform_attr(python_platform, cxx_platform, ctx.attr.platform_srcs):
+    all_srcs.update(from_named_set(ctx.attrs.srcs))
+    for srcs in get_platform_attr(python_platform, cxx_platform, ctx.attrs.platform_srcs):
         all_srcs.update(from_named_set(srcs))
     return all_srcs
 
@@ -184,7 +184,7 @@ def py_attr_resources(ctx: "context") -> {str.type: ("artifact", ["_arglike"])}:
 
     resources = {}
 
-    for name, resource in from_named_set(ctx.attr.resources).items():
+    for name, resource in from_named_set(ctx.attrs.resources).items():
         if type(resource) == "artifact":
             # If this is a artifact, there are no "other" artifacts.
             other = []
@@ -234,19 +234,19 @@ def _src_types(srcs: {str.type: "artifact"}, type_stubs: {str.type: "artifact"})
 
 def python_library_impl(ctx: "context") -> ["provider"]:
     # Versioned params should be intercepted and converted away via the stub.
-    expect(not ctx.attr.versioned_srcs)
-    expect(not ctx.attr.versioned_resources)
+    expect(not ctx.attrs.versioned_srcs)
+    expect(not ctx.attrs.versioned_resources)
 
-    python_platform = ctx.attr._python_toolchain[PythonPlatformInfo]
-    cxx_platform = ctx.attr._cxx_toolchain[CxxPlatformInfo]
+    python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
+    cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
 
     providers = []
     sub_targets = {}
 
     srcs = _attr_srcs(ctx)
-    qualified_srcs = qualify_srcs(ctx.label, ctx.attr.base_module, srcs)
-    resources = qualify_srcs(ctx.label, ctx.attr.base_module, py_attr_resources(ctx))
-    type_stubs = qualify_srcs(ctx.label, ctx.attr.base_module, from_named_set(ctx.attr.type_stubs))
+    qualified_srcs = qualify_srcs(ctx.label, ctx.attrs.base_module, srcs)
+    resources = qualify_srcs(ctx.label, ctx.attrs.base_module, py_attr_resources(ctx))
+    type_stubs = qualify_srcs(ctx.label, ctx.attrs.base_module, from_named_set(ctx.attrs.type_stubs))
     src_types = _src_types(qualified_srcs, type_stubs)
 
     src_manifest = create_manifest_for_source_map(ctx, "srcs", qualified_srcs) if qualified_srcs else None
@@ -260,8 +260,8 @@ def python_library_impl(ctx: "context") -> ["provider"]:
         bytecode_manifest = create_manifest_for_source_dir(ctx, "bytecode", bytecode)
 
     raw_deps = (
-        [ctx.attr.deps] +
-        get_platform_attr(python_platform, cxx_platform, ctx.attr.platform_deps)
+        [ctx.attrs.deps] +
+        get_platform_attr(python_platform, cxx_platform, ctx.attrs.platform_deps)
     )
     deps, shared_libraries = gather_dep_libraries(raw_deps)
     providers.append(create_python_library_info(
@@ -275,7 +275,7 @@ def python_library_impl(ctx: "context") -> ["provider"]:
         shared_libraries = shared_libraries,
     ))
 
-    providers.append(create_python_needed_coverage_info(ctx.label, ctx.attr.base_module, srcs.keys()))
+    providers.append(create_python_needed_coverage_info(ctx.label, ctx.attrs.base_module, srcs.keys()))
 
     # Source DBs.
     sub_targets["source-db"] = [create_source_db(ctx, src_type_manifest, flatten(raw_deps))]

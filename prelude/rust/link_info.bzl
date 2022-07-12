@@ -57,7 +57,7 @@ def style_info(info: RustLinkInfo.type, link_style: LinkStyle.type) -> RustLinkS
     return info.styles[link_style]
 
 def cxx_by_platform(ctx: "context", xs: [(str.type, "_a")]) -> "_a":
-    platform = ctx.attr._cxx_toolchain[CxxPlatformInfo].name
+    platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo].name
     return flatten(by_platform([platform], xs))
 
 # A Rust dependency
@@ -76,7 +76,7 @@ def resolve_deps(ctx: "context") -> [RustDependency.type]:
         RustDependency(name = name, dep = dep, flags = flags)
         # The `getattr`s are needed for when we're operating on
         # `prebuilt_rust_library` rules, which don't have those attrs.
-        for name, dep, flags in [(None, dep, []) for dep in ctx.attr.deps + cxx_by_platform(ctx, ctx.attr.platform_deps)] +
+        for name, dep, flags in [(None, dep, []) for dep in ctx.attrs.deps + cxx_by_platform(ctx, ctx.attrs.platform_deps)] +
                                 [(name, dep, []) for name, dep in getattr(ctx.attr, "named_deps", {}).items()] +
                                 [(None, dep, flags) for dep, flags in getattr(ctx.attr, "flagged_deps", []) +
                                                                       cxx_by_platform(ctx, getattr(ctx.attr, "platform_flagged_deps", []))]
@@ -157,4 +157,4 @@ def inherited_non_rust_shared_libs(ctx: "context") -> ["SharedLibraryInfo"]:
     return infos
 
 def attr_crate(ctx: "context") -> str.type:
-    return ctx.attr.crate or normalize_crate(ctx.label.name)
+    return ctx.attrs.crate or normalize_crate(ctx.label.name)

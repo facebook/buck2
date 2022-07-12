@@ -17,7 +17,7 @@ def prebuilt_jar_impl(ctx: "context") -> ["provider"]:
     """
 
     expected_extension = ".jar"
-    binary_jar = ctx.attr.binary_jar
+    binary_jar = ctx.attrs.binary_jar
     extension = binary_jar.extension
     if extension != expected_extension:
         fail("Extension of the binary_jar attribute has to be equal to '{}' but '{}' has an extension '{}'".format(
@@ -30,20 +30,20 @@ def prebuilt_jar_impl(ctx: "context") -> ["provider"]:
     ctx.actions.symlink_file(output, binary_jar)
 
     abi = None
-    if ctx.attr.generate_abi:
-        abi = maybe_create_abi(ctx.actions, ctx.attr._prebuilt_jar_toolchain[PrebuiltJarToolchainInfo].class_abi_generator, output)
+    if ctx.attrs.generate_abi:
+        abi = maybe_create_abi(ctx.actions, ctx.attrs._prebuilt_jar_toolchain[PrebuiltJarToolchainInfo].class_abi_generator, output)
 
     library_output_classpath_entry = JavaClasspathEntry(
         full_library = output,
         abi = abi or output,
-        required_for_source_only_abi = ctx.attr.required_for_source_only_abi,
+        required_for_source_only_abi = ctx.attrs.required_for_source_only_abi,
     )
 
     java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info = create_java_library_providers(
         ctx,
         library_output = library_output_classpath_entry,
-        declared_deps = ctx.attr.deps,
-        exported_deps = ctx.attr.deps,
+        declared_deps = ctx.attrs.deps,
+        exported_deps = ctx.attrs.deps,
         needs_desugar = True,
         is_prebuilt_jar = True,
     )

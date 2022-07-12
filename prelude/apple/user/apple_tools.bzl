@@ -5,11 +5,11 @@ def _impl(ctx: "context") -> ["provider"]:
     return [
         DefaultInfo(),
         AppleToolsInfo(
-            assemble_bundle = ctx.attr.assemble_bundle[RunInfo],
-            info_plist_processor = ctx.attr.info_plist_processor[RunInfo],
-            make_modulemap = ctx.attr.make_modulemap[RunInfo],
-            make_vfsoverlay = ctx.attr.make_vfsoverlay[RunInfo],
-            swift_objc_header_postprocess = ctx.attr.swift_objc_header_postprocess[RunInfo],
+            assemble_bundle = ctx.attrs.assemble_bundle[RunInfo],
+            info_plist_processor = ctx.attrs.info_plist_processor[RunInfo],
+            make_modulemap = ctx.attrs.make_modulemap[RunInfo],
+            make_vfsoverlay = ctx.attrs.make_vfsoverlay[RunInfo],
+            swift_objc_header_postprocess = ctx.attrs.swift_objc_header_postprocess[RunInfo],
         ),
     ]
 

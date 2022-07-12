@@ -54,7 +54,7 @@ def _move_native_libraries_to_correct_dir(
         ctx: "context",
         native_libs: ["NativeLibraryFromPrebuiltAar"],
         identifier: str.type) -> ["artifact"]:
-    cpu_filters = ctx.attr.cpu_filters or CPU_FILTER_TO_ABI_DIRECTORY.keys()
+    cpu_filters = ctx.attrs.cpu_filters or CPU_FILTER_TO_ABI_DIRECTORY.keys()
     libs = []
     for i, native_lib in enumerate(reversed(native_libs)):
         srcs = {CPU_FILTER_TO_ABI_DIRECTORY[cpu_type]: sub_dir for cpu_type, sub_dir in native_lib.sub_dirs.items() if cpu_type in cpu_filters}
@@ -69,7 +69,7 @@ def _get_native_linkables(
         ctx: "context",
         platform: str.type,
         native_linkables: {str.type: "SharedLibrary"}) -> (["artifact"], ["artifact"]):
-    cpu_filters = ctx.attr.cpu_filters
+    cpu_filters = ctx.attrs.cpu_filters
     if cpu_filters and platform not in cpu_filters:
         return [], []
 

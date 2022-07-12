@@ -29,7 +29,7 @@ def apple_binary_impl(ctx: "context") -> ["provider"]:
         extra_exported_link_flags = extra_link_flags,
         srcs = get_srcs_with_flags(ctx),
         extra_preprocessors = get_min_deployment_version_target_preprocessor_flags(ctx) + [framework_search_path_pre],
-        strip_executable = ctx.attr.stripped,
+        strip_executable = ctx.attrs.stripped,
         strip_args_factory = apple_strip_args,
         cxx_populate_xcode_attributes_func = apple_populate_xcode_attributes,
     )
@@ -50,7 +50,7 @@ def apple_binary_impl(ctx: "context") -> ["provider"]:
 
     resource_graph = create_resource_graph(
         root = ctx.label,
-        labels = ctx.attr.labels,
+        labels = ctx.attrs.labels,
         deps = cxx_attr_deps(ctx),
         exported_deps = cxx_attr_exported_deps(ctx),
     )
@@ -58,7 +58,7 @@ def apple_binary_impl(ctx: "context") -> ["provider"]:
     return [
         DefaultInfo(default_outputs = [cxx_output.binary], sub_targets = cxx_output.sub_targets),
         RunInfo(args = cmd_args(cxx_output.binary).hidden(cxx_output.runtime_files)),
-        AppleEntitlementsInfo(entitlements_file = ctx.attr.entitlements_file),
+        AppleEntitlementsInfo(entitlements_file = ctx.attrs.entitlements_file),
         AppleDebuggableInfo(dsyms = [dsym_artifact]),
     ] + [resource_graph] + min_version_providers
 
@@ -71,5 +71,5 @@ def _entitlements_link_flags(ctx: "context") -> [""]:
         "-Xlinker",
         "__entitlements",
         "-Xlinker",
-        ctx.attr.entitlements_file,
-    ] if ctx.attr.entitlements_file else []
+        ctx.attrs.entitlements_file,
+    ] if ctx.attrs.entitlements_file else []

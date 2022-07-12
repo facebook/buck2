@@ -6,8 +6,8 @@ ROOT_APKMODULE_NAME = "dex"
 def android_manifest_impl(ctx: "context") -> ["provider"]:
     output, merge_report = generate_android_manifest(
         ctx,
-        ctx.attr._android_toolchain[AndroidToolchainInfo].generate_manifest[RunInfo],
-        ctx.attr.skeleton,
+        ctx.attrs._android_toolchain[AndroidToolchainInfo].generate_manifest[RunInfo],
+        ctx.attrs.skeleton,
         ROOT_APKMODULE_NAME,
         _get_manifests_from_deps(ctx),
         {},
@@ -60,8 +60,8 @@ def generate_android_manifest(
     return (output, merge_report)
 
 def _get_manifests_from_deps(ctx: "context") -> ["ManifestTSet", None]:
-    if len(ctx.attr.deps) == 0:
+    if len(ctx.attrs.deps) == 0:
         return None
 
-    android_packageable_info = merge_android_packageable_info(ctx.actions, ctx.attr.deps)
+    android_packageable_info = merge_android_packageable_info(ctx.actions, ctx.attrs.deps)
     return android_packageable_info.manifests

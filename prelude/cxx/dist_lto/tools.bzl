@@ -4,10 +4,10 @@ def _impl(ctx):
     return [
         DefaultInfo(),
         DistLtoToolsInfo(
-            planner = ctx.attr.planner[RunInfo],
-            prepare = ctx.attr.prepare[RunInfo],
-            opt = ctx.attr.opt[RunInfo],
-            copy = ctx.attr.copy[RunInfo],
+            planner = ctx.attrs.planner[RunInfo],
+            prepare = ctx.attrs.prepare[RunInfo],
+            opt = ctx.attrs.opt[RunInfo],
+            copy = ctx.attrs.copy[RunInfo],
         ),
     ]
 

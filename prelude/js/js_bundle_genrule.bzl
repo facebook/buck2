@@ -15,25 +15,25 @@ def _build_js_bundle(
         "JS_BUNDLE_NAME_OUT": cmd_args(bundle_name_out),
         "JS_DIR": cmd_args(js_bundle_info.built_js),
         "MISC_DIR": cmd_args(js_bundle_info.misc),
-        "PLATFORM": cmd_args(ctx.attr._platform),
-        "RELEASE": cmd_args("1" if ctx.attr._is_release else ""),
+        "PLATFORM": cmd_args(ctx.attrs._platform),
+        "RELEASE": cmd_args("1" if ctx.attrs._is_release else ""),
         "RES_DIR": cmd_args(js_bundle_info.res),
         "SOURCEMAP": cmd_args(js_bundle_info.source_map),
     }
 
-    if ctx.attr.rewrite_sourcemap:
+    if ctx.attrs.rewrite_sourcemap:
         source_map_out = ctx.actions.declare_output("{}/source_map".format(named_output))
         env_vars["SOURCEMAP_OUT"] = cmd_args(source_map_out.as_output())
     else:
         source_map_out = js_bundle_info.source_map
 
-    if ctx.attr.rewrite_misc:
+    if ctx.attrs.rewrite_misc:
         misc_out = ctx.actions.declare_output("{}/misc".format(named_output))
         env_vars["MISC_OUT"] = cmd_args(misc_out.as_output())
     else:
         misc_out = js_bundle_info.misc
 
-    if ctx.attr.rewrite_deps_file:
+    if ctx.attrs.rewrite_deps_file:
         dependencies_out = ctx.actions.declare_output("{}/dependencies".format(named_output))
         env_vars["DEPENDENCIES_OUT"] = cmd_args(dependencies_out.as_output())
     else:
@@ -93,7 +93,7 @@ def js_bundle_genrule_impl(ctx: "context") -> ["provider"]:
         for ram_bundle_name in RAM_BUNDLE_TYPES.keys():
             simple_named_output = transform_profile if not ram_bundle_name else "{}-{}".format(ram_bundle_name, transform_profile)
 
-            js_bundle = ctx.attr.js_bundle[DefaultInfo].sub_targets[simple_named_output]
+            js_bundle = ctx.attrs.js_bundle[DefaultInfo].sub_targets[simple_named_output]
             js_bundle_info = js_bundle[JsBundleInfo]
             bundle_name_out = get_bundle_name(ctx, js_bundle_info.bundle_name)
 
@@ -102,12 +102,12 @@ def js_bundle_genrule_impl(ctx: "context") -> ["provider"]:
             sub_targets[simple_named_output] = [
                 DefaultInfo(default_outputs = [js_bundle_out.built_js]),
                 js_bundle_out,
-            ] + _get_extra_providers(ctx, ctx.attr.skip_resources, js_bundle, js_bundle_out)
+            ] + _get_extra_providers(ctx, ctx.attrs.skip_resources, js_bundle, js_bundle_out)
             sub_targets["{}-misc".format(simple_named_output)] = [DefaultInfo(default_outputs = [js_bundle_out.misc])]
             sub_targets["{}-source_map".format(simple_named_output)] = [DefaultInfo(default_outputs = [js_bundle_out.source_map])]
             sub_targets["{}-dependencies".format(simple_named_output)] = [DefaultInfo(default_outputs = [js_bundle_out.dependencies_file])]
 
-    js_bundle_info = ctx.attr.js_bundle[JsBundleInfo]
+    js_bundle_info = ctx.attrs.js_bundle[JsBundleInfo]
     bundle_name_out = get_bundle_name(ctx, js_bundle_info.bundle_name)
     js_bundle_out = _build_js_bundle(ctx, bundle_name_out, js_bundle_info, "default")
 
@@ -119,4 +119,4 @@ def js_bundle_genrule_impl(ctx: "context") -> ["provider"]:
         sub_targets = sub_targets,
     )
 
-    return [default_info_out, js_bundle_out] + _get_extra_providers(ctx, ctx.attr.skip_resources, ctx.attr.js_bundle, js_bundle_out)
+    return [default_info_out, js_bundle_out] + _get_extra_providers(ctx, ctx.attrs.skip_resources, ctx.attrs.js_bundle, js_bundle_out)

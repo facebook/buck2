@@ -70,8 +70,8 @@ RustcOutput = record(
 
 def compile_context(ctx: "context") -> CompileContext.type:
     # Setup source symlink tree.
-    srcs = ctx.attr.srcs
-    mapped_srcs = ctx.attr.mapped_srcs
+    srcs = ctx.attrs.srcs
+    mapped_srcs = ctx.attrs.mapped_srcs
     symlinks = {src.short_path: src for src in srcs}
     symlinks.update({k: v for v, k in mapped_srcs.items()})
     symlinked_srcs = ctx.actions.symlinked_dir("__srcs", symlinks)
@@ -120,7 +120,7 @@ def generate_rustdoc(
         [["--path-env", k, v] for k, v in path_env.items()],
         toolchain_info.rustdoc,
         toolchain_info.rustdoc_flags,
-        ctx.attr.rustdoc_flags,
+        ctx.attrs.rustdoc_flags,
         "-o",
         output.as_output(),
         common_args.args,
@@ -442,10 +442,10 @@ def _compute_common_args(
     # Included in tempfiles
     tempfile = "{}-{}".format(crate, emit.value)
 
-    srcs = ctx.attr.srcs
-    mapped_srcs = ctx.attr.mapped_srcs
+    srcs = ctx.attrs.srcs
+    mapped_srcs = ctx.attrs.mapped_srcs
     all_srcs = map(lambda s: s.short_path, srcs) + mapped_srcs.values()
-    crate_root = ctx.attr.crate_root or _crate_root(all_srcs, crate, default_roots)
+    crate_root = ctx.attrs.crate_root or _crate_root(all_srcs, crate, default_roots)
 
     is_check = not emit_needs_codegen(emit)
 
@@ -461,7 +461,7 @@ def _compute_common_args(
         dependency_args.add("--extern", "proc_macro")
 
     if crate_type == CrateType("cdylib") and not is_check:
-        linker_type = ctx.attr._cxx_toolchain[CxxToolchainInfo].linker_info.type
+        linker_type = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info.type
         shlib_name = get_default_shared_library_name(linker_type, ctx.label)
         dependency_args.add(cmd_args(
             get_shared_library_name_linker_flags(linker_type, shlib_name),
@@ -474,7 +474,7 @@ def _compute_common_args(
         "--crate-name={}".format(crate),
         "--crate-type={}".format(crate_type.value),
         "-Crelocation-model={}".format(params.reloc_model.value),
-        "--edition={}".format(ctx.attr.edition or toolchain_info.default_edition),
+        "--edition={}".format(ctx.attrs.edition or toolchain_info.default_edition),
         "-Cmetadata={}".format(_metadata(ctx.label)[0]),
         # Make diagnostics json with the option to extract rendered text
         "--error-format=json",
@@ -482,7 +482,7 @@ def _compute_common_args(
         ["-Cprefer-dynamic=yes"] if crate_type == CrateType("dylib") else [],
         toolchain_info.rustc_flags,
         toolchain_info.rustc_check_flags if is_check else [],
-        ctx.attr.rustc_flags,
+        ctx.attrs.rustc_flags,
         _feature_args(ctx),
         dependency_args,
     )
@@ -528,11 +528,11 @@ def _clippy_wrapper(ctx: "context") -> "cmd_args":
 # without an artifact. We create a wrapper (which is an artifact),
 # and add -Clinker=
 def _linker_args(ctx: "context") -> "cmd_args":
-    linker_info = ctx.attr._cxx_toolchain[CxxToolchainInfo].linker_info
+    linker_info = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info
     linker = cmd_args(
         linker_info.linker,
         linker_info.linker_flags or [],
-        ctx.attr.linker_flags,
+        ctx.attrs.linker_flags,
     )
 
     # Now we create a wrapper to actually run the linker. Use $(cat <<heredoc) to
@@ -554,7 +554,7 @@ def _shell_quote(args: "cmd_args") -> "cmd_args":
 
 def _feature_args(ctx: "context") -> [str.type]:
     args = []
-    for feature in ctx.attr.features:
+    for feature in ctx.attrs.features:
         args.append("--cfg")
         args.append('feature="{}"'.format(feature))
     return args
@@ -737,7 +737,7 @@ def _process_env(
     # Plain strings.
     plain_env = {}
 
-    for k, v in ctx.attr.env.items():
+    for k, v in ctx.attrs.env.items():
         v = cmd_args(v)
         if len(v.inputs) > 0:
             path_env[k] = v

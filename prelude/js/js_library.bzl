@@ -13,7 +13,7 @@ GroupedSource = record(
 
 def _get_grouped_srcs(ctx: "context") -> [GroupedSource.type]:
     grouped_srcs = {}
-    for src in ctx.attr.srcs:
+    for src in ctx.attrs.srcs:
         # TODO(ianc) also support sources with an "inner path".
         expect(
             type(src) == "artifact",
@@ -48,18 +48,18 @@ def _build_js_file(
     job_args = {
         "additionalSources": [{
             "sourcePath": additional_source,
-            "virtualPath": _get_virtual_path(ctx, additional_source, ctx.attr.base_path),
+            "virtualPath": _get_virtual_path(ctx, additional_source, ctx.attrs.base_path),
         } for additional_source in grouped_src.additional_sources],
         "command": "transform",
         "flavors": get_flavors(ctx),
         "outputFilePath": output_path,
-        "release": ctx.attr._is_release,
-        "sourceJsFileName": _get_virtual_path(ctx, grouped_src.main_source, ctx.attr.base_path),
+        "release": ctx.attrs._is_release,
+        "sourceJsFileName": _get_virtual_path(ctx, grouped_src.main_source, ctx.attrs.base_path),
         "sourceJsFilePath": grouped_src.main_source,
         "transformProfile": "default" if transform_profile == "transform-profile-default" else transform_profile,
     }
-    if ctx.attr.extra_json:
-        job_args["extraData"] = cmd_args(ctx.attr.extra_json, delimiter = "")
+    if ctx.attrs.extra_json:
+        job_args["extraData"] = cmd_args(ctx.attrs.extra_json, delimiter = "")
 
     command_args_file = ctx.actions.write_json(
         "{}_command_args".format(identifier),
@@ -68,11 +68,11 @@ def _build_js_file(
 
     run_worker_command(
         ctx = ctx,
-        worker_tool = ctx.attr.worker,
+        worker_tool = ctx.attrs.worker,
         command_args_file = fixup_command_args(
             ctx,
             command_args_file,
-        ) if ctx.attr.extra_json else command_args_file,
+        ) if ctx.attrs.extra_json else command_args_file,
         identifier = identifier,
         category = "transform",
         hidden_artifacts = [
@@ -94,15 +94,15 @@ def _build_library_files(
             "command": "library-files",
             "flavors": get_flavors(ctx),
             "outputFilePath": output_path,
-            "platform": ctx.attr._platform,
-            "release": ctx.attr._is_release,
+            "platform": ctx.attrs._platform,
+            "release": ctx.attrs._is_release,
             "sourceFilePaths": js_files,
         },
     )
 
     run_worker_command(
         ctx = ctx,
-        worker_tool = ctx.attr.worker,
+        worker_tool = ctx.attrs.worker,
         command_args_file = command_args_file,
         identifier = transform_profile,
         category = "library_files",
@@ -122,12 +122,12 @@ def _build_js_library(
         "dependencyLibraryFilePaths": js_library_deps,
         "flavors": get_flavors(ctx),
         "outputPath": output_path,
-        "platform": ctx.attr._platform,
-        "release": ctx.attr._is_release,
+        "platform": ctx.attrs._platform,
+        "release": ctx.attrs._is_release,
     }
 
-    if ctx.attr.extra_json:
-        job_args["extraData"] = cmd_args(ctx.attr.extra_json, delimiter = "")
+    if ctx.attrs.extra_json:
+        job_args["extraData"] = cmd_args(ctx.attrs.extra_json, delimiter = "")
 
     command_args_file = ctx.actions.write_json(
         "library_deps_{}_args".format(transform_profile),
@@ -136,11 +136,11 @@ def _build_js_library(
 
     run_worker_command(
         ctx = ctx,
-        worker_tool = ctx.attr.worker,
+        worker_tool = ctx.attrs.worker,
         command_args_file = fixup_command_args(
             ctx,
             command_args_file,
-        ) if ctx.attr.extra_json else command_args_file,
+        ) if ctx.attrs.extra_json else command_args_file,
         identifier = transform_profile,
         category = "library_dependencies",
         hidden_artifacts = [
@@ -164,7 +164,7 @@ def js_library_impl(ctx: "context") -> ["provider"]:
 
         js_library_deps = map_idx(
             JsLibraryInfo,
-            [dep[DefaultInfo].sub_targets[transform_profile] for dep in ctx.attr.deps],
+            [dep[DefaultInfo].sub_targets[transform_profile] for dep in ctx.attrs.deps],
         )
         js_library = _build_js_library(
             ctx,

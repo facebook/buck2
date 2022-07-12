@@ -112,9 +112,9 @@ def manifests_to_interface(manifests: PythonLibraryManifestsTSet.type) -> Python
     )
 
 def get_python_deps(ctx: "context"):
-    python_platform = ctx.attr._python_toolchain[PythonPlatformInfo]
-    cxx_platform = ctx.attr._cxx_toolchain[CxxPlatformInfo]
+    python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
+    cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
     return flatten(
-        [ctx.attr.deps] +
-        get_platform_attr(python_platform, cxx_platform, ctx.attr.platform_deps),
+        [ctx.attrs.deps] +
+        get_platform_attr(python_platform, cxx_platform, ctx.attrs.platform_deps),
     )

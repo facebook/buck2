@@ -16,16 +16,16 @@ def worker_tool(ctx: "context") -> ["provider"]:
         list of created providers (DefaultInfo with an empty output and TemplatePlaceholderInfo with $(worker) macro key)
     """
 
-    executable = ctx.attr.exe
+    executable = ctx.attrs.exe
     worker_tool_run_info = executable[RunInfo]
     expect(worker_tool_run_info != None, "Worker tool executable must have a RunInfo!")
 
-    worker_tool_runner = ctx.attr._worker_tool_runner[RunInfo]
+    worker_tool_runner = ctx.attrs._worker_tool_runner[RunInfo]
     worker_tool_cmd = cmd_args(worker_tool_runner)
     worker_tool_cmd.add("--worker-tool")
     worker_tool_cmd.add(worker_tool_run_info)
 
-    worker_args = ctx.attr.args
+    worker_args = ctx.attrs.args
     if worker_args:
         worker_args_file, worker_macro_file = ctx.actions.write(
             "worker_tool_args",
@@ -37,7 +37,7 @@ def worker_tool(ctx: "context") -> ["provider"]:
         worker_tool_cmd.add(worker_args_file)
         worker_tool_cmd.hidden([worker_macro_file])
 
-    worker_env = ctx.attr.env
+    worker_env = ctx.attrs.env
     if worker_env:
         env_args = []
         for key, value in worker_env.items():

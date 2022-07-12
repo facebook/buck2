@@ -132,7 +132,7 @@ def add_linkable_node(
         )
 
     graph.nodes[ctx.label] = LinkableNode(
-        labels = ctx.attr.labels,
+        labels = ctx.attrs.labels,
         preferred_linkage = preferred_linkage,
         link_infos = link_infos,
         shared_libs = shared_libs,

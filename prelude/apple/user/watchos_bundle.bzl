@@ -3,7 +3,7 @@ load("@fbcode//buck2/prelude/user:rule_spec.bzl", "RuleRegistrationSpec")
 load(":watch_transition.bzl", "watch_transition")
 
 def _impl(ctx: "context") -> ["provider"]:
-    return ctx.attr.actual.providers
+    return ctx.attrs.actual.providers
 
 registration_spec = RuleRegistrationSpec(
     name = "watchos_bundle",

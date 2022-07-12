@@ -6,10 +6,10 @@ load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 # `ctx` in all functions below is expected to be of `apple_bundle` or `apple_test` rule
 
 def get_product_name(ctx: "context") -> str.type:
-    return ctx.attr.product_name if hasattr(ctx.attr, "product_name") and ctx.attr.product_name != None else ctx.attr.name
+    return ctx.attrs.product_name if hasattr(ctx.attr, "product_name") and ctx.attrs.product_name != None else ctx.attrs.name
 
 def get_extension_attr(ctx: "context") -> "":
-    return ctx.attr.extension
+    return ctx.attrs.extension
 
 # Derives the effective deployment target for the bundle. It's
 # usually the deployment target of the binary if present,
@@ -28,8 +28,8 @@ def get_bundle_min_target_version(ctx: "context") -> str.type:
     #
     # The solution might to be support SDK version from
     # Info.plist (T110378109).
-    if ctx.attr.binary != None:
-        min_version_info = ctx.attr.binary[AppleMinDeploymentVersionInfo]
+    if ctx.attrs.binary != None:
+        min_version_info = ctx.attrs.binary[AppleMinDeploymentVersionInfo]
         if min_version_info != None:
             binary_min_version = min_version_info.version
 

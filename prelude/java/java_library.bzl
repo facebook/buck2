@@ -23,10 +23,10 @@ _JAVA_FILE_EXTENSION = [".java"]
 _SUPPORTED_ARCHIVE_SUFFIXES = [".src.zip", "-sources.jar"]
 
 def _get_java_version_attributes(ctx: "context") -> (int.type, int.type):
-    java_toolchain = ctx.attr._java_toolchain[JavaToolchainInfo]
-    java_version = ctx.attr.java_version
-    java_source = ctx.attr.source
-    java_target = ctx.attr.target
+    java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
+    java_version = ctx.attrs.java_version
+    java_source = ctx.attrs.source
+    java_target = ctx.attrs.target
 
     if java_version:
         if java_source or java_target:
@@ -316,7 +316,7 @@ def compile_to_jar(
 
     # TODO(cjhopman): Should verify that source_only_abi_deps are contained within the normal classpath.
 
-    java_toolchain = ctx.attr._java_toolchain[JavaToolchainInfo]
+    java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
     if not source_level:
         source_level = _to_java_version(java_toolchain.source_level)
     if not target_level:
@@ -430,7 +430,7 @@ def _check_provided_deps(provided_deps: ["dependency"], attr_name: str.type):
 
 # TODO(T108258238) remove need for this
 def _skip_java_library_dep_checks(ctx: "context") -> bool.type:
-    return "skip_buck2_java_library_dep_checks" in ctx.attr.labels
+    return "skip_buck2_java_library_dep_checks" in ctx.attrs.labels
 
 def java_library_impl(ctx: "context") -> ["provider"]:
     """
@@ -442,19 +442,19 @@ def java_library_impl(ctx: "context") -> ["provider"]:
         list of created providers
     """
     if not _skip_java_library_dep_checks(ctx):
-        _check_dep_types(ctx.attr.deps)
-        _check_dep_types(ctx.attr.provided_deps)
-        _check_dep_types(ctx.attr.exported_deps)
-        _check_dep_types(ctx.attr.exported_provided_deps)
-        _check_dep_types(ctx.attr.runtime_deps)
+        _check_dep_types(ctx.attrs.deps)
+        _check_dep_types(ctx.attrs.provided_deps)
+        _check_dep_types(ctx.attrs.exported_deps)
+        _check_dep_types(ctx.attrs.exported_provided_deps)
+        _check_dep_types(ctx.attrs.runtime_deps)
 
-    java_providers = build_java_library(ctx, ctx.attr.srcs)
+    java_providers = build_java_library(ctx, ctx.attrs.srcs)
 
     return to_list(java_providers) + [
         # TODO(T107163344) this shouldn't be in java_library itself, use overlays to remove it.
         merge_android_packageable_info(
             ctx.actions,
-            ctx.attr.deps + ctx.attr.exported_deps + ctx.attr.runtime_deps,
+            ctx.attrs.deps + ctx.attrs.exported_deps + ctx.attrs.runtime_deps,
         ),
     ]
 
@@ -465,32 +465,32 @@ def build_java_library(
         additional_classpath_entries: ["artifact"] = [],
         bootclasspath_entries: ["artifact"] = [],
         additional_compiled_srcs: ["artifact", None] = None) -> JavaProviders.type:
-    _check_provided_deps(ctx.attr.provided_deps, "provided_deps")
-    _check_provided_deps(ctx.attr.exported_provided_deps, "exported_provided_deps")
+    _check_provided_deps(ctx.attrs.provided_deps, "provided_deps")
+    _check_provided_deps(ctx.attrs.exported_provided_deps, "exported_provided_deps")
 
     deps_query = getattr(ctx.attr, "deps_query", []) or []
     provided_deps_query = getattr(ctx.attr, "provided_deps_query", []) or []
     first_order_deps = (
-        ctx.attr.deps +
+        ctx.attrs.deps +
         deps_query +
-        ctx.attr.exported_deps +
-        ctx.attr.provided_deps +
+        ctx.attrs.exported_deps +
+        ctx.attrs.provided_deps +
         provided_deps_query +
-        ctx.attr.exported_provided_deps
+        ctx.attrs.exported_provided_deps
     )
 
-    resources = ctx.attr.resources
+    resources = ctx.attrs.resources
     ap_params = create_ap_params(
         ctx,
-        ctx.attr.plugins,
-        ctx.attr.annotation_processors,
-        ctx.attr.annotation_processor_params,
-        ctx.attr.annotation_processor_deps,
+        ctx.attrs.plugins,
+        ctx.attrs.annotation_processors,
+        ctx.attrs.annotation_processor_params,
+        ctx.attrs.annotation_processor_deps,
     ) if run_annotation_processors else None
-    plugin_params = create_plugin_params(ctx.attr.plugins) if run_annotation_processors else None
-    manifest_file = ctx.attr.manifest_file
+    plugin_params = create_plugin_params(ctx.attrs.plugins) if run_annotation_processors else None
+    manifest_file = ctx.attrs.manifest_file
     source_level, target_level = _get_java_version_attributes(ctx)
-    javac_tool = derive_javac(ctx.attr.javac) if ctx.attr.javac else None
+    javac_tool = derive_javac(ctx.attrs.javac) if ctx.attrs.javac else None
 
     outputs = None
     sub_targets = {}
@@ -501,7 +501,7 @@ def build_java_library(
             "migrating_to_source_only": AbiGenerationMode("source"),
             "source": AbiGenerationMode("source"),
             "source_only": AbiGenerationMode("source_only"),
-        }[ctx.attr.abi_generation_mode]
+        }[ctx.attrs.abi_generation_mode]
 
         common_compile_kwargs = {
             "abi_generation_mode": abi_generation_mode,
@@ -510,14 +510,14 @@ def build_java_library(
             "ap_params": ap_params,
             "bootclasspath_entries": bootclasspath_entries,
             "deps": first_order_deps,
-            "extra_arguments": ctx.attr.extra_arguments,
+            "extra_arguments": ctx.attrs.extra_arguments,
             "manifest_file": manifest_file,
-            "remove_classes": ctx.attr.remove_classes,
-            "required_for_source_only_abi": ctx.attr.required_for_source_only_abi,
+            "remove_classes": ctx.attrs.remove_classes,
+            "required_for_source_only_abi": ctx.attrs.required_for_source_only_abi,
             "resources": resources,
-            "resources_root": ctx.attr.resources_root,
+            "resources_root": ctx.attrs.resources_root,
             "source_level": source_level,
-            "source_only_abi_deps": ctx.attr.source_only_abi_deps,
+            "source_only_abi_deps": ctx.attrs.source_only_abi_deps,
             "srcs": srcs,
             "target_level": target_level,
         }
@@ -529,7 +529,7 @@ def build_java_library(
             **common_compile_kwargs
         )
 
-        java_toolchain = ctx.attr._java_toolchain[JavaToolchainInfo]
+        java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
         ast_dumper = java_toolchain.ast_dumper
         if ast_dumper:
             # Replace whatever compiler plugins are present with the AST dumper instead
@@ -558,11 +558,11 @@ def build_java_library(
     java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info = create_java_library_providers(
         ctx,
         library_output = outputs.classpath_entry if outputs else None,
-        declared_deps = ctx.attr.deps + deps_query,
-        exported_deps = ctx.attr.exported_deps,
-        provided_deps = ctx.attr.provided_deps + provided_deps_query,
-        exported_provided_deps = ctx.attr.exported_provided_deps,
-        runtime_deps = ctx.attr.runtime_deps,
+        declared_deps = ctx.attrs.deps + deps_query,
+        exported_deps = ctx.attrs.exported_deps,
+        provided_deps = ctx.attrs.provided_deps + provided_deps_query,
+        exported_provided_deps = ctx.attrs.exported_provided_deps,
+        runtime_deps = ctx.attrs.runtime_deps,
         needs_desugar = source_level > 7 or target_level > 7,
     )
 

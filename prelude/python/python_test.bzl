@@ -25,25 +25,25 @@ def _write_test_modules_list(
     return name, ctx.actions.write(name, contents)
 
 def python_test_executable(ctx: "context") -> ("artifact", ["_arglike"], DefaultInfo.type):
-    main_module = value_or(ctx.attr.main_module, "__test_main__")
+    main_module = value_or(ctx.attrs.main_module, "__test_main__")
 
-    srcs = qualify_srcs(ctx.label, ctx.attr.base_module, from_named_set(ctx.attr.srcs))
+    srcs = qualify_srcs(ctx.label, ctx.attrs.base_module, from_named_set(ctx.attrs.srcs))
 
     # Generate the test modules file and add it to sources.
     test_modules_name, test_modules_path = _write_test_modules_list(ctx, srcs)
     srcs[test_modules_name] = test_modules_path
 
     # Add in default test runner.
-    srcs["__test_main__.py"] = ctx.attr._test_main
+    srcs["__test_main__.py"] = ctx.attrs._test_main
 
-    resources = qualify_srcs(ctx.label, ctx.attr.base_module, py_attr_resources(ctx))
+    resources = qualify_srcs(ctx.label, ctx.attrs.base_module, py_attr_resources(ctx))
 
     return python_executable(
         ctx,
         main_module,
         srcs,
         resources,
-        compile = value_or(ctx.attr.compile, False),
+        compile = value_or(ctx.attrs.compile, False),
     )
 
 def python_test_impl(ctx: "context") -> ["provider"]:
@@ -52,7 +52,7 @@ def python_test_impl(ctx: "context") -> ["provider"]:
 
     # Support tpx's v1 behavior, where tests can configure themselves to use
     # RE with a specific platform via labels.
-    legacy_re_executor = get_re_executor_from_labels(ctx.attr.labels)
+    legacy_re_executor = get_re_executor_from_labels(ctx.attrs.labels)
 
     return [
         DefaultInfo(
@@ -64,9 +64,9 @@ def python_test_impl(ctx: "context") -> ["provider"]:
         ExternalRunnerTestInfo(
             type = "pyunit",
             command = [test_cmd],
-            env = ctx.attr.env,
-            labels = ctx.attr.labels,
-            contacts = ctx.attr.contacts,
+            env = ctx.attrs.env,
+            labels = ctx.attrs.labels,
+            contacts = ctx.attrs.contacts,
             default_executor = legacy_re_executor,
             # We implicitly make this test via the project root, instead of
             # the cell root (e.g. fbcode root).

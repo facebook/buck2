@@ -2,17 +2,17 @@ load(":swift_pcm_compilation.bzl", "get_shared_pcm_compilation_args")
 load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo")
 
 def apple_sdk_clang_module_impl(ctx: "context") -> ["provider"]:
-    cmd = get_shared_pcm_compilation_args(ctx.attr.target, ctx.attr.module_name)
-    module_dependency_infos = filter(None, [d[SdkUncompiledModuleInfo] for d in ctx.attr.deps])
+    cmd = get_shared_pcm_compilation_args(ctx.attrs.target, ctx.attrs.module_name)
+    module_dependency_infos = filter(None, [d[SdkUncompiledModuleInfo] for d in ctx.attrs.deps])
     return [
         DefaultInfo(),
         SdkUncompiledModuleInfo(
-            name = ctx.attr.name,
-            module_name = ctx.attr.module_name,
-            is_framework = ctx.attr.is_framework,
+            name = ctx.attrs.name,
+            module_name = ctx.attrs.module_name,
+            is_framework = ctx.attrs.is_framework,
             is_swiftmodule = False,
             partial_cmd = cmd,
-            input_relative_path = ctx.attr.modulemap_relative_path,
+            input_relative_path = ctx.attrs.modulemap_relative_path,
             deps = module_dependency_infos,
         ),
     ]

@@ -29,10 +29,10 @@ def process_info_plist(ctx: "context", override_input: ["artifact", None]) -> Ap
     return AppleBundlePart(source = output, destination = AppleBundleDestination("metadata"))
 
 def _preprocess_info_plist(ctx: "context") -> "artifact":
-    input = ctx.attr.info_plist
+    input = ctx.attrs.info_plist
     output = ctx.actions.declare_output("PreprocessedInfo.plist")
     substitutions_json = _plist_substitutions_as_json_file(ctx)
-    apple_tools = ctx.attr._apple_tools[AppleToolsInfo]
+    apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
     processor = apple_tools.info_plist_processor
     command = cmd_args([
         processor,
@@ -50,7 +50,7 @@ def _preprocess_info_plist(ctx: "context") -> "artifact":
     return output
 
 def _plist_substitutions_as_json_file(ctx: "context") -> ["artifact", None]:
-    info_plist_substitutions = ctx.attr.info_plist_substitutions
+    info_plist_substitutions = ctx.attrs.info_plist_substitutions
     if not info_plist_substitutions:
         return None
 
@@ -58,7 +58,7 @@ def _plist_substitutions_as_json_file(ctx: "context") -> ["artifact", None]:
     return substitutions_json
 
 def process_plist(ctx: "context", input: "artifact", output: "output_artifact", override_input: ["artifact", None] = None, additional_keys: ["artifact", None] = None, override_keys: ["artifact", None] = None, action_id: [str.type, None] = None):
-    apple_tools = ctx.attr._apple_tools[AppleToolsInfo]
+    apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
     processor = apple_tools.info_plist_processor
     override_input_arguments = ["--override-input", override_input] if override_input != None else []
     additional_keys_arguments = ["--additional-keys", additional_keys] if additional_keys != None else []
@@ -80,21 +80,21 @@ def _additional_keys_as_json_file(ctx: "context") -> "artifact":
 def _info_plist_additional_keys(ctx: "context") -> {str.type: ""}:
     sdk_name = get_apple_sdk_name(ctx)
     sdk_metadata = get_apple_sdk_metadata_for_sdk_name(sdk_name)
-    result = _extra_mac_info_plist_keys(sdk_metadata, ctx.attr.extension)
+    result = _extra_mac_info_plist_keys(sdk_metadata, ctx.attrs.extension)
     result["CFBundleSupportedPlatforms"] = sdk_metadata.info_plist_supported_platforms_values
     result["DTPlatformName"] = sdk_name
-    sdk_version = ctx.attr._apple_toolchain[AppleToolchainInfo].sdk_version
+    sdk_version = ctx.attrs._apple_toolchain[AppleToolchainInfo].sdk_version
     if sdk_version:
         result["DTPlatformVersion"] = sdk_version
         result["DTSDKName"] = sdk_name + sdk_version
-    sdk_build_version = ctx.attr._apple_toolchain[AppleToolchainInfo].sdk_build_version
+    sdk_build_version = ctx.attrs._apple_toolchain[AppleToolchainInfo].sdk_build_version
     if sdk_build_version:
         result["DTPlatformBuild"] = sdk_build_version
         result["DTSDKBuild"] = sdk_build_version
-    xcode_build_version = ctx.attr._apple_toolchain[AppleToolchainInfo].xcode_build_version
+    xcode_build_version = ctx.attrs._apple_toolchain[AppleToolchainInfo].xcode_build_version
     if xcode_build_version:
         result["DTXcodeBuild"] = xcode_build_version
-    xcode_version = ctx.attr._apple_toolchain[AppleToolchainInfo].xcode_version
+    xcode_version = ctx.attrs._apple_toolchain[AppleToolchainInfo].xcode_version
     if xcode_version:
         result["DTXcode"] = xcode_version
     result[sdk_metadata.min_version_plist_info_key] = get_bundle_min_target_version(ctx)
@@ -117,7 +117,7 @@ def _info_plist_override_keys(ctx: "context") -> {str.type: ""}:
     sdk_name = get_apple_sdk_name(ctx)
     result = {}
     if sdk_name == MacOSXSdkMetadata.name:
-        if ctx.attr.extension != "xpc":
+        if ctx.attrs.extension != "xpc":
             result["LSRequiresIPhoneOS"] = False
     elif sdk_name not in [WatchOSSdkMetadata.name, WatchSimulatorSdkMetadata.name, MacOSXCatalystSdkMetadata.name]:
         result["LSRequiresIPhoneOS"] = True

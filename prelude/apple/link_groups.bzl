@@ -38,14 +38,14 @@ LINK_GROUP_MAP_DATABASE_SUB_TARGET = "link-group-map-database"
 LINK_GROUP_MAP_FILE_NAME = "link_group_map.json"
 
 def get_link_group(ctx: "context") -> [str.type, None]:
-    return ctx.attr.link_group
+    return ctx.attrs.link_group
 
 def get_link_groups(ctx: "context") -> [LinkGroup.type]:
     """
     Parses the currently analyzed context for any link group definitions
     and returns a list of all link groups with their mappings.
     """
-    link_group_map = ctx.attr.link_group_map
+    link_group_map = ctx.attrs.link_group_map
 
     if not link_group_map:
         return []

@@ -13,17 +13,17 @@ def android_library_impl(ctx: "context") -> ["provider"]:
     return to_list(java_providers) + [
         merge_android_packageable_info(
             ctx.actions,
-            ctx.attr.deps + (ctx.attr.deps_query or []) + ctx.attr.exported_deps + ctx.attr.runtime_deps,
-            manifest = ctx.attr.manifest,
+            ctx.attrs.deps + (ctx.attrs.deps_query or []) + ctx.attrs.exported_deps + ctx.attrs.runtime_deps,
+            manifest = ctx.attrs.manifest,
         ),
-        merge_exported_android_resource_info(ctx.attr.exported_deps),
+        merge_exported_android_resource_info(ctx.attrs.exported_deps),
     ]
 
 def build_android_library(
         ctx: "context",
         r_dot_java: ["artifact", None] = None) -> "JavaProviders":
-    java_toolchain = ctx.attr._java_toolchain[JavaToolchainInfo]
-    bootclasspath_entries = [] + ctx.attr._android_toolchain[AndroidToolchainInfo].android_bootclasspath
+    java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
+    bootclasspath_entries = [] + ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath
     additional_classpath_entries = []
 
     # If we were given an R.java to compile against, use that. Otherwise, just create a "dummy" R.java.
@@ -34,7 +34,7 @@ def build_android_library(
         if dummy_r_dot_java:
             additional_classpath_entries.append(dummy_r_dot_java)
 
-    if ctx.attr.language != None and ctx.attr.language.lower() == "kotlin":
+    if ctx.attrs.language != None and ctx.attrs.language.lower() == "kotlin":
         return build_kotlin_library(
             ctx,
             additional_classpath_entries = additional_classpath_entries,
@@ -43,7 +43,7 @@ def build_android_library(
     else:
         return build_java_library(
             ctx,
-            ctx.attr.srcs,
+            ctx.attrs.srcs,
             additional_classpath_entries = additional_classpath_entries,
             bootclasspath_entries = bootclasspath_entries,
         )
@@ -53,17 +53,17 @@ def _get_dummy_r_dot_java(
         java_toolchain: "JavaToolchainInfo") -> ["artifact", None]:
     android_resources = [resource for resource in filter_and_map_idx(
         AndroidResourceInfo,
-        ctx.attr.deps + (ctx.attr.deps_query or []) + ctx.attr.provided_deps + (getattr(ctx.attr, "provided_deps_query", []) or []),
+        ctx.attrs.deps + (ctx.attrs.deps_query or []) + ctx.attrs.provided_deps + (getattr(ctx.attr, "provided_deps_query", []) or []),
     ) if resource.res != None]
     if len(android_resources) == 0:
         return None
 
     dummy_r_dot_java_library_info = get_dummy_r_dot_java(
         ctx,
-        ctx.attr._android_toolchain[AndroidToolchainInfo].merge_android_resources[RunInfo],
+        ctx.attrs._android_toolchain[AndroidToolchainInfo].merge_android_resources[RunInfo],
         java_toolchain,
         android_resources,
-        ctx.attr.resource_union_package,
+        ctx.attrs.resource_union_package,
     )
 
     return dummy_r_dot_java_library_info.library_output.abi

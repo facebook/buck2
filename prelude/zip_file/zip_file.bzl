@@ -10,16 +10,16 @@ def zip_file_impl(ctx: "context") -> ["provider"]:
         list of created providers
     """
 
-    zip_file_toolchain = ctx.attr._zip_file_toolchain[ZipFileToolchainInfo]
+    zip_file_toolchain = ctx.attrs._zip_file_toolchain[ZipFileToolchainInfo]
     create_zip_tool = zip_file_toolchain.create_zip[RunInfo]
 
-    zip_output_name = ctx.attr.out if ctx.attr.out else "{}.zip".format(ctx.label.name)
+    zip_output_name = ctx.attrs.out if ctx.attrs.out else "{}.zip".format(ctx.label.name)
     output = ctx.actions.declare_output(zip_output_name)
 
-    on_duplicate_entry = ctx.attr.on_duplicate_entry
-    entries_to_exclude = ctx.attr.entries_to_exclude
-    zip_srcs = ctx.attr.zip_srcs
-    srcs = ctx.attr.srcs
+    on_duplicate_entry = ctx.attrs.on_duplicate_entry
+    entries_to_exclude = ctx.attrs.entries_to_exclude
+    zip_srcs = ctx.attrs.zip_srcs
+    srcs = ctx.attrs.srcs
 
     create_zip_cmd = cmd_args([
         create_zip_tool,

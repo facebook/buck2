@@ -12,7 +12,7 @@ def create_source_db_deps(
     output = ctx.actions.declare_output("db.json")
     artifacts = []
 
-    python_toolchain = ctx.attr._python_toolchain[PythonToolchainInfo]
+    python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
     cmd = cmd_args(python_toolchain.make_source_db[RunInfo])
     cmd.add(cmd_args(output.as_output(), format = "--output={}"))
 

@@ -98,10 +98,10 @@ def compile_swift_sdk_pcm(
 def compile_swift_pcm(
         ctx: "context",
         exported_pre: "CPreprocessor") -> ["SwiftPCMCompilationInfo", None]:
-    module_name = ctx.attr.name
+    module_name = ctx.attrs.name
     modulemap_path = exported_pre.modulemap_path
 
-    toolchain = ctx.attr._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
     cmd = cmd_args(toolchain.compiler)
     cmd.add(get_shared_pcm_compilation_args(get_versioned_target_triple(ctx), module_name))
     cmd.add(["-sdk", toolchain.sdk_path])
@@ -117,7 +117,7 @@ def compile_swift_pcm(
             toolchain.resource_dir,
         ])
 
-    pcm_deps_tset = get_pcm_deps_tset(ctx, ctx.attr.deps + ctx.attr.exported_deps)
+    pcm_deps_tset = get_pcm_deps_tset(ctx, ctx.attrs.deps + ctx.attrs.exported_deps)
     cmd.add(pcm_deps_tset.project_as_args("clang_deps"))
 
     pcm_output = ctx.actions.declare_output(module_name + ".pcm")

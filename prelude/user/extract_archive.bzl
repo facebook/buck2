@@ -6,8 +6,8 @@ load(":rule_spec.bzl", "RuleRegistrationSpec")
 # which then can be used as an input for other rules.
 
 def _impl(ctx: "context") -> ["provider"]:
-    output = ctx.actions.declare_output(value_or(ctx.attr.directory_name, ctx.label.name))
-    archive = ctx.attr.contents_archive
+    output = ctx.actions.declare_output(value_or(ctx.attrs.directory_name, ctx.label.name))
+    archive = ctx.attrs.contents_archive
     script, hidden = ctx.actions.write(
         "unpack.sh",
         [

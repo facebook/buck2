@@ -4,7 +4,7 @@ def _test_impl(ctx):
     dep_file = ctx.actions.declare_output("depfile")
     app = ctx.actions.declare_output("app")
 
-    seed = ctx.actions.write("seed", ctx.attr.seed)
+    seed = ctx.actions.write("seed", ctx.attrs.seed)
 
     ctx.actions.run(
         [

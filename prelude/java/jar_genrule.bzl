@@ -20,7 +20,7 @@ def jar_genrule_impl(ctx: "context") -> ["provider"]:
     )
     output_jar = outputs[0]
 
-    java_toolchain = ctx.attr._java_toolchain[JavaToolchainInfo]
+    java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
     java_cmd = cmd_args(java_toolchain.java[RunInfo])
     java_cmd.add("-jar", output_jar)
 

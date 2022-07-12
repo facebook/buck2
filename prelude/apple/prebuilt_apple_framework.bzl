@@ -28,7 +28,7 @@ load(":apple_frameworks.bzl", "to_framework_name")
 def prebuilt_apple_framework_impl(ctx: "context") -> ["provider"]:
     providers = []
 
-    framework_directory_artifact = ctx.attr.framework
+    framework_directory_artifact = ctx.attrs.framework
 
     # Check this rule's `supported_platforms_regex` with the current platform.
     if cxx_platform_supported(ctx):
@@ -40,7 +40,7 @@ def prebuilt_apple_framework_impl(ctx: "context") -> ["provider"]:
         )
 
         # Add framework & pp info from deps.
-        inherited_pp_info = cxx_inherited_preprocessor_infos(ctx.attr.deps)
+        inherited_pp_info = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
         providers.append(cxx_merge_cpreprocessors(
             ctx,
             [CPreprocessor(args = ["-F", framework_dir])],

@@ -6,7 +6,7 @@ load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 def cxx_use_bolt(ctx: "context") -> bool.type:
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
-    return cxx_toolchain_info.bolt_enabled and ctx.attr.bolt_profile != None
+    return cxx_toolchain_info.bolt_enabled and ctx.attrs.bolt_profile != None
 
 def bolt_gdb_index(ctx: "context", bolt_output: "artifact", identifier: [str.type, None]) -> "artifact":
     # Run gdb-indexer
@@ -14,7 +14,7 @@ def bolt_gdb_index(ctx: "context", bolt_output: "artifact", identifier: [str.typ
     gdb_index_output_name = bolt_output.short_path.removesuffix("-pre_gdb_index") + "-gdb_index"
     gdb_index_output = ctx.actions.declare_output(gdb_index_output_name)
     gdb_index_args = cmd_args(
-        ctx.attr.bolt_gdb_index,
+        ctx.attrs.bolt_gdb_index,
         bolt_output,
         "-o",
         gdb_index_output.as_output(),
@@ -48,7 +48,7 @@ def bolt_gdb_index(ctx: "context", bolt_output: "artifact", identifier: [str.typ
     return objcopy_output
 
 def bolt(ctx: "context", prebolt_output: "artifact", identifier: [str.type, None]) -> "artifact":
-    output_name = prebolt_output.short_path.removesuffix("-wrapper") + ("-pre_gdb_index" if (ctx.attr.bolt_gdb_index != None) else "")
+    output_name = prebolt_output.short_path.removesuffix("-wrapper") + ("-pre_gdb_index" if (ctx.attrs.bolt_gdb_index != None) else "")
     postbolt_output = ctx.actions.declare_output(output_name)
     bolt_msdk = get_cxx_toolchain_info(ctx).binary_utilities_info.bolt_msdk
 
@@ -63,8 +63,8 @@ def bolt(ctx: "context", prebolt_output: "artifact", identifier: [str.type, None
         prebolt_output,
         "-o",
         postbolt_output.as_output(),
-        cmd_args(ctx.attr.bolt_profile, format = "-data={}"),
-        ctx.attr.bolt_flags,
+        cmd_args(ctx.attrs.bolt_profile, format = "-data={}"),
+        ctx.attrs.bolt_flags,
     )
 
     ctx.actions.run(
@@ -74,7 +74,7 @@ def bolt(ctx: "context", prebolt_output: "artifact", identifier: [str.type, None
         prefer_local = get_cxx_toolchain_info(ctx).linker_info.link_binaries_locally,
     )
 
-    if ctx.attr.bolt_gdb_index != None:
+    if ctx.attrs.bolt_gdb_index != None:
         return bolt_gdb_index(ctx, postbolt_output, identifier)
 
     return postbolt_output

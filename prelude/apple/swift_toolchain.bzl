@@ -2,10 +2,10 @@ load(":apple_sdk_module.bzl", "create_sdk_modules_graph")
 load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftToolchainInfo")
 
 def swift_toolchain_impl(ctx):
-    compiler = cmd_args(ctx.attr._swiftc_wrapper[RunInfo]).add(ctx.attr.swiftc[RunInfo])
-    compiler_flags = ctx.attr.swiftc_flags
-    sdk_path = ctx.attr._internal_sdk_path or ctx.attr.sdk_path
-    resource_dir = ctx.attr.resource_dir
+    compiler = cmd_args(ctx.attrs._swiftc_wrapper[RunInfo]).add(ctx.attrs.swiftc[RunInfo])
+    compiler_flags = ctx.attrs.swiftc_flags
+    sdk_path = ctx.attrs._internal_sdk_path or ctx.attrs.sdk_path
+    resource_dir = ctx.attrs.resource_dir
 
     toolchain_context = struct(
         compiler = compiler,
@@ -16,7 +16,7 @@ def swift_toolchain_impl(ctx):
 
     compiled_sdk_module_providers = {}
 
-    sdk_uncompiled_module_infos = filter(None, [d[SdkUncompiledModuleInfo] for d in ctx.attr.sdk_modules])
+    sdk_uncompiled_module_infos = filter(None, [d[SdkUncompiledModuleInfo] for d in ctx.attrs.sdk_modules])
     for uncompiled_swift_module_info in sdk_uncompiled_module_infos:
         create_sdk_modules_graph(
             ctx,
@@ -40,14 +40,14 @@ def swift_toolchain_impl(ctx):
     return [
         DefaultInfo(),
         SwiftToolchainInfo(
-            architecture = ctx.attr.architecture,
+            architecture = ctx.attrs.architecture,
             # TODO(T99038725): until we add -debug-compilation-dir we need to wrap
             # the Swift invocations so that we can apply a debug prefix map for
             # the current directory while maintaining cache hit.
             compiler = compiler,
             compiler_flags = compiler_flags,
-            swift_stdlib_tool = ctx.attr.swift_stdlib_tool[RunInfo],
-            swift_stdlib_tool_flags = ctx.attr.swift_stdlib_tool_flags,
+            swift_stdlib_tool = ctx.attrs.swift_stdlib_tool[RunInfo],
+            swift_stdlib_tool_flags = ctx.attrs.swift_stdlib_tool_flags,
             sdk_path = sdk_path,
             compiled_sdk_swift_modules = compiled_sdk_swift_module_providers,
             compiled_sdk_clang_modules = compiled_sdk_clang_module_providers,

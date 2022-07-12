@@ -40,14 +40,14 @@ load(":source_db.bzl", "create_source_db_deps")
 load(":toolchain.bzl", "NativeLinkStrategy", "PackageStyle", "PythonPlatformInfo", "PythonToolchainInfo", "get_platform_attr")
 
 def _link_strategy(ctx: "context") -> NativeLinkStrategy.type:
-    if ctx.attr.native_link_strategy != None:
-        return NativeLinkStrategy(ctx.attr.native_link_strategy)
-    return NativeLinkStrategy(ctx.attr._python_toolchain[PythonToolchainInfo].native_link_strategy)
+    if ctx.attrs.native_link_strategy != None:
+        return NativeLinkStrategy(ctx.attrs.native_link_strategy)
+    return NativeLinkStrategy(ctx.attrs._python_toolchain[PythonToolchainInfo].native_link_strategy)
 
 def _package_style(ctx: "context") -> PackageStyle.type:
-    if ctx.attr.package_style != None:
-        return PackageStyle(ctx.attr.package_style.lower())
-    return PackageStyle(ctx.attr._python_toolchain[PythonToolchainInfo].package_style)
+    if ctx.attrs.package_style != None:
+        return PackageStyle(ctx.attrs.package_style.lower())
+    return PackageStyle(ctx.attrs._python_toolchain[PythonToolchainInfo].package_style)
 
 # We do a lot of merging extensions, so don't use O(n) type annotations
 def _merge_extensions(
@@ -88,18 +88,18 @@ def python_executable(
 
     # TODO(nmj): See if people are actually setting cxx_platform here. Really
     #                 feels like it should be a property of the python platform
-    python_platform = ctx.attr._python_toolchain[PythonPlatformInfo]
-    cxx_platform = ctx.attr._cxx_toolchain[CxxPlatformInfo]
+    python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
+    cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
 
     raw_deps = (
-        [ctx.attr.deps] +
-        get_platform_attr(python_platform, cxx_platform, ctx.attr.platform_deps)
+        [ctx.attrs.deps] +
+        get_platform_attr(python_platform, cxx_platform, ctx.attrs.platform_deps)
     )
 
     # `preload_deps` is used later to configure `LD_PRELOAD` environment variable,
     # here we make the actual libraries to appear in the distribution.
     # TODO: make fully consistent with its usage later
-    raw_deps.append(ctx.attr.preload_deps)
+    raw_deps.append(ctx.attrs.preload_deps)
     python_deps, shared_deps = gather_dep_libraries(raw_deps)
 
     src_manifest = None
@@ -150,16 +150,16 @@ def convert_python_library_to_executable(
         compile: bool.type = False):
     # Returns a three tuple: the Python binary, all its potential runtime files,
     # and a provider for its source DB.
-    python_toolchain = ctx.attr._python_toolchain[PythonToolchainInfo]
+    python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
     package_style = _package_style(ctx)
 
     # TODO(nmj): base_module / main should probably just not be supported
     #                 they were deprecated before, so leave it at that.
 
-    output = ctx.actions.declare_output("{}{}".format(ctx.attr.name, python_toolchain.pex_extension))
+    output = ctx.actions.declare_output("{}{}".format(ctx.attrs.name, python_toolchain.pex_extension))
 
     # Convert preloaded deps to a set of their names to be loaded by.
-    preload_labels = {d.label: None for d in ctx.attr.preload_deps}
+    preload_labels = {d.label: None for d in ctx.attrs.preload_deps}
     preload_names = {
         name: None
         for name, shared_lib in library.shared_libraries().items()
@@ -182,14 +182,14 @@ def convert_python_library_to_executable(
 
         # Exclude preloaded deps from omnibus linking, to prevent preloading
         # the monolithic omnibus library.
-        add_omnibus_exclusions(linkable_graph, ctx.attr.preload_deps)
+        add_omnibus_exclusions(linkable_graph, ctx.attrs.preload_deps)
 
         # Link omnibus libraries.
         omnibus_libs = create_omnibus_libraries(
             ctx,
             linkable_graph,
-            ctx.attr.linker_flags,
-            prefer_stripped_objects = ctx.attr.prefer_stripped_native_objects,
+            ctx.attrs.linker_flags,
+            prefer_stripped_objects = ctx.attrs.prefer_stripped_native_objects,
         )
 
         # Extract re-linked extensions.
@@ -208,7 +208,7 @@ def convert_python_library_to_executable(
         extensions = create_manifest_for_extensions(
             ctx,
             extensions,
-            dwp = ctx.attr.package_split_dwarf_dwp,
+            dwp = ctx.attrs.package_split_dwarf_dwp,
         ) if extensions else None,
     )
 
@@ -228,9 +228,9 @@ def convert_python_library_to_executable(
     symlink_tree_path = None
     runtime_files = []
     if package_style != PackageStyle("standalone"):
-        if not ctx.attr.bundled_runtime:
+        if not ctx.attrs.bundled_runtime:
             # TODO(nmj): Not quite the right name, deal with legacy_output_path if necessary
-            symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(ctx.attr.name))
+            symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(ctx.attrs.name))
             runtime_files.append(symlink_tree_path)
         runtime_files.extend(hidden_resources)
 
@@ -246,9 +246,9 @@ def convert_python_library_to_executable(
     hidden = make_pex(
         ctx,
         python_toolchain,
-        ctx.attr.bundled_runtime,
+        ctx.attrs.bundled_runtime,
         package_style,
-        ctx.attr.build_args,
+        ctx.attrs.build_args,
         pex_modules,
         shared_libraries,
         main_module,
@@ -261,30 +261,30 @@ def convert_python_library_to_executable(
     return output, runtime_files
 
 def python_binary_impl(ctx: "context") -> ["provider"]:
-    main_module = ctx.attr.main_module
-    if ctx.attr.main_module != None and ctx.attr.main != None:
+    main_module = ctx.attrs.main_module
+    if ctx.attrs.main_module != None and ctx.attrs.main != None:
         fail("Only one of main_module or main may be set. Prefer main_module as main is considered deprecated")
-    elif ctx.attr.main != None:
-        base_module = ctx.attr.base_module
+    elif ctx.attrs.main != None:
+        base_module = ctx.attrs.base_module
         if base_module == None:
             base_module = ctx.label.package.replace("/", ".")
         if base_module != "":
             base_module += "."
-        main_module = base_module + ctx.attr.main.short_path.replace("/", ".")
+        main_module = base_module + ctx.attrs.main.short_path.replace("/", ".")
         if main_module.endswith(".py"):
             main_module = main_module[:-3]
 
     srcs = {}
-    if ctx.attr.main != None:
-        srcs[ctx.attr.main.short_path] = ctx.attr.main
-    srcs = qualify_srcs(ctx.label, ctx.attr.base_module, srcs)
+    if ctx.attrs.main != None:
+        srcs[ctx.attrs.main.short_path] = ctx.attrs.main
+    srcs = qualify_srcs(ctx.label, ctx.attrs.base_module, srcs)
 
     output, runtime_files, source_db = python_executable(
         ctx,
         main_module,
         srcs,
         {},
-        compile = value_or(ctx.attr.compile, False),
+        compile = value_or(ctx.attrs.compile, False),
     )
 
     return [

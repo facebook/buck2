@@ -43,10 +43,10 @@ def _rust_binary_common(
     styles = {}
     style_param = {}  # style -> param
 
-    specified_link_style = LinkStyle(ctx.attr.link_style or "static_pic")
+    specified_link_style = LinkStyle(ctx.attrs.link_style or "static_pic")
     compile_ctx = compile_context(ctx)
 
-    linker_type = ctx.attr._cxx_toolchain[CxxToolchainInfo].linker_info.type
+    linker_type = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info.type
 
     for link_style in LinkStyle:
         params = build_params(
@@ -157,7 +157,7 @@ def rust_test_impl(ctx: "context") -> [[DefaultInfo.type, RunInfo.type, External
     toolchain_info = ctx_toolchain_info(ctx)
 
     extra_flags = toolchain_info.rustc_test_flags or []
-    if ctx.attr.framework:
+    if ctx.attrs.framework:
         extra_flags += ["--test"]
 
     providers, args = _rust_binary_common(ctx, ["main.rs", "lib.rs"], extra_flags)
@@ -166,8 +166,8 @@ def rust_test_impl(ctx: "context") -> [[DefaultInfo.type, RunInfo.type, External
         ExternalRunnerTestInfo(
             type = "rust",
             command = [args],
-            env = ctx.attr.env,
-            labels = ctx.attr.labels,
-            contacts = ctx.attr.contacts,
+            env = ctx.attrs.env,
+            labels = ctx.attrs.labels,
+            contacts = ctx.attrs.contacts,
         ),
     ]

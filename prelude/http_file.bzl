@@ -39,14 +39,14 @@ def http_file_shared(
     return providers
 
 def http_file_impl(ctx: "context") -> ["provider"]:
-    expect(len(ctx.attr.urls) == 1, "multiple `urls` not supported: {}", ctx.attr.urls)
+    expect(len(ctx.attrs.urls) == 1, "multiple `urls` not supported: {}", ctx.attrs.urls)
     return http_file_shared(
         ctx.actions,
-        name = value_or(ctx.attr.out, ctx.label.name),
-        url = ctx.attr.urls[0],
-        sha1 = ctx.attr.sha1,
-        sha256 = ctx.attr.sha256,
-        is_executable = ctx.attr.executable or False,
+        name = value_or(ctx.attrs.out, ctx.label.name),
+        url = ctx.attrs.urls[0],
+        sha1 = ctx.attrs.sha1,
+        sha256 = ctx.attrs.sha256,
+        is_executable = ctx.attrs.executable or False,
         is_exploded_zip = False,
         unzip_tool = None,
     )

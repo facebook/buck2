@@ -17,7 +17,7 @@ _APPLE_MIN_VERSION_FLAG_SDK_MAP = {
 # where the version for a particular node is defined, no other places
 # should be accessing `attr.target_sdk_version` or `attr.min_version`.
 def get_min_deployment_version_for_node(ctx: "context") -> [None, str.type]:
-    toolchain_min_version = ctx.attr._apple_toolchain[AppleToolchainInfo].min_version
+    toolchain_min_version = ctx.attrs._apple_toolchain[AppleToolchainInfo].min_version
     if toolchain_min_version == "":
         toolchain_min_version = None
     return getattr(ctx.attr, "target_sdk_version", None) or toolchain_min_version

@@ -6,11 +6,11 @@ load(":resource_groups.bzl", "create_resource_graph")
 
 def apple_core_data_impl(ctx: "context") -> ["provider"]:
     spec = AppleCoreDataSpec(
-        path = ctx.attr.path,
+        path = ctx.attrs.path,
     )
     graph = create_resource_graph(
         root = ctx.label,
-        labels = ctx.attr.labels,
+        labels = ctx.attrs.labels,
         deps = [],
         exported_deps = [],
         core_data_spec = spec,
@@ -50,9 +50,9 @@ def compile_apple_core_data(ctx: "context", specs: [AppleCoreDataSpec.type], pro
 
 def _get_momc_command(ctx: "context", core_data_spec: AppleCoreDataSpec.type, product_name: str.type, output_directory: "cmd_args") -> "cmd_args":
     return cmd_args([
-        ctx.attr._apple_toolchain[AppleToolchainInfo].momc,
+        ctx.attrs._apple_toolchain[AppleToolchainInfo].momc,
         "--sdkroot",
-        ctx.attr._apple_toolchain[AppleToolchainInfo].sdk_path,
+        ctx.attrs._apple_toolchain[AppleToolchainInfo].sdk_path,
         "--" + get_apple_sdk_name(ctx) + "-deployment-target",
         get_bundle_min_target_version(ctx),
         "--module",

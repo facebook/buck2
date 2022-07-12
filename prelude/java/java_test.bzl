@@ -6,7 +6,7 @@ load("@fbcode//buck2/prelude/linking:shared_libraries.bzl", "SharedLibraryInfo",
 load("@fbcode//buck2/prelude/utils:utils.bzl", "filter_and_map_idx")
 
 def java_test_impl(ctx: "context") -> ["provider"]:
-    java_providers = build_java_library(ctx, ctx.attr.srcs)
+    java_providers = build_java_library(ctx, ctx.attrs.srcs)
     external_runner_test_info, run_info = build_junit_test(ctx, java_providers.java_library_info, java_providers.java_packaging_info)
 
     return [
@@ -23,9 +23,9 @@ def build_junit_test(
         tests_java_packaging_info: "JavaPackagingInfo",
         extra_cmds: list.type = [],
         extra_classpath_entries: ["artifact"] = []) -> (ExternalRunnerTestInfo.type, RunInfo.type):
-    junit_toolchain = ctx.attr._junit_toolchain[JUnitToolchainInfo]
+    junit_toolchain = ctx.attrs._junit_toolchain[JUnitToolchainInfo]
 
-    cmd = [ctx.attr._java_toolchain[JavaToolchainInfo].java_for_tests] + extra_cmds + ctx.attr.vm_args
+    cmd = [ctx.attrs._java_toolchain[JavaToolchainInfo].java_for_tests] + extra_cmds + ctx.attrs.vm_args
 
     classpath = [junit_toolchain.junit_test_runner_library_jar] + [
         packaging_dep.jar
@@ -33,7 +33,7 @@ def build_junit_test(
         if packaging_dep.jar
     ] + extra_classpath_entries
 
-    run_from_cell_root = "buck2_run_from_cell_root" in (ctx.attr.labels or [])
+    run_from_cell_root = "buck2_run_from_cell_root" in (ctx.attrs.labels or [])
 
     classpath_args = cmd_args()
     if run_from_cell_root:
@@ -44,8 +44,8 @@ def build_junit_test(
     cmd.append(cmd_args(classpath_args_file, format = "@{}").hidden(classpath_args))
 
     cmd.append(junit_toolchain.junit_test_runner_main_class)
-    if ctx.attr.test_case_timeout_ms:
-        cmd.extend(["--default_test_timeout", ctx.attr.test_case_timeout_ms])
+    if ctx.attrs.test_case_timeout_ms:
+        cmd.extend(["--default_test_timeout", ctx.attrs.test_case_timeout_ms])
 
     class_names = ctx.actions.declare_output("class_names")
     list_class_names_cmd = cmd_args([
@@ -61,7 +61,7 @@ def build_junit_test(
 
     native_libs_env = _get_native_libs_env(ctx)
     env = {}
-    for d in [ctx.attr.env, native_libs_env]:
+    for d in [ctx.attrs.env, native_libs_env]:
         for key, value in d.items():
             if key in env:
                 fail("Duplicate key for java_test env: '{}'".format(key))
@@ -72,21 +72,21 @@ def build_junit_test(
         type = "junit",
         command = cmd,
         env = env,
-        labels = ctx.attr.labels,
-        contacts = ctx.attr.contacts,
+        labels = ctx.attrs.labels,
+        contacts = ctx.attrs.contacts,
         run_from_project_root = not run_from_cell_root,
         use_project_relative_paths = not run_from_cell_root,
     )
     return test_info, run_info
 
 def _get_native_libs_env(ctx: "context") -> dict.type:
-    if not ctx.attr.use_cxx_libraries:
+    if not ctx.attrs.use_cxx_libraries:
         return {}
 
-    if ctx.attr.cxx_library_whitelist:
-        shared_library_infos = filter_and_map_idx(SharedLibraryInfo, ctx.attr.cxx_library_whitelist)
+    if ctx.attrs.cxx_library_whitelist:
+        shared_library_infos = filter_and_map_idx(SharedLibraryInfo, ctx.attrs.cxx_library_whitelist)
     else:
-        shared_library_infos = filter_and_map_idx(SharedLibraryInfo, ctx.attr.deps)
+        shared_library_infos = filter_and_map_idx(SharedLibraryInfo, ctx.attrs.deps)
 
     shared_library_info = merge_shared_libraries(
         ctx.actions,

@@ -13,9 +13,9 @@ def robolectric_test_impl(ctx: "context") -> ["provider"]:
 
     # Force robolectric to only use local dependency resolution.
     extra_cmds.append("-Drobolectric.offline=true")
-    extra_cmds.append(cmd_args(ctx.attr.robolectric_runtime_dependency, format = "-Drobolectric.dependency.dir={}"))
+    extra_cmds.append(cmd_args(ctx.attrs.robolectric_runtime_dependency, format = "-Drobolectric.dependency.dir={}"))
 
-    all_packaging_deps = ctx.attr.deps + (ctx.attr.deps_query or []) + ctx.attr.exported_deps + ctx.attr.runtime_deps
+    all_packaging_deps = ctx.attrs.deps + (ctx.attrs.deps_query or []) + ctx.attrs.exported_deps + ctx.attrs.runtime_deps
     android_packageable_info = merge_android_packageable_info(ctx.actions, all_packaging_deps)
     resources_info = get_android_binary_resources_info(
         ctx,
@@ -37,7 +37,7 @@ def robolectric_test_impl(ctx: "context") -> ["provider"]:
     test_config_symlinked_dir = ctx.actions.symlinked_dir("test_config_symlinked_dir", {"com/android/tools/test_config.properties": test_config_properties_file})
     test_config_properties_jar = ctx.actions.declare_output("test_config_properties.jar")
     jar_cmd = cmd_args([
-        ctx.attr._java_toolchain[JavaToolchainInfo].jar,
+        ctx.attrs._java_toolchain[JavaToolchainInfo].jar,
         "-cfM",  # -c: create new archive, -f: specify the file name, -M: do not create a manifest
         test_config_properties_jar.as_output(),
         "-C",
@@ -47,7 +47,7 @@ def robolectric_test_impl(ctx: "context") -> ["provider"]:
     ctx.actions.run(jar_cmd, category = "test_config_properties_jar_cmd")
     extra_cmds.append(cmd_args().hidden(resources_info.primary_resources_apk, resources_info.manifest))
 
-    extra_classpath_entries = [test_config_properties_jar] + ctx.attr._android_toolchain[AndroidToolchainInfo].android_bootclasspath
+    extra_classpath_entries = [test_config_properties_jar] + ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath
     r_dot_java = None if resources_info.r_dot_java == None or resources_info.r_dot_java.library_output == None else resources_info.r_dot_java.library_output.full_library
     if r_dot_java != None:
         extra_classpath_entries.append(r_dot_java)
@@ -71,5 +71,5 @@ def robolectric_test_impl(ctx: "context") -> ["provider"]:
     ]
 
 def _verify_attributes(ctx: "context"):
-    expect(ctx.attr.robolectric_runtime_dependencies == [], "robolectric_runtime_dependencies is not currently supported in buck2!")
-    expect(ctx.attr.robolectric_runtime_dependency != None, "Must specify a robolectric_runtime_dependency!")
+    expect(ctx.attrs.robolectric_runtime_dependencies == [], "robolectric_runtime_dependencies is not currently supported in buck2!")
+    expect(ctx.attrs.robolectric_runtime_dependency != None, "Must specify a robolectric_runtime_dependency!")

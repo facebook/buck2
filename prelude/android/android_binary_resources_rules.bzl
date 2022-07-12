@@ -19,7 +19,7 @@ def get_android_binary_resources_info(
         use_proto_format: bool.type,
         referenced_resources_lists: ["artifact"],
         resource_infos_to_exclude: [AndroidResourceInfo.type] = []) -> "AndroidBinaryResourcesInfo":
-    android_toolchain = ctx.attr._android_toolchain[AndroidToolchainInfo]
+    android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     unfiltered_resource_infos = [resource_info for resource_info in list(android_packageable_info.resource_infos.traverse() if android_packageable_info.resource_infos else []) if resource_info not in resource_infos_to_exclude]
     resource_infos, override_symbols, string_files_list, string_files_res_dirs = _maybe_filter_resources(
         ctx,
@@ -31,7 +31,7 @@ def get_android_binary_resources_info(
 
     aapt2_link_info = get_aapt2_link(
         ctx,
-        ctx.attr._android_toolchain[AndroidToolchainInfo],
+        ctx.attrs._android_toolchain[AndroidToolchainInfo],
         [resource_info.aapt2_compile_output for resource_info in resource_infos if resource_info.aapt2_compile_output != None],
         android_manifest,
         includes_vector_drawables = getattr(ctx.attr, "includes_vector_drawables", False),
@@ -54,8 +54,8 @@ def get_android_binary_resources_info(
     resources = [resource for resource in resource_infos if resource.res != None]
     r_dot_java = None if len(resources) == 0 else generate_r_dot_java(
         ctx,
-        ctx.attr._android_toolchain[AndroidToolchainInfo].merge_android_resources[RunInfo],
-        ctx.attr._java_toolchain[JavaToolchainInfo],
+        ctx.attrs._android_toolchain[AndroidToolchainInfo].merge_android_resources[RunInfo],
+        ctx.attrs._java_toolchain[JavaToolchainInfo],
         resources,
         get_effective_banned_duplicate_resource_types(
             getattr(ctx.attr, "duplicate_resource_behavior", "allow_by_default"),
@@ -305,21 +305,21 @@ def _get_manifest(ctx: "context", android_packageable_info: "AndroidPackageableI
     if robolectric_manifest:
         return robolectric_manifest
 
-    if ctx.attr.manifest:
-        expect(ctx.attr.manifest_skeleton == None, "Only one of manifest and manifest_skeleton should be declared")
-        if type(ctx.attr.manifest) == "dependency":
-            android_manifest = ctx.attr.manifest[DefaultInfo].default_outputs[0]
+    if ctx.attrs.manifest:
+        expect(ctx.attrs.manifest_skeleton == None, "Only one of manifest and manifest_skeleton should be declared")
+        if type(ctx.attrs.manifest) == "dependency":
+            android_manifest = ctx.attrs.manifest[DefaultInfo].default_outputs[0]
         else:
-            android_manifest = ctx.attr.manifest
+            android_manifest = ctx.attrs.manifest
     else:
-        expect(ctx.attr.manifest_skeleton != None, "Must declare one of manifest and manifest_skeleton")
+        expect(ctx.attrs.manifest_skeleton != None, "Must declare one of manifest and manifest_skeleton")
         android_manifest, _ = generate_android_manifest(
             ctx,
-            ctx.attr._android_toolchain[AndroidToolchainInfo].generate_manifest[RunInfo],
-            ctx.attr.manifest_skeleton,
+            ctx.attrs._android_toolchain[AndroidToolchainInfo].generate_manifest[RunInfo],
+            ctx.attrs.manifest_skeleton,
             "dex",  # ROOT_APKMODULE_NAME,
             android_packageable_info.manifests,
-            ctx.attr.manifest_entries.get("placeholders", {}),
+            ctx.attrs.manifest_entries.get("placeholders", {}),
         )
 
     return android_manifest
@@ -335,7 +335,7 @@ def _merge_assets(
     if len(assets_dirs) == 0:
         return base_apk
 
-    merge_assets_cmd = cmd_args(ctx.attr._android_toolchain[AndroidToolchainInfo].merge_assets[RunInfo])
+    merge_assets_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].merge_assets[RunInfo])
 
     merged_assets_output = ctx.actions.declare_output("merged_assets.ap_")
     merge_assets_cmd.add(["--output-apk", merged_assets_output.as_output()])

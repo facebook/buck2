@@ -10,8 +10,8 @@ load(":util.bzl", "util")
 #   "constraint_values": attr.list(attr.configuration_label(), default = []),
 #   "values": attr.dict(key = attr.string(), value = attr.string(), sorted = False, default = {}),
 def config_setting_impl(ctx):
-    subinfos = [util.constraint_values_to_configuration(ctx.attr.constraint_values)]
-    subinfos.append(ConfigurationInfo(constraints = {}, values = ctx.attr.values))
+    subinfos = [util.constraint_values_to_configuration(ctx.attrs.constraint_values)]
+    subinfos.append(ConfigurationInfo(constraints = {}, values = ctx.attrs.values))
     return [DefaultInfo(), util.configuration_info_union(subinfos)]
 
 # constraint_setting() targets just declare the existence of a constraint.
@@ -24,7 +24,7 @@ def constraint_setting_impl(ctx):
 #  constraint_setting: the target constraint that this is a value of
 def constraint_value_impl(ctx):
     constraint_value = ConstraintValueInfo(
-        setting = ctx.attr.constraint_setting[ConstraintSettingInfo],
+        setting = ctx.attrs.constraint_setting[ConstraintSettingInfo],
         label = ctx.label.raw_target(),
     )
     return [
@@ -43,8 +43,8 @@ def constraint_value_impl(ctx):
 #  deps: a list of platform target dependencies, the constraints from these platforms will be part of this platform (unless overriden)
 def platform_impl(ctx):
     subinfos = (
-        [dep[PlatformInfo].configuration for dep in ctx.attr.deps] +
-        [util.constraint_values_to_configuration(ctx.attr.constraint_values)]
+        [dep[PlatformInfo].configuration for dep in ctx.attrs.deps] +
+        [util.constraint_values_to_configuration(ctx.attrs.constraint_values)]
     )
     return [
         DefaultInfo(),

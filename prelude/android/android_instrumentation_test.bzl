@@ -5,9 +5,9 @@ load("@fbcode//buck2/prelude/java/utils:java_utils.bzl", "get_path_separator")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 
 def android_instrumentation_test_impl(ctx: "context"):
-    android_toolchain = ctx.attr._android_toolchain[AndroidToolchainInfo]
+    android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
 
-    cmd = [ctx.attr._java_toolchain[JavaToolchainInfo].java_for_tests]
+    cmd = [ctx.attrs._java_toolchain[JavaToolchainInfo].java_for_tests]
 
     classpath = android_toolchain.instrumentation_test_runner_classpath
 
@@ -19,17 +19,17 @@ def android_instrumentation_test_impl(ctx: "context"):
 
     cmd.append(android_toolchain.instrumentation_test_runner_main_class)
 
-    apk_info = ctx.attr.apk[AndroidApkInfo]
+    apk_info = ctx.attrs.apk[AndroidApkInfo]
     expect(apk_info != None, "Provided APK must have AndroidApkInfo!")
 
-    instrumentation_apk_info = ctx.attr.apk[AndroidInstrumentationApkInfo]
+    instrumentation_apk_info = ctx.attrs.apk[AndroidInstrumentationApkInfo]
     if instrumentation_apk_info != None:
         cmd.extend(["--apk-under-test-path", instrumentation_apk_info.apk_under_test])
 
     target_package_file = ctx.actions.declare_output("target_package_file")
     package_file = ctx.actions.declare_output("package_file")
     test_runner_file = ctx.actions.declare_output("test_runner_file")
-    manifest_utils_cmd = cmd_args(ctx.attr._android_toolchain[AndroidToolchainInfo].manifest_utils[RunInfo])
+    manifest_utils_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].manifest_utils[RunInfo])
     manifest_utils_cmd.add([
         "--manifest-path",
         apk_info.manifest,
@@ -66,10 +66,10 @@ def android_instrumentation_test_impl(ctx: "context"):
     test_info = ExternalRunnerTestInfo(
         type = "android_instrumentation",
         command = cmd,
-        env = ctx.attr.env,
+        env = ctx.attrs.env,
         # TODO(T122022107) support static listing
-        labels = ctx.attr.labels + ["tpx::dynamic_listing_instrumentation_test"],
-        contacts = ctx.attr.contacts,
+        labels = ctx.attrs.labels + ["tpx::dynamic_listing_instrumentation_test"],
+        contacts = ctx.attrs.contacts,
         run_from_project_root = True,
         use_project_relative_paths = True,
         executor_overrides = {

@@ -106,13 +106,13 @@ _CxxExecutableOutput = record(
 
 # returns a tuple of the runnable binary as an artifact, a list of its runtime files as artifacts and a sub targets map, and the CxxCompilationDbInfo provider
 def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, is_cxx_test: bool.type = False) -> (_CxxExecutableOutput.type, CxxCompilationDbInfo.type):
-    first_order_deps = cxx_attr_deps(ctx) + filter(None, [ctx.attr.precompiled_header])
+    first_order_deps = cxx_attr_deps(ctx) + filter(None, [ctx.attrs.precompiled_header])
 
     # Gather preprocessor inputs.
     (own_preprocessor_info, test_preprocessor_infos) = cxx_private_preprocessor_info(
         ctx,
         impl_params.headers_layout,
-        raw_headers = ctx.attr.raw_headers,
+        raw_headers = ctx.attrs.raw_headers,
         extra_preprocessors = impl_params.extra_preprocessors,
         non_exported_deps = first_order_deps,
         is_test = is_cxx_test,
@@ -193,7 +193,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             inherited_link,
             frameworks_linkable,
             link_style,
-            prefer_stripped = ctx.attr.prefer_stripped_objects,
+            prefer_stripped = ctx.attrs.prefer_stripped_objects,
         )
 
     # Only setup a shared library symlink tree when shared linkage or link_groups is used
@@ -231,7 +231,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         shared_libs,
         linker_info.link_weight,
         prefer_local = link_cxx_binary_locally(ctx),
-        enable_distributed_thinlto = ctx.attr.enable_distributed_thinlto,
+        enable_distributed_thinlto = ctx.attrs.enable_distributed_thinlto,
         strip = impl_params.strip_executable,
         strip_args_factory = impl_params.strip_args_factory,
     )
@@ -293,7 +293,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         default_outputs = [binary.linker_argsfile],
     )]
 
-    if linker_info.supports_distributed_thinlto and ctx.attr.enable_distributed_thinlto:
+    if linker_info.supports_distributed_thinlto and ctx.attrs.enable_distributed_thinlto:
         sub_targets["index.argsfile"] = [DefaultInfo(
             default_outputs = [binary.index_argsfile],
         )]

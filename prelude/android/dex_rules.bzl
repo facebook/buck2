@@ -13,9 +13,9 @@ SplitDexMergeConfig = record(
 )
 
 def _get_dex_compression(ctx: "context") -> str.type:
-    is_exopackage_enabled_for_secondary_dexes = "secondary_dex" in ctx.attr.exopackage_modes
+    is_exopackage_enabled_for_secondary_dexes = "secondary_dex" in ctx.attrs.exopackage_modes
     default_dex_compression = "jar" if is_exopackage_enabled_for_secondary_dexes else "raw"
-    dex_compression = ctx.attr.dex_compression or default_dex_compression
+    dex_compression = ctx.attrs.dex_compression or default_dex_compression
     expect(
         dex_compression in ["raw", "jar", "xz", "xzs"],
         "Only 'raw', 'jar', 'xz' and 'xzs' dex compression are supported at this time!",
@@ -28,9 +28,9 @@ def get_split_dex_merge_config(
         android_toolchain: "AndroidToolchainInfo") -> "SplitDexMergeConfig":
     return SplitDexMergeConfig(
         dex_compression = _get_dex_compression(ctx),
-        primary_dex_patterns = ctx.attr.primary_dex_patterns,
+        primary_dex_patterns = ctx.attrs.primary_dex_patterns,
         secondary_dex_weight_limit_bytes = (
-            ctx.attr.secondary_dex_weight_limit or
+            ctx.attrs.secondary_dex_weight_limit or
             android_toolchain.secondary_dex_weight_limit
         ),
     )
@@ -91,8 +91,8 @@ def get_multi_dex(
         multi_dex_cmd.add("--proguard-mapping-file", proguard_mapping_output_file)
 
     multi_dex_cmd.add("--compression", _get_dex_compression(ctx))
-    multi_dex_cmd.add("--xz-compression-level", str(ctx.attr.xz_compression_level))
-    if ctx.attr.minimize_primary_dex_size:
+    multi_dex_cmd.add("--xz-compression-level", str(ctx.attrs.xz_compression_level))
+    if ctx.attrs.minimize_primary_dex_size:
         multi_dex_cmd.add("--minimize-primary-dex")
 
     ctx.actions.run(multi_dex_cmd, category = "multi_dex", identifier = "{}:{}".format(ctx.label.package, ctx.label.name))
@@ -269,7 +269,7 @@ def merge_to_split_dex(
         multi_dex_cmd.add("--secondary-dex-output-dir", secondary_dex_dir.as_output())
         multi_dex_cmd.add("--raw-secondary-dexes-dir", initial_secondary_dexes_dir)
         multi_dex_cmd.add("--compression", _get_dex_compression(ctx))
-        multi_dex_cmd.add("--xz-compression-level", str(ctx.attr.xz_compression_level))
+        multi_dex_cmd.add("--xz-compression-level", str(ctx.attrs.xz_compression_level))
 
         ctx.actions.run(multi_dex_cmd, category = "multi_dex_from_raw_dexes", identifier = "{}:{}".format(ctx.label.package, ctx.label.name))
 
@@ -342,7 +342,7 @@ def _sort_pre_dexed_files(
                 current_secondary_dex_inputs = []
 
             if len(current_secondary_dex_inputs) == 0:
-                canary_class_dex_input = _create_canary_class(ctx, len(secondary_dex_inputs) + 1, ctx.attr._dex_toolchain[DexToolchainInfo])
+                canary_class_dex_input = _create_canary_class(ctx, len(secondary_dex_inputs) + 1, ctx.attrs._dex_toolchain[DexToolchainInfo])
                 current_secondary_dex_inputs.append(canary_class_dex_input)
                 secondary_dex_inputs.append(current_secondary_dex_inputs)
 

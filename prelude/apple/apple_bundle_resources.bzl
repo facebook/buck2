@@ -86,11 +86,11 @@ def _select_resources(ctx: "context") -> ([AppleResourceSpec.type], [AppleAssetC
     resource_graph = create_resource_graph(
         root = ctx.label,
         labels = [],
-        deps = ctx.attr.deps + filter(None, [ctx.attr.binary]) + resource_groups_deps,
+        deps = ctx.attrs.deps + filter(None, [ctx.attrs.binary]) + resource_groups_deps,
         exported_deps = [],
     )
     resource_group_mappings = get_link_group_mappings(resource_groups, resource_graph)
-    return get_filtered_resources(resource_graph, ctx.attr.resource_group, resource_group_mappings)
+    return get_filtered_resources(resource_graph, ctx.attrs.resource_group, resource_group_mappings)
 
 def _copy_resources(ctx: "context", specs: [AppleResourceSpec.type]) -> [AppleBundlePart.type]:
     result = []
@@ -111,7 +111,7 @@ def _copy_resources(ctx: "context", specs: [AppleResourceSpec.type]) -> [AppleBu
     return result
 
 def _copy_first_level_bundles(ctx: "context") -> [AppleBundlePart.type]:
-    first_level_bundle_infos = filter(None, [dep[AppleBundleInfo] for dep in ctx.attr.deps])
+    first_level_bundle_infos = filter(None, [dep[AppleBundleInfo] for dep in ctx.attrs.deps])
     return filter(None, [_copied_bundle_spec(info) for info in first_level_bundle_infos])
 
 def _copied_bundle_spec(bundle_info: AppleBundleInfo.type) -> [None, AppleBundlePart.type]:
@@ -186,8 +186,8 @@ def _run_ibtool(
     # Equivalent of `AppleProcessResources::BASE_IBTOOL_FLAGS` from v1
     base_flags = ["--output-format", "human-readable-text", "--notices", "--warnings", "--errors"]
 
-    ibtool = ctx.attr._apple_toolchain[AppleToolchainInfo].ibtool
-    ibtool_command = [ibtool] + base_flags + (ctx.attr.ibtool_flags or [])
+    ibtool = ctx.attrs._apple_toolchain[AppleToolchainInfo].ibtool
+    ibtool_command = [ibtool] + base_flags + (ctx.attrs.ibtool_flags or [])
     if target_device != None:
         ibtool_command.extend(["--target-device", target_device])
     ibtool_command.extend(action_flags)
@@ -300,4 +300,4 @@ def _get_dest_subpath_for_variant_file(variant_file: "artifact") -> str.type:
     return paths.join(dir_name, file_name)
 
 def get_is_watch_bundle(ctx: "context") -> bool.type:
-    return ctx.attr._apple_toolchain[AppleToolchainInfo].watch_kit_stub_binary != None
+    return ctx.attrs._apple_toolchain[AppleToolchainInfo].watch_kit_stub_binary != None

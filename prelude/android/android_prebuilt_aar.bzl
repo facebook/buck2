@@ -17,9 +17,9 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
     res = ctx.actions.declare_output("unpack_dir/res")
     assets = ctx.actions.declare_output("unpack_dir/assets")
 
-    android_toolchain = ctx.attr._android_toolchain[AndroidToolchainInfo]
+    android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     unpack_aar_tool = android_toolchain.unpack_aar[RunInfo]
-    java_toolchain = ctx.attr._java_toolchain[JavaToolchainInfo]
+    java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
     jar_tool = java_toolchain.jar
 
     sub_dir_paths = {cpu_type: ctx.actions.declare_output("unpack_dir/jni/{}".format(
@@ -29,7 +29,7 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
     unpack_aar_cmd = [
         unpack_aar_tool,
         "--aar",
-        ctx.attr.aar,
+        ctx.attrs.aar,
         "--unpack-dir",
         unpack_dir,
         "--manifest-path",
@@ -63,20 +63,20 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
     library_output_classpath_entry = JavaClasspathEntry(
         full_library = all_classes_jar,
         abi = abi or all_classes_jar,
-        required_for_source_only_abi = ctx.attr.required_for_source_only_abi,
+        required_for_source_only_abi = ctx.attrs.required_for_source_only_abi,
     )
 
     java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info = create_java_library_providers(
         ctx = ctx,
         library_output = library_output_classpath_entry,
-        exported_deps = ctx.attr.deps,
+        exported_deps = ctx.attrs.deps,
         needs_desugar = True,
         is_prebuilt_jar = True,
     )
 
     native_library = NativeLibraryFromPrebuiltAar(
         sub_dirs = sub_dir_paths,
-        use_system_library_loader = ctx.attr.use_system_library_loader,
+        use_system_library_loader = ctx.attrs.use_system_library_loader,
     )
 
     return [
@@ -85,7 +85,7 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
         shared_library_info,
         cxx_resource_info,
         template_placeholder_info,
-        merge_android_packageable_info(ctx.actions, ctx.attr.deps, manifest = manifest, native_lib_from_prebuilt_aar = native_library, resource_info = resource_info),
+        merge_android_packageable_info(ctx.actions, ctx.attrs.deps, manifest = manifest, native_lib_from_prebuilt_aar = native_library, resource_info = resource_info),
         resource_info,
         DefaultInfo(default_outputs = [all_classes_jar]),
     ]

@@ -1,5 +1,5 @@
 def apple_package_impl(ctx: "context") -> ["provider"]:
-    bundle = ctx.attr.bundle
+    bundle = ctx.attrs.bundle
     ipa_name = "{}.ipa".format(bundle.label.name)
     app = bundle[DefaultInfo].default_outputs[0]
 

@@ -30,19 +30,19 @@ AppleBundlePartListOutput = record(
 
 AppleBundleBinaryOutput = record(
     binary = field("artifact"),
-    # In the case of watchkit, the `ctx.attr.binary`'s not set, and we need to create a stub binary.
+    # In the case of watchkit, the `ctx.attrs.binary`'s not set, and we need to create a stub binary.
     is_watchkit_stub_binary = field(bool.type, False),
 )
 
 def _get_binary(ctx: "context") -> AppleBundleBinaryOutput.type:
     # No binary means we are building watchOS bundle. In v1 bundle binary is present, but its sources are empty.
-    if ctx.attr.binary == None:
+    if ctx.attrs.binary == None:
         return AppleBundleBinaryOutput(
             binary = _get_watch_kit_stub_artifact(ctx),
             is_watchkit_stub_binary = True,
         )
 
-    binary_info = ctx.attr.binary[DefaultInfo].default_outputs
+    binary_info = ctx.attrs.binary[DefaultInfo].default_outputs
     if len(binary_info) != 1:
         fail("Expected single output artifact. Make sure the implementation of rule from `binary` attribute is correct.")
     return AppleBundleBinaryOutput(binary = binary_info[0])
@@ -57,22 +57,22 @@ def _get_binary_bundle_parts(ctx: "context", binary_output: AppleBundleBinaryOut
     return result
 
 def _get_watch_kit_stub_artifact(ctx: "context") -> "artifact":
-    expect(ctx.attr.binary == None, "Stub is useful only when binary is not set which means watchOS bundle is built.")
-    stub_binary = ctx.attr._apple_toolchain[AppleToolchainInfo].watch_kit_stub_binary
+    expect(ctx.attrs.binary == None, "Stub is useful only when binary is not set which means watchOS bundle is built.")
+    stub_binary = ctx.attrs._apple_toolchain[AppleToolchainInfo].watch_kit_stub_binary
     if stub_binary == None:
         fail("Expected Watch Kit stub binary to be provided when bundle binary is not set.")
     return stub_binary
 
 def _apple_bundle_run_validity_checks(ctx: "context"):
-    if ctx.attr.extension == None:
+    if ctx.attrs.extension == None:
         fail("`extension` attribute is required")
 
 def _get_dsym_artifacts(ctx: "context") -> ["artifact"]:
-    deps = ctx.attr.deps
+    deps = ctx.attrs.deps
 
     # No binary means we are building watchOS bundle. In v1 bundle binary is present, but its sources are empty.
-    if ctx.attr.binary:
-        deps.append(ctx.attr.binary)
+    if ctx.attrs.binary:
+        deps.append(ctx.attrs.binary)
 
     return flatten([
         info.dsyms
@@ -84,8 +84,8 @@ def _get_dsym_artifacts(ctx: "context") -> ["artifact"]:
 
 def get_apple_bundle_part_list(ctx: "context", params: AppleBundlePartListConstructorParams.type) -> AppleBundlePartListOutput.type:
     resource_part_list = None
-    if hasattr(ctx.attr, "_resource_bundle") and ctx.attr._resource_bundle != None:
-        resource_info = ctx.attr._resource_bundle[AppleBundleResourceInfo]
+    if hasattr(ctx.attr, "_resource_bundle") and ctx.attrs._resource_bundle != None:
+        resource_info = ctx.attrs._resource_bundle[AppleBundleResourceInfo]
         if resource_info != None:
             resource_part_list = resource_info.resource_output
 
@@ -111,7 +111,7 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
     bundle = bundle_output(ctx)
 
     assemble_bundle(ctx, bundle, apple_bundle_part_list_output.parts, apple_bundle_part_list_output.info_plist_part)
-    installer_run_info = ctx.attr._apple_installer[RunInfo]
+    installer_run_info = ctx.attrs._apple_installer[RunInfo]
 
     # Define the xcode data sub target
     sub_targets[XCODE_DATA_SUB_TARGET] = generate_xcode_data(ctx, "apple_bundle", bundle, _xcode_populate_attributes)
@@ -135,7 +135,7 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
 def _xcode_populate_attributes(ctx) -> {str.type: ""}:
     return {
         "deployment_version": get_bundle_min_target_version(ctx),
-        "info_plist": ctx.attr.info_plist,
+        "info_plist": ctx.attrs.info_plist,
         "product_name": get_product_name(ctx),
         "sdk": get_apple_sdk_name(ctx),
     }
@@ -147,7 +147,7 @@ def generate_install_data(
     data = {
         "fullyQualifiedName": ctx.label,
         ## TODO(T110665037): populate full path similar to bundle_spec.json
-        "info_plist": ctx.attr.info_plist,
+        "info_plist": ctx.attrs.info_plist,
         "use_idb": "true",
         ## TODO(T110665037): read from .buckconfig
         "xcode_developer_path": "/Applications/Xcode_13.4.0_fb.app/Contents/Developer",

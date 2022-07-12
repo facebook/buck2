@@ -4,7 +4,7 @@ def go_attr_pkg_name(ctx: "context") -> str.type:
     """
     Return the Go package name for the given context corresponing to a rule.
     """
-    return value_or(ctx.attr.package_name, ctx.label.package)
+    return value_or(ctx.attrs.package_name, ctx.label.package)
 
 def merge_pkgs(pkgss: [{str.type: "artifact"}]) -> {str.type: "artifact"}:
     """

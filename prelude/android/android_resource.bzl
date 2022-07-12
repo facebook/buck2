@@ -19,23 +19,23 @@ def android_resource_impl(ctx: "context") -> ["provider"]:
     providers = []
     default_outputs = []
 
-    res = _convert_to_artifact_dir(ctx, ctx.attr.res, "res")
-    assets = _convert_to_artifact_dir(ctx, ctx.attr.assets, "assets")
+    res = _convert_to_artifact_dir(ctx, ctx.attrs.res, "res")
+    assets = _convert_to_artifact_dir(ctx, ctx.attrs.assets, "assets")
 
     if res:
-        aapt2_compile_output = aapt2_compile(ctx, res, ctx.attr._android_toolchain[AndroidToolchainInfo])
+        aapt2_compile_output = aapt2_compile(ctx, res, ctx.attrs._android_toolchain[AndroidToolchainInfo])
 
         sub_targets["aapt2_compile"] = [DefaultInfo(default_outputs = [aapt2_compile_output])]
 
-        r_dot_txt_output = get_text_symbols(ctx, res, ctx.attr.deps)
+        r_dot_txt_output = get_text_symbols(ctx, res, ctx.attrs.deps)
         default_outputs.append(r_dot_txt_output)
 
-        r_dot_java_package = _get_package(ctx, ctx.attr.package, ctx.attr.manifest)
+        r_dot_java_package = _get_package(ctx, ctx.attrs.package, ctx.attrs.manifest)
         resource_info = AndroidResourceInfo(
             aapt2_compile_output = aapt2_compile_output,
-            allow_strings_as_assets_resource_filtering = not ctx.attr.has_whitelisted_strings,
+            allow_strings_as_assets_resource_filtering = not ctx.attrs.has_whitelisted_strings,
             assets = assets,
-            manifest_file = ctx.attr.manifest,
+            manifest_file = ctx.attrs.manifest,
             r_dot_java_package = r_dot_java_package,
             res = res,
             text_symbols = r_dot_txt_output,
@@ -43,15 +43,15 @@ def android_resource_impl(ctx: "context") -> ["provider"]:
     else:
         resource_info = AndroidResourceInfo(
             aapt2_compile_output = None,
-            allow_strings_as_assets_resource_filtering = not ctx.attr.has_whitelisted_strings,
+            allow_strings_as_assets_resource_filtering = not ctx.attrs.has_whitelisted_strings,
             assets = assets,
-            manifest_file = ctx.attr.manifest,
+            manifest_file = ctx.attrs.manifest,
             r_dot_java_package = None,
             res = None,
             text_symbols = None,
         )
     providers.append(resource_info)
-    providers.append(merge_android_packageable_info(ctx.actions, ctx.attr.deps, manifest = ctx.attr.manifest, resource_info = resource_info))
+    providers.append(merge_android_packageable_info(ctx.actions, ctx.attrs.deps, manifest = ctx.attrs.manifest, resource_info = resource_info))
     providers.append(DefaultInfo(default_outputs = default_outputs, sub_targets = sub_targets))
 
     return providers
@@ -84,7 +84,7 @@ def _get_package(ctx: "context", package: [str.type, None], manifest: ["artifact
 
 def extract_package_from_manifest(ctx: "context", manifest: "artifact") -> "artifact":
     r_dot_java_package = ctx.actions.declare_output(JAVA_PACKAGE_FILENAME)
-    extract_package_cmd = cmd_args(ctx.attr._android_toolchain[AndroidToolchainInfo].manifest_utils[RunInfo])
+    extract_package_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].manifest_utils[RunInfo])
     extract_package_cmd.add(["--manifest-path", manifest])
     extract_package_cmd.add(["--package-output", r_dot_java_package.as_output()])
 
@@ -97,7 +97,7 @@ def get_text_symbols(
         res: "artifact",
         deps: ["dependency"],
         identifier: [str.type, None] = None):
-    mini_aapt_cmd = cmd_args(ctx.attr._android_toolchain[AndroidToolchainInfo].mini_aapt[RunInfo])
+    mini_aapt_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].mini_aapt[RunInfo])
 
     mini_aapt_cmd.add(["--resource-paths", res])
 

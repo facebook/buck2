@@ -6,7 +6,7 @@ write = rule(impl = _write, attrs = {
 })
 
 def _cp(ctx: "context") -> ["provider"]:
-    inp = ctx.attr.dep[DefaultInfo].default_outputs[0]
+    inp = ctx.attrs.dep[DefaultInfo].default_outputs[0]
     out = ctx.actions.declare_output("out")
 
     ctx.actions.run([
@@ -14,7 +14,7 @@ def _cp(ctx: "context") -> ["provider"]:
         "-c",
         'sleep "$1" && cp "$2" "$3"',
         "--",
-        str(ctx.attr.sleep),
+        str(ctx.attrs.sleep),
         inp,
         out.as_output(),
     ], category = "cp_action")
@@ -28,7 +28,7 @@ cp = rule(impl = _cp, attrs = {
 def _dynamic_cp(ctx: "context") -> ["provider"]:
     dummy = ctx.actions.write("dummy", "")
 
-    inp = ctx.attr.dep[DefaultInfo].default_outputs[0]
+    inp = ctx.attrs.dep[DefaultInfo].default_outputs[0]
     out = ctx.actions.declare_output("out")
 
     # @lint-ignore BUCKRESTRICTEDSYNTAX

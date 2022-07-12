@@ -9,13 +9,13 @@ load(":resource_groups.bzl", "create_resource_graph")
 
 def apple_asset_catalog_impl(ctx: "context") -> ["provider"]:
     spec = AppleAssetCatalogSpec(
-        app_icon = StringWithSourceTarget(source = ctx.label, value = ctx.attr.app_icon) if ctx.attr.app_icon != None else None,
-        dirs = ctx.attr.dirs,
-        launch_image = StringWithSourceTarget(source = ctx.label, value = ctx.attr.launch_image) if ctx.attr.launch_image != None else None,
+        app_icon = StringWithSourceTarget(source = ctx.label, value = ctx.attrs.app_icon) if ctx.attrs.app_icon != None else None,
+        dirs = ctx.attrs.dirs,
+        launch_image = StringWithSourceTarget(source = ctx.label, value = ctx.attrs.launch_image) if ctx.attrs.launch_image != None else None,
     )
     graph = create_resource_graph(
         root = ctx.label,
-        labels = ctx.attr.labels,
+        labels = ctx.attrs.labels,
         deps = [],
         exported_deps = [],
         asset_catalog_spec = spec,
@@ -56,7 +56,7 @@ def _get_actool_command(ctx: "context", info: AppleAssetCatalogSpec.type, catalo
     external_name = get_apple_sdk_name(ctx)
     target_device = get_apple_sdk_metadata_for_sdk_name(external_name).target_device_flags
 
-    actool = ctx.attr._apple_toolchain[AppleToolchainInfo].actool
+    actool = ctx.attrs._apple_toolchain[AppleToolchainInfo].actool
     actool_command = cmd_args([
                                   actool,
                                   "--platform",

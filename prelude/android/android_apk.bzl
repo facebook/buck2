@@ -15,7 +15,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
 
     _verify_params(ctx)
 
-    cpu_filters = ctx.attr.cpu_filters or CPU_FILTER_TO_ABI_DIRECTORY.keys()
+    cpu_filters = ctx.attrs.cpu_filters or CPU_FILTER_TO_ABI_DIRECTORY.keys()
     deps_by_platform = get_deps_by_platform(ctx)
     primary_platform = cpu_filters[0]
     deps = deps_by_platform[primary_platform]
@@ -28,18 +28,18 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
     build_config_libs = _get_build_config_java_libraries(ctx, build_config_infos)
     java_packaging_deps += get_all_java_packaging_deps_from_packaging_infos(ctx, build_config_libs)
 
-    has_proguard_config = ctx.attr.proguard_config != None or ctx.attr.android_sdk_proguard_config == "default" or ctx.attr.android_sdk_proguard_config == "optimized"
-    should_pre_dex = not ctx.attr.disable_pre_dex and not has_proguard_config and not ctx.attr.preprocess_java_classes_bash
+    has_proguard_config = ctx.attrs.proguard_config != None or ctx.attrs.android_sdk_proguard_config == "default" or ctx.attrs.android_sdk_proguard_config == "optimized"
+    should_pre_dex = not ctx.attrs.disable_pre_dex and not has_proguard_config and not ctx.attrs.preprocess_java_classes_bash
 
-    referenced_resources_lists = [java_packaging_dep.dex.referenced_resources for java_packaging_dep in java_packaging_deps] if ctx.attr.trim_resource_ids and should_pre_dex else []
+    referenced_resources_lists = [java_packaging_dep.dex.referenced_resources for java_packaging_dep in java_packaging_deps] if ctx.attrs.trim_resource_ids and should_pre_dex else []
     resources_info = get_android_binary_resources_info(ctx, deps, android_packageable_info, use_proto_format = False, referenced_resources_lists = referenced_resources_lists)
     if resources_info.r_dot_java:
         java_packaging_deps += [create_java_packaging_dep(ctx, resources_info.r_dot_java.library_output.full_library)]
 
-    android_toolchain = ctx.attr._android_toolchain[AndroidToolchainInfo]
+    android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     if should_pre_dex:
         pre_dexed_libs = [java_packaging_dep.dex for java_packaging_dep in java_packaging_deps]
-        if ctx.attr.use_split_dex:
+        if ctx.attrs.use_split_dex:
             dex_files_info = merge_to_split_dex(
                 ctx,
                 android_toolchain,
@@ -50,7 +50,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
             dex_files_info = merge_to_single_dex(ctx, android_toolchain, pre_dexed_libs)
     else:
         jars = [packaging_dep.jar for packaging_dep in java_packaging_deps]
-        if ctx.attr.preprocess_java_classes_bash:
+        if ctx.attrs.preprocess_java_classes_bash:
             jars = get_preprocessed_java_classes(ctx, jars)
         if has_proguard_config:
             proguard_output = get_proguard_output(ctx, jars, java_packaging_deps, resources_info.proguard_config_file)
@@ -66,12 +66,12 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
         else:
             proguard_output = None
 
-        if ctx.attr.use_split_dex:
+        if ctx.attrs.use_split_dex:
             dex_files_info = get_multi_dex(
                 ctx,
-                ctx.attr._android_toolchain[AndroidToolchainInfo],
+                ctx.attrs._android_toolchain[AndroidToolchainInfo],
                 jars,
-                ctx.attr.primary_dex_patterns,
+                ctx.attrs.primary_dex_patterns,
                 proguard_output.proguard_configuration_output_file if proguard_output else None,
                 proguard_output.proguard_mapping_output_file if proguard_output else None,
                 is_optimized = has_proguard_config,
@@ -79,7 +79,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
         else:
             dex_files_info = get_single_primary_dex(
                 ctx,
-                ctx.attr._android_toolchain[AndroidToolchainInfo],
+                ctx.attrs._android_toolchain[AndroidToolchainInfo],
                 jars,
                 is_optimized = has_proguard_config,
             )
@@ -95,16 +95,16 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
     if resources_info.string_source_map:
         sub_targets["generate_string_resources"] = [DefaultInfo(default_outputs = [resources_info.string_source_map])]
 
-    keystore = ctx.attr.keystore[KeystoreInfo]
+    keystore = ctx.attrs.keystore[KeystoreInfo]
     output_apk = build_apk(
         actions = ctx.actions,
-        android_toolchain = ctx.attr._android_toolchain[AndroidToolchainInfo],
+        android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo],
         keystore = keystore,
         dex_files_info = dex_files_info,
         native_library_info = native_library_info,
         resources_info = resources_info,
         java_packaging_deps = java_packaging_deps,
-        compress_resources_dot_arsc = ctx.attr.resource_compression == "enabled" or ctx.attr.resource_compression == "enabled_with_strings_as_assets",
+        compress_resources_dot_arsc = ctx.attrs.resource_compression == "enabled" or ctx.attrs.resource_compression == "enabled_with_strings_as_assets",
     )
 
     return [
@@ -186,17 +186,17 @@ def build_apk(
 def _get_build_config_java_libraries(ctx: "context", build_config_infos: ["AndroidBuildConfigInfo"]) -> ["JavaPackagingInfo"]:
     # BuildConfig deps should not be added for instrumented APKs because BuildConfig.class has
     # already been added to the APK under test.
-    if ctx.attr.package_type == "instrumented":
+    if ctx.attrs.package_type == "instrumented":
         return []
 
     build_config_constants = [
-        BuildConfigField(type = "boolean", name = "DEBUG", value = str(ctx.attr.package_type != "release").lower()),
-        BuildConfigField(type = "boolean", name = "IS_EXOPACKAGE", value = str(len(ctx.attr.exopackage_modes) > 0).lower()),
+        BuildConfigField(type = "boolean", name = "DEBUG", value = str(ctx.attrs.package_type != "release").lower()),
+        BuildConfigField(type = "boolean", name = "IS_EXOPACKAGE", value = str(len(ctx.attrs.exopackage_modes) > 0).lower()),
         # TODO(T104150125) add correct exopackage flags to BuildConfig
         BuildConfigField(type = "int", name = "EXOPACKAGE_FLAGS", value = "0"),
     ]
 
-    default_build_config_fields = get_build_config_fields(ctx.attr.build_config_values)
+    default_build_config_fields = get_build_config_fields(ctx.attrs.build_config_values)
 
     java_libraries = []
     java_packages_seen = []
@@ -215,12 +215,12 @@ def _get_build_config_java_libraries(ctx: "context", build_config_infos: ["Andro
             java_package,
             True,  # use_constant_expressions
             all_build_config_values.values(),
-            ctx.attr.build_config_values_file[DefaultInfo].default_outputs[0] if type(ctx.attr.build_config_values_file) == "dependency" else ctx.attr.build_config_values_file,
+            ctx.attrs.build_config_values_file[DefaultInfo].default_outputs[0] if type(ctx.attrs.build_config_values_file) == "dependency" else ctx.attrs.build_config_values_file,
         )[1])
 
     return java_libraries
 
 def _verify_params(ctx: "context"):
-    expect(ctx.attr.aapt_mode == "aapt2", "aapt1 is deprecated!")
-    expect(ctx.attr.dex_tool == "d8", "dx is deprecated!")
-    expect(ctx.attr.allow_r_dot_java_in_secondary_dex == True)
+    expect(ctx.attrs.aapt_mode == "aapt2", "aapt1 is deprecated!")
+    expect(ctx.attrs.dex_tool == "d8", "dx is deprecated!")
+    expect(ctx.attrs.allow_r_dot_java_in_secondary_dex == True)

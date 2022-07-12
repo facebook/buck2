@@ -1,35 +1,35 @@
 def command_alias_impl(ctx):
-    if ctx.attr.exe == None:
+    if ctx.attrs.exe == None:
         base = RunInfo()
     else:
-        base = _get_run_info_from_exe(ctx.attr.exe)
+        base = _get_run_info_from_exe(ctx.attrs.exe)
 
     run_info_args = cmd_args()
 
-    if len(ctx.attr.env) > 0 or len(ctx.attr.platform_exe.items()) > 0:
+    if len(ctx.attrs.env) > 0 or len(ctx.attrs.platform_exe.items()) > 0:
         trampoline_args = cmd_args()
         trampoline_args.add("#!/bin/sh")
         trampoline_args.add("set -euo pipefail")
         trampoline_args.add('BUCK_COMMAND_ALIAS_ABSOLUTE=$(cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P)')
 
-        for (k, v) in ctx.attr.env.items():
+        for (k, v) in ctx.attrs.env.items():
             # TODO(akozhevnikov): maybe check environment variable is not conflicting with pre-existing one
             trampoline_args.add(cmd_args(["export ", k, "=", v], delimiter = ""))
 
-        if len(ctx.attr.platform_exe.items()) > 0:
+        if len(ctx.attrs.platform_exe.items()) > 0:
             trampoline_args.add('case "$(uname)" in')
-            for platform, exe in ctx.attr.platform_exe.items():
+            for platform, exe in ctx.attrs.platform_exe.items():
                 # Only linux and macos are supported.
                 if platform == "linux":
-                    _add_platform_case_to_trampoline_args(trampoline_args, "Linux", _get_run_info_from_exe(exe), ctx.attr.args)
+                    _add_platform_case_to_trampoline_args(trampoline_args, "Linux", _get_run_info_from_exe(exe), ctx.attrs.args)
                 elif platform == "macos":
-                    _add_platform_case_to_trampoline_args(trampoline_args, "Darwin", _get_run_info_from_exe(exe), ctx.attr.args)
+                    _add_platform_case_to_trampoline_args(trampoline_args, "Darwin", _get_run_info_from_exe(exe), ctx.attrs.args)
 
             # Default case
-            _add_platform_case_to_trampoline_args(trampoline_args, "*", base, ctx.attr.args)
+            _add_platform_case_to_trampoline_args(trampoline_args, "*", base, ctx.attrs.args)
             trampoline_args.add("esac")
         else:
-            _add_args_declaration_to_trampoline_args(trampoline_args, base, ctx.attr.args)
+            _add_args_declaration_to_trampoline_args(trampoline_args, base, ctx.attrs.args)
 
         trampoline_args.add('"${ARGS[@]}"')
 
@@ -62,9 +62,9 @@ def command_alias_impl(ctx):
         run_info_args.hidden([trampoline_args, deps])
     else:
         run_info_args.add(base.args)
-        run_info_args.add(ctx.attr.args)
+        run_info_args.add(ctx.attrs.args)
 
-    run_info_args.hidden(ctx.attr.resources)
+    run_info_args.hidden(ctx.attrs.resources)
 
     # TODO(cjhopman): Consider what this should have for default outputs. Using
     # the base's default outputs may not really be correct (it makes more sense to

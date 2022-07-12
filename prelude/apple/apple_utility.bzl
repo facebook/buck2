@@ -16,17 +16,17 @@ _TARGET_TRIPLE_MAP = {
 }
 
 def get_apple_cxx_headers_layout(ctx: "context") -> CxxHeadersLayout.type:
-    namespace = value_or(ctx.attr.header_path_prefix, ctx.attr.name)
+    namespace = value_or(ctx.attrs.header_path_prefix, ctx.attrs.name)
     return CxxHeadersLayout(namespace = namespace, naming = CxxHeadersNaming("apple"))
 
 def get_module_name(ctx: "context") -> str.type:
-    return ctx.attr.module_name or ctx.attr.header_path_prefix or ctx.attr.name
+    return ctx.attrs.module_name or ctx.attrs.header_path_prefix or ctx.attrs.name
 
 def has_apple_toolchain(ctx: "context") -> bool.type:
     return hasattr(ctx.attr, "_apple_toolchain")
 
 def get_versioned_target_triple(ctx: "context") -> str.type:
-    apple_toolchain_info = ctx.attr._apple_toolchain[AppleToolchainInfo]
+    apple_toolchain_info = ctx.attrs._apple_toolchain[AppleToolchainInfo]
     swift_toolchain_info = apple_toolchain_info.swift_toolchain_info
 
     architecture = swift_toolchain_info.architecture

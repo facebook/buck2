@@ -18,7 +18,7 @@ def get_inherited_link_pkgs(deps: ["dependency"]) -> {str.type: "artifact"}:
     return merge_pkgs([d[GoPkgLinkInfo].pkgs for d in deps if d[GoPkgLinkInfo]])
 
 def link(ctx: "context", main: "artifact", pkgs: {str.type: "artifact"} = {}, deps: ["dependency"] = [], link_mode = None):
-    go_toolchain = ctx.attr._go_toolchain[GoToolchainInfo]
+    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     output = ctx.actions.declare_output(ctx.label.name)
 
     cmd = get_toolchain_cmd_args(go_toolchain)
@@ -54,7 +54,7 @@ def link(ctx: "context", main: "artifact", pkgs: {str.type: "artifact"} = {}, de
         # TODO: It feels a bit inefficient to generate a wrapper file for every
         # link.  Is there some way to etract the first arg of `RunInfo`?  Or maybe
         # we can generate te platform-specific stuff once and re-use?
-        cxx_toolchain = ctx.attr._cxx_toolchain[CxxToolchainInfo]
+        cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
         cxx_link_cmd = cmd_args(
             [
                 cxx_toolchain.linker_info.linker,
@@ -73,8 +73,8 @@ def link(ctx: "context", main: "artifact", pkgs: {str.type: "artifact"} = {}, de
         )
         cmd.add("-extld", linker_wrapper).hidden(cxx_link_cmd).hidden(macro_files)
 
-    if ctx.attr.linker_flags:
-        cmd.add(ctx.attr.linker_flags)
+    if ctx.attrs.linker_flags:
+        cmd.add(ctx.attrs.linker_flags)
 
     cmd.add(main)
 

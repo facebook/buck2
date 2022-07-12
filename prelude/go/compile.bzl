@@ -23,7 +23,7 @@ def get_filtered_srcs(ctx: "context", srcs: ["artifact"], tests: bool.type = Fal
     Filter the input sources based on build pragma
     """
 
-    go_toolchain = ctx.attr._go_toolchain[GoToolchainInfo]
+    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
 
     # Delegate to `go list` to filter out srcs with incompatible `// +build`
     # pragmas.
@@ -67,7 +67,7 @@ def _get_import_map(pkgs: [str.type]) -> {str.type: str.type}:
 def _assemble_cmd(
         ctx: "context",
         flags: [str.type] = []) -> "cmd_args":
-    go_toolchain = ctx.attr._go_toolchain[GoToolchainInfo]
+    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     cmd = cmd_args()
     cmd.add(go_toolchain.assembler)
     cmd.add(flags)
@@ -79,7 +79,7 @@ def _compile_cmd(
         pkgs: {str.type: "artifact"} = {},
         deps: ["dependency"] = [],
         flags: [str.type] = []) -> "cmd_args":
-    go_toolchain = ctx.attr._go_toolchain[GoToolchainInfo]
+    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
 
     cmd = cmd_args()
     cmd.add(go_toolchain.compiler)
@@ -111,7 +111,7 @@ def compile(
         deps: ["dependency"] = [],
         compile_flags: [str.type] = [],
         assemble_flags: [str.type] = []) -> "artifact":
-    go_toolchain = ctx.attr._go_toolchain[GoToolchainInfo]
+    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     output = ctx.actions.declare_output(paths.basename(pkg_name) + ".a")
 
     cmd = get_toolchain_cmd_args(go_toolchain)

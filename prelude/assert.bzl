@@ -1,13 +1,13 @@
 # A library of utilities for asserting properties about the outputs
 
 def _assert_artifact_properties(ctx: "context") -> [DefaultInfo.type]:
-    dep = ctx.attr.src[DefaultInfo].default_outputs[0]
-    if ctx.attr.short_path != None:
-        if ctx.attr.short_path != dep.short_path:
-            fail("Wrong short_path, expected {}, got {}".format(ctx.attr.short_path, dep.short_path))
-    if ctx.attr.basename != None:
-        if ctx.attr.basename != dep.basename:
-            fail("Wrong basename, expected {}, got {}".format(ctx.attr.basename, dep.basename))
+    dep = ctx.attrs.src[DefaultInfo].default_outputs[0]
+    if ctx.attrs.short_path != None:
+        if ctx.attrs.short_path != dep.short_path:
+            fail("Wrong short_path, expected {}, got {}".format(ctx.attrs.short_path, dep.short_path))
+    if ctx.attrs.basename != None:
+        if ctx.attrs.basename != dep.basename:
+            fail("Wrong basename, expected {}, got {}".format(ctx.attrs.basename, dep.basename))
     return [DefaultInfo()]
 
 # Assert that a given `src` artifact have specific properties
@@ -22,7 +22,7 @@ assert_artifact_properties = rule(
 
 def _assert_exists(ctx: "context") -> [DefaultInfo.type]:
     out = ctx.actions.declare_output("out")
-    cp = cmd_args(["test -f \"", ctx.attr.path, "\" && echo 1 > ", out.as_output()], delimiter = "")
+    cp = cmd_args(["test -f \"", ctx.attrs.path, "\" && echo 1 > ", out.as_output()], delimiter = "")
     ctx.actions.run(["sh", "-c", cp], category = "assert")
     return [DefaultInfo(default_outputs = [out])]
 

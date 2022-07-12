@@ -147,22 +147,22 @@ _BUILD_ROOT_LABELS = [
 _NO_SRCS_ENVIRONMENT_LABEL = "no_srcs_environment"
 
 def _requires_build_root(ctx: "context") -> bool.type:
-    for label in ctx.attr.labels:
+    for label in ctx.attrs.labels:
         if label in _BUILD_ROOT_LABELS:
             return True
     return False
 
 def _requires_local(ctx: "context") -> bool.type:
-    for label in ctx.attr.labels:
+    for label in ctx.attrs.labels:
         if label in _LOCAL_LABELS:
             return True
     return False
 
 def _ignore_artifacts(ctx: "context") -> bool.type:
-    return "buck2_ignore_artifacts" in ctx.attr.labels
+    return "buck2_ignore_artifacts" in ctx.attrs.labels
 
 def _requires_no_srcs_environment(ctx: "context") -> bool.type:
-    return _NO_SRCS_ENVIRONMENT_LABEL in ctx.attr.labels
+    return _NO_SRCS_ENVIRONMENT_LABEL in ctx.attrs.labels
 
 # There is a special use case of `default_outs` which is pretty frequent:
 # ```
@@ -176,7 +176,7 @@ def _should_handle_special_case_whole_out_dir_is_output(ctx: "context", outs_att
         # Situation when `"."` is both in `outs` and `default_outs` is handled by default
         if "." in item_outputs:
             return False
-    default_outs = ctx.attr.default_outs
+    default_outs = ctx.attrs.default_outs
     if default_outs and default_outs[0] == ".":
         if len(default_outs) != 1:
             fail("When present, `.` should be a single element in `default_outs`.")
@@ -191,7 +191,7 @@ def genrule_impl(ctx: "context") -> ["provider"]:
     # `src` is the current directory
     # Buck1 uses `.` as output, but that won't work since
     # Buck2 clears the output directory before execution, and thus src/sh too.
-    return process_genrule(ctx, ctx.attr.out, ctx.attr.outs)
+    return process_genrule(ctx, ctx.attrs.out, ctx.attrs.outs)
 
 def _declare_output(ctx: "context", path: str.type) -> "artifact":
     if path == ".":
@@ -224,7 +224,7 @@ def process_genrule(
         default_outputs = []
         all_outputs = []
         named_outputs = {}
-        default_out_paths = ctx.attr.default_outs or []
+        default_out_paths = ctx.attrs.default_outs or []
 
         handle_whole_out_dir_is_output = _should_handle_special_case_whole_out_dir_is_output(ctx, outs_attr)
 
@@ -253,25 +253,25 @@ def process_genrule(
     else:
         fail("One of `out` or `outs` should be set. Got `%s`" % repr(ctx.attr))
 
-    cmd = ctx.attr.bash if ctx.attr.bash != None else ctx.attr.cmd
+    cmd = ctx.attrs.bash if ctx.attrs.bash != None else ctx.attrs.cmd
 
     if _ignore_artifacts(ctx):
         cmd = cmd_args(cmd).ignore_artifacts()
 
-    if type(ctx.attr.srcs) == type([]):
+    if type(ctx.attrs.srcs) == type([]):
         # FIXME: We should always use the short_path, but currently that is sometimes blank.
         # See fbcode//buck2/tests/targets/rules/genrule:genrule-dot-input for a test that exposes it.
-        symlinks = {src.short_path: src for src in ctx.attr.srcs}
+        symlinks = {src.short_path: src for src in ctx.attrs.srcs}
 
-        if len(symlinks) != len(ctx.attr.srcs):
-            for src in ctx.attr.srcs:
+        if len(symlinks) != len(ctx.attrs.srcs):
+            for src in ctx.attrs.srcs:
                 name = src.short_path
                 if symlinks[name] != src:
                     msg = "genrule srcs include duplicative name: `{}`. ".format(name)
                     msg += "`{}` conflicts with `{}`".format(symlinks[name].owner, src.owner)
                     fail(msg)
     else:
-        symlinks = ctx.attr.srcs
+        symlinks = ctx.attrs.srcs
     srcs_artifact = ctx.actions.symlinked_dir("srcs" if not identifier else "{}-srcs".format(identifier), symlinks)
 
     # Setup environment variables.
@@ -322,9 +322,9 @@ def process_genrule(
     )
 
     category = "genrule"
-    if ctx.attr.type != None:
+    if ctx.attrs.type != None:
         # As of 09/2021, all genrule types were legal snake case if their dashes and periods were replaced with underscores.
-        category += "_" + ctx.attr.type.replace("-", "_").replace(".", "_")
+        category += "_" + ctx.attrs.type.replace("-", "_").replace(".", "_")
     ctx.actions.run(
         cmd_args(["/bin/bash", "-e", sh_script]).hidden([cmd, srcs_artifact, macro_files] + [a.as_output() for a in all_outputs]),
         env = env_vars,

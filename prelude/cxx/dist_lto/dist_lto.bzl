@@ -102,7 +102,7 @@ def cxx_dist_link(
 
     link_infos = map_to_link_infos(links)
 
-    cxx_toolchain = ctx.attr._cxx_toolchain[CxxToolchainInfo]
+    cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
     lto_planner = cxx_toolchain.dist_lto_tools_info.planner
     lto_opt = cxx_toolchain.dist_lto_tools_info.opt
     lto_prepare = cxx_toolchain.dist_lto_tools_info.prepare

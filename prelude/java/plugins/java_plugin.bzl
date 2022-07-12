@@ -38,8 +38,8 @@ def create_plugin_params(plugins: ["dependency"]) -> [PluginParams.type, None]:
 def java_plugin_impl(ctx: "context") -> ["provider"]:
     return [
         JavaProcessorsInfo(
-            deps = derive_transitive_deps(ctx, ctx.attr.deps),
-            processors = [ctx.attr.plugin_name],
+            deps = derive_transitive_deps(ctx, ctx.attrs.deps),
+            processors = [ctx.attrs.plugin_name],
             type = JavaProcessorsType("plugin"),
         ),
         DefaultInfo(default_outputs = []),

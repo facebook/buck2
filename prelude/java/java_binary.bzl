@@ -46,20 +46,20 @@ def _create_fat_jar(
             "nativelibs",
         ]
 
-    main_class = ctx.attr.main_class
+    main_class = ctx.attrs.main_class
     if main_class:
         args += ["--main_class", main_class]
 
-    manifest_file = ctx.attr.manifest_file
+    manifest_file = ctx.attrs.manifest_file
     if manifest_file:
         args += ["--manifest", manifest_file]
 
-    blocklist = ctx.attr.blacklist
+    blocklist = ctx.attrs.blacklist
     if blocklist:
         args += ["--blocklist", ctx.actions.write("blocklist_args", blocklist)]
 
-    if ctx.attr.meta_inf_directory:
-        args += ["--meta_inf_directory", ctx.attr.meta_inf_directory]
+    if ctx.attrs.meta_inf_directory:
+        args += ["--meta_inf_directory", ctx.attrs.meta_inf_directory]
 
     outputs = [output]
     if generate_wrapper:
@@ -110,19 +110,19 @@ def java_binary_impl(ctx: "context") -> ["provider"]:
         list of created providers (DefaultInfo and RunInfo)
     """
 
-    packaging_info = get_java_packaging_info(ctx, ctx.attr.deps, None)
+    packaging_info = get_java_packaging_info(ctx, ctx.attrs.deps, None)
 
-    first_order_deps = derive_compiling_deps(ctx.actions, None, ctx.attr.deps)
+    first_order_deps = derive_compiling_deps(ctx.actions, None, ctx.attrs.deps)
     first_order_libs = [dep.full_library for dep in (list(first_order_deps.traverse()) if first_order_deps else [])]
 
     shared_library_info = merge_shared_libraries(
         ctx.actions,
-        deps = filter_and_map_idx(SharedLibraryInfo, ctx.attr.deps),
+        deps = filter_and_map_idx(SharedLibraryInfo, ctx.attrs.deps),
     )
     native_deps = [shared_lib.lib.output for shared_lib in traverse_shared_library_info(shared_library_info).values()]
 
-    java_toolchain = ctx.attr._java_toolchain[JavaToolchainInfo]
-    need_to_generate_wrapper = ctx.attr.generate_wrapper == True
+    java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
+    need_to_generate_wrapper = ctx.attrs.generate_wrapper == True
     packaging_jar_args = packaging_info.packaging_deps.project_as_args("full_jar_args")
     outputs = _create_fat_jar(ctx, java_toolchain, cmd_args(packaging_jar_args), native_deps, need_to_generate_wrapper)
 

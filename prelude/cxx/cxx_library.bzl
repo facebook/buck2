@@ -206,7 +206,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     own_preprocessors = [own_non_exported_preprocessor_info, own_exported_preprocessor_info] + test_preprocessor_infos
 
     inherited_non_exported_preprocessor_infos = cxx_inherited_preprocessor_infos(
-        non_exported_deps + filter(None, [ctx.attr.precompiled_header]),
+        non_exported_deps + filter(None, [ctx.attrs.precompiled_header]),
     )
     inherited_exported_preprocessor_infos = cxx_inherited_preprocessor_infos(exported_deps)
 
@@ -224,10 +224,10 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     sub_targets = {}
     providers = []
 
-    if len(ctx.attr.tests) > 0 and impl_params.generate_providers.preprocessor_for_tests:
+    if len(ctx.attrs.tests) > 0 and impl_params.generate_providers.preprocessor_for_tests:
         providers.append(
             CPreprocessorForTestsInfo(
-                test_names = [test_target.name for test_target in ctx.attr.tests],
+                test_names = [test_target.name for test_target in ctx.attrs.tests],
                 own_non_exported_preprocessor = own_non_exported_preprocessor_info,
             ),
         )
@@ -389,7 +389,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
             # that omnibus knows to avoid it.
             link_infos = library_outputs.libraries,
             shared_libs = library_outputs.solibs,
-            excluded = not value_or(ctx.attr.supports_merged_linking, True),
+            excluded = not value_or(ctx.attrs.supports_merged_linking, True),
             deps = non_exported_deps,
             exported_deps = exported_deps,
         )
@@ -642,7 +642,7 @@ def _get_shared_library_links(
         #
         # The fallback equivalent code in Buck v1 is in CxxLibraryFactor::createBuildRule()
         # where link style is determined using the `linkableDepType` variable.
-        link_style_value = ctx.attr.link_style if ctx.attr.link_style != None else "shared"
+        link_style_value = ctx.attrs.link_style if ctx.attrs.link_style != None else "shared"
 
         # Note if `static` link style is requested, we assume `static_pic`
         # instead, so that code in the shared library can be correctly
@@ -657,7 +657,7 @@ def _get_shared_library_links(
         ), None
 
     # Else get filtered link group links
-    prefer_stripped = cxx_is_gnu(ctx) and ctx.attr.prefer_stripped_objects
+    prefer_stripped = cxx_is_gnu(ctx) and ctx.attrs.prefer_stripped_objects
     link_style = cxx_attr_link_style(ctx) if cxx_attr_link_style(ctx) != LinkStyle("static") else LinkStyle("static_pic")
     filtered_labels_to_links_map = get_filtered_labels_to_links_map(linkable_graph, link_group, link_group_mappings, link_style, non_exported_deps, prefer_stripped = prefer_stripped)
     filtered_links = get_filtered_links(filtered_labels_to_links_map)
@@ -828,14 +828,14 @@ def _shared_library(
     )
 
 def _attr_reexport_all_header_dependencies(ctx: "context") -> bool.type:
-    return value_or(ctx.attr.reexport_all_header_dependencies, False)
+    return value_or(ctx.attrs.reexport_all_header_dependencies, False)
 
 def _soname(ctx: "context") -> str.type:
     """
     Get the shared library name to set for the given C++ library.
     """
     linker_type = get_cxx_toolchain_info(ctx).linker_info.type
-    explicit_soname = ctx.attr.soname
+    explicit_soname = ctx.attrs.soname
     if explicit_soname != None:
         return get_shared_library_name_for_param(linker_type, explicit_soname)
     return get_default_shared_library_name(linker_type, ctx.label)
@@ -847,7 +847,7 @@ def _archive_name(name: str.type, pic: bool.type) -> str.type:
     return "lib{}{}.a".format(name, ".pic" if pic else "")
 
 def _attr_link_whole(ctx: "context") -> bool.type:
-    return value_or(ctx.attr.link_whole, False)
+    return value_or(ctx.attrs.link_whole, False)
 
 def _use_archives(ctx: "context") -> bool.type:
     """
@@ -868,10 +868,10 @@ def _use_archives(ctx: "context") -> bool.type:
         return False
 
     # Otherwise, fallback to the rule-specific setting.
-    return value_or(ctx.attr.use_archive, True)
+    return value_or(ctx.attrs.use_archive, True)
 
 def _attr_post_linker_flags(ctx: "context") -> [""]:
     return (
-        ctx.attr.post_linker_flags +
-        flatten(cxx_by_platform(ctx, ctx.attr.post_platform_linker_flags))
+        ctx.attrs.post_linker_flags +
+        flatten(cxx_by_platform(ctx, ctx.attrs.post_platform_linker_flags))
     )

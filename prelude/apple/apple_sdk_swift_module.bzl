@@ -56,7 +56,7 @@ def compile_sdk_swiftinterface(
     ctx.actions.run(cmd, category = "sdk_swiftinterface_compile", identifier = uncompiled_module_info_name)
 
 def apple_sdk_swift_module_impl(ctx: "context") -> ["provider"]:
-    module_name = ctx.attr.module_name
+    module_name = ctx.attrs.module_name
 
     cmd = cmd_args([
         "-frontend",
@@ -68,7 +68,7 @@ def apple_sdk_swift_module_impl(ctx: "context") -> ["provider"]:
         "-module-name",
         module_name,
         "-target",
-        ctx.attr.target,
+        ctx.attrs.target,
         "-Xcc",
         "-fno-implicit-modules",
         "-Xcc",
@@ -80,16 +80,16 @@ def apple_sdk_swift_module_impl(ctx: "context") -> ["provider"]:
             "-parse-stdlib",
         ])
 
-    module_dependency_infos = filter(None, [d[SdkUncompiledModuleInfo] for d in ctx.attr.deps])
+    module_dependency_infos = filter(None, [d[SdkUncompiledModuleInfo] for d in ctx.attrs.deps])
     return [
         DefaultInfo(),
         SdkUncompiledModuleInfo(
-            name = ctx.attr.name,
-            module_name = ctx.attr.module_name,
-            is_framework = ctx.attr.is_framework,
+            name = ctx.attrs.name,
+            module_name = ctx.attrs.module_name,
+            is_framework = ctx.attrs.is_framework,
             is_swiftmodule = True,
             partial_cmd = cmd,
-            input_relative_path = ctx.attr.swiftinterface_relative_path,
+            input_relative_path = ctx.attrs.swiftinterface_relative_path,
             deps = module_dependency_infos,
         ),
     ]

@@ -28,13 +28,13 @@ def cxx_populate_xcode_attributes(
             repr(ext).replace('\"', ""): artifact
             for ext, artifact in argsfiles_by_ext.items()
         },
-        "headers": _get_artifacts_with_owners(ctx.attr.headers),
+        "headers": _get_artifacts_with_owners(ctx.attrs.headers),
         "product_name": product_name,
         "srcs": converted_srcs,
     }
 
     if hasattr(ctx.attr, "exported_headers"):
-        data["exported_headers"] = _get_artifacts_with_owners(ctx.attr.exported_headers)
+        data["exported_headers"] = _get_artifacts_with_owners(ctx.attrs.exported_headers)
 
     return data
 

@@ -61,7 +61,7 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
     )
     cxx_library_output = cxx_library_parameterized(ctx, constructor_params)
 
-    binary_part = AppleBundlePart(source = cxx_library_output.default_output.default, destination = AppleBundleDestination("executables"), new_name = ctx.attr.name)
+    binary_part = AppleBundlePart(source = cxx_library_output.default_output.default, destination = AppleBundleDestination("executables"), new_name = ctx.attrs.name)
     part_list_output = get_apple_bundle_part_list(ctx, AppleBundlePartListConstructorParams(binaries = [binary_part]))
     assemble_bundle(ctx, xctest_bundle, part_list_output.parts, part_list_output.info_plist_part)
 
@@ -80,7 +80,7 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
         env["HOST_APP_BUNDLE"] = test_host_app_bundle
         tpx_label = "tpx:apple_test:buck2:appTest"
 
-    labels = ctx.attr.labels + [tpx_label]
+    labels = ctx.attrs.labels + [tpx_label]
     labels.append(tpx_label)
 
     return [
@@ -92,7 +92,7 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
             labels = labels,
             use_project_relative_paths = True,
             run_from_project_root = True,
-            contacts = ctx.attr.contacts,
+            contacts = ctx.attrs.contacts,
             executor_overrides = {
                 "ios-simulator": CommandExecutorConfig(
                     local_enabled = False,
@@ -111,9 +111,9 @@ def apple_test_impl(ctx: "context") -> ["provider"]:
 
 def _get_test_host_app_bundle(ctx: "context") -> ["artifact", None]:
     """ Get the bundle for the test host app, if one exists for this test. """
-    if ctx.attr.test_host_app:
+    if ctx.attrs.test_host_app:
         # Copy the test host app bundle into test's output directory
-        original_bundle = ctx.attr.test_host_app[AppleBundleInfo].bundle
+        original_bundle = ctx.attrs.test_host_app[AppleBundleInfo].bundle
         test_host_app_bundle = ctx.actions.declare_output(original_bundle.basename)
         ctx.actions.copy_file(test_host_app_bundle, original_bundle)
         return test_host_app_bundle
@@ -122,8 +122,8 @@ def _get_test_host_app_bundle(ctx: "context") -> ["artifact", None]:
 
 def _get_test_host_app_binary(ctx: "context", test_host_app_bundle: ["artifact", None]) -> ["cmd_args", None]:
     """ Reference to the binary with the test host app bundle, if one exists for this test. Captures the bundle as an artifact in the cmd_args. """
-    if ctx.attr.test_host_app:
-        return cmd_args([test_host_app_bundle, ctx.attr.test_host_app[AppleBundleInfo].binary_name], delimiter = "/")
+    if ctx.attrs.test_host_app:
+        return cmd_args([test_host_app_bundle, ctx.attrs.test_host_app[AppleBundleInfo].binary_name], delimiter = "/")
 
     return None
 
@@ -142,7 +142,7 @@ def _xcode_populate_attributes(
         xctest_bundle: "artifact",
         test_host_app_binary: ["cmd_args", None],
         **_kwargs) -> {str.type: ""}:
-    data = apple_populate_xcode_attributes(ctx = ctx, srcs = srcs, argsfiles_by_ext = argsfiles_by_ext, product_name = ctx.attr.name)
+    data = apple_populate_xcode_attributes(ctx = ctx, srcs = srcs, argsfiles_by_ext = argsfiles_by_ext, product_name = ctx.attrs.name)
     data["output"] = xctest_bundle
     if test_host_app_binary:
         data["test_host_app_binary"] = test_host_app_binary

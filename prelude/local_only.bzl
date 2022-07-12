@@ -1,7 +1,7 @@
 load("@fbcode//buck2/prelude/cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 
 def _is_core_cool(ctx: "context"):
-    return "is_core_tool" in ctx.attr.labels
+    return "is_core_tool" in ctx.attrs.labels
 
 def link_cxx_binary_locally(ctx: "context", cxx_toolchain: ["CxxToolchainInfo", None] = None) -> bool.type:
     # core tools are linked on RE because they are a) small enough to do so and

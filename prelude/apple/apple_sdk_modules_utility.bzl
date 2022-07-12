@@ -33,7 +33,7 @@ def get_sdk_deps_tset(
     all_sdk_deps = []
 
     # Adding all direct and transitive SDK dependencies.
-    for sdk_module_dep_name in ctx.attr.sdk_modules + _REQUIRED_SDK_MODULES:
+    for sdk_module_dep_name in ctx.attrs.sdk_modules + _REQUIRED_SDK_MODULES:
         if sdk_module_dep_name not in toolchain.compiled_sdk_swift_modules and sdk_module_dep_name not in toolchain.compiled_sdk_clang_modules:
             fail("{} depends on a non-existing SDK module: {}".format(module_name, sdk_module_dep_name))
 

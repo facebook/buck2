@@ -18,10 +18,10 @@ def get_cxx_platform_info(ctx: "context") -> "CxxPlatformInfo":
     apple_toolchain = getattr(ctx.attr, "_apple_toolchain", None)
     if apple_toolchain:
         return apple_toolchain[AppleToolchainInfo].cxx_platform_info
-    return ctx.attr._cxx_toolchain[CxxPlatformInfo]
+    return ctx.attrs._cxx_toolchain[CxxPlatformInfo]
 
 def get_cxx_toolchain_info(ctx: "context") -> "CxxToolchainInfo":
     apple_toolchain = getattr(ctx.attr, "_apple_toolchain", None)
     if apple_toolchain:
         return apple_toolchain[AppleToolchainInfo].cxx_toolchain_info
-    return ctx.attr._cxx_toolchain[CxxToolchainInfo]
+    return ctx.attrs._cxx_toolchain[CxxToolchainInfo]

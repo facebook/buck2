@@ -99,18 +99,18 @@ CPreprocessorForTestsInfo = provider(fields = [
 # Preprocessor flags
 def cxx_attr_preprocessor_flags(ctx: "context", ext: str.type) -> [""]:
     return (
-        ctx.attr.preprocessor_flags +
-        cxx_by_language_ext(ctx.attr.lang_preprocessor_flags, ext) +
-        flatten(cxx_by_platform(ctx, ctx.attr.platform_preprocessor_flags)) +
-        flatten(cxx_by_platform(ctx, cxx_by_language_ext(ctx.attr.lang_platform_preprocessor_flags, ext)))
+        ctx.attrs.preprocessor_flags +
+        cxx_by_language_ext(ctx.attrs.lang_preprocessor_flags, ext) +
+        flatten(cxx_by_platform(ctx, ctx.attrs.platform_preprocessor_flags)) +
+        flatten(cxx_by_platform(ctx, cxx_by_language_ext(ctx.attrs.lang_platform_preprocessor_flags, ext)))
     )
 
 def cxx_attr_exported_preprocessor_flags(ctx: "context") -> [""]:
     return (
-        ctx.attr.exported_preprocessor_flags +
-        _by_language_cxx(ctx.attr.exported_lang_preprocessor_flags) +
-        flatten(cxx_by_platform(ctx, ctx.attr.exported_platform_preprocessor_flags)) +
-        flatten(cxx_by_platform(ctx, _by_language_cxx(ctx.attr.exported_lang_platform_preprocessor_flags)))
+        ctx.attrs.exported_preprocessor_flags +
+        _by_language_cxx(ctx.attrs.exported_lang_preprocessor_flags) +
+        flatten(cxx_by_platform(ctx, ctx.attrs.exported_platform_preprocessor_flags)) +
+        flatten(cxx_by_platform(ctx, _by_language_cxx(ctx.attrs.exported_lang_platform_preprocessor_flags)))
     )
 
 def cxx_inherited_preprocessor_infos(first_order_deps: ["dependency"]) -> [CPreprocessorInfo.type]:
@@ -167,9 +167,9 @@ def cxx_exported_preprocessor_info(ctx: "context", headers_layout: CxxHeadersLay
         exported_header_map.clear()
 
     # Add in raw headers and include dirs from attrs.
-    raw_headers.extend(value_or(ctx.attr.raw_headers, []))
-    include_dirs.extend([ctx.label.path.add(x) for x in ctx.attr.public_include_directories])
-    system_include_dirs.extend([ctx.label.path.add(x) for x in ctx.attr.public_system_include_directories])
+    raw_headers.extend(value_or(ctx.attrs.raw_headers, []))
+    include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_include_directories])
+    system_include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_system_include_directories])
 
     header_root = prepare_headers(ctx, exported_header_map, "headers")
 
@@ -273,7 +273,7 @@ def _cxx_private_preprocessor_info(
 
     # Add in raw headers and include dirs from attrs.
     all_raw_headers.extend(raw_headers)
-    include_dirs.extend([ctx.label.path.add(x) for x in ctx.attr.include_directories])
+    include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.include_directories])
 
     # Create private header tree and propagate via args.
     args = []
@@ -319,7 +319,7 @@ def _attr_headers_as_raw_headers_mode(ctx: "context") -> HeadersAsRawHeadersMode
 
     # Otherwise use the rule-specific setting, if provided (not available on prebuilt_cxx_library).
     if getattr(ctx.attr, "headers_as_raw_headers_mode", None) != None:
-        return HeadersAsRawHeadersMode(ctx.attr.headers_as_raw_headers_mode)
+        return HeadersAsRawHeadersMode(ctx.attrs.headers_as_raw_headers_mode)
 
     # Fallback to platform default.
     return mode

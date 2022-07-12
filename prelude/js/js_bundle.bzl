@@ -11,23 +11,23 @@ def _build_dependencies_file(
         transitive_js_library_outputs: ["artifact"]) -> "artifact":
     dependencies_file = ctx.actions.declare_output("{}/dependencies_file", transform_profile)
 
-    # ctx.attr.extra_json can contain attr.arg().
+    # ctx.attrs.extra_json can contain attr.arg().
     #
     # As a result, we need to pass extra_data_args as hidden arguments so that the rule
     # it is referencing exists as an input.
     extra_data_args = cmd_args(
-        ctx.attr.extra_json if ctx.attr.extra_json else "{}",
+        ctx.attrs.extra_json if ctx.attrs.extra_json else "{}",
         delimiter = "",
     )
     job_args = {
         "command": "dependencies",
-        "entryPoints": [ctx.attr.entry] if type(ctx.attr.entry) == "string" else list(ctx.attr.entry),
+        "entryPoints": [ctx.attrs.entry] if type(ctx.attrs.entry) == "string" else list(ctx.attrs.entry),
         "extraData": extra_data_args,
         "flavors": get_flavors(ctx),
         "libraries": transitive_js_library_outputs,
         "outputFilePath": dependencies_file,
-        "platform": ctx.attr._platform,
-        "release": ctx.attr._is_release,
+        "platform": ctx.attrs._platform,
+        "release": ctx.attrs._is_release,
     }
     command_args_file = ctx.actions.write_json(
         "{}_dep_command_args".format(transform_profile),
@@ -36,8 +36,8 @@ def _build_dependencies_file(
 
     run_worker_command(
         ctx = ctx,
-        worker_tool = ctx.attr.worker,
-        command_args_file = fixup_command_args(ctx, command_args_file) if ctx.attr.extra_json else command_args_file,
+        worker_tool = ctx.attrs.worker,
+        command_args_file = fixup_command_args(ctx, command_args_file) if ctx.attrs.extra_json else command_args_file,
         identifier = transform_profile,
         category = "dependencies",
         hidden_artifacts = [
@@ -61,12 +61,12 @@ def _build_js_bundle(
     misc_dir_path = ctx.actions.declare_output("{}/misc_dir_path".format(base_dir))
     source_map = ctx.actions.declare_output("{}/source_map".format(base_dir))
 
-    # ctx.attr.extra_json can contain attr.arg().
+    # ctx.attrs.extra_json can contain attr.arg().
     #
     # As a result, we need to pass extra_data_args as hidden arguments so that the rule
     # it is referencing exists as an input.
     extra_data_args = cmd_args(
-        ctx.attr.extra_json if ctx.attr.extra_json else "{}",
+        ctx.attrs.extra_json if ctx.attrs.extra_json else "{}",
         delimiter = "",
     )
     job_args = {
@@ -76,13 +76,13 @@ def _build_js_bundle(
             delimiter = "/",
         ),
         "command": "bundle",
-        "entryPoints": [ctx.attr.entry] if type(ctx.attr.entry) == "string" else list(ctx.attr.entry),
+        "entryPoints": [ctx.attrs.entry] if type(ctx.attrs.entry) == "string" else list(ctx.attrs.entry),
         "extraData": extra_data_args,
         "flavors": get_flavors(ctx),
         "libraries": transitive_js_library_outputs,
         "miscDirPath": misc_dir_path,
-        "platform": ctx.attr._platform,
-        "release": ctx.attr._is_release,
+        "platform": ctx.attrs._platform,
+        "release": ctx.attrs._is_release,
         "sourceMapPath": source_map,
     }
 
@@ -96,11 +96,11 @@ def _build_js_bundle(
 
     run_worker_command(
         ctx = ctx,
-        worker_tool = ctx.attr.worker,
+        worker_tool = ctx.attrs.worker,
         command_args_file = fixup_command_args(
             ctx,
             command_args_file,
-        ) if ctx.attr.extra_json else command_args_file,
+        ) if ctx.attrs.extra_json else command_args_file,
         identifier = base_dir,
         category = job_args["command"],
         hidden_artifacts = [
@@ -122,13 +122,13 @@ def _build_js_bundle(
     )
 
 def _get_fallback_transform_profile(ctx: "context") -> str.type:
-    if ctx.attr.fallback_transform_profile in TRANSFORM_PROFILES:
-        return ctx.attr.fallback_transform_profile
+    if ctx.attrs.fallback_transform_profile in TRANSFORM_PROFILES:
+        return ctx.attrs.fallback_transform_profile
 
-    if ctx.attr.fallback_transform_profile == "default" or ctx.attr.fallback_transform_profile == None:
+    if ctx.attrs.fallback_transform_profile == "default" or ctx.attrs.fallback_transform_profile == None:
         return "transform-profile-default"
 
-    fail("Invalid fallback_transform_profile attribute {}!".format(ctx.attr.fallback_transform_profile))
+    fail("Invalid fallback_transform_profile attribute {}!".format(ctx.attrs.fallback_transform_profile))
 
 def _get_default_providers(js_bundle_info: JsBundleInfo.type) -> ["provider"]:
     return [DefaultInfo(default_outputs = [js_bundle_info.built_js])]
@@ -137,11 +137,11 @@ def _get_android_resource_info(ctx: "context", js_bundle_info: JsBundleInfo.type
     aapt2_compile_output = aapt2_compile(
         ctx,
         js_bundle_info.res,
-        ctx.attr._android_toolchain[AndroidToolchainInfo],
+        ctx.attrs._android_toolchain[AndroidToolchainInfo],
         identifier = identifier,
     )
-    expect(ctx.attr.android_package != None, "Must provide android_package for android builds!")
-    r_dot_java_package = ctx.actions.write("{}_{}".format(identifier, JAVA_PACKAGE_FILENAME), ctx.attr.android_package)
+    expect(ctx.attrs.android_package != None, "Must provide android_package for android builds!")
+    r_dot_java_package = ctx.actions.write("{}_{}".format(identifier, JAVA_PACKAGE_FILENAME), ctx.attrs.android_package)
     return AndroidResourceInfo(
         aapt2_compile_output = aapt2_compile_output,
         allow_strings_as_assets_resource_filtering = True,
@@ -154,10 +154,10 @@ def _get_android_resource_info(ctx: "context", js_bundle_info: JsBundleInfo.type
 
 def _get_extra_providers(ctx: "context", js_bundle_info: JsBundleInfo.type, identifier: str.type) -> ["provider"]:
     providers = [js_bundle_info]
-    if ctx.attr._platform == "android":
+    if ctx.attrs._platform == "android":
         resource_info = _get_android_resource_info(ctx, js_bundle_info, identifier)
         providers.append(resource_info)
-        providers.append(merge_android_packageable_info(ctx.actions, ctx.attr.deps, resource_info = resource_info))
+        providers.append(merge_android_packageable_info(ctx.actions, ctx.attrs.deps, resource_info = resource_info))
 
     return providers
 
@@ -165,9 +165,9 @@ def js_bundle_impl(ctx: "context") -> ["provider"]:
     sub_targets = {}
     default_outputs = []
     extra_unnamed_output_providers = None
-    bundle_name = get_bundle_name(ctx, "{}.js".format(ctx.attr.name))
+    bundle_name = get_bundle_name(ctx, "{}.js".format(ctx.attrs.name))
     for transform_profile in TRANSFORM_PROFILES:
-        dep_infos = map_idx(JsLibraryInfo, [dep[DefaultInfo].sub_targets[transform_profile] for dep in ctx.attr.deps])
+        dep_infos = map_idx(JsLibraryInfo, [dep[DefaultInfo].sub_targets[transform_profile] for dep in ctx.attrs.deps])
         transitive_js_library_outputs = dedupe(flatten([dep_info.transitive_outputs for dep_info in dep_infos]))
         dependencies_file = _build_dependencies_file(ctx, transform_profile, transitive_js_library_outputs)
 

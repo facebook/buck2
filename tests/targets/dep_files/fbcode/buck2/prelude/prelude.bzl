@@ -1,7 +1,7 @@
 def _c_binary_impl(ctx):
     headers = {
         "{}/{}".format(ctx.label.package, h.short_path): h
-        for h in ctx.attr.headers
+        for h in ctx.attrs.headers
     }
 
     headers_tag = ctx.actions.artifact_tag()
@@ -10,11 +10,11 @@ def _c_binary_impl(ctx):
     headers_dir = headers_tag.tag_artifacts(headers_dir)
 
     dep_file = ctx.actions.declare_output("depfile")
-    app = ctx.actions.declare_output(ctx.attr.name)
+    app = ctx.actions.declare_output(ctx.attrs.name)
 
     cmd = [
-        ctx.attr._cc[RunInfo].args,
-        ctx.attr.main,
+        ctx.attrs._cc[RunInfo].args,
+        ctx.attrs.main,
         "-I",
         headers_dir,
         "-o",
@@ -48,6 +48,6 @@ c_binary = rule(
 )
 
 def _tool_impl(ctx):
-    return [DefaultInfo(default_outputs = [ctx.attr.src]), RunInfo(args = cmd_args(ctx.attr.src))]
+    return [DefaultInfo(default_outputs = [ctx.attrs.src]), RunInfo(args = cmd_args(ctx.attrs.src))]
 
 tool = rule(attrs = {"src": attr.source()}, impl = _tool_impl)

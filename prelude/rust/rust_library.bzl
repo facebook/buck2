@@ -68,7 +68,7 @@ def prebuilt_rust_library_impl(ctx: "context") -> ["provider"]:
     # Default output.
     providers.append(
         DefaultInfo(
-            default_outputs = [ctx.attr.rlib],
+            default_outputs = [ctx.attrs.rlib],
         ),
     )
 
@@ -78,9 +78,9 @@ def prebuilt_rust_library_impl(ctx: "context") -> ["provider"]:
     for style in LinkStyle:
         tdeps, tmetadeps = _compute_transitive_deps(ctx, style)
         styles[style] = RustLinkStyleInfo(
-            rlib = ctx.attr.rlib,
+            rlib = ctx.attrs.rlib,
             transitive_deps = tdeps,
-            rmeta = ctx.attr.rlib,
+            rmeta = ctx.attrs.rlib,
             transitive_rmeta_deps = tmetadeps,
         )
     providers.append(
@@ -99,7 +99,7 @@ def prebuilt_rust_library_impl(ctx: "context") -> ["provider"]:
     # Native link provier.
     link = LinkInfo(
         linkables = [ArchiveLinkable(
-            archive = Archive(artifact = ctx.attr.rlib),
+            archive = Archive(artifact = ctx.attrs.rlib),
             linker_type = "unknown",
         )],
     )
@@ -107,7 +107,7 @@ def prebuilt_rust_library_impl(ctx: "context") -> ["provider"]:
         create_merged_link_info(
             ctx,
             {link_style: LinkInfos(default = link) for link_style in LinkStyle},
-            exported_deps = [d[MergedLinkInfo] for d in ctx.attr.deps],
+            exported_deps = [d[MergedLinkInfo] for d in ctx.attrs.deps],
             # TODO(agallagher): This matches v1 behavior, but some of these libs
             # have prebuilt DSOs which might be usuable.
             preferred_linkage = Linkage("static"),
@@ -115,13 +115,13 @@ def prebuilt_rust_library_impl(ctx: "context") -> ["provider"]:
     )
 
     # Native link graph setup.
-    linkable_graph = create_merged_linkable_graph(ctx.label, ctx.attr.deps)
+    linkable_graph = create_merged_linkable_graph(ctx.label, ctx.attrs.deps)
     add_linkable_node(
         linkable_graph,
         ctx,
         preferred_linkage = Linkage("static"),
         link_infos = {link_style: LinkInfos(default = link) for link_style in LinkStyle},
-        exported_deps = ctx.attr.deps,
+        exported_deps = ctx.attrs.deps,
     )
     providers.append(linkable_graph)
 
@@ -223,17 +223,17 @@ def _build_params_for_styles(ctx: "context") -> (
     # Styles+lang linkage to params
     for linkage_lang in LinkageLang:
         # Skip proc_macro + c++ combination
-        if ctx.attr.proc_macro and linkage_lang == LinkageLang("c++"):
+        if ctx.attrs.proc_macro and linkage_lang == LinkageLang("c++"):
             continue
 
-        linker_type = ctx.attr._cxx_toolchain[CxxToolchainInfo].linker_info.type
+        linker_type = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info.type
 
         for link_style in LinkStyle:
             params = build_params(
                 rule = RuleType("library"),
-                proc_macro = ctx.attr.proc_macro,
+                proc_macro = ctx.attrs.proc_macro,
                 link_style = link_style,
-                preferred_linkage = Linkage(ctx.attr.preferred_linkage),
+                preferred_linkage = Linkage(ctx.attrs.preferred_linkage),
                 lang = linkage_lang,
                 linker_type = linker_type,
             )
@@ -297,7 +297,7 @@ def _handle_rust_artifact(
     if crate_type_transitive_deps(params.crate_type):
         tdeps, tmetadeps = _compute_transitive_deps(ctx, link_style)
 
-    if not ctx.attr.proc_macro:
+    if not ctx.attrs.proc_macro:
         return RustLinkStyleInfo(
             rlib = link.outputs[Emit("link")],
             transitive_deps = tdeps,
@@ -402,7 +402,7 @@ def _native_providers(
 
     providers = []
 
-    if ctx.attr.proc_macro:
+    if ctx.attrs.proc_macro:
         # Proc-macros never have a native form
         return providers
 
@@ -418,7 +418,7 @@ def _native_providers(
         else:
             link_infos[link_style] = LinkInfos(default = LinkInfo(linkables = [SharedLibLinkable(lib = arg)]))
 
-    preferred_linkage = Linkage(ctx.attr.preferred_linkage)
+    preferred_linkage = Linkage(ctx.attrs.preferred_linkage)
 
     # TODO(agallagher): When Rust creates a static library, it merges in all
     # archives from all transitive deps.  On top of causing O(N^2) space
@@ -448,7 +448,7 @@ def _native_providers(
     solibs = {}
 
     # Add the shared library to the list of shared libs.
-    linker_type = ctx.attr._cxx_toolchain[CxxToolchainInfo].linker_info.type
+    linker_type = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info.type
     shlib_name = get_default_shared_library_name(linker_type, ctx.label)
     solibs[shlib_name] = LinkedObject(output = libraries[LinkStyle("shared")])
 

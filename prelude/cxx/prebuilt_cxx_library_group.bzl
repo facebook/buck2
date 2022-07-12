@@ -38,16 +38,16 @@ def _linkage(ctx: "context") -> Linkage.type:
     """
 
     # If we have both shared and static libs, we support any linkage.
-    if (ctx.attr.shared_link and
-        (ctx.attr.static_link or ctx.attr.static_pic_link)):
+    if (ctx.attrs.shared_link and
+        (ctx.attrs.static_link or ctx.attrs.static_pic_link)):
         return Linkage("any")
 
     # Otherwise, if we have a shared library, we only support shared linkage.
-    if ctx.attr.shared_link:
+    if ctx.attrs.shared_link:
         return Linkage("shared")
 
     # Otherwise, if we have a static library, we only support static linkage.
-    if ctx.attr.static_link or ctx.attr.static_pic_link:
+    if ctx.attrs.static_link or ctx.attrs.static_pic_link:
         return Linkage("static")
 
     # Otherwise, header only libs use any linkage.
@@ -168,13 +168,13 @@ def _get_shared_link_args(
 def prebuilt_cxx_library_group_impl(ctx: "context") -> ["provider"]:
     providers = []
 
-    deps = ctx.attr.deps
-    exported_deps = ctx.attr.exported_deps
+    deps = ctx.attrs.deps
+    exported_deps = ctx.attrs.exported_deps
 
     # Figure out preprocessor stuff
     args = []
-    args.extend(ctx.attr.exported_preprocessor_flags)
-    for inc_dir in ctx.attr.include_dirs:
+    args.extend(ctx.attrs.exported_preprocessor_flags)
+    for inc_dir in ctx.attrs.include_dirs:
         args += ["-isystem", inc_dir]
     preprocessor = CPreprocessor(args = args)
     inherited_pp_info = cxx_inherited_preprocessor_infos(exported_deps)
@@ -193,18 +193,18 @@ def prebuilt_cxx_library_group_impl(ctx: "context") -> ["provider"]:
     for link_style in get_link_styles_for_linkage(preferred_linkage):
         outs = []
         if link_style == LinkStyle("static"):
-            outs.extend(ctx.attr.static_libs)
-            args = _get_static_link_args(ctx.attr.static_libs, ctx.attr.static_link)
+            outs.extend(ctx.attrs.static_libs)
+            args = _get_static_link_args(ctx.attrs.static_libs, ctx.attrs.static_link)
         elif link_style == LinkStyle("static_pic"):
-            outs.extend(ctx.attr.static_pic_libs)
-            args = _get_static_link_args(ctx.attr.static_pic_libs, ctx.attr.static_pic_link)
+            outs.extend(ctx.attrs.static_pic_libs)
+            args = _get_static_link_args(ctx.attrs.static_pic_libs, ctx.attrs.static_pic_link)
         else:  # shared
-            outs.extend(ctx.attr.shared_libs)
+            outs.extend(ctx.attrs.shared_libs)
             args = _get_shared_link_args(
-                flatten_dict([ctx.attr.shared_libs, ctx.attr.provided_shared_libs]),
-                ctx.attr.shared_link,
+                flatten_dict([ctx.attrs.shared_libs, ctx.attrs.provided_shared_libs]),
+                ctx.attrs.shared_link,
             )
-            solibs.update({n: LinkedObject(output = lib) for n, lib in ctx.attr.shared_libs.items()})
+            solibs.update({n: LinkedObject(output = lib) for n, lib in ctx.attrs.shared_libs.items()})
         outputs[link_style] = outs
 
         # TODO(cjhopman): This is hiding static and shared libs in opaque

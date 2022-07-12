@@ -82,14 +82,14 @@ def get_canonical_src_name(src: str.type) -> str.type:
     return basename + extension
 
 def get_flavors(ctx: "context") -> [str.type]:
-    flavors = [ctx.attr._platform]
-    if ctx.attr._is_release:
+    flavors = [ctx.attrs._platform]
+    if ctx.attrs._is_release:
         flavors.append("release")
 
     return flavors
 
 def get_bundle_name(ctx: "context", default_bundle_name: str.type) -> str.type:
-    bundle_name_for_flavor_map = {key: value for key, value in ctx.attr.bundle_name_for_flavor}
+    bundle_name_for_flavor_map = {key: value for key, value in ctx.attrs.bundle_name_for_flavor}
     flavors = bundle_name_for_flavor_map.keys()
     for flavor in flavors:
         expect(
@@ -97,7 +97,7 @@ def get_bundle_name(ctx: "context", default_bundle_name: str.type) -> str.type:
             "Currently only support picking bundle name by platform!",
         )
 
-    platform = ctx.attr._platform
+    platform = ctx.attrs._platform
     if platform in flavors:
         return bundle_name_for_flavor_map[platform]
     else:
@@ -142,11 +142,11 @@ def fixup_command_args(ctx: "context", args_file: "artifact") -> "artifact":
     output = ctx.actions.declare_output("fixup_{}".format(args_file.short_path))
     ctx.actions.run(
         cmd_args([
-            ctx.attr._js_toolchain[JsToolchainInfo].command_args_fixup[RunInfo],
+            ctx.attrs._js_toolchain[JsToolchainInfo].command_args_fixup[RunInfo],
             args_file,
             output.as_output(),
         ]),
         category = "fixup_command_args",
-        identifier = "{}.{}".format(args_file.short_path, ctx.attr.name),
+        identifier = "{}.{}".format(args_file.short_path, ctx.attrs.name),
     )
     return output

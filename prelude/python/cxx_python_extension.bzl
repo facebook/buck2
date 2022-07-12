@@ -78,7 +78,7 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
     (own_pre, _) = cxx_private_preprocessor_info(
         ctx,
         impl_params.headers_layout,
-        raw_headers = ctx.attr.raw_headers,
+        raw_headers = ctx.attrs.raw_headers,
     )
     inherited_pre = cxx_inherited_preprocessor_infos(cxx_deps)
 
@@ -87,7 +87,7 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
     objects = compile_cxx(ctx, compile_cmd_output.source_commands.src_compile_cmds, pic = True)
 
     # The name of the extension.
-    name = value_or(ctx.attr.module_name, ctx.label.name) + ".so"
+    name = value_or(ctx.attrs.module_name, ctx.label.name) + ".so"
 
     # Compilation DB.
     comp_db = create_compilation_database(ctx, compile_cmd_output.source_commands.src_compile_cmds)
@@ -121,30 +121,30 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
 
     # If a type stub was specified, create a manifest for export.
     src_type_manifest = None
-    if ctx.attr.type_stub != None:
+    if ctx.attrs.type_stub != None:
         src_type_manifest = create_manifest_for_source_map(
             ctx,
             "type_stub",
             qualify_srcs(
                 ctx.label,
-                ctx.attr.base_module,
-                {value_or(ctx.attr.module_name, ctx.label.name) + ".pyi": ctx.attr.type_stub},
+                ctx.attrs.base_module,
+                {value_or(ctx.attrs.module_name, ctx.label.name) + ".pyi": ctx.attrs.type_stub},
             ),
         )
 
     # Export library info.
-    python_platform = ctx.attr._python_toolchain[PythonPlatformInfo]
-    cxx_platform = ctx.attr._cxx_toolchain[CxxPlatformInfo]
-    cxx_toolchain = ctx.attr._cxx_toolchain[CxxToolchainInfo]
+    python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
+    cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
+    cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
     raw_deps = (
-        [ctx.attr.deps] +
-        get_platform_attr(python_platform, cxx_platform, ctx.attr.platform_deps)
+        [ctx.attrs.deps] +
+        get_platform_attr(python_platform, cxx_platform, ctx.attrs.platform_deps)
     )
     deps, shared_deps = gather_dep_libraries(raw_deps)
     providers.append(create_python_library_info(
         ctx.actions,
         ctx.label,
-        extensions = qualify_srcs(ctx.label, ctx.attr.base_module, {name: extension}),
+        extensions = qualify_srcs(ctx.label, ctx.attrs.base_module, {name: extension}),
         deps = deps,
         shared_libraries = shared_deps,
         src_types = src_type_manifest,

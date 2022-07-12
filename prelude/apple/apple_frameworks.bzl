@@ -19,13 +19,13 @@ _IMPLICIT_SDKROOT_FRAMEWORK_SEARCH_PATHS = [
 ]
 
 def create_frameworks_linkable(ctx: "context") -> [FrameworksLinkable.type, None]:
-    if not ctx.attr.libraries and not ctx.attr.frameworks:
+    if not ctx.attrs.libraries and not ctx.attrs.frameworks:
         return None
 
     return FrameworksLinkable(
-        library_names = [_library_name(x) for x in ctx.attr.libraries],
-        resolved_framework_paths = _get_non_sdk_framework_directories(ctx, ctx.attr.frameworks),
-        framework_names = [to_framework_name(x) for x in ctx.attr.frameworks],
+        library_names = [_library_name(x) for x in ctx.attrs.libraries],
+        resolved_framework_paths = _get_non_sdk_framework_directories(ctx, ctx.attrs.frameworks),
+        framework_names = [to_framework_name(x) for x in ctx.attrs.frameworks],
     )
 
 def _get_apple_frameworks_linker_flags(linkable: [FrameworksLinkable.type, None]) -> [""]:
@@ -43,7 +43,7 @@ def _get_apple_frameworks_linker_flags(linkable: [FrameworksLinkable.type, None]
     return flags
 
 def get_framework_search_path_flags(ctx: "context") -> [""]:
-    return _get_framework_search_path_flags(_get_non_sdk_framework_directories(ctx, ctx.attr.frameworks))
+    return _get_framework_search_path_flags(_get_non_sdk_framework_directories(ctx, ctx.attrs.frameworks))
 
 def _get_framework_search_path_flags(frameworks: [""]) -> [""]:
     flags = []
@@ -70,7 +70,7 @@ def _library_name(library: str.type) -> str.type:
     return paths.split_extension(name[3:])[0]
 
 def _expand_sdk_framework_path(ctx: "context", framework_path: str.type) -> str.type:
-    apple_toolchain_info = ctx.attr._apple_toolchain[AppleToolchainInfo]
+    apple_toolchain_info = ctx.attrs._apple_toolchain[AppleToolchainInfo]
     path_expansion_map = {
         "$PLATFORM_DIR": apple_toolchain_info.platform_path,
         "$SDKROOT": apple_toolchain_info.sdk_path,

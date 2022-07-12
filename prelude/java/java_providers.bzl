@@ -241,10 +241,10 @@ def create_java_packaging_dep(
         desugar_deps: ["artifact"] = [],
         is_prebuilt_jar: bool.type = False) -> "JavaPackagingDep":
     dex_toolchain = getattr(ctx.attr, "_dex_toolchain", None)
-    if library_jar != None and dex_toolchain != None and ctx.attr._dex_toolchain[DexToolchainInfo].d8_command != None:
+    if library_jar != None and dex_toolchain != None and ctx.attrs._dex_toolchain[DexToolchainInfo].d8_command != None:
         dex = get_dex_produced_from_java_library(
             ctx,
-            ctx.attr._dex_toolchain[DexToolchainInfo],
+            ctx.attrs._dex_toolchain[DexToolchainInfo],
             library_jar,
             needs_desugar,
             desugar_deps,

@@ -88,7 +88,7 @@ cxx_link_into_shared_library = _cxx_link_into_shared_library
 
 # The source files
 def get_srcs_with_flags(ctx: "context") -> [CxxSrcWithFlags.type]:
-    all_srcs = ctx.attr.srcs + flatten(cxx_by_platform(ctx, ctx.attr.platform_srcs))
+    all_srcs = ctx.attrs.srcs + flatten(cxx_by_platform(ctx, ctx.attrs.platform_srcs))
     src_to_flags = {}
     for x in all_srcs:
         if type(x) == type(()):
@@ -164,27 +164,27 @@ def _prebuilt_linkage(ctx: "context") -> Linkage.type:
     """
     Construct the preferred linkage to use for the given prebuilt library.
     """
-    if ctx.attr.header_only:
+    if ctx.attrs.header_only:
         return Linkage("any")
-    if ctx.attr.force_static:
+    if ctx.attrs.force_static:
         return Linkage("static")
     preferred_linkage = cxx_attr_preferred_linkage(ctx)
     if preferred_linkage != Linkage("any"):
         return preferred_linkage
-    if ctx.attr.provided:
+    if ctx.attrs.provided:
         return Linkage("shared")
     return Linkage("any")
 
 def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
     # Versioned params should be intercepted and converted away via the stub.
-    expect(not ctx.attr.versioned_exported_lang_platform_preprocessor_flags)
-    expect(not ctx.attr.versioned_exported_lang_preprocessor_flags)
-    expect(not ctx.attr.versioned_exported_platform_preprocessor_flags)
-    expect(not ctx.attr.versioned_exported_preprocessor_flags)
-    expect(not ctx.attr.versioned_header_dirs)
-    expect(not ctx.attr.versioned_shared_lib)
-    expect(not ctx.attr.versioned_static_lib)
-    expect(not ctx.attr.versioned_static_pic_lib)
+    expect(not ctx.attrs.versioned_exported_lang_platform_preprocessor_flags)
+    expect(not ctx.attrs.versioned_exported_lang_preprocessor_flags)
+    expect(not ctx.attrs.versioned_exported_platform_preprocessor_flags)
+    expect(not ctx.attrs.versioned_exported_preprocessor_flags)
+    expect(not ctx.attrs.versioned_header_dirs)
+    expect(not ctx.attrs.versioned_shared_lib)
+    expect(not ctx.attrs.versioned_static_lib)
+    expect(not ctx.attrs.versioned_static_pic_lib)
 
     if not cxx_platform_supported(ctx):
         return [DefaultInfo(default_outputs = [])]
@@ -196,25 +196,25 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
     # Parse library parameters.
     static_lib = _prebuilt_item(
         ctx,
-        ctx.attr.static_lib,
-        ctx.attr.platform_static_lib,
+        ctx.attrs.static_lib,
+        ctx.attrs.platform_static_lib,
     )
     static_pic_lib = _prebuilt_item(
         ctx,
-        ctx.attr.static_pic_lib,
-        ctx.attr.platform_static_pic_lib,
+        ctx.attrs.static_pic_lib,
+        ctx.attrs.platform_static_pic_lib,
     )
     shared_lib = _prebuilt_item(
         ctx,
-        ctx.attr.shared_lib,
-        ctx.attr.platform_shared_lib,
+        ctx.attrs.shared_lib,
+        ctx.attrs.platform_shared_lib,
     )
     header_dirs = _prebuilt_item(
         ctx,
-        ctx.attr.header_dirs,
-        ctx.attr.platform_header_dirs,
+        ctx.attrs.header_dirs,
+        ctx.attrs.platform_header_dirs,
     )
-    soname = value_or(ctx.attr.soname, get_shared_library_name(linker_type, ctx.label.name))
+    soname = value_or(ctx.attrs.soname, get_shared_library_name(linker_type, ctx.label.name))
     preferred_linkage = _prebuilt_linkage(ctx)
 
     first_order_deps = cxx_attr_exported_deps(ctx)
@@ -251,12 +251,12 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
 
         # If we have sources to compile, generate the necessary libraries and
         # add them to the exported link info.
-        if not ctx.attr.header_only:
+        if not ctx.attrs.header_only:
             def archive_linkable(lib):
                 return ArchiveLinkable(
                     archive = Archive(artifact = lib),
                     linker_type = linker_type,
-                    link_whole = ctx.attr.link_whole,
+                    link_whole = ctx.attrs.link_whole,
                     do_not_inspect_for_thinlto = True,
                 )
 
@@ -299,8 +299,8 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
                     # IntelComposerXE), so we can't link them via just the shared
                     # lib (otherwise, we'll may embed buid-time paths in `DT_NEEDED`
                     # tags).
-                    if ctx.attr.link_without_soname:
-                        if ctx.attr.supports_shared_library_interface:
+                    if ctx.attrs.link_without_soname:
+                        if ctx.attrs.supports_shared_library_interface:
                             fail("cannot use `link_without_soname` with shlib interfaces")
                         linkable = SharedLibLinkable(
                             lib = shared_lib.output,
@@ -310,20 +310,20 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
                         shared_lib_for_linking = shared_lib.output
 
                         # Generate a shared library interface if the rule supports it.
-                        if ctx.attr.supports_shared_library_interface and cxx_use_shlib_intfs(ctx):
-                            shared_lib_for_linking = cxx_mk_shlib_intf(ctx, ctx.attr.name, shared_lib.output)
+                        if ctx.attrs.supports_shared_library_interface and cxx_use_shlib_intfs(ctx):
+                            shared_lib_for_linking = cxx_mk_shlib_intf(ctx, ctx.attrs.name, shared_lib.output)
                         linkable = SharedLibLinkable(lib = shared_lib_for_linking)
 
                     # Provided means something external to the build will provide
                     # the libraries, so we don't need to propagate anything.
-                    if not ctx.attr.provided:
+                    if not ctx.attrs.provided:
                         solibs[soname] = shared_lib
 
         # TODO(cjhopman): is it okay that we sometimes don't have a linkable?
         outputs[link_style] = outs
         libraries[link_style] = LinkInfos(
             default = LinkInfo(
-                name = ctx.attr.name,
+                name = ctx.attrs.name,
                 pre_flags = args,
                 post_flags = post_link_flags,
                 linkables = [linkable] if linkable else [],
@@ -363,13 +363,13 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
         # that omnibus knows to avoid it.
         link_infos = libraries,
         shared_libs = solibs,
-        excluded = not value_or(ctx.attr.supports_merged_linking, True),
+        excluded = not value_or(ctx.attrs.supports_merged_linking, True),
         exported_deps = first_order_deps,
     )
     providers.append(linkable_graph)
 
     # Omnibus root provider.
-    if LinkStyle("static_pic") in libraries and (static_pic_lib or static_lib) and not ctx.attr.header_only:
+    if LinkStyle("static_pic") in libraries and (static_pic_lib or static_lib) and not ctx.attrs.header_only:
         # TODO(cjhopman): This doesn't support thin archives
         providers.append(create_native_link_target(
             name = soname,
@@ -391,13 +391,13 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
     return providers
 
 def cxx_precompiled_header_impl(ctx: "context") -> ["provider"]:
-    inherited_pp_infos = cxx_inherited_preprocessor_infos(ctx.attr.deps)
-    inherited_link = cxx_inherited_link_info(ctx, ctx.attr.deps)
+    inherited_pp_infos = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
+    inherited_link = cxx_inherited_link_info(ctx, ctx.attrs.deps)
     return [
-        DefaultInfo(default_outputs = [ctx.attr.src]),
+        DefaultInfo(default_outputs = [ctx.attrs.src]),
         cxx_merge_cpreprocessors(ctx, [], inherited_pp_infos),
         inherited_link,
-        CPrecompiledHeaderInfo(header = ctx.attr.src),
+        CPrecompiledHeaderInfo(header = ctx.attrs.src),
     ]
 
 def cxx_test_impl(ctx: "context") -> ["provider"]:
@@ -409,11 +409,11 @@ def cxx_test_impl(ctx: "context") -> ["provider"]:
     )
     output, comp_db_info = cxx_executable(ctx, params, is_cxx_test = True)
 
-    command = [cmd_args(output.binary).hidden(output.runtime_files)] + ctx.attr.args
+    command = [cmd_args(output.binary).hidden(output.runtime_files)] + ctx.attrs.args
 
     # Support tpx's v1 behavior, where tests can configure themselves to use
     # RE with a specific platform via labels.
-    legacy_re_executor = get_re_executor_from_labels(ctx.attr.labels)
+    legacy_re_executor = get_re_executor_from_labels(ctx.attrs.labels)
 
     return [
         DefaultInfo(default_outputs = [output.binary], other_outputs = output.runtime_files, sub_targets = output.sub_targets),
@@ -422,9 +422,9 @@ def cxx_test_impl(ctx: "context") -> ["provider"]:
         ExternalRunnerTestInfo(
             type = "gtest",
             command = command,
-            env = ctx.attr.env,
-            labels = ctx.attr.labels,
-            contacts = ctx.attr.contacts,
+            env = ctx.attrs.env,
+            labels = ctx.attrs.labels,
+            contacts = ctx.attrs.contacts,
             default_executor = legacy_re_executor,
             # We implicitly make this test via the project root, instead of
             # the cell root (e.g. fbcode root).

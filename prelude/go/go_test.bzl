@@ -8,9 +8,9 @@ def _gen_test_main(ctx: "context", pkg_name: str.type, srcs: "cmd_args") -> "art
     """
     output = ctx.actions.declare_output("main.go")
     cmd = cmd_args()
-    cmd.add(ctx.attr._testmaingen[RunInfo])
-    if ctx.attr.coverage_mode:
-        cmd.add(cmd_args(ctx.attr.coverage_mode, format = "--cover-mode={}"))
+    cmd.add(ctx.attrs._testmaingen[RunInfo])
+    if ctx.attrs.coverage_mode:
+        cmd.add(cmd_args(ctx.attrs.coverage_mode, format = "--cover-mode={}"))
     cmd.add(cmd_args(output.as_output(), format = "--output={}"))
     cmd.add(cmd_args(pkg_name, format = "--import-path={}"))
     cmd.add(srcs)
@@ -18,14 +18,14 @@ def _gen_test_main(ctx: "context", pkg_name: str.type, srcs: "cmd_args") -> "art
     return output
 
 def go_test_impl(ctx: "context") -> ["provider"]:
-    deps = ctx.attr.deps
-    srcs = ctx.attr.srcs
+    deps = ctx.attrs.deps
+    srcs = ctx.attrs.srcs
     pkg_name = go_attr_pkg_name(ctx) + "_test"
 
     # Copy the srcs, deps and pkg_name from the target library when set. The
     # library code gets compiled together with the tests.
-    if ctx.attr.library:
-        lib = ctx.attr.library[GoTestInfo]
+    if ctx.attrs.library:
+        lib = ctx.attrs.library[GoTestInfo]
         srcs += lib.srcs
         deps += lib.deps
 
@@ -43,7 +43,7 @@ def go_test_impl(ctx: "context") -> ["provider"]:
     main = compile(ctx, "main", cmd_args(gen_main), pkgs = {pkg_name: tests})
 
     # Link the above into a Go binary.
-    bin = link(ctx, main, pkgs = {pkg_name: tests}, deps = ctx.attr.deps)
+    bin = link(ctx, main, pkgs = {pkg_name: tests}, deps = ctx.attrs.deps)
 
     return [
         DefaultInfo(default_outputs = [bin], other_outputs = [gen_main]),
@@ -51,8 +51,8 @@ def go_test_impl(ctx: "context") -> ["provider"]:
         ExternalRunnerTestInfo(
             type = "go",
             command = [cmd_args(bin)],
-            env = ctx.attr.env,
-            labels = ctx.attr.labels,
-            contacts = ctx.attr.contacts,
+            env = ctx.attrs.env,
+            labels = ctx.attrs.labels,
+            contacts = ctx.attrs.contacts,
         ),
     ]

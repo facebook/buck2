@@ -9,7 +9,7 @@ AppleAssetCatalogsCompilationOptions = record(
 )
 
 def get_apple_asset_catalogs_compilation_options(ctx: "context") -> AppleAssetCatalogsCompilationOptions.type:
-    options = ctx.attr.asset_catalogs_compilation_options
+    options = ctx.attrs.asset_catalogs_compilation_options
 
     return AppleAssetCatalogsCompilationOptions(
         enable_notices = options.get("notices", True),

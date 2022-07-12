@@ -5,11 +5,11 @@ load("@fbcode//buck2/prelude/utils:utils.bzl", "value_or")
 def remote_file_impl(ctx: "context") -> ["provider"]:
     return http_file_shared(
         ctx.actions,
-        name = value_or(ctx.attr.out, ctx.label.name),
-        url = ctx.attr.url,
-        is_executable = ctx.attr.type == "executable",
-        is_exploded_zip = ctx.attr.type == "exploded_zip",
-        unzip_tool = ctx.attr._unzip_tool[RunInfo],
-        sha1 = ctx.attr.sha1,
-        sha256 = ctx.attr.sha256,
+        name = value_or(ctx.attrs.out, ctx.label.name),
+        url = ctx.attrs.url,
+        is_executable = ctx.attrs.type == "executable",
+        is_exploded_zip = ctx.attrs.type == "exploded_zip",
+        unzip_tool = ctx.attrs._unzip_tool[RunInfo],
+        sha1 = ctx.attrs.sha1,
+        sha256 = ctx.attrs.sha256,
     )

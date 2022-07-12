@@ -191,7 +191,7 @@ def _pex_modules_args(
     cmd.add(cmd_args(native_library_dests_path, format = "@{}"))
 
     dwp = []
-    if ctx.attr.package_split_dwarf_dwp:
+    if ctx.attrs.package_split_dwarf_dwp:
         dwp = [s.dwp for s in shared_libraries.values() if s.dwp != None]
         dwp_srcs_path = ctx.actions.write(
             "__dwp___srcs.txt",
@@ -226,7 +226,7 @@ def _pex_modules_args(
 def _make_pex_inplace_binary_impl(ctx: "context") -> ["provider"]:
     return [
         DefaultInfo(),
-        RunInfo([ctx.attr.src, "--template", ctx.attr.template, "--template-lite", ctx.attr.template_lite]),
+        RunInfo([ctx.attrs.src, "--template", ctx.attrs.template, "--template-lite", ctx.attrs.template_lite]),
     ]
 
 make_pex_inplace_binary = rule(
@@ -241,7 +241,7 @@ make_pex_inplace_binary = rule(
 def _make_pex_modules_binary_impl(ctx: "context") -> ["provider"]:
     return [
         DefaultInfo(),
-        RunInfo([ctx.attr.src]),
+        RunInfo([ctx.attrs.src]),
     ]
 
 make_pex_modules_binary = rule(

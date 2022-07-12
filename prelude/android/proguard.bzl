@@ -22,10 +22,10 @@ def _get_proguard_command_line_args(
     cmd = cmd_args()
     cmd.add("-basedirectory", "<user.dir>")
 
-    android_sdk_proguard_config = ctx.attr.android_sdk_proguard_config or "none"
+    android_sdk_proguard_config = ctx.attrs.android_sdk_proguard_config or "none"
     if android_sdk_proguard_config == "optimized":
         cmd.add("-include", android_toolchain.optimized_proguard_config)
-        cmd.add("-optimizationpasses", ctx.attr.optimization_passes)
+        cmd.add("-optimizationpasses", ctx.attrs.optimization_passes)
     elif android_sdk_proguard_config == "default":
         cmd.add("-include", android_toolchain.proguard_config)
     else:
@@ -61,7 +61,7 @@ def run_proguard(
     run_proguard_cmd.add(
         java_toolchain.java[RunInfo],
         "-XX:-MaxFDLimit",
-        ctx.attr.proguard_jvm_args,
+        ctx.attrs.proguard_jvm_args,
         "-Xmx{}".format(android_toolchain.proguard_max_heap_size),
         "-jar",
         android_toolchain.proguard_jar,
@@ -71,7 +71,7 @@ def run_proguard(
 
     ctx.actions.run(run_proguard_cmd, category = "run_proguard")
 
-# Note that ctx.attr.skip_proguard means that we should create the proguard command line (since
+# Note that ctx.attrs.skip_proguard means that we should create the proguard command line (since
 # e.g. Redex might want to consume it) but we don't actually run the proguard command.
 def get_proguard_output(
         ctx: "context",
@@ -79,12 +79,12 @@ def get_proguard_output(
         java_packaging_deps: ["JavaPackagingDep"],
         aapt_generated_proguard_config: ["artifact", None]) -> ProguardOutput.type:
     proguard_configs = [packaging_dep.proguard_config for packaging_dep in java_packaging_deps if packaging_dep.proguard_config]
-    if ctx.attr.proguard_config:
-        proguard_configs.append(ctx.attr.proguard_config)
-    if not ctx.attr.ignore_aapt_proguard_config and aapt_generated_proguard_config:
+    if ctx.attrs.proguard_config:
+        proguard_configs.append(ctx.attrs.proguard_config)
+    if not ctx.attrs.ignore_aapt_proguard_config and aapt_generated_proguard_config:
         proguard_configs.append(aapt_generated_proguard_config)
 
-    if ctx.attr.skip_proguard:
+    if ctx.attrs.skip_proguard:
         inputs_to_outputs = {input_jar: input_jar for input_jar in input_jars}
         mapping = ctx.actions.write("proguard/mapping.txt", [])
         configuration = None
@@ -107,12 +107,12 @@ def get_proguard_output(
         configuration,
         seeds,
         usage,
-        ctx.attr._android_toolchain[AndroidToolchainInfo],
+        ctx.attrs._android_toolchain[AndroidToolchainInfo],
     )
 
     command_line_args_file = ctx.actions.write("proguard/command-line.txt", command_line_args)
 
-    if ctx.attr.skip_proguard:
+    if ctx.attrs.skip_proguard:
         return ProguardOutput(
             jars = input_jars,
             proguard_configuration_output_file = None,
@@ -123,8 +123,8 @@ def get_proguard_output(
         output_jars = inputs_to_outputs.values()
         run_proguard(
             ctx,
-            ctx.attr._android_toolchain[AndroidToolchainInfo],
-            ctx.attr._java_toolchain[JavaToolchainInfo],
+            ctx.attrs._android_toolchain[AndroidToolchainInfo],
+            ctx.attrs._java_toolchain[JavaToolchainInfo],
             command_line_args_file,
             command_line_args,
         )

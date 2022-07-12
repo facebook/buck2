@@ -32,7 +32,7 @@ def _create_kotlin_sources(
     Runs kotlinc on the provided kotlin sources.
     """
 
-    kotlin_toolchain = ctx.attr._kotlin_toolchain[KotlinToolchainInfo]
+    kotlin_toolchain = ctx.attrs._kotlin_toolchain[KotlinToolchainInfo]
     compile_kotlin_tool = kotlin_toolchain.compile_kotlin[RunInfo]
     kotlinc = kotlin_toolchain.kotlinc[RunInfo]
     kotlinc_output = ctx.actions.declare_output("kotlinc_classes_output")
@@ -76,10 +76,10 @@ def _create_kotlin_sources(
             module_name,
             "-no-stdlib",
             "-no-reflect",
-        ] + ctx.attr.extra_kotlinc_arguments,
+        ] + ctx.attrs.extra_kotlinc_arguments,
     )
 
-    jvm_target = _get_kotlinc_compatible_target(ctx.attr.target) if ctx.attr.target else None
+    jvm_target = _get_kotlinc_compatible_target(ctx.attrs.target) if ctx.attrs.target else None
     if jvm_target:
         kotlinc_cmd_args.add([
             "-jvm-target",
@@ -120,7 +120,7 @@ def _create_kotlin_sources(
         if jvm_target:
             compile_kotlin_cmd.add(["--kapt_jvm_target", jvm_target])
 
-    friend_paths = ctx.attr.friend_paths
+    friend_paths = ctx.attrs.friend_paths
     if friend_paths:
         concat_friends_paths = cmd_args([friend_path.library_output.abi for friend_path in map_idx(JavaLibraryInfo, friend_paths)], delimiter = ",")
         kotlinc_cmd_args.add(cmd_args(["-Xfriend-paths", concat_friends_paths], delimiter = "="))
@@ -196,7 +196,7 @@ def _add_plugins(
         kotlinc_cmd_args: "cmd_args",
         compile_kotlin_cmd: "cmd_args",
         is_ksp: bool.type):
-    for plugin, plugin_options in ctx.attr.kotlin_compiler_plugins.items():
+    for plugin, plugin_options in ctx.attrs.kotlin_compiler_plugins.items():
         if _is_ksp_plugin(str(plugin)) != is_ksp:
             continue
 
@@ -225,7 +225,7 @@ def kotlin_library_impl(ctx: "context") -> ["provider"]:
         # TODO(T107163344) this shouldn't be in kotlin_library itself, use overlays to remove it.
         merge_android_packageable_info(
             ctx.actions,
-            ctx.attr.deps + ctx.attr.exported_deps + ctx.attr.runtime_deps,
+            ctx.attrs.deps + ctx.attrs.exported_deps + ctx.attrs.runtime_deps,
         ),
     ]
 
@@ -233,13 +233,13 @@ def build_kotlin_library(
         ctx: "context",
         additional_classpath_entries: ["artifact"] = [],
         bootclasspath_entries: ["artifact"] = []) -> "JavaProviders":
-    srcs = ctx.attr.srcs
+    srcs = ctx.attrs.srcs
     has_kotlin_srcs = any([src.extension == ".kt" or src.basename.endswith(".src.zip") or src.basename.endswith("-sources.jar") for src in srcs])
 
     if not has_kotlin_srcs:
         return build_java_library(
             ctx,
-            ctx.attr.srcs,
+            ctx.attrs.srcs,
             bootclasspath_entries = bootclasspath_entries,
             additional_classpath_entries = additional_classpath_entries,
         )
@@ -248,32 +248,32 @@ def build_kotlin_library(
         deps_query = getattr(ctx.attr, "deps_query", []) or []
         provided_deps_query = getattr(ctx.attr, "provided_deps_query", []) or []
         deps = (
-            ctx.attr.deps +
+            ctx.attrs.deps +
             deps_query +
-            ctx.attr.exported_deps +
-            ctx.attr.provided_deps +
+            ctx.attrs.exported_deps +
+            ctx.attrs.provided_deps +
             provided_deps_query +
-            ctx.attr.exported_provided_deps
+            ctx.attrs.exported_provided_deps
         )
         annotation_processor_params = create_ap_params(
             ctx,
-            ctx.attr.plugins,
-            ctx.attr.annotation_processors,
-            ctx.attr.annotation_processor_params,
-            ctx.attr.annotation_processor_deps,
+            ctx.attrs.plugins,
+            ctx.attrs.annotation_processors,
+            ctx.attrs.annotation_processor_params,
+            ctx.attrs.annotation_processor_deps,
         )
-        ksp_annotation_processor_params = create_ksp_ap_params(ctx.attr.plugins)
+        ksp_annotation_processor_params = create_ksp_ap_params(ctx.attrs.plugins)
 
         kotlinc_classes, kapt_generated_sources, ksp_generated_sources = _create_kotlin_sources(
             ctx,
-            ctx.attr.srcs,
+            ctx.attrs.srcs,
             deps,
             annotation_processor_params,
             ksp_annotation_processor_params,
             # kotlic doesn't support -bootclasspath param, so adding `bootclasspath_entries` into kotlin classpath
             additional_classpath_entries + bootclasspath_entries,
         )
-        srcs = [src for src in ctx.attr.srcs if not src.extension == ".kt"]
+        srcs = [src for src in ctx.attrs.srcs if not src.extension == ".kt"]
         if kapt_generated_sources:
             srcs.append(kapt_generated_sources)
         if ksp_generated_sources:

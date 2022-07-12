@@ -97,16 +97,16 @@ CPrecompiledHeaderInfo = provider(fields = [
 ])
 
 def cxx_attr_header_namespace(ctx: "context") -> str.type:
-    return value_or(ctx.attr.header_namespace, ctx.label.package)
+    return value_or(ctx.attrs.header_namespace, ctx.label.package)
 
 def cxx_attr_exported_headers(ctx: "context", headers_layout: CxxHeadersLayout.type) -> [CHeader.type]:
-    headers = _get_attr_headers(ctx.attr.exported_headers, headers_layout.namespace, headers_layout.naming)
-    platform_headers = _get_attr_headers(_headers_by_platform(ctx, ctx.attr.exported_platform_headers), headers_layout.namespace, headers_layout.naming)
+    headers = _get_attr_headers(ctx.attrs.exported_headers, headers_layout.namespace, headers_layout.naming)
+    platform_headers = _get_attr_headers(_headers_by_platform(ctx, ctx.attrs.exported_platform_headers), headers_layout.namespace, headers_layout.naming)
     return headers + platform_headers
 
 def cxx_attr_headers(ctx: "context", headers_layout: CxxHeadersLayout.type) -> [CHeader.type]:
-    headers = _get_attr_headers(ctx.attr.headers, headers_layout.namespace, headers_layout.naming)
-    platform_headers = _get_attr_headers(_headers_by_platform(ctx, ctx.attr.platform_headers), headers_layout.namespace, headers_layout.naming)
+    headers = _get_attr_headers(ctx.attrs.headers, headers_layout.namespace, headers_layout.naming)
+    platform_headers = _get_attr_headers(_headers_by_platform(ctx, ctx.attrs.platform_headers), headers_layout.namespace, headers_layout.naming)
     return headers + platform_headers
 
 def cxx_get_regular_cxx_headers_layout(ctx: "context") -> CxxHeadersLayout.type:
@@ -114,7 +114,7 @@ def cxx_get_regular_cxx_headers_layout(ctx: "context") -> CxxHeadersLayout.type:
     return CxxHeadersLayout(namespace = namespace, naming = CxxHeadersNaming("regular"))
 
 def cxx_attr_exported_header_style(ctx: "context") -> HeaderStyle.type:
-    return HeaderStyle(ctx.attr.exported_header_style)
+    return HeaderStyle(ctx.attrs.exported_header_style)
 
 def _get_attr_headers(xs: "", namespace: str.type, naming: CxxHeadersNaming.type) -> [CHeader.type]:
     if type(xs) == type([]):

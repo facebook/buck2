@@ -65,7 +65,7 @@ def create_manifest_for_source_dir(
     rule.
     """
     manifest = ctx.actions.declare_output(param + ".manifest")
-    cmd = cmd_args(ctx.attr._create_manifest_for_source_dir[RunInfo])
+    cmd = cmd_args(ctx.attrs._create_manifest_for_source_dir[RunInfo])
     cmd.add("--origin={}".format(ctx.label.raw_target()))
     cmd.add(cmd_args(manifest.as_output(), format = "--output={}"))
     cmd.add(extracted)

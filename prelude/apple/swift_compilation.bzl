@@ -66,7 +66,7 @@ def compile_swift(
     if not srcs:
         return None
 
-    toolchain = ctx.attr._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
 
     module_name = get_module_name(ctx)
     unprocessed_header = ctx.actions.declare_output(module_name + "-SwiftUnprocessed.h")
@@ -130,7 +130,7 @@ def _perform_swift_postprocessing(
         for module, module_exported_headers in exported_headers_map.items()
     }
     deps_json = ctx.actions.write_json(module_name + "-Deps.json", transitive_exported_headers)
-    postprocess_cmd = cmd_args(ctx.attr._apple_tools[AppleToolsInfo].swift_objc_header_postprocess)
+    postprocess_cmd = cmd_args(ctx.attrs._apple_tools[AppleToolsInfo].swift_objc_header_postprocess)
     postprocess_cmd.add([
         unprocessed_header,
         deps_json,
@@ -199,7 +199,7 @@ def _get_shared_flags(
         srcs: [CxxSrcWithFlags.type],
         objc_headers: [CHeader.type],
         objc_modulemap_pp_info: ["CPreprocessor", None]) -> "cmd_args":
-    toolchain = ctx.attr._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
     cmd = cmd_args()
     cmd.add([
         # This allows us to use a relative path for the compiler resource directory.
@@ -225,13 +225,13 @@ def _get_shared_flags(
             toolchain.resource_dir,
         ])
 
-    if ctx.attr.swift_version:
-        cmd.add(["-swift-version", ctx.attr.swift_version])
+    if ctx.attrs.swift_version:
+        cmd.add(["-swift-version", ctx.attrs.swift_version])
 
-    if ctx.attr.enable_cxx_interop:
+    if ctx.attrs.enable_cxx_interop:
         cmd.add(["-Xfrontend", "-enable-cxx-interop"])
 
-    if ctx.attr.serialize_debugging_options:
+    if ctx.attrs.serialize_debugging_options:
         if objc_headers:
             # TODO(T99100029): We cannot use VFS overlays with Buck2, so we have to disable
             # serializing debugging options for mixed libraries to debug successfully
@@ -251,7 +251,7 @@ def _get_shared_flags(
 
     # Add toolchain and target flags last to allow for overriding defaults
     cmd.add(toolchain.compiler_flags)
-    cmd.add(ctx.attr.swift_compiler_flags)
+    cmd.add(ctx.attrs.swift_compiler_flags)
 
     return cmd
 
@@ -262,13 +262,13 @@ def _add_swift_deps_flags(ctx: "context", cmd: "cmd_args"):
     # 3. Transitive SDK deps of user-defined deps.
     # (This is the case, when a user-defined dep exports a type from SDK module,
     # thus such SDK module should be implicitly visible to consumers of that custom dep)
-    if ctx.attr.uses_explicit_modules:
-        toolchain = ctx.attr._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    if ctx.attrs.uses_explicit_modules:
+        toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
         module_name = get_module_name(ctx)
         sdk_deps_tset = get_sdk_deps_tset(ctx, module_name, toolchain)
         swift_deps_tset = ctx.actions.tset(
             SwiftmodulePathsTSet,
-            children = _get_swift_paths_tsets(ctx, ctx.attr.deps + ctx.attr.exported_deps),
+            children = _get_swift_paths_tsets(ctx, ctx.attrs.deps + ctx.attrs.exported_deps),
         )
         swift_deps_list = list(swift_deps_tset.traverse())
 
@@ -294,17 +294,17 @@ def _add_swift_deps_flags(ctx: "context", cmd: "cmd_args"):
         cmd.hidden(sdk_deps_tset.project_as_args("hidden"))
         cmd.hidden(swift_deps_tset.project_as_args("hidden"))
     else:
-        depset = ctx.actions.tset(SwiftmodulePathsTSet, children = _get_swift_paths_tsets(ctx, ctx.attr.deps + ctx.attr.exported_deps))
+        depset = ctx.actions.tset(SwiftmodulePathsTSet, children = _get_swift_paths_tsets(ctx, ctx.attrs.deps + ctx.attrs.exported_deps))
         cmd.add(depset.project_as_args("module_search_path"))
 
 def _add_clang_deps_flags(ctx: "context", cmd: "cmd_args") -> None:
     # If a module uses Explicit Modules, all direct and
     # transitive Clang deps have to be explicitly added.
-    if ctx.attr.uses_explicit_modules:
-        pcm_deps_tset = get_pcm_deps_tset(ctx, ctx.attr.deps + ctx.attr.exported_deps)
+    if ctx.attrs.uses_explicit_modules:
+        pcm_deps_tset = get_pcm_deps_tset(ctx, ctx.attrs.deps + ctx.attrs.exported_deps)
         cmd.add(pcm_deps_tset.project_as_args("clang_deps"))
     else:
-        inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(ctx.attr.deps + ctx.attr.exported_deps)
+        inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(ctx.attrs.deps + ctx.attrs.exported_deps)
         preprocessors = cxx_merge_cpreprocessors(ctx, [], inherited_preprocessor_infos)
         cmd.add(cmd_args(preprocessors.set.project_as_args("args"), prepend = "-Xcc"))
         cmd.add(cmd_args(preprocessors.set.project_as_args("modular_args"), prepend = "-Xcc"))
@@ -348,7 +348,7 @@ def _get_exported_headers_tset(ctx: "context", exported_headers: [["string"], No
         value = {get_module_name(ctx): exported_headers} if exported_headers else None,
         children = [
             dep.exported_headers
-            for dep in map_idx(SwiftDependencyInfo, ctx.attr.exported_deps)
+            for dep in map_idx(SwiftDependencyInfo, ctx.attrs.exported_deps)
             if dep and dep.exported_headers
         ],
     )
@@ -357,11 +357,11 @@ def get_swift_dependency_infos(
         ctx: "context",
         exported_pre: ["CPreprocessor", None],
         output_module: ["artifact", None]) -> [["SwiftPCMCompilationInfo", "SwiftDependencyInfo"]]:
-    deps = ctx.attr.exported_deps
-    if ctx.attr.reexport_all_header_dependencies:
-        deps += ctx.attr.deps
+    deps = ctx.attrs.exported_deps
+    if ctx.attrs.reexport_all_header_dependencies:
+        deps += ctx.attrs.deps
 
-    exported_headers = [_header_basename(header) for header in ctx.attr.exported_headers]
+    exported_headers = [_header_basename(header) for header in ctx.attrs.exported_headers]
     exported_headers += [header.name for header in exported_pre.headers] if exported_pre else []
 
     providers = [SwiftDependencyInfo(

@@ -34,7 +34,7 @@ def preprocessor_info_for_modulemap(ctx: "context", name: str.type, headers: [CH
 
     # Create a modulemap at the root of that tree
     output = ctx.actions.declare_output(name + ".modulemap")
-    cmd = cmd_args(ctx.attr._apple_tools[AppleToolsInfo].make_modulemap)
+    cmd = cmd_args(ctx.attrs._apple_tools[AppleToolsInfo].make_modulemap)
     cmd.add([
         "--output",
         output.as_output(),
@@ -50,7 +50,7 @@ def preprocessor_info_for_modulemap(ctx: "context", name: str.type, headers: [CH
             swift_header,
         ])
 
-    if ctx.attr.use_submodules:
+    if ctx.attrs.use_submodules:
         cmd.add("--use-submodules")
 
     for hdr in sorted(header_map.keys()):

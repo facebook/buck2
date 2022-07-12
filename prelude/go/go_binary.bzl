@@ -3,11 +3,11 @@ load(":compile.bzl", "compile", "get_filtered_srcs")
 load(":link.bzl", "link")
 
 def go_binary_impl(ctx: "context") -> ["provider"]:
-    lib = compile(ctx, "main", get_filtered_srcs(ctx, ctx.attr.srcs), deps = ctx.attr.deps)
-    bin = link(ctx, lib, deps = ctx.attr.deps, link_mode = ctx.attr.link_mode)
+    lib = compile(ctx, "main", get_filtered_srcs(ctx, ctx.attrs.srcs), deps = ctx.attrs.deps)
+    bin = link(ctx, lib, deps = ctx.attrs.deps, link_mode = ctx.attrs.link_mode)
 
     hidden = []
-    for resource in ctx.attr.resources:
+    for resource in ctx.attrs.resources:
         if type(resource) == "artifact":
             hidden.append(resource)
         else:

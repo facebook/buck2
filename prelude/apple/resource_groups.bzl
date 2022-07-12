@@ -71,7 +71,7 @@ def get_resource_groups(ctx: "context") -> [LinkGroup.type]:
     Parses the currently analyzed context for any resource group definitions
     and returns a list of all resource groups with their mappings.
     """
-    resource_group_map = ctx.attr.resource_group_map
+    resource_group_map = ctx.attrs.resource_group_map
 
     if not resource_group_map:
         return []

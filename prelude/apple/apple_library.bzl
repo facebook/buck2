@@ -49,7 +49,7 @@ def apple_library_impl(ctx: "context") -> ["provider"]:
 
     resource_graph = create_resource_graph(
         root = ctx.label,
-        labels = ctx.attr.labels,
+        labels = ctx.attrs.labels,
         deps = cxx_attr_deps(ctx),
         exported_deps = cxx_attr_exported_deps(ctx),
     )
@@ -64,7 +64,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
     # First create a modulemap if necessary. This is required for importing
     # ObjC code in Swift so must be done before Swift compilation.
     exported_hdrs = cxx_attr_exported_headers(ctx, get_apple_cxx_headers_layout(ctx))
-    if (ctx.attr.modular or swift_srcs) and exported_hdrs:
+    if (ctx.attrs.modular or swift_srcs) and exported_hdrs:
         modulemap_pre = preprocessor_info_for_modulemap(ctx, "exported", exported_hdrs, None)
     else:
         modulemap_pre = None
@@ -92,7 +92,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
     swift_providers = swift_compile.providers if swift_compile else get_swift_dependency_infos(ctx, exported_pre, None)
 
     modular_pre = CPreprocessor(
-        uses_modules = ctx.attr.uses_modules,
+        uses_modules = ctx.attrs.uses_modules,
         modular_args = [
             "-fcxx-modules",
             "-fmodules",
@@ -126,7 +126,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
         shared_library_flags = params.shared_library_flags,
         # apple_library's 'stripped' arg only applies to shared subtargets, or,
         # targets with 'preferred_linkage = "shared"'
-        strip_executable = ctx.attr.stripped,
+        strip_executable = ctx.attrs.stripped,
         strip_args_factory = apple_strip_args,
         force_link_group_linking = params.force_link_group_linking,
         cxx_populate_xcode_attributes_func = params.populate_xcode_attributes_func,
