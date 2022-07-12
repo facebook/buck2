@@ -9,3 +9,14 @@ configured_node_test = bxl(
     cli_args = {
     },
 )
+
+def _impl_unconfigured(ctx):
+    node = ctx.unconfigured_targets("root//bin:the_binary")
+
+    ctx.output.print(node.label)
+
+unconfigured_node_test = bxl(
+    impl = _impl_unconfigured,
+    cli_args = {
+    },
+)

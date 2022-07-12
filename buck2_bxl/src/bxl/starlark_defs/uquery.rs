@@ -4,6 +4,7 @@ use buck2_build_api::query::dice::DiceQueryDelegate;
 use buck2_build_api::query::uquery::environment::UqueryEnvironment;
 use derivative::Derivative;
 use derive_more::Display;
+use dice::DiceComputations;
 use gazebo::any::ProvidesStaticType;
 use gazebo::prelude::*;
 use starlark::environment::Methods;
@@ -21,6 +22,8 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
+use crate::bxl::starlark_defs::context::BxlContext;
+
 #[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize)]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
@@ -37,6 +40,17 @@ impl<'v> StarlarkValue<'v> for StarlarkUQueryCtx<'v> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(register_uquery)
     }
+}
+
+pub(crate) async fn get_uquery_env<'v>(
+    ctx: &'v DiceComputations,
+) -> anyhow::Result<UqueryEnvironment<'v>> {
+    let dice_query_delegate = BxlContext::dice_query_delegate(ctx, None).await?;
+    let uquery_delegate = Arc::new(dice_query_delegate);
+    Ok(UqueryEnvironment::new(
+        uquery_delegate.dupe(),
+        uquery_delegate,
+    ))
 }
 
 impl<'v> AllocValue<'v> for StarlarkUQueryCtx<'v> {

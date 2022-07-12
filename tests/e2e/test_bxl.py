@@ -390,6 +390,17 @@ async def test_bxl_configured_node(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="bql/simple")
+async def test_bxl_unconfigured_node(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl/node.bxl:unconfigured_node_test",
+    )
+
+    assert result.stdout.splitlines() == [
+        "root//bin:the_binary",
+    ]
+
+
+@buck_test(inplace=False, data_dir="bql/simple")
 async def test_bxl_caching(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl/caching.bxl:print_caching",

@@ -35,6 +35,7 @@ use buck2_core::target::TargetLabel;
 use buck2_docs_gen::Buck2Docs;
 use buck2_interpreter::types::label::Label;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::unconfigured::TargetNode;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -71,6 +72,7 @@ use crate::bxl::starlark_defs::cquery::StarlarkCQueryCtx;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 use crate::bxl::starlark_defs::target_expr::TargetExpr;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
+use crate::bxl::starlark_defs::uquery::get_uquery_env;
 use crate::bxl::starlark_defs::uquery::StarlarkUQueryCtx;
 use crate::bxl::value_as_starlak_target_label::ValueAsStarlarkTargetLabel;
 
@@ -281,6 +283,42 @@ fn register_context(builder: &mut MethodsBuilder) {
                             .get_configured_target_node(&label)
                             .await?
                             .require_compatible()?;
+
+                        node.alloc(eval.heap())
+                    }
+
+                    TargetExpr::Node(node) => node.alloc(eval.heap()),
+                    multi => eval.heap().alloc(StarlarkTargetSet::from(
+                        multi.get(&query_env).await?.into_owned(),
+                    )),
+                },
+            )
+        });
+
+        res
+    }
+
+    /// Gets the unconfigured target nodes for the `labels`
+    ///
+    /// The given `labels` is either:
+    ///     - a single string that is a `target pattern`.
+    ///     - a single unconfigured  target node or label
+    ///     - a list of the two options above.
+    ///
+    /// This returns either a single [`StarlarkTargetNode`] if the given `labels`
+    /// is "singular", a dict keyed by target labels of [`StarlarkTargetNode`] if the
+    /// given `labels` is list-like
+    fn unconfigured_targets<'v>(
+        this: &'v BxlContext<'v>,
+        labels: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        let res: anyhow::Result<Value<'v>> = this.async_ctx.via_dice(|ctx| async move {
+            let query_env = get_uquery_env(ctx).await?;
+            Ok(
+                match TargetExpr::<'v, TargetNode>::unpack(labels, this, eval).await? {
+                    TargetExpr::Label(label) => {
+                        let node = ctx.get_target_node(&label).await?;
 
                         node.alloc(eval.heap())
                     }
