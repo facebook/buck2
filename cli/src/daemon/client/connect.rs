@@ -10,22 +10,23 @@
 use std::env;
 use std::fs::File;
 use std::io::BufReader;
-use std::io::Read;
 use std::time::Duration;
 
 use anyhow::anyhow;
 use anyhow::Context;
 use buck2_core::fs::paths::AbsPathBuf;
-use buck2_core::process::background_command;
+use buck2_core::process::async_background_command;
 use cli_proto::daemon_api_client::DaemonApiClient;
 use cli_proto::DaemonProcessInfo;
 use events::subscriber::EventSubscriber;
 use fs2::FileExt;
+use futures::future::try_join3;
 use futures::FutureExt;
 use gazebo::prelude::StrExt;
 use thiserror::Error;
+use tokio::io::AsyncReadExt;
+use tokio::time::timeout;
 use tonic::transport::Channel;
-use wait_timeout::ChildExt;
 
 use crate::commands::common::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
 use crate::daemon::client::events_ctx::EventsCtx;
@@ -70,41 +71,34 @@ impl<'a> BuckdLifecycle<'a> {
 
     async fn start_server(&self) -> anyhow::Result<()> {
         let project_dir = self.paths.project_root();
+        let timeout_secs = Duration::from_secs(env::var("BUCKD_STARTUP_TIMEOUT").map_or(10, |t| {
+            t.parse::<u64>()
+                .unwrap_or_else(|_| panic!("Cannot convert {} to int", t))
+        }));
 
         let mut cmd =
-            background_command(std::env::current_exe().expect("somehow couldn't get current exe"));
-        // --isolation-dir is an option on the root `buck` cli, not the subcommand.
-        cmd.arg("--isolation-dir");
-        cmd.arg(self.paths.isolation.as_str());
-
-        cmd.arg("daemon");
+            async_background_command(std::env::current_exe().context("failed to get current exe")?);
+        cmd.current_dir(project_dir)
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            // --isolation-dir is an option on the root `buck` cli, not the subcommand.
+            .arg("--isolation-dir")
+            .arg(self.paths.isolation.as_str())
+            .arg("daemon");
 
         // It is the responsibility of processes that invoke buck2 to indicate via this environment variable whether or
         // not the child process should log to Scribe. The top-level buck2 CLI is invoked via the wrapper, which does
         // this; the `buck2 daemon` command must also be instructed to log to Scribe if the top-level CLI was itself
         // instructed to log.
-        //
         // This environment variable ensures that Scribe logging is enabled upon entry of the buck2 daemon command.
         if !events::sink::scribe::is_enabled() {
             cmd.env("BUCK2_ENABLE_SCRIBE", "0");
         }
 
-        cmd.current_dir(project_dir);
-
-        if cfg!(windows) {
-            // On Rustc 1.61, reading piped stdout hangs in this case.
-            // Possibly related to https://github.com/rust-lang/rust/issues/45572
-            cmd.stdout(std::process::Stdio::null());
-            cmd.stderr(std::process::Stdio::null());
-        } else {
-            cmd.stdout(std::process::Stdio::piped());
-            cmd.stderr(std::process::Stdio::piped());
-        }
-
+        // For Unix, set a daemon process title
         #[cfg(unix)]
         {
             use std::ffi::OsString;
-            use std::os::unix::process::CommandExt;
 
             let mut title = OsString::new();
             title.push("buck2d");
@@ -117,43 +111,67 @@ impl<'a> BuckdLifecycle<'a> {
         }
 
         let mut child = cmd.spawn()?;
+        let mut stdout_taken = child
+            .stdout
+            .take()
+            .context("stdout should be piped above")?;
+        let mut stderr_taken = child
+            .stderr
+            .take()
+            .context("stderr should be piped above")?;
 
-        let status_code = match child.wait_timeout(Duration::from_secs(
-            env::var("BUCKD_STARTUP_TIMEOUT").map_or(10, |t| {
-                t.parse::<u64>()
-                    .unwrap_or_else(|_| panic!("Cannot convert {} to int", t))
-            }),
-        ))? {
-            Some(status) => status.code(),
-            None => {
-                // child hasn't exited yet. this shouldn't ever happen, if it does, maybe the timeout needs to be changed.
-                child.kill()?;
-                child.wait()?.code()
+        let status_fut = async {
+            let result = timeout(timeout_secs, child.wait()).await;
+            match result {
+                Err(_elapsed) => {
+                    // The command has timed out, kill the process and wait
+                    child.kill().await.context(
+                        "failed to kill process after timing out when launching buck2 daemon",
+                    )?;
+                    // This should return immeditately as kill() waits for the process to end. We wait here again to fetch the ExitStatus
+                    // Signal termination is not considered a success, so wait() results in an appropriate ExitStatus
+                    Ok(child.wait().await?)
+                }
+                Ok(result) => result.map_err(|e| anyhow::anyhow!(e)),
             }
         };
+        let stdout_fut = async {
+            let mut buf = Vec::new();
+            stdout_taken
+                .read_to_end(&mut buf)
+                .await
+                .context("failed to read stdout")?;
+            Ok(buf)
+        };
+        let stderr_read = async {
+            let mut buf = Vec::new();
+            stderr_taken
+                .read_to_end(&mut buf)
+                .await
+                .context("failed to read stderr")?;
+            Ok(buf)
+        };
 
-        match status_code {
-            Some(code) if code != 0 => {
-                let mut stdout = Vec::new();
-                child
-                    .stdout
-                    .expect("no stdout from `buck daemon` call")
-                    .read_to_end(&mut stdout)
-                    .expect("stdout not a string");
-                let mut stderr = Vec::new();
-                child
-                    .stderr
-                    .expect("no stderr from `buck daemon` call")
-                    .read_to_end(&mut stderr)
-                    .expect("stderr not a string");
-                Err(BuckdConnectError::BuckDaemonStartupFailed {
-                    code,
-                    stdout: String::from_utf8_lossy(&stdout).to_string(),
-                    stderr: String::from_utf8_lossy(&stderr).to_string(),
-                }
-                .into())
+        let joined = try_join3(status_fut, stdout_fut, stderr_read).await;
+        match joined {
+            Err(e) => Err(BuckdConnectError::BuckDaemonStartupFailed {
+                code: 1,
+                stdout: "".to_owned(),
+                stderr: format!("failed to launch Buck2 daemon: {:#}", e),
             }
-            _ => Ok(()),
+            .into()),
+            Ok((status, stdout, stderr)) => {
+                if !status.success() {
+                    Err(BuckdConnectError::BuckDaemonStartupFailed {
+                        code: status.code().unwrap_or(1),
+                        stdout: String::from_utf8_lossy(&stdout).to_string(),
+                        stderr: String::from_utf8_lossy(&stderr).to_string(),
+                    }
+                    .into())
+                } else {
+                    Ok(())
+                }
+            }
         }
     }
 }

@@ -89,7 +89,6 @@ tower = "0.4"
 async-stream = "0.3.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # @oss-disable: user = { path = "../../common/rust/user", optional = true }
-wait-timeout = "0.2.0"
 walkdir = "2.3.2"
 watchman_client.version = "0.8.0"
 # @oss-disable: watchman_client.path = "../../watchman/rust/watchman_client"
