@@ -1,17 +1,17 @@
 def write_file_impl(ctx):
-    out = ctx.actions.write(ctx.attr.out, ctx.attr.contents)
+    out = ctx.actions.write(ctx.attrs.out, ctx.attrs.contents)
     return [DefaultInfo(default_outputs = [out])]
 
 def symlink_files_impl(ctx):
     srcs = {
         src.short_path: src
-        for src in ctx.attr.srcs
+        for src in ctx.attrs.srcs
     }
 
     # Also make sure that linking to a new location works properly
     srcs.update({
         "subdir/{}.suffix".format(src.short_path): src
-        for src in ctx.attr.srcs
+        for src in ctx.attrs.srcs
     })
     out = ctx.actions.symlinked_dir("out", srcs)
     return [DefaultInfo(default_outputs = [out])]

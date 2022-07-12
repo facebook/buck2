@@ -1,10 +1,10 @@
 def _test_impl(ctx):
-    cli = cmd_args(ctx.attr.script, ctx.attr.artifact)
+    cli = cmd_args(ctx.attrs.script, ctx.attrs.artifact)
 
     # Relative paths AND running from cell root is a bit of an oddball
     # combination and we don't make it particularly easy to use. Rule authors
     # should probably not use this.
-    if ctx.attr.use_project_relative_paths and not ctx.attr.run_from_project_root:
+    if ctx.attrs.use_project_relative_paths and not ctx.attrs.run_from_project_root:
         cli.relative_to(ctx.label.cell_root)
 
     re_config = CommandExecutorConfig(
@@ -15,16 +15,16 @@ def _test_impl(ctx):
         },
     )
 
-    default_executor = re_config if ctx.attr.set_default_executor else None
+    default_executor = re_config if ctx.attrs.set_default_executor else None
 
     return [
         DefaultInfo(),
         ExternalRunnerTestInfo(
             type = "custom",
             command = [cli],
-            use_project_relative_paths = ctx.attr.use_project_relative_paths,
-            run_from_project_root = ctx.attr.run_from_project_root,
-            labels = ctx.attr.labels,
+            use_project_relative_paths = ctx.attrs.use_project_relative_paths,
+            run_from_project_root = ctx.attrs.run_from_project_root,
+            labels = ctx.attrs.labels,
             default_executor = default_executor,
             executor_overrides = {
                 "re-linux": re_config,

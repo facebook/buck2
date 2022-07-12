@@ -8,7 +8,7 @@ constraint_setting = rule(
 
 def _constraint_value(ctx):
     constraint_value = ConstraintValueInfo(
-        setting = ctx.attr.setting[ConstraintSettingInfo],
+        setting = ctx.attrs.setting[ConstraintSettingInfo],
         label = ctx.label.raw_target(),
     )
     return [
@@ -28,7 +28,7 @@ constraint_value = rule(
 def _platform(ctx):
     constraints = {}
     values = {}
-    for x in ctx.attr.configuration:
+    for x in ctx.attrs.configuration:
         constraints |= x[ConfigurationInfo].constraints
         values |= x[ConfigurationInfo].values
     cfg = ConfigurationInfo(constraints = constraints, values = values)
@@ -53,7 +53,7 @@ def _platforms(ctx):
     return [
         DefaultInfo(),
         ExecutionPlatformRegistrationInfo(
-            platforms = [x[ExecutionPlatformInfo] for x in ctx.attr.platforms],
+            platforms = [x[ExecutionPlatformInfo] for x in ctx.attrs.platforms],
         ),
     ]
 

@@ -1,6 +1,6 @@
 def _python_binary_asic(ctx):
     out = ctx.actions.declare_output("out")
-    cmd = cmd_args("echo $(", ctx.attr._python_toolchain[RunInfo], ") $(", ctx.attr._asic_toolchain[RunInfo], ") > ", out.as_output(), delimiter = "")
+    cmd = cmd_args("echo $(", ctx.attrs._python_toolchain[RunInfo], ") $(", ctx.attrs._asic_toolchain[RunInfo], ") > ", out.as_output(), delimiter = "")
     ctx.actions.run(cmd_args("bash", "-c", cmd), category = "python_binary_asic")
     return [DefaultInfo(default_outputs = [out])]
 
@@ -14,7 +14,7 @@ python_binary_asic = rule(
 
 def _python_binary(ctx):
     out = ctx.actions.declare_output("out")
-    cmd = cmd_args("echo $(", ctx.attr._python_toolchain[RunInfo], ") > ", out.as_output(), delimiter = "")
+    cmd = cmd_args("echo $(", ctx.attrs._python_toolchain[RunInfo], ") > ", out.as_output(), delimiter = "")
     ctx.actions.run(cmd_args("bash", "-c", cmd), category = "python_binary")
     return [DefaultInfo(default_outputs = [out])]
 

@@ -2,8 +2,8 @@ load("@fbcode//buck2/prelude/apple:apple_info_plist_substitutions_parsing.bzl", 
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 
 def _test_parse_codesign_entitlements(ctx):
-    result = parse_codesign_entitlements(ctx.attr.info_plist_substitutions)
-    expected = ctx.attr.expected_code_sign_entitlements
+    result = parse_codesign_entitlements(ctx.attrs.info_plist_substitutions)
+    expected = ctx.attrs.expected_code_sign_entitlements
     expect(result == expected, "Expected `{}`, got `{}`".format(expected, result))
     return [DefaultInfo()]
 

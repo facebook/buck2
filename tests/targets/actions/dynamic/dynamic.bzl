@@ -164,8 +164,8 @@ def assert_eq(a, b):
         fail("Expected equal, but got", a, b)
 
 def _assert_output_value_impl(ctx: "context") -> ["provider"]:
-    produced = ctx.attr.dep[DefaultInfo].default_outputs[0]
-    value = ctx.actions.write("value", ctx.attr.value)
+    produced = ctx.attrs.dep[DefaultInfo].default_outputs[0]
+    value = ctx.actions.write("value", ctx.attrs.value)
     output = ctx.actions.declare_output("output")
     run = ctx.actions.write(
         "run.sh",

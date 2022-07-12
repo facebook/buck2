@@ -1,5 +1,5 @@
 def _remote_text_impl(ctx):
-    text = ctx.attr.text
+    text = ctx.attrs.text
 
     out = ctx.actions.declare_output("action_output")
     ctx.actions.run(
@@ -17,7 +17,7 @@ remote_text = rule(
 )
 
 def _symlink_dir_impl(ctx):
-    remote_text = ctx.attr.remote_text[DefaultInfo].default_outputs[0]
+    remote_text = ctx.attrs.remote_text[DefaultInfo].default_outputs[0]
     link = ctx.actions.symlinked_dir(ctx.label.name, {"link": remote_text})
     return [DefaultInfo(default_outputs = [link])]
 
@@ -29,8 +29,8 @@ symlink_dir = rule(
 )
 
 def _check_impl(ctx):
-    text = ctx.attr.text
-    symlink_dir = ctx.attr.symlink_dir[DefaultInfo].default_outputs[0]
+    text = ctx.attrs.text
+    symlink_dir = ctx.attrs.symlink_dir[DefaultInfo].default_outputs[0]
 
     out = ctx.actions.declare_output("out")
 

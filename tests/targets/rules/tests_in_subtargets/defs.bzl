@@ -1,7 +1,7 @@
 def _test_in_subtarget_impl(ctx):
     test_info = ExternalRunnerTestInfo(
         type = "custom",
-        command = [ctx.attr.test],
+        command = [ctx.attrs.test],
         env = {},
         labels = [],
         contacts = ["buck2"],

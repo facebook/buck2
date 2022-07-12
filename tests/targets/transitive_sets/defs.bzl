@@ -13,7 +13,7 @@ def _test_impl(ctx):
 
     # Produce a tset that is our file concated wiht all the files emitted by
     # our children.
-    children = [d[NameInfo].tset for d in ctx.attr.deps]
+    children = [d[NameInfo].tset for d in ctx.attrs.deps]
     tset = ctx.actions.tset(NameSet, value = out, children = children)
 
     # Concatenate all the files declared by the tset, into a single file

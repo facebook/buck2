@@ -8,7 +8,7 @@ def _assert(cond):
 
 def _binary_impl(ctx):
     # Check deps come as dict from split transition label to providers.
-    [lib_deps] = ctx.attr.native_deps
+    [lib_deps] = ctx.attrs.native_deps
     _assert(type(lib_deps) == type({}))
     _assert("a64" == lib_deps["arm64"][MyArtifact].test_data)
     _assert("a32" == lib_deps["arm32"][MyArtifact].test_data)

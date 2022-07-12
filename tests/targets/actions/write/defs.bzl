@@ -9,31 +9,31 @@ def _simple_write_impl(ctx):
     ]
 
 def _write_file_impl(ctx):
-    if ctx.attr.name == "uses_declared_output":
-        declared = ctx.actions.declare_output(ctx.attr.out)
-        output = ctx.actions.write(declared, ctx.attr.content)
+    if ctx.attrs.name == "uses_declared_output":
+        declared = ctx.actions.declare_output(ctx.attrs.out)
+        output = ctx.actions.write(declared, ctx.attrs.content)
         return [DefaultInfo(default_outputs = [output])]
-    elif ctx.attr.name == "uses_declared_output_as_output":
-        declared = ctx.actions.declare_output(ctx.attr.out)
-        output = ctx.actions.write(declared.as_output(), ctx.attr.content)
+    elif ctx.attrs.name == "uses_declared_output_as_output":
+        declared = ctx.actions.declare_output(ctx.attrs.out)
+        output = ctx.actions.write(declared.as_output(), ctx.attrs.content)
         return [DefaultInfo(default_outputs = [output])]
-    elif ctx.attr.name == "declares_output":
-        output = ctx.actions.write(ctx.attr.out, ctx.attr.content)
+    elif ctx.attrs.name == "declares_output":
+        output = ctx.actions.write(ctx.attrs.out, ctx.attrs.content)
         return [DefaultInfo(default_outputs = [output])]
-    elif ctx.attr.name == "is_executable":
-        output = ctx.actions.write(ctx.attr.out, ctx.attr.content, is_executable = True)
-    elif ctx.attr.name == "writes_array_of_commands":
-        cmd = [ctx.attr.dep[FooInfo].out, ctx.attr.content]
-        output = ctx.actions.write(ctx.attr.out, cmd)
-    elif ctx.attr.name == "writes_command_lines":
-        cmd = [ctx.attr.dep[FooInfo].out, ctx.attr.content]
-        output = ctx.actions.write(ctx.attr.out, cmd_args(cmd))
-    elif ctx.attr.name == "writes_frozen_command_lines":
-        output = ctx.actions.write(ctx.attr.out, ctx.attr.dep[FooInfo].args)
-    elif ctx.attr.name == "fails_on_invalid_contents":
-        output = ctx.actions.write(ctx.attr.out, {})
-    elif ctx.attr.name == "fails_on_invalid_output":
-        output = ctx.actions.write([], ctx.attr.content)
+    elif ctx.attrs.name == "is_executable":
+        output = ctx.actions.write(ctx.attrs.out, ctx.attrs.content, is_executable = True)
+    elif ctx.attrs.name == "writes_array_of_commands":
+        cmd = [ctx.attrs.dep[FooInfo].out, ctx.attrs.content]
+        output = ctx.actions.write(ctx.attrs.out, cmd)
+    elif ctx.attrs.name == "writes_command_lines":
+        cmd = [ctx.attrs.dep[FooInfo].out, ctx.attrs.content]
+        output = ctx.actions.write(ctx.attrs.out, cmd_args(cmd))
+    elif ctx.attrs.name == "writes_frozen_command_lines":
+        output = ctx.actions.write(ctx.attrs.out, ctx.attrs.dep[FooInfo].args)
+    elif ctx.attrs.name == "fails_on_invalid_contents":
+        output = ctx.actions.write(ctx.attrs.out, {})
+    elif ctx.attrs.name == "fails_on_invalid_output":
+        output = ctx.actions.write([], ctx.attrs.content)
     else:
         fail("invalid test")
     return [DefaultInfo(default_outputs = [output])]

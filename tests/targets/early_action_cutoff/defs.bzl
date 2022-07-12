@@ -1,6 +1,6 @@
 def _not_hermetic_action_impl(ctx):
-    dep = ctx.attr.dep[DefaultInfo].default_outputs[0]
-    sentinel = ctx.attr.sentinel
+    dep = ctx.attrs.dep[DefaultInfo].default_outputs[0]
+    sentinel = ctx.attrs.sentinel
     out = ctx.actions.declare_output("out")
 
     ctx.actions.run(
@@ -27,7 +27,7 @@ not_hermetic_action = rule(
 )
 
 def _rerun_action_impl(ctx):
-    src = ctx.attr.src
+    src = ctx.attrs.src
     out = ctx.actions.declare_output("out")
 
     ctx.actions.run(

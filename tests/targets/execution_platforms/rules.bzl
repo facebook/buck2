@@ -7,8 +7,8 @@ def _platform(ctx):
     # (instead it matches on it).
     configuration = ConfigurationInfo(
         constraints = {
-            ctx.attr.setting.label.raw_target(): ConstraintValueInfo(
-                setting = ctx.attr.setting[ConstraintSettingInfo],
+            ctx.attrs.setting.label.raw_target(): ConstraintValueInfo(
+                setting = ctx.attrs.setting[ConstraintSettingInfo],
                 label = ctx.label.raw_target(),
             ),
         },
@@ -25,9 +25,9 @@ def _platform(ctx):
                 "platform": "linux-remote-execution",
             },
             remote_execution_max_input_files_mebibytes = 1,
-            use_limited_hybrid = ctx.attr.use_limited_hybrid,
-            allow_limited_hybrid_fallbacks = ctx.attr.allow_hybrid_fallbacks_on_failure,
-            allow_hybrid_fallbacks_on_failure = ctx.attr.allow_hybrid_fallbacks_on_failure,
+            use_limited_hybrid = ctx.attrs.use_limited_hybrid,
+            allow_limited_hybrid_fallbacks = ctx.attrs.allow_hybrid_fallbacks_on_failure,
+            allow_hybrid_fallbacks_on_failure = ctx.attrs.allow_hybrid_fallbacks_on_failure,
         ),
     )
 
@@ -50,7 +50,7 @@ def _platforms(ctx):
     return [
         DefaultInfo(),
         ExecutionPlatformRegistrationInfo(
-            platforms = [x[ExecutionPlatformInfo] for x in ctx.attr.platforms],
+            platforms = [x[ExecutionPlatformInfo] for x in ctx.attrs.platforms],
         ),
     ]
 
@@ -91,7 +91,7 @@ def _file_impl(ctx):
             "-c",
             'head -c "$1" /dev/urandom > $2',
             "--",
-            str(ctx.attr.file_size),
+            str(ctx.attrs.file_size),
             out.as_output(),
         ],
         category = "head",
@@ -106,7 +106,7 @@ def _cp_impl(ctx):
     ctx.actions.run(
         [
             "cp",
-            ctx.attr.file[DefaultInfo].default_outputs[0],
+            ctx.attrs.file[DefaultInfo].default_outputs[0],
             out.as_output(),
         ],
         category = "cp",
@@ -119,7 +119,7 @@ def _command_impl(ctx):
     out = ctx.actions.declare_output("out")
     ctx.actions.run(
         [
-            ctx.attr.command,
+            ctx.attrs.command,
             out.as_output(),
         ],
         category = "command",

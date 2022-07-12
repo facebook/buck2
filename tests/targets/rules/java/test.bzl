@@ -3,7 +3,7 @@ load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 
 def _extract_expected_artifacts(ctx, use_abi: "bool"):
     expected_deps = []
-    for dep in ctx.attr.expected_deps:
+    for dep in ctx.attrs.expected_deps:
         java_library_info = dep[JavaLibraryInfo]
         if java_library_info:
             library_output = java_library_info.library_output
@@ -19,7 +19,7 @@ def _compare_deps(deps_type, actual_deps, expected_deps):
         expect(dep in expected_deps, "Fail when comparing {} deps. Expected {}, got {}", deps_type, expected_deps, actual_deps)
 
 def _assert_packaging_deps_impl(ctx):
-    packaging_deps = ctx.attr.actual_target[JavaPackagingInfo].packaging_deps
+    packaging_deps = ctx.attrs.actual_target[JavaPackagingInfo].packaging_deps
     actual_deps = [packaging_dep.jar for packaging_dep in (list(packaging_deps.traverse()) if packaging_deps else []) if packaging_dep.jar]
 
     expected_deps = _extract_expected_artifacts(ctx, use_abi = False)
@@ -37,8 +37,8 @@ assert_packaging_deps = rule(
 
 def _assert_compiling_deps_impl(ctx):
     actual_deps = []
-    expected_suffix = ctx.attr.expected_suffix
-    compiling_deps = ctx.attr.actual_target[JavaLibraryInfo].compiling_deps
+    expected_suffix = ctx.attrs.expected_suffix
+    compiling_deps = ctx.attrs.actual_target[JavaLibraryInfo].compiling_deps
     for dep in list(compiling_deps.traverse()) if compiling_deps else []:
         actual_dep = dep.abi
         if expected_suffix:

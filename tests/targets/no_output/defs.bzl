@@ -1,6 +1,6 @@
 def _out_library_impl(ctx):
     outs = []
-    for out in ctx.attr.outs:
+    for out in ctx.attrs.outs:
         for default_out in out[DefaultInfo].default_outputs:
             ctx.actions.write(default_out.basename, default_out)
             outs.append(default_out)

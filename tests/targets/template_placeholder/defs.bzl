@@ -12,13 +12,13 @@ CombinerInfo = provider(fields = ["tset"])
 def _combiner(ctx):
     output = ctx.actions.write("out", "")
 
-    # the tset node's value will be our own output and the tset of ctx.attr.extra_value if present
+    # the tset node's value will be our own output and the tset of ctx.attrs.extra_value if present
     # note that the normal way of combining tsets is by putting them in children and we want to be
     # able to explicitly test when a tset appears within the node value
     value = cmd_args(output)
-    if ctx.attr.extra_value != None:
-        value.add(ctx.attr.extra_value[CombinerInfo].tset.project_as_args(""))
-    children = [c[CombinerInfo].tset for c in ctx.attr.children]
+    if ctx.attrs.extra_value != None:
+        value.add(ctx.attrs.extra_value[CombinerInfo].tset.project_as_args(""))
+    children = [c[CombinerInfo].tset for c in ctx.attrs.children]
     tset = ctx.actions.tset(CombinerTset, value = value, children = children)
     return [
         DefaultInfo(),
@@ -58,9 +58,9 @@ def test(query_deps, expected_deps):
     return None
 
 def _tester(ctx):
-    res = test(ctx.attr.query, ctx.attr.expected)
+    res = test(ctx.attrs.query, ctx.attrs.expected)
     if res:
-        fail("failed due to {}. expected `{}`, got `{}`".format(res, ctx.attr.expected, ctx.attr.query))
+        fail("failed due to {}. expected `{}`, got `{}`".format(res, ctx.attrs.expected, ctx.attrs.query))
 
     return [DefaultInfo()]
 

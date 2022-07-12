@@ -1,5 +1,5 @@
 def _alias(ctx):
-    return ctx.attr.dep.providers
+    return ctx.attrs.dep.providers
 
 alias = rule(
     impl = _alias,
@@ -7,7 +7,7 @@ alias = rule(
 )
 
 def _toolchain(ctx):
-    return ctx.attr.dep.providers
+    return ctx.attrs.dep.providers
 
 toolchain = rule(
     impl = _toolchain,
@@ -16,7 +16,7 @@ toolchain = rule(
 )
 
 def _command(ctx):
-    return [DefaultInfo(default_outputs = [ctx.attr.source]), RunInfo(args = cmd_args(ctx.attr.source))]
+    return [DefaultInfo(default_outputs = [ctx.attrs.source]), RunInfo(args = cmd_args(ctx.attrs.source))]
 
 command = rule(
     impl = _command,

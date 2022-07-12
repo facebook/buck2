@@ -17,7 +17,7 @@ config_setting = rule(
 )
 
 def _configuration_impl(ctx):
-    config_setting = ctx.attr.config_setting
+    config_setting = ctx.attrs.config_setting
     value = ConstraintValueInfo(
         setting = config_setting[ConstraintSettingInfo],
         label = ctx.label.raw_target(),
@@ -40,7 +40,7 @@ def _platform_impl(ctx):
         DefaultInfo(),
         PlatformInfo(
             label = str(ctx.label.raw_target()),
-            configuration = ctx.attr.configuration[ConfigurationInfo],
+            configuration = ctx.attrs.configuration[ConfigurationInfo],
         ),
     ]
 

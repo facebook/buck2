@@ -28,10 +28,10 @@ foo_config_setting = rule(
 )
 
 def _impl(ctx):
-    return [DefaultInfo(), FooInfo(foo = ctx.attr.name + "_foo")]
+    return [DefaultInfo(), FooInfo(foo = ctx.attrs.name + "_foo")]
 
 def _binary_impl(ctx):
-    return [DefaultInfo(), RunInfo(args = []), FooInfo(foo = ctx.attr.name + "_foo")]
+    return [DefaultInfo(), RunInfo(args = []), FooInfo(foo = ctx.attrs.name + "_foo")]
 
 _foo_library = rule(
     impl = _impl,

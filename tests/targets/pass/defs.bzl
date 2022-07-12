@@ -27,7 +27,7 @@ touch "$1"
     script_args.append(out.as_output())
     ctx.actions.run(
         script_args,
-        always_print_stderr = ctx.attr.always_print,
+        always_print_stderr = ctx.attrs.always_print,
         category = "printer",
         identifier = "writing_stderr",
     )
