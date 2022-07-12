@@ -155,12 +155,14 @@ impl StatefulSuperConsole {
     pub(crate) fn new_with_root_forced(
         root: Box<dyn Component>,
         verbosity: Verbosity,
+        show_waiting_message: bool,
         replay_speed: Option<f64>,
     ) -> anyhow::Result<Self> {
         let default_size = ::superconsole::Dimensions { x: 100, y: 40 };
         Self::new(
             Self::console_builder().build_forced(root, default_size)?,
             verbosity,
+            show_waiting_message,
             replay_speed,
         )
     }
@@ -168,17 +170,24 @@ impl StatefulSuperConsole {
     pub(crate) fn new_with_root(
         root: Box<dyn Component>,
         verbosity: Verbosity,
+        show_waiting_message: bool,
         replay_speed: Option<f64>,
     ) -> anyhow::Result<Option<Self>> {
         match Self::console_builder().build(root)? {
             None => Ok(None),
-            Some(sc) => Ok(Some(Self::new(sc, verbosity, replay_speed)?)),
+            Some(sc) => Ok(Some(Self::new(
+                sc,
+                verbosity,
+                show_waiting_message,
+                replay_speed,
+            )?)),
         }
     }
 
     pub(crate) fn new(
         super_console: SuperConsole,
         verbosity: Verbosity,
+        show_waiting_message: bool,
         replay_speed: Option<f64>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
@@ -187,7 +196,7 @@ impl StatefulSuperConsole {
                 current_tick: Tick::now(),
                 session_info: SessionInfo::default(),
                 time_speed: TimeSpeed::new(replay_speed)?,
-                simple_console: SimpleConsole::with_tty(verbosity),
+                simple_console: SimpleConsole::with_tty(verbosity, show_waiting_message),
                 dice_state: DiceState::new(),
                 debug_events: DebugEventsState::new(),
             },
@@ -672,6 +681,7 @@ mod tests {
         let mut console = StatefulSuperConsole::new_with_root_forced(
             StatefulSuperConsole::default_layout("test", SuperConsoleConfig::default()),
             Verbosity::Default,
+            true,
             None,
         )
         .unwrap();
@@ -737,6 +747,7 @@ mod tests {
                 Default::default(),
             )),
             Verbosity::Default,
+            true,
             Default::default(),
         )?;
 

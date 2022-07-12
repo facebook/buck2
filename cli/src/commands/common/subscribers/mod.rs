@@ -34,22 +34,41 @@ use crate::CommandContext;
 pub(crate) fn get_console_with_root(
     console_type: ConsoleType,
     verbosity: Verbosity,
+    show_waiting_message: bool,
     replay_speed: Option<f64>,
     root: Box<dyn Component>,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     match console_type {
-        ConsoleType::Simple => Ok(Some(box SimpleConsole::autodetect(verbosity))),
-        ConsoleType::SimpleNoTty => Ok(Some(box SimpleConsole::without_tty(verbosity))),
-        ConsoleType::SimpleTty => Ok(Some(box SimpleConsole::with_tty(verbosity))),
+        ConsoleType::Simple => Ok(Some(box SimpleConsole::autodetect(
+            verbosity,
+            show_waiting_message,
+        ))),
+        ConsoleType::SimpleNoTty => Ok(Some(box SimpleConsole::without_tty(
+            verbosity,
+            show_waiting_message,
+        ))),
+        ConsoleType::SimpleTty => Ok(Some(box SimpleConsole::with_tty(
+            verbosity,
+            show_waiting_message,
+        ))),
         ConsoleType::Super => Ok(Some(box StatefulSuperConsole::new_with_root_forced(
             root,
             verbosity,
+            show_waiting_message,
             replay_speed,
         )?)),
         ConsoleType::Auto => {
-            match StatefulSuperConsole::new_with_root(root, verbosity, replay_speed)? {
+            match StatefulSuperConsole::new_with_root(
+                root,
+                verbosity,
+                show_waiting_message,
+                replay_speed,
+            )? {
                 Some(super_console) => Ok(Some(box super_console)),
-                None => Ok(Some(box SimpleConsole::autodetect(verbosity))),
+                None => Ok(Some(box SimpleConsole::autodetect(
+                    verbosity,
+                    show_waiting_message,
+                ))),
             }
         }
         ConsoleType::None => Ok(None),

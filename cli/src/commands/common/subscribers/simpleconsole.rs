@@ -198,6 +198,8 @@ impl ActionStats {
 pub(crate) struct SimpleConsole {
     tty_mode: TtyMode,
     verbosity: Verbosity,
+    // Whether to show "Waiting for daemon..." when no root spans are received
+    show_waiting_message: bool,
     span_tracker: SpanTracker,
     action_errors: Vec<ActionError>,
     last_print_time: Instant,
@@ -207,10 +209,11 @@ pub(crate) struct SimpleConsole {
 }
 
 impl SimpleConsole {
-    pub(crate) fn with_tty(verbosity: Verbosity) -> Self {
+    pub(crate) fn with_tty(verbosity: Verbosity, show_waiting_message: bool) -> Self {
         SimpleConsole {
             tty_mode: TtyMode::Enabled,
             verbosity,
+            show_waiting_message,
             span_tracker: SpanTracker::new(),
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
@@ -220,10 +223,11 @@ impl SimpleConsole {
         }
     }
 
-    pub(crate) fn without_tty(verbosity: Verbosity) -> Self {
+    pub(crate) fn without_tty(verbosity: Verbosity, show_waiting_message: bool) -> Self {
         SimpleConsole {
             tty_mode: TtyMode::Disabled,
             verbosity,
+            show_waiting_message,
             span_tracker: SpanTracker::new(),
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
@@ -234,10 +238,10 @@ impl SimpleConsole {
     }
 
     /// Create a SimpleConsole that auto detects whether it has a TTY or not.
-    pub(crate) fn autodetect(verbosity: Verbosity) -> Self {
+    pub(crate) fn autodetect(verbosity: Verbosity, show_waiting_message: bool) -> Self {
         match SuperConsole::compatible() {
-            true => Self::with_tty(verbosity),
-            false => Self::without_tty(verbosity),
+            true => Self::with_tty(verbosity, show_waiting_message),
+            false => Self::without_tty(verbosity, show_waiting_message),
         }
     }
 
@@ -536,7 +540,11 @@ impl EventSubscriber for SimpleConsole {
                         roots.len()
                     )?
                 }
-                None => echo!("Waiting on daemon...")?,
+                None => {
+                    if self.show_waiting_message {
+                        echo!("Waiting on daemon...")?
+                    }
+                }
             }
             // roots must be dropped here because it mutably borrows `self`
             // and doesn't get dropped until the end of this scope otherwise.

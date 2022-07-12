@@ -217,9 +217,13 @@ fn default_subscribers<T: StreamingCommand>(
         },
     );
 
+    // If we're running the LSP, do not show "Waiting for daemon..." if we do not get any spans.
+    let show_waiting_message = T::COMMAND_NAME != LspCommand::COMMAND_NAME;
+
     if let Some(v) = get_console_with_root(
         console_opts.console_type,
         ctx.verbosity,
+        show_waiting_message,
         ctx.replay_speed,
         root,
     )? {
