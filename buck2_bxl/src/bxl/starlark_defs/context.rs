@@ -34,6 +34,7 @@ use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::target::TargetLabel;
 use buck2_docs_gen::Buck2Docs;
 use buck2_interpreter::types::label::Label;
+use buck2_node::nodes::configured::ConfiguredTargetNode;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -267,7 +268,14 @@ fn register_context(builder: &mut MethodsBuilder) {
         let res: anyhow::Result<Value<'v>> = this.async_ctx.via_dice(|ctx| async move {
             let query_env = get_cquery_env(ctx, target_platform.dupe()).await?;
             Ok(
-                match TargetExpr::unpack(labels, &target_platform, this, eval).await? {
+                match TargetExpr::<'v, ConfiguredTargetNode>::unpack(
+                    labels,
+                    &target_platform,
+                    this,
+                    eval,
+                )
+                .await?
+                {
                     TargetExpr::Label(label) => {
                         let node = ctx
                             .get_configured_target_node(&label)

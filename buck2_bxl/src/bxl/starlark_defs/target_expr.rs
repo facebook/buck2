@@ -211,3 +211,109 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
         Ok(Some(Self::Iterable(resolved)))
     }
 }
+
+impl<'v> TargetExpr<'v, TargetNode> {
+    pub async fn unpack(
+        value: Value<'v>,
+        ctx: &BxlContext<'v>,
+        eval: &Evaluator<'v, '_>,
+    ) -> anyhow::Result<TargetExpr<'v, TargetNode>> {
+        Ok(
+            if let Some(resolved) = Self::unpack_literal(value, ctx).await? {
+                resolved
+            } else if let Some(resolved) = Self::unpack_iterable(value, ctx, eval).await? {
+                resolved
+            } else {
+                return Err(anyhow::anyhow!(TargetExprError::NotAListOfTargets(
+                    value.to_repr()
+                )));
+            },
+        )
+    }
+
+    async fn unpack_literal(
+        value: Value<'v>,
+        ctx: &BxlContext<'v>,
+    ) -> anyhow::Result<Option<TargetExpr<'v, TargetNode>>> {
+        if let Some(target) = value.downcast_ref::<StarlarkTargetNode>() {
+            Ok(Some(Self::Node(target.0.dupe())))
+        } else if let Some(label) = value.downcast_ref::<StarlarkTargetLabel>() {
+            Ok(Some(Self::Label(Cow::Borrowed(label.label()))))
+        } else if let Some(s) = value.unpack_str() {
+            match ParsedPattern::<TargetPattern>::parse_relaxed(
+                &ctx.target_alias_resolver,
+                ctx.cell.cell_alias_resolver(),
+                &Package::new(ctx.cell.name(), CellRelativePath::unchecked_new("")),
+                s,
+            )? {
+                ParsedPattern::Target(pkg, name) => {
+                    Ok(Some(Self::Label(Cow::Owned(TargetLabel::new(pkg, name)))))
+                }
+                pattern => {
+                    let loaded_patterns = load_patterns(ctx.async_ctx.0, vec![pattern]).await?;
+                    let mut target_set = TargetSet::new();
+                    for (_package, results) in loaded_patterns.into_iter() {
+                        for (_, node) in results?.into_iter() {
+                            target_set.insert(node);
+                        }
+                    }
+                    Ok(Some(Self::TargetSet(Cow::Owned(target_set))))
+                }
+            }
+        } else {
+            #[allow(clippy::manual_map)] // `if else if` looks better here
+            let maybe_unconfigured =
+                if let Some(target) = value.downcast_ref::<StarlarkTargetLabel>() {
+                    Some(Cow::Borrowed(target.label()))
+                } else if let Some(node) = value.downcast_ref::<StarlarkTargetNode>() {
+                    Some(Cow::Borrowed(node.0.label()))
+                } else {
+                    None
+                };
+
+            match maybe_unconfigured {
+                None => Ok(None),
+                Some(label) => Ok(Some(Self::Label(label))),
+            }
+        }
+    }
+
+    async fn unpack_iterable(
+        value: Value<'v>,
+        ctx: &BxlContext<'v>,
+        eval: &Evaluator<'v, '_>,
+    ) -> anyhow::Result<Option<TargetExpr<'v, TargetNode>>> {
+        if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
+            return Ok(Some(Self::TargetSet(Cow::Borrowed(s))));
+        }
+
+        #[allow(clippy::manual_map)] // `if else if` looks better here
+        let items = if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
+            Some(Either::Left(s.iterate(eval.heap())?))
+        } else if let Some(iterable) = List::from_value(value) {
+            Some(Either::Right(iterable.iter()))
+        } else {
+            None
+        }
+        .ok_or_else(|| TargetExprError::NotATarget(value.to_repr()))?;
+
+        let mut resolved = vec![];
+
+        for item in items {
+            let unpacked = Self::unpack_literal(item, ctx).await?;
+
+            match unpacked {
+                Some(TargetExpr::Node(node)) => resolved.push(Either::Left(node)),
+                Some(TargetExpr::Label(label)) => resolved.push(Either::Right(label)),
+                Some(TargetExpr::TargetSet(set)) => match set {
+                    Cow::Borrowed(s) => itertools::Either::Left(s.iter().duped()),
+                    Cow::Owned(s) => itertools::Either::Right(s.into_iter()),
+                }
+                .for_each(|t| resolved.push(Either::Left(t))),
+                _ => return Err(anyhow::anyhow!(TargetExprError::NotATarget(item.to_repr()))),
+            }
+        }
+
+        Ok(Some(Self::Iterable(resolved)))
+    }
+}
