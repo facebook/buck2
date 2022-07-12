@@ -1,6 +1,7 @@
 load(":apple_bundle_types.bzl", "AppleMinDeploymentVersionInfo")
 load(":apple_resource_types.bzl", "AppleResourceProcessingOptions")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node")
+load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 
 # `ctx` in all functions below is expected to be of `apple_bundle` or `apple_test` rule
 
@@ -42,4 +43,5 @@ def get_bundle_min_target_version(ctx: "context") -> str.type:
     fail("Could not determine min target sdk version for bundle: {}".format(ctx.label))
 
 def get_bundle_resource_processing_options(ctx: "context") -> AppleResourceProcessingOptions.type:
-    return AppleResourceProcessingOptions(prefer_local = getattr(ctx.attr, "_compile_resources_locally", False))
+    compile_resources_locally = ctx.attr._apple_toolchain[AppleToolchainInfo].compile_resources_locally
+    return AppleResourceProcessingOptions(prefer_local = compile_resources_locally)

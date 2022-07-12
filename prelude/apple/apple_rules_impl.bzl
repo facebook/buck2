@@ -53,7 +53,6 @@ extra_attributes = {
         "_apple_tools": attr.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
         "_codesign_entitlements": attr.option(attr.source(), default = None),
         "_codesign_type": attr.option(attr.enum(CodeSignType.values()), default = None),
-        "_compile_resources_locally": attr.bool(),
         "_incremental_bundling_enabled": attr.bool(),
         "_provisioning_profiles": attr.dep(default = "fbsource//xplat/buck2/provisioning_profiles:all"),
         "_resource_bundle": attr.option(attr.dep(providers = [AppleBundleResourceInfo]), default = None),
@@ -94,7 +93,6 @@ extra_attributes = {
         "_apple_toolchain": _get_apple_tolchain_attr(),
         "_apple_tools": attr.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
         "_codesign_type": attr.option(attr.enum(CodeSignType.values()), default = None),
-        "_compile_resources_locally": attr.bool(),
         "_incremental_bundling_enabled": attr.bool(),
     },
     "apple_toolchain": {
