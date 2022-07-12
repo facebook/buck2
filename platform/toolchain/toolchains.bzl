@@ -1,4 +1,4 @@
-load(":apple_toolchain_setup.bzl", _get_apple_cxx_select_map = "get_apple_cxx_select_map")
+load(":apple_toolchain_setup.bzl", "get_apple_cxx_select_map")
 
 # This module defines the toolchains for languages like C++, Python etc. These are expressed
 # as large `select` expressions which are used as default attributes attached to every rule that
@@ -80,7 +80,7 @@ def default_cxx_toolchain_inner():
     return select(
         _merge_dictionaries([
             _get_android_cxx_select_map(),
-            _get_apple_cxx_select_map(),
+            get_apple_cxx_select_map(),
             _get_fbcode_select_map("buck2"),
             _get_infer_select_map(),
         ]),
