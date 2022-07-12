@@ -409,7 +409,7 @@ pub(crate) struct AsyncCleanupContext {
 
 impl AsyncCleanupContext {
     pub(crate) fn register(&self, name: &'static str, fut: BoxFuture<'static, ()>) {
-        const WARNING_TIMEOUT: Duration = Duration::from_millis(100);
+        const WARNING_TIMEOUT: Duration = Duration::from_millis(1000);
         self.jobs
             .lock()
             .expect("Poisoned mutex")
