@@ -244,6 +244,10 @@ pub trait QueryEnvironment: Send + Sync {
         Ok(delegate.path)
     }
 
+    async fn rbuildfiles(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
     async fn rdeps(
         &self,
         universe: &TargetSet<Self::Target>,
