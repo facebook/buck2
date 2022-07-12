@@ -8,7 +8,6 @@
  */
 
 use std::collections::BTreeMap;
-use std::collections::HashSet;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -67,6 +66,9 @@ use crate::path::BuckPathResolver;
 pub enum BuildErrors {
     #[error("No target with name `{1}` in package `{0}`.")]
     MissingTarget(Package, TargetName),
+
+    #[error("Did not find package with name `{0}`.")]
+    MissingPackage(Package),
 }
 
 pub trait ConfigurableTarget: Send + Sync {
@@ -365,45 +367,46 @@ impl LoadedPatterns {
     }
 }
 
+/// Finds all the requested targets in `spec` from a map of loaded targets in `load_result`.
 fn apply_spec(
     spec: ResolvedPattern<TargetName>,
     load_results: BTreeMap<Package, SharedResult<Arc<EvaluationResult>>>,
 ) -> anyhow::Result<LoadedPatterns> {
     let mut all_targets = BTreeMap::new();
-    for (package, result) in load_results.into_iter() {
+    for (pkg, pkg_spec) in spec.specs.into_iter() {
+        let result = match load_results.get(&pkg) {
+            Some(r) => r,
+            None => return Err(anyhow::anyhow!(BuildErrors::MissingPackage(pkg))),
+        };
         match result {
             Ok(res) => {
-                let mut targets = BTreeMap::new();
-                let spec = spec.specs.get(&package).unwrap();
-                let filter = match spec {
-                    PackageSpec::Targets(targets) => Some(targets.iter().collect::<HashSet<_>>()),
-                    PackageSpec::All => None,
-                };
-                match filter {
-                    Some(mut filter_set) => {
-                        for target_info in res.targets().values() {
-                            if filter_set.contains(target_info.label().name()) {
-                                targets.insert(target_info.label().dupe(), target_info.dupe());
-                                filter_set.remove(target_info.label().name());
+                let mut label_to_node = BTreeMap::new();
+                match pkg_spec {
+                    PackageSpec::Targets(targets) => {
+                        for target in targets {
+                            match res.targets().get(&target) {
+                                Some(node) => {
+                                    label_to_node.insert(node.label().dupe(), node.dupe());
+                                }
+                                None => {
+                                    return Err(anyhow::anyhow!(BuildErrors::MissingTarget(
+                                        pkg,
+                                        target.to_owned()
+                                    )));
+                                }
                             }
                         }
-                        if let Some(target) = filter_set.into_iter().next() {
-                            return Err(anyhow::anyhow!(BuildErrors::MissingTarget(
-                                package,
-                                target.to_owned()
-                            )));
-                        }
                     }
-                    None => {
+                    PackageSpec::All => {
                         for target_info in res.targets().values() {
-                            targets.insert(target_info.label().dupe(), target_info.dupe());
+                            label_to_node.insert(target_info.label().dupe(), target_info.dupe());
                         }
                     }
-                }
-                all_targets.insert(package, Ok(targets));
+                };
+                all_targets.insert(pkg, Ok(label_to_node));
             }
             Err(e) => {
-                all_targets.insert(package, Err(e));
+                all_targets.insert(pkg, Err(e.dupe()));
             }
         }
     }
