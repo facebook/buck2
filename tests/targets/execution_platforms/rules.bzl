@@ -95,7 +95,7 @@ def _file_impl(ctx):
             out.as_output(),
         ],
         category = "head",
-        prefer_local = True,
+        local_only = True,
     )
     return [DefaultInfo(default_outputs = [out])]
 
