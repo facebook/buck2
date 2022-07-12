@@ -133,7 +133,7 @@ To use the plugin for development, follow the instructions at `starlark-rust/vsc
 - In VS Code, go to Extensions, click on the "..." button in the Extensions bar, select "Install from VSIX" and then select the `starlark-1.0.0.vsix` file at `$FBCODE/buck2/starlark-rust/vscode/starlark-1.0.0.vsix`
 - Update the extension settings to point to `buck2` for `starlark.lspPath`, and `["lsp"]` for `starlark.lspArguments`. This can be done in the VS Code UI by going to the extension's settings panel.
 
-If you want to use a local build of buck2, just change the path accordingly (`$FBCODE/buck-out/gen/<HASH>/buck2/cli/buck2#binary/buck2`, `$CARGO_TARGET_DIR/debug/buck2`, etc)
+If you want to use a local build of buck2, just change the path to `$FBCODE/buck2/scripts/buck2_lsp.sh` and unset `starlark.lspArguments`.
 
 NOTE: If you're seeing slightly confusing behavior, make sure that you're using "Starlark" as the language for files that you're editing.
 
