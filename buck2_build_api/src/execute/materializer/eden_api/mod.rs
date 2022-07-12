@@ -86,7 +86,7 @@ fn read_eden_config(config_path: &Path) -> Result<EdenConfig, SetupBuckOutError>
     Ok(config)
 }
 
-fn is_recas_eden_mount(buck_out: &AbsPathBuf) -> Result<bool, SetupBuckOutError> {
+pub fn is_recas_eden_mount(buck_out: &AbsPathBuf) -> Result<bool, SetupBuckOutError> {
     let config_path = buck_out.join(".eden/client/config.toml");
     if fs::metadata(&config_path).is_err() {
         return Ok(false);
