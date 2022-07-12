@@ -25,8 +25,8 @@ def _config_backed_dex_toolchain_rule_impl(ctx):
     return [
         DefaultInfo(),
         DexToolchainInfo(
-            android_jar = ctx.attr.android_jar,
-            d8_command = ctx.attr.d8_command_binary,
+            android_jar = ctx.attrs.android_jar,
+            d8_command = ctx.attrs.d8_command_binary,
         ),
     ]
 

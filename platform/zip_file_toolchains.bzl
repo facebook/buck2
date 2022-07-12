@@ -12,7 +12,7 @@ def _config_backed_zip_file_toolchain_rule_impl(ctx):
     return [
         DefaultInfo(),
         ZipFileToolchainInfo(
-            create_zip = ctx.attr.create_zip,
+            create_zip = ctx.attrs.create_zip,
         ),
     ]
 

@@ -4,7 +4,7 @@ def _js_toolchain_rule_impl(ctx):
     return [
         DefaultInfo(),
         JsToolchainInfo(
-            command_args_fixup = ctx.attr.command_args_fixup,
+            command_args_fixup = ctx.attrs.command_args_fixup,
         ),
     ]
 

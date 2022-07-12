@@ -14,7 +14,7 @@ def _config_backed_python_bootstrap_toolchain_rule_impl(ctx):
     return [
         DefaultInfo(),
         PythonBootstrapToolchainInfo(
-            interpreter = ctx.attr.interpreter,
+            interpreter = ctx.attrs.interpreter,
         ),
     ]
 

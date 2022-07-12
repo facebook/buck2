@@ -84,20 +84,20 @@ def _config_backed_ocaml_toolchain_rule_impl(ctx):
     return [
         DefaultInfo(),
         OCamlToolchainInfo(
-            debug = ctx.attr.debug[RunInfo],
-            binutils_ld = ctx.attr.binutils_ld,
-            dep_tool = ctx.attr.dep_tool[RunInfo],
-            interop_includes = ctx.attr.interop_includes,
-            lex_compiler = ctx.attr.lex_compiler[RunInfo],
-            libasmrun = ctx.attr.libasmrun,
-            ocaml_bytecode_compiler = ctx.attr.ocaml_bytecode_compiler[RunInfo],
-            ocaml_compiler = ctx.attr.ocaml_compiler[RunInfo],
-            warnings_flags = ctx.attr.warnings_flags,
-            ocaml_compiler_flags = ctx.attr.ocaml_compiler_flags,
-            yacc_compiler = ctx.attr.yacc_compiler[RunInfo],
+            debug = ctx.attrs.debug[RunInfo],
+            binutils_ld = ctx.attrs.binutils_ld,
+            dep_tool = ctx.attrs.dep_tool[RunInfo],
+            interop_includes = ctx.attrs.interop_includes,
+            lex_compiler = ctx.attrs.lex_compiler[RunInfo],
+            libasmrun = ctx.attrs.libasmrun,
+            ocaml_bytecode_compiler = ctx.attrs.ocaml_bytecode_compiler[RunInfo],
+            ocaml_compiler = ctx.attrs.ocaml_compiler[RunInfo],
+            warnings_flags = ctx.attrs.warnings_flags,
+            ocaml_compiler_flags = ctx.attrs.ocaml_compiler_flags,
+            yacc_compiler = ctx.attrs.yacc_compiler[RunInfo],
         ),
         OCamlPlatformInfo(
-            name = ctx.attr.name,
+            name = ctx.attrs.name,
         ),
     ]
 

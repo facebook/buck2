@@ -1,5 +1,5 @@
 def _toolchain_impl(ctx: "context") -> ["provider"]:
-    return ctx.attr.dep.providers
+    return ctx.attrs.dep.providers
 
 toolchain = rule(
     attrs = {"dep": attr.exec_dep()},

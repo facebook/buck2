@@ -37,26 +37,26 @@ def _config_backed_python_toolchain_rule_impl(ctx):
     return [
         DefaultInfo(),
         PythonToolchainInfo(
-            compile = ctx.attr.compile,
-            interpreter = ctx.attr.interpreter,
-            version = ctx.attr.version,
-            package_style = ctx.attr.package_style,
-            make_source_db = ctx.attr.make_source_db,
-            make_pex_inplace = ctx.attr.path_to_pex_inplace,
-            make_pex_standalone = ctx.attr.path_to_pex,
-            make_pex_modules = ctx.attr.path_to_pex_modules,
-            native_link_strategy = ctx.attr.native_link_strategy,
-            pex_executor = ctx.attr.path_to_pex_executer,
-            pex_extension = ctx.attr.pex_extension,
+            compile = ctx.attrs.compile,
+            interpreter = ctx.attrs.interpreter,
+            version = ctx.attrs.version,
+            package_style = ctx.attrs.package_style,
+            make_source_db = ctx.attrs.make_source_db,
+            make_pex_inplace = ctx.attrs.path_to_pex_inplace,
+            make_pex_standalone = ctx.attrs.path_to_pex,
+            make_pex_modules = ctx.attrs.path_to_pex_modules,
+            native_link_strategy = ctx.attrs.native_link_strategy,
+            pex_executor = ctx.attrs.path_to_pex_executer,
+            pex_extension = ctx.attrs.pex_extension,
             # In v1, fbcode python platforms set `python.cache_binaries = false`
             # for modes building standalone packages to avoid scaling issues
             # due to size and to stamp them with non-deterministic build info
             # (e.g. T10696178).  We apply the same semantics here based on that
             # config via building these binaries locally.
-            build_standalone_binaries_locally = not value_or(ctx.attr.cache_binaries, True),
+            build_standalone_binaries_locally = not value_or(ctx.attrs.cache_binaries, True),
         ),
         PythonPlatformInfo(
-            name = ctx.attr.name,
+            name = ctx.attrs.name,
         ),
     ]
 

@@ -12,7 +12,7 @@ linux_execution_base_platforms = {
 }
 
 def _execution_platform_impl(ctx: "context"):
-    infos = [p[BuildModeInfo] for p in ctx.attr.remote_execution_action_key_providers]
+    infos = [p[BuildModeInfo] for p in ctx.attrs.remote_execution_action_key_providers]
     kvs = ["{}={}".format(info.cell, info.mode) for info in infos if info.mode != None]
 
     remote_execution_action_key = None
@@ -23,17 +23,17 @@ def _execution_platform_impl(ctx: "context"):
         DefaultInfo(),
         ExecutionPlatformInfo(
             label = ctx.label.raw_target(),
-            configuration = ctx.attr.platform[PlatformInfo].configuration,
+            configuration = ctx.attrs.platform[PlatformInfo].configuration,
             executor_config = CommandExecutorConfig(
-                local_enabled = ctx.attr.local_enabled,
-                remote_enabled = ctx.attr.remote_enabled,
-                remote_execution_properties = ctx.attr.remote_execution_properties,
+                local_enabled = ctx.attrs.local_enabled,
+                remote_enabled = ctx.attrs.remote_enabled,
+                remote_execution_properties = ctx.attrs.remote_execution_properties,
                 remote_execution_action_key = remote_execution_action_key,
-                remote_execution_max_input_files_mebibytes = ctx.attr.remote_execution_max_input_files_mebibytes,
+                remote_execution_max_input_files_mebibytes = ctx.attrs.remote_execution_max_input_files_mebibytes,
                 allow_limited_hybrid_fallbacks = True,
-                use_limited_hybrid = ctx.attr.use_limited_hybrid,
-                allow_hybrid_fallbacks_on_failure = ctx.attr.allow_hybrid_fallbacks_on_failure,
-                use_windows_path_separators = ctx.attr.use_windows_path_separators,
+                use_limited_hybrid = ctx.attrs.use_limited_hybrid,
+                allow_hybrid_fallbacks_on_failure = ctx.attrs.allow_hybrid_fallbacks_on_failure,
+                use_windows_path_separators = ctx.attrs.use_windows_path_separators,
             ),
         ),
     ]
@@ -146,7 +146,7 @@ def _execution_platforms_impl(ctx: "context") -> ["provider"]:
     return [
         DefaultInfo(),
         ExecutionPlatformRegistrationInfo(
-            platforms = [x[ExecutionPlatformInfo] for x in ctx.attr.platforms],
+            platforms = [x[ExecutionPlatformInfo] for x in ctx.attrs.platforms],
         ),
     ]
 
@@ -165,8 +165,8 @@ def _fat_platforms_transition_helper(ctx: "context") -> ["provider"]:
     return [
         DefaultInfo(),
         FatPlatformTransitionInfo(
-            mac = [(k[ConstraintValueInfo], v[PlatformInfo]) for (k, v) in ctx.attr.mac],
-            linux = [(k[ConstraintValueInfo], v[PlatformInfo]) for (k, v) in ctx.attr.linux],
+            mac = [(k[ConstraintValueInfo], v[PlatformInfo]) for (k, v) in ctx.attrs.mac],
+            linux = [(k[ConstraintValueInfo], v[PlatformInfo]) for (k, v) in ctx.attrs.linux],
         ),
     ]
 

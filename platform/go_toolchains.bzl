@@ -23,17 +23,17 @@ def _go_toolchain_impl(ctx):
     return [
         DefaultInfo(),
         GoToolchainInfo(
-            assembler = cmd_args(ctx.attr.assembler[RunInfo]).add(ctx.attr.assembler_flags),
-            compile_wrapper = ctx.attr.compile_wrapper,
-            compiler = cmd_args(ctx.attr.compiler[RunInfo]).add(ctx.attr.compiler_flags),
-            external_linker_flags = ctx.attr.external_linker_flags,
-            filter_srcs = ctx.attr.filter_srcs,
-            go = ctx.attr.go[RunInfo],
-            env_go_arch = ctx.attr.env_go_arch,
-            env_go_os = ctx.attr.env_go_os,
-            env_go_root = ctx.attr.env_go_root,
-            linker = cmd_args(ctx.attr.linker[RunInfo]).add(ctx.attr.linker_flags),
-            packer = cmd_args(ctx.attr.packer[RunInfo]),
+            assembler = cmd_args(ctx.attrs.assembler[RunInfo]).add(ctx.attrs.assembler_flags),
+            compile_wrapper = ctx.attrs.compile_wrapper,
+            compiler = cmd_args(ctx.attrs.compiler[RunInfo]).add(ctx.attrs.compiler_flags),
+            external_linker_flags = ctx.attrs.external_linker_flags,
+            filter_srcs = ctx.attrs.filter_srcs,
+            go = ctx.attrs.go[RunInfo],
+            env_go_arch = ctx.attrs.env_go_arch,
+            env_go_os = ctx.attrs.env_go_os,
+            env_go_root = ctx.attrs.env_go_root,
+            linker = cmd_args(ctx.attrs.linker[RunInfo]).add(ctx.attrs.linker_flags),
+            packer = cmd_args(ctx.attrs.packer[RunInfo]),
         ),
     ]
 

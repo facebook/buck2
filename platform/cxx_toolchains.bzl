@@ -94,61 +94,61 @@ _buckconfig_cxx_toolchain_attrs = {
 def _cuda_info(ctx: "context") -> [native.cxx.CudaCompilerInfo.type, None]:
     # If we see a HIP compiler setting, require all other vals are set and fill
     # out a `HipCompilerInfo` provider.
-    if ctx.attr.cuda != None:
+    if ctx.attrs.cuda != None:
         return native.cxx.CudaCompilerInfo(
-            compiler = ctx.attr.cuda[RunInfo],
-            compiler_type = expect_non_none(ctx.attr.cuda_type),
-            compiler_flags = cmd_args(expect_non_none(ctx.attr.cudaflags)),
-            preprocessor = expect_non_none(ctx.attr.cudapp)[RunInfo],
-            preprocessor_type = expect_non_none(ctx.attr.cudapp_type),
-            preprocessor_flags = cmd_args(expect_non_none(ctx.attr.cudappflags)),
-            dep_files_processor = ctx.attr._dep_files_processor[RunInfo],
+            compiler = ctx.attrs.cuda[RunInfo],
+            compiler_type = expect_non_none(ctx.attrs.cuda_type),
+            compiler_flags = cmd_args(expect_non_none(ctx.attrs.cudaflags)),
+            preprocessor = expect_non_none(ctx.attrs.cudapp)[RunInfo],
+            preprocessor_type = expect_non_none(ctx.attrs.cudapp_type),
+            preprocessor_flags = cmd_args(expect_non_none(ctx.attrs.cudappflags)),
+            dep_files_processor = ctx.attrs._dep_files_processor[RunInfo],
         )
     else:
-        expect(ctx.attr.cuda_type == None)
-        expect(ctx.attr.cudaflags == None)
-        expect(ctx.attr.cudapp == None)
-        expect(ctx.attr.cudapp_type == None)
-        expect(ctx.attr.cudappflags == None)
+        expect(ctx.attrs.cuda_type == None)
+        expect(ctx.attrs.cudaflags == None)
+        expect(ctx.attrs.cudapp == None)
+        expect(ctx.attrs.cudapp_type == None)
+        expect(ctx.attrs.cudappflags == None)
         return None
 
 def _hip_info(ctx: "context") -> [native.cxx.HipCompilerInfo.type, None]:
     # If we see a HIP compiler setting, require all other vals are set and fill
     # out a `HipCompilerInfo` provider.
-    if ctx.attr.hip != None:
+    if ctx.attrs.hip != None:
         return native.cxx.HipCompilerInfo(
-            compiler = ctx.attr.hip[RunInfo],
-            compiler_type = expect_non_none(ctx.attr.hip_type),
-            compiler_flags = cmd_args(expect_non_none(ctx.attr.hipflags)),
-            preprocessor = expect_non_none(ctx.attr.hippp)[RunInfo],
-            preprocessor_type = expect_non_none(ctx.attr.hippp_type),
-            preprocessor_flags = cmd_args(expect_non_none(ctx.attr.hipppflags)),
+            compiler = ctx.attrs.hip[RunInfo],
+            compiler_type = expect_non_none(ctx.attrs.hip_type),
+            compiler_flags = cmd_args(expect_non_none(ctx.attrs.hipflags)),
+            preprocessor = expect_non_none(ctx.attrs.hippp)[RunInfo],
+            preprocessor_type = expect_non_none(ctx.attrs.hippp_type),
+            preprocessor_flags = cmd_args(expect_non_none(ctx.attrs.hipppflags)),
         )
     else:
-        expect(ctx.attr.hip_type == None)
-        expect(ctx.attr.hipflags == None)
-        expect(ctx.attr.hippp == None)
-        expect(ctx.attr.hippp_type == None)
-        expect(ctx.attr.hipppflags == None)
+        expect(ctx.attrs.hip_type == None)
+        expect(ctx.attrs.hipflags == None)
+        expect(ctx.attrs.hippp == None)
+        expect(ctx.attrs.hippp_type == None)
+        expect(ctx.attrs.hipppflags == None)
         return None
 
 def _asm_info(ctx: "context") -> [native.cxx.AsmCompilerInfo.type, None]:
-    if ctx.attr.asm != None:
+    if ctx.attrs.asm != None:
         return native.cxx.AsmCompilerInfo(
-            compiler = ctx.attr.asm[RunInfo],
-            compiler_type = ctx.attr.asm_type,
-            compiler_flags = cmd_args(ctx.attr.asmflags),
-            preprocessor = ctx.attr.asmpp[RunInfo],
-            preprocessor_type = ctx.attr.asmpp_type,
-            preprocessor_flags = cmd_args(ctx.attr.asmppflags),
-            dep_files_processor = ctx.attr._dep_files_processor[RunInfo],
+            compiler = ctx.attrs.asm[RunInfo],
+            compiler_type = ctx.attrs.asm_type,
+            compiler_flags = cmd_args(ctx.attrs.asmflags),
+            preprocessor = ctx.attrs.asmpp[RunInfo],
+            preprocessor_type = ctx.attrs.asmpp_type,
+            preprocessor_flags = cmd_args(ctx.attrs.asmppflags),
+            dep_files_processor = ctx.attrs._dep_files_processor[RunInfo],
         )
     else:
-        expect(ctx.attr.asm_type == None)
-        expect(ctx.attr.asmflags == None)
-        expect(ctx.attr.asmpp == None)
-        expect(ctx.attr.asmpp_type == None)
-        expect(ctx.attr.asmppflags == None)
+        expect(ctx.attrs.asm_type == None)
+        expect(ctx.attrs.asmflags == None)
+        expect(ctx.attrs.asmpp == None)
+        expect(ctx.attrs.asmpp_type == None)
+        expect(ctx.attrs.asmppflags == None)
         return None
 
 # TODO(cjhopman): This duplicates a lot of the cxx_toolchain impl. We should
@@ -156,41 +156,41 @@ def _asm_info(ctx: "context") -> [native.cxx.AsmCompilerInfo.type, None]:
 # appropriate cxx_toolchain attrs in the macro layer.
 def _config_backed_toolchain_impl(ctx):
     c_info = native.cxx.CCompilerInfo(
-        compiler = ctx.attr.cc[RunInfo],
-        compiler_type = ctx.attr.cc_type,
-        compiler_flags = cmd_args(ctx.attr.cflags),
-        preprocessor = ctx.attr.cpp[RunInfo],
-        preprocessor_type = ctx.attr.cpp_type,
-        preprocessor_flags = cmd_args(ctx.attr.cppflags),
-        dep_files_processor = ctx.attr._dep_files_processor[RunInfo],
+        compiler = ctx.attrs.cc[RunInfo],
+        compiler_type = ctx.attrs.cc_type,
+        compiler_flags = cmd_args(ctx.attrs.cflags),
+        preprocessor = ctx.attrs.cpp[RunInfo],
+        preprocessor_type = ctx.attrs.cpp_type,
+        preprocessor_flags = cmd_args(ctx.attrs.cppflags),
+        dep_files_processor = ctx.attrs._dep_files_processor[RunInfo],
     )
     cxx_info = native.cxx.CxxCompilerInfo(
-        compiler = ctx.attr.cxx[RunInfo],
-        compiler_type = ctx.attr.cxx_type,
-        compiler_flags = cmd_args(ctx.attr.cxxflags),
-        preprocessor = ctx.attr.cxxpp[RunInfo],
-        preprocessor_type = ctx.attr.cxxpp_type,
-        preprocessor_flags = cmd_args(ctx.attr.cxxppflags),
-        dep_files_processor = ctx.attr._dep_files_processor[RunInfo],
+        compiler = ctx.attrs.cxx[RunInfo],
+        compiler_type = ctx.attrs.cxx_type,
+        compiler_flags = cmd_args(ctx.attrs.cxxflags),
+        preprocessor = ctx.attrs.cxxpp[RunInfo],
+        preprocessor_type = ctx.attrs.cxxpp_type,
+        preprocessor_flags = cmd_args(ctx.attrs.cxxppflags),
+        dep_files_processor = ctx.attrs._dep_files_processor[RunInfo],
     )
     as_info = native.cxx.AsCompilerInfo(
         compiler = getattr(ctx.attr, "as")[RunInfo],
-        compiler_type = ctx.attr.as_type,
-        compiler_flags = cmd_args(ctx.attr.asflags),
-        preprocessor = ctx.attr.aspp[RunInfo],
-        preprocessor_type = ctx.attr.aspp_type,
-        preprocessor_flags = cmd_args(ctx.attr.asppflags),
-        dep_files_processor = ctx.attr._dep_files_processor[RunInfo],
+        compiler_type = ctx.attrs.as_type,
+        compiler_flags = cmd_args(ctx.attrs.asflags),
+        preprocessor = ctx.attrs.aspp[RunInfo],
+        preprocessor_type = ctx.attrs.aspp_type,
+        preprocessor_flags = cmd_args(ctx.attrs.asppflags),
+        dep_files_processor = ctx.attrs._dep_files_processor[RunInfo],
     )
     strip_flags_info = native.cxx.StripFlagsInfo(
-        strip_debug_flags = ctx.attr.strip_debug_flags,
-        strip_non_global_flags = ctx.attr.strip_non_global_flags,
-        strip_all_flags = ctx.attr.strip_all_flags,
+        strip_debug_flags = ctx.attrs.strip_debug_flags,
+        strip_non_global_flags = ctx.attrs.strip_non_global_flags,
+        strip_all_flags = ctx.attrs.strip_all_flags,
     )
 
     linker_info = native.cxx.LinkerInfo(
-        archiver = ctx.attr.ar[RunInfo],
-        archive_contents = ctx.attr.archive_contents,
+        archiver = ctx.attrs.ar[RunInfo],
+        archive_contents = ctx.attrs.archive_contents,
         # This is a v2-only setting that does not have an equivalent v1
         # (nor do we want to introduce a v1 config for it)
         archive_objects_locally = False,
@@ -204,63 +204,63 @@ def _config_backed_toolchain_impl(ctx):
         # 3) Currently, running static links remotely means we cache them in RE
         #    and static binaries have inherent scalability issues which can trample
         #    caches (e.g. T10696178).
-        link_binaries_locally = not value_or(ctx.attr.cache_links, True),
+        link_binaries_locally = not value_or(ctx.attrs.cache_links, True),
         link_libraries_locally = False,
         # NOTE(agallagher): It'd be nice to set the default link style via
         # `cxx.link_style`, but opt now to match v1 behavior and avoid breaking
         # existing flows (e.g. some builds in xplat can't currently link
         # dynamically).
         link_style = LinkStyle("static"),
-        link_weight = value_or(ctx.attr.link_weight, 1),
-        linker = ctx.attr.ld[RunInfo],
-        linker_flags = cmd_args(ctx.attr.ldflags),
-        mk_shlib_intf = ctx.attr.mk_shlib_intf,
-        shlib_interfaces = ctx.attr.shlib_interfaces,
-        independent_shlib_interface_linker_flags = ctx.attr.independent_shlib_interface_ldflags,
-        requires_archives = value_or(ctx.attr.requires_archives, True),
-        requires_objects = value_or(ctx.attr.requires_objects, False),
-        supports_distributed_thinlto = ctx.attr.supports_distributed_thinlto,
+        link_weight = value_or(ctx.attrs.link_weight, 1),
+        linker = ctx.attrs.ld[RunInfo],
+        linker_flags = cmd_args(ctx.attrs.ldflags),
+        mk_shlib_intf = ctx.attrs.mk_shlib_intf,
+        shlib_interfaces = ctx.attrs.shlib_interfaces,
+        independent_shlib_interface_linker_flags = ctx.attrs.independent_shlib_interface_ldflags,
+        requires_archives = value_or(ctx.attrs.requires_archives, True),
+        requires_objects = value_or(ctx.attrs.requires_objects, False),
+        supports_distributed_thinlto = ctx.attrs.supports_distributed_thinlto,
         shared_dep_runtime_ld_flags = [],
         static_dep_runtime_ld_flags = [],
         static_pic_dep_runtime_ld_flags = [],
         type = "gnu",
-        use_archiver_flags = value_or(ctx.attr.use_archiver_flags, True),
+        use_archiver_flags = value_or(ctx.attrs.use_archiver_flags, True),
     )
 
     utilities_info = native.cxx.BinaryUtilitiesInfo(
-        nm = ctx.attr.nm[RunInfo],
-        objcopy = ctx.attr.objcopy[RunInfo],
-        ranlib = ctx.attr.ranlib[RunInfo],
-        strip = ctx.attr.strip[RunInfo],
-        dwp = ctx.attr.dwp[RunInfo],
-        bolt_msdk = ctx.attr.bolt_msdk[RunInfo],
+        nm = ctx.attrs.nm[RunInfo],
+        objcopy = ctx.attrs.objcopy[RunInfo],
+        ranlib = ctx.attrs.ranlib[RunInfo],
+        strip = ctx.attrs.strip[RunInfo],
+        dwp = ctx.attrs.dwp[RunInfo],
+        bolt_msdk = ctx.attrs.bolt_msdk[RunInfo],
     )
 
     # Parse raw headers mode.
     headers_as_raw_headers_mode = None
-    if ctx.attr.headers_as_raw_headers_mode != None:
-        headers_as_raw_headers_mode = HeadersAsRawHeadersMode(ctx.attr.headers_as_raw_headers_mode)
+    if ctx.attrs.headers_as_raw_headers_mode != None:
+        headers_as_raw_headers_mode = HeadersAsRawHeadersMode(ctx.attrs.headers_as_raw_headers_mode)
 
     return [
         DefaultInfo(),
     ] + native.cxx.cxx_toolchain_infos(
-        platform_name = ctx.attr.name,
+        platform_name = ctx.attrs.name,
         linker_info = linker_info,
         binary_utilities_info = utilities_info,
-        bolt_enabled = ctx.attr.bolt_enabled,
+        bolt_enabled = ctx.attrs.bolt_enabled,
         c_compiler_info = c_info,
         cxx_compiler_info = cxx_info,
         asm_compiler_info = _asm_info(ctx),
         as_compiler_info = as_info,
         cuda_compiler_info = _cuda_info(ctx),
         hip_compiler_info = _hip_info(ctx),
-        header_mode = _header_mode_or_default(ctx.attr.header_mode, c_info.compiler_type, cxx_info.compiler_type),
+        header_mode = _header_mode_or_default(ctx.attrs.header_mode, c_info.compiler_type, cxx_info.compiler_type),
         headers_as_raw_headers_mode = headers_as_raw_headers_mode,
-        conflicting_header_basename_allowlist = ctx.attr.conflicting_header_basename_whitelist,
-        mk_comp_db = ctx.attr.mk_comp_db,
-        dist_lto_tools_info = ctx.attr._dist_lto_tools_info[DistLtoToolsInfo],
-        use_dep_files = value_or(ctx.attr.use_dep_files, True),
-        split_dwarf_enabled = ctx.attr.split_dwarf_enabled,
+        conflicting_header_basename_allowlist = ctx.attrs.conflicting_header_basename_whitelist,
+        mk_comp_db = ctx.attrs.mk_comp_db,
+        dist_lto_tools_info = ctx.attrs._dist_lto_tools_info[DistLtoToolsInfo],
+        use_dep_files = value_or(ctx.attrs.use_dep_files, True),
+        split_dwarf_enabled = ctx.attrs.split_dwarf_enabled,
         strip_flags_info = strip_flags_info,
     )
 
@@ -306,50 +306,50 @@ def _pick_dep(override, underlying):
     return override if override != None else underlying
 
 def _cxx_toolchain_override(ctx):
-    base_toolchain = ctx.attr.base[native.cxx.CxxToolchainInfo]
+    base_toolchain = ctx.attrs.base[native.cxx.CxxToolchainInfo]
     base_as_info = base_toolchain.as_compiler_info
     as_info = native.cxx.AsCompilerInfo(
-        compiler = _pick_bin(ctx.attr.as_compiler, base_as_info.compiler),
+        compiler = _pick_bin(ctx.attrs.as_compiler, base_as_info.compiler),
         compiler_type = base_as_info.compiler_type,
-        compiler_flags = _pick(ctx.attr.as_compiler_flags, base_as_info.compiler_flags),
-        preprocessor = _pick_bin(ctx.attr.as_compiler, base_as_info.preprocessor),
+        compiler_flags = _pick(ctx.attrs.as_compiler_flags, base_as_info.compiler_flags),
+        preprocessor = _pick_bin(ctx.attrs.as_compiler, base_as_info.preprocessor),
         preprocessor_type = base_as_info.preprocessor_type,
-        preprocessor_flags = _pick(ctx.attr.as_preprocessor_flags, base_as_info.preprocessor_flags),
+        preprocessor_flags = _pick(ctx.attrs.as_preprocessor_flags, base_as_info.preprocessor_flags),
         dep_files_processor = base_as_info.dep_files_processor,
     )
     base_c_info = base_toolchain.c_compiler_info
     c_info = native.cxx.CCompilerInfo(
-        compiler = _pick_bin(ctx.attr.c_compiler, base_c_info.compiler),
+        compiler = _pick_bin(ctx.attrs.c_compiler, base_c_info.compiler),
         compiler_type = base_c_info.compiler_type,
-        compiler_flags = _pick(ctx.attr.c_compiler_flags, base_c_info.compiler_flags),
-        preprocessor = _pick_bin(ctx.attr.c_compiler, base_c_info.preprocessor),
+        compiler_flags = _pick(ctx.attrs.c_compiler_flags, base_c_info.compiler_flags),
+        preprocessor = _pick_bin(ctx.attrs.c_compiler, base_c_info.preprocessor),
         preprocessor_type = base_c_info.preprocessor_type,
-        preprocessor_flags = _pick(ctx.attr.c_preprocessor_flags, base_c_info.preprocessor_flags),
+        preprocessor_flags = _pick(ctx.attrs.c_preprocessor_flags, base_c_info.preprocessor_flags),
         dep_files_processor = base_c_info.dep_files_processor,
     )
     base_cxx_info = base_toolchain.cxx_compiler_info
     cxx_info = native.cxx.CxxCompilerInfo(
-        compiler = _pick_bin(ctx.attr.cxx_compiler, base_cxx_info.compiler),
+        compiler = _pick_bin(ctx.attrs.cxx_compiler, base_cxx_info.compiler),
         compiler_type = base_cxx_info.compiler_type,
-        compiler_flags = _pick(ctx.attr.cxx_compiler_flags, base_cxx_info.compiler_flags),
-        preprocessor = _pick_bin(ctx.attr.cxx_compiler, base_cxx_info.preprocessor),
+        compiler_flags = _pick(ctx.attrs.cxx_compiler_flags, base_cxx_info.compiler_flags),
+        preprocessor = _pick_bin(ctx.attrs.cxx_compiler, base_cxx_info.preprocessor),
         preprocessor_type = base_cxx_info.preprocessor_type,
-        preprocessor_flags = _pick(ctx.attr.cxx_preprocessor_flags, base_cxx_info.preprocessor_flags),
+        preprocessor_flags = _pick(ctx.attrs.cxx_preprocessor_flags, base_cxx_info.preprocessor_flags),
         dep_files_processor = base_cxx_info.dep_files_processor,
     )
     base_linker_info = base_toolchain.linker_info
     linker_info = native.cxx.LinkerInfo(
-        archiver = _pick_bin(ctx.attr.archiver, base_linker_info.archiver),
+        archiver = _pick_bin(ctx.attrs.archiver, base_linker_info.archiver),
         archive_contents = base_linker_info.archive_contents,
-        archive_objects_locally = value_or(ctx.attr.archive_objects_locally, base_linker_info.archive_objects_locally),
-        link_binaries_locally = value_or(ctx.attr.link_binaries_locally, base_linker_info.link_binaries_locally),
-        link_libraries_locally = value_or(ctx.attr.link_libraries_locally, base_linker_info.link_libraries_locally),
-        link_style = LinkStyle(ctx.attr.link_style) if ctx.attr.link_style != None else base_linker_info.link_style,
-        link_weight = value_or(ctx.attr.link_weight, base_linker_info.link_weight),
-        linker = _pick_bin(ctx.attr.linker, base_linker_info.linker),
-        linker_flags = _pick(ctx.attr.linker_flags, base_linker_info.linker_flags),
+        archive_objects_locally = value_or(ctx.attrs.archive_objects_locally, base_linker_info.archive_objects_locally),
+        link_binaries_locally = value_or(ctx.attrs.link_binaries_locally, base_linker_info.link_binaries_locally),
+        link_libraries_locally = value_or(ctx.attrs.link_libraries_locally, base_linker_info.link_libraries_locally),
+        link_style = LinkStyle(ctx.attrs.link_style) if ctx.attrs.link_style != None else base_linker_info.link_style,
+        link_weight = value_or(ctx.attrs.link_weight, base_linker_info.link_weight),
+        linker = _pick_bin(ctx.attrs.linker, base_linker_info.linker),
+        linker_flags = _pick(ctx.attrs.linker_flags, base_linker_info.linker_flags),
         shlib_interfaces = base_linker_info.shlib_interfaces,
-        mk_shlib_intf = _pick_dep(ctx.attr.mk_shlib_intf, base_linker_info.mk_shlib_intf),
+        mk_shlib_intf = _pick_dep(ctx.attrs.mk_shlib_intf, base_linker_info.mk_shlib_intf),
         requires_archives = base_linker_info.requires_archives,
         requires_objects = base_linker_info.requires_objects,
         supports_distributed_thinlto = base_linker_info.supports_distributed_thinlto,
@@ -357,50 +357,50 @@ def _cxx_toolchain_override(ctx):
         shared_dep_runtime_ld_flags = [],
         static_dep_runtime_ld_flags = [],
         static_pic_dep_runtime_ld_flags = [],
-        type = ctx.attr.linker_type if ctx.attr.linker_type != None else base_linker_info.type,
-        use_archiver_flags = value_or(ctx.attr.use_archiver_flags, base_linker_info.use_archiver_flags),
+        type = ctx.attrs.linker_type if ctx.attrs.linker_type != None else base_linker_info.type,
+        use_archiver_flags = value_or(ctx.attrs.use_archiver_flags, base_linker_info.use_archiver_flags),
     )
 
     base_binary_utilities_info = base_toolchain.binary_utilities_info
     binary_utilities_info = native.cxx.BinaryUtilitiesInfo(
-        nm = _pick_bin(ctx.attr.nm, base_binary_utilities_info.nm),
-        objcopy = _pick_bin(ctx.attr.objcopy, base_binary_utilities_info.objcopy),
-        ranlib = _pick_bin(ctx.attr.ranlib, base_binary_utilities_info.ranlib),
-        strip = _pick_bin(ctx.attr.strip, base_binary_utilities_info.strip),
+        nm = _pick_bin(ctx.attrs.nm, base_binary_utilities_info.nm),
+        objcopy = _pick_bin(ctx.attrs.objcopy, base_binary_utilities_info.objcopy),
+        ranlib = _pick_bin(ctx.attrs.ranlib, base_binary_utilities_info.ranlib),
+        strip = _pick_bin(ctx.attrs.strip, base_binary_utilities_info.strip),
         dwp = base_binary_utilities_info.dwp,
         bolt_msdk = base_binary_utilities_info.bolt_msdk,
     )
 
     base_strip_flags_info = base_toolchain.strip_flags_info
     strip_flags_info = native.cxx.StripFlagsInfo(
-        strip_debug_flags = _pick(ctx.attr.strip_debug_flags, base_strip_flags_info.strip_debug_flags),
-        strip_non_global_flags = _pick(ctx.attr.strip_non_global_flags, base_strip_flags_info.strip_non_global_flags),
-        strip_all_flags = _pick(ctx.attr.strip_all_flags, base_strip_flags_info.strip_all_flags),
+        strip_debug_flags = _pick(ctx.attrs.strip_debug_flags, base_strip_flags_info.strip_debug_flags),
+        strip_non_global_flags = _pick(ctx.attrs.strip_non_global_flags, base_strip_flags_info.strip_non_global_flags),
+        strip_all_flags = _pick(ctx.attrs.strip_all_flags, base_strip_flags_info.strip_all_flags),
     )
 
     return [
         DefaultInfo(),
     ] + native.cxx.cxx_toolchain_infos(
-        platform_name = ctx.attr.platform_name if ctx.attr.platform_name != None else ctx.attr.base[native.cxx.CxxPlatformInfo].name,
+        platform_name = ctx.attrs.platform_name if ctx.attrs.platform_name != None else ctx.attrs.base[native.cxx.CxxPlatformInfo].name,
         linker_info = linker_info,
         as_compiler_info = as_info,
         binary_utilities_info = binary_utilities_info,
-        bolt_enabled = value_or(ctx.attr.bolt_enabled, base_toolchain.bolt_enabled),
+        bolt_enabled = value_or(ctx.attrs.bolt_enabled, base_toolchain.bolt_enabled),
         c_compiler_info = c_info,
         cxx_compiler_info = cxx_info,
         # the rest are used without overrides
         asm_compiler_info = base_toolchain.asm_compiler_info,
         cuda_compiler_info = base_toolchain.cuda_compiler_info,
         hip_compiler_info = base_toolchain.hip_compiler_info,
-        header_mode = HeaderMode(ctx.attr.header_mode) if ctx.attr.header_mode != None else base_toolchain.header_mode,
+        header_mode = HeaderMode(ctx.attrs.header_mode) if ctx.attrs.header_mode != None else base_toolchain.header_mode,
         headers_as_raw_headers_mode = base_toolchain.headers_as_raw_headers_mode,
-        mk_comp_db = _pick_bin(ctx.attr.mk_comp_db, base_toolchain.mk_comp_db),
-        mk_hmap = _pick_bin(ctx.attr.mk_hmap, base_toolchain.mk_hmap),
+        mk_comp_db = _pick_bin(ctx.attrs.mk_comp_db, base_toolchain.mk_comp_db),
+        mk_hmap = _pick_bin(ctx.attrs.mk_hmap, base_toolchain.mk_hmap),
         dist_lto_tools_info = base_toolchain.dist_lto_tools_info,
         use_dep_files = base_toolchain.use_dep_files,
         conflicting_header_basename_allowlist = base_toolchain.conflicting_header_basename_allowlist,
         strip_flags_info = strip_flags_info,
-        split_dwarf_enabled = value_or(ctx.attr.split_dwarf_enabled, base_toolchain.split_dwarf_enabled),
+        split_dwarf_enabled = value_or(ctx.attrs.split_dwarf_enabled, base_toolchain.split_dwarf_enabled),
     )
 
 cxx_toolchain_override = rule(

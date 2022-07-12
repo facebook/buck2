@@ -5,7 +5,7 @@ BuildModeInfo = provider(
 def _build_mode_impl(ctx):
     return [
         DefaultInfo(),
-        BuildModeInfo(cell = ctx.attr.cell, mode = ctx.attr.mode),
+        BuildModeInfo(cell = ctx.attrs.cell, mode = ctx.attrs.mode),
     ]
 
 build_mode = rule(

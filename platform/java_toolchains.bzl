@@ -75,35 +75,35 @@ def config_backed_java_toolchain(
     )
 
 def _config_backed_java_toolchain_rule_impl(ctx):
-    src_root_elements, src_root_prefixes = _parse_src_roots(ctx.attr.src_roots)
-    abi_generation_mode = ctx.attr.abi_generation_mode.lower()
+    src_root_elements, src_root_prefixes = _parse_src_roots(ctx.attrs.src_roots)
+    abi_generation_mode = ctx.attrs.abi_generation_mode.lower()
 
     return [
         DefaultInfo(),
         JavaPlatformInfo(
-            name = ctx.attr.name,
+            name = ctx.attrs.name,
         ),
         JavaToolchainInfo(
             abi_generation_mode = AbiGenerationMode(abi_generation_mode),
-            ast_dumper = ctx.attr.ast_dumper,
-            bootclasspath_7 = ctx.attr.bootclasspath_7,
-            bootclasspath_8 = ctx.attr.bootclasspath_8,
-            class_abi_generator = ctx.attr.class_abi_generator,
-            compile_and_package = ctx.attr.compile_and_package,
-            fallback_javac = derive_javac(ctx.attr.fallback_javac),
-            merge_to_jar = ctx.attr.merge_to_jar,
-            src_dir_helper = ctx.attr.src_dir_helper,
-            fat_jar = ctx.attr.fat_jar,
-            fat_jar_main_class_lib = ctx.attr.fat_jar_main_class_lib,
-            jar = ctx.attr.jar[RunInfo],
-            java = ctx.attr.java,
-            java_for_tests = ctx.attr.java_for_tests[RunInfo] if ctx.attr.java_for_tests else ctx.attr.java[RunInfo],
-            javac = derive_javac(ctx.attr.javac),
-            javac_protocol = ctx.attr.javac_protocol,
-            source_level = ctx.attr.source_level,
+            ast_dumper = ctx.attrs.ast_dumper,
+            bootclasspath_7 = ctx.attrs.bootclasspath_7,
+            bootclasspath_8 = ctx.attrs.bootclasspath_8,
+            class_abi_generator = ctx.attrs.class_abi_generator,
+            compile_and_package = ctx.attrs.compile_and_package,
+            fallback_javac = derive_javac(ctx.attrs.fallback_javac),
+            merge_to_jar = ctx.attrs.merge_to_jar,
+            src_dir_helper = ctx.attrs.src_dir_helper,
+            fat_jar = ctx.attrs.fat_jar,
+            fat_jar_main_class_lib = ctx.attrs.fat_jar_main_class_lib,
+            jar = ctx.attrs.jar[RunInfo],
+            java = ctx.attrs.java,
+            java_for_tests = ctx.attrs.java_for_tests[RunInfo] if ctx.attrs.java_for_tests else ctx.attrs.java[RunInfo],
+            javac = derive_javac(ctx.attrs.javac),
+            javac_protocol = ctx.attrs.javac_protocol,
+            source_level = ctx.attrs.source_level,
             src_root_elements = src_root_elements,
             src_root_prefixes = src_root_prefixes,
-            target_level = ctx.attr.target_level,
+            target_level = ctx.attrs.target_level,
         ),
     ]
 
@@ -158,9 +158,9 @@ def _junit_toolchain_rule_impl(ctx):
     return [
         DefaultInfo(),
         JUnitToolchainInfo(
-            junit_test_runner_library_jar = ctx.attr.junit_test_runner_library_jar[DefaultInfo].default_outputs[0],
-            junit_test_runner_main_class = ctx.attr.junit_test_runner_main_class,
-            list_class_names = ctx.attr.list_class_names,
+            junit_test_runner_library_jar = ctx.attrs.junit_test_runner_library_jar[DefaultInfo].default_outputs[0],
+            junit_test_runner_main_class = ctx.attrs.junit_test_runner_main_class,
+            list_class_names = ctx.attrs.list_class_names,
         ),
     ]
 
@@ -182,7 +182,7 @@ def prebuilt_jar_toolchain(name, **kwargs):
 def _prebuilt_jar_toolchain_rule_impl(ctx):
     return [
         DefaultInfo(),
-        PrebuiltJarToolchainInfo(class_abi_generator = ctx.attr.class_abi_generator),
+        PrebuiltJarToolchainInfo(class_abi_generator = ctx.attrs.class_abi_generator),
     ]
 
 _prebuilt_jar_toolchain_rule = rule(

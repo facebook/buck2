@@ -25,12 +25,12 @@ def _config_backed_kotlin_toolchain_rule_impl(ctx):
     return [
         DefaultInfo(),
         KotlinToolchainInfo(
-            annotation_processing_jar = ctx.attr.annotation_processing_jar,
-            compile_kotlin = ctx.attr.compile_kotlin,
-            kapt_base64_encoder = ctx.attr.kapt_base64_encoder,
-            kotlinc = ctx.attr.kotlinc,
-            kotlinc_classpath = ctx.attr.kotlinc_classpath,
-            kotlin_stdlib = ctx.attr.kotlin_stdlib,
+            annotation_processing_jar = ctx.attrs.annotation_processing_jar,
+            compile_kotlin = ctx.attrs.compile_kotlin,
+            kapt_base64_encoder = ctx.attrs.kapt_base64_encoder,
+            kotlinc = ctx.attrs.kotlinc,
+            kotlinc_classpath = ctx.attrs.kotlinc_classpath,
+            kotlin_stdlib = ctx.attrs.kotlin_stdlib,
         ),
     ]
 
