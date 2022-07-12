@@ -1,7 +1,12 @@
 use std::borrow::Cow;
 
+use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::calculation::Calculation;
-use buck2_build_api::query::cquery::environment::CqueryEnvironment;
+use buck2_build_api::query::dice::get_compatible_targets;
+use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::package::Package;
+use buck2_core::pattern::ParsedPattern;
+use buck2_core::pattern::TargetPattern;
 use buck2_core::target::TargetLabel;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -87,14 +92,13 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
         value: Value<'v>,
         target_platform: &Option<TargetLabel>,
         ctx: &BxlContext<'v>,
-        env: &CqueryEnvironment<'v>,
         eval: &Evaluator<'v, '_>,
     ) -> anyhow::Result<TargetExpr<'v, ConfiguredTargetNode>> {
         Ok(
-            if let Some(resolved) = Self::unpack_literal(value, target_platform, ctx, env).await? {
+            if let Some(resolved) = Self::unpack_literal(value, target_platform, ctx).await? {
                 resolved
             } else if let Some(resolved) =
-                Self::unpack_iterable(value, target_platform, ctx, env, eval).await?
+                Self::unpack_iterable(value, target_platform, ctx, eval).await?
             {
                 resolved
             } else {
@@ -109,7 +113,6 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
         value: Value<'v>,
         target_platform: &Option<TargetLabel>,
         ctx: &BxlContext<'v>,
-        env: &CqueryEnvironment<'v>,
     ) -> anyhow::Result<Option<TargetExpr<'v, ConfiguredTargetNode>>> {
         if let Some(configured_target) = value.downcast_ref::<StarlarkConfiguredTargetNode>() {
             Ok(Some(Self::Node(configured_target.0.dupe())))
@@ -118,8 +121,33 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
         {
             Ok(Some(Self::Label(Cow::Borrowed(configured_target.label()))))
         } else if let Some(s) = value.unpack_str() {
-            let targets = env.eval_literals(&[s]).await?;
-            Ok(Some(Self::TargetSet(Cow::Owned(targets))))
+            match ParsedPattern::<TargetPattern>::parse_relaxed(
+                &ctx.target_alias_resolver,
+                ctx.cell.cell_alias_resolver(),
+                &Package::new(ctx.cell.name(), CellRelativePath::unchecked_new("")),
+                s,
+            )? {
+                ParsedPattern::Target(pkg, name) => Ok(Some(Self::Label(Cow::Owned(
+                    ctx.async_ctx
+                        .0
+                        .get_configured_target(
+                            &TargetLabel::new(pkg, name),
+                            target_platform.as_ref(),
+                        )
+                        .await?,
+                )))),
+                pattern => {
+                    let loaded_patterns = load_patterns(ctx.async_ctx.0, vec![pattern]).await?;
+                    Ok(Some(Self::TargetSet(Cow::Owned(
+                        get_compatible_targets(
+                            ctx.async_ctx.0,
+                            loaded_patterns.iter_loaded_targets_by_package(),
+                            target_platform.dupe(),
+                        )
+                        .await?,
+                    ))))
+                }
+            }
         } else {
             #[allow(clippy::manual_map)] // `if else if` looks better here
             let maybe_unconfigured =
@@ -147,7 +175,6 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
         value: Value<'v>,
         target_platform: &Option<TargetLabel>,
         ctx: &BxlContext<'v>,
-        env: &CqueryEnvironment<'v>,
         eval: &Evaluator<'v, '_>,
     ) -> anyhow::Result<Option<TargetExpr<'v, ConfiguredTargetNode>>> {
         if let Some(s) = value.downcast_ref::<StarlarkTargetSet<ConfiguredTargetNode>>() {
@@ -167,7 +194,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
         let mut resolved = vec![];
 
         for item in items {
-            let unpacked = Self::unpack_literal(item, target_platform, ctx, env).await?;
+            let unpacked = Self::unpack_literal(item, target_platform, ctx).await?;
 
             match unpacked {
                 Some(TargetExpr::Node(node)) => resolved.push(Either::Left(node)),

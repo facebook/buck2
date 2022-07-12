@@ -133,11 +133,11 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             this.functions
                 .allpaths(
                     &this.env,
-                    &*TargetExpr::unpack(from, &this.target_platform, this.ctx, &this.env, eval)
+                    &*TargetExpr::unpack(from, &this.target_platform, this.ctx, eval)
                         .await?
                         .get(&this.env)
                         .await?,
-                    &*TargetExpr::unpack(to, &this.target_platform, this.ctx, &this.env, eval)
+                    &*TargetExpr::unpack(to, &this.target_platform, this.ctx, eval)
                         .await?
                         .get(&this.env)
                         .await?,
@@ -157,11 +157,11 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             this.functions
                 .somepath(
                     &this.env,
-                    &*TargetExpr::unpack(from, &this.target_platform, this.ctx, &this.env, eval)
+                    &*TargetExpr::unpack(from, &this.target_platform, this.ctx, eval)
                         .await?
                         .get(&this.env)
                         .await?,
-                    &*TargetExpr::unpack(to, &this.target_platform, this.ctx, &this.env, eval)
+                    &*TargetExpr::unpack(to, &this.target_platform, this.ctx, eval)
                         .await?
                         .get(&this.env)
                         .await?,
@@ -183,7 +183,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                 .attrfilter(
                     attr,
                     value,
-                    &*TargetExpr::unpack(targets, &this.target_platform, this.ctx, &this.env, eval)
+                    &*TargetExpr::unpack(targets, &this.target_platform, this.ctx, eval)
                         .await?
                         .get(&this.env)
                         .await?,
@@ -202,7 +202,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             this.functions
                 .kind(
                     regex,
-                    &*TargetExpr::unpack(targets, &this.target_platform, this.ctx, &this.env, eval)
+                    &*TargetExpr::unpack(targets, &this.target_platform, this.ctx, eval)
                         .await?
                         .get(&this.env)
                         .await?,
@@ -223,7 +223,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                 .attrregexfilter(
                     attribute,
                     value,
-                    &*TargetExpr::unpack(targets, &this.target_platform, this.ctx, &this.env, eval)
+                    &*TargetExpr::unpack(targets, &this.target_platform, this.ctx, eval)
                         .await?
                         .get(&this.env)
                         .await?,
@@ -264,16 +264,10 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                     .deps(
                         &this.env,
                         &DefaultQueryFunctionsModule::new(),
-                        &*TargetExpr::unpack(
-                            universe,
-                            &this.target_platform,
-                            this.ctx,
-                            &this.env,
-                            eval,
-                        )
-                        .await?
-                        .get(&this.env)
-                        .await?,
+                        &*TargetExpr::unpack(universe, &this.target_platform, this.ctx, eval)
+                            .await?
+                            .get(&this.env)
+                            .await?,
                         depth.into_option(),
                         filter
                             .as_ref()
@@ -296,7 +290,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             .via(|| async {
                 this.functions.filter(
                     regex,
-                    &*TargetExpr::unpack(targets, &this.target_platform, this.ctx, &this.env, eval)
+                    &*TargetExpr::unpack(targets, &this.target_platform, this.ctx, eval)
                         .await?
                         .get(&this.env)
                         .await?,
@@ -314,7 +308,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             .async_ctx
             .via(|| async {
                 this.functions.inputs(
-                    &*TargetExpr::unpack(targets, &this.target_platform, this.ctx, &this.env, eval)
+                    &*TargetExpr::unpack(targets, &this.target_platform, this.ctx, eval)
                         .await?
                         .get(&this.env)
                         .await?,
@@ -334,16 +328,10 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                 this.functions
                     .testsof(
                         &this.env,
-                        &*TargetExpr::unpack(
-                            targets,
-                            &this.target_platform,
-                            this.ctx,
-                            &this.env,
-                            eval,
-                        )
-                        .await?
-                        .get(&this.env)
-                        .await?,
+                        &*TargetExpr::unpack(targets, &this.target_platform, this.ctx, eval)
+                            .await?
+                            .get(&this.env)
+                            .await?,
                     )
                     .await
             })
@@ -363,26 +351,14 @@ fn register_cquery(builder: &mut MethodsBuilder) {
                 this.functions
                     .rdeps(
                         &this.env,
-                        &*TargetExpr::unpack(
-                            universe,
-                            &this.target_platform,
-                            this.ctx,
-                            &this.env,
-                            eval,
-                        )
-                        .await?
-                        .get(&this.env)
-                        .await?,
-                        &*TargetExpr::unpack(
-                            from,
-                            &this.target_platform,
-                            this.ctx,
-                            &this.env,
-                            eval,
-                        )
-                        .await?
-                        .get(&this.env)
-                        .await?,
+                        &*TargetExpr::unpack(universe, &this.target_platform, this.ctx, eval)
+                            .await?
+                            .get(&this.env)
+                            .await?,
+                        &*TargetExpr::unpack(from, &this.target_platform, this.ctx, eval)
+                            .await?
+                            .get(&this.env)
+                            .await?,
                         depth,
                     )
                     .await
