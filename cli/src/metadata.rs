@@ -44,6 +44,14 @@ pub(crate) fn collect() -> HashMap<String, String> {
             "buck2_build_time".to_owned(),
             build_info::BuildInfo::get_time_iso8601().to_owned(),
         );
+        // The operating system - "linux" "darwin" "windows" etc.
+        if let Ok(os_type) = sys_info::os_type() {
+            map.insert("os".to_owned(), os_type.to_lowercase());
+        }
+        // The version of the operating system.
+        if let Ok(version) = sys_info::os_release() {
+            map.insert("os_version".to_owned(), version);
+        }
     }
 
     add_env_var(&mut map, "sandcastle_job_info", "SANDCASTLE_JOB_INFO");
