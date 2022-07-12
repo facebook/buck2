@@ -317,7 +317,7 @@ extra_attributes = struct(
 
     # go
     go_binary = {
-        "resources": attr.list(attr.source(allow_directory = True), default = []),
+        "resources": attr.list(attr.one_of(attr.dep(), attr.source(allow_directory = True)), default = []),
         "_cxx_toolchain": _cxx_toolchain(),
         "_go_toolchain": _go_toolchain(),
     },
