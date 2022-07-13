@@ -113,8 +113,6 @@ if fbcode_linux_only():
 @buck_test(inplace=True)
 async def test_apple(buck: Buck) -> None:
     await buck.build("fbcode//buck2/tests/targets/rules/apple/...")
-    # TODO(T114039748): Fix exec platform constraints and remove all
-    # `--fake-host` args, `build.enable_local_mac_execution` and `xplat.available_platforms` overrides.
     await buck.build(
         "fbsource//fbobjc/buck2/tests/...",
         "-c",
