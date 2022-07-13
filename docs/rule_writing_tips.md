@@ -136,7 +136,10 @@ Debugging
 
 
 ### Run rule's tests locally on Mac
-If run on Mac then need to add `--fake-host=linux` param to ask buck2 to use linux RE workers
+If run on Mac then need to add `--fake-host=linux` param to ask buck2 to use linux RE workers.
+
+NB: `--fake-host` usage will misconfigure the execution platforms and your build might not work correctly.
+Using the argument is *only* safe for non-`build` commands, otherwise behavior is undefined.
 
 `buck2 kill` to make sure we will use a new buck daemon with a fresh state.
 
