@@ -236,8 +236,17 @@ def _get_shared_flags(
             # TODO(T99100029): We cannot use VFS overlays with Buck2, so we have to disable
             # serializing debugging options for mixed libraries to debug successfully
             warning("Mixed libraries cannot serialize debugging options, disabling for module `{}` in rule `{}`".format(module_name, ctx.label))
+        elif not toolchain.prefix_serialized_debugging_options:
+            warning("The current toolchain does not support prefixing serialized debugging options, disabling for module `{}` in rule `{}`".format(module_name, ctx.label))
         else:
-            cmd.add(["-Xfrontend", "-serialize-debugging-options"])
+            # Apply the debug prefix map to Swift serialized debugging info.
+            # This will allow for debugging remotely built swiftmodule files.
+            cmd.add([
+                "-Xfrontend",
+                "-serialize-debugging-options",
+                "-Xfrontend",
+                "-prefix-serialized-debugging-options",
+            ])
 
     # Add flags required to import ObjC module dependencies
     _add_clang_deps_flags(ctx, cmd)

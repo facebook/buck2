@@ -3,14 +3,15 @@
 
 SwiftToolchainInfo = provider(fields = [
     "architecture",
-    "compiler",
-    "compiler_flags",
-    "swift_stdlib_tool",
-    "swift_stdlib_tool_flags",
-    "sdk_path",
-    "compiled_sdk_swift_modules",  # {str.type: SdkCompiledModuleInfo} Expose providers of compiled Swift SDK modules.
     "compiled_sdk_clang_modules",  # {str.type: SdkCompiledModuleInfo} Expose providers of compiled Clang SDK modules.
-    "resource_dir",  # "artifact"
+    "compiled_sdk_swift_modules",  # {str.type: SdkCompiledModuleInfo} Expose providers of compiled Swift SDK modules.
+    "compiler_flags",
+    "compiler",
+    "prefix_serialized_debugging_options",  # bool
+    "resource_dir",  # "artifact",
+    "sdk_path",
+    "swift_stdlib_tool_flags",
+    "swift_stdlib_tool",
 ])
 
 # A provider that represents a non-yet-compiled SDK (Swift or Clang) module,

@@ -44,13 +44,14 @@ def swift_toolchain_impl(ctx):
             # TODO(T99038725): until we add -debug-compilation-dir we need to wrap
             # the Swift invocations so that we can apply a debug prefix map for
             # the current directory while maintaining cache hit.
+            compiled_sdk_clang_modules = compiled_sdk_clang_module_providers,
+            compiled_sdk_swift_modules = compiled_sdk_swift_module_providers,
             compiler = compiler,
             compiler_flags = compiler_flags,
+            prefix_serialized_debugging_options = ctx.attrs.prefix_serialized_debug_info,
+            resource_dir = resource_dir,
+            sdk_path = sdk_path,
             swift_stdlib_tool = ctx.attrs.swift_stdlib_tool[RunInfo],
             swift_stdlib_tool_flags = ctx.attrs.swift_stdlib_tool_flags,
-            sdk_path = sdk_path,
-            compiled_sdk_swift_modules = compiled_sdk_swift_module_providers,
-            compiled_sdk_clang_modules = compiled_sdk_clang_module_providers,
-            resource_dir = resource_dir,
         ),
     ]
