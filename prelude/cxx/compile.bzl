@@ -230,7 +230,7 @@ def compile_cxx(
     """
     For a given list of src_compile_cmds, generate output artifacts.
     """
-    prefer_local = _cxx_compile_requires_local(ctx)
+    local_only = _cxx_compile_requires_local(ctx)
     objects = []
     for src_compile_cmd in src_compile_cmds:
         identifier = src_compile_cmd.src.short_path
@@ -278,7 +278,7 @@ def compile_cxx(
 
         if pic:
             identifier += " (pic)"
-        ctx.actions.run(cmd, category = "cxx_compile", identifier = identifier, dep_files = action_dep_files, prefer_local = prefer_local)
+        ctx.actions.run(cmd, category = "cxx_compile", identifier = identifier, dep_files = action_dep_files, local_only = local_only)
         objects.append(out)
 
     return objects
