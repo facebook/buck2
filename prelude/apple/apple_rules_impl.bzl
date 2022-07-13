@@ -48,7 +48,7 @@ extra_attributes = {
         "_apple_toolchain": _get_apple_tolchain_attr(),
     },
     "apple_bundle": {
-        "_apple_installer": attr.exec_dep(default = "buck//src/com/facebook/buck/installer:apple_installer", providers = [RunInfo]),
+        "_apple_installer": attr.exec_dep(default = "buck//src/com/facebook/buck/installer/apple:apple_installer", providers = [RunInfo]),
         "_apple_toolchain": _get_apple_tolchain_attr(),
         "_apple_tools": attr.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
         "_codesign_entitlements": attr.option(attr.source(), default = None),
