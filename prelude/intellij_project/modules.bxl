@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude/java:java_providers.bzl", "JavaLibraryInfo")
+load("@fbcode//buck2/prelude/java:java_providers.bzl", "JavaLibraryIntellijInfo")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 
 IjModule = record(
@@ -35,9 +35,9 @@ def get_modules(all_nodes: "target_set", analysis: dict.type) -> {"configured_ta
 
 def _get_java_library_module(node: "target_node", providers: "provider_collection") -> IjModule.type:
     expect(node.rule_type == _JAVA_LIBRARY_RULE_TYPE, "Rule type must be {} but was {}".format(_JAVA_LIBRARY_RULE_TYPE, node.rule_type))
-    java_library_info = providers[JavaLibraryInfo]
+    java_library_intellij_info = providers[JavaLibraryIntellijInfo]
     return IjModule(
-        deps = [compiling_dep.full_library.owner for compiling_dep in (java_library_info.compiling_deps.traverse() if java_library_info.compiling_deps else [])],
+        deps = [compiling_dep.owner for compiling_dep in java_library_intellij_info.compiling_classpath],
         file_name = _get_module_file_name(node.label),
         rule_type = _JAVA_LIBRARY_RULE_TYPE,
         srcs = node.attrs().srcs,
