@@ -5,4 +5,5 @@ prelude.genrule(
     srcs = [],
     out = "out.txt",
     bash = "echo HELLO > $OUT",
+    cmd_exe = "echo HELLO> %OUT%",
 )
