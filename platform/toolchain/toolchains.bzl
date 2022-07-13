@@ -106,6 +106,9 @@ def default_python_toolchain_inner():
             "ovr_config//third-party/python/constraints:3.8": "fbcode//buck2/platform:py3.8-platform010",
             "ovr_config//third-party/python/constraints:cinder.3.8": "fbcode//buck2/platform:cinder_py3.8-platform010",
         }),
+        "ovr_config//runtime/constraints:platform010-aarch64": select({
+            "ovr_config//third-party/python/constraints:3.8": "fbcode//buck2/platform:py3.8-platform010-aarch64",
+        }),
         "ovr_config//runtime/constraints:platform010-compat": select({
             "ovr_config//third-party/python/constraints:3.8": "fbcode//buck2/platform:py3.8-platform010-compat",
             "ovr_config//third-party/python/constraints:cinder.3.8": "fbcode//buck2/platform:cinder_py3.8-platform010-compat",
@@ -117,6 +120,7 @@ def default_python_bootstrap_toolchain_inner():
         "DEFAULT": "fbcode//buck2/platform:bootstrap-py3.8-{}".format(_default_fbcode_platform),
         "ovr_config//runtime/constraints:platform009": "fbcode//buck2/platform:bootstrap-py3.8-platform009",
         "ovr_config//runtime/constraints:platform010": "fbcode//buck2/platform:bootstrap-py3.8-platform010",
+        "ovr_config//runtime/constraints:platform010-aarch64": "fbcode//buck2/platform:bootstrap-py3.8-platform010-aarch64",
     })
 
 def default_rust_toolchain_inner():
