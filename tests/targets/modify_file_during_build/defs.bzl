@@ -4,10 +4,9 @@ def _modify_file_impl(ctx):
     out = ctx.actions.declare_output("out")
 
     ctx.actions.run([
-        "sh",
+        "python3",
         "-c",
-        'echo REPLACEMENT > "$1" && touch "$2"',
-        "--",
+        "import sys; fp=open(sys.argv[1], 'w'); fp.write('REPLACEMENT'); open(sys.argv[2], 'w')",
         text,
         out.as_output(),
     ], local_only = True, category = "test")
