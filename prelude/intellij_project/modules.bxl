@@ -1,3 +1,4 @@
+load("@fbcode//buck2/prelude/intellij_project:libraries.bxl", "get_library_xml")
 load("@fbcode//buck2/prelude/java:java_providers.bzl", "JavaLibraryIntellijInfo")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 
@@ -7,6 +8,11 @@ IjModule = record(
     rule_type = str.type,
     # TODO(T124404955) should this be a list of artifacts?
     srcs = "configured_attr_val",
+)
+
+IjModuleWithResolvedDeps = record(
+    ij_module = IjModule.type,
+    module_libraries = ["IjLibrary"],
 )
 
 _ANDROID_LIBRARY_RULE_TYPE = "fbcode//buck2/prelude/rules.bzl:android_library"
@@ -62,11 +68,24 @@ def _get_module_file_name(module_label: "configured_target_label") -> str.type:
     return "modules/{}.iml".format(module_label.package.replace("/", "_"))
 
 # TODO(T124403530) Fill this in correctly
-def get_module_file_contents() -> str.type:
+def get_module_file_contents(ij_module_with_resolved_deps: IjModuleWithResolvedDeps.type) -> str.type:
     return """\
 <?xml version="1.0" encoding="UTF-8"?>
 <module type="JAVA_MODULE" version="4">
-  <component name="NewModuleRootManager" inherit-compiler-output="false">
+  <component name="NewModuleRootManager" inherit-compiler-output="false">{module_libraries}
   </component>
 </project>
-"""
+""".format(module_libraries = _get_module_libraries_xml(ij_module_with_resolved_deps.module_libraries, base_indentation = "    "))
+
+def _get_module_libraries_xml(libraries: ["IjLibrary"], base_indentation: str.type) -> str.type:
+    xml = ""
+    for module_library in libraries:
+        xml += _get_module_library_xml(module_library, base_indentation)
+
+    return xml
+
+def _get_module_library_xml(module_library: "IjLibrary", base_indentation: str.type) -> str.type:
+    library_xml = get_library_xml(module_library, base_indentation = base_indentation + "  ")
+    return """
+{base_indentation}<orderEntry type="module-library" scope="COMPILE">{library_xml}
+{base_indentation}</orderEntry>""".format(library_xml = library_xml, base_indentation = base_indentation)

@@ -1,5 +1,5 @@
 load("@fbcode//buck2/prelude/intellij_project:libraries.bxl", "get_libraries", "get_project_library_contents", "get_project_library_file_name")
-load("@fbcode//buck2/prelude/intellij_project:modules.bxl", "get_module_file_contents", "get_modules")
+load("@fbcode//buck2/prelude/intellij_project:modules.bxl", "IjModuleWithResolvedDeps", "get_module_file_contents", "get_modules")
 
 def _impl(ctx):
     all_nodes = ctx.cquery().deps(ctx.cli_args.targets, -1)
@@ -9,9 +9,12 @@ def _impl(ctx):
     action_factory = ctx.bxl_actions.action_factory()
 
     modules = get_modules(all_nodes, all_analysis)
+    libraries = get_libraries(all_nodes)
+    project_libraries, ij_modules_with_resolved_deps = _sort_libraries(modules.values(), libraries)
 
     file_names = []
-    for _, module in modules.items():
+    for ij_module_with_resolved_deps in ij_modules_with_resolved_deps:
+        module = ij_module_with_resolved_deps.ij_module
         file_name = module.file_name
 
         # TODO(T124403530) account for multiple copies of the same lib (with different configs)
@@ -19,13 +22,10 @@ def _impl(ctx):
             continue
         file_names.append(file_name)
         module_output = _create_output(action_factory, module.file_name, final_output_dir_dict)
-        action_factory.write(module_output, get_module_file_contents())
+        action_factory.write(module_output, get_module_file_contents(ij_module_with_resolved_deps))
 
-    libraries = get_libraries(all_nodes)
-
-    # TODO(T124403530) support module libraries
     file_names = []
-    for library in libraries:
+    for library in project_libraries:
         file_name = get_project_library_file_name(library.label)
 
         # TODO(T124405159) once we correct include config in the file name, we don't need to do this check.
@@ -58,6 +58,43 @@ def _create_output(
     final_output_dir_dict[output_path] = output
 
     return output
+
+PROJECT_LIBRARY_THRESHOLD = 1
+
+def _sort_libraries(modules: ["IjModule"], libraries: ["IjLibrary"]) -> (["IjLibrary"], [IjModuleWithResolvedDeps.type]):
+    # TODO(bobyf) better way to compare "label" and "configured_target_label"?
+    libraries_by_stringified_label = {str(ij_library.label): ij_library for ij_library in libraries}
+
+    # First, count the number of times that each library appears as a dependency of a module.
+    library_counts = {str(ij_library.label): 0 for ij_library in libraries}
+    for module in modules:
+        for dep in module.deps:
+            stringified_dep = str(dep)
+            if stringified_dep in library_counts.keys():
+                library_counts[stringified_dep] += 1
+
+    # If a library appears more than PROJECT_LIBRARY_THRESHOLD times, then it is a project library.
+    # Otherwise (if it appears at least once), it is a module library (it is inlined into the module's
+    # .iml file rather than having its own .iml file).
+    project_libraries = []
+    module_libraries = {}
+    for stringified_library_label, count in library_counts.items():
+        if count > PROJECT_LIBRARY_THRESHOLD:
+            project_libraries.append(libraries_by_stringified_label[stringified_library_label])
+        elif count > 0:
+            module_libraries[stringified_library_label] = libraries_by_stringified_label[stringified_library_label]
+
+    ij_modules_with_resolved_deps = []
+    for module in modules:
+        module_libs = []
+        for dep in module.deps:
+            stringified_dep = str(dep)
+            if stringified_dep in module_libraries.keys():
+                module_libs.append(module_libraries[stringified_dep])
+
+        ij_modules_with_resolved_deps.append(IjModuleWithResolvedDeps(ij_module = module, module_libraries = module_libs))
+
+    return project_libraries, ij_modules_with_resolved_deps
 
 generate_intellij_project = bxl(
     impl = _impl,
