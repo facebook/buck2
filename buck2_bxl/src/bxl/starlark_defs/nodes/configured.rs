@@ -246,7 +246,9 @@ fn attr_to_value<'v>(heap: &'v Heap, attr: &ConfiguredAttr) -> anyhow::Result<Va
         ),
         AttrLiteral::Query(q) => heap.alloc(q.query.query()),
         AttrLiteral::SourceLabel(s) => heap.alloc(Label::new(heap, *s.clone())),
-        AttrLiteral::SourceFile(f) => heap.alloc(f.path().to_string()),
+        AttrLiteral::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(
+            SourceArtifact::new(f.path().clone()),
+        ))),
         AttrLiteral::Arg(arg) => heap.alloc(arg.to_string()),
         AttrLiteral::Label(l) => heap.alloc(Label::new(heap, *l.clone())),
     })

@@ -180,7 +180,9 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::ConfigurationDep(_) => Ok(starlark::values::string::STRING_TYPE),
             AttrLiteral::SplitTransitionDep(_) => Ok(Dict::TYPE),
             AttrLiteral::Query(_) => Ok(starlark::values::list::List::TYPE),
-            AttrLiteral::SourceLabel(_) => Ok(StarlarkArtifact::get_type_value_static().as_str()),
+            AttrLiteral::SourceLabel(_) => {
+                Ok(LabelGen::<FrozenValue>::get_type_value_static().as_str())
+            }
             AttrLiteral::SourceFile(_) => Ok(StarlarkArtifact::get_type_value_static().as_str()),
             AttrLiteral::Arg(_) => Ok(ResolvedStringWithMacros::get_type_value_static().as_str()),
             AttrLiteral::Label(_) => Ok(LabelGen::<FrozenValue>::get_type_value_static().as_str()),
