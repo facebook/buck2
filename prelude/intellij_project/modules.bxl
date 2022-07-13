@@ -9,8 +9,10 @@ IjModule = record(
     srcs = "configured_attr_val",
 )
 
+_ANDROID_LIBRARY_RULE_TYPE = "fbcode//buck2/prelude/rules.bzl:android_library"
 _JAVA_LIBRARY_RULE_TYPE = "fbcode//buck2/prelude/rules.bzl:java_library"
 _MODULE_RULE_TYPES = [
+    _ANDROID_LIBRARY_RULE_TYPE,
     _JAVA_LIBRARY_RULE_TYPE,
 ]
 
@@ -28,10 +30,23 @@ def get_modules(all_nodes: "target_set", analysis: dict.type) -> {"configured_ta
         if rule_type == _JAVA_LIBRARY_RULE_TYPE:
             providers = analysis[configured_sub_target(node.label)].providers()
             modules[node.label] = _get_java_library_module(node, providers)
+        elif rule_type == _ANDROID_LIBRARY_RULE_TYPE:
+            providers = analysis[configured_sub_target(node.label)].providers()
+            modules[node.label] = _get_android_library_module(node, providers)
         else:
             fail("Should add if branch above for rule type: {}".format(rule_type))
 
     return modules
+
+def _get_android_library_module(node: "target_node", providers: "provider_collection") -> IjModule.type:
+    expect(node.rule_type == _ANDROID_LIBRARY_RULE_TYPE, "Rule type must be {} but was {}".format(_JAVA_LIBRARY_RULE_TYPE, node.rule_type))
+    java_library_intellij_info = providers[JavaLibraryIntellijInfo]
+    return IjModule(
+        deps = [compiling_dep.owner for compiling_dep in java_library_intellij_info.compiling_classpath],
+        file_name = _get_module_file_name(node.label),
+        rule_type = _ANDROID_LIBRARY_RULE_TYPE,
+        srcs = node.attrs().srcs,
+    )
 
 def _get_java_library_module(node: "target_node", providers: "provider_collection") -> IjModule.type:
     expect(node.rule_type == _JAVA_LIBRARY_RULE_TYPE, "Rule type must be {} but was {}".format(_JAVA_LIBRARY_RULE_TYPE, node.rule_type))
