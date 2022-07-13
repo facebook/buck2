@@ -175,7 +175,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             }
             AttrLiteral::ConfigurationDep(_) => Ok(starlark::values::string::STRING_TYPE),
             AttrLiteral::SplitTransitionDep(_) => Ok(Dict::TYPE),
-            AttrLiteral::Query(_) => Ok(starlark::values::list::List::TYPE),
+            AttrLiteral::Query(_) => Ok(starlark::values::string::STRING_TYPE),
             AttrLiteral::SourceLabel(_) => {
                 Ok(LabelGen::<FrozenValue>::get_type_value_static().as_str())
             }
