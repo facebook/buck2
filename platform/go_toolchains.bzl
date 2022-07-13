@@ -1,21 +1,71 @@
-load("@fbcode//buck2/platform:utils.bzl", "flags_attr", "string_attr")
-load("@fbcode//buck2/prelude:paths.bzl", "paths")
 load("@fbcode//buck2/prelude/go:toolchain.bzl", "GoToolchainInfo")
+load("@fbcode_macros//build_defs:fbcode_toolchains.bzl", "fbcode_toolchains")
+load("@fbsource//tools/build_defs:selects2.bzl", "selects2")
 
-def config_backed_go_toolchain(name, flavor, **kwargs):
-    section = "go#" + flavor
-    go_platform = "linux_amd64"
-    root = paths.normalize(string_attr.reader(section, "root"))
+# Select a GOARCH using FB contraints set on a target platform.
+_GO_ARCH = select({
+    "ovr_config//cpu/constraints:arm64": "arm64",
+    "ovr_config//cpu/constraints:x86_64": "amd64",
+})
+
+# Select a GOOS using FB contraints set on a target platform.
+_GO_OS = select({
+    "ovr_config//os/constraints:linux": "linux",
+})
+
+# Select a Go platform name using FB contraints set on a target platform.
+_GO_PLATFORM = selects2.apply_n(
+    [_GO_OS, _GO_ARCH],
+    lambda os, arch: "{}_{}".format(os, arch),
+)
+
+_GO_FBCODE_PKG = "fbcode//third-party-buck/{fbcode_platform}/tools/go"
+
+def _go_pkg_tool(name, tool):
+    return fbcode_toolchains.tool_wrapper(
+        base_name = name + "-" + tool,
+        exe = selects2.apply(
+            _GO_PLATFORM,
+            lambda gp: _GO_FBCODE_PKG + ":pkg/tool/{}/{}".format(gp, tool),
+        ),
+    )
+
+def _go_bin_tool(name, tool):
+    return fbcode_toolchains.tool_wrapper(
+        base_name = name + "-" + tool,
+        exe = _GO_FBCODE_PKG + ":bin/{}".format(tool),
+    )
+
+def _go_root():
+    return fbcode_toolchains.fmt(
+        selects2.apply(
+            _GO_PLATFORM,
+            lambda gp: "{}:goroot-{}".format(_GO_FBCODE_PKG, gp),
+        ),
+    )
+
+def go_fbcode_toolchain(name, assembler_flags = [], **kwargs):
+    """
+    Create a Go toolchain for fbcode platforms.
+    """
+
     go_toolchain(
         name = name,
-        assembler = "fbcode//{}:pkg/tool/{}/asm.exe".format(root, go_platform),
-        compiler = "fbcode//{}:pkg/tool/{}/compile.exe".format(root, go_platform),
-        compiler_flags = [],
-        external_linker_flags = flags_attr.reader(section, "external_linker_flags"),
-        go = "fbcode//{}:bin/go.exe".format(root, go_platform),
-        linker = "fbcode//{}:pkg/tool/{}/link.exe".format(root, go_platform),
-        linker_flags = [],
-        packer = "fbcode//{}:pkg/tool/{}/pack.exe".format(root, go_platform),
+        assembler = _go_pkg_tool(name, "asm"),
+        assembler_flags = fbcode_toolchains.fmtl([
+            "-I",
+            "$(location {}:pkg/include)".format(_GO_FBCODE_PKG),
+        ]) + assembler_flags,
+        compiler = _go_pkg_tool(name, "compile"),
+        go = _go_bin_tool(name, "go"),
+        linker = _go_pkg_tool(name, "link"),
+        packer = _go_pkg_tool(name, "pack"),
+        env_go_root = _go_root(),
+        env_go_arch = _GO_ARCH,
+        env_go_os = _GO_OS,
+        compatible_with = [
+            "ovr_config//runtime:fbcode",
+        ],
         **kwargs
     )
 
@@ -39,20 +89,21 @@ def _go_toolchain_impl(ctx):
 
 go_toolchain = rule(
     impl = _go_toolchain_impl,
+    is_toolchain_rule = True,
     attrs = {
-        "assembler": attr.dep(providers = [RunInfo]),
+        "assembler": attr.exec_dep(providers = [RunInfo]),
         "assembler_flags": attr.list(attr.arg(), default = []),
-        "compile_wrapper": attr.dep(providers = [RunInfo], default = "fbcode//buck2/prelude/go/tools:compile_wrapper"),
-        "compiler": attr.dep(providers = [RunInfo]),
+        "compile_wrapper": attr.exec_dep(providers = [RunInfo], default = "fbcode//buck2/prelude/go/tools:compile_wrapper"),
+        "compiler": attr.exec_dep(providers = [RunInfo]),
         "compiler_flags": attr.list(attr.arg(), default = []),
         "env_go_arch": attr.option(attr.string()),
         "env_go_os": attr.option(attr.string()),
         "env_go_root": attr.option(attr.source()),
         "external_linker_flags": attr.list(attr.arg(), default = []),
-        "filter_srcs": attr.dep(providers = [RunInfo], default = "fbcode//buck2/prelude/go/tools:filter_srcs"),
-        "go": attr.dep(providers = [RunInfo]),
-        "linker": attr.dep(providers = [RunInfo]),
+        "filter_srcs": attr.exec_dep(providers = [RunInfo], default = "fbcode//buck2/prelude/go/tools:filter_srcs"),
+        "go": attr.exec_dep(providers = [RunInfo]),
+        "linker": attr.exec_dep(providers = [RunInfo]),
         "linker_flags": attr.list(attr.arg(), default = []),
-        "packer": attr.dep(providers = [RunInfo]),
+        "packer": attr.exec_dep(providers = [RunInfo]),
     },
 )

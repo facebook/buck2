@@ -10,6 +10,9 @@ native.go_test(
         "foo_test.go",
         "bar_test.go",
     ],
+    target_compatible_with = [
+        "ovr_config//runtime:fbcode",
+    ],
 )
 
 native.go_library(
@@ -25,6 +28,9 @@ native.go_test(
         "lib_test.go",
     ],
     library = ":lib",
+    target_compatible_with = [
+        "ovr_config//runtime:fbcode",
+    ],
 )
 
 buck_genrule(

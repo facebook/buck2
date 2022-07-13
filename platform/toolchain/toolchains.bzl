@@ -86,9 +86,6 @@ def default_cxx_toolchain_inner():
         ]),
     )
 
-def default_go_toolchain_inner():
-    return "fbcode//buck2/platform:go-{}-clang".format(_default_fbcode_platform)
-
 def default_python_toolchain_inner():
     return select({
         # TODO: Ideally we don't need this, `.buckconfig`s set the coarser fbcode

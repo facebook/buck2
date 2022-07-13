@@ -1,6 +1,6 @@
 load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool")
 load(":cxx_toolchains.bzl", "config_backed_cxx_toolchain", "cxx_hacks", "cxx_toolchain_override")
-load(":go_toolchains.bzl", "config_backed_go_toolchain")
+load(":go_toolchains.bzl", "go_fbcode_toolchain")
 load(":haskell_toolchains.bzl", "config_backed_haskell_toolchain")
 load(":java_toolchains.bzl", "config_backed_java_toolchain", "prebuilt_jar_toolchain")
 load(":ocaml_toolchains.bzl", "config_backed_ocaml_toolchain")
@@ -124,15 +124,21 @@ cxx_hacks(
     visibility = ["PUBLIC"],
 )
 
-[
-    config_backed_go_toolchain(
-        name = "go-" + flavor,
-        flavor = flavor,
-        visibility = ["PUBLIC"],
-    )
-    for flavor in _fbcode_cxx_flavors
-    if read_config("go#" + flavor, "root")
-]
+go_fbcode_toolchain(
+    name = "go-fbcode",
+    # Set native platform linker flags.
+    external_linker_flags = [
+        "-Wl,--build-id=md5",
+        # fbcode uses -nodefaultlibs ld flag by default. And C system
+        # libraries are provided as implicit deps to corresponding buck
+        # targets. To make this work for Go, it requires cgo_library,
+        # but cgo is not supported for Go cross-compilation.
+        # Work around by providing an explicit -lc and -ldl options.
+        "-lc",
+        "-ldl",
+    ],
+    visibility = ["PUBLIC"],
+)
 
 [config_backed_python_toolchain(
     flavor = flavor,
