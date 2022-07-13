@@ -10,7 +10,7 @@ def _impl(ctx):
 
     modules = get_modules(all_nodes, all_analysis)
     libraries = get_libraries(all_nodes)
-    project_libraries, ij_modules_with_resolved_deps = _sort_libraries(modules.values(), libraries)
+    project_libraries, ij_modules_with_resolved_deps = _sort_libraries_and_modules(modules.values(), libraries)
 
     file_names = []
     for ij_module_with_resolved_deps in ij_modules_with_resolved_deps:
@@ -61,7 +61,7 @@ def _create_output(
 
 PROJECT_LIBRARY_THRESHOLD = 1
 
-def _sort_libraries(modules: ["IjModule"], libraries: ["IjLibrary"]) -> (["IjLibrary"], [IjModuleWithResolvedDeps.type]):
+def _sort_libraries_and_modules(modules: ["IjModule"], libraries: ["IjLibrary"]) -> (["IjLibrary"], [IjModuleWithResolvedDeps.type]):
     # TODO(bobyf) better way to compare "label" and "configured_target_label"?
     libraries_by_stringified_label = {str(ij_library.label): ij_library for ij_library in libraries}
 
@@ -84,8 +84,10 @@ def _sort_libraries(modules: ["IjModule"], libraries: ["IjLibrary"]) -> (["IjLib
         elif count > 0:
             module_libraries[stringified_library_label] = libraries_by_stringified_label[stringified_library_label]
 
+    modules_by_stringified_label = {str(ij_module.label): ij_module for ij_module in modules}
     ij_modules_with_resolved_deps = []
     for module in modules:
+        module_dependencies = []
         module_libs = []
         project_libs = []
         for dep in module.deps:
@@ -94,10 +96,13 @@ def _sort_libraries(modules: ["IjModule"], libraries: ["IjLibrary"]) -> (["IjLib
                 module_libs.append(module_libraries[stringified_dep])
             elif stringified_dep in project_libraries.keys():
                 project_libs.append(project_libraries[stringified_dep])
+            elif stringified_dep in modules_by_stringified_label.keys():
+                module_dependencies.append(modules_by_stringified_label[stringified_dep])
 
         ij_modules_with_resolved_deps.append(
             IjModuleWithResolvedDeps(
                 ij_module = module,
+                module_dependencies = module_dependencies,
                 module_libraries = module_libs,
                 project_libraries = project_libs,
             ),

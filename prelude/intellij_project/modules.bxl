@@ -13,6 +13,7 @@ IjModule = record(
 
 IjModuleWithResolvedDeps = record(
     ij_module = IjModule.type,
+    module_dependencies = [IjModule.type],
     module_libraries = ["IjLibrary"],
     project_libraries = ["IjLibrary"],
 )
@@ -80,13 +81,29 @@ def get_module_file_contents(ij_module_with_resolved_deps: IjModuleWithResolvedD
 <?xml version="1.0" encoding="UTF-8"?>
 <module type="JAVA_MODULE" version="4">
   <component name="NewModuleRootManager" inherit-compiler-output="false">\
+{module_dependencies}\
 {module_libraries}\
 {project_libraries}
   </component>
 </project>
 """.format(
+        module_dependencies = _get_module_dependencies_xml(ij_module_with_resolved_deps.module_dependencies, base_indentation = "    "),
         module_libraries = _get_module_libraries_xml(ij_module_with_resolved_deps.module_libraries, base_indentation = "    "),
         project_libraries = _get_project_libraries_xml(ij_module_with_resolved_deps.project_libraries, base_indentation = "    "),
+    )
+
+def _get_module_dependencies_xml(module_dependencies: [IjModule.type], base_indentation: str.type) -> str.type:
+    xml = ""
+    for module_dependency in module_dependencies:
+        xml += _get_module_dependency_xml(module_dependency, base_indentation)
+
+    return xml
+
+def _get_module_dependency_xml(module_dependency: IjModule.type, base_indentation: str.type) -> str.type:
+    return """
+{base_indentation}<orderEntry type="module" module-name="{name}" scope="COMPILE" />""".format(
+        base_indentation = base_indentation,
+        name = module_dependency.name,
     )
 
 def _get_module_libraries_xml(libraries: ["IjLibrary"], base_indentation: str.type) -> str.type:
