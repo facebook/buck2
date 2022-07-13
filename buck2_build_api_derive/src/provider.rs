@@ -76,6 +76,36 @@ impl ProviderCodegen {
         }
     }
 
+    /// Parse the "doc" attribute and return a tokenstream that is either None if "doc" is not
+    /// present, or the result of DocString::parse_docstring if present.
+    fn get_docstring_impl(&self, attrs: &Vec<syn::Attribute>) -> proc_macro2::TokenStream {
+        let mut doc_lines = vec![];
+
+        for attr in attrs {
+            if attr.path.is_ident("doc") {
+                if let Ok(syn::Meta::NameValue(syn::MetaNameValue {
+                    lit: syn::Lit::Str(s),
+                    ..
+                })) = attr.parse_meta()
+                {
+                    doc_lines.push(s.value());
+                }
+            }
+        }
+
+        if doc_lines.is_empty() {
+            quote! { None }
+        } else {
+            let docstring = Some(doc_lines.join("\n"));
+            quote! {
+                starlark::values::docs::DocString::from_docstring(
+                    starlark::values::docs::DocStringKind::Rust,
+                    #docstring,
+                )
+            }
+        }
+    }
+
     fn impl_display(&self) -> syn::Result<proc_macro2::TokenStream> {
         let gen_name = &self.input.ident;
         let name_str = self.name_str()?;
@@ -214,6 +244,7 @@ impl ProviderCodegen {
     fn callable_impl_starlark_value(&self) -> syn::Result<proc_macro2::TokenStream> {
         let name_str = self.name_str()?;
         let field_names = self.field_names()?;
+        let provider_docstring = self.get_docstring_impl(&self.input.attrs);
         let create_func = &self.args.creator_func;
         let callable_name = self.callable_name()?;
         let callable_name_snake_str = callable_name.to_string().to_case(Case::Snake);
@@ -248,6 +279,7 @@ impl ProviderCodegen {
                 fn documentation(&self) -> Option<starlark::values::docs::DocItem> {
                     // TODO(nmj): Pull docstrings from attributes of the struct and
                     //            for the main struct
+                    let docstring = #provider_docstring;
                     let field_names = [
                         #(stringify!(#field_names).to_owned()),*
                     ];
@@ -255,7 +287,7 @@ impl ProviderCodegen {
                     let field_types = vec![None;field_names.len()];
                     use crate::interpreter::rule_defs::provider::callable::ProviderCallableLike;
                     self.provider_callable_documentation(
-                        &None,
+                        &docstring,
                         &field_names,
                         &field_docs,
                         &field_types
