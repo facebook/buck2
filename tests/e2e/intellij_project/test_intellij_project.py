@@ -39,7 +39,7 @@ async def test_generate_intellij_project(buck: Buck) -> None:
 <component name="libraryTable">
   <library name="fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar:prebuilt">
     <CLASSES>
-      <root url="jar://$PROJECT_DIR$/"fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar/prebuilt.jar"!/" />
+      <root url="jar://$PROJECT_DIR$/fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar/prebuilt.jar!/" />
     </CLASSES>
     <SOURCES>
       <root url="jar://$PROJECT_DIR$/fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar/prebuilt-sources.jar!/" />
@@ -59,7 +59,7 @@ async def test_generate_intellij_project(buck: Buck) -> None:
 <component name="libraryTable">
   <library name="fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar_no_sources:prebuilt_no_sources">
     <CLASSES>
-      <root url="jar://$PROJECT_DIR$/"fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar_no_sources/prebuilt_no_sources.jar"!/" />
+      <root url="jar://$PROJECT_DIR$/fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar_no_sources/prebuilt_no_sources.jar!/" />
     </CLASSES>
     <JAVADOC />
   </library>
