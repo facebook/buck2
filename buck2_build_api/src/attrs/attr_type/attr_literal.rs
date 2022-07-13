@@ -28,7 +28,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::Value;
 
 use crate::attrs::analysis::AttrResolutionContext;
-use crate::attrs::attr_type::arg::value::ResolvedStringWithMacros;
 use crate::attrs::attr_type::arg::ConfiguredStringWithMacrosExt;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepAttrTypeExt;
 use crate::attrs::attr_type::dep::DepAttrTypeExt;
@@ -181,7 +180,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 Ok(LabelGen::<FrozenValue>::get_type_value_static().as_str())
             }
             AttrLiteral::SourceFile(_) => Ok(StarlarkArtifact::get_type_value_static().as_str()),
-            AttrLiteral::Arg(_) => Ok(ResolvedStringWithMacros::get_type_value_static().as_str()),
+            AttrLiteral::Arg(_) => Ok(starlark::values::string::STRING_TYPE),
             AttrLiteral::Label(_) => Ok(LabelGen::<FrozenValue>::get_type_value_static().as_str()),
         }
     }
