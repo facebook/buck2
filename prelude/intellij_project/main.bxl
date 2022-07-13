@@ -76,25 +76,34 @@ def _sort_libraries(modules: ["IjModule"], libraries: ["IjLibrary"]) -> (["IjLib
     # If a library appears more than PROJECT_LIBRARY_THRESHOLD times, then it is a project library.
     # Otherwise (if it appears at least once), it is a module library (it is inlined into the module's
     # .iml file rather than having its own .iml file).
-    project_libraries = []
+    project_libraries = {}
     module_libraries = {}
     for stringified_library_label, count in library_counts.items():
         if count > PROJECT_LIBRARY_THRESHOLD:
-            project_libraries.append(libraries_by_stringified_label[stringified_library_label])
+            project_libraries[stringified_library_label] = libraries_by_stringified_label[stringified_library_label]
         elif count > 0:
             module_libraries[stringified_library_label] = libraries_by_stringified_label[stringified_library_label]
 
     ij_modules_with_resolved_deps = []
     for module in modules:
         module_libs = []
+        project_libs = []
         for dep in module.deps:
             stringified_dep = str(dep)
             if stringified_dep in module_libraries.keys():
                 module_libs.append(module_libraries[stringified_dep])
+            elif stringified_dep in project_libraries.keys():
+                project_libs.append(project_libraries[stringified_dep])
 
-        ij_modules_with_resolved_deps.append(IjModuleWithResolvedDeps(ij_module = module, module_libraries = module_libs))
+        ij_modules_with_resolved_deps.append(
+            IjModuleWithResolvedDeps(
+                ij_module = module,
+                module_libraries = module_libs,
+                project_libraries = project_libs,
+            ),
+        )
 
-    return project_libraries, ij_modules_with_resolved_deps
+    return project_libraries.values(), ij_modules_with_resolved_deps
 
 generate_intellij_project = bxl(
     impl = _impl,

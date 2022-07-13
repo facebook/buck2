@@ -72,6 +72,7 @@ async def test_generate_intellij_project(buck: Buck) -> None:
         <JAVADOC />
       </library>
     </orderEntry>
+    <orderEntry type="library" name="fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar:prebuilt" scope="COMPILE" level="project" />
   </component>
 </project>
 """
@@ -86,6 +87,7 @@ async def test_generate_intellij_project(buck: Buck) -> None:
 <?xml version="1.0" encoding="UTF-8"?>
 <module type="JAVA_MODULE" version="4">
   <component name="NewModuleRootManager" inherit-compiler-output="false">
+    <orderEntry type="library" name="fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar:prebuilt" scope="COMPILE" level="project" />
   </component>
 </project>
 """

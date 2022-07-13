@@ -13,6 +13,7 @@ IjModule = record(
 IjModuleWithResolvedDeps = record(
     ij_module = IjModule.type,
     module_libraries = ["IjLibrary"],
+    project_libraries = ["IjLibrary"],
 )
 
 _ANDROID_LIBRARY_RULE_TYPE = "fbcode//buck2/prelude/rules.bzl:android_library"
@@ -72,10 +73,15 @@ def get_module_file_contents(ij_module_with_resolved_deps: IjModuleWithResolvedD
     return """\
 <?xml version="1.0" encoding="UTF-8"?>
 <module type="JAVA_MODULE" version="4">
-  <component name="NewModuleRootManager" inherit-compiler-output="false">{module_libraries}
+  <component name="NewModuleRootManager" inherit-compiler-output="false">\
+{module_libraries}\
+{project_libraries}
   </component>
 </project>
-""".format(module_libraries = _get_module_libraries_xml(ij_module_with_resolved_deps.module_libraries, base_indentation = "    "))
+""".format(
+        module_libraries = _get_module_libraries_xml(ij_module_with_resolved_deps.module_libraries, base_indentation = "    "),
+        project_libraries = _get_project_libraries_xml(ij_module_with_resolved_deps.project_libraries, base_indentation = "    "),
+    )
 
 def _get_module_libraries_xml(libraries: ["IjLibrary"], base_indentation: str.type) -> str.type:
     xml = ""
@@ -89,3 +95,17 @@ def _get_module_library_xml(module_library: "IjLibrary", base_indentation: str.t
     return """
 {base_indentation}<orderEntry type="module-library" scope="COMPILE">{library_xml}
 {base_indentation}</orderEntry>""".format(library_xml = library_xml, base_indentation = base_indentation)
+
+def _get_project_libraries_xml(libraries: ["IjLibrary"], base_indentation: str.type) -> str.type:
+    xml = ""
+    for project_library in libraries:
+        xml += _get_project_library_xml(project_library, base_indentation)
+
+    return xml
+
+def _get_project_library_xml(project_library: "IjLibrary", base_indentation: str.type) -> str.type:
+    return """
+{base_indentation}<orderEntry type="library" name="{name}" scope="COMPILE" level="project" />""".format(
+        base_indentation = base_indentation,
+        name = project_library.name,
+    )
