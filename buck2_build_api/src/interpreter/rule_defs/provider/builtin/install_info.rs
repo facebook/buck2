@@ -15,6 +15,7 @@ use indexmap::IndexMap;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::dict::*;
+use starlark::values::type_repr::DictType;
 use starlark::values::Coerce;
 use starlark::values::Freeze;
 use starlark::values::Trace;
@@ -23,6 +24,7 @@ use starlark::values::ValueError;
 use starlark::values::ValueOf;
 
 use crate::actions::artifact::Artifact;
+use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 // Provider that singals a rule is installable
@@ -32,9 +34,10 @@ use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 #[repr(C)]
 pub struct InstallInfoGen<V> {
     // RunInfo for the installer
+    #[provider(field_type = "RunInfo")]
     installer: V,
     // list of files that need to be installed
-    // Dict<"String": Artifact>
+    #[provider(field_type = "DictType<String, StarlarkArtifact>")]
     files: V,
 }
 

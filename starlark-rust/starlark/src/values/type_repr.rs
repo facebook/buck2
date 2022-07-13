@@ -18,6 +18,8 @@
 //! Trait and default implementations of a trait that will show starlark type annotations for a
 //! given type.
 
+use std::marker::PhantomData;
+
 use either::Either;
 
 use crate::values::none::NoneType;
@@ -27,6 +29,27 @@ use crate::values::StarlarkValue;
 pub trait StarlarkTypeRepr {
     /// The representation of a type that a user would use verbatim in starlark type annotations
     fn starlark_type_repr() -> String;
+}
+
+/// A dict used just for display purposes.
+///
+/// `DictOf` requires `Unpack` to be implemented, and `Dict` does not take type parameters so
+/// we need something for documentation generation.
+pub struct DictType<K: StarlarkTypeRepr, V: StarlarkTypeRepr> {
+    #[allow(unused)]
+    k: PhantomData<K>,
+    #[allow(unused)]
+    v: PhantomData<V>,
+}
+
+impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for DictType<K, V> {
+    fn starlark_type_repr() -> String {
+        format!(
+            "{{{}: {}}}",
+            K::starlark_type_repr(),
+            V::starlark_type_repr()
+        )
+    }
 }
 
 impl<'v, T: StarlarkValue<'v> + ?Sized> StarlarkTypeRepr for T {

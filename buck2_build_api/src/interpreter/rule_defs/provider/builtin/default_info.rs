@@ -21,6 +21,7 @@ use starlark::values::dict::Dict;
 use starlark::values::dict::FrozenDict;
 use starlark::values::list::FrozenList;
 use starlark::values::list::List;
+use starlark::values::type_repr::DictType;
 use starlark::values::Freeze;
 use starlark::values::FrozenRef;
 use starlark::values::FrozenValue;
@@ -42,19 +43,6 @@ use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectio
 use crate::interpreter::rule_defs::provider::ProviderCollection;
 
 /// A provider that all rules' implementations must return
-///
-/// Fields:
-///  - sub_targets: A mapping of names to `ProviderCollection`s. The keys are used when
-///             resolving the `ProviderName` portion of a `ProvidersLabel`. These collections
-///             can contain, and actually /must/ contain a `DefaultInfo` provider. However,
-///             nested label syntax is not supported. That is, `cell//foo:bar[baz]` is valid,
-///             `cell//foo:bar[baz][quz]` is not.
-///  - default_outputs: A list of `Artifact`s that are built by default if this rule is requested
-///                     explicitly, or depended on as as a "source".
-///  - other_outputs: A list of `ArtifactTraversable`. The underlying `Artifact`s they define will
-///                   be built by default if this rule is requested, but _not_ when it's depended
-///                   on as as a "source". `ArtifactTraversable` can be an `Artifact` (which yields
-///                   itself), or `cmd_args`, which expand to all their inputs.
 ///
 /// In many simple cases, this can be inferred for the user.
 ///
@@ -123,11 +111,22 @@ use crate::interpreter::rule_defs::provider::ProviderCollection;
 #[freeze(validator = check_max_one_list, bounds = "V: ValueLike<'freeze>")]
 #[repr(C)]
 pub struct DefaultInfoGen<V> {
-    // Dict[str, ProviderCollection]
+    /// A mapping of names to `ProviderCollection`s. The keys are used when
+    /// resolving the `ProviderName` portion of a `ProvidersLabel`. These collections
+    /// can contain, and actually /must/ contain a `DefaultInfo` provider. However,
+    /// nested label syntax is not supported. That is, `cell//foo:bar[baz]` is valid,
+    /// `cell//foo:bar[baz][quz]` is not.
+    #[provider(field_type = "DictType<String, ProviderCollection>")]
     sub_targets: V,
-    // List[Artifact]
+    /// A list of `Artifact`s that are built by default if this rule is requested
+    /// explicitly, or depended on as as a "source".
+    #[provider(field_type = "Vec<StarlarkArtifact>")]
     default_outputs: V,
-    // List[Artifact]
+    /// A list of `ArtifactTraversable`. The underlying `Artifact`s they define will
+    /// be built by default if this rule is requested, but _not_ when it's depended
+    /// on as as a "source". `ArtifactTraversable` can be an `Artifact` (which yields
+    /// itself), or `cmd_args`, which expand to all their inputs.
+    #[provider(field_type = "Vec<StarlarkArtifact>")]
     other_outputs: V,
 }
 

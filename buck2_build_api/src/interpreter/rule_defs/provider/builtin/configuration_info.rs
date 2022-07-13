@@ -25,6 +25,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::dict::Dict;
 use starlark::values::dict::DictOf;
+use starlark::values::type_repr::DictType;
 use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::Trace;
@@ -42,9 +43,9 @@ use crate::interpreter::rule_defs::provider::builtin::constraint_value_info::Con
 #[derive(Debug, Trace, Coerce, Freeze, ProvidesStaticType)]
 #[repr(C)]
 pub(crate) struct ConfigurationInfoGen<V> {
-    // Dict<StarlarkTargetLabel, ConstraintValueInfo>
+    #[provider(field_type = "DictType<StarlarkTargetLabel, ConstraintValueInfo>")]
     constraints: V,
-    // Dict<String, String>
+    #[provider(field_type = "DictType<String, String>")]
     values: V,
 }
 

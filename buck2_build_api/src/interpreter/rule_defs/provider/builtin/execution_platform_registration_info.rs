@@ -35,7 +35,8 @@ enum ExecutionPlatformRegistrationTypeError {
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType)]
 #[repr(C)]
 pub(crate) struct ExecutionPlatformRegistrationInfoGen<V> {
-    platforms: V, // List<ExecutionPlatformInfo>
+    #[provider(field_type = "Vec<FrozenExecutionPlatformInfo>")]
+    platforms: V,
 }
 
 impl FrozenExecutionPlatformRegistrationInfo {

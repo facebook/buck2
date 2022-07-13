@@ -193,7 +193,7 @@ impl<'v> Freeze for StarlarkCommandExecutorConfig<'v> {
 
 #[derive(Debug, Display, NoSerialize, ProvidesStaticType)]
 #[display(fmt = "{:?}", _0)]
-struct FrozenStarlarkCommandExecutorConfig(CommandExecutorConfig);
+pub(crate) struct FrozenStarlarkCommandExecutorConfig(CommandExecutorConfig);
 
 starlark_simple_value!(FrozenStarlarkCommandExecutorConfig);
 

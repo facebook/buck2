@@ -24,6 +24,7 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
 
+use crate::interpreter::rule_defs::command_executor_config::FrozenStarlarkCommandExecutorConfig;
 use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfigLike;
 use crate::interpreter::rule_defs::provider::builtin::configuration_info::ConfigurationInfo;
 
@@ -43,11 +44,14 @@ enum ExecutionPlatformProviderErrors {
 #[repr(C)]
 pub(crate) struct ExecutionPlatformInfoGen<V> {
     /// label of the defining rule, used in informative messages
-    label: V, // StarlarkTargetLabel
+    #[provider(field_type = "StarlarkTargetLabel")]
+    label: V,
     /// The configuration of the execution platform
-    configuration: V, // ConfigurationInfo
-    /// The exedcutor config
-    executor_config: V, // StarlarkCommandExecutorConfig
+    #[provider(field_type = "ConfigurationInfo")]
+    configuration: V,
+    /// The executor config
+    #[provider(field_type = "FrozenStarlarkCommandExecutorConfig")]
+    executor_config: V,
 }
 
 impl<'v, V: ValueLike<'v>> ExecutionPlatformInfoGen<V> {

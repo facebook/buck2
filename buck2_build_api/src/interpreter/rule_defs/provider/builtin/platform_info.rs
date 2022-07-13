@@ -27,9 +27,9 @@ use crate::interpreter::rule_defs::provider::builtin::configuration_info::Config
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType)]
 #[repr(C)]
 pub(crate) struct PlatformInfoGen<V> {
-    /// str
+    #[provider(field_type = "String")]
     label: V,
-    /// ConfigurationInfo
+    #[provider(field_type = "ConfigurationInfo")]
     configuration: V,
 }
 

@@ -33,6 +33,7 @@ use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 #[repr(transparent)]
 pub struct RunInfoGen<V> {
     /// The command to run, stored as CommandLine
+    #[provider(field_type = "StarlarkCommandLine")]
     args: V,
 }
 
