@@ -202,7 +202,7 @@ fn configured_value_methods(builder: &mut MethodsBuilder) {
     /// returns the type name of the attribute
     #[starlark(attribute)]
     fn r#type<'v>(this: &StarlarkConfiguredValue) -> anyhow::Result<&'v str> {
-        this.0.resolved_starlark_type()
+        this.0.starlark_type()
     }
 
     fn value<'v>(this: &StarlarkConfiguredValue, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
