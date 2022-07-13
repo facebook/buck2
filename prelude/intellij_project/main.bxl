@@ -25,8 +25,8 @@ def _impl(ctx):
 
     # TODO(T124403530) support module libraries
     file_names = []
-    for label, library in libraries.items():
-        file_name = get_project_library_file_name(label)
+    for library in libraries:
+        file_name = get_project_library_file_name(library.label)
 
         # TODO(T124405159) once we correct include config in the file name, we don't need to do this check.
         if file_name in file_names:

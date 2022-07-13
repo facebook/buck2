@@ -3,6 +3,7 @@ load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 
 IjLibrary = record(
     jar = "configured_attr_val",
+    label = "configured_target_label",
     name = str.type,
     rule_type = str.type,
     source_jar = "configured_attr_val",
@@ -13,8 +14,8 @@ _LIBRARY_RULE_TYPES = [
     _PREBUILT_JAR_RULE_TYPE,
 ]
 
-def get_libraries(all_nodes: "target_set") -> {"configured_target_label": IjLibrary.type}:
-    libraries = {}
+def get_libraries(all_nodes: "target_set") -> [IjLibrary.type]:
+    libraries = []
     for node in all_nodes:
         # TODO(T124404704) find a better way to exclude exec_deps()
         if node.label.cell != "fbsource":
@@ -25,7 +26,7 @@ def get_libraries(all_nodes: "target_set") -> {"configured_target_label": IjLibr
             continue
 
         if rule_type == _PREBUILT_JAR_RULE_TYPE:
-            libraries[node.label] = _get_prebuilt_jar_ij_library(node)
+            libraries.append(_get_prebuilt_jar_ij_library(node))
         else:
             fail("Should add if branch above for rule type: {}".format(rule_type))
 
@@ -36,6 +37,7 @@ def _get_prebuilt_jar_ij_library(node: "target_node") -> IjLibrary.type:
     return IjLibrary(
         name = str(node.label.raw_target()),
         jar = node.attrs().binary_jar,
+        label = node.label,
         rule_type = _PREBUILT_JAR_RULE_TYPE,
         source_jar = node.attrs().source_jar,
     )
