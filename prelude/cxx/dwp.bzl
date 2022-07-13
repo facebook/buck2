@@ -31,8 +31,8 @@ def run_dwp_action(
         identifier = identifier,
         # dwp produces ELF files on the same size scale as the corresponding @obj.
         # The files are a concatentation of input DWARF debug info.
-        # Caching dwp has the same issues as caching binaries, so use the same prefer_local policy.
-        prefer_local = link_cxx_binary_locally(ctx),
+        # Caching dwp has the same issues as caching binaries, so use the same local_only policy.
+        local_only = link_cxx_binary_locally(ctx),
     )
 
 def dwp(
