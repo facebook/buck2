@@ -23,7 +23,7 @@ def bolt_gdb_index(ctx: "context", bolt_output: "artifact", identifier: [str.typ
         gdb_index_args,
         category = "gdb_index",
         identifier = identifier,
-        prefer_local = link_cxx_binary_locally(ctx),
+        local_only = link_cxx_binary_locally(ctx),
     )
 
     # Run objcopy
@@ -42,7 +42,7 @@ def bolt_gdb_index(ctx: "context", bolt_output: "artifact", identifier: [str.typ
         objcopy_args,
         category = "objcopy",
         identifier = identifier,
-        prefer_local = link_cxx_binary_locally(ctx),
+        local_only = link_cxx_binary_locally(ctx),
     )
 
     return objcopy_output
@@ -71,7 +71,7 @@ def bolt(ctx: "context", prebolt_output: "artifact", identifier: [str.type, None
         args,
         category = "bolt",
         identifier = identifier,
-        prefer_local = get_cxx_toolchain_info(ctx).linker_info.link_binaries_locally,
+        local_only = get_cxx_toolchain_info(ctx).linker_info.link_binaries_locally,
     )
 
     if ctx.attrs.bolt_gdb_index != None:
