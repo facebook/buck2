@@ -268,7 +268,7 @@ def cxx_dist_link(
             plan_extra_inputs.add(index_argfile_inputs)
             plan_cmd.hidden(plan_extra_inputs)
 
-            ctx.actions.run(plan_cmd, category = index_cat, identifier = identifier, prefer_local = True)
+            ctx.actions.run(plan_cmd, category = index_cat, identifier = identifier, local_only = True)
 
         todo_inputs = []
         plan_inputs = []
@@ -492,7 +492,7 @@ def cxx_dist_link(
         link_cmd.hidden(opt_objects)
         link_cmd.hidden(archives)
 
-        ctx.actions.run(link_cmd, category = make_cat("thin_lto_link"), identifier = identifier, prefer_local = True)
+        ctx.actions.run(link_cmd, category = make_cat("thin_lto_link"), identifier = identifier, local_only = True)
 
     todo_inputs = []
     final_link_inputs = [link_plan_out] + [archive.opt_manifest for archive in archive_manifests]
