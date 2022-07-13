@@ -11,6 +11,7 @@ use std::fmt::Debug;
 
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter::types::label::LabelGen;
+use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
 use buck2_node::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
@@ -27,6 +28,8 @@ use starlark::values::Heap;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 
+use crate::actions::artifact::Artifact;
+use crate::actions::artifact::SourceArtifact;
 use crate::attrs::analysis::AttrResolutionContext;
 use crate::attrs::attr_type::arg::ConfiguredStringWithMacrosExt;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepAttrTypeExt;
@@ -96,6 +99,9 @@ pub(crate) trait ConfiguredAttrLiteralExt {
     fn resolve<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Vec<Value<'v>>>;
 
     fn resolved_starlark_type(&self) -> anyhow::Result<&'static str>;
+
+    /// Converts the configured attr to a starlark value without fully resolving
+    fn to_value<'v>(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>>;
 }
 
 impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
@@ -183,6 +189,49 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Arg(_) => Ok(starlark::values::string::STRING_TYPE),
             AttrLiteral::Label(_) => Ok(LabelGen::<FrozenValue>::get_type_value_static().as_str()),
         }
+    }
+
+    fn to_value<'v>(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+        Ok(match &self {
+            AttrLiteral::Bool(v) => heap.alloc(*v),
+            AttrLiteral::Int(v) => heap.alloc(*v),
+            AttrLiteral::String(s) => heap.alloc(s),
+            AttrLiteral::List(list, _ty) => heap.alloc(list.try_map(|v| v.to_value(heap))?),
+            AttrLiteral::Tuple(v) => heap.alloc_tuple(&v.try_map(|v| v.to_value(heap))?),
+            AttrLiteral::Dict(map) => {
+                let mut res = SmallMap::with_capacity(map.len());
+
+                for (k, v) in map {
+                    res.insert_hashed(k.to_value(heap)?.get_hashed()?, v.to_value(heap)?);
+                }
+
+                heap.alloc(Dict::new(res))
+            }
+            AttrLiteral::None => Value::new_none(),
+            AttrLiteral::Dep(d) => heap.alloc(Label::new(heap, d.label.clone())),
+            AttrLiteral::ConfiguredDep(d) => heap.alloc(Label::new(heap, d.label.clone())),
+            AttrLiteral::ExplicitConfiguredDep(d) => heap.alloc(Label::new(heap, d.label.clone())),
+            AttrLiteral::ConfigurationDep(c) => heap.alloc(StarlarkTargetLabel::new(c.dupe())),
+            AttrLiteral::SplitTransitionDep(t) => {
+                let mut map = SmallMap::with_capacity(t.deps.len());
+
+                for (trans, p) in t.deps.iter() {
+                    map.insert_hashed(
+                        heap.alloc(trans).get_hashed()?,
+                        heap.alloc(Label::new(heap, p.clone())),
+                    );
+                }
+
+                heap.alloc(Dict::new(map))
+            }
+            AttrLiteral::Query(q) => heap.alloc(q.query.query()),
+            AttrLiteral::SourceLabel(s) => heap.alloc(Label::new(heap, *s.clone())),
+            AttrLiteral::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(
+                SourceArtifact::new(f.path().clone()),
+            ))),
+            AttrLiteral::Arg(arg) => heap.alloc(arg.to_string()),
+            AttrLiteral::Label(l) => heap.alloc(Label::new(heap, *l.clone())),
+        })
     }
 }
 

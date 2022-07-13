@@ -8,6 +8,7 @@
  */
 
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
+use starlark::values::Heap;
 use starlark::values::Value;
 
 use crate::attrs::analysis::AttrResolutionContext;
@@ -19,6 +20,8 @@ pub trait ConfiguredAttrExt {
     fn resolve_single<'v>(&self, ctx: &'v dyn AttrResolutionContext) -> anyhow::Result<Value<'v>>;
 
     fn resolved_starlark_type(&self) -> anyhow::Result<&'static str>;
+
+    fn to_value<'v>(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>>;
 }
 
 impl ConfiguredAttrExt for ConfiguredAttr {
@@ -40,5 +43,10 @@ impl ConfiguredAttrExt for ConfiguredAttr {
 
     fn resolved_starlark_type(&self) -> anyhow::Result<&'static str> {
         self.0.resolved_starlark_type()
+    }
+
+    /// Converts the configured attr to a starlark value without fully resolving
+    fn to_value<'v>(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+        self.0.to_value(heap)
     }
 }

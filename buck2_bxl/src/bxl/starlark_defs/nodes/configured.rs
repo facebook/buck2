@@ -22,10 +22,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_interpreter::types::label::Label;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
-use buck2_interpreter::types::target_label::StarlarkTargetLabel;
-use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
@@ -40,7 +37,6 @@ use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::starlark_type;
-use starlark::values::dict::Dict;
 use starlark::values::structs::Struct;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -210,52 +206,6 @@ fn configured_value_methods(builder: &mut MethodsBuilder) {
     }
 
     fn value<'v>(this: &StarlarkConfiguredValue, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        attr_to_value(heap, &this.0)
+        this.0.to_value(heap)
     }
-}
-
-fn attr_to_value<'v>(heap: &'v Heap, attr: &ConfiguredAttr) -> anyhow::Result<Value<'v>> {
-    Ok(match &attr.0 {
-        AttrLiteral::Bool(v) => heap.alloc(*v),
-        AttrLiteral::Int(v) => heap.alloc(*v),
-        AttrLiteral::String(s) => heap.alloc(s),
-        AttrLiteral::List(list, _ty) => heap.alloc(list.try_map(|v| attr_to_value(heap, v))?),
-        AttrLiteral::Tuple(v) => heap.alloc_tuple(&v.try_map(|v| attr_to_value(heap, v))?),
-        AttrLiteral::Dict(map) => {
-            let mut res = SmallMap::with_capacity(map.len());
-
-            for (k, v) in map {
-                res.insert_hashed(
-                    attr_to_value(heap, k)?.get_hashed()?,
-                    attr_to_value(heap, v)?,
-                );
-            }
-
-            heap.alloc(Dict::new(res))
-        }
-        AttrLiteral::None => Value::new_none(),
-        AttrLiteral::Dep(d) => heap.alloc(Label::new(heap, d.label.clone())),
-        AttrLiteral::ConfiguredDep(d) => heap.alloc(Label::new(heap, d.label.clone())),
-        AttrLiteral::ExplicitConfiguredDep(d) => heap.alloc(Label::new(heap, d.label.clone())),
-        AttrLiteral::ConfigurationDep(c) => heap.alloc(StarlarkTargetLabel::new(c.dupe())),
-        AttrLiteral::SplitTransitionDep(t) => {
-            let mut map = SmallMap::with_capacity(t.deps.len());
-
-            for (trans, p) in t.deps.iter() {
-                map.insert_hashed(
-                    heap.alloc(trans).get_hashed()?,
-                    heap.alloc(Label::new(heap, p.clone())),
-                );
-            }
-
-            heap.alloc(Dict::new(map))
-        }
-        AttrLiteral::Query(q) => heap.alloc(q.query.query()),
-        AttrLiteral::SourceLabel(s) => heap.alloc(Label::new(heap, *s.clone())),
-        AttrLiteral::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(
-            SourceArtifact::new(f.path().clone()),
-        ))),
-        AttrLiteral::Arg(arg) => heap.alloc(arg.to_string()),
-        AttrLiteral::Label(l) => heap.alloc(Label::new(heap, *l.clone())),
-    })
 }
