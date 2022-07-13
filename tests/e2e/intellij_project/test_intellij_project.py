@@ -41,6 +41,26 @@ async def test_generate_intellij_project(buck: Buck) -> None:
     <CLASSES>
       <root url="jar://$PROJECT_DIR$/"fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar/prebuilt.jar"!/" />
     </CLASSES>
+    <SOURCES>
+      <root url="jar://$PROJECT_DIR$/fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar/prebuilt-sources.jar!/" />
+    </SOURCES>
+    <JAVADOC />
+  </library>
+</component>
+"""
+    )
+
+    assert (
+        (
+            output_dir
+            / "libraries/__fbandroid_buck2_tests_good_sample_intellij_project_prebuilt_jar_no_sources_prebuilt_no_sources__.xml"
+        ).read_text()
+        == """\
+<component name="libraryTable">
+  <library name="fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar_no_sources:prebuilt_no_sources">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/"fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar_no_sources/prebuilt_no_sources.jar"!/" />
+    </CLASSES>
     <JAVADOC />
   </library>
 </component>

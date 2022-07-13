@@ -1,0 +1,10 @@
+ARTIFACT_STRING_PREFIX = "<source "
+ARTIFACT_STRING_SUFFIX = ">"
+
+# TODO(T125977926) is there a better way to do this?
+def get_artifact_path(artifact: "artifact") -> str.type:
+    stringified_artifact = str(artifact)
+    if not stringified_artifact.startswith(ARTIFACT_STRING_PREFIX) or not stringified_artifact.endswith(ARTIFACT_STRING_SUFFIX):
+        fail("Stringified artifact has unexpected format: {}".format(stringified_artifact))
+
+    return stringified_artifact[len(ARTIFACT_STRING_PREFIX):-len(ARTIFACT_STRING_SUFFIX)]
