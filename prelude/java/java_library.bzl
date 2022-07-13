@@ -558,7 +558,7 @@ def build_java_library(
 
             sub_targets["ast"] = [DefaultInfo(default_outputs = [ast_output])]
 
-    java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info = create_java_library_providers(
+    java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info, intellij_info = create_java_library_providers(
         ctx,
         library_output = outputs.classpath_entry if outputs else None,
         declared_deps = ctx.attrs.deps + deps_query,
@@ -586,6 +586,7 @@ def build_java_library(
 
     return JavaProviders(
         java_library_info = java_library_info,
+        java_library_intellij_info = intellij_info,
         java_packaging_info = java_packaging_info,
         shared_library_info = shared_library_info,
         cxx_resource_info = cxx_resource_info,

@@ -133,6 +133,14 @@ JavaLibraryInfo = provider(
     ],
 )
 
+JavaLibraryIntellijInfo = provider(
+    "Information about a java library that is required for Intellij project generation",
+    fields = [
+        # All the artifacts that were used in order to compile this library
+        "compiling_classpath",  # ["artifact"]
+    ],
+)
+
 JavaPackagingInfo = provider(
     fields = [
         # Presents all java dependencies used to build this library and it's dependencies (all transitive deps except provided ones).
@@ -158,6 +166,7 @@ JavaCompileOutputs = record(
 
 JavaProviders = record(
     java_library_info = JavaLibraryInfo.type,
+    java_library_intellij_info = JavaLibraryIntellijInfo.type,
     java_packaging_info = JavaPackagingInfo.type,
     shared_library_info = SharedLibraryInfo.type,
     cxx_resource_info = CxxResourceInfo.type,
@@ -168,6 +177,7 @@ JavaProviders = record(
 def to_list(java_providers: JavaProviders.type) -> ["provider"]:
     return [
         java_providers.java_library_info,
+        java_providers.java_library_intellij_info,
         java_providers.java_packaging_info,
         java_providers.shared_library_info,
         java_providers.cxx_resource_info,
@@ -355,15 +365,13 @@ def create_java_library_providers(
         exported_provided_deps: ["dependency"] = [],
         runtime_deps: ["dependency"] = [],
         needs_desugar: bool.type = False,
-        is_prebuilt_jar: bool.type = False) -> (JavaLibraryInfo.type, JavaPackagingInfo.type, SharedLibraryInfo.type, CxxResourceInfo.type, TemplatePlaceholderInfo.type):
+        is_prebuilt_jar: bool.type = False) -> (JavaLibraryInfo.type, JavaPackagingInfo.type, SharedLibraryInfo.type, CxxResourceInfo.type, TemplatePlaceholderInfo.type, JavaLibraryIntellijInfo.type):
     first_order_classpath_deps = filter_and_map_idx(JavaLibraryInfo, declared_deps + exported_deps + runtime_deps)
     first_order_classpath_libs = [dep.output_for_classpath_macro for dep in first_order_classpath_deps]
 
-    if needs_desugar:
-        desugar_deps = derive_compiling_deps(ctx.actions, None, declared_deps + exported_deps + provided_deps + exported_provided_deps)
-        desugar_classpath = [dep.full_library for dep in (list(desugar_deps.traverse()) if desugar_deps else [])]
-    else:
-        desugar_classpath = []
+    compiling_deps = derive_compiling_deps(ctx.actions, None, declared_deps + exported_deps + provided_deps + exported_provided_deps)
+    compiling_classpath = [dep.full_library for dep in (list(compiling_deps.traverse()) if compiling_deps else [])]
+    desugar_classpath = compiling_classpath if needs_desugar else []
 
     library_info, packaging_info, shared_library_info, cxx_resource_info = _create_non_template_providers(
         ctx,
@@ -380,4 +388,8 @@ def create_java_library_providers(
     first_order_libs = first_order_classpath_libs + [library_info.library_output.full_library] if library_info.library_output else first_order_classpath_libs
     template_info = create_template_info(packaging_info, first_order_libs)
 
-    return (library_info, packaging_info, shared_library_info, cxx_resource_info, template_info)
+    intellij_info = JavaLibraryIntellijInfo(
+        compiling_classpath = compiling_classpath,
+    )
+
+    return (library_info, packaging_info, shared_library_info, cxx_resource_info, template_info, intellij_info)
