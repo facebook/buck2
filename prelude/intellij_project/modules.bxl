@@ -4,7 +4,8 @@ load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 
 IjModule = record(
     deps = ["label"],
-    file_name = str.type,
+    label = "configured_target_label",
+    name = str.type,
     rule_type = str.type,
     # TODO(T124404955) should this be a list of artifacts?
     srcs = "configured_attr_val",
@@ -50,7 +51,8 @@ def _get_android_library_module(node: "target_node", providers: "provider_collec
     java_library_intellij_info = providers[JavaLibraryIntellijInfo]
     return IjModule(
         deps = [compiling_dep.owner for compiling_dep in java_library_intellij_info.compiling_classpath],
-        file_name = _get_module_file_name(node.label),
+        label = node.label,
+        name = _get_name(node.label),
         rule_type = _ANDROID_LIBRARY_RULE_TYPE,
         srcs = node.attrs().srcs,
     )
@@ -60,13 +62,17 @@ def _get_java_library_module(node: "target_node", providers: "provider_collectio
     java_library_intellij_info = providers[JavaLibraryIntellijInfo]
     return IjModule(
         deps = [compiling_dep.owner for compiling_dep in java_library_intellij_info.compiling_classpath],
-        file_name = _get_module_file_name(node.label),
+        label = node.label,
+        name = _get_name(node.label),
         rule_type = _JAVA_LIBRARY_RULE_TYPE,
         srcs = node.attrs().srcs,
     )
 
-def _get_module_file_name(module_label: "configured_target_label") -> str.type:
-    return "modules/{}.iml".format(module_label.package.replace("/", "_"))
+def _get_name(module_label: "configured_target_label") -> str.type:
+    return module_label.package.replace("/", "_")
+
+def get_module_file_name(ij_module: IjModule.type) -> str.type:
+    return "modules/{}.iml".format(ij_module.name)
 
 # TODO(T124403530) Fill this in correctly
 def get_module_file_contents(ij_module_with_resolved_deps: IjModuleWithResolvedDeps.type) -> str.type:
