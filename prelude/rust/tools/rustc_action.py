@@ -183,6 +183,10 @@ async def main() -> int:
             "EXECUTION_ID",
             "SESSION_ID",
             "CAS_DAEMON_PORT",
+            # Required by Dotslash, which is how the Rust toolchain is shipped
+            # on Mac.
+            "USER",
+            "DOTSLASH_CACHE",
         ]
         if k in os.environ
     }
