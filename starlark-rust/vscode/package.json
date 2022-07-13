@@ -41,7 +41,8 @@
                     "BUCK",
                     "BUILD_DEFS",
                     "DEFS",
-                    "TARGETS"
+                    "TARGETS",
+                    "TARGETS.v2"
                 ],
                 "configuration": "./syntaxes/starlark.configuration.json"
             }
