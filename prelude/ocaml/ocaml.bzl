@@ -623,8 +623,8 @@ def ocaml_binary_impl(ctx: "context") -> ["provider"]:
     cmd_nat.hidden(cmxs, cmis_nat, cmts_nat, cmtis_nat, objs)
     binary_nat = ctx.actions.declare_output(ctx.attrs.name + ".opt")
     cmd_nat.add("-o", binary_nat.as_output())
-    prefer_local = link_cxx_binary_locally(ctx)
-    ctx.actions.run(cmd_nat, category = "ocaml_link_native", prefer_local = prefer_local)
+    local_only = link_cxx_binary_locally(ctx)
+    ctx.actions.run(cmd_nat, category = "ocaml_link_native", local_only = local_only)
 
     cmxs_order, stbs_byt, _objs, cmis_byt, cmos, _cmxs, cmts_byt, cmtis_byt = _compile_result_to_tuple(_compile(ctx, ocamlc, BuildMode("bytecode")))
     cmd_byt.add(stbs_byt, "-args", cmxs_order)
@@ -635,8 +635,8 @@ def ocaml_binary_impl(ctx: "context") -> ["provider"]:
     binary_byt = ctx.actions.declare_output(ctx.attrs.name)
     cmd_byt.add("-custom")
     cmd_byt.add("-o", binary_byt.as_output())
-    prefer_local = link_cxx_binary_locally(ctx)
-    ctx.actions.run(cmd_byt, category = "ocaml_link_bytecode", prefer_local = prefer_local)
+    local_only = link_cxx_binary_locally(ctx)
+    ctx.actions.run(cmd_byt, category = "ocaml_link_bytecode", local_only = local_only)
 
     if ctx.attrs.bytecode_only:
         return [
@@ -674,8 +674,8 @@ def ocaml_object_impl(ctx: "context") -> ["provider"]:
     obj = ctx.actions.declare_output(ctx.attrs.name + ".o")
     cmd.add("-output-complete-obj")
     cmd.add("-o", obj.as_output())
-    prefer_local = link_cxx_binary_locally(ctx)
-    ctx.actions.run(cmd, category = "ocaml_link", prefer_local = prefer_local)
+    local_only = link_cxx_binary_locally(ctx)
+    ctx.actions.run(cmd, category = "ocaml_link", local_only = local_only)
 
     linker_type = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info.type
     link_infos = {}
