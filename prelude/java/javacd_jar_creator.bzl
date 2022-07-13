@@ -83,7 +83,7 @@ def create_jar_artifact_javacd(
     # and is, sadly, poorly documented.
     #
     # As we are generally trying to match buck1 for now, you can get buck1 to dump the protos for a build
-    # by running `export JAVACD_DUMP_PROTOS=1; buck build foo -c javacd.path_env_variables_to_javacd=true`
+    # by running `export JAVACD_DUMP_PROTOS=1; buck build foo -c javacd.pass_env_variables_to_javacd=true`
 
     # Our protobuf format mostly encodes paths in RelPath/AbsPath structs with a single "path" field.
     # Note that we don't actually use abspath and instead enable JAVACD_ABSOLUTE_PATHS_ARE_RELATIVE_TO_CWD
