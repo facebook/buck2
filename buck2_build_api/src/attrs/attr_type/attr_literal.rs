@@ -167,9 +167,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Tuple(_) => Ok(starlark::values::tuple::Tuple::TYPE),
             AttrLiteral::Dict(_) => Ok(Dict::TYPE),
             AttrLiteral::None => Ok(NoneType::TYPE),
-            AttrLiteral::Dep(_) => {
-                Ok(DependencyGen::<FrozenValue>::get_type_value_static().as_str())
-            }
+            AttrLiteral::Dep(_) => Ok(LabelGen::<FrozenValue>::get_type_value_static().as_str()),
             AttrLiteral::ConfiguredDep(_) => Err(anyhow::anyhow!(
                 "ConfiguredDep attr type is used only in internal forward rules \
                     which have no corresponding starlark impl"
