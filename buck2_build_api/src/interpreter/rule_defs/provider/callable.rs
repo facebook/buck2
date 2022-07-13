@@ -27,6 +27,7 @@ use starlark::eval::ParametersSpec;
 use starlark::values::docs;
 use starlark::values::docs::DocItem;
 use starlark::values::docs::DocString;
+use starlark::values::docs::Type;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
@@ -58,16 +59,13 @@ pub trait ProviderCallableLike {
         docs: &Option<DocString>,
         fields: &[String],
         field_docs: &[Option<DocString>],
+        field_types: &[Option<Type>],
     ) -> Option<DocItem> {
-        let members = fields
-            .iter()
-            .zip(field_docs.iter())
-            .map(|(name, docs)| {
+        let members = itertools::izip!(fields.iter(), field_docs.iter(), field_types.iter())
+            .map(|(name, docs, return_type)| {
                 let prop = docs::Member::Property(docs::Property {
                     docs: docs.clone(),
-                    // TODO(nmj): types are not enforced in providers yet. Add type info when
-                    //            we add that
-                    typ: None,
+                    typ: return_type.clone(),
                 });
                 (name.to_owned(), prop)
             })
@@ -292,7 +290,13 @@ impl<'v> StarlarkValue<'v> for ProviderCallable {
     }
 
     fn documentation(&self) -> Option<DocItem> {
-        self.provider_callable_documentation(&self.docs, &self.fields, &self.field_docs)
+        let return_types = vec![None; self.fields.len()];
+        self.provider_callable_documentation(
+            &self.docs,
+            &self.fields,
+            &self.field_docs,
+            &return_types,
+        )
     }
 }
 
@@ -374,7 +378,13 @@ impl<'v> StarlarkValue<'v> for FrozenProviderCallable {
     }
 
     fn documentation(&self) -> Option<DocItem> {
-        self.provider_callable_documentation(&self.docs, &self.fields, &self.field_docs)
+        let return_types = vec![None; self.fields.len()];
+        self.provider_callable_documentation(
+            &self.docs,
+            &self.fields,
+            &self.field_docs,
+            &return_types,
+        )
     }
 }
 

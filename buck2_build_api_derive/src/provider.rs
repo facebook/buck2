@@ -252,8 +252,14 @@ impl ProviderCodegen {
                         #(stringify!(#field_names).to_owned()),*
                     ];
                     let field_docs = vec![None;field_names.len()];
+                    let field_types = vec![None;field_names.len()];
                     use crate::interpreter::rule_defs::provider::callable::ProviderCallableLike;
-                    self.provider_callable_documentation(&None, &field_names, &field_docs)
+                    self.provider_callable_documentation(
+                        &None,
+                        &field_names,
+                        &field_docs,
+                        &field_types
+                    )
                 }
             }
         })
