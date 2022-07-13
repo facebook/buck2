@@ -328,7 +328,7 @@ def process_genrule(
     ctx.actions.run(
         cmd_args(["/bin/bash", "-e", sh_script]).hidden([cmd, srcs_artifact, macro_files] + [a.as_output() for a in all_outputs]),
         env = env_vars,
-        prefer_local = _requires_local(ctx),
+        local_only = _requires_local(ctx),
         category = category,
         identifier = identifier,
     )
