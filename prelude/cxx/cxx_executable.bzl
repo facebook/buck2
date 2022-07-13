@@ -281,13 +281,14 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     if cxx_use_bolt(ctx):
         sub_targets["prebolt"] = [DefaultInfo(default_outputs = [binary.prebolt_output])]
 
-    sub_targets["linker-map"] = [DefaultInfo(default_outputs = _linker_map(
+    (linker_map, binary_for_linker_map) = _linker_map(
         ctx,
         binary,
         [LinkArgs(flags = extra_args)] + links,
         prefer_local = link_cxx_binary_locally(ctx, toolchain_info),
         link_weight = linker_info.link_weight,
-    ))]
+    )
+    sub_targets["linker-map"] = [DefaultInfo(default_outputs = [linker_map], other_outputs = [binary_for_linker_map])]
 
     sub_targets["linker.argsfile"] = [DefaultInfo(
         default_outputs = [binary.linker_argsfile],
@@ -339,7 +340,7 @@ def _linker_map(
         binary: LinkedObject.type,
         links: [LinkArgs.type],
         prefer_local: bool.type,
-        link_weight: int.type) -> ["artifact"]:
+        link_weight: int.type) -> ("artifact", "artifact"):
     identifier = binary.output.short_path + ".linker-map-binary"
     binary_for_linker_map = ctx.actions.declare_output(identifier)
     linker_map = ctx.actions.declare_output(binary.output.short_path + ".linker-map")
@@ -354,10 +355,10 @@ def _linker_map(
         identifier = identifier,
         generate_dwp = False,
     )
-    return [
-        binary_for_linker_map,
+    return (
         linker_map,
-    ]
+        binary_for_linker_map,
+    )
 
 def get_cxx_excutable_product_name(ctx: "context") -> str.type:
     return ctx.label.name + ("-wrapper" if cxx_use_bolt(ctx) else "")
