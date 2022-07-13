@@ -157,6 +157,37 @@ def _get_secondary_dex_jar_metadata_config(actions: "actions", secondary_dex_pat
         secondary_dex_canary_class_name = _get_fully_qualified_canary_class_name(index + 1),
     )
 
+def _get_filter_dex_batch_size() -> int.type:
+    return 100
+
+def _filter_pre_dexed_libs(
+        actions: "actions",
+        android_toolchain: "AndroidToolchainInfo",
+        primary_dex_patterns_file: "artifact",
+        pre_dexed_libs: ["DexLibraryInfo"],
+        batch_number: int.type) -> [DexInputWithClassNamesFile.type]:
+    pre_dexed_lib_with_class_names_files = []
+    for pre_dexed_lib in pre_dexed_libs:
+        class_names = pre_dexed_lib.class_names
+        id = "{}_{}_{}".format(class_names.owner.package, class_names.owner.name, class_names.short_path)
+        filtered_class_names_file = actions.declare_output("primary_dex_class_names_for_{}".format(id))
+        pre_dexed_lib_with_class_names_files.append(
+            DexInputWithClassNamesFile(lib = pre_dexed_lib, filtered_class_names_file = filtered_class_names_file),
+        )
+
+    filter_dex_cmd = cmd_args([
+        android_toolchain.filter_dex_class_names[RunInfo],
+        "--primary-dex-patterns",
+        primary_dex_patterns_file,
+        "--class-names",
+        [x.lib.class_names for x in pre_dexed_lib_with_class_names_files],
+        "--output",
+        [x.filtered_class_names_file.as_output() for x in pre_dexed_lib_with_class_names_files],
+    ])
+    actions.run(filter_dex_cmd, category = "filter_dex", identifier = "batch_{}".format(batch_number))
+
+    return pre_dexed_lib_with_class_names_files
+
 def merge_to_split_dex(
         ctx: "context",
         android_toolchain: "AndroidToolchainInfo",
@@ -165,23 +196,18 @@ def merge_to_split_dex(
     primary_dex_patterns_file = ctx.actions.write("primary_dex_patterns_file", split_dex_merge_config.primary_dex_patterns)
 
     pre_dexed_lib_with_class_names_files = []
-    for pre_dexed_lib in pre_dexed_libs:
-        class_names = pre_dexed_lib.class_names
-        id = "{}_{}_{}".format(class_names.owner.package, class_names.owner.name, class_names.short_path)
-        filtered_class_names_file = ctx.actions.declare_output("primary_dex_class_names_for_{}".format(id))
-        filter_dex_cmd = cmd_args([
-            android_toolchain.filter_dex_class_names[RunInfo],
-            "--primary-dex-patterns",
-            primary_dex_patterns_file,
-            "--class-names",
-            class_names,
-            "--output",
-            filtered_class_names_file.as_output(),
-        ])
-        ctx.actions.run(filter_dex_cmd, category = "filter_dex", identifier = id)
 
-        pre_dexed_lib_with_class_names_files.append(
-            DexInputWithClassNamesFile(lib = pre_dexed_lib, filtered_class_names_file = filtered_class_names_file),
+    batch_size = _get_filter_dex_batch_size()
+    for (batch_number, start_index) in enumerate(range(0, len(pre_dexed_libs), batch_size)):
+        end_index = min(start_index + batch_size, len(pre_dexed_libs))
+        pre_dexed_lib_with_class_names_files.extend(
+            _filter_pre_dexed_libs(
+                ctx.actions,
+                android_toolchain,
+                primary_dex_patterns_file,
+                pre_dexed_libs[start_index:end_index],
+                batch_number,
+            ),
         )
 
     input_artifacts = flatten([[input.lib.dex, input.lib.weight_estimate, input.filtered_class_names_file] for input in pre_dexed_lib_with_class_names_files])
