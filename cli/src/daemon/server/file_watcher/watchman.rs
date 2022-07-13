@@ -140,7 +140,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         eprintln!("watchman fresh instance event, clearing cache");
 
         let ctx = self.dice.ctx();
-        let isolation_dir = ctx.get_buck_out_path().await?;
+        let buck_out_path = ctx.get_buck_out_path().await?;
         let cells = ctx.get_cell_resolver().await?;
         let configuror = ctx.get_interpreter_configuror().await?;
         let legacy_configs = ctx.get_legacy_configs().await?;
@@ -159,7 +159,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         std::thread::spawn(|| drop(map));
 
         let ctx = self.dice.ctx();
-        ctx.set_buck_out_path(Some((*isolation_dir).to_buf()));
+        ctx.set_buck_out_path(Some((*buck_out_path).to_buf()));
         setup_interpreter(
             &ctx,
             cells,
