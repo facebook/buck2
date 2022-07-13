@@ -43,11 +43,17 @@ We recommend the following steps to migrate an `fbcode` project to Buck2:
      * setup pyre configuration to use buck2 ([examples](https://fburl.com/code/onkpc52p))
      * setup OD to use buck2 if you are using OD Flavor. Read the [_On Demand Migration_](#on-demand-migration) section for more details.
 11. Move production to use fbpkgs built with Buck2.
-12. Opt-in developers to GK [use_buck2_as_default](https://www.internalfb.com/intern/gatekeeper/projects/use_buck2_as_default/) or join [this group](https://fb.workplace.com/groups/984932495780948) to have `buck` command using `buck2` instead of `buck1`. Read the [_Development Opt-in GK_](#opt-in-gk-for-buck-using-buck2) section of this document. To use Buck1 either use `buck1` explicitly or set the environment variable `NO_BUCK2=1`.
+12. Opt-in developers to GK [use_buck2_as_default](https://www.internalfb.com/intern/gatekeeper/projects/use_buck2_as_default/) or join [this group](https://fb.workplace.com/groups/984932495780948) to have `buck` command using `buck2` instead of `buck1`. Read the [_Development Opt-in GK_](#opt-in-gk-for-buck-using-buck2) section of this document. To use Buck1 either use `buck1` explicitly or set the environment variable `BUCK_VERSION=1`.
 13. When you are ready to make the migration permanent, remove the Buck1 Contbuild config.
 14. Add your repo to this [SITEVAR](https://www.internalfb.com/intern/sv/BUCKV2_SUPPORTED_REPOS/) to enable BuckV2 in VS Code's C++ extension.
 
 If you get stuck, or anything in this document is unclear, ask on [Buck2 users](https://fb.prod.workplace.com/groups/buck2users). Some migration steps may require a reasonable level of fluency with Buck or other fbcode infrastructure, so we are happy to help!
+
+## Running Buck1 vs Buck2
+
+There are three binaries, `buck`, `buck1` and `buck2`. The `buck` binary defaults to Buck1, unless you join the group [Use Buck2 As Default](https://fb.workplace.com/groups/984932495780948) or are added to [this Gatekeeper](https://www.internalfb.com/intern/gatekeeper/projects/use_buck2_as_default/). The `buck1`/`buck2` binaries default to Buck1/Buck2 respectively.
+
+To temporarily override the `buck` binary you can set the environment variable `BUCK_VERSION=1` or `BUCK_VERSION=2` to select Buck1/Buck2 respectively. To temporarily override the `buck1`/`buck2` binaries, you can set `OVERRIDE_BUCK_VERSION=1` or `OVERRIDE_BUCK_VERSION=2`, e.g. `OVERRIDE_BUCK_VERSION=2 buck1 --version` will say `buck2`.
 
 ## Build Migration
 
