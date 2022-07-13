@@ -238,12 +238,18 @@ fn attr_to_value<'v>(heap: &'v Heap, attr: &ConfiguredAttr) -> anyhow::Result<Va
         AttrLiteral::ConfiguredDep(d) => heap.alloc(Label::new(heap, d.label.clone())),
         AttrLiteral::ExplicitConfiguredDep(d) => heap.alloc(Label::new(heap, d.label.clone())),
         AttrLiteral::ConfigurationDep(c) => heap.alloc(StarlarkTargetLabel::new(c.dupe())),
-        AttrLiteral::SplitTransitionDep(t) => heap.alloc(
-            t.deps
-                .values()
-                .map(|p| Label::new(heap, p.clone()))
-                .collect::<Vec<_>>(),
-        ),
+        AttrLiteral::SplitTransitionDep(t) => {
+            let mut map = SmallMap::with_capacity(t.deps.len());
+
+            for (trans, p) in t.deps.iter() {
+                map.insert_hashed(
+                    heap.alloc(trans).get_hashed()?,
+                    heap.alloc(Label::new(heap, p.clone())),
+                );
+            }
+
+            heap.alloc(Dict::new(map))
+        }
         AttrLiteral::Query(q) => heap.alloc(q.query.query()),
         AttrLiteral::SourceLabel(s) => heap.alloc(Label::new(heap, *s.clone())),
         AttrLiteral::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(
