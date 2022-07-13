@@ -7,10 +7,19 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
+
 use convert_case::Case;
 use convert_case::Casing;
 use quote::format_ident;
 use quote::quote;
+use quote::ToTokens;
+use syn::parse::ParseStream;
+use syn::Attribute;
+use syn::Fields;
+use syn::LitStr;
+
+const PROVIDER_IDENT: &str = "provider";
 
 pub(crate) struct InternalProviderArgs {
     creator_func: syn::Ident,
@@ -23,12 +32,57 @@ impl syn::parse::Parse for InternalProviderArgs {
     }
 }
 
+/// Documentation information for a single field.
+struct FieldDoc {
+    /// The name of the field
+    name: syn::Ident,
+    /// The docstring for the field, if present
+    docstring: proc_macro2::TokenStream,
+    /// The implementation to generate the field type documentation.
+    field_type: proc_macro2::TokenStream,
+}
+
 struct ProviderCodegen {
     input: syn::ItemStruct,
     args: InternalProviderArgs,
+    field_attr_providers: HashMap<syn::Ident, Attribute>,
 }
 
 impl ProviderCodegen {
+    /// Create an instance from an input and args.
+    ///
+    /// This modifies the original input and removes any instances of `#[provider()]` macros
+    /// on fields of the provided structs, and saves them into `field_attr_providers`.
+    fn new(mut input: syn::ItemStruct, args: InternalProviderArgs) -> syn::Result<Self> {
+        let mut provider_attrs = HashMap::new();
+        if let Fields::Named(fields_named) = &mut input.fields {
+            for field in fields_named.named.iter_mut() {
+                let (attrs, mut provider_attr): (Vec<syn::Attribute>, Vec<syn::Attribute>) = field
+                    .attrs
+                    .clone()
+                    .into_iter()
+                    .partition(|a| !a.path.is_ident(PROVIDER_IDENT));
+                field.attrs = attrs;
+                if provider_attr.len() > 1 {
+                    return Err(syn::Error::new_spanned(
+                        field.to_token_stream(),
+                        &format!("{} attribute can only be specified once", PROVIDER_IDENT),
+                    ));
+                } else if !provider_attr.is_empty() {
+                    provider_attrs.insert(
+                        field.ident.as_ref().unwrap().to_owned(),
+                        provider_attr.remove(0),
+                    );
+                }
+            }
+        };
+        Ok(Self {
+            input,
+            args,
+            field_attr_providers: provider_attrs,
+        })
+    }
+
     fn name(&self) -> syn::Result<syn::Ident> {
         match self.input.ident.to_string().strip_suffix("Gen") {
             Some(v) => Ok(format_ident!("{}", v)),
@@ -104,6 +158,90 @@ impl ProviderCodegen {
                 )
             }
         }
+    }
+
+    fn field_doc(&self, field: &syn::Field) -> syn::Result<FieldDoc> {
+        syn::custom_keyword!(field_type);
+
+        let name = field.ident.as_ref().unwrap().to_owned();
+
+        let field_type = if let Some(attr) = self.field_attr_providers.get(&name) {
+            attr.parse_args_with(
+                |input: ParseStream| -> syn::Result<proc_macro2::TokenStream> {
+                    if input.parse::<field_type>().is_ok() {
+                        input.parse::<syn::Token![=]>()?;
+                        let rust_type = input.parse::<LitStr>()?.value();
+                        let rust_type: proc_macro2::TokenStream = rust_type.parse()?;
+                        Ok(quote! {
+                            Some(starlark::values::docs::Type {
+                                raw_type: <#rust_type>::starlark_type_repr(),
+                            })
+                        })
+                    } else {
+                        Ok(quote! { None })
+                    }
+                },
+            )?
+        } else {
+            quote! { None }
+        };
+
+        let docstring = self.get_docstring_impl(&field.attrs);
+
+        Ok(FieldDoc {
+            name,
+            docstring,
+            field_type,
+        })
+    }
+
+    /// Grab the information for all fields on the struct, and create the
+    /// documentation() function for StarlarkValue.
+    fn documentation_function(&self) -> syn::Result<proc_macro2::TokenStream> {
+        let provider_docstring = self.get_docstring_impl(&self.input.attrs);
+
+        let field_docs = match &self.input.fields {
+            syn::Fields::Named(fields) => Ok(fields
+                .named
+                .iter()
+                .map(|f| self.field_doc(f))
+                .collect::<syn::Result<Vec<_>>>()?),
+            _ => Err(syn::Error::new_spanned(
+                &self.input,
+                "providers only support named fields",
+            )),
+        }?;
+
+        let mut field_names = vec![];
+        let mut field_docstrings = vec![];
+        let mut field_types = vec![];
+
+        for doc in field_docs {
+            let name = doc.name;
+            let name = quote! { stringify!(#name) };
+
+            field_names.push(name);
+            field_docstrings.push(doc.docstring);
+            field_types.push(doc.field_type);
+        }
+
+        Ok(quote! {
+            fn documentation(&self) -> Option<starlark::values::docs::DocItem> {
+                let docstring = #provider_docstring;
+                let field_names = [
+                    #(#field_names.to_owned()),*
+                ];
+                let field_docs = [
+                    #(#field_docstrings),*
+                ];
+                let field_types = [
+                    #(#field_types),*
+                ];
+                use starlark::values::type_repr::StarlarkTypeRepr;
+                use crate::interpreter::rule_defs::provider::callable::ProviderCallableLike;
+                self.provider_callable_documentation(&docstring, &field_names, &field_docs, &field_types)
+            }
+        })
     }
 
     fn impl_display(&self) -> syn::Result<proc_macro2::TokenStream> {
@@ -243,8 +381,7 @@ impl ProviderCodegen {
 
     fn callable_impl_starlark_value(&self) -> syn::Result<proc_macro2::TokenStream> {
         let name_str = self.name_str()?;
-        let field_names = self.field_names()?;
-        let provider_docstring = self.get_docstring_impl(&self.input.attrs);
+        let documentation_function = self.documentation_function()?;
         let create_func = &self.args.creator_func;
         let callable_name = self.callable_name()?;
         let callable_name_snake_str = callable_name.to_string().to_case(Case::Snake);
@@ -276,23 +413,7 @@ impl ProviderCodegen {
                         RES.function(#create_func), args, eval)
                 }
 
-                fn documentation(&self) -> Option<starlark::values::docs::DocItem> {
-                    // TODO(nmj): Pull docstrings from attributes of the struct and
-                    //            for the main struct
-                    let docstring = #provider_docstring;
-                    let field_names = [
-                        #(stringify!(#field_names).to_owned()),*
-                    ];
-                    let field_docs = vec![None;field_names.len()];
-                    let field_types = vec![None;field_names.len()];
-                    use crate::interpreter::rule_defs::provider::callable::ProviderCallableLike;
-                    self.provider_callable_documentation(
-                        &docstring,
-                        &field_names,
-                        &field_docs,
-                        &field_types
-                    )
-                }
+                #documentation_function
             }
         })
     }
@@ -431,7 +552,7 @@ pub(crate) fn define_provider(
     args: InternalProviderArgs,
     input: syn::ItemStruct,
 ) -> syn::Result<proc_macro::TokenStream> {
-    let codegen = ProviderCodegen { input, args };
+    let codegen = ProviderCodegen::new(input, args)?;
 
     if let Some(where_clause) = codegen.input.generics.where_clause {
         return Err(syn::Error::new_spanned(

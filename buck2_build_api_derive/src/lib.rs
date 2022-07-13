@@ -21,6 +21,10 @@ mod provider;
 /// Implements StarlarkValue, ComplexValue, ProviderLike for the provider type and
 /// adds a ProviderCallable that's used in starlark as the constructor.
 ///
+/// Return types can be specified directly by adding `#[provider(field_type=SomeIdentifier)]`
+/// to a field. The type `SomeIdentifier` must be one that implements
+/// `starlark::values::type_repr::StarlarkTypeRepr`
+///
 /// In starlark, a provider instance will have starlark-accessible attributes for
 /// each of its fields.
 ///
