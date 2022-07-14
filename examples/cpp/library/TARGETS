@@ -1,0 +1,10 @@
+load("//rules.bzl", "cpp_library")
+
+cpp_library(
+    name = "library",
+    visibility = ["//..."],
+
+    srcs = glob(["src/**/*.cpp"]),
+    headers = glob(["src/**/*.hpp"]),
+    deps = []
+)
