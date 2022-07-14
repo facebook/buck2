@@ -35,7 +35,6 @@ $ yarn start
 
 This command starts a local development server and opens up a browser window. Any changes to generated Starlark API documentation require running the build command above, but changes to the .md files that are checked into the repository should be reflected live without having to restart the server.
 
-
 ## Deployment
 
 ```shell
