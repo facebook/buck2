@@ -86,6 +86,22 @@ pub struct LspEvalResult {
     pub ast: Option<AstModule>,
 }
 
+/// Settings that the LspContext can provide to change what capabilities the server enables
+/// or disables.
+#[derive(Dupe, Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct LspServerSettings {
+    /// Whether goto definition should work.
+    pub enable_goto_definition: bool,
+}
+
+impl Default for LspServerSettings {
+    fn default() -> Self {
+        Self {
+            enable_goto_definition: true,
+        }
+    }
+}
+
 /// Various pieces of context to allow the LSP to interact with starlark parsers, etc.
 pub trait LspContext {
     /// Parse a file with the given contents. The filename is used in the diagnostics.
@@ -150,14 +166,17 @@ struct Backend<T: LspContext> {
 
 /// The logic implementations of stuff
 impl<T: LspContext> Backend<T> {
-    fn server_capabilities() -> ServerCapabilities {
-        ServerCapabilities {
-            text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
-            definition_provider: Some(OneOf::Right(DefinitionOptions {
+    fn server_capabilities(settings: LspServerSettings) -> ServerCapabilities {
+        let definition_provider = settings.enable_goto_definition.then(|| {
+            OneOf::Right(DefinitionOptions {
                 work_done_progress_options: WorkDoneProgressOptions {
                     work_done_progress: None,
                 },
-            })),
+            })
+        });
+        ServerCapabilities {
+            text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
+            definition_provider,
             ..ServerCapabilities::default()
         }
     }
@@ -419,9 +438,22 @@ pub fn server_with_connection<T: LspContext>(
     context: T,
 ) -> anyhow::Result<()> {
     // Run the server and wait for the main thread to end (typically by trigger LSP Exit event).
-    let server_capabilities = serde_json::to_value(&Backend::<T>::server_capabilities()).unwrap();
-    let initialization_params = connection.initialize(server_capabilities)?;
-    let initialization_params = serde_json::from_value(initialization_params).unwrap();
+    let (init_request_id, init_value) = connection.initialize_start()?;
+
+    let initialization_params: InitializeParams = serde_json::from_value(init_value)?;
+    let server_settings = initialization_params
+        .initialization_options
+        .as_ref()
+        .and_then(|opts| serde_json::from_value(opts.clone()).ok())
+        .unwrap_or_default();
+    let capabilities_payload = Backend::<T>::server_capabilities(server_settings);
+    let server_capabilities = serde_json::to_value(&capabilities_payload).unwrap();
+
+    let initialize_data = serde_json::json!({
+            "capabilities": server_capabilities,
+    });
+    connection.initialize_finish(init_request_id, initialize_data)?;
+
     Backend {
         connection,
         context,
@@ -519,6 +551,7 @@ mod test {
 
     use crate::analysis::FixtureWithRanges;
     use crate::codemap::ResolvedSpan;
+    use crate::lsp::server::LspServerSettings;
     use crate::lsp::test::TestServer;
 
     fn goto_definition_request(
@@ -1290,6 +1323,36 @@ mod test {
             target_selection_range: Default::default(),
         };
         assert_eq!(expected, response);
+        Ok(())
+    }
+
+    #[test]
+    fn disables_goto_definition() -> anyhow::Result<()> {
+        let server = TestServer::new_with_settings(Some(LspServerSettings {
+            enable_goto_definition: false,
+        }))?;
+
+        let goto_definition_disabled = server
+            .initialization_result()
+            .unwrap()
+            .capabilities
+            .definition_provider
+            .is_none();
+
+        assert!(goto_definition_disabled);
+
+        let server = TestServer::new_with_settings(Some(LspServerSettings {
+            enable_goto_definition: true,
+        }))?;
+
+        let goto_definition_enabled = server
+            .initialization_result()
+            .unwrap()
+            .capabilities
+            .definition_provider
+            .is_some();
+
+        assert!(goto_definition_enabled);
         Ok(())
     }
 }

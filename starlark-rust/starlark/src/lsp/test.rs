@@ -63,6 +63,7 @@ use crate::lsp::server::server_with_connection;
 use crate::lsp::server::LoadContentsError;
 use crate::lsp::server::LspContext;
 use crate::lsp::server::LspEvalResult;
+use crate::lsp::server::LspServerSettings;
 use crate::lsp::server::ResolveLoadError;
 use crate::lsp::server::StringLiteralResult;
 use crate::syntax::AstModule;
@@ -200,6 +201,8 @@ pub struct TestServer {
     recv_timeout: Duration,
     file_contents: Arc<RwLock<HashMap<PathBuf, String>>>,
     dirs: Arc<RwLock<HashSet<PathBuf>>>,
+    /// If it's been received, the response payload for initialization.
+    initialize_response: Option<InitializeResult>,
 }
 
 impl Drop for TestServer {
@@ -252,9 +255,10 @@ impl TestServer {
         }
     }
 
-    /// Create and start a new LSP server. This sends the initialization messages, and makes
-    /// sure that when the server is dropped, the threads are attempted to be stopped.
-    pub(crate) fn new() -> anyhow::Result<Self> {
+    /// Create and start a new LSP server. This sends the initialization messages with the given,
+    /// initialization payload and makes sure that when the server is dropped, the threads
+    /// are attempted to be stopped.
+    pub(crate) fn new_with_settings(settings: Option<LspServerSettings>) -> anyhow::Result<Self> {
         let (server_connection, client_connection) = Connection::memory();
 
         let file_contents = Arc::new(RwLock::new(HashMap::new()));
@@ -280,11 +284,18 @@ impl TestServer {
             recv_timeout: Duration::from_secs(2),
             file_contents,
             dirs,
+            initialize_response: None,
         };
-        ret.initialize()
+        ret.initialize(settings)
     }
 
-    fn initialize(mut self) -> anyhow::Result<Self> {
+    /// Create and start a new LSP server. This sends the initialization messages, and makes
+    /// sure that when the server is dropped, the threads are attempted to be stopped.
+    pub(crate) fn new() -> anyhow::Result<Self> {
+        Self::new_with_settings(None)
+    }
+
+    fn initialize(mut self, settings: Option<LspServerSettings>) -> anyhow::Result<Self> {
         let capabilities = ClientCapabilities {
             text_document: Some(TextDocumentClientCapabilities {
                 definition: Some(GotoCapability {
@@ -296,12 +307,14 @@ impl TestServer {
             ..Default::default()
         };
 
+        let initialization_options = settings.map(|v| serde_json::to_value(v).unwrap());
+
         let init = InitializeParams {
             process_id: None,
             #[allow(deprecated)]
             root_path: None,
             root_uri: None,
-            initialization_options: None,
+            initialization_options,
             capabilities,
             trace: None,
             workspace_folders: None,
@@ -312,14 +325,20 @@ impl TestServer {
         let init_request = self.new_request::<Initialize>(init);
         let initialize_id = self.send_request(init_request)?;
 
-        self.get_response::<InitializeResult>(initialize_id)?;
+        let initialize_response = Some(self.get_response::<InitializeResult>(initialize_id)?);
 
         self.send_notification(lsp_server::Notification {
             method: Initialized::METHOD.to_owned(),
             params: serde_json::to_value(InitializedParams {})?,
         })?;
 
+        self.initialize_response = initialize_response;
+
         Ok(self)
+    }
+
+    pub fn initialization_result(&self) -> Option<InitializeResult> {
+        self.initialize_response.clone()
     }
 
     /// Send a request to the server, and get back the ID from the original message.
