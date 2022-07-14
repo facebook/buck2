@@ -24,14 +24,8 @@ def _impl(ctx):
         module_output = _create_output(action_factory, file_name, final_output_dir_dict)
         action_factory.write(module_output, get_module_file_contents(ij_module))
 
-    file_names = []
     for library in project_libraries:
         file_name = get_project_library_file_name(library.label)
-
-        # TODO(T124405159) once we correct include config in the file name, we don't need to do this check.
-        if file_name in file_names:
-            continue
-        file_names.append(file_name)
         library_output = _create_output(action_factory, file_name, final_output_dir_dict)
         action_factory.write(library_output, get_project_library_contents(library))
 

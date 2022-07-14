@@ -16,6 +16,7 @@ _LIBRARY_RULE_TYPES = [
 
 def get_libraries(all_nodes: "target_set") -> [IjLibrary.type]:
     libraries = []
+    library_targets = []
     for node in all_nodes:
         # TODO(T124404704) find a better way to exclude exec_deps()
         if node.label.cell != "fbsource":
@@ -24,6 +25,13 @@ def get_libraries(all_nodes: "target_set") -> [IjLibrary.type]:
         rule_type = node.rule_type
         if rule_type not in _LIBRARY_RULE_TYPES:
             continue
+
+        # TODO(T124405159) either account for config in the filename, or merge them
+        raw_target = node.label.raw_target()
+        if raw_target in library_targets:
+            continue
+
+        library_targets.append(raw_target)
 
         if rule_type == _PREBUILT_JAR_RULE_TYPE:
             libraries.append(_get_prebuilt_jar_ij_library(node))
