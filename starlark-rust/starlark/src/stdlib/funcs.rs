@@ -231,6 +231,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// # starlark::assert::all_true(r#"
     /// dict() == {}
     /// dict(**{'a': 1}) == {'a': 1}
+    /// dict({'a': 1}) == {'a': 1}
     /// dict([(1, 2), (3, 4)]) == {1: 2, 3: 4}
     /// dict([(1, 2), ['a', 'b']]) == {1: 2, 'a': 'b'}
     /// dict(one=1, two=2) == {'one': 1, 'two': 2}
