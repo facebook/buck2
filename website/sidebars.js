@@ -23,7 +23,12 @@ module.exports = {
     {
       type: 'category',
       label: 'Rule authors',
-      items: ['writing_rules', 'rule_api', 'transitive_sets', 'configurations', 'test_execution', 'optimization', 'rule_writing_tips', 'incremental_actions'],
+      items: ['writing_rules', 'rule_api', 'transitive_sets', 'configurations', 'configuration_transitions', 'test_execution', 'optimization', 'rule_writing_tips', 'incremental_actions'],
+    },
+    {
+      type: 'category',
+      label: 'Developers',
+      items: ['developers', 'heap_profiling', 'observability', 'options', 'parity_script', 'what-ran', 'bxl'],
     },
     {
       type: 'category',
