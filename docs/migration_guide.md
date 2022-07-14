@@ -108,13 +108,17 @@ Some common changes that resolve the issues above include:
 * If your rule uses DotSlash binaries these require network access and must currently be run locally, although changes are afoot to enable them to allow DotSlash within the sandbox in future.
 * The use of relative paths means that `cd` within the command can invalidate these paths causing missing path issues (e.g. [D29793894](https://www.internalfb.com/diff/D29793894)). Using `realpath` before the `cd` can solve these issues.
 
-Usually it is possible to solve these issues in a way compatible with both Buck1 and Buck2, but if not, you can use the `is_buck2()` funbction which returns `False` in v1 and `True` in Buck2:
+### Different targets on Buck2
+
+Usually it is possible to solve build issues in a way compatible with both Buck1 and Buck2, but if not, you can use the `is_buck2()` function which returns `False` in v1 and `True` in Buck2:
 
 ```python
 load("@fbsource//tools/build_defs/buck2:is_buck2.bzl", "is_buck2")
 ```
 
-Don't use `is_buck2()` to hide targets or change deps since that will create lots of differences between buck and buck2 query. See [this post](https://fb.prod.workplace.com/groups/buck2prototyping/permalink/2812135695750579/) for more details.
+As a more extreme (and discouraged) version, if you create a `TARGETS.v2` file, then Buck1 will continue to use `TARGETS`, while Buck2 will consult `TARGETS.v2`, and you can have completely different definitions for each version.
+
+Don't use `is_buck2()` or `TARGETS.v2` to hide targets or change deps since that will confuse Target Determinator, which figures out which tests need running. In particular Target Determinator will use either Buck1 or Buck2 to determine the targets and dependencies, then potentially use the other version to actually build them. See [this post](https://fb.prod.workplace.com/groups/buck2prototyping/permalink/2812135695750579/) for more details.
 
 ### Platform vs Host differences
 
