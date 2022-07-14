@@ -56,6 +56,10 @@ enum TargetPatternParseError {
     PackageTrailingSlash,
     #[error("Required a target literal, but got a non-literal pattern `{0}`")]
     TargetLiteralRequired(String),
+    #[error(
+        "You may be trying to use a macro instead of a target pattern. Macro usage is invalid here"
+    )]
+    PossibleMacroUsage,
 }
 
 /// The pattern type to be parsed from the command line target patterns.
@@ -360,7 +364,17 @@ where
     pub fn reject_ambiguity(self) -> anyhow::Result<PatternData<'a, T>> {
         match self {
             Self::PatternData(d) => Ok(d),
-            Self::Ambiguous { .. } => Err(TargetPatternParseError::UnexpectedFormat.into()),
+            Self::Ambiguous { pattern, .. } => {
+                // Check if the user maybe tried to use a macro
+                if pattern.contains('$')
+                    && pattern.contains(' ')
+                    && pattern.contains('(')
+                    && pattern.contains(')')
+                {
+                    return Err(TargetPatternParseError::PossibleMacroUsage.into());
+                }
+                Err(TargetPatternParseError::UnexpectedFormat.into())
+            }
         }
     }
 }
@@ -1115,6 +1129,13 @@ mod tests {
             ParsedPattern::<T>::parse_precise(&resolver(), "//package/path/"),
             &[],
         );
+        fails(
+            ParsedPattern::<T>::parse_precise(&resolver(), "$(exe my macro)"),
+            &[
+                "$(exe my macro)",
+                "You may be trying to use a macro instead of a target pattern. Macro usage is invalid here",
+            ],
+        );
     }
 
     #[test]
@@ -1137,6 +1158,13 @@ mod tests {
             &[
                 "//package/path:target[out]wrong",
                 "target pattern with `[` must end with `]` to mark end of providers set label",
+            ],
+        );
+        fails(
+            ParsedPattern::<ProvidersPattern>::parse_precise(&resolver(), "$(exe my macro)"),
+            &[
+                "$(exe my macro)",
+                "You may be trying to use a macro instead of a target pattern. Macro usage is invalid here",
             ],
         );
     }
