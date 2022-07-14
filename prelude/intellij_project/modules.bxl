@@ -6,7 +6,6 @@ IjModule = record(
     deps = ["label"],
     label = "configured_target_label",
     name = str.type,
-    rule_type = str.type,
     srcs = ["artifact"],
 )
 
@@ -53,7 +52,6 @@ def _get_android_library_module(node: "target_node", providers: "provider_collec
         deps = [compiling_dep.owner for compiling_dep in java_library_intellij_info.compiling_classpath],
         label = node.label,
         name = _get_name(node.label),
-        rule_type = _ANDROID_LIBRARY_RULE_TYPE,
         srcs = node.attrs().srcs.value(),
     )
 
@@ -64,7 +62,6 @@ def _get_java_library_module(node: "target_node", providers: "provider_collectio
         deps = [compiling_dep.owner for compiling_dep in java_library_intellij_info.compiling_classpath],
         label = node.label,
         name = _get_name(node.label),
-        rule_type = _JAVA_LIBRARY_RULE_TYPE,
         srcs = node.attrs().srcs.value(),
     )
 
