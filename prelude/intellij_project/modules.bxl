@@ -24,8 +24,8 @@ _MODULE_RULE_TYPES = [
     _JAVA_LIBRARY_RULE_TYPE,
 ]
 
-def get_modules(all_nodes: "target_set", analysis: dict.type) -> {"configured_target_label": IjModule.type}:
-    modules = {}
+def get_modules(all_nodes: "target_set", analysis: dict.type) -> [IjModule.type]:
+    modules = []
     for node in all_nodes:
         # TODO(T124404704) find a better way to exclude exec_deps()
         if node.label.cell != "fbsource":
@@ -37,10 +37,10 @@ def get_modules(all_nodes: "target_set", analysis: dict.type) -> {"configured_ta
 
         if rule_type == _JAVA_LIBRARY_RULE_TYPE:
             providers = analysis[configured_sub_target(node.label)].providers()
-            modules[node.label] = _get_java_library_module(node, providers)
+            modules.append(_get_java_library_module(node, providers))
         elif rule_type == _ANDROID_LIBRARY_RULE_TYPE:
             providers = analysis[configured_sub_target(node.label)].providers()
-            modules[node.label] = _get_android_library_module(node, providers)
+            modules.append(_get_android_library_module(node, providers))
         else:
             fail("Should add if branch above for rule type: {}".format(rule_type))
 

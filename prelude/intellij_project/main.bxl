@@ -10,7 +10,7 @@ def _impl(ctx):
 
     modules = get_modules(all_nodes, all_analysis)
     libraries = get_libraries(all_nodes)
-    project_libraries, ij_modules_with_resolved_deps = _sort_libraries_and_modules(modules.values(), libraries)
+    project_libraries, ij_modules_with_resolved_deps = _sort_libraries_and_modules(modules, libraries)
 
     file_names = []
     for ij_module_with_resolved_deps in ij_modules_with_resolved_deps:
