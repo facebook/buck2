@@ -190,8 +190,9 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
         if !listing.contains_file(&path) {
             if listing.contains_dir(&path) {
                 if !allow_directory {
-                    let e = AttrError::SourceFileIsDirectory(package.dupe(), value.to_owned());
-                    soft_error!(e.into())?;
+                    return Err(
+                        AttrError::SourceFileIsDirectory(package.dupe(), value.to_owned()).into(),
+                    );
                 } else if let Some(subpackage) = listing.subpackages_within(&path).next() {
                     let e = AttrError::SourceDirectoryIncludesSubPackage(
                         package.dupe(),
