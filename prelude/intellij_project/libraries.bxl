@@ -2,11 +2,11 @@ load("@fbcode//buck2/prelude/intellij_project:utils.bxl", "get_artifact_path")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 
 IjLibrary = record(
-    jar = "configured_attr_val",
+    jar = "artifact",
     label = "configured_target_label",
     name = str.type,
     rule_type = str.type,
-    source_jar = "configured_attr_val",
+    source_jar = ["artifact", None],
 )
 
 _PREBUILT_JAR_RULE_TYPE = "fbcode//buck2/prelude/rules.bzl:prebuilt_jar"
@@ -36,10 +36,10 @@ def _get_prebuilt_jar_ij_library(node: "target_node") -> IjLibrary.type:
     expect(node.rule_type == _PREBUILT_JAR_RULE_TYPE, "Rule type must be {} but was {}".format(_PREBUILT_JAR_RULE_TYPE, node.rule_type))
     return IjLibrary(
         name = str(node.label.raw_target()),
-        jar = node.attrs().binary_jar,
+        jar = node.attrs().binary_jar.value(),
         label = node.label,
         rule_type = _PREBUILT_JAR_RULE_TYPE,
-        source_jar = node.attrs().source_jar,
+        source_jar = node.attrs().source_jar.value(),
     )
 
 def get_project_library_file_name(library_label: "configured_target_label") -> str.type:
@@ -65,12 +65,12 @@ def get_library_xml(ij_library: IjLibrary.type, base_indentation: str.type) -> s
 {base_indentation}</library>""".format(
         base_indentation = base_indentation,
         name = ij_library.name,
-        jar = get_artifact_path(ij_library.jar.value()),
+        jar = get_artifact_path(ij_library.jar),
         sources = _get_sources_xml(ij_library, base_indentation + "  "),
     )
 
 def _get_sources_xml(ij_library: IjLibrary.type, base_indentation: str.type) -> str.type:
-    source_jar = ij_library.source_jar.value()
+    source_jar = ij_library.source_jar
     if not source_jar:
         return ""
 
