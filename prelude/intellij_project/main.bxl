@@ -1,5 +1,5 @@
 load("@fbcode//buck2/prelude/intellij_project:libraries.bxl", "get_libraries", "get_project_library_contents", "get_project_library_file_name")
-load("@fbcode//buck2/prelude/intellij_project:modules.bxl", "IjModuleWithResolvedDeps", "get_module_file_contents", "get_module_file_name", "get_modules")
+load("@fbcode//buck2/prelude/intellij_project:modules.bxl", "IjModule", "get_module_file_contents", "get_module_file_name", "get_module_ij_target_nodes")
 
 def _impl(ctx):
     all_nodes = ctx.cquery().deps(ctx.cli_args.targets, -1)
@@ -8,13 +8,13 @@ def _impl(ctx):
     final_output_dir_dict = {}
     action_factory = ctx.bxl_actions.action_factory()
 
-    modules = get_modules(all_nodes, all_analysis)
+    module_target_nodes = get_module_ij_target_nodes(all_nodes, all_analysis)
     libraries = get_libraries(all_nodes)
-    project_libraries, ij_modules_with_resolved_deps = _sort_libraries_and_modules(modules, libraries)
+    project_libraries, ij_modules = _sort_libraries_and_modules(module_target_nodes, libraries)
 
     file_names = []
-    for ij_module_with_resolved_deps in ij_modules_with_resolved_deps:
-        module = ij_module_with_resolved_deps.ij_module
+    for ij_module in ij_modules:
+        module = ij_module.ij_target_node
         file_name = get_module_file_name(module)
 
         # TODO(T124403530) account for multiple copies of the same lib (with different configs)
@@ -22,7 +22,7 @@ def _impl(ctx):
             continue
         file_names.append(file_name)
         module_output = _create_output(action_factory, file_name, final_output_dir_dict)
-        action_factory.write(module_output, get_module_file_contents(ij_module_with_resolved_deps))
+        action_factory.write(module_output, get_module_file_contents(ij_module))
 
     file_names = []
     for library in project_libraries:
@@ -61,13 +61,13 @@ def _create_output(
 
 PROJECT_LIBRARY_THRESHOLD = 1
 
-def _sort_libraries_and_modules(modules: ["IjModule"], libraries: ["IjLibrary"]) -> (["IjLibrary"], [IjModuleWithResolvedDeps.type]):
+def _sort_libraries_and_modules(ij_target_nodes: ["IjTargetNode"], libraries: ["IjLibrary"]) -> (["IjLibrary"], [IjModule.type]):
     # TODO(bobyf) better way to compare "label" and "configured_target_label"?
     libraries_by_stringified_label = {str(ij_library.label): ij_library for ij_library in libraries}
 
     # First, count the number of times that each library appears as a dependency of a module.
     library_counts = {str(ij_library.label): 0 for ij_library in libraries}
-    for module in modules:
+    for module in ij_target_nodes:
         for dep in module.deps:
             stringified_dep = str(dep)
             if stringified_dep in library_counts.keys():
@@ -84,31 +84,31 @@ def _sort_libraries_and_modules(modules: ["IjModule"], libraries: ["IjLibrary"])
         elif count > 0:
             module_libraries[stringified_library_label] = libraries_by_stringified_label[stringified_library_label]
 
-    modules_by_stringified_label = {str(ij_module.label): ij_module for ij_module in modules}
-    ij_modules_with_resolved_deps = []
-    for module in modules:
+    ij_target_nodes_by_stringified_label = {str(ij_module.label): ij_module for ij_module in ij_target_nodes}
+    ij_modules = []
+    for ij_target_node in ij_target_nodes:
         module_dependencies = []
         module_libs = []
         project_libs = []
-        for dep in module.deps:
+        for dep in ij_target_node.deps:
             stringified_dep = str(dep)
             if stringified_dep in module_libraries.keys():
                 module_libs.append(module_libraries[stringified_dep])
             elif stringified_dep in project_libraries.keys():
                 project_libs.append(project_libraries[stringified_dep])
-            elif stringified_dep in modules_by_stringified_label.keys():
-                module_dependencies.append(modules_by_stringified_label[stringified_dep])
+            elif stringified_dep in ij_target_nodes_by_stringified_label.keys():
+                module_dependencies.append(ij_target_nodes_by_stringified_label[stringified_dep])
 
-        ij_modules_with_resolved_deps.append(
-            IjModuleWithResolvedDeps(
-                ij_module = module,
+        ij_modules.append(
+            IjModule(
+                ij_target_node = ij_target_node,
                 module_dependencies = module_dependencies,
                 module_libraries = module_libs,
                 project_libraries = project_libs,
             ),
         )
 
-    return project_libraries.values(), ij_modules_with_resolved_deps
+    return project_libraries.values(), ij_modules
 
 generate_intellij_project = bxl(
     impl = _impl,

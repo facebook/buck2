@@ -2,16 +2,16 @@ load("@fbcode//buck2/prelude/intellij_project:libraries.bxl", "get_library_xml")
 load("@fbcode//buck2/prelude/java:java_providers.bzl", "JavaLibraryIntellijInfo")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 
-IjModule = record(
+IjTargetNode = record(
     deps = ["label"],
     label = "configured_target_label",
     name = str.type,
     srcs = ["artifact"],
 )
 
-IjModuleWithResolvedDeps = record(
-    ij_module = IjModule.type,
-    module_dependencies = [IjModule.type],
+IjModule = record(
+    ij_target_node = IjTargetNode.type,
+    module_dependencies = [IjTargetNode.type],
     module_libraries = ["IjLibrary"],
     project_libraries = ["IjLibrary"],
 )
@@ -23,8 +23,8 @@ _MODULE_RULE_TYPES = [
     _JAVA_LIBRARY_RULE_TYPE,
 ]
 
-def get_modules(all_nodes: "target_set", analysis: dict.type) -> [IjModule.type]:
-    modules = []
+def get_module_ij_target_nodes(all_nodes: "target_set", analysis: dict.type) -> [IjTargetNode.type]:
+    ij_target_nodes = []
     for node in all_nodes:
         # TODO(T124404704) find a better way to exclude exec_deps()
         if node.label.cell != "fbsource":
@@ -36,29 +36,29 @@ def get_modules(all_nodes: "target_set", analysis: dict.type) -> [IjModule.type]
 
         if rule_type == _JAVA_LIBRARY_RULE_TYPE:
             providers = analysis[configured_sub_target(node.label)].providers()
-            modules.append(_get_java_library_module(node, providers))
+            ij_target_nodes.append(_get_java_library_target_node(node, providers))
         elif rule_type == _ANDROID_LIBRARY_RULE_TYPE:
             providers = analysis[configured_sub_target(node.label)].providers()
-            modules.append(_get_android_library_module(node, providers))
+            ij_target_nodes.append(_get_android_library_target_node(node, providers))
         else:
             fail("Should add if branch above for rule type: {}".format(rule_type))
 
-    return modules
+    return ij_target_nodes
 
-def _get_android_library_module(node: "target_node", providers: "provider_collection") -> IjModule.type:
+def _get_android_library_target_node(node: "target_node", providers: "provider_collection") -> IjTargetNode.type:
     expect(node.rule_type == _ANDROID_LIBRARY_RULE_TYPE, "Rule type must be {} but was {}".format(_JAVA_LIBRARY_RULE_TYPE, node.rule_type))
     java_library_intellij_info = providers[JavaLibraryIntellijInfo]
-    return IjModule(
+    return IjTargetNode(
         deps = [compiling_dep.owner for compiling_dep in java_library_intellij_info.compiling_classpath],
         label = node.label,
         name = _get_name(node.label),
         srcs = node.attrs().srcs.value(),
     )
 
-def _get_java_library_module(node: "target_node", providers: "provider_collection") -> IjModule.type:
+def _get_java_library_target_node(node: "target_node", providers: "provider_collection") -> IjTargetNode.type:
     expect(node.rule_type == _JAVA_LIBRARY_RULE_TYPE, "Rule type must be {} but was {}".format(_JAVA_LIBRARY_RULE_TYPE, node.rule_type))
     java_library_intellij_info = providers[JavaLibraryIntellijInfo]
-    return IjModule(
+    return IjTargetNode(
         deps = [compiling_dep.owner for compiling_dep in java_library_intellij_info.compiling_classpath],
         label = node.label,
         name = _get_name(node.label),
@@ -68,11 +68,11 @@ def _get_java_library_module(node: "target_node", providers: "provider_collectio
 def _get_name(module_label: "configured_target_label") -> str.type:
     return module_label.package.replace("/", "_")
 
-def get_module_file_name(ij_module: IjModule.type) -> str.type:
-    return "modules/{}.iml".format(ij_module.name)
+def get_module_file_name(ij_target_node: IjTargetNode.type) -> str.type:
+    return "modules/{}.iml".format(ij_target_node.name)
 
 # TODO(T124403530) Fill this in correctly
-def get_module_file_contents(ij_module_with_resolved_deps: IjModuleWithResolvedDeps.type) -> str.type:
+def get_module_file_contents(ij_module: IjModule.type) -> str.type:
     return """\
 <?xml version="1.0" encoding="UTF-8"?>
 <module type="JAVA_MODULE" version="4">
@@ -83,19 +83,19 @@ def get_module_file_contents(ij_module_with_resolved_deps: IjModuleWithResolvedD
   </component>
 </project>
 """.format(
-        module_dependencies = _get_module_dependencies_xml(ij_module_with_resolved_deps.module_dependencies, base_indentation = "    "),
-        module_libraries = _get_module_libraries_xml(ij_module_with_resolved_deps.module_libraries, base_indentation = "    "),
-        project_libraries = _get_project_libraries_xml(ij_module_with_resolved_deps.project_libraries, base_indentation = "    "),
+        module_dependencies = _get_module_dependencies_xml(ij_module.module_dependencies, base_indentation = "    "),
+        module_libraries = _get_module_libraries_xml(ij_module.module_libraries, base_indentation = "    "),
+        project_libraries = _get_project_libraries_xml(ij_module.project_libraries, base_indentation = "    "),
     )
 
-def _get_module_dependencies_xml(module_dependencies: [IjModule.type], base_indentation: str.type) -> str.type:
+def _get_module_dependencies_xml(module_dependencies: [IjTargetNode.type], base_indentation: str.type) -> str.type:
     xml = ""
     for module_dependency in module_dependencies:
         xml += _get_module_dependency_xml(module_dependency, base_indentation)
 
     return xml
 
-def _get_module_dependency_xml(module_dependency: IjModule.type, base_indentation: str.type) -> str.type:
+def _get_module_dependency_xml(module_dependency: IjTargetNode.type, base_indentation: str.type) -> str.type:
     return """
 {base_indentation}<orderEntry type="module" module-name="{name}" scope="COMPILE" />""".format(
         base_indentation = base_indentation,
