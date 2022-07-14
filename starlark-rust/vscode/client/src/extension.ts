@@ -25,6 +25,10 @@ import {
 
 let client: LanguageClient;
 
+interface AdditionalClientSettings {
+    enable_goto_definition: boolean;
+}
+
 /// Get a setting at the path, or throw an error if it's not set.
 function requireSetting<T>(path: string): T {
     const ret: T = vscode.workspace.getConfiguration().get(path);
@@ -32,6 +36,12 @@ function requireSetting<T>(path: string): T {
         throw new Error(`Setting "${path}" was not configured`)
     }
     return ret;
+}
+
+function additionalClientSettings(): AdditionalClientSettings {
+    return {
+        enable_goto_definition: vscode.workspace.getConfiguration().get("starlark.enableGotoDefinition", true),
+    };
 }
 
 export function activate(context: ExtensionContext) {
@@ -45,6 +55,7 @@ export function activate(context: ExtensionContext) {
     let clientOptions: LanguageClientOptions = {
         // Register the server for Starlark documents
         documentSelector: [{ scheme: 'file', language: 'starlark' }],
+        initializationOptions: additionalClientSettings(),
     };
 
     // Create the language client and start the client.
