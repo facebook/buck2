@@ -7,8 +7,7 @@ IjModule = record(
     label = "configured_target_label",
     name = str.type,
     rule_type = str.type,
-    # TODO(T124404955) should this be a list of artifacts?
-    srcs = "configured_attr_val",
+    srcs = ["artifact"],
 )
 
 IjModuleWithResolvedDeps = record(
@@ -55,7 +54,7 @@ def _get_android_library_module(node: "target_node", providers: "provider_collec
         label = node.label,
         name = _get_name(node.label),
         rule_type = _ANDROID_LIBRARY_RULE_TYPE,
-        srcs = node.attrs().srcs,
+        srcs = node.attrs().srcs.value(),
     )
 
 def _get_java_library_module(node: "target_node", providers: "provider_collection") -> IjModule.type:
@@ -66,7 +65,7 @@ def _get_java_library_module(node: "target_node", providers: "provider_collectio
         label = node.label,
         name = _get_name(node.label),
         rule_type = _JAVA_LIBRARY_RULE_TYPE,
-        srcs = node.attrs().srcs,
+        srcs = node.attrs().srcs.value(),
     )
 
 def _get_name(module_label: "configured_target_label") -> str.type:
