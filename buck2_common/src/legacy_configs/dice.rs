@@ -39,18 +39,19 @@ pub struct LegacyBuckConfigOnDice<'a> {
 }
 
 impl<'a> LegacyBuckConfigView for LegacyBuckConfigOnDice<'a> {
-    fn get(&self, section: &str, key: &str) -> Option<Arc<str>> {
+    fn get(&self, section: &str, key: &str) -> anyhow::Result<Option<Arc<str>>> {
         self.get(section, key)
     }
 }
 
 impl<'a> LegacyBuckConfigOnDice<'a> {
-    pub fn get(&self, section: &str, property: &str) -> Option<Arc<str>> {
-        self.config
+    pub fn get(&self, section: &str, property: &str) -> anyhow::Result<Option<Arc<str>>> {
+        Ok(self
+            .config
             .projection(&LegacyBuckConfigPropertyProjectionKey {
                 section: section.to_owned(),
                 property: property.to_owned(),
-            })
+            }))
     }
 }
 

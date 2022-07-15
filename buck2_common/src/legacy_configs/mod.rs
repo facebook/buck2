@@ -167,8 +167,8 @@ impl LegacyBuckConfig {
 }
 
 impl LegacyBuckConfigView for LegacyBuckConfig {
-    fn get(&self, section: &str, key: &str) -> Option<Arc<str>> {
-        self.get(section, key).map(|v| v.to_owned().into())
+    fn get(&self, section: &str, key: &str) -> anyhow::Result<Option<Arc<str>>> {
+        Ok(self.get(section, key).map(|v| v.to_owned().into()))
     }
 }
 

@@ -69,18 +69,22 @@ impl<'a> LegacyBuckConfigForStarlark<'a> {
         }
     }
 
-    fn get_impl(&self, section: Hashed<&str>, key: Hashed<&str>) -> Option<FrozenStringValue> {
+    fn get_impl(
+        &self,
+        section: Hashed<&str>,
+        key: Hashed<&str>,
+    ) -> anyhow::Result<Option<FrozenStringValue>> {
         let hash = Self::mix_hashes(section.hash().get(), key.hash().get());
         let mut cache = self.cache.borrow_mut();
         if let Some(e) = cache.get(hash, |e| {
             e.section.key() == section.key() && e.key.as_str() == *key.key()
         }) {
-            return e.value;
+            return Ok(e.value);
         }
 
         let value = self
             .buckconfig
-            .get(section.key(), key.key())
+            .get(section.key(), key.key())?
             .map(|v| self.module.frozen_heap().alloc_str(&v));
 
         cache.insert(
@@ -93,11 +97,15 @@ impl<'a> LegacyBuckConfigForStarlark<'a> {
             |e| Self::mix_hashes(e.section.hash().get(), e.key.hash().get()),
         );
 
-        value
+        Ok(value)
     }
 
     /// Find the buckconfig entry.
-    pub fn get(&self, section: StringValue, key: StringValue) -> Option<FrozenStringValue> {
+    pub fn get(
+        &self,
+        section: StringValue,
+        key: StringValue,
+    ) -> anyhow::Result<Option<FrozenStringValue>> {
         // Note here we reuse the hashes of `section` and `key`,
         // if `read_config` is called repeatedly with the same constant arguments:
         // `StringValue` caches the hashes.

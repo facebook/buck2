@@ -12,7 +12,7 @@ use crate::legacy_configs::LegacyBuckConfig;
 /// * simple implementation which is backed by a buckconfig object, used in tests
 /// * DICE-backed implementation which records a dependency on buckconfig property in DICE
 pub trait LegacyBuckConfigView: Debug {
-    fn get(&self, section: &str, key: &str) -> Option<Arc<str>>;
+    fn get(&self, section: &str, key: &str) -> anyhow::Result<Option<Arc<str>>>;
 }
 
 impl<'a> dyn LegacyBuckConfigView + 'a {
@@ -20,7 +20,7 @@ impl<'a> dyn LegacyBuckConfigView + 'a {
     where
         <T as FromStr>::Err: std::error::Error + Send + Sync + 'static,
     {
-        self.get(section, key)
+        self.get(section, key)?
             .map(|s| LegacyBuckConfig::parse_impl(section, key, &s))
             .transpose()
     }

@@ -31,7 +31,7 @@ pub fn register_read_config(globals: &mut GlobalsBuilder) {
         }
 
         let buckconfig = &BuildContext::from_context(eval)?.buckconfig;
-        match buckconfig.get(section, key) {
+        match buckconfig.get(section, key)? {
             Some(v) => Ok(v.to_value()),
             None => Ok(default.unwrap_or_else(Value::new_none)),
         }
