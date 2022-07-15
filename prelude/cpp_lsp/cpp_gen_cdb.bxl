@@ -65,6 +65,8 @@ def _impl(ctx):
         actionFactory.run(cmd, category = "cxx_merge_compdb_hmap")
         ensured = ctx.output.ensure(outputDir)
         ctx.output.print_json({"compilationDatabasePath": ensured.abs_path(), "platform": platform, "toolchain": toolchain, "version": CPP_GEN_CDB_SCRIPT_VERSION})
+    else:
+        ctx.output.print("Could not find a buck target that owns this file")
 
 def parseToolChain(platform, toolchain):
     if "llvm-fb" in toolchain:
