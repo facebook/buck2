@@ -272,11 +272,27 @@ use crate::key::StoragePropertiesForKey;
 use crate::projection::ProjectionKeyProperties;
 
 #[derive(Clone, Dupe, Debug, Error)]
-pub enum DiceError {
+#[error(transparent)]
+pub struct DiceError(Arc<DiceErrorImpl>);
+
+impl DiceError {
+    pub fn cycles(
+        trigger: Arc<dyn RequestedKey>,
+        cyclic_keys: IndexSet<Arc<dyn RequestedKey>>,
+    ) -> Self {
+        DiceError(Arc::new(DiceErrorImpl::Cycles {
+            trigger,
+            cyclic_keys,
+        }))
+    }
+}
+
+#[derive(Debug, Error)]
+enum DiceErrorImpl {
     #[error("Cyclic computation detect when computing key `{}`, which forms a cycle in computation chain: `{}`", trigger, cyclic_keys.iter().join(","))]
     Cycles {
         trigger: Arc<dyn RequestedKey>,
-        cyclic_keys: Arc<IndexSet<Arc<dyn RequestedKey>>>,
+        cyclic_keys: IndexSet<Arc<dyn RequestedKey>>,
     },
 }
 

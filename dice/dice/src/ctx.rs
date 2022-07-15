@@ -473,7 +473,7 @@ mod tests {
 
     use crate::ctx::ComputationData;
     use crate::cycles::DetectCycles;
-    use crate::DiceError;
+    use crate::DiceErrorImpl;
     use crate::RequestedKey;
     use crate::UserComputationData;
 
@@ -502,26 +502,28 @@ mod tests {
             Ok(_) => {
                 panic!("should have cycle error")
             }
-            Err(DiceError::Cycles {
-                trigger,
-                cyclic_keys,
-            }) => {
-                assert!(
-                    (*trigger).get_key_equality() == K(1).get_key_equality(),
-                    "expected trigger key to be `{}` but was `{}`",
-                    K(1),
-                    trigger
-                );
-                assert_eq!(
-                    &*cyclic_keys,
-                    &indexset![
-                        Arc::new(K(1)) as Arc<dyn RequestedKey>,
-                        Arc::new(K(2)) as Arc<dyn RequestedKey>,
-                        Arc::new(K(3)) as Arc<dyn RequestedKey>,
-                        Arc::new(K(4)) as Arc<dyn RequestedKey>
-                    ]
-                )
-            }
+            Err(e) => match &*e.0 {
+                DiceErrorImpl::Cycles {
+                    trigger,
+                    cyclic_keys,
+                } => {
+                    assert!(
+                        (**trigger).get_key_equality() == K(1).get_key_equality(),
+                        "expected trigger key to be `{}` but was `{}`",
+                        K(1),
+                        trigger
+                    );
+                    assert_eq!(
+                        &*cyclic_keys,
+                        &indexset![
+                            Arc::new(K(1)) as Arc<dyn RequestedKey>,
+                            Arc::new(K(2)) as Arc<dyn RequestedKey>,
+                            Arc::new(K(3)) as Arc<dyn RequestedKey>,
+                            Arc::new(K(4)) as Arc<dyn RequestedKey>
+                        ]
+                    )
+                }
+            },
         }
 
         Ok(())
