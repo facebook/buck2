@@ -16,8 +16,11 @@ use futures::FutureExt;
 use gazebo::prelude::*;
 use gazebo::variants::VariantName;
 
+use crate::__derive_refs::indexmap::IndexSet;
 use crate::query::environment::QueryEnvironment;
 use crate::query::syntax::simple::eval::error::QueryError;
+use crate::query::syntax::simple::eval::file_set::FileNode;
+use crate::query::syntax::simple::eval::file_set::FileSet;
 use crate::query::syntax::simple::eval::set::TargetSet;
 use crate::query::syntax::simple::eval::values::QueryEvaluationValue;
 use crate::query::syntax::simple::eval::values::QueryResult;
@@ -84,6 +87,16 @@ impl<'e, Env: QueryEnvironment> QueryEvaluator<'e, Env> {
                 // the user, instead the result will be package-ordered. We may need to change this to
                 // preserve order.
                 Ok(self.env.eval_literals(&patterns).await?.into())
+            }
+            Expr::FileSet(args) => {
+                let patterns: Vec<_> = args.map(|v| v.fragment());
+                let mut files = FileSet::new(IndexSet::<FileNode>::new());
+
+                for pattern in patterns {
+                    files.insert_all(&self.env.eval_file_literal(pattern).await?)
+                }
+
+                Ok(files.into())
             }
         }
     }

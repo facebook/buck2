@@ -103,6 +103,7 @@ impl<Env: QueryEnvironment, F: QueryFunctions<Env>> QueryFunctionsExt<Env> for F
                     }
                     Ok(())
                 }
+                Expr::FileSet(_args) => Ok(()),
                 Expr::String(..) | Expr::Integer(..) => {
                     panic!(
                         "This shouldn't be called with literals, they should be handled in the caller"

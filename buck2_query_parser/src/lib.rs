@@ -122,6 +122,7 @@ pub enum Expr<'a> {
     },
     BinaryOpSequence(Box<SpannedExpr<'a>>, Vec<(BinaryOp, SpannedExpr<'a>)>),
     Set(Vec<Span<'a>>),
+    FileSet(Vec<Span<'a>>),
 }
 
 impl Display for Expr<'_> {
@@ -160,6 +161,16 @@ impl Display for Expr<'_> {
             }
             Expr::Set(vals) => {
                 f.write_str("set(")?;
+                for (i, v) in vals.iter().enumerate() {
+                    if i != 0 {
+                        f.write_str(" ")?;
+                    }
+                    f.write_str(v.fragment())?;
+                }
+                f.write_str(")")?;
+            }
+            Expr::FileSet(vals) => {
+                f.write_str("fileset(")?;
                 for (i, v) in vals.iter().enumerate() {
                     if i != 0 {
                         f.write_str(" ")?;
@@ -264,6 +275,7 @@ fn single_expr<'a, E: NomParseError<'a>>(input: Span<'a>) -> NomResult<'a, Spann
     let (input, left_expr) = alt((
         preceded(char('('), cut(terminated(expr, char(')')))),
         expr_set,
+        expr_fileset,
         expr_function,
         expr_int,
         expr_word,
@@ -392,6 +404,22 @@ fn expr_set<'a, E: NomParseError<'a>>(input: Span<'a>) -> NomResult<'a, SpannedE
             let (input, args) = delimited(multispace0, set_args, multispace0)(input)?;
             let (input, _) = char(')')(input)?;
             Ok((input, Expr::Set(args)))
+        })(input)
+    })(input)
+}
+
+/// Tries to parse an Expr::FileSet. Will fail if it detects an unfinished "fileset("
+fn expr_fileset<'a, E: NomParseError<'a>>(input: Span<'a>) -> NomResult<'a, SpannedExpr<'a>, E> {
+    fn set_args<'a, E: NomParseError<'a>>(input: Span<'a>) -> NomResult<'a, Vec<Span<'a>>, E> {
+        separated_list0(multispace1, word)(input)
+    }
+
+    spanned(|input| {
+        let (input, _) = tag("fileset(")(input)?;
+        cut(move |input| {
+            let (input, args) = delimited(multispace0, set_args, multispace0)(input)?;
+            let (input, _) = char(')')(input)?;
+            Ok((input, Expr::FileSet(args)))
         })(input)
     })(input)
 }
