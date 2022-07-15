@@ -218,7 +218,7 @@ Control the version of buck used in contbuild by setting the `buck_version` conf
     "buck_version": "both",  # Build with both buck1 and buck2.
 ```
 
-Valid settings are `v1` (default), `v2` or `both`. Using `both` setting will spawn 2 parallel contbuild jobs for `v1` and `v2`.
+Valid settings are `v2`(default), `v1` or `both`. Using `both` setting will spawn 2 parallel contbuild jobs for `v1` and `v2`.
 You may also wish to use `buck2_overrides` to customise the oncall or other attributes when using `both`, e.g.:
 
 ```python
@@ -277,6 +277,8 @@ The Buck version used by `fbpkg` is controlled by Configerator. To switch it to 
 ```
 
 Valid settings are `"v2"`, `"v1"` (default).
+
+Notice: Configerator based fbpkgs are deprecated and are blocked from any new changes. To unblock prefer to move your fbpkg to fbpkg.builder. (validation code: https://fburl.com/code/f68keaqs)
 
 ### Packman integration
 
