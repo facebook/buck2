@@ -116,7 +116,8 @@ impl ComputationData {
             cycle_detector: self
                 .cycle_detector
                 .as_ref()
-                .map(|detector| box detector.visit(key)),
+                .map(|detector| Ok(box detector.visit(key)?))
+                .transpose()?,
         })
     }
 }
@@ -464,11 +465,16 @@ pub(crate) mod testing {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use derive_more::Display;
     use gazebo::prelude::*;
+    use indexmap::indexset;
 
     use crate::ctx::ComputationData;
     use crate::cycles::DetectCycles;
+    use crate::DiceError;
+    use crate::RequestedKey;
     use crate::UserComputationData;
 
     #[derive(Clone, Dupe, Display, Debug, PartialEq, Eq, Hash)]
@@ -486,13 +492,38 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
-    fn cycle_detection_when_cycles() {
+    fn cycle_detection_when_cycles() -> anyhow::Result<()> {
         let ctx = ComputationData::new(UserComputationData::new(), DetectCycles::Enabled);
-        let ctx = ctx.subrequest(&K(1)).unwrap();
-        let ctx = ctx.subrequest(&K(2)).unwrap();
-        let ctx = ctx.subrequest(&K(3)).unwrap();
-        let ctx = ctx.subrequest(&K(4)).unwrap();
-        let _ctx = ctx.subrequest(&K(1)).unwrap();
+        let ctx = ctx.subrequest(&K(1))?;
+        let ctx = ctx.subrequest(&K(2))?;
+        let ctx = ctx.subrequest(&K(3))?;
+        let ctx = ctx.subrequest(&K(4))?;
+        match ctx.subrequest(&K(1)) {
+            Ok(_) => {
+                panic!("should have cycle error")
+            }
+            Err(DiceError::Cycles {
+                trigger,
+                cyclic_keys,
+            }) => {
+                assert!(
+                    (*trigger).get_key_equality() == K(1).get_key_equality(),
+                    "expected trigger key to be `{}` but was `{}`",
+                    K(1),
+                    trigger
+                );
+                assert_eq!(
+                    &*cyclic_keys,
+                    &indexset![
+                        Arc::new(K(1)) as Arc<dyn RequestedKey>,
+                        Arc::new(K(2)) as Arc<dyn RequestedKey>,
+                        Arc::new(K(3)) as Arc<dyn RequestedKey>,
+                        Arc::new(K(4)) as Arc<dyn RequestedKey>
+                    ]
+                )
+            }
+        }
+
+        Ok(())
     }
 }
