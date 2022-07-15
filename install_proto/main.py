@@ -23,15 +23,19 @@ class RsyncInstallerService(install_pb2_grpc.InstallerServicer):
             self.dst = f"{argsparse.install_location}:{argsparse.dst}"
 
     def FileReadyRequest(self, request, context):
-        (out, stderr, code) = self.rsync_install(request.path, self.dst)
-        err = 0 if code == 0 else 1
+        (_out, stderr, code) = self.rsync_install(request.path, self.dst)
         response = {
             "name": f"{request.name}",
-            "err_msg": stderr,
-            "err": err,
             "path": request.path,
         }
-        return install_pb2.FileResponse(**response)
+        file_response = install_pb2.FileResponse(**response)
+
+        if code != 0:
+            error_detail = install_pb2.ErrorDetail()
+            error_detail.message = stderr
+            file_response.error_detail = error_detail
+
+        return file_response
 
     def ShutdownServer(self, request, context):
         shutdown(self.stop_event)

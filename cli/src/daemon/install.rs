@@ -354,11 +354,12 @@ async fn send_file(
         path: path.to_string(),
     });
     let response = client.file_ready_request(request).await?.into_inner();
-    if response.err {
+
+    if let Some(error_detail) = response.error_detail {
         return Err(InstallError::InstallerFailure {
             artifact: name,
             path: path.to_owned(),
-            err: response.err_msg,
+            err: error_detail.message,
         }
         .into());
     }
