@@ -51,7 +51,7 @@ impl<'a> LegacyBuckConfigOnDice<'a> {
             .projection(&LegacyBuckConfigPropertyProjectionKey {
                 section: section.to_owned(),
                 property: property.to_owned(),
-            }))
+            })?)
     }
 }
 
@@ -255,7 +255,7 @@ impl ProjectionKey for LegacyBuckConfigCellNamesKey {
 impl HasLegacyConfigs for DiceComputations {
     async fn get_legacy_configs_on_dice(&self) -> anyhow::Result<LegacyBuckConfigsOnDice> {
         let configs = self.compute_opaque(&LegacyBuckConfigKey).await?;
-        let cell_names = configs.projection(&LegacyBuckConfigCellNamesKey);
+        let cell_names = configs.projection(&LegacyBuckConfigCellNamesKey)?;
         let mut configs_on_dice = Vec::with_capacity(cell_names.len());
         for cell_name in &*cell_names {
             let config = self

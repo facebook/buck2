@@ -345,7 +345,7 @@ impl DiceComputationImpl {
         self: &Arc<Self>,
         derive_from: &OpaqueValue<P::DeriveFromKey>,
         projection_key: &P,
-    ) -> P::Value
+    ) -> DiceResult<P::Value>
     where
         P: ProjectionKey,
     {
@@ -360,12 +360,12 @@ impl DiceComputationImpl {
 
         let extra = self.extra.subrequest(&projection_key_as_key);
 
-        cache.eval_projection(
+        Ok(cache.eval_projection(
             &projection_key_as_key,
             derive_from,
             &self.transaction_ctx,
             extra,
-        )
+        ))
     }
 
     pub(super) fn changed<K, I>(&self, changed: I)

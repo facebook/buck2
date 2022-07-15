@@ -19,6 +19,7 @@ use crate::gazebo::dupe::Dupe;
 use crate::incremental::dep_trackers::BothDeps;
 use crate::incremental::graph::GraphNode;
 use crate::DiceComputationImpl;
+use crate::DiceResult;
 use crate::IncrementalEngine;
 use crate::Key;
 use crate::ProjectionKey;
@@ -92,7 +93,7 @@ impl<'a, K: Key> OpaqueValue<'a, K> {
         value
     }
 
-    pub fn projection<P>(&self, projection_key: &P) -> P::Value
+    pub fn projection<P>(&self, projection_key: &P) -> DiceResult<P::Value>
     where
         P: ProjectionKey<DeriveFromKey = K>,
     {

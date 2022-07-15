@@ -70,9 +70,11 @@ impl Key for FileKey {
         // which is the result of file evaluation.
         // We are testing that file evaluation is not invalidated
         // if unrelated configurations changed.
-        let value = config.projection(&ConfigPropertyKey {
-            key: "x".to_owned(),
-        });
+        let value = config
+            .projection(&ConfigPropertyKey {
+                key: "x".to_owned(),
+            })
+            .map_err(|e| Arc::new(anyhow::anyhow!(e)))?;
         // Record we executed this computation.
         ctx.global_data()
             .get::<Arc<Mutex<RecordedComputations>>>()
