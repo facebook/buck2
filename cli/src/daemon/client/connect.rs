@@ -77,7 +77,7 @@ impl<'a> BuckdLifecycle<'a> {
         }));
 
         let mut cmd =
-            async_background_command(std::env::current_exe().context("failed to get current exe")?);
+            async_background_command(std::env::current_exe().context("Failed to get current exe")?);
         cmd.current_dir(project_dir)
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
@@ -114,20 +114,23 @@ impl<'a> BuckdLifecycle<'a> {
         let mut stdout_taken = child
             .stdout
             .take()
-            .context("stdout should be piped above")?;
+            .context("Child should have its stdout piped")
+            .unwrap();
         let mut stderr_taken = child
             .stderr
             .take()
-            .context("stderr should be piped above")?;
+            .context("Child should have its stderr piped")
+            .unwrap();
 
         let status_fut = async {
             let result = timeout(timeout_secs, child.wait()).await;
             match result {
                 Err(_elapsed) => {
                     // The command has timed out, kill the process and wait
-                    child.kill().await.context(
-                        "failed to kill process after timing out when launching buck2 daemon",
-                    )?;
+                    child
+                        .kill()
+                        .await
+                        .context("When killing process after buck2 daemon launch timing out")?;
                     // This should return immeditately as kill() waits for the process to end. We wait here again to fetch the ExitStatus
                     // Signal termination is not considered a success, so wait() results in an appropriate ExitStatus
                     Ok(child.wait().await?)
@@ -140,24 +143,24 @@ impl<'a> BuckdLifecycle<'a> {
             stdout_taken
                 .read_to_end(&mut buf)
                 .await
-                .context("failed to read stdout")?;
+                .context("When reading stdout of child")?;
             Ok(buf)
         };
-        let stderr_read = async {
+        let stderr_fut = async {
             let mut buf = Vec::new();
             stderr_taken
                 .read_to_end(&mut buf)
                 .await
-                .context("failed to read stderr")?;
+                .context("When reading stderr of child")?;
             Ok(buf)
         };
 
-        let joined = try_join3(status_fut, stdout_fut, stderr_read).await;
+        let joined = try_join3(status_fut, stdout_fut, stderr_fut).await;
         match joined {
             Err(e) => Err(BuckdConnectError::BuckDaemonStartupFailed {
                 code: 1,
                 stdout: "".to_owned(),
-                stderr: format!("failed to launch Buck2 daemon: {:#}", e),
+                stderr: format!("Failed to launch Buck2 daemon: {:#}", e),
             }
             .into()),
             Ok((status, stdout, stderr)) => {
@@ -250,12 +253,12 @@ impl BuckdConnectOptions {
 
     pub(crate) async fn connect(self, paths: &Paths) -> anyhow::Result<BuckdClientConnector> {
         let daemon_dir = paths.daemon_dir()?;
-        std::fs::create_dir_all(&daemon_dir)
-            .with_context(|| format!("when creating daemon dir {}", daemon_dir.display()))?;
+        buck2_core::fs::anyhow::create_dir_all(&daemon_dir)
+            .with_context(|| format!("When creating daemon dir: {}", daemon_dir.display()))?;
         let client = self
             .establish_connection(paths)
             .await
-            .context("when establishing connection to buckd")?;
+            .context("When establishing connection to buckd")?;
 
         // after startup is complete, replace the basic readers with our own.
         Ok(client.with_subscribers(self.subscribers))
