@@ -271,12 +271,12 @@ use crate::incremental::ValueWithDeps;
 use crate::key::StoragePropertiesForKey;
 use crate::projection::ProjectionKeyProperties;
 
-#[derive(Debug, Error)]
+#[derive(Clone, Dupe, Debug, Error)]
 pub enum DiceError {
     #[error("Cyclic computation detect when computing key `{}`, which forms a cycle in computation chain: `{}`", trigger, cyclic_keys.iter().join(","))]
     Cycles {
         trigger: Arc<dyn RequestedKey>,
-        cyclic_keys: IndexSet<Arc<dyn RequestedKey>>,
+        cyclic_keys: Arc<IndexSet<Arc<dyn RequestedKey>>>,
     },
 }
 
