@@ -646,7 +646,7 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
             .eval_for_opaque(
                 &k.derive_from_key,
                 transaction_ctx,
-                extra.subrequest(&k.derive_from_key),
+                extra.subrequest(&k.derive_from_key)?,
             )
             .await?;
 
@@ -1816,7 +1816,7 @@ mod tests {
                 extra: &ComputationData,
             ) -> DiceResult<GraphNode<Self>> {
                 engine
-                    .eval_entry_versioned(key, transaction_ctx, extra.subrequest(key))
+                    .eval_entry_versioned(key, transaction_ctx, extra.subrequest(key)?)
                     .await
             }
         }

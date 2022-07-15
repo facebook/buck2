@@ -215,7 +215,7 @@ pub(crate) mod testing {
             extra: &ComputationData,
         ) -> DiceResult<GraphNode<Self>> {
             engine
-                .eval_entry_versioned(key, transaction_ctx, extra.subrequest(key))
+                .eval_entry_versioned(key, transaction_ctx, extra.subrequest(key)?)
                 .await
         }
     }

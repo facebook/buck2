@@ -107,17 +107,17 @@ impl ComputationData {
 
     /// records that we are entering the computation of another key as part of this main request
     /// i.e. computing key a, which during its evaluation requests key b, enters a new subrequest.
-    pub(crate) fn subrequest<K>(&self, key: &K) -> Self
+    pub(crate) fn subrequest<K>(&self, key: &K) -> DiceResult<Self>
     where
         K: Clone + Display + Debug + Eq + Hash + Send + Sync + 'static,
     {
-        Self {
+        Ok(Self {
             user_data: self.user_data.dupe(),
             cycle_detector: self
                 .cycle_detector
                 .as_ref()
                 .map(|detector| box detector.visit(key)),
-        }
+        })
     }
 }
 
@@ -332,7 +332,7 @@ impl DiceComputationImpl {
         let key = key.clone();
         async move {
             let cache = self.dice.find_cache::<K>();
-            let extra = self.extra.subrequest(&key);
+            let extra = self.extra.subrequest(&key)?;
             let value = cache
                 .eval_for_opaque(&key, &self.transaction_ctx, extra)
                 .await?;
@@ -358,7 +358,7 @@ impl DiceComputationImpl {
             k: projection_key.clone(),
         };
 
-        let extra = self.extra.subrequest(&projection_key_as_key);
+        let extra = self.extra.subrequest(&projection_key_as_key)?;
 
         Ok(cache.eval_projection(
             &projection_key_as_key,
@@ -475,22 +475,24 @@ mod tests {
     struct K(usize);
 
     #[test]
-    fn cycle_detection_when_no_cycles() {
+    fn cycle_detection_when_no_cycles() -> anyhow::Result<()> {
         let ctx = ComputationData::new(UserComputationData::new(), DetectCycles::Enabled);
-        let ctx = ctx.subrequest(&K(1));
-        let ctx = ctx.subrequest(&K(2));
-        let ctx = ctx.subrequest(&K(3));
-        let _ctx = ctx.subrequest(&K(4));
+        let ctx = ctx.subrequest(&K(1))?;
+        let ctx = ctx.subrequest(&K(2))?;
+        let ctx = ctx.subrequest(&K(3))?;
+        let _ctx = ctx.subrequest(&K(4))?;
+
+        Ok(())
     }
 
     #[test]
     #[should_panic]
     fn cycle_detection_when_cycles() {
         let ctx = ComputationData::new(UserComputationData::new(), DetectCycles::Enabled);
-        let ctx = ctx.subrequest(&K(1));
-        let ctx = ctx.subrequest(&K(2));
-        let ctx = ctx.subrequest(&K(3));
-        let ctx = ctx.subrequest(&K(4));
-        let _ctx = ctx.subrequest(&K(1));
+        let ctx = ctx.subrequest(&K(1)).unwrap();
+        let ctx = ctx.subrequest(&K(2)).unwrap();
+        let ctx = ctx.subrequest(&K(3)).unwrap();
+        let ctx = ctx.subrequest(&K(4)).unwrap();
+        let _ctx = ctx.subrequest(&K(1)).unwrap();
     }
 }

@@ -133,7 +133,7 @@ impl<P: ProjectionKey> IncrementalComputeProperties for ProjectionKeyProperties<
         extra: &ComputationData,
     ) -> DiceResult<GraphNode<Self>> {
         engine
-            .recompute_projection(key, transaction_ctx, extra.subrequest(key))
+            .recompute_projection(key, transaction_ctx, extra.subrequest(key)?)
             .await
     }
 }
