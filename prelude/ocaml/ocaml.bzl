@@ -79,7 +79,7 @@ load("@fbcode//buck2/prelude/utils:graph_utils.bzl", "breadth_first_traversal", 
 load("@fbcode//buck2/prelude/utils:platform_flavors_util.bzl", "by_platform")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "flatten")
 load(":makefile.bzl", "parse_makefile")
-load(":providers.bzl", "OCamlLibraryInfo", "OCamlLinkInfo", "OCamlToolchainInfo", "merge_ocaml_link_infos")
+load(":providers.bzl", "OCamlLibraryInfo", "OCamlLinkInfo", "OCamlToolchainInfo", "OtherOutputsInfo", "merge_ocaml_link_infos", "merge_other_outputs_info")
 
 BuildMode = enum("native", "bytecode")
 
@@ -120,6 +120,9 @@ def _attr_deps_merged_link_infos(ctx: "context") -> ["MergedLinkInfo"]:
 
 def _attr_deps_ocaml_link_infos(ctx: "context") -> ["OCamlLinkInfo"]:
     return filter(None, [d[OCamlLinkInfo] for d in _attr_deps(ctx)])
+
+def _attr_deps_other_outputs_infos(ctx: "context") -> ["OtherOutputsInfo"]:
+    return filter(None, [d[OtherOutputsInfo] for d in _attr_deps(ctx)])
 
 # ---
 
@@ -586,15 +589,34 @@ def ocaml_library_impl(ctx: "context") -> ["provider"]:
         )]),
     )
 
-    if ctx.attrs.bytecode_only:
-        info = DefaultInfo(default_outputs = [cma])
-    else:
-        info = DefaultInfo(default_outputs = [cmxa], sub_targets = {"bytecode": [DefaultInfo(default_outputs = [cma])]})
+    other_outputs = {
+        "bytecode": cmis_byt + cmos,
+        "ide": cmis_nat + cmtis_nat + cmts_nat,
+    }
+    other_outputs_info = merge_other_outputs_info(ctx, other_outputs, _attr_deps_other_outputs_infos(ctx))
+
+    info_ide = [
+        DefaultInfo(
+            default_outputs = [cmxa],
+            other_outputs = [cmd_args(other_outputs_info.info.project_as_args("ide"))],
+        ),
+    ]
+    info_byt = [
+        DefaultInfo(
+            default_outputs = [cma],
+            other_outputs = [cmd_args(other_outputs_info.info.project_as_args("bytecode"))],
+        ),
+    ]
+    sub_targets = {"bytecode": info_byt, "ide": info_ide}
+
+    if ctx.attr.bytecode_only:
+        return info_byt
 
     return [
-        info,
+        DefaultInfo(default_outputs = [cmxa], sub_targets = sub_targets),
         merge_ocaml_link_infos(infos),
         merge_link_infos(ctx, _attr_deps_merged_link_infos(ctx)),
+        other_outputs_info,
         create_merged_linkable_graph(ctx.label, _attr_deps(ctx)),
     ]
 
@@ -638,16 +660,34 @@ def ocaml_binary_impl(ctx: "context") -> ["provider"]:
     local_only = link_cxx_binary_locally(ctx)
     ctx.actions.run(cmd_byt, category = "ocaml_link_bytecode", local_only = local_only)
 
-    if ctx.attrs.bytecode_only:
-        return [
-            DefaultInfo(default_outputs = [binary_byt]),
-            RunInfo(args = [binary_byt]),
-        ]
-    else:
-        return [
-            DefaultInfo(default_outputs = [binary_nat], sub_targets = {"bytecode": [DefaultInfo(default_outputs = [binary_byt]), RunInfo(args = [binary_byt])]}),
-            RunInfo(args = [binary_nat]),
-        ]
+    other_outputs = {
+        "bytecode": cmis_byt + cmos,
+        "ide": cmis_nat + cmtis_nat + cmts_nat,
+    }
+    other_outputs_info = merge_other_outputs_info(ctx, other_outputs, _attr_deps_other_outputs_infos(ctx))
+
+    info_ide = [
+        DefaultInfo(
+            default_outputs = [binary_nat],
+            other_outputs = [cmd_args(other_outputs_info.info.project_as_args("ide"))],
+        ),
+    ]
+    info_byt = [
+        DefaultInfo(
+            default_outputs = [binary_byt],
+            other_outputs = [cmd_args(other_outputs_info.info.project_as_args("bytecode"))],
+        ),
+        RunInfo(args = [binary_byt]),
+    ]
+    sub_targets = {"bytecode": info_byt, "ide": info_ide}
+
+    if ctx.attr.bytecode_only:
+        return info_byt
+
+    return [
+        DefaultInfo(default_outputs = [binary_nat], sub_targets = sub_targets),
+        RunInfo(args = [binary_nat]),
+    ]
 
 def ocaml_object_impl(ctx: "context") -> ["provider"]:
     # ocamlopt & ld scripts.
