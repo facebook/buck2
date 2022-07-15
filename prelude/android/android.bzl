@@ -65,7 +65,7 @@ implemented_rules = {
 
 extra_attributes = {
     "android_aar": {
-        "resources_root": attr.option(attr.string(), default = None),
+        "resources_root": attrs.option(attrs.string(), default = None),
     },
     "android_binary": {
         "aapt_mode": attr.enum(AaptMode, default = "aapt1"),  # Match default in V1

@@ -14,9 +14,9 @@ def _assert_artifact_properties(ctx: "context") -> [DefaultInfo.type]:
 assert_artifact_properties = rule(
     impl = _assert_artifact_properties,
     attrs = {
-        "basename": attr.option(attr.string(), default = None),
-        "short_path": attr.option(attr.string(), default = None),
-        "src": attr.dep(),
+        "basename": attrs.option(attrs.string(), default = None),
+        "short_path": attrs.option(attrs.string(), default = None),
+        "src": attrs.dep(),
     },
 )
 
@@ -30,6 +30,6 @@ def _assert_exists(ctx: "context") -> [DefaultInfo.type]:
 assert_exists = rule(
     impl = _assert_exists,
     attrs = {
-        "path": attr.arg(),
+        "path": attrs.arg(),
     },
 )

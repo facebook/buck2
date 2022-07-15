@@ -104,16 +104,16 @@ def _config_backed_ocaml_toolchain_rule_impl(ctx):
 _config_backed_ocaml_toolchain_rule = rule(
     impl = _config_backed_ocaml_toolchain_rule_impl,
     attrs = {
-        "binutils_ld": attr.dep(default = "fbcode//third-party-buck/platform010/build/binutils:bin/ld"),
-        "debug": attr.dep(providers = [RunInfo]),
-        "dep_tool": attr.dep(providers = [RunInfo]),
-        "interop_includes": attr.source(),
-        "lex_compiler": attr.dep(providers = [RunInfo]),
-        "libasmrun": attr.source(default = "fbcode//third-party-buck/platform010/build/supercaml:libasmrun.a"),
-        "ocaml_bytecode_compiler": attr.dep(providers = [RunInfo]),
-        "ocaml_compiler": attr.dep(providers = [RunInfo]),
-        "ocaml_compiler_flags": attr.list(attr.string()),
-        "warnings_flags": attr.string(),  # must be a single argument
-        "yacc_compiler": attr.dep(providers = [RunInfo]),
+        "binutils_ld": attrs.dep(default = "fbcode//third-party-buck/platform010/build/binutils:bin/ld"),
+        "debug": attrs.dep(providers = [RunInfo]),
+        "dep_tool": attrs.dep(providers = [RunInfo]),
+        "interop_includes": attrs.source(),
+        "lex_compiler": attrs.dep(providers = [RunInfo]),
+        "libasmrun": attrs.source(default = "fbcode//third-party-buck/platform010/build/supercaml:libasmrun.a"),
+        "ocaml_bytecode_compiler": attrs.dep(providers = [RunInfo]),
+        "ocaml_compiler": attrs.dep(providers = [RunInfo]),
+        "ocaml_compiler_flags": attrs.list(attrs.string()),
+        "warnings_flags": attrs.string(),  # must be a single argument
+        "yacc_compiler": attrs.dep(providers = [RunInfo]),
     },
 )

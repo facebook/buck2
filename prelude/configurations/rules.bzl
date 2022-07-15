@@ -7,8 +7,8 @@ load(":util.bzl", "util")
 # referenced values and the config keys.
 #
 # Attributes:
-#   "constraint_values": attr.list(attr.configuration_label(), default = []),
-#   "values": attr.dict(key = attr.string(), value = attr.string(), sorted = False, default = {}),
+#   "constraint_values": attrs.list(attrs.configuration_label(), default = []),
+#   "values": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
 def config_setting_impl(ctx):
     subinfos = [util.constraint_values_to_configuration(ctx.attrs.constraint_values)]
     subinfos.append(ConfigurationInfo(constraints = {}, values = ctx.attrs.values))

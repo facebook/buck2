@@ -10,7 +10,7 @@ def _js_toolchain_rule_impl(ctx):
 
 js_toolchain = rule(
     attrs = {
-        "command_args_fixup": attr.dep(),
+        "command_args_fixup": attrs.dep(),
     },
     impl = _js_toolchain_rule_impl,
 )

@@ -21,12 +21,12 @@ def apple_sdk_clang_module_impl(ctx: "context") -> ["provider"]:
 apple_sdk_clang_module = rule(
     impl = apple_sdk_clang_module_impl,
     attrs = {
-        "deps": attr.list(attr.dep(), default = []),
-        "is_framework": attr.bool(),
+        "deps": attrs.list(attrs.dep(), default = []),
+        "is_framework": attrs.bool(),
         # This is a real module name, contrary to `name`
         # which has a special suffix to distinguish Swift and Clang modules with the same name
-        "module_name": attr.string(),
-        "modulemap_relative_path": attr.string(),
-        "target": attr.string(),
+        "module_name": attrs.string(),
+        "modulemap_relative_path": attrs.string(),
+        "target": attrs.string(),
     },
 )

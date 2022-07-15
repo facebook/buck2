@@ -9,6 +9,6 @@ def _select_tester_impl(ctx):
 select_tester = rule(
     impl = _select_tester_impl,
     attrs = {
-        "values": attr.dict(attr.string(), attr.string()),
+        "values": attrs.dict(attrs.string(), attrs.string()),
     },
 )

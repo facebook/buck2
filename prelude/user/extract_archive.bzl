@@ -28,8 +28,8 @@ registration_spec = RuleRegistrationSpec(
     impl = _impl,
     attrs = {
         # .tar.gz archive with the contents of the result directory
-        "contents_archive": attr.source(),
+        "contents_archive": attrs.source(),
         # name of the result directory, if omitted, `name` attribute will be used instead
-        "directory_name": attr.option(attr.string()),
+        "directory_name": attrs.option(attrs.string()),
     },
 )

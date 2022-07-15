@@ -56,7 +56,7 @@ implemented_rules = {
 
 extra_attributes = {
     "jar_genrule": {
-        "_java_toolchain": attr.exec_dep(
+        "_java_toolchain": attrs.exec_dep(
             default = _select_java_toolchain(),
             providers = [
                 JavaToolchainInfo,
@@ -64,8 +64,8 @@ extra_attributes = {
         ),
     },
     "java_binary": {
-        "meta_inf_directory": attr.option(attr.source(allow_directory = True), default = None),
-        "_java_toolchain": attr.exec_dep(
+        "meta_inf_directory": attrs.option(attrs.source(allow_directory = True), default = None),
+        "_java_toolchain": attrs.exec_dep(
             default = _select_java_toolchain(),
             providers = [
                 JavaPlatformInfo,
@@ -74,14 +74,14 @@ extra_attributes = {
         ),
     },
     "java_library": {
-        "javac": attr.option(attr.one_of(attr.dep(), attr.source()), default = None),
-        "resources_root": attr.option(attr.string(), default = None),
-        "_dex_toolchain": attr.option(attr.exec_dep(
+        "javac": attrs.option(attrs.one_of(attrs.dep(), attrs.source()), default = None),
+        "resources_root": attrs.option(attrs.string(), default = None),
+        "_dex_toolchain": attrs.option(attrs.exec_dep(
             providers = [
                 DexToolchainInfo,
             ],
         ), default = select_dex_toolchain()),
-        "_java_toolchain": attr.exec_dep(
+        "_java_toolchain": attrs.exec_dep(
             default = _select_java_toolchain(),
             providers = [
                 JavaPlatformInfo,
@@ -90,16 +90,16 @@ extra_attributes = {
         ),
     },
     "java_test": {
-        "javac": attr.option(attr.one_of(attr.dep(), attr.source()), default = None),
-        "resources_root": attr.option(attr.string(), default = None),
-        "_java_toolchain": attr.exec_dep(
+        "javac": attrs.option(attrs.one_of(attrs.dep(), attrs.source()), default = None),
+        "resources_root": attrs.option(attrs.string(), default = None),
+        "_java_toolchain": attrs.exec_dep(
             default = _select_java_toolchain(),
             providers = [
                 JavaPlatformInfo,
                 JavaToolchainInfo,
             ],
         ),
-        "_junit_toolchain": attr.exec_dep(
+        "_junit_toolchain": attrs.exec_dep(
             default = select_junit_toolchain(),
             providers = [
                 JUnitToolchainInfo,
@@ -107,20 +107,20 @@ extra_attributes = {
         ),
     },
     "java_test_runner": {
-        "resources_root": attr.option(attr.string(), default = None),
+        "resources_root": attrs.option(attrs.string(), default = None),
     },
     "prebuilt_jar": {
-        "generate_abi": attr.bool(default = True),
+        "generate_abi": attrs.bool(default = True),
         # Prebuilt jars are quick to build, and often contain third-party code, which in turn is
         # often a source of annotations and constants. To ease migration to ABI generation from
         # source without deps, we have them present during ABI gen by default.
-        "required_for_source_only_abi": attr.bool(default = True),
-        "_dex_toolchain": attr.option(attr.exec_dep(
+        "required_for_source_only_abi": attrs.bool(default = True),
+        "_dex_toolchain": attrs.option(attrs.exec_dep(
             providers = [
                 DexToolchainInfo,
             ],
         ), default = select_dex_toolchain()),
-        "_prebuilt_jar_toolchain": attr.exec_dep(
+        "_prebuilt_jar_toolchain": attrs.exec_dep(
             default = select_prebuilt_jar_toolchain(),
             providers = [
                 PrebuiltJarToolchainInfo,

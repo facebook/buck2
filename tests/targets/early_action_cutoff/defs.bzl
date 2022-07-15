@@ -21,8 +21,8 @@ def _not_hermetic_action_impl(ctx):
 not_hermetic_action = rule(
     impl = _not_hermetic_action_impl,
     attrs = {
-        "dep": attr.dep(),
-        "sentinel": attr.source(),
+        "dep": attrs.dep(),
+        "sentinel": attrs.source(),
     },
 )
 
@@ -43,6 +43,6 @@ def _rerun_action_impl(ctx):
 rerun_action = rule(
     impl = _rerun_action_impl,
     attrs = {
-        "src": attr.source(),
+        "src": attrs.source(),
     },
 )

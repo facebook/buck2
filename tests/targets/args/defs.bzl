@@ -36,14 +36,14 @@ foo_toolchain = rule(
 foo_library = rule(
     impl = _library_impl,
     attrs = {
-        "flags": attr.list(attr.arg()),
+        "flags": attrs.list(attrs.arg()),
     },
 )
 
 foo_binary = rule(
     impl = _binary_impl,
     attrs = {
-        "flags": attr.list(attr.arg()),
-        "_toolchains": attr.list(attr.dep(), default = ["//:toolchain"]),
+        "flags": attrs.list(attrs.arg()),
+        "_toolchains": attrs.list(attrs.dep(), default = ["//:toolchain"]),
     },
 )

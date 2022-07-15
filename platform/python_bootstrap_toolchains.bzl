@@ -21,6 +21,6 @@ def _config_backed_python_bootstrap_toolchain_rule_impl(ctx):
 _config_backed_python_bootstrap_toolchain_rule = rule(
     impl = _config_backed_python_bootstrap_toolchain_rule_impl,
     attrs = {
-        "interpreter": attr.arg(),
+        "interpreter": attrs.arg(),
     },
 )

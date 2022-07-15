@@ -71,9 +71,9 @@ def _generate_script(name: str.type, main: "artifact", resources: ["artifact"], 
     return (script, resources_dir)
 
 # Attrs:
-# "deps": attr.list(attr.dep(), default = []),
-# "main": attr.source(),
-# "resources": attr.list(attr.source(), default = []),
+# "deps": attrs.list(attrs.dep(), default = []),
+# "main": attrs.source(),
+# "resources": attrs.list(attrs.source(), default = []),
 def sh_binary_impl(ctx):
     # TODO: implement deps (not sure what those even do, though)
     if len(ctx.attrs.deps) > 0:

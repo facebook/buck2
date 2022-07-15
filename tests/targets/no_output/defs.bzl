@@ -10,6 +10,6 @@ def _out_library_impl(ctx):
 out_library = rule(
     impl = _out_library_impl,
     attrs = {
-        "outs": attr.list(attr.dep()),
+        "outs": attrs.list(attrs.dep()),
     },
 )

@@ -31,38 +31,38 @@ extra_attributes = {
         "_is_release": attr.bool(
             default = _is_release(),
         ),
-        "_js_toolchain": attr.exec_dep(
+        "_js_toolchain": attrs.exec_dep(
             default = _select_js_toolchain(),
             providers = [
                 JsToolchainInfo,
             ],
         ),
-        "_platform": attr.string(
+        "_platform": attrs.string(
             default = _select_platform(),
         ),
     },
     "js_bundle_genrule": {
-        "type": attr.string(
+        "type": attrs.string(
             default = "js_bundle_genrule",
         ),
-        "_is_release": attr.bool(
+        "_is_release": attrs.bool(
             default = _is_release(),
         ),
-        "_platform": attr.string(
+        "_platform": attrs.string(
             default = _select_platform(),
         ),
     },
     "js_library": {
-        "_is_release": attr.bool(
+        "_is_release": attrs.bool(
             default = _is_release(),
         ),
-        "_js_toolchain": attr.exec_dep(
+        "_js_toolchain": attrs.exec_dep(
             default = _select_js_toolchain(),
             providers = [
                 JsToolchainInfo,
             ],
         ),
-        "_platform": attr.string(
+        "_platform": attrs.string(
             default = _select_platform(),
         ),
     },

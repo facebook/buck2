@@ -14,9 +14,9 @@ def _impl(ctx):
 dist_lto_tools = rule(
     impl = _impl,
     attrs = {
-        "copy": attr.dep(),
-        "opt": attr.dep(),
-        "planner": attr.dep(),
-        "prepare": attr.dep(),
+        "copy": attrs.dep(),
+        "opt": attrs.dep(),
+        "planner": attrs.dep(),
+        "prepare": attrs.dep(),
     },
 )

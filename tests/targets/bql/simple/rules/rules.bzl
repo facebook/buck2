@@ -36,32 +36,32 @@ def _binary_impl(ctx):
 _foo_library = rule(
     impl = _impl,
     attrs = {
-        "cmd": attr.list(attr.arg(), default = []),
-        "deps": attr.list(attr.dep(), default = []),
-        "description": attr.string(default = ""),
-        "mapped_srcs": attr.dict(attr.string(), attr.source(), default = {}),
-        "srcs": attr.list(attr.source(), default = []),
-        "tuple_srcs": attr.option(attr.tuple(attr.source(), attr.source(), attr.source())),
+        "cmd": attrs.list(attrs.arg(), default = []),
+        "deps": attrs.list(attrs.dep(), default = []),
+        "description": attrs.string(default = ""),
+        "mapped_srcs": attrs.dict(attrs.string(), attrs.source(), default = {}),
+        "srcs": attrs.list(attrs.source(), default = []),
+        "tuple_srcs": attrs.option(attrs.tuple(attrs.source(), attrs.source(), attrs.source())),
     },
 )
 
 _foo_binary = rule(
     impl = _binary_impl,
     attrs = {
-        "cmd": attr.list(attr.arg(), default = []),
-        "deps": attr.list(attr.dep(), default = []),
-        "description": attr.string(default = ""),
-        "srcs": attr.list(attr.source(), default = []),
-        "_foo_toolchain": attr.exec_dep(default = "root//:foo_toolchain"),
+        "cmd": attrs.list(attrs.arg(), default = []),
+        "deps": attrs.list(attrs.dep(), default = []),
+        "description": attrs.string(default = ""),
+        "srcs": attrs.list(attrs.source(), default = []),
+        "_foo_toolchain": attrs.exec_dep(default = "root//:foo_toolchain"),
     },
 )
 
 _foo_genrule = rule(
     impl = _binary_impl,
     attrs = {
-        "cmd": attr.arg(),
-        "description": attr.string(default = ""),
-        "out": attr.string(default = ""),
+        "cmd": attrs.arg(),
+        "description": attrs.string(default = ""),
+        "out": attrs.string(default = ""),
     },
 )
 

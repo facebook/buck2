@@ -36,12 +36,12 @@ def _config_backed_kotlin_toolchain_rule_impl(ctx):
 
 _config_backed_kotlin_toolchain_rule = rule(
     attrs = {
-        "annotation_processing_jar": attr.dep(),
-        "compile_kotlin": attr.dep(providers = [RunInfo]),
-        "kapt_base64_encoder": attr.dep(providers = [RunInfo]),
-        "kotlin_stdlib": attr.dep(),
-        "kotlinc": attr.dep(providers = [RunInfo]),
-        "kotlinc_classpath": attr.list(attr.dep(), default = []),
+        "annotation_processing_jar": attrs.dep(),
+        "compile_kotlin": attrs.dep(providers = [RunInfo]),
+        "kapt_base64_encoder": attrs.dep(providers = [RunInfo]),
+        "kotlin_stdlib": attrs.dep(),
+        "kotlinc": attrs.dep(providers = [RunInfo]),
+        "kotlinc_classpath": attrs.list(attrs.dep(), default = []),
     },
     impl = _config_backed_kotlin_toolchain_rule_impl,
 )

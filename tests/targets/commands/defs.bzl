@@ -11,7 +11,7 @@ def _impl(_ctx):
 foo_library = rule(
     impl = _impl,
     attrs = {
-        "deps": attr.list(attr.dep(), default = []),
+        "deps": attrs.list(attrs.dep(), default = []),
     },
 )
 

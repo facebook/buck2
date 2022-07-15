@@ -32,8 +32,8 @@ def _run_command_impl(ctx):
 run_command = rule(
     impl = _run_command_impl,
     attrs = {
-        "other_src": attr.option(attr.source()),
-        "out": attr.string(default = "out.txt"),
-        "script": attr.source(),
+        "other_src": attrs.option(attrs.source()),
+        "out": attrs.string(default = "out.txt"),
+        "script": attrs.source(),
     },
 )

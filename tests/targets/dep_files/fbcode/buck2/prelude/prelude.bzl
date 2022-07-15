@@ -40,9 +40,9 @@ def _c_binary_impl(ctx):
 
 c_binary = rule(
     attrs = {
-        "headers": attr.list(attr.source()),
-        "main": attr.source(),
-        "_cc": attr.dep(default = "root//tools:gcc"),
+        "headers": attrs.list(attrs.source()),
+        "main": attrs.source(),
+        "_cc": attrs.dep(default = "root//tools:gcc"),
     },
     impl = _c_binary_impl,
 )

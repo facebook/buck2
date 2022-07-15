@@ -19,14 +19,14 @@ def symlink_files_impl(ctx):
 write_file = rule(
     impl = write_file_impl,
     attrs = {
-        "contents": attr.string(),
-        "out": attr.string(),
+        "contents": attrs.string(),
+        "out": attrs.string(),
     },
 )
 
 symlink_files = rule(
     impl = symlink_files_impl,
     attrs = {
-        "srcs": attr.list(attr.source()),
+        "srcs": attrs.list(attrs.source()),
     },
 )

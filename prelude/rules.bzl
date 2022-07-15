@@ -33,7 +33,7 @@ def _mk_rule(name: str.type, attributes: {str.type: "attribute"}) -> "rule":
     if not fat_platform_compatible:
         # copy so we don't try change the passed in object
         attributes = dict(attributes)
-        attributes["_cxx_toolchain_target_configuration"] = attr.dep(default = "fbcode//buck2/platform/execution:fat_platform_incompatible")
+        attributes["_cxx_toolchain_target_configuration"] = attrs.dep(default = "fbcode//buck2/platform/execution:fat_platform_incompatible")
 
     return rule(
         impl = getattr(implemented_rules, name, _unimplemented_impl(name)),

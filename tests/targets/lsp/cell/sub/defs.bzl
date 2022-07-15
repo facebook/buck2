@@ -6,6 +6,6 @@ def _dummy_binary_impl(ctx):
 <rule>dummy_binary</rule> = rule(
     impl=dummy_binary_impl,
     attrs={
-        "deps": attr.list(attr.dep(), default=[])
+        "deps": attrs.list(attrs.dep(), default=[])
     }
 )

@@ -30,8 +30,8 @@ def _assert_packaging_deps_impl(ctx):
 assert_packaging_deps = rule(
     impl = _assert_packaging_deps_impl,
     attrs = {
-        "actual_target": attr.dep(),
-        "expected_deps": attr.list(attr.dep(), default = []),
+        "actual_target": attrs.dep(),
+        "expected_deps": attrs.list(attrs.dep(), default = []),
     },
 )
 
@@ -55,8 +55,8 @@ def _assert_compiling_deps_impl(ctx):
 assert_compiling_deps = rule(
     impl = _assert_compiling_deps_impl,
     attrs = {
-        "actual_target": attr.dep(),
-        "expected_deps": attr.list(attr.dep(), default = []),
-        "expected_suffix": attr.string(default = ""),
+        "actual_target": attrs.dep(),
+        "expected_deps": attrs.list(attrs.dep(), default = []),
+        "expected_suffix": attrs.string(default = ""),
     },
 )

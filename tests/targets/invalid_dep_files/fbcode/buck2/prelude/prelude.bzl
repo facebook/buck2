@@ -29,7 +29,7 @@ def _test_impl(ctx):
 
 test = rule(
     attrs = {
-        "seed": attr.string(default = ""),
+        "seed": attrs.string(default = ""),
     },
     impl = _test_impl,
 )

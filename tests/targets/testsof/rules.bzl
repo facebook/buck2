@@ -31,7 +31,7 @@ def _configuration_impl(ctx):
 configuration = rule(
     impl = _configuration_impl,
     attrs = {
-        "config_setting": attr.configuration_label(),
+        "config_setting": attrs.configuration_label(),
     },
 )
 
@@ -47,6 +47,6 @@ def _platform_impl(ctx):
 platform = rule(
     impl = _platform_impl,
     attrs = {
-        "configuration": attr.configuration_label(),
+        "configuration": attrs.configuration_label(),
     },
 )

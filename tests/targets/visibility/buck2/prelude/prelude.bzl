@@ -4,6 +4,6 @@ def _impl(_ctx):
 foo_target = rule(
     impl = _impl,
     attrs = {
-        "actual": attr.option(attr.dep()),
+        "actual": attrs.option(attrs.dep()),
     },
 )

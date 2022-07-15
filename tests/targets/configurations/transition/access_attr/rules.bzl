@@ -8,6 +8,6 @@ my_java_library = rule(
     impl = _my_java_library,
     cfg = tr,
     attrs = {
-        "java_version": attr.int(),
+        "java_version": attrs.int(),
     },
 )

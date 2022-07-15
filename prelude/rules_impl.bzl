@@ -165,7 +165,7 @@ def _cxx_python_extension_attrs():
     # but it's the pragmatic way of getting it working for now.
     library = attributes["cxx_library"]
     me = attributes["cxx_python_extension"]
-    res = {k: attr.default_only(library[k]) for k in library if k not in me}
+    res = {k: attrs.default_only(library[k]) for k in library if k not in me}
     res.update({
         # Copied from cxx_library.
         "precompiled_header": attr.option(attr.dep(providers = [CPrecompiledHeaderInfo]), default = None),
@@ -230,36 +230,36 @@ def _python_bootstrap_toolchain():
 
 extra_attributes = struct(
     export_file = {
-        "src": attr.source(allow_directory = True),
+        "src": attrs.source(allow_directory = True),
     },
     genrule = {
-        "srcs": attr.named_set(attr.source(allow_directory = True), sorted = False, default = []),
+        "srcs": attrs.named_set(attrs.source(allow_directory = True), sorted = False, default = []),
     },
     # The 'actual' attribute of configured_alias is a configured_label, which is
     # currently unimplemented. Map it to dep so we can simply forward the providers.
     configured_alias = {
         # We use a separate field instead of re-purposing `actual`, as we want
         # to keep output format compatibility with v1.
-        "configured_actual": attr.configured_dep(),
+        "configured_actual": attrs.configured_dep(),
     },
     sh_test = {
-        "list_args": attr.option(attr.list(attr.string()), default = None),
-        "list_env": attr.option(attr.dict(key = attr.string(), value = attr.string(), sorted = False), default = None),
-        "run_args": attr.list(attr.string(), default = []),
-        "run_env": attr.dict(key = attr.string(), value = attr.string(), sorted = False, default = {}),
-        "test": attr.option(attr.one_of(attr.dep(), attr.source()), default = None),
+        "list_args": attrs.option(attrs.list(attrs.string()), default = None),
+        "list_env": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), default = None),
+        "run_args": attrs.list(attrs.string(), default = []),
+        "run_env": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
+        "test": attrs.option(attrs.one_of(attrs.dep(), attrs.source()), default = None),
     },
     test_suite = {
         # On buck1 query, tests attribute on test_suite is treated as deps, while on buck2 it is not.
         # While buck2's behavior makes more sense, we want to preserve buck1 behavior on test_suite for now to make TD behavior match between buck1 and buck2.
         # This diff makes the behaviors match by adding a test_deps attribute to test_suite on buck2 that is used as a deps attribute. In the macro layer, we set test_deps = tests if we are using buck2.
         # For more context: https://fb.prod.workplace.com/groups/603286664133355/posts/682567096205311/?comment_id=682623719532982&reply_comment_id=682650609530293
-        "test_deps": attr.list(attr.dep(), default = []),
+        "test_deps": attrs.list(attrs.dep(), default = []),
     },
     worker_tool = {
         # overridden to handle buck1's use of @Value.Default
-        "args": attr.one_of(attr.arg(), attr.list(attr.arg()), default = []),
-        "_worker_tool_runner": attr.dep(default = "fbsource//xplat/buck2/tools/worker:worker_tool_runner"),
+        "args": attrs.one_of(attrs.arg(), attrs.list(attrs.arg()), default = []),
+        "_worker_tool_runner": attrs.dep(default = "fbsource//xplat/buck2/tools/worker:worker_tool_runner"),
     },
 
     #c++
@@ -279,28 +279,28 @@ extra_attributes = struct(
     cxx_binary = _cxx_binary_and_test_attrs(),
     cxx_test = _cxx_binary_and_test_attrs(),
     cxx_toolchain = {
-        "archiver": attr.dep(providers = [RunInfo]),
-        "asm_compiler": attr.option(attr.dep(providers = [RunInfo]), default = None),
-        "asm_preprocessor": attr.option(attr.dep(providers = [RunInfo]), default = None),
-        "assembler": attr.dep(providers = [RunInfo]),
-        "assembler_preprocessor": attr.option(attr.dep(providers = [RunInfo]), default = None),
-        "bolt_enabled": attr.bool(default = False),
-        "c_compiler": attr.dep(providers = [RunInfo]),
-        "cxx_compiler": attr.dep(providers = [RunInfo]),
-        "linker": attr.dep(providers = [RunInfo]),
-        "nm": attr.dep(providers = [RunInfo]),
-        "objcopy_for_shared_library_interface": attr.dep(providers = [RunInfo]),
+        "archiver": attrs.dep(providers = [RunInfo]),
+        "asm_compiler": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
+        "asm_preprocessor": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
+        "assembler": attrs.dep(providers = [RunInfo]),
+        "assembler_preprocessor": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
+        "bolt_enabled": attrs.bool(default = False),
+        "c_compiler": attrs.dep(providers = [RunInfo]),
+        "cxx_compiler": attrs.dep(providers = [RunInfo]),
+        "linker": attrs.dep(providers = [RunInfo]),
+        "nm": attrs.dep(providers = [RunInfo]),
+        "objcopy_for_shared_library_interface": attrs.dep(providers = [RunInfo]),
         # Used for resolving any 'platform_*' attributes.
-        "platform_name": attr.option(attr.string(), default = None),
-        "ranlib": attr.option(attr.dep(providers = [RunInfo]), default = None),
-        "requires_objects": attr.bool(default = False),
-        "split_dwarf_enabled": attr.bool(default = False),
-        "strip": attr.dep(providers = [RunInfo]),
-        "supports_distributed_thinlto": attr.bool(default = False),
-        "use_archiver_flags": attr.bool(default = True),
-        "_dist_lto_tools": attr.dep(providers = [DistLtoToolsInfo], default = "fbcode//buck2/prelude/cxx/dist_lto/tools:dist_lto_tools"),
-        "_mk_comp_db": attr.dep(providers = [RunInfo], default = "fbcode//buck2/prelude/cxx/tools:make_comp_db"),
-        "_mk_hmap": attr.dep(providers = [RunInfo], default = "fbsource//xplat/buck2/tools/cxx:hmap_wrapper"),
+        "platform_name": attrs.option(attrs.string(), default = None),
+        "ranlib": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
+        "requires_objects": attrs.bool(default = False),
+        "split_dwarf_enabled": attrs.bool(default = False),
+        "strip": attrs.dep(providers = [RunInfo]),
+        "supports_distributed_thinlto": attrs.bool(default = False),
+        "use_archiver_flags": attrs.bool(default = True),
+        "_dist_lto_tools": attrs.dep(providers = [DistLtoToolsInfo], default = "fbcode//buck2/prelude/cxx/dist_lto/tools:dist_lto_tools"),
+        "_mk_comp_db": attrs.dep(providers = [RunInfo], default = "fbcode//buck2/prelude/cxx/tools:make_comp_db"),
+        "_mk_hmap": attrs.dep(providers = [RunInfo], default = "fbsource//xplat/buck2/tools/cxx:hmap_wrapper"),
     },
     cxx_python_extension = _cxx_python_extension_attrs(),
     prebuilt_cxx_library = {
@@ -363,16 +363,16 @@ extra_attributes = struct(
 
         # These fields in 'attributes.bzl' are wrong.
         #
-        # There they are defined in terms of `attr.string()`. This
+        # There they are defined in terms of `attrs.string()`. This
         # block overrides/corrects them here so as to be in terms of
-        # `attr.source()`.
-        "bytecode_c_libs": attr.list(attr.source(), default = []),
-        "bytecode_lib": attr.option(attr.source()),
-        "c_libs": attr.list(attr.source(), default = []),
-        "include_dir": attr.option(attr.source(allow_directory = True)),
-        "lib_dir": attr.option(attr.source(allow_directory = True)),
-        "native_c_libs": attr.list(attr.source(), default = []),
-        "native_lib": attr.option(attr.source()),
+        # `attrs.source()`.
+        "bytecode_c_libs": attrs.list(attrs.source(), default = []),
+        "bytecode_lib": attrs.option(attrs.source()),
+        "c_libs": attrs.list(attrs.source(), default = []),
+        "include_dir": attrs.option(attrs.source(allow_directory = True)),
+        "lib_dir": attrs.option(attrs.source(allow_directory = True)),
+        "native_c_libs": attrs.list(attrs.source(), default = []),
+        "native_lib": attrs.option(attrs.source()),
     },
 
     #python
@@ -407,7 +407,7 @@ extra_attributes = struct(
         "_python_bootstrap_toolchain": _python_bootstrap_toolchain(),
     },
     python_bootstrap_library = {
-        "srcs": attr.list(attr.source()),
+        "srcs": attrs.list(attrs.source()),
     },
     #rust
     rust_binary = {
@@ -447,44 +447,44 @@ extra_attributes = struct(
 
     # scala
     scala_library = {
-        "resources_root": attr.option(attr.string(), default = None),
+        "resources_root": attrs.option(attrs.string(), default = None),
     },
     scala_test = {
-        "resources_root": attr.option(attr.string(), default = None),
+        "resources_root": attrs.option(attrs.string(), default = None),
     },
 
     # groovy
     groovy_library = {
-        "resources_root": attr.option(attr.string(), default = None),
+        "resources_root": attrs.option(attrs.string(), default = None),
     },
     groovy_test = {
-        "resources_root": attr.option(attr.string(), default = None),
+        "resources_root": attrs.option(attrs.string(), default = None),
     },
 
     # http things get only 1 hash in v1 but in v2 we allow multiple. Also,
     # don't default hashes to empty strings.
     http_archive = {
-        "sha1": attr.option(attr.string()),
-        "sha256": attr.option(attr.string()),
-        "_create_exclusion_list": attr.exec_dep(default = "fbcode//buck2/prelude/http_archive/tools:create_exclusion_list"),
+        "sha1": attrs.option(attrs.string()),
+        "sha256": attrs.option(attrs.string()),
+        "_create_exclusion_list": attrs.exec_dep(default = "fbcode//buck2/prelude/http_archive/tools:create_exclusion_list"),
     },
     http_file = {
-        "sha1": attr.option(attr.string()),
-        "sha256": attr.option(attr.string()),
+        "sha1": attrs.option(attrs.string()),
+        "sha256": attrs.option(attrs.string()),
     },
     remote_file = {
-        "sha1": attr.option(attr.string()),
-        "sha256": attr.option(attr.string()),
-        "_unzip_tool": attr.exec_dep(providers = [RunInfo], default = "fbsource//xplat/buck2/tools/zip:unzip"),
+        "sha1": attrs.option(attrs.string()),
+        "sha256": attrs.option(attrs.string()),
+        "_unzip_tool": attrs.exec_dep(providers = [RunInfo], default = "fbsource//xplat/buck2/tools/zip:unzip"),
     },
     prebuilt_native_library = {
-        "native_libs": attr.source(allow_directory = True),
+        "native_libs": attrs.source(allow_directory = True),
     },
     sh_binary = {
-        "resources": attr.list(attr.source(allow_directory = True), default = []),
+        "resources": attrs.list(attrs.source(allow_directory = True), default = []),
     },
     filegroup = {
-        "srcs": attr.named_set(attr.source(allow_directory = True), sorted = False, default = []),
+        "srcs": attrs.named_set(attrs.source(allow_directory = True), sorted = False, default = []),
     },
 
     #merged **kwargs

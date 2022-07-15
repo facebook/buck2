@@ -41,10 +41,10 @@ def _write_file_impl(ctx):
 write_file = rule(
     impl = _write_file_impl,
     attrs = {
-        "content": attr.string(default = "some content"),
-        "dep": attr.option(attr.dep(providers = [FooInfo])),
-        "exe": attr.bool(default = False),
-        "out": attr.string(default = "out.txt"),
+        "content": attrs.string(default = "some content"),
+        "dep": attrs.option(attrs.dep(providers = [FooInfo])),
+        "exe": attrs.bool(default = False),
+        "out": attrs.string(default = "out.txt"),
     },
 )
 

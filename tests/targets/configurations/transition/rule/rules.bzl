@@ -9,7 +9,7 @@ def _my_little_iphone_binary_impl(ctx):
 my_little_iphone_binary = rule(
     impl = _my_little_iphone_binary_impl,
     attrs = {
-        "resources": attr.list(attr.dep()),
+        "resources": attrs.list(attrs.dep()),
     },
 )
 
@@ -27,7 +27,7 @@ my_watchos_resource = rule(
     # Resource with transition to watchOS.
     cfg = iphone_to_watch_transition,
     attrs = {
-        "resource_value": attr.string(),
+        "resource_value": attrs.string(),
     },
 )
 
@@ -42,6 +42,6 @@ my_default_resource = rule(
     impl = _my_default_resource_impl,
     # No transition here.
     attrs = {
-        "resource_value": attr.string(),
+        "resource_value": attrs.string(),
     },
 )

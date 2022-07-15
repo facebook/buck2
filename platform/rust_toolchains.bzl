@@ -13,7 +13,7 @@ DEFAULT_RUSTC_ACTION = "fbcode//buck2/prelude/rust/tools:rustc_action"
 DEFAULT_FAILURE_FILTER_ACTION = "fbcode//buck2/prelude/rust/tools:failure_filter_action"
 
 # Lints are comma-separated in config
-_lint_attr = attr_info(reader = read_list_with_comma_as_delimiter, attr_type = attr.list(attr.arg()))
+_lint_attr = attr_info(reader = read_list_with_comma_as_delimiter, attr_type = attrs.list(attrs.arg()))
 
 # TODO(scottcao): Add all attributes from rust and rust#... buckconfig.
 _buckconfig_rust_toolchain_attrs = {
@@ -88,24 +88,24 @@ def _config_backed_rust_toolchain_rule_impl(ctx):
 _config_backed_rust_toolchain_rule = rule(
     impl = _config_backed_rust_toolchain_rule_impl,
     attrs = {
-        "allow_lints": attr.list(attr.arg()),
-        "clippy_driver": attr.dep(default = "fbsource//xplat/rust/toolchain/current:clippy-driver"),
-        "compiler": attr.dep(default = "fbsource//xplat/rust/toolchain/current:rustc"),
-        "default_edition": attr.string(),
-        "deny_lints": attr.list(attr.arg()),
-        "extern_html_root_url_prefix": attr.string(default = ""),
-        "failure_filter": attr.bool(),
-        "failure_filter_action": attr.dep(providers = [RunInfo], default = DEFAULT_FAILURE_FILTER_ACTION),
-        "pipelined": attr.bool(),
-        "report_unused_deps": attr.bool(),
-        "rustc_action": attr.dep(providers = [RunInfo], default = DEFAULT_RUSTC_ACTION),
-        "rustc_binary_flags": attr.list(attr.arg()),
-        "rustc_check_flags": attr.list(attr.arg()),
-        "rustc_flags": attr.list(attr.arg()),
-        "rustc_test_flags": attr.list(attr.arg()),
-        "rustdoc": attr.dep(default = "fbsource//xplat/rust/toolchain/current:rustdoc"),
-        "rustdoc_flags": attr.list(attr.arg()),
-        "save_analysis": attr.bool(),
-        "warn_lints": attr.list(attr.arg()),
+        "allow_lints": attrs.list(attrs.arg()),
+        "clippy_driver": attrs.dep(default = "fbsource//xplat/rust/toolchain/current:clippy-driver"),
+        "compiler": attrs.dep(default = "fbsource//xplat/rust/toolchain/current:rustc"),
+        "default_edition": attrs.string(),
+        "deny_lints": attrs.list(attrs.arg()),
+        "extern_html_root_url_prefix": attrs.string(default = ""),
+        "failure_filter": attrs.bool(),
+        "failure_filter_action": attrs.dep(providers = [RunInfo], default = DEFAULT_FAILURE_FILTER_ACTION),
+        "pipelined": attrs.bool(),
+        "report_unused_deps": attrs.bool(),
+        "rustc_action": attrs.dep(providers = [RunInfo], default = DEFAULT_RUSTC_ACTION),
+        "rustc_binary_flags": attrs.list(attrs.arg()),
+        "rustc_check_flags": attrs.list(attrs.arg()),
+        "rustc_flags": attrs.list(attrs.arg()),
+        "rustc_test_flags": attrs.list(attrs.arg()),
+        "rustdoc": attrs.dep(default = "fbsource//xplat/rust/toolchain/current:rustdoc"),
+        "rustdoc_flags": attrs.list(attrs.arg()),
+        "save_analysis": attrs.bool(),
+        "warn_lints": attrs.list(attrs.arg()),
     },
 )

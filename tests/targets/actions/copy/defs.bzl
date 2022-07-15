@@ -23,8 +23,8 @@ def _copy_file_impl(ctx):
 copy_file = rule(
     impl = _copy_file_impl,
     attrs = {
-        "out": attr.string(),
-        "src": attr.source(),
-        "test": attr.option(attr.string()),
+        "out": attrs.string(),
+        "src": attrs.source(),
+        "test": attrs.option(attrs.string()),
     },
 )

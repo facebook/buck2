@@ -40,15 +40,15 @@ def _execution_platform_impl(ctx: "context"):
 
 execution_platform_rule = rule(
     attrs = {
-        "allow_hybrid_fallbacks_on_failure": attr.bool(default = False),
-        "local_enabled": attr.bool(),
-        "platform": attr.dep(providers = [PlatformInfo]),
-        "remote_enabled": attr.bool(),
-        "remote_execution_action_key_providers": attr.list(attr.dep()),
-        "remote_execution_max_input_files_mebibytes": attr.int(),
-        "remote_execution_properties": attr.dict(key = attr.string(), value = attr.string(), default = {}),
-        "use_limited_hybrid": attr.bool(default = read_bool("build", "use_limited_hybrid", True)),
-        "use_windows_path_separators": attr.bool(default = False),
+        "allow_hybrid_fallbacks_on_failure": attrs.bool(default = False),
+        "local_enabled": attrs.bool(),
+        "platform": attrs.dep(providers = [PlatformInfo]),
+        "remote_enabled": attrs.bool(),
+        "remote_execution_action_key_providers": attrs.list(attrs.dep()),
+        "remote_execution_max_input_files_mebibytes": attrs.int(),
+        "remote_execution_properties": attrs.dict(key = attrs.string(), value = attrs.string(), default = {}),
+        "use_limited_hybrid": attrs.bool(default = read_bool("build", "use_limited_hybrid", True)),
+        "use_windows_path_separators": attrs.bool(default = False),
     },
     impl = _execution_platform_impl,
 )
@@ -152,7 +152,7 @@ def _execution_platforms_impl(ctx: "context") -> ["provider"]:
 
 execution_platforms = rule(
     attrs = {
-        "platforms": attr.list(attr.dep(providers = [ExecutionPlatformInfo])),
+        "platforms": attrs.list(attrs.dep(providers = [ExecutionPlatformInfo])),
     },
     impl = _execution_platforms_impl,
 )
@@ -173,7 +173,7 @@ def _fat_platforms_transition_helper(ctx: "context") -> ["provider"]:
 fat_platform_transition_helper = rule(
     impl = _fat_platforms_transition_helper,
     attrs = {
-        "linux": attr.list(attr.tuple(attr.dep(providers = [ConstraintValueInfo]), attr.dep(providers = [PlatformInfo]))),
-        "mac": attr.list(attr.tuple(attr.dep(providers = [ConstraintValueInfo]), attr.dep(providers = [PlatformInfo]))),
+        "linux": attrs.list(attrs.tuple(attrs.dep(providers = [ConstraintValueInfo]), attrs.dep(providers = [PlatformInfo]))),
+        "mac": attrs.list(attrs.tuple(attrs.dep(providers = [ConstraintValueInfo]), attrs.dep(providers = [PlatformInfo]))),
     },
 )

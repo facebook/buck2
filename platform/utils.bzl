@@ -32,21 +32,21 @@ def read_optional_int(section, key):
 
 attr_info = record(reader = "function", attr_type = "attribute")
 
-bool_attr = attr_info(reader = read_bool, attr_type = attr.bool())
-optional_bool_attr = attr_info(reader = read_optional_bool, attr_type = attr.option(attr.bool()))
+bool_attr = attr_info(reader = read_bool, attr_type = attrs.bool())
+optional_bool_attr = attr_info(reader = read_optional_bool, attr_type = attrs.option(attrs.bool()))
 
-string_attr = attr_info(reader = read_string, attr_type = attr.string())
-optional_string_attr = attr_info(reader = read_string, attr_type = attr.option(attr.string()))
-string_list_attr = attr_info(reader = read_list_with_comma_as_delimiter, attr_type = attr.list(attr.string()))
+string_attr = attr_info(reader = read_string, attr_type = attrs.string())
+optional_string_attr = attr_info(reader = read_string, attr_type = attrs.option(attrs.string()))
+string_list_attr = attr_info(reader = read_list_with_comma_as_delimiter, attr_type = attrs.list(attrs.string()))
 
-binary_attr = attr_info(reader = read_string, attr_type = attr.dep(providers = [RunInfo]))
-optional_binary_attr = attr_info(reader = read_string, attr_type = attr.option(attr.dep(providers = [RunInfo])))
+binary_attr = attr_info(reader = read_string, attr_type = attrs.dep(providers = [RunInfo]))
+optional_binary_attr = attr_info(reader = read_string, attr_type = attrs.option(attrs.dep(providers = [RunInfo])))
 
-optional_binary_or_source_attr = attr_info(reader = read_string, attr_type = attr.option(attr.one_of(attr.dep(), attr.source())))
-source_list_attr = attr_info(reader = read_list, attr_type = attr.list(attr.source()))
+optional_binary_or_source_attr = attr_info(reader = read_string, attr_type = attrs.option(attrs.one_of(attrs.dep(), attrs.source())))
+source_list_attr = attr_info(reader = read_list, attr_type = attrs.list(attrs.source()))
 
-flags_attr = attr_info(reader = read_list, attr_type = attr.list(attr.arg()))
-optional_flags_attr = attr_info(reader = read_optional_list, attr_type = attr.option(attr.list(attr.arg())))
+flags_attr = attr_info(reader = read_list, attr_type = attrs.list(attrs.arg()))
+optional_flags_attr = attr_info(reader = read_optional_list, attr_type = attrs.option(attrs.list(attrs.arg())))
 
-int_attr = attr_info(reader = read_int, attr_type = attr.int())
-optional_int_attr = attr_info(reader = read_optional_int, attr_type = attr.option(attr.int()))
+int_attr = attr_info(reader = read_int, attr_type = attrs.int())
+optional_int_attr = attr_info(reader = read_optional_int, attr_type = attrs.option(attrs.int()))

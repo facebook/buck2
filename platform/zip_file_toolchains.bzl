@@ -18,7 +18,7 @@ def _config_backed_zip_file_toolchain_rule_impl(ctx):
 
 _config_backed_zip_file_toolchain_rule = rule(
     attrs = {
-        "create_zip": attr.dep(providers = [RunInfo]),
+        "create_zip": attrs.dep(providers = [RunInfo]),
     },
     impl = _config_backed_zip_file_toolchain_rule_impl,
 )

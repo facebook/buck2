@@ -40,9 +40,9 @@ def _platform(ctx):
 platform = rule(
     impl = _platform,
     attrs = {
-        "allow_hybrid_fallbacks_on_failure": attr.bool(default = False),
-        "setting": attr.configuration_label(),
-        "use_limited_hybrid": attr.bool(default = True),
+        "allow_hybrid_fallbacks_on_failure": attrs.bool(default = False),
+        "setting": attrs.configuration_label(),
+        "use_limited_hybrid": attrs.bool(default = True),
     },
 )
 
@@ -57,7 +57,7 @@ def _platforms(ctx):
 platforms = rule(
     impl = _platforms,
     attrs = {
-        "platforms": attr.list(attr.dep(providers = [ExecutionPlatformInfo])),
+        "platforms": attrs.list(attrs.dep(providers = [ExecutionPlatformInfo])),
     },
 )
 

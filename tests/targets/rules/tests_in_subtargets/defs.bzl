@@ -13,6 +13,6 @@ def _test_in_subtarget_impl(ctx):
 test_in_subtarget = rule(
     impl = _test_in_subtarget_impl,
     attrs = {
-        "test": attr.arg(),
+        "test": attrs.arg(),
     },
 )

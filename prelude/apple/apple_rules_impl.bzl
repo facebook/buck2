@@ -36,7 +36,7 @@ implemented_rules = {
 
 extra_attributes = {
     "apple_asset_catalog": {
-        "dirs": attr.list(attr.source(allow_directory = True), default = []),
+        "dirs": attrs.list(attrs.source(allow_directory = True), default = []),
     },
     "apple_binary": {
         "enable_distributed_thinlto": attr.bool(default = False),
@@ -67,26 +67,26 @@ extra_attributes = {
         "_apple_tools": attr.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
     },
     "apple_resource": {
-        "codesign_on_copy": attr.bool(default = False),
-        "content_dirs": attr.list(attr.source(allow_directory = True), default = []),
-        "dirs": attr.list(attr.source(allow_directory = True), default = []),
+        "codesign_on_copy": attrs.bool(default = False),
+        "content_dirs": attrs.list(attrs.source(allow_directory = True), default = []),
+        "dirs": attrs.list(attrs.source(allow_directory = True), default = []),
     },
     # To build an `apple_test`, one needs to first build a shared `apple_library` then
     # wrap this test library into an `apple_bundle`. Because of this, `apple_test` has attributes
     # from both `apple_library` and `apple_bundle`.
     "apple_test": {
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
-        "binary": attr.option(attr.dep(), default = None),
+        "binary": attrs.option(attrs.dep(), default = None),
         # The resulting test bundle should have .xctest extension.
-        "extension": attr.string(default = "xctest"),
-        "extra_xcode_sources": attr.list(attr.source(allow_directory = True), default = []),
+        "extension": attrs.string(default = "xctest"),
+        "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         # Used to create the shared test library. Any library deps whose `preferred_linkage` isn't "shared" will
         # be treated as "static" deps and linked into the shared test library.
-        "link_style": attr.enum(LinkableDepType, default = "static"),
+        "link_style": attrs.enum(LinkableDepType, default = "static"),
         # The test source code and lib dependencies should be built into a shared library.
-        "preferred_linkage": attr.enum(Linkage, default = "shared"),
+        "preferred_linkage": attrs.enum(Linkage, default = "shared"),
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
-        "resource_group": attr.option(attr.string(), default = None),
+        "resource_group": attrs.option(attrs.string(), default = None),
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
         "resource_group_map": attr.option(attr.string(), default = None),
         "stripped": attr.bool(default = False),
@@ -96,7 +96,7 @@ extra_attributes = {
         "_incremental_bundling_enabled": attr.bool(),
     },
     "apple_toolchain": {
-        # The Buck v1 attribute specs defines those as `attr.source()` but
+        # The Buck v1 attribute specs defines those as `attrs.source()` but
         # we want to properly handle any runnable tools that might have
         # addition runtime requirements.
         "actool": attr.dep(providers = [RunInfo]),
@@ -119,13 +119,13 @@ extra_attributes = {
         "xctest": attr.dep(providers = [RunInfo]),
         # TODO(T111858757): Mirror of `platform_path` but treated as a string. It allows us to
         #                   pass abs paths during development and using the currently selected Xcode.
-        "_internal_platform_path": attr.option(attr.string()),
+        "_internal_platform_path": attrs.option(attrs.string()),
         # TODO(T111858757): Mirror of `sdk_path` but treated as a string. It allows us to
         #                   pass abs paths during development and using the currently selected Xcode.
-        "_internal_sdk_path": attr.option(attr.string()),
+        "_internal_sdk_path": attrs.option(attrs.string()),
     },
     "core_data_model": {
-        "path": attr.source(allow_directory = True),
+        "path": attrs.source(allow_directory = True),
     },
     "prebuilt_apple_framework": {
         "framework": attr.option(attr.source(allow_directory = True), default = None),
@@ -133,24 +133,24 @@ extra_attributes = {
         "_apple_toolchain": _get_apple_tolchain_attr(),
     },
     "scene_kit_assets": {
-        "path": attr.source(allow_directory = True),
+        "path": attrs.source(allow_directory = True),
     },
     "swift_library": {
-        "preferred_linkage": attr.enum(Linkage, default = "any"),
+        "preferred_linkage": attrs.enum(Linkage, default = "any"),
     },
     "swift_toolchain": {
-        "architecture": attr.option(attr.string(), default = None),  # TODO(T115173356): Make field non-optional
-        "platform_path": attr.option(attr.source()),  # Mark as optional until we remove `_internal_platform_path`
-        "sdk_modules": attr.list(attr.dep(), default = []),  # A list or a root target that represent a graph of sdk modules (e.g Frameworks)
-        "sdk_path": attr.option(attr.source()),  # Mark as optional until we remove `_internal_sdk_path`
-        "swift_stdlib_tool": attr.exec_dep(providers = [RunInfo]),
-        "swiftc": attr.exec_dep(providers = [RunInfo]),
+        "architecture": attrs.option(attrs.string(), default = None),  # TODO(T115173356): Make field non-optional
+        "platform_path": attrs.option(attrs.source()),  # Mark as optional until we remove `_internal_platform_path`
+        "sdk_modules": attrs.list(attrs.dep(), default = []),  # A list or a root target that represent a graph of sdk modules (e.g Frameworks)
+        "sdk_path": attrs.option(attrs.source()),  # Mark as optional until we remove `_internal_sdk_path`
+        "swift_stdlib_tool": attrs.exec_dep(providers = [RunInfo]),
+        "swiftc": attrs.exec_dep(providers = [RunInfo]),
         # TODO(T111858757): Mirror of `platform_path` but treated as a string. It allows us to
         #                   pass abs paths during development and using the currently selected Xcode.
-        "_internal_platform_path": attr.option(attr.string(), default = None),
+        "_internal_platform_path": attrs.option(attrs.string(), default = None),
         # TODO(T111858757): Mirror of `sdk_path` but treated as a string. It allows us to
         #                   pass abs paths during development and using the currently selected Xcode.
-        "_internal_sdk_path": attr.option(attr.string(), default = None),
-        "_swiftc_wrapper": attr.dep(providers = [RunInfo], default = "@fbcode//buck2/prelude/apple/tools:swift_exec"),
+        "_internal_sdk_path": attrs.option(attrs.string(), default = None),
+        "_swiftc_wrapper": attrs.dep(providers = [RunInfo], default = "@fbcode//buck2/prelude/apple/tools:swift_exec"),
     },
 }

@@ -10,7 +10,7 @@ def _test_parse_codesign_entitlements(ctx):
 test_parse_code_sign_entitlements = rule(
     impl = _test_parse_codesign_entitlements,
     attrs = {
-        "expected_code_sign_entitlements": attr.option(attr.string()),
-        "info_plist_substitutions": attr.option(attr.dict(key = attr.string(), value = attr.string())),
+        "expected_code_sign_entitlements": attrs.option(attrs.string()),
+        "info_plist_substitutions": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string())),
     },
 )

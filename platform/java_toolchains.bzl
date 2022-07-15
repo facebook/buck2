@@ -112,32 +112,32 @@ def _config_backed_java_toolchain_rule_impl(ctx):
             src_root_elements = src_root_elements,
             src_root_prefixes = src_root_prefixes,
             target_level = ctx.attrs.target_level,
-            is_bootstrap_toolchain = ctx.attr.is_bootstrap_toolchain,
+            is_bootstrap_toolchain = ctx.attrs.is_bootstrap_toolchain,
         ),
     ]
 
 _config_backed_java_toolchain_rule = rule(
     attrs = {
-        "abi_generation_mode": attr.enum(["class", "source", "source_only"], default = "class"),
-        "ast_dumper": attr.option(attr.dep(), default = None),
-        "bootclasspath_7": attr.list(attr.source()),
-        "bootclasspath_8": attr.list(attr.source()),
-        "class_abi_generator": attr.option(attr.dep(providers = [RunInfo]), default = None),
-        "compile_and_package": attr.dep(),
-        "fallback_javac": attr.option(attr.one_of(attr.dep(), attr.source(), attr.string()), default = None),
-        "fat_jar": attr.dep(),
-        "fat_jar_main_class_lib": attr.option(attr.source(), default = None),
-        "is_bootstrap_toolchain": attr.bool(default = False),
-        "jar": attr.dep(providers = [RunInfo]),
-        "java": attr.dep(),
-        "java_for_tests": attr.option(attr.dep(providers = [RunInfo])),
-        "javac": attr.option(attr.one_of(attr.dep(), attr.source(), attr.string()), default = None),
-        "javac_protocol": attr.enum(JavacProtocol.values(), default = "classic"),
-        "merge_to_jar": attr.dep(),
-        "source_level": attr.string(),
-        "src_dir_helper": attr.dep(),
-        "src_roots": attr.list(attr.string()),
-        "target_level": attr.string(),
+        "abi_generation_mode": attrs.enum(["class", "source", "source_only"], default = "class"),
+        "ast_dumper": attrs.option(attrs.dep(), default = None),
+        "bootclasspath_7": attrs.list(attrs.source()),
+        "bootclasspath_8": attrs.list(attrs.source()),
+        "class_abi_generator": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
+        "compile_and_package": attrs.dep(),
+        "fallback_javac": attrs.option(attrs.one_of(attrs.dep(), attrs.source(), attrs.string()), default = None),
+        "fat_jar": attrs.dep(),
+        "fat_jar_main_class_lib": attrs.option(attrs.source(), default = None),
+        "is_bootstrap_toolchain": attrs.bool(default = False),
+        "jar": attrs.dep(providers = [RunInfo]),
+        "java": attrs.dep(),
+        "java_for_tests": attrs.option(attrs.dep(providers = [RunInfo])),
+        "javac": attrs.option(attrs.one_of(attrs.dep(), attrs.source(), attrs.string()), default = None),
+        "javac_protocol": attrs.enum(JavacProtocol.values(), default = "classic"),
+        "merge_to_jar": attrs.dep(),
+        "source_level": attrs.string(),
+        "src_dir_helper": attrs.dep(),
+        "src_roots": attrs.list(attrs.string()),
+        "target_level": attrs.string(),
     },
     impl = _config_backed_java_toolchain_rule_impl,
 )
@@ -176,9 +176,9 @@ def _junit_toolchain_rule_impl(ctx):
 
 _junit_toolchain_rule = rule(
     attrs = {
-        "junit_test_runner_library_jar": attr.dep(),
-        "junit_test_runner_main_class": attr.string(),
-        "list_class_names": attr.dep(providers = [RunInfo]),
+        "junit_test_runner_library_jar": attrs.dep(),
+        "junit_test_runner_main_class": attrs.string(),
+        "list_class_names": attrs.dep(providers = [RunInfo]),
     },
     impl = _junit_toolchain_rule_impl,
 )
@@ -200,8 +200,8 @@ def _prebuilt_jar_toolchain_rule_impl(ctx):
 
 _prebuilt_jar_toolchain_rule = rule(
     attrs = {
-        "class_abi_generator": attr.option(attr.dep(providers = [RunInfo]), default = None),
-        "is_bootstrap_toolchain": attr.bool(default = False),
+        "class_abi_generator": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
+        "is_bootstrap_toolchain": attrs.bool(default = False),
     },
     impl = _prebuilt_jar_toolchain_rule_impl,
 )

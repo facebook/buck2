@@ -6,6 +6,6 @@ def _test_impl(ctx):
 test = rule(
     impl = _test_impl,
     attrs = {
-        "src": attr.source(allow_directory = True),
+        "src": attrs.source(allow_directory = True),
     },
 )

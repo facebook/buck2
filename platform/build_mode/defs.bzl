@@ -10,8 +10,8 @@ def _build_mode_impl(ctx):
 
 build_mode = rule(
     attrs = {
-        "cell": attr.string(),
-        "mode": attr.option(attr.string(), default = None),
+        "cell": attrs.string(),
+        "mode": attrs.option(attrs.string(), default = None),
     },
     impl = _build_mode_impl,
 )
