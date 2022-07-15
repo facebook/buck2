@@ -27,6 +27,7 @@ use crate::sync_handle::SyncDiceTaskHandle;
 use crate::ComputationData;
 use crate::Dice;
 use crate::DiceData;
+use crate::DiceResult;
 use crate::GraphNode;
 use crate::IncrementalEngine;
 use crate::Key;
@@ -130,7 +131,7 @@ impl<P: ProjectionKey> IncrementalComputeProperties for ProjectionKeyProperties<
         engine: &Arc<IncrementalEngine<Self>>,
         transaction_ctx: &Arc<TransactionCtx>,
         extra: &ComputationData,
-    ) -> GraphNode<Self> {
+    ) -> DiceResult<GraphNode<Self>> {
         engine
             .recompute_projection(key, transaction_ctx, extra.subrequest(key))
             .await

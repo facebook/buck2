@@ -193,6 +193,7 @@ mod internals {
     use crate::incremental::Dependency;
     use crate::incremental::IncrementalComputeProperties;
     use crate::incremental::IncrementalEngine;
+    use crate::DiceResult;
 
     pub(crate) struct ComputedDep<K: IncrementalComputeProperties> {
         pub(crate) engine: Weak<IncrementalEngine<K>>,
@@ -272,17 +273,17 @@ mod internals {
             &self,
             transaction_ctx: &Arc<TransactionCtx>,
             extra: &ComputationData,
-        ) -> (Box<dyn ComputedDependency>, Arc<dyn GraphNodeDyn>) {
-            let res = K::recompute(&self.k, &self.engine(), transaction_ctx, extra).await;
+        ) -> DiceResult<(Box<dyn ComputedDependency>, Arc<dyn GraphNodeDyn>)> {
+            let res = K::recompute(&self.k, &self.engine(), transaction_ctx, extra).await?;
 
-            (
+            Ok((
                 box ComputedDep {
                     engine: self.engine.dupe(),
                     k_v: (self.k.clone(), transaction_ctx.get_version()),
                     node: res.dupe(),
                 },
                 res.into_dyn(),
-            )
+            ))
         }
 
         fn lookup_node(&self, v: VersionNumber, mv: MinorVersion) -> Option<Arc<dyn GraphNodeDyn>> {
@@ -429,7 +430,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn recording_deps_tracker_tracks_deps() {
+    async fn recording_deps_tracker_tracks_deps() -> anyhow::Result<()> {
         let mut deps_tracker = RecordingDepsTracker::new();
         // set up so that we have keys 2 and 3 with a history of VersionNumber(1)
         let fn_for_2_and_3 = |k| ValueWithDeps {
@@ -443,10 +444,10 @@ mod tests {
 
         let node1 = engine
             .eval_entry_versioned(&2, &ctx, ComputationData::testing_new())
-            .await;
+            .await?;
         let node2 = engine
             .eval_entry_versioned(&3, &ctx, ComputationData::testing_new())
-            .await;
+            .await?;
 
         deps_tracker.record(2, VersionNumber::new(1), engine.dupe(), node1);
         deps_tracker.record(3, VersionNumber::new(1), engine.dupe(), node2);
@@ -466,5 +467,7 @@ mod tests {
             ),
         ];
         assert_eq!(deps, expected);
+
+        Ok(())
     }
 }

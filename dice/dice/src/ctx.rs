@@ -335,7 +335,7 @@ impl DiceComputationImpl {
             let extra = self.extra.subrequest(&key);
             let value = cache
                 .eval_for_opaque(&key, &self.transaction_ctx, extra)
-                .await;
+                .await?;
             Ok(OpaqueValue::new(key, value, self, cache))
         }
         .boxed()

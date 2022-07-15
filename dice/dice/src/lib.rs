@@ -431,7 +431,7 @@ impl<K: Key> IncrementalComputeProperties for StoragePropertiesForKey<K> {
         engine: &Arc<IncrementalEngine<Self>>,
         transaction_ctx: &Arc<TransactionCtx>,
         extra: &ComputationData,
-    ) -> GraphNode<StoragePropertiesForKey<K>> {
+    ) -> DiceResult<GraphNode<StoragePropertiesForKey<K>>> {
         engine
             .eval_entry_versioned(key, transaction_ctx, extra.subrequest(key))
             .await

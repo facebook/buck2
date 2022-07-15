@@ -41,6 +41,7 @@ pub(crate) mod testing {
     use crate::incremental::Computable;
     use crate::incremental::IncrementalComputeProperties;
     use crate::ComputationData;
+    use crate::DiceResult;
     use crate::GraphNode;
     use crate::IncrementalEngine;
     use crate::StorageProperties;
@@ -70,7 +71,7 @@ pub(crate) mod testing {
             _engine: &Arc<IncrementalEngine<Self>>,
             _transaction_ctx: &Arc<TransactionCtx>,
             _extra: &ComputationData,
-        ) -> GraphNode<Self> {
+        ) -> DiceResult<GraphNode<Self>> {
             unimplemented!("not needed for test")
         }
     }

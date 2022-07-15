@@ -35,6 +35,7 @@ use crate::incremental::versions::MinorVersion;
 use crate::incremental::versions::VersionNumber;
 use crate::incremental::versions::VersionRange;
 use crate::incremental::versions::VersionRanges;
+use crate::DiceResult;
 
 /// The dependency information stored by the core engine
 #[async_trait]
@@ -43,7 +44,7 @@ pub(crate) trait Dependency: Debug + Display + Send + Sync {
         &self,
         transaction_ctx: &Arc<TransactionCtx>,
         extra: &ComputationData,
-    ) -> (Box<dyn ComputedDependency>, Arc<dyn GraphNodeDyn>);
+    ) -> DiceResult<(Box<dyn ComputedDependency>, Arc<dyn GraphNodeDyn>)>;
 
     /// looks up the stored node of this dependency. This can return `None` if this entry
     /// was evicted from the storage.

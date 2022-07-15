@@ -67,6 +67,7 @@ use crate::projection::ProjectionKeyAsKey;
 use crate::projection::ProjectionKeyProperties;
 use crate::sync_handle::SyncDiceTaskHandle;
 use crate::DiceProjectionComputations;
+use crate::DiceResult;
 use crate::Key;
 use crate::OpaqueValue;
 use crate::ProjectionKey;
@@ -91,7 +92,7 @@ pub(crate) trait IncrementalComputeProperties: StorageProperties {
         engine: &Arc<IncrementalEngine<Self>>,
         transaction_ctx: &Arc<TransactionCtx>,
         extra: &ComputationData,
-    ) -> GraphNode<Self>;
+    ) -> DiceResult<GraphNode<Self>>;
 }
 
 /// The incremental engine that manages all the handling of the results of a
@@ -207,7 +208,7 @@ where
         k: &K::Key,
         transaction_ctx: &Arc<TransactionCtx>,
         extra: ComputationData,
-    ) -> GraphNode<K> {
+    ) -> DiceResult<GraphNode<K>> {
         self.eval_entry_versioned(k, transaction_ctx, extra).await
     }
 
@@ -245,7 +246,7 @@ where
             transaction_ctx.get_minor_version(),
         ) {
             debug!("found existing entry with matching version in cache. reusing result.");
-            DiceFuture::Ready(Some(entry))
+            DiceFuture::Ready(Some(Ok(entry)))
         } else {
             let this = self.dupe();
             match self
@@ -293,38 +294,40 @@ where
             async move {
                 // check again since another thread could have inserted into the versioned
                 // cache before we entered the index.
-                match self.versioned_cache.get(
-                    VersionedGraphKeyRef::new(eval_ctx.get_version(), &k),
-                    eval_ctx.get_minor_version(),
-                ) {
-                    VersionedGraphResult::Match(entry) => {
-                        debug!(
-                            "found existing entry with matching version in cache. reusing result."
-                        );
-                        entry
-                    }
-                    VersionedGraphResult::Mismatch(mismatch) => {
-                        debug!("no matching entry in cache. checking for dependency changes");
+                Ok(
+                    match self.versioned_cache.get(
+                        VersionedGraphKeyRef::new(eval_ctx.get_version(), &k),
+                        eval_ctx.get_minor_version(),
+                    ) {
+                        VersionedGraphResult::Match(entry) => {
+                            debug!(
+                                "found existing entry with matching version in cache. reusing result."
+                            );
+                            entry
+                        }
+                        VersionedGraphResult::Mismatch(mismatch) => {
+                            debug!("no matching entry in cache. checking for dependency changes");
 
-                        match Self::compute_whether_versioned_dependencies_changed(
-                            &eval_ctx, &extra, &mismatch,
-                        )
-                        .await
-                        {
-                            DidDepsChange::Changed | DidDepsChange::NoDeps => {
-                                debug!("dependencies changed. recomputing...");
-                                self.compute(k, eval_ctx, extra).await
-                            }
-                            DidDepsChange::NoChange(unchanged_both_deps) => {
-                                debug!("dependencies are unchanged, reusing entry");
-                                self.reuse(k, &eval_ctx, mismatch.entry, unchanged_both_deps)
+                            match Self::compute_whether_versioned_dependencies_changed(
+                                &eval_ctx, &extra, &mismatch,
+                            )
+                            .await?
+                            {
+                                DidDepsChange::Changed | DidDepsChange::NoDeps => {
+                                    debug!("dependencies changed. recomputing...");
+                                    self.compute(k, eval_ctx, extra).await
+                                }
+                                DidDepsChange::NoChange(unchanged_both_deps) => {
+                                    debug!("dependencies are unchanged, reusing entry");
+                                    self.reuse(k, &eval_ctx, mismatch.entry, unchanged_both_deps)
+                                }
                             }
                         }
-                    }
-                    VersionedGraphResult::Dirty | VersionedGraphResult::None => {
-                        self.compute(k, eval_ctx, extra).await
-                    }
-                }
+                        VersionedGraphResult::Dirty | VersionedGraphResult::None => {
+                            self.compute(k, eval_ctx, extra).await
+                        }
+                    },
+                )
             },
             &user_data,
             debug_span!(
@@ -337,7 +340,7 @@ where
     }
 
     fn spawn_task(
-        future: impl Future<Output = GraphNode<K>> + Send + 'static,
+        future: impl Future<Output = DiceResult<GraphNode<K>>> + Send + 'static,
         spawner_ctx: &UserComputationData,
         span: Span,
     ) -> (WeakDiceFutureHandle<K>, DiceFuture<K>) {
@@ -578,14 +581,14 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
         k: &ProjectionKeyAsKey<P>,
         transaction_ctx: &Arc<TransactionCtx>,
         extra: ComputationData,
-    ) -> GraphNode<ProjectionKeyProperties<P>> {
+    ) -> DiceResult<GraphNode<ProjectionKeyProperties<P>>> {
         match self.versioned_cache.get(
             VersionedGraphKeyRef::new(transaction_ctx.get_version(), k),
             transaction_ctx.get_minor_version(),
         ) {
             VersionedGraphResult::Match(entry) => {
                 debug!("found existing entry with matching version in cache. reusing result.");
-                entry
+                Ok(entry)
             }
             VersionedGraphResult::Mismatch(mismatch) => {
                 let eval_ctx = transaction_ctx.dupe();
@@ -597,7 +600,7 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
                 match Self::compute_whether_versioned_dependencies_changed(
                     &eval_ctx, &extra, &mismatch,
                 )
-                .await
+                .await?
                 {
                     DidDepsChange::Changed | DidDepsChange::NoDeps => {
                         debug!("dependencies changed. recomputing...");
@@ -608,7 +611,7 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
                     DidDepsChange::NoChange(unchanged_both_deps) => {
                         debug!("dependencies are unchanged, reusing entry");
 
-                        self.reuse(key, &eval_ctx, mismatch.entry, unchanged_both_deps)
+                        Ok(self.reuse(key, &eval_ctx, mismatch.entry, unchanged_both_deps))
                     }
                 }
             }
@@ -627,7 +630,7 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
         k: &ProjectionKeyAsKey<P>,
         transaction_ctx: &Arc<TransactionCtx>,
         extra: ComputationData,
-    ) -> GraphNode<ProjectionKeyProperties<P>> {
+    ) -> DiceResult<GraphNode<ProjectionKeyProperties<P>>> {
         let cache = self
             .versioned_cache
             .storage_properties
@@ -645,7 +648,7 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
                 transaction_ctx,
                 extra.subrequest(&k.derive_from_key),
             )
-            .await;
+            .await?;
 
         let derive_from_both_deps = BothDeps::only_one_dep(
             k.derive_from_key.clone(),
@@ -654,27 +657,29 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
             &cache,
         );
 
-        match self
-            .currently_running
-            .entry((k.clone(), transaction_ctx.get_version()))
-        {
-            Entry::Occupied(occupied) => {
-                debug!("found a task that is currently running. polling on existing task");
-                let existing = occupied.get().rx.clone();
-                // Release table lock.
-                drop(occupied);
+        Ok(
+            match self
+                .currently_running
+                .entry((k.clone(), transaction_ctx.get_version()))
+            {
+                Entry::Occupied(occupied) => {
+                    debug!("found a task that is currently running. polling on existing task");
+                    let existing = occupied.get().rx.clone();
+                    // Release table lock.
+                    drop(occupied);
 
-                existing.await.expect("sync task cannot fail")
-            }
-            Entry::Vacant(vacant) => self.eval_projection_task(
-                k,
-                &value,
-                derive_from_both_deps,
-                transaction_ctx,
-                extra,
-                vacant,
-            ),
-        }
+                    existing.await.expect("sync task cannot fail")
+                }
+                Entry::Vacant(vacant) => self.eval_projection_task(
+                    k,
+                    &value,
+                    derive_from_both_deps,
+                    transaction_ctx,
+                    extra,
+                    vacant,
+                ),
+            },
+        )
     }
 }
 
@@ -688,7 +693,7 @@ impl<K: IncrementalComputeProperties> IncrementalEngine<K> {
         transaction_ctx: &Arc<TransactionCtx>,
         extra: &ComputationData,
         mismatch: &VersionedGraphResultMismatch<K>,
-    ) -> DidDepsChange {
+    ) -> DiceResult<DidDepsChange> {
         // we know that the result is last computed at 'last_verified_version', which means that
         // its dependencies must have also been verified at 'last_verified_version'.
         // So to determine if this result is reusable, we check whether any of the dependencies
@@ -704,15 +709,15 @@ impl<K: IncrementalComputeProperties> IncrementalEngine<K> {
             .collect();
 
         while let Some(dep_changed) = fs.next().await {
-            if let DidDepsChange::NoChange(unchanged_both_deps) = dep_changed {
+            if let DidDepsChange::NoChange(unchanged_both_deps) = dep_changed? {
                 // as long as some range of versions had its dependencies unchanged, we know that
                 // we can reuse the value, so dependencies are not changed as long as there is
                 // any version range for which dependencies are unchanged.
-                return DidDepsChange::NoChange(unchanged_both_deps);
+                return Ok(DidDepsChange::NoChange(unchanged_both_deps));
             }
         }
 
-        DidDepsChange::Changed
+        Ok(DidDepsChange::Changed)
     }
 
     #[instrument(
@@ -751,9 +756,9 @@ impl<K: IncrementalComputeProperties> IncrementalEngine<K> {
         extra: &ComputationData,
         verified_versions: &VersionRanges,
         deps: &Arc<HashSet<Arc<dyn Dependency>>>,
-    ) -> DidDepsChange {
+    ) -> DiceResult<DidDepsChange> {
         if deps.is_empty() {
-            return DidDepsChange::NoDeps;
+            return Ok(DidDepsChange::NoDeps);
         }
 
         let mut fs: FuturesUnordered<_> =
@@ -763,12 +768,13 @@ impl<K: IncrementalComputeProperties> IncrementalEngine<K> {
 
         let mut computed_deps = HashSet::new();
         let mut computed_nodes = Vec::new();
-        while let Some((dep, dep_node)) = fs.next().await {
+        while let Some(dep_res) = fs.next().await {
+            let (dep, dep_node) = dep_res?;
             verified_versions =
                 Cow::Owned(verified_versions.intersect(&dep.get_history().get_verified_ranges()));
             if verified_versions.is_empty() {
                 debug!(msg = "deps changed");
-                return DidDepsChange::Changed;
+                return Ok(DidDepsChange::Changed);
             }
             computed_deps.insert(dep);
             computed_nodes.push(dep_node);
@@ -776,10 +782,10 @@ impl<K: IncrementalComputeProperties> IncrementalEngine<K> {
 
         debug!(msg = "deps did not change");
 
-        DidDepsChange::NoChange(BothDeps {
+        Ok(DidDepsChange::NoChange(BothDeps {
             deps: computed_deps,
             rdeps: computed_nodes,
-        })
+        }))
     }
 }
 
@@ -1020,13 +1026,14 @@ mod tests {
     use crate::incremental::IncrementalEngine;
     use crate::incremental::TransactionCtx;
     use crate::incremental::VersionedGraphResultMismatch;
+    use crate::DiceResult;
     use crate::StorageProperties;
     use crate::StorageType;
     use crate::ValueWithDeps;
     use crate::WeakDiceFutureHandle;
 
     #[tokio::test]
-    async fn evaluation_tracks_rdeps() {
+    async fn evaluation_tracks_rdeps() -> anyhow::Result<()> {
         let node = Arc::new(OccupiedGraphNode::<EvaluatorFn<usize, usize>>::new(
             1337,
             1,
@@ -1052,13 +1059,13 @@ mod tests {
 
         let t = *(engine
             .eval_entry_versioned(&2, &eval_ctx, ComputationData::testing_new())
-            .await
+            .await?
             .val());
         assert_eq!(t, 2);
 
         let t = *(engine
             .eval_entry_versioned(&3, &eval_ctx, ComputationData::testing_new())
-            .await
+            .await?
             .val());
         assert_eq!(t, 3);
 
@@ -1081,6 +1088,8 @@ mod tests {
             );
         }
         assert!(expected.is_empty(), "Missing {} rdeps", expected.len());
+
+        Ok(())
     }
 
     #[test]
@@ -1132,9 +1141,11 @@ mod tests {
                         // this isn't guaranteed to hit `eval` all at the same time, but it gives a
                         // decent chance of doing so
                         let ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(0)));
-                        *(e.eval_entry_versioned(&0, &ctx, ComputationData::testing_new())
-                            .await
-                            .val())
+                        anyhow::Ok(
+                            *(e.eval_entry_versioned(&0, &ctx, ComputationData::testing_new())
+                                .await?
+                                .val()),
+                        )
                     })
                 })
                 .for_each(|f| futs.push(f));
@@ -1148,16 +1159,18 @@ mod tests {
                         // this isn't guaranteed to hit `eval` all at the same time, but it gives a
                         // decent chance of doing so
                         let ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(0)));
-                        *(e.eval_entry_versioned(&1, &ctx, ComputationData::testing_new())
-                            .await
-                            .val())
+                        anyhow::Ok(
+                            *(e.eval_entry_versioned(&1, &ctx, ComputationData::testing_new())
+                                .await?
+                                .val()),
+                        )
                     })
                 })
                 .for_each(|f| futs.push(f));
 
             let res = futures::future::join_all(futs)
                 .await
-                .into_map(|r| r.unwrap());
+                .into_map(|r| r.unwrap().unwrap());
 
             assert_eq!(res.iter().any(|x| x == &1), true);
             assert_eq!(res.iter().any(|x| x == &2), true);
@@ -1201,6 +1214,7 @@ mod tests {
                     *(engine
                         .eval_entry_versioned(&i, &ctx, ComputationData::testing_new())
                         .await
+                        .unwrap()
                         .val())
                 })
                 .collect::<Vec<_>>();
@@ -1215,7 +1229,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_detecting_changed_dependencies() {
+    async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
         #[derive(Clone, Debug, Display)]
         #[display(fmt = "FakeDep({})", _0)]
         struct FakeDep(usize, Arc<FakeNode>);
@@ -1299,8 +1313,8 @@ mod tests {
                 &self,
                 _transaction_ctx: &Arc<TransactionCtx>,
                 _: &ComputationData,
-            ) -> (Box<dyn ComputedDependency>, Arc<dyn GraphNodeDyn>) {
-                (box self.clone(), self.1.dupe())
+            ) -> DiceResult<(Box<dyn ComputedDependency>, Arc<dyn GraphNodeDyn>)> {
+                Ok((box self.clone(), self.1.dupe()))
             }
 
             fn lookup_node(
@@ -1359,7 +1373,7 @@ mod tests {
                 )])
                 }
             )
-            .await
+            .await?
             .is_changed(),
         );
 
@@ -1388,13 +1402,15 @@ mod tests {
                 }
 
             )
-            .await
+            .await?
             .is_changed(),
         );
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_values_gets_reevaluated_when_deps_change() {
+    async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         let is_ran = Arc::new(AtomicBool::new(false));
         let eval_result = Arc::new(AtomicUsize::new(0));
         let dep: Arc<Mutex<Option<ComputedDep<EvaluatorFn<usize, usize>>>>> =
@@ -1454,7 +1470,7 @@ mod tests {
             let eval_ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(1)));
             let node = engine
                 .eval_entry_versioned(&10, &eval_ctx, ComputationData::testing_new())
-                .await;
+                .await?;
             engine
                 .versioned_cache
                 .get(
@@ -1503,7 +1519,7 @@ mod tests {
         let eval_ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(2)));
         let entry = engine
             .eval_entry_versioned(&10, &eval_ctx, ComputationData::testing_new())
-            .await;
+            .await?;
         assert_eq!(is_ran.load(Ordering::SeqCst), false);
         assert_eq!(*entry.val(), 10);
         assert_eq!(
@@ -1539,7 +1555,7 @@ mod tests {
             let eval_ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(3)));
             let node = engine
                 .eval_entry_versioned(&10, &eval_ctx, ComputationData::testing_new())
-                .await;
+                .await?;
             engine
                 .versioned_cache
                 .get(
@@ -1573,10 +1589,12 @@ mod tests {
                 VersionNumber::new(5)
             )])
         );
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn dirty_invalidates_rdeps_across_engines() {
+    async fn dirty_invalidates_rdeps_across_engines() -> anyhow::Result<()> {
         let ctx = Arc::new(TransactionCtx::new(
             (VersionNumber::new(0), MinorVersionGuard::testing_new(0)),
             VersionForWrites::testing_new(VersionNumber::new(1)),
@@ -1592,7 +1610,7 @@ mod tests {
         }));
         let node0 = engine0
             .eval_entry_versioned(&0, &ctx, ComputationData::testing_new())
-            .await;
+            .await?;
 
         let engine1 = IncrementalEngine::new(EvaluatorFn::new(async move |k| ValueWithDeps {
             value: k,
@@ -1603,7 +1621,7 @@ mod tests {
         }));
         let node1 = engine1
             .eval_entry_versioned(&1, &ctx, ComputationData::testing_new())
-            .await;
+            .await?;
 
         let engine2 = IncrementalEngine::new(EvaluatorFn::new(async move |k| ValueWithDeps {
             value: k,
@@ -1614,7 +1632,7 @@ mod tests {
         }));
         let node2 = engine2
             .eval_entry_versioned(&2, &ctx, ComputationData::testing_new())
-            .await;
+            .await?;
 
         let engine3 = IncrementalEngine::new(EvaluatorFn::new(async move |k| ValueWithDeps {
             value: k,
@@ -1625,7 +1643,7 @@ mod tests {
         }));
         let _node3 = engine3
             .eval_entry_versioned(&3, &ctx, ComputationData::testing_new())
-            .await;
+            .await?;
         engine0.dirty(0, VersionNumber::new(2), false);
 
         engine0
@@ -1656,6 +1674,8 @@ mod tests {
                 MinorVersion::testing_new(0),
             )
             .assert_mismatch();
+
+        Ok(())
     }
 
     #[test]
@@ -1719,6 +1739,7 @@ mod tests {
                             *(engine
                                 .eval_entry_versioned(&i, &ctx, ComputationData::testing_new())
                                 .await
+                                .unwrap()
                                 .val())
                         }
                     })
@@ -1750,7 +1771,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn mark_unchanged_propagates_dirty_from_deps() {
+    async fn mark_unchanged_propagates_dirty_from_deps() -> anyhow::Result<()> {
         // This tests a very specific condition of resurrecting a value.
         // Consider a node n2 that depends on n1 at version v0.
         // We then dirty versions v1, v2, v3 at n1. We'd defer dirtying v2, v3 on n2 due
@@ -1793,7 +1814,7 @@ mod tests {
                 engine: &Arc<IncrementalEngine<Self>>,
                 transaction_ctx: &Arc<TransactionCtx>,
                 extra: &ComputationData,
-            ) -> GraphNode<Self> {
+            ) -> DiceResult<GraphNode<Self>> {
                 engine
                     .eval_entry_versioned(key, transaction_ctx, extra.subrequest(key))
                     .await
@@ -1857,7 +1878,7 @@ mod tests {
                 _engine: &Arc<IncrementalEngine<Self>>,
                 _transaction_ctx: &Arc<TransactionCtx>,
                 _extra: &ComputationData,
-            ) -> GraphNode<Self> {
+            ) -> DiceResult<GraphNode<Self>> {
                 unimplemented!("not needed in test")
             }
         }
@@ -1873,7 +1894,8 @@ mod tests {
                 let node = self
                     .0
                     .eval_entry_versioned(&1, &transaction_ctx, extra)
-                    .await;
+                    .await
+                    .unwrap();
                 ValueWithDeps {
                     value: *node.val(),
                     both_deps: BothDeps {
@@ -1892,7 +1914,7 @@ mod tests {
         assert_eq!(
             engine1
                 .eval_entry_versioned(&2, &ctx, ComputationData::testing_new())
-                .await
+                .await?
                 .val(),
             &0
         );
@@ -1905,7 +1927,7 @@ mod tests {
         assert_eq!(
             engine1
                 .eval_entry_versioned(&2, &ctx, ComputationData::testing_new())
-                .await
+                .await?
                 .val(),
             &0
         );
@@ -1914,9 +1936,11 @@ mod tests {
         assert_eq!(
             engine1
                 .eval_entry_versioned(&2, &ctx, ComputationData::testing_new())
-                .await
+                .await?
                 .val(),
             &1
         );
+
+        Ok(())
     }
 }

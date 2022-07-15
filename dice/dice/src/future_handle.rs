@@ -14,18 +14,19 @@ use more_futures::spawn::WeakJoinHandle;
 
 use crate::dice_future::DiceFuture;
 use crate::dice_task::DiceTask;
+use crate::DiceResult;
 use crate::GraphNode;
 use crate::StorageProperties;
 
 pub(crate) struct WeakDiceFutureHandle<S: StorageProperties> {
-    handle: WeakJoinHandle<GraphNode<S>>,
+    handle: WeakJoinHandle<DiceResult<GraphNode<S>>>,
 }
 
 impl<S: StorageProperties> DiceTask for WeakDiceFutureHandle<S> {}
 
 impl<S: StorageProperties> WeakDiceFutureHandle<S> {
     pub(crate) fn async_cancellable(
-        handle: WeakJoinHandle<GraphNode<S>>,
+        handle: WeakJoinHandle<DiceResult<GraphNode<S>>>,
     ) -> WeakDiceFutureHandle<S> {
         WeakDiceFutureHandle { handle }
     }

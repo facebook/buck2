@@ -62,6 +62,7 @@ pub(crate) mod testing {
     use crate::incremental::graph::GraphNode;
     use crate::incremental::IncrementalComputeProperties;
     use crate::ComputationData;
+    use crate::DiceResult;
     use crate::IncrementalEngine;
     use crate::StorageProperties;
     use crate::StorageType;
@@ -120,7 +121,7 @@ pub(crate) mod testing {
             _engine: &Arc<IncrementalEngine<Self>>,
             _transaction_ctx: &Arc<TransactionCtx>,
             _extra: &ComputationData,
-        ) -> GraphNode<Self> {
+        ) -> DiceResult<GraphNode<Self>> {
             unreachable!()
         }
     }
@@ -212,7 +213,7 @@ pub(crate) mod testing {
             engine: &Arc<IncrementalEngine<Self>>,
             transaction_ctx: &Arc<TransactionCtx>,
             extra: &ComputationData,
-        ) -> GraphNode<Self> {
+        ) -> DiceResult<GraphNode<Self>> {
             engine
                 .eval_entry_versioned(key, transaction_ctx, extra.subrequest(key))
                 .await
