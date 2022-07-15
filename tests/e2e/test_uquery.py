@@ -193,12 +193,16 @@ async def test_attributes(buck: Buck) -> None:
 
     attrs_out = await buck.uquery(
         "--output-attribute",
+        "\\$.*",
+        "--output-attribute",
         "srcs",
         "--output-attribute",
         "deps",
         "set(root//bin:the_binary //lib:file1)",
     )
     attrs_json_out = await buck.uquery(
+        "--output-attribute",
+        "\\$.*",
         "--output-attribute",
         "srcs",
         "--output-attribute",
@@ -211,11 +215,27 @@ async def test_attributes(buck: Buck) -> None:
     attrs_json_out = json.loads(attrs_json_out.stdout)
     assert {
         "root//bin:the_binary": {
+            "$deps": [
+                "root//platforms:platform1",
+                "root//:data",
+                "root//lib:lib1",
+                "root//lib:lib2",
+                "root//lib:lib3",
+                "root//:foo_toolchain",
+                "root//:bin",
+            ],
+            "$package": "root//bin:TARGETS.fixture",
+            "$type": "_foo_binary",
             "buck.configuration_deps": [],
             "deps": ["root//lib:lib1", "root//lib:lib2", "root//lib:lib3"],
             "srcs": ["root//bin/TARGETS.fixture"],
         },
-        "root//lib:file1": {"buck.configuration_deps": []},
+        "root//lib:file1": {
+            "$deps": ["root//platforms:platform1"],
+            "$package": "root//lib:TARGETS.fixture",
+            "$type": "_foo_genrule",
+            "buck.configuration_deps": [],
+        },
     } == attrs_json_out
 
 

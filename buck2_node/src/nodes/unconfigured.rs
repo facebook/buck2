@@ -203,6 +203,27 @@ impl TargetNode {
                     AttrType::configuration_dep(),
                 )),
             ),
+            (
+                "$deps".to_owned(),
+                CoercedAttr::new_literal(AttrLiteral::List(
+                    self.deps()
+                        .map(|t| {
+                            CoercedAttr::new_literal(AttrLiteral::Label(
+                                box ProvidersLabel::default_for(t.dupe()),
+                            ))
+                        })
+                        .collect(),
+                    AttrType::dep(Vec::new()),
+                )),
+            ),
+            (
+                "$type".to_owned(),
+                CoercedAttr::new_literal(AttrLiteral::String(self.rule_type().name().to_owned())),
+            ),
+            (
+                "$package".to_owned(),
+                CoercedAttr::new_literal(AttrLiteral::String(self.buildfile_path().to_string())),
+            ),
         ]
         .into_iter()
     }

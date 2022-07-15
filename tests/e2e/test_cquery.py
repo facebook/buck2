@@ -119,19 +119,43 @@ async def test_query_chunked_stream(buck: Buck) -> None:
 @buck_test(inplace=False, data_dir="bql/simple")
 async def test_attributes(buck: Buck) -> None:
     attrs_out = await buck.cquery(
-        "--output-attribute", "srcs", "set(root//bin:the_binary //lib:file1)"
+        "--output-attribute",
+        "\\$.*",
+        "--output-attribute",
+        "srcs",
+        "set(root//bin:the_binary //lib:file1)",
     )
     attrs_json_out = await buck.cquery(
-        "--output-attribute", "srcs", "--json", "set(root//bin:the_binary //lib:file1)"
+        "--output-attribute",
+        "\\$.*",
+        "--output-attribute",
+        "srcs",
+        "--json",
+        "set(root//bin:the_binary //lib:file1)",
     )
     # specifying any attrs enables json output
     assert attrs_json_out.stdout == attrs_out.stdout
     attrs_json_out = json.loads(attrs_json_out.stdout)
     assert {
         "root//bin:the_binary (root//platforms:platform1)": {
-            "srcs": ["root//bin/TARGETS.fixture"]
+            "$deps": [
+                "root//platforms:platform1 (root//platforms:platform1)",
+                "root//:data (root//platforms:platform1)",
+                "root//lib:lib1 (root//platforms:platform1)",
+                "root//lib:lib2 (root//platforms:platform1)",
+                "root//lib:lib3 (root//platforms:platform1)",
+                "root//:foo_toolchain (root//platforms:platform1)",
+                "root//:bin (root//platforms:platform1)",
+            ],
+            "$package": "root//bin:TARGETS.fixture",
+            "$type": "_foo_binary",
+            "srcs": ["root//bin/TARGETS.fixture"],
         },
-        "root//lib:file1 (root//platforms:platform1)": {},
+        "root//lib:file1 (root//platforms:platform1)": {
+            "$deps": ["root//platforms:platform1 (root//platforms:platform1)"],
+            "$package": "root//lib:TARGETS.fixture",
+            "$type": "_foo_genrule",
+        },
     } == attrs_json_out
 
 

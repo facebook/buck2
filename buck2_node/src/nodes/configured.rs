@@ -36,6 +36,7 @@ use crate::attrs::attr_type::dep::DepAttrTransition;
 use crate::attrs::attr_type::dep::DepAttrType;
 use crate::attrs::attr_type::dep::ProviderIdSet;
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
+use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configuration_context::AttrConfigurationContextImpl;
 use crate::attrs::configured_attr::ConfiguredAttr;
@@ -420,10 +421,35 @@ impl ConfiguredTargetNode {
     }
 
     pub fn special_attrs(&self) -> impl Iterator<Item = (String, ConfiguredAttr)> {
-        vec![(
-            "buck.type".to_owned(),
-            ConfiguredAttr::new(AttrLiteral::String(self.rule_type().name().to_owned())),
-        )]
+        vec![
+            (
+                "buck.type".to_owned(),
+                ConfiguredAttr::new(AttrLiteral::String(self.rule_type().name().to_owned())),
+            ),
+            (
+                "$deps".to_owned(),
+                ConfiguredAttr::new(AttrLiteral::List(
+                    self.deps()
+                        .map(|t| {
+                            ConfiguredAttr(AttrLiteral::Label(box ConfiguredProvidersLabel::new(
+                                t.name().dupe(),
+                                ProvidersName::Default,
+                            )))
+                        })
+                        .collect::<Vec<_>>()
+                        .into_boxed_slice(),
+                    AttrType::dep(Vec::new()),
+                )),
+            ),
+            (
+                "$type".to_owned(),
+                ConfiguredAttr::new(AttrLiteral::String(self.rule_type().name().to_owned())),
+            ),
+            (
+                "$package".to_owned(),
+                ConfiguredAttr::new(AttrLiteral::String(self.buildfile_path().to_string())),
+            ),
+        ]
         .into_iter()
     }
 
