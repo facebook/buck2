@@ -1,4 +1,8 @@
+load("@fbcode_macros//build_defs:fbcode_toolchains.bzl", "fbcode_toolchains")
+load("@fbcode_macros//build_defs:platform_utils.bzl", "platform_utils")
+load("@fbcode_macros//build_defs/lib:python_versioning.bzl", "python_versioning")
 load("@fbsource//tools/build_defs:buckconfig.bzl", "read_bool")
+load("@fbsource//tools/build_defs:selects2.bzl", "selects2")
 load(":cxx_toolchains.bzl", "config_backed_cxx_toolchain", "cxx_hacks", "cxx_toolchain_override")
 load(":go_toolchains.bzl", "go_fbcode_toolchain")
 load(":haskell_toolchains.bzl", "config_backed_haskell_toolchain")
@@ -55,23 +59,12 @@ _rust_flavors = _fbcode_cxx_flavors + [
     "macosx-x86_64_minimal_xcode",
 ]
 
-_fbcode_python_flavors = [
-    "cinder_py3.8-platform009",
-    "cinder_py3.8-platform010",
-    "cinder_py3.8-platform010-compat",
-    #    "py2-macosx-x86_64",
-    #    "py2-platform009",
-    #    "py2-windows-x86_64",
-    #    "py3-macosx-x86_64",
-    #    "py3-windows-x86_64",
-    #    "py3.7-macosx-x86_64",
-    #    "py3.7-windows-x86_64",
-    "py3.8-macosx-x86_64",
-    "py3.8-platform009",
-    "py3.8-platform010",
-    "py3.8-platform010-aarch64",
-    "py3.8-platform010-compat",
-]
+_fbcode_python_platforms = {
+    platform: python_versioning.get_platform_python_versions(platform)
+    for platform in fbcode_toolchains.PLATFORMS + [
+        "macosx-x86_64",
+    ]
+}
 
 [config_backed_cxx_toolchain(
     name = flavor,
@@ -146,15 +139,38 @@ go_fbcode_toolchain(
     visibility = ["PUBLIC"],
 )
 
-[config_backed_python_toolchain(
-    flavor = flavor,
-    visibility = ["PUBLIC"],
-) for flavor in _fbcode_python_flavors]
+# Define fbcode-based Python toolchains.
+[
+    config_backed_python_toolchain(
+        flavor = platform_utils.get_buck_python_platform(platform, version),
+        # For fbcode platforms, we pick a host interpreter that's compatble with
+        # the target platform but can run on the exec platform (e.g. use
+        # platform010's py3.8 for py3.8 builds targeting platform010-aarch64).
+        host_interpreter = selects2.apply(
+            select({
+                "DEFAULT": None,
+                "ovr_config//runtime:fbcode": fbcode_toolchains.get_exec_fbcode_platform(platform),
+            }),
+            lambda platform: read_config(
+                "python#{}".format(platform_utils.get_buck_python_platform(platform, version)),
+                "interpreter",
+            ),
+        ),
+        visibility = ["PUBLIC"],
+    )
+    for platform, versions in _fbcode_python_platforms.items()
+    for version in versions
+]
 
-[config_backed_python_bootstrap_toolchain(
-    flavor = flavor,
-    visibility = ["PUBLIC"],
-) for flavor in _fbcode_python_flavors]
+# Define fbcode-based bootstrap Python toolchains.
+[
+    config_backed_python_bootstrap_toolchain(
+        flavor = platform_utils.get_buck_python_platform(platform, version),
+        visibility = ["PUBLIC"],
+    )
+    for platform, versions in _fbcode_python_platforms.items()
+    for version in versions
+]
 
 [config_backed_rust_toolchain(
     flavor = flavor,
