@@ -26,6 +26,8 @@ PackageStyle = enum(
 PythonToolchainInfo = provider(fields = [
     "build_standalone_binaries_locally",
     "compile",
+    # The interpreter to use to compile bytecode.
+    "host_interpreter",
     "interpreter",
     "version",
     "native_link_strategy",

@@ -65,7 +65,7 @@ def make_pex(
 
     modules_args, hidden = _pex_modules_args(ctx, pex_modules, {name: lib for name, (lib, _) in shared_libraries.items()}, symlink_tree_path)
 
-    bootstrap_args = _pex_bootstrap_args(ctx, python_toolchain.interpreter, None, main_module, output, shared_libraries, symlink_tree_path)
+    bootstrap_args = _pex_bootstrap_args(ctx, python_toolchain.interpreter, None, python_toolchain.host_interpreter, main_module, output, shared_libraries, symlink_tree_path)
     bootstrap_args.add(build_args)
 
     if package_style == PackageStyle("standalone") or bundled_runtime:
@@ -102,6 +102,7 @@ def _pex_bootstrap_args(
         ctx: "context",
         python_interpreter: "_arglike",
         python_interpreter_flags: [None, str.type],
+        python_host_interpreter: "_arglike",
         main_module: str.type,
         output: "artifact",
         shared_libraries: {str.type: (LinkedObject.type, bool.type)},
@@ -120,6 +121,8 @@ def _pex_bootstrap_args(
     cmd.add([
         "--python",
         python_interpreter,
+        "--host-python",
+        python_host_interpreter,
         "--entry-point",
         main_module,
     ])

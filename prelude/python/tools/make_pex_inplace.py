@@ -73,6 +73,11 @@ def parse_args() -> argparse.Namespace:
         help="The python binary to put in the bootstrapper hashbang",
     )
     parser.add_argument(
+        "--host-python",
+        required=True,
+        help="The host python binary to use to e.g. compiling bytecode",
+    )
+    parser.add_argument(
         "--python-interpreter-flags",
         default="-Es",
         help="The interpreter flags for the hashbang",

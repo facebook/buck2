@@ -39,6 +39,7 @@ def _config_backed_python_toolchain_rule_impl(ctx):
         PythonToolchainInfo(
             compile = ctx.attrs.compile,
             interpreter = ctx.attrs.interpreter,
+            host_interpreter = value_or(ctx.attrs.host_interpreter, ctx.attrs.interpreter),
             version = ctx.attrs.version,
             package_style = ctx.attrs.package_style,
             make_source_db = ctx.attrs.make_source_db,
@@ -65,6 +66,7 @@ _config_backed_python_toolchain_rule = rule(
     attrs = {
         "cache_binaries": attrs.bool(default = True),
         "compile": attrs.source(default = "fbcode//buck2/prelude/python/tools:compile.py"),
+        "host_interpreter": attrs.option(attrs.arg()),
         "interpreter": attrs.arg(),
         "make_source_db": attrs.dep(default = "fbcode//buck2/prelude/python/tools:make_source_db"),
         "native_link_strategy": attrs.enum(native.python.NativeLinkStrategy.values()),

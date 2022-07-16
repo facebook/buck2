@@ -9,7 +9,7 @@ def compile_manifests(
         manifests: [ManifestInfo.type],
         ignore_errors: bool.type = False) -> "artifact":
     output = ctx.actions.declare_output("bytecode")
-    cmd = cmd_args(ctx.attrs._python_toolchain[PythonToolchainInfo].interpreter)
+    cmd = cmd_args(ctx.attrs._python_toolchain[PythonToolchainInfo].host_interpreter)
     cmd.add(ctx.attrs._python_toolchain[PythonToolchainInfo].compile)
     cmd.add(cmd_args(output.as_output(), format = "--output={}"))
     if ignore_errors:
