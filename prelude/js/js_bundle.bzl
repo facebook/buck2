@@ -11,7 +11,7 @@ def _build_dependencies_file(
         transitive_js_library_outputs: ["artifact"]) -> "artifact":
     dependencies_file = ctx.actions.declare_output("{}/dependencies_file", transform_profile)
 
-    # ctx.attrs.extra_json can contain attr.arg().
+    # ctx.attrs.extra_json can contain attrs.arg().
     #
     # As a result, we need to pass extra_data_args as hidden arguments so that the rule
     # it is referencing exists as an input.
@@ -61,7 +61,7 @@ def _build_js_bundle(
     misc_dir_path = ctx.actions.declare_output("{}/misc_dir_path".format(base_dir))
     source_map = ctx.actions.declare_output("{}/source_map".format(base_dir))
 
-    # ctx.attrs.extra_json can contain attr.arg().
+    # ctx.attrs.extra_json can contain attrs.arg().
     #
     # As a result, we need to pass extra_data_args as hidden arguments so that the rule
     # it is referencing exists as an input.

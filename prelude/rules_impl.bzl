@@ -168,11 +168,11 @@ def _cxx_python_extension_attrs():
     res = {k: attrs.default_only(library[k]) for k in library if k not in me}
     res.update({
         # Copied from cxx_library.
-        "precompiled_header": attr.option(attr.dep(providers = [CPrecompiledHeaderInfo]), default = None),
-        "preferred_linkage": attr.default_only(attr.string(default = "shared")),  # Force shared linkage always
-        "use_link_groups": attr.bool(default = False),
+        "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
+        "preferred_linkage": attrs.default_only(attrs.string(default = "shared")),  # Force shared linkage always
+        "use_link_groups": attrs.bool(default = False),
         "_cxx_toolchain": _cxx_toolchain(),
-        "_hacks": attr.dep(default = "fbcode//buck2/platform:cxx-hacks"),
+        "_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
         # Copied from python_library.
         "_python_toolchain": _python_toolchain(),
     })
@@ -180,32 +180,32 @@ def _cxx_python_extension_attrs():
 
 def _python_test_attrs():
     return {
-        "bundled_runtime": attr.bool(default = False),
-        "package_split_dwarf_dwp": attr.bool(default = False),
-        "resources": attr.named_set(attr.one_of(attr.dep(), attr.source(allow_directory = True)), sorted = True, default = []),
-        "_create_manifest_for_source_dir": attr.dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir"),
+        "bundled_runtime": attrs.bool(default = False),
+        "package_split_dwarf_dwp": attrs.bool(default = False),
+        "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
+        "_create_manifest_for_source_dir": attrs.dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir"),
         "_cxx_toolchain": _cxx_toolchain(),
-        "_hacks": attr.dep(default = "fbcode//buck2/platform:cxx-hacks"),
+        "_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
         "_python_toolchain": _python_toolchain(),
-        "_test_main": attr.source(default = "fbcode//buck2/prelude/python/tools:__test_main__.py"),
+        "_test_main": attrs.source(default = "fbcode//buck2/prelude/python/tools:__test_main__.py"),
     }
 
 def _cxx_binary_and_test_attrs():
     return {
-        "bolt_flags": attr.list(attr.arg(), default = []),
-        "bolt_gdb_index": attr.option(attr.source(), default = None),
-        "bolt_profile": attr.option(attr.source(), default = None),
-        "enable_distributed_thinlto": attr.bool(default = False),
-        "link_whole": attr.default_only(attr.bool(default = False)),
-        "precompiled_header": attr.option(attr.dep(providers = [CPrecompiledHeaderInfo]), default = None),
-        "resources": attr.named_set(attr.one_of(attr.dep(), attr.source(allow_directory = True)), sorted = True, default = []),
-        "use_link_groups": attr.bool(default = False),
+        "bolt_flags": attrs.list(attrs.arg(), default = []),
+        "bolt_gdb_index": attrs.option(attrs.source(), default = None),
+        "bolt_profile": attrs.option(attrs.source(), default = None),
+        "enable_distributed_thinlto": attrs.bool(default = False),
+        "link_whole": attrs.default_only(attrs.bool(default = False)),
+        "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
+        "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
+        "use_link_groups": attrs.bool(default = False),
         "_cxx_toolchain": _cxx_toolchain(),
-        "_hacks": attr.dep(default = "fbcode//buck2/platform:cxx-hacks"),
+        "_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
     }
 
 def _toolchain(lang: str.type, providers: [""]) -> "attribute":
-    return attr.toolchain_dep(default = "fbcode//buck2/platform/toolchain:" + lang, providers = providers)
+    return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:" + lang, providers = providers)
 
 def _cxx_toolchain():
     return _toolchain("cxx", [CxxToolchainInfo, CxxPlatformInfo])
@@ -217,7 +217,7 @@ def _rust_toolchain():
     return _toolchain("rust", [RustToolchainInfo, RustPlatformInfo])
 
 def _go_toolchain():
-    return attr.toolchain_dep(default = "fbcode//buck2/platform:go-fbcode", providers = [GoToolchainInfo])
+    return attrs.toolchain_dep(default = "fbcode//buck2/platform:go-fbcode", providers = [GoToolchainInfo])
 
 def _ocaml_toolchain():
     return _toolchain("ocaml", [OCamlToolchainInfo, OCamlPlatformInfo])
@@ -267,14 +267,14 @@ extra_attributes = struct(
         "_cxx_toolchain": _cxx_toolchain(),
     },
     cxx_library = {
-        "extra_xcode_sources": attr.list(attr.source(allow_directory = True), default = []),
-        "precompiled_header": attr.option(attr.dep(providers = [CPrecompiledHeaderInfo]), default = None),
-        "prefer_stripped_objects": attr.bool(default = False),
-        "preferred_linkage": attr.enum(Linkage, default = "any"),
-        "resources": attr.named_set(attr.one_of(attr.dep(), attr.source(allow_directory = True)), sorted = True, default = []),
-        "use_link_groups": attr.bool(default = False),
+        "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
+        "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
+        "prefer_stripped_objects": attrs.bool(default = False),
+        "preferred_linkage": attrs.enum(Linkage, default = "any"),
+        "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
+        "use_link_groups": attrs.bool(default = False),
         "_cxx_toolchain": _cxx_toolchain(),
-        "_hacks": attr.dep(default = "fbcode//buck2/platform:cxx-hacks"),
+        "_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
     },
     cxx_binary = _cxx_binary_and_test_attrs(),
     cxx_test = _cxx_binary_and_test_attrs(),
@@ -304,20 +304,20 @@ extra_attributes = struct(
     },
     cxx_python_extension = _cxx_python_extension_attrs(),
     prebuilt_cxx_library = {
-        "exported_header_style": attr.enum(IncludeType, default = "system"),
-        "header_dirs": attr.option(attr.list(attr.source(allow_directory = True)), default = None),
-        "platform_header_dirs": attr.option(attr.list(attr.tuple(attr.regex(), attr.list(attr.source(allow_directory = True)))), default = None),
-        "preferred_linkage": attr.enum(Linkage, default = "any"),
-        "public_include_directories": attr.set(attr.string(), sorted = True, default = []),
-        "public_system_include_directories": attr.set(attr.string(), sorted = True, default = []),
-        "raw_headers": attr.set(attr.source(), sorted = True, default = []),
-        "versioned_header_dirs": attr.option(attr.versioned(attr.list(attr.source(allow_directory = True))), default = None),
+        "exported_header_style": attrs.enum(IncludeType, default = "system"),
+        "header_dirs": attrs.option(attrs.list(attrs.source(allow_directory = True)), default = None),
+        "platform_header_dirs": attrs.option(attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.source(allow_directory = True)))), default = None),
+        "preferred_linkage": attrs.enum(Linkage, default = "any"),
+        "public_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
+        "public_system_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
+        "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
+        "versioned_header_dirs": attrs.option(attrs.versioned(attrs.list(attrs.source(allow_directory = True))), default = None),
         "_cxx_toolchain": _cxx_toolchain(),
     },
 
     # go
     go_binary = {
-        "resources": attr.list(attr.one_of(attr.dep(), attr.source(allow_directory = True)), default = []),
+        "resources": attrs.list(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), default = []),
         "_cxx_toolchain": _cxx_toolchain(),
         "_go_toolchain": _go_toolchain(),
     },
@@ -325,10 +325,10 @@ extra_attributes = struct(
         "_go_toolchain": _go_toolchain(),
     },
     go_test = {
-        "resources": attr.list(attr.source(allow_directory = True), default = []),
+        "resources": attrs.list(attrs.source(allow_directory = True), default = []),
         "_cxx_toolchain": _cxx_toolchain(),
         "_go_toolchain": _go_toolchain(),
-        "_testmaingen": attr.dep(default = "fbcode//buck2/prelude/go/tools:testmaingen"),
+        "_testmaingen": attrs.dep(default = "fbcode//buck2/prelude/go/tools:testmaingen"),
     },
 
     #ocaml
@@ -337,21 +337,21 @@ extra_attributes = struct(
         "_ocaml_toolchain": _ocaml_toolchain(),
     },
     ocaml_object = {
-        "bytecode_only": attr.option(attr.bool(), default = None),
-        "compiler_flags": attr.list(attr.arg(), default = []),
-        "contacts": attr.list(attr.string(), default = []),
-        "default_host_platform": attr.option(attr.configuration_label(), default = None),
-        "deps": attr.list(attr.dep(), default = []),
-        "labels": attr.list(attr.string(), default = []),
-        "licenses": attr.list(attr.source(), default = []),
-        "linker_flags": attr.list(attr.string(), default = []),
-        "ocamldep_flags": attr.list(attr.arg(), default = []),
-        "platform": attr.option(attr.string(), default = None),
-        "platform_deps": attr.list(attr.tuple(attr.regex(), attr.set(attr.dep(), sorted = True)), default = []),
-        "platform_linker_flags": attr.list(attr.tuple(attr.regex(), attr.list(attr.string())), default = []),
-        "srcs": attr.option(attr.named_set(attr.source(), sorted = False), default = None),
-        "warnings_flags": attr.option(attr.string(), default = None),
-        "within_view": attr.option(attr.list(attr.string())),
+        "bytecode_only": attrs.option(attrs.bool(), default = None),
+        "compiler_flags": attrs.list(attrs.arg(), default = []),
+        "contacts": attrs.list(attrs.string(), default = []),
+        "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
+        "deps": attrs.list(attrs.dep(), default = []),
+        "labels": attrs.list(attrs.string(), default = []),
+        "licenses": attrs.list(attrs.source(), default = []),
+        "linker_flags": attrs.list(attrs.string(), default = []),
+        "ocamldep_flags": attrs.list(attrs.arg(), default = []),
+        "platform": attrs.option(attrs.string(), default = None),
+        "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
+        "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.string())), default = []),
+        "srcs": attrs.option(attrs.named_set(attrs.source(), sorted = False), default = None),
+        "warnings_flags": attrs.option(attrs.string(), default = None),
+        "within_view": attrs.option(attrs.list(attrs.string())),
         "_cxx_toolchain": _cxx_toolchain(),
         "_ocaml_toolchain": _ocaml_toolchain(),
     },
@@ -377,22 +377,22 @@ extra_attributes = struct(
 
     #python
     prebuilt_python_library = {
-        "_create_manifest_for_source_dir": attr.dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir"),
-        "_extract": attr.dep(default = "fbcode//buck2/prelude/python/tools:extract"),
+        "_create_manifest_for_source_dir": attrs.dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir"),
+        "_extract": attrs.dep(default = "fbcode//buck2/prelude/python/tools:extract"),
         "_python_toolchain": _python_toolchain(),
     },
     python_library = {
-        "resources": attr.named_set(attr.one_of(attr.dep(), attr.source(allow_directory = True)), sorted = True, default = []),
-        "_create_manifest_for_source_dir": attr.dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir"),
+        "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
+        "_create_manifest_for_source_dir": attrs.dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir"),
         "_cxx_toolchain": _cxx_toolchain(),
         "_python_toolchain": _python_toolchain(),
     },
     python_binary = {
-        "bundled_runtime": attr.bool(default = False),
-        "package_split_dwarf_dwp": attr.bool(default = False),
-        "_create_manifest_for_source_dir": attr.dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir"),
+        "bundled_runtime": attrs.bool(default = False),
+        "package_split_dwarf_dwp": attrs.bool(default = False),
+        "_create_manifest_for_source_dir": attrs.dep(default = "fbcode//buck2/prelude/python/tools:create_manifest_for_source_dir"),
         "_cxx_toolchain": _cxx_toolchain(),
-        "_hacks": attr.dep(default = "fbcode//buck2/platform:cxx-hacks"),
+        "_hacks": attrs.dep(default = "fbcode//buck2/platform:cxx-hacks"),
         "_python_toolchain": _python_toolchain(),
     },
     python_needed_coverage_test = dict(
@@ -402,8 +402,8 @@ extra_attributes = struct(
     python_test = _python_test_attrs(),
     #python bootstrap
     python_bootstrap_binary = {
-        "deps": attr.list(attr.dep(providers = [PythonBootstrapSources]), default = []),
-        "main": attr.source(),
+        "deps": attrs.list(attrs.dep(providers = [PythonBootstrapSources]), default = []),
+        "main": attrs.source(),
         "_python_bootstrap_toolchain": _python_bootstrap_toolchain(),
     },
     python_bootstrap_library = {
@@ -425,13 +425,13 @@ extra_attributes = struct(
         # them and it simplifies the implementation of Rust rules since they
         # don't have to know whether we're building a rust_binary or a
         # rust_library.
-        "linker_flags": attr.list(attr.arg(), default = []),
-        "preferred_linkage": attr.enum(Linkage, default = "any"),
+        "linker_flags": attrs.list(attrs.arg(), default = []),
+        "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "_cxx_toolchain": _cxx_toolchain(),
         "_rust_toolchain": _rust_toolchain(),
     },
     rust_test = {
-        "framework": attr.bool(default = True),
+        "framework": attrs.bool(default = True),
         "_cxx_toolchain": _cxx_toolchain(),
         "_rust_toolchain": _rust_toolchain(),
     },
@@ -440,7 +440,7 @@ extra_attributes = struct(
         "_haskell_toolchain": _haskell_toolchain(),
     },
     haskell_library = {
-        "preferred_linkage": attr.enum(Linkage, default = "any"),
+        "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "_cxx_toolchain": _cxx_toolchain(),
         "_haskell_toolchain": _haskell_toolchain(),
     },

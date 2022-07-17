@@ -22,7 +22,7 @@ def _constraint_value(ctx):
 
 constraint_value = rule(
     impl = _constraint_value,
-    attrs = {"setting": attr.dep(providers = [ConstraintSettingInfo])},
+    attrs = {"setting": attrs.dep(providers = [ConstraintSettingInfo])},
 )
 
 def _platform(ctx):
@@ -46,7 +46,7 @@ def _platform(ctx):
 
 platform = rule(
     impl = _platform,
-    attrs = {"configuration": attr.list(attr.dep(providers = [ConfigurationInfo]))},
+    attrs = {"configuration": attrs.list(attrs.dep(providers = [ConfigurationInfo]))},
 )
 
 def _platforms(ctx):
@@ -59,5 +59,5 @@ def _platforms(ctx):
 
 platforms = rule(
     impl = _platforms,
-    attrs = {"platforms": attr.list(attr.dep(providers = [ExecutionPlatformInfo]))},
+    attrs = {"platforms": attrs.list(attrs.dep(providers = [ExecutionPlatformInfo]))},
 )

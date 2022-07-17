@@ -20,10 +20,10 @@ registration_spec = RuleRegistrationSpec(
     name = "apple_tools",
     impl = _impl,
     attrs = {
-        "assemble_bundle": attr.dep(providers = [RunInfo]),
-        "info_plist_processor": attr.dep(providers = [RunInfo]),
-        "make_modulemap": attr.dep(providers = [RunInfo]),
-        "make_vfsoverlay": attr.dep(providers = [RunInfo]),
-        "swift_objc_header_postprocess": attr.dep(providers = [RunInfo]),
+        "assemble_bundle": attrs.dep(providers = [RunInfo]),
+        "info_plist_processor": attrs.dep(providers = [RunInfo]),
+        "make_modulemap": attrs.dep(providers = [RunInfo]),
+        "make_vfsoverlay": attrs.dep(providers = [RunInfo]),
+        "swift_objc_header_postprocess": attrs.dep(providers = [RunInfo]),
     },
 )

@@ -30,7 +30,7 @@ def _library_impl(ctx):
     ]
 
 my_android_binary = rule(impl = _binary_impl, attrs = {
-    "native_deps": attr.list(attr.split_transition_dep(cfg = cpu_split_transition)),
+    "native_deps": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition)),
 })
 
 my_cxx_library = rule(impl = _library_impl, attrs = {})

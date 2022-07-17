@@ -181,6 +181,6 @@ def _assert_output_value_impl(ctx: "context") -> ["provider"]:
     return [DefaultInfo(default_outputs = [output])]
 
 assert_output_value = rule(impl = _assert_output_value_impl, attrs = {
-    "dep": attr.dep(),
-    "value": attr.string(),
+    "dep": attrs.dep(),
+    "value": attrs.string(),
 })

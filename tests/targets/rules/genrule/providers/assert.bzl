@@ -12,5 +12,5 @@ def providers_assert_impl(ctx: "context") -> ["provider"]:
 
 providers_assert = rule(
     impl = providers_assert_impl,
-    attrs = {"dep": attr.dep()},
+    attrs = {"dep": attrs.dep()},
 )

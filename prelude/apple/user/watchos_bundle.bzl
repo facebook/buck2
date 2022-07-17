@@ -9,7 +9,7 @@ registration_spec = RuleRegistrationSpec(
     name = "watchos_bundle",
     impl = _impl,
     attrs = {
-        "actual": attr.dep(providers = [DefaultInfo, AppleBundleInfo]),
+        "actual": attrs.dep(providers = [DefaultInfo, AppleBundleInfo]),
     },
     cfg = watch_transition,
 )

@@ -50,4 +50,4 @@ c_binary = rule(
 def _tool_impl(ctx):
     return [DefaultInfo(default_outputs = [ctx.attrs.src]), RunInfo(args = cmd_args(ctx.attrs.src))]
 
-tool = rule(attrs = {"src": attr.source()}, impl = _tool_impl)
+tool = rule(attrs = {"src": attrs.source()}, impl = _tool_impl)

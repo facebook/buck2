@@ -17,7 +17,7 @@ load(":swift_toolchain.bzl", "swift_toolchain_impl")
 load(":xcode_prebuild_script.bzl", "xcode_prebuild_script_impl")
 
 def _get_apple_tolchain_attr():
-    return attr.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-default", providers = [AppleToolchainInfo])
+    return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-default", providers = [AppleToolchainInfo])
 
 implemented_rules = {
     "apple_asset_catalog": apple_asset_catalog_impl,
@@ -39,32 +39,32 @@ extra_attributes = {
         "dirs": attrs.list(attrs.source(allow_directory = True), default = []),
     },
     "apple_binary": {
-        "enable_distributed_thinlto": attr.bool(default = False),
-        "extra_xcode_sources": attr.list(attr.source(allow_directory = True), default = []),
-        "precompiled_header": attr.option(attr.dep(providers = [CPrecompiledHeaderInfo]), default = None),
-        "prefer_stripped_objects": attr.bool(default = False),
-        "preferred_linkage": attr.enum(Linkage, default = "any"),
-        "stripped": attr.bool(default = False),
+        "enable_distributed_thinlto": attrs.bool(default = False),
+        "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
+        "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
+        "prefer_stripped_objects": attrs.bool(default = False),
+        "preferred_linkage": attrs.enum(Linkage, default = "any"),
+        "stripped": attrs.bool(default = False),
         "_apple_toolchain": _get_apple_tolchain_attr(),
     },
     "apple_bundle": {
-        "_apple_installer": attr.exec_dep(default = "buck//src/com/facebook/buck/installer/apple:apple_installer", providers = [RunInfo]),
+        "_apple_installer": attrs.exec_dep(default = "buck//src/com/facebook/buck/installer/apple:apple_installer", providers = [RunInfo]),
         "_apple_toolchain": _get_apple_tolchain_attr(),
-        "_apple_tools": attr.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
-        "_codesign_entitlements": attr.option(attr.source(), default = None),
-        "_codesign_type": attr.option(attr.enum(CodeSignType.values()), default = None),
-        "_incremental_bundling_enabled": attr.bool(),
-        "_provisioning_profiles": attr.dep(default = "fbsource//xplat/buck2/provisioning_profiles:all"),
-        "_resource_bundle": attr.option(attr.dep(providers = [AppleBundleResourceInfo]), default = None),
+        "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
+        "_codesign_entitlements": attrs.option(attrs.source(), default = None),
+        "_codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
+        "_incremental_bundling_enabled": attrs.bool(),
+        "_provisioning_profiles": attrs.dep(default = "fbsource//xplat/buck2/provisioning_profiles:all"),
+        "_resource_bundle": attrs.option(attrs.dep(providers = [AppleBundleResourceInfo]), default = None),
     },
     "apple_library": {
-        "extra_xcode_sources": attr.list(attr.source(allow_directory = True), default = []),
-        "precompiled_header": attr.option(attr.dep(providers = [CPrecompiledHeaderInfo]), default = None),
-        "preferred_linkage": attr.enum(Linkage, default = "any"),
-        "stripped": attr.bool(default = False),
-        "use_archive": attr.option(attr.bool(), default = None),
+        "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
+        "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
+        "preferred_linkage": attrs.enum(Linkage, default = "any"),
+        "stripped": attrs.bool(default = False),
+        "use_archive": attrs.option(attrs.bool(), default = None),
         "_apple_toolchain": _get_apple_tolchain_attr(),
-        "_apple_tools": attr.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
+        "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
     },
     "apple_resource": {
         "codesign_on_copy": attrs.bool(default = False),
@@ -88,35 +88,35 @@ extra_attributes = {
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
         "resource_group": attrs.option(attrs.string(), default = None),
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
-        "resource_group_map": attr.option(attr.string(), default = None),
-        "stripped": attr.bool(default = False),
+        "resource_group_map": attrs.option(attrs.string(), default = None),
+        "stripped": attrs.bool(default = False),
         "_apple_toolchain": _get_apple_tolchain_attr(),
-        "_apple_tools": attr.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
-        "_codesign_type": attr.option(attr.enum(CodeSignType.values()), default = None),
-        "_incremental_bundling_enabled": attr.bool(),
+        "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
+        "_codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
+        "_incremental_bundling_enabled": attrs.bool(),
     },
     "apple_toolchain": {
         # The Buck v1 attribute specs defines those as `attrs.source()` but
         # we want to properly handle any runnable tools that might have
         # addition runtime requirements.
-        "actool": attr.dep(providers = [RunInfo]),
-        "codesign": attr.dep(providers = [RunInfo]),
-        "codesign_allocate": attr.dep(providers = [RunInfo]),
+        "actool": attrs.dep(providers = [RunInfo]),
+        "codesign": attrs.dep(providers = [RunInfo]),
+        "codesign_allocate": attrs.dep(providers = [RunInfo]),
         # Controls invocations of `ibtool`, `actool` and `momc`
-        "compile_resources_locally": attr.bool(default = False),
-        "dsymutil": attr.dep(providers = [RunInfo]),
-        "dwarfdump": attr.option(attr.dep(providers = [RunInfo]), default = None),
-        "ibtool": attr.dep(providers = [RunInfo]),
-        "libtool": attr.dep(providers = [RunInfo]),
-        "lipo": attr.dep(providers = [RunInfo]),
-        "min_version": attr.option(attr.string(), default = None),
-        "momc": attr.dep(providers = [RunInfo]),
-        "platform_path": attr.option(attr.source()),  # Mark as optional until we remove `_internal_platform_path`
-        "sdk_path": attr.option(attr.source()),  # Mark as optional until we remove `_internal_sdk_path`
-        "version": attr.option(attr.string(), default = None),
-        "xcode_build_version": attr.option(attr.string(), default = None),
-        "xcode_version": attr.option(attr.string(), default = None),
-        "xctest": attr.dep(providers = [RunInfo]),
+        "compile_resources_locally": attrs.bool(default = False),
+        "dsymutil": attrs.dep(providers = [RunInfo]),
+        "dwarfdump": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
+        "ibtool": attrs.dep(providers = [RunInfo]),
+        "libtool": attrs.dep(providers = [RunInfo]),
+        "lipo": attrs.dep(providers = [RunInfo]),
+        "min_version": attrs.option(attrs.string(), default = None),
+        "momc": attrs.dep(providers = [RunInfo]),
+        "platform_path": attrs.option(attrs.source()),  # Mark as optional until we remove `_internal_platform_path`
+        "sdk_path": attrs.option(attrs.source()),  # Mark as optional until we remove `_internal_sdk_path`
+        "version": attrs.option(attrs.string(), default = None),
+        "xcode_build_version": attrs.option(attrs.string(), default = None),
+        "xcode_version": attrs.option(attrs.string(), default = None),
+        "xctest": attrs.dep(providers = [RunInfo]),
         # TODO(T111858757): Mirror of `platform_path` but treated as a string. It allows us to
         #                   pass abs paths during development and using the currently selected Xcode.
         "_internal_platform_path": attrs.option(attrs.string()),
@@ -128,8 +128,8 @@ extra_attributes = {
         "path": attrs.source(allow_directory = True),
     },
     "prebuilt_apple_framework": {
-        "framework": attr.option(attr.source(allow_directory = True), default = None),
-        "preferred_linkage": attr.enum(Linkage, default = "any"),
+        "framework": attrs.option(attrs.source(allow_directory = True), default = None),
+        "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "_apple_toolchain": _get_apple_tolchain_attr(),
     },
     "scene_kit_assets": {

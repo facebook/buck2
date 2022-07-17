@@ -4,7 +4,7 @@ def _toolchain_impl(ctx: "context") -> ["provider"]:
     return [DefaultInfo()]
 
 toolchain = rule(
-    attrs = {"dep": attr.option(attr.exec_dep(), default = None)},
+    attrs = {"dep": attrs.option(attrs.exec_dep(), default = None)},
     impl = _toolchain_impl,
     is_toolchain_rule = True,
 )

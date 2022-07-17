@@ -33,10 +33,10 @@ def _test_impl(ctx):
     ]
 
 test = rule(impl = _test_impl, attrs = {
-    "artifact": attr.source(),
-    "labels": attr.list(attr.string(), default = []),
-    "run_from_project_root": attr.option(attr.bool()),
-    "script": attr.source(),
-    "set_default_executor": attr.option(attr.bool()),
-    "use_project_relative_paths": attr.option(attr.bool()),
+    "artifact": attrs.source(),
+    "labels": attrs.list(attrs.string(), default = []),
+    "run_from_project_root": attrs.option(attrs.bool()),
+    "script": attrs.source(),
+    "set_default_executor": attrs.option(attrs.bool()),
+    "use_project_relative_paths": attrs.option(attrs.bool()),
 })

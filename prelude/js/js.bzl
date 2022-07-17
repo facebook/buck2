@@ -28,7 +28,7 @@ implemented_rules = {
 extra_attributes = {
     "js_bundle": {
         "_android_toolchain": android_toolchain(),
-        "_is_release": attr.bool(
+        "_is_release": attrs.bool(
             default = _is_release(),
         ),
         "_js_toolchain": attrs.exec_dep(

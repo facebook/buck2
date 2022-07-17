@@ -99,7 +99,7 @@ def _file_impl(ctx):
     )
     return [DefaultInfo(default_outputs = [out])]
 
-file = rule(impl = _file_impl, attrs = {"file_size": attr.int()})
+file = rule(impl = _file_impl, attrs = {"file_size": attrs.int()})
 
 def _cp_impl(ctx):
     out = ctx.actions.declare_output("out")
@@ -113,7 +113,7 @@ def _cp_impl(ctx):
     )
     return [DefaultInfo(default_outputs = [out])]
 
-cp = rule(impl = _cp_impl, attrs = {"file": attr.dep()})
+cp = rule(impl = _cp_impl, attrs = {"file": attrs.dep()})
 
 def _command_impl(ctx):
     out = ctx.actions.declare_output("out")
@@ -126,4 +126,4 @@ def _command_impl(ctx):
     )
     return [DefaultInfo(default_outputs = [out])]
 
-command = rule(impl = _command_impl, attrs = {"command": attr.source()})
+command = rule(impl = _command_impl, attrs = {"command": attrs.source()})

@@ -3,7 +3,7 @@ def _alias(ctx):
 
 alias = rule(
     impl = _alias,
-    attrs = {"dep": attr.dep()},
+    attrs = {"dep": attrs.dep()},
 )
 
 def _toolchain(ctx):
@@ -11,7 +11,7 @@ def _toolchain(ctx):
 
 toolchain = rule(
     impl = _toolchain,
-    attrs = {"dep": attr.exec_dep()},
+    attrs = {"dep": attrs.exec_dep()},
     is_toolchain_rule = True,
 )
 
@@ -20,5 +20,5 @@ def _command(ctx):
 
 command = rule(
     impl = _command,
-    attrs = {"source": attr.source()},
+    attrs = {"source": attrs.source()},
 )

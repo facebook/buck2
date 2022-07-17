@@ -9,7 +9,7 @@ def _declare_sub_targets(ctx: "context") -> ["provider"]:
 
 declare_sub_targets = rule(
     impl = _declare_sub_targets,
-    attrs = {"command": attr.source(), "sub_targets": attr.list(attr.string())},
+    attrs = {"command": attrs.source(), "sub_targets": attrs.list(attrs.string())},
 )
 
 def _exists(ctx: "context") -> ["provider"]:
@@ -23,5 +23,5 @@ def _exists(ctx: "context") -> ["provider"]:
 
 exists = rule(
     impl = _exists,
-    attrs = {"command": attr.source(), "local": attr.bool(default = False), "paths": attr.list(attr.arg())},
+    attrs = {"command": attrs.source(), "local": attrs.bool(default = False), "paths": attrs.list(attrs.arg())},
 )

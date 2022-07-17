@@ -43,5 +43,5 @@ def get_bundle_min_target_version(ctx: "context") -> str.type:
     fail("Could not determine min target sdk version for bundle: {}".format(ctx.label))
 
 def get_bundle_resource_processing_options(ctx: "context") -> AppleResourceProcessingOptions.type:
-    compile_resources_locally = ctx.attr._apple_toolchain[AppleToolchainInfo].compile_resources_locally
+    compile_resources_locally = ctx.attrs._apple_toolchain[AppleToolchainInfo].compile_resources_locally
     return AppleResourceProcessingOptions(prefer_local = compile_resources_locally)

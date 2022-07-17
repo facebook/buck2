@@ -6,6 +6,6 @@ def _installer_impl(ctx: "context") -> ["provider"]:
     return [DefaultInfo(), InstallInfo(installer = run_info, files = ctx.attrs.files)]
 
 installer = rule(impl = _installer_impl, attrs = {
-    "files": attr.dict(key = attr.string(), value = attr.source(), default = {}),
-    "installer": attr.option(attr.dep(), default = None),
+    "files": attrs.dict(key = attrs.string(), value = attrs.source(), default = {}),
+    "installer": attrs.option(attrs.dep(), default = None),
 })

@@ -9,5 +9,5 @@ def _failing_binary_impl(ctx: "context"):
 
 failing_binary = rule(
     impl = _failing_binary_impl,
-    attrs = {"src": attr.option(attr.source(allow_directory = True))},
+    attrs = {"src": attrs.option(attrs.source(allow_directory = True))},
 )

@@ -17,7 +17,7 @@ load(":gen_aidl.bzl", "gen_aidl_impl")
 load(":robolectric_test.bzl", "robolectric_test_impl")
 
 def android_toolchain():
-    return attr.toolchain_dep(
+    return attrs.toolchain_dep(
         default = "fbcode//buck2/platform/toolchain:android",
         providers = [
             AndroidPlatformInfo,
@@ -26,7 +26,7 @@ def android_toolchain():
     )
 
 def _dex_toolchain():
-    return attr.toolchain_dep(
+    return attrs.toolchain_dep(
         default = "fbcode//buck2/platform/toolchain:dex_for_android",
         providers = [
             DexToolchainInfo,
@@ -34,7 +34,7 @@ def _dex_toolchain():
     )
 
 def _java_toolchain():
-    return attr.toolchain_dep(
+    return attrs.toolchain_dep(
         default = "fbcode//buck2/platform/toolchain:java_for_android",
         providers = [
             JavaPlatformInfo,
@@ -43,7 +43,7 @@ def _java_toolchain():
     )
 
 def _kotlin_toolchain():
-    return attr.toolchain_dep(
+    return attrs.toolchain_dep(
         default = "fbcode//buck2/platform/toolchain:kotlin",
         providers = [
             KotlinToolchainInfo,
@@ -68,12 +68,12 @@ extra_attributes = {
         "resources_root": attrs.option(attrs.string(), default = None),
     },
     "android_binary": {
-        "aapt_mode": attr.enum(AaptMode, default = "aapt1"),  # Match default in V1
-        "build_config_values_file": attr.option(attr.one_of(attr.transition_dep(cfg = cpu_transition), attr.source()), default = None),
-        "deps": attr.list(attr.split_transition_dep(cfg = cpu_split_transition), default = []),
-        "dex_tool": attr.string(default = "d8"),  # Match default in V1
-        "duplicate_resource_behavior": attr.enum(DuplicateResourceBehaviour, default = "allow_by_default"),  # Match default in V1
-        "manifest": attr.option(attr.one_of(attr.transition_dep(cfg = cpu_transition), attr.source()), default = None),
+        "aapt_mode": attrs.enum(AaptMode, default = "aapt1"),  # Match default in V1
+        "build_config_values_file": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
+        "deps": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition), default = []),
+        "dex_tool": attrs.string(default = "d8"),  # Match default in V1
+        "duplicate_resource_behavior": attrs.enum(DuplicateResourceBehaviour, default = "allow_by_default"),  # Match default in V1
+        "manifest": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "_android_toolchain": android_toolchain(),
         "_dex_toolchain": _dex_toolchain(),
         "_java_toolchain": _java_toolchain(),
@@ -83,11 +83,11 @@ extra_attributes = {
         "_java_toolchain": _java_toolchain(),
     },
     "android_instrumentation_apk": {
-        "aapt_mode": attr.enum(AaptMode, default = "aapt1"),  # Match default in V1
-        "cpu_filters": attr.list(attr.enum(TargetCpuType), default = []),
-        "deps": attr.list(attr.split_transition_dep(cfg = cpu_split_transition), default = []),
-        "dex_tool": attr.string(default = "d8"),  # Match default in V1
-        "manifest": attr.option(attr.one_of(attr.transition_dep(cfg = cpu_transition), attr.source()), default = None),
+        "aapt_mode": attrs.enum(AaptMode, default = "aapt1"),  # Match default in V1
+        "cpu_filters": attrs.list(attrs.enum(TargetCpuType), default = []),
+        "deps": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition), default = []),
+        "dex_tool": attrs.string(default = "d8"),  # Match default in V1
+        "manifest": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "_android_toolchain": android_toolchain(),
         "_dex_toolchain": _dex_toolchain(),
         "_java_toolchain": _java_toolchain(),
@@ -97,7 +97,7 @@ extra_attributes = {
         "_java_toolchain": _java_toolchain(),
     },
     "android_library": {
-        "resources_root": attr.option(attr.string(), default = None),
+        "resources_root": attrs.option(attrs.string(), default = None),
         "_android_toolchain": android_toolchain(),
         "_dex_toolchain": _dex_toolchain(),
         "_java_toolchain": _java_toolchain(),
@@ -110,16 +110,16 @@ extra_attributes = {
         # Prebuilt jars are quick to build, and often contain third-party code, which in turn is
         # often a source of annotations and constants. To ease migration to ABI generation from
         # source without deps, we have them present during ABI gen by default.
-        "required_for_source_only_abi": attr.bool(default = True),
+        "required_for_source_only_abi": attrs.bool(default = True),
         "_android_toolchain": android_toolchain(),
         "_dex_toolchain": _dex_toolchain(),
         "_java_toolchain": _java_toolchain(),
     },
     "android_resource": {
-        "assets": attr.option(attr.one_of(attr.source(allow_directory = True), attr.dict(key = attr.string(), value = attr.source(), sorted = True)), default = None),
-        "project_assets": attr.option(attr.source(allow_directory = True), default = None),
-        "project_res": attr.option(attr.source(allow_directory = True), default = None),
-        "res": attr.option(attr.one_of(attr.source(allow_directory = True), attr.dict(key = attr.string(), value = attr.source(), sorted = True)), default = None),
+        "assets": attrs.option(attrs.one_of(attrs.source(allow_directory = True), attrs.dict(key = attrs.string(), value = attrs.source(), sorted = True)), default = None),
+        "project_assets": attrs.option(attrs.source(allow_directory = True), default = None),
+        "project_res": attrs.option(attrs.source(allow_directory = True), default = None),
+        "res": attrs.option(attrs.one_of(attrs.source(allow_directory = True), attrs.dict(key = attrs.string(), value = attrs.source(), sorted = True)), default = None),
         "_android_toolchain": android_toolchain(),
     },
     "gen_aidl": {
@@ -127,10 +127,10 @@ extra_attributes = {
         "_java_toolchain": _java_toolchain(),
     },
     "robolectric_test": {
-        "resources_root": attr.option(attr.string(), default = None),
+        "resources_root": attrs.option(attrs.string(), default = None),
         "_android_toolchain": android_toolchain(),
         "_java_toolchain": _java_toolchain(),
-        "_junit_toolchain": attr.exec_dep(
+        "_junit_toolchain": attrs.exec_dep(
             default = select_junit_toolchain(),
             providers = [
                 JUnitToolchainInfo,

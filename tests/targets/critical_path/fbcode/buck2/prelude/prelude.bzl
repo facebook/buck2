@@ -21,8 +21,8 @@ def _cp(ctx: "context") -> ["provider"]:
     return [DefaultInfo(default_outputs = [out])]
 
 cp = rule(impl = _cp, attrs = {
-    "dep": attr.dep(),
-    "sleep": attr.int(default = 0),
+    "dep": attrs.dep(),
+    "sleep": attrs.int(default = 0),
 })
 
 def _dynamic_cp(ctx: "context") -> ["provider"]:
@@ -44,5 +44,5 @@ def _dynamic_cp(ctx: "context") -> ["provider"]:
     return [DefaultInfo(default_outputs = [out])]
 
 dynamic_cp = rule(impl = _dynamic_cp, attrs = {
-    "dep": attr.dep(),
+    "dep": attrs.dep(),
 })
