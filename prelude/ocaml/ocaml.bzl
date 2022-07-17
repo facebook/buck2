@@ -609,7 +609,7 @@ def ocaml_library_impl(ctx: "context") -> ["provider"]:
     ]
     sub_targets = {"bytecode": info_byt, "ide": info_ide}
 
-    if ctx.attr.bytecode_only:
+    if ctx.attrs.bytecode_only:
         return info_byt
 
     return [
@@ -681,7 +681,7 @@ def ocaml_binary_impl(ctx: "context") -> ["provider"]:
     ]
     sub_targets = {"bytecode": info_byt, "ide": info_ide}
 
-    if ctx.attr.bytecode_only:
+    if ctx.attrs.bytecode_only:
         return info_byt
 
     return [
