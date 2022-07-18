@@ -205,8 +205,8 @@ impl<'v> AnalysisContext<'v> {
         artifacts: Dict<'v>,
         outputs: Dict<'v>,
     ) -> Self {
-        // Check the types match what the user expects
-        assert!(Struct::from_value(attributes).is_some());
+        // Check the types match what the user expects. None is allowed for bxl
+        assert!(Struct::from_value(attributes).is_some() || attributes.is_none());
 
         Self {
             attributes,
