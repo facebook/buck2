@@ -44,9 +44,6 @@ def _mk_rule(name: str.type, attributes: {str.type: "attribute"}) -> "rule":
 def _merge_attributes() -> {str.type: {str.type: "attribute"}}:
     attrs = dict(attributes)
     for k in dir(extra_attributes):
-        if k == "to_json":
-            # Our struct notes that to_json is a method, which is not great
-            continue
         v = getattr(extra_attributes, k)
         if k in attrs:
             d = dict(attrs[k])

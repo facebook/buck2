@@ -359,7 +359,6 @@ def create_jar_artifact_javacd(
                 return {
                     attr: process(getattr(val, attr), consumer)
                     for attr in dir(val)
-                    if attr != "to_json"
                 }
             if type(val) in ("artifact", "output_artifact", "cmd_args"):
                 consume_inputs(val)

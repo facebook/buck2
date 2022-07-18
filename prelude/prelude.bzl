@@ -16,9 +16,6 @@ load(":rules.bzl", __rules__ = "rules")
 def __struct_to_dict(s):
     vals = {}
     for name in dir(s):
-        # this is a bug with starlark-rust that struct-type methods are listed in dir
-        if name == "to_json":
-            continue
         vals[name] = getattr(s, name)
     return vals
 
