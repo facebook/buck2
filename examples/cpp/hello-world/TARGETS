@@ -3,7 +3,7 @@ load("//toolchain.bzl", "cpp_local_toolchain")
 
 cpp_local_toolchain(
     name = "clang",
-    command = "clang++"
+    command = "clang++",
 )
 
 cpp_binary(
@@ -11,5 +11,5 @@ cpp_binary(
     srcs = glob(["src/**/*.cpp"]),
     headers = glob(["src/**/*.hpp"]),
     deps = [],
-    toolchain = ":clang"
+    toolchain = ":clang",
 )

@@ -8,11 +8,11 @@ def _cpp_binary_impl(ctx: "context") -> ["provider"]:
 
     cmd = cmd_args([ctx.attr.toolchain[CxxCompilerInfo].compiler_path, "-o", out.as_output()] + sources)
 
-    ctx.actions.run(cmd, category="compile")
-    
+    ctx.actions.run(cmd, category = "compile")
+
     return [
-        DefaultInfo(default_outputs = [out]), 
-        RunInfo(args = cmd_args(out))
+        DefaultInfo(default_outputs = [out]),
+        RunInfo(args = cmd_args(out)),
     ]
 
 cpp_binary = rule(
@@ -22,7 +22,7 @@ cpp_binary = rule(
         "headers": attr.list(attr.source()),
         "deps": attr.list(attr.dep()),
         "toolchain": attr.dep(),
-    }
+    },
 )
 
 def _cpp_library_impl(ctx: "context") -> ["provider"]:
@@ -32,8 +32,8 @@ def _cpp_library_impl(ctx: "context") -> ["provider"]:
 
     cmd = cmd_args(["clang++", "-shared", "-undefined", "dynamic_lookup", "-o", out.as_output()] + sources)
 
-    ctx.actions.run(cmd, category="compile")
-    
+    ctx.actions.run(cmd, category = "compile")
+
     return [DefaultInfo(default_outputs = [out]), CxxLibraryInfo(objects = [out], headers = headers)]
 
 cpp_library = rule(
@@ -41,6 +41,6 @@ cpp_library = rule(
     attrs = {
         "srcs": attr.list(attr.source()),
         "headers": attr.list(attr.source()),
-        "deps": attr.list(attr.dep())
-    }
+        "deps": attr.list(attr.dep()),
+    },
 )

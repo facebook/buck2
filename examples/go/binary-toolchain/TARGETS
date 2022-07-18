@@ -1,17 +1,16 @@
 load("//rules.bzl", "go_binary")
 load("//toolchain.bzl", "go_toolchain")
 
-
 go_toolchain(
     name = "go_linux",
     version = "1.18.3",
     platform = "linux-amd64",
-    sha1 = "3511fcb34e0162abdcdeea0ab532f0264943e3d8"
+    sha1 = "3511fcb34e0162abdcdeea0ab532f0264943e3d8",
 )
 
 go_binary(
     name = "main",
     srcs = glob(["*.go"]),
     deps = [],
-    toolchain = ":go_linux"
+    toolchain = ":go_linux",
 )

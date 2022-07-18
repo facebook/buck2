@@ -9,6 +9,6 @@ def _cpp_local_toolchain_impl(ctx):
 cpp_local_toolchain = rule(
     implementation = _cpp_local_toolchain_impl,
     attrs = {
-        "command": attr.string()
-    }
+        "command": attr.string(),
+    },
 )
