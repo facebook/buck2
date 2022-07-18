@@ -23,6 +23,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::pattern::resolve::ResolvedPattern;
+use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::*;
 use buck2_core::fs::project::*;
 use buck2_core::package::Package;
@@ -50,7 +51,6 @@ use dice::DiceComputations;
 use futures::channel::mpsc;
 use futures::future;
 use futures::future::BoxFuture;
-use futures::future::Future;
 use futures::future::FutureExt;
 use futures::stream::FuturesUnordered;
 use futures::stream::StreamExt;
@@ -202,6 +202,7 @@ pub(crate) async fn test(
         )),
         &*launcher,
         session,
+        cell_resolver,
     )
     .await?;
 
@@ -231,6 +232,7 @@ async fn test_targets(
     label_filtering: Arc<TestLabelFiltering>,
     launcher: &dyn ExecutorLauncher,
     session: TestSession,
+    cell_resolver: CellResolver,
 ) -> anyhow::Result<TestOutcome> {
     let session = Arc::new(session);
 
@@ -278,6 +280,7 @@ async fn test_targets(
                 global_target_platform: &global_target_platform,
                 session: &session,
                 test_executor: &test_executor,
+                cell_resolver: &cell_resolver,
             });
 
             driver.push_pattern(pattern);
@@ -363,6 +366,7 @@ pub(crate) struct TestDriverState<'a, 'e> {
     global_target_platform: &'a Option<TargetLabel>,
     session: &'a TestSession,
     test_executor: &'a Arc<dyn TestExecutor + 'e>,
+    cell_resolver: &'a CellResolver,
 }
 
 /// Maintains the state of an ongoing test execution.
@@ -492,6 +496,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                     state.test_executor.dupe(),
                     state.session,
                     state.label_filtering.dupe(),
+                    state.cell_resolver,
                 )
                 .await?;
 
@@ -551,6 +556,7 @@ async fn test_target(
     test_executor: Arc<dyn TestExecutor + '_>,
     session: &TestSession,
     label_filtering: Arc<TestLabelFiltering>,
+    cell_resolver: &CellResolver,
 ) -> anyhow::Result<Option<ConfiguredProvidersLabel>> {
     // NOTE: We fail if we hit an incompatible target here. This can happen if we reach an
     // incompatible target via `tests = [...]`. This should perhaps change, but that's how it works
@@ -571,7 +577,7 @@ async fn test_target(
                         }
                     }
 
-                    run_tests(test_executor, target, test_info, session)
+                    run_tests(test_executor, target, test_info, session, cell_resolver)
                         .map(|l| Some(l).transpose())
                         .left_future()
                 }
@@ -645,14 +651,23 @@ fn run_tests<'a, 'b>(
     providers_label: ConfiguredProvidersLabel,
     test_info: &'b dyn TestProvider,
     session: &'b TestSession,
-) -> impl Future<Output = anyhow::Result<ConfiguredProvidersLabel>> + Send + 'a {
-    let handle = build_configured_target_handle(providers_label.clone(), session);
-    let fut = test_info.dispatch(handle, test_executor);
+    cell_resolver: &'b CellResolver,
+) -> BoxFuture<'a, anyhow::Result<ConfiguredProvidersLabel>> {
+    let maybe_handle =
+        build_configured_target_handle(providers_label.clone(), session, cell_resolver);
 
-    async move {
-        fut.await
-            .context("Failed to notify test executor of a new test")?;
-        Ok(providers_label)
+    match maybe_handle {
+        Ok(handle) => {
+            let fut = test_info.dispatch(handle, test_executor);
+
+            (async move {
+                fut.await
+                    .context("Failed to notify test executor of a new test")?;
+                Ok(providers_label)
+            })
+            .boxed()
+        }
+        Err(err) => future::ready(Err(err)).boxed(),
     }
 }
 

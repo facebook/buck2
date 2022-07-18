@@ -67,6 +67,7 @@ message ConfiguredTarget {
   string package = 4;
   string target = 5;
   string configuration = 6;
+  string package_project_relative_path = 7;
 }
 
 enum TestStatus {

@@ -31,6 +31,7 @@ pub struct ConfiguredTarget {
     pub package: String,
     pub target: String,
     pub configuration: String,
+    pub package_project_relative_path: ForwardRelativePathBuf,
 }
 
 /// Metadata about the execution to display

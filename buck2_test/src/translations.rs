@@ -9,6 +9,7 @@
 
 //! Translation between buck core data and the test spec data types
 use anyhow::Context;
+use buck2_core::cells::CellResolver;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use test_api::data::ConfiguredTarget;
 
@@ -17,7 +18,8 @@ use crate::session::TestSession;
 pub fn build_configured_target_handle(
     target: ConfiguredProvidersLabel,
     session: &TestSession,
-) -> ConfiguredTarget {
+    cell_resolver: &CellResolver,
+) -> anyhow::Result<ConfiguredTarget> {
     let name = test_target_name(&target);
 
     let label = target.target().unconfigured();
@@ -25,15 +27,19 @@ pub fn build_configured_target_handle(
     let package = label.pkg().cell_relative_path().to_string();
     let target_name = label.name().to_string();
     let configuration = target.cfg().to_string();
+    let package_project_relative_path = cell_resolver
+        .resolve_path(label.pkg().as_cell_path())
+        .context("Failed to resolve the project relative path of package")?;
 
-    ConfiguredTarget {
+    Ok(ConfiguredTarget {
         handle: session.register(target),
         name,
         cell,
         package,
         target: target_name,
         configuration,
-    }
+        package_project_relative_path: package_project_relative_path.into(),
+    })
 }
 
 fn test_target_name(target: &ConfiguredProvidersLabel) -> String {

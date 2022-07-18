@@ -150,6 +150,7 @@ impl TryFrom<test_proto::ConfiguredTarget> for ConfiguredTarget {
             package,
             target,
             configuration,
+            package_project_relative_path,
         } = s;
 
         Ok(Self {
@@ -162,6 +163,9 @@ impl TryFrom<test_proto::ConfiguredTarget> for ConfiguredTarget {
             package,
             target,
             configuration,
+            package_project_relative_path: ForwardRelativePathBuf::try_from(
+                package_project_relative_path,
+            )?,
         })
     }
 }
@@ -177,6 +181,7 @@ impl TryInto<test_proto::ConfiguredTarget> for ConfiguredTarget {
             package: self.package,
             target: self.target,
             configuration: self.configuration,
+            package_project_relative_path: self.package_project_relative_path.as_str().to_owned(),
         })
     }
 }
@@ -781,6 +786,9 @@ mod tests {
                 package: "foo".into(),
                 target: "bar".into(),
                 configuration: "xxx".into(),
+                package_project_relative_path: ForwardRelativePathBuf::unchecked_new(
+                    "qux/foo".to_owned(),
+                ),
             },
             test_type: "some_type".to_owned(),
             command: vec![
