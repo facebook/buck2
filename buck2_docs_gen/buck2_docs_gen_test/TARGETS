@@ -1,4 +1,5 @@
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_sh_test")
+load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
 load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
@@ -14,10 +15,21 @@ rust_binary(
     ],
 )
 
+python_binary(
+    name = "verify",
+    srcs = ["verify.py"],
+    base_module = "",
+    main_module = "verify",
+)
+
 buck_sh_test(
     name = "verify-docs",
     args = [
+        "$(location :verify)",
         "$(location :buck2_docs_gen_test)",
     ],
-    test = "verify.py",
+    test = select({
+        "DEFAULT": "verify.sh",
+        "ovr_config//os:windows": "verify.bat",
+    }),
 )
