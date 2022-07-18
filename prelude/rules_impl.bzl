@@ -61,7 +61,7 @@ load("@fbcode//buck2/prelude/zip_file:zip_file.bzl", _zip_file_extra_attributes 
 
 # General
 load(":alias.bzl", "alias_impl", "configured_alias_impl", "versioned_alias_impl")
-load(":attributes.bzl", "IncludeType", "Linkage", "attributes")
+load(":attributes.bzl", "IncludeType", "Linkage", "Platform", "attributes")
 load(":command_alias.bzl", "command_alias_impl")
 load(":export_file.bzl", "export_file_impl")
 load(":filegroup.bzl", "filegroup_impl")
@@ -228,12 +228,20 @@ def _python_toolchain():
 def _python_bootstrap_toolchain():
     return _toolchain("python_bootstrap", [PythonBootstrapToolchainInfo])
 
+def _target_os_type() -> "attribute":
+    return attrs.enum(Platform, default = select({
+        "DEFAULT": "linux",
+        "ovr_config//os:macos": "macos",
+        "ovr_config//os:windows": "windows",
+    }))
+
 extra_attributes = struct(
     export_file = {
         "src": attrs.source(allow_directory = True),
     },
     genrule = {
         "srcs": attrs.named_set(attrs.source(allow_directory = True), sorted = False, default = []),
+        "_target_os_type": _target_os_type(),
     },
     # The 'actual' attribute of configured_alias is a configured_label, which is
     # currently unimplemented. Map it to dep so we can simply forward the providers.
@@ -265,6 +273,7 @@ extra_attributes = struct(
     #c++
     cxx_genrule = {
         "_cxx_toolchain": _cxx_toolchain(),
+        "_target_os_type": _target_os_type(),
     },
     cxx_library = {
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
