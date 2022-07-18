@@ -5,8 +5,6 @@ load(
     "value_or",
 )
 
-native = __internal__
-
 # Represents an archive (.a file)
 Archive = record(
     artifact = field("artifact"),
@@ -122,10 +120,10 @@ def append_linkable_args(args: "cmd_args", linkable: [ArchiveLinkable.type, Shar
         # When using thin archives, object files are implicitly used as inputs
         # to the link, so make sure track them as inputs so that they're
         # materialized/tracked properly.
-        args.add(native.cmd_args().hidden(linkable.archive.external_objects))
+        args.add(cmd_args().hidden(linkable.archive.external_objects))
     elif linkable._type == LinkableType("shared"):
         if linkable.link_without_soname:
-            args.add(native.cmd_args(linkable.lib, format = "-L{}").parent())
+            args.add(cmd_args(linkable.lib, format = "-L{}").parent())
             args.add("-l" + linkable.lib.basename.removeprefix("lib").removesuffix(linkable.lib.extension))
         else:
             args.add(linkable.lib)
@@ -151,7 +149,7 @@ def append_linkable_args(args: "cmd_args", linkable: [ArchiveLinkable.type, Shar
         fail("unreachable")
 
 def link_info_to_args(value: LinkInfo.type, is_shared: [bool.type, None] = None) -> "cmd_args":
-    args = native.cmd_args(value.pre_flags)
+    args = cmd_args(value.pre_flags)
     for linkable in value.linkables:
         # only use link_groups archive semantics when it's a shared link
         append_linkable_args(args, linkable, value.use_link_groups and value_or(is_shared, False))
@@ -390,7 +388,7 @@ def unpack_link_args(args: LinkArgs.type, is_shared: [bool.type, None] = None) -
             return tset.project_as_args("default")
 
     if args.infos != None:
-        return native.cmd_args([link_info_to_args(info, is_shared) for info in args.infos])
+        return cmd_args([link_info_to_args(info, is_shared) for info in args.infos])
 
     if args.flags != None:
         return args.flags
