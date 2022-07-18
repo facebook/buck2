@@ -253,7 +253,14 @@ def process_genrule(
     else:
         fail("One of `out` or `outs` should be set. Got `%s`" % repr(ctx.attrs))
 
-    cmd = ctx.attrs.bash if ctx.attrs.bash != None else ctx.attrs.cmd
+    # Some custom rules use `process_genrule` but doesn't set this attrbiute.
+    is_windows = hasattr(ctx.attrs, "_target_os_type") and ctx.attrs._target_os_type == "windows"
+    if is_windows:
+        path_sep = "\\"
+        cmd = ctx.attrs.cmd_exe if ctx.attrs.cmd_exe != None else ctx.attrs.cmd
+    else:
+        path_sep = "/"
+        cmd = ctx.attrs.bash if ctx.attrs.bash != None else ctx.attrs.cmd
 
     if _ignore_artifacts(ctx):
         cmd = cmd_args(cmd).ignore_artifacts()
@@ -277,12 +284,12 @@ def process_genrule(
     # Setup environment variables.
     srcs = cmd_args()
     for symlink in symlinks:
-        srcs.add(cmd_args(srcs_artifact, format = "./{}/" + symlink))
+        srcs.add(cmd_args(srcs_artifact, format = path_sep.join([".", "{}", symlink])))
     env_vars = {
         "ASAN_OPTIONS": cmd_args("detect_leaks=0,detect_odr_violation=0"),
         "GEN_DIR": cmd_args("GEN_DIR_DEPRECATED"),  # ctx.relpath(ctx.output_root_dir(), srcs_path)
-        "OUT": cmd_args(srcs_artifact, format = "./{}/../out/" + out_env),
-        "SRCDIR": cmd_args(srcs_artifact, format = "./{}"),
+        "OUT": cmd_args(srcs_artifact, format = path_sep.join([".", "{}", "..", "out", out_env])),
+        "SRCDIR": cmd_args(srcs_artifact, format = path_sep.join([".", "{}"])),
         "SRCS": srcs,
     }
 
@@ -293,10 +300,17 @@ def process_genrule(
         env_vars[key] = value
 
     # Create required directories.
-    script = [
-        cmd_args(srcs_artifact, format = "mkdir -p ./{}/../out"),
-        cmd_args("export TMP=${TMPDIR:-/tmp}"),
-    ]
+    if is_windows:
+        script = [
+            cmd_args(srcs_artifact, format = "if not exist .\\{}\\..\\out md .\\{}\\..\\out"),
+        ]
+        script_extension = "bat"
+    else:
+        script = [
+            cmd_args(srcs_artifact, format = "mkdir -p ./{}/../out"),
+            cmd_args("export TMP=${TMPDIR:-/tmp}"),
+        ]
+        script_extension = "sh"
 
     # Actually define the operation, relative to where we changed to
     script.append(cmd_args(cmd))
@@ -314,19 +328,27 @@ def process_genrule(
         # Relative all paths in the env to the sandbox dir.
         env_vars = {key: val.relative_to(srcs_artifact) for key, val in env_vars.items()}
 
+    if is_windows:
+        # Should be in the beginning.
+        script = [cmd_args("@echo off")] + script
+
     sh_script, macro_files = ctx.actions.write(
-        "sh/genrule.sh" if not identifier else "sh/{}-genrule.sh".format(identifier),
+        "sh/genrule.{}".format(script_extension) if not identifier else "sh/{}-genrule.{}".format(identifier, script_extension),
         script,
         is_executable = True,
         allow_args = True,
     )
+    if is_windows:
+        script_args = ["cmd.exe", "/c", sh_script]
+    else:
+        script_args = ["/bin/bash", "-e", sh_script]
 
     category = "genrule"
     if ctx.attrs.type != None:
         # As of 09/2021, all genrule types were legal snake case if their dashes and periods were replaced with underscores.
         category += "_" + ctx.attrs.type.replace("-", "_").replace(".", "_")
     ctx.actions.run(
-        cmd_args(["/bin/bash", "-e", sh_script]).hidden([cmd, srcs_artifact, macro_files] + [a.as_output() for a in all_outputs]),
+        cmd_args(script_args).hidden([cmd, srcs_artifact, macro_files] + [a.as_output() for a in all_outputs]),
         env = env_vars,
         local_only = _requires_local(ctx),
         category = category,
