@@ -122,6 +122,9 @@ _LOCAL_LABELS = [
 
     # Uses clang format which is not in RE
     "uses_clang_format",
+
+    # Perform makes compilation in situ.
+    "uses_make",
 ]
 
 # Currently, some rules require running from the project root, so provide an
