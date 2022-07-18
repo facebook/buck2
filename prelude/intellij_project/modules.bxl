@@ -5,7 +5,7 @@ load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 IjTargetNode = record(
     deps = ["label"],
     label = "configured_target_label",
-    name = str.type,
+    directory_path = str.type,
     srcs = ["artifact"],
 )
 
@@ -58,7 +58,7 @@ def _get_android_library_target_node(node: "target_node", providers: "provider_c
     return IjTargetNode(
         deps = [compiling_dep.owner for compiling_dep in java_library_intellij_info.compiling_classpath],
         label = node.label,
-        name = _get_name(node.label),
+        directory_path = node.label.package,
         srcs = node.attrs().srcs.value(),
     )
 
@@ -68,30 +68,30 @@ def _get_java_library_target_node(node: "target_node", providers: "provider_coll
     return IjTargetNode(
         deps = [compiling_dep.owner for compiling_dep in java_library_intellij_info.compiling_classpath],
         label = node.label,
-        name = _get_name(node.label),
+        directory_path = node.label.package,
         srcs = node.attrs().srcs.value(),
     )
 
-def _get_name(module_label: "configured_target_label") -> str.type:
-    return module_label.package.replace("/", "_")
+def _get_name(directory_path: str.type) -> str.type:
+    return directory_path.replace("/", "_")
 
 def _aggregate_ij_target_nodes(ij_target_nodes: [IjTargetNode.type]) -> [AggregatedIjTargetNode.type]:
-    name_to_module_map = {}
+    directory_path_to_module_map = {}
     for ij_target_node in ij_target_nodes:
-        if ij_target_node.name in name_to_module_map:
-            aggregated_ij_target_node = name_to_module_map[ij_target_node.name]
+        if ij_target_node.directory_path in directory_path_to_module_map:
+            aggregated_ij_target_node = directory_path_to_module_map[ij_target_node.directory_path]
             aggregated_ij_target_node.deps.extend(ij_target_node.deps)
             aggregated_ij_target_node.labels.append(ij_target_node.label)
             aggregated_ij_target_node.srcs.extend(ij_target_node.srcs)
         else:
-            name_to_module_map[ij_target_node.name] = AggregatedIjTargetNode(
+            directory_path_to_module_map[ij_target_node.directory_path] = AggregatedIjTargetNode(
                 deps = list(ij_target_node.deps),
                 labels = [ij_target_node.label],
-                name = ij_target_node.name,
+                name = _get_name(ij_target_node.directory_path),
                 srcs = list(ij_target_node.srcs),
             )
 
-    return name_to_module_map.values()
+    return directory_path_to_module_map.values()
 
 def get_module_file_name(ij_target_node: AggregatedIjTargetNode.type) -> str.type:
     return "modules/{}.iml".format(ij_target_node.name)
