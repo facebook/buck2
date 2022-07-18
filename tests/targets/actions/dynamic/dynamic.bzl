@@ -69,26 +69,26 @@ def _nested(ctx: "context") -> ["provider"]:
 def _command(ctx: "context") -> ["provider"]:
     hello = ctx.actions.declare_output("hello.txt")
     write_hello = ctx.actions.write(
-        "hello.sh",
+        "hello.py",
         [
-            "#!/usr/bin/env bash",
-            cmd_args(["echo Hello >", hello], delimiter = " "),
+            cmd_args(["with open(r'", hello, "', 'w') as f:"], delimiter = ""),
+            "  f.write('Hello\\n')",
         ],
-        is_executable = True,
     )
-    ctx.actions.run(cmd_args(write_hello).hidden(hello.as_output()), category = "test_category")
+    ctx.actions.run(cmd_args(["python3", write_hello]).hidden(hello.as_output()), category = "test_category")
 
     world = ctx.actions.declare_output("world")
     universe = ctx.actions.declare_output("universe")
 
     script = ctx.actions.write(
-        "script.sh",
+        "script.py",
         [
-            "#!/usr/bin/env bash",
-            cmd_args(["echo $1 world >", world], delimiter = " "),
-            cmd_args(["echo $1 universe >", universe], delimiter = " "),
+            "import sys",
+            "with open(sys.argv[2], 'w') as f:",
+            "  f.write(sys.argv[1] + ' world\\n')",
+            "with open(sys.argv[3], 'w') as f:",
+            "  f.write(sys.argv[1] + ' universe\\n')",
         ],
-        is_executable = True,
     )
 
     # @lint-ignore BUCKRESTRICTEDSYNTAX
@@ -96,8 +96,7 @@ def _command(ctx: "context") -> ["provider"]:
         src = ctx.artifacts[hello].read_string().strip()
         assert_eq(src, "Hello")
         ctx.actions.run(
-            cmd_args([script, src])
-                .hidden(ctx.outputs[world].as_output(), ctx.outputs[universe].as_output()),
+            cmd_args(["python3", script, src, ctx.outputs[world].as_output(), ctx.outputs[universe].as_output()]),
             category = "dynamic_test",
         )
 
@@ -168,16 +167,21 @@ def _assert_output_value_impl(ctx: "context") -> ["provider"]:
     value = ctx.actions.write("value", ctx.attrs.value)
     output = ctx.actions.declare_output("output")
     run = ctx.actions.write(
-        "run.sh",
+        "run.py",
         [
-            "#!/bin/sh",
-            "set -e",
-            cmd_args(["diff", value, produced], delimiter = " "),
-            "echo Success > \\",
-            output,
+            "import sys",
+            "with open(sys.argv[1]) as f:",
+            "  value_content = f.read()",
+            "with open(sys.argv[2]) as f:",
+            "  produced_content = f.read()",
+            "if value_content != produced_content:",
+            "  print('Content does not match! Expected:', value_content, 'Got:', produced_content)",
+            "  sys.exit(1)",
+            "with open(sys.argv[3], 'w') as f:",
+            "  f.write('Success\\n')",
         ],
     )
-    ctx.actions.run(cmd_args(run).hidden([produced, value, output.as_output()]), category = "test_category")
+    ctx.actions.run(cmd_args(["python3", run, value, produced, output.as_output()]), category = "test_category")
     return [DefaultInfo(default_outputs = [output])]
 
 assert_output_value = rule(impl = _assert_output_value_impl, attrs = {
