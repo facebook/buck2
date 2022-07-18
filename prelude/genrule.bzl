@@ -258,9 +258,13 @@ def process_genrule(
     if is_windows:
         path_sep = "\\"
         cmd = ctx.attrs.cmd_exe if ctx.attrs.cmd_exe != None else ctx.attrs.cmd
+        if cmd == None:
+            fail("One of `cmd` or `cmd_exe` should be set.")
     else:
         path_sep = "/"
         cmd = ctx.attrs.bash if ctx.attrs.bash != None else ctx.attrs.cmd
+        if cmd == None:
+            fail("One of `cmd` or `bash` should be set.")
 
     if _ignore_artifacts(ctx):
         cmd = cmd_args(cmd).ignore_artifacts()
