@@ -1,8 +1,7 @@
-prelude = native
+load(":rules.bzl", "proto_genrule")
 
-prelude.genrule(
+proto_genrule(
     name = "simple",
-    srcs = [],
     out = "output.txt",
-    bash = "head -c 50 /dev/urandom > $OUT",
+    python = "import os; out = open(os.getenv('OUT'), 'wb'); out.write(os.urandom(50))",
 )

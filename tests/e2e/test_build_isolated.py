@@ -72,33 +72,33 @@ async def test_build_report_format(buck: Buck) -> None:
         rule1 = results["root//:rule1"]
         assert rule1["success"] == "SUCCESS"
         assert _replace_hashes(rule1["outputs"]["DEFAULT"]) == [
-            "buck-out/v2/gen/root/<HASH>/__rule1__/out/out.txt"
+            "buck-out/v2/gen/root/<HASH>/__rule1__/out.txt"
         ]
         assert rule1["other_outputs"] == {}
         rule1_configured = rule1["configured"]["<unspecified>"]
         assert rule1_configured["success"] == "SUCCESS"
         assert _replace_hashes(rule1_configured["outputs"]["DEFAULT"]) == [
-            "buck-out/v2/gen/root/<HASH>/__rule1__/out/out.txt"
+            "buck-out/v2/gen/root/<HASH>/__rule1__/out.txt"
         ]
         assert rule1_configured["other_outputs"] == {}
 
         rule2 = results["root//:rule2"]
         assert rule2["success"] == "SUCCESS"
         assert _replace_hashes(rule2["outputs"]["DEFAULT"]) == [
-            "buck-out/v2/gen/root/<HASH>/__rule2__/out/out1.txt"
+            "buck-out/v2/gen/root/<HASH>/__rule2__/out1.txt"
         ]
         assert _replace_hashes(rule2["outputs"]["out1"]) == [
-            "buck-out/v2/gen/root/<HASH>/__rule2__/out/out1.txt"
+            "buck-out/v2/gen/root/<HASH>/__rule2__/out1.txt"
         ]
         assert rule2["other_outputs"] == {}
 
         rule2_configured = rule2["configured"]["<unspecified>"]
         assert rule2_configured["success"] == "SUCCESS"
         assert _replace_hashes(rule2_configured["outputs"]["DEFAULT"]) == [
-            "buck-out/v2/gen/root/<HASH>/__rule2__/out/out1.txt"
+            "buck-out/v2/gen/root/<HASH>/__rule2__/out1.txt"
         ]
         assert _replace_hashes(rule2_configured["outputs"]["out1"]) == [
-            "buck-out/v2/gen/root/<HASH>/__rule2__/out/out1.txt"
+            "buck-out/v2/gen/root/<HASH>/__rule2__/out1.txt"
         ]
         assert rule2_configured["other_outputs"] == {}
 
@@ -127,7 +127,7 @@ async def test_build_report_format_skip_unconfigured(buck: Buck) -> None:
         rule1_configured = rule1["configured"]["<unspecified>"]
         assert rule1_configured["success"] == "SUCCESS"
         assert _replace_hashes(rule1_configured["outputs"]["DEFAULT"]) == [
-            "buck-out/v2/gen/root/<HASH>/__rule1__/out/out.txt"
+            "buck-out/v2/gen/root/<HASH>/__rule1__/out.txt"
         ]
         assert rule1_configured["other_outputs"] == {}
 

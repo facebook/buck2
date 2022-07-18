@@ -1,4 +1,4 @@
-load(":dynamic.bzl", "dynamic_test", "assert_output_value")
+load(":dynamic.bzl", "dynamic_test", "assert_output_value", "proto_genrule")
 
 dynamic_test(name = "basic")
 dynamic_test(name = "two")
@@ -43,8 +43,8 @@ assert_output_value(
     value = "42",
 )
 
-native.genrule(
+proto_genrule(
     name = "nested_check",
-    cmd = "cat $(location :nested)/nested_output | grep 'output1_test\noutput2_test' && touch $OUT",
+    python = "import os; fp = open(r'$(location :nested)/nested_output'); 'output1_test\\noutput2_test' in fp.read() and open(os.getenv('OUT'), 'w')",
     out = "out.txt",
 )
