@@ -16,7 +16,6 @@
  */
 
 use std::collections::HashMap;
-use std::mem;
 use std::sync::Arc;
 
 use derive_more::Display;
@@ -86,8 +85,8 @@ pub struct GlobalsBuilder {
     heap: FrozenHeap,
     // Normal top-level variables, e.g. True/hash
     variables: SymbolMap<FrozenValue>,
-    // Set to Some when we are in a struct builder, otherwise None
-    struct_fields: Option<SmallMap<FrozenStringValue, FrozenValue>>,
+    // The list of struct fields, pushed to the end
+    struct_fields: Vec<SmallMap<FrozenStringValue, FrozenValue>>,
     // The raw docstring for this module
     docstring: Option<String>,
 }
@@ -233,7 +232,7 @@ impl GlobalsBuilder {
         Self {
             heap: FrozenHeap::new(),
             variables: SymbolMap::new(),
-            struct_fields: None,
+            struct_fields: Vec::new(),
             docstring: None,
         }
     }
@@ -262,15 +261,10 @@ impl GlobalsBuilder {
 
     /// Add a nested struct to the builder. If `f` adds the definition `foo`,
     /// it will end up on a struct `name`, accessible as `name.foo`.
-    /// This function cannot be called recursively from inside `f`.
     pub fn struct_(&mut self, name: &str, f: impl Fn(&mut GlobalsBuilder)) {
-        assert!(
-            self.struct_fields.is_none(),
-            "Can't recursively nest GlobalsBuilder::struct_"
-        );
-        self.struct_fields = Some(SmallMap::new());
+        self.struct_fields.push(SmallMap::new());
         f(self);
-        let fields = mem::take(&mut self.struct_fields).unwrap();
+        let fields = self.struct_fields.pop().unwrap();
         self.set(name, FrozenStruct::new(fields));
     }
 
@@ -304,7 +298,7 @@ impl GlobalsBuilder {
     /// Set a value in the [`GlobalsBuilder`].
     pub fn set<'v, V: AllocFrozenValue>(&'v mut self, name: &str, value: V) {
         let value = value.alloc_frozen_value(&self.heap);
-        match &mut self.struct_fields {
+        match self.struct_fields.last_mut() {
             None => self.variables.insert(name, value),
             Some(fields) => {
                 let name = self.heap.alloc_str(name);
