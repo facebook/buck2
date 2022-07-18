@@ -15,7 +15,11 @@ async def test_bxl_label_functions(buck: Buck) -> None:
     assert result.stdout.splitlines() == [
         "root//bin:the_binary (root//platforms:platform1)",
         "root//bin:the_binary[sub] (root//platforms:platform1)",
+        # configured_target() called for below, should only return configured target
+        "root//bin:the_binary (root//platforms:platform1)",
         "root//bin:the_binary[sub1][sub2] (root//platforms:platform1)",
+        # configured_target() called for below, should only return configured target
+        "root//bin:the_binary (root//platforms:platform1)",
         "root//bin:the_binary",
         "root//bin:the_binary[sub]",
         "root//bin:the_binary[sub1][sub2]",

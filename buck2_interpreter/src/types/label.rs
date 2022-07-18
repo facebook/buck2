@@ -34,6 +34,7 @@ use starlark::values::ValueLike;
 
 use crate::types::cell_root::CellRoot;
 use crate::types::label_relative_path::LabelRelativePath;
+use crate::types::target_label::StarlarkConfiguredTargetLabel;
 use crate::types::target_label::StarlarkTargetLabel;
 
 impl<V> LabelGen<V> {
@@ -159,6 +160,13 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
     fn raw_target(this: &Label) -> anyhow::Result<StarlarkTargetLabel> {
         Ok(StarlarkTargetLabel::new(
             (*this.label.target().unconfigured()).dupe(),
+        ))
+    }
+
+    /// Returns the underlying configured target label, dropping the sub target
+    fn configured_target(this: &Label) -> anyhow::Result<StarlarkConfiguredTargetLabel> {
+        Ok(StarlarkConfiguredTargetLabel::new(
+            (*this.label.target()).dupe(),
         ))
     }
 }
