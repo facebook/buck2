@@ -17,7 +17,7 @@ use buck2_common::file_ops::FileOps;
 use buck2_common::file_ops::PathMetadata;
 use buck2_common::file_ops::PathMetadataOrRedirection;
 use buck2_common::result::SharedResult;
-use buck2_core::buck_path::BuckPath;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::directory::DirectoryData;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -83,10 +83,9 @@ impl ArtifactGroupCalculation for DiceComputations {
 #[async_recursion]
 async fn path_artifact_value(
     file_ops: &dyn FileOps,
-    path: &BuckPath,
+    cell_path: &CellPath,
 ) -> anyhow::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
-    let cell_path = path.to_cell_path();
-    match file_ops.read_path_metadata(&cell_path).await? {
+    match file_ops.read_path_metadata(cell_path).await? {
         PathMetadataOrRedirection::PathMetadata(meta) => match meta {
             PathMetadata::ExternalSymlink(symlink) => Ok(ActionDirectoryEntry::Leaf(
                 ActionDirectoryMember::ExternalSymlink(symlink),
@@ -95,14 +94,12 @@ async fn path_artifact_value(
                 ActionDirectoryMember::File(metadata),
             )),
             PathMetadata::Directory => {
-                let files = file_ops.read_dir(&cell_path).await?;
+                let files = file_ops.read_dir(cell_path).await?;
                 let mut entries = Vec::with_capacity(files.len());
                 for x in &*files {
-                    let path_child = BuckPath::new(
-                        path.package().dupe(),
-                        path.path().join_unnormalized(&x.file_name),
-                    );
-                    let value = path_artifact_value(file_ops, &path_child).await?;
+                    let value =
+                        path_artifact_value(file_ops, &cell_path.join_unnormalized(&x.file_name))
+                            .await?;
                     entries.push((x.file_name.clone(), value));
                 }
                 let d: DirectoryData<_, _, _> = DirectoryData::new(entries.into_iter().collect());
@@ -128,11 +125,12 @@ async fn ensure_base_artifact(
                 )
             }
         }
-        BaseArtifactKind::Source(ref source) => {
-            Ok(path_artifact_value(&dice.file_ops(), source.get_path())
-                .await?
-                .into())
-        }
+        BaseArtifactKind::Source(ref source) => Ok(path_artifact_value(
+            &dice.file_ops(),
+            &source.get_path().to_cell_path(),
+        )
+        .await?
+        .into()),
     }
 }
 
@@ -290,6 +288,7 @@ mod tests {
     use buck2_common::file_ops::FileMetadata;
     use buck2_common::file_ops::TrackedFileDigest;
     use buck2_common::result::ToSharedResultExt;
+    use buck2_core::buck_path::BuckPath;
     use buck2_core::cells::cell_path::CellPath;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::paths::CellRelativePathBuf;
