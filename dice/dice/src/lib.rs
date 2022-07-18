@@ -276,11 +276,11 @@ use crate::projection::ProjectionKeyProperties;
 pub struct DiceError(Arc<DiceErrorImpl>);
 
 impl DiceError {
-    pub fn cycles(
+    pub fn cycle(
         trigger: Arc<dyn RequestedKey>,
         cyclic_keys: IndexSet<Arc<dyn RequestedKey>>,
     ) -> Self {
-        DiceError(Arc::new(DiceErrorImpl::Cycles {
+        DiceError(Arc::new(DiceErrorImpl::Cycle {
             trigger,
             cyclic_keys,
         }))
@@ -290,7 +290,7 @@ impl DiceError {
 #[derive(Debug, Error)]
 enum DiceErrorImpl {
     #[error("Cyclic computation detect when computing key `{}`, which forms a cycle in computation chain: `{}`", trigger, cyclic_keys.iter().join(","))]
-    Cycles {
+    Cycle {
         trigger: Arc<dyn RequestedKey>,
         cyclic_keys: IndexSet<Arc<dyn RequestedKey>>,
     },

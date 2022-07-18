@@ -111,7 +111,7 @@ impl CycleDetector {
         // TODO(bobyf)
         let mut stack = self.stack.clone();
         if !stack.insert(Arc::new(key.clone())) {
-            Err(DiceError::cycles(
+            Err(DiceError::cycle(
                 Arc::new(key.clone()),
                 stack.iter().duped().collect(),
             ))
@@ -163,7 +163,7 @@ mod tests {
                 panic!("should have cycle error")
             }
             Err(e) => match &*e.0 {
-                DiceErrorImpl::Cycles {
+                DiceErrorImpl::Cycle {
                     cyclic_keys,
                     trigger,
                 } => {

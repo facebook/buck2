@@ -503,7 +503,7 @@ mod tests {
                 panic!("should have cycle error")
             }
             Err(e) => match &*e.0 {
-                DiceErrorImpl::Cycles {
+                DiceErrorImpl::Cycle {
                     trigger,
                     cyclic_keys,
                 } => {
