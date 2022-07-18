@@ -1,5 +1,5 @@
 load("@fbcode//buck2/prelude/intellij_project:libraries.bxl", "get_libraries", "get_project_library_contents", "get_project_library_file_name")
-load("@fbcode//buck2/prelude/intellij_project:modules.bxl", "IjModule", "get_module_file_contents", "get_module_file_name", "get_module_ij_target_nodes")
+load("@fbcode//buck2/prelude/intellij_project:modules.bxl", "IjModule", "get_aggregated_ij_module_target_nodes", "get_module_file_contents", "get_module_file_name")
 
 def _impl(ctx):
     all_nodes = ctx.cquery().deps(ctx.cli_args.targets, -1)
@@ -8,19 +8,13 @@ def _impl(ctx):
     final_output_dir_dict = {}
     action_factory = ctx.bxl_actions.action_factory()
 
-    module_target_nodes = get_module_ij_target_nodes(all_nodes, all_analysis)
+    module_target_nodes = get_aggregated_ij_module_target_nodes(all_nodes, all_analysis)
     libraries = get_libraries(all_nodes)
     project_libraries, ij_modules = _sort_libraries_and_modules(module_target_nodes, libraries)
 
-    file_names = []
     for ij_module in ij_modules:
         module = ij_module.ij_target_node
         file_name = get_module_file_name(module)
-
-        # TODO(T124403530) account for multiple copies of the same lib (with different configs)
-        if file_name in file_names:
-            continue
-        file_names.append(file_name)
         module_output = _create_output(action_factory, file_name, final_output_dir_dict)
         action_factory.write(module_output, get_module_file_contents(ij_module))
 
@@ -55,7 +49,7 @@ def _create_output(
 
 PROJECT_LIBRARY_THRESHOLD = 1
 
-def _sort_libraries_and_modules(ij_target_nodes: ["IjTargetNode"], libraries: ["IjLibrary"]) -> (["IjLibrary"], [IjModule.type]):
+def _sort_libraries_and_modules(ij_target_nodes: ["AggregatedIjTargetNode"], libraries: ["IjLibrary"]) -> (["IjLibrary"], [IjModule.type]):
     # TODO(bobyf) better way to compare "label" and "configured_target_label"?
     libraries_by_stringified_label = {str(ij_library.label): ij_library for ij_library in libraries}
 
@@ -78,7 +72,12 @@ def _sort_libraries_and_modules(ij_target_nodes: ["IjTargetNode"], libraries: ["
         elif count > 0:
             module_libraries[stringified_library_label] = libraries_by_stringified_label[stringified_library_label]
 
-    ij_target_nodes_by_stringified_label = {str(ij_module.label): ij_module for ij_module in ij_target_nodes}
+    ij_target_nodes_by_stringified_label = {}
+    for ij_target_node in ij_target_nodes:
+        for label in ij_target_node.labels:
+            stringified_label = str(label)
+            ij_target_nodes_by_stringified_label[stringified_label] = ij_target_node
+
     ij_modules = []
     for ij_target_node in ij_target_nodes:
         module_dependencies = []
@@ -96,7 +95,7 @@ def _sort_libraries_and_modules(ij_target_nodes: ["IjTargetNode"], libraries: ["
         ij_modules.append(
             IjModule(
                 ij_target_node = ij_target_node,
-                module_dependencies = module_dependencies,
+                module_dependencies = dedupe(module_dependencies),
                 module_libraries = module_libs,
                 project_libraries = project_libs,
             ),

@@ -9,9 +9,16 @@ IjTargetNode = record(
     srcs = ["artifact"],
 )
 
+AggregatedIjTargetNode = record(
+    deps = ["label"],
+    labels = ["configured_target_label"],
+    name = str.type,
+    srcs = ["artifact"],
+)
+
 IjModule = record(
-    ij_target_node = IjTargetNode.type,
-    module_dependencies = [IjTargetNode.type],
+    ij_target_node = AggregatedIjTargetNode.type,
+    module_dependencies = [AggregatedIjTargetNode.type],
     module_libraries = ["IjLibrary"],
     project_libraries = ["IjLibrary"],
 )
@@ -23,7 +30,7 @@ _MODULE_RULE_TYPES = [
     _JAVA_LIBRARY_RULE_TYPE,
 ]
 
-def get_module_ij_target_nodes(all_nodes: "target_set", analysis: dict.type) -> [IjTargetNode.type]:
+def get_aggregated_ij_module_target_nodes(all_nodes: "target_set", analysis: dict.type) -> [AggregatedIjTargetNode.type]:
     ij_target_nodes = []
     for node in all_nodes:
         # TODO(T124404704) find a better way to exclude exec_deps()
@@ -43,7 +50,7 @@ def get_module_ij_target_nodes(all_nodes: "target_set", analysis: dict.type) -> 
         else:
             fail("Should add if branch above for rule type: {}".format(rule_type))
 
-    return ij_target_nodes
+    return _aggregate_ij_target_nodes(ij_target_nodes)
 
 def _get_android_library_target_node(node: "target_node", providers: "provider_collection") -> IjTargetNode.type:
     expect(node.rule_type == _ANDROID_LIBRARY_RULE_TYPE, "Rule type must be {} but was {}".format(_JAVA_LIBRARY_RULE_TYPE, node.rule_type))
@@ -68,7 +75,25 @@ def _get_java_library_target_node(node: "target_node", providers: "provider_coll
 def _get_name(module_label: "configured_target_label") -> str.type:
     return module_label.package.replace("/", "_")
 
-def get_module_file_name(ij_target_node: IjTargetNode.type) -> str.type:
+def _aggregate_ij_target_nodes(ij_target_nodes: [IjTargetNode.type]) -> [AggregatedIjTargetNode.type]:
+    name_to_module_map = {}
+    for ij_target_node in ij_target_nodes:
+        if ij_target_node.name in name_to_module_map:
+            aggregated_ij_target_node = name_to_module_map[ij_target_node.name]
+            aggregated_ij_target_node.deps.extend(ij_target_node.deps)
+            aggregated_ij_target_node.labels.append(ij_target_node.label)
+            aggregated_ij_target_node.srcs.extend(ij_target_node.srcs)
+        else:
+            name_to_module_map[ij_target_node.name] = AggregatedIjTargetNode(
+                deps = list(ij_target_node.deps),
+                labels = [ij_target_node.label],
+                name = ij_target_node.name,
+                srcs = list(ij_target_node.srcs),
+            )
+
+    return name_to_module_map.values()
+
+def get_module_file_name(ij_target_node: AggregatedIjTargetNode.type) -> str.type:
     return "modules/{}.iml".format(ij_target_node.name)
 
 # TODO(T124403530) Fill this in correctly
@@ -88,14 +113,14 @@ def get_module_file_contents(ij_module: IjModule.type) -> str.type:
         project_libraries = _get_project_libraries_xml(ij_module.project_libraries, base_indentation = "    "),
     )
 
-def _get_module_dependencies_xml(module_dependencies: [IjTargetNode.type], base_indentation: str.type) -> str.type:
+def _get_module_dependencies_xml(module_dependencies: [AggregatedIjTargetNode.type], base_indentation: str.type) -> str.type:
     xml = ""
     for module_dependency in module_dependencies:
         xml += _get_module_dependency_xml(module_dependency, base_indentation)
 
     return xml
 
-def _get_module_dependency_xml(module_dependency: IjTargetNode.type, base_indentation: str.type) -> str.type:
+def _get_module_dependency_xml(module_dependency: AggregatedIjTargetNode.type, base_indentation: str.type) -> str.type:
     return """
 {base_indentation}<orderEntry type="module" module-name="{name}" scope="COMPILE" />""".format(
         base_indentation = base_indentation,

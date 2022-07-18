@@ -88,6 +88,14 @@ async def test_generate_intellij_project(buck: Buck) -> None:
 <?xml version="1.0" encoding="UTF-8"?>
 <module type="JAVA_MODULE" version="4">
   <component name="NewModuleRootManager" inherit-compiler-output="false">
+    <orderEntry type="module-library" scope="COMPILE">
+      <library name="fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar:prebuilt_in_same_package">
+        <CLASSES>
+          <root url="jar://$PROJECT_DIR$/fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar/another_prebuilt.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+      </library>
+    </orderEntry>
     <orderEntry type="library" name="fbsource//fbandroid/buck2/tests/good/sample_intellij_project/prebuilt_jar:prebuilt" scope="COMPILE" level="project" />
   </component>
 </project>
