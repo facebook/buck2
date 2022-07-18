@@ -470,8 +470,8 @@ def build_java_library(
     _check_provided_deps(ctx.attrs.provided_deps, "provided_deps")
     _check_provided_deps(ctx.attrs.exported_provided_deps, "exported_provided_deps")
 
-    deps_query = getattr(ctx.attr, "deps_query", []) or []
-    provided_deps_query = getattr(ctx.attr, "provided_deps_query", []) or []
+    deps_query = getattr(ctx.attrs, "deps_query", []) or []
+    provided_deps_query = getattr(ctx.attrs, "provided_deps_query", []) or []
     first_order_deps = (
         ctx.attrs.deps +
         deps_query +

@@ -23,7 +23,7 @@ def get_module_name(ctx: "context") -> str.type:
     return ctx.attrs.module_name or ctx.attrs.header_path_prefix or ctx.attrs.name
 
 def has_apple_toolchain(ctx: "context") -> bool.type:
-    return hasattr(ctx.attr, "_apple_toolchain")
+    return hasattr(ctx.attrs, "_apple_toolchain")
 
 def get_versioned_target_triple(ctx: "context") -> str.type:
     apple_toolchain_info = ctx.attrs._apple_toolchain[AppleToolchainInfo]

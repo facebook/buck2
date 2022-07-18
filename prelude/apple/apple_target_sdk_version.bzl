@@ -20,7 +20,7 @@ def get_min_deployment_version_for_node(ctx: "context") -> [None, str.type]:
     toolchain_min_version = ctx.attrs._apple_toolchain[AppleToolchainInfo].min_version
     if toolchain_min_version == "":
         toolchain_min_version = None
-    return getattr(ctx.attr, "target_sdk_version", None) or toolchain_min_version
+    return getattr(ctx.attrs, "target_sdk_version", None) or toolchain_min_version
 
 # Returns the min deployment flag to pass to the compiler + linker
 def _get_min_deployment_version_target_flag(ctx: "context") -> [None, str.type]:

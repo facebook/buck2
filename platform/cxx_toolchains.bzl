@@ -174,7 +174,7 @@ def _config_backed_toolchain_impl(ctx):
         dep_files_processor = ctx.attrs._dep_files_processor[RunInfo],
     )
     as_info = native.cxx.AsCompilerInfo(
-        compiler = getattr(ctx.attr, "as")[RunInfo],
+        compiler = getattr(ctx.attrs, "as")[RunInfo],
         compiler_type = ctx.attrs.as_type,
         compiler_flags = cmd_args(ctx.attrs.asflags),
         preprocessor = ctx.attrs.aspp[RunInfo],

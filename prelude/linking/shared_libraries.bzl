@@ -40,7 +40,7 @@ def create_shared_libraries(
     Take a mapping of dest -> src and turn it into a mapping that will be
     passed around in providers. Used for both srcs, and resources.
     """
-    cxx_toolchain = getattr(ctx.attr, "_cxx_toolchain", None)
+    cxx_toolchain = getattr(ctx.attrs, "_cxx_toolchain", None)
     return SharedLibraries(
         libraries = {name: SharedLibrary(
             lib = shlib,
@@ -50,7 +50,7 @@ def create_shared_libraries(
                 shlib.output,
                 cmd_args(["--strip-unneeded"]),
             ) if cxx_toolchain != None else None,
-            can_be_asset = getattr(ctx.attr, "can_be_asset", False) or False,
+            can_be_asset = getattr(ctx.attrs, "can_be_asset", False) or False,
             label = ctx.label,
         ) for (name, shlib) in libraries.items()},
     )

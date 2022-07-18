@@ -6,7 +6,7 @@ load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 # `ctx` in all functions below is expected to be of `apple_bundle` or `apple_test` rule
 
 def get_product_name(ctx: "context") -> str.type:
-    return ctx.attrs.product_name if hasattr(ctx.attr, "product_name") and ctx.attrs.product_name != None else ctx.attrs.name
+    return ctx.attrs.product_name if hasattr(ctx.attrs, "product_name") and ctx.attrs.product_name != None else ctx.attrs.name
 
 def get_extension_attr(ctx: "context") -> "":
     return ctx.attrs.extension

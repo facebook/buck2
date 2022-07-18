@@ -135,7 +135,7 @@ def cxx_exported_preprocessor_info(ctx: "context", headers_layout: CxxHeadersLay
 
     # Modular libraries will provide their exported headers via a symlink tree
     # using extra_preprocessors, so should not be put into a header map.
-    if getattr(ctx.attr, "modular", False):
+    if getattr(ctx.attrs, "modular", False):
         exported_headers = []
     else:
         exported_headers = cxx_attr_exported_headers(ctx, headers_layout)
@@ -318,7 +318,7 @@ def _attr_headers_as_raw_headers_mode(ctx: "context") -> HeadersAsRawHeadersMode
         return HeadersAsRawHeadersMode("disabled")
 
     # Otherwise use the rule-specific setting, if provided (not available on prebuilt_cxx_library).
-    if getattr(ctx.attr, "headers_as_raw_headers_mode", None) != None:
+    if getattr(ctx.attrs, "headers_as_raw_headers_mode", None) != None:
         return HeadersAsRawHeadersMode(ctx.attrs.headers_as_raw_headers_mode)
 
     # Fallback to platform default.

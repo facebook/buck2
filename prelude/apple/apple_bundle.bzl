@@ -84,7 +84,7 @@ def _get_dsym_artifacts(ctx: "context") -> ["artifact"]:
 
 def get_apple_bundle_part_list(ctx: "context", params: AppleBundlePartListConstructorParams.type) -> AppleBundlePartListOutput.type:
     resource_part_list = None
-    if hasattr(ctx.attr, "_resource_bundle") and ctx.attrs._resource_bundle != None:
+    if hasattr(ctx.attrs, "_resource_bundle") and ctx.attrs._resource_bundle != None:
         resource_info = ctx.attrs._resource_bundle[AppleBundleResourceInfo]
         if resource_info != None:
             resource_part_list = resource_info.resource_output

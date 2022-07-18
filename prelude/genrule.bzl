@@ -251,7 +251,7 @@ def process_genrule(
             # We want building to force something to be built, so make sure it contains at least one artifact
             default_outputs = all_outputs
     else:
-        fail("One of `out` or `outs` should be set. Got `%s`" % repr(ctx.attr))
+        fail("One of `out` or `outs` should be set. Got `%s`" % repr(ctx.attrs))
 
     cmd = ctx.attrs.bash if ctx.attrs.bash != None else ctx.attrs.cmd
 
@@ -342,7 +342,7 @@ def process_genrule(
     )]
 
     # The cxx_genrule also forwards here, and that doesn't have .executable, so use getattr
-    if getattr(ctx.attr, "executable", False):
+    if getattr(ctx.attrs, "executable", False):
         if out_attr == None:
             providers.append(RunInfo(args = cmd_args(default_outputs)))
         else:

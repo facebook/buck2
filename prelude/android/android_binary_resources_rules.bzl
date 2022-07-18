@@ -34,20 +34,20 @@ def get_android_binary_resources_info(
         ctx.attrs._android_toolchain[AndroidToolchainInfo],
         [resource_info.aapt2_compile_output for resource_info in resource_infos if resource_info.aapt2_compile_output != None],
         android_manifest,
-        includes_vector_drawables = getattr(ctx.attr, "includes_vector_drawables", False),
-        no_auto_version = getattr(ctx.attr, "no_auto_version_resources", False),
-        no_version_transitions = getattr(ctx.attr, "no_version_transitions_resources", False),
-        no_auto_add_overlay = getattr(ctx.attr, "no_auto_add_overlay_resources", False),
+        includes_vector_drawables = getattr(ctx.attrs, "includes_vector_drawables", False),
+        no_auto_version = getattr(ctx.attrs, "no_auto_version_resources", False),
+        no_version_transitions = getattr(ctx.attrs, "no_version_transitions_resources", False),
+        no_auto_add_overlay = getattr(ctx.attrs, "no_auto_add_overlay_resources", False),
         use_proto_format = use_proto_format,
         no_resource_removal = True,
         package_id_offset = 0,
-        should_keep_raw_values = getattr(ctx.attr, "aapt2_keep_raw_values", False),
-        resource_stable_ids = getattr(ctx.attr, "resource_stable_ids", None),
+        should_keep_raw_values = getattr(ctx.attrs, "aapt2_keep_raw_values", False),
+        resource_stable_ids = getattr(ctx.attrs, "resource_stable_ids", None),
         compiled_resource_apks = [],
-        additional_aapt2_params = getattr(ctx.attr, "additional_aapt_params", []),
-        extra_filtered_resources = getattr(ctx.attr, "extra_filtered_resources", []),
-        locales = getattr(ctx.attr, "locales", []),
-        filter_locales = getattr(ctx.attr, "aapt2_locale_filtering", False),
+        additional_aapt2_params = getattr(ctx.attrs, "additional_aapt_params", []),
+        extra_filtered_resources = getattr(ctx.attrs, "extra_filtered_resources", []),
+        locales = getattr(ctx.attrs, "locales", []),
+        filter_locales = getattr(ctx.attrs, "aapt2_locale_filtering", False),
     )
 
     override_symbols_paths = [override_symbols] if override_symbols else []
@@ -58,19 +58,19 @@ def get_android_binary_resources_info(
         ctx.attrs._java_toolchain[JavaToolchainInfo],
         resources,
         get_effective_banned_duplicate_resource_types(
-            getattr(ctx.attr, "duplicate_resource_behavior", "allow_by_default"),
-            getattr(ctx.attr, "allowed_duplicate_resource_types", []),
-            getattr(ctx.attr, "banned_duplicate_resource_types", []),
+            getattr(ctx.attrs, "duplicate_resource_behavior", "allow_by_default"),
+            getattr(ctx.attrs, "allowed_duplicate_resource_types", []),
+            getattr(ctx.attrs, "banned_duplicate_resource_types", []),
         ),
         [aapt2_link_info.r_dot_txt],
         override_symbols_paths,
-        getattr(ctx.attr, "duplicate_resource_whitelist", None),
-        getattr(ctx.attr, "resource_union_package", None),
+        getattr(ctx.attrs, "duplicate_resource_whitelist", None),
+        getattr(ctx.attrs, "resource_union_package", None),
         referenced_resources_lists,
     )
     string_source_map = _maybe_generate_string_source_map(
         ctx.actions,
-        getattr(ctx.attr, "build_string_source_map", False),
+        getattr(ctx.attrs, "build_string_source_map", False),
         resources,
         android_toolchain,
     )
@@ -99,14 +99,14 @@ def _maybe_filter_resources(
         ctx: "context",
         resources: [AndroidResourceInfo.type],
         android_toolchain: AndroidToolchainInfo.type) -> ([AndroidResourceInfo.type], ["artifact", None], ["artifact", None], ["artifact"]):
-    resources_filter_strings = getattr(ctx.attr, "resource_filter", [])
+    resources_filter_strings = getattr(ctx.attrs, "resource_filter", [])
     resources_filter = _get_resources_filter(resources_filter_strings)
-    resource_compression_mode = getattr(ctx.attr, "resource_compression", "disabled")
+    resource_compression_mode = getattr(ctx.attrs, "resource_compression", "disabled")
     is_store_strings_as_assets = _is_store_strings_as_assets(resource_compression_mode)
-    locales = getattr(ctx.attr, "locales", None)
-    use_aapt2_locale_filtering = getattr(ctx.attr, "aapt2_locale_filtering", False)
+    locales = getattr(ctx.attrs, "locales", None)
+    use_aapt2_locale_filtering = getattr(ctx.attrs, "aapt2_locale_filtering", False)
     needs_resource_filtering_for_locales = locales != None and len(locales) > 0 and not use_aapt2_locale_filtering
-    post_filter_resources_cmd = getattr(ctx.attr, "post_filter_resources_cmd", None)
+    post_filter_resources_cmd = getattr(ctx.attrs, "post_filter_resources_cmd", None)
 
     needs_resource_filtering = (
         resources_filter != None or
@@ -120,7 +120,7 @@ def _maybe_filter_resources(
 
     res_info_to_out_res_dir = {}
     res_infos_with_no_res = []
-    skip_crunch_pngs = getattr(ctx.attr, "skip_crunch_pngs", None) or False
+    skip_crunch_pngs = getattr(ctx.attrs, "skip_crunch_pngs", None) or False
     for i, resource in enumerate(resources):
         if resource.res == None:
             res_infos_with_no_res.append(resource)
@@ -159,7 +159,7 @@ def _maybe_filter_resources(
             all_strings_files_list.as_output(),
         ])
 
-        packaged_locales = getattr(ctx.attr, "packaged_locales", [])
+        packaged_locales = getattr(ctx.attrs, "packaged_locales", [])
         if packaged_locales:
             filter_resources_cmd.add([
                 "--packaged-locales",
@@ -266,7 +266,7 @@ def _maybe_package_strings_as_assets(
         string_files_res_dirs: ["artifact"],
         r_dot_txt: "artifact",
         android_toolchain: AndroidToolchainInfo.type) -> ["artifact", None]:
-    resource_compression_mode = getattr(ctx.attr, "resource_compression", "disabled")
+    resource_compression_mode = getattr(ctx.attrs, "resource_compression", "disabled")
     is_store_strings_as_assets = _is_store_strings_as_assets(resource_compression_mode)
     expect(is_store_strings_as_assets == (string_files_list != None))
 
@@ -277,7 +277,7 @@ def _maybe_package_strings_as_assets(
     string_assets_zip = ctx.actions.declare_output("package_strings_as_assets/string_assets_zip.zip")
     all_locales_string_assets_zip = ctx.actions.declare_output("package_strings_as_assets/all_locales_string_assets_zip.zip")
 
-    locales = getattr(ctx.attr, "locales", [])
+    locales = getattr(ctx.attrs, "locales", [])
 
     package_strings_as_assets_cmd = cmd_args([
         android_toolchain.package_strings_as_assets[RunInfo],
@@ -301,7 +301,7 @@ def _maybe_package_strings_as_assets(
     return string_assets_zip
 
 def _get_manifest(ctx: "context", android_packageable_info: "AndroidPackageableInfo") -> "artifact":
-    robolectric_manifest = getattr(ctx.attr, "robolectric_manifest", None)
+    robolectric_manifest = getattr(ctx.attrs, "robolectric_manifest", None)
     if robolectric_manifest:
         return robolectric_manifest
 

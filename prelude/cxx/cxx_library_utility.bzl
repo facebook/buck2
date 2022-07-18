@@ -75,7 +75,7 @@ def cxx_attr_preferred_linkage(ctx: "context") -> Linkage.type:
     preferred_linkage = ctx.attrs.preferred_linkage
 
     # force_static is deprecated, but it has precedence over preferred_linkage
-    if getattr(ctx.attr, "force_static", False):
+    if getattr(ctx.attrs, "force_static", False):
         preferred_linkage = "static"
 
     return Linkage(preferred_linkage)
@@ -90,7 +90,7 @@ def cxx_attr_resources(ctx: "context") -> {str.type: ("artifact", ["_arglike"])}
     namespace = cxx_attr_header_namespace(ctx)
 
     # Use getattr, as apple rules don't have a `resources` parameter.
-    for name, resource in from_named_set(getattr(ctx.attr, "resources", {})).items():
+    for name, resource in from_named_set(getattr(ctx.attrs, "resources", {})).items():
         if type(resource) == "artifact":
             other = []
         else:

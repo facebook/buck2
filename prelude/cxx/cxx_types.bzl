@@ -74,7 +74,7 @@ CxxRuleConstructorParams = record(
     # Additional artifacts to be linked together with the cxx compilation output
     extra_link_input = field(["artifact"], []),
     # The source files to compile as part of this rule. This list can be generated
-    # from ctx.attr with the `get_srcs_with_flags` function.
+    # from ctx.attrs with the `get_srcs_with_flags` function.
     srcs = field([CxxSrcWithFlags.type]),
     # The source files to compile as part of this rule, which are not Clang sources,
     # e.g. Swift files that can be a part of apple_library rule.

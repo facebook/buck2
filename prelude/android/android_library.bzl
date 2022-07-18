@@ -53,7 +53,7 @@ def _get_dummy_r_dot_java(
         java_toolchain: "JavaToolchainInfo") -> ["artifact", None]:
     android_resources = [resource for resource in filter_and_map_idx(
         AndroidResourceInfo,
-        ctx.attrs.deps + (ctx.attrs.deps_query or []) + ctx.attrs.provided_deps + (getattr(ctx.attr, "provided_deps_query", []) or []),
+        ctx.attrs.deps + (ctx.attrs.deps_query or []) + ctx.attrs.provided_deps + (getattr(ctx.attrs, "provided_deps_query", []) or []),
     ) if resource.res != None]
     if len(android_resources) == 0:
         return None

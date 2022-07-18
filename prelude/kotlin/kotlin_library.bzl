@@ -245,8 +245,8 @@ def build_kotlin_library(
         )
 
     else:
-        deps_query = getattr(ctx.attr, "deps_query", []) or []
-        provided_deps_query = getattr(ctx.attr, "provided_deps_query", []) or []
+        deps_query = getattr(ctx.attrs, "deps_query", []) or []
+        provided_deps_query = getattr(ctx.attrs, "provided_deps_query", []) or []
         deps = (
             ctx.attrs.deps +
             deps_query +

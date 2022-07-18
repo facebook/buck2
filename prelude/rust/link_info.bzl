@@ -77,9 +77,9 @@ def resolve_deps(ctx: "context") -> [RustDependency.type]:
         # The `getattr`s are needed for when we're operating on
         # `prebuilt_rust_library` rules, which don't have those attrs.
         for name, dep, flags in [(None, dep, []) for dep in ctx.attrs.deps + cxx_by_platform(ctx, ctx.attrs.platform_deps)] +
-                                [(name, dep, []) for name, dep in getattr(ctx.attr, "named_deps", {}).items()] +
-                                [(None, dep, flags) for dep, flags in getattr(ctx.attr, "flagged_deps", []) +
-                                                                      cxx_by_platform(ctx, getattr(ctx.attr, "platform_flagged_deps", []))]
+                                [(name, dep, []) for name, dep in getattr(ctx.attrs, "named_deps", {}).items()] +
+                                [(None, dep, flags) for dep, flags in getattr(ctx.attrs, "flagged_deps", []) +
+                                                                      cxx_by_platform(ctx, getattr(ctx.attrs, "platform_flagged_deps", []))]
     ]
 
 # Returns native link dependencies.

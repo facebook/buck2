@@ -77,7 +77,7 @@ def _generate_script(name: str.type, main: "artifact", resources: ["artifact"], 
 def sh_binary_impl(ctx):
     # TODO: implement deps (not sure what those even do, though)
     if len(ctx.attrs.deps) > 0:
-        fail("sh_binary deps unsupported. Got `{}`".format(repr(ctx.attr)))
+        fail("sh_binary deps unsupported. Got `{}`".format(repr(ctx.attrs)))
 
     (script, resources_dir) = _generate_script(ctx.label.name, ctx.attrs.main, ctx.attrs.resources, ctx.actions)
 

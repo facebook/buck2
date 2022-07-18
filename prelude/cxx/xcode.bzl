@@ -33,7 +33,7 @@ def cxx_populate_xcode_attributes(
         "srcs": converted_srcs,
     }
 
-    if hasattr(ctx.attr, "exported_headers"):
+    if hasattr(ctx.attrs, "exported_headers"):
         data["exported_headers"] = _get_artifacts_with_owners(ctx.attrs.exported_headers)
 
     return data

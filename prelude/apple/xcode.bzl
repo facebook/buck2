@@ -19,7 +19,7 @@ def apple_populate_xcode_attributes(
         data["sdk"] = get_apple_sdk_name(ctx)
         data["deployment_version"] = get_min_deployment_version_for_node(ctx)
 
-    if hasattr(ctx.attr, "swift_version"):
+    if hasattr(ctx.attrs, "swift_version"):
         swift_version = ctx.attrs.swift_version
         if swift_version != None:
             data["swift_version"] = swift_version

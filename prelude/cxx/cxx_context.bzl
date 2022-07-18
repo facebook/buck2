@@ -15,13 +15,13 @@ load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "C
 # `apple_toolchain`, we want to make progress now.
 
 def get_cxx_platform_info(ctx: "context") -> "CxxPlatformInfo":
-    apple_toolchain = getattr(ctx.attr, "_apple_toolchain", None)
+    apple_toolchain = getattr(ctx.attrs, "_apple_toolchain", None)
     if apple_toolchain:
         return apple_toolchain[AppleToolchainInfo].cxx_platform_info
     return ctx.attrs._cxx_toolchain[CxxPlatformInfo]
 
 def get_cxx_toolchain_info(ctx: "context") -> "CxxToolchainInfo":
-    apple_toolchain = getattr(ctx.attr, "_apple_toolchain", None)
+    apple_toolchain = getattr(ctx.attrs, "_apple_toolchain", None)
     if apple_toolchain:
         return apple_toolchain[AppleToolchainInfo].cxx_toolchain_info
     return ctx.attrs._cxx_toolchain[CxxToolchainInfo]

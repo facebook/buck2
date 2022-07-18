@@ -166,7 +166,7 @@ def _attr_preferred_linkage(ctx: "context") -> Linkage.type:
     preferred_linkage = ctx.attrs.preferred_linkage
 
     # force_static is deprecated, but it has precedence over preferred_linkage
-    if getattr(ctx.attr, "force_static", False):
+    if getattr(ctx.attrs, "force_static", False):
         preferred_linkage = "static"
 
     return Linkage(preferred_linkage)
@@ -344,7 +344,7 @@ def _compile(
     osuf, hisuf = _output_extensions(link_style, ctx.attrs.enable_profiling)
     compile.add("-osuf", osuf, "-hisuf", hisuf)
 
-    if getattr(ctx.attr, "main", None) != None:
+    if getattr(ctx.attrs, "main", None) != None:
         compile.add(["-main-is", ctx.attrs.main])
 
     objects = ctx.actions.declare_output("objects-" + link_style.value)
