@@ -451,6 +451,10 @@ impl AbsPath {
         }
         Ok(self.0.strip_prefix(&prefix)?)
     }
+
+    pub fn as_path(&self) -> &Path {
+        Path::new(&self.0)
+    }
 }
 
 impl AbsPathBuf {

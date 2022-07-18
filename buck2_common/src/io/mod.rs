@@ -22,7 +22,7 @@ pub trait IoProvider: Send + Sync {
     async fn read_path_metadata_if_exists(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Option<PathMetadataOrRedirection>>;
+    ) -> anyhow::Result<Option<PathMetadataOrRedirection<ProjectRelativePathBuf>>>;
 
     /// Request that this I/O provider be up to date with whatever I/O operations the user might
     /// have done until this point.

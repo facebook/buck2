@@ -150,7 +150,7 @@ impl IoProvider for EdenIoProvider {
     async fn read_path_metadata_if_exists(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Option<PathMetadataOrRedirection>> {
+    ) -> anyhow::Result<Option<PathMetadataOrRedirection<ProjectRelativePathBuf>>> {
         let requested_attributes =
             i64::from(i32::from(FileAttributes::SHA1_HASH) | i32::from(FileAttributes::FILE_SIZE));
 

@@ -4,6 +4,7 @@ import os
 import platform
 import random
 import re
+import shutil
 import socket
 import string
 import sys
@@ -1226,6 +1227,29 @@ async def test_critical_path(buck: Buck) -> None:
 )
 async def test_projected_artifacts(buck: Buck, target: str) -> None:
     await buck.build(target)
+
+
+@buck_test(inplace=False, data_dir="symlinks")
+async def test_symlinks(buck: Buck) -> None:
+    # We want to check in a symlink but given Buck is running this and symlinks
+    # do not exist we need to put it back and make it be an actual symlink.
+    shutil.rmtree(buck.cwd / "src/link")
+    os.symlink("../dir", buck.cwd / "src/link")
+
+    await buck.build("//:cp")
+    expect_exec_count(buck, 1)
+
+    await buck.build("//:cp")
+    expect_exec_count(buck, 0)
+
+    with open(buck.cwd / "dir/file", "w") as file:
+        file.write("GOODBYE\n")
+
+    # This isn't really behavior  we want to guarantee and we'd rather users
+    # don't use symlinks, but this is very observable (and it's not worse than
+    # just reading the files then pretending they are never used!)
+    await buck.build("//:cp")
+    expect_exec_count(buck, 1)
 
 
 async def expect_exec_count(buck: Buck, n: int) -> None:

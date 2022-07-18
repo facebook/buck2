@@ -29,9 +29,9 @@ use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellName;
 use buck2_core::fs::paths::FileNameBuf;
+use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use derive_more::Display;
-use derive_more::From;
 use gazebo::cmp::PartialEqAny;
 use gazebo::prelude::*;
 use globset::Candidate;
@@ -383,9 +383,25 @@ pub enum PathMetadata {
 }
 
 /// Stores the relevant metadata for a path.
-#[derive(Debug, Dupe, PartialEq, Eq, Clone, From)]
-pub enum PathMetadataOrRedirection {
+#[derive(Debug, Dupe, PartialEq, Eq, Clone)]
+pub enum PathMetadataOrRedirection<T = Arc<CellPath>> {
     PathMetadata(PathMetadata),
+    Redirection(T),
+}
+
+impl<T> PathMetadataOrRedirection<T> {
+    pub fn map<O>(self, f: impl FnOnce(T) -> O) -> PathMetadataOrRedirection<O> {
+        match self {
+            Self::PathMetadata(meta) => PathMetadataOrRedirection::PathMetadata(meta),
+            Self::Redirection(r) => PathMetadataOrRedirection::Redirection(f(r)),
+        }
+    }
+}
+
+impl<T> From<PathMetadata> for PathMetadataOrRedirection<T> {
+    fn from(meta: PathMetadata) -> Self {
+        Self::PathMetadata(meta)
+    }
 }
 
 #[async_trait]
@@ -429,6 +445,7 @@ pub trait DefaultFileOpsDelegate: PartialEq + Send + Sync + 'static {
             .project_relative_path()
             .join_unnormalized(path.path()))
     }
+    fn get_cell_path(&self, path: &ProjectRelativePath) -> anyhow::Result<CellPath>;
     fn io_provider(&self) -> &dyn IoProvider;
 }
 
@@ -490,7 +507,15 @@ impl<T: DefaultFileOpsDelegate> FileOps for T {
             .await
             .with_context(|| format!("Error accessing metadata for path `{}`", path))?;
 
-        Ok(res)
+        Ok(match res {
+            Some(PathMetadataOrRedirection::PathMetadata(m)) => {
+                Some(PathMetadataOrRedirection::PathMetadata(m))
+            }
+            Some(PathMetadataOrRedirection::Redirection(r)) => Some(
+                PathMetadataOrRedirection::Redirection(Arc::new(self.get_cell_path(&r)?)),
+            ),
+            None => None,
+        })
     }
 
     async fn is_ignored(&self, path: &CellPath) -> anyhow::Result<bool> {

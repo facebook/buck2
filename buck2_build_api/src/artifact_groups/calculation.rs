@@ -106,6 +106,10 @@ async fn path_artifact_value(
                 Ok(ActionDirectoryEntry::Dir(INTERNER.intern(d)))
             }
         },
+        PathMetadataOrRedirection::Redirection(redirection) => {
+            // TODO (T126181780): This should have a limit on recursion.
+            path_artifact_value(file_ops, redirection.as_ref()).await
+        }
     }
 }
 

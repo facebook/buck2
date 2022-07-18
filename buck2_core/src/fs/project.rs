@@ -326,18 +326,6 @@ impl ProjectFilesystem {
         Ok(())
     }
 
-    /// Is this a path to an executable file? If so, returns `Ok(true)`, otherwise `Ok(false)`.
-    /// This returns an `Err` if it fails to fetch the metadata for the path.
-    #[cfg(unix)]
-    pub fn is_executable(&self, path: impl PathLike) -> anyhow::Result<bool> {
-        use std::os::unix::fs::PermissionsExt;
-        let path = self.resolve(path);
-        let m = fs::metadata(path)?;
-        // We check 0o111 (user,group,other) instead of 0o100 (user) because even if the user
-        // doesn't have permission, if ANYONE does we assume the file is an executable
-        Ok(m.is_file() && m.permissions().mode() & 0o111 > 0)
-    }
-
     /// Create a soft link from one location to another.
     ///
     /// There is no requirement that `src` must exist,

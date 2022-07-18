@@ -156,6 +156,10 @@ impl FileHasher for PathsAndContentsHasher {
                         }
                     }
                 },
+                PathMetadataOrRedirection::Redirection(redirection) => {
+                    // TODO (T126181780): This should have a limit on recursion.
+                    hash_item(file_ops, redirection.as_ref(), res).await?;
+                }
             }
             Ok(())
         }

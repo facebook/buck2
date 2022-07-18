@@ -7,18 +7,22 @@
  * of this source tree.
  */
 
+use std::ffi::OsStr;
 use std::ffi::OsString;
-use std::io::ErrorKind;
+use std::io;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core;
 use buck2_core::fs::anyhow as fs;
+use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::paths::FileNameBuf;
+use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
-use faccess::PathExt;
 use gazebo::cmp::PartialEqAny;
 use gazebo::prelude::*;
 use once_cell::sync::Lazy;
@@ -104,41 +108,15 @@ impl IoProvider for FsIoProvider {
     async fn read_path_metadata_if_exists(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Option<PathMetadataOrRedirection>> {
+    ) -> anyhow::Result<Option<PathMetadataOrRedirection<ProjectRelativePathBuf>>> {
         let fs = self.fs.dupe();
-        let abs_path = self.fs.resolve(&path);
         let path = path.into_forward_relative_path_buf();
 
         tokio::task::spawn_blocking(move || {
-            let info = match ExternalSymlink::from_disk(path.as_ref(), &fs.root)? {
-                Some(esym) => PathMetadata::ExternalSymlink(Arc::new(esym)),
-                None => {
-                    let m = match abs_path.to_path_buf().metadata() {
-                        Ok(m) => Ok(m),
-                        Err(err) => {
-                            if err.kind() == ErrorKind::NotFound {
-                                return Ok(None);
-                            } else {
-                                Err(anyhow::anyhow!(err)
-                                    .context(format!("getting metadata for `{}`", path)))
-                            }
-                        }
-                    }?;
-                    if m.is_dir() {
-                        PathMetadata::Directory
-                    } else {
-                        PathMetadata::File(FileMetadata {
-                            digest: TrackedFileDigest::new(
-                                FileDigest::from_file(&abs_path).with_context(|| {
-                                    format!("collecting file metadata for `{}`", path)
-                                })?,
-                            ),
-                            is_executable: abs_path.executable(),
-                        })
-                    }
-                }
-            };
-            Ok(Some(info.into()))
+            let meta = read_path_metadata(&fs.root, &path)?
+                .map(|meta_or_redirection| meta_or_redirection.map(ProjectRelativePathBuf::from));
+
+            Ok(meta)
         })
         .await?
     }
@@ -157,5 +135,196 @@ impl IoProvider for FsIoProvider {
 
     fn fs(&self) -> &Arc<ProjectFilesystem> {
         &self.fs
+    }
+}
+
+fn read_path_metadata<P: AsRef<AbsPath>>(
+    root: P,
+    relpath: &ForwardRelativePath,
+) -> anyhow::Result<Option<PathMetadataOrRedirection<ForwardRelativePathBuf>>> {
+    let root = root.as_ref().as_path();
+
+    let mut relpath_components = relpath.iter();
+    let mut meta = None;
+
+    let curr_abspath_capacity =
+        root.as_os_str().len() + relpath.as_path().as_os_str().len() + OsStr::new("/").len();
+    let curr_path_capacity = relpath.as_str().len();
+
+    let mut curr_abspath = PathBuf::with_capacity(curr_abspath_capacity);
+    let mut curr_path = ForwardRelativePathBuf::with_capacity(curr_path_capacity);
+
+    curr_abspath.push(root);
+
+    while let Some(c) = relpath_components.next() {
+        // We track both paths so we don't need to convert the abspath back to a relative path if
+        // we hit a symlink.
+        curr_abspath.push(c);
+        curr_path.push_unnormalized(c);
+
+        match curr_abspath.symlink_metadata() {
+            Ok(path_meta) => {
+                if path_meta.file_type().is_symlink() {
+                    let dest = curr_abspath.read_link()?;
+                    let rest = relpath_components.collect();
+
+                    let out = if dest.is_absolute() {
+                        PathMetadata::ExternalSymlink(Arc::new(ExternalSymlink::new(dest, rest)))
+                            .into()
+                    } else {
+                        // Remove the symlink name.
+                        let mut link_path = curr_path
+                            .parent()
+                            .expect("We pushed a component to this so it cannot be empty")
+                            .join_system(&dest)
+                            .with_context(|| {
+                                format!("Invalid symlink at `{}`: `{}`", curr_path, dest.display())
+                            })?;
+
+                        if let Some(rest) = rest {
+                            link_path.push_unnormalized(&rest);
+                        }
+
+                        PathMetadataOrRedirection::Redirection(link_path)
+                    };
+
+                    return Ok(Some(out));
+                }
+
+                meta = Some(path_meta);
+            }
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                return Ok(None);
+            }
+            Err(e) => {
+                return Err(anyhow::Error::new(e)
+                    .context(format!("Error accessing path at `{}`", curr_path)));
+            }
+        }
+    }
+
+    // If we get here that means we never hit a symlink. So, the metadata we have
+    let meta = meta.context("Attempted to access empty path")?;
+
+    let meta = if meta.is_dir() {
+        PathMetadata::Directory
+    } else {
+        let digest = FileDigest::from_file(&curr_abspath)
+            .with_context(|| format!("Error collecting file digest for `{}`", curr_path))?;
+        let digest = TrackedFileDigest::new(digest);
+        PathMetadata::File(FileMetadata {
+            digest,
+            is_executable: is_executable(&meta),
+        })
+    };
+
+    #[cfg(test)]
+    {
+        assert!(curr_abspath.as_os_str().len() <= curr_abspath_capacity);
+        assert!(curr_path.as_str().len() <= curr_path_capacity);
+    }
+
+    Ok(Some(meta.into()))
+}
+
+#[cfg(unix)]
+fn is_executable(meta: &std::fs::Metadata) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    // We check 0o111 (user,group,other) instead of 0o100 (user) because even if the user
+    // doesn't have permission, if ANYONE does we assume the file is an executable
+    meta.permissions().mode() & 0o111 > 0
+}
+
+#[cfg(not(unix))]
+fn is_executable(_meta: &std::fs::Metadata) -> bool {
+    false
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use std::os::unix;
+
+    use assert_matches::assert_matches;
+    use tempfile::TempDir;
+
+    use super::*;
+
+    #[test]
+    fn test_read_not_symlink() -> anyhow::Result<()> {
+        let t = TempDir::new()?;
+
+        fs::write(t.path().join("x"), "xx")?;
+
+        assert_matches!(
+            read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x")?),
+            Ok(Some(PathMetadataOrRedirection::PathMetadata(
+                PathMetadata::File(..)
+            )))
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_read_symlink() -> anyhow::Result<()> {
+        let t = TempDir::new()?;
+
+        unix::fs::symlink("y/z", t.path().join("x"))?;
+
+        assert_matches!(
+            read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x")?),
+            Ok(Some(PathMetadataOrRedirection::Redirection(r))) => {
+                assert_eq!(r, "y/z");
+            }
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_read_symlink_in_dir() -> anyhow::Result<()> {
+        let t = TempDir::new()?;
+
+        fs::create_dir_all(t.path().join("x/xx"))?;
+        unix::fs::symlink("../y", t.path().join("x/xx/xxx"))?;
+
+        assert_matches!(
+            read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x/xx/xxx")?),
+            Ok(Some(PathMetadataOrRedirection::Redirection(r))) => {
+                assert_eq!(r, "x/y");
+            }
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_read_symlink_remaining_path() -> anyhow::Result<()> {
+        let t = TempDir::new()?;
+
+        unix::fs::symlink("y", t.path().join("x"))?;
+
+        assert_matches!(
+            read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x/z/zz")?),
+            Ok(Some(PathMetadataOrRedirection::Redirection(r))) => {
+                assert_eq!(r, "y/z/zz");
+            }
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_read_symlink_out_of_project() -> anyhow::Result<()> {
+        let t = TempDir::new()?;
+
+        unix::fs::symlink("../y", t.path().join("x"))?;
+
+        assert_matches!(
+            read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x/xx/xxx")?),
+            Err(e) if format!("{:#}", e).contains("Invalid symlink")
+        );
+
+        Ok(())
     }
 }

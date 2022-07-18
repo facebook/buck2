@@ -102,6 +102,7 @@ impl<'a> ArtifactValueBuilder<'a> {
                 DirectoryEntry::Dir(builder.fingerprint())
             }
             DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(s)) => {
+                // TODO: This seems like it normally shouldn't need to be normalizing anything.
                 let reldest = self
                     .project_fs
                     .relative_path(src.parent().context("Symlink has no dir parent")?, dest);

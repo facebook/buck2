@@ -153,6 +153,10 @@ impl ForwardRelativePath {
         &self.0
     }
 
+    pub fn as_path(&self) -> &Path {
+        Path::new(&self.0)
+    }
+
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -465,6 +469,18 @@ impl ForwardRelativePath {
         let self_rel_path: &RelativePath = self.as_ref();
         let inner = self_rel_path.join_normalized(path.as_ref());
         ForwardRelativePathBuf::try_from(inner)
+    }
+
+    /// Append a relative system path, obtained frome e.g. `read_link`.
+    ///
+    /// The path will be converted to an internal path (i.e. forward slashes) before joining.
+    pub fn join_system(&self, path: &Path) -> anyhow::Result<ForwardRelativePathBuf> {
+        let path = if cfg!(windows) {
+            Cow::Owned(RelativePathBuf::from_path(&path)?)
+        } else {
+            Cow::Borrowed(RelativePath::from_path(&path)?)
+        };
+        self.join_normalized(&path)
     }
 
     /// Iterator over the components of this path
@@ -1053,6 +1069,27 @@ impl ForwardRelativePathVerifier {
                 return Ok(());
             }
             i = j + 1;
+        }
+    }
+}
+
+impl<'a> FromIterator<&'a FileName> for Option<ForwardRelativePathBuf> {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = &'a FileName>,
+    {
+        let mut ret = String::new();
+        for part in iter {
+            if !ret.is_empty() {
+                ret.push('/');
+            }
+            ret.push_str(part.as_ref());
+        }
+
+        if ret.is_empty() {
+            None
+        } else {
+            Some(ForwardRelativePathBuf(ret))
         }
     }
 }
