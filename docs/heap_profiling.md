@@ -36,10 +36,6 @@ argument: a path to a `buck2` binary to profile.
 `buck2prof.py` will, upon run, re-launch the buck2 daemon with profiling enabled and await further
 instructions.
 
-**Note**: You will need to profile a version of Buck with symbols embedded into the binary. This notably
-does not include the `buck2` binary that we ship; we recommend that you build a `buck2` yourself using
-buck and `@mode/dbgo` to produce a profilable binary.
-
 ```shell
 devvm2595 :: fbsource/fbcode/buck2 1 » python3 facebook/scripts/buck2prof.py ~/local/buck2
 profiling binary: /home/swgillespie/local/buck2
