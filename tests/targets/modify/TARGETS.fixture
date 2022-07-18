@@ -1,9 +1,7 @@
-prelude = native
+load(":rules.bzl", "write_string")
 
-prelude.genrule(
-    name = "mygenrule",
-    srcs = [],
+write_string(
+    name = "writer",
+    content = "HELLO\n",
     out = "out.txt",
-    bash = "echo HELLO > $OUT",
-    cmd_exe = "echo HELLO> %OUT%",
 )

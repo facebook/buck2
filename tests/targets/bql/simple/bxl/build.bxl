@@ -13,7 +13,7 @@ build_test = bxl(
 )
 
 def _cquery_build(ctx):
-    targets = ctx.cquery().kind("genrule", "...")
+    targets = ctx.cquery().kind("foo_buildable", "...")
 
     outputs = []
     for value in ctx.build(targets).values():

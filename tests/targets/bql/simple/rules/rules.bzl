@@ -33,6 +33,10 @@ def _impl(ctx):
 def _binary_impl(ctx):
     return [DefaultInfo(), RunInfo(args = []), FooInfo(foo = ctx.attrs.name + "_foo")]
 
+def _buildable_impl(ctx):
+    out = ctx.actions.write(ctx.attrs.out, ctx.attrs.content)
+    return [DefaultInfo(default_outputs = [out])]
+
 _foo_library = rule(
     impl = _impl,
     attrs = {
@@ -65,6 +69,14 @@ _foo_genrule = rule(
     },
 )
 
+_foo_buildable = rule(
+    impl = _buildable_impl,
+    attrs = {
+        "content": attr.string(default = ""),
+        "out": attr.string(),
+    },
+)
+
 _default_platform = "root//platforms:platform1"
 
 def foo_library(**kwargs):
@@ -75,3 +87,6 @@ def foo_binary(**kwargs):
 
 def foo_genrule(**kwargs):
     _foo_genrule(default_target_platform = _default_platform, **kwargs)
+
+def foo_buildable(**kwargs):
+    _foo_buildable(default_target_platform = _default_platform, **kwargs)

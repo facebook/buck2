@@ -1,16 +1,14 @@
-prelude = native
+load(":rules.bzl", "proto_genrule")
 
-prelude.genrule(
+proto_genrule(
     name = "urandom",
-    srcs = [],
     out = "output.txt",
-    bash = "head -c 50 /dev/urandom > $OUT",
+    python = "import os; out = open(os.getenv('OUT'), 'wb'); out.write(os.urandom(50))",
     labels = ["__NOT_A_REAL_LABEL__"],
 )
 
-prelude.genrule(
+proto_genrule(
     name = "urandom_dep",
-    srcs = [],
     out = "output.txt",
-    bash = "wc -c $(location :urandom) > $OUT",
+    python = "import os; inp = open(r'$(location :urandom)', 'rb'); out = open(os.getenv('OUT'), 'w'); print(len(inp.read()), file=out)",
 )

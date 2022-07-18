@@ -1,4 +1,4 @@
-load("//rules:rules.bzl", "foo_binary", "foo_genrule")
+load("//rules:rules.bzl", "foo_binary", "foo_buildable", "foo_genrule")
 
 foo_binary(
     name = "bin",
@@ -29,8 +29,8 @@ foo_binary(
     visibility = [ "PUBLIC" ],
 )
 
-genrule(
+foo_buildable(
     name = "buildable",
-    cmd = "echo FOO > $OUT",
+    content = "FOO",
     out = "out.txt"
 )

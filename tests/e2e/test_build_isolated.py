@@ -332,8 +332,8 @@ async def test_args(buck: Buck) -> None:
 
 @buck_test(inplace=False, data_dir="modify")
 async def test_modify_genrule(buck: Buck) -> None:
-    result = await buck.build("//:mygenrule")
-    output = result.get_build_report().output_for_target("root//:mygenrule")
+    result = await buck.build("//:writer")
+    output = result.get_build_report().output_for_target("root//:writer")
     assert Path(output).read_text() == "HELLO\n"
 
     # Change "HELLO" in TARGETS to "GOODBYE"
@@ -341,8 +341,8 @@ async def test_modify_genrule(buck: Buck) -> None:
         for line in f:
             print(line.replace("HELLO", "GOODBYE"), end="")
 
-    result = await buck.build("//:mygenrule")
-    output = result.get_build_report().output_for_target("root//:mygenrule")
+    result = await buck.build("//:writer")
+    output = result.get_build_report().output_for_target("root//:writer")
     assert Path(output).read_text() == "GOODBYE\n"
 
 
@@ -350,14 +350,14 @@ async def test_modify_genrule(buck: Buck) -> None:
 async def test_modify_directory(buck: Buck) -> None:
     # Test for the bug reported in T99593442
     os.mkdir(buck.cwd / "a_dir")
-    with open(buck.cwd / "a_dir/test.txt", "w") as file:
+    with open(buck.cwd / "a_dir" / "test.txt", "w") as file:
         file.write("test")
-    await buck.build("//:mygenrule")
+    await buck.build("//:writer")
     # Remove a directory, and change a file, so the file gets spotted,
     # and we'd better note that the directory no longer exists
-    os.remove(buck.cwd / "a_dir/test.txt")
+    os.remove(buck.cwd / "a_dir" / "test.txt")
     os.rmdir(buck.cwd / "a_dir")
-    await buck.build("//:mygenrule")
+    await buck.build("//:writer")
 
 
 @buck_test(inplace=False, data_dir="bql/simple")
