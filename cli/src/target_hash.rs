@@ -21,6 +21,7 @@ use buck2_build_api::query::dice::get_compatible_targets;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::file_ops::FileOps;
 use buck2_common::file_ops::PathMetadata;
+use buck2_common::file_ops::PathMetadataOrRedirection;
 use buck2_common::result::SharedResult;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::Package;
@@ -125,34 +126,36 @@ impl FileHasher for PathsAndContentsHasher {
             let info = file_ops.read_path_metadata(cell_path).await?;
             // Important that the different branches can never clash, so add a prefix byte to them
             match info {
-                PathMetadata::File(m) => {
-                    res.reserve(1 + m.digest.sha1().len());
-                    // We ignore `digest.size` as the SHA1 alone is enough to be unique
-                    res.push(0u8);
-                    res.extend(m.digest.sha1());
-                }
-                PathMetadata::ExternalSymlink(m) => {
-                    // We don't want to go to the disk and get the digest of the file in the external symlink.
-                    // But we do want to change the details if the target of the symlink changes, so
-                    // take the data in the symlink, put it into a buffer, and produce a digest of that
-                    let target = m.to_path_buf();
-                    let target = target.to_raw_bytes();
-                    res.reserve(1 + target.len());
-                    res.push(1u8);
-                    res.extend(&*target);
-                }
-                PathMetadata::Directory => {
-                    res.push(2u8);
-                    let files = file_ops.read_dir(cell_path).await?;
-                    res.extend(&files.len().to_be_bytes());
-                    for x in &*files {
-                        let name = x.file_name.as_str();
-                        res.extend(&name.len().to_be_bytes());
-                        res.extend(name.as_bytes());
-                        hash_item(file_ops, &cell_path.join_unnormalized(&x.file_name), res)
-                            .await?;
+                PathMetadataOrRedirection::PathMetadata(meta) => match meta {
+                    PathMetadata::File(m) => {
+                        res.reserve(1 + m.digest.sha1().len());
+                        // We ignore `digest.size` as the SHA1 alone is enough to be unique
+                        res.push(0u8);
+                        res.extend(m.digest.sha1());
                     }
-                }
+                    PathMetadata::ExternalSymlink(m) => {
+                        // We don't want to go to the disk and get the digest of the file in the external symlink.
+                        // But we do want to change the details if the target of the symlink changes, so
+                        // take the data in the symlink, put it into a buffer, and produce a digest of that
+                        let target = m.to_path_buf();
+                        let target = target.to_raw_bytes();
+                        res.reserve(1 + target.len());
+                        res.push(1u8);
+                        res.extend(&*target);
+                    }
+                    PathMetadata::Directory => {
+                        res.push(2u8);
+                        let files = file_ops.read_dir(cell_path).await?;
+                        res.extend(&files.len().to_be_bytes());
+                        for x in &*files {
+                            let name = x.file_name.as_str();
+                            res.extend(&name.len().to_be_bytes());
+                            res.extend(name.as_bytes());
+                            hash_item(file_ops, &cell_path.join_unnormalized(&x.file_name), res)
+                                .await?;
+                        }
+                    }
+                },
             }
             Ok(())
         }

@@ -29,7 +29,7 @@ use crate::file_ops::DefaultFileOpsDelegate;
 use crate::file_ops::FileIgnoreResult;
 use crate::file_ops::FileIgnores;
 use crate::file_ops::FileOps;
-use crate::file_ops::PathMetadata;
+use crate::file_ops::PathMetadataOrRedirection;
 use crate::file_ops::SimpleDirEntry;
 use crate::io::IoProvider;
 use crate::legacy_configs::dice::HasLegacyConfigs;
@@ -267,7 +267,7 @@ struct PathMetadataKey(CellPath);
 
 #[async_trait]
 impl Key for PathMetadataKey {
-    type Value = SharedResult<Option<PathMetadata>>;
+    type Value = SharedResult<Option<PathMetadataOrRedirection>>;
     async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
         get_default_file_ops(ctx)
             .await?
@@ -306,7 +306,7 @@ impl<'c> FileOps for DiceFileOps<'c> {
     async fn read_path_metadata_if_exists(
         &self,
         path: &CellPath,
-    ) -> SharedResult<Option<PathMetadata>> {
+    ) -> SharedResult<Option<PathMetadataOrRedirection>> {
         self.0.compute(&PathMetadataKey(path.clone())).await?
     }
 

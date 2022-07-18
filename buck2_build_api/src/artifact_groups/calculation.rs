@@ -15,6 +15,7 @@ use async_trait::async_trait;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::file_ops::FileOps;
 use buck2_common::file_ops::PathMetadata;
+use buck2_common::file_ops::PathMetadataOrRedirection;
 use buck2_common::result::SharedResult;
 use buck2_core::buck_path::BuckPath;
 use buck2_core::directory::DirectoryData;
@@ -86,26 +87,28 @@ async fn path_artifact_value(
 ) -> anyhow::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
     let cell_path = path.to_cell_path();
     match file_ops.read_path_metadata(&cell_path).await? {
-        PathMetadata::ExternalSymlink(symlink) => Ok(ActionDirectoryEntry::Leaf(
-            ActionDirectoryMember::ExternalSymlink(symlink),
-        )),
-        PathMetadata::File(metadata) => Ok(ActionDirectoryEntry::Leaf(
-            ActionDirectoryMember::File(metadata),
-        )),
-        PathMetadata::Directory => {
-            let files = file_ops.read_dir(&cell_path).await?;
-            let mut entries = Vec::with_capacity(files.len());
-            for x in &*files {
-                let path_child = BuckPath::new(
-                    path.package().dupe(),
-                    path.path().join_unnormalized(&x.file_name),
-                );
-                let value = path_artifact_value(file_ops, &path_child).await?;
-                entries.push((x.file_name.clone(), value));
+        PathMetadataOrRedirection::PathMetadata(meta) => match meta {
+            PathMetadata::ExternalSymlink(symlink) => Ok(ActionDirectoryEntry::Leaf(
+                ActionDirectoryMember::ExternalSymlink(symlink),
+            )),
+            PathMetadata::File(metadata) => Ok(ActionDirectoryEntry::Leaf(
+                ActionDirectoryMember::File(metadata),
+            )),
+            PathMetadata::Directory => {
+                let files = file_ops.read_dir(&cell_path).await?;
+                let mut entries = Vec::with_capacity(files.len());
+                for x in &*files {
+                    let path_child = BuckPath::new(
+                        path.package().dupe(),
+                        path.path().join_unnormalized(&x.file_name),
+                    );
+                    let value = path_artifact_value(file_ops, &path_child).await?;
+                    entries.push((x.file_name.clone(), value));
+                }
+                let d: DirectoryData<_, _, _> = DirectoryData::new(entries.into_iter().collect());
+                Ok(ActionDirectoryEntry::Dir(INTERNER.intern(d)))
             }
-            let d: DirectoryData<_, _, _> = DirectoryData::new(entries.into_iter().collect());
-            Ok(ActionDirectoryEntry::Dir(INTERNER.intern(d)))
-        }
+        },
     }
 }
 

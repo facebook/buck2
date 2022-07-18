@@ -31,6 +31,7 @@ use buck2_core::cells::CellName;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use derive_more::Display;
+use derive_more::From;
 use gazebo::cmp::PartialEqAny;
 use gazebo::prelude::*;
 use globset::Candidate;
@@ -381,6 +382,12 @@ pub enum PathMetadata {
     Directory,
 }
 
+/// Stores the relevant metadata for a path.
+#[derive(Debug, Dupe, PartialEq, Eq, Clone, From)]
+pub enum PathMetadataOrRedirection {
+    PathMetadata(PathMetadata),
+}
+
 #[async_trait]
 pub trait FileOps: Send + Sync {
     async fn read_file(&self, path: &CellPath) -> anyhow::Result<String>;
@@ -393,7 +400,7 @@ pub trait FileOps: Send + Sync {
         Ok(self.read_path_metadata_if_exists(path).await?.is_some())
     }
 
-    async fn read_path_metadata(&self, path: &CellPath) -> SharedResult<PathMetadata> {
+    async fn read_path_metadata(&self, path: &CellPath) -> SharedResult<PathMetadataOrRedirection> {
         self.read_path_metadata_if_exists(path)
             .await?
             .ok_or_else(|| anyhow::anyhow!("file `{}` not found", path).into())
@@ -402,7 +409,7 @@ pub trait FileOps: Send + Sync {
     async fn read_path_metadata_if_exists(
         &self,
         path: &CellPath,
-    ) -> SharedResult<Option<PathMetadata>>;
+    ) -> SharedResult<Option<PathMetadataOrRedirection>>;
 
     fn eq_token(&self) -> PartialEqAny;
 }
@@ -474,7 +481,7 @@ impl<T: DefaultFileOpsDelegate> FileOps for T {
     async fn read_path_metadata_if_exists(
         &self,
         path: &CellPath,
-    ) -> SharedResult<Option<PathMetadata>> {
+    ) -> SharedResult<Option<PathMetadataOrRedirection>> {
         let cell_project_path = self.resolve_cell_root(path.cell())?;
 
         let res = self
@@ -696,6 +703,7 @@ pub mod testing {
     use crate::file_ops::FileOps;
     use crate::file_ops::FileType;
     use crate::file_ops::PathMetadata;
+    use crate::file_ops::PathMetadataOrRedirection;
     use crate::file_ops::SimpleDirEntry;
     use crate::file_ops::TrackedFileDigest;
     use crate::result::SharedResult;
@@ -824,16 +832,16 @@ pub mod testing {
         async fn read_path_metadata_if_exists(
             &self,
             path: &CellPath,
-        ) -> SharedResult<Option<PathMetadata>> {
+        ) -> SharedResult<Option<PathMetadataOrRedirection>> {
             self.entries
                 .get(path)
                 .map_or(Ok(None), |e| {
                     match e {
                         TestFileOpsEntry::File(_data, metadata) => {
-                            Ok(PathMetadata::File(metadata.dupe()))
+                            Ok(PathMetadata::File(metadata.dupe()).into())
                         }
                         TestFileOpsEntry::ExternalSymlink(sym) => {
-                            Ok(PathMetadata::ExternalSymlink(sym.dupe()))
+                            Ok(PathMetadata::ExternalSymlink(sym.dupe()).into())
                         }
                         _ => Err(anyhow!("couldn't get metadata for {:?}", path)),
                     }

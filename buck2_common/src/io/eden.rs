@@ -42,6 +42,7 @@ use crate::file_ops::FileDigest;
 use crate::file_ops::FileMetadata;
 use crate::file_ops::FileType;
 use crate::file_ops::PathMetadata;
+use crate::file_ops::PathMetadataOrRedirection;
 use crate::file_ops::SimpleDirEntry;
 use crate::file_ops::TrackedFileDigest;
 use crate::io::fs::FsIoProvider;
@@ -152,7 +153,7 @@ impl IoProvider for EdenIoProvider {
         &self,
         cell_root: CellRootPathBuf,
         cell_relative_path: CellRelativePathBuf,
-    ) -> anyhow::Result<Option<PathMetadata>> {
+    ) -> anyhow::Result<Option<PathMetadataOrRedirection>> {
         let path = cell_root.join(&cell_relative_path);
 
         let requested_attributes =
@@ -203,7 +204,7 @@ impl IoProvider for EdenIoProvider {
                     is_executable,
                 };
 
-                Ok(Some(PathMetadata::File(meta)))
+                Ok(Some(PathMetadata::File(meta).into()))
             }
             FileAttributeDataOrError::error(e) => {
                 tracing::trace!("getAttributesFromFiles({}): {} ()", e.errorType, e.message);
@@ -212,7 +213,7 @@ impl IoProvider for EdenIoProvider {
                     EdenErrorType::POSIX_ERROR => {
                         match e.errorCode.map(nix::errno::Errno::from_i32) {
                             Some(nix::errno::Errno::EISDIR) => {
-                                return Ok(Some(PathMetadata::Directory));
+                                return Ok(Some(PathMetadata::Directory.into()));
                             }
                             Some(nix::errno::Errno::ENOENT) => {
                                 return Ok(None);

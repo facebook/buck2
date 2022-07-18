@@ -11,7 +11,7 @@ use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use gazebo::cmp::PartialEqAny;
 
-use crate::file_ops::PathMetadata;
+use crate::file_ops::PathMetadataOrRedirection;
 use crate::file_ops::SimpleDirEntry;
 use crate::legacy_configs::LegacyBuckConfig;
 
@@ -25,7 +25,7 @@ pub trait IoProvider: Send + Sync {
         &self,
         cell_root: CellRootPathBuf,
         cell_relative_path: CellRelativePathBuf,
-    ) -> anyhow::Result<Option<PathMetadata>>;
+    ) -> anyhow::Result<Option<PathMetadataOrRedirection>>;
 
     /// Request that this I/O provider be up to date with whatever I/O operations the user might
     /// have done until this point.

@@ -31,6 +31,7 @@ use crate::external_symlink::ExternalSymlink;
 use crate::file_ops::FileDigest;
 use crate::file_ops::FileMetadata;
 use crate::file_ops::PathMetadata;
+use crate::file_ops::PathMetadataOrRedirection;
 use crate::file_ops::SimpleDirEntry;
 use crate::file_ops::TrackedFileDigest;
 use crate::io::IoProvider;
@@ -106,7 +107,7 @@ impl IoProvider for FsIoProvider {
         &self,
         cell_root: CellRootPathBuf,
         cell_relative_path: CellRelativePathBuf,
-    ) -> anyhow::Result<Option<PathMetadata>> {
+    ) -> anyhow::Result<Option<PathMetadataOrRedirection>> {
         let path = cell_root.join(&cell_relative_path);
         let cell_root = self.fs.resolve(cell_root.project_relative_path());
         let path = self.fs.resolve(&path);
@@ -140,7 +141,7 @@ impl IoProvider for FsIoProvider {
                     }
                 }
             };
-            Ok(Some(info))
+            Ok(Some(info.into()))
         })
         .await?
     }
