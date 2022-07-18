@@ -14,8 +14,6 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core;
-use buck2_core::cells::cell_root_path::CellRootPathBuf;
-use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::fs::anyhow as fs;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::project::ProjectFilesystem;
@@ -105,18 +103,17 @@ impl IoProvider for FsIoProvider {
 
     async fn read_path_metadata_if_exists(
         &self,
-        cell_root: CellRootPathBuf,
-        cell_relative_path: CellRelativePathBuf,
+        path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<PathMetadataOrRedirection>> {
-        let path = cell_root.join(&cell_relative_path);
-        let cell_root = self.fs.resolve(cell_root.project_relative_path());
-        let path = self.fs.resolve(&path);
+        let fs = self.fs.dupe();
+        let abs_path = self.fs.resolve(&path);
+        let path = path.into_forward_relative_path_buf();
 
         tokio::task::spawn_blocking(move || {
-            let info = match ExternalSymlink::from_disk(cell_relative_path.as_ref(), &cell_root)? {
+            let info = match ExternalSymlink::from_disk(path.as_ref(), &fs.root)? {
                 Some(esym) => PathMetadata::ExternalSymlink(Arc::new(esym)),
                 None => {
-                    let m = match path.to_path_buf().metadata() {
+                    let m = match abs_path.to_path_buf().metadata() {
                         Ok(m) => Ok(m),
                         Err(err) => {
                             if err.kind() == ErrorKind::NotFound {
@@ -132,11 +129,11 @@ impl IoProvider for FsIoProvider {
                     } else {
                         PathMetadata::File(FileMetadata {
                             digest: TrackedFileDigest::new(
-                                FileDigest::from_file(&path).with_context(|| {
+                                FileDigest::from_file(&abs_path).with_context(|| {
                                     format!("collecting file metadata for `{}`", path)
                                 })?,
                             ),
-                            is_executable: path.executable(),
+                            is_executable: abs_path.executable(),
                         })
                     }
                 }

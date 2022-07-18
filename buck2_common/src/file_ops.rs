@@ -482,11 +482,11 @@ impl<T: DefaultFileOpsDelegate> FileOps for T {
         &self,
         path: &CellPath,
     ) -> SharedResult<Option<PathMetadataOrRedirection>> {
-        let cell_project_path = self.resolve_cell_root(path.cell())?;
+        let project_path = self.resolve(path)?;
 
         let res = self
             .io_provider()
-            .read_path_metadata_if_exists(cell_project_path, path.path().to_buf())
+            .read_path_metadata_if_exists(project_path)
             .await
             .with_context(|| format!("Error accessing metadata for path `{}`", path))?;
 

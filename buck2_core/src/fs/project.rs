@@ -888,6 +888,10 @@ impl ProjectRelativePathBuf {
     pub fn push_normalized<P: AsRef<RelativePath>>(&mut self, path: P) -> anyhow::Result<()> {
         self.0.push_normalized(path)
     }
+
+    pub fn into_forward_relative_path_buf(self) -> ForwardRelativePathBuf {
+        self.0
+    }
 }
 
 impl From<ForwardRelativePathBuf> for ProjectRelativePathBuf {

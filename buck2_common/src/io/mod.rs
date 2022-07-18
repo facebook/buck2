@@ -5,8 +5,6 @@ pub mod fs;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_core::cells::cell_root_path::CellRootPathBuf;
-use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePathBuf;
 use gazebo::cmp::PartialEqAny;
@@ -23,8 +21,7 @@ pub trait IoProvider: Send + Sync {
 
     async fn read_path_metadata_if_exists(
         &self,
-        cell_root: CellRootPathBuf,
-        cell_relative_path: CellRelativePathBuf,
+        path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<PathMetadataOrRedirection>>;
 
     /// Request that this I/O provider be up to date with whatever I/O operations the user might

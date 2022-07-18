@@ -14,8 +14,6 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_core::cells::cell_root_path::CellRootPathBuf;
-use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePath;
@@ -151,11 +149,8 @@ impl IoProvider for EdenIoProvider {
 
     async fn read_path_metadata_if_exists(
         &self,
-        cell_root: CellRootPathBuf,
-        cell_relative_path: CellRelativePathBuf,
+        path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<PathMetadataOrRedirection>> {
-        let path = cell_root.join(&cell_relative_path);
-
         let requested_attributes =
             i64::from(i32::from(FileAttributes::SHA1_HASH) | i32::from(FileAttributes::FILE_SIZE));
 
@@ -225,9 +220,7 @@ impl IoProvider for EdenIoProvider {
                             // look through to the target, so we do that.
                             // TODO: It would be better to read the link then ask Eden for the SHA1.
                             Some(nix::errno::Errno::EINVAL) | Some(nix::errno::Errno::ENOTDIR) => {
-                                self.fs
-                                    .read_path_metadata_if_exists(cell_root, cell_relative_path)
-                                    .await
+                                self.fs.read_path_metadata_if_exists(path).await
                             }
                             _ => Err(EdenError(e).into()),
                         }
