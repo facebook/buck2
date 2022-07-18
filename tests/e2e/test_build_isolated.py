@@ -1117,9 +1117,10 @@ async def test_http_deferral_uploads(buck: Buck) -> None:
 
 @buck_test(inplace=False, data_dir="out")
 async def test_out_single_default_output(buck: Buck) -> None:
-    with tempfile.NamedTemporaryFile("w") as out:
-        await buck.build("//:a", "--out", out.name)
-        with open(out.name) as readable:
+    with tempfile.TemporaryDirectory() as out:
+        output = os.path.join(out, "output")
+        await buck.build("//:a", "--out", output)
+        with open(output) as readable:
             assert readable.read() == "a\n"
 
 
