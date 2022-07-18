@@ -47,8 +47,8 @@ def _tp2_constraint_multi(versions):
     # Otherwise, generate a `config_setting` to combine the constraint value
     # rules for all the project/version pairs.
     name = "-".join(["_tp2_constraints_"] + ["{}-{}".format(p, v) for p, v in sorted(versions.items())])
-    if not native.rule_exists(name):
-        native.config_setting(
+    if not rule_exists(name):
+        __rules__["config_setting"](
             name = name,
             constraint_values = [_tp2_constraint(p, v) for p, v in versions.items()],
         )
@@ -207,7 +207,7 @@ def _python_library_macro_stub(
     )
 
 def _versioned_alias_macro_stub(versions = {}, **kwargs):
-    project = paths.basename(native.package_name())
+    project = paths.basename(package_name())
     __rules__["alias"](
         actual = select({
             _tp2_constraint(project, version): actual
