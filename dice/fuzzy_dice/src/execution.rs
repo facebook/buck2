@@ -10,6 +10,7 @@
 use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::fmt::Display;
 use std::fmt::Formatter;
 use std::io::stderr;
 use std::io::Write;
@@ -134,6 +135,33 @@ enum ExecutionResult {
     UnexpectedPanic(Box<dyn Any + Send>),
 }
 
+impl Display for ExecutionResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ExecutionResult::Correct => {
+                write!(f, "Correct")
+            }
+            ExecutionResult::IncorrectResult { expected, actual } => {
+                write!(f, "Expected `{}` but got `{}`", expected, actual)
+            }
+            ExecutionResult::ExpectedPanic(res) => {
+                write!(
+                    f,
+                    "Expected panic from injected key missing but got `{}`",
+                    res
+                )
+            }
+            ExecutionResult::UnexpectedPanic(p) => {
+                write!(
+                    f,
+                    "Expected result but panicked `{}`",
+                    p.downcast_ref::<&str>().unwrap_or(&"unknown panic")
+                )
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Operation {
     /// Evaluate the variable at the version immediately after
@@ -204,18 +232,12 @@ impl DiceExecutionOrder {
                     match &*first_failure {
                         None => {
                             *first_failure = Some(Arc::new(ExecutionResult::ExpectedPanic(r)));
-                            return TestResult::error(format!(
-                                "Expected panic from injected key missing but got `{}`",
-                                r
-                            ));
+                            return TestResult::error(first_failure.as_ref().unwrap().to_string());
                         }
                         Some(prev) => {
                             match &**prev {
                                 ExecutionResult::ExpectedPanic(prev_r) if *prev_r == r => {
-                                    return TestResult::error(format!(
-                                        "Expected panic from injected key missing but got `{}`",
-                                        r
-                                    ));
+                                    return TestResult::error(prev.to_string());
                                 }
                                 _ => {
                                     // keep going because the error doesn't match
@@ -233,20 +255,14 @@ impl DiceExecutionOrder {
                                 expected,
                                 actual,
                             }));
-                            return TestResult::error(format!(
-                                "Expected `{}` but got `{}`",
-                                expected, actual
-                            ));
+                            return TestResult::error(first_failure.as_ref().unwrap().to_string());
                         }
                         Some(prev) => match &**prev {
                             ExecutionResult::IncorrectResult {
                                 expected: prev_expected,
                                 actual: prev_actual,
                             } if *prev_expected == expected && *prev_actual == actual => {
-                                return TestResult::error(format!(
-                                    "Expected `{}` but got `{}`",
-                                    expected, actual
-                                ));
+                                return TestResult::error(prev.to_string());
                             }
                             _ => ignored_failure
                                 .push(ExecutionResult::IncorrectResult { expected, actual }),
@@ -257,20 +273,13 @@ impl DiceExecutionOrder {
                     let mut first_failure = self.first_failure.lock().unwrap();
                     match &*first_failure {
                         None => {
-                            let msg = format!(
-                                "Expected result but panicked `{}`",
-                                p.downcast_ref::<&str>().unwrap_or(&"unknown panic")
-                            );
                             *first_failure = Some(Arc::new(ExecutionResult::UnexpectedPanic(p)));
-                            return TestResult::error(msg);
+                            return TestResult::error(first_failure.as_ref().unwrap().to_string());
                         }
                         Some(prev) => {
                             match &**prev {
                                 ExecutionResult::UnexpectedPanic(_) => {
-                                    return TestResult::error(format!(
-                                        "Expected result but panicked `{}`",
-                                        p.downcast_ref::<&str>().unwrap_or(&"unknown panic")
-                                    ));
+                                    return TestResult::error(prev.to_string());
                                 }
                                 _ => {
                                     // keep going because the error doesn't match
@@ -285,7 +294,10 @@ impl DiceExecutionOrder {
 
         if self.first_failure.lock().unwrap().is_some() && !ignored_failure.is_empty() {
             // we were supposed to find a particular failure but we didn't.
-            println!("warning: supposed to find a specific error but didn't find any");
+            println!(
+                "warning: supposed to find a specific error `{}` but didn't find any",
+                self.first_failure.lock().unwrap().as_ref().unwrap()
+            );
             return TestResult::discard();
         }
 
