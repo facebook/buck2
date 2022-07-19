@@ -80,4 +80,38 @@ fn test_derive_docs() {
             })
             .unwrap()
     );
+    assert!(docs.custom_attrs.is_empty());
+}
+
+/// Main module docs
+#[starlark_module]
+fn object_docs_2(_: &mut MethodsBuilder) {}
+
+#[derive(Debug, Display, ProvidesStaticType, NoSerialize, StarlarkDocs)]
+#[starlark_docs_attrs(key = "value", key2 = "value2")]
+struct TestAttrExample {}
+
+starlark_simple_value!(TestAttrExample);
+
+impl<'v> StarlarkValue<'v> for TestAttrExample {
+    starlark_type!("TestAttrExample");
+
+    fn get_methods() -> Option<&'static Methods>
+    where
+        Self: Sized,
+    {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(object_docs_2)
+    }
+}
+
+#[test]
+fn test_derive_docs_custom_attrs() {
+    let docs: Doc = TestAttrExample::__generated_documentation().unwrap();
+    assert_eq!("TestAttrExample", docs.id.name);
+    let expected_attrs = hashmap! {
+        "key".to_owned()=> "value".to_owned(),
+        "key2".to_owned()=> "value2".to_owned(),
+    };
+    assert_eq!(expected_attrs, docs.custom_attrs);
 }

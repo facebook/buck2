@@ -144,7 +144,11 @@ pub fn derive_starlark_attrs(input: proc_macro::TokenStream) -> proc_macro::Toke
 /// Generate an accessor function on the provided type that returns its documentation
 /// based on `StarlarkValue::get_methods()`. This macro requires that the type implements
 /// `starlark::StarlarkValue`.
-#[proc_macro_derive(StarlarkDocs)]
+///
+/// #[starlark_docs_attrs(key="value", second_key="second_value",...)] can be used to insert
+/// arbitrary keys and string values into the generated `Docs::custom_attrs` for use
+/// by documentation tooling.
+#[proc_macro_derive(StarlarkDocs, attributes(starlark_docs_attrs))]
 pub fn derive_starlark_docs(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     docs::derive_docs(input)
 }

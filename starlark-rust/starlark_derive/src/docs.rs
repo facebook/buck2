@@ -15,10 +15,19 @@
  * limitations under the License.
  */
 
+use std::collections::HashMap;
+
+use quote::quote;
 use quote::quote_spanned;
 use syn::parse_macro_input;
+use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
+use syn::Attribute;
 use syn::DeriveInput;
+use syn::MetaNameValue;
+use syn::Token;
+
+const STARLARK_DOCS_ATTRS: &str = "starlark_docs_attrs";
 
 pub fn derive_docs(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -33,8 +42,17 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
     let DeriveInput {
         ident: name,
         generics,
+        attrs,
         ..
     } = input;
+
+    let parsed_attrs = parse_custom_attributes(attrs)?;
+    let custom_attrs: Vec<_> = parsed_attrs
+        .into_iter()
+        .map(|(k, v)| {
+            quote! { (#k.to_owned(), #v.to_owned())}
+        })
+        .collect();
 
     Ok(quote_spanned! {span=>
         impl #generics #name #generics {
@@ -46,12 +64,59 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
                     location: None,
                 };
                 let item = <#name as starlark::values::StarlarkValue>::get_methods()?.documentation();
+                let custom_attrs = std::collections::HashMap::from([
+                    #(#custom_attrs),*
+                ]);
                 Some(starlark::values::docs::Doc {
                     id,
                     item,
-                    custom_attrs: Default::default(),
+                    custom_attrs,
                 })
             }
         }
     })
+}
+
+fn get_attrs(attr: Attribute) -> syn::Result<HashMap<String, String>> {
+    let mut found = HashMap::new();
+    let args: Punctuated<MetaNameValue, Token![,]> =
+        attr.parse_args_with(Punctuated::parse_terminated)?;
+    for arg in args {
+        match &arg {
+            MetaNameValue {
+                path,
+                lit: syn::Lit::Str(s),
+                ..
+            } => {
+                let ident = path.get_ident().unwrap();
+                let attr_name = ident.to_string();
+                if found.insert(attr_name, s.value()).is_some() {
+                    return Err(syn::Error::new(
+                        arg.span(),
+                        format!("Argument {} was specified twice", ident),
+                    ));
+                }
+            }
+            MetaNameValue { path, .. } => {
+                return Err(syn::Error::new(
+                    arg.span(),
+                    format!(
+                        "Argument {} must have a string literal value",
+                        path.get_ident().unwrap(),
+                    ),
+                ));
+            }
+        }
+    }
+    Ok(found)
+}
+
+fn parse_custom_attributes(attrs: Vec<Attribute>) -> syn::Result<HashMap<String, String>> {
+    for attr in attrs {
+        if attr.path.is_ident(STARLARK_DOCS_ATTRS) {
+            return get_attrs(attr);
+        }
+    }
+
+    Ok(HashMap::new())
 }
