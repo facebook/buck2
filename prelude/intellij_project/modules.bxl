@@ -3,14 +3,14 @@ load("@fbcode//buck2/prelude/java:java_providers.bzl", "JavaLibraryIntellijInfo"
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 
 IjTargetNode = record(
-    deps = ["label"],
+    deps = ["configured_target_label"],
     label = "configured_target_label",
     directory_path = str.type,
     srcs = ["artifact"],
 )
 
 AggregatedIjTargetNode = record(
-    deps = ["label"],
+    deps = ["configured_target_label"],
     labels = ["configured_target_label"],
     name = str.type,
     srcs = ["artifact"],
@@ -56,7 +56,7 @@ def _get_android_library_target_node(node: "target_node", providers: "provider_c
     expect(node.rule_type == _ANDROID_LIBRARY_RULE_TYPE, "Rule type must be {} but was {}".format(_JAVA_LIBRARY_RULE_TYPE, node.rule_type))
     java_library_intellij_info = providers[JavaLibraryIntellijInfo]
     return IjTargetNode(
-        deps = [compiling_dep.owner for compiling_dep in java_library_intellij_info.compiling_classpath],
+        deps = [compiling_dep.owner.configured_target() for compiling_dep in java_library_intellij_info.compiling_classpath],
         label = node.label,
         directory_path = node.label.package,
         srcs = node.attrs().srcs.value(),
@@ -66,7 +66,7 @@ def _get_java_library_target_node(node: "target_node", providers: "provider_coll
     expect(node.rule_type == _JAVA_LIBRARY_RULE_TYPE, "Rule type must be {} but was {}".format(_JAVA_LIBRARY_RULE_TYPE, node.rule_type))
     java_library_intellij_info = providers[JavaLibraryIntellijInfo]
     return IjTargetNode(
-        deps = [compiling_dep.owner for compiling_dep in java_library_intellij_info.compiling_classpath],
+        deps = [compiling_dep.owner.configured_target() for compiling_dep in java_library_intellij_info.compiling_classpath],
         label = node.label,
         directory_path = node.label.package,
         srcs = node.attrs().srcs.value(),

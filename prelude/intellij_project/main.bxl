@@ -50,33 +50,30 @@ def _create_output(
 PROJECT_LIBRARY_THRESHOLD = 1
 
 def _sort_libraries_and_modules(ij_target_nodes: ["AggregatedIjTargetNode"], libraries: ["IjLibrary"]) -> (["IjLibrary"], [IjModule.type]):
-    # TODO(bobyf) better way to compare "label" and "configured_target_label"?
-    libraries_by_stringified_label = {str(ij_library.label): ij_library for ij_library in libraries}
+    libraries_by_label = {ij_library.label: ij_library for ij_library in libraries}
 
     # First, count the number of times that each library appears as a dependency of a module.
-    library_counts = {str(ij_library.label): 0 for ij_library in libraries}
+    library_counts = {ij_library.label: 0 for ij_library in libraries}
     for module in ij_target_nodes:
         for dep in module.deps:
-            stringified_dep = str(dep)
-            if stringified_dep in library_counts.keys():
-                library_counts[stringified_dep] += 1
+            if dep in library_counts.keys():
+                library_counts[dep] += 1
 
     # If a library appears more than PROJECT_LIBRARY_THRESHOLD times, then it is a project library.
     # Otherwise (if it appears at least once), it is a module library (it is inlined into the module's
     # .iml file rather than having its own .iml file).
     project_libraries = {}
     module_libraries = {}
-    for stringified_library_label, count in library_counts.items():
+    for library_label, count in library_counts.items():
         if count > PROJECT_LIBRARY_THRESHOLD:
-            project_libraries[stringified_library_label] = libraries_by_stringified_label[stringified_library_label]
+            project_libraries[library_label] = libraries_by_label[library_label]
         elif count > 0:
-            module_libraries[stringified_library_label] = libraries_by_stringified_label[stringified_library_label]
+            module_libraries[library_label] = libraries_by_label[library_label]
 
-    ij_target_nodes_by_stringified_label = {}
+    ij_target_nodes_by_label = {}
     for ij_target_node in ij_target_nodes:
         for label in ij_target_node.labels:
-            stringified_label = str(label)
-            ij_target_nodes_by_stringified_label[stringified_label] = ij_target_node
+            ij_target_nodes_by_label[label] = ij_target_node
 
     ij_modules = []
     for ij_target_node in ij_target_nodes:
@@ -84,13 +81,12 @@ def _sort_libraries_and_modules(ij_target_nodes: ["AggregatedIjTargetNode"], lib
         module_libs = []
         project_libs = []
         for dep in ij_target_node.deps:
-            stringified_dep = str(dep)
-            if stringified_dep in module_libraries.keys():
-                module_libs.append(module_libraries[stringified_dep])
-            elif stringified_dep in project_libraries.keys():
-                project_libs.append(project_libraries[stringified_dep])
-            elif stringified_dep in ij_target_nodes_by_stringified_label.keys():
-                module_dependencies.append(ij_target_nodes_by_stringified_label[stringified_dep])
+            if dep in module_libraries.keys():
+                module_libs.append(module_libraries[dep])
+            elif dep in project_libraries.keys():
+                project_libs.append(project_libraries[dep])
+            elif dep in ij_target_nodes_by_label.keys():
+                module_dependencies.append(ij_target_nodes_by_label[dep])
 
         ij_modules.append(
             IjModule(
