@@ -21,11 +21,17 @@ out_library(
     outs = [],
 )
 
-# A target with exactly one default output.
+# Targets with exactly one default output.
 out_library(
     name = "a",
     outs = [
         ":a.txt",
+    ],
+)
+out_library(
+    name = "b",
+    outs = [
+        ":b.txt",
     ],
 )
 

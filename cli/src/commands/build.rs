@@ -21,6 +21,7 @@ use buck2_core::exit_result::FailureExitCode;
 use cli_proto::build_request::build_providers;
 use cli_proto::build_request::BuildProviders;
 use cli_proto::build_request::ResponseOptions;
+use cli_proto::build_target::BuildOutput;
 use cli_proto::BuildRequest;
 use cli_proto::BuildTarget;
 use futures::FutureExt;
@@ -418,72 +419,108 @@ pub(crate) fn print_outputs(
 ///
 /// Otherwise, we'll extract the single default output from the single top-level target and copy it to the output
 /// path. If the given path is a directory then all output files will be copied inside of it.
+///
+/// As a special case, `--out -` is interpreted as `--out /dev/stdout` and allows multiple output files to be
+/// written to it.
 async fn copy_to_out(targets: &[BuildTarget], root_path: &str, out: &Path) -> anyhow::Result<()> {
-    let target = if targets.len() != 1 {
-        return Err(anyhow!(
-            "build command built multiple top-level targets, choice of output is ambiguous"
-        ));
-    } else {
-        &targets[0]
-    };
+    struct OutputToBeCopied {
+        from_path: PathBuf,
+        is_dir: bool,
+    }
 
-    let outputs: Vec<_> = target
-        .outputs
-        .iter()
-        .filter(|output| {
-            output
-                .providers
-                .as_ref()
-                .map_or(true, |p| p.default_info && !p.other)
-        })
-        .collect();
-    let output = match outputs.len() {
-        0 => {
-            return Err(anyhow!(
-                "target {} produced zero default outputs",
-                target.target
-            ));
-        }
-        1 => &target.outputs[0],
-        n => {
-            return Err(anyhow!(
-                "target {} produced {} outputs, choice of output is ambiguous",
-                target.target,
-                n
-            ));
-        }
-    };
+    let mut outputs_to_be_copied = Vec::new();
+    for target in targets {
+        let default_outputs: Vec<&BuildOutput> = target
+            .outputs
+            .iter()
+            .filter(|output| {
+                output
+                    .providers
+                    .as_ref()
+                    .map_or(true, |p| p.default_info && !p.other)
+            })
+            .collect();
 
-    let output_path = Path::new(root_path).join(Path::new(&output.path));
-    let output_meta = tokio::fs::metadata(&output_path)
-        .await
-        .context("when inspecting file metadata")?;
-    if output_meta.is_dir() {
-        copy_directory(&output_path, out).await?;
-    } else {
-        let dest_path = match out.is_dir() {
-            true => Cow::Owned(
-                out.join(Path::new(
-                    output_path
-                        .file_name()
-                        .context("Failed getting output name")?,
-                )),
-            ),
-            false => Cow::Borrowed(out),
+        let single_default_output = match default_outputs.len() {
+            0 => {
+                return Err(anyhow!(
+                    "target {} produced zero default outputs",
+                    target.target
+                ));
+            }
+            1 => &default_outputs[0],
+            n => {
+                return Err(anyhow!(
+                    "target {} produced {} outputs, choice of output is ambiguous",
+                    target.target,
+                    n
+                ));
+            }
         };
 
-        tokio::fs::copy(
-            Path::new(root_path).join(Path::new(&output.path)),
-            dest_path,
-        )
-        .await
-        .map_err(|e| {
+        let output_path = Path::new(root_path).join(&single_default_output.path);
+        let output_meta = tokio::fs::metadata(&output_path)
+            .await
+            .context("when inspecting file metadata")?;
+        let is_dir = output_meta.is_dir();
+
+        outputs_to_be_copied.push(OutputToBeCopied {
+            from_path: output_path,
+            is_dir,
+        });
+    }
+
+    let to_stdout = out == Path::new("-");
+    if to_stdout {
+        // Check no output is a directory. We allow outputting any number of
+        // files (including 0) to stdout.
+        if let Some(dir_i) = outputs_to_be_copied.iter().position(|o| o.is_dir) {
+            return Err(anyhow!(
+                "target {} produces a default output that is a directory, and cannot be sent to stdout",
+                targets[dir_i].target,
+            ));
+        }
+    } else {
+        // Check we are outputting exactly 1 target. Okay if directory.
+        if outputs_to_be_copied.len() != 1 {
+            return Err(anyhow!(
+                "build command built multiple top-level targets, choice of output is ambiguous"
+            ));
+        }
+    }
+
+    for to_be_copied in outputs_to_be_copied {
+        let convert_broken_pipe_error = |e: io::Error| -> anyhow::Error {
             if e.kind() == io::ErrorKind::BrokenPipe {
                 anyhow::Error::new(FailureExitCode::OutputFileBrokenPipe)
             } else {
                 anyhow::Error::new(e).context("when writing build artifact to --out")
             }
-        })?;
+        };
+
+        if to_stdout {
+            let mut file = tokio::fs::File::open(to_be_copied.from_path).await?;
+            tokio::io::copy(&mut file, &mut tokio::io::stdout())
+                .await
+                .map_err(convert_broken_pipe_error)?;
+        } else if to_be_copied.is_dir {
+            copy_directory(&to_be_copied.from_path, out).await?;
+        } else {
+            let dest_path = match out.is_dir() {
+                true => Cow::Owned(
+                    out.join(
+                        to_be_copied
+                            .from_path
+                            .file_name()
+                            .context("Failed getting output name")?,
+                    ),
+                ),
+                false => Cow::Borrowed(out),
+            };
+            tokio::fs::copy(to_be_copied.from_path, dest_path)
+                .await
+                .map_err(convert_broken_pipe_error)?;
+        }
     }
 
     Ok(())

@@ -1154,7 +1154,7 @@ async def test_out_multiple_outputs(buck: Buck) -> None:
 async def test_out_multiple_targets(buck: Buck) -> None:
     with tempfile.NamedTemporaryFile("w") as out:
         await expect_failure(
-            buck.build("//:ab", "//:a", "--out", out.name),
+            buck.build("//:a", "//:b", "--out", out.name),
             stderr_regex="command built multiple top-level targets",
         )
 
@@ -1165,6 +1165,32 @@ async def test_out_directory(buck: Buck) -> None:
         await buck.build("//:dir", "--out", out)
         assert (Path(out) / "b.txt").exists()
         assert (Path(out) / "nested_dir" / "a.txt").exists()
+
+
+@buck_test(inplace=False, data_dir="out")
+async def test_out_stdout_multiple(buck: Buck) -> None:
+    result = await buck.build("//:a", "//:b", "--out", "-")
+
+    # The e2e test runner adds a `--print-build-report` flag in order to be able
+    # to parse out failures. In normal usage of `--out -` there wouldn't be this
+    # extra line of JSON on the stdout, we'd _just_ get the requested outputs.
+    build_report, stdout = result.stdout.split("\n", 1)
+    assert build_report.startswith("{")
+
+    assert stdout == "a\nb\n" or stdout == "b\na\n"
+
+
+@buck_test(inplace=False, data_dir="out")
+async def test_out_stdout_none(buck: Buck) -> None:
+    await buck.build("--out", "-")
+
+
+@buck_test(inplace=False, data_dir="out")
+async def test_out_stdout_directory(buck: Buck) -> None:
+    await expect_failure(
+        buck.build("//:dir", "--out", "-"),
+        stderr_regex="produces a default output that is a directory, and cannot be sent to stdout",
+    )
 
 
 @buck_test(inplace=False, data_dir="no_output")
