@@ -14,13 +14,18 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
 use std::fmt::Display;
+use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
 
 use gazebo::cmp::PartialEqAny;
 use gazebo::prelude::*;
+use serde::de::Error;
+use serde::de::Unexpected;
+use serde::de::Visitor;
 use serde::Deserialize;
+use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
 
@@ -47,20 +52,53 @@ pub struct KeyID(pub usize);
 #[serde(transparent)]
 pub struct NodeID(pub usize);
 
-#[derive(
-    PartialEq,
-    Eq,
-    Hash,
-    Serialize,
-    Deserialize,
-    Clone,
-    Dupe,
-    Copy,
-    Ord,
-    PartialOrd
-)]
-#[serde(transparent)]
+#[derive(PartialEq, Eq, Hash, Clone, Dupe, Copy, Ord, PartialOrd)]
 pub struct VersionNumber(pub usize);
+
+impl Serialize for VersionNumber {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&format!("v{}", self.0))
+    }
+}
+
+struct VersionNumberVisitor;
+
+impl<'de> Visitor<'de> for VersionNumberVisitor {
+    type Value = VersionNumber;
+
+    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+        formatter.write_str("string of format `vX` where X is a usize, like `v2`")
+    }
+
+    fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        let mut chars = v.chars();
+
+        if chars.next() != Some('v') {
+            Err(Error::invalid_value(Unexpected::Str(v), &self))
+        } else {
+            chars
+                .as_str()
+                .parse::<usize>()
+                .map_err(|_| Error::invalid_value(Unexpected::Str(v), &self))
+                .map(VersionNumber)
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for VersionNumber {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_str(VersionNumberVisitor)
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 pub enum GraphNodeKind {
