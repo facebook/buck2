@@ -2336,6 +2336,7 @@ attributes = {
         "include_in_android_merge_map_output": attrs.bool(),
         "labels": attrs.list(attrs.string(), default = []),
         "licenses": attrs.list(attrs.source(), default = []),
+        "preferred_linkage": attrs.option(attrs.enum(Linkage), default = None),
         "provided_shared_libs": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
         "shared_libs": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
         "shared_link": attrs.list(attrs.string(), default = []),

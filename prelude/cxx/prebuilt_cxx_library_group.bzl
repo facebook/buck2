@@ -36,6 +36,8 @@ def _linkage(ctx: "context") -> Linkage.type:
     """
     Construct the preferred linkage to use for the given prebuilt library.
     """
+    if ctx.attrs.preferred_linkage != None:
+        return Linkage(ctx.attrs.preferred_linkage)
 
     # If we have both shared and static libs, we support any linkage.
     if (ctx.attrs.shared_link and
@@ -199,7 +201,7 @@ def prebuilt_cxx_library_group_impl(ctx: "context") -> ["provider"]:
             outs.extend(ctx.attrs.static_pic_libs)
             args = _get_static_link_args(ctx.attrs.static_pic_libs, ctx.attrs.static_pic_link)
         else:  # shared
-            outs.extend(ctx.attrs.shared_libs)
+            outs.extend(ctx.attrs.shared_libs.values())
             args = _get_shared_link_args(
                 flatten_dict([ctx.attrs.shared_libs, ctx.attrs.provided_shared_libs]),
                 ctx.attrs.shared_link,
