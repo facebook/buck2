@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 
+use buck2_core::fs::paths::ForwardRelativePath;
+use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_docs_gen::OutputDirectory;
 use itertools::Itertools;
 use starlark::values::docs::Doc;
@@ -17,6 +19,8 @@ use starlark::values::docs::Type;
 
 use crate::daemon::docs::OutputDirAndDoc;
 
+static DOCS_DIRECTORY_KEY: &str = "directory";
+
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 pub(crate) struct MarkdownFileOptions {
     #[structopt(
@@ -28,6 +32,33 @@ pub(crate) struct MarkdownFileOptions {
     native_subdir: PathBuf,
     #[structopt(long = "--markdown-files-starlark-subdir", default_value="starlark", parse(try_from_str = PathBuf::try_from))]
     starlark_subdir: PathBuf,
+}
+
+fn format_custom_attr_error(keys_and_values: &[(String, String)]) -> String {
+    let mut ret = "{".to_owned();
+    ret.push_str(
+        &keys_and_values
+            .iter()
+            .map(|(k, v)| format!("`{}` => `{}`", k, v))
+            .join(", "),
+    );
+    ret.push('}');
+    ret
+}
+
+#[derive(Debug, thiserror::Error)]
+enum MarkdownError {
+    #[error("Directory traversal was found in documentation path `{}` provided for `{}`", .path, .name)]
+    InvalidDirectory {
+        name: String,
+        path: String,
+        source: anyhow::Error,
+    },
+    #[error("Invalid custom attributes were found on `{}`: {}", .name, format_custom_attr_error(.keys_and_values))]
+    InvalidCustomAttributes {
+        name: String,
+        keys_and_values: Vec<(String, String)>,
+    },
 }
 
 /// Does the heavy work of processing the docs and writing them to markdown files.
@@ -394,25 +425,57 @@ impl MarkdownOutput {
         Ok(Path::new(&location.replace("//", "/").replace(':', "/")).to_path_buf())
     }
 
+    fn output_subdir_for_doc(doc: &Doc) -> anyhow::Result<Option<ForwardRelativePathBuf>> {
+        let unknown_keys: Vec<_> = doc
+            .custom_attrs
+            .iter()
+            .filter(|(k, _)| *k != DOCS_DIRECTORY_KEY)
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        if !unknown_keys.is_empty() {
+            return Err(MarkdownError::InvalidCustomAttributes {
+                name: doc.id.name.to_owned(),
+                keys_and_values: unknown_keys,
+            }
+            .into());
+        }
+
+        match doc.custom_attrs.get(DOCS_DIRECTORY_KEY) {
+            Some(path) => match ForwardRelativePathBuf::new(path.to_owned()) {
+                Ok(fp) => Ok(Some(fp)),
+                Err(e) => Err(MarkdownError::InvalidDirectory {
+                    name: doc.id.name.to_owned(),
+                    path: path.to_owned(),
+                    source: e,
+                }
+                .into()),
+            },
+            None => Ok(None),
+        }
+    }
+
     /// Get the output path for the markdown for a given [`Doc`], whether it's in a starlark file, or a native symbol.
     fn markdown_path_for_doc(
         opts: &MarkdownFileOptions,
         output_dir: &OutputDirectory,
         doc: &Doc,
     ) -> anyhow::Result<PathBuf> {
-        let subdir = output_dir.path();
+        let subdir = match Self::output_subdir_for_doc(doc)? {
+            Some(d) => d,
+            None => ForwardRelativePath::new(&output_dir.path())?.to_buf(),
+        };
         let path = match &doc.id.location {
             Some(loc) => opts
                 .starlark_subdir
-                .join(&subdir)
+                .join(subdir.as_path())
                 .join(Self::path_from_location(&loc.path)?),
             None => match &doc.item {
                 // Functions all go in one file. Objects get their on file (e.g. each provider,
                 // Artifact, etc)
                 DocItem::Module(_) | DocItem::Function(_) => {
-                    opts.native_subdir.join(&subdir).join("native")
+                    opts.native_subdir.join(subdir.as_path()).join("native")
                 }
-                DocItem::Object(_) => opts.native_subdir.join(&subdir).join(&doc.id.name),
+                DocItem::Object(_) => opts.native_subdir.join(subdir.as_path()).join(&doc.id.name),
             },
         };
         let path = path.with_extension(match path.extension() {

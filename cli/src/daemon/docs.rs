@@ -39,6 +39,7 @@ use cli_proto::UnstableDocsRequest;
 use cli_proto::UnstableDocsResponse;
 use gazebo::prelude::*;
 use starlark::environment::Globals;
+use starlark::values::docs::get_registered_docs;
 use starlark::values::docs::Doc;
 use starlark::values::docs::DocItem;
 use starlark::values::docs::Identifier;
@@ -189,6 +190,8 @@ fn get_builtin_docs(
     all_builtins.extend(get_ctx_docs());
 
     all_builtins.extend(get_generated_docs());
+
+    all_builtins.extend(get_registered_docs().into_map(|d| (OutputDirectory::default(), d)));
 
     Ok(all_builtins)
 }
