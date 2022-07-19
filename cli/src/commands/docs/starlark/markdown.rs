@@ -2,9 +2,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 
-use buck2_core::fs::paths::ForwardRelativePath;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
-use buck2_docs_gen::OutputDirectory;
 use itertools::Itertools;
 use starlark::values::docs::Doc;
 use starlark::values::docs::DocItem;
@@ -16,8 +14,6 @@ use starlark::values::docs::Module;
 use starlark::values::docs::Object;
 use starlark::values::docs::Param;
 use starlark::values::docs::Type;
-
-use crate::daemon::docs::OutputDirAndDoc;
 
 static DOCS_DIRECTORY_KEY: &str = "directory";
 
@@ -64,7 +60,7 @@ enum MarkdownError {
 /// Does the heavy work of processing the docs and writing them to markdown files.
 pub(crate) fn generate_markdown_files(
     opts: &MarkdownFileOptions,
-    docs: Vec<OutputDirAndDoc>,
+    docs: Vec<Doc>,
 ) -> anyhow::Result<()> {
     let destination_dir = opts
         .destination_dir
@@ -72,11 +68,8 @@ pub(crate) fn generate_markdown_files(
         .expect("clap enforces when --format=markdown_files");
     let mut outputs = HashMap::new();
 
-    for (output_dir, doc) in docs
-        .into_iter()
-        .sorted_by(|l, r| l.1.id.name.cmp(&r.1.id.name))
-    {
-        let markdown_path = MarkdownOutput::markdown_path_for_doc(opts, &output_dir, &doc)?;
+    for doc in docs.into_iter().sorted_by(|l, r| l.id.name.cmp(&r.id.name)) {
+        let markdown_path = MarkdownOutput::markdown_path_for_doc(opts, &doc)?;
         let markdown_file = outputs
             .entry(markdown_path)
             .or_insert_with(MarkdownOutput::default);
@@ -425,7 +418,7 @@ impl MarkdownOutput {
         Ok(Path::new(&location.replace("//", "/").replace(':', "/")).to_path_buf())
     }
 
-    fn output_subdir_for_doc(doc: &Doc) -> anyhow::Result<Option<ForwardRelativePathBuf>> {
+    fn output_subdir_for_doc(doc: &Doc) -> anyhow::Result<ForwardRelativePathBuf> {
         let unknown_keys: Vec<_> = doc
             .custom_attrs
             .iter()
@@ -442,7 +435,7 @@ impl MarkdownOutput {
 
         match doc.custom_attrs.get(DOCS_DIRECTORY_KEY) {
             Some(path) => match ForwardRelativePathBuf::new(path.to_owned()) {
-                Ok(fp) => Ok(Some(fp)),
+                Ok(fp) => Ok(fp),
                 Err(e) => Err(MarkdownError::InvalidDirectory {
                     name: doc.id.name.to_owned(),
                     path: path.to_owned(),
@@ -450,20 +443,13 @@ impl MarkdownOutput {
                 }
                 .into()),
             },
-            None => Ok(None),
+            None => Ok(ForwardRelativePathBuf::new(String::new())?),
         }
     }
 
     /// Get the output path for the markdown for a given [`Doc`], whether it's in a starlark file, or a native symbol.
-    fn markdown_path_for_doc(
-        opts: &MarkdownFileOptions,
-        output_dir: &OutputDirectory,
-        doc: &Doc,
-    ) -> anyhow::Result<PathBuf> {
-        let subdir = match Self::output_subdir_for_doc(doc)? {
-            Some(d) => d,
-            None => ForwardRelativePath::new(&output_dir.path())?.to_buf(),
-        };
+    fn markdown_path_for_doc(opts: &MarkdownFileOptions, doc: &Doc) -> anyhow::Result<PathBuf> {
+        let subdir = Self::output_subdir_for_doc(doc)?;
         let path = match &doc.id.location {
             Some(loc) => opts
                 .starlark_subdir
@@ -488,7 +474,6 @@ impl MarkdownOutput {
 
 #[cfg(test)]
 mod tests {
-    use gazebo::prelude::VecExt;
     use starlark::values::docs::*;
 
     use super::*;
@@ -823,11 +808,7 @@ mod tests {
                 }),
                 custom_attrs: Default::default(),
             },
-        ];
-        let mut sample_data = sample_data.into_map(|d| (OutputDirectory::default(), d));
-        // Small module, but in a subdir
-        sample_data.push((
-            OutputDirectory::try_from_string("namespaced").unwrap(),
+            // Small module, but in a subdir
             Doc {
                 id: Identifier {
                     name: "OtherInfo".to_owned(),
@@ -837,9 +818,9 @@ mod tests {
                     docs: simple_docstring("OtherInfo", true),
                     members: vec![],
                 }),
-                custom_attrs: Default::default(),
+                custom_attrs: HashMap::from([("directory".to_owned(), "namespaced".to_owned())]),
             },
-        ));
+        ];
 
         let temp = tempfile::tempdir()?;
 
