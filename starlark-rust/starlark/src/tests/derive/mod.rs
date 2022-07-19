@@ -16,6 +16,7 @@
  */
 
 mod attrs;
+mod docs;
 mod freeze;
 mod module;
 mod trace;

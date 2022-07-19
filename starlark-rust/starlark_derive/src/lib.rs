@@ -29,6 +29,7 @@ use proc_macro::TokenStream;
 
 mod attrs;
 mod bc;
+mod docs;
 mod for_each_field;
 mod freeze;
 mod module;
@@ -138,6 +139,14 @@ pub fn derive_no_serialize(input: proc_macro::TokenStream) -> proc_macro::TokenS
 #[proc_macro_derive(StarlarkAttrs, attributes(starlark))]
 pub fn derive_starlark_attrs(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     attrs::derive_attrs(input)
+}
+
+/// Generate an accessor function on the provided type that returns its documentation
+/// based on `StarlarkValue::get_methods()`. This macro requires that the type implements
+/// `starlark::StarlarkValue`.
+#[proc_macro_derive(StarlarkDocs)]
+pub fn derive_starlark_docs(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    docs::derive_docs(input)
 }
 
 /// Generate `{has,get,dir}_attr` in the `StarlarkValue` impl block that proxy
