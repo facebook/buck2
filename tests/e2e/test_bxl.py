@@ -370,6 +370,16 @@ async def test_bxl_actions(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="bql/simple")
+async def test_bxl_dynamic_action(buck: Buck) -> None:
+
+    result = await buck.bxl(
+        "//bxl/dynamic.bxl:dynamic_test",
+    )
+    outputs = result.stdout.strip()
+    assert Path(outputs).read_text() == "content"
+
+
+@buck_test(inplace=False, data_dir="bql/simple")
 async def test_bxl_create_build_actions(buck: Buck) -> None:
 
     result = await buck.bxl(
