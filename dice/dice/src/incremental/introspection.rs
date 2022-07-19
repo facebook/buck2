@@ -10,7 +10,6 @@
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::fmt::Display;
 use std::sync::Arc;
 
 use gazebo::prelude::*;
@@ -66,14 +65,13 @@ where
 
     fn nodes<'a>(
         &'a self,
-        keys: &'a mut HashMap<String, KeyID>,
+        keys: &'a mut HashMap<AnyKey, KeyID>,
     ) -> Box<dyn Iterator<Item = SerializedGraphNodesForKey> + 'a> {
-        let mut map_id = move |key: &dyn Display| -> KeyID {
-            let s = key.to_string();
+        let mut map_id = move |key: AnyKey| -> KeyID {
             let num_keys = keys.len();
-            *keys.entry(s).or_insert_with(|| KeyID(num_keys))
+            *keys.entry(key).or_insert_with(|| KeyID(num_keys))
         };
-        fn visit_deps<M: FnMut(&dyn Display) -> KeyID>(
+        fn visit_deps<M: FnMut(AnyKey) -> KeyID>(
             deps: &VersionedDependencies,
             map_id: &mut M,
         ) -> Option<BTreeMap<crate::introspection::graph::VersionNumber, HashSet<KeyID>>> {
@@ -82,7 +80,7 @@ where
                     .map(|(dv, depset)| {
                         (
                             dv.to_introspectable(),
-                            depset.iter().map(|dep| map_id(&dep.introspect())).collect(),
+                            depset.iter().map(|dep| map_id(dep.introspect())).collect(),
                         )
                     })
                     .collect()
@@ -102,7 +100,7 @@ where
                 })
                 .collect()
         }
-        fn visit_node<K: StorageProperties, M: FnMut(&dyn Display) -> KeyID>(
+        fn visit_node<K: StorageProperties, M: FnMut(AnyKey) -> KeyID>(
             node: &VersionedGraphNodeInternal<K>,
             map_id: &mut M,
         ) -> Option<SerializedGraphNode> {
@@ -126,7 +124,7 @@ where
         box self.iter().map(move |e| {
             let k = AnyKey::new(e.key().clone());
             SerializedGraphNodesForKey {
-                id: map_id(e.key()),
+                id: map_id(AnyKey::new(e.key().clone())),
                 key: k.to_string(),
                 type_name: k.short_type_name().to_owned(),
                 nodes: e
@@ -158,7 +156,7 @@ where
 
     fn nodes<'a>(
         &'a self,
-        keys: &'a mut HashMap<String, KeyID>,
+        keys: &'a mut HashMap<AnyKey, KeyID>,
     ) -> Box<dyn Iterator<Item = SerializedGraphNodesForKey> + 'a> {
         self.versioned_cache.nodes(keys)
     }

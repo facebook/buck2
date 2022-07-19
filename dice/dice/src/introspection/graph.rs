@@ -165,7 +165,7 @@ pub trait EngineForIntrospection {
     fn edges<'a>(&'a self) -> Box<dyn Iterator<Item = (AnyKey, Vec<AnyKey>)> + 'a>;
     fn nodes<'a>(
         &'a self,
-        keys: &'a mut HashMap<String, KeyID>,
+        keys: &'a mut HashMap<AnyKey, KeyID>,
     ) -> Box<dyn Iterator<Item = SerializedGraphNodesForKey> + 'a>;
     fn len_for_introspection(&self) -> usize;
 }
