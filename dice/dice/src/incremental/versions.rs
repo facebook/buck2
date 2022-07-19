@@ -33,15 +33,12 @@ use gazebo::prelude::*;
 use once_cell::sync::OnceCell;
 use parking_lot::lock_api::RawMutex as RawMutexApi;
 use parking_lot::RawMutex;
-use serde::Deserialize;
-use serde::Serialize;
 
 /// The incrementing Version number associated with all the cache entries
 #[derive(Copy, Eq, Debug, Display, Dupe)]
 // split this due to formatters not agreeing
-#[derive(PartialEq, Hash, Clone, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(PartialEq, Hash, Clone, Ord, PartialOrd)]
 #[display(fmt = "v{}", "_0")]
-#[serde(transparent)]
 pub(crate) struct VersionNumber(usize);
 
 impl VersionNumber {

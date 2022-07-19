@@ -16,8 +16,6 @@ use std::fmt::Debug;
 
 use gazebo::prelude::*;
 use gazebo::variants::VariantName;
-use serde::Deserialize;
-use serde::Serialize;
 
 use crate::incremental::graph::ReadOnlyHistory;
 use crate::incremental::versions::VersionNumber;
@@ -33,7 +31,7 @@ use crate::incremental::versions::VersionRanges;
 /// This is technically better represented as a single vec of history states, but we'll change the
 /// actual representation later.
 // TODO(bobyf): this data structure can probably be way better optimized
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub(crate) struct CellHistory {
     verified: BTreeSet<VersionNumber>,
     /// versions of dirty, mapping ot whether or not it's a forced dirty (which means recompute
