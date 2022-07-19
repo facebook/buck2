@@ -14,6 +14,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::io::stderr;
 use std::io::Write;
+use std::panic;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -155,7 +156,13 @@ impl Display for ExecutionResult {
                 write!(
                     f,
                     "Expected result but panicked `{}`",
-                    p.downcast_ref::<&str>().unwrap_or(&"unknown panic")
+                    if let Some(s) = p.downcast_ref::<&str>() {
+                        s
+                    } else if let Some(info) = p.downcast_ref::<String>() {
+                        info.as_str()
+                    } else {
+                        "unknown panic"
+                    }
                 )
             }
         }
@@ -328,14 +335,26 @@ impl DiceExecutionOrder {
                     if let Some(ctx) = dice_ctxs.get(ctx_id) {
                         let expected = answer_key.value_of_at_ctx(*ctx_id, *var);
 
-                        match (
-                            expected,
-                            std::panic::AssertUnwindSafe(async {
-                                ctx.eval(state.dupe(), *var).await.expect("eval errored")
-                            })
-                            .catch_unwind()
-                            .await,
-                        ) {
+                        // quickcheck runs us single threaded, so this is safe to do.
+                        let old_handler = panic::take_hook();
+
+                        // suppress print panics from dice.
+                        panic::set_hook(Box::new(|_info| {
+                            // do nothing. don't print because we have panics that we expect.
+                            // they get spammed on the console such that the info we do print
+                            // gets washed away. Hiding the panics makes the information we do
+                            // print much more useful.
+                        }));
+
+                        let exec_result = std::panic::AssertUnwindSafe(async {
+                            ctx.eval(state.dupe(), *var).await.expect("eval errored")
+                        })
+                        .catch_unwind()
+                        .await;
+
+                        panic::set_hook(old_handler);
+
+                        match (expected, exec_result) {
                             (Some(expected), Ok(result)) => {
                                 if expected != result {
                                     return ExecutionResult::IncorrectResult {
