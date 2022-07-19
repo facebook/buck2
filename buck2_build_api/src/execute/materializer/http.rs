@@ -175,9 +175,9 @@ pub async fn http_download(
         buf_writer
             .write(&chunk)
             .with_context(|| format!("write({})", abs_path))?;
-        sha1_hasher.input(&chunk);
+        sha1_hasher.update(&chunk);
         if let Some((sha256_hasher, ..)) = &mut sha256_hasher_and_expected {
-            sha256_hasher.input(&chunk);
+            sha256_hasher.update(&chunk);
         }
         file_len += chunk.len() as u64;
     }
@@ -188,7 +188,7 @@ pub async fn http_download(
     // Form the SHA1, and verify any fingerprints that were provided. Note that, by construction,
     // we always require at least one, since one can't construct a Checksum that has neither SHA1
     // nor SHA256
-    let download_sha1 = hex::encode(sha1_hasher.result().as_slice());
+    let download_sha1 = hex::encode(sha1_hasher.finalize().as_slice());
 
     if let Some(expected_sha1) = checksum.sha1() {
         if expected_sha1 != download_sha1 {
@@ -203,7 +203,7 @@ pub async fn http_download(
     }
 
     if let Some((sha256_hasher, expected_sha256)) = sha256_hasher_and_expected {
-        let download_sha256 = hex::encode(sha256_hasher.result().as_slice());
+        let download_sha256 = hex::encode(sha256_hasher.finalize().as_slice());
         if expected_sha256 != download_sha256 {
             return Err(HttpDownloadError::InvalidChecksum(
                 "sha256",

@@ -212,9 +212,9 @@ impl FileDigest {
                 break;
             }
             size += count as u64;
-            h.input(&buffer[..count]);
+            h.update(&buffer[..count]);
         }
-        let sha1 = h.result().into();
+        let sha1 = h.finalize().into();
         Ok(Self { size, sha1 })
     }
 
