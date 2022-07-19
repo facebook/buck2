@@ -568,6 +568,27 @@ pub struct Doc {
     pub custom_attrs: HashMap<String, String>,
 }
 
+/// Get documentation for all items registered with `#[derive(StarlarkDocs)]`
+///
+/// Note: Because `StarlarkDocs` uses the inventory crate under the hood, in statically linked
+/// binaries, documentation from all compiled crates in the binary will be included.
+///
+/// For dynamically linked binaries, documentation will only be able to retrieved after the crate's
+/// library is `dlopen()`ed.
+pub fn get_registered_docs() -> Vec<Doc> {
+    inventory::iter::<RegisteredDoc>
+        .into_iter()
+        .filter_map(|d| (d.getter)())
+        .collect()
+}
+
+#[doc(hidden)]
+pub struct RegisteredDoc {
+    pub getter: Box<dyn Fn() -> Option<Doc>>,
+}
+
+inventory::collect!(RegisteredDoc);
+
 #[cfg(test)]
 mod tests {
     use std::fmt::Display;

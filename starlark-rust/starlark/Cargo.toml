@@ -62,6 +62,7 @@ strsim = "0.10.0"
 argfile = "0.1.0"
 num-bigint = "0.4.3"
 num-traits = "0.2"
+inventory = "0.1.10"
 
 [dev-dependencies]
 rand      = { version = "0.8.4", features = ["small_rng"] }

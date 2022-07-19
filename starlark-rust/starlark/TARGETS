@@ -74,6 +74,7 @@ rust_library(
         "fbsource//third-party/rust:fancy-regex",
         "fbsource//third-party/rust:hashbrown",
         "fbsource//third-party/rust:indenter",
+        "fbsource//third-party/rust:inventory",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:lalrpop-util",
         "fbsource//third-party/rust:logos",

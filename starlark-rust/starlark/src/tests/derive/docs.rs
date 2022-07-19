@@ -23,7 +23,7 @@ use crate as starlark;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
-use crate::values::docs::Doc;
+use crate::values::docs::get_registered_docs;
 use crate::values::docs::DocItem;
 use crate::values::docs::DocString;
 use crate::values::docs::DocStringKind;
@@ -59,8 +59,10 @@ impl<'v> StarlarkValue<'v> for TestExample {
 
 #[test]
 fn test_derive_docs() {
-    let docs: Doc = TestExample::__generated_documentation().unwrap();
-    assert_eq!("TestExample", docs.id.name);
+    let docs = get_registered_docs()
+        .into_iter()
+        .find(|d| d.id.name == "TestExample")
+        .unwrap();
     let obj = match docs.item {
         DocItem::Object(o) => o,
         _ => panic!("Expected object as docitem"),
@@ -107,8 +109,10 @@ impl<'v> StarlarkValue<'v> for TestAttrExample {
 
 #[test]
 fn test_derive_docs_custom_attrs() {
-    let docs: Doc = TestAttrExample::__generated_documentation().unwrap();
-    assert_eq!("TestAttrExample", docs.id.name);
+    let docs = get_registered_docs()
+        .into_iter()
+        .find(|d| d.id.name == "TestAttrExample")
+        .unwrap();
     let expected_attrs = hashmap! {
         "key".to_owned()=> "value".to_owned(),
         "key2".to_owned()=> "value2".to_owned(),

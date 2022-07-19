@@ -17,6 +17,7 @@
 
 use std::collections::HashMap;
 
+use proc_macro2::Ident;
 use quote::quote;
 use quote::quote_spanned;
 use syn::parse_macro_input;
@@ -47,6 +48,14 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
     } = input;
 
     let parsed_attrs = parse_custom_attributes(attrs)?;
+    let name_str = name.to_string();
+    let mod_name = Ident::new(&format!("__starlark_docs_derive_{}", name_str), span);
+    // Import whatever "starlark" is (either an extern package, or if this is used *in* the
+    // starlark package, the local import of `use crate as starlark`. We can't just use
+    // super::starlark, as you'd always have to have that directly imported to use the derive
+    // macro, and if we just try to use 'starlark', we get ambiguity compile errors if used
+    // within the starlark crate itself. Submodules are hard.
+    let starlark_import = Ident::new(&format!("__starlark_docs_import_{}", name_str), span);
     let custom_attrs: Vec<_> = parsed_attrs
         .into_iter()
         .map(|(k, v)| {
@@ -72,6 +81,22 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
                     item,
                     custom_attrs,
                 })
+            }
+        }
+
+        use starlark as #starlark_import;
+
+        #[allow(non_snake_case)]
+        mod #mod_name {
+            use super::#starlark_import as starlark;
+            use self::starlark::__derive_refs::inventory as inventory;
+
+            inventory::submit! {
+                #[allow(unknown_lints)]
+                #[allow(gazebo_lint_use_box)]
+                self::starlark::values::docs::RegisteredDoc {
+                    getter: Box::new(super::#name::__generated_documentation)
+                }
             }
         }
     })

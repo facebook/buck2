@@ -450,4 +450,5 @@ pub mod __derive_refs {
         pub use serde::Serialize;
         pub use serde::Serializer;
     }
+    pub use inventory;
 }

@@ -145,6 +145,15 @@ pub fn derive_starlark_attrs(input: proc_macro::TokenStream) -> proc_macro::Toke
 /// based on `StarlarkValue::get_methods()`. This macro requires that the type implements
 /// `starlark::StarlarkValue`.
 ///
+/// Types that derive `StarlarkDocs` are also registered automatically with the `inventory` crate.
+/// To get all types annotated with `StarlarkDocs`, see `starlark::values::docs::get_all_docs()`
+///
+/// Note that for statically linked binaries, documentation from all compiled crates in the binary
+/// will be included.
+///
+/// For dynamically linked binaries, documentation will only be able to retrieved after the crate's
+/// library is `dlopen()`ed.
+///
 /// #[starlark_docs_attrs(key="value", second_key="second_value",...)] can be used to insert
 /// arbitrary keys and string values into the generated `Docs::custom_attrs` for use
 /// by documentation tooling.
