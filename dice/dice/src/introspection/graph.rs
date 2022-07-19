@@ -149,7 +149,7 @@ pub struct SerializedGraphNode {
     /// it's theoretically possible for those locks to be poisoned.
     /// Therefore, they're optional.
     pub deps: Option<BTreeMap<VersionNumber, HashSet<KeyID>>>,
-    pub rdeps: Option<Vec<(VersionNumber, Option<NodeID>)>>,
+    pub rdeps: Option<BTreeMap<VersionNumber, Vec<NodeID>>>,
 }
 
 #[derive(Serialize, Deserialize)]

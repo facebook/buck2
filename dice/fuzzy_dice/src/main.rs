@@ -15,6 +15,7 @@ use clap::Arg;
 use clap::Command;
 use quickcheck::Gen;
 use quickcheck::QuickCheck;
+use quickcheck::TestResult;
 use thiserror::Error;
 use tracing_subscriber::fmt;
 use tracing_subscriber::prelude::*;
@@ -60,14 +61,19 @@ fn main() -> anyhow::Result<()> {
         options: &DiceExecutionOrderOptions,
         execution: DiceExecutionOrder,
     ) -> anyhow::Result<()> {
-        execution.execute(options).await
+        let res = execution.execute(options).await;
+
+        if res.is_error() || res.is_failure() {
+            Err(anyhow::anyhow!(format!("{:?}", res)))
+        } else {
+            Ok(())
+        }
     }
     #[tokio::main]
-    async fn qc_fuzz(execution: DiceExecutionOrder) -> bool {
+    async fn qc_fuzz(execution: DiceExecutionOrder) -> TestResult {
         execution
             .execute(&DiceExecutionOrderOptions { print_dumps: false })
             .await
-            .is_ok()
     }
 
     let cmd = Command::new("fuzzy-dice")
@@ -95,7 +101,7 @@ fn main() -> anyhow::Result<()> {
                 .max_tests(2_000_000)
                 .tests(2_000_000)
                 .gen(Gen::new(10))
-                .quickcheck(qc_fuzz as fn(DiceExecutionOrder) -> bool);
+                .quickcheck(qc_fuzz as fn(DiceExecutionOrder) -> TestResult);
         }
         Some(("replay", submatches)) => {
             tracing_subscriber::registry()

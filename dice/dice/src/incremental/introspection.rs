@@ -88,17 +88,18 @@ where
         }
         fn visit_rdeps(
             rdeps: &VersionedRevDependencies,
-        ) -> Vec<(crate::introspection::graph::VersionNumber, Option<NodeID>)> {
-            rdeps
-                .rdeps()
-                .iter()
-                .map(|rdep| {
-                    (
-                        rdep.relevant_version.to_introspectable(),
-                        rdep.node.upgrade().map(|node| NodeID(node.id())),
-                    )
-                })
-                .collect()
+        ) -> BTreeMap<crate::introspection::graph::VersionNumber, Vec<NodeID>> {
+            let mut res = BTreeMap::new();
+
+            for rdep in rdeps.rdeps().iter() {
+                if let Some(node) = rdep.node.upgrade() {
+                    res.entry(rdep.relevant_version.to_introspectable())
+                        .or_insert_with(Vec::new)
+                        .push(NodeID(node.id()));
+                }
+            }
+
+            res
         }
         fn visit_node<K: StorageProperties, M: FnMut(AnyKey) -> KeyID>(
             node: &VersionedGraphNodeInternal<K>,

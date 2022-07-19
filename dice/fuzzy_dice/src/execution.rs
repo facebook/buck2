@@ -14,6 +14,7 @@ use std::fmt::Formatter;
 use std::io::stderr;
 use std::io::Write;
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use crossbeam::queue::SegQueue;
 use dice::cycles::DetectCycles;
@@ -24,6 +25,7 @@ use futures::FutureExt;
 use gazebo::prelude::*;
 use quickcheck::Arbitrary;
 use quickcheck::Gen;
+use quickcheck::TestResult;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -160,6 +162,9 @@ pub struct DiceExecutionOrder {
     timeline: Vec<Operation>,
     /// Are we shrinking an already-found failure? See comment in |execute|.
     is_shrinking: bool,
+    /// The first failure we encountered
+    #[serde(skip)]
+    first_failure: Arc<Mutex<Option<Arc<ExecutionResult>>>>,
 }
 
 impl Debug for DiceExecutionOrder {
@@ -182,38 +187,109 @@ impl DiceExecutionOrder {
     /// same bug may not repro, so shrinking might stop early.
     /// Since shrinking a big testcase takes multiple consecutive failures,
     /// without multiple samples, shrinking will usually stop early.
-    pub async fn execute(&self, options: &DiceExecutionOrderOptions) -> anyhow::Result<()> {
+    pub async fn execute(&self, options: &DiceExecutionOrderOptions) -> TestResult {
         let answer_key = MathAnswerKey::new(self);
         let ntimes = if self.is_shrinking {
             Self::NSAMPLES_SHRINKING
         } else {
             Self::NSAMPLES_SEARCHING
         };
+
+        let mut ignored_failure = vec![];
         for _ in 0..ntimes {
             match self.execute_once(&answer_key, options).await {
                 ExecutionResult::Correct => {}
                 ExecutionResult::ExpectedPanic(r) => {
-                    return Err(anyhow::anyhow!(
-                        "Expected panic from injected key missing but got `{}`",
-                        r
-                    ));
+                    let mut first_failure = self.first_failure.lock().unwrap();
+                    match &*first_failure {
+                        None => {
+                            *first_failure = Some(Arc::new(ExecutionResult::ExpectedPanic(r)));
+                            return TestResult::error(format!(
+                                "Expected panic from injected key missing but got `{}`",
+                                r
+                            ));
+                        }
+                        Some(prev) => {
+                            match &**prev {
+                                ExecutionResult::ExpectedPanic(prev_r) if *prev_r == r => {
+                                    return TestResult::error(format!(
+                                        "Expected panic from injected key missing but got `{}`",
+                                        r
+                                    ));
+                                }
+                                _ => {
+                                    // keep going because the error doesn't match
+                                    ignored_failure.push(ExecutionResult::ExpectedPanic(r))
+                                }
+                            }
+                        }
+                    }
                 }
                 ExecutionResult::IncorrectResult { expected, actual } => {
-                    return Err(anyhow::anyhow!(
-                        "Expected `{}` but got `{}`",
-                        expected,
-                        actual
-                    ));
+                    let mut first_failure = self.first_failure.lock().unwrap();
+                    match &*first_failure {
+                        None => {
+                            *first_failure = Some(Arc::new(ExecutionResult::IncorrectResult {
+                                expected,
+                                actual,
+                            }));
+                            return TestResult::error(format!(
+                                "Expected `{}` but got `{}`",
+                                expected, actual
+                            ));
+                        }
+                        Some(prev) => match &**prev {
+                            ExecutionResult::IncorrectResult {
+                                expected: prev_expected,
+                                actual: prev_actual,
+                            } if *prev_expected == expected && *prev_actual == actual => {
+                                return TestResult::error(format!(
+                                    "Expected `{}` but got `{}`",
+                                    expected, actual
+                                ));
+                            }
+                            _ => ignored_failure
+                                .push(ExecutionResult::IncorrectResult { expected, actual }),
+                        },
+                    }
                 }
                 ExecutionResult::UnexpectedPanic(p) => {
-                    return Err(anyhow::anyhow!(
-                        "Expected result but panicked `{}`",
-                        p.downcast_ref::<&str>().unwrap_or(&"unknown panic")
-                    ));
+                    let mut first_failure = self.first_failure.lock().unwrap();
+                    match &*first_failure {
+                        None => {
+                            let msg = format!(
+                                "Expected result but panicked `{}`",
+                                p.downcast_ref::<&str>().unwrap_or(&"unknown panic")
+                            );
+                            *first_failure = Some(Arc::new(ExecutionResult::UnexpectedPanic(p)));
+                            return TestResult::error(msg);
+                        }
+                        Some(prev) => {
+                            match &**prev {
+                                ExecutionResult::UnexpectedPanic(_) => {
+                                    return TestResult::error(format!(
+                                        "Expected result but panicked `{}`",
+                                        p.downcast_ref::<&str>().unwrap_or(&"unknown panic")
+                                    ));
+                                }
+                                _ => {
+                                    // keep going because the error doesn't match
+                                    ignored_failure.push(ExecutionResult::UnexpectedPanic(p))
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
-        Ok(())
+
+        if self.first_failure.lock().unwrap().is_some() && !ignored_failure.is_empty() {
+            // we were supposed to find a particular failure but we didn't.
+            println!("warning: supposed to find a specific error but didn't find any");
+            return TestResult::discard();
+        }
+
+        TestResult::passed()
     }
 
     async fn execute_once(
@@ -392,6 +468,7 @@ impl Arbitrary for DiceExecutionOrder {
             is_shrinking: false,
             init_vars,
             timeline,
+            first_failure: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -437,6 +514,7 @@ impl Iterator for DiceExecutionOrderShrinker {
                 &self.seed.timeline[self.pos + 1..],
             ]
             .concat(),
+            first_failure: self.seed.first_failure.dupe(),
         })
     }
 }
@@ -474,6 +552,7 @@ mod tests {
                 },
             ],
             is_shrinking: false,
+            first_failure: Arc::new(Mutex::new(None)),
         };
         let answer_key = MathAnswerKey::new(&order);
         // Two present and well-behaved query results.
