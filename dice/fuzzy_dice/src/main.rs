@@ -13,7 +13,6 @@
 use anyhow::Context;
 use clap::Arg;
 use clap::Command;
-use futures::FutureExt;
 use quickcheck::Gen;
 use quickcheck::QuickCheck;
 use thiserror::Error;
@@ -57,20 +56,18 @@ fn execution_order_from_path(filepath: &str) -> anyhow::Result<DiceExecutionOrde
 #[allow(deprecated)] // TODO(nga): use non-deprecated API.
 fn main() -> anyhow::Result<()> {
     #[tokio::main]
-    async fn replay(options: &DiceExecutionOrderOptions, execution: DiceExecutionOrder) {
-        execution.execute(options).await.unwrap();
+    async fn replay(
+        options: &DiceExecutionOrderOptions,
+        execution: DiceExecutionOrder,
+    ) -> anyhow::Result<()> {
+        execution.execute(options).await
     }
     #[tokio::main]
     async fn qc_fuzz(execution: DiceExecutionOrder) -> bool {
-        std::panic::AssertUnwindSafe(async {
-            execution
-                .execute(&DiceExecutionOrderOptions { print_dumps: false })
-                .await
-                .unwrap();
-        })
-        .catch_unwind()
-        .await
-        .is_ok()
+        execution
+            .execute(&DiceExecutionOrderOptions { print_dumps: false })
+            .await
+            .is_ok()
     }
 
     let cmd = Command::new("fuzzy-dice")
@@ -109,7 +106,7 @@ fn main() -> anyhow::Result<()> {
             let options = DiceExecutionOrderOptions {
                 print_dumps: submatches.is_present("print-dumps"),
             };
-            replay(&options, execution);
+            replay(&options, execution)?;
         }
         _ => unreachable!("clap should ensure we don't get here"),
     }
