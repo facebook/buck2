@@ -563,6 +563,9 @@ pub enum DocItem {
 pub struct Doc {
     pub id: Identifier,
     pub item: DocItem,
+    /// Custom key-value pairs that are not interpreted directly by starlark, and can be
+    /// used as arbitrary data for documentation tooling.
+    pub custom_attrs: HashMap<String, String>,
 }
 
 #[cfg(test)]

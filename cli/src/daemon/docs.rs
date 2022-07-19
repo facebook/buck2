@@ -83,6 +83,7 @@ fn builtin_doc<S: ToString>(name: S, directory: OutputDirectory, item: DocItem) 
                 location: None,
             },
             item,
+            custom_attrs: Default::default(),
         },
     )
 }
@@ -223,6 +224,7 @@ async fn get_docs_from_module(
                     }),
                 },
                 item: module_doc,
+                custom_attrs: Default::default(),
             },
         ));
     }
@@ -240,6 +242,7 @@ async fn get_docs_from_module(
                         }),
                     },
                     item: doc_item,
+                    custom_attrs: Default::default(),
                 },
             )
         })

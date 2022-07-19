@@ -587,6 +587,7 @@ mod tests {
                         ),
                     }),
                 }),
+                custom_attrs: Default::default(),
             },
             Doc {
                 id: Identifier {
@@ -597,6 +598,7 @@ mod tests {
                     "native_function_1",
                     true,
                 ))),
+                custom_attrs: Default::default(),
             },
             Doc {
                 id: Identifier {
@@ -607,6 +609,7 @@ mod tests {
                     "native_function_2",
                     true,
                 ))),
+                custom_attrs: Default::default(),
             },
             Doc {
                 id: Identifier {
@@ -617,6 +620,7 @@ mod tests {
                     "native_function_3",
                     true,
                 ))),
+                custom_attrs: Default::default(),
             },
             Doc {
                 id: Identifier {
@@ -627,6 +631,7 @@ mod tests {
                     "native_function_4",
                     true,
                 ))),
+                custom_attrs: Default::default(),
             },
             Doc {
                 id: Identifier {
@@ -666,6 +671,7 @@ mod tests {
                         ),
                     ],
                 }),
+                custom_attrs: Default::default(),
             },
             // similar data, but in a starlark file
             Doc {
@@ -686,6 +692,7 @@ mod tests {
                         ),
                     }),
                 }),
+                custom_attrs: Default::default(),
             },
             Doc {
                 id: Identifier {
@@ -693,6 +700,7 @@ mod tests {
                     location: sample_location.clone(),
                 },
                 item: DocItem::Function(simple_function(simple_docstring("user_function_1", true))),
+                custom_attrs: Default::default(),
             },
             Doc {
                 id: Identifier {
@@ -700,6 +708,7 @@ mod tests {
                     location: sample_location.clone(),
                 },
                 item: DocItem::Function(simple_function(simple_docstring("user_function_2", true))),
+                custom_attrs: Default::default(),
             },
             Doc {
                 id: Identifier {
@@ -707,6 +716,7 @@ mod tests {
                     location: sample_location.clone(),
                 },
                 item: DocItem::Function(simple_function(simple_docstring("user_function_3", true))),
+                custom_attrs: Default::default(),
             },
             // Make sure we have "CustomInfo" *after* "user_function_X" to make sure that
             // we sort members properly
@@ -748,6 +758,7 @@ mod tests {
                         ),
                     ],
                 }),
+                custom_attrs: Default::default(),
             },
         ];
         let mut sample_data = sample_data.into_map(|d| (OutputDirectory::default(), d));
@@ -763,6 +774,7 @@ mod tests {
                     docs: simple_docstring("OtherInfo", true),
                     members: vec![],
                 }),
+                custom_attrs: Default::default(),
             },
         ));
 

@@ -49,6 +49,7 @@ fn expand_docs_derive(input: DeriveInput) -> syn::Result<proc_macro2::TokenStrea
                 Some(starlark::values::docs::Doc {
                     id,
                     item,
+                    custom_attrs: Default::default(),
                 })
             }
         }

@@ -49,6 +49,7 @@ EXPECTED: typing.Dict[str, object] = {
                 "summary": "This is the summary for the module",
             },
         },
+        "custom_attrs": {},
     },
     "root//cell/dir:defs.bzl:bar": {
         "id": {
@@ -97,6 +98,7 @@ EXPECTED: typing.Dict[str, object] = {
             ],
             "ret": {"docs": None, "type": {"raw_type": '["string"]'}},
         },
+        "custom_attrs": {},
     },
     "root//cell/dir:defs.bzl:baz": {
         "id": {
@@ -109,6 +111,7 @@ EXPECTED: typing.Dict[str, object] = {
             "params": [],
             "ret": {"docs": None, "type": None},
         },
+        "custom_attrs": {},
     },
     "root//cell/dir:defs.bzl:quz": {
         "id": {
@@ -121,6 +124,7 @@ EXPECTED: typing.Dict[str, object] = {
             "params": [],
             "ret": {"docs": None, "type": None},
         },
+        "custom_attrs": {},
     },
     "cell//dir:defs.bzl": {
         "id": {
@@ -134,6 +138,7 @@ EXPECTED: typing.Dict[str, object] = {
                 "summary": "This is the summary for the module",
             },
         },
+        "custom_attrs": {},
     },
     "cell//dir:defs.bzl:bar": {
         "id": {
@@ -182,6 +187,7 @@ EXPECTED: typing.Dict[str, object] = {
             ],
             "ret": {"docs": None, "type": {"raw_type": '["string"]'}},
         },
+        "custom_attrs": {},
     },
     "cell//dir:defs.bzl:baz": {
         "id": {
@@ -194,6 +200,7 @@ EXPECTED: typing.Dict[str, object] = {
             "params": [],
             "ret": {"docs": None, "type": None},
         },
+        "custom_attrs": {},
     },
     "cell//dir:defs.bzl:quz": {
         "id": {
@@ -206,6 +213,7 @@ EXPECTED: typing.Dict[str, object] = {
             "params": [],
             "ret": {"docs": None, "type": None},
         },
+        "custom_attrs": {},
     },
 }
 
@@ -332,6 +340,7 @@ async def test_providers_print_docs(buck: Buck) -> None:
                     ["c", {"kind": "property", "docs": None, "type": None}],
                 ],
             },
+            "custom_attrs": {},
         }
         return ret
 
