@@ -201,7 +201,7 @@ impl GlobalInterpreterState {
         disable_starlark_types: bool,
     ) -> anyhow::Result<Self> {
         fn base_env(interpreter_configuror: &Arc<dyn InterpreterConfiguror>) -> GlobalsBuilder {
-            let mut global_env = GlobalsBuilder::extended_by(&[
+            let starlark_extensions = [
                 LibraryExtension::Abs,
                 LibraryExtension::Breakpoint,
                 LibraryExtension::Debug,
@@ -216,14 +216,18 @@ impl GlobalInterpreterState {
                 LibraryExtension::RecordType,
                 LibraryExtension::ExperimentalRegex,
                 LibraryExtension::StructType,
-            ])
-            .with(register_globals)
-            .with(register_natives);
+            ];
+            let mut global_env = GlobalsBuilder::extended_by(&starlark_extensions)
+                .with(register_globals)
+                .with(register_natives);
             global_env.struct_("__internal__", |x| {
                 register_natives(x);
                 // If `native.` symbols need to be added to the global env, they should be done
                 // in `configure_build_file_globals()` or
                 // `configure_extension_file_globals()`
+                for ext in starlark_extensions {
+                    ext.add(x)
+                }
                 interpreter_configuror.configure_native_struct(x);
             });
             global_env

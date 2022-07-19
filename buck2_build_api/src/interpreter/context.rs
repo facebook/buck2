@@ -33,7 +33,6 @@ use buck2_interpreter::package_imports::ImplicitImport;
 use gazebo::cmp::PartialEqAny;
 use gazebo::prelude::*;
 use starlark::environment::GlobalsBuilder;
-use starlark::environment::LibraryExtension;
 
 use crate::interpreter::build_defs::register_natives;
 use crate::interpreter::module_internals::ModuleInternals;
@@ -142,9 +141,6 @@ impl InterpreterConfiguror for BuildInterpreterConfiguror {
         register_natives(native_module);
         register_args_function(native_module);
         // FIXME(ndmitchell): Not sure what set of things should be on native here
-        LibraryExtension::Map.add(native_module);
-        LibraryExtension::Filter.add(native_module);
-        LibraryExtension::Partial.add(native_module);
     }
 
     fn host_platform(&self) -> InterpreterHostPlatform {
