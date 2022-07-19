@@ -122,5 +122,7 @@ fn main() -> anyhow::Result<()> {
         }
         _ => unreachable!("clap should ensure we don't get here"),
     }
+
+    println!("Fuzzing complete.");
     Ok(())
 }
