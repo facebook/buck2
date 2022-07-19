@@ -16,6 +16,7 @@ use std::sync::Arc;
 
 use crossbeam::queue::SegQueue;
 use dice::cycles::DetectCycles;
+use dice::introspection::serialize_dense_graph;
 use dice::Dice;
 use dice::DiceTransaction;
 use futures::FutureExt;
@@ -270,7 +271,10 @@ impl DiceExecutionOrder {
     ) -> anyhow::Result<()> {
         if options.print_dumps {
             let mut stderr = stderr();
-            serde_json::to_writer(&mut stderr, dice.as_ref())?;
+            serialize_dense_graph(
+                &dice.to_introspectable(),
+                &mut serde_json::Serializer::pretty(&mut stderr),
+            )?;
             writeln!(stderr)?;
         }
         Ok(())

@@ -7,108 +7,134 @@
  * of this source tree.
  */
 
-use std::collections::hash_map::Entry;
-use std::collections::HashMap;
-use std::io::Write;
-
-use anyhow::Context as _;
-use serde::ser::SerializeSeq;
-use serde::Serializer;
+//!
+//! Interfaces for introspection of the DICE graph
 
 use crate::introspection::graph::AnyKey;
+use crate::introspection::graph::GraphIntrospectable;
 use crate::Dice;
 
 pub mod graph;
+mod introspect;
 
-pub(crate) fn serialize_dice_graph(
-    dice: &Dice,
-    nodes: impl Write,
-    mut edges: impl Write,
-) -> anyhow::Result<()> {
-    let map = dice.map.read().unwrap();
+pub use crate::introspection::introspect::serialize_dense_graph;
+pub use crate::introspection::introspect::serialize_graph;
 
-    let mut reg = NodeRegistry::new();
+impl Dice {
+    pub fn to_introspectable(&self) -> GraphIntrospectable {
+        GraphIntrospectable {
+            introspectables: self.map.read().unwrap().engines().to_vec(),
+        }
+    }
+}
 
-    for engine in map.engines() {
-        for (k, vs) in engine.edges() {
-            let k = reg.map(k);
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
 
-            for v in vs.into_iter() {
-                let v = reg.map(v);
-                edges
-                    .write_all(format!("{}\t{}\n", k, v).as_bytes())
-                    .context("Failed to write edge")?;
+    use anyhow::Context as _;
+    use async_trait::async_trait;
+    use derive_more::Display;
+    use gazebo::prelude::*;
+
+    use crate::cycles::DetectCycles;
+    use crate::introspection::graph::SerializedGraphNodesForKey;
+    use crate::serialize_graph;
+    use crate::Dice;
+    use crate::DiceComputations;
+    use crate::Key;
+
+    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq)]
+    #[display(fmt = "{:?}", self)]
+    struct KeyA(usize);
+
+    #[async_trait]
+    impl Key for KeyA {
+        type Value = ();
+
+        async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+            if self.0 > 0 {
+                ctx.compute(&KeyA(self.0 - 1)).await.unwrap();
+            } else {
+                ctx.compute(&KeyB).await.unwrap();
             }
         }
-    }
 
-    reg.write(nodes)?;
-
-    Ok(())
-}
-
-pub(crate) fn serialize_dense_dice_graph<S>(dice: &Dice, writer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    let map = dice.map.read().unwrap();
-
-    let mut reg = HashMap::new();
-
-    let num_nodes = map
-        .engines()
-        .iter()
-        .map(|engine| engine.len_for_introspection())
-        .sum();
-
-    let mut seq = writer.serialize_seq(Some(num_nodes))?;
-    for engine in map.engines() {
-        for node in engine.nodes(&mut reg) {
-            seq.serialize_element(&node)?;
-        }
-    }
-    seq.end()
-}
-
-struct NodeRegistry {
-    keys: HashMap<AnyKey, u64>,
-    idx: u64,
-}
-
-impl NodeRegistry {
-    pub fn new() -> Self {
-        Self {
-            keys: HashMap::new(),
-            idx: 0,
+        fn equality(_: &Self::Value, _: &Self::Value) -> bool {
+            unimplemented!()
         }
     }
 
-    pub fn map(&mut self, key: AnyKey) -> u64 {
-        match self.keys.entry(key) {
-            Entry::Occupied(e) => *e.get(),
-            Entry::Vacant(e) => {
-                let idx = self.idx;
-                self.idx += 1;
-                *e.insert(idx)
-            }
+    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq)]
+    #[display(fmt = "{:?}", self)]
+    struct KeyB;
+
+    #[async_trait]
+    impl Key for KeyB {
+        type Value = ();
+
+        async fn compute(&self, _: &DiceComputations) -> Self::Value {
+            // Noop
+        }
+
+        fn equality(_: &Self::Value, _: &Self::Value) -> bool {
+            unimplemented!()
         }
     }
 
-    pub fn write(self, mut out: impl Write) -> anyhow::Result<()> {
-        // NOTE: Writing out the node type every time is wasteful here, we could optimize, though
-        // if we compress then that goes away, so optimizing *here* might not make the most sense.
-        let mut keys = self
-            .keys
-            .into_iter()
-            .map(|(key, idx)| (idx, key))
-            .collect::<Vec<_>>();
+    #[tokio::test]
+    async fn test_serialization() -> anyhow::Result<()> {
+        let dice = Dice::builder().build(DetectCycles::Disabled);
+        let ctx = dice.ctx();
+        ctx.compute(&KeyA(3)).await?;
 
-        keys.sort_by_key(|(idx, _)| *idx);
+        let mut nodes = Vec::new();
+        let mut edges = Vec::new();
 
-        for (idx, key) in keys {
-            out.write_all(format!("{}\t{}\t{}\n", idx, key, key.short_type_name()).as_bytes())
-                .context("Failed to write node")?;
+        serialize_graph(&dice.to_introspectable(), &mut nodes, &mut edges).unwrap();
+        let nodes = String::from_utf8(nodes)?;
+        let edges = String::from_utf8(edges)?;
+
+        let mut node_map = HashMap::<String, u64>::new();
+        let mut edge_list = Vec::<(u64, u64)>::new();
+
+        for line in nodes.lines() {
+            let mut it = line.trim().split('\t');
+            let idx = it.next().context("No idx")?.parse()?;
+            let key = it.next().context("No key")?;
+            node_map.insert(key.into(), idx);
         }
+
+        for line in edges.lines() {
+            let mut it = line.trim().split('\t');
+            let from = it.next().context("No idx")?.parse()?;
+            let to = it.next().context("No key")?.parse()?;
+            edge_list.push((from, to));
+        }
+
+        let a3 = *node_map.get("KeyA(3)").context("Missing key")?;
+        let a2 = *node_map.get("KeyA(2)").context("Missing key")?;
+        let a1 = *node_map.get("KeyA(1)").context("Missing key")?;
+        let a0 = *node_map.get("KeyA(0)").context("Missing key")?;
+        let b = *node_map.get("KeyB").context("Missing key")?;
+
+        let mut expected_edge_list = vec![(a3, a2), (a2, a1), (a1, a0), (a0, b)];
+        expected_edge_list.sort_unstable();
+        edge_list.sort_unstable();
+        assert_eq!(expected_edge_list, edge_list);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_serialization_dense() -> anyhow::Result<()> {
+        let dice = Dice::builder().build(DetectCycles::Disabled);
+        let ctx = dice.ctx();
+        ctx.compute(&KeyA(3)).await?;
+
+        let node = bincode::serialize(&dice.to_introspectable())?;
+
+        let _out: Vec<SerializedGraphNodesForKey> = bincode::deserialize(&node)?;
         Ok(())
     }
 }

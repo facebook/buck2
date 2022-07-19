@@ -16,11 +16,28 @@ use std::fmt;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::sync::Arc;
 
 use gazebo::cmp::PartialEqAny;
 use gazebo::prelude::*;
 use serde::Deserialize;
 use serde::Serialize;
+use serde::Serializer;
+
+use crate::introspection::serialize_dense_graph;
+
+pub struct GraphIntrospectable {
+    pub introspectables: Vec<Arc<dyn EngineForIntrospection + Send + Sync + 'static>>,
+}
+
+impl Serialize for GraphIntrospectable {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serialize_dense_graph(self, serializer)
+    }
+}
 
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Dupe, Copy)]
 #[serde(transparent)]

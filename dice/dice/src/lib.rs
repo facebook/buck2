@@ -214,8 +214,6 @@ use async_trait::async_trait;
 use bincode::Options;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
-use serde::Serialize;
-use serde::Serializer;
 
 use crate::ctx::ComputationData;
 use crate::ctx::DiceComputationImpl;
@@ -234,7 +232,7 @@ mod dice_task;
 mod future_handle;
 mod incremental;
 mod injected;
-mod introspection;
+pub mod introspection;
 pub(crate) mod key;
 mod map;
 pub(crate) mod opaque;
@@ -268,6 +266,8 @@ use crate::incremental::graph::GraphNode;
 use crate::incremental::transaction_ctx::TransactionCtx;
 use crate::incremental::IncrementalComputeProperties;
 use crate::incremental::ValueWithDeps;
+use crate::introspection::serialize_dense_graph;
+use crate::introspection::serialize_graph;
 use crate::key::StoragePropertiesForKey;
 use crate::projection::ProjectionKeyProperties;
 
@@ -395,7 +395,7 @@ impl Dice {
     }
 
     pub fn serialize_tsv(&self, nodes: impl Write, edges: impl Write) -> anyhow::Result<()> {
-        crate::introspection::serialize_dice_graph(self, nodes, edges)
+        serialize_graph(&self.to_introspectable(), nodes, edges)
     }
 
     pub fn serialize_serde(&self, out: impl Write) -> anyhow::Result<()> {
@@ -405,17 +405,10 @@ impl Dice {
                 .with_fixint_encoding()
                 .allow_trailing_bytes(),
         );
-        self.serialize(&mut writer)?;
-        Ok(())
-    }
-}
 
-impl Serialize for Dice {
-    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        crate::introspection::serialize_dense_dice_graph(self, s)
+        serialize_dense_graph(&self.to_introspectable(), &mut writer)?;
+
+        Ok(())
     }
 }
 
