@@ -6,4 +6,4 @@ def _impl(platform, refs):
         configuration = platform.configuration,
     )
 
-transition_increase_label_len = transition(_impl, refs = {})
+transition_increase_label_len = transition(impl = _impl, refs = {})

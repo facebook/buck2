@@ -16,4 +16,4 @@ def _impl(platform: PlatformInfo.type, refs: struct.type):
 
     return splits
 
-fat_platform_transition = transition(_impl, refs = {"_": "fbcode//buck2/platform/execution:fat_platform_transition_helper"}, split = True)
+fat_platform_transition = transition(impl = _impl, refs = {"_": "fbcode//buck2/platform/execution:fat_platform_transition_helper"}, split = True)

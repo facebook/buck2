@@ -59,7 +59,7 @@ def _cpu_transition_impl(
     return _cpu_split_transition_impl(platform, refs, attrs).values()[0]
 
 cpu_split_transition = transition(
-    _cpu_split_transition_impl,
+    impl = _cpu_split_transition_impl,
     refs = _REFS,
     attrs = [
         "cpu_filters",
@@ -75,7 +75,7 @@ cpu_split_transition = transition(
 #
 # This is used for the `manifest` attribute of `android_binary`.
 cpu_transition = transition(
-    _cpu_transition_impl,
+    impl = _cpu_transition_impl,
     refs = _REFS,
     attrs = [
         "cpu_filters",

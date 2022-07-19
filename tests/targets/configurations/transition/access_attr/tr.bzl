@@ -5,7 +5,7 @@ def _tr(platform, refs, attrs):
     return platform
 
 tr = transition(
-    _tr,
+    impl = _tr,
     refs = {},
     attrs = [
         "java_version",

@@ -15,7 +15,7 @@ def _impl(platform, refs):
         configuration = new_cfg,
     )
 
-iphone_to_watch_transition = transition(_impl, refs = {
+iphone_to_watch_transition = transition(impl = _impl, refs = {
     "os": "fbcode//buck2/tests/targets/configurations/transition/attr:os",
     "watchos": "fbcode//buck2/tests/targets/configurations/transition/attr:watchos",
 })
