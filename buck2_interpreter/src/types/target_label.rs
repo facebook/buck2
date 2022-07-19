@@ -28,6 +28,7 @@ use starlark::values::ValueError;
 use starlark::values::ValueLike;
 
 use crate::starlark::values::AllocValue;
+use crate::types::configuration::StarlarkConfiguration;
 use crate::types::label_relative_path::LabelRelativePath;
 
 #[derive(
@@ -189,6 +190,10 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
     fn path<'v>(this: &StarlarkConfiguredTargetLabel, heap: &Heap) -> anyhow::Result<Value<'v>> {
         let path = LabelRelativePath(this.label.pkg().to_cell_path());
         Ok(path.alloc_value(heap))
+    }
+
+    fn config<'v>(this: &StarlarkConfiguredTargetLabel) -> anyhow::Result<StarlarkConfiguration> {
+        Ok(StarlarkConfiguration((*this.label.cfg()).dupe()))
     }
 
     /// Returns the unconfigured underlying target label.

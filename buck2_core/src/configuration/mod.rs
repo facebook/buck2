@@ -257,6 +257,10 @@ impl Configuration {
         &self.0.output_hash
     }
 
+    pub fn configuration_platform(&self) -> &ConfigurationPlatform {
+        &self.0.platform_configuration_data.platform
+    }
+
     pub fn full_name(&self) -> &str {
         &self.0.full_name
     }

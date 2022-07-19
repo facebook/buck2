@@ -8,6 +8,7 @@
  */
 
 pub mod cell_root;
+pub mod configuration;
 pub mod label;
 pub mod label_relative_path;
 pub mod target_label;
