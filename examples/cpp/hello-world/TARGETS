@@ -1,5 +1,5 @@
-load("//rules.bzl", "cpp_binary")
-load("//toolchain.bzl", "cpp_local_toolchain")
+load("//:rules.bzl", "cpp_binary")
+load("//:toolchain.bzl", "cpp_local_toolchain")
 
 cpp_local_toolchain(
     name = "clang",

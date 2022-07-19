@@ -1,4 +1,4 @@
-load("//rules.bzl", "cpp_library")
+load("//:rules.bzl", "cpp_library")
 
 cpp_library(
     name = "library",

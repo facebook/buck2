@@ -1,5 +1,5 @@
-load("//rules.bzl", "go_binary")
-load("//toolchain.bzl", "go_toolchain")
+load("//:rules.bzl", "go_binary")
+load("//:toolchain.bzl", "go_toolchain")
 
 go_toolchain(
     name = "go_linux",
