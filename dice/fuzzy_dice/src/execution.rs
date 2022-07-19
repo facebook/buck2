@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Formatter;
@@ -124,6 +125,13 @@ impl MathAnswerKey {
     }
 }
 
+enum ExecutionResult {
+    Correct,
+    IncorrectResult { expected: bool, actual: bool },
+    ExpectedPanic(bool),
+    UnexpectedPanic(Box<dyn Any + Send>),
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Operation {
     /// Evaluate the variable at the version immediately after
@@ -182,7 +190,28 @@ impl DiceExecutionOrder {
             Self::NSAMPLES_SEARCHING
         };
         for _ in 0..ntimes {
-            self.execute_once(&answer_key, options).await?;
+            match self.execute_once(&answer_key, options).await {
+                ExecutionResult::Correct => {}
+                ExecutionResult::ExpectedPanic(r) => {
+                    return Err(anyhow::anyhow!(
+                        "Expected panic from injected key missing but got `{}`",
+                        r
+                    ));
+                }
+                ExecutionResult::IncorrectResult { expected, actual } => {
+                    return Err(anyhow::anyhow!(
+                        "Expected `{}` but got `{}`",
+                        expected,
+                        actual
+                    ));
+                }
+                ExecutionResult::UnexpectedPanic(p) => {
+                    return Err(anyhow::anyhow!(
+                        "Expected result but panicked `{}`",
+                        p.downcast_ref::<&str>().unwrap_or(&"unknown panic")
+                    ));
+                }
+            }
         }
         Ok(())
     }
@@ -191,7 +220,7 @@ impl DiceExecutionOrder {
         &self,
         answer_key: &MathAnswerKey,
         options: &DiceExecutionOrderOptions,
-    ) -> anyhow::Result<()> {
+    ) -> ExecutionResult {
         let dice = Dice::builder().build(DetectCycles::Disabled);
         let mut dice_ctxs: HashMap<usize, DiceTransaction> = HashMap::new();
         let state = {
@@ -210,36 +239,36 @@ impl DiceExecutionOrder {
                 Operation::Query { ctx_id, var } => {
                     if let Some(ctx) = dice_ctxs.get(ctx_id) {
                         let expected = answer_key.value_of_at_ctx(*ctx_id, *var);
-                        match expected {
-                            Some(expected_result) => {
-                                let result = ctx.eval(state.dupe(), *var).await?;
-                                Self::maybe_dump_dice(options, &dice)
-                                    .expect("couldn't dump DICE to stderr");
-                                assert_eq!(
-                                    expected_result, result,
-                                    "incremental computation gave wrong answer for {:?}",
-                                    &op
-                                );
-                            }
-                            None => {
-                                // There's a known bug where DICE sometimes uses injected keys from versions prior to the current query.
-                                // These computations should panic, but don't, and the fuzzer keeps finding them.
-                                // This environment variable disables this class of bugs, so other errors are easier to find.
-                                if std::env::var("ALLOW_INCORRECT_WHEN_SHOULD_PANIC").is_err() {
-                                    if let Ok(actual_value) = std::panic::AssertUnwindSafe(async {
-                                        ctx.eval(state.dupe(), *var).await.expect("eval errored")
-                                    })
-                                    .catch_unwind()
-                                    .await
-                                    {
-                                        Self::maybe_dump_dice(options, &dice)
-                                            .expect("couldn't dump DICE to stderr");
-                                        panic!(
-                                            "expected computing {:?} to panic, but didn't panic, got {}",
-                                            &op, actual_value
-                                        );
-                                    }
+
+                        match (
+                            expected,
+                            std::panic::AssertUnwindSafe(async {
+                                ctx.eval(state.dupe(), *var).await.expect("eval errored")
+                            })
+                            .catch_unwind()
+                            .await,
+                        ) {
+                            (Some(expected), Ok(result)) => {
+                                if expected != result {
+                                    return ExecutionResult::IncorrectResult {
+                                        expected,
+                                        actual: result,
+                                    };
                                 }
+                            }
+                            (Some(_), Err(panic)) => {
+                                if std::env::var("ALLOW_INCORRECT_WHEN_SHOULD_PANIC").is_err() {
+                                    // There's a known bug where DICE sometimes uses injected keys from versions prior to the current query.
+                                    // These computations should panic, but don't, and the fuzzer keeps finding them.
+                                    // This environment variable disables this class of bugs, so other errors are easier to find.
+                                    return ExecutionResult::UnexpectedPanic(panic);
+                                }
+                            }
+                            (None, Err(_panic)) => {
+                                // TODO maybe check the type of panic
+                            }
+                            (None, Ok(result)) => {
+                                return ExecutionResult::ExpectedPanic(result);
                             }
                         }
                     }
@@ -262,7 +291,8 @@ impl DiceExecutionOrder {
                 }
             }
         }
-        Ok(())
+
+        ExecutionResult::Correct
     }
 
     fn maybe_dump_dice(
