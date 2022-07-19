@@ -71,9 +71,15 @@ fn main() -> anyhow::Result<()> {
     }
     #[tokio::main]
     async fn qc_fuzz(execution: DiceExecutionOrder) -> TestResult {
-        execution
+        let res = execution
             .execute(&DiceExecutionOrderOptions { print_dumps: false })
-            .await
+            .await;
+
+        if res.is_error() || res.is_failure() {
+            println!("fuzzing found failure. shrinking...");
+        }
+
+        res
     }
 
     let cmd = Command::new("fuzzy-dice")
