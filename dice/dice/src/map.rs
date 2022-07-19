@@ -13,15 +13,15 @@ use anymap::any::Any;
 use anymap::Map;
 use gazebo::prelude::*;
 
-use crate::incremental::introspection::EngineForIntrospection;
 use crate::incremental::IncrementalComputeProperties;
+use crate::introspection::graph::EngineForIntrospection;
 use crate::IncrementalEngine;
 
 /// A dynamically typed Map for DICE to map computations to their key, value
 /// cache maps.
 pub struct DiceMap {
     typed: Map<dyn Any + Sync + Send>,
-    erased: Vec<Box<dyn EngineForIntrospection + Send + Sync + 'static>>,
+    erased: Vec<Arc<dyn EngineForIntrospection + Send + Sync + 'static>>,
 }
 
 impl DiceMap {
@@ -52,12 +52,13 @@ impl DiceMap {
         } else {
             let cache = new();
             self.typed.insert::<Arc<IncrementalEngine<S>>>(cache.dupe());
-            self.erased.push(box cache.dupe());
+            self.erased
+                .push(cache.dupe() as Arc<dyn EngineForIntrospection + Send + Sync + 'static>);
             cache
         }
     }
 
-    pub(crate) fn engines(&self) -> &[Box<dyn EngineForIntrospection + Send + Sync + 'static>] {
+    pub(crate) fn engines(&self) -> &[Arc<dyn EngineForIntrospection + Send + Sync + 'static>] {
         self.erased.as_slice()
     }
 }

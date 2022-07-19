@@ -15,8 +15,10 @@ use anyhow::Context as _;
 use serde::ser::SerializeSeq;
 use serde::Serializer;
 
-use crate::incremental::introspection::AnyKey;
+use crate::introspection::graph::AnyKey;
 use crate::Dice;
+
+pub mod graph;
 
 pub(crate) fn serialize_dice_graph(
     dice: &Dice,
@@ -107,113 +109,6 @@ impl NodeRegistry {
             out.write_all(format!("{}\t{}\t{}\n", idx, key, key.short_type_name()).as_bytes())
                 .context("Failed to write node")?;
         }
-        Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use async_trait::async_trait;
-    use derive_more::Display;
-    use gazebo::prelude::*;
-
-    use super::*;
-    use crate::cycles::DetectCycles;
-    use crate::incremental::introspection::SerializedGraphNodesForKey;
-    use crate::Dice;
-    use crate::DiceComputations;
-    use crate::Key;
-
-    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq)]
-    #[display(fmt = "{:?}", self)]
-    struct KeyA(usize);
-
-    #[async_trait]
-    impl Key for KeyA {
-        type Value = ();
-
-        async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
-            if self.0 > 0 {
-                ctx.compute(&KeyA(self.0 - 1)).await.unwrap();
-            } else {
-                ctx.compute(&KeyB).await.unwrap();
-            }
-        }
-
-        fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-            unimplemented!()
-        }
-    }
-
-    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq)]
-    #[display(fmt = "{:?}", self)]
-    struct KeyB;
-
-    #[async_trait]
-    impl Key for KeyB {
-        type Value = ();
-
-        async fn compute(&self, _: &DiceComputations) -> Self::Value {
-            // Noop
-        }
-
-        fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-            unimplemented!()
-        }
-    }
-
-    #[tokio::test]
-    async fn test_serialization() -> anyhow::Result<()> {
-        let dice = Dice::builder().build(DetectCycles::Disabled);
-        let ctx = dice.ctx();
-        ctx.compute(&KeyA(3)).await?;
-
-        let mut nodes = Vec::new();
-        let mut edges = Vec::new();
-
-        serialize_dice_graph(&dice, &mut nodes, &mut edges).unwrap();
-        let nodes = String::from_utf8(nodes)?;
-        let edges = String::from_utf8(edges)?;
-
-        let mut node_map = HashMap::<String, u64>::new();
-        let mut edge_list = Vec::<(u64, u64)>::new();
-
-        for line in nodes.lines() {
-            let mut it = line.trim().split('\t');
-            let idx = it.next().context("No idx")?.parse()?;
-            let key = it.next().context("No key")?;
-            node_map.insert(key.into(), idx);
-        }
-
-        for line in edges.lines() {
-            let mut it = line.trim().split('\t');
-            let from = it.next().context("No idx")?.parse()?;
-            let to = it.next().context("No key")?.parse()?;
-            edge_list.push((from, to));
-        }
-
-        let a3 = *node_map.get("KeyA(3)").context("Missing key")?;
-        let a2 = *node_map.get("KeyA(2)").context("Missing key")?;
-        let a1 = *node_map.get("KeyA(1)").context("Missing key")?;
-        let a0 = *node_map.get("KeyA(0)").context("Missing key")?;
-        let b = *node_map.get("KeyB").context("Missing key")?;
-
-        let mut expected_edge_list = vec![(a3, a2), (a2, a1), (a1, a0), (a0, b)];
-        expected_edge_list.sort_unstable();
-        edge_list.sort_unstable();
-        assert_eq!(expected_edge_list, edge_list);
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_serialization_dense() -> anyhow::Result<()> {
-        let dice = Dice::builder().build(DetectCycles::Disabled);
-        let ctx = dice.ctx();
-        ctx.compute(&KeyA(3)).await?;
-
-        let nodes = bincode::serialize(dice.as_ref())?;
-        let _out: Vec<SerializedGraphNodesForKey> = bincode::deserialize(&nodes)?;
         Ok(())
     }
 }

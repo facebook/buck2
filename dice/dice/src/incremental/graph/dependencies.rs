@@ -29,12 +29,12 @@ use gazebo::dupe::Dupe;
 use crate::ctx::ComputationData;
 use crate::incremental::graph::GraphNodeDyn;
 use crate::incremental::graph::ReadOnlyHistory;
-use crate::incremental::introspection::AnyKey;
 use crate::incremental::transaction_ctx::TransactionCtx;
 use crate::incremental::versions::MinorVersion;
 use crate::incremental::versions::VersionNumber;
 use crate::incremental::versions::VersionRange;
 use crate::incremental::versions::VersionRanges;
+use crate::introspection::graph::AnyKey;
 use crate::DiceResult;
 
 /// The dependency information stored by the core engine

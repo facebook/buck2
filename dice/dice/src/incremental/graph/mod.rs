@@ -49,12 +49,12 @@ use crate::incremental::graph::dependencies::VersionedDependencies;
 use crate::incremental::graph::dependencies::VersionedRevDependencies;
 use crate::incremental::graph::storage_properties::StorageProperties;
 use crate::incremental::history::HistoryState;
-use crate::incremental::introspection::AnyKey;
 use crate::incremental::versions::MinorVersion;
 use crate::incremental::versions::VersionRanges;
 use crate::incremental::CellHistory;
 use crate::incremental::Dependency;
 use crate::incremental::VersionNumber;
+use crate::introspection::graph::AnyKey;
 
 /// The Key for a Versioned, incremental computation
 #[derive(Clone, Debug)]
@@ -1276,6 +1276,22 @@ impl<K: StorageProperties> EntryUpdater<K> {
             );
         }
         new
+    }
+}
+
+mod introspection {
+    use crate::incremental::graph::VersionedGraphNodeInternal;
+    use crate::introspection::graph::GraphNodeKind;
+    use crate::StorageProperties;
+
+    impl<K: StorageProperties> From<&VersionedGraphNodeInternal<K>> for GraphNodeKind {
+        fn from(n: &VersionedGraphNodeInternal<K>) -> Self {
+            match n {
+                VersionedGraphNodeInternal::Occupied(_) => GraphNodeKind::Occupied,
+                VersionedGraphNodeInternal::Transient(_) => GraphNodeKind::Transient,
+                VersionedGraphNodeInternal::Vacant(_) => GraphNodeKind::Vacant,
+            }
+        }
     }
 }
 

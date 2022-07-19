@@ -333,13 +333,6 @@ impl CellHistory {
         }
     }
 
-    pub(crate) fn clone_for_introspection(&self) -> Self {
-        Self {
-            verified: self.verified.clone(),
-            dirtied: self.dirtied.clone(),
-        }
-    }
-
     fn min_validatable_version(
         &self,
         verified_at: VersionNumber,
@@ -443,6 +436,28 @@ pub(crate) mod testing {
             match self {
                 HistoryState::Dirty => {}
                 x => panic!("expected Dirty but was {}", x.variant_name()),
+            }
+        }
+    }
+}
+
+mod introspection {
+    use crate::incremental::history::CellHistory;
+    use crate::incremental::versions::VersionNumber;
+
+    impl CellHistory {
+        pub fn to_introspectable(&self) -> crate::introspection::graph::CellHistory {
+            crate::introspection::graph::CellHistory {
+                verified: self
+                    .verified
+                    .iter()
+                    .map(VersionNumber::to_introspectable)
+                    .collect(),
+                dirtied: self
+                    .dirtied
+                    .iter()
+                    .map(|(k, v)| (k.to_introspectable(), *v))
+                    .collect(),
             }
         }
     }

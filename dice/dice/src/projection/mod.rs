@@ -21,8 +21,8 @@ use async_trait::async_trait;
 use gazebo::dupe::Dupe;
 
 use crate::ctx::UserComputationData;
-use crate::incremental::introspection::short_type_name;
 use crate::incremental::IncrementalComputeProperties;
+use crate::introspection::graph::short_type_name;
 use crate::sync_handle::SyncDiceTaskHandle;
 use crate::ComputationData;
 use crate::Dice;

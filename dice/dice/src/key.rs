@@ -16,7 +16,7 @@ use std::sync::Weak;
 use async_trait::async_trait;
 use gazebo::prelude::*;
 
-use crate::incremental::introspection::short_type_name;
+use crate::introspection::graph::short_type_name;
 use crate::Dice;
 use crate::DiceComputations;
 use crate::StorageProperties;

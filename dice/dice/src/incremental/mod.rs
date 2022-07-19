@@ -1006,7 +1006,6 @@ mod tests {
     use crate::incremental::graph::VersionedGraphKeyRef;
     use crate::incremental::graph::WritableMetadata;
     use crate::incremental::history::testing::CellHistoryExt;
-    use crate::incremental::introspection::AnyKey;
     use crate::incremental::testing::DependencyExt;
     use crate::incremental::testing::DidDepsChangeExt;
     use crate::incremental::testing::IncrementalEngineExt;
@@ -1026,6 +1025,7 @@ mod tests {
     use crate::incremental::IncrementalEngine;
     use crate::incremental::TransactionCtx;
     use crate::incremental::VersionedGraphResultMismatch;
+    use crate::introspection::graph::AnyKey;
     use crate::DiceResult;
     use crate::StorageProperties;
     use crate::StorageType;

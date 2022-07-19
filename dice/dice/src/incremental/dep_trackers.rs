@@ -185,7 +185,6 @@ mod internals {
     use crate::incremental::graph::GraphNodeDyn;
     use crate::incremental::graph::ReadOnlyHistory;
     use crate::incremental::graph::VersionedGraphKeyRef;
-    use crate::incremental::introspection::AnyKey;
     use crate::incremental::transaction_ctx::TransactionCtx;
     use crate::incremental::versions::MinorVersion;
     use crate::incremental::versions::VersionNumber;
@@ -193,6 +192,7 @@ mod internals {
     use crate::incremental::Dependency;
     use crate::incremental::IncrementalComputeProperties;
     use crate::incremental::IncrementalEngine;
+    use crate::introspection::graph::AnyKey;
     use crate::DiceResult;
 
     pub(crate) struct ComputedDep<K: IncrementalComputeProperties> {

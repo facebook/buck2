@@ -620,6 +620,16 @@ impl MinorVersionTracker {
     }
 }
 
+mod introspection {
+    use crate::incremental::versions::VersionNumber;
+
+    impl VersionNumber {
+        pub fn to_introspectable(&self) -> crate::introspection::graph::VersionNumber {
+            crate::introspection::graph::VersionNumber(self.0)
+        }
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod testing {
     use std::collections::BTreeSet;
