@@ -5,7 +5,6 @@ use buck2_build_api::query::cquery::evaluator::get_cquery_evaluator;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_core::target::TargetLabel;
-use buck2_docs_gen::Buck2Docs;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationValue;
@@ -34,6 +33,7 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::file_set::FileSetExpr;
@@ -44,8 +44,15 @@ use crate::bxl::value_as_starlak_target_label::ValueAsStarlarkTargetLabel;
 
 /// The context for performing `cquery` operations in bxl. The functions offered on this ctx are
 /// the same behaviour as the query functions available within cquery command.
-#[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize, Buck2Docs)]
-#[buck2_docs(register_cquery, name = "cqueryctx", directory = "bxl")]
+#[derive(
+    ProvidesStaticType,
+    Derivative,
+    Display,
+    Trace,
+    NoSerialize,
+    StarlarkDocs
+)]
+#[starlark_docs_attrs(directory = "bxl")]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 pub struct StarlarkCQueryCtx<'v> {

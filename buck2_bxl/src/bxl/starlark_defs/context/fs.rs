@@ -12,7 +12,6 @@ use buck2_common::file_ops::FileOps;
 use buck2_core;
 use buck2_core::fs::paths::AbsPath;
 use buck2_core::fs::project::ProjectRelativePath;
-use buck2_docs_gen::Buck2Docs;
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
@@ -31,12 +30,20 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 
-#[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize, Buck2Docs)]
+#[derive(
+    ProvidesStaticType,
+    Derivative,
+    Display,
+    Trace,
+    NoSerialize,
+    StarlarkDocs
+)]
 #[derivative(Debug)]
-#[buck2_docs(fs_operations, directory = "bxl")]
+#[starlark_docs_attrs(directory = "bxl")]
 #[display(fmt = "{:?}", self)]
 pub struct BxlFilesystem<'v> {
     #[trace(unsafe_ignore)]

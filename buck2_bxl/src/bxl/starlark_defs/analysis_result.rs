@@ -1,6 +1,5 @@
 use buck2_build_api::analysis::AnalysisResult;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_docs_gen::Buck2Docs;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
 use starlark::environment::Methods;
@@ -12,10 +11,11 @@ use starlark::starlark_type;
 use starlark::values::FrozenValue;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
+use starlark::StarlarkDocs;
 
-#[derive(ProvidesStaticType, Debug, Display, NoSerialize, Buck2Docs)]
+#[derive(ProvidesStaticType, Debug, Display, NoSerialize, StarlarkDocs)]
 #[display(fmt = "{:?}", self)]
-#[buck2_docs(starlark_analysis_result_methods, directory = "bxl")]
+#[starlark_docs_attrs(directory = "bxl")]
 pub struct StarlarkAnalysisResult {
     analysis: AnalysisResult,
     label: ConfiguredProvidersLabel,

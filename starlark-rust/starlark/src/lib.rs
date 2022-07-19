@@ -409,6 +409,7 @@ extern crate maplit;
 mod macros;
 
 pub use starlark_derive::starlark_module;
+pub use starlark_derive::StarlarkDocs;
 
 pub(crate) mod analysis;
 pub mod assert;

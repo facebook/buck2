@@ -32,7 +32,6 @@ use buck2_core::cells::CellInstance;
 use buck2_core::fs::paths::AbsPathBuf;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::target::TargetLabel;
-use buck2_docs_gen::Buck2Docs;
 use buck2_interpreter::types::label::Label;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
@@ -61,6 +60,7 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueTyped;
+use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::alloc_node::AllocNode;
 use crate::bxl::starlark_defs::context::actions::BxlActionsCtx;
@@ -85,8 +85,15 @@ pub mod starlark_async;
 
 /// The bxl context that the top level bxl implementation receives as parameter.
 /// This context contains all the core bxl functions to query, build, create actions, etc.
-#[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize, Buck2Docs)]
-#[buck2_docs(register_context, directory = "bxl")]
+#[derive(
+    ProvidesStaticType,
+    Derivative,
+    Display,
+    Trace,
+    NoSerialize,
+    StarlarkDocs
+)]
+#[starlark_docs_attrs(directory = "bxl")]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
 pub struct BxlContext<'v> {

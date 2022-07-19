@@ -10,7 +10,6 @@ use anyhow::Context;
 use buck2_build_api::actions::artifact::ArtifactFs;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_core::fs::project::ProjectFilesystem;
-use buck2_docs_gen::Buck2Docs;
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::any::ProvidesStaticType;
@@ -41,14 +40,22 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueLike;
+use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::artifacts::EnsuredArtifact;
 use crate::bxl::starlark_defs::artifacts::EnsuredArtifactGen;
 use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable;
 
-#[derive(ProvidesStaticType, Derivative, Display, Trace, NoSerialize, Buck2Docs)]
+#[derive(
+    ProvidesStaticType,
+    Derivative,
+    Display,
+    Trace,
+    NoSerialize,
+    StarlarkDocs
+)]
 #[display(fmt = "{:?}", self)]
-#[buck2_docs(register_output_stream, directory = "bxl")]
+#[starlark_docs_attrs(directory = "bxl")]
 #[derivative(Debug)]
 pub struct OutputStream<'v> {
     #[derivative(Debug = "ignore")]
