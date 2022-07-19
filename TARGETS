@@ -1,5 +1,3 @@
-# @noautodeps
-
 load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
@@ -13,4 +11,6 @@ buck_filegroup(
     ),
 )
 
-export_file(name = ".buck2-tpx")
+export_file(
+    name = ".buck2-tpx",
+)
