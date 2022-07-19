@@ -357,6 +357,21 @@ mod tests {
     }
 
     #[test]
+    fn test_internal() -> anyhow::Result<()> {
+        // Test that most things end up on __internal__
+        run_simple_starlark_test(indoc!(
+            r#"
+            def _impl(ctx):
+                pass
+            export_file = __internal__.rule(impl=_impl, attrs = {})
+
+            def test():
+                assert_eq(__internal__.json.encode({}), "{}")
+            "#
+        ))
+    }
+
+    #[test]
     fn test_oncall() -> anyhow::Result<()> {
         run_simple_starlark_test(indoc!(
             r#"

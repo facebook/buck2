@@ -138,9 +138,8 @@ impl InterpreterConfiguror for BuildInterpreterConfiguror {
     }
 
     fn configure_native_struct(&self, native_module: &mut GlobalsBuilder) {
-        register_natives(native_module);
-        register_args_function(native_module);
-        // FIXME(ndmitchell): Not sure what set of things should be on native here
+        // We want the `native` module to contain most things, so match what is in extension files
+        self.configure_extension_file_globals(native_module);
     }
 
     fn host_platform(&self) -> InterpreterHostPlatform {
