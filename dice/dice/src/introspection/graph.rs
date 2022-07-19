@@ -109,10 +109,35 @@ pub enum GraphNodeKind {
 
 #[derive(Serialize, Deserialize)]
 pub struct CellHistory {
-    pub verified: BTreeSet<VersionNumber>,
-    /// versions of dirty, mapping ot whether or not it's a forced dirty (which means recompute
-    /// regardless of node changed)
-    pub dirtied: BTreeMap<VersionNumber, bool>,
+    pub history: BTreeMap<VersionNumber, HistoryState>,
+}
+
+impl CellHistory {
+    pub fn new(verified: BTreeSet<VersionNumber>, dirtied: BTreeMap<VersionNumber, bool>) -> Self {
+        Self {
+            history: verified
+                .into_iter()
+                .map(|v| (v, HistoryState::Verified))
+                .chain(dirtied.into_iter().map(|(v, f)| {
+                    (
+                        v,
+                        if f {
+                            HistoryState::ForceDirty
+                        } else {
+                            HistoryState::Dirty
+                        },
+                    )
+                }))
+                .collect(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum HistoryState {
+    Verified,
+    Dirty,
+    ForceDirty,
 }
 
 #[derive(Serialize, Deserialize)]

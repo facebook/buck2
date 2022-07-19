@@ -445,18 +445,16 @@ mod introspection {
 
     impl CellHistory {
         pub fn to_introspectable(&self) -> crate::introspection::graph::CellHistory {
-            crate::introspection::graph::CellHistory {
-                verified: self
-                    .verified
+            crate::introspection::graph::CellHistory::new(
+                self.verified
                     .iter()
                     .map(VersionNumber::to_introspectable)
                     .collect(),
-                dirtied: self
-                    .dirtied
+                self.dirtied
                     .iter()
                     .map(|(k, v)| (k.to_introspectable(), *v))
                     .collect(),
-            }
+            )
         }
     }
 }
