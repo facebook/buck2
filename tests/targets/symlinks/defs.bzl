@@ -8,5 +8,5 @@ def _cp_impl(ctx: "context"):
 
 cp = rule(
     impl = _cp_impl,
-    attrs = {"src": attr.source(allow_directory = True)},
+    attrs = {"src": attrs.source(allow_directory = True)},
 )

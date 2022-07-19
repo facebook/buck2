@@ -20,8 +20,8 @@ def _proto_genrule_impl(ctx):
 proto_genrule = rule(
     impl = _proto_genrule_impl,
     attrs = {
-        "labels": attr.list(attr.string(), default = []),
-        "out": attr.string(),
-        "python": attr.option(attr.arg(), default = None),
+        "labels": attrs.list(attrs.string(), default = []),
+        "out": attrs.string(),
+        "python": attrs.option(attrs.arg(), default = None),
     },
 )

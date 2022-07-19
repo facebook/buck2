@@ -5,7 +5,7 @@ def _write_string_impl(ctx):
 write_string = rule(
     impl = _write_string_impl,
     attrs = {
-        "content": attr.string(default = ""),
-        "out": attr.string(),
+        "content": attrs.string(default = ""),
+        "out": attrs.string(),
     },
 )

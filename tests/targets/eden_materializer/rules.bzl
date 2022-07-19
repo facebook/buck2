@@ -13,7 +13,7 @@ def _proto_genrule_impl(ctx):
 proto_genrule = rule(
     impl = _proto_genrule_impl,
     attrs = {
-        "out": attr.string(),
-        "python": attr.option(attr.arg(), default = None),
+        "out": attrs.string(),
+        "python": attrs.option(attrs.arg(), default = None),
     },
 )

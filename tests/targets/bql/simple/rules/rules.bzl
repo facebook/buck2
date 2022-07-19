@@ -72,8 +72,8 @@ _foo_genrule = rule(
 _foo_buildable = rule(
     impl = _buildable_impl,
     attrs = {
-        "content": attr.string(default = ""),
-        "out": attr.string(),
+        "content": attrs.string(default = ""),
+        "out": attrs.string(),
     },
 )
 
