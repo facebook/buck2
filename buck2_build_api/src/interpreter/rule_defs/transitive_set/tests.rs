@@ -41,7 +41,7 @@ fn test_define_transitive_set() -> anyhow::Result<()> {
 fn test_define_transitive_set_projections() -> anyhow::Result<()> {
     run_simple_starlark_test(indoc!(
         r#"
-        def project1(_args, _value):
+        def project1(_value):
             pass
 
         FooSet = transitive_set(args_projections = { "foo": project1 })
@@ -195,8 +195,8 @@ fn test_transitive_sets_projection() -> anyhow::Result<()> {
 
     tester.run_starlark_bzl_test(indoc!(
         r#"
-        def project1(_args, _value):
-            pass
+        def project1(value):
+            return str(value)
 
         FooSet = transitive_set(args_projections = {
             "foo": project1
@@ -302,6 +302,7 @@ fn test_projection_args() -> anyhow::Result<()> {
         ),
     )?;
 
+    // old style
     tester.run_starlark_bzl_test(indoc!(
         r#"
         def project(args, val):
@@ -320,6 +321,31 @@ fn test_projection_args() -> anyhow::Result<()> {
             proj = f1.project_as_args("project")
 
             assert_eq(["foo", "bar"], get_args(proj))
+        "#
+    ))?;
+
+    // new style
+    tester.run_starlark_bzl_test(indoc!(
+        r#"
+        def project(val):
+            if val == 1:
+                return "foo"
+            if val == 2:
+                return cmd_args("bar")
+            if val == 3:
+                return ["baz"]
+
+        FooSet = transitive_set(args_projections = {
+            "project": project
+        })
+
+        def test():
+            f3 = make_tset(FooSet, value = 3)
+            f2 = make_tset(FooSet, value = 2)
+            f1 = make_tset(FooSet, value = 1, children = [f2, f3])
+            proj = f1.project_as_args("project")
+
+            assert_eq(["foo", "bar", "baz"], get_args(proj))
         "#
     ))?;
 

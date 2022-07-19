@@ -19,6 +19,7 @@ use gazebo::prelude::*;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::values::list::List;
 use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -78,6 +79,86 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
 }
 
 impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
+    /// For args projections, we allow either a CommandLineArgLike or a list of them (just like `cmd_args.add()`).
+    /// This function allows us to treat those two as the same.
+    /// TODO(cjhopman): It may be better to wrap the list case in a new CommandLineArgLike impl when returned from
+    /// the projection. Then we'd only have to verify the contents type once and it might be a bit simpler to use.
+    pub(super) fn as_command_line(v: V) -> anyhow::Result<impl CommandLineArgLike + 'v> {
+        enum Impl<'v> {
+            Item(&'v dyn CommandLineArgLike),
+            List(&'v [Value<'v>]),
+        }
+        impl<'v> CommandLineArgLike for Impl<'v> {
+            fn add_to_command_line(&self, cli: &mut dyn CommandLineBuilder) -> anyhow::Result<()> {
+                match self {
+                    Impl::Item(v) => v.add_to_command_line(cli),
+                    Impl::List(items) => {
+                        for v in *items {
+                            v.as_command_line().unwrap().add_to_command_line(cli)?;
+                        }
+                        Ok(())
+                    }
+                }
+            }
+
+            fn contains_arg_attr(&self) -> bool {
+                match self {
+                    Impl::Item(v) => v.contains_arg_attr(),
+                    Impl::List(items) => {
+                        for v in *items {
+                            if v.as_command_line().unwrap().contains_arg_attr() {
+                                return true;
+                            }
+                        }
+                        false
+                    }
+                }
+            }
+
+            fn visit_write_to_file_macros(
+                &self,
+                visitor: &mut dyn WriteToFileMacroVisitor,
+            ) -> anyhow::Result<()> {
+                match self {
+                    Impl::Item(v) => v.visit_write_to_file_macros(visitor),
+                    Impl::List(items) => {
+                        for v in *items {
+                            v.as_command_line()
+                                .unwrap()
+                                .visit_write_to_file_macros(visitor)?;
+                        }
+                        Ok(())
+                    }
+                }
+            }
+
+            fn visit_artifacts(
+                &self,
+                visitor: &mut dyn CommandLineArtifactVisitor,
+            ) -> anyhow::Result<()> {
+                match self {
+                    Impl::Item(v) => v.visit_artifacts(visitor),
+                    Impl::List(items) => {
+                        for v in *items {
+                            v.as_command_line().unwrap().visit_artifacts(visitor)?;
+                        }
+                        Ok(())
+                    }
+                }
+            }
+        }
+
+        let value = v.to_value();
+        if let Some(values) = List::from_value(value) {
+            for v in values.content() {
+                v.as_command_line_err()?;
+            }
+            Ok(Impl::List(values.content()))
+        } else {
+            Ok(Impl::Item(value.as_command_line_err()?))
+        }
+    }
+
     pub(super) fn iter_values<'a>(
         &'a self,
     ) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
@@ -156,8 +237,7 @@ impl<'v> CommandLineArgLike for TransitiveSetArgsProjection<'v> {
                 .get(self.projection)
                 .context("Invalid projection id")?;
 
-            projection
-                .as_command_line_err()?
+            TransitiveSetArgsProjection::as_command_line(*projection)?
                 .add_to_command_line(builder)?;
         }
 

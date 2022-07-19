@@ -33,19 +33,21 @@ Sets aren't useful unless you can use their contents! To use a set in a command
 line, you use a concept called a projection. The projection defines how to turn
 individual values found in the set into command line arguments.
 
-To define a projection, you write a function that takes `cmd_args` and a value
-of your set, and adds the value of your set to the `cmd_args` in whichever way
+To define a projection, you write a function that takes a value
+of your set, and returns a command-line like object (`cmd_args`, `string`,
+`attr.arg()` attributes, `artifact`, etc) or a list of them in whichever way
 makes sense for your use case.
 
 Then, you call `project_as_args` to turn a set into a value suitable for
-inclusion in a command line.
+inclusion in a command line. When expanded, this projection will expand like
+a list of all the node's individual projected values.
 
 Here is an example:
 
 ```starlark
 # Declare the projection
-def project_as_define(args: "cmd_args", value: str.type):
-  args.add(value, format = "-D{}")
+def project_as_define(value: str.type):
+  return cmd_args(value, format = "-D{}")
 
 # Add it to the set definition
 MySet = transitive_set(args_projections = { "define": project_as_define })

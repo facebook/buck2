@@ -33,9 +33,9 @@ use starlark::values::ValueLike;
 use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::TransitiveSetProjectionKey;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
-use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::transitive_set::transitive_set_definition_from_value;
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetTraversal;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetArgsProjection;
@@ -173,9 +173,8 @@ impl<'v, V: ValueLike<'v>> TransitiveSetGen<V> {
 
         if let Some(projection) = self.get_projection_value(projection)? {
             let mut visitor = SimpleCommandLineArtifactVisitor::new();
-            projection
-                .to_value()
-                .as_command_line_err()?
+
+            TransitiveSetArgsProjection::as_command_line(projection.to_value())?
                 .visit_artifacts(&mut visitor)?;
 
             sub_inputs.extend(visitor.inputs);
@@ -327,13 +326,31 @@ impl<'v> TransitiveSet<'v> {
                 .args_projections
                 .iter()
                 .map(|(name, proj)| {
-                    let cli = eval.heap().alloc(StarlarkCommandLine::new());
-                    eval.eval_function(*proj, &[cli, value], &[])
-                        .map_err(|error| TransitiveSetError::ProjectionError {
-                            error,
-                            name: name.clone(),
+                    let new_style_projection = if let Some(v) = proj.parameters_spec() {
+                        v.len() == 1
+                    } else {
+                        false
+                    };
+
+                    if new_style_projection {
+                        let cli = eval.eval_function(*proj, &[value], &[]).map_err(|error| {
+                            TransitiveSetError::ProjectionError {
+                                error,
+                                name: name.clone(),
+                            }
                         })?;
-                    anyhow::Ok(cli)
+                        // verify that its command-line-like.
+                        TransitiveSetArgsProjection::as_command_line(cli)?;
+                        anyhow::Ok(cli)
+                    } else {
+                        let cli = eval.heap().alloc(StarlarkCommandLine::new());
+                        eval.eval_function(*proj, &[cli, value], &[])
+                            .map_err(|error| TransitiveSetError::ProjectionError {
+                                error,
+                                name: name.clone(),
+                            })?;
+                        anyhow::Ok(cli)
+                    }
                 })
                 .collect::<Result<Vec<_>, _>>()?;
 
