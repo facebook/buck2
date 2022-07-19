@@ -42,7 +42,6 @@ rust_binary(
         "fbsource//third-party/rust:bincode",
         "fbsource//third-party/rust:clap",
         "fbsource//third-party/rust:serde_json",
-        "fbsource//third-party/rust:structopt",
         ":dice",
     ],
 )
