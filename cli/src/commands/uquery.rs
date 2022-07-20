@@ -31,27 +31,45 @@ enum QueryOutputFormatArg {
 
 /// Args common to all the query commands
 #[derive(Debug, clap::Parser)]
+#[clap(group = clap::ArgGroup::new("output_attribute_flags").multiple(false))]
 pub(crate) struct CommonQueryArgs {
     #[clap(name = "QUERY", help = "the query to evaluate")]
     query: String,
 
     #[clap(
-        short = 'a',
+        short = 'A',
         long,
-        value_name = "ATTRIBUTE",
-        help = "List of attributes to output, --output-attribute attr1. Attributes can be \
-        regular expressions. Multiple attributes may be selected by specifying this option \
-        multiple times.",
-        // without limiting number_of_values, clap will read all space-separated values
-        // after the flag, we want to require that each value be preceded individually by the flag.
-        number_of_values = 1
+        group = "output_attribute_flags",
+        name = "output_all_attributes",
+        help = "Output all attributes, equivalent of --output-attribute ''"
     )]
+    output_all_attributes: bool,
+
+    #[clap(
+         short = 'a',
+         long,
+         group = "output_attribute_flags",
+         value_name = "ATTRIBUTE",
+         help = "List of attributes to output, --output-attribute attr1. Attributes can be \
+         regular expressions. Multiple attributes may be selected by specifying this option \
+         multiple times.",
+         // without limiting number_of_values, clap will read all space-separated values
+         // after the flag, we want to require that each value be preceded individually by the flag.
+         number_of_values = 1,
+         // If the output_all_attributes flag (-A) is set, use "" to select all
+         default_value_if("output_all_attributes", None, Some("")),
+     )]
     output_attribute: Vec<String>,
 
     /// Deprecated: Use `--output-attribute` instead.
     ///
     /// List of space-separated attributes to output, --output-attributes attr1 attr2.
-    #[clap(long, multiple_values = true, value_name = "ATTRIBUTE")]
+    #[clap(
+        long,
+        multiple_values = true,
+        value_name = "ATTRIBUTE",
+        group = "output_attribute_flags"
+    )]
     output_attributes: Vec<String>,
 
     #[clap(long, help = "Output in JSON format")]
