@@ -248,7 +248,10 @@ extra_attributes = struct(
     configured_alias = {
         # We use a separate field instead of re-purposing `actual`, as we want
         # to keep output format compatibility with v1.
-        "configured_actual": attrs.configured_dep(),
+        "configured_actual": attrs.option(attrs.configured_dep()),
+        # If `configured_actual` is `None`, fallback to this unconfigured dep.
+        "fallback_actual": attrs.option(attrs.dep()),
+        "platform": attrs.option(attrs.configuration_label()),
     },
     sh_test = {
         "list_args": attrs.option(attrs.list(attrs.string()), default = None),

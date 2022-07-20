@@ -213,12 +213,28 @@ def _versioned_alias_macro_stub(versions = {}, **kwargs):
         **kwargs
     )
 
-def _configured_alias_macro_stub(name, actual, platform, **kwargs):
-    configured_alias_impl = __rules__["configured_alias"]
-
+def _configured_alias_macro_stub(
+        name,
+        actual,
+        platform,
+        # Whether to fallback to a unconfigured `alias` if `platform` is `None`.
+        fallback_to_unconfigured_alias = False,
+        **kwargs):
     # `actual` needs to be a pair of target + platform, as that's the format
     # expected by the `configured_dep()` field
-    configured_alias_impl(name = name, configured_actual = (actual, platform), actual = actual, platform = platform, **kwargs)
+    __rules__["configured_alias"](
+        name = name,
+        # Use a select map to make this thing `None` if `platform` is `None`.
+        configured_actual = native.select_map(
+            platform,
+            lambda platform: (actual, platform) if platform != None or not fallback_to_unconfigured_alias else None,
+        ),
+        fallback_actual = actual if fallback_to_unconfigured_alias else None,
+        # Unused.
+        actual = actual,
+        platform = platform,
+        **kwargs
+    )
 
 def _apple_bundle_macro_stub(**kwargs):
     apple_bundle_macro_impl(
