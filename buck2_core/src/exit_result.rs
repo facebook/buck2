@@ -230,7 +230,7 @@ pub enum FailureExitCode {
 /// in the case of successful execution.
 fn execv(prog: &str, argv: &[String]) -> anyhow::Result<()> {
     let argv_cstrs: Vec<CString> = argv.try_map(|s| CString::new(s.clone()))?;
-    let mut argv_ptrs: Vec<*const i8> = argv_cstrs.map(|cstr| cstr.as_ptr());
+    let mut argv_ptrs: Vec<_> = argv_cstrs.map(|cstr| cstr.as_ptr());
     // By convention, execv's second argument is terminated by a null pointer.
     argv_ptrs.push(std::ptr::null());
     let prog_cstr = CString::new(prog).context("program name contained a null byte")?;
