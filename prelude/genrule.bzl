@@ -314,7 +314,8 @@ def process_genrule(
         script_extension = "bat"
     else:
         script = [
-            cmd_args(srcs_artifact, format = "mkdir -p ./{}/../out"),
+            # Use a somewhat unique exit code so this can get retried on RE (T99656531).
+            cmd_args(srcs_artifact, format = "mkdir -p ./{}/../out || exit 99"),
             cmd_args("export TMP=${TMPDIR:-/tmp}"),
         ]
         script_extension = "sh"
