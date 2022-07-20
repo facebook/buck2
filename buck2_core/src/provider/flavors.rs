@@ -7,8 +7,33 @@
  * of this source tree.
  */
 
+use once_cell::sync::OnceCell;
+use regex::RegexSet;
+
 use crate::provider::label::ProviderName;
 use crate::provider::label::ProvidersName;
+
+static PLATFORM_REGEX_SET: OnceCell<RegexSet> = OnceCell::new();
+
+fn is_platform_flavor(flavor: &str) -> bool {
+    let regex_set = PLATFORM_REGEX_SET.get_or_init(|| {
+        // copied from https://fburl.com/code/sgxwq68n and modified for our needs
+        RegexSet::new(&[
+            r"^android-.*$",
+            r"^(linux-.*|platform[0-9]{3}-(clang|clang-12|gcc)(-nosan)?(-split-dwarf)?)$",
+            r"^macosx-(x86_64|arm64)(_minimal_xcode)?$",
+            // Too broad pattern, so ignoring it
+            // "^(default|host)$"
+            r"^windows-x86_64$",
+            //  an original data has the following pattern: FBOBJC_REGEX = "^(macosx|iphone|watch|appletv|osmeta-).*$"
+            // we use modified version w/o macosx prefix already checked in the pattern above
+            r"^(iphone|watch|appletv|osmeta-).*$",
+        ])
+        .unwrap()
+    });
+
+    regex_set.is_match(flavor)
+}
 
 /// Buck1 uses flavors for a couple different purposes. Some of those flavors have ended
 /// up being used by users. In v2, the functionality of most user-visible flavors ends up
@@ -21,7 +46,7 @@ pub fn map_flavors(flavors: &str) -> anyhow::Result<ProvidersName> {
     let mut flavors_parts: Vec<&str> = flavors.split(',').collect();
     assert!(!flavors_parts.is_empty());
 
-    match flavors_parts.iter().position(|x| x.starts_with("platform")) {
+    match flavors_parts.iter().position(|x| is_platform_flavor(x)) {
         Some(index) => {
             // remove platform flavor from the vector of flavors
             flavors_parts.remove(index);
