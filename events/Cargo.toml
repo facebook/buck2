@@ -15,7 +15,7 @@ buck2_data = { path = "../buck2_data" }
 fbinit.version = "0.1"
 # @oss-disable: fbinit.path = "../../common/rust/shed/fbinit"
 futures = "0.3"
-gazebo.version = "0.7.1"
+gazebo.version = "0.8.0"
 gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "../gazebo/gazebo"
 gazebo_lint.version = "0.1"

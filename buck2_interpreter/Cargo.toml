@@ -17,7 +17,7 @@ buck2_data = { path = "../buck2_data" }
 futures = "0.3"
 hex = "0.4.2"
 indexmap = { version = "1.6", features = ["serde-1"] }
-gazebo.version = "0.7.1"
+gazebo.version = "0.8.0"
 gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "../gazebo/gazebo"
 gazebo_lint.version = "0.1"

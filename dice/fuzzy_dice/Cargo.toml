@@ -22,7 +22,7 @@ thiserror = "1.0.9"
 tokio = { version = "1.5", features = ["full"]}
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
-gazebo.version = "0.7.1"
+gazebo.version = "0.8.0"
 gazebo.features = ["str_pattern_extensions"]
 # @oss-disable: gazebo.path = "../../gazebo/gazebo"
 gazebo_lint.version = "0.1"
