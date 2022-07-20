@@ -6,6 +6,17 @@ In addition to the [migration guide](migration_guide.md), this document answers 
 
 To find where the output of a target is, do `buck2 build mytarget --show-output`. This path will be relative to the root of the repo (e.g. `~/fbsource/...`) whereas in Buck1 it would have been relative to the enclosing cell (e.g. `~/fbsource/fbcode/...`).
 
+## My build is failing with a duplicate symbol error when I link in `@mode/opt`
+
+This is a bug in your code, you need to resolve the duplicate symbol error. This is usually done by renaming one of the symbols.
+
+See those posts for more information:
+
+- https://fb.workplace.com/groups/buck2users/permalink/3186784961577863/
+- https://fb.workplace.com/groups/buck2users/posts/3183946861861673/
+
+The [build migration section](migration_guide.md#other-changes) explains this in more detail.
+
 ## Why is my build  / test failing?
 
 If your build fails, first ascertain that the failure is related to Buck2 before reporting in the Buck2 Users group by building with Buck1 and seeing if that works. If your build is also broken in Buck1, seek support from your team mates or in project / language specific groups.
