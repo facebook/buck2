@@ -50,7 +50,6 @@ rust_library(
         "OUT_DIR": "$(location :grammar)/src",
     },
     test_deps = [
-        "fbsource//third-party/rust:indoc",
         "fbsource//third-party/rust:rand",
         # This is a hack to build `:testcases` when invoking a test.
         # Otherwise `OUT_DIR` is set, but it points to non-existing directory.
@@ -73,7 +72,6 @@ rust_library(
         "fbsource//third-party/rust:erased-serde",
         "fbsource//third-party/rust:fancy-regex",
         "fbsource//third-party/rust:hashbrown",
-        "fbsource//third-party/rust:indenter",
         "fbsource//third-party/rust:inventory",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:lalrpop-util",
