@@ -20,8 +20,9 @@ use gazebo::any::ProvidesStaticType;
 use gazebo::cell::ARef;
 use gazebo::coerce::coerce;
 use gazebo::coerce::Coerce;
+use gazebo::display::display_chain;
 use gazebo::display::display_container;
-use gazebo::display::ContainerDisplayHelper;
+use gazebo::display::display_pair;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
 use serde::Serialize;
@@ -136,30 +137,28 @@ assert_eq_size!(CommandLineOptions<'static, FrozenValue>, [usize; 10]);
 
 impl<'v, V: ValueLike<'v>> Display for StarlarkCommandLineDataGen<'v, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut helper = ContainerDisplayHelper::begin(
+        display_container(
             f,
             "cmd_args(",
-            self.items.len()
-                + if !self.hidden.is_empty() { 1 } else { 0 }
-                + if self.options.is_some() { 1 } else { 0 },
-        )?;
-        for item in self.items.iter() {
-            helper.item(item)?;
-        }
-
-        if !self.hidden.is_empty() {
-            struct Wrapper<'a, V>(&'a Vec<CommandLineArgGen<V>>);
-            impl<'a, V: Display> Display for Wrapper<'a, V> {
-                fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                    display_container(f, "[", "]", self.0.iter())
-                }
-            }
-            helper.keyed_item("hidden", "=", Wrapper(&self.hidden))?;
-        }
-        if let Some(v) = &self.options {
-            helper.keyed_item("options", "=", v)?;
-        }
-        helper.end(")")
+            ")",
+            display_chain(
+                &self.items,
+                display_chain(
+                    Some(&self.hidden).filter(|x| !x.is_empty()).map(|hidden| {
+                        struct Wrapper<'a, V>(&'a Vec<CommandLineArgGen<V>>);
+                        impl<'a, V: Display> Display for Wrapper<'a, V> {
+                            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                                display_container(f, "[", "]", self.0.iter())
+                            }
+                        }
+                        display_pair("hidden", "=", Wrapper(hidden))
+                    }),
+                    self.options
+                        .iter()
+                        .map(|options| display_pair("options", "=", options)),
+                ),
+            ),
+        )
     }
 }
 

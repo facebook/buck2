@@ -8,11 +8,14 @@
  */
 
 use std::fmt;
+use std::iter;
 
 use anyhow::Context as _;
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::Coerce;
-use gazebo::display::ContainerDisplayHelper;
+use gazebo::display::display_chain;
+use gazebo::display::display_container;
+use gazebo::display::display_pair;
 use gazebo::prelude::*;
 use serde::ser::SerializeMap;
 use serde::Serialize;
@@ -77,17 +80,17 @@ unsafe impl<'v> Coerce<TransitiveSetGen<Value<'v>>> for TransitiveSetGen<FrozenV
 
 impl<V: fmt::Display> fmt::Display for TransitiveSetGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut helper = ContainerDisplayHelper::begin(
+        display_container(
             f,
             &format!("{}(", self.definition),
-            if self.node.is_some() { 2 } else { 1 },
-        )?;
-
-        if let Some(node) = self.node.as_ref() {
-            helper.keyed_item("value", "=", &node.value)?;
-        }
-        helper.item(format!("{} children", self.children.len()))?;
-        helper.end(")")
+            ")",
+            display_chain(
+                self.node
+                    .as_ref()
+                    .map(|node| display_pair("value", "=", &node.value)),
+                iter::once(format!("{} children", self.children.len())),
+            ),
+        )
     }
 }
 

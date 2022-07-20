@@ -9,12 +9,15 @@
 
 use std::fmt;
 use std::fmt::Display;
+use std::iter;
 
 use anyhow::Context as _;
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::coerce;
 use gazebo::coerce::Coerce;
-use gazebo::display::ContainerDisplayHelper;
+use gazebo::display::display_chain;
+use gazebo::display::display_container;
+use gazebo::display::display_pair;
 use gazebo::prelude::*;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -53,10 +56,15 @@ pub struct TransitiveSetArgsProjectionGen<V> {
 impl<'v, V: ValueLike<'v>> Display for TransitiveSetArgsProjectionGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let projection_name = self.projection_name().unwrap_or("<invalid projection>");
-        let mut helper = ContainerDisplayHelper::begin(f, "TransitiveSetProjection(", 2)?;
-        helper.item(projection_name)?;
-        helper.keyed_item("transitive_set", "=", &self.transitive_set)?;
-        helper.end(")")
+        display_container(
+            f,
+            "TransitiveSetProjection(",
+            ")",
+            display_chain(
+                iter::once(projection_name),
+                iter::once(display_pair("transitive_set", "=", &self.transitive_set)),
+            ),
+        )
     }
 }
 
