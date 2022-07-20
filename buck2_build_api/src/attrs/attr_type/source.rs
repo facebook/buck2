@@ -37,7 +37,7 @@ enum SourceLabelResolutionError {
     CoercionFailed(String, anyhow::Error, anyhow::Error),
 }
 
-/// Try cleaning up irrelvant details users often type
+/// Try cleaning up irrelevant details users often type
 fn cleanup_path(value: &str) -> &str {
     let value = value.trim_start_match("./");
     let value = value.trim_end_match("/");
