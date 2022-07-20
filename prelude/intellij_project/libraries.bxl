@@ -18,10 +18,6 @@ def get_libraries(all_nodes: "target_set") -> [IjLibrary.type]:
     libraries = []
     library_targets = []
     for node in all_nodes:
-        # TODO(T124404704) find a better way to exclude exec_deps()
-        if node.label.cell != "fbsource":
-            continue
-
         rule_type = node.rule_type
         if rule_type not in _LIBRARY_RULE_TYPES:
             continue

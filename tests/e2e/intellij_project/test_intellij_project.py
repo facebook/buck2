@@ -30,10 +30,13 @@ async def test_generate_intellij_project(buck: Buck) -> None:
 """
     )
 
+    libraries_dir = output_dir / "libraries"
+    assert len(list(libraries_dir.iterdir())) == 1
+
     assert (
         (
-            output_dir
-            / "libraries/__fbandroid_buck2_tests_good_sample_intellij_project_prebuilt_jar_prebuilt__.xml"
+            libraries_dir
+            / "__fbandroid_buck2_tests_good_sample_intellij_project_prebuilt_jar_prebuilt__.xml"
         ).read_text()
         == """\
 <component name="libraryTable">
@@ -50,15 +53,13 @@ async def test_generate_intellij_project(buck: Buck) -> None:
 """
     )
 
-    assert not (
-        output_dir
-        / "libraries/__fbandroid_buck2_tests_good_sample_intellij_project_prebuilt_jar_no_sources_prebuilt_no_sources__.xml"
-    ).exists()
+    modules_dir = output_dir / "modules"
+    assert len(list(modules_dir.iterdir())) == 2
 
     assert (
         (
-            output_dir
-            / "modules/fbandroid_buck2_tests_good_sample_intellij_project_android_main.iml"
+            modules_dir
+            / "fbandroid_buck2_tests_good_sample_intellij_project_android_main.iml"
         ).read_text()
         == """\
 <?xml version="1.0" encoding="UTF-8"?>
@@ -81,8 +82,8 @@ async def test_generate_intellij_project(buck: Buck) -> None:
 
     assert (
         (
-            output_dir
-            / "modules/fbandroid_buck2_tests_good_sample_intellij_project_java_single_lib.iml"
+            modules_dir
+            / "fbandroid_buck2_tests_good_sample_intellij_project_java_single_lib.iml"
         ).read_text()
         == """\
 <?xml version="1.0" encoding="UTF-8"?>

@@ -2,7 +2,7 @@ load("@fbcode//buck2/prelude/intellij_project:libraries.bxl", "get_libraries", "
 load("@fbcode//buck2/prelude/intellij_project:modules.bxl", "IjModule", "get_aggregated_ij_module_target_nodes", "get_module_file_contents", "get_module_file_name")
 
 def _impl(ctx):
-    all_nodes = ctx.cquery().deps(ctx.cli_args.targets, -1)
+    all_nodes = ctx.cquery().deps(ctx.cli_args.targets, -1, "target_deps()")
     all_analysis = ctx.analysis(all_nodes)
 
     final_output_dir_dict = {}

@@ -33,10 +33,6 @@ _MODULE_RULE_TYPES = [
 def get_aggregated_ij_module_target_nodes(all_nodes: "target_set", analysis: dict.type) -> [AggregatedIjTargetNode.type]:
     ij_target_nodes = []
     for node in all_nodes:
-        # TODO(T124404704) find a better way to exclude exec_deps()
-        if node.label.cell != "fbsource":
-            continue
-
         rule_type = node.rule_type
         if rule_type not in _MODULE_RULE_TYPES:
             continue
