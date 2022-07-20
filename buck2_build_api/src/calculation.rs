@@ -60,6 +60,7 @@ use crate::interpreter::calculation as interpreter_calculation;
 use crate::interpreter::module_internals::EvaluationResult;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::nodes::calculation as node_calculation;
+use crate::nodes::calculation::get_execution_platform_toolchain_dep;
 use crate::path::BuckOutPathResolver;
 use crate::path::BuckPathResolver;
 
@@ -224,8 +225,17 @@ impl<'c> Calculation<'c> for DiceComputations {
 
         match node.rule_kind() {
             RuleKind::Configuration => Ok(target.configure(Configuration::unbound())),
-            RuleKind::Normal | RuleKind::Toolchain => {
-                Ok(target.configure(get_platform_configuration().await?))
+            RuleKind::Normal => Ok(target.configure(get_platform_configuration().await?)),
+            RuleKind::Toolchain => {
+                let cfg = get_platform_configuration().await?;
+                let exec_cfg = get_execution_platform_toolchain_dep(
+                    self,
+                    &target.target().configure(cfg.dupe()),
+                    &node,
+                )
+                .await?
+                .cfg();
+                Ok(target.configure_with_exec(cfg, exec_cfg))
             }
         }
     }

@@ -309,6 +309,31 @@ async fn execution_platforms_for_toolchain(
         .await?
 }
 
+pub async fn get_execution_platform_toolchain_dep(
+    ctx: &DiceComputations,
+    target_label: &ConfiguredTargetLabel,
+    target_node: &TargetNode,
+) -> SharedResult<ExecutionPlatformResolution> {
+    assert!(target_node.is_toolchain_rule());
+    let target_cfg = target_label.cfg();
+    let target_cell = target_node.label().pkg().cell_name();
+    let resolved_configuration = ctx
+        .get_resolved_configuration(
+            target_cfg,
+            target_cell,
+            target_node.get_configuration_deps(),
+        )
+        .await?;
+    if target_node.transition_deps().next().is_some() {
+        Err(SharedError::new(ToolchainDepError::ToolchainTransitionDep(
+            target_label.unconfigured().dupe(),
+        )))
+    } else {
+        resolve_execution_platform(ctx, target_node, &resolved_configuration, &IndexMap::new())
+            .await
+    }
+}
+
 async fn resolve_execution_platform(
     ctx: &DiceComputations,
     node: &TargetNode,
