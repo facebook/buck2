@@ -20,6 +20,7 @@ load(
     "MergedLinkInfo",
     "SharedLibLinkable",
     "create_merged_link_info",
+    "merge_link_infos",
 )
 load(
     "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
@@ -362,9 +363,16 @@ def _rust_providers(
     # Inherited link input and shared libraries.  As in v1, this only includes
     # non-Rust rules, found by walking through -- and ignoring -- Rust libraries
     # to find non-Rust native linkables and libraries.
-    inherited_non_rust_link_deps = inherited_non_rust_exported_link_deps(ctx)
-    inherited_non_rust_link = inherited_non_rust_link_info(ctx)
-    inherited_non_rust_shlibs = inherited_non_rust_shared_libs(ctx)
+    if not ctx.attr.proc_macro:
+        inherited_non_rust_link_deps = inherited_non_rust_exported_link_deps(ctx)
+        inherited_non_rust_link = inherited_non_rust_link_info(ctx)
+        inherited_non_rust_shlibs = inherited_non_rust_shared_libs(ctx)
+    else:
+        # proc-macros are just used by the compiler and shouldn't propagate
+        # their native deps to the link line of the target.
+        inherited_non_rust_link = merge_link_infos(ctx, [])
+        inherited_non_rust_shlibs = []
+        inherited_non_rust_link_deps = []
 
     providers = []
 
