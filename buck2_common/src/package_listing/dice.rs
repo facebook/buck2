@@ -10,6 +10,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::Package;
 use dice::DiceComputations;
 use dice::Key;
@@ -66,10 +67,7 @@ impl<'c> PackageListingResolver for DicePackageListingResolver<'c> {
         self.0.compute(&PackageListingKey(package.dupe())).await?
     }
 
-    async fn get_enclosing_package(
-        &self,
-        path: &buck2_core::cells::cell_path::CellPath,
-    ) -> anyhow::Result<Package> {
+    async fn get_enclosing_package(&self, path: &CellPath) -> anyhow::Result<Package> {
         let cell_resolver = self.0.get_cell_resolver().await?;
         let file_ops = self.0.file_ops();
         InterpreterPackageListingResolver::new(cell_resolver, Arc::new(file_ops))
@@ -77,10 +75,7 @@ impl<'c> PackageListingResolver for DicePackageListingResolver<'c> {
             .await
     }
 
-    async fn get_enclosing_packages(
-        &self,
-        path: &buck2_core::cells::cell_path::CellPath,
-    ) -> anyhow::Result<Vec<Package>> {
+    async fn get_enclosing_packages(&self, path: &CellPath) -> anyhow::Result<Vec<Package>> {
         let cell_resolver = self.0.get_cell_resolver().await?;
         let file_ops = self.0.file_ops();
         InterpreterPackageListingResolver::new(cell_resolver, Arc::new(file_ops))
