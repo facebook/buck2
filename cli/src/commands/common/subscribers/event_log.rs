@@ -83,6 +83,16 @@ enum Encoding {
     Proto,
 }
 
+impl Encoding {
+    fn extension(self) -> &'static str {
+        match self {
+            Self::Json => JSON_EXTENSION,
+            Self::JsonGzip => JSON_GZIP_EXTENSION,
+            Self::Proto => PROTO_EXTENSION,
+        }
+    }
+}
+
 type EventLogWriter = Box<dyn AsyncWrite + Send + Sync + Unpin + 'static>;
 type EventLogReader = Box<dyn AsyncRead + Send + Sync + Unpin + 'static>;
 
@@ -459,16 +469,12 @@ fn get_logfile_name(event: &BuckEvent, encoding: Encoding) -> ForwardRelativePat
         datetime.format("%Y%m%d-%H%M%S").to_string()
     };
 
-    let extension = match encoding {
-        Encoding::Json => JSON_EXTENSION,
-        Encoding::JsonGzip => JSON_GZIP_EXTENSION,
-        Encoding::Proto => PROTO_EXTENSION,
-    };
-
     // Sort order matters here: earliest builds are lexicographically first and deleted first.
     ForwardRelativePathBuf::unchecked_new(format!(
         "{}_{}_events{}",
-        time_str, event.trace_id, extension
+        time_str,
+        event.trace_id,
+        encoding.extension()
     ))
 }
 
@@ -613,34 +619,14 @@ fn log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
         Some(x) => x,
     };
 
-    let gzipped_log_file: Stdio = match log_file.path.encoding {
-        Encoding::Json | Encoding::Proto => {
-            let gzip = buck2_core::process::background_command("gzip")
-                .args([
-                    "--to-stdout",
-                    "--keep",
-                    "--no-name",
-                    &format!("{}", log_file.path.path.display()),
-                ])
-                .stdin(Stdio::null())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::null())
-                .spawn()?;
-            gzip.stdout.unwrap().into()
-        }
-        Encoding::JsonGzip => {
-            // Note: we don't use tokio files here since we're just handing a fd to a
-            // spawned process.
-            match std::fs::File::open(&log_file.path.path) {
-                Ok(f) => f.into(),
-                Err(e) => {
-                    return Err(if e.kind() == ErrorKind::NotFound {
-                        LogWasDeleted.into()
-                    } else {
-                        e.into()
-                    });
-                }
-            }
+    let upload_log_file: Stdio = match std::fs::File::open(&log_file.path.path) {
+        Ok(f) => f.into(),
+        Err(e) => {
+            return Err(if e.kind() == ErrorKind::NotFound {
+                LogWasDeleted.into()
+            } else {
+                e.into()
+            });
         }
     };
 
@@ -658,8 +644,10 @@ fn log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
     let cert = cert.context("Error finding a cert")?;
 
     let url = format!(
-        "{}/v0/write/flat/{}.gz?bucketName=buck2_logs&apiKey=buck2_logs-key&timeoutMsec=20000",
-        manifold_url, log_file.trace_id
+        "{}/v0/write/flat/{}{}?bucketName=buck2_logs&apiKey=buck2_logs-key&timeoutMsec=20000",
+        manifold_url,
+        log_file.trace_id,
+        log_file.path.encoding.extension()
     );
 
     tracing::debug!(
@@ -685,7 +673,7 @@ fn log_upload(log_file: &NamedEventLogWriter) -> anyhow::Result<()> {
         "-E",
     ]);
     upload.arg(cert);
-    upload.stdin(gzipped_log_file);
+    upload.stdin(upload_log_file);
 
     if block_on_upload {
         let res = upload
