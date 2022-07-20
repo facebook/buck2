@@ -78,6 +78,8 @@ pub trait ConfigurableTarget: Send + Sync {
     fn target(&self) -> &TargetLabel;
 
     fn configure(&self, cfg: Configuration) -> Self::Configured;
+
+    fn configure_with_exec(&self, cfg: Configuration, exec_cfg: Configuration) -> Self::Configured;
 }
 
 impl ConfigurableTarget for TargetLabel {
@@ -90,6 +92,10 @@ impl ConfigurableTarget for TargetLabel {
     fn configure(&self, cfg: Configuration) -> Self::Configured {
         self.configure(cfg)
     }
+
+    fn configure_with_exec(&self, cfg: Configuration, exec_cfg: Configuration) -> Self::Configured {
+        self.configure_with_exec(cfg, exec_cfg)
+    }
 }
 
 impl ConfigurableTarget for ProvidersLabel {
@@ -101,6 +107,10 @@ impl ConfigurableTarget for ProvidersLabel {
 
     fn configure(&self, cfg: Configuration) -> Self::Configured {
         self.configure(cfg)
+    }
+
+    fn configure_with_exec(&self, cfg: Configuration, exec_cfg: Configuration) -> Self::Configured {
+        self.configure_with_exec(cfg, exec_cfg)
     }
 }
 
