@@ -285,7 +285,9 @@ impl AttrType {
             AttrTypeInner::Bool(_)
             | AttrTypeInner::Query(_)
             | AttrTypeInner::Source(_)
-            | AttrTypeInner::DefaultOnly(_) => false,
+            | AttrTypeInner::DefaultOnly(_)
+            | AttrTypeInner::Enum(_) => false,
+            AttrTypeInner::Option(inner) => inner.inner.supports_concat(),
             // Reject if none of the inner types support concat. Mismatched types are rejected later.
             AttrTypeInner::OneOf(inner) => inner.any_supports_concat(),
             _ => true,
