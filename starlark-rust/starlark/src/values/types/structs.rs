@@ -44,6 +44,7 @@ use std::marker::PhantomData;
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::coerce;
 use gazebo::coerce::Coerce;
+use gazebo::display::display_keyed_container;
 use serde::Serialize;
 
 use crate::collections::Hashed;
@@ -51,7 +52,6 @@ use crate::collections::SmallMap;
 use crate::collections::StarlarkHasher;
 use crate::values::comparison::compare_small_map;
 use crate::values::comparison::equals_small_map;
-use crate::values::display::display_keyed_container;
 use crate::values::docs;
 use crate::values::docs::DocItem;
 use crate::values::error::ValueError;

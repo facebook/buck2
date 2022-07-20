@@ -45,6 +45,7 @@ use gazebo::any::ProvidesStaticType;
 use gazebo::cell::AsARef;
 use gazebo::coerce::coerce;
 use gazebo::coerce::Coerce;
+use gazebo::display::display_container;
 use serde::Serialize;
 use thiserror::Error;
 
@@ -55,7 +56,6 @@ use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
-use crate::values::display::display_container;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::index::convert_index;
 use crate::values::Freeze;

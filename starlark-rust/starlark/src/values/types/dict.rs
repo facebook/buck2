@@ -35,6 +35,7 @@ use gazebo::any::ProvidesStaticType;
 use gazebo::cell::ARef;
 use gazebo::coerce::coerce;
 use gazebo::coerce::Coerce;
+use gazebo::display::display_keyed_container;
 use serde::Serialize;
 use starlark_map::Equivalent;
 
@@ -43,7 +44,6 @@ use crate::collections::SmallMap;
 use crate::environment::Methods;
 use crate::environment::MethodsStatic;
 use crate::values::comparison::equals_small_map;
-use crate::values::display::display_keyed_container;
 use crate::values::error::ValueError;
 use crate::values::iter::ARefIterator;
 use crate::values::string::hash_string_value;

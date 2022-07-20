@@ -52,6 +52,7 @@ use gazebo::any::ProvidesStaticType;
 use gazebo::cell::AsARef;
 use gazebo::coerce::coerce;
 use gazebo::coerce::Coerce;
+use gazebo::display::display_keyed_container;
 use gazebo::prelude::*;
 use serde::Serialize;
 
@@ -62,7 +63,6 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;
 use crate::values::comparison::equals_slice;
-use crate::values::display::display_keyed_container;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::typing::TypeCompiled;
 use crate::values::Freeze;

@@ -34,6 +34,7 @@ use std::slice;
 use gazebo::any::ProvidesStaticType;
 use gazebo::coerce::coerce;
 use gazebo::coerce::Coerce;
+use gazebo::display::display_container;
 use gazebo::prelude::*;
 use serde::Serialize;
 
@@ -43,7 +44,6 @@ use crate::private::Private;
 use crate::values::array::Array;
 use crate::values::comparison::compare_slice;
 use crate::values::comparison::equals_slice;
-use crate::values::display::display_container;
 use crate::values::error::ValueError;
 use crate::values::index::apply_slice;
 use crate::values::index::convert_index;
