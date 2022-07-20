@@ -335,11 +335,13 @@ impl EdenBuckOut {
             .filter_map(|path| path.strip_prefix(&self.buck_out_path).ok())
             .map(|relpath| relpath.as_str().as_bytes().to_vec())
             .collect::<Vec<_>>();
-
+        static ENSURE_MATERIALIZED_IN_BACKGROUND: EnvHelper<bool> =
+            EnvHelper::new("BUCK2_EDEN_ENSURE_MATERIALIZED_IN_BACKGROUND");
+        let background = ENSURE_MATERIALIZED_IN_BACKGROUND.get()?.unwrap_or(true);
         let params = EnsureMaterializedParams {
             mountPoint: self.connection_manager.get_mount_point(),
             paths: file_paths,
-            background: true,
+            background,
             followSymlink: true, // Also materialize symlink targets
             ..Default::default()
         };
