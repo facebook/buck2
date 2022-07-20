@@ -262,6 +262,31 @@ async def test_dot(buck: Buck) -> None:
         assert out.stdout == f.read()
 
 
+@buck_test(inplace=False, data_dir="bql/simple")
+async def test_dot_compact(buck: Buck) -> None:
+    out = await buck.uquery(
+        "--dot-compact", "deps(root//bin:the_binary, 100, target_deps())"
+    )
+    with open(buck.cwd / "expected/dot_compact/deps") as f:
+        assert out.stdout == f.read()
+
+    out = await buck.uquery(
+        "--dot-compact",
+        "--output-attribute=name",
+        "--output-attribute=^deps",
+        "deps(root//bin:the_binary, 100, target_deps()) - //platforms:",
+    )
+    with open(buck.cwd / "expected/dot_compact/attrs") as f:
+        assert out.stdout == f.read()
+
+    out = await buck.uquery(
+        "--dot-compact",
+        "deps(root//bin:the_binary, 100, target_deps()) - set(//lib: //platforms:)",
+    )
+    with open(buck.cwd / "expected/dot_compact/subgraph") as f:
+        assert out.stdout == f.read()
+
+
 # Tests for "%Ss" uses
 @buck_test(inplace=False, data_dir="bql/simple")
 async def test_args_as_set(buck: Buck) -> None:

@@ -1,0 +1,5 @@
+digraph result_graph {
+  1 [style=filled,color="#DFECDF",label="root//bin:the_binary"];
+  1 -> 2;
+  2 [style=filled,color="#DFECDF",label="root//:data"];
+}

@@ -26,6 +26,7 @@ use crate::StreamingCommand;
 enum QueryOutputFormatArg {
     Dot,
     Json,
+    DotCompact,
 }
 
 /// Args common to all the query commands
@@ -59,6 +60,9 @@ pub(crate) struct CommonQueryArgs {
     #[clap(long, help = "Output in Graphviz Dot format")]
     dot: bool,
 
+    #[clap(long, help = "Output in a more compact format than Graphviz Dot")]
+    dot_compact: bool,
+
     #[clap(long, help = "Show target call stacks")]
     pub(crate) target_call_stacks: bool,
 
@@ -68,9 +72,10 @@ pub(crate) struct CommonQueryArgs {
         help = "Output format (default: list).",
         long_help = "Output format (default: list). \n
            dot -  dot graph format. \n
+           dot_compact - compact alternative to dot format. \n
            json - JSON format.
          ",
-        value_name = "dot|json",
+        value_name = "dot|dot_compact|json",
         arg_enum
     )]
     output_format: Option<QueryOutputFormatArg>,
@@ -109,11 +114,14 @@ impl CommonQueryArgs {
         match self.output_format {
             Some(QueryOutputFormatArg::Json) => QueryOutputFormat::Json,
             Some(QueryOutputFormatArg::Dot) => QueryOutputFormat::Dot,
+            Some(QueryOutputFormatArg::DotCompact) => QueryOutputFormat::DotCompact,
             None => {
                 if self.json {
                     QueryOutputFormat::Json
                 } else if self.dot {
                     QueryOutputFormat::Dot
+                } else if self.dot_compact {
+                    QueryOutputFormat::DotCompact
                 } else {
                     QueryOutputFormat::Default
                 }

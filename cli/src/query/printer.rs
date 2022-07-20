@@ -32,6 +32,7 @@ use serde::Serializer;
 
 use crate::dot::targets::DotTargetGraph;
 use crate::dot::Dot;
+use crate::dot::DotCompact;
 use crate::query::QueryCommandError;
 
 #[derive(Copy_, Dupe_, Clone_, UnpackVariants)]
@@ -332,6 +333,15 @@ impl QueryResultPrinter {
                         &mut output,
                     )?;
                 }
+                QueryOutputFormat::DotCompact => {
+                    DotCompact::render(
+                        &DotTargetGraph {
+                            targets,
+                            attributes: self.attributes.clone(),
+                        },
+                        &mut output,
+                    )?;
+                }
             },
             QueryEvaluationValue::FileSet(files) => {
                 if self.attributes.is_some() {
@@ -356,6 +366,9 @@ impl QueryResultPrinter {
                     }
                     QueryOutputFormat::Dot => {
                         unimplemented!("dot output for files not implemented yet")
+                    }
+                    QueryOutputFormat::DotCompact => {
+                        unimplemented!("dot_compact output for files not implemented yet")
                     }
                 }
             }

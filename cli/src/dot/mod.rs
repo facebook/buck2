@@ -18,6 +18,9 @@
 // data in the right format and maybe escaping. It's not been imported to tp2 so we implement it
 // ourselves for now.
 
+use std::collections::hash_map::Entry::Occupied;
+use std::collections::hash_map::Entry::Vacant;
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::io::Write;
 
@@ -121,6 +124,55 @@ impl Dot {
             writeln!(w, "  {} [{}];", escape_id(&node.id()), attrs)?;
             graph.for_each_edge(node, |edge| {
                 writeln!(w, "  {} -> {};", escape_id(edge.from), escape_id(edge.to))?;
+                Ok(())
+            })?;
+            Ok(())
+        })?;
+        writeln!(w, "}}")?;
+        Ok(())
+    }
+}
+
+pub(crate) struct DotCompact {}
+
+impl DotCompact {
+    pub(crate) fn render<'a, T: DotDigraph<'a>, W: Write>(
+        graph: &'a T,
+        mut w: W,
+    ) -> anyhow::Result<()> {
+        writeln!(w, "digraph {} {{", graph.name())?;
+
+        let mut next_id: u32 = 0;
+        let mut lookup_numeric_id: HashMap<String, u32> = HashMap::new();
+
+        let mut name_to_number = |node_name: &str| -> u32 {
+            match lookup_numeric_id.entry(node_name.to_owned()) {
+                Vacant(entry) => {
+                    next_id += 1;
+                    entry.insert(next_id);
+                    next_id
+                }
+                Occupied(entry) => *entry.get(),
+            }
+        };
+
+        graph.for_each_node(|node| {
+            let attrs = node.attrs()?;
+            let node_name = &escape_id(&node.id());
+            writeln!(
+                w,
+                "  {} [{},label={}];",
+                name_to_number(node_name),
+                attrs,
+                escape_id(&node.id())
+            )?;
+            graph.for_each_edge(node, |edge| {
+                writeln!(
+                    w,
+                    "  {} -> {};",
+                    name_to_number(&escape_id(edge.from)),
+                    name_to_number(&escape_id(edge.to))
+                )?;
                 Ok(())
             })?;
             Ok(())

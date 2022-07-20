@@ -124,6 +124,7 @@ enum QueryOutputFormat {
   DEFAULT = 0;
   JSON = 1;
   DOT = 2;
+  DOT_COMPACT = 3;
 }
 
 message AqueryRequest {
