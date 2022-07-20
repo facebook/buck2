@@ -122,6 +122,10 @@ impl TargetNode {
         }))
     }
 
+    pub fn rule_kind(&self) -> RuleKind {
+        self.0.rule_kind
+    }
+
     pub fn is_configuration_rule(&self) -> bool {
         self.0.rule_kind == RuleKind::Configuration
     }

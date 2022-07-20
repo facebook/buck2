@@ -30,6 +30,7 @@ use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_node::compatibility::MaybeCompatible;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::unconfigured::RuleKind;
 use buck2_node::nodes::unconfigured::TargetNode;
 use dice::DiceComputations;
 use futures::future::BoxFuture;
@@ -198,25 +199,25 @@ impl<'c> Calculation<'c> for DiceComputations {
     ) -> SharedResult<T::Configured> {
         let node = self.get_target_node(target.target()).await?;
 
-        let configuration: Configuration =
-            match (node.is_configuration_rule(), global_target_platform) {
-                (true, _) => Configuration::unbound(),
-                (false, Some(global_target_platform)) => {
+        let get_platform_configuration = async || -> SharedResult<Configuration> {
+            Ok(match global_target_platform {
+                Some(global_target_platform) => {
                     self.get_platform_configuration(global_target_platform)
                         .await?
                 }
-                (false, None) => {
-                    let configuration_target = node.get_default_target_platform();
+                None => match node.get_default_target_platform() {
+                    Some(target) => self.get_platform_configuration(target.target()).await?,
+                    None => self.get_default_platform(target.target()).await?,
+                },
+            })
+        };
 
-                    if let Some(target) = configuration_target {
-                        self.get_platform_configuration(target.target()).await?
-                    } else {
-                        self.get_default_platform(target.target()).await?
-                    }
-                }
-            };
-
-        Ok(target.configure(configuration))
+        match node.rule_kind() {
+            RuleKind::Configuration => Ok(target.configure(Configuration::unbound())),
+            RuleKind::Normal | RuleKind::Toolchain => {
+                Ok(target.configure(get_platform_configuration().await?))
+            }
+        }
     }
 
     async fn get_interpreter_results(
