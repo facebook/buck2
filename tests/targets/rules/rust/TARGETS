@@ -437,6 +437,12 @@ rust_binary(
 )
 
 buck_genrule(
+    name = "check_resources",
+    out = "out.txt",
+    cmd = "$(exe //common/rust/buck_resources:buck_resources_test) | grep 'Hello World!' > $OUT",
+)
+
+buck_genrule(
     name = "fbinit_run",
     out = "out.txt",
     cmd = "$(exe :fbinit) > $OUT",

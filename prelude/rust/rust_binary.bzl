@@ -10,6 +10,7 @@ load(
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
+load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "flatten_dict", "from_named_set")
 load(
     ":build.bzl",
     "compile_context",
@@ -30,7 +31,41 @@ load(
     "attr_crate",
     "inherited_non_rust_shared_libs",
 )
+load(
+    ":resources.bzl",
+    "create_resource_db",
+    "gather_rust_resources",
+)
 load(":rust_toolchain.bzl", "ctx_toolchain_info")
+
+def rust_attr_resources(ctx: "context") -> {str.type: ("artifact", ["_arglike"])}:
+    """
+    Return the resources provided by this rule, as a map of resource name to
+    a tuple of the resource artifact and any "other" outputs exposed by it.
+    """
+    resources = {}
+
+    # `getattr` because: `rust_binary` is used from `rust_test`, and currently `rust_test`
+    # has not been extended to support the `resources` attribute. As such, it doesn't inject
+    # a default value, and so this would explode. If / when `rust_test` is extended with
+    # `resources` support, this *should* be safe to remove (barring any other rules that also
+    # build on `rust_binary`).
+    for name, resource in from_named_set(getattr(ctx.attrs, "resources", {})).items():
+        if type(resource) == "artifact":
+            other = [resource]
+        else:
+            info = resource[DefaultInfo]
+            expect(
+                len(info.default_outputs) == 1,
+                "expected exactly one default output from {} ({})"
+                    .format(resource, info.default_outputs),
+            )
+            [resource] = info.default_outputs
+            other = info.other_outputs
+
+        resources[name] = (resource, other)
+
+    return resources
 
 def _rust_binary_common(
         ctx: "context",
@@ -136,6 +171,22 @@ def _rust_binary_common(
         ]
 
     (link, args, extra_targets, runtime_files) = styles[specified_link_style]
+
+    # If we have some resources, write it to the resources JSON file and add
+    # it and all resources to "runtime_files" so that we make to materialize
+    # them with the final binary.
+    resources_hidden = []
+    resources = flatten_dict(gather_rust_resources(
+        label = ctx.label,
+        resources = rust_attr_resources(ctx),
+    ).values())
+    if resources:
+        resources_hidden.append(create_resource_db(ctx, link, resources))
+        for resource, other in resources.values():
+            resources_hidden.append(resource)
+            resources_hidden.extend(other)
+    runtime_files.extend(resources_hidden)
+    args = args.hidden(resources_hidden)
 
     providers = [
         DefaultInfo(
