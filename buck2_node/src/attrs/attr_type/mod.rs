@@ -286,11 +286,22 @@ impl AttrType {
             | AttrTypeInner::Query(_)
             | AttrTypeInner::Source(_)
             | AttrTypeInner::DefaultOnly(_)
+            | AttrTypeInner::ConfigurationDep(_)
+            | AttrTypeInner::ConfiguredDep(_)
+            | AttrTypeInner::Int(_)
+            | AttrTypeInner::Dep(_)
+            | AttrTypeInner::Tuple(_)
+            | AttrTypeInner::SplitTransitionDep(_)
+            | AttrTypeInner::Label(_)
             | AttrTypeInner::Enum(_) => false,
+            AttrTypeInner::Any(_)
+            | AttrTypeInner::Arg(_)
+            | AttrTypeInner::Dict(_)
+            | AttrTypeInner::List(_)
+            | AttrTypeInner::String(_) => true,
             AttrTypeInner::Option(inner) => inner.inner.supports_concat(),
             // Reject if none of the inner types support concat. Mismatched types are rejected later.
             AttrTypeInner::OneOf(inner) => inner.any_supports_concat(),
-            _ => true,
         }
     }
 }
