@@ -57,7 +57,9 @@ impl UnconfiguredAttrLiteralExt for AttrLiteral<CoercedAttr> {
             AttrLiteral::None => Ok(Value::new_none()),
             AttrLiteral::Bool(b) => Ok(Value::new_bool(*b)),
             AttrLiteral::Int(i) => Ok(Value::new_int(*i)),
-            AttrLiteral::String(s) => Ok(heap.alloc_str(s).to_value()),
+            AttrLiteral::String(s) | AttrLiteral::EnumVariant(s) => {
+                Ok(heap.alloc_str(s).to_value())
+            }
             AttrLiteral::List(l, _) => {
                 let mut v = Vec::with_capacity(l.len());
                 for e in l.iter() {
@@ -109,7 +111,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
         match self {
             AttrLiteral::Bool(v) => Ok(Value::new_bool(*v)),
             AttrLiteral::Int(v) => Ok(Value::new_int(*v)),
-            AttrLiteral::String(v) => Ok(ctx.heap().alloc(v)),
+            AttrLiteral::String(v) | AttrLiteral::EnumVariant(v) => Ok(ctx.heap().alloc(v)),
             AttrLiteral::List(list, _) => {
                 let mut values = Vec::with_capacity(list.len());
                 for v in list.iter() {
@@ -167,7 +169,9 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
         match self {
             AttrLiteral::Bool(_) => Ok(starlark::values::bool::BOOL_TYPE),
             AttrLiteral::Int(_) => Ok(starlark::values::int::INT_TYPE),
-            AttrLiteral::String(_) => Ok(starlark::values::string::STRING_TYPE),
+            AttrLiteral::String(_) | AttrLiteral::EnumVariant(_) => {
+                Ok(starlark::values::string::STRING_TYPE)
+            }
             AttrLiteral::List(_, _) => Ok(starlark::values::list::List::TYPE),
             AttrLiteral::Tuple(_) => Ok(starlark::values::tuple::Tuple::TYPE),
             AttrLiteral::Dict(_) => Ok(Dict::TYPE),
@@ -195,7 +199,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
         Ok(match &self {
             AttrLiteral::Bool(v) => heap.alloc(*v),
             AttrLiteral::Int(v) => heap.alloc(*v),
-            AttrLiteral::String(s) => heap.alloc(s),
+            AttrLiteral::String(s) | AttrLiteral::EnumVariant(s) => heap.alloc(s),
             AttrLiteral::List(list, _ty) => heap.alloc(list.try_map(|v| v.to_value(heap))?),
             AttrLiteral::Tuple(v) => heap.alloc_tuple(&v.try_map(|v| v.to_value(heap))?),
             AttrLiteral::Dict(map) => {

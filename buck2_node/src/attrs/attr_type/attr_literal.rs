@@ -37,6 +37,8 @@ pub enum AttrLiteral<C: AttrConfig> {
     Bool(bool),
     Int(i32),
     String(String),
+    // Like String, but drawn from a set of variants, so doesn't support concat
+    EnumVariant(String),
     // Type of list elements is used to verify that concatenation is valid.
     // That only can be checked after configuration took place,
     // so pass the type info together with values to be used later.
@@ -69,7 +71,7 @@ impl<C: AttrConfig> Display for AttrLiteral<C> {
             AttrLiteral::Int(v) => {
                 write!(f, "{}", v)
             }
-            AttrLiteral::String(v) => {
+            AttrLiteral::String(v) | AttrLiteral::EnumVariant(v) => {
                 if f.alternate() {
                     f.write_str(v)
                 } else {
@@ -130,7 +132,7 @@ impl<C: AttrConfig> AttrLiteral<C> {
         match self {
             AttrLiteral::Bool(v) => Ok(to_value(v)?),
             AttrLiteral::Int(v) => Ok(to_value(v)?),
-            AttrLiteral::String(v) => Ok(to_value(v)?),
+            AttrLiteral::String(v) | AttrLiteral::EnumVariant(v) => Ok(to_value(v)?),
             AttrLiteral::List(list, _) | AttrLiteral::Tuple(list) => {
                 Ok(to_value(list.try_map(|c| c.to_json())?)?)
             }
@@ -162,7 +164,7 @@ impl<C: AttrConfig> AttrLiteral<C> {
         filter: &dyn Fn(&str) -> anyhow::Result<bool>,
     ) -> anyhow::Result<bool> {
         match self {
-            AttrLiteral::String(v) => filter(v),
+            AttrLiteral::String(v) | AttrLiteral::EnumVariant(v) => filter(v),
             AttrLiteral::Tuple(vals) | AttrLiteral::List(vals, _) => {
                 for v in vals.iter() {
                     if v.any_matches(filter)? {
@@ -205,6 +207,7 @@ impl AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Bool(_) => Ok(()),
             AttrLiteral::Int(_) => Ok(()),
             AttrLiteral::String(_) => Ok(()),
+            AttrLiteral::EnumVariant(_) => Ok(()),
             AttrLiteral::List(list, _) | AttrLiteral::Tuple(list) => {
                 for v in list.iter() {
                     v.traverse(traversal)?;
@@ -252,6 +255,7 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::Bool(v) => AttrLiteral::Bool(*v),
             AttrLiteral::Int(v) => AttrLiteral::Int(*v),
             AttrLiteral::String(v) => AttrLiteral::String(v.clone()),
+            AttrLiteral::EnumVariant(v) => AttrLiteral::EnumVariant(v.clone()),
             AttrLiteral::List(list, element_type) => AttrLiteral::List(
                 list.try_map(|v| v.configure(ctx))?.into_boxed_slice(),
                 element_type.dupe(),
@@ -292,6 +296,7 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::Bool(_) => Ok(()),
             AttrLiteral::Int(_) => Ok(()),
             AttrLiteral::String(_) => Ok(()),
+            AttrLiteral::EnumVariant(_) => Ok(()),
             AttrLiteral::List(list, _) | AttrLiteral::Tuple(list) => {
                 for v in list.iter() {
                     v.traverse(traversal)?;
