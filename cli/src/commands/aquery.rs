@@ -29,11 +29,11 @@ use crate::StreamingCommand;
 ///
 /// Print the action producing a target's default output
 ///
-/// `buck aquery //java/com/example/app:amazing`
+/// `buck2 aquery //java/com/example/app:amazing`
 ///
 /// List all the commands for run actions for building a target
 ///
-/// `buck aquery 'kind(run, deps("//java/com/example/app:amazing+more"))' --output-attributes=cmd`
+/// `buck2 aquery 'kind(run, deps("//java/com/example/app:amazing+more"))' --output-attribute=cmd`
 ///
 /// Dynamic outputs (`ctx.actions.dynamic_output`):
 ///

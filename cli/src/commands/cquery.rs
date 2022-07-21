@@ -38,11 +38,11 @@ use crate::StreamingCommand;
 ///
 /// Print all the attributes of a target
 ///
-/// `buck cquery //java/com/example/app:amazing --output-attributes=.*`
+/// `buck2 cquery //java/com/example/app:amazing --output-all-attributes`
 ///
 /// List the deps of a target (special characters in a target will require quotes):
 ///
-/// `buck cquery 'deps("//java/com/example/app:amazing+more")'`
+/// `buck2 cquery 'deps("//java/com/example/app:amazing+more")'`
 #[derive(Debug, clap::Parser)]
 #[clap(name = "cquery")]
 pub(crate) struct CqueryCommand {

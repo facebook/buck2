@@ -174,10 +174,10 @@ impl CommonQueryArgs {
 ///
 /// Print all the attributes of a target
 ///
-/// `buck uquery //java/com/example/app:amazing --output-attributes=.*`
+/// `buck2 uquery //java/com/example/app:amazing --output-all-attributes
 ///
 /// List the deps of a target (special characters in a target will require quotes):
-/// `buck uquery 'deps("//java/com/example/app:amazing+more")'`
+/// `buck2 uquery 'deps("//java/com/example/app:amazing+more")'`
 ///
 /// select() encoding:
 ///
