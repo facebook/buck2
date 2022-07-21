@@ -1881,7 +1881,8 @@ impl DaemonApi for BuckdServer {
                 metadata: metadata.clone(),
                 data: Some(
                     buck2_data::CQueryCommandStart {
-                        query: req.query.clone(),
+                        // Rust char = 4 bytes. Truncate query to 200KB
+                        query: truncate(&req.query, 50000),
                         query_args: truncate(&req.query_args.join(","), 1000),
                         target_universe: truncate(&req.target_universe.join(","), 1000),
                     }
