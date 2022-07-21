@@ -373,7 +373,7 @@ def _rust_providers(
     # Inherited link input and shared libraries.  As in v1, this only includes
     # non-Rust rules, found by walking through -- and ignoring -- Rust libraries
     # to find non-Rust native linkables and libraries.
-    if not ctx.attr.proc_macro:
+    if not ctx.attrs.proc_macro:
         inherited_non_rust_link_deps = inherited_non_rust_exported_link_deps(ctx)
         inherited_non_rust_link = inherited_non_rust_link_info(ctx)
         inherited_non_rust_shlibs = inherited_non_rust_shared_libs(ctx)
