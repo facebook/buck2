@@ -542,8 +542,10 @@ impl DeferredMaterializerCommandProcessor {
                         // Always invalidate materializer state before actual deleting from filesystem
                         // so there will never be a moment where artifact is deleted but materializer
                         // thinks it still exists.
-                        let pending_fut =
-                            tree.remove(path.iter()).and_then(|data| data.pending_fut);
+                        let pending_fut = tree.remove(path.iter()).and_then(|tree| match tree {
+                            FileTree::Data(data) => data.pending_fut,
+                            _ => None,
+                        });
                         let data = box ArtifactMaterializationData {
                             value,
                             method: Arc::new(*method),

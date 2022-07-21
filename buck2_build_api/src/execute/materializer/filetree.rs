@@ -49,6 +49,8 @@ pub type FileTree<V> = DataTree<FileNameBuf, V>;
 ///
 /// assert_eq!(file_path_to_contents.prefix_get_mut(&mut path.iter()).as_deref(), Some(&contents));
 /// ```
+/// TODO(scottcao): This trie is not implemented properly. It should be merged into the directory trie
+/// we have at buck2_core/src/directory.
 #[derive(Debug)]
 pub enum DataTree<K, V> {
     /// Stores data of type `V` with key of type `Iterator<Item = K>`.
@@ -139,22 +141,19 @@ impl<K: Eq + Hash, V> DataTree<K, V> {
         }
     }
 
-    /// Removes a key from the tree, returning the value at the key if the key
+    /// Removes a key from the tree, returning the subtree at the key if the key
     /// was previously in the tree.
     /// If the prefix of `key` exists as a leaf on the tree, that leaf is removed
     /// and the value of that leaf is returned. We guarantee that only enough of
     /// `key` to find the returned value was consumed.
-    pub fn remove<'a, I, Q>(&mut self, mut key: I) -> Option<V>
+    pub fn remove<'a, I, Q>(&mut self, mut key: I) -> Option<DataTree<K, V>>
     where
         K: 'a + Borrow<Q>,
         Q: 'a + Hash + Eq + ?Sized,
         I: Iterator<Item = &'a Q>,
     {
         if matches!(self, Self::Data(_)) {
-            return match std::mem::replace(self, Self::new()) {
-                Self::Data(data) => Some(data),
-                _ => unreachable!(),
-            };
+            return Some(std::mem::replace(self, Self::new()));
         }
         if let Some(k) = key.next() {
             if let Some(node) = self.children_mut().unwrap().get_mut(k) {
@@ -166,10 +165,13 @@ impl<K: Eq + Hash, V> DataTree<K, V> {
                 if remove_node {
                     self.children_mut().unwrap().remove(k);
                 }
-                return data;
+                data
+            } else {
+                None
             }
+        } else {
+            Some(std::mem::replace(self, Self::new()))
         }
-        None
     }
 
     fn children(&self) -> Option<&HashMap<K, DataTree<K, V>>> {
@@ -216,6 +218,8 @@ impl<K: Eq + Hash, V> DataTree<K, V> {
 mod tests {
     use std::collections::BTreeMap;
 
+    use assert_matches::assert_matches;
+
     use super::*;
 
     #[test]
@@ -251,13 +255,22 @@ mod tests {
         tree.insert(vec![1, 2, 3].into_iter(), "123".to_owned());
         let key = vec![1, 2, 3, 4];
         let mut key_iter = key.iter();
-        let val = tree.remove(&mut key_iter);
-        assert_eq!(val, Some("123".to_owned()));
+        let removed = tree.remove(&mut key_iter);
+        assert_matches!(removed, Some(DataTree::Data(val)) if val == *"123");
         // Test that only enough of key_iter to find the returned value was consumed.
         assert_eq!(key_iter.next(), Some(&4));
         assert_eq!(key_iter.next(), None);
 
         // Check tree is empty
+        assert_eq!(tree.iter().next(), None);
+    }
+
+    #[test]
+    fn test_suffix_remove() {
+        let mut tree = DataTree::<i32, String>::new();
+        tree.insert(vec![1, 2, 3].into_iter(), "123".to_owned());
+        tree.remove(vec![1, 2].iter());
+
         assert_eq!(tree.iter().next(), None);
     }
 }
