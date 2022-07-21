@@ -31,7 +31,6 @@ use buck2_node::configuration::target_platform_detector::TargetPlatformDetector;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
-use either::Either;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
@@ -156,7 +155,17 @@ async fn check_execution_platform(
     exec_compatible_with: &[TargetLabel],
     exec_deps: &IndexSet<TargetLabel>,
     exec_platform: &ExecutionPlatform,
+    toolchain_allows: Option<&SmallSet<ExecutionPlatform>>,
 ) -> anyhow::Result<Result<(), ExecutionPlatformIncompatibleReason>> {
+    // First check if the platform satisfies the toolchain requirements
+    if let Some(allowed) = toolchain_allows {
+        if !allowed.contains(exec_platform) {
+            return Ok(Err(
+                ExecutionPlatformIncompatibleReason::ToolchainDependencyIncompatible,
+            ));
+        }
+    }
+
     let resolved_platform_configuration = ctx
         .get_resolved_configuration(
             &exec_platform.cfg(),
@@ -165,7 +174,7 @@ async fn check_execution_platform(
         )
         .await?;
 
-    // First check if the platform satisfies compatible_with
+    // Then check if the platform satisfies compatible_with
     for constraint in exec_compatible_with {
         if resolved_platform_configuration
             .matches(constraint)
@@ -215,21 +224,14 @@ async fn resolve_execution_platform_from_constraints_many(
     toolchain_allows: Option<&SmallSet<ExecutionPlatform>>,
 ) -> SharedResult<SmallSet<ExecutionPlatform>> {
     let mut result = SmallSet::new();
-    let execution_platforms;
-    let candidates = match toolchain_allows {
-        None => {
-            execution_platforms = get_execution_platforms_non_empty(ctx).await?;
-            Either::Left(execution_platforms.iter())
-        }
-        Some(xs) => Either::Right(xs.iter()),
-    };
-    for exec_platform in candidates {
+    for exec_platform in get_execution_platforms_non_empty(ctx).await?.iter() {
         if check_execution_platform(
             ctx,
             target_node_cell,
             exec_compatible_with,
             exec_deps,
             exec_platform,
+            toolchain_allows,
         )
         .await?
         .is_ok()
@@ -249,22 +251,13 @@ async fn resolve_execution_platform_from_constraints(
 ) -> SharedResult<ExecutionPlatformResolution> {
     let mut skipped = Vec::new();
     for exec_platform in get_execution_platforms_non_empty(ctx).await?.iter() {
-        if let Some(allowed) = toolchain_allows {
-            if !allowed.contains(exec_platform) {
-                skipped.push((
-                    exec_platform.id(),
-                    ExecutionPlatformIncompatibleReason::ToolchainDependencyIncompatible,
-                ));
-                continue;
-            }
-        }
-
         match check_execution_platform(
             ctx,
             target_node_cell,
             exec_compatible_with,
             exec_deps,
             exec_platform,
+            toolchain_allows,
         )
         .await?
         {
