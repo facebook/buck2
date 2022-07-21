@@ -191,7 +191,7 @@ impl<K: 'static + Eq + Hash + Clone, V: 'static> DataTree<K, V> {
     /// Returns an iterator over DataTree<K, V>, where each element is a tuple consisting of iterator
     /// of K (as a VecDeque) and V.
     #[allow(dead_code)]
-    pub fn iter(&self) -> Box<dyn Iterator<Item = (VecDeque<&K>, &V)> + '_> {
+    pub fn iter(&self) -> DataTreeIterator<'_, K, V> {
         fn iter_helper<K, V>(
             tree: &DataTree<K, V>,
             depth: usize, // Used to allocate VecDeque capacity
@@ -214,9 +214,12 @@ impl<K: 'static + Eq + Hash + Clone, V: 'static> DataTree<K, V> {
     }
 }
 
+pub type DataTreeIterator<'a, K, V> = Box<dyn Iterator<Item = (VecDeque<&'a K>, &'a V)> + 'a>;
+pub type DataTreeIntoIterator<K, V> = Box<dyn Iterator<Item = (VecDeque<K>, V)>>;
+
 impl<K: 'static + Eq + Hash + Clone, V: 'static> IntoIterator for DataTree<K, V> {
     type Item = (VecDeque<K>, V);
-    type IntoIter = Box<dyn Iterator<Item = Self::Item>>;
+    type IntoIter = DataTreeIntoIterator<K, V>;
 
     fn into_iter(self) -> Self::IntoIter {
         fn iter_helper<K: 'static + Clone, V: 'static>(

@@ -8,6 +8,7 @@
  */
 
 use std::collections::HashSet;
+use std::collections::VecDeque;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -20,6 +21,9 @@ use buck2_common::result::SharedError;
 use buck2_core::directory::unordered_entry_walk;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::env_helper::EnvHelper;
+use buck2_core::fs::paths::FileName;
+use buck2_core::fs::paths::FileNameBuf;
+use buck2_core::fs::paths::ForwardRelativePathBuf;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePath;
@@ -55,6 +59,8 @@ use crate::actions::directory::ActionDirectoryMember;
 use crate::actions::directory::ActionSharedDirectory;
 use crate::execute::blocking::BlockingExecutor;
 use crate::execute::commands::re::manager::ReConnectionManager;
+use crate::execute::materializer::filetree::DataTreeIntoIterator;
+use crate::execute::materializer::filetree::DataTreeIterator;
 use crate::execute::materializer::filetree::FileTree;
 use crate::execute::materializer::http::http_client;
 use crate::execute::materializer::http::http_download;
@@ -1054,7 +1060,7 @@ impl ArtifactTree {
     }
 }
 
-impl<V> FileTree<V> {
+impl<V: 'static> FileTree<V> {
     /// Finds all the paths in `deps` that are artifacts in `self`
     fn find_artifacts<D>(&self, deps: &D) -> Vec<ProjectRelativePathBuf>
     where
@@ -1097,6 +1103,34 @@ impl<V> FileTree<V> {
         artifacts
     }
 }
+
+trait WithPathsIterator<K, V>: Iterator<Item = (VecDeque<K>, V)>
+where
+    K: AsRef<FileName>,
+{
+    fn with_paths(self) -> Box<dyn Iterator<Item = (ProjectRelativePathBuf, V)>>
+    where
+        Self: 'static + Sized,
+    {
+        box self
+            .into_iter()
+            .map(|(k, v)| -> (ProjectRelativePathBuf, V) {
+                let path = k
+                    .iter()
+                    .map(|f| f.as_ref())
+                    .collect::<Option<ForwardRelativePathBuf>>()
+                    .unwrap_or_else(|| ForwardRelativePathBuf::unchecked_new("".to_owned()));
+                (path.into(), v)
+            })
+    }
+}
+
+pub type FileTreeIterator<'a, V> = DataTreeIterator<'a, FileNameBuf, V>;
+pub type FileTreeIntoIterator<V> = DataTreeIntoIterator<FileNameBuf, V>;
+
+impl<'a, V: 'static> WithPathsIterator<&'a FileNameBuf, &'a V> for FileTreeIterator<'a, V> {}
+
+impl<V: 'static> WithPathsIterator<FileNameBuf, V> for FileTreeIntoIterator<V> {}
 
 /// This is used for testing to ingest digests (via BUCK2_TEST_TOMBSTONED_DIGESTS).
 fn maybe_tombstone_digest(digest: &FileDigest) -> anyhow::Result<&FileDigest> {
