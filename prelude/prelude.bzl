@@ -268,8 +268,4 @@ __shimmed_native__.update(__extra_rules__)
 __shimmed_native__.update({"cxx": _cxx, "python": _python})
 __shimmed_native__.update(_user_rules)
 
-# The `json` symbol isn't available in Buck1, so to use it conditionally
-# we need to write `native.json` or it will be a name binding error.
-__shimmed_native__.update({"json": json})
-
 native = struct(**__shimmed_native__)
