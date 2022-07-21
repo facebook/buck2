@@ -39,6 +39,15 @@ if linux_only():
             stderr_regex=r"Failed to produce artifacts",
         )
 
+    @buck_test(inplace=True)
+    async def test_install_id_mismatch(buck: Buck) -> None:
+        await expect_failure(
+            buck.install(
+                "fbcode//buck2/tests/targets/rules/install:installer_server_sends_wrong_install_info_response"
+            ),
+            stderr_regex=r"doesn't match with the sent one",
+        )
+
 
 @buck_test(inplace=True)
 async def test_fail_to_build_installer(buck: Buck) -> None:

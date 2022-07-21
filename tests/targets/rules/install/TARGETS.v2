@@ -1,4 +1,5 @@
 load("@fbcode//buck2/install_proto:install.bzl", "installer")
+load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
 
 native.export_file(
     name = "artifact_a",
@@ -52,4 +53,16 @@ installer(
     name = "installer_server_sends_error",
     files = {"artifact_a": "artifact_a.txt"},
     installer = ":installer_sends_err",
+)
+
+fb_native.command_alias(
+    name = "installer_sends_wrong_install_id",
+    args = ["--with_wrong_install_id"],
+    exe = ":installer_sends_err",
+)
+
+installer(
+    name = "installer_server_sends_wrong_install_info_response",
+    files = {"artifact_a": "artifact_a.txt"},
+    installer = ":installer_sends_wrong_install_id",
 )

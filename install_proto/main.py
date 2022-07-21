@@ -22,6 +22,18 @@ class RsyncInstallerService(install_pb2_grpc.InstallerServicer):
         else:
             self.dst = f"{argsparse.install_location}:{argsparse.dst}"
 
+    def Install(self, request, _context):
+        install_id = request.install_id
+        files = request.files
+
+        print(
+            f"Received request with install info: install_id= {install_id} and files= {files}"
+        )
+
+        install_response = install_pb2.InstallResponse()
+        install_response.install_id = install_id
+        return install_response
+
     def FileReadyRequest(self, request, context):
         (_out, stderr, code) = self.rsync_install(request.path, self.dst)
         response = {

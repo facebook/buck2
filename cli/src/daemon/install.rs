@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
 use std::process::Stdio;
 
 use anyhow::Context;
@@ -48,6 +49,7 @@ use gazebo::prelude::*;
 use indexmap::IndexMap;
 use install_proto::installer_client::InstallerClient;
 use install_proto::FileReady;
+use install_proto::InstallInfo;
 use install_proto::Shutdown;
 use starlark::values::FrozenRef;
 use tempfile::Builder;
@@ -148,9 +150,10 @@ async fn build_install(
     install_info: FrozenRef<'static, FrozenInstallInfo>,
     mut installer_run_args: Vec<String>,
 ) -> anyhow::Result<()> {
+    let install_files: &IndexMap<&str, Artifact> = &install_info.get_files()?;
     let (files_tx, files_rx) = mpsc::unbounded_channel();
     let build_files = async move {
-        build_files(ctx, install_info.get_files()?, files_tx).await?;
+        build_files(ctx, install_files, files_tx).await?;
         anyhow::Ok(())
     };
     let build_installer_and_connect = async move {
@@ -163,19 +166,52 @@ async fn build_install(
         // Current time seems to be 0m0.727s for run from buck2
         let client: InstallerClient<Channel> = connect_to_installer(filename.to_owned()).await?;
         let artifact_fs = ctx.get_artifact_fs().await?;
-        let ret = tokio_stream::wrappers::UnboundedReceiverStream::new(files_rx)
+
+        let mut files_map = HashMap::new();
+        for (file_name, artifact) in install_files {
+            let artifact_path = &artifact_fs.fs().resolve(&artifact_fs.resolve(artifact)?);
+            files_map
+                .entry((*file_name).to_owned())
+                .or_insert_with(|| artifact_path.to_string());
+        }
+        // TODO: msemko@ change to build target string representation.
+        let install_id = "test_install_id";
+        let install_info_request = tonic::Request::new(InstallInfo {
+            install_id: install_id.to_owned(),
+            files: files_map,
+        });
+        let install_info_response = client
+            .clone()
+            .install(install_info_request)
+            .await?
+            .into_inner();
+        if install_info_response.install_id != install_id {
+            send_shutdown_command(client.clone()).await?;
+            return Err(anyhow::anyhow!(
+                "Received install id: {} doesn't match with the sent one: {}",
+                install_info_response.install_id,
+                &install_id
+            ));
+        }
+
+        let send_files_result = tokio_stream::wrappers::UnboundedReceiverStream::new(files_rx)
             .map(anyhow::Ok)
             .try_for_each_concurrent(None, |file| send_file(file, &artifact_fs, client.clone()))
             .await;
-        client
-            .clone()
-            .shutdown_server(tonic::Request::new(Shutdown {}))
-            .await?;
-        ret.context("Failed to send artifacts to installer")?;
+        send_shutdown_command(client.clone()).await?;
+        send_files_result.context("Failed to send artifacts to installer")?;
         anyhow::Ok(())
     };
     try_join(build_installer_and_connect, build_files).await?;
     anyhow::Ok(())
+}
+
+async fn send_shutdown_command(client: InstallerClient<Channel>) -> anyhow::Result<()> {
+    client
+        .clone()
+        .shutdown_server(tonic::Request::new(Shutdown {}))
+        .await?;
+    Ok(())
 }
 
 async fn build_launch_installer(
@@ -227,19 +263,23 @@ pub(crate) struct FileResult {
 
 async fn build_files(
     ctx: &DiceComputations,
-    files: IndexMap<&str, Artifact>,
+    files: &IndexMap<&str, Artifact>,
     tx: mpsc::UnboundedSender<FileResult>,
 ) -> anyhow::Result<()> {
     let mut file_outputs = Vec::new();
     for (name, artifact) in files {
-        file_outputs.push((name, ArtifactGroup::Artifact(artifact), tx.clone()));
+        file_outputs.push((
+            name,
+            ArtifactGroup::Artifact(artifact.to_owned()),
+            tx.clone(),
+        ));
     }
     future::try_join_all(file_outputs.into_iter().map(|input| async move {
         let (name, artifact, tx_clone) = input;
         let artifact_values = materialize_artifact_group(ctx, &artifact).await?;
         for (artifact, artifact_value) in artifact_values.iter() {
             let file_result = FileResult {
-                name: name.to_owned(),
+                name: (*name).to_owned(),
                 artifact: artifact.to_owned(),
                 artifact_value: artifact_value.to_owned(),
             };
@@ -281,41 +321,35 @@ async fn connect_to_installer(unix_socket: String) -> anyhow::Result<InstallerCl
     use super::client_utils::retrying;
     use super::client_utils::ConnectionType;
 
+    let initial_delay = Duration::from_millis(100);
+    let max_delay = Duration::from_millis(500);
+    let timeout = Duration::from_secs(5);
+
     // try to connect using uds first
-    let attempt_channel = retrying(
-        Duration::from_millis(500),
-        Duration::from_millis(500),
-        Duration::from_secs(5),
-        async || {
-            get_channel(
-                ConnectionType::Uds {
-                    unix_socket: unix_socket.to_owned(),
-                },
-                false,
-            )
-            .await
-        },
-    )
+    let attempt_channel = retrying(initial_delay, max_delay, timeout, async || {
+        get_channel(
+            ConnectionType::Uds {
+                unix_socket: unix_socket.to_owned(),
+            },
+            false,
+        )
+        .await
+    })
     .await;
     let channel = match attempt_channel {
         Ok(channel) => channel,
         Err(err) => {
             println!("Failed to connect with UDS: {:#} Falling back to TCP", err);
-            retrying(
-                Duration::from_millis(500),
-                Duration::from_millis(500),
-                Duration::from_secs(5),
-                async || {
-                    get_channel(
-                        ConnectionType::Tcp {
-                            socket: DEFAULT_SOCKET_ADDR.to_owned(),
-                            port: DEFAULT_PORT.to_owned(),
-                        },
-                        false,
-                    )
-                    .await
-                },
-            )
+            retrying(initial_delay, max_delay, timeout, async || {
+                get_channel(
+                    ConnectionType::Tcp {
+                        socket: DEFAULT_SOCKET_ADDR.to_owned(),
+                        port: DEFAULT_PORT.to_owned(),
+                    },
+                    false,
+                )
+                .await
+            })
             .await
             .context("Failed to connect to with TCP and UDS")?
         }

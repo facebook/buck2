@@ -12,8 +12,23 @@ from buck2.install_proto import install_pb2, install_pb2_grpc
 
 
 class BadInstallerService(install_pb2_grpc.InstallerServicer):
-    def __init__(self, stop_event, *args, **kwargs):
+    def __init__(self, stop_event, with_wrong_install_id, *args, **kwargs):
         self.stop_event = stop_event
+        self.with_wrong_install_id = with_wrong_install_id
+
+    def Install(self, request, _context):
+        install_id = request.install_id
+        files = request.files
+
+        print(
+            f"Received request with install info: install_id= {install_id} and files= {files}"
+        )
+
+        install_response = install_pb2.InstallResponse()
+        install_response.install_id = (
+            "mock_install_id" if self.with_wrong_install_id else install_id
+        )
+        return install_response
 
     def FileReadyRequest(self, request, context):
         error_detail = install_pb2.ErrorDetail()
@@ -39,7 +54,7 @@ def serve(args):
     server = grpc.server(thread_pool=ThreadPoolExecutor(max_workers=1))
     stop_event = threading.Event()
     install_pb2_grpc.add_InstallerServicer_to_server(
-        BadInstallerService(stop_event), server
+        BadInstallerService(stop_event, args.with_wrong_install_id), server
     )
     ## https://grpc.github.io/grpc/python/grpc.html
     listen_addr = server.add_insecure_port(f"unix://{args.named_pipe}")
@@ -59,6 +74,12 @@ def parse_args(args=None):
         type=str,
         help="named pipe for installer to connect to",
         required=True,
+    )
+    parser.add_argument(
+        "--with_wrong_install_id",
+        required=False,
+        action="store_true",
+        help="flag that if set then need to produce a wrong install id response",
     )
     return parser.parse_args(args)
 

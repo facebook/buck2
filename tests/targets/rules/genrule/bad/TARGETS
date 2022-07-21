@@ -34,7 +34,7 @@ buck_genrule(
     executable = True,
 )
 
-# Should fail beacuse it runs an invalid command (and we run with -e)
+# Should fail because it runs an invalid command (and we run with -e)
 buck_genrule(
     name = "my_genrule_bad_4",
     srcs = [],
