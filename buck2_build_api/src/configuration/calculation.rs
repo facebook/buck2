@@ -151,18 +151,21 @@ async fn get_execution_platforms(
 /// a toolchain rule (reached via a toolchain_dep).
 #[derive(Dupe, Clone, PartialEq, Eq)]
 pub struct ToolchainConstraints {
-    allowed: Arc<SmallSet<ExecutionPlatform>>,
+    // We know the set of execution platforms is fixed throughout the build,
+    // so we can record just the ones we are incompatible with,
+    // and assume all others we _are_ compatible with.
+    incompatible: Arc<SmallSet<ExecutionPlatform>>,
 }
 
 impl ToolchainConstraints {
-    fn new(allowed: SmallSet<ExecutionPlatform>) -> Self {
+    fn new(incompatible: SmallSet<ExecutionPlatform>) -> Self {
         Self {
-            allowed: Arc::new(allowed),
+            incompatible: Arc::new(incompatible),
         }
     }
 
     fn allows(&self, exec_platform: &ExecutionPlatform) -> bool {
-        self.allowed.contains(exec_platform)
+        !self.incompatible.contains(exec_platform)
     }
 }
 
@@ -242,7 +245,7 @@ async fn resolve_toolchain_constraints_from_constraints(
     exec_deps: &IndexSet<TargetLabel>,
     toolchain_allows: &[ToolchainConstraints],
 ) -> SharedResult<ToolchainConstraints> {
-    let mut result = SmallSet::new();
+    let mut incompatible = SmallSet::new();
     for exec_platform in get_execution_platforms_non_empty(ctx).await?.iter() {
         if check_execution_platform(
             ctx,
@@ -253,12 +256,12 @@ async fn resolve_toolchain_constraints_from_constraints(
             toolchain_allows,
         )
         .await?
-        .is_ok()
+        .is_err()
         {
-            result.insert(exec_platform.dupe());
+            incompatible.insert(exec_platform.dupe());
         }
     }
-    Ok(ToolchainConstraints::new(result))
+    Ok(ToolchainConstraints::new(incompatible))
 }
 
 async fn resolve_execution_platform_from_constraints(
