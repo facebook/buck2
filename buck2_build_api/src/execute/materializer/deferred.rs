@@ -585,7 +585,13 @@ impl DeferredMaterializerCommandProcessor {
                         result,
                         has_deps,
                         self.io_executor.dupe(),
+                        // materialization_finished transitions the entry to Declared stage on errors,
+                        // in which case the version of the newly declared artifact should be bumped.
+                        // Let materialization_finished always consume a version in case the entry
+                        // gets redeclared.
+                        next_version,
                     );
+                    next_version += 1;
                 }
             }
         }
@@ -1007,6 +1013,7 @@ impl ArtifactTree {
         result: Result<(), SharedProcessingError>,
         has_deps: bool,
         io_executor: Arc<dyn BlockingExecutor>,
+        next_version: u64,
     ) {
         match self.prefix_get_mut(&mut artifact_path.iter()) {
             Some(mut info) => {
@@ -1022,6 +1029,8 @@ impl ArtifactTree {
                 if result.is_err() {
                     tracing::debug!("transition to Declared");
                     info.stage = ArtifactMaterializationStage::Declared;
+                    // Bump the version here because the artifact is redeclared.
+                    info.version = next_version;
                     // Even though materialization failed, something may have still materialized at artifact_path,
                     // so we need to delete anything at artifact_path before we ever retry materializing it.
                     // TODO(scottcao): Once command processor accepts an ArtifactTree instead of initializing one,
