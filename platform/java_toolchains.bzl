@@ -168,7 +168,7 @@ def _junit_toolchain_rule_impl(ctx):
     return [
         DefaultInfo(),
         JUnitToolchainInfo(
-            junit_test_runner_library_jar = ctx.attrs.junit_test_runner_library_jar[DefaultInfo].default_outputs[0],
+            junit_test_runner_library_jar = ctx.attrs.junit_test_runner_library_jar,
             junit_test_runner_main_class = ctx.attrs.junit_test_runner_main_class,
             list_class_names = ctx.attrs.list_class_names,
         ),
@@ -176,7 +176,7 @@ def _junit_toolchain_rule_impl(ctx):
 
 _junit_toolchain_rule = rule(
     attrs = {
-        "junit_test_runner_library_jar": attrs.dep(),
+        "junit_test_runner_library_jar": attrs.source(),
         "junit_test_runner_main_class": attrs.string(),
         "list_class_names": attrs.dep(providers = [RunInfo]),
     },
