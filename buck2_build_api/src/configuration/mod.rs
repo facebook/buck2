@@ -67,7 +67,7 @@ pub trait ConfigurationCalculation {
         target_node_cell: &CellName,
         exec_compatible_with: &[TargetLabel],
         exec_deps: &IndexSet<TargetLabel>,
-        toolchain_allows: Option<&SmallSet<ExecutionPlatform>>,
+        toolchain_allows: &[Arc<SmallSet<ExecutionPlatform>>],
     ) -> SharedResult<ExecutionPlatformResolution>;
 
     async fn resolve_execution_platform_from_constraints_many(
@@ -75,6 +75,6 @@ pub trait ConfigurationCalculation {
         target_node_cell: &CellName,
         exec_compatible_with: &[TargetLabel],
         exec_deps: &IndexSet<TargetLabel>,
-        toolchain_allows: Option<&SmallSet<ExecutionPlatform>>,
+        toolchain_allows: &[Arc<SmallSet<ExecutionPlatform>>],
     ) -> SharedResult<SmallSet<ExecutionPlatform>>;
 }

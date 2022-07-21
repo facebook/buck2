@@ -197,36 +197,18 @@ impl ExecutionPlatformConstraints {
         Ok(me)
     }
 
-    // Slightly odd return type - we return an extra Arc so in the common case of a singleton
-    // toolchain_dep we can cheaply clone without constructing a new SmallMap.
     async fn toolchain_allows(
         &self,
         ctx: &DiceComputations,
-    ) -> SharedResult<Option<Arc<SmallSet<ExecutionPlatform>>>> {
-        match self.toolchain_deps.len() {
-            0 => Ok(None),
-            1 => {
-                let only = self.toolchain_deps.first().unwrap();
-                Ok(Some(
-                    execution_platforms_for_toolchain(ctx, only.dupe()).await?,
-                ))
-            }
-            _ => {
-                let mut rest = self.toolchain_deps.iter();
-                let first = rest.next().unwrap();
-
-                let mut result = execution_platforms_for_toolchain(ctx, first.dupe())
-                    .await?
-                    .iter()
-                    .duped()
-                    .collect::<Vec<_>>();
-                for x in rest {
-                    let ep = execution_platforms_for_toolchain(ctx, x.dupe()).await?;
-                    result.retain(|x| ep.contains(x));
-                }
-                Ok(Some(Arc::new(SmallSet::from_iter(result))))
-            }
+    ) -> SharedResult<Vec<Arc<SmallSet<ExecutionPlatform>>>> {
+        // We could merge these constraints together, but the time to do that
+        // probably outweighs the benefits given there are likely to only be a few
+        // execution platforms to test.
+        let mut result = Vec::with_capacity(self.toolchain_deps.len());
+        for x in &self.toolchain_deps {
+            result.push(execution_platforms_for_toolchain(ctx, x.dupe()).await?)
         }
+        Ok(result)
     }
 
     async fn one(
@@ -238,7 +220,7 @@ impl ExecutionPlatformConstraints {
             node.label().pkg().cell_name(),
             &self.exec_compatible_with,
             &self.exec_deps,
-            self.toolchain_allows(ctx).await?.as_deref(),
+            &self.toolchain_allows(ctx).await?,
         )
         .await
     }
@@ -253,7 +235,7 @@ impl ExecutionPlatformConstraints {
                 node.label().pkg().cell_name(),
                 &self.exec_compatible_with,
                 &self.exec_deps,
-                self.toolchain_allows(ctx).await?.as_deref(),
+                &self.toolchain_allows(ctx).await?,
             )
             .await?,
         ))
