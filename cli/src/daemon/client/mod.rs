@@ -116,8 +116,7 @@ impl BuckdClientConnector {
     where
         for<'a> Fun: FnOnce(&'a mut BuckdClient) -> BoxFuture<'a, R>,
     {
-        let tailers = FileTailers::new(&self.client.events_ctx.daemon_dir)?;
-        self.client.tailers = Some(tailers);
+        self.client.open_tailers()?;
         let result = command(&mut self.client).await;
 
         self.client
@@ -226,6 +225,20 @@ fn grpc_to_stream(
 }
 
 impl BuckdClient {
+    fn open_tailers(&mut self) -> anyhow::Result<()> {
+        match &self.client {
+            ClientKind::Daemon(..) => {
+                let tailers = FileTailers::new(&self.events_ctx.daemon_dir)?;
+                self.tailers = Some(tailers);
+            }
+            ClientKind::Replayer(..) => {
+                // Don't open logs if replaying
+            }
+        }
+
+        Ok(())
+    }
+
     /// Some commands stream events back from the server.
     /// For these commands, we want to be able to manipulate CLI state.
     ///
