@@ -130,8 +130,6 @@ def _rust_binary_common(
 
         args = cmd_args(link.outputs[Emit("link")]).hidden(runtime_files)
         extra_targets = [("check", meta.outputs[Emit("metadata")])] + meta.diag.items()
-        if Emit("save-analysis") in meta.outputs:
-            extra_targets += [("save-analysis", meta.outputs[Emit("save-analysis")])]
 
         styles[link_style] = (link.outputs[Emit("link")], args, extra_targets, runtime_files)
 
@@ -143,7 +141,17 @@ def _rust_binary_common(
         params = style_param[LinkStyle("static_pic")],
         link_style = LinkStyle("static_pic"),
         default_roots = default_roots,
-        predeclared_outputs = {Emit("expand"): ctx.actions.declare_output("expand/{}.rs".format(crate))},
+        extra_flags = extra_flags,
+    )
+
+    save_analysis = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("save-analysis"),
+        crate = crate,
+        params = style_param[LinkStyle("static_pic")],
+        link_style = LinkStyle("static_pic"),
+        default_roots = default_roots,
         extra_flags = extra_flags,
     )
 
@@ -157,6 +165,7 @@ def _rust_binary_common(
             document_private_items = True,
         )),
         ("expand", expand.outputs[Emit("expand")]),
+        ("save-analysis", save_analysis.outputs[Emit("save-analysis")]),
     ]
     sub_targets = {k: [DefaultInfo(default_outputs = [v])] for k, v in extra_targets}
     for (k, (sub_link, sub_args, _sub_extra, sub_runtime_files)) in styles.items():

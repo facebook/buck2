@@ -145,14 +145,12 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
 
     for (lang, params), (link, meta) in artifacts.items():
         if lang == LinkageLang("rust"):
-            # Grab the check and save_analysis outputs for all kinds of builds to use
+            # Grab the check output for all kinds of builds to use
             # in the check subtarget. The link style doesn't matter
             # so pick the first.
             if check_artifacts == None:
                 check_artifacts = {"check": meta.outputs[Emit("metadata")]}
                 check_artifacts.update(meta.diag)
-                if Emit("save-analysis") in meta.outputs:
-                    check_artifacts["save-analysis"] = meta.outputs[Emit("save-analysis")]
 
             rust_param_artifact[params] = _handle_rust_artifact(ctx, params, link, meta)
         elif lang == LinkageLang("c++"):
@@ -177,7 +175,16 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
         params = lang_style_param[(LinkageLang("rust"), LinkStyle("static_pic"))],
         link_style = LinkStyle("static_pic"),
         default_roots = ["lib.rs"],
-        predeclared_outputs = {Emit("expand"): ctx.actions.declare_output("expand/{}.rs".format(crate))},
+    )
+
+    save_analysis = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("save-analysis"),
+        crate = crate,
+        params = lang_style_param[(LinkageLang("rust"), LinkStyle("static_pic"))],
+        link_style = LinkStyle("static_pic"),
+        default_roots = ["lib.rs"],
     )
 
     providers = []
@@ -188,6 +195,7 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
         rustdoc = rustdoc,
         check_artifacts = check_artifacts,
         expand = expand.outputs[Emit("expand")],
+        save_analysis = save_analysis.outputs[Emit("save-analysis")],
     )
     providers += _rust_providers(
         ctx = ctx,
@@ -319,7 +327,8 @@ def _default_providers(
         param_artifact: {BuildParams.type: RustLinkStyleInfo.type},
         rustdoc: "artifact",
         check_artifacts: {str.type: "artifact"},
-        expand: "artifact") -> ["provider"]:
+        expand: "artifact",
+        save_analysis: "artifact") -> ["provider"]:
     # Outputs indexed by LinkStyle
     style_info = {
         link_style: param_artifact[lang_style_param[(LinkageLang("rust"), link_style)]]
@@ -331,6 +340,7 @@ def _default_providers(
     targets.update(check_artifacts)
     targets["doc"] = rustdoc
     targets["expand"] = expand
+    targets["save-analysis"] = save_analysis
 
     providers = []
 

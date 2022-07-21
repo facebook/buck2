@@ -65,7 +65,7 @@ Emit = enum(
     "dep-info",
     "mir",
     "save-analysis",  # pseudo emit alias for metadata + -Zsave-analysis
-    "expand",  # -Zunpretty=expanded
+    "expand",  # pseudo emit alias for -Zunpretty=expanded
 )
 
 # Emitting this artifact generates code
@@ -99,6 +99,7 @@ _EMIT_PREFIX_SUFFIX = {
     Emit("dep-info"): ("", ".d"),
     Emit("mir"): (None, ".mir"),
     Emit("expand"): (None, ".rs"),
+    Emit("save-analysis"): (None, ".json"),
 }
 
 # Return the filename for a particular emitted artifact type

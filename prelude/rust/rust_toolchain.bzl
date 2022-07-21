@@ -16,9 +16,6 @@ RustToolchainInfo = provider(fields = [
     # are quick and this increases effective parallelism.
     # Currently blocked by https://github.com/rust-lang/rust/issues/85401
     "pipelined",
-    # Generate save-analysis by default with metadata builds.
-    # Is unstable, so it should be configurable.
-    "save_analysis",
     # Filter out failures when we just need diagnostics. That is,
     # a rule which fails with a compilation failure will report
     # success as an RE action, but a "failure filter" action will

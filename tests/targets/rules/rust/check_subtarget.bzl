@@ -34,7 +34,7 @@ def check_subtarget(name, target, subtarget, expected_out_filename, expected_out
     # Check: output file name is equal to 'expected_out_filename'
     err_str = "[error] expected output filename to be: {}".format(expected_out_filename)
     cmd.append(
-        "echo $(location {}[{}]) | grep -F '{}' || {{ echo {} 1>&2; exit 1; }}".format(
+        "echo $(location {}[{}]) | grep -E '{}' || {{ echo {} 1>&2; exit 1; }}".format(
             target,
             subtarget,
             expected_out_filename,

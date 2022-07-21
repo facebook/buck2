@@ -13,7 +13,6 @@ load(
     "get_link_args",
 )
 load("@fbcode//buck2/prelude/utils:set.bzl", "set")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 load(
     ":build_params.bzl",
     "BuildParams",  # @unused Used as a type
@@ -599,8 +598,6 @@ def _rustc_emits(
     toolchain_info = ctx_toolchain_info(ctx)
     crate_type = params.crate_type
 
-    expect(emit != Emit("save-analysis"), "Don't specify 'save-analysis' in emits directly")
-
     # Metadata for pipelining needs has enough info to be used as an input
     # for dependents. To do this reliably, we actually emit "link" but
     # suppress actual codegen with -Zno-codegen.
@@ -617,13 +614,16 @@ def _rustc_emits(
     if emit in predeclared_outputs:
         output = predeclared_outputs[emit]
     else:
-        extra_hash = "-" + _metadata(ctx.label)[1]
-        emit_args.add("-Cextra-filename=" + extra_hash)
-        if pipeline_meta:
-            # Make sure hollow rlibs are distinct from real ones
-            filename = subdir + "/hollow/" + output_filename(crate, Emit("link"), params, extra_hash)
+        if emit == Emit("save-analysis"):
+            filename = "{}/save-analysis/{}{}.json".format(subdir, params.prefix, crate)
         else:
-            filename = subdir + "/" + output_filename(crate, emit, params, extra_hash)
+            extra_hash = "-" + _metadata(ctx.label)[1]
+            emit_args.add("-Cextra-filename=" + extra_hash)
+            if pipeline_meta:
+                # Make sure hollow rlibs are distinct from real ones
+                filename = subdir + "/hollow/" + output_filename(crate, Emit("link"), params, extra_hash)
+            else:
+                filename = subdir + "/" + output_filename(crate, emit, params, extra_hash)
 
         output = ctx.actions.declare_output(filename)
 
@@ -642,25 +642,21 @@ def _rustc_emits(
         )
     elif emit == Emit("expand"):
         emit_args.add("-Zunpretty=expanded", "-o", output.as_output())
-    else:
-        # Assume https://github.com/rust-lang/rust/issues/85356 is fixed (ie
-        # https://github.com/rust-lang/rust/pull/85362 is applied)
-        emit_args.add("--emit", cmd_args(output.as_output(), format = emit.value + "={}"))
-
-    if emit == Emit("metadata") and toolchain_info.save_analysis:
-        # Emit save-analysis as a bonus output - it doesn't cost much to generate
-        # along with metadata. (If it does turn out to be expensive, either make it
-        # a per-build option, or split it out into a separate action).
-        filename = "{}/save-analysis/{}{}{}.json".format(subdir, params.prefix, crate, extra_hash)
-        output = ctx.actions.declare_output(filename)
-        outputs[Emit("save-analysis")] = output
+    elif emit == Emit("save-analysis"):
         emit_args.add(
+            "--emit",
+            "metadata",
             "-Zsave-analysis",
             # No way to explicitly set the output location except with the output dir
             "--out-dir",
             cmd_args(output.as_output()).parent(2),
         )
     else:
+        # Assume https://github.com/rust-lang/rust/issues/85356 is fixed (ie
+        # https://github.com/rust-lang/rust/pull/85362 is applied)
+        emit_args.add("--emit", cmd_args(output.as_output(), format = emit.value + "={}"))
+
+    if emit not in (Emit("expand"), Emit("save-analysis")):
         extra_dir = subdir + "/extras/" + output_filename(crate, emit, params)
         extra_dir = ctx.actions.declare_output(extra_dir)
         emit_args.add("--out-dir", extra_dir.as_output())

@@ -450,7 +450,7 @@ buck_genrule(
 
 check_subtarget(
     name = "check_rust_bin_subtarget_expand",
-    expected_out_filename = "proc_macro_main.rs",
+    expected_out_filename = "proc_macro_main-[a-f0-9]{8}.rs",
     expected_out_tokens = [
         "#[macro_use]",
         "fn main",
@@ -461,8 +461,30 @@ check_subtarget(
 
 check_subtarget(
     name = "check_rust_lib_subtarget_expand",
-    expected_out_filename = "proc_macro_lib.rs",
+    expected_out_filename = "proc_macro_lib-[a-f0-9]{8}.rs",
     expected_out_tokens = ["#[macro_use]"],
     subtarget = "expand",
     target = ":proc_macro_lib",
+)
+
+check_subtarget(
+    name = "check_rust_bin_subtarget_save_analysis",
+    expected_out_filename = "with_dep.json",
+    expected_out_tokens = [
+        "borrow_data",
+        "compilation",
+    ],
+    subtarget = "save-analysis",
+    target = ":with_dep",
+)
+
+check_subtarget(
+    name = "check_rust_lib_subtarget_save_analysis",
+    expected_out_filename = "lib.json",
+    expected_out_tokens = [
+        "borrow_data",
+        "compilation",
+    ],
+    subtarget = "save-analysis",
+    target = ":lib",
 )
