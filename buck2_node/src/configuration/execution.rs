@@ -10,6 +10,7 @@
 use std::sync::Arc;
 
 use buck2_core::configuration::Configuration;
+use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
 use gazebo::prelude::*;
 use itertools::Itertools;
@@ -100,6 +101,24 @@ pub enum ExecutionPlatformIncompatibleReason {
     ConstraintNotSatisfied(TargetLabel),
     ExecutionDependencyIncompatible(Arc<IncompatiblePlatformReason>),
     ToolchainDependencyIncompatible,
+}
+
+impl ExecutionPlatformIncompatibleReason {
+    pub fn into_incompatible_platform_reason(
+        self,
+        target: ConfiguredTargetLabel,
+    ) -> IncompatiblePlatformReason {
+        match self {
+            Self::ConstraintNotSatisfied(unsatisfied_config) => IncompatiblePlatformReason::Root {
+                target,
+                unsatisfied_config,
+            },
+            Self::ExecutionDependencyIncompatible(previous) => {
+                IncompatiblePlatformReason::Dependent { target, previous }
+            }
+            _ => unreachable!("Should be deleted in the next diff"),
+        }
+    }
 }
 
 impl std::fmt::Display for ExecutionPlatformIncompatibleReason {
