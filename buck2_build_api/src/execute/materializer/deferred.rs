@@ -579,7 +579,13 @@ impl DeferredMaterializerCommandProcessor {
                     result,
                     has_deps,
                 } => {
-                    tree.materialization_finished(path, version, result, has_deps);
+                    tree.materialization_finished(
+                        path,
+                        version,
+                        result,
+                        has_deps,
+                        self.io_executor.dupe(),
+                    );
                 }
             }
         }
@@ -993,13 +999,14 @@ impl ArtifactTree {
         }
     }
 
-    #[instrument(level = "debug", skip(self, result), fields(path = %artifact_path, version = %version))]
+    #[instrument(level = "debug", skip(self, result, io_executor), fields(path = %artifact_path, version = %version))]
     fn materialization_finished(
         &mut self,
         artifact_path: ProjectRelativePathBuf,
         version: u64,
         result: Result<(), SharedProcessingError>,
         has_deps: bool,
+        io_executor: Arc<dyn BlockingExecutor>,
     ) {
         match self.prefix_get_mut(&mut artifact_path.iter()) {
             Some(mut info) => {
@@ -1015,6 +1022,11 @@ impl ArtifactTree {
                 if result.is_err() {
                     tracing::debug!("transition to Declared");
                     info.stage = ArtifactMaterializationStage::Declared;
+                    // Even though materialization failed, something may have still materialized at artifact_path,
+                    // so we need to delete anything at artifact_path before we ever retry materializing it.
+                    // TODO(scottcao): Once command processor accepts an ArtifactTree instead of initializing one,
+                    // add a test case to ensure this behavior.
+                    info.pending_fut = Some(clean_output_paths(io_executor, artifact_path, None));
                     return;
                 }
 
