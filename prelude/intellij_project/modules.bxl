@@ -1,6 +1,6 @@
 load("@fbcode//buck2/prelude/intellij_project:libraries.bxl", "get_library_xml")
 load("@fbcode//buck2/prelude/java:java_providers.bzl", "JavaLibraryIntellijInfo")
-load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
+load("@fbcode//buck2/prelude/utils:utils.bzl", "expect", "flatten")
 
 IjTargetNode = record(
     deps = ["configured_target_label"],
@@ -72,22 +72,30 @@ def _get_name(directory_path: str.type) -> str.type:
     return directory_path.replace("/", "_")
 
 def _aggregate_ij_target_nodes(ij_target_nodes: [IjTargetNode.type]) -> [AggregatedIjTargetNode.type]:
-    directory_path_to_module_map = {}
+    directory_path_to_ij_target_node_list = {}
     for ij_target_node in ij_target_nodes:
-        if ij_target_node.directory_path in directory_path_to_module_map:
-            aggregated_ij_target_node = directory_path_to_module_map[ij_target_node.directory_path]
-            aggregated_ij_target_node.deps.extend(ij_target_node.deps)
-            aggregated_ij_target_node.labels.append(ij_target_node.label)
-            aggregated_ij_target_node.srcs.extend(ij_target_node.srcs)
-        else:
-            directory_path_to_module_map[ij_target_node.directory_path] = AggregatedIjTargetNode(
-                deps = list(ij_target_node.deps),
-                labels = [ij_target_node.label],
-                name = _get_name(ij_target_node.directory_path),
-                srcs = list(ij_target_node.srcs),
-            )
+        ij_target_node_list = directory_path_to_ij_target_node_list.get(ij_target_node.directory_path)
+        if not ij_target_node_list:
+            ij_target_node_list = []
+            directory_path_to_ij_target_node_list[ij_target_node.directory_path] = ij_target_node_list
+        ij_target_node_list.append(ij_target_node)
 
-    return directory_path_to_module_map.values()
+    aggregated_ij_target_nodes = []
+    for directory_path, ij_target_node_list in directory_path_to_ij_target_node_list.items():
+        deps = dedupe(flatten([node.deps for node in ij_target_node_list]))
+        labels = dedupe([node.label for node in ij_target_node_list])
+        srcs = dedupe(flatten([node.srcs for node in ij_target_node_list]))
+
+        aggregated_ij_target_nodes.append(
+            AggregatedIjTargetNode(
+                deps = deps,
+                labels = labels,
+                name = _get_name(directory_path),
+                srcs = srcs,
+            ),
+        )
+
+    return aggregated_ij_target_nodes
 
 def get_module_file_name(ij_target_node: AggregatedIjTargetNode.type) -> str.type:
     return "modules/{}.iml".format(ij_target_node.name)
