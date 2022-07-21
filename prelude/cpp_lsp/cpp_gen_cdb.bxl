@@ -16,7 +16,7 @@ BUCK_CPP_RULE_KINDS = [
 ]
 
 # Update this whenever this file is changed.
-CPP_GEN_CDB_SCRIPT_VERSION = "1.0.0"
+CPP_GEN_CDB_SCRIPT_VERSION = "1.0.1"
 
 def _impl(ctx):
     filename = ctx.cli_args.filename
@@ -78,7 +78,9 @@ def parseToolChain(platform, toolchain):
             return "llvm12"
 
         # TODO: llvm11 for windows
-    return "unknown"
+    elif "xcode" in toolchain:
+        return "xcode"
+    return toolchain
 
 def findOwningTarget(ctx, filename):
     owners = ctx.cquery().kind("|".join(BUCK_CPP_RULE_KINDS), ctx.cquery().owner(filename))
