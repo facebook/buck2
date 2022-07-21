@@ -232,7 +232,7 @@ impl ExecutionPlatformConstraints {
         target: &ConfiguredTargetLabel,
     ) -> SharedResult<ToolchainConstraints> {
         ctx.resolve_toolchain_constraints_from_constraints(
-            target.pkg().cell_name(),
+            target,
             &self.exec_compatible_with,
             &self.exec_deps,
             &self.toolchain_allows(ctx).await?,

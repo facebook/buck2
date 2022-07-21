@@ -100,7 +100,6 @@ impl ExecutionPlatform {
 pub enum ExecutionPlatformIncompatibleReason {
     ConstraintNotSatisfied(TargetLabel),
     ExecutionDependencyIncompatible(Arc<IncompatiblePlatformReason>),
-    ToolchainDependencyIncompatible,
 }
 
 impl ExecutionPlatformIncompatibleReason {
@@ -116,7 +115,6 @@ impl ExecutionPlatformIncompatibleReason {
             Self::ExecutionDependencyIncompatible(previous) => {
                 IncompatiblePlatformReason::Dependent { target, previous }
             }
-            _ => unreachable!("Should be deleted in the next diff"),
         }
     }
 }
@@ -130,9 +128,6 @@ impl std::fmt::Display for ExecutionPlatformIncompatibleReason {
                 v
             ),
             ExecutionPlatformIncompatibleReason::ExecutionDependencyIncompatible(v) => v.fmt(f),
-            ExecutionPlatformIncompatibleReason::ToolchainDependencyIncompatible => {
-                write!(f, "toolchain dependency was incompatible")
-            }
         }
     }
 }

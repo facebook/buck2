@@ -20,7 +20,9 @@ use buck2_core::cells::CellName;
 use buck2_core::configuration::Configuration;
 use buck2_core::configuration::ConfigurationData;
 use buck2_core::pattern::ParsedPattern;
+use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
+use buck2_node::compatibility::IncompatiblePlatformReason;
 use buck2_node::compatibility::MaybeCompatible;
 use buck2_node::configuration::execution::ExecutionPlatform;
 use buck2_node::configuration::execution::ExecutionPlatformIncompatibleReason;
@@ -34,7 +36,7 @@ use dice::Key;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
-use starlark::collections::SmallSet;
+use starlark::collections::SmallMap;
 use thiserror::Error;
 
 use crate::analysis::calculation::RuleAnalysisCalculation;
@@ -154,18 +156,24 @@ pub struct ToolchainConstraints {
     // We know the set of execution platforms is fixed throughout the build,
     // so we can record just the ones we are incompatible with,
     // and assume all others we _are_ compatible with.
-    incompatible: Arc<SmallSet<ExecutionPlatform>>,
+    incompatible: Arc<SmallMap<ExecutionPlatform, Arc<IncompatiblePlatformReason>>>,
 }
 
 impl ToolchainConstraints {
-    fn new(incompatible: SmallSet<ExecutionPlatform>) -> Self {
+    fn new(incompatible: SmallMap<ExecutionPlatform, Arc<IncompatiblePlatformReason>>) -> Self {
         Self {
             incompatible: Arc::new(incompatible),
         }
     }
 
-    fn allows(&self, exec_platform: &ExecutionPlatform) -> bool {
-        !self.incompatible.contains(exec_platform)
+    fn allows(
+        &self,
+        exec_platform: &ExecutionPlatform,
+    ) -> Result<(), Arc<IncompatiblePlatformReason>> {
+        match self.incompatible.get(exec_platform) {
+            None => Ok(()),
+            Some(e) => Err(e.dupe()),
+        }
     }
 }
 
@@ -181,9 +189,9 @@ async fn check_execution_platform(
 ) -> anyhow::Result<Result<(), ExecutionPlatformIncompatibleReason>> {
     // First check if the platform satisfies the toolchain requirements
     for allowed in toolchain_allows {
-        if !allowed.allows(exec_platform) {
+        if let Err(e) = allowed.allows(exec_platform) {
             return Ok(Err(
-                ExecutionPlatformIncompatibleReason::ToolchainDependencyIncompatible,
+                ExecutionPlatformIncompatibleReason::ExecutionDependencyIncompatible(e),
             ));
         }
     }
@@ -237,25 +245,27 @@ async fn get_execution_platforms_non_empty(
 
 async fn resolve_toolchain_constraints_from_constraints(
     ctx: &DiceComputations,
-    target_node_cell: &CellName,
+    target: &ConfiguredTargetLabel,
     exec_compatible_with: &[TargetLabel],
     exec_deps: &IndexSet<TargetLabel>,
     toolchain_allows: &[ToolchainConstraints],
 ) -> SharedResult<ToolchainConstraints> {
-    let mut incompatible = SmallSet::new();
+    let mut incompatible = SmallMap::new();
     for exec_platform in get_execution_platforms_non_empty(ctx).await?.iter() {
-        if check_execution_platform(
+        if let Err(e) = check_execution_platform(
             ctx,
-            target_node_cell,
+            target.pkg().cell_name(),
             exec_compatible_with,
             exec_deps,
             exec_platform,
             toolchain_allows,
         )
         .await?
-        .is_err()
         {
-            incompatible.insert(exec_platform.dupe());
+            incompatible.insert(
+                exec_platform.dupe(),
+                Arc::new(e.into_incompatible_platform_reason(target.dupe())),
+            );
         }
     }
     Ok(ToolchainConstraints::new(incompatible))
@@ -514,14 +524,14 @@ impl ConfigurationCalculation for DiceComputations {
 
     async fn resolve_toolchain_constraints_from_constraints(
         &self,
-        target_node_cell: &CellName,
+        target: &ConfiguredTargetLabel,
         exec_compatible_with: &[TargetLabel],
         exec_deps: &IndexSet<TargetLabel>,
         toolchain_allows: &[ToolchainConstraints],
     ) -> SharedResult<ToolchainConstraints> {
         resolve_toolchain_constraints_from_constraints(
             self,
-            target_node_cell,
+            target,
             exec_compatible_with,
             exec_deps,
             toolchain_allows,

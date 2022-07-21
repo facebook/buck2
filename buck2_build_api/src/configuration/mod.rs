@@ -13,6 +13,7 @@ use async_trait::async_trait;
 use buck2_common::result::SharedResult;
 use buck2_core::cells::CellName;
 use buck2_core::configuration::Configuration;
+use buck2_core::target::ConfiguredTargetLabel;
 use buck2_core::target::TargetLabel;
 use buck2_node::configuration::execution::ExecutionPlatform;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
@@ -73,7 +74,7 @@ pub trait ConfigurationCalculation {
 
     async fn resolve_toolchain_constraints_from_constraints(
         &self,
-        target_node_cell: &CellName,
+        target: &ConfiguredTargetLabel,
         exec_compatible_with: &[TargetLabel],
         exec_deps: &IndexSet<TargetLabel>,
         toolchain_allows: &[ToolchainConstraints],
