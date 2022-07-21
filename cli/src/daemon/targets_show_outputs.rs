@@ -19,9 +19,10 @@ use buck2_core::cells::CellResolver;
 use buck2_core::package::Package;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::pattern::TargetPattern;
+use buck2_core::pattern::ProvidersPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::TargetLabel;
 use buck2_core::target::TargetName;
 use cli_proto::targets_show_outputs_response::TargetPaths;
@@ -64,7 +65,8 @@ pub(crate) async fn targets_show_outputs(
     let cell_resolver = ctx.get_cell_resolver().await?;
 
     let parsed_patterns =
-        parse_patterns_from_cli_args::<TargetPattern>(&request.target_patterns, &ctx, cwd).await?;
+        parse_patterns_from_cli_args::<ProvidersPattern>(&request.target_patterns, &ctx, cwd)
+            .await?;
 
     let artifact_fs = ctx.get_artifact_fs().await?;
 
@@ -95,7 +97,7 @@ pub(crate) async fn targets_show_outputs(
 async fn retrieve_targets_artifacts_from_patterns(
     ctx: &DiceComputations,
     global_target_platform: &Option<TargetLabel>,
-    parsed_patterns: &[ParsedPattern<TargetName>],
+    parsed_patterns: &[ParsedPattern<ProvidersPattern>],
     cell_resolver: &CellResolver,
 ) -> anyhow::Result<Vec<TargetsArtifacts>> {
     let resolved_pattern =
@@ -106,7 +108,7 @@ async fn retrieve_targets_artifacts_from_patterns(
 
 async fn retrieve_artifacts_for_targets(
     ctx: &DiceComputations,
-    spec: ResolvedPattern<TargetName>,
+    spec: ResolvedPattern<ProvidersPattern>,
     global_target_platform: Option<TargetLabel>,
 ) -> anyhow::Result<Vec<TargetsArtifacts>> {
     let futs: FuturesUnordered<_> = spec
@@ -134,7 +136,7 @@ async fn retrieve_artifacts_for_targets(
 async fn retrieve_artifacts_for_spec(
     ctx: &DiceComputations,
     package: Package,
-    spec: PackageSpec<TargetName>,
+    spec: PackageSpec<(TargetName, ProvidersName)>,
     global_target_platform: Option<TargetLabel>,
     res: Arc<EvaluationResult>,
 ) -> anyhow::Result<Vec<TargetsArtifacts>> {
@@ -152,12 +154,15 @@ async fn retrieve_artifacts_for_spec(
             })
             .collect(),
         PackageSpec::Targets(targets) => {
-            if let Some(missing) = targets.iter().find(|&t| !available_targets.contains_key(t)) {
-                return Err(TargetsError::UnknownTarget(missing.dupe(), package.dupe()).into());
+            if let Some(missing) = targets
+                .iter()
+                .find(|&t| !available_targets.contains_key(&t.0))
+            {
+                return Err(TargetsError::UnknownTarget(missing.0.dupe(), package.dupe()).into());
             }
             targets.into_map(|t| {
                 (
-                    ProvidersLabel::default_for(TargetLabel::new(package.dupe(), t)),
+                    ProvidersLabel::new(TargetLabel::new(package.dupe(), t.0), t.1),
                     global_target_platform.dupe(),
                 )
             })
