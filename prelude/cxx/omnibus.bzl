@@ -238,19 +238,22 @@ def _create_undefined_symbols_argsfile(
     Combine files with sorted lists of symbols names into an argsfile to pass
     to the linker to mark these symbols as undefined (e.g. `-m`).
     """
+    all_symbol_files = ctx.actions.write("__undefined_symbols__.srcs", symbol_files)
+    all_symbol_files = cmd_args(all_symbol_files).hidden(symbol_files)
     output = ctx.actions.declare_output("__undefined_symbols__.argsfile")
     script = (
         "set -euo pipefail; " +
-        'LC_ALL=C sort -S 10% -u -m "$@" | sed "s/^/-u/" > {}'
+        'xargs cat < "$1" | LC_ALL=C sort -S 10% -u -m | sed "s/^/-u/" > $2'
     )
     ctx.actions.run(
         [
             "/bin/bash",
             "-c",
-            cmd_args(output.as_output(), format = script),
+            script,
             "",
-        ] +
-        symbol_files,
+            all_symbol_files,
+            output.as_output(),
+        ],
         category = "omnibus_undefined_syms_argsfile",
         prefer_local = prefer_local,
     )
@@ -303,11 +306,11 @@ def _extract_global_symbols_from_link_args(
 
 _GLOBAL_SYMVERS_SH = """\
 set -euo pipefail
-echo "{" > "$1"
-echo "  global:" >> "$1"
-LC_ALL=C sort -S 10% -u -m "${@:2}" | awk '{print "    \\""$1"\\";"}' >> "$1"
-echo "  local: *;" >> "$1"
-echo "};" >> "$1"
+echo "{" > "$2"
+echo "  global:" >> "$2"
+xargs cat < "$1" | LC_ALL=C sort -S 10% -u -m | awk '{print "    \\""$1"\\";"}' >> "$2"
+echo "  local: *;" >> "$2"
+echo "};" >> "$2"
 """
 
 def _create_global_symbols_version_script(
@@ -320,19 +323,10 @@ def _create_global_symbols_version_script(
     link args.
     """
 
-    output = ctx.actions.declare_output("__global_symbols__.vers")
-    cmd = [
-        "/bin/bash",
-        "-c",
-        _GLOBAL_SYMVERS_SH,
-        "",
-        output.as_output(),
-    ]
-
     # Get global symbols from roots.  We set a rule to do this per-rule, as
     # using a single rule to process all roots adds overhead to the critical
     # path of incremental flows (e.g. that only update a single root).
-    cmd.extend([
+    global_symbols_files = [
         extract_symbol_names(
             ctx,
             root.basename + ".global_syms.txt",
@@ -343,12 +337,12 @@ def _create_global_symbols_version_script(
             identifier = root.basename,
         )
         for root in roots
-    ])
+    ]
 
     # TODO(T110378126): Processing all excluded libs together may get expensive.
     # We should probably split this up and operate on individual libs.
     if excluded:
-        cmd.append(extract_symbol_names(
+        global_symbols_files.append(extract_symbol_names(
             ctx,
             "__excluded_libs__.global_syms.txt",
             excluded,
@@ -358,11 +352,24 @@ def _create_global_symbols_version_script(
         ))
 
     # Extract explicitly globalized symbols from linker args.
-    cmd.append(_extract_global_symbols_from_link_args(
+    global_symbols_files.append(_extract_global_symbols_from_link_args(
         ctx,
         "__global_symbols_from_args__.txt",
         link_args,
     ))
+
+    all_global_symbols_files = ctx.actions.write("__global_symbols__.symbols", global_symbols_files)
+    all_global_symbols_files = cmd_args(all_global_symbols_files).hidden(global_symbols_files)
+
+    output = ctx.actions.declare_output("__global_symbols__.vers")
+    cmd = [
+        "/bin/bash",
+        "-c",
+        _GLOBAL_SYMVERS_SH,
+        "",
+        all_global_symbols_files,
+        output.as_output(),
+    ]
 
     ctx.actions.run(
         cmd,
