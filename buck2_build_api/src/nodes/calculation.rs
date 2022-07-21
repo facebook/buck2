@@ -229,10 +229,10 @@ impl ExecutionPlatformConstraints {
     async fn many(
         &self,
         ctx: &DiceComputations,
-        node: &TargetNode,
+        target: &ConfiguredTargetLabel,
     ) -> SharedResult<ToolchainConstraints> {
         ctx.resolve_toolchain_constraints_from_constraints(
-            node.label().pkg().cell_name(),
+            target.pkg().cell_name(),
             &self.exec_compatible_with,
             &self.exec_deps,
             &self.toolchain_allows(ctx).await?,
@@ -275,7 +275,7 @@ async fn execution_platforms_for_toolchain(
                 &IndexMap::new(),
             )
             .await?;
-            constraints.many(ctx, &node).await
+            constraints.many(ctx, &self.0).await
         }
 
         fn equality(x: &Self::Value, y: &Self::Value) -> bool {
