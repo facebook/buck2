@@ -58,7 +58,7 @@ pub enum DataTree<K, V> {
     Data(V),
 }
 
-impl<K: Eq + Hash, V> DataTree<K, V> {
+impl<K: 'static + Eq + Hash + Clone, V: 'static> DataTree<K, V> {
     pub fn new() -> Self {
         Self::Tree(HashMap::new())
     }
@@ -214,6 +214,35 @@ impl<K: Eq + Hash, V> DataTree<K, V> {
     }
 }
 
+impl<K: 'static + Eq + Hash + Clone, V: 'static> IntoIterator for DataTree<K, V> {
+    type Item = (VecDeque<K>, V);
+    type IntoIter = Box<dyn Iterator<Item = Self::Item>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        fn iter_helper<K: 'static + Clone, V: 'static>(
+            tree: DataTree<K, V>,
+            depth: usize, // Used to allocate VecDeque capacity
+        ) -> Box<dyn Iterator<Item = (VecDeque<K>, V)> + 'static> {
+            match tree {
+                DataTree::Tree(children) => {
+                    box children.into_iter().flat_map(move |(k, data_tree)| {
+                        iter_helper(data_tree, depth + 1).into_iter().map(
+                            move |(mut key_iter, v)| {
+                                // Need to return a VecDeque and not Vec because keys are pushed from the front
+                                key_iter.push_front(k.clone());
+                                (key_iter, v)
+                            },
+                        )
+                    })
+                }
+                DataTree::Data(v) => box std::iter::once((VecDeque::with_capacity(depth), v)),
+            }
+        }
+
+        iter_helper(self, 0)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
@@ -242,6 +271,30 @@ mod tests {
             .iter()
             .into_iter()
             .map(|(k, v)| (k.into_iter().copied().collect::<Vec<_>>(), v.to_owned()))
+            .collect::<BTreeMap<_, _>>();
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_into_iter() {
+        let expected: BTreeMap<Vec<i32>, String> = [
+            (vec![1, 2, 3], "123".to_owned()),
+            (vec![1, 2, 4], "124".to_owned()),
+            (vec![1, 2, 5, 6], "1256".to_owned()),
+            (vec![1, 3, 4], "134".to_owned()),
+            (vec![1, 3, 5], "135".to_owned()),
+        ]
+        .into_iter()
+        .collect();
+
+        let mut tree = DataTree::<i32, String>::new();
+        for (k, v) in expected.iter() {
+            tree.insert(k.clone().into_iter(), v.clone());
+        }
+        let actual = tree
+            .into_iter()
+            .map(|(k, v)| (k.into_iter().collect::<Vec<_>>(), v))
             .collect::<BTreeMap<_, _>>();
 
         assert_eq!(expected, actual);
