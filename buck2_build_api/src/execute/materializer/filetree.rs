@@ -141,6 +141,9 @@ impl<K: Eq + Hash, V> DataTree<K, V> {
 
     /// Removes a key from the tree, returning the value at the key if the key
     /// was previously in the tree.
+    /// If the prefix of `key` exists as a leaf on the tree, that leaf is removed
+    /// and the value of that leaf is returned. We guarantee that only enough of
+    /// `key` to find the returned value was consumed.
     pub fn remove<'a, I, Q>(&mut self, mut key: I) -> Option<V>
     where
         K: 'a + Borrow<Q>,
@@ -238,5 +241,23 @@ mod tests {
             .collect::<BTreeMap<_, _>>();
 
         assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_prefix_remove() {
+        // We need remove any artifacts at leaves when we invalidate
+        // and declare artifacts at a subdirectory of that leaf path.
+        let mut tree = DataTree::<i32, String>::new();
+        tree.insert(vec![1, 2, 3].into_iter(), "123".to_owned());
+        let key = vec![1, 2, 3, 4];
+        let mut key_iter = key.iter();
+        let val = tree.remove(&mut key_iter);
+        assert_eq!(val, Some("123".to_owned()));
+        // Test that only enough of key_iter to find the returned value was consumed.
+        assert_eq!(key_iter.next(), Some(&4));
+        assert_eq!(key_iter.next(), None);
+
+        // Check tree is empty
+        assert_eq!(tree.iter().next(), None);
     }
 }
