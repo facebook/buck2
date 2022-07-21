@@ -215,10 +215,7 @@ async fn check_execution_platform(
             .await?;
         if let MaybeCompatible::Incompatible(reason) = dep_node {
             return Ok(Err(
-                ExecutionPlatformIncompatibleReason::ExecutionDependencyIncompatible(
-                    dep.dupe(),
-                    reason.dupe(),
-                ),
+                ExecutionPlatformIncompatibleReason::ExecutionDependencyIncompatible(reason.dupe()),
             ));
         }
     }

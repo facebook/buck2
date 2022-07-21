@@ -98,7 +98,7 @@ impl ExecutionPlatform {
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub enum ExecutionPlatformIncompatibleReason {
     ConstraintNotSatisfied(TargetLabel),
-    ExecutionDependencyIncompatible(TargetLabel, Arc<IncompatiblePlatformReason>),
+    ExecutionDependencyIncompatible(Arc<IncompatiblePlatformReason>),
     ToolchainDependencyIncompatible,
 }
 
@@ -110,7 +110,7 @@ impl std::fmt::Display for ExecutionPlatformIncompatibleReason {
                 "exec_compatible_with requires `{}` but it was not satisfied",
                 v
             ),
-            ExecutionPlatformIncompatibleReason::ExecutionDependencyIncompatible(_, v) => v.fmt(f),
+            ExecutionPlatformIncompatibleReason::ExecutionDependencyIncompatible(v) => v.fmt(f),
             ExecutionPlatformIncompatibleReason::ToolchainDependencyIncompatible => {
                 write!(f, "toolchain dependency was incompatible")
             }
