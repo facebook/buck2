@@ -1,8 +1,6 @@
 import os
-import re
 import subprocess
 import sys
-import textwrap
 from pathlib import Path
 
 import pytest
@@ -291,6 +289,31 @@ async def test_targets_show_output(buck: Buck) -> None:
         ]
 
         assert show_output_outputs == build_report_outputs
+
+
+@buck_test(inplace=True)
+async def test_targets_show_output_subtargets(buck: Buck) -> None:
+
+    TARGET = "fbcode//buck2/tests/targets/rules/cxx:my_cpp1"
+    SUBTARGET = "compilation-database"
+    TARGET_WITH_SUBTARGET = (
+        "fbcode//buck2/tests/targets/rules/cxx:my_cpp1[compilation-database]"
+    )
+
+    build_result = await buck.build(TARGET_WITH_SUBTARGET, "--show-output")
+    targets_result = await buck.targets(TARGET_WITH_SUBTARGET, "--show-output")
+
+    build_report = build_result.get_build_report()
+    build_report_outputs = [
+        (TARGET_WITH_SUBTARGET, str(output))
+        for output in build_report.outputs_for_target(TARGET, SUBTARGET)
+    ]
+    show_output_outputs = [
+        (target, os.path.join(build_report.root, output))
+        for target, output in targets_result.get_target_to_build_output().items()
+    ]
+
+    assert show_output_outputs == build_report_outputs
 
 
 @buck_test(inplace=True)
