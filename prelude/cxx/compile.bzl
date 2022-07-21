@@ -82,6 +82,9 @@ _CxxCompileCommand = record(
 CxxSrcCompileCommand = record(
     # Source file to compile.
     src = field("artifact"),
+    # If we have multiple source entries with same files but different flags,
+    # specify an index so we can differentiate them. Otherwise, use None.
+    index = field(["int", None], None),
     # The CxxCompileCommand to use to compile this file.
     cxx_compile_cmd = field(_CxxCompileCommand.type),
     # Arguments specific to the source file.
@@ -111,6 +114,9 @@ CxxCompileCommandOutputForCompDb = record(
 CxxSrcWithFlags = record(
     file = field("artifact"),
     flags = field(["resolved_macro"], []),
+    # If we have multiple source entries with same files but different flags,
+    # specify an index so we can differentiate them. Otherwise, use None.
+    index = field(["int", None], None),
 )
 
 def create_compile_cmds(
@@ -193,7 +199,7 @@ def create_compile_cmds(
         src_args.extend(src.flags)
         src_args.extend(["-c", src.file])
 
-        src_compile_command = CxxSrcCompileCommand(src = src.file, cxx_compile_cmd = cxx_compile_cmd, args = src_args)
+        src_compile_command = CxxSrcCompileCommand(src = src.file, cxx_compile_cmd = cxx_compile_cmd, args = src_args, index = src.index)
         src_compile_cmds.append(src_compile_command)
 
     # Create an output file of all the argsfiles generated for compiling these source files.
@@ -234,6 +240,9 @@ def compile_cxx(
     objects = []
     for src_compile_cmd in src_compile_cmds:
         identifier = src_compile_cmd.src.short_path
+        if src_compile_cmd.index != None:
+            # Add a unique postfix if we have duplicate source files with different flags
+            identifier = identifier + "_" + str(src_compile_cmd.index)
 
         filename_base = identifier + (".pic" if pic else "")
         out = ctx.actions.declare_output(
