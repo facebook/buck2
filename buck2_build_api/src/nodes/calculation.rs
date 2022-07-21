@@ -56,6 +56,7 @@ use starlark::collections::SmallSet;
 use thiserror::Error;
 
 use crate::calculation::BuildErrors;
+use crate::configuration::calculation::ToolchainConstraints;
 use crate::configuration::ConfigurationCalculation;
 use crate::execute::commands::dice_data::HasFallbackExecutorConfig;
 use crate::interpreter::calculation::InterpreterCalculation;
@@ -200,7 +201,7 @@ impl ExecutionPlatformConstraints {
     async fn toolchain_allows(
         &self,
         ctx: &DiceComputations,
-    ) -> SharedResult<Vec<Arc<SmallSet<ExecutionPlatform>>>> {
+    ) -> SharedResult<Vec<ToolchainConstraints>> {
         // We could merge these constraints together, but the time to do that
         // probably outweighs the benefits given there are likely to only be a few
         // execution platforms to test.
@@ -229,30 +230,28 @@ impl ExecutionPlatformConstraints {
         &self,
         ctx: &DiceComputations,
         node: &TargetNode,
-    ) -> SharedResult<Arc<SmallSet<ExecutionPlatform>>> {
-        Ok(Arc::new(
-            ctx.resolve_execution_platform_from_constraints_many(
-                node.label().pkg().cell_name(),
-                &self.exec_compatible_with,
-                &self.exec_deps,
-                &self.toolchain_allows(ctx).await?,
-            )
-            .await?,
-        ))
+    ) -> SharedResult<ToolchainConstraints> {
+        ctx.resolve_toolchain_constraints_from_constraints(
+            node.label().pkg().cell_name(),
+            &self.exec_compatible_with,
+            &self.exec_deps,
+            &self.toolchain_allows(ctx).await?,
+        )
+        .await
     }
 }
 
 async fn execution_platforms_for_toolchain(
     ctx: &DiceComputations,
     target: ConfiguredTargetLabel,
-) -> SharedResult<Arc<SmallSet<ExecutionPlatform>>> {
+) -> SharedResult<ToolchainConstraints> {
     #[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq)]
     #[display(fmt = "ExecutionPlatformsForToolchainKey({})", .0)]
     struct ExecutionPlatformsForToolchainKey(ConfiguredTargetLabel);
 
     #[async_trait]
     impl Key for ExecutionPlatformsForToolchainKey {
-        type Value = SharedResult<Arc<SmallSet<ExecutionPlatform>>>;
+        type Value = SharedResult<ToolchainConstraints>;
         async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
             let node = ctx.get_target_node(self.0.unconfigured()).await?;
             if node.transition_deps().next().is_some() {

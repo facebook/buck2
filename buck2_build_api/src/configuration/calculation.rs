@@ -147,6 +147,25 @@ async fn get_execution_platforms(
     Ok(Some(Arc::new(platforms)))
 }
 
+/// The constraint introduced on execution platform resolution by
+/// a toolchain rule (reached via a toolchain_dep).
+#[derive(Dupe, Clone, PartialEq, Eq)]
+pub struct ToolchainConstraints {
+    allowed: Arc<SmallSet<ExecutionPlatform>>,
+}
+
+impl ToolchainConstraints {
+    fn new(allowed: SmallSet<ExecutionPlatform>) -> Self {
+        Self {
+            allowed: Arc::new(allowed),
+        }
+    }
+
+    fn allows(&self, exec_platform: &ExecutionPlatform) -> bool {
+        self.allowed.contains(exec_platform)
+    }
+}
+
 /// Check if a particular execution platform is compatible with the constraints or not.
 /// Return either Ok/Ok if it is, or a reason if not.
 async fn check_execution_platform(
@@ -155,11 +174,11 @@ async fn check_execution_platform(
     exec_compatible_with: &[TargetLabel],
     exec_deps: &IndexSet<TargetLabel>,
     exec_platform: &ExecutionPlatform,
-    toolchain_allows: &[Arc<SmallSet<ExecutionPlatform>>],
+    toolchain_allows: &[ToolchainConstraints],
 ) -> anyhow::Result<Result<(), ExecutionPlatformIncompatibleReason>> {
     // First check if the platform satisfies the toolchain requirements
     for allowed in toolchain_allows {
-        if !allowed.contains(exec_platform) {
+        if !allowed.allows(exec_platform) {
             return Ok(Err(
                 ExecutionPlatformIncompatibleReason::ToolchainDependencyIncompatible,
             ));
@@ -216,13 +235,13 @@ async fn get_execution_platforms_non_empty(
     }
 }
 
-async fn resolve_execution_platform_from_constraints_many(
+async fn resolve_toolchain_constraints_from_constraints(
     ctx: &DiceComputations,
     target_node_cell: &CellName,
     exec_compatible_with: &[TargetLabel],
     exec_deps: &IndexSet<TargetLabel>,
-    toolchain_allows: &[Arc<SmallSet<ExecutionPlatform>>],
-) -> SharedResult<SmallSet<ExecutionPlatform>> {
+    toolchain_allows: &[ToolchainConstraints],
+) -> SharedResult<ToolchainConstraints> {
     let mut result = SmallSet::new();
     for exec_platform in get_execution_platforms_non_empty(ctx).await?.iter() {
         if check_execution_platform(
@@ -239,7 +258,7 @@ async fn resolve_execution_platform_from_constraints_many(
             result.insert(exec_platform.dupe());
         }
     }
-    Ok(result)
+    Ok(ToolchainConstraints::new(result))
 }
 
 async fn resolve_execution_platform_from_constraints(
@@ -247,7 +266,7 @@ async fn resolve_execution_platform_from_constraints(
     target_node_cell: &CellName,
     exec_compatible_with: &[TargetLabel],
     exec_deps: &IndexSet<TargetLabel>,
-    toolchain_allows: &[Arc<SmallSet<ExecutionPlatform>>],
+    toolchain_allows: &[ToolchainConstraints],
 ) -> SharedResult<ExecutionPlatformResolution> {
     let mut skipped = Vec::new();
     for exec_platform in get_execution_platforms_non_empty(ctx).await?.iter() {
@@ -481,7 +500,7 @@ impl ConfigurationCalculation for DiceComputations {
         target_node_cell: &CellName,
         exec_compatible_with: &[TargetLabel],
         exec_deps: &IndexSet<TargetLabel>,
-        toolchain_allows: &[Arc<SmallSet<ExecutionPlatform>>],
+        toolchain_allows: &[ToolchainConstraints],
     ) -> SharedResult<ExecutionPlatformResolution> {
         resolve_execution_platform_from_constraints(
             self,
@@ -493,14 +512,14 @@ impl ConfigurationCalculation for DiceComputations {
         .await
     }
 
-    async fn resolve_execution_platform_from_constraints_many(
+    async fn resolve_toolchain_constraints_from_constraints(
         &self,
         target_node_cell: &CellName,
         exec_compatible_with: &[TargetLabel],
         exec_deps: &IndexSet<TargetLabel>,
-        toolchain_allows: &[Arc<SmallSet<ExecutionPlatform>>],
-    ) -> SharedResult<SmallSet<ExecutionPlatform>> {
-        resolve_execution_platform_from_constraints_many(
+        toolchain_allows: &[ToolchainConstraints],
+    ) -> SharedResult<ToolchainConstraints> {
+        resolve_toolchain_constraints_from_constraints(
             self,
             target_node_cell,
             exec_compatible_with,
