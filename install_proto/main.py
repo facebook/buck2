@@ -34,9 +34,10 @@ class RsyncInstallerService(install_pb2_grpc.InstallerServicer):
         install_response.install_id = install_id
         return install_response
 
-    def FileReadyRequest(self, request, context):
+    def FileReadyRequest(self, request, _context):
         (_out, stderr, code) = self.rsync_install(request.path, self.dst)
         response = {
+            "install_id": request.install_id,
             "name": f"{request.name}",
             "path": request.path,
         }
@@ -49,10 +50,11 @@ class RsyncInstallerService(install_pb2_grpc.InstallerServicer):
 
         return file_response
 
-    def ShutdownServer(self, request, context):
+    def ShutdownServer(self, request, _context):
         shutdown(self.stop_event)
-        response = {}
-        return install_pb2.ShutdownResponse(**response)
+        response = install_pb2.ShutdownResponse()
+        response.install_id = request.install_id
+        return response
 
     def rsync_install(self, src, dst):
         cmd = [

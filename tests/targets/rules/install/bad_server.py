@@ -37,13 +37,15 @@ class BadInstallerService(install_pb2_grpc.InstallerServicer):
         file_response = install_pb2.FileResponse()
         file_response.name = request.name
         file_response.path = request.path
+        file_response.install_id = request.install_id
         file_response.error_details = error_detail
         return file_response
 
     def ShutdownServer(self, request, context):
         shutdown(self.stop_event)
-        response = {}
-        return install_pb2.ShutdownResponse(**response)
+        response = install_pb2.ShutdownResponse()
+        response.install_id = request.install_id
+        return response
 
 
 def shutdown(stop_event):

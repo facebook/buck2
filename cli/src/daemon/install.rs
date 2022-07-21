@@ -118,10 +118,13 @@ pub(crate) async fn install(
                 TargetLabel::new(package.dupe(), target_name.dupe()),
                 providers_name,
             );
-            let target = ctx
+            let providers_label = ctx
                 .get_configured_target(&label, global_target_platform.dupe().as_ref())
                 .await?;
-            let frozen_providers = ctx.get_providers(&target).await?.require_compatible()?;
+            let frozen_providers = ctx
+                .get_providers(&providers_label)
+                .await?
+                .require_compatible()?;
             let providers = frozen_providers.provider_collection();
             match providers.get_provider(InstallInfoCallable::provider_id_t()) {
                 Some(install_info) => {
@@ -130,7 +133,13 @@ pub(crate) async fn install(
                     for arg in &request.installer_run_args {
                         installer_run_args.push(arg.clone());
                     }
-                    build_install(ctx, install_info, installer_run_args).await?;
+                    build_install(
+                        ctx,
+                        providers_label.target(),
+                        install_info,
+                        installer_run_args,
+                    )
+                    .await?;
                 }
                 None => {
                     return Err(InstallError::NoInstallProvider(
@@ -147,6 +156,7 @@ pub(crate) async fn install(
 
 async fn build_install(
     ctx: &DiceComputations,
+    target_label: &buck2_core::target::ConfiguredTargetLabel,
     install_info: FrozenRef<'static, FrozenInstallInfo>,
     mut installer_run_args: Vec<String>,
 ) -> anyhow::Result<()> {
@@ -174,8 +184,7 @@ async fn build_install(
                 .entry((*file_name).to_owned())
                 .or_insert_with(|| artifact_path.to_string());
         }
-        // TODO: msemko@ change to build target string representation.
-        let install_id = "test_install_id";
+        let install_id = format!("{}", target_label);
         let install_info_request = tonic::Request::new(InstallInfo {
             install_id: install_id.to_owned(),
             files: files_map,
@@ -185,8 +194,9 @@ async fn build_install(
             .install(install_info_request)
             .await?
             .into_inner();
+
         if install_info_response.install_id != install_id {
-            send_shutdown_command(client.clone()).await?;
+            send_shutdown_command(client.clone(), &install_id).await?;
             return Err(anyhow::anyhow!(
                 "Received install id: {} doesn't match with the sent one: {}",
                 install_info_response.install_id,
@@ -196,9 +206,11 @@ async fn build_install(
 
         let send_files_result = tokio_stream::wrappers::UnboundedReceiverStream::new(files_rx)
             .map(anyhow::Ok)
-            .try_for_each_concurrent(None, |file| send_file(file, &artifact_fs, client.clone()))
+            .try_for_each_concurrent(None, |file| {
+                send_file(&install_id, file, &artifact_fs, client.clone())
+            })
             .await;
-        send_shutdown_command(client.clone()).await?;
+        send_shutdown_command(client.clone(), &install_id).await?;
         send_files_result.context("Failed to send artifacts to installer")?;
         anyhow::Ok(())
     };
@@ -206,10 +218,15 @@ async fn build_install(
     anyhow::Ok(())
 }
 
-async fn send_shutdown_command(client: InstallerClient<Channel>) -> anyhow::Result<()> {
+async fn send_shutdown_command(
+    client: InstallerClient<Channel>,
+    install_id: &str,
+) -> anyhow::Result<()> {
     client
         .clone()
-        .shutdown_server(tonic::Request::new(Shutdown {}))
+        .shutdown_server(tonic::Request::new(Shutdown {
+            install_id: install_id.to_owned(),
+        }))
         .await?;
     Ok(())
 }
@@ -369,6 +386,7 @@ async fn connect_to_installer(_unix_socket: String) -> anyhow::Result<InstallerC
     Ok(client)
 }
 async fn send_file(
+    install_id: &str,
     file: FileResult,
     artifact_fs: &ArtifactFs,
     mut client: InstallerClient<Channel>,
@@ -383,11 +401,24 @@ async fn send_file(
     let (sha1, _size) = sha1.split1(":");
     let path = &artifact_fs.fs().resolve(&artifact_fs.resolve(&artifact)?);
     let request = tonic::Request::new(FileReady {
+        install_id: install_id.to_owned(),
         name: name.to_owned(),
         sha1: sha1.to_owned(),
         path: path.to_string(),
     });
     let response = client.file_ready_request(request).await?.into_inner();
+
+    if response.install_id != install_id {
+        return Err(InstallError::InstallerFailure {
+            artifact: name,
+            path: path.to_owned(),
+            err: format!(
+                "Received install id: {} doesn't match with the sent one: {}",
+                response.install_id, &install_id
+            ),
+        }
+        .into());
+    }
 
     if let Some(error_detail) = response.error_detail {
         return Err(InstallError::InstallerFailure {
