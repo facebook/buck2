@@ -47,6 +47,7 @@ use crate::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use crate::attrs::internal::TESTS_ATTRIBUTE_FIELD;
 use crate::configuration::execution::ExecutionPlatformResolution;
 use crate::configuration::resolved::ResolvedConfiguration;
+use crate::nodes::unconfigured::RuleKind;
 use crate::nodes::unconfigured::TargetNode;
 use crate::rule_type::RuleType;
 
@@ -87,6 +88,13 @@ impl TargetNodeOrForward {
         match self {
             TargetNodeOrForward::TargetNode(target_node) => target_node.rule_type(),
             TargetNodeOrForward::Forward(..) => &RuleType::Forward,
+        }
+    }
+
+    fn rule_kind(&self) -> RuleKind {
+        match self {
+            TargetNodeOrForward::TargetNode(x) => x.rule_kind(),
+            TargetNodeOrForward::Forward(_, x) => x.rule_kind(),
         }
     }
 
@@ -317,6 +325,15 @@ impl ConfiguredTargetNode {
         self.0.deps.iter().chain(self.0.exec_deps.iter())
     }
 
+    pub fn toolchain_deps(&self) -> impl Iterator<Item = &ConfiguredTargetNode> {
+        // Since we validate that all toolchain dependencies are of kind Toolchain,
+        // we can use that to filter the deps.
+        self.0
+            .deps
+            .iter()
+            .filter(|x| x.rule_kind() == RuleKind::Toolchain)
+    }
+
     pub fn inputs(&self) -> impl Iterator<Item = CellPath> + '_ {
         struct InputsCollector {
             inputs: Vec<CellPath>,
@@ -410,6 +427,10 @@ impl ConfiguredTargetNode {
 
     pub fn rule_type(&self) -> &RuleType {
         self.0.target_node.rule_type()
+    }
+
+    pub fn rule_kind(&self) -> RuleKind {
+        self.0.target_node.rule_kind()
     }
 
     pub fn buildfile_path(&self) -> &BuildFilePath {

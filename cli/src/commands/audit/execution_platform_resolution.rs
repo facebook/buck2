@@ -104,6 +104,10 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
                     for execution_dep in configured_node.execution_deps() {
                         writeln!(stdout, "      {}", execution_dep.name())?;
                     }
+                    writeln!(stdout, "    Toolchain deps:")?;
+                    for toolchain_dep in configured_node.toolchain_deps() {
+                        writeln!(stdout, "      {}", toolchain_dep.name())?;
+                    }
                     for (label, reason) in resolution.skipped() {
                         writeln!(stdout, "    Skipped {}", label)?;
                         writeln!(IndentWriter::new("      ", &mut stdout), "{:#}", reason)?;
