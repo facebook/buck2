@@ -285,12 +285,6 @@ impl<'v> UnpackValue<'v> for RefAnalysisContext<'v> {
 
 #[starlark_module]
 fn register_context(builder: &mut MethodsBuilder) {
-    // FIXME(ndmitchell): attr is deprecated
-    #[starlark(attribute)]
-    fn attr<'v>(this: RefAnalysisContext) -> anyhow::Result<Value<'v>> {
-        Ok(this.0.attributes)
-    }
-
     #[starlark(attribute)]
     fn attrs<'v>(this: RefAnalysisContext) -> anyhow::Result<Value<'v>> {
         Ok(this.0.attributes)

@@ -57,8 +57,6 @@ fn extra_functions(builder: &mut GlobalsBuilder) {
 }
 
 pub fn register_rule_defs(globals: &mut GlobalsBuilder) {
-    // FIXME(ndmitchell): attr is deprecated
-    globals.struct_("attr", attr::register_attr_module);
     globals.struct_("attrs", attr::register_attr_module);
     rule::register_rule_function(globals);
     cmd_args::register_args_function(globals);
