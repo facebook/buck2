@@ -235,3 +235,11 @@ information on building, running, and debugging the ingress tailer.
 Since Scribe requires that data flowing through it be UTF-8-encoded strings, Buck2 serializes its event stream as base64 prior to sending
 it through scribe. The `buck2tail` binary (`fbcode/buck2/facebook/buck2tail`) can be used in a pipeline in order to deserialize and read
 the event stream as JSON (e.g. `ptail -f buck2_builds | buck2tail`).
+
+### Investigating configuration transitions
+
+If you're trying to work out where a transition happens within a dependency chain, you may find this script useful:
+
+```
+scripts/torozco/parse_deps
+```
