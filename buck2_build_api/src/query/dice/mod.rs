@@ -196,9 +196,12 @@ impl<'c> UqueryDelegate for DiceQueryDelegate<'c> {
 
         // Without package boundary violations, there is only 1 owning package for a path.
         // However, with package boundary violations, all parent packages of the enclosing package can also be owners.
-        if self.package_boundary_exceptions.contains(path) {
+        if let Some(enclosing_violation_path) = self
+            .package_boundary_exceptions
+            .get_package_boundary_exception_path(path)
+        {
             return Ok(package_listing_resolver
-                .get_enclosing_packages(path)
+                .get_enclosing_packages(path, &enclosing_violation_path)
                 .await?
                 .into_iter()
                 .collect());

@@ -75,11 +75,15 @@ impl<'c> PackageListingResolver for DicePackageListingResolver<'c> {
             .await
     }
 
-    async fn get_enclosing_packages(&self, path: &CellPath) -> anyhow::Result<Vec<Package>> {
+    async fn get_enclosing_packages(
+        &self,
+        path: &CellPath,
+        enclosing_violation_path: &CellPath,
+    ) -> anyhow::Result<Vec<Package>> {
         let cell_resolver = self.0.get_cell_resolver().await?;
         let file_ops = self.0.file_ops();
         InterpreterPackageListingResolver::new(cell_resolver, Arc::new(file_ops))
-            .get_enclosing_packages(path)
+            .get_enclosing_packages(path, enclosing_violation_path)
             .await
     }
 }

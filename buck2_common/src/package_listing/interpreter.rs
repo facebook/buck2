@@ -65,13 +65,21 @@ impl<'c> PackageListingResolver for InterpreterPackageListingResolver<'c> {
         .into())
     }
 
-    async fn get_enclosing_packages(&self, path: &CellPath) -> anyhow::Result<Vec<Package>> {
+    async fn get_enclosing_packages(
+        &self,
+        path: &CellPath,
+        enclosing_path: &CellPath,
+    ) -> anyhow::Result<Vec<Package>> {
         let path = path.clone();
         let cell_instance = self.cell_resolver.get(path.cell())?;
         let buildfile_candidates = cell_instance.buildfiles();
         if let Some(path) = path.parent() {
             let mut packages = Vec::new();
             for path in path.ancestors() {
+                if !path.starts_with(enclosing_path) {
+                    // stop when we are no longer within the enclosing path
+                    break;
+                }
                 let listing = self.fs.read_dir(&path).await?;
                 if find_buildfile(buildfile_candidates, &listing).is_some() {
                     packages.push(Package::from_cell_path(&path));

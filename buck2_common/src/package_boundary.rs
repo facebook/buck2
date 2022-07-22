@@ -14,6 +14,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellName;
 use buck2_core::fs::paths::FileNameBuf;
 use buck2_core::fs::paths::ForwardRelativePath;
@@ -70,17 +71,26 @@ impl CellPackageBoundaryExceptions {
         })
     }
 
-    fn contains(&self, path: &CellRelativePath) -> bool {
+    fn get_package_boundary_exception_path(
+        &self,
+        path: &CellRelativePath,
+    ) -> Option<CellRelativePathBuf> {
         if self.allow_everything {
-            return true;
+            return Some(CellRelativePathBuf::unchecked_new("".to_owned()));
         }
         let path: &ForwardRelativePath = path.as_ref();
         if let Some((package_prefix, package_subpath)) = path.split_first() {
             if let Some(subpaths) = self.prefix_to_subpaths.get(package_prefix) {
-                return subpaths.iter().any(|p| package_subpath.starts_with(p));
+                return subpaths
+                    .iter()
+                    .find(|p| package_subpath.starts_with(p))
+                    .map(|p| {
+                        CellRelativePath::new(<&ForwardRelativePath>::from(package_prefix))
+                            .join_unnormalized(p)
+                    });
             }
         }
-        false
+        None
     }
 }
 
@@ -103,11 +113,21 @@ impl PackageBoundaryExceptions {
         ))
     }
 
-    pub fn contains(&self, path: &CellPath) -> bool {
+    /// Returns the package boundary exception path that covers this path, if it exists
+    pub fn get_package_boundary_exception_path(&self, path: &CellPath) -> Option<CellPath> {
         if let Some(exceptions) = self.0.get(path.cell()) {
-            exceptions.contains(path.path())
+            exceptions
+                .get_package_boundary_exception_path(path.path())
+                .map(|p| CellPath::new(path.cell().clone(), p))
         } else {
-            false
+            None
+        }
+    }
+
+    pub fn contains(&self, path: &CellPath) -> bool {
+        match self.get_package_boundary_exception_path(path) {
+            None => false,
+            _ => true,
         }
     }
 }
@@ -194,36 +214,90 @@ mod tests {
 
     use super::*;
 
+    fn get_package_boundary_exception_path(
+        exceptions: &CellPackageBoundaryExceptions,
+        s: &str,
+    ) -> Option<CellRelativePathBuf> {
+        exceptions.get_package_boundary_exception_path(CellRelativePath::unchecked_new(s))
+    }
+
+    fn package_boundary_allowlist_path(s: &str) -> Option<CellRelativePathBuf> {
+        Some(CellRelativePathBuf::unchecked_new(s.to_owned()))
+    }
+
     #[test]
     pub fn test_package_boundary_exceptions() {
         let exceptions =
             CellPackageBoundaryExceptions::new("foo/bar/foo,foo/bar/bar,foo/bar/baz,foo/baz,baz")
                 .unwrap();
 
-        assert!(exceptions.contains(CellRelativePath::unchecked_new("foo/bar/foo")));
-        assert!(exceptions.contains(CellRelativePath::unchecked_new("foo/bar/bar")));
-        assert!(exceptions.contains(CellRelativePath::unchecked_new("foo/bar/baz")));
-        assert!(exceptions.contains(CellRelativePath::unchecked_new("foo/bar/baz/test")));
-        assert!(exceptions.contains(CellRelativePath::unchecked_new("foo/baz/util")));
-        assert!(exceptions.contains(CellRelativePath::unchecked_new("foo/baz/util")));
-        assert!(exceptions.contains(CellRelativePath::unchecked_new("baz/foo/bar")));
+        assert_eq!(
+            get_package_boundary_exception_path(&exceptions, "foo/bar/foo"),
+            package_boundary_allowlist_path("foo/bar/foo"),
+        );
+        assert_eq!(
+            get_package_boundary_exception_path(&exceptions, "foo/bar/bar"),
+            package_boundary_allowlist_path("foo/bar/bar"),
+        );
+        assert_eq!(
+            get_package_boundary_exception_path(&exceptions, "foo/bar/baz"),
+            package_boundary_allowlist_path("foo/bar/baz"),
+        );
+        assert_eq!(
+            get_package_boundary_exception_path(&exceptions, "foo/bar/baz/test"),
+            package_boundary_allowlist_path("foo/bar/baz"),
+        );
+        assert_eq!(
+            get_package_boundary_exception_path(&exceptions, "foo/baz/util"),
+            package_boundary_allowlist_path("foo/baz"),
+        );
+        assert_eq!(
+            get_package_boundary_exception_path(&exceptions, "foo/baz/util"),
+            package_boundary_allowlist_path("foo/baz"),
+        );
+        assert_eq!(
+            get_package_boundary_exception_path(&exceptions, "baz/foo/bar"),
+            package_boundary_allowlist_path("baz"),
+        );
 
-        assert!(!exceptions.contains(CellRelativePath::unchecked_new("foo/bar/scripts")));
-        assert!(!exceptions.contains(CellRelativePath::unchecked_new("foo/scripts")));
-        assert!(!exceptions.contains(CellRelativePath::unchecked_new("qux")));
+        assert_eq!(
+            get_package_boundary_exception_path(&exceptions, "foo/bar/scripts"),
+            None,
+        );
+        assert_eq!(
+            get_package_boundary_exception_path(&exceptions, "foo/scripts"),
+            None,
+        );
+        assert_eq!(
+            get_package_boundary_exception_path(&exceptions, "qux"),
+            None,
+        );
     }
 
     #[test]
     pub fn test_package_boundary_dot() {
         let exceptions = CellPackageBoundaryExceptions::new("").unwrap();
-        assert!(!exceptions.contains(CellRelativePath::unchecked_new("foo/bar/foo")));
+        assert!(get_package_boundary_exception_path(&exceptions, "foo/bar/foo").is_none());
 
         let exceptions = CellPackageBoundaryExceptions::new(",foo").unwrap();
-        assert!(exceptions.contains(CellRelativePath::unchecked_new("foo/bar/foo")));
-        assert!(!exceptions.contains(CellRelativePath::unchecked_new("bar/foo")));
+        assert_eq!(
+            get_package_boundary_exception_path(&exceptions, "foo/bar/foo"),
+            package_boundary_allowlist_path("foo"),
+        );
+        assert_eq!(
+            exceptions
+                .get_package_boundary_exception_path(CellRelativePath::unchecked_new("bar/foo")),
+            None,
+        );
 
         let exceptions = CellPackageBoundaryExceptions::new(".").unwrap();
-        assert!(exceptions.contains(CellRelativePath::unchecked_new("foo/bar/foo")));
-        assert!(exceptions.contains(CellRelativePath::unchecked_new("bar/foo")));
+        assert_eq!(
+            get_package_boundary_exception_path(&exceptions, "foo/bar/foo"),
+            package_boundary_allowlist_path(""),
+        );
+        assert_eq!(
+            get_package_boundary_exception_path(&exceptions, "bar/foo"),
+            package_boundary_allowlist_path(""),
+        );
     }
 }

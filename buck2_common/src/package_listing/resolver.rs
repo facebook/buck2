@@ -20,5 +20,9 @@ pub trait PackageListingResolver: Send + Sync {
 
     async fn get_enclosing_package(&self, path: &CellPath) -> anyhow::Result<Package>;
 
-    async fn get_enclosing_packages(&self, path: &CellPath) -> anyhow::Result<Vec<Package>>;
+    async fn get_enclosing_packages(
+        &self,
+        path: &CellPath,
+        enclosing_path: &CellPath,
+    ) -> anyhow::Result<Vec<Package>>;
 }
