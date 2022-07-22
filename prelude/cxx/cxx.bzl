@@ -117,11 +117,22 @@ def get_srcs_with_flags(ctx: "context") -> [CxxSrcWithFlags.type]:
 #####################################################################
 # Operations
 
+def _get_shared_link_style_sub_targets_and_providers(
+        link_style: LinkStyle.type,
+        _ctx: "context",
+        _executable: "artifact",
+        _object_files: ["artifact"],
+        dwp: ["artifact", None]) -> ({str.type: ["provider"]}, ["provider"]):
+    if link_style != LinkStyle("shared") or dwp == None:
+        return ({}, [])
+    return ({"dwp": [DefaultInfo(default_outputs = [dwp])]}, [])
+
 def cxx_library_impl(ctx: "context") -> ["provider"]:
     params = CxxRuleConstructorParams(
         rule_type = "cxx_library",
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
         srcs = get_srcs_with_flags(ctx),
+        link_style_sub_targets_and_providers_factory = _get_shared_link_style_sub_targets_and_providers,
     )
     output = cxx_library_parameterized(ctx, params)
     return output.providers

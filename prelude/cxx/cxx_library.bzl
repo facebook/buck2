@@ -138,6 +138,11 @@ _CxxLibraryOutput = record(
     # Note: It's possible that this can contain some of the artifacts which are
     # also present in object_files.
     other = field(["artifact"], []),
+    # A shared shared library may have an associated dwp file with
+    # its corresponding DWARF debug info.
+    # May be None when Split DWARF is disabled, for static/static-pic libraries,
+    # for some types of synthetic link objects or for pre-built shared libraries.
+    dwp = field(["artifact", None], None),
 )
 
 # The outputs of either archiving or linking the outputs of the library
@@ -294,6 +299,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
                 ctx,
                 output.default,
                 output.object_files,
+                output.dwp,
             )
 
             if impl_params.generate_sub_targets.link_style_outputs:
@@ -583,6 +589,7 @@ def _form_library_outputs(
                     default = shlib.output,
                     object_files = compiled_srcs.pic_objects,
                     other = shlib.external_debug_paths,
+                    dwp = shlib.dwp,
                 )
                 solibs[soname] = shlib
         else:  # header-only
