@@ -595,7 +595,7 @@ impl ServerCommandContext {
                     host_sharing_broker,
                     materializer.dupe(),
                     blocking_executor.dupe(),
-                    execution_strategy.into(),
+                    execution_strategy,
                     re_global_knobs,
                 ));
                 data.set_blocking_executor(blocking_executor);

@@ -930,6 +930,19 @@ async def test_hybrid_executor_logging(buck: Buck) -> None:
     assert commands[1]["status"] == {"Success": {}}
 
 
+@buck_test(inplace=False, data_dir="execution_platforms")
+async def test_prefer_local(buck: Buck) -> None:
+    await expect_failure(
+        buck.build(
+            "root//executor_fallback_tests:local_only_no_fallback",
+        )
+    )
+
+    await buck.build(
+        "root//executor_fallback_tests:local_only_no_fallback", "--prefer-local"
+    )
+
+
 @buck_test(inplace=False, data_dir="toolchain_deps")
 async def test_toolchain_deps(buck: Buck) -> None:
     # This test builds two targets, both with the same `default_target_platform` platform

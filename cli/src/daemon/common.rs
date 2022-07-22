@@ -218,10 +218,7 @@ pub struct CommandExecutorFactory {
     pub host_sharing_broker: Arc<HostSharingBroker>,
     pub materializer: Arc<dyn Materializer>,
     pub blocking_executor: Arc<dyn BlockingExecutor>,
-    /// The strategy that the user requested on the CLI, expressed as a filter. When execution
-    /// platforms are enabled, this cannot control what execution platform we use, but it can only
-    /// bias how a given executor works, or refuse to function entirely.
-    pub filter: ExecutorFilter,
+    pub strategy: ExecutionStrategy,
     pub re_global_knobs: ReExecutorGlobalKnobs,
 }
 
@@ -231,7 +228,7 @@ impl CommandExecutorFactory {
         host_sharing_broker: HostSharingBroker,
         materializer: Arc<dyn Materializer>,
         blocking_executor: Arc<dyn BlockingExecutor>,
-        filter: ExecutorFilter,
+        strategy: ExecutionStrategy,
         re_global_knobs: ReExecutorGlobalKnobs,
     ) -> Self {
         Self {
@@ -239,7 +236,7 @@ impl CommandExecutorFactory {
             host_sharing_broker: Arc::new(host_sharing_broker),
             materializer,
             blocking_executor,
-            filter,
+            strategy,
             re_global_knobs,
         }
     }
@@ -268,10 +265,10 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 tracing::warn!("Cargo build detected: disabling remote execution and caching!")
             });
 
-            if self.filter.ban_local {
+            if self.strategy.ban_local() {
                 return Err(anyhow::anyhow!(
                     "The desired execution strategy (`{:?}`) is incompatible with the local executor",
-                    self.filter,
+                    self.strategy,
                 ));
             }
 
@@ -303,43 +300,28 @@ impl HasCommandExecutor for CommandExecutorFactory {
             )
         };
 
-        let inner_executor: Arc<dyn PreparedCommandExecutor> = match (
-            &executor_config.executor_kind,
-            &self.filter,
-        ) {
-            (
-                CommandExecutorKind::Local(local),
-                ExecutorFilter {
-                    ban_local: false, ..
-                },
-            ) => Arc::new(local_executor_new(local)),
-            (
-                CommandExecutorKind::Remote(remote),
-                ExecutorFilter {
-                    ban_remote: false, ..
-                },
-            ) => Arc::new(remote_executor_new(remote)),
-            (
-                CommandExecutorKind::Hybrid {
-                    local,
-                    remote,
-                    level,
-                },
-                ExecutorFilter {
-                    ban_local: false,
-                    ban_remote: false,
-                    prefer_local_for_hybrid,
-                },
-            ) => Arc::new(HybridExecutor {
+        let inner_executor: Arc<dyn PreparedCommandExecutor> = match &executor_config.executor_kind
+        {
+            CommandExecutorKind::Local(local) if !self.strategy.ban_local() => {
+                Arc::new(local_executor_new(local))
+            }
+            CommandExecutorKind::Remote(remote) if !self.strategy.ban_remote() => {
+                Arc::new(remote_executor_new(remote))
+            }
+            CommandExecutorKind::Hybrid {
+                local,
+                remote,
+                level,
+            } if !self.strategy.ban_hybrid() => Arc::new(HybridExecutor {
                 local: local_executor_new(local),
                 remote: remote_executor_new(remote),
                 level: *level,
-                prefer_local: *prefer_local_for_hybrid,
+                prefer_local: self.strategy.prefer_local_for_hybrid(),
             }),
-            (config, strategy) => {
+            config => {
                 return Err(anyhow::anyhow!(
                     "The desired execution strategy (`{:?}`) is incompatible with the executor config that was selected: {:?}",
-                    strategy,
+                    self.strategy,
                     config
                 ));
             }
@@ -360,41 +342,40 @@ impl HasCommandExecutor for CommandExecutorFactory {
     }
 }
 
-/// Translate an ExecutionStrategy to a filter that will be checked when instantiating executors.
-/// This allows the execution strategy to have some limited influence over execution when execution
-/// platforms are enabled.
-#[derive(Debug)]
-pub struct ExecutorFilter {
-    ban_local: bool,
-    ban_remote: bool,
-    prefer_local_for_hybrid: bool,
+trait ExecutionStrategyExt {
+    fn ban_local(&self) -> bool;
+    fn ban_remote(&self) -> bool;
+    fn ban_hybrid(&self) -> bool;
+    fn prefer_local_for_hybrid(&self) -> bool;
 }
 
-impl From<ExecutionStrategy> for ExecutorFilter {
-    fn from(strategy: ExecutionStrategy) -> Self {
-        let mut base = Self {
-            ban_local: false,
-            ban_remote: false,
-            prefer_local_for_hybrid: false,
-        };
+impl ExecutionStrategyExt for ExecutionStrategy {
+    fn ban_local(&self) -> bool {
+        match self {
+            Self::RemoteOnly | Self::NoExecution => true,
+            _ => false,
+        }
+    }
 
-        match strategy {
-            ExecutionStrategy::Default => {}
-            ExecutionStrategy::LocalOnly => {
-                base.ban_remote = true;
-            }
-            ExecutionStrategy::RemoteOnly => base.ban_local = true,
-            ExecutionStrategy::Hybrid => {}
-            ExecutionStrategy::HybridPreferLocal => {
-                base.prefer_local_for_hybrid = true;
-            }
-            ExecutionStrategy::NoExecution => {
-                base.ban_local = true;
-                base.ban_remote = true;
-            }
-        };
+    fn ban_remote(&self) -> bool {
+        match self {
+            Self::LocalOnly | Self::NoExecution => true,
+            _ => false,
+        }
+    }
 
-        base
+    fn ban_hybrid(&self) -> bool {
+        match self {
+            Self::LocalOnly | Self::RemoteOnly | Self::NoExecution => true,
+            _ => false,
+        }
+    }
+
+    fn prefer_local_for_hybrid(&self) -> bool {
+        match self {
+            Self::HybridPreferLocal => true,
+            _ => false,
+        }
     }
 }
 
