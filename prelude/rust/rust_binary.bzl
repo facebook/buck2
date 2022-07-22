@@ -46,12 +46,7 @@ def rust_attr_resources(ctx: "context") -> {str.type: ("artifact", ["_arglike"])
     """
     resources = {}
 
-    # `getattr` because: `rust_binary` is used from `rust_test`, and currently `rust_test`
-    # has not been extended to support the `resources` attribute. As such, it doesn't inject
-    # a default value, and so this would explode. If / when `rust_test` is extended with
-    # `resources` support, this *should* be safe to remove (barring any other rules that also
-    # build on `rust_binary`).
-    for name, resource in from_named_set(getattr(ctx.attrs, "resources", {})).items():
+    for name, resource in from_named_set(ctx.attrs.resources).items():
         if type(resource) == "artifact":
             other = []
         else:

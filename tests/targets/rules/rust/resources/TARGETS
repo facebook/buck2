@@ -15,8 +15,7 @@ bzl_native.rust_test(
         ":cxx_with_resource",
         "//common/rust/buck_resources:buck_resources",
     ],
-    # TODO: supported `resources` arg on rust_test
-    # resources = [
-    #     "resource_rs",
-    # ],
+    resources = [
+        "resource_rs",
+    ],
 )
