@@ -1,3 +1,4 @@
+load("@fbcode//buck2/prelude:paths.bzl", "paths")
 load("@fbcode//buck2/prelude/cxx:cxx_library_utility.bzl", "cxx_attr_deps")
 load("@fbcode//buck2/prelude/cxx:cxx_link_utility.bzl", "executable_shared_lib_arguments")
 load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
@@ -59,7 +60,7 @@ def rust_attr_resources(ctx: "context") -> {str.type: ("artifact", ["_arglike"])
             [resource] = info.default_outputs
             other = info.other_outputs
 
-        resources[name] = (resource, other)
+        resources[paths.join(ctx.label.package, name)] = (resource, other)
 
     return resources
 
