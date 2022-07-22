@@ -1,47 +1,15 @@
 # Copyright 2004-present Facebook. All Rights Reserved.
-load("@fbcode//buck2:buck_rust_binary.bzl", "buck_rust_binary")
-load("@fbcode_macros//build_defs:custom_rule.bzl", "custom_rule")
-load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
-load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("//buck2:proto_defs.bzl", "rust_protobuf_library")
 
-buck_rust_binary(
-    name = "build",
-    srcs = ["build.rs"],
-    crate_root = "build.rs",
-    deps = [
-        "fbsource//third-party/rust:tonic-build",
-    ],
-)
-
-custom_rule(
-    name = "rust_proto",
-    srcs = ["data.proto"],
-    build_script_dep = ":build",
-    env = {
-        "OUT_DIR": "$OUT",
-        "PROTOC": "$(exe fbsource//third-party/protobuf:protoc)",
-        "PROTOC_INCLUDE": "$(location fbsource//third-party/protobuf:google.protobuf)",
-    },
-    output_gen_files = ["."],
-)
-
-rust_library(
+rust_protobuf_library(
     name = "buck2_data",
-    srcs = ["src/lib.rs"],
-    env = {
-        "OUT_DIR": "$(location :rust_proto)",
-    },
+    srcs = glob(["src/**/*.rs"]),
+    build_script = "build.rs",
+    spec = "data.proto",
     deps = [
         "fbcode//buck2/gazebo/gazebo:gazebo",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:hex",
-        "fbsource//third-party/rust:prost",
-        "fbsource//third-party/rust:prost-types",
         "fbsource//third-party/rust:serde",
-        "fbsource//third-party/rust:tonic",
     ],
-)
-
-export_file(
-    name = "data.proto",
 )

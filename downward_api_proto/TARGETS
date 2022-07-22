@@ -1,43 +1,12 @@
-# Copyright 2004-present Facebook. All Rights Reserved.
-load("@fbcode//buck2:buck_rust_binary.bzl", "buck_rust_binary")
-load("@fbcode_macros//build_defs:custom_rule.bzl", "custom_rule")
-load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
-load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+load("//buck2:proto_defs.bzl", "rust_protobuf_library")
 
-buck_rust_binary(
-    name = "build",
-    srcs = ["build.rs"],
-    crate_root = "build.rs",
-    deps = [
-        "fbsource//third-party/rust:tonic-build",
-    ],
-)
-
-custom_rule(
-    name = "rust_proto",
-    srcs = [
-        "downward_api.proto",
-    ],
-    build_script_dep = ":build",
-    env = {
-        "OUT_DIR": "$OUT",
-        "PROTOC": "$(exe fbsource//third-party/protobuf:protoc)",
-        "PROTOC_INCLUDE": "$(location fbsource//third-party/protobuf:google.protobuf)",
-    },
-    output_gen_files = ["."],
-)
-
-rust_library(
+rust_protobuf_library(
     name = "downward_api_proto",
     srcs = glob(["src/**/*.rs"]),
-    env = {
-        # This is where tonic looks for generated .rs files
-        "OUT_DIR": "$(location :rust_proto)",
-    },
+    build_script = "build.rs",
+    spec = "downward_api.proto",
     deps = [
         "fbsource//third-party/rust:anyhow",
-        "fbsource//third-party/rust:prost",
-        "fbsource//third-party/rust:tonic",
         "fbsource//third-party/rust:tracing",
     ],
 )

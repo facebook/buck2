@@ -1,9 +1,13 @@
-load("@fbcode//buck2:buck_rust_binary.bzl", "buck_rust_binary")
-load("@fbcode_macros//build_defs:custom_rule.bzl", "custom_rule")
 load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
-load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
-load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+load("//buck2:proto_defs.bzl", "rust_protobuf_library")
 load("//grpc_fb/codegen:buck_macros.bzl", "grpc_library")
+
+rust_protobuf_library(
+    name = "install_proto",
+    srcs = glob(["src/**/*.rs"]),
+    build_script = "build.rs",
+    spec = "install.proto",
+)
 
 python_binary(
     # @autodeps-skip
@@ -25,41 +29,5 @@ grpc_library(
     ],
     languages = [
         "py",
-    ],
-)
-
-buck_rust_binary(
-    name = "build",
-    srcs = ["build.rs"],
-    crate_root = "build.rs",
-    deps = [
-        "fbsource//third-party/rust:tonic-build",
-    ],
-)
-
-custom_rule(
-    name = "rust_proto",
-    srcs = [
-        "install.proto",
-    ],
-    build_script_dep = ":build",
-    env = {
-        "OUT_DIR": "$OUT",
-        "PROTOC": "$(exe fbsource//third-party/protobuf:protoc)",
-        "PROTOC_INCLUDE": "$(location fbsource//third-party/protobuf:google.protobuf)",
-    },
-    output_gen_files = ["."],
-)
-
-rust_library(
-    name = "install_proto",
-    srcs = glob(["src/**/*.rs"]),
-    env = {
-        # This is where tonic looks for generated .rs files
-        "OUT_DIR": "$(location :rust_proto)",
-    },
-    deps = [
-        "fbsource//third-party/rust:prost",
-        "fbsource//third-party/rust:tonic",
     ],
 )
