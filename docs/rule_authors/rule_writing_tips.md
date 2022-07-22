@@ -126,7 +126,7 @@ Debugging
 ===
 ### Starlark
 
-[Working with starlark](developers.md#working-with-starlark)
+[Working with starlark](../developers/developers.md#working-with-starlark)
 
 [Starlark spec](https://github.com/bazelbuild/starlark/blob/master/spec.md)
 

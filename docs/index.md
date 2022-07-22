@@ -23,23 +23,23 @@ Documents on how to use Buck2 to build/test/run stuff, and migrate existing proj
 
 * [Benefits](benefits.md) - the benefits of using Buck2.
 * [Migration guide](migration_guide.md) - how to port projects from Buck to Buck2, including the issues you might face and notable differences.
-* [Observability](observability.md) - How to use Buck2's datasets to analyze
+* [Observability](developers/observability.md) - How to use Buck2's datasets to analyze
 specific invocations or classes of invocations.
 
 ## For people writing rules
 
-* [Writing rules](writing_rules.md) - how to write rules to support new languages.
-* [Rule API](rule_api.md) - gives the API available when writing rules.
+* [Writing rules](rule_authors/writing_rules.md) - how to write rules to support new languages.
+* [Rule API](rule_authors/rule_api.md) - gives the API available when writing rules.
 * [Types in Starlark](https://github.com/facebookexperimental/starlark-rust/blob/main/docs/types.md) - rules are written in Starlark (which is approximately Python), but our version adds types.
-* [Rule writing tips](rule_writing_tips.md) - tips for migrating rules from buck1 to buck2.
+* [Rule writing tips](rule_authors/rule_writing_tips.md) - tips for migrating rules from buck1 to buck2.
 
 ## For people integrating with Buck2
-* [Extending Buck via BXL](bxl.md) - powerful Starlark scripts for introspection of buck2's graphs
+* [Extending Buck via BXL](developers/bxl.md) - powerful Starlark scripts for introspection of buck2's graphs
 
 ## For people developing Buck2
 
 * [Basic README](https://www.internalfb.com/code/fbsource/fbcode/buck2/README.md) - how to get started, compile Buck2 and the basic workflows.
-* [Developer notes](developers.md) - more advanced workflows and notes around debugging, profiling etc.
+* [Developer notes](developers/developers.md) - more advanced workflows and notes around debugging, profiling etc.
 
 ## RFCs
 

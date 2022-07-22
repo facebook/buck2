@@ -47,7 +47,7 @@ The source control team [recommend using EdenFS](https://www.internalfb.com/inte
 
 ## How do I get the commands Buck2 executed so I can reproduce them in isolation?
 
-See [Using `buck2 log what-ran` to find commands that Buck2 ran](what-ran.md)
+See [Using `buck2 log what-ran` to find commands that Buck2 ran](developers/what-ran.md)
 
 ## What does `Transport endpoint is not connected` mean?
 
