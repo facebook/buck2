@@ -77,9 +77,10 @@ def cxx_link(
     if dwo_dir != None:
         external_debug_paths.append(dwo_dir)
 
+    shell_quoted_args = cmd_args(link_args, quote = "shell")
     argfile, macro_files = ctx.actions.write(
         output.basename + ".linker.argsfile",
-        cmd_args(link_args),
+        shell_quoted_args,
         allow_args = True,
     )
     command = cxx_link_cmd(ctx)
