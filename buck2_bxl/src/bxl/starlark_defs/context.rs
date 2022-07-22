@@ -198,7 +198,7 @@ impl<'v> BxlContext<'v> {
 }
 
 impl<'v> StarlarkValue<'v> for BxlContext<'v> {
-    starlark_type!("context");
+    starlark_type!("bxl_ctx");
 
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
