@@ -1,6 +1,9 @@
 {
     "name": "starlark",
     "description": "A Starlark language server",
+    "extensionKind": [
+      "workspace"
+    ],
     "author": "Facebook",
     "license": "Apache2",
     "version": "1.0.0",
