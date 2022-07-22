@@ -53,7 +53,7 @@ def rust_attr_resources(ctx: "context") -> {str.type: ("artifact", ["_arglike"])
     # build on `rust_binary`).
     for name, resource in from_named_set(getattr(ctx.attrs, "resources", {})).items():
         if type(resource) == "artifact":
-            other = [resource]
+            other = []
         else:
             info = resource[DefaultInfo]
             expect(
