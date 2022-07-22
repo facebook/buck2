@@ -15,6 +15,7 @@ use std::time::Duration;
 use anyhow::anyhow;
 use anyhow::Context as _;
 use buck2_build_api::actions::artifact::ArtifactFs;
+use buck2_build_api::actions::run::ExecutorPreference;
 use buck2_build_api::build::MaterializationContext;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_build_api::execute::blocking::BlockingExecutor;
@@ -316,7 +317,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 local: local_executor_new(local),
                 remote: remote_executor_new(remote),
                 level: *level,
-                prefer_local: self.strategy.prefer_local_for_hybrid(),
+                local_preference: self.strategy.hybrid_preference(),
             }),
             config => {
                 return Err(anyhow::anyhow!(
@@ -346,7 +347,7 @@ trait ExecutionStrategyExt {
     fn ban_local(&self) -> bool;
     fn ban_remote(&self) -> bool;
     fn ban_hybrid(&self) -> bool;
-    fn prefer_local_for_hybrid(&self) -> bool;
+    fn hybrid_preference(&self) -> ExecutorPreference;
 }
 
 impl ExecutionStrategyExt for ExecutionStrategy {
@@ -366,15 +367,16 @@ impl ExecutionStrategyExt for ExecutionStrategy {
 
     fn ban_hybrid(&self) -> bool {
         match self {
-            Self::LocalOnly | Self::RemoteOnly | Self::NoExecution => true,
+            Self::RemoteOnly | Self::NoExecution => true,
             _ => false,
         }
     }
 
-    fn prefer_local_for_hybrid(&self) -> bool {
+    fn hybrid_preference(&self) -> ExecutorPreference {
         match self {
-            Self::HybridPreferLocal => true,
-            _ => false,
+            Self::HybridPreferLocal => ExecutorPreference::LocalPreferred,
+            Self::LocalOnly => ExecutorPreference::LocalRequired,
+            _ => ExecutorPreference::Default,
         }
     }
 }

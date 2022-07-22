@@ -113,7 +113,19 @@ impl ExecutorPreference {
         }
     }
 
-    pub fn is_local_only(&self) -> bool {
+    pub fn and(self, other: &Self) -> Self {
+        if self.requires_local() || other.requires_local() {
+            return Self::LocalRequired;
+        }
+
+        if self.prefers_local() || other.prefers_local() {
+            return Self::LocalPreferred;
+        }
+
+        Self::Default
+    }
+
+    pub fn requires_local(&self) -> bool {
         match self {
             Self::LocalRequired => true,
             Self::LocalPreferred => false,
@@ -121,7 +133,7 @@ impl ExecutorPreference {
         }
     }
 
-    pub fn is_local(&self) -> bool {
+    pub fn prefers_local(&self) -> bool {
         match self {
             Self::LocalRequired => true,
             Self::LocalPreferred => true,

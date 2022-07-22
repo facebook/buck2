@@ -262,7 +262,7 @@ impl PreparedCommandExecutor for ReExecutor {
                 },
         } = command;
 
-        if command.request.local_preference().is_local_only() {
+        if command.request.local_preference().requires_local() {
             let error = anyhow::anyhow!(RemoteExecutorError::LocalOnlyAction(target.to_string()));
             return ControlFlow::Break(manager.error("remote_prepare".into(), error))?;
         }
