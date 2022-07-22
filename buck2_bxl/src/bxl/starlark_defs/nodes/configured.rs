@@ -44,12 +44,14 @@ use starlark::values::StarlarkValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::BxlContext;
 
-#[derive(Debug, Display, ProvidesStaticType)]
+#[derive(Debug, Display, ProvidesStaticType, StarlarkDocs)]
 #[derive(NoSerialize)] // TODO probably should be serializable the same as how queries serialize
 #[display(fmt = "{:?}", self)]
+#[starlark_docs_attrs(directory = "bxl")]
 pub struct StarlarkConfiguredTargetNode(pub ConfiguredTargetNode);
 
 starlark_simple_value!(StarlarkConfiguredTargetNode);
@@ -181,9 +183,10 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-#[derive(Debug, Clone, Display, ProvidesStaticType, NoSerialize)]
+#[derive(Debug, Clone, Display, ProvidesStaticType, NoSerialize, StarlarkDocs)]
 #[display(fmt = "Traversal({})", self.0)]
 #[repr(C)]
+#[starlark_docs_attrs(directory = "bxl")]
 pub struct StarlarkConfiguredValue(ConfiguredAttr);
 
 starlark_simple_value!(StarlarkConfiguredValue);
