@@ -79,11 +79,14 @@ impl<'a> UnpackValue<'a> for StarlarkConfiguredTargetNode {
 
 #[starlark_module]
 fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
+    /// Gets the configured target label of this target node
     #[starlark(attribute)]
     fn label(this: &StarlarkConfiguredTargetNode) -> anyhow::Result<StarlarkConfiguredTargetLabel> {
         Ok(StarlarkConfiguredTargetLabel::new(this.0.name().dupe()))
     }
 
+    /// Returns a struct of all the attributes of this target node. The structs fields are the
+    /// attributes names, and the values are [`StarlarkConfiguredValue`]
     fn attrs<'v>(this: &StarlarkConfiguredTargetNode, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         let attrs_iter = this.0.attrs(AttrInspectOptions::All);
         let mut attrs = SmallMap::with_capacity(attrs_iter.size_hint().0);
@@ -208,6 +211,7 @@ fn configured_value_methods(builder: &mut MethodsBuilder) {
         this.0.starlark_type()
     }
 
+    /// returns the value of this attribute. The value here is not fully resolved like in rules.
     fn value<'v>(this: &StarlarkConfiguredValue, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         this.0.to_value(heap)
     }
