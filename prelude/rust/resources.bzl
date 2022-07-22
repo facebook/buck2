@@ -1,10 +1,16 @@
-# Room for improvement: this is where you'd handle resources exposed by
-# (potentially transitive) dependencies, similar to C++.
-# See https://fburl.com/diff/orni14p5 for more.
+# Room for improvement: we should unify the provider type representing C++
+# resources and Rust resources. Currently this implementation only supports Rust
+# transitively depending on C++ resources, not C++ depending on Rust or even
+# Rust depending on Rust.
+#
+# See https://fburl.com/diff/orni14p5 for thoughts from a buck2 dev.
+
+load("@fbcode//buck2/prelude/cxx:resources.bzl", "CxxResourceInfo")
 
 def gather_rust_resources(
         label: "label",
-        resources: {str.type: ("artifact", ["_arglike"])} = {}) -> {"label": {str.type: ("artifact", ["_arglike"])}}:
+        resources: {str.type: ("artifact", ["_arglike"])} = {},
+        deps: ["dependency"] = []) -> {"label": {str.type: ("artifact", ["_arglike"])}}:
     """
     Return the resources for this rule
     """
@@ -15,10 +21,16 @@ def gather_rust_resources(
     if resources:
         all_resources[label] = resources
 
+    # Merge in resources from any C++ dependencies.
+    for dep in deps:
+        if dep[CxxResourceInfo]:
+            all_resources.update(dep[CxxResourceInfo].resources)
+
     return all_resources
 
 def create_resource_db(
         ctx: "context",
+        name: str.type,
         binary: "artifact",
         resources: {str.type: ("artifact", ["_arglike"])}) -> "artifact":
     """
@@ -30,7 +42,4 @@ def create_resource_db(
         name: cmd_args(resource, delimiter = "").relative_to(binary, parent = 1)
         for (name, (resource, _other)) in resources.items()
     }
-    return ctx.actions.write_json(
-        binary.basename + ".resources.json",
-        db,
-    )
+    return ctx.actions.write_json(name, db)

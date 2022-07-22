@@ -1,3 +1,4 @@
+load("@fbcode//buck2/prelude/cxx:cxx_library_utility.bzl", "cxx_attr_deps")
 load("@fbcode//buck2/prelude/cxx:cxx_link_utility.bzl", "executable_shared_lib_arguments")
 load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
@@ -83,6 +84,12 @@ def _rust_binary_common(
 
     linker_type = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info.type
 
+    resources = flatten_dict(gather_rust_resources(
+        label = ctx.label,
+        resources = rust_attr_resources(ctx),
+        deps = cxx_attr_deps(ctx),
+    ).values())
+
     for link_style in LinkStyle:
         params = build_params(
             rule = RuleType("binary"),
@@ -130,6 +137,22 @@ def _rust_binary_common(
 
         args = cmd_args(link.outputs[Emit("link")]).hidden(runtime_files)
         extra_targets = [("check", meta.outputs[Emit("metadata")])] + meta.diag.items()
+
+        # If we have some resources, write it to the resources JSON file and add
+        # it and all resources to "runtime_files" so that we make to materialize
+        # them with the final binary.
+        if resources:
+            resources_hidden = [create_resource_db(
+                ctx = ctx,
+                name = name + ".resources.json",
+                binary = output,
+                resources = resources,
+            )]
+            for resource, other in resources.values():
+                resources_hidden.append(resource)
+                resources_hidden.extend(other)
+            args.hidden(resources_hidden)
+            runtime_files.extend(resources_hidden)
 
         styles[link_style] = (link.outputs[Emit("link")], args, extra_targets, runtime_files)
 
@@ -180,22 +203,6 @@ def _rust_binary_common(
         ]
 
     (link, args, extra_targets, runtime_files) = styles[specified_link_style]
-
-    # If we have some resources, write it to the resources JSON file and add
-    # it and all resources to "runtime_files" so that we make to materialize
-    # them with the final binary.
-    resources_hidden = []
-    resources = flatten_dict(gather_rust_resources(
-        label = ctx.label,
-        resources = rust_attr_resources(ctx),
-    ).values())
-    if resources:
-        resources_hidden.append(create_resource_db(ctx, link, resources))
-        for resource, other in resources.values():
-            resources_hidden.append(resource)
-            resources_hidden.extend(other)
-    runtime_files.extend(resources_hidden)
-    args = args.hidden(resources_hidden)
 
     providers = [
         DefaultInfo(

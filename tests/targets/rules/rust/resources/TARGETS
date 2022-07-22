@@ -1,0 +1,22 @@
+load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
+
+bzl_native.cxx_library(
+    name = "cxx_with_resource",
+    resources = [
+        "resource_cxx",
+    ],
+)
+
+bzl_native.rust_test(
+    name = "look_for_resources",
+    srcs = ["test.rs"],
+    crate_root = "test.rs",
+    deps = [
+        ":cxx_with_resource",
+        "//common/rust/buck_resources:buck_resources",
+    ],
+    # TODO: supported `resources` arg on rust_test
+    # resources = [
+    #     "resource_rs",
+    # ],
+)
