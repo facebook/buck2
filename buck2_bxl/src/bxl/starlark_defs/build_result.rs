@@ -19,6 +19,7 @@ use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::build::StarlarkFailedArtifactIterable;
 use crate::bxl::starlark_defs::context::build::StarlarkFailedArtifactIterableGen;
@@ -26,11 +27,21 @@ use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable
 use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterableGen;
 
 /// Starlark object for `StarlarkBuildResult` (which is not Starlark value).
-#[derive(Clone, Debug, derive_more::Display, ProvidesStaticType, NoSerialize)]
+#[derive(
+    Clone,
+    Debug,
+    derive_more::Display,
+    ProvidesStaticType,
+    NoSerialize,
+    StarlarkDocs
+)]
+#[starlark_docs_attrs(directory = "bxl")]
 pub(crate) struct StarlarkBxlBuildResult(pub(crate) BxlBuildResult);
 
+/// the result of building in bxl
 #[starlark_module]
 fn starlark_build_result_methods(builder: &mut MethodsBuilder) {
+    /// returns an optional iterable of artifacts that was successfully built.
     fn artifacts<'v>(
         this: Value<'v>,
     ) -> anyhow::Result<Option<StarlarkProvidersArtifactIterable<'v>>> {
@@ -40,6 +51,7 @@ fn starlark_build_result_methods(builder: &mut MethodsBuilder) {
         }
     }
 
+    /// returns an optional of iterable of artifacts that failed to be built.
     fn failures<'v>(this: Value<'v>) -> anyhow::Result<Option<StarlarkFailedArtifactIterable<'v>>> {
         match &this.downcast_ref::<StarlarkBxlBuildResult>().unwrap().0 {
             BxlBuildResult::None => Ok(None),
