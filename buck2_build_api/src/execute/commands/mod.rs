@@ -49,7 +49,6 @@ use crate::actions::artifact::ExecutorFs;
 use crate::actions::directory::insert_entry;
 use crate::actions::directory::ActionDirectoryBuilder;
 use crate::actions::directory::ActionDirectoryMember;
-use crate::actions::run::ExecutorPreference;
 use crate::artifact_groups::ArtifactGroupValues;
 use crate::deferred::BaseDeferredKey;
 use crate::execute::commands::output::CommandStdStreams;
@@ -344,7 +343,7 @@ pub struct CommandExecutionRequest {
     test_outputs: Option<IndexMap<BuckOutTestPath, OutputCreationBehavior>>,
     env: HashMap<String, String>,
     timeout: Option<Duration>,
-    local_preference: ExecutorPreference,
+    executor_preference: ExecutorPreference,
     // Run with a custom $TMPDIR, or just the standard system one
     custom_tmpdir: bool,
     host_sharing_requirements: HostSharingRequirements,
@@ -374,7 +373,7 @@ impl CommandExecutionRequest {
             test_outputs: None,
             env,
             timeout: None,
-            local_preference: ExecutorPreference::Default,
+            executor_preference: ExecutorPreference::Default,
             custom_tmpdir: true,
             host_sharing_requirements: HostSharingRequirements::default(),
             working_directory: None,
@@ -389,8 +388,8 @@ impl CommandExecutionRequest {
         self
     }
 
-    pub fn with_local_preference(mut self, local_preference: ExecutorPreference) -> Self {
-        self.local_preference = local_preference;
+    pub fn with_executor_preference(mut self, executor_preference: ExecutorPreference) -> Self {
+        self.executor_preference = executor_preference;
         self
     }
 
@@ -472,8 +471,8 @@ impl CommandExecutionRequest {
         self.timeout
     }
 
-    pub fn local_preference(&self) -> ExecutorPreference {
-        self.local_preference
+    pub fn executor_preference(&self) -> ExecutorPreference {
+        self.executor_preference
     }
 
     pub fn host_sharing_requirements(&self) -> &HostSharingRequirements {
@@ -668,6 +667,45 @@ impl EnvironmentInheritance {
 
     pub fn iter(&self) -> impl Iterator<Item = (&'static str, &'static OsString)> {
         self.values.iter().map(|(k, v)| (*k, v))
+    }
+}
+
+#[derive(Copy, Clone, Dupe, Display, Debug)]
+pub enum ExecutorPreference {
+    Default,
+    /// Fails when executed by a remote-only executor
+    LocalRequired,
+    /// Does not fail when executed by a remote-only executor
+    LocalPreferred,
+}
+
+impl ExecutorPreference {
+    pub fn and(self, other: &Self) -> Self {
+        if self.requires_local() || other.requires_local() {
+            return Self::LocalRequired;
+        }
+
+        if self.prefers_local() || other.prefers_local() {
+            return Self::LocalPreferred;
+        }
+
+        Self::Default
+    }
+
+    pub fn requires_local(&self) -> bool {
+        match self {
+            Self::LocalRequired => true,
+            Self::LocalPreferred => false,
+            Self::Default => false,
+        }
+    }
+
+    pub fn prefers_local(&self) -> bool {
+        match self {
+            Self::LocalRequired => true,
+            Self::LocalPreferred => true,
+            Self::Default => false,
+        }
     }
 }
 

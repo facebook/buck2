@@ -15,7 +15,6 @@ use std::time::Duration;
 use anyhow::anyhow;
 use anyhow::Context as _;
 use buck2_build_api::actions::artifact::ArtifactFs;
-use buck2_build_api::actions::run::ExecutorPreference;
 use buck2_build_api::build::MaterializationContext;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_build_api::execute::blocking::BlockingExecutor;
@@ -27,6 +26,7 @@ use buck2_build_api::execute::commands::re::manager::ReConnectionHandle;
 use buck2_build_api::execute::commands::re::ReExecutionPlatform;
 use buck2_build_api::execute::commands::re::ReExecutor;
 use buck2_build_api::execute::commands::re::ReExecutorGlobalKnobs;
+use buck2_build_api::execute::commands::ExecutorPreference;
 use buck2_build_api::execute::commands::PreparedCommandExecutor;
 use buck2_build_api::execute::materializer::Materializer;
 use buck2_common::dice::cells::HasCellResolver;
@@ -317,7 +317,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 local: local_executor_new(local),
                 remote: remote_executor_new(remote),
                 level: *level,
-                local_preference: self.strategy.hybrid_preference(),
+                executor_preference: self.strategy.hybrid_preference(),
             }),
             config => {
                 return Err(anyhow::anyhow!(

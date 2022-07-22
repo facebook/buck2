@@ -57,7 +57,7 @@ use crate::actions::copy::CopyMode;
 use crate::actions::copy::UnregisteredCopyAction;
 use crate::actions::download_file::UnregisteredDownloadFileAction;
 use crate::actions::run::dep_files::RunActionDepFiles;
-use crate::actions::run::ExecutorPreference;
+use crate::actions::run::new_executor_preference;
 use crate::actions::run::MetadataParameter;
 use crate::actions::run::UnregisteredRunAction;
 use crate::actions::symlinked_dir::UnregisteredSymlinkedDirAction;
@@ -623,7 +623,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             }
         }
 
-        let local_preference = ExecutorPreference::new(local_only, prefer_local)?;
+        let executor_preference = new_executor_preference(local_only, prefer_local)?;
 
         let mut artifact_visitor = RunCommandArtifactVisitor::new();
 
@@ -710,7 +710,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         let action = UnregisteredRunAction::new(
             category,
             identifier,
-            local_preference,
+            executor_preference,
             always_print_stderr,
             weight,
             dep_files_configuration,

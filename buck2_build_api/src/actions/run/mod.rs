@@ -14,7 +14,6 @@ use std::fmt::Display;
 use async_trait::async_trait;
 use buck2_core::category::Category;
 use buck2_core::fs::paths::ForwardRelativePathBuf;
-use derive_more::Display;
 use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
 use host_sharing::WeightClass;
@@ -46,6 +45,7 @@ use crate::artifact_groups::ArtifactGroupValues;
 use crate::execute::commands::ActionMetadataBlob;
 use crate::execute::commands::CommandExecutionInput;
 use crate::execute::commands::CommandExecutionRequest;
+use crate::execute::commands::ExecutorPreference;
 use crate::execute::ActionExecutionKind;
 use crate::execute::ActionExecutionMetadata;
 use crate::execute::ActionOutputs;
@@ -92,53 +92,17 @@ enum LocalPreferenceError {
     LocalOnlyAndPreferLocal,
 }
 
-#[derive(Copy, Clone, Dupe, Display, Debug)]
-pub enum ExecutorPreference {
-    Default,
-    /// Fails when executed by a remote-only executor
-    LocalRequired,
-    /// Does not fail when executed by a remote-only executor
-    LocalPreferred,
-}
-
-impl ExecutorPreference {
-    pub fn new(local_only: bool, prefer_local: bool) -> anyhow::Result<Self> {
-        match (local_only, prefer_local) {
-            (true, false) => Ok(Self::LocalRequired),
-            (false, true) => Ok(Self::LocalPreferred),
-            (false, false) => Ok(Self::Default),
-            (true, true) => Err(anyhow::anyhow!(
-                LocalPreferenceError::LocalOnlyAndPreferLocal
-            )),
-        }
-    }
-
-    pub fn and(self, other: &Self) -> Self {
-        if self.requires_local() || other.requires_local() {
-            return Self::LocalRequired;
-        }
-
-        if self.prefers_local() || other.prefers_local() {
-            return Self::LocalPreferred;
-        }
-
-        Self::Default
-    }
-
-    pub fn requires_local(&self) -> bool {
-        match self {
-            Self::LocalRequired => true,
-            Self::LocalPreferred => false,
-            Self::Default => false,
-        }
-    }
-
-    pub fn prefers_local(&self) -> bool {
-        match self {
-            Self::LocalRequired => true,
-            Self::LocalPreferred => true,
-            Self::Default => false,
-        }
+pub fn new_executor_preference(
+    local_only: bool,
+    prefer_local: bool,
+) -> anyhow::Result<ExecutorPreference> {
+    match (local_only, prefer_local) {
+        (true, false) => Ok(ExecutorPreference::LocalRequired),
+        (false, true) => Ok(ExecutorPreference::LocalPreferred),
+        (false, false) => Ok(ExecutorPreference::Default),
+        (true, true) => Err(anyhow::anyhow!(
+            LocalPreferenceError::LocalOnlyAndPreferLocal
+        )),
     }
 }
 
@@ -146,7 +110,7 @@ impl ExecutorPreference {
 pub(crate) struct UnregisteredRunAction {
     category: Category,
     identifier: Option<String>,
-    local_preference: ExecutorPreference,
+    executor_preference: ExecutorPreference,
     always_print_stderr: bool,
     weight: usize,
     dep_files: RunActionDepFiles,
@@ -158,7 +122,7 @@ impl UnregisteredRunAction {
     pub(crate) fn new(
         category: Category,
         identifier: Option<String>,
-        local_preference: ExecutorPreference,
+        executor_preference: ExecutorPreference,
         always_print_stderr: bool,
         weight: usize,
         dep_files: RunActionDepFiles,
@@ -168,7 +132,7 @@ impl UnregisteredRunAction {
         Self {
             category,
             identifier,
-            local_preference,
+            executor_preference,
             always_print_stderr,
             weight,
             dep_files,
@@ -315,7 +279,7 @@ impl Action for RunAction {
         let cmd = format!("[{}]", cli_builder.build().iter().join(", "));
         indexmap! {
             "cmd".to_owned() => cmd,
-            "local_preference".to_owned() => self.inner.local_preference.to_string(),
+            "executor_preference".to_owned() => self.inner.executor_preference.to_string(),
             "always_print_stderr".to_owned() => self.inner.always_print_stderr.to_string(),
             "weight".to_owned() => self.inner.weight.to_string(),
             "dep_files".to_owned() => self.inner.dep_files.to_string(),
@@ -436,7 +400,7 @@ impl IncrementalActionExecutable for RunAction {
 
         let req = CommandExecutionRequest::new(cli, inputs, self.outputs.clone(), env)
             .with_prefetch_lossy_stderr(true)
-            .with_local_preference(self.inner.local_preference)
+            .with_executor_preference(self.inner.executor_preference)
             .with_host_sharing_requirements(host_sharing_requirements)
             .with_outputs_cleanup(!self.inner.no_outputs_cleanup);
 

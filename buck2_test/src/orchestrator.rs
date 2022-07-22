@@ -19,7 +19,6 @@ use async_trait::async_trait;
 use buck2_build_api::actions::artifact::ArtifactFs;
 use buck2_build_api::actions::artifact::ArtifactValue;
 use buck2_build_api::actions::artifact::ExecutorFs;
-use buck2_build_api::actions::run::ExecutorPreference;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::deferred::BaseDeferredKey;
@@ -40,6 +39,7 @@ use buck2_build_api::execute::commands::CommandExecutionTarget;
 use buck2_build_api::execute::commands::CommandExecutionTimingData;
 use buck2_build_api::execute::commands::CommandExecutor;
 use buck2_build_api::execute::commands::EnvironmentInheritance;
+use buck2_build_api::execute::commands::ExecutorPreference;
 use buck2_build_api::execute::commands::OutputCreationBehavior;
 use buck2_build_api::execute::materializer::HasMaterializer;
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineBuilder;
@@ -395,7 +395,7 @@ impl BuckTestOrchestrator {
 
         if !(self.session.options().allow_re && supports_re) {
             //  Needed so that we allow going to a simulator on RE even if `--allow-tests-on-re` was not passed
-            request = request.with_local_preference(ExecutorPreference::LocalPreferred)
+            request = request.with_executor_preference(ExecutorPreference::LocalPreferred)
         }
 
         let manager = CommandExecutionManager::new(

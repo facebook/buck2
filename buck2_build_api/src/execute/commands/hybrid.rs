@@ -19,7 +19,6 @@ use futures::FutureExt;
 use gazebo::prelude::*;
 use remote_execution as RE;
 
-use crate::actions::run::ExecutorPreference;
 use crate::execute::commands::local::LocalExecutor;
 use crate::execute::commands::re::ReExecutor;
 use crate::execute::commands::ClaimManager;
@@ -27,6 +26,7 @@ use crate::execute::commands::CommandExecutionManager;
 use crate::execute::commands::CommandExecutionResult;
 use crate::execute::commands::CommandExecutionStatus;
 use crate::execute::commands::ExecutorName;
+use crate::execute::commands::ExecutorPreference;
 use crate::execute::commands::PreparedCommand;
 use crate::execute::commands::PreparedCommandExecutor;
 
@@ -40,7 +40,7 @@ pub struct HybridExecutor {
     pub local: LocalExecutor,
     pub remote: ReExecutor,
     pub level: HybridExecutionLevel,
-    pub local_preference: ExecutorPreference,
+    pub executor_preference: ExecutorPreference,
 }
 
 impl HybridExecutor {
@@ -84,11 +84,11 @@ impl PreparedCommandExecutor for HybridExecutor {
         let remote_result =
             self.remote_exec_cmd(command, manager.claim_manager.dupe(), manager.events.dupe());
 
-        let local_preference = self
-            .local_preference
-            .and(&command.request.local_preference());
+        let executor_preference = self
+            .executor_preference
+            .and(&command.request.executor_preference());
 
-        if local_preference.requires_local()
+        if executor_preference.requires_local()
             || self.remote.is_action_too_large(&command.action_paths)
         {
             return local_result.await;
@@ -113,7 +113,7 @@ impl PreparedCommandExecutor for HybridExecutor {
             },
         };
 
-        let (primary, secondary) = if local_preference.prefers_local() {
+        let (primary, secondary) = if executor_preference.prefers_local() {
             (local, remote)
         } else {
             (remote, local)
