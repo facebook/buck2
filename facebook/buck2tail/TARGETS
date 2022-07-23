@@ -7,7 +7,7 @@ rust_binary(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:base64",
-        "fbsource//third-party/rust:prost-new",
+        "fbsource//third-party/rust:prost",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:structopt",
         "//buck2/buck2_data:buck2_data",
