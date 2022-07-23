@@ -65,13 +65,9 @@ where
 }
 
 impl<R, W> Connected for DuplexChannel<R, W> {
-    fn remote_addr(&self) -> Option<std::net::SocketAddr> {
-        None
-    }
+    type ConnectInfo = ();
 
-    fn peer_certs(&self) -> Option<Vec<tonic::transport::Certificate>> {
-        None
-    }
+    fn connect_info(&self) {}
 }
 
 /// Create a channel using a pre-existing I/O instance. This will not support reconnecting since

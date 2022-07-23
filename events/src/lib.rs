@@ -180,7 +180,7 @@ impl TryFrom<buck2_data::BuckEvent> for BuckEvent {
             NonZeroU64::new(num).map(SpanId)
         }
         Ok(Self {
-            timestamp: timestamp.ok_or(BuckEventError::MissingTimestamp)?.into(),
+            timestamp: SystemTime::try_from(timestamp.ok_or(BuckEventError::MissingTimestamp)?)?,
             trace_id: TraceId(Arc::new(Uuid::parse_str(&trace_id)?)),
             span_id: new_span_id(span_id),
             parent_id: new_span_id(parent_id),
@@ -245,6 +245,8 @@ pub enum BuckEventError {
     InvalidUUID(#[from] uuid::Error),
     #[error("Expected BuckEvent, found Result")]
     FoundResult,
+    #[error("The `buck2_data::BuckEvent` provided a timestamp out of the system range")]
+    TimestampOutOfRange(#[from] prost_types::TimestampOutOfSystemRangeError),
 }
 
 #[cfg(test)]

@@ -21,7 +21,8 @@ gazebo.features = ["str_pattern_extensions"]
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
-prost = "0.7"
+prost = "0.10"
+prost-types = "0.10"
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0"
 tokio = { version = "1.5", features = ["full"] }

@@ -21,7 +21,6 @@ fn main() -> io::Result<()> {
     };
 
     tonic_build::configure()
-        .format(false)
         .type_attribute(".", "#[derive(::serde::Serialize, ::serde::Deserialize)] #[serde(rename_all = \"snake_case\")]")
         .field_attribute("start_time", "#[serde(with = \"serialize_timestamp\")]")
         .field_attribute("timeout", "#[serde(with = \"serialize_duration\")]")

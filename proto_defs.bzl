@@ -13,7 +13,7 @@ def rust_protobuf_library(name, srcs, build_script, spec, build_env = None, deps
         srcs = [build_script],
         crate_root = build_script,
         deps = [
-            "fbsource//third-party/rust:tonic-build",
+            "fbsource//third-party/rust:tonic-build-new",
         ],
     )
 
@@ -44,9 +44,9 @@ def rust_protobuf_library(name, srcs, build_script, spec, build_env = None, deps
             "OUT_DIR": "$(location :{})".format(proto_name),
         },
         deps = [
-            "fbsource//third-party/rust:prost",
-            "fbsource//third-party/rust:prost-types",
-            "fbsource//third-party/rust:tonic",
+            "fbsource//third-party/rust:prost-new",
+            "fbsource//third-party/rust:prost-types-new",
+            "fbsource//third-party/rust:tonic-new",
         ] + (deps or []),
     )
 

@@ -7,6 +7,8 @@ use tokio::io::AsyncWrite;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tonic::transport::server::Router;
+use tonic::transport::server::Routes;
+use tower::layer::Layer;
 use tower::Service;
 
 use self::connection_with_extra::ConnectionWithExtra;
@@ -32,26 +34,21 @@ impl ServerHandle {
     }
 }
 
-pub fn spawn_oneshot<T, A, B>(io: T, router: Router<A, B>) -> ServerHandle
+pub fn spawn_oneshot<T, L>(io: T, router: Router<L>) -> ServerHandle
 where
     T: AsyncRead + AsyncWrite + Send + Unpin + 'static + tonic::transport::server::Connected,
 
-    A: Service<
+    L: Layer<Routes> + Send + 'static,
+    L::Service: Service<
             http::Request<tonic::transport::Body>,
             Response = http::Response<tonic::body::BoxBody>,
         > + Clone
         + Send
         + 'static,
-    A::Future: Send + 'static,
-    A::Error: Into<Box<dyn std::error::Error + Send + Sync>> + Send,
-    B: Service<
-            http::Request<tonic::transport::Body>,
-            Response = http::Response<tonic::body::BoxBody>,
-        > + Clone
-        + Send
-        + 'static,
-    B::Future: Send + 'static,
-    B::Error: Into<Box<dyn std::error::Error + Send + Sync>> + Send,
+    <<L as Layer<Routes>>::Service as Service<http::Request<tonic::transport::Body>>>::Future:
+        Send + 'static,
+    <<L as Layer<Routes>>::Service as Service<http::Request<tonic::transport::Body>>>::Error:
+        Into<Box<dyn std::error::Error + Send + Sync>> + Send,
 {
     // We reserve 2 slots here: one for the connection and one for the ServerHandle's
     // shutdown.
@@ -189,12 +186,10 @@ mod connection_with_extra {
     where
         I: Connected,
     {
-        fn remote_addr(&self) -> Option<std::net::SocketAddr> {
-            self.inner.remote_addr()
-        }
+        type ConnectInfo = I::ConnectInfo;
 
-        fn peer_certs(&self) -> Option<Vec<tonic::transport::Certificate>> {
-            self.inner.peer_certs()
+        fn connect_info(&self) -> Self::ConnectInfo {
+            self.inner.connect_info()
         }
     }
 }

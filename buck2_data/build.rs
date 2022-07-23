@@ -13,7 +13,6 @@ fn main() -> io::Result<()> {
     let proto_files = &["data.proto"];
 
     tonic_build::configure()
-        .format(false)
         .type_attribute(
             "buck.data.BuckEvent.data",
             "#[allow(clippy::large_enum_variant)]",

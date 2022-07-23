@@ -64,7 +64,10 @@ pub(crate) async fn create_listener(
 #[derive(Debug)]
 pub(crate) struct UnixStream(pub tokio::net::UnixStream);
 
-impl Connected for UnixStream {}
+impl Connected for UnixStream {
+    type ConnectInfo = ();
+    fn connect_info(&self) {}
+}
 
 #[derive(Clone, Debug)]
 pub(crate) struct UdsConnectInfo {
