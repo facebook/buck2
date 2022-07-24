@@ -60,8 +60,8 @@ cpp_python_extension(
 
 fb_native.cxx_library(
     name = "lib-cpp",
-    soname = "lib.so",
     srcs = [
         "lib.cpp",
     ],
+    soname = "lib.so",
 )

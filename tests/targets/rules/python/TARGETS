@@ -52,11 +52,11 @@ bzl_native.genrule(
 
 bzl_native.python_binary(
     name = "with_dependency",
+    default_host_platform = "ovr_config//platform/linux:x86_64-fbcode",
     main = "with_dependency.py",
     deps = [
         "fbsource//third-party/pypi/click:click",
     ],
-    default_host_platform = "ovr_config//platform/linux:x86_64-fbcode",
 )
 
 bzl_native.genrule(

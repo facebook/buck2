@@ -3,14 +3,14 @@ load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
 
 bzl_native.cxx_library(
     name = "list",
-    exported_headers = ["foo/bar/foobar.h"],
     header_namespace = "foobar",
+    exported_headers = ["foo/bar/foobar.h"],
 )
 
 bzl_native.cxx_library(
     name = "dict",
-    exported_headers = {"wfh/baz.h": "baz.h"},
     header_namespace = "omg",
+    exported_headers = {"wfh/baz.h": "baz.h"},
 )
 
 cpp_binary(

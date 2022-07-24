@@ -10,14 +10,14 @@ cpp_binary(
 
 bzl_native.cxx_library(
     name = "top_dep",
-    deps = [":middle_dep"],
     reexport_all_header_dependencies = True,
+    deps = [":middle_dep"],
 )
 
 bzl_native.cxx_library(
     name = "middle_dep",
-    exported_deps = [":bottom_dep"],
     reexport_all_header_dependencies = True,
+    exported_deps = [":bottom_dep"],
 )
 
 bzl_native.cxx_library(

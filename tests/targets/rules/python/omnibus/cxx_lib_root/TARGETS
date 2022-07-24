@@ -48,10 +48,10 @@ bzl_native.python_library(
 
 fb_native.cxx_library(
     name = "cpp-lib",
-    soname = "lib1.so",
     srcs = [
         "lib.cpp",
     ],
+    soname = "lib1.so",
     deps = [
         ":cpp-lib2",
     ],
@@ -59,8 +59,8 @@ fb_native.cxx_library(
 
 fb_native.cxx_library(
     name = "cpp-lib2",
-    soname = "lib2.so",
     srcs = [
         "lib2.cpp",
     ],
+    soname = "lib2.so",
 )

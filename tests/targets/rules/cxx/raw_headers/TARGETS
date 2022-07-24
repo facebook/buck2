@@ -6,8 +6,8 @@ load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
 bzl_native.cxx_library(
     name = "top",
     srcs = ["bar/bar.cpp"],
-    raw_headers = ["baz/bar.h"],
     include_directories = ["baz"],
+    raw_headers = ["baz/bar.h"],
     exported_deps = ["fbcode//buck2/tests/targets/rules/cxx/raw_headers/foo:bottom"],
 )
 
@@ -22,11 +22,11 @@ bzl_native.cxx_binary(
     srcs = [
         "bar.cpp",
     ],
-    raw_headers = [
-        "foo.h",
-    ],
     include_directories = [
         "",
+    ],
+    raw_headers = [
+        "foo.h",
     ],
     deps = [
         "fbsource//xplat/third-party/linker_lib:c",
@@ -38,11 +38,11 @@ bzl_native.cxx_python_extension(
     srcs = [
         "bar.cpp",
     ],
-    raw_headers = [
-        "foo.h",
-    ],
     include_directories = [
         "",
+    ],
+    raw_headers = [
+        "foo.h",
     ],
     deps = [
         "fbsource//xplat/third-party/linker_lib:c",

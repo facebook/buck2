@@ -26,15 +26,15 @@ bzl_native.rust_binary(
 
 bzl_native.rust_binary(
     name = "hello_unused_dep",
-    crate_root = "src/hello.rs",
     srcs = [
         "src/hello.rs",
     ],
-    rustc_flags = ["-Wunused-crate-dependencies"],
-    deps = [":lib"],
+    crate_root = "src/hello.rs",
     named_deps = {
         "charles": ":lib2",
     },
+    rustc_flags = ["-Wunused-crate-dependencies"],
+    deps = [":lib"],
 )
 
 bzl_native.rust_binary(
@@ -124,11 +124,11 @@ bzl_native.rust_binary(
     srcs = [
         "with_dep.rs",
     ],
+    crate_root = "with_dep.rs",
+    link_style = "static",
     deps = [
         ":lib",
     ],
-    crate_root = "with_dep.rs",
-    link_style = "static",
 )
 
 bzl_native.rust_binary(
@@ -136,11 +136,11 @@ bzl_native.rust_binary(
     srcs = [
         "with_dep.rs",
     ],
+    crate_root = "with_dep.rs",
+    link_style = "shared",
     deps = [
         ":lib",
     ],
-    crate_root = "with_dep.rs",
-    link_style = "shared",
 )
 
 bzl_native.rust_binary(
@@ -264,14 +264,14 @@ bzl_native.rust_library(
 
 bzl_native.rust_library(
     name = "nice1",
-    crate = "nice",
     srcs = ["src/lib.rs"],
+    crate = "nice",
 )
 
 bzl_native.rust_library(
     name = "nice2",
-    crate = "nice",
     srcs = ["src/lib.rs"],
+    crate = "nice",
 )
 
 bzl_native.rust_binary(

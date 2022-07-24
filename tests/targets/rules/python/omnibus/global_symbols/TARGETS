@@ -48,10 +48,10 @@ fb_native.cxx_library(
 
 fb_native.cxx_library(
     name = "body",
-    exported_linker_flags = [
-        "-Wl,--export-dynamic-symbol=local_exported",
-    ],
     srcs = [
         "body.c",
+    ],
+    exported_linker_flags = [
+        "-Wl,--export-dynamic-symbol=local_exported",
     ],
 )

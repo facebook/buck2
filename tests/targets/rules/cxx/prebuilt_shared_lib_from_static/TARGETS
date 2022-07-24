@@ -3,8 +3,8 @@ load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
 
 bzl_native.cxx_genrule(
     name = "static-lib",
-    out = "lib.o",
     srcs = ["lib.cpp"],
+    out = "lib.o",
     cmd = "$(cxx) -c -fPIC -o $OUT $SRCS",
 )
 

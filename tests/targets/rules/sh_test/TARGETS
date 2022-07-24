@@ -9,23 +9,23 @@ buck_genrule(
 
 bzl_native.sh_test(
     name = "test",
-    test = "test.py",
     args = ["arg1"],
+    test = "test.py",
 )
 
 bzl_native.sh_test(
     name = "test_fail",
-    test = "test.py",
     args = ["fail"],
+    test = "test.py",
 )
 
 bzl_native.sh_test(
     name = "test_with_env",
-    test = "test.py",
     args = ["arg1"],
     env = {
         "FOO": "$(location :file)",
     },
+    test = "test.py",
 )
 
 bzl_native.filegroup(
@@ -42,7 +42,7 @@ bzl_native.sh_test(
 
 bzl_native.sh_test(
     name = "test_fail_extended",
-    test = "test.py",
     args = ["fail"],
     labels = ["extended"],
+    test = "test.py",
 )

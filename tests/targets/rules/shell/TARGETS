@@ -5,8 +5,8 @@ load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
 bzl_native.genrule(
     name = "copy_data",
     srcs = ["DATA"],
-    bash = "cp $SRCS $OUT",
     out = "data.copy",
+    bash = "cp $SRCS $OUT",
 )
 
 bzl_native.sh_binary(
@@ -20,6 +20,6 @@ bzl_native.sh_binary(
 
 bzl_native.genrule(
     name = "gen",
-    bash = "$(exe :diff) arg1 arg2 > $OUT",
     out = "out.txt",
+    bash = "$(exe :diff) arg1 arg2 > $OUT",
 )

@@ -27,17 +27,17 @@ fb_native.java_library(
 
 fb_native.java_library(
     name = "library_with_deps",
+    exported_provided_deps = [":exported_provided_dep"],
+    provided_deps = [":provided_dep"],
+    runtime_deps = [":runtime_dep"],
     deps = [":normal_dep"],
     exported_deps = [":exported_dep"],
-    provided_deps = [":provided_dep"],
-    exported_provided_deps = [":exported_provided_dep"],
-    runtime_deps = [":runtime_dep"],
 )
 
 fb_native.java_library(
     name = "top_level_library",
-    deps = [":library_with_deps"],
     srcs = ["Simple.java"],
+    deps = [":library_with_deps"],
 )
 
 fb_native.genrule(

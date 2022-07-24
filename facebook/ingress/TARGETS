@@ -112,9 +112,9 @@ cpp_library(
 
 fbpkg.builder(
     name = "buck2.ingress",
+    buck_opts = fbpkg.buck_opts(version = "v2"),
+    fail_on_redundant_configerator_fbpkg = False,
     path_actions = {
         "IngressService": ":IngressService",
     },
-    fail_on_redundant_configerator_fbpkg = False,
-    buck_opts = fbpkg.buck_opts(version = "v2"),
 )

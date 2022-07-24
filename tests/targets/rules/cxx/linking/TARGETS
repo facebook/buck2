@@ -98,10 +98,10 @@ buck_genrule(
 # missing some default settings allowing them to parse.
 fb_native.cxx_binary(
     name = "link_whole",
-    link_style = "static",
     srcs = [
         "weak.c",
     ],
+    link_style = "static",
     deps = [
         ":strong",
     ],

@@ -37,6 +37,6 @@ bzl_native.python_library(
 
 bzl_native.genrule(
     name = "check",
-    cmd = "$(exe :bin) | grep 'the_test_string' && touch $OUT",
     out = "out.txt",
+    cmd = "$(exe :bin) | grep 'the_test_string' && touch $OUT",
 )

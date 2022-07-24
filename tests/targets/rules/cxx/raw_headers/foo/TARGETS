@@ -2,7 +2,7 @@ load("//buck2/tests/targets/rules:bzl_native.bzl", "bzl_native")
 
 bzl_native.cxx_library(
     name = "bottom",
-    raw_headers = ["public.h"],
     public_include_directories = [".."],
+    raw_headers = ["public.h"],
     visibility = ["fbcode//buck2/tests/targets/rules/cxx/raw_headers:top"],
 )
