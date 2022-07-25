@@ -372,6 +372,9 @@ mod flame {
     struct StackFrameData {
         callees: HashMap<FunctionId, StackFrame>,
         allocs: HashMap<&'static str, StackFrameAllocations>,
+        /// Time spent in this frame excluding callees.
+        /// Double, because enter/exit are recorded twice, in drop and non-drop heaps.
+        time_x2: SmallDuration,
     }
 
     #[derive(Clone, Dupe)]
@@ -382,6 +385,7 @@ mod flame {
             Self(Rc::new(RefCell::new(StackFrameData {
                 callees: Default::default(),
                 allocs: Default::default(),
+                time_x2: SmallDuration::default(),
             })))
         }
 
@@ -421,6 +425,8 @@ mod flame {
 
     /// An accumulator for stack frames that lets us visit the heap.
     pub struct StackCollector {
+        /// Timestamp of last call enter or exit.
+        last_time: Option<Instant>,
         ids: FunctionIds,
         current: Vec<StackFrame>,
     }
@@ -430,6 +436,7 @@ mod flame {
             Self {
                 ids: FunctionIds::default(),
                 current: vec![StackFrame::new()],
+                last_time: None,
             }
         }
     }
@@ -449,7 +456,12 @@ mod flame {
             entry.count += 1;
         }
 
-        fn call_enter(&mut self, function: Value<'v>, _time: Instant) {
+        fn call_enter(&mut self, function: Value<'v>, time: Instant) {
+            if let Some(last_time) = self.last_time {
+                self.current.last_mut().unwrap().0.borrow_mut().time_x2 +=
+                    time.saturating_duration_since(last_time);
+            }
+
             let frame = match self.current.last() {
                 Some(frame) => frame,
                 None => return,
@@ -459,10 +471,17 @@ mod flame {
             let id = self.ids.get_value(function);
             let new_frame = frame.push(id);
             self.current.push(new_frame);
+
+            self.last_time = Some(time)
         }
 
-        fn call_exit(&mut self, _time: Instant) {
+        fn call_exit(&mut self, time: Instant) {
+            if let Some(last_time) = self.last_time {
+                self.current.last_mut().unwrap().0.borrow_mut().time_x2 +=
+                    time.saturating_duration_since(last_time);
+            }
             self.current.pop().unwrap();
+            self.last_time = Some(time);
         }
     }
 
