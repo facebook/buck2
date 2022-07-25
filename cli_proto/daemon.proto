@@ -71,6 +71,7 @@ message ClientContext {
   HostPlatformOverride host_platform = 6;
   string oncall = 7;
   bool disable_starlark_types = 8;
+  string trace_id = 9;
 }
 
 message TargetsRequest {

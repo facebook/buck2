@@ -146,6 +146,7 @@ impl StreamingCommand for RunCommand {
         // Special case for recursive invocations of buck; `BUCK2_WRAPPER` is set by wrapper scripts that execute
         // Buck2. We're not a wrapper script, so we unset it to prevent `run` from inheriting it.
         std::env::remove_var("BUCK2_WRAPPER");
+        std::env::remove_var("BUCK_WRAPPER_UUID");
 
         if let Some(file_path) = self.command_args_file {
             let mut output = File::create(&file_path).with_context(|| {

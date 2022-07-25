@@ -26,6 +26,7 @@ extern crate maplit;
 use std::convert::TryFrom;
 use std::path::Path;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -44,6 +45,7 @@ use cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOverride;
 use cli_proto::ClientContext;
 use dice::cycles::DetectCycles;
 use events::subscriber::EventSubscriber;
+use events::TraceId;
 use futures::future;
 use futures::future::BoxFuture;
 use futures::future::Either;
@@ -387,6 +389,13 @@ impl CommandContext {
         #[error("Current directory is not UTF-8")]
         struct CurrentDirIsNotUtf8;
 
+        let trace_id = match std::env::var("BUCK_WRAPPER_UUID") {
+            Ok(uuid_str) => {
+                TraceId::from_str(&uuid_str).context("invalid trace ID in BUCK_WRAPPER_UUID")?
+            }
+            _ => TraceId::new(),
+        };
+
         Ok(ClientContext {
             working_dir: std::env::current_dir()?
                 .to_str()
@@ -397,6 +406,7 @@ impl CommandContext {
             host_platform: Default::default(),
             oncall: Default::default(),
             disable_starlark_types: false,
+            trace_id: format!("{}", trace_id),
         })
     }
 

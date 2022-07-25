@@ -876,7 +876,10 @@ impl DaemonState {
     /// Prepares an event stream for a request by bootstrapping an event source and EventDispatcher pair. The given
     /// EventDispatcher will log to the returned EventSource and (optionally) to Scribe if enabled via buckconfig.
     #[cfg(fbcode_build)]
-    async fn prepare_events(&self) -> SharedResult<(impl EventSource, EventDispatcher)> {
+    async fn prepare_events(
+        &self,
+        trace_id: TraceId,
+    ) -> SharedResult<(impl EventSource, EventDispatcher)> {
         use events::sink::scribe;
         use events::sink::scribe::ThriftScribeSink;
         use events::sink::tee::TeeSink;
@@ -890,7 +893,7 @@ impl DaemonState {
         let data = self.data().await?;
         let dispatcher = if scribe::is_enabled() {
             EventDispatcher::new(
-                TraceId::new(),
+                trace_id,
                 TeeSink::new(
                     ThriftScribeSink::new(
                         self.fb,
@@ -904,15 +907,18 @@ impl DaemonState {
             // Writing to Scribe via the HTTP gateway (what we do for a Cargo build) is many times slower than the fbcode
             // Scribe client, so we don't do it. It's really, really bad for build performance - turning it on regresses
             // build performance by 10x.
-            EventDispatcher::new(TraceId::new(), sink)
+            EventDispatcher::new(trace_id, sink)
         };
         Ok((events, dispatcher))
     }
 
     #[cfg(not(fbcode_build))]
-    async fn prepare_events(&self) -> SharedResult<(impl EventSource, EventDispatcher)> {
+    async fn prepare_events(
+        &self,
+        trace_id: TraceId,
+    ) -> SharedResult<(impl EventSource, EventDispatcher)> {
         let (events, sink) = events::create_source_sink_pair();
-        Ok((events, EventDispatcher::new(TraceId::new(), sink)))
+        Ok((events, EventDispatcher::new(trace_id, sink)))
     }
 
     /// Prepares a ServerCommandContext for processing a complex command (that accesses the dice computation graph, for example).
@@ -1133,8 +1139,15 @@ impl BuckdServer {
 
         let daemon_state = self.daemon_state.dupe();
 
+        let trace_id = req
+            .get_ref()
+            .client_context()
+            .map_err(anyhow::Error::msg)
+            .and_then(|ctx| Ok(ctx.trace_id.parse()?))
+            .map_err(|e| Status::new(Code::Internal, format!("{:?}", e)))?;
+
         let (events, dispatch) = daemon_state
-            .prepare_events()
+            .prepare_events(trace_id)
             .await
             .map_err(|e| Status::new(Code::Internal, format!("{:?}", e)))?;
 
@@ -2140,7 +2153,7 @@ impl DaemonApi for BuckdServer {
         let inner = req.into_inner();
         let path = inner.destination_path;
         let res: anyhow::Result<_> = try {
-            let (_, dispatch) = self.daemon_state.prepare_events().await?;
+            let (_, dispatch) = self.daemon_state.prepare_events(TraceId::new()).await?;
             let ctx = with_dispatcher_async(
                 dispatch.dupe(),
                 self.daemon_state.prepare_command(dispatch.dupe()),
