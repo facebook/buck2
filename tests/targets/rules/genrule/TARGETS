@@ -146,7 +146,7 @@ buck_genrule(
     name = "executable_helper",
     srcs = [],
     out = "output.sh",
-    bash = "echo '#!/usr/bin/env bash\necho hello' > $OUT && chmod +x $OUT",
+    cmd = "python3 -c \"import os; path = os.getenv('OUT'); fp = open(path, 'w'); print('#!/usr/bin/env bash\\necho hello', file=fp); fp.close(); os.chmod(path, 0o755)\"",
     executable = True,
 )
 

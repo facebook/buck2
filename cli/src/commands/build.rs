@@ -361,10 +361,17 @@ pub(crate) fn print_outputs(
     };
     let mut process_output = |target: &String, output: Option<String>| -> anyhow::Result<()> {
         let output = match output {
-            Some(output) => match &root_path {
-                Some(root) => Path::new(&root).join(output).to_string_lossy().into_owned(),
-                None => output,
-            },
+            Some(output) => {
+                let output = if cfg!(windows) {
+                    output.replace('/', "\\")
+                } else {
+                    output
+                };
+                match &root_path {
+                    Some(root) => Path::new(&root).join(output).to_string_lossy().into_owned(),
+                    None => output,
+                }
+            }
             None => "".to_owned(),
         };
         if as_json {

@@ -256,6 +256,11 @@ async fn targets_show_outputs(
         .await???;
     for target_paths in response.targets_paths {
         for path in target_paths.paths {
+            let path = if cfg!(windows) {
+                path.replace('/', "\\")
+            } else {
+                path
+            };
             match root_path {
                 Some(root) => {
                     crate::println!("{} {}", target_paths.target, root.join(path).display())
