@@ -125,7 +125,7 @@ fat_mac_linux = execution_platform(
     allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
 )
 
-fat_platforms = fat_mac_linux if fat_platforms_enabled else []
+fat_platforms = fat_mac_linux if fat_platforms_enabled and not host_is_windows else []
 
 execution_platforms(
     name = "platforms",
