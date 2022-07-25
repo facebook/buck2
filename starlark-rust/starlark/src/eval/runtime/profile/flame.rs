@@ -116,7 +116,7 @@ impl<'a> Stacks<'a> {
         }
     }
 
-    fn render_with_buffer(&self, file: &mut impl Write, buffer: &mut String) -> io::Result<()> {
+    fn render_with_buffer(&self, writer: &mut impl Write, buffer: &mut String) -> io::Result<()> {
         // Reuse the buffer to accumulate the stack name
         let start_len = buffer.len();
         if !buffer.is_empty() {
@@ -125,10 +125,10 @@ impl<'a> Stacks<'a> {
         buffer.push_str(self.name);
         let count = self.time.to_duration().as_millis();
         if count > 0 {
-            writeln!(file, "{} {}", buffer, count)?;
+            writeln!(writer, "{} {}", buffer, count)?;
         }
         for x in self.children.values() {
-            x.render_with_buffer(file, buffer)?;
+            x.render_with_buffer(writer, buffer)?;
         }
         buffer.truncate(start_len);
         Ok(())

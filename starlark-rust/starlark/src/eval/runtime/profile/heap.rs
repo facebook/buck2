@@ -356,6 +356,7 @@ mod summary {
 
 mod flame {
     use super::*;
+    use crate::eval::runtime::profile::flamegraph::FlameGraphWriter;
     use crate::values::layout::heap::arena::ArenaVisitor;
 
     /// Allocations made in a given stack frame for a given type.
@@ -406,26 +407,24 @@ mod flame {
         /// (each line is: `func1:func2:func3 BYTES`).
         fn write<'a>(
             &self,
-            file: &mut impl Write,
+            writer: &mut FlameGraphWriter,
             stack: &'_ mut Vec<&'a str>,
             ids: &[&'a str],
-        ) -> anyhow::Result<()> {
+        ) {
             let this = self.0.borrow();
 
             for (k, v) in this.allocs.iter() {
-                for e in stack.iter().chain(std::iter::once(k)).intersperse(&";") {
-                    write!(file, "{}", e)?;
-                }
-                writeln!(file, " {}", v.bytes)?;
+                writer.write(
+                    stack.iter().copied().chain(std::iter::once(*k)),
+                    v.bytes as u64,
+                );
             }
 
             for (id, frame) in this.callees.iter() {
                 stack.push(ids[id.0]);
-                frame.write(file, stack, ids)?;
+                frame.write(writer, stack, ids);
                 stack.pop();
             }
-
-            Ok(())
         }
     }
 
@@ -446,9 +445,9 @@ mod flame {
         /// Write recursively to a file.
         pub(crate) fn write_to(&self, file: &mut impl Write) -> anyhow::Result<()> {
             let current = self.current.as_ref().context("Popped the root frame")?;
-            current
-                .write(file, &mut vec![], &self.ids.invert())
-                .context("Writing failed")?;
+            let mut writer = FlameGraphWriter::new();
+            current.write(&mut writer, &mut vec![], &self.ids.invert());
+            file.write_all(writer.finish().as_bytes())?;
             Ok(())
         }
     }
