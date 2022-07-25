@@ -1,3 +1,5 @@
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
 # Copyright 2004-present Facebook. All Rights Reserved.
 load("//buck2:proto_defs.bzl", "rust_protobuf_library")
 
