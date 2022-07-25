@@ -30,7 +30,7 @@ class BadInstallerService(install_pb2_grpc.InstallerServicer):
         )
         return install_response
 
-    def FileReadyRequest(self, request, context):
+    def FileReady(self, request, context):
         error_detail = install_pb2.ErrorDetail()
         error_detail.message = f"Mocking failing to install '{request.path}'"
 
@@ -41,10 +41,9 @@ class BadInstallerService(install_pb2_grpc.InstallerServicer):
         file_response.error_details = error_detail
         return file_response
 
-    def ShutdownServer(self, request, context):
+    def ShutdownServer(self, _request, context):
         shutdown(self.stop_event)
         response = install_pb2.ShutdownResponse()
-        response.install_id = request.install_id
         return response
 
 

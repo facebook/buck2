@@ -48,9 +48,9 @@ use gazebo::prelude::StrExt;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
 use install_proto::installer_client::InstallerClient;
-use install_proto::FileReady;
-use install_proto::InstallInfo;
-use install_proto::Shutdown;
+use install_proto::FileReadyRequest;
+use install_proto::InstallInfoRequest;
+use install_proto::ShutdownRequest;
 use starlark::values::FrozenRef;
 use tempfile::Builder;
 use thiserror::Error;
@@ -71,14 +71,19 @@ pub(crate) enum InstallError {
     NoInstallProvider(TargetName, Package),
     #[error("Error retrieving hash for `{0}`")]
     ErrorRetrievingHash(String),
-    #[error("Installer failed for `{artifact}` located at `{path}` with `{err}`")]
-    InstallerFailure {
+    #[error(
+        "Installer failed to process file ready request for `{install_id}`. Artifact: `{artifact}` located at `{path}`. Error message: `{err}`"
+    )]
+    ProcessingFileReadyFailure {
+        install_id: String,
         artifact: String,
         path: AbsPathBuf,
         err: String,
     },
     #[error("Installer failed for `{install_id}` with `{err}`")]
     InternalInstallerFailure { install_id: String, err: String },
+    #[error("Communication with the installer failed with `{err}`")]
+    InstallerCommunicationFailure { err: String },
 }
 
 pub(crate) async fn install(
@@ -188,7 +193,7 @@ async fn build_install(
                 send_file(&install_id, file, &artifact_fs, client.clone())
             })
             .await;
-        send_shutdown_command(client.clone(), &install_id).await?;
+        send_shutdown_command(client.clone()).await?;
         send_files_result.context("Failed to send artifacts to installer")?;
         anyhow::Ok(())
     };
@@ -210,13 +215,12 @@ async fn send_install_info(
             .or_insert_with(|| artifact_path.to_string());
     }
 
-    let install_info_request = tonic::Request::new(InstallInfo {
+    let install_info_request = tonic::Request::new(InstallInfoRequest {
         install_id: install_id.to_owned(),
         files: files_map,
     });
 
     let response_result = client.install(install_info_request).await;
-
     let install_info_response = match response_result {
         Ok(r) => r.into_inner(),
         Err(status) => {
@@ -229,7 +233,7 @@ async fn send_install_info(
     };
 
     if install_info_response.install_id != install_id {
-        send_shutdown_command(client.clone(), install_id).await?;
+        send_shutdown_command(client.clone()).await?;
         return Err(anyhow::anyhow!(
             "Received install id: {} doesn't match with the sent one: {}",
             install_info_response.install_id,
@@ -240,20 +244,14 @@ async fn send_install_info(
     Ok(())
 }
 
-async fn send_shutdown_command(
-    mut client: InstallerClient<Channel>,
-    install_id: &str,
-) -> anyhow::Result<()> {
+async fn send_shutdown_command(mut client: InstallerClient<Channel>) -> anyhow::Result<()> {
     let response_result = client
-        .shutdown_server(tonic::Request::new(Shutdown {
-            install_id: install_id.to_owned(),
-        }))
+        .shutdown_server(tonic::Request::new(ShutdownRequest {}))
         .await;
 
     return match response_result {
         Ok(_) => Ok(()),
-        Err(status) => Err(InstallError::InternalInstallerFailure {
-            install_id: install_id.to_owned(),
+        Err(status) => Err(InstallError::InstallerCommunicationFailure {
             err: status.message().to_owned(),
         }
         .into()),
@@ -429,17 +427,18 @@ async fn send_file(
     };
     let (sha1, _size) = sha1.split1(":");
     let path = &artifact_fs.fs().resolve(&artifact_fs.resolve(&artifact)?);
-    let request = tonic::Request::new(FileReady {
+    let request = tonic::Request::new(FileReadyRequest {
         install_id: install_id.to_owned(),
         name: name.to_owned(),
         sha1: sha1.to_owned(),
         path: path.to_string(),
     });
-    let response_result = client.file_ready_request(request).await;
+    let response_result = client.file_ready(request).await;
     let response = match response_result {
         Ok(r) => r.into_inner(),
         Err(status) => {
-            return Err(InstallError::InstallerFailure {
+            return Err(InstallError::ProcessingFileReadyFailure {
+                install_id: install_id.to_owned(),
                 artifact: name,
                 path: path.to_owned(),
                 err: status.message().to_owned(),
@@ -449,7 +448,8 @@ async fn send_file(
     };
 
     if response.install_id != install_id {
-        return Err(InstallError::InstallerFailure {
+        return Err(InstallError::ProcessingFileReadyFailure {
+            install_id: install_id.to_owned(),
             artifact: name,
             path: path.to_owned(),
             err: format!(
@@ -461,7 +461,8 @@ async fn send_file(
     }
 
     if let Some(error_detail) = response.error_detail {
-        return Err(InstallError::InstallerFailure {
+        return Err(InstallError::ProcessingFileReadyFailure {
+            install_id: install_id.to_owned(),
             artifact: name,
             path: path.to_owned(),
             err: error_detail.message,
