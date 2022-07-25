@@ -46,3 +46,22 @@ bzl_native.sh_test(
     labels = ["extended"],
     test = "test.py",
 )
+
+bzl_native.export_file(
+    name = "test_file",
+    mode = "reference",
+)
+
+bzl_native.sh_test(
+    name = "test_deps",
+    test = "test_deps.sh",
+    deps = [":test_file"],
+)
+
+# Actually *run* the test_deps script so that we run it on RE and can check if
+# test_file actually is there.
+bzl_native.genrule(
+    name = "check_test_deps",
+    out = "OUT",
+    cmd = "$(exe :test_deps) && touch $OUT",
+)

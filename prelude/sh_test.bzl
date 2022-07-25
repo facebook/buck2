@@ -21,6 +21,14 @@ def sh_test_impl(ctx):
 
     args.hidden(ctx.attrs.resources)
 
+    deps = []
+    for dep in ctx.attrs.deps:
+        info = dep[DefaultInfo]
+        deps.extend(info.default_outputs)
+        deps.extend(info.other_outputs)
+
+    args.hidden(deps)
+
     command = [args] + ctx.attrs.args
 
     run_from_project_root = "buck2_run_from_project_root" in (ctx.attrs.labels or [])

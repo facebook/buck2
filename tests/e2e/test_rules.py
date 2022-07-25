@@ -487,6 +487,11 @@ async def test_android(buck: Buck) -> None:
     )
 
 
+@buck_test(inplace=True)
+async def test_sh_test(buck: Buck) -> None:
+    await buck.build("fbcode//buck2/tests/targets/rules/sh_test:check_test_deps")
+
+
 if fbcode_linux_only():
 
     @buck_test(inplace=True)
