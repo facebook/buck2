@@ -2,19 +2,19 @@
 
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 
-# Should fail because it doesn't generate out2.txt
+# Should fail because it doesn't generate out.txt
 buck_genrule(
     name = "my_genrule_bad",
     srcs = [],
     out = "out.txt",
-    bash = "echo HELLO_STDOUT && echo HELLO_STDERR >&2",
+    cmd = "echo HELLO_STDOUT && echo HELLO_STDERR >&2",
 )
 
 buck_genrule(
     name = "my_genrule_bad_local",
     srcs = [],
     out = "out.txt",
-    bash = "echo HELLO_STDOUT && echo HELLO_STDERR >&2",
+    cmd = "echo HELLO_STDOUT && echo HELLO_STDERR >&2",
     labels = ["buck2_test_local_exec"],
 )
 
@@ -24,13 +24,14 @@ buck_genrule(
     srcs = [],
     out = "out.txt",
     bash = "false",
+    cmd_exe = "cmd /c exit 1",
 )
 
 buck_genrule(
     name = "my_genrule_bad_3",
     srcs = [],
     out = "out.sh",
-    bash = "exit 1",
+    cmd = "exit 1",
     executable = True,
 )
 
@@ -40,4 +41,5 @@ buck_genrule(
     srcs = [],
     out = "out.txt",
     bash = "script_that_doesnt_exist; echo HELLO > $OUT",
+    cmd_exe = "script_that_doesnt_exist && echo HELLO>%OUT%",
 )

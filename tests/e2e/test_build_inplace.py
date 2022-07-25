@@ -403,7 +403,7 @@ async def test_show_full_output(buck: Buck) -> None:
     assert show_output_outputs == build_report_outputs
 
     for _, output in show_output_outputs:
-        assert output.startswith("/"), f"Output path must be absolute, got `{output}`."
+        assert os.path.isabs(output), f"Output path must be absolute, got `{output}`."
         assert os.path.exists(output), f"Output path `{output}` does not exist!"
 
 
@@ -482,7 +482,7 @@ async def test_missing_outputs_error(buck: Buck) -> None:
     # stdout & stderr.
     await expect_failure(
         buck.build("fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad"),
-        stderr_regex="Action failed to produce output.*frecli.*HELLO_STDOUT.*HELLO_STDERR",
+        stderr_regex="Action failed to produce output.*frecli.*Stdout: HELLO_STDOUT.*Stderr: HELLO_STDERR",
     )
 
     # Same, but locally.
@@ -490,5 +490,5 @@ async def test_missing_outputs_error(buck: Buck) -> None:
         buck.build(
             "fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad_local"
         ),
-        stderr_regex="Action failed to produce output.*OUT=.*HELLO_STDOUT.*HELLO_STDERR",
+        stderr_regex="Action failed to produce output.*OUT=.*Stdout: HELLO_STDOUT.*Stderr: HELLO_STDERR",
     )
