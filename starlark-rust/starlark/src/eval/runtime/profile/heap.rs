@@ -70,14 +70,14 @@ impl StringIndex {
 }
 
 #[derive(Copy, Clone, Dupe, Debug, Eq, PartialEq, Hash)]
-struct FunctionId(
+pub(crate) struct FunctionId(
     /// Index in strings index.
     usize,
 );
 
 /// A mapping from function Value to FunctionId, which must be continuous
 #[derive(Default)]
-struct FunctionIds {
+pub(crate) struct FunctionIds {
     values: HashMap<RawPointer, FunctionId>,
     strings: StringIndex,
 }
@@ -173,28 +173,21 @@ impl HeapProfile {
         use summary::FuncInfo;
         use summary::Info;
 
+        let stacks = Stacks::collect(heap);
         let mut ids = FunctionIds::default();
         let root = ids.get_string("(root)");
-        let start = Instant::now();
         let mut info = Info {
-            ids,
+            stacks,
             info: Vec::new(),
-            last_changed: start,
-            call_stack: vec![(root, SmallDuration::default(), start)],
         };
+        info.init();
         info.ensure(root);
-        unsafe {
-            heap.visit_arena(&mut info);
-        }
-        // Just has root left on it
-        assert!(info.call_stack.len() == 1);
 
         // Add a totals column
-        let total_id = info.ids.get_string("TOTALS");
+        let total_id = info.stacks.ids.get_string("TOTALS");
         info.ensure(total_id);
-        let Info {
-            mut info, mut ids, ..
-        } = info;
+        let Info { mut info, stacks } = info;
+        let mut ids = stacks.ids;
         let totals = FuncInfo::merge(info.iter());
         let mut columns: Vec<(&'static str, AllocCounts)> =
             totals.alloc.iter().map(|(k, v)| (*k, *v)).collect();
@@ -254,7 +247,7 @@ impl HeapProfile {
 
 /// Allocations counters.
 #[derive(Default, Copy, Clone, Dupe, Debug)]
-struct AllocCounts {
+pub(crate) struct AllocCounts {
     bytes: usize,
     count: usize,
 }
@@ -268,8 +261,8 @@ impl AddAssign for AllocCounts {
 
 mod summary {
     use super::*;
+    use crate::eval::runtime::profile::heap::flame::StackFrame;
     use crate::eval::runtime::small_duration::SmallDuration;
-    use crate::values::layout::heap::arena::ArenaVisitor;
 
     /// Information relating to a function.
     #[derive(Default, Debug, Clone)]
@@ -293,7 +286,7 @@ mod summary {
                 result.calls += x.calls;
                 result.time += x.time;
                 for (k, v) in x.alloc.iter() {
-                    *result.alloc.entry(k).or_insert_with(AllocCounts::default) += *v;
+                    *result.alloc.entry(k).or_default() += *v;
                 }
             }
             // Recursive time doesn't accumulate nicely, the time is the right value
@@ -309,67 +302,49 @@ mod summary {
     /// However, we are always updating the top of the call stack,
     /// so pull out top_stack/top_info as a cache.
     pub(super) struct Info {
-        pub ids: FunctionIds,
+        pub(crate) stacks: Stacks,
 
         /// Information about all functions
         pub info: Vec<FuncInfo>,
-        /// When the top of the stack last changed
-        pub last_changed: Instant,
-        /// Each entry is (Function, time_rec when I started, time I started)
-        /// The time_rec is recorded so that recursion doesn't screw up time_rec
-        pub call_stack: Vec<(FunctionId, SmallDuration, Instant)>,
     }
 
     impl Info {
-        pub(crate) fn ensure(&mut self, x: FunctionId) {
+        pub(crate) fn ensure(&mut self, x: FunctionId) -> &mut FuncInfo {
             if self.info.len() <= x.0 {
                 self.info.resize(x.0 + 1, FuncInfo::default());
             }
+            &mut self.info[x.0]
         }
 
-        pub(crate) fn top_id(&self) -> FunctionId {
-            self.call_stack.last().unwrap().0
+        pub(crate) fn init(&mut self) {
+            let root = self.stacks.ids.get_string("(root)");
+            self.init_children(self.stacks.root.dupe(), root);
         }
 
-        pub(crate) fn top_info(&mut self) -> &mut FuncInfo {
-            let top = self.top_id();
-            &mut self.info[top.0]
+        fn init_children(&mut self, frame: StackFrame, name: FunctionId) -> SmallDuration {
+            let mut time_rec = SmallDuration::default();
+            for (func, child) in &frame.0.borrow().callees {
+                time_rec += self.init_child(*func, child.dupe(), name);
+            }
+            time_rec
         }
 
-        /// Called before you change the top of the stack
-        fn change(&mut self, time: Instant) {
-            let old_time = self.last_changed;
-            let ti = self.top_info();
-            ti.time += time.saturating_duration_since(old_time);
-            self.last_changed = time;
-        }
-    }
+        fn init_child(
+            &mut self,
+            func: FunctionId,
+            frame: StackFrame,
+            caller: FunctionId,
+        ) -> SmallDuration {
+            self.ensure(func).time += frame.0.borrow().time_x2;
+            self.ensure(func).calls += frame.0.borrow().calls_x2 as usize;
+            *self.ensure(func).callers.entry(caller).or_insert(0) += 1;
+            for (t, allocs) in &frame.0.borrow().allocs {
+                *self.ensure(func).alloc.entry(t).or_default() += *allocs;
+            }
 
-    impl<'v> ArenaVisitor<'v> for Info {
-        fn regular_value(&mut self, x: Value<'v>) {
-            let typ = x.get_ref().get_type();
-            *self.top_info().alloc.entry(typ).or_default() += AllocCounts {
-                bytes: x.get_ref().total_memory(),
-                count: 1,
-            };
-        }
-
-        fn call_enter(&mut self, function: Value<'v>, time: Instant) {
-            let id = self.ids.get_value(function);
-            self.ensure(id);
-            self.change(time);
-
-            let top = self.top_id();
-            let mut me = &mut self.info[id.0];
-            me.calls += 1;
-            *me.callers.entry(top).or_insert(0) += 1;
-            self.call_stack.push((id, me.time_rec, time));
-        }
-
-        fn call_exit(&mut self, time: Instant) {
-            self.change(time);
-            let (name, time_rec, start) = self.call_stack.pop().unwrap();
-            self.info[name.0].time_rec = time_rec + time.saturating_duration_since(start);
+            let time_rec = frame.0.borrow().time_x2 + self.init_children(frame.dupe(), func);
+            self.ensure(func).time_rec += time_rec;
+            time_rec
         }
     }
 }
@@ -380,19 +355,19 @@ mod flame {
     use crate::values::layout::heap::arena::ArenaVisitor;
 
     /// A stack frame, its caller and the functions it called, and the allocations it made itself.
-    struct StackFrameData {
-        callees: HashMap<FunctionId, StackFrame>,
-        allocs: HashMap<&'static str, AllocCounts>,
+    pub(crate) struct StackFrameData {
+        pub(crate) callees: HashMap<FunctionId, StackFrame>,
+        pub(crate) allocs: HashMap<&'static str, AllocCounts>,
         /// Time spent in this frame excluding callees.
         /// Double, because enter/exit are recorded twice, in drop and non-drop heaps.
-        time_x2: SmallDuration,
+        pub(crate) time_x2: SmallDuration,
         /// How many times this function was called (with this stack).
         /// Double.
-        calls_x2: u32,
+        pub(crate) calls_x2: u32,
     }
 
     #[derive(Clone, Dupe)]
-    struct StackFrame(Rc<RefCell<StackFrameData>>);
+    pub(crate) struct StackFrame(pub(crate) Rc<RefCell<StackFrameData>>);
 
     impl StackFrame {
         fn new() -> Self {
@@ -502,8 +477,8 @@ mod flame {
     }
 
     pub(crate) struct Stacks {
-        ids: FunctionIds,
-        root: StackFrame,
+        pub(crate) ids: FunctionIds,
+        pub(crate) root: StackFrame,
     }
 
     impl Stacks {
@@ -608,18 +583,13 @@ _ignore = str([1])     # allocate a string in non_drop
 
         eval.eval_module(ast, &globals).unwrap();
 
-        let mut ids = FunctionIds::default();
-        let root = ids.get_string("(root)");
-        let mut info = Info {
-            ids,
-            info: Vec::new(),
-            last_changed: Instant::now(),
-            call_stack: vec![(root, SmallDuration::default(), Instant::now())],
-        };
+        let stacks = Stacks::collect(eval.heap());
 
-        unsafe {
-            eval.heap().visit_arena(&mut info);
-        }
+        let mut info = Info {
+            stacks,
+            info: Vec::new(),
+        };
+        info.init();
 
         let total = FuncInfo::merge(info.info.iter());
         // from non-drop heap
