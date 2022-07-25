@@ -20,7 +20,7 @@ def _create_fat_jar(
         native_libs: ["artifact"],
         generate_wrapper: bool.type) -> ["artifact"]:
     extension = "sh" if _generate_script(generate_wrapper, native_libs) else "jar"
-    output = ctx.actions.declare_output("{}.{}".format(ctx.label.name, extension))
+    output = ctx.actions.declare_output("{}{}.{}".format(ctx.label.name, "_unscrubbed" if extension == "jar" else "", extension))
 
     args = [
         java_toolchain.fat_jar[RunInfo],
@@ -65,7 +65,7 @@ def _create_fat_jar(
     if ctx.attrs.meta_inf_directory:
         args += ["--meta_inf_directory", ctx.attrs.meta_inf_directory]
 
-    outputs = [output]
+    extra_outputs = []
     if generate_wrapper:
         classpath_args_output = ctx.actions.declare_output("classpath_args")
         args += [
@@ -77,18 +77,22 @@ def _create_fat_jar(
             "--script_marker_file_name",
             "wrapper_script",
         ]
-        outputs.append(classpath_args_output)
+        extra_outputs = [classpath_args_output]
 
     fat_jar_cmd = cmd_args(args)
     fat_jar_cmd.hidden(jars, native_libs)
 
     ctx.actions.run(fat_jar_cmd, category = "fat_jar")
 
-    if generate_wrapper == False:
-        expect(
-            len(outputs) == 1,
-            "expected exactly one output when creating a fat jar",
+    if extension == "jar":
+        scrubbed_output = ctx.actions.declare_output("{}.jar".format(ctx.label.name))
+        ctx.actions.run(
+            cmd_args([java_toolchain.zip_scrubber, output, scrubbed_output.as_output()]),
+            category = "scrub_jar",
         )
+        outputs = [scrubbed_output] + extra_outputs
+    else:
+        outputs = [output] + extra_outputs
 
     # If `generate_wrapper` is not set then the result will contain only 1 item that represent fat jar artifact.
     # Else if `generate_wrapper` is set then the first item in the result list will be script or far jar, and the second one is for @classpath_args file
