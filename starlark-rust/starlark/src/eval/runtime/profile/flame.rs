@@ -28,6 +28,7 @@ use anyhow::Context;
 use gazebo::prelude::*;
 
 use crate as starlark;
+use crate::eval::runtime::profile::flamegraph::FlameGraphWriter;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::values::layout::pointer::RawPointer;
 use crate::values::Trace;
@@ -116,27 +117,23 @@ impl<'a> Stacks<'a> {
         }
     }
 
-    fn render_with_buffer(&self, writer: &mut impl Write, buffer: &mut String) -> io::Result<()> {
-        // Reuse the buffer to accumulate the stack name
-        let start_len = buffer.len();
-        if !buffer.is_empty() {
-            buffer.push(';')
-        }
-        buffer.push_str(self.name);
+    fn render_with_buffer(&self, writer: &mut FlameGraphWriter, stack: &mut Vec<&'a str>) {
+        stack.push(self.name);
         let count = self.time.to_duration().as_millis();
         if count > 0 {
-            writeln!(writer, "{} {}", buffer, count)?;
+            writer.write(stack.iter().copied(), count as u64);
         }
         for x in self.children.values() {
-            x.render_with_buffer(writer, buffer)?;
+            x.render_with_buffer(writer, stack);
         }
-        buffer.truncate(start_len);
-        Ok(())
+        stack.pop().unwrap();
     }
 
     fn render(&self, mut file: impl Write) -> io::Result<()> {
-        let mut buffer = String::new();
-        self.render_with_buffer(&mut file, &mut buffer)
+        let mut stack = Vec::new();
+        let mut writer = FlameGraphWriter::new();
+        self.render_with_buffer(&mut writer, &mut stack);
+        file.write_all(writer.finish().as_bytes())
     }
 }
 
