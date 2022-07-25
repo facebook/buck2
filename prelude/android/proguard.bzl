@@ -3,6 +3,8 @@ load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@fbcode//buck2/prelude/java/utils:java_utils.bzl", "get_path_separator")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 
+_UNSCRUBBED_JARS_DIR = "unscrubbed"
+
 ProguardOutput = record(
     jars = ["artifact"],
     proguard_configuration_output_file = ["artifact", None],
@@ -12,7 +14,7 @@ ProguardOutput = record(
 
 def _get_proguard_command_line_args(
         ctx: "context",
-        inputs_to_outputs: {"artifact": "artifact"},
+        inputs_to_unscrubbed_outputs: {"artifact": "artifact"},
         proguard_configs: ["artifact"],
         mapping: "artifact",
         configuration: ["artifact", None],
@@ -35,7 +37,7 @@ def _get_proguard_command_line_args(
         cmd.add("-include")
         cmd.add(cmd_args("\"", proguard_config, "\"", delimiter = ""))
 
-    for jar_input, jar_output in inputs_to_outputs.items():
+    for jar_input, jar_output in inputs_to_unscrubbed_outputs.items():
         cmd.add("-injar", jar_input, "-outjar", jar_output if jar_output == jar_input else jar_output.as_output())
 
     cmd.add("-library")
@@ -85,14 +87,14 @@ def get_proguard_output(
         proguard_configs.append(aapt_generated_proguard_config)
 
     if ctx.attrs.skip_proguard:
-        inputs_to_outputs = {input_jar: input_jar for input_jar in input_jars}
+        inputs_to_unscrubbed_outputs = {input_jar: input_jar for input_jar in input_jars}
         mapping = ctx.actions.write("proguard/mapping.txt", [])
         configuration = None
         seeds = None
         usage = None
     else:
-        inputs_to_outputs = {input_jar: ctx.actions.declare_output(
-            "proguard_output_jars/{}_{}_obfuscated.jar".format(input_jar.short_path, i),
+        inputs_to_unscrubbed_outputs = {input_jar: ctx.actions.declare_output(
+            "proguard_output_jars/{}/{}_{}_obfuscated.jar".format(_UNSCRUBBED_JARS_DIR, input_jar.short_path, i),
         ) for i, input_jar in enumerate(input_jars)}
         mapping = ctx.actions.declare_output("proguard/mapping.txt")
         configuration = ctx.actions.declare_output("proguard/configuration.txt")
@@ -101,7 +103,7 @@ def get_proguard_output(
 
     command_line_args = _get_proguard_command_line_args(
         ctx,
-        inputs_to_outputs,
+        inputs_to_unscrubbed_outputs,
         proguard_configs,
         mapping,
         configuration,
@@ -120,7 +122,7 @@ def get_proguard_output(
             proguard_artifacts = [command_line_args_file, mapping],
         )
     else:
-        output_jars = inputs_to_outputs.values()
+        unscrubbed_output_jars = inputs_to_unscrubbed_outputs.values()
         run_proguard(
             ctx,
             ctx.attrs._android_toolchain[AndroidToolchainInfo],
@@ -128,6 +130,16 @@ def get_proguard_output(
             command_line_args_file,
             command_line_args,
         )
+        output_jars = []
+        for i, unscrubbed_jar in enumerate(unscrubbed_output_jars):
+            output = ctx.actions.declare_output(unscrubbed_jar.short_path.replace("{}/".format(_UNSCRUBBED_JARS_DIR), ""))
+            ctx.actions.run(
+                cmd_args([ctx.attrs._java_toolchain[JavaToolchainInfo].zip_scrubber, unscrubbed_jar, output.as_output()]),
+                category = "scrub_jar",
+                identifier = str(i),
+            )
+            output_jars.append(output)
+
         return ProguardOutput(
             jars = output_jars,
             proguard_configuration_output_file = configuration,
