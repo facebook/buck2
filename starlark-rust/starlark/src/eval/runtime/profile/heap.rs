@@ -372,7 +372,6 @@ mod flame {
 
     /// A stack frame, its caller and the functions it called, and the allocations it made itself.
     struct StackFrameData {
-        caller: Option<StackFrame>,
         callees: HashMap<FunctionId, StackFrame>,
         allocs: HashMap<&'static str, StackFrameAllocations>,
     }
@@ -381,9 +380,8 @@ mod flame {
     struct StackFrame(Rc<RefCell<StackFrameData>>);
 
     impl StackFrame {
-        fn new(caller: impl Into<Option<StackFrame>>) -> Self {
+        fn new() -> Self {
             Self(Rc::new(RefCell::new(StackFrameData {
-                caller: caller.into(),
                 callees: Default::default(),
                 allocs: Default::default(),
             })))
@@ -393,18 +391,9 @@ mod flame {
         fn push(&self, function: FunctionId) -> Self {
             let mut this = self.0.borrow_mut();
 
-            let callee = this
-                .callees
-                .entry(function)
-                .or_insert_with(|| Self::new(self.dupe()));
+            let callee = this.callees.entry(function).or_insert_with(StackFrame::new);
 
             callee.dupe()
-        }
-
-        /// Exit the last stack frame.
-        fn pop(&self) -> Option<Self> {
-            let this = self.0.borrow();
-            this.caller.as_ref().duped()
         }
 
         /// Write this stack frame's data to a file in a format flamegraph.pl understands
@@ -435,20 +424,20 @@ mod flame {
     /// An accumulator for stack frames that lets us visit the heap.
     pub struct StackCollector {
         ids: FunctionIds,
-        current: Option<StackFrame>,
+        current: Vec<StackFrame>,
     }
 
     impl StackCollector {
         pub(crate) fn new() -> Self {
             Self {
                 ids: FunctionIds::default(),
-                current: Some(StackFrame::new(None)),
+                current: vec![StackFrame::new()],
             }
         }
 
         /// Write recursively to a file.
         pub(crate) fn write_to(&self, file: &mut impl Write) -> anyhow::Result<()> {
-            let current = self.current.as_ref().context("Popped the root frame")?;
+            let current = self.current.first().context("Popped the root frame")?;
             let mut writer = FlameGraphWriter::new();
             current.write(&mut writer, &mut vec![], &self.ids.invert());
             file.write_all(writer.finish().as_bytes())?;
@@ -458,7 +447,7 @@ mod flame {
 
     impl<'v> ArenaVisitor<'v> for StackCollector {
         fn regular_value(&mut self, value: Value<'v>) {
-            let frame = match self.current.as_ref() {
+            let frame = match self.current.last() {
                 Some(frame) => frame,
                 None => return,
             };
@@ -472,42 +461,19 @@ mod flame {
         }
 
         fn call_enter(&mut self, function: Value<'v>, _time: Instant) {
-            let frame = match self.current.as_ref() {
+            let frame = match self.current.last() {
                 Some(frame) => frame,
                 None => return,
             };
 
             // New frame, enter it.
             let id = self.ids.get_value(function);
-            self.current = Some(frame.push(id));
+            let new_frame = frame.push(id);
+            self.current.push(new_frame);
         }
 
         fn call_exit(&mut self, _time: Instant) {
-            let frame = match self.current.as_ref() {
-                Some(frame) => frame,
-                None => return,
-            };
-
-            self.current = frame.pop();
-        }
-    }
-
-    /// This needs a customized Drop since we have self-referential RCs. If we drop all the
-    /// caller fields then that lets the struct get freed.
-    impl Drop for StackCollector {
-        fn drop(&mut self) {
-            fn clear_caller(f: &StackFrame) {
-                let mut this = f.0.borrow_mut();
-                this.caller = None;
-
-                for callee in this.callees.values() {
-                    clear_caller(callee);
-                }
-            }
-
-            if let Some(frame) = self.current.as_ref() {
-                clear_caller(frame)
-            }
+            self.current.pop().unwrap();
         }
     }
 }
