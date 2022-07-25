@@ -30,6 +30,7 @@ use gazebo::prelude::*;
 use starlark_map::small_set::SmallSet;
 
 use crate::eval::runtime::profile::csv::CsvWriter;
+use crate::eval::runtime::profile::heap::flame::Stacks;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::values::layout::pointer::RawPointer;
 use crate::values::Heap;
@@ -162,11 +163,8 @@ impl HeapProfile {
     }
 
     fn write_flame_heap_profile_to(mut file: impl Write, heap: &Heap) -> anyhow::Result<()> {
-        let mut collector = flame::StackCollector::new();
-        unsafe {
-            heap.visit_arena(&mut collector);
-        }
-        collector.write_to(&mut file)?;
+        let stacks = Stacks::collect(heap);
+        stacks.write_to(&mut file)?;
         Ok(())
     }
 
@@ -434,15 +432,6 @@ mod flame {
                 current: vec![StackFrame::new()],
             }
         }
-
-        /// Write recursively to a file.
-        pub(crate) fn write_to(&self, file: &mut impl Write) -> anyhow::Result<()> {
-            let current = self.current.first().context("Popped the root frame")?;
-            let mut writer = FlameGraphWriter::new();
-            current.write(&mut writer, &mut vec![], &self.ids.invert());
-            file.write_all(writer.finish().as_bytes())?;
-            Ok(())
-        }
     }
 
     impl<'v> ArenaVisitor<'v> for StackCollector {
@@ -474,6 +463,34 @@ mod flame {
 
         fn call_exit(&mut self, _time: Instant) {
             self.current.pop().unwrap();
+        }
+    }
+
+    pub(crate) struct Stacks {
+        ids: FunctionIds,
+        root: StackFrame,
+    }
+
+    impl Stacks {
+        pub(crate) fn collect(heap: &Heap) -> Stacks {
+            let mut collector = StackCollector::new();
+            unsafe {
+                heap.visit_arena(&mut collector);
+            }
+            assert_eq!(1, collector.current.len());
+            Stacks {
+                ids: collector.ids,
+                root: collector.current.pop().unwrap(),
+            }
+        }
+
+        /// Write this out recursively to a file.
+        pub(crate) fn write_to(&self, file: &mut impl Write) -> anyhow::Result<()> {
+            let mut writer = FlameGraphWriter::new();
+            self.root
+                .write(&mut writer, &mut vec![], &self.ids.invert());
+            file.write_all(writer.finish().as_bytes())?;
+            Ok(())
         }
     }
 }
