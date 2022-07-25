@@ -21,12 +21,13 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs::File;
 use std::io::Write;
+use std::ops::AddAssign;
 use std::path::Path;
 use std::rc::Rc;
 use std::time::Instant;
 
 use anyhow::Context;
-use gazebo::prelude::*;
+use gazebo::dupe::Dupe;
 use starlark_map::small_set::SmallSet;
 
 use crate::eval::runtime::profile::csv::CsvWriter;
@@ -195,12 +196,12 @@ impl HeapProfile {
             mut info, mut ids, ..
         } = info;
         let totals = FuncInfo::merge(info.iter());
-        let mut columns: Vec<(&'static str, usize)> =
-            totals.alloc_counts.iter().map(|(k, v)| (*k, *v)).collect();
+        let mut columns: Vec<(&'static str, AllocCounts)> =
+            totals.alloc.iter().map(|(k, v)| (*k, *v)).collect();
         info[total_id.0] = totals;
         let mut info = info.iter().enumerate().collect::<Vec<_>>();
 
-        columns.sort_by_key(|x| -(x.1 as isize));
+        columns.sort_by_key(|x| -(x.1.count as isize));
         info.sort_by_key(|x| -(x.1.time.nanos as i128));
 
         let mut csv = CsvWriter::new(
@@ -221,7 +222,7 @@ impl HeapProfile {
         let blank = ids.get_string("");
         let un_ids = ids.invert();
         for (rowname, info) in info {
-            let allocs = info.alloc_counts.values().sum::<usize>();
+            let allocs = info.alloc.values().map(|a| a.count).sum::<usize>();
             let callers = info
                 .callers
                 .iter()
@@ -242,12 +243,26 @@ impl HeapProfile {
             csv.write_value(callers.1);
             csv.write_value(allocs);
             for c in &columns {
-                csv.write_value(info.alloc_counts.get(c.0).unwrap_or(&0));
+                csv.write_value(info.alloc.get(c.0).unwrap_or(&AllocCounts::default()).count);
             }
             csv.finish_row();
         }
         file.write_all(csv.finish().as_bytes())?;
         Ok(())
+    }
+}
+
+/// Allocations counters.
+#[derive(Default, Copy, Clone, Dupe, Debug)]
+struct AllocCounts {
+    bytes: usize,
+    count: usize,
+}
+
+impl AddAssign for AllocCounts {
+    fn add_assign(&mut self, other: AllocCounts) {
+        self.bytes += other.bytes;
+        self.count += other.count;
     }
 }
 
@@ -268,7 +283,7 @@ mod summary {
         /// Time spent directly in this function and recursive functions.
         pub time_rec: SmallDuration,
         /// Allocations made by this function
-        pub alloc_counts: HashMap<&'static str, usize>,
+        pub alloc: HashMap<&'static str, AllocCounts>,
     }
 
     impl FuncInfo {
@@ -277,8 +292,8 @@ mod summary {
             for x in xs {
                 result.calls += x.calls;
                 result.time += x.time;
-                for (k, v) in x.alloc_counts.iter() {
-                    *result.alloc_counts.entry(k).or_insert(0) += v;
+                for (k, v) in x.alloc.iter() {
+                    *result.alloc.entry(k).or_insert_with(AllocCounts::default) += *v;
                 }
             }
             // Recursive time doesn't accumulate nicely, the time is the right value
@@ -333,7 +348,10 @@ mod summary {
     impl<'v> ArenaVisitor<'v> for Info {
         fn regular_value(&mut self, x: Value<'v>) {
             let typ = x.get_ref().get_type();
-            *self.top_info().alloc_counts.entry(typ).or_insert(0) += 1;
+            *self.top_info().alloc.entry(typ).or_default() += AllocCounts {
+                bytes: x.get_ref().total_memory(),
+                count: 1,
+            };
         }
 
         fn call_enter(&mut self, function: Value<'v>, time: Instant) {
@@ -361,17 +379,10 @@ mod flame {
     use crate::eval::runtime::profile::flamegraph::FlameGraphWriter;
     use crate::values::layout::heap::arena::ArenaVisitor;
 
-    /// Allocations made in a given stack frame for a given type.
-    #[derive(Default)]
-    struct StackFrameAllocations {
-        bytes: usize,
-        count: usize,
-    }
-
     /// A stack frame, its caller and the functions it called, and the allocations it made itself.
     struct StackFrameData {
         callees: HashMap<FunctionId, StackFrame>,
-        allocs: HashMap<&'static str, StackFrameAllocations>,
+        allocs: HashMap<&'static str, AllocCounts>,
         /// Time spent in this frame excluding callees.
         /// Double, because enter/exit are recorded twice, in drop and non-drop heaps.
         time_x2: SmallDuration,
@@ -612,8 +623,8 @@ _ignore = str([1])     # allocate a string in non_drop
 
         let total = FuncInfo::merge(info.info.iter());
         // from non-drop heap
-        assert_eq!(*total.alloc_counts.get("string").unwrap(), 1);
+        assert_eq!(total.alloc.get("string").unwrap().count, 1);
         // from drop heap
-        assert_eq!(*total.alloc_counts.get("dict").unwrap(), 1);
+        assert_eq!(total.alloc.get("dict").unwrap().count, 1);
     }
 }
