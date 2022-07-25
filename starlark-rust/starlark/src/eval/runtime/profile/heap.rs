@@ -27,6 +27,7 @@ use std::time::Instant;
 
 use anyhow::Context;
 use gazebo::prelude::*;
+use starlark_map::small_set::SmallSet;
 
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::small_duration::SmallDuration;
@@ -44,56 +45,59 @@ pub(crate) struct HeapProfile {
     enabled: bool,
 }
 
+/// Map strings to integers 0, 1, 2, ...
+#[derive(Default)]
+struct StringIndex {
+    strings: SmallSet<String>,
+}
+
+impl StringIndex {
+    fn index(&mut self, s: &str) -> usize {
+        if let Some(index) = self.strings.get_index_of(s) {
+            return index;
+        }
+
+        let inserted = self.strings.insert(s.to_owned());
+        assert!(inserted);
+        self.strings.len() - 1
+    }
+
+    fn get_all(&self) -> Vec<&str> {
+        self.strings.iter().map(|s| s.as_str()).collect()
+    }
+}
+
 #[derive(Copy, Clone, Dupe, Debug, Eq, PartialEq, Hash)]
-struct FunctionId(usize);
+struct FunctionId(
+    /// Index in strings index.
+    usize,
+);
 
 /// A mapping from function Value to FunctionId, which must be continuous
 #[derive(Default)]
 struct FunctionIds {
     values: HashMap<RawPointer, FunctionId>,
-    strings: HashMap<String, FunctionId>,
+    strings: StringIndex,
 }
 
 impl FunctionIds {
-    fn get_string(&mut self, x: String) -> FunctionId {
-        let next = FunctionId(self.strings.len());
-        match self.strings.entry(x) {
-            Entry::Occupied(inner) => *inner.get(),
-            Entry::Vacant(inner) => {
-                inner.insert(next);
-                next
-            }
-        }
+    fn get_string(&mut self, x: &str) -> FunctionId {
+        FunctionId(self.strings.index(x))
     }
 
     fn get_value(&mut self, x: Value) -> FunctionId {
-        let next = FunctionId(self.strings.len());
         match self.values.entry(x.ptr_value()) {
             Entry::Occupied(v) => *v.get(),
             Entry::Vacant(outer) => {
-                let s = x.to_str();
-                match self.strings.entry(s) {
-                    Entry::Occupied(inner) => {
-                        let res = *inner.get();
-                        outer.insert(res);
-                        res
-                    }
-                    Entry::Vacant(inner) => {
-                        inner.insert(next);
-                        outer.insert(next);
-                        next
-                    }
-                }
+                let function_id = FunctionId(self.strings.index(&x.to_str()));
+                outer.insert(function_id);
+                function_id
             }
         }
     }
 
     fn invert(&self) -> Vec<&str> {
-        let mut res = vec![""; self.strings.len()];
-        for (name, id) in &self.strings {
-            res[id.0] = name.as_str();
-        }
-        res
+        self.strings.get_all()
     }
 }
 
@@ -171,7 +175,7 @@ impl HeapProfile {
         use summary::Info;
 
         let mut ids = FunctionIds::default();
-        let root = ids.get_string("(root)".to_owned());
+        let root = ids.get_string("(root)");
         let start = Instant::now();
         let mut info = Info {
             ids,
@@ -187,7 +191,7 @@ impl HeapProfile {
         assert!(info.call_stack.len() == 1);
 
         // Add a totals column
-        let total_id = info.ids.get_string("TOTALS".to_owned());
+        let total_id = info.ids.get_string("TOTALS");
         info.ensure(total_id);
         let Info {
             mut info, mut ids, ..
@@ -216,7 +220,7 @@ impl HeapProfile {
             .copied()
             .chain(columns.iter().map(|c| c.0)),
         );
-        let blank = ids.get_string("".to_owned());
+        let blank = ids.get_string("");
         let un_ids = ids.invert();
         for (rowname, info) in info {
             let allocs = info.alloc_counts.values().sum::<usize>();
@@ -587,7 +591,7 @@ _ignore = str([1])     # allocate a string in non_drop
         eval.eval_module(ast, &globals).unwrap();
 
         let mut ids = FunctionIds::default();
-        let root = ids.get_string("(root)".to_owned());
+        let root = ids.get_string("(root)");
         let mut info = Info {
             ids,
             info: Vec::new(),
