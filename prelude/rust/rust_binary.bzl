@@ -1,4 +1,9 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
+load(
+    "@fbcode//buck2/prelude:resources.bzl",
+    "create_resource_db",
+    "gather_resources",
+)
 load("@fbcode//buck2/prelude/cxx:cxx_library_utility.bzl", "cxx_attr_deps")
 load("@fbcode//buck2/prelude/cxx:cxx_link_utility.bzl", "executable_shared_lib_arguments")
 load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
@@ -32,11 +37,6 @@ load(
     ":link_info.bzl",
     "attr_crate",
     "inherited_non_rust_shared_libs",
-)
-load(
-    ":resources.bzl",
-    "create_resource_db",
-    "gather_rust_resources",
 )
 load(":rust_toolchain.bzl", "ctx_toolchain_info")
 
@@ -80,7 +80,7 @@ def _rust_binary_common(
 
     linker_type = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info.type
 
-    resources = flatten_dict(gather_rust_resources(
+    resources = flatten_dict(gather_resources(
         label = ctx.label,
         resources = rust_attr_resources(ctx),
         deps = cxx_attr_deps(ctx),

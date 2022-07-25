@@ -1,14 +1,14 @@
 load("@fbcode//buck2/prelude:attributes.bzl", "RType")
+load(
+    "@fbcode//buck2/prelude:resources.bzl",
+    "gather_resources",
+)
 load("@fbcode//buck2/prelude/android:aapt2_link.bzl", "get_aapt2_link")
 load("@fbcode//buck2/prelude/android:android_manifest.bzl", "generate_android_manifest")
 load("@fbcode//buck2/prelude/android:android_providers.bzl", "AndroidBinaryResourcesInfo", "AndroidResourceInfo")
 load("@fbcode//buck2/prelude/android:android_resource.bzl", "aapt2_compile")
 load("@fbcode//buck2/prelude/android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@fbcode//buck2/prelude/android:r_dot_java.bzl", "generate_r_dot_java")
-load(
-    "@fbcode//buck2/prelude/cxx:resources.bzl",
-    "gather_cxx_resources",
-)
 load("@fbcode//buck2/prelude/java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@fbcode//buck2/prelude/utils:utils.bzl", "expect")
 
@@ -368,7 +368,7 @@ def get_effective_banned_duplicate_resource_types(
         fail("Unrecognized duplicate_resource_behavior: {}".format(duplicate_resource_behavior))
 
 def _get_cxx_resources(ctx: "context", deps: ["dependency"]) -> ["artifact", None]:
-    cxx_resources = gather_cxx_resources(
+    cxx_resources = gather_resources(
         label = ctx.label,
         resources = {},
         deps = deps,

@@ -1,4 +1,5 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
+load("@fbcode//buck2/prelude:resources.bzl", "gather_resources")
 load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load(
     "@fbcode//buck2/prelude/cxx:omnibus.bzl",
@@ -6,7 +7,6 @@ load(
     "add_omnibus_roots",
     "create_omnibus_libraries",
 )
-load("@fbcode//buck2/prelude/cxx:resources.bzl", "gather_cxx_resources")
 load(
     "@fbcode//buck2/prelude/linking:linkable_graph.bzl",
     "create_merged_linkable_graph",
@@ -114,7 +114,7 @@ def python_executable(
 
     all_resources = {}
     all_resources.update(resources)
-    for cxx_resources in gather_cxx_resources(ctx.label, deps = flatten(raw_deps)).values():
+    for cxx_resources in gather_resources(ctx.label, deps = flatten(raw_deps)).values():
         for name, resource in cxx_resources.items():
             all_resources[paths.join("__cxx_resources__", name)] = resource
 

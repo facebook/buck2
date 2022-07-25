@@ -1,14 +1,14 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
+load(
+    "@fbcode//buck2/prelude:resources.bzl",
+    "ResourceInfo",
+    "gather_resources",
+)
 load("@fbcode//buck2/prelude/cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load(
     "@fbcode//buck2/prelude/cxx:omnibus.bzl",
     "add_omnibus_exclusions",
     "add_omnibus_roots",
-)
-load(
-    "@fbcode//buck2/prelude/cxx:resources.bzl",
-    "CxxResourceInfo",
-    "gather_cxx_resources",
 )
 load(
     "@fbcode//buck2/prelude/linking:link_info.bzl",
@@ -290,7 +290,7 @@ def python_library_impl(ctx: "context") -> ["provider"]:
     providers.append(linkable_graph)
 
     # C++ resources.
-    providers.append(CxxResourceInfo(resources = gather_cxx_resources(
+    providers.append(ResourceInfo(resources = gather_resources(
         label = ctx.label,
         deps = flatten(raw_deps),
     )))

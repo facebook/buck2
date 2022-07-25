@@ -1,5 +1,10 @@
 load("@fbcode//buck2/prelude:paths.bzl", "paths")
 load(
+    "@fbcode//buck2/prelude:resources.bzl",
+    "ResourceInfo",
+    "gather_resources",
+)
+load(
     "@fbcode//buck2/prelude/apple:apple_frameworks.bzl",
     "build_link_args_with_deduped_framework_flags",
     "create_frameworks_linkable",
@@ -119,11 +124,6 @@ load(
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
     "cxx_private_preprocessor_info",
-)
-load(
-    ":resources.bzl",
-    "CxxResourceInfo",
-    "gather_cxx_resources",
 )
 
 # An output of a `cxx_library`, consisting of required `default` artifact and optional
@@ -421,7 +421,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
 
     # C++ resource.
     if impl_params.generate_providers.resources:
-        providers.append(CxxResourceInfo(resources = gather_cxx_resources(
+        providers.append(ResourceInfo(resources = gather_resources(
             label = ctx.label,
             resources = cxx_attr_resources(ctx),
             deps = non_exported_deps + exported_deps,

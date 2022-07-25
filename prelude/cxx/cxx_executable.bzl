@@ -1,5 +1,10 @@
 load("@fbcode//buck2/prelude:local_only.bzl", "link_cxx_binary_locally")
 load(
+    "@fbcode//buck2/prelude:resources.bzl",
+    "create_resource_db",
+    "gather_resources",
+)
+load(
     "@fbcode//buck2/prelude/apple:apple_frameworks.bzl",
     "build_link_args_with_deduped_framework_flags",
     "create_frameworks_linkable",
@@ -87,11 +92,6 @@ load(
     ":preprocessor.bzl",
     "cxx_inherited_preprocessor_infos",
     "cxx_private_preprocessor_info",
-)
-load(
-    ":resources.bzl",
-    "create_resource_db",
-    "gather_cxx_resources",
 )
 
 _CxxExecutableOutput = record(
@@ -257,13 +257,18 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     # If we have some resources, write it to the resources JSON file and add
     # it and all resources to "runtime_files" so that we make to materialize
     # them with the final binary.
-    resources = flatten_dict(gather_cxx_resources(
+    resources = flatten_dict(gather_resources(
         label = ctx.label,
         resources = cxx_attr_resources(ctx),
         deps = cxx_attr_deps(ctx),
     ).values())
     if resources:
-        runtime_files.append(create_resource_db(ctx, binary.output, resources))
+        runtime_files.append(create_resource_db(
+            ctx = ctx,
+            name = binary.output.basename + ".resources.json",
+            binary = binary.output,
+            resources = resources,
+        ))
         for resource, other in resources.values():
             runtime_files.append(resource)
             runtime_files.extend(other)

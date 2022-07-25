@@ -1,7 +1,7 @@
 load(
-    "@fbcode//buck2/prelude/cxx:resources.bzl",
-    "CxxResourceInfo",
-    "gather_cxx_resources",
+    "@fbcode//buck2/prelude:resources.bzl",
+    "ResourceInfo",
+    "gather_resources",
 )
 load("@fbcode//buck2/prelude/java:dex.bzl", "get_dex_produced_from_java_library")
 load("@fbcode//buck2/prelude/java:dex_toolchain.bzl", "DexToolchainInfo")
@@ -169,7 +169,7 @@ JavaProviders = record(
     java_library_intellij_info = JavaLibraryIntellijInfo.type,
     java_packaging_info = JavaPackagingInfo.type,
     shared_library_info = SharedLibraryInfo.type,
-    cxx_resource_info = CxxResourceInfo.type,
+    cxx_resource_info = ResourceInfo.type,
     template_placeholder_info = TemplatePlaceholderInfo.type,
     default_info = DefaultInfo.type,
 )
@@ -309,7 +309,7 @@ def _create_non_template_providers(
         runtime_deps: ["dependency"] = [],
         needs_desugar: bool.type = False,
         desugar_classpath: ["artifact"] = [],
-        is_prebuilt_jar: bool.type = False) -> (JavaLibraryInfo.type, JavaPackagingInfo.type, SharedLibraryInfo.type, CxxResourceInfo.type):
+        is_prebuilt_jar: bool.type = False) -> (JavaLibraryInfo.type, JavaPackagingInfo.type, SharedLibraryInfo.type, ResourceInfo.type):
     """Creates java library providers of type `JavaLibraryInfo` and `JavaPackagingInfo`.
 
     Args:
@@ -324,7 +324,7 @@ def _create_non_template_providers(
         ctx.actions,
         deps = filter_and_map_idx(SharedLibraryInfo, packaging_deps),
     )
-    cxx_resource_info = CxxResourceInfo(resources = gather_cxx_resources(
+    cxx_resource_info = ResourceInfo(resources = gather_resources(
         ctx.label,
         deps = packaging_deps,
     ))
@@ -365,7 +365,7 @@ def create_java_library_providers(
         exported_provided_deps: ["dependency"] = [],
         runtime_deps: ["dependency"] = [],
         needs_desugar: bool.type = False,
-        is_prebuilt_jar: bool.type = False) -> (JavaLibraryInfo.type, JavaPackagingInfo.type, SharedLibraryInfo.type, CxxResourceInfo.type, TemplatePlaceholderInfo.type, JavaLibraryIntellijInfo.type):
+        is_prebuilt_jar: bool.type = False) -> (JavaLibraryInfo.type, JavaPackagingInfo.type, SharedLibraryInfo.type, ResourceInfo.type, TemplatePlaceholderInfo.type, JavaLibraryIntellijInfo.type):
     first_order_classpath_deps = filter_and_map_idx(JavaLibraryInfo, declared_deps + exported_deps + runtime_deps)
     first_order_classpath_libs = [dep.output_for_classpath_macro for dep in first_order_classpath_deps]
 
