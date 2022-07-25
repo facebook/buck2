@@ -101,7 +101,7 @@ windows_platforms = execution_platform(
     name = "windows",
     base_platform = "ovr_config//platform/windows:x86_64-fbsource-debug",
     local_enabled = local_windows_execution,
-    remote_enabled = False,
+    remote_enabled = True,
     remote_execution_properties = {
         "platform": "windows",
     },
