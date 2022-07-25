@@ -375,6 +375,9 @@ mod flame {
         /// Time spent in this frame excluding callees.
         /// Double, because enter/exit are recorded twice, in drop and non-drop heaps.
         time_x2: SmallDuration,
+        /// How many times this function was called (with this stack).
+        /// Double.
+        calls_x2: u32,
     }
 
     #[derive(Clone, Dupe)]
@@ -386,6 +389,7 @@ mod flame {
                 callees: Default::default(),
                 allocs: Default::default(),
                 time_x2: SmallDuration::default(),
+                calls_x2: 0,
             })))
         }
 
@@ -460,6 +464,7 @@ mod flame {
             if let Some(last_time) = self.last_time {
                 self.current.last_mut().unwrap().0.borrow_mut().time_x2 +=
                     time.saturating_duration_since(last_time);
+                self.current.last_mut().unwrap().0.borrow_mut().calls_x2 += 1;
             }
 
             let frame = match self.current.last() {
