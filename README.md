@@ -52,7 +52,7 @@ To set up a Linux devserver run:
 ```shell
 fbclone fbcode --eden
 sudo feature install ttls_fwdproxy
-sudo dnf install elfutils-libelf-devel
+sudo dnf install elfutils-libelf-devel cmake
 
 mkdir -p "$HOME/.cargo"
 echo '[http]' >> "$HOME/.cargo/config"
