@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use std::cmp;
 use std::hash::Hash;
 use std::mem;
 use std::mem::ManuallyDrop;
@@ -25,6 +26,7 @@ use gazebo::any::AnyLifetime;
 use gazebo::dupe::Dupe;
 
 use crate::values::layout::avalue::AValue;
+use crate::values::layout::heap::arena::MIN_ALLOC;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::StarlarkValue;
@@ -111,6 +113,20 @@ impl AValueOrForward {
     pub(crate) unsafe fn unpack_header_unchecked(&self) -> &AValueHeader {
         debug_assert!(!self.is_forward());
         &self.header
+    }
+
+    /// Size of allocation for this object:
+    /// following object is allocated at `self + alloc_size + align up`.
+    pub(crate) fn alloc_size(&self) -> usize {
+        let n = match self.unpack() {
+            Either::Left(ptr) => ptr.unpack().memory_size(),
+            Either::Right(forward) => {
+                // Overwritten, so the next word will be the size of the memory
+                forward.object_size
+            }
+        };
+        let n = mem::size_of::<AValueHeader>() + n;
+        cmp::max(n, MIN_ALLOC)
     }
 }
 

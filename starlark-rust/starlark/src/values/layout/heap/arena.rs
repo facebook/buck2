@@ -60,7 +60,7 @@ use crate::values::ValueLike;
 
 /// Min size of allocated object including header.
 /// Should be able to fit `BlackHole` or forward.
-const MIN_ALLOC: usize = {
+pub(crate) const MIN_ALLOC: usize = {
     const fn max(a: usize, b: usize) -> usize {
         if a > b { a } else { b }
     }
@@ -274,18 +274,13 @@ impl Arena {
             let end = chunk.as_ptr().add(chunk.len());
             while p < end {
                 let or_forward = &*(p as *const AValueOrForward);
-                let n = match or_forward.unpack() {
-                    Either::Left(ptr) => {
+                match or_forward.unpack() {
+                    Either::Left(_ptr) => {
                         f(&or_forward.header);
-                        ptr.unpack().memory_size()
                     }
-                    Either::Right(forward) => {
-                        // Overwritten, so the next word will be the size of the memory
-                        forward.object_size
-                    }
+                    Either::Right(_forward) => {}
                 };
-                let n = mem::size_of::<AValueHeader>() + n;
-                let n = cmp::max(n, MIN_ALLOC);
+                let n = or_forward.alloc_size();
                 p = p.add(n);
                 // We know the alignment requirements will never be greater than AValuePtr
                 // since we check that in allocate_empty
