@@ -77,6 +77,8 @@ pub(crate) enum InstallError {
         path: AbsPathBuf,
         err: String,
     },
+    #[error("Installer failed for `{install_id}` with `{err}`")]
+    InternalInstallerFailure { install_id: String, err: String },
 }
 
 pub(crate) async fn install(
@@ -176,33 +178,9 @@ async fn build_install(
         // Current time seems to be 0m0.727s for run from buck2
         let client: InstallerClient<Channel> = connect_to_installer(filename.to_owned()).await?;
         let artifact_fs = ctx.get_artifact_fs().await?;
-
-        let mut files_map = HashMap::new();
-        for (file_name, artifact) in install_files {
-            let artifact_path = &artifact_fs.fs().resolve(&artifact_fs.resolve(artifact)?);
-            files_map
-                .entry((*file_name).to_owned())
-                .or_insert_with(|| artifact_path.to_string());
-        }
         let install_id = format!("{}", target_label);
-        let install_info_request = tonic::Request::new(InstallInfo {
-            install_id: install_id.to_owned(),
-            files: files_map,
-        });
-        let install_info_response = client
-            .clone()
-            .install(install_info_request)
-            .await?
-            .into_inner();
 
-        if install_info_response.install_id != install_id {
-            send_shutdown_command(client.clone(), &install_id).await?;
-            return Err(anyhow::anyhow!(
-                "Received install id: {} doesn't match with the sent one: {}",
-                install_info_response.install_id,
-                &install_id
-            ));
-        }
+        send_install_info(client.clone(), &install_id, install_files, &artifact_fs).await?;
 
         let send_files_result = tokio_stream::wrappers::UnboundedReceiverStream::new(files_rx)
             .map(anyhow::Ok)
@@ -218,17 +196,68 @@ async fn build_install(
     anyhow::Ok(())
 }
 
+async fn send_install_info(
+    mut client: InstallerClient<Channel>,
+    install_id: &str,
+    install_files: &IndexMap<&str, Artifact>,
+    artifact_fs: &ArtifactFs,
+) -> anyhow::Result<()> {
+    let mut files_map = HashMap::new();
+    for (file_name, artifact) in install_files {
+        let artifact_path = &artifact_fs.fs().resolve(&artifact_fs.resolve(artifact)?);
+        files_map
+            .entry((*file_name).to_owned())
+            .or_insert_with(|| artifact_path.to_string());
+    }
+
+    let install_info_request = tonic::Request::new(InstallInfo {
+        install_id: install_id.to_owned(),
+        files: files_map,
+    });
+
+    let response_result = client.install(install_info_request).await;
+
+    let install_info_response = match response_result {
+        Ok(r) => r.into_inner(),
+        Err(status) => {
+            return Err(InstallError::InternalInstallerFailure {
+                install_id: install_id.to_owned(),
+                err: status.message().to_owned(),
+            }
+            .into());
+        }
+    };
+
+    if install_info_response.install_id != install_id {
+        send_shutdown_command(client.clone(), install_id).await?;
+        return Err(anyhow::anyhow!(
+            "Received install id: {} doesn't match with the sent one: {}",
+            install_info_response.install_id,
+            &install_id
+        ));
+    }
+
+    Ok(())
+}
+
 async fn send_shutdown_command(
-    client: InstallerClient<Channel>,
+    mut client: InstallerClient<Channel>,
     install_id: &str,
 ) -> anyhow::Result<()> {
-    client
-        .clone()
+    let response_result = client
         .shutdown_server(tonic::Request::new(Shutdown {
             install_id: install_id.to_owned(),
         }))
-        .await?;
-    Ok(())
+        .await;
+
+    return match response_result {
+        Ok(_) => Ok(()),
+        Err(status) => Err(InstallError::InternalInstallerFailure {
+            install_id: install_id.to_owned(),
+            err: status.message().to_owned(),
+        }
+        .into()),
+    };
 }
 
 async fn build_launch_installer(
@@ -406,7 +435,18 @@ async fn send_file(
         sha1: sha1.to_owned(),
         path: path.to_string(),
     });
-    let response = client.file_ready_request(request).await?.into_inner();
+    let response_result = client.file_ready_request(request).await;
+    let response = match response_result {
+        Ok(r) => r.into_inner(),
+        Err(status) => {
+            return Err(InstallError::InstallerFailure {
+                artifact: name,
+                path: path.to_owned(),
+                err: status.message().to_owned(),
+            }
+            .into());
+        }
+    };
 
     if response.install_id != install_id {
         return Err(InstallError::InstallerFailure {
