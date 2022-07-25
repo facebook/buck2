@@ -13,6 +13,9 @@ with zipfile.ZipFile(sys.argv[1], "r") as jar_file:
     class_files_found = False
     found_count = 0
     for zip_info in jar_file.infolist():
+        if zip_info.date_time != (1985, 2, 1, 0, 0, 0):
+            raise Exception("Jar has not been scrubbed!")
+
         file_name = zip_info.filename
         if file_name.endswith(".java"):
             raise Exception(

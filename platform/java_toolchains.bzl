@@ -33,6 +33,7 @@ def config_backed_java_toolchain(
     kwargs["jar"] = "fbsource//third-party/toolchains/jdk:jar"
     kwargs["java"] = "fbsource//third-party/toolchains/jdk:java"
     kwargs["fallback_javac"] = "fbsource//third-party/toolchains/jdk:javac"
+    kwargs["zip_scrubber"] = "buck//src/com/facebook/buck/util/zip:zip_scrubber_main_jar"
 
     # Now pull in values from config (overriding defaults).
     sections = ["java", "tools"]
@@ -112,6 +113,7 @@ def _config_backed_java_toolchain_rule_impl(ctx):
             src_root_elements = src_root_elements,
             src_root_prefixes = src_root_prefixes,
             target_level = ctx.attrs.target_level,
+            zip_scrubber = RunInfo(cmd_args([ctx.attrs.java[RunInfo], "-jar", ctx.attrs.zip_scrubber])),
             is_bootstrap_toolchain = ctx.attrs.is_bootstrap_toolchain,
         ),
     ]
@@ -138,6 +140,7 @@ _config_backed_java_toolchain_rule = rule(
         "src_dir_helper": attrs.dep(),
         "src_roots": attrs.list(attrs.string()),
         "target_level": attrs.string(),
+        "zip_scrubber": attrs.source(),
     },
     impl = _config_backed_java_toolchain_rule_impl,
 )

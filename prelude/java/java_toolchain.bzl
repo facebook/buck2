@@ -32,6 +32,7 @@ JavaToolchainInfo = provider(
         "src_root_elements",
         "src_root_prefixes",
         "target_level",
+        "zip_scrubber",
         "is_bootstrap_toolchain",
     ],
 )
