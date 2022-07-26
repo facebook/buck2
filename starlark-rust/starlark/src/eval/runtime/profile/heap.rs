@@ -87,8 +87,7 @@ impl HeapProfile {
         use summary::Info;
 
         let stacks = Stacks::collect(heap, None);
-        let mut info = Info { info: Vec::new() };
-        info.init(&stacks);
+        let mut info = Info::init(&stacks);
 
         // Add a totals column
         let total_id = stacks.totals_id;
@@ -208,8 +207,10 @@ mod summary {
             &mut self.info[x.0]
         }
 
-        pub(crate) fn init(&mut self, stacks: &Stacks) {
-            self.init_children(&stacks.root, stacks.root_id);
+        pub(crate) fn init(stacks: &Stacks) -> Info {
+            let mut info = Info { info: Vec::new() };
+            info.init_children(&stacks.root, stacks.root_id);
+            info
         }
 
         fn init_children(&mut self, frame: &StackFrame, name: FunctionId) -> SmallDuration {
@@ -320,8 +321,7 @@ _ignore = str([1])     # allocate a string in non_drop
 
         let stacks = Stacks::collect(eval.heap(), None);
 
-        let mut info = Info { info: Vec::new() };
-        info.init(&stacks);
+        let info = Info::init(&stacks);
 
         let total = FuncInfo::merge(info.info.iter());
         // from non-drop heap
