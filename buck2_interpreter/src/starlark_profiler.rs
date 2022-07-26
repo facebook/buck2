@@ -17,6 +17,12 @@ use starlark::environment::FrozenModule;
 use starlark::eval::Evaluator;
 use starlark::eval::ProfileMode;
 
+#[derive(Debug, thiserror::Error)]
+enum StarlarkProfilerError {
+    #[error("will_freeze field was initialized incorrectly (internal error)")]
+    IncorrectWillFreeze,
+}
+
 /// When profiling Starlark file, all dependencies of that file must be
 /// "instrumented" otherwise the profiler won't work.
 ///
@@ -87,6 +93,9 @@ impl StarlarkProfiler for Disabled {
 pub struct StarlarkProfilerImpl {
     profile_mode: ProfileMode,
     path: PathBuf,
+    /// Evaluation will freeze the module.
+    /// (And frozen module will be passed to `visit_frozen_module`).
+    will_freeze: bool,
 
     initialized_at: Option<Instant>,
     finalized_at: Option<Instant>,
@@ -94,10 +103,15 @@ pub struct StarlarkProfilerImpl {
 }
 
 impl StarlarkProfilerImpl {
-    pub fn new(profile_mode: ProfileMode, path: PathBuf) -> StarlarkProfilerImpl {
+    pub fn new(
+        profile_mode: ProfileMode,
+        path: PathBuf,
+        will_freeze: bool,
+    ) -> StarlarkProfilerImpl {
         Self {
             profile_mode,
             path,
+            will_freeze,
             initialized_at: None,
             finalized_at: None,
             total_allocated_bytes: None,
@@ -134,6 +148,9 @@ impl StarlarkProfiler for StarlarkProfilerImpl {
     }
 
     fn visit_frozen_module(&mut self, module: Option<&FrozenModule>) -> anyhow::Result<()> {
+        if self.will_freeze != module.is_some() {
+            return Err(StarlarkProfilerError::IncorrectWillFreeze.into());
+        }
         let total_allocated_bytes = module.map_or(0, |module| {
             module
                 .frozen_heap()

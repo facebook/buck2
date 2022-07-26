@@ -2261,14 +2261,22 @@ impl DaemonApi for BuckdServer {
                             .and_then(|profiler| profiler.dupe().into_profile_mode())
                             .context("Missing profile mode")?;
 
-                        let mut profiler = StarlarkProfilerImpl::new(profile_mode, output);
+                        let action = cli_proto::profile_request::Action::from_i32(req.action)
+                            .context("Invalid action")?;
+
+                        let will_freeze = match action {
+                            cli_proto::profile_request::Action::Loading => false,
+                            cli_proto::profile_request::Action::Analysis => true,
+                        };
+
+                        let mut profiler =
+                            StarlarkProfilerImpl::new(profile_mode, output, will_freeze);
 
                         generate_profile(
                             context,
                             req.context.context("Missing client context")?,
                             req.target_pattern.context("Missing target pattern")?,
-                            cli_proto::profile_request::Action::from_i32(req.action)
-                                .context("Invalid action")?,
+                            action,
                             &mut profiler,
                         )
                         .await?;
