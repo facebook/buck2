@@ -670,7 +670,7 @@ impl CellsAggregator {
             })
     }
 
-    /// Creates the 'CellResolver' from all the entries that was aggregated
+    /// Creates the 'CellResolver' from all the entries that were aggregated
     pub fn make_cell_resolver(&self) -> anyhow::Result<CellResolver> {
         let mut cell_mappings = HashMap::new();
         let mut cell_path_mappings = SequenceTrie::new();
