@@ -6,4 +6,4 @@ ignore=ignored
 
 [repositories]
 root = .
-fbcode = fbcode
+prelude = prelude

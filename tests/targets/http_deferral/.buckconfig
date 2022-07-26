@@ -3,7 +3,7 @@ name=TARGETS.fixture
 
 [repositories]
 root = .
-fbcode = fbcode
+prelude = prelude
 
 [buck2]
   materializations = deferred

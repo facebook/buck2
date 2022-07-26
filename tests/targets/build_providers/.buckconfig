@@ -3,4 +3,4 @@ name=TARGETS.fixture
 
 [repositories]
 root = .
-fbcode = fbcode
+prelude = prelude

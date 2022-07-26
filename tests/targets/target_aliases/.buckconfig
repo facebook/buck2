@@ -3,7 +3,7 @@ name=TARGETS.fixture
 
 [repositories]
 root = .
-fbcode = fbcode
+prelude = prelude
 
 [alias]
 alias = root//targets:target
