@@ -127,13 +127,8 @@ pub(crate) struct CommonOptions {
     )]
     isolation_dir: FileNameBuf,
 
-    #[clap(
-        env("DICE_DETECT_CYCLES_UNSTABLE"),
-        long,
-        hidden(true),
-        default_value = "DISABLED"
-    )]
-    detect_cycles: DetectCycles,
+    #[clap(env("DICE_DETECT_CYCLES_UNSTABLE"), long, hidden(true))]
+    detect_cycles: Option<DetectCycles>,
 
     /// How verbose buck should be while logging.
     /// Values:
@@ -320,7 +315,7 @@ pub(crate) enum CommandKind {
 pub(crate) struct CommandContext {
     init: fbinit::FacebookInit,
     paths: SharedResult<Paths>,
-    detect_cycles: DetectCycles,
+    detect_cycles: Option<DetectCycles>,
     replayer: Option<sync_wrapper::SyncWrapper<Replayer>>,
     verbosity: Verbosity,
     replay_speed: Option<f64>,

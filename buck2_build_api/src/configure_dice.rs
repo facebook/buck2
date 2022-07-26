@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use buck2_common::dice::data::SetIoProvider;
 use buck2_common::io::IoProvider;
+use buck2_common::legacy_configs::LegacyBuckConfig;
 use dice::cycles::DetectCycles;
 use dice::Dice;
 
@@ -21,10 +22,24 @@ use crate::bxl::calculation::BxlCalculationDyn;
 pub fn configure_dice_for_buck(
     io: Arc<dyn IoProvider>,
     bxl: &'static dyn BxlCalculationDyn,
-    detect_cycles: DetectCycles,
-) -> Arc<Dice> {
+    root_config: Option<&LegacyBuckConfig>,
+    detect_cycles: Option<DetectCycles>,
+) -> anyhow::Result<Arc<Dice>> {
     let mut dice = Dice::builder();
     dice.set_io_provider(io);
     dice.set(bxl);
-    dice.build(detect_cycles)
+
+    let detect_cycles = detect_cycles.map_or_else(
+        || {
+            root_config
+                .and_then(|c| {
+                    c.parse::<DetectCycles>("buck2", "detect_cycles")
+                        .transpose()
+                })
+                .unwrap_or(Ok(DetectCycles::Disabled))
+        },
+        Ok,
+    )?;
+
+    Ok(dice.build(detect_cycles))
 }

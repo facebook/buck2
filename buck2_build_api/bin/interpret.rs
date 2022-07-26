@@ -97,12 +97,8 @@ pub struct Opt {
     #[structopt(name = "TARGET_PATTERNS", help = "Patterns to interpret")]
     patterns: Vec<String>,
 
-    #[structopt(
-        long = "detect_cycles",
-        help = "detect cycles in dice. unstable",
-        default_value = "DISABLED"
-    )]
-    detect_cycles: DetectCycles,
+    #[structopt(long = "detect_cycles", help = "detect cycles in dice. unstable")]
+    detect_cycles: Option<DetectCycles>,
 
     #[structopt(
         long = "repeat",
@@ -236,13 +232,11 @@ fn main(fb: FacebookInit) -> ExitResult {
                 box TargetNamePrinter {}
             };
 
-            let io = buck2_common::io::create_io_provider(
-                fb,
-                Arc::new(fs.clone()),
-                legacy_configs.get(cells.root_cell()).ok(),
-            )?;
+            let root_config = legacy_configs.get(cells.root_cell()).ok();
+            let io = buck2_common::io::create_io_provider(fb, Arc::new(fs.clone()), root_config)?;
 
-            let dice = configure_dice_for_buck(io, &BxlCalculationNoBxl, opt.detect_cycles);
+            let dice =
+                configure_dice_for_buck(io, &BxlCalculationNoBxl, root_config, opt.detect_cycles)?;
             let dice_data = {
                 let mut data = DiceData::new();
                 data.set(EventDispatcher::null());

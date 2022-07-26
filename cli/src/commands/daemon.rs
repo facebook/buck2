@@ -68,7 +68,7 @@ pub(crate) struct DaemonCommand {
 pub(crate) async fn run_buckd(
     fb: fbinit::FacebookInit,
     paths: Paths,
-    detect_cycles: DetectCycles,
+    detect_cycles: Option<DetectCycles>,
     delegate: Box<dyn BuckdServerDelegate>,
 ) -> anyhow::Result<()> {
     let daemon_dir = paths.daemon_dir()?;
@@ -128,7 +128,7 @@ impl DaemonCommand {
         &self,
         fb: fbinit::FacebookInit,
         paths: Paths,
-        detect_cycles: DetectCycles,
+        detect_cycles: Option<DetectCycles>,
     ) -> anyhow::Result<()> {
         // Higher performance for jemalloc, recommended (but may not have any effect on Mac)
         // https://github.com/jemalloc/jemalloc/blob/dev/TUNING.md#notable-runtime-options-for-performance-tuning

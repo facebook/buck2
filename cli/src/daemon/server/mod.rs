@@ -185,7 +185,7 @@ pub(crate) struct DaemonState {
     data: AsyncOnceCell<SharedResult<Arc<DaemonStateData>>>,
 
     /// Whether to detect cycles in Dice
-    detect_cycles: DetectCycles,
+    detect_cycles: Option<DetectCycles>,
 }
 
 /// DaemonStateData is the main shared data across all commands. It's lazily initialized on
@@ -692,7 +692,7 @@ impl DaemonState {
     fn new(
         fb: fbinit::FacebookInit,
         paths: Paths,
-        detect_cycles: DetectCycles,
+        detect_cycles: Option<DetectCycles>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             fb,
@@ -707,7 +707,7 @@ impl DaemonState {
     async fn init_data(
         fb: fbinit::FacebookInit,
         paths: &Paths,
-        detect_cycles: DetectCycles,
+        detect_cycles: Option<DetectCycles>,
     ) -> anyhow::Result<Arc<DaemonStateData>> {
         let fs = ProjectFilesystem::new(paths.project_root().to_owned());
 
@@ -782,7 +782,12 @@ impl DaemonState {
             .unwrap_or(10000);
         let event_logging_data = Arc::new(EventLoggingData { buffer_size });
 
-        let dice = configure_dice_for_buck(io.dupe(), &BxlCalculationImpl, detect_cycles);
+        let dice = configure_dice_for_buck(
+            io.dupe(),
+            &BxlCalculationImpl,
+            Some(root_config),
+            detect_cycles,
+        )?;
         let ctx = dice.ctx();
         ctx.set_buck_out_path(Some(paths.buck_out_dir()));
         setup_interpreter_basic(&ctx, cells.dupe(), configuror, legacy_configs.dupe());
@@ -1048,7 +1053,7 @@ impl BuckdServer {
         fb: fbinit::FacebookInit,
         paths: Paths,
         delegate: Box<dyn BuckdServerDelegate>,
-        detect_cycles: DetectCycles,
+        detect_cycles: Option<DetectCycles>,
         process_info: DaemonProcessInfo,
         listener: I,
     ) -> anyhow::Result<()>
