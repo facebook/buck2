@@ -20,6 +20,9 @@
 use std::cell::RefCell;
 use std::collections::hash_map;
 use std::collections::HashMap;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Formatter;
 use std::ops::AddAssign;
 use std::rc::Rc;
 use std::time::Instant;
@@ -273,6 +276,12 @@ pub(crate) struct Stacks {
     pub(crate) root_id: FunctionId,
     /// String `""`. It is needed in heap summary output.
     pub(crate) blank_id: FunctionId,
+}
+
+impl Debug for Stacks {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Stacks").finish_non_exhaustive()
+    }
 }
 
 impl Stacks {

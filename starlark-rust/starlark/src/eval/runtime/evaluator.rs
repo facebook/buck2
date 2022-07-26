@@ -79,6 +79,8 @@ pub(crate) enum EvaluatorError {
     StmtProfilingNotEnabled,
     #[error("Can't call `write_flame_profile` unless you first call `enable_flame_profile`.")]
     FlameProfilingNotEnabled,
+    #[error("Retained memory profiling can be only obtained from `FrozenModule`")]
+    RetainedMemoryProfilingCannotBeObtainedFromEvaluator,
     #[error("Can't call `write_bc_profile` unless you first call `enable_bc_profile`.")]
     BcProfilingNotEnabled,
     #[error("Typecheck profiling not enabled")]
@@ -211,9 +213,18 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     /// it's better to run at most one profiler at a time.
     pub fn enable_profile(&mut self, mode: &ProfileMode) {
         match mode {
-            ProfileMode::HeapSummary | ProfileMode::HeapFlame => {
+            ProfileMode::HeapSummary
+            | ProfileMode::HeapFlame
+            | ProfileMode::HeapSummaryRetained
+            | ProfileMode::HeapFlameRetained => {
                 self.heap_profile.enable();
                 self.heap_or_flame_profile = true;
+                if matches!(
+                    mode,
+                    ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained
+                ) {
+                    self.module_env.enable_heap_profile();
+                }
                 // Disable GC because otherwise why lose the profile records, as we use the heap
                 // to store a complete list of what happened in linear order.
                 self.disable_gc = true;
@@ -259,7 +270,11 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             ProfileMode::Statement => {
                 self.before_stmt.instrument = true;
             }
-            ProfileMode::HeapSummary | ProfileMode::HeapFlame | ProfileMode::TimeFlame => {
+            ProfileMode::HeapSummary
+            | ProfileMode::HeapSummaryRetained
+            | ProfileMode::HeapFlame
+            | ProfileMode::HeapFlameRetained
+            | ProfileMode::TimeFlame => {
                 self.heap_or_flame_profile = true;
             }
             _ => {}
@@ -291,6 +306,9 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                 .heap_profile
                 .gen(self.heap(), HeapProfileFormat::FlameGraph)
                 .ok_or_else(|| EvaluatorError::HeapProfilingNotEnabled.into()),
+            ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained => {
+                Err(EvaluatorError::RetainedMemoryProfilingCannotBeObtainedFromEvaluator.into())
+            }
             ProfileMode::Statement => self
                 .stmt_profile
                 .gen()

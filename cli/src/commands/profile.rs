@@ -118,6 +118,9 @@ fn profile_mode_to_profile(mode: &ProfileMode) -> Profiler {
         ProfileMode::Bytecode => Profiler::Bytecode,
         ProfileMode::BytecodePairs => Profiler::BytecodePairs,
         ProfileMode::Typecheck => Profiler::Typecheck,
+        ProfileMode::HeapFlameRetained | ProfileMode::HeapSummaryRetained => {
+            unreachable!("used in the following diffs")
+        }
     }
 }
 

@@ -46,6 +46,8 @@ use crate::values::docs;
 use crate::values::docs::DocItem;
 use crate::values::docs::DocString;
 use crate::values::docs::DocStringKind;
+use crate::values::layout::heap::heap_type::HeapKind;
+use crate::values::layout::heap::stacks::Stacks;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
@@ -93,6 +95,9 @@ pub(crate) struct FrozenModuleData {
     pub(crate) names: FrozenNames,
     pub(crate) slots: FrozenSlots,
     docstring: Option<String>,
+    /// When heap profile enabled, this field stores retained memory info.
+    #[allow(dead_code)] // TODO(nga): use it somewhere.
+    stacks: Option<Stacks>,
 }
 
 /// Container for the documentation for a module
@@ -129,6 +134,8 @@ pub struct Module {
     eval_duration: Cell<Duration>,
     /// Field that can be used for any purpose you want.
     extra_value: Cell<Option<Value<'static>>>,
+    /// When true, heap profile is collected on freeze.
+    heap_profile_on_freeze: Cell<bool>,
 }
 
 impl FrozenModule {
@@ -264,7 +271,12 @@ impl Module {
             docstring: RefCell::new(None),
             eval_duration: Cell::new(Duration::ZERO),
             extra_value: Cell::new(None),
+            heap_profile_on_freeze: Cell::new(false),
         }
+    }
+
+    pub(crate) fn enable_heap_profile(&self) {
+        self.heap_profile_on_freeze.set(true);
     }
 
     /// Get the heap on which values are allocated by this module.
@@ -316,6 +328,7 @@ impl Module {
             docstring,
             eval_duration,
             extra_value: extra_v,
+            heap_profile_on_freeze,
         } = self;
         let _ = extra_v;
         let start = Instant::now();
@@ -325,10 +338,16 @@ impl Module {
         // they are used.
         let freezer = Freezer::new(frozen_heap);
         let slots = slots.freeze(&freezer)?;
+        let stacks = if heap_profile_on_freeze.get() {
+            Some(Stacks::collect(&heap, Some(HeapKind::Frozen)))
+        } else {
+            None
+        };
         let rest = FrozenModuleRef(Arc::new(FrozenModuleData {
             names: names.freeze(),
             slots,
             docstring: docstring.into_inner(),
+            stacks,
         }));
         let frozen_module_ref = freezer.heap.alloc_any(rest.dupe());
         for frozen_def in freezer.frozen_defs.borrow().as_slice() {

@@ -35,9 +35,13 @@ pub enum ProfileMode {
     /// performed by each function. Enabling this mode the side effect of disabling garbage-collection.
     /// This profiling mode is the recommended one.
     HeapSummary,
+    /// Like heap summary, but information about retained memory after module is frozen.
+    HeapSummaryRetained,
     /// Like heap profile, but writes output comparible with
     /// [flamegraph.pl](https://github.com/brendangregg/FlameGraph/blob/master/flamegraph.pl).
     HeapFlame,
+    /// Like heap flame, but information about retained memory after module is frozen.
+    HeapFlameRetained,
     /// The statement profile mode provides information about time spent in each statement.
     Statement,
     /// The bytecode profile mode provides information about bytecode instructions.
@@ -61,7 +65,9 @@ impl ProfileMode {
     fn name(&self) -> &str {
         match self {
             ProfileMode::HeapSummary => "heap-summary",
+            ProfileMode::HeapSummaryRetained => "heap-summary-retained",
             ProfileMode::HeapFlame => "heap-flame",
+            ProfileMode::HeapFlameRetained => "heap-flame-retained",
             ProfileMode::Statement => "statement",
             ProfileMode::Bytecode => "bytecode",
             ProfileMode::BytecodePairs => "bytecode-pairs",
