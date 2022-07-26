@@ -92,16 +92,29 @@ impl BuildInterpreterConfiguror {
 }
 
 // TODO(cjhopman): We need to figure out some other way to deal with this.
-pub fn prelude_path(_cells: &CellResolver) -> ImportPath {
-    facebook_only();
-    let prelude_cell = CellName::unchecked_new("fbcode".to_owned());
-    let prelude_file = CellRelativePathBuf::unchecked_new("buck2/prelude/prelude.bzl".to_owned());
+pub fn prelude_path(cells: &CellResolver) -> ImportPath {
+    let prelude_cell = CellName::unchecked_new("prelude".to_owned());
+    if cells.contains(&prelude_cell) {
+        let prelude_file = CellRelativePathBuf::unchecked_new("prelude.bzl".to_owned());
+        ImportPath::new(
+            CellPath::new(prelude_cell.clone(), prelude_file),
+            BuildFileCell::new(prelude_cell),
+        )
+        .unwrap()
+    } else {
+        // DEPRECATED: We want to require the prelude is in a prelude cell, or otherwise have no prelude.
+        //             We plan to eliminate the fbcode located prelude cell.
+        facebook_only();
+        let prelude_cell = CellName::unchecked_new("fbcode".to_owned());
+        let prelude_file =
+            CellRelativePathBuf::unchecked_new("buck2/prelude/prelude.bzl".to_owned());
 
-    ImportPath::new(
-        CellPath::new(prelude_cell.clone(), prelude_file),
-        BuildFileCell::new(prelude_cell),
-    )
-    .unwrap()
+        ImportPath::new(
+            CellPath::new(prelude_cell.clone(), prelude_file),
+            BuildFileCell::new(prelude_cell),
+        )
+        .unwrap()
+    }
 }
 
 pub fn configure_build_file_globals(globals_builder: &mut GlobalsBuilder) {
