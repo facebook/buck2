@@ -59,8 +59,8 @@ remote_execution_action_key_providers = [
 ]
 
 mac_platforms = execution_platform(
-    name = "macos",
-    base_platform = mac_execution_base_platforms["x86_64-fbsource"],
+    name = "macos-minimal",
+    base_platform = mac_execution_base_platforms["x86_64_minimal_xcode"],
     local_enabled = local_mac_execution,
     remote_enabled = remote_mac_execution,
     remote_execution_properties = {
@@ -71,8 +71,8 @@ mac_platforms = execution_platform(
     remote_execution_max_input_files_mebibytes = remote_execution_max_input_files_mebibytes,
     allow_hybrid_fallbacks_on_failure = allow_hybrid_fallbacks_on_failure,
 ) + execution_platform(
-    name = "macos-minimal",
-    base_platform = mac_execution_base_platforms["x86_64_minimal_xcode"],
+    name = "macos",
+    base_platform = mac_execution_base_platforms["x86_64-fbsource"],
     local_enabled = local_mac_execution,
     remote_enabled = remote_mac_execution,
     remote_execution_properties = {
