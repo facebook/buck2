@@ -19,28 +19,29 @@ _GO_PLATFORM = selects2.apply_n(
     lambda os, arch: "{}_{}".format(os, arch),
 )
 
-_GO_FBCODE_PKG = "fbcode//third-party-buck/{fbcode_platform}/tools/go"
+_GO_FBCODE_PKG_HOST = "fbcode//third-party-buck/{host_fbcode_platform}/tools/go"
+_GO_FBCODE_PKG_TARGET = "fbcode//third-party-buck/{target_fbcode_platform}/tools/go"
 
 def _go_pkg_tool(name, tool):
     return fbcode_toolchains.tool_wrapper(
         base_name = name + "-" + tool,
         exe = selects2.apply(
             _GO_PLATFORM,
-            lambda gp: _GO_FBCODE_PKG + ":pkg/tool/{}/{}".format(gp, tool),
+            lambda gp: _GO_FBCODE_PKG_HOST + ":pkg/tool/{}/{}".format(gp, tool),
         ),
     )
 
 def _go_bin_tool(name, tool):
     return fbcode_toolchains.tool_wrapper(
         base_name = name + "-" + tool,
-        exe = _GO_FBCODE_PKG + ":bin/{}".format(tool),
+        exe = _GO_FBCODE_PKG_HOST + ":bin/{}".format(tool),
     )
 
 def _go_root():
     return fbcode_toolchains.fmt(
         selects2.apply(
             _GO_PLATFORM,
-            lambda gp: "{}:goroot-{}".format(_GO_FBCODE_PKG, gp),
+            lambda gp: "{}:goroot-{}".format(_GO_FBCODE_PKG_TARGET, gp),
         ),
     )
 
@@ -54,7 +55,7 @@ def go_fbcode_toolchain(name, assembler_flags = [], **kwargs):
         assembler = _go_pkg_tool(name, "asm"),
         assembler_flags = fbcode_toolchains.fmtl([
             "-I",
-            "$(location {}:pkg/include)".format(_GO_FBCODE_PKG),
+            "$(location {}:pkg/include)".format(_GO_FBCODE_PKG_TARGET),
         ]) + assembler_flags,
         compiler = _go_pkg_tool(name, "compile"),
         go = _go_bin_tool(name, "go"),
