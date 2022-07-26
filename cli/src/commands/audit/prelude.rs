@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_build_api::interpreter::context::prelude_path;
+use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::*;
 use buck2_interpreter::common::StarlarkModulePath;
 use buck2_interpreter::dice::HasCalculationDelegate;
@@ -43,7 +44,8 @@ impl AuditSubcommand for AuditPreludeCommand {
         let mut stdout = server_ctx.stdout()?;
         // Print out all the Prelude-like stuff that is loaded into each module
         let global_interpreter_state = ctx.get_global_interpreter_state().await?;
-        let prelude_path = prelude_path();
+        let cells = ctx.get_cell_resolver().await?;
+        let prelude_path = prelude_path(&cells);
         let interpreter_calculation = ctx
             .get_interpreter_calculator(prelude_path.cell(), prelude_path.build_file_cell())
             .await?;

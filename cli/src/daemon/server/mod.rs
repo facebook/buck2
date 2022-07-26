@@ -547,12 +547,14 @@ impl ServerCommandContext {
 
         let fs = self.file_system();
         let cwd = &self.working_dir;
+        let (cell_resolver, legacy_configs) =
+            parse_legacy_cells(self.config_overrides.iter(), &fs.resolve(cwd), &fs)?;
         // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
         // just be setting the config overrides and host platform override as leaves on the graph.
         let (interpreter_platform, interpreter_architecture) =
             get_host_info(self.host_platform_override);
         let configuror = BuildInterpreterConfiguror::new(
-            Some(prelude_path()),
+            Some(prelude_path(&cell_resolver)),
             interpreter_platform,
             interpreter_architecture,
             self.record_target_call_stacks,
@@ -560,8 +562,6 @@ impl ServerCommandContext {
             configure_extension_file_globals,
             configure_bxl_file_globals,
         );
-        let (cell_resolver, legacy_configs) =
-            parse_legacy_cells(self.config_overrides.iter(), &fs.resolve(cwd), &fs)?;
 
         let re_global_knobs = {
             let root_config = legacy_configs
@@ -722,7 +722,7 @@ impl DaemonState {
             .collect::<anyhow::Result<_>>()?;
 
         let configuror = BuildInterpreterConfiguror::new(
-            Some(prelude_path()),
+            Some(prelude_path(&cells)),
             InterpreterHostPlatform::Linux,
             InterpreterHostArchitecture::X86_64,
             false,

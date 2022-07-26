@@ -255,7 +255,7 @@ fn main(fb: FacebookInit) -> ExitResult {
             });
 
             let configuror = BuildInterpreterConfiguror::new(
-                Some(prelude_path()),
+                Some(prelude_path(&cells)),
                 InterpreterHostPlatform::Linux,
                 InterpreterHostArchitecture::X86_64,
                 false,

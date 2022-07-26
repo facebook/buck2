@@ -20,6 +20,7 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellName;
+use buck2_core::cells::CellResolver;
 use buck2_core::facebook_only;
 use buck2_core::fs::paths::FileName;
 use buck2_interpreter::common::StarlarkPath;
@@ -92,7 +93,7 @@ impl BuildInterpreterConfiguror {
 }
 
 // TODO(cjhopman): We need to figure out some other way to deal with this.
-pub fn prelude_path() -> ImportPath {
+pub fn prelude_path(_cells: &CellResolver) -> ImportPath {
     facebook_only();
     let prelude_cell = CellName::unchecked_new("fbcode".to_owned());
     let prelude_dir = CellRelativePath::unchecked_new("buck2/prelude");
