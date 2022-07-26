@@ -30,6 +30,7 @@ pub(crate) mod typecheck;
 
 /// How to profile starlark code.
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Dupe)]
+#[non_exhaustive]
 pub enum ProfileMode {
     /// The heap profile mode provides information about the time spent in each function and allocations
     /// performed by each function. Enabling this mode the side effect of disabling garbage-collection.
