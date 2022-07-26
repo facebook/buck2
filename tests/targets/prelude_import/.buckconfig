@@ -6,6 +6,6 @@ ignore=ignored
 
 [repositories]
 root = .
-fbcode = fbcode
+prelude = prelude
 cell1 = cell1
 cell2 = cell2

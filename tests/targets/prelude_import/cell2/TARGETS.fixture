@@ -1,4 +1,4 @@
-load("@fbcode//buck2/prelude:prelude.bzl", "check_config")
+load("@prelude//:prelude.bzl", "check_config")
 
 # This does not use check_config from the prelude, and instead loads it
 # explicitly. If we let the config of this build file be used when loading
