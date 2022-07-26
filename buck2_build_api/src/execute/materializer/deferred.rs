@@ -18,6 +18,8 @@ use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::result::SharedError;
+use buck2_common::result::SharedResult;
+use buck2_common::result::ToSharedResultExt;
 use buck2_core::directory::unordered_entry_walk;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::env_helper::EnvHelper;
@@ -140,7 +142,7 @@ struct DeferredMaterializerCommandProcessor {
 // NOTE: This doesn't derive `Error` and that's on purpose.  We don't want to make it easy (or
 // possible, in fact) to add  `context` to this SharedProcessingError and lose the variant.
 #[derive(Debug, Clone, Dupe)]
-enum SharedProcessingError {
+enum SharedMaterializingError {
     Error(SharedError),
     NotFound { info: Arc<CasDownloadInfo> },
 }
@@ -155,8 +157,8 @@ enum MaterializeEntryError {
     NotFound { info: Arc<CasDownloadInfo> },
 }
 
-impl From<MaterializeEntryError> for SharedProcessingError {
-    fn from(e: MaterializeEntryError) -> SharedProcessingError {
+impl From<MaterializeEntryError> for SharedMaterializingError {
+    fn from(e: MaterializeEntryError) -> SharedMaterializingError {
         match e {
             MaterializeEntryError::Error(e) => Self::Error(e.into()),
             MaterializeEntryError::NotFound { info } => Self::NotFound { info },
@@ -164,8 +166,16 @@ impl From<MaterializeEntryError> for SharedProcessingError {
     }
 }
 
-/// A future that is doing work off of a separate task spawned by the materializer.
-type ProcessingFuture = Shared<BoxFuture<'static, Result<(), SharedProcessingError>>>;
+/// A future that is materializing on a separate task spawned by the materializer
+type MaterializingFuture = Shared<BoxFuture<'static, Result<(), SharedMaterializingError>>>;
+/// A future that is cleaning paths on a separate task spawned by the materializer
+type CleaningFuture = Shared<BoxFuture<'static, SharedResult<()>>>;
+
+#[derive(Clone)]
+enum ProcessingFuture {
+    Materializing(MaterializingFuture),
+    Cleaning(CleaningFuture),
+}
 
 /// Message taken by the `DeferredMaterializer`'s command loop.
 enum MaterializerCommand {
@@ -208,7 +218,7 @@ enum MaterializerCommand {
     MaterializationFinished {
         path: ProjectRelativePathBuf,
         version: u64,
-        result: Result<(), SharedProcessingError>,
+        result: Result<(), SharedMaterializingError>,
         has_deps: bool,
     },
 }
@@ -258,7 +268,7 @@ struct ArtifactMaterializationData {
     /// (for example, materializing or deleting). Any other future that needs to process
     /// this path would need to wait on the existing future to finish.
     /// TODO(scottcao): Turn this into a queue of pending futures.
-    pending_fut: Option<ProcessingFuture>,
+    processing_fut: Option<ProcessingFuture>,
 }
 
 enum ArtifactMaterializationStage {
@@ -548,8 +558,8 @@ impl DeferredMaterializerCommandProcessor {
                         // Always invalidate materializer state before actual deleting from filesystem
                         // so there will never be a moment where artifact is deleted but materializer
                         // thinks it still exists.
-                        let pending_fut = tree.remove(path.iter()).and_then(|tree| match tree {
-                            FileTree::Data(data) => data.pending_fut,
+                        let processing_fut = tree.remove(path.iter()).and_then(|tree| match tree {
+                            FileTree::Data(data) => data.processing_fut,
                             _ => None,
                         });
                         let data = box ArtifactMaterializationData {
@@ -557,11 +567,11 @@ impl DeferredMaterializerCommandProcessor {
                             method: Arc::new(*method),
                             stage: ArtifactMaterializationStage::Declared,
                             version: next_version,
-                            pending_fut: Some(clean_output_paths(
+                            processing_fut: Some(ProcessingFuture::Cleaning(clean_output_paths(
                                 self.io_executor.dupe(),
                                 path.clone(),
-                                pending_fut.clone(),
-                            )),
+                                processing_fut.clone(),
+                            ))),
                         };
                         next_version += 1;
                         tree.insert(path.iter().map(|f| f.to_owned()), data);
@@ -615,11 +625,11 @@ impl DeferredMaterializerCommandProcessor {
                 .materialize_artifact(tree, path.as_ref())
                 .map(move |fut| {
                     fut.map_err(move |e| match e {
-                        SharedProcessingError::Error(source) => MaterializationError::Error {
+                        SharedMaterializingError::Error(source) => MaterializationError::Error {
                             path,
                             source: source.into(),
                         },
-                        SharedProcessingError::NotFound { info } => {
+                        SharedMaterializingError::NotFound { info } => {
                             MaterializationError::NotFound { path, info }
                         }
                     })
@@ -663,7 +673,7 @@ impl DeferredMaterializerCommandProcessor {
         self: Arc<Self>,
         tree: &mut ArtifactTree,
         mut path: &ProjectRelativePath,
-    ) -> Option<ProcessingFuture> {
+    ) -> Option<MaterializingFuture> {
         // Get the data about the artifact, or return early if materializing/materialized
         let mut path_iter = path.iter();
         let data = match tree.prefix_get(&mut path_iter) {
@@ -682,38 +692,49 @@ impl DeferredMaterializerCommandProcessor {
                 .expect("Path iterator cannot cause us to rewind past the last parent");
         }
 
-        let entry =
-            match &data.stage {
-                ArtifactMaterializationStage::Materializing => {
-                    tracing::debug!("join existing future");
-                    return Some(data.pending_fut.clone().expect(
-                        "Artifact was materializing but no materialization future was found",
-                    ));
+        let cleaning_fut = match &data.processing_fut {
+            Some(ProcessingFuture::Cleaning(f)) => Some(f.clone()),
+            Some(ProcessingFuture::Materializing(f)) => {
+                tracing::debug!("join existing future");
+                return Some(f.clone());
+            }
+            None => None,
+        };
+
+        let entry = match &data.stage {
+            ArtifactMaterializationStage::Materializing => {
+                // TODO(scottcao): Since ProcessingEvent has enough information about whether we are
+                // materializing or not, we can refactor this code to be a little simpler by getting rid of
+                // the Materializing stage and always deferring to ProcessingEvent for whether we are
+                // actively cleaning/materializing.
+                tracing::debug!(
+                        path = %path,
+                        "processing_fut is not materializing but stage is still materializing. Shouldn't reach here");
+                return None;
+            }
+            ArtifactMaterializationStage::Declared => Some(data.value.entry().dupe()),
+            ArtifactMaterializationStage::Materialized { check_deps } => match check_deps {
+                true => None,
+                false => {
+                    tracing::debug!(
+                        path = %path,
+                        "already materialized, nothing to do"
+                    );
+                    return None;
                 }
-                ArtifactMaterializationStage::Declared => Some(data.value.entry().dupe()),
-                ArtifactMaterializationStage::Materialized { check_deps } => match check_deps {
-                    true => None,
-                    false => {
-                        tracing::debug!(
-                            path = %path,
-                            "already materialized, nothing to do"
-                        );
-                        return None;
-                    }
-                },
-            };
+            },
+        };
         let value = data.value.dupe();
         let deps = value.deps().duped();
         let method = data.method.dupe();
         let version = data.version;
-        let pending_fut = data.pending_fut.clone();
 
         tracing::debug!(
             method = %method,
             has_entry = entry.is_some(),
             has_deps = deps.is_some(),
             version = version,
-            deleting = pending_fut.is_some(),
+            cleaning = cleaning_fut.is_some(),
             "materialize artifact"
         );
 
@@ -747,11 +768,17 @@ impl DeferredMaterializerCommandProcessor {
             // Materialize the deps and this entry. This *must* happen in a try block because we
             // need to notity the materializer regardless of whether this succeeds or fails.
 
-            let res: Result<(), SharedProcessingError> = try {
+            let res: Result<(), SharedMaterializingError> = try {
                 // If there is an existing future trying to delete conflicting paths, we must wait for it
                 // to finish before we can start materialization.
-                if let Some(pending_fut) = pending_fut {
-                    pending_fut.await?;
+                if let Some(cleaning_fut) = cleaning_fut {
+                    cleaning_fut
+                        .await
+                        .with_context(|| format!(
+                            "Error waiting for a previous future to finish cleaning output path {}",
+                            &path_buf
+                        ))
+                        .map_err(|e| SharedMaterializingError::Error(e.into()))?;
                 };
 
                 // In case this is a local copy, we first need to materialize the
@@ -785,14 +812,14 @@ impl DeferredMaterializerCommandProcessor {
         })
         .map(|r| match r {
             Ok(r) => r,
-            Err(e) => Err(SharedProcessingError::Error(e.into())), // Turn the JoinError into a SharedError.
+            Err(e) => Err(SharedMaterializingError::Error(e.into())), // Turn the JoinError into a SharedError.
         })
         .boxed()
         .shared();
 
         let data = tree.prefix_get_mut(&mut path.iter()).unwrap();
         data.stage = ArtifactMaterializationStage::Materializing;
-        data.pending_fut = Some(task.clone());
+        data.processing_fut = Some(ProcessingFuture::Materializing(task.clone()));
 
         Some(task)
     }
@@ -1018,7 +1045,7 @@ impl ArtifactTree {
         &mut self,
         artifact_path: ProjectRelativePathBuf,
         version: u64,
-        result: Result<(), SharedProcessingError>,
+        result: Result<(), SharedMaterializingError>,
         has_deps: bool,
         io_executor: Arc<dyn BlockingExecutor>,
         next_version: u64,
@@ -1032,7 +1059,7 @@ impl ArtifactTree {
 
                 // We can only unset the future if version matches.
                 // Otherwise, we may be unsetting a different future from a newer version.
-                info.pending_fut = None;
+                info.processing_fut = None;
 
                 if result.is_err() {
                     tracing::debug!("transition to Declared");
@@ -1043,7 +1070,11 @@ impl ArtifactTree {
                     // so we need to delete anything at artifact_path before we ever retry materializing it.
                     // TODO(scottcao): Once command processor accepts an ArtifactTree instead of initializing one,
                     // add a test case to ensure this behavior.
-                    info.pending_fut = Some(clean_output_paths(io_executor, artifact_path, None));
+                    info.processing_fut = Some(ProcessingFuture::Cleaning(clean_output_paths(
+                        io_executor,
+                        artifact_path,
+                        None,
+                    )));
                     return;
                 }
 
@@ -1197,21 +1228,36 @@ fn maybe_tombstone_digest(digest: &FileDigest) -> anyhow::Result<&FileDigest> {
 fn clean_output_paths(
     io_executor: Arc<dyn BlockingExecutor>,
     path: ProjectRelativePathBuf,
-    pending_fut: Option<ProcessingFuture>,
-) -> ProcessingFuture {
+    processing_fut: Option<ProcessingFuture>,
+) -> CleaningFuture {
     tokio::task::spawn(async move {
-        if let Some(pending_fut) = pending_fut {
-            pending_fut.await?;
+        if let Some(processing_fut) = processing_fut {
+            match processing_fut {
+                ProcessingFuture::Materializing(f) => {
+                    // We don't care about errors from previous materializations.
+                    // We are trying to delete anything that has been materialized,
+                    // so these errors can be ignored.
+                    f.await.ok();
+                }
+                ProcessingFuture::Cleaning(f) => {
+                    f.await.with_context(|| {
+                        format!(
+                            "Error waiting for a previous future to finish cleaning output path {}",
+                            &path
+                        )
+                    })?;
+                }
+            };
         }
         io_executor
             .dupe()
             .execute_io(box CleanOutputPaths { paths: vec![path] })
             .await
-            .map_err(|e| SharedProcessingError::Error(e.into()))
+            .shared_error()
     })
     .map(|r| match r {
         Ok(r) => r,
-        Err(e) => Err(SharedProcessingError::Error(e.into())), // Turn the JoinError into a SharedError.
+        Err(e) => Err(e.into()), // Turn the JoinError into a SharedError.
     })
     .boxed()
     .shared()
