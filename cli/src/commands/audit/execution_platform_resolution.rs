@@ -12,6 +12,7 @@ use std::io::Write;
 use async_trait::async_trait;
 use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::calculation::Calculation;
+use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::configuration::Configuration;
 use buck2_core::pattern::TargetPattern;
 use cli_proto::ClientContext;
@@ -52,6 +53,7 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
         client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
         let ctx = server_ctx.dice_ctx().await?;
+        let cell_resolver = ctx.get_cell_resolver().await?;
 
         let pattern_parser = PatternParser::new(&ctx, &server_ctx.working_dir).await?;
 
@@ -78,8 +80,12 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
         }
 
         let loaded_patterns = load_patterns(&ctx, target_patterns).await?;
-        let target_platform =
-            target_platform_from_client_context(Some(&client_ctx), &server_ctx).await?;
+        let target_platform = target_platform_from_client_context(
+            Some(&client_ctx),
+            &cell_resolver,
+            &server_ctx.working_dir,
+        )
+        .await?;
 
         for (_, targets) in loaded_patterns.into_iter() {
             for (label, _) in targets? {

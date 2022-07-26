@@ -40,7 +40,8 @@ pub(crate) async fn generate_profile(
     let cells = ctx.get_cell_resolver().await?;
 
     let global_target_platform =
-        target_platform_from_client_context(Some(&client_ctx), &server_ctx).await?;
+        target_platform_from_client_context(Some(&client_ctx), &cells, &server_ctx.working_dir)
+            .await?;
 
     let parsed_patterns =
         parse_patterns_from_cli_args::<TargetPattern>(&[pattern], &ctx, &server_ctx.working_dir)

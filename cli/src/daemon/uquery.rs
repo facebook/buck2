@@ -38,8 +38,12 @@ pub(crate) async fn uquery(
         ..
     } = request;
 
-    let global_target_platform =
-        target_platform_from_client_context(context.as_ref(), &server_ctx).await?;
+    let global_target_platform = target_platform_from_client_context(
+        context.as_ref(),
+        &cell_resolver,
+        &server_ctx.working_dir,
+    )
+    .await?;
 
     let evaluator = get_uquery_evaluator(
         &ctx,

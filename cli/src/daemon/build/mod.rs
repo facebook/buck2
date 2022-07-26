@@ -92,12 +92,13 @@ pub(crate) async fn build(
 
     let build_opts = request.build_opts.expect("should have build options");
 
-    let global_target_platform =
-        target_platform_from_client_context(request.context.as_ref(), &server_ctx).await?;
-
     let ctx = server_ctx.dice_ctx().await?;
 
     let cell_resolver = ctx.get_cell_resolver().await?;
+
+    let global_target_platform =
+        target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd).await?;
+
     let should_create_unhashed_links = ctx
         .parse_legacy_config_property(cell_resolver.root_cell(), "buck2", "create_unhashed_links")
         .await?;

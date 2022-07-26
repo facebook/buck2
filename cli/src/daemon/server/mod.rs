@@ -521,12 +521,6 @@ impl ServerCommandContext {
         })
     }
 
-    /// Provides a DiceComputations. This may be missing some data or injected keys that
-    /// we normally expect. To get a full dice context, use a ServerCommandContext.
-    pub(crate) fn unsafe_dice_ctx(&self) -> DiceTransaction {
-        self.base_context.unsafe_dice_ctx()
-    }
-
     /// Provides a DiceTransaction, initialized on first use and shared after initialization.
     pub(crate) async fn dice_ctx(&self) -> SharedResult<DiceTransaction> {
         self.dice

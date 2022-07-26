@@ -283,11 +283,11 @@ pub(crate) async fn targets(
     let fs = server_ctx.file_system();
     let cwd = &server_ctx.working_dir;
 
-    let target_platform =
-        target_platform_from_client_context(request.context.as_ref(), &server_ctx).await?;
-
     let ctx = server_ctx.dice_ctx().await?;
     let cell_resolver = ctx.get_cell_resolver().await?;
+
+    let target_platform =
+        target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd).await?;
 
     let parsed_provider_patterns =
         parse_patterns_from_cli_args::<ProvidersPattern>(&request.target_patterns, &ctx, cwd)

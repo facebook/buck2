@@ -40,6 +40,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePath;
+use buck2_core::fs::project::ProjectRelativePathBuf;
 use buck2_core::package::Package;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternType;
@@ -62,8 +63,6 @@ use gazebo::prelude::*;
 use host_sharing::HostSharingBroker;
 use once_cell::sync::OnceCell;
 use thiserror::Error;
-
-use crate::daemon::server::ServerCommandContext;
 
 pub(crate) trait ToProtoDuration {
     fn to_proto(&self) -> prost_types::Duration;
@@ -185,13 +184,10 @@ pub fn parse_concurrency(requested: u32) -> anyhow::Result<usize> {
 /// Extract target configuration (platform) label from [`ClientContext`].
 pub(crate) async fn target_platform_from_client_context(
     client_context: Option<&ClientContext>,
-    server_ctx: &ServerCommandContext,
+    cell_resolver: &CellResolver,
+    working_dir: &ProjectRelativePathBuf,
 ) -> anyhow::Result<Option<TargetLabel>> {
-    // TODO(cjhopman): This shouldn't be getting a new dice_ctx. We should move this
-    // to be a function on the ServerCommandContext that takes in the CellResolver.
-    let dice_ctx = server_ctx.unsafe_dice_ctx();
-    let cell_resolver = dice_ctx.get_cell_resolver().await?;
-    let cwd = cell_resolver.get_cell_path(&server_ctx.working_dir)?;
+    let cwd = cell_resolver.get_cell_path(working_dir)?;
     let cell_alias_resolver = cell_resolver.get(cwd.cell()).unwrap().cell_alias_resolver();
 
     Ok(match client_context {

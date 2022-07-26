@@ -154,12 +154,11 @@ pub(crate) async fn test(
     request: TestRequest,
 ) -> anyhow::Result<TestResponse> {
     let cwd = &server_ctx.working_dir;
-
-    let global_target_platform =
-        target_platform_from_client_context(request.context.as_ref(), &server_ctx).await?;
-
     let ctx = server_ctx.dice_ctx().await?;
     let cell_resolver = ctx.get_cell_resolver().await?;
+
+    let global_target_platform =
+        target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd).await?;
 
     // Get the test runner from the config. Note that we use a different key from v1 since the API
     // is completely different, so there is not expectation that the same binary works for both.

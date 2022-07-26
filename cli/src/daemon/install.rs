@@ -91,12 +91,16 @@ pub(crate) async fn install(
     request: InstallRequest,
 ) -> anyhow::Result<InstallResponse> {
     let cwd = &server_ctx.working_dir;
-    let global_target_platform =
-        target_platform_from_client_context(request.context.as_ref(), &server_ctx).await?;
 
     let ctx = server_ctx.dice_ctx().await?;
-
     let cell_resolver = ctx.get_cell_resolver().await?;
+
+    let global_target_platform = target_platform_from_client_context(
+        request.context.as_ref(),
+        &cell_resolver,
+        &server_ctx.working_dir,
+    )
+    .await?;
 
     // Note <TargetName> does not return the providers
     let parsed_patterns =
