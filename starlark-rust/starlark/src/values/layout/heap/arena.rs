@@ -37,7 +37,6 @@ use std::slice;
 use std::time::Instant;
 
 use bumpalo::Bump;
-use either::Either;
 use gazebo::cast;
 use gazebo::prelude::*;
 
@@ -266,7 +265,7 @@ impl Arena {
         })
     }
 
-    fn iter_chunk<'a>(chunk: &'a [MaybeUninit<u8>], mut f: impl FnMut(&'a AValueHeader)) {
+    fn iter_chunk<'a>(chunk: &'a [MaybeUninit<u8>], mut f: impl FnMut(&'a AValueOrForward)) {
         unsafe {
             // We only allocate trait ptr then a payload immediately after
             // so find the first trait ptr, see how big it is, and keep skipping.
@@ -274,10 +273,7 @@ impl Arena {
             let end = chunk.as_ptr().add(chunk.len());
             while p < end {
                 let or_forward = &*(p as *const AValueOrForward);
-                match or_forward.unpack() {
-                    Either::Left(ptr) => f(ptr),
-                    Either::Right(_forward) => {}
-                };
+                f(or_forward);
                 let n = or_forward.alloc_size();
                 p = p.add(n);
                 // We know the alignment requirements will never be greater than AValuePtr
@@ -299,7 +295,11 @@ impl Arena {
             let mut buffer = Vec::new();
             for chunk in chunks.iter().rev() {
                 Self::iter_chunk(chunk, |x| buffer.push(x));
-                buffer.iter().rev().for_each(|x| f(*x));
+                for x in buffer.iter().rev() {
+                    if let Some(x) = x.unpack_header() {
+                        f(x);
+                    }
+                }
                 buffer.clear();
             }
         }
@@ -332,9 +332,13 @@ impl Arena {
 
     // Iterate over the values in the drop bump in any order
     pub fn for_each_drop_unordered<'a>(&'a mut self, mut f: impl FnMut(&'a AValueHeader)) {
-        self.drop
-            .iter_allocated_chunks()
-            .for_each(|chunk| Self::iter_chunk(chunk, &mut f))
+        for chunk in self.drop.iter_allocated_chunks() {
+            Self::iter_chunk(chunk, |x| {
+                if let Some(x) = x.unpack_header() {
+                    f(x);
+                }
+            })
+        }
     }
 
     // Iterate over the values in the both bumps in any order
@@ -343,7 +347,11 @@ impl Arena {
             // SAFE: We're consuming the iterator immediately and not allocating from the arena during.
             unsafe {
                 bump.iter_allocated_chunks_raw().for_each(|(data, len)| {
-                    Arena::iter_chunk(slice::from_raw_parts(data as *const _, len), &mut f)
+                    Arena::iter_chunk(slice::from_raw_parts(data as *const _, len), |x| {
+                        if let Some(x) = x.unpack_header() {
+                            f(x);
+                        }
+                    })
                 })
             }
         }

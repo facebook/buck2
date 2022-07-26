@@ -151,6 +151,10 @@ impl AValueOrForward {
         &self.header
     }
 
+    pub(crate) fn unpack_header(&self) -> Option<&AValueHeader> {
+        self.unpack().left()
+    }
+
     /// Size of allocation for this object:
     /// following object is allocated at `self + alloc_size + align up`.
     pub(crate) fn alloc_size(&self) -> usize {
