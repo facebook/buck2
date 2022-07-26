@@ -275,9 +275,7 @@ impl Arena {
             while p < end {
                 let or_forward = &*(p as *const AValueOrForward);
                 match or_forward.unpack() {
-                    Either::Left(_ptr) => {
-                        f(&or_forward.header);
-                    }
+                    Either::Left(ptr) => f(ptr),
                     Either::Right(_forward) => {}
                 };
                 let n = or_forward.alloc_size();
