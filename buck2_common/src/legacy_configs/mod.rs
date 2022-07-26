@@ -19,7 +19,6 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::fs;
 use std::io::prelude::*;
-use std::option::Option;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;

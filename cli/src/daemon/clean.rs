@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::option::Option;
 use std::sync::Arc;
 use std::sync::Mutex;
 
