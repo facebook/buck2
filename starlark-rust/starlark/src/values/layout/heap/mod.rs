@@ -22,3 +22,4 @@ pub(crate) mod call_enter_exit;
 mod fast_cell;
 pub(crate) mod heap_type;
 pub(crate) mod repr;
+pub(crate) mod stacks;
