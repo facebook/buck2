@@ -22,7 +22,6 @@ use std::iter;
 use gazebo::dupe::Dupe;
 
 use crate::eval::runtime::profile::csv::CsvWriter;
-use crate::values::layout::heap::stacks::AllocCounts;
 use crate::values::layout::heap::stacks::Stacks;
 use crate::values::Heap;
 use crate::values::Value;
@@ -84,68 +83,10 @@ impl HeapProfile {
     }
 
     fn write_summarized_heap_profile(heap: &Heap) -> String {
-        use summary::FuncInfo;
         use summary::Info;
 
         let stacks = Stacks::collect(heap, None);
-        let info = Info::init(&stacks);
-
-        // Add a totals column
-        let Info { info } = info;
-        let ids = stacks.ids;
-        let totals = FuncInfo::merge(info.iter());
-        let mut columns: Vec<(&'static str, AllocCounts)> =
-            totals.alloc.iter().map(|(k, v)| (*k, *v)).collect();
-        let mut info = info.iter().enumerate().collect::<Vec<_>>();
-
-        columns.sort_by_key(|x| -(x.1.count as isize));
-        info.sort_by_key(|x| -(x.1.time.nanos as i128));
-
-        let info = iter::once((stacks.totals_id.0, &totals)).chain(info);
-
-        let mut csv = CsvWriter::new(
-            [
-                "Function",
-                "Time(s)",
-                "TimeRec(s)",
-                "Calls",
-                "Callers",
-                "TopCaller",
-                "TopCallerCount",
-                "Allocs",
-            ]
-            .iter()
-            .copied()
-            .chain(columns.iter().map(|c| c.0)),
-        );
-        let un_ids = ids.invert();
-        for (rowname, info) in info {
-            let allocs = info.alloc.values().map(|a| a.count).sum::<usize>();
-            let callers = info
-                .callers
-                .iter()
-                .max_by_key(|x| x.1)
-                .unwrap_or((&stacks.blank_id, &0));
-            assert!(
-                info.calls % 2 == 0,
-                "we enter calls twice, for drop and non_drop"
-            );
-            // We divide calls and time by two
-            // because we could calls twice: for drop and non-drop bumps.
-            csv.write_value(un_ids[rowname]);
-            csv.write_value(info.time / 2);
-            csv.write_value(info.time_rec / 2);
-            csv.write_value(info.calls / 2);
-            csv.write_value(info.callers.len());
-            csv.write_value(un_ids[callers.0.0]);
-            csv.write_value(callers.1);
-            csv.write_value(allocs);
-            for c in &columns {
-                csv.write_value(info.alloc.get(c.0).unwrap_or(&AllocCounts::default()).count);
-            }
-            csv.finish_row();
-        }
-        csv.finish()
+        Info::init(&stacks).gen_csv(&stacks)
     }
 }
 
@@ -236,6 +177,65 @@ mod summary {
             let time_rec = frame.time_x2 + self.init_children(frame, func);
             self.ensure(func).time_rec += time_rec;
             time_rec
+        }
+
+        pub(crate) fn gen_csv(&self, stacks: &Stacks) -> String {
+            // Add a totals column
+            let Info { info } = self;
+            let ids = &stacks.ids;
+            let totals = FuncInfo::merge(info.iter());
+            let mut columns: Vec<(&'static str, AllocCounts)> =
+                totals.alloc.iter().map(|(k, v)| (*k, *v)).collect();
+            let mut info = info.iter().enumerate().collect::<Vec<_>>();
+
+            columns.sort_by_key(|x| -(x.1.count as isize));
+            info.sort_by_key(|x| -(x.1.time.nanos as i128));
+
+            let info = iter::once((stacks.totals_id.0, &totals)).chain(info);
+
+            let mut csv = CsvWriter::new(
+                [
+                    "Function",
+                    "Time(s)",
+                    "TimeRec(s)",
+                    "Calls",
+                    "Callers",
+                    "TopCaller",
+                    "TopCallerCount",
+                    "Allocs",
+                ]
+                .iter()
+                .copied()
+                .chain(columns.iter().map(|c| c.0)),
+            );
+            let un_ids = ids.invert();
+            for (rowname, info) in info {
+                let allocs = info.alloc.values().map(|a| a.count).sum::<usize>();
+                let callers = info
+                    .callers
+                    .iter()
+                    .max_by_key(|x| x.1)
+                    .unwrap_or((&stacks.blank_id, &0));
+                assert!(
+                    info.calls % 2 == 0,
+                    "we enter calls twice, for drop and non_drop"
+                );
+                // We divide calls and time by two
+                // because we could calls twice: for drop and non-drop bumps.
+                csv.write_value(un_ids[rowname]);
+                csv.write_value(info.time / 2);
+                csv.write_value(info.time_rec / 2);
+                csv.write_value(info.calls / 2);
+                csv.write_value(info.callers.len());
+                csv.write_value(un_ids[callers.0.0]);
+                csv.write_value(callers.1);
+                csv.write_value(allocs);
+                for c in &columns {
+                    csv.write_value(info.alloc.get(c.0).unwrap_or(&AllocCounts::default()).count);
+                }
+                csv.finish_row();
+            }
+            csv.finish()
         }
     }
 }
