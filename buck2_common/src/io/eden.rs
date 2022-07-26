@@ -14,11 +14,11 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_core;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::project::ProjectFilesystem;
 use buck2_core::fs::project::ProjectRelativePath;
 use buck2_core::fs::project::ProjectRelativePathBuf;
-use buck2_core::{self};
 use derivative::Derivative;
 use edenfs::types::Dtype;
 use edenfs::types::EdenErrorType;

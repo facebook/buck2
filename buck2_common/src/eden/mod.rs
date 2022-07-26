@@ -16,9 +16,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context as _;
+use buck2_core;
 use buck2_core::fs::anyhow as fs;
 use buck2_core::fs::paths::AbsPathBuf;
-use buck2_core::{self};
 use edenfs::client::EdenService;
 use edenfs::errors::eden_service::ListMountsError;
 use edenfs::types::MountState;
