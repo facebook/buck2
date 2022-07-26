@@ -118,6 +118,7 @@ use gazebo::dupe::Dupe;
 use gazebo::prelude::*;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingStrategy;
+use itertools::Itertools;
 use more_futures::drop::DropTogether;
 use more_futures::spawn::spawn_dropcancel;
 use once_cell::sync::Lazy;
@@ -243,7 +244,18 @@ struct ActiveCommandDropGuard {
 
 impl ActiveCommandDropGuard {
     fn new(trace_id: TraceId) -> Self {
-        ACTIVE_COMMANDS.lock().unwrap().insert(trace_id.dupe());
+        let mut active_commands = ACTIVE_COMMANDS.lock().unwrap();
+
+        active_commands.insert(trace_id.dupe());
+
+        if active_commands.len() > 1 {
+            // we use eprintln here on purpose so that this message goes to ALL commands, since
+            // concurrent commands can affect correctness of ALL commands.
+            eprintln!(
+                "Warning! Concurrent commands detected! Concurrent commands are not supported and likely results in crashes and incorrect builds.\n    Currently running command uuids are `{}`",
+                active_commands.iter().join(",")
+            );
+        }
         Self { trace_id }
     }
 }
@@ -932,11 +944,11 @@ impl DaemonState {
 
         let data = self.data().await?;
 
+        let drop_guard = ActiveCommandDropGuard::new(dispatcher.trace_id().dupe());
+
         // Sync any FS changes and invalidate DICE state if necessary.
         data.file_watcher.sync(&dispatcher).await?;
         data.io.settle().await?;
-
-        let drop_guard = ActiveCommandDropGuard::new(dispatcher.trace_id().dupe());
 
         Ok(BaseCommandContext {
             _fb: self.fb,
