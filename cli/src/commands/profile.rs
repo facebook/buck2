@@ -20,7 +20,6 @@ use cli_proto::ProfileRequest;
 use cli_proto::ProfileResponse;
 use futures::FutureExt;
 use gazebo::dupe::Dupe;
-use starlark::eval::ProfileMode;
 
 use crate::commands::common::CommonBuildConfigurationOptions;
 use crate::commands::common::CommonConsoleOptions;
@@ -71,22 +70,6 @@ enum BuckProfileMode {
     Typecheck,
 }
 
-impl BuckProfileMode {
-    fn to_profile_mode(&self) -> ProfileMode {
-        match self {
-            BuckProfileMode::TimeFlame => ProfileMode::TimeFlame,
-            BuckProfileMode::HeapFlame => ProfileMode::HeapFlame,
-            BuckProfileMode::HeapFlameRetained => ProfileMode::HeapFlameRetained,
-            BuckProfileMode::HeapSummary => ProfileMode::HeapSummary,
-            BuckProfileMode::HeapSummaryRetained => ProfileMode::HeapSummaryRetained,
-            BuckProfileMode::Statement => ProfileMode::Statement,
-            BuckProfileMode::Bytecode => ProfileMode::Bytecode,
-            BuckProfileMode::BytecodePairs => ProfileMode::BytecodePairs,
-            BuckProfileMode::Typecheck => ProfileMode::Typecheck,
-        }
-    }
-}
-
 #[derive(Debug, clap::Parser)]
 pub(crate) struct ProfileOptions {
     #[clap(flatten)]
@@ -113,17 +96,17 @@ pub(crate) struct ProfileSubcommand {
     action: Action,
 }
 
-fn profile_mode_to_profile(mode: &ProfileMode) -> Profiler {
+fn profile_mode_to_profile(mode: &BuckProfileMode) -> Profiler {
     match mode {
-        ProfileMode::TimeFlame => Profiler::TimeFlame,
-        ProfileMode::HeapFlame => Profiler::HeapFlame,
-        ProfileMode::HeapFlameRetained => Profiler::HeapFlameRetained,
-        ProfileMode::HeapSummary => Profiler::HeapSummary,
-        ProfileMode::HeapSummaryRetained => Profiler::HeapSummaryRetained,
-        ProfileMode::Statement => Profiler::Statement,
-        ProfileMode::Bytecode => Profiler::Bytecode,
-        ProfileMode::BytecodePairs => Profiler::BytecodePairs,
-        ProfileMode::Typecheck => Profiler::Typecheck,
+        BuckProfileMode::TimeFlame => Profiler::TimeFlame,
+        BuckProfileMode::HeapFlame => Profiler::HeapFlame,
+        BuckProfileMode::HeapFlameRetained => Profiler::HeapFlameRetained,
+        BuckProfileMode::HeapSummary => Profiler::HeapSummary,
+        BuckProfileMode::HeapSummaryRetained => Profiler::HeapSummaryRetained,
+        BuckProfileMode::Statement => Profiler::Statement,
+        BuckProfileMode::Bytecode => Profiler::Bytecode,
+        BuckProfileMode::BytecodePairs => Profiler::BytecodePairs,
+        BuckProfileMode::Typecheck => Profiler::Typecheck,
     }
 }
 
@@ -142,7 +125,7 @@ impl StreamingCommand for ProfileSubcommand {
         let mut destination_path = PathBuf::from(&context.working_dir);
         destination_path.push(&self.opts.output);
 
-        let profile_mode = self.opts.mode.to_profile_mode();
+        let profile_mode = &self.opts.mode;
 
         // Impossible: both current directory and relative path are known to be UTF-8.
         #[derive(Debug, thiserror::Error)]
@@ -164,7 +147,7 @@ impl StreamingCommand for ProfileSubcommand {
                             value: self.opts.target_pattern,
                         }),
                         destination_path,
-                        profiler: profile_mode_to_profile(&profile_mode).into(),
+                        profiler: profile_mode_to_profile(profile_mode).into(),
                         action: self.action.into(),
                     })
                     .boxed()
@@ -183,7 +166,7 @@ impl StreamingCommand for ProfileSubcommand {
             .context("Elapsed is invalid")?;
 
         crate::println!(
-            "Starlark {} profile has been written to {}",
+            "Starlark {:?} profile has been written to {}",
             profile_mode,
             self.opts.output.display(),
         )?;
